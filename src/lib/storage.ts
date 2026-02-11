@@ -39,6 +39,11 @@ export function saveData(data: StoredData): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
+export function clearData(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(STORAGE_KEY);
+}
+
 export function createExportData(data: StoredData): ExportData {
   return {
     version: 3,

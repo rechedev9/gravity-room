@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import type { StartWeights, Results, UndoHistory, Tier, ResultValue } from '@/types';
-import { loadData, saveData, parseImportData, createExportData } from '@/lib/storage';
+import { loadData, saveData, clearData, parseImportData, createExportData } from '@/lib/storage';
 
 const emptySubscribe = (): (() => void) => () => {};
 const returnTrue = (): boolean => true;
@@ -139,8 +139,10 @@ export function useProgram(): UseProgramReturn {
   }, [undoHistory]);
 
   const resetAll = useCallback(() => {
+    setStartWeights(null);
     setResults({});
     setUndoHistory([]);
+    clearData();
   }, []);
 
   const exportDataFn = useCallback(() => {
