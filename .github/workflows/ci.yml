@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -13,11 +17,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+          no-cache: false
 
       - run: bun install --frozen-lockfile
 
       - run: bun run typecheck
 
       - run: bun run lint
+
+      - run: bun run format:check
 
       - run: bun run build
