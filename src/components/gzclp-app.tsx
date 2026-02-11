@@ -72,11 +72,10 @@ export function GZCLPApp() {
     <>
       <header className="text-center py-6 sm:py-10 px-5 bg-[var(--bg-header)] text-[var(--text-header)] mb-7">
         <h1 className="text-[22px] sm:text-[28px] font-extrabold tracking-tight mb-1.5">
-          GZCLP 30-WEEK PROGRAM
+          RSN 30-WEEK-PROGRAM
         </h1>
         <p className="text-[13px] opacity-70">
-          Cody Lefever&apos;s Linear Progression — Mark Success or Fail, program recalculates
-          automatically
+          App made by RSN based on Cody Lefever program GZCLP
         </p>
       </header>
 
