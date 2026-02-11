@@ -2,6 +2,7 @@
 
 import { NAMES } from '@/lib/program';
 import type { WorkoutRow as WorkoutRowType, Tier, ResultValue } from '@/types';
+import { StageTag } from './stage-tag';
 
 interface WorkoutRowProps {
   row: WorkoutRowType;
@@ -60,21 +61,6 @@ function ResultCell({
   );
 }
 
-function StageTag({ stage }: { stage: number }) {
-  const cls =
-    stage === 0
-      ? 'bg-[var(--stage-s1)] text-white'
-      : stage === 1
-        ? 'bg-[var(--stage-s2)] text-black'
-        : 'bg-[var(--stage-s3)] text-white';
-
-  return (
-    <span className={`inline-block text-[10px] font-bold px-1.5 py-px mt-0.5 ${cls}`}>
-      S{stage + 1}
-    </span>
-  );
-}
-
 export function WorkoutRow({ row, isCurrent, onMark, onUndo }: WorkoutRowProps) {
   const allDone = row.result.t1 && row.result.t2 && row.result.t3;
 
@@ -108,7 +94,7 @@ export function WorkoutRow({ row, isCurrent, onMark, onUndo }: WorkoutRowProps) 
       <td className="border border-[var(--border-light)] px-2 py-3 text-center align-middle font-semibold text-[13px]">
         {row.t1Sets}&times;{row.t1Reps}
         <br />
-        <StageTag stage={row.t1Stage} />
+        <StageTag stage={row.t1Stage} size="md" />
       </td>
       <td className="border border-[var(--border-light)] px-2 py-3 text-center align-middle">
         <ResultCell
@@ -129,7 +115,7 @@ export function WorkoutRow({ row, isCurrent, onMark, onUndo }: WorkoutRowProps) 
       <td className="border border-[var(--border-light)] px-2 py-3 text-center align-middle font-semibold text-[13px]">
         {row.t2Sets}&times;{row.t2Reps}
         <br />
-        <StageTag stage={row.t2Stage} />
+        <StageTag stage={row.t2Stage} size="md" />
       </td>
       <td className="border border-[var(--border-light)] px-2 py-3 text-center align-middle">
         <ResultCell

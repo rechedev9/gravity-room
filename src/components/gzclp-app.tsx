@@ -8,6 +8,7 @@ import { SetupForm } from './setup-form';
 import { Toolbar } from './toolbar';
 import { WeekSection } from './week-section';
 import { StatsPanel } from './stats-panel';
+import { StageTag } from './stage-tag';
 
 export function GZCLPApp() {
   const {
@@ -176,22 +177,13 @@ export function GZCLPApp() {
                 <div className="flex items-center gap-4 mb-5 text-[12px] font-bold">
                   <span className="text-[var(--text-muted)] mr-1">Stages:</span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="inline-block bg-[var(--stage-s1)] text-white text-[10px] font-bold px-1.5 py-px">
-                      S1
-                    </span>
-                    Normal
+                    <StageTag stage={0} size="md" /> Normal
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="inline-block bg-[var(--stage-s2)] text-black text-[10px] font-bold px-1.5 py-px">
-                      S2
-                    </span>
-                    Caution
+                    <StageTag stage={1} size="md" /> Caution
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span className="inline-block bg-[var(--stage-s3)] text-white text-[10px] font-bold px-1.5 py-px">
-                      S3
-                    </span>
-                    Reset
+                    <StageTag stage={2} size="md" /> Reset
                   </span>
                 </div>
 

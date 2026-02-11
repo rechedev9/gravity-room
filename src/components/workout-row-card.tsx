@@ -2,6 +2,7 @@
 
 import { NAMES } from '@/lib/program';
 import type { WorkoutRow as WorkoutRowType, Tier, ResultValue } from '@/types';
+import { StageTag } from './stage-tag';
 
 interface WorkoutRowCardProps {
   row: WorkoutRowType;
@@ -58,19 +59,6 @@ function CardResultCell({
   );
 }
 
-function StageTag({ stage }: { stage: number }) {
-  const cls =
-    stage === 0
-      ? 'bg-[var(--stage-s1)] text-white'
-      : stage === 1
-        ? 'bg-[var(--stage-s2)] text-black'
-        : 'bg-[var(--stage-s3)] text-white';
-
-  return (
-    <span className={`inline-block text-[10px] font-bold px-1.5 py-px ${cls}`}>S{stage + 1}</span>
-  );
-}
-
 function TierSection({
   label,
   exercise,
@@ -109,7 +97,7 @@ function TierSection({
           {showStage && stage !== undefined && (
             <>
               {' '}
-              <StageTag stage={stage} />
+              <StageTag stage={stage} size="md" />
             </>
           )}
         </div>
