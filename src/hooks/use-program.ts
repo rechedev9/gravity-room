@@ -1,8 +1,12 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import type { StartWeights, Results, UndoHistory, Tier, ResultValue } from '@/types';
 import { loadData, saveData, parseImportData, createExportData } from '@/lib/storage';
+
+const emptySubscribe = (): (() => void) => () => {};
+const returnTrue = (): boolean => true;
+const returnFalse = (): boolean => false;
 
 interface UseProgramReturn {
   startWeights: StartWeights | null;
@@ -18,17 +22,24 @@ interface UseProgramReturn {
 }
 
 export function useProgram(): UseProgramReturn {
-  const [startWeights, setStartWeights] = useState<StartWeights | null>(
-    () => loadData()?.startWeights ?? null
-  );
-  const [results, setResults] = useState<Results>(() => loadData()?.results ?? {});
-  const [undoHistory, setUndoHistory] = useState<UndoHistory>(() => loadData()?.undoHistory ?? []);
-  const isInitialRender = useRef(true);
+  // useSyncExternalStore returns false on server, true on client — no hydration mismatch
+  const isClient = useSyncExternalStore(emptySubscribe, returnTrue, returnFalse);
 
-  // Save to localStorage on changes (skip initial render)
+  const [startWeights, setStartWeights] = useState<StartWeights | null>(() =>
+    isClient ? (loadData()?.startWeights ?? null) : null
+  );
+  const [results, setResults] = useState<Results>(() =>
+    isClient ? (loadData()?.results ?? {}) : {}
+  );
+  const [undoHistory, setUndoHistory] = useState<UndoHistory>(() =>
+    isClient ? (loadData()?.undoHistory ?? []) : []
+  );
+  const isInitialMount = useRef(true);
+
+  // Save to localStorage on changes (skip initial mount)
   useEffect(() => {
-    if (isInitialRender.current) {
-      isInitialRender.current = false;
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
       return;
     }
     if (!startWeights) return;

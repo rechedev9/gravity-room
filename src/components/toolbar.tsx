@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+import { ConfirmDialog } from './confirm-dialog';
 
 interface ToolbarProps {
   completedCount: number;
@@ -24,27 +25,38 @@ export function Toolbar({
   onReset,
 }: ToolbarProps) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const pendingImportRef = useRef<string | null>(null);
+  const [confirmState, setConfirmState] = useState<'reset' | 'import' | null>(null);
   const pct = Math.round((completedCount / totalWorkouts) * 100);
 
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result;
       if (typeof text !== 'string') return;
-      if (!confirm('This will replace all current data with the imported backup. Continue?'))
-        return;
-      const success = onImport(text);
-      alert(success ? 'Data imported successfully!' : 'Failed to import: invalid file.');
+      pendingImportRef.current = text;
+      setConfirmState('import');
     };
     reader.readAsText(file);
     e.target.value = '';
   };
 
-  const handleReset = () => {
-    if (!confirm('Are you sure you want to reset ALL progress? This cannot be undone.')) return;
-    onReset();
+  const handleConfirm = (): void => {
+    if (confirmState === 'reset') {
+      onReset();
+    } else if (confirmState === 'import' && pendingImportRef.current) {
+      const success = onImport(pendingImportRef.current);
+      pendingImportRef.current = null;
+      alert(success ? 'Data imported successfully!' : 'Failed to import: invalid file.');
+    }
+    setConfirmState(null);
+  };
+
+  const handleCancel = (): void => {
+    pendingImportRef.current = null;
+    setConfirmState(null);
   };
 
   const btnClass =
@@ -107,11 +119,29 @@ export function Toolbar({
           <button className={btnClass} onClick={onJumpToCurrent}>
             Go to current
           </button>
-          <button className={btnClass} onClick={handleReset}>
+          <button className={btnClass} onClick={() => setConfirmState('reset')}>
             Reset All
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmState === 'reset'}
+        title="Reset All Progress"
+        message="Are you sure you want to reset ALL progress? This cannot be undone."
+        confirmLabel="Reset All"
+        variant="danger"
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
+      <ConfirmDialog
+        open={confirmState === 'import'}
+        title="Import Data"
+        message="This will replace all current data with the imported backup. Continue?"
+        confirmLabel="Import"
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </div>
   );
 }
