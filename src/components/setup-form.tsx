@@ -17,8 +17,10 @@ const FIELDS = [
   { key: 'deadlift', label: 'Deadlift (T1)', defaultVal: 60 },
   { key: 'ohp', label: 'OHP (T1)', defaultVal: 30 },
   { key: 'latpulldown', label: 'Lat Pulldown (T3)', defaultVal: 30 },
-  { key: 'dbrow', label: 'DB Bent Over Row (T3)', defaultVal: 12 },
+  { key: 'dbrow', label: 'DB Bent Over Row (T3)', defaultVal: 12.5 },
 ] as const;
+
+const STEP = 2.5;
 
 function validateField(value: string): string | null {
   const num = parseFloat(value);
@@ -58,6 +60,17 @@ export function SetupForm({ initialWeights, onGenerate, onUpdateWeights }: Setup
   const handleBlur = useCallback((key: string, value: string) => {
     setTouched((prev) => ({ ...prev, [key]: true }));
     setFieldErrors((prev) => ({ ...prev, [key]: validateField(value) }));
+  }, []);
+
+  const adjustWeight = useCallback((key: string, delta: number) => {
+    setValues((prev) => {
+      const current = parseFloat(prev[key]) || 0;
+      const next = Math.max(STEP, Math.round((current + delta) / STEP) * STEP);
+      const nextStr = String(next);
+      setTouched((t) => ({ ...t, [key]: true }));
+      setFieldErrors((fe) => ({ ...fe, [key]: validateField(nextStr) }));
+      return { ...prev, [key]: nextStr };
+    });
   }, []);
 
   const validateAndParse = (): StartWeights | null => {
@@ -153,31 +166,70 @@ export function SetupForm({ initialWeights, onGenerate, onUpdateWeights }: Setup
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {FIELDS.map((f) => {
               const fieldError = touched[f.key] ? fieldErrors[f.key] : null;
+              const isValid = touched[f.key] && !fieldError;
+              const fieldId = `weight-${f.key}`;
+              const errorId = `${f.key}-error`;
               return (
                 <div key={f.key}>
-                  <label className="block text-xs font-bold uppercase tracking-wide text-[var(--text-label)] mb-1.5">
+                  <label
+                    htmlFor={fieldId}
+                    className="block text-xs font-bold uppercase tracking-wide text-[var(--text-label)] mb-1.5"
+                  >
                     {f.label}
                   </label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={values[f.key]}
-                    onChange={(e) => handleChange(f.key, e.target.value)}
-                    onBlur={() => handleBlur(f.key, values[f.key])}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-                    step="2.5"
-                    min="2.5"
-                    max="500"
-                    className={`w-full px-3 py-2.5 border-2 text-base font-semibold bg-[var(--bg-card)] text-[var(--text-main)] focus:outline-none transition-colors ${
-                      fieldError
-                        ? 'border-[var(--border-error)] focus:border-[var(--border-error)]'
-                        : 'border-[var(--border-color)] focus:border-[var(--fill-progress)]'
-                    }`}
-                  />
-                  {fieldError && (
-                    <p className="text-[11px] font-bold text-[var(--text-error)] mt-1">
-                      {fieldError}
+                  <div className="flex items-stretch">
+                    <button
+                      type="button"
+                      onClick={() => adjustWeight(f.key, -STEP)}
+                      className="px-2.5 border-2 border-r-0 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--btn-text)] text-lg font-bold cursor-pointer hover:bg-[var(--bg-hover-row)] transition-colors"
+                      aria-label={`Decrease ${f.label}`}
+                    >
+                      &minus;
+                    </button>
+                    <input
+                      id={fieldId}
+                      type="number"
+                      inputMode="decimal"
+                      value={values[f.key]}
+                      onChange={(e) => handleChange(f.key, e.target.value)}
+                      onBlur={() => handleBlur(f.key, values[f.key])}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+                      step="2.5"
+                      min="2.5"
+                      max="500"
+                      aria-invalid={fieldError ? 'true' : undefined}
+                      aria-describedby={fieldError ? errorId : undefined}
+                      className={`flex-1 min-w-0 px-3 py-2.5 border-2 text-base font-semibold bg-[var(--bg-card)] text-[var(--text-main)] text-center focus:outline-none transition-colors ${
+                        fieldError
+                          ? 'border-[var(--border-error)] focus:border-[var(--border-error)]'
+                          : isValid
+                            ? 'border-[var(--border-badge-ok)] focus:border-[var(--border-badge-ok)]'
+                            : 'border-[var(--border-color)] focus:border-[var(--fill-progress)]'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => adjustWeight(f.key, STEP)}
+                      className="px-2.5 border-2 border-l-0 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--btn-text)] text-lg font-bold cursor-pointer hover:bg-[var(--bg-hover-row)] transition-colors"
+                      aria-label={`Increase ${f.label}`}
+                    >
+                      +
+                    </button>
+                  </div>
+                  {fieldError ? (
+                    <p
+                      id={errorId}
+                      role="alert"
+                      className="flex items-center gap-1 text-[11px] font-bold text-[var(--text-error)] mt-1"
+                    >
+                      <span aria-hidden="true">&#9888;</span> {fieldError}
                     </p>
+                  ) : isValid ? (
+                    <p className="flex items-center gap-1 text-[11px] font-bold text-[var(--text-badge-ok)] mt-1">
+                      <span aria-hidden="true">&#10003;</span> Valid
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-[var(--text-muted)] mt-1">Multiples of 2.5 kg</p>
                   )}
                 </div>
               );
@@ -185,8 +237,30 @@ export function SetupForm({ initialWeights, onGenerate, onUpdateWeights }: Setup
           </div>
 
           {error && (
-            <div className="text-[var(--text-error)] font-bold mb-3 p-2.5 bg-[var(--bg-error)] border-2 border-[var(--border-error)]">
-              {error}
+            <div
+              role="alert"
+              className="flex items-start gap-2.5 text-[var(--text-error)] font-bold mb-3 p-2.5 bg-[var(--bg-error)] border-2 border-[var(--border-error)]"
+            >
+              <span className="shrink-0 text-sm" aria-hidden="true">
+                &#9888;
+              </span>
+              <div className="flex-1">
+                <p className="text-xs mb-1">Please fix the following:</p>
+                <ul className="text-[11px] font-normal list-disc ml-4">
+                  {FIELDS.filter((f) => fieldErrors[f.key]).map((f) => (
+                    <li key={f.key}>
+                      <button
+                        type="button"
+                        className="underline cursor-pointer bg-transparent border-none text-[var(--text-error)] p-0"
+                        onClick={() => document.getElementById(`weight-${f.key}`)?.focus()}
+                      >
+                        {f.label.split(' (')[0]}
+                      </button>
+                      : {fieldErrors[f.key]}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
 
