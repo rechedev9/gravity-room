@@ -62,9 +62,9 @@ export function computeProgram(startWeights: StartWeights, results: Results): Wo
       t3Weight: t3[t3ex],
       isChanged: changed[t1ex] || t2changed[t2ex],
       result: {
-        t1: res.t1 as WorkoutRow['result']['t1'],
-        t2: res.t2 as WorkoutRow['result']['t2'],
-        t3: res.t3 as WorkoutRow['result']['t3'],
+        t1: res.t1,
+        t2: res.t2,
+        t3: res.t3,
       },
     });
 

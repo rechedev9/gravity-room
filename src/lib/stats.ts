@@ -28,7 +28,7 @@ export function extractChartData(
       workout: i + 1,
       weight: t1[t1ex].w,
       stage: t1[t1ex].s + 1,
-      result: (res.t1 as ChartDataPoint['result']) ?? null,
+      result: res.t1 ?? null,
     });
 
     if (res.t1 === 'fail') {

@@ -19,9 +19,11 @@ const WorkoutResultSchema = z.strictObject({
 
 export const ResultsSchema = z.record(z.string(), WorkoutResultSchema);
 
+const TierValue = z.enum(['t1', 't2', 't3']);
+
 const UndoEntrySchema = z.strictObject({
   i: z.number(),
-  tier: z.string(),
+  tier: TierValue,
   prev: ResultValue.optional(),
 });
 

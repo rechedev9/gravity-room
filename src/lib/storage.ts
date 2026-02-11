@@ -15,10 +15,12 @@ export function loadData(): StoredData | null {
   if (!raw) return null;
 
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const results = ResultsSchema.safeParse(parsed.results ?? {});
-    const startWeights = StartWeightsSchema.safeParse(parsed.startWeights ?? {});
-    const undoHistory = UndoHistorySchema.safeParse(parsed.undoHistory ?? []);
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+    const obj = Object.fromEntries(Object.entries(parsed));
+    const results = ResultsSchema.safeParse(obj.results ?? {});
+    const startWeights = StartWeightsSchema.safeParse(obj.startWeights ?? {});
+    const undoHistory = UndoHistorySchema.safeParse(obj.undoHistory ?? []);
 
     if (!startWeights.success) return null;
 
@@ -49,7 +51,7 @@ export function createExportData(data: StoredData): ExportData {
 
 export function parseImportData(json: string): StoredData | null {
   try {
-    const parsed = JSON.parse(json) as unknown;
+    const parsed: unknown = JSON.parse(json);
     const result = ExportDataSchema.safeParse(parsed);
     if (!result.success) return null;
     return {

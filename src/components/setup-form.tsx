@@ -34,7 +34,7 @@ export function SetupForm({ initialWeights, onGenerate }: SetupFormProps) {
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const f of FIELDS) {
-      init[f.key] = String(initialWeights?.[f.key as keyof StartWeights] ?? f.defaultVal);
+      init[f.key] = String(initialWeights?.[f.key] ?? f.defaultVal);
     }
     return init;
   });

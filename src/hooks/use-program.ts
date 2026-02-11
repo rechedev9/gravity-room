@@ -92,7 +92,8 @@ export function useProgram(): UseProgramReturn {
         // Remove the result
         if (updated[lastEntry.i]) {
           const entry = { ...updated[lastEntry.i] };
-          delete entry[lastEntry.tier as Tier];
+          const tier: Tier = lastEntry.tier;
+          delete entry[tier];
           if (Object.keys(entry).length === 0) {
             delete updated[lastEntry.i];
           } else {
