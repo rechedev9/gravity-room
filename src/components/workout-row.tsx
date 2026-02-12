@@ -30,7 +30,7 @@ function ResultCell({
     return (
       <button
         onClick={() => onUndo(index, tier)}
-        className={`group relative inline-block px-3.5 py-1.5 text-[13px] font-extrabold cursor-pointer transition-transform hover:scale-110 border-3 ${
+        className={`group relative inline-block px-3.5 py-1.5 text-[13px] font-extrabold cursor-pointer transition-transform hover:scale-110 border-3 rounded-sm ${
           isSuccess
             ? 'bg-[var(--bg-badge-ok)] border-[var(--border-badge-ok)] text-[var(--text-badge-ok)]'
             : 'bg-[var(--bg-badge-no)] border-[var(--border-badge-no)] text-[var(--text-badge-no)]'
@@ -48,13 +48,13 @@ function ResultCell({
     <div className="flex gap-1 justify-center">
       <button
         onClick={() => onMark(index, tier, 'success')}
-        className="px-3.5 py-2 text-sm font-extrabold border-3 border-[var(--btn-border)] bg-[var(--btn-bg)] text-[var(--btn-text)] cursor-pointer transition-all hover:bg-[var(--btn-hover-bg)] hover:text-[var(--btn-hover-text)]"
+        className="px-3.5 py-2 text-sm font-extrabold border-2 border-[var(--border-badge-ok)] bg-transparent text-[var(--text-badge-ok)] rounded-sm cursor-pointer transition-all hover:bg-[var(--bg-badge-ok)]"
       >
         &#10003;
       </button>
       <button
         onClick={() => onMark(index, tier, 'fail')}
-        className="px-3.5 py-2 text-sm font-extrabold border-3 border-[var(--btn-border)] bg-[var(--btn-bg)] text-[var(--btn-text)] cursor-pointer transition-all hover:bg-[var(--btn-hover-bg)] hover:text-[var(--btn-hover-text)]"
+        className="px-3.5 py-2 text-sm font-extrabold border-2 border-[var(--border-badge-no)] bg-transparent text-[var(--text-badge-no)] rounded-sm cursor-pointer transition-all hover:bg-[var(--bg-badge-no)]"
       >
         &#10007;
       </button>

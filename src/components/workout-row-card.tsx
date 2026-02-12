@@ -30,7 +30,7 @@ function CardResultCell({
     return (
       <button
         onClick={() => onUndo(index, tier)}
-        className={`px-3 py-1 text-[13px] font-extrabold cursor-pointer border-3 ${
+        className={`px-3 py-1 text-[13px] font-extrabold cursor-pointer border-3 rounded-sm ${
           isSuccess
             ? 'bg-[var(--bg-badge-ok)] border-[var(--border-badge-ok)] text-[var(--text-badge-ok)]'
             : 'bg-[var(--bg-badge-no)] border-[var(--border-badge-no)] text-[var(--text-badge-no)]'
@@ -46,13 +46,13 @@ function CardResultCell({
     <div className="flex gap-2.5">
       <button
         onClick={() => onMark(index, tier, 'success')}
-        className="min-w-[48px] min-h-[48px] px-3 py-2 text-base font-extrabold border-3 border-[var(--btn-border)] bg-[var(--btn-bg)] text-[var(--btn-text)] cursor-pointer transition-all hover:bg-[var(--btn-hover-bg)] hover:text-[var(--btn-hover-text)]"
+        className="min-w-[48px] min-h-[48px] px-3 py-2 text-base font-extrabold border-2 border-[var(--border-badge-ok)] bg-transparent text-[var(--text-badge-ok)] rounded-sm cursor-pointer transition-all hover:bg-[var(--bg-badge-ok)]"
       >
         &#10003;
       </button>
       <button
         onClick={() => onMark(index, tier, 'fail')}
-        className="min-w-[48px] min-h-[48px] px-3 py-2 text-base font-extrabold border-3 border-[var(--btn-border)] bg-[var(--btn-bg)] text-[var(--btn-text)] cursor-pointer transition-all hover:bg-[var(--btn-hover-bg)] hover:text-[var(--btn-hover-text)]"
+        className="min-w-[48px] min-h-[48px] px-3 py-2 text-base font-extrabold border-2 border-[var(--border-badge-no)] bg-transparent text-[var(--text-badge-no)] rounded-sm cursor-pointer transition-all hover:bg-[var(--bg-badge-no)]"
       >
         &#10007;
       </button>
