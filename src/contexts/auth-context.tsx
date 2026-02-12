@@ -80,9 +80,11 @@ export function AuthProvider({
 
   const signInWithGoogle = useCallback(async (): Promise<AuthResult | null> => {
     if (!supabase) return { message: 'Supabase not configured' };
+    const redirectTo = process.env.NEXT_PUBLIC_APP_URL;
+    if (!redirectTo) return { message: 'OAuth redirect URL is not configured' };
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin },
+      options: { redirectTo },
     });
     return error ? { message: error.message } : null;
   }, [supabase]);
