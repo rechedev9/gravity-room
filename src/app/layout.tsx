@@ -9,7 +9,7 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: 'The Real Hiperbolic Time Chamber',
+  title: 'The Real Hyperbolic Time Chamber',
   description:
     'Train smarter, progress faster. Science-backed training programs with automatic progression.',
 };
