@@ -2,13 +2,18 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useProgram } from '@/hooks/use-program';
+import { useCloudSync } from '@/hooks/use-cloud-sync';
+import { useAuth } from '@/contexts/auth-context';
 import { computeProgram } from '@/lib/engine';
 import { TOTAL_WORKOUTS } from '@/lib/program';
+import { clearSyncMeta } from '@/lib/sync';
 import { SetupForm } from './setup-form';
 import { Toolbar } from './toolbar';
 import { WeekSection } from './week-section';
 import { StatsPanel } from './stats-panel';
 import { StageTag } from './stage-tag';
+import { AuthModal } from './auth-modal';
+import { ConfirmDialog } from './confirm-dialog';
 
 export function GZCLPApp() {
   const {
@@ -24,8 +29,20 @@ export function GZCLPApp() {
     resetAll,
     exportData,
     importData,
+    loadFromCloud,
   } = useProgram();
 
+  const { user, configured, signOut } = useAuth();
+
+  const { syncStatus, conflict, resolveConflict, clearCloudData } = useCloudSync({
+    user,
+    startWeights,
+    results,
+    undoHistory,
+    onCloudDataReceived: loadFromCloud,
+  });
+
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'program' | 'stats'>('program');
 
   const rows = useMemo(
@@ -60,13 +77,25 @@ export function GZCLPApp() {
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       el.classList.add('highlight-current');
-      const handleEnd = () => {
+      const handleEnd = (): void => {
         el.classList.remove('highlight-current');
         el.removeEventListener('animationend', handleEnd);
       };
       el.addEventListener('animationend', handleEnd);
     }
   }, []);
+
+  const handleSignOut = useCallback(async (): Promise<void> => {
+    await signOut();
+    clearSyncMeta();
+  }, [signOut]);
+
+  const handleReset = useCallback(async (): Promise<void> => {
+    if (user) {
+      await clearCloudData();
+    }
+    resetAll();
+  }, [user, clearCloudData, resetAll]);
 
   return (
     <>
@@ -88,7 +117,11 @@ export function GZCLPApp() {
           onExport={exportData}
           onImport={importData}
           onJumpToCurrent={jumpToCurrent}
-          onReset={resetAll}
+          onReset={() => void handleReset()}
+          user={configured ? user : undefined}
+          syncStatus={syncStatus}
+          onSignInClick={configured ? () => setShowAuthModal(true) : undefined}
+          onSignOut={configured ? () => void handleSignOut() : undefined}
         />
       )}
 
@@ -207,6 +240,18 @@ export function GZCLPApp() {
           </>
         )}
       </div>
+
+      {configured && <AuthModal open={showAuthModal} onClose={() => setShowAuthModal(false)} />}
+
+      <ConfirmDialog
+        open={conflict !== null}
+        title="Data Conflict"
+        message="You have data on this device and in the cloud. Which version would you like to keep?"
+        confirmLabel="Use Cloud"
+        cancelLabel="Keep Local"
+        onConfirm={() => resolveConflict('cloud')}
+        onCancel={() => resolveConflict('local')}
+      />
     </>
   );
 }

@@ -1,0 +1,182 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { StartWeightsSchema, ResultsSchema, UndoHistorySchema } from './schemas';
+import type { StoredData } from './storage';
+
+const SYNC_META_KEY = 'gzclp-sync-meta';
+
+export interface SyncMeta {
+  readonly lastSyncedAt: string | null;
+  readonly localUpdatedAt: string;
+}
+
+export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'offline' | 'error';
+
+export type ConflictChoice = 'local' | 'cloud';
+
+export interface CloudRow {
+  readonly id: string;
+  readonly user_id: string;
+  readonly data: unknown;
+  readonly updated_at: string;
+  readonly created_at: string;
+}
+
+export function loadSyncMeta(): SyncMeta | null {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem(SYNC_META_KEY);
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const obj = parsed as Record<string, unknown>;
+    if (typeof obj.localUpdatedAt !== 'string') return null;
+    return {
+      lastSyncedAt: typeof obj.lastSyncedAt === 'string' ? obj.lastSyncedAt : null,
+      localUpdatedAt: obj.localUpdatedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function saveSyncMeta(meta: SyncMeta): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(SYNC_META_KEY, JSON.stringify(meta));
+}
+
+export function clearSyncMeta(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(SYNC_META_KEY);
+}
+
+export function markLocalUpdated(): void {
+  const existing = loadSyncMeta();
+  saveSyncMeta({
+    lastSyncedAt: existing?.lastSyncedAt ?? null,
+    localUpdatedAt: new Date().toISOString(),
+  });
+}
+
+export function markSynced(): void {
+  const now = new Date().toISOString();
+  saveSyncMeta({
+    lastSyncedAt: now,
+    localUpdatedAt: loadSyncMeta()?.localUpdatedAt ?? now,
+  });
+}
+
+export function validateStoredData(data: unknown): StoredData | null {
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) return null;
+  const obj = data as Record<string, unknown>;
+
+  const startWeights = StartWeightsSchema.safeParse(obj.startWeights);
+  if (!startWeights.success) return null;
+
+  const results = ResultsSchema.safeParse(obj.results ?? {});
+  const undoHistory = UndoHistorySchema.safeParse(obj.undoHistory ?? []);
+
+  return {
+    startWeights: startWeights.data,
+    results: results.success ? results.data : {},
+    undoHistory: undoHistory.success ? undoHistory.data : [],
+  };
+}
+
+export async function fetchCloudData(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<{ data: StoredData; updatedAt: string } | null> {
+  const { data, error } = await supabase
+    .from('user_programs')
+    .select('data, updated_at')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  const row = data as { data: unknown; updated_at: string };
+  const validated = validateStoredData(row.data);
+  if (!validated) return null;
+
+  return { data: validated, updatedAt: row.updated_at };
+}
+
+export async function pushToCloud(
+  supabase: SupabaseClient,
+  userId: string,
+  storedData: StoredData
+): Promise<boolean> {
+  const { error } = await supabase.from('user_programs').upsert(
+    {
+      user_id: userId,
+      data: storedData,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id' }
+  );
+
+  if (error) return false;
+
+  markSynced();
+  return true;
+}
+
+export async function deleteCloudData(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const { error } = await supabase.from('user_programs').delete().eq('user_id', userId);
+  return !error;
+}
+
+export type InitialSyncResult =
+  | { action: 'push' }
+  | { action: 'pull'; data: StoredData }
+  | { action: 'conflict'; cloudData: StoredData; cloudUpdatedAt: string }
+  | { action: 'none' };
+
+export function determineInitialSync(
+  localData: StoredData | null,
+  cloudResult: { data: StoredData; updatedAt: string } | null,
+  syncMeta: SyncMeta | null
+): InitialSyncResult {
+  const hasLocal = localData !== null && localData.startWeights !== null;
+  const hasCloud = cloudResult !== null;
+
+  if (hasLocal && !hasCloud) {
+    return { action: 'push' };
+  }
+
+  if (!hasLocal && hasCloud) {
+    return { action: 'pull', data: cloudResult.data };
+  }
+
+  if (hasLocal && hasCloud) {
+    if (!syncMeta?.lastSyncedAt) {
+      return {
+        action: 'conflict',
+        cloudData: cloudResult.data,
+        cloudUpdatedAt: cloudResult.updatedAt,
+      };
+    }
+
+    const lastSync = new Date(syncMeta.lastSyncedAt).getTime();
+    const localChanged = new Date(syncMeta.localUpdatedAt).getTime() > lastSync;
+    const cloudChanged = new Date(cloudResult.updatedAt).getTime() > lastSync;
+
+    if (localChanged && cloudChanged) {
+      return {
+        action: 'conflict',
+        cloudData: cloudResult.data,
+        cloudUpdatedAt: cloudResult.updatedAt,
+      };
+    }
+
+    if (cloudChanged) {
+      return { action: 'pull', data: cloudResult.data };
+    }
+
+    if (localChanged) {
+      return { action: 'push' };
+    }
+  }
+
+  return { action: 'none' };
+}

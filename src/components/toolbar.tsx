@@ -1,17 +1,24 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
+import type { SyncStatus } from '@/lib/sync';
 import { ConfirmDialog } from './confirm-dialog';
+import { UserMenu } from './user-menu';
 
 interface ToolbarProps {
-  completedCount: number;
-  totalWorkouts: number;
-  undoCount: number;
-  onUndo: () => void;
-  onExport: () => void;
-  onImport: (json: string) => boolean;
-  onJumpToCurrent: () => void;
-  onReset: () => void;
+  readonly completedCount: number;
+  readonly totalWorkouts: number;
+  readonly undoCount: number;
+  readonly onUndo: () => void;
+  readonly onExport: () => void;
+  readonly onImport: (json: string) => boolean;
+  readonly onJumpToCurrent: () => void;
+  readonly onReset: () => void;
+  readonly user?: User | null;
+  readonly syncStatus?: SyncStatus;
+  readonly onSignInClick?: () => void;
+  readonly onSignOut?: () => void;
 }
 
 export function Toolbar({
@@ -23,6 +30,10 @@ export function Toolbar({
   onImport,
   onJumpToCurrent,
   onReset,
+  user,
+  syncStatus = 'idle',
+  onSignInClick,
+  onSignOut,
 }: ToolbarProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const pendingImportRef = useRef<string | null>(null);
@@ -122,6 +133,14 @@ export function Toolbar({
           <button className={btnClass} onClick={() => setConfirmState('reset')}>
             Reset All
           </button>
+          {onSignInClick && onSignOut && (
+            <UserMenu
+              user={user ?? null}
+              syncStatus={syncStatus}
+              onSignInClick={onSignInClick}
+              onSignOut={onSignOut}
+            />
+          )}
         </div>
       </div>
 

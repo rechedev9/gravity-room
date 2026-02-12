@@ -12,6 +12,7 @@
     "format:fix": "prettier --write ."
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.95.3",
     "next": "16.1.6",
     "node": "^25.6.1",
     "react": "19.2.3",

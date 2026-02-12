@@ -3,7 +3,7 @@ import type { StartWeights, Results, UndoHistory, ExportData } from '@/types';
 
 const STORAGE_KEY = 'gzclp-v3';
 
-interface StoredData {
+export interface StoredData {
   results: Results;
   startWeights: StartWeights;
   undoHistory: UndoHistory;
