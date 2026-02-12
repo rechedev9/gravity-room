@@ -3,6 +3,7 @@ import { StartWeightsSchema, ResultsSchema, UndoHistorySchema } from './schemas'
 import type { StoredData } from './storage';
 
 const SYNC_META_KEY = 'gzclp-sync-meta';
+const DATA_VERSION = 1;
 
 export interface SyncMeta {
   readonly lastSyncedAt: string | null;
@@ -57,11 +58,11 @@ export function markLocalUpdated(): void {
   });
 }
 
-export function markSynced(): void {
-  const now = new Date().toISOString();
+export function markSynced(serverTimestamp?: string): void {
+  const ts = serverTimestamp ?? new Date().toISOString();
   saveSyncMeta({
-    lastSyncedAt: now,
-    localUpdatedAt: loadSyncMeta()?.localUpdatedAt ?? now,
+    lastSyncedAt: ts,
+    localUpdatedAt: loadSyncMeta()?.localUpdatedAt ?? ts,
   });
 }
 
@@ -101,24 +102,33 @@ export async function fetchCloudData(
   return { data: validated, updatedAt: row.updated_at };
 }
 
+export interface PushResult {
+  readonly success: boolean;
+  readonly retryable: boolean;
+}
+
 export async function pushToCloud(
   supabase: SupabaseClient,
   userId: string,
   storedData: StoredData
-): Promise<boolean> {
-  const { error } = await supabase.from('user_programs').upsert(
-    {
-      user_id: userId,
-      data: storedData,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id' }
-  );
+): Promise<PushResult> {
+  const { data, error } = await supabase
+    .from('user_programs')
+    .upsert(
+      { user_id: userId, data: storedData, data_version: DATA_VERSION },
+      { onConflict: 'user_id' }
+    )
+    .select('updated_at')
+    .single();
 
-  if (error) return false;
+  if (error) {
+    const isRateLimit = error.message?.includes('Rate limit');
+    return { success: false, retryable: isRateLimit };
+  }
 
-  markSynced();
-  return true;
+  const serverTimestamp = (data as { updated_at: string } | null)?.updated_at;
+  markSynced(serverTimestamp);
+  return { success: true, retryable: false };
 }
 
 export async function deleteCloudData(supabase: SupabaseClient, userId: string): Promise<boolean> {

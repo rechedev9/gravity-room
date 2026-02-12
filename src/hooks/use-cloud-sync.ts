@@ -7,6 +7,7 @@ import type { StoredData } from '@/lib/storage';
 import {
   type SyncStatus,
   type InitialSyncResult,
+  type PushResult,
   fetchCloudData,
   pushToCloud,
   deleteCloudData,
@@ -95,9 +96,11 @@ export function useCloudSync({
       switch (decision.action) {
         case 'push':
           if (localData) {
-            await pushToCloud(supabase, user.id, localData);
+            const pushResult = await pushToCloud(supabase, user.id, localData);
+            setSyncStatus(pushResult.success ? 'synced' : 'error');
+          } else {
+            setSyncStatus('synced');
           }
-          setSyncStatus('synced');
           break;
 
         case 'pull':
@@ -139,8 +142,13 @@ export function useCloudSync({
 
       setSyncStatus('syncing');
       void pushToCloud(supabase, user.id, { startWeights, results, undoHistory }).then(
-        (success) => {
-          setSyncStatus(success ? 'synced' : 'error');
+        (result: PushResult) => {
+          if (result.success) {
+            setSyncStatus('synced');
+          } else if (!result.retryable) {
+            setSyncStatus('error');
+          }
+          // retryable errors (rate limit): stay 'syncing', next debounce will retry
         }
       );
     }, DEBOUNCE_MS);
@@ -159,12 +167,16 @@ export function useCloudSync({
 
     const syncOnReconnect = async (): Promise<void> => {
       setSyncStatus('syncing');
-      const success = await pushToCloud(supabase, user.id, {
+      const result = await pushToCloud(supabase, user.id, {
         startWeights,
         results,
         undoHistory,
       });
-      setSyncStatus(success ? 'synced' : 'error');
+      if (result.success) {
+        setSyncStatus('synced');
+      } else if (!result.retryable) {
+        setSyncStatus('error');
+      }
     };
 
     void syncOnReconnect();
@@ -185,8 +197,12 @@ export function useCloudSync({
         if (startWeights) {
           setSyncStatus('syncing');
           void pushToCloud(supabase, user.id, { startWeights, results, undoHistory }).then(
-            (success) => {
-              setSyncStatus(success ? 'synced' : 'error');
+            (result: PushResult) => {
+              if (result.success) {
+                setSyncStatus('synced');
+              } else if (!result.retryable) {
+                setSyncStatus('error');
+              }
             }
           );
         }
