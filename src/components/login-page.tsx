@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
@@ -109,6 +110,14 @@ export function LoginPage(): React.ReactNode {
     <div className="min-h-dvh flex flex-col bg-[var(--bg-body)]">
       {/* Header */}
       <header className="text-center py-8 sm:py-12 px-5 bg-[var(--bg-header)]">
+        <Image
+          src="/logo.webp"
+          alt="RSN logo"
+          width={80}
+          height={80}
+          className="mx-auto mb-3 rounded-full"
+          priority
+        />
         <h1 className="text-[22px] sm:text-[28px] font-extrabold tracking-tight text-[var(--text-header)] mb-1.5">
           RSN 30-WEEK-PROGRAM
         </h1>
