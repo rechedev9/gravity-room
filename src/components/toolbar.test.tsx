@@ -116,18 +116,4 @@ describe('Toolbar', () => {
       expect(screen.queryByText('Reset All Progress')).not.toBeInTheDocument();
     });
   });
-
-  describe('profile button', () => {
-    it('should show Profile button when onGoToProfile is provided', () => {
-      render(<Toolbar {...buildToolbarProps({ onGoToProfile: mock() })} />);
-
-      expect(screen.getByText('Profile')).toBeInTheDocument();
-    });
-
-    it('should not show Profile button when onGoToProfile is not provided', () => {
-      render(<Toolbar {...buildToolbarProps()} />);
-
-      expect(screen.queryByText('Profile')).not.toBeInTheDocument();
-    });
-  });
 });

@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo } from 'react';
-import Image from 'next/image';
 import { useProgram } from '@/hooks/use-program';
 import { useAuth } from '@/contexts/auth-context';
 import { computeProfileData, formatVolume } from '@/lib/profile-stats';
@@ -9,7 +8,7 @@ import { extractChartData, T1_EXERCISES } from '@/lib/stats';
 import { NAMES } from '@/lib/program';
 import { ProfileStatCard } from './profile-stat-card';
 import { LineChart } from './line-chart';
-import { UserMenu } from './user-menu';
+import { AppHeader } from './app-header';
 
 interface ProfilePageProps {
   readonly onBack: () => void;
@@ -17,7 +16,7 @@ interface ProfilePageProps {
 
 export function ProfilePage({ onBack }: ProfilePageProps): React.ReactNode {
   const { startWeights, results } = useProgram();
-  const { user, configured, signOut } = useAuth();
+  const { user } = useAuth();
 
   const profileData = useMemo(() => {
     if (!startWeights) return null;
@@ -33,30 +32,7 @@ export function ProfilePage({ onBack }: ProfilePageProps): React.ReactNode {
 
   return (
     <div className="min-h-dvh bg-[var(--bg-body)]">
-      {/* Header */}
-      <header className="flex items-center justify-between px-5 sm:px-8 py-4 bg-[var(--bg-header)] border-b border-[var(--border-color)]">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-header)] transition-colors cursor-pointer"
-          >
-            &larr; Dashboard
-          </button>
-        </div>
-        <div className="flex items-center gap-3">
-          <Image
-            src="/logo.webp"
-            alt="Logo"
-            width={28}
-            height={28}
-            className="rounded-full"
-            priority
-          />
-          {configured && (
-            <UserMenu user={user} syncStatus="idle" onSignOut={() => void signOut()} />
-          )}
-        </div>
-      </header>
+      <AppHeader backLabel="Dashboard" onBack={onBack} />
 
       <div className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
         {/* User identity */}

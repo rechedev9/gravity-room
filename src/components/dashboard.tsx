@@ -1,10 +1,8 @@
 'use client';
 
-import Image from 'next/image';
-import { useAuth } from '@/contexts/auth-context';
 import { getAllPresetPrograms, getProgramDefinition } from '@/lib/programs/registry';
 import { ProgramCard } from './program-card';
-import { UserMenu } from './user-menu';
+import { AppHeader } from './app-header';
 import type { ProgramDefinition, ProgramInstanceMap } from '@/types/program';
 
 interface DashboardProps {
@@ -54,7 +52,6 @@ export function Dashboard({
   onContinueProgram,
   onGoToProfile,
 }: DashboardProps): React.ReactNode {
-  const { user, configured, signOut } = useAuth();
   const presets = getAllPresetPrograms();
 
   // Active instance info
@@ -72,30 +69,7 @@ export function Dashboard({
 
   return (
     <div className="min-h-dvh bg-[var(--bg-body)]">
-      {/* Header */}
-      <header className="flex items-center justify-between px-5 sm:px-8 py-4 bg-[var(--bg-header)] border-b border-[var(--border-color)]">
-        <div className="flex items-center gap-3">
-          <Image
-            src="/logo.webp"
-            alt="Logo"
-            width={32}
-            height={32}
-            className="rounded-full"
-            priority
-          />
-          <span className="text-sm font-bold tracking-tight text-[var(--text-header)]">
-            The Real Hyperbolic Time Chamber
-          </span>
-        </div>
-        {configured && (
-          <UserMenu
-            user={user}
-            syncStatus="idle"
-            onSignOut={() => void signOut()}
-            onGoToProfile={onGoToProfile}
-          />
-        )}
-      </header>
+      <AppHeader onGoToProfile={onGoToProfile} />
 
       <div className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
         {/* Active program card */}

@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { computeProgram } from '@/lib/engine';
 import { TOTAL_WORKOUTS } from '@/lib/program';
 import { clearSyncMeta } from '@/lib/sync';
+import { AppHeader } from './app-header';
 import { SetupForm } from './setup-form';
 import { Toolbar } from './toolbar';
 import { WeekSection } from './week-section';
@@ -36,7 +37,7 @@ export function GZCLPApp({ onBackToDashboard, onGoToProfile }: GZCLPAppProps) {
     loadFromCloud,
   } = useProgram();
 
-  const { user, configured, signOut } = useAuth();
+  const { user, signOut } = useAuth();
 
   const { syncStatus, conflict, resolveConflict, clearCloudData } = useCloudSync({
     user,
@@ -103,20 +104,13 @@ export function GZCLPApp({ onBackToDashboard, onGoToProfile }: GZCLPAppProps) {
 
   return (
     <>
-      <header className="relative text-center py-6 sm:py-10 px-5 bg-[var(--bg-header)] text-[var(--text-header)] mb-7">
-        {onBackToDashboard && (
-          <button
-            onClick={onBackToDashboard}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-header)] transition-colors cursor-pointer"
-          >
-            &larr; Programs
-          </button>
-        )}
-        <h1 className="text-[22px] sm:text-[28px] font-extrabold tracking-tight mb-1.5">
-          The Real Hyperbolic Time Chamber
-        </h1>
-        <p className="text-[13px] opacity-70">Train smarter. Progress faster.</p>
-      </header>
+      <AppHeader
+        backLabel="Programs"
+        onBack={onBackToDashboard}
+        onGoToProfile={onGoToProfile}
+        syncStatus={syncStatus}
+        onSignOut={() => void handleSignOut()}
+      />
 
       {startWeights && (
         <Toolbar
@@ -128,10 +122,6 @@ export function GZCLPApp({ onBackToDashboard, onGoToProfile }: GZCLPAppProps) {
           onImport={importData}
           onJumpToCurrent={jumpToCurrent}
           onReset={() => void handleReset()}
-          onGoToProfile={onGoToProfile}
-          user={configured ? user : undefined}
-          syncStatus={syncStatus}
-          onSignOut={configured ? () => void handleSignOut() : undefined}
         />
       )}
 
