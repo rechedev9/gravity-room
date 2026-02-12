@@ -41,7 +41,7 @@ export function LoginPage(): React.ReactNode {
 
   useEffect(() => {
     if (user) {
-      router.push('/');
+      router.push('/app');
     }
   }, [user, router]);
 
@@ -119,10 +119,10 @@ export function LoginPage(): React.ReactNode {
           priority
         />
         <h1 className="text-[22px] sm:text-[28px] font-extrabold tracking-tight text-[var(--text-header)] mb-1.5">
-          RSN 30-WEEK-PROGRAM
+          The Real Hiperbolic Time Chamber
         </h1>
         <p className="text-[13px] text-[var(--text-header)] opacity-70">
-          App made by RSN based on Cody Lefever program GZCLP
+          Train smarter. Progress faster.
         </p>
       </header>
 
@@ -137,7 +137,7 @@ export function LoginPage(): React.ReactNode {
             <p className="text-xs text-[var(--text-muted)] mb-6">
               {mode === 'sign-in'
                 ? 'Sign in to sync your progress across devices'
-                : 'Start tracking your GZCLP progress in the cloud'}
+                : 'Start tracking your training progress in the cloud'}
             </p>
 
             {/* Google OAuth */}
@@ -285,7 +285,7 @@ export function LoginPage(): React.ReactNode {
           {/* Continue without account */}
           <div className="text-center mt-6">
             <Link
-              href="/"
+              href="/app"
               className="text-xs text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors underline underline-offset-2"
             >
               Continue without an account

@@ -1,5 +1,5 @@
-import { GZCLPApp } from '@/components/gzclp-app';
+import { LandingPage } from '@/components/landing-page';
 
-export default function Home() {
-  return <GZCLPApp />;
+export default function Home(): React.ReactNode {
+  return <LandingPage />;
 }

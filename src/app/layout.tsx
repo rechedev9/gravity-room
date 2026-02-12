@@ -9,9 +9,9 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: 'GZCLP 30-Week Program',
+  title: 'The Real Hiperbolic Time Chamber',
   description:
-    "Cody Lefever's GZCLP Linear Progression Tracker — 30-week program with automatic progression",
+    'Train smarter, progress faster. Science-backed training programs with automatic progression.',
 };
 
 export default function RootLayout({
