@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
-import type { User, AuthError } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabase';
 
 interface AuthState {
@@ -10,10 +10,14 @@ interface AuthState {
   readonly configured: boolean;
 }
 
+interface AuthResult {
+  readonly message: string;
+}
+
 interface AuthActions {
-  readonly signUp: (email: string, password: string) => Promise<AuthError | null>;
-  readonly signIn: (email: string, password: string) => Promise<AuthError | null>;
-  readonly signInWithGoogle: () => Promise<AuthError | null>;
+  readonly signUp: (email: string, password: string) => Promise<AuthResult | null>;
+  readonly signIn: (email: string, password: string) => Promise<AuthResult | null>;
+  readonly signInWithGoogle: () => Promise<AuthResult | null>;
   readonly signOut: () => Promise<void>;
 }
 
@@ -57,30 +61,30 @@ export function AuthProvider({
   }, [supabase]);
 
   const signUp = useCallback(
-    async (email: string, password: string): Promise<AuthError | null> => {
-      if (!supabase) return { name: 'AuthError', message: 'Supabase not configured' } as AuthError;
+    async (email: string, password: string): Promise<AuthResult | null> => {
+      if (!supabase) return { message: 'Supabase not configured' };
       const { error } = await supabase.auth.signUp({ email, password });
-      return error;
+      return error ? { message: error.message } : null;
     },
     [supabase]
   );
 
   const signIn = useCallback(
-    async (email: string, password: string): Promise<AuthError | null> => {
-      if (!supabase) return { name: 'AuthError', message: 'Supabase not configured' } as AuthError;
+    async (email: string, password: string): Promise<AuthResult | null> => {
+      if (!supabase) return { message: 'Supabase not configured' };
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return error;
+      return error ? { message: error.message } : null;
     },
     [supabase]
   );
 
-  const signInWithGoogle = useCallback(async (): Promise<AuthError | null> => {
-    if (!supabase) return { name: 'AuthError', message: 'Supabase not configured' } as AuthError;
+  const signInWithGoogle = useCallback(async (): Promise<AuthResult | null> => {
+    if (!supabase) return { message: 'Supabase not configured' };
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin },
     });
-    return error;
+    return error ? { message: error.message } : null;
   }, [supabase]);
 
   const signOut = useCallback(async (): Promise<void> => {

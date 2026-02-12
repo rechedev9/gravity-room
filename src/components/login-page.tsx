@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
+import { sanitizeAuthError } from '@/lib/auth-errors';
 
 type AuthMode = 'sign-in' | 'sign-up';
 
@@ -40,7 +41,7 @@ export function LoginPage(): React.ReactNode {
     setSubmitting(false);
 
     if (authError) {
-      setError(authError.message);
+      setError(sanitizeAuthError(authError.message));
       return;
     }
 
@@ -54,7 +55,7 @@ export function LoginPage(): React.ReactNode {
     setError(null);
     const authError = await signInWithGoogle();
     if (authError) {
-      setError(authError.message);
+      setError(sanitizeAuthError(authError.message));
     }
   };
 
@@ -163,6 +164,11 @@ export function LoginPage(): React.ReactNode {
                   minLength={6}
                   autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
                 />
+                {mode === 'sign-up' && password.length > 0 && password.length < 6 && (
+                  <p className="text-[11px] text-[var(--text-error)] mt-1">
+                    Password must be at least 6 characters.
+                  </p>
+                )}
               </div>
 
               {error && (

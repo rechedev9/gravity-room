@@ -15,11 +15,11 @@ const WorkoutResultSchema = z.strictObject({
   t1: ResultValue.optional(),
   t2: ResultValue.optional(),
   t3: ResultValue.optional(),
-  t1Reps: z.number().int().min(0).optional(),
-  t3Reps: z.number().int().min(0).optional(),
+  t1Reps: z.number().int().min(0).max(999).optional(),
+  t3Reps: z.number().int().min(0).max(999).optional(),
 });
 
-export const ResultsSchema = z.record(z.string(), WorkoutResultSchema);
+export const ResultsSchema = z.record(z.string().regex(/^\d{1,2}$/), WorkoutResultSchema);
 
 const TierValue = z.enum(['t1', 't2', 't3']);
 

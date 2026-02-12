@@ -41,6 +41,12 @@ export function Toolbar({
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const MAX_IMPORT_SIZE = 1_048_576; // 1 MB
+    if (file.size > MAX_IMPORT_SIZE) {
+      alert('Import file is too large (max 1 MB).');
+      e.target.value = '';
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result;

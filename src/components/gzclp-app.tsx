@@ -86,7 +86,8 @@ export function GZCLPApp() {
   const handleSignOut = useCallback(async (): Promise<void> => {
     await signOut();
     clearSyncMeta();
-  }, [signOut]);
+    resetAll();
+  }, [signOut, resetAll]);
 
   const handleReset = useCallback(async (): Promise<void> => {
     if (user) {
