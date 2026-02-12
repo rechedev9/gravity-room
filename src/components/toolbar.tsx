@@ -15,6 +15,7 @@ interface ToolbarProps {
   readonly onImport: (json: string) => boolean;
   readonly onJumpToCurrent: () => void;
   readonly onReset: () => void;
+  readonly onGoToProfile?: () => void;
   readonly user?: User | null;
   readonly syncStatus?: SyncStatus;
   readonly onSignOut?: () => void;
@@ -29,6 +30,7 @@ export function Toolbar({
   onImport,
   onJumpToCurrent,
   onReset,
+  onGoToProfile,
   user,
   syncStatus = 'idle',
   onSignOut,
@@ -134,6 +136,11 @@ export function Toolbar({
           <button className={btnClass} onClick={onJumpToCurrent}>
             Go to current
           </button>
+          {onGoToProfile && (
+            <button className={btnClass} onClick={onGoToProfile}>
+              Profile
+            </button>
+          )}
           <button className={btnClass} onClick={() => setConfirmState('reset')}>
             Reset All
           </button>

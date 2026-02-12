@@ -16,9 +16,10 @@ import { ConfirmDialog } from './confirm-dialog';
 
 interface GZCLPAppProps {
   readonly onBackToDashboard?: () => void;
+  readonly onGoToProfile?: () => void;
 }
 
-export function GZCLPApp({ onBackToDashboard }: GZCLPAppProps) {
+export function GZCLPApp({ onBackToDashboard, onGoToProfile }: GZCLPAppProps) {
   const {
     startWeights,
     results,
@@ -127,6 +128,7 @@ export function GZCLPApp({ onBackToDashboard }: GZCLPAppProps) {
           onImport={importData}
           onJumpToCurrent={jumpToCurrent}
           onReset={() => void handleReset()}
+          onGoToProfile={onGoToProfile}
           user={configured ? user : undefined}
           syncStatus={syncStatus}
           onSignOut={configured ? () => void handleSignOut() : undefined}

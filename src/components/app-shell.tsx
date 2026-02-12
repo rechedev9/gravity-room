@@ -4,9 +4,10 @@ import { useState, useCallback } from 'react';
 import { loadInstanceMap, loadDataCompat } from '@/lib/storage-v2';
 import { Dashboard } from './dashboard';
 import { GZCLPApp } from './gzclp-app';
+import { ProfilePage } from './profile-page';
 import type { ProgramInstanceMap } from '@/types/program';
 
-type View = 'dashboard' | 'tracker';
+type View = 'dashboard' | 'tracker' | 'profile';
 
 interface ShellState {
   readonly view: View;
@@ -49,15 +50,24 @@ export function AppShell(): React.ReactNode {
     setState({ view: 'dashboard', instanceMap: map });
   }, []);
 
+  const handleGoToProfile = useCallback((): void => {
+    setState((prev) => ({ ...prev, view: 'profile' }));
+  }, []);
+
+  if (state.view === 'profile') {
+    return <ProfilePage onBack={handleBackToDashboard} />;
+  }
+
   if (state.view === 'dashboard') {
     return (
       <Dashboard
         instanceMap={state.instanceMap}
         onSelectProgram={handleSelectProgram}
         onContinueProgram={handleContinueProgram}
+        onGoToProfile={handleGoToProfile}
       />
     );
   }
 
-  return <GZCLPApp onBackToDashboard={handleBackToDashboard} />;
+  return <GZCLPApp onBackToDashboard={handleBackToDashboard} onGoToProfile={handleGoToProfile} />;
 }

@@ -11,6 +11,7 @@ interface DashboardProps {
   readonly instanceMap: ProgramInstanceMap | null;
   readonly onSelectProgram: (programId: string) => void;
   readonly onContinueProgram: () => void;
+  readonly onGoToProfile?: () => void;
 }
 
 const COMING_SOON_CARD: ProgramDefinition = {
@@ -51,6 +52,7 @@ export function Dashboard({
   instanceMap,
   onSelectProgram,
   onContinueProgram,
+  onGoToProfile,
 }: DashboardProps): React.ReactNode {
   const { user, configured, signOut } = useAuth();
   const presets = getAllPresetPrograms();
@@ -85,7 +87,14 @@ export function Dashboard({
             The Real Hiperbolic Time Chamber
           </span>
         </div>
-        {configured && <UserMenu user={user} syncStatus="idle" onSignOut={() => void signOut()} />}
+        {configured && (
+          <UserMenu
+            user={user}
+            syncStatus="idle"
+            onSignOut={() => void signOut()}
+            onGoToProfile={onGoToProfile}
+          />
+        )}
       </header>
 
       <div className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
@@ -120,12 +129,22 @@ export function Dashboard({
                 </span>
               </div>
 
-              <button
-                onClick={onContinueProgram}
-                className="px-5 py-2.5 text-xs font-bold border-2 border-[var(--btn-border)] bg-[var(--btn-hover-bg)] text-[var(--btn-hover-text)] cursor-pointer transition-all hover:opacity-90"
-              >
-                Continue Training
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={onContinueProgram}
+                  className="px-5 py-2.5 text-xs font-bold border-2 border-[var(--btn-border)] bg-[var(--btn-hover-bg)] text-[var(--btn-hover-text)] cursor-pointer transition-all hover:opacity-90"
+                >
+                  Continue Training
+                </button>
+                {onGoToProfile && (
+                  <button
+                    onClick={onGoToProfile}
+                    className="px-5 py-2.5 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-header)] cursor-pointer transition-colors"
+                  >
+                    View Training Profile
+                  </button>
+                )}
+              </div>
             </div>
           </section>
         )}

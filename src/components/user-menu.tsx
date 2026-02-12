@@ -8,6 +8,7 @@ interface UserMenuProps {
   readonly user: User | null;
   readonly syncStatus: SyncStatus;
   readonly onSignOut: () => void;
+  readonly onGoToProfile?: () => void;
 }
 
 const SYNC_LABELS: Readonly<Record<SyncStatus, string>> = {
@@ -26,7 +27,12 @@ const SYNC_COLORS: Readonly<Record<SyncStatus, string>> = {
   error: 'text-[var(--text-error)]',
 };
 
-export function UserMenu({ user, syncStatus, onSignOut }: UserMenuProps): React.ReactNode {
+export function UserMenu({
+  user,
+  syncStatus,
+  onSignOut,
+  onGoToProfile,
+}: UserMenuProps): React.ReactNode {
   const btnClass =
     'px-2 py-2 sm:px-3.5 sm:py-2.5 min-h-[44px] border-2 border-[var(--btn-border)] text-[10px] sm:text-xs font-bold cursor-pointer bg-[var(--btn-bg)] text-[var(--btn-text)] whitespace-nowrap transition-all hover:bg-[var(--btn-hover-bg)] hover:text-[var(--btn-hover-text)]';
 
@@ -51,6 +57,11 @@ export function UserMenu({ user, syncStatus, onSignOut }: UserMenuProps): React.
       <span className="text-[10px] sm:text-[11px] text-[var(--text-muted)] truncate max-w-[100px] sm:max-w-[150px]">
         {displayEmail}
       </span>
+      {onGoToProfile && (
+        <button className={btnClass} onClick={onGoToProfile}>
+          Profile
+        </button>
+      )}
       <button className={btnClass} onClick={onSignOut}>
         Sign Out
       </button>
