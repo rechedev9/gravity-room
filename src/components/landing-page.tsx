@@ -327,7 +327,7 @@ export function LandingPage(): React.ReactNode {
         <section
           aria-labelledby="features-heading"
           ref={observe}
-          className="landing-fade-in px-6 sm:px-10 py-16 sm:py-24 max-w-5xl mx-auto"
+          className="landing-fade-in px-6 sm:px-10 py-12 sm:py-20 max-w-5xl mx-auto"
         >
           <h2
             id="features-heading"
@@ -361,7 +361,7 @@ export function LandingPage(): React.ReactNode {
           id="how-it-works"
           aria-labelledby="how-it-works-heading"
           ref={observe}
-          className="landing-fade-in px-6 sm:px-10 py-16 sm:py-24 bg-[var(--bg-header)]"
+          className="landing-fade-in px-6 sm:px-10 py-12 sm:py-20 bg-[var(--bg-header)]"
         >
           <div className="max-w-3xl mx-auto">
             <h2
@@ -403,7 +403,7 @@ export function LandingPage(): React.ReactNode {
         <section
           aria-labelledby="smart-training-heading"
           ref={observe}
-          className="landing-fade-in px-6 sm:px-10 py-16 sm:py-24 max-w-4xl mx-auto"
+          className="landing-fade-in px-6 sm:px-10 py-12 sm:py-20 max-w-4xl mx-auto"
         >
           <h2
             id="smart-training-heading"
@@ -494,7 +494,7 @@ export function LandingPage(): React.ReactNode {
         <section
           aria-labelledby="personas-heading"
           ref={observe}
-          className="landing-fade-in px-6 sm:px-10 py-16 sm:py-24 bg-[var(--bg-header)]"
+          className="landing-fade-in px-6 sm:px-10 py-12 sm:py-20 bg-[var(--bg-header)]"
         >
           <div className="max-w-4xl mx-auto">
             <h2
@@ -528,7 +528,7 @@ export function LandingPage(): React.ReactNode {
         <section
           aria-labelledby="cta-heading"
           ref={observe}
-          className="landing-fade-in px-6 sm:px-10 py-20 sm:py-28 text-center"
+          className="landing-fade-in px-6 sm:px-10 py-16 sm:py-24 text-center"
         >
           <h2
             id="cta-heading"
