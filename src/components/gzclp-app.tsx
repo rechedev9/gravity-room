@@ -113,7 +113,7 @@ export function GZCLPApp({ onBackToDashboard, onGoToProfile }: GZCLPAppProps) {
           </button>
         )}
         <h1 className="text-[22px] sm:text-[28px] font-extrabold tracking-tight mb-1.5">
-          The Real Hiperbolic Time Chamber
+          The Real Hyperbolic Time Chamber
         </h1>
         <p className="text-[13px] opacity-70">Train smarter. Progress faster.</p>
       </header>

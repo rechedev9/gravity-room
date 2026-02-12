@@ -84,6 +84,40 @@
   transform: translateY(0);
 }
 
+/* ── Landing page extras ────────────────────── */
+
+.landing-gradient-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(200, 168, 78, 0.3) 50%, transparent 100%);
+}
+
+.landing-quote-glow {
+  background: linear-gradient(135deg, rgba(200, 168, 78, 0.06) 0%, transparent 60%);
+  border-left: 2px solid;
+  border-image: linear-gradient(180deg, rgba(200, 168, 78, 0.8) 0%, rgba(200, 168, 78, 0.2) 100%) 1;
+}
+
+.landing-card-glow:hover {
+  border-color: var(--border-light);
+  box-shadow: 0 0 20px rgba(200, 168, 78, 0.05);
+}
+
+.landing-card-glow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(200, 168, 78, 0.4), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.landing-card-glow:hover::before {
+  opacity: 1;
+}
+
 body {
   font-family:
     var(--font-geist-sans),

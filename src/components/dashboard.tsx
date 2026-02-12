@@ -84,7 +84,7 @@ export function Dashboard({
             priority
           />
           <span className="text-sm font-bold tracking-tight text-[var(--text-header)]">
-            The Real Hiperbolic Time Chamber
+            The Real Hyperbolic Time Chamber
           </span>
         </div>
         {configured && (

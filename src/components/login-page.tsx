@@ -119,7 +119,7 @@ export function LoginPage(): React.ReactNode {
           priority
         />
         <h1 className="text-[22px] sm:text-[28px] font-extrabold tracking-tight text-[var(--text-header)] mb-1.5">
-          The Real Hiperbolic Time Chamber
+          The Real Hyperbolic Time Chamber
         </h1>
         <p className="text-[13px] text-[var(--text-header)] opacity-70">
           Train smarter. Progress faster.
