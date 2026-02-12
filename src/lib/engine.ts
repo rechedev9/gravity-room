@@ -1,6 +1,12 @@
 import { DAYS, T1_STAGES, T2_STAGES, TOTAL_WORKOUTS, inc } from './program';
 import type { StartWeights, Results, WorkoutRow } from '@/types';
 
+function roundToNearestHalf(value: number): number {
+  const rounded = Math.round(value * 2) / 2;
+  if (!Number.isFinite(rounded) || rounded < 0) return 0;
+  return rounded;
+}
+
 export function computeProgram(startWeights: StartWeights, results: Results): WorkoutRow[] {
   const t1: Record<string, { w: number; s: number }> = {
     squat: { w: startWeights.squat, s: 0 },
@@ -10,10 +16,10 @@ export function computeProgram(startWeights: StartWeights, results: Results): Wo
   };
 
   const t2: Record<string, { w: number; s: number }> = {
-    squat: { w: Math.round(startWeights.squat * 0.65 * 2) / 2, s: 0 },
-    bench: { w: Math.round(startWeights.bench * 0.65 * 2) / 2, s: 0 },
-    deadlift: { w: Math.round(startWeights.deadlift * 0.65 * 2) / 2, s: 0 },
-    ohp: { w: Math.round(startWeights.ohp * 0.65 * 2) / 2, s: 0 },
+    squat: { w: roundToNearestHalf(startWeights.squat * 0.65), s: 0 },
+    bench: { w: roundToNearestHalf(startWeights.bench * 0.65), s: 0 },
+    deadlift: { w: roundToNearestHalf(startWeights.deadlift * 0.65), s: 0 },
+    ohp: { w: roundToNearestHalf(startWeights.ohp * 0.65), s: 0 },
   };
 
   const t3: Record<string, number> = {
@@ -74,7 +80,7 @@ export function computeProgram(startWeights: StartWeights, results: Results): Wo
     if (res.t1 === 'fail') {
       changed[t1ex] = true;
       if (t1[t1ex].s >= 2) {
-        t1[t1ex].w = Math.round(t1[t1ex].w * 0.9 * 2) / 2;
+        t1[t1ex].w = roundToNearestHalf(t1[t1ex].w * 0.9);
         t1[t1ex].s = 0;
       } else {
         t1[t1ex].s += 1;

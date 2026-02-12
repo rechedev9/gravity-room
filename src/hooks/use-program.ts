@@ -2,7 +2,14 @@
 
 import { useState, useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import type { StartWeights, Results, UndoHistory, Tier, ResultValue } from '@/types';
-import { loadData, saveData, clearData, parseImportData, createExportData } from '@/lib/storage';
+import {
+  loadData,
+  saveData,
+  clearData,
+  parseImportData,
+  createExportData,
+  type StoredData,
+} from '@/lib/storage';
 
 const emptySubscribe = (): (() => void) => () => {};
 const returnTrue = (): boolean => true;
@@ -21,6 +28,7 @@ interface UseProgramReturn {
   resetAll: () => void;
   exportData: () => void;
   importData: (json: string) => boolean;
+  loadFromCloud: (data: StoredData) => void;
 }
 
 export function useProgram(): UseProgramReturn {
@@ -170,6 +178,12 @@ export function useProgram(): UseProgramReturn {
     return true;
   }, []);
 
+  const loadFromCloud = useCallback((data: StoredData): void => {
+    setStartWeights(data.startWeights);
+    setResults(data.results);
+    setUndoHistory(data.undoHistory);
+  }, []);
+
   return {
     startWeights,
     results,
@@ -183,5 +197,6 @@ export function useProgram(): UseProgramReturn {
     resetAll,
     exportData: exportDataFn,
     importData: importDataFn,
+    loadFromCloud,
   };
 }

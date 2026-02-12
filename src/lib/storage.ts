@@ -1,9 +1,10 @@
 import { StartWeightsSchema, ResultsSchema, UndoHistorySchema, ExportDataSchema } from './schemas';
 import type { StartWeights, Results, UndoHistory, ExportData } from '@/types';
+import { isRecord } from './type-guards';
 
 const STORAGE_KEY = 'gzclp-v3';
 
-interface StoredData {
+export interface StoredData {
   results: Results;
   startWeights: StartWeights;
   undoHistory: UndoHistory;
@@ -16,18 +17,17 @@ export function loadData(): StoredData | null {
 
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
-    const obj = Object.fromEntries(Object.entries(parsed));
-    const results = ResultsSchema.safeParse(obj.results ?? {});
-    const startWeights = StartWeightsSchema.safeParse(obj.startWeights ?? {});
-    const undoHistory = UndoHistorySchema.safeParse(obj.undoHistory ?? []);
+    if (!isRecord(parsed)) return null;
+    const results = ResultsSchema.safeParse(parsed.results ?? {});
+    const startWeights = StartWeightsSchema.safeParse(parsed.startWeights ?? {});
+    const undoHistory = UndoHistorySchema.safeParse(parsed.undoHistory ?? []);
 
-    if (!startWeights.success) return null;
+    if (!startWeights.success || !results.success || !undoHistory.success) return null;
 
     return {
-      results: results.success ? results.data : {},
+      results: results.data,
       startWeights: startWeights.data,
-      undoHistory: undoHistory.success ? undoHistory.data : [],
+      undoHistory: undoHistory.data,
     };
   } catch {
     return null;
@@ -36,7 +36,11 @@ export function loadData(): StoredData | null {
 
 export function saveData(data: StoredData): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // QuotaExceededError — data persists in React state, syncs to cloud on next opportunity
+  }
 }
 
 export function clearData(): void {
@@ -52,6 +56,25 @@ export function createExportData(data: StoredData): ExportData {
     startWeights: data.startWeights,
     undoHistory: data.undoHistory,
   };
+}
+
+export function validateStoredData(data: unknown): StoredData | null {
+  try {
+    if (!isRecord(data)) return null;
+    const results = ResultsSchema.safeParse(data.results ?? {});
+    const startWeights = StartWeightsSchema.safeParse(data.startWeights ?? {});
+    const undoHistory = UndoHistorySchema.safeParse(data.undoHistory ?? []);
+
+    if (!startWeights.success || !results.success || !undoHistory.success) return null;
+
+    return {
+      results: results.data,
+      startWeights: startWeights.data,
+      undoHistory: undoHistory.data,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function parseImportData(json: string): StoredData | null {

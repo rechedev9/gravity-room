@@ -1,17 +1,23 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import type { User } from '@supabase/supabase-js';
+import type { SyncStatus } from '@/lib/sync';
 import { ConfirmDialog } from './confirm-dialog';
+import { UserMenu } from './user-menu';
 
 interface ToolbarProps {
-  completedCount: number;
-  totalWorkouts: number;
-  undoCount: number;
-  onUndo: () => void;
-  onExport: () => void;
-  onImport: (json: string) => boolean;
-  onJumpToCurrent: () => void;
-  onReset: () => void;
+  readonly completedCount: number;
+  readonly totalWorkouts: number;
+  readonly undoCount: number;
+  readonly onUndo: () => void;
+  readonly onExport: () => void;
+  readonly onImport: (json: string) => boolean;
+  readonly onJumpToCurrent: () => void;
+  readonly onReset: () => void;
+  readonly user?: User | null;
+  readonly syncStatus?: SyncStatus;
+  readonly onSignOut?: () => void;
 }
 
 export function Toolbar({
@@ -23,6 +29,9 @@ export function Toolbar({
   onImport,
   onJumpToCurrent,
   onReset,
+  user,
+  syncStatus = 'idle',
+  onSignOut,
 }: ToolbarProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const pendingImportRef = useRef<string | null>(null);
@@ -32,6 +41,12 @@ export function Toolbar({
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const MAX_IMPORT_SIZE = 1_048_576; // 1 MB
+    if (file.size > MAX_IMPORT_SIZE) {
+      alert('Import file is too large (max 1 MB).');
+      e.target.value = '';
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result;
@@ -122,6 +137,9 @@ export function Toolbar({
           <button className={btnClass} onClick={() => setConfirmState('reset')}>
             Reset All
           </button>
+          {onSignOut && (
+            <UserMenu user={user ?? null} syncStatus={syncStatus} onSignOut={onSignOut} />
+          )}
         </div>
       </div>
 
