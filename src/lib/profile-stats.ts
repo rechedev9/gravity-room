@@ -30,20 +30,11 @@ export interface CompletionStats {
   readonly totalWeightGained: number;
 }
 
-export interface Milestone {
-  readonly id: string;
-  readonly title: string;
-  readonly description: string;
-  readonly icon: string;
-  readonly earned: boolean;
-}
-
 export interface ProfileData {
   readonly personalRecords: readonly PersonalRecord[];
   readonly streak: StreakInfo;
   readonly volume: VolumeStats;
   readonly completion: CompletionStats;
-  readonly milestones: readonly Milestone[];
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -214,133 +205,6 @@ function computeCompletion(
   };
 }
 
-function countDeloads(rows: readonly WorkoutRow[]): number {
-  let deloads = 0;
-  const prevStage: Record<string, number> = {};
-
-  for (const row of rows) {
-    const ex = row.t1Exercise;
-    const currentStage = row.t1Stage;
-
-    // A deload is when stage goes from 2 back to 0 (stage 3 fail → reset)
-    if (prevStage[ex] === 2 && currentStage === 0 && row.result.t1 !== undefined) {
-      deloads += 1;
-    }
-
-    if (row.result.t1 !== undefined) {
-      prevStage[ex] = currentStage;
-    }
-  }
-
-  return deloads;
-}
-
-function buildMilestones(
-  completion: CompletionStats,
-  streak: StreakInfo,
-  volume: VolumeStats,
-  rows: readonly WorkoutRow[],
-  startWeights: StartWeights
-): readonly Milestone[] {
-  const deloads = countDeloads(rows);
-
-  // Check if all 4 T1 lifts are above start weight
-  const lastSuccessWeight: Record<string, number> = {};
-  for (const row of rows) {
-    if (row.result.t1 === 'success') {
-      lastSuccessWeight[row.t1Exercise] = row.t1Weight;
-    }
-  }
-  const allPrsUp = T1_EXERCISES.every((ex) => (lastSuccessWeight[ex] ?? 0) > startWeights[ex]);
-
-  return [
-    {
-      id: 'first-workout',
-      title: 'First Step',
-      description: 'Complete your first workout',
-      icon: '\u{1F3CB}',
-      earned: completion.workoutsCompleted >= 1,
-    },
-    {
-      id: 'ten-workouts',
-      title: 'Getting Serious',
-      description: 'Complete 10 workouts',
-      icon: '\u{1F4AA}',
-      earned: completion.workoutsCompleted >= 10,
-    },
-    {
-      id: 'twentyfive-workouts',
-      title: 'Quarter Way',
-      description: 'Complete 25 workouts',
-      icon: '\u{1F3AF}',
-      earned: completion.workoutsCompleted >= 25,
-    },
-    {
-      id: 'fifty-workouts',
-      title: 'Halfway There',
-      description: 'Complete 50 workouts',
-      icon: '\u26A1',
-      earned: completion.workoutsCompleted >= 50,
-    },
-    {
-      id: 'seventyfive-workouts',
-      title: 'Final Stretch',
-      description: 'Complete 75 workouts',
-      icon: '\u{1F525}',
-      earned: completion.workoutsCompleted >= 75,
-    },
-    {
-      id: 'program-complete',
-      title: 'Program Complete',
-      description: 'Complete all 90 workouts',
-      icon: '\u{1F3C6}',
-      earned: completion.workoutsCompleted >= 90,
-    },
-    {
-      id: 'first-deload',
-      title: 'Bounced Back',
-      description: 'Survive your first T1 deload',
-      icon: '\u{1F504}',
-      earned: deloads >= 1,
-    },
-    {
-      id: 'streak-5',
-      title: 'Consistency',
-      description: 'Achieve a 5-workout streak',
-      icon: '\u{1F4C8}',
-      earned: streak.longest >= 5,
-    },
-    {
-      id: 'streak-10',
-      title: 'Unstoppable',
-      description: 'Achieve a 10-workout streak',
-      icon: '\u2B50',
-      earned: streak.longest >= 10,
-    },
-    {
-      id: 'streak-20',
-      title: 'Iron Will',
-      description: 'Achieve a 20-workout streak',
-      icon: '\u{1F451}',
-      earned: streak.longest >= 20,
-    },
-    {
-      id: 'all-prs-up',
-      title: 'Rising Tide',
-      description: 'All 4 T1 lifts above starting weight',
-      icon: '\u{1F680}',
-      earned: allPrsUp,
-    },
-    {
-      id: 'century-volume',
-      title: 'Century Club',
-      description: 'Lift 100,000+ kg total volume',
-      icon: '\u{1F3CB}\u200D\u2642\uFE0F',
-      earned: volume.totalVolume >= 100_000,
-    },
-  ];
-}
-
 // ─── Main orchestrator ──────────────────────────────────────────────
 
 export function computeProfileData(startWeights: StartWeights, results: Results): ProfileData {
@@ -349,9 +213,8 @@ export function computeProfileData(startWeights: StartWeights, results: Results)
   const streak = computeStreak(results);
   const volume = computeVolume(rows);
   const completion = computeCompletion(rows, startWeights);
-  const milestones = buildMilestones(completion, streak, volume, rows, startWeights);
 
-  return { personalRecords, streak, volume, completion, milestones };
+  return { personalRecords, streak, volume, completion };
 }
 
 export function formatVolume(kg: number): string {

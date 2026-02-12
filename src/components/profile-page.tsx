@@ -5,9 +5,10 @@ import Image from 'next/image';
 import { useProgram } from '@/hooks/use-program';
 import { useAuth } from '@/contexts/auth-context';
 import { computeProfileData, formatVolume } from '@/lib/profile-stats';
+import { extractChartData, T1_EXERCISES } from '@/lib/stats';
 import { NAMES } from '@/lib/program';
 import { ProfileStatCard } from './profile-stat-card';
-import { MilestoneCard } from './milestone-card';
+import { LineChart } from './line-chart';
 import { UserMenu } from './user-menu';
 
 interface ProfilePageProps {
@@ -23,9 +24,12 @@ export function ProfilePage({ onBack }: ProfilePageProps): React.ReactNode {
     return computeProfileData(startWeights, results);
   }, [startWeights, results]);
 
+  const chartData = useMemo(() => {
+    if (!startWeights) return null;
+    return extractChartData(startWeights, results);
+  }, [startWeights, results]);
+
   const displayName = user?.email ?? 'Local Lifter';
-  const earnedCount = profileData?.milestones.filter((m) => m.earned).length ?? 0;
-  const totalMilestones = profileData?.milestones.length ?? 0;
 
   return (
     <div className="min-h-dvh bg-[var(--bg-body)]">
@@ -162,17 +166,28 @@ export function ProfilePage({ onBack }: ProfilePageProps): React.ReactNode {
               </section>
             )}
 
-            {/* Milestones */}
-            <section className="mb-10">
-              <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-[var(--text-muted)] mb-3">
-                Milestones ({earnedCount}/{totalMilestones})
-              </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {profileData.milestones.map((m) => (
-                  <MilestoneCard key={m.id} milestone={m} />
-                ))}
-              </div>
-            </section>
+            {/* Weight Progression Charts */}
+            {chartData && (
+              <section className="mb-10">
+                <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-[var(--text-muted)] mb-3">
+                  Weight Progression
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {T1_EXERCISES.map((ex) => (
+                    <div
+                      key={ex}
+                      className="bg-[var(--bg-card)] border border-[var(--border-color)] p-4"
+                    >
+                      <h3 className="text-sm font-bold text-[var(--text-header)] mb-3">
+                        {NAMES[ex]}
+                      </h3>
+                      <LineChart data={chartData[ex]} label={NAMES[ex]} />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
           </>
         )}
       </div>
