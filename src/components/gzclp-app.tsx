@@ -14,7 +14,11 @@ import { StatsPanel } from './stats-panel';
 import { StageTag } from './stage-tag';
 import { ConfirmDialog } from './confirm-dialog';
 
-export function GZCLPApp() {
+interface GZCLPAppProps {
+  readonly onBackToDashboard?: () => void;
+}
+
+export function GZCLPApp({ onBackToDashboard }: GZCLPAppProps) {
   const {
     startWeights,
     results,
@@ -98,13 +102,19 @@ export function GZCLPApp() {
 
   return (
     <>
-      <header className="text-center py-6 sm:py-10 px-5 bg-[var(--bg-header)] text-[var(--text-header)] mb-7">
+      <header className="relative text-center py-6 sm:py-10 px-5 bg-[var(--bg-header)] text-[var(--text-header)] mb-7">
+        {onBackToDashboard && (
+          <button
+            onClick={onBackToDashboard}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-header)] transition-colors cursor-pointer"
+          >
+            &larr; Programs
+          </button>
+        )}
         <h1 className="text-[22px] sm:text-[28px] font-extrabold tracking-tight mb-1.5">
-          RSN 30-WEEK-PROGRAM
+          The Real Hiperbolic Time Chamber
         </h1>
-        <p className="text-[13px] opacity-70">
-          App made by RSN based on Cody Lefever program GZCLP
-        </p>
+        <p className="text-[13px] opacity-70">Train smarter. Progress faster.</p>
       </header>
 
       {startWeights && (
