@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabase';
-import type { StoredData } from '@/lib/storage';
+import { type StoredData, validateStoredData } from '@/lib/storage';
 import {
   type SyncStatus,
   type InitialSyncResult,
@@ -19,6 +19,18 @@ import {
 } from '@/lib/sync';
 
 const DEBOUNCE_MS = 2000;
+const SYNC_LOCK_NAME = 'gzclp-cloud-sync';
+
+/** Cross-tab mutex using Web Locks API. Skips if another tab holds the lock. */
+async function withSyncLock<T>(fn: () => Promise<T>): Promise<T | null> {
+  if (typeof navigator === 'undefined' || !navigator.locks) {
+    return fn(); // Fallback for SSR/old browsers
+  }
+  return navigator.locks.request(SYNC_LOCK_NAME, { ifAvailable: true }, async (lock) => {
+    if (!lock) return null; // Another tab holds the lock — skip
+    return fn();
+  });
+}
 
 interface UseCloudSyncOptions {
   readonly user: User | null;
@@ -56,6 +68,7 @@ export function useCloudSync({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialSyncDone = useRef(false);
   const prevUserIdRef = useRef<string | null>(null);
+  const isSyncingRef = useRef(false);
 
   // Track online/offline
   useEffect(() => {
@@ -84,48 +97,54 @@ export function useCloudSync({
     if (!supabase || !isOnline) return;
 
     const runInitialSync = async (): Promise<void> => {
-      setSyncStatus('syncing');
+      if (isSyncingRef.current) return;
+      isSyncingRef.current = true;
+      try {
+        setSyncStatus('syncing');
 
-      const cloudResult = await fetchCloudData(supabase, user.id);
-      const localData: StoredData | null =
-        startWeights !== null ? { startWeights, results, undoHistory } : null;
-      const syncMeta = loadSyncMeta();
+        const cloudResult = await fetchCloudData(supabase, user.id);
+        const localData: StoredData | null =
+          startWeights !== null ? { startWeights, results, undoHistory } : null;
+        const syncMeta = loadSyncMeta();
 
-      const decision: InitialSyncResult = determineInitialSync(localData, cloudResult, syncMeta);
+        const decision: InitialSyncResult = determineInitialSync(localData, cloudResult, syncMeta);
 
-      switch (decision.action) {
-        case 'push':
-          if (localData) {
-            const pushResult = await pushToCloud(supabase, user.id, localData);
-            setSyncStatus(pushResult.success ? 'synced' : 'error');
-          } else {
+        switch (decision.action) {
+          case 'push':
+            if (localData) {
+              const pushResult = await pushToCloud(supabase, user.id, localData);
+              setSyncStatus(pushResult.success ? 'synced' : 'error');
+            } else {
+              setSyncStatus('synced');
+            }
+            break;
+
+          case 'pull':
+            onCloudDataReceived(decision.data);
+            markSynced();
             setSyncStatus('synced');
-          }
-          break;
+            break;
 
-        case 'pull':
-          onCloudDataReceived(decision.data);
-          markSynced();
-          setSyncStatus('synced');
-          break;
+          case 'conflict':
+            setConflict({
+              cloudData: decision.cloudData,
+              cloudUpdatedAt: decision.cloudUpdatedAt,
+            });
+            setSyncStatus('idle');
+            break;
 
-        case 'conflict':
-          setConflict({
-            cloudData: decision.cloudData,
-            cloudUpdatedAt: decision.cloudUpdatedAt,
-          });
-          setSyncStatus('idle');
-          break;
+          case 'none':
+            setSyncStatus('synced');
+            break;
+        }
 
-        case 'none':
-          setSyncStatus('synced');
-          break;
+        initialSyncDone.current = true;
+      } finally {
+        isSyncingRef.current = false;
       }
-
-      initialSyncDone.current = true;
     };
 
-    void runInitialSync();
+    void withSyncLock(runInitialSync);
   }, [user, isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced push on data change
@@ -137,20 +156,29 @@ export function useCloudSync({
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
     debounceRef.current = setTimeout(() => {
-      const supabase = getSupabaseClient();
-      if (!supabase) return;
+      void withSyncLock(async () => {
+        if (isSyncingRef.current) return;
+        const supabase = getSupabaseClient();
+        if (!supabase) return;
 
-      setSyncStatus('syncing');
-      void pushToCloud(supabase, user.id, { startWeights, results, undoHistory }).then(
-        (result: PushResult) => {
+        isSyncingRef.current = true;
+        setSyncStatus('syncing');
+        try {
+          const result: PushResult = await pushToCloud(supabase, user.id, {
+            startWeights,
+            results,
+            undoHistory,
+          });
           if (result.success) {
             setSyncStatus('synced');
           } else if (!result.retryable) {
             setSyncStatus('error');
           }
           // retryable errors (rate limit): stay 'syncing', next debounce will retry
+        } finally {
+          isSyncingRef.current = false;
         }
-      );
+      });
     }, DEBOUNCE_MS);
 
     return (): void => {
@@ -166,20 +194,26 @@ export function useCloudSync({
     if (!supabase) return;
 
     const syncOnReconnect = async (): Promise<void> => {
-      setSyncStatus('syncing');
-      const result = await pushToCloud(supabase, user.id, {
-        startWeights,
-        results,
-        undoHistory,
-      });
-      if (result.success) {
-        setSyncStatus('synced');
-      } else if (!result.retryable) {
-        setSyncStatus('error');
+      if (isSyncingRef.current) return;
+      isSyncingRef.current = true;
+      try {
+        setSyncStatus('syncing');
+        const result = await pushToCloud(supabase, user.id, {
+          startWeights,
+          results,
+          undoHistory,
+        });
+        if (result.success) {
+          setSyncStatus('synced');
+        } else if (!result.retryable) {
+          setSyncStatus('error');
+        }
+      } finally {
+        isSyncingRef.current = false;
       }
     };
 
-    void syncOnReconnect();
+    void withSyncLock(syncOnReconnect);
   }, [isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resolveConflict = useCallback(
@@ -190,7 +224,13 @@ export function useCloudSync({
       if (!supabase) return;
 
       if (choice === 'cloud') {
-        onCloudDataReceived(conflict.cloudData);
+        const validated = validateStoredData(conflict.cloudData);
+        if (!validated) {
+          setSyncStatus('error');
+          setConflict(null);
+          return;
+        }
+        onCloudDataReceived(validated);
         markSynced();
         setSyncStatus('synced');
       } else {
