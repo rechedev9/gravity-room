@@ -491,7 +491,7 @@ export function LandingPage(): React.ReactNode {
               </p>
             </div>
             <div className="relative bg-[var(--bg-card)] border border-[var(--border-color)] p-6 text-center landing-card-glow">
-              <div className="text-[var(--stage-s2)] mb-3">
+              <div className="text-[var(--text-header)] mb-3">
                 <svg
                   width="32"
                   height="32"
@@ -517,7 +517,7 @@ export function LandingPage(): React.ReactNode {
               </p>
             </div>
             <div className="relative bg-[var(--bg-card)] border border-[var(--border-color)] p-6 text-center landing-card-glow">
-              <div className="text-[var(--stage-s3)] mb-3">
+              <div className="text-[var(--text-header)] mb-3">
                 <svg
                   width="32"
                   height="32"
