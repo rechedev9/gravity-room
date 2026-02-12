@@ -528,34 +528,6 @@ export function LandingPage(): React.ReactNode {
         </section>
 
         <GradientDivider />
-
-        {/* ── Final CTA ───────────────────────────────────── */}
-        <section
-          aria-labelledby="cta-heading"
-          ref={observe}
-          className="landing-fade-in px-6 sm:px-10 py-16 sm:py-24 text-center"
-        >
-          <h2
-            id="cta-heading"
-            className="text-2xl sm:text-3xl font-extrabold text-[var(--text-header)] mb-3"
-          >
-            Ready to Start?
-          </h2>
-          <p className="text-sm sm:text-base text-[var(--text-muted)] mb-10 max-w-md mx-auto">
-            Free forever. Create an account to sync — or jump straight in.
-          </p>
-          <Link
-            href="/login"
-            className="inline-block px-10 py-4 text-sm font-bold border-2 border-[var(--btn-border)] bg-[var(--btn-hover-bg)] text-[var(--btn-hover-text)] hover:opacity-90 transition-all"
-          >
-            Start Training
-          </Link>
-          <p className="text-sm text-[var(--text-muted)] mt-6 opacity-70">
-            No credit card. No spam. Just gains.
-          </p>
-        </section>
-
-        <GradientDivider />
       </main>
 
       {/* ── Footer ──────────────────────────────────────── */}
