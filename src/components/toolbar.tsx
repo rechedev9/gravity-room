@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { ConfirmDialog } from './confirm-dialog';
+import { DropdownMenu, DropdownItem, DropdownDivider } from './dropdown-menu';
 
 interface ToolbarProps {
   readonly completedCount: number;
@@ -27,6 +28,8 @@ export function Toolbar({
   const fileRef = useRef<HTMLInputElement>(null);
   const pendingImportRef = useRef<string | null>(null);
   const [confirmState, setConfirmState] = useState<'reset' | 'import' | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback((): void => setMenuOpen(false), []);
   const pct = Math.round((completedCount / totalWorkouts) * 100);
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>): void => {
@@ -108,13 +111,50 @@ export function Toolbar({
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
-          <button className={btnClass} onClick={onExport}>
-            Export
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button className={btnClass} onClick={onJumpToCurrent}>
+            Go to current
           </button>
-          <button className={btnClass} onClick={() => fileRef.current?.click()}>
-            Import
-          </button>
+
+          {/* Overflow menu */}
+          <div className="relative">
+            <button
+              className={btnClass}
+              onClick={() => setMenuOpen((prev) => !prev)}
+              aria-label="More actions"
+            >
+              &#8942;
+            </button>
+            <DropdownMenu open={menuOpen} onClose={closeMenu} align="right">
+              <DropdownItem
+                onClick={() => {
+                  closeMenu();
+                  onExport();
+                }}
+              >
+                Export
+              </DropdownItem>
+              <DropdownItem
+                onClick={() => {
+                  closeMenu();
+                  fileRef.current?.click();
+                }}
+              >
+                Import
+              </DropdownItem>
+              <DropdownDivider />
+              <DropdownItem
+                variant="danger"
+                onClick={() => {
+                  closeMenu();
+                  setConfirmState('reset');
+                }}
+              >
+                Reset All
+              </DropdownItem>
+            </DropdownMenu>
+          </div>
+
           <input
             ref={fileRef}
             type="file"
@@ -122,12 +162,6 @@ export function Toolbar({
             className="hidden"
             onChange={handleImport}
           />
-          <button className={btnClass} onClick={onJumpToCurrent}>
-            Go to current
-          </button>
-          <button className={btnClass} onClick={() => setConfirmState('reset')}>
-            Reset All
-          </button>
         </div>
       </div>
 

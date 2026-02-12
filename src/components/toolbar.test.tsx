@@ -20,6 +20,10 @@ function buildToolbarProps(overrides?: Partial<Parameters<typeof Toolbar>[0]>) {
   };
 }
 
+function openOverflowMenu(): void {
+  fireEvent.click(screen.getByLabelText('More actions'));
+}
+
 describe('Toolbar', () => {
   describe('progress display', () => {
     it('should show completed count and percentage', () => {
@@ -63,10 +67,11 @@ describe('Toolbar', () => {
   });
 
   describe('action buttons', () => {
-    it('should call onExport when Export is clicked', () => {
+    it('should call onExport when Export is clicked in overflow menu', () => {
       const onExport = mock();
       render(<Toolbar {...buildToolbarProps({ onExport })} />);
 
+      openOverflowMenu();
       fireEvent.click(screen.getByText('Export'));
 
       expect(onExport).toHaveBeenCalledTimes(1);
@@ -86,6 +91,7 @@ describe('Toolbar', () => {
     it('should show confirmation dialog when Reset All is clicked', () => {
       render(<Toolbar {...buildToolbarProps()} />);
 
+      openOverflowMenu();
       fireEvent.click(screen.getByText('Reset All'));
 
       expect(screen.getByText('Reset All Progress')).toBeInTheDocument();
@@ -98,10 +104,10 @@ describe('Toolbar', () => {
       const onReset = mock();
       render(<Toolbar {...buildToolbarProps({ onReset })} />);
 
+      openOverflowMenu();
       fireEvent.click(screen.getByText('Reset All'));
-      // The confirm dialog has a "Reset All" confirm button (different from the toolbar button)
+      // The confirm dialog has a "Reset All" confirm button
       const confirmBtns = screen.getAllByText('Reset All');
-      // Click the one in the dialog (last one)
       fireEvent.click(confirmBtns[confirmBtns.length - 1]);
 
       expect(onReset).toHaveBeenCalledTimes(1);
@@ -110,6 +116,7 @@ describe('Toolbar', () => {
     it('should dismiss dialog when cancel is clicked', () => {
       render(<Toolbar {...buildToolbarProps()} />);
 
+      openOverflowMenu();
       fireEvent.click(screen.getByText('Reset All'));
       fireEvent.click(screen.getByText('Cancel'));
 
