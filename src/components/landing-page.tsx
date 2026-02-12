@@ -73,7 +73,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'Proven Programs',
-    desc: 'Science-backed training programs with structured periodization. More programs coming soon.',
+    desc: 'Science-backed training programs with structured periodization. New programs added regularly.',
   },
   {
     icon: (
