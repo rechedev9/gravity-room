@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { loadInstanceMap, loadDataCompat } from '@/lib/storage-v2';
 import { Dashboard } from './dashboard';
 import { GZCLPApp } from './gzclp-app';
@@ -27,21 +27,18 @@ function readInitialState(): ShellState {
     map = loadInstanceMap(); // re-read after migration
   }
 
+  // When arriving from the login page (?view=programs), force the programs dashboard.
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('view') === 'programs') {
+    return { view: 'dashboard', instanceMap: map };
+  }
+
   const hasActive = !!(map?.activeProgramId && map.instances[map.activeProgramId]);
   return { view: hasActive ? 'tracker' : 'dashboard', instanceMap: map };
 }
 
 export function AppShell(): React.ReactNode {
   const [state, setState] = useState<ShellState>(readInitialState);
-
-  // When arriving from the login page (?view=programs), force the programs dashboard.
-  // Runs after hydration to avoid server/client mismatch.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('view') === 'programs') {
-      setState((prev) => ({ ...prev, view: 'dashboard' }));
-    }
-  }, []);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- programId will route to different trackers in the future
   const handleSelectProgram = useCallback((programId: string): void => {

@@ -9,7 +9,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "format:check": "prettier --check .",
-    "format:fix": "prettier --write ."
+    "format:fix": "prettier --write .",
+    "test": "bun test",
+    "ci": "bun run typecheck && bun run lint && bun run format:check && bun test && bun run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.95.3",
@@ -20,11 +22,13 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bun": "^1.3.9",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "lefthook": "^2.1.1",
     "prettier": "^3.8.1",
     "tailwindcss": "^4",
     "typescript": "^5"
@@ -34,6 +38,7 @@
     "unrs-resolver"
   ],
   "trustedDependencies": [
+    "lefthook",
     "sharp",
     "unrs-resolver"
   ]

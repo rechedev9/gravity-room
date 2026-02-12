@@ -16,8 +16,10 @@ GZCLP Tracker — a Next.js 16 app (React 19, TypeScript, Tailwind CSS 4) that i
 | Lint         | `bun run lint`                    |
 | Format check | `bun run format:check`            |
 | Format fix   | `bun run prettier --write <path>` |
+| Tests        | `bun test`                        |
+| Local CI     | `bun run ci`                      |
 
-No test runner is configured.
+Test runner: `bun:test`. Test files live alongside source (`feature.test.ts`). Lefthook runs pre-commit (typecheck + lint + format) and pre-push (test + build) hooks automatically.
 
 ## Architecture
 
