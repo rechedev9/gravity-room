@@ -545,7 +545,7 @@ export function LandingPage(): React.ReactNode {
           >
             Start Training
           </Link>
-          <p className="text-xs text-[var(--text-muted)] mt-6 opacity-70">
+          <p className="text-sm text-[var(--text-muted)] mt-6 opacity-70">
             No credit card. No spam. Just gains.
           </p>
         </section>
@@ -561,7 +561,13 @@ export function LandingPage(): React.ReactNode {
         <p className="text-xs text-[var(--text-muted)] mb-4">
           Built for lifters who refuse to stall.
         </p>
-        <p className="text-[11px] text-[var(--text-muted)] opacity-60">Built by RSN</p>
+        <div className="flex items-center justify-center gap-4 text-[11px] text-[var(--text-muted)] opacity-60">
+          <Link href="/privacy" className="hover:text-[var(--text-main)] transition-colors">
+            Privacy Policy
+          </Link>
+          <span aria-hidden="true">&middot;</span>
+          <span>Built by RSN</span>
+        </div>
       </footer>
     </div>
   );
