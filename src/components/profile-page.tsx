@@ -187,7 +187,6 @@ export function ProfilePage({ onBack }: ProfilePageProps): React.ReactNode {
                 </div>
               </section>
             )}
-
           </>
         )}
       </div>
