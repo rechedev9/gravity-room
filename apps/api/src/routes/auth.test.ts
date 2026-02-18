@@ -48,6 +48,21 @@ const mockFindRefreshToken = mock<() => Promise<typeof TEST_REFRESH_TOKEN | unde
 );
 const mockRevokeRefreshToken = mock(() => Promise.resolve());
 const mockCreateAndStoreRefreshToken = mock(() => Promise.resolve('mock-raw-refresh-token'));
+const mockCreatePasswordResetToken = mock(() => Promise.resolve('raw-reset-token-uuid'));
+const mockFindPasswordResetToken = mock<
+  () => Promise<
+    | {
+        id: string;
+        userId: string;
+        tokenHash: string;
+        expiresAt: Date;
+        usedAt: Date | null;
+        createdAt: Date;
+      }
+    | undefined
+  >
+>(() => Promise.resolve(undefined));
+const mockMarkPasswordResetTokenUsed = mock(() => Promise.resolve());
 
 mock.module('../services/auth', () => ({
   hashPassword: mockHashPassword,
@@ -60,6 +75,9 @@ mock.module('../services/auth', () => ({
   findRefreshToken: mockFindRefreshToken,
   revokeRefreshToken: mockRevokeRefreshToken,
   createAndStoreRefreshToken: mockCreateAndStoreRefreshToken,
+  createPasswordResetToken: mockCreatePasswordResetToken,
+  findPasswordResetToken: mockFindPasswordResetToken,
+  markPasswordResetTokenUsed: mockMarkPasswordResetTokenUsed,
   REFRESH_TOKEN_DAYS: 7,
 }));
 
@@ -68,20 +86,43 @@ mock.module('../lib/password-check', () => ({
   checkLeakedPassword: mockCheckLeakedPassword,
 }));
 
+mock.module('../lib/email', () => ({
+  sendPasswordResetEmail: mock(() => Promise.resolve()),
+}));
+
 mock.module('../middleware/rate-limit', () => ({
   rateLimit: (): void => {
     /* no-op */
   },
 }));
 
+import { Elysia } from 'elysia';
+import { ApiError } from '../middleware/error-handler';
 import { authRoutes } from './auth';
+
+// Wrap authRoutes with the same error-handling logic as the main app so that
+// ApiError instances are serialized to JSON in tests.
+const testApp = new Elysia()
+  .onError(({ error, set }) => {
+    if (error instanceof ApiError) {
+      set.status = error.statusCode;
+      return { error: error.message, code: error.code };
+    }
+    if ('code' in error && error.code === 'VALIDATION') {
+      set.status = 400;
+      return { error: 'Validation failed', code: 'VALIDATION_ERROR' };
+    }
+    set.status = 500;
+    return { error: 'Internal server error', code: 'INTERNAL_ERROR' };
+  })
+  .use(authRoutes);
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function post(path: string, body: unknown, headers?: Record<string, string>): Promise<Response> {
-  return authRoutes.handle(
+  return testApp.handle(
     new Request(`http://localhost${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
@@ -91,7 +132,7 @@ function post(path: string, body: unknown, headers?: Record<string, string>): Pr
 }
 
 function get(path: string, headers?: Record<string, string>): Promise<Response> {
-  return authRoutes.handle(new Request(`http://localhost${path}`, { headers }));
+  return testApp.handle(new Request(`http://localhost${path}`, { headers }));
 }
 
 // ---------------------------------------------------------------------------
@@ -260,5 +301,97 @@ describe('GET /auth/me', () => {
   it('returns 401 when token is invalid', async () => {
     const res = await get('/auth/me', { Authorization: 'Bearer invalid-token' });
     expect(res.status).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /auth/forgot-password
+// ---------------------------------------------------------------------------
+
+describe('POST /auth/forgot-password', () => {
+  it('returns 200 even when the email is not registered (no enumeration)', async () => {
+    mockFindUserByEmail.mockImplementation(() => Promise.resolve(undefined));
+
+    const res = await post('/auth/forgot-password', { email: 'nobody@example.com' });
+    const body = (await res.json()) as { message: string };
+
+    expect(res.status).toBe(200);
+    expect(typeof body.message).toBe('string');
+  });
+
+  it('returns 200 and triggers a reset token when the email is registered', async () => {
+    mockFindUserByEmail.mockImplementation(() => Promise.resolve({ ...TEST_USER }));
+    mockCreatePasswordResetToken.mockImplementation(() => Promise.resolve('raw-reset-token'));
+
+    const res = await post('/auth/forgot-password', { email: 'test@example.com' });
+
+    expect(res.status).toBe(200);
+    expect(mockCreatePasswordResetToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 400 for an invalid email format', async () => {
+    const res = await post('/auth/forgot-password', { email: 'not-an-email' });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /auth/reset-password
+// ---------------------------------------------------------------------------
+
+const TEST_RESET_TOKEN_ROW = {
+  id: 'rt-uuid',
+  userId: 'user-123',
+  tokenHash: 'a'.repeat(64),
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  usedAt: null,
+  createdAt: new Date(),
+};
+
+describe('POST /auth/reset-password', () => {
+  beforeEach(() => {
+    mockCheckLeakedPassword.mockImplementation(() => Promise.resolve(false));
+    mockFindPasswordResetToken.mockImplementation(() =>
+      Promise.resolve({ ...TEST_RESET_TOKEN_ROW })
+    );
+    mockMarkPasswordResetTokenUsed.mockImplementation(() => Promise.resolve());
+  });
+
+  it('returns 400 with RESET_TOKEN_INVALID when token is not found', async () => {
+    mockFindPasswordResetToken.mockImplementation(() => Promise.resolve(undefined));
+
+    const res = await post('/auth/reset-password', {
+      token: 'unknown-token',
+      password: 'NewStrongPass1!',
+    });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(400);
+    expect(body.code).toBe('RESET_TOKEN_INVALID');
+  });
+
+  it('returns 400 with WEAK_PASSWORD when the new password is leaked', async () => {
+    mockCheckLeakedPassword.mockImplementation(() => Promise.resolve(true));
+
+    const res = await post('/auth/reset-password', {
+      token: 'valid-token',
+      password: 'password123456',
+    });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(400);
+    expect(body.code).toBe('WEAK_PASSWORD');
+  });
+
+  it('returns 200 and marks the token used on success', async () => {
+    const res = await post('/auth/reset-password', {
+      token: 'valid-token',
+      password: 'NewStrongPass1!',
+    });
+    const body = (await res.json()) as { message: string };
+
+    expect(res.status).toBe(200);
+    expect(typeof body.message).toBe('string');
+    expect(mockMarkPasswordResetTokenUsed).toHaveBeenCalledTimes(1);
   });
 });

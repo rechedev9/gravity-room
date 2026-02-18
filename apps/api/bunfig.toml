@@ -1,0 +1,4 @@
+[test]
+root = "./src"
+# Run each test file in a separate worker to prevent mock.module() leaking
+# between route integration tests (which mock services) and unit tests.

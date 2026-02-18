@@ -23,6 +23,7 @@ export function AppShell(): React.ReactNode {
   const navigate = useNavigate();
 
   const [view, setViewState] = useState<View>(() => parseViewParam(searchParams.get('view')));
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>(undefined);
 
   const setView = useCallback(
     (next: View): void => {
@@ -32,12 +33,22 @@ export function AppShell(): React.ReactNode {
     [navigate]
   );
 
-  // Only GZCLP is supported — programId will route to different trackers in the future
-  const handleGoToTracker = useCallback((): void => {
+  const handleSelectProgram = useCallback(
+    (instanceId: string): void => {
+      setSelectedInstanceId(instanceId);
+      setView('tracker');
+    },
+    [setView]
+  );
+
+  const handleContinueProgram = useCallback((): void => {
+    // No specific instance — useProgram will pick the first active one
+    setSelectedInstanceId(undefined);
     setView('tracker');
   }, [setView]);
 
   const handleBackToDashboard = useCallback((): void => {
+    setSelectedInstanceId(undefined);
     setView('dashboard');
   }, [setView]);
 
@@ -52,14 +63,18 @@ export function AppShell(): React.ReactNode {
   } else if (view === 'dashboard') {
     content = (
       <Dashboard
-        onSelectProgram={handleGoToTracker}
-        onContinueProgram={handleGoToTracker}
+        onSelectProgram={handleSelectProgram}
+        onContinueProgram={handleContinueProgram}
         onGoToProfile={handleGoToProfile}
       />
     );
   } else {
     content = (
-      <GZCLPApp onBackToDashboard={handleBackToDashboard} onGoToProfile={handleGoToProfile} />
+      <GZCLPApp
+        instanceId={selectedInstanceId}
+        onBackToDashboard={handleBackToDashboard}
+        onGoToProfile={handleGoToProfile}
+      />
     );
   }
 

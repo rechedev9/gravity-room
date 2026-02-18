@@ -76,7 +76,7 @@ interface UseProgramReturn {
 // Hook implementation
 // ---------------------------------------------------------------------------
 
-export function useProgram(): UseProgramReturn {
+export function useProgram(instanceId?: string): UseProgramReturn {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
@@ -87,13 +87,12 @@ export function useProgram(): UseProgramReturn {
     enabled: user !== null,
   });
 
-  // Find the active program instance
-  const activeInstance = useMemo(() => {
+  // Use provided instanceId directly, or fall back to first active program
+  const activeInstanceId = useMemo(() => {
+    if (instanceId) return instanceId;
     if (!programsQuery.data) return null;
-    return programsQuery.data.find((p) => p.status === 'active') ?? null;
-  }, [programsQuery.data]);
-
-  const activeInstanceId = activeInstance?.id ?? null;
+    return programsQuery.data.find((p) => p.status === 'active')?.id ?? null;
+  }, [instanceId, programsQuery.data]);
 
   // Fetch the full program detail (results + undo)
   const detailQuery = useQuery({

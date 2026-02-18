@@ -40,11 +40,16 @@ function TabButton({
 }
 
 interface GZCLPAppProps {
+  readonly instanceId?: string;
   readonly onBackToDashboard?: () => void;
   readonly onGoToProfile?: () => void;
 }
 
-export function GZCLPApp({ onBackToDashboard, onGoToProfile }: GZCLPAppProps): React.ReactNode {
+export function GZCLPApp({
+  instanceId,
+  onBackToDashboard,
+  onGoToProfile,
+}: GZCLPAppProps): React.ReactNode {
   const {
     startWeights,
     results,
@@ -56,7 +61,7 @@ export function GZCLPApp({ onBackToDashboard, onGoToProfile }: GZCLPAppProps): R
     undoSpecific,
     undoLast,
     resetAll,
-  } = useProgram();
+  } = useProgram(instanceId);
 
   const { signOut } = useAuth();
   const queryClient = useQueryClient();

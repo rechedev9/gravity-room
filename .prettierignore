@@ -1,0 +1,7 @@
+*.toml
+*.lock
+node_modules
+dist
+out
+.next
+build
