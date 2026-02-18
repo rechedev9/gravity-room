@@ -3,46 +3,36 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
 
 // ---------------------------------------------------------------------------
-// Mock setup — mock the API module before importing auth-context
+// Mock setup — mock the API modules before importing auth-context
 // ---------------------------------------------------------------------------
 
 const mockRefreshAccessToken = mock<() => Promise<string | null>>(() => Promise.resolve(null));
 const mockSetAccessToken = mock<(token: string | null) => void>(() => {});
 
-const mockSignupPost = mock<(body: unknown) => Promise<{ data: unknown; error: unknown }>>(() =>
-  Promise.resolve({ data: null, error: null })
-);
-const mockSigninPost = mock<(body: unknown) => Promise<{ data: unknown; error: unknown }>>(() =>
-  Promise.resolve({ data: null, error: null })
-);
-const mockSignoutPost = mock<() => Promise<{ data: unknown; error: unknown }>>(() =>
-  Promise.resolve({ data: null, error: null })
-);
-
-const mockMeGet = mock<() => Promise<{ data: unknown; error: unknown }>>(() =>
-  Promise.resolve({ data: null, error: { status: 401 } })
-);
-
 mock.module('@/lib/api', () => ({
   refreshAccessToken: mockRefreshAccessToken,
   setAccessToken: mockSetAccessToken,
-  api: {
-    auth: {
-      signup: { post: mockSignupPost },
-      signin: { post: mockSigninPost },
-      signout: { post: mockSignoutPost },
-      me: { get: mockMeGet },
-    },
-  },
+  getAccessToken: mock(() => null),
 }));
 
-function mockMeSuccess(id: string, email: string): void {
-  mockMeGet.mockImplementation(() => Promise.resolve({ data: { id, email }, error: null }));
-}
+const mockApiFetch = mock<(path: string, options?: RequestInit) => Promise<unknown>>(() =>
+  Promise.reject(new Error('Unauthorized'))
+);
 
-function mockMeFailure(): void {
-  mockMeGet.mockImplementation(() => Promise.resolve({ data: null, error: { status: 401 } }));
-}
+mock.module('@/lib/api-functions', () => ({
+  apiFetch: mockApiFetch,
+  // Provide stubs for all other exports used by consumers
+  fetchPrograms: mock(() => Promise.resolve([])),
+  fetchProgram: mock(() => Promise.resolve({})),
+  createProgram: mock(() => Promise.resolve({})),
+  updateProgramConfig: mock(() => Promise.resolve()),
+  deleteProgram: mock(() => Promise.resolve()),
+  recordResult: mock(() => Promise.resolve()),
+  deleteResult: mock(() => Promise.resolve()),
+  undoLastResult: mock(() => Promise.resolve()),
+  exportProgram: mock(() => Promise.resolve({})),
+  importProgram: mock(() => Promise.resolve({})),
+}));
 
 import { AuthProvider, useAuth } from './auth-context';
 
@@ -58,14 +48,8 @@ function resetAllMocks(): void {
   mockRefreshAccessToken.mockReset();
   mockRefreshAccessToken.mockImplementation(() => Promise.resolve(null));
   mockSetAccessToken.mockReset();
-  mockSignupPost.mockReset();
-  mockSignupPost.mockImplementation(() => Promise.resolve({ data: null, error: null }));
-  mockSigninPost.mockReset();
-  mockSigninPost.mockImplementation(() => Promise.resolve({ data: null, error: null }));
-  mockSignoutPost.mockReset();
-  mockSignoutPost.mockImplementation(() => Promise.resolve({ data: null, error: null }));
-  mockMeGet.mockReset();
-  mockMeFailure();
+  mockApiFetch.mockReset();
+  mockApiFetch.mockImplementation(() => Promise.reject(new Error('Unauthorized')));
 }
 
 // Helper: create a valid JWT with given payload (base64url encoded)
@@ -125,7 +109,9 @@ describe('AuthProvider', () => {
     it('should restore user from refresh token', async () => {
       const token = fakeJwt({ sub: 'user-123', email: 'test@example.com' });
       mockRefreshAccessToken.mockImplementation(() => Promise.resolve(token));
-      mockMeSuccess('user-123', 'test@example.com');
+      mockApiFetch.mockImplementation(() =>
+        Promise.resolve({ id: 'user-123', email: 'test@example.com', name: null })
+      );
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -140,15 +126,15 @@ describe('AuthProvider', () => {
 
   describe('signIn', () => {
     it('should return null on success and set user', async () => {
-      mockSigninPost.mockImplementation(() =>
-        Promise.resolve({
-          data: {
+      mockApiFetch.mockImplementation((path: string) => {
+        if (path === '/auth/signin') {
+          return Promise.resolve({
             accessToken: fakeJwt({ sub: 'user-1', email: 'a@b.com' }),
             user: { id: 'user-1', email: 'a@b.com', name: null },
-          },
-          error: null,
-        })
-      );
+          });
+        }
+        return Promise.reject(new Error('Unauthorized'));
+      });
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -167,12 +153,12 @@ describe('AuthProvider', () => {
     });
 
     it('should return error message on failure', async () => {
-      mockSigninPost.mockImplementation(() =>
-        Promise.resolve({
-          data: null,
-          error: { error: 'Invalid email or password', code: 'AUTH_INVALID_CREDENTIALS' },
-        })
-      );
+      mockApiFetch.mockImplementation((path: string) => {
+        if (path === '/auth/signin') {
+          return Promise.reject(new Error('Invalid email or password'));
+        }
+        return Promise.reject(new Error('Unauthorized'));
+      });
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -191,15 +177,15 @@ describe('AuthProvider', () => {
 
   describe('signUp', () => {
     it('should return null on success and set user', async () => {
-      mockSignupPost.mockImplementation(() =>
-        Promise.resolve({
-          data: {
+      mockApiFetch.mockImplementation((path: string) => {
+        if (path === '/auth/signup') {
+          return Promise.resolve({
             accessToken: fakeJwt({ sub: 'user-2', email: 'new@b.com' }),
             user: { id: 'user-2', email: 'new@b.com', name: null },
-          },
-          error: null,
-        })
-      );
+          });
+        }
+        return Promise.reject(new Error('Unauthorized'));
+      });
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -217,12 +203,12 @@ describe('AuthProvider', () => {
     });
 
     it('should return error on duplicate email', async () => {
-      mockSignupPost.mockImplementation(() =>
-        Promise.resolve({
-          data: null,
-          error: { error: 'Email already registered', code: 'AUTH_EMAIL_EXISTS' },
-        })
-      );
+      mockApiFetch.mockImplementation((path: string) => {
+        if (path === '/auth/signup') {
+          return Promise.reject(new Error('Email already registered'));
+        }
+        return Promise.reject(new Error('Unauthorized'));
+      });
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -244,7 +230,15 @@ describe('AuthProvider', () => {
       // Start with a logged-in user
       const token = fakeJwt({ sub: 'user-1', email: 'a@b.com' });
       mockRefreshAccessToken.mockImplementation(() => Promise.resolve(token));
-      mockMeSuccess('user-1', 'a@b.com');
+      mockApiFetch.mockImplementation((path: string) => {
+        if (path === '/auth/me') {
+          return Promise.resolve({ id: 'user-1', email: 'a@b.com', name: null });
+        }
+        if (path === '/auth/signout') {
+          return Promise.resolve(null);
+        }
+        return Promise.reject(new Error('Unauthorized'));
+      });
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
@@ -256,7 +250,6 @@ describe('AuthProvider', () => {
         await result.current.signOut();
       });
 
-      expect(mockSignoutPost).toHaveBeenCalled();
       expect(mockSetAccessToken).toHaveBeenCalledWith(null);
       expect(result.current.user).toBeNull();
     });

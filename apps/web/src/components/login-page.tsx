@@ -8,6 +8,18 @@ import { useRateLimit } from '@/hooks/use-rate-limit';
 
 type AuthMode = 'sign-in' | 'sign-up';
 
+function submitButtonLabel(
+  isLocked: boolean,
+  lockCountdown: number,
+  submitting: boolean,
+  mode: AuthMode
+): string {
+  if (isLocked) return `Locked (${lockCountdown}s)`;
+  if (submitting) return 'Loading...';
+  if (mode === 'sign-in') return 'Sign In';
+  return 'Create Account';
+}
+
 export function LoginPage(): React.ReactNode {
   const { user, signIn, signUp } = useAuth();
   const navigate = useNavigate();
@@ -214,13 +226,7 @@ export function LoginPage(): React.ReactNode {
               )}
 
               <Button type="submit" variant="primary" size="lg" disabled={submitting || isLocked}>
-                {isLocked
-                  ? `Locked (${lockCountdown}s)`
-                  : submitting
-                    ? 'Loading...'
-                    : mode === 'sign-in'
-                      ? 'Sign In'
-                      : 'Create Account'}
+                {submitButtonLabel(isLocked, lockCountdown, submitting, mode)}
               </Button>
             </form>
 

@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
-import { api, setAccessToken, refreshAccessToken } from '@/lib/api';
+import { setAccessToken, refreshAccessToken } from '@/lib/api';
+import { apiFetch } from '@/lib/api-functions';
 import { isRecord } from '@gzclp/shared/type-guards';
 
 // ---------------------------------------------------------------------------
@@ -44,12 +45,6 @@ function parseUserInfo(data: unknown): UserInfo | null {
   };
 }
 
-function extractError(result: unknown): string {
-  if (isRecord(result) && typeof result.message === 'string') return result.message;
-  if (isRecord(result) && typeof result.error === 'string') return result.error;
-  return 'Something went wrong';
-}
-
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
@@ -73,11 +68,12 @@ export function AuthProvider({
         return;
       }
 
-      // Fetch user info from /auth/me — authoritative, no fragile JWT decoding
-      const { data, error } = await api.auth.me.get();
-      if (!error) {
+      try {
+        const data = await apiFetch('/auth/me');
         const userInfo = parseUserInfo(data);
         if (userInfo) setUser(userInfo);
+      } catch {
+        // Token may be invalid — user stays null
       }
 
       setLoading(false);
@@ -88,50 +84,50 @@ export function AuthProvider({
 
   const signUp = useCallback(
     async (email: string, password: string): Promise<AuthResult | null> => {
-      const { data, error } = await api.auth.signup.post({
-        email,
-        password,
-      });
-
-      if (error) {
-        return { message: extractError(error) };
+      try {
+        const data = await apiFetch('/auth/signup', {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        });
+        if (isRecord(data) && typeof data.accessToken === 'string') {
+          setAccessToken(data.accessToken);
+          const userInfo = parseUserInfo(isRecord(data) ? data.user : null);
+          if (userInfo) setUser(userInfo);
+        }
+        return null;
+      } catch (err: unknown) {
+        return { message: err instanceof Error ? err.message : 'Something went wrong' };
       }
-
-      if (isRecord(data) && typeof data.accessToken === 'string') {
-        setAccessToken(data.accessToken);
-        const userInfo = parseUserInfo(isRecord(data) ? data.user : null);
-        if (userInfo) setUser(userInfo);
-      }
-
-      return null;
     },
     []
   );
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<AuthResult | null> => {
-      const { data, error } = await api.auth.signin.post({
-        email,
-        password,
-      });
-
-      if (error) {
-        return { message: extractError(error) };
+      try {
+        const data = await apiFetch('/auth/signin', {
+          method: 'POST',
+          body: JSON.stringify({ email, password }),
+        });
+        if (isRecord(data) && typeof data.accessToken === 'string') {
+          setAccessToken(data.accessToken);
+          const userInfo = parseUserInfo(isRecord(data) ? data.user : null);
+          if (userInfo) setUser(userInfo);
+        }
+        return null;
+      } catch (err: unknown) {
+        return { message: err instanceof Error ? err.message : 'Something went wrong' };
       }
-
-      if (isRecord(data) && typeof data.accessToken === 'string') {
-        setAccessToken(data.accessToken);
-        const userInfo = parseUserInfo(isRecord(data) ? data.user : null);
-        if (userInfo) setUser(userInfo);
-      }
-
-      return null;
     },
     []
   );
 
   const signOut = useCallback(async (): Promise<void> => {
-    await api.auth.signout.post();
+    try {
+      await apiFetch('/auth/signout', { method: 'POST' });
+    } catch {
+      // Ignore signout errors — always clear local state
+    }
     setAccessToken(null);
     setUser(null);
   }, []);

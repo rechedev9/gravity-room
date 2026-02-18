@@ -15,7 +15,6 @@ function isView(value: string): value is View {
 function parseViewParam(param: string | null): View {
   if (param && isView(param)) return param;
   // Legacy: ?view=programs maps to dashboard
-  if (param === 'programs') return 'dashboard';
   return 'dashboard';
 }
 
@@ -33,12 +32,8 @@ export function AppShell(): React.ReactNode {
     [navigate]
   );
 
-  const handleSelectProgram = useCallback((): void => {
-    // Only GZCLP is supported — programId will route to different trackers in the future
-    setView('tracker');
-  }, [setView]);
-
-  const handleContinueProgram = useCallback((): void => {
+  // Only GZCLP is supported — programId will route to different trackers in the future
+  const handleGoToTracker = useCallback((): void => {
     setView('tracker');
   }, [setView]);
 
@@ -57,8 +52,8 @@ export function AppShell(): React.ReactNode {
   } else if (view === 'dashboard') {
     content = (
       <Dashboard
-        onSelectProgram={handleSelectProgram}
-        onContinueProgram={handleContinueProgram}
+        onSelectProgram={handleGoToTracker}
+        onContinueProgram={handleGoToTracker}
         onGoToProfile={handleGoToProfile}
       />
     );

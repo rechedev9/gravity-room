@@ -44,7 +44,7 @@ interface GZCLPAppProps {
   readonly onGoToProfile?: () => void;
 }
 
-export function GZCLPApp({ onBackToDashboard, onGoToProfile }: GZCLPAppProps) {
+export function GZCLPApp({ onBackToDashboard, onGoToProfile }: GZCLPAppProps): React.ReactNode {
   const {
     startWeights,
     results,
@@ -128,10 +128,6 @@ export function GZCLPApp({ onBackToDashboard, onGoToProfile }: GZCLPAppProps) {
     queryClient.clear();
   }, [signOut, queryClient]);
 
-  const handleReset = useCallback((): void => {
-    resetAll();
-  }, [resetAll]);
-
   return (
     <>
       <div className="sticky top-0 z-50">
@@ -149,7 +145,7 @@ export function GZCLPApp({ onBackToDashboard, onGoToProfile }: GZCLPAppProps) {
             undoCount={undoHistory.length}
             onUndo={undoLast}
             onJumpToCurrent={jumpToCurrent}
-            onReset={handleReset}
+            onReset={resetAll}
           />
         )}
       </div>

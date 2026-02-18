@@ -26,6 +26,8 @@ const mockFetchProgram = mock<(id: string) => Promise<ProgramDetail>>(() =>
   })
 );
 
+const mockImportProgram = mock(() => Promise.resolve({ id: 'imported-1' }));
+
 mock.module('@/lib/api-functions', () => ({
   fetchPrograms: mockFetchPrograms,
   fetchProgram: mockFetchProgram,
@@ -36,7 +38,7 @@ mock.module('@/lib/api-functions', () => ({
   deleteResult: mock(() => Promise.resolve()),
   undoLastResult: mock(() => Promise.resolve()),
   exportProgram: mock(() => Promise.resolve({})),
-  importProgram: mock(() => Promise.resolve({ id: 'imported-1' })),
+  importProgram: mockImportProgram,
 }));
 
 const mockUseAuth = mock(() => ({
@@ -201,6 +203,41 @@ describe('useProgram', () => {
       expect(typeof result.current.resetAll).toBe('function');
       expect(typeof result.current.exportData).toBe('function');
       expect(typeof result.current.importData).toBe('function');
+    });
+  });
+
+  describe('importData', () => {
+    it('returns false when the API rejects the import', async () => {
+      mockImportProgram.mockImplementation(() =>
+        Promise.reject(new Error('Import rejected by API'))
+      );
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useProgram(), { wrapper });
+
+      const validJson = JSON.stringify({
+        version: 1,
+        exportDate: new Date().toISOString(),
+        programId: 'gzclp',
+        name: 'Test',
+        config: { ...DEFAULT_WEIGHTS },
+        results: {},
+        undoHistory: [],
+      });
+
+      const outcome = await result.current.importData(validJson);
+      expect(outcome).toBe(false);
+
+      // Restore the mock
+      mockImportProgram.mockImplementation(() => Promise.resolve({ id: 'imported-1' }));
+    });
+
+    it('returns false for malformed JSON', async () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useProgram(), { wrapper });
+
+      const outcome = await result.current.importData('not json');
+      expect(outcome).toBe(false);
     });
   });
 });

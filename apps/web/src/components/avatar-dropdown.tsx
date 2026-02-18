@@ -53,7 +53,6 @@ export function AvatarDropdown({
   }
 
   const initial = (user.email[0] ?? 'U').toUpperCase();
-  const displayEmail = user.email;
   const syncLabel = SYNC_LABELS[syncStatus];
 
   return (
@@ -71,7 +70,7 @@ export function AvatarDropdown({
       <DropdownMenu open={open} onClose={close} align="right">
         {/* Email */}
         <div className="px-4 py-2.5 text-xs text-[var(--text-muted)] truncate max-w-[220px]">
-          {displayEmail}
+          {user.email}
         </div>
 
         {/* Sync status */}

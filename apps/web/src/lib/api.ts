@@ -1,15 +1,13 @@
 /**
- * Eden Treaty client for type-safe API communication.
+ * Access token management and refresh logic.
  *
  * The access token is stored in-memory (module-level variable) — never in
- * localStorage. The `onRequest` hook injects it on every outgoing request.
+ * localStorage. api-functions.ts injects it on every outgoing request.
  *
  * Token refresh is handled with a promise-based mutex: if multiple requests
  * fail with 401 simultaneously, only one refresh attempt runs — the others
  * wait for its result.
  */
-import { treaty } from '@elysiajs/eden';
-import type { App } from '../../../api/src/index';
 import { isRecord } from '@gzclp/shared/type-guards';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
@@ -64,17 +62,3 @@ export async function refreshAccessToken(): Promise<string | null> {
 
   return refreshPromise;
 }
-
-// ---------------------------------------------------------------------------
-// Eden Treaty client
-// ---------------------------------------------------------------------------
-
-export const api = treaty<App>(API_URL, {
-  fetch: { credentials: 'include' },
-  headers(): Record<string, string> {
-    if (accessToken) {
-      return { Authorization: `Bearer ${accessToken}` };
-    }
-    return {};
-  },
-});

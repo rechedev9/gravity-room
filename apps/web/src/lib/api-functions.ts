@@ -86,60 +86,43 @@ function mergeHeaders(
   return { ...base, ...extra };
 }
 
-async function apiFetch(path: string, options: RequestInit = {}): Promise<unknown> {
+async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
+  const body: unknown = await res.json().catch(() => ({}));
+  if (isRecord(body) && typeof body.error === 'string') return body.error;
+  return fallback;
+}
+
+export async function apiFetch(path: string, options: RequestInit = {}): Promise<unknown> {
   const token = getAccessToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: mergeHeaders(headers, options.headers),
-    credentials: 'include',
-  });
+  const doFetch = (): Promise<Response> =>
+    fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: mergeHeaders(headers, options.headers),
+      credentials: 'include',
+    });
+
+  const res = await doFetch();
 
   if (res.status === 401) {
-    // Try refreshing the token and retry
     const newToken = await refreshAccessToken();
     if (newToken) {
       headers['Authorization'] = `Bearer ${newToken}`;
-      const retry = await fetch(`${API_URL}${path}`, {
-        ...options,
-        headers: mergeHeaders(headers, options.headers),
-        credentials: 'include',
-      });
-
-      if (!retry.ok) {
-        const errorBody: unknown = await retry.json().catch(() => ({}));
-        const msg =
-          isRecord(errorBody) && typeof errorBody.error === 'string'
-            ? errorBody.error
-            : `API error: ${retry.status}`;
-        throw new Error(msg);
-      }
-
+      const retry = await doFetch();
+      if (!retry.ok)
+        throw new Error(await extractErrorMessage(retry, `API error: ${retry.status}`));
       if (retry.status === 204) return null;
       return retry.json();
     }
 
-    const errorBody: unknown = await res.json().catch(() => ({}));
-    const msg =
-      isRecord(errorBody) && typeof errorBody.error === 'string'
-        ? errorBody.error
-        : 'Authentication failed';
-    throw new Error(msg);
+    throw new Error(await extractErrorMessage(res, 'Authentication failed'));
   }
 
-  if (!res.ok) {
-    const errorBody: unknown = await res.json().catch(() => ({}));
-    const msg =
-      isRecord(errorBody) && typeof errorBody.error === 'string'
-        ? errorBody.error
-        : `API error: ${res.status}`;
-    throw new Error(msg);
-  }
-
+  if (!res.ok) throw new Error(await extractErrorMessage(res, `API error: ${res.status}`));
   if (res.status === 204) return null;
   return res.json();
 }
