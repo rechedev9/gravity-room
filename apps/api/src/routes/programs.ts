@@ -14,6 +14,8 @@ import {
   importInstance,
 } from '../services/programs';
 
+const security = [{ bearerAuth: [] }];
+
 export const programRoutes = new Elysia({ prefix: '/programs' })
   .use(jwtPlugin)
   .resolve(resolveUserId)
@@ -27,6 +29,17 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
         cursor: t.Optional(t.String()),
       }),
+      detail: {
+        tags: ['Programs'],
+        summary: 'List program instances',
+        description:
+          "Returns the authenticated user's program instances, newest first. Supports cursor-based pagination via the `cursor` query parameter (ISO timestamp from `nextCursor` in the previous response).",
+        security,
+        responses: {
+          200: { description: 'Paginated list of program instances with nextCursor' },
+          401: { description: 'Missing or invalid token' },
+        },
+      },
     }
   )
 
@@ -45,21 +58,42 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         name: t.String({ minLength: 1, maxLength: 100 }),
         config: t.Record(t.String({ maxLength: 30 }), t.Number({ minimum: 0, maximum: 10000 })),
       }),
+      detail: {
+        tags: ['Programs'],
+        summary: 'Create a program instance',
+        description:
+          'Creates a new program instance for the authenticated user. `programId` must match a registered program definition (e.g. `"gzclp"`). `config` holds the starting weights keyed by exercise ID.',
+        security,
+        responses: {
+          201: { description: 'Program instance created' },
+          400: { description: 'Unknown programId or invalid config' },
+          401: { description: 'Missing or invalid token' },
+          429: { description: 'Rate limited' },
+        },
+      },
     }
   )
 
   // GET /programs/:id — get a single program instance with results
   .get('/:id', ({ userId, params }) => getInstance(userId, params.id), {
-    params: t.Object({
-      id: t.String(),
-    }),
+    params: t.Object({ id: t.String() }),
+    detail: {
+      tags: ['Programs'],
+      summary: 'Get program instance',
+      description:
+        'Returns a single program instance including all recorded workout results and undo history.',
+      security,
+      responses: {
+        200: { description: 'Program instance with results and undo history' },
+        401: { description: 'Missing or invalid token' },
+        404: { description: 'Program not found or not owned by user' },
+      },
+    },
   })
 
   // PATCH /programs/:id — update a program instance
   .patch('/:id', ({ userId, params, body }) => updateInstance(userId, params.id, body), {
-    params: t.Object({
-      id: t.String(),
-    }),
+    params: t.Object({ id: t.String() }),
     body: t.Object({
       name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
       status: t.Optional(
@@ -69,6 +103,18 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         t.Record(t.String({ maxLength: 30 }), t.Number({ minimum: 0, maximum: 10000 }))
       ),
     }),
+    detail: {
+      tags: ['Programs'],
+      summary: 'Update program instance',
+      description:
+        'Partially updates a program instance. Only provided fields are changed. Use `status` to archive or complete a program.',
+      security,
+      responses: {
+        200: { description: 'Updated program instance' },
+        401: { description: 'Missing or invalid token' },
+        404: { description: 'Program not found or not owned by user' },
+      },
+    },
   })
 
   // DELETE /programs/:id — delete a program instance
@@ -79,17 +125,37 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       set.status = 204;
     },
     {
-      params: t.Object({
-        id: t.String(),
-      }),
+      params: t.Object({ id: t.String() }),
+      detail: {
+        tags: ['Programs'],
+        summary: 'Delete program instance',
+        description:
+          'Permanently deletes the program instance and all associated workout results and undo history (cascade).',
+        security,
+        responses: {
+          204: { description: 'Deleted successfully' },
+          401: { description: 'Missing or invalid token' },
+          404: { description: 'Program not found or not owned by user' },
+        },
+      },
     }
   )
 
   // GET /programs/:id/export — export a program instance as JSON
   .get('/:id/export', ({ userId, params }) => exportInstance(userId, params.id), {
-    params: t.Object({
-      id: t.String(),
-    }),
+    params: t.Object({ id: t.String() }),
+    detail: {
+      tags: ['Programs'],
+      summary: 'Export program instance',
+      description:
+        'Exports the program instance as a portable JSON document that can be imported into any GZCLP Tracker account.',
+      security,
+      responses: {
+        200: { description: 'Exported program JSON' },
+        401: { description: 'Missing or invalid token' },
+        404: { description: 'Program not found or not owned by user' },
+      },
+    },
   })
 
   // POST /programs/import — import a program from exported JSON
@@ -127,5 +193,21 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
           { maxItems: 500 }
         ),
       }),
+      detail: {
+        tags: ['Programs'],
+        summary: 'Import program instance',
+        description:
+          'Imports a previously exported program JSON. All results and undo history are validated against the program definition before import.',
+        security,
+        responses: {
+          201: { description: 'Program instance created from import' },
+          400: {
+            description:
+              'Invalid export data (unknown programId, invalid config, or bad workout indices)',
+          },
+          401: { description: 'Missing or invalid token' },
+          429: { description: 'Rate limited' },
+        },
+      },
     }
   );

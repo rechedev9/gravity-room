@@ -9,8 +9,16 @@ import { ApiError } from '../middleware/error-handler';
 export const catalogRoutes = new Elysia({ prefix: '/catalog' })
 
   // GET /catalog — list all available program definitions
-  .get('/', () => {
-    return getAllPresetPrograms();
+  .get('/', () => getAllPresetPrograms(), {
+    detail: {
+      tags: ['Catalog'],
+      summary: 'List program definitions',
+      description:
+        'Returns all available preset program definitions (e.g. GZCLP). No authentication required.',
+      responses: {
+        200: { description: 'Array of program definitions' },
+      },
+    },
   })
 
   // GET /catalog/:programId — get a specific program definition
@@ -24,8 +32,16 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
       return definition;
     },
     {
-      params: t.Object({
-        programId: t.String(),
-      }),
+      params: t.Object({ programId: t.String() }),
+      detail: {
+        tags: ['Catalog'],
+        summary: 'Get program definition',
+        description:
+          'Returns a single program definition by ID (e.g. `"gzclp"`). No authentication required.',
+        responses: {
+          200: { description: 'Program definition' },
+          404: { description: 'Unknown program ID' },
+        },
+      },
     }
   );

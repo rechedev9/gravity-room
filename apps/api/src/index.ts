@@ -8,6 +8,7 @@ import postgres from 'postgres';
 import { join } from 'path';
 import { ApiError } from './middleware/error-handler';
 import { requestLogger } from './middleware/request-logger';
+import { swaggerPlugin } from './plugins/swagger';
 import { cleanupExpiredTokens } from './services/auth';
 import { authRoutes } from './routes/auth';
 import { programRoutes } from './routes/programs';
@@ -74,6 +75,7 @@ export const app = new Elysia()
       credentials: true,
     })
   )
+  .use(swaggerPlugin)
   .onAfterHandle(({ set }) => {
     set.headers['x-content-type-options'] = 'nosniff';
     set.headers['x-frame-options'] = 'DENY';
@@ -118,26 +120,41 @@ export const app = new Elysia()
   .use(programRoutes)
   .use(catalogRoutes)
   .use(resultRoutes)
-  .get('/health', async ({ set }) => {
-    const start = Date.now();
-    let dbStatus: { status: 'ok'; latencyMs: number } | { status: 'error'; error: string };
-    try {
-      await getDb().execute(sql`SELECT 1`);
-      dbStatus = { status: 'ok', latencyMs: Date.now() - start };
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'unknown';
-      dbStatus = { status: 'error', error: msg };
+  .get(
+    '/health',
+    async ({ set }) => {
+      const start = Date.now();
+      let dbStatus: { status: 'ok'; latencyMs: number } | { status: 'error'; error: string };
+      try {
+        await getDb().execute(sql`SELECT 1`);
+        dbStatus = { status: 'ok', latencyMs: Date.now() - start };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'unknown';
+        dbStatus = { status: 'error', error: msg };
+      }
+      const overall = dbStatus.status === 'ok' ? 'ok' : 'degraded';
+      if (overall === 'degraded') set.status = 503;
+      return {
+        status: overall,
+        timestamp: new Date().toISOString(),
+        uptime: Math.floor(process.uptime()),
+        version,
+        db: dbStatus,
+      };
+    },
+    {
+      detail: {
+        tags: ['System'],
+        summary: 'Health check',
+        description:
+          'Returns server uptime and a live database probe. Returns 503 when the database is unreachable.',
+        responses: {
+          200: { description: 'Server and database are healthy' },
+          503: { description: 'Database unreachable' },
+        },
+      },
     }
-    const overall = dbStatus.status === 'ok' ? 'ok' : 'degraded';
-    if (overall === 'degraded') set.status = 503;
-    return {
-      status: overall,
-      timestamp: new Date().toISOString(),
-      uptime: Math.floor(process.uptime()),
-      version,
-      db: dbStatus,
-    };
-  })
+  )
   .use(staticPlugin({ assets: '../web/dist', prefix: '/' }))
   .get('/*', () => Bun.file('../web/dist/index.html'))
   .listen({ port: PORT, maxRequestBodySize: 1_048_576 }, () => {

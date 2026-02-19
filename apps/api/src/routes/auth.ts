@@ -79,6 +79,8 @@ async function issueTokens(
   return { accessToken };
 }
 
+const authSecurity = [{ bearerAuth: [] }];
+
 export const authRoutes = new Elysia({ prefix: '/auth' })
   .use(requestLogger)
   .use(jwtPlugin)
@@ -117,6 +119,18 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         password: t.String({ minLength: 8 }),
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
       }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Register a new user',
+        description:
+          'Creates a user account and issues a short-lived access token plus a rotating httpOnly refresh token cookie.',
+        responses: {
+          201: { description: 'User created; access token in body, refresh token in cookie' },
+          400: { description: 'Validation error or password found in breach databases' },
+          409: { description: 'Email already registered' },
+          429: { description: 'Rate limited' },
+        },
+      },
     }
   )
 
@@ -147,101 +161,158 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         email: t.String({ format: 'email' }),
         password: t.String({ minLength: 8 }),
       }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Sign in',
+        description:
+          'Authenticates with email and password. Returns an access token and sets a refresh token cookie.',
+        responses: {
+          200: { description: 'Authenticated; access token in body, refresh token in cookie' },
+          401: { description: 'Invalid credentials' },
+          429: { description: 'Rate limited' },
+        },
+      },
     }
   )
 
   // -----------------------------------------------------------------------
   // POST /auth/refresh
   // -----------------------------------------------------------------------
-  .post('/refresh', async ({ jwt, cookie, reqLogger, ip }) => {
-    rateLimit(ip, '/auth/refresh');
+  .post(
+    '/refresh',
+    async ({ jwt, cookie, reqLogger, ip }) => {
+      rateLimit(ip, '/auth/refresh');
 
-    const refreshCookie = cookie[REFRESH_COOKIE_NAME];
-    const tokenValue = refreshCookie?.value;
+      const refreshCookie = cookie[REFRESH_COOKIE_NAME];
+      const tokenValue = refreshCookie?.value;
 
-    if (!tokenValue || typeof tokenValue !== 'string') {
-      throw new ApiError(401, 'No refresh token', 'AUTH_NO_REFRESH_TOKEN');
-    }
-
-    const tokenHash = await hashToken(tokenValue);
-    const stored = await findRefreshToken(tokenHash);
-
-    if (!stored) {
-      // Token not found — check if it was already rotated (indicates possible theft)
-      const successor = await findRefreshTokenByPreviousHash(tokenHash);
-      if (successor) {
-        // A live token claims this as its predecessor → the old token was reused.
-        // Revoke all sessions for this user as a precaution.
-        reqLogger.warn(
-          { event: 'auth.token_reuse_detected', userId: successor.userId },
-          'refresh token reuse detected — revoking all user sessions'
-        );
-        await revokeAllUserTokens(successor.userId);
+      if (!tokenValue || typeof tokenValue !== 'string') {
+        throw new ApiError(401, 'No refresh token', 'AUTH_NO_REFRESH_TOKEN');
       }
-      throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
-    }
 
-    if (stored.expiresAt < new Date()) {
+      const tokenHash = await hashToken(tokenValue);
+      const stored = await findRefreshToken(tokenHash);
+
+      if (!stored) {
+        // Token not found — check if it was already rotated (indicates possible theft)
+        const successor = await findRefreshTokenByPreviousHash(tokenHash);
+        if (successor) {
+          // A live token claims this as its predecessor → the old token was reused.
+          // Revoke all sessions for this user as a precaution.
+          reqLogger.warn(
+            { event: 'auth.token_reuse_detected', userId: successor.userId },
+            'refresh token reuse detected — revoking all user sessions'
+          );
+          await revokeAllUserTokens(successor.userId);
+        }
+        throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
+      }
+
+      if (stored.expiresAt < new Date()) {
+        await revokeRefreshToken(tokenHash);
+        refreshCookie.remove();
+        throw new ApiError(401, 'Refresh token expired', 'AUTH_REFRESH_EXPIRED');
+      }
+
+      // Rotate: revoke old token, issue new one — pass hash so successor can detect reuse
       await revokeRefreshToken(tokenHash);
-      refreshCookie.remove();
-      throw new ApiError(401, 'Refresh token expired', 'AUTH_REFRESH_EXPIRED');
+      const newRefreshToken = await createAndStoreRefreshToken(stored.userId, tokenHash);
+
+      const accessToken = await jwt.sign({
+        sub: stored.userId,
+        exp: ACCESS_TOKEN_EXPIRY,
+      });
+
+      refreshCookie.set({ value: newRefreshToken, ...refreshCookieOptions() });
+
+      reqLogger.info({ event: 'auth.refresh', userId: stored.userId }, 'token refreshed');
+      return { accessToken };
+    },
+    {
+      detail: {
+        tags: ['Auth'],
+        summary: 'Refresh access token',
+        description:
+          'Rotates the refresh token (family tracking for theft detection) and issues a new short-lived access token.',
+        responses: {
+          200: { description: 'New access token issued; refresh token cookie rotated' },
+          401: { description: 'Missing, invalid, expired, or reused refresh token' },
+          429: { description: 'Rate limited' },
+        },
+      },
     }
-
-    // Rotate: revoke old token, issue new one — pass hash so successor can detect reuse
-    await revokeRefreshToken(tokenHash);
-    const newRefreshToken = await createAndStoreRefreshToken(stored.userId, tokenHash);
-
-    const accessToken = await jwt.sign({
-      sub: stored.userId,
-      exp: ACCESS_TOKEN_EXPIRY,
-    });
-
-    refreshCookie.set({ value: newRefreshToken, ...refreshCookieOptions() });
-
-    reqLogger.info({ event: 'auth.refresh', userId: stored.userId }, 'token refreshed');
-    return { accessToken };
-  })
+  )
 
   // -----------------------------------------------------------------------
   // POST /auth/signout
   // -----------------------------------------------------------------------
-  .post('/signout', async ({ cookie, set, reqLogger, ip }) => {
-    rateLimit(ip, '/auth/signout');
+  .post(
+    '/signout',
+    async ({ cookie, set, reqLogger, ip }) => {
+      rateLimit(ip, '/auth/signout');
 
-    const refreshCookie = cookie[REFRESH_COOKIE_NAME];
-    const tokenValue = refreshCookie?.value;
+      const refreshCookie = cookie[REFRESH_COOKIE_NAME];
+      const tokenValue = refreshCookie?.value;
 
-    if (tokenValue && typeof tokenValue === 'string') {
-      const tokenHash = await hashToken(tokenValue);
-      await revokeRefreshToken(tokenHash);
+      if (tokenValue && typeof tokenValue === 'string') {
+        const tokenHash = await hashToken(tokenValue);
+        await revokeRefreshToken(tokenHash);
+      }
+
+      refreshCookie?.remove();
+      reqLogger.info({ event: 'auth.signout' }, 'user signed out');
+      set.status = 204;
+    },
+    {
+      detail: {
+        tags: ['Auth'],
+        summary: 'Sign out',
+        description: 'Revokes the current refresh token and clears the cookie.',
+        responses: {
+          204: { description: 'Signed out successfully' },
+          429: { description: 'Rate limited' },
+        },
+      },
     }
-
-    refreshCookie?.remove();
-    reqLogger.info({ event: 'auth.signout' }, 'user signed out');
-    set.status = 204;
-  })
+  )
 
   // -----------------------------------------------------------------------
   // GET /auth/me — return current user info from bearer token
   // -----------------------------------------------------------------------
-  .get('/me', async ({ jwt, headers }) => {
-    const authorization = headers['authorization'];
-    if (!authorization?.startsWith('Bearer ')) {
-      throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
-    }
+  .get(
+    '/me',
+    async ({ jwt, headers }) => {
+      const authorization = headers['authorization'];
+      if (!authorization?.startsWith('Bearer ')) {
+        throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
+      }
 
-    const payload = await jwt.verify(authorization.slice(7));
-    if (!payload || typeof payload['sub'] !== 'string') {
-      throw new ApiError(401, 'Invalid or expired token', 'TOKEN_INVALID');
-    }
+      const payload = await jwt.verify(authorization.slice(7));
+      if (!payload || typeof payload['sub'] !== 'string') {
+        throw new ApiError(401, 'Invalid or expired token', 'TOKEN_INVALID');
+      }
 
-    const user = await findUserById(payload['sub']);
-    if (!user) {
-      throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
-    }
+      const user = await findUserById(payload['sub']);
+      if (!user) {
+        throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+      }
 
-    return { id: user.id, email: user.email, name: user.name };
-  })
+      return { id: user.id, email: user.email, name: user.name };
+    },
+    {
+      detail: {
+        tags: ['Auth'],
+        summary: 'Get current user',
+        description: "Returns the authenticated user's profile from the Bearer access token.",
+        security: authSecurity,
+        responses: {
+          200: { description: 'User profile' },
+          401: { description: 'Missing or invalid token' },
+          404: { description: 'User not found (deleted after token was issued)' },
+        },
+      },
+    }
+  )
 
   // -----------------------------------------------------------------------
   // POST /auth/forgot-password — trigger password reset email
@@ -266,6 +337,16 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     },
     {
       body: t.Object({ email: t.String({ format: 'email' }) }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Request password reset',
+        description:
+          'Sends a one-time reset link to the email address if it is registered. Always returns 200 to prevent email enumeration.',
+        responses: {
+          200: { description: 'Always returns 200 regardless of whether the email exists' },
+          429: { description: 'Rate limited' },
+        },
+      },
     }
   )
 
@@ -298,5 +379,15 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         token: t.String({ minLength: 1 }),
         password: t.String({ minLength: 8 }),
       }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Complete password reset',
+        description:
+          'Validates the one-time token, updates the password (Argon2id), and revokes all active sessions.',
+        responses: {
+          200: { description: 'Password updated; all sessions revoked' },
+          400: { description: 'Invalid/expired token or weak password' },
+        },
+      },
     }
   );

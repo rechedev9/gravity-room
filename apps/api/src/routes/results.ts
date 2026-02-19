@@ -7,6 +7,8 @@ import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
 import { rateLimit } from '../middleware/rate-limit';
 import { recordResult, deleteResult, undoLast } from '../services/results';
 
+const security = [{ bearerAuth: [] }];
+
 export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
   .use(jwtPlugin)
   .resolve(resolveUserId)
@@ -33,6 +35,20 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
         result: t.Union([t.Literal('success'), t.Literal('fail')]),
         amrapReps: t.Optional(t.Integer({ minimum: 0 })),
       }),
+      detail: {
+        tags: ['Results'],
+        summary: 'Record a workout result',
+        description:
+          'Upserts a result for a given workout index and slot (tier). Automatically pushes an undo entry capturing the previous state.',
+        security,
+        responses: {
+          201: { description: 'Result recorded' },
+          400: { description: 'Invalid amrapReps or bad slot ID' },
+          401: { description: 'Missing or invalid token' },
+          404: { description: 'Program not found or not owned by user' },
+          429: { description: 'Rate limited' },
+        },
+      },
     }
   )
 
@@ -49,6 +65,18 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
         workoutIndex: t.Numeric(),
         slotId: t.String(),
       }),
+      detail: {
+        tags: ['Results'],
+        summary: 'Delete a workout result',
+        description:
+          'Removes a recorded result and pushes an undo entry so the deletion can be reversed.',
+        security,
+        responses: {
+          204: { description: 'Result deleted' },
+          401: { description: 'Missing or invalid token' },
+          404: { description: 'Result or program not found' },
+        },
+      },
     }
   )
 
@@ -71,5 +99,18 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
     },
     {
       params: t.Object({ id: t.String() }),
+      detail: {
+        tags: ['Results'],
+        summary: 'Undo last result action',
+        description:
+          'Pops the most recent undo entry (LIFO) and restores the previous result state. Returns `{ undone: null }` if nothing to undo.',
+        security,
+        responses: {
+          200: { description: 'Undo applied or null if stack was empty' },
+          401: { description: 'Missing or invalid token' },
+          404: { description: 'Program not found or not owned by user' },
+          429: { description: 'Rate limited' },
+        },
+      },
     }
   );
