@@ -60,6 +60,25 @@ function userResponse(user: { id: string; email: string; name: string | null }):
   return { id: user.id, email: user.email, name: user.name };
 }
 
+/** Signs a JWT, creates a refresh token, and sets the cookie in one step. */
+async function issueTokens(
+  jwt: { sign: (payload: { sub: string; email?: string; exp: string }) => Promise<string> },
+  cookie: Record<string, { set: (opts: Record<string, unknown>) => void }>,
+  user: { id: string; email?: string }
+): Promise<{ accessToken: string }> {
+  const [accessToken, refreshToken] = await Promise.all([
+    jwt.sign({
+      sub: user.id,
+      ...(user.email ? { email: user.email } : {}),
+      exp: ACCESS_TOKEN_EXPIRY,
+    }),
+    createAndStoreRefreshToken(user.id),
+  ]);
+
+  cookie[REFRESH_COOKIE_NAME].set({ value: refreshToken, ...refreshCookieOptions() });
+  return { accessToken };
+}
+
 export const authRoutes = new Elysia({ prefix: '/auth' })
   .use(requestLogger)
   .use(jwtPlugin)
@@ -86,15 +105,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
       const passwordHash = await hashPassword(body.password);
       const user = await createUser(body.email, passwordHash, body.name);
-
-      const accessToken = await jwt.sign({
-        sub: user.id,
-        email: user.email,
-        exp: ACCESS_TOKEN_EXPIRY,
-      });
-
-      const refreshToken = await createAndStoreRefreshToken(user.id);
-      cookie[REFRESH_COOKIE_NAME].set({ value: refreshToken, ...refreshCookieOptions() });
+      const { accessToken } = await issueTokens(jwt, cookie, user);
 
       reqLogger.info({ event: 'auth.signup', userId: user.id }, 'user registered');
       set.status = 201;
@@ -126,14 +137,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         throw new ApiError(401, 'Invalid email or password', 'AUTH_INVALID_CREDENTIALS');
       }
 
-      const accessToken = await jwt.sign({
-        sub: user.id,
-        email: user.email,
-        exp: ACCESS_TOKEN_EXPIRY,
-      });
-
-      const refreshToken = await createAndStoreRefreshToken(user.id);
-      cookie[REFRESH_COOKIE_NAME].set({ value: refreshToken, ...refreshCookieOptions() });
+      const { accessToken } = await issueTokens(jwt, cookie, user);
 
       reqLogger.info({ event: 'auth.signin', userId: user.id }, 'user signed in');
       return { user: userResponse(user), accessToken };

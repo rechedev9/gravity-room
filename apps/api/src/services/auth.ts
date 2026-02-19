@@ -2,7 +2,7 @@
  * Auth service — password hashing, refresh token management, user CRUD.
  * Framework-agnostic: no Elysia dependency. JWT signing handled in routes.
  */
-import { eq, lt, and, gt } from 'drizzle-orm';
+import { eq, lt, and, gt, isNull } from 'drizzle-orm';
 import { getDb } from '../db';
 import { users, refreshTokens, passwordResetTokens } from '../db/schema';
 
@@ -171,15 +171,21 @@ export async function findPasswordResetToken(
     .select()
     .from(passwordResetTokens)
     .where(
-      and(eq(passwordResetTokens.tokenHash, tokenHash), gt(passwordResetTokens.expiresAt, now))
+      and(
+        eq(passwordResetTokens.tokenHash, tokenHash),
+        gt(passwordResetTokens.expiresAt, now),
+        isNull(passwordResetTokens.usedAt)
+      )
     )
     .limit(1);
-
-  if (!token || token.usedAt !== null) return undefined;
   return token;
 }
 
-/** Marks the reset token as used and updates the user's password. */
+/**
+ * Atomically marks the reset token as used, updates the user's password,
+ * and revokes all active sessions — wrapped in a transaction so partial
+ * failures cannot leave the account in an inconsistent state.
+ */
 export async function markPasswordResetTokenUsed(
   tokenHash: string,
   newPassword: string
@@ -187,24 +193,27 @@ export async function markPasswordResetTokenUsed(
   const newHash = await hashPassword(newPassword);
   const now = new Date();
 
-  // Find the token to get userId
-  const [token] = await getDb()
-    .select()
-    .from(passwordResetTokens)
-    .where(eq(passwordResetTokens.tokenHash, tokenHash))
-    .limit(1);
+  await getDb().transaction(async (tx) => {
+    const [token] = await tx
+      .select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.tokenHash, tokenHash))
+      .limit(1);
 
-  if (!token) return;
+    if (!token) return;
 
-  // Mark token used and update password in parallel
-  await Promise.all([
-    getDb()
-      .update(passwordResetTokens)
-      .set({ usedAt: now })
-      .where(eq(passwordResetTokens.tokenHash, tokenHash)),
-    getDb()
-      .update(users)
-      .set({ passwordHash: newHash, updatedAt: now })
-      .where(eq(users.id, token.userId)),
-  ]);
+    await Promise.all([
+      tx
+        .update(passwordResetTokens)
+        .set({ usedAt: now })
+        .where(eq(passwordResetTokens.tokenHash, tokenHash)),
+      tx
+        .update(users)
+        .set({ passwordHash: newHash, updatedAt: now })
+        .where(eq(users.id, token.userId)),
+      // Revoke all active sessions — anyone holding a session before the
+      // password change (including a potential attacker) loses access.
+      tx.delete(refreshTokens).where(eq(refreshTokens.userId, token.userId)),
+    ]);
+  });
 }

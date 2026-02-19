@@ -45,6 +45,27 @@ function parseUserInfo(data: unknown): UserInfo | null {
   };
 }
 
+/** Shared logic for signUp/signIn — calls the endpoint, stores the token, returns the user. */
+async function authenticateWith(
+  path: string,
+  email: string,
+  password: string
+): Promise<{ user: UserInfo | null } | { error: AuthResult }> {
+  try {
+    const data = await apiFetch(path, {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    if (isRecord(data) && typeof data.accessToken === 'string') {
+      setAccessToken(data.accessToken);
+      return { user: parseUserInfo(data.user) };
+    }
+    return { user: null };
+  } catch (err: unknown) {
+    return { error: { message: err instanceof Error ? err.message : 'Something went wrong' } };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
@@ -84,40 +105,20 @@ export function AuthProvider({
 
   const signUp = useCallback(
     async (email: string, password: string): Promise<AuthResult | null> => {
-      try {
-        const data = await apiFetch('/auth/signup', {
-          method: 'POST',
-          body: JSON.stringify({ email, password }),
-        });
-        if (isRecord(data) && typeof data.accessToken === 'string') {
-          setAccessToken(data.accessToken);
-          const userInfo = parseUserInfo(isRecord(data) ? data.user : null);
-          if (userInfo) setUser(userInfo);
-        }
-        return null;
-      } catch (err: unknown) {
-        return { message: err instanceof Error ? err.message : 'Something went wrong' };
-      }
+      const result = await authenticateWith('/auth/signup', email, password);
+      if ('error' in result) return result.error;
+      if (result.user) setUser(result.user);
+      return null;
     },
     []
   );
 
   const signIn = useCallback(
     async (email: string, password: string): Promise<AuthResult | null> => {
-      try {
-        const data = await apiFetch('/auth/signin', {
-          method: 'POST',
-          body: JSON.stringify({ email, password }),
-        });
-        if (isRecord(data) && typeof data.accessToken === 'string') {
-          setAccessToken(data.accessToken);
-          const userInfo = parseUserInfo(isRecord(data) ? data.user : null);
-          if (userInfo) setUser(userInfo);
-        }
-        return null;
-      } catch (err: unknown) {
-        return { message: err instanceof Error ? err.message : 'Something went wrong' };
-      }
+      const result = await authenticateWith('/auth/signin', email, password);
+      if ('error' in result) return result.error;
+      if (result.user) setUser(result.user);
+      return null;
     },
     []
   );

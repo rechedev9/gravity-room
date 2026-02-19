@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { StartWeights, Results, UndoHistory, Tier, ResultValue } from '@gzclp/shared/types';
 import { queryKeys } from '@/lib/query-keys';
 import {
@@ -45,6 +45,47 @@ function removeTierResult(results: Results, index: number, tier: Tier): Results 
     }
   }
   return updated;
+}
+
+// ---------------------------------------------------------------------------
+// Helper: shared optimistic mutation lifecycle callbacks
+// ---------------------------------------------------------------------------
+
+interface OptimisticContext {
+  readonly previousDetail: ProgramDetail | undefined;
+}
+
+/** Creates onMutate/onError/onSettled handlers for detail cache optimistic updates. */
+function optimisticDetailCallbacks(
+  queryClient: QueryClient,
+  instanceId: string | null
+): {
+  snapshotAndUpdate: (
+    updater: (prev: ProgramDetail) => ProgramDetail
+  ) => Promise<OptimisticContext>;
+  onError: (_err: unknown, _vars: unknown, context: OptimisticContext | undefined) => void;
+  onSettled: () => void;
+} {
+  const detailKey = queryKeys.programs.detail(instanceId ?? '');
+
+  return {
+    snapshotAndUpdate: async (updater) => {
+      await queryClient.cancelQueries({ queryKey: detailKey });
+      const previousDetail = queryClient.getQueryData<ProgramDetail>(detailKey);
+      if (previousDetail) {
+        queryClient.setQueryData<ProgramDetail>(detailKey, updater(previousDetail));
+      }
+      return { previousDetail };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousDetail) {
+        queryClient.setQueryData(detailKey, context.previousDetail);
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: detailKey });
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +152,12 @@ export function useProgram(instanceId?: string): UseProgramReturn {
   // Mutations
   // -------------------------------------------------------------------------
 
+  const {
+    snapshotAndUpdate,
+    onError: detailOnError,
+    onSettled: detailOnSettled,
+  } = optimisticDetailCallbacks(queryClient, activeInstanceId);
+
   const markResultMutation = useMutation({
     mutationFn: async ({
       index,
@@ -124,41 +171,13 @@ export function useProgram(instanceId?: string): UseProgramReturn {
       if (!activeInstanceId) throw new Error('No active program');
       await recordResult(activeInstanceId, index, tier, value);
     },
-    onMutate: async ({ index, tier, value }) => {
-      // Cancel outgoing refetches
-      await queryClient.cancelQueries({
-        queryKey: queryKeys.programs.detail(activeInstanceId ?? ''),
-      });
-
-      // Snapshot previous value
-      const previousDetail = queryClient.getQueryData<ProgramDetail>(
-        queryKeys.programs.detail(activeInstanceId ?? '')
-      );
-
-      // Optimistically update the cached detail
-      if (previousDetail) {
-        queryClient.setQueryData<ProgramDetail>(queryKeys.programs.detail(activeInstanceId ?? ''), {
-          ...previousDetail,
-          results: setResultOptimistic(previousDetail.results, index, tier, value),
-        });
-      }
-
-      return { previousDetail };
-    },
-    onError: (_err, _vars, context) => {
-      // Rollback on error
-      if (context?.previousDetail) {
-        queryClient.setQueryData(
-          queryKeys.programs.detail(activeInstanceId ?? ''),
-          context.previousDetail
-        );
-      }
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.programs.detail(activeInstanceId ?? ''),
-      });
-    },
+    onMutate: ({ index, tier, value }) =>
+      snapshotAndUpdate((prev) => ({
+        ...prev,
+        results: setResultOptimistic(prev.results, index, tier, value),
+      })),
+    onError: detailOnError,
+    onSettled: detailOnSettled,
   });
 
   const setAmrapMutation = useMutation({
@@ -173,24 +192,13 @@ export function useProgram(instanceId?: string): UseProgramReturn {
     }) => {
       if (!activeInstanceId) throw new Error('No active program');
       const tier: Tier = field === 't1Reps' ? 't1' : 't3';
-
-      // Record the result with amrapReps — need the current result value
       const currentResult = results[index]?.[tier];
-      if (!currentResult) return; // No result to attach AMRAP to
-
+      if (!currentResult) return;
       await recordResult(activeInstanceId, index, tier, currentResult, reps);
     },
-    onMutate: async ({ index, field, reps }) => {
-      await queryClient.cancelQueries({
-        queryKey: queryKeys.programs.detail(activeInstanceId ?? ''),
-      });
-
-      const previousDetail = queryClient.getQueryData<ProgramDetail>(
-        queryKeys.programs.detail(activeInstanceId ?? '')
-      );
-
-      if (previousDetail) {
-        const updatedResults = { ...previousDetail.results };
+    onMutate: ({ index, field, reps }) =>
+      snapshotAndUpdate((prev) => {
+        const updatedResults = { ...prev.results };
         const entry = { ...updatedResults[index] };
         if (reps === undefined) {
           delete entry[field];
@@ -198,28 +206,10 @@ export function useProgram(instanceId?: string): UseProgramReturn {
           entry[field] = reps;
         }
         updatedResults[index] = entry;
-
-        queryClient.setQueryData<ProgramDetail>(queryKeys.programs.detail(activeInstanceId ?? ''), {
-          ...previousDetail,
-          results: updatedResults,
-        });
-      }
-
-      return { previousDetail };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previousDetail) {
-        queryClient.setQueryData(
-          queryKeys.programs.detail(activeInstanceId ?? ''),
-          context.previousDetail
-        );
-      }
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.programs.detail(activeInstanceId ?? ''),
-      });
-    },
+        return { ...prev, results: updatedResults };
+      }),
+    onError: detailOnError,
+    onSettled: detailOnSettled,
   });
 
   const undoSpecificMutation = useMutation({
@@ -227,37 +217,13 @@ export function useProgram(instanceId?: string): UseProgramReturn {
       if (!activeInstanceId) throw new Error('No active program');
       await deleteResult(activeInstanceId, index, tier);
     },
-    onMutate: async ({ index, tier }) => {
-      await queryClient.cancelQueries({
-        queryKey: queryKeys.programs.detail(activeInstanceId ?? ''),
-      });
-
-      const previousDetail = queryClient.getQueryData<ProgramDetail>(
-        queryKeys.programs.detail(activeInstanceId ?? '')
-      );
-
-      if (previousDetail) {
-        queryClient.setQueryData<ProgramDetail>(queryKeys.programs.detail(activeInstanceId ?? ''), {
-          ...previousDetail,
-          results: removeTierResult(previousDetail.results, index, tier),
-        });
-      }
-
-      return { previousDetail };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previousDetail) {
-        queryClient.setQueryData(
-          queryKeys.programs.detail(activeInstanceId ?? ''),
-          context.previousDetail
-        );
-      }
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.programs.detail(activeInstanceId ?? ''),
-      });
-    },
+    onMutate: ({ index, tier }) =>
+      snapshotAndUpdate((prev) => ({
+        ...prev,
+        results: removeTierResult(prev.results, index, tier),
+      })),
+    onError: detailOnError,
+    onSettled: detailOnSettled,
   });
 
   const undoLastMutation = useMutation({
@@ -265,11 +231,7 @@ export function useProgram(instanceId?: string): UseProgramReturn {
       if (!activeInstanceId) throw new Error('No active program');
       await undoLastResult(activeInstanceId);
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.programs.detail(activeInstanceId ?? ''),
-      });
-    },
+    onSettled: detailOnSettled,
   });
 
   const generateProgramMutation = useMutation({
@@ -286,11 +248,7 @@ export function useProgram(instanceId?: string): UseProgramReturn {
       if (!activeInstanceId) throw new Error('No active program');
       await updateProgramConfig(activeInstanceId, weights);
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({
-        queryKey: queryKeys.programs.detail(activeInstanceId ?? ''),
-      });
-    },
+    onSettled: detailOnSettled,
   });
 
   const resetAllMutation = useMutation({

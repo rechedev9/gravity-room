@@ -21,9 +21,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
   // GET /programs — list user's program instances (cursor-based pagination)
   .get(
     '/',
-    async ({ userId, query }) => {
-      return getInstances(userId, { limit: query.limit, cursor: query.cursor });
-    },
+    ({ userId, query }) => getInstances(userId, { limit: query.limit, cursor: query.cursor }),
     {
       query: t.Object({
         limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
@@ -51,41 +49,27 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
   )
 
   // GET /programs/:id — get a single program instance with results
-  .get(
-    '/:id',
-    async ({ userId, params }) => {
-      const instance = await getInstance(userId, params.id);
-      return instance;
-    },
-    {
-      params: t.Object({
-        id: t.String(),
-      }),
-    }
-  )
+  .get('/:id', ({ userId, params }) => getInstance(userId, params.id), {
+    params: t.Object({
+      id: t.String(),
+    }),
+  })
 
   // PATCH /programs/:id — update a program instance
-  .patch(
-    '/:id',
-    async ({ userId, params, body }) => {
-      const instance = await updateInstance(userId, params.id, body);
-      return instance;
-    },
-    {
-      params: t.Object({
-        id: t.String(),
-      }),
-      body: t.Object({
-        name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
-        status: t.Optional(
-          t.Union([t.Literal('active'), t.Literal('completed'), t.Literal('archived')])
-        ),
-        config: t.Optional(
-          t.Record(t.String({ maxLength: 30 }), t.Number({ minimum: 0, maximum: 10000 }))
-        ),
-      }),
-    }
-  )
+  .patch('/:id', ({ userId, params, body }) => updateInstance(userId, params.id, body), {
+    params: t.Object({
+      id: t.String(),
+    }),
+    body: t.Object({
+      name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
+      status: t.Optional(
+        t.Union([t.Literal('active'), t.Literal('completed'), t.Literal('archived')])
+      ),
+      config: t.Optional(
+        t.Record(t.String({ maxLength: 30 }), t.Number({ minimum: 0, maximum: 10000 }))
+      ),
+    }),
+  })
 
   // DELETE /programs/:id — delete a program instance
   .delete(
@@ -102,18 +86,11 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
   )
 
   // GET /programs/:id/export — export a program instance as JSON
-  .get(
-    '/:id/export',
-    async ({ userId, params }) => {
-      const data = await exportInstance(userId, params.id);
-      return data;
-    },
-    {
-      params: t.Object({
-        id: t.String(),
-      }),
-    }
-  )
+  .get('/:id/export', ({ userId, params }) => exportInstance(userId, params.id), {
+    params: t.Object({
+      id: t.String(),
+    }),
+  })
 
   // POST /programs/import — import a program from exported JSON
   .post(
