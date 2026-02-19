@@ -314,6 +314,29 @@ describe('POST /auth/refresh', () => {
 // GET /auth/me
 // ---------------------------------------------------------------------------
 
+/**
+ * Builds a real HS256 JWT signed with the test secret but with exp set in
+ * the past — proves the JWT plugin enforces expiry (not just bad signatures).
+ */
+async function makeExpiredJwt(userId: string): Promise<string> {
+  const secret = process.env['JWT_SECRET'] ?? '';
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({ sub: userId, exp: Math.floor(Date.now() / 1000) - 3600 })
+  ).toString('base64url');
+  const signingInput = `${header}.${payload}`;
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signingInput));
+  const signature = Buffer.from(sig).toString('base64url');
+  return `${signingInput}.${signature}`;
+}
+
 describe('GET /auth/me', () => {
   it('returns 401 when no Authorization header is present', async () => {
     const res = await get('/auth/me');
@@ -322,6 +345,12 @@ describe('GET /auth/me', () => {
 
   it('returns 401 when token is invalid', async () => {
     const res = await get('/auth/me', { Authorization: 'Bearer invalid-token' });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns 401 when the access token is expired', async () => {
+    const expiredToken = await makeExpiredJwt('user-123');
+    const res = await get('/auth/me', { Authorization: `Bearer ${expiredToken}` });
     expect(res.status).toBe(401);
   });
 });
