@@ -51,12 +51,20 @@ export const refreshTokens = pgTable(
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
     tokenHash: varchar('token_hash', { length: 64 }).unique().notNull(),
+    /**
+     * Hash of the token that was rotated into this one.
+     * When a refresh token is presented but not found (it was rotated away),
+     * we search by previousTokenHash to detect token reuse — a sign of theft.
+     * If found, we revoke all sessions for the user.
+     */
+    previousTokenHash: varchar('previous_token_hash', { length: 64 }),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     index('refresh_tokens_user_id_idx').on(table.userId),
     index('refresh_tokens_expires_at_idx').on(table.expiresAt),
+    index('refresh_tokens_prev_hash_idx').on(table.previousTokenHash),
   ]
 );
 

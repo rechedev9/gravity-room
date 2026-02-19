@@ -17,7 +17,9 @@ import {
   findUserByEmail,
   findUserById,
   findRefreshToken,
+  findRefreshTokenByPreviousHash,
   revokeRefreshToken,
+  revokeAllUserTokens,
   createAndStoreRefreshToken,
   createPasswordResetToken,
   findPasswordResetToken,
@@ -161,6 +163,17 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     const stored = await findRefreshToken(tokenHash);
 
     if (!stored) {
+      // Token not found — check if it was already rotated (indicates possible theft)
+      const successor = await findRefreshTokenByPreviousHash(tokenHash);
+      if (successor) {
+        // A live token claims this as its predecessor → the old token was reused.
+        // Revoke all sessions for this user as a precaution.
+        reqLogger.warn(
+          { event: 'auth.token_reuse_detected', userId: successor.userId },
+          'refresh token reuse detected — revoking all user sessions'
+        );
+        await revokeAllUserTokens(successor.userId);
+      }
       throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
     }
 
@@ -170,9 +183,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       throw new ApiError(401, 'Refresh token expired', 'AUTH_REFRESH_EXPIRED');
     }
 
-    // Rotate: revoke old token, issue new one
+    // Rotate: revoke old token, issue new one — pass hash so successor can detect reuse
     await revokeRefreshToken(tokenHash);
-    const newRefreshToken = await createAndStoreRefreshToken(stored.userId);
+    const newRefreshToken = await createAndStoreRefreshToken(stored.userId, tokenHash);
 
     const accessToken = await jwt.sign({
       sub: stored.userId,

@@ -81,9 +81,26 @@ export async function findUserById(id: string): Promise<UserRow | undefined> {
 export async function storeRefreshToken(
   userId: string,
   tokenHash: string,
-  expiresAt: Date
+  expiresAt: Date,
+  previousTokenHash?: string
 ): Promise<void> {
-  await getDb().insert(refreshTokens).values({ userId, tokenHash, expiresAt });
+  await getDb().insert(refreshTokens).values({ userId, tokenHash, expiresAt, previousTokenHash });
+}
+
+/**
+ * Looks up a refresh token by the hash of the token it replaced.
+ * Used for token reuse detection: if an already-rotated token is presented,
+ * this finds its successor, revealing the affected userId.
+ */
+export async function findRefreshTokenByPreviousHash(
+  previousHash: string
+): Promise<typeof refreshTokens.$inferSelect | undefined> {
+  const [token] = await getDb()
+    .select()
+    .from(refreshTokens)
+    .where(eq(refreshTokens.previousTokenHash, previousHash))
+    .limit(1);
+  return token;
 }
 
 export async function findRefreshToken(
@@ -111,12 +128,18 @@ export async function revokeAllUserTokens(userId: string): Promise<void> {
 
 export const REFRESH_TOKEN_DAYS = 7;
 
-/** Creates a new refresh token, hashes it, stores it, and returns the raw token. */
-export async function createAndStoreRefreshToken(userId: string): Promise<string> {
+/**
+ * Creates a new refresh token, hashes it, stores it, and returns the raw token.
+ * Pass `previousHash` when rotating (refresh endpoint) to enable family tracking.
+ */
+export async function createAndStoreRefreshToken(
+  userId: string,
+  previousHash?: string
+): Promise<string> {
   const refreshToken = generateRefreshToken();
   const tokenHash = await hashToken(refreshToken);
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
-  await storeRefreshToken(userId, tokenHash, expiresAt);
+  await storeRefreshToken(userId, tokenHash, expiresAt, previousHash);
   return refreshToken;
 }
 

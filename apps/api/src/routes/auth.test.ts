@@ -47,6 +47,10 @@ const mockFindRefreshToken = mock<() => Promise<typeof TEST_REFRESH_TOKEN | unde
   Promise.resolve(undefined)
 );
 const mockRevokeRefreshToken = mock(() => Promise.resolve());
+const mockRevokeAllUserTokens = mock(() => Promise.resolve());
+const mockFindRefreshTokenByPreviousHash = mock<
+  () => Promise<typeof TEST_REFRESH_TOKEN | undefined>
+>(() => Promise.resolve(undefined));
 const mockCreateAndStoreRefreshToken = mock(() => Promise.resolve('mock-raw-refresh-token'));
 const mockCreatePasswordResetToken = mock(() => Promise.resolve('raw-reset-token-uuid'));
 const mockFindPasswordResetToken = mock<
@@ -73,7 +77,9 @@ mock.module('../services/auth', () => ({
   findUserByEmail: mockFindUserByEmail,
   findUserById: mockFindUserById,
   findRefreshToken: mockFindRefreshToken,
+  findRefreshTokenByPreviousHash: mockFindRefreshTokenByPreviousHash,
   revokeRefreshToken: mockRevokeRefreshToken,
+  revokeAllUserTokens: mockRevokeAllUserTokens,
   createAndStoreRefreshToken: mockCreateAndStoreRefreshToken,
   createPasswordResetToken: mockCreatePasswordResetToken,
   findPasswordResetToken: mockFindPasswordResetToken,
@@ -266,12 +272,28 @@ describe('POST /auth/refresh', () => {
 
   it('returns 401 with AUTH_INVALID_REFRESH when token is not found in DB', async () => {
     mockFindRefreshToken.mockImplementation(() => Promise.resolve(undefined));
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() => Promise.resolve(undefined));
 
     const res = await post('/auth/refresh', {}, { Cookie: 'refresh_token=some-token-value' });
     const body = (await res.json()) as { code: string };
 
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_INVALID_REFRESH');
+  });
+
+  it('revokes all user sessions when a rotated-away token is reused (theft detection)', async () => {
+    mockFindRefreshToken.mockImplementation(() => Promise.resolve(undefined));
+    // Successor token exists → the presented token was already rotated
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
+      Promise.resolve({ ...TEST_REFRESH_TOKEN })
+    );
+
+    const res = await post('/auth/refresh', {}, { Cookie: 'refresh_token=stolen-old-token' });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_INVALID_REFRESH');
+    expect(mockRevokeAllUserTokens).toHaveBeenCalledTimes(1);
   });
 
   it('returns 200 with a new accessToken when a valid refresh token is provided', async () => {
