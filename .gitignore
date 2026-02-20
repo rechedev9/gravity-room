@@ -20,6 +20,9 @@ dist
 .DS_Store
 *.pem
 
+# google oauth credentials (never commit)
+google-oauth-credentials.json
+
 # debug
 npm-debug.log*
 yarn-debug.log*

@@ -1,5 +1,5 @@
 /**
- * Auth routes — signup, signin, refresh, signout, me.
+ * Auth routes — Google OAuth, refresh, signout, me.
  *
  * Access tokens: short-lived JWT (15 min) returned in response body.
  * Refresh tokens: opaque UUID in httpOnly cookie, SHA-256 hashed in DB.
@@ -10,53 +10,22 @@ import { ApiError } from '../middleware/error-handler';
 import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
 import {
-  hashPassword,
-  verifyPassword,
   hashToken,
-  createUser,
-  findUserByEmail,
   findUserById,
   findRefreshToken,
   findRefreshTokenByPreviousHash,
   revokeRefreshToken,
   revokeAllUserTokens,
   createAndStoreRefreshToken,
-  createPasswordResetToken,
-  findPasswordResetToken,
-  markPasswordResetTokenUsed,
+  findOrCreateGoogleUser,
   REFRESH_TOKEN_DAYS,
 } from '../services/auth';
-import { checkLeakedPassword } from '../lib/password-check';
-import { sendPasswordResetEmail, sendSecurityAlertEmail } from '../lib/email';
+import { verifyGoogleToken } from '../lib/google-auth';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const BEARER_PREFIX = 'Bearer ';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
-
-function resolveAppUrl(): string {
-  const raw = process.env['APP_URL'];
-  if (!raw) {
-    if (IS_PRODUCTION) {
-      throw new Error('APP_URL env var must be set in production');
-    }
-    return 'http://localhost:3000';
-  }
-
-  let parsed: URL;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    throw new Error(`APP_URL is not a valid URL: "${raw}"`);
-  }
-
-  if (IS_PRODUCTION && parsed.protocol !== 'https:') {
-    throw new Error('APP_URL must use HTTPS in production');
-  }
-  return raw;
-}
-
-const APP_URL = resolveAppUrl();
 
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true as const,
@@ -102,48 +71,42 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .use(jwtPlugin)
 
   // -----------------------------------------------------------------------
-  // POST /auth/signup
+  // POST /auth/google — verify Google ID token, find or create user
   // -----------------------------------------------------------------------
   .post(
-    '/signup',
+    '/google',
     async ({ jwt, body, cookie, set, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/signup');
+      await rateLimit(ip, '/auth/google', { maxRequests: 10 });
 
-      const [leaked, existing] = await Promise.all([
-        checkLeakedPassword(body.password),
-        findUserByEmail(body.email),
-      ]);
-
-      if (leaked) {
-        throw new ApiError(400, 'Password found in known data breaches', 'WEAK_PASSWORD');
-      }
-      if (existing) {
-        throw new ApiError(409, 'Email already registered', 'AUTH_EMAIL_EXISTS');
+      let googlePayload: Awaited<ReturnType<typeof verifyGoogleToken>>;
+      try {
+        googlePayload = await verifyGoogleToken(body.credential);
+      } catch (e: unknown) {
+        reqLogger.warn({ err: e }, 'Google token verification failed');
+        throw new ApiError(401, 'Invalid Google credential', 'AUTH_GOOGLE_INVALID');
       }
 
-      const passwordHash = await hashPassword(body.password);
-      const user = await createUser(body.email, passwordHash, body.name);
+      const user = await findOrCreateGoogleUser(
+        googlePayload.sub,
+        googlePayload.email,
+        googlePayload.name
+      );
       const { accessToken } = await issueTokens(jwt, cookie, user);
 
-      reqLogger.info({ event: 'auth.signup', userId: user.id }, 'user registered');
-      set.status = 201;
+      reqLogger.info({ event: 'auth.google', userId: user.id }, 'google sign-in');
+      set.status = 200;
       return { user: userResponse(user), accessToken };
     },
     {
-      body: t.Object({
-        email: t.String({ format: 'email' }),
-        password: t.String({ minLength: 8 }),
-        name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
-      }),
+      body: t.Object({ credential: t.String({ minLength: 1 }) }),
       detail: {
         tags: ['Auth'],
-        summary: 'Register a new user',
+        summary: 'Sign in with Google',
         description:
-          'Creates a user account and issues a short-lived access token plus a rotating httpOnly refresh token cookie.',
+          'Verifies a Google ID token (RS256 + JWKS), finds or creates the user, and issues tokens.',
         responses: {
-          201: { description: 'User created; access token in body, refresh token in cookie' },
-          400: { description: 'Validation error or password found in breach databases' },
-          409: { description: 'Email already registered' },
+          200: { description: 'Authenticated; access token in body, refresh token in cookie' },
+          401: { description: 'Invalid or expired Google credential' },
           429: { description: 'Rate limited' },
         },
       },
@@ -151,43 +114,25 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   )
 
   // -----------------------------------------------------------------------
-  // POST /auth/signin
+  // POST /auth/dev — dev-only sign-in for E2E tests (returns 404 in production)
   // -----------------------------------------------------------------------
   .post(
-    '/signin',
-    async ({ jwt, body, cookie, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/signin', { maxRequests: 10 });
-      const user = await findUserByEmail(body.email);
-      if (!user) {
-        throw new ApiError(401, 'Invalid email or password', 'AUTH_INVALID_CREDENTIALS');
+    '/dev',
+    async ({ jwt, body, cookie, set }) => {
+      if (IS_PRODUCTION) {
+        throw new ApiError(404, 'Not found', 'NOT_FOUND');
       }
-
-      const valid = await verifyPassword(body.password, user.passwordHash);
-      if (!valid) {
-        throw new ApiError(401, 'Invalid email or password', 'AUTH_INVALID_CREDENTIALS');
-      }
-
+      const googleId = `dev-${crypto.randomUUID()}`;
+      const user = await findOrCreateGoogleUser(googleId, body.email, undefined);
       const { accessToken } = await issueTokens(jwt, cookie, user);
-
-      reqLogger.info({ event: 'auth.signin', userId: user.id }, 'user signed in');
+      set.status = 201;
       return { user: userResponse(user), accessToken };
     },
     {
       body: t.Object({
         email: t.String({ format: 'email' }),
-        password: t.String({ minLength: 8 }),
       }),
-      detail: {
-        tags: ['Auth'],
-        summary: 'Sign in',
-        description:
-          'Authenticates with email and password. Returns an access token and sets a refresh token cookie.',
-        responses: {
-          200: { description: 'Authenticated; access token in body, refresh token in cookie' },
-          401: { description: 'Invalid credentials' },
-          429: { description: 'Rate limited' },
-        },
-      },
+      detail: { tags: ['Auth'], summary: 'Dev-only test sign-in (404 in production)' },
     }
   )
 
@@ -220,13 +165,6 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             'refresh token reuse detected — revoking all user sessions'
           );
           await revokeAllUserTokens(successor.userId);
-          // Notify the user non-blocking — alert failure must not block the revocation
-          const alertTarget = await findUserById(successor.userId);
-          if (alertTarget) {
-            sendSecurityAlertEmail(alertTarget.email).catch((e: unknown) => {
-              reqLogger.error({ err: e }, 'Failed to send security alert email');
-            });
-          }
         }
         throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
       }
@@ -337,84 +275,6 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           200: { description: 'User profile' },
           401: { description: 'Missing or invalid token' },
           404: { description: 'User not found (deleted after token was issued)' },
-        },
-      },
-    }
-  )
-
-  // -----------------------------------------------------------------------
-  // POST /auth/forgot-password — trigger password reset email
-  // -----------------------------------------------------------------------
-  .post(
-    '/forgot-password',
-    async ({ body, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/forgot-password', { windowMs: 15 * 60_000, maxRequests: 5 });
-
-      // Always return 200 — never reveal whether the email exists
-      const user = await findUserByEmail(body.email);
-      if (user) {
-        const token = await createPasswordResetToken(user.id);
-        const resetUrl = `${APP_URL}/reset-password?token=${token}`;
-        await sendPasswordResetEmail(user.email, resetUrl).catch((e: unknown) => {
-          reqLogger.error({ err: e }, 'Failed to send reset email');
-        });
-      }
-
-      return { message: 'If that email is registered, you will receive a reset link.' };
-    },
-    {
-      body: t.Object({ email: t.String({ format: 'email' }) }),
-      detail: {
-        tags: ['Auth'],
-        summary: 'Request password reset',
-        description:
-          'Sends a one-time reset link to the email address if it is registered. Always returns 200 to prevent email enumeration.',
-        responses: {
-          200: { description: 'Always returns 200 regardless of whether the email exists' },
-          429: { description: 'Rate limited' },
-        },
-      },
-    }
-  )
-
-  // -----------------------------------------------------------------------
-  // POST /auth/reset-password — complete password reset with token
-  // -----------------------------------------------------------------------
-  .post(
-    '/reset-password',
-    async ({ body, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/reset-password', { windowMs: 15 * 60_000, maxRequests: 5 });
-      const leaked = await checkLeakedPassword(body.password);
-      if (leaked) {
-        throw new ApiError(400, 'Password found in known data breaches', 'WEAK_PASSWORD');
-      }
-
-      const tokenHash = await hashToken(body.token);
-      const record = await findPasswordResetToken(tokenHash);
-      if (!record) {
-        throw new ApiError(400, 'Invalid or expired reset token', 'RESET_TOKEN_INVALID');
-      }
-
-      await markPasswordResetTokenUsed(tokenHash, body.password);
-      reqLogger.info(
-        { event: 'auth.password_reset', userId: record.userId },
-        'password reset completed'
-      );
-      return { message: 'Password reset successfully.' };
-    },
-    {
-      body: t.Object({
-        token: t.String({ minLength: 1 }),
-        password: t.String({ minLength: 8 }),
-      }),
-      detail: {
-        tags: ['Auth'],
-        summary: 'Complete password reset',
-        description:
-          'Validates the one-time token, updates the password (Argon2id), and revokes all active sessions.',
-        responses: {
-          200: { description: 'Password updated; all sessions revoked' },
-          400: { description: 'Invalid/expired token or weak password' },
         },
       },
     }

@@ -1,6 +1,5 @@
 const ERROR_MAP: ReadonlyMap<string, string> = new Map([
-  ['Invalid email or password', 'Invalid email or password.'],
-  ['Email already registered', 'An account with this email already exists.'],
+  ['Invalid Google credential', 'Google sign-in failed. Please try again.'],
   ['No refresh token', 'Your session has expired. Please sign in again.'],
   ['Invalid refresh token', 'Your session has expired. Please sign in again.'],
   ['Refresh token expired', 'Your session has expired. Please sign in again.'],

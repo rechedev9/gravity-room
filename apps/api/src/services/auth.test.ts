@@ -3,45 +3,7 @@
  * DB-dependent functions are covered by integration tests (future work).
  */
 import { describe, it, expect } from 'bun:test';
-import {
-  hashPassword,
-  verifyPassword,
-  generateRefreshToken,
-  hashToken,
-  REFRESH_TOKEN_DAYS,
-} from './auth';
-
-// ---------------------------------------------------------------------------
-// Password hashing
-// ---------------------------------------------------------------------------
-
-describe('hashPassword / verifyPassword', () => {
-  it('should produce a hash that verifyPassword accepts', async () => {
-    const password = 'MySecurePassword123';
-    const hash = await hashPassword(password);
-
-    const valid = await verifyPassword(password, hash);
-    expect(valid).toBe(true);
-  });
-
-  it('should reject the wrong password', async () => {
-    const hash = await hashPassword('correct-password');
-    const valid = await verifyPassword('wrong-password', hash);
-    expect(valid).toBe(false);
-  });
-
-  it('should produce a different hash each call (Argon2id uses a random salt)', async () => {
-    const password = 'SamePassword';
-    const hash1 = await hashPassword(password);
-    const hash2 = await hashPassword(password);
-    expect(hash1).not.toBe(hash2);
-  });
-
-  it('should produce an Argon2 hash (starts with $argon2)', async () => {
-    const hash = await hashPassword('test-password');
-    expect(hash.startsWith('$argon2')).toBe(true);
-  });
-});
+import { generateRefreshToken, hashToken, REFRESH_TOKEN_DAYS } from './auth';
 
 // ---------------------------------------------------------------------------
 // Refresh token generation

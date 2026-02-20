@@ -6,8 +6,6 @@ import { RootLayout } from '@/components/root-layout';
 import { LandingPage } from '@/components/landing-page';
 import { AppShell } from '@/components/app-shell';
 import { LoginPage } from '@/components/login-page';
-import { ForgotPasswordPage } from '@/components/forgot-password-page';
-import { ResetPasswordPage } from '@/components/reset-password-page';
 import { PrivacyPage } from '@/components/privacy-page';
 import { NotFound } from '@/components/not-found';
 import '@/styles/globals.css';
@@ -19,8 +17,6 @@ const router = createBrowserRouter([
       { path: '/', element: <LandingPage /> },
       { path: '/app', element: <AppShell /> },
       { path: '/login', element: <LoginPage /> },
-      { path: '/forgot-password', element: <ForgotPasswordPage /> },
-      { path: '/reset-password', element: <ResetPasswordPage /> },
       { path: '/privacy', element: <PrivacyPage /> },
       { path: '*', element: <NotFound /> },
     ],

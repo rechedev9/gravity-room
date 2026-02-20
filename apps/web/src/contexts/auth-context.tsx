@@ -24,8 +24,7 @@ interface AuthState {
 }
 
 interface AuthActions {
-  readonly signUp: (email: string, password: string) => Promise<AuthResult | null>;
-  readonly signIn: (email: string, password: string) => Promise<AuthResult | null>;
+  readonly signInWithGoogle: (credential: string) => Promise<AuthResult | null>;
   readonly signOut: () => Promise<void>;
 }
 
@@ -43,27 +42,6 @@ function parseUserInfo(data: unknown): UserInfo | null {
     email: data.email,
     ...(typeof data.name === 'string' ? { name: data.name } : {}),
   };
-}
-
-/** Shared logic for signUp/signIn — calls the endpoint, stores the token, returns the user. */
-async function authenticateWith(
-  path: string,
-  email: string,
-  password: string
-): Promise<{ user: UserInfo | null } | { error: AuthResult }> {
-  try {
-    const data = await apiFetch(path, {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    if (isRecord(data) && typeof data.accessToken === 'string') {
-      setAccessToken(data.accessToken);
-      return { user: parseUserInfo(data.user) };
-    }
-    return { user: null };
-  } catch (err: unknown) {
-    return { error: { message: err instanceof Error ? err.message : 'Something went wrong' } };
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -103,25 +81,23 @@ export function AuthProvider({
     void restore();
   }, []);
 
-  const signUp = useCallback(
-    async (email: string, password: string): Promise<AuthResult | null> => {
-      const result = await authenticateWith('/auth/signup', email, password);
-      if ('error' in result) return result.error;
-      if (result.user) setUser(result.user);
-      return null;
-    },
-    []
-  );
-
-  const signIn = useCallback(
-    async (email: string, password: string): Promise<AuthResult | null> => {
-      const result = await authenticateWith('/auth/signin', email, password);
-      if ('error' in result) return result.error;
-      if (result.user) setUser(result.user);
-      return null;
-    },
-    []
-  );
+  const signInWithGoogle = useCallback(async (credential: string): Promise<AuthResult | null> => {
+    try {
+      const data = await apiFetch('/auth/google', {
+        method: 'POST',
+        body: JSON.stringify({ credential }),
+      });
+      if (isRecord(data) && typeof data.accessToken === 'string') {
+        setAccessToken(data.accessToken);
+        const userInfo = parseUserInfo(data.user);
+        if (userInfo) setUser(userInfo);
+        return null;
+      }
+      return { message: 'Unexpected response from server' };
+    } catch (err: unknown) {
+      return { message: err instanceof Error ? err.message : 'Something went wrong' };
+    }
+  }, []);
 
   const signOut = useCallback(async (): Promise<void> => {
     try {
@@ -138,11 +114,10 @@ export function AuthProvider({
       user,
       loading,
       configured: true,
-      signUp,
-      signIn,
+      signInWithGoogle,
       signOut,
     }),
-    [user, loading, signUp, signIn, signOut]
+    [user, loading, signInWithGoogle, signOut]
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

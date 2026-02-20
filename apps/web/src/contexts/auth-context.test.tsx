@@ -124,10 +124,10 @@ describe('AuthProvider', () => {
     });
   });
 
-  describe('signIn', () => {
+  describe('signInWithGoogle', () => {
     it('should return null on success and set user', async () => {
       mockApiFetch.mockImplementation((path: string) => {
-        if (path === '/auth/signin') {
+        if (path === '/auth/google') {
           return Promise.resolve({
             accessToken: fakeJwt({ sub: 'user-1', email: 'a@b.com' }),
             user: { id: 'user-1', email: 'a@b.com', name: null },
@@ -144,7 +144,7 @@ describe('AuthProvider', () => {
 
       let authResult: unknown = { message: 'placeholder' };
       await act(async () => {
-        authResult = await result.current.signIn('a@b.com', 'password123');
+        authResult = await result.current.signInWithGoogle('google-id-token');
       });
 
       expect(authResult).toBeNull();
@@ -154,8 +154,8 @@ describe('AuthProvider', () => {
 
     it('should return error message on failure', async () => {
       mockApiFetch.mockImplementation((path: string) => {
-        if (path === '/auth/signin') {
-          return Promise.reject(new Error('Invalid email or password'));
+        if (path === '/auth/google') {
+          return Promise.reject(new Error('Invalid Google credential'));
         }
         return Promise.reject(new Error('Unauthorized'));
       });
@@ -168,60 +168,10 @@ describe('AuthProvider', () => {
 
       let authResult: unknown = null;
       await act(async () => {
-        authResult = await result.current.signIn('a@b.com', 'wrong');
+        authResult = await result.current.signInWithGoogle('bad-credential');
       });
 
-      expect(authResult).toEqual({ message: 'Invalid email or password' });
-    });
-  });
-
-  describe('signUp', () => {
-    it('should return null on success and set user', async () => {
-      mockApiFetch.mockImplementation((path: string) => {
-        if (path === '/auth/signup') {
-          return Promise.resolve({
-            accessToken: fakeJwt({ sub: 'user-2', email: 'new@b.com' }),
-            user: { id: 'user-2', email: 'new@b.com', name: null },
-          });
-        }
-        return Promise.reject(new Error('Unauthorized'));
-      });
-
-      const { result } = renderHook(() => useAuth(), { wrapper });
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      let authResult: unknown = { message: 'placeholder' };
-      await act(async () => {
-        authResult = await result.current.signUp('new@b.com', 'password123');
-      });
-
-      expect(authResult).toBeNull();
-      expect(result.current.user?.id).toBe('user-2');
-    });
-
-    it('should return error on duplicate email', async () => {
-      mockApiFetch.mockImplementation((path: string) => {
-        if (path === '/auth/signup') {
-          return Promise.reject(new Error('Email already registered'));
-        }
-        return Promise.reject(new Error('Unauthorized'));
-      });
-
-      const { result } = renderHook(() => useAuth(), { wrapper });
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-      });
-
-      let authResult: unknown = null;
-      await act(async () => {
-        authResult = await result.current.signUp('existing@b.com', 'pw12345678');
-      });
-
-      expect(authResult).toEqual({ message: 'Email already registered' });
+      expect(authResult).toEqual({ message: 'Invalid Google credential' });
     });
   });
 

@@ -10,8 +10,7 @@ describe('sanitizeAuthError', () => {
     // This is a snapshot of the entire error mapping contract.
     // If a mapping changes, this test MUST break — that's CI.
     const mappings: Array<[string, string]> = [
-      ['Invalid email or password', 'Invalid email or password.'],
-      ['Email already registered', 'An account with this email already exists.'],
+      ['Invalid Google credential', 'Google sign-in failed. Please try again.'],
       ['No refresh token', 'Your session has expired. Please sign in again.'],
       ['Invalid refresh token', 'Your session has expired. Please sign in again.'],
       ['Refresh token expired', 'Your session has expired. Please sign in again.'],
@@ -23,8 +22,8 @@ describe('sanitizeAuthError', () => {
   });
 
   it('should match partial messages containing known error strings', () => {
-    const result = sanitizeAuthError('Error: Invalid email or password');
-    expect(result).toBe('Invalid email or password.');
+    const result = sanitizeAuthError('Error: Invalid Google credential from provider');
+    expect(result).toBe('Google sign-in failed. Please try again.');
   });
 
   it('should return generic message for unknown errors', () => {

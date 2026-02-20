@@ -1,10 +1,10 @@
 /**
- * Auth service — password hashing, refresh token management, user CRUD.
+ * Auth service — refresh token management, user CRUD.
  * Framework-agnostic: no Elysia dependency. JWT signing handled in routes.
  */
-import { eq, lt, and, gt, isNull } from 'drizzle-orm';
+import { eq, lt } from 'drizzle-orm';
 import { getDb } from '../db';
-import { users, refreshTokens, passwordResetTokens } from '../db/schema';
+import { users, refreshTokens } from '../db/schema';
 
 // ---------------------------------------------------------------------------
 // Shared types
@@ -12,7 +12,6 @@ import { users, refreshTokens, passwordResetTokens } from '../db/schema';
 
 export type UserRow = typeof users.$inferSelect;
 export type RefreshTokenRow = typeof refreshTokens.$inferSelect;
-export type PasswordResetTokenRow = typeof passwordResetTokens.$inferSelect;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -20,19 +19,6 @@ export type PasswordResetTokenRow = typeof passwordResetTokens.$inferSelect;
 
 export const REFRESH_TOKEN_DAYS = 7;
 const REFRESH_TOKEN_MS = REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000;
-const PASSWORD_RESET_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
-
-// ---------------------------------------------------------------------------
-// Password hashing (Bun built-in Argon2id)
-// ---------------------------------------------------------------------------
-
-export async function hashPassword(password: string): Promise<string> {
-  return Bun.password.hash(password, 'argon2id');
-}
-
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return Bun.password.verify(password, hash);
-}
 
 // ---------------------------------------------------------------------------
 // Token helpers
@@ -53,36 +39,44 @@ export async function hashToken(token: string): Promise<string> {
 // User operations
 // ---------------------------------------------------------------------------
 
-export async function createUser(
-  email: string,
-  passwordHash: string,
-  name?: string
-): Promise<UserRow> {
-  const normalizedEmail = email.trim().toLowerCase();
-  const [user] = await getDb()
-    .insert(users)
-    .values({ email: normalizedEmail, passwordHash, name: name ?? null })
-    .returning();
-
-  if (!user) {
-    throw new Error('Failed to create user');
-  }
-  return user;
-}
-
-export async function findUserByEmail(email: string): Promise<UserRow | undefined> {
-  const normalizedEmail = email.trim().toLowerCase();
-  const [user] = await getDb()
-    .select()
-    .from(users)
-    .where(eq(users.email, normalizedEmail))
-    .limit(1);
-  return user;
-}
-
 export async function findUserById(id: string): Promise<UserRow | undefined> {
   const [user] = await getDb().select().from(users).where(eq(users.id, id)).limit(1);
   return user;
+}
+
+/**
+ * Finds a user by their Google sub claim, creating them if they don't exist.
+ * Updates the name if it has changed since last sign-in.
+ */
+export async function findOrCreateGoogleUser(
+  googleId: string,
+  email: string,
+  name: string | undefined
+): Promise<UserRow> {
+  const db = getDb();
+
+  const [existing] = await db.select().from(users).where(eq(users.googleId, googleId)).limit(1);
+
+  if (existing) {
+    if (name !== undefined && existing.name !== name) {
+      const [updated] = await db
+        .update(users)
+        .set({ name, updatedAt: new Date() })
+        .where(eq(users.id, existing.id))
+        .returning();
+      if (!updated) throw new Error('Failed to update user name');
+      return updated;
+    }
+    return existing;
+  }
+
+  const [created] = await db
+    .insert(users)
+    .values({ googleId, email: email.toLowerCase(), name: name ?? null })
+    .returning();
+
+  if (!created) throw new Error('Failed to create user');
+  return created;
 }
 
 // ---------------------------------------------------------------------------
@@ -152,75 +146,4 @@ export async function createAndStoreRefreshToken(
 
 export async function cleanupExpiredTokens(): Promise<void> {
   await getDb().delete(refreshTokens).where(lt(refreshTokens.expiresAt, new Date()));
-}
-
-export async function cleanupExpiredPasswordResetTokens(): Promise<void> {
-  await getDb().delete(passwordResetTokens).where(lt(passwordResetTokens.expiresAt, new Date()));
-}
-
-// ---------------------------------------------------------------------------
-// Password reset tokens
-// ---------------------------------------------------------------------------
-
-/** Creates a password reset token, stores the hash, and returns the raw token. */
-export async function createPasswordResetToken(userId: string): Promise<string> {
-  const rawToken = crypto.randomUUID();
-  const tokenHash = await hashToken(rawToken);
-  const expiresAt = new Date(Date.now() + PASSWORD_RESET_EXPIRY_MS);
-  await getDb().insert(passwordResetTokens).values({ userId, tokenHash, expiresAt });
-  return rawToken;
-}
-
-/** Finds a valid (unused, not expired) password reset token by hash. */
-export async function findPasswordResetToken(
-  tokenHash: string
-): Promise<PasswordResetTokenRow | undefined> {
-  const now = new Date();
-  const [token] = await getDb()
-    .select()
-    .from(passwordResetTokens)
-    .where(
-      and(
-        eq(passwordResetTokens.tokenHash, tokenHash),
-        gt(passwordResetTokens.expiresAt, now),
-        isNull(passwordResetTokens.usedAt)
-      )
-    )
-    .limit(1);
-  return token;
-}
-
-/**
- * Atomically marks the reset token as used, updates the user's password,
- * and revokes all active sessions — wrapped in a transaction so partial
- * failures cannot leave the account in an inconsistent state.
- */
-export async function markPasswordResetTokenUsed(
-  tokenHash: string,
-  newPassword: string
-): Promise<void> {
-  const newHash = await hashPassword(newPassword);
-  const now = new Date();
-
-  await getDb().transaction(async (tx) => {
-    const [token] = await tx
-      .select()
-      .from(passwordResetTokens)
-      .where(eq(passwordResetTokens.tokenHash, tokenHash))
-      .limit(1);
-
-    if (!token) return;
-
-    await Promise.all([
-      tx
-        .update(passwordResetTokens)
-        .set({ usedAt: now })
-        .where(eq(passwordResetTokens.tokenHash, tokenHash)),
-      tx
-        .update(users)
-        .set({ passwordHash: newHash, updatedAt: now })
-        .where(eq(users.id, token.userId)),
-      tx.delete(refreshTokens).where(eq(refreshTokens.userId, token.userId)),
-    ]);
-  });
 }

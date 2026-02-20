@@ -11,7 +11,7 @@ import { requestLogger } from './middleware/request-logger';
 import { swaggerPlugin } from './plugins/swagger';
 import { metricsPlugin } from './plugins/metrics';
 import { registry } from './lib/metrics';
-import { cleanupExpiredTokens, cleanupExpiredPasswordResetTokens } from './services/auth';
+import { cleanupExpiredTokens } from './services/auth';
 import { authRoutes } from './routes/auth';
 import { programRoutes } from './routes/programs';
 import { catalogRoutes } from './routes/catalog';
@@ -73,7 +73,7 @@ await runMigrations();
 // ---------------------------------------------------------------------------
 
 const CSP =
-  "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
+  "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://www.googleapis.com; font-src 'self'; object-src 'none'; base-uri 'self'; frame-src https://accounts.google.com; frame-ancestors 'none'";
 
 // ---------------------------------------------------------------------------
 // Elysia app
@@ -204,9 +204,6 @@ const TOKEN_CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 function runCleanup(): void {
   cleanupExpiredTokens().catch((e: unknown) =>
     logger.error({ err: e }, 'Refresh token cleanup failed')
-  );
-  cleanupExpiredPasswordResetTokens().catch((e: unknown) =>
-    logger.error({ err: e }, 'Password reset token cleanup failed')
   );
 }
 

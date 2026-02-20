@@ -5,10 +5,10 @@ const BASE_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
 
 // GZCLP slot map (mirrors GZCLP_DEFINITION.days — stable, defined in gzclp.ts)
 const SLOT_MAP: Record<number, Record<string, string>> = {
-  0: { t1: 'd1-t1', t2: 'd1-t2', t3: 'latpulldown-t3' },
-  1: { t1: 'd2-t1', t2: 'd2-t2', t3: 'dbrow-t3' },
-  2: { t1: 'd3-t1', t2: 'd3-t2', t3: 'latpulldown-t3' },
-  3: { t1: 'd4-t1', t2: 'd4-t2', t3: 'dbrow-t3' },
+  0: { t1: 'd1-t1', t2: 'd1-t2', t3: 'd1-t3' },
+  1: { t1: 'd2-t1', t2: 'd2-t2', t3: 'd2-t3' },
+  2: { t1: 'd3-t1', t2: 'd3-t2', t3: 'd3-t3' },
+  3: { t1: 'd4-t1', t2: 'd4-t2', t3: 'd4-t3' },
 };
 
 function tierToSlotId(workoutIndex: number, tier: string): string | null {
@@ -17,26 +17,27 @@ function tierToSlotId(workoutIndex: number, tier: string): string | null {
 
 interface AuthResult {
   readonly email: string;
-  readonly password: string;
   readonly accessToken: string;
 }
 
 /**
- * Creates a unique test user and signs in via the API.
+ * Creates a unique test user via the dev-only /auth/dev endpoint and signs in.
  * page.request shares cookies with the browser context, so the refresh_token
  * httpOnly cookie is automatically available for subsequent page navigations.
+ *
+ * The /auth/dev endpoint is only active in non-production environments and
+ * returns 404 in production, making it safe to include in the API.
  */
 export async function createAndAuthUser(page: Page): Promise<AuthResult> {
   const email = `e2e-${crypto.randomUUID()}@test.local`;
-  const password = 'TestPassword123!';
 
-  const res = await page.request.post(`${BASE_URL}/auth/signup`, {
-    data: { email, password },
+  const res = await page.request.post(`${BASE_URL}/auth/dev`, {
+    data: { email },
   });
-  if (!res.ok()) throw new Error(`Signup failed: ${res.status()} ${await res.text()}`);
+  if (!res.ok()) throw new Error(`Dev sign-in failed: ${res.status()} ${await res.text()}`);
 
   const body = (await res.json()) as { accessToken: string };
-  return { email, password, accessToken: body.accessToken };
+  return { email, accessToken: body.accessToken };
 }
 
 /**

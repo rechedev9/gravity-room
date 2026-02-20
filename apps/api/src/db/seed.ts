@@ -12,15 +12,11 @@ async function seed(): Promise<void> {
 
   console.error('Seeding database...');
 
-  // Create a test user (password: "testpassword123")
-  // Hash generated with: Bun.password.hash('testpassword123', 'argon2id')
-  const testPasswordHash = await Bun.password.hash('testpassword123', 'argon2id');
-
   const [user] = await getDb()
     .insert(users)
     .values({
       email: 'test@example.com',
-      passwordHash: testPasswordHash,
+      googleId: 'dev-seed-google-id',
       name: 'Test User',
     })
     .onConflictDoNothing()

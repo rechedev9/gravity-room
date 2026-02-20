@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ErrorBoundary } from './error-boundary';
 
 function RootErrorFallback(): React.ReactNode {
@@ -38,7 +39,9 @@ export function Providers({ children }: { readonly children: React.ReactNode }):
 
   return (
     <ErrorBoundary fallback={<RootErrorFallback />}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''}>
+        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      </GoogleOAuthProvider>
     </ErrorBoundary>
   );
 }
