@@ -15,6 +15,7 @@
     "./schemas/instance": "./src/schemas/instance.ts",
     "./schemas/program-definition": "./src/schemas/program-definition.ts",
     "./programs/gzclp": "./src/programs/gzclp.ts",
+    "./programs/nivel7": "./src/programs/nivel7.ts",
     "./programs/registry": "./src/programs/registry.ts"
   },
   "scripts": {
