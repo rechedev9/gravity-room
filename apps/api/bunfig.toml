@@ -1,4 +1,6 @@
 [test]
 root = "./src"
-# Run each test file in a separate worker to prevent mock.module() leaking
-# between route integration tests (which mock services) and unit tests.
+# IMPORTANT: always run tests via `bun run test` (the package script), NOT via
+# `bun test apps/api` from the monorepo root. The package script runs service/
+# middleware tests and route tests in separate bun processes to prevent
+# mock.module() from leaking between unit tests and route integration tests.

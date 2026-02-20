@@ -5,7 +5,11 @@
 process.env['JWT_SECRET'] = 'test-secret-must-be-at-least-32-chars-1234';
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect, beforeEach } from 'bun:test';
+import { mock, describe, it, expect, beforeEach, afterAll } from 'bun:test';
+
+afterAll(() => {
+  mock.restore();
+});
 
 // ---------------------------------------------------------------------------
 // Fixtures
