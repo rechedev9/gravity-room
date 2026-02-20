@@ -91,45 +91,65 @@ export function LoginPage(): React.ReactNode {
   };
 
   const inputClass =
-    'w-full px-4 py-3 min-h-[48px] text-sm bg-[var(--bg-body)] border-2 border-[var(--border-color)] text-[var(--text-main)] placeholder:text-[var(--text-muted)] focus:border-[var(--btn-border)] focus:outline-none transition-colors';
+    'w-full px-4 py-3 min-h-[48px] bg-[var(--bg-body)] border-2 border-[var(--border-color)] text-[var(--text-main)] placeholder:text-[var(--text-muted)] focus:border-[var(--btn-border)] focus:outline-none transition-colors';
+
   const googleBtn =
-    'w-full px-4 py-3 min-h-[48px] text-sm font-bold cursor-pointer border-2 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-main)] hover:border-[var(--border-light)] hover:bg-[var(--bg-hover-row)] transition-all flex items-center justify-center gap-3';
+    'w-full px-4 py-3 min-h-[48px] font-bold cursor-pointer border-2 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-main)] hover:border-[var(--border-light)] hover:bg-[var(--bg-hover-row)] transition-all flex items-center justify-center gap-3';
 
   return (
-    <div className="min-h-dvh flex flex-col bg-[var(--bg-body)]">
+    <div className="grain-overlay min-h-dvh flex flex-col bg-[var(--bg-body)]">
       {/* Header */}
-      <header className="text-center py-8 sm:py-12 px-5 bg-[var(--bg-header)]">
+      <header className="text-center pt-10 pb-8 px-5 bg-[var(--bg-header)] border-b border-[var(--border-color)]">
         <img
           src="/logo.webp"
           alt="RSN logo"
-          width={80}
-          height={80}
-          className="mx-auto mb-3 rounded-full"
+          width={64}
+          height={64}
+          className="mx-auto mb-4 rounded-full"
         />
-        <h1 className="text-[22px] sm:text-[28px] font-extrabold tracking-tight text-[var(--text-header)] mb-1.5">
+        <h1
+          className="font-display mb-1 leading-none"
+          style={{
+            fontSize: 'clamp(28px, 4vw, 42px)',
+            color: 'var(--text-header)',
+          }}
+        >
           The Real Hyperbolic Time Chamber
         </h1>
-        <p className="text-[13px] text-[var(--text-header)] opacity-70">
+        <p
+          className="font-mono text-[11px] tracking-[0.25em] uppercase"
+          style={{ color: 'var(--text-muted)' }}
+        >
           Train smarter. Progress faster.
         </p>
       </header>
 
       {/* Main content */}
-      <main className="flex-1 flex items-center justify-center px-5 py-10 sm:py-16">
+      <main className="flex-1 flex items-center justify-center px-5 py-10 sm:py-14">
         <div className="w-full max-w-[420px]">
           {/* Auth card */}
-          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-6 sm:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
-            <h2 className="text-lg font-bold text-[var(--text-header)] mb-1">
-              {mode === 'sign-in' ? 'Welcome back' : 'Create your account'}
+          <div
+            className="bg-[var(--bg-card)] border border-[var(--border-color)] p-6 sm:p-8"
+            style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}
+          >
+            {/* Card heading */}
+            <h2
+              className="font-display leading-none mb-1"
+              style={{
+                fontSize: '32px',
+                color: 'var(--text-header)',
+              }}
+            >
+              {mode === 'sign-in' ? 'Welcome Back' : 'Create Account'}
             </h2>
-            <p className="text-xs text-[var(--text-muted)] mb-6">
+            <p className="mb-6 text-xs" style={{ color: 'var(--text-muted)' }}>
               {mode === 'sign-in'
                 ? 'Sign in to sync your progress across devices'
                 : 'Start tracking your training progress in the cloud'}
             </p>
 
             {/* Google OAuth */}
-            <button className={googleBtn} onClick={handleGoogle}>
+            <button className={googleBtn} onClick={handleGoogle} style={{ fontSize: '14px' }}>
               <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
                 <path
                   d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"
@@ -154,18 +174,22 @@ export function LoginPage(): React.ReactNode {
             {/* Divider */}
             <div className="flex items-center gap-3 my-5">
               <div className="flex-1 h-px bg-[var(--border-color)]" />
-              <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">
+              <span
+                className="font-mono text-[10px] tracking-[0.25em] uppercase"
+                style={{ color: 'var(--text-muted)' }}
+              >
                 or
               </span>
               <div className="flex-1 h-px bg-[var(--border-color)]" />
             </div>
 
             {/* Email form */}
-            <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-3">
+            <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-4">
               <div>
                 <label
                   htmlFor="login-email"
-                  className="block text-[11px] font-bold uppercase tracking-wide text-[var(--text-label)] mb-1.5"
+                  className="font-mono block text-[10px] font-bold uppercase tracking-[0.2em] mb-2"
+                  style={{ color: 'var(--text-label)' }}
                 >
                   Email
                 </label>
@@ -177,6 +201,7 @@ export function LoginPage(): React.ReactNode {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className={inputClass}
+                  style={{ fontSize: '14px' }}
                   required
                   autoComplete="email"
                 />
@@ -185,7 +210,8 @@ export function LoginPage(): React.ReactNode {
               <div>
                 <label
                   htmlFor="login-password"
-                  className="block text-[11px] font-bold uppercase tracking-wide text-[var(--text-label)] mb-1.5"
+                  className="font-mono block text-[10px] font-bold uppercase tracking-[0.2em] mb-2"
+                  style={{ color: 'var(--text-label)' }}
                 >
                   Password
                 </label>
@@ -196,19 +222,23 @@ export function LoginPage(): React.ReactNode {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className={inputClass}
+                  style={{ fontSize: '14px' }}
                   required
                   minLength={8}
                   autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
                 />
                 {mode === 'sign-up' && password.length > 0 && password.length < 8 && (
-                  <p className="text-[11px] text-[var(--text-error)] mt-1">
+                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-error)' }}>
                     Password must be at least 8 characters.
                   </p>
                 )}
               </div>
 
               {error && (
-                <div className="flex items-start gap-2 text-xs text-[var(--text-error)] bg-[var(--bg-error)] border border-[var(--border-error)] px-3 py-2.5">
+                <div
+                  className="flex items-start gap-2 text-xs bg-[var(--bg-error)] border border-[var(--border-error)] px-3 py-2.5"
+                  style={{ color: 'var(--text-error)' }}
+                >
                   <span className="shrink-0 text-sm leading-none" aria-hidden="true">
                     &#9888;
                   </span>
@@ -217,7 +247,10 @@ export function LoginPage(): React.ReactNode {
               )}
 
               {success && (
-                <div className="flex items-start gap-2 text-xs text-[var(--text-badge-ok)] bg-[var(--bg-badge-ok)] border border-[var(--border-badge-ok)] px-3 py-2.5">
+                <div
+                  className="flex items-start gap-2 text-xs bg-[var(--bg-badge-ok)] border border-[var(--border-badge-ok)] px-3 py-2.5"
+                  style={{ color: 'var(--text-badge-ok)' }}
+                >
                   <span className="shrink-0 text-sm leading-none" aria-hidden="true">
                     &#10003;
                   </span>
@@ -231,12 +264,13 @@ export function LoginPage(): React.ReactNode {
             </form>
 
             {/* Toggle mode */}
-            <p className="text-xs text-[var(--text-muted)] text-center mt-5">
+            <p className="text-xs text-center mt-5" style={{ color: 'var(--text-muted)' }}>
               {mode === 'sign-in' ? (
                 <>
                   Don&apos;t have an account?{' '}
                   <button
-                    className="text-[var(--btn-text)] font-bold underline cursor-pointer bg-transparent border-none p-0"
+                    className="font-bold underline cursor-pointer bg-transparent border-none p-0 hover:opacity-80 transition-opacity"
+                    style={{ color: 'var(--btn-text)' }}
                     onClick={() => switchMode('sign-up')}
                   >
                     Sign Up
@@ -246,7 +280,8 @@ export function LoginPage(): React.ReactNode {
                 <>
                   Already have an account?{' '}
                   <button
-                    className="text-[var(--btn-text)] font-bold underline cursor-pointer bg-transparent border-none p-0"
+                    className="font-bold underline cursor-pointer bg-transparent border-none p-0 hover:opacity-80 transition-opacity"
+                    style={{ color: 'var(--btn-text)' }}
                     onClick={() => switchMode('sign-in')}
                   >
                     Sign In
@@ -254,41 +289,54 @@ export function LoginPage(): React.ReactNode {
                 </>
               )}
             </p>
+
+            {/* Forgot password (sign-in only) */}
+            {mode === 'sign-in' && (
+              <p className="text-center mt-3">
+                <Link
+                  to="/forgot-password"
+                  className="text-[11px] hover:opacity-80 transition-opacity"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  Forgot password?
+                </Link>
+              </p>
+            )}
           </div>
 
           {/* Continue without account */}
-          <div className="text-center mt-6">
+          <div className="text-center mt-5">
             <Link
               to="/app?view=programs"
-              className="text-xs text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors underline underline-offset-2"
+              className="text-[11px] underline underline-offset-2 hover:opacity-80 transition-opacity"
+              style={{ color: 'var(--text-muted)' }}
             >
               Continue without an account
             </Link>
           </div>
 
           {/* Feature highlights */}
-          <div className="mt-8 grid grid-cols-3 gap-4 text-center">
-            <div>
-              <div className="text-lg mb-1 text-[var(--text-header)]">&#9729;</div>
-              <p className="text-[11px] font-bold text-[var(--text-main)] mb-0.5">Cloud Sync</p>
-              <p className="text-[10px] text-[var(--text-muted)] leading-snug">
-                Access your data from any device
-              </p>
-            </div>
-            <div>
-              <div className="text-lg mb-1 text-[var(--text-header)]">&#9889;</div>
-              <p className="text-[11px] font-bold text-[var(--text-main)] mb-0.5">Auto-Save</p>
-              <p className="text-[10px] text-[var(--text-muted)] leading-snug">
-                Every result saved to the cloud instantly
-              </p>
-            </div>
-            <div>
-              <div className="text-lg mb-1 text-[var(--text-header)]">&#128274;</div>
-              <p className="text-[11px] font-bold text-[var(--text-main)] mb-0.5">Secure</p>
-              <p className="text-[10px] text-[var(--text-muted)] leading-snug">
-                Your data is private and encrypted
-              </p>
-            </div>
+          <div className="mt-8 grid grid-cols-3 gap-px bg-[var(--border-color)]">
+            {[
+              { icon: '☁', label: 'Cloud Sync', desc: 'Access from any device' },
+              { icon: '⚡', label: 'Auto-Save', desc: 'Every result saved instantly' },
+              { icon: '🔒', label: 'Secure', desc: 'Private and encrypted' },
+            ].map((f) => (
+              <div key={f.label} className="bg-[var(--bg-card)] text-center py-4 px-3">
+                <div className="text-base mb-1.5" style={{ color: 'var(--text-header)' }}>
+                  {f.icon}
+                </div>
+                <p
+                  className="font-mono text-[10px] font-bold uppercase tracking-wider mb-0.5"
+                  style={{ color: 'var(--text-main)' }}
+                >
+                  {f.label}
+                </p>
+                <p className="text-[10px] leading-snug" style={{ color: 'var(--text-muted)' }}>
+                  {f.desc}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </main>

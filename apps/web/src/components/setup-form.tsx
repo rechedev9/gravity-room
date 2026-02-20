@@ -132,7 +132,10 @@ export function SetupForm({ initialWeights, onGenerate, onUpdateWeights }: Setup
 
   const formContent = (
     <>
-      <h2 className="text-lg font-bold mb-1.5">
+      <h2
+        className="font-display mb-1.5 leading-none"
+        style={{ fontSize: '28px', color: 'var(--text-header)' }}
+      >
         {isEditMode ? 'Edit Starting Weights (kg)' : 'Starting Weights (kg)'}
       </h2>
       <p className="text-[13px] text-[var(--text-muted)] mb-5">
@@ -213,7 +216,12 @@ export function SetupForm({ initialWeights, onGenerate, onUpdateWeights }: Setup
           <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-4 sm:p-7 mb-7">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
-                <h2 className="text-sm font-bold mb-1">Starting Weights</h2>
+                <h2
+                  className="font-display mb-1 leading-none"
+                  style={{ fontSize: '22px', color: 'var(--text-header)' }}
+                >
+                  Starting Weights
+                </h2>
                 <p className="text-xs text-[var(--text-muted)]">
                   {FIELDS.map((f) => `${f.label.split(' (')[0]}: ${initialWeights[f.key]}kg`).join(
                     ' · '

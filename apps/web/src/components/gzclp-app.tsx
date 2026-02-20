@@ -28,7 +28,7 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`px-3 sm:px-6 py-3 text-xs sm:text-sm font-bold cursor-pointer transition-colors -mb-[2px] ${
+      className={`font-mono px-4 sm:px-6 py-3 text-[10px] sm:text-[11px] font-bold cursor-pointer tracking-widest uppercase transition-colors -mb-[2px] ${
         active
           ? 'border-b-2 border-[var(--fill-progress)] text-[var(--text-main)]'
           : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'
@@ -178,7 +178,7 @@ export function GZCLPApp({
               <>
                 {/* Info toggle */}
                 <details className="bg-[var(--bg-card)] border border-[var(--border-color)] mb-6 overflow-hidden">
-                  <summary className="px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center [&::marker]:hidden list-none">
+                  <summary className="font-mono px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center [&::marker]:hidden list-none text-[11px] tracking-widest uppercase">
                     Progression Rules &amp; How to Use
                     <span className="transition-transform duration-200 [[open]>&]:rotate-90">
                       &#9656;

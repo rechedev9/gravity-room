@@ -1,65 +1,84 @@
 @import 'tailwindcss';
 
+/* ── Font stack ───────────────────────────────── */
+/* Display: Bebas Neue — industrial condensed headers */
+/* Mono: JetBrains Mono — data, weights, sets/reps  */
+/* Body: Barlow — clean readable prose               */
+
 :root {
-  --bg-body: #1a1410;
-  --text-main: #d4c4a0;
-  --bg-card: #221c14;
-  --border-color: #3d3226;
-  --border-light: #4a3c2e;
-  --bg-header: #0d0a07;
-  --text-header: #c8a84e;
-  --text-muted: #9a8a6a;
-  --text-label: #b0a080;
-  --text-info: #9a8a6a;
-  --bg-th: #2a2218;
-  --bg-hover-row: #2a2218;
-  --bg-progress: #2a2218;
-  --fill-progress: #c8a84e;
-  --bg-changed: #2e2818;
-  --bg-badge-ok: #1a2e14;
-  --border-badge-ok: #5a8a3c;
-  --text-badge-ok: #7ab45a;
-  --bg-badge-no: #2e1414;
-  --border-badge-no: #8a3c3c;
-  --text-badge-no: #c06060;
+  /* Backgrounds */
+  --bg-body: #0b0906;
+  --bg-card: #130f09;
+  --bg-header: #070504;
+  --bg-th: #1a1410;
+  --bg-hover-row: #1a1410;
+  --bg-progress: #1a1410;
+  --bg-changed: #1f1a08;
   --bg-error: #2e1414;
-  --border-error: #8a3c3c;
+  --bg-tooltip: #070504;
+
+  /* Borders */
+  --border-color: #2a2218;
+  --border-light: #3a3025;
+
+  /* Text */
+  --text-main: #f0e8d8;
+  --text-header: #f0c040;
+  --text-muted: #7a6a4a;
+  --text-label: #a89870;
+  --text-info: #7a6a4a;
   --text-error: #c06060;
-  --bg-tooltip: #0d0a07;
-  --text-tooltip: #d4c4a0;
-  --btn-border: #c8a84e;
-  --btn-bg: #221c14;
-  --btn-text: #c8a84e;
-  --btn-hover-bg: #c8a84e;
-  --btn-hover-text: #1a1410;
-  --shadow-toolbar: rgba(0, 0, 0, 0.4);
-  --stage-s1: #d4c4a0;
-  --stage-s2: #ff8f00;
-  --stage-s3: #d32f2f;
-  --chart-grid: #3d3226;
-  --chart-text: #9a8a6a;
-  --chart-line: #e8c86a;
-  --chart-success: #5a8a3c;
-  --chart-fail: #8a3c3c;
+  --text-tooltip: #f0e8d8;
+
+  /* Accent */
+  --fill-progress: #e8aa20;
+
+  /* Buttons */
+  --btn-border: #e8aa20;
+  --btn-bg: #130f09;
+  --btn-text: #e8aa20;
+  --btn-hover-bg: #e8aa20;
+  --btn-hover-text: #0b0906;
+
+  /* Badges */
+  --bg-badge-ok: #0f2010;
+  --border-badge-ok: #3a6828;
+  --text-badge-ok: #6aaa3a;
+  --bg-badge-no: #240e0e;
+  --border-badge-no: #7a2828;
+  --text-badge-no: #c05050;
+  --border-error: #7a2828;
+
+  /* Shadows */
+  --shadow-toolbar: rgba(0, 0, 0, 0.6);
+
+  /* Stages */
+  --stage-s1: #f0e8d8;
+  --stage-s2: #f07000;
+  --stage-s3: #d02020;
+
+  /* Chart */
+  --chart-grid: #2a2218;
+  --chart-text: #7a6a4a;
+  --chart-line: #f0c040;
+  --chart-success: #3a6828;
+  --chart-fail: #7a2828;
 }
+
+/* ── Keyframes ─────────────────────────────────── */
 
 @keyframes highlight-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(200, 168, 78, 0.7);
+    box-shadow: 0 0 0 0 rgba(232, 170, 32, 0.7);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(200, 168, 78, 0.3);
+    box-shadow: 0 0 0 6px rgba(232, 170, 32, 0.3);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(200, 168, 78, 0);
+    box-shadow: 0 0 0 0 rgba(232, 170, 32, 0);
   }
 }
 
-.highlight-current {
-  animation: highlight-pulse 1s ease-out 2;
-}
-
-/* ── View transition animation ───────────────── */
 @keyframes viewFadeIn {
   from {
     opacity: 0;
@@ -69,7 +88,6 @@
   }
 }
 
-/* ── Toast animation ─────────────────────────── */
 @keyframes fadeSlideUp {
   from {
     opacity: 0;
@@ -81,11 +99,10 @@
   }
 }
 
-/* ── Landing page animations ──────────────────── */
 @keyframes landing-fade-up {
   from {
     opacity: 0;
-    transform: translateY(24px);
+    transform: translateY(32px);
   }
   to {
     opacity: 1;
@@ -93,12 +110,57 @@
   }
 }
 
+@keyframes forge-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 0.9;
+  }
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+@keyframes slam-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) scaleY(0.92);
+  }
+  60% {
+    transform: translateY(2px) scaleY(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+/* ── Animation classes ─────────────────────────── */
+
+.highlight-current {
+  animation: highlight-pulse 1s ease-out 2;
+}
+
 .landing-fade-in {
   opacity: 0;
-  transform: translateY(24px);
+  transform: translateY(32px);
   transition:
-    opacity 0.6s ease-out,
-    transform 0.6s ease-out;
+    opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .landing-visible {
@@ -106,22 +168,42 @@
   transform: translateY(0);
 }
 
-/* ── Landing page extras ────────────────────── */
+/* ── Grain texture overlay ─────────────────────── */
+
+.grain-overlay::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
+
+/* ── Landing-specific extras ───────────────────── */
 
 .landing-gradient-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(200, 168, 78, 0.3) 50%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(232, 170, 32, 0.25) 50%,
+    transparent 100%
+  );
 }
 
 .landing-quote-glow {
-  background: linear-gradient(135deg, rgba(200, 168, 78, 0.06) 0%, transparent 60%);
+  background: linear-gradient(135deg, rgba(232, 170, 32, 0.05) 0%, transparent 60%);
   border-left: 2px solid;
-  border-image: linear-gradient(180deg, rgba(200, 168, 78, 0.8) 0%, rgba(200, 168, 78, 0.2) 100%) 1;
+  border-image: linear-gradient(180deg, rgba(232, 170, 32, 0.9) 0%, rgba(232, 170, 32, 0.15) 100%) 1;
 }
 
 .landing-card-glow:hover {
   border-color: var(--border-light);
-  box-shadow: 0 0 20px rgba(200, 168, 78, 0.05);
+  box-shadow:
+    0 0 24px rgba(232, 170, 32, 0.07),
+    inset 0 1px 0 rgba(232, 170, 32, 0.08);
 }
 
 .landing-card-glow::before {
@@ -130,8 +212,8 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(200, 168, 78, 0.4), transparent);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232, 170, 32, 0.5), transparent);
   opacity: 0;
   transition: opacity 0.3s;
 }
@@ -139,6 +221,73 @@
 .landing-card-glow:hover::before {
   opacity: 1;
 }
+
+/* ── Forge accent bar ──────────────────────────── */
+
+.forge-bar {
+  position: relative;
+}
+
+.forge-bar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--fill-progress), transparent);
+}
+
+/* ── Hero number glow ──────────────────────────── */
+
+.hero-number-glow {
+  text-shadow:
+    0 0 40px rgba(232, 170, 32, 0.4),
+    0 0 80px rgba(232, 170, 32, 0.1);
+}
+
+/* ── Horizontal rule with label ─────────────────── */
+
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.section-label::before,
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+
+/* ── Font utility classes ───────────────────────── */
+
+/* JetBrains Mono — data, weights, labels, monospaced UI */
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Bebas Neue — display headings (letter-spacing 0.04em variant) */
+.font-display {
+  font-family: 'Bebas Neue', system-ui;
+  letter-spacing: 0.04em;
+}
+
+/* Week/badge label — small mono pill inside week header */
+.week-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+}
+
+/* ── Base ───────────────────────────────────────── */
 
 html {
   scroll-behavior: smooth;
@@ -150,11 +299,9 @@ section[id] {
 
 body {
   font-family:
-    var(--font-geist-sans),
+    'Barlow',
+    system-ui,
     -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
     sans-serif;
   background: var(--bg-body);
   color: var(--text-main);

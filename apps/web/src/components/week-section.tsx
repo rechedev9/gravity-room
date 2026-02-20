@@ -73,25 +73,31 @@ export function WeekSection({
     <div className="mb-8 break-inside-avoid">
       <button
         type="button"
-        className="w-full bg-[var(--bg-header)] text-[var(--text-header)] px-5 py-3.5 text-[15px] font-bold flex justify-between items-center cursor-pointer select-none hover:opacity-90 border-none"
+        className="w-full bg-[var(--bg-header)] text-[var(--text-header)] px-5 py-3.5 flex justify-between items-center cursor-pointer select-none hover:opacity-90 border-none"
         aria-expanded={!collapsed}
         onClick={() => setCollapsed(!collapsed)}
       >
-        <span>
+        <span
+          className="font-display flex items-center gap-2.5"
+          style={{ fontSize: '20px', letterSpacing: '0.05em' }}
+        >
           Week {week}
           {isDeload && (
-            <span className="inline-block bg-[var(--text-header)] text-[var(--bg-header)] px-2.5 py-0.5 text-[11px] font-bold ml-2.5">
-              Deload if needed
+            <span className="inline-block week-badge bg-[var(--text-header)] text-[var(--bg-header)] px-2.5 py-0.5">
+              DELOAD IF NEEDED
             </span>
           )}
           {weekDone && (
-            <span className="inline-block bg-[var(--text-header)] text-[var(--bg-header)] px-2.5 py-0.5 text-[11px] font-bold ml-2.5">
-              DONE
+            <span className="inline-block week-badge bg-[var(--text-header)] text-[var(--bg-header)] px-2.5 py-0.5">
+              DONE ✓
             </span>
           )}
         </span>
-        <span className="text-xs font-normal opacity-70">
-          Workouts {startWo}&ndash;{endWo}
+        <span
+          className="font-mono opacity-50 tabular-nums"
+          style={{ fontSize: '10px', letterSpacing: '0.1em' }}
+        >
+          {startWo}–{endWo}
         </span>
       </button>
 
@@ -151,7 +157,7 @@ export function WeekSection({
                   ].map((h, i) => (
                     <th
                       key={i}
-                      className="bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-[11px] uppercase tracking-wide text-[var(--text-label)]"
+                      className="font-mono bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-[10px] uppercase tracking-widest text-[var(--text-label)]"
                     >
                       {h}
                     </th>

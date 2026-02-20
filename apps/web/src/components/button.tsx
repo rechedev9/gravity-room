@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 
 const BASE =
-  'font-bold cursor-pointer border-2 transition-all whitespace-nowrap disabled:opacity-25 disabled:cursor-not-allowed';
+  'font-bold cursor-pointer border-2 transition-all whitespace-nowrap disabled:opacity-25 disabled:cursor-not-allowed tracking-wide uppercase';
 
 const VARIANT_STYLES = {
   default:
@@ -15,9 +15,9 @@ const VARIANT_STYLES = {
 } as const;
 
 const SIZE_STYLES = {
-  sm: 'px-2 py-2 sm:px-3.5 sm:py-2.5 min-h-[44px] text-[10px] sm:text-xs',
-  md: 'px-4 py-2.5 min-h-[44px] text-xs',
-  lg: 'w-full px-4 py-3 min-h-[48px] text-sm',
+  sm: 'px-2 py-2 sm:px-3.5 sm:py-2.5 min-h-[44px] text-[9px] sm:text-[10px]',
+  md: 'px-4 py-2.5 min-h-[44px] text-[10px]',
+  lg: 'w-full px-4 py-3 min-h-[48px] text-xs',
 } as const;
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {

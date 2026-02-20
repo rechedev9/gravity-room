@@ -37,7 +37,7 @@ function ProgressBar({
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs font-bold text-[var(--text-muted)] whitespace-nowrap">
+      <span className="font-mono text-[11px] font-bold text-[var(--text-muted)] whitespace-nowrap tabular-nums">
         {completed}/{total} ({pct}%)
       </span>
     </div>
@@ -72,7 +72,9 @@ export function Toolbar({
             Undo
           </Button>
           {undoCount > 0 && (
-            <span className="text-[11px] text-[var(--text-muted)]">{undoCount} undo</span>
+            <span className="font-mono text-[10px] text-[var(--text-muted)] tabular-nums">
+              {undoCount}x
+            </span>
           )}
         </div>
 

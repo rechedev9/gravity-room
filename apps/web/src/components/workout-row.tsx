@@ -73,7 +73,7 @@ export const WorkoutRow = memo(function WorkoutRow({
       {...(isCurrent ? { 'data-current-row': true } : {})}
       className={`${rowClasses} hover:bg-[var(--bg-hover-row)]`}
     >
-      <td className="border border-[var(--border-light)] px-2 py-3 text-center align-middle font-extrabold text-[15px]">
+      <td className="font-mono border border-[var(--border-light)] px-2 py-3 text-center align-middle font-extrabold text-[15px] tabular-nums">
         {row.index + 1}
         {!allDone && (
           <a
@@ -81,7 +81,7 @@ export const WorkoutRow = memo(function WorkoutRow({
             target="_blank"
             rel="noopener noreferrer"
             title="Add to Google Calendar"
-            className="block text-[10px] text-[var(--text-muted)] hover:text-[var(--fill-progress)] transition-colors leading-none mt-0.5"
+            className="font-mono block text-[10px] text-[var(--text-muted)] hover:text-[var(--fill-progress)] transition-colors leading-none mt-0.5"
           >
             ↗ Cal
           </a>
@@ -96,7 +96,7 @@ export const WorkoutRow = memo(function WorkoutRow({
       </td>
       <td
         data-testid={`t1-weight-${row.index}`}
-        className="border border-[var(--border-light)] px-2 py-3 text-center align-middle font-extrabold text-[15px] tabular-nums"
+        className="font-mono border border-[var(--border-light)] px-2 py-3 text-center align-middle font-extrabold text-[15px] tabular-nums"
       >
         {row.t1Weight}
       </td>
@@ -133,7 +133,7 @@ export const WorkoutRow = memo(function WorkoutRow({
       </td>
       <td
         data-testid={`t2-weight-${row.index}`}
-        className="border border-[var(--border-light)] px-2 py-3 text-center align-middle font-extrabold text-[15px] tabular-nums"
+        className="font-mono border border-[var(--border-light)] px-2 py-3 text-center align-middle font-extrabold text-[15px] tabular-nums"
       >
         {row.t2Weight}
       </td>
@@ -164,7 +164,7 @@ export const WorkoutRow = memo(function WorkoutRow({
       </td>
       <td
         data-testid={`t3-weight-${row.index}`}
-        className="border border-[var(--border-light)] px-2 py-3 text-center align-middle font-extrabold text-[15px] tabular-nums"
+        className="font-mono border border-[var(--border-light)] px-2 py-3 text-center align-middle font-extrabold text-[15px] tabular-nums"
         title="T3 weight increases when AMRAP set reaches 25+ reps"
       >
         {row.t3Weight}

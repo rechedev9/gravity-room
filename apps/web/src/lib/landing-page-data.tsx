@@ -126,6 +126,62 @@ export const STEPS: readonly Step[] = [
   },
 ];
 
+export const SCIENCE_CARDS: readonly Feature[] = [
+  {
+    icon: (
+      <svg
+        width="36"
+        height="36"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        className="mx-auto"
+      >
+        <path d="M23 6l-9.5 9.5-5-5L1 18" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M17 6h6v6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+    title: 'Progressive Overload',
+    desc: "Weight goes up when you're ready. Not before, not after. The program decides.",
+  },
+  {
+    icon: (
+      <svg
+        width="36"
+        height="36"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        className="mx-auto"
+      >
+        <path d="M12 20V10M18 20V4M6 20v-4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+    title: 'Failure Management',
+    desc: 'Missed a lift? The program adapts \u2014 adjusting volume and intensity to keep you progressing.',
+  },
+  {
+    icon: (
+      <svg
+        width="36"
+        height="36"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        className="mx-auto"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+    title: 'Zero Thinking',
+    desc: 'Walk into the gym knowing exactly what to do. No planning, no spreadsheets, no wasted time.',
+  },
+];
+
 export const METRICS: readonly Metric[] = [
   { value: '90', label: 'Workouts Planned', suffix: '' },
   { value: '6', label: 'Core Lifts Tracked', suffix: '' },
