@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Dashboard } from './dashboard';
 import { GZCLPApp } from './gzclp-app';
+import { GenericProgramApp } from './generic-program-app';
 import { ProfilePage } from './profile-page';
 
 type View = 'dashboard' | 'tracker' | 'profile';
@@ -24,6 +25,8 @@ export function AppShell(): React.ReactNode {
 
   const [view, setViewState] = useState<View>(() => parseViewParam(searchParams.get('view')));
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>(undefined);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | undefined>(undefined);
+  const [pendingProgramId, setPendingProgramId] = useState<string | undefined>(undefined);
 
   const setView = useCallback(
     (next: View): void => {
@@ -34,21 +37,37 @@ export function AppShell(): React.ReactNode {
   );
 
   const handleSelectProgram = useCallback(
-    (instanceId: string): void => {
+    (instanceId: string, programId: string): void => {
       setSelectedInstanceId(instanceId);
+      setSelectedProgramId(programId);
+      setPendingProgramId(undefined);
+      setView('tracker');
+    },
+    [setView]
+  );
+
+  const handleStartNewProgram = useCallback(
+    (programId: string): void => {
+      setSelectedInstanceId(undefined);
+      setSelectedProgramId(programId);
+      setPendingProgramId(programId);
       setView('tracker');
     },
     [setView]
   );
 
   const handleContinueProgram = useCallback((): void => {
-    // No specific instance — useProgram will pick the first active one
+    // No specific instance — hooks will pick the first active one
     setSelectedInstanceId(undefined);
+    setSelectedProgramId(undefined);
+    setPendingProgramId(undefined);
     setView('tracker');
   }, [setView]);
 
   const handleBackToDashboard = useCallback((): void => {
     setSelectedInstanceId(undefined);
+    setSelectedProgramId(undefined);
+    setPendingProgramId(undefined);
     setView('dashboard');
   }, [setView]);
 
@@ -64,18 +83,33 @@ export function AppShell(): React.ReactNode {
     content = (
       <Dashboard
         onSelectProgram={handleSelectProgram}
+        onStartNewProgram={handleStartNewProgram}
         onContinueProgram={handleContinueProgram}
         onGoToProfile={handleGoToProfile}
       />
     );
   } else {
-    content = (
-      <GZCLPApp
-        instanceId={selectedInstanceId}
-        onBackToDashboard={handleBackToDashboard}
-        onGoToProfile={handleGoToProfile}
-      />
-    );
+    // Determine which program to show
+    const programId = pendingProgramId ?? selectedProgramId;
+
+    if (programId && programId !== 'gzclp') {
+      content = (
+        <GenericProgramApp
+          programId={programId}
+          instanceId={selectedInstanceId}
+          onBackToDashboard={handleBackToDashboard}
+          onGoToProfile={handleGoToProfile}
+        />
+      );
+    } else {
+      content = (
+        <GZCLPApp
+          instanceId={selectedInstanceId}
+          onBackToDashboard={handleBackToDashboard}
+          onGoToProfile={handleGoToProfile}
+        />
+      );
+    }
   }
 
   return (

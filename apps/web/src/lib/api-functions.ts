@@ -36,6 +36,16 @@ export interface ProgramDetail extends ProgramSummary {
   readonly undoHistory: UndoHistory;
 }
 
+export interface GenericProgramDetail {
+  readonly id: string;
+  readonly programId: string;
+  readonly name: string;
+  readonly config: Record<string, number>;
+  readonly results: GenericResults;
+  readonly undoHistory: GenericUndoHistory;
+  readonly status: string;
+}
+
 // ---------------------------------------------------------------------------
 // Slot ↔ Tier lookup (reuses GZCLP definition)
 // ---------------------------------------------------------------------------
@@ -223,7 +233,7 @@ export async function fetchProgram(id: string): Promise<ProgramDetail> {
 export async function createProgram(
   programId: string,
   name: string,
-  config: StartWeights
+  config: Record<string, number>
 ): Promise<ProgramSummary> {
   const data = await apiFetch('/programs', {
     method: 'POST',
@@ -233,7 +243,10 @@ export async function createProgram(
 }
 
 /** Update a program instance's config (e.g., start weights). */
-export async function updateProgramConfig(id: string, config: StartWeights): Promise<void> {
+export async function updateProgramConfig(
+  id: string,
+  config: Record<string, number>
+): Promise<void> {
   await apiFetch(`/programs/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify({ config: { ...config } }),
@@ -305,4 +318,79 @@ export async function importProgram(data: unknown): Promise<ProgramSummary> {
     body: JSON.stringify(data),
   });
   return parseSummary(result);
+}
+
+// ---------------------------------------------------------------------------
+// Generic API Functions (slot-keyed, no legacy conversion)
+// ---------------------------------------------------------------------------
+
+/** Fetch a program instance with results in generic slot-keyed format (no legacy conversion). */
+export async function fetchGenericProgramDetail(id: string): Promise<GenericProgramDetail> {
+  const data = await apiFetch(`/programs/${encodeURIComponent(id)}`);
+  if (!isRecord(data)) throw new Error('Invalid program response');
+
+  const rawResults = isRecord(data.results) ? data.results : {};
+  const genericResults: GenericResults = {};
+  for (const [indexStr, slots] of Object.entries(rawResults)) {
+    if (!isRecord(slots)) continue;
+    const slotMap: Record<string, { result?: 'success' | 'fail'; amrapReps?: number }> = {};
+    for (const [slotId, slotData] of Object.entries(slots)) {
+      if (!isRecord(slotData)) continue;
+      slotMap[slotId] = {
+        ...(slotData.result === 'success' || slotData.result === 'fail'
+          ? { result: slotData.result }
+          : {}),
+        ...(typeof slotData.amrapReps === 'number' ? { amrapReps: slotData.amrapReps } : {}),
+      };
+    }
+    genericResults[indexStr] = slotMap;
+  }
+
+  const rawUndo = Array.isArray(data.undoHistory) ? data.undoHistory : [];
+  const genericUndo: GenericUndoHistory = rawUndo.filter(isRecord).map((entry) => ({
+    i: typeof entry.i === 'number' ? entry.i : 0,
+    slotId: typeof entry.slotId === 'string' ? entry.slotId : '',
+    ...(entry.prev === 'success' || entry.prev === 'fail' ? { prev: entry.prev } : {}),
+  }));
+
+  return {
+    id: String(data.id ?? ''),
+    programId: String(data.programId ?? ''),
+    name: String(data.name ?? ''),
+    config: parseNumericRecord(data.config),
+    results: genericResults,
+    undoHistory: genericUndo,
+    status: String(data.status ?? 'active'),
+  };
+}
+
+/** Record a workout result using slot ID directly (no tier conversion). */
+export async function recordGenericResult(
+  instanceId: string,
+  workoutIndex: number,
+  slotId: string,
+  result: ResultValue,
+  amrapReps?: number
+): Promise<void> {
+  await apiFetch(`/programs/${encodeURIComponent(instanceId)}/results`, {
+    method: 'POST',
+    body: JSON.stringify({
+      workoutIndex,
+      slotId,
+      result,
+      ...(amrapReps !== undefined ? { amrapReps } : {}),
+    }),
+  });
+}
+
+/** Delete a specific result using slot ID directly (no tier conversion). */
+export async function deleteGenericResult(
+  instanceId: string,
+  workoutIndex: number,
+  slotId: string
+): Promise<void> {
+  await apiFetch(
+    `/programs/${encodeURIComponent(instanceId)}/results/${workoutIndex}/${encodeURIComponent(slotId)}`,
+    { method: 'DELETE' }
+  );
 }

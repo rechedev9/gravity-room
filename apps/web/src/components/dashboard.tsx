@@ -2,55 +2,21 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getAllPresetPrograms, getProgramDefinition } from '@gzclp/shared/programs/registry';
 import { queryKeys } from '@/lib/query-keys';
-import { fetchPrograms, fetchProgram } from '@/lib/api-functions';
+import { fetchPrograms, fetchGenericProgramDetail } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
 import { ProgramCard } from './program-card';
 import { AppHeader } from './app-header';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import type { ProgramSummary } from '@/lib/api-functions';
 
 interface DashboardProps {
-  readonly onSelectProgram: (instanceId: string) => void;
+  readonly onSelectProgram: (instanceId: string, programId: string) => void;
+  readonly onStartNewProgram: (programId: string) => void;
   readonly onContinueProgram: () => void;
   readonly onGoToProfile?: () => void;
 }
 
-const COMING_SOON_CARD: ProgramDefinition = {
-  id: 'custom',
-  name: 'Custom Program',
-  description:
-    'Build your own training program with custom exercises, sets, reps, and progression rules.',
-  author: '',
-  category: 'custom',
-  version: 1,
-  source: 'custom',
-  cycleLength: 1,
-  totalWorkouts: 1,
-  workoutsPerWeek: 1,
-  exercises: {},
-  configFields: [],
-  weightIncrements: {},
-  days: [
-    {
-      name: 'Day 1',
-      slots: [
-        {
-          id: 'placeholder',
-          exerciseId: 'placeholder',
-          tier: 't1',
-          stages: [{ sets: 1, reps: 1 }],
-          onSuccess: { type: 'no_change' },
-          onMidStageFail: { type: 'no_change' },
-          onFinalStageFail: { type: 'no_change' },
-          startWeightKey: 'placeholder',
-        },
-      ],
-    },
-  ],
-};
-
 // ---------------------------------------------------------------------------
-// Active program card with progress bar
+// Active program card with progress bar (program-agnostic)
 // ---------------------------------------------------------------------------
 
 interface ActiveProgramCardProps {
@@ -68,16 +34,26 @@ function ActiveProgramCard({
 
   const detailQuery = useQuery({
     queryKey: queryKeys.programs.detail(program.id),
-    queryFn: () => fetchProgram(program.id),
+    queryFn: () => fetchGenericProgramDetail(program.id),
     enabled: true,
   });
 
-  // Count workouts where ALL three tiers have a result (not just any tier)
-  const completedWorkouts = detailQuery.data
-    ? Object.values(detailQuery.data.results).filter(
-        (r) => r.t1 !== undefined && r.t2 !== undefined && r.t3 !== undefined
-      ).length
-    : 0;
+  // Count workouts where ALL slots have a result (program-agnostic)
+  const completedWorkouts = useMemo(() => {
+    if (!detailQuery.data || !definition) return 0;
+    const results = detailQuery.data.results;
+    let count = 0;
+    for (let i = 0; i < definition.totalWorkouts; i++) {
+      const dayIndex = i % definition.cycleLength;
+      const day = definition.days[dayIndex];
+      const workoutResult = results[String(i)];
+      if (!workoutResult) continue;
+      const allDone = day.slots.every((slot) => workoutResult[slot.id]?.result !== undefined);
+      if (allDone) count++;
+    }
+    return count;
+  }, [detailQuery.data, definition]);
+
   const totalWorkouts = definition?.totalWorkouts ?? 0;
   const progressPct = totalWorkouts > 0 ? Math.round((completedWorkouts / totalWorkouts) * 100) : 0;
 
@@ -141,7 +117,7 @@ function ActiveProgramCard({
 
 interface OtherProgramCardProps {
   readonly program: ProgramSummary;
-  readonly onContinue: (instanceId: string) => void;
+  readonly onContinue: (instanceId: string, programId: string) => void;
 }
 
 function OtherProgramCard({ program, onContinue }: OtherProgramCardProps): React.ReactNode {
@@ -157,7 +133,7 @@ function OtherProgramCard({ program, onContinue }: OtherProgramCardProps): React
         </span>
       </div>
       <button
-        onClick={() => onContinue(program.id)}
+        onClick={() => onContinue(program.id, program.programId)}
         className="px-4 py-2 text-xs font-bold border border-[var(--border-color)] text-[var(--text-main)] hover:border-[var(--border-light)] cursor-pointer transition-colors whitespace-nowrap"
       >
         Continue
@@ -172,6 +148,7 @@ function OtherProgramCard({ program, onContinue }: OtherProgramCardProps): React
 
 export function Dashboard({
   onSelectProgram,
+  onStartNewProgram,
   onContinueProgram,
   onGoToProfile,
 }: DashboardProps): React.ReactNode {
@@ -228,7 +205,7 @@ export function Dashboard({
           </section>
         )}
 
-        {/* Program catalog */}
+        {/* Program catalog — all real programs from registry */}
         <section>
           <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-[var(--text-muted)] mb-3">
             {activeProgram ? 'Start a New Program' : 'Choose a Program'}
@@ -240,17 +217,14 @@ export function Dashboard({
                 definition={def}
                 isActive={activeProgram?.programId === def.id}
                 onSelect={() => {
-                  if (activeProgram) onSelectProgram(activeProgram.id);
-                  else onContinueProgram();
+                  if (activeProgram?.programId === def.id) {
+                    onSelectProgram(activeProgram.id, activeProgram.programId);
+                  } else {
+                    onStartNewProgram(def.id);
+                  }
                 }}
               />
             ))}
-            <ProgramCard
-              definition={COMING_SOON_CARD}
-              disabled
-              disabledLabel="Coming Soon"
-              onSelect={() => {}}
-            />
           </div>
         </section>
       </div>
