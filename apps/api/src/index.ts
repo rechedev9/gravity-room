@@ -11,7 +11,7 @@ import { requestLogger } from './middleware/request-logger';
 import { swaggerPlugin } from './plugins/swagger';
 import { metricsPlugin } from './plugins/metrics';
 import { registry } from './lib/metrics';
-import { cleanupExpiredTokens } from './services/auth';
+import { cleanupExpiredTokens, cleanupExpiredPasswordResetTokens } from './services/auth';
 import { authRoutes } from './routes/auth';
 import { programRoutes } from './routes/programs';
 import { catalogRoutes } from './routes/catalog';
@@ -20,23 +20,32 @@ import { getDb } from './db';
 import { logger } from './lib/logger';
 import { version } from '../package.json';
 
-function parseCorsOrigin(raw: string | undefined): string {
+function parseCorsOrigins(raw: string | undefined): string | string[] {
   if (!raw) {
     if (process.env['NODE_ENV'] === 'production') {
       throw new Error('CORS_ORIGIN env var must be set in production');
     }
     return 'http://localhost:3000';
   }
-  try {
-    new URL(raw);
-  } catch {
-    throw new Error(`CORS_ORIGIN is not a valid URL: "${raw}"`);
+  const origins = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const origin of origins) {
+    try {
+      new URL(origin);
+    } catch {
+      throw new Error(`CORS_ORIGIN contains invalid URL: "${origin}"`);
+    }
   }
-  return raw;
+  const first = origins[0];
+  return origins.length === 1 && first !== undefined ? first : origins;
 }
 
-const CORS_ORIGIN = parseCorsOrigin(process.env['CORS_ORIGIN']);
+const CORS_ORIGINS = parseCorsOrigins(process.env['CORS_ORIGIN']);
 const PORT = Number(process.env['PORT'] ?? 3001);
+// METRICS_TOKEN — optional. When set, GET /metrics requires "Authorization: Bearer <token>".
+// Leave unset in local development. Required in production to protect Prometheus metrics.
 
 // ---------------------------------------------------------------------------
 // Database migrations — run before accepting traffic
@@ -73,7 +82,7 @@ const CSP =
 export const app = new Elysia()
   .use(
     cors({
-      origin: CORS_ORIGIN,
+      origin: CORS_ORIGINS,
       credentials: true,
     })
   )
@@ -132,8 +141,8 @@ export const app = new Elysia()
         await getDb().execute(sql`SELECT 1`);
         dbStatus = { status: 'ok', latencyMs: Date.now() - start };
       } catch (e) {
-        const msg = e instanceof Error ? e.message : 'unknown';
-        dbStatus = { status: 'error', error: msg };
+        logger.error({ err: e }, 'Database health check failed');
+        dbStatus = { status: 'error', error: 'Unavailable' };
       }
       const overall = dbStatus.status === 'ok' ? 'ok' : 'degraded';
       if (overall === 'degraded') set.status = 503;
@@ -158,7 +167,14 @@ export const app = new Elysia()
       },
     }
   )
-  .get('/metrics', async ({ set }) => {
+  .get('/metrics', async ({ set, headers }) => {
+    const expectedToken = process.env['METRICS_TOKEN'];
+    if (expectedToken) {
+      const auth = headers['authorization'];
+      if (auth !== `Bearer ${expectedToken}`) {
+        throw new ApiError(401, 'Invalid metrics token', 'UNAUTHORIZED');
+      }
+    }
     set.headers['content-type'] = registry.contentType;
     return registry.metrics();
   })
@@ -180,12 +196,19 @@ process.on('SIGTERM', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Expired refresh token cleanup — run at startup then every 6h
+// Expired token cleanup — run at startup then every 6h
 // ---------------------------------------------------------------------------
 
 const TOKEN_CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
-cleanupExpiredTokens().catch((e: unknown) => logger.error({ err: e }, 'Token cleanup failed'));
-setInterval(() => {
-  cleanupExpiredTokens().catch((e: unknown) => logger.error({ err: e }, 'Token cleanup failed'));
-}, TOKEN_CLEANUP_INTERVAL_MS);
+function runCleanup(): void {
+  cleanupExpiredTokens().catch((e: unknown) =>
+    logger.error({ err: e }, 'Refresh token cleanup failed')
+  );
+  cleanupExpiredPasswordResetTokens().catch((e: unknown) =>
+    logger.error({ err: e }, 'Password reset token cleanup failed')
+  );
+}
+
+runCleanup();
+setInterval(runCleanup, TOKEN_CLEANUP_INTERVAL_MS);

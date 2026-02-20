@@ -27,6 +27,9 @@ export function getDb(): DbInstance {
       max: 20,
       idle_timeout: 30,
       connect_timeout: 10,
+      ssl: process.env['NODE_ENV'] === 'production' ? 'require' : false,
+      // Prevent runaway queries from exhausting the pool
+      connection: { statement_timeout: 30_000 },
     });
     _db = drizzle(_client, { schema, logger: devQueryLogger });
   }

@@ -27,10 +27,32 @@ import {
   REFRESH_TOKEN_DAYS,
 } from '../services/auth';
 import { checkLeakedPassword } from '../lib/password-check';
-import { sendPasswordResetEmail } from '../lib/email';
+import { sendPasswordResetEmail, sendSecurityAlertEmail } from '../lib/email';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
 const REFRESH_COOKIE_NAME = 'refresh_token';
+
+function resolveAppUrl(): string {
+  const raw = process.env['APP_URL'];
+  if (!raw) {
+    if (process.env['NODE_ENV'] === 'production') {
+      throw new Error('APP_URL env var must be set in production');
+    }
+    return 'http://localhost:3000';
+  }
+  try {
+    const url = new URL(raw);
+    if (process.env['NODE_ENV'] === 'production' && url.protocol !== 'https:') {
+      throw new Error('APP_URL must use HTTPS in production');
+    }
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith('APP_URL')) throw e;
+    throw new Error(`APP_URL is not a valid URL: "${raw}"`);
+  }
+  return raw;
+}
+
+const APP_URL = resolveAppUrl();
 
 function isProductionEnv(): boolean {
   return process.env['NODE_ENV'] === 'production';
@@ -140,7 +162,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/signin',
     async ({ jwt, body, cookie, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/signin');
+      await rateLimit(ip, '/auth/signin', { maxRequests: 10 });
       const user = await findUserByEmail(body.email);
       if (!user) {
         throw new ApiError(401, 'Invalid email or password', 'AUTH_INVALID_CREDENTIALS');
@@ -204,6 +226,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             'refresh token reuse detected — revoking all user sessions'
           );
           await revokeAllUserTokens(successor.userId);
+          // Notify the user non-blocking — alert failure must not block the revocation
+          const alertTarget = await findUserById(successor.userId);
+          if (alertTarget) {
+            sendSecurityAlertEmail(alertTarget.email).catch((e: unknown) => {
+              reqLogger.error({ err: e }, 'Failed to send security alert email');
+            });
+          }
         }
         throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
       }
@@ -287,7 +316,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
       }
 
-      const payload = await jwt.verify(authorization.slice(7));
+      const token = authorization.slice(7);
+      if (!token) {
+        throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
+      }
+      const payload = await jwt.verify(token);
       if (!payload || typeof payload['sub'] !== 'string') {
         throw new ApiError(401, 'Invalid or expired token', 'TOKEN_INVALID');
       }
@@ -320,13 +353,12 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/forgot-password',
     async ({ body, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/forgot-password');
+      await rateLimit(ip, '/auth/forgot-password', { windowMs: 15 * 60_000, maxRequests: 5 });
 
       // Always return 200 — never reveal whether the email exists
       const user = await findUserByEmail(body.email);
       if (user) {
         const token = await createPasswordResetToken(user.id);
-        const APP_URL = process.env['APP_URL'] ?? 'http://localhost:3000';
         const resetUrl = `${APP_URL}/reset-password?token=${token}`;
         await sendPasswordResetEmail(user.email, resetUrl).catch((e: unknown) => {
           reqLogger.error({ err: e }, 'Failed to send reset email');
@@ -355,7 +387,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .post(
     '/reset-password',
-    async ({ body, reqLogger }) => {
+    async ({ body, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/reset-password', { windowMs: 15 * 60_000, maxRequests: 5 });
       const leaked = await checkLeakedPassword(body.password);
       if (leaked) {
         throw new ApiError(400, 'Password found in known data breaches', 'WEAK_PASSWORD');

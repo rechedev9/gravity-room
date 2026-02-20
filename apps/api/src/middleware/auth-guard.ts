@@ -14,15 +14,19 @@ import { ApiError } from './error-handler';
 import { logger } from '../lib/logger';
 
 const rawSecret = process.env['JWT_SECRET'];
+if (!rawSecret) {
+  if (process.env['NODE_ENV'] === 'production') {
+    throw new Error('JWT_SECRET env var must be set in production');
+  }
+  logger.warn('JWT_SECRET not set — using insecure default. Set it in .env.local');
+}
 if (process.env['NODE_ENV'] === 'production') {
-  if (!rawSecret || rawSecret === 'dev-secret-change-me') {
-    throw new Error('JWT_SECRET env var must be set to a secure value in production');
+  if (rawSecret === 'dev-secret-change-me') {
+    throw new Error('JWT_SECRET must not use the default dev value in production');
   }
-  if (rawSecret.length < 32) {
-    throw new Error('JWT_SECRET must be at least 32 characters in production');
+  if ((rawSecret ?? '').length < 64) {
+    throw new Error('JWT_SECRET must be at least 64 characters in production');
   }
-} else if (!rawSecret) {
-  logger.warn('JWT_SECRET not set — using insecure default. MUST NOT be used in production.');
 }
 const JWT_SECRET = rawSecret ?? 'dev-secret-change-me';
 
@@ -50,6 +54,9 @@ export async function resolveUserId({
   }
 
   const token = authorization.slice(7);
+  if (!token) {
+    throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
+  }
   const payload = await jwtCtx.verify(token);
 
   if (!payload) {

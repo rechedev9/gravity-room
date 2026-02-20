@@ -147,6 +147,10 @@ export async function cleanupExpiredTokens(): Promise<void> {
   await getDb().delete(refreshTokens).where(lt(refreshTokens.expiresAt, new Date()));
 }
 
+export async function cleanupExpiredPasswordResetTokens(): Promise<void> {
+  await getDb().delete(passwordResetTokens).where(lt(passwordResetTokens.expiresAt, new Date()));
+}
+
 // ---------------------------------------------------------------------------
 // Password reset tokens
 // ---------------------------------------------------------------------------

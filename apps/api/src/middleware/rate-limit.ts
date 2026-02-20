@@ -80,12 +80,18 @@ function getStore(): Promise<RateLimitStore> {
 // Public API
 // ---------------------------------------------------------------------------
 
-const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 20;
+const DEFAULT_WINDOW_MS = 60_000;
+const DEFAULT_MAX_REQUESTS = 20;
 
-export async function rateLimit(ip: string, endpoint: string): Promise<void> {
+export async function rateLimit(
+  ip: string,
+  endpoint: string,
+  opts?: { windowMs?: number; maxRequests?: number }
+): Promise<void> {
+  const windowMs = opts?.windowMs ?? DEFAULT_WINDOW_MS;
+  const maxRequests = opts?.maxRequests ?? DEFAULT_MAX_REQUESTS;
   const store = await getStore();
-  const allowed = await store.check(`rl:${endpoint}:${ip}`, WINDOW_MS, MAX_REQUESTS);
+  const allowed = await store.check(`rl:${endpoint}:${ip}`, windowMs, maxRequests);
   if (!allowed) {
     rateLimitHitsTotal.inc({ endpoint });
     throw new ApiError(429, 'Too many requests', 'RATE_LIMITED');

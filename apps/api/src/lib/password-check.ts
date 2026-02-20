@@ -24,6 +24,7 @@ export async function checkLeakedPassword(password: string): Promise<boolean> {
     const suffix = hash.slice(5);
 
     const response = await fetch(`${HIBP_RANGE_URL}${prefix}`, {
+      signal: AbortSignal.timeout(3_000),
       headers: { 'Add-Padding': 'true' },
     });
 
