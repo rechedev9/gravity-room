@@ -51,7 +51,7 @@ describe('Toolbar', () => {
     it('should show undo count when positive', () => {
       render(<Toolbar {...buildToolbarProps({ undoCount: 3 })} />);
 
-      expect(screen.getByText('3 undo')).toBeInTheDocument();
+      expect(screen.getByText('3x')).toBeInTheDocument();
     });
 
     it('should call onUndo when clicked', () => {

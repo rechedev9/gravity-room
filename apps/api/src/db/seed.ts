@@ -43,9 +43,8 @@ async function seed(): Promise<void> {
         bench: 60,
         deadlift: 100,
         ohp: 40,
-        row: 60,
-        lat_pulldown: 40,
-        dumbbell_row: 20,
+        latpulldown: 40,
+        dbrow: 20,
       },
       status: 'active',
     });

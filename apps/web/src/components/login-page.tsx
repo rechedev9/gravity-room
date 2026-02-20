@@ -47,7 +47,7 @@ export function LoginPage(): React.ReactNode {
 
   useEffect(() => {
     if (user) {
-      navigate('/app?view=programs');
+      navigate('/app');
     }
   }, [user, navigate]);
 

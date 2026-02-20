@@ -241,6 +241,7 @@ export function Dashboard({
                 isActive={activeProgram?.programId === def.id}
                 onSelect={() => {
                   if (activeProgram) onSelectProgram(activeProgram.id);
+                  else onContinueProgram();
                 }}
               />
             ))}
