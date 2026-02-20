@@ -1,55 +1,60 @@
 /**
- * Email service stub — configure RESEND_API_KEY to send real emails.
+ * Email service — configure RESEND_API_KEY to send real emails via Resend.
  * In dev, logs via structured logger instead of sending.
  */
 import { isRecord } from '@gzclp/shared/type-guards';
 import { logger } from './logger';
 
-/** Sends a password reset email to the given address. */
-export async function sendPasswordResetEmail(email: string, resetUrl: string): Promise<void> {
+const RESEND_API_URL = 'https://api.resend.com/emails';
+const SEND_TIMEOUT_MS = 5_000;
+
+interface EmailPayload {
+  readonly to: string;
+  readonly subject: string;
+  readonly html: string;
+}
+
+async function sendEmail(payload: EmailPayload, errorContext: string): Promise<void> {
   const apiKey = process.env['RESEND_API_KEY'];
 
   if (!apiKey) {
-    // Development mode: no email service configured — log via structured logger
-    logger.warn({ email }, '[DEV] Password reset requested — no RESEND_API_KEY configured');
-    logger.warn(`[DEV] Password reset URL: ${resetUrl}`);
+    logger.warn({ email: payload.to }, `[DEV] ${errorContext} — no RESEND_API_KEY configured`);
     return;
   }
 
-  const res = await fetch('https://api.resend.com/emails', {
+  const res = await fetch(RESEND_API_URL, {
     method: 'POST',
-    signal: AbortSignal.timeout(5_000),
+    signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: process.env['EMAIL_FROM'] ?? 'noreply@gzclp.app',
-      to: email,
-      subject: 'Reset your GZCLP Tracker password',
-      html: `<p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+      to: payload.to,
+      subject: payload.subject,
+      html: payload.html,
     }),
   });
 
   if (!res.ok) {
     const err: unknown = await res.json().catch(() => ({}));
     const message = isRecord(err) ? JSON.stringify(err) : 'unknown error';
-    throw new Error(`Email send failed: ${message}`);
+    throw new Error(`${errorContext}: ${message}`);
   }
 }
 
-/** Notifies a user that all their sessions have been revoked due to suspicious activity. */
+export async function sendPasswordResetEmail(email: string, resetUrl: string): Promise<void> {
+  await sendEmail(
+    {
+      to: email,
+      subject: 'Reset your GZCLP Tracker password',
+      html: `<p>Click the link below to reset your password. This link expires in 1 hour.</p><p><a href="${resetUrl}">${resetUrl}</a></p>`,
+    },
+    'Password reset email failed'
+  );
+}
+
 export async function sendSecurityAlertEmail(email: string): Promise<void> {
-  const apiKey = process.env['RESEND_API_KEY'];
-
-  if (!apiKey) {
-    logger.warn({ email }, '[DEV] Security alert email skipped — no RESEND_API_KEY configured');
-    return;
-  }
-
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    signal: AbortSignal.timeout(5_000),
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: process.env['EMAIL_FROM'] ?? 'noreply@gzclp.app',
+  await sendEmail(
+    {
       to: email,
       subject: 'Security alert: all sessions revoked',
       html: [
@@ -58,12 +63,7 @@ export async function sendSecurityAlertEmail(email: string): Promise<void> {
         '<p>If this was you, you can safely sign in again. ',
         'If you did not expect this, please change your password immediately.</p>',
       ].join(''),
-    }),
-  });
-
-  if (!res.ok) {
-    const err: unknown = await res.json().catch(() => ({}));
-    const message = isRecord(err) ? JSON.stringify(err) : 'unknown error';
-    throw new Error(`Security alert email failed: ${message}`);
-  }
+    },
+    'Security alert email failed'
+  );
 }

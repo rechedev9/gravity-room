@@ -7,6 +7,22 @@ import { getDb } from '../db';
 import { users, refreshTokens, passwordResetTokens } from '../db/schema';
 
 // ---------------------------------------------------------------------------
+// Shared types
+// ---------------------------------------------------------------------------
+
+export type UserRow = typeof users.$inferSelect;
+export type RefreshTokenRow = typeof refreshTokens.$inferSelect;
+export type PasswordResetTokenRow = typeof passwordResetTokens.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+export const REFRESH_TOKEN_DAYS = 7;
+const REFRESH_TOKEN_MS = REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000;
+const PASSWORD_RESET_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
+// ---------------------------------------------------------------------------
 // Password hashing (Bun built-in Argon2id)
 // ---------------------------------------------------------------------------
 
@@ -19,28 +35,23 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 // ---------------------------------------------------------------------------
-// Refresh token helpers
+// Token helpers
 // ---------------------------------------------------------------------------
 
-/** Generates a cryptographically random refresh token. */
 export function generateRefreshToken(): string {
   return crypto.randomUUID();
 }
 
 /** SHA-256 hash of a token for safe DB storage. */
 export async function hashToken(token: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(token);
+  const data = new TextEncoder().encode(token);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(new Uint8Array(hashBuffer), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 // ---------------------------------------------------------------------------
 // User operations
 // ---------------------------------------------------------------------------
-
-export type UserRow = typeof users.$inferSelect;
 
 export async function createUser(
   email: string,
@@ -94,7 +105,7 @@ export async function storeRefreshToken(
  */
 export async function findRefreshTokenByPreviousHash(
   previousHash: string
-): Promise<typeof refreshTokens.$inferSelect | undefined> {
+): Promise<RefreshTokenRow | undefined> {
   const [token] = await getDb()
     .select()
     .from(refreshTokens)
@@ -103,9 +114,7 @@ export async function findRefreshTokenByPreviousHash(
   return token;
 }
 
-export async function findRefreshToken(
-  tokenHash: string
-): Promise<typeof refreshTokens.$inferSelect | undefined> {
+export async function findRefreshToken(tokenHash: string): Promise<RefreshTokenRow | undefined> {
   const [token] = await getDb()
     .select()
     .from(refreshTokens)
@@ -123,10 +132,8 @@ export async function revokeAllUserTokens(userId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Token cleanup (Commit 8: exposed here, wired in index.ts)
+// Refresh token lifecycle
 // ---------------------------------------------------------------------------
-
-export const REFRESH_TOKEN_DAYS = 7;
 
 /**
  * Creates a new refresh token, hashes it, stores it, and returns the raw token.
@@ -138,7 +145,7 @@ export async function createAndStoreRefreshToken(
 ): Promise<string> {
   const refreshToken = generateRefreshToken();
   const tokenHash = await hashToken(refreshToken);
-  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MS);
   await storeRefreshToken(userId, tokenHash, expiresAt, previousHash);
   return refreshToken;
 }
@@ -155,8 +162,6 @@ export async function cleanupExpiredPasswordResetTokens(): Promise<void> {
 // Password reset tokens
 // ---------------------------------------------------------------------------
 
-const PASSWORD_RESET_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
-
 /** Creates a password reset token, stores the hash, and returns the raw token. */
 export async function createPasswordResetToken(userId: string): Promise<string> {
   const rawToken = crypto.randomUUID();
@@ -169,7 +174,7 @@ export async function createPasswordResetToken(userId: string): Promise<string> 
 /** Finds a valid (unused, not expired) password reset token by hash. */
 export async function findPasswordResetToken(
   tokenHash: string
-): Promise<typeof passwordResetTokens.$inferSelect | undefined> {
+): Promise<PasswordResetTokenRow | undefined> {
   const now = new Date();
   const [token] = await getDb()
     .select()
@@ -215,8 +220,6 @@ export async function markPasswordResetTokenUsed(
         .update(users)
         .set({ passwordHash: newHash, updatedAt: now })
         .where(eq(users.id, token.userId)),
-      // Revoke all active sessions — anyone holding a session before the
-      // password change (including a potential attacker) loses access.
       tx.delete(refreshTokens).where(eq(refreshTokens.userId, token.userId)),
     ]);
   });

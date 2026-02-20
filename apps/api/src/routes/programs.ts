@@ -92,35 +92,44 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
   })
 
   // PATCH /programs/:id — update a program instance
-  .patch('/:id', ({ userId, params, body }) => updateInstance(userId, params.id, body), {
-    params: t.Object({ id: t.String() }),
-    body: t.Object({
-      name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
-      status: t.Optional(
-        t.Union([t.Literal('active'), t.Literal('completed'), t.Literal('archived')])
-      ),
-      config: t.Optional(
-        t.Record(t.String({ maxLength: 30 }), t.Number({ minimum: 0, maximum: 10000 }))
-      ),
-    }),
-    detail: {
-      tags: ['Programs'],
-      summary: 'Update program instance',
-      description:
-        'Partially updates a program instance. Only provided fields are changed. Use `status` to archive or complete a program.',
-      security,
-      responses: {
-        200: { description: 'Updated program instance' },
-        401: { description: 'Missing or invalid token' },
-        404: { description: 'Program not found or not owned by user' },
-      },
+  .patch(
+    '/:id',
+    async ({ userId, params, body }) => {
+      await rateLimit(userId, 'PATCH /programs');
+      return updateInstance(userId, params.id, body);
     },
-  })
+    {
+      params: t.Object({ id: t.String() }),
+      body: t.Object({
+        name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
+        status: t.Optional(
+          t.Union([t.Literal('active'), t.Literal('completed'), t.Literal('archived')])
+        ),
+        config: t.Optional(
+          t.Record(t.String({ maxLength: 30 }), t.Number({ minimum: 0, maximum: 10000 }))
+        ),
+      }),
+      detail: {
+        tags: ['Programs'],
+        summary: 'Update program instance',
+        description:
+          'Partially updates a program instance. Only provided fields are changed. Use `status` to archive or complete a program.',
+        security,
+        responses: {
+          200: { description: 'Updated program instance' },
+          401: { description: 'Missing or invalid token' },
+          404: { description: 'Program not found or not owned by user' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
 
   // DELETE /programs/:id — delete a program instance
   .delete(
     '/:id',
     async ({ userId, params, set }) => {
+      await rateLimit(userId, 'DELETE /programs');
       await deleteInstance(userId, params.id);
       set.status = 204;
     },
@@ -136,6 +145,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
           204: { description: 'Deleted successfully' },
           401: { description: 'Missing or invalid token' },
           404: { description: 'Program not found or not owned by user' },
+          429: { description: 'Rate limited' },
         },
       },
     }

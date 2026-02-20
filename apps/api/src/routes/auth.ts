@@ -31,54 +31,48 @@ import { sendPasswordResetEmail, sendSecurityAlertEmail } from '../lib/email';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
 const REFRESH_COOKIE_NAME = 'refresh_token';
+const BEARER_PREFIX = 'Bearer ';
+const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
 
 function resolveAppUrl(): string {
   const raw = process.env['APP_URL'];
   if (!raw) {
-    if (process.env['NODE_ENV'] === 'production') {
+    if (IS_PRODUCTION) {
       throw new Error('APP_URL env var must be set in production');
     }
     return 'http://localhost:3000';
   }
+
+  let parsed: URL;
   try {
-    const url = new URL(raw);
-    if (process.env['NODE_ENV'] === 'production' && url.protocol !== 'https:') {
-      throw new Error('APP_URL must use HTTPS in production');
-    }
-  } catch (e) {
-    if (e instanceof Error && e.message.startsWith('APP_URL')) throw e;
+    parsed = new URL(raw);
+  } catch {
     throw new Error(`APP_URL is not a valid URL: "${raw}"`);
+  }
+
+  if (IS_PRODUCTION && parsed.protocol !== 'https:') {
+    throw new Error('APP_URL must use HTTPS in production');
   }
   return raw;
 }
 
 const APP_URL = resolveAppUrl();
 
-function isProductionEnv(): boolean {
-  return process.env['NODE_ENV'] === 'production';
+const REFRESH_COOKIE_OPTIONS = {
+  httpOnly: true as const,
+  secure: IS_PRODUCTION,
+  sameSite: 'strict' as const,
+  maxAge: REFRESH_TOKEN_DAYS * 24 * 60 * 60,
+  path: '/auth',
+};
+
+interface UserProfile {
+  readonly id: string;
+  readonly email: string;
+  readonly name: string | null;
 }
 
-function refreshCookieOptions(): {
-  httpOnly: true;
-  secure: boolean;
-  sameSite: 'lax' | 'strict' | 'none';
-  maxAge: number;
-  path: string;
-} {
-  return {
-    httpOnly: true,
-    secure: isProductionEnv(),
-    sameSite: 'strict',
-    maxAge: REFRESH_TOKEN_DAYS * 24 * 60 * 60,
-    path: '/auth',
-  };
-}
-
-function userResponse(user: { id: string; email: string; name: string | null }): {
-  id: string;
-  email: string;
-  name: string | null;
-} {
+function userResponse(user: UserProfile): UserProfile {
   return { id: user.id, email: user.email, name: user.name };
 }
 
@@ -97,7 +91,7 @@ async function issueTokens(
     createAndStoreRefreshToken(user.id),
   ]);
 
-  cookie[REFRESH_COOKIE_NAME].set({ value: refreshToken, ...refreshCookieOptions() });
+  cookie[REFRESH_COOKIE_NAME].set({ value: refreshToken, ...REFRESH_COOKIE_OPTIONS });
   return { accessToken };
 }
 
@@ -252,7 +246,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         exp: ACCESS_TOKEN_EXPIRY,
       });
 
-      refreshCookie.set({ value: newRefreshToken, ...refreshCookieOptions() });
+      refreshCookie.set({ value: newRefreshToken, ...REFRESH_COOKIE_OPTIONS });
 
       reqLogger.info({ event: 'auth.refresh', userId: stored.userId }, 'token refreshed');
       return { accessToken };
@@ -312,14 +306,15 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     '/me',
     async ({ jwt, headers }) => {
       const authorization = headers['authorization'];
-      if (!authorization?.startsWith('Bearer ')) {
+      if (!authorization?.startsWith(BEARER_PREFIX)) {
         throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
       }
 
-      const token = authorization.slice(7);
+      const token = authorization.slice(BEARER_PREFIX.length);
       if (!token) {
         throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
       }
+
       const payload = await jwt.verify(token);
       if (!payload || typeof payload['sub'] !== 'string') {
         throw new ApiError(401, 'Invalid or expired token', 'TOKEN_INVALID');
@@ -330,7 +325,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
       }
 
-      return { id: user.id, email: user.email, name: user.name };
+      return userResponse(user);
     },
     {
       detail: {

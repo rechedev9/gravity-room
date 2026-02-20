@@ -2,7 +2,7 @@
  * Results service — record, delete, and undo workout results.
  * Every mutation pushes an undo entry for reversibility.
  */
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, lte } from 'drizzle-orm';
 import { getDb } from '../db';
 import { programInstances, workoutResults, undoEntries } from '../db/schema';
 import { ApiError } from '../middleware/error-handler';
@@ -24,6 +24,26 @@ export interface RecordResultInput {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+const MAX_UNDO_STACK = 50;
+
+type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
+
+async function trimUndoStack(tx: Tx, instanceId: string): Promise<void> {
+  const [overflow] = await tx
+    .select({ id: undoEntries.id })
+    .from(undoEntries)
+    .where(eq(undoEntries.instanceId, instanceId))
+    .orderBy(desc(undoEntries.id))
+    .offset(MAX_UNDO_STACK)
+    .limit(1);
+
+  if (overflow) {
+    await tx
+      .delete(undoEntries)
+      .where(and(eq(undoEntries.instanceId, instanceId), lte(undoEntries.id, overflow.id)));
+  }
+}
 
 async function verifyInstanceOwnership(userId: string, instanceId: string): Promise<void> {
   const [instance] = await getDb()
@@ -102,6 +122,8 @@ export async function recordResult(
       .set({ updatedAt: new Date() })
       .where(eq(programInstances.id, instanceId));
 
+    await trimUndoStack(tx, instanceId);
+
     return result;
   });
 }
@@ -150,6 +172,8 @@ export async function deleteResult(
       .update(programInstances)
       .set({ updatedAt: new Date() })
       .where(eq(programInstances.id, instanceId));
+
+    await trimUndoStack(tx, instanceId);
   });
 }
 

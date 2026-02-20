@@ -13,6 +13,9 @@ import { jwt } from '@elysiajs/jwt';
 import { ApiError } from './error-handler';
 import { logger } from '../lib/logger';
 
+const BEARER_PREFIX = 'Bearer ';
+const DEV_SECRET = 'dev-secret-change-me';
+
 const rawSecret = process.env['JWT_SECRET'];
 if (!rawSecret) {
   if (process.env['NODE_ENV'] === 'production') {
@@ -21,14 +24,14 @@ if (!rawSecret) {
   logger.warn('JWT_SECRET not set — using insecure default. Set it in .env.local');
 }
 if (process.env['NODE_ENV'] === 'production') {
-  if (rawSecret === 'dev-secret-change-me') {
+  if (rawSecret === DEV_SECRET) {
     throw new Error('JWT_SECRET must not use the default dev value in production');
   }
   if ((rawSecret ?? '').length < 64) {
     throw new Error('JWT_SECRET must be at least 64 characters in production');
   }
 }
-const JWT_SECRET = rawSecret ?? 'dev-secret-change-me';
+const JWT_SECRET = rawSecret ?? DEV_SECRET;
 
 export const jwtPlugin = new Elysia({ name: 'jwt-plugin' }).use(
   jwt({
@@ -36,6 +39,20 @@ export const jwtPlugin = new Elysia({ name: 'jwt-plugin' }).use(
     secret: JWT_SECRET,
   })
 );
+
+function extractBearerToken(headers: Record<string, string | undefined>): string {
+  const authorization = headers['authorization'];
+  if (!authorization?.startsWith(BEARER_PREFIX)) {
+    throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
+  }
+
+  const token = authorization.slice(BEARER_PREFIX.length);
+  if (!token) {
+    throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
+  }
+
+  return token;
+}
 
 /**
  * Resolve function for protected routes.
@@ -48,15 +65,7 @@ export async function resolveUserId({
   jwt: { verify: (token?: string) => Promise<Record<string, unknown> | false> };
   headers: Record<string, string | undefined>;
 }): Promise<{ userId: string }> {
-  const authorization = headers['authorization'];
-  if (!authorization?.startsWith('Bearer ')) {
-    throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
-  }
-
-  const token = authorization.slice(7);
-  if (!token) {
-    throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
-  }
+  const token = extractBearerToken(headers);
   const payload = await jwtCtx.verify(token);
 
   if (!payload) {
