@@ -18,7 +18,6 @@ import { catalogRoutes } from './routes/catalog';
 import { resultRoutes } from './routes/results';
 import { getDb } from './db';
 import { logger } from './lib/logger';
-import { version } from '../package.json';
 
 function parseCorsOrigins(raw: string | undefined): string | string[] {
   if (!raw) {
@@ -73,7 +72,7 @@ await runMigrations();
 // ---------------------------------------------------------------------------
 
 const CSP =
-  "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com; img-src 'self' data: blob: https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://www.googleapis.com; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; frame-src https://accounts.google.com; frame-ancestors 'none'";
+  "default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com; img-src 'self' data: blob: https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://www.googleapis.com; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; frame-src https://accounts.google.com; frame-ancestors 'none'";
 
 // ---------------------------------------------------------------------------
 // Elysia app
@@ -93,6 +92,9 @@ export const app = new Elysia()
     set.headers['x-frame-options'] = 'DENY';
     set.headers['referrer-policy'] = 'strict-origin-when-cross-origin';
     set.headers['content-security-policy'] = CSP;
+    if (process.env['NODE_ENV'] === 'production') {
+      set.headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
+    }
   })
   .use(requestLogger)
   .onError(({ code, error, set, reqLogger, startMs }) => {
@@ -150,7 +152,6 @@ export const app = new Elysia()
         status: overall,
         timestamp: new Date().toISOString(),
         uptime: Math.floor(process.uptime()),
-        version,
         db: dbStatus,
       };
     },

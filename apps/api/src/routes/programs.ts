@@ -27,7 +27,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
     {
       query: t.Object({
         limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
-        cursor: t.Optional(t.String()),
+        cursor: t.Optional(t.String({ format: 'date-time' })),
       }),
       detail: {
         tags: ['Programs'],
@@ -180,7 +180,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
     {
       body: t.Object({
         version: t.Literal(1),
-        exportDate: t.String(),
+        exportDate: t.String({ format: 'date-time' }),
         programId: t.String({ minLength: 1 }),
         name: t.String({ minLength: 1, maxLength: 100 }),
         config: t.Record(t.String({ maxLength: 30 }), t.Number({ minimum: 0, maximum: 10000 })),

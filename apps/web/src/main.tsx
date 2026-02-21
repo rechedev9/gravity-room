@@ -9,6 +9,12 @@ import { PrivacyPage } from '@/components/privacy-page';
 import { NotFound } from '@/components/not-found';
 import '@/styles/globals.css';
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js');
+  });
+}
+
 const router = createBrowserRouter([
   {
     element: <RootLayout />,
