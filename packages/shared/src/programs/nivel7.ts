@@ -1,38 +1,56 @@
 import type { ProgramDefinition } from '../types/program';
 
 // ---------------------------------------------------------------------------
-// Helpers to reduce repetition
+// Helpers
 // ---------------------------------------------------------------------------
 
 type Tier = 't1' | 't2' | 't3';
-type ExerciseSlot = ProgramDefinition['days'][number]['slots'][number];
+type ProgramDay = ProgramDefinition['days'][number];
+type ExerciseSlot = ProgramDay['slots'][number];
 type ProgressionRule = ExerciseSlot['onSuccess'];
 
 const NO_CHANGE: ProgressionRule = { type: 'no_change' };
 const ADD_WEIGHT: ProgressionRule = { type: 'add_weight' };
+const ADVANCE_STAGE: ProgressionRule = { type: 'advance_stage' };
 
 /**
- * Slot chain types for the wave periodization:
- * - 'b1'  → Block 1, weeks 1-2 (build phase, +2.5kg/session, offset=4 from target)
- * - 'b1d' → Block 1, week 3  (deload, fixed weight = target − 4×increment)
- * - 'b2'  → Block 2, weeks 4-6 (peak phase, +2.5kg/session, offset=2 from target)
+ * Cycle-aware wave periodization.
+ * Each cycle repeats the 6-week block structure with offsets shifted by −1,
+ * so the effective target weight increases by one increment (+2.5kg) per cycle.
+ *
+ * Phases within each cycle:
+ * - 'b1'  → Weeks 1-2 (build, +2.5kg/session)
+ * - 'b1d' → Week 3   (deload, fixed weight = same as b1 start)
+ * - 'b2'  → Weeks 4-6 (peak, +2.5kg/session, ends at cycle record)
  */
-type SlotChain = 'b1' | 'b1d' | 'b2';
+type Cycle = 'c1' | 'c2';
+type SlotPhase = 'b1' | 'b1d' | 'b2';
 
-const CHAIN_OFFSET: Record<SlotChain, number> = { b1: 4, b1d: 4, b2: 2 };
+const PHASE_OFFSETS: Record<Cycle, Record<SlotPhase, number>> = {
+  c1: { b1: 4, b1d: 4, b2: 2 },
+  c2: { b1: 3, b1d: 3, b2: 1 },
+};
 
 interface MainLiftOpts {
   readonly exerciseId: string;
-  readonly chain: SlotChain;
+  readonly cycle: Cycle;
+  readonly phase: SlotPhase;
   readonly sets: number;
   readonly reps: number;
   readonly isDeadlift?: boolean;
 }
 
-function mainLift({ exerciseId, chain, sets, reps, isDeadlift }: MainLiftOpts): ExerciseSlot {
-  const isDeload = chain === 'b1d';
+function mainLift({
+  exerciseId,
+  cycle,
+  phase,
+  sets,
+  reps,
+  isDeadlift,
+}: MainLiftOpts): ExerciseSlot {
+  const isDeload = phase === 'b1d';
   return {
-    id: `${exerciseId}-${chain}`,
+    id: `${exerciseId}-${cycle}${phase}`,
     exerciseId,
     tier: isDeadlift ? 't2' : 't1',
     stages: [{ sets, reps }],
@@ -41,17 +59,30 @@ function mainLift({ exerciseId, chain, sets, reps, isDeadlift }: MainLiftOpts): 
     onMidStageFail: NO_CHANGE,
     onFinalStageFail: NO_CHANGE,
     startWeightKey: exerciseId,
-    startWeightOffset: CHAIN_OFFSET[chain],
+    startWeightOffset: PHASE_OFFSETS[cycle][phase],
   };
 }
 
-function acc(exerciseId: string, tier: Tier, sets: number, reps: number): ExerciseSlot {
+/**
+ * Double progression accessory: 3 sets × 8-12 reps.
+ * On success: advance reps (8→9→…→12). At 12 reps: +2.5kg, reset to 8.
+ * State (weight + stage) persists across all appearances via shared slot ID.
+ */
+function dpAcc(exerciseId: string, tier: Tier): ExerciseSlot {
   return {
     id: exerciseId,
     exerciseId,
     tier,
-    stages: [{ sets, reps }],
-    onSuccess: NO_CHANGE,
+    stages: [
+      { sets: 3, reps: 8 },
+      { sets: 3, reps: 9 },
+      { sets: 3, reps: 10 },
+      { sets: 3, reps: 11 },
+      { sets: 3, reps: 12 },
+    ],
+    onSuccess: ADVANCE_STAGE,
+    onFinalStageSuccess: { type: 'add_weight_reset_stage', amount: 2.5 },
+    onUndefined: ADVANCE_STAGE,
     onMidStageFail: NO_CHANGE,
     onFinalStageFail: NO_CHANGE,
     startWeightKey: exerciseId,
@@ -59,34 +90,311 @@ function acc(exerciseId: string, tier: Tier, sets: number, reps: number): Exerci
 }
 
 // ---------------------------------------------------------------------------
+// Cycle day generator — 24 days per cycle, parameterized by cycle
+// ---------------------------------------------------------------------------
+
+function cycleDays(cycle: Cycle): ProgramDay[] {
+  const ml = (opts: Omit<MainLiftOpts, 'cycle'>): ExerciseSlot => mainLift({ ...opts, cycle });
+
+  return [
+    // =================================================================
+    // BLOCK 1 — 5×5 main lifts, 1×5 deadlift
+    // =================================================================
+
+    // --- Week 1 ---
+    {
+      name: 'Lun — Hombros/Tríceps',
+      slots: [
+        ml({ exerciseId: 'press_mil', phase: 'b1', sets: 5, reps: 5 }),
+        dpAcc('press_franc', 't2'),
+        dpAcc('ext_polea', 't3'),
+        dpAcc('elev_lat', 't3'),
+        dpAcc('elev_post', 't3'),
+      ],
+    },
+    {
+      name: 'Mar — Espalda/Gemelo',
+      slots: [
+        ml({ exerciseId: 'deadlift', phase: 'b1', sets: 1, reps: 5, isDeadlift: true }),
+        dpAcc('remo_bar', 't2'),
+        dpAcc('jalon', 't2'),
+        dpAcc('face_pull', 't3'),
+        dpAcc('gemelo_pie', 't3'),
+        dpAcc('gemelo_sent', 't3'),
+      ],
+    },
+    {
+      name: 'Jue — Pecho/Bíceps',
+      slots: [
+        ml({ exerciseId: 'bench', phase: 'b1', sets: 5, reps: 5 }),
+        dpAcc('apert', 't2'),
+        dpAcc('cruces', 't3'),
+        dpAcc('curl_bar', 't2'),
+        dpAcc('curl_alt', 't3'),
+      ],
+    },
+    {
+      name: 'Vie — Pierna',
+      slots: [
+        ml({ exerciseId: 'squat', phase: 'b1', sets: 5, reps: 5 }),
+        dpAcc('prensa', 't2'),
+        dpAcc('ext_quad', 't3'),
+        dpAcc('curl_fem', 't3'),
+        dpAcc('hip_thrust', 't2'),
+      ],
+    },
+
+    // --- Week 2 ---
+    {
+      name: 'Lun — Hombros/Tríceps',
+      slots: [
+        ml({ exerciseId: 'press_mil', phase: 'b1', sets: 5, reps: 5 }),
+        dpAcc('press_franc', 't2'),
+        dpAcc('ext_polea', 't3'),
+        dpAcc('elev_lat', 't3'),
+        dpAcc('elev_front', 't3'),
+      ],
+    },
+    {
+      name: 'Mar — Espalda/Gemelo',
+      slots: [
+        ml({ exerciseId: 'deadlift', phase: 'b1', sets: 1, reps: 5, isDeadlift: true }),
+        dpAcc('remo_bar', 't2'),
+        dpAcc('jalon', 't2'),
+        dpAcc('face_pull', 't3'),
+        dpAcc('gemelo_pie', 't3'),
+        dpAcc('gemelo_sent', 't3'),
+      ],
+    },
+    {
+      name: 'Jue — Pecho/Bíceps',
+      slots: [
+        ml({ exerciseId: 'bench', phase: 'b1', sets: 5, reps: 5 }),
+        dpAcc('apert', 't2'),
+        dpAcc('cruces', 't3'),
+        dpAcc('curl_bar', 't2'),
+        dpAcc('curl_mart', 't3'),
+      ],
+    },
+    {
+      name: 'Vie — Pierna',
+      slots: [
+        ml({ exerciseId: 'squat', phase: 'b1', sets: 5, reps: 5 }),
+        dpAcc('prensa', 't2'),
+        dpAcc('ext_quad', 't3'),
+        dpAcc('curl_fem', 't3'),
+        dpAcc('zancadas', 't2'),
+      ],
+    },
+
+    // --- Week 3 (deload) ---
+    {
+      name: 'Lun — Hombros/Tríceps',
+      slots: [
+        ml({ exerciseId: 'press_mil', phase: 'b1d', sets: 5, reps: 5 }),
+        dpAcc('press_franc', 't2'),
+        dpAcc('ext_polea', 't3'),
+        dpAcc('elev_lat', 't3'),
+        dpAcc('elev_post', 't3'),
+      ],
+    },
+    {
+      name: 'Mar — Espalda/Gemelo',
+      slots: [
+        ml({ exerciseId: 'deadlift', phase: 'b1d', sets: 1, reps: 5, isDeadlift: true }),
+        dpAcc('remo_bar', 't2'),
+        dpAcc('jalon', 't2'),
+        dpAcc('face_pull', 't3'),
+        dpAcc('gemelo_pie', 't3'),
+        dpAcc('gemelo_sent', 't3'),
+      ],
+    },
+    {
+      name: 'Jue — Pecho/Bíceps',
+      slots: [
+        ml({ exerciseId: 'bench', phase: 'b1d', sets: 5, reps: 5 }),
+        dpAcc('apert', 't2'),
+        dpAcc('cruces', 't3'),
+        dpAcc('curl_bar', 't2'),
+        dpAcc('curl_alt', 't3'),
+      ],
+    },
+    {
+      name: 'Vie — Pierna',
+      slots: [
+        ml({ exerciseId: 'squat', phase: 'b1d', sets: 5, reps: 5 }),
+        dpAcc('prensa', 't2'),
+        dpAcc('ext_quad', 't3'),
+        dpAcc('curl_fem', 't3'),
+        dpAcc('leg_press_gem', 't3'),
+      ],
+    },
+
+    // =================================================================
+    // BLOCK 2 — 3×3 main lifts, 1×3 deadlift
+    // =================================================================
+
+    // --- Week 4 ---
+    {
+      name: 'Lun — Hombros/Tríceps',
+      slots: [
+        ml({ exerciseId: 'press_mil', phase: 'b2', sets: 3, reps: 3 }),
+        dpAcc('press_franc', 't2'),
+        dpAcc('ext_polea', 't3'),
+        dpAcc('elev_lat', 't3'),
+        dpAcc('elev_post', 't3'),
+      ],
+    },
+    {
+      name: 'Mar — Espalda/Gemelo',
+      slots: [
+        ml({ exerciseId: 'deadlift', phase: 'b2', sets: 1, reps: 3, isDeadlift: true }),
+        dpAcc('remo_bar', 't2'),
+        dpAcc('jalon', 't2'),
+        dpAcc('face_pull', 't3'),
+        dpAcc('gemelo_pie', 't3'),
+        dpAcc('gemelo_sent', 't3'),
+      ],
+    },
+    {
+      name: 'Jue — Pecho/Bíceps',
+      slots: [
+        ml({ exerciseId: 'bench', phase: 'b2', sets: 3, reps: 3 }),
+        dpAcc('apert', 't2'),
+        dpAcc('cruces', 't3'),
+        dpAcc('curl_bar', 't2'),
+        dpAcc('curl_alt', 't3'),
+      ],
+    },
+    {
+      name: 'Vie — Pierna',
+      slots: [
+        ml({ exerciseId: 'squat', phase: 'b2', sets: 3, reps: 3 }),
+        dpAcc('prensa', 't2'),
+        dpAcc('ext_quad', 't3'),
+        dpAcc('curl_fem', 't3'),
+        dpAcc('hip_thrust', 't2'),
+      ],
+    },
+
+    // --- Week 5 ---
+    {
+      name: 'Lun — Hombros/Tríceps',
+      slots: [
+        ml({ exerciseId: 'press_mil', phase: 'b2', sets: 3, reps: 3 }),
+        dpAcc('press_franc', 't2'),
+        dpAcc('ext_polea', 't3'),
+        dpAcc('elev_lat', 't3'),
+        dpAcc('elev_front', 't3'),
+      ],
+    },
+    {
+      name: 'Mar — Espalda/Gemelo',
+      slots: [
+        ml({ exerciseId: 'deadlift', phase: 'b2', sets: 1, reps: 3, isDeadlift: true }),
+        dpAcc('remo_bar', 't2'),
+        dpAcc('jalon', 't2'),
+        dpAcc('face_pull', 't3'),
+        dpAcc('gemelo_pie', 't3'),
+        dpAcc('gemelo_sent', 't3'),
+      ],
+    },
+    {
+      name: 'Jue — Pecho/Bíceps',
+      slots: [
+        ml({ exerciseId: 'bench', phase: 'b2', sets: 3, reps: 3 }),
+        dpAcc('apert', 't2'),
+        dpAcc('cruces', 't3'),
+        dpAcc('curl_bar', 't2'),
+        dpAcc('curl_mart', 't3'),
+      ],
+    },
+    {
+      name: 'Vie — Pierna',
+      slots: [
+        ml({ exerciseId: 'squat', phase: 'b2', sets: 3, reps: 3 }),
+        dpAcc('prensa', 't2'),
+        dpAcc('ext_quad', 't3'),
+        dpAcc('curl_fem', 't3'),
+        dpAcc('zancadas', 't2'),
+      ],
+    },
+
+    // --- Week 6 (record) ---
+    {
+      name: 'Lun — Hombros/Tríceps',
+      slots: [
+        ml({ exerciseId: 'press_mil', phase: 'b2', sets: 3, reps: 3 }),
+        dpAcc('press_franc', 't2'),
+        dpAcc('ext_polea', 't3'),
+        dpAcc('elev_lat', 't3'),
+        dpAcc('elev_post', 't3'),
+      ],
+    },
+    {
+      name: 'Mar — Espalda/Gemelo',
+      slots: [
+        ml({ exerciseId: 'deadlift', phase: 'b2', sets: 1, reps: 3, isDeadlift: true }),
+        dpAcc('remo_bar', 't2'),
+        dpAcc('jalon', 't2'),
+        dpAcc('face_pull', 't3'),
+        dpAcc('gemelo_pie', 't3'),
+        dpAcc('gemelo_sent', 't3'),
+      ],
+    },
+    {
+      name: 'Jue — Pecho/Bíceps',
+      slots: [
+        ml({ exerciseId: 'bench', phase: 'b2', sets: 3, reps: 3 }),
+        dpAcc('apert', 't2'),
+        dpAcc('cruces', 't3'),
+        dpAcc('curl_bar', 't2'),
+        dpAcc('curl_alt', 't3'),
+      ],
+    },
+    {
+      name: 'Vie — Pierna',
+      slots: [
+        ml({ exerciseId: 'squat', phase: 'b2', sets: 3, reps: 3 }),
+        dpAcc('prensa', 't2'),
+        dpAcc('ext_quad', 't3'),
+        dpAcc('curl_fem', 't3'),
+        dpAcc('leg_press_gem', 't3'),
+      ],
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------
 // Nivel 7 Definition
 // ---------------------------------------------------------------------------
 
 /**
- * Nivel 7 — 6-week strength program by "nivel7" (musclecoop forum).
+ * Nivel 7 — 12-week strength program by "nivel7" (musclecoop forum).
  *
- * Two 3-week blocks: Block 1 = 5×5, Block 2 = 3×3.
+ * Two 6-week cycles, each with Block 1 (5×5) and Block 2 (3×3).
  * 4 days/week: Lunes (Hombros/Tríceps), Martes (Espalda/Gemelo),
  *              Jueves (Pecho/Bíceps), Viernes (Pierna).
  *
- * Target-based periodization: user inputs the week-6 record weight.
- * Weights are derived backwards: S1=T−10, S2=T−7.5, S3=T−10 (deload),
- * S4=T−5, S5=T−2.5, S6=T (record). Accessories have no auto-progression.
+ * Main lifts: target-based wave periodization (user inputs week-6 record).
+ * Accessories: double progression 3×8-12 (+2.5kg when 3×12 completed, reset to 3×8).
+ * Cycle 2 repeats the main lift pattern with the target shifted +2.5kg.
  */
 export const NIVEL7_DEFINITION: ProgramDefinition = {
   id: 'nivel7',
   name: 'Nivel 7',
   description:
-    'Programa de fuerza de 6 semanas con periodización inversa. ' +
+    'Programa de fuerza de 12 semanas con periodización inversa. ' +
     'Configuras el récord objetivo (semana 6) y los pesos se calculan hacia atrás. ' +
     'Bloque 1 (5×5) con descarga en semana 3, Bloque 2 (3×3) culminando en récord. ' +
+    'Ciclo 2 repite la onda con +2.5kg. Accesorios con doble progresión 3×8-12. ' +
     '4 días/semana: hombros/tríceps, espalda/gemelo, pecho/bíceps, pierna.',
   author: 'nivel7 (musclecoop)',
   version: 1,
   category: 'strength',
   source: 'preset',
-  cycleLength: 24,
-  totalWorkouts: 24,
+  cycleLength: 48,
+  totalWorkouts: 48,
   workoutsPerWeek: 4,
   exercises: {
     press_mil: { name: 'Press Militar' },
@@ -125,7 +433,13 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     },
     { key: 'bench', label: 'Press Banca (récord sem. 6)', type: 'weight', min: 2.5, step: 2.5 },
     { key: 'squat', label: 'Sentadilla (récord sem. 6)', type: 'weight', min: 2.5, step: 2.5 },
-    { key: 'deadlift', label: 'Peso Muerto (récord sem. 6)', type: 'weight', min: 2.5, step: 2.5 },
+    {
+      key: 'deadlift',
+      label: 'Peso Muerto (récord sem. 6)',
+      type: 'weight',
+      min: 2.5,
+      step: 2.5,
+    },
   ],
   weightIncrements: {
     press_mil: 2.5,
@@ -133,295 +447,5 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     squat: 2.5,
     deadlift: 2.5,
   },
-  days: [
-    // =====================================================================
-    // BLOCK 1 — Weeks 1-3 (5×5 main lifts, 1×5 deadlift)
-    // =====================================================================
-
-    // --- Week 1 ---
-    // Day 1: Lunes — Hombros / Tríceps
-    {
-      name: 'Lun — Hombros/Tríceps',
-      slots: [
-        mainLift({ exerciseId: 'press_mil', chain: 'b1', sets: 5, reps: 5 }),
-        acc('press_franc', 't2', 4, 8),
-        acc('ext_polea', 't3', 3, 12),
-        acc('elev_lat', 't3', 4, 12),
-        acc('elev_post', 't3', 3, 15),
-      ],
-    },
-    // Day 2: Martes — Espalda / Gemelo
-    {
-      name: 'Mar — Espalda/Gemelo',
-      slots: [
-        mainLift({ exerciseId: 'deadlift', chain: 'b1', sets: 1, reps: 5, isDeadlift: true }),
-        acc('remo_bar', 't2', 4, 8),
-        acc('jalon', 't2', 4, 10),
-        acc('face_pull', 't3', 3, 15),
-        acc('gemelo_pie', 't3', 4, 12),
-        acc('gemelo_sent', 't3', 3, 15),
-      ],
-    },
-    // Day 3: Jueves — Pecho / Bíceps
-    {
-      name: 'Jue — Pecho/Bíceps',
-      slots: [
-        mainLift({ exerciseId: 'bench', chain: 'b1', sets: 5, reps: 5 }),
-        acc('apert', 't2', 3, 12),
-        acc('cruces', 't3', 3, 12),
-        acc('curl_bar', 't2', 3, 10),
-        acc('curl_alt', 't3', 3, 12),
-      ],
-    },
-    // Day 4: Viernes — Pierna
-    {
-      name: 'Vie — Pierna',
-      slots: [
-        mainLift({ exerciseId: 'squat', chain: 'b1', sets: 5, reps: 5 }),
-        acc('prensa', 't2', 4, 10),
-        acc('ext_quad', 't3', 3, 12),
-        acc('curl_fem', 't3', 3, 12),
-        acc('hip_thrust', 't2', 3, 10),
-      ],
-    },
-
-    // --- Week 2 ---
-    // Day 5: Lunes — Hombros / Tríceps
-    {
-      name: 'Lun — Hombros/Tríceps',
-      slots: [
-        mainLift({ exerciseId: 'press_mil', chain: 'b1', sets: 5, reps: 5 }),
-        acc('press_franc', 't2', 4, 6),
-        acc('ext_polea', 't3', 3, 10),
-        acc('elev_lat', 't3', 4, 10),
-        acc('elev_front', 't3', 3, 12),
-      ],
-    },
-    // Day 6: Martes — Espalda / Gemelo
-    {
-      name: 'Mar — Espalda/Gemelo',
-      slots: [
-        mainLift({ exerciseId: 'deadlift', chain: 'b1', sets: 1, reps: 5, isDeadlift: true }),
-        acc('remo_bar', 't2', 4, 6),
-        acc('jalon', 't2', 4, 8),
-        acc('face_pull', 't3', 3, 12),
-        acc('gemelo_pie', 't3', 4, 10),
-        acc('gemelo_sent', 't3', 3, 12),
-      ],
-    },
-    // Day 7: Jueves — Pecho / Bíceps
-    {
-      name: 'Jue — Pecho/Bíceps',
-      slots: [
-        mainLift({ exerciseId: 'bench', chain: 'b1', sets: 5, reps: 5 }),
-        acc('apert', 't2', 3, 10),
-        acc('cruces', 't3', 3, 10),
-        acc('curl_bar', 't2', 3, 8),
-        acc('curl_mart', 't3', 3, 10),
-      ],
-    },
-    // Day 8: Viernes — Pierna
-    {
-      name: 'Vie — Pierna',
-      slots: [
-        mainLift({ exerciseId: 'squat', chain: 'b1', sets: 5, reps: 5 }),
-        acc('prensa', 't2', 4, 8),
-        acc('ext_quad', 't3', 3, 10),
-        acc('curl_fem', 't3', 3, 10),
-        acc('zancadas', 't2', 3, 10),
-      ],
-    },
-
-    // --- Week 3 (deload) ---
-    // Day 9: Lunes — Hombros / Tríceps
-    {
-      name: 'Lun — Hombros/Tríceps',
-      slots: [
-        mainLift({ exerciseId: 'press_mil', chain: 'b1d', sets: 5, reps: 5 }),
-        acc('press_franc', 't2', 5, 5),
-        acc('ext_polea', 't3', 3, 8),
-        acc('elev_lat', 't3', 3, 8),
-        acc('elev_post', 't3', 3, 12),
-      ],
-    },
-    // Day 10: Martes — Espalda / Gemelo
-    {
-      name: 'Mar — Espalda/Gemelo',
-      slots: [
-        mainLift({ exerciseId: 'deadlift', chain: 'b1d', sets: 1, reps: 5, isDeadlift: true }),
-        acc('remo_bar', 't2', 5, 5),
-        acc('jalon', 't2', 4, 6),
-        acc('face_pull', 't3', 3, 10),
-        acc('gemelo_pie', 't3', 5, 8),
-        acc('gemelo_sent', 't3', 3, 10),
-      ],
-    },
-    // Day 11: Jueves — Pecho / Bíceps
-    {
-      name: 'Jue — Pecho/Bíceps',
-      slots: [
-        mainLift({ exerciseId: 'bench', chain: 'b1d', sets: 5, reps: 5 }),
-        acc('apert', 't2', 4, 8),
-        acc('cruces', 't3', 3, 8),
-        acc('curl_bar', 't2', 4, 6),
-        acc('curl_alt', 't3', 3, 8),
-      ],
-    },
-    // Day 12: Viernes — Pierna
-    {
-      name: 'Vie — Pierna',
-      slots: [
-        mainLift({ exerciseId: 'squat', chain: 'b1d', sets: 5, reps: 5 }),
-        acc('prensa', 't2', 5, 6),
-        acc('ext_quad', 't3', 4, 8),
-        acc('curl_fem', 't3', 4, 8),
-        acc('leg_press_gem', 't3', 4, 10),
-      ],
-    },
-
-    // =====================================================================
-    // BLOCK 2 — Weeks 4-6 (3×3 main lifts, 1×3 deadlift)
-    // =====================================================================
-
-    // --- Week 4 ---
-    // Day 13: Lunes — Hombros / Tríceps
-    {
-      name: 'Lun — Hombros/Tríceps',
-      slots: [
-        mainLift({ exerciseId: 'press_mil', chain: 'b2', sets: 3, reps: 3 }),
-        acc('press_franc', 't2', 4, 8),
-        acc('ext_polea', 't3', 3, 12),
-        acc('elev_lat', 't3', 4, 12),
-        acc('elev_post', 't3', 3, 15),
-      ],
-    },
-    // Day 14: Martes — Espalda / Gemelo
-    {
-      name: 'Mar — Espalda/Gemelo',
-      slots: [
-        mainLift({ exerciseId: 'deadlift', chain: 'b2', sets: 1, reps: 3, isDeadlift: true }),
-        acc('remo_bar', 't2', 4, 8),
-        acc('jalon', 't2', 4, 10),
-        acc('face_pull', 't3', 3, 15),
-        acc('gemelo_pie', 't3', 4, 12),
-        acc('gemelo_sent', 't3', 3, 15),
-      ],
-    },
-    // Day 15: Jueves — Pecho / Bíceps
-    {
-      name: 'Jue — Pecho/Bíceps',
-      slots: [
-        mainLift({ exerciseId: 'bench', chain: 'b2', sets: 3, reps: 3 }),
-        acc('apert', 't2', 3, 12),
-        acc('cruces', 't3', 3, 12),
-        acc('curl_bar', 't2', 3, 10),
-        acc('curl_alt', 't3', 3, 12),
-      ],
-    },
-    // Day 16: Viernes — Pierna
-    {
-      name: 'Vie — Pierna',
-      slots: [
-        mainLift({ exerciseId: 'squat', chain: 'b2', sets: 3, reps: 3 }),
-        acc('prensa', 't2', 4, 10),
-        acc('ext_quad', 't3', 3, 12),
-        acc('curl_fem', 't3', 3, 12),
-        acc('hip_thrust', 't2', 3, 10),
-      ],
-    },
-
-    // --- Week 5 ---
-    // Day 17: Lunes — Hombros / Tríceps
-    {
-      name: 'Lun — Hombros/Tríceps',
-      slots: [
-        mainLift({ exerciseId: 'press_mil', chain: 'b2', sets: 3, reps: 3 }),
-        acc('press_franc', 't2', 4, 6),
-        acc('ext_polea', 't3', 3, 10),
-        acc('elev_lat', 't3', 4, 10),
-        acc('elev_front', 't3', 3, 12),
-      ],
-    },
-    // Day 18: Martes — Espalda / Gemelo
-    {
-      name: 'Mar — Espalda/Gemelo',
-      slots: [
-        mainLift({ exerciseId: 'deadlift', chain: 'b2', sets: 1, reps: 3, isDeadlift: true }),
-        acc('remo_bar', 't2', 4, 6),
-        acc('jalon', 't2', 4, 8),
-        acc('face_pull', 't3', 3, 12),
-        acc('gemelo_pie', 't3', 4, 10),
-        acc('gemelo_sent', 't3', 3, 12),
-      ],
-    },
-    // Day 19: Jueves — Pecho / Bíceps
-    {
-      name: 'Jue — Pecho/Bíceps',
-      slots: [
-        mainLift({ exerciseId: 'bench', chain: 'b2', sets: 3, reps: 3 }),
-        acc('apert', 't2', 3, 10),
-        acc('cruces', 't3', 3, 10),
-        acc('curl_bar', 't2', 3, 8),
-        acc('curl_mart', 't3', 3, 10),
-      ],
-    },
-    // Day 20: Viernes — Pierna
-    {
-      name: 'Vie — Pierna',
-      slots: [
-        mainLift({ exerciseId: 'squat', chain: 'b2', sets: 3, reps: 3 }),
-        acc('prensa', 't2', 4, 8),
-        acc('ext_quad', 't3', 3, 10),
-        acc('curl_fem', 't3', 3, 10),
-        acc('zancadas', 't2', 3, 10),
-      ],
-    },
-
-    // --- Week 6 (record week) ---
-    // Day 21: Lunes — Hombros / Tríceps
-    {
-      name: 'Lun — Hombros/Tríceps',
-      slots: [
-        mainLift({ exerciseId: 'press_mil', chain: 'b2', sets: 3, reps: 3 }),
-        acc('press_franc', 't2', 5, 5),
-        acc('ext_polea', 't3', 3, 8),
-        acc('elev_lat', 't3', 3, 8),
-        acc('elev_post', 't3', 3, 12),
-      ],
-    },
-    // Day 22: Martes — Espalda / Gemelo
-    {
-      name: 'Mar — Espalda/Gemelo',
-      slots: [
-        mainLift({ exerciseId: 'deadlift', chain: 'b2', sets: 1, reps: 3, isDeadlift: true }),
-        acc('remo_bar', 't2', 5, 5),
-        acc('jalon', 't2', 4, 6),
-        acc('face_pull', 't3', 3, 10),
-        acc('gemelo_pie', 't3', 5, 8),
-        acc('gemelo_sent', 't3', 3, 10),
-      ],
-    },
-    // Day 23: Jueves — Pecho / Bíceps
-    {
-      name: 'Jue — Pecho/Bíceps',
-      slots: [
-        mainLift({ exerciseId: 'bench', chain: 'b2', sets: 3, reps: 3 }),
-        acc('apert', 't2', 4, 8),
-        acc('cruces', 't3', 3, 8),
-        acc('curl_bar', 't2', 4, 6),
-        acc('curl_alt', 't3', 3, 8),
-      ],
-    },
-    // Day 24: Viernes — Pierna
-    {
-      name: 'Vie — Pierna',
-      slots: [
-        mainLift({ exerciseId: 'squat', chain: 'b2', sets: 3, reps: 3 }),
-        acc('prensa', 't2', 5, 6),
-        acc('ext_quad', 't3', 4, 8),
-        acc('curl_fem', 't3', 4, 8),
-        acc('leg_press_gem', 't3', 4, 10),
-      ],
-    },
-  ],
+  days: [...cycleDays('c1'), ...cycleDays('c2')],
 };

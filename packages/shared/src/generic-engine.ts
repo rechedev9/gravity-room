@@ -132,7 +132,11 @@ export function computeGenericProgram(
         const nextState = applyRule(rule, state, increment, maxStageIdx);
         slotState[slot.id] = { ...nextState, everChanged: state.everChanged || changesState };
       } else if (resultValue === 'success') {
-        const nextState = applyRule(slot.onSuccess, state, increment, maxStageIdx);
+        const rule =
+          state.stage >= maxStageIdx && slot.onFinalStageSuccess
+            ? slot.onFinalStageSuccess
+            : slot.onSuccess;
+        const nextState = applyRule(rule, state, increment, maxStageIdx);
         slotState[slot.id] = { ...nextState, everChanged: state.everChanged };
       } else {
         // undefined — apply onUndefined if set, else onSuccess (implicit pass)
