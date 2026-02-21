@@ -69,10 +69,13 @@ export function computeGenericProgram(
     for (const slot of day.slots) {
       if (!(slot.id in slotState)) {
         const base = config[slot.startWeightKey] ?? 0;
-        const weight =
+        const multiplied =
           slot.startWeightMultiplier !== undefined
             ? roundToNearestHalf(base * slot.startWeightMultiplier)
             : base;
+        const offset = slot.startWeightOffset ?? 0;
+        const increment = definition.weightIncrements[slot.exerciseId] ?? 0;
+        const weight = roundToNearestHalf(multiplied - offset * increment);
         slotState[slot.id] = { weight, stage: 0, everChanged: false };
       }
     }

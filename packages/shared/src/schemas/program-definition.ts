@@ -62,6 +62,7 @@ export const ExerciseSlotSchema = z.strictObject({
   onFinalStageFail: ProgressionRuleSchema,
   startWeightKey: z.string().min(1),
   startWeightMultiplier: z.number().positive().optional(),
+  startWeightOffset: z.number().int().nonnegative().optional(),
 });
 
 // --- Program Day ---

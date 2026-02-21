@@ -11,25 +11,37 @@ type ProgressionRule = ExerciseSlot['onSuccess'];
 const NO_CHANGE: ProgressionRule = { type: 'no_change' };
 const ADD_WEIGHT: ProgressionRule = { type: 'add_weight' };
 
+/**
+ * Slot chain types for the wave periodization:
+ * - 'b1'  → Block 1, weeks 1-2 (build phase, +2.5kg/session, offset=4 from target)
+ * - 'b1d' → Block 1, week 3  (deload, fixed weight = target − 4×increment)
+ * - 'b2'  → Block 2, weeks 4-6 (peak phase, +2.5kg/session, offset=2 from target)
+ */
+type SlotChain = 'b1' | 'b1d' | 'b2';
+
+const CHAIN_OFFSET: Record<SlotChain, number> = { b1: 4, b1d: 4, b2: 2 };
+
 interface MainLiftOpts {
   readonly exerciseId: string;
-  readonly block: 1 | 2;
+  readonly chain: SlotChain;
   readonly sets: number;
   readonly reps: number;
   readonly isDeadlift?: boolean;
 }
 
-function mainLift({ exerciseId, block, sets, reps, isDeadlift }: MainLiftOpts): ExerciseSlot {
+function mainLift({ exerciseId, chain, sets, reps, isDeadlift }: MainLiftOpts): ExerciseSlot {
+  const isDeload = chain === 'b1d';
   return {
-    id: `${exerciseId}-b${block}`,
+    id: `${exerciseId}-${chain}`,
     exerciseId,
     tier: isDeadlift ? 't2' : 't1',
     stages: [{ sets, reps }],
-    onSuccess: ADD_WEIGHT,
-    onUndefined: ADD_WEIGHT,
+    onSuccess: isDeload ? NO_CHANGE : ADD_WEIGHT,
+    onUndefined: isDeload ? NO_CHANGE : ADD_WEIGHT,
     onMidStageFail: NO_CHANGE,
     onFinalStageFail: NO_CHANGE,
-    startWeightKey: `${exerciseId}_b${block}`,
+    startWeightKey: exerciseId,
+    startWeightOffset: CHAIN_OFFSET[chain],
   };
 }
 
@@ -57,16 +69,18 @@ function acc(exerciseId: string, tier: Tier, sets: number, reps: number): Exerci
  * 4 days/week: Lunes (Hombros/Tríceps), Martes (Espalda/Gemelo),
  *              Jueves (Pecho/Bíceps), Viernes (Pierna).
  *
- * Main lifts auto-progress +2.5kg per session within each block.
- * Accessories have no auto-progression (user adjusts manually).
+ * Target-based periodization: user inputs the week-6 record weight.
+ * Weights are derived backwards: S1=T−10, S2=T−7.5, S3=T−10 (deload),
+ * S4=T−5, S5=T−2.5, S6=T (record). Accessories have no auto-progression.
  */
 export const NIVEL7_DEFINITION: ProgramDefinition = {
   id: 'nivel7',
   name: 'Nivel 7',
   description:
-    'A 6-week strength program with two 3-week blocks. ' +
-    'Block 1 (5×5) and Block 2 (3×3) on 4 main compound lifts with wave loading. ' +
-    '4 days per week targeting shoulders/triceps, back/calves, chest/biceps, and legs.',
+    'Programa de fuerza de 6 semanas con periodización inversa. ' +
+    'Configuras el récord objetivo (semana 6) y los pesos se calculan hacia atrás. ' +
+    'Bloque 1 (5×5) con descarga en semana 3, Bloque 2 (3×3) culminando en récord. ' +
+    '4 días/semana: hombros/tríceps, espalda/gemelo, pecho/bíceps, pierna.',
   author: 'nivel7 (musclecoop)',
   version: 1,
   category: 'strength',
@@ -102,14 +116,16 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     elev_front: { name: 'Elevaciones Frontales' },
   },
   configFields: [
-    { key: 'press_mil_b1', label: 'Press Militar (Bloque 1)', type: 'weight', min: 2.5, step: 2.5 },
-    { key: 'press_mil_b2', label: 'Press Militar (Bloque 2)', type: 'weight', min: 2.5, step: 2.5 },
-    { key: 'bench_b1', label: 'Press Banca (Bloque 1)', type: 'weight', min: 2.5, step: 2.5 },
-    { key: 'bench_b2', label: 'Press Banca (Bloque 2)', type: 'weight', min: 2.5, step: 2.5 },
-    { key: 'squat_b1', label: 'Sentadilla (Bloque 1)', type: 'weight', min: 2.5, step: 2.5 },
-    { key: 'squat_b2', label: 'Sentadilla (Bloque 2)', type: 'weight', min: 2.5, step: 2.5 },
-    { key: 'deadlift_b1', label: 'Peso Muerto (Bloque 1)', type: 'weight', min: 2.5, step: 2.5 },
-    { key: 'deadlift_b2', label: 'Peso Muerto (Bloque 2)', type: 'weight', min: 2.5, step: 2.5 },
+    {
+      key: 'press_mil',
+      label: 'Press Militar (récord sem. 6)',
+      type: 'weight',
+      min: 2.5,
+      step: 2.5,
+    },
+    { key: 'bench', label: 'Press Banca (récord sem. 6)', type: 'weight', min: 2.5, step: 2.5 },
+    { key: 'squat', label: 'Sentadilla (récord sem. 6)', type: 'weight', min: 2.5, step: 2.5 },
+    { key: 'deadlift', label: 'Peso Muerto (récord sem. 6)', type: 'weight', min: 2.5, step: 2.5 },
   ],
   weightIncrements: {
     press_mil: 2.5,
@@ -127,7 +143,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Lun — Hombros/Tríceps',
       slots: [
-        mainLift({ exerciseId: 'press_mil', block: 1, sets: 5, reps: 5 }),
+        mainLift({ exerciseId: 'press_mil', chain: 'b1', sets: 5, reps: 5 }),
         acc('press_franc', 't2', 4, 8),
         acc('ext_polea', 't3', 3, 12),
         acc('elev_lat', 't3', 4, 12),
@@ -138,7 +154,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Mar — Espalda/Gemelo',
       slots: [
-        mainLift({ exerciseId: 'deadlift', block: 1, sets: 1, reps: 5, isDeadlift: true }),
+        mainLift({ exerciseId: 'deadlift', chain: 'b1', sets: 1, reps: 5, isDeadlift: true }),
         acc('remo_bar', 't2', 4, 8),
         acc('jalon', 't2', 4, 10),
         acc('face_pull', 't3', 3, 15),
@@ -150,7 +166,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Jue — Pecho/Bíceps',
       slots: [
-        mainLift({ exerciseId: 'bench', block: 1, sets: 5, reps: 5 }),
+        mainLift({ exerciseId: 'bench', chain: 'b1', sets: 5, reps: 5 }),
         acc('apert', 't2', 3, 12),
         acc('cruces', 't3', 3, 12),
         acc('curl_bar', 't2', 3, 10),
@@ -161,7 +177,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Vie — Pierna',
       slots: [
-        mainLift({ exerciseId: 'squat', block: 1, sets: 5, reps: 5 }),
+        mainLift({ exerciseId: 'squat', chain: 'b1', sets: 5, reps: 5 }),
         acc('prensa', 't2', 4, 10),
         acc('ext_quad', 't3', 3, 12),
         acc('curl_fem', 't3', 3, 12),
@@ -174,7 +190,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Lun — Hombros/Tríceps',
       slots: [
-        mainLift({ exerciseId: 'press_mil', block: 1, sets: 5, reps: 5 }),
+        mainLift({ exerciseId: 'press_mil', chain: 'b1', sets: 5, reps: 5 }),
         acc('press_franc', 't2', 4, 6),
         acc('ext_polea', 't3', 3, 10),
         acc('elev_lat', 't3', 4, 10),
@@ -185,7 +201,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Mar — Espalda/Gemelo',
       slots: [
-        mainLift({ exerciseId: 'deadlift', block: 1, sets: 1, reps: 5, isDeadlift: true }),
+        mainLift({ exerciseId: 'deadlift', chain: 'b1', sets: 1, reps: 5, isDeadlift: true }),
         acc('remo_bar', 't2', 4, 6),
         acc('jalon', 't2', 4, 8),
         acc('face_pull', 't3', 3, 12),
@@ -197,7 +213,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Jue — Pecho/Bíceps',
       slots: [
-        mainLift({ exerciseId: 'bench', block: 1, sets: 5, reps: 5 }),
+        mainLift({ exerciseId: 'bench', chain: 'b1', sets: 5, reps: 5 }),
         acc('apert', 't2', 3, 10),
         acc('cruces', 't3', 3, 10),
         acc('curl_bar', 't2', 3, 8),
@@ -208,7 +224,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Vie — Pierna',
       slots: [
-        mainLift({ exerciseId: 'squat', block: 1, sets: 5, reps: 5 }),
+        mainLift({ exerciseId: 'squat', chain: 'b1', sets: 5, reps: 5 }),
         acc('prensa', 't2', 4, 8),
         acc('ext_quad', 't3', 3, 10),
         acc('curl_fem', 't3', 3, 10),
@@ -216,12 +232,12 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
       ],
     },
 
-    // --- Week 3 (record week) ---
+    // --- Week 3 (deload) ---
     // Day 9: Lunes — Hombros / Tríceps
     {
       name: 'Lun — Hombros/Tríceps',
       slots: [
-        mainLift({ exerciseId: 'press_mil', block: 1, sets: 5, reps: 5 }),
+        mainLift({ exerciseId: 'press_mil', chain: 'b1d', sets: 5, reps: 5 }),
         acc('press_franc', 't2', 5, 5),
         acc('ext_polea', 't3', 3, 8),
         acc('elev_lat', 't3', 3, 8),
@@ -232,7 +248,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Mar — Espalda/Gemelo',
       slots: [
-        mainLift({ exerciseId: 'deadlift', block: 1, sets: 1, reps: 5, isDeadlift: true }),
+        mainLift({ exerciseId: 'deadlift', chain: 'b1d', sets: 1, reps: 5, isDeadlift: true }),
         acc('remo_bar', 't2', 5, 5),
         acc('jalon', 't2', 4, 6),
         acc('face_pull', 't3', 3, 10),
@@ -244,7 +260,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Jue — Pecho/Bíceps',
       slots: [
-        mainLift({ exerciseId: 'bench', block: 1, sets: 5, reps: 5 }),
+        mainLift({ exerciseId: 'bench', chain: 'b1d', sets: 5, reps: 5 }),
         acc('apert', 't2', 4, 8),
         acc('cruces', 't3', 3, 8),
         acc('curl_bar', 't2', 4, 6),
@@ -255,7 +271,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Vie — Pierna',
       slots: [
-        mainLift({ exerciseId: 'squat', block: 1, sets: 5, reps: 5 }),
+        mainLift({ exerciseId: 'squat', chain: 'b1d', sets: 5, reps: 5 }),
         acc('prensa', 't2', 5, 6),
         acc('ext_quad', 't3', 4, 8),
         acc('curl_fem', 't3', 4, 8),
@@ -272,7 +288,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Lun — Hombros/Tríceps',
       slots: [
-        mainLift({ exerciseId: 'press_mil', block: 2, sets: 3, reps: 3 }),
+        mainLift({ exerciseId: 'press_mil', chain: 'b2', sets: 3, reps: 3 }),
         acc('press_franc', 't2', 4, 8),
         acc('ext_polea', 't3', 3, 12),
         acc('elev_lat', 't3', 4, 12),
@@ -283,7 +299,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Mar — Espalda/Gemelo',
       slots: [
-        mainLift({ exerciseId: 'deadlift', block: 2, sets: 1, reps: 3, isDeadlift: true }),
+        mainLift({ exerciseId: 'deadlift', chain: 'b2', sets: 1, reps: 3, isDeadlift: true }),
         acc('remo_bar', 't2', 4, 8),
         acc('jalon', 't2', 4, 10),
         acc('face_pull', 't3', 3, 15),
@@ -295,7 +311,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Jue — Pecho/Bíceps',
       slots: [
-        mainLift({ exerciseId: 'bench', block: 2, sets: 3, reps: 3 }),
+        mainLift({ exerciseId: 'bench', chain: 'b2', sets: 3, reps: 3 }),
         acc('apert', 't2', 3, 12),
         acc('cruces', 't3', 3, 12),
         acc('curl_bar', 't2', 3, 10),
@@ -306,7 +322,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Vie — Pierna',
       slots: [
-        mainLift({ exerciseId: 'squat', block: 2, sets: 3, reps: 3 }),
+        mainLift({ exerciseId: 'squat', chain: 'b2', sets: 3, reps: 3 }),
         acc('prensa', 't2', 4, 10),
         acc('ext_quad', 't3', 3, 12),
         acc('curl_fem', 't3', 3, 12),
@@ -319,7 +335,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Lun — Hombros/Tríceps',
       slots: [
-        mainLift({ exerciseId: 'press_mil', block: 2, sets: 3, reps: 3 }),
+        mainLift({ exerciseId: 'press_mil', chain: 'b2', sets: 3, reps: 3 }),
         acc('press_franc', 't2', 4, 6),
         acc('ext_polea', 't3', 3, 10),
         acc('elev_lat', 't3', 4, 10),
@@ -330,7 +346,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Mar — Espalda/Gemelo',
       slots: [
-        mainLift({ exerciseId: 'deadlift', block: 2, sets: 1, reps: 3, isDeadlift: true }),
+        mainLift({ exerciseId: 'deadlift', chain: 'b2', sets: 1, reps: 3, isDeadlift: true }),
         acc('remo_bar', 't2', 4, 6),
         acc('jalon', 't2', 4, 8),
         acc('face_pull', 't3', 3, 12),
@@ -342,7 +358,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Jue — Pecho/Bíceps',
       slots: [
-        mainLift({ exerciseId: 'bench', block: 2, sets: 3, reps: 3 }),
+        mainLift({ exerciseId: 'bench', chain: 'b2', sets: 3, reps: 3 }),
         acc('apert', 't2', 3, 10),
         acc('cruces', 't3', 3, 10),
         acc('curl_bar', 't2', 3, 8),
@@ -353,7 +369,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Vie — Pierna',
       slots: [
-        mainLift({ exerciseId: 'squat', block: 2, sets: 3, reps: 3 }),
+        mainLift({ exerciseId: 'squat', chain: 'b2', sets: 3, reps: 3 }),
         acc('prensa', 't2', 4, 8),
         acc('ext_quad', 't3', 3, 10),
         acc('curl_fem', 't3', 3, 10),
@@ -366,7 +382,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Lun — Hombros/Tríceps',
       slots: [
-        mainLift({ exerciseId: 'press_mil', block: 2, sets: 3, reps: 3 }),
+        mainLift({ exerciseId: 'press_mil', chain: 'b2', sets: 3, reps: 3 }),
         acc('press_franc', 't2', 5, 5),
         acc('ext_polea', 't3', 3, 8),
         acc('elev_lat', 't3', 3, 8),
@@ -377,7 +393,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Mar — Espalda/Gemelo',
       slots: [
-        mainLift({ exerciseId: 'deadlift', block: 2, sets: 1, reps: 3, isDeadlift: true }),
+        mainLift({ exerciseId: 'deadlift', chain: 'b2', sets: 1, reps: 3, isDeadlift: true }),
         acc('remo_bar', 't2', 5, 5),
         acc('jalon', 't2', 4, 6),
         acc('face_pull', 't3', 3, 10),
@@ -389,7 +405,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Jue — Pecho/Bíceps',
       slots: [
-        mainLift({ exerciseId: 'bench', block: 2, sets: 3, reps: 3 }),
+        mainLift({ exerciseId: 'bench', chain: 'b2', sets: 3, reps: 3 }),
         acc('apert', 't2', 4, 8),
         acc('cruces', 't3', 3, 8),
         acc('curl_bar', 't2', 4, 6),
@@ -400,7 +416,7 @@ export const NIVEL7_DEFINITION: ProgramDefinition = {
     {
       name: 'Vie — Pierna',
       slots: [
-        mainLift({ exerciseId: 'squat', block: 2, sets: 3, reps: 3 }),
+        mainLift({ exerciseId: 'squat', chain: 'b2', sets: 3, reps: 3 }),
         acc('prensa', 't2', 5, 6),
         acc('ext_quad', 't3', 4, 8),
         acc('curl_fem', 't3', 4, 8),
