@@ -6,7 +6,8 @@ import { WeightField } from './weight-field';
 interface GenericSetupFormProps {
   readonly definition: ProgramDefinition;
   readonly initialConfig?: Record<string, number> | null;
-  readonly onGenerate: (config: Record<string, number>) => void;
+  readonly isGenerating?: boolean;
+  readonly onGenerate: (config: Record<string, number>) => Promise<void>;
   readonly onUpdateConfig?: (config: Record<string, number>) => void;
 }
 
@@ -21,6 +22,7 @@ function validateField(value: string, min: number): string | null {
 export function GenericSetupForm({
   definition,
   initialConfig,
+  isGenerating,
   onGenerate,
   onUpdateConfig,
 }: GenericSetupFormProps): React.ReactNode {
@@ -135,7 +137,9 @@ export function GenericSetupForm({
       setPendingConfig(config);
       setShowConfirm(true);
     } else {
-      onGenerate(config);
+      onGenerate(config).catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Error al generar el programa.');
+      });
     }
   };
 
@@ -237,9 +241,10 @@ export function GenericSetupForm({
         )}
         <button
           onClick={handleSubmit}
-          className="flex-1 py-3.5 border-none bg-[var(--bg-header)] text-[var(--text-header)] text-base font-bold cursor-pointer hover:opacity-85 transition-opacity"
+          disabled={isGenerating}
+          className="flex-1 py-3.5 border-none bg-[var(--bg-header)] text-[var(--text-header)] text-base font-bold cursor-pointer hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isEditMode ? 'Actualizar Pesos' : 'Generar Programa'}
+          {isGenerating ? 'Generando...' : isEditMode ? 'Actualizar Pesos' : 'Generar Programa'}
         </button>
       </div>
     </>

@@ -1,7 +1,6 @@
 import { describe, it, expect, mock } from 'bun:test';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SetupForm } from './setup-form';
-import type { StartWeights } from '@gzclp/shared/types';
 import { DEFAULT_WEIGHTS } from '../../test/helpers/fixtures';
 
 // ---------------------------------------------------------------------------
@@ -10,7 +9,7 @@ import { DEFAULT_WEIGHTS } from '../../test/helpers/fixtures';
 describe('SetupForm', () => {
   describe('initial render (new program)', () => {
     it('should show all 6 exercise fields with default values', () => {
-      const onGenerate = mock();
+      const onGenerate = mock(() => Promise.resolve());
       render(<SetupForm onGenerate={onGenerate} />);
 
       expect(screen.getByLabelText('Sentadilla (T1)')).toHaveValue(60);
@@ -22,13 +21,13 @@ describe('SetupForm', () => {
     });
 
     it('should show "Generar Programa" button', () => {
-      render(<SetupForm onGenerate={mock()} />);
+      render(<SetupForm onGenerate={mock(() => Promise.resolve())} />);
 
       expect(screen.getByText('Generar Programa')).toBeInTheDocument();
     });
 
     it('should not show Cancelar button in new program mode', () => {
-      render(<SetupForm onGenerate={mock()} />);
+      render(<SetupForm onGenerate={mock(() => Promise.resolve())} />);
 
       expect(screen.queryByText('Cancelar')).not.toBeInTheDocument();
     });
@@ -36,23 +35,21 @@ describe('SetupForm', () => {
 
   describe('submit', () => {
     it('should call onGenerate with parsed weights on submit', () => {
-      const onGenerate = mock();
+      const onGenerate = mock(() => Promise.resolve());
       render(<SetupForm onGenerate={onGenerate} />);
 
       fireEvent.click(screen.getByText('Generar Programa'));
 
       expect(onGenerate).toHaveBeenCalledTimes(1);
-      const weights = onGenerate.mock.calls[0][0] as StartWeights;
-      expect(weights.squat).toBe(60);
-      expect(weights.bench).toBe(40);
-      expect(weights.deadlift).toBe(60);
-      expect(weights.ohp).toBe(30);
+      expect(onGenerate).toHaveBeenCalledWith(
+        expect.objectContaining({ squat: 60, bench: 40, deadlift: 60, ohp: 30 })
+      );
     });
   });
 
   describe('validation', () => {
     it('should show error when a field is empty', () => {
-      render(<SetupForm onGenerate={mock()} />);
+      render(<SetupForm onGenerate={mock(() => Promise.resolve())} />);
 
       const squatInput = screen.getByLabelText('Sentadilla (T1)');
       fireEvent.change(squatInput, { target: { value: '' } });
@@ -62,7 +59,7 @@ describe('SetupForm', () => {
     });
 
     it('should show error when weight is below minimum', () => {
-      render(<SetupForm onGenerate={mock()} />);
+      render(<SetupForm onGenerate={mock(() => Promise.resolve())} />);
 
       const squatInput = screen.getByLabelText('Sentadilla (T1)');
       fireEvent.change(squatInput, { target: { value: '1' } });
@@ -75,7 +72,7 @@ describe('SetupForm', () => {
     });
 
     it('should show error when weight exceeds maximum', () => {
-      render(<SetupForm onGenerate={mock()} />);
+      render(<SetupForm onGenerate={mock(() => Promise.resolve())} />);
 
       const squatInput = screen.getByLabelText('Sentadilla (T1)');
       fireEvent.change(squatInput, { target: { value: '501' } });
@@ -85,7 +82,7 @@ describe('SetupForm', () => {
     });
 
     it('should not call onGenerate when validation fails', () => {
-      const onGenerate = mock();
+      const onGenerate = mock(() => Promise.resolve());
       render(<SetupForm onGenerate={onGenerate} />);
 
       const squatInput = screen.getByLabelText('Sentadilla (T1)');
@@ -96,7 +93,7 @@ describe('SetupForm', () => {
     });
 
     it('should show summary error message when submit fails validation', () => {
-      render(<SetupForm onGenerate={mock()} />);
+      render(<SetupForm onGenerate={mock(() => Promise.resolve())} />);
 
       const squatInput = screen.getByLabelText('Sentadilla (T1)');
       fireEvent.change(squatInput, { target: { value: '' } });
@@ -108,7 +105,7 @@ describe('SetupForm', () => {
 
   describe('+/- weight adjustment', () => {
     it('should increase weight when + button is clicked', () => {
-      render(<SetupForm onGenerate={mock()} />);
+      render(<SetupForm onGenerate={mock(() => Promise.resolve())} />);
 
       const increaseBtn = screen.getByLabelText('Aumentar Sentadilla (T1)');
       fireEvent.click(increaseBtn);
@@ -117,7 +114,7 @@ describe('SetupForm', () => {
     });
 
     it('should decrease weight when - button is clicked', () => {
-      render(<SetupForm onGenerate={mock()} />);
+      render(<SetupForm onGenerate={mock(() => Promise.resolve())} />);
 
       const decreaseBtn = screen.getByLabelText('Disminuir Sentadilla (T1)');
       fireEvent.click(decreaseBtn);
@@ -129,7 +126,11 @@ describe('SetupForm', () => {
   describe('edit mode', () => {
     it('should show collapsed summary with current weights', () => {
       render(
-        <SetupForm initialWeights={DEFAULT_WEIGHTS} onGenerate={mock()} onUpdateWeights={mock()} />
+        <SetupForm
+          initialWeights={DEFAULT_WEIGHTS}
+          onGenerate={mock(() => Promise.resolve())}
+          onUpdateWeights={mock(() => Promise.resolve())}
+        />
       );
 
       expect(screen.getByText('Pesos Iniciales')).toBeInTheDocument();
@@ -138,7 +139,11 @@ describe('SetupForm', () => {
 
     it('should expand form when Editar Pesos is clicked', () => {
       render(
-        <SetupForm initialWeights={DEFAULT_WEIGHTS} onGenerate={mock()} onUpdateWeights={mock()} />
+        <SetupForm
+          initialWeights={DEFAULT_WEIGHTS}
+          onGenerate={mock(() => Promise.resolve())}
+          onUpdateWeights={mock(() => Promise.resolve())}
+        />
       );
 
       fireEvent.click(screen.getByText('Editar Pesos'));
@@ -150,7 +155,11 @@ describe('SetupForm', () => {
 
     it('should show confirmation dialog before updating weights', () => {
       render(
-        <SetupForm initialWeights={DEFAULT_WEIGHTS} onGenerate={mock()} onUpdateWeights={mock()} />
+        <SetupForm
+          initialWeights={DEFAULT_WEIGHTS}
+          onGenerate={mock(() => Promise.resolve())}
+          onUpdateWeights={mock(() => Promise.resolve())}
+        />
       );
 
       fireEvent.click(screen.getByText('Editar Pesos'));
@@ -161,7 +170,11 @@ describe('SetupForm', () => {
 
     it('should collapse back when Cancelar is clicked', () => {
       render(
-        <SetupForm initialWeights={DEFAULT_WEIGHTS} onGenerate={mock()} onUpdateWeights={mock()} />
+        <SetupForm
+          initialWeights={DEFAULT_WEIGHTS}
+          onGenerate={mock(() => Promise.resolve())}
+          onUpdateWeights={mock(() => Promise.resolve())}
+        />
       );
 
       fireEvent.click(screen.getByText('Editar Pesos'));

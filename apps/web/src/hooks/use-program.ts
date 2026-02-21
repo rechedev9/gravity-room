@@ -98,8 +98,9 @@ interface UseProgramReturn {
   readonly undoHistory: UndoHistory;
   readonly resultTimestamps: Readonly<Record<string, string>>;
   readonly isLoading: boolean;
+  readonly isGenerating: boolean;
   readonly activeInstanceId: string | null;
-  readonly generateProgram: (weights: StartWeights) => void;
+  readonly generateProgram: (weights: StartWeights) => Promise<void>;
   readonly updateWeights: (weights: StartWeights) => void;
   readonly markResult: (index: number, tier: Tier, value: ResultValue) => void;
   readonly setAmrapReps: (
@@ -325,8 +326,8 @@ export function useProgram(instanceId?: string): UseProgramReturn {
   }, [undoLastMutation]);
 
   const generateProgramCb = useCallback(
-    (weights: StartWeights): void => {
-      generateProgramMutation.mutate(weights);
+    async (weights: StartWeights): Promise<void> => {
+      await generateProgramMutation.mutateAsync(weights);
     },
     [generateProgramMutation]
   );
@@ -380,6 +381,7 @@ export function useProgram(instanceId?: string): UseProgramReturn {
     undoHistory,
     resultTimestamps,
     isLoading,
+    isGenerating: generateProgramMutation.isPending,
     activeInstanceId,
     generateProgram: generateProgramCb,
     updateWeights: updateWeightsCb,

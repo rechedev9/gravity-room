@@ -65,6 +65,7 @@ export function GenericProgramApp({
     config,
     rows,
     undoHistory,
+    isGenerating,
     generateProgram,
     updateConfig,
     markResult,
@@ -227,6 +228,7 @@ export function GenericProgramApp({
         <GenericSetupForm
           definition={definition}
           initialConfig={config}
+          isGenerating={isGenerating}
           onGenerate={generateProgram}
           onUpdateConfig={updateConfig}
         />

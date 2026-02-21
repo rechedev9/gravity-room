@@ -6,7 +6,8 @@ import { WeightField } from './weight-field';
 
 interface SetupFormProps {
   initialWeights?: StartWeights | null;
-  onGenerate: (weights: StartWeights) => void;
+  isGenerating?: boolean;
+  onGenerate: (weights: StartWeights) => Promise<void>;
   onUpdateWeights?: (weights: StartWeights) => void;
 }
 
@@ -30,7 +31,12 @@ function validateField(value: string): string | null {
   return null;
 }
 
-export function SetupForm({ initialWeights, onGenerate, onUpdateWeights }: SetupFormProps) {
+export function SetupForm({
+  initialWeights,
+  isGenerating,
+  onGenerate,
+  onUpdateWeights,
+}: SetupFormProps) {
   const isEditMode = initialWeights !== null && initialWeights !== undefined;
   const [isExpanded, setIsExpanded] = useState(!isEditMode);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -112,7 +118,9 @@ export function SetupForm({ initialWeights, onGenerate, onUpdateWeights }: Setup
       setPendingWeights(weights);
       setShowConfirm(true);
     } else {
-      onGenerate(weights);
+      onGenerate(weights).catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Error al generar el programa.');
+      });
     }
   };
 
@@ -201,9 +209,10 @@ export function SetupForm({ initialWeights, onGenerate, onUpdateWeights }: Setup
         )}
         <button
           onClick={handleSubmit}
-          className="flex-1 py-3.5 border-none bg-[var(--bg-header)] text-[var(--text-header)] text-base font-bold cursor-pointer hover:opacity-85 transition-opacity"
+          disabled={isGenerating}
+          className="flex-1 py-3.5 border-none bg-[var(--bg-header)] text-[var(--text-header)] text-base font-bold cursor-pointer hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isEditMode ? 'Actualizar Pesos' : 'Generar Programa'}
+          {isGenerating ? 'Generando...' : isEditMode ? 'Actualizar Pesos' : 'Generar Programa'}
         </button>
       </div>
     </>

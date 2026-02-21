@@ -119,8 +119,9 @@ export interface UseGenericProgramReturn {
   readonly rows: readonly GenericWorkoutRow[];
   readonly undoHistory: GenericUndoHistory;
   readonly isLoading: boolean;
+  readonly isGenerating: boolean;
   readonly activeInstanceId: string | null;
-  readonly generateProgram: (config: Record<string, number>) => void;
+  readonly generateProgram: (config: Record<string, number>) => Promise<void>;
   readonly updateConfig: (config: Record<string, number>) => void;
   readonly markResult: (index: number, slotId: string, value: ResultValue) => void;
   readonly setAmrapReps: (index: number, slotId: string, reps: number | undefined) => void;
@@ -365,8 +366,8 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
   }, [undoLastMutation]);
 
   const generateProgramCb = useCallback(
-    (newConfig: Record<string, number>): void => {
-      generateProgramMutation.mutate(newConfig);
+    async (newConfig: Record<string, number>): Promise<void> => {
+      await generateProgramMutation.mutateAsync(newConfig);
     },
     [generateProgramMutation]
   );
@@ -418,6 +419,7 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
     rows,
     undoHistory,
     isLoading,
+    isGenerating: generateProgramMutation.isPending,
     activeInstanceId,
     generateProgram: generateProgramCb,
     updateConfig: updateConfigCb,
