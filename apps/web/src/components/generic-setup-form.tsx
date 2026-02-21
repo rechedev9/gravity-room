@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { ConfirmDialog } from './confirm-dialog';
 import { WeightField } from './weight-field';
@@ -80,6 +80,27 @@ export function GenericSetupForm({
     [fields]
   );
 
+  type ConfigField = ProgramDefinition['configFields'][number];
+  interface FieldGroup {
+    readonly label: string | null;
+    readonly fields: ConfigField[];
+  }
+
+  const groupedFields = useMemo((): FieldGroup[] => {
+    const groups: FieldGroup[] = [];
+    let current: FieldGroup | null = null;
+    for (const f of fields) {
+      const label = f.group ?? null;
+      if (!current || current.label !== label) {
+        current = { label, fields: [f] };
+        groups.push(current);
+      } else {
+        current.fields.push(f);
+      }
+    }
+    return groups;
+  }, [fields]);
+
   const validateAndParse = (): Record<string, number> | null => {
     setError(null);
 
@@ -146,21 +167,32 @@ export function GenericSetupForm({
           : `Enter your starting weights for ${definition.name}`}
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        {fields.map((f) => (
-          <WeightField
-            key={f.key}
-            fieldKey={f.key}
-            label={f.label}
-            value={values[f.key]}
-            touched={!!touched[f.key]}
-            fieldError={touched[f.key] ? (fieldErrors[f.key] ?? null) : null}
-            step={f.step}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            onAdjust={adjustWeight}
-            onSubmit={handleSubmit}
-          />
+      <div className="mb-6 space-y-5">
+        {groupedFields.map((group) => (
+          <div key={group.label ?? '_ungrouped'}>
+            {group.label && (
+              <h3 className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-2">
+                {group.label}
+              </h3>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {group.fields.map((f) => (
+                <WeightField
+                  key={f.key}
+                  fieldKey={f.key}
+                  label={f.label}
+                  value={values[f.key]}
+                  touched={!!touched[f.key]}
+                  fieldError={touched[f.key] ? (fieldErrors[f.key] ?? null) : null}
+                  step={f.step}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  onAdjust={adjustWeight}
+                  onSubmit={handleSubmit}
+                />
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 
@@ -227,7 +259,12 @@ export function GenericSetupForm({
                   Starting Weights
                 </h2>
                 <p className="text-xs text-[var(--text-muted)]">
-                  {fields.map((f) => `${f.label}: ${initialConfig[f.key]}kg`).join(' · ')}
+                  {fields.length <= 4
+                    ? fields.map((f) => `${f.label}: ${initialConfig[f.key]}kg`).join(' · ')
+                    : fields
+                        .slice(0, 4)
+                        .map((f) => `${f.label}: ${initialConfig[f.key]}kg`)
+                        .join(' · ') + ` · + ${fields.length - 4} more`}
                 </p>
               </div>
               <button

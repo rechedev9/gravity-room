@@ -81,6 +81,7 @@ export const ConfigFieldSchema = z.strictObject({
   type: z.literal('weight'),
   min: z.number(),
   step: z.number().positive(),
+  group: z.string().min(1).optional(),
 });
 
 // --- Program Definition ---

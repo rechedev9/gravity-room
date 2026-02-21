@@ -5,11 +5,33 @@ import { computeGenericProgram } from '../generic-engine';
 // Config values are the week-6 RECORD targets (cycle 1).
 // Cycle 1: S1=T−10, S2=T−7.5, S3=T−10, S4=T−5, S5=T−2.5, S6=T
 // Cycle 2: S7=T−7.5, S8=T−5, S9=T−7.5, S10=T−2.5, S11=T, S12=T+2.5
-const BASE_CONFIG = {
+const BASE_CONFIG: Record<string, number> = {
   press_mil: 50,
   bench: 70,
   squat: 90,
   deadlift: 110,
+  // Accessories default to 0
+  press_franc: 0,
+  ext_polea: 0,
+  elev_lat: 0,
+  elev_post: 0,
+  elev_front: 0,
+  remo_bar: 0,
+  jalon: 0,
+  face_pull: 0,
+  gemelo_pie: 0,
+  gemelo_sent: 0,
+  apert: 0,
+  cruces: 0,
+  curl_bar: 0,
+  curl_alt: 0,
+  curl_mart: 0,
+  prensa: 0,
+  ext_quad: 0,
+  curl_fem: 0,
+  hip_thrust: 0,
+  zancadas: 0,
+  leg_press_gem: 0,
 };
 
 describe('NIVEL7_DEFINITION', () => {
@@ -22,8 +44,14 @@ describe('NIVEL7_DEFINITION', () => {
       expect(NIVEL7_DEFINITION.totalWorkouts).toBe(48);
     });
 
-    it('should have 4 config fields (1 target per main lift)', () => {
-      expect(NIVEL7_DEFINITION.configFields.length).toBe(4);
+    it('should have 25 config fields (4 main + 21 accessories)', () => {
+      expect(NIVEL7_DEFINITION.configFields.length).toBe(25);
+    });
+
+    it('should have a config field for every exercise', () => {
+      const exerciseIds = Object.keys(NIVEL7_DEFINITION.exercises);
+      const configKeys = NIVEL7_DEFINITION.configFields.map((f) => f.key);
+      expect(configKeys.sort()).toEqual(exerciseIds.sort());
     });
 
     it('should repeat day names across cycles', () => {
