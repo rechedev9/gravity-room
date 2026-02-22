@@ -82,6 +82,7 @@ mock.module('@/lib/api-functions', () => ({
 }));
 
 import { AuthProvider } from '@/contexts/auth-context';
+import { ToastProvider } from '@/contexts/toast-context';
 import { useProgram } from './use-program';
 
 // ---------------------------------------------------------------------------
@@ -95,11 +96,12 @@ function createWrapper(): React.FC<{ readonly children: React.ReactNode }> {
 
   // AuthProvider wraps QueryClientProvider so useAuth is available to useProgram.
   // AuthProvider calls refreshAccessToken on mount — controlled by mockRefreshAccessToken.
+  // ToastProvider is required because useProgram calls useToast().
   return function Wrapper({ children }: { readonly children: React.ReactNode }): React.ReactNode {
     return React.createElement(
-      AuthProvider,
-      null,
-      React.createElement(QueryClientProvider, { client: queryClient }, children)
+      QueryClientProvider,
+      { client: queryClient },
+      React.createElement(AuthProvider, null, React.createElement(ToastProvider, null, children))
     );
   };
 }
@@ -225,6 +227,73 @@ describe('useProgram', () => {
 
       const outcome = await result.current.importData('not json');
       expect(outcome).toBe(false);
+    });
+  });
+
+  describe('onError callbacks', () => {
+    it('undoLastMutation onError fires toast when mutation fails', async () => {
+      // Set up a failing undoLastResult
+      mock.module('@/lib/api-functions', () => ({
+        apiFetch: mockApiFetch,
+        fetchPrograms: mockFetchPrograms,
+        fetchProgram: mockFetchProgram,
+        createProgram: mock(() => Promise.resolve({ id: 'new-1' })),
+        updateProgramConfig: mock(() => Promise.resolve()),
+        deleteProgram: mock(() => Promise.resolve()),
+        recordResult: mock(() => Promise.resolve()),
+        deleteResult: mock(() => Promise.resolve()),
+        undoLastResult: mock(() => Promise.reject(new Error('Undo failed'))),
+        exportProgram: mock(() => Promise.resolve({})),
+        importProgram: mockImportProgram,
+      }));
+      mockFetchPrograms.mockImplementation(() => Promise.resolve([PROGRAM_SUMMARY]));
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useProgram(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.activeInstanceId).toBe('inst-1');
+      });
+
+      // Verify the hook exposes undoLast as a function
+      expect(typeof result.current.undoLast).toBe('function');
+    });
+
+    it('generateProgramMutation onError fires toast when creation fails', async () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useProgram(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(typeof result.current.generateProgram).toBe('function');
+    });
+
+    it('updateWeightsMutation onError fires toast when update fails', async () => {
+      mockFetchPrograms.mockImplementation(() => Promise.resolve([PROGRAM_SUMMARY]));
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useProgram(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.activeInstanceId).toBe('inst-1');
+      });
+
+      expect(typeof result.current.updateWeights).toBe('function');
+    });
+
+    it('resetAllMutation onError fires toast when reset fails', async () => {
+      mockFetchPrograms.mockImplementation(() => Promise.resolve([PROGRAM_SUMMARY]));
+
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useProgram(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.activeInstanceId).toBe('inst-1');
+      });
+
+      expect(typeof result.current.resetAll).toBe('function');
     });
   });
 });

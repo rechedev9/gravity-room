@@ -16,6 +16,7 @@ import {
   type ProgramDetail,
 } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/contexts/toast-context';
 
 // ---------------------------------------------------------------------------
 // Helper: optimistic update for results
@@ -122,13 +123,14 @@ interface UseProgramReturn {
 
 export function useProgram(instanceId?: string): UseProgramReturn {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
+  const { toast } = useToast();
 
-  // Fetch the list of programs to find the active one
+  // Fetch the list of programs to find the active one (disabled for guest users)
   const programsQuery = useQuery({
     queryKey: queryKeys.programs.all,
     queryFn: fetchPrograms,
-    enabled: user !== null,
+    enabled: user !== null && !isGuest,
   });
 
   // Use provided instanceId directly, or fall back to first active program
@@ -259,12 +261,18 @@ export function useProgram(instanceId?: string): UseProgramReturn {
       if (!activeInstanceId) throw new Error('No active program');
       await undoLastResult(activeInstanceId);
     },
+    onError: () => {
+      toast({ message: 'No se pudo deshacer. Inténtalo de nuevo.' });
+    },
     onSettled: detailOnSettled,
   });
 
   const generateProgramMutation = useMutation({
     mutationFn: async (weights: StartWeights) => {
       await createProgram('gzclp', 'GZCLP', weights);
+    },
+    onError: () => {
+      toast({ message: 'No se pudo crear el programa. Inténtalo de nuevo.' });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
@@ -276,6 +284,9 @@ export function useProgram(instanceId?: string): UseProgramReturn {
       if (!activeInstanceId) throw new Error('No active program');
       await updateProgramConfig(activeInstanceId, weights);
     },
+    onError: () => {
+      toast({ message: 'No se pudieron actualizar los pesos. Inténtalo de nuevo.' });
+    },
     onSettled: detailOnSettled,
   });
 
@@ -283,6 +294,9 @@ export function useProgram(instanceId?: string): UseProgramReturn {
     mutationFn: async () => {
       if (!activeInstanceId) throw new Error('No active program');
       await deleteProgram(activeInstanceId);
+    },
+    onError: () => {
+      toast({ message: 'No se pudo reiniciar el programa. Inténtalo de nuevo.' });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
@@ -367,12 +381,14 @@ export function useProgram(instanceId?: string): UseProgramReturn {
         await importProgram(parsed);
         void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
         return true;
-      } catch (err: unknown) {
-        console.warn('Import failed:', err instanceof Error ? err.message : 'Unknown error');
+      } catch {
+        toast({
+          message: 'No se pudo importar el programa. Verifica el archivo e inténtalo de nuevo.',
+        });
         return false;
       }
     },
-    [queryClient]
+    [queryClient, toast]
   );
 
   return {

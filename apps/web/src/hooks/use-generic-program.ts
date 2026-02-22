@@ -23,6 +23,7 @@ import {
   type GenericProgramDetail,
 } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/contexts/toast-context';
 
 // ---------------------------------------------------------------------------
 // Optimistic update helpers (generic slot-keyed format)
@@ -140,6 +141,7 @@ export interface UseGenericProgramReturn {
 export function useGenericProgram(programId: string, instanceId?: string): UseGenericProgramReturn {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const definition = useMemo(() => getProgramDefinition(programId), [programId]);
 
@@ -298,6 +300,9 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
       if (!activeInstanceId) throw new Error('No active program');
       await undoLastResult(activeInstanceId);
     },
+    onError: () => {
+      toast({ message: 'No se pudo deshacer. Inténtalo de nuevo.' });
+    },
     onSettled: detailOnSettled,
   });
 
@@ -305,6 +310,9 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
     mutationFn: async (newConfig: Record<string, number>) => {
       if (!definition) throw new Error('Unknown program definition');
       await createProgram(programId, definition.name, newConfig);
+    },
+    onError: () => {
+      toast({ message: 'No se pudo crear el programa. Inténtalo de nuevo.' });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
@@ -316,6 +324,9 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
       if (!activeInstanceId) throw new Error('No active program');
       await updateProgramConfig(activeInstanceId, newConfig);
     },
+    onError: () => {
+      toast({ message: 'No se pudo actualizar la configuración. Inténtalo de nuevo.' });
+    },
     onSettled: detailOnSettled,
   });
 
@@ -323,6 +334,9 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
     mutationFn: async () => {
       if (!activeInstanceId) throw new Error('No active program');
       await deleteProgram(activeInstanceId);
+    },
+    onError: () => {
+      toast({ message: 'No se pudo reiniciar el programa. Inténtalo de nuevo.' });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
@@ -405,12 +419,14 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
         await importProgram(parsed);
         void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
         return true;
-      } catch (err: unknown) {
-        console.warn('Import failed:', err instanceof Error ? err.message : 'Unknown error');
+      } catch {
+        toast({
+          message: 'No se pudo importar el programa. Verifica el archivo e inténtalo de nuevo.',
+        });
         return false;
       }
     },
-    [queryClient]
+    [queryClient, toast]
   );
 
   return {
