@@ -41,7 +41,7 @@ export const WeightField = memo(function WeightField({
         <button
           type="button"
           onClick={() => onAdjust(fieldKey, -step)}
-          className="px-2.5 border-2 border-r-0 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--btn-text)] text-lg font-bold cursor-pointer hover:bg-[var(--bg-hover-row)] transition-colors"
+          className="px-3 min-h-[44px] border-2 border-r-0 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--btn-text)] text-lg font-bold cursor-pointer hover:bg-[var(--bg-hover-row)] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none"
           aria-label={`Disminuir ${label}`}
         >
           &minus;
@@ -70,7 +70,7 @@ export const WeightField = memo(function WeightField({
         <button
           type="button"
           onClick={() => onAdjust(fieldKey, step)}
-          className="px-2.5 border-2 border-l-0 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--btn-text)] text-lg font-bold cursor-pointer hover:bg-[var(--bg-hover-row)] transition-colors"
+          className="px-3 min-h-[44px] border-2 border-l-0 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--btn-text)] text-lg font-bold cursor-pointer hover:bg-[var(--bg-hover-row)] transition-colors focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none"
           aria-label={`Aumentar ${label}`}
         >
           +

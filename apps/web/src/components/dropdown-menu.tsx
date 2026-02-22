@@ -48,7 +48,7 @@ export function DropdownItem({
     <button
       role="menuitem"
       onClick={onClick}
-      className={`w-full text-left px-4 py-2.5 text-xs font-bold cursor-pointer transition-colors ${
+      className={`w-full text-left px-4 py-2.5 text-xs font-bold cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none ${
         variant === 'danger'
           ? 'text-[var(--text-badge-no)] hover:bg-[var(--bg-badge-no)]'
           : 'text-[var(--text-main)] hover:bg-[var(--bg-hover-row)]'

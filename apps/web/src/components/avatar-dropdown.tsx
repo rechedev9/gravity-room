@@ -59,7 +59,7 @@ export function AvatarDropdown({
     <div className="relative">
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="w-9 h-9 rounded-full bg-[var(--btn-hover-bg)] text-[var(--btn-hover-text)] text-sm font-extrabold cursor-pointer transition-opacity hover:opacity-80 flex items-center justify-center"
+        className="w-9 h-9 rounded-full bg-[var(--btn-hover-bg)] text-[var(--btn-hover-text)] text-sm font-extrabold cursor-pointer transition-opacity hover:opacity-80 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-body)] focus-visible:outline-none"
         aria-label="Menú de usuario"
         aria-haspopup="true"
         aria-expanded={open}

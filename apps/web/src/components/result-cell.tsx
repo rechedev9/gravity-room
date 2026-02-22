@@ -34,14 +34,15 @@ export const ResultCell = memo(function ResultCell({
       <button
         onClick={() => onUndo(index, tier)}
         aria-label={`Deshacer ${tier} ${isSuccess ? 'éxito' : 'fallo'}`}
-        className={`${padding} text-[13px] font-extrabold cursor-pointer border-3 rounded-sm animate-[pop-in_0.25s_ease-out] ${badgeColor} ${tableStyles}`}
+        className={`${padding} text-[13px] font-extrabold cursor-pointer border-3 rounded-sm animate-[pop-in_0.25s_ease-out] focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none ${badgeColor} ${tableStyles}`}
       >
         {isSuccess ? '\u2713' : '\u2717'}
         {isTable ? (
-          <span className="absolute -top-5.5 left-1/2 -translate-x-1/2 text-[10px] font-bold whitespace-nowrap bg-[var(--bg-tooltip)] text-[var(--text-tooltip)] px-2 py-0.5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+          <span className="absolute -top-5.5 left-1/2 -translate-x-1/2 text-[10px] font-bold whitespace-nowrap bg-[var(--bg-tooltip)] text-[var(--text-tooltip)] px-2 py-0.5 pointer-events-none opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
             deshacer
           </span>
-        ) : (
+        ) : null}
+        {!isTable && (
           <>
             {' '}
             <span className="text-[10px] font-normal opacity-70">deshacer</span>
@@ -60,14 +61,14 @@ export const ResultCell = memo(function ResultCell({
       <button
         onClick={() => onMark(index, tier, 'success')}
         aria-label={`Marcar ${tier} éxito`}
-        className={`${sizeClasses} font-extrabold border-2 border-[var(--border-badge-ok)] bg-transparent text-[var(--text-badge-ok)] rounded-sm cursor-pointer transition-all hover:bg-[var(--bg-badge-ok)]`}
+        className={`${sizeClasses} font-extrabold border-2 border-[var(--border-badge-ok)] bg-transparent text-[var(--text-badge-ok)] rounded-sm cursor-pointer transition-all hover:bg-[var(--bg-badge-ok)] focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none`}
       >
         &#10003;
       </button>
       <button
         onClick={() => onMark(index, tier, 'fail')}
         aria-label={`Marcar ${tier} fallo`}
-        className={`${sizeClasses} font-extrabold border-2 border-[var(--border-badge-no)] bg-transparent text-[var(--text-badge-no)] rounded-sm cursor-pointer transition-all hover:bg-[var(--bg-badge-no)]`}
+        className={`${sizeClasses} font-extrabold border-2 border-[var(--border-badge-no)] bg-transparent text-[var(--text-badge-no)] rounded-sm cursor-pointer transition-all hover:bg-[var(--bg-badge-no)] focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none`}
       >
         &#10007;
       </button>

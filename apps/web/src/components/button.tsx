@@ -1,7 +1,7 @@
 import { forwardRef } from 'react';
 
 const BASE =
-  'font-bold cursor-pointer border-2 transition-all whitespace-nowrap disabled:opacity-25 disabled:cursor-not-allowed tracking-wide uppercase';
+  'font-bold cursor-pointer border-2 transition-all whitespace-nowrap disabled:opacity-25 disabled:cursor-not-allowed tracking-wide uppercase focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none';
 
 const VARIANT_STYLES = {
   default:
