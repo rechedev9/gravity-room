@@ -191,6 +191,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
             t.Object({
               result: t.Optional(t.Union([t.Literal('success'), t.Literal('fail')])),
               amrapReps: t.Optional(t.Integer({ minimum: 0 })),
+              rpe: t.Optional(t.Integer({ minimum: 6, maximum: 10 })),
             })
           )
         ),
@@ -199,6 +200,8 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
             i: t.Integer({ minimum: 0 }),
             slotId: t.String({ minLength: 1 }),
             prev: t.Optional(t.Union([t.Literal('success'), t.Literal('fail')])),
+            prevRpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
+            prevAmrapReps: t.Optional(t.Integer({ minimum: 0 })),
           }),
           { maxItems: 500 }
         ),

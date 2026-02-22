@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/contexts/auth-context';
 import { sanitizeAuthError } from '@/lib/auth-errors';
 
 export function LoginPage(): React.ReactNode {
-  const { user, signInWithGoogle } = useAuth();
+  const { user, signInWithGoogle, startGuestSession } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
@@ -14,6 +14,11 @@ export function LoginPage(): React.ReactNode {
       navigate('/app');
     }
   }, [user, navigate]);
+
+  const handleGuestMode = useCallback((): void => {
+    startGuestSession();
+    void navigate('/app');
+  }, [startGuestSession, navigate]);
 
   const handleGoogleSuccess = async (credential: string): Promise<void> => {
     setError(null);
@@ -204,12 +209,20 @@ export function LoginPage(): React.ReactNode {
           </div>
 
           {/* Continue without account */}
-          <Link
-            to="/app?view=programs"
-            className="block w-full text-center py-2.5 font-mono text-[10px] tracking-[0.2em] uppercase transition-colors border border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--text-header)] hover:text-[var(--text-header)]"
+          <button
+            type="button"
+            onClick={handleGuestMode}
+            title="Los datos se guardan solo en este dispositivo. No se sincronizan con ningún servidor."
+            className="block w-full text-center py-2.5 font-mono text-[10px] tracking-[0.2em] uppercase transition-colors border border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--text-header)] hover:text-[var(--text-header)] cursor-pointer bg-transparent"
           >
             Continuar sin cuenta
-          </Link>
+          </button>
+          <p
+            className="mt-2 text-[9px] text-center font-mono"
+            style={{ color: 'var(--text-muted)', opacity: 0.6 }}
+          >
+            Los datos se guardan solo en este dispositivo
+          </p>
         </div>
       </div>
 

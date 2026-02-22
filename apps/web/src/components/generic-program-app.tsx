@@ -44,14 +44,14 @@ export function GenericProgramApp({
   onBackToDashboard,
   onGoToProfile,
 }: GenericProgramAppProps): React.ReactNode {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading, isGuest, signOut } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!authLoading && user === null) {
+    if (!authLoading && user === null && !isGuest) {
       navigate('/login', { replace: true });
     }
-  }, [authLoading, user, navigate]);
+  }, [authLoading, user, isGuest, navigate]);
 
   const {
     definition,

@@ -19,6 +19,8 @@ const GenericUndoEntrySchema = z.strictObject({
   i: z.number().int().min(0),
   slotId: z.string().min(1),
   prev: ResultValueSchema.optional(),
+  prevRpe: z.number().int().min(1).max(10).optional(),
+  prevAmrapReps: z.number().int().min(0).optional(),
 });
 
 export const GenericUndoHistorySchema = z.array(GenericUndoEntrySchema);

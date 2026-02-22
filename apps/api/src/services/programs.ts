@@ -73,6 +73,8 @@ function buildUndoHistory(rows: readonly UndoEntryRow[]): GenericUndoHistory {
     i: row.workoutIndex,
     slotId: row.slotId,
     ...(row.prevResult !== null ? { prev: row.prevResult } : {}),
+    ...(row.prevRpe !== null ? { prevRpe: row.prevRpe } : {}),
+    ...(row.prevAmrapReps !== null ? { prevAmrapReps: row.prevAmrapReps } : {}),
   }));
 }
 
@@ -379,6 +381,8 @@ export async function importInstance(
         workoutIndex: entry.i,
         slotId: entry.slotId,
         prevResult: entry.prev ?? null,
+        prevRpe: entry.prevRpe ?? null,
+        prevAmrapReps: entry.prevAmrapReps ?? null,
       }));
       await tx.insert(undoEntries).values(undoValues);
     }
