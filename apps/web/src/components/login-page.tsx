@@ -198,7 +198,7 @@ export function LoginPage(): React.ReactNode {
               className="font-mono text-[9px] tracking-widest uppercase"
               style={{ color: 'var(--text-muted)' }}
             >
-              or
+              o
             </span>
             <div className="flex-1 h-px bg-[var(--border-color)]" />
           </div>

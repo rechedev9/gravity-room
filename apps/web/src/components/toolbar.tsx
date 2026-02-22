@@ -96,7 +96,7 @@ export function Toolbar({
             <Button
               size="sm"
               onClick={() => setMenuOpen((prev) => !prev)}
-              aria-label="More actions"
+              aria-label="Más acciones"
               aria-haspopup="true"
               aria-expanded={menuOpen}
             >

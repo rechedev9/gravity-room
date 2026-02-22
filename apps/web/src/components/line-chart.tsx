@@ -237,7 +237,7 @@ export const LineChart = memo(function LineChart({ data, label }: LineChartProps
     <canvas
       ref={canvasRef}
       role="img"
-      aria-label={`${label} weight progression chart`}
+      aria-label={`Gráfico de progresión de peso: ${label}`}
       className="w-full h-[200px]"
     />
   );
