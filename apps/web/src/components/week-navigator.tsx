@@ -50,6 +50,7 @@ export function WeekNavigator({
             className={`font-mono ${weekDoneCount === weekTotalCount ? 'text-[var(--fill-progress)]' : 'text-[var(--text-muted)]'}`}
             style={{ fontSize: '11px', letterSpacing: '0.25em' }}
             aria-label={`${weekDoneCount} de ${weekTotalCount} entrenamientos completados`}
+            title={`${weekDoneCount} de ${weekTotalCount} entrenamientos completados`}
           >
             {'\u25CF'.repeat(weekDoneCount)}
             {'\u25CB'.repeat(weekTotalCount - weekDoneCount)}
@@ -60,7 +61,7 @@ export function WeekNavigator({
               onClick={onGoToCurrent}
               className="font-mono text-[10px] font-bold tracking-widest uppercase text-[var(--fill-progress)] hover:underline cursor-pointer bg-transparent border-none p-0"
             >
-              &rarr; Current
+              &rarr; Actual
             </button>
           )}
         </div>

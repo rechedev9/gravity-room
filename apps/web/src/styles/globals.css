@@ -12,7 +12,7 @@
   --bg-header: #070504;
   --bg-th: #1a1410;
   --bg-hover-row: #1a1410;
-  --bg-progress: #1a1410;
+  --bg-progress: #2a2218;
   --bg-changed: #1f1a08;
   --bg-error: #2e1414;
   --bg-tooltip: #070504;
@@ -24,9 +24,9 @@
   /* Text */
   --text-main: #f0e8d8;
   --text-header: #f0c040;
-  --text-muted: #7a6a4a;
+  --text-muted: #8a7a5a;
   --text-label: #a89870;
-  --text-info: #7a6a4a;
+  --text-info: #8a7a5a;
   --text-error: #c06060;
   --text-tooltip: #f0e8d8;
 
@@ -59,7 +59,7 @@
 
   /* Chart */
   --chart-grid: #2a2218;
-  --chart-text: #7a6a4a;
+  --chart-text: #8a7a5a;
   --chart-line: #f0c040;
   --chart-success: #3a6828;
   --chart-fail: #7a2828;

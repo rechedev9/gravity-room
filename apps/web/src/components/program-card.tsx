@@ -24,7 +24,10 @@ export function ProgramCard({
   const categoryLabel = CATEGORY_LABELS[definition.category] ?? definition.category;
 
   return (
-    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-5 sm:p-6 flex flex-col gap-3 hover:border-[var(--border-light)] transition-colors">
+    <div
+      onClick={disabled ? undefined : onSelect}
+      className={`bg-[var(--bg-card)] border border-[var(--border-color)] p-5 sm:p-6 flex flex-col gap-3 hover:border-[var(--border-light)] transition-colors ${disabled ? '' : 'cursor-pointer'}`}
+    >
       {/* Header: name + category badge */}
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm sm:text-base font-extrabold text-[var(--text-header)] leading-tight">
@@ -51,7 +54,10 @@ export function ProgramCard({
 
       {/* CTA */}
       <button
-        onClick={onSelect}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
         disabled={disabled}
         className={`mt-auto px-4 py-2.5 text-xs font-bold border-2 cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
           isActive

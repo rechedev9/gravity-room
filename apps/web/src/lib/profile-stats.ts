@@ -249,7 +249,7 @@ function computeMonthlyReport(
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
-  const monthLabel = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  const monthLabel = now.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
 
   // Find workout indices that fall in the current month
   const monthIndices = new Set<number>();
