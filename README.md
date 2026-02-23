@@ -9,6 +9,8 @@ A workout tracker for the [GZCLP](https://saynotobroscience.com/gzclp-infographi
 - **Shared:** Pure computation package (`@gzclp/shared`) used by both web and API
 - **Runtime:** Bun
 
+For rationale on every tool choice, see [docs/tech-stack.md](docs/tech-stack.md).
+
 ## Monorepo structure
 
 ```
