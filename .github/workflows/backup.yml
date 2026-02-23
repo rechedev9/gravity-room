@@ -1,0 +1,29 @@
+name: Daily DB Backup
+
+on:
+  schedule:
+    # Every day at 03:00 UTC (04:00 hora española)
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Run pg_dump
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_PUBLIC_URL }}
+        run: |
+          TIMESTAMP=$(date +%Y-%m-%d_%H%M)
+          pg_dump "$DATABASE_URL" -Fc --no-owner --no-privileges > "backup_${TIMESTAMP}.dump"
+          ls -lh backup_*.dump
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backup_*.dump
+          retention-days: 30
