@@ -20,6 +20,13 @@ export const instanceStatusEnum = pgEnum('instance_status', ['active', 'complete
 
 export const resultTypeEnum = pgEnum('result_type', ['success', 'fail']);
 
+export const programDefinitionStatusEnum = pgEnum('program_definition_status', [
+  'draft',
+  'pending_review',
+  'approved',
+  'rejected',
+]);
+
 // ---------------------------------------------------------------------------
 // users — Google OAuth identity
 // ---------------------------------------------------------------------------
@@ -36,6 +43,7 @@ export const users = pgTable('users', {
 export const usersRelations = relations(users, ({ many }) => ({
   refreshTokens: many(refreshTokens),
   programInstances: many(programInstances),
+  programDefinitions: many(programDefinitions),
 }));
 
 // ---------------------------------------------------------------------------
@@ -159,4 +167,31 @@ export const undoEntriesRelations = relations(undoEntries, ({ one }) => ({
     fields: [undoEntries.instanceId],
     references: [programInstances.id],
   }),
+}));
+
+// ---------------------------------------------------------------------------
+// program_definitions — user-created program definitions
+// ---------------------------------------------------------------------------
+
+export const programDefinitions = pgTable(
+  'program_definitions',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    definition: jsonb().notNull(),
+    status: programDefinitionStatusEnum().notNull().default('draft'),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('program_definitions_user_id_idx').on(table.userId),
+    index('program_definitions_status_idx').on(table.status),
+  ]
+);
+
+export const programDefinitionsRelations = relations(programDefinitions, ({ one }) => ({
+  user: one(users, { fields: [programDefinitions.userId], references: [users.id] }),
 }));

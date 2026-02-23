@@ -50,6 +50,13 @@
       "when": 1771702800000,
       "tag": "0006_add_missing_rpe_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771878328475,
+      "tag": "0007_lean_fat_cobra",
+      "breakpoints": true
     }
   ]
 }
