@@ -194,6 +194,16 @@ describe('WorkoutRow', () => {
       expect(onSetAmrapReps).toHaveBeenCalledWith(0, 't1Reps', 8);
     });
 
+    it('should call onSetAmrapReps with t3Reps when T3 AMRAP value changes', () => {
+      const onSetAmrapReps = mock();
+      renderRow({ index: 0, result: { t3: 'success' } }, { onSetAmrapReps });
+
+      const amrapInputs = screen.getAllByTitle('Reps AMRAP');
+      fireEvent.change(amrapInputs[0], { target: { value: '12' } });
+
+      expect(onSetAmrapReps).toHaveBeenCalledWith(0, 't3Reps', 12);
+    });
+
     it('should show AMRAP input for T3 when marked', () => {
       renderRow({ result: { t3: 'success' } });
 
@@ -286,6 +296,32 @@ describe('WorkoutRow', () => {
 
     it('should not render RPE input in sub-row when onSetRpe is not provided', () => {
       renderRow({ result: { t1: 'success' } });
+
+      const rpeButtons = screen.queryAllByRole('button', { name: /RPE/i });
+      expect(rpeButtons).toHaveLength(0);
+    });
+
+    it('should not render RPE input when only T3 is marked and onSetRpe is provided', () => {
+      const onSetRpe = mock();
+      const onMark = mock();
+      const onSetAmrapReps = mock();
+      const onUndo = mock();
+      const row = buildRow({ result: { t3: 'success' } });
+
+      render(
+        <table>
+          <tbody>
+            <WorkoutRow
+              row={row}
+              isCurrent={false}
+              onMark={onMark}
+              onSetAmrapReps={onSetAmrapReps}
+              onUndo={onUndo}
+              onSetRpe={onSetRpe}
+            />
+          </tbody>
+        </table>
+      );
 
       const rpeButtons = screen.queryAllByRole('button', { name: /RPE/i });
       expect(rpeButtons).toHaveLength(0);
