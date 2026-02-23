@@ -109,7 +109,7 @@ interface UseProgramReturn {
     field: 't1Reps' | 't3Reps',
     reps: number | undefined
   ) => void;
-  readonly setRpe: (index: number, rpe: number | undefined) => void;
+  readonly setRpe: (index: number, tier: 't1' | 't3', rpe: number | undefined) => void;
   readonly undoSpecific: (index: number, tier: Tier) => void;
   readonly undoLast: () => void;
   readonly resetAll: () => void;
@@ -218,22 +218,32 @@ export function useProgram(instanceId?: string): UseProgramReturn {
     onSettled: detailOnSettled,
   });
 
+  // fix: setRpe now accepts a tier parameter for independent T1/T3 RPE
   const setRpeMutation = useMutation({
-    mutationFn: async ({ index, rpe }: { index: number; rpe: number | undefined }) => {
+    mutationFn: async ({
+      index,
+      tier,
+      rpe,
+    }: {
+      index: number;
+      tier: 't1' | 't3';
+      rpe: number | undefined;
+    }) => {
       if (!activeInstanceId) throw new Error('No active program');
-      const currentResult = results[index]?.t1;
+      const currentResult = results[index]?.[tier];
       if (!currentResult) return;
-      const amrapReps = results[index]?.t1Reps;
-      await recordResult(activeInstanceId, index, 't1', currentResult, amrapReps, rpe);
+      const amrapReps = tier === 't1' ? results[index]?.t1Reps : results[index]?.t3Reps;
+      await recordResult(activeInstanceId, index, tier, currentResult, amrapReps, rpe);
     },
-    onMutate: ({ index, rpe }) =>
+    onMutate: ({ index, tier, rpe }) =>
       snapshotAndUpdate((prev) => {
         const updatedResults = { ...prev.results };
         const entry = { ...updatedResults[index] };
+        const field = tier === 't1' ? 'rpe' : 't3Rpe';
         if (rpe === undefined) {
-          delete entry.rpe;
+          delete entry[field];
         } else {
-          entry.rpe = rpe;
+          entry[field] = rpe;
         }
         updatedResults[index] = entry;
         return { ...prev, results: updatedResults };
@@ -322,8 +332,8 @@ export function useProgram(instanceId?: string): UseProgramReturn {
   );
 
   const setRpeCb = useCallback(
-    (index: number, rpe: number | undefined): void => {
-      setRpeMutation.mutate({ index, rpe });
+    (index: number, tier: 't1' | 't3', rpe: number | undefined): void => {
+      setRpeMutation.mutate({ index, tier, rpe });
     },
     [setRpeMutation]
   );

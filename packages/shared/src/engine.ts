@@ -28,8 +28,8 @@ function convertLegacyResultsForGzclp(results: Results): GenericResults {
     if (res.t2 !== undefined) {
       workoutResult[dayMap.t2] = { result: res.t2 };
     }
-    if (res.t3 !== undefined || res.t3Reps !== undefined) {
-      workoutResult[dayMap.t3] = { result: res.t3, amrapReps: res.t3Reps };
+    if (res.t3 !== undefined || res.t3Reps !== undefined || res.t3Rpe !== undefined) {
+      workoutResult[dayMap.t3] = { result: res.t3, amrapReps: res.t3Reps, rpe: res.t3Rpe };
     }
 
     if (Object.keys(workoutResult).length > 0) {
@@ -71,6 +71,7 @@ function mapGenericToWorkoutRow(row: GenericWorkoutRow): WorkoutRow {
       t1Reps: t1Slot.amrapReps,
       t3Reps: t3Slot.amrapReps,
       rpe: t1Slot.rpe,
+      t3Rpe: t3Slot.rpe,
     },
   };
 }

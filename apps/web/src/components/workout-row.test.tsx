@@ -245,11 +245,12 @@ describe('WorkoutRow', () => {
       expect(screen.queryByText('T1 AMRAP')).not.toBeInTheDocument();
     });
 
-    it('should render both T1 and T3 AMRAP in a single sub-row when both are marked', () => {
+    it('should render T1 and T3 AMRAP in separate sub-rows when both are marked success', () => {
       const { container } = renderRow({ result: { t1: 'success', t3: 'success' } });
 
+      // fix: T1 and T3 now have independent sub-rows (1 main + 2 detail = 3)
       const rows = container.querySelectorAll('tbody tr');
-      expect(rows).toHaveLength(2);
+      expect(rows).toHaveLength(3);
       expect(screen.getByText('T1 AMRAP')).toBeInTheDocument();
       expect(screen.getByText('T3 AMRAP')).toBeInTheDocument();
     });
@@ -301,7 +302,7 @@ describe('WorkoutRow', () => {
       expect(rpeButtons).toHaveLength(0);
     });
 
-    it('should not render RPE input when only T3 is marked and onSetRpe is provided', () => {
+    it('should render T3 RPE input when only T3 is marked success and onSetRpe is provided', () => {
       const onSetRpe = mock();
       const onMark = mock();
       const onSetAmrapReps = mock();
@@ -323,8 +324,9 @@ describe('WorkoutRow', () => {
         </table>
       );
 
+      // fix: T3 success now renders independent T3 RPE buttons
       const rpeButtons = screen.queryAllByRole('button', { name: /RPE/i });
-      expect(rpeButtons).toHaveLength(0);
+      expect(rpeButtons.length).toBeGreaterThan(0);
     });
   });
 });

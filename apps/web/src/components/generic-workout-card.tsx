@@ -96,15 +96,17 @@ function SlotSection({
           />
         </div>
       </div>
-      {slot.result && slot.isAmrap && onSetAmrapReps && (
+      {/* fix: AMRAP only shows for success results */}
+      {slot.result === 'success' && slot.isAmrap && onSetAmrapReps && (
         <div className="mt-1.5 flex items-center gap-2 pl-1">
           <span className="text-[10px] text-[var(--text-muted)]">Rep. AMRAP:</span>
           <AmrapInput value={slot.amrapReps} onChange={onSetAmrapReps} variant="card" />
         </div>
       )}
-      {slot.result && slot.tier === 't1' && onSetRpe && (
+      {/* fix: RPE only for success, with tier label */}
+      {slot.result === 'success' && (slot.tier === 't1' || slot.tier === 't3') && onSetRpe && (
         <div className="mt-1 pl-1" data-rpe-input={`${workoutIndex}-${slot.slotId}`}>
-          <RpeInput value={slot.rpe} onChange={onSetRpe} />
+          <RpeInput value={slot.rpe} onChange={onSetRpe} tier={slot.tier} />
         </div>
       )}
     </div>

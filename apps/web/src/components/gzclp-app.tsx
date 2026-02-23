@@ -184,10 +184,9 @@ export function GZCLPApp({
       const wouldComplete = otherTiers.every((t) => row.result[t] !== undefined);
 
       if (wouldComplete && row.result.rpe === undefined) {
-        // T1 already has a result → RPE input is visible but empty
-        // OR T1 is the tier being marked → RPE input will appear after recording
-        const t1HasOrWillHaveResult = row.result.t1 !== undefined || tier === 't1';
-        if (t1HasOrWillHaveResult) {
+        // fix: RPE reminder only when T1 is success (AMRAP/RPE only applies on success)
+        const t1IsSuccess = row.result.t1 === 'success' || (tier === 't1' && value === 'success');
+        if (t1IsSuccess) {
           setRpeReminder({ index, tier, value });
           return;
         }
@@ -200,6 +199,10 @@ export function GZCLPApp({
 
   const handleRpeReminderContinue = useCallback((): void => {
     if (!rpeReminder) return;
+    // fix: blur active element to clear any residual RPE button focus/hover state
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     recordAndToast(rpeReminder.index, rpeReminder.tier, rpeReminder.value);
     setRpeReminder(null);
   }, [rpeReminder, recordAndToast]);

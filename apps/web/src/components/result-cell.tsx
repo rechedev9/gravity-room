@@ -37,8 +37,9 @@ export const ResultCell = memo(function ResultCell({
         className={`${padding} text-[13px] font-extrabold cursor-pointer border-3 rounded-sm animate-[pop-in_0.25s_ease-out] focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none ${badgeColor} ${tableStyles}`}
       >
         {isSuccess ? '\u2713' : '\u2717'}
+        {/* fix: tooltip only on hover, not on focus (aria-label handles a11y) */}
         {isTable ? (
-          <span className="absolute -top-5.5 left-1/2 -translate-x-1/2 text-xs font-bold whitespace-nowrap bg-[var(--bg-tooltip)] text-[var(--text-tooltip)] px-2 py-0.5 pointer-events-none opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
+          <span className="absolute -top-5.5 left-1/2 -translate-x-1/2 text-xs font-bold whitespace-nowrap bg-[var(--bg-tooltip)] text-[var(--text-tooltip)] px-2 py-0.5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
             deshacer
           </span>
         ) : null}

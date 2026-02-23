@@ -106,7 +106,7 @@ describe('WorkoutRowCard', () => {
     });
 
     it('should render RPE buttons with aria-label="RPE {n}" when T1 is marked and onSetRpe is provided', () => {
-      const onSetRpe = mock<(index: number, rpe: number | undefined) => void>();
+      const onSetRpe = mock<(index: number, tier: 't1' | 't3', rpe: number | undefined) => void>();
       const onMark = mock<(index: number, tier: Tier, value: ResultValue) => void>();
       const onSetAmrapReps =
         mock<(index: number, field: 't1Reps' | 't3Reps', reps: number | undefined) => void>();

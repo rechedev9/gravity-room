@@ -10,7 +10,7 @@ interface WeekSectionProps {
   forceExpanded?: boolean;
   onMark: (index: number, tier: Tier, value: ResultValue) => void;
   onSetAmrapReps: (index: number, field: 't1Reps' | 't3Reps', reps: number | undefined) => void;
-  onSetRpe?: (index: number, rpe: number | undefined) => void;
+  onSetRpe?: (index: number, tier: 't1' | 't3', rpe: number | undefined) => void;
   onUndo: (index: number, tier: Tier) => void;
 }
 

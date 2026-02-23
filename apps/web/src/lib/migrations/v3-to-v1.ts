@@ -47,6 +47,7 @@ export function convertResultsToLegacy(generic: GenericResults): Results {
       t1Reps?: number;
       t3Reps?: number;
       rpe?: number;
+      t3Rpe?: number;
     } = {};
     let hasData = false;
 
@@ -63,6 +64,8 @@ export function convertResultsToLegacy(generic: GenericResults): Results {
       if (slotResult.amrapReps !== undefined && tierStr === 't3')
         entry.t3Reps = slotResult.amrapReps;
       if (slotResult.rpe !== undefined && tierStr === 't1') entry.rpe = slotResult.rpe;
+      // fix: map T3 slot RPE to independent t3Rpe field
+      if (slotResult.rpe !== undefined && tierStr === 't3') entry.t3Rpe = slotResult.rpe;
     }
 
     if (hasData) {

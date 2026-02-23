@@ -3,12 +3,13 @@ const RPE_VALUES = [6, 7, 8, 9, 10] as const;
 interface RpeInputProps {
   readonly value: number | undefined;
   readonly onChange: (rpe: number | undefined) => void;
+  readonly tier: 't1' | 't3';
 }
 
-export function RpeInput({ value, onChange }: RpeInputProps): React.ReactNode {
+export function RpeInput({ value, onChange, tier }: RpeInputProps): React.ReactNode {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs text-[var(--text-muted)] mr-0.5">RPE</span>
+      <span className="text-xs text-[var(--text-muted)] mr-0.5">{tier.toUpperCase()} RPE</span>
       {RPE_VALUES.map((rpe) => {
         const isActive = value === rpe;
         return (

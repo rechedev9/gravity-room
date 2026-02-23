@@ -36,6 +36,7 @@ export interface WorkoutRow {
     t1Reps?: number;
     t3Reps?: number;
     rpe?: number;
+    t3Rpe?: number;
   };
 }
 

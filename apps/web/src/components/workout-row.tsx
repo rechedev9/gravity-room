@@ -19,7 +19,7 @@ interface WorkoutRowProps {
   isCurrent: boolean;
   onMark: (index: number, tier: Tier, value: ResultValue) => void;
   onSetAmrapReps: (index: number, field: 't1Reps' | 't3Reps', reps: number | undefined) => void;
-  onSetRpe?: (index: number, rpe: number | undefined) => void;
+  onSetRpe?: (index: number, tier: 't1' | 't3', rpe: number | undefined) => void;
   onUndo: (index: number, tier: Tier) => void;
 }
 
@@ -46,7 +46,8 @@ function areRowsEqual(prev: WorkoutRowProps, next: WorkoutRowProps): boolean {
     p.result.t3 === n.result.t3 &&
     p.result.t1Reps === n.result.t1Reps &&
     p.result.t3Reps === n.result.t3Reps &&
-    p.result.rpe === n.result.rpe
+    p.result.rpe === n.result.rpe &&
+    p.result.t3Rpe === n.result.t3Rpe
   );
 }
 
@@ -59,6 +60,16 @@ export const WorkoutRow = memo(function WorkoutRow({
   onUndo,
 }: WorkoutRowProps) {
   const allDone = row.result.t1 && row.result.t2 && row.result.t3;
+  // fix: AMRAP sub-row only shows for success results
+  const t1Success = row.result.t1 === 'success';
+  const t3Success = row.result.t3 === 'success';
+  // fix: collapse detail rows when session complete and no AMRAP/RPE data entered
+  const hasEnteredData =
+    row.result.t1Reps !== undefined ||
+    row.result.t3Reps !== undefined ||
+    row.result.rpe !== undefined ||
+    row.result.t3Rpe !== undefined;
+  const hideDetailRow = allDone && !hasEnteredData;
 
   const handleT1AmrapChange = useCallback(
     (reps: number | undefined) => onSetAmrapReps(row.index, 't1Reps', reps),
@@ -71,7 +82,12 @@ export const WorkoutRow = memo(function WorkoutRow({
   );
 
   const handleRpeChange = useCallback(
-    (rpe: number | undefined) => onSetRpe?.(row.index, rpe),
+    (rpe: number | undefined) => onSetRpe?.(row.index, 't1', rpe),
+    [onSetRpe, row.index]
+  );
+
+  const handleT3RpeChange = useCallback(
+    (rpe: number | undefined) => onSetRpe?.(row.index, 't3', rpe),
     [onSetRpe, row.index]
   );
 
@@ -197,7 +213,8 @@ export const WorkoutRow = memo(function WorkoutRow({
           />
         </td>
       </tr>
-      {(row.result.t1 || row.result.t3) && (
+      {/* fix: AMRAP sub-row only for success, collapse when session done with no data */}
+      {t1Success && !hideDetailRow && (
         <tr
           className={[
             'transition-colors',
@@ -213,25 +230,46 @@ export const WorkoutRow = memo(function WorkoutRow({
             className="border-x border-b border-[var(--border-light)] px-4 py-1"
           >
             <div className="flex items-center gap-4 flex-wrap">
-              {row.result.t1 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase text-[var(--text-muted)]">
-                    T1 AMRAP
-                  </span>
-                  <AmrapInput value={row.result.t1Reps} onChange={handleT1AmrapChange} />
-                </div>
-              )}
-              {row.result.t3 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase text-[var(--text-muted)]">
-                    T3 AMRAP
-                  </span>
-                  <AmrapInput value={row.result.t3Reps} onChange={handleT3AmrapChange} />
-                </div>
-              )}
-              {row.result.t1 && onSetRpe && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase text-[var(--text-muted)]">
+                  T1 AMRAP
+                </span>
+                <AmrapInput value={row.result.t1Reps} onChange={handleT1AmrapChange} />
+              </div>
+              {onSetRpe && (
                 <div className="flex items-center gap-2" data-rpe-input={row.index}>
-                  <RpeInput value={row.result.rpe} onChange={handleRpeChange} />
+                  <RpeInput value={row.result.rpe} onChange={handleRpeChange} tier="t1" />
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+      {t3Success && !hideDetailRow && (
+        <tr
+          className={[
+            'transition-colors',
+            allDone ? 'opacity-40 hover:opacity-70' : '',
+            isCurrent ? 'border-l-4 border-l-[var(--fill-progress)]' : '',
+            row.isChanged && !allDone ? '[&>td]:!bg-[var(--bg-changed)]' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <td
+            colSpan={TABLE_COLUMN_COUNT}
+            className="border-x border-b border-[var(--border-light)] px-4 py-1"
+          >
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase text-[var(--text-muted)]">
+                  T3 AMRAP
+                </span>
+                <AmrapInput value={row.result.t3Reps} onChange={handleT3AmrapChange} />
+              </div>
+              {onSetRpe && (
+                <div className="flex items-center gap-2">
+                  <RpeInput value={row.result.t3Rpe} onChange={handleT3RpeChange} tier="t3" />
                 </div>
               )}
             </div>

@@ -12,7 +12,7 @@ interface WorkoutRowCardProps {
   isCurrent: boolean;
   onMark: (index: number, tier: Tier, value: ResultValue) => void;
   onSetAmrapReps: (index: number, field: 't1Reps' | 't3Reps', reps: number | undefined) => void;
-  onSetRpe?: (index: number, rpe: number | undefined) => void;
+  onSetRpe?: (index: number, tier: 't1' | 't3', rpe: number | undefined) => void;
   onUndo: (index: number, tier: Tier) => void;
 }
 
@@ -99,7 +99,8 @@ function TierSection({
           />
         </div>
       </div>
-      {result && onSetAmrapReps && (
+      {/* fix: AMRAP only shows for success results */}
+      {result === 'success' && onSetAmrapReps && (
         <div className="mt-1.5 flex items-center gap-2 pl-1">
           <span className="text-xs text-[var(--text-muted)]">Rep. AMRAP:</span>
           <AmrapInput value={amrapReps} onChange={onSetAmrapReps} variant="card" />
@@ -132,7 +133,8 @@ function areRowCardsEqual(prev: WorkoutRowCardProps, next: WorkoutRowCardProps):
     p.result.t3 === n.result.t3 &&
     p.result.t1Reps === n.result.t1Reps &&
     p.result.t3Reps === n.result.t3Reps &&
-    p.result.rpe === n.result.rpe
+    p.result.rpe === n.result.rpe &&
+    p.result.t3Rpe === n.result.t3Rpe
   );
 }
 
@@ -157,7 +159,12 @@ export const WorkoutRowCard = memo(function WorkoutRowCard({
   );
 
   const handleRpeChange = useCallback(
-    (rpe: number | undefined) => onSetRpe?.(row.index, rpe),
+    (rpe: number | undefined) => onSetRpe?.(row.index, 't1', rpe),
+    [onSetRpe, row.index]
+  );
+
+  const handleT3RpeChange = useCallback(
+    (rpe: number | undefined) => onSetRpe?.(row.index, 't3', rpe),
     [onSetRpe, row.index]
   );
 
@@ -203,9 +210,10 @@ export const WorkoutRowCard = memo(function WorkoutRowCard({
           onMark={onMark}
           onUndo={onUndo}
         />
-        {row.result.t1 && onSetRpe && (
+        {/* fix: RPE only shows for T1 success */}
+        {row.result.t1 === 'success' && onSetRpe && (
           <div className="mt-1 pl-1" data-rpe-input={row.index}>
-            <RpeInput value={row.result.rpe} onChange={handleRpeChange} />
+            <RpeInput value={row.result.rpe} onChange={handleRpeChange} tier="t1" />
           </div>
         )}
       </div>
@@ -239,6 +247,12 @@ export const WorkoutRowCard = memo(function WorkoutRowCard({
           onMark={onMark}
           onUndo={onUndo}
         />
+        {/* fix: independent T3 RPE */}
+        {row.result.t3 === 'success' && onSetRpe && (
+          <div className="mt-1 pl-1">
+            <RpeInput value={row.result.t3Rpe} onChange={handleT3RpeChange} tier="t3" />
+          </div>
+        )}
       </div>
     </div>
   );
