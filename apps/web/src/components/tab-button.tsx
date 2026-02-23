@@ -17,10 +17,12 @@ export function TabButton({
 }: TabButtonProps): ReactNode {
   return (
     <button
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
       onMouseEnter={onMouseEnter}
       onFocus={onFocus}
-      className={`font-mono px-4 sm:px-6 py-3 text-[10px] sm:text-[11px] font-bold cursor-pointer tracking-widest uppercase transition-colors -mb-[2px] ${
+      className={`font-mono px-4 sm:px-6 py-3 min-h-[44px] text-xs font-bold cursor-pointer tracking-widest uppercase transition-colors -mb-[2px] ${
         active
           ? 'border-b-2 border-[var(--fill-progress)] text-[var(--text-main)] bg-[var(--bg-card)]'
           : 'bg-transparent text-[var(--text-muted)] hover:text-[var(--text-main)]'

@@ -37,7 +37,7 @@ function ProgressBar({
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="font-mono text-[11px] font-bold text-[var(--text-muted)] whitespace-nowrap tabular-nums">
+      <span className="font-mono text-xs font-bold text-[var(--text-muted)] whitespace-nowrap tabular-nums">
         {completed}/{total} ({pct}%)
       </span>
     </div>
@@ -72,7 +72,10 @@ export function Toolbar({
             Deshacer
           </Button>
           {undoCount > 0 && (
-            <span className="font-mono text-[10px] text-[var(--text-muted)] tabular-nums">
+            <span
+              className="font-mono text-xs text-[var(--text-muted)] tabular-nums"
+              aria-label={`${undoCount} acciones deshacibles`}
+            >
               {undoCount}x
             </span>
           )}

@@ -38,14 +38,14 @@ export const ResultCell = memo(function ResultCell({
       >
         {isSuccess ? '\u2713' : '\u2717'}
         {isTable ? (
-          <span className="absolute -top-5.5 left-1/2 -translate-x-1/2 text-[10px] font-bold whitespace-nowrap bg-[var(--bg-tooltip)] text-[var(--text-tooltip)] px-2 py-0.5 pointer-events-none opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
+          <span className="absolute -top-5.5 left-1/2 -translate-x-1/2 text-xs font-bold whitespace-nowrap bg-[var(--bg-tooltip)] text-[var(--text-tooltip)] px-2 py-0.5 pointer-events-none opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
             deshacer
           </span>
         ) : null}
         {!isTable && (
           <>
             {' '}
-            <span className="text-[10px] font-normal opacity-70">deshacer</span>
+            <span className="text-xs font-normal opacity-70">deshacer</span>
           </>
         )}
       </button>
@@ -53,7 +53,7 @@ export const ResultCell = memo(function ResultCell({
   }
 
   const sizeClasses = isTable
-    ? 'px-3.5 py-2 text-sm'
+    ? 'min-w-[44px] min-h-[44px] px-3.5 py-2 text-sm'
     : 'min-w-[48px] min-h-[48px] px-3 py-2 text-base';
 
   return (

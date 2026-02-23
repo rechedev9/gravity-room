@@ -40,7 +40,7 @@ export function WeekNavigator({
           </span>
           <span
             className="font-mono text-[var(--text-muted)] tabular-nums"
-            style={{ fontSize: '10px', letterSpacing: '0.1em' }}
+            style={{ fontSize: '12px', letterSpacing: '0.1em' }}
           >
             / {totalWeeks}
           </span>
@@ -48,7 +48,7 @@ export function WeekNavigator({
         <div className="flex items-center gap-3">
           <span
             className={`font-mono ${weekDoneCount === weekTotalCount ? 'text-[var(--fill-progress)]' : 'text-[var(--text-muted)]'}`}
-            style={{ fontSize: '11px', letterSpacing: '0.25em' }}
+            style={{ fontSize: '12px', letterSpacing: '0.25em' }}
             aria-label={`${weekDoneCount} de ${weekTotalCount} entrenamientos completados`}
             title={`${weekDoneCount} de ${weekTotalCount} entrenamientos completados`}
           >
@@ -59,7 +59,7 @@ export function WeekNavigator({
             <button
               type="button"
               onClick={onGoToCurrent}
-              className="font-mono text-[10px] font-bold tracking-widest uppercase text-[var(--fill-progress)] hover:underline cursor-pointer bg-transparent border-none p-0"
+              className="font-mono text-xs font-bold tracking-widest uppercase text-[var(--fill-progress)] hover:underline cursor-pointer bg-transparent border-none min-h-[44px] px-2 inline-flex items-center"
             >
               &rarr; Actual
             </button>

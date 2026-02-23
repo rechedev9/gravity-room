@@ -281,7 +281,7 @@ export function GZCLPApp({
         {startWeights && (
           <>
             {/* Tabs */}
-            <div className="flex gap-0 mb-8 border-b-2 border-[var(--border-color)]">
+            <div role="tablist" className="flex gap-0 mb-8 border-b-2 border-[var(--border-color)]">
               <TabButton
                 active={activeTab === 'program'}
                 onClick={() => startTransition(() => setActiveTab('program'))}

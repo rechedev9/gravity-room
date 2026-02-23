@@ -90,7 +90,8 @@ export const WorkoutRow = memo(function WorkoutRow({
             target="_blank"
             rel="noopener noreferrer"
             title="Agregar a Google Calendar"
-            className="font-mono block text-[10px] text-[var(--text-muted)] hover:text-[var(--fill-progress)] transition-colors leading-none mt-0.5"
+            aria-label="Agregar a Google Calendar"
+            className="font-mono inline-flex items-center justify-center min-w-[44px] min-h-[44px] text-xs text-[var(--text-muted)] hover:text-[var(--fill-progress)] transition-colors mt-0.5"
           >
             ↗ Cal
           </a>
@@ -131,7 +132,7 @@ export const WorkoutRow = memo(function WorkoutRow({
         />
         {row.result.t1 && (
           <div className="mt-1 flex items-center justify-center gap-1">
-            <span className="text-[10px] text-[var(--text-muted)]">AMRAP</span>
+            <span className="text-xs text-[var(--text-muted)]">AMRAP</span>
             <AmrapInput value={row.result.t1Reps} onChange={handleT1AmrapChange} />
           </div>
         )}
@@ -183,7 +184,7 @@ export const WorkoutRow = memo(function WorkoutRow({
       >
         {row.t3Weight}
         <br />
-        <span className="text-[10px] text-[var(--text-muted)] font-normal">3&times;15</span>
+        <span className="text-xs text-[var(--text-muted)] font-normal">3&times;15</span>
       </td>
       <td
         data-testid={`t3-result-${row.index}`}
@@ -199,7 +200,7 @@ export const WorkoutRow = memo(function WorkoutRow({
         />
         {row.result.t3 && (
           <div className="mt-1 flex items-center justify-center gap-1">
-            <span className="text-[10px] text-[var(--text-muted)]">AMRAP</span>
+            <span className="text-xs text-[var(--text-muted)]">AMRAP</span>
             <AmrapInput value={row.result.t3Reps} onChange={handleT3AmrapChange} />
           </div>
         )}

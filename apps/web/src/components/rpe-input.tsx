@@ -8,7 +8,7 @@ interface RpeInputProps {
 export function RpeInput({ value, onChange }: RpeInputProps): React.ReactNode {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[10px] text-[var(--text-muted)] mr-0.5">RPE</span>
+      <span className="text-xs text-[var(--text-muted)] mr-0.5">RPE</span>
       {RPE_VALUES.map((rpe) => {
         const isActive = value === rpe;
         return (
@@ -18,7 +18,7 @@ export function RpeInput({ value, onChange }: RpeInputProps): React.ReactNode {
             aria-label={`RPE ${rpe}`}
             aria-pressed={isActive}
             onClick={() => onChange(isActive ? undefined : rpe)}
-            className={`w-7 h-7 text-[11px] font-bold border cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none ${
+            className={`w-11 h-11 text-xs font-bold border cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none ${
               isActive
                 ? 'bg-[var(--fill-progress)] text-white border-[var(--fill-progress)]'
                 : 'bg-transparent text-[var(--text-muted)] border-[var(--border-color)] hover:border-[var(--text-main)]'

@@ -51,7 +51,7 @@ function TierSection({
       <div className="flex items-center justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div
-            className={`text-[11px] font-bold uppercase ${isT1 ? 'text-[var(--fill-progress)]' : 'text-[var(--text-muted)]'}`}
+            className={`text-xs font-bold uppercase ${isT1 ? 'text-[var(--fill-progress)]' : 'text-[var(--text-muted)]'}`}
           >
             {label}
           </div>
@@ -101,7 +101,7 @@ function TierSection({
       </div>
       {result && onSetAmrapReps && (
         <div className="mt-1.5 flex items-center gap-2 pl-1">
-          <span className="text-[10px] text-[var(--text-muted)]">Rep. AMRAP:</span>
+          <span className="text-xs text-[var(--text-muted)]">Rep. AMRAP:</span>
           <AmrapInput value={amrapReps} onChange={onSetAmrapReps} variant="card" />
         </div>
       )}
@@ -178,7 +178,8 @@ export const WorkoutRowCard = memo(function WorkoutRowCard({
             target="_blank"
             rel="noopener noreferrer"
             title="Agregar a Google Calendar"
-            className="text-[10px] text-[var(--text-muted)] hover:text-[var(--fill-progress)] transition-colors"
+            aria-label="Agregar a Google Calendar"
+            className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] text-xs text-[var(--text-muted)] hover:text-[var(--fill-progress)] transition-colors"
           >
             ↗ Cal
           </a>

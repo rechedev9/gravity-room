@@ -99,7 +99,7 @@ export function WeekSection({
         </span>
         <span
           className="font-mono opacity-50 tabular-nums"
-          style={{ fontSize: '10px', letterSpacing: '0.1em' }}
+          style={{ fontSize: '12px', letterSpacing: '0.1em' }}
         >
           {startWo}–{endWo}
         </span>
@@ -108,38 +108,46 @@ export function WeekSection({
       {!collapsed && (
         <LazyContent forceVisible={forceVisible}>
           {/* Desktop table */}
-          <div className="overflow-x-auto hidden md:block">
-            <table className="w-full border-collapse bg-[var(--bg-card)] border border-[var(--border-color)] min-w-[800px]">
+          <div className="overflow-x-auto hidden lg:block">
+            <table
+              aria-label="Entrenamientos de la semana"
+              className="w-full border-collapse bg-[var(--bg-card)] border border-[var(--border-color)] min-w-[700px]"
+            >
               <thead>
                 <tr>
                   <th
+                    scope="col"
                     rowSpan={2}
-                    className="bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-[11px] uppercase tracking-wide text-[var(--text-label)] w-[4%]"
+                    className="bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-xs uppercase tracking-wide text-[var(--text-label)] w-[4%]"
                   >
                     #
                   </th>
                   <th
+                    scope="col"
                     rowSpan={2}
-                    className="bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-[11px] uppercase tracking-wide text-[var(--text-label)] w-[5%]"
+                    className="bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-xs uppercase tracking-wide text-[var(--text-label)] w-[5%]"
                   >
                     Día
                   </th>
                   <th
+                    scope="col"
                     colSpan={4}
-                    className="bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-[11px] uppercase tracking-wide text-[var(--text-label)] w-[33%]"
+                    className="bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-xs uppercase tracking-wide text-[var(--text-label)] w-[33%]"
                   >
                     T1 — Levantamiento Principal{' '}
                     <span className="font-normal normal-case">(último set = AMRAP)</span>
                   </th>
                   <th
+                    scope="col"
                     colSpan={4}
-                    className="bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-[11px] uppercase tracking-wide text-[var(--text-label)] w-[33%]"
+                    className="bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-xs uppercase tracking-wide text-[var(--text-label)] w-[33%]"
                   >
                     T2 — Secundario
                   </th>
                   <th
+                    scope="col"
                     colSpan={3}
-                    className="bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-[11px] uppercase tracking-wide text-[var(--text-label)] w-[25%]"
+                    className="bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-xs uppercase tracking-wide text-[var(--text-label)] w-[25%]"
                   >
                     T3 — Accesorio{' '}
                     <span className="font-normal normal-case">(último set = AMRAP)</span>
@@ -161,7 +169,8 @@ export function WeekSection({
                   ].map((h, i) => (
                     <th
                       key={i}
-                      className="font-mono bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-[10px] uppercase tracking-widest text-[var(--text-label)]"
+                      scope="col"
+                      className="font-mono bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-xs uppercase tracking-widest text-[var(--text-label)]"
                     >
                       {h}
                     </th>
@@ -185,7 +194,7 @@ export function WeekSection({
           </div>
 
           {/* Mobile card layout */}
-          <div className="md:hidden">
+          <div className="lg:hidden">
             {rows.map((row) => (
               <WorkoutRowCard
                 key={row.index}

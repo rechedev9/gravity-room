@@ -27,7 +27,7 @@ export function AppHeader({
         {onBack && (
           <button
             onClick={onBack}
-            className="font-mono text-[11px] font-medium tracking-widest uppercase transition-colors cursor-pointer mr-2 hover:text-[var(--text-header)]"
+            className="font-mono text-xs font-medium tracking-widest uppercase transition-colors cursor-pointer mr-2 hover:text-[var(--text-header)] inline-flex items-center min-h-[44px] px-2"
             style={{ color: 'var(--text-muted)' }}
           >
             ← {backLabel ?? 'Volver'}

@@ -42,8 +42,8 @@ export const AmrapInput = memo(function AmrapInput({
   );
 
   const btnBase = isCard
-    ? 'min-w-[40px] min-h-[40px] text-base'
-    : 'min-w-[36px] min-h-[36px] text-sm';
+    ? 'min-w-[44px] min-h-[44px] text-base'
+    : 'min-w-[44px] min-h-[44px] text-sm';
 
   const inputWidth = isCard ? 'w-12' : 'w-10';
 

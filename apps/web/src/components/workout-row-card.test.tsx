@@ -52,7 +52,7 @@ describe('WorkoutRowCard', () => {
       const { container } = renderCard();
 
       const t1Section = container.querySelector('[data-testid="t1-result-0"]');
-      const t1Label = t1Section?.querySelector('.text-\\[11px\\]');
+      const t1Label = t1Section?.querySelector('.text-xs');
 
       expect(t1Label?.className).toContain('text-[var(--fill-progress)]');
     });
