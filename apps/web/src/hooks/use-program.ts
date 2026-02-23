@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import type { StartWeights, Results, UndoHistory, Tier, ResultValue } from '@gzclp/shared/types';
 import { queryKeys } from '@/lib/query-keys';
@@ -145,6 +145,7 @@ export function useProgram(instanceId?: string): UseProgramReturn {
     queryKey: queryKeys.programs.detail(activeInstanceId ?? ''),
     queryFn: () => fetchProgram(activeInstanceId ?? ''),
     enabled: activeInstanceId !== null,
+    staleTime: 10_000,
   });
 
   const detail = detailQuery.data ?? null;
@@ -153,6 +154,11 @@ export function useProgram(instanceId?: string): UseProgramReturn {
   const undoHistory = detail?.undoHistory ?? [];
   const resultTimestamps = detail?.resultTimestamps ?? {};
   const isLoading = programsQuery.isLoading || detailQuery.isLoading;
+
+  // Per-key debounce timers for high-frequency mutations (AMRAP, RPE).
+  // Key format: `${workoutIndex}-${field}` — each unique field has its own timer.
+  const amrapTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const rpeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // -------------------------------------------------------------------------
   // Mutations
@@ -326,16 +332,67 @@ export function useProgram(instanceId?: string): UseProgramReturn {
 
   const setAmrapRepsCb = useCallback(
     (index: number, field: 't1Reps' | 't3Reps', reps: number | undefined): void => {
-      setAmrapMutation.mutate({ index, field, reps });
+      // Immediately reflect the change in the cache so the UI feels snappy.
+      const detailKey = queryKeys.programs.detail(activeInstanceId ?? '');
+      queryClient.setQueryData<ProgramDetail>(detailKey, (prev) => {
+        if (!prev) return prev;
+        const updatedResults = { ...prev.results };
+        const entry = { ...updatedResults[index] };
+        if (reps === undefined) {
+          delete entry[field];
+        } else {
+          entry[field] = reps;
+        }
+        updatedResults[index] = entry;
+        return { ...prev, results: updatedResults };
+      });
+
+      // Debounce the API call: rapid clicks on +/- coalesce into a single POST.
+      const timerKey = `${index}-${field}`;
+      const existing = amrapTimers.current.get(timerKey);
+      if (existing !== undefined) clearTimeout(existing);
+      amrapTimers.current.set(
+        timerKey,
+        setTimeout(() => {
+          amrapTimers.current.delete(timerKey);
+          setAmrapMutation.mutate({ index, field, reps });
+        }, 400)
+      );
     },
-    [setAmrapMutation]
+    [queryClient, activeInstanceId, setAmrapMutation]
   );
 
   const setRpeCb = useCallback(
     (index: number, tier: 't1' | 't3', rpe: number | undefined): void => {
-      setRpeMutation.mutate({ index, tier, rpe });
+      // Immediately reflect the change in the cache.
+      const detailKey = queryKeys.programs.detail(activeInstanceId ?? '');
+      queryClient.setQueryData<ProgramDetail>(detailKey, (prev) => {
+        if (!prev) return prev;
+        const updatedResults = { ...prev.results };
+        const entry = { ...updatedResults[index] };
+        const field = tier === 't1' ? ('rpe' as const) : ('t3Rpe' as const);
+        if (rpe === undefined) {
+          delete entry[field];
+        } else {
+          entry[field] = rpe;
+        }
+        updatedResults[index] = entry;
+        return { ...prev, results: updatedResults };
+      });
+
+      // Debounce: switching RPE values rapidly fires one POST after 300ms.
+      const timerKey = `${index}-${tier}-rpe`;
+      const existing = rpeTimers.current.get(timerKey);
+      if (existing !== undefined) clearTimeout(existing);
+      rpeTimers.current.set(
+        timerKey,
+        setTimeout(() => {
+          rpeTimers.current.delete(timerKey);
+          setRpeMutation.mutate({ index, tier, rpe });
+        }, 300)
+      );
     },
-    [setRpeMutation]
+    [queryClient, activeInstanceId, setRpeMutation]
   );
 
   const undoSpecificCb = useCallback(
