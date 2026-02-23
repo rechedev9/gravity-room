@@ -29,7 +29,7 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
         },
         'recording result'
       );
-      await rateLimit(userId, 'POST /programs/results');
+      await rateLimit(userId, 'POST /programs/results', { maxRequests: 60 });
       const result = await recordResult(userId, params.id, body);
       set.status = 201;
       return {
