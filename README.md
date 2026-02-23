@@ -1,6 +1,6 @@
 # The Real Hyperbolic Time Chamber
 
-A workout tracker for the [GZCLP](https://saynotobroscience.com/gzclp-infographic/) linear progression program — and beyond. Built as a Bun monorepo with a Vite + React 19 SPA frontend and an ElysiaJS API backend.
+A strength training tracker for any program. Define your progression rules declaratively — the engine handles the rest. Built as a Bun monorepo with a Vite + React 19 SPA frontend and an ElysiaJS API backend.
 
 For rationale on every framework and tool choice, see [docs/tech-stack.md](docs/tech-stack.md).
 
