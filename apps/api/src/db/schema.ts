@@ -118,7 +118,7 @@ export const workoutResults = pgTable(
       .references(() => programInstances.id, { onDelete: 'cascade' })
       .notNull(),
     workoutIndex: smallint('workout_index').notNull(),
-    slotId: varchar('slot_id', { length: 20 }).notNull(),
+    slotId: varchar('slot_id', { length: 50 }).notNull(),
     result: resultTypeEnum().notNull(),
     amrapReps: smallint('amrap_reps'),
     rpe: smallint('rpe'),
@@ -153,7 +153,7 @@ export const undoEntries = pgTable(
       .references(() => programInstances.id, { onDelete: 'cascade' })
       .notNull(),
     workoutIndex: smallint('workout_index').notNull(),
-    slotId: varchar('slot_id', { length: 20 }).notNull(),
+    slotId: varchar('slot_id', { length: 50 }).notNull(),
     prevResult: resultTypeEnum('prev_result'),
     prevAmrapReps: smallint('prev_amrap_reps'),
     prevRpe: smallint('prev_rpe'),
