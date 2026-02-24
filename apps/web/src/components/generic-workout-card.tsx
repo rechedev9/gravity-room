@@ -14,12 +14,6 @@ interface GenericWorkoutCardProps {
   readonly onUndo: (workoutIndex: number, slotId: string) => void;
 }
 
-const TIER_LABELS: Readonly<Record<string, string>> = {
-  t1: 'T1',
-  t2: 'T2',
-  t3: 'T3',
-};
-
 const TIER_STYLES: Readonly<Record<string, string>> = {
   t1: 'text-[var(--fill-progress)]',
   t2: 'text-[var(--text-main)]',
@@ -48,7 +42,7 @@ function SlotSection({
   readonly onSetRpe?: (rpe: number | undefined) => void;
   readonly onSlotUndo: (index: number, tier: string) => void;
 }): React.ReactNode {
-  const tierLabel = TIER_LABELS[slot.tier] ?? slot.tier.toUpperCase();
+  const tierLabel = slot.tier.toUpperCase();
   const tierStyle = TIER_STYLES[slot.tier] ?? '';
 
   return (
