@@ -182,19 +182,19 @@ export function GenericProgramApp({
       const wouldComplete = otherSlots.every((s) => s.result !== undefined);
 
       if (wouldComplete) {
-        // Find first T1 slot missing RPE (including the one being marked if it's T1)
-        const t1MissingRpe = row.slots.find((s) => {
-          if (s.tier !== 't1') return false;
+        // Find first primary slot missing RPE (including the one being marked if it's primary)
+        const primaryMissingRpe = row.slots.find((s) => {
+          if (s.role !== 'primary') return false;
           const hasResult = s.slotId === slotId || s.result !== undefined;
           return hasResult && s.rpe === undefined;
         });
 
-        if (t1MissingRpe) {
+        if (primaryMissingRpe) {
           setRpeReminder({
             workoutIndex,
             slotId,
             value,
-            rpeTarget: `${workoutIndex}-${t1MissingRpe.slotId}`,
+            rpeTarget: `${workoutIndex}-${primaryMissingRpe.slotId}`,
           });
           return;
         }
@@ -284,7 +284,7 @@ export function GenericProgramApp({
         )}
       </div>
 
-      <div className="max-w-[1300px] mx-auto px-5 pb-24">
+      <div className="max-w-[1300px] mx-auto px-3 sm:px-5 pb-24">
         <GenericSetupForm
           definition={definition}
           initialConfig={config}
@@ -296,7 +296,10 @@ export function GenericProgramApp({
         {config && rows.length > 0 && (
           <>
             {/* Tabs */}
-            <div role="tablist" className="flex gap-0 mb-8 border-b-2 border-[var(--border-color)]">
+            <div
+              role="tablist"
+              className="flex gap-0 mb-4 sm:mb-8 border-b-2 border-[var(--border-color)]"
+            >
               <TabButton
                 active={activeTab === 'program'}
                 onClick={() => startTransition(() => setActiveTab('program'))}
@@ -316,7 +319,7 @@ export function GenericProgramApp({
             {activeTab === 'program' && (
               <>
                 {/* Program info */}
-                <details className="bg-[var(--bg-card)] border border-[var(--border-color)] mb-8 overflow-hidden">
+                <details className="bg-[var(--bg-card)] border border-[var(--border-color)] mb-4 sm:mb-8 overflow-hidden">
                   <summary className="font-mono px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center [&::marker]:hidden list-none text-[11px] tracking-widest uppercase">
                     Acerca de {definition.name}
                     <span className="transition-transform duration-200 [[open]>&]:rotate-90">
@@ -399,7 +402,7 @@ export function GenericProgramApp({
       <ConfirmDialog
         open={rpeReminder !== null}
         title="RPE no registrado"
-        message="No registraste el RPE del ejercicio T1. El RPE es opcional, pero útil para seguir tu esfuerzo percibido."
+        message="No registraste el RPE del ejercicio principal. El RPE es opcional, pero útil para seguir tu esfuerzo percibido."
         confirmLabel="Añadir RPE"
         cancelLabel="Continuar sin RPE"
         onConfirm={handleRpeReminderAdd}
