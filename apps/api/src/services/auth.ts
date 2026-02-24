@@ -2,7 +2,7 @@
  * Auth service — refresh token management, user CRUD.
  * Framework-agnostic: no Elysia dependency. JWT signing handled in routes.
  */
-import { eq, lt } from 'drizzle-orm';
+import { eq, lt, and, isNull } from 'drizzle-orm';
 import { getDb } from '../db';
 import { users, refreshTokens } from '../db/schema';
 import { ApiError } from '../middleware/error-handler';
@@ -41,7 +41,11 @@ export async function hashToken(token: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 export async function findUserById(id: string): Promise<UserRow | undefined> {
-  const [user] = await getDb().select().from(users).where(eq(users.id, id)).limit(1);
+  const [user] = await getDb()
+    .select()
+    .from(users)
+    .where(and(eq(users.id, id), isNull(users.deletedAt)))
+    .limit(1);
   return user;
 }
 
@@ -59,6 +63,13 @@ export async function findOrCreateGoogleUser(
   const [existing] = await db.select().from(users).where(eq(users.googleId, googleId)).limit(1);
 
   if (existing) {
+    if (existing.deletedAt) {
+      throw new ApiError(
+        403,
+        'Esta cuenta ha sido eliminada. Contacta con soporte si deseas recuperarla.',
+        'ACCOUNT_DELETED'
+      );
+    }
     if (name !== undefined && existing.name !== name) {
       const [updated] = await db
         .update(users)
@@ -78,6 +89,41 @@ export async function findOrCreateGoogleUser(
 
   if (!created) throw new ApiError(500, 'Failed to create user', 'DB_WRITE_ERROR');
   return created;
+}
+
+/** Update user profile fields (name, avatarUrl). */
+export async function updateUserProfile(
+  userId: string,
+  fields: { name?: string; avatarUrl?: string | null }
+): Promise<UserRow> {
+  const db = getDb();
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (fields.name !== undefined) updates['name'] = fields.name;
+  if (fields.avatarUrl !== undefined) updates['avatarUrl'] = fields.avatarUrl;
+
+  const [updated] = await db
+    .update(users)
+    .set(updates)
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .returning();
+
+  if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+  return updated;
+}
+
+/** Soft-delete a user by setting deleted_at and revoking all tokens. */
+export async function softDeleteUser(userId: string): Promise<void> {
+  const db = getDb();
+  const [updated] = await db
+    .update(users)
+    .set({ deletedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .returning();
+
+  if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+
+  // Revoke all refresh tokens so the user is immediately logged out everywhere
+  await revokeAllUserTokens(userId);
 }
 
 // ---------------------------------------------------------------------------

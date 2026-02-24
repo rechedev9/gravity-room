@@ -5,7 +5,7 @@
  * Refresh tokens: opaque UUID in httpOnly cookie, SHA-256 hashed in DB.
  */
 import { Elysia, t } from 'elysia';
-import { jwtPlugin } from '../middleware/auth-guard';
+import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
 import { ApiError } from '../middleware/error-handler';
 import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
@@ -18,6 +18,8 @@ import {
   revokeAllUserTokens,
   createAndStoreRefreshToken,
   findOrCreateGoogleUser,
+  updateUserProfile,
+  softDeleteUser,
   REFRESH_TOKEN_DAYS,
 } from '../services/auth';
 import { verifyGoogleToken } from '../lib/google-auth';
@@ -26,6 +28,10 @@ const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const BEARER_PREFIX = 'Bearer ';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
+
+/** Max avatar data URL size in bytes (~200KB base64 ≈ ~150KB image). */
+const MAX_AVATAR_BYTES = 200_000;
+const DATA_URL_IMAGE_RE = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true as const,
@@ -39,10 +45,11 @@ interface UserProfile {
   readonly id: string;
   readonly email: string;
   readonly name: string | null;
+  readonly avatarUrl: string | null;
 }
 
 function userResponse(user: UserProfile): UserProfile {
-  return { id: user.id, email: user.email, name: user.name };
+  return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl };
 }
 
 /** Signs a JWT, creates a refresh token, and sets the cookie in one step. */
@@ -275,6 +282,87 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           200: { description: 'User profile' },
           401: { description: 'Missing or invalid token' },
           404: { description: 'User not found (deleted after token was issued)' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // PATCH /auth/me — update current user profile
+  // -----------------------------------------------------------------------
+  .resolve(resolveUserId)
+  .patch(
+    '/me',
+    async ({ userId, body, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/me/patch', { maxRequests: 20 });
+
+      if (body.avatarUrl !== undefined && body.avatarUrl !== null) {
+        if (!DATA_URL_IMAGE_RE.test(body.avatarUrl)) {
+          throw new ApiError(
+            400,
+            'Avatar must be a base64 data URL (JPEG, PNG, or WebP)',
+            'INVALID_AVATAR'
+          );
+        }
+        if (body.avatarUrl.length > MAX_AVATAR_BYTES) {
+          throw new ApiError(400, 'Avatar exceeds maximum size (200KB)', 'AVATAR_TOO_LARGE');
+        }
+      }
+
+      const updated = await updateUserProfile(userId, {
+        name: body.name,
+        avatarUrl: body.avatarUrl,
+      });
+
+      reqLogger.info({ event: 'auth.profile_update', userId }, 'profile updated');
+      return userResponse(updated);
+    },
+    {
+      body: t.Object({
+        name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
+        avatarUrl: t.Optional(t.Nullable(t.String())),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Update user profile',
+        description: 'Updates name and/or avatar. Send avatarUrl: null to remove the avatar.',
+        security: authSecurity,
+        responses: {
+          200: { description: 'Updated user profile' },
+          400: { description: 'Invalid avatar format or size' },
+          401: { description: 'Missing or invalid token' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // DELETE /auth/me — soft-delete current user account
+  // -----------------------------------------------------------------------
+  .delete(
+    '/me',
+    async ({ userId, cookie, set, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/me/delete', { maxRequests: 5 });
+
+      await softDeleteUser(userId);
+
+      // Clear the refresh cookie
+      const refreshCookie = cookie[REFRESH_COOKIE_NAME];
+      refreshCookie?.remove();
+
+      reqLogger.info({ event: 'auth.account_deleted', userId }, 'account soft-deleted');
+      set.status = 204;
+    },
+    {
+      detail: {
+        tags: ['Auth'],
+        summary: 'Delete account',
+        description:
+          'Soft-deletes the user account (sets deleted_at). All refresh tokens are revoked. Data is purged after 30 days.',
+        security: authSecurity,
+        responses: {
+          204: { description: 'Account soft-deleted' },
+          401: { description: 'Missing or invalid token' },
         },
       },
     }
