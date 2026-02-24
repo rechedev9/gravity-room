@@ -14,7 +14,7 @@ import type { WorkoutRow, GenericWorkoutRow, ResultValue } from '@gzclp/shared/t
 export function detectT1PersonalRecord(
   rows: readonly WorkoutRow[],
   index: number,
-  tier: 't1' | 't2' | 't3',
+  tier: string,
   value: ResultValue
 ): boolean {
   if (tier !== 't1' || value !== 'success') return false;
@@ -57,7 +57,7 @@ export function detectGenericPersonalRecord(
   if (!currentRow) return false;
 
   const currentSlot = currentRow.slots.find((s) => s.slotId === slotId);
-  if (!currentSlot || currentSlot.tier !== 't1') return false;
+  if (!currentSlot || currentSlot.role !== 'primary') return false;
 
   const exerciseId = currentSlot.exerciseId;
   const currentWeight = currentSlot.weight;
@@ -65,7 +65,7 @@ export function detectGenericPersonalRecord(
   const priorSlots = rows
     .slice(0, workoutIndex)
     .flatMap((r) => r.slots)
-    .filter((s) => s.tier === 't1' && s.exerciseId === exerciseId && s.result === 'success');
+    .filter((s) => s.role === 'primary' && s.exerciseId === exerciseId && s.result === 'success');
 
   let priorBest = -1;
   for (const slot of priorSlots) {

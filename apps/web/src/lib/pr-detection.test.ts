@@ -41,11 +41,13 @@ function makeGenericRow(index: number, slots: Partial<GenericSlotRow>[]): Generi
       stage: s.stage ?? 0,
       sets: s.sets ?? 5,
       reps: s.reps ?? 3,
+      repsMax: s.repsMax,
       isAmrap: s.isAmrap ?? false,
       result: s.result,
       amrapReps: s.amrapReps,
       rpe: s.rpe,
       isChanged: s.isChanged ?? false,
+      role: s.role ?? 'primary',
     })),
   };
 }
@@ -127,10 +129,14 @@ describe('detectGenericPersonalRecord', () => {
     expect(detectGenericPersonalRecord(rows, 1, 's1', 'fail')).toBe(false);
   });
 
-  it('returns false for T2 slot', () => {
+  it('returns false for T2 slot with secondary role', () => {
     const rows = [
-      makeGenericRow(0, [{ slotId: 's2', tier: 't2', weight: 40, result: 'success' }]),
-      makeGenericRow(1, [{ slotId: 's2', tier: 't2', weight: 45, result: 'success' }]),
+      makeGenericRow(0, [
+        { slotId: 's2', tier: 't2', role: 'secondary', weight: 40, result: 'success' },
+      ]),
+      makeGenericRow(1, [
+        { slotId: 's2', tier: 't2', role: 'secondary', weight: 45, result: 'success' },
+      ]),
     ];
     expect(detectGenericPersonalRecord(rows, 1, 's2', 'success')).toBe(false);
   });
@@ -154,5 +160,87 @@ describe('detectGenericPersonalRecord', () => {
       ]),
     ];
     expect(detectGenericPersonalRecord(rows, 0, 's1', 'success')).toBe(false);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Role-based PR detection (REQ-UI-005)
+  // ---------------------------------------------------------------------------
+
+  it('detects PR for role: primary slot with higher weight than prior best', () => {
+    const rows = [
+      makeGenericRow(0, [
+        {
+          slotId: 's1',
+          tier: 'main',
+          role: 'primary',
+          exerciseId: 'squat',
+          weight: 100,
+          result: 'success',
+        },
+      ]),
+      makeGenericRow(1, [
+        {
+          slotId: 's1',
+          tier: 'main',
+          role: 'primary',
+          exerciseId: 'squat',
+          weight: 105,
+          result: 'success',
+        },
+      ]),
+    ];
+    expect(detectGenericPersonalRecord(rows, 1, 's1', 'success')).toBe(true);
+  });
+
+  it('does not detect PR for role: secondary slot even with higher weight', () => {
+    const rows = [
+      makeGenericRow(0, [
+        {
+          slotId: 's1',
+          tier: 'secondary',
+          role: 'secondary',
+          exerciseId: 'squat',
+          weight: 80,
+          result: 'success',
+        },
+      ]),
+      makeGenericRow(1, [
+        {
+          slotId: 's1',
+          tier: 'secondary',
+          role: 'secondary',
+          exerciseId: 'squat',
+          weight: 85,
+          result: 'success',
+        },
+      ]),
+    ];
+    expect(detectGenericPersonalRecord(rows, 1, 's1', 'success')).toBe(false);
+  });
+
+  it('detects PR for GZCLP T1 slot with synthesized role: primary', () => {
+    const rows = [
+      makeGenericRow(0, [
+        {
+          slotId: 's1',
+          tier: 't1',
+          role: 'primary',
+          exerciseId: 'squat',
+          weight: 100,
+          result: 'success',
+        },
+      ]),
+      makeGenericRow(1, [
+        {
+          slotId: 's1',
+          tier: 't1',
+          role: 'primary',
+          exerciseId: 'squat',
+          weight: 102.5,
+          result: 'success',
+        },
+      ]),
+    ];
+    expect(detectGenericPersonalRecord(rows, 1, 's1', 'success')).toBe(true);
   });
 });

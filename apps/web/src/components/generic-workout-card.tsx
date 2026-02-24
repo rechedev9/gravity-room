@@ -1,5 +1,5 @@
 import { memo, useCallback, useMemo } from 'react';
-import type { GenericWorkoutRow, GenericSlotRow, ResultValue, Tier } from '@gzclp/shared/types';
+import type { GenericWorkoutRow, GenericSlotRow, ResultValue } from '@gzclp/shared/types';
 import { StageTag } from './stage-tag';
 import { ResultCell } from './result-cell';
 import { AmrapInput } from './amrap-input';
@@ -43,10 +43,10 @@ function SlotSection({
 }: {
   readonly slot: GenericSlotRow;
   readonly workoutIndex: number;
-  readonly onSlotMark: (index: number, tier: Tier, value: ResultValue) => void;
+  readonly onSlotMark: (index: number, tier: string, value: ResultValue) => void;
   readonly onSetAmrapReps?: (reps: number | undefined) => void;
   readonly onSetRpe?: (rpe: number | undefined) => void;
-  readonly onSlotUndo: (index: number, tier: Tier) => void;
+  readonly onSlotUndo: (index: number, tier: string) => void;
 }): React.ReactNode {
   const tierLabel = TIER_LABELS[slot.tier] ?? slot.tier.toUpperCase();
   const tierStyle = TIER_STYLES[slot.tier] ?? '';
@@ -62,9 +62,9 @@ function SlotSection({
           {slot.weight > 0 && (
             <div
               className={
-                slot.tier === 't1'
+                slot.role === 'primary'
                   ? 'font-display-data text-3xl text-[var(--fill-progress)] tabular-nums'
-                  : slot.tier === 't3'
+                  : slot.role === 'accessory'
                     ? 'text-[15px] font-extrabold tabular-nums text-[var(--text-muted)]'
                     : 'text-[15px] font-extrabold tabular-nums'
               }
@@ -74,6 +74,7 @@ function SlotSection({
           )}
           <div className="text-[12px] font-semibold text-[var(--text-muted)]">
             {slot.sets}&times;{slot.reps}
+            {slot.repsMax !== undefined && `-${slot.repsMax}`}
             {slot.isAmrap && (
               <span className="text-[10px] ml-1 text-[var(--fill-progress)]">AMRAP</span>
             )}
@@ -103,10 +104,10 @@ function SlotSection({
           <AmrapInput value={slot.amrapReps} onChange={onSetAmrapReps} variant="card" />
         </div>
       )}
-      {/* fix: RPE only for success, with tier label */}
-      {slot.result === 'success' && (slot.tier === 't1' || slot.tier === 't3') && onSetRpe && (
+      {/* fix: RPE only for success primary-role slots */}
+      {slot.result === 'success' && slot.role === 'primary' && onSetRpe && (
         <div className="mt-1 pl-1" data-rpe-input={`${workoutIndex}-${slot.slotId}`}>
-          <RpeInput value={slot.rpe} onChange={onSetRpe} tier={slot.tier} />
+          <RpeInput value={slot.rpe} onChange={onSetRpe} label={slot.tier.toUpperCase()} />
         </div>
       )}
     </div>
@@ -127,6 +128,8 @@ function areCardsEqual(prev: GenericWorkoutCardProps, next: GenericWorkoutCardPr
       ps.stage !== ns.stage ||
       ps.sets !== ns.sets ||
       ps.reps !== ns.reps ||
+      ps.repsMax !== ns.repsMax ||
+      ps.role !== ns.role ||
       ps.result !== ns.result ||
       ps.amrapReps !== ns.amrapReps ||
       ps.rpe !== ns.rpe ||
@@ -153,7 +156,7 @@ export const GenericWorkoutCard = memo(function GenericWorkoutCard({
   const slotCallbacks = useMemo(
     () =>
       row.slots.map((slot) => ({
-        mark: (_index: number, _tier: Tier, value: ResultValue): void => {
+        mark: (_index: number, _tier: string, value: ResultValue): void => {
           onMark(row.index, slot.slotId, value);
         },
         undo: (): void => {
@@ -204,7 +207,7 @@ export const GenericWorkoutCard = memo(function GenericWorkoutCard({
               : undefined
           }
           onSetRpe={
-            slot.tier === 't1' && onSetRpe
+            slot.role === 'primary' && onSetRpe
               ? (rpe: number | undefined) => handleRpe(slot.slotId, rpe)
               : undefined
           }
