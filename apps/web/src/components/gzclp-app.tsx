@@ -85,6 +85,9 @@ export function GZCLPApp({
     [startWeights, results]
   );
 
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+
   useWebMcp({ startWeights, results, rows, generateProgram, markResult, setAmrapReps, undoLast });
 
   const completedCount = useMemo(
@@ -136,11 +139,11 @@ export function GZCLPApp({
   const recordAndToast = useCallback(
     (index: number, tier: Tier, value: ResultValue): void => {
       markResult(index, tier, value);
-      const row = rows[index];
+      const row = rowsRef.current[index];
       if (!row) return;
       const exerciseByTier = { t1: row.t1Exercise, t2: row.t2Exercise, t3: row.t3Exercise };
       const exerciseKey = exerciseByTier[tier];
-      const isPr = detectT1PersonalRecord(rows, index, tier, value);
+      const isPr = detectT1PersonalRecord(rowsRef.current, index, tier, value);
       if (isPr) {
         toast({
           message: `${NAMES[exerciseKey]} ${row.t1Weight} kg`,
@@ -158,7 +161,7 @@ export function GZCLPApp({
         });
       }
     },
-    [markResult, rows, toast, undoSpecific]
+    [markResult, toast, undoSpecific]
   );
 
   const scrollToRpeInput = useCallback((index: number): void => {
@@ -174,7 +177,7 @@ export function GZCLPApp({
 
   const handleMarkResult = useCallback(
     (index: number, tier: Tier, value: ResultValue): void => {
-      const row = rows[index];
+      const row = rowsRef.current[index];
       if (!row) {
         recordAndToast(index, tier, value);
         return;
@@ -194,7 +197,7 @@ export function GZCLPApp({
 
       recordAndToast(index, tier, value);
     },
-    [rows, recordAndToast]
+    [recordAndToast]
   );
 
   const handleRpeReminderContinue = useCallback((): void => {
