@@ -186,9 +186,9 @@ export function LandingPage(): React.ReactNode {
           ref={observe}
           className="landing-fade-in px-6 sm:px-10 py-16 sm:py-20 bg-[var(--bg-header)]"
         >
-          <div className="max-w-4xl mx-auto grid grid-cols-3 gap-0 divide-x divide-[var(--border-color)]">
+          <div className="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-0 divide-y sm:divide-y-0 sm:divide-x divide-[var(--border-color)]">
             {METRICS.map((m) => (
-              <div key={m.label} className="text-center px-6 sm:px-10">
+              <div key={m.label} className="text-center px-6 sm:px-10 py-5 sm:py-0">
                 <div
                   className="font-display hero-number-glow leading-none mb-2"
                   style={{
