@@ -108,6 +108,77 @@ function SlotSection({
   );
 }
 
+interface SlotSectionDesktopProps {
+  readonly slot: GenericSlotRow;
+  readonly workoutIndex: number;
+  readonly onSlotMark: (index: number, tier: string, value: ResultValue) => void;
+  readonly onSetAmrapReps: ((reps: number | undefined) => void) | undefined;
+  readonly onSetRpe: ((rpe: number | undefined) => void) | undefined;
+  readonly onSlotUndo: (index: number, tier: string) => void;
+}
+
+function SlotSectionDesktop({
+  slot,
+  workoutIndex,
+  onSlotMark,
+  onSetAmrapReps,
+  onSetRpe,
+  onSlotUndo,
+}: SlotSectionDesktopProps): React.ReactNode {
+  const tierLabel = slot.tier.toUpperCase();
+  const tierStyle = TIER_STYLES[slot.tier] ?? '';
+  const isSuccess = slot.result === 'success';
+  const showAmrap = isSuccess && slot.isAmrap && onSetAmrapReps !== undefined;
+  const showRpe = isSuccess && slot.role === 'primary' && onSetRpe !== undefined;
+
+  return (
+    <div className="border-t border-[var(--border-light)] first:border-t-0 py-1">
+      <div className="flex items-center gap-2">
+        <span className={`w-10 shrink-0 text-[11px] font-bold uppercase ${tierStyle}`}>
+          {tierLabel}
+          {slot.stage > 0 && (
+            <>
+              {' '}
+              <StageTag stage={slot.stage} size="sm" />
+            </>
+          )}
+        </span>
+        <span className="flex-1 min-w-0 truncate text-[13px] font-bold">{slot.exerciseName}</span>
+        <span className="w-16 shrink-0 text-right text-[13px] font-extrabold tabular-nums">
+          {slot.weight > 0 ? `${slot.weight} kg` : '—'}
+        </span>
+        <span className="w-20 shrink-0 text-center text-[12px] font-semibold text-[var(--text-muted)]">
+          {slot.sets}&times;{slot.reps}
+          {slot.repsMax !== undefined && `-${slot.repsMax}`}
+          {slot.isAmrap && (
+            <span className="text-[10px] ml-0.5 text-[var(--fill-progress)]">+</span>
+          )}
+        </span>
+        <div className="w-10 shrink-0 flex justify-end">
+          <ResultCell
+            index={workoutIndex}
+            tier={slot.tier}
+            result={slot.result}
+            variant="card"
+            onMark={onSlotMark}
+            onUndo={onSlotUndo}
+          />
+        </div>
+      </div>
+      {showAmrap && onSetAmrapReps && (
+        <div className="mt-1 pl-12">
+          <AmrapInput value={slot.amrapReps} onChange={onSetAmrapReps} variant="card" />
+        </div>
+      )}
+      {showRpe && onSetRpe && (
+        <div className="mt-1 pl-12" data-rpe-input={`${workoutIndex}-${slot.slotId}`}>
+          <RpeInput value={slot.rpe} onChange={onSetRpe} label={slot.tier.toUpperCase()} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function areCardsEqual(prev: GenericWorkoutCardProps, next: GenericWorkoutCardProps): boolean {
   if (prev.isCurrent !== next.isCurrent) return false;
   const p = prev.row;
@@ -177,7 +248,7 @@ export const GenericWorkoutCard = memo(function GenericWorkoutCard({
   return (
     <div
       {...(isCurrent ? { 'data-current-row': true } : {})}
-      className={`bg-[var(--bg-card)] border border-[var(--border-color)] p-3 sm:p-4 mb-3 ${
+      className={`bg-[var(--bg-card)] border border-[var(--border-color)] p-3 sm:p-4 mb-3 lg:min-w-[280px] lg:flex-1 lg:flex-shrink-0 ${
         allDone ? 'opacity-40' : ''
       } ${isCurrent ? 'border-l-4 border-l-[var(--fill-progress)]' : ''} ${
         row.isChanged && !allDone ? 'bg-[var(--bg-changed)]' : ''
@@ -188,25 +259,49 @@ export const GenericWorkoutCard = memo(function GenericWorkoutCard({
         <span className="text-xs font-semibold text-[var(--text-muted)]">{row.dayName}</span>
       </div>
 
-      {row.slots.map((slot, i) => (
-        <SlotSection
-          key={slot.slotId}
-          slot={slot}
-          workoutIndex={row.index}
-          onSlotMark={slotCallbacks[i].mark}
-          onSlotUndo={slotCallbacks[i].undo}
-          onSetAmrapReps={
-            slot.isAmrap
-              ? (reps: number | undefined) => handleAmrapReps(slot.slotId, reps)
-              : undefined
-          }
-          onSetRpe={
-            slot.role === 'primary' && onSetRpe
-              ? (rpe: number | undefined) => handleRpe(slot.slotId, rpe)
-              : undefined
-          }
-        />
-      ))}
+      <div className="lg:hidden">
+        {row.slots.map((slot, i) => (
+          <SlotSection
+            key={slot.slotId}
+            slot={slot}
+            workoutIndex={row.index}
+            onSlotMark={slotCallbacks[i].mark}
+            onSlotUndo={slotCallbacks[i].undo}
+            onSetAmrapReps={
+              slot.isAmrap
+                ? (reps: number | undefined) => handleAmrapReps(slot.slotId, reps)
+                : undefined
+            }
+            onSetRpe={
+              slot.role === 'primary' && onSetRpe
+                ? (rpe: number | undefined) => handleRpe(slot.slotId, rpe)
+                : undefined
+            }
+          />
+        ))}
+      </div>
+
+      <div className="hidden lg:block">
+        {row.slots.map((slot, i) => (
+          <SlotSectionDesktop
+            key={slot.slotId}
+            slot={slot}
+            workoutIndex={row.index}
+            onSlotMark={slotCallbacks[i].mark}
+            onSlotUndo={slotCallbacks[i].undo}
+            onSetAmrapReps={
+              slot.isAmrap
+                ? (reps: number | undefined) => handleAmrapReps(slot.slotId, reps)
+                : undefined
+            }
+            onSetRpe={
+              slot.role === 'primary' && onSetRpe
+                ? (rpe: number | undefined) => handleRpe(slot.slotId, rpe)
+                : undefined
+            }
+          />
+        ))}
+      </div>
     </div>
   );
 }, areCardsEqual);

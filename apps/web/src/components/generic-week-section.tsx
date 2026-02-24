@@ -99,18 +99,20 @@ export function GenericWeekSection({
 
       {!collapsed && (
         <LazyContent forceVisible={forceVisible}>
-          <div>
-            {rows.map((row) => (
-              <GenericWorkoutCard
-                key={row.index}
-                row={row}
-                isCurrent={row.index === firstPendingIdx}
-                onMark={onMark}
-                onSetAmrapReps={onSetAmrapReps}
-                onSetRpe={onSetRpe}
-                onUndo={onUndo}
-              />
-            ))}
+          <div className="overflow-x-auto">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:gap-3 lg:min-w-max">
+              {rows.map((row) => (
+                <GenericWorkoutCard
+                  key={row.index}
+                  row={row}
+                  isCurrent={row.index === firstPendingIdx}
+                  onMark={onMark}
+                  onSetAmrapReps={onSetAmrapReps}
+                  onSetRpe={onSetRpe}
+                  onUndo={onUndo}
+                />
+              ))}
+            </div>
           </div>
         </LazyContent>
       )}
