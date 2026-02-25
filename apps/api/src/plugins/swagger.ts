@@ -20,6 +20,11 @@ export const swaggerPlugin = IS_PRODUCTION
           { name: 'Programs', description: 'Program instance CRUD and import/export' },
           { name: 'Results', description: 'Workout result recording, deletion, and undo' },
           { name: 'Catalog', description: 'Public program definition reference data' },
+          { name: 'Exercises', description: 'Exercise catalog and custom exercise management' },
+          {
+            name: 'Program Definitions',
+            description: 'User-created program definitions',
+          },
           { name: 'System', description: 'Health check and diagnostics' },
         ],
         components: {
