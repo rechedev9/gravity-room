@@ -18,6 +18,11 @@ export interface ExerciseEntry {
   readonly isCompound: boolean;
   readonly isPreset: boolean;
   readonly createdBy: string | null;
+  readonly force: string | null;
+  readonly level: string | null;
+  readonly mechanic: string | null;
+  readonly category: string | null;
+  readonly secondaryMuscles: readonly string[] | null;
 }
 
 export interface MuscleGroupEntry {
@@ -80,6 +85,11 @@ function toExerciseEntry(row: typeof exercises.$inferSelect): ExerciseEntry {
     isCompound: row.isCompound,
     isPreset: row.isPreset,
     createdBy: row.createdBy,
+    force: row.force ?? null,
+    level: row.level ?? null,
+    mechanic: row.mechanic ?? null,
+    category: row.category ?? null,
+    secondaryMuscles: row.secondaryMuscles ?? null,
   };
 }
 

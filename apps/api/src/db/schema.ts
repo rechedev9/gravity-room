@@ -231,6 +231,11 @@ export const exercises = pgTable(
     isPreset: boolean('is_preset').notNull().default(true),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    force: varchar({ length: 20 }),
+    level: varchar({ length: 20 }),
+    mechanic: varchar({ length: 20 }),
+    category: varchar({ length: 50 }),
+    secondaryMuscles: text('secondary_muscles').array(),
   },
   (table) => [
     index('exercises_muscle_group_id_idx').on(table.muscleGroupId),

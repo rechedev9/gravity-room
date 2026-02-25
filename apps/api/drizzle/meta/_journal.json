@@ -99,6 +99,13 @@
       "when": 1772000000003,
       "tag": "0013_add_program_instances_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1772100000000,
+      "tag": "0014_add_exercise_metadata",
+      "breakpoints": true
     }
   ]
 }

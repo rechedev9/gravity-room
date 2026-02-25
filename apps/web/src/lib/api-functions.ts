@@ -458,6 +458,11 @@ export interface ExerciseEntry {
   readonly isCompound: boolean;
   readonly isPreset: boolean;
   readonly createdBy: string | null;
+  readonly force: string | null;
+  readonly level: string | null;
+  readonly mechanic: string | null;
+  readonly category: string | null;
+  readonly secondaryMuscles: readonly string[] | null;
 }
 
 export interface MuscleGroupEntry {
@@ -502,6 +507,15 @@ export async function fetchCatalogDetail(programId: string): Promise<ProgramDefi
 // Exercise API functions
 // ---------------------------------------------------------------------------
 
+function parseSecondaryMuscles(value: unknown): readonly string[] | null {
+  if (!Array.isArray(value)) return null;
+  const strings: string[] = [];
+  for (const item of value) {
+    if (typeof item === 'string') strings.push(item);
+  }
+  return strings.length > 0 ? strings : null;
+}
+
 function parseExerciseEntry(raw: unknown): ExerciseEntry {
   if (!isRecord(raw)) throw new Error('Invalid exercise entry');
   return {
@@ -512,6 +526,11 @@ function parseExerciseEntry(raw: unknown): ExerciseEntry {
     isCompound: raw.isCompound === true,
     isPreset: raw.isPreset === true,
     createdBy: typeof raw.createdBy === 'string' ? raw.createdBy : null,
+    force: typeof raw.force === 'string' ? raw.force : null,
+    level: typeof raw.level === 'string' ? raw.level : null,
+    mechanic: typeof raw.mechanic === 'string' ? raw.mechanic : null,
+    category: typeof raw.category === 'string' ? raw.category : null,
+    secondaryMuscles: parseSecondaryMuscles(raw.secondaryMuscles),
   };
 }
 

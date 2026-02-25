@@ -23,6 +23,7 @@ import { getRedis } from './lib/redis';
 import { logger } from './lib/logger';
 import { seedMuscleGroups } from './db/seeds/muscle-groups-seed';
 import { seedExercises } from './db/seeds/exercises-seed';
+import { seedExercisesExpanded } from './db/seeds/exercises-seed-expanded';
 import { seedProgramTemplates } from './db/seeds/program-templates-seed';
 
 function parseCorsOrigins(raw: string | undefined): string | string[] {
@@ -87,6 +88,7 @@ async function runSeeds(): Promise<void> {
   logger.info('running reference data seeds');
   await seedMuscleGroups(db);
   await seedExercises(db);
+  await seedExercisesExpanded(db);
   await seedProgramTemplates(db);
 
   // Add FK constraint after seeds populate program_templates.
