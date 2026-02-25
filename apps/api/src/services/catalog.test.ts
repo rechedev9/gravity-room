@@ -126,6 +126,11 @@ function createMockDb(): unknown {
           return {
             where: mock(function where() {
               return {
+                orderBy: mock(function orderBy() {
+                  return {
+                    then: (fn: (val: unknown[]) => unknown) => fn(rows),
+                  };
+                }),
                 limit: mock(function limit() {
                   return Promise.resolve(rows.slice(0, 1));
                 }),
