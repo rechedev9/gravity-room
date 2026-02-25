@@ -7,6 +7,7 @@ import { users, programInstances } from './schema';
 import { seedMuscleGroups } from './seeds/muscle-groups-seed';
 import { seedExercises } from './seeds/exercises-seed';
 import { seedProgramTemplates } from './seeds/program-templates-seed';
+import { seedExercisesExpanded } from './seeds/exercises-seed-expanded';
 
 async function seed(): Promise<void> {
   if (process.env['NODE_ENV'] === 'production') {
@@ -18,6 +19,7 @@ async function seed(): Promise<void> {
   console.error('Seeding reference data (muscle_groups, exercises, program_templates)...');
   await seedMuscleGroups(db);
   await seedExercises(db);
+  await seedExercisesExpanded(db);
   await seedProgramTemplates(db);
   console.error('Reference data seed complete.');
 
