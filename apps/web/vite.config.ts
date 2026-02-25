@@ -10,7 +10,13 @@ if (process.env.NODE_ENV === 'production' && !process.env.VITE_API_URL) {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({
+      babel: {
+        plugins: ['babel-plugin-react-compiler'],
+      },
+    }),
+  ],
   resolve: { alias: { '@': resolve(__dirname, 'src') } },
   build: {
     outDir: 'dist',
