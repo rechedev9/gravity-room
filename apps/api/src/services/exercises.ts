@@ -2,7 +2,7 @@
  * Exercises service — CRUD for exercises and muscle groups.
  * Framework-agnostic: no Elysia dependency.
  */
-import { eq, or } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, or } from 'drizzle-orm';
 import { getDb } from '../db';
 import { exercises, muscleGroups } from '../db/schema';
 
@@ -28,6 +28,17 @@ export interface ExerciseEntry {
 export interface MuscleGroupEntry {
   readonly id: string;
   readonly name: string;
+}
+
+export interface ExerciseFilter {
+  readonly q?: string;
+  readonly muscleGroupId?: readonly string[];
+  readonly equipment?: readonly string[];
+  readonly force?: readonly string[];
+  readonly level?: readonly string[];
+  readonly mechanic?: readonly string[];
+  readonly category?: readonly string[];
+  readonly isCompound?: boolean;
 }
 
 export interface CreateExerciseInput {
@@ -76,6 +87,11 @@ function err<E>(error: E): Err<E> {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Escape special LIKE/ILIKE characters so user input is treated as literal. */
+function escapeLikePattern(raw: string): string {
+  return raw.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
 function toExerciseEntry(row: typeof exercises.$inferSelect): ExerciseEntry {
   return {
     id: row.id,
@@ -98,16 +114,51 @@ function toExerciseEntry(row: typeof exercises.$inferSelect): ExerciseEntry {
 // ---------------------------------------------------------------------------
 
 /**
- * List exercises accessible to the caller.
+ * List exercises accessible to the caller, with optional filtering.
  * - If userId is undefined: return preset exercises only.
  * - If userId is provided: return preset + user's own custom exercises.
+ * - Filter fields narrow the result set further (all conditions are AND-ed).
  */
-export async function listExercises(userId: string | undefined): Promise<readonly ExerciseEntry[]> {
-  const condition = userId
-    ? or(eq(exercises.isPreset, true), eq(exercises.createdBy, userId))
-    : eq(exercises.isPreset, true);
+export async function listExercises(
+  userId: string | undefined,
+  filter?: ExerciseFilter
+): Promise<readonly ExerciseEntry[]> {
+  const conditions = [
+    userId
+      ? or(eq(exercises.isPreset, true), eq(exercises.createdBy, userId))
+      : eq(exercises.isPreset, true),
+  ];
 
-  const rows = await getDb().select().from(exercises).where(condition);
+  if (filter?.q) {
+    conditions.push(ilike(exercises.name, `%${escapeLikePattern(filter.q)}%`));
+  }
+  if (filter?.muscleGroupId && filter.muscleGroupId.length > 0) {
+    conditions.push(inArray(exercises.muscleGroupId, [...filter.muscleGroupId]));
+  }
+  if (filter?.equipment && filter.equipment.length > 0) {
+    conditions.push(inArray(exercises.equipment, [...filter.equipment]));
+  }
+  if (filter?.force && filter.force.length > 0) {
+    conditions.push(inArray(exercises.force, [...filter.force]));
+  }
+  if (filter?.level && filter.level.length > 0) {
+    conditions.push(inArray(exercises.level, [...filter.level]));
+  }
+  if (filter?.mechanic && filter.mechanic.length > 0) {
+    conditions.push(inArray(exercises.mechanic, [...filter.mechanic]));
+  }
+  if (filter?.category && filter.category.length > 0) {
+    conditions.push(inArray(exercises.category, [...filter.category]));
+  }
+  if (filter?.isCompound !== undefined) {
+    conditions.push(eq(exercises.isCompound, filter.isCompound));
+  }
+
+  const rows = await getDb()
+    .select()
+    .from(exercises)
+    .where(and(...conditions))
+    .orderBy(asc(exercises.name));
 
   return rows.map(toExerciseEntry);
 }
