@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import type { GenericWorkoutRow, ResultValue } from '@gzclp/shared/types';
 import { GenericWorkoutCard } from './generic-workout-card';
+import { GenericWorkoutRow as GenericWorkoutRowComponent } from './generic-workout-row';
 
 interface GenericWeekSectionProps {
   readonly week: number;
@@ -49,6 +50,30 @@ function LazyContent({
   return <>{children}</>;
 }
 
+const TH_CLASS =
+  'bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-xs uppercase tracking-wide text-[var(--text-label)]';
+
+const TH_SUB_CLASS =
+  'font-mono bg-[var(--bg-th)] border border-[var(--border-color)] px-2 py-2.5 text-center font-bold text-xs uppercase tracking-widest text-[var(--text-label)]';
+
+function buildSubHeaders(maxSlots: number): React.ReactNode[] {
+  const headers: React.ReactNode[] = [];
+  for (let i = 0; i < maxSlots; i++) {
+    headers.push(
+      <th key={`ex-${i}`} scope="col" className={TH_SUB_CLASS}>
+        Ejercicio
+      </th>,
+      <th key={`kg-${i}`} scope="col" className={TH_SUB_CLASS}>
+        kg
+      </th>,
+      <th key={`res-${i}`} scope="col" className={TH_SUB_CLASS}>
+        Resultado
+      </th>
+    );
+  }
+  return headers;
+}
+
 export function GenericWeekSection({
   week,
   rows,
@@ -69,6 +94,8 @@ export function GenericWeekSection({
   const forceVisible = forceExpanded === true || Math.abs(week - currentWeek) <= 1;
 
   const [collapsed, setCollapsed] = useState(!forceVisible);
+
+  const maxSlots = useMemo(() => rows.reduce((max, r) => Math.max(max, r.slots.length), 0), [rows]);
 
   return (
     <div className="mb-8 break-inside-avoid">
@@ -99,7 +126,47 @@ export function GenericWeekSection({
 
       {!collapsed && (
         <LazyContent forceVisible={forceVisible}>
-          <div>
+          {/* Desktop table */}
+          <div className="overflow-x-auto hidden lg:block">
+            <table
+              aria-label="Entrenamientos de la semana"
+              className="w-full border-collapse bg-[var(--bg-card)] border border-[var(--border-color)] min-w-[700px]"
+            >
+              <thead>
+                <tr>
+                  <th scope="col" rowSpan={2} className={`${TH_CLASS} w-[4%]`}>
+                    #
+                  </th>
+                  <th scope="col" rowSpan={2} className={`${TH_CLASS} w-[5%]`}>
+                    Día
+                  </th>
+                  {Array.from({ length: maxSlots }, (_, i) => (
+                    <th key={i} scope="col" colSpan={3} className={TH_CLASS}>
+                      Ejercicio {i + 1}
+                    </th>
+                  ))}
+                </tr>
+                <tr>{buildSubHeaders(maxSlots)}</tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <GenericWorkoutRowComponent
+                    key={row.index}
+                    row={row}
+                    maxSlots={maxSlots}
+                    isCurrent={row.index === firstPendingIdx}
+                    onMark={onMark}
+                    onSetAmrapReps={onSetAmrapReps}
+                    onSetRpe={onSetRpe}
+                    onUndo={onUndo}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile card layout */}
+          <div className="lg:hidden">
             {rows.map((row) => (
               <GenericWorkoutCard
                 key={row.index}
