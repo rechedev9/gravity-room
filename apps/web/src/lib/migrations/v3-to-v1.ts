@@ -6,28 +6,28 @@
  * component-facing tier-keyed format (e.g. { t1: "success" }).
  */
 
-import { GZCLP_DEFINITION } from '@gzclp/shared/programs/gzclp';
 import type { Results, UndoHistory } from '@gzclp/shared/types';
 import type { GenericResults, GenericUndoHistory } from '@gzclp/shared/types/program';
 
 type LegacyTierKey = 't1' | 't2' | 't3';
 
 // ---------------------------------------------------------------------------
-// Slot ↔ Tier lookup tables (built once from GZCLP definition)
+// Slot ↔ Tier lookup tables (inlined GZCLP constants)
 // ---------------------------------------------------------------------------
 
-/** slotId → tier */
-function buildSlotTierMap(): Record<string, string> {
-  const map: Record<string, string> = {};
-  for (const day of GZCLP_DEFINITION.days) {
-    for (const slot of day.slots) {
-      map[slot.id] = slot.tier;
-    }
-  }
-  return map;
-}
-
-const SLOT_TIER_MAP = buildSlotTierMap();
+/** GZCLP slot-tier reverse map. Inlined to eliminate import of gzclp.ts. */
+const SLOT_TIER_MAP: Readonly<Record<string, string>> = {
+  'd1-t1': 't1',
+  'd1-t2': 't2',
+  'latpulldown-t3': 't3',
+  'd2-t1': 't1',
+  'd2-t2': 't2',
+  'dbrow-t3': 't3',
+  'd3-t1': 't1',
+  'd3-t2': 't2',
+  'd4-t1': 't1',
+  'd4-t2': 't2',
+};
 const VALID_TIERS: ReadonlySet<string> = new Set(['t1', 't2', 't3']);
 
 function isTier(value: string): value is LegacyTierKey {

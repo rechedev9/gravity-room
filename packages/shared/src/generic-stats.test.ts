@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'bun:test';
 import { extractGenericChartData } from './generic-stats';
 import { computeGenericProgram } from './generic-engine';
-import { NIVEL7_DEFINITION } from './programs/nivel7';
+import { NIVEL7_DEFINITION_FIXTURE as NIVEL7_DEFINITION } from '../test/fixtures';
 import { calculateStats } from './stats';
 
 const BASE_CONFIG: Record<string, number> = {

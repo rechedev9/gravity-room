@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'bun:test';
 import { computeProgram, roundToNearestHalf as round } from './engine';
-import { DAYS, T1_STAGES, T2_STAGES, TOTAL_WORKOUTS } from './program';
-import { DEFAULT_WEIGHTS, buildResults, buildSuccessfulResults } from '../test/fixtures';
+import {
+  DAYS,
+  T1_STAGES,
+  T2_STAGES,
+  TOTAL_WORKOUTS,
+  DEFAULT_WEIGHTS,
+  buildResults,
+  buildSuccessfulResults,
+} from '../test/fixtures';
 import type { StartWeights, Results } from './types';
 
 // ---------------------------------------------------------------------------

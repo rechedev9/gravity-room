@@ -1,6 +1,8 @@
 import { computeProgram } from './engine';
-import { T1_EXERCISES } from './program';
 import type { StartWeights, Results, ChartDataPoint, ExerciseStats } from './types';
+
+/** GZCLP T1 exercises. Inlined from deleted program.ts. */
+const T1_EXERCISES = ['squat', 'bench', 'deadlift', 'ohp'] as const;
 
 export function extractChartData(
   startWeights: StartWeights,

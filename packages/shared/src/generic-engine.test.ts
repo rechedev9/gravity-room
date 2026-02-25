@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { computeGenericProgram, roundToNearestHalf as round } from './generic-engine';
-import { GZCLP_DEFINITION } from './programs/gzclp';
-import { DEFAULT_WEIGHTS, buildResults } from '../test/fixtures';
+import { GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, buildResults } from '../test/fixtures';
 import type { ProgramDefinition, GenericResults } from './types/program';
 import {
   ProgressionRuleSchema,
@@ -118,7 +117,7 @@ function makeDefinition(overrides: SlotOverrides): ProgramDefinition {
 }
 
 /** GZCLP day slot map used for converting legacy results in parity tests. */
-const GZCLP_DAY_SLOT_MAP = GZCLP_DEFINITION.days.map((day) => ({
+const GZCLP_DAY_SLOT_MAP = GZCLP_DEFINITION_FIXTURE.days.map((day) => ({
   t1: day.slots.find((s) => s.tier === 't1')?.id ?? '',
   t2: day.slots.find((s) => s.tier === 't2')?.id ?? '',
   t3: day.slots.find((s) => s.tier === 't3')?.id ?? '',
@@ -182,14 +181,14 @@ describe('roundToNearestHalf', () => {
 // ---------------------------------------------------------------------------
 describe('computeGenericProgram: structural invariants', () => {
   it('produces exactly totalWorkouts rows', () => {
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, {});
-    expect(rows).toHaveLength(GZCLP_DEFINITION.totalWorkouts);
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, {});
+    expect(rows).toHaveLength(GZCLP_DEFINITION_FIXTURE.totalWorkouts);
   });
 
   it('cycles days by cycleLength', () => {
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, {});
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, {});
     for (let i = 0; i < rows.length; i++) {
-      expect(rows[i].dayName).toBe(GZCLP_DEFINITION.days[i % 4].name);
+      expect(rows[i].dayName).toBe(GZCLP_DEFINITION_FIXTURE.days[i % 4].name);
     }
   });
 
@@ -202,7 +201,7 @@ describe('computeGenericProgram: structural invariants', () => {
         [GZCLP_DAY_SLOT_MAP[i % 4].t3]: { result: 'fail' },
       };
     }
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, allFail);
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, allFail);
     for (const row of rows) {
       for (const slot of row.slots) {
         expect(slot.weight).toBeGreaterThanOrEqual(0);
@@ -217,20 +216,20 @@ describe('computeGenericProgram: structural invariants', () => {
         [GZCLP_DAY_SLOT_MAP[i % 4].t1]: { result: 'fail' },
       };
     }
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, allFail);
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, allFail);
     for (const row of rows) {
       for (const slot of row.slots) {
         expect(slot.stage).toBeGreaterThanOrEqual(0);
         const maxStage =
-          GZCLP_DEFINITION.days.flatMap((d) => d.slots).find((s) => s.id === slot.slotId)?.stages
-            .length ?? 1;
+          GZCLP_DEFINITION_FIXTURE.days.flatMap((d) => d.slots).find((s) => s.id === slot.slotId)
+            ?.stages.length ?? 1;
         expect(slot.stage).toBeLessThan(maxStage);
       }
     }
   });
 
   it('handles empty results (all implicit pass)', () => {
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, {});
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, {});
     expect(rows).toHaveLength(90);
   });
 });
@@ -240,7 +239,7 @@ describe('computeGenericProgram: structural invariants', () => {
 // ---------------------------------------------------------------------------
 describe('computeGenericProgram: GZCLP parity', () => {
   it('matches T1 start weights from DEFAULT_WEIGHTS', () => {
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, {});
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, {});
     // Day 1 t1 = squat
     expect(rows[0].slots.find((s) => s.tier === 't1')?.weight).toBe(DEFAULT_WEIGHTS.squat);
     // Day 2 t1 = ohp
@@ -252,7 +251,7 @@ describe('computeGenericProgram: GZCLP parity', () => {
   });
 
   it('matches T2 start weights as 65% rounded to nearest 0.5', () => {
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, {});
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, {});
     // Day 1 t2 = bench: 40 * 0.65 = 26
     expect(rows[0].slots.find((s) => s.tier === 't2')?.weight).toBe(
       round(DEFAULT_WEIGHTS.bench * 0.65)
@@ -268,7 +267,7 @@ describe('computeGenericProgram: GZCLP parity', () => {
   });
 
   it('does NOT increase T3 weight with empty results (matches legacy implicit-pass behavior)', () => {
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, {});
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, {});
     // latpulldown T3 at Day 1 (i=0,4,8,...) and Day 3 (i=2,6,10,...)
     const t3Rows = rows.filter(
       (r) => r.slots.find((s) => s.tier === 't3')?.exerciseId === 'latpulldown'
@@ -286,7 +285,7 @@ describe('computeGenericProgram: GZCLP parity', () => {
       [2, { t3: 'fail' }],
       [4, { t3: 'success' }],
     ]);
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, results);
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, results);
     // latpulldown at 0, 2, 4, 6
     expect(rows[0].slots.find((s) => s.tier === 't3')?.weight).toBe(30);
     expect(rows[2].slots.find((s) => s.tier === 't3')?.weight).toBe(32.5); // after success at 0
@@ -295,7 +294,7 @@ describe('computeGenericProgram: GZCLP parity', () => {
   });
 
   it('T1 increases weight on each implicit pass (empty results)', () => {
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, {});
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, {});
     // squat T1 at indexes 0, 4, 8, 12, ...
     const squatT1 = rows.filter(
       (r) => r.slots.find((s) => s.tier === 't1')?.exerciseId === 'squat'
@@ -311,7 +310,7 @@ describe('computeGenericProgram: GZCLP parity', () => {
       [4, { t1: 'fail' }], // stage 1 → stage 2
       [8, { t1: 'fail' }], // stage 2 → deload, reset stage 0
     ]);
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, results);
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, results);
     const t1 = (i: number) => rows[i].slots.find((s) => s.tier === 't1');
 
     expect(t1(4)?.stage).toBe(1);
@@ -337,7 +336,7 @@ describe('computeGenericProgram: GZCLP parity', () => {
       [4, { t2: 'fail' }],
       [8, { t2: 'fail' }],
     ]);
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, results);
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, results);
     const t2 = (i: number) => rows[i].slots.find((s) => s.tier === 't2');
 
     expect(t2(4)?.stage).toBe(1);
@@ -352,7 +351,7 @@ describe('computeGenericProgram: GZCLP parity', () => {
       [0, { t1: 'fail' }],
       [4, { t1: 'success' }],
     ]);
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, results);
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, results);
     expect(rows[8].slots.find((s) => s.tier === 't1')?.weight).toBe(65);
   });
 
@@ -363,7 +362,7 @@ describe('computeGenericProgram: GZCLP parity', () => {
       [0, { t1: 'success' }], // Squat
       [3, { t1: 'success' }], // Deadlift
     ]);
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, results);
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, results);
     expect(rows[5].slots.find((s) => s.tier === 't1')?.weight).toBe(27.5); // OHP +2.5
     expect(rows[6].slots.find((s) => s.tier === 't1')?.weight).toBe(42.5); // Bench +2.5
     expect(rows[4].slots.find((s) => s.tier === 't1')?.weight).toBe(65); // Squat +5
@@ -372,7 +371,7 @@ describe('computeGenericProgram: GZCLP parity', () => {
 
   it('keeps all stages at 0 with all-success results', () => {
     const results = toGenericSuccessResults(90);
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, results);
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, results);
     for (const row of rows) {
       for (const slot of row.slots) {
         expect(slot.stage).toBe(0);
@@ -384,7 +383,7 @@ describe('computeGenericProgram: GZCLP parity', () => {
     const results = toGenericResults([
       [0, { t1: 'success', t1Reps: 8, t3: 'success', t3Reps: 30 }],
     ]);
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, results);
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, results);
     expect(rows[0].slots.find((s) => s.tier === 't1')?.amrapReps).toBe(8);
     expect(rows[0].slots.find((s) => s.tier === 't3')?.amrapReps).toBe(30);
   });
@@ -760,7 +759,7 @@ describe('computeGenericProgram: isChanged semantics', () => {
   it('GZCLP parity: T3 fail does NOT affect row isChanged', () => {
     // T3 fail uses no_change → changesState=false → slot isChanged stays false
     const results = toGenericResults([[0, { t3: 'fail' }]]);
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, results);
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, results);
     // The workout with T3 fail
     const t3Slot = rows[0].slots.find((s) => s.tier === 't3');
     expect(t3Slot?.result).toBe('fail');
@@ -773,7 +772,7 @@ describe('computeGenericProgram: isChanged semantics', () => {
 
   it('GZCLP parity: T1 fail marks its exercise changed but not others', () => {
     const results = toGenericResults([[0, { t1: 'fail' }]]); // squat T1 fails
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, results);
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, results);
 
     // Next squat T1 appearance (workout 4) should be changed
     expect(rows[4].isChanged).toBe(true);
@@ -1085,21 +1084,21 @@ describe('computeGenericProgram: role emission', () => {
   });
 
   it('legacy GZCLP t1 slot synthesizes "primary" (REQ-ENGINE-005 scenario 2)', () => {
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, {});
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, {});
     const t1Slot = rows[0].slots.find((s) => s.tier === 't1');
 
     expect(t1Slot?.role).toBe('primary');
   });
 
   it('legacy GZCLP t2 slot synthesizes "secondary" (REQ-ENGINE-005 scenario 3)', () => {
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, {});
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, {});
     const t2Slot = rows[0].slots.find((s) => s.tier === 't2');
 
     expect(t2Slot?.role).toBe('secondary');
   });
 
   it('legacy GZCLP t3 slot synthesizes "primary" (REQ-ENGINE-005 scenario 4)', () => {
-    const rows = computeGenericProgram(GZCLP_DEFINITION, DEFAULT_WEIGHTS, {});
+    const rows = computeGenericProgram(GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, {});
     const t3Slot = rows[0].slots.find((s) => s.tier === 't3');
 
     expect(t3Slot?.role).toBe('primary');
