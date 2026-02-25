@@ -12,7 +12,6 @@ function buildToolbarProps(overrides?: Partial<Parameters<typeof Toolbar>[0]>) {
     totalWorkouts: 90,
     undoCount: 0,
     onUndo: mock(),
-    onJumpToCurrent: mock(),
     onFinish: mock(),
     onReset: mock(),
     ...overrides,
@@ -66,23 +65,6 @@ describe('Toolbar', () => {
   });
 
   describe('action buttons', () => {
-    it('should call onJumpToCurrent when Ir al actual is clicked', () => {
-      const onJumpToCurrent = mock();
-      render(<Toolbar {...buildToolbarProps({ onJumpToCurrent })} />);
-
-      fireEvent.click(screen.getByText('Ir al actual'));
-
-      expect(onJumpToCurrent).toHaveBeenCalledTimes(1);
-    });
-
-    it('should render "Ir al actual" with ghost variant class (REQ-SPACE-002)', () => {
-      render(<Toolbar {...buildToolbarProps()} />);
-
-      const btn = screen.getByText('Ir al actual');
-
-      expect(btn.className).toContain('bg-[var(--bg-card)]');
-    });
-
     it('should render "⋮" button with ghost variant class (REQ-SPACE-002)', () => {
       render(<Toolbar {...buildToolbarProps()} />);
 

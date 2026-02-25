@@ -50,13 +50,15 @@ export function WeekNavigator({
         </div>
         <div className="flex items-center gap-3">
           <span
-            className={`font-mono ${weekDoneCount === weekTotalCount ? 'text-[var(--fill-progress)]' : 'text-[var(--text-muted)]'}`}
-            style={{ fontSize: '12px', letterSpacing: '0.25em' }}
+            className="font-mono"
+            style={{ fontSize: '14px', letterSpacing: '0.3em' }}
             aria-label={`${weekDoneCount} de ${weekTotalCount} entrenamientos completados`}
             title={`${weekDoneCount} de ${weekTotalCount} entrenamientos completados`}
           >
-            {'\u25CF'.repeat(weekDoneCount)}
-            {'\u25CB'.repeat(weekTotalCount - weekDoneCount)}
+            <span className="text-[var(--fill-progress)]">{'\u25CF'.repeat(weekDoneCount)}</span>
+            <span className="text-[var(--text-info)]">
+              {'\u25CB'.repeat(weekTotalCount - weekDoneCount)}
+            </span>
           </span>
           {selectedWeek !== currentWeekNumber && (
             <button

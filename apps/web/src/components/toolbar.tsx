@@ -8,7 +8,6 @@ interface ToolbarProps {
   readonly totalWorkouts: number;
   readonly undoCount: number;
   readonly onUndo: () => void;
-  readonly onJumpToCurrent: () => void;
   readonly onFinish: () => void;
   readonly onReset: () => void;
 }
@@ -50,7 +49,6 @@ export function Toolbar({
   totalWorkouts,
   undoCount,
   onUndo,
-  onJumpToCurrent,
   onFinish,
   onReset,
 }: ToolbarProps) {
@@ -98,10 +96,6 @@ export function Toolbar({
 
         {/* Right */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <Button size="sm" variant="ghost" onClick={onJumpToCurrent}>
-            Ir al actual
-          </Button>
-
           {/* Overflow menu */}
           <div className="relative">
             <Button

@@ -310,7 +310,6 @@ export function GenericProgramApp({
             totalWorkouts={totalWorkouts}
             undoCount={undoHistory.length}
             onUndo={undoLast}
-            onJumpToCurrent={jumpToCurrent}
             onFinish={handleFinishProgram}
             onReset={resetAll}
           />
@@ -352,10 +351,10 @@ export function GenericProgramApp({
             {activeTab === 'program' && (
               <>
                 {/* Program info */}
-                <details className="bg-[var(--bg-card)] border border-[var(--border-color)] mb-4 sm:mb-8 overflow-hidden">
+                <details className="group bg-[var(--bg-card)] border border-[var(--border-color)] mb-4 sm:mb-8 overflow-hidden">
                   <summary className="font-mono px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center [&::marker]:hidden list-none text-[11px] tracking-widest uppercase">
                     Acerca de {definition.name}
-                    <span className="transition-transform duration-200 [[open]>&]:rotate-90">
+                    <span className="transition-transform duration-200 group-open:rotate-90">
                       &#9656;
                     </span>
                   </summary>

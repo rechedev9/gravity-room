@@ -15,11 +15,11 @@ const RPE_VALUES = [6, 7, 8, 9, 10] as const;
 
 describe('RpeInput', () => {
   describe('aria attributes', () => {
-    it('each button has aria-label in the format "RPE {n}" for values 6-10', () => {
+    it('each button has aria-label starting with "RPE {n}:" for values 6-10', () => {
       render(<RpeInput value={undefined} onChange={mock()} label="T1" />);
 
       for (const rpe of RPE_VALUES) {
-        const button = screen.getByRole('button', { name: `RPE ${rpe}` });
+        const button = screen.getByRole('button', { name: new RegExp(`^RPE ${rpe}:`) });
         expect(button).toBeDefined();
       }
     });
@@ -27,7 +27,7 @@ describe('RpeInput', () => {
     it('selected button has aria-pressed="true"', () => {
       render(<RpeInput value={8} onChange={mock()} label="T1" />);
 
-      const activeButton = screen.getByRole('button', { name: 'RPE 8' });
+      const activeButton = screen.getByRole('button', { name: /^RPE 8:/ });
       expect(activeButton.getAttribute('aria-pressed')).toBe('true');
     });
 
@@ -36,7 +36,7 @@ describe('RpeInput', () => {
 
       for (const rpe of RPE_VALUES) {
         if (rpe === 8) continue;
-        const button = screen.getByRole('button', { name: `RPE ${rpe}` });
+        const button = screen.getByRole('button', { name: new RegExp(`^RPE ${rpe}:`) });
         expect(button.getAttribute('aria-pressed')).toBe('false');
       }
     });
@@ -45,7 +45,7 @@ describe('RpeInput', () => {
       render(<RpeInput value={undefined} onChange={mock()} label="T1" />);
 
       for (const rpe of RPE_VALUES) {
-        const button = screen.getByRole('button', { name: `RPE ${rpe}` });
+        const button = screen.getByRole('button', { name: new RegExp(`^RPE ${rpe}:`) });
         expect(button.getAttribute('aria-pressed')).toBe('false');
       }
     });

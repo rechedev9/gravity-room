@@ -47,7 +47,7 @@ export function AmrapInput({
         aria-live="polite"
         aria-label="Reps AMRAP"
       >
-        {value ?? '—'}
+        {value ?? 0}
       </span>
       <button
         type="button"
