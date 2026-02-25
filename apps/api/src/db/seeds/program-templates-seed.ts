@@ -5,6 +5,7 @@
  * Uses onConflictDoNothing() to allow re-runs without error.
  */
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { sql } from 'drizzle-orm';
 import { programTemplates } from '../schema';
 import type * as schema from '../schema';
 
@@ -1250,8 +1251,8 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         id: 'ppl531',
         name: 'PPL 5/3/1 + Double Progression',
         description:
-          'Programa Push/Pull/Legs de 6 dias por semana combinando la metodologia 5/3/1 ' +
-          'para los levantamientos principales con doble progresion para los accesorios. ' +
+          'Programa Push/Pull/Legs de 6 días por semana combinando la metodología 5/3/1 ' +
+          'para los levantamientos principales con doble progresión para los accesorios. ' +
           'Creado por HeXaN.',
         author: 'HeXaN',
         version: 1,
@@ -1277,5 +1278,8 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         isActive: true,
       },
     ])
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: programTemplates.id,
+      set: { description: sql`excluded.description` },
+    });
 }
