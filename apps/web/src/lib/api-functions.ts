@@ -504,6 +504,36 @@ export async function fetchCatalogDetail(programId: string): Promise<ProgramDefi
 }
 
 // ---------------------------------------------------------------------------
+// Exercise filter types + helpers
+// ---------------------------------------------------------------------------
+
+export interface ExerciseFilter {
+  readonly q?: string;
+  readonly muscleGroupId?: readonly string[];
+  readonly equipment?: readonly string[];
+  readonly force?: readonly string[];
+  readonly level?: readonly string[];
+  readonly mechanic?: readonly string[];
+  readonly category?: readonly string[];
+  readonly isCompound?: boolean;
+}
+
+function buildExerciseQueryString(filter?: ExerciseFilter): string {
+  if (!filter) return '';
+  const params = new URLSearchParams();
+  if (filter.q) params.set('q', filter.q);
+  if (filter.muscleGroupId?.length) params.set('muscleGroupId', filter.muscleGroupId.join(','));
+  if (filter.equipment?.length) params.set('equipment', filter.equipment.join(','));
+  if (filter.force?.length) params.set('force', filter.force.join(','));
+  if (filter.level?.length) params.set('level', filter.level.join(','));
+  if (filter.mechanic?.length) params.set('mechanic', filter.mechanic.join(','));
+  if (filter.category?.length) params.set('category', filter.category.join(','));
+  if (filter.isCompound !== undefined) params.set('isCompound', String(filter.isCompound));
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
+// ---------------------------------------------------------------------------
 // Exercise API functions
 // ---------------------------------------------------------------------------
 
@@ -542,9 +572,9 @@ function parseMuscleGroupEntry(raw: unknown): MuscleGroupEntry {
   };
 }
 
-/** Fetch all exercises visible to the current user (optional auth). */
-export async function fetchExercises(): Promise<readonly ExerciseEntry[]> {
-  const data = await apiFetch('/exercises');
+/** Fetch exercises visible to the current user, with optional filtering. */
+export async function fetchExercises(filter?: ExerciseFilter): Promise<readonly ExerciseEntry[]> {
+  const data = await apiFetch(`/exercises${buildExerciseQueryString(filter)}`);
   if (!Array.isArray(data)) return [];
   return data.map(parseExerciseEntry);
 }

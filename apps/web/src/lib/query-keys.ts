@@ -7,7 +7,10 @@ export const queryKeys = {
     list: (): readonly ['catalog', 'list'] => ['catalog', 'list'] as const,
     detail: (programId: string): readonly ['catalog', 'detail', string] =>
       ['catalog', 'detail', programId] as const,
-    exercises: (): readonly ['catalog', 'exercises'] => ['catalog', 'exercises'] as const,
+    exercises: (
+      filter?: Record<string, unknown>
+    ): readonly ['catalog', 'exercises', ...(Record<string, unknown> | undefined)[]] =>
+      filter ? (['catalog', 'exercises', filter] as const) : (['catalog', 'exercises'] as const),
     muscleGroups: (): readonly ['catalog', 'muscleGroups'] => ['catalog', 'muscleGroups'] as const,
   },
 } as const;
