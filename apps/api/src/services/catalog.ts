@@ -2,7 +2,7 @@
  * Catalog service — DB queries + hydration + Redis cache for program catalog.
  * Framework-agnostic: no Elysia dependency.
  */
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, asc, inArray } from 'drizzle-orm';
 import { getDb } from '../db';
 import { programTemplates, exercises } from '../db/schema';
 import { hydrateProgramDefinition } from '../lib/hydrate-program';
@@ -85,7 +85,8 @@ export async function listPrograms(): Promise<readonly CatalogEntry[]> {
   const rows = await getDb()
     .select()
     .from(programTemplates)
-    .where(eq(programTemplates.isActive, true));
+    .where(eq(programTemplates.isActive, true))
+    .orderBy(asc(programTemplates.name));
 
   const entries = rows.map(toCatalogEntry);
 
