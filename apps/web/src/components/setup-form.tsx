@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StartWeightsSchema } from '@gzclp/shared/schemas/legacy';
 import type { StartWeights } from '@gzclp/shared/types';
 import { Button } from './button';
@@ -40,15 +40,42 @@ export function SetupForm({
 }: SetupFormProps) {
   const isEditMode = initialWeights !== null && initialWeights !== undefined;
   const [isExpanded, setIsExpanded] = useState(!isEditMode);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+    const handleKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setIsExpanded(false);
+    };
+    document.addEventListener('keydown', handleKey);
+    return (): void => {
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [isExpanded]);
+
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingWeights, setPendingWeights] = useState<StartWeights | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const f of FIELDS) {
       init[f.key] = String(initialWeights?.[f.key] ?? f.defaultVal);
+    }
+    return init;
+  });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>(() => {
+    if (!isEditMode) return {};
+    const init: Record<string, string | null> = {};
+    for (const f of FIELDS) {
+      const val = String(initialWeights?.[f.key] ?? f.defaultVal);
+      init[f.key] = validateField(val);
+    }
+    return init;
+  });
+  const [touched, setTouched] = useState<Record<string, boolean>>(() => {
+    if (!isEditMode) return {};
+    const init: Record<string, boolean> = {};
+    for (const f of FIELDS) {
+      init[f.key] = true;
     }
     return init;
   });
@@ -65,10 +92,12 @@ export function SetupForm({
     setFieldErrors((prev) => ({ ...prev, [key]: validateField(value) }));
   };
 
+  const MIN_WEIGHT = 2.5;
+
   const adjustWeight = (key: string, delta: number): void => {
     setValues((prev) => {
       const current = parseFloat(prev[key]) || 0;
-      const next = Math.max(STEP, Math.round((current + delta) / STEP) * STEP);
+      const next = Math.max(MIN_WEIGHT, Math.round((current + delta) / STEP) * STEP);
       const nextStr = String(next);
       setTouched((t) => ({ ...t, [key]: true }));
       setFieldErrors((fe) => ({ ...fe, [key]: validateField(nextStr) }));
@@ -224,10 +253,12 @@ export function SetupForm({
                 >
                   Pesos Iniciales
                 </h2>
-                <p className="text-xs text-[var(--text-muted)]">
-                  {FIELDS.map((f) => `${f.label.split(' (')[0]}: ${initialWeights[f.key]}kg`).join(
-                    ' · '
-                  )}
+                <p className="text-xs text-[var(--text-muted)] flex flex-wrap gap-x-3 gap-y-0.5 leading-relaxed">
+                  {FIELDS.map((f) => (
+                    <span key={f.key}>
+                      {f.label.split(' (')[0]}: {initialWeights[f.key]}kg
+                    </span>
+                  ))}
                 </p>
               </div>
               <Button variant="default" onClick={() => setIsExpanded(true)}>
@@ -242,10 +273,18 @@ export function SetupForm({
               onClick={() => setIsExpanded(false)}
             >
               <div
-                className="modal-box bg-[var(--bg-card)] border border-[var(--border-color)] p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto"
+                className="relative modal-box bg-[var(--bg-card)] border border-[var(--border-color)] p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto"
                 style={{ boxShadow: 'var(--shadow-elevated), 0 0 60px rgba(0, 0, 0, 0.5)' }}
                 onClick={(e) => e.stopPropagation()}
               >
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(false)}
+                  className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-header)] transition-colors cursor-pointer"
+                  aria-label="Cerrar"
+                >
+                  &#10005;
+                </button>
                 {formContent}
               </div>
             </div>

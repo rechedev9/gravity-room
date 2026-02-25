@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { ConfirmDialog } from './confirm-dialog';
 import { WeightField } from './weight-field';
@@ -29,15 +29,42 @@ export function GenericSetupForm({
   const fields = definition.configFields;
   const isEditMode = initialConfig !== null && initialConfig !== undefined;
   const [isExpanded, setIsExpanded] = useState(!isEditMode);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+    const handleKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setIsExpanded(false);
+    };
+    document.addEventListener('keydown', handleKey);
+    return (): void => {
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [isExpanded]);
+
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingConfig, setPendingConfig] = useState<Record<string, number> | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const f of fields) {
       init[f.key] = String(initialConfig?.[f.key] ?? f.min);
+    }
+    return init;
+  });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>(() => {
+    if (!isEditMode) return {};
+    const init: Record<string, string | null> = {};
+    for (const f of fields) {
+      const val = String(initialConfig?.[f.key] ?? f.min);
+      init[f.key] = validateField(val, f.min);
+    }
+    return init;
+  });
+  const [touched, setTouched] = useState<Record<string, boolean>>(() => {
+    if (!isEditMode) return {};
+    const init: Record<string, boolean> = {};
+    for (const f of fields) {
+      init[f.key] = true;
     }
     return init;
   });
@@ -61,9 +88,10 @@ export function GenericSetupForm({
   const adjustWeight = (key: string, delta: number): void => {
     const field = fields.find((f) => f.key === key);
     const step = field?.step ?? 0.5;
+    const min = field?.min ?? step;
     setValues((prev) => {
       const current = parseFloat(prev[key]) || 0;
-      const next = Math.max(step, Math.round((current + delta) / step) * step);
+      const next = Math.max(min, Math.round((current + delta) / step) * step);
       const nextStr = String(next);
       setTouched((t) => ({ ...t, [key]: true }));
       if (field) {
@@ -263,13 +291,13 @@ export function GenericSetupForm({
                 >
                   {definition.configTitle ?? 'Pesos Iniciales'}
                 </h2>
-                <p className="text-xs text-[var(--text-muted)]">
-                  {fields.length <= 4
-                    ? fields.map((f) => `${f.label}: ${initialConfig[f.key]}kg`).join(' · ')
-                    : fields
-                        .slice(0, 4)
-                        .map((f) => `${f.label}: ${initialConfig[f.key]}kg`)
-                        .join(' · ') + ` · + ${fields.length - 4} more`}
+                <p className="text-xs text-[var(--text-muted)] flex flex-wrap gap-x-3 gap-y-0.5 leading-relaxed">
+                  {fields.slice(0, 4).map((f) => (
+                    <span key={f.key}>
+                      {f.label}: {initialConfig[f.key]}kg
+                    </span>
+                  ))}
+                  {fields.length > 4 && <span>+{fields.length - 4} más</span>}
                 </p>
               </div>
               <button
@@ -287,10 +315,18 @@ export function GenericSetupForm({
               onClick={() => setIsExpanded(false)}
             >
               <div
-                className="modal-box bg-[var(--bg-card)] border border-[var(--border-color)] p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto"
+                className="relative modal-box bg-[var(--bg-card)] border border-[var(--border-color)] p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto"
                 style={{ boxShadow: 'var(--shadow-elevated), 0 0 60px rgba(0, 0, 0, 0.5)' }}
                 onClick={(e) => e.stopPropagation()}
               >
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded(false)}
+                  className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-header)] transition-colors cursor-pointer"
+                  aria-label="Cerrar"
+                >
+                  &#10005;
+                </button>
                 {formContent}
               </div>
             </div>
