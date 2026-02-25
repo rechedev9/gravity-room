@@ -5,6 +5,13 @@
 import { and, asc, eq, ilike, inArray, or } from 'drizzle-orm';
 import { getDb } from '../db';
 import { exercises, muscleGroups } from '../db/schema';
+import {
+  buildFilterHash,
+  getCachedExercises,
+  setCachedExercises,
+  invalidateUserExercises,
+} from '../lib/exercise-cache';
+import { getCachedMuscleGroups, setCachedMuscleGroups } from '../lib/muscle-groups-cache';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -123,6 +130,12 @@ export async function listExercises(
   userId: string | undefined,
   filter?: ExerciseFilter
 ): Promise<readonly ExerciseEntry[]> {
+  // Check cache first
+  const filterForHash: Record<string, unknown> = { ...filter };
+  const filterHash = buildFilterHash(filterForHash);
+  const cached = await getCachedExercises(userId, filterHash);
+  if (cached) return cached;
+
   const conditions = [
     userId
       ? or(eq(exercises.isPreset, true), eq(exercises.createdBy, userId))
@@ -160,14 +173,26 @@ export async function listExercises(
     .where(and(...conditions))
     .orderBy(asc(exercises.name));
 
-  return rows.map(toExerciseEntry);
+  const entries = rows.map(toExerciseEntry);
+
+  // Populate cache (fire-and-forget)
+  void setCachedExercises(userId, filterHash, entries);
+
+  return entries;
 }
 
 /** List all muscle groups. */
 export async function listMuscleGroups(): Promise<readonly MuscleGroupEntry[]> {
+  // Check cache first
+  const cached = await getCachedMuscleGroups();
+  if (cached) return cached;
+
   const rows = await getDb()
     .select({ id: muscleGroups.id, name: muscleGroups.name })
     .from(muscleGroups);
+
+  // Populate cache (fire-and-forget)
+  void setCachedMuscleGroups(rows);
 
   return rows;
 }
@@ -206,6 +231,9 @@ export async function createExercise(
   if (!inserted) {
     return err({ code: 'EXERCISE_ID_CONFLICT' });
   }
+
+  // Invalidate user-specific exercise cache (fire-and-forget)
+  void invalidateUserExercises(userId);
 
   return ok(toExerciseEntry(inserted));
 }
