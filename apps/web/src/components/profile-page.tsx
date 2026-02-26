@@ -1,8 +1,7 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { extractGenericChartData } from '@gzclp/shared/generic-stats';
-import { calculateStats } from '@gzclp/shared/stats';
+import { extractGenericChartData, calculateStats } from '@gzclp/shared/generic-stats';
 import { useProgram } from '@/hooks/use-program';
 import { useAuth } from '@/contexts/auth-context';
 import { computeProfileData, formatVolume } from '@/lib/profile-stats';

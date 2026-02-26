@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { extractGenericChartData } from '@gzclp/shared/generic-stats';
-import { calculateStats } from '@gzclp/shared/stats';
+import { extractGenericChartData, calculateStats } from '@gzclp/shared/generic-stats';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import type { GenericWorkoutRow } from '@gzclp/shared/types';
 import { LineChart } from './line-chart';

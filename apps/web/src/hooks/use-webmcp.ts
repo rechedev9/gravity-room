@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { ResultValue, GenericWorkoutRow } from '@gzclp/shared/types';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
-import { extractGenericChartData } from '@gzclp/shared/generic-stats';
-import { calculateStats } from '@gzclp/shared/stats';
+import { extractGenericChartData, calculateStats } from '@gzclp/shared/generic-stats';
 import { isRecord } from '@gzclp/shared/type-guards';
 import { buildGoogleCalendarUrl } from '@/lib/calendar';
 
