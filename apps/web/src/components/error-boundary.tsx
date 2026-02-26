@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
+import { captureException } from '@/lib/sentry';
 
 interface FallbackProps {
   readonly error: Error;
@@ -28,6 +29,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   override componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
+    captureException(error, errorInfo);
     this.props.onError?.(error, errorInfo);
   }
 

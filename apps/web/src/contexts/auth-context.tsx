@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { setAccessToken, refreshAccessToken } from '@/lib/api';
 import { apiFetch } from '@/lib/api-functions';
 import { isRecord } from '@gzclp/shared/type-guards';
+import { setUser as sentrySetUser } from '@/lib/sentry';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,7 +75,10 @@ export function AuthProvider({
       try {
         const data = await apiFetch('/auth/me');
         const userInfo = parseUserInfo(data);
-        if (userInfo) setUser(userInfo);
+        if (userInfo) {
+          setUser(userInfo);
+          sentrySetUser({ id: userInfo.id, email: userInfo.email });
+        }
       } catch (err: unknown) {
         // Token may be invalid — user stays null
         console.warn(
@@ -98,7 +102,10 @@ export function AuthProvider({
       if (isRecord(data) && typeof data.accessToken === 'string') {
         setAccessToken(data.accessToken);
         const userInfo = parseUserInfo(data.user);
-        if (userInfo) setUser(userInfo);
+        if (userInfo) {
+          setUser(userInfo);
+          sentrySetUser({ id: userInfo.id, email: userInfo.email });
+        }
         return null;
       }
       return { message: 'Unexpected response from server' };
@@ -116,7 +123,10 @@ export function AuthProvider({
       if (isRecord(data) && typeof data.accessToken === 'string') {
         setAccessToken(data.accessToken);
         const userInfo = parseUserInfo(data.user);
-        if (userInfo) setUser(userInfo);
+        if (userInfo) {
+          setUser(userInfo);
+          sentrySetUser({ id: userInfo.id, email: userInfo.email });
+        }
         return null;
       }
       return { message: 'Unexpected response from server' };
@@ -133,6 +143,7 @@ export function AuthProvider({
     await apiFetch('/auth/me', { method: 'DELETE' });
     setAccessToken(null);
     setUser(null);
+    sentrySetUser(null);
   };
 
   const signOut = async (): Promise<void> => {
@@ -147,6 +158,7 @@ export function AuthProvider({
     }
     setAccessToken(null);
     setUser(null);
+    sentrySetUser(null);
   };
 
   const value: AuthContextValue = {
