@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { extractGenericChartData } from '@gzclp/shared/generic-stats';
 import { calculateStats } from '@gzclp/shared/stats';
-import { useGenericProgram } from '@/hooks/use-generic-program';
+import { useProgram } from '@/hooks/use-program';
 import { useAuth } from '@/contexts/auth-context';
 import { computeProfileData, formatVolume } from '@/lib/profile-stats';
 import { updateProfile } from '@/lib/api-functions';
@@ -21,7 +21,7 @@ interface ProfilePageProps {
 
 export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps): React.ReactNode {
   const pid = programId ?? 'gzclp';
-  const { definition, config, rows, resultTimestamps } = useGenericProgram(pid, instanceId);
+  const { definition, config, rows, resultTimestamps } = useProgram(pid, instanceId);
   const { user, updateUser, deleteAccount } = useAuth();
   const navigate = useNavigate();
 

@@ -5,7 +5,7 @@ import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import type { GenericWorkoutRow } from '@gzclp/shared/types';
 import { LineChart } from './line-chart';
 
-interface GenericStatsPanelProps {
+interface StatsPanelProps {
   readonly definition: ProgramDefinition;
   readonly rows: readonly GenericWorkoutRow[];
 }
@@ -76,7 +76,7 @@ function StatCard({
   );
 }
 
-function GenericStatsPanel({ definition, rows }: GenericStatsPanelProps): ReactNode {
+function StatsPanel({ definition, rows }: StatsPanelProps): ReactNode {
   const chartData = extractGenericChartData(definition, rows);
 
   const groups = groupExercises(definition);
@@ -180,5 +180,5 @@ function GenericStatsPanel({ definition, rows }: GenericStatsPanelProps): ReactN
   );
 }
 
-export { GenericStatsPanel };
-export default GenericStatsPanel;
+export { StatsPanel };
+export default StatsPanel;

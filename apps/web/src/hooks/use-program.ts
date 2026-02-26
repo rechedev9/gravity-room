@@ -115,7 +115,7 @@ function optimisticDetailCallbacks(
 // Hook interface
 // ---------------------------------------------------------------------------
 
-export interface UseGenericProgramReturn {
+export interface UseProgramReturn {
   readonly definition: ProgramDefinition | undefined;
   readonly config: Record<string, number> | null;
   readonly rows: readonly GenericWorkoutRow[];
@@ -142,7 +142,7 @@ export interface UseGenericProgramReturn {
 // Hook implementation
 // ---------------------------------------------------------------------------
 
-export function useGenericProgram(programId: string, instanceId?: string): UseGenericProgramReturn {
+export function useProgram(programId: string, instanceId?: string): UseProgramReturn {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { toast } = useToast();

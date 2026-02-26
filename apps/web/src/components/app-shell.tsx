@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth-context';
 import { Dashboard } from './dashboard';
-import { GenericProgramApp } from './generic-program-app';
+import { ProgramApp } from './program-app';
 import { ProfilePage } from './profile-page';
 import { AppSkeleton } from './app-skeleton';
 
@@ -99,7 +99,7 @@ export function AppShell(): React.ReactNode {
     const programId = pendingProgramId ?? selectedProgramId;
 
     content = programId ? (
-      <GenericProgramApp
+      <ProgramApp
         programId={programId}
         instanceId={selectedInstanceId}
         onBackToDashboard={handleBackToDashboard}

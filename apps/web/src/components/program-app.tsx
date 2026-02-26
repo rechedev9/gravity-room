@@ -2,7 +2,7 @@ import { lazy, Suspense, useState, useTransition, useEffect, useRef } from 'reac
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ResultValue, GenericWorkoutRow } from '@gzclp/shared/types';
-import { useGenericProgram } from '@/hooks/use-generic-program';
+import { useProgram } from '@/hooks/use-program';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { detectGenericPersonalRecord } from '@/lib/pr-detection';
@@ -14,16 +14,16 @@ import type { DayTab } from './day-navigator';
 import { DayView } from './day-view';
 import type { DayViewSlot } from './day-view';
 import { ErrorBoundary } from './error-boundary';
-import { GenericSetupForm } from './generic-setup-form';
+import { SetupForm } from './setup-form';
 import { StatsSkeleton } from './stats-skeleton';
 import { TabButton } from './tab-button';
 import { ToastContainer } from './toast';
 import { Toolbar } from './toolbar';
 import { WeekNavigator } from './week-navigator';
 
-const GenericStatsPanel = lazy(() => import('./generic-stats-panel'));
-const preloadGenericStatsPanel = (): void => {
-  void import('./generic-stats-panel');
+const StatsPanel = lazy(() => import('./stats-panel'));
+const preloadStatsPanel = (): void => {
+  void import('./stats-panel');
 };
 
 function genericRowToSlots(row: GenericWorkoutRow): readonly DayViewSlot[] {
@@ -45,19 +45,19 @@ function genericRowToSlots(row: GenericWorkoutRow): readonly DayViewSlot[] {
   }));
 }
 
-interface GenericProgramAppProps {
+interface ProgramAppProps {
   readonly programId: string;
   readonly instanceId?: string;
   readonly onBackToDashboard?: () => void;
   readonly onGoToProfile?: () => void;
 }
 
-export function GenericProgramApp({
+export function ProgramApp({
   programId,
   instanceId,
   onBackToDashboard,
   onGoToProfile,
-}: GenericProgramAppProps): React.ReactNode {
+}: ProgramAppProps): React.ReactNode {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -82,7 +82,7 @@ export function GenericProgramApp({
     undoLast,
     finishProgram,
     resetAll,
-  } = useGenericProgram(programId, instanceId);
+  } = useProgram(programId, instanceId);
 
   useWebMcp({
     config,
@@ -329,7 +329,7 @@ export function GenericProgramApp({
       </div>
 
       <div className="max-w-[1300px] mx-auto px-3 sm:px-5 pb-24">
-        <GenericSetupForm
+        <SetupForm
           definition={definition}
           initialConfig={config}
           isGenerating={isGenerating}
@@ -353,8 +353,8 @@ export function GenericProgramApp({
               <TabButton
                 active={activeTab === 'stats'}
                 onClick={() => startTransition(() => setActiveTab('stats'))}
-                onMouseEnter={preloadGenericStatsPanel}
-                onFocus={preloadGenericStatsPanel}
+                onMouseEnter={preloadStatsPanel}
+                onFocus={preloadStatsPanel}
               >
                 Estadísticas
               </TabButton>
@@ -441,7 +441,7 @@ export function GenericProgramApp({
                   )}
                 >
                   <Suspense fallback={<StatsSkeleton />}>
-                    <GenericStatsPanel definition={definition} rows={rows} />
+                    <StatsPanel definition={definition} rows={rows} />
                   </Suspense>
                 </ErrorBoundary>
               </div>

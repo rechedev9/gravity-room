@@ -1,5 +1,5 @@
 /**
- * use-generic-program.test.ts — onError callback tests.
+ * use-program.test.ts — onError callback tests.
  * Verifies that all four mutations have onError callbacks that trigger a user-visible toast.
  */
 import { mock, describe, it, expect, beforeEach } from 'bun:test';
@@ -94,7 +94,7 @@ mock.module('@/lib/api-functions', () => ({
 
 import { AuthProvider } from '@/contexts/auth-context';
 import { ToastProvider } from '@/contexts/toast-context';
-import { useGenericProgram } from './use-generic-program';
+import { useProgram } from './use-program';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -126,7 +126,7 @@ function resetMocks(): void {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('useGenericProgram', () => {
+describe('useProgram', () => {
   beforeEach(() => {
     resetMocks();
   });
@@ -134,7 +134,7 @@ describe('useGenericProgram', () => {
   describe('onError callbacks', () => {
     it('undoLastMutation onError — hook exposes undoLast function', async () => {
       const wrapper = createWrapper();
-      const { result } = renderHook(() => useGenericProgram('nivel7'), { wrapper });
+      const { result } = renderHook(() => useProgram('nivel7'), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -145,7 +145,7 @@ describe('useGenericProgram', () => {
 
     it('generateProgramMutation onError — hook exposes generateProgram function', async () => {
       const wrapper = createWrapper();
-      const { result } = renderHook(() => useGenericProgram('nivel7'), { wrapper });
+      const { result } = renderHook(() => useProgram('nivel7'), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -156,7 +156,7 @@ describe('useGenericProgram', () => {
 
     it('updateConfigMutation onError — hook exposes updateConfig function', async () => {
       const wrapper = createWrapper();
-      const { result } = renderHook(() => useGenericProgram('nivel7'), { wrapper });
+      const { result } = renderHook(() => useProgram('nivel7'), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -167,7 +167,7 @@ describe('useGenericProgram', () => {
 
     it('resetAllMutation onError — hook exposes resetAll function', async () => {
       const wrapper = createWrapper();
-      const { result } = renderHook(() => useGenericProgram('nivel7'), { wrapper });
+      const { result } = renderHook(() => useProgram('nivel7'), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -180,7 +180,7 @@ describe('useGenericProgram', () => {
   describe('interface completeness', () => {
     it('exposes all required methods', async () => {
       const wrapper = createWrapper();
-      const { result } = renderHook(() => useGenericProgram('nivel7'), { wrapper });
+      const { result } = renderHook(() => useProgram('nivel7'), { wrapper });
 
       expect(typeof result.current.generateProgram).toBe('function');
       expect(typeof result.current.updateConfig).toBe('function');

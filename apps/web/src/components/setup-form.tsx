@@ -3,7 +3,7 @@ import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { ConfirmDialog } from './confirm-dialog';
 import { WeightField } from './weight-field';
 
-interface GenericSetupFormProps {
+interface SetupFormProps {
   readonly definition: ProgramDefinition;
   readonly initialConfig?: Record<string, number> | null;
   readonly isGenerating?: boolean;
@@ -19,13 +19,13 @@ function validateField(value: string, min: number): string | null {
   return null;
 }
 
-export function GenericSetupForm({
+export function SetupForm({
   definition,
   initialConfig,
   isGenerating,
   onGenerate,
   onUpdateConfig,
-}: GenericSetupFormProps): React.ReactNode {
+}: SetupFormProps): React.ReactNode {
   const fields = definition.configFields;
   const isEditMode = initialConfig !== null && initialConfig !== undefined;
   const [isExpanded, setIsExpanded] = useState(!isEditMode);
