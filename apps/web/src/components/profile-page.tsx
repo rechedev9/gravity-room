@@ -1,11 +1,13 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { extractGenericChartData } from '@gzclp/shared/generic-stats';
 import { calculateStats } from '@gzclp/shared/stats';
 import { useProgram } from '@/hooks/use-program';
 import { useAuth } from '@/contexts/auth-context';
 import { computeProfileData, formatVolume } from '@/lib/profile-stats';
-import { updateProfile } from '@/lib/api-functions';
+import { fetchPrograms, updateProfile, type ProgramSummary } from '@/lib/api-functions';
+import { queryKeys } from '@/lib/query-keys';
 import { resizeImageToDataUrl } from '@/lib/resize-image';
 import { Button } from './button';
 import { ProfileStatCard } from './profile-stat-card';
@@ -20,10 +22,40 @@ interface ProfilePageProps {
 }
 
 export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps): React.ReactNode {
-  // Default to GZCLP when accessed from dashboard without an active program selection.
-  const pid = programId ?? 'gzclp';
-  const { definition, config, rows, resultTimestamps } = useProgram(pid, instanceId);
   const { user, updateUser, deleteAccount } = useAuth();
+
+  // Fetch all program instances (shared cache with useProgram — zero extra requests)
+  const { data: allPrograms = [] } = useQuery({
+    queryKey: queryKeys.programs.all,
+    queryFn: fetchPrograms,
+    enabled: user !== null,
+  });
+
+  const completedPrograms: readonly ProgramSummary[] = allPrograms
+    .filter((p) => p.status === 'completed')
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+
+  // When navigating to profile without a specific selection (e.g. after finishing),
+  // auto-show the most recently active or completed program.
+  const effectiveInstanceId: string | undefined = (() => {
+    if (instanceId) return instanceId;
+    const active = allPrograms.find((p) => p.status === 'active');
+    if (active) return active.id;
+    return completedPrograms[0]?.id;
+  })();
+
+  const effectiveProgramId: string = (() => {
+    if (instanceId && programId) return programId;
+    if (instanceId) return programId ?? 'gzclp';
+    const active = allPrograms.find((p) => p.status === 'active');
+    if (active) return active.programId;
+    return completedPrograms[0]?.programId ?? 'gzclp';
+  })();
+
+  const { definition, config, rows, resultTimestamps } = useProgram(
+    effectiveProgramId,
+    effectiveInstanceId
+  );
   const navigate = useNavigate();
 
   // Avatar upload state
@@ -346,6 +378,43 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
             )}
           </>
         )}
+        {/* Training history */}
+        {completedPrograms.length > 0 && (
+          <section className="mb-12">
+            <h2 className="section-label mb-4">Historial</h2>
+            <div className="flex flex-col gap-2">
+              {completedPrograms.map((p) => (
+                <div
+                  key={p.id}
+                  className="bg-[var(--bg-card)] border border-[var(--border-color)] px-5 py-3.5 card flex items-center justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[var(--text-header)] truncate">{p.name}</p>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                      Completado el{' '}
+                      {new Date(p.updatedAt).toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </p>
+                  </div>
+                  <span
+                    className="shrink-0 font-mono text-[9px] tracking-widest uppercase px-2 py-1"
+                    style={{
+                      background: 'rgba(200,168,78,0.08)',
+                      border: '1px solid rgba(200,168,78,0.2)',
+                      color: 'var(--text-header)',
+                    }}
+                  >
+                    Completado
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Delete account — subtle, at the bottom */}
         {user && (
           <div className="mt-16 mb-4 flex justify-center">
