@@ -256,6 +256,10 @@ export function ProgramApp({
     onBackToDashboard?.();
   };
 
+  const handleResetAll = (): void => {
+    resetAll(() => onBackToDashboard?.());
+  };
+
   const weeksRef = useRef(weeks);
   weeksRef.current = weeks;
 
@@ -323,7 +327,7 @@ export function ProgramApp({
             undoCount={undoHistory.length}
             onUndo={undoLast}
             onFinish={handleFinishProgram}
-            onReset={resetAll}
+            onReset={handleResetAll}
           />
         )}
       </div>

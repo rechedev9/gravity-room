@@ -22,6 +22,7 @@ import {
   exportProgram,
   importProgram,
   type GenericProgramDetail,
+  type ProgramSummary,
 } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
@@ -133,7 +134,7 @@ export interface UseProgramReturn {
   readonly undoLast: () => void;
   readonly finishProgram: () => Promise<void>;
   readonly isFinishing: boolean;
-  readonly resetAll: () => void;
+  readonly resetAll: (onSuccess?: () => void) => void;
   readonly exportData: () => void;
   readonly importData: (json: string) => Promise<boolean>;
 }
@@ -354,6 +355,22 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       if (!activeInstanceId) throw new Error('No active program');
       await completeProgram(activeInstanceId);
     },
+    onSuccess: () => {
+      // Optimistically mark this instance as completed in the list cache so the
+      // dashboard immediately shows enabled catalog cards when we navigate back.
+      const idToComplete = activeInstanceId;
+      if (idToComplete) {
+        queryClient.setQueryData<ProgramSummary[]>(
+          queryKeys.programs.all,
+          (prev: ProgramSummary[] | undefined) => {
+            if (!prev) return prev;
+            return prev.map((p: ProgramSummary) =>
+              p.id === idToComplete ? { ...p, status: 'completed' } : p
+            );
+          }
+        );
+      }
+    },
     onError: () => {
       toast({ message: 'No se pudo finalizar el programa. Inténtalo de nuevo.' });
     },
@@ -460,8 +477,20 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     await finishProgramMutation.mutateAsync();
   };
 
-  const resetAllCb = (): void => {
-    resetAllMutation.mutate();
+  const resetAllCb = (onSuccess?: () => void): void => {
+    // Capture the instanceId at call-time: by the time onSuccess fires, the
+    // activeInstanceId closure may already have flipped to null.
+    const idToRemove = activeInstanceId;
+    resetAllMutation.mutate(undefined, {
+      onSuccess: () => {
+        // Remove the stale detail cache so the setup form shows immediately.
+        // Disabling a query (enabled: false) keeps cached data alive — evict it.
+        if (idToRemove) {
+          queryClient.removeQueries({ queryKey: queryKeys.programs.detail(idToRemove) });
+        }
+        onSuccess?.();
+      },
+    });
   };
 
   const exportDataCb = async (): Promise<void> => {
