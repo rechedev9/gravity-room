@@ -52,9 +52,9 @@ const GZCLP_DEFINITION_JSONB = {
           exerciseId: 'squat',
           tier: 't1',
           stages: [
-            { sets: 5, reps: 3 },
-            { sets: 6, reps: 2 },
-            { sets: 10, reps: 1 },
+            { sets: 5, reps: 3, amrap: true },
+            { sets: 6, reps: 2, amrap: true },
+            { sets: 10, reps: 1, amrap: true },
           ],
           onSuccess: { type: 'add_weight' },
           onMidStageFail: { type: 'advance_stage' },
@@ -97,9 +97,9 @@ const GZCLP_DEFINITION_JSONB = {
           exerciseId: 'ohp',
           tier: 't1',
           stages: [
-            { sets: 5, reps: 3 },
-            { sets: 6, reps: 2 },
-            { sets: 10, reps: 1 },
+            { sets: 5, reps: 3, amrap: true },
+            { sets: 6, reps: 2, amrap: true },
+            { sets: 10, reps: 1, amrap: true },
           ],
           onSuccess: { type: 'add_weight' },
           onMidStageFail: { type: 'advance_stage' },
@@ -142,9 +142,9 @@ const GZCLP_DEFINITION_JSONB = {
           exerciseId: 'bench',
           tier: 't1',
           stages: [
-            { sets: 5, reps: 3 },
-            { sets: 6, reps: 2 },
-            { sets: 10, reps: 1 },
+            { sets: 5, reps: 3, amrap: true },
+            { sets: 6, reps: 2, amrap: true },
+            { sets: 10, reps: 1, amrap: true },
           ],
           onSuccess: { type: 'add_weight' },
           onMidStageFail: { type: 'advance_stage' },
@@ -187,9 +187,9 @@ const GZCLP_DEFINITION_JSONB = {
           exerciseId: 'deadlift',
           tier: 't1',
           stages: [
-            { sets: 5, reps: 3 },
-            { sets: 6, reps: 2 },
-            { sets: 10, reps: 1 },
+            { sets: 5, reps: 3, amrap: true },
+            { sets: 6, reps: 2, amrap: true },
+            { sets: 10, reps: 1, amrap: true },
           ],
           onSuccess: { type: 'add_weight' },
           onMidStageFail: { type: 'advance_stage' },
@@ -1284,6 +1284,7 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       set: {
         description: sql`excluded.description`,
         author: sql`excluded.author`,
+        definition: sql`excluded.definition`,
       },
     });
 }

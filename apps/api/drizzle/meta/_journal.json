@@ -127,6 +127,13 @@
       "when": 1772400000000,
       "tag": "0017_enable_pg_stat_statements",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1772500000000,
+      "tag": "0018_gzclp_t1_amrap",
+      "breakpoints": true
     }
   ]
 }
