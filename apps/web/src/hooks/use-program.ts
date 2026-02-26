@@ -383,8 +383,13 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     markResultMutation.mutate({ index, slotId, value });
   };
 
-  const setAmrapRepsCb = (index: number, slotId: string, reps: number | undefined): void => {
-    // Immediately reflect the change in the cache so the UI feels snappy.
+  /** Patch a single field on a slot entry in the cached program detail. */
+  const patchSlotField = (
+    index: number,
+    slotId: string,
+    field: 'amrapReps' | 'rpe',
+    value: number | undefined
+  ): void => {
     const detailKey = queryKeys.programs.detail(activeInstanceId ?? '');
     queryClient.setQueryData<GenericProgramDetail>(detailKey, (prev) => {
       if (!prev) return prev;
@@ -392,15 +397,19 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       const updatedResults = { ...prev.results };
       const workoutEntry = { ...updatedResults[key] };
       const slotEntry = { ...workoutEntry[slotId] };
-      if (reps === undefined) {
-        delete slotEntry.amrapReps;
+      if (value === undefined) {
+        delete slotEntry[field];
       } else {
-        slotEntry.amrapReps = reps;
+        slotEntry[field] = value;
       }
       workoutEntry[slotId] = slotEntry;
       updatedResults[key] = workoutEntry;
       return { ...prev, results: updatedResults };
     });
+  };
+
+  const setAmrapRepsCb = (index: number, slotId: string, reps: number | undefined): void => {
+    patchSlotField(index, slotId, 'amrapReps', reps);
 
     // Debounce the API call: rapid clicks on +/- coalesce into a single POST.
     const timerKey = `${index}-${slotId}`;
@@ -416,23 +425,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   };
 
   const setRpeCb = (index: number, slotId: string, rpe: number | undefined): void => {
-    // Immediately reflect the change in the cache.
-    const detailKey = queryKeys.programs.detail(activeInstanceId ?? '');
-    queryClient.setQueryData<GenericProgramDetail>(detailKey, (prev) => {
-      if (!prev) return prev;
-      const key = String(index);
-      const updatedResults = { ...prev.results };
-      const workoutEntry = { ...updatedResults[key] };
-      const slotEntry = { ...workoutEntry[slotId] };
-      if (rpe === undefined) {
-        delete slotEntry.rpe;
-      } else {
-        slotEntry.rpe = rpe;
-      }
-      workoutEntry[slotId] = slotEntry;
-      updatedResults[key] = workoutEntry;
-      return { ...prev, results: updatedResults };
-    });
+    patchSlotField(index, slotId, 'rpe', rpe);
 
     // Debounce: switching RPE values rapidly fires one POST after 300ms.
     const timerKey = `${index}-${slotId}-rpe`;
@@ -471,9 +464,10 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     resetAllMutation.mutate();
   };
 
-  const exportDataCb = (): void => {
+  const exportDataCb = async (): Promise<void> => {
     if (!activeInstanceId) return;
-    void exportProgram(activeInstanceId).then((data) => {
+    try {
+      const data = await exportProgram(activeInstanceId);
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -483,7 +477,10 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    });
+    } catch (err: unknown) {
+      console.error('[program] Export failed:', err instanceof Error ? err.message : err);
+      toast({ message: 'No se pudo exportar el programa.' });
+    }
   };
 
   const importDataCb = async (json: string): Promise<boolean> => {
@@ -492,7 +489,8 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       await importProgram(parsed);
       void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
       return true;
-    } catch {
+    } catch (err: unknown) {
+      console.error('[program] Import failed:', err instanceof Error ? err.message : err);
       toast({
         message: 'No se pudo importar el programa. Verifica el archivo e inténtalo de nuevo.',
       });

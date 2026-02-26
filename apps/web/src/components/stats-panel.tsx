@@ -10,30 +10,33 @@ interface StatsPanelProps {
   readonly rows: readonly GenericWorkoutRow[];
 }
 
+const UNCOVERED_GROUP_LABEL = 'Otros';
+
 interface ExerciseGroup {
   readonly label: string | null;
-  readonly exerciseIds: string[];
+  readonly exerciseIds: readonly string[];
 }
 
-function groupExercises(definition: ProgramDefinition): ExerciseGroup[] {
+function groupExercises(definition: ProgramDefinition): readonly ExerciseGroup[] {
   const groups: ExerciseGroup[] = [];
-  let current: ExerciseGroup | null = null;
+  let pending: { label: string | null; ids: string[] } | null = null;
 
   for (const field of definition.configFields) {
     const label = field.group ?? null;
-    if (!current || current.label !== label) {
-      current = { label, exerciseIds: [field.key] };
-      groups.push(current);
+    if (!pending || pending.label !== label) {
+      if (pending) groups.push({ label: pending.label, exerciseIds: pending.ids });
+      pending = { label, ids: [field.key] };
     } else {
-      current.exerciseIds.push(field.key);
+      pending.ids.push(field.key);
     }
   }
+  if (pending) groups.push({ label: pending.label, exerciseIds: pending.ids });
 
   // Include any exercises not in configFields (fallback)
   const covered = new Set(definition.configFields.map((f) => f.key));
   const uncovered = Object.keys(definition.exercises).filter((id) => !covered.has(id));
   if (uncovered.length > 0) {
-    groups.push({ label: 'Other', exerciseIds: uncovered });
+    groups.push({ label: UNCOVERED_GROUP_LABEL, exerciseIds: uncovered });
   }
 
   return groups;
@@ -180,5 +183,4 @@ function StatsPanel({ definition, rows }: StatsPanelProps): ReactNode {
   );
 }
 
-export { StatsPanel };
 export default StatsPanel;

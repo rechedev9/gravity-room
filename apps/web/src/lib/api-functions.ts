@@ -176,13 +176,22 @@ function parseGenericResults(raw: unknown): GenericResults {
   return results;
 }
 
+function isValidUndoEntry(
+  entry: Record<string, unknown>
+): entry is Record<string, unknown> & { i: number; slotId: string } {
+  return typeof entry.i === 'number' && typeof entry.slotId === 'string';
+}
+
 function parseGenericUndoHistory(raw: unknown): GenericUndoHistory {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isRecord).map((entry) => ({
-    i: typeof entry.i === 'number' ? entry.i : 0,
-    slotId: typeof entry.slotId === 'string' ? entry.slotId : '',
-    ...(entry.prev === 'success' || entry.prev === 'fail' ? { prev: entry.prev } : {}),
-  }));
+  return raw
+    .filter(isRecord)
+    .filter(isValidUndoEntry)
+    .map((entry) => ({
+      i: entry.i,
+      slotId: entry.slotId,
+      ...(entry.prev === 'success' || entry.prev === 'fail' ? { prev: entry.prev } : {}),
+    }));
 }
 
 /** Create a new program instance. */

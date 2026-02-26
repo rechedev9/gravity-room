@@ -74,15 +74,15 @@ export interface ProfileData {
 // ─── Row-level helpers (generic slot-based) ─────────────────────────
 
 interface VolumeTick {
-  volume: number;
-  sets: number;
-  reps: number;
+  readonly volume: number;
+  readonly sets: number;
+  readonly reps: number;
 }
 
 interface SuccessTick {
-  isComplete: boolean;
-  successes: number;
-  marks: number;
+  readonly isComplete: boolean;
+  readonly successes: number;
+  readonly marks: number;
 }
 
 function rowVolumeTick(row: GenericWorkoutRow): VolumeTick {
@@ -403,6 +403,7 @@ export function computeProfileData(
   return { personalRecords, streak, volume, completion, monthlyReport };
 }
 
+// en-US locale ensures comma as thousands separator (e.g. 75,264) regardless of browser locale.
 const volumeFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 
 export function formatVolume(kg: number): string {

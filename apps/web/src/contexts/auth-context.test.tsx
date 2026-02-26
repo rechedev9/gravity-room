@@ -80,8 +80,6 @@ describe('AuthProvider', () => {
       await waitFor(() => {
         expect(result.current.loading).toBe(false);
       });
-
-      expect(result.current.configured).toBe(true);
     });
 
     it('should start in loading state', () => {

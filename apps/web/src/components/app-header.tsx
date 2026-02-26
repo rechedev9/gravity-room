@@ -18,7 +18,7 @@ export function AppHeader({
   syncStatus = 'idle',
   onSignOut,
 }: AppHeaderProps): React.ReactNode {
-  const { user, configured, signOut } = useAuth();
+  const { user, signOut } = useAuth();
 
   const handleSignOut = onSignOut ?? ((): void => void signOut());
 
@@ -53,7 +53,6 @@ export function AppHeader({
 
       <AvatarDropdown
         user={user}
-        configured={configured}
         syncStatus={syncStatus}
         onSignOut={handleSignOut}
         onGoToProfile={onGoToProfile}

@@ -78,6 +78,8 @@ const TOOL_NAMES = [
 export function useWebMcp(options: UseWebMcpOptions): void {
   const stateRef = useRef(options);
 
+  // Ref-sync effect: intentionally has no dependency array so it runs after every render.
+  // Must be declared before the registration effect to guarantee execution order.
   useEffect(() => {
     stateRef.current = options;
   });
@@ -204,7 +206,7 @@ export function useWebMcp(options: UseWebMcpOptions): void {
           }
           return textResponse({ [ex]: calculateStats(points) });
         }
-        const allStats: Record<string, unknown> = {};
+        const allStats: Record<string, ReturnType<typeof calculateStats>> = {};
         for (const ex of t1Exercises) {
           const points = chartData[ex];
           if (points) {

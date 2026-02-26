@@ -21,7 +21,6 @@ interface AuthResult {
 interface AuthState {
   readonly user: UserInfo | null;
   readonly loading: boolean;
-  readonly configured: boolean;
 }
 
 interface AuthActions {
@@ -134,7 +133,6 @@ export function AuthProvider({
   const value: AuthContextValue = {
     user,
     loading,
-    configured: true,
     signInWithGoogle,
     signOut,
     updateUser,

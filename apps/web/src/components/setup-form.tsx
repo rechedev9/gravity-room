@@ -104,21 +104,22 @@ export function SetupForm({
   type ConfigField = ProgramDefinition['configFields'][number];
   interface FieldGroup {
     readonly label: string | null;
-    readonly fields: ConfigField[];
+    readonly fields: readonly ConfigField[];
   }
 
-  const groupedFields: FieldGroup[] = (() => {
+  const groupedFields: readonly FieldGroup[] = (() => {
     const groups: FieldGroup[] = [];
-    let current: FieldGroup | null = null;
+    let pending: { label: string | null; items: ConfigField[] } | null = null;
     for (const f of fields) {
       const label = f.group ?? null;
-      if (!current || current.label !== label) {
-        current = { label, fields: [f] };
-        groups.push(current);
+      if (!pending || pending.label !== label) {
+        if (pending) groups.push({ label: pending.label, fields: pending.items });
+        pending = { label, items: [f] };
       } else {
-        current.fields.push(f);
+        pending.items.push(f);
       }
     }
+    if (pending) groups.push({ label: pending.label, fields: pending.items });
     return groups;
   })();
 
@@ -157,6 +158,10 @@ export function SetupForm({
       setShowConfirm(true);
     } else {
       onGenerate(config).catch((err: unknown) => {
+        console.error(
+          '[setup] Program generation failed:',
+          err instanceof Error ? err.message : err
+        );
         setError(err instanceof Error ? err.message : 'Error al generar el programa.');
       });
     }

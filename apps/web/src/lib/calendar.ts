@@ -67,6 +67,7 @@ export function buildGoogleCalendarUrl(
   }
   const description = lines.join('\n');
 
+  // No 'Z' suffix: parsed as local time per ECMA-262, matching Google Calendar's local-time URL format.
   const startDate = new Date(`${dateStr}T${String(startHour).padStart(2, '0')}:00:00`);
   const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
 

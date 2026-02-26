@@ -20,6 +20,7 @@ interface ProfilePageProps {
 }
 
 export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps): React.ReactNode {
+  // Default to GZCLP when accessed from dashboard without an active program selection.
   const pid = programId ?? 'gzclp';
   const { definition, config, rows, resultTimestamps } = useProgram(pid, instanceId);
   const { user, updateUser, deleteAccount } = useAuth();

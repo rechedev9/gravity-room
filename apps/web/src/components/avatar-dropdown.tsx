@@ -7,7 +7,6 @@ import { DropdownMenu, DropdownItem, DropdownDivider } from './dropdown-menu';
 
 interface AvatarDropdownProps {
   readonly user: UserInfo | null;
-  readonly configured: boolean;
   readonly syncStatus: SyncStatus;
   readonly onSignOut: () => void;
   readonly onGoToProfile?: () => void;
@@ -15,15 +14,12 @@ interface AvatarDropdownProps {
 
 export function AvatarDropdown({
   user,
-  configured,
   syncStatus,
   onSignOut,
   onGoToProfile,
 }: AvatarDropdownProps): React.ReactNode {
   const [open, setOpen] = useState(false);
   const close = (): void => setOpen(false);
-
-  if (!configured) return null;
 
   if (!user) {
     return (
