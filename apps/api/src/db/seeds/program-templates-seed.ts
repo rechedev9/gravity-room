@@ -1239,8 +1239,9 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         name: 'GZCLP',
         description:
           'Un programa de progresión lineal basado en el método GZCL. ' +
-          'Rotación de 4 días con ejercicios T1, T2 y T3 para desarrollar fuerza en los levantamientos compuestos principales.',
-        author: 'Cody Lefever',
+          'Rotación de 4 días con ejercicios T1, T2 y T3 para desarrollar fuerza en los levantamientos compuestos principales. ' +
+          'Comunidad en r/gzcl.',
+        author: 'Cody LeFever',
         version: 1,
         category: 'strength',
         source: 'preset',
@@ -1280,6 +1281,9 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
     ])
     .onConflictDoUpdate({
       target: programTemplates.id,
-      set: { description: sql`excluded.description` },
+      set: {
+        description: sql`excluded.description`,
+        author: sql`excluded.author`,
+      },
     });
 }
