@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
 import type {
@@ -119,6 +120,7 @@ export interface UseGenericProgramReturn {
   readonly config: Record<string, number> | null;
   readonly rows: readonly GenericWorkoutRow[];
   readonly undoHistory: GenericUndoHistory;
+  readonly resultTimestamps: Readonly<Record<string, string>>;
   readonly isLoading: boolean;
   readonly isGenerating: boolean;
   readonly activeInstanceId: string | null;
@@ -144,6 +146,11 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Per-key debounce timers for high-frequency mutations (AMRAP, RPE).
+  // Key format: `${workoutIndex}-${slotId}` — each unique slot has its own timer.
+  const amrapTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const rpeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Fetch the program definition from the catalog API
   const catalogQuery = useQuery({
@@ -181,6 +188,7 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
   const config = detail?.config ?? null;
   const results: GenericResults = detail?.results ?? {};
   const undoHistory: GenericUndoHistory = detail?.undoHistory ?? [];
+  const resultTimestamps: Readonly<Record<string, string>> = detail?.resultTimestamps ?? {};
   const isLoading = catalogQuery.isLoading || programsQuery.isLoading || detailQuery.isLoading;
 
   // Compute rows from definition + config + results
@@ -252,7 +260,8 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
         return { ...prev, results: updatedResults };
       }),
     onError: detailOnError,
-    onSettled: detailOnSettled,
+    // onSettled omitted — setAmrapRepsCb updates the cache directly (immediate setQueryData +
+    // debounced mutate); invalidating here would trigger a redundant GET on every click.
   });
 
   const setRpeMutation = useMutation({
@@ -287,7 +296,8 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
         return { ...prev, results: updatedResults };
       }),
     onError: detailOnError,
-    onSettled: detailOnSettled,
+    // onSettled omitted — setRpeCb updates the cache directly (immediate setQueryData +
+    // debounced mutate); invalidating here would trigger a redundant GET on every selection.
   });
 
   const undoSpecificMutation = useMutation({
@@ -374,11 +384,67 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
   };
 
   const setAmrapRepsCb = (index: number, slotId: string, reps: number | undefined): void => {
-    setAmrapMutation.mutate({ index, slotId, reps });
+    // Immediately reflect the change in the cache so the UI feels snappy.
+    const detailKey = queryKeys.programs.detail(activeInstanceId ?? '');
+    queryClient.setQueryData<GenericProgramDetail>(detailKey, (prev) => {
+      if (!prev) return prev;
+      const key = String(index);
+      const updatedResults = { ...prev.results };
+      const workoutEntry = { ...updatedResults[key] };
+      const slotEntry = { ...workoutEntry[slotId] };
+      if (reps === undefined) {
+        delete slotEntry.amrapReps;
+      } else {
+        slotEntry.amrapReps = reps;
+      }
+      workoutEntry[slotId] = slotEntry;
+      updatedResults[key] = workoutEntry;
+      return { ...prev, results: updatedResults };
+    });
+
+    // Debounce the API call: rapid clicks on +/- coalesce into a single POST.
+    const timerKey = `${index}-${slotId}`;
+    const existing = amrapTimers.current.get(timerKey);
+    if (existing !== undefined) clearTimeout(existing);
+    amrapTimers.current.set(
+      timerKey,
+      setTimeout(() => {
+        amrapTimers.current.delete(timerKey);
+        setAmrapMutation.mutate({ index, slotId, reps });
+      }, 400)
+    );
   };
 
   const setRpeCb = (index: number, slotId: string, rpe: number | undefined): void => {
-    setRpeMutation.mutate({ index, slotId, rpe });
+    // Immediately reflect the change in the cache.
+    const detailKey = queryKeys.programs.detail(activeInstanceId ?? '');
+    queryClient.setQueryData<GenericProgramDetail>(detailKey, (prev) => {
+      if (!prev) return prev;
+      const key = String(index);
+      const updatedResults = { ...prev.results };
+      const workoutEntry = { ...updatedResults[key] };
+      const slotEntry = { ...workoutEntry[slotId] };
+      if (rpe === undefined) {
+        delete slotEntry.rpe;
+      } else {
+        slotEntry.rpe = rpe;
+      }
+      workoutEntry[slotId] = slotEntry;
+      updatedResults[key] = workoutEntry;
+      return { ...prev, results: updatedResults };
+    });
+
+    // Debounce: switching RPE values rapidly fires one POST after 300ms.
+    const timerKey = `${index}-${slotId}-rpe`;
+    const existing = rpeTimers.current.get(timerKey);
+    if (existing !== undefined) clearTimeout(existing);
+    rpeTimers.current.set(
+      timerKey,
+      setTimeout(() => {
+        rpeTimers.current.delete(timerKey);
+        setRpeMutation.mutate({ index, slotId, rpe });
+      }, 300)
+    );
   };
 
   const undoSpecificCb = (index: number, slotId: string): void => {
@@ -439,6 +505,7 @@ export function useGenericProgram(programId: string, instanceId?: string): UseGe
     config,
     rows,
     undoHistory,
+    resultTimestamps,
     isLoading,
     isGenerating: generateProgramMutation.isPending,
     activeInstanceId,
