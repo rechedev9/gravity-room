@@ -58,14 +58,14 @@ export function GenericProgramApp({
   onBackToDashboard,
   onGoToProfile,
 }: GenericProgramAppProps): React.ReactNode {
-  const { user, loading: authLoading, isGuest, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!authLoading && user === null && !isGuest) {
+    if (!authLoading && user === null) {
       navigate('/login', { replace: true });
     }
-  }, [authLoading, user, isGuest, navigate]);
+  }, [authLoading, user, navigate]);
 
   const {
     definition,
@@ -296,7 +296,7 @@ export function GenericProgramApp({
     queryClient.clear();
   };
 
-  if (authLoading || (user === null && !isGuest)) return null;
+  if (authLoading || user === null) return null;
 
   if (!definition) {
     return (

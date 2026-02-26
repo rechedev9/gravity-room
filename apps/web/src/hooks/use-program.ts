@@ -132,14 +132,14 @@ interface UseProgramReturn {
 
 export function useProgram(instanceId?: string): UseProgramReturn {
   const queryClient = useQueryClient();
-  const { user, isGuest } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   // Fetch the list of programs to find the active one (disabled for guest users)
   const programsQuery = useQuery({
     queryKey: queryKeys.programs.all,
     queryFn: fetchPrograms,
-    enabled: user !== null && !isGuest,
+    enabled: user !== null,
   });
 
   // Use provided instanceId directly, or fall back to first active program

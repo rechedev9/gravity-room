@@ -1,13 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { setAccessToken, refreshAccessToken } from '@/lib/api';
-import { apiFetch, importProgram } from '@/lib/api-functions';
+import { apiFetch } from '@/lib/api-functions';
 import { isRecord } from '@gzclp/shared/type-guards';
-import {
-  readGuestData,
-  writeGuestData,
-  clearGuestData,
-  createEmptyGuestMap,
-} from '@/lib/guest-storage';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,13 +22,11 @@ interface AuthState {
   readonly user: UserInfo | null;
   readonly loading: boolean;
   readonly configured: boolean;
-  readonly isGuest: boolean;
 }
 
 interface AuthActions {
   readonly signInWithGoogle: (credential: string) => Promise<AuthResult | null>;
   readonly signOut: () => Promise<void>;
-  readonly startGuestSession: () => void;
   readonly updateUser: (info: Partial<Pick<UserInfo, 'name' | 'avatarUrl'>>) => void;
   readonly deleteAccount: () => Promise<void>;
 }
@@ -57,37 +49,6 @@ function parseUserInfo(data: unknown): UserInfo | null {
 }
 
 // ---------------------------------------------------------------------------
-// Guest promotion helper
-// ---------------------------------------------------------------------------
-
-/** Imports all guest instances into the authenticated account and clears guest data. */
-async function promoteGuestData(): Promise<void> {
-  const guestData = readGuestData();
-  if (!guestData) return;
-
-  for (const instance of Object.values(guestData.instances)) {
-    try {
-      await importProgram({
-        version: 1,
-        exportDate: new Date().toISOString(),
-        programId: instance.programId,
-        name: instance.name,
-        config: instance.config,
-        results: instance.results,
-        undoHistory: instance.undoHistory,
-      });
-    } catch (err: unknown) {
-      console.warn(
-        '[auth] Guest instance promotion failed:',
-        err instanceof Error ? err.message : 'Unknown error'
-      );
-    }
-  }
-
-  clearGuestData();
-}
-
-// ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
 
@@ -100,7 +61,6 @@ export function AuthProvider({
 }): React.ReactNode {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isGuest, setIsGuest] = useState(false);
 
   // Attempt to restore session from refresh cookie on mount
   useEffect(() => {
@@ -129,11 +89,6 @@ export function AuthProvider({
     void restore();
   }, []);
 
-  const startGuestSession = (): void => {
-    writeGuestData(createEmptyGuestMap());
-    setIsGuest(true);
-  };
-
   const signInWithGoogle = async (credential: string): Promise<AuthResult | null> => {
     try {
       const data = await apiFetch('/auth/google', {
@@ -142,11 +97,6 @@ export function AuthProvider({
       });
       if (isRecord(data) && typeof data.accessToken === 'string') {
         setAccessToken(data.accessToken);
-
-        // Guest → account promotion: import any guest data before setting user
-        await promoteGuestData();
-
-        setIsGuest(false);
         const userInfo = parseUserInfo(data.user);
         if (userInfo) setUser(userInfo);
         return null;
@@ -165,7 +115,6 @@ export function AuthProvider({
     await apiFetch('/auth/me', { method: 'DELETE' });
     setAccessToken(null);
     setUser(null);
-    setIsGuest(false);
   };
 
   const signOut = async (): Promise<void> => {
@@ -180,17 +129,14 @@ export function AuthProvider({
     }
     setAccessToken(null);
     setUser(null);
-    setIsGuest(false);
   };
 
   const value: AuthContextValue = {
     user,
     loading,
     configured: true,
-    isGuest,
     signInWithGoogle,
     signOut,
-    startGuestSession,
     updateUser,
     deleteAccount,
   };

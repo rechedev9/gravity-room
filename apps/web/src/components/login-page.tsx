@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { sanitizeAuthError } from '@/lib/auth-errors';
 
 export function LoginPage(): React.ReactNode {
-  const { user, signInWithGoogle, startGuestSession } = useAuth();
+  const { user, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
@@ -14,11 +14,6 @@ export function LoginPage(): React.ReactNode {
       navigate('/app');
     }
   }, [user, navigate]);
-
-  const handleGuestMode = (): void => {
-    startGuestSession();
-    void navigate('/app');
-  };
 
   const handleGoogleSuccess = async (credential: string): Promise<void> => {
     setError(null);
@@ -191,34 +186,6 @@ export function LoginPage(): React.ReactNode {
               <span>{error}</span>
             </div>
           )}
-
-          {/* Divider */}
-          <div className="flex items-center gap-2 my-4">
-            <div className="flex-1 h-px bg-[var(--border-color)]" />
-            <span
-              className="font-mono text-[9px] tracking-widest uppercase"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              o
-            </span>
-            <div className="flex-1 h-px bg-[var(--border-color)]" />
-          </div>
-
-          {/* Continue without account */}
-          <button
-            type="button"
-            onClick={handleGuestMode}
-            title="Los datos se guardan solo en este dispositivo. No se sincronizan con ningún servidor."
-            className="block w-full text-center py-2.5 font-mono text-[10px] tracking-[0.2em] uppercase transition-colors border border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--text-header)] hover:text-[var(--text-header)] cursor-pointer bg-transparent"
-          >
-            Continuar sin cuenta
-          </button>
-          <p
-            className="mt-2 text-[9px] text-center font-mono"
-            style={{ color: 'var(--text-muted)', opacity: 0.6 }}
-          >
-            Los datos se guardan solo en este dispositivo
-          </p>
         </div>
       </div>
 

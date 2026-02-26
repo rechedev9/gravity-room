@@ -96,7 +96,7 @@ export function GZCLPApp({
   onBackToDashboard,
   onGoToProfile,
 }: GZCLPAppProps): React.ReactNode {
-  const { user, loading: authLoading, isGuest, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
 
   // Fetch the GZCLP definition from the catalog API
@@ -121,10 +121,10 @@ export function GZCLPApp({
   const totalWorkouts = definition?.totalWorkouts ?? 90;
 
   useEffect(() => {
-    if (!authLoading && user === null && !isGuest) {
+    if (!authLoading && user === null) {
       navigate('/login', { replace: true });
     }
-  }, [authLoading, user, isGuest, navigate]);
+  }, [authLoading, user, navigate]);
 
   const {
     startWeights,
@@ -361,7 +361,7 @@ export function GZCLPApp({
     queryClient.clear();
   };
 
-  if (authLoading || (user === null && !isGuest)) return null;
+  if (authLoading || user === null) return null;
 
   return (
     <>
