@@ -4,14 +4,11 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./engine": "./src/engine.ts",
     "./generic-engine": "./src/generic-engine.ts",
-    "./stats": "./src/stats.ts",
     "./generic-stats": "./src/generic-stats.ts",
     "./type-guards": "./src/type-guards.ts",
     "./types": "./src/types/index.ts",
     "./types/program": "./src/types/program.ts",
-    "./schemas/legacy": "./src/schemas/legacy.ts",
     "./schemas/instance": "./src/schemas/instance.ts",
     "./schemas/program-definition": "./src/schemas/program-definition.ts"
   },

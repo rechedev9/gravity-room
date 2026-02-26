@@ -1,4 +1,3 @@
-import type { StartWeights, Results } from '../src/types';
 import type { ProgramDefinition } from '../src/types/program';
 
 // ---------------------------------------------------------------------------
@@ -225,31 +224,6 @@ export const GZCLP_DEFINITION_FIXTURE: ProgramDefinition = {
     },
   ],
 };
-
-// ---------------------------------------------------------------------------
-// GZCLP legacy constants (replaces imports from program.ts in tests)
-// ---------------------------------------------------------------------------
-
-export const DAYS = [
-  { name: 'Día 1', t1: 'squat', t2: 'bench', t3: 'latpulldown' },
-  { name: 'Día 2', t1: 'ohp', t2: 'deadlift', t3: 'dbrow' },
-  { name: 'Día 3', t1: 'bench', t2: 'squat', t3: 'latpulldown' },
-  { name: 'Día 4', t1: 'deadlift', t2: 'ohp', t3: 'dbrow' },
-] as const;
-
-export const T1_STAGES = [
-  { sets: 5, reps: 3 },
-  { sets: 6, reps: 2 },
-  { sets: 10, reps: 1 },
-] as const;
-
-export const T2_STAGES = [
-  { sets: 3, reps: 10 },
-  { sets: 3, reps: 8 },
-  { sets: 3, reps: 6 },
-] as const;
-
-export const TOTAL_WORKOUTS = 90;
 
 // ---------------------------------------------------------------------------
 // Nivel 7 definition fixture (replicated from the production generator)
@@ -846,7 +820,7 @@ export const NIVEL7_DEFINITION_FIXTURE: ProgramDefinition = {
  * Default start weights used across all integration tests.
  * Matches the typical beginner GZCLP setup.
  */
-export const DEFAULT_WEIGHTS: StartWeights = {
+export const DEFAULT_WEIGHTS: Record<string, number> = {
   squat: 60,
   bench: 40,
   deadlift: 80,
@@ -854,39 +828,3 @@ export const DEFAULT_WEIGHTS: StartWeights = {
   latpulldown: 30,
   dbrow: 15,
 };
-
-/** Build start weights with optional overrides. */
-export function buildStartWeights(overrides?: Partial<StartWeights>): StartWeights {
-  return { ...DEFAULT_WEIGHTS, ...overrides };
-}
-
-/** Build a results map from an array of [workoutIndex, result] tuples. */
-export function buildResults(
-  entries: Array<
-    [
-      number,
-      {
-        t1?: 'success' | 'fail';
-        t2?: 'success' | 'fail';
-        t3?: 'success' | 'fail';
-        t1Reps?: number;
-        t3Reps?: number;
-      },
-    ]
-  >
-): Results {
-  const results: Results = {};
-  for (const [index, result] of entries) {
-    results[index] = result;
-  }
-  return results;
-}
-
-/** Build N consecutive workouts all marked as success for all tiers. */
-export function buildSuccessfulResults(n: number): Results {
-  const results: Results = {};
-  for (let i = 0; i < n; i++) {
-    results[i] = { t1: 'success', t2: 'success', t3: 'success' };
-  }
-  return results;
-}

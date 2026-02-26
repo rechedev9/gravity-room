@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { computeGenericProgram, roundToNearestHalf as round } from './generic-engine';
-import { GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS, buildResults } from '../test/fixtures';
+import { GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS } from '../test/fixtures';
 import type { ProgramDefinition, GenericResults } from './types/program';
 import {
   ProgressionRuleSchema,
@@ -123,8 +123,20 @@ const GZCLP_DAY_SLOT_MAP = GZCLP_DEFINITION_FIXTURE.days.map((day) => ({
   t3: day.slots.find((s) => s.tier === 't3')?.id ?? '',
 }));
 
+/** Legacy result entry for GZCLP parity tests. */
+type LegacyResultEntry = [
+  number,
+  {
+    t1?: 'success' | 'fail';
+    t2?: 'success' | 'fail';
+    t3?: 'success' | 'fail';
+    t1Reps?: number;
+    t3Reps?: number;
+  },
+];
+
 /** Convert GZCLP legacy results to generic format for parity tests. */
-function toGenericResults(entries: Parameters<typeof buildResults>[0]): GenericResults {
+function toGenericResults(entries: LegacyResultEntry[]): GenericResults {
   const generic: GenericResults = {};
   for (const [i, res] of entries) {
     const dayMap = GZCLP_DAY_SLOT_MAP[i % 4];
