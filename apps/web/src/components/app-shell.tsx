@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth-context';
 import { Dashboard } from './dashboard';
-import { GZCLPApp } from './gzclp-app';
 import { GenericProgramApp } from './generic-program-app';
 import { ProfilePage } from './profile-page';
 import { AppSkeleton } from './app-skeleton';
@@ -81,7 +80,13 @@ export function AppShell(): React.ReactNode {
   let content: React.ReactNode;
 
   if (view === 'profile') {
-    content = <ProfilePage onBack={handleBackToDashboard} />;
+    content = (
+      <ProfilePage
+        programId={selectedProgramId}
+        instanceId={selectedInstanceId}
+        onBack={handleBackToDashboard}
+      />
+    );
   } else if (view === 'dashboard') {
     content = (
       <Dashboard
@@ -91,27 +96,16 @@ export function AppShell(): React.ReactNode {
       />
     );
   } else {
-    // Determine which program to show
     const programId = pendingProgramId ?? selectedProgramId;
 
-    if (programId && programId !== 'gzclp') {
-      content = (
-        <GenericProgramApp
-          programId={programId}
-          instanceId={selectedInstanceId}
-          onBackToDashboard={handleBackToDashboard}
-          onGoToProfile={handleGoToProfile}
-        />
-      );
-    } else {
-      content = (
-        <GZCLPApp
-          instanceId={selectedInstanceId}
-          onBackToDashboard={handleBackToDashboard}
-          onGoToProfile={handleGoToProfile}
-        />
-      );
-    }
+    content = programId ? (
+      <GenericProgramApp
+        programId={programId}
+        instanceId={selectedInstanceId}
+        onBackToDashboard={handleBackToDashboard}
+        onGoToProfile={handleGoToProfile}
+      />
+    ) : null;
   }
 
   const slideDirection = VIEW_ORDER[view] >= VIEW_ORDER[prevViewRef.current] ? 'Right' : 'Left';

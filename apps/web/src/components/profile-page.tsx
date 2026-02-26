@@ -15,6 +15,8 @@ import { AppHeader } from './app-header';
 import { DeleteAccountDialog } from './delete-account-dialog';
 
 interface ProfilePageProps {
+  readonly programId?: string;
+  readonly instanceId?: string;
   readonly onBack: () => void;
 }
 
