@@ -1,12 +1,11 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { useProgram } from '@/hooks/use-program';
+import { extractGenericChartData } from '@gzclp/shared/generic-stats';
+import { calculateStats } from '@gzclp/shared/stats';
+import { useGenericProgram } from '@/hooks/use-generic-program';
 import { useAuth } from '@/contexts/auth-context';
 import { computeProfileData, formatVolume } from '@/lib/profile-stats';
-import { extractChartData, calculateStats } from '@gzclp/shared/stats';
-import { queryKeys } from '@/lib/query-keys';
-import { updateProfile, fetchCatalogDetail } from '@/lib/api-functions';
+import { updateProfile } from '@/lib/api-functions';
 import { resizeImageToDataUrl } from '@/lib/resize-image';
 import { Button } from './button';
 import { ProfileStatCard } from './profile-stat-card';
@@ -20,41 +19,11 @@ interface ProfilePageProps {
   readonly onBack: () => void;
 }
 
-export function ProfilePage({ onBack }: ProfilePageProps): React.ReactNode {
-  const { startWeights, results, resultTimestamps } = useProgram();
+export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps): React.ReactNode {
+  const pid = programId ?? 'gzclp';
+  const { definition, config, rows, resultTimestamps } = useGenericProgram(pid, instanceId);
   const { user, updateUser, deleteAccount } = useAuth();
   const navigate = useNavigate();
-
-  // Fetch GZCLP definition from catalog
-  const catalogQuery = useQuery({
-    queryKey: queryKeys.catalog.detail('gzclp'),
-    queryFn: () => fetchCatalogDetail('gzclp'),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const definition = catalogQuery.data;
-
-  // Derive NAMES and T1_EXERCISES from definition
-  const { names, t1Exercises } = useMemo(() => {
-    if (!definition) {
-      const empty: { names: Record<string, string>; t1Exercises: string[] } = {
-        names: {},
-        t1Exercises: [],
-      };
-      return empty;
-    }
-    const nm: Record<string, string> = {};
-    for (const [id, ex] of Object.entries(definition.exercises)) {
-      nm[id] = ex.name;
-    }
-    const t1Set = new Set<string>();
-    for (const day of definition.days) {
-      for (const slot of day.slots) {
-        if (slot.tier === 't1') t1Set.add(slot.exerciseId);
-      }
-    }
-    return { names: nm, t1Exercises: [...t1Set] };
-  }, [definition]);
 
   // Avatar upload state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,14 +33,35 @@ export function ProfilePage({ onBack }: ProfilePageProps): React.ReactNode {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Derive names and primary exercises from definition
+  const names: Readonly<Record<string, string>> = (() => {
+    if (!definition) return {};
+    const nm: Record<string, string> = {};
+    for (const [id, ex] of Object.entries(definition.exercises)) {
+      nm[id] = ex.name;
+    }
+    return nm;
+  })();
+
+  const primaryExercises: readonly string[] = (() => {
+    if (!definition) return [];
+    const ids = new Set<string>();
+    for (const day of definition.days) {
+      for (const slot of day.slots) {
+        if (slot.tier === 't1') ids.add(slot.exerciseId);
+      }
+    }
+    return [...ids];
+  })();
+
   const profileData = (() => {
-    if (!startWeights || !definition) return null;
-    return computeProfileData(startWeights, results, definition, resultTimestamps);
+    if (!config || !definition) return null;
+    return computeProfileData(rows, definition, config, resultTimestamps);
   })();
 
   const chartData = (() => {
-    if (!startWeights) return null;
-    return extractChartData(startWeights, results);
+    if (!definition || rows.length === 0) return null;
+    return extractGenericChartData(definition, rows);
   })();
 
   const handleAvatarClick = (): void => {
@@ -321,7 +311,7 @@ export function ProfilePage({ onBack }: ProfilePageProps): React.ReactNode {
               <section className="mb-10">
                 <h2 className="section-label mb-3">Progresión de Peso</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {t1Exercises.map((ex) => {
+                  {primaryExercises.map((ex) => {
                     const data = chartData[ex];
                     if (!data) return null;
                     const stats = calculateStats(data);

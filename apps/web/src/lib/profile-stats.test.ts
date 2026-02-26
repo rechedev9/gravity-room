@@ -1,21 +1,54 @@
 import { describe, it, expect } from 'bun:test';
+import { computeGenericProgram } from '@gzclp/shared/generic-engine';
+import type { GenericResults } from '@gzclp/shared/types/program';
 import { computeProfileData, formatVolume } from './profile-stats';
-import {
-  DEFAULT_WEIGHTS,
-  buildResults,
-  buildSuccessfulResults,
-  GZCLP_DEFINITION_FIXTURE,
-} from '../../test/helpers/fixtures';
+import { GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS } from '../../test/helpers/fixtures';
 
 const DEF = GZCLP_DEFINITION_FIXTURE;
+const CONFIG = DEFAULT_WEIGHTS as Record<string, number>;
+
+/** Build generic results from an array of [workoutIndex, slotResults] tuples. */
+function buildGenericResults(
+  entries: Array<[number, Record<string, { result?: 'success' | 'fail'; amrapReps?: number }>]>
+): GenericResults {
+  const results: GenericResults = {};
+  for (const [index, slots] of entries) {
+    results[String(index)] = slots;
+  }
+  return results;
+}
+
+/** Map day index → slot IDs for GZCLP (4-day rotation). */
+const DAY_SLOTS: Record<number, { t1: string; t2: string; t3: string }> = {
+  0: { t1: 'd1-t1', t2: 'd1-t2', t3: 'latpulldown-t3' },
+  1: { t1: 'd2-t1', t2: 'd2-t2', t3: 'dbrow-t3' },
+  2: { t1: 'd3-t1', t2: 'd3-t2', t3: 'latpulldown-t3' },
+  3: { t1: 'd4-t1', t2: 'd4-t2', t3: 'dbrow-t3' },
+};
+
+/** Build N consecutive all-success workouts in generic format. */
+function buildAllSuccessResults(n: number): GenericResults {
+  const results: GenericResults = {};
+  for (let i = 0; i < n; i++) {
+    const dayIdx = i % 4;
+    const slots = DAY_SLOTS[dayIdx];
+    results[String(i)] = {
+      [slots.t1]: { result: 'success' },
+      [slots.t2]: { result: 'success' },
+      [slots.t3]: { result: 'success' },
+    };
+  }
+  return results;
+}
 
 // ---------------------------------------------------------------------------
-// computeProfileData — full integration through computeProgram
+// computeProfileData — full integration through computeGenericProgram
 // ---------------------------------------------------------------------------
 describe('computeProfileData', () => {
   describe('with no results', () => {
     it('should return empty profile data', () => {
-      const profile = computeProfileData(DEFAULT_WEIGHTS, {}, DEF);
+      const rows = computeGenericProgram(DEF, CONFIG, {});
+      const profile = computeProfileData(rows, DEF, CONFIG);
 
       expect(profile.completion.workoutsCompleted).toBe(0);
       expect(profile.completion.totalWorkouts).toBe(90);
@@ -32,27 +65,30 @@ describe('computeProfileData', () => {
     });
 
     it('should return start weights as PRs with workoutIndex -1', () => {
-      const profile = computeProfileData(DEFAULT_WEIGHTS, {}, DEF);
+      const rows = computeGenericProgram(DEF, CONFIG, {});
+      const profile = computeProfileData(rows, DEF, CONFIG);
 
       for (const pr of profile.personalRecords) {
         expect(pr.workoutIndex).toBe(-1);
-        expect(pr.weight).toBe(DEFAULT_WEIGHTS[pr.exercise as keyof typeof DEFAULT_WEIGHTS]);
+        expect(pr.weight).toBe(CONFIG[pr.exercise] ?? 0);
       }
     });
 
     it('should include startWeight on every PR matching the starting weights', () => {
-      const profile = computeProfileData(DEFAULT_WEIGHTS, {}, DEF);
+      const rows = computeGenericProgram(DEF, CONFIG, {});
+      const profile = computeProfileData(rows, DEF, CONFIG);
 
       for (const pr of profile.personalRecords) {
-        expect(pr.startWeight).toBe(DEFAULT_WEIGHTS[pr.exercise as keyof typeof DEFAULT_WEIGHTS]);
+        expect(pr.startWeight).toBe(CONFIG[pr.exercise] ?? 0);
       }
     });
   });
 
   describe('personal records', () => {
-    it('should track highest successful weight for each T1 exercise', () => {
-      const results = buildSuccessfulResults(8); // 2 full cycles
-      const profile = computeProfileData(DEFAULT_WEIGHTS, results, DEF);
+    it('should track highest successful weight for each primary exercise', () => {
+      const results = buildAllSuccessResults(8); // 2 full cycles
+      const rows = computeGenericProgram(DEF, CONFIG, results);
+      const profile = computeProfileData(rows, DEF, CONFIG);
 
       const squatPR = profile.personalRecords.find((pr) => pr.exercise === 'squat');
       // Squat: success at index 0 (60kg) and index 4 (65kg)
@@ -61,7 +97,9 @@ describe('computeProfileData', () => {
     });
 
     it('should include display names', () => {
-      const profile = computeProfileData(DEFAULT_WEIGHTS, buildSuccessfulResults(4), DEF);
+      const results = buildAllSuccessResults(4);
+      const rows = computeGenericProgram(DEF, CONFIG, results);
+      const profile = computeProfileData(rows, DEF, CONFIG);
       const squatPR = profile.personalRecords.find((pr) => pr.exercise === 'squat');
       expect(squatPR?.displayName).toBe('Sentadilla');
     });
@@ -69,40 +107,78 @@ describe('computeProfileData', () => {
 
   describe('streaks', () => {
     it('should count consecutive fully-completed workouts', () => {
-      // First 4 workouts fully completed
-      const results = buildResults([
-        [0, { t1: 'success', t2: 'success', t3: 'success' }],
-        [1, { t1: 'success', t2: 'success', t3: 'success' }],
-        [2, { t1: 'success', t2: 'success', t3: 'success' }],
-        [3, { t1: 'success', t2: 'success', t3: 'success' }],
-      ]);
-      const profile = computeProfileData(DEFAULT_WEIGHTS, results, DEF);
+      const results = buildAllSuccessResults(4);
+      const rows = computeGenericProgram(DEF, CONFIG, results);
+      const profile = computeProfileData(rows, DEF, CONFIG);
 
       expect(profile.streak.current).toBe(4);
       expect(profile.streak.longest).toBe(4);
     });
 
     it('should break streak on partial completion', () => {
-      const results = buildResults([
-        [0, { t1: 'success', t2: 'success', t3: 'success' }],
-        [1, { t1: 'success' }], // partial — only T1 marked
-        [2, { t1: 'success', t2: 'success', t3: 'success' }],
+      const results = buildGenericResults([
+        [
+          0,
+          {
+            'd1-t1': { result: 'success' },
+            'd1-t2': { result: 'success' },
+            'latpulldown-t3': { result: 'success' },
+          },
+        ],
+        [1, { 'd2-t1': { result: 'success' } }], // partial
+        [
+          2,
+          {
+            'd3-t1': { result: 'success' },
+            'd3-t2': { result: 'success' },
+            'latpulldown-t3': { result: 'success' },
+          },
+        ],
       ]);
-      const profile = computeProfileData(DEFAULT_WEIGHTS, results, DEF);
+      const rows = computeGenericProgram(DEF, CONFIG, results);
+      const profile = computeProfileData(rows, DEF, CONFIG);
 
-      // Streak broke at index 1 (partial), resumed at index 2
       expect(profile.streak.longest).toBe(1);
     });
 
     it('should track longest streak separately from current', () => {
-      const results = buildResults([
-        [0, { t1: 'success', t2: 'success', t3: 'success' }],
-        [1, { t1: 'success', t2: 'success', t3: 'success' }],
-        [2, { t1: 'success', t2: 'success', t3: 'success' }],
-        [3, { t1: 'success' }], // breaks streak
-        [4, { t1: 'success', t2: 'success', t3: 'success' }],
+      const results = buildGenericResults([
+        [
+          0,
+          {
+            'd1-t1': { result: 'success' },
+            'd1-t2': { result: 'success' },
+            'latpulldown-t3': { result: 'success' },
+          },
+        ],
+        [
+          1,
+          {
+            'd2-t1': { result: 'success' },
+            'd2-t2': { result: 'success' },
+            'dbrow-t3': { result: 'success' },
+          },
+        ],
+        [
+          2,
+          {
+            'd3-t1': { result: 'success' },
+            'd3-t2': { result: 'success' },
+            'latpulldown-t3': { result: 'success' },
+          },
+        ],
+        [3, { 'd4-t1': { result: 'success' } }], // breaks streak
+        [
+          4,
+          {
+            'd1-t1': { result: 'success' },
+            'd1-t2': { result: 'success' },
+            'latpulldown-t3': { result: 'success' },
+          },
+        ],
       ]);
-      const profile = computeProfileData(DEFAULT_WEIGHTS, results, DEF);
+      const rows = computeGenericProgram(DEF, CONFIG, results);
+      const profile = computeProfileData(rows, DEF, CONFIG);
 
       expect(profile.streak.longest).toBe(3);
       expect(profile.streak.current).toBe(1);
@@ -111,55 +187,96 @@ describe('computeProfileData', () => {
 
   describe('volume', () => {
     it('should calculate total volume from completed workouts', () => {
-      const results = buildResults([[0, { t1: 'success', t2: 'success', t3: 'success' }]]);
-      const profile = computeProfileData(DEFAULT_WEIGHTS, results, DEF);
+      const results = buildGenericResults([
+        [
+          0,
+          {
+            'd1-t1': { result: 'success' },
+            'd1-t2': { result: 'success' },
+            'latpulldown-t3': { result: 'success' },
+          },
+        ],
+      ]);
+      const rows = computeGenericProgram(DEF, CONFIG, results);
+      const profile = computeProfileData(rows, DEF, CONFIG);
 
-      // Volume > 0 when workouts are completed
       expect(profile.volume.totalVolume).toBeGreaterThan(0);
       expect(profile.volume.totalSets).toBeGreaterThan(0);
       expect(profile.volume.totalReps).toBeGreaterThan(0);
     });
 
     it('should include AMRAP reps in volume calculation', () => {
-      const withDefault = buildResults([[0, { t1: 'success', t2: 'success', t3: 'success' }]]);
-      const withHighAmrap = buildResults([
-        [0, { t1: 'success', t1Reps: 15, t2: 'success', t3: 'success', t3Reps: 40 }],
+      const withDefault = buildGenericResults([
+        [
+          0,
+          {
+            'd1-t1': { result: 'success' },
+            'd1-t2': { result: 'success' },
+            'latpulldown-t3': { result: 'success' },
+          },
+        ],
+      ]);
+      const withHighAmrap = buildGenericResults([
+        [
+          0,
+          {
+            'd1-t1': { result: 'success', amrapReps: 15 },
+            'd1-t2': { result: 'success' },
+            'latpulldown-t3': { result: 'success', amrapReps: 40 },
+          },
+        ],
       ]);
 
-      const defaultProfile = computeProfileData(DEFAULT_WEIGHTS, withDefault, DEF);
-      const amrapProfile = computeProfileData(DEFAULT_WEIGHTS, withHighAmrap, DEF);
+      const defaultRows = computeGenericProgram(DEF, CONFIG, withDefault);
+      const amrapRows = computeGenericProgram(DEF, CONFIG, withHighAmrap);
+      const defaultProfile = computeProfileData(defaultRows, DEF, CONFIG);
+      const amrapProfile = computeProfileData(amrapRows, DEF, CONFIG);
 
-      // Higher AMRAP reps should produce more volume
       expect(amrapProfile.volume.totalVolume).toBeGreaterThan(defaultProfile.volume.totalVolume);
     });
   });
 
   describe('completion stats', () => {
     it('should calculate completion percentage', () => {
-      const results = buildSuccessfulResults(45); // Half the program
-      const profile = computeProfileData(DEFAULT_WEIGHTS, results, DEF);
+      const results = buildAllSuccessResults(45);
+      const rows = computeGenericProgram(DEF, CONFIG, results);
+      const profile = computeProfileData(rows, DEF, CONFIG);
 
       expect(profile.completion.workoutsCompleted).toBe(45);
       expect(profile.completion.completionPct).toBe(50);
     });
 
-    it('should calculate overall success rate across all tiers', () => {
-      const results = buildResults([
-        [0, { t1: 'success', t2: 'success', t3: 'fail' }], // 2/3 success
-        [1, { t1: 'fail', t2: 'success', t3: 'success' }], // 2/3 success
+    it('should calculate overall success rate across all slots', () => {
+      const results = buildGenericResults([
+        [
+          0,
+          {
+            'd1-t1': { result: 'success' },
+            'd1-t2': { result: 'success' },
+            'latpulldown-t3': { result: 'fail' },
+          },
+        ],
+        [
+          1,
+          {
+            'd2-t1': { result: 'fail' },
+            'd2-t2': { result: 'success' },
+            'dbrow-t3': { result: 'success' },
+          },
+        ],
       ]);
-      const profile = computeProfileData(DEFAULT_WEIGHTS, results, DEF);
+      const rows = computeGenericProgram(DEF, CONFIG, results);
+      const profile = computeProfileData(rows, DEF, CONFIG);
 
       // 4 successes out of 6 marks = 67%
       expect(profile.completion.overallSuccessRate).toBe(67);
     });
 
-    it('should sum weight gained across all T1 exercises', () => {
-      const results = buildSuccessfulResults(8); // 2 cycles
-      const profile = computeProfileData(DEFAULT_WEIGHTS, results, DEF);
+    it('should sum weight gained across all primary exercises', () => {
+      const results = buildAllSuccessResults(8);
+      const rows = computeGenericProgram(DEF, CONFIG, results);
+      const profile = computeProfileData(rows, DEF, CONFIG);
 
-      // Each T1 exercise had 2 successes, gaining their increment amount each time
-      // squat: +5, bench: +2.5, ohp: +2.5, deadlift: +5 (only 1 success for dl in 8 workouts)
       expect(profile.completion.totalWeightGained).toBeGreaterThan(0);
     });
   });

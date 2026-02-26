@@ -1,9 +1,8 @@
-import { computeProgram } from '@gzclp/shared/engine';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
-import type { StartWeights, Results, WorkoutRow } from '@gzclp/shared/types';
+import type { GenericWorkoutRow } from '@gzclp/shared/types';
 
 // ---------------------------------------------------------------------------
-// Definition-derived helpers (replaces hardcoded @gzclp/shared/program imports)
+// Definition-derived helpers
 // ---------------------------------------------------------------------------
 
 function deriveNames(definition: ProgramDefinition): Readonly<Record<string, string>> {
@@ -14,7 +13,8 @@ function deriveNames(definition: ProgramDefinition): Readonly<Record<string, str
   return map;
 }
 
-function deriveT1Exercises(definition: ProgramDefinition): readonly string[] {
+/** Extract exercise IDs that appear in primary (T1) slots. */
+function derivePrimaryExercises(definition: ProgramDefinition): readonly string[] {
   const ids = new Set<string>();
   for (const day of definition.days) {
     for (const slot of day.slots) {
@@ -22,33 +22,6 @@ function deriveT1Exercises(definition: ProgramDefinition): readonly string[] {
     }
   }
   return [...ids];
-}
-
-function deriveT1Stages(
-  definition: ProgramDefinition
-): readonly { readonly sets: number; readonly reps: number }[] {
-  for (const day of definition.days) {
-    for (const slot of day.slots) {
-      if (slot.tier === 't1') {
-        return slot.stages.map((s) => ({ sets: s.sets, reps: s.reps }));
-      }
-    }
-  }
-  return [{ sets: 5, reps: 3 }];
-}
-
-function deriveT3Constants(definition: ProgramDefinition): {
-  sets: number;
-  prescribedReps: number;
-} {
-  for (const day of definition.days) {
-    for (const slot of day.slots) {
-      if (slot.tier === 't3' && slot.stages.length > 0) {
-        return { sets: slot.stages[0].sets, prescribedReps: slot.stages[0].reps };
-      }
-    }
-  }
-  return { sets: 3, prescribedReps: 15 };
 }
 
 // ─── Types ──────────────────────────────────────────────────────────
@@ -98,7 +71,7 @@ export interface ProfileData {
   readonly monthlyReport: MonthlyReport | null;
 }
 
-// ─── Row-level helpers (shared between computeVolume / computeMonthlyReport) ─
+// ─── Row-level helpers (generic slot-based) ─────────────────────────
 
 interface VolumeTick {
   volume: number;
@@ -112,61 +85,40 @@ interface SuccessTick {
   marks: number;
 }
 
-function rowVolumeTick(
-  row: WorkoutRow,
-  t1Stages: readonly { readonly sets: number; readonly reps: number }[],
-  t3Constants: { sets: number; prescribedReps: number }
-): VolumeTick {
+function rowVolumeTick(row: GenericWorkoutRow): VolumeTick {
   let volume = 0;
   let sets = 0;
   let reps = 0;
 
-  if (row.result.t1) {
-    const stage = t1Stages[row.t1Stage] ?? t1Stages[0];
-    const regularReps = (stage.sets - 1) * stage.reps;
-    const amrapReps = row.result.t1Reps ?? stage.reps;
-    const total = regularReps + amrapReps;
-    volume += total * row.t1Weight;
-    sets += stage.sets;
-    reps += total;
-  }
-  if (row.result.t2) {
-    const total = row.t2Sets * row.t2Reps;
-    volume += total * row.t2Weight;
-    sets += row.t2Sets;
-    reps += total;
-  }
-  if (row.result.t3) {
-    const regularReps = (t3Constants.sets - 1) * t3Constants.prescribedReps;
-    const amrapReps = row.result.t3Reps ?? t3Constants.prescribedReps;
-    const total = regularReps + amrapReps;
-    volume += total * row.t3Weight;
-    sets += t3Constants.sets;
+  for (const slot of row.slots) {
+    if (!slot.result) continue;
+    const slotSets = slot.sets;
+    const slotReps = slot.reps;
+    // For AMRAP slots, last set uses actual amrapReps; regular sets use prescribed reps
+    const regularReps = (slotSets - 1) * slotReps;
+    const lastSetReps = slot.isAmrap && slot.amrapReps !== undefined ? slot.amrapReps : slotReps;
+    const total = regularReps + lastSetReps;
+    volume += total * slot.weight;
+    sets += slotSets;
     reps += total;
   }
 
   return { volume, sets, reps };
 }
 
-function rowSuccessTick(row: WorkoutRow): SuccessTick {
+function rowSuccessTick(row: GenericWorkoutRow): SuccessTick {
   let successes = 0;
   let marks = 0;
 
-  if (row.result.t1) {
-    marks += 1;
-    if (row.result.t1 === 'success') successes += 1;
-  }
-  if (row.result.t2) {
-    marks += 1;
-    if (row.result.t2 === 'success') successes += 1;
-  }
-  if (row.result.t3) {
-    marks += 1;
-    if (row.result.t3 === 'success') successes += 1;
+  for (const slot of row.slots) {
+    if (slot.result) {
+      marks += 1;
+      if (slot.result === 'success') successes += 1;
+    }
   }
 
   return {
-    isComplete: !!(row.result.t1 && row.result.t2 && row.result.t3),
+    isComplete: row.slots.every((s) => s.result !== undefined),
     successes,
     marks,
   };
@@ -179,65 +131,64 @@ function toPercentage(numerator: number, denominator: number): number {
 // ─── Sub-computations ───────────────────────────────────────────────
 
 function computePersonalRecords(
-  rows: readonly WorkoutRow[],
-  startWeights: StartWeights,
-  t1Exercises: readonly string[],
+  rows: readonly GenericWorkoutRow[],
+  config: Record<string, number>,
+  primaryExercises: readonly string[],
   names: Readonly<Record<string, string>>
 ): readonly PersonalRecord[] {
-  // Widen StartWeights to Record<string, number> so we can index with dynamic keys
-  const sw: Readonly<Record<string, number>> = startWeights;
   const best: Record<string, { weight: number; workoutIndex: number }> = {};
 
-  for (const ex of t1Exercises) {
-    best[ex] = { weight: sw[ex] ?? 0, workoutIndex: -1 };
+  for (const ex of primaryExercises) {
+    best[ex] = { weight: config[ex] ?? 0, workoutIndex: -1 };
   }
 
   for (const row of rows) {
-    if (
-      row.result.t1 === 'success' &&
-      best[row.t1Exercise] &&
-      row.t1Weight >= best[row.t1Exercise].weight
-    ) {
-      best[row.t1Exercise] = { weight: row.t1Weight, workoutIndex: row.index };
+    for (const slot of row.slots) {
+      if (
+        slot.role === 'primary' &&
+        slot.result === 'success' &&
+        best[slot.exerciseId] &&
+        slot.weight >= best[slot.exerciseId].weight
+      ) {
+        best[slot.exerciseId] = { weight: slot.weight, workoutIndex: row.index };
+      }
     }
   }
 
-  return t1Exercises.map((ex) => ({
+  return primaryExercises.map((ex) => ({
     exercise: ex,
     displayName: names[ex] ?? ex,
     weight: best[ex].weight,
-    startWeight: sw[ex] ?? 0,
+    startWeight: config[ex] ?? 0,
     workoutIndex: best[ex].workoutIndex,
   }));
 }
 
-function computeStreak(results: Results, totalWorkouts: number): StreakInfo {
+function computeStreak(rows: readonly GenericWorkoutRow[], totalWorkouts: number): StreakInfo {
   let current = 0;
   let longest = 0;
   let streak = 0;
 
   for (let i = 0; i < totalWorkouts; i++) {
-    const res = results[i];
-    const isComplete = !!(res?.t1 && res?.t2 && res?.t3);
+    const row = rows[i];
+    if (!row) {
+      current = streak;
+      break;
+    }
 
-    if (isComplete) {
+    const tick = rowSuccessTick(row);
+
+    if (tick.isComplete) {
       streak += 1;
-      if (streak > longest) {
-        longest = streak;
-      }
+      if (streak > longest) longest = streak;
     } else {
-      // If we haven't marked anything for this workout, the streak is "live"
-      const hasAnyMark = !!(res?.t1 || res?.t2 || res?.t3);
-      if (!hasAnyMark) {
-        // This is an unmarked workout — current streak ends here
+      if (tick.marks === 0) {
         current = streak;
         break;
       }
-      // Partial workout breaks the streak
       streak = 0;
     }
 
-    // If we've gone through all marked workouts
     if (i === totalWorkouts - 1) {
       current = streak;
     }
@@ -246,17 +197,13 @@ function computeStreak(results: Results, totalWorkouts: number): StreakInfo {
   return { current, longest };
 }
 
-function computeVolume(
-  rows: readonly WorkoutRow[],
-  t1Stages: readonly { readonly sets: number; readonly reps: number }[],
-  t3Constants: { sets: number; prescribedReps: number }
-): VolumeStats {
+function computeVolume(rows: readonly GenericWorkoutRow[]): VolumeStats {
   let totalVolume = 0;
   let totalSets = 0;
   let totalReps = 0;
 
   for (const row of rows) {
-    const { volume, sets, reps } = rowVolumeTick(row, t1Stages, t3Constants);
+    const { volume, sets, reps } = rowVolumeTick(row);
     totalVolume += volume;
     totalSets += sets;
     totalReps += reps;
@@ -266,10 +213,10 @@ function computeVolume(
 }
 
 function computeCompletion(
-  rows: readonly WorkoutRow[],
-  startWeights: StartWeights,
+  rows: readonly GenericWorkoutRow[],
+  config: Record<string, number>,
   totalWorkouts: number,
-  t1Exercises: readonly string[]
+  primaryExercises: readonly string[]
 ): CompletionStats {
   let completed = 0;
   let successes = 0;
@@ -284,12 +231,15 @@ function computeCompletion(
 
   const lastSuccessWeight: Record<string, number> = {};
   for (const row of rows) {
-    if (row.result.t1 === 'success') lastSuccessWeight[row.t1Exercise] = row.t1Weight;
+    for (const slot of row.slots) {
+      if (slot.role === 'primary' && slot.result === 'success') {
+        lastSuccessWeight[slot.exerciseId] = slot.weight;
+      }
+    }
   }
 
-  const sw: Readonly<Record<string, number>> = startWeights;
-  const totalWeightGained = t1Exercises.reduce((sum, ex) => {
-    const gained = (lastSuccessWeight[ex] ?? sw[ex] ?? 0) - (sw[ex] ?? 0);
+  const totalWeightGained = primaryExercises.reduce((sum, ex) => {
+    const gained = (lastSuccessWeight[ex] ?? config[ex] ?? 0) - (config[ex] ?? 0);
     return gained > 0 ? sum + gained : sum;
   }, 0);
 
@@ -302,19 +252,65 @@ function computeCompletion(
   };
 }
 
+/** Find the best pre-month weight for a primary exercise from prior rows. */
+function findPriorBest(
+  rows: readonly GenericWorkoutRow[],
+  exerciseId: string,
+  beforeIndex: number,
+  excludeIndices: ReadonlySet<number>,
+  startWeight: number
+): number {
+  let best = startWeight;
+  for (const prior of rows) {
+    if (prior.index >= beforeIndex) break;
+    if (excludeIndices.has(prior.index)) continue;
+    for (const slot of prior.slots) {
+      if (
+        slot.role === 'primary' &&
+        slot.exerciseId === exerciseId &&
+        slot.result === 'success' &&
+        slot.weight > best
+      ) {
+        best = slot.weight;
+      }
+    }
+  }
+  return best;
+}
+
+function countMonthlyPRs(
+  monthRows: readonly GenericWorkoutRow[],
+  allRows: readonly GenericWorkoutRow[],
+  monthIndices: ReadonlySet<number>,
+  config: Record<string, number>
+): number {
+  let count = 0;
+  for (const row of monthRows) {
+    for (const slot of row.slots) {
+      if (slot.role !== 'primary' || slot.result !== 'success') continue;
+      const priorBest = findPriorBest(
+        allRows,
+        slot.exerciseId,
+        row.index,
+        monthIndices,
+        config[slot.exerciseId] ?? 0
+      );
+      if (slot.weight > priorBest) count += 1;
+    }
+  }
+  return count;
+}
+
 function computeMonthlyReport(
-  rows: readonly WorkoutRow[],
-  startWeights: StartWeights,
-  resultTimestamps: Readonly<Record<string, string>>,
-  t1Stages: readonly { readonly sets: number; readonly reps: number }[],
-  t3Constants: { sets: number; prescribedReps: number }
+  rows: readonly GenericWorkoutRow[],
+  config: Record<string, number>,
+  resultTimestamps: Readonly<Record<string, string>>
 ): MonthlyReport | null {
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
   const monthLabel = now.toLocaleString('es-ES', { month: 'long', year: 'numeric' });
 
-  // Find workout indices that fall in the current month
   const monthIndices = new Set<number>();
   for (const [indexStr, ts] of Object.entries(resultTimestamps)) {
     const date = new Date(ts);
@@ -325,7 +321,6 @@ function computeMonthlyReport(
 
   if (monthIndices.size === 0) return null;
 
-  // Filter rows to this month's workouts
   const monthRows = rows.filter((r) => monthIndices.has(r.index));
 
   let completed = 0;
@@ -341,30 +336,14 @@ function computeMonthlyReport(
     successes += st.successes;
     totalMarks += st.marks;
 
-    const vt = rowVolumeTick(row, t1Stages, t3Constants);
+    const vt = rowVolumeTick(row);
     volume += vt.volume;
     sets += vt.sets;
     reps += vt.reps;
   }
 
-  // Count PRs: T1 successes this month that exceed pre-month best
-  let prCount = 0;
-  const startWeightLookup: Record<string, number> = { ...startWeights };
-  for (const row of monthRows) {
-    if (row.result.t1 !== 'success') continue;
-    const exercise = row.t1Exercise;
-    let priorBest = startWeightLookup[exercise] ?? 0;
-    for (const prior of rows) {
-      if (prior.index >= row.index) break;
-      const isMatch =
-        !monthIndices.has(prior.index) &&
-        prior.t1Exercise === exercise &&
-        prior.result.t1 === 'success' &&
-        prior.t1Weight > priorBest;
-      if (isMatch) priorBest = prior.t1Weight;
-    }
-    if (row.t1Weight > priorBest) prCount += 1;
-  }
+  // Count PRs: primary slot successes this month that exceed pre-month best
+  const prCount = countMonthlyPRs(monthRows, rows, monthIndices, config);
 
   return {
     monthLabel,
@@ -380,30 +359,24 @@ function computeMonthlyReport(
 // ─── Main orchestrator ──────────────────────────────────────────────
 
 export function computeProfileData(
-  startWeights: StartWeights,
-  results: Results,
+  rows: readonly GenericWorkoutRow[],
   definition: ProgramDefinition,
+  config: Record<string, number>,
   resultTimestamps?: Readonly<Record<string, string>>
 ): ProfileData {
   const names = deriveNames(definition);
-  const t1Exercises = deriveT1Exercises(definition);
-  const t1Stages = deriveT1Stages(definition);
-  const t3Constants = deriveT3Constants(definition);
+  const primaryExercises = derivePrimaryExercises(definition);
   const totalWorkouts = definition.totalWorkouts;
 
-  // Guard: if no workout results exist, return zeroed stats immediately
-  const hasAnyResult = Object.keys(results).length > 0;
+  const hasAnyResult = rows.some((r) => r.slots.some((s) => s.result !== undefined));
   if (!hasAnyResult) {
-    const personalRecords = t1Exercises.map((ex) => {
-      const sw: Readonly<Record<string, number>> = startWeights;
-      return {
-        exercise: ex,
-        displayName: names[ex] ?? ex,
-        weight: sw[ex] ?? 0,
-        startWeight: sw[ex] ?? 0,
-        workoutIndex: -1,
-      };
-    });
+    const personalRecords = primaryExercises.map((ex) => ({
+      exercise: ex,
+      displayName: names[ex] ?? ex,
+      weight: config[ex] ?? 0,
+      startWeight: config[ex] ?? 0,
+      workoutIndex: -1,
+    }));
     return {
       personalRecords,
       streak: { current: 0, longest: 0 },
@@ -419,13 +392,12 @@ export function computeProfileData(
     };
   }
 
-  const rows = computeProgram(startWeights, results);
-  const personalRecords = computePersonalRecords(rows, startWeights, t1Exercises, names);
-  const streak = computeStreak(results, totalWorkouts);
-  const volume = computeVolume(rows, t1Stages, t3Constants);
-  const completion = computeCompletion(rows, startWeights, totalWorkouts, t1Exercises);
+  const personalRecords = computePersonalRecords(rows, config, primaryExercises, names);
+  const streak = computeStreak(rows, totalWorkouts);
+  const volume = computeVolume(rows);
+  const completion = computeCompletion(rows, config, totalWorkouts, primaryExercises);
   const monthlyReport = resultTimestamps
-    ? computeMonthlyReport(rows, startWeights, resultTimestamps, t1Stages, t3Constants)
+    ? computeMonthlyReport(rows, config, resultTimestamps)
     : null;
 
   return { personalRecords, streak, volume, completion, monthlyReport };
