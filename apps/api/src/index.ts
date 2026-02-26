@@ -115,6 +115,11 @@ async function runMigrations(): Promise<void> {
   await migrationClient`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatar_url" text`;
   await migrationClient`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp with time zone`;
 
+  // Widen exercises.id from varchar(50) to varchar(100) — 9 expanded exercise IDs
+  // exceed 50 chars (e.g. 'lying_close_grip_barbell_triceps_extension_behind_the_head').
+  // ALTER TYPE to a wider varchar is non-destructive and requires no data migration.
+  await migrationClient`ALTER TABLE IF EXISTS "exercises" ALTER COLUMN "id" TYPE varchar(100)`;
+
   logger.info({ migrationsFolder }, 'running database migrations');
   await migrate(migrationDb, { migrationsFolder });
   await migrationClient.end();

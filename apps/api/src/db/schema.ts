@@ -226,7 +226,7 @@ export const muscleGroups = pgTable('muscle_groups', {
 export const exercises = pgTable(
   'exercises',
   {
-    id: varchar({ length: 50 }).primaryKey(),
+    id: varchar({ length: 100 }).primaryKey(),
     name: varchar({ length: 100 }).notNull(),
     muscleGroupId: varchar('muscle_group_id', { length: 50 })
       .references(() => muscleGroups.id, { onDelete: 'restrict' })
