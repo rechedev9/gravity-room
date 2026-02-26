@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "lint": "eslint",
-    "test": "bun test src/services src/middleware src/index.test.ts && bun test src/routes",
+    "test": "bun test src/lib src/services src/middleware src/index.test.ts && bun test src/routes",
     "test:e2e": "bun test --preload ./test/db-setup.ts test/e2e",
     "typecheck": "tsc --noEmit",
     "db:generate": "bunx drizzle-kit generate",

@@ -127,8 +127,12 @@ function createMockDb(): unknown {
             where: mock(function where() {
               return {
                 orderBy: mock(function orderBy() {
+                  // Simulate PostgreSQL ORDER BY name ASC
+                  const sorted = [...rows].sort((a, b) =>
+                    String(a.name ?? '').localeCompare(String(b.name ?? ''))
+                  );
                   return {
-                    then: (fn: (val: unknown[]) => unknown) => fn(rows),
+                    then: (fn: (val: unknown[]) => unknown) => fn(sorted),
                   };
                 }),
                 limit: mock(function limit() {
@@ -219,6 +223,20 @@ describe('listPrograms', () => {
     await listPrograms();
 
     expect(mockSetCachedCatalogList).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns programs sorted alphabetically by name ASC regardless of DB insertion order', async () => {
+    // Arrange — DB returns rows in reverse-alphabetical order
+    const zzTemplate: FakeRow = { ...ACTIVE_TEMPLATE, id: 'zzz', name: 'ZZZ Program' };
+    const aaaTemplate: FakeRow = { ...ACTIVE_TEMPLATE, id: 'aaa', name: 'AAA Program' };
+    const mmmTemplate: FakeRow = { ...ACTIVE_TEMPLATE, id: 'mmm', name: 'MMM Program' };
+    templateRows = [zzTemplate, mmmTemplate, aaaTemplate];
+
+    // Act
+    const result = await listPrograms();
+
+    // Assert — results must be sorted A→Z
+    expect(result.map((e) => e.name)).toEqual(['AAA Program', 'MMM Program', 'ZZZ Program']);
   });
 });
 

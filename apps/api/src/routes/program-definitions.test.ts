@@ -2,7 +2,6 @@
  * Program definition routes integration tests — auth guard tests using Elysia's .handle().
  * All routes require auth.
  */
-process.env['JWT_SECRET'] = 'test-secret-must-be-at-least-32-chars-1234';
 process.env['LOG_LEVEL'] = 'silent';
 
 import { mock, describe, it, expect } from 'bun:test';

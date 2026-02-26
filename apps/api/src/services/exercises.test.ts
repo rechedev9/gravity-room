@@ -121,6 +121,36 @@ mock.module('../db', () => ({
   getDb: () => mockDb,
 }));
 
+// ---------------------------------------------------------------------------
+// Mock exercise cache and muscle-groups cache
+// ---------------------------------------------------------------------------
+
+let cachedExercisesResult: readonly ExerciseRow[] | undefined = undefined;
+let cachedMuscleGroupsResult: readonly { id: string; name: string }[] | undefined = undefined;
+
+const mockGetCachedExercises = mock(
+  async (): Promise<readonly ExerciseRow[] | undefined> => cachedExercisesResult
+);
+const mockSetCachedExercises = mock(async (): Promise<void> => undefined);
+const mockGetCachedMuscleGroups = mock(
+  async (): Promise<readonly { id: string; name: string }[] | undefined> => cachedMuscleGroupsResult
+);
+const mockSetCachedMuscleGroups = mock(async (): Promise<void> => undefined);
+const mockInvalidateUserExercises = mock(async (): Promise<void> => undefined);
+const mockBuildFilterHash = mock((): string => '');
+
+mock.module('../lib/exercise-cache', () => ({
+  getCachedExercises: mockGetCachedExercises,
+  setCachedExercises: mockSetCachedExercises,
+  invalidateUserExercises: mockInvalidateUserExercises,
+  buildFilterHash: mockBuildFilterHash,
+}));
+
+mock.module('../lib/muscle-groups-cache', () => ({
+  getCachedMuscleGroups: mockGetCachedMuscleGroups,
+  setCachedMuscleGroups: mockSetCachedMuscleGroups,
+}));
+
 // Must import AFTER mock.module
 const { listExercises, listMuscleGroups, createExercise } = await import('./exercises');
 
@@ -132,6 +162,12 @@ beforeEach(() => {
   selectQueue = [];
   insertResult = [];
   mockDb = createMockDb();
+  cachedExercisesResult = undefined;
+  cachedMuscleGroupsResult = undefined;
+  mockGetCachedExercises.mockClear();
+  mockSetCachedExercises.mockClear();
+  mockGetCachedMuscleGroups.mockClear();
+  mockSetCachedMuscleGroups.mockClear();
 });
 
 describe('listExercises', () => {
@@ -208,6 +244,32 @@ describe('listExercises', () => {
 
     expect(result[0]?.force).toBe('push');
     expect(result[0]?.secondaryMuscles).toEqual(['back', 'core']);
+  });
+
+  it('returns cached array without calling DB when cache hits', async () => {
+    // Arrange — cache returns data
+    cachedExercisesResult = [PRESET_EXERCISE];
+
+    // Act
+    const result = await listExercises(undefined);
+
+    // Assert — DB select should not have been called
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe('squat');
+    expect(mockGetCachedExercises).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls DB and then setCachedExercises on cache miss', async () => {
+    // Arrange — cache misses, DB returns data
+    cachedExercisesResult = undefined;
+    selectQueue = [[PRESET_EXERCISE]];
+
+    // Act
+    await listExercises(undefined);
+
+    // Assert
+    expect(mockGetCachedExercises).toHaveBeenCalledTimes(1);
+    expect(mockSetCachedExercises).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -2,7 +2,6 @@
  * Auth routes integration tests — uses Elysia's .handle() method, no real server.
  * DB-dependent services and the Google token verifier are mocked via mock.module().
  */
-process.env['JWT_SECRET'] = 'test-secret-must-be-at-least-32-chars-1234';
 process.env['LOG_LEVEL'] = 'silent';
 
 import { mock, describe, it, expect, beforeEach, afterAll } from 'bun:test';
@@ -229,7 +228,8 @@ describe('POST /auth/refresh', () => {
  * the past — proves the JWT plugin enforces expiry (not just bad signatures).
  */
 async function makeExpiredJwt(userId: string): Promise<string> {
-  const secret = process.env['JWT_SECRET'] ?? '';
+  // Match the secret auth-guard captured at import time (before any test body overrides it)
+  const secret = process.env['JWT_SECRET'] ?? 'dev-secret-change-me';
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({ sub: userId, exp: Math.floor(Date.now() / 1000) - 3600 })
