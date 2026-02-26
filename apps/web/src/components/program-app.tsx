@@ -1,54 +1,39 @@
 import { lazy, Suspense, useState, useTransition, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import type { ResultValue, GenericWorkoutRow } from '@gzclp/shared/types';
+import type { ResultValue } from '@gzclp/shared/types';
 import { useProgram } from '@/hooks/use-program';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { detectGenericPersonalRecord } from '@/lib/pr-detection';
 import { useWebMcp } from '@/hooks/use-webmcp';
+import { useViewMode } from '@/hooks/use-view-mode';
+import { useWakeLock } from '@/hooks/use-wake-lock';
+import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
 import { AppHeader } from './app-header';
 import { ConfirmDialog } from './confirm-dialog';
 import { DayNavigator } from './day-navigator';
-import type { DayTab } from './day-navigator';
 import { DayView } from './day-view';
-import type { DayViewSlot } from './day-view';
 import { ErrorBoundary } from './error-boundary';
 import { SetupForm } from './setup-form';
 import { StatsSkeleton } from './stats-skeleton';
 import { TabButton } from './tab-button';
 import { ToastContainer } from './toast';
 import { Toolbar } from './toolbar';
+import { ViewToggle } from './view-toggle';
 import { WeekNavigator } from './week-navigator';
+import { WeekTable } from './week-table';
 
 const StatsPanel = lazy(() => import('./stats-panel'));
 const preloadStatsPanel = (): void => {
   void import('./stats-panel');
 };
 
-function genericRowToSlots(row: GenericWorkoutRow): readonly DayViewSlot[] {
-  return row.slots.map((slot) => ({
-    key: slot.slotId,
-    exerciseName: slot.exerciseName,
-    tierLabel: slot.tier.toUpperCase(),
-    role: slot.role ?? 'accessory',
-    weight: slot.weight,
-    scheme: `${slot.sets}\u00d7${slot.reps}${slot.repsMax !== undefined ? `-${slot.repsMax}` : ''}`,
-    stage: slot.stage,
-    showStage: slot.stage > 0,
-    isAmrap: slot.isAmrap,
-    result: slot.result,
-    amrapReps: slot.amrapReps,
-    rpe: slot.rpe,
-    showRpe: slot.role === 'primary',
-    isChanged: slot.isChanged,
-  }));
-}
-
 interface ProgramAppProps {
   readonly programId: string;
   readonly instanceId?: string;
   readonly onBackToDashboard?: () => void;
+  readonly onProgramReset?: () => void;
   readonly onGoToProfile?: () => void;
 }
 
@@ -56,6 +41,7 @@ export function ProgramApp({
   programId,
   instanceId,
   onBackToDashboard,
+  onProgramReset,
   onGoToProfile,
 }: ProgramAppProps): React.ReactNode {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -143,32 +129,26 @@ export function ProgramApp({
   ).length;
   const weekTotalCount = weeks[selectedWeek - 1]?.rows.length ?? workoutsPerWeek;
 
-  // Day-level navigation within the selected week
-  const [selectedDay, setSelectedDay] = useState(0);
-  const [prevSelectedWeek, setPrevSelectedWeek] = useState(selectedWeek);
+  // View mode: card (mobile-first) / table (desktop-first) toggle
+  const { viewMode, toggle: toggleViewMode } = useViewMode();
 
-  if (prevSelectedWeek !== selectedWeek) {
-    setPrevSelectedWeek(selectedWeek);
-    const weekRows = weeks[selectedWeek - 1]?.rows ?? [];
-    const pending = weekRows.findIndex((r) => r.slots.some((s) => s.result === undefined));
-    setSelectedDay(pending >= 0 ? pending : 0);
-  }
+  // Wake lock: keep screen on during active tracker session
+  useWakeLock(activeTab === 'program' && config !== null);
 
-  const dayTabs: readonly DayTab[] = (() => {
-    const weekRows = weeks[selectedWeek - 1]?.rows ?? [];
-    return weekRows.map((row) => ({
-      label: row.dayName,
-      isComplete: row.slots.every((s) => s.result !== undefined),
-    }));
+  // Card mode: day selection within the current week
+  const weekRows = weeks[selectedWeek - 1]?.rows ?? [];
+
+  const currentDayInWeek = (() => {
+    const idx = weekRows.findIndex((r) => r.slots.some((s) => s.result === undefined));
+    return idx >= 0 ? idx : 0;
   })();
 
-  const currentDayInWeek: number = (() => {
-    if (selectedWeek !== currentWeekNumber) return -1;
-    const weekRows = weeks[selectedWeek - 1]?.rows ?? [];
-    return weekRows.findIndex((r) => r.slots.some((s) => s.result === undefined));
-  })();
+  const [selectedDay, setSelectedDay] = useState<number>(0);
 
-  const selectedRow = weeks[selectedWeek - 1]?.rows[selectedDay];
+  // Reset selectedDay when week changes
+  useEffect(() => {
+    setSelectedDay(currentDayInWeek);
+  }, [selectedWeek, currentDayInWeek]);
 
   const recordAndToast = (workoutIndex: number, slotId: string, value: ResultValue): void => {
     markResult(workoutIndex, slotId, value);
@@ -235,6 +215,11 @@ export function ProgramApp({
       }
     }
 
+    // Haptic feedback on supported devices
+    if (typeof navigator.vibrate === 'function') {
+      navigator.vibrate(50);
+    }
+
     recordAndToast(workoutIndex, slotId, value);
   };
 
@@ -257,17 +242,18 @@ export function ProgramApp({
   };
 
   const handleResetAll = (): void => {
-    resetAll(() => onBackToDashboard?.());
+    resetAll(() => onProgramReset?.());
   };
 
-  const weeksRef = useRef(weeks);
-  weeksRef.current = weeks;
+  const handleExportCsv = (): void => {
+    if (!definition || rows.length === 0) return;
+    const csv = generateProgramCsv(rows, workoutsPerWeek);
+    const date = new Date().toISOString().slice(0, 10);
+    downloadCsv(csv, `${definition.name}-${date}.csv`);
+  };
 
   const jumpToCurrent = (): void => {
     setSelectedWeek(currentWeekNumber);
-    const weekRows = weeksRef.current[currentWeekNumber - 1]?.rows ?? [];
-    const pendingDay = weekRows.findIndex((r) => r.slots.some((s) => s.result === undefined));
-    setSelectedDay(pendingDay >= 0 ? pendingDay : 0);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         const el = document.querySelector('[data-current-row]');
@@ -328,6 +314,7 @@ export function ProgramApp({
             onUndo={undoLast}
             onFinish={handleFinishProgram}
             onReset={handleResetAll}
+            onExportCsv={handleExportCsv}
           />
         )}
       </div>
@@ -391,6 +378,10 @@ export function ProgramApp({
                   </div>
                 </details>
 
+                <div className="flex items-center justify-end mb-4">
+                  <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} />
+                </div>
+
                 <WeekNavigator
                   selectedWeek={selectedWeek}
                   totalWeeks={weeks.length}
@@ -401,25 +392,56 @@ export function ProgramApp({
                   onNext={() => setSelectedWeek((w) => Math.min(weeks.length, w + 1))}
                   onGoToCurrent={jumpToCurrent}
                 />
-                <DayNavigator
-                  days={dayTabs}
-                  selectedDay={selectedDay}
-                  currentDay={currentDayInWeek}
-                  onSelectDay={setSelectedDay}
-                />
-                {selectedRow && (
-                  <DayView
-                    key={`${selectedWeek}-${selectedDay}`}
-                    workoutIndex={selectedRow.index}
-                    workoutNumber={selectedRow.index + 1}
-                    dayName={selectedRow.dayName}
-                    isCurrent={selectedRow.index === firstPendingIdx}
-                    slots={genericRowToSlots(selectedRow)}
+
+                {viewMode === 'table' ? (
+                  <WeekTable
+                    weekRows={weekRows}
+                    firstPendingIndex={firstPendingIdx}
                     onMark={handleMarkResult}
                     onUndo={undoSpecific}
                     onSetAmrapReps={setAmrapReps}
                     onSetRpe={setRpe}
                   />
+                ) : (
+                  <>
+                    <DayNavigator
+                      days={weekRows.map((row, i) => ({
+                        label: `Entreno ${i + 1}`,
+                        isComplete: row.slots.every((s) => s.result !== undefined),
+                      }))}
+                      selectedDay={selectedDay}
+                      currentDay={currentDayInWeek}
+                      onSelectDay={setSelectedDay}
+                    />
+                    {weekRows[selectedDay] !== undefined && (
+                      <DayView
+                        workoutIndex={weekRows[selectedDay].index}
+                        workoutNumber={weekRows[selectedDay].index + 1}
+                        dayName={weekRows[selectedDay].dayName}
+                        isCurrent={weekRows[selectedDay].index === firstPendingIdx}
+                        slots={weekRows[selectedDay].slots.map((s) => ({
+                          key: s.slotId,
+                          exerciseName: s.exerciseName,
+                          tierLabel: s.tier.toUpperCase(),
+                          role: s.role ?? 'accessory',
+                          weight: s.weight,
+                          scheme: `${s.sets}\u00d7${s.reps}${s.repsMax !== undefined ? `\u2013${s.repsMax}` : ''}${s.isAmrap ? '+' : ''}`,
+                          stage: s.stage,
+                          showStage: s.stagesCount > 1,
+                          isAmrap: s.isAmrap,
+                          result: s.result,
+                          amrapReps: s.amrapReps,
+                          rpe: s.rpe,
+                          showRpe: s.role === 'primary',
+                          isChanged: s.isChanged,
+                        }))}
+                        onMark={handleMarkResult}
+                        onUndo={undoSpecific}
+                        onSetAmrapReps={setAmrapReps}
+                        onSetRpe={setRpe}
+                      />
+                    )}
+                  </>
                 )}
               </>
             )}

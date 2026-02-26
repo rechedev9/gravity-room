@@ -46,7 +46,10 @@ export function DayView({
   onSetRpe,
 }: DayViewProps): React.ReactNode {
   return (
-    <div {...(isCurrent ? { 'data-current-row': true } : {})}>
+    <div
+      className="animate-[card-enter_0.15s_ease-out]"
+      {...(isCurrent ? { 'data-current-row': true } : {})}
+    >
       {/* Day header */}
       <div className="flex items-baseline gap-3 mb-5">
         <span className="font-display text-3xl text-[var(--text-header)]">#{workoutNumber}</span>

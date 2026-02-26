@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react';
+import { Fragment, useMemo, useEffect, useRef } from 'react';
 import type { ResultValue, GenericWorkoutRow } from '@gzclp/shared/types';
 import { ResultCell } from './result-cell';
 import { AmrapInput } from './amrap-input';
@@ -41,6 +41,7 @@ function RpeSelect({
       className="bg-[var(--bg-card)] text-[var(--text-main)] border border-[var(--border-color)] text-xs font-bold px-1.5 py-1.5 min-h-[36px] min-w-[52px] cursor-pointer rounded-none focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none"
     >
       <option value="">{'\u2014'}</option>
+      <option value="5">5</option>
       <option value="6">6</option>
       <option value="7">7</option>
       <option value="8">8</option>
@@ -73,8 +74,27 @@ export function WeekTable({
     return { showStage: stage, showAmrap: amrap, showRpe: rpe, colCount: count };
   }, [weekRows]);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const updateShadows = (): void => {
+      const { scrollLeft, scrollWidth, clientWidth } = el;
+      el.dataset['scrollLeft'] = String(scrollLeft > 0);
+      el.dataset['scrollRight'] = String(scrollLeft < scrollWidth - clientWidth - 1);
+    };
+
+    updateShadows();
+    el.addEventListener('scroll', updateShadows, { passive: true });
+    return (): void => {
+      el.removeEventListener('scroll', updateShadows);
+    };
+  }, [weekRows]);
+
   return (
-    <div className="overflow-x-auto -mx-3 sm:mx-0">
+    <div ref={scrollRef} className="overflow-x-auto -mx-3 sm:mx-0 table-scroll-shadow">
       <table className="w-full border-collapse min-w-[680px]">
         <thead>
           <tr className="border-b-2 border-[var(--border-color)]">
@@ -131,7 +151,7 @@ export function WeekTable({
                     <tr
                       key={slot.slotId}
                       className={`border-b border-[var(--border-light)] transition-opacity duration-200 ${
-                        fullyDone ? 'opacity-40' : ''
+                        fullyDone ? 'opacity-55' : ''
                       } ${isCurrent && !fullyDone ? 'bg-[rgba(232,170,32,0.03)]' : ''} ${
                         slot.isChanged && !isDone ? 'bg-[var(--bg-changed)]' : ''
                       }`}

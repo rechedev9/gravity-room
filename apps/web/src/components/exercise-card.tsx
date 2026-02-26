@@ -38,13 +38,13 @@ const ROLE_STYLES = {
   },
   secondary: {
     tierColor: 'text-[var(--text-main)]',
-    nameSize: 'text-[13px]',
+    nameSize: 'text-sm',
     weightStyle: 'text-lg font-extrabold tabular-nums',
   },
   accessory: {
     tierColor: 'text-[var(--text-muted)]',
-    nameSize: 'text-[13px]',
-    weightStyle: 'text-[15px] font-extrabold tabular-nums text-[var(--text-muted)]',
+    nameSize: 'text-sm',
+    weightStyle: 'text-base font-extrabold tabular-nums text-[var(--text-muted)]',
   },
 } as const;
 
@@ -76,12 +76,12 @@ export function ExerciseCard({
       className={`bg-[var(--bg-card)] border border-[var(--border-color)] p-4 card transition-all duration-200 ${
         role === 'primary' ? 'accent-left-gold' : role === 'secondary' ? 'accent-left-muted' : ''
       } ${
-        result !== undefined ? 'opacity-35 saturate-50' : ''
+        result !== undefined ? 'opacity-55 saturate-50' : ''
       } ${isChanged && result === undefined ? 'bg-[var(--bg-changed)]' : ''}`}
     >
       {/* Tier · Exercise name */}
       <div className="flex items-center gap-2">
-        <span className={`text-[11px] font-bold uppercase ${styles.tierColor}`}>{tierLabel}</span>
+        <span className={`text-[12px] font-bold uppercase ${styles.tierColor}`}>{tierLabel}</span>
         <span className="text-[11px] text-[var(--text-muted)]">&middot;</span>
         <span className={`font-bold truncate ${styles.nameSize}`}>{exerciseName}</span>
       </div>
@@ -89,7 +89,7 @@ export function ExerciseCard({
       {/* Weight · Scheme · Stage */}
       <div className="flex items-baseline gap-2 mt-1">
         {weight > 0 && <span className={styles.weightStyle}>{weight} kg</span>}
-        <span className="text-[12px] font-semibold text-[var(--text-muted)]">
+        <span className="text-[13px] font-semibold text-[var(--text-muted)]">
           {scheme}
           {isAmrap && <span className="text-[10px] ml-1 text-[var(--fill-progress)]">AMRAP</span>}
         </span>

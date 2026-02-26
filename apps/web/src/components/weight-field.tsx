@@ -5,6 +5,7 @@ interface WeightFieldProps {
   readonly touched: boolean;
   readonly fieldError: string | null;
   readonly step: number;
+  readonly min: number;
   readonly onChange: (key: string, value: string) => void;
   readonly onBlur: (key: string, value: string) => void;
   readonly onAdjust: (key: string, delta: number) => void;
@@ -18,6 +19,7 @@ export function WeightField({
   touched,
   fieldError,
   step,
+  min,
   onChange,
   onBlur,
   onAdjust,
@@ -53,7 +55,7 @@ export function WeightField({
           onBlur={() => onBlur(fieldKey, value)}
           onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
           step="any"
-          min="2.5"
+          min={min}
           max="500"
           aria-invalid={fieldError ? 'true' : undefined}
           aria-describedby={fieldError ? errorId : undefined}
@@ -87,7 +89,7 @@ export function WeightField({
           <span aria-hidden="true">&#10003;</span> Válido
         </p>
       ) : (
-        <p className="text-[10px] text-[var(--text-muted)] mt-1">Mín 2.5 kg</p>
+        <p className="text-[10px] text-[var(--text-muted)] mt-1">Mín {min} kg</p>
       )}
     </div>
   );

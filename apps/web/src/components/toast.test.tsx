@@ -61,13 +61,52 @@ describe('ToastContainer', () => {
       expect(span).toBeNull();
     });
 
-    it('should display PR message text with NEW PR prefix', () => {
+    it('should display PR message text with NUEVO PR prefix', () => {
       renderWithToast('Sentadilla 60 kg', 'pr');
 
       const span = document.querySelector('.hero-number-glow');
 
-      expect(span?.textContent).toContain('NEW PR');
+      expect(span?.textContent).toContain('NUEVO PR');
       expect(span?.textContent).toContain('Sentadilla 60 kg');
+    });
+  });
+
+  describe('PR toast text format (REQ-CCF-001)', () => {
+    it('should render full text NUEVO PR — Sentadilla 100 kg for PR variant', () => {
+      renderWithToast('Sentadilla 100 kg', 'pr');
+
+      const span = document.querySelector('.hero-number-glow');
+
+      expect(span?.textContent).toBe('NUEVO PR — Sentadilla 100 kg');
+    });
+  });
+
+  describe('safe-area inset (REQ-CCF-004)', () => {
+    it('should set paddingBottom containing env(safe-area-inset-bottom) on the container', () => {
+      // happy-dom strips unsupported CSS functions like env(), so we intercept
+      // the style.setProperty calls to capture what React tried to set.
+      const capturedStyles: Array<{ property: string; value: string }> = [];
+      const originalSetProperty = CSSStyleDeclaration.prototype.setProperty;
+      CSSStyleDeclaration.prototype.setProperty = function (
+        prop: string,
+        value: string,
+        priority?: string
+      ): void {
+        capturedStyles.push({ property: prop, value });
+        originalSetProperty.call(this, prop, value, priority ?? '');
+      };
+
+      try {
+        renderWithToast('Test message');
+
+        const paddingSet = capturedStyles.find(
+          (s) => s.property === 'padding-bottom' && s.value.includes('env(safe-area-inset-bottom)')
+        );
+
+        expect(paddingSet).toBeDefined();
+      } finally {
+        CSSStyleDeclaration.prototype.setProperty = originalSetProperty;
+      }
     });
   });
 });

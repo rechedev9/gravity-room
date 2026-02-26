@@ -1,6 +1,7 @@
-const RPE_VALUES = [6, 7, 8, 9, 10] as const;
+const RPE_VALUES = [5, 6, 7, 8, 9, 10] as const;
 
 const RPE_DESCRIPTIONS: Readonly<Record<number, string>> = {
+  5: 'Muy fácil — 5+ reps en reserva',
   6: 'Muy fácil — 4+ reps en reserva',
   7: 'Fácil — 3 reps en reserva',
   8: 'Moderado — 2 reps en reserva',

@@ -1,6 +1,8 @@
 import { createPortal } from 'react-dom';
 import { useToast } from '@/contexts/toast-context';
 
+const PR_TOAST_PREFIX = 'NUEVO PR';
+
 export function ToastContainer(): React.ReactNode {
   const { toasts, dismiss } = useToast();
 
@@ -9,6 +11,7 @@ export function ToastContainer(): React.ReactNode {
       role="status"
       aria-live="polite"
       className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none"
+      style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
     >
       {toasts.map((t) => {
         const animation = t.exiting
@@ -26,7 +29,7 @@ export function ToastContainer(): React.ReactNode {
             style={{ boxShadow: 'var(--shadow-elevated)' }}
           >
             <span className={t.variant === 'pr' ? 'hero-number-glow' : undefined}>
-              {t.variant === 'pr' ? `NEW PR — ${t.message}` : t.message}
+              {t.variant === 'pr' ? `${PR_TOAST_PREFIX} — ${t.message}` : t.message}
             </span>
             {t.action && (
               <button

@@ -197,6 +197,43 @@
   }
 }
 
+/* ── Table scroll shadow indicators ────────────── */
+
+.table-scroll-shadow {
+  position: relative;
+}
+
+.table-scroll-shadow::before,
+.table-scroll-shadow::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.table-scroll-shadow::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--bg-body), transparent);
+}
+
+.table-scroll-shadow::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--bg-body), transparent);
+}
+
+.table-scroll-shadow[data-scroll-left='true']::before {
+  opacity: 1;
+}
+
+.table-scroll-shadow[data-scroll-right='true']::after {
+  opacity: 1;
+}
+
 /* ── Animation classes ─────────────────────────── */
 
 .modal-overlay {

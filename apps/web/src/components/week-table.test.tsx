@@ -223,4 +223,68 @@ describe('WeekTable conditional columns', () => {
       expect(dayHeaderCells[0].getAttribute('colspan')).toBe('8');
     });
   });
+
+  describe('RpeSelect RPE 5 option (REQ-RPE-001)', () => {
+    it('includes <option value="5">5</option> as the first non-empty option', () => {
+      const { container } = render(
+        <WeekTable
+          weekRows={[
+            makeRow(0, [
+              {
+                tier: 't1',
+                stagesCount: 1,
+                isAmrap: false,
+                role: 'primary',
+                result: 'success',
+                rpe: undefined,
+              },
+            ]),
+          ]}
+          firstPendingIndex={0}
+          onMark={noop as unknown as (i: number, s: string, v: 'success' | 'fail') => void}
+          onUndo={noop as unknown as (i: number, s: string) => void}
+          onSetAmrapReps={noop as unknown as (i: number, s: string, r: number | undefined) => void}
+          onSetRpe={noop as unknown as (i: number, s: string, r: number | undefined) => void}
+        />
+      );
+
+      const select = container.querySelector('select[aria-label="RPE"]');
+      expect(select).not.toBeNull();
+
+      const options = select?.querySelectorAll('option') ?? [];
+      // First option is the empty placeholder (em-dash), second should be "5"
+      expect(options[1]?.getAttribute('value')).toBe('5');
+      expect(options[1]?.textContent).toBe('5');
+    });
+  });
+
+  describe('completed row opacity (REQ-TIF-002)', () => {
+    it('applies opacity-55 class to a fully completed row', () => {
+      const { container } = render(
+        <WeekTable
+          weekRows={[
+            makeRow(0, [
+              {
+                tier: 't1',
+                stagesCount: 1,
+                isAmrap: false,
+                role: 'secondary',
+                result: 'success',
+              },
+            ]),
+          ]}
+          firstPendingIndex={-1}
+          onMark={noop as unknown as (i: number, s: string, v: 'success' | 'fail') => void}
+          onUndo={noop as unknown as (i: number, s: string) => void}
+          onSetAmrapReps={noop as unknown as (i: number, s: string, r: number | undefined) => void}
+        />
+      );
+
+      // The exercise <tr> (not the day-header <tr>) should have opacity-55
+      const rows = container.querySelectorAll('tbody tr');
+      // Row 0 = day header, Row 1 = exercise slot
+      const exerciseRow = rows[1];
+      expect(exerciseRow?.className).toContain('opacity-55');
+    });
+  });
 });

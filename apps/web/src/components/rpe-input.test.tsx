@@ -2,12 +2,13 @@
  * rpe-input.test.tsx — accessibility attribute tests for RpeInput.
  * Tests aria-label and aria-pressed on each RPE toggle button.
  * Tests label prop display (REQ-UI-002).
+ * Tests RPE 5 addition (REQ-RPE-001).
  */
 import { describe, it, expect, mock } from 'bun:test';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { RpeInput } from './rpe-input';
 
-const RPE_VALUES = [6, 7, 8, 9, 10] as const;
+const RPE_VALUES = [5, 6, 7, 8, 9, 10] as const;
 
 // ---------------------------------------------------------------------------
 // aria attributes
@@ -15,7 +16,7 @@ const RPE_VALUES = [6, 7, 8, 9, 10] as const;
 
 describe('RpeInput', () => {
   describe('aria attributes', () => {
-    it('each button has aria-label starting with "RPE {n}:" for values 6-10', () => {
+    it('each button has aria-label starting with "RPE {n}:" for values 5-10', () => {
       render(<RpeInput value={undefined} onChange={mock()} label="T1" />);
 
       for (const rpe of RPE_VALUES) {
@@ -64,6 +65,45 @@ describe('RpeInput', () => {
 
       const labelEl = container.querySelector('.text-xs');
       expect(labelEl?.textContent).toBe('T1 RPE');
+    });
+  });
+
+  describe('RPE 5 support (REQ-RPE-001)', () => {
+    it('renders exactly 6 buttons with labels 5-10', () => {
+      render(<RpeInput value={undefined} onChange={mock()} label="T1" />);
+
+      const buttons = screen.getAllByRole('button');
+
+      expect(buttons).toHaveLength(6);
+      expect(buttons[0].textContent).toBe('5');
+      expect(buttons[5].textContent).toBe('10');
+    });
+
+    it('calls onChange(5) when RPE 5 button is tapped', () => {
+      const onChange = mock();
+      render(<RpeInput value={undefined} onChange={onChange} label="T1" />);
+
+      const rpe5Button = screen.getByRole('button', { name: /^RPE 5:/ });
+      fireEvent.click(rpe5Button);
+
+      expect(onChange).toHaveBeenCalledWith(5);
+    });
+
+    it('RPE 5 button has title "Muy fácil — 5+ reps en reserva"', () => {
+      render(<RpeInput value={undefined} onChange={mock()} label="T1" />);
+
+      const rpe5Button = screen.getByRole('button', { name: /^RPE 5:/ });
+
+      expect(rpe5Button.getAttribute('title')).toBe('Muy fácil — 5+ reps en reserva');
+    });
+
+    it('RPE 5 button with value={5} renders with active style', () => {
+      render(<RpeInput value={5} onChange={mock()} label="T1" />);
+
+      const rpe5Button = screen.getByRole('button', { name: /^RPE 5:/ });
+
+      expect(rpe5Button.className).toContain('bg-[var(--fill-progress)]');
+      expect(rpe5Button.getAttribute('aria-pressed')).toBe('true');
     });
   });
 });

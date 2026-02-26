@@ -1,0 +1,57 @@
+import { describe, it, expect, mock } from 'bun:test';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { AmrapInput } from './amrap-input';
+
+// ---------------------------------------------------------------------------
+// AmrapInput — display and interaction tests (REQ-TIF-001)
+// ---------------------------------------------------------------------------
+
+describe('AmrapInput', () => {
+  describe('display values', () => {
+    it('should render em-dash when value is undefined', () => {
+      render(<AmrapInput value={undefined} onChange={mock()} />);
+
+      const display = screen.getByLabelText('Reps AMRAP', { selector: 'span' });
+
+      expect(display.textContent).toBe('\u2014');
+    });
+
+    it('should render 0 when value is 0', () => {
+      render(<AmrapInput value={0} onChange={mock()} />);
+
+      const display = screen.getByLabelText('Reps AMRAP', { selector: 'span' });
+
+      expect(display.textContent).toBe('0');
+    });
+
+    it('should render 5 when value is 5', () => {
+      render(<AmrapInput value={5} onChange={mock()} />);
+
+      const display = screen.getByLabelText('Reps AMRAP', { selector: 'span' });
+
+      expect(display.textContent).toBe('5');
+    });
+  });
+
+  describe('button state', () => {
+    it('should disable decrement button when value is undefined', () => {
+      render(<AmrapInput value={undefined} onChange={mock()} />);
+
+      const decrementBtn = screen.getByLabelText('Disminuir reps');
+
+      expect(decrementBtn).toBeDisabled();
+    });
+  });
+
+  describe('interaction', () => {
+    it('should call onChange(1) when + button is clicked and value is undefined', () => {
+      const onChange = mock();
+      render(<AmrapInput value={undefined} onChange={onChange} />);
+
+      const incrementBtn = screen.getByLabelText('Aumentar reps');
+      fireEvent.click(incrementBtn);
+
+      expect(onChange).toHaveBeenCalledWith(1);
+    });
+  });
+});

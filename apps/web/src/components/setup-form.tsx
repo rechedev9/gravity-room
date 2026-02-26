@@ -216,6 +216,7 @@ export function SetupForm({
                   touched={!!touched[f.key]}
                   fieldError={touched[f.key] ? (fieldErrors[f.key] ?? null) : null}
                   step={f.step}
+                  min={f.min}
                   onChange={handleChange}
                   onBlur={handleBlur}
                   onAdjust={adjustWeight}
