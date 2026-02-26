@@ -1,45 +1,4 @@
-import type { WorkoutRow, GenericWorkoutRow, ResultValue } from '@gzclp/shared/types';
-
-/**
- * Detects whether marking a T1 result as 'success' at a given workout index
- * constitutes a new personal record for GZCLP programs.
- *
- * A PR requires:
- * - Tier is T1 and result is 'success'
- * - At least one prior successful T1 result for the same exercise exists
- * - Current weight strictly exceeds the prior best
- *
- * The first success at starting weight is NOT a PR (no prior success to beat).
- */
-export function detectT1PersonalRecord(
-  rows: readonly WorkoutRow[],
-  index: number,
-  tier: string,
-  value: ResultValue
-): boolean {
-  if (tier !== 't1' || value !== 'success') return false;
-
-  const currentRow = rows[index];
-  if (!currentRow) return false;
-
-  const exercise = currentRow.t1Exercise;
-  const currentWeight = currentRow.t1Weight;
-
-  let priorBest = -1;
-  for (let i = 0; i < index; i++) {
-    const row = rows[i];
-    if (row.t1Exercise === exercise && row.result.t1 === 'success') {
-      if (row.t1Weight > priorBest) {
-        priorBest = row.t1Weight;
-      }
-    }
-  }
-
-  // No prior success → not a PR (first success isn't a record to beat)
-  if (priorBest < 0) return false;
-
-  return currentWeight > priorBest;
-}
+import type { GenericWorkoutRow, ResultValue } from '@gzclp/shared/types';
 
 /**
  * Detects a T1 personal record for generic (non-GZCLP) programs.

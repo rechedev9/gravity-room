@@ -1,31 +1,10 @@
 import { describe, it, expect } from 'bun:test';
-import { detectT1PersonalRecord, detectGenericPersonalRecord } from './pr-detection';
-import type { WorkoutRow, GenericWorkoutRow, GenericSlotRow } from '@gzclp/shared/types';
+import { detectGenericPersonalRecord } from './pr-detection';
+import type { GenericWorkoutRow, GenericSlotRow } from '@gzclp/shared/types';
 
 // ---------------------------------------------------------------------------
 // Helpers — minimal row factories
 // ---------------------------------------------------------------------------
-
-function makeRow(overrides: Partial<WorkoutRow> & { index: number }): WorkoutRow {
-  return {
-    dayName: 'A1',
-    t1Exercise: 'squat',
-    t1Weight: 60,
-    t1Stage: 0,
-    t1Sets: 5,
-    t1Reps: 3,
-    t2Exercise: 'bench',
-    t2Weight: 40,
-    t2Stage: 0,
-    t2Sets: 3,
-    t2Reps: 10,
-    t3Exercise: 'latpulldown',
-    t3Weight: 30,
-    isChanged: false,
-    result: {},
-    ...overrides,
-  };
-}
 
 function makeGenericRow(index: number, slots: Partial<GenericSlotRow>[]): GenericWorkoutRow {
   return {
@@ -52,70 +31,6 @@ function makeGenericRow(index: number, slots: Partial<GenericSlotRow>[]): Generi
     })),
   };
 }
-
-// ---------------------------------------------------------------------------
-// detectT1PersonalRecord
-// ---------------------------------------------------------------------------
-
-describe('detectT1PersonalRecord', () => {
-  it('returns false for T2 tier', () => {
-    const rows = [makeRow({ index: 0, result: { t2: 'success' } })];
-    expect(detectT1PersonalRecord(rows, 0, 't2', 'success')).toBe(false);
-  });
-
-  it('returns false for T3 tier', () => {
-    const rows = [makeRow({ index: 0, result: { t3: 'success' } })];
-    expect(detectT1PersonalRecord(rows, 0, 't3', 'success')).toBe(false);
-  });
-
-  it('returns false for fail result', () => {
-    const rows = [
-      makeRow({ index: 0, result: { t1: 'success' } }),
-      makeRow({ index: 1, t1Weight: 65, result: { t1: 'fail' } }),
-    ];
-    expect(detectT1PersonalRecord(rows, 1, 't1', 'fail')).toBe(false);
-  });
-
-  it('returns false at index 0 (no prior success to beat)', () => {
-    const rows = [makeRow({ index: 0, t1Weight: 60, result: { t1: 'success' } })];
-    expect(detectT1PersonalRecord(rows, 0, 't1', 'success')).toBe(false);
-  });
-
-  it('returns false when weight equals prior best', () => {
-    const rows = [
-      makeRow({ index: 0, t1Weight: 60, result: { t1: 'success' } }),
-      makeRow({ index: 1, t1Weight: 60, result: { t1: 'success' } }),
-    ];
-    expect(detectT1PersonalRecord(rows, 1, 't1', 'success')).toBe(false);
-  });
-
-  it('returns true when weight strictly exceeds prior best', () => {
-    const rows = [
-      makeRow({ index: 0, t1Weight: 60, result: { t1: 'success' } }),
-      makeRow({ index: 1, t1Weight: 62.5, result: { t1: 'success' } }),
-    ];
-    expect(detectT1PersonalRecord(rows, 1, 't1', 'success')).toBe(true);
-  });
-
-  it('isolates by exercise', () => {
-    const rows = [
-      makeRow({ index: 0, t1Exercise: 'squat', t1Weight: 100, result: { t1: 'success' } }),
-      makeRow({ index: 1, t1Exercise: 'bench', t1Weight: 60, result: { t1: 'success' } }),
-      makeRow({ index: 2, t1Exercise: 'bench', t1Weight: 62.5, result: { t1: 'success' } }),
-    ];
-    // Bench PR detected (62.5 > 60), but squat at index 0 doesn't count
-    expect(detectT1PersonalRecord(rows, 2, 't1', 'success')).toBe(true);
-  });
-
-  it('returns false when no prior success exists for that exercise', () => {
-    const rows = [
-      makeRow({ index: 0, t1Exercise: 'squat', t1Weight: 60, result: { t1: 'success' } }),
-      makeRow({ index: 1, t1Exercise: 'bench', t1Weight: 40, result: { t1: 'success' } }),
-    ];
-    // First bench success — no prior bench to beat
-    expect(detectT1PersonalRecord(rows, 1, 't1', 'success')).toBe(false);
-  });
-});
 
 // ---------------------------------------------------------------------------
 // detectGenericPersonalRecord
