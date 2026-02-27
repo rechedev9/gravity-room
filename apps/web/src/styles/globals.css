@@ -247,6 +247,11 @@
   animation: modal-enter 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
 .highlight-current {
   animation: highlight-pulse 1s ease-out 2;
 }

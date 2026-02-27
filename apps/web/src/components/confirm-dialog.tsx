@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { Button } from './button';
 
 interface ConfirmDialogProps {
@@ -24,73 +24,62 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps): React.ReactNode {
-  const cancelRef = useRef<HTMLButtonElement>(null);
-  const confirmRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
+  // Sync open prop with native dialog open/close
   useEffect(() => {
-    if (open) {
-      cancelRef.current?.focus();
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    if (open && !dialog.open) {
+      dialog.showModal();
+    } else if (!open && dialog.open) {
+      dialog.close();
     }
   }, [open]);
 
+  // Native cancel event (fires on Escape) → call onCancel
   useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onCancel();
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const handleCancel = (e: Event): void => {
+      e.preventDefault();
+      onCancel();
     };
-    document.addEventListener('keydown', handleKey);
+    dialog.addEventListener('cancel', handleCancel);
     return (): void => {
-      document.removeEventListener('keydown', handleKey);
+      dialog.removeEventListener('cancel', handleCancel);
     };
-  }, [open, onCancel]);
+  }, [onCancel]);
 
-  const handleDialogKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
-    if (e.key !== 'Tab') return;
-    const focusable = [cancelRef.current, confirmRef.current].filter(
-      (el): el is HTMLButtonElement => el !== null
-    );
-    if (focusable.length < 2) return;
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
+  // Backdrop click: click on <dialog> itself (not children) closes it
+  const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>): void => {
+    if (e.target === dialogRef.current) {
+      onCancel();
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={onCancel}
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      className="modal-box bg-card border border-rule p-6 max-w-sm w-[calc(100%-2rem)] shadow-dialog backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+      onClick={handleBackdropClick}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        className="modal-box bg-card border border-rule p-6 max-w-sm w-[calc(100%-2rem)] shadow-dialog"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleDialogKeyDown}
-      >
-        <h3 id="confirm-dialog-title" className="text-sm font-bold text-heading mb-2">
-          {title}
-        </h3>
-        <div className="text-xs text-muted leading-relaxed">{message}</div>
-        <div className="border-t border-rule pt-4 mt-5 flex justify-end gap-3">
-          <Button ref={cancelRef} variant="ghost" onClick={onCancel} disabled={loading}>
-            {cancelLabel}
-          </Button>
-          <Button ref={confirmRef} variant={variant} onClick={onConfirm} disabled={loading}>
-            {loading ? 'Procesando…' : confirmLabel}
-          </Button>
-        </div>
+      <h3 id={titleId} className="text-sm font-bold text-heading mb-2">
+        {title}
+      </h3>
+      <div className="text-xs text-muted leading-relaxed">{message}</div>
+      <div className="border-t border-rule pt-4 mt-5 flex justify-end gap-3">
+        <Button variant="ghost" onClick={onCancel} disabled={loading}>
+          {cancelLabel}
+        </Button>
+        <Button variant={variant} onClick={onConfirm} disabled={loading}>
+          {loading ? 'Procesando…' : confirmLabel}
+        </Button>
       </div>
-    </div>
+    </dialog>
   );
 }
