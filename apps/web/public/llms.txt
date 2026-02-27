@@ -1,0 +1,43 @@
+# Gravity Room
+
+> Free web app for structured weightlifting programs with automatic progression. Train smarter — the app tells you exactly what to do each session and adjusts weight, sets, and reps based on your performance.
+
+## About
+
+Gravity Room is a training tracker that implements science-backed weightlifting programs with built-in progressive overload. Instead of guessing in the gym, users follow structured programs where the app automatically increases weight when they succeed and adjusts the load when they fail.
+
+Key features:
+
+- Automatic weight progression based on performance
+- Multiple training programs (GZCLP, and more added regularly)
+- Statistics and strength curves over time
+- Cloud sync across devices
+- Calendar integration for scheduling workouts
+- 100% free
+
+## How It Works
+
+1. **Choose a program** — Pick a training program that fits your goals and set your starting weights.
+2. **Follow the plan** — Each workout tells you exactly what to do: exercise, sets, reps, and weight.
+3. **Progress automatically** — Complete your reps and the weight goes up. Fail, and the program adapts intelligently.
+
+## Training Programs
+
+Gravity Room offers a catalog of structured training programs with periodization. Programs include:
+
+- **GZCLP** — A popular linear progression program using a tier system (T1/T2/T3) with different set/rep schemes per tier.
+- Additional programs are added regularly across categories: strength, hypertrophy, and powerlifting.
+
+All programs feature automatic progression rules, deload protocols, and stage-based adaptation.
+
+## Technical Details
+
+- Web app (PWA) — works on any device with a browser
+- Google OAuth for sign-in
+- Data stored server-side with cloud sync
+- No download required
+
+## Links
+
+- [Home](https://gravityroom.app/): Landing page
+- [Privacy Policy](https://gravityroom.app/privacy): How user data is handled

@@ -46,7 +46,17 @@
       rel="stylesheet"
     />
 
-    <!-- JSON-LD -->
+    <!-- JSON-LD: WebSite (enables site name in search results) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Gravity Room",
+        "url": "https://gravityroom.app"
+      }
+    </script>
+
+    <!-- JSON-LD: SoftwareApplication -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -54,12 +64,56 @@
         "name": "Gravity Room",
         "url": "https://gravityroom.app",
         "applicationCategory": "HealthApplication",
+        "applicationSubCategory": "Fitness",
         "operatingSystem": "Web",
         "browserRequirements": "Requires a modern web browser",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-        "description": "Science-backed training programs with automatic progression for the GZCLP weightlifting program.",
+        "description": "Free workout tracker with science-backed training programs. Automatic weight progression — the app tells you what to lift each session and adjusts based on your performance.",
         "screenshot": "https://gravityroom.app/og-image.webp",
-        "featureList": "Automatic weight progression, GZCLP program tracking, Training statistics and charts, Calendar integration"
+        "featureList": "Automatic weight progression, GZCLP linear progression, Multiple training programs, Training statistics and strength curves, Cloud sync across devices, Calendar integration, PWA offline support",
+        "inLanguage": ["en", "es"]
+      }
+    </script>
+
+    <!-- JSON-LD: FAQPage (high-value for AI answer engines) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is Gravity Room?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Gravity Room is a free web app for structured weightlifting programs with automatic progression. It tells you exactly what to lift each session and adjusts weight, sets, and reps based on your performance."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What is GZCLP?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "GZCLP is a linear progression weightlifting program that uses a tier system (T1, T2, T3) with different set/rep schemes per tier. When you fail a lift, the program automatically adjusts through stages before deloading, keeping you progressing longer."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Gravity Room free?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes, Gravity Room is 100% free. All features including cloud sync, statistics, and all training programs are available at no cost."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How does automatic progression work?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "When you complete all prescribed reps for a lift, the app automatically increases the weight for next session. If you fail, the program adapts by changing the set/rep scheme (e.g., from 5x3 to 6x2) before eventually deloading. This is based on the progressive overload principle."
+            }
+          }
+        ]
       }
     </script>
   </head>
