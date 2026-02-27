@@ -1,6 +1,6 @@
 /**
  * Idempotent seed for the program_templates table.
- * Inserts 3 preset programs with their full JSONB definitions.
+ * Inserts 4 preset programs with their full JSONB definitions.
  * Exercise names are omitted from JSONB — they are resolved from the exercises table at hydration time.
  * Uses onConflictDoNothing() to allow re-runs without error.
  */
@@ -251,7 +251,7 @@ interface SlotDef {
   readonly onFinalStageSuccess?: { readonly type: string; readonly amount?: number };
   readonly onUndefined?: { readonly type: string };
   readonly onMidStageFail: { readonly type: string };
-  readonly onFinalStageFail: { readonly type: string };
+  readonly onFinalStageFail: { readonly type: string; readonly percent?: number };
   readonly startWeightKey: string;
   readonly startWeightMultiplier?: number;
   readonly startWeightOffset?: number;
@@ -686,6 +686,75 @@ const PPL531_DEFINITION_JSONB = {
     seated_leg_curl: 2.5,
   },
   days: PPL531_DAYS,
+};
+
+// ---------------------------------------------------------------------------
+// StrongLifts 5x5 Definition JSONB
+// ---------------------------------------------------------------------------
+
+function sl5x5Slot(id: string, exerciseId: string, sets: number, reps: number): SlotDef {
+  return {
+    id,
+    exerciseId,
+    tier: 'main',
+    stages: [
+      { sets, reps },
+      { sets, reps },
+      { sets, reps },
+    ],
+    onSuccess: {
+      type: 'add_weight_reset_stage',
+      amount: exerciseId === 'deadlift' ? 5 : 2.5,
+    },
+    onMidStageFail: ADV,
+    onFinalStageFail: { type: 'deload_percent', percent: 10 },
+    startWeightKey: exerciseId,
+  };
+}
+
+const STRONGLIFTS_DEFINITION_JSONB = {
+  cycleLength: 2,
+  totalWorkouts: 90,
+  workoutsPerWeek: 3,
+  exercises: {
+    squat: {},
+    bench: {},
+    ohp: {},
+    deadlift: {},
+    bent_over_row: {},
+  },
+  configFields: [
+    { key: 'squat', label: 'Sentadilla', type: 'weight', min: 2.5, step: 2.5 },
+    { key: 'bench', label: 'Press Banca', type: 'weight', min: 2.5, step: 2.5 },
+    { key: 'ohp', label: 'Press Militar', type: 'weight', min: 2.5, step: 2.5 },
+    { key: 'deadlift', label: 'Peso Muerto', type: 'weight', min: 2.5, step: 2.5 },
+    { key: 'bent_over_row', label: 'Remo con Barra', type: 'weight', min: 2.5, step: 2.5 },
+  ],
+  weightIncrements: {
+    squat: 2.5,
+    bench: 2.5,
+    ohp: 2.5,
+    deadlift: 5,
+    bent_over_row: 2.5,
+  },
+  days: [
+    {
+      name: 'Workout A',
+      slots: [
+        sl5x5Slot('squat', 'squat', 5, 5),
+        sl5x5Slot('bench', 'bench', 5, 5),
+        sl5x5Slot('bent_over_row', 'bent_over_row', 5, 5),
+      ],
+    },
+    {
+      name: 'Workout B',
+      slots: [
+        sl5x5Slot('squat', 'squat', 5, 5),
+        sl5x5Slot('ohp', 'ohp', 5, 5),
+        sl5x5Slot('deadlift', 'deadlift', 1, 5),
+      ],
+    },
+  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -1260,6 +1329,21 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         category: 'hypertrophy',
         source: 'preset',
         definition: PPL531_DEFINITION_JSONB,
+        isActive: true,
+      },
+      {
+        id: 'stronglifts5x5',
+        name: 'StrongLifts 5x5',
+        description:
+          'Programa clásico de fuerza para principiantes. ' +
+          'Dos entrenamientos alternos (A/B), 3 días por semana. ' +
+          'Sentadilla en cada sesión, progresión lineal de +2.5 kg por entrenamiento (+5 kg en peso muerto). ' +
+          'Tres fallos consecutivos provocan una descarga del 10%.',
+        author: 'Mehdi Hadim',
+        version: 1,
+        category: 'strength',
+        source: 'preset',
+        definition: STRONGLIFTS_DEFINITION_JSONB,
         isActive: true,
       },
       {
