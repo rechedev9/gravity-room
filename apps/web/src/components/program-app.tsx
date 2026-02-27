@@ -58,6 +58,7 @@ export function ProgramApp({
     config,
     rows,
     undoHistory,
+    resultTimestamps,
     isGenerating,
     generateProgram,
     updateConfig,
@@ -467,7 +468,11 @@ export function ProgramApp({
                   )}
                 >
                   <Suspense fallback={<StatsSkeleton />}>
-                    <StatsPanel definition={definition} rows={rows} />
+                    <StatsPanel
+                      definition={definition}
+                      rows={rows}
+                      resultTimestamps={resultTimestamps}
+                    />
                   </Suspense>
                 </ErrorBoundary>
               </div>

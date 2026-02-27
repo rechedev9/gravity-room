@@ -89,4 +89,57 @@ describe('LineChart', () => {
       expect(canvas).not.toBeNull();
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Task 9.5 — Phase 2 interactivity and extensions
+  // -------------------------------------------------------------------------
+
+  describe('Phase 2 — interactivity and extensions', () => {
+    it('overlay div with data-testid="chart-tooltip-overlay" exists in DOM after render', () => {
+      render(<LineChart data={DATA_WITH_RESULTS} label="Sentadilla" />);
+
+      const overlay = screen.getByTestId('chart-tooltip-overlay');
+
+      expect(overlay).toBeDefined();
+    });
+
+    it('renders canvas element with aria-label', () => {
+      const { container } = render(<LineChart data={DATA_WITH_RESULTS} label="Press Banca" />);
+
+      const canvas = container.querySelector('canvas');
+
+      expect(canvas).not.toBeNull();
+      expect(canvas?.getAttribute('aria-label')).toContain('Press Banca');
+    });
+
+    it('wrapper div is a relative container inside figure (responsive height container)', () => {
+      const { container } = render(<LineChart data={DATA_WITH_RESULTS} label="Sentadilla" />);
+
+      // The wrapper div (figure > div.relative) is the responsive height container.
+      // happy-dom does not parse CSS clamp() values, so we verify the container structure.
+      const wrapper = container.querySelector('figure > div.relative');
+
+      expect(wrapper).not.toBeNull();
+      // Canvas should be inside the wrapper
+      const canvas = wrapper?.querySelector('canvas');
+      expect(canvas).not.toBeNull();
+    });
+
+    it('renders without crash when mode="numeric" prop provided', () => {
+      expect(() => {
+        render(
+          <LineChart data={DATA_WITH_RESULTS} label="RPE Test" mode="numeric" yAxisLabel="RPE" />
+        );
+      }).not.toThrow();
+    });
+
+    it('accessibility <details> table still renders (regression guard)', () => {
+      render(<LineChart data={DATA_WITH_RESULTS} label="Sentadilla" />);
+
+      const details = document.querySelector('details');
+
+      expect(details).not.toBeNull();
+      expect(details?.querySelector('table')).not.toBeNull();
+    });
+  });
 });

@@ -28,10 +28,34 @@ export interface GenericWorkoutRow {
 }
 
 export interface ChartDataPoint {
-  workout: number;
-  weight: number;
-  stage: number;
-  result: ResultValue | null;
+  readonly workout: number;
+  readonly weight: number;
+  readonly stage: number;
+  readonly result: ResultValue | null;
+  readonly date?: string;
+  readonly amrapReps?: number;
+}
+
+/** Data point for RPE trend chart (one per workout where RPE was recorded) */
+export interface RpeDataPoint {
+  readonly workout: number;
+  readonly rpe: number;
+  readonly date?: string;
+}
+
+/** Data point for AMRAP trend chart (one per workout where AMRAP was recorded) */
+export interface AmrapDataPoint {
+  readonly workout: number;
+  readonly reps: number;
+  readonly weight: number;
+  readonly date?: string;
+}
+
+/** Data point for weekly volume bar chart */
+export interface VolumeDataPoint {
+  readonly workout: number;
+  readonly volumeKg: number;
+  readonly date?: string;
 }
 
 export interface ExerciseStats {
