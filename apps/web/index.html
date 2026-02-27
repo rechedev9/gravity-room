@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#c8a84e" />
     <link rel="icon" type="image/webp" href="/favicon.webp" />
-    <title>Gravity Room</title>
+    <title>Gravity Room — Programas de Entrenamiento con Progresión Automática</title>
     <meta
       name="description"
-      content="Train smarter, progress faster. Science-backed training programs with automatic progression."
+      content="Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis."
     />
     <link rel="canonical" href="https://gravityroom.app/" />
     <link rel="manifest" href="/manifest.webmanifest" />
@@ -17,12 +17,16 @@
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="es_ES" />
     <meta property="og:url" content="https://gravityroom.app/" />
     <meta property="og:site_name" content="Gravity Room" />
-    <meta property="og:title" content="Gravity Room" />
+    <meta
+      property="og:title"
+      content="Gravity Room — Programas de Entrenamiento con Progresión Automática"
+    />
     <meta
       property="og:description"
-      content="Stop guessing in the gym. Follow proven programs that auto-adjust weight, sets, and reps."
+      content="Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis."
     />
     <meta property="og:image" content="https://gravityroom.app/og-image.webp" />
     <meta property="og:image:width" content="1200" />
@@ -32,10 +36,13 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://gravityroom.app/og-image.webp" />
-    <meta name="twitter:title" content="Gravity Room" />
+    <meta
+      name="twitter:title"
+      content="Gravity Room — Programas de Entrenamiento con Progresión Automática"
+    />
     <meta
       name="twitter:description"
-      content="Stop guessing in the gym. Follow proven programs that auto-adjust weight, sets, and reps."
+      content="Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis."
     />
 
     <!-- Fonts via Google Fonts -->
@@ -112,6 +119,30 @@
               "@type": "Answer",
               "text": "When you complete all prescribed reps for a lift, the app automatically increases the weight for next session. If you fail, the program adapts by changing the set/rep scheme (e.g., from 5x3 to 6x2) before eventually deloading. This is based on the progressive overload principle."
             }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Qué es Gravity Room?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Gravity Room es una app web gratuita para seguir programas de entrenamiento con progresión automática. Te dice exactamente qué levantar en cada sesión y ajusta el peso, series y repeticiones según tu rendimiento."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Qué es GZCLP?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "GZCLP es un programa de progresión lineal que usa un sistema de tiers (T1, T2, T3) con diferentes esquemas de series y repeticiones por tier. Cuando fallas un levantamiento, el programa ajusta automáticamente las etapas antes de hacer deload, manteniéndote progresando más tiempo."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Gravity Room es gratis?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sí, Gravity Room es 100% gratis. Todas las funciones incluyendo sincronización en la nube, estadísticas y todos los programas de entrenamiento están disponibles sin coste."
+            }
           }
         ]
       }
@@ -120,5 +151,57 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Fallback for non-JS crawlers (AI bots, accessibility tools) -->
+    <noscript>
+      <div style="max-width: 800px; margin: 0 auto; padding: 40px 20px; font-family: sans-serif">
+        <h1>Gravity Room — Programas de Entrenamiento con Progresión Automática</h1>
+        <p>
+          Deja de adivinar en el gimnasio. Sigue programas probados que ajustan automáticamente el
+          peso, series y repeticiones — para que cada sesión te haga avanzar.
+        </p>
+
+        <h2>Características</h2>
+        <ul>
+          <li>
+            <strong>Progresión Inteligente</strong> — La app decide cuándo agregar peso y cómo
+            manejar el fallo.
+          </li>
+          <li>
+            <strong>Programas Probados</strong> — Programas de entrenamiento respaldados por la
+            ciencia con periodización estructurada.
+          </li>
+          <li>
+            <strong>Estadísticas y Gráficas</strong> — Ve tu curva de fuerza a lo largo del tiempo.
+          </li>
+          <li>
+            <strong>Sincronización en la Nube</strong> — Tus datos se sincronizan automáticamente
+            entre dispositivos.
+          </li>
+        </ul>
+
+        <h2>Cómo Funciona</h2>
+        <ol>
+          <li>Elige tu programa y configura tus pesos iniciales.</li>
+          <li>
+            Cada entrenamiento te dice exactamente qué hacer — ejercicio, series, repeticiones,
+            peso.
+          </li>
+          <li>
+            Completa tus reps y el peso sube automáticamente. Si fallas, el programa se adapta.
+          </li>
+        </ol>
+
+        <h2>Programas Disponibles</h2>
+        <p>
+          GZCLP, y más programas añadidos regularmente en categorías de fuerza, hipertrofia y
+          powerlifting. Todos 100% gratis.
+        </p>
+
+        <p>
+          <a href="https://gravityroom.app/privacy">Política de Privacidad</a>
+        </p>
+      </div>
+    </noscript>
   </body>
 </html>

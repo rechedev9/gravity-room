@@ -39,5 +39,26 @@ All programs feature automatic progression rules, deload protocols, and stage-ba
 
 ## Links
 
-- [Home](https://gravityroom.app/): Landing page
-- [Privacy Policy](https://gravityroom.app/privacy): How user data is handled
+- [Home](https://gravityroom.app/): Landing page (Spanish)
+- [Privacy Policy](https://gravityroom.app/privacy): Privacy policy (Spanish)
+
+---
+
+## Acerca de (Español)
+
+Gravity Room es una app web gratuita para seguir programas de entrenamiento con progresión automática. En vez de adivinar en el gimnasio, los usuarios siguen programas estructurados donde la app aumenta el peso automáticamente cuando tienen éxito y ajusta la carga cuando fallan.
+
+Características principales:
+
+- Progresión automática de peso según rendimiento
+- Múltiples programas de entrenamiento (GZCLP y más)
+- Estadísticas y curvas de fuerza a lo largo del tiempo
+- Sincronización en la nube entre dispositivos
+- Integración con calendario para programar entrenamientos
+- 100% gratis
+
+## Cómo Funciona
+
+1. **Elige un programa** — Selecciona el programa que se adapte a tus objetivos y configura tus pesos iniciales.
+2. **Sigue el plan** — Cada entrenamiento te dice exactamente qué hacer: ejercicio, series, repeticiones y peso.
+3. **Progresa automáticamente** — Completa tus reps y el peso sube. Si fallas, el programa se adapta.
