@@ -28,6 +28,7 @@ import { Toolbar } from './toolbar';
 import { ViewToggle } from './view-toggle';
 import { WeekNavigator } from './week-navigator';
 import { WeekTable } from './week-table';
+import { AppSkeleton } from './app-skeleton';
 import { lazyWithRetry } from '@/lib/lazy-with-retry';
 
 const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
@@ -65,6 +66,7 @@ export function ProgramApp({
     rows,
     undoHistory,
     resultTimestamps,
+    isLoading,
     isGenerating,
     generateProgram,
     updateConfig,
@@ -341,6 +343,8 @@ export function ProgramApp({
   };
 
   if (authLoading || user === null) return null;
+
+  if (isLoading && !definition) return <AppSkeleton />;
 
   if (!definition) {
     return (
