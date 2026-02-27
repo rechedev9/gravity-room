@@ -183,15 +183,12 @@ export function SetupForm({
 
   const formContent = (
     <>
-      <h2
-        className="font-display mb-1.5 leading-none"
-        style={{ fontSize: '28px', color: 'var(--text-header)' }}
-      >
+      <h2 className="font-display mb-1.5 leading-none text-heading" style={{ fontSize: '28px' }}>
         {isEditMode
           ? (definition.configEditTitle ?? 'Editar Pesos Iniciales (kg)')
           : (definition.configTitle ?? 'Pesos Iniciales (kg)')}
       </h2>
-      <p className="text-[13px] text-[var(--text-muted)] mb-5">
+      <p className="text-[13px] text-muted mb-5">
         {isEditMode
           ? (definition.configEditDescription ??
             'Actualiza tus pesos iniciales — el programa se recalculará con los nuevos valores')
@@ -202,7 +199,7 @@ export function SetupForm({
         {groupedFields.map((group) => (
           <div key={group.label ?? '_ungrouped'}>
             {group.label && (
-              <h3 className="text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-2">
+              <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted mb-2">
                 {group.label}
               </h3>
             )}
@@ -231,7 +228,7 @@ export function SetupForm({
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2.5 text-[var(--text-error)] font-bold mb-3 p-2.5 bg-[var(--bg-error)] border-2 border-[var(--border-error)]"
+          className="flex items-start gap-2.5 text-error font-bold mb-3 p-2.5 bg-error-bg border-2 border-error-line"
         >
           <span className="shrink-0 text-sm" aria-hidden="true">
             &#9888;
@@ -245,7 +242,7 @@ export function SetupForm({
                   <li key={f.key}>
                     <button
                       type="button"
-                      className="underline cursor-pointer bg-transparent border-none text-[var(--text-error)] p-0"
+                      className="underline cursor-pointer bg-transparent border-none text-error p-0"
                       onClick={() => document.getElementById(`weight-${f.key}`)?.focus()}
                     >
                       {f.label}
@@ -262,7 +259,7 @@ export function SetupForm({
         {isEditMode && (
           <button
             onClick={() => setIsExpanded(false)}
-            className="flex-1 py-3.5 border-2 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] text-base font-bold cursor-pointer hover:bg-[var(--bg-hover-row)] hover:text-[var(--text-main)] transition-colors"
+            className="flex-1 py-3.5 border-2 border-rule bg-card text-muted text-base font-bold cursor-pointer hover:bg-hover-row hover:text-main transition-colors"
           >
             Cancelar
           </button>
@@ -270,7 +267,7 @@ export function SetupForm({
         <button
           onClick={handleSubmit}
           disabled={isGenerating}
-          className="flex-1 py-3.5 border-none bg-[var(--bg-header)] text-[var(--text-header)] text-base font-bold cursor-pointer hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 py-3.5 border-none bg-header text-heading text-base font-bold cursor-pointer hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isGenerating
             ? 'Generando...'
@@ -288,16 +285,16 @@ export function SetupForm({
     <>
       {isEditMode ? (
         <>
-          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-4 sm:p-7 mb-7 card">
+          <div className="bg-card border border-rule p-4 sm:p-7 mb-7 card">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
                 <h2
-                  className="font-display mb-1 leading-none"
-                  style={{ fontSize: '22px', color: 'var(--text-header)' }}
+                  className="font-display mb-1 leading-none text-heading"
+                  style={{ fontSize: '22px' }}
                 >
                   {definition.configTitle ?? 'Pesos Iniciales'}
                 </h2>
-                <p className="text-xs text-[var(--text-muted)] flex flex-wrap gap-x-3 gap-y-0.5 leading-relaxed">
+                <p className="text-xs text-muted flex flex-wrap gap-x-3 gap-y-0.5 leading-relaxed">
                   {fields.slice(0, 4).map((f) => (
                     <span key={f.key}>
                       {f.label}: {initialConfig[f.key]}kg
@@ -308,7 +305,7 @@ export function SetupForm({
               </div>
               <button
                 onClick={() => setIsExpanded(true)}
-                className="px-4 py-2.5 min-h-[44px] border-2 border-[var(--btn-border)] text-xs font-bold cursor-pointer bg-[var(--btn-bg)] text-[var(--btn-text)] whitespace-nowrap transition-all hover:bg-[var(--btn-hover-bg)] hover:text-[var(--btn-hover-text)]"
+                className="px-4 py-2.5 min-h-[44px] border-2 border-btn-ring text-xs font-bold cursor-pointer bg-btn text-btn-text whitespace-nowrap transition-all hover:bg-btn-active hover:text-btn-active-text"
               >
                 {definition.configEditTitle ? 'Editar' : 'Editar Pesos'}
               </button>
@@ -321,14 +318,13 @@ export function SetupForm({
               onClick={() => setIsExpanded(false)}
             >
               <div
-                className="relative modal-box bg-[var(--bg-card)] border border-[var(--border-color)] p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto"
-                style={{ boxShadow: 'var(--shadow-elevated), 0 0 60px rgba(0, 0, 0, 0.5)' }}
+                className="relative modal-box bg-card border border-rule p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto shadow-dialog"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
                   type="button"
                   onClick={() => setIsExpanded(false)}
-                  className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-[var(--text-muted)] hover:text-[var(--text-header)] transition-colors cursor-pointer"
+                  className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-muted hover:text-heading transition-colors cursor-pointer"
                   aria-label="Cerrar"
                 >
                   &#10005;
@@ -339,7 +335,7 @@ export function SetupForm({
           )}
         </>
       ) : (
-        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-4 sm:p-7 mb-7 max-w-2xl mx-auto card edge-glow-top">
+        <div className="bg-card border border-rule p-4 sm:p-7 mb-7 max-w-2xl mx-auto card edge-glow-top">
           {formContent}
         </div>
       )}

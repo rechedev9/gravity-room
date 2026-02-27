@@ -23,10 +23,9 @@ export function DropdownMenu({
     <div
       ref={ref}
       role="menu"
-      className={`absolute top-full mt-1.5 z-50 min-w-[180px] bg-[var(--bg-card)] border border-[var(--border-color)] py-1 animate-[dropdown-enter_0.15s_ease-out] ${
+      className={`absolute top-full mt-1.5 z-50 min-w-[180px] bg-card border border-rule py-1 animate-[dropdown-enter_0.15s_ease-out] shadow-elevated ${
         align === 'right' ? 'right-0' : 'left-0'
       }`}
-      style={{ boxShadow: 'var(--shadow-elevated)' }}
     >
       {children}
     </div>
@@ -49,10 +48,8 @@ export function DropdownItem({
     <button
       role="menuitem"
       onClick={onClick}
-      className={`w-full text-left px-4 py-2.5 text-xs font-bold cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none ${
-        variant === 'danger'
-          ? 'text-[var(--text-badge-no)] hover:bg-[var(--bg-badge-no)]'
-          : 'text-[var(--text-main)] hover:bg-[var(--bg-hover-row)]'
+      className={`w-full text-left px-4 py-2.5 text-xs font-bold cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent focus-visible:outline-none ${
+        variant === 'danger' ? 'text-fail hover:bg-fail-bg' : 'text-main hover:bg-hover-row'
       }`}
     >
       {children}
@@ -62,5 +59,5 @@ export function DropdownItem({
 
 /* Reusable divider */
 export function DropdownDivider(): React.ReactNode {
-  return <div className="my-1 border-t border-[var(--border-light)]" />;
+  return <div className="my-1 border-t border-rule-light" />;
 }

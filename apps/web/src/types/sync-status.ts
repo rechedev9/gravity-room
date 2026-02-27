@@ -11,8 +11,8 @@ export const SYNC_LABELS: Readonly<Record<SyncStatus, string>> = {
 
 export const SYNC_COLORS: Readonly<Record<SyncStatus, string>> = {
   idle: '',
-  syncing: 'text-[var(--btn-text)]',
-  synced: 'text-[var(--text-badge-ok)]',
-  offline: 'text-[var(--text-muted)]',
-  error: 'text-[var(--text-error)]',
+  syncing: 'text-btn-text',
+  synced: 'text-ok',
+  offline: 'text-muted',
+  error: 'text-error',
 } as const;

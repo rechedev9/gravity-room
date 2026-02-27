@@ -53,12 +53,12 @@ export function AmrapInput({
           onClick={decrement}
           disabled={current <= MIN_REPS}
           aria-label="Disminuir reps"
-          className={`${btnBase} font-bold border-2 border-r-0 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--btn-text)] cursor-pointer transition-all duration-150 hover:bg-[var(--bg-hover-row)] hover:text-[var(--text-header)] active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none disabled:opacity-30 disabled:cursor-default`}
+          className={`${btnBase} font-bold border-2 border-r-0 border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-heading active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default`}
         >
           &minus;
         </button>
         <span
-          className={`${displayWidth} flex items-center justify-center py-1 text-center text-[13px] font-bold bg-transparent border-y-2 border-x-0 border-[var(--border-color)] text-[var(--text-header)] tabular-nums select-none`}
+          className={`${displayWidth} flex items-center justify-center py-1 text-center text-[13px] font-bold bg-transparent border-y-2 border-x-0 border-rule text-heading tabular-nums select-none`}
           aria-live="polite"
           aria-label="Reps AMRAP"
         >
@@ -69,13 +69,13 @@ export function AmrapInput({
           onClick={increment}
           disabled={current >= MAX_REPS}
           aria-label="Aumentar reps"
-          className={`${btnBase} font-bold border-2 border-l-0 border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--btn-text)] cursor-pointer transition-all duration-150 hover:bg-[var(--bg-hover-row)] hover:text-[var(--text-header)] active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none disabled:opacity-30 disabled:cursor-default`}
+          className={`${btnBase} font-bold border-2 border-l-0 border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-heading active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default`}
         >
           +
         </button>
       </div>
       {showEstimate && (
-        <span className="text-[10px] text-[var(--text-muted)] mt-0.5 block text-center">
+        <span className="text-[10px] text-muted mt-0.5 block text-center">
           1RM est.: {computeEpley1RM(weight, value)} kg
         </span>
       )}

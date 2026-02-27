@@ -102,7 +102,7 @@ describe('RpeInput', () => {
 
       const rpe5Button = screen.getByRole('button', { name: /^RPE 5:/ });
 
-      expect(rpe5Button.className).toContain('bg-[var(--fill-progress)]');
+      expect(rpe5Button.className).toContain('bg-accent');
       expect(rpe5Button.getAttribute('aria-pressed')).toBe('true');
     });
   });

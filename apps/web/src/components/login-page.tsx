@@ -32,7 +32,7 @@ export function LoginPage(): React.ReactNode {
   };
 
   return (
-    <div className="grain-overlay min-h-dvh flex flex-col items-center justify-center bg-[var(--bg-body)] px-5 py-12 relative overflow-hidden">
+    <div className="grain-overlay min-h-dvh flex flex-col items-center justify-center bg-body px-5 py-12 relative overflow-hidden">
       {/* Keyframe definitions */}
       <style>{`
         @keyframes riseIn {
@@ -93,10 +93,9 @@ export function LoginPage(): React.ReactNode {
 
       {/* Hero title */}
       <h1
-        className="font-display text-center leading-[0.88] mb-1"
+        className="font-display text-center leading-[0.88] mb-1 text-heading"
         style={{
           fontSize: 'clamp(50px, 12vw, 88px)',
-          color: 'var(--text-header)',
           letterSpacing: '0.03em',
           textShadow: '0 0 48px rgba(200,168,78,0.18)',
           animation: 'riseIn 0.55s ease both',
@@ -116,8 +115,8 @@ export function LoginPage(): React.ReactNode {
           style={{ background: 'linear-gradient(to right, transparent, rgba(200,168,78,0.6))' }}
         />
         <span
-          className="font-mono text-[9px] tracking-[0.35em] uppercase flex-shrink-0"
-          style={{ color: 'var(--text-header)', textShadow: '0 0 10px rgba(200,168,78,0.5)' }}
+          className="font-mono text-[9px] tracking-[0.35em] uppercase flex-shrink-0 text-heading"
+          style={{ textShadow: '0 0 10px rgba(200,168,78,0.5)' }}
         >
           Entra a la Cámara
         </span>
@@ -148,19 +147,16 @@ export function LoginPage(): React.ReactNode {
 
         <div
           style={{
-            background: 'var(--bg-card)',
+            background: 'var(--color-card)',
             borderTop: '1px solid rgba(200,168,78,0.2)',
             borderRight: '1px solid rgba(200,168,78,0.08)',
             borderBottom: '1px solid rgba(200,168,78,0.08)',
-            borderLeft: '3px solid var(--text-header)',
+            borderLeft: '3px solid var(--color-heading)',
             boxShadow: '-8px 0 40px rgba(200,168,78,0.07), 0 24px 64px rgba(0,0,0,0.7)',
             padding: '22px 22px 20px',
           }}
         >
-          <p
-            className="font-mono text-[9px] tracking-[0.35em] uppercase mb-5"
-            style={{ color: 'var(--text-header)' }}
-          >
+          <p className="font-mono text-[9px] tracking-[0.35em] uppercase mb-5 text-heading">
             Autenticar
           </p>
 
@@ -204,11 +200,10 @@ export function LoginPage(): React.ReactNode {
           {/* Error */}
           {error && (
             <div
-              className="flex items-start gap-2 text-xs mt-3 px-3 py-2"
+              className="flex items-start gap-2 text-xs mt-3 px-3 py-2 text-error"
               style={{
-                background: 'var(--bg-error)',
-                border: '1px solid var(--border-error)',
-                color: 'var(--text-error)',
+                background: 'var(--color-error-bg)',
+                border: '1px solid var(--color-error-line)',
               }}
             >
               <span className="shrink-0 leading-none mt-px">⚠</span>
@@ -220,9 +215,8 @@ export function LoginPage(): React.ReactNode {
 
       {/* Tagline */}
       <p
-        className="font-mono text-[9px] tracking-[0.4em] uppercase mt-8"
+        className="font-mono text-[9px] tracking-[0.4em] uppercase mt-8 text-muted"
         style={{
-          color: 'var(--text-muted)',
           opacity: 0.45,
           animation: 'riseIn 0.55s ease both',
           animationDelay: '0.32s',

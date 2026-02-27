@@ -29,14 +29,14 @@ export function PlateCalculator({
       role="dialog"
       aria-label="Calculadora de discos"
       data-testid="plate-calculator-popover"
-      className="absolute left-0 top-full mt-1 z-50 bg-[var(--bg-card)] border border-[var(--border-color)] shadow-lg p-4 min-w-[180px]"
+      className="absolute left-0 top-full mt-1 z-50 bg-card border border-rule shadow-lg p-4 min-w-[180px]"
     >
-      <p className="text-sm font-bold text-[var(--text-header)] mb-2">{weight} kg</p>
-      <p className="text-[11px] text-[var(--text-muted)] mb-3">Barra: {BAR_KG} kg</p>
+      <p className="text-sm font-bold text-heading mb-2">{weight} kg</p>
+      <p className="text-[11px] text-muted mb-3">Barra: {BAR_KG} kg</p>
 
       <ul className="space-y-1 mb-3">
         {result.plates.map((plate) => (
-          <li key={plate.kg} className="text-xs text-[var(--text-main)] flex justify-between">
+          <li key={plate.kg} className="text-xs text-main flex justify-between">
             <span>
               {plate.count} {'\u00d7'} {plate.kg} kg
             </span>
@@ -44,7 +44,7 @@ export function PlateCalculator({
         ))}
       </ul>
 
-      <p className="text-[11px] font-bold text-[var(--text-info)] border-t border-[var(--border-light)] pt-2">
+      <p className="text-[11px] font-bold text-info border-t border-rule-light pt-2">
         {sideTotal} kg por lado
       </p>
     </div>

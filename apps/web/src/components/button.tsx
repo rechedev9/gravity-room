@@ -1,17 +1,14 @@
 import { forwardRef } from 'react';
 
 const BASE =
-  'font-bold cursor-pointer border-2 transition-all duration-150 whitespace-nowrap disabled:opacity-25 disabled:cursor-not-allowed tracking-wide uppercase focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none active:scale-[0.97]';
+  'font-bold cursor-pointer border-2 transition-all duration-150 whitespace-nowrap disabled:opacity-25 disabled:cursor-not-allowed tracking-wide uppercase focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none active:scale-[0.97]';
 
 const VARIANT_STYLES = {
   default:
-    'border-[var(--btn-border)] bg-[var(--btn-bg)] text-[var(--btn-text)] hover:bg-[var(--btn-hover-bg)] hover:text-[var(--btn-hover-text)] disabled:hover:bg-[var(--btn-bg)] disabled:hover:text-[var(--btn-text)]',
-  primary:
-    'border-[var(--btn-border)] bg-[var(--btn-hover-bg)] text-[var(--btn-hover-text)] hover:opacity-90',
-  danger:
-    'border-[var(--border-badge-no)] bg-[var(--bg-badge-no)] text-[var(--text-badge-no)] hover:bg-[var(--text-badge-no)] hover:text-[var(--bg-body)]',
-  ghost:
-    'border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-hover-row)] hover:text-[var(--text-main)]',
+    'border-btn-ring bg-btn text-btn-text hover:bg-btn-active hover:text-btn-active-text disabled:hover:bg-btn disabled:hover:text-btn-text',
+  primary: 'border-btn-ring bg-btn-active text-btn-active-text hover:opacity-90',
+  danger: 'border-fail-ring bg-fail-bg text-fail hover:bg-fail hover:text-body',
+  ghost: 'border-rule bg-card text-muted hover:bg-hover-row hover:text-main',
 } as const;
 
 const SIZE_STYLES = {

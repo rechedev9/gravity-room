@@ -22,21 +22,21 @@ export function ProgramCompletionScreen({
   onBackToDashboard,
 }: ProgramCompletionScreenProps): React.ReactNode {
   return (
-    <div className="fixed inset-0 z-[100] bg-[var(--bg-body)] overflow-y-auto">
+    <div className="fixed inset-0 z-[100] bg-body overflow-y-auto">
       <div className="max-w-2xl mx-auto px-5 sm:px-8 py-12 sm:py-20">
         {/* Celebration header */}
         <div className="text-center mb-12">
           <h1
-            className="font-display text-5xl sm:text-7xl text-[var(--text-header)] leading-none mb-3"
+            className="font-display text-5xl sm:text-7xl text-heading leading-none mb-3"
             style={{ textShadow: '0 0 40px rgba(240, 192, 64, 0.25)' }}
           >
             {'\u00A1'}COMPLETADO!
           </h1>
-          <p className="text-lg sm:text-xl text-[var(--text-info)] font-bold">{programName}</p>
+          <p className="text-lg sm:text-xl text-info font-bold">{programName}</p>
           <div
             className="h-1 w-24 mx-auto mt-4"
             style={{
-              background: 'linear-gradient(90deg, transparent, var(--fill-progress), transparent)',
+              background: 'linear-gradient(90deg, transparent, var(--color-accent), transparent)',
             }}
           />
         </div>
@@ -98,7 +98,7 @@ export function ProgramCompletionScreen({
                 />
               ))}
             </div>
-            <p className="text-[10px] text-[var(--text-muted)] mt-2 text-center">
+            <p className="text-[10px] text-muted mt-2 text-center">
               Estimaci{'\u00F3'}n basada en la f{'\u00F3'}rmula de Epley
             </p>
           </section>
@@ -109,14 +109,14 @@ export function ProgramCompletionScreen({
           <button
             type="button"
             onClick={onViewProfile}
-            className="px-8 py-3 text-sm font-bold border-2 border-[var(--fill-progress)] bg-[var(--fill-progress)] text-[var(--bg-body)] cursor-pointer transition-all hover:opacity-90 active:scale-95"
+            className="px-8 py-3 text-sm font-bold border-2 border-accent bg-accent text-body cursor-pointer transition-all hover:opacity-90 active:scale-95"
           >
             Ver Perfil de Entrenamiento
           </button>
           <button
             type="button"
             onClick={onBackToDashboard}
-            className="px-8 py-3 text-sm font-bold border-2 border-[var(--btn-border)] bg-transparent text-[var(--text-header)] cursor-pointer transition-all hover:bg-[var(--btn-hover-bg)] active:scale-95"
+            className="px-8 py-3 text-sm font-bold border-2 border-btn-ring bg-transparent text-heading cursor-pointer transition-all hover:bg-btn-active active:scale-95"
           >
             Volver al Dashboard
           </button>

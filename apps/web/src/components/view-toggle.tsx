@@ -15,7 +15,7 @@ export function ViewToggle({ viewMode, onToggle }: ViewToggleProps): React.React
       type="button"
       onClick={onToggle}
       aria-label={targetLabel}
-      className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] min-w-[44px] text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] border border-[var(--border-color)] bg-[var(--bg-card)] cursor-pointer transition-all duration-150 hover:text-[var(--text-main)] hover:border-[var(--border-light)] active:scale-95"
+      className="inline-flex items-center gap-1.5 px-3 py-2 min-h-[44px] min-w-[44px] text-[11px] font-bold uppercase tracking-widest text-muted border border-rule bg-card cursor-pointer transition-all duration-150 hover:text-main hover:border-rule-light active:scale-95"
     >
       {icon} {label}
     </button>

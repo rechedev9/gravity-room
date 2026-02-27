@@ -38,7 +38,7 @@ function RpeSelect({
       }}
       data-rpe-input={`${workoutIndex}-${slotKey}`}
       aria-label="RPE"
-      className="bg-[var(--bg-card)] text-[var(--text-main)] border border-[var(--border-color)] text-xs font-bold px-1.5 py-1.5 min-h-[36px] min-w-[52px] cursor-pointer rounded-none focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none"
+      className="bg-card text-main border border-rule text-xs font-bold px-1.5 py-1.5 min-h-[36px] min-w-[52px] cursor-pointer rounded-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
     >
       <option value="">{'\u2014'}</option>
       <option value="5">5</option>
@@ -52,7 +52,7 @@ function RpeSelect({
 }
 
 const TH =
-  'text-left font-mono text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] px-3 py-2.5 whitespace-nowrap';
+  'text-left font-mono text-[11px] font-bold uppercase tracking-widest text-muted px-3 py-2.5 whitespace-nowrap';
 
 export function WeekTable({
   weekRows,
@@ -97,7 +97,7 @@ export function WeekTable({
     <div ref={scrollRef} className="overflow-x-auto -mx-3 sm:mx-0 table-scroll-shadow">
       <table className="w-full border-collapse min-w-[680px]">
         <thead>
-          <tr className="border-b-2 border-[var(--border-color)]">
+          <tr className="border-b-2 border-rule">
             <th className={TH}>Tier</th>
             <th className={TH}>Ejercicio</th>
             <th className={`${TH} text-right`}>Peso</th>
@@ -117,7 +117,7 @@ export function WeekTable({
               <Fragment key={row.index}>
                 {/* Day group header */}
                 <tr
-                  className={`border-t-2 border-[var(--border-color)] ${
+                  className={`border-t-2 border-rule ${
                     isCurrent ? 'bg-[rgba(232,170,32,0.06)]' : ''
                   }`}
                   {...(isCurrent ? { 'data-current-row': true } : {})}
@@ -126,14 +126,14 @@ export function WeekTable({
                     colSpan={colCount}
                     className="px-3 py-2.5 font-mono text-[12px] font-bold tracking-wider"
                   >
-                    <span className="text-[var(--text-header)]">#{row.index + 1}</span>
-                    <span className="text-[var(--text-muted)] mx-2">{'\u2014'}</span>
-                    <span className="text-[var(--text-main)] uppercase">{row.dayName}</span>
+                    <span className="text-heading">#{row.index + 1}</span>
+                    <span className="text-muted mx-2">{'\u2014'}</span>
+                    <span className="text-main uppercase">{row.dayName}</span>
                     <span className="ml-3 text-sm">
                       {isComplete ? (
-                        <span className="text-[var(--fill-progress)]">{'\u25CF'}</span>
+                        <span className="text-accent">{'\u25CF'}</span>
                       ) : (
-                        <span className="text-[var(--text-info)]">{'\u25CB'}</span>
+                        <span className="text-info">{'\u25CB'}</span>
                       )}
                     </span>
                   </td>
@@ -150,20 +150,20 @@ export function WeekTable({
                   return (
                     <tr
                       key={slot.slotId}
-                      className={`border-b border-[var(--border-light)] transition-opacity duration-200 ${
+                      className={`border-b border-rule-light transition-opacity duration-200 ${
                         fullyDone ? 'opacity-55' : ''
                       } ${isCurrent && !fullyDone ? 'bg-[rgba(232,170,32,0.03)]' : ''} ${
-                        slot.isChanged && !isDone ? 'bg-[var(--bg-changed)]' : ''
+                        slot.isChanged && !isDone ? 'bg-changed' : ''
                       }`}
                     >
                       {/* Tier */}
                       <td
                         className={`px-3 py-2.5 text-[11px] font-bold uppercase whitespace-nowrap ${
                           slot.role === 'primary'
-                            ? 'text-[var(--fill-progress)]'
+                            ? 'text-accent'
                             : slot.role === 'secondary'
-                              ? 'text-[var(--text-main)]'
-                              : 'text-[var(--text-muted)]'
+                              ? 'text-main'
+                              : 'text-muted'
                         }`}
                       >
                         {slot.tier.toUpperCase()}
@@ -178,21 +178,17 @@ export function WeekTable({
                       <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap font-bold text-[13px]">
                         {slot.weight > 0 ? `${slot.weight} kg` : '\u2014'}
                         {slot.isDeload && (
-                          <span className="block text-[10px] text-[var(--text-muted)]">
-                            {'\u2193'} Deload
-                          </span>
+                          <span className="block text-[10px] text-muted">{'\u2193'} Deload</span>
                         )}
                       </td>
 
                       {/* Scheme */}
-                      <td className="px-3 py-2.5 text-center text-[12px] font-semibold text-[var(--text-muted)] tabular-nums whitespace-nowrap">
+                      <td className="px-3 py-2.5 text-center text-[12px] font-semibold text-muted tabular-nums whitespace-nowrap">
                         {slot.sets}
                         {'\u00d7'}
                         {slot.reps}
                         {slot.repsMax !== undefined ? `\u2013${slot.repsMax}` : ''}
-                        {slot.isAmrap && (
-                          <span className="text-[10px] ml-0.5 text-[var(--fill-progress)]">+</span>
-                        )}
+                        {slot.isAmrap && <span className="text-[10px] ml-0.5 text-accent">+</span>}
                       </td>
 
                       {/* Stage (conditional) */}
@@ -201,7 +197,7 @@ export function WeekTable({
                           {slot.stage > 0 ? (
                             <StageTag stage={slot.stage} size="sm" />
                           ) : (
-                            <span className="text-[var(--text-muted)] text-xs">{'\u2014'}</span>
+                            <span className="text-muted text-xs">{'\u2014'}</span>
                           )}
                         </td>
                       )}
@@ -230,7 +226,7 @@ export function WeekTable({
                               result={slot.result}
                             />
                           ) : (
-                            <span className="text-[var(--text-muted)] text-xs">{'\u2014'}</span>
+                            <span className="text-muted text-xs">{'\u2014'}</span>
                           )}
                         </td>
                       )}
@@ -246,11 +242,9 @@ export function WeekTable({
                               slotKey={slot.slotId}
                             />
                           ) : slot.rpe !== undefined ? (
-                            <span className="text-xs font-bold text-[var(--text-main)]">
-                              {slot.rpe}
-                            </span>
+                            <span className="text-xs font-bold text-main">{slot.rpe}</span>
                           ) : (
-                            <span className="text-[var(--text-muted)] text-xs">{'\u2014'}</span>
+                            <span className="text-muted text-xs">{'\u2014'}</span>
                           )}
                         </td>
                       )}

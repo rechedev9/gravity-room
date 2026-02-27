@@ -24,30 +24,24 @@ export function AppHeader({
 
   return (
     <header
-      className="flex items-center justify-between px-5 sm:px-8 py-4 bg-[var(--bg-header)] border-b border-[var(--border-color)] shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
+      className="flex items-center justify-between px-5 sm:px-8 py-4 bg-header border-b border-rule shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
       style={{
         borderImage:
-          'linear-gradient(90deg, var(--border-color) 0%, rgba(232, 170, 32, 0.2) 50%, var(--border-color) 100%) 1',
+          'linear-gradient(90deg, var(--color-rule) 0%, rgba(232, 170, 32, 0.2) 50%, var(--color-rule) 100%) 1',
       }}
     >
       <div className="flex items-center gap-4">
         {onBack && (
           <button
             onClick={onBack}
-            className="font-mono text-xs font-medium tracking-widest uppercase transition-colors cursor-pointer mr-2 hover:text-[var(--text-header)] inline-flex items-center min-h-[44px] px-2"
-            style={{ color: 'var(--text-muted)' }}
+            className="font-mono text-xs font-medium tracking-widest uppercase transition-colors cursor-pointer mr-2 hover:text-heading inline-flex items-center min-h-[44px] px-2 text-muted"
           >
             ← {backLabel ?? 'Volver'}
           </button>
         )}
         <Link to="/app" className="flex items-center gap-4">
           <img src="/logo.webp" alt="Logo" width={32} height={32} className="rounded-sm" />
-          <span
-            className="text-sm font-bold tracking-tight"
-            style={{ color: 'var(--text-header)' }}
-          >
-            Gravity Room
-          </span>
+          <span className="text-sm font-bold tracking-tight text-heading">Gravity Room</span>
         </Link>
       </div>
 

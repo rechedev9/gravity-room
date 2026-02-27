@@ -66,6 +66,6 @@ describe('StageTag', () => {
 
     const tag = screen.getByText('S1');
 
-    expect(tag.className).toContain('text-[var(--bg-header)]');
+    expect(tag.className).toContain('text-header');
   });
 });

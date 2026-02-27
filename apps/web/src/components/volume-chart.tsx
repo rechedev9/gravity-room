@@ -55,10 +55,10 @@ export function VolumeChart({ data, label }: VolumeChartProps): React.ReactNode 
     const H = rect.height;
 
     const style = getComputedStyle(document.documentElement);
-    const barColor = style.getPropertyValue('--chart-line').trim() || '#333';
-    const textColor = style.getPropertyValue('--chart-text').trim() || '#666';
-    const bgColor = style.getPropertyValue('--bg-th').trim() || '#fafafa';
-    const gridColor = style.getPropertyValue('--chart-grid').trim() || '#ddd';
+    const barColor = style.getPropertyValue('--color-chart-line').trim() || '#333';
+    const textColor = style.getPropertyValue('--color-chart-text').trim() || '#666';
+    const bgColor = style.getPropertyValue('--color-th').trim() || '#fafafa';
+    const gridColor = style.getPropertyValue('--color-chart-grid').trim() || '#ddd';
 
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, W, H);

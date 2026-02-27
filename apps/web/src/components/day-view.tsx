@@ -55,8 +55,8 @@ export function DayView({
     >
       {/* Day header */}
       <div className="flex items-baseline gap-3 mb-5">
-        <span className="font-display text-3xl text-[var(--text-header)]">#{workoutNumber}</span>
-        <span className="font-mono text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
+        <span className="font-display text-3xl text-heading">#{workoutNumber}</span>
+        <span className="font-mono text-[11px] font-bold text-muted uppercase tracking-widest">
           {dayName}
         </span>
       </div>

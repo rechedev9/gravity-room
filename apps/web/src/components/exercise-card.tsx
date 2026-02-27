@@ -37,19 +37,19 @@ export interface ExerciseCardProps {
 
 const ROLE_STYLES = {
   primary: {
-    tierColor: 'text-[var(--fill-progress)]',
+    tierColor: 'text-accent',
     nameSize: 'text-base',
-    weightStyle: 'font-display-data text-3xl text-[var(--fill-progress)] tabular-nums',
+    weightStyle: 'font-display-data text-3xl text-accent tabular-nums',
   },
   secondary: {
-    tierColor: 'text-[var(--text-main)]',
+    tierColor: 'text-main',
     nameSize: 'text-sm',
     weightStyle: 'text-lg font-extrabold tabular-nums',
   },
   accessory: {
-    tierColor: 'text-[var(--text-muted)]',
+    tierColor: 'text-muted',
     nameSize: 'text-sm',
-    weightStyle: 'text-base font-extrabold tabular-nums text-[var(--text-muted)]',
+    weightStyle: 'text-base font-extrabold tabular-nums text-muted',
   },
 } as const;
 
@@ -82,16 +82,16 @@ export function ExerciseCard({
 
   return (
     <div
-      className={`bg-[var(--bg-card)] border border-[var(--border-color)] p-4 card transition-all duration-200 ${
+      className={`bg-card border border-rule p-4 card transition-all duration-200 ${
         role === 'primary' ? 'accent-left-gold' : role === 'secondary' ? 'accent-left-muted' : ''
       } ${
         result !== undefined ? 'opacity-55 saturate-50' : ''
-      } ${isChanged && result === undefined ? 'bg-[var(--bg-changed)]' : ''}`}
+      } ${isChanged && result === undefined ? 'bg-changed' : ''}`}
     >
       {/* Tier · Exercise name */}
       <div className="flex items-center gap-2">
         <span className={`text-[12px] font-bold uppercase ${styles.tierColor}`}>{tierLabel}</span>
-        <span className="text-[11px] text-[var(--text-muted)]">&middot;</span>
+        <span className="text-[11px] text-muted">&middot;</span>
         <span className={`font-bold truncate ${styles.nameSize}`}>{exerciseName}</span>
       </div>
 
@@ -110,17 +110,15 @@ export function ExerciseCard({
             ) : (
               <span className={styles.weightStyle}>{weight} kg</span>
             )}
-            {isDeload && (
-              <span className="text-[10px] text-[var(--text-muted)] ml-1">{'\u2193'} Deload</span>
-            )}
+            {isDeload && <span className="text-[10px] text-muted ml-1">{'\u2193'} Deload</span>}
             {pcOpen && (
               <PlateCalculator weight={weight} isOpen={pcOpen} onClose={() => setPcOpen(false)} />
             )}
           </span>
         )}
-        <span className="text-[13px] font-semibold text-[var(--text-muted)]">
+        <span className="text-[13px] font-semibold text-muted">
           {scheme}
-          {isAmrap && <span className="text-[10px] ml-1 text-[var(--fill-progress)]">AMRAP</span>}
+          {isAmrap && <span className="text-[10px] ml-1 text-accent">AMRAP</span>}
         </span>
         {showStage && stage > 0 && <StageTag stage={stage} size="md" />}
       </div>
@@ -140,7 +138,7 @@ export function ExerciseCard({
       {/* AMRAP input (success only) */}
       {result === 'success' && isAmrap && onSetAmrapReps && (
         <div className="mt-2 flex items-center gap-2">
-          <span className="text-xs text-[var(--text-muted)]">Rep. AMRAP:</span>
+          <span className="text-xs text-muted">Rep. AMRAP:</span>
           <AmrapInput
             value={amrapReps}
             onChange={(reps: number | undefined) => onSetAmrapReps(workoutIndex, slotKey, reps)}

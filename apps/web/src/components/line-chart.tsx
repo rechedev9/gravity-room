@@ -106,13 +106,13 @@ export function LineChart({
     const H = rect.height;
 
     const style = getComputedStyle(document.documentElement);
-    const gridColor = style.getPropertyValue('--chart-grid').trim() || '#ddd';
-    const textColor = style.getPropertyValue('--chart-text').trim() || '#666';
-    const lineColor = style.getPropertyValue('--chart-line').trim() || '#333';
-    const successColor = style.getPropertyValue('--chart-success').trim() || '#4caf50';
-    const failColor = style.getPropertyValue('--chart-fail').trim() || '#ef5350';
-    const bgColor = style.getPropertyValue('--bg-th').trim() || '#fafafa';
-    const prColor = style.getPropertyValue('--chart-pr').trim() || '#D4A843';
+    const gridColor = style.getPropertyValue('--color-chart-grid').trim() || '#ddd';
+    const textColor = style.getPropertyValue('--color-chart-text').trim() || '#666';
+    const lineColor = style.getPropertyValue('--color-chart-line').trim() || '#333';
+    const successColor = style.getPropertyValue('--color-chart-ok').trim() || '#4caf50';
+    const failColor = style.getPropertyValue('--color-chart-fail').trim() || '#ef5350';
+    const bgColor = style.getPropertyValue('--color-th').trim() || '#fafafa';
+    const prColor = style.getPropertyValue('--color-chart-pr').trim() || '#D4A843';
 
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, W, H);
@@ -475,14 +475,14 @@ export function LineChart({
         className="rounded border px-2 py-1 text-xs shadow-lg whitespace-nowrap"
         style={{
           ...tooltipStyle,
-          backgroundColor: 'var(--bg-card, #1a1408)',
-          borderColor: 'var(--border-color, #2a2218)',
-          color: 'var(--text-tooltip, #f0e8d8)',
+          backgroundColor: 'var(--color-card, #1a1408)',
+          borderColor: 'var(--color-rule, #2a2218)',
+          color: 'var(--color-tooltip-text, #f0e8d8)',
         }}
       >
         <div className="font-bold">
           {point.weight} kg
-          {isPr && <span className="ml-1 text-[var(--chart-pr)]">PR</span>}
+          {isPr && <span className="ml-1 text-chart-pr">PR</span>}
         </div>
         {formattedDate && <div>{formattedDate}</div>}
         <div>{resultLabel(point.result)}</div>

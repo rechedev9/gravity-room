@@ -72,16 +72,15 @@ export function ConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
-        className="modal-box bg-[var(--bg-card)] border border-[var(--border-color)] p-6 max-w-sm w-[calc(100%-2rem)]"
-        style={{ boxShadow: 'var(--shadow-elevated), 0 0 60px rgba(0, 0, 0, 0.5)' }}
+        className="modal-box bg-card border border-rule p-6 max-w-sm w-[calc(100%-2rem)] shadow-dialog"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleDialogKeyDown}
       >
-        <h3 id="confirm-dialog-title" className="text-sm font-bold text-[var(--text-header)] mb-2">
+        <h3 id="confirm-dialog-title" className="text-sm font-bold text-heading mb-2">
           {title}
         </h3>
-        <div className="text-xs text-[var(--text-muted)] leading-relaxed">{message}</div>
-        <div className="border-t border-[var(--border-color)] pt-4 mt-5 flex justify-end gap-3">
+        <div className="text-xs text-muted leading-relaxed">{message}</div>
+        <div className="border-t border-rule pt-4 mt-5 flex justify-end gap-3">
           <Button ref={cancelRef} variant="ghost" onClick={onCancel}>
             {cancelLabel}
           </Button>

@@ -25,7 +25,7 @@ export function AvatarDropdown({
     return (
       <Link
         to="/login"
-        className="px-2 py-2 sm:px-3.5 sm:py-2.5 min-h-[44px] border-2 border-[var(--btn-border)] text-[10px] sm:text-xs font-bold cursor-pointer bg-[var(--btn-bg)] text-[var(--btn-text)] whitespace-nowrap transition-all hover:bg-[var(--btn-hover-bg)] hover:text-[var(--btn-hover-text)] inline-flex items-center no-underline"
+        className="px-2 py-2 sm:px-3.5 sm:py-2.5 min-h-[44px] border-2 border-btn-ring text-[10px] sm:text-xs font-bold cursor-pointer bg-btn text-btn-text whitespace-nowrap transition-all hover:bg-btn-active hover:text-btn-active-text inline-flex items-center no-underline"
       >
         Iniciar Sesión
       </Link>
@@ -39,7 +39,7 @@ export function AvatarDropdown({
     <div className="relative">
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="w-11 h-11 rounded-full bg-[var(--btn-hover-bg)] text-[var(--btn-hover-text)] text-sm font-extrabold cursor-pointer transition-all duration-150 hover:opacity-80 hover:shadow-[0_0_12px_rgba(232,170,32,0.2)] active:scale-95 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-body)] focus-visible:outline-none overflow-hidden"
+        className="w-11 h-11 rounded-full bg-btn-active text-btn-active-text text-sm font-extrabold cursor-pointer transition-all duration-150 hover:opacity-80 hover:shadow-[0_0_12px_rgba(232,170,32,0.2)] active:scale-95 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body focus-visible:outline-none overflow-hidden"
         aria-label="Menú de usuario"
         aria-haspopup="true"
         aria-expanded={open}
@@ -53,9 +53,7 @@ export function AvatarDropdown({
 
       <DropdownMenu open={open} onClose={close} align="right">
         {/* Email */}
-        <div className="px-4 py-2.5 text-xs text-[var(--text-muted)] truncate max-w-[220px]">
-          {user.email}
-        </div>
+        <div className="px-4 py-2.5 text-xs text-muted truncate max-w-[220px]">{user.email}</div>
 
         {/* Sync status */}
         {syncLabel && (

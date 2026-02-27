@@ -107,20 +107,18 @@ function ActiveProgramCard({
 
   return (
     <>
-      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-6 sm:p-8 card card-glow-gold accent-left-gold edge-glow-top">
+      <div className="bg-card border border-rule p-6 sm:p-8 card card-glow-gold accent-left-gold edge-glow-top">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div>
-            <h3 className="text-base sm:text-lg font-extrabold text-[var(--text-header)] leading-tight">
+            <h3 className="text-base sm:text-lg font-extrabold text-heading leading-tight">
               {definition.name}
             </h3>
-            <p className="text-xs text-[var(--text-muted)] mt-1">
-              {definition.description.split('.')[0]}.
-            </p>
+            <p className="text-xs text-muted mt-1">{definition.description.split('.')[0]}.</p>
           </div>
         </div>
 
         {/* Duration metadata */}
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--text-info)] mb-3">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-info mb-3">
           <span>{totalWorkouts} entrenamientos</span>
           {definition.workoutsPerWeek > 0 && <span>{definition.workoutsPerWeek}x / semana</span>}
         </div>
@@ -133,13 +131,13 @@ function ActiveProgramCard({
           aria-valuemin={0}
           aria-valuemax={100}
         >
-          <div className="flex-1 h-2.5 bg-[var(--bg-progress)] overflow-hidden rounded-full">
+          <div className="flex-1 h-2.5 bg-progress-track overflow-hidden rounded-full">
             <div
-              className="h-full bg-[var(--fill-progress)] transition-[width] duration-300 ease-out progress-fill rounded-full"
+              className="h-full bg-accent transition-[width] duration-300 ease-out progress-fill rounded-full"
               style={{ width: `${progressPct}%` }}
             />
           </div>
-          <span className="font-mono text-xs font-bold text-[var(--text-muted)] whitespace-nowrap tabular-nums">
+          <span className="font-mono text-xs font-bold text-muted whitespace-nowrap tabular-nums">
             {completedWorkouts}/{totalWorkouts}
           </span>
         </div>
@@ -153,7 +151,7 @@ function ActiveProgramCard({
               (totalWorkouts - completedWorkouts) / definition.workoutsPerWeek
             );
             return (
-              <p className="text-xs text-[var(--text-muted)] mt-1">
+              <p className="text-xs text-muted mt-1">
                 ~{weeksRemaining} semana{weeksRemaining === 1 ? '' : 's'} restante
                 {weeksRemaining === 1 ? '' : 's'}
               </p>
@@ -163,14 +161,14 @@ function ActiveProgramCard({
         <div className="flex items-center gap-3">
           <button
             onClick={() => onContinue(program.id, program.programId)}
-            className="px-5 py-2.5 text-xs font-bold border-2 border-[var(--btn-border)] bg-[var(--btn-hover-bg)] text-[var(--btn-hover-text)] cursor-pointer transition-all hover:opacity-90"
+            className="px-5 py-2.5 text-xs font-bold border-2 border-btn-ring bg-btn-active text-btn-active-text cursor-pointer transition-all hover:opacity-90"
           >
             Continuar Entrenamiento
           </button>
           {onGoToProfile && (
             <button
               onClick={onGoToProfile}
-              className="px-5 py-2.5 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-header)] cursor-pointer transition-colors border border-[var(--border-color)] hover:border-[var(--border-light)]"
+              className="px-5 py-2.5 text-xs font-bold text-muted hover:text-heading cursor-pointer transition-colors border border-rule hover:border-rule-light"
             >
               Ver Perfil de Entrenamiento
             </button>
@@ -180,27 +178,22 @@ function ActiveProgramCard({
 
       {/* Last session summary */}
       {lastCompletedWorkout !== null && (
-        <section className="bg-[var(--bg-card)] border border-[var(--border-color)] p-5 sm:p-6 mt-4">
-          <h4 className="text-[11px] font-mono font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">
+        <section className="bg-card border border-rule p-5 sm:p-6 mt-4">
+          <h4 className="text-[11px] font-mono font-bold uppercase tracking-widest text-muted mb-3">
             Último Entrenamiento
           </h4>
           <div className="flex items-baseline gap-2 mb-2">
-            <span className="text-sm font-bold text-[var(--text-header)]">
+            <span className="text-sm font-bold text-heading">
               #{lastCompletedWorkout.index + 1}
             </span>
-            <span className="text-xs text-[var(--text-muted)] uppercase">
-              {lastCompletedWorkout.dayName}
-            </span>
+            <span className="text-xs text-muted uppercase">{lastCompletedWorkout.dayName}</span>
             {lastSessionDate !== null && (
-              <span className="text-[11px] text-[var(--text-info)] ml-auto">{lastSessionDate}</span>
+              <span className="text-[11px] text-info ml-auto">{lastSessionDate}</span>
             )}
           </div>
           <ul className="space-y-1">
             {lastCompletedWorkout.slots.map((slot) => (
-              <li
-                key={slot.exerciseName}
-                className="flex items-center gap-2 text-xs text-[var(--text-main)]"
-              >
+              <li key={slot.exerciseName} className="flex items-center gap-2 text-xs text-main">
                 <span>{slot.exerciseName}</span>
                 <span className="ml-auto">
                   {slot.result === 'success'
@@ -249,19 +242,19 @@ export function Dashboard({
   })();
 
   return (
-    <div className="min-h-dvh bg-[var(--bg-body)]">
+    <div className="min-h-dvh bg-body">
       <AppHeader onGoToProfile={onGoToProfile} />
 
       <div className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
         {/* Active program loading skeleton */}
         {programsQuery.isLoading && (
           <section className="mb-12">
-            <div className="h-3 w-24 bg-[var(--border-color)] rounded mb-4 animate-pulse" />
-            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-5 sm:p-6 animate-pulse">
-              <div className="h-5 w-48 bg-[var(--border-color)] rounded mb-2" />
-              <div className="h-3 w-64 bg-[var(--border-color)] rounded mb-4" />
-              <div className="h-2 bg-[var(--bg-progress)] rounded mb-4" />
-              <div className="h-10 w-52 bg-[var(--border-color)] rounded" />
+            <div className="h-3 w-24 bg-rule rounded mb-4 animate-pulse" />
+            <div className="bg-card border border-rule p-5 sm:p-6 animate-pulse">
+              <div className="h-5 w-48 bg-rule rounded mb-2" />
+              <div className="h-3 w-64 bg-rule rounded mb-4" />
+              <div className="h-2 bg-progress-track rounded mb-4" />
+              <div className="h-10 w-52 bg-rule rounded" />
             </div>
           </section>
         )}
@@ -284,7 +277,7 @@ export function Dashboard({
             {activeProgram ? 'Otros Programas Disponibles' : 'Elegir un Programa'}
           </h2>
           {activeProgram && (
-            <p className="text-xs text-[var(--text-muted)] mb-4">
+            <p className="text-xs text-muted mb-4">
               Finaliza tu programa actual para iniciar uno nuevo.
             </p>
           )}
@@ -293,14 +286,11 @@ export function Dashboard({
           {catalogQuery.isLoading && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1, 2, 3].map((n) => (
-                <div
-                  key={n}
-                  className="bg-[var(--bg-card)] border border-[var(--border-color)] p-5 sm:p-6 animate-pulse"
-                >
-                  <div className="h-4 w-32 bg-[var(--border-color)] rounded mb-2" />
-                  <div className="h-3 w-56 bg-[var(--border-color)] rounded mb-4" />
-                  <div className="h-3 w-24 bg-[var(--border-color)] rounded mb-4" />
-                  <div className="h-10 w-36 bg-[var(--border-color)] rounded" />
+                <div key={n} className="bg-card border border-rule p-5 sm:p-6 animate-pulse">
+                  <div className="h-4 w-32 bg-rule rounded mb-2" />
+                  <div className="h-3 w-56 bg-rule rounded mb-4" />
+                  <div className="h-3 w-24 bg-rule rounded mb-4" />
+                  <div className="h-10 w-36 bg-rule rounded" />
                 </div>
               ))}
             </div>

@@ -12,8 +12,8 @@ interface ProfileStatCardProps {
 }
 
 const BADGE_STYLES = {
-  success: 'bg-[var(--bg-badge-ok)] border-[var(--border-badge-ok)] text-[var(--text-badge-ok)]',
-  neutral: 'bg-[var(--bg-card)] border-[var(--border-color)] text-[var(--text-muted)]',
+  success: 'bg-ok-bg border-ok-ring text-ok',
+  neutral: 'bg-card border-rule text-muted',
 } as const;
 
 export function ProfileStatCard({
@@ -27,11 +27,11 @@ export function ProfileStatCard({
 }: ProfileStatCardProps): React.ReactNode {
   return (
     <div
-      className={`bg-[var(--bg-card)] border border-[var(--border-color)] p-4 sm:p-5 card edge-glow-top${accent ? ' border-l-2 border-l-[var(--text-header)]' : ''}`}
+      className={`bg-card border border-rule p-4 sm:p-5 card edge-glow-top${accent ? ' border-l-2 border-l-heading' : ''}`}
     >
       <div className="flex items-baseline gap-2">
         <p
-          className="font-display-data text-4xl sm:text-5xl text-[var(--text-header)] leading-none"
+          className="font-display-data text-4xl sm:text-5xl text-heading leading-none"
           style={{ textShadow: '0 0 20px rgba(240, 192, 64, 0.15)' }}
         >
           {value}
@@ -44,15 +44,11 @@ export function ProfileStatCard({
           </span>
         )}
       </div>
-      <p className="text-xs font-bold text-[var(--text-muted)] mt-1.5 uppercase tracking-wide">
-        {label}
-      </p>
-      {sublabel && (
-        <p className="text-[11px] text-[var(--text-muted)] mt-0.5 opacity-70">{sublabel}</p>
-      )}
+      <p className="text-xs font-bold text-muted mt-1.5 uppercase tracking-wide">{label}</p>
+      {sublabel && <p className="text-[11px] text-muted mt-0.5 opacity-70">{sublabel}</p>}
       {progress && (
         <div
-          className="h-1.5 bg-[var(--bg-progress)] overflow-hidden mt-2"
+          className="h-1.5 bg-progress-track overflow-hidden mt-2"
           role="progressbar"
           aria-valuenow={progress.value}
           aria-valuemin={0}
@@ -60,7 +56,7 @@ export function ProfileStatCard({
           aria-label={progress.label}
         >
           <div
-            className="h-full bg-[var(--fill-progress)] transition-[width] duration-300 ease-out progress-fill"
+            className="h-full bg-accent transition-[width] duration-300 ease-out progress-fill"
             style={{ width: `${Math.min(100, Math.max(0, progress.value))}%` }}
           />
         </div>

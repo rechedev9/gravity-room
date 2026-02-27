@@ -208,14 +208,14 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
   const initial = (user?.email?.[0] ?? 'U').toUpperCase();
 
   return (
-    <div className="min-h-dvh bg-[var(--bg-body)]">
+    <div className="min-h-dvh bg-body">
       <AppHeader backLabel="Dashboard" onBack={onBack} />
 
       <div className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
         {/* Page title */}
         <section className="mb-12">
           <h1
-            className="font-display text-4xl sm:text-5xl text-[var(--text-header)] leading-none"
+            className="font-display text-4xl sm:text-5xl text-heading leading-none"
             style={{ textShadow: '0 0 30px rgba(240, 192, 64, 0.12)' }}
           >
             Perfil
@@ -234,7 +234,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                 setSelectedInstanceId(e.target.value || undefined)
               }
-              className="w-full bg-[var(--bg-card)] border border-[var(--border-color)] text-sm text-[var(--text-header)] px-4 py-3 font-mono appearance-none cursor-pointer focus:outline-none focus:border-[var(--fill-progress)] transition-colors"
+              className="w-full bg-card border border-rule text-sm text-heading px-4 py-3 font-mono appearance-none cursor-pointer focus:outline-none focus:border-accent transition-colors"
             >
               {allPrograms.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -250,14 +250,14 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
         {user && (
           <section className="mb-12">
             <h2 className="section-label mb-4">Cuenta</h2>
-            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-5 sm:p-6 card">
+            <div className="bg-card border border-rule p-5 sm:p-6 card">
               <div className="flex items-center gap-4 sm:gap-5">
                 {/* Avatar */}
                 <button
                   type="button"
                   onClick={handleAvatarClick}
                   disabled={avatarUploading}
-                  className="group relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-[var(--btn-hover-bg)] text-[var(--btn-hover-text)] text-xl sm:text-2xl font-extrabold cursor-pointer transition-opacity flex items-center justify-center overflow-hidden shrink-0 focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none disabled:opacity-50"
+                  className="group relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-btn-active text-btn-active-text text-xl sm:text-2xl font-extrabold cursor-pointer transition-opacity flex items-center justify-center overflow-hidden shrink-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-50"
                   aria-label="Cambiar avatar"
                 >
                   {user.avatarUrl ? (
@@ -282,16 +282,14 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
 
                 {/* User info */}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-[var(--text-header)] truncate">
-                    {displayName}
-                  </p>
-                  <p className="text-xs text-[var(--text-muted)] truncate">{user.email}</p>
+                  <p className="text-sm font-bold text-heading truncate">{displayName}</p>
+                  <p className="text-xs text-muted truncate">{user.email}</p>
                   {user.avatarUrl && (
                     <button
                       type="button"
                       onClick={() => void handleRemoveAvatar()}
                       disabled={avatarUploading}
-                      className="text-[10px] text-[var(--text-muted)] underline mt-1 cursor-pointer hover:text-[var(--text-main)] transition-colors disabled:opacity-50"
+                      className="text-[10px] text-muted underline mt-1 cursor-pointer hover:text-main transition-colors disabled:opacity-50"
                     >
                       Quitar foto
                     </button>
@@ -304,14 +302,14 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
 
         {/* Empty state */}
         {!profileData && (
-          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-8 sm:p-12 text-center card">
+          <div className="bg-card border border-rule p-8 sm:p-12 text-center card">
             <p
-              className="font-display text-6xl sm:text-7xl text-[var(--text-muted)] leading-none mb-4"
+              className="font-display text-6xl sm:text-7xl text-muted leading-none mb-4"
               style={{ textShadow: '0 0 40px rgba(138, 122, 90, 0.15)' }}
             >
               SIN PROGRAMA
             </p>
-            <p className="text-sm text-[var(--text-muted)]">
+            <p className="text-sm text-muted">
               Inicia un programa desde el Dashboard para ver tu perfil de entrenamiento.
             </p>
             <div className="mt-5 flex justify-center">
@@ -443,7 +441,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
                     />
                   ))}
                 </div>
-                <p className="text-[10px] text-[var(--text-muted)] mt-2 text-center">
+                <p className="text-[10px] text-muted mt-2 text-center">
                   Estimaci{'\u00F3'}n basada en la f{'\u00F3'}rmula de Epley
                 </p>
               </section>
@@ -471,21 +469,13 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
                     const stats = calculateStats(data);
                     const hasMark = stats.total > 0;
                     return (
-                      <div
-                        key={ex}
-                        className="bg-[var(--bg-card)] border border-[var(--border-color)] p-4 card"
-                      >
-                        <h3 className="text-sm font-bold text-[var(--text-header)] mb-1">
-                          {names[ex] ?? ex}
-                        </h3>
+                      <div key={ex} className="bg-card border border-rule p-4 card">
+                        <h3 className="text-sm font-bold text-heading mb-1">{names[ex] ?? ex}</h3>
                         {hasMark && (
-                          <p className="text-[11px] text-[var(--text-muted)] mb-3">
+                          <p className="text-[11px] text-muted mb-3">
                             {stats.currentWeight} kg
                             {stats.gained > 0 && (
-                              <span className="text-[var(--text-badge-ok)]">
-                                {' '}
-                                | +{stats.gained} kg
-                              </span>
+                              <span className="text-ok"> | +{stats.gained} kg</span>
                             )}{' '}
                             | {stats.rate}% éxito
                           </p>
@@ -507,11 +497,11 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
               {completedPrograms.map((p) => (
                 <div
                   key={p.id}
-                  className="bg-[var(--bg-card)] border border-[var(--border-color)] px-5 py-3.5 card flex items-center justify-between gap-4"
+                  className="bg-card border border-rule px-5 py-3.5 card flex items-center justify-between gap-4"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-[var(--text-header)] truncate">{p.name}</p>
-                    <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                    <p className="text-sm font-bold text-heading truncate">{p.name}</p>
+                    <p className="text-[11px] text-muted mt-0.5">
                       Completado el{' '}
                       {new Date(p.updatedAt).toLocaleDateString('es-ES', {
                         day: 'numeric',
@@ -528,17 +518,16 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
                           setSelectedInstanceId(p.id);
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}
-                        className="text-[10px] font-bold text-[var(--text-muted)] hover:text-[var(--text-header)] transition-colors cursor-pointer border border-[var(--border-color)] px-2.5 py-1.5 hover:border-[var(--border-light)]"
+                        className="text-[10px] font-bold text-muted hover:text-heading transition-colors cursor-pointer border border-rule px-2.5 py-1.5 hover:border-rule-light"
                       >
                         Ver estad{'\u00ED'}sticas
                       </button>
                     )}
                     <span
-                      className="shrink-0 font-mono text-[9px] tracking-widest uppercase px-2 py-1"
+                      className="shrink-0 font-mono text-[9px] tracking-widest uppercase px-2 py-1 text-heading"
                       style={{
                         background: 'rgba(200,168,78,0.08)',
                         border: '1px solid rgba(200,168,78,0.2)',
-                        color: 'var(--text-header)',
                       }}
                     >
                       Completado
@@ -556,7 +545,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
             <button
               type="button"
               onClick={() => setDeleteDialogOpen(true)}
-              className="text-xs text-[var(--text-muted)] underline cursor-pointer hover:text-[var(--text-badge-no)] transition-colors"
+              className="text-xs text-muted underline cursor-pointer hover:text-fail transition-colors"
             >
               Eliminar cuenta
             </button>

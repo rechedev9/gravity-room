@@ -22,8 +22,8 @@ export function ResultCell({
   if (result) {
     const isSuccess = result === 'success';
     const badgeColor = isSuccess
-      ? 'bg-[var(--bg-badge-ok)] border-[var(--border-badge-ok)] text-[var(--text-badge-ok)]'
-      : 'bg-[var(--bg-badge-no)] border-[var(--border-badge-no)] text-[var(--text-badge-no)]';
+      ? 'bg-ok-bg border-ok-ring text-ok'
+      : 'bg-fail-bg border-fail-ring text-fail';
     const padding = isTable ? 'px-3.5 py-1.5' : 'px-3 py-1';
     const tableStyles = isTable
       ? 'group relative inline-block transition-transform hover:scale-110'
@@ -33,12 +33,12 @@ export function ResultCell({
       <button
         onClick={() => onUndo(index, tier)}
         aria-label={`Deshacer ${tier} ${isSuccess ? 'éxito' : 'fallo'}`}
-        className={`${padding} text-[13px] font-extrabold cursor-pointer border-3 rounded-sm animate-[pop-in_0.25s_ease-out] focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none active:scale-95 transition-transform ${badgeColor} ${tableStyles} ${isSuccess ? 'shadow-[0_0_10px_rgba(106,170,58,0.2)]' : 'shadow-[0_0_10px_rgba(192,80,80,0.2)]'}`}
+        className={`${padding} text-[13px] font-extrabold cursor-pointer border-3 rounded-sm animate-[pop-in_0.25s_ease-out] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none active:scale-95 transition-transform ${badgeColor} ${tableStyles} ${isSuccess ? 'shadow-[0_0_10px_rgba(106,170,58,0.2)]' : 'shadow-[0_0_10px_rgba(192,80,80,0.2)]'}`}
       >
         {isSuccess ? '\u2713' : '\u2717'}
         {/* fix: tooltip only on hover, not on focus (aria-label handles a11y) */}
         {isTable ? (
-          <span className="absolute -top-5.5 left-1/2 -translate-x-1/2 text-xs font-bold whitespace-nowrap bg-[var(--bg-tooltip)] text-[var(--text-tooltip)] px-2 py-0.5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+          <span className="absolute -top-5.5 left-1/2 -translate-x-1/2 text-xs font-bold whitespace-nowrap bg-tooltip-bg text-tooltip-text px-2 py-0.5 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
             deshacer
           </span>
         ) : null}
@@ -61,14 +61,14 @@ export function ResultCell({
       <button
         onClick={() => onMark(index, tier, 'success')}
         aria-label={`Marcar ${tier} éxito`}
-        className={`${sizeClasses} font-extrabold border-2 border-[var(--border-badge-ok)] bg-transparent text-[var(--text-badge-ok)] rounded-sm cursor-pointer transition-all duration-150 hover:bg-[var(--bg-badge-ok)] hover:shadow-[var(--shadow-glow-success)] active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none`}
+        className={`${sizeClasses} font-extrabold border-2 border-ok-ring bg-transparent text-ok rounded-sm cursor-pointer transition-all duration-150 hover:bg-ok-bg hover:shadow-glow-success active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none`}
       >
         &#10003;
       </button>
       <button
         onClick={() => onMark(index, tier, 'fail')}
         aria-label={`Marcar ${tier} fallo`}
-        className={`${sizeClasses} font-extrabold border-2 border-[var(--border-badge-no)] bg-transparent text-[var(--text-badge-no)] rounded-sm cursor-pointer transition-all duration-150 hover:bg-[var(--bg-badge-no)] hover:shadow-[var(--shadow-glow-fail)] active:scale-95 focus-visible:ring-2 focus-visible:ring-[var(--fill-progress)] focus-visible:outline-none`}
+        className={`${sizeClasses} font-extrabold border-2 border-fail-ring bg-transparent text-fail rounded-sm cursor-pointer transition-all duration-150 hover:bg-fail-bg hover:shadow-glow-fail active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none`}
       >
         &#10007;
       </button>

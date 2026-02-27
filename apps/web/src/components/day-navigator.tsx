@@ -37,10 +37,10 @@ export function DayNavigator({
             onClick={() => onSelectDay(i)}
             className={`shrink-0 px-4 py-2.5 min-h-[44px] text-[12px] font-bold uppercase tracking-wider border-2 cursor-pointer transition-all duration-150 active:scale-95 ${
               isSelected
-                ? 'bg-[var(--fill-progress)] text-white border-[var(--fill-progress)] shadow-[0_0_16px_rgba(232,170,32,0.2)]'
+                ? 'bg-accent text-white border-accent shadow-[0_0_16px_rgba(232,170,32,0.2)]'
                 : isCurrent
-                  ? 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--fill-progress)] hover:text-[var(--text-main)] hover:shadow-[0_0_12px_rgba(232,170,32,0.1)]'
-                  : 'bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border-color)] hover:border-[var(--border-light)] hover:text-[var(--text-main)]'
+                  ? 'bg-card text-muted border-accent hover:text-main hover:shadow-[0_0_12px_rgba(232,170,32,0.1)]'
+                  : 'bg-card text-muted border-rule hover:border-rule-light hover:text-main'
             }`}
           >
             <span className="mr-1.5">{day.isComplete ? '\u25CF' : '\u25CB'}</span>

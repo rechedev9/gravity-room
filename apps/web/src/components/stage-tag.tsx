@@ -1,7 +1,7 @@
 const STAGE_STYLES = [
-  'bg-[var(--stage-s1)] text-[var(--bg-header)] border-[var(--stage-s1)]',
-  'bg-[var(--stage-s2)] text-black border-[var(--stage-s2)]',
-  'bg-[var(--stage-s3)] text-white border-[var(--stage-s3)]',
+  'bg-stage-1 text-header border-stage-1',
+  'bg-stage-2 text-black border-stage-2',
+  'bg-stage-3 text-white border-stage-3',
 ] as const;
 
 const STAGE_LABELS = ['Normal', 'Precaución', 'Reinicio próximo fallo'] as const;

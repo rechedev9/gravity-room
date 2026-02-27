@@ -71,26 +71,21 @@ export function DeleteAccountDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-account-title"
-        className="modal-box bg-[var(--bg-card)] border border-[var(--border-color)] p-6 max-w-sm w-[calc(100%-2rem)]"
-        style={{ boxShadow: 'var(--shadow-elevated), 0 0 60px rgba(0, 0, 0, 0.5)' }}
+        className="modal-box bg-card border border-rule p-6 max-w-sm w-[calc(100%-2rem)] shadow-dialog"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleDialogKeyDown}
       >
-        <h3
-          id="delete-account-title"
-          className="text-sm font-bold text-[var(--text-badge-no)] mb-2"
-        >
+        <h3 id="delete-account-title" className="text-sm font-bold text-fail mb-2">
           Eliminar Cuenta
         </h3>
 
-        <div className="text-xs text-[var(--text-muted)] mb-4 leading-relaxed">
+        <div className="text-xs text-muted mb-4 leading-relaxed">
           <p className="mb-2">
             Esta acción marcará tu cuenta para eliminación. Tus datos serán eliminados
             permanentemente tras 30 días.
           </p>
           <p>
-            Escribe <strong className="text-[var(--text-main)]">{CONFIRM_WORD}</strong> para
-            confirmar.
+            Escribe <strong className="text-main">{CONFIRM_WORD}</strong> para confirmar.
           </p>
         </div>
 
@@ -100,7 +95,7 @@ export function DeleteAccountDialog({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={CONFIRM_WORD}
-          className="w-full px-3 py-2 mb-4 text-xs bg-[var(--bg-body)] border border-[var(--border-color)] text-[var(--text-main)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--fill-progress)]"
+          className="w-full px-3 py-2 mb-4 text-xs bg-body border border-rule text-main placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
           autoComplete="off"
           spellCheck={false}
           disabled={loading}

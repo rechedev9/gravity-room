@@ -347,7 +347,7 @@ export function ProgramApp({
 
   if (!definition) {
     return (
-      <div className="min-h-dvh flex items-center justify-center text-[var(--text-muted)]">
+      <div className="min-h-dvh flex items-center justify-center text-muted">
         Programa desconocido: {programId}
       </div>
     );
@@ -388,10 +388,7 @@ export function ProgramApp({
         {config && rows.length > 0 && (
           <>
             {/* Tabs */}
-            <div
-              role="tablist"
-              className="flex gap-0 mb-4 sm:mb-8 border-b-2 border-[var(--border-color)]"
-            >
+            <div role="tablist" className="flex gap-0 mb-4 sm:mb-8 border-b-2 border-rule">
               <TabButton
                 active={activeTab === 'program'}
                 onClick={() => startTransition(() => setActiveTab('program'))}
@@ -411,23 +408,19 @@ export function ProgramApp({
             {activeTab === 'program' && (
               <>
                 {/* Program info */}
-                <details className="group bg-[var(--bg-card)] border border-[var(--border-color)] mb-4 sm:mb-8 overflow-hidden">
+                <details className="group bg-card border border-rule mb-4 sm:mb-8 overflow-hidden">
                   <summary className="font-mono px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center [&::marker]:hidden list-none text-[11px] tracking-widest uppercase">
                     Acerca de {definition.name}
                     <span className="transition-transform duration-200 group-open:rotate-90">
                       &#9656;
                     </span>
                   </summary>
-                  <div className="px-5 pb-5 border-t border-[var(--border-light)]">
-                    <p className="mt-3 text-[13px] leading-7 text-[var(--text-info)]">
-                      {definition.description}
-                    </p>
+                  <div className="px-5 pb-5 border-t border-rule-light">
+                    <p className="mt-3 text-[13px] leading-7 text-info">{definition.description}</p>
                     {definition.author && (
-                      <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-                        Por {definition.author}
-                      </p>
+                      <p className="mt-2 text-[11px] text-muted">Por {definition.author}</p>
                     )}
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-[var(--text-muted)]">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-[11px] text-muted">
                       <span>{totalWorkouts} entrenamientos en total</span>
                       <span>{workoutsPerWeek} por semana</span>
                       <span>Rotación de {definition.days.length} días</span>
@@ -513,12 +506,10 @@ export function ProgramApp({
                 <ErrorBoundary
                   fallback={({ reset }) => (
                     <div className="text-center py-16">
-                      <p className="text-[var(--text-muted)] mb-4">
-                        No se pudieron cargar las estadísticas.
-                      </p>
+                      <p className="text-muted mb-4">No se pudieron cargar las estadísticas.</p>
                       <button
                         onClick={reset}
-                        className="px-5 py-2 bg-[var(--fill-progress)] text-white font-bold cursor-pointer"
+                        className="px-5 py-2 bg-accent text-white font-bold cursor-pointer"
                       >
                         Reintentar
                       </button>

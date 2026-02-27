@@ -21,7 +21,7 @@ describe('ProfileStatCard', () => {
     const card = container.firstElementChild as HTMLElement;
 
     expect(card.className).toContain('border-l-2');
-    expect(card.className).toContain('border-l-[var(--text-header)]');
+    expect(card.className).toContain('border-l-heading');
   });
 
   it('should render badge when provided', () => {

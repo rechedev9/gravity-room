@@ -5,52 +5,65 @@
 /* Mono: JetBrains Mono — data, weights, sets/reps  */
 /* Body: Barlow — clean readable prose               */
 
-:root {
-  /* Backgrounds */
-  --bg-body: #0b0906;
-  --bg-card: #130f09;
-  --bg-header: #070504;
-  --bg-th: #1a1410;
-  --bg-hover-row: #1a1410;
-  --bg-progress: #2a2218;
-  --bg-changed: #1f1a08;
-  --bg-error: #2e1414;
-  --bg-tooltip: #070504;
-
-  /* Borders */
-  --border-color: #2a2218;
-  --border-light: #3a3025;
+@theme {
+  /* Surfaces */
+  --color-body: #0b0906;
+  --color-card: #130f09;
+  --color-header: #070504;
+  --color-th: #1a1410;
+  --color-hover-row: #1a1410;
+  --color-progress-track: #2a2218;
+  --color-changed: #1f1a08;
+  --color-error-bg: #2e1414;
+  --color-tooltip-bg: #070504;
 
   /* Text */
-  --text-main: #f0e8d8;
-  --text-header: #f0c040;
-  --text-muted: #8a7a5a;
-  --text-label: #a89870;
-  --text-info: #8a7a5a;
-  --text-error: #c06060;
-  --text-tooltip: #f0e8d8;
+  --color-main: #f0e8d8;
+  --color-heading: #f0c040;
+  --color-muted: #8a7a5a;
+  --color-label: #a89870;
+  --color-info: #8a7a5a;
+  --color-error: #c06060;
+  --color-tooltip-text: #f0e8d8;
+
+  /* Borders */
+  --color-rule: #2a2218;
+  --color-rule-light: #3a3025;
+  --color-error-line: #7a2828;
 
   /* Accent */
-  --fill-progress: #e8aa20;
+  --color-accent: #e8aa20;
 
   /* Buttons */
-  --btn-border: #e8aa20;
-  --btn-bg: #130f09;
-  --btn-text: #e8aa20;
-  --btn-hover-bg: #e8aa20;
-  --btn-hover-text: #0b0906;
+  --color-btn-ring: #e8aa20;
+  --color-btn: #130f09;
+  --color-btn-text: #e8aa20;
+  --color-btn-active: #e8aa20;
+  --color-btn-active-text: #0b0906;
 
   /* Badges */
-  --bg-badge-ok: #0f2010;
-  --border-badge-ok: #3a6828;
-  --text-badge-ok: #6aaa3a;
-  --bg-badge-no: #240e0e;
-  --border-badge-no: #7a2828;
-  --text-badge-no: #c05050;
-  --border-error: #7a2828;
+  --color-ok-bg: #0f2010;
+  --color-ok-ring: #3a6828;
+  --color-ok: #6aaa3a;
+  --color-fail-bg: #240e0e;
+  --color-fail-ring: #7a2828;
+  --color-fail: #c05050;
+
+  /* Stages */
+  --color-stage-1: #f0e8d8;
+  --color-stage-2: #f07000;
+  --color-stage-3: #d02020;
+
+  /* Chart */
+  --color-chart-grid: #2a2218;
+  --color-chart-text: #8a7a5a;
+  --color-chart-line: #f0c040;
+  --color-chart-ok: #3a6828;
+  --color-chart-fail: #7a2828;
+  --color-chart-pr: #d4a843;
 
   /* Shadows */
-  --shadow-toolbar: rgba(0, 0, 0, 0.6);
+  --shadow-toolbar: 0 2px 12px rgba(0, 0, 0, 0.6);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 6px rgba(0, 0, 0, 0.15);
   --shadow-card-hover: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(232, 170, 32, 0.06);
   --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(232, 170, 32, 0.04);
@@ -58,19 +71,8 @@
   --shadow-glow-success: 0 0 12px rgba(106, 170, 58, 0.15);
   --shadow-glow-fail: 0 0 12px rgba(192, 80, 80, 0.15);
   --shadow-inset-subtle: inset 0 1px 0 rgba(255, 255, 255, 0.02);
-
-  /* Stages */
-  --stage-s1: #f0e8d8;
-  --stage-s2: #f07000;
-  --stage-s3: #d02020;
-
-  /* Chart */
-  --chart-grid: #2a2218;
-  --chart-text: #8a7a5a;
-  --chart-line: #f0c040;
-  --chart-success: #3a6828;
-  --chart-fail: #7a2828;
-  --chart-pr: #d4a843;
+  --shadow-dialog:
+    0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(232, 170, 32, 0.04), 0 0 60px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Keyframes ─────────────────────────────────── */
@@ -219,12 +221,12 @@
 
 .table-scroll-shadow::before {
   left: 0;
-  background: linear-gradient(90deg, var(--bg-body), transparent);
+  background: linear-gradient(90deg, var(--color-body), transparent);
 }
 
 .table-scroll-shadow::after {
   right: 0;
-  background: linear-gradient(270deg, var(--bg-body), transparent);
+  background: linear-gradient(270deg, var(--color-body), transparent);
 }
 
 .table-scroll-shadow[data-scroll-left='true']::before {
@@ -260,7 +262,7 @@
 }
 
 .card:hover {
-  border-color: var(--border-light);
+  border-color: var(--color-rule-light);
   box-shadow: var(--shadow-card-hover);
 }
 
@@ -292,11 +294,11 @@
 /* ── Accent borders ──────────────────────────── */
 
 .accent-left-gold {
-  border-left: 3px solid var(--fill-progress);
+  border-left: 3px solid var(--color-accent);
 }
 
 .accent-left-muted {
-  border-left: 2px solid var(--border-light);
+  border-left: 2px solid var(--color-rule-light);
 }
 
 /* ── Gradient top edge ────────────────────────── */
@@ -366,7 +368,7 @@
 }
 
 .landing-card-glow:hover {
-  border-color: var(--border-light);
+  border-color: var(--color-rule-light);
   box-shadow:
     0 0 24px rgba(232, 170, 32, 0.07),
     inset 0 1px 0 rgba(232, 170, 32, 0.08);
@@ -406,7 +408,7 @@
   font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--color-muted);
 }
 
 .section-label::before,
@@ -414,7 +416,7 @@
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--border-color);
+  background: var(--color-rule);
 }
 
 /* ── Font utility classes ───────────────────────── */
@@ -459,8 +461,8 @@ body {
     system-ui,
     -apple-system,
     sans-serif;
-  background: var(--bg-body);
-  color: var(--text-main);
+  background: var(--color-body);
+  color: var(--color-main);
   font-size: 14px;
   line-height: 1.5;
 }

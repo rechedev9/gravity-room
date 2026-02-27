@@ -2,29 +2,27 @@ import { Link } from 'react-router-dom';
 
 export function PrivacyPage(): React.ReactNode {
   return (
-    <div className="min-h-dvh bg-[var(--bg-body)]">
-      <header className="bg-[var(--bg-header)] border-b border-[var(--border-color)] px-6 sm:px-10 py-5">
+    <div className="min-h-dvh bg-body">
+      <header className="bg-header border-b border-rule px-6 sm:px-10 py-5">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <Link
             to="/"
-            className="text-sm font-bold text-[var(--text-header)] hover:opacity-80 transition-opacity"
+            className="text-sm font-bold text-heading hover:opacity-80 transition-opacity"
           >
             &larr; Volver
           </Link>
-          <span className="text-sm font-bold text-[var(--text-header)]">Gravity Room</span>
+          <span className="text-sm font-bold text-heading">Gravity Room</span>
         </div>
       </header>
 
       <main className="max-w-3xl mx-auto px-6 sm:px-10 py-10 sm:py-16">
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-header)] mb-8">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-heading mb-8">
           Política de Privacidad
         </h1>
 
-        <div className="space-y-8 text-sm text-[var(--text-muted)] leading-relaxed">
+        <div className="space-y-8 text-sm text-muted leading-relaxed">
           <section>
-            <h2 className="text-base font-bold text-[var(--text-main)] mb-2">
-              Datos que Almacenamos
-            </h2>
+            <h2 className="text-base font-bold text-main mb-2">Datos que Almacenamos</h2>
             <p>
               Todos los datos de entrenamiento (ejercicios, pesos, series, repeticiones y
               resultados) se almacenan localmente en el localStorage de tu navegador. Estos datos
@@ -34,7 +32,7 @@ export function PrivacyPage(): React.ReactNode {
           </section>
 
           <section>
-            <h2 className="text-base font-bold text-[var(--text-main)] mb-2">
+            <h2 className="text-base font-bold text-main mb-2">
               Sincronización en la Nube (Opcional)
             </h2>
             <p>
@@ -46,7 +44,7 @@ export function PrivacyPage(): React.ReactNode {
           </section>
 
           <section>
-            <h2 className="text-base font-bold text-[var(--text-main)] mb-2">
+            <h2 className="text-base font-bold text-main mb-2">
               Inicio de Sesión con Google (Opcional)
             </h2>
             <p>
@@ -57,9 +55,7 @@ export function PrivacyPage(): React.ReactNode {
           </section>
 
           <section>
-            <h2 className="text-base font-bold text-[var(--text-main)] mb-2">
-              Analíticas y Seguimiento
-            </h2>
+            <h2 className="text-base font-bold text-main mb-2">Analíticas y Seguimiento</h2>
             <p>
               No utilizamos ninguna analítica, cookies de seguimiento ni scripts de terceros. No se
               comparte ningún dato con anunciantes ni terceros.
@@ -67,7 +63,7 @@ export function PrivacyPage(): React.ReactNode {
           </section>
 
           <section>
-            <h2 className="text-base font-bold text-[var(--text-main)] mb-2">Eliminar tus Datos</h2>
+            <h2 className="text-base font-bold text-main mb-2">Eliminar tus Datos</h2>
             <p>
               <strong>Datos locales:</strong> Borra el localStorage de tu navegador o usa la opción
               &quot;Reiniciar Todo&quot; en la app.
@@ -80,7 +76,7 @@ export function PrivacyPage(): React.ReactNode {
           </section>
 
           <section>
-            <h2 className="text-base font-bold text-[var(--text-main)] mb-2">Contacto</h2>
+            <h2 className="text-base font-bold text-main mb-2">Contacto</h2>
             <p>
               Para preguntas sobre privacidad o solicitudes de eliminación de datos, abre un issue
               en el repositorio del proyecto o contacta al mantenedor.

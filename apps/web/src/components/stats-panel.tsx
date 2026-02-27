@@ -119,14 +119,12 @@ function StatCard({
   readonly total: number;
 }): ReactNode {
   return (
-    <div className="bg-[var(--bg-th)] border border-[var(--border-color)] p-4 card edge-glow-top">
-      <h4 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-2">
+    <div className="bg-th border border-rule p-4 card edge-glow-top">
+      <h4 className="font-mono text-[11px] font-bold uppercase tracking-widest text-muted mb-2">
         {name}
       </h4>
-      <div className="font-display-data text-3xl mb-1 text-[var(--text-header)]">
-        {currentWeight} kg
-      </div>
-      <div className="text-xs text-[var(--text-muted)]">
+      <div className="font-display-data text-3xl mb-1 text-heading">{currentWeight} kg</div>
+      <div className="text-xs text-muted">
         Inicio: {startWeight} kg | {gained >= 0 ? '+' : ''}
         {gained} kg ganados
         <br />
@@ -155,7 +153,7 @@ function CollapsibleSection({
   const contentId = `section-${sanitizeKey(sectionKey)}-content`;
 
   return (
-    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] overflow-hidden card">
+    <div className="bg-card border border-rule overflow-hidden card">
       <button
         type="button"
         onClick={onToggle}
@@ -165,7 +163,7 @@ function CollapsibleSection({
       >
         {label}
         <span className="flex items-center gap-3">
-          <span className="text-[var(--text-muted)] font-normal normal-case tracking-normal">
+          <span className="text-muted font-normal normal-case tracking-normal">
             {exerciseCount} ejercicio{exerciseCount !== 1 ? 's' : ''}
           </span>
           <span
@@ -183,7 +181,7 @@ function CollapsibleSection({
         className="transition-[max-height] duration-300 ease-in-out overflow-hidden"
         style={{ maxHeight: isOpen ? `${contentRef.current?.scrollHeight ?? 2000}px` : '0' }}
       >
-        <div ref={contentRef} className="px-5 pb-5 border-t border-[var(--border-light)]">
+        <div ref={contentRef} className="px-5 pb-5 border-t border-rule-light">
           {children}
         </div>
       </div>
@@ -231,8 +229,8 @@ function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): Re
   if (!hasAnyResults) {
     return (
       <div className="text-center py-16">
-        <p className="text-sm font-bold text-[var(--text-muted)] mb-2">Sin datos aún</p>
-        <p className="text-xs text-[var(--text-muted)]">
+        <p className="text-sm font-bold text-muted mb-2">Sin datos aún</p>
+        <p className="text-xs text-muted">
           Completa tu primer entrenamiento para ver estadísticas y gráficas.
         </p>
       </div>
@@ -297,11 +295,8 @@ function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): Re
                   {exercisesWithData.map((id) => {
                     const name = definition.exercises[id].name;
                     return (
-                      <div
-                        key={id}
-                        className="bg-[var(--bg-th)] border border-[var(--border-color)] p-4 card"
-                      >
-                        <h4 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">
+                      <div key={id} className="bg-th border border-rule p-4 card">
+                        <h4 className="font-mono text-[11px] font-bold uppercase tracking-widest text-muted mb-3">
                           {name} — Progresión
                         </h4>
                         <LineChart
@@ -323,9 +318,9 @@ function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): Re
                         <div
                           key={`rpe-${id}`}
                           data-testid={`rpe-chart-${id}`}
-                          className="bg-[var(--bg-th)] border border-[var(--border-color)] p-4 card"
+                          className="bg-th border border-rule p-4 card"
                         >
-                          <h4 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">
+                          <h4 className="font-mono text-[11px] font-bold uppercase tracking-widest text-muted mb-3">
                             {name} — RPE
                           </h4>
                           <LineChart
@@ -350,9 +345,9 @@ function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): Re
                         <div
                           key={`amrap-${id}`}
                           data-testid={`amrap-chart-${id}`}
-                          className="bg-[var(--bg-th)] border border-[var(--border-color)] p-4 card"
+                          className="bg-th border border-rule p-4 card"
                         >
-                          <h4 className="font-mono text-[11px] font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">
+                          <h4 className="font-mono text-[11px] font-bold uppercase tracking-widest text-muted mb-3">
                             {name} — AMRAP (reps)
                           </h4>
                           <LineChart

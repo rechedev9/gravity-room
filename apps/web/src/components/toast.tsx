@@ -19,14 +19,13 @@ export function ToastContainer(): React.ReactNode {
           : 'animate-[fadeSlideUp_0.2s_ease-out]';
         const variantStyle =
           t.variant === 'pr'
-            ? 'bg-[var(--bg-changed)] text-[var(--text-header)] border-2 border-[var(--fill-progress)]'
-            : 'bg-[var(--bg-header)] text-[var(--text-header)] border border-[var(--border-color)]';
+            ? 'bg-changed text-heading border-2 border-accent'
+            : 'bg-header text-heading border border-rule';
 
         return (
           <div
             key={t.id}
-            className={`pointer-events-auto flex items-center gap-3 px-5 py-3.5 text-xs font-bold ${animation} ${variantStyle}`}
-            style={{ boxShadow: 'var(--shadow-elevated)' }}
+            className={`pointer-events-auto flex items-center gap-3 px-5 py-3.5 text-xs font-bold shadow-elevated ${animation} ${variantStyle}`}
           >
             <span className={t.variant === 'pr' ? 'hero-number-glow' : undefined}>
               {t.variant === 'pr' ? `${PR_TOAST_PREFIX} — ${t.message}` : t.message}
@@ -37,7 +36,7 @@ export function ToastContainer(): React.ReactNode {
                   t.action?.onClick();
                   dismiss(t.id);
                 }}
-                className="text-[var(--fill-progress)] font-bold underline cursor-pointer bg-transparent border-none p-0 text-xs whitespace-nowrap"
+                className="text-accent font-bold underline cursor-pointer bg-transparent border-none p-0 text-xs whitespace-nowrap"
               >
                 {t.action.label}
               </button>
