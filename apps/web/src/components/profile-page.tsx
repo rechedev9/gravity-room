@@ -5,6 +5,7 @@ import { extractGenericChartData, calculateStats } from '@gzclp/shared/generic-s
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
 import { useProgram } from '@/hooks/use-program';
 import { useAuth } from '@/contexts/auth-context';
+import { useToast } from '@/contexts/toast-context';
 import { computeProfileData, computeVolume, formatVolume } from '@/lib/profile-stats';
 import {
   fetchPrograms,
@@ -29,6 +30,7 @@ interface ProfilePageProps {
 
 export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps): React.ReactNode {
   const { user, updateUser, deleteAccount } = useAuth();
+  const { toast } = useToast();
 
   // Fetch all program instances (shared cache with useProgram — zero extra requests)
   const { data: allPrograms = [] } = useQuery({
@@ -176,6 +178,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
       updateUser({ avatarUrl: dataUrl });
     } catch (err: unknown) {
       console.error('[profile] Avatar upload failed:', err instanceof Error ? err.message : err);
+      toast({ message: 'Error al subir la foto de perfil' });
     } finally {
       setAvatarUploading(false);
     }
@@ -188,6 +191,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
       updateUser({ avatarUrl: undefined });
     } catch (err: unknown) {
       console.error('[profile] Avatar removal failed:', err instanceof Error ? err.message : err);
+      toast({ message: 'Error al eliminar la foto de perfil' });
     } finally {
       setAvatarUploading(false);
     }
@@ -200,6 +204,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
       navigate('/');
     } catch (err: unknown) {
       console.error('[profile] Account deletion failed:', err instanceof Error ? err.message : err);
+      toast({ message: 'Error al eliminar la cuenta' });
       setDeleteLoading(false);
     }
   };
