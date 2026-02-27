@@ -1,6 +1,6 @@
 /**
  * Idempotent seed for the program_templates table.
- * Inserts 6 preset programs with their full JSONB definitions.
+ * Inserts 7 preset programs with their full JSONB definitions.
  * Exercise names are omitted from JSONB — they are resolved from the exercises table at hydration time.
  * Uses onConflictDoNothing() to allow re-runs without error.
  */
@@ -967,6 +967,118 @@ const BBB_DEFINITION_JSONB = {
 };
 
 // ---------------------------------------------------------------------------
+// 5/3/1 for Beginners Definition JSONB
+// ---------------------------------------------------------------------------
+
+function fsl531WeekDays(
+  label: string,
+  p1: number,
+  p2: number,
+  p3: number,
+  r1: number,
+  r2: number,
+  r3: number,
+  tmUpdate: boolean
+): { name: string; slots: SlotDef[] }[] {
+  const dayConfigs = [
+    {
+      name: 'Sentadilla + Press Banca',
+      lifts: [
+        { ex: 'squat', tm: 'squat_tm', inc: 5 },
+        { ex: 'bench', tm: 'bench_tm', inc: 2.5 },
+      ],
+      isFirst: true,
+    },
+    {
+      name: 'Peso Muerto + Press Militar',
+      lifts: [
+        { ex: 'deadlift', tm: 'deadlift_tm', inc: 5 },
+        { ex: 'ohp', tm: 'ohp_tm', inc: 2.5 },
+      ],
+      isFirst: true,
+    },
+    {
+      name: 'Press Banca + Sentadilla',
+      lifts: [
+        { ex: 'bench', tm: 'bench_tm', inc: 2.5 },
+        { ex: 'squat', tm: 'squat_tm', inc: 5 },
+      ],
+      isFirst: false,
+    },
+  ];
+  return dayConfigs.map((d) => ({
+    name: `${label} — ${d.name}`,
+    slots: d.lifts.flatMap((l) => [
+      bbbSlot(l.ex, l.tm, `${l.ex}_s1`, p1, r1),
+      bbbSlot(l.ex, l.tm, `${l.ex}_s2`, p2, r2),
+      bbbTopSlot(l.ex, l.tm, p3, r3, true, tmUpdate && d.isFirst ? l.inc : undefined),
+      bbbSlot(l.ex, l.tm, `${l.ex}_fsl`, p1, 5, 5, 'supplemental'),
+    ]),
+  }));
+}
+
+const FSL531_DAYS = [
+  ...fsl531WeekDays('Sem. 1 (5s)', 0.65, 0.75, 0.85, 5, 5, 5, false),
+  ...fsl531WeekDays('Sem. 2 (3s)', 0.7, 0.8, 0.9, 3, 3, 3, false),
+  ...fsl531WeekDays('Sem. 3 (5/3/1)', 0.75, 0.85, 0.95, 5, 3, 1, true),
+];
+
+const FSL531_DEFINITION_JSONB = {
+  configTitle: 'Training Max (kg)',
+  configDescription:
+    'Introduce tu Training Max para cada levantamiento principal. ' +
+    'Se recomienda usar el 90% de tu 1RM.',
+  configEditTitle: 'Editar Training Max (kg)',
+  configEditDescription:
+    'Actualiza tu Training Max — el programa se recalculará con los nuevos valores.',
+  cycleLength: 9,
+  totalWorkouts: 72,
+  workoutsPerWeek: 3,
+  exercises: {
+    squat: {},
+    bench: {},
+    deadlift: {},
+    ohp: {},
+  },
+  configFields: [
+    {
+      key: 'squat_tm',
+      label: 'Sentadilla (Training Max)',
+      type: 'weight',
+      min: 10,
+      step: 2.5,
+      group: 'Training Max',
+    },
+    {
+      key: 'bench_tm',
+      label: 'Press Banca (Training Max)',
+      type: 'weight',
+      min: 10,
+      step: 2.5,
+      group: 'Training Max',
+    },
+    {
+      key: 'deadlift_tm',
+      label: 'Peso Muerto (Training Max)',
+      type: 'weight',
+      min: 10,
+      step: 2.5,
+      group: 'Training Max',
+    },
+    {
+      key: 'ohp_tm',
+      label: 'Press Militar (Training Max)',
+      type: 'weight',
+      min: 10,
+      step: 2.5,
+      group: 'Training Max',
+    },
+  ],
+  weightIncrements: {},
+  days: FSL531_DAYS,
+};
+
+// ---------------------------------------------------------------------------
 // Nivel 7 Definition JSONB
 // ---------------------------------------------------------------------------
 
@@ -1582,6 +1694,21 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         category: 'strength',
         source: 'preset',
         definition: BBB_DEFINITION_JSONB,
+        isActive: true,
+      },
+      {
+        id: 'wendler531beginners',
+        name: '5/3/1 for Beginners',
+        description:
+          'Programa de fuerza para principiantes de Jim Wendler. ' +
+          'Cuerpo completo 3 días por semana con dos levantamientos principales por sesión. ' +
+          'Ciclos de 3 semanas (5s, 3s, 5/3/1) con FSL (First Set Last) 5×5 como suplemento. ' +
+          'Progresión del Training Max tras cada ciclo.',
+        author: 'Jim Wendler',
+        version: 1,
+        category: 'strength',
+        source: 'preset',
+        definition: FSL531_DEFINITION_JSONB,
         isActive: true,
       },
       {
