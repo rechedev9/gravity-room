@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { ConfirmDialog } from './confirm-dialog';
 import { WeightField } from './weight-field';
@@ -29,17 +29,32 @@ export function SetupForm({
   const fields = definition.configFields;
   const isEditMode = initialConfig !== null && initialConfig !== undefined;
   const [isExpanded, setIsExpanded] = useState(!isEditMode);
+  const editDialogRef = useRef<HTMLDialogElement>(null);
 
+  // Sync isExpanded with native dialog open/close
   useEffect(() => {
-    if (!isExpanded) return;
-    const handleKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setIsExpanded(false);
-    };
-    document.addEventListener('keydown', handleKey);
-    return (): void => {
-      document.removeEventListener('keydown', handleKey);
-    };
+    const dialog = editDialogRef.current;
+    if (!dialog) return;
+    if (isExpanded && !dialog.open) {
+      dialog.showModal();
+    } else if (!isExpanded && dialog.open) {
+      dialog.close();
+    }
   }, [isExpanded]);
+
+  // Native cancel event (Escape) → close the edit modal
+  useEffect(() => {
+    const dialog = editDialogRef.current;
+    if (!dialog) return;
+    const handleCancel = (e: Event): void => {
+      e.preventDefault();
+      setIsExpanded(false);
+    };
+    dialog.addEventListener('cancel', handleCancel);
+    return (): void => {
+      dialog.removeEventListener('cancel', handleCancel);
+    };
+  }, []);
 
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingConfig, setPendingConfig] = useState<Record<string, number> | null>(null);
@@ -312,27 +327,23 @@ export function SetupForm({
             </div>
           </div>
 
-          {isExpanded && (
-            <div
-              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
+          <dialog
+            ref={editDialogRef}
+            className="relative modal-box bg-card border border-rule p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto shadow-dialog backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+            onClick={(e) => {
+              if (e.target === editDialogRef.current) setIsExpanded(false);
+            }}
+          >
+            <button
+              type="button"
               onClick={() => setIsExpanded(false)}
+              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-muted hover:text-heading transition-colors cursor-pointer"
+              aria-label="Cerrar"
             >
-              <div
-                className="relative modal-box bg-card border border-rule p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto shadow-dialog"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  type="button"
-                  onClick={() => setIsExpanded(false)}
-                  className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-muted hover:text-heading transition-colors cursor-pointer"
-                  aria-label="Cerrar"
-                >
-                  &#10005;
-                </button>
-                {formContent}
-              </div>
-            </div>
-          )}
+              &#10005;
+            </button>
+            {formContent}
+          </dialog>
         </>
       ) : (
         <div className="bg-card border border-rule p-4 sm:p-7 mb-7 max-w-2xl mx-auto card edge-glow-top">
