@@ -118,7 +118,7 @@ export function WeekTable({
                 {/* Day group header */}
                 <tr
                   className={`border-t-2 border-rule ${
-                    isCurrent ? 'bg-[rgba(232,170,32,0.06)]' : ''
+                    isCurrent ? 'bg-[rgba(245,158,11,0.06)]' : ''
                   }`}
                   {...(isCurrent ? { 'data-current-row': true } : {})}
                 >
@@ -126,7 +126,7 @@ export function WeekTable({
                     colSpan={colCount}
                     className="px-3 py-2.5 font-mono text-[12px] font-bold tracking-wider"
                   >
-                    <span className="text-heading">#{row.index + 1}</span>
+                    <span className="text-accent">#{row.index + 1}</span>
                     <span className="text-muted mx-2">{'\u2014'}</span>
                     <span className="text-main uppercase">{row.dayName}</span>
                     <span className="ml-3 text-sm">
@@ -152,7 +152,7 @@ export function WeekTable({
                       key={slot.slotId}
                       className={`border-b border-rule-light transition-opacity duration-200 ${
                         fullyDone ? 'opacity-55' : ''
-                      } ${isCurrent && !fullyDone ? 'bg-[rgba(232,170,32,0.03)]' : ''} ${
+                      } ${isCurrent && !fullyDone ? 'bg-[rgba(245,158,11,0.03)]' : ''} ${
                         slot.isChanged && !isDone ? 'bg-changed' : ''
                       }`}
                     >

@@ -7,7 +7,7 @@ export function NotFound(): React.ReactNode {
       <div
         className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[300px] rounded-full pointer-events-none"
         style={{
-          background: 'radial-gradient(ellipse, rgba(232, 170, 32, 0.06) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse, rgba(245, 158, 11, 0.06) 0%, transparent 70%)',
         }}
       />
 
@@ -17,11 +17,11 @@ export function NotFound(): React.ReactNode {
         width={64}
         height={64}
         className="rounded-full mb-8 relative"
-        style={{ boxShadow: '0 0 20px rgba(232, 170, 32, 0.15)' }}
+        style={{ boxShadow: '0 0 20px rgba(245, 158, 11, 0.15)' }}
       />
       <h1
         className="font-display text-7xl sm:text-8xl text-heading mb-3 relative"
-        style={{ textShadow: '0 0 40px rgba(240, 192, 64, 0.2)' }}
+        style={{ textShadow: '0 0 40px rgba(252, 211, 77, 0.2)' }}
       >
         404
       </h1>

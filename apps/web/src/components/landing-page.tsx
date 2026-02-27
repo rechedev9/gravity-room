@@ -107,7 +107,7 @@ export function LandingPage(): React.ReactNode {
             height={32}
             className="rounded-full"
           />
-          <span className="text-sm font-bold tracking-tight text-heading">Gravity Room</span>
+          <span className="text-sm font-bold tracking-tight text-accent">Gravity Room</span>
         </div>
         <div className="hidden md:flex items-center gap-8">
           {NAV_LINKS.map((link) => (
@@ -115,9 +115,7 @@ export function LandingPage(): React.ReactNode {
               key={link.href}
               href={link.href}
               className={`font-mono text-xs font-semibold tracking-widest uppercase transition-colors duration-200 ${
-                activeSection === link.href.slice(1)
-                  ? 'text-heading'
-                  : 'text-muted hover:text-heading'
+                activeSection === link.href.slice(1) ? 'text-accent' : 'text-muted hover:text-main'
               }`}
               style={{ fontSize: '11px' }}
             >
@@ -127,7 +125,7 @@ export function LandingPage(): React.ReactNode {
         </div>
         <Link
           to="/login"
-          className="font-mono text-xs font-bold tracking-widest uppercase text-btn-text border border-btn-ring px-5 py-2.5 hover:bg-btn-active hover:text-btn-active-text hover:shadow-[0_0_20px_rgba(232,170,32,0.25)] transition-all duration-200"
+          className="font-mono text-xs font-bold tracking-widest uppercase text-btn-text border border-btn-ring px-5 py-2.5 hover:bg-btn-active hover:text-btn-active-text hover:shadow-[0_0_20px_rgba(245,158,11,0.25)] transition-all duration-200"
         >
           Iniciar Sesión →
         </Link>
@@ -144,7 +142,7 @@ export function LandingPage(): React.ReactNode {
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] pointer-events-none"
             style={{
               background:
-                'radial-gradient(ellipse at center, rgba(232,170,32,0.08) 0%, transparent 65%)',
+                'radial-gradient(ellipse at center, rgba(245,158,11,0.08) 0%, transparent 65%)',
             }}
           />
 
@@ -197,7 +195,7 @@ export function LandingPage(): React.ReactNode {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 to="/login"
-                className="font-mono px-10 py-4 text-sm font-bold tracking-widest uppercase border-2 border-btn-ring bg-btn-active text-btn-active-text hover:shadow-[0_0_32px_rgba(232,170,32,0.35)] transition-all duration-300 min-w-[220px]"
+                className="font-mono px-10 py-4 text-sm font-bold tracking-widest uppercase border-2 border-btn-ring bg-btn-active text-btn-active-text hover:shadow-[0_0_32px_rgba(245,158,11,0.35)] transition-all duration-300 min-w-[220px]"
               >
                 Comenzar →
               </Link>
@@ -215,7 +213,7 @@ export function LandingPage(): React.ReactNode {
                 className="absolute inset-0 -m-4 rounded-lg pointer-events-none"
                 style={{
                   background:
-                    'radial-gradient(ellipse at center, rgba(232,170,32,0.12) 0%, transparent 70%)',
+                    'radial-gradient(ellipse at center, rgba(245,158,11,0.12) 0%, transparent 70%)',
                 }}
               />
               <img
@@ -307,13 +305,6 @@ export function LandingPage(): React.ReactNode {
               <div
                 key={f.title}
                 className="relative bg-card p-6 transition-all landing-card-glow group"
-                style={{ borderTop: '2px solid transparent' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderTopColor = 'var(--color-accent)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderTopColor = 'transparent';
-                }}
               >
                 <div className="mb-5 group-hover:scale-110 transition-transform duration-300 origin-left text-accent">
                   {f.icon}
@@ -571,7 +562,7 @@ export function LandingPage(): React.ReactNode {
             className="absolute inset-0 pointer-events-none"
             style={{
               background:
-                'radial-gradient(ellipse at center bottom, rgba(232,170,32,0.06) 0%, transparent 60%)',
+                'radial-gradient(ellipse at center bottom, rgba(245,158,11,0.06) 0%, transparent 60%)',
             }}
           />
           <div className="relative z-10 max-w-2xl mx-auto">
@@ -593,7 +584,7 @@ export function LandingPage(): React.ReactNode {
             </h2>
             <Link
               to="/login"
-              className="font-mono inline-block px-12 py-4 text-sm font-bold tracking-widest uppercase border-2 border-btn-ring bg-btn-active text-btn-active-text hover:shadow-[0_0_48px_rgba(232,170,32,0.4)] transition-all duration-300"
+              className="font-mono inline-block px-12 py-4 text-sm font-bold tracking-widest uppercase border-2 border-btn-ring bg-btn-active text-btn-active-text hover:shadow-[0_0_48px_rgba(245,158,11,0.4)] transition-all duration-300"
             >
               Comienza Gratis →
             </Link>

@@ -216,7 +216,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
         <section className="mb-12">
           <h1
             className="font-display text-4xl sm:text-5xl text-heading leading-none"
-            style={{ textShadow: '0 0 30px rgba(240, 192, 64, 0.12)' }}
+            style={{ textShadow: '0 0 30px rgba(252, 211, 77, 0.12)' }}
           >
             Perfil
           </h1>
@@ -305,7 +305,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
           <div className="bg-card border border-rule p-8 sm:p-12 text-center card">
             <p
               className="font-display text-6xl sm:text-7xl text-muted leading-none mb-4"
-              style={{ textShadow: '0 0 40px rgba(138, 122, 90, 0.15)' }}
+              style={{ textShadow: '0 0 40px rgba(161, 161, 170, 0.15)' }}
             >
               SIN PROGRAMA
             </p>
@@ -526,8 +526,8 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
                     <span
                       className="shrink-0 font-mono text-[9px] tracking-widest uppercase px-2 py-1 text-heading"
                       style={{
-                        background: 'rgba(200,168,78,0.08)',
-                        border: '1px solid rgba(200,168,78,0.2)',
+                        background: 'rgba(245,158,11,0.08)',
+                        border: '1px solid rgba(245,158,11,0.2)',
                       }}
                     >
                       Completado

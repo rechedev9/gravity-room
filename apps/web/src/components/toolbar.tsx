@@ -63,7 +63,7 @@ export function Toolbar({
     <div
       className="bg-card border-b border-rule px-3 sm:px-5 py-2 sm:py-3 shadow-toolbar"
       style={{
-        backgroundImage: 'linear-gradient(to bottom, rgba(232, 170, 32, 0.02), transparent)',
+        backgroundImage: 'linear-gradient(to bottom, rgba(245, 158, 11, 0.02), transparent)',
       }}
     >
       {/* Mobile progress bar */}

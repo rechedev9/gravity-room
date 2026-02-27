@@ -36,7 +36,7 @@ export function RpeInput({ value, onChange, label }: RpeInputProps): React.React
             onClick={() => onChange(isActive ? undefined : rpe)}
             className={`w-11 h-11 text-xs font-bold border cursor-pointer transition-all duration-150 active:scale-90 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none ${
               isActive
-                ? 'bg-accent text-white border-accent shadow-[0_0_10px_rgba(232,170,32,0.25)]'
+                ? 'bg-accent text-white border-accent shadow-[0_0_10px_rgba(245,158,11,0.25)]'
                 : 'bg-transparent text-muted border-rule hover:border-main hover:text-main'
             }`}
           >

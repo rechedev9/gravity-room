@@ -28,7 +28,7 @@ export function ProgramCompletionScreen({
         <div className="text-center mb-12">
           <h1
             className="font-display text-5xl sm:text-7xl text-heading leading-none mb-3"
-            style={{ textShadow: '0 0 40px rgba(240, 192, 64, 0.25)' }}
+            style={{ textShadow: '0 0 40px rgba(252, 211, 77, 0.25)' }}
           >
             {'\u00A1'}COMPLETADO!
           </h1>

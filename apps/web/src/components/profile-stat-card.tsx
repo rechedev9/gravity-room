@@ -32,7 +32,7 @@ export function ProfileStatCard({
       <div className="flex items-baseline gap-2">
         <p
           className="font-display-data text-4xl sm:text-5xl text-heading leading-none"
-          style={{ textShadow: '0 0 20px rgba(240, 192, 64, 0.15)' }}
+          style={{ textShadow: '0 0 20px rgba(252, 211, 77, 0.15)' }}
         >
           {value}
         </p>

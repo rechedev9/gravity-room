@@ -1,91 +1,91 @@
 @import 'tailwindcss';
 
 /* ── Font stack ───────────────────────────────── */
-/* Display: Bebas Neue — industrial condensed headers */
+/* Display: Syne — geometric mixed-case headers    */
 /* Mono: JetBrains Mono — data, weights, sets/reps  */
-/* Body: Barlow — clean readable prose               */
+/* Body: Plus Jakarta Sans — clean readable prose   */
 
 @theme {
   /* Surfaces */
-  --color-body: #0b0906;
-  --color-card: #130f09;
-  --color-header: #070504;
-  --color-th: #1a1410;
-  --color-hover-row: #1a1410;
-  --color-progress-track: #2a2218;
-  --color-changed: #1f1a08;
-  --color-error-bg: #2e1414;
-  --color-tooltip-bg: #070504;
+  --color-body: #09090b;
+  --color-card: #18181b;
+  --color-header: #09090b;
+  --color-th: #1c1c22;
+  --color-hover-row: #1c1c22;
+  --color-progress-track: #27272a;
+  --color-changed: #1c1a10;
+  --color-error-bg: #2d1515;
+  --color-tooltip-bg: #18181b;
 
   /* Text */
-  --color-main: #f0e8d8;
-  --color-heading: #f0c040;
-  --color-muted: #8a7a5a;
-  --color-label: #a89870;
-  --color-info: #8a7a5a;
-  --color-error: #c06060;
-  --color-tooltip-text: #f0e8d8;
+  --color-main: #fafafa;
+  --color-heading: #fafafa;
+  --color-muted: #a1a1aa;
+  --color-label: #71717a;
+  --color-info: #a1a1aa;
+  --color-error: #ef4444;
+  --color-tooltip-text: #fafafa;
 
   /* Borders */
-  --color-rule: #2a2218;
-  --color-rule-light: #3a3025;
-  --color-error-line: #7a2828;
+  --color-rule: #27272a;
+  --color-rule-light: #3f3f46;
+  --color-error-line: #7f1d1d;
 
   /* Accent */
-  --color-accent: #e8aa20;
+  --color-accent: #f59e0b;
 
   /* Buttons */
-  --color-btn-ring: #e8aa20;
-  --color-btn: #130f09;
-  --color-btn-text: #e8aa20;
-  --color-btn-active: #e8aa20;
-  --color-btn-active-text: #0b0906;
+  --color-btn-ring: #f59e0b;
+  --color-btn: #18181b;
+  --color-btn-text: #f59e0b;
+  --color-btn-active: #f59e0b;
+  --color-btn-active-text: #09090b;
 
   /* Badges */
-  --color-ok-bg: #0f2010;
-  --color-ok-ring: #3a6828;
-  --color-ok: #6aaa3a;
-  --color-fail-bg: #240e0e;
-  --color-fail-ring: #7a2828;
-  --color-fail: #c05050;
+  --color-ok-bg: #052e16;
+  --color-ok-ring: #166534;
+  --color-ok: #22c55e;
+  --color-fail-bg: #2d1515;
+  --color-fail-ring: #7f1d1d;
+  --color-fail: #ef4444;
 
   /* Stages */
-  --color-stage-1: #f0e8d8;
-  --color-stage-2: #f07000;
-  --color-stage-3: #d02020;
+  --color-stage-1: #fafafa;
+  --color-stage-2: #f97316;
+  --color-stage-3: #ef4444;
 
   /* Chart */
-  --color-chart-grid: #2a2218;
-  --color-chart-text: #8a7a5a;
-  --color-chart-line: #f0c040;
-  --color-chart-ok: #3a6828;
-  --color-chart-fail: #7a2828;
-  --color-chart-pr: #d4a843;
+  --color-chart-grid: #27272a;
+  --color-chart-text: #a1a1aa;
+  --color-chart-line: #f59e0b;
+  --color-chart-ok: #166534;
+  --color-chart-fail: #7f1d1d;
+  --color-chart-pr: #fcd34d;
 
   /* Shadows */
   --shadow-toolbar: 0 2px 12px rgba(0, 0, 0, 0.6);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 6px rgba(0, 0, 0, 0.15);
-  --shadow-card-hover: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(232, 170, 32, 0.06);
-  --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(232, 170, 32, 0.04);
-  --shadow-glow-gold: 0 0 20px rgba(232, 170, 32, 0.1);
-  --shadow-glow-success: 0 0 12px rgba(106, 170, 58, 0.15);
-  --shadow-glow-fail: 0 0 12px rgba(192, 80, 80, 0.15);
+  --shadow-card-hover: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(245, 158, 11, 0.06);
+  --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(245, 158, 11, 0.04);
+  --shadow-glow-gold: 0 0 20px rgba(245, 158, 11, 0.1);
+  --shadow-glow-success: 0 0 12px rgba(34, 197, 94, 0.15);
+  --shadow-glow-fail: 0 0 12px rgba(239, 68, 68, 0.15);
   --shadow-inset-subtle: inset 0 1px 0 rgba(255, 255, 255, 0.02);
   --shadow-dialog:
-    0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(232, 170, 32, 0.04), 0 0 60px rgba(0, 0, 0, 0.5);
+    0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(245, 158, 11, 0.04), 0 0 60px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Keyframes ─────────────────────────────────── */
 
 @keyframes highlight-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(232, 170, 32, 0.7);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(232, 170, 32, 0.3);
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.3);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(232, 170, 32, 0);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
   }
 }
 
@@ -287,7 +287,7 @@
   top: 0;
   bottom: 0;
   width: 24px;
-  background: linear-gradient(90deg, transparent, rgba(232, 170, 32, 0.35));
+  background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.35));
   pointer-events: none;
 }
 
@@ -317,7 +317,7 @@
   background: linear-gradient(
     90deg,
     transparent 10%,
-    rgba(232, 170, 32, 0.25) 50%,
+    rgba(245, 158, 11, 0.25) 50%,
     transparent 90%
   );
   pointer-events: none;
@@ -336,18 +336,7 @@
   transform: translateY(0);
 }
 
-/* ── Grain texture overlay ─────────────────────── */
-
-.grain-overlay::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.028;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  background-size: 128px 128px;
-}
+/* Grain overlay removed — clean surfaces for "precision instrument" aesthetic */
 
 /* ── Landing-specific extras ───────────────────── */
 
@@ -356,22 +345,22 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(232, 170, 32, 0.25) 50%,
+    rgba(245, 158, 11, 0.25) 50%,
     transparent 100%
   );
 }
 
 .landing-quote-glow {
-  background: linear-gradient(135deg, rgba(232, 170, 32, 0.05) 0%, transparent 60%);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, transparent 60%);
   border-left: 2px solid;
-  border-image: linear-gradient(180deg, rgba(232, 170, 32, 0.9) 0%, rgba(232, 170, 32, 0.15) 100%) 1;
+  border-image: linear-gradient(180deg, rgba(245, 158, 11, 0.9) 0%, rgba(245, 158, 11, 0.15) 100%) 1;
 }
 
 .landing-card-glow:hover {
   border-color: var(--color-rule-light);
   box-shadow:
-    0 0 24px rgba(232, 170, 32, 0.07),
-    inset 0 1px 0 rgba(232, 170, 32, 0.08);
+    0 0 24px rgba(245, 158, 11, 0.07),
+    inset 0 1px 0 rgba(245, 158, 11, 0.08);
 }
 
 .landing-card-glow::before {
@@ -381,7 +370,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(232, 170, 32, 0.5), transparent);
+  background: linear-gradient(90deg, transparent, rgba(245, 158, 11, 0.5), transparent);
   opacity: 0;
   transition: opacity 0.3s;
 }
@@ -394,8 +383,8 @@
 
 .hero-number-glow {
   text-shadow:
-    0 0 40px rgba(232, 170, 32, 0.4),
-    0 0 80px rgba(232, 170, 32, 0.1);
+    0 0 40px rgba(245, 158, 11, 0.3),
+    0 0 80px rgba(245, 158, 11, 0.08);
 }
 
 /* ── Horizontal rule with label ─────────────────── */
@@ -426,16 +415,18 @@
   font-family: 'JetBrains Mono', monospace;
 }
 
-/* Bebas Neue — display headings (letter-spacing 0.04em variant) */
+/* Syne — display headings (geometric, mixed-case) */
 .font-display {
-  font-family: 'Bebas Neue', system-ui;
-  letter-spacing: 0.04em;
+  font-family: 'Syne', system-ui;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
-/* Bebas Neue — stat numbers (data-optimized, tighter tracking than .font-display) */
+/* Syne — stat numbers (data-optimized, tighter tracking) */
 .font-display-data {
-  font-family: 'Bebas Neue', system-ui;
-  letter-spacing: 0.02em;
+  font-family: 'Syne', system-ui;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
 /* Week/badge label — small mono pill inside week header */
@@ -457,7 +448,7 @@ section[id] {
 
 body {
   font-family:
-    'Barlow',
+    'Plus Jakarta Sans',
     system-ui,
     -apple-system,
     sans-serif;

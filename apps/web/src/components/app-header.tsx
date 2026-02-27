@@ -27,7 +27,7 @@ export function AppHeader({
       className="flex items-center justify-between px-5 sm:px-8 py-4 bg-header border-b border-rule shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
       style={{
         borderImage:
-          'linear-gradient(90deg, var(--color-rule) 0%, rgba(232, 170, 32, 0.2) 50%, var(--color-rule) 100%) 1',
+          'linear-gradient(90deg, var(--color-rule) 0%, rgba(245, 158, 11, 0.2) 50%, var(--color-rule) 100%) 1',
       }}
     >
       <div className="flex items-center gap-4">
@@ -41,7 +41,7 @@ export function AppHeader({
         )}
         <Link to="/app" className="flex items-center gap-4">
           <img src="/logo.webp" alt="Logo" width={32} height={32} className="rounded-sm" />
-          <span className="text-sm font-bold tracking-tight text-heading">Gravity Room</span>
+          <span className="text-sm font-bold tracking-tight text-accent">Gravity Room</span>
         </Link>
       </div>
 

@@ -55,7 +55,7 @@ export function LoginPage(): React.ReactNode {
         className="pointer-events-none absolute inset-x-0 top-0 h-[520px]"
         style={{
           background:
-            'radial-gradient(ellipse 75% 60% at 50% -5%, rgba(200,168,78,1) 0%, transparent 100%)',
+            'radial-gradient(ellipse 75% 60% at 50% -5%, rgba(245,158,11,1) 0%, transparent 100%)',
           animation: 'glowBreath 5s ease-in-out infinite',
         }}
       />
@@ -77,7 +77,7 @@ export function LoginPage(): React.ReactNode {
           className="absolute rounded-full blur-2xl pointer-events-none"
           style={{
             inset: '-20px',
-            background: 'rgba(200,168,78,0.22)',
+            background: 'rgba(245,158,11,0.22)',
             animation: 'haloBreath 3.5s ease-in-out infinite',
           }}
         />
@@ -87,7 +87,7 @@ export function LoginPage(): React.ReactNode {
           width={68}
           height={68}
           className="relative block rounded-full"
-          style={{ border: '1.5px solid rgba(200,168,78,0.5)' }}
+          style={{ border: '1.5px solid rgba(245,158,11,0.5)' }}
         />
       </div>
 
@@ -97,7 +97,7 @@ export function LoginPage(): React.ReactNode {
         style={{
           fontSize: 'clamp(50px, 12vw, 88px)',
           letterSpacing: '0.03em',
-          textShadow: '0 0 48px rgba(200,168,78,0.18)',
+          textShadow: '0 0 48px rgba(245,158,11,0.18)',
           animation: 'riseIn 0.55s ease both',
           animationDelay: '0.08s',
         }}
@@ -112,17 +112,17 @@ export function LoginPage(): React.ReactNode {
       >
         <div
           className="flex-1 h-px"
-          style={{ background: 'linear-gradient(to right, transparent, rgba(200,168,78,0.6))' }}
+          style={{ background: 'linear-gradient(to right, transparent, rgba(245,158,11,0.6))' }}
         />
         <span
           className="font-mono text-[9px] tracking-[0.35em] uppercase flex-shrink-0 text-heading"
-          style={{ textShadow: '0 0 10px rgba(200,168,78,0.5)' }}
+          style={{ textShadow: '0 0 10px rgba(245,158,11,0.5)' }}
         >
           Entra a la Cámara
         </span>
         <div
           className="flex-1 h-px"
-          style={{ background: 'linear-gradient(to left, transparent, rgba(200,168,78,0.6))' }}
+          style={{ background: 'linear-gradient(to left, transparent, rgba(245,158,11,0.6))' }}
         />
       </div>
 
@@ -140,7 +140,7 @@ export function LoginPage(): React.ReactNode {
         <span
           aria-hidden="true"
           className="absolute top-2.5 right-3 font-mono text-[11px] pointer-events-none select-none"
-          style={{ color: 'rgba(200,168,78,0.3)' }}
+          style={{ color: 'rgba(245,158,11,0.3)' }}
         >
           ✦
         </span>
@@ -148,11 +148,11 @@ export function LoginPage(): React.ReactNode {
         <div
           style={{
             background: 'var(--color-card)',
-            borderTop: '1px solid rgba(200,168,78,0.2)',
-            borderRight: '1px solid rgba(200,168,78,0.08)',
-            borderBottom: '1px solid rgba(200,168,78,0.08)',
+            borderTop: '1px solid rgba(245,158,11,0.2)',
+            borderRight: '1px solid rgba(245,158,11,0.08)',
+            borderBottom: '1px solid rgba(245,158,11,0.08)',
             borderLeft: '3px solid var(--color-heading)',
-            boxShadow: '-8px 0 40px rgba(200,168,78,0.07), 0 24px 64px rgba(0,0,0,0.7)',
+            boxShadow: '-8px 0 40px rgba(245,158,11,0.07), 0 24px 64px rgba(0,0,0,0.7)',
             padding: '22px 22px 20px',
           }}
         >
@@ -188,9 +188,9 @@ export function LoginPage(): React.ReactNode {
               onClick={() => void handleDevLogin()}
               className="w-full mt-3 font-mono text-[10px] tracking-[0.2em] uppercase py-2 cursor-pointer"
               style={{
-                background: 'rgba(200,168,78,0.06)',
-                border: '1px dashed rgba(200,168,78,0.3)',
-                color: 'rgba(200,168,78,0.6)',
+                background: 'rgba(245,158,11,0.06)',
+                border: '1px dashed rgba(245,158,11,0.3)',
+                color: 'rgba(245,158,11,0.6)',
               }}
             >
               ⚗ Dev Login
