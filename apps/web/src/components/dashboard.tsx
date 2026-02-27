@@ -103,7 +103,30 @@ function ActiveProgramCard({
     }).format(new Date(ts));
   })();
 
-  if (!definition) return null;
+  if (!definition) {
+    return (
+      <div className="bg-card border border-rule p-6 sm:p-8 card animate-pulse">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <div className="h-5 w-40 bg-rule rounded mb-2" />
+            <div className="h-3 w-56 bg-rule rounded" />
+          </div>
+        </div>
+        <div className="flex gap-4 mb-3">
+          <div className="h-3 w-28 bg-rule rounded" />
+          <div className="h-3 w-20 bg-rule rounded" />
+        </div>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="flex-1 h-2.5 bg-progress-track rounded-full" />
+          <div className="h-3 w-10 bg-rule rounded" />
+        </div>
+        <div className="flex gap-3">
+          <div className="h-10 w-52 bg-rule rounded" />
+          <div className="h-10 w-48 bg-rule rounded" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
