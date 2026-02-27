@@ -3,13 +3,14 @@ import { Button } from './button';
 import { ConfirmDialog } from './confirm-dialog';
 import { DropdownMenu, DropdownItem } from './dropdown-menu';
 
-interface ToolbarProps {
+export interface ToolbarProps {
   readonly completedCount: number;
   readonly totalWorkouts: number;
   readonly undoCount: number;
   readonly onUndo: () => void;
   readonly onFinish: () => void;
   readonly onReset: () => void;
+  readonly onExportCsv: () => void;
 }
 
 function ProgressBar({
@@ -51,6 +52,7 @@ export function Toolbar({
   onUndo,
   onFinish,
   onReset,
+  onExportCsv,
 }: ToolbarProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
@@ -109,6 +111,14 @@ export function Toolbar({
               &#8942;
             </Button>
             <DropdownMenu open={menuOpen} onClose={closeMenu} align="right">
+              <DropdownItem
+                onClick={() => {
+                  closeMenu();
+                  onExportCsv();
+                }}
+              >
+                Exportar CSV
+              </DropdownItem>
               <DropdownItem
                 onClick={() => {
                   closeMenu();
