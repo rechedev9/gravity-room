@@ -7,7 +7,7 @@ interface ViewToggleProps {
 
 export function ViewToggle({ viewMode, onToggle }: ViewToggleProps): React.ReactNode {
   const targetLabel = viewMode === 'card' ? 'Cambiar a vista tabla' : 'Cambiar a vista tarjetas';
-  const icon = viewMode === 'card' ? '\u2630' : '\u25A1';
+  const icon = viewMode === 'card' ? '\u2261' : '\u229E';
   const label = viewMode === 'card' ? 'Tabla' : 'Tarjetas';
 
   return (

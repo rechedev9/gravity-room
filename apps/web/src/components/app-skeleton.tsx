@@ -17,10 +17,12 @@ export function AppSkeleton(): React.ReactNode {
 
       {/* Toolbar skeleton */}
       <div className="bg-card border-b border-rule px-3 sm:px-5 py-2 sm:py-3">
+        {/* Mobile: progress bar above buttons */}
+        <div className="h-2.5 bg-progress-track rounded-full animate-pulse mb-2 sm:hidden" />
         <div className="flex items-center gap-4">
           <div className="h-8 w-20 bg-rule rounded animate-pulse" />
-          <div className="flex-1 h-2.5 bg-progress-track rounded-full animate-pulse" />
-          <div className="h-8 w-24 bg-rule rounded animate-pulse" />
+          <div className="flex-1 h-2.5 bg-progress-track rounded-full animate-pulse hidden sm:block" />
+          <div className="h-8 w-8 bg-rule rounded animate-pulse" />
         </div>
       </div>
 
