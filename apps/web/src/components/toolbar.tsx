@@ -100,6 +100,13 @@ export function Toolbar({
 
         {/* Right */}
         <div className="flex items-center gap-2.5 shrink-0">
+          {/* Proactive finish CTA when program is complete */}
+          {completedCount >= totalWorkouts && (
+            <Button size="sm" onClick={() => setFinishConfirmOpen(true)} disabled={isFinishing}>
+              {isFinishing ? 'Finalizando…' : 'Finalizar Programa'}
+            </Button>
+          )}
+
           {/* Overflow menu */}
           <div className="relative">
             <Button
