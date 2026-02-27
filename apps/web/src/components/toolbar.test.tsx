@@ -14,6 +14,7 @@ function buildToolbarProps(overrides?: Partial<Parameters<typeof Toolbar>[0]>) {
     onUndo: mock(),
     onFinish: mock(),
     onReset: mock(),
+    onExportCsv: mock(),
     ...overrides,
   };
 }
