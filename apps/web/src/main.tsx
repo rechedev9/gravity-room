@@ -1,22 +1,24 @@
 import '@/lib/sentry';
-import { StrictMode, Suspense, lazy } from 'react';
+import { StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { Providers } from '@/components/providers';
+import { RouteErrorFallback } from '@/components/route-error-fallback';
 import { RootLayout } from '@/components/root-layout';
 import { AppShell } from '@/components/app-shell';
+import { lazyWithRetry } from '@/lib/lazy-with-retry';
 import '@/styles/globals.css';
 
-const LoginPage = lazy(() =>
+const LoginPage = lazyWithRetry(() =>
   import('@/components/login-page').then((m) => ({ default: m.LoginPage }))
 );
-const PrivacyPage = lazy(() =>
+const PrivacyPage = lazyWithRetry(() =>
   import('@/components/privacy-page').then((m) => ({ default: m.PrivacyPage }))
 );
-const LandingPage = lazy(() =>
+const LandingPage = lazyWithRetry(() =>
   import('@/components/landing-page').then((m) => ({ default: m.LandingPage }))
 );
-const NotFound = lazy(() =>
+const NotFound = lazyWithRetry(() =>
   import('@/components/not-found').then((m) => ({ default: m.NotFound }))
 );
 
@@ -29,6 +31,7 @@ if ('serviceWorker' in navigator) {
 const router = createBrowserRouter([
   {
     element: <RootLayout />,
+    errorElement: <RouteErrorFallback />,
     children: [
       {
         path: '/',

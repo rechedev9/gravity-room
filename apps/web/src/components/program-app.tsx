@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, useTransition, useEffect, useRef } from 'react';
+import { Suspense, useState, useTransition, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ResultValue } from '@gzclp/shared/types';
@@ -28,8 +28,9 @@ import { Toolbar } from './toolbar';
 import { ViewToggle } from './view-toggle';
 import { WeekNavigator } from './week-navigator';
 import { WeekTable } from './week-table';
+import { lazyWithRetry } from '@/lib/lazy-with-retry';
 
-const StatsPanel = lazy(() => import('./stats-panel'));
+const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
 const preloadStatsPanel = (): void => {
   void import('./stats-panel');
 };
