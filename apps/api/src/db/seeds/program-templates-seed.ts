@@ -1,6 +1,6 @@
 /**
  * Idempotent seed for the program_templates table.
- * Inserts 4 preset programs with their full JSONB definitions.
+ * Inserts 6 preset programs with their full JSONB definitions.
  * Exercise names are omitted from JSONB — they are resolved from the exercises table at hydration time.
  * Uses onConflictDoNothing() to allow re-runs without error.
  */
@@ -758,6 +758,215 @@ const STRONGLIFTS_DEFINITION_JSONB = {
 };
 
 // ---------------------------------------------------------------------------
+// Phrak's Greyskull LP Definition JSONB
+// ---------------------------------------------------------------------------
+
+function gslpSlot(id: string, exerciseId: string, sets: number): SlotDef {
+  return {
+    id,
+    exerciseId,
+    tier: 'main',
+    stages: [{ sets, reps: 5, amrap: true }],
+    onSuccess: { type: 'add_weight' },
+    onMidStageFail: NC,
+    onFinalStageFail: { type: 'deload_percent', percent: 10 },
+    startWeightKey: exerciseId,
+  };
+}
+
+const GSLP_DEFINITION_JSONB = {
+  cycleLength: 2,
+  totalWorkouts: 90,
+  workoutsPerWeek: 3,
+  exercises: {
+    ohp: {},
+    pullup: {},
+    squat: {},
+    bench: {},
+    bent_over_row: {},
+    deadlift: {},
+  },
+  configFields: [
+    { key: 'ohp', label: 'Press Militar', type: 'weight', min: 2.5, step: 2.5 },
+    { key: 'pullup', label: 'Dominadas (peso añadido)', type: 'weight', min: 0, step: 2.5 },
+    { key: 'squat', label: 'Sentadilla', type: 'weight', min: 2.5, step: 2.5 },
+    { key: 'bench', label: 'Press Banca', type: 'weight', min: 2.5, step: 2.5 },
+    { key: 'bent_over_row', label: 'Remo con Barra', type: 'weight', min: 2.5, step: 2.5 },
+    { key: 'deadlift', label: 'Peso Muerto', type: 'weight', min: 2.5, step: 2.5 },
+  ],
+  weightIncrements: {
+    ohp: 2.5,
+    pullup: 2.5,
+    squat: 2.5,
+    bench: 2.5,
+    bent_over_row: 2.5,
+    deadlift: 5,
+  },
+  days: [
+    {
+      name: 'Workout A',
+      slots: [
+        gslpSlot('ohp', 'ohp', 3),
+        gslpSlot('pullup', 'pullup', 3),
+        gslpSlot('squat', 'squat', 3),
+      ],
+    },
+    {
+      name: 'Workout B',
+      slots: [
+        gslpSlot('bench', 'bench', 3),
+        gslpSlot('bent_over_row', 'bent_over_row', 3),
+        gslpSlot('deadlift', 'deadlift', 1),
+      ],
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// 5/3/1 Boring But Big (BBB) Definition JSONB
+// ---------------------------------------------------------------------------
+
+function bbbSlot(
+  exerciseId: string,
+  tmKey: string,
+  id: string,
+  pct: number,
+  reps: number,
+  sets: number = 1,
+  tier: string = 'main'
+): SlotDef {
+  return {
+    id,
+    exerciseId,
+    tier,
+    role: 'secondary',
+    trainingMaxKey: tmKey,
+    tmPercent: pct,
+    stages: [{ sets, reps }],
+    onSuccess: NC,
+    onUndefined: NC,
+    onMidStageFail: NC,
+    onFinalStageFail: NC,
+    startWeightKey: tmKey,
+  };
+}
+
+function bbbTopSlot(
+  exerciseId: string,
+  tmKey: string,
+  pct: number,
+  reps: number,
+  amrap: boolean,
+  tmInc?: number
+): SlotDef {
+  return {
+    id: `${exerciseId}_top`,
+    exerciseId,
+    tier: 'main',
+    role: 'primary',
+    trainingMaxKey: tmKey,
+    tmPercent: pct,
+    stages: [{ sets: 1, reps, amrap: amrap || undefined }],
+    onSuccess: tmInc !== undefined ? { type: 'update_tm', amount: tmInc, minAmrapReps: 1 } : NC,
+    onUndefined: NC,
+    onMidStageFail: NC,
+    onFinalStageFail: NC,
+    startWeightKey: tmKey,
+  };
+}
+
+function bbbWeekDays(
+  label: string,
+  p1: number,
+  p2: number,
+  p3: number,
+  r1: number,
+  r2: number,
+  r3: number,
+  amrap: boolean,
+  bbb: boolean,
+  tmUpdate: boolean
+): { name: string; slots: SlotDef[] }[] {
+  const lifts = [
+    { ex: 'squat', tm: 'squat_tm', name: 'Sentadilla', inc: 5 },
+    { ex: 'bench', tm: 'bench_tm', name: 'Press Banca', inc: 2.5 },
+    { ex: 'deadlift', tm: 'deadlift_tm', name: 'Peso Muerto', inc: 5 },
+    { ex: 'ohp', tm: 'ohp_tm', name: 'Press Militar', inc: 2.5 },
+  ];
+  return lifts.map((l) => ({
+    name: `${label} — ${l.name}`,
+    slots: [
+      bbbSlot(l.ex, l.tm, `${l.ex}_s1`, p1, r1),
+      bbbSlot(l.ex, l.tm, `${l.ex}_s2`, p2, r2),
+      bbbTopSlot(l.ex, l.tm, p3, r3, amrap, tmUpdate ? l.inc : undefined),
+      ...(bbb ? [bbbSlot(l.ex, l.tm, `${l.ex}_bbb`, 0.5, 10, 5, 'supplemental')] : []),
+    ],
+  }));
+}
+
+const BBB_DAYS = [
+  ...bbbWeekDays('Sem. 1 (5s)', 0.65, 0.75, 0.85, 5, 5, 5, true, true, false),
+  ...bbbWeekDays('Sem. 2 (3s)', 0.7, 0.8, 0.9, 3, 3, 3, true, true, false),
+  ...bbbWeekDays('Sem. 3 (5/3/1)', 0.75, 0.85, 0.95, 5, 3, 1, true, true, true),
+  ...bbbWeekDays('Descarga', 0.4, 0.5, 0.6, 5, 5, 5, false, false, false),
+];
+
+const BBB_DEFINITION_JSONB = {
+  configTitle: 'Training Max (kg)',
+  configDescription:
+    'Introduce tu Training Max para cada levantamiento principal. ' +
+    'Se recomienda usar el 90% de tu 1RM.',
+  configEditTitle: 'Editar Training Max (kg)',
+  configEditDescription:
+    'Actualiza tu Training Max — el programa se recalculará con los nuevos valores.',
+  cycleLength: 16,
+  totalWorkouts: 80,
+  workoutsPerWeek: 4,
+  exercises: {
+    squat: {},
+    bench: {},
+    deadlift: {},
+    ohp: {},
+  },
+  configFields: [
+    {
+      key: 'squat_tm',
+      label: 'Sentadilla (Training Max)',
+      type: 'weight',
+      min: 10,
+      step: 2.5,
+      group: 'Training Max',
+    },
+    {
+      key: 'bench_tm',
+      label: 'Press Banca (Training Max)',
+      type: 'weight',
+      min: 10,
+      step: 2.5,
+      group: 'Training Max',
+    },
+    {
+      key: 'deadlift_tm',
+      label: 'Peso Muerto (Training Max)',
+      type: 'weight',
+      min: 10,
+      step: 2.5,
+      group: 'Training Max',
+    },
+    {
+      key: 'ohp_tm',
+      label: 'Press Militar (Training Max)',
+      type: 'weight',
+      min: 10,
+      step: 2.5,
+      group: 'Training Max',
+    },
+  ],
+  weightIncrements: {},
+  days: BBB_DAYS,
+};
+
+// ---------------------------------------------------------------------------
 // Nivel 7 Definition JSONB
 // ---------------------------------------------------------------------------
 
@@ -1344,6 +1553,35 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         category: 'strength',
         source: 'preset',
         definition: STRONGLIFTS_DEFINITION_JSONB,
+        isActive: true,
+      },
+      {
+        id: 'phraks-gslp',
+        name: "Phrak's Greyskull LP",
+        description:
+          'Programa de fuerza para principiantes de Phrakture. ' +
+          'Dos entrenamientos alternos (A/B), 3 días por semana. ' +
+          'Cada ejercicio termina con una serie AMRAP (al fallo técnico). ' +
+          'Progresión lineal con descarga del 10% al fallar.',
+        author: 'Phrakture (r/Fitness)',
+        version: 1,
+        category: 'strength',
+        source: 'preset',
+        definition: GSLP_DEFINITION_JSONB,
+        isActive: true,
+      },
+      {
+        id: 'wendler531bbb',
+        name: '5/3/1 Boring But Big',
+        description:
+          'Plantilla clásica de 5/3/1 con suplemento Boring But Big (5×10 al 50% del TM). ' +
+          'Ciclos de 4 semanas: 5s, 3s, 5/3/1 y descarga. ' +
+          '4 días por semana con progresión del Training Max tras cada ciclo.',
+        author: 'Jim Wendler',
+        version: 1,
+        category: 'strength',
+        source: 'preset',
+        definition: BBB_DEFINITION_JSONB,
         isActive: true,
       },
       {
