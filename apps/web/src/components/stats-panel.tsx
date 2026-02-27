@@ -1,4 +1,4 @@
-import { useState, useRef, type ReactNode } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import {
   extractGenericChartData,
   calculateStats,
@@ -151,6 +151,19 @@ function CollapsibleSection({
 }): ReactNode {
   const contentRef = useRef<HTMLDivElement>(null);
   const contentId = `section-${sanitizeKey(sectionKey)}-content`;
+  const [contentHeight, setContentHeight] = useState(0);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el || !isOpen) return;
+
+    const update = (): void => setContentHeight(el.scrollHeight);
+    update();
+
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return (): void => ro.disconnect();
+  }, [isOpen]);
 
   return (
     <div className="bg-card border border-rule overflow-hidden card">
@@ -179,7 +192,7 @@ function CollapsibleSection({
         id={contentId}
         aria-hidden={!isOpen}
         className="transition-[max-height] duration-300 ease-in-out overflow-hidden"
-        style={{ maxHeight: isOpen ? `${contentRef.current?.scrollHeight ?? 2000}px` : '0' }}
+        style={{ maxHeight: isOpen ? `${contentHeight || 2000}px` : '0' }}
       >
         <div ref={contentRef} className="px-5 pb-5 border-t border-rule-light">
           {children}
