@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import type { CompletionStats, PersonalRecord, OneRMEstimate } from '@/lib/profile-stats';
 import { formatVolume } from '@/lib/profile-stats';
 import { ProfileStatCard } from './profile-stat-card';
@@ -21,7 +22,7 @@ export function ProgramCompletionScreen({
   onViewProfile,
   onBackToDashboard,
 }: ProgramCompletionScreenProps): React.ReactNode {
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] bg-body overflow-y-auto">
       <div className="max-w-2xl mx-auto px-5 sm:px-8 py-12 sm:py-20">
         {/* Celebration header */}
@@ -122,6 +123,7 @@ export function ProgramCompletionScreen({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
