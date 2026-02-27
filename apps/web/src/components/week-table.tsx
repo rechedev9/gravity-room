@@ -177,6 +177,11 @@ export function WeekTable({
                       {/* Weight */}
                       <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap font-bold text-[13px]">
                         {slot.weight > 0 ? `${slot.weight} kg` : '\u2014'}
+                        {slot.isDeload && (
+                          <span className="block text-[10px] text-[var(--text-muted)]">
+                            {'\u2193'} Deload
+                          </span>
+                        )}
                       </td>
 
                       {/* Scheme */}

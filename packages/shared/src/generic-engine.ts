@@ -190,6 +190,7 @@ export function computeGenericProgram(
 
   const rows: GenericWorkoutRow[] = [];
   const cycleLength = definition.days.length;
+  const prevWeightByExerciseId = new Map<string, number>();
 
   for (let i = 0; i < definition.totalWorkouts; i++) {
     const day = definition.days[i % cycleLength];
@@ -207,6 +208,13 @@ export function computeGenericProgram(
         slot.trainingMaxKey !== undefined && slot.tmPercent !== undefined
           ? roundToNearestHalf(tmState[slot.trainingMaxKey] * slot.tmPercent)
           : state.weight;
+
+      // Deload detection: weight decreased vs previous occurrence of same exercise
+      const prevWeight = prevWeightByExerciseId.get(slot.exerciseId);
+      const isDeload = prevWeight !== undefined && weight > 0 && weight < prevWeight;
+      if (weight > 0) {
+        prevWeightByExerciseId.set(slot.exerciseId, weight);
+      }
 
       // Role resolution: explicit > infer from tier > undefined
       const role = resolveRole(slot.role, slot.tier);
@@ -227,6 +235,7 @@ export function computeGenericProgram(
         amrapReps: slotResult.amrapReps,
         rpe: slotResult.rpe,
         isChanged: state.everChanged,
+        isDeload,
         role,
       };
     });

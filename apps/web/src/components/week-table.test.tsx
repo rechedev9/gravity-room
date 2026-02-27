@@ -24,6 +24,7 @@ function makeSlot(overrides: Partial<GenericSlotRow> = {}): GenericSlotRow {
     amrapReps: overrides.amrapReps,
     rpe: overrides.rpe,
     isChanged: overrides.isChanged ?? false,
+    isDeload: overrides.isDeload ?? false,
     role: overrides.role ?? 'primary',
   };
 }
@@ -285,6 +286,58 @@ describe('WeekTable conditional columns', () => {
       // Row 0 = day header, Row 1 = exercise slot
       const exerciseRow = rows[1];
       expect(exerciseRow?.className).toContain('opacity-55');
+    });
+  });
+
+  describe('deload indicator (REQ-DI-002)', () => {
+    it('renders deload text when slot.isDeload=true', () => {
+      const { container } = render(
+        <WeekTable
+          weekRows={[
+            makeRow(0, [
+              {
+                tier: 't1',
+                stagesCount: 1,
+                isAmrap: false,
+                role: 'secondary',
+                weight: 50,
+                isDeload: true,
+              },
+            ]),
+          ]}
+          firstPendingIndex={0}
+          onMark={noop as unknown as (i: number, s: string, v: 'success' | 'fail') => void}
+          onUndo={noop as unknown as (i: number, s: string) => void}
+          onSetAmrapReps={noop as unknown as (i: number, s: string, r: number | undefined) => void}
+        />
+      );
+
+      expect(container.textContent).toContain('Deload');
+    });
+
+    it('does NOT render deload text when slot.isDeload=false', () => {
+      const { container } = render(
+        <WeekTable
+          weekRows={[
+            makeRow(0, [
+              {
+                tier: 't1',
+                stagesCount: 1,
+                isAmrap: false,
+                role: 'secondary',
+                weight: 50,
+                isDeload: false,
+              },
+            ]),
+          ]}
+          firstPendingIndex={0}
+          onMark={noop as unknown as (i: number, s: string, v: 'success' | 'fail') => void}
+          onUndo={noop as unknown as (i: number, s: string) => void}
+          onSetAmrapReps={noop as unknown as (i: number, s: string, r: number | undefined) => void}
+        />
+      );
+
+      expect(container.textContent).not.toContain('Deload');
     });
   });
 });

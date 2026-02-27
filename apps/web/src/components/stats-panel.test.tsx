@@ -30,6 +30,7 @@ function makeSlot(
     amrapReps: overrides.amrapReps ?? undefined,
     rpe: overrides.rpe ?? undefined,
     isChanged: overrides.isChanged ?? false,
+    isDeload: overrides.isDeload ?? false,
     role: overrides.role ?? 'primary',
     ...overrides,
   };

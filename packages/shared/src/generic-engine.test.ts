@@ -1269,3 +1269,99 @@ describe('Schema validation: new fields', () => {
     expect(() => ExerciseSlotSchema.parse(slot)).toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// isDeload detection (REQ-DI-001)
+// ---------------------------------------------------------------------------
+
+describe('computeGenericProgram — isDeload', () => {
+  it('first occurrence of an exercise has isDeload=false', () => {
+    const def = makeDefinition({ totalWorkouts: 1 });
+    const results: GenericResults = {};
+
+    const rows = computeGenericProgram(def, { ex: 60 }, results);
+
+    expect(rows[0].slots[0].isDeload).toBe(false);
+  });
+
+  it('slot where weight decreases from previous occurrence has isDeload=true', () => {
+    // 2 workouts: first succeeds (weight 60), second at 60+5=65
+    // Then we need a fail that triggers deload. Use deload_percent on final stage fail.
+    // Single stage: fail at stage 0 = final stage → deload 10% → 60 * 0.9 = 54
+    const def = makeDefinition({
+      stages: [{ sets: 5, reps: 3 }],
+      onSuccess: { type: 'add_weight' },
+      onMidStageFail: { type: 'advance_stage' },
+      onFinalStageFail: { type: 'deload_percent', percent: 10 },
+      weightIncrement: 5,
+      totalWorkouts: 3,
+    });
+
+    const results: GenericResults = {
+      '0': { slot1: { result: 'success' } }, // Weight 60 → next 65
+      '1': { slot1: { result: 'fail' } }, // Weight 65, fail → deload to 58.5
+    };
+
+    const rows = computeGenericProgram(def, { ex: 60 }, results);
+
+    // Workout 0: weight=60, isDeload=false (first occurrence)
+    expect(rows[0].slots[0].isDeload).toBe(false);
+    // Workout 1: weight=65 (increased), isDeload=false
+    expect(rows[1].slots[0].isDeload).toBe(false);
+    // Workout 2: weight=58.5 (decreased from 65), isDeload=true
+    expect(rows[2].slots[0].isDeload).toBe(true);
+  });
+
+  it('slot where weight increases has isDeload=false', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 5, reps: 3 }],
+      onSuccess: { type: 'add_weight' },
+      weightIncrement: 5,
+      totalWorkouts: 2,
+    });
+
+    const results: GenericResults = {
+      '0': { slot1: { result: 'success' } },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 60 }, results);
+
+    // Workout 1: weight=65 (increased from 60), isDeload=false
+    expect(rows[1].slots[0].isDeload).toBe(false);
+  });
+
+  it('slot where weight stays the same has isDeload=false', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 5, reps: 3 }],
+      onSuccess: { type: 'no_change' },
+      totalWorkouts: 2,
+    });
+
+    const results: GenericResults = {
+      '0': { slot1: { result: 'success' } },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 60 }, results);
+
+    // Workout 1: weight=60 (same), isDeload=false
+    expect(rows[1].slots[0].isDeload).toBe(false);
+  });
+
+  it('bodyweight slot (weight=0) has isDeload=false even when prior had weight > 0', () => {
+    // Start at weight=0 (bodyweight exercise)
+    const def = makeDefinition({
+      stages: [{ sets: 3, reps: 10 }],
+      onSuccess: { type: 'no_change' },
+      totalWorkouts: 2,
+    });
+
+    const results: GenericResults = {};
+
+    const rows = computeGenericProgram(def, { ex: 0 }, results);
+
+    expect(rows[0].slots[0].weight).toBe(0);
+    expect(rows[0].slots[0].isDeload).toBe(false);
+    expect(rows[1].slots[0].weight).toBe(0);
+    expect(rows[1].slots[0].isDeload).toBe(false);
+  });
+});

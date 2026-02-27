@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import type { ResultValue } from '@gzclp/shared/types';
 import { StageTag } from './stage-tag';
 import { ResultCell } from './result-cell';
 import { AmrapInput } from './amrap-input';
 import { RpeInput } from './rpe-input';
+import { PlateCalculator } from './plate-calculator';
+import { WorkoutNotes } from './workout-notes';
 
 export interface ExerciseCardProps {
   readonly workoutIndex: number;
@@ -20,6 +23,8 @@ export interface ExerciseCardProps {
   readonly rpe: number | undefined;
   readonly showRpe: boolean;
   readonly isChanged: boolean;
+  readonly isDeload: boolean;
+  readonly instanceId?: string;
   readonly onMark: (index: number, key: string, value: ResultValue) => void;
   readonly onUndo: (index: number, key: string) => void;
   readonly onSetAmrapReps?: (
@@ -64,12 +69,16 @@ export function ExerciseCard({
   rpe,
   showRpe,
   isChanged,
+  isDeload,
+  instanceId,
   onMark,
   onUndo,
   onSetAmrapReps,
   onSetRpe,
 }: ExerciseCardProps): React.ReactNode {
   const styles = ROLE_STYLES[role];
+  const [pcOpen, setPcOpen] = useState(false);
+  const showPlateCalc = role === 'primary' && weight > 0;
 
   return (
     <div
@@ -88,7 +97,27 @@ export function ExerciseCard({
 
       {/* Weight · Scheme · Stage */}
       <div className="flex items-baseline gap-2 mt-1">
-        {weight > 0 && <span className={styles.weightStyle}>{weight} kg</span>}
+        {weight > 0 && (
+          <span className="relative">
+            {showPlateCalc ? (
+              <button
+                onClick={() => setPcOpen((v) => !v)}
+                aria-label="Calculadora de discos"
+                className={`${styles.weightStyle} cursor-pointer underline decoration-dotted underline-offset-4`}
+              >
+                {weight} kg
+              </button>
+            ) : (
+              <span className={styles.weightStyle}>{weight} kg</span>
+            )}
+            {isDeload && (
+              <span className="text-[10px] text-[var(--text-muted)] ml-1">{'\u2193'} Deload</span>
+            )}
+            {pcOpen && (
+              <PlateCalculator weight={weight} isOpen={pcOpen} onClose={() => setPcOpen(false)} />
+            )}
+          </span>
+        )}
         <span className="text-[13px] font-semibold text-[var(--text-muted)]">
           {scheme}
           {isAmrap && <span className="text-[10px] ml-1 text-[var(--fill-progress)]">AMRAP</span>}
@@ -131,6 +160,11 @@ export function ExerciseCard({
             label={tierLabel}
           />
         </div>
+      )}
+
+      {/* Workout notes (local-only, when instanceId is available) */}
+      {instanceId !== undefined && (
+        <WorkoutNotes instanceId={instanceId} workoutIndex={workoutIndex} slotKey={slotKey} />
       )}
     </div>
   );

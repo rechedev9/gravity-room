@@ -24,6 +24,7 @@ function buildProps(overrides?: Partial<ExerciseCardProps>): ExerciseCardProps {
     rpe: undefined,
     showRpe: false,
     isChanged: false,
+    isDeload: false,
     onMark: mock() as unknown as ExerciseCardProps['onMark'],
     onUndo: mock() as unknown as ExerciseCardProps['onUndo'],
     ...overrides,
@@ -50,6 +51,62 @@ describe('ExerciseCard', () => {
       const card = container.firstElementChild;
 
       expect(card?.className).not.toContain('opacity-55');
+    });
+  });
+
+  describe('deload indicator (REQ-DI-003)', () => {
+    it('shows Deload text when isDeload=true', () => {
+      const { container } = render(<ExerciseCard {...buildProps({ isDeload: true })} />);
+
+      expect(container.textContent).toContain('Deload');
+    });
+
+    it('does NOT show Deload text when isDeload=false', () => {
+      const { container } = render(<ExerciseCard {...buildProps({ isDeload: false })} />);
+
+      expect(container.textContent).not.toContain('Deload');
+    });
+  });
+
+  describe('plate calculator button (REQ-PC-002, REQ-PC-003)', () => {
+    it('renders plate calculator button for role=primary with weight > 0', () => {
+      const { container } = render(
+        <ExerciseCard {...buildProps({ role: 'primary', weight: 60 })} />
+      );
+
+      const btn = container.querySelector('button[aria-label="Calculadora de discos"]');
+
+      expect(btn).not.toBeNull();
+    });
+
+    it('does NOT render plate calculator button for role=secondary', () => {
+      const { container } = render(
+        <ExerciseCard {...buildProps({ role: 'secondary', weight: 60 })} />
+      );
+
+      const btn = container.querySelector('button[aria-label="Calculadora de discos"]');
+
+      expect(btn).toBeNull();
+    });
+  });
+
+  describe('workout notes (REQ-WN-002)', () => {
+    it('renders textarea with aria-label="Notas" when instanceId is defined', () => {
+      const { container } = render(
+        <ExerciseCard {...buildProps({ instanceId: 'test-instance' })} />
+      );
+
+      const textarea = container.querySelector('textarea[aria-label="Notas"]');
+
+      expect(textarea).not.toBeNull();
+    });
+
+    it('does NOT render textarea when instanceId is undefined', () => {
+      const { container } = render(<ExerciseCard {...buildProps({ instanceId: undefined })} />);
+
+      const textarea = container.querySelector('textarea[aria-label="Notas"]');
+
+      expect(textarea).toBeNull();
     });
   });
 

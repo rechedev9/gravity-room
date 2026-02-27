@@ -17,6 +17,7 @@ export interface GenericSlotRow {
   readonly amrapReps: number | undefined;
   readonly rpe: number | undefined;
   readonly isChanged: boolean;
+  readonly isDeload: boolean;
   readonly role: 'primary' | 'secondary' | 'accessory' | undefined;
 }
 

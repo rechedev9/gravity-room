@@ -64,63 +64,157 @@ function ActiveProgramCard({
   const totalWorkouts = definition?.totalWorkouts ?? 0;
   const progressPct = totalWorkouts > 0 ? Math.round((completedWorkouts / totalWorkouts) * 100) : 0;
 
+  // Derive last completed workout for the summary panel
+  const lastCompletedWorkout = (() => {
+    if (!detailQuery.data || !definition) return null;
+    const results = detailQuery.data.results;
+    for (let i = definition.totalWorkouts - 1; i >= 0; i--) {
+      const dayIndex = i % definition.cycleLength;
+      const day = definition.days[dayIndex];
+      const workoutResult = results[String(i)];
+      if (!workoutResult) continue;
+      const allDone = day.slots.every((slot) => workoutResult[slot.id]?.result !== undefined);
+      if (allDone) {
+        return {
+          index: i,
+          dayIndex,
+          dayName: day.name,
+          slots: day.slots.map((slot) => ({
+            exerciseName: definition.exercises[slot.exerciseId]?.name ?? slot.exerciseId,
+            result: workoutResult[slot.id]?.result,
+          })),
+        };
+      }
+    }
+    return null;
+  })();
+
+  // Derive timestamp for last completed workout
+  const lastSessionDate = (() => {
+    if (lastCompletedWorkout === null || !detailQuery.data) return null;
+    const timestamps = detailQuery.data.resultTimestamps;
+    if (!timestamps) return null;
+    const ts = timestamps[String(lastCompletedWorkout.index)];
+    if (typeof ts !== 'string') return null;
+    return new Intl.DateTimeFormat('es-ES', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }).format(new Date(ts));
+  })();
+
   if (!definition) return null;
 
   return (
-    <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-6 sm:p-8 card card-glow-gold accent-left-gold edge-glow-top">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <h3 className="text-base sm:text-lg font-extrabold text-[var(--text-header)] leading-tight">
-            {definition.name}
-          </h3>
-          <p className="text-xs text-[var(--text-muted)] mt-1">
-            {definition.description.split('.')[0]}.
-          </p>
+    <>
+      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] p-6 sm:p-8 card card-glow-gold accent-left-gold edge-glow-top">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div>
+            <h3 className="text-base sm:text-lg font-extrabold text-[var(--text-header)] leading-tight">
+              {definition.name}
+            </h3>
+            <p className="text-xs text-[var(--text-muted)] mt-1">
+              {definition.description.split('.')[0]}.
+            </p>
+          </div>
         </div>
-      </div>
 
-      {/* Duration metadata */}
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--text-info)] mb-3">
-        <span>{totalWorkouts} entrenamientos</span>
-        {definition.workoutsPerWeek > 0 && <span>{definition.workoutsPerWeek}x / semana</span>}
-      </div>
-
-      {/* Progress bar */}
-      <div
-        className="flex items-center gap-3 mb-5"
-        role="progressbar"
-        aria-valuenow={progressPct}
-        aria-valuemin={0}
-        aria-valuemax={100}
-      >
-        <div className="flex-1 h-2.5 bg-[var(--bg-progress)] overflow-hidden rounded-full">
-          <div
-            className="h-full bg-[var(--fill-progress)] transition-[width] duration-300 ease-out progress-fill rounded-full"
-            style={{ width: `${progressPct}%` }}
-          />
+        {/* Duration metadata */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-[var(--text-info)] mb-3">
+          <span>{totalWorkouts} entrenamientos</span>
+          {definition.workoutsPerWeek > 0 && <span>{definition.workoutsPerWeek}x / semana</span>}
         </div>
-        <span className="font-mono text-xs font-bold text-[var(--text-muted)] whitespace-nowrap tabular-nums">
-          {completedWorkouts}/{totalWorkouts}
-        </span>
-      </div>
 
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => onContinue(program.id, program.programId)}
-          className="px-5 py-2.5 text-xs font-bold border-2 border-[var(--btn-border)] bg-[var(--btn-hover-bg)] text-[var(--btn-hover-text)] cursor-pointer transition-all hover:opacity-90"
+        {/* Progress bar */}
+        <div
+          className="flex items-center gap-3 mb-5"
+          role="progressbar"
+          aria-valuenow={progressPct}
+          aria-valuemin={0}
+          aria-valuemax={100}
         >
-          Continuar Entrenamiento
-        </button>
-        {onGoToProfile && (
+          <div className="flex-1 h-2.5 bg-[var(--bg-progress)] overflow-hidden rounded-full">
+            <div
+              className="h-full bg-[var(--fill-progress)] transition-[width] duration-300 ease-out progress-fill rounded-full"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <span className="font-mono text-xs font-bold text-[var(--text-muted)] whitespace-nowrap tabular-nums">
+            {completedWorkouts}/{totalWorkouts}
+          </span>
+        </div>
+
+        {/* Weeks remaining estimate */}
+        {completedWorkouts < totalWorkouts &&
+          detailQuery.data !== undefined &&
+          definition.workoutsPerWeek > 0 &&
+          (() => {
+            const weeksRemaining = Math.ceil(
+              (totalWorkouts - completedWorkouts) / definition.workoutsPerWeek
+            );
+            return (
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                ~{weeksRemaining} semana{weeksRemaining === 1 ? '' : 's'} restante
+                {weeksRemaining === 1 ? '' : 's'}
+              </p>
+            );
+          })()}
+
+        <div className="flex items-center gap-3">
           <button
-            onClick={onGoToProfile}
-            className="px-5 py-2.5 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-header)] cursor-pointer transition-colors border border-[var(--border-color)] hover:border-[var(--border-light)]"
+            onClick={() => onContinue(program.id, program.programId)}
+            className="px-5 py-2.5 text-xs font-bold border-2 border-[var(--btn-border)] bg-[var(--btn-hover-bg)] text-[var(--btn-hover-text)] cursor-pointer transition-all hover:opacity-90"
           >
-            Ver Perfil de Entrenamiento
+            Continuar Entrenamiento
           </button>
-        )}
+          {onGoToProfile && (
+            <button
+              onClick={onGoToProfile}
+              className="px-5 py-2.5 text-xs font-bold text-[var(--text-muted)] hover:text-[var(--text-header)] cursor-pointer transition-colors border border-[var(--border-color)] hover:border-[var(--border-light)]"
+            >
+              Ver Perfil de Entrenamiento
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Last session summary */}
+      {lastCompletedWorkout !== null && (
+        <section className="bg-[var(--bg-card)] border border-[var(--border-color)] p-5 sm:p-6 mt-4">
+          <h4 className="text-[11px] font-mono font-bold uppercase tracking-widest text-[var(--text-muted)] mb-3">
+            Último Entrenamiento
+          </h4>
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="text-sm font-bold text-[var(--text-header)]">
+              #{lastCompletedWorkout.index + 1}
+            </span>
+            <span className="text-xs text-[var(--text-muted)] uppercase">
+              {lastCompletedWorkout.dayName}
+            </span>
+            {lastSessionDate !== null && (
+              <span className="text-[11px] text-[var(--text-info)] ml-auto">{lastSessionDate}</span>
+            )}
+          </div>
+          <ul className="space-y-1">
+            {lastCompletedWorkout.slots.map((slot) => (
+              <li
+                key={slot.exerciseName}
+                className="flex items-center gap-2 text-xs text-[var(--text-main)]"
+              >
+                <span>{slot.exerciseName}</span>
+                <span className="ml-auto">
+                  {slot.result === 'success'
+                    ? '\u2713'
+                    : slot.result === 'fail'
+                      ? '\u2717'
+                      : '\u2014'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
   );
 }
 

@@ -16,6 +16,7 @@ export interface DayViewSlot {
   readonly rpe: number | undefined;
   readonly showRpe: boolean;
   readonly isChanged: boolean;
+  readonly isDeload: boolean;
 }
 
 interface DayViewProps {
@@ -23,6 +24,7 @@ interface DayViewProps {
   readonly workoutNumber: number;
   readonly dayName: string;
   readonly isCurrent: boolean;
+  readonly instanceId?: string;
   readonly slots: readonly DayViewSlot[];
   readonly onMark: (workoutIndex: number, slotKey: string, value: ResultValue) => void;
   readonly onUndo: (workoutIndex: number, slotKey: string) => void;
@@ -39,6 +41,7 @@ export function DayView({
   workoutNumber,
   dayName,
   isCurrent,
+  instanceId,
   slots,
   onMark,
   onUndo,
@@ -78,6 +81,8 @@ export function DayView({
             rpe={slot.rpe}
             showRpe={slot.showRpe}
             isChanged={slot.isChanged}
+            isDeload={slot.isDeload}
+            instanceId={instanceId}
             onMark={onMark}
             onUndo={onUndo}
             onSetAmrapReps={slot.isAmrap ? onSetAmrapReps : undefined}
