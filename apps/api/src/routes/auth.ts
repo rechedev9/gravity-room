@@ -18,14 +18,12 @@ import {
   revokeAllUserTokens,
   createAndStoreRefreshToken,
   findOrCreateGoogleUser,
+  findUserByEmail,
   updateUserProfile,
   softDeleteUser,
   REFRESH_TOKEN_DAYS,
 } from '../services/auth';
 import { verifyGoogleToken } from '../lib/google-auth';
-import { eq } from 'drizzle-orm';
-import { getDb } from '../db/index';
-import { users } from '../db/schema';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
 const REFRESH_COOKIE_NAME = 'refresh_token';
@@ -134,12 +132,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       }
       // Reuse existing user by email (dev logins generate a new googleId each time,
       // which would violate the email unique constraint on repeated calls).
-      const db = getDb();
-      const [existing] = await db
-        .select()
-        .from(users)
-        .where(eq(users.email, body.email.toLowerCase()))
-        .limit(1);
+      const existing = await findUserByEmail(body.email);
       const user =
         existing ??
         (await findOrCreateGoogleUser(`dev-${crypto.randomUUID()}`, body.email, undefined));

@@ -49,6 +49,15 @@ export async function findUserById(id: string): Promise<UserRow | undefined> {
   return user;
 }
 
+export async function findUserByEmail(email: string): Promise<UserRow | undefined> {
+  const [user] = await getDb()
+    .select()
+    .from(users)
+    .where(and(eq(users.email, email.toLowerCase()), isNull(users.deletedAt)))
+    .limit(1);
+  return user;
+}
+
 /**
  * Finds a user by their Google sub claim, creating them if they don't exist.
  * Uses an atomic INSERT ... ON CONFLICT upsert to eliminate the TOCTOU race
