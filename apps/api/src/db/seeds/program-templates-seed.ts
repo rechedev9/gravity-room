@@ -181,7 +181,7 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         category: 'hypertrophy',
         source: 'preset',
         definition: BRUNETTI365_DEFINITION_JSONB,
-        isActive: true,
+        isActive: false,
       },
       {
         id: 'brunetti-365-exp',
@@ -195,7 +195,7 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         category: 'hypertrophy',
         source: 'preset',
         definition: BRUNETTI365_EXP_DEFINITION_JSONB,
-        isActive: true,
+        isActive: false,
       },
       {
         id: 'sheiko-7-1',
