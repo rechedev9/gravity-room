@@ -75,7 +75,8 @@ function chainable(result: unknown[]): Record<string, unknown> {
   const obj: Record<string, unknown> = {};
   obj['where'] = mock(() => chainable(result));
   obj['orderBy'] = mock(() => chainable(result));
-  obj['limit'] = mock(() => Promise.resolve(result.slice(0, 1)));
+  obj['limit'] = mock(() => chainable(result));
+  obj['offset'] = mock(() => chainable(result));
   // Make thenable so `await db.select().from(table).where(...)` works
   obj['then'] = (fn: (val: unknown[]) => unknown, reject?: (err: unknown) => unknown): unknown => {
     try {
@@ -125,11 +126,18 @@ mock.module('../db', () => ({
 // Mock exercise cache and muscle-groups cache
 // ---------------------------------------------------------------------------
 
-let cachedExercisesResult: readonly ExerciseRow[] | undefined = undefined;
+interface PaginatedExercisesFixture {
+  readonly data: readonly ExerciseRow[];
+  readonly total: number;
+  readonly offset: number;
+  readonly limit: number;
+}
+
+let cachedExercisesResult: PaginatedExercisesFixture | undefined = undefined;
 let cachedMuscleGroupsResult: readonly { id: string; name: string }[] | undefined = undefined;
 
 const mockGetCachedExercises = mock(
-  async (): Promise<readonly ExerciseRow[] | undefined> => cachedExercisesResult
+  async (): Promise<PaginatedExercisesFixture | undefined> => cachedExercisesResult
 );
 const mockSetCachedExercises = mock(async (): Promise<void> => undefined);
 const mockGetCachedMuscleGroups = mock(
@@ -172,22 +180,22 @@ beforeEach(() => {
 
 describe('listExercises', () => {
   it('should return exercises from DB', async () => {
-    // listExercises does: db.select().from(exercises).where(condition)
-    selectQueue = [[PRESET_EXERCISE]];
+    // listExercises does: db.select().from(exercises).where(condition) + count query
+    selectQueue = [[PRESET_EXERCISE], [{ value: 1 }]];
 
     const result = await listExercises(undefined);
 
-    expect(result.length).toBeGreaterThan(0);
-    expect(result[0]?.id).toBe('squat');
-    expect(result[0]?.isPreset).toBe(true);
+    expect(result.data.length).toBeGreaterThan(0);
+    expect(result.data[0]?.id).toBe('squat');
+    expect(result.data[0]?.isPreset).toBe(true);
   });
 
   it('should map DB rows to ExerciseEntry interface', async () => {
-    selectQueue = [[PRESET_EXERCISE]];
+    selectQueue = [[PRESET_EXERCISE], [{ value: 1 }]];
 
     const result = await listExercises(undefined);
 
-    const entry = result[0];
+    const entry = result.data[0];
     expect(entry?.name).toBe('Sentadilla');
     expect(entry?.muscleGroupId).toBe('legs');
     expect(entry?.equipment).toBe('barbell');
@@ -195,74 +203,74 @@ describe('listExercises', () => {
   });
 
   it('should return both preset and user exercises when userId is provided', async () => {
-    selectQueue = [[PRESET_EXERCISE, USER_EXERCISE]];
+    selectQueue = [[PRESET_EXERCISE, USER_EXERCISE], [{ value: 2 }]];
 
     const result = await listExercises('user-1');
 
-    expect(result).toHaveLength(2);
+    expect(result.data).toHaveLength(2);
   });
 
   it('should accept a text search filter', async () => {
-    selectQueue = [[PRESET_EXERCISE]];
+    selectQueue = [[PRESET_EXERCISE], [{ value: 1 }]];
 
     const result = await listExercises(undefined, { q: 'Sent' });
 
-    expect(result).toHaveLength(1);
-    expect(result[0]?.name).toBe('Sentadilla');
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]?.name).toBe('Sentadilla');
   });
 
   it('should accept an empty filter and return all exercises', async () => {
-    selectQueue = [[PRESET_EXERCISE, USER_EXERCISE]];
+    selectQueue = [[PRESET_EXERCISE, USER_EXERCISE], [{ value: 2 }]];
 
     const result = await listExercises('user-1', {});
 
-    expect(result).toHaveLength(2);
+    expect(result.data).toHaveLength(2);
   });
 
   it('should accept a muscleGroupId array filter', async () => {
-    selectQueue = [[PRESET_EXERCISE]];
+    selectQueue = [[PRESET_EXERCISE], [{ value: 1 }]];
 
     const result = await listExercises(undefined, { muscleGroupId: ['legs'] });
 
-    expect(result).toHaveLength(1);
-    expect(result[0]?.muscleGroupId).toBe('legs');
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]?.muscleGroupId).toBe('legs');
   });
 
   it('should accept an isCompound boolean filter', async () => {
-    selectQueue = [[PRESET_EXERCISE]];
+    selectQueue = [[PRESET_EXERCISE], [{ value: 1 }]];
 
     const result = await listExercises(undefined, { isCompound: true });
 
-    expect(result).toHaveLength(1);
-    expect(result[0]?.isCompound).toBe(true);
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]?.isCompound).toBe(true);
   });
 
   it('should propagate new fields (force, secondaryMuscles)', async () => {
-    selectQueue = [[PRESET_EXERCISE]];
+    selectQueue = [[PRESET_EXERCISE], [{ value: 1 }]];
 
     const result = await listExercises(undefined);
 
-    expect(result[0]?.force).toBe('push');
-    expect(result[0]?.secondaryMuscles).toEqual(['back', 'core']);
+    expect(result.data[0]?.force).toBe('push');
+    expect(result.data[0]?.secondaryMuscles).toEqual(['back', 'core']);
   });
 
-  it('returns cached array without calling DB when cache hits', async () => {
-    // Arrange — cache returns data
-    cachedExercisesResult = [PRESET_EXERCISE];
+  it('returns cached result without calling DB when cache hits', async () => {
+    // Arrange — cache returns paginated data
+    cachedExercisesResult = { data: [PRESET_EXERCISE], total: 1, offset: 0, limit: 100 };
 
     // Act
     const result = await listExercises(undefined);
 
     // Assert — DB select should not have been called
-    expect(result).toHaveLength(1);
-    expect(result[0]?.id).toBe('squat');
+    expect(result.data).toHaveLength(1);
+    expect(result.data[0]?.id).toBe('squat');
     expect(mockGetCachedExercises).toHaveBeenCalledTimes(1);
   });
 
   it('calls DB and then setCachedExercises on cache miss', async () => {
-    // Arrange — cache misses, DB returns data
+    // Arrange — cache misses, DB returns data + count
     cachedExercisesResult = undefined;
-    selectQueue = [[PRESET_EXERCISE]];
+    selectQueue = [[PRESET_EXERCISE], [{ value: 1 }]];
 
     // Act
     await listExercises(undefined);
@@ -347,5 +355,25 @@ describe('createExercise', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe('EXERCISE_ID_CONFLICT');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// listExercises — pagination (REQ-EXPAG-003)
+// ---------------------------------------------------------------------------
+
+describe('listExercises — pagination', () => {
+  it('applies LIMIT and OFFSET and returns total count', async () => {
+    // Arrange — data query returns 2 rows, count query returns 50
+    selectQueue = [[PRESET_EXERCISE, USER_EXERCISE], [{ value: 50 }]];
+
+    // Act
+    const result = await listExercises(undefined, {}, { limit: 10, offset: 20 });
+
+    // Assert
+    expect(result.total).toBe(50);
+    expect(result.data).toHaveLength(2);
+    expect(result.offset).toBe(20);
+    expect(result.limit).toBe(10);
   });
 });

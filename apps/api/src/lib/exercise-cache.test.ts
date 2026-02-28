@@ -40,7 +40,7 @@ import {
 const USER_ID = 'user-1';
 const FILTER_HASH = 'test-hash';
 
-const CACHED_EXERCISES = [
+const CACHED_EXERCISES_DATA = [
   {
     id: 'squat',
     name: 'Squat',
@@ -70,6 +70,13 @@ const CACHED_EXERCISES = [
     secondaryMuscles: null,
   },
 ];
+
+const CACHED_EXERCISES = {
+  data: CACHED_EXERCISES_DATA,
+  total: 2,
+  offset: 0,
+  limit: 100,
+};
 
 // ---------------------------------------------------------------------------
 // Setup
@@ -174,7 +181,7 @@ describe('getCachedExercises', () => {
     expect(result).toBeUndefined();
   });
 
-  it('returns cached array on hit', async () => {
+  it('returns cached paginated result on hit', async () => {
     // Arrange
     mockGet.mockResolvedValueOnce(JSON.stringify(CACHED_EXERCISES));
 
@@ -230,9 +237,11 @@ describe('getCachedExercises', () => {
     expect(mockDel).toHaveBeenCalledTimes(1);
   });
 
-  it('evicts and returns undefined on corrupt entry (missing id field)', async () => {
-    // Arrange
-    mockGet.mockResolvedValueOnce(JSON.stringify([{ name: 'no id' }]));
+  it('evicts and returns undefined on corrupt entry (missing id field in data)', async () => {
+    // Arrange — envelope with corrupt data entries
+    mockGet.mockResolvedValueOnce(
+      JSON.stringify({ data: [{ name: 'no id' }], total: 1, offset: 0, limit: 100 })
+    );
 
     // Act
     const result = await getCachedExercises(undefined, FILTER_HASH);
@@ -359,5 +368,34 @@ describe('invalidateUserExercises', () => {
 
     // Act / Assert — should not throw
     await invalidateUserExercises(USER_ID);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests: buildFilterHash — pagination key isolation (REQ-EXPAG-004)
+// ---------------------------------------------------------------------------
+
+describe('buildFilterHash — pagination keys', () => {
+  it('different limit/offset values produce different cache keys', () => {
+    // Arrange
+    const filter = { level: ['beginner'] };
+    const hashA = buildFilterHash({ ...filter, limit: 100, offset: 0 });
+    const hashB = buildFilterHash({ ...filter, limit: 50, offset: 100 });
+
+    // Assert
+    expect(hashA).not.toBe(hashB);
+  });
+
+  it('identical filter and pagination produce the same cache key', () => {
+    // Arrange
+    const paramsA = { level: ['beginner'], limit: 100, offset: 0 };
+    const paramsB = { level: ['beginner'], limit: 100, offset: 0 };
+
+    // Act
+    const hashA = buildFilterHash(paramsA);
+    const hashB = buildFilterHash(paramsB);
+
+    // Assert
+    expect(hashA).toBe(hashB);
   });
 });

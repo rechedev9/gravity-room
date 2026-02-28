@@ -6,7 +6,7 @@
 import { getRedis } from './redis';
 import { logger } from './logger';
 import { isRecord } from '@gzclp/shared/type-guards';
-import type { ExerciseEntry } from '../services/exercises';
+import type { ExerciseEntry, PaginatedExercises } from '../services/exercises';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -32,6 +32,15 @@ function isExerciseEntryArray(value: unknown): value is readonly ExerciseEntry[]
   if (!Array.isArray(value)) return false;
   if (value.length === 0) return true;
   return isExerciseEntry(value[0]);
+}
+
+/** Validates that cached data is a PaginatedExercises envelope. */
+function isPaginatedExercises(value: unknown): value is PaginatedExercises {
+  if (!isRecord(value)) return false;
+  if (typeof value['total'] !== 'number') return false;
+  if (typeof value['offset'] !== 'number') return false;
+  if (typeof value['limit'] !== 'number') return false;
+  return isExerciseEntryArray(value['data']);
 }
 
 // ---------------------------------------------------------------------------
@@ -73,11 +82,11 @@ function userKey(userId: string, filterHash: string): string {
 // Public API
 // ---------------------------------------------------------------------------
 
-/** Returns cached exercise list or undefined on miss / no Redis / error. */
+/** Returns cached paginated exercise result or undefined on miss / no Redis / error. */
 export async function getCachedExercises(
   userId: string | undefined,
   filterHash: string
-): Promise<readonly ExerciseEntry[] | undefined> {
+): Promise<PaginatedExercises | undefined> {
   const redis = getRedis();
   if (!redis) return undefined;
 
@@ -88,7 +97,7 @@ export async function getCachedExercises(
     if (!raw) return undefined;
 
     const parsed: unknown = JSON.parse(raw);
-    if (!isExerciseEntryArray(parsed)) {
+    if (!isPaginatedExercises(parsed)) {
       logger.warn('exercise-cache: corrupt entry, evicting');
       await redis.del(key);
       return undefined;
@@ -101,11 +110,11 @@ export async function getCachedExercises(
   }
 }
 
-/** Writes exercise list to cache. No-op if Redis unavailable or on error. */
+/** Writes paginated exercise result to cache. No-op if Redis unavailable or on error. */
 export async function setCachedExercises(
   userId: string | undefined,
   filterHash: string,
-  entries: readonly ExerciseEntry[]
+  result: PaginatedExercises
 ): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
@@ -114,7 +123,7 @@ export async function setCachedExercises(
   const ttl = userId ? USER_TTL_SECONDS : PRESET_TTL_SECONDS;
 
   try {
-    await redis.set(key, JSON.stringify(entries), 'EX', ttl);
+    await redis.set(key, JSON.stringify(result), 'EX', ttl);
   } catch (err: unknown) {
     logger.warn({ err }, 'exercise-cache: set failed');
   }

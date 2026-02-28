@@ -5,6 +5,7 @@ import { extractGenericChartData, calculateStats } from '@gzclp/shared/generic-s
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { useProgram } from '@/hooks/use-program';
+import { useInViewport } from '@/hooks/use-in-viewport';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { computeProfileData, computeVolume, formatVolume } from '@/lib/profile-stats';
@@ -75,6 +76,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
     effectiveInstanceId
   );
   const navigate = useNavigate();
+  const [volumeSectionRef, isVolumeVisible] = useInViewport();
 
   // Avatar upload state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -131,7 +133,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
       queryKey: queryKeys.programs.detail(p.id),
       queryFn: () => fetchGenericProgramDetail(p.id),
       staleTime: 5 * 60 * 1000,
-      enabled: user !== null,
+      enabled: user !== null && isVolumeVisible,
     })),
   });
 
@@ -456,7 +458,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
 
             {/* Lifetime volume (all programs) */}
             {allPrograms.length > 1 && (
-              <section className="mb-12">
+              <section ref={volumeSectionRef} data-testid="lifetime-volume" className="mb-12">
                 <ProfileStatCard
                   value={lifetimeVolume !== null ? `${formatVolume(lifetimeVolume)} kg` : '...'}
                   label="Volumen Total (Todos los Programas)"

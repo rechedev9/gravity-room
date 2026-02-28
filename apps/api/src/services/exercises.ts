@@ -2,7 +2,7 @@
  * Exercises service — CRUD for exercises and muscle groups.
  * Framework-agnostic: no Elysia dependency.
  */
-import { and, asc, eq, ilike, inArray, or } from 'drizzle-orm';
+import { and, asc, count, eq, ilike, inArray, or } from 'drizzle-orm';
 import { getDb } from '../db';
 import { exercises, muscleGroups } from '../db/schema';
 import {
@@ -15,8 +15,11 @@ import { getCachedMuscleGroups, setCachedMuscleGroups } from '../lib/muscle-grou
 import { SingleflightMap } from '../lib/singleflight';
 
 // Singleflight instances — one per return type for type safety
-const exerciseFlight = new SingleflightMap<readonly ExerciseEntry[]>();
+const exerciseFlight = new SingleflightMap<PaginatedExercises>();
 const muscleGroupFlight = new SingleflightMap<readonly MuscleGroupEntry[]>();
+
+/** Default pagination values when pagination is not explicitly provided. */
+const DEFAULT_PAGINATION: PaginationParams = { limit: 100, offset: 0 };
 
 // ---------------------------------------------------------------------------
 // Types
@@ -40,6 +43,20 @@ export interface ExerciseEntry {
 export interface MuscleGroupEntry {
   readonly id: string;
   readonly name: string;
+}
+
+/** Paginated exercise list response. */
+export interface PaginatedExercises {
+  readonly data: readonly ExerciseEntry[];
+  readonly total: number;
+  readonly offset: number;
+  readonly limit: number;
+}
+
+/** Pagination parameters for listExercises. */
+export interface PaginationParams {
+  readonly limit: number;
+  readonly offset: number;
 }
 
 export interface ExerciseFilter {
@@ -126,18 +143,28 @@ function toExerciseEntry(row: typeof exercises.$inferSelect): ExerciseEntry {
 // ---------------------------------------------------------------------------
 
 /**
- * List exercises accessible to the caller, with optional filtering.
+ * List exercises accessible to the caller, with optional filtering and pagination.
  * - If userId is undefined: return preset exercises only.
  * - If userId is provided: return preset + user's own custom exercises.
  * - Filter fields narrow the result set further (all conditions are AND-ed).
+ * - Pagination defaults to limit=100, offset=0 when not provided.
  */
 export async function listExercises(
   userId: string | undefined,
-  filter?: ExerciseFilter
-): Promise<readonly ExerciseEntry[]> {
-  // Check cache first — fast path avoids singleflight overhead
-  const filterForHash: Record<string, unknown> = { ...filter };
+  filter?: ExerciseFilter,
+  pagination?: PaginationParams
+): Promise<PaginatedExercises> {
+  const page = pagination ?? DEFAULT_PAGINATION;
+
+  // Include pagination in filter hash so different pages cache independently
+  const filterForHash: Record<string, unknown> = {
+    ...filter,
+    limit: page.limit,
+    offset: page.offset,
+  };
   const filterHash = buildFilterHash(filterForHash);
+
+  // Check cache first — fast path avoids singleflight overhead
   const cached = await getCachedExercises(userId, filterHash);
   if (cached) return cached;
 
@@ -180,18 +207,32 @@ export async function listExercises(
       conditions.push(eq(exercises.isCompound, filter.isCompound));
     }
 
-    const rows = await getDb()
-      .select()
-      .from(exercises)
-      .where(and(...conditions))
-      .orderBy(asc(exercises.name));
+    const whereClause = and(...conditions);
+    const db = getDb();
 
-    const entries = rows.map(toExerciseEntry);
+    // Run paginated data query and total count query in parallel
+    const [rows, [countResult]] = await Promise.all([
+      db
+        .select()
+        .from(exercises)
+        .where(whereClause)
+        .orderBy(asc(exercises.name))
+        .limit(page.limit)
+        .offset(page.offset),
+      db.select({ value: count() }).from(exercises).where(whereClause),
+    ]);
+
+    const result: PaginatedExercises = {
+      data: rows.map(toExerciseEntry),
+      total: countResult?.value ?? 0,
+      offset: page.offset,
+      limit: page.limit,
+    };
 
     // Populate cache (fire-and-forget)
-    void setCachedExercises(userId, filterHash, entries);
+    void setCachedExercises(userId, filterHash, result);
 
-    return entries;
+    return result;
   });
 }
 

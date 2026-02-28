@@ -9,6 +9,7 @@ import type { ResultValue } from '@gzclp/shared/types';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import type { GenericResults, GenericUndoHistory } from '@gzclp/shared/types/program';
 import { isRecord } from '@gzclp/shared/type-guards';
+import { z } from 'zod/v4';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -472,11 +473,32 @@ function parseMuscleGroupEntry(raw: unknown): MuscleGroupEntry {
   };
 }
 
+/** Zod schema for the paginated exercises API response (zod/v4). */
+const PaginatedExercisesResponseSchema = z.object({
+  data: z.array(z.record(z.string(), z.unknown())),
+  total: z.number(),
+  offset: z.number(),
+  limit: z.number(),
+});
+
+/** Paginated exercises response from GET /exercises. */
+export interface PaginatedExercisesResponse {
+  readonly data: readonly ExerciseEntry[];
+  readonly total: number;
+  readonly offset: number;
+  readonly limit: number;
+}
+
 /** Fetch exercises visible to the current user, with optional filtering. */
-export async function fetchExercises(filter?: ExerciseFilter): Promise<readonly ExerciseEntry[]> {
-  const data = await apiFetch(`/exercises${buildExerciseQueryString(filter)}`);
-  if (!Array.isArray(data)) return [];
-  return data.map(parseExerciseEntry);
+export async function fetchExercises(filter?: ExerciseFilter): Promise<PaginatedExercisesResponse> {
+  const raw = await apiFetch(`/exercises${buildExerciseQueryString(filter)}`);
+  const parsed = PaginatedExercisesResponseSchema.parse(raw);
+  return {
+    data: parsed.data.map(parseExerciseEntry),
+    total: parsed.total,
+    offset: parsed.offset,
+    limit: parsed.limit,
+  };
 }
 
 /** Fetch all muscle groups (no auth required). */
