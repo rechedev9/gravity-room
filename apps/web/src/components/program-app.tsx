@@ -11,15 +11,12 @@ import { useToast } from '@/contexts/toast-context';
 import { detectGenericPersonalRecord } from '@/lib/pr-detection';
 import { computeProfileData, compute1RMData } from '@/lib/profile-stats';
 import { useWebMcp } from '@/hooks/use-webmcp';
-import { useViewMode } from '@/hooks/use-view-mode';
 import { useWakeLock } from '@/hooks/use-wake-lock';
 
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
 import { AppHeader } from './app-header';
 import { ConfirmDialog } from './confirm-dialog';
-import { DayNavigator } from './day-navigator';
-import { DayView } from './day-view';
 import { ErrorBoundary } from './error-boundary';
 import { GraduationPanel } from './graduation-panel';
 import { ProgramCompletionScreen } from './program-completion-screen';
@@ -29,7 +26,6 @@ import { StatsSkeleton } from './stats-skeleton';
 import { TabButton } from './tab-button';
 import { ToastContainer } from './toast';
 import { Toolbar } from './toolbar';
-import { ViewToggle } from './view-toggle';
 import { WeekNavigator } from './week-navigator';
 import { WeekTable } from './week-table';
 import { AppSkeleton } from './app-skeleton';
@@ -115,7 +111,6 @@ export function ProgramApp({
 
   // Graduation state for MUTENROSHI
   const isMutenroshi = definition?.displayMode === 'blocks';
-  const displayMode = definition?.displayMode;
 
   const graduationState = useMemo((): GraduationState => {
     const defaultState: GraduationState = {
@@ -190,26 +185,10 @@ export function ProgramApp({
   ).length;
   const weekTotalCount = weeks[selectedWeek - 1]?.rows.length ?? workoutsPerWeek;
 
-  // View mode: card (mobile-first) / table (desktop-first) toggle
-  const { viewMode, toggle: toggleViewMode } = useViewMode();
-
   // Wake lock: keep screen on during active tracker session (gated by isViewActive)
   useWakeLock(isViewActive && activeTab === 'program' && config !== null);
 
-  // Card mode: day selection within the current week
   const weekRows = weeks[selectedWeek - 1]?.rows ?? [];
-
-  const currentDayInWeek = (() => {
-    const idx = weekRows.findIndex((r) => r.slots.some((s) => s.result === undefined));
-    return idx >= 0 ? idx : 0;
-  })();
-
-  const [selectedDay, setSelectedDay] = useState<number>(0);
-
-  // Reset selectedDay when week changes
-  useEffect(() => {
-    setSelectedDay(currentDayInWeek);
-  }, [selectedWeek, currentDayInWeek]);
 
   const recordAndToast = (workoutIndex: number, slotId: string, value: ResultValue): void => {
     markResult(workoutIndex, slotId, value);
@@ -496,10 +475,6 @@ export function ProgramApp({
                   </div>
                 </details>
 
-                <div className="flex items-center justify-end mb-4">
-                  <ViewToggle viewMode={viewMode} onToggle={toggleViewMode} />
-                </div>
-
                 <WeekNavigator
                   selectedWeek={selectedWeek}
                   totalWeeks={weeks.length}
@@ -511,63 +486,14 @@ export function ProgramApp({
                   onGoToCurrent={jumpToCurrent}
                 />
 
-                {viewMode === 'table' ? (
-                  <WeekTable
-                    weekRows={weekRows}
-                    firstPendingIndex={firstPendingIdx}
-                    onMark={handleMarkResult}
-                    onUndo={undoSpecific}
-                    onSetAmrapReps={setAmrapReps}
-                    onSetRpe={setRpe}
-                  />
-                ) : (
-                  <>
-                    <DayNavigator
-                      days={weekRows.map((row) => ({
-                        label: row.dayName,
-                        isComplete: row.slots.every((s) => s.result !== undefined),
-                      }))}
-                      selectedDay={selectedDay}
-                      currentDay={currentDayInWeek}
-                      onSelectDay={setSelectedDay}
-                    />
-                    <div id="day-panel" role="tabpanel" aria-labelledby={`day-tab-${selectedDay}`}>
-                      {weekRows[selectedDay] !== undefined && (
-                        <DayView
-                          workoutIndex={weekRows[selectedDay].index}
-                          workoutNumber={weekRows[selectedDay].index + 1}
-                          dayName={weekRows[selectedDay].dayName}
-                          isCurrent={weekRows[selectedDay].index === firstPendingIdx}
-                          instanceId={instanceId}
-                          displayMode={displayMode}
-                          slots={weekRows[selectedDay].slots.map((s) => ({
-                            key: s.slotId,
-                            exerciseName: s.exerciseName,
-                            tierLabel: s.tier.toUpperCase(),
-                            tier: s.tier,
-                            role: s.role ?? 'accessory',
-                            weight: s.weight,
-                            scheme: `${s.sets}\u00d7${s.reps}${s.repsMax !== undefined ? `\u2013${s.repsMax}` : ''}${s.isAmrap ? '+' : ''}`,
-                            stage: s.stage,
-                            showStage: s.stagesCount > 1,
-                            isAmrap: s.isAmrap,
-                            result: s.result,
-                            amrapReps: s.amrapReps,
-                            rpe: s.rpe,
-                            showRpe: s.role === 'primary',
-                            isChanged: s.isChanged,
-                            isDeload: s.isDeload,
-                            notes: s.notes,
-                          }))}
-                          onMark={handleMarkResult}
-                          onUndo={undoSpecific}
-                          onSetAmrapReps={setAmrapReps}
-                          onSetRpe={setRpe}
-                        />
-                      )}
-                    </div>
-                  </>
-                )}
+                <WeekTable
+                  weekRows={weekRows}
+                  firstPendingIndex={firstPendingIdx}
+                  onMark={handleMarkResult}
+                  onUndo={undoSpecific}
+                  onSetAmrapReps={setAmrapReps}
+                  onSetRpe={setRpe}
+                />
               </div>
             )}
 

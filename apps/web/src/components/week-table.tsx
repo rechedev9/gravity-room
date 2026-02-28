@@ -52,7 +52,7 @@ function RpeSelect({
 }
 
 const TH =
-  'text-left font-mono text-[11px] font-bold uppercase tracking-widest text-muted px-3 py-2.5 whitespace-nowrap';
+  'text-left font-mono text-[11px] font-bold uppercase tracking-widest text-muted px-2.5 py-2 whitespace-nowrap border border-rule';
 
 export function WeekTable({
   weekRows,
@@ -97,7 +97,7 @@ export function WeekTable({
     <div ref={scrollRef} className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 table-scroll-shadow">
       <table className="w-full border-collapse min-w-[680px]">
         <thead>
-          <tr className="border-b-2 border-rule">
+          <tr>
             <th className={TH}>Tier</th>
             <th className={TH}>Ejercicio</th>
             <th className={`${TH} text-right`}>Peso</th>
@@ -117,14 +117,12 @@ export function WeekTable({
               <Fragment key={row.index}>
                 {/* Day group header */}
                 <tr
-                  className={`border-t-2 border-rule ${
-                    isCurrent ? 'bg-[rgba(232,170,32,0.06)]' : ''
-                  }`}
+                  className={`${isCurrent ? 'bg-[rgba(232,170,32,0.06)]' : ''}`}
                   {...(isCurrent ? { 'data-current-row': true } : {})}
                 >
                   <td
                     colSpan={colCount}
-                    className="px-3 py-2.5 font-mono text-[12px] font-bold tracking-wider"
+                    className="px-2.5 py-2 font-mono text-[12px] font-bold tracking-wider border border-rule"
                   >
                     <span className="text-title">#{row.index + 1}</span>
                     <span className="text-muted mx-2">{'\u2014'}</span>
@@ -150,7 +148,7 @@ export function WeekTable({
                   return (
                     <tr
                       key={slot.slotId}
-                      className={`border-b border-rule-light transition-opacity duration-200 ${
+                      className={`transition-opacity duration-200 even:bg-[rgba(255,255,255,0.02)] ${
                         fullyDone ? 'opacity-70' : ''
                       } ${isCurrent && !fullyDone ? 'bg-[rgba(232,170,32,0.03)]' : ''} ${
                         slot.isChanged && !isDone ? 'bg-changed' : ''
@@ -158,7 +156,7 @@ export function WeekTable({
                     >
                       {/* Tier */}
                       <td
-                        className={`px-3 py-2.5 text-[11px] font-bold uppercase whitespace-nowrap ${
+                        className={`px-2.5 py-2 text-[11px] font-bold uppercase whitespace-nowrap border border-rule-light ${
                           slot.role === 'primary'
                             ? 'text-accent'
                             : slot.role === 'secondary'
@@ -170,12 +168,12 @@ export function WeekTable({
                       </td>
 
                       {/* Exercise name */}
-                      <td className="px-3 py-2.5 font-bold text-[13px] truncate max-w-[200px]">
+                      <td className="px-2.5 py-2 font-bold text-[13px] truncate max-w-[200px] border border-rule-light">
                         {slot.exerciseName}
                       </td>
 
                       {/* Weight */}
-                      <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap font-bold text-[13px]">
+                      <td className="px-2.5 py-2 text-right tabular-nums whitespace-nowrap font-bold text-[13px] border border-rule-light">
                         {slot.weight > 0 ? `${slot.weight} kg` : '\u2014'}
                         {slot.isDeload && (
                           <span className="block text-[10px] text-muted">{'\u2193'} Deload</span>
@@ -183,7 +181,7 @@ export function WeekTable({
                       </td>
 
                       {/* Scheme */}
-                      <td className="px-3 py-2.5 text-center text-[12px] font-semibold text-muted tabular-nums whitespace-nowrap">
+                      <td className="px-2.5 py-2 text-center text-[12px] font-semibold text-muted tabular-nums whitespace-nowrap border border-rule-light">
                         {slot.sets}
                         {'\u00d7'}
                         {slot.reps}
@@ -193,7 +191,7 @@ export function WeekTable({
 
                       {/* Stage (conditional) */}
                       {showStage && (
-                        <td className="px-3 py-2.5 text-center">
+                        <td className="px-2.5 py-2 text-center border border-rule-light">
                           {slot.stage > 0 ? (
                             <StageTag stage={slot.stage} size="sm" />
                           ) : (
@@ -203,7 +201,7 @@ export function WeekTable({
                       )}
 
                       {/* Result */}
-                      <td className="px-3 py-2.5 text-center">
+                      <td className="px-2.5 py-2 text-center border border-rule-light">
                         <ResultCell
                           index={row.index}
                           tier={slot.slotId}
@@ -216,7 +214,7 @@ export function WeekTable({
 
                       {/* AMRAP (conditional) */}
                       {showAmrap && (
-                        <td className="px-3 py-2.5 text-center">
+                        <td className="px-2.5 py-2 text-center border border-rule-light">
                           {slot.result === 'success' && slot.isAmrap ? (
                             <AmrapInput
                               value={slot.amrapReps}
@@ -233,7 +231,7 @@ export function WeekTable({
 
                       {/* RPE (conditional) */}
                       {showRpe && (
-                        <td className="px-3 py-2.5 text-center">
+                        <td className="px-2.5 py-2 text-center border border-rule-light">
                           {slot.result === 'success' && slotShowRpe && onSetRpe ? (
                             <RpeSelect
                               value={slot.rpe}
