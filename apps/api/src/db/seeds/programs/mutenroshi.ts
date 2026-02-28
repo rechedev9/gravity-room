@@ -1,4 +1,4 @@
-// MUTENROSHI (Fase Zero — Incipit) program definition.
+// MUTENROSHI (Caparazón de Tortuga) program definition.
 // 200 workouts, 3 sessions/week, 4 blocks per session.
 // Author: Amerigo Brunetti ("365 Programmare L'Ipertrofia")
 
@@ -16,13 +16,14 @@ for (let i = 0; i < TOTAL_WORKOUTS; i++) {
 
 export const MUTENROSHI_DEFINITION_JSONB = {
   id: 'mutenroshi',
-  name: 'Fase Zero \u2014 Incipit',
+  name: 'Caparaz\u00f3n de Tortuga',
   description:
-    'Programa para principiantes absolutos de Amerigo Brunetti (365 Programmare L\u2019Ipertrofia). ' +
-    'Este programa es para ti si estas empezando desde cero con Sentadilla, Press de Banca y ' +
-    'Peso Muerto, o si llevas poco tiempo y quieres asentar bien las bases tecnicas. ' +
-    'Durante las primeras 4 semanas trabajaras solo con tu peso corporal o la barra vacia, ' +
-    'con movimientos muy lentos. A partir de la semana 5 empezaras a anadir peso poco a poco.',
+    'Antes de luchar en el Tenkaichi Budokai, Goku y Krillin tuvieron que repartir leche, ' +
+    'arar campos y correr con el caparaz\u00f3n de tortuga a cuestas. Este programa ' +
+    'de Amerigo Brunetti (365 Programmare L\u2019Ipertrofia) es tu propio entrenamiento ' +
+    'en la Kame House: empiezas desde cero \u2014 solo tu cuerpo y la barra vac\u00eda ' +
+    'con movimientos muy lentos \u2014 y poco a poco vas a\u00f1adiendo peso. ' +
+    'Cuando domines Sentadilla, Press de Banca y Peso Muerto, estar\u00e1s listo para el torneo.',
   author: 'Amerigo Brunetti',
   version: 1,
   category: 'beginner',
@@ -122,7 +123,7 @@ export const MUTENROSHI_DEFINITION_JSONB = {
     bench_press_barbell: {},
     deadlift_barbell: {},
   },
-  configTitle: 'Fase Zero \u2014 Incipit',
+  configTitle: 'Caparaz\u00f3n de Tortuga',
   configDescription:
     'Este programa es para ti si estas empezando desde cero con Sentadilla, Press de Banca y ' +
     'Peso Muerto, o si llevas poco tiempo y quieres asentar bien las bases tecnicas. ' +

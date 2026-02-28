@@ -1,4 +1,4 @@
-// Helper functions for generating the MUTENROSHI (Fase Zero — Incipit) program definition.
+// Helper functions for generating the MUTENROSHI (Caparazón de Tortuga) program definition.
 // Builds 200 unique days with 4 blocks each: core, activation, proprioception, fundamental.
 
 import type { SlotDef } from './shared';

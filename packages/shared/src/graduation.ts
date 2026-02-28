@@ -1,4 +1,4 @@
-// Pure graduation functions for the MUTENROSHI (Fase Zero — Incipit) program.
+// Pure graduation functions for the MUTENROSHI (Caparazón de Tortuga) program.
 // All functions are side-effect-free with explicit return types.
 
 /** Graduation target for a single lift */

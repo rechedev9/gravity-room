@@ -152,12 +152,12 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'mutenroshi',
-        name: 'Fase Zero — Incipit',
+        name: 'Caparaz\u00f3n de Tortuga',
         description:
-          'Programa para principiantes absolutos de Amerigo Brunetti (365 Programmare L\u2019Ipertrofia). ' +
-          '200 sesiones, 3 días/semana. Las primeras 4 semanas solo peso corporal, ' +
-          'después se introduce carga gradualmente. 4 bloques por sesión: Core, Activación, ' +
-          'Propiocepción y el Ejercicio Fundamental.',
+          'Tu entrenamiento en la Kame House: empieza desde cero con tu peso corporal ' +
+          'y poco a poco a\u00f1ade la barra. Programa de Amerigo Brunetti (365). ' +
+          '200 sesiones, 3 d\u00edas/semana. 4 bloques por sesi\u00f3n: Core, Activaci\u00f3n, ' +
+          'Propiocepci\u00f3n y el Ejercicio Fundamental.',
         author: 'Amerigo Brunetti',
         version: 1,
         category: 'beginner',
