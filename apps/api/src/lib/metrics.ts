@@ -33,13 +33,9 @@ export const httpErrorsTotal = new Counter({
   registers: [registry],
 });
 
-// Dev-only: undefined in production — callers must handle undefined
-export const dbQueriesTotal: Counter | undefined =
-  process.env['NODE_ENV'] !== 'production'
-    ? new Counter({
-        name: 'db_queries_total',
-        help: 'Total number of Drizzle ORM queries executed, by query type (dev-only)',
-        labelNames: ['query_type'] as const,
-        registers: [registry],
-      })
-    : undefined;
+export const dbQueriesTotal = new Counter({
+  name: 'db_queries_total',
+  help: 'Total number of Drizzle ORM queries executed, by query type',
+  labelNames: ['query_type'] as const,
+  registers: [registry],
+});

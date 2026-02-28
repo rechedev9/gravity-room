@@ -10,6 +10,7 @@ process.env['DATABASE_URL'] = 'postgres://test:test@localhost:5432/test';
 process.env['LOG_LEVEL'] = 'silent';
 
 import { mock, describe, it, expect, beforeEach } from 'bun:test';
+import type { ApiError as ApiErrorType } from '../middleware/error-handler';
 
 // ---------------------------------------------------------------------------
 // DB Mock — chainable query builder
@@ -72,8 +73,22 @@ mock.module('../db', () => ({
   getDb: mock(() => mockDb),
 }));
 
-// Must import AFTER mock.module
-import {
+// Mock catalog-cache — needed because program-definitions.ts imports invalidation functions
+const mockInvalidateCatalogList = mock(async (): Promise<void> => undefined);
+const mockInvalidateCatalogDetail = mock(async (): Promise<void> => undefined);
+
+mock.module('../lib/catalog-cache', () => ({
+  invalidateCatalogList: mockInvalidateCatalogList,
+  invalidateCatalogDetail: mockInvalidateCatalogDetail,
+}));
+
+// Mock isRecord from shared — needed by program-definitions.ts for catalog invalidation
+mock.module('@gzclp/shared/type-guards', () => ({
+  isRecord: (v: unknown): boolean => typeof v === 'object' && v !== null && !Array.isArray(v),
+}));
+
+// Must import AFTER mock.module — use dynamic import to ensure mocks are applied first
+const {
   parseAdminUserIds,
   isAdmin,
   reloadAdminUserIds,
@@ -84,8 +99,8 @@ import {
   update,
   softDelete,
   updateStatus,
-} from './program-definitions';
-import { ApiError } from '../middleware/error-handler';
+} = await import('./program-definitions');
+const { ApiError } = await import('../middleware/error-handler');
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -180,6 +195,8 @@ beforeEach(() => {
   mockDb.select.mockClear();
   mockDb.insert.mockClear();
   mockDb.update.mockClear();
+  mockInvalidateCatalogList.mockClear();
+  mockInvalidateCatalogDetail.mockClear();
 });
 
 // ---------------------------------------------------------------------------
@@ -294,8 +311,8 @@ describe('create', () => {
       expect(true).toBe(false); // should not reach here
     } catch (e: unknown) {
       expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).statusCode).toBe(422);
-      expect((e as ApiError).code).toBe('VALIDATION_ERROR');
+      expect((e as ApiErrorType).statusCode).toBe(422);
+      expect((e as ApiErrorType).code).toBe('VALIDATION_ERROR');
     }
   });
 
@@ -305,8 +322,8 @@ describe('create', () => {
       expect(true).toBe(false);
     } catch (e: unknown) {
       expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).statusCode).toBe(422);
-      expect((e as ApiError).code).toBe('VALIDATION_ERROR');
+      expect((e as ApiErrorType).statusCode).toBe(422);
+      expect((e as ApiErrorType).code).toBe('VALIDATION_ERROR');
     }
   });
 
@@ -319,8 +336,8 @@ describe('create', () => {
       expect(true).toBe(false);
     } catch (e: unknown) {
       expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).statusCode).toBe(409);
-      expect((e as ApiError).code).toBe('LIMIT_EXCEEDED');
+      expect((e as ApiErrorType).statusCode).toBe(409);
+      expect((e as ApiErrorType).code).toBe('LIMIT_EXCEEDED');
     }
   });
 
@@ -481,8 +498,8 @@ describe('update', () => {
       expect(true).toBe(false);
     } catch (e: unknown) {
       expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).statusCode).toBe(404);
-      expect((e as ApiError).code).toBe('NOT_FOUND');
+      expect((e as ApiErrorType).statusCode).toBe(404);
+      expect((e as ApiErrorType).code).toBe('NOT_FOUND');
     }
   });
 
@@ -492,8 +509,8 @@ describe('update', () => {
       expect(true).toBe(false);
     } catch (e: unknown) {
       expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).statusCode).toBe(422);
-      expect((e as ApiError).code).toBe('VALIDATION_ERROR');
+      expect((e as ApiErrorType).statusCode).toBe(422);
+      expect((e as ApiErrorType).code).toBe('VALIDATION_ERROR');
     }
   });
 });
@@ -568,8 +585,8 @@ describe('updateStatus — owner transitions', () => {
       expect(true).toBe(false);
     } catch (e: unknown) {
       expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).statusCode).toBe(403);
-      expect((e as ApiError).code).toBe('FORBIDDEN');
+      expect((e as ApiErrorType).statusCode).toBe(403);
+      expect((e as ApiErrorType).code).toBe('FORBIDDEN');
     }
   });
 });
@@ -614,8 +631,8 @@ describe('updateStatus — admin transitions', () => {
       expect(true).toBe(false);
     } catch (e: unknown) {
       expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).statusCode).toBe(403);
-      expect((e as ApiError).code).toBe('FORBIDDEN');
+      expect((e as ApiErrorType).statusCode).toBe(403);
+      expect((e as ApiErrorType).code).toBe('FORBIDDEN');
     }
   });
 });
@@ -636,8 +653,8 @@ describe('updateStatus — invalid transitions and edge cases', () => {
       expect(true).toBe(false);
     } catch (e: unknown) {
       expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).statusCode).toBe(403);
-      expect((e as ApiError).code).toBe('FORBIDDEN');
+      expect((e as ApiErrorType).statusCode).toBe(403);
+      expect((e as ApiErrorType).code).toBe('FORBIDDEN');
     }
   });
 
@@ -652,7 +669,7 @@ describe('updateStatus — invalid transitions and edge cases', () => {
       expect(true).toBe(false);
     } catch (e: unknown) {
       expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).statusCode).toBe(403);
+      expect((e as ApiErrorType).statusCode).toBe(403);
     }
   });
 
@@ -664,8 +681,8 @@ describe('updateStatus — invalid transitions and edge cases', () => {
       expect(true).toBe(false);
     } catch (e: unknown) {
       expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).statusCode).toBe(404);
-      expect((e as ApiError).code).toBe('NOT_FOUND');
+      expect((e as ApiErrorType).statusCode).toBe(404);
+      expect((e as ApiErrorType).code).toBe('NOT_FOUND');
     }
   });
 
@@ -680,7 +697,7 @@ describe('updateStatus — invalid transitions and edge cases', () => {
       expect(true).toBe(false);
     } catch (e: unknown) {
       expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).statusCode).toBe(403);
+      expect((e as ApiErrorType).statusCode).toBe(403);
     }
   });
 
@@ -695,7 +712,52 @@ describe('updateStatus — invalid transitions and edge cases', () => {
       expect(true).toBe(false);
     } catch (e: unknown) {
       expect(e).toBeInstanceOf(ApiError);
-      expect((e as ApiError).statusCode).toBe(403);
+      expect((e as ApiErrorType).statusCode).toBe(403);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateStatus — catalog cache invalidation (REQ-CATCACHE-003)
+// ---------------------------------------------------------------------------
+
+describe('updateStatus — catalog cache invalidation', () => {
+  it('calls invalidateCatalogList and invalidateCatalogDetail on approval', async () => {
+    // Arrange
+    process.env['ADMIN_USER_IDS'] = 'admin-uuid-001';
+    reloadAdminUserIds();
+
+    const definition = makeValidDefinition();
+    selectResults[0] = [
+      makeDefinitionRow({
+        userId: 'user-uuid-001',
+        status: 'pending_review',
+        definition,
+      }),
+    ];
+    mockQueryResult = [makeDefinitionRow({ status: 'approved', definition })];
+
+    // Act
+    await updateStatus('admin-uuid-001', 'def-uuid-001', 'approved');
+
+    // Assert
+    expect(mockInvalidateCatalogList).toHaveBeenCalledTimes(1);
+    expect(mockInvalidateCatalogDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT call catalog invalidation on rejection', async () => {
+    // Arrange
+    process.env['ADMIN_USER_IDS'] = 'admin-uuid-001';
+    reloadAdminUserIds();
+
+    selectResults[0] = [makeDefinitionRow({ userId: 'user-uuid-001', status: 'pending_review' })];
+    mockQueryResult = [makeDefinitionRow({ status: 'rejected' })];
+
+    // Act
+    await updateStatus('admin-uuid-001', 'def-uuid-001', 'rejected');
+
+    // Assert
+    expect(mockInvalidateCatalogList).not.toHaveBeenCalled();
+    expect(mockInvalidateCatalogDetail).not.toHaveBeenCalled();
   });
 });

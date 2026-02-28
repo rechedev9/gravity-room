@@ -90,9 +90,12 @@ const publicExerciseRoutes = new Elysia()
   // GET /exercises — optional auth: preset-only for unauthenticated, preset+own for authenticated
   .get(
     '/exercises',
-    async ({ jwt: jwtCtx, headers, query }) => {
+    async ({ jwt: jwtCtx, headers, query, set }) => {
       const { userId } = await resolveOptionalUserId({ jwt: jwtCtx, headers });
-      const rateLimitKey = userId ?? headers['x-forwarded-for'] ?? 'anonymous';
+
+      // Compound rate-limit key: userId:ip for authenticated, ip-only for anonymous
+      const ip = headers['x-forwarded-for']?.split(',')[0]?.trim() ?? 'anonymous';
+      const rateLimitKey = userId ? `${userId}:${ip}` : ip;
       await rateLimit(rateLimitKey, 'GET /exercises', { maxRequests: 100 });
 
       const filter: ExerciseFilter = {
@@ -106,7 +109,17 @@ const publicExerciseRoutes = new Elysia()
         isCompound: parseBooleanString(query.isCompound),
       };
 
-      return listExercises(userId, filter);
+      const result = await listExercises(userId, filter, {
+        limit: query.limit ?? 100,
+        offset: query.offset ?? 0,
+      });
+
+      // Cache-Control for unauthenticated (preset-only) requests
+      if (!userId) {
+        set.headers['Cache-Control'] = 'public, max-age=300';
+      }
+
+      return result;
     },
     {
       query: t.Object({
@@ -118,6 +131,8 @@ const publicExerciseRoutes = new Elysia()
         mechanic: t.Optional(t.String()),
         category: t.Optional(t.String()),
         isCompound: t.Optional(t.String()),
+        limit: t.Optional(t.Numeric({ minimum: 1, maximum: 500 })),
+        offset: t.Optional(t.Numeric({ minimum: 0 })),
       }),
       detail: {
         tags: ['Exercises'],
@@ -134,10 +149,12 @@ const publicExerciseRoutes = new Elysia()
   // GET /muscle-groups — no auth required
   .get(
     '/muscle-groups',
-    async ({ headers }) => {
+    async ({ headers, set }) => {
       const ip = headers['x-forwarded-for'] ?? 'anonymous';
       await rateLimit(ip, 'GET /muscle-groups', { maxRequests: 100 });
-      return listMuscleGroups();
+      const result = await listMuscleGroups();
+      set.headers['Cache-Control'] = 'public, max-age=600';
+      return result;
     },
     {
       detail: {

@@ -91,6 +91,34 @@ export async function getCachedCatalogDetail(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Cache invalidation
+// ---------------------------------------------------------------------------
+
+/** Evicts the catalog list cache entry. No-op if Redis unavailable. */
+export async function invalidateCatalogList(): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+
+  try {
+    await redis.del(CATALOG_LIST_KEY);
+  } catch (err: unknown) {
+    logger.warn({ err }, 'catalog-cache: list invalidation failed');
+  }
+}
+
+/** Evicts a specific catalog detail cache entry. No-op if Redis unavailable. */
+export async function invalidateCatalogDetail(programId: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+
+  try {
+    await redis.del(detailKey(programId));
+  } catch (err: unknown) {
+    logger.warn({ err, programId }, 'catalog-cache: detail invalidation failed');
+  }
+}
+
 /** Writes program definition to cache. No-op if Redis unavailable or on error. */
 export async function setCachedCatalogDetail(
   programId: string,

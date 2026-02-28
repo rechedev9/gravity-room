@@ -20,7 +20,7 @@ import { catalogRoutes } from './routes/catalog';
 import { exerciseRoutes } from './routes/exercises';
 import { resultRoutes } from './routes/results';
 import { programDefinitionRoutes } from './routes/program-definitions';
-import { getDb } from './db';
+import { getDb, closeDb } from './db';
 import { getRedis } from './lib/redis';
 import { logger } from './lib/logger';
 import { seedMuscleGroups } from './db/seeds/muscle-groups-seed';
@@ -52,6 +52,14 @@ function parseCorsOrigins(raw: string | undefined): string | string[] {
 
 const CORS_ORIGINS = parseCorsOrigins(process.env['CORS_ORIGIN']);
 const PORT = Number(process.env['PORT'] ?? 3001);
+/**
+ * HTTP request timeout in milliseconds.
+ * Used by the SHUTDOWN_TIMEOUT_MS fallback and reserved for future HTTP-level
+ * timeout middleware (skipped in this change because Elysia hooks cannot
+ * reliably abort in-progress handlers; the DB statement_timeout covers the
+ * critical path).
+ */
+export const HTTP_TIMEOUT_MS = 30_000;
 // METRICS_TOKEN — optional. When set, GET /metrics requires "Authorization: Bearer <token>".
 // Leave unset in local development. Required in production to protect Prometheus metrics.
 
@@ -313,18 +321,56 @@ export const app = new Elysia()
 export type App = typeof app;
 
 // ---------------------------------------------------------------------------
-// Graceful shutdown
+// Graceful shutdown — drain connections before exit
 // ---------------------------------------------------------------------------
 
-process.on('SIGTERM', () => {
-  logger.info('SIGTERM received, shutting down gracefully');
-  process.exit(0);
-});
+/** Idempotency guard: only the first signal triggers shutdown. */
+let isShuttingDown = false;
 
-process.on('SIGINT', () => {
-  logger.info('SIGINT received, shutting down gracefully');
+/** Shutdown grace period before forced exit (milliseconds). */
+const SHUTDOWN_TIMEOUT_MS = 10_000;
+
+async function gracefulShutdown(signal: string): Promise<void> {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  logger.info({ signal }, 'signal received, draining connections');
+
+  // Fallback: force-exit if drain stalls
+  const fallback = setTimeout(() => {
+    logger.warn('forced shutdown after timeout');
+    process.exit(0);
+  }, SHUTDOWN_TIMEOUT_MS);
+  // Ensure the fallback timer does not keep the process alive on its own
+  fallback.unref();
+
+  try {
+    await app.stop();
+  } catch (err: unknown) {
+    logger.error({ err }, 'error stopping Elysia');
+  }
+
+  try {
+    const redis = getRedis();
+    if (redis) {
+      await redis.disconnect();
+    }
+  } catch (err: unknown) {
+    logger.error({ err }, 'error disconnecting Redis');
+  }
+
+  try {
+    await closeDb();
+  } catch (err: unknown) {
+    logger.error({ err }, 'error closing database pool');
+  }
+
+  logger.info('shutdown complete');
   process.exit(0);
-});
+}
+
+process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => void gracefulShutdown('SIGINT'));
 
 // ---------------------------------------------------------------------------
 // Expired token cleanup — run at startup then every 6h

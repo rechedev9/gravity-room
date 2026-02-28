@@ -26,6 +26,8 @@ export const ApiErrorCode = {
   // Generic
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   RATE_LIMITED: 'RATE_LIMITED',
+  // Timeout
+  GATEWAY_TIMEOUT: 'GATEWAY_TIMEOUT',
 } as const;
 
 export type ApiErrorCodeValue = (typeof ApiErrorCode)[keyof typeof ApiErrorCode];

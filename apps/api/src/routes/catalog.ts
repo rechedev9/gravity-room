@@ -12,10 +12,12 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
   // GET /catalog — list all available program definitions
   .get(
     '/',
-    async ({ headers }) => {
+    async ({ headers, set }) => {
       const ip = headers['x-forwarded-for'] ?? 'anonymous';
       await rateLimit(ip, 'GET /catalog', { maxRequests: 100 });
-      return listPrograms();
+      const result = await listPrograms();
+      set.headers['Cache-Control'] = 'public, max-age=300, stale-while-revalidate=60';
+      return result;
     },
     {
       detail: {
@@ -33,7 +35,7 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
   // GET /catalog/:programId — get a specific hydrated program definition
   .get(
     '/:programId',
-    async ({ params, headers }) => {
+    async ({ params, headers, set }) => {
       const ip = headers['x-forwarded-for'] ?? 'anonymous';
       await rateLimit(ip, 'GET /catalog/:id', { maxRequests: 100 });
       const result = await getProgramDefinition(params.programId);
@@ -43,6 +45,7 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
       if (result.status === 'hydration_failed') {
         throw new ApiError(500, 'Program definition hydration failed', 'HYDRATION_FAILED');
       }
+      set.headers['Cache-Control'] = 'public, max-age=300';
       return result.definition;
     },
     {

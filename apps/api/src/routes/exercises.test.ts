@@ -13,18 +13,31 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect } from 'bun:test';
+import { mock, describe, it, expect, beforeEach } from 'bun:test';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
+const mockRateLimit = mock((): Promise<void> => Promise.resolve());
+
 mock.module('../middleware/rate-limit', () => ({
-  rateLimit: (): Promise<void> => Promise.resolve(),
+  rateLimit: mockRateLimit,
 }));
 
+interface PaginatedResult {
+  readonly data: readonly Record<string, unknown>[];
+  readonly total: number;
+  readonly offset: number;
+  readonly limit: number;
+}
+
+const mockListExercises = mock<() => Promise<PaginatedResult>>(() =>
+  Promise.resolve({ data: [], total: 0, offset: 0, limit: 100 })
+);
+
 mock.module('../services/exercises', () => ({
-  listExercises: mock(() => Promise.resolve([])),
+  listExercises: mockListExercises,
   listMuscleGroups: mock(() => Promise.resolve([])),
   createExercise: mock(() => Promise.resolve({ ok: true, value: { id: 'test_exercise' } })),
 }));
@@ -35,10 +48,14 @@ import { exerciseRoutes } from './exercises';
 
 // Wrap exerciseRoutes with the same error handler as the main app.
 const testApp = new Elysia()
-  .onError(({ error, set }) => {
+  .onError(({ code, error, set }) => {
     if (error instanceof ApiError) {
       set.status = error.statusCode;
       return { error: error.message, code: error.code };
+    }
+    if (code === 'VALIDATION') {
+      set.status = 400;
+      return { error: 'Validation failed', code: 'VALIDATION_ERROR' };
     }
     set.status = 401;
     return { error: 'Unauthorized', code: 'UNAUTHORIZED' };
@@ -178,6 +195,151 @@ describe('POST /exercises — slug validation', () => {
 
     // Assert — slug "abc" is valid, service mock returns success
     expect(res.status).toBe(201);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /exercises — filter cap behavior (REQ-SEC-002)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Reset mocks between tests
+// ---------------------------------------------------------------------------
+
+beforeEach(() => {
+  mockRateLimit.mockClear();
+  mockListExercises.mockClear();
+  // Restore default paginated response
+  mockListExercises.mockImplementation(
+    (): Promise<PaginatedResult> => Promise.resolve({ data: [], total: 0, offset: 0, limit: 100 })
+  );
+});
+
+// ---------------------------------------------------------------------------
+// GET /exercises — Cache-Control header (REQ-HTTPCACHE-004)
+// ---------------------------------------------------------------------------
+
+describe('GET /exercises — Cache-Control', () => {
+  it('unauthenticated request includes Cache-Control: public, max-age=300', async () => {
+    // Act
+    const res = await get('/exercises');
+
+    // Assert
+    expect(res.headers.get('cache-control')).toBe('public, max-age=300');
+  });
+
+  it('authenticated request does not include public Cache-Control header', async () => {
+    // Arrange
+    const token = await makeValidJwt('user-1');
+
+    // Act
+    const res = await get('/exercises', { Authorization: `Bearer ${token}` });
+
+    // Assert
+    const cacheControl = res.headers.get('cache-control');
+    expect(cacheControl === null || !cacheControl.includes('public')).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /muscle-groups — Cache-Control header (REQ-HTTPCACHE-003)
+// ---------------------------------------------------------------------------
+
+describe('GET /muscle-groups — Cache-Control', () => {
+  it('includes Cache-Control: public, max-age=600', async () => {
+    // Act
+    const res = await get('/muscle-groups');
+
+    // Assert
+    expect(res.headers.get('cache-control')).toBe('public, max-age=600');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /exercises — rate-limit compound key (REQ-RLSEC-001)
+// ---------------------------------------------------------------------------
+
+describe('GET /exercises — rate-limit key', () => {
+  it('authenticated request uses compound userId:ip key', async () => {
+    // Arrange
+    const token = await makeValidJwt('user-1');
+
+    // Act
+    await get('/exercises', {
+      Authorization: `Bearer ${token}`,
+      'x-forwarded-for': '203.0.113.42',
+    });
+
+    // Assert — first arg to rateLimit is the key
+    const call = mockRateLimit.mock.calls[0] as unknown as [string, string, ...unknown[]];
+    expect(call[0]).toBe('user-1:203.0.113.42');
+  });
+
+  it('unauthenticated request uses IP-only key', async () => {
+    // Act
+    await get('/exercises', { 'x-forwarded-for': '198.51.100.1' });
+
+    // Assert
+    const call = mockRateLimit.mock.calls[0] as unknown as [string, string, ...unknown[]];
+    expect(call[0]).toBe('198.51.100.1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /exercises — pagination (REQ-EXPAG-001, REQ-EXPAG-002)
+// ---------------------------------------------------------------------------
+
+describe('GET /exercises — pagination', () => {
+  it('returns paginated envelope with limit and offset', async () => {
+    // Arrange
+    mockListExercises.mockImplementation(
+      (): Promise<PaginatedResult> =>
+        Promise.resolve({
+          data: [{ id: 'squat', name: 'Squat' }],
+          total: 475,
+          offset: 0,
+          limit: 50,
+        })
+    );
+
+    // Act
+    const res = await get('/exercises?limit=50&offset=0');
+
+    // Assert
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body['total']).toBe(475);
+    expect(body['offset']).toBe(0);
+    expect(body['limit']).toBe(50);
+    expect(Array.isArray(body['data'])).toBe(true);
+  });
+
+  it('uses defaults limit=100 offset=0 when no pagination params provided', async () => {
+    // Act
+    await get('/exercises');
+
+    // Assert — listExercises called with pagination defaults
+    const call = mockListExercises.mock.calls[0] as unknown as [
+      string | undefined,
+      Record<string, unknown>,
+      { limit: number; offset: number },
+    ];
+    expect(call[2]).toEqual({ limit: 100, offset: 0 });
+  });
+
+  it('returns 400 VALIDATION_ERROR for limit=501', async () => {
+    // Act
+    const res = await get('/exercises?limit=501');
+
+    // Assert — Elysia validates via t.Numeric({ maximum: 500 })
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 VALIDATION_ERROR for offset=-1', async () => {
+    // Act
+    const res = await get('/exercises?offset=-1');
+
+    // Assert — Elysia validates via t.Numeric({ minimum: 0 })
+    expect(res.status).toBe(400);
   });
 });
 

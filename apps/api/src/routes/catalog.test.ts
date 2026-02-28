@@ -67,6 +67,14 @@ describe('GET /catalog', () => {
     const res = await get('/catalog');
     expect(res.status).toBe(200);
   });
+
+  it('returns Cache-Control header with stale-while-revalidate', async () => {
+    // Act
+    const res = await get('/catalog');
+
+    // Assert
+    expect(res.headers.get('cache-control')).toBe('public, max-age=300, stale-while-revalidate=60');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -91,5 +99,37 @@ describe('GET /catalog/:programId', () => {
     );
     const res = await get('/catalog/nonexistent');
     expect(res.status).toBe(404);
+  });
+
+  it('returns Cache-Control header without stale-while-revalidate', async () => {
+    // Arrange
+    mockGetProgramDefinition.mockImplementation(() =>
+      Promise.resolve({
+        status: 'found' as const,
+        definition: { id: 'gzclp', name: 'GZCLP' },
+      })
+    );
+
+    // Act
+    const res = await get('/catalog/gzclp');
+
+    // Assert
+    const cacheControl = res.headers.get('cache-control');
+    expect(cacheControl).toBe('public, max-age=300');
+    expect(cacheControl).not.toContain('stale-while-revalidate');
+  });
+
+  it('404 does not include public Cache-Control', async () => {
+    // Arrange
+    mockGetProgramDefinition.mockImplementation(() =>
+      Promise.resolve({ status: 'not_found' as const })
+    );
+
+    // Act
+    const res = await get('/catalog/nonexistent');
+
+    // Assert
+    const cacheControl = res.headers.get('cache-control');
+    expect(cacheControl === null || !cacheControl.includes('public')).toBe(true);
   });
 });

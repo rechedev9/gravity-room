@@ -8,6 +8,8 @@ import { programDefinitions } from '../db/schema';
 import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
 import { ApiError } from '../middleware/error-handler';
 import { logger } from '../lib/logger';
+import { invalidateCatalogList, invalidateCatalogDetail } from '../lib/catalog-cache';
+import { isRecord } from '@gzclp/shared/type-guards';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -306,6 +308,16 @@ export async function updateStatus(
     { event: 'definition.status_change', actorUserId, id, from: currentStatus, to: newStatus },
     'program definition status changed'
   );
+
+  // Invalidate catalog cache on approval so the new template appears immediately
+  if (newStatus === 'approved') {
+    const def: unknown = row.definition;
+    const programId = isRecord(def) && typeof def['id'] === 'string' ? def['id'] : undefined;
+    void invalidateCatalogList();
+    if (programId) {
+      void invalidateCatalogDetail(programId);
+    }
+  }
 
   return toResponse(updated);
 }

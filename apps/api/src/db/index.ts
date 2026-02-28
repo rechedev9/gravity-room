@@ -30,15 +30,23 @@ const MAX_CONNECTION_LIFETIME_SECONDS = 3600;
 let _client: postgres.Sql | undefined;
 let _db: DbInstance | undefined;
 
-const devQueryLogger =
-  process.env['NODE_ENV'] !== 'production'
-    ? {
-        logQuery(query: string, params: unknown[]): void {
-          logger.debug({ sql: query, params }, 'SQL');
-          dbQueriesTotal?.inc({ query_type: deriveQueryType(query) });
-        },
-      }
-    : undefined;
+const queryLogger = {
+  logQuery(query: string, params: unknown[]): void {
+    if (process.env['NODE_ENV'] !== 'production') {
+      logger.debug({ sql: query, params }, 'SQL');
+    }
+    dbQueriesTotal.inc({ query_type: deriveQueryType(query) });
+  },
+};
+
+/** Closes the database connection pool. Called during graceful shutdown. */
+export async function closeDb(): Promise<void> {
+  if (_client) {
+    await _client.end();
+    _client = undefined;
+    _db = undefined;
+  }
+}
 
 export function getDb(): DbInstance {
   if (!_db) {
@@ -61,7 +69,7 @@ export function getDb(): DbInstance {
       // Recycle connections after 1 hour
       max_lifetime: MAX_CONNECTION_LIFETIME_SECONDS,
     });
-    _db = drizzle(_client, { schema, logger: devQueryLogger });
+    _db = drizzle(_client, { schema, logger: queryLogger });
   }
   return _db;
 }
