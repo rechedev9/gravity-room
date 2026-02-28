@@ -17,7 +17,10 @@ import { FSL531_DEFINITION_JSONB } from './programs/fsl531';
 import { PHUL_DEFINITION_JSONB } from './programs/phul';
 import { NIVEL7_DEFINITION_JSONB } from './programs/nivel7';
 import { MUTENROSHI_DEFINITION_JSONB } from './programs/mutenroshi';
-import { BRUNETTI365_DEFINITION_JSONB } from './programs/brunetti-365';
+import {
+  BRUNETTI365_DEFINITION_JSONB,
+  BRUNETTI365_EXP_DEFINITION_JSONB,
+} from './programs/brunetti-365';
 
 type DbClient = PostgresJsDatabase<typeof schema>;
 
@@ -173,6 +176,20 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         category: 'hypertrophy',
         source: 'preset',
         definition: BRUNETTI365_DEFINITION_JSONB,
+        isActive: true,
+      },
+      {
+        id: 'brunetti-365-exp',
+        name: '365 Ipertrofia — Experimentado',
+        description:
+          'Variante para atletas con experiencia previa en sentadilla, press banca y peso muerto. ' +
+          'Omite la Fase Zero de principiantes y empieza directamente en el perfeccionamiento técnico. ' +
+          '4 fases y 196 sesiones: T1 (6 sem), PN (13 sem), JAW (18 sem), IS (12 sem). 4 días por semana.',
+        author: 'Amerigo Brunetti',
+        version: 1,
+        category: 'hypertrophy',
+        source: 'preset',
+        definition: BRUNETTI365_EXP_DEFINITION_JSONB,
         isActive: true,
       },
     ])

@@ -1777,3 +1777,34 @@ export const BRUNETTI365_DEFINITION_JSONB = {
     ...buildFaseIS(), // days 164-211 (48 days)
   ],
 };
+
+// ═══════════════════════════════════════════════════════════════════════
+// EXPERIENCED VARIANT (skips Fase Zero — 196 workouts)
+// ═══════════════════════════════════════════════════════════════════════
+
+const SHARED_CONFIG_FIELDS = BRUNETTI365_DEFINITION_JSONB.configFields.filter(
+  (f) => f.group !== 'Pesos Iniciales — Fase Zero'
+);
+
+export const BRUNETTI365_EXP_DEFINITION_JSONB = {
+  configTitle: '365 — Experimentado (sin Fase Zero)',
+  configDescription:
+    'Variante para atletas con experiencia. Empieza directamente en Fase T1 ' +
+    '(perfeccionamiento tecnico), saltando la Fase Zero de principiantes. ' +
+    '4 fases y 196 sesiones: T1, PN, JAW e Ipertrofia Specifica. ' +
+    'Requiere dominio previo de sentadilla, press banca y peso muerto.',
+  configEditTitle: BRUNETTI365_DEFINITION_JSONB.configEditTitle,
+  configEditDescription: BRUNETTI365_DEFINITION_JSONB.configEditDescription,
+  cycleLength: 196,
+  totalWorkouts: 196,
+  workoutsPerWeek: 4,
+  exercises: BRUNETTI365_DEFINITION_JSONB.exercises,
+  configFields: SHARED_CONFIG_FIELDS,
+  weightIncrements: {},
+  days: [
+    ...buildFaseT1(), // days 0-23   (24 days)
+    ...buildFasePN(), // days 24-75  (52 days)
+    ...buildFaseJAW(), // days 76-147 (72 days)
+    ...buildFaseIS(), // days 148-195 (48 days)
+  ],
+};
