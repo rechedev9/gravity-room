@@ -2,7 +2,7 @@
  * Program service — CRUD for program instances, results reconstruction.
  * Framework-agnostic: no Elysia dependency.
  */
-import { eq, and, lt, desc } from 'drizzle-orm';
+import { eq, and, lt, desc, or, gt, asc, type SQL } from 'drizzle-orm';
 import { getDb } from '../db';
 import { programInstances, programTemplates, workoutResults, undoEntries } from '../db/schema';
 import { getProgramDefinition } from '../services/catalog';
@@ -176,18 +176,39 @@ export interface PaginatedInstances {
   readonly nextCursor: string | null;
 }
 
+/** Parse a composite cursor `<isoTimestamp>_<uuid>` into its components. */
+function parseCursor(cursor: string): { readonly ts: Date; readonly id: string } | undefined {
+  const separatorIndex = cursor.lastIndexOf('_');
+  if (separatorIndex === -1) return undefined;
+  const tsStr = cursor.substring(0, separatorIndex);
+  const id = cursor.substring(separatorIndex + 1);
+  const ts = new Date(tsStr);
+  if (isNaN(ts.getTime())) return undefined;
+  if (id.length === 0) return undefined;
+  return { ts, id };
+}
+
 export async function getInstances(
   userId: string,
   options: { limit?: number; cursor?: string } = {}
 ): Promise<PaginatedInstances> {
   const limit = Math.min(options.limit ?? 20, 100);
 
-  const conditions = options.cursor
-    ? and(
-        eq(programInstances.userId, userId),
-        lt(programInstances.createdAt, new Date(options.cursor))
+  let conditions: SQL | undefined = eq(programInstances.userId, userId);
+
+  if (options.cursor) {
+    const parsed = parseCursor(options.cursor);
+    if (!parsed) {
+      throw new ApiError(400, 'Invalid cursor format', 'INVALID_CURSOR');
+    }
+    conditions = and(
+      eq(programInstances.userId, userId),
+      or(
+        lt(programInstances.createdAt, parsed.ts),
+        and(eq(programInstances.createdAt, parsed.ts), gt(programInstances.id, parsed.id))
       )
-    : eq(programInstances.userId, userId);
+    );
+  }
 
   const rows = await getDb()
     .select({
@@ -200,13 +221,13 @@ export async function getInstances(
     })
     .from(programInstances)
     .where(conditions)
-    .orderBy(desc(programInstances.createdAt))
+    .orderBy(desc(programInstances.createdAt), asc(programInstances.id))
     .limit(limit + 1);
 
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
   const lastRow = page[page.length - 1];
-  const nextCursor = hasMore && lastRow ? lastRow.createdAt.toISOString() : null;
+  const nextCursor = hasMore && lastRow ? `${lastRow.createdAt.toISOString()}_${lastRow.id}` : null;
 
   return {
     data: page.map((i) => ({

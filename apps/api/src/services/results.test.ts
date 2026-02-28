@@ -161,6 +161,16 @@ function createMockDb(): Record<string, unknown> {
       const tx = createMockTx();
       return await fn(tx);
     }),
+    // Support standalone touchInstanceTimestamp outside tx
+    update: mock(function update() {
+      return {
+        set: mock(function set() {
+          return {
+            where: mock(() => Promise.resolve()),
+          };
+        }),
+      };
+    }),
   };
 }
 
@@ -348,5 +358,172 @@ describe('undoLast', () => {
       expect(err).toBeInstanceOf(ApiError);
       expect((err as ApiError).statusCode).toBe(404);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Transaction scope — touchInstanceTimestamp runs AFTER the transaction
+// ---------------------------------------------------------------------------
+
+describe('recordResult — transaction scope', () => {
+  it('calls touchInstanceTimestamp after the transaction resolves, not inside it', async () => {
+    const row = makeResultRow();
+    // Queue: 1) verifyInstanceOwnership, 2) existing result check
+    selectQueue = [[{ id: 'inst-1' }], []];
+    insertReturningResult = [row];
+
+    // Track the order of operations
+    const callOrder: string[] = [];
+    (mockDb as Record<string, unknown>).transaction = mock(async function transaction(
+      fn: (tx: unknown) => Promise<unknown>
+    ) {
+      const tx = createMockTx();
+      const result = await fn(tx);
+      callOrder.push('transaction-committed');
+      return result;
+    });
+    (mockDb as Record<string, unknown>).update = mock(function update() {
+      callOrder.push('touchInstanceTimestamp-called');
+      return {
+        set: mock(function set() {
+          return {
+            where: mock(() => Promise.resolve()),
+          };
+        }),
+      };
+    });
+
+    await recordResult('user-1', 'inst-1', {
+      workoutIndex: 0,
+      slotId: 't1',
+      result: 'success',
+    });
+
+    // Assert: touchInstanceTimestamp called AFTER transaction committed
+    expect(callOrder.indexOf('transaction-committed')).toBeLessThan(
+      callOrder.indexOf('touchInstanceTimestamp-called')
+    );
+  });
+
+  it('does not re-throw if touchInstanceTimestamp fails after a successful transaction', async () => {
+    const row = makeResultRow();
+    // Queue: 1) verifyInstanceOwnership, 2) existing result check
+    selectQueue = [[{ id: 'inst-1' }], []];
+    insertReturningResult = [row];
+
+    // Make touchInstanceTimestamp fail
+    (mockDb as Record<string, unknown>).update = mock(function update() {
+      return {
+        set: mock(function set() {
+          return {
+            where: mock(() => Promise.reject(new Error('connection refused'))),
+          };
+        }),
+      };
+    });
+
+    // Act — should NOT throw even though touchInstanceTimestamp fails
+    const result = await recordResult('user-1', 'inst-1', {
+      workoutIndex: 0,
+      slotId: 't1',
+      result: 'success',
+    });
+
+    // Assert — result is still returned successfully
+    expect(result).toEqual(row);
+  });
+});
+
+describe('deleteResult — transaction scope', () => {
+  it('calls touchInstanceTimestamp after the transaction resolves', async () => {
+    const existingRow = makeResultRow();
+    // Queue: 1) verifyInstanceOwnership, 2) existing result
+    selectQueue = [[{ id: 'inst-1' }], [existingRow]];
+
+    const callOrder: string[] = [];
+    (mockDb as Record<string, unknown>).transaction = mock(async function transaction(
+      fn: (tx: unknown) => Promise<unknown>
+    ) {
+      const tx = createMockTx();
+      const result = await fn(tx);
+      callOrder.push('transaction-committed');
+      return result;
+    });
+    (mockDb as Record<string, unknown>).update = mock(function update() {
+      callOrder.push('touchInstanceTimestamp-called');
+      return {
+        set: mock(function set() {
+          return {
+            where: mock(() => Promise.resolve()),
+          };
+        }),
+      };
+    });
+
+    await deleteResult('user-1', 'inst-1', 0, 't1');
+
+    // Assert: touchInstanceTimestamp called AFTER transaction committed
+    expect(callOrder.indexOf('transaction-committed')).toBeLessThan(
+      callOrder.indexOf('touchInstanceTimestamp-called')
+    );
+  });
+
+  it('does not re-throw if touchInstanceTimestamp fails after deletion', async () => {
+    const existingRow = makeResultRow();
+    // Queue: 1) verifyInstanceOwnership, 2) existing result
+    selectQueue = [[{ id: 'inst-1' }], [existingRow]];
+
+    // Make touchInstanceTimestamp fail
+    (mockDb as Record<string, unknown>).update = mock(function update() {
+      return {
+        set: mock(function set() {
+          return {
+            where: mock(() => Promise.reject(new Error('connection refused'))),
+          };
+        }),
+      };
+    });
+
+    // Act — should NOT throw
+    await deleteResult('user-1', 'inst-1', 0, 't1');
+
+    // Assert — no exception was thrown
+    expect(true).toBe(true);
+  });
+});
+
+describe('undoLast — transaction scope', () => {
+  it('calls touchInstanceTimestamp after the transaction resolves', async () => {
+    const undoRow = makeUndoRow({ prevResult: 'fail' });
+    // Queue: 1) verifyInstanceOwnership, 2) undo entry found
+    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    insertReturningResult = [];
+
+    const callOrder: string[] = [];
+    (mockDb as Record<string, unknown>).transaction = mock(async function transaction(
+      fn: (tx: unknown) => Promise<unknown>
+    ) {
+      const tx = createMockTx();
+      const result = await fn(tx);
+      callOrder.push('transaction-committed');
+      return result;
+    });
+    (mockDb as Record<string, unknown>).update = mock(function update() {
+      callOrder.push('touchInstanceTimestamp-called');
+      return {
+        set: mock(function set() {
+          return {
+            where: mock(() => Promise.resolve()),
+          };
+        }),
+      };
+    });
+
+    await undoLast('user-1', 'inst-1');
+
+    // Assert: touchInstanceTimestamp called AFTER transaction committed
+    expect(callOrder.indexOf('transaction-committed')).toBeLessThan(
+      callOrder.indexOf('touchInstanceTimestamp-called')
+    );
   });
 });

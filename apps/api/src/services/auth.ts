@@ -2,7 +2,7 @@
  * Auth service — refresh token management, user CRUD.
  * Framework-agnostic: no Elysia dependency. JWT signing handled in routes.
  */
-import { eq, lt, and, isNull } from 'drizzle-orm';
+import { eq, lt, and, isNull, sql } from 'drizzle-orm';
 import { getDb } from '../db';
 import { users, refreshTokens } from '../db/schema';
 import { ApiError } from '../middleware/error-handler';
@@ -51,7 +51,9 @@ export async function findUserById(id: string): Promise<UserRow | undefined> {
 
 /**
  * Finds a user by their Google sub claim, creating them if they don't exist.
- * Updates the name if it has changed since last sign-in.
+ * Uses an atomic INSERT ... ON CONFLICT upsert to eliminate the TOCTOU race
+ * condition that exists in a SELECT-then-INSERT pattern.
+ * Updates name and email on every sign-in via the DO UPDATE clause.
  */
 export async function findOrCreateGoogleUser(
   googleId: string,
@@ -60,35 +62,30 @@ export async function findOrCreateGoogleUser(
 ): Promise<UserRow> {
   const db = getDb();
 
-  const [existing] = await db.select().from(users).where(eq(users.googleId, googleId)).limit(1);
-
-  if (existing) {
-    if (existing.deletedAt) {
-      throw new ApiError(
-        403,
-        'Esta cuenta ha sido eliminada. Contacta con soporte si deseas recuperarla.',
-        'ACCOUNT_DELETED'
-      );
-    }
-    if (name !== undefined && existing.name !== name) {
-      const [updated] = await db
-        .update(users)
-        .set({ name })
-        .where(eq(users.id, existing.id))
-        .returning();
-      if (!updated) throw new ApiError(500, 'Failed to update user name', 'DB_WRITE_ERROR');
-      return updated;
-    }
-    return existing;
-  }
-
-  const [created] = await db
+  const [user] = await db
     .insert(users)
     .values({ googleId, email: email.toLowerCase(), name: name ?? null })
+    .onConflictDoUpdate({
+      target: users.googleId,
+      set: {
+        name: sql`EXCLUDED.name`,
+        email: sql`EXCLUDED.email`,
+        updatedAt: new Date(),
+      },
+    })
     .returning();
 
-  if (!created) throw new ApiError(500, 'Failed to create user', 'DB_WRITE_ERROR');
-  return created;
+  if (!user) throw new ApiError(500, 'Failed to upsert user', 'DB_WRITE_ERROR');
+
+  if (user.deletedAt) {
+    throw new ApiError(
+      403,
+      'Esta cuenta ha sido eliminada. Contacta con soporte si deseas recuperarla.',
+      'ACCOUNT_DELETED'
+    );
+  }
+
+  return user;
 }
 
 /** Update user profile fields (name, avatarUrl). */

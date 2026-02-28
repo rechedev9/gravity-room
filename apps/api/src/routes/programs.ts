@@ -37,7 +37,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
     {
       query: t.Object({
         limit: t.Optional(t.Numeric({ minimum: 1, maximum: 100 })),
-        cursor: t.Optional(t.String({ format: 'date-time' })),
+        cursor: t.Optional(t.String()),
       }),
       detail: {
         tags: ['Programs'],

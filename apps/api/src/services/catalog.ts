@@ -2,7 +2,7 @@
  * Catalog service — DB queries + hydration + Redis cache for program catalog.
  * Framework-agnostic: no Elysia dependency.
  */
-import { eq, and, asc, inArray } from 'drizzle-orm';
+import { eq, and, asc, inArray, sql } from 'drizzle-orm';
 import { getDb } from '../db';
 import { programTemplates, exercises } from '../db/schema';
 import { hydrateProgramDefinition } from '../lib/hydrate-program';
@@ -42,13 +42,22 @@ export interface CatalogEntry {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function extractNumericField(definition: unknown, field: string, fallback: number): number {
-  if (!isRecord(definition)) return fallback;
-  const value = definition[field];
-  return typeof value === 'number' ? value : fallback;
+/** Shape returned by the explicit column projection in listPrograms(). */
+interface CatalogProjectedRow {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly author: string;
+  readonly category: string;
+  readonly source: string;
+  readonly definition: {
+    readonly totalWorkouts: number;
+    readonly workoutsPerWeek: number;
+    readonly cycleLength: number;
+  };
 }
 
-function toCatalogEntry(row: typeof programTemplates.$inferSelect): CatalogEntry {
+function toCatalogEntry(row: CatalogProjectedRow): CatalogEntry {
   return {
     id: row.id,
     name: row.name,
@@ -56,9 +65,9 @@ function toCatalogEntry(row: typeof programTemplates.$inferSelect): CatalogEntry
     author: row.author,
     category: row.category,
     source: row.source,
-    totalWorkouts: extractNumericField(row.definition, 'totalWorkouts', 0),
-    workoutsPerWeek: extractNumericField(row.definition, 'workoutsPerWeek', 0),
-    cycleLength: extractNumericField(row.definition, 'cycleLength', 0),
+    totalWorkouts: row.definition.totalWorkouts,
+    workoutsPerWeek: row.definition.workoutsPerWeek,
+    cycleLength: row.definition.cycleLength,
   };
 }
 
@@ -83,7 +92,23 @@ export async function listPrograms(): Promise<readonly CatalogEntry[]> {
   }
 
   const rows = await getDb()
-    .select()
+    .select({
+      id: programTemplates.id,
+      name: programTemplates.name,
+      description: programTemplates.description,
+      author: programTemplates.author,
+      category: programTemplates.category,
+      source: programTemplates.source,
+      definition: sql<{
+        totalWorkouts: number;
+        workoutsPerWeek: number;
+        cycleLength: number;
+      }>`jsonb_build_object(
+        'totalWorkouts', (${programTemplates.definition}->>'totalWorkouts')::int,
+        'workoutsPerWeek', (${programTemplates.definition}->>'workoutsPerWeek')::int,
+        'cycleLength', (${programTemplates.definition}->>'cycleLength')::int
+      )`,
+    })
     .from(programTemplates)
     .where(eq(programTemplates.isActive, true))
     .orderBy(asc(programTemplates.name));

@@ -7,7 +7,7 @@ import {
   timestamp,
   jsonb,
   smallint,
-  serial,
+  bigserial,
   index,
   unique,
   boolean,
@@ -108,7 +108,10 @@ export const programInstances = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index('program_instances_user_status_idx').on(table.userId, table.status)]
+  (table) => [
+    index('program_instances_user_status_idx').on(table.userId, table.status),
+    index('program_instances_user_created_id_idx').on(table.userId, table.createdAt, table.id),
+  ]
 );
 
 export const programInstancesRelations = relations(programInstances, ({ one, many }) => ({
@@ -128,7 +131,7 @@ export const programInstancesRelations = relations(programInstances, ({ one, man
 export const workoutResults = pgTable(
   'workout_results',
   {
-    id: serial().primaryKey(),
+    id: bigserial({ mode: 'number' }).primaryKey(),
     instanceId: uuid('instance_id')
       .references(() => programInstances.id, { onDelete: 'cascade' })
       .notNull(),
@@ -165,7 +168,7 @@ export const workoutResultsRelations = relations(workoutResults, ({ one }) => ({
 export const undoEntries = pgTable(
   'undo_entries',
   {
-    id: serial().primaryKey(),
+    id: bigserial({ mode: 'number' }).primaryKey(),
     instanceId: uuid('instance_id')
       .references(() => programInstances.id, { onDelete: 'cascade' })
       .notNull(),

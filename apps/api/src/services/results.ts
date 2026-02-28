@@ -6,6 +6,7 @@ import { eq, and, desc, lte } from 'drizzle-orm';
 import { getDb } from '../db';
 import { programInstances, workoutResults, undoEntries } from '../db/schema';
 import { ApiError } from '../middleware/error-handler';
+import { logger } from '../lib/logger';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,9 +31,10 @@ const MAX_UNDO_STACK = 50;
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
 
-// Value overridden by set_updated_at trigger; kept to ensure valid UPDATE
-async function touchInstanceTimestamp(tx: Tx, instanceId: string): Promise<void> {
-  await tx
+// Value overridden by set_updated_at trigger; kept to ensure valid UPDATE.
+// Runs outside the transaction to reduce lock hold time on program_instances.
+async function touchInstanceTimestamp(instanceId: string): Promise<void> {
+  await getDb()
     .update(programInstances)
     .set({ updatedAt: new Date() })
     .where(eq(programInstances.id, instanceId));
@@ -88,7 +90,7 @@ export async function recordResult(
     throw new ApiError(400, 'rpe must be between 1 and 10', 'INVALID_DATA');
   }
 
-  return await getDb().transaction(async (tx) => {
+  const result = await getDb().transaction(async (tx) => {
     await verifyInstanceOwnership(tx, userId, instanceId);
     // Capture existing state for undo (must happen before upsert)
     const [existing] = await tx
@@ -104,7 +106,7 @@ export async function recordResult(
       .limit(1);
 
     // Upsert — eliminates SELECT-then-INSERT/UPDATE race condition
-    const [result] = await tx
+    const [row] = await tx
       .insert(workoutResults)
       .values({
         instanceId,
@@ -120,7 +122,7 @@ export async function recordResult(
       })
       .returning();
 
-    if (!result) {
+    if (!row) {
       throw new ApiError(500, 'Failed to record result', 'INSERT_FAILED');
     }
 
@@ -134,12 +136,16 @@ export async function recordResult(
       prevRpe: existing?.rpe ?? null,
     });
 
-    await touchInstanceTimestamp(tx, instanceId);
-
     await trimUndoStack(tx, instanceId);
 
-    return result;
+    return row;
   });
+
+  await touchInstanceTimestamp(instanceId).catch((err: unknown) =>
+    logger.warn({ err, instanceId }, 'touchInstanceTimestamp failed')
+  );
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -183,10 +189,12 @@ export async function deleteResult(
 
     await tx.delete(workoutResults).where(eq(workoutResults.id, existing.id));
 
-    await touchInstanceTimestamp(tx, instanceId);
-
     await trimUndoStack(tx, instanceId);
   });
+
+  await touchInstanceTimestamp(instanceId).catch((err: unknown) =>
+    logger.warn({ err, instanceId }, 'touchInstanceTimestamp failed')
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -194,32 +202,32 @@ export async function deleteResult(
 // ---------------------------------------------------------------------------
 
 export async function undoLast(userId: string, instanceId: string): Promise<UndoEntryRow | null> {
-  return await getDb().transaction(async (tx) => {
+  const entry = await getDb().transaction(async (tx) => {
     await verifyInstanceOwnership(tx, userId, instanceId);
     // Pop the most recent undo entry (LIFO — highest id)
-    const [entry] = await tx
+    const [found] = await tx
       .select()
       .from(undoEntries)
       .where(eq(undoEntries.instanceId, instanceId))
       .orderBy(desc(undoEntries.id))
       .limit(1);
 
-    if (!entry) {
+    if (!found) {
       return null; // Nothing to undo
     }
 
     // Remove the undo entry (consumed)
-    await tx.delete(undoEntries).where(eq(undoEntries.id, entry.id));
+    await tx.delete(undoEntries).where(eq(undoEntries.id, found.id));
 
-    if (entry.prevResult === null) {
+    if (found.prevResult === null) {
       // Previous state was "no result" — delete the current result
       await tx
         .delete(workoutResults)
         .where(
           and(
             eq(workoutResults.instanceId, instanceId),
-            eq(workoutResults.workoutIndex, entry.workoutIndex),
-            eq(workoutResults.slotId, entry.slotId)
+            eq(workoutResults.workoutIndex, found.workoutIndex),
+            eq(workoutResults.slotId, found.slotId)
           )
         );
     } else {
@@ -228,24 +236,30 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
         .insert(workoutResults)
         .values({
           instanceId,
-          workoutIndex: entry.workoutIndex,
-          slotId: entry.slotId,
-          result: entry.prevResult,
-          amrapReps: entry.prevAmrapReps ?? null,
-          rpe: entry.prevRpe ?? null,
+          workoutIndex: found.workoutIndex,
+          slotId: found.slotId,
+          result: found.prevResult,
+          amrapReps: found.prevAmrapReps ?? null,
+          rpe: found.prevRpe ?? null,
         })
         .onConflictDoUpdate({
           target: [workoutResults.instanceId, workoutResults.workoutIndex, workoutResults.slotId],
           set: {
-            result: entry.prevResult,
-            amrapReps: entry.prevAmrapReps ?? null,
-            rpe: entry.prevRpe ?? null,
+            result: found.prevResult,
+            amrapReps: found.prevAmrapReps ?? null,
+            rpe: found.prevRpe ?? null,
           },
         });
     }
 
-    await touchInstanceTimestamp(tx, instanceId);
-
-    return entry;
+    return found;
   });
+
+  if (entry) {
+    await touchInstanceTimestamp(instanceId).catch((err: unknown) =>
+      logger.warn({ err, instanceId }, 'touchInstanceTimestamp failed')
+    );
+  }
+
+  return entry;
 }
