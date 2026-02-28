@@ -368,6 +368,235 @@ const CANONICAL_EXERCISES: readonly ExerciseSeed[] = [
     equipment: 'barbell',
     isCompound: true,
   },
+  // ── MUTENROSHI exercises ──
+
+  // Block 1 — Core
+  {
+    id: 'plank',
+    name: 'Plancha',
+    muscleGroupId: 'core',
+    equipment: 'bodyweight',
+    isCompound: false,
+  },
+  {
+    id: 'reverse_plank',
+    name: 'Plancha Inversa',
+    muscleGroupId: 'core',
+    equipment: 'bodyweight',
+    isCompound: false,
+  },
+  {
+    id: 'sit_up_decline',
+    name: 'Abdominal en Banco Declinado',
+    muscleGroupId: 'core',
+    equipment: 'bodyweight',
+    isCompound: false,
+  },
+
+  // Block 2 — Squat/DL Activation
+  {
+    id: 'leg_curl_prone',
+    name: 'Curl Femoral Tumbado',
+    muscleGroupId: 'legs',
+    equipment: 'machine',
+    isCompound: false,
+  },
+  {
+    id: 'hyperextension',
+    name: 'Hiperextension',
+    muscleGroupId: 'back',
+    equipment: 'bodyweight',
+    isCompound: false,
+  },
+
+  // Block 2 — Bench Activation
+  {
+    id: 'lateral_raise_band',
+    name: 'Elevacion Lateral con Banda',
+    muscleGroupId: 'shoulders',
+    equipment: 'bands',
+    isCompound: false,
+  },
+  {
+    id: 'french_press_bench',
+    name: 'Press Frances en Banco',
+    muscleGroupId: 'arms',
+    equipment: 'barbell',
+    isCompound: false,
+  },
+  {
+    id: 'rear_delt_band',
+    name: 'Deltoides Posterior con Banda',
+    muscleGroupId: 'shoulders',
+    equipment: 'bands',
+    isCompound: false,
+  },
+
+  // Block 3 — Squat Proprioception
+  {
+    id: 'bulgarian_split_squat_slow',
+    name: 'Zancada Bulgara Lenta',
+    muscleGroupId: 'legs',
+    equipment: 'bodyweight',
+    isCompound: true,
+  },
+  {
+    id: 'calf_raise_proprioceptive',
+    name: 'Elevacion de Gemelo Propioceptiva',
+    muscleGroupId: 'calves',
+    equipment: 'bodyweight',
+    isCompound: false,
+  },
+
+  // Block 3 — Bench Proprioception
+  {
+    id: 'pulley_band_seated',
+    name: 'Polea con Banda Sentado',
+    muscleGroupId: 'back',
+    equipment: 'bands',
+    isCompound: true,
+  },
+  {
+    id: 'pushup_isometric',
+    name: 'Flexion Isometrica',
+    muscleGroupId: 'chest',
+    equipment: 'bodyweight',
+    isCompound: true,
+  },
+
+  // Block 3 — DL Proprioception
+  {
+    id: 'deadlift_partial_blocks',
+    name: 'Peso Muerto Parcial desde Bloques',
+    muscleGroupId: 'back',
+    equipment: 'barbell',
+    isCompound: true,
+  },
+  {
+    id: 'leg_press_isometric',
+    name: 'Prensa Isometrica',
+    muscleGroupId: 'legs',
+    equipment: 'machine',
+    isCompound: true,
+  },
+
+  // Block 4 — Fundamentals (bodyweight phase)
+  {
+    id: 'squat_bodyweight',
+    name: 'Sentadilla sin Peso',
+    muscleGroupId: 'legs',
+    equipment: 'bodyweight',
+    isCompound: true,
+  },
+  {
+    id: 'bench_pushups',
+    name: 'Flexiones',
+    muscleGroupId: 'chest',
+    equipment: 'bodyweight',
+    isCompound: true,
+  },
+  {
+    id: 'deadlift_isometric',
+    name: 'Peso Muerto Isometrico',
+    muscleGroupId: 'back',
+    equipment: 'bodyweight',
+    isCompound: true,
+  },
+
+  // Block 4 — Fundamentals (loaded phase)
+  {
+    id: 'squat_barbell',
+    name: 'Sentadilla con Barra',
+    muscleGroupId: 'legs',
+    equipment: 'barbell',
+    isCompound: true,
+  },
+  {
+    id: 'bench_press_barbell',
+    name: 'Press Banca con Barra',
+    muscleGroupId: 'chest',
+    equipment: 'barbell',
+    isCompound: true,
+  },
+  {
+    id: 'deadlift_barbell',
+    name: 'Peso Muerto con Barra',
+    muscleGroupId: 'back',
+    equipment: 'barbell',
+    isCompound: true,
+  },
+
+  // ── Brunetti 365 exercises ──
+  {
+    id: 'bench_board',
+    name: 'Press Banca con Tabla',
+    muscleGroupId: 'chest',
+    equipment: 'barbell',
+    isCompound: true,
+  },
+  {
+    id: 'bench_pin',
+    name: 'Press Banca con Pin',
+    muscleGroupId: 'chest',
+    equipment: 'barbell',
+    isCompound: true,
+  },
+  {
+    id: 'one_arm_row',
+    name: 'Remo Unilateral',
+    muscleGroupId: 'back',
+    equipment: 'dumbbell',
+    isCompound: true,
+  },
+  {
+    id: 'deadlift_elevated',
+    name: 'Peso Muerto desde Elevacion',
+    muscleGroupId: 'back',
+    equipment: 'barbell',
+    isCompound: true,
+  },
+  {
+    id: 'seal_row',
+    name: 'Seal Row',
+    muscleGroupId: 'back',
+    equipment: 'barbell',
+    isCompound: true,
+  },
+  {
+    id: 'leg_press_unilateral',
+    name: 'Prensa Unilateral',
+    muscleGroupId: 'legs',
+    equipment: 'machine',
+    isCompound: true,
+  },
+  {
+    id: 'curl_elastico',
+    name: 'Curl con Elastico',
+    muscleGroupId: 'arms',
+    equipment: 'bands',
+    isCompound: false,
+  },
+  {
+    id: 'french_press_band',
+    name: 'Press Frances con Elastico',
+    muscleGroupId: 'arms',
+    equipment: 'bands',
+    isCompound: false,
+  },
+  {
+    id: 'lateral_raise_seated',
+    name: 'Elevaciones Laterales Sentado',
+    muscleGroupId: 'shoulders',
+    equipment: 'dumbbell',
+    isCompound: false,
+  },
+  {
+    id: 'pin_squat',
+    name: 'Sentadilla desde Pin',
+    muscleGroupId: 'legs',
+    equipment: 'barbell',
+    isCompound: true,
+  },
 ] as const;
 
 export async function seedExercises(db: DbClient): Promise<void> {

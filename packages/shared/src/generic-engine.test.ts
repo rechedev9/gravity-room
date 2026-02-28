@@ -6,7 +6,19 @@ import {
   ProgressionRuleSchema,
   ExerciseSlotSchema,
   StageDefinitionSchema,
+  ConfigFieldSchema,
+  ProgramDefinitionSchema,
 } from './schemas/program-definition';
+import { MUTENROSHI_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/mutenroshi';
+import { GZCLP_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/gzclp';
+import { PPL531_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/ppl531';
+import { STRONGLIFTS_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/stronglifts';
+import { GSLP_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/greyskull';
+import { BBB_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/bbb';
+import { FSL531_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/fsl531';
+import { PHUL_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/phul';
+import { NIVEL7_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/nivel7';
+import { BRUNETTI365_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/brunetti-365';
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -1363,5 +1375,520 @@ describe('computeGenericProgram — isDeload', () => {
     expect(rows[0].slots[0].isDeload).toBe(false);
     expect(rows[1].slots[0].weight).toBe(0);
     expect(rows[1].slots[0].isDeload).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.4 — Notes pass-through tests
+// ---------------------------------------------------------------------------
+
+describe('notes pass-through', () => {
+  it('slot with notes passes through to GenericSlotRow.notes', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 3, reps: 5 }],
+      onSuccess: { type: 'no_change' },
+      totalWorkouts: 1,
+    });
+    // Inject notes directly on the slot
+    (def.days[0].slots[0] as Record<string, unknown>).notes = 'Test note content';
+
+    const rows = computeGenericProgram(def, { ex: 60 }, {});
+
+    expect(rows[0].slots[0].notes).toBe('Test note content');
+  });
+
+  it('slot without notes has GenericSlotRow.notes as undefined', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 3, reps: 5 }],
+      onSuccess: { type: 'no_change' },
+      totalWorkouts: 1,
+    });
+
+    const rows = computeGenericProgram(def, { ex: 60 }, {});
+
+    expect(rows[0].slots[0].notes).toBeUndefined();
+  });
+
+  it('ExerciseSlotSchema validates slot with notes present', () => {
+    const slot = {
+      id: 'test',
+      exerciseId: 'squat',
+      tier: 't1',
+      stages: [{ sets: 3, reps: 5 }],
+      onSuccess: { type: 'no_change' as const },
+      onMidStageFail: { type: 'no_change' as const },
+      onFinalStageFail: { type: 'no_change' as const },
+      startWeightKey: 'squat',
+      notes: 'Some instruction here',
+    };
+
+    const result = ExerciseSlotSchema.safeParse(slot);
+
+    expect(result.success).toBe(true);
+  });
+
+  it('ExerciseSlotSchema validates slot without notes (backwards compat)', () => {
+    const slot = {
+      id: 'test',
+      exerciseId: 'squat',
+      tier: 't1',
+      stages: [{ sets: 3, reps: 5 }],
+      onSuccess: { type: 'no_change' as const },
+      onMidStageFail: { type: 'no_change' as const },
+      onFinalStageFail: { type: 'no_change' as const },
+      startWeightKey: 'squat',
+    };
+
+    const result = ExerciseSlotSchema.safeParse(slot);
+
+    expect(result.success).toBe(true);
+  });
+
+  it('ExerciseSlotSchema rejects slot with notes: empty string (min 1 char)', () => {
+    const slot = {
+      id: 'test',
+      exerciseId: 'squat',
+      tier: 't1',
+      stages: [{ sets: 3, reps: 5 }],
+      onSuccess: { type: 'no_change' as const },
+      onMidStageFail: { type: 'no_change' as const },
+      onFinalStageFail: { type: 'no_change' as const },
+      startWeightKey: 'squat',
+      notes: '',
+    };
+
+    const result = ExerciseSlotSchema.safeParse(slot);
+
+    expect(result.success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.5 — ConfigFieldSchema tests
+// ---------------------------------------------------------------------------
+
+describe('ConfigFieldSchema', () => {
+  it('validates weight-type field (backwards compat)', () => {
+    const field = {
+      key: 'squat',
+      label: 'Sentadilla',
+      type: 'weight' as const,
+      min: 2.5,
+      step: 2.5,
+    };
+
+    const result = ConfigFieldSchema.safeParse(field);
+
+    expect(result.success).toBe(true);
+  });
+
+  it('validates select-type field', () => {
+    const field = {
+      key: 'gender',
+      label: 'Gender',
+      type: 'select' as const,
+      options: [
+        { value: 'male', label: 'Male' },
+        { value: 'female', label: 'Female' },
+      ],
+    };
+
+    const result = ConfigFieldSchema.safeParse(field);
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects select field with empty options array', () => {
+    const field = {
+      key: 'gender',
+      label: 'Gender',
+      type: 'select' as const,
+      options: [],
+    };
+
+    const result = ConfigFieldSchema.safeParse(field);
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects select field missing options', () => {
+    const field = {
+      key: 'gender',
+      label: 'Gender',
+      type: 'select' as const,
+    };
+
+    const result = ConfigFieldSchema.safeParse(field);
+
+    expect(result.success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.6 — ProgramDefinitionSchema tests
+// ---------------------------------------------------------------------------
+
+describe('ProgramDefinitionSchema', () => {
+  /** Hydrate a seed definition's exercises map so it passes schema validation. */
+  function hydrateExercises<T extends { exercises: Record<string, Record<string, never>> }>(
+    def: T
+  ): T & { exercises: Record<string, { name: string }> } {
+    return {
+      ...def,
+      exercises: Object.fromEntries(Object.keys(def.exercises).map((id) => [id, { name: id }])),
+    } as T & { exercises: Record<string, { name: string }> };
+  }
+
+  it('validates with displayMode: blocks', () => {
+    const def = {
+      id: 'test',
+      name: 'Test',
+      description: 'test',
+      author: 'test',
+      version: 1,
+      category: 'test',
+      source: 'preset' as const,
+      cycleLength: 1,
+      totalWorkouts: 1,
+      workoutsPerWeek: 1,
+      exercises: { ex: { name: 'Exercise' } },
+      configFields: [{ key: 'ex', label: 'Ex', type: 'weight' as const, min: 0, step: 2.5 }],
+      weightIncrements: { ex: 5 },
+      days: [
+        {
+          name: 'Day 1',
+          slots: [
+            {
+              id: 's1',
+              exerciseId: 'ex',
+              tier: 't1',
+              stages: [{ sets: 3, reps: 5 }],
+              onSuccess: { type: 'no_change' as const },
+              onMidStageFail: { type: 'no_change' as const },
+              onFinalStageFail: { type: 'no_change' as const },
+              startWeightKey: 'ex',
+            },
+          ],
+        },
+      ],
+      displayMode: 'blocks' as const,
+    };
+
+    const result = ProgramDefinitionSchema.safeParse(def);
+
+    expect(result.success).toBe(true);
+  });
+
+  it('validates without displayMode', () => {
+    const def = {
+      id: 'test',
+      name: 'Test',
+      description: 'test',
+      author: 'test',
+      version: 1,
+      category: 'test',
+      source: 'preset' as const,
+      cycleLength: 1,
+      totalWorkouts: 1,
+      workoutsPerWeek: 1,
+      exercises: { ex: { name: 'Exercise' } },
+      configFields: [{ key: 'ex', label: 'Ex', type: 'weight' as const, min: 0, step: 2.5 }],
+      weightIncrements: { ex: 5 },
+      days: [
+        {
+          name: 'Day 1',
+          slots: [
+            {
+              id: 's1',
+              exerciseId: 'ex',
+              tier: 't1',
+              stages: [{ sets: 3, reps: 5 }],
+              onSuccess: { type: 'no_change' as const },
+              onMidStageFail: { type: 'no_change' as const },
+              onFinalStageFail: { type: 'no_change' as const },
+              startWeightKey: 'ex',
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = ProgramDefinitionSchema.safeParse(def);
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects displayMode: carousel', () => {
+    const def = {
+      id: 'test',
+      name: 'Test',
+      description: 'test',
+      author: 'test',
+      version: 1,
+      category: 'test',
+      source: 'preset' as const,
+      cycleLength: 1,
+      totalWorkouts: 1,
+      workoutsPerWeek: 1,
+      exercises: { ex: { name: 'Exercise' } },
+      configFields: [{ key: 'ex', label: 'Ex', type: 'weight' as const, min: 0, step: 2.5 }],
+      weightIncrements: { ex: 5 },
+      days: [
+        {
+          name: 'Day 1',
+          slots: [
+            {
+              id: 's1',
+              exerciseId: 'ex',
+              tier: 't1',
+              stages: [{ sets: 3, reps: 5 }],
+              onSuccess: { type: 'no_change' as const },
+              onMidStageFail: { type: 'no_change' as const },
+              onFinalStageFail: { type: 'no_change' as const },
+              startWeightKey: 'ex',
+            },
+          ],
+        },
+      ],
+      displayMode: 'carousel',
+    };
+
+    const result = ProgramDefinitionSchema.safeParse(def);
+
+    expect(result.success).toBe(false);
+  });
+
+  describe('all existing program definitions pass ProgramDefinitionSchema.safeParse', () => {
+    /**
+     * Seed JSONB definitions only contain the engine payload (days, configFields, etc.).
+     * Metadata fields (id, name, description, author, version, category, source) are
+     * stored as separate DB columns in the template seed. We merge both here to produce
+     * a full ProgramDefinition for schema validation.
+     */
+    const definitions = [
+      {
+        name: 'GZCLP',
+        def: GZCLP_DEFINITION_JSONB,
+        meta: {
+          id: 'gzclp',
+          name: 'GZCLP',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'strength',
+          source: 'preset' as const,
+        },
+      },
+      {
+        name: 'PPL 5/3/1',
+        def: PPL531_DEFINITION_JSONB,
+        meta: {
+          id: 'ppl531',
+          name: 'PPL',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'hypertrophy',
+          source: 'preset' as const,
+        },
+      },
+      {
+        name: 'StrongLifts',
+        def: STRONGLIFTS_DEFINITION_JSONB,
+        meta: {
+          id: 'stronglifts',
+          name: 'SL',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'strength',
+          source: 'preset' as const,
+        },
+      },
+      {
+        name: 'Greyskull',
+        def: GSLP_DEFINITION_JSONB,
+        meta: {
+          id: 'gslp',
+          name: 'GSLP',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'strength',
+          source: 'preset' as const,
+        },
+      },
+      {
+        name: 'BBB',
+        def: BBB_DEFINITION_JSONB,
+        meta: {
+          id: 'bbb',
+          name: 'BBB',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'strength',
+          source: 'preset' as const,
+        },
+      },
+      {
+        name: 'FSL 5/3/1',
+        def: FSL531_DEFINITION_JSONB,
+        meta: {
+          id: 'fsl531',
+          name: 'FSL',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'strength',
+          source: 'preset' as const,
+        },
+      },
+      {
+        name: 'PHUL',
+        def: PHUL_DEFINITION_JSONB,
+        meta: {
+          id: 'phul',
+          name: 'PHUL',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'hypertrophy',
+          source: 'preset' as const,
+        },
+      },
+      {
+        name: 'Nivel 7',
+        def: NIVEL7_DEFINITION_JSONB,
+        meta: {
+          id: 'nivel7',
+          name: 'Nivel7',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'strength',
+          source: 'preset' as const,
+        },
+      },
+      {
+        name: 'Brunetti 365',
+        def: BRUNETTI365_DEFINITION_JSONB,
+        meta: {
+          id: 'brunetti-365',
+          name: '365',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'hypertrophy',
+          source: 'preset' as const,
+        },
+      },
+      {
+        name: 'MUTENROSHI',
+        def: MUTENROSHI_DEFINITION_JSONB,
+        meta: {}, // MUTENROSHI already has all metadata fields
+      },
+    ];
+
+    for (const { name, def, meta } of definitions) {
+      it(`${name} passes schema validation`, () => {
+        const merged = { ...meta, ...def };
+        const hydrated = {
+          ...merged,
+          exercises: Object.fromEntries(
+            Object.keys(merged.exercises as Record<string, unknown>).map((id) => [id, { name: id }])
+          ),
+        };
+        const result = ProgramDefinitionSchema.safeParse(hydrated);
+
+        if (!result.success) {
+          console.error(`${name} failed:`, JSON.stringify(result.error.issues, null, 2));
+        }
+        expect(result.success).toBe(true);
+      });
+    }
+  });
+
+  it('computeGenericProgram with MUTENROSHI (200 workouts) completes in < 100ms', () => {
+    const hydrated = hydrateExercises(
+      MUTENROSHI_DEFINITION_JSONB as Record<string, unknown> as typeof MUTENROSHI_DEFINITION_JSONB
+    );
+    const config: Record<string, number | string> = {
+      bodyweight: 80,
+      gender: 'male',
+      rounding: '2.5',
+      squat_start: 20,
+      bench_start: 20,
+      deadlift_start: 20,
+    };
+
+    const start = performance.now();
+    const rows = computeGenericProgram(hydrated as unknown as ProgramDefinition, config, {});
+    const elapsed = performance.now() - start;
+
+    expect(rows).toHaveLength(200);
+    expect(elapsed).toBeLessThan(100);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4.7 — MUTENROSHI engine integration tests
+// ---------------------------------------------------------------------------
+
+describe('MUTENROSHI engine integration', () => {
+  function hydrateExercises<T extends { exercises: Record<string, Record<string, never>> }>(
+    def: T
+  ): T & { exercises: Record<string, { name: string }> } {
+    return {
+      ...def,
+      exercises: Object.fromEntries(Object.keys(def.exercises).map((id) => [id, { name: id }])),
+    } as T & { exercises: Record<string, { name: string }> };
+  }
+
+  const hydrated = hydrateExercises(
+    MUTENROSHI_DEFINITION_JSONB as Record<string, unknown> as typeof MUTENROSHI_DEFINITION_JSONB
+  );
+  const config: Record<string, number | string> = {
+    bodyweight: 80,
+    gender: 'male',
+    rounding: '2.5',
+    squat_start: 20,
+    bench_start: 20,
+    deadlift_start: 20,
+  };
+  const rows = computeGenericProgram(hydrated as unknown as ProgramDefinition, config, {});
+
+  it('returns exactly 200 GenericWorkoutRow entries', () => {
+    expect(rows).toHaveLength(200);
+  });
+
+  it('days 0-11 use bodyweight fundamentals', () => {
+    const bodyweightExercises = new Set([
+      'squat_bodyweight',
+      'bench_pushups',
+      'deadlift_isometric',
+    ]);
+
+    for (let i = 0; i < 12; i++) {
+      const fundamentalSlots = rows[i].slots.filter((s) => s.tier === 'fundamental');
+
+      expect(fundamentalSlots.length).toBeGreaterThan(0);
+      for (const slot of fundamentalSlots) {
+        expect(bodyweightExercises.has(slot.exerciseId)).toBe(true);
+      }
+    }
+  });
+
+  it('days 12+ use loaded fundamentals', () => {
+    const loadedExercises = new Set(['squat_barbell', 'bench_press_barbell', 'deadlift_barbell']);
+
+    for (let i = 12; i < 200; i++) {
+      const fundamentalSlots = rows[i].slots.filter((s) => s.tier === 'fundamental');
+
+      expect(fundamentalSlots.length).toBeGreaterThan(0);
+      for (const slot of fundamentalSlots) {
+        expect(loadedExercises.has(slot.exerciseId)).toBe(true);
+      }
+    }
   });
 });

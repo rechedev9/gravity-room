@@ -25,6 +25,7 @@ export interface SlotDef {
   readonly role?: string;
   readonly trainingMaxKey?: string;
   readonly tmPercent?: number;
+  readonly notes?: string;
 }
 
 export const NC = { type: 'no_change' } as const;

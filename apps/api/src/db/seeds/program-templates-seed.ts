@@ -16,6 +16,8 @@ import { BBB_DEFINITION_JSONB } from './programs/bbb';
 import { FSL531_DEFINITION_JSONB } from './programs/fsl531';
 import { PHUL_DEFINITION_JSONB } from './programs/phul';
 import { NIVEL7_DEFINITION_JSONB } from './programs/nivel7';
+import { MUTENROSHI_DEFINITION_JSONB } from './programs/mutenroshi';
+import { BRUNETTI365_DEFINITION_JSONB } from './programs/brunetti-365';
 
 type DbClient = PostgresJsDatabase<typeof schema>;
 
@@ -138,6 +140,39 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         category: 'strength',
         source: 'preset',
         definition: NIVEL7_DEFINITION_JSONB,
+        isActive: true,
+      },
+      {
+        id: 'mutenroshi',
+        name: 'Fase Zero — Incipit',
+        description:
+          'Programa para principiantes absolutos de Amerigo Brunetti (365 Programmare L\u2019Ipertrofia). ' +
+          '200 sesiones, 3 días/semana. Las primeras 4 semanas solo peso corporal, ' +
+          'después se introduce carga gradualmente. 4 bloques por sesión: Core, Activación, ' +
+          'Propiocepción y el Ejercicio Fundamental.',
+        author: 'Amerigo Brunetti',
+        version: 1,
+        category: 'beginner',
+        source: 'preset',
+        definition: MUTENROSHI_DEFINITION_JSONB,
+        isActive: true,
+      },
+      {
+        id: 'brunetti-365',
+        name: "365 Programmare l'Ipertrofia",
+        description:
+          'Programa anual de hipertrofia de Amerigo Brunetti estructurado en 5 fases y 212 sesiones. ' +
+          'Fase Zero (8 semanas): técnica con cargas mínimas. ' +
+          'Fase T1 (6 semanas): introducción de carga en los tres levantamientos fundamentales. ' +
+          'Fase PN (13 semanas): ramping progresivo con sobrecargas específicas. ' +
+          'Fase JAW (18 semanas): 3 bloques independientes de intensificación con TM propios y test de 1RM al final de cada bloque. ' +
+          'Fase IS (12 semanas): trabajo de aislamiento y consolidación, 12–30 repeticiones. ' +
+          '4 días por semana.',
+        author: 'Amerigo Brunetti',
+        version: 1,
+        category: 'hypertrophy',
+        source: 'preset',
+        definition: BRUNETTI365_DEFINITION_JSONB,
         isActive: true,
       },
     ])
