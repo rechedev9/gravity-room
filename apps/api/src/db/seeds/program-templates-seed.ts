@@ -35,12 +35,12 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
     .values([
       {
         id: 'gzclp',
-        name: 'GZCLP',
+        name: 'Gravedad x10',
         description:
-          'Un programa de progresión lineal basado en el método GZCL. ' +
-          'Rotación de 4 días con ejercicios T1, T2 y T3 para desarrollar fuerza en los levantamientos compuestos principales. ' +
-          'Comunidad en r/gzcl.',
-        author: 'Cody LeFever',
+          'Como entrenar en el planeta de Kaio-sama: progresi\u00f3n lineal bajo presi\u00f3n constante. ' +
+          'Rotaci\u00f3n de 4 d\u00edas con ejercicios T1, T2 y T3. Si fallas, cambias de etapa y ' +
+          'sigues luchando. Inspirado en el m\u00e9todo GZCL de Cody LeFever.',
+        author: 'Gravity Room',
         version: 1,
         category: 'strength',
         source: 'preset',
@@ -49,12 +49,12 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'ppl531',
-        name: 'PPL 5/3/1 + Double Progression',
+        name: 'Kaioken x20',
         description:
-          'Programa Push/Pull/Legs de 6 días por semana combinando la metodología 5/3/1 ' +
-          'para los levantamientos principales con doble progresión para los accesorios. ' +
-          'Creado por HeXaN.',
-        author: 'HeXaN',
+          'Seis d\u00edas de Kaioken: empuja tu cuerpo al m\u00e1ximo con fuerza y volumen. ' +
+          'Push/Pull/Legs combinando 5/3/1 para los compuestos principales con doble ' +
+          'progresi\u00f3n en accesorios. Inspirado en la metodolog\u00eda de HeXaN.',
+        author: 'Gravity Room',
         version: 1,
         category: 'hypertrophy',
         source: 'preset',
@@ -63,13 +63,13 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'stronglifts5x5',
-        name: 'StrongLifts 5x5',
+        name: 'Torre de Karin',
         description:
-          'Programa clásico de fuerza para principiantes. ' +
-          'Dos entrenamientos alternos (A/B), 3 días por semana. ' +
-          'Sentadilla en cada sesión, progresión lineal de +2.5 kg por entrenamiento (+5 kg en peso muerto). ' +
-          'Tres fallos consecutivos provocan una descarga del 10%.',
-        author: 'Mehdi Hadim',
+          'El rito de paso de todo guerrero: sentadilla cada sesi\u00f3n, subiendo peso ' +
+          'escal\u00f3n a escal\u00f3n como quien sube la Torre de Karin. ' +
+          'Dos entrenamientos alternos (A/B), 3 d\u00edas por semana. +2.5 kg por sesi\u00f3n. ' +
+          'Tres fallos provocan descarga del 10%. Inspirado en StrongLifts 5x5.',
+        author: 'Gravity Room',
         version: 1,
         category: 'strength',
         source: 'preset',
@@ -78,13 +78,12 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'phraks-gslp',
-        name: "Phrak's Greyskull LP",
+        name: 'El Zenkai',
         description:
-          'Programa de fuerza para principiantes de Phrakture. ' +
-          'Dos entrenamientos alternos (A/B), 3 días por semana. ' +
-          'Cada ejercicio termina con una serie AMRAP (al fallo técnico). ' +
-          'Progresión lineal con descarga del 10% al fallar.',
-        author: 'Phrakture (r/Fitness)',
+          'Como un Saiyan: empuja hasta el fallo t\u00e9cnico (AMRAP), descarga un 10% ' +
+          'y vuelve m\u00e1s fuerte. Dos entrenamientos alternos (A/B), 3 d\u00edas por semana. ' +
+          'Cada serie final es al m\u00e1ximo. Inspirado en Greyskull LP de Phrakture.',
+        author: 'Gravity Room',
         version: 1,
         category: 'strength',
         source: 'preset',
@@ -93,12 +92,12 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'wendler531bbb',
-        name: '5/3/1 Boring But Big',
+        name: '100 Flexiones',
         description:
-          'Plantilla clásica de 5/3/1 con suplemento Boring But Big (5×10 al 50% del TM). ' +
-          'Ciclos de 4 semanas: 5s, 3s, 5/3/1 y descarga. ' +
-          '4 días por semana con progresión del Training Max tras cada ciclo.',
-        author: 'Jim Wendler',
+          'El secreto de la fuerza seg\u00fan el Maestro Roshi: repeticiones aburridas pero ' +
+          'enormes resultados. Ciclos de 4 semanas (5s, 3s, 5/3/1, descarga) con 5\u00d710 ' +
+          'de volumen suplementario. 4 d\u00edas por semana. Inspirado en 5/3/1 BBB de Jim Wendler.',
+        author: 'Gravity Room',
         version: 1,
         category: 'strength',
         source: 'preset',
@@ -107,13 +106,13 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'wendler531beginners',
-        name: '5/3/1 for Beginners',
+        name: 'Palacio de Kami',
         description:
-          'Programa de fuerza para principiantes de Jim Wendler. ' +
-          'Cuerpo completo 3 días por semana con dos levantamientos principales por sesión. ' +
-          'Ciclos de 3 semanas (5s, 3s, 5/3/1) con FSL (First Set Last) 5×5 como suplemento. ' +
-          'Progresión del Training Max tras cada ciclo.',
-        author: 'Jim Wendler',
+          'Entrenamiento de cuerpo completo en el Palacio Celeste: 3 d\u00edas por semana, ' +
+          'dos levantamientos principales por sesi\u00f3n. Ciclos de 3 semanas (5s, 3s, 5/3/1) ' +
+          'con FSL 5\u00d75 como suplemento. Met\u00f3dico y equilibrado. ' +
+          'Inspirado en 5/3/1 for Beginners de Jim Wendler.',
+        author: 'Gravity Room',
         version: 1,
         category: 'strength',
         source: 'preset',
@@ -122,12 +121,12 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'phul',
-        name: 'PHUL',
+        name: 'C\u00e1mara de Gravedad',
         description:
-          'Power Hypertrophy Upper Lower — programa de 4 días que combina fuerza e hipertrofia. ' +
-          'Dos días de fuerza (compuestos pesados 3-5 reps) y dos de hipertrofia (8-12 reps). ' +
-          'Los compuestos principales progresan linealmente, los accesorios con doble progresión.',
-        author: 'Brandon Campbell',
+          'Fuerza y tama\u00f1o como Vegeta en su c\u00e1mara de gravedad: dos d\u00edas de poder puro ' +
+          '(compuestos pesados 3-5 reps) y dos de hipertrofia (8-12 reps). ' +
+          '4 d\u00edas por semana. Inspirado en PHUL de Brandon Campbell.',
+        author: 'Gravity Room',
         version: 1,
         category: 'hypertrophy',
         source: 'preset',
@@ -136,14 +135,13 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'nivel7',
-        name: 'Nivel 7',
+        name: 'Super Saiyan',
         description:
-          'Programa de fuerza de 12 semanas con periodización inversa. ' +
-          'Configuras el récord objetivo (semana 6) y los pesos se calculan hacia atrás. ' +
-          'Bloque 1 (5×5) con descarga en semana 3, Bloque 2 (3×3) culminando en récord. ' +
-          'Ciclo 2 repite la onda con +2.5kg. Accesorios con doble progresión 3×8-12. ' +
-          '4 días/semana: hombros/tríceps, espalda/gemelo, pecho/bíceps, pierna.',
-        author: 'nivel7 (musclecoop)',
+          '12 semanas hasta la transformaci\u00f3n: configuras tu r\u00e9cord objetivo y los pesos ' +
+          'se calculan hacia atr\u00e1s hasta el momento de alcanzarlo. Bloque 1 (5\u00d75) acumula energ\u00eda, ' +
+          'Bloque 2 (3\u00d73) culmina en tu nuevo m\u00e1ximo. ' +
+          '4 d\u00edas/semana. Inspirado en Nivel 7 de musclecoop.',
+        author: 'Gravity Room',
         version: 1,
         category: 'strength',
         source: 'preset',
@@ -155,10 +153,10 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         name: 'Caparaz\u00f3n de Tortuga',
         description:
           'Tu entrenamiento en la Kame House: empieza desde cero con tu peso corporal ' +
-          'y poco a poco a\u00f1ade la barra. Programa de Amerigo Brunetti (365). ' +
-          '200 sesiones, 3 d\u00edas/semana. 4 bloques por sesi\u00f3n: Core, Activaci\u00f3n, ' +
-          'Propiocepci\u00f3n y el Ejercicio Fundamental.',
-        author: 'Amerigo Brunetti',
+          'y poco a poco a\u00f1ade la barra. 200 sesiones, 3 d\u00edas/semana. ' +
+          '4 bloques por sesi\u00f3n: Core, Activaci\u00f3n, Propiocepci\u00f3n y el Ejercicio Fundamental. ' +
+          'Inspirado en la metodolog\u00eda de Amerigo Brunetti.',
+        author: 'Gravity Room',
         version: 1,
         category: 'beginner',
         source: 'preset',
@@ -200,12 +198,12 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'sheiko-7-1',
-        name: 'Sheiko 7.1 — Sentadilla',
+        name: 'Tenkaichi Budokai \u2014 Sentadilla',
         description:
-          'Programa Sheiko de 16 semanas con enfasis en sentadilla. ' +
-          'Tres levantamientos de competicion con mayor volumen de sentadilla. ' +
-          '4 entrenamientos por semana. Basado en el libro "Powerlifting: Foundations and Methods".',
-        author: 'Boris Sheiko',
+          'Preparaci\u00f3n de 16 semanas para el torneo con \u00e9nfasis en sentadilla. ' +
+          'Porcentajes exactos de tu 1RM, periodizaci\u00f3n por mesociclos, deload antes de competir. ' +
+          '4 d\u00edas por semana. Inspirado en la metodolog\u00eda de Boris Sheiko.',
+        author: 'Gravity Room',
         version: 1,
         category: 'powerlifting',
         source: 'preset',
@@ -214,12 +212,12 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'sheiko-7-2',
-        name: 'Sheiko 7.2 — Press Banca',
+        name: 'Tenkaichi Budokai \u2014 Press Banca',
         description:
-          'Programa Sheiko de 16 semanas con enfasis en press banca. ' +
-          'Tres levantamientos de competicion con mayor volumen de press banca. ' +
-          '4 entrenamientos por semana. Basado en el libro "Powerlifting: Foundations and Methods".',
-        author: 'Boris Sheiko',
+          'Preparaci\u00f3n de 16 semanas para el torneo con \u00e9nfasis en press banca. ' +
+          'Porcentajes exactos de tu 1RM, m\u00faltiples variaciones de banca. ' +
+          '4 d\u00edas por semana. Inspirado en la metodolog\u00eda de Boris Sheiko.',
+        author: 'Gravity Room',
         version: 1,
         category: 'powerlifting',
         source: 'preset',
@@ -228,12 +226,12 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'sheiko-7-3',
-        name: 'Sheiko 7.3 — Peso Muerto',
+        name: 'Tenkaichi Budokai \u2014 Peso Muerto',
         description:
-          'Programa Sheiko de 16 semanas con enfasis en peso muerto. ' +
-          'Tres levantamientos de competicion con mayor volumen de peso muerto y variaciones. ' +
-          '4 entrenamientos por semana. Basado en el libro "Powerlifting: Foundations and Methods".',
-        author: 'Boris Sheiko',
+          'Preparaci\u00f3n de 16 semanas para el torneo con \u00e9nfasis en peso muerto. ' +
+          'D\u00e9ficit, bloques, cadenas, bandas \u2014 todas las variaciones de peso muerto. ' +
+          '4 d\u00edas por semana. Inspirado en la metodolog\u00eda de Boris Sheiko.',
+        author: 'Gravity Room',
         version: 1,
         category: 'powerlifting',
         source: 'preset',
@@ -242,12 +240,12 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'sheiko-7-4',
-        name: 'Sheiko 7.4 — Solo Press Banca',
+        name: 'Tenkaichi Budokai \u2014 Solo Banca',
         description:
-          'Programa Sheiko de 18 semanas exclusivo para press banca. ' +
-          'Sin sentadilla ni peso muerto de competicion. ' +
-          '4 entrenamientos por semana. Basado en el libro "Powerlifting: Foundations and Methods".',
-        author: 'Boris Sheiko',
+          'Preparaci\u00f3n de 18 semanas exclusiva para press banca. ' +
+          'Sin sentadilla ni peso muerto de competici\u00f3n \u2014 toda la energ\u00eda en un solo golpe. ' +
+          '4 d\u00edas por semana. Inspirado en la metodolog\u00eda de Boris Sheiko.',
+        author: 'Gravity Room',
         version: 1,
         category: 'powerlifting',
         source: 'preset',
@@ -256,12 +254,13 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'sheiko-7-5',
-        name: 'Sheiko 7.5 — Volumen Medio (Experto)',
+        name: 'Tenkaichi Budokai \u2014 Veterano',
         description:
-          'Programa Sheiko de ~16 semanas (4 mesociclos) con volumen medio para atletas experimentados. ' +
-          'Periodizacion por mesociclos con test de 1RM integrado. ' +
-          '4 entrenamientos por semana. Basado en el libro "Powerlifting: Foundations and Methods".',
-        author: 'Boris Sheiko',
+          'El programa m\u00e1s popular de Sheiko para guerreros experimentados. ' +
+          '4 mesociclos de preparaci\u00f3n con volumen medio y test de 1RM integrado. ' +
+          'Usa tu experiencia de combate para llegar al torneo en tu mejor forma. ' +
+          '4 d\u00edas por semana. Inspirado en la metodolog\u00eda de Boris Sheiko.',
+        author: 'Gravity Room',
         version: 1,
         category: 'powerlifting',
         source: 'preset',
