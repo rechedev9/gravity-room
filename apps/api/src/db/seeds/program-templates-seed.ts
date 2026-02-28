@@ -185,12 +185,13 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'brunetti-365-exp',
-        name: '365 Ipertrofia — Experimentado',
+        name: 'La Sala del Tiempo',
         description:
-          'Variante para atletas con experiencia previa en sentadilla, press banca y peso muerto. ' +
-          'Omite la Fase Zero de principiantes y empieza directamente en el perfeccionamiento técnico. ' +
-          '4 fases y 196 sesiones: T1 (6 sem), PN (13 sem), JAW (18 sem), IS (12 sem). 4 días por semana.',
-        author: 'Amerigo Brunetti',
+          'Inspirado en la metodolog\u00eda de Amerigo Brunetti. Tu a\u00f1o en la Sala del Tiempo: ' +
+          '196 sesiones de hipertrofia estructurada en 4 fases de intensidad creciente ' +
+          '(T1, PN, JAW, IS). Solo para guerreros que ya dominan sentadilla, press banca ' +
+          'y peso muerto. 4 d\u00edas por semana.',
+        author: 'Gravity Room',
         version: 1,
         category: 'hypertrophy',
         source: 'preset',

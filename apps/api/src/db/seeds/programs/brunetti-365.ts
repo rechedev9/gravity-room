@@ -1787,12 +1787,12 @@ const SHARED_CONFIG_FIELDS = BRUNETTI365_DEFINITION_JSONB.configFields.filter(
 );
 
 export const BRUNETTI365_EXP_DEFINITION_JSONB = {
-  configTitle: '365 — Experimentado (sin Fase Zero)',
+  configTitle: 'La Sala del Tiempo',
   configDescription:
-    'Variante para atletas con experiencia. Empieza directamente en Fase T1 ' +
-    '(perfeccionamiento tecnico), saltando la Fase Zero de principiantes. ' +
-    '4 fases y 196 sesiones: T1, PN, JAW e Ipertrofia Specifica. ' +
-    'Requiere dominio previo de sentadilla, press banca y peso muerto.',
+    'Inspirado en la metodologia de Amerigo Brunetti. 196 sesiones de hipertrofia ' +
+    'estructurada en 4 fases: T1 (perfeccionamiento), PN (potenciacion neural), ' +
+    'JAW (volumen intenso) e IS (hipertrofia especifica). ' +
+    'Para guerreros que ya dominan los tres levantamientos fundamentales.',
   configEditTitle: BRUNETTI365_DEFINITION_JSONB.configEditTitle,
   configEditDescription: BRUNETTI365_DEFINITION_JSONB.configEditDescription,
   cycleLength: 196,
