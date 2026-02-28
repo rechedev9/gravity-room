@@ -32,6 +32,7 @@ function makeSlot(
     isChanged: overrides.isChanged ?? false,
     isDeload: overrides.isDeload ?? false,
     role: overrides.role ?? 'primary',
+    notes: overrides.notes ?? undefined,
     ...overrides,
   };
 }

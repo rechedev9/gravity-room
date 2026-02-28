@@ -183,6 +183,13 @@
       "when": 1772700000005,
       "tag": "0025_pagination_covering_index",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1772700000006,
+      "tag": "0026_add_metadata_to_program_instances",
+      "breakpoints": true
     }
   ]
 }

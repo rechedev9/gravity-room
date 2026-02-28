@@ -10,6 +10,7 @@ import {
   getInstances,
   getInstance,
   updateInstance,
+  updateInstanceMetadata,
   deleteInstance,
   exportInstance,
   importInstance,
@@ -71,7 +72,10 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       body: t.Object({
         programId: t.String({ minLength: 1 }),
         name: t.String({ minLength: 1, maxLength: 100 }),
-        config: t.Record(t.String({ maxLength: 30 }), t.Number({ minimum: 0, maximum: 10000 })),
+        config: t.Record(
+          t.String({ maxLength: 30 }),
+          t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })])
+        ),
       }),
       detail: {
         tags: ['Programs'],
@@ -144,7 +148,10 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
           t.Union([t.Literal('active'), t.Literal('completed'), t.Literal('archived')])
         ),
         config: t.Optional(
-          t.Record(t.String({ maxLength: 30 }), t.Number({ minimum: 0, maximum: 10000 }))
+          t.Record(
+            t.String({ maxLength: 30 }),
+            t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })])
+          )
         ),
       }),
       detail: {
@@ -155,6 +162,40 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         security,
         responses: {
           200: { description: 'Updated program instance' },
+          401: { description: 'Missing or invalid token' },
+          404: { description: 'Program not found or not owned by user' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
+
+  // PATCH /programs/:id/metadata — update program instance metadata (deep-merge)
+  .patch(
+    '/:id/metadata',
+    async ({ userId, params, body, reqLogger }) => {
+      reqLogger.info(
+        { event: 'program.updateMetadata', userId, instanceId: params.id },
+        'updating program metadata'
+      );
+      await rateLimit(userId, 'PATCH /programs/metadata');
+      const result = await updateInstanceMetadata(userId, params.id, body.metadata);
+      await invalidateCachedInstance(userId, params.id);
+      return result;
+    },
+    {
+      params: t.Object({ id: t.String() }),
+      body: t.Object({
+        metadata: t.Record(t.String(), t.Unknown()),
+      }),
+      detail: {
+        tags: ['Programs'],
+        summary: 'Update program metadata',
+        description:
+          'Deep-merges the provided metadata with existing metadata on the program instance. Used for graduation state, bodyweight snapshots, etc.',
+        security,
+        responses: {
+          200: { description: 'Updated program instance with merged metadata' },
           401: { description: 'Missing or invalid token' },
           404: { description: 'Program not found or not owned by user' },
           429: { description: 'Rate limited' },
@@ -234,7 +275,10 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         exportDate: t.String({ format: 'date-time' }),
         programId: t.String({ minLength: 1 }),
         name: t.String({ minLength: 1, maxLength: 100 }),
-        config: t.Record(t.String({ maxLength: 30 }), t.Number({ minimum: 0, maximum: 10000 })),
+        config: t.Record(
+          t.String({ maxLength: 30 }),
+          t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })])
+        ),
         results: t.Record(
           t.String(),
           t.Record(

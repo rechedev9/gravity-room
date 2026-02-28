@@ -10,7 +10,8 @@
     "./types": "./src/types/index.ts",
     "./types/program": "./src/types/program.ts",
     "./schemas/instance": "./src/schemas/instance.ts",
-    "./schemas/program-definition": "./src/schemas/program-definition.ts"
+    "./schemas/program-definition": "./src/schemas/program-definition.ts",
+    "./graduation": "./src/graduation.ts"
   },
   "scripts": {
     "lint": "eslint",

@@ -43,11 +43,11 @@ function isErrorResponse(parsed: unknown): parsed is { error: string } {
 }
 
 function buildOptions(overrides?: {
-  config?: Record<string, number> | null;
+  config?: Record<string, number | string> | null;
   results?: GenericResults;
   rows?: readonly GenericWorkoutRow[];
 }): {
-  config: Record<string, number> | null;
+  config: Record<string, number | string> | null;
   rows: readonly GenericWorkoutRow[];
   totalWorkouts: number;
   definition: typeof DEF;

@@ -31,7 +31,7 @@ export const ProgramInstanceSchema = z.strictObject({
   id: z.string().min(1),
   programId: z.string().min(1),
   name: z.string().min(1),
-  config: z.record(z.string(), z.number()),
+  config: z.record(z.string(), z.union([z.number(), z.string()])),
   results: GenericResultsSchema,
   undoHistory: GenericUndoHistorySchema,
   status: ProgramInstanceStatusSchema,

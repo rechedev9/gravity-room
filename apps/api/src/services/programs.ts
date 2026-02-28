@@ -40,6 +40,7 @@ export interface ProgramInstanceResponse {
   readonly programId: string;
   readonly name: string;
   readonly config: unknown;
+  readonly metadata: unknown;
   readonly status: string;
   readonly results: GenericResults;
   readonly undoHistory: GenericUndoHistory;
@@ -105,6 +106,7 @@ function toResponse(
     programId: instance.programId,
     name: instance.name,
     config: instance.config,
+    metadata: instance.metadata ?? null,
     status: instance.status,
     results: buildGenericResults(resultRows),
     undoHistory: buildUndoHistory(undoRows),
@@ -152,7 +154,7 @@ export async function createInstance(
   userId: string,
   programId: string,
   name: string,
-  config: Record<string, number>
+  config: Record<string, number | string>
 ): Promise<ProgramInstanceResponse> {
   // Validate program exists in the curated catalog (program_templates).
   // TODO(#17): When program_definitions approval flow is complete, also allow
@@ -300,14 +302,14 @@ export async function updateInstance(
   updates: {
     name?: string;
     status?: 'active' | 'completed' | 'archived';
-    config?: Record<string, number>;
+    config?: Record<string, number | string>;
   }
 ): Promise<ProgramInstanceResponse> {
   type ProgramInstanceUpdate = {
     updatedAt: Date;
     name?: string;
     status?: 'active' | 'completed' | 'archived';
-    config?: Record<string, number>;
+    config?: Record<string, number | string>;
   };
   // Value overridden by set_updated_at trigger; kept to ensure valid UPDATE
   const updateValues: ProgramInstanceUpdate = { updatedAt: new Date() };
@@ -324,6 +326,50 @@ export async function updateInstance(
 
   if (!updated) {
     throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
+  }
+
+  const [resultRows, undoRows] = await fetchResultsAndUndo(instanceId);
+  return toResponse(updated, resultRows, undoRows);
+}
+
+/**
+ * Update instance metadata with deep-merge semantics.
+ * Reads existing metadata, spreads incoming metadata on top (preserves
+ * non-overlapping keys), then writes back.
+ */
+export async function updateInstanceMetadata(
+  userId: string,
+  instanceId: string,
+  metadata: Record<string, unknown>
+): Promise<ProgramInstanceResponse> {
+  // Fetch existing instance to read current metadata
+  const [instance] = await getDb()
+    .select()
+    .from(programInstances)
+    .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+    .limit(1);
+
+  if (!instance) {
+    throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
+  }
+
+  // Deep-merge: spread existing metadata with incoming
+  const raw = instance.metadata;
+  const existing: Record<string, unknown> =
+    raw !== null && raw !== undefined && typeof raw === 'object' && !Array.isArray(raw)
+      ? Object.fromEntries(Object.entries(raw))
+      : {};
+
+  const merged = { ...existing, ...metadata };
+
+  const [updated] = await getDb()
+    .update(programInstances)
+    .set({ metadata: merged, updatedAt: new Date() })
+    .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+    .returning();
+
+  if (!updated) {
+    throw new ApiError(500, 'Failed to update metadata', 'UPDATE_FAILED');
   }
 
   const [resultRows, undoRows] = await fetchResultsAndUndo(instanceId);

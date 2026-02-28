@@ -6,11 +6,11 @@ import { isRecord } from '@gzclp/shared/type-guards';
 import { buildGoogleCalendarUrl } from '@/lib/calendar';
 
 interface UseWebMcpOptions {
-  readonly config: Record<string, number> | null;
+  readonly config: Record<string, number | string> | null;
   readonly rows: readonly GenericWorkoutRow[];
   readonly definition?: ProgramDefinition;
   readonly totalWorkouts: number;
-  readonly generateProgram: (config: Record<string, number>) => void;
+  readonly generateProgram: (config: Record<string, number | string>) => void;
   readonly markResult: (index: number, slotId: string, value: ResultValue) => void;
   readonly setAmrapReps: (index: number, slotId: string, reps: number | undefined) => void;
   readonly undoLast: () => void;
@@ -331,13 +331,21 @@ export function useWebMcp(options: UseWebMcpOptions): void {
             `Input must be an object with: ${def.configFields.map((f) => f.key).join(', ')}.`
           );
         }
-        const validated: Record<string, number> = {};
+        const validated: Record<string, number | string> = {};
         for (const field of def.configFields) {
           const val = input[field.key];
-          if (typeof val !== 'number' || val < field.min) {
-            return errorResponse(`${field.key} must be a number >= ${field.min}.`);
+          if (field.type === 'weight') {
+            if (typeof val !== 'number' || val < field.min) {
+              return errorResponse(`${field.key} must be a number >= ${field.min}.`);
+            }
+            validated[field.key] = val;
+          } else {
+            // select field: accept string or number
+            if (typeof val !== 'string' && typeof val !== 'number') {
+              return errorResponse(`${field.key} must be a string or number.`);
+            }
+            validated[field.key] = typeof val === 'number' ? String(val) : val;
           }
-          validated[field.key] = val;
         }
         stateRef.current.generateProgram(validated);
         return textResponse({ initialized: true, weights: validated });

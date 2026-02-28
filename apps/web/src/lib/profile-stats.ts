@@ -2,6 +2,21 @@ import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import type { GenericWorkoutRow } from '@gzclp/shared/types';
 
 // ---------------------------------------------------------------------------
+// Config helpers
+// ---------------------------------------------------------------------------
+
+/** Extract a numeric value from a mixed config record, defaulting to 0. */
+function configNum(config: Record<string, number | string>, key: string): number {
+  const v = config[key];
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
+// ---------------------------------------------------------------------------
 // Definition-derived helpers
 // ---------------------------------------------------------------------------
 
@@ -143,14 +158,14 @@ function toPercentage(numerator: number, denominator: number): number {
 
 function computePersonalRecords(
   rows: readonly GenericWorkoutRow[],
-  config: Record<string, number>,
+  config: Record<string, number | string>,
   primaryExercises: readonly string[],
   names: Readonly<Record<string, string>>
 ): readonly PersonalRecord[] {
   const best: Record<string, { weight: number; workoutIndex: number }> = {};
 
   for (const ex of primaryExercises) {
-    best[ex] = { weight: config[ex] ?? 0, workoutIndex: -1 };
+    best[ex] = { weight: configNum(config, ex), workoutIndex: -1 };
   }
 
   for (const row of rows) {
@@ -170,7 +185,7 @@ function computePersonalRecords(
     exercise: ex,
     displayName: names[ex] ?? ex,
     weight: best[ex].weight,
-    startWeight: config[ex] ?? 0,
+    startWeight: configNum(config, ex),
     workoutIndex: best[ex].workoutIndex,
   }));
 }
@@ -224,7 +239,7 @@ export function computeVolume(rows: readonly GenericWorkoutRow[]): VolumeStats {
 
 function computeCompletion(
   rows: readonly GenericWorkoutRow[],
-  config: Record<string, number>,
+  config: Record<string, number | string>,
   totalWorkouts: number,
   primaryExercises: readonly string[]
 ): CompletionStats {
@@ -249,7 +264,7 @@ function computeCompletion(
   }
 
   const totalWeightGained = primaryExercises.reduce((sum, ex) => {
-    const gained = (lastSuccessWeight[ex] ?? config[ex] ?? 0) - (config[ex] ?? 0);
+    const gained = (lastSuccessWeight[ex] ?? configNum(config, ex)) - configNum(config, ex);
     return gained > 0 ? sum + gained : sum;
   }, 0);
 
@@ -371,7 +386,7 @@ function countMonthlyPRs(
   monthRows: readonly GenericWorkoutRow[],
   allRows: readonly GenericWorkoutRow[],
   monthIndices: ReadonlySet<number>,
-  config: Record<string, number>
+  config: Record<string, number | string>
 ): number {
   let count = 0;
   for (const row of monthRows) {
@@ -382,7 +397,7 @@ function countMonthlyPRs(
         slot.exerciseId,
         row.index,
         monthIndices,
-        config[slot.exerciseId] ?? 0
+        configNum(config, slot.exerciseId)
       );
       if (slot.weight > priorBest) count += 1;
     }
@@ -395,7 +410,7 @@ const ROLLING_WINDOW_DAYS = 30;
 
 function computeMonthlyReport(
   rows: readonly GenericWorkoutRow[],
-  config: Record<string, number>,
+  config: Record<string, number | string>,
   resultTimestamps: Readonly<Record<string, string>>
 ): MonthlyReport | null {
   const now = new Date();
@@ -451,7 +466,7 @@ function computeMonthlyReport(
 export function computeProfileData(
   rows: readonly GenericWorkoutRow[],
   definition: ProgramDefinition,
-  config: Record<string, number>,
+  config: Record<string, number | string>,
   resultTimestamps?: Readonly<Record<string, string>>
 ): ProfileData {
   const names = deriveNames(definition);
@@ -463,8 +478,8 @@ export function computeProfileData(
     const personalRecords = primaryExercises.map((ex) => ({
       exercise: ex,
       displayName: names[ex] ?? ex,
-      weight: config[ex] ?? 0,
-      startWeight: config[ex] ?? 0,
+      weight: configNum(config, ex),
+      startWeight: configNum(config, ex),
       workoutIndex: -1,
     }));
     return {

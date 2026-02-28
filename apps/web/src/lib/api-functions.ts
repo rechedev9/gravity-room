@@ -21,7 +21,7 @@ export interface ProgramSummary {
   readonly id: string;
   readonly programId: string;
   readonly name: string;
-  readonly config: Record<string, number>;
+  readonly config: Record<string, number | string>;
   readonly status: string;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -31,7 +31,8 @@ export interface GenericProgramDetail {
   readonly id: string;
   readonly programId: string;
   readonly name: string;
-  readonly config: Record<string, number>;
+  readonly config: Record<string, number | string>;
+  readonly metadata: unknown;
   readonly results: GenericResults;
   readonly undoHistory: GenericUndoHistory;
   readonly resultTimestamps: Readonly<Record<string, string>>;
@@ -105,11 +106,12 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   return res.json();
 }
 
-function parseNumericRecord(value: unknown): Record<string, number> {
+function parseMixedConfigRecord(value: unknown): Record<string, number | string> {
   if (!isRecord(value)) return {};
-  const out: Record<string, number> = {};
+  const out: Record<string, number | string> = {};
   for (const [k, v] of Object.entries(value)) {
     if (typeof v === 'number') out[k] = v;
+    else if (typeof v === 'string') out[k] = v;
   }
   return out;
 }
@@ -129,7 +131,7 @@ function parseSummary(rec: unknown): ProgramSummary {
     id: String(rec.id ?? ''),
     programId: String(rec.programId ?? ''),
     name: String(rec.name ?? ''),
-    config: parseNumericRecord(rec.config),
+    config: parseMixedConfigRecord(rec.config),
     status: String(rec.status ?? 'active'),
     createdAt: String(rec.createdAt ?? ''),
     updatedAt: String(rec.updatedAt ?? ''),
@@ -199,7 +201,7 @@ function parseGenericUndoHistory(raw: unknown): GenericUndoHistory {
 export async function createProgram(
   programId: string,
   name: string,
-  config: Record<string, number>
+  config: Record<string, number | string>
 ): Promise<ProgramSummary> {
   const data = await apiFetch('/programs', {
     method: 'POST',
@@ -211,12 +213,35 @@ export async function createProgram(
 /** Update a program instance's config (e.g., start weights). */
 export async function updateProgramConfig(
   id: string,
-  config: Record<string, number>
+  config: Record<string, number | string>
 ): Promise<void> {
   await apiFetch(`/programs/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     body: JSON.stringify({ config: { ...config } }),
   });
+}
+
+/** Update a program instance's metadata (deep-merge on server). */
+export async function updateProgramMetadata(
+  id: string,
+  metadata: Record<string, unknown>
+): Promise<GenericProgramDetail> {
+  const data = await apiFetch(`/programs/${encodeURIComponent(id)}/metadata`, {
+    method: 'PATCH',
+    body: JSON.stringify({ metadata }),
+  });
+  if (!isRecord(data)) throw new Error('Invalid metadata response');
+  return {
+    id: String(data.id ?? ''),
+    programId: String(data.programId ?? ''),
+    name: String(data.name ?? ''),
+    config: parseMixedConfigRecord(data.config),
+    metadata: data.metadata ?? null,
+    results: parseGenericResults(data.results),
+    undoHistory: parseGenericUndoHistory(data.undoHistory),
+    resultTimestamps: parseStringRecord(data.resultTimestamps),
+    status: String(data.status ?? 'active'),
+  };
 }
 
 /** Mark a program instance as completed (preserves all data). */
@@ -293,7 +318,8 @@ export async function fetchGenericProgramDetail(id: string): Promise<GenericProg
     id: String(data.id ?? ''),
     programId: String(data.programId ?? ''),
     name: String(data.name ?? ''),
-    config: parseNumericRecord(data.config),
+    config: parseMixedConfigRecord(data.config),
+    metadata: data.metadata ?? null,
     results: parseGenericResults(data.results),
     undoHistory: parseGenericUndoHistory(data.undoHistory),
     resultTimestamps: parseStringRecord(data.resultTimestamps),

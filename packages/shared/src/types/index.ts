@@ -19,6 +19,7 @@ export interface GenericSlotRow {
   readonly isChanged: boolean;
   readonly isDeload: boolean;
   readonly role: 'primary' | 'secondary' | 'accessory' | undefined;
+  readonly notes: string | undefined;
 }
 
 export interface GenericWorkoutRow {

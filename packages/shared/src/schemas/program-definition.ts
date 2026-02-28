@@ -79,6 +79,7 @@ export const ExerciseSlotSchema = z.strictObject({
   trainingMaxKey: z.string().min(1).optional(),
   tmPercent: z.number().positive().max(1).optional(),
   role: RoleSchema.optional(),
+  notes: z.string().min(1).optional(),
 });
 
 // --- Program Day ---
@@ -88,9 +89,9 @@ export const ProgramDaySchema = z.strictObject({
   slots: z.array(ExerciseSlotSchema).min(1),
 });
 
-// --- Config Field ---
+// --- Config Field (discriminated union) ---
 
-export const ConfigFieldSchema = z.strictObject({
+const WeightConfigFieldSchema = z.strictObject({
   key: z.string().min(1),
   label: z.string().min(1),
   type: z.literal('weight'),
@@ -98,6 +99,24 @@ export const ConfigFieldSchema = z.strictObject({
   step: z.number().positive(),
   group: z.string().min(1).optional(),
 });
+
+const SelectOptionSchema = z.strictObject({
+  label: z.string().min(1),
+  value: z.string().min(1),
+});
+
+const SelectConfigFieldSchema = z.strictObject({
+  key: z.string().min(1),
+  label: z.string().min(1),
+  type: z.literal('select'),
+  options: z.array(SelectOptionSchema).min(1),
+  group: z.string().min(1).optional(),
+});
+
+export const ConfigFieldSchema = z.discriminatedUnion('type', [
+  WeightConfigFieldSchema,
+  SelectConfigFieldSchema,
+]);
 
 // --- Program Definition ---
 
@@ -115,9 +134,10 @@ export const ProgramDefinitionSchema = z.strictObject({
   workoutsPerWeek: z.number().int().positive(),
   exercises: z.record(z.string(), z.strictObject({ name: z.string().min(1) })),
   configFields: z.array(ConfigFieldSchema),
-  weightIncrements: z.record(z.string(), z.number().positive()),
+  weightIncrements: z.record(z.string(), z.number().nonnegative()),
   configTitle: z.string().min(1).optional(),
   configDescription: z.string().min(1).optional(),
   configEditTitle: z.string().min(1).optional(),
   configEditDescription: z.string().min(1).optional(),
+  displayMode: z.enum(['flat', 'blocks']).optional(),
 });

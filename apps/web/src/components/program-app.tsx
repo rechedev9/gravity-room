@@ -1,7 +1,10 @@
-import { Suspense, useState, useTransition, useEffect, useRef } from 'react';
+import { Suspense, useState, useTransition, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ResultValue } from '@gzclp/shared/types';
+import { computeGraduationTargets } from '@gzclp/shared/graduation';
+import type { GraduationState } from '@gzclp/shared/graduation';
+import { isRecord } from '@gzclp/shared/type-guards';
 import { useProgram } from '@/hooks/use-program';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
@@ -18,6 +21,7 @@ import { ConfirmDialog } from './confirm-dialog';
 import { DayNavigator } from './day-navigator';
 import { DayView } from './day-view';
 import { ErrorBoundary } from './error-boundary';
+import { GraduationPanel } from './graduation-panel';
 import { ProgramCompletionScreen } from './program-completion-screen';
 
 import { SetupForm } from './setup-form';
@@ -65,6 +69,7 @@ export function ProgramApp({
   const {
     definition,
     config,
+    metadata,
     rows,
     undoHistory,
     resultTimestamps,
@@ -72,6 +77,7 @@ export function ProgramApp({
     isGenerating,
     generateProgram,
     updateConfig,
+    updateMetadata,
     markResult,
     setAmrapReps,
     setRpe,
@@ -106,6 +112,47 @@ export function ProgramApp({
   } | null>(null);
 
   const [showCompletion, setShowCompletion] = useState(false);
+
+  // Graduation state for MUTENROSHI
+  const isMutenroshi = definition?.displayMode === 'blocks';
+  const displayMode = definition?.displayMode;
+
+  const graduationState = useMemo((): GraduationState => {
+    const defaultState: GraduationState = {
+      squat: false,
+      bench: false,
+      deadlift: false,
+      allPassed: false,
+    };
+    if (!isRecord(metadata)) return defaultState;
+    const grad = metadata.graduation;
+    if (!isRecord(grad)) return defaultState;
+    return {
+      squat: grad.squat === true,
+      bench: grad.bench === true,
+      deadlift: grad.deadlift === true,
+      allPassed: grad.allPassed === true,
+    };
+  }, [metadata]);
+
+  const graduationTargets = useMemo(() => {
+    if (!isMutenroshi || !config) return [];
+    const bodyweight = typeof config.bodyweight === 'number' ? config.bodyweight : 0;
+    const gender = typeof config.gender === 'string' ? config.gender : 'male';
+    const rounding = typeof config.rounding === 'string' ? parseFloat(config.rounding) : 2.5;
+    return computeGraduationTargets(bodyweight, gender, rounding);
+  }, [isMutenroshi, config]);
+
+  const handleGraduationStartJaw = (estimatedTMs: Record<string, number>): void => {
+    // Persist estimated TMs and graduation acknowledgment in metadata
+    updateMetadata({ graduation: { ...graduationState, allPassed: true }, estimatedTMs });
+    onBackToDashboard?.();
+  };
+
+  const handleGraduationDismiss = (): void => {
+    // Persist graduation acknowledgment so panel state survives reloads
+    updateMetadata({ graduation: { ...graduationState, dismissed: true } });
+  };
 
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 4;
   const totalWorkouts = definition?.totalWorkouts ?? 0;
@@ -389,6 +436,19 @@ export function ProgramApp({
           onUpdateConfig={updateConfig}
         />
 
+        {/* Graduation panel for MUTENROSHI programs */}
+        {isMutenroshi && config && graduationTargets.length > 0 && (
+          <div className="mb-6">
+            <GraduationPanel
+              targets={graduationTargets}
+              achieved={graduationState}
+              config={config}
+              onStartJaw={handleGraduationStartJaw}
+              onDismiss={handleGraduationDismiss}
+            />
+          </div>
+        )}
+
         {config && rows.length > 0 && (
           <>
             {/* Tabs */}
@@ -479,10 +539,12 @@ export function ProgramApp({
                           dayName={weekRows[selectedDay].dayName}
                           isCurrent={weekRows[selectedDay].index === firstPendingIdx}
                           instanceId={instanceId}
+                          displayMode={displayMode}
                           slots={weekRows[selectedDay].slots.map((s) => ({
                             key: s.slotId,
                             exerciseName: s.exerciseName,
                             tierLabel: s.tier.toUpperCase(),
+                            tier: s.tier,
                             role: s.role ?? 'accessory',
                             weight: s.weight,
                             scheme: `${s.sets}\u00d7${s.reps}${s.repsMax !== undefined ? `\u2013${s.repsMax}` : ''}${s.isAmrap ? '+' : ''}`,
@@ -495,6 +557,7 @@ export function ProgramApp({
                             showRpe: s.role === 'primary',
                             isChanged: s.isChanged,
                             isDeload: s.isDeload,
+                            notes: s.notes,
                           }))}
                           onMark={handleMarkResult}
                           onUndo={undoSpecific}
@@ -558,6 +621,7 @@ export function ProgramApp({
       {showCompletion &&
         definition &&
         config &&
+        !(isMutenroshi && !graduationState.allPassed) &&
         (() => {
           const profileData = computeProfileData(rows, definition, config, resultTimestamps);
           const oneRMEstimates = compute1RMData(rows, definition);

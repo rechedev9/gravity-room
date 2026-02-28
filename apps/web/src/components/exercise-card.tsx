@@ -25,6 +25,9 @@ export interface ExerciseCardProps {
   readonly isChanged: boolean;
   readonly isDeload: boolean;
   readonly instanceId?: string;
+  readonly notes?: string;
+  readonly displayMode?: 'flat' | 'blocks';
+  readonly tier?: string;
   readonly onMark: (index: number, key: string, value: ResultValue) => void;
   readonly onUndo: (index: number, key: string) => void;
   readonly onSetAmrapReps?: (
@@ -71,6 +74,9 @@ export function ExerciseCard({
   isChanged,
   isDeload,
   instanceId,
+  notes,
+  displayMode,
+  tier,
   onMark,
   onUndo,
   onSetAmrapReps,
@@ -123,16 +129,38 @@ export function ExerciseCard({
         {showStage && stage > 0 && <StageTag stage={stage} size="md" />}
       </div>
 
+      {/* Notes */}
+      {notes && <p className="text-[12px] text-info leading-relaxed italic mt-1.5">{notes}</p>}
+
       {/* Result buttons / badge */}
       <div className="mt-3">
-        <ResultCell
-          index={workoutIndex}
-          tier={slotKey}
-          result={result}
-          variant="card"
-          onMark={onMark}
-          onUndo={onUndo}
-        />
+        {displayMode === 'blocks' && tier !== 'fundamental' ? (
+          <button
+            onClick={() =>
+              result ? onUndo(workoutIndex, slotKey) : onMark(workoutIndex, slotKey, 'success')
+            }
+            aria-label={result ? `Desmarcar ${exerciseName}` : `Marcar ${exerciseName} completado`}
+            className={`flex items-center gap-2 px-3 py-2 min-h-[44px] border-2 rounded-sm cursor-pointer transition-all duration-150 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none ${
+              result
+                ? 'border-ok-ring bg-ok-bg text-ok'
+                : 'border-rule bg-transparent text-muted hover:bg-hover-row'
+            }`}
+          >
+            <span className="text-base font-bold">{result ? '\u2713' : '\u25A1'}</span>
+            <span className="text-[13px] font-semibold">
+              {result ? 'Completado' : 'Marcar completado'}
+            </span>
+          </button>
+        ) : (
+          <ResultCell
+            index={workoutIndex}
+            tier={slotKey}
+            result={result}
+            variant="card"
+            onMark={onMark}
+            onUndo={onUndo}
+          />
+        )}
       </div>
 
       {/* AMRAP input (success only) */}

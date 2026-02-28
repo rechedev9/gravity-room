@@ -1,6 +1,7 @@
 import { useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
+import { isRecord } from '@gzclp/shared/type-guards';
 import type {
   ProgramDefinition,
   GenericResults,
@@ -14,6 +15,7 @@ import {
   fetchCatalogDetail,
   createProgram,
   updateProgramConfig,
+  updateProgramMetadata,
   completeProgram,
   deleteProgram,
   recordGenericResult,
@@ -118,15 +120,17 @@ function optimisticDetailCallbacks(
 
 export interface UseProgramReturn {
   readonly definition: ProgramDefinition | undefined;
-  readonly config: Record<string, number> | null;
+  readonly config: Record<string, number | string> | null;
+  readonly metadata: unknown;
   readonly rows: readonly GenericWorkoutRow[];
   readonly undoHistory: GenericUndoHistory;
   readonly resultTimestamps: Readonly<Record<string, string>>;
   readonly isLoading: boolean;
   readonly isGenerating: boolean;
   readonly activeInstanceId: string | null;
-  readonly generateProgram: (config: Record<string, number>) => Promise<void>;
-  readonly updateConfig: (config: Record<string, number>) => void;
+  readonly generateProgram: (config: Record<string, number | string>) => Promise<void>;
+  readonly updateConfig: (config: Record<string, number | string>) => void;
+  readonly updateMetadata: (metadata: Record<string, unknown>) => void;
   readonly markResult: (index: number, slotId: string, value: ResultValue) => void;
   readonly setAmrapReps: (index: number, slotId: string, reps: number | undefined) => void;
   readonly setRpe: (index: number, slotId: string, rpe: number | undefined) => void;
@@ -187,6 +191,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
 
   const detail = detailQuery.data ?? null;
   const config = detail?.config ?? null;
+  const metadata: unknown = detail?.metadata ?? null;
   const results: GenericResults = detail?.results ?? {};
   const undoHistory: GenericUndoHistory = detail?.undoHistory ?? [];
   const resultTimestamps: Readonly<Record<string, string>> = detail?.resultTimestamps ?? {};
@@ -327,7 +332,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   });
 
   const generateProgramMutation = useMutation({
-    mutationFn: async (newConfig: Record<string, number>) => {
+    mutationFn: async (newConfig: Record<string, number | string>) => {
       if (!definition) throw new Error('Unknown program definition');
       await createProgram(programId, definition.name, newConfig);
     },
@@ -340,13 +345,30 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   });
 
   const updateConfigMutation = useMutation({
-    mutationFn: async (newConfig: Record<string, number>) => {
+    mutationFn: async (newConfig: Record<string, number | string>) => {
       if (!activeInstanceId) throw new Error('No active program');
       await updateProgramConfig(activeInstanceId, newConfig);
     },
     onError: () => {
       toast({ message: 'No se pudo actualizar la configuración. Inténtalo de nuevo.' });
     },
+    onSettled: detailOnSettled,
+  });
+
+  const updateMetadataMutation = useMutation({
+    mutationFn: async (newMetadata: Record<string, unknown>) => {
+      if (!activeInstanceId) throw new Error('No active program');
+      await updateProgramMetadata(activeInstanceId, newMetadata);
+    },
+    onMutate: (newMetadata) =>
+      snapshotAndUpdate((prev) => ({
+        ...prev,
+        metadata: {
+          ...(isRecord(prev.metadata) ? prev.metadata : {}),
+          ...newMetadata,
+        },
+      })),
+    onError: detailOnError,
     onSettled: detailOnSettled,
   });
 
@@ -469,12 +491,16 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     undoLastMutation.mutate();
   };
 
-  const generateProgramCb = async (newConfig: Record<string, number>): Promise<void> => {
+  const generateProgramCb = async (newConfig: Record<string, number | string>): Promise<void> => {
     await generateProgramMutation.mutateAsync(newConfig);
   };
 
-  const updateConfigCb = (newConfig: Record<string, number>): void => {
+  const updateConfigCb = (newConfig: Record<string, number | string>): void => {
     updateConfigMutation.mutate(newConfig);
+  };
+
+  const updateMetadataCb = (newMetadata: Record<string, unknown>): void => {
+    updateMetadataMutation.mutate(newMetadata);
   };
 
   const finishProgramCb = async (): Promise<void> => {
@@ -534,6 +560,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   return {
     definition,
     config,
+    metadata,
     rows,
     undoHistory,
     resultTimestamps,
@@ -542,6 +569,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     activeInstanceId,
     generateProgram: generateProgramCb,
     updateConfig: updateConfigCb,
+    updateMetadata: updateMetadataCb,
     markResult: markResultCb,
     setAmrapReps: setAmrapRepsCb,
     setRpe: setRpeCb,

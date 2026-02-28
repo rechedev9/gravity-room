@@ -26,6 +26,7 @@ function makeSlot(overrides: Partial<GenericSlotRow> = {}): GenericSlotRow {
     isChanged: overrides.isChanged ?? false,
     isDeload: overrides.isDeload ?? false,
     role: overrides.role ?? 'primary',
+    notes: overrides.notes ?? undefined,
   };
 }
 

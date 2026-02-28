@@ -155,9 +155,20 @@ function applySlotProgression(
  * @param results    - Recorded results keyed by workout index string, then by slot id.
  * @returns          - One GenericWorkoutRow per workout (length === definition.totalWorkouts).
  */
+/** Extract a numeric value from config, returning 0 for non-numeric/missing entries. */
+function configToNum(config: Record<string, number | string>, key: string): number {
+  const v = config[key];
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
 export function computeGenericProgram(
   definition: ProgramDefinition,
-  config: Record<string, number>,
+  config: Record<string, number | string>,
   results: GenericResults
 ): GenericWorkoutRow[] {
   // --- Initialization: one state entry per unique slot id ---
@@ -165,7 +176,7 @@ export function computeGenericProgram(
   for (const day of definition.days) {
     for (const slot of day.slots) {
       if (!(slot.id in slotState)) {
-        const base = config[slot.startWeightKey] ?? 0;
+        const base = configToNum(config, slot.startWeightKey);
         const multiplied =
           slot.startWeightMultiplier !== undefined
             ? roundToNearestHalf(base * slot.startWeightMultiplier)
@@ -183,7 +194,7 @@ export function computeGenericProgram(
   for (const day of definition.days) {
     for (const slot of day.slots) {
       if (slot.trainingMaxKey !== undefined && !(slot.trainingMaxKey in tmState)) {
-        tmState[slot.trainingMaxKey] = config[slot.trainingMaxKey] ?? 0;
+        tmState[slot.trainingMaxKey] = configToNum(config, slot.trainingMaxKey);
       }
     }
   }
@@ -237,6 +248,7 @@ export function computeGenericProgram(
         isChanged: state.everChanged,
         isDeload,
         role,
+        notes: slot.notes,
       };
     });
 

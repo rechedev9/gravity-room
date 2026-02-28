@@ -38,6 +38,7 @@ const CACHED_RESPONSE = {
   programId: 'gzclp',
   name: 'Test Program',
   config: { squat: 60 },
+  metadata: null,
   status: 'active',
   results: {},
   undoHistory: [],

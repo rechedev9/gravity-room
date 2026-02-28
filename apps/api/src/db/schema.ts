@@ -104,6 +104,7 @@ export const programInstances = pgTable(
     programId: varchar('program_id', { length: 50 }).notNull(),
     name: varchar({ length: 100 }).notNull(),
     config: jsonb().notNull(),
+    metadata: jsonb('metadata'),
     status: instanceStatusEnum().notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

@@ -1,14 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { ConfirmDialog } from './confirm-dialog';
+import { SelectField } from './select-field';
 import { WeightField } from './weight-field';
 
 interface SetupFormProps {
   readonly definition: ProgramDefinition;
-  readonly initialConfig?: Record<string, number> | null;
+  readonly initialConfig?: Record<string, number | string> | null;
   readonly isGenerating?: boolean;
-  readonly onGenerate: (config: Record<string, number>) => Promise<void>;
-  readonly onUpdateConfig?: (config: Record<string, number>) => void;
+  readonly onGenerate: (config: Record<string, number | string>) => Promise<void>;
+  readonly onUpdateConfig?: (config: Record<string, number | string>) => void;
+}
+
+type ConfigField = ProgramDefinition['configFields'][number];
+
+function isWeightField(field: ConfigField): field is ConfigField & { type: 'weight' } {
+  return field.type === 'weight';
 }
 
 function validateField(value: string, min: number): string | null {
@@ -17,6 +24,38 @@ function validateField(value: string, min: number): string | null {
   if (num < min) return `Mín ${min} kg`;
   if (num > 500) return 'Máx 500 kg';
   return null;
+}
+
+function validateConfigField(field: ConfigField, value: string): string | null {
+  if (isWeightField(field)) {
+    return validateField(value, field.min);
+  }
+  // Select fields: just check a value was selected
+  if (value.trim() === '') return 'Requerido';
+  return null;
+}
+
+/** Returns the default display value for a config field. */
+function getFieldDefault(
+  field: ConfigField,
+  initialConfig?: Record<string, number | string> | null
+): string {
+  if (initialConfig?.[field.key] !== undefined) {
+    return String(initialConfig[field.key]);
+  }
+  if (isWeightField(field)) return String(field.min);
+  // Select: default to first option's value
+  return field.options[0]?.value ?? '';
+}
+
+/** Returns min value for a weight field, 0 for select fields. */
+function getFieldMin(field: ConfigField): number {
+  return isWeightField(field) ? field.min : 0;
+}
+
+/** Returns step value for a weight field, 1 for select fields. */
+function getFieldStep(field: ConfigField): number {
+  return isWeightField(field) ? field.step : 1;
 }
 
 export function SetupForm({
@@ -65,12 +104,12 @@ export function SetupForm({
   }, [isEditMode, firstFieldKey]);
 
   const [showConfirm, setShowConfirm] = useState(false);
-  const [pendingConfig, setPendingConfig] = useState<Record<string, number> | null>(null);
+  const [pendingConfig, setPendingConfig] = useState<Record<string, number | string> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
     for (const f of fields) {
-      init[f.key] = String(initialConfig?.[f.key] ?? f.min);
+      init[f.key] = getFieldDefault(f, initialConfig);
     }
     return init;
   });
@@ -78,8 +117,8 @@ export function SetupForm({
     if (!isEditMode) return {};
     const init: Record<string, string | null> = {};
     for (const f of fields) {
-      const val = String(initialConfig?.[f.key] ?? f.min);
-      init[f.key] = validateField(val, f.min);
+      const val = getFieldDefault(f, initialConfig);
+      init[f.key] = validateConfigField(f, val);
     }
     return init;
   });
@@ -96,7 +135,7 @@ export function SetupForm({
     setValues((prev) => ({ ...prev, [key]: value }));
     const field = fields.find((f) => f.key === key);
     if (touched[key] && field) {
-      setFieldErrors((prev) => ({ ...prev, [key]: validateField(value, field.min) }));
+      setFieldErrors((prev) => ({ ...prev, [key]: validateConfigField(field, value) }));
     }
   };
 
@@ -104,27 +143,26 @@ export function SetupForm({
     const field = fields.find((f) => f.key === key);
     setTouched((prev) => ({ ...prev, [key]: true }));
     if (field) {
-      setFieldErrors((prev) => ({ ...prev, [key]: validateField(value, field.min) }));
+      setFieldErrors((prev) => ({ ...prev, [key]: validateConfigField(field, value) }));
     }
   };
 
   const adjustWeight = (key: string, delta: number): void => {
     const field = fields.find((f) => f.key === key);
-    const step = field?.step ?? 0.5;
-    const min = field?.min ?? step;
+    const step = field ? getFieldStep(field) : 0.5;
+    const min = field ? getFieldMin(field) : step;
     setValues((prev) => {
       const current = parseFloat(prev[key]) || 0;
       const next = Math.max(min, Math.round((current + delta) / step) * step);
       const nextStr = String(next);
       setTouched((t) => ({ ...t, [key]: true }));
       if (field) {
-        setFieldErrors((fe) => ({ ...fe, [key]: validateField(nextStr, field.min) }));
+        setFieldErrors((fe) => ({ ...fe, [key]: validateConfigField(field, nextStr) }));
       }
       return { ...prev, [key]: nextStr };
     });
   };
 
-  type ConfigField = ProgramDefinition['configFields'][number];
   interface FieldGroup {
     readonly label: string | null;
     readonly fields: readonly ConfigField[];
@@ -146,13 +184,13 @@ export function SetupForm({
     return groups;
   })();
 
-  const validateAndParse = (): Record<string, number> | null => {
+  const validateAndParse = (): Record<string, number | string> | null => {
     setError(null);
 
     const errors: Record<string, string | null> = {};
     let hasError = false;
     for (const f of fields) {
-      const err = validateField(values[f.key], f.min);
+      const err = validateConfigField(f, values[f.key]);
       errors[f.key] = err;
       if (err) hasError = true;
     }
@@ -164,9 +202,14 @@ export function SetupForm({
       return null;
     }
 
-    const parsed: Record<string, number> = {};
+    const parsed: Record<string, number | string> = {};
     for (const f of fields) {
-      parsed[f.key] = parseFloat(values[f.key]);
+      if (isWeightField(f)) {
+        parsed[f.key] = parseFloat(values[f.key]);
+      } else {
+        // Select fields: pass through as string
+        parsed[f.key] = values[f.key];
+      }
     }
 
     return parsed;
@@ -227,22 +270,36 @@ export function SetupForm({
               </h3>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {group.fields.map((f) => (
-                <WeightField
-                  key={f.key}
-                  fieldKey={f.key}
-                  label={f.label}
-                  value={values[f.key]}
-                  touched={!!touched[f.key]}
-                  fieldError={touched[f.key] ? (fieldErrors[f.key] ?? null) : null}
-                  step={f.step}
-                  min={f.min}
-                  onChange={handleChange}
-                  onBlur={handleBlur}
-                  onAdjust={adjustWeight}
-                  onSubmit={handleSubmit}
-                />
-              ))}
+              {group.fields.map((f) =>
+                isWeightField(f) ? (
+                  <WeightField
+                    key={f.key}
+                    fieldKey={f.key}
+                    label={f.label}
+                    value={values[f.key]}
+                    touched={!!touched[f.key]}
+                    fieldError={touched[f.key] ? (fieldErrors[f.key] ?? null) : null}
+                    step={f.step}
+                    min={f.min}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    onAdjust={adjustWeight}
+                    onSubmit={handleSubmit}
+                  />
+                ) : (
+                  <SelectField
+                    key={f.key}
+                    fieldKey={f.key}
+                    label={f.label}
+                    value={values[f.key]}
+                    options={f.options}
+                    touched={!!touched[f.key]}
+                    fieldError={touched[f.key] ? (fieldErrors[f.key] ?? null) : null}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                  />
+                )
+              )}
             </div>
           </div>
         ))}
