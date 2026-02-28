@@ -1,10 +1,24 @@
 import type { ProgramDefinition, GenericResults } from './types/program';
-import type { GenericSlotRow, GenericWorkoutRow, ResultValue } from './types/index';
+import type {
+  GenericSlotRow,
+  GenericWorkoutRow,
+  ResolvedPrescription,
+  ResultValue,
+} from './types/index';
 
 export function roundToNearestHalf(value: number): number {
   const rounded = Math.round(value * 2) / 2;
   if (!Number.isFinite(rounded) || rounded < 0) return 0;
   return rounded;
+}
+
+/** Round a value to the nearest multiple of `step`. */
+export function roundToNearest(value: number, step: number): number {
+  if (step <= 0 || !Number.isFinite(step)) return roundToNearestHalf(value);
+  const rounded = Math.round(value / step) * step;
+  if (!Number.isFinite(rounded) || rounded < 0) return 0;
+  // Avoid floating-point artifacts (e.g., 67.49999... -> 67.5)
+  return Math.round(rounded * 1000) / 1000;
 }
 
 // Derived from ProgramDefinition so it automatically includes all rule variants
@@ -210,9 +224,80 @@ export function computeGenericProgram(
     // --- 1. Snapshot BEFORE applying progression ---
     const slots: GenericSlotRow[] = day.slots.map((slot) => {
       const state = slotState[slot.id];
-      const stageConfig = slot.stages[state.stage];
       const slotResult = workoutResult[slot.id] ?? {};
       const exerciseName = definition.exercises[slot.exerciseId].name;
+      const role = resolveRole(slot.role, slot.tier);
+
+      // --- Prescription-based slot (Sheiko-style %1RM programs) ---
+      if (slot.prescriptions !== undefined && slot.percentOf !== undefined) {
+        const base1rm = configToNum(config, slot.percentOf);
+        const roundingStep = configToNum(config, 'rounding') || 2.5;
+
+        const resolvedPrescriptions: ResolvedPrescription[] = slot.prescriptions.map((p) => ({
+          percent: p.percent,
+          reps: p.reps,
+          sets: p.sets,
+          weight: roundToNearest((base1rm * p.percent) / 100, roundingStep),
+        }));
+
+        // Working set = last prescription (highest percentage)
+        const workingSet = resolvedPrescriptions[resolvedPrescriptions.length - 1];
+
+        return {
+          slotId: slot.id,
+          exerciseId: slot.exerciseId,
+          exerciseName,
+          tier: slot.tier,
+          weight: workingSet.weight,
+          stage: 0,
+          sets: workingSet.sets,
+          reps: workingSet.reps,
+          repsMax: undefined,
+          isAmrap: false,
+          stagesCount: 1,
+          result: slotResult.result,
+          amrapReps: undefined,
+          rpe: undefined,
+          isChanged: false,
+          isDeload: false,
+          role,
+          notes: slot.notes,
+          prescriptions: resolvedPrescriptions,
+          isGpp: slot.isGpp ?? false,
+          complexReps: slot.complexReps,
+        };
+      }
+
+      // --- GPP slot (no weight, pass/fail only) ---
+      if (slot.isGpp === true) {
+        const gppStage = slot.stages[0];
+        return {
+          slotId: slot.id,
+          exerciseId: slot.exerciseId,
+          exerciseName,
+          tier: slot.tier,
+          weight: 0,
+          stage: 0,
+          sets: gppStage.sets,
+          reps: gppStage.reps,
+          repsMax: undefined,
+          isAmrap: false,
+          stagesCount: 1,
+          result: slotResult.result,
+          amrapReps: undefined,
+          rpe: undefined,
+          isChanged: false,
+          isDeload: false,
+          role,
+          notes: slot.notes,
+          prescriptions: undefined,
+          isGpp: true,
+          complexReps: slot.complexReps,
+        };
+      }
+
+      // --- Standard stage-based slot (GZCLP, 5/3/1, etc.) ---
+      const stageConfig = slot.stages[state.stage];
 
       // TM-derived weight or absolute weight
       const weight =
@@ -226,9 +311,6 @@ export function computeGenericProgram(
       if (weight > 0) {
         prevWeightByExerciseId.set(slot.exerciseId, weight);
       }
-
-      // Role resolution: explicit > infer from tier > undefined
-      const role = resolveRole(slot.role, slot.tier);
 
       return {
         slotId: slot.id,
@@ -264,6 +346,9 @@ export function computeGenericProgram(
 
     // --- 2. Apply progression AFTER snapshot ---
     for (const slot of day.slots) {
+      // Prescription and GPP slots don't use stage-based progression
+      if (slot.prescriptions !== undefined || slot.isGpp === true) continue;
+
       const state = slotState[slot.id];
       const slotResult = workoutResult[slot.id] ?? {};
       const resultValue: ResultValue | undefined = slotResult.result;
