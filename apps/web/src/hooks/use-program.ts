@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
 import type {
@@ -192,11 +192,11 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   const resultTimestamps: Readonly<Record<string, string>> = detail?.resultTimestamps ?? {};
   const isLoading = catalogQuery.isLoading || programsQuery.isLoading || detailQuery.isLoading;
 
-  // Compute rows from definition + config + results
-  const rows: readonly GenericWorkoutRow[] = (() => {
+  // Compute rows from definition + config + results (memoized — avoids O(W×S) replay on every render)
+  const rows: readonly GenericWorkoutRow[] = useMemo(() => {
     if (!definition || !config) return [];
     return computeGenericProgram(definition, config, results);
-  })();
+  }, [definition, config, results]);
 
   // -------------------------------------------------------------------------
   // Mutations

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode } from 'react';
+import { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
 import {
   extractGenericChartData,
   calculateStats,
@@ -207,10 +207,23 @@ function CollapsibleSection({
 // ---------------------------------------------------------------------------
 
 function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): ReactNode {
-  const chartData = extractGenericChartData(definition, rows, resultTimestamps);
-  const rpeData = extractGenericRpeData(definition, rows, resultTimestamps);
-  const amrapData = extractGenericAmrapData(definition, rows, resultTimestamps);
-  const volumeData = extractWeeklyVolumeData(rows, resultTimestamps);
+  // Memoize stat extractions — each is O(W×S) with Intl.DateTimeFormat allocations
+  const chartData = useMemo(
+    () => extractGenericChartData(definition, rows, resultTimestamps),
+    [definition, rows, resultTimestamps]
+  );
+  const rpeData = useMemo(
+    () => extractGenericRpeData(definition, rows, resultTimestamps),
+    [definition, rows, resultTimestamps]
+  );
+  const amrapData = useMemo(
+    () => extractGenericAmrapData(definition, rows, resultTimestamps),
+    [definition, rows, resultTimestamps]
+  );
+  const volumeData = useMemo(
+    () => extractWeeklyVolumeData(rows, resultTimestamps),
+    [rows, resultTimestamps]
+  );
 
   const groups = groupExercises(definition);
 
