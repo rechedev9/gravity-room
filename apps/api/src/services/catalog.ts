@@ -14,7 +14,12 @@ import {
   getCachedCatalogDetail,
   setCachedCatalogDetail,
 } from '../lib/catalog-cache';
+import { SingleflightMap } from '../lib/singleflight';
 import { logger } from '../lib/logger';
+
+// Singleflight instances — one per return type for type safety
+const listFlight = new SingleflightMap<readonly CatalogEntry[]>();
+const detailFlight = new SingleflightMap<GetProgramDefinitionResult>();
 
 // ---------------------------------------------------------------------------
 // Types
@@ -85,93 +90,107 @@ function isCatalogEntryArray(value: unknown): value is readonly CatalogEntry[] {
 
 /** List all active program templates as catalog entries. */
 export async function listPrograms(): Promise<readonly CatalogEntry[]> {
-  // Check cache first
+  // Check cache first — fast path avoids singleflight overhead
   const cached = await getCachedCatalogList();
   if (cached && isCatalogEntryArray(cached)) {
     return cached;
   }
 
-  const rows = await getDb()
-    .select({
-      id: programTemplates.id,
-      name: programTemplates.name,
-      description: programTemplates.description,
-      author: programTemplates.author,
-      category: programTemplates.category,
-      source: programTemplates.source,
-      definition: sql<{
-        totalWorkouts: number;
-        workoutsPerWeek: number;
-        cycleLength: number;
-      }>`jsonb_build_object(
-        'totalWorkouts', (${programTemplates.definition}->>'totalWorkouts')::int,
-        'workoutsPerWeek', (${programTemplates.definition}->>'workoutsPerWeek')::int,
-        'cycleLength', (${programTemplates.definition}->>'cycleLength')::int
-      )`,
-    })
-    .from(programTemplates)
-    .where(eq(programTemplates.isActive, true))
-    .orderBy(asc(programTemplates.name));
+  // Singleflight: only one DB query executes on concurrent cache misses
+  return listFlight.run('catalog:list', async () => {
+    // Re-check cache — another caller may have populated it while we waited
+    const rechecked = await getCachedCatalogList();
+    if (rechecked && isCatalogEntryArray(rechecked)) return rechecked;
 
-  const entries = rows.map(toCatalogEntry);
+    const rows = await getDb()
+      .select({
+        id: programTemplates.id,
+        name: programTemplates.name,
+        description: programTemplates.description,
+        author: programTemplates.author,
+        category: programTemplates.category,
+        source: programTemplates.source,
+        definition: sql<{
+          totalWorkouts: number;
+          workoutsPerWeek: number;
+          cycleLength: number;
+        }>`jsonb_build_object(
+          'totalWorkouts', (${programTemplates.definition}->>'totalWorkouts')::int,
+          'workoutsPerWeek', (${programTemplates.definition}->>'workoutsPerWeek')::int,
+          'cycleLength', (${programTemplates.definition}->>'cycleLength')::int
+        )`,
+      })
+      .from(programTemplates)
+      .where(eq(programTemplates.isActive, true))
+      .orderBy(asc(programTemplates.name));
 
-  // Cache the result (fire-and-forget)
-  void setCachedCatalogList(entries);
+    const entries = rows.map(toCatalogEntry);
 
-  return entries;
+    // Cache the result (fire-and-forget)
+    void setCachedCatalogList(entries);
+
+    return entries;
+  });
 }
 
 /** Get a fully hydrated ProgramDefinition by ID. Distinguishes not-found from hydration failure. */
 export async function getProgramDefinition(programId: string): Promise<GetProgramDefinitionResult> {
-  // Check cache first
+  // Check cache first — fast path avoids singleflight overhead
   const cached = await getCachedCatalogDetail(programId);
   if (cached) return { status: 'found', definition: cached };
 
-  // Fetch template
-  const [template] = await getDb()
-    .select()
-    .from(programTemplates)
-    .where(and(eq(programTemplates.id, programId), eq(programTemplates.isActive, true)))
-    .limit(1);
+  // Singleflight: only one hydration runs per programId concurrently
+  return detailFlight.run(programId, async () => {
+    // Re-check cache — another caller may have populated it while we waited
+    const rechecked = await getCachedCatalogDetail(programId);
+    if (rechecked) return { status: 'found' as const, definition: rechecked };
 
-  if (!template) return { status: 'not_found' };
+    // Fetch template
+    const [template] = await getDb()
+      .select()
+      .from(programTemplates)
+      .where(and(eq(programTemplates.id, programId), eq(programTemplates.isActive, true)))
+      .limit(1);
 
-  // Collect referenced exercise IDs from the definition
-  const exerciseIds = collectExerciseIds(template.definition);
+    if (!template) return { status: 'not_found' as const };
 
-  // Fetch exercise rows
-  const exerciseRows =
-    exerciseIds.length > 0
-      ? await getDb()
-          .select({ id: exercises.id, name: exercises.name })
-          .from(exercises)
-          .where(inArray(exercises.id, exerciseIds))
-      : [];
+    // Collect referenced exercise IDs from the definition
+    const exerciseIds = collectExerciseIds(template.definition);
 
-  // Hydrate
-  const result = hydrateProgramDefinition(
-    {
-      id: template.id,
-      name: template.name,
-      description: template.description,
-      author: template.author,
-      version: template.version,
-      category: template.category,
-      source: template.source,
-      definition: template.definition,
-    },
-    exerciseRows
-  );
+    // Fetch exercise rows
+    const exerciseRows =
+      exerciseIds.length > 0
+        ? await getDb()
+            .select({ id: exercises.id, name: exercises.name })
+            .from(exercises)
+            .where(inArray(exercises.id, exerciseIds))
+        : [];
 
-  if (!result.ok) {
-    logger.error({ programId, error: result.error }, 'catalog: hydration failed');
-    return { status: 'hydration_failed', error: result.error };
-  }
+    // Hydrate
+    const result = hydrateProgramDefinition(
+      {
+        id: template.id,
+        name: template.name,
+        description: template.description,
+        author: template.author,
+        version: template.version,
+        category: template.category,
+        source: template.source,
+        definition: template.definition,
+      },
+      exerciseRows
+    );
 
-  // Cache the result (fire-and-forget)
-  void setCachedCatalogDetail(programId, result.value);
+    if (!result.ok) {
+      logger.error({ programId, error: result.error }, 'catalog: hydration failed');
+      return { status: 'hydration_failed' as const, error: result.error };
+    }
 
-  return { status: 'found', definition: result.value };
+    // Cache the result (fire-and-forget)
+    void setCachedCatalogDetail(programId, result.value);
+
+    return { status: 'found' as const, definition: result.value };
+  });
 }
 
 // ---------------------------------------------------------------------------

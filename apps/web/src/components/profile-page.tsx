@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { extractGenericChartData, calculateStats } from '@gzclp/shared/generic-stats';
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
+import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { useProgram } from '@/hooks/use-program';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
@@ -83,17 +84,17 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Derive names and primary exercises from definition
-  const names: Readonly<Record<string, string>> = (() => {
+  // Derive names and primary exercises from definition (memoized — stable when definition is stable)
+  const names: Readonly<Record<string, string>> = useMemo(() => {
     if (!definition) return {};
     const nm: Record<string, string> = {};
     for (const [id, ex] of Object.entries(definition.exercises)) {
       nm[id] = ex.name;
     }
     return nm;
-  })();
+  }, [definition]);
 
-  const primaryExercises: readonly string[] = (() => {
+  const primaryExercises: readonly string[] = useMemo(() => {
     if (!definition) return [];
     const ids = new Set<string>();
     for (const day of definition.days) {
@@ -102,17 +103,17 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
       }
     }
     return [...ids];
-  })();
+  }, [definition]);
 
-  const profileData = (() => {
+  const profileData = useMemo(() => {
     if (!config || !definition) return null;
     return computeProfileData(rows, definition, config, resultTimestamps);
-  })();
+  }, [rows, definition, config, resultTimestamps]);
 
-  const chartData = (() => {
+  const chartData = useMemo(() => {
     if (!definition || rows.length === 0) return null;
     return extractGenericChartData(definition, rows);
-  })();
+  }, [definition, rows]);
 
   // Lifetime volume: fetch details for all programs and sum volumes
   const uniqueProgramIds = [...new Set(allPrograms.map((p) => p.programId))];
@@ -134,23 +135,24 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
     })),
   });
 
-  const lifetimeVolume: number | null = (() => {
-    const allCatalogLoaded = catalogDetailQueries.every((q) => q.isSuccess);
-    const allDetailLoaded = programDetailQueries.every((q) => q.isSuccess);
+  // Memoize lifetime volume — O(P×W×S) computation across all programs.
+  // TanStack Query guarantees stable .data references when data hasn't changed,
+  // so individual query data objects are safe useMemo deps.
+  const allCatalogLoaded = catalogDetailQueries.every((q) => q.isSuccess);
+  const allDetailLoaded = programDetailQueries.every((q) => q.isSuccess);
+  const catalogDataRefs = catalogDetailQueries.map((q) => q.data);
+  const programDataRefs = programDetailQueries.map((q) => q.data);
+
+  const lifetimeVolume: number | null = useMemo(() => {
     if (!allCatalogLoaded || !allDetailLoaded) return null;
 
     const catalogMap = new Map(
-      catalogDetailQueries
-        .filter((q) => q.data !== undefined)
-        .map((q) => {
-          const d = q.data;
-          return [d.id, d];
-        })
+      catalogDataRefs.filter((d): d is ProgramDefinition => d !== undefined).map((d) => [d.id, d])
     );
 
     let total = 0;
     for (let i = 0; i < allPrograms.length; i++) {
-      const detail = programDetailQueries[i]?.data;
+      const detail = programDataRefs[i];
       const def = catalogMap.get(allPrograms[i].programId);
       if (!detail || !def) continue;
       const programRows = computeGenericProgram(def, detail.config, detail.results);
@@ -158,7 +160,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
       total += vol.totalVolume;
     }
     return total;
-  })();
+  }, [allCatalogLoaded, allDetailLoaded, allPrograms, ...catalogDataRefs, ...programDataRefs]);
 
   const handleAvatarClick = (): void => {
     fileInputRef.current?.click();

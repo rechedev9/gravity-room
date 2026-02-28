@@ -19,6 +19,10 @@ import {
   setCachedInstance,
   invalidateCachedInstance,
 } from '../lib/program-cache';
+import { SingleflightMap } from '../lib/singleflight';
+
+// Singleflight: concurrent GETs for the same program instance share one DB fetch
+const instanceFlight = new SingleflightMap<unknown>();
 
 const security = [{ bearerAuth: [] }];
 
@@ -92,9 +96,15 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       await rateLimit(userId, 'GET /programs/:id', { maxRequests: 100 });
       const cached = await getCachedInstance(userId, params.id);
       if (cached) return cached;
-      const fresh = await getInstance(userId, params.id);
-      await setCachedInstance(userId, params.id, fresh);
-      return fresh;
+
+      // Singleflight: concurrent GETs for the same instance share one DB fetch
+      return instanceFlight.run(`${userId}:${params.id}`, async () => {
+        const rechecked = await getCachedInstance(userId, params.id);
+        if (rechecked) return rechecked;
+        const fresh = await getInstance(userId, params.id);
+        await setCachedInstance(userId, params.id, fresh);
+        return fresh;
+      });
     },
     {
       params: t.Object({ id: t.String() }),

@@ -12,6 +12,11 @@ import {
   invalidateUserExercises,
 } from '../lib/exercise-cache';
 import { getCachedMuscleGroups, setCachedMuscleGroups } from '../lib/muscle-groups-cache';
+import { SingleflightMap } from '../lib/singleflight';
+
+// Singleflight instances — one per return type for type safety
+const exerciseFlight = new SingleflightMap<readonly ExerciseEntry[]>();
+const muscleGroupFlight = new SingleflightMap<readonly MuscleGroupEntry[]>();
 
 // ---------------------------------------------------------------------------
 // Types
@@ -130,71 +135,85 @@ export async function listExercises(
   userId: string | undefined,
   filter?: ExerciseFilter
 ): Promise<readonly ExerciseEntry[]> {
-  // Check cache first
+  // Check cache first — fast path avoids singleflight overhead
   const filterForHash: Record<string, unknown> = { ...filter };
   const filterHash = buildFilterHash(filterForHash);
   const cached = await getCachedExercises(userId, filterHash);
   if (cached) return cached;
 
-  const conditions = [
-    userId
-      ? or(eq(exercises.isPreset, true), eq(exercises.createdBy, userId))
-      : eq(exercises.isPreset, true),
-  ];
+  // Singleflight key includes userId + filterHash for per-query deduplication
+  const sfKey = `exercises:${userId ?? 'preset'}:${filterHash}`;
 
-  if (filter?.q) {
-    conditions.push(ilike(exercises.name, `%${escapeLikePattern(filter.q)}%`));
-  }
-  if (filter?.muscleGroupId && filter.muscleGroupId.length > 0) {
-    conditions.push(inArray(exercises.muscleGroupId, [...filter.muscleGroupId]));
-  }
-  if (filter?.equipment && filter.equipment.length > 0) {
-    conditions.push(inArray(exercises.equipment, [...filter.equipment]));
-  }
-  if (filter?.force && filter.force.length > 0) {
-    conditions.push(inArray(exercises.force, [...filter.force]));
-  }
-  if (filter?.level && filter.level.length > 0) {
-    conditions.push(inArray(exercises.level, [...filter.level]));
-  }
-  if (filter?.mechanic && filter.mechanic.length > 0) {
-    conditions.push(inArray(exercises.mechanic, [...filter.mechanic]));
-  }
-  if (filter?.category && filter.category.length > 0) {
-    conditions.push(inArray(exercises.category, [...filter.category]));
-  }
-  if (filter?.isCompound !== undefined) {
-    conditions.push(eq(exercises.isCompound, filter.isCompound));
-  }
+  return exerciseFlight.run(sfKey, async () => {
+    // Re-check cache — another caller may have populated it while we waited
+    const rechecked = await getCachedExercises(userId, filterHash);
+    if (rechecked) return rechecked;
 
-  const rows = await getDb()
-    .select()
-    .from(exercises)
-    .where(and(...conditions))
-    .orderBy(asc(exercises.name));
+    const conditions = [
+      userId
+        ? or(eq(exercises.isPreset, true), eq(exercises.createdBy, userId))
+        : eq(exercises.isPreset, true),
+    ];
 
-  const entries = rows.map(toExerciseEntry);
+    if (filter?.q) {
+      conditions.push(ilike(exercises.name, `%${escapeLikePattern(filter.q)}%`));
+    }
+    if (filter?.muscleGroupId && filter.muscleGroupId.length > 0) {
+      conditions.push(inArray(exercises.muscleGroupId, [...filter.muscleGroupId]));
+    }
+    if (filter?.equipment && filter.equipment.length > 0) {
+      conditions.push(inArray(exercises.equipment, [...filter.equipment]));
+    }
+    if (filter?.force && filter.force.length > 0) {
+      conditions.push(inArray(exercises.force, [...filter.force]));
+    }
+    if (filter?.level && filter.level.length > 0) {
+      conditions.push(inArray(exercises.level, [...filter.level]));
+    }
+    if (filter?.mechanic && filter.mechanic.length > 0) {
+      conditions.push(inArray(exercises.mechanic, [...filter.mechanic]));
+    }
+    if (filter?.category && filter.category.length > 0) {
+      conditions.push(inArray(exercises.category, [...filter.category]));
+    }
+    if (filter?.isCompound !== undefined) {
+      conditions.push(eq(exercises.isCompound, filter.isCompound));
+    }
 
-  // Populate cache (fire-and-forget)
-  void setCachedExercises(userId, filterHash, entries);
+    const rows = await getDb()
+      .select()
+      .from(exercises)
+      .where(and(...conditions))
+      .orderBy(asc(exercises.name));
 
-  return entries;
+    const entries = rows.map(toExerciseEntry);
+
+    // Populate cache (fire-and-forget)
+    void setCachedExercises(userId, filterHash, entries);
+
+    return entries;
+  });
 }
 
 /** List all muscle groups. */
 export async function listMuscleGroups(): Promise<readonly MuscleGroupEntry[]> {
-  // Check cache first
+  // Check cache first — fast path
   const cached = await getCachedMuscleGroups();
   if (cached) return cached;
 
-  const rows = await getDb()
-    .select({ id: muscleGroups.id, name: muscleGroups.name })
-    .from(muscleGroups);
+  return muscleGroupFlight.run('list', async () => {
+    const rechecked = await getCachedMuscleGroups();
+    if (rechecked) return rechecked;
 
-  // Populate cache (fire-and-forget)
-  void setCachedMuscleGroups(rows);
+    const rows = await getDb()
+      .select({ id: muscleGroups.id, name: muscleGroups.name })
+      .from(muscleGroups);
 
-  return rows;
+    // Populate cache (fire-and-forget)
+    void setCachedMuscleGroups(rows);
+
+    return rows;
+  });
 }
 
 /** Create a user-scoped exercise. Returns a typed error on conflict or invalid muscle group. */

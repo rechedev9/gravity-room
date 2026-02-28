@@ -267,8 +267,8 @@ describe('listExercises', () => {
     // Act
     await listExercises(undefined);
 
-    // Assert
-    expect(mockGetCachedExercises).toHaveBeenCalledTimes(1);
+    // Assert — called twice: fast-path check + re-check inside singleflight
+    expect(mockGetCachedExercises).toHaveBeenCalledTimes(2);
     expect(mockSetCachedExercises).toHaveBeenCalledTimes(1);
   });
 });
