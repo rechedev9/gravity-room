@@ -180,6 +180,9 @@ await runSeeds();
 const CSP =
   "default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com; img-src 'self' data: blob: https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://*.ingest.sentry.io; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; frame-src https://accounts.google.com; frame-ancestors 'none'";
 
+const PERMISSIONS_POLICY: string =
+  'camera=(), microphone=(), geolocation=(), payment=(), interest-cohort=()';
+
 // ---------------------------------------------------------------------------
 // Elysia app
 // ---------------------------------------------------------------------------
@@ -201,6 +204,7 @@ export const app = new Elysia()
     if (process.env['NODE_ENV'] === 'production') {
       set.headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
     }
+    set.headers['permissions-policy'] = PERMISSIONS_POLICY;
   })
   .use(requestLogger)
   .onError(({ code, error, set, reqLogger, startMs }) => {
@@ -319,6 +323,10 @@ export const app = new Elysia()
     })
   )
   .get('/', () => Bun.file(resolve(import.meta.dir, '../../web/dist/index.html')))
+  .get('/.well-known/security.txt', ({ set }) => {
+    set.headers['content-type'] = 'text/plain; charset=utf-8';
+    return Bun.file(resolve(import.meta.dir, '../../web/dist/.well-known/security.txt'));
+  })
   .get('/*', () => Bun.file(resolve(import.meta.dir, '../../web/dist/index.html')))
   .listen({ port: PORT, maxRequestBodySize: 1_048_576 }, () => {
     logger.info({ port: PORT }, 'API started');

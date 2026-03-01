@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 
+const BASE_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
+
 test.describe('Landing page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
@@ -26,5 +28,22 @@ test.describe('Landing page', () => {
       .first()
       .click();
     await expect(page).toHaveURL(/\/login/);
+  });
+});
+
+test.describe('security.txt', () => {
+  test('GET /.well-known/security.txt returns plain-text RFC 9116 document', async ({ page }) => {
+    const res = await page.request.get(`${BASE_URL}/.well-known/security.txt`);
+
+    expect(res.status()).toBe(200);
+
+    const contentType = res.headers()['content-type'] ?? '';
+    expect(contentType.startsWith('text/plain')).toBe(true);
+
+    const body = await res.text();
+    expect(body.startsWith('<!DOCTYPE')).toBe(false);
+
+    expect(body).toContain('Contact: https://github.com/rechedev9/gravity-room/issues');
+    expect(body).toContain('Expires: 2027-03-01T00:00:00Z');
   });
 });
