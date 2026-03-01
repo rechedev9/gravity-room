@@ -1625,6 +1625,7 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       min: 20,
       step: 2.5,
       group: 'Training Max',
+      hint: '~90% de tu 1RM con buena tecnica. Se usa en las fases T1 y PN.',
     },
     {
       key: 'bench_tm',
@@ -1633,6 +1634,7 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       min: 20,
       step: 2.5,
       group: 'Training Max',
+      hint: '~90% de tu 1RM con buena tecnica. Se usa en las fases T1 y PN.',
     },
     {
       key: 'deadlift_tm',
@@ -1641,6 +1643,7 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       min: 20,
       step: 2.5,
       group: 'Training Max',
+      hint: '~90% de tu 1RM con buena tecnica. Se usa en las fases T1 y PN.',
     },
     // Group: JAW Bloque 1 — TM
     {
@@ -1650,6 +1653,7 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       min: 20,
       step: 2.5,
       group: 'JAW Bloque 1 — TM',
+      hint: 'Pon tu TM actual (~90% 1RM). Actualizaras los siguientes bloques tras cada test.',
     },
     {
       key: 'bench_jaw_b1_tm',
@@ -1658,6 +1662,7 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       min: 20,
       step: 2.5,
       group: 'JAW Bloque 1 — TM',
+      hint: 'Pon tu TM actual (~90% 1RM). Actualizaras los siguientes bloques tras cada test.',
     },
     {
       key: 'deadlift_jaw_b1_tm',
@@ -1666,6 +1671,7 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       min: 20,
       step: 2.5,
       group: 'JAW Bloque 1 — TM',
+      hint: 'Pon tu TM actual (~90% 1RM). Actualizaras los siguientes bloques tras cada test.',
     },
     // Group: JAW Bloque 2 — TM
     {
@@ -1675,6 +1681,7 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       min: 20,
       step: 2.5,
       group: 'JAW Bloque 2 — TM',
+      hint: 'Actualiza con tu nuevo record tras el test al final del Bloque 1.',
     },
     {
       key: 'bench_jaw_b2_tm',
@@ -1683,6 +1690,7 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       min: 20,
       step: 2.5,
       group: 'JAW Bloque 2 — TM',
+      hint: 'Actualiza con tu nuevo record tras el test al final del Bloque 1.',
     },
     {
       key: 'deadlift_jaw_b2_tm',
@@ -1691,6 +1699,7 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       min: 20,
       step: 2.5,
       group: 'JAW Bloque 2 — TM',
+      hint: 'Actualiza con tu nuevo record tras el test al final del Bloque 1.',
     },
     // Group: JAW Bloque 3 — TM
     {
@@ -1700,6 +1709,7 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       min: 20,
       step: 2.5,
       group: 'JAW Bloque 3 — TM',
+      hint: 'Actualiza con tu nuevo record tras el test al final del Bloque 2.',
     },
     {
       key: 'bench_jaw_b3_tm',
@@ -1708,6 +1718,7 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       min: 20,
       step: 2.5,
       group: 'JAW Bloque 3 — TM',
+      hint: 'Actualiza con tu nuevo record tras el test al final del Bloque 2.',
     },
     {
       key: 'deadlift_jaw_b3_tm',
@@ -1716,6 +1727,7 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       min: 20,
       step: 2.5,
       group: 'JAW Bloque 3 — TM',
+      hint: 'Actualiza con tu nuevo record tras el test al final del Bloque 2.',
     },
     // Group: Pesos Iniciales — Fase Zero
     {

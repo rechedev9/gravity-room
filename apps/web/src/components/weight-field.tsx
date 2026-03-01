@@ -6,6 +6,7 @@ interface WeightFieldProps {
   readonly fieldError: string | null;
   readonly step: number;
   readonly min: number;
+  readonly hint?: string;
   readonly onChange: (key: string, value: string) => void;
   readonly onBlur: (key: string, value: string) => void;
   readonly onAdjust: (key: string, delta: number) => void;
@@ -20,6 +21,7 @@ export function WeightField({
   fieldError,
   step,
   min,
+  hint,
   onChange,
   onBlur,
   onAdjust,
@@ -89,7 +91,7 @@ export function WeightField({
           <span aria-hidden="true">&#10003;</span> Válido
         </p>
       ) : (
-        <p className="text-[10px] text-muted mt-1">Mín {min} kg</p>
+        <p className="text-[10px] text-muted mt-1">{hint ?? `Mín ${min} kg`}</p>
       )}
     </div>
   );

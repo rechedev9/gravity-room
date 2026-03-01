@@ -118,6 +118,7 @@ const WeightConfigFieldSchema = z.strictObject({
   min: z.number(),
   step: z.number().positive(),
   group: z.string().min(1).optional(),
+  hint: z.string().min(1).optional(),
 });
 
 const SelectOptionSchema = z.strictObject({
