@@ -154,7 +154,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/refresh',
     async ({ jwt, cookie, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/refresh');
+      // In non-production environments (dev, E2E) use a higher limit so
+      // parallel test workers don't exhaust the 20/min default.
+      const refreshLimit =
+        process.env['NODE_ENV'] === 'production' ? undefined : { maxRequests: 500 };
+      await rateLimit(ip, '/auth/refresh', refreshLimit);
 
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
       const tokenValue = refreshCookie?.value;

@@ -4,11 +4,12 @@ import { DEFAULT_WEIGHTS } from './fixtures';
 const BASE_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
 
 // GZCLP slot map (mirrors GZCLP_DEFINITION.days — stable, defined in gzclp.ts)
+// T3 slots alternate between latpulldown-t3 (days 1, 3) and dbrow-t3 (days 2, 4)
 const SLOT_MAP: Record<number, Record<string, string>> = {
-  0: { t1: 'd1-t1', t2: 'd1-t2', t3: 'd1-t3' },
-  1: { t1: 'd2-t1', t2: 'd2-t2', t3: 'd2-t3' },
-  2: { t1: 'd3-t1', t2: 'd3-t2', t3: 'd3-t3' },
-  3: { t1: 'd4-t1', t2: 'd4-t2', t3: 'd4-t3' },
+  0: { t1: 'd1-t1', t2: 'd1-t2', t3: 'latpulldown-t3' },
+  1: { t1: 'd2-t1', t2: 'd2-t2', t3: 'dbrow-t3' },
+  2: { t1: 'd3-t1', t2: 'd3-t2', t3: 'latpulldown-t3' },
+  3: { t1: 'd4-t1', t2: 'd4-t2', t3: 'dbrow-t3' },
 };
 
 function tierToSlotId(workoutIndex: number, tier: string): string | null {

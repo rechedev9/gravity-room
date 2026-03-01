@@ -5,8 +5,8 @@ test.describe('Auth flow', () => {
   test('navigates to /login and shows Google sign-in button', async ({ page }) => {
     await page.goto('/login');
 
-    await expect(page.getByText('Welcome')).toBeVisible();
-    await expect(page.getByText('Continue without an account')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Gravity Room' })).toBeVisible();
+    await expect(page.getByText('Autenticar')).toBeVisible();
   });
 
   test('signed-in user is redirected away from /login', async ({ page }) => {

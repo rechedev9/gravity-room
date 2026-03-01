@@ -1,51 +1,42 @@
 import { test, expect } from '@playwright/test';
-import { seedProgram } from './helpers/seed';
+import { seedProgram, navigateToTracker } from './helpers/seed';
 
 test.describe('Workout recording', () => {
   test.beforeEach(async ({ page }) => {
     await seedProgram(page);
-    await page.goto('/app?view=tracker');
-    // Wait for the program to render
-    await expect(page.getByText('Week 1', { exact: true })).toBeVisible();
+    await navigateToTracker(page);
   });
 
   test('pass/fail buttons visible for workout #1', async ({ page }) => {
-    // Use first() because both desktop table and mobile card have the same data-testid
-    const t1Cell = page.locator('[data-testid="t1-result-0"]').first();
-    await expect(t1Cell.getByRole('button').first()).toBeVisible();
-    // Should have both pass (✓) and fail (✗) buttons
-    await expect(t1Cell.getByRole('button')).toHaveCount(2);
+    // GZCLP Day 1 slots: d1-t1 (Sentadilla T1), d1-t2 (Press Banca T2)
+    await expect(page.getByRole('button', { name: 'Marcar d1-t1 éxito' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Marcar d1-t1 fallo' }).first()).toBeVisible();
   });
 
   test('T1 success shows toast and badge', async ({ page }) => {
-    const t1Cell = page.locator('[data-testid="t1-result-0"]').first();
-    // Click the pass (✓) button — first button in the cell
-    await t1Cell.getByRole('button').first().click();
+    await page.getByRole('button', { name: 'Marcar d1-t1 éxito' }).first().click();
 
     // Toast should appear with success message
-    await expect(page.getByText('#1: Squat T1 — Success')).toBeVisible();
+    await expect(page.getByText('#1: Sentadilla T1 — Éxito')).toBeVisible();
 
-    // Badge ✓ should appear in the cell
-    await expect(t1Cell.getByText('✓')).toBeVisible();
+    // Badge ✓ should appear as an undo button
+    await expect(page.getByRole('button', { name: 'Deshacer d1-t1 éxito' }).first()).toBeVisible();
   });
 
   test('T1 success reveals AMRAP input', async ({ page }) => {
-    const t1Cell = page.locator('[data-testid="t1-result-0"]').first();
-    await t1Cell.getByRole('button').first().click();
+    await page.getByRole('button', { name: 'Marcar d1-t1 éxito' }).first().click();
 
-    // AMRAP input should now be visible
-    await expect(page.locator('[title="AMRAP reps"]').first()).toBeVisible();
+    // AMRAP input group should now be visible (role="group" aria-label="Reps AMRAP")
+    await expect(page.getByRole('group', { name: 'Reps AMRAP' }).first()).toBeVisible();
   });
 
   test('T2 fail shows toast and badge', async ({ page }) => {
-    const t2Cell = page.locator('[data-testid="t2-result-0"]').first();
-    // Click the fail (✗) button — second button in the cell
-    await t2Cell.getByRole('button').nth(1).click();
+    await page.getByRole('button', { name: 'Marcar d1-t2 fallo' }).first().click();
 
     // Toast should appear with fail message
-    await expect(page.getByText('#1: Bench Press T2 — Fail')).toBeVisible();
+    await expect(page.getByText('#1: Press Banca T2 — Fallo')).toBeVisible();
 
-    // Badge ✗ should appear in the cell
-    await expect(t2Cell.getByText('✗')).toBeVisible();
+    // Badge ✗ should appear as an undo button
+    await expect(page.getByRole('button', { name: 'Deshacer d1-t2 fallo' }).first()).toBeVisible();
   });
 });
