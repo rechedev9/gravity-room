@@ -35,7 +35,7 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
     .values([
       {
         id: 'gzclp',
-        name: 'Gravedad x10',
+        name: 'GZCLP',
         description:
           'Como entrenar en el planeta de Kaio-sama: progresi\u00f3n lineal bajo presi\u00f3n constante. ' +
           'Rotaci\u00f3n de 4 d\u00edas con ejercicios T1, T2 y T3. Si fallas, cambias de etapa y ' +
@@ -49,7 +49,7 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'ppl531',
-        name: 'Kaioken x20',
+        name: 'PPL 5/3/1',
         description:
           'Seis d\u00edas de Kaioken: empuja tu cuerpo al m\u00e1ximo con fuerza y volumen. ' +
           'Push/Pull/Legs combinando 5/3/1 para los compuestos principales con doble ' +
@@ -92,7 +92,7 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'wendler531bbb',
-        name: '100 Flexiones',
+        name: '5/3/1 Boring But Big',
         description:
           'El secreto de la fuerza seg\u00fan el Maestro Roshi: repeticiones aburridas pero ' +
           'enormes resultados. Ciclos de 4 semanas (5s, 3s, 5/3/1, descarga) con 5\u00d710 ' +
@@ -106,7 +106,7 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'wendler531beginners',
-        name: 'Palacio de Kami',
+        name: '5/3/1 for Beginners',
         description:
           'Entrenamiento de cuerpo completo en el Palacio Celeste: 3 d\u00edas por semana, ' +
           'dos levantamientos principales por sesi\u00f3n. Ciclos de 3 semanas (5s, 3s, 5/3/1) ' +
@@ -121,7 +121,7 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       },
       {
         id: 'phul',
-        name: 'C\u00e1mara de Gravedad',
+        name: 'PHUL',
         description:
           'Fuerza y tama\u00f1o como Vegeta en su c\u00e1mara de gravedad: dos d\u00edas de poder puro ' +
           '(compuestos pesados 3-5 reps) y dos de hipertrofia (8-12 reps). ' +
