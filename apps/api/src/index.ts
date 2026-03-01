@@ -7,7 +7,7 @@ import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { ApiError } from './middleware/error-handler';
 import { requestLogger } from './middleware/request-logger';
 import { swaggerPlugin } from './plugins/swagger';
@@ -311,9 +311,15 @@ export const app = new Elysia()
     set.headers['content-type'] = registry.contentType;
     return registry.metrics();
   })
-  .use(staticPlugin({ assets: '../web/dist', prefix: '/' }))
-  .get('/', () => Bun.file('../web/dist/index.html'))
-  .get('/*', () => Bun.file('../web/dist/index.html'))
+  .use(
+    staticPlugin({
+      assets: resolve(import.meta.dir, '../../web/dist'),
+      prefix: '/',
+      alwaysStatic: true,
+    })
+  )
+  .get('/', () => Bun.file(resolve(import.meta.dir, '../../web/dist/index.html')))
+  .get('/*', () => Bun.file(resolve(import.meta.dir, '../../web/dist/index.html')))
   .listen({ port: PORT, maxRequestBodySize: 1_048_576 }, () => {
     logger.info({ port: PORT }, 'API started');
   });
