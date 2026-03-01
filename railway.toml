@@ -3,6 +3,7 @@ builder = "nixpacks"
 buildCommand = "bun install --frozen-lockfile && bun run build:web"
 
 [deploy]
+preDeployCommand = "bun --cwd apps/api src/db/scripts/update-program-definitions.ts"
 startCommand = "bun --cwd apps/api src/index.ts"
 healthcheckPath = "/health"
 healthcheckTimeout = 30

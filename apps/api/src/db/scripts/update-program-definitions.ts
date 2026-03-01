@@ -16,5 +16,8 @@ async function run(): Promise<void> {
 
 run().catch((err: unknown) => {
   console.error('Update failed:', err);
+  if (err instanceof Error && err.cause) {
+    console.error('Cause:', err.cause);
+  }
   process.exit(1);
 });
