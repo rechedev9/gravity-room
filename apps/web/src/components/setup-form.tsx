@@ -254,7 +254,7 @@ export function SetupForm({
           ? (definition.configEditTitle ?? 'Editar Pesos Iniciales (kg)')
           : (definition.configTitle ?? 'Pesos Iniciales (kg)')}
       </h2>
-      <p className="text-[13px] text-muted mb-5">
+      <p className="text-[13px] text-muted mb-5 whitespace-pre-line">
         {isEditMode
           ? (definition.configEditDescription ??
             'Actualiza tus pesos iniciales — el programa se recalculará con los nuevos valores')

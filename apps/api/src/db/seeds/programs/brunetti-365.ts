@@ -1792,9 +1792,18 @@ export const BRUNETTI365_EXP_DEFINITION_JSONB = {
     'Inspirado en la metodologia de Amerigo Brunetti. 196 sesiones de hipertrofia ' +
     'estructurada en 4 fases: T1 (perfeccionamiento), PN (potenciacion neural), ' +
     'JAW (volumen intenso) e IS (hipertrofia especifica). ' +
-    'Para guerreros que ya dominan los tres levantamientos fundamentales.',
+    'Para guerreros que ya dominan los tres levantamientos fundamentales.\n\n' +
+    'Training Max: es el peso que puedes levantar con buena tecnica (~90% de tu 1RM). ' +
+    'Se usa durante las fases T1 y PN. ' +
+    'La fase JAW se divide en 3 bloques de 6 semanas. Al final de cada bloque haras ' +
+    'un test de maximo — usa ese resultado para actualizar el TM del bloque siguiente. ' +
+    'Al generar el programa, puedes poner el mismo TM en todos los bloques y actualizarlo ' +
+    'mas adelante desde "Editar configuracion".',
   configEditTitle: BRUNETTI365_DEFINITION_JSONB.configEditTitle,
-  configEditDescription: BRUNETTI365_DEFINITION_JSONB.configEditDescription,
+  configEditDescription:
+    'Actualiza tus Training Max. Durante la fase JAW, actualiza los TM del bloque ' +
+    'correspondiente despues de cada test de maximo. Si acabas de terminar el Bloque 1, ' +
+    'actualiza el TM del Bloque 2 con tu nuevo record.',
   cycleLength: 196,
   totalWorkouts: 196,
   workoutsPerWeek: 4,
