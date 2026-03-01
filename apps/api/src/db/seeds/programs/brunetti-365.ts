@@ -1654,6 +1654,8 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       step: 2.5,
       group: 'JAW Bloque 1 — TM',
       hint: 'Pon tu TM actual (~90% 1RM). Actualizaras los siguientes bloques tras cada test.',
+      groupHint:
+        'Sem. 1-5: entreno · Sem. 6: test de maximo (sentadilla, banca y peso muerto por separado). Tras el test, actualiza los TM del Bloque 2.',
     },
     {
       key: 'bench_jaw_b1_tm',
@@ -1682,6 +1684,8 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       step: 2.5,
       group: 'JAW Bloque 2 — TM',
       hint: 'Actualiza con tu nuevo record tras el test al final del Bloque 1.',
+      groupHint:
+        'Sem. 7-11: entreno · Sem. 12: test de maximo. Tras el test, actualiza los TM del Bloque 3.',
     },
     {
       key: 'bench_jaw_b2_tm',
@@ -1710,6 +1714,8 @@ export const BRUNETTI365_DEFINITION_JSONB = {
       step: 2.5,
       group: 'JAW Bloque 3 — TM',
       hint: 'Actualiza con tu nuevo record tras el test al final del Bloque 2.',
+      groupHint:
+        'Sem. 13-17: entreno · Sem. 18: test final de la fase JAW. Ultimo bloque — no hay bloque siguiente.',
     },
     {
       key: 'bench_jaw_b3_tm',

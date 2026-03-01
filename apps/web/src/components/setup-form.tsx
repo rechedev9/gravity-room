@@ -262,48 +262,58 @@ export function SetupForm({
       </p>
 
       <div className="mb-6 space-y-5">
-        {groupedFields.map((group) => (
-          <div key={group.label ?? '_ungrouped'}>
-            {group.label && (
-              <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted mb-2">
-                {group.label}
-              </h3>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {group.fields.map((f) =>
-                isWeightField(f) ? (
-                  <WeightField
-                    key={f.key}
-                    fieldKey={f.key}
-                    label={f.label}
-                    value={values[f.key]}
-                    touched={!!touched[f.key]}
-                    fieldError={touched[f.key] ? (fieldErrors[f.key] ?? null) : null}
-                    step={f.step}
-                    min={f.min}
-                    hint={f.hint}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    onAdjust={adjustWeight}
-                    onSubmit={handleSubmit}
-                  />
-                ) : (
-                  <SelectField
-                    key={f.key}
-                    fieldKey={f.key}
-                    label={f.label}
-                    value={values[f.key]}
-                    options={f.options}
-                    touched={!!touched[f.key]}
-                    fieldError={touched[f.key] ? (fieldErrors[f.key] ?? null) : null}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                  />
-                )
+        {groupedFields.map((group) => {
+          const groupHint = group.fields
+            .filter((f): f is ConfigField & { type: 'weight' } => f.type === 'weight')
+            .find((f) => f.groupHint !== undefined)?.groupHint;
+          return (
+            <div key={group.label ?? '_ungrouped'}>
+              {group.label && (
+                <div className="mb-2">
+                  <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted">
+                    {group.label}
+                  </h3>
+                  {groupHint && (
+                    <p className="text-[11px] text-muted mt-0.5 leading-snug">{groupHint}</p>
+                  )}
+                </div>
               )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {group.fields.map((f) =>
+                  isWeightField(f) ? (
+                    <WeightField
+                      key={f.key}
+                      fieldKey={f.key}
+                      label={f.label}
+                      value={values[f.key]}
+                      touched={!!touched[f.key]}
+                      fieldError={touched[f.key] ? (fieldErrors[f.key] ?? null) : null}
+                      step={f.step}
+                      min={f.min}
+                      hint={f.hint}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      onAdjust={adjustWeight}
+                      onSubmit={handleSubmit}
+                    />
+                  ) : (
+                    <SelectField
+                      key={f.key}
+                      fieldKey={f.key}
+                      label={f.label}
+                      value={values[f.key]}
+                      options={f.options}
+                      touched={!!touched[f.key]}
+                      fieldError={touched[f.key] ? (fieldErrors[f.key] ?? null) : null}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                    />
+                  )
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {error && (
