@@ -265,6 +265,8 @@ export function computeGenericProgram(
           prescriptions: resolvedPrescriptions,
           isGpp: slot.isGpp ?? false,
           complexReps: slot.complexReps,
+          propagatesTo: slot.propagatesTo,
+          isTestSlot: slot.isTestSlot,
         };
       }
 
@@ -293,6 +295,8 @@ export function computeGenericProgram(
           prescriptions: undefined,
           isGpp: true,
           complexReps: slot.complexReps,
+          propagatesTo: slot.propagatesTo,
+          isTestSlot: slot.isTestSlot,
         };
       }
 
@@ -334,6 +338,8 @@ export function computeGenericProgram(
         prescriptions: undefined,
         isGpp: undefined,
         complexReps: undefined,
+        propagatesTo: slot.propagatesTo,
+        isTestSlot: slot.isTestSlot,
       };
     });
 

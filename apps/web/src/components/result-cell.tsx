@@ -5,6 +5,8 @@ interface ResultCellProps {
   readonly tier: string;
   readonly result?: ResultValue;
   readonly variant: 'table' | 'card';
+  /** True for test slots — renders a single "Registrar Maximo" button instead of Pass/Fail. */
+  readonly isTestSlot?: boolean;
   readonly onMark: (index: number, tier: string, value: ResultValue) => void;
   readonly onUndo: (index: number, tier: string) => void;
 }
@@ -14,6 +16,7 @@ export function ResultCell({
   tier,
   result,
   variant,
+  isTestSlot,
   onMark,
   onUndo,
 }: ResultCellProps): React.ReactNode {
@@ -48,6 +51,23 @@ export function ResultCell({
             <span className="text-xs font-normal opacity-70">deshacer</span>
           </>
         )}
+      </button>
+    );
+  }
+
+  // Test slot: single "Registrar Maximo" button instead of Pass/Fail pair
+  if (isTestSlot === true) {
+    const testSizeClasses = isTable
+      ? 'min-h-[44px] px-3 py-1.5 text-[11px]'
+      : 'min-h-[48px] px-3 py-2 text-xs';
+
+    return (
+      <button
+        onClick={() => onMark(index, tier, 'success')}
+        aria-label={`Registrar maximo ${tier}`}
+        className={`${testSizeClasses} font-bold border-2 border-accent bg-transparent text-accent rounded-sm cursor-pointer transition-all duration-150 hover:bg-accent/10 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none whitespace-nowrap`}
+      >
+        Registrar Maximo
       </button>
     );
   }

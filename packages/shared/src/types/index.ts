@@ -34,6 +34,10 @@ export interface GenericSlotRow {
   readonly isGpp: boolean | undefined;
   /** Complex rep scheme display string (e.g., '1+3') for compound sets. */
   readonly complexReps: string | undefined;
+  /** Config key this slot propagates its test weight to (undefined = no propagation). */
+  readonly propagatesTo: string | undefined;
+  /** True for test slots (show weight-capture modal regardless of propagation target). */
+  readonly isTestSlot: boolean | undefined;
 }
 
 export interface GenericWorkoutRow {

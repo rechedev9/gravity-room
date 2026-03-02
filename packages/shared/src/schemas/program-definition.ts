@@ -100,6 +100,10 @@ export const ExerciseSlotSchema = z.strictObject({
   isGpp: z.boolean().optional(),
   /** Complex rep scheme display string (e.g., '1+3'). */
   complexReps: z.string().min(1).optional(),
+  /** Config key to update with the user's test weight (e.g., 'squat_jaw_b2_tm'). */
+  propagatesTo: z.string().min(1).optional(),
+  /** True for test slots that require weight entry (regardless of propagation). */
+  isTestSlot: z.boolean().optional(),
 });
 
 // --- Program Day ---

@@ -36,6 +36,8 @@ function makeSlot(
     prescriptions: overrides.prescriptions ?? undefined,
     isGpp: overrides.isGpp ?? undefined,
     complexReps: overrides.complexReps ?? undefined,
+    propagatesTo: overrides.propagatesTo ?? undefined,
+    isTestSlot: overrides.isTestSlot ?? undefined,
     ...overrides,
   };
 }

@@ -124,7 +124,8 @@ function maxTestSlot(
   startWeightKey: string,
   liftName: string,
   blockNum: number,
-  nextBlockTmLabel: string
+  nextBlockTmLabel: string,
+  propagatesTo?: string
 ): SlotDef {
   return {
     id,
@@ -136,6 +137,8 @@ function maxTestSlot(
     onMidStageFail: NC,
     onFinalStageFail: NC,
     startWeightKey,
+    isTestSlot: true,
+    ...(propagatesTo !== undefined ? { propagatesTo } : {}),
     notes:
       `TEST DE 1RM — ${liftName.toUpperCase()}. ` +
       'Calienta progresivamente hasta tu maximo. ' +
@@ -893,6 +896,13 @@ function buildFaseJAW(): ProgramDay[] {
     deadlift: ['Peso Muerto — TM Bloque 2', 'Peso Muerto — TM Bloque 3', ''],
   } as const;
 
+  // Config keys to propagate test weight into (B1→B2, B2→B3, B3→none)
+  const nextBlockTmKeys = {
+    squat: [JAW_TM.B2.SQUAT, JAW_TM.B3.SQUAT, undefined],
+    bench: [JAW_TM.B2.BENCH, JAW_TM.B3.BENCH, undefined],
+    deadlift: [JAW_TM.B2.DEADLIFT, JAW_TM.B3.DEADLIFT, undefined],
+  } as const;
+
   for (const block of blocks) {
     const { schedule, tmKeys, blockNum, weekStart } = block;
 
@@ -1213,7 +1223,8 @@ function buildFaseJAW(): ProgramDay[] {
           tmKeys.SQUAT,
           'Sentadilla',
           blockNum,
-          nextBlockLabels.squat[blockNum - 1]
+          nextBlockLabels.squat[blockNum - 1],
+          nextBlockTmKeys.squat[blockNum - 1]
         ),
       ],
     });
@@ -1228,7 +1239,8 @@ function buildFaseJAW(): ProgramDay[] {
           tmKeys.BENCH,
           'Press Banca',
           blockNum,
-          nextBlockLabels.bench[blockNum - 1]
+          nextBlockLabels.bench[blockNum - 1],
+          nextBlockTmKeys.bench[blockNum - 1]
         ),
       ],
     });
@@ -1243,7 +1255,8 @@ function buildFaseJAW(): ProgramDay[] {
           tmKeys.DEADLIFT,
           'Peso Muerto',
           blockNum,
-          nextBlockLabels.deadlift[blockNum - 1]
+          nextBlockLabels.deadlift[blockNum - 1],
+          nextBlockTmKeys.deadlift[blockNum - 1]
         ),
       ],
     });

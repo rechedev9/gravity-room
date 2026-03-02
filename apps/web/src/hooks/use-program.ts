@@ -141,6 +141,8 @@ export interface UseProgramReturn {
   readonly resetAll: (onSuccess?: () => void) => void;
   readonly exportData: () => void;
   readonly importData: (json: string) => Promise<boolean>;
+  /** Await-able version of updateConfig for sequential flows. */
+  readonly updateConfigAsync: (config: Record<string, number | string>) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -499,6 +501,11 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     updateConfigMutation.mutate(newConfig);
   };
 
+  const updateConfigAsyncCb = async (newConfig: Record<string, number | string>): Promise<void> => {
+    if (!activeInstanceId) throw new Error('No active program');
+    await updateConfigMutation.mutateAsync(newConfig);
+  };
+
   const updateMetadataCb = (newMetadata: Record<string, unknown>): void => {
     updateMetadataMutation.mutate(newMetadata);
   };
@@ -580,5 +587,6 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     resetAll: resetAllCb,
     exportData: exportDataCb,
     importData: importDataCb,
+    updateConfigAsync: updateConfigAsyncCb,
   };
 }

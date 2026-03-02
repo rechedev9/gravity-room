@@ -2502,3 +2502,88 @@ describe('Sheiko seed schema validation', () => {
     });
   }
 });
+
+// ---------------------------------------------------------------------------
+// propagatesTo / isTestSlot field pass-through
+// ---------------------------------------------------------------------------
+
+describe('propagatesTo and isTestSlot pass-through', () => {
+  /** Minimal definition with propagatesTo and isTestSlot on the slot. */
+  function makeTestSlotDefinition(
+    propagatesTo: string | undefined,
+    isTestSlot: boolean | undefined
+  ): ProgramDefinition {
+    return {
+      id: 'test-propagation',
+      name: 'Test Propagation',
+      description: '',
+      author: 'test',
+      version: 1,
+      category: 'test',
+      source: 'preset',
+      cycleLength: 1,
+      totalWorkouts: 1,
+      workoutsPerWeek: 1,
+      exercises: { squat: { name: 'Squat' } },
+      configFields: [
+        { key: 'squat_tm', label: 'Squat TM', type: 'weight' as const, min: 0, step: 2.5 },
+      ],
+      weightIncrements: {},
+      days: [
+        {
+          name: 'Test Day',
+          slots: [
+            {
+              id: 'test_slot',
+              exerciseId: 'squat',
+              tier: 'main',
+              stages: [{ sets: 1, reps: 1 }],
+              onSuccess: { type: 'no_change' },
+              onMidStageFail: { type: 'no_change' },
+              onFinalStageFail: { type: 'no_change' },
+              startWeightKey: 'squat_tm',
+              propagatesTo,
+              isTestSlot,
+            },
+          ],
+        },
+      ],
+    };
+  }
+
+  it('should include propagatesTo in GenericSlotRow when slot definition has it', () => {
+    const def = makeTestSlotDefinition('squat_jaw_b2_tm', true);
+    const config = { squat_tm: 100 };
+
+    const rows = computeGenericProgram(def, config, {});
+
+    expect(rows[0].slots[0].propagatesTo).toBe('squat_jaw_b2_tm');
+  });
+
+  it('should include isTestSlot: true in GenericSlotRow when slot definition has isTestSlot: true', () => {
+    const def = makeTestSlotDefinition('squat_jaw_b2_tm', true);
+    const config = { squat_tm: 100 };
+
+    const rows = computeGenericProgram(def, config, {});
+
+    expect(rows[0].slots[0].isTestSlot).toBe(true);
+  });
+
+  it('should have propagatesTo as undefined when slot definition omits it', () => {
+    const def = makeTestSlotDefinition(undefined, undefined);
+    const config = { squat_tm: 100 };
+
+    const rows = computeGenericProgram(def, config, {});
+
+    expect(rows[0].slots[0].propagatesTo).toBeUndefined();
+  });
+
+  it('should have isTestSlot as undefined when slot definition omits it', () => {
+    const def = makeTestSlotDefinition(undefined, undefined);
+    const config = { squat_tm: 100 };
+
+    const rows = computeGenericProgram(def, config, {});
+
+    expect(rows[0].slots[0].isTestSlot).toBeUndefined();
+  });
+});

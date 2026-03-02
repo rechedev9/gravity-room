@@ -41,6 +41,10 @@ export interface SlotDef {
   readonly isGpp?: boolean;
   /** Complex rep scheme display string (e.g., '1+3'). */
   readonly complexReps?: string;
+  /** Config key to update with the user's test weight. */
+  readonly propagatesTo?: string;
+  /** True for test/max-effort slots that require weight entry. */
+  readonly isTestSlot?: boolean;
 }
 
 export const NC = { type: 'no_change' } as const;

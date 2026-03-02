@@ -24,6 +24,7 @@ import { ProgramCompletionScreen } from './program-completion-screen';
 import { SetupForm } from './setup-form';
 import { StatsSkeleton } from './stats-skeleton';
 import { TabButton } from './tab-button';
+import { TestWeightModal } from './test-weight-modal';
 import { ToastContainer } from './toast';
 import { Toolbar } from './toolbar';
 import { WeekNavigator } from './week-navigator';
@@ -35,6 +36,19 @@ const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
 const preloadStatsPanel = (): void => {
   void import('./stats-panel');
 };
+
+interface TestWeightModalState {
+  readonly workoutIndex: number;
+  readonly slotId: string;
+  readonly exerciseName: string;
+  readonly prefillWeight: number;
+  readonly propagatesTo: string | undefined;
+}
+
+interface ConfigSnapshot {
+  readonly propagatesTo: string;
+  readonly previousValue: number | string | undefined;
+}
 
 interface JawContext {
   readonly block: 1 | 2 | 3;
@@ -101,6 +115,7 @@ export function ProgramApp({
     finishProgram,
     isFinishing,
     resetAll,
+    updateConfigAsync,
   } = useProgram(programId, instanceId);
 
   useWebMcp({
@@ -127,6 +142,12 @@ export function ProgramApp({
   } | null>(null);
 
   const [showCompletion, setShowCompletion] = useState(false);
+
+  // Test weight modal state: blocks result recording until user confirms weight
+  const [testWeightModal, setTestWeightModal] = useState<TestWeightModalState | null>(null);
+  const [testWeightLoading, setTestWeightLoading] = useState(false);
+  // Stores previous config values for test slots to enable undo reversion
+  const configSnapshotRef = useRef<Map<string, ConfigSnapshot>>(new Map());
 
   // Graduation state for MUTENROSHI
   const isMutenroshi = definition?.displayMode === 'blocks';
@@ -237,7 +258,7 @@ export function ProgramApp({
         message: `#${workoutIndex + 1}: ${slot.exerciseName} ${slot.tier.toUpperCase()} — ${resultLabel}`,
         action: {
           label: 'Deshacer',
-          onClick: () => undoSpecific(workoutIndex, slotId),
+          onClick: () => handleUndoSpecific(workoutIndex, slotId),
         },
       });
     }
@@ -258,6 +279,19 @@ export function ProgramApp({
     const row = rows[workoutIndex];
     if (!row) {
       recordAndToast(workoutIndex, slotId, value);
+      return;
+    }
+
+    // Test slot intercept: open weight-capture modal instead of recording directly
+    const slot = row.slots.find((s) => s.slotId === slotId);
+    if (slot?.isTestSlot === true) {
+      setTestWeightModal({
+        workoutIndex,
+        slotId,
+        exerciseName: slot.exerciseName,
+        prefillWeight: slot.weight,
+        propagatesTo: slot.propagatesTo,
+      });
       return;
     }
 
@@ -303,6 +337,64 @@ export function ProgramApp({
     recordAndToast(rpeReminder.workoutIndex, rpeReminder.slotId, rpeReminder.value);
     scrollToRpeInput(rpeReminder.rpeTarget);
     setRpeReminder(null);
+  };
+
+  const handleTestWeightConfirm = async (weight: number): Promise<void> => {
+    if (!testWeightModal) return;
+    const { workoutIndex, slotId, propagatesTo } = testWeightModal;
+
+    setTestWeightLoading(true);
+    try {
+      if (propagatesTo !== undefined && config) {
+        // Snapshot the current config value before overwriting
+        const snapshotKey = `${workoutIndex}:${slotId}`;
+        configSnapshotRef.current.set(snapshotKey, {
+          propagatesTo,
+          previousValue: config[propagatesTo],
+        });
+
+        try {
+          await updateConfigAsync({ [propagatesTo]: weight });
+        } catch {
+          // Config update failed: remove snapshot and show error
+          configSnapshotRef.current.delete(snapshotKey);
+          toast({ message: 'No se pudo actualizar la configuracion. Intentalo de nuevo.' });
+          setTestWeightLoading(false);
+          setTestWeightModal(null);
+          return;
+        }
+      }
+
+      // Config updated (or no propagation needed) — record result and show toast
+      recordAndToast(workoutIndex, slotId, 'success');
+      setTestWeightModal(null);
+    } finally {
+      setTestWeightLoading(false);
+    }
+  };
+
+  const handleTestWeightCancel = (): void => {
+    setTestWeightModal(null);
+  };
+
+  // Wraps undoSpecific to also revert config for test slots
+  const handleUndoSpecific = (workoutIndex: number, slotId: string): void => {
+    const snapshotKey = `${workoutIndex}:${slotId}`;
+    const snapshot = configSnapshotRef.current.get(snapshotKey);
+
+    // Always undo the result first
+    undoSpecific(workoutIndex, slotId);
+
+    // Revert config if we have a snapshot
+    if (snapshot) {
+      configSnapshotRef.current.delete(snapshotKey);
+      const revertValue = snapshot.previousValue;
+      if (revertValue !== undefined) {
+        updateConfigAsync({ [snapshot.propagatesTo]: revertValue }).catch(() => {
+          toast({ message: 'No se pudo revertir la configuracion del bloque siguiente.' });
+        });
+      }
+    }
   };
 
   const completionSessionKey = instanceId !== undefined ? `completion-shown-${instanceId}` : null;
@@ -521,7 +613,7 @@ export function ProgramApp({
                   weekRows={weekRows}
                   firstPendingIndex={firstPendingIdx}
                   onMark={handleMarkResult}
-                  onUndo={undoSpecific}
+                  onUndo={handleUndoSpecific}
                   onSetAmrapReps={setAmrapReps}
                   onSetRpe={setRpe}
                 />
@@ -571,6 +663,16 @@ export function ProgramApp({
         cancelLabel="Continuar sin RPE"
         onConfirm={handleRpeReminderAdd}
         onCancel={handleRpeReminderContinue}
+      />
+
+      <TestWeightModal
+        isOpen={testWeightModal !== null}
+        liftName={testWeightModal?.exerciseName ?? ''}
+        hasPropagationTarget={testWeightModal?.propagatesTo !== undefined}
+        defaultWeight={testWeightModal?.prefillWeight ?? 0}
+        loading={testWeightLoading}
+        onConfirm={handleTestWeightConfirm}
+        onCancel={handleTestWeightCancel}
       />
 
       <ToastContainer />

@@ -271,6 +271,7 @@ export function WeekTable({
                           tier={slot.slotId}
                           result={slot.result}
                           variant="table"
+                          isTestSlot={slot.isTestSlot === true}
                           onMark={onMark}
                           onUndo={onUndo}
                         />
