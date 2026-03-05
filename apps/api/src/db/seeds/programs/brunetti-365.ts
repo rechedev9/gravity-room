@@ -5,8 +5,8 @@
 // file encoding 212 unique workout days. Splitting into separate phase files
 // would fragment the data without improving readability.
 
-import type { SlotDef } from './shared';
-import { NC } from './shared';
+import type { ProgramDay, SlotDef } from './shared';
+import { tmNcSlot, flatNcSlot, maxTestSlot } from './shared';
 
 // ═══════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -61,93 +61,9 @@ const JAW_B3_SCHEDULE = [
 ] as const;
 
 // ═══════════════════════════════════════════════════════════════════════
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS — imported from ./shared
+// (tmNcSlot, flatNcSlot, maxTestSlot, ProgramDay)
 // ═══════════════════════════════════════════════════════════════════════
-
-type ProgramDay = { readonly name: string; readonly slots: readonly SlotDef[] };
-
-/** Create a TM-based slot with no_change progression. */
-function tmNcSlot(
-  id: string,
-  exerciseId: string,
-  tmKey: string,
-  pct: number,
-  sets: number,
-  reps: number,
-  tier: string = 'main',
-  notes?: string
-): SlotDef {
-  return {
-    id,
-    exerciseId,
-    tier,
-    role: tier === 'main' ? 'primary' : 'secondary',
-    trainingMaxKey: tmKey,
-    tmPercent: pct,
-    stages: [{ sets, reps }],
-    onSuccess: NC,
-    onMidStageFail: NC,
-    onFinalStageFail: NC,
-    startWeightKey: tmKey,
-    ...(notes !== undefined ? { notes } : {}),
-  };
-}
-
-/** Create a flat (absolute weight) slot with no_change progression. */
-function flatNcSlot(
-  id: string,
-  exerciseId: string,
-  startWeightKey: string,
-  sets: number,
-  reps: number,
-  tier: string = 'accessory',
-  notes?: string
-): SlotDef {
-  return {
-    id,
-    exerciseId,
-    tier,
-    role: 'accessory',
-    stages: [{ sets, reps }],
-    onSuccess: NC,
-    onMidStageFail: NC,
-    onFinalStageFail: NC,
-    startWeightKey,
-    ...(notes !== undefined ? { notes } : {}),
-  };
-}
-
-/** Create a max-test slot with instructional notes. */
-function maxTestSlot(
-  id: string,
-  exerciseId: string,
-  startWeightKey: string,
-  liftName: string,
-  blockNum: number,
-  nextBlockTmLabel: string,
-  propagatesTo?: string
-): SlotDef {
-  return {
-    id,
-    exerciseId,
-    tier: 'main',
-    role: 'primary',
-    stages: [{ sets: 1, reps: 1 }],
-    onSuccess: NC,
-    onMidStageFail: NC,
-    onFinalStageFail: NC,
-    startWeightKey,
-    isTestSlot: true,
-    ...(propagatesTo !== undefined ? { propagatesTo } : {}),
-    notes:
-      `TEST DE 1RM — ${liftName.toUpperCase()}. ` +
-      'Calienta progresivamente hasta tu maximo. ' +
-      (blockNum < 3
-        ? `Despues, ve a "Editar configuracion" y actualiza ` +
-          `"${nextBlockTmLabel}" con tu nuevo maximo.`
-        : 'Registra tu resultado. Este es tu maximo final del protocolo JAW.'),
-  };
-}
 
 // ═══════════════════════════════════════════════════════════════════════
 // PHASE BUILDERS

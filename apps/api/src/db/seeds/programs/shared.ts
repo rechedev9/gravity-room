@@ -254,3 +254,114 @@ export function gppSlot(id: string, exerciseId: string, reps: number, sets: numb
     startWeightKey: '__gpp',
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// BRUNETTI HELPERS — shared across brunetti-365.ts, sala-1/2/3.ts
+// ═══════════════════════════════════════════════════════════════════════
+
+/** A single workout day with a name and ordered list of exercise slots. */
+export type ProgramDay = { readonly name: string; readonly slots: readonly SlotDef[] };
+
+/** TM key constants for the three main Brunetti lifts. */
+export const BRUNETTI_TM = {
+  SQUAT: 'squat_tm',
+  BENCH: 'bench_tm',
+  DEADLIFT: 'deadlift_tm',
+} as const;
+
+/** JAW block-specific TM key constants (3 blocks × 3 lifts = 9 keys). */
+export const BRUNETTI_JAW_TM = {
+  B1: { SQUAT: 'squat_jaw_b1_tm', BENCH: 'bench_jaw_b1_tm', DEADLIFT: 'deadlift_jaw_b1_tm' },
+  B2: { SQUAT: 'squat_jaw_b2_tm', BENCH: 'bench_jaw_b2_tm', DEADLIFT: 'deadlift_jaw_b2_tm' },
+  B3: { SQUAT: 'squat_jaw_b3_tm', BENCH: 'bench_jaw_b3_tm', DEADLIFT: 'deadlift_jaw_b3_tm' },
+} as const;
+
+/** Union of all Brunetti TM key string literals. */
+export type BrunettiTmKeys =
+  | (typeof BRUNETTI_TM)[keyof typeof BRUNETTI_TM]
+  | (typeof BRUNETTI_JAW_TM)['B1'][keyof (typeof BRUNETTI_JAW_TM)['B1']]
+  | (typeof BRUNETTI_JAW_TM)['B2'][keyof (typeof BRUNETTI_JAW_TM)['B2']]
+  | (typeof BRUNETTI_JAW_TM)['B3'][keyof (typeof BRUNETTI_JAW_TM)['B3']];
+
+/** Create a TM-based slot with no_change progression (Brunetti programs). */
+export function tmNcSlot(
+  id: string,
+  exerciseId: string,
+  tmKey: string,
+  pct: number,
+  sets: number,
+  reps: number,
+  tier: string = 'main',
+  notes?: string
+): SlotDef {
+  return {
+    id,
+    exerciseId,
+    tier,
+    role: tier === 'main' ? 'primary' : 'secondary',
+    trainingMaxKey: tmKey,
+    tmPercent: pct,
+    stages: [{ sets, reps }],
+    onSuccess: NC,
+    onMidStageFail: NC,
+    onFinalStageFail: NC,
+    startWeightKey: tmKey,
+    ...(notes !== undefined ? { notes } : {}),
+  };
+}
+
+/** Create a flat (absolute weight) slot with no_change progression. */
+export function flatNcSlot(
+  id: string,
+  exerciseId: string,
+  startWeightKey: string,
+  sets: number,
+  reps: number,
+  tier: string = 'accessory',
+  notes?: string
+): SlotDef {
+  return {
+    id,
+    exerciseId,
+    tier,
+    role: 'accessory',
+    stages: [{ sets, reps }],
+    onSuccess: NC,
+    onMidStageFail: NC,
+    onFinalStageFail: NC,
+    startWeightKey,
+    ...(notes !== undefined ? { notes } : {}),
+  };
+}
+
+/** Create a max-test slot with instructional notes. */
+export function maxTestSlot(
+  id: string,
+  exerciseId: string,
+  startWeightKey: string,
+  liftName: string,
+  blockNum: number,
+  nextBlockTmLabel: string,
+  propagatesTo?: string
+): SlotDef {
+  return {
+    id,
+    exerciseId,
+    tier: 'main',
+    role: 'primary',
+    stages: [{ sets: 1, reps: 1 }],
+    onSuccess: NC,
+    onMidStageFail: NC,
+    onFinalStageFail: NC,
+    startWeightKey,
+    isTestSlot: true,
+    ...(propagatesTo !== undefined ? { propagatesTo } : {}),
+    notes:
+      `TEST DE 1RM — ${liftName.toUpperCase()}. ` +
+      'Calienta progresivamente hasta tu maximo. ' +
+      (blockNum < 3
+        ? `Despues, ve a "Editar configuracion" y actualiza ` +
+          `"${nextBlockTmLabel}" con tu nuevo maximo.`
+        : 'Registra tu resultado. Este es tu maximo final del protocolo JAW.'),
+  };
+}

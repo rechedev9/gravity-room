@@ -29,6 +29,9 @@ import { SHEIKO_7_2_DEFINITION } from '../../../apps/api/src/db/seeds/programs/s
 import { SHEIKO_7_3_DEFINITION } from '../../../apps/api/src/db/seeds/programs/sheiko-7-3';
 import { SHEIKO_7_4_DEFINITION } from '../../../apps/api/src/db/seeds/programs/sheiko-7-4';
 import { SHEIKO_7_5_DEFINITION } from '../../../apps/api/src/db/seeds/programs/sheiko-7-5';
+import { SALA_1_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/sala-1';
+import { SALA_2_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/sala-2';
+import { SALA_3_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/sala-3';
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -1822,6 +1825,45 @@ describe('ProgramDefinitionSchema', () => {
         name: 'Sheiko 7.5',
         def: SHEIKO_7_5_DEFINITION as typeof MUTENROSHI_DEFINITION_JSONB,
         meta: {},
+      },
+      {
+        name: 'Sala del Tiempo 1',
+        def: SALA_1_DEFINITION_JSONB,
+        meta: {
+          id: 'sala-del-tiempo-1',
+          name: 'Sala 1',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'hypertrophy',
+          source: 'preset' as const,
+        },
+      },
+      {
+        name: 'Sala del Tiempo 2',
+        def: SALA_2_DEFINITION_JSONB,
+        meta: {
+          id: 'sala-del-tiempo-2',
+          name: 'Sala 2',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'hypertrophy',
+          source: 'preset' as const,
+        },
+      },
+      {
+        name: 'Sala del Tiempo 3',
+        def: SALA_3_DEFINITION_JSONB,
+        meta: {
+          id: 'sala-del-tiempo-3',
+          name: 'Sala 3',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'hypertrophy',
+          source: 'preset' as const,
+        },
       },
     ];
 

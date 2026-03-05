@@ -149,6 +149,39 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
       'y peso muerto. 4 días por semana.',
     author: 'Gravity Room',
     category: 'hypertrophy',
+    isActive: false,
+  },
+  {
+    id: 'sala-del-tiempo-1',
+    name: 'La Sala del Tiempo 1',
+    description:
+      'Fase T1 — Perfezionamento Tecnico: 24 sesiones de técnica con cargas ligeras (40-70% TM). ' +
+      'Isométricos, tempos y control del movimiento en sentadilla, press banca y peso muerto. ' +
+      '6 semanas, 4 días/semana. Inspirado en la metodología de Amerigo Brunetti.',
+    author: 'Gravity Room',
+    category: 'hypertrophy',
+    isActive: true,
+  },
+  {
+    id: 'sala-del-tiempo-2',
+    name: 'La Sala del Tiempo 2',
+    description:
+      'Fase PN — Potenziamento Neurale: 52 sesiones de potenciación neural progresiva (60-95% TM). ' +
+      'Ramping de cargas y series de fuerza para transferir técnica a pesos pesados. ' +
+      '13 semanas, 4 días/semana. Inspirado en la metodología de Amerigo Brunetti.',
+    author: 'Gravity Room',
+    category: 'hypertrophy',
+    isActive: true,
+  },
+  {
+    id: 'sala-del-tiempo-3',
+    name: 'La Sala del Tiempo 3',
+    description:
+      'Fase JAW Mod — 72 sesiones de intensificación en 3 bloques de 6 semanas (60→70→80% TM). ' +
+      'Cada bloque termina con test de 1RM que alimenta el TM del siguiente. ' +
+      '18 semanas, 4 días/semana. Inspirado en la metodología de Amerigo Brunetti.',
+    author: 'Gravity Room',
+    category: 'hypertrophy',
     isActive: true,
   },
   {

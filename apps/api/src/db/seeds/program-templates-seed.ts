@@ -27,6 +27,9 @@ import { SHEIKO_7_2_DEFINITION } from './programs/sheiko-7-2';
 import { SHEIKO_7_3_DEFINITION } from './programs/sheiko-7-3';
 import { SHEIKO_7_4_DEFINITION } from './programs/sheiko-7-4';
 import { SHEIKO_7_5_DEFINITION } from './programs/sheiko-7-5';
+import { SALA_1_DEFINITION_JSONB } from './programs/sala-1';
+import { SALA_2_DEFINITION_JSONB } from './programs/sala-2';
+import { SALA_3_DEFINITION_JSONB } from './programs/sala-3';
 
 type DbClient = PostgresJsDatabase<typeof schema>;
 
@@ -47,6 +50,9 @@ const DEFINITION_MAP: Record<string, unknown> = {
   'sheiko-7-3': SHEIKO_7_3_DEFINITION,
   'sheiko-7-4': SHEIKO_7_4_DEFINITION,
   'sheiko-7-5': SHEIKO_7_5_DEFINITION,
+  'sala-del-tiempo-1': SALA_1_DEFINITION_JSONB,
+  'sala-del-tiempo-2': SALA_2_DEFINITION_JSONB,
+  'sala-del-tiempo-3': SALA_3_DEFINITION_JSONB,
 };
 
 export async function seedProgramTemplates(db: DbClient): Promise<void> {
