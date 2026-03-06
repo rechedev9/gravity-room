@@ -15,5 +15,6 @@ RUN bun run build:web
 FROM nginx:alpine
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY apps/web/security-headers.conf /etc/nginx/security-headers.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
