@@ -1,0 +1,35 @@
+gravityroom.app {
+    handle /auth/* {
+        reverse_proxy gzclp-api:3001
+    }
+    handle /programs/* {
+        reverse_proxy gzclp-api:3001
+    }
+    handle /program-definitions/* {
+        reverse_proxy gzclp-api:3001
+    }
+    handle /catalog/* {
+        reverse_proxy gzclp-api:3001
+    }
+    handle /exercises/* {
+        reverse_proxy gzclp-api:3001
+    }
+    handle /muscle-groups/* {
+        reverse_proxy gzclp-api:3001
+    }
+    handle /stats/* {
+        reverse_proxy gzclp-api:3001
+    }
+    handle /health {
+        reverse_proxy gzclp-api:3001
+    }
+    handle /metrics {
+        reverse_proxy gzclp-api:3001
+    }
+    handle /swagger/* {
+        reverse_proxy gzclp-api:3001
+    }
+    handle {
+        reverse_proxy gzclp-web:80
+    }
+}
