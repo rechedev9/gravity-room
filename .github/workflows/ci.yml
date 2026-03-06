@@ -34,7 +34,7 @@ jobs:
       - run: bun run build
         env:
           # Required for production Vite build validation.
-          VITE_API_URL: https://gravityroom.app
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://gravityroom.app' }}
 
   deploy:
     needs: validate
@@ -52,3 +52,38 @@ jobs:
             cd ${{ secrets.VPS_PROJECT_PATH }}
             git pull origin main
             docker compose up -d --build --remove-orphans
+
+            echo "Waiting for containers to start..."
+            sleep 5
+
+            # Check API health (port 3002 -> container 3001)
+            for i in 1 2 3 4 5; do
+              if curl -sf http://127.0.0.1:3002/health > /dev/null 2>&1; then
+                echo "API health check passed"
+                break
+              fi
+              if [ "$i" -eq 5 ]; then
+                echo "API health check FAILED after 5 attempts"
+                docker compose logs --tail=50 api
+                exit 1
+              fi
+              echo "API not ready, retrying in 5s... (attempt $i/5)"
+              sleep 5
+            done
+
+            # Check web container (port 8080 -> container 80)
+            for i in 1 2 3 4 5; do
+              if curl -sf http://127.0.0.1:8080 > /dev/null 2>&1; then
+                echo "Web health check passed"
+                break
+              fi
+              if [ "$i" -eq 5 ]; then
+                echo "Web health check FAILED after 5 attempts"
+                docker compose logs --tail=50 web
+                exit 1
+              fi
+              echo "Web not ready, retrying in 5s... (attempt $i/5)"
+              sleep 5
+            done
+
+            echo "Deploy verified successfully"
