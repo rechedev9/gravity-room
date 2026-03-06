@@ -59,7 +59,7 @@ export function getDb(): DbInstance {
       max: poolSize,
       idle_timeout: 30,
       connect_timeout: 10,
-      ssl: process.env['NODE_ENV'] === 'production' ? 'require' : false,
+      ssl: process.env['DB_SSL'] === 'false' ? false : (process.env['NODE_ENV'] === 'production' ? 'require' : false),
       // Prevent runaway queries from exhausting the pool
       connection: { statement_timeout: 30_000 },
       // PgBouncer safety — plain queries instead of prepared statements

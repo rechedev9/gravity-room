@@ -1,0 +1,35 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: gzclp-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3002:3001"
+    env_file: .env.production
+    networks:
+      - proxy
+      - backend
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: https://gravityroom.app
+        VITE_GOOGLE_CLIENT_ID: 563649081217-uh092o7iapi9t4d5a38d1522j8s66981.apps.googleusercontent.com
+    container_name: gzclp-web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    name: infra_proxy
+  backend:
+    external: true
+    name: data_backend
