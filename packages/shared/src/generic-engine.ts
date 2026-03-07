@@ -276,6 +276,7 @@ export function computeGenericProgram(
           complexReps: slot.complexReps,
           propagatesTo: slot.propagatesTo,
           isTestSlot: slot.isTestSlot,
+          isBodyweight: slot.isBodyweight,
         };
       }
 
@@ -306,6 +307,7 @@ export function computeGenericProgram(
           complexReps: slot.complexReps,
           propagatesTo: slot.propagatesTo,
           isTestSlot: slot.isTestSlot,
+          isBodyweight: slot.isBodyweight,
         };
       }
 
@@ -349,6 +351,7 @@ export function computeGenericProgram(
         complexReps: undefined,
         propagatesTo: slot.propagatesTo,
         isTestSlot: slot.isTestSlot,
+        isBodyweight: slot.isBodyweight,
       };
     });
 

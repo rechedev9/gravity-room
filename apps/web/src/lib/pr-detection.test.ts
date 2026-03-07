@@ -35,6 +35,7 @@ function makeGenericRow(index: number, slots: Partial<GenericSlotRow>[]): Generi
       complexReps: s.complexReps ?? undefined,
       propagatesTo: s.propagatesTo ?? undefined,
       isTestSlot: s.isTestSlot ?? undefined,
+      isBodyweight: s.isBodyweight ?? undefined,
     })),
   };
 }

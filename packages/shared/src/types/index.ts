@@ -38,6 +38,8 @@ export interface GenericSlotRow {
   readonly propagatesTo: string | undefined;
   /** True for test slots (show weight-capture modal regardless of propagation target). */
   readonly isTestSlot: boolean | undefined;
+  /** True for bodyweight exercises where the weight column should be hidden. */
+  readonly isBodyweight: boolean | undefined;
 }
 
 export interface GenericWorkoutRow {

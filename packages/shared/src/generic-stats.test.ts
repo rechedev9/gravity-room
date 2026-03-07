@@ -115,6 +115,7 @@ function makeSlot(
     complexReps: overrides.complexReps ?? undefined,
     propagatesTo: overrides.propagatesTo ?? undefined,
     isTestSlot: overrides.isTestSlot ?? undefined,
+    isBodyweight: overrides.isBodyweight ?? undefined,
     ...overrides,
   };
 }

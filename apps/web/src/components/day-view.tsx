@@ -81,6 +81,7 @@ export function DayView({
         const fullyDone = isDone && !needsAmrap;
         const hasPrescriptions = slot.prescriptions !== undefined;
         const isGpp = slot.isGpp === true;
+        const isBodyweight = slot.isBodyweight === true;
         const showStage = slot.stagesCount > 1 && !hasPrescriptions && !isGpp;
         const showRpe = slot.role === 'primary';
 
@@ -116,7 +117,7 @@ export function DayView({
             {/* Row 2: Weight + Scheme */}
             <div className="flex items-baseline gap-3 mb-2.5">
               {/* Weight */}
-              {isGpp ? (
+              {isGpp || isBodyweight ? (
                 <span className="text-sm font-bold text-muted tabular-nums">{'\u2014'}</span>
               ) : hasPrescriptions ? (
                 <span className="text-sm font-bold text-main tabular-nums">

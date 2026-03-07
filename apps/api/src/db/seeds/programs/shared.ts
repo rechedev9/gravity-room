@@ -45,6 +45,8 @@ export interface SlotDef {
   readonly propagatesTo?: string;
   /** True for test/max-effort slots that require weight entry. */
   readonly isTestSlot?: boolean;
+  /** True for bodyweight exercises where the weight column should be hidden. */
+  readonly isBodyweight?: boolean;
 }
 
 export const NC = { type: 'no_change' } as const;

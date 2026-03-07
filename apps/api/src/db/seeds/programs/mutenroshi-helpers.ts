@@ -107,6 +107,7 @@ export function coreSlot(exerciseId: string, notes: string): SlotDef {
     onFinalStageFail: NC,
     startWeightKey: 'bodyweight',
     role: 'accessory',
+    isBodyweight: true,
     notes,
   };
 }
@@ -123,6 +124,7 @@ export function activationSlot(exerciseId: string, notes: string): SlotDef {
     onFinalStageFail: NC,
     startWeightKey: 'bodyweight',
     role: 'accessory',
+    isBodyweight: true,
     notes,
   };
 }
@@ -139,6 +141,7 @@ export function proprioceptionSlot(exerciseId: string, notes: string): SlotDef {
     onFinalStageFail: NC,
     startWeightKey: 'bodyweight',
     role: 'accessory',
+    isBodyweight: true,
     notes,
   };
 }
@@ -149,7 +152,8 @@ export function fundamentalSlot(
   startWeightKey: string,
   sets: number,
   reps: number,
-  notes: string
+  notes: string,
+  isBodyweight?: boolean
 ): SlotDef {
   return {
     id: nextSlotId('fund'),
@@ -161,6 +165,7 @@ export function fundamentalSlot(
     onFinalStageFail: NC,
     startWeightKey,
     role: 'primary',
+    ...(isBodyweight === true ? { isBodyweight: true } : {}),
     notes,
   };
 }
@@ -251,13 +256,22 @@ function fundamentalBlock(
   switch (focus) {
     case 'squat':
       return [
-        fundamentalSlot('squat_bodyweight', 'bodyweight', sets, reps, NOTES.squat_bodyweight),
+        fundamentalSlot('squat_bodyweight', 'bodyweight', sets, reps, NOTES.squat_bodyweight, true),
       ];
     case 'bench':
-      return [fundamentalSlot('bench_pushups', 'bodyweight', sets, reps, NOTES.bench_pushups)];
+      return [
+        fundamentalSlot('bench_pushups', 'bodyweight', sets, reps, NOTES.bench_pushups, true),
+      ];
     case 'deadlift':
       return [
-        fundamentalSlot('deadlift_isometric', 'bodyweight', sets, reps, NOTES.deadlift_isometric),
+        fundamentalSlot(
+          'deadlift_isometric',
+          'bodyweight',
+          sets,
+          reps,
+          NOTES.deadlift_isometric,
+          true
+        ),
       ];
   }
 }

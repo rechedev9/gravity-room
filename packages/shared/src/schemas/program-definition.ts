@@ -104,6 +104,8 @@ export const ExerciseSlotSchema = z.strictObject({
   propagatesTo: z.string().min(1).optional(),
   /** True for test slots that require weight entry (regardless of propagation). */
   isTestSlot: z.boolean().optional(),
+  /** True for bodyweight exercises where the weight column should be hidden. */
+  isBodyweight: z.boolean().optional(),
 });
 
 // --- Program Day ---
