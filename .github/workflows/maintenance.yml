@@ -1,0 +1,61 @@
+name: Weekly Maintenance
+
+on:
+  schedule:
+    # Every Sunday at 04:00 UTC (05:00 hora peninsular)
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Docker cleanup via SSH
+        id: cleanup
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          script: |
+            set -euo pipefail
+            echo "=== Docker cleanup ==="
+            echo "Before:"
+            docker system df
+
+            docker image prune -af --filter "until=168h"
+            docker builder prune -af --filter "until=168h"
+
+            echo ""
+            echo "After:"
+            docker system df
+
+            echo ""
+            echo "=== Disk usage ==="
+            df -h / | tail -1
+
+      - name: Notify via Telegram
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          OUTCOME: ${{ job.status }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          REPO="rechedev9/gravity-room"
+          RUN_URL="https://github.com/${REPO}/actions/runs/${RUN_ID}"
+
+          if [ "$OUTCOME" = "success" ]; then
+            TEXT=$(printf '<b>Maintenance OK</b>\n%s\nDocker images pruned\n<a href="%s">View logs</a>' "$TIMESTAMP" "$RUN_URL")
+          else
+            TEXT=$(printf '<b>Maintenance FAILED</b>\n%s\n<a href="%s">View logs</a>' "$TIMESTAMP" "$RUN_URL")
+          fi
+
+          curl -sf -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${TEXT}" \
+            --data-urlencode "parse_mode=HTML" \
+            || true

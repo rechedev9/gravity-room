@@ -47,3 +47,28 @@ jobs:
           name: db-backup-${{ github.run_id }}
           path: backup_*.dump
           retention-days: 30
+
+      - name: Notify via Telegram
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          OUTCOME: ${{ job.status }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          REPO="rechedev9/gravity-room"
+          RUN_URL="https://github.com/${REPO}/actions/runs/${RUN_ID}"
+
+          if [ "$OUTCOME" = "success" ]; then
+            TEXT=$(printf '<b>Backup OK</b>\n%s\n<a href="%s">View artifact</a>' "$TIMESTAMP" "$RUN_URL")
+          else
+            TEXT=$(printf '<b>Backup FAILED</b>\n%s\n<a href="%s">View logs</a>' "$TIMESTAMP" "$RUN_URL")
+          fi
+
+          curl -sf -X POST \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${TEXT}" \
+            --data-urlencode "parse_mode=HTML" \
+            || true
