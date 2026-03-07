@@ -8,7 +8,8 @@ set -euo pipefail
 #   deploy-log.sh list [count]                     — show last N entries (default 10, newest first)
 #   deploy-log.sh rotate                           — trim log to last 50 entries
 
-readonly LOG_FILE="/var/log/gzclp-deploy.log"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly LOG_FILE="${SCRIPT_DIR}/../.deploy.log"
 readonly MAX_ENTRIES=50
 readonly DEFAULT_LIST_COUNT=10
 

@@ -79,13 +79,14 @@ get_deploy_log_entries() {
 }
 
 get_previous_sha() {
-  if [[ ! -f /var/log/gzclp-deploy.log ]]; then
+  local log_file="${PROJECT_DIR}/.deploy.log"
+  if [[ ! -f "${log_file}" ]]; then
     error "No deploy history found. Cannot determine previous deploy."
     exit 2
   fi
 
   local total
-  total="$(wc -l < /var/log/gzclp-deploy.log)"
+  total="$(wc -l < "${log_file}")"
 
   if [[ "${total}" -lt 2 ]]; then
     error "Not enough deploy history to determine previous deploy (need at least 2 entries)."
@@ -93,7 +94,7 @@ get_previous_sha() {
   fi
 
   local prev_line
-  prev_line="$(tail -n 2 /var/log/gzclp-deploy.log | head -n 1)"
+  prev_line="$(tail -n 2 "${log_file}" | head -n 1)"
 
   echo "${prev_line}" | awk '{print $2}'
 }
@@ -101,11 +102,12 @@ get_previous_sha() {
 sha_exists_in_log() {
   local target_sha="$1"
 
-  if [[ ! -f /var/log/gzclp-deploy.log ]]; then
+  local log_file="${PROJECT_DIR}/.deploy.log"
+  if [[ ! -f "${log_file}" ]]; then
     return 1
   fi
 
-  grep -q "^[^ ]* ${target_sha} " /var/log/gzclp-deploy.log
+  grep -q "^[^ ]* ${target_sha} " "${log_file}"
 }
 
 count_migrations() {

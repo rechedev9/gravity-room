@@ -43,6 +43,9 @@ AGENTS.md
 .claude/
 openspec/
 
+# deploy log (written on VPS)
+.deploy.log
+
 # temporary files (PDF extracts, screenshots, scripts)
 .tmp/
 .playwright-mcp/
