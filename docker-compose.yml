@@ -1,6 +1,5 @@
 services:
   api:
-    image: ${GHCR_API_IMAGE:-}
     build:
       context: .
       dockerfile: Dockerfile.api
@@ -16,7 +15,6 @@ services:
       - backend
 
   web:
-    image: ${GHCR_WEB_IMAGE:-}
     build:
       context: .
       dockerfile: apps/web/Dockerfile

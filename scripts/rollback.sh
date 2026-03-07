@@ -12,7 +12,7 @@ set -euo pipefail
 #
 # Exit codes:
 #   0 = rollback succeeded, health checks passed
-#   1 = rollback failed (image pull, health check, etc.)
+#   1 = rollback failed (build, health check, etc.)
 #   2 = target SHA not found in deploy log
 #   3 = user cancelled at migration boundary prompt
 
@@ -21,7 +21,6 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 readonly DEPLOY_LOG_SCRIPT="${SCRIPT_DIR}/deploy-log.sh"
-readonly GHCR_REPO="ghcr.io/rechedev9/gravity-room"
 readonly DRIZZLE_DIR="${PROJECT_DIR}/apps/api/drizzle"
 readonly HEALTH_CHECK_RETRIES=5
 readonly HEALTH_CHECK_DELAY=5
@@ -34,7 +33,7 @@ usage() {
   cat <<EOF
 Usage: $(basename "$0") [OPTIONS] [COMMIT_SHA]
 
-Roll back the VPS to a previous deploy using pre-built GHCR images.
+Roll back the VPS to a previous deploy by checking out a commit and rebuilding.
 
 Arguments:
   COMMIT_SHA    Target commit SHA to roll back to (default: previous deploy)
@@ -46,7 +45,7 @@ Options:
 
 Exit codes:
   0  Rollback succeeded, health checks passed
-  1  Rollback failed (image pull failed, health check failed, etc.)
+  1  Rollback failed (build failed, health check failed, etc.)
   2  Target SHA not found in deploy log
   3  User cancelled at migration boundary prompt
 
@@ -93,11 +92,9 @@ get_previous_sha() {
     exit 2
   fi
 
-  # Second-to-last line contains the previous deploy
   local prev_line
   prev_line="$(tail -n 2 /var/log/gzclp-deploy.log | head -n 1)"
 
-  # Format: TIMESTAMP SHA TYPE — extract SHA (second field)
   echo "${prev_line}" | awk '{print $2}'
 }
 
@@ -129,7 +126,6 @@ check_migration_boundary() {
   local current_migrations
   current_migrations="$(count_migrations "${DRIZZLE_DIR}")"
 
-  # Check out the target SHA's drizzle directory to count its migrations
   local target_migrations
   target_migrations="$(git -C "${PROJECT_DIR}" show "${target_sha}:apps/api/drizzle" 2>/dev/null \
     | grep -c '\.sql$' || echo 0)"
@@ -163,48 +159,30 @@ check_migration_boundary() {
   fi
 }
 
-ghcr_login() {
-  if [[ -z "${GHCR_TOKEN:-}" ]]; then
-    step "No GHCR_TOKEN set, pulling from public registry..."
-    return 0
-  fi
-
-  step "Authenticating to GHCR..."
-
-  if ! echo "${GHCR_TOKEN}" | docker login ghcr.io -u rechedev9 --password-stdin 2>/dev/null; then
-    error "Failed to authenticate to GHCR."
-    exit 1
-  fi
-
-  echo "  Authenticated to GHCR."
-}
-
-pull_images() {
+checkout_target() {
   local target_sha="$1"
 
-  step "Pulling images from GHCR..."
+  step "Checking out target commit..."
 
-  export GHCR_API_IMAGE="${GHCR_REPO}/api:${target_sha}"
-  export GHCR_WEB_IMAGE="${GHCR_REPO}/web:${target_sha}"
+  cd "${PROJECT_DIR}"
+  git fetch origin
+  git reset --hard "${target_sha}"
+  git clean -fd -e .env.production
 
-  echo "  API image: ${GHCR_API_IMAGE}"
-  echo "  Web image: ${GHCR_WEB_IMAGE}"
-
-  if ! docker compose -f "${PROJECT_DIR}/docker-compose.yml" pull api web; then
-    error "Failed to pull images from GHCR. Current containers are unchanged."
-    exit 1
-  fi
-
-  echo "  Images pulled successfully."
+  echo "  Checked out ${target_sha}"
 }
 
-restart_containers() {
+build_and_restart() {
+  local target_sha="$1"
+
+  step "Building images locally..."
+
+  export COMMIT_SHA="${target_sha}"
+  docker compose -f "${PROJECT_DIR}/docker-compose.yml" build
+
   step "Restarting containers..."
 
-  if ! docker compose -f "${PROJECT_DIR}/docker-compose.yml" up -d --remove-orphans; then
-    error "Failed to restart containers."
-    exit 1
-  fi
+  docker compose -f "${PROJECT_DIR}/docker-compose.yml" up -d --remove-orphans
 
   echo "  Containers restarted."
 }
@@ -331,14 +309,9 @@ echo "  Found ${target_sha} in deploy history."
 # Check migration boundary
 check_migration_boundary "${target_sha}" "${force}"
 
-# Authenticate to GHCR
-ghcr_login
-
-# Pull images
-pull_images "${target_sha}"
-
-# Restart containers
-restart_containers
+# Checkout target and rebuild
+checkout_target "${target_sha}"
+build_and_restart "${target_sha}"
 
 # Health checks
 run_health_checks

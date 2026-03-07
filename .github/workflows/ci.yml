@@ -33,113 +33,37 @@ jobs:
 
       - run: bun run build
         env:
-          # Required for production Vite build validation.
           VITE_API_URL: ${{ vars.VITE_API_URL || 'https://gravityroom.app' }}
 
-  build-images:
-    needs: validate
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    outputs:
-      api_image: ${{ steps.meta-api.outputs.image }}
-      web_image: ${{ steps.meta-web.outputs.image }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Compute API image tag
-        id: meta-api
-        run: echo "image=ghcr.io/rechedev9/gravity-room/api:${{ github.sha }}" >> "$GITHUB_OUTPUT"
-
-      - name: Compute web image tag
-        id: meta-web
-        run: echo "image=ghcr.io/rechedev9/gravity-room/web:${{ github.sha }}" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push API image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile.api
-          push: true
-          tags: |
-            ghcr.io/rechedev9/gravity-room/api:${{ github.sha }}
-            ghcr.io/rechedev9/gravity-room/api:latest
-          build-args: |
-            COMMIT_SHA=${{ github.sha }}
-          cache-from: type=gha,scope=api
-          cache-to: type=gha,mode=max,scope=api
-
-      - name: Build and push web image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/web/Dockerfile
-          push: true
-          tags: |
-            ghcr.io/rechedev9/gravity-room/web:${{ github.sha }}
-            ghcr.io/rechedev9/gravity-room/web:latest
-          build-args: |
-            VITE_API_URL=https://gravityroom.app
-            VITE_GOOGLE_CLIENT_ID=563649081217-uh092o7iapi9t4d5a38d1522j8s66981.apps.googleusercontent.com
-            COMMIT_SHA=${{ github.sha }}
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
-
   deploy:
-    needs: build-images
+    needs: validate
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to VPS
-        id: deploy
         uses: appleboy/ssh-action@v1
-        env:
-          GHCR_API_IMAGE: ${{ needs.build-images.outputs.api_image }}
-          GHCR_WEB_IMAGE: ${{ needs.build-images.outputs.web_image }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT }}
-          envs: GHCR_API_IMAGE,GHCR_WEB_IMAGE,GHCR_TOKEN
           script: |
             set -euo pipefail
             cd ${{ secrets.VPS_PROJECT_PATH }}
             git fetch origin main
             git reset --hard origin/main
             git clean -fd -e .env.production
+
             COMMIT_SHA=$(git rev-parse HEAD)
+            export COMMIT_SHA
             echo "Deploying commit: ${COMMIT_SHA:0:7}"
 
-            if [ -n "${GHCR_TOKEN:-}" ]; then
-              echo "Authenticating to GHCR..."
-              echo "$GHCR_TOKEN" | docker login ghcr.io -u rechedev9 --password-stdin
-            else
-              echo "No GHCR_TOKEN set, pulling from public registry..."
-            fi
-
-            echo "Pulling pre-built images..."
-            echo "  API: $GHCR_API_IMAGE"
-            echo "  Web: $GHCR_WEB_IMAGE"
-            export GHCR_API_IMAGE="$GHCR_API_IMAGE"
-            export GHCR_WEB_IMAGE="$GHCR_WEB_IMAGE"
-            docker compose pull api web
+            docker compose build
             docker compose up -d --remove-orphans
 
             echo "Waiting for containers to start..."
             sleep 5
 
-            # Check API health (port 3002 -> container 3001)
             for i in 1 2 3 4 5; do
               if curl -sf http://127.0.0.1:3002/health > /dev/null 2>&1; then
                 echo "API health check passed"
@@ -154,7 +78,6 @@ jobs:
               sleep 5
             done
 
-            # Check web container (port 8080 -> container 80)
             for i in 1 2 3 4 5; do
               if curl -sf http://127.0.0.1:8080 > /dev/null 2>&1; then
                 echo "Web health check passed"
