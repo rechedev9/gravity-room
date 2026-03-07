@@ -121,8 +121,12 @@ jobs:
             COMMIT_SHA=$(git rev-parse HEAD)
             echo "Deploying commit: ${COMMIT_SHA:0:7}"
 
-            echo "Authenticating to GHCR..."
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u rechedev9 --password-stdin
+            if [ -n "${GHCR_TOKEN:-}" ]; then
+              echo "Authenticating to GHCR..."
+              echo "$GHCR_TOKEN" | docker login ghcr.io -u rechedev9 --password-stdin
+            else
+              echo "No GHCR_TOKEN set, pulling from public registry..."
+            fi
 
             echo "Pulling pre-built images..."
             echo "  API: $GHCR_API_IMAGE"

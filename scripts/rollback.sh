@@ -164,12 +164,12 @@ check_migration_boundary() {
 }
 
 ghcr_login() {
-  step "Authenticating to GHCR..."
-
   if [[ -z "${GHCR_TOKEN:-}" ]]; then
-    error "GHCR_TOKEN environment variable is not set. Cannot authenticate to GHCR."
-    exit 1
+    step "No GHCR_TOKEN set, pulling from public registry..."
+    return 0
   fi
+
+  step "Authenticating to GHCR..."
 
   if ! echo "${GHCR_TOKEN}" | docker login ghcr.io -u rechedev9 --password-stdin 2>/dev/null; then
     error "Failed to authenticate to GHCR."
