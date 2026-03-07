@@ -141,6 +141,8 @@ export const workoutResults = pgTable(
     result: resultTypeEnum().notNull(),
     amrapReps: smallint('amrap_reps'),
     rpe: smallint('rpe'),
+    setLogs: jsonb('set_logs'),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -178,6 +180,7 @@ export const undoEntries = pgTable(
     prevResult: resultTypeEnum('prev_result'),
     prevAmrapReps: smallint('prev_amrap_reps'),
     prevRpe: smallint('prev_rpe'),
+    prevSetLogs: jsonb('prev_set_logs'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [

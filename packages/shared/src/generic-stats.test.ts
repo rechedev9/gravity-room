@@ -116,6 +116,7 @@ function makeSlot(
     propagatesTo: overrides.propagatesTo ?? undefined,
     isTestSlot: overrides.isTestSlot ?? undefined,
     isBodyweight: overrides.isBodyweight ?? undefined,
+    setLogs: overrides.setLogs ?? undefined,
     ...overrides,
   };
 }
@@ -126,6 +127,7 @@ function makeRow(index: number, slots: GenericSlotRow[]): GenericWorkoutRow {
     dayName: `Day ${index + 1}`,
     slots,
     isChanged: slots.some((s) => s.isChanged),
+    completedAt: undefined,
   };
 }
 
@@ -507,5 +509,92 @@ describe('extractWeeklyVolumeData', () => {
 
     expect(data[0].date).toBeDefined();
     expect(typeof data[0].date).toBe('string');
+  });
+
+  it('uses setLogs reps for volume when setLogs are present', () => {
+    const rows: GenericWorkoutRow[] = [
+      makeRow(0, [
+        makeSlot({
+          slotId: 'squat-s1',
+          exerciseId: 'squat',
+          weight: 80,
+          sets: 3,
+          reps: 5,
+          result: 'success',
+          setLogs: [{ reps: 5 }, { reps: 5 }, { reps: 8 }],
+        }),
+      ]),
+    ];
+
+    const data = extractWeeklyVolumeData(rows);
+
+    // setLogs volume: 80*5 + 80*5 + 80*8 = 400 + 400 + 640 = 1440
+    // (NOT sets*reps: 80*3*5 = 1200)
+    expect(data[0].volumeKg).toBe(1440);
+  });
+
+  it('falls back to sets*reps for volume when no setLogs', () => {
+    const rows: GenericWorkoutRow[] = [
+      makeRow(0, [
+        makeSlot({
+          slotId: 'squat-s1',
+          exerciseId: 'squat',
+          weight: 80,
+          sets: 3,
+          reps: 5,
+          result: 'success',
+        }),
+      ]),
+    ];
+
+    const data = extractWeeklyVolumeData(rows);
+
+    // No setLogs: 80*3*5 = 1200
+    expect(data[0].volumeKg).toBe(1200);
+  });
+
+  it('uses per-set weight from setLogs when available', () => {
+    const rows: GenericWorkoutRow[] = [
+      makeRow(0, [
+        makeSlot({
+          slotId: 'squat-s1',
+          exerciseId: 'squat',
+          weight: 80,
+          sets: 2,
+          reps: 5,
+          result: 'success',
+          setLogs: [
+            { reps: 5, weight: 70 },
+            { reps: 5, weight: 80 },
+          ],
+        }),
+      ]),
+    ];
+
+    const data = extractWeeklyVolumeData(rows);
+
+    // Per-set weight: 70*5 + 80*5 = 350 + 400 = 750
+    expect(data[0].volumeKg).toBe(750);
+  });
+
+  it('falls back to slot weight in setLogs when per-set weight is missing', () => {
+    const rows: GenericWorkoutRow[] = [
+      makeRow(0, [
+        makeSlot({
+          slotId: 'squat-s1',
+          exerciseId: 'squat',
+          weight: 80,
+          sets: 2,
+          reps: 5,
+          result: 'success',
+          setLogs: [{ reps: 5 }, { reps: 3 }],
+        }),
+      ]),
+    ];
+
+    const data = extractWeeklyVolumeData(rows);
+
+    // No per-set weight, fall back to slot weight (80): 80*5 + 80*3 = 400 + 240 = 640
+    expect(data[0].volumeKg).toBe(640);
   });
 });

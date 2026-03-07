@@ -6,6 +6,7 @@ import { computeGraduationTargets } from '@gzclp/shared/graduation';
 import type { GraduationState } from '@gzclp/shared/graduation';
 import { isRecord } from '@gzclp/shared/type-guards';
 import { useProgram } from '@/hooks/use-program';
+import { useSetLogging } from '@/hooks/use-set-logging';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { detectGenericPersonalRecord } from '@/lib/pr-detection';
@@ -118,6 +119,13 @@ export function ProgramApp({
     updateConfigAsync,
   } = useProgram(programId, instanceId);
 
+  const {
+    logSet,
+    clearSetLogs,
+    getSetLogs,
+    isLogging: isSlotLogging,
+  } = useSetLogging(markResult, rows, definition);
+
   useWebMcp({
     config,
     rows,
@@ -223,6 +231,15 @@ export function ProgramApp({
   // Wake lock: keep screen on during active tracker session (gated by isViewActive)
   useWakeLock(isViewActive && activeTab === 'program' && config !== null);
 
+  const handleSetTap = (
+    workoutIndex: number,
+    slotId: string,
+    setIndex: number,
+    reps: number
+  ): void => {
+    logSet(workoutIndex, slotId, setIndex, reps);
+  };
+
   const recordAndToast = (workoutIndex: number, slotId: string, value: ResultValue): void => {
     markResult(workoutIndex, slotId, value);
     const row = rows[workoutIndex];
@@ -259,6 +276,9 @@ export function ProgramApp({
   };
 
   const handleMarkResult = (workoutIndex: number, slotId: string, value: ResultValue): void => {
+    // Clear any partial set logs when using pass/fail as override
+    clearSetLogs(workoutIndex, slotId);
+
     const row = rows[workoutIndex];
     if (!row) {
       recordAndToast(workoutIndex, slotId, value);
@@ -360,8 +380,11 @@ export function ProgramApp({
     setTestWeightModal(null);
   };
 
-  // Wraps undoSpecific to also revert config for test slots
+  // Wraps undoSpecific to also revert config for test slots and clear set logs
   const handleUndoSpecific = (workoutIndex: number, slotId: string): void => {
+    // Clear any local set logs for this slot
+    clearSetLogs(workoutIndex, slotId);
+
     const snapshotKey = `${workoutIndex}:${slotId}`;
     const snapshot = configSnapshotRef.current.get(snapshotKey);
 
@@ -608,6 +631,9 @@ export function ProgramApp({
                     onUndo={handleUndoSpecific}
                     onSetAmrapReps={setAmrapReps}
                     onSetRpe={setRpe}
+                    onSetTap={handleSetTap}
+                    getSetLogs={getSetLogs}
+                    isSlotLogging={isSlotLogging}
                   />
                 )}
               </div>

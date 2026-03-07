@@ -23,6 +23,8 @@ interface ResultProjection {
   readonly result: 'success' | 'fail';
   readonly amrapReps: number | null;
   readonly rpe: number | null;
+  readonly setLogs: unknown;
+  readonly completedAt: Date | null;
   readonly createdAt: Date;
 }
 
@@ -33,6 +35,7 @@ interface UndoProjection {
   readonly prevResult: 'success' | 'fail' | null;
   readonly prevAmrapReps: number | null;
   readonly prevRpe: number | null;
+  readonly prevSetLogs: unknown;
 }
 
 export interface ProgramInstanceResponse {
@@ -45,6 +48,7 @@ export interface ProgramInstanceResponse {
   readonly results: GenericResults;
   readonly undoHistory: GenericUndoHistory;
   readonly resultTimestamps: Readonly<Record<string, string>>;
+  readonly completedDates: Readonly<Record<string, string>>;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -66,6 +70,13 @@ function buildResultTimestamps(rows: readonly ResultProjection[]): Record<string
   return timestamps;
 }
 
+/** Validates that a JSONB value is a set logs array. */
+function isSetLogsArray(
+  value: unknown
+): value is Array<{ reps: number; weight?: number; rpe?: number }> {
+  return Array.isArray(value) && value.every((v) => typeof v === 'object' && v !== null);
+}
+
 /** Reconstructs GenericResults from normalized workout_results rows. */
 function buildGenericResults(rows: readonly ResultProjection[]): GenericResults {
   const results: GenericResults = {};
@@ -75,10 +86,12 @@ function buildGenericResults(rows: readonly ResultProjection[]): GenericResults 
     if (!results[indexStr]) {
       results[indexStr] = {};
     }
+    const setLogs = isSetLogsArray(row.setLogs) ? row.setLogs : undefined;
     results[indexStr][row.slotId] = {
       result: row.result,
       ...(row.amrapReps !== null ? { amrapReps: row.amrapReps } : {}),
       ...(row.rpe !== null ? { rpe: row.rpe } : {}),
+      ...(setLogs !== undefined ? { setLogs } : {}),
     };
   }
 
@@ -87,13 +100,33 @@ function buildGenericResults(rows: readonly ResultProjection[]): GenericResults 
 
 /** Reconstructs GenericUndoHistory from undo_entries rows. */
 function buildUndoHistory(rows: readonly UndoProjection[]): GenericUndoHistory {
-  return rows.map((row) => ({
-    i: row.workoutIndex,
-    slotId: row.slotId,
-    ...(row.prevResult !== null ? { prev: row.prevResult } : {}),
-    ...(row.prevRpe !== null ? { prevRpe: row.prevRpe } : {}),
-    ...(row.prevAmrapReps !== null ? { prevAmrapReps: row.prevAmrapReps } : {}),
-  }));
+  return rows.map((row) => {
+    const prevSetLogs = isSetLogsArray(row.prevSetLogs) ? row.prevSetLogs : undefined;
+    return {
+      i: row.workoutIndex,
+      slotId: row.slotId,
+      ...(row.prevResult !== null ? { prev: row.prevResult } : {}),
+      ...(row.prevRpe !== null ? { prevRpe: row.prevRpe } : {}),
+      ...(row.prevAmrapReps !== null ? { prevAmrapReps: row.prevAmrapReps } : {}),
+      ...(prevSetLogs !== undefined ? { prevSetLogs } : {}),
+    };
+  });
+}
+
+/**
+ * Builds a map of workoutIndex -> ISO timestamp for completed workouts.
+ * Uses the first non-null completed_at found for each workout index.
+ */
+function buildCompletedDates(rows: readonly ResultProjection[]): Record<string, string> {
+  const dates: Record<string, string> = {};
+  for (const row of rows) {
+    if (row.completedAt === null) continue;
+    const key = String(row.workoutIndex);
+    if (!dates[key]) {
+      dates[key] = row.completedAt.toISOString();
+    }
+  }
+  return dates;
 }
 
 function toResponse(
@@ -111,6 +144,7 @@ function toResponse(
     results: buildGenericResults(resultRows),
     undoHistory: buildUndoHistory(undoRows),
     resultTimestamps: buildResultTimestamps(resultRows),
+    completedDates: buildCompletedDates(resultRows),
     createdAt: instance.createdAt.toISOString(),
     updatedAt: instance.updatedAt.toISOString(),
   };
@@ -128,6 +162,8 @@ async function fetchResultsAndUndo(
         result: workoutResults.result,
         amrapReps: workoutResults.amrapReps,
         rpe: workoutResults.rpe,
+        setLogs: workoutResults.setLogs,
+        completedAt: workoutResults.completedAt,
         createdAt: workoutResults.createdAt,
       })
       .from(workoutResults)
@@ -139,6 +175,7 @@ async function fetchResultsAndUndo(
         prevResult: undoEntries.prevResult,
         prevAmrapReps: undoEntries.prevAmrapReps,
         prevRpe: undoEntries.prevRpe,
+        prevSetLogs: undoEntries.prevSetLogs,
       })
       .from(undoEntries)
       .where(eq(undoEntries.instanceId, instanceId))
@@ -488,6 +525,7 @@ export async function importInstance(
       result: 'success' | 'fail';
       amrapReps: number | null;
       rpe: number | null;
+      setLogs: unknown;
     }[] = [];
 
     for (const [indexStr, slots] of Object.entries(data.results)) {
@@ -500,6 +538,7 @@ export async function importInstance(
             result: slotResult.result,
             amrapReps: slotResult.amrapReps ?? null,
             rpe: slotResult.rpe ?? null,
+            setLogs: slotResult.setLogs ?? null,
           });
         }
       }
@@ -518,6 +557,7 @@ export async function importInstance(
         prevResult: entry.prev ?? null,
         prevRpe: entry.prevRpe ?? null,
         prevAmrapReps: entry.prevAmrapReps ?? null,
+        prevSetLogs: entry.prevSetLogs ?? null,
       }));
       await tx.insert(undoEntries).values(undoValues);
     }

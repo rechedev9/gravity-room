@@ -7,7 +7,7 @@ import type {
   GenericResults,
   GenericUndoHistory,
 } from '@gzclp/shared/types/program';
-import type { GenericWorkoutRow, ResultValue } from '@gzclp/shared/types';
+import type { GenericWorkoutRow, ResultValue, SetLogEntry } from '@gzclp/shared/types';
 import { queryKeys } from '@/lib/query-keys';
 import {
   fetchPrograms,
@@ -38,7 +38,8 @@ function setSlotResultOptimistic(
   workoutIndex: number,
   slotId: string,
   result: ResultValue,
-  amrapReps?: number
+  amrapReps?: number,
+  setLogs?: readonly SetLogEntry[]
 ): GenericResults {
   const key = String(workoutIndex);
   const existing = prev[key] ?? {};
@@ -50,6 +51,7 @@ function setSlotResultOptimistic(
         ...existing[slotId],
         result,
         ...(amrapReps !== undefined ? { amrapReps } : {}),
+        ...(setLogs !== undefined ? { setLogs: [...setLogs] } : {}),
       },
     },
   };
@@ -125,13 +127,19 @@ export interface UseProgramReturn {
   readonly rows: readonly GenericWorkoutRow[];
   readonly undoHistory: GenericUndoHistory;
   readonly resultTimestamps: Readonly<Record<string, string>>;
+  readonly completedDates: Readonly<Record<string, string>>;
   readonly isLoading: boolean;
   readonly isGenerating: boolean;
   readonly activeInstanceId: string | null;
   readonly generateProgram: (config: Record<string, number | string>) => Promise<void>;
   readonly updateConfig: (config: Record<string, number | string>) => void;
   readonly updateMetadata: (metadata: Record<string, unknown>) => void;
-  readonly markResult: (index: number, slotId: string, value: ResultValue) => void;
+  readonly markResult: (
+    index: number,
+    slotId: string,
+    value: ResultValue,
+    setLogs?: readonly SetLogEntry[]
+  ) => void;
   readonly setAmrapReps: (index: number, slotId: string, reps: number | undefined) => void;
   readonly setRpe: (index: number, slotId: string, rpe: number | undefined) => void;
   readonly undoSpecific: (index: number, slotId: string) => void;
@@ -197,6 +205,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   const results: GenericResults = detail?.results ?? {};
   const undoHistory: GenericUndoHistory = detail?.undoHistory ?? [];
   const resultTimestamps: Readonly<Record<string, string>> = detail?.resultTimestamps ?? {};
+  const completedDates: Readonly<Record<string, string>> = detail?.completedDates ?? {};
   const isLoading = catalogQuery.isLoading || programsQuery.isLoading || detailQuery.isLoading;
 
   // Compute rows from definition + config + results (memoized — avoids O(W×S) replay on every render)
@@ -220,18 +229,28 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       index,
       slotId,
       value,
+      setLogs,
     }: {
       index: number;
       slotId: string;
       value: ResultValue;
+      setLogs?: readonly SetLogEntry[];
     }) => {
       if (!activeInstanceId) throw new Error('No active program');
-      await recordGenericResult(activeInstanceId, index, slotId, value);
+      await recordGenericResult(
+        activeInstanceId,
+        index,
+        slotId,
+        value,
+        undefined,
+        undefined,
+        setLogs
+      );
     },
-    onMutate: ({ index, slotId, value }) =>
+    onMutate: ({ index, slotId, value, setLogs }) =>
       snapshotAndUpdate((prev) => ({
         ...prev,
-        results: setSlotResultOptimistic(prev.results, index, slotId, value),
+        results: setSlotResultOptimistic(prev.results, index, slotId, value, undefined, setLogs),
       })),
     onError: detailOnError,
     onSettled: detailOnSettled,
@@ -424,8 +443,13 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   // Stable callbacks
   // -------------------------------------------------------------------------
 
-  const markResultCb = (index: number, slotId: string, value: ResultValue): void => {
-    markResultMutation.mutate({ index, slotId, value });
+  const markResultCb = (
+    index: number,
+    slotId: string,
+    value: ResultValue,
+    setLogs?: readonly SetLogEntry[]
+  ): void => {
+    markResultMutation.mutate({ index, slotId, value, setLogs });
   };
 
   /** Patch a single field on a slot entry in the cached program detail. */
@@ -571,6 +595,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     rows,
     undoHistory,
     resultTimestamps,
+    completedDates,
     isLoading,
     isGenerating: generateProgramMutation.isPending,
     activeInstanceId,

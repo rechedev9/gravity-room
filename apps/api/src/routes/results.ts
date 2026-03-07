@@ -40,6 +40,7 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
         result: result.result,
         ...(result.amrapReps !== null ? { amrapReps: result.amrapReps } : {}),
         ...(result.rpe !== null ? { rpe: result.rpe } : {}),
+        ...(result.setLogs !== null ? { setLogs: result.setLogs } : {}),
       };
     },
     {
@@ -50,6 +51,16 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
         result: t.Union([t.Literal('success'), t.Literal('fail')]),
         amrapReps: t.Optional(t.Integer({ minimum: 0 })),
         rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
+        setLogs: t.Optional(
+          t.Array(
+            t.Object({
+              reps: t.Integer({ minimum: 0, maximum: 999 }),
+              weight: t.Optional(t.Number({ minimum: 0 })),
+              rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
+            }),
+            { maxItems: 20 }
+          )
+        ),
       }),
       detail: {
         tags: ['Results'],
@@ -126,6 +137,7 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
           i: entry.workoutIndex,
           slotId: entry.slotId,
           ...(entry.prevResult !== null ? { prev: entry.prevResult } : {}),
+          ...(entry.prevSetLogs !== null ? { prevSetLogs: entry.prevSetLogs } : {}),
         },
       };
     },

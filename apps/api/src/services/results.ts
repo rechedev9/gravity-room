@@ -7,6 +7,8 @@ import { getDb } from '../db';
 import { programInstances, workoutResults, undoEntries } from '../db/schema';
 import { ApiError } from '../middleware/error-handler';
 import { logger } from '../lib/logger';
+import { getProgramDefinition } from '../services/catalog';
+import type { SetLogEntry } from '@gzclp/shared/types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,6 +23,7 @@ export interface RecordResultInput {
   readonly result: 'success' | 'fail';
   readonly amrapReps?: number;
   readonly rpe?: number;
+  readonly setLogs?: readonly SetLogEntry[];
 }
 
 // ---------------------------------------------------------------------------
@@ -60,15 +63,88 @@ async function verifyInstanceOwnership(
   db: Tx | ReturnType<typeof getDb>,
   userId: string,
   instanceId: string
-): Promise<void> {
+): Promise<string> {
   const [instance] = await db
-    .select({ id: programInstances.id })
+    .select({ id: programInstances.id, programId: programInstances.programId })
     .from(programInstances)
     .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
     .limit(1);
 
   if (!instance) {
     throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
+  }
+
+  return instance.programId;
+}
+
+/**
+ * Get the expected number of slots for a given workout index from the program definition.
+ * Returns undefined if the definition cannot be resolved (completed_at will be skipped).
+ */
+async function getExpectedSlotCount(
+  programId: string,
+  workoutIndex: number
+): Promise<number | undefined> {
+  const defResult = await getProgramDefinition(programId);
+  if (defResult.status !== 'found') return undefined;
+
+  const def = defResult.definition;
+  const cycleLength = def.days.length;
+  const day = def.days[workoutIndex % cycleLength];
+  return day.slots.length;
+}
+
+/**
+ * Manage completed_at lifecycle for a workout.
+ * After any result mutation, checks if all slots are filled. If so, sets completed_at
+ * on all rows. If the workout becomes incomplete, clears completed_at.
+ */
+async function syncCompletedAt(
+  tx: Tx,
+  instanceId: string,
+  programId: string,
+  workoutIndex: number
+): Promise<void> {
+  const expectedSlots = await getExpectedSlotCount(programId, workoutIndex);
+  if (expectedSlots === undefined) return;
+
+  const resultRows = await tx
+    .select({ id: workoutResults.id, completedAt: workoutResults.completedAt })
+    .from(workoutResults)
+    .where(
+      and(eq(workoutResults.instanceId, instanceId), eq(workoutResults.workoutIndex, workoutIndex))
+    );
+
+  const isComplete = resultRows.length >= expectedSlots;
+
+  if (isComplete) {
+    // Only set completed_at if not already set (idempotent)
+    const needsUpdate = resultRows.some((r) => r.completedAt === null);
+    if (needsUpdate) {
+      await tx
+        .update(workoutResults)
+        .set({ completedAt: new Date() })
+        .where(
+          and(
+            eq(workoutResults.instanceId, instanceId),
+            eq(workoutResults.workoutIndex, workoutIndex)
+          )
+        );
+    }
+  } else {
+    // Workout is incomplete — clear completed_at on remaining rows
+    const needsClear = resultRows.some((r) => r.completedAt !== null);
+    if (needsClear) {
+      await tx
+        .update(workoutResults)
+        .set({ completedAt: null })
+        .where(
+          and(
+            eq(workoutResults.instanceId, instanceId),
+            eq(workoutResults.workoutIndex, workoutIndex)
+          )
+        );
+    }
   }
 }
 
@@ -90,8 +166,10 @@ export async function recordResult(
     throw new ApiError(400, 'rpe must be between 1 and 10', 'INVALID_DATA');
   }
 
+  const setLogsValue = input.setLogs ?? null;
+
   const result = await getDb().transaction(async (tx) => {
-    await verifyInstanceOwnership(tx, userId, instanceId);
+    const programId = await verifyInstanceOwnership(tx, userId, instanceId);
     // Capture existing state for undo (must happen before upsert)
     const [existing] = await tx
       .select()
@@ -115,10 +193,16 @@ export async function recordResult(
         result: input.result,
         amrapReps: input.amrapReps ?? null,
         rpe: input.rpe ?? null,
+        setLogs: setLogsValue,
       })
       .onConflictDoUpdate({
         target: [workoutResults.instanceId, workoutResults.workoutIndex, workoutResults.slotId],
-        set: { result: input.result, amrapReps: input.amrapReps ?? null, rpe: input.rpe ?? null },
+        set: {
+          result: input.result,
+          amrapReps: input.amrapReps ?? null,
+          rpe: input.rpe ?? null,
+          setLogs: setLogsValue,
+        },
       })
       .returning();
 
@@ -126,7 +210,7 @@ export async function recordResult(
       throw new ApiError(500, 'Failed to record result', 'INSERT_FAILED');
     }
 
-    // Push undo entry — captures prevResult, prevAmrapReps, and prevRpe
+    // Push undo entry — captures prevResult, prevAmrapReps, prevRpe, and prevSetLogs
     await tx.insert(undoEntries).values({
       instanceId,
       workoutIndex: input.workoutIndex,
@@ -134,9 +218,13 @@ export async function recordResult(
       prevResult: existing?.result ?? null,
       prevAmrapReps: existing?.amrapReps ?? null,
       prevRpe: existing?.rpe ?? null,
+      prevSetLogs: existing?.setLogs ?? null,
     });
 
     await trimUndoStack(tx, instanceId);
+
+    // Sync completed_at based on whether all slots now have results
+    await syncCompletedAt(tx, instanceId, programId, input.workoutIndex);
 
     return row;
   });
@@ -159,7 +247,7 @@ export async function deleteResult(
   slotId: string
 ): Promise<void> {
   await getDb().transaction(async (tx) => {
-    await verifyInstanceOwnership(tx, userId, instanceId);
+    const programId = await verifyInstanceOwnership(tx, userId, instanceId);
 
     const [existing] = await tx
       .select()
@@ -177,7 +265,7 @@ export async function deleteResult(
       throw new ApiError(404, 'Result not found', 'RESULT_NOT_FOUND');
     }
 
-    // Push undo entry before deleting (captures amrapReps and rpe too)
+    // Push undo entry before deleting (captures amrapReps, rpe, and setLogs)
     await tx.insert(undoEntries).values({
       instanceId,
       workoutIndex,
@@ -185,11 +273,15 @@ export async function deleteResult(
       prevResult: existing.result,
       prevAmrapReps: existing.amrapReps ?? null,
       prevRpe: existing.rpe ?? null,
+      prevSetLogs: existing.setLogs ?? null,
     });
 
     await tx.delete(workoutResults).where(eq(workoutResults.id, existing.id));
 
     await trimUndoStack(tx, instanceId);
+
+    // Workout is now missing a slot — clear completed_at on remaining rows
+    await syncCompletedAt(tx, instanceId, programId, workoutIndex);
   });
 
   await touchInstanceTimestamp(instanceId).catch((err: unknown) =>
@@ -203,7 +295,7 @@ export async function deleteResult(
 
 export async function undoLast(userId: string, instanceId: string): Promise<UndoEntryRow | null> {
   const entry = await getDb().transaction(async (tx) => {
-    await verifyInstanceOwnership(tx, userId, instanceId);
+    const programId = await verifyInstanceOwnership(tx, userId, instanceId);
     // Pop the most recent undo entry (LIFO — highest id)
     const [found] = await tx
       .select()
@@ -219,6 +311,8 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
     // Remove the undo entry (consumed)
     await tx.delete(undoEntries).where(eq(undoEntries.id, found.id));
 
+    const prevSetLogsValue = found.prevSetLogs ?? null;
+
     if (found.prevResult === null) {
       // Previous state was "no result" — delete the current result
       await tx
@@ -231,7 +325,7 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
           )
         );
     } else {
-      // Previous state was a result — restore it with amrapReps and rpe via upsert
+      // Previous state was a result — restore it with amrapReps, rpe, and setLogs via upsert
       await tx
         .insert(workoutResults)
         .values({
@@ -241,6 +335,7 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
           result: found.prevResult,
           amrapReps: found.prevAmrapReps ?? null,
           rpe: found.prevRpe ?? null,
+          setLogs: prevSetLogsValue,
         })
         .onConflictDoUpdate({
           target: [workoutResults.instanceId, workoutResults.workoutIndex, workoutResults.slotId],
@@ -248,9 +343,13 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
             result: found.prevResult,
             amrapReps: found.prevAmrapReps ?? null,
             rpe: found.prevRpe ?? null,
+            setLogs: prevSetLogsValue,
           },
         });
     }
+
+    // Sync completed_at — workout may have become incomplete or complete
+    await syncCompletedAt(tx, instanceId, programId, found.workoutIndex);
 
     return found;
   });

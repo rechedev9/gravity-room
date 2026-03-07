@@ -197,6 +197,13 @@
       "when": 1772827638593,
       "tag": "0027_dear_barracuda",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1772886585166,
+      "tag": "0028_giant_psylocke",
+      "breakpoints": true
     }
   ]
 }

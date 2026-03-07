@@ -1,6 +1,11 @@
 import { Fragment } from 'react';
 import type { ReactNode } from 'react';
-import type { ResultValue, GenericWorkoutRow, GenericSlotRow } from '@gzclp/shared/types';
+import type {
+  ResultValue,
+  GenericWorkoutRow,
+  GenericSlotRow,
+  SetLogEntry,
+} from '@gzclp/shared/types';
 import { ResultCell } from './result-cell';
 import { AmrapInput } from './amrap-input';
 import { RpeSelect } from './rpe-select';
@@ -14,6 +19,20 @@ interface DayViewProps {
   readonly onUndo: (workoutIndex: number, slotId: string) => void;
   readonly onSetAmrapReps: (workoutIndex: number, slotId: string, reps: number | undefined) => void;
   readonly onSetRpe?: (workoutIndex: number, slotId: string, rpe: number | undefined) => void;
+  /** Called when user confirms reps for a set via the inline stepper. */
+  readonly onSetTap?: (
+    workoutIndex: number,
+    slotId: string,
+    setIndex: number,
+    reps: number
+  ) => void;
+  /** Get in-progress set logs for a slot (from useSetLogging). */
+  readonly getSetLogs?: (
+    workoutIndex: number,
+    slotId: string
+  ) => readonly SetLogEntry[] | undefined;
+  /** Check if set logging is in progress for a slot. */
+  readonly isSlotLogging?: (workoutIndex: number, slotId: string) => boolean;
 }
 
 /** Render prescription ladder: warm-ups -> working set separated by | */
@@ -71,6 +90,9 @@ export function DayView({
   onUndo,
   onSetAmrapReps,
   onSetRpe,
+  onSetTap,
+  getSetLogs,
+  isSlotLogging,
 }: DayViewProps): ReactNode {
   return (
     <div className="flex flex-col gap-3" aria-label={`Entrenamiento ${workout.index + 1}`}>
@@ -139,7 +161,19 @@ export function DayView({
             {/* Row 3: Set indicators (standard slots only, not prescription/GPP) */}
             {!hasPrescriptions && !isGpp && (
               <div className="mb-3">
-                <SetIndicators sets={slot.sets} result={slot.result} isAmrap={slot.isAmrap} />
+                <SetIndicators
+                  sets={slot.sets}
+                  result={slot.result}
+                  isAmrap={slot.isAmrap}
+                  targetReps={slot.reps}
+                  setLogs={getSetLogs?.(workout.index, slot.slotId)}
+                  committedSetLogs={slot.setLogs}
+                  onSetTap={
+                    onSetTap && !isDone
+                      ? (setIndex, reps) => onSetTap(workout.index, slot.slotId, setIndex, reps)
+                      : undefined
+                  }
+                />
               </div>
             )}
 
@@ -151,20 +185,24 @@ export function DayView({
                 result={slot.result}
                 variant="card"
                 isTestSlot={slot.isTestSlot === true}
+                isSetLogging={isSlotLogging?.(workout.index, slot.slotId) === true}
                 onMark={onMark}
                 onUndo={onUndo}
               />
 
-              {/* AMRAP input: shown when slot is AMRAP and has a success result */}
-              {slot.result === 'success' && slot.isAmrap && (
-                <AmrapInput
-                  value={slot.amrapReps}
-                  onChange={(reps) => onSetAmrapReps(workout.index, slot.slotId, reps)}
-                  variant="card"
-                  weight={slot.weight}
-                  result={slot.result}
-                />
-              )}
+              {/* AMRAP input: shown when slot is AMRAP and has a success result, hidden when set logging is active */}
+              {slot.result === 'success' &&
+                slot.isAmrap &&
+                !isSlotLogging?.(workout.index, slot.slotId) &&
+                slot.setLogs === undefined && (
+                  <AmrapInput
+                    value={slot.amrapReps}
+                    onChange={(reps) => onSetAmrapReps(workout.index, slot.slotId, reps)}
+                    variant="card"
+                    weight={slot.weight}
+                    result={slot.result}
+                  />
+                )}
 
               {/* RPE select: shown for primary slots with a success result */}
               {slot.result === 'success' && showRpe && onSetRpe && (

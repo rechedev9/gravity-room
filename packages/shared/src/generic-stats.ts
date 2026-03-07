@@ -1,6 +1,7 @@
 import type { ProgramDefinition } from './types/program';
 import type {
   GenericWorkoutRow,
+  GenericSlotRow,
   ChartDataPoint,
   ExerciseStats,
   RpeDataPoint,
@@ -177,6 +178,14 @@ export function extractGenericAmrapData(
   return data;
 }
 
+/** Compute total volume (kg) for a single slot using setLogs when available. */
+function computeSlotVolume(slot: GenericSlotRow): number {
+  if (slot.setLogs !== undefined && slot.setLogs.length > 0) {
+    return slot.setLogs.reduce<number>((sum, s) => sum + (s.weight ?? slot.weight) * s.reps, 0);
+  }
+  return slot.weight * slot.sets * slot.reps;
+}
+
 /**
  * Computes per-workout volume totals from workout rows.
  *
@@ -198,7 +207,7 @@ export function extractWeeklyVolumeData(
     let volumeKg = 0;
     for (const slot of row.slots) {
       if (slot.result === 'success') {
-        volumeKg += slot.weight * slot.sets * slot.reps;
+        volumeKg += computeSlotVolume(slot);
       }
     }
 

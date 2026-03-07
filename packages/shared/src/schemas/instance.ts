@@ -2,10 +2,18 @@ import { z } from 'zod/v4';
 
 const ResultValueSchema = z.enum(['success', 'fail']);
 
+/** A single set's recorded data. */
+export const SetLogEntrySchema = z.strictObject({
+  reps: z.number().int().min(0).max(999),
+  weight: z.number().nonnegative().optional(),
+  rpe: z.number().int().min(1).max(10).optional(),
+});
+
 const SlotResultSchema = z.strictObject({
   result: ResultValueSchema.optional(),
   amrapReps: z.number().int().min(0).max(999).optional(),
   rpe: z.number().int().min(1).max(10).optional(),
+  setLogs: z.array(SetLogEntrySchema).optional(),
 });
 
 const GenericWorkoutResultSchema = z.record(z.string(), SlotResultSchema);
@@ -21,6 +29,7 @@ const GenericUndoEntrySchema = z.strictObject({
   prev: ResultValueSchema.optional(),
   prevRpe: z.number().int().min(1).max(10).optional(),
   prevAmrapReps: z.number().int().min(0).optional(),
+  prevSetLogs: z.array(SetLogEntrySchema).optional(),
 });
 
 export const GenericUndoHistorySchema = z.array(GenericUndoEntrySchema);

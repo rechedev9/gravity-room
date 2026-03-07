@@ -1,6 +1,13 @@
 export type ResultValue = 'success' | 'fail';
 export type Tier = string;
 
+/** A single set's recorded data. */
+export interface SetLogEntry {
+  readonly reps: number;
+  readonly weight?: number;
+  readonly rpe?: number;
+}
+
 /** A resolved prescription with computed weight (output of engine). */
 export interface ResolvedPrescription {
   readonly percent: number;
@@ -40,6 +47,8 @@ export interface GenericSlotRow {
   readonly isTestSlot: boolean | undefined;
   /** True for bodyweight exercises where the weight column should be hidden. */
   readonly isBodyweight: boolean | undefined;
+  /** Per-set log entries (undefined = slot-level tracking only). */
+  readonly setLogs: readonly SetLogEntry[] | undefined;
 }
 
 export interface GenericWorkoutRow {
@@ -47,6 +56,8 @@ export interface GenericWorkoutRow {
   readonly dayName: string;
   readonly slots: readonly GenericSlotRow[];
   readonly isChanged: boolean;
+  /** ISO timestamp when all slots in this workout were completed (undefined = incomplete). */
+  readonly completedAt: string | undefined;
 }
 
 export interface ChartDataPoint {

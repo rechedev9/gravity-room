@@ -7,6 +7,8 @@ interface ResultCellProps {
   readonly variant: 'table' | 'card';
   /** True for test slots — renders a single "Registrar Maximo" button instead of Pass/Fail. */
   readonly isTestSlot?: boolean;
+  /** True when set logging is in progress — buttons are visually muted but remain functional. */
+  readonly isSetLogging?: boolean;
   readonly onMark: (index: number, tier: string, value: ResultValue) => void;
   readonly onUndo: (index: number, tier: string) => void;
 }
@@ -17,6 +19,7 @@ export function ResultCell({
   result,
   variant,
   isTestSlot,
+  isSetLogging,
   onMark,
   onUndo,
 }: ResultCellProps): React.ReactNode {
@@ -76,8 +79,10 @@ export function ResultCell({
     ? 'min-w-[44px] min-h-[44px] px-3.5 py-2 text-sm'
     : 'min-w-[48px] min-h-[48px] px-3 py-2 text-base';
 
+  const mutedClass = isSetLogging === true ? 'opacity-40' : '';
+
   return (
-    <div className={`flex ${isTable ? 'gap-1 justify-center' : 'gap-2.5'}`}>
+    <div className={`flex ${isTable ? 'gap-1 justify-center' : 'gap-2.5'} ${mutedClass}`}>
       <button
         onClick={() => onMark(index, tier, 'success')}
         aria-label={`Marcar ${tier} éxito`}

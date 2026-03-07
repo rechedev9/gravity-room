@@ -39,6 +39,7 @@ function makeSlot(
     propagatesTo: overrides.propagatesTo ?? undefined,
     isTestSlot: overrides.isTestSlot ?? undefined,
     isBodyweight: overrides.isBodyweight ?? undefined,
+    setLogs: overrides.setLogs ?? undefined,
     ...overrides,
   };
 }
@@ -49,6 +50,7 @@ function makeRow(index: number, slots: GenericSlotRow[]): GenericWorkoutRow {
     dayName: `Day ${index + 1}`,
     slots,
     isChanged: false,
+    completedAt: undefined,
   };
 }
 

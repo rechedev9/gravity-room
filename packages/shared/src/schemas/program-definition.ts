@@ -34,6 +34,16 @@ const UpdateTmRuleSchema = z.strictObject({
   minAmrapReps: z.number().int().nonnegative(),
 });
 
+const DoubleProgressionRuleSchema = z
+  .strictObject({
+    type: z.literal('double_progression'),
+    repRangeTop: z.number().int().positive(),
+    repRangeBottom: z.number().int().positive(),
+  })
+  .refine((rule) => rule.repRangeBottom <= rule.repRangeTop, {
+    message: 'repRangeBottom must be <= repRangeTop',
+  });
+
 export const ProgressionRuleSchema = z.discriminatedUnion('type', [
   AddWeightRuleSchema,
   DeloadPercentRuleSchema,
@@ -42,6 +52,7 @@ export const ProgressionRuleSchema = z.discriminatedUnion('type', [
   NoChangeRuleSchema,
   AdvanceStageAddWeightRuleSchema,
   UpdateTmRuleSchema,
+  DoubleProgressionRuleSchema,
 ]);
 
 // --- Stage Definition ---

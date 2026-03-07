@@ -813,6 +813,74 @@ export const NIVEL7_DEFINITION_FIXTURE: ProgramDefinition = {
 };
 
 // ---------------------------------------------------------------------------
+// Double Progression definition fixture (minimal program using double_progression rules)
+// ---------------------------------------------------------------------------
+
+export const DOUBLE_PROGRESSION_DEFINITION_FIXTURE: ProgramDefinition = {
+  id: 'double-prog-test',
+  name: 'Double Progression Test',
+  description: 'Minimal fixture for testing double_progression rule type with set logs.',
+  author: 'test',
+  version: 1,
+  category: 'hypertrophy',
+  source: 'preset',
+  cycleLength: 1,
+  totalWorkouts: 4,
+  workoutsPerWeek: 2,
+  exercises: {
+    curl: { name: 'Curl' },
+    lateral_raise: { name: 'Lateral Raise' },
+  },
+  configFields: [
+    { key: 'curl', label: 'Curl', type: 'weight', min: 0, step: 0.5 },
+    { key: 'lateral_raise', label: 'Lateral Raise', type: 'weight', min: 0, step: 0.5 },
+  ],
+  weightIncrements: {
+    curl: 2.5,
+    lateral_raise: 1,
+  },
+  days: [
+    {
+      name: 'Day A',
+      slots: [
+        {
+          id: 'curl-dp',
+          exerciseId: 'curl',
+          tier: 't2',
+          stages: [
+            { sets: 3, reps: 8 },
+            { sets: 3, reps: 9 },
+            { sets: 3, reps: 10 },
+            { sets: 3, reps: 11 },
+            { sets: 3, reps: 12 },
+          ],
+          onSuccess: { type: 'add_weight' },
+          onUndefined: { type: 'no_change' },
+          onMidStageFail: { type: 'no_change' },
+          onFinalStageFail: { type: 'no_change' },
+          startWeightKey: 'curl',
+        },
+        {
+          id: 'lat-dp',
+          exerciseId: 'lateral_raise',
+          tier: 't3',
+          stages: [
+            { sets: 3, reps: 10 },
+            { sets: 3, reps: 11 },
+            { sets: 3, reps: 12 },
+          ],
+          onSuccess: { type: 'add_weight' },
+          onUndefined: { type: 'no_change' },
+          onMidStageFail: { type: 'no_change' },
+          onFinalStageFail: { type: 'no_change' },
+          startWeightKey: 'lateral_raise',
+        },
+      ],
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
 

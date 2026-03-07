@@ -4,6 +4,7 @@ import type {
   GenericWorkoutRow,
   ResolvedPrescription,
   ResultValue,
+  SetLogEntry,
 } from './types/index';
 
 export function roundToNearestHalf(value: number): number {
@@ -19,6 +20,80 @@ export function roundToNearest(value: number, step: number): number {
   if (!Number.isFinite(rounded) || rounded < 0) return 0;
   // Avoid floating-point artifacts (e.g., 67.49999... -> 67.5)
   return Math.round(rounded * 1000) / 1000;
+}
+
+// ---------------------------------------------------------------------------
+// Set-log result derivation (called before engine progression)
+// ---------------------------------------------------------------------------
+
+interface DoubleProgressionParams {
+  readonly type: 'double_progression';
+  readonly repRangeTop: number;
+  readonly repRangeBottom: number;
+}
+
+/**
+ * Derives a slot result from per-set logs using double progression rules.
+ *
+ * - All sets reps >= repRangeTop  -> 'success' (increase weight)
+ * - Any set reps  < repRangeBottom -> 'fail'    (trigger fail rules)
+ * - Otherwise                      -> undefined  (maintain / no_change via onUndefined)
+ *
+ * Returns undefined if setLogs is empty or undefined (fallback to explicit result).
+ */
+export function deriveResultFromSetLogs(
+  setLogs: readonly SetLogEntry[] | undefined,
+  rule: DoubleProgressionParams
+): ResultValue | undefined {
+  if (setLogs === undefined || setLogs.length === 0) return undefined;
+
+  if (setLogs.every((s) => s.reps >= rule.repRangeTop)) return 'success';
+  if (setLogs.some((s) => s.reps < rule.repRangeBottom)) return 'fail';
+
+  return undefined;
+}
+
+/**
+ * Derives a slot result from per-set logs using simple pass/fail logic.
+ *
+ * - All sets reps >= targetReps -> 'success'
+ * - Any set reps  < targetReps -> 'fail'
+ *
+ * Returns undefined if setLogs is empty or undefined (no derivation).
+ */
+export function deriveResultFromSetLogsSimple(
+  setLogs: readonly SetLogEntry[] | undefined,
+  targetReps: number
+): ResultValue | undefined {
+  if (setLogs === undefined || setLogs.length === 0) return undefined;
+
+  if (setLogs.every((s) => s.reps >= targetReps)) return 'success';
+
+  return 'fail';
+}
+
+/**
+ * Internal helper: derives the effective result for a slot by checking setLogs
+ * against the slot's onSuccess rule type.
+ *
+ * - double_progression: uses repRangeTop/repRangeBottom thresholds
+ * - other rules: uses simple targetReps pass/fail
+ * - no setLogs: falls back to the explicit slotResult.result
+ */
+function deriveSlotResult(
+  slot: SlotDef,
+  slotResult: SlotResult,
+  targetReps: number
+): ResultValue | undefined {
+  if (slotResult.setLogs === undefined || slotResult.setLogs.length === 0) {
+    return slotResult.result;
+  }
+  if (slot.onSuccess.type === 'double_progression') {
+    const derived = deriveResultFromSetLogs(slotResult.setLogs, slot.onSuccess);
+    return derived ?? slotResult.result;
+  }
+  const derived = deriveResultFromSetLogsSimple(slotResult.setLogs, targetReps);
+  return derived ?? slotResult.result;
 }
 
 // Derived from ProgramDefinition so it automatically includes all rule variants
@@ -66,6 +141,10 @@ function applyRule(
       // update_tm is handled inline in the progression loop (needs tmState access).
       // If reached here (defensive), treat as no-op for slotState.
       return { ...state };
+    case 'double_progression':
+      // Double progression: increase weight (same as add_weight).
+      // Full set-log-based derivation is handled in computeGenericProgram (Phase 2).
+      return { ...state, weight: state.weight + increment };
   }
 }
 
@@ -92,7 +171,12 @@ type UpdateTmRule = {
   readonly minAmrapReps: number;
 };
 type SlotDef = ProgramDefinition['days'][number]['slots'][number];
-type SlotResult = { result?: 'success' | 'fail'; amrapReps?: number; rpe?: number };
+type SlotResult = {
+  result?: 'success' | 'fail';
+  amrapReps?: number;
+  rpe?: number;
+  setLogs?: readonly SetLogEntry[];
+};
 
 function applyUpdateTm(
   rule: UpdateTmRule,
@@ -277,6 +361,7 @@ export function computeGenericProgram(
           propagatesTo: slot.propagatesTo,
           isTestSlot: slot.isTestSlot,
           isBodyweight: slot.isBodyweight,
+          setLogs: slotResult.setLogs,
         };
       }
 
@@ -308,6 +393,7 @@ export function computeGenericProgram(
           propagatesTo: slot.propagatesTo,
           isTestSlot: slot.isTestSlot,
           isBodyweight: slot.isBodyweight,
+          setLogs: slotResult.setLogs,
         };
       }
 
@@ -327,6 +413,17 @@ export function computeGenericProgram(
         prevWeightByExerciseId.set(slot.exerciseId, weight);
       }
 
+      // --- Auto-derive result from setLogs when present ---
+      const derivedResult = deriveSlotResult(slot, slotResult, stageConfig.reps);
+
+      // --- Derive AMRAP reps from last setLog when isAmrap ---
+      const amrapReps =
+        stageConfig.amrap === true &&
+        slotResult.setLogs !== undefined &&
+        slotResult.setLogs.length > 0
+          ? slotResult.setLogs[slotResult.setLogs.length - 1].reps
+          : slotResult.amrapReps;
+
       return {
         slotId: slot.id,
         exerciseId: slot.exerciseId,
@@ -339,8 +436,8 @@ export function computeGenericProgram(
         repsMax: stageConfig.repsMax,
         isAmrap: stageConfig.amrap === true,
         stagesCount: slot.stages.length,
-        result: slotResult.result,
-        amrapReps: slotResult.amrapReps,
+        result: derivedResult,
+        amrapReps,
         rpe: slotResult.rpe,
         isChanged: state.everChanged,
         isDeload,
@@ -352,6 +449,7 @@ export function computeGenericProgram(
         propagatesTo: slot.propagatesTo,
         isTestSlot: slot.isTestSlot,
         isBodyweight: slot.isBodyweight,
+        setLogs: slotResult.setLogs,
       };
     });
 
@@ -360,6 +458,7 @@ export function computeGenericProgram(
       dayName: day.name,
       slots,
       isChanged: slots.some((s) => s.isChanged),
+      completedAt: undefined,
     });
 
     // --- 2. Apply progression AFTER snapshot ---
@@ -369,7 +468,13 @@ export function computeGenericProgram(
 
       const state = slotState[slot.id];
       const slotResult = workoutResult[slot.id] ?? {};
-      const resultValue: ResultValue | undefined = slotResult.result;
+      const stageConfig = slot.stages[state.stage];
+      // Use derived result (setLogs override explicit result)
+      const resultValue: ResultValue | undefined = deriveSlotResult(
+        slot,
+        slotResult,
+        stageConfig.reps
+      );
       const increment = definition.weightIncrements[slot.exerciseId] ?? 0;
       applySlotProgression(
         slot,

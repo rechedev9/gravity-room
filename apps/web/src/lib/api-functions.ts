@@ -5,7 +5,7 @@
  */
 import { getAccessToken, refreshAccessToken } from './api';
 import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
-import type { ResultValue } from '@gzclp/shared/types';
+import type { ResultValue, SetLogEntry } from '@gzclp/shared/types';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import type { GenericResults, GenericUndoHistory } from '@gzclp/shared/types/program';
 import { isRecord } from '@gzclp/shared/type-guards';
@@ -38,6 +38,7 @@ export interface GenericProgramDetail {
   readonly results: GenericResults;
   readonly undoHistory: GenericUndoHistory;
   readonly resultTimestamps: Readonly<Record<string, string>>;
+  readonly completedDates: Readonly<Record<string, string>>;
   readonly status: string;
 }
 
@@ -157,6 +158,20 @@ export async function fetchPrograms(): Promise<ProgramSummary[]> {
 // Shared result / undo parsers (used by both legacy and generic fetch)
 // ---------------------------------------------------------------------------
 
+function parseSetLogs(raw: unknown): SetLogEntry[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const logs: SetLogEntry[] = [];
+  for (const entry of raw) {
+    if (!isRecord(entry) || typeof entry.reps !== 'number') continue;
+    logs.push({
+      reps: entry.reps,
+      ...(typeof entry.weight === 'number' ? { weight: entry.weight } : {}),
+      ...(typeof entry.rpe === 'number' ? { rpe: entry.rpe } : {}),
+    });
+  }
+  return logs.length > 0 ? logs : undefined;
+}
+
 function parseGenericResults(raw: unknown): GenericResults {
   if (!isRecord(raw)) return {};
   const results: GenericResults = {};
@@ -164,16 +179,23 @@ function parseGenericResults(raw: unknown): GenericResults {
     if (!isRecord(slots)) continue;
     const slotMap: Record<
       string,
-      { result?: 'success' | 'fail'; amrapReps?: number; rpe?: number }
+      {
+        result?: 'success' | 'fail';
+        amrapReps?: number;
+        rpe?: number;
+        setLogs?: SetLogEntry[];
+      }
     > = {};
     for (const [slotId, slotData] of Object.entries(slots)) {
       if (!isRecord(slotData)) continue;
+      const parsedSetLogs = parseSetLogs(slotData.setLogs);
       slotMap[slotId] = {
         ...(slotData.result === 'success' || slotData.result === 'fail'
           ? { result: slotData.result }
           : {}),
         ...(typeof slotData.amrapReps === 'number' ? { amrapReps: slotData.amrapReps } : {}),
         ...(typeof slotData.rpe === 'number' ? { rpe: slotData.rpe } : {}),
+        ...(parsedSetLogs !== undefined ? { setLogs: parsedSetLogs } : {}),
       };
     }
     results[indexStr] = slotMap;
@@ -242,6 +264,7 @@ export async function updateProgramMetadata(
     results: parseGenericResults(data.results),
     undoHistory: parseGenericUndoHistory(data.undoHistory),
     resultTimestamps: parseStringRecord(data.resultTimestamps),
+    completedDates: parseStringRecord(data.completedDates),
     status: String(data.status ?? 'active'),
   };
 }
@@ -338,6 +361,7 @@ export async function fetchGenericProgramDetail(id: string): Promise<GenericProg
     results: parseGenericResults(data.results),
     undoHistory: parseGenericUndoHistory(data.undoHistory),
     resultTimestamps: parseStringRecord(data.resultTimestamps),
+    completedDates: parseStringRecord(data.completedDates),
     status: String(data.status ?? 'active'),
   };
 }
@@ -349,7 +373,8 @@ export async function recordGenericResult(
   slotId: string,
   result: ResultValue,
   amrapReps?: number,
-  rpe?: number
+  rpe?: number,
+  setLogs?: readonly SetLogEntry[]
 ): Promise<void> {
   await apiFetch(`/programs/${encodeURIComponent(instanceId)}/results`, {
     method: 'POST',
@@ -359,6 +384,7 @@ export async function recordGenericResult(
       result,
       ...(amrapReps !== undefined ? { amrapReps } : {}),
       ...(rpe !== undefined ? { rpe } : {}),
+      ...(setLogs !== undefined ? { setLogs } : {}),
     }),
   });
 }

@@ -3,8 +3,14 @@ import {
   computeGenericProgram,
   roundToNearestHalf as round,
   roundToNearest,
+  deriveResultFromSetLogs,
+  deriveResultFromSetLogsSimple,
 } from './generic-engine';
-import { GZCLP_DEFINITION_FIXTURE, DEFAULT_WEIGHTS } from '../test/fixtures';
+import {
+  GZCLP_DEFINITION_FIXTURE,
+  DEFAULT_WEIGHTS,
+  DOUBLE_PROGRESSION_DEFINITION_FIXTURE,
+} from '../test/fixtures';
 import type { ProgramDefinition, GenericResults } from './types/program';
 import {
   ProgressionRuleSchema,
@@ -2752,5 +2758,397 @@ describe('computeGenericProgram: rounding normalization', () => {
 
     // TM: 100 → 102.5. Weight: roundToNearest(102.5 * 0.85, 2.5) = roundToNearest(87.125, 2.5) = 87.5
     expect(rows[1].slots[0].weight).toBe(87.5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deriveResultFromSetLogs (REQ-ENGINE-001, REQ-ENGINE-004)
+// ---------------------------------------------------------------------------
+
+describe('deriveResultFromSetLogs', () => {
+  it('should return success when all sets hit repRangeTop', () => {
+    const setLogs = [{ reps: 12 }, { reps: 13 }, { reps: 12 }] as const;
+    const rule = { type: 'double_progression' as const, repRangeTop: 12, repRangeBottom: 8 };
+
+    const result = deriveResultFromSetLogs(setLogs, rule);
+
+    expect(result).toBe('success');
+  });
+
+  it('should return fail when any set is below repRangeBottom', () => {
+    const setLogs = [{ reps: 10 }, { reps: 7 }, { reps: 9 }] as const;
+    const rule = { type: 'double_progression' as const, repRangeTop: 12, repRangeBottom: 8 };
+
+    const result = deriveResultFromSetLogs(setLogs, rule);
+
+    expect(result).toBe('fail');
+  });
+
+  it('should return undefined (maintain) when all sets are between bottom and top', () => {
+    const setLogs = [{ reps: 10 }, { reps: 11 }, { reps: 9 }] as const;
+    const rule = { type: 'double_progression' as const, repRangeTop: 12, repRangeBottom: 8 };
+
+    const result = deriveResultFromSetLogs(setLogs, rule);
+
+    expect(result).toBeUndefined();
+  });
+
+  it('should return undefined when setLogs is undefined', () => {
+    const rule = { type: 'double_progression' as const, repRangeTop: 12, repRangeBottom: 8 };
+
+    const result = deriveResultFromSetLogs(undefined, rule);
+
+    expect(result).toBeUndefined();
+  });
+
+  it('should return undefined when setLogs is empty', () => {
+    const rule = { type: 'double_progression' as const, repRangeTop: 12, repRangeBottom: 8 };
+
+    const result = deriveResultFromSetLogs([], rule);
+
+    expect(result).toBeUndefined();
+  });
+
+  it('should return success when all sets exactly equal repRangeTop', () => {
+    const setLogs = [{ reps: 12 }, { reps: 12 }, { reps: 12 }] as const;
+    const rule = { type: 'double_progression' as const, repRangeTop: 12, repRangeBottom: 8 };
+
+    const result = deriveResultFromSetLogs(setLogs, rule);
+
+    expect(result).toBe('success');
+  });
+
+  it('should return fail when a set exactly equals repRangeBottom minus one', () => {
+    const setLogs = [{ reps: 7 }] as const;
+    const rule = { type: 'double_progression' as const, repRangeTop: 12, repRangeBottom: 8 };
+
+    const result = deriveResultFromSetLogs(setLogs, rule);
+
+    expect(result).toBe('fail');
+  });
+
+  it('should return undefined (maintain) when sets are exactly at repRangeBottom', () => {
+    const setLogs = [{ reps: 8 }, { reps: 8 }, { reps: 8 }] as const;
+    const rule = { type: 'double_progression' as const, repRangeTop: 12, repRangeBottom: 8 };
+
+    const result = deriveResultFromSetLogs(setLogs, rule);
+
+    expect(result).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deriveResultFromSetLogsSimple (REQ-ENGINE-001, REQ-ENGINE-004)
+// ---------------------------------------------------------------------------
+
+describe('deriveResultFromSetLogsSimple', () => {
+  it('should return success when all sets meet target reps', () => {
+    const setLogs = [{ reps: 5 }, { reps: 5 }, { reps: 7 }] as const;
+
+    const result = deriveResultFromSetLogsSimple(setLogs, 5);
+
+    expect(result).toBe('success');
+  });
+
+  it('should return fail when any set is below target reps', () => {
+    const setLogs = [{ reps: 5 }, { reps: 4 }, { reps: 5 }] as const;
+
+    const result = deriveResultFromSetLogsSimple(setLogs, 5);
+
+    expect(result).toBe('fail');
+  });
+
+  it('should return undefined when setLogs is undefined', () => {
+    const result = deriveResultFromSetLogsSimple(undefined, 5);
+
+    expect(result).toBeUndefined();
+  });
+
+  it('should return undefined when setLogs is empty', () => {
+    const result = deriveResultFromSetLogsSimple([], 5);
+
+    expect(result).toBeUndefined();
+  });
+
+  it('should return success when all sets exactly equal target', () => {
+    const setLogs = [{ reps: 3 }, { reps: 3 }] as const;
+
+    const result = deriveResultFromSetLogsSimple(setLogs, 3);
+
+    expect(result).toBe('success');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// double_progression rule integration with engine replay (REQ-ENGINE-002..007)
+// ---------------------------------------------------------------------------
+
+describe('double_progression engine integration', () => {
+  it('should increase weight when all sets hit repRangeTop via setLogs', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 3, reps: 8 }],
+      onSuccess: { type: 'double_progression', repRangeTop: 12, repRangeBottom: 8 },
+      onUndefined: { type: 'no_change' },
+      onMidStageFail: { type: 'no_change' },
+      onFinalStageFail: { type: 'no_change' },
+      totalWorkouts: 3,
+    });
+    const results: GenericResults = {
+      '0': {
+        slot1: {
+          result: 'success',
+          setLogs: [{ reps: 12 }, { reps: 13 }, { reps: 12 }],
+        },
+      },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 20 }, results);
+
+    // workout 0 should show weight 20 (snapshot before progression)
+    expect(rows[0].slots[0].weight).toBe(20);
+    // workout 1 weight increased by increment (5)
+    expect(rows[1].slots[0].weight).toBe(25);
+  });
+
+  it('should maintain weight when sets are in maintain range (no explicit result)', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 3, reps: 8 }],
+      onSuccess: { type: 'double_progression', repRangeTop: 12, repRangeBottom: 8 },
+      onUndefined: { type: 'no_change' },
+      onMidStageFail: { type: 'no_change' },
+      onFinalStageFail: { type: 'no_change' },
+      totalWorkouts: 3,
+    });
+    const results: GenericResults = {
+      '0': {
+        slot1: {
+          setLogs: [{ reps: 10 }, { reps: 11 }, { reps: 9 }],
+        },
+      },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 20 }, results);
+
+    // Maintain range: deriveResultFromSetLogs returns undefined,
+    // no explicit result fallback -> onUndefined (no_change)
+    expect(rows[1].slots[0].weight).toBe(20);
+  });
+
+  it('should fall back to explicit result when setLogs are in maintain range', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 3, reps: 8 }],
+      onSuccess: { type: 'double_progression', repRangeTop: 12, repRangeBottom: 8 },
+      onUndefined: { type: 'no_change' },
+      onMidStageFail: { type: 'no_change' },
+      onFinalStageFail: { type: 'no_change' },
+      totalWorkouts: 3,
+    });
+    const results: GenericResults = {
+      '0': {
+        slot1: {
+          result: 'success',
+          setLogs: [{ reps: 10 }, { reps: 11 }, { reps: 9 }],
+        },
+      },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 20 }, results);
+
+    // Maintain range but explicit result 'success' -> fallback to success -> weight increases
+    expect(rows[1].slots[0].weight).toBe(25);
+  });
+
+  it('should trigger fail rule when any set is below repRangeBottom', () => {
+    const def = makeDefinition({
+      stages: [
+        { sets: 3, reps: 8 },
+        { sets: 3, reps: 6 },
+      ],
+      onSuccess: { type: 'double_progression', repRangeTop: 12, repRangeBottom: 8 },
+      onUndefined: { type: 'no_change' },
+      onMidStageFail: { type: 'advance_stage' },
+      onFinalStageFail: { type: 'no_change' },
+      totalWorkouts: 3,
+    });
+    const results: GenericResults = {
+      '0': {
+        slot1: {
+          result: 'success',
+          setLogs: [{ reps: 10 }, { reps: 7 }, { reps: 9 }],
+        },
+      },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 20 }, results);
+
+    // Fail: set below repRangeBottom -> onMidStageFail (advance_stage)
+    expect(rows[1].slots[0].stage).toBe(1);
+    expect(rows[1].slots[0].weight).toBe(20);
+  });
+
+  it('should increase weight with explicit success when no setLogs (fallback)', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 3, reps: 8 }],
+      onSuccess: { type: 'double_progression', repRangeTop: 12, repRangeBottom: 8 },
+      onUndefined: { type: 'no_change' },
+      onMidStageFail: { type: 'no_change' },
+      onFinalStageFail: { type: 'no_change' },
+      totalWorkouts: 3,
+    });
+    const results: GenericResults = {
+      '0': { slot1: { result: 'success' } },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 20 }, results);
+
+    // double_progression with explicit 'success' and no setLogs -> increase weight
+    expect(rows[1].slots[0].weight).toBe(25);
+  });
+
+  it('should trigger fail rule with explicit fail when no setLogs (fallback)', () => {
+    const def = makeDefinition({
+      stages: [
+        { sets: 3, reps: 8 },
+        { sets: 3, reps: 6 },
+      ],
+      onSuccess: { type: 'double_progression', repRangeTop: 12, repRangeBottom: 8 },
+      onUndefined: { type: 'no_change' },
+      onMidStageFail: { type: 'advance_stage' },
+      onFinalStageFail: { type: 'no_change' },
+      totalWorkouts: 3,
+    });
+    const results: GenericResults = {
+      '0': { slot1: { result: 'fail' } },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 20 }, results);
+
+    // Explicit 'fail' without setLogs -> onMidStageFail (advance_stage)
+    expect(rows[1].slots[0].stage).toBe(1);
+  });
+
+  it('should pass setLogs through to GenericSlotRow output', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 3, reps: 5 }],
+      onSuccess: { type: 'add_weight' },
+      onMidStageFail: { type: 'no_change' },
+      onFinalStageFail: { type: 'no_change' },
+      totalWorkouts: 2,
+    });
+    const inputSetLogs = [{ reps: 5 }, { reps: 5 }, { reps: 3 }] as const;
+    const results: GenericResults = {
+      '0': { slot1: { result: 'success', setLogs: [...inputSetLogs] } },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 60 }, results);
+
+    expect(rows[0].slots[0].setLogs).toEqual([{ reps: 5 }, { reps: 5 }, { reps: 3 }]);
+  });
+
+  it('should have undefined setLogs when not provided in results', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 3, reps: 5 }],
+      onSuccess: { type: 'add_weight' },
+      onMidStageFail: { type: 'no_change' },
+      onFinalStageFail: { type: 'no_change' },
+      totalWorkouts: 2,
+    });
+    const results: GenericResults = {
+      '0': { slot1: { result: 'success' } },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 60 }, results);
+
+    expect(rows[0].slots[0].setLogs).toBeUndefined();
+  });
+
+  it('should derive AMRAP reps from last setLog entry when isAmrap is true', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 3, reps: 5, amrap: true }],
+      onSuccess: { type: 'add_weight' },
+      onMidStageFail: { type: 'no_change' },
+      onFinalStageFail: { type: 'no_change' },
+      totalWorkouts: 2,
+    });
+    const results: GenericResults = {
+      '0': {
+        slot1: {
+          result: 'success',
+          setLogs: [{ reps: 5 }, { reps: 5 }, { reps: 8 }],
+        },
+      },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 60 }, results);
+
+    // AMRAP reps should be derived from last setLog entry (8)
+    expect(rows[0].slots[0].amrapReps).toBe(8);
+  });
+
+  it('should use explicit amrapReps when no setLogs present on AMRAP slot', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 3, reps: 5, amrap: true }],
+      onSuccess: { type: 'add_weight' },
+      onMidStageFail: { type: 'no_change' },
+      onFinalStageFail: { type: 'no_change' },
+      totalWorkouts: 2,
+    });
+    const results: GenericResults = {
+      '0': { slot1: { result: 'success', amrapReps: 10 } },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 60 }, results);
+
+    expect(rows[0].slots[0].amrapReps).toBe(10);
+  });
+
+  it('should override explicit result with setLogs-derived result', () => {
+    const def = makeDefinition({
+      stages: [{ sets: 3, reps: 5 }],
+      onSuccess: { type: 'add_weight' },
+      onMidStageFail: { type: 'no_change' },
+      onFinalStageFail: { type: 'no_change' },
+      totalWorkouts: 2,
+    });
+    const results: GenericResults = {
+      '0': {
+        slot1: {
+          result: 'fail',
+          setLogs: [{ reps: 5 }, { reps: 5 }, { reps: 5 }],
+        },
+      },
+    };
+
+    const rows = computeGenericProgram(def, { ex: 60 }, results);
+
+    // setLogs all >= targetReps (5): derived result is 'success', overrides explicit 'fail'
+    expect(rows[0].slots[0].result).toBe('success');
+    // Weight should increase (success progression)
+    expect(rows[1].slots[0].weight).toBe(65);
+  });
+
+  it('should use DOUBLE_PROGRESSION_DEFINITION_FIXTURE for full integration test', () => {
+    const config: Record<string, number> = { curl: 10, lateral_raise: 5 };
+    const results: GenericResults = {
+      '0': {
+        'curl-dp': {
+          result: 'success',
+          setLogs: [{ reps: 8 }, { reps: 8 }, { reps: 8 }],
+        },
+        'lat-dp': {
+          result: 'success',
+          setLogs: [{ reps: 10 }, { reps: 10 }, { reps: 10 }],
+        },
+      },
+    };
+
+    const rows = computeGenericProgram(DOUBLE_PROGRESSION_DEFINITION_FIXTURE, config, results);
+
+    // curl-dp: stage-based add_weight, setLogs all >= targetReps (8) -> success -> add_weight (+2.5)
+    expect(rows[0].slots[0].weight).toBe(10);
+    expect(rows[1].slots[0].weight).toBe(12.5);
+    // lat-dp: setLogs all >= targetReps (10) -> success -> add_weight (+1)
+    expect(rows[0].slots[1].weight).toBe(5);
+    expect(rows[1].slots[1].weight).toBe(6);
   });
 });

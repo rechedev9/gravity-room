@@ -23,6 +23,8 @@ interface WorkoutResultRow {
   readonly result: 'success' | 'fail';
   readonly amrapReps: number | null;
   readonly rpe: number | null;
+  readonly setLogs: unknown;
+  readonly completedAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -35,6 +37,7 @@ interface UndoEntryRow {
   readonly prevResult: 'success' | 'fail' | null;
   readonly prevAmrapReps: number | null;
   readonly prevRpe: number | null;
+  readonly prevSetLogs: unknown;
   readonly createdAt: Date;
 }
 
@@ -53,6 +56,8 @@ function makeResultRow(overrides: Partial<WorkoutResultRow> = {}): WorkoutResult
     result: 'success',
     amrapReps: null,
     rpe: null,
+    setLogs: null,
+    completedAt: null,
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,
@@ -68,6 +73,7 @@ function makeUndoRow(overrides: Partial<UndoEntryRow> = {}): UndoEntryRow {
     prevResult: null,
     prevAmrapReps: null,
     prevRpe: null,
+    prevSetLogs: null,
     createdAt: NOW,
     ...overrides,
   };
@@ -278,6 +284,38 @@ describe('recordResult', () => {
     expect(result.result).toBe('success');
     expect(result.amrapReps).toBe(5);
   });
+
+  it('should record a result with setLogs and return them', async () => {
+    const setLogs = [{ reps: 5 }, { reps: 5 }, { reps: 8 }];
+    const row = makeResultRow({ setLogs });
+    // Queue: 1) verifyInstanceOwnership, 2) existing result check
+    selectQueue = [[{ id: 'inst-1' }], []];
+    insertReturningResult = [row];
+
+    const result = await recordResult('user-1', 'inst-1', {
+      workoutIndex: 0,
+      slotId: 't1',
+      result: 'success',
+      setLogs,
+    });
+
+    expect(result.setLogs).toEqual(setLogs);
+  });
+
+  it('should record a result without setLogs (backward compat)', async () => {
+    const row = makeResultRow();
+    // Queue: 1) verifyInstanceOwnership, 2) existing result check
+    selectQueue = [[{ id: 'inst-1' }], []];
+    insertReturningResult = [row];
+
+    const result = await recordResult('user-1', 'inst-1', {
+      workoutIndex: 0,
+      slotId: 't1',
+      result: 'success',
+    });
+
+    expect(result.setLogs).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -358,6 +396,31 @@ describe('undoLast', () => {
       expect(err).toBeInstanceOf(ApiError);
       expect((err as ApiError).statusCode).toBe(404);
     }
+  });
+
+  it('should pop and restore undo entry with prevSetLogs', async () => {
+    const prevSetLogs = [{ reps: 5 }, { reps: 5 }, { reps: 3 }];
+    const undoRow = makeUndoRow({ prevResult: 'success', prevSetLogs });
+    // Queue: 1) verifyInstanceOwnership, 2) undo entry found
+    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    insertReturningResult = [];
+
+    const result = await undoLast('user-1', 'inst-1');
+
+    expect(result).not.toBeNull();
+    expect(result!.prevSetLogs).toEqual(prevSetLogs);
+  });
+
+  it('should pop undo entry with null prevSetLogs (no previous set logs)', async () => {
+    const undoRow = makeUndoRow({ prevResult: 'fail', prevSetLogs: null });
+    // Queue: 1) verifyInstanceOwnership, 2) undo entry found
+    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    insertReturningResult = [];
+
+    const result = await undoLast('user-1', 'inst-1');
+
+    expect(result).not.toBeNull();
+    expect(result!.prevSetLogs).toBeNull();
   });
 });
 
