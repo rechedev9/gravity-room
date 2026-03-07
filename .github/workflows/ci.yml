@@ -1,43 +1,15 @@
-name: CI
+name: Deploy
 
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: deploy
   cancel-in-progress: true
 
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-          no-cache: false
-
-      - run: bun install --frozen-lockfile
-
-      - run: bun run typecheck
-
-      - run: bun run lint
-
-      - run: bun run format:check
-
-      - run: bun run test
-
-      - run: bun run build
-        env:
-          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://gravityroom.app' }}
-
   deploy:
-    needs: validate
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to VPS
