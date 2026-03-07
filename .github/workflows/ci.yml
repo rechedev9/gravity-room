@@ -49,9 +49,12 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT }}
           script: |
+            set -euo pipefail
             cd ${{ secrets.VPS_PROJECT_PATH }}
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             COMMIT_SHA=$(git rev-parse --short HEAD)
+            echo "Deploying commit: $COMMIT_SHA"
             docker compose build --build-arg COMMIT_SHA=$COMMIT_SHA
             docker compose up -d --remove-orphans
 
