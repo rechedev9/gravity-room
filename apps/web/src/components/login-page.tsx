@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/contexts/auth-context';
+import { useGuest } from '@/contexts/guest-context';
 import { sanitizeAuthError } from '@/lib/auth-errors';
 
 export function LoginPage(): React.ReactNode {
   const { user, signInWithGoogle, signInWithDev } = useAuth();
+  const { enterGuestMode } = useGuest();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
@@ -21,6 +23,11 @@ export function LoginPage(): React.ReactNode {
     if (authError) {
       setError(sanitizeAuthError(authError.message));
     }
+  };
+
+  const handleGuestEntry = (): void => {
+    enterGuestMode();
+    navigate('/app');
   };
 
   const handleDevLogin = async (): Promise<void> => {
@@ -212,6 +219,16 @@ export function LoginPage(): React.ReactNode {
           )}
         </div>
       </div>
+
+      {/* Guest entry */}
+      <button
+        type="button"
+        onClick={handleGuestEntry}
+        className="mt-5 font-mono text-[10px] tracking-[0.25em] uppercase cursor-pointer text-muted transition-colors hover:text-title focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none px-4 py-2"
+        style={{ animation: 'riseIn 0.55s ease both', animationDelay: '0.28s' }}
+      >
+        Probar sin cuenta
+      </button>
 
       {/* Tagline */}
       <p

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { UserInfo } from '@/contexts/auth-context';
+import { useGuest } from '@/contexts/guest-context';
 import type { SyncStatus } from '@/types/sync-status';
 import { SYNC_LABELS, SYNC_COLORS } from '@/types/sync-status';
 import { DropdownMenu, DropdownItem, DropdownDivider } from './dropdown-menu';
@@ -18,8 +19,12 @@ export function AvatarDropdown({
   onSignOut,
   onGoToProfile,
 }: AvatarDropdownProps): React.ReactNode {
+  const { isGuest } = useGuest();
   const [open, setOpen] = useState(false);
   const close = (): void => setOpen(false);
+
+  // Safety net: AppHeader handles the guest branch, but guard here defensively
+  if (isGuest) return null;
 
   if (!user) {
     return (

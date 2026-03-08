@@ -1,5 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth-context';
+import { useGuest } from '@/contexts/guest-context';
 import type { SyncStatus } from '@/types/sync-status';
 import { AvatarDropdown } from './avatar-dropdown';
 
@@ -19,8 +20,15 @@ export function AppHeader({
   onSignOut,
 }: AppHeaderProps): React.ReactNode {
   const { user, signOut } = useAuth();
+  const { isGuest, exitGuestMode } = useGuest();
+  const navigate = useNavigate();
 
   const handleSignOut = onSignOut ?? ((): void => void signOut());
+
+  const handleCreateAccount = (): void => {
+    exitGuestMode();
+    navigate('/login');
+  };
 
   return (
     <header
@@ -58,12 +66,23 @@ export function AppHeader({
         )}
       </div>
 
-      <AvatarDropdown
-        user={user}
-        syncStatus={syncStatus}
-        onSignOut={handleSignOut}
-        onGoToProfile={onGoToProfile}
-      />
+      {isGuest ? (
+        <button
+          type="button"
+          onClick={handleCreateAccount}
+          className="px-2 py-2 sm:px-3.5 sm:py-2.5 min-h-[44px] border-2 border-btn-ring text-[10px] sm:text-xs font-bold cursor-pointer bg-btn-active text-btn-active-text whitespace-nowrap transition-all hover:opacity-90 inline-flex items-center"
+          aria-label="Crear cuenta para guardar tu progreso"
+        >
+          Crear Cuenta
+        </button>
+      ) : (
+        <AvatarDropdown
+          user={user}
+          syncStatus={syncStatus}
+          onSignOut={handleSignOut}
+          onGoToProfile={onGoToProfile}
+        />
+      )}
     </header>
   );
 }

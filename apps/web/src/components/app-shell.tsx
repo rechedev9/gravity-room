@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth-context';
+import { useGuest } from '@/contexts/guest-context';
+import { useToast } from '@/contexts/toast-context';
 import { Dashboard } from './dashboard';
 import { ProgramApp } from './program-app';
 import { ProfilePage } from './profile-page';
@@ -23,8 +25,12 @@ function parseViewParam(param: string | null): View {
   return 'dashboard';
 }
 
+const PROFILE_BLOCKED_MSG = 'Crea una cuenta para acceder al perfil';
+
 export function AppShell(): React.ReactNode {
   const { loading: authLoading } = useAuth();
+  const { isGuest } = useGuest();
+  const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -82,6 +88,10 @@ export function AppShell(): React.ReactNode {
   };
 
   const handleGoToProfile = (): void => {
+    if (isGuest) {
+      toast({ message: PROFILE_BLOCKED_MSG });
+      return;
+    }
     setView('profile');
   };
 
@@ -98,11 +108,18 @@ export function AppShell(): React.ReactNode {
     }
   }, [view, pendingProgramId, selectedProgramId, setView]);
 
+  // Guest guard: redirect to dashboard if guest somehow reaches profile view
+  useEffect(() => {
+    if (isGuest && view === 'profile') {
+      setView('dashboard');
+    }
+  }, [isGuest, view, setView]);
+
   const handleAnimationEnd = (): void => {
     setAnimatingView(null);
   };
 
-  if (authLoading) return <AppSkeleton />;
+  if (authLoading && !isGuest) return <AppSkeleton />;
 
   const renderView = (v: View): React.ReactNode => {
     switch (v) {
@@ -142,6 +159,7 @@ export function AppShell(): React.ReactNode {
     <>
       <OnlineIndicator />
       {ALL_VIEWS.map((v) => {
+        if (isGuest && v === 'profile') return null;
         if (!mountedViews.has(v)) return null;
         const isActive = v === view;
         const isAnimating = v === animatingView;

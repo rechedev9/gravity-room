@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, mock } from 'bun:test';
 import { render, screen } from '@testing-library/react';
-import { createElement } from 'react';
+import { createElement, useEffect, useRef } from 'react';
 import type { FC, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -35,10 +35,16 @@ import { GuestBanner } from './guest-banner';
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Wrapper that enters guest mode before rendering children. */
+/** Wrapper that enters guest mode once on mount. */
 function GuestActivator({ children }: { readonly children: ReactNode }): ReactNode {
   const { enterGuestMode } = useGuest();
-  enterGuestMode();
+  const entered = useRef(false);
+  useEffect(() => {
+    if (!entered.current) {
+      entered.current = true;
+      enterGuestMode();
+    }
+  }, []);
   return createElement('div', null, children);
 }
 

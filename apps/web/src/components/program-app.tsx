@@ -6,8 +6,10 @@ import { computeGraduationTargets } from '@gzclp/shared/graduation';
 import type { GraduationState } from '@gzclp/shared/graduation';
 import { isRecord } from '@gzclp/shared/type-guards';
 import { useProgram } from '@/hooks/use-program';
+import { useGuestProgram } from '@/hooks/use-guest-program';
 import { useSetLogging } from '@/hooks/use-set-logging';
 import { useAuth } from '@/contexts/auth-context';
+import { useGuest } from '@/contexts/guest-context';
 import { useToast } from '@/contexts/toast-context';
 import { detectGenericPersonalRecord } from '@/lib/pr-detection';
 import { computeProfileData, compute1RMData } from '@/lib/profile-stats';
@@ -19,6 +21,7 @@ import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
 import { AppHeader } from './app-header';
 import { ConfirmDialog } from './confirm-dialog';
 import { ErrorBoundary } from './error-boundary';
+import { GuestBanner } from './guest-banner';
 import { GraduationPanel } from './graduation-panel';
 import { ProgramCompletionScreen } from './program-completion-screen';
 
@@ -40,6 +43,9 @@ const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
 const preloadStatsPanel = (): void => {
   void import('./stats-panel');
 };
+
+const GUEST_STATS_MSG = 'Crea una cuenta para ver estadísticas';
+const GUEST_EXPORT_MSG = 'Crea una cuenta para exportar tus datos';
 
 interface TestWeightModalState {
   readonly workoutIndex: number;
@@ -91,13 +97,21 @@ export function ProgramApp({
   onGoToProfile,
 }: ProgramAppProps): React.ReactNode {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { isGuest } = useGuest();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!authLoading && user === null) {
+    if (!authLoading && user === null && !isGuest) {
       navigate('/login', { replace: true });
     }
-  }, [authLoading, user, navigate]);
+  }, [authLoading, user, isGuest, navigate]);
+
+  // Both hooks are called unconditionally (React rules of hooks).
+  // useProgram's internal queries are disabled when user is null.
+  // useGuestProgram only fetches the public catalog (already cached).
+  const authData = useProgram(programId, instanceId);
+  const guestData = useGuestProgram(programId);
+  const programData = isGuest ? guestData : authData;
 
   const {
     definition,
@@ -120,7 +134,7 @@ export function ProgramApp({
     isFinishing,
     resetAll,
     updateConfigAsync,
-  } = useProgram(programId, instanceId);
+  } = programData;
 
   const {
     logSet,
@@ -443,6 +457,10 @@ export function ProgramApp({
   };
 
   const handleExportCsv = (): void => {
+    if (isGuest) {
+      toast({ message: GUEST_EXPORT_MSG });
+      return;
+    }
     if (!definition || rows.length === 0) return;
     const csv = generateProgramCsv(rows, workoutsPerWeek);
     const date = new Date().toISOString().slice(0, 10);
@@ -497,7 +515,7 @@ export function ProgramApp({
     queryClient.clear();
   };
 
-  if (authLoading || user === null) return null;
+  if (!isGuest && (authLoading || user === null)) return null;
 
   if (isLoading && !definition) return <AppSkeleton />;
 
@@ -593,16 +611,24 @@ export function ProgramApp({
                 id="tab-stats"
                 controls="panel-stats"
                 active={activeTab === 'stats'}
-                onClick={() => startTransition(() => setActiveTab('stats'))}
-                onMouseEnter={preloadStatsPanel}
-                onFocus={preloadStatsPanel}
+                onClick={() => {
+                  if (isGuest) {
+                    toast({ message: GUEST_STATS_MSG });
+                    return;
+                  }
+                  startTransition(() => setActiveTab('stats'));
+                }}
+                onMouseEnter={isGuest ? undefined : preloadStatsPanel}
+                onFocus={isGuest ? undefined : preloadStatsPanel}
               >
-                Estadísticas
+                <span className={isGuest ? 'opacity-50' : ''}>Estadísticas</span>
               </TabButton>
             </div>
 
             {activeTab === 'program' && (
               <div id="panel-program" role="tabpanel" aria-labelledby="tab-program">
+                {isGuest && <GuestBanner className="mb-4 sm:mb-8" />}
+
                 {/* Program info */}
                 <details className="group bg-card border border-rule mb-4 sm:mb-8 overflow-hidden">
                   <summary className="px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center [&::marker]:hidden list-none text-xs tracking-wide">

@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { createElement } from 'react';
+import { createElement, useEffect, useRef } from 'react';
 import type { FC, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -48,10 +48,16 @@ function fakeJwt(payload: Record<string, unknown>): string {
   return `${header}.${body}.fakesig`;
 }
 
-/** Enters guest mode on mount. */
+/** Enters guest mode once on mount (not on every re-render). */
 function GuestActivator({ children }: { readonly children: ReactNode }): ReactNode {
   const { enterGuestMode } = useGuest();
-  enterGuestMode();
+  const entered = useRef(false);
+  useEffect(() => {
+    if (!entered.current) {
+      entered.current = true;
+      enterGuestMode();
+    }
+  }, []);
   return createElement('div', null, children);
 }
 
