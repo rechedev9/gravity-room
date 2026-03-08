@@ -4,7 +4,8 @@
  */
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { render, screen, waitFor } from '@testing-library/react';
-import React from 'react';
+import { createElement } from 'react';
+import type { FC, ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -81,6 +82,7 @@ mock.module('@/lib/api-functions', () => ({
 }));
 
 import { AuthProvider } from '@/contexts/auth-context';
+import { GuestProvider } from '@/contexts/guest-context';
 import { ToastProvider } from '@/contexts/toast-context';
 import { Dashboard } from './dashboard';
 
@@ -88,19 +90,23 @@ import { Dashboard } from './dashboard';
 // Helpers
 // ---------------------------------------------------------------------------
 
-function createWrapper(): React.FC<{ readonly children: React.ReactNode }> {
+function createWrapper(): FC<{ readonly children: ReactNode }> {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
 
-  return function Wrapper({ children }: { readonly children: React.ReactNode }): React.ReactNode {
-    return React.createElement(
+  return function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
+    return createElement(
       MemoryRouter,
       null,
-      React.createElement(
+      createElement(
         QueryClientProvider,
         { client: queryClient },
-        React.createElement(AuthProvider, null, React.createElement(ToastProvider, null, children))
+        createElement(
+          GuestProvider,
+          null,
+          createElement(AuthProvider, null, createElement(ToastProvider, null, children))
+        )
       )
     );
   };
@@ -170,7 +176,7 @@ describe('Dashboard', () => {
       expect(screen.getByText('Nivel 7')).toBeDefined();
     });
 
-    it('should render 3 "Iniciar Programa" buttons', async () => {
+    it('should render 3 "Ver Programa" links pointing to /programs/:id', async () => {
       mockFetchCatalogList.mockImplementation(() => Promise.resolve(CATALOG_ENTRIES));
 
       const Wrapper = createWrapper();
@@ -184,8 +190,34 @@ describe('Dashboard', () => {
         expect(screen.getByText('GZCLP')).toBeDefined();
       });
 
-      const buttons = screen.getAllByText('Iniciar Programa');
-      expect(buttons).toHaveLength(3);
+      const links = screen.getAllByText('Ver Programa');
+      expect(links).toHaveLength(3);
+
+      // Each link should point to /programs/:id
+      const hrefs = links.map((link) => link.getAttribute('href'));
+      expect(hrefs).toContain('/programs/gzclp');
+      expect(hrefs).toContain('/programs/ppl531');
+      expect(hrefs).toContain('/programs/nivel7');
+    });
+
+    it('should not show "Finaliza tu programa actual para iniciar uno nuevo" text', async () => {
+      mockFetchCatalogList.mockImplementation(() => Promise.resolve(CATALOG_ENTRIES));
+
+      const Wrapper = createWrapper();
+      render(
+        <Wrapper>
+          <Dashboard onStartNewProgram={noopFn} onContinueProgram={noopFn} />
+        </Wrapper>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('GZCLP')).toBeDefined();
+      });
+
+      const blockingText = screen.queryByText(
+        'Finaliza tu programa actual para iniciar uno nuevo.'
+      );
+      expect(blockingText).toBeNull();
     });
   });
 });

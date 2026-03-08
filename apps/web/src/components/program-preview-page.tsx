@@ -1,10 +1,15 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useProgramPreview } from '@/hooks/use-program-preview';
-import { useToast } from '@/contexts/toast-context';
+import { useAuth } from '@/contexts/auth-context';
+import { fetchPrograms } from '@/lib/api-functions';
+import { queryKeys } from '@/lib/query-keys';
+import { buildProgramSummary } from '@/lib/program-summary';
 import { getViewPreference, saveViewPreference } from '@/lib/view-preference';
 import type { ViewMode } from '@/lib/view-preference';
+import { ProgramOverview } from './program-overview';
 import { DayNavigator } from './day-navigator';
 import { DayView } from './day-view';
 import { DetailedDayView } from './detailed-day-view';
@@ -14,9 +19,8 @@ import { ToastContainer } from './toast';
 // Constants
 // ---------------------------------------------------------------------------
 
-const CTA_MESSAGE = 'Crea una cuenta para registrar tu progreso';
-const CTA_LABEL = 'Crear cuenta';
 const CURRENT_DAY_INDEX = 0;
+const STALE_TIME_MS = 5 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Loading skeleton
@@ -64,40 +68,124 @@ function PreviewError({ onRetry }: { readonly onRetry: () => void }): ReactNode 
 }
 
 // ---------------------------------------------------------------------------
+// Auth-aware CTA components
+// ---------------------------------------------------------------------------
+
+function PreviewCtaUnauthenticated(): ReactNode {
+  return (
+    <div className="bg-card border border-rule p-5 sm:p-6 mt-6 text-center">
+      <p className="text-xs text-muted mb-3">Crea una cuenta para registrar tu progreso</p>
+      <Link
+        to="/login"
+        className="inline-block px-6 py-2.5 text-xs font-bold border-2 border-btn-ring bg-btn text-btn-text hover:bg-btn-active hover:text-btn-active-text transition-all"
+      >
+        Crear cuenta
+      </Link>
+    </div>
+  );
+}
+
+function PreviewCtaStartProgram({ programId }: { readonly programId: string }): ReactNode {
+  return (
+    <div className="bg-card border border-rule p-5 sm:p-6 mt-6 text-center">
+      <Link
+        to={`/app?view=tracker&program=${programId}`}
+        className="inline-block px-6 py-2.5 text-xs font-bold border-2 border-btn-ring bg-btn-active text-btn-active-text hover:opacity-90 transition-all"
+      >
+        Iniciar Programa
+      </Link>
+    </div>
+  );
+}
+
+function PreviewCtaActiveWarning(): ReactNode {
+  return (
+    <div className="bg-card border border-amber-500/30 p-5 sm:p-6 mt-6 text-center" role="alert">
+      <p className="text-xs text-amber-400">
+        Finaliza tu programa actual antes de iniciar uno nuevo.
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Header CTA (adapts to auth state)
+// ---------------------------------------------------------------------------
+
+interface HeaderCtaProps {
+  readonly user: { readonly id: string } | null;
+  readonly hasActiveProgram: boolean;
+  readonly programsQueryFailed: boolean;
+  readonly programId: string;
+}
+
+function HeaderCta({
+  user,
+  hasActiveProgram,
+  programsQueryFailed,
+  programId,
+}: HeaderCtaProps): ReactNode {
+  const linkClasses =
+    'font-mono text-xs font-bold tracking-widest uppercase text-btn-text border border-btn-ring px-4 py-2 hover:bg-btn-active hover:text-btn-active-text transition-all duration-200';
+
+  if (user === null || programsQueryFailed) {
+    return (
+      <Link to="/login" className={linkClasses}>
+        Crear cuenta
+      </Link>
+    );
+  }
+
+  if (hasActiveProgram) {
+    return (
+      <Link to="/app" className={linkClasses}>
+        Ver Dashboard
+      </Link>
+    );
+  }
+
+  return (
+    <Link to={`/app?view=tracker&program=${programId}`} className={linkClasses}>
+      Iniciar Programa
+    </Link>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
 export function ProgramPreviewPage(): ReactNode {
   const { programId } = useParams<{ programId: string }>();
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const resolvedProgramId = programId ?? '';
 
-  const { definition, rows, isLoading, isError } = useProgramPreview(programId ?? '');
+  const { definition, rows, isLoading, isError } = useProgramPreview(resolvedProgramId);
+  const { user, loading: authLoading } = useAuth();
+
+  // Conditionally fetch programs to check for active program (only when authenticated)
+  const programsQuery = useQuery({
+    queryKey: queryKeys.programs.all,
+    queryFn: fetchPrograms,
+    staleTime: STALE_TIME_MS,
+    enabled: user !== null,
+  });
+
+  const hasActiveProgram = programsQuery.data?.some((p) => p.status === 'active') ?? false;
+  const programsQueryFailed = programsQuery.isError;
 
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getViewPreference());
 
+  // Build program summary when definition is available
+  const summary = definition !== undefined ? buildProgramSummary(definition) : null;
+
   // ---------------------------------------------------------------------------
-  // CTA handler — all interactive callbacks point here
+  // Interaction stubs — preview is read-only, interactions prompt signup/login
   // ---------------------------------------------------------------------------
 
-  const showCtaToast = (): void => {
-    toast({
-      message: CTA_MESSAGE,
-      action: {
-        label: CTA_LABEL,
-        onClick: () => navigate('/login'),
-      },
-    });
+  const noopHandler = (): void => {
+    // No-op: preview mode interactions do nothing
   };
-
-  // CTA callback stubs — parameterless arrows are assignable to DayViewProps
-  // callbacks via TypeScript's function subtyping (fewer params → compatible).
-  const handleMark = (): void => showCtaToast();
-  const handleUndo = (): void => showCtaToast();
-  const handleSetAmrapReps = (): void => showCtaToast();
-  const handleSetRpe = (): void => showCtaToast();
-  const handleSetTap = (): void => showCtaToast();
 
   // ---------------------------------------------------------------------------
   // Navigation handlers
@@ -171,12 +259,14 @@ export function ProgramPreviewPage(): ReactNode {
         <span className="font-display text-sm tracking-wide text-title truncate mx-4">
           {definition.name}
         </span>
-        <Link
-          to="/login"
-          className="font-mono text-xs font-bold tracking-widest uppercase text-btn-text border border-btn-ring px-4 py-2 hover:bg-btn-active hover:text-btn-active-text transition-all duration-200"
-        >
-          Comenzar
-        </Link>
+        {!authLoading && (
+          <HeaderCta
+            user={user}
+            hasActiveProgram={hasActiveProgram}
+            programsQueryFailed={programsQueryFailed}
+            programId={resolvedProgramId}
+          />
+        )}
       </header>
 
       {/* Content */}
@@ -199,6 +289,9 @@ export function ProgramPreviewPage(): ReactNode {
             </div>
           </div>
         </details>
+
+        {/* Program overview — auto-generated explanatory section */}
+        {summary !== null && <ProgramOverview summary={summary} programName={definition.name} />}
 
         {/* Day navigator */}
         <DayNavigator
@@ -232,22 +325,32 @@ export function ProgramPreviewPage(): ReactNode {
             <DetailedDayView
               workout={selectedWorkout}
               isCurrent={true}
-              onMark={handleMark}
-              onUndo={handleUndo}
-              onSetAmrapReps={handleSetAmrapReps}
-              onSetRpe={handleSetRpe}
-              onSetTap={handleSetTap}
+              onMark={noopHandler}
+              onUndo={noopHandler}
+              onSetAmrapReps={noopHandler}
+              onSetRpe={noopHandler}
+              onSetTap={noopHandler}
             />
           ) : (
             <DayView
               workout={selectedWorkout}
               isCurrent={true}
-              onMark={handleMark}
-              onUndo={handleUndo}
-              onSetAmrapReps={handleSetAmrapReps}
-              onSetRpe={handleSetRpe}
-              onSetTap={handleSetTap}
+              onMark={noopHandler}
+              onUndo={noopHandler}
+              onSetAmrapReps={noopHandler}
+              onSetRpe={noopHandler}
+              onSetTap={noopHandler}
             />
+          ))}
+
+        {/* Auth-aware CTA section */}
+        {!authLoading &&
+          (user === null || programsQueryFailed ? (
+            <PreviewCtaUnauthenticated />
+          ) : hasActiveProgram ? (
+            <PreviewCtaActiveWarning />
+          ) : (
+            <PreviewCtaStartProgram programId={resolvedProgramId} />
           ))}
       </div>
 

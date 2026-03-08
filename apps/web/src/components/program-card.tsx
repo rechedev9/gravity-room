@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 /** Minimal program info needed by ProgramCard — compatible with both CatalogEntry and ProgramDefinition. */
 export interface ProgramCardInfo {
   readonly id: string;
@@ -14,7 +16,8 @@ interface ProgramCardProps {
   readonly disabled?: boolean;
   readonly disabledLabel?: string;
   readonly isActive?: boolean;
-  readonly onSelect: () => void;
+  readonly onSelect?: () => void;
+  readonly to?: string;
 }
 
 const CATEGORY_LABELS: Readonly<Record<string, string>> = {
@@ -29,8 +32,17 @@ export function ProgramCard({
   disabledLabel = 'Próximamente',
   isActive = false,
   onSelect,
+  to,
 }: ProgramCardProps): React.ReactNode {
   const categoryLabel = CATEGORY_LABELS[definition.category] ?? definition.category;
+
+  const ctaClasses = `mt-auto px-4 py-2.5 text-xs font-bold border-2 cursor-pointer transition-all text-center ${
+    isActive
+      ? 'border-btn-ring bg-btn-active text-btn-active-text hover:opacity-90'
+      : 'border-btn-ring bg-btn text-btn-text hover:bg-btn-active hover:text-btn-active-text'
+  }`;
+
+  const showCta = to !== undefined || onSelect !== undefined || disabled;
 
   return (
     <div
@@ -59,17 +71,22 @@ export function ProgramCard({
       )}
 
       {/* CTA */}
-      <button
-        onClick={onSelect}
-        disabled={disabled}
-        className={`mt-auto px-4 py-2.5 text-xs font-bold border-2 cursor-pointer transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
-          isActive
-            ? 'border-btn-ring bg-btn-active text-btn-active-text hover:opacity-90'
-            : 'border-btn-ring bg-btn text-btn-text hover:bg-btn-active hover:text-btn-active-text disabled:hover:bg-btn disabled:hover:text-btn-text'
-        }`}
-      >
-        {disabled ? disabledLabel : isActive ? 'Continuar Entrenamiento' : 'Iniciar Programa'}
-      </button>
+      {showCta &&
+        (to !== undefined ? (
+          <Link to={to} className={ctaClasses} aria-label={`Ver programa ${definition.name}`}>
+            Ver Programa
+          </Link>
+        ) : (
+          <button
+            onClick={onSelect}
+            disabled={disabled}
+            className={`${ctaClasses} disabled:opacity-30 disabled:cursor-not-allowed ${
+              !isActive ? 'disabled:hover:bg-btn disabled:hover:text-btn-text' : ''
+            }`}
+          >
+            {disabled ? disabledLabel : isActive ? 'Continuar Entrenamiento' : 'Iniciar Programa'}
+          </button>
+        ))}
     </div>
   );
 }

@@ -9,8 +9,10 @@ import {
   deleteProgram,
 } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
+import { useGuest } from '@/contexts/guest-context';
 import { ProgramCard } from './program-card';
 import { AppHeader } from './app-header';
+import { GuestBanner } from './guest-banner';
 import { ConfirmDialog } from './confirm-dialog';
 import type { ProgramSummary } from '@/lib/api-functions';
 import { PROGRAM_LEVELS } from '@gzclp/shared/catalog';
@@ -316,11 +318,12 @@ function ActiveProgramCard({
 // ---------------------------------------------------------------------------
 
 export function Dashboard({
-  onStartNewProgram,
+  // onStartNewProgram retained in DashboardProps for parent usage (preview page setup flow)
   onContinueProgram,
   onGoToProfile,
 }: DashboardProps): React.ReactNode {
   const { user } = useAuth();
+  const { isGuest } = useGuest();
 
   // Fetch catalog of preset programs from API
   const catalogQuery = useQuery({
@@ -329,14 +332,15 @@ export function Dashboard({
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch user's program instances from API
+  // Fetch user's program instances from API (disabled for guests)
   const programsQuery = useQuery({
     queryKey: queryKeys.programs.all,
     queryFn: fetchPrograms,
-    enabled: user !== null,
+    enabled: user !== null && !isGuest,
   });
 
   const activeProgram = (() => {
+    if (isGuest) return null;
     if (!programsQuery.data) return null;
     return programsQuery.data.find((p) => p.status === 'active') ?? null;
   })();
@@ -346,8 +350,10 @@ export function Dashboard({
       <AppHeader onGoToProfile={onGoToProfile} />
 
       <div className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
+        {isGuest && <GuestBanner className="mb-6" />}
+
         {/* Active program loading skeleton */}
-        {programsQuery.isLoading && (
+        {!isGuest && programsQuery.isLoading && (
           <section className="mb-12">
             <div className="h-3 w-24 bg-rule rounded mb-4 animate-pulse" />
             <div className="bg-card border border-rule p-5 sm:p-6 animate-pulse">
@@ -377,11 +383,6 @@ export function Dashboard({
           <h2 className="section-label mb-4">
             {activeProgram ? 'Otros Programas Disponibles' : 'Elegir un Programa'}
           </h2>
-          {activeProgram && (
-            <p className="text-xs text-muted mb-4">
-              Finaliza tu programa actual para iniciar uno nuevo.
-            </p>
-          )}
 
           {/* Catalog loading skeleton */}
           {catalogQuery.isLoading && (
@@ -436,9 +437,7 @@ export function Dashboard({
                               key={entry.id}
                               definition={entry}
                               isActive={false}
-                              disabled={activeProgram !== null}
-                              disabledLabel="Finaliza tu programa actual"
-                              onSelect={() => onStartNewProgram(entry.id)}
+                              to={`/programs/${entry.id}`}
                             />
                           ))}
                         </div>
