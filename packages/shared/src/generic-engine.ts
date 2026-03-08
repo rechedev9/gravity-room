@@ -88,11 +88,19 @@ function deriveSlotResult(
   if (slotResult.setLogs === undefined || slotResult.setLogs.length === 0) {
     return slotResult.result;
   }
+
+  // When progressionSetIndex is set, only that set determines progression
+  const idx = slot.progressionSetIndex;
+  const logs =
+    idx !== undefined && idx < slotResult.setLogs.length
+      ? [slotResult.setLogs[idx]]
+      : slotResult.setLogs;
+
   if (slot.onSuccess.type === 'double_progression') {
-    const derived = deriveResultFromSetLogs(slotResult.setLogs, slot.onSuccess);
+    const derived = deriveResultFromSetLogs(logs, slot.onSuccess);
     return derived ?? slotResult.result;
   }
-  const derived = deriveResultFromSetLogsSimple(slotResult.setLogs, targetReps);
+  const derived = deriveResultFromSetLogsSimple(logs, targetReps);
   return derived ?? slotResult.result;
 }
 

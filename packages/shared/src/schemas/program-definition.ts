@@ -117,6 +117,8 @@ export const ExerciseSlotSchema = z.strictObject({
   isTestSlot: z.boolean().optional(),
   /** True for bodyweight exercises where the weight column should be hidden. */
   isBodyweight: z.boolean().optional(),
+  /** 0-indexed set to evaluate for progression (only that set's reps matter). */
+  progressionSetIndex: z.number().int().nonnegative().optional(),
 });
 
 // --- Program Day ---

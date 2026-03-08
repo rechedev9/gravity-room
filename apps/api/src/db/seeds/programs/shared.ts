@@ -47,6 +47,8 @@ export interface SlotDef {
   readonly isTestSlot?: boolean;
   /** True for bodyweight exercises where the weight column should be hidden. */
   readonly isBodyweight?: boolean;
+  /** 0-indexed set to evaluate for progression (only that set's reps matter). */
+  readonly progressionSetIndex?: number;
 }
 
 export const NC = { type: 'no_change' } as const;

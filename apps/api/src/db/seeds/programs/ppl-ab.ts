@@ -1,36 +1,33 @@
 import type { SlotDef } from './shared';
-import { NC, ADV } from './shared';
+import { NC } from './shared';
+
+const DP_RULE = { type: 'double_progression', repRangeTop: 12, repRangeBottom: 6 } as const;
 
 /**
  * Double progression helper for PPL A/B.
- * Generates 15 stages (reps 6 through 20) with advance_stage on success,
- * add_weight_reset_stage on final-stage success, and no_change on fail.
+ * Single stage — weight goes up (+inc) as soon as the first set hits >= 12 reps.
+ * Only the first set (index 0) determines progression.
  */
 function pplAbDP(
   exerciseId: string,
   sets: number,
-  minReps: number,
-  maxReps: number,
   inc: number,
   slotId: string,
   notes: string
 ): SlotDef {
-  const stages: { sets: number; reps: number }[] = [];
-  for (let r = minReps; r <= maxReps; r++) {
-    stages.push({ sets, reps: r });
-  }
   return {
     id: slotId,
     exerciseId,
     tier: 'hypertrophy',
-    stages,
-    onSuccess: ADV,
+    stages: [{ sets, reps: 6 }],
+    onSuccess: DP_RULE,
     onFinalStageSuccess: { type: 'add_weight_reset_stage', amount: inc },
-    onUndefined: ADV,
+    onUndefined: NC,
     onMidStageFail: NC,
     onFinalStageFail: NC,
     startWeightKey: slotId,
     notes,
+    progressionSetIndex: 0,
   };
 }
 
@@ -354,146 +351,66 @@ export const PPL_AB_DEFINITION_JSONB = {
     {
       name: 'Push A',
       slots: [
-        pplAbDP(
-          'bench_machine',
-          2,
-          6,
-          20,
-          2.5,
-          'bench_machine_push_a',
-          '1 serie al fallo + 1 serie RIR 1-2'
-        ),
-        pplAbDP(
-          'incline_press_smith',
-          2,
-          6,
-          20,
-          2.5,
-          'incline_press_smith_push_a',
-          '1 serie al fallo + 1 serie RIR 1-2'
-        ),
-        pplAbDP('pec_deck', 1, 6, 20, 2.5, 'pec_deck_push_a', '1 serie RIR 2-3'),
-        pplAbDP('lateral_raise', 1, 6, 20, 2.5, 'lateral_raise_push_a', '1 serie RIR 2-3'),
-        pplAbDP('triceps_extension', 1, 6, 20, 2.5, 'triceps_extension_push_a', '1 serie al fallo'),
+        pplAbDP('bench_machine', 2, 2.5, 'bench_machine_push_a', '1xF + 1xRIR 1-2'),
+        pplAbDP('incline_press_smith', 2, 2.5, 'incline_press_smith_push_a', '1xF + 1xRIR 1-2'),
+        pplAbDP('pec_deck', 1, 2.5, 'pec_deck_push_a', '1xRIR 2-3'),
+        pplAbDP('lateral_raise', 1, 2.5, 'lateral_raise_push_a', '1xRIR 2-3'),
+        pplAbDP('triceps_extension', 1, 2.5, 'triceps_extension_push_a', '1xF'),
       ],
     },
     // Day 1 — Pull A
     {
       name: 'Pull A',
       slots: [
-        pplAbDP(
-          'lat_pulldown_neutral',
-          2,
-          6,
-          20,
-          2.5,
-          'lat_pulldown_neutral_pull_a',
-          '1 serie al fallo + 1 serie RIR 1-2'
-        ),
-        pplAbDP(
-          'gironda_row',
-          2,
-          6,
-          20,
-          2.5,
-          'gironda_row_pull_a',
-          '1 serie al fallo + 1 serie RIR 1-2'
-        ),
-        pplAbDP('machine_row', 1, 6, 20, 2.5, 'machine_row_pull_a', '1 serie RIR 2-3'),
-        pplAbDP('face_pull', 1, 6, 20, 2.5, 'face_pull_pull_a', '1 serie RIR 2-3'),
-        pplAbDP(
-          'machine_preacher_curl',
-          1,
-          6,
-          20,
-          2.5,
-          'machine_preacher_curl_pull_a',
-          '1 serie al fallo'
-        ),
+        pplAbDP('lat_pulldown_neutral', 2, 2.5, 'lat_pulldown_neutral_pull_a', '1xF + 1xRIR 1-2'),
+        pplAbDP('gironda_row', 2, 2.5, 'gironda_row_pull_a', '1xF + 1xRIR 1-2'),
+        pplAbDP('machine_row', 1, 2.5, 'machine_row_pull_a', '1xRIR 2-3'),
+        pplAbDP('face_pull', 1, 2.5, 'face_pull_pull_a', '1xRIR 2-3'),
+        pplAbDP('machine_preacher_curl', 1, 2.5, 'machine_preacher_curl_pull_a', '1xF'),
       ],
     },
     // Day 2 — Legs A
     {
       name: 'Legs A',
       slots: [
-        pplAbDP('incline_leg_press', 2, 6, 20, 2.5, 'incline_leg_press_legs_a', '2 series RIR 1'),
-        pplAbDP('barbell_rdl', 2, 6, 20, 2.5, 'barbell_rdl_legs_a', '2 series RIR 1'),
-        pplAbDP(
-          'bulgarian_split_squat',
-          2,
-          6,
-          20,
-          2.5,
-          'bulgarian_split_squat_legs_a',
-          '2 series RIR 2-3'
-        ),
-        pplAbDP('ext_quad', 2, 6, 20, 2.5, 'ext_quad_legs_a', '2 series RIR 2-3'),
-        pplAbDP('gemelo_sent', 2, 6, 20, 2.5, 'gemelo_sent_legs_a', '2 series RIR 1'),
+        pplAbDP('incline_leg_press', 2, 2.5, 'incline_leg_press_legs_a', '2xRIR 1'),
+        pplAbDP('barbell_rdl', 2, 2.5, 'barbell_rdl_legs_a', '2xRIR 1'),
+        pplAbDP('bulgarian_split_squat', 2, 2.5, 'bulgarian_split_squat_legs_a', '2xRIR 2-3'),
+        pplAbDP('ext_quad', 2, 2.5, 'ext_quad_legs_a', '2xRIR 2-3'),
+        pplAbDP('gemelo_sent', 2, 2.5, 'gemelo_sent_legs_a', '2xRIR 1'),
       ],
     },
     // Day 3 — Push B
     {
       name: 'Push B',
       slots: [
-        pplAbDP(
-          'incline_machine_press',
-          2,
-          6,
-          20,
-          2.5,
-          'incline_machine_press_push_b',
-          '1 serie al fallo + 1 serie RIR 1-2'
-        ),
-        pplAbDP('dips', 2, 6, 20, 2.5, 'dips_push_b', '1 serie al fallo + 1 serie RIR 1-2'),
-        pplAbDP('cruces', 1, 6, 20, 2.5, 'cruces_push_b', '1 serie RIR 2-3'),
-        pplAbDP(
-          'shoulder_press_machine',
-          1,
-          6,
-          20,
-          2.5,
-          'shoulder_press_machine_push_b',
-          '1 serie al fallo'
-        ),
-        pplAbDP('skullcrusher', 1, 6, 20, 2.5, 'skullcrusher_push_b', '1 serie RIR 2-3'),
+        pplAbDP('incline_machine_press', 2, 2.5, 'incline_machine_press_push_b', '1xF + 1xRIR 1-2'),
+        pplAbDP('dips', 2, 2.5, 'dips_push_b', '1xF + 1xRIR 1-2'),
+        pplAbDP('cruces', 1, 2.5, 'cruces_push_b', '1xRIR 2-3'),
+        pplAbDP('shoulder_press_machine', 1, 2.5, 'shoulder_press_machine_push_b', '1xF'),
+        pplAbDP('skullcrusher', 1, 2.5, 'skullcrusher_push_b', '1xRIR 2-3'),
       ],
     },
     // Day 4 — Pull B
     {
       name: 'Pull B',
       slots: [
-        pplAbDP(
-          'machine_lat_pulldown',
-          2,
-          6,
-          20,
-          2.5,
-          'machine_lat_pulldown_pull_b',
-          '1 serie al fallo + 1 serie RIR 1-2'
-        ),
-        pplAbDP('dbrow', 2, 6, 20, 2.5, 'dbrow_pull_b', '1 serie al fallo + 1 serie RIR 1-2'),
-        pplAbDP('t_bar_row', 1, 6, 20, 2.5, 't_bar_row_pull_b', '1 serie RIR 2-3'),
-        pplAbDP('cable_upright_row', 1, 6, 20, 2.5, 'cable_upright_row_pull_b', '1 serie RIR 2-3'),
-        pplAbDP('hammer_curl', 1, 6, 20, 2.5, 'hammer_curl_pull_b', '1 serie al fallo'),
+        pplAbDP('machine_lat_pulldown', 2, 2.5, 'machine_lat_pulldown_pull_b', '1xF + 1xRIR 1-2'),
+        pplAbDP('dbrow', 2, 2.5, 'dbrow_pull_b', '1xF + 1xRIR 1-2'),
+        pplAbDP('t_bar_row', 1, 2.5, 't_bar_row_pull_b', '1xRIR 2-3'),
+        pplAbDP('cable_upright_row', 1, 2.5, 'cable_upright_row_pull_b', '1xRIR 2-3'),
+        pplAbDP('hammer_curl', 1, 2.5, 'hammer_curl_pull_b', '1xF'),
       ],
     },
     // Day 5 — Legs B
     {
       name: 'Legs B',
       slots: [
-        pplAbDP('hack_squat', 2, 6, 20, 2.5, 'hack_squat_legs_b', '2 series RIR 1'),
-        pplAbDP(
-          'horizontal_leg_press',
-          2,
-          6,
-          20,
-          2.5,
-          'horizontal_leg_press_legs_b',
-          '2 series RIR 1'
-        ),
-        pplAbDP('hip_thrust', 2, 6, 20, 2.5, 'hip_thrust_legs_b', '2 series RIR 2-3'),
-        pplAbDP('curl_fem', 2, 6, 20, 2.5, 'curl_fem_legs_b', '2 series RIR 2-3'),
-        pplAbDP('leg_press_gem', 2, 6, 20, 2.5, 'leg_press_gem_legs_b', '2 series RIR 1'),
+        pplAbDP('hack_squat', 2, 2.5, 'hack_squat_legs_b', '2xRIR 1'),
+        pplAbDP('horizontal_leg_press', 2, 2.5, 'horizontal_leg_press_legs_b', '2xRIR 1'),
+        pplAbDP('hip_thrust', 2, 2.5, 'hip_thrust_legs_b', '2xRIR 2-3'),
+        pplAbDP('curl_fem', 2, 2.5, 'curl_fem_legs_b', '2xRIR 2-3'),
+        pplAbDP('leg_press_gem', 2, 2.5, 'leg_press_gem_legs_b', '2xRIR 1'),
       ],
     },
   ],
