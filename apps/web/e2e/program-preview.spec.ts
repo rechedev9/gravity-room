@@ -11,12 +11,12 @@ test.describe('Program preview — route and rendering', () => {
   });
 
   test('renders the program name', async ({ page }) => {
-    await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('GZCLP', { exact: true })).toBeVisible({ timeout: 10_000 });
   });
 
   test('program info section is expanded by default', async ({ page }) => {
     // Wait for definition to load
-    await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('GZCLP', { exact: true })).toBeVisible({ timeout: 10_000 });
 
     // The <details open> element should have its content visible
     const description = page.getByText('Acerca de GZCLP');
@@ -27,7 +27,7 @@ test.describe('Program preview — route and rendering', () => {
   });
 
   test('stats tab is not visible', async ({ page }) => {
-    await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('GZCLP', { exact: true })).toBeVisible({ timeout: 10_000 });
 
     // Verify no stats-related UI is present
     await expect(page.getByText('Estadísticas')).not.toBeVisible();
@@ -43,26 +43,26 @@ test.describe('Program preview — interactivity', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/programs/gzclp');
     // Wait for the tracker to be fully loaded
-    await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('GZCLP', { exact: true })).toBeVisible({ timeout: 10_000 });
   });
 
   test('day navigation works (next and prev)', async ({ page }) => {
     // Verify we start at Day 1
-    await expect(page.getByText('Día 1')).toBeVisible();
+    await expect(page.getByText('Día 1').first()).toBeVisible();
 
     // Click "Siguiente día" (Next) button
     const nextBtn = page.getByRole('button', { name: 'Siguiente día' });
     await nextBtn.click();
 
     // Now on Day 2
-    await expect(page.getByText('Día 2')).toBeVisible();
+    await expect(page.getByText('Día 2').first()).toBeVisible();
 
     // Click "Día anterior" (Prev) button
     const prevBtn = page.getByRole('button', { name: 'Día anterior' });
     await prevBtn.click();
 
     // Back to Day 1
-    await expect(page.getByText('Día 1')).toBeVisible();
+    await expect(page.getByText('Día 1').first()).toBeVisible();
   });
 
   test('view toggle switches between detailed and compact', async ({ page }) => {
@@ -78,33 +78,18 @@ test.describe('Program preview — interactivity', () => {
     await expect(detailedToggle).toBeVisible();
   });
 
-  test('clicking pass/fail shows CTA toast', async ({ page }) => {
-    // Find a pass (success) button — aria-label pattern: "Marcar {tier} éxito"
-    const passBtn = page.getByRole('button', { name: /Marcar .+ éxito/ }).first();
-    await passBtn.click();
-
-    // CTA toast should appear with the signup message
+  test('static CTA banner visible for unauthenticated users', async ({ page }) => {
+    // The preview page shows a static CTA banner at the bottom
     await expect(page.getByText('Crea una cuenta para registrar tu progreso')).toBeVisible();
-
-    // Toast should have the action button
-    await expect(page.getByRole('button', { name: 'Crear cuenta' })).toBeVisible();
   });
 
-  test('CTA toast is dismissible', async ({ page }) => {
-    // Trigger CTA toast
+  test('pass/fail buttons are no-ops on preview (no state change)', async ({ page }) => {
     const passBtn = page.getByRole('button', { name: /Marcar .+ éxito/ }).first();
     await passBtn.click();
 
-    // Wait for toast to appear
-    await expect(page.getByText('Crea una cuenta para registrar tu progreso')).toBeVisible();
-
-    // Dismiss the toast
-    const dismissBtn = page.getByRole('button', { name: 'Cerrar notificación' });
-    await dismissBtn.click();
-
-    // Toast should disappear (wait for exit animation)
-    await expect(page.getByText('Crea una cuenta para registrar tu progreso')).not.toBeVisible({
-      timeout: 3_000,
+    // No undo button should appear (preview is read-only)
+    await expect(page.getByRole('button', { name: 'Deshacer' })).not.toBeVisible({
+      timeout: 2_000,
     });
   });
 });
@@ -118,7 +103,7 @@ test.describe('Program preview — landing page links', () => {
     await page.goto('/');
 
     // Wait for catalog to load
-    await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('GZCLP', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
 
     // Find the GZCLP card link — it should point to /programs/gzclp
     const gzclpLink = page
@@ -132,7 +117,7 @@ test.describe('Program preview — landing page links', () => {
     await page.goto('/');
 
     // Wait for catalog to load
-    await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('GZCLP', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
 
     // Click the GZCLP card link
     const gzclpLink = page
@@ -145,6 +130,6 @@ test.describe('Program preview — landing page links', () => {
     await expect(page).toHaveURL(/\/programs\/gzclp/);
 
     // Preview page should render the program
-    await expect(page.getByText('Día 1')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Día 1').first()).toBeVisible({ timeout: 10_000 });
   });
 });

@@ -7,11 +7,11 @@ test.describe('Progression rules', () => {
     // Seed 4 all-success workouts (indices 0–3, one full rotation)
     await seedProgram(page, { results: buildSuccessResults(4) });
     await navigateToTracker(page);
-    await expect(page.getByText('Día 5', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Día 5', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
 
     // Workout #5 (index 4) is Day 1 = Squat T1
-    // Squat T1 should show 65 kg (60 start + 5 increment)
-    await expect(page.getByText('65 kg')).toBeVisible();
+    // Squat T1 should show 65 (60 start + 5 increment) — weight column shows number only
+    await expect(page.getByText('65', { exact: true }).first()).toBeVisible();
   });
 
   test('T1 failure advances stage without changing weight', async ({ page }) => {
@@ -25,10 +25,10 @@ test.describe('Progression rules', () => {
       },
     });
     await navigateToTracker(page);
-    await expect(page.getByText('Día 5', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Día 5', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
 
-    // Workout #5 (index 4) T1 Squat: weight stays 60, stage changes to 6×2
-    await expect(page.getByText('60 kg').first()).toBeVisible();
-    await expect(page.getByText('6×2')).toBeVisible();
+    // Workout #5 (index 4) T1 Squat: weight stays 60, stage advances to S2
+    await expect(page.getByText('60', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('S2')).toBeVisible();
   });
 });

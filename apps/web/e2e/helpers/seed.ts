@@ -53,7 +53,7 @@ export async function navigateToTracker(page: Page): Promise<void> {
   const continueBtn = page.getByRole('button', { name: 'Continuar Entrenamiento' });
   await expect(continueBtn).toBeVisible({ timeout: 10_000 });
   await continueBtn.click();
-  await expect(page.getByText(/^Día \d+$/)).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('progressbar')).toBeVisible({ timeout: 10_000 });
 }
 
 /**
