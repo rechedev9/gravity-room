@@ -24,8 +24,25 @@ import {
   REFRESH_TOKEN_DAYS,
 } from '../services/auth';
 import { verifyGoogleToken } from '../lib/google-auth';
+import { sendTelegramMessage } from '../lib/telegram';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
+
+// ---------------------------------------------------------------------------
+// Device classification (REQ-AUTH-003)
+// ---------------------------------------------------------------------------
+
+type DeviceType = 'Mobile' | 'Desktop' | 'Bot' | 'Unknown';
+
+/** Classifies the device type from the User-Agent header value. */
+function classifyDevice(userAgent: string | undefined): DeviceType {
+  if (!userAgent) return 'Unknown';
+  const ua = userAgent.toLowerCase();
+  if (ua.includes('bot') || ua.includes('crawler') || ua.includes('spider')) return 'Bot';
+  if (/Mobile|Android|iPhone|iPad|iPod/.test(userAgent)) return 'Mobile';
+  return 'Desktop';
+}
+
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const BEARER_PREFIX = 'Bearer ';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
@@ -84,7 +101,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .post(
     '/google',
-    async ({ jwt, body, cookie, set, reqLogger, ip }) => {
+    async ({ jwt, body, cookie, set, reqLogger, ip, request }) => {
       await rateLimit(ip, '/auth/google', { maxRequests: 10 });
 
       let googlePayload: Awaited<ReturnType<typeof verifyGoogleToken>>;
@@ -95,14 +112,22 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         throw new ApiError(401, 'Invalid Google credential', 'AUTH_GOOGLE_INVALID');
       }
 
-      const user = await findOrCreateGoogleUser(
+      const { user, isNewUser } = await findOrCreateGoogleUser(
         googlePayload.sub,
         googlePayload.email,
         googlePayload.name
       );
       const { accessToken } = await issueTokens(jwt, cookie, user);
 
-      reqLogger.info({ event: 'auth.google', userId: user.id }, 'google sign-in');
+      if (isNewUser) {
+        const userAgent = request.headers.get('user-agent') ?? undefined;
+        const deviceType = classifyDevice(userAgent);
+        const timestamp = new Date().toISOString();
+        const text = `New user: ${user.email} | ${deviceType} | ${timestamp}`;
+        void sendTelegramMessage(text);
+      }
+
+      reqLogger.info({ event: 'auth.google', userId: user.id, isNewUser }, 'google sign-in');
       set.status = 200;
       return { user: userResponse(user), accessToken };
     },
@@ -134,9 +159,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       // Reuse existing user by email (dev logins generate a new googleId each time,
       // which would violate the email unique constraint on repeated calls).
       const existing = await findUserByEmail(body.email);
-      const user =
-        existing ??
-        (await findOrCreateGoogleUser(`dev-${crypto.randomUUID()}`, body.email, undefined));
+      const user = existing
+        ? existing
+        : (await findOrCreateGoogleUser(`dev-${crypto.randomUUID()}`, body.email, undefined)).user;
       const { accessToken } = await issueTokens(jwt, cookie, user);
       set.status = 201;
       return { user: userResponse(user), accessToken };

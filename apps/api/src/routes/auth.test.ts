@@ -49,9 +49,9 @@ const mockFindRefreshTokenByPreviousHash = mock<
   () => Promise<typeof TEST_REFRESH_TOKEN | undefined>
 >(() => Promise.resolve(undefined));
 const mockCreateAndStoreRefreshToken = mock(() => Promise.resolve('mock-raw-refresh-token'));
-const mockFindOrCreateGoogleUser = mock<() => Promise<typeof TEST_USER>>(() =>
-  Promise.resolve({ ...TEST_USER })
-);
+const mockFindOrCreateGoogleUser = mock<
+  () => Promise<{ user: typeof TEST_USER; isNewUser: boolean }>
+>(() => Promise.resolve({ user: { ...TEST_USER }, isNewUser: false }));
 
 mock.module('../services/auth', () => ({
   hashToken: mockHashToken,
@@ -75,6 +75,12 @@ mock.module('../lib/google-auth', () => ({
 
 mock.module('../middleware/rate-limit', () => ({
   rateLimit: (): Promise<void> => Promise.resolve(),
+}));
+
+const mockSendTelegramMessage = mock((): void => undefined);
+
+mock.module('../lib/telegram', () => ({
+  sendTelegramMessage: mockSendTelegramMessage,
 }));
 
 import { Elysia } from 'elysia';
@@ -125,10 +131,13 @@ describe('POST /auth/google', () => {
     mockVerifyGoogleToken.mockImplementation(() =>
       Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
     );
-    mockFindOrCreateGoogleUser.mockImplementation(() => Promise.resolve({ ...TEST_USER }));
+    mockFindOrCreateGoogleUser.mockImplementation(() =>
+      Promise.resolve({ user: { ...TEST_USER }, isNewUser: false })
+    );
     mockCreateAndStoreRefreshToken.mockImplementation(() =>
       Promise.resolve('mock-raw-refresh-token')
     );
+    mockSendTelegramMessage.mockClear();
   });
 
   it('returns 400 for missing credential', async () => {
@@ -262,5 +271,167 @@ describe('GET /auth/me', () => {
     const expiredToken = await makeExpiredJwt('user-123');
     const res = await get('/auth/me', { Authorization: `Bearer ${expiredToken}` });
     expect(res.status).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 4.4 — sendTelegramMessage called only for new users (REQ-AUTH-004)
+// ---------------------------------------------------------------------------
+
+describe('POST /auth/google — Telegram notification (REQ-AUTH-004)', () => {
+  beforeEach(() => {
+    mockVerifyGoogleToken.mockImplementation(() =>
+      Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
+    );
+    mockCreateAndStoreRefreshToken.mockImplementation(() =>
+      Promise.resolve('mock-raw-refresh-token')
+    );
+    mockSendTelegramMessage.mockClear();
+  });
+
+  it('calls sendTelegramMessage once for new users', async () => {
+    // Arrange
+    mockFindOrCreateGoogleUser.mockImplementation(() =>
+      Promise.resolve({ user: { ...TEST_USER }, isNewUser: true })
+    );
+
+    // Act
+    await post('/auth/google', { credential: 'valid-id-token' });
+
+    // Assert
+    expect(mockSendTelegramMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call sendTelegramMessage for returning users', async () => {
+    // Arrange
+    mockFindOrCreateGoogleUser.mockImplementation(() =>
+      Promise.resolve({ user: { ...TEST_USER }, isNewUser: false })
+    );
+
+    // Act
+    await post('/auth/google', { credential: 'valid-id-token' });
+
+    // Assert
+    expect(mockSendTelegramMessage).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 4.5 — fire-and-forget: auth response returned before notification completes
+// ---------------------------------------------------------------------------
+
+describe('POST /auth/google — fire-and-forget timing (REQ-AUTH-004)', () => {
+  beforeEach(() => {
+    mockVerifyGoogleToken.mockImplementation(() =>
+      Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
+    );
+    mockCreateAndStoreRefreshToken.mockImplementation(() =>
+      Promise.resolve('mock-raw-refresh-token')
+    );
+    mockSendTelegramMessage.mockClear();
+  });
+
+  it('returns the auth response before the Telegram notification completes', async () => {
+    // Arrange: mock sendTelegramMessage to delay 5 seconds (but returns void, so this is synchronous from caller perspective)
+    mockFindOrCreateGoogleUser.mockImplementation(() =>
+      Promise.resolve({ user: { ...TEST_USER }, isNewUser: true })
+    );
+    mockSendTelegramMessage.mockImplementation((): void => {
+      // Simulate a slow async operation started inside — the route should not await this
+      void new Promise<void>((resolve) => setTimeout(resolve, 5_000));
+    });
+
+    // Act
+    const start = Date.now();
+    const res = await post('/auth/google', { credential: 'valid-id-token' });
+    const elapsed = Date.now() - start;
+
+    // Assert — response arrives well under 500ms despite the delayed notification
+    expect(res.status).toBe(200);
+    expect(elapsed).toBeLessThan(500);
+    expect(mockSendTelegramMessage).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 4.6 — message format: email, deviceType, timestamp (REQ-AUTH-005)
+// ---------------------------------------------------------------------------
+
+describe('POST /auth/google — notification message format (REQ-AUTH-005)', () => {
+  beforeEach(() => {
+    mockVerifyGoogleToken.mockImplementation(() =>
+      Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
+    );
+    mockCreateAndStoreRefreshToken.mockImplementation(() =>
+      Promise.resolve('mock-raw-refresh-token')
+    );
+    mockSendTelegramMessage.mockClear();
+  });
+
+  it('passes email, deviceType, and timestamp in the notification message for a mobile UA', async () => {
+    // Arrange
+    const mobileUserAgent =
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15';
+    mockFindOrCreateGoogleUser.mockImplementation(() =>
+      Promise.resolve({ user: { ...TEST_USER }, isNewUser: true })
+    );
+
+    // Act
+    await post('/auth/google', { credential: 'valid-id-token' }, { 'User-Agent': mobileUserAgent });
+
+    // Assert
+    expect(mockSendTelegramMessage).toHaveBeenCalledTimes(1);
+    const [text] = mockSendTelegramMessage.mock.calls[0] as unknown as [string];
+    expect(text).toContain('New user: ');
+    expect(text).toContain(TEST_USER.email);
+    expect(text).toContain('Mobile');
+  });
+
+  it('passes Desktop deviceType for a desktop UA', async () => {
+    // Arrange
+    const desktopUserAgent =
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    mockFindOrCreateGoogleUser.mockImplementation(() =>
+      Promise.resolve({ user: { ...TEST_USER }, isNewUser: true })
+    );
+
+    // Act
+    await post(
+      '/auth/google',
+      { credential: 'valid-id-token' },
+      { 'User-Agent': desktopUserAgent }
+    );
+
+    // Assert
+    const [text] = mockSendTelegramMessage.mock.calls[0] as unknown as [string];
+    expect(text).toContain('Desktop');
+  });
+
+  it('passes Unknown deviceType when User-Agent header is absent', async () => {
+    // Arrange
+    mockFindOrCreateGoogleUser.mockImplementation(() =>
+      Promise.resolve({ user: { ...TEST_USER }, isNewUser: true })
+    );
+
+    // Act — post() always sends Content-Type; no User-Agent header
+    await post('/auth/google', { credential: 'valid-id-token' });
+
+    // Assert
+    const [text] = mockSendTelegramMessage.mock.calls[0] as unknown as [string];
+    expect(text).toContain('Unknown');
+  });
+
+  it('message starts with "New user: " and contains the pipe-separated format', async () => {
+    // Arrange
+    mockFindOrCreateGoogleUser.mockImplementation(() =>
+      Promise.resolve({ user: { ...TEST_USER }, isNewUser: true })
+    );
+
+    // Act
+    await post('/auth/google', { credential: 'valid-id-token' });
+
+    // Assert
+    const [text] = mockSendTelegramMessage.mock.calls[0] as unknown as [string];
+    expect(text).toMatch(/^New user: .+\|.+\|.+/);
   });
 });

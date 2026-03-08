@@ -14,6 +14,12 @@ import { ApiError } from '../middleware/error-handler';
 export type UserRow = typeof users.$inferSelect;
 export type RefreshTokenRow = typeof refreshTokens.$inferSelect;
 
+/** Result of findOrCreateGoogleUser — includes new-user detection flag. */
+export interface FindOrCreateResult {
+  readonly user: UserRow;
+  readonly isNewUser: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -68,7 +74,7 @@ export async function findOrCreateGoogleUser(
   googleId: string,
   email: string,
   name: string | undefined
-): Promise<UserRow> {
+): Promise<FindOrCreateResult> {
   const db = getDb();
 
   const [user] = await db
@@ -94,7 +100,8 @@ export async function findOrCreateGoogleUser(
     );
   }
 
-  return user;
+  const isNewUser = Math.abs(user.createdAt.getTime() - user.updatedAt.getTime()) < 2_000;
+  return { user, isNewUser };
 }
 
 /** Update user profile fields (name, avatarUrl). */

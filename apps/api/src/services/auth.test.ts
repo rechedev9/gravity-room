@@ -157,9 +157,9 @@ describe('findOrCreateGoogleUser', () => {
     const result = await findOrCreateGoogleUser('G-123', 'alice@example.com', 'Alice');
 
     // Assert
-    expect(result.id).toBe('user-001');
-    expect(result.name).toBe('Alice');
-    expect(result.email).toBe('alice@example.com');
+    expect(result.user.id).toBe('user-001');
+    expect(result.user.name).toBe('Alice');
+    expect(result.user.email).toBe('alice@example.com');
     expect(mockInsert).toHaveBeenCalled();
   });
 
@@ -181,7 +181,7 @@ describe('findOrCreateGoogleUser', () => {
     const result = await findOrCreateGoogleUser('G-123', 'alice@example.com', 'Alice Smith');
 
     // Assert
-    expect(result.name).toBe('Alice Smith');
+    expect(result.user.name).toBe('Alice Smith');
   });
 
   it('throws ApiError 403 when returned user has deletedAt set', async () => {
@@ -230,8 +230,53 @@ describe('findOrCreateGoogleUser', () => {
     const result = await findOrCreateGoogleUser('G-111', 'carol@example.com', 'Carol');
 
     // Assert
-    expect(result.deletedAt).toBeNull();
-    expect(result.id).toBe('user-004');
+    expect(result.user.deletedAt).toBeNull();
+    expect(result.user.id).toBe('user-004');
+  });
+
+  it('returns isNewUser: true when createdAt equals updatedAt within 2 seconds', async () => {
+    // Arrange: DB returns a user where createdAt and updatedAt differ by < 2000ms
+    const now = new Date();
+    const newUser = {
+      id: 'user-new-001',
+      googleId: 'G-NEW',
+      email: 'fresh@example.com',
+      name: 'Fresh',
+      avatarUrl: null,
+      deletedAt: null,
+      createdAt: now,
+      updatedAt: new Date(now.getTime() + 500), // 500ms difference — new user
+    };
+    mockReturning.mockImplementation(() => Promise.resolve([newUser]));
+
+    // Act
+    const result = await findOrCreateGoogleUser('G-NEW', 'fresh@example.com', 'Fresh');
+
+    // Assert
+    expect(result.isNewUser).toBe(true);
+  });
+
+  it('returns isNewUser: false when createdAt differs from updatedAt by 2 seconds or more', async () => {
+    // Arrange: DB returns a user where updatedAt is 2+ seconds after createdAt
+    const createdAt = new Date('2024-01-01T00:00:00.000Z');
+    const updatedAt = new Date('2024-01-01T00:00:02.000Z'); // exactly 2000ms — returning user
+    const returningUser = {
+      id: 'user-ret-001',
+      googleId: 'G-RET',
+      email: 'returning@example.com',
+      name: 'Returning',
+      avatarUrl: null,
+      deletedAt: null,
+      createdAt,
+      updatedAt,
+    };
+    mockReturning.mockImplementation(() => Promise.resolve([returningUser]));
+
+    // Act
+    const result = await findOrCreateGoogleUser('G-RET', 'returning@example.com', 'Returning');
+
+    // Assert
+    expect(result.isNewUser).toBe(false);
   });
 
   it('lowercases email before upsert', async () => {
