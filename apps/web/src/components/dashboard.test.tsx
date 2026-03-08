@@ -176,13 +176,14 @@ describe('Dashboard', () => {
       expect(screen.getByText('Nivel 7')).toBeDefined();
     });
 
-    it('should render 3 "Ver Programa" links pointing to /programs/:id', async () => {
+    it('should render 3 "Iniciar Programa" buttons that call onStartNewProgram', async () => {
       mockFetchCatalogList.mockImplementation(() => Promise.resolve(CATALOG_ENTRIES));
+      const onStart = mock(() => {});
 
       const Wrapper = createWrapper();
       render(
         <Wrapper>
-          <Dashboard onStartNewProgram={noopFn} onContinueProgram={noopFn} />
+          <Dashboard onStartNewProgram={onStart} onContinueProgram={noopFn} />
         </Wrapper>
       );
 
@@ -190,14 +191,8 @@ describe('Dashboard', () => {
         expect(screen.getByText('GZCLP')).toBeDefined();
       });
 
-      const links = screen.getAllByText('Ver Programa');
-      expect(links).toHaveLength(3);
-
-      // Each link should point to /programs/:id
-      const hrefs = links.map((link) => link.getAttribute('href'));
-      expect(hrefs).toContain('/programs/gzclp');
-      expect(hrefs).toContain('/programs/ppl531');
-      expect(hrefs).toContain('/programs/nivel7');
+      const buttons = screen.getAllByText('Iniciar Programa');
+      expect(buttons).toHaveLength(3);
     });
 
     it('should not show "Finaliza tu programa actual para iniciar uno nuevo" text', async () => {

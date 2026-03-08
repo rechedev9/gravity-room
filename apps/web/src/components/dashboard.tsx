@@ -437,9 +437,7 @@ export function Dashboard({
                               key={entry.id}
                               definition={entry}
                               isActive={false}
-                              {...(isGuest
-                                ? { onSelect: () => onStartNewProgram(entry.id) }
-                                : { to: `/programs/${entry.id}` })}
+                              onSelect={() => onStartNewProgram(entry.id)}
                             />
                           ))}
                         </div>
