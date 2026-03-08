@@ -318,7 +318,7 @@ function ActiveProgramCard({
 // ---------------------------------------------------------------------------
 
 export function Dashboard({
-  // onStartNewProgram retained in DashboardProps for parent usage (preview page setup flow)
+  onStartNewProgram,
   onContinueProgram,
   onGoToProfile,
 }: DashboardProps): React.ReactNode {
@@ -437,7 +437,9 @@ export function Dashboard({
                               key={entry.id}
                               definition={entry}
                               isActive={false}
-                              to={`/programs/${entry.id}`}
+                              {...(isGuest
+                                ? { onSelect: () => onStartNewProgram(entry.id) }
+                                : { to: `/programs/${entry.id}` })}
                             />
                           ))}
                         </div>
