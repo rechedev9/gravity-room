@@ -32,7 +32,7 @@ interface AuthResult {
 export async function createAndAuthUser(page: Page): Promise<AuthResult> {
   const email = `e2e-${crypto.randomUUID()}@test.local`;
 
-  const res = await page.request.post(`${BASE_URL}/auth/dev`, {
+  const res = await page.request.post(`${BASE_URL}/api/auth/dev`, {
     data: { email },
   });
   if (!res.ok()) throw new Error(`Dev sign-in failed: ${res.status()} ${await res.text()}`);
@@ -49,7 +49,7 @@ export async function createTestProgram(
   accessToken: string,
   weights: typeof DEFAULT_WEIGHTS = DEFAULT_WEIGHTS
 ): Promise<string> {
-  const res = await page.request.post(`${BASE_URL}/programs`, {
+  const res = await page.request.post(`${BASE_URL}/api/programs`, {
     headers: { Authorization: `Bearer ${accessToken}` },
     data: { programId: 'gzclp', name: 'Test Program', config: weights },
   });
@@ -73,7 +73,7 @@ export async function seedResultsViaAPI(
     for (const [tier, result] of Object.entries(tierResults)) {
       const slotId = tierToSlotId(workoutIndex, tier);
       if (!slotId) continue;
-      await page.request.post(`${BASE_URL}/programs/${programId}/results`, {
+      await page.request.post(`${BASE_URL}/api/programs/${programId}/results`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         data: { workoutIndex, slotId, result },
       });

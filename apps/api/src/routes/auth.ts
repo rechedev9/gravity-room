@@ -40,7 +40,7 @@ const REFRESH_COOKIE_OPTIONS = {
   secure: IS_PRODUCTION,
   sameSite: 'strict' as const,
   maxAge: REFRESH_TOKEN_DAYS * 24 * 60 * 60,
-  path: '/auth',
+  path: '/api/auth',
 };
 
 interface UserProfile {

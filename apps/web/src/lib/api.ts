@@ -33,7 +33,7 @@ export function getAccessToken(): string | null {
 let refreshPromise: Promise<string | null> | null = null;
 
 async function doRefresh(): Promise<string | null> {
-  const res = await fetch(`${API_URL}/auth/refresh`, {
+  const res = await fetch(`${API_URL}/api/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
   });

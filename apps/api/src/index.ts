@@ -248,13 +248,16 @@ export const app = new Elysia()
     set.status = 500;
     return { error: 'Internal server error', code: 'INTERNAL_ERROR' };
   })
-  .use(authRoutes)
-  .use(programRoutes)
-  .use(catalogRoutes)
-  .use(exerciseRoutes)
-  .use(resultRoutes)
-  .use(programDefinitionRoutes)
-  .use(statsRoutes)
+  .use(
+    new Elysia({ prefix: '/api' })
+      .use(authRoutes)
+      .use(programRoutes)
+      .use(catalogRoutes)
+      .use(exerciseRoutes)
+      .use(resultRoutes)
+      .use(programDefinitionRoutes)
+      .use(statsRoutes)
+  )
   .get(
     '/health',
     async ({ set }) => {

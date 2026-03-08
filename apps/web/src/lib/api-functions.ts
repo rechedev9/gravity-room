@@ -82,7 +82,7 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   };
 
   const doFetch = (): Promise<Response> =>
-    fetch(`${API_URL}${path}`, {
+    fetch(`${API_URL}/api${path}`, {
       ...options,
       headers: mergeHeaders(headers, options.headers),
       credentials: 'include',
@@ -333,7 +333,7 @@ export async function deleteAccount(): Promise<void> {
 /** Fetch the count of users active in the last 60 seconds. Public endpoint — no auth required. */
 export async function fetchOnlineCount(): Promise<number | null> {
   try {
-    const res = await fetch(`${API_URL}/stats/online`);
+    const res = await fetch(`${API_URL}/api/stats/online`);
     if (!res.ok) return null;
     const data: unknown = await res.json();
     if (isRecord(data) && typeof data.count === 'number') return data.count;
