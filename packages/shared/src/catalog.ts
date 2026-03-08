@@ -264,4 +264,14 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     level: 'advanced',
     isActive: true,
   },
+  {
+    id: 'ppl-ab',
+    name: 'PPL A/B Hipertrofia',
+    description:
+      'Push/Pull/Legs con alternancia A/B semanal. 3 dias/semana, doble progresion, fallo tecnico.',
+    author: 'Gravity Room',
+    category: 'hypertrophy',
+    level: 'intermediate',
+    isActive: true,
+  },
 ] as const satisfies readonly ProgramMeta[];

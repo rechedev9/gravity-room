@@ -38,6 +38,7 @@ import { SHEIKO_7_5_DEFINITION } from '../../../apps/api/src/db/seeds/programs/s
 import { SALA_1_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/sala-1';
 import { SALA_2_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/sala-2';
 import { SALA_3_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/sala-3';
+import { PPL_AB_DEFINITION_JSONB } from '../../../apps/api/src/db/seeds/programs/ppl-ab';
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -1864,6 +1865,19 @@ describe('ProgramDefinitionSchema', () => {
         meta: {
           id: 'sala-del-tiempo-3',
           name: 'Sala 3',
+          description: 'test',
+          author: 'test',
+          version: 1,
+          category: 'hypertrophy',
+          source: 'preset' as const,
+        },
+      },
+      {
+        name: 'PPL A/B Hipertrofia',
+        def: PPL_AB_DEFINITION_JSONB,
+        meta: {
+          id: 'ppl-ab',
+          name: 'PPL A/B Hipertrofia',
           description: 'test',
           author: 'test',
           version: 1,
