@@ -7,7 +7,7 @@ import { useFadeInOnScroll } from '@/hooks/use-fade-in-on-scroll';
 import { useScrollSpy } from '@/hooks/use-scroll-spy';
 import { useOnlineCount } from '@/hooks/use-online-count';
 
-const DISCORD_URL = 'https://discord.gg/BA4Bd23C';
+const DISCORD_URL = 'https://discord.gg/FXNBrgYf7U';
 
 function DiscordIcon({ className }: { readonly className?: string }): React.ReactNode {
   return (

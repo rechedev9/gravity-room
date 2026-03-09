@@ -1,6 +1,6 @@
 import { useOnlineCount } from '@/hooks/use-online-count';
 
-const DISCORD_URL = 'https://discord.gg/BA4Bd23C';
+const DISCORD_URL = 'https://discord.gg/FXNBrgYf7U';
 
 export function OnlineIndicator(): React.ReactNode {
   const count = useOnlineCount();
