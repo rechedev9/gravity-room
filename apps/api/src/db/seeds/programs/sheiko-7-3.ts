@@ -774,7 +774,7 @@ function buildDefinition(): Record<string, unknown> {
   }
 
   return {
-    id: 'sheiko-7-3',
+    id: 'tenkaichi-budokai-peso-muerto',
     name: 'Sheiko 7.3 — Peso Muerto',
     description:
       'Programa Sheiko de 16 semanas con enfasis en peso muerto. ' +

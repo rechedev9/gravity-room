@@ -26,7 +26,7 @@ const ACTIVE_INSTANCE_ID = 'gen-inst-1';
 
 const PROGRAM_SUMMARY: ProgramSummary = {
   id: ACTIVE_INSTANCE_ID,
-  programId: 'nivel7',
+  programId: 'nivel-7',
   name: 'Nivel 7',
   config: {},
   status: 'active',
@@ -47,7 +47,7 @@ mock.module('@/lib/api-functions', () => ({
   fetchGenericProgramDetail: mock(() =>
     Promise.resolve({
       id: ACTIVE_INSTANCE_ID,
-      programId: 'nivel7',
+      programId: 'nivel-7',
       name: 'Nivel 7',
       config: {
         press_mil: 60,
@@ -134,7 +134,7 @@ describe('useProgram', () => {
   describe('onError callbacks', () => {
     it('undoLastMutation onError — hook exposes undoLast function', async () => {
       const wrapper = createWrapper();
-      const { result } = renderHook(() => useProgram('nivel7'), { wrapper });
+      const { result } = renderHook(() => useProgram('nivel-7'), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -145,7 +145,7 @@ describe('useProgram', () => {
 
     it('generateProgramMutation onError — hook exposes generateProgram function', async () => {
       const wrapper = createWrapper();
-      const { result } = renderHook(() => useProgram('nivel7'), { wrapper });
+      const { result } = renderHook(() => useProgram('nivel-7'), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -156,7 +156,7 @@ describe('useProgram', () => {
 
     it('updateConfigMutation onError — hook exposes updateConfig function', async () => {
       const wrapper = createWrapper();
-      const { result } = renderHook(() => useProgram('nivel7'), { wrapper });
+      const { result } = renderHook(() => useProgram('nivel-7'), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -167,7 +167,7 @@ describe('useProgram', () => {
 
     it('resetAllMutation onError — hook exposes resetAll function', async () => {
       const wrapper = createWrapper();
-      const { result } = renderHook(() => useProgram('nivel7'), { wrapper });
+      const { result } = renderHook(() => useProgram('nivel-7'), { wrapper });
 
       await waitFor(() => {
         expect(result.current.isLoading).toBe(false);
@@ -180,7 +180,7 @@ describe('useProgram', () => {
   describe('interface completeness', () => {
     it('exposes all required methods', async () => {
       const wrapper = createWrapper();
-      const { result } = renderHook(() => useProgram('nivel7'), { wrapper });
+      const { result } = renderHook(() => useProgram('nivel-7'), { wrapper });
 
       expect(typeof result.current.generateProgram).toBe('function');
       expect(typeof result.current.updateConfig).toBe('function');

@@ -37,7 +37,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'ppl531',
+    id: 'hexan-ppl',
     name: 'HeXaN PPL',
     description:
       'Seis días de Kaioken: empuja tu cuerpo al máximo con fuerza y volumen. ' +
@@ -49,7 +49,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'stronglifts5x5',
+    id: 'stronglifts-5x5',
     name: 'StrongLifts 5x5',
     description:
       'Programa clásico de fuerza para principiantes. ' +
@@ -62,7 +62,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'phraks-gslp',
+    id: 'phraks-greyskull-lp',
     name: "Phrak's Greyskull LP",
     description:
       'Programa de fuerza para principiantes de Phrakture. ' +
@@ -75,7 +75,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'wendler531bbb',
+    id: '531-boring-but-big',
     name: '5/3/1 Boring But Big',
     description:
       'El secreto de la fuerza según el Maestro Roshi: repeticiones aburridas pero ' +
@@ -87,7 +87,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'wendler531beginners',
+    id: '531-for-beginners',
     name: '5/3/1 for Beginners',
     description:
       'Entrenamiento de cuerpo completo en el Palacio Celeste: 3 días por semana, ' +
@@ -112,7 +112,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'nivel7',
+    id: 'nivel-7',
     name: 'Nivel 7',
     description:
       'Programa de fuerza de 12 semanas con periodización inversa. ' +
@@ -126,7 +126,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'mutenroshi',
+    id: 'caparazon-de-tortuga',
     name: 'Caparazón de Tortuga',
     description:
       'Tu entrenamiento en la Kame House: empieza desde cero con tu peso corporal ' +
@@ -139,7 +139,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'brunetti-365',
+    id: '365-programmare-lipertrofia',
     name: "365 Programmare l'Ipertrofia",
     description:
       'Programa anual de hipertrofia de Amerigo Brunetti estructurado en 5 fases y 212 sesiones. ' +
@@ -155,7 +155,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: false,
   },
   {
-    id: 'brunetti-365-exp',
+    id: 'la-sala-del-tiempo',
     name: 'La Sala del Tiempo',
     description:
       'Inspirado en la metodología de Amerigo Brunetti. Tu año en la Sala del Tiempo: ' +
@@ -204,7 +204,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'sheiko-7-1',
+    id: 'tenkaichi-budokai-sentadilla',
     name: 'Tenkaichi Budokai — Sentadilla',
     description:
       'Preparación de 16 semanas para el torneo con énfasis en sentadilla. ' +
@@ -216,7 +216,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'sheiko-7-2',
+    id: 'tenkaichi-budokai-press-banca',
     name: 'Tenkaichi Budokai — Press Banca',
     description:
       'Preparación de 16 semanas para el torneo con énfasis en press banca. ' +
@@ -228,7 +228,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'sheiko-7-3',
+    id: 'tenkaichi-budokai-peso-muerto',
     name: 'Tenkaichi Budokai — Peso Muerto',
     description:
       'Preparación de 16 semanas para el torneo con énfasis en peso muerto. ' +
@@ -240,7 +240,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'sheiko-7-4',
+    id: 'tenkaichi-budokai-solo-banca',
     name: 'Tenkaichi Budokai — Solo Banca',
     description:
       'Preparación de 18 semanas exclusiva para press banca. ' +
@@ -252,7 +252,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'sheiko-7-5',
+    id: 'tenkaichi-budokai-veterano',
     name: 'Tenkaichi Budokai — Veterano',
     description:
       'El programa más popular de Sheiko para guerreros experimentados. ' +
@@ -265,7 +265,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     isActive: true,
   },
   {
-    id: 'ppl-ab',
+    id: 'furia-oscura',
     name: 'Furia Oscura',
     description:
       'Entrena como un Saiyajin: Push/Pull/Legs con alternancia A/B semanal. 3 dias/semana al estilo Sala del Tiempo, doble progresion hasta superar tus limites.',

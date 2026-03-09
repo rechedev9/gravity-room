@@ -798,7 +798,7 @@ function buildDefinition(): Record<string, unknown> {
   }
 
   return {
-    id: 'sheiko-7-5',
+    id: 'tenkaichi-budokai-veterano',
     name: 'Sheiko 7.5 — Volumen Medio (Experto)',
     description:
       'Programa Sheiko de ~16 semanas (4 mesociclos) con volumen medio para atletas experimentados. ' +

@@ -552,7 +552,7 @@ function cycleDays(cycle: Cycle): ProgramDay[] {
 }
 
 export const NIVEL7_DEFINITION_FIXTURE: ProgramDefinition = {
-  id: 'nivel7',
+  id: 'nivel-7',
   name: 'Nivel 7',
   description:
     'Programa de fuerza de 12 semanas con periodización inversa. ' +

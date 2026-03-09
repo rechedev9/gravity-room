@@ -784,7 +784,7 @@ function buildDefinition(): Record<string, unknown> {
   }
 
   return {
-    id: 'sheiko-7-2',
+    id: 'tenkaichi-budokai-press-banca',
     name: 'Sheiko 7.2 — Press Banca',
     description:
       'Programa Sheiko de 16 semanas con enfasis en press banca. ' +

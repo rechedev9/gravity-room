@@ -41,7 +41,7 @@ const CATALOG_ENTRIES = [
     cycleLength: 4,
   },
   {
-    id: 'ppl531',
+    id: 'hexan-ppl',
     name: 'PPL 5/3/1',
     description: 'Push Pull Legs.',
     author: 'HeXaN',
@@ -53,7 +53,7 @@ const CATALOG_ENTRIES = [
     cycleLength: 6,
   },
   {
-    id: 'nivel7',
+    id: 'nivel-7',
     name: 'Nivel 7',
     description: 'Strength program.',
     author: 'nivel7',

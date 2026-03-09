@@ -1703,7 +1703,7 @@ describe('ProgramDefinitionSchema', () => {
         name: 'PPL 5/3/1',
         def: PPL531_DEFINITION_JSONB,
         meta: {
-          id: 'ppl531',
+          id: 'hexan-ppl',
           name: 'PPL',
           description: 'test',
           author: 'test',
@@ -1781,7 +1781,7 @@ describe('ProgramDefinitionSchema', () => {
         name: 'Nivel 7',
         def: NIVEL7_DEFINITION_JSONB,
         meta: {
-          id: 'nivel7',
+          id: 'nivel-7',
           name: 'Nivel7',
           description: 'test',
           author: 'test',
@@ -1794,7 +1794,7 @@ describe('ProgramDefinitionSchema', () => {
         name: 'Brunetti 365',
         def: BRUNETTI365_DEFINITION_JSONB,
         meta: {
-          id: 'brunetti-365',
+          id: '365-programmare-lipertrofia',
           name: '365',
           description: 'test',
           author: 'test',
@@ -1876,7 +1876,7 @@ describe('ProgramDefinitionSchema', () => {
         name: 'Furia Oscura',
         def: PPL_AB_DEFINITION_JSONB,
         meta: {
-          id: 'ppl-ab',
+          id: 'furia-oscura',
           name: 'Furia Oscura',
           description: 'test',
           author: 'test',

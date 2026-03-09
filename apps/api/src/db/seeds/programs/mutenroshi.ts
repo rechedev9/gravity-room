@@ -15,7 +15,7 @@ for (let i = 0; i < TOTAL_WORKOUTS; i++) {
 }
 
 export const MUTENROSHI_DEFINITION_JSONB = {
-  id: 'mutenroshi',
+  id: 'caparazon-de-tortuga',
   name: 'Caparaz\u00f3n de Tortuga',
   description:
     'Antes de luchar en el Tenkaichi Budokai, Goku y Krillin tuvieron que repartir leche, ' +

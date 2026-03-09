@@ -769,7 +769,7 @@ function buildDefinition(): Record<string, unknown> {
   }
 
   return {
-    id: 'sheiko-7-1',
+    id: 'tenkaichi-budokai-sentadilla',
     name: 'Sheiko 7.1 — Sentadilla',
     description:
       'Programa Sheiko de 16 semanas con enfasis en sentadilla. ' +
