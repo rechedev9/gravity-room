@@ -173,7 +173,7 @@ mock.module('../services/catalog', () => ({
 }));
 
 // Must import AFTER mock.module
-const { getInstances } = await import('./programs');
+const { getInstances, getInstance, updateInstanceMetadata } = await import('./programs');
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -342,5 +342,207 @@ describe('getInstances', () => {
     const result = await getInstances('user-1', { limit: 10 });
 
     expect(result.nextCursor).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 4.5 — updateInstanceMetadata JSONB merge (REQ-AWP-002)
+// ---------------------------------------------------------------------------
+
+describe('updateInstanceMetadata', () => {
+  it('throws 400 METADATA_TOO_LARGE when incoming patch exceeds 10KB', async () => {
+    // Create a metadata object larger than 10KB
+    const largeValue = 'x'.repeat(11_000);
+    const largeMetadata = { key: largeValue };
+
+    let thrown: unknown;
+    try {
+      await updateInstanceMetadata('user-1', 'inst-1', largeMetadata);
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(400);
+    expect((thrown as ApiError).code).toBe('METADATA_TOO_LARGE');
+  });
+
+  it('throws 404 INSTANCE_NOT_FOUND when no row is updated', async () => {
+    // Override mockDb to support the update chain and return empty result
+    (mockDb as Record<string, unknown>).update = mock(function update() {
+      return {
+        set: mock(function set() {
+          return {
+            where: mock(function where() {
+              return {
+                returning: mock(() => Promise.resolve([])),
+              };
+            }),
+          };
+        }),
+      };
+    });
+
+    let thrown: unknown;
+    try {
+      await updateInstanceMetadata('user-1', 'nonexistent', { theme: 'dark' });
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(404);
+    expect((thrown as ApiError).code).toBe('INSTANCE_NOT_FOUND');
+  });
+
+  it('accepts valid small metadata without throwing size error', async () => {
+    const instanceRow = {
+      id: 'inst-1',
+      userId: 'user-1',
+      programId: 'gzclp',
+      name: 'Test',
+      config: {},
+      metadata: { theme: 'dark' },
+      status: 'active',
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    // Mock: update returns the updated row
+    (mockDb as Record<string, unknown>).update = mock(function update() {
+      return {
+        set: mock(function set() {
+          return {
+            where: mock(function where() {
+              return {
+                returning: mock(() => Promise.resolve([instanceRow])),
+              };
+            }),
+          };
+        }),
+      };
+    });
+    // fetchResultsAndUndo calls getDb().select() twice (results + undo)
+    // Each chain: .select({...}).from(table).where(condition) must be thenable
+    (mockDb as Record<string, unknown>).select = mock(function select() {
+      return {
+        from: mock(function from() {
+          return {
+            where: mock(function where() {
+              // Thenable that resolves to empty array
+              // Also supports .orderBy() for undo query
+              return {
+                then: (fn: (val: unknown[]) => unknown) => Promise.resolve(fn([])),
+                orderBy: mock(function orderBy() {
+                  return {
+                    then: (fn: (val: unknown[]) => unknown) => Promise.resolve(fn([])),
+                  };
+                }),
+              };
+            }),
+          };
+        }),
+      };
+    });
+
+    // Should not throw
+    const result = await updateInstanceMetadata('user-1', 'inst-1', { notifications: true });
+
+    expect(result.id).toBe('inst-1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 4.6 — getInstance column projection (REQ-AWP-003)
+// ---------------------------------------------------------------------------
+
+describe('getInstance', () => {
+  it('returns full response shape when instance exists', async () => {
+    const instanceRow = {
+      id: 'inst-1',
+      userId: 'user-1',
+      programId: 'gzclp',
+      name: 'Test Program',
+      config: { squat: 80 },
+      metadata: null,
+      status: 'active',
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+
+    // Mock: first select().from().where().limit(1) returns the instance
+    // Then fetchResultsAndUndo calls select() twice more (results + undo)
+    let callCount = 0;
+    (mockDb as Record<string, unknown>).select = mock(function select() {
+      callCount++;
+      if (callCount === 1) {
+        // getInstance query — returns instance row
+        return {
+          from: mock(function from() {
+            return {
+              where: mock(function where() {
+                return {
+                  limit: mock(() => Promise.resolve([instanceRow])),
+                };
+              }),
+            };
+          }),
+        };
+      }
+      // fetchResultsAndUndo queries — thenable returning empty arrays
+      return {
+        from: mock(function from() {
+          return {
+            where: mock(function where() {
+              return {
+                then: (fn: (val: unknown[]) => unknown) => Promise.resolve(fn([])),
+                orderBy: mock(function orderBy() {
+                  return {
+                    then: (fn: (val: unknown[]) => unknown) => Promise.resolve(fn([])),
+                  };
+                }),
+              };
+            }),
+          };
+        }),
+      };
+    });
+
+    const result = await getInstance('user-1', 'inst-1');
+
+    expect(result.id).toBe('inst-1');
+    expect(result.programId).toBe('gzclp');
+    expect(result.name).toBe('Test Program');
+    expect(result.status).toBe('active');
+    expect(result.config).toEqual({ squat: 80 });
+    expect(result.metadata).toBeNull();
+  });
+
+  it('throws 404 INSTANCE_NOT_FOUND when no instance matches', async () => {
+    // Mock: select returns empty
+    (mockDb as Record<string, unknown>).select = mock(function select() {
+      return {
+        from: mock(function from() {
+          return {
+            where: mock(function where() {
+              return {
+                limit: mock(() => Promise.resolve([])),
+              };
+            }),
+          };
+        }),
+      };
+    });
+
+    let thrown: unknown;
+    try {
+      await getInstance('user-1', 'nonexistent');
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(404);
+    expect((thrown as ApiError).code).toBe('INSTANCE_NOT_FOUND');
   });
 });

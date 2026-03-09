@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'bun:test';
 import {
   extractGenericChartData,
+  extractAllGenericStats,
   calculateStats,
   extractGenericRpeData,
   extractGenericAmrapData,
@@ -596,5 +597,152 @@ describe('extractWeeklyVolumeData', () => {
 
     // No per-set weight, fall back to slot weight (80): 80*5 + 80*3 = 400 + 240 = 640
     expect(data[0].volumeKg).toBe(640);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 4.1 — formatDateLabel cached formatter behavior (REQ-STX-001)
+// ---------------------------------------------------------------------------
+
+describe('formatDateLabel via extractGenericChartData (cached Intl formatters)', () => {
+  it('same-year date produces short format without year (e.g. "12 feb")', () => {
+    const rows: GenericWorkoutRow[] = [
+      makeRow(0, [makeSlot({ slotId: 'squat-s1', exerciseId: 'squat', result: 'success' })]),
+    ];
+    // Use a date in the current year (2026)
+    const timestamps: Record<string, string> = { '0': '2026-02-12T10:00:00.000Z' };
+
+    const data = extractGenericChartData(MINIMAL_DEFINITION, rows, timestamps);
+
+    // es-ES same-year format: "12 feb" (no year suffix)
+    expect(data['squat'][0].date).toBe('12 feb');
+  });
+
+  it('prior-year date produces format with 2-digit year (e.g. "3 nov 25")', () => {
+    const rows: GenericWorkoutRow[] = [
+      makeRow(0, [makeSlot({ slotId: 'squat-s1', exerciseId: 'squat', result: 'success' })]),
+    ];
+    // Use a date in a prior year (2025)
+    const timestamps: Record<string, string> = { '0': '2025-11-03T10:00:00.000Z' };
+
+    const data = extractGenericChartData(MINIMAL_DEFINITION, rows, timestamps);
+
+    // es-ES prior-year format: "3 nov 25" (with 2-digit year)
+    expect(data['squat'][0].date).toBe('3 nov 25');
+  });
+
+  it('invalid date string returns undefined without throwing', () => {
+    const rows: GenericWorkoutRow[] = [
+      makeRow(0, [makeSlot({ slotId: 'squat-s1', exerciseId: 'squat', result: 'success' })]),
+    ];
+    const timestamps: Record<string, string> = { '0': 'not-a-date' };
+
+    const data = extractGenericChartData(MINIMAL_DEFINITION, rows, timestamps);
+
+    expect(data['squat'][0].date).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Task 4.2 — extractAllGenericStats single-pass (REQ-STX-002)
+// ---------------------------------------------------------------------------
+
+describe('extractAllGenericStats', () => {
+  it('single-pass chartData matches extractGenericChartData output', () => {
+    const rows: GenericWorkoutRow[] = [
+      makeRow(0, [
+        makeSlot({ slotId: 'squat-s1', exerciseId: 'squat', result: 'success', weight: 80 }),
+      ]),
+      makeRow(1, [
+        makeSlot({ slotId: 'bench-s1', exerciseId: 'bench', result: 'fail', weight: 60 }),
+      ]),
+    ];
+    const timestamps: Record<string, string> = {
+      '0': '2026-01-15T10:00:00Z',
+      '1': '2026-01-17T10:00:00Z',
+    };
+
+    const allStats = extractAllGenericStats(MINIMAL_DEFINITION, rows, timestamps);
+    const individual = extractGenericChartData(MINIMAL_DEFINITION, rows, timestamps);
+
+    expect(allStats.chartData).toEqual(individual);
+  });
+
+  it('single-pass rpeData matches extractGenericRpeData output', () => {
+    const rows: GenericWorkoutRow[] = [
+      makeRow(0, [makeSlot({ slotId: 'squat-s1', exerciseId: 'squat', rpe: 7 })]),
+      makeRow(1, [makeSlot({ slotId: 'bench-s1', exerciseId: 'bench', rpe: 8 })]),
+    ];
+    const timestamps: Record<string, string> = { '0': '2026-02-01T10:00:00Z' };
+
+    const allStats = extractAllGenericStats(MINIMAL_DEFINITION, rows, timestamps);
+    const individual = extractGenericRpeData(MINIMAL_DEFINITION, rows, timestamps);
+
+    expect(allStats.rpeData).toEqual(individual);
+  });
+
+  it('single-pass amrapData matches extractGenericAmrapData output', () => {
+    const rows: GenericWorkoutRow[] = [
+      makeRow(0, [
+        makeSlot({
+          slotId: 'squat-s1',
+          exerciseId: 'squat',
+          isAmrap: true,
+          amrapReps: 8,
+          weight: 90,
+        }),
+      ]),
+      makeRow(1, [
+        makeSlot({ slotId: 'bench-s1', exerciseId: 'bench', isAmrap: false, amrapReps: 5 }),
+      ]),
+    ];
+
+    const allStats = extractAllGenericStats(MINIMAL_DEFINITION, rows);
+    const individual = extractGenericAmrapData(MINIMAL_DEFINITION, rows);
+
+    expect(allStats.amrapData).toEqual(individual);
+  });
+
+  it('single-pass volumeData matches extractWeeklyVolumeData output', () => {
+    const rows: GenericWorkoutRow[] = [
+      makeRow(0, [
+        makeSlot({
+          slotId: 'squat-s1',
+          exerciseId: 'squat',
+          weight: 80,
+          sets: 5,
+          reps: 3,
+          result: 'success',
+        }),
+      ]),
+      makeRow(1, [
+        makeSlot({
+          slotId: 'bench-s1',
+          exerciseId: 'bench',
+          weight: 60,
+          sets: 3,
+          reps: 10,
+          result: 'fail',
+        }),
+      ]),
+    ];
+    const timestamps: Record<string, string> = { '0': '2026-03-01T10:00:00Z' };
+
+    const allStats = extractAllGenericStats(MINIMAL_DEFINITION, rows, timestamps);
+    const individual = extractWeeklyVolumeData(rows, timestamps);
+
+    expect(allStats.volumeData).toEqual(individual);
+  });
+
+  it('empty rows return empty data structures', () => {
+    const allStats = extractAllGenericStats(MINIMAL_DEFINITION, []);
+
+    expect(allStats.chartData['squat']).toEqual([]);
+    expect(allStats.chartData['bench']).toEqual([]);
+    expect(allStats.rpeData['squat']).toEqual([]);
+    expect(allStats.rpeData['bench']).toEqual([]);
+    expect(allStats.amrapData['squat']).toEqual([]);
+    expect(allStats.amrapData['bench']).toEqual([]);
+    expect(allStats.volumeData).toEqual([]);
   });
 });

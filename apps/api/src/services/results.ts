@@ -98,14 +98,16 @@ async function getExpectedSlotCount(
  * Manage completed_at lifecycle for a workout.
  * After any result mutation, checks if all slots are filled. If so, sets completed_at
  * on all rows. If the workout becomes incomplete, clears completed_at.
+ *
+ * Accepts `expectedSlots` directly — the caller resolves the slot count
+ * via `getExpectedSlotCount` before calling this function.
  */
 async function syncCompletedAt(
   tx: Tx,
   instanceId: string,
-  programId: string,
-  workoutIndex: number
+  workoutIndex: number,
+  expectedSlots: number | undefined
 ): Promise<void> {
-  const expectedSlots = await getExpectedSlotCount(programId, workoutIndex);
   if (expectedSlots === undefined) return;
 
   const resultRows = await tx
@@ -223,8 +225,9 @@ export async function recordResult(
 
     await trimUndoStack(tx, instanceId);
 
-    // Sync completed_at based on whether all slots now have results
-    await syncCompletedAt(tx, instanceId, programId, input.workoutIndex);
+    // Resolve expected slot count and sync completed_at
+    const expectedSlots = await getExpectedSlotCount(programId, input.workoutIndex);
+    await syncCompletedAt(tx, instanceId, input.workoutIndex, expectedSlots);
 
     return row;
   });
@@ -280,8 +283,9 @@ export async function deleteResult(
 
     await trimUndoStack(tx, instanceId);
 
-    // Workout is now missing a slot — clear completed_at on remaining rows
-    await syncCompletedAt(tx, instanceId, programId, workoutIndex);
+    // Resolve expected slot count and sync completed_at
+    const expectedSlots = await getExpectedSlotCount(programId, workoutIndex);
+    await syncCompletedAt(tx, instanceId, workoutIndex, expectedSlots);
   });
 
   await touchInstanceTimestamp(instanceId).catch((err: unknown) =>
@@ -348,8 +352,9 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
         });
     }
 
-    // Sync completed_at — workout may have become incomplete or complete
-    await syncCompletedAt(tx, instanceId, programId, found.workoutIndex);
+    // Resolve expected slot count and sync completed_at
+    const expectedSlots = await getExpectedSlotCount(programId, found.workoutIndex);
+    await syncCompletedAt(tx, instanceId, found.workoutIndex, expectedSlots);
 
     return found;
   });

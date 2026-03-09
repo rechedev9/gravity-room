@@ -2,7 +2,7 @@
  * Program service — CRUD for program instances, results reconstruction.
  * Framework-agnostic: no Elysia dependency.
  */
-import { eq, and, lt, desc, or, gt, asc, type SQL } from 'drizzle-orm';
+import { eq, and, lt, desc, or, gt, asc, sql, type SQL } from 'drizzle-orm';
 import { getDb } from '../db';
 import { programInstances, programTemplates, workoutResults, undoEntries } from '../db/schema';
 import { getProgramDefinition } from '../services/catalog';
@@ -319,7 +319,17 @@ export async function getInstance(
   instanceId: string
 ): Promise<ProgramInstanceResponse> {
   const [instance] = await getDb()
-    .select()
+    .select({
+      id: programInstances.id,
+      userId: programInstances.userId,
+      programId: programInstances.programId,
+      name: programInstances.name,
+      config: programInstances.config,
+      metadata: programInstances.metadata,
+      status: programInstances.status,
+      createdAt: programInstances.createdAt,
+      updatedAt: programInstances.updatedAt,
+    })
     .from(programInstances)
     .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
     .limit(1);
@@ -370,49 +380,34 @@ export async function updateInstance(
 }
 
 /**
- * Update instance metadata with deep-merge semantics.
- * Reads existing metadata, spreads incoming metadata on top (preserves
- * non-overlapping keys), then writes back.
+ * Update instance metadata with shallow-merge semantics.
+ * Uses PostgreSQL JSONB `||` operator to merge at the database level
+ * in a single UPDATE — no preceding SELECT needed.
  */
 export async function updateInstanceMetadata(
   userId: string,
   instanceId: string,
   metadata: Record<string, string | number | boolean | null>
 ): Promise<ProgramInstanceResponse> {
-  // Fetch existing instance to read current metadata
-  const [instance] = await getDb()
-    .select()
-    .from(programInstances)
-    .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
-    .limit(1);
-
-  if (!instance) {
-    throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
-  }
-
-  // Deep-merge: spread existing metadata with incoming
-  const raw = instance.metadata;
-  const existing: Record<string, unknown> =
-    raw !== null && raw !== undefined && typeof raw === 'object' && !Array.isArray(raw)
-      ? Object.fromEntries(Object.entries(raw))
-      : {};
-
-  const merged = { ...existing, ...metadata };
-
+  // Validate incoming patch size before sending to DB
   const MAX_METADATA_BYTES = 10_000;
-  const serialized = JSON.stringify(merged);
+  const serialized = JSON.stringify(metadata);
   if (serialized.length > MAX_METADATA_BYTES) {
     throw new ApiError(400, 'Metadata exceeds 10KB limit', 'METADATA_TOO_LARGE');
   }
 
+  // Single UPDATE with JSONB merge — no preceding SELECT needed
   const [updated] = await getDb()
     .update(programInstances)
-    .set({ metadata: merged, updatedAt: new Date() })
+    .set({
+      metadata: sql`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${metadata}::jsonb`,
+      updatedAt: new Date(),
+    })
     .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
     .returning();
 
   if (!updated) {
-    throw new ApiError(500, 'Failed to update metadata', 'UPDATE_FAILED');
+    throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
   }
 
   const [resultRows, undoRows] = await fetchResultsAndUndo(instanceId);

@@ -1,13 +1,14 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { useToast } from '@/contexts/toast-context';
-import { Dashboard } from './dashboard';
-import { ProgramApp } from './program-app';
-import { ProfilePage } from './profile-page';
 import { AppSkeleton } from './app-skeleton';
 import { OnlineIndicator } from './online-indicator';
+
+const Dashboard = lazy(() => import('./dashboard').then((m) => ({ default: m.Dashboard })));
+const ProgramApp = lazy(() => import('./program-app').then((m) => ({ default: m.ProgramApp })));
+const ProfilePage = lazy(() => import('./profile-page').then((m) => ({ default: m.ProfilePage })));
 
 type View = 'dashboard' | 'tracker' | 'profile';
 
@@ -174,7 +175,7 @@ export function AppShell(): React.ReactNode {
             className={animationClass}
             onAnimationEnd={isAnimating ? handleAnimationEnd : undefined}
           >
-            {renderView(v)}
+            <Suspense fallback={null}>{renderView(v)}</Suspense>
           </div>
         );
       })}

@@ -1,11 +1,5 @@
 import { useState, useMemo, type ReactNode } from 'react';
-import {
-  extractGenericChartData,
-  calculateStats,
-  extractGenericRpeData,
-  extractGenericAmrapData,
-  extractWeeklyVolumeData,
-} from '@gzclp/shared/generic-stats';
+import { extractAllGenericStats, calculateStats } from '@gzclp/shared/generic-stats';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import type {
   GenericWorkoutRow,
@@ -191,22 +185,10 @@ function CollapsibleSection({
 // ---------------------------------------------------------------------------
 
 function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): ReactNode {
-  // Memoize stat extractions — each is O(W×S) with Intl.DateTimeFormat allocations
-  const chartData = useMemo(
-    () => extractGenericChartData(definition, rows, resultTimestamps),
+  // Single-pass extraction — all 4 data structures computed in one iteration
+  const { chartData, rpeData, amrapData, volumeData } = useMemo(
+    () => extractAllGenericStats(definition, rows, resultTimestamps),
     [definition, rows, resultTimestamps]
-  );
-  const rpeData = useMemo(
-    () => extractGenericRpeData(definition, rows, resultTimestamps),
-    [definition, rows, resultTimestamps]
-  );
-  const amrapData = useMemo(
-    () => extractGenericAmrapData(definition, rows, resultTimestamps),
-    [definition, rows, resultTimestamps]
-  );
-  const volumeData = useMemo(
-    () => extractWeeklyVolumeData(rows, resultTimestamps),
-    [rows, resultTimestamps]
   );
 
   const groups = groupExercises(definition);
