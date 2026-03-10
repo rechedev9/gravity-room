@@ -18,7 +18,6 @@ import type { ProgramSummary } from '@/lib/api-functions';
 import { PROGRAM_LEVELS } from '@gzclp/shared/catalog';
 import type { ProgramLevel } from '@gzclp/shared/catalog';
 import { Button } from './button';
-import { WeeklyCalendar } from './weekly-calendar';
 
 const LEVEL_LABELS: Readonly<Record<ProgramLevel, string>> = {
   beginner: 'Principiante',
@@ -131,19 +130,6 @@ function ActiveProgramCard({
       year: 'numeric',
     }).format(new Date(ts));
   })();
-
-  // Build dayNames map: workout index -> day name from definition
-  const calendarDayNames: Readonly<Record<string, string>> = (() => {
-    if (!definition) return {};
-    const names: Record<string, string> = {};
-    for (let i = 0; i < definition.totalWorkouts; i++) {
-      const dayIndex = i % definition.cycleLength;
-      names[String(i)] = definition.days[dayIndex].name;
-    }
-    return names;
-  })();
-
-  const calendarDates: Readonly<Record<string, string>> = detailQuery.data?.completedDates ?? {};
 
   if (!definition) {
     // Catalog query failed or definition was deleted — show orphan recovery UI
@@ -300,13 +286,6 @@ function ActiveProgramCard({
               </li>
             ))}
           </ul>
-        </section>
-      )}
-
-      {/* Weekly calendar */}
-      {detailQuery.data !== undefined && (
-        <section className="mt-4">
-          <WeeklyCalendar completedDates={calendarDates} dayNames={calendarDayNames} />
         </section>
       )}
     </>
