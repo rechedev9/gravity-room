@@ -19,7 +19,6 @@ import { useWakeLock } from '@/hooks/use-wake-lock';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
 import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
 import { AppHeader } from './app-header';
-import { ConfirmDialog } from './confirm-dialog';
 import { ErrorBoundary } from './error-boundary';
 import { GuestBanner } from './guest-banner';
 import { GraduationPanel } from './graduation-panel';
@@ -159,12 +158,6 @@ export function ProgramApp({
 
   const [activeTab, setActiveTab] = useState<'program' | 'stats'>('program');
   const [isPending, startTransition] = useTransition();
-  const [rpeReminder, setRpeReminder] = useState<{
-    workoutIndex: number;
-    slotId: string;
-    value: ResultValue;
-    rpeTarget: string;
-  } | null>(null);
 
   const [showCompletion, setShowCompletion] = useState(false);
 
@@ -284,17 +277,6 @@ export function ProgramApp({
     }
   };
 
-  const scrollToRpeInput = (selector: string): void => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const el = document.querySelector(`[data-rpe-input="${selector}"]`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      });
-    });
-  };
-
   const handleMarkResult = (workoutIndex: number, slotId: string, value: ResultValue): void => {
     // Clear any partial set logs when using pass/fail as override
     clearSetLogs(workoutIndex, slotId);
@@ -318,48 +300,12 @@ export function ProgramApp({
       return;
     }
 
-    // Would marking this slot complete the workout?
-    const otherSlots = row.slots.filter((s) => s.slotId !== slotId);
-    const wouldComplete = otherSlots.every((s) => s.result !== undefined);
-
-    if (wouldComplete) {
-      // Find first primary slot missing RPE (including the one being marked if it's primary)
-      const primaryMissingRpe = row.slots.find((s) => {
-        if (s.role !== 'primary') return false;
-        const hasResult = s.slotId === slotId || s.result !== undefined;
-        return hasResult && s.rpe === undefined;
-      });
-
-      if (primaryMissingRpe) {
-        setRpeReminder({
-          workoutIndex,
-          slotId,
-          value,
-          rpeTarget: `${workoutIndex}-${primaryMissingRpe.slotId}`,
-        });
-        return;
-      }
-    }
-
     // Haptic feedback on supported devices
     if (typeof navigator.vibrate === 'function') {
       navigator.vibrate(50);
     }
 
     recordAndToast(workoutIndex, slotId, value);
-  };
-
-  const handleRpeReminderContinue = (): void => {
-    if (!rpeReminder) return;
-    recordAndToast(rpeReminder.workoutIndex, rpeReminder.slotId, rpeReminder.value);
-    setRpeReminder(null);
-  };
-
-  const handleRpeReminderAdd = (): void => {
-    if (!rpeReminder) return;
-    recordAndToast(rpeReminder.workoutIndex, rpeReminder.slotId, rpeReminder.value);
-    scrollToRpeInput(rpeReminder.rpeTarget);
-    setRpeReminder(null);
   };
 
   const handleTestWeightConfirm = async (weight: number): Promise<void> => {
@@ -740,16 +686,6 @@ export function ProgramApp({
           </>
         )}
       </div>
-
-      <ConfirmDialog
-        open={rpeReminder !== null}
-        title="RPE no registrado"
-        message="No registraste el RPE del ejercicio principal. El RPE es opcional, pero útil para seguir tu esfuerzo percibido."
-        confirmLabel="Añadir RPE"
-        cancelLabel="Continuar sin RPE"
-        onConfirm={handleRpeReminderAdd}
-        onCancel={handleRpeReminderContinue}
-      />
 
       <TestWeightModal
         isOpen={testWeightModal !== null}

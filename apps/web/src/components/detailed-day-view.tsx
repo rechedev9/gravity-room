@@ -277,8 +277,9 @@ function SlotTable({
                         onChange={(e) => handleRepsChange(rowIndex, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(e, row, rowIndex)}
                         disabled={!isNextToConfirm && !isConfirmed}
+                        placeholder={isNextToConfirm ? String(row.plannedReps) : ''}
                         aria-label={`Reps serie ${row.label}`}
-                        className="w-14 text-right text-sm tabular-nums bg-transparent border-b border-rule focus:border-accent outline-none py-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-30"
+                        className="w-14 text-right text-sm tabular-nums bg-transparent border-b-2 border-rule focus:border-accent focus:bg-accent/5 outline-none py-1 transition-colors duration-150 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-30 placeholder:text-muted/40"
                       />
                     )}
                   </td>
@@ -287,7 +288,7 @@ function SlotTable({
                   <td className="text-center py-1.5 pl-2">
                     {isConfirmed ? (
                       <span
-                        className={`text-sm font-bold ${metTarget ? 'text-ok' : 'text-fail'}`}
+                        className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-sm animate-[pop-in_0.2s_cubic-bezier(0.16,1,0.3,1)] ${metTarget ? 'text-ok bg-ok-bg' : 'text-fail bg-fail-bg'}`}
                         aria-label={metTarget ? 'Serie completada' : 'Serie fallada'}
                       >
                         {metTarget ? '\u2713' : '\u2717'}
@@ -298,7 +299,7 @@ function SlotTable({
                         onClick={() => handleConfirmSet(row, rowIndex)}
                         disabled={!isNextToConfirm}
                         aria-label={`Confirmar serie ${row.label}`}
-                        className="text-sm font-bold text-ok border border-ok-ring bg-transparent px-1.5 py-0.5 cursor-pointer transition-all duration-150 hover:bg-ok-bg active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default"
+                        className="w-8 h-8 text-sm font-bold text-ok border-2 border-ok-ring bg-transparent cursor-pointer rounded-sm transition-all duration-150 hover:bg-ok-bg active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default"
                       >
                         &#10003;
                       </button>
