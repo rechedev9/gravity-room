@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "gzclp-tracker",
+      "name": "gravity-room",
       "devDependencies": {
         "@types/bun": "^1.3.9",
         "eslint": "^9.39.3",

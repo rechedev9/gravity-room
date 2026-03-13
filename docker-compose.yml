@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile.api
       args:
         COMMIT_SHA: ${COMMIT_SHA:-unknown}
-    container_name: gzclp-api
+    container_name: gravity-room-api
     restart: unless-stopped
     ports:
       - '127.0.0.1:3002:3001'
@@ -22,7 +22,7 @@ services:
         VITE_API_URL: https://gravityroom.app
         VITE_GOOGLE_CLIENT_ID: 563649081217-uh092o7iapi9t4d5a38d1522j8s66981.apps.googleusercontent.com
         COMMIT_SHA: ${COMMIT_SHA:-unknown}
-    container_name: gzclp-web
+    container_name: gravity-room-web
     restart: unless-stopped
     ports:
       - '127.0.0.1:8080:80'
