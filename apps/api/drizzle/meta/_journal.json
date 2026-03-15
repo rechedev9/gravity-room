@@ -218,6 +218,13 @@
       "when": 1773100000000,
       "tag": "0030_add_custom_definition_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1773200000000,
+      "tag": "0031_add_check_constraints",
+      "breakpoints": true
     }
   ]
 }
