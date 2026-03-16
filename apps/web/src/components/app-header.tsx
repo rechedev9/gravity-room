@@ -48,14 +48,14 @@ export function AppHeader({
               ← {backLabel ?? 'Volver'}
             </button>
             <div className="flex items-center gap-4" aria-hidden="true">
-              <img src="/logo-64.webp" alt="" width={32} height={32} className="rounded-sm" />
+              <img src="/logo.webp" alt="" width={32} height={32} className="rounded-sm" />
               <span className="text-sm font-bold tracking-tight text-title">Gravity Room</span>
             </div>
           </>
         ) : (
           <Link to="/app" className="flex items-center gap-4">
             <img
-              src="/logo-64.webp"
+              src="/logo.webp"
               alt="Gravity Room"
               width={32}
               height={32}

@@ -22,56 +22,27 @@ export const FEATURES: readonly Feature[] = [
   {
     icon: (
       <img
-        src="/feature-progression-96.webp"
+        src="/feature-progression.webp"
         alt="Automatic progression icon"
         width={48}
         height={48}
-        loading="lazy"
-        decoding="async"
       />
     ),
     title: 'Progresión Inteligente',
     desc: 'La app decide cuándo agregar peso y cómo manejar el fallo. Tú solo apareces y entrenas.',
   },
   {
-    icon: (
-      <img
-        src="/feature-tracking-96.webp"
-        alt="Exercise tracking icon"
-        width={48}
-        height={48}
-        loading="lazy"
-        decoding="async"
-      />
-    ),
+    icon: <img src="/feature-tracking.webp" alt="Exercise tracking icon" width={48} height={48} />,
     title: 'Programas Probados',
     desc: 'Programas de entrenamiento respaldados por la ciencia con periodización estructurada. Nuevos programas agregados regularmente.',
   },
   {
-    icon: (
-      <img
-        src="/feature-stats-96.webp"
-        alt="Statistics icon"
-        width={48}
-        height={48}
-        loading="lazy"
-        decoding="async"
-      />
-    ),
+    icon: <img src="/feature-stats.webp" alt="Statistics icon" width={48} height={48} />,
     title: 'Estadísticas y Gráficas',
     desc: 'Ve tu curva de fuerza a lo largo del tiempo. Datos reales, no suposiciones.',
   },
   {
-    icon: (
-      <img
-        src="/feature-sync-96.webp"
-        alt="Synchronization icon"
-        width={48}
-        height={48}
-        loading="lazy"
-        decoding="async"
-      />
-    ),
+    icon: <img src="/feature-sync.webp" alt="Synchronization icon" width={48} height={48} />,
     title: 'Sincronización en la Nube',
     desc: 'Tus datos se sincronizan automáticamente. Entrena desde cualquier dispositivo sin perder el progreso.',
   },

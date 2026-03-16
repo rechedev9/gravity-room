@@ -12,7 +12,7 @@ export function NotFound(): React.ReactNode {
       />
 
       <img
-        src="/logo-128.webp"
+        src="/logo.webp"
         alt="Gravity Room logo"
         width={64}
         height={64}

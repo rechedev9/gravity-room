@@ -25,6 +25,12 @@ const NotFound = lazyWithRetry(() =>
   import('@/components/not-found').then((m) => ({ default: m.NotFound }))
 );
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' });
+  });
+}
+
 const router = createBrowserRouter([
   {
     element: <RootLayout />,
