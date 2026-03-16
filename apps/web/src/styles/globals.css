@@ -339,9 +339,13 @@ dialog::backdrop {
 
 /* ── Grain texture overlay ─────────────────────── */
 
+.grain-overlay {
+  position: relative;
+}
+
 .grain-overlay::before {
   content: '';
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 1;

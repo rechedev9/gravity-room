@@ -120,7 +120,7 @@ export function LandingPage(): React.ReactNode {
       >
         <div className="flex items-center gap-3">
           <img
-            src="/logo.webp"
+            src="/logo-64.webp"
             alt="Gravity Room logo"
             width={32}
             height={32}
@@ -258,7 +258,8 @@ export function LandingPage(): React.ReactNode {
                 width={1024}
                 height={572}
                 className="relative w-full h-auto rounded-sm border border-rule shadow-2xl"
-                loading="eager"
+                loading="lazy"
+                decoding="async"
               />
             </div>
           </div>
