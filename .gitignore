@@ -61,4 +61,7 @@ drizzle/meta/
 
 # project docs and scripts (generated, not source)
 docs/
-scripts/
+scripts/*
+!scripts/deploy-log.sh
+!scripts/rollback.sh
+!scripts/committer
