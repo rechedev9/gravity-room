@@ -57,3 +57,8 @@ next-env.d.ts
 
 # drizzle
 drizzle/meta/
+.gstack/
+
+# project docs and scripts (generated, not source)
+docs/
+scripts/
