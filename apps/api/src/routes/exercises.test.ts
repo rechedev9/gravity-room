@@ -326,11 +326,11 @@ describe('GET /exercises — pagination', () => {
     expect(call[2]).toEqual({ limit: 100, offset: 0 });
   });
 
-  it('returns 400 VALIDATION_ERROR for limit=501', async () => {
+  it('returns 400 VALIDATION_ERROR for limit=1001', async () => {
     // Act
-    const res = await get('/exercises?limit=501');
+    const res = await get('/exercises?limit=1001');
 
-    // Assert — Elysia validates via t.Numeric({ maximum: 500 })
+    // Assert — Elysia validates via t.Numeric({ maximum: 1000 })
     expect(res.status).toBe(400);
   });
 
