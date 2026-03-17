@@ -23,8 +23,8 @@ export function ExercisePicker({ onSelect, onClose }: ExercisePickerProps): Reac
   }, [search]);
 
   const exercisesQuery = useQuery({
-    queryKey: queryKeys.catalog.exercises(),
-    queryFn: () => fetchExercises(),
+    queryKey: queryKeys.catalog.exercises({ limit: 1000 }),
+    queryFn: () => fetchExercises({ limit: 1000 }),
     staleTime: 5 * 60 * 1000,
   });
 

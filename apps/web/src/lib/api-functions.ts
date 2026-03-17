@@ -502,6 +502,7 @@ export interface ExerciseFilter {
   readonly mechanic?: readonly string[];
   readonly category?: readonly string[];
   readonly isCompound?: boolean;
+  readonly limit?: number;
 }
 
 function buildExerciseQueryString(filter?: ExerciseFilter): string {
@@ -515,6 +516,7 @@ function buildExerciseQueryString(filter?: ExerciseFilter): string {
   if (filter.mechanic?.length) params.set('mechanic', filter.mechanic.join(','));
   if (filter.category?.length) params.set('category', filter.category.join(','));
   if (filter.isCompound !== undefined) params.set('isCompound', String(filter.isCompound));
+  if (filter.limit !== undefined) params.set('limit', String(filter.limit));
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }

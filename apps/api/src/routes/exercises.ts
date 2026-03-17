@@ -131,7 +131,7 @@ const publicExerciseRoutes = new Elysia()
         mechanic: t.Optional(t.String()),
         category: t.Optional(t.String()),
         isCompound: t.Optional(t.String()),
-        limit: t.Optional(t.Numeric({ minimum: 1, maximum: 500 })),
+        limit: t.Optional(t.Numeric({ minimum: 1, maximum: 1000 })),
         offset: t.Optional(t.Numeric({ minimum: 0 })),
       }),
       detail: {
