@@ -92,6 +92,7 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
       ...options,
       headers: mergeHeaders(headers, options.headers),
       credentials: 'include',
+      signal: options.signal ?? AbortSignal.timeout(30_000),
     });
 
   const res = await doFetch();

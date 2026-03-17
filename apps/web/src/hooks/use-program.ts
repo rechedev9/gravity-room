@@ -302,7 +302,10 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
         updatedResults[key] = workoutEntry;
         return { ...prev, results: updatedResults };
       }),
-    onError: detailOnError,
+    onError: (err, vars, ctx) => {
+      detailOnError(err, vars, ctx);
+      toast({ message: 'No se pudo guardar las repeticiones AMRAP' });
+    },
     // onSettled omitted — setAmrapRepsCb updates the cache directly (immediate setQueryData +
     // debounced mutate); invalidating here would trigger a redundant GET on every click.
   });
@@ -338,7 +341,10 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
         updatedResults[key] = workoutEntry;
         return { ...prev, results: updatedResults };
       }),
-    onError: detailOnError,
+    onError: (err, vars, ctx) => {
+      detailOnError(err, vars, ctx);
+      toast({ message: 'No se pudo guardar el RPE' });
+    },
     // onSettled omitted — setRpeCb updates the cache directly (immediate setQueryData +
     // debounced mutate); invalidating here would trigger a redundant GET on every selection.
   });
