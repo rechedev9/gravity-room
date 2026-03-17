@@ -13,4 +13,4 @@ pre-push:
     test:
       run: bun run test
     build:
-      run: bun run build
+      run: VITE_API_URL=http://localhost:3001 bun run build
