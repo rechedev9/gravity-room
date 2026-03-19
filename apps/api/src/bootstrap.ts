@@ -41,17 +41,6 @@ function parseCorsOrigins(raw: string | undefined): string | string[] {
 
 const CORS_ORIGINS = parseCorsOrigins(process.env['CORS_ORIGIN']);
 const PORT = Number(process.env['PORT'] ?? 3001);
-/**
- * HTTP request timeout in milliseconds.
- * Used by the SHUTDOWN_TIMEOUT_MS fallback and reserved for future HTTP-level
- * timeout middleware (skipped in this change because Elysia hooks cannot
- * reliably abort in-progress handlers; the DB statement_timeout covers the
- * critical path).
- */
-export const HTTP_TIMEOUT_MS = 30_000;
-// METRICS_TOKEN — optional. When set, GET /metrics requires "Authorization: Bearer <token>".
-// Leave unset in local development. Required in production to protect Prometheus metrics.
-
 // ---------------------------------------------------------------------------
 // Content-Security-Policy — applied to all responses
 // ---------------------------------------------------------------------------
