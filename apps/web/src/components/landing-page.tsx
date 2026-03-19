@@ -650,7 +650,11 @@ export function LandingPage(): React.ReactNode {
           </div>
           <div className="font-mono flex items-center gap-5 text-[11px] text-muted">
             <Link to="/privacy" className="hover:text-main transition-colors">
-              Política de Privacidad
+              Privacidad
+            </Link>
+            <span aria-hidden="true">&middot;</span>
+            <Link to="/cookies" className="hover:text-main transition-colors">
+              Cookies
             </Link>
             <span aria-hidden="true">&middot;</span>
             <a

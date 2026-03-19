@@ -52,10 +52,20 @@ export function PrivacyPage(): React.ReactNode {
           </section>
 
           <section>
-            <h2 className="text-base font-bold text-main mb-2">Analíticas y Seguimiento</h2>
+            <h2 className="text-base font-bold text-main mb-2">
+              Cookies, Analíticas y Seguimiento
+            </h2>
             <p>
-              No utilizamos ninguna analítica, cookies de seguimiento ni scripts de terceros. No se
-              comparte ningún dato con anunciantes ni terceros.
+              Utilizamos únicamente una cookie técnica necesaria para mantener la sesión de los
+              usuarios autenticados. No utilizamos cookies de analítica, seguimiento ni publicidad.
+              No se comparte ningún dato con anunciantes ni terceros. Consulta nuestra{' '}
+              <Link
+                to="/cookies"
+                className="text-accent underline hover:opacity-80 transition-opacity"
+              >
+                Política de Cookies
+              </Link>{' '}
+              para más información.
             </p>
           </section>
 

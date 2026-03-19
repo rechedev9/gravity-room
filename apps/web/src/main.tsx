@@ -15,6 +15,9 @@ const LoginPage = lazyWithRetry(() =>
 const PrivacyPage = lazyWithRetry(() =>
   import('@/components/privacy-page').then((m) => ({ default: m.PrivacyPage }))
 );
+const CookiePolicyPage = lazyWithRetry(() =>
+  import('@/components/cookie-policy-page').then((m) => ({ default: m.CookiePolicyPage }))
+);
 const LandingPage = lazyWithRetry(() =>
   import('@/components/landing-page').then((m) => ({ default: m.LandingPage }))
 );
@@ -58,6 +61,14 @@ const router = createBrowserRouter([
         element: (
           <Suspense fallback={null}>
             <PrivacyPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: '/cookies',
+        element: (
+          <Suspense fallback={null}>
+            <CookiePolicyPage />
           </Suspense>
         ),
       },
