@@ -21,15 +21,20 @@ export function detectGenericPersonalRecord(
   const exerciseId = currentSlot.exerciseId;
   const currentWeight = currentSlot.weight;
 
-  const priorSlots = rows
-    .slice(0, workoutIndex)
-    .flatMap((r) => r.slots)
-    .filter((s) => s.role === 'primary' && s.exerciseId === exerciseId && s.result === 'success');
-
   let priorBest = -1;
-  for (const slot of priorSlots) {
-    if (slot.weight > priorBest) {
-      priorBest = slot.weight;
+  for (let rowIndex = workoutIndex - 1; rowIndex >= 0; rowIndex -= 1) {
+    const priorRow = rows[rowIndex];
+    if (!priorRow) continue;
+
+    for (const slot of priorRow.slots) {
+      if (
+        slot.role === 'primary' &&
+        slot.exerciseId === exerciseId &&
+        slot.result === 'success' &&
+        slot.weight > priorBest
+      ) {
+        priorBest = slot.weight;
+      }
     }
   }
 

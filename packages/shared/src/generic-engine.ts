@@ -322,6 +322,7 @@ export function computeGenericProgram(
   for (let i = 0; i < definition.totalWorkouts; i++) {
     const day = definition.days[i % cycleLength];
     const workoutResult = results[String(i)] ?? {};
+    const derivedResultsBySlotId: Record<string, ResultValue | undefined> = {};
 
     // --- 1. Snapshot BEFORE applying progression ---
     const slots: GenericSlotRow[] = day.slots.map((slot) => {
@@ -423,6 +424,7 @@ export function computeGenericProgram(
 
       // --- Auto-derive result from setLogs when present ---
       const derivedResult = deriveSlotResult(slot, slotResult, stageConfig.reps);
+      derivedResultsBySlotId[slot.id] = derivedResult;
 
       // --- Derive AMRAP reps from last setLog when isAmrap ---
       const amrapReps =
@@ -476,13 +478,7 @@ export function computeGenericProgram(
 
       const state = slotState[slot.id];
       const slotResult = workoutResult[slot.id] ?? {};
-      const stageConfig = slot.stages[state.stage];
-      // Use derived result (setLogs override explicit result)
-      const resultValue: ResultValue | undefined = deriveSlotResult(
-        slot,
-        slotResult,
-        stageConfig.reps
-      );
+      const resultValue = derivedResultsBySlotId[slot.id];
       const increment = definition.weightIncrements[slot.exerciseId] ?? 0;
       applySlotProgression(
         slot,

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { RPE_VALUES } from './rpe-input';
+
+const RPE_VALUES = [5, 6, 7, 8, 9, 10] as const;
 
 interface RpeSelectProps {
   readonly value: number | undefined;

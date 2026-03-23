@@ -1,27 +1,23 @@
 import type Redis from 'ioredis';
 
 const PRESENCE_TTL_SEC = 60;
-const PRESENCE_KEY_PREFIX = 'user:online:';
+const PRESENCE_SORTED_SET_KEY = 'users:online';
+const TTL_MS = PRESENCE_TTL_SEC * 1000;
 
 /** Fire-and-forget: mark a user as active for the next 60 seconds. */
 export function trackPresence(userId: string, redis: Redis): Promise<unknown> {
-  return redis.setex(`${PRESENCE_KEY_PREFIX}${userId}`, PRESENCE_TTL_SEC, '1');
+  const now = Date.now();
+  const cutoff = now - TTL_MS;
+  return redis
+    .multi()
+    .zadd(PRESENCE_SORTED_SET_KEY, String(now), userId)
+    .zremrangebyscore(PRESENCE_SORTED_SET_KEY, '-inf', String(cutoff))
+    .exec();
 }
 
-/** Count all keys matching user:online:* via incremental SCAN (never blocks Redis). */
+/** Count active users in O(log N) using a heartbeat sorted set. */
 export async function countOnlineUsers(redis: Redis): Promise<number> {
-  let count = 0;
-  let cursor = '0';
-  do {
-    const [nextCursor, keys] = await redis.scan(
-      cursor,
-      'MATCH',
-      `${PRESENCE_KEY_PREFIX}*`,
-      'COUNT',
-      100
-    );
-    cursor = nextCursor;
-    count += keys.length;
-  } while (cursor !== '0');
-  return count;
+  const cutoff = Date.now() - TTL_MS;
+  await redis.zremrangebyscore(PRESENCE_SORTED_SET_KEY, '-inf', String(cutoff));
+  return redis.zcard(PRESENCE_SORTED_SET_KEY);
 }
