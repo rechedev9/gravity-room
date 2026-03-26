@@ -67,3 +67,6 @@ scripts/*
 !scripts/deploy-log.sh
 !scripts/rollback.sh
 !scripts/committer
+issues.MD
+migrationtogo.md
+packages/shared/src/antirez.blackbox.stress.test.ts
