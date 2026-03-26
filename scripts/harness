@@ -24,7 +24,7 @@ trap cleanup EXIT INT TERM
 # --- start API in dev mode ---
 echo "[harness] starting API on port ${API_PORT}"
 cd "$REPO_ROOT"
-NODE_ENV=development LOG_LEVEL=silent bun run --filter api dev &
+PORT="$API_PORT" NODE_ENV=development LOG_LEVEL=silent bun run --filter api dev &
 API_PID=$!
 
 # --- wait for /health ---
