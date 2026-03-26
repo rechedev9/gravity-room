@@ -1,0 +1,21 @@
+{
+  "name": "go-api-migration-contract",
+  "description": "Capture the complete HTTP contract of the current TS API (endpoints, JSON shapes, cookies, auth headers, error codes, date formats, null vs omitted fields) as the oracle document for the Go migration",
+  "current_phase": "ship",
+  "phases": {
+    "apply": "completed",
+    "archive": "pending",
+    "clean": "completed",
+    "design": "completed",
+    "explore": "completed",
+    "propose": "completed",
+    "review": "completed",
+    "ship": "pending",
+    "spec": "completed",
+    "tasks": "completed",
+    "verify": "completed"
+  },
+  "created_at": "2026-03-25T23:34:19.531622331Z",
+  "updated_at": "2026-03-26T00:11:58.736606575Z",
+  "base_ref": "bef5a511e8ba0f10dce7c58d46a18905aa2bccc7"
+}
