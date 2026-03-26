@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "bun test src/tests/",
+    "test:harness": "bun test src/tests/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
