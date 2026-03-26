@@ -9,7 +9,6 @@ stack:
   format_cmd: bun run format:check
   manifests:
     - package.json
-    - go.mod
 skills_path: ''
 commands:
   build: bun run build

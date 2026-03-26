@@ -10,7 +10,7 @@ source_commit: bef5a51
 
 ## Deliverables
 
-1. **`openspec/contract/http-contract.md`** — Complete HTTP contract document (2064 lines)
+1. **`openspec/contract/http-contract.md`** — Complete HTTP contract document (2123 lines)
 2. **`openspec/changes/go-api-migration-contract/tasks.md`** — All 10 tasks + 15 success criteria marked `[x]`
 
 ## What Was Done

@@ -77,17 +77,17 @@ The HTTP contract document is comprehensive, accurate, and well-structured. All 
 
 ### Auth Contract (REQ-AUTH-001 through REQ-AUTH-009)
 
-| REQ          | Status  | Notes                                                                                                                                    |
-| ------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | --------- |
-| REQ-AUTH-001 | COVERED | Algorithm (HS256), secret constraints (64+ chars prod), claims (sub, email, exp), transmission (Bearer), cross-server interop (line 311) |
-| REQ-AUTH-002 | COVERED | All 5 cookie attributes with exact values (lines 318-326). Path `/api/auth` present                                                      |
-| REQ-AUTH-003 | COVERED | 9-step rotation flow documented (lines 332-342)                                                                                          |
-| REQ-AUTH-004 | COVERED | Theft detection: successor lookup via `previous_token_hash`, nuclear revocation (lines 346-353)                                          |
-| REQ-AUTH-005 | COVERED | JWKS URL, cache TTL (1 hour), issuer validation (both forms), audience, upsert SQL, new-user heuristic (                                 | createdAt - updatedAt | < 2000ms) |
-| REQ-AUTH-006 | COVERED | Signout: cookie clearing, no-op when absent, 204 response (lines 375-380)                                                                |
-| REQ-AUTH-007 | COVERED | Account deletion: soft-delete, access token window, `findUserById()` filter (lines 384-398)                                              |
-| REQ-AUTH-008 | COVERED | Auth guard soft-delete boundary: `resolveUserId` does NOT check `deleted_at`, only JWT (line 398)                                        |
-| REQ-AUTH-009 | COVERED | Avatar regex, 200KB limit, roundtrip validation, null-to-remove (lines 401-407)                                                          |
+| REQ          | Status  | Notes                                                                                                                                         |
+| ------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| REQ-AUTH-001 | COVERED | Algorithm (HS256), secret constraints (64+ chars prod), claims (sub, email, exp), transmission (Bearer), cross-server interop (line 311)      |
+| REQ-AUTH-002 | COVERED | All 5 cookie attributes with exact values (lines 318-326). Path `/api/auth` present                                                           |
+| REQ-AUTH-003 | COVERED | 9-step rotation flow documented (lines 332-342)                                                                                               |
+| REQ-AUTH-004 | COVERED | Theft detection: successor lookup via `previous_token_hash`, nuclear revocation (lines 346-353)                                               |
+| REQ-AUTH-005 | COVERED | JWKS URL, cache TTL (1 hour), issuer validation (both forms), audience, upsert SQL, new-user heuristic (`\|createdAt - updatedAt\|` < 2000ms) |
+| REQ-AUTH-006 | COVERED | Signout: cookie clearing, no-op when absent, 204 response (lines 375-380)                                                                     |
+| REQ-AUTH-007 | COVERED | Account deletion: soft-delete, access token window, `findUserById()` filter (lines 384-398)                                                   |
+| REQ-AUTH-008 | COVERED | Auth guard soft-delete boundary: `resolveUserId` does NOT check `deleted_at`, only JWT (line 398)                                             |
+| REQ-AUTH-009 | COVERED | Avatar regex, 200KB limit, roundtrip validation, null-to-remove (lines 401-407)                                                               |
 
 ### Infrastructure Contract (REQ-INFRA-001 through REQ-INFRA-015)
 
