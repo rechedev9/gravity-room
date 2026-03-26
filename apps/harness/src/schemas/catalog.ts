@@ -26,3 +26,47 @@ export const CatalogListResponseSchema = z.array(CatalogEntrySchema);
 export const CatalogDetailResponseSchema = z.unknown();
 
 export { CatalogEntrySchema };
+
+// POST /api/catalog/preview — GenericWorkoutRow shape (strict)
+const GenericSlotRowSchema = z
+  .object({
+    slotId: z.string(),
+    exerciseId: z.string(),
+    exerciseName: z.string(),
+    tier: z.string(),
+    weight: z.number(),
+    stage: z.number(),
+    sets: z.number(),
+    reps: z.number(),
+    isAmrap: z.boolean(),
+    stagesCount: z.number(),
+    isChanged: z.boolean(),
+    isDeload: z.boolean(),
+    // optional fields
+    result: z.string().optional(),
+    amrapReps: z.number().optional(),
+    rpe: z.number().optional(),
+    repsMax: z.number().optional(),
+    role: z.string().optional(),
+    notes: z.string().optional(),
+    prescriptions: z.array(z.unknown()).optional(),
+    isGpp: z.boolean().optional(),
+    complexReps: z.string().optional(),
+    propagatesTo: z.string().optional(),
+    isTestSlot: z.boolean().optional(),
+    isBodyweight: z.boolean().optional(),
+    setLogs: z.array(z.unknown()).optional(),
+  })
+  .passthrough();
+
+export const GenericWorkoutRowSchema = z
+  .object({
+    index: z.number(),
+    dayName: z.string(),
+    slots: z.array(GenericSlotRowSchema),
+    isChanged: z.boolean(),
+    completedAt: z.string().optional(),
+  })
+  .strict();
+
+export const PreviewResponseSchema = z.array(GenericWorkoutRowSchema);
