@@ -21,10 +21,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# --- start API in dev mode ---
+# --- start API (no file-watcher) ---
 echo "[harness] starting API on port ${API_PORT}"
 cd "$REPO_ROOT"
-PORT="$API_PORT" NODE_ENV=development LOG_LEVEL=silent bun run --filter api dev &
+PORT="$API_PORT" NODE_ENV=development LOG_LEVEL=silent bun run --filter api start &
 API_PID=$!
 
 # --- wait for /health ---

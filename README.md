@@ -430,7 +430,8 @@ The web app runs on `http://localhost:5173` and the API on `http://localhost:300
 | Lint           | `bun run lint`                                |
 | Format check   | `bun run format:check`                        |
 | Format fix     | `bun run prettier --write <path>`             |
-| Tests (all)    | `bun run test`                                |
+| Tests (unit)   | `bun run test`                                |
+| Contract tests | `bun run test:harness`                        |
 | Single test    | `bun test packages/shared/src/engine.test.ts` |
 | E2E tests      | `bun run e2e`                                 |
 | E2E (headed)   | `bun run e2e:headed`                          |
