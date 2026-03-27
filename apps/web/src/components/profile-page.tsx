@@ -20,6 +20,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { resizeImageToDataUrl } from '@/lib/resize-image';
 import { Button } from './button';
 import { ProfileStatCard } from './profile-stat-card';
+import { DashboardCard } from './dashboard-card';
 import { LineChart } from './line-chart';
 import { AppHeader } from './app-header';
 import { DeleteAccountDialog } from './delete-account-dialog';
@@ -216,27 +217,98 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
   const displayName = user?.name ?? user?.email ?? 'Local Lifter';
   const initial = (user?.email?.[0] ?? 'U').toUpperCase();
 
+  // Determine active program name for banner
+  const activeProgram = allPrograms.find((p) => p.id === effectiveInstanceId);
+  const activeProgramName = activeProgram?.name ?? definition?.name;
+  const isActive = activeProgram?.status === 'active';
+
   return (
     <div className="min-h-dvh bg-body">
       <AppHeader backLabel="Dashboard" onBack={onBack} />
 
-      <div className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Page title */}
-        <section className="mb-12">
-          <h1
-            className="font-display text-4xl sm:text-5xl text-title leading-none"
-            style={{ textShadow: '0 0 30px rgba(240, 192, 64, 0.12)' }}
-          >
-            Perfil
-          </h1>
-        </section>
+        <h1
+          className="font-display text-4xl sm:text-5xl text-title leading-none mb-6"
+          style={{ textShadow: '0 0 30px rgba(240, 192, 64, 0.12)' }}
+        >
+          Perfil
+        </h1>
+
+        {/* ── Program Banner ── */}
+        {profileData && activeProgramName && (
+          <div className="bg-card border border-rule shadow-card mb-6 relative overflow-hidden">
+            <div
+              className="absolute inset-0 opacity-[0.03]"
+              style={{
+                background: 'linear-gradient(135deg, var(--color-accent) 0%, transparent 60%)',
+              }}
+            />
+            <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 sm:py-5">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-3 mb-1">
+                  {isActive && (
+                    <span className="shrink-0 font-mono text-2xs tracking-widest uppercase px-2 py-0.5 bg-ok-bg border border-ok-ring text-ok">
+                      Activo
+                    </span>
+                  )}
+                  {!isActive && activeProgram && (
+                    <span
+                      className="shrink-0 font-mono text-2xs tracking-widest uppercase px-2 py-0.5 text-title"
+                      style={{
+                        background: 'rgba(200,168,78,0.08)',
+                        border: '1px solid rgba(200,168,78,0.2)',
+                      }}
+                    >
+                      Completado
+                    </span>
+                  )}
+                </div>
+                <p className="font-display text-2xl sm:text-3xl text-title leading-none truncate">
+                  {activeProgramName}
+                </p>
+                <p className="text-xs text-muted mt-1.5">
+                  Entrenamiento {profileData.completion.workoutsCompleted} de{' '}
+                  {profileData.completion.totalWorkouts}
+                </p>
+              </div>
+              <div className="flex items-center gap-6 shrink-0">
+                <div className="text-center">
+                  <p className="font-display-data text-3xl sm:text-4xl text-title leading-none tabular-nums">
+                    {profileData.completion.completionPct}%
+                  </p>
+                  <p className="text-2xs text-muted mt-1">Completado</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-display-data text-3xl sm:text-4xl text-title leading-none tabular-nums">
+                    {profileData.completion.overallSuccessRate}%
+                  </p>
+                  <p className="text-2xs text-muted mt-1">{'\u00C9'}xito</p>
+                </div>
+              </div>
+            </div>
+            {/* Progress bar across the bottom */}
+            <div
+              className="h-1 bg-progress-track"
+              role="progressbar"
+              aria-valuenow={profileData.completion.completionPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`${profileData.completion.workoutsCompleted} de ${profileData.completion.totalWorkouts} entrenamientos`}
+            >
+              <div
+                className="h-full bg-accent transition-[width] duration-300 ease-out progress-fill"
+                style={{
+                  width: `${Math.min(100, Math.max(0, profileData.completion.completionPct))}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Program selector (only when multiple programs exist) */}
         {allPrograms.length > 1 && (
-          <section className="mb-8">
-            <label htmlFor="program-selector" className="section-label mb-2 block">
-              Programa
-            </label>
+          <div className="mb-6">
             <select
               id="program-selector"
               value={effectiveInstanceId ?? ''}
@@ -244,6 +316,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
                 setSelectedInstanceId(e.target.value || undefined)
               }
               className="w-full bg-card border border-rule text-sm text-title px-4 py-3 font-mono appearance-none cursor-pointer focus:outline-none focus:border-accent transition-colors"
+              aria-label="Selector de programa"
             >
               {allPrograms.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -252,64 +325,10 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
                 </option>
               ))}
             </select>
-          </section>
+          </div>
         )}
 
-        {/* Account settings (authenticated users only) */}
-        {user && (
-          <section className="mb-12">
-            <h2 className="section-label mb-4">Cuenta</h2>
-            <div className="bg-card border border-rule p-5 sm:p-6 card">
-              <div className="flex items-center gap-4 sm:gap-5">
-                {/* Avatar */}
-                <button
-                  type="button"
-                  onClick={handleAvatarClick}
-                  disabled={avatarUploading}
-                  className="group relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-btn-active text-btn-active-text text-xl sm:text-2xl font-extrabold cursor-pointer transition-opacity flex items-center justify-center overflow-hidden shrink-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-50"
-                  aria-label="Cambiar avatar"
-                >
-                  {user.avatarUrl ? (
-                    <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    initial
-                  )}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors pointer-events-none">
-                    <span className="text-white text-2xs font-bold uppercase opacity-0 group-hover:opacity-100 transition-opacity">
-                      Cambiar
-                    </span>
-                  </div>
-                </button>
-
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={(e) => void handleFileChange(e)}
-                />
-
-                {/* User info */}
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-title truncate">{displayName}</p>
-                  <p className="text-xs text-muted truncate">{user.email}</p>
-                  {user.avatarUrl && (
-                    <button
-                      type="button"
-                      onClick={() => void handleRemoveAvatar()}
-                      disabled={avatarUploading}
-                      className="text-2xs text-muted underline mt-1 cursor-pointer hover:text-main transition-colors disabled:opacity-50"
-                    >
-                      Quitar foto
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Empty state */}
+        {/* ── Empty state ── */}
         {!profileData && (
           <div className="bg-card border border-rule p-8 sm:p-12 text-center card">
             <p
@@ -331,233 +350,298 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
 
         {profileData && (
           <>
-            {/* Training stats header */}
-            <section className="mb-6">
-              <h2 className="section-label">Estadísticas de Entrenamiento</h2>
-            </section>
-
-            {/* Summary stats */}
-            <section className="mb-16">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <ProfileStatCard
-                  value={String(profileData.completion.workoutsCompleted)}
-                  label="Entrenamientos"
-                  sublabel={`de ${profileData.completion.totalWorkouts}`}
-                />
-                <ProfileStatCard
-                  value={`${profileData.completion.overallSuccessRate}%`}
-                  label="Tasa de Éxito"
-                />
-                <ProfileStatCard
-                  value={`${formatVolume(profileData.volume.totalVolume)} kg`}
-                  label="Volumen Total"
-                  sublabel={`${profileData.volume.totalSets} series / ${profileData.volume.totalReps} reps`}
-                />
-                <ProfileStatCard
-                  value={`${profileData.completion.completionPct}%`}
-                  label="Completado"
-                  progress={{
-                    value: profileData.completion.completionPct,
-                    label: `${profileData.completion.workoutsCompleted} de ${profileData.completion.totalWorkouts} entrenamientos`,
-                  }}
-                />
-              </div>
-            </section>
-
-            {/* Streak */}
-            {(profileData.streak.current > 0 || profileData.streak.longest > 0) && (
-              <section className="mb-16">
-                <h2 className="section-label mb-3">Racha</h2>
-                <div className="grid grid-cols-2 gap-2">
-                  <ProfileStatCard
-                    value={String(profileData.streak.current)}
-                    label="Racha Actual"
-                    sublabel="entrenamientos consecutivos"
-                  />
-                  <ProfileStatCard
-                    value={String(profileData.streak.longest)}
-                    label="Racha Más Larga"
-                    sublabel="entrenamientos consecutivos"
-                  />
-                </div>
-              </section>
-            )}
-
-            {/* Monthly Summary */}
-            {profileData.monthlyReport && (
-              <section className="mb-16">
-                <h2 className="section-label mb-3">{profileData.monthlyReport.monthLabel}</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <ProfileStatCard
-                    value={String(profileData.monthlyReport.workoutsCompleted)}
-                    label="Entrenamientos"
-                    sublabel="este mes"
-                  />
-                  <ProfileStatCard
-                    value={`${profileData.monthlyReport.successRate}%`}
-                    label="Tasa de Éxito"
-                  />
-                  <ProfileStatCard
-                    value={String(profileData.monthlyReport.personalRecords)}
-                    label="Nuevos PRs"
-                    accent={profileData.monthlyReport.personalRecords > 0}
-                  />
-                  <ProfileStatCard
-                    value={`${formatVolume(profileData.monthlyReport.totalVolume)} kg`}
-                    label="Volumen"
-                    sublabel={`${profileData.monthlyReport.totalSets} series / ${profileData.monthlyReport.totalReps} reps`}
-                  />
-                </div>
-              </section>
-            )}
-
-            {/* Personal Records */}
-            <section className="mb-12">
-              <h2 className="section-label mb-4">Récords Personales (T1)</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {profileData.personalRecords.map((pr) => {
-                  const delta = pr.weight - pr.startWeight;
-                  return (
-                    <ProfileStatCard
-                      key={pr.exercise}
-                      value={`${pr.weight} kg`}
-                      label={names[pr.exercise] ?? pr.exercise}
-                      sublabel={
-                        pr.workoutIndex >= 0
-                          ? `Entrenamiento #${pr.workoutIndex + 1}`
-                          : 'Peso inicial'
-                      }
-                      accent
-                      badge={delta > 0 ? `+${delta} kg` : undefined}
-                      badgeVariant="success"
-                    />
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* 1RM Estimates */}
-            {profileData.oneRMEstimates.length > 0 && (
-              <section className="mb-12">
-                <h2 className="section-label mb-4">1RM Estimado (Epley)</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {profileData.oneRMEstimates.map((e) => (
-                    <ProfileStatCard
-                      key={e.exercise}
-                      value={`${e.estimatedKg} kg`}
-                      label={e.displayName}
-                      sublabel={`${e.sourceWeight} kg \u00D7 ${e.sourceAmrapReps} reps`}
-                    />
-                  ))}
-                </div>
-                <p className="text-2xs text-muted mt-2 text-center">
-                  Estimaci{'\u00F3'}n basada en la f{'\u00F3'}rmula de Epley
-                </p>
-              </section>
-            )}
-
-            {/* Lifetime volume (all programs) */}
-            {allPrograms.length > 1 && (
-              <section ref={volumeSectionRef} data-testid="lifetime-volume" className="mb-12">
-                <ProfileStatCard
-                  value={lifetimeVolume !== null ? `${formatVolume(lifetimeVolume)} kg` : '...'}
-                  label="Volumen Total (Todos los Programas)"
-                  sublabel={`${allPrograms.length} programas`}
-                />
-              </section>
-            )}
-
-            {/* Weight Progression Charts */}
-            {chartData && (
-              <section className="mb-16">
-                <h2 className="section-label mb-3">Progresión de Peso</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {primaryExercises.map((ex) => {
-                    const data = chartData[ex];
-                    if (!data) return null;
-                    const stats = calculateStats(data);
-                    const hasMark = stats.total > 0;
-                    return (
-                      <div key={ex} className="bg-card border border-rule p-4">
-                        <h3 className="text-sm font-bold text-title mb-1">{names[ex] ?? ex}</h3>
-                        {hasMark && (
-                          <p className="text-xs text-muted mb-3">
-                            {stats.currentWeight} kg
-                            {stats.gained > 0 && (
-                              <span className="text-ok"> | +{stats.gained} kg</span>
-                            )}{' '}
-                            | {stats.rate}% éxito
-                          </p>
-                        )}
-                        <LineChart data={data} label={names[ex] ?? ex} />
+            {/* ── Dashboard Grid ── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Account card */}
+              {user && (
+                <DashboardCard title="Cuenta">
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <button
+                      type="button"
+                      onClick={handleAvatarClick}
+                      disabled={avatarUploading}
+                      className="group relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-btn-active text-btn-active-text text-lg sm:text-xl font-extrabold cursor-pointer transition-opacity flex items-center justify-center overflow-hidden shrink-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-50"
+                      aria-label="Cambiar avatar"
+                    >
+                      {user.avatarUrl ? (
+                        <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        initial
+                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors pointer-events-none">
+                        <span className="text-white text-2xs font-bold uppercase opacity-0 group-hover:opacity-100 transition-opacity">
+                          Cambiar
+                        </span>
                       </div>
+                    </button>
+
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => void handleFileChange(e)}
+                    />
+
+                    {/* User info */}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-title truncate">{displayName}</p>
+                      <p className="text-xs text-muted truncate">{user.email}</p>
+                      {user.avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={() => void handleRemoveAvatar()}
+                          disabled={avatarUploading}
+                          className="text-2xs text-muted underline mt-1 cursor-pointer hover:text-main transition-colors disabled:opacity-50"
+                        >
+                          Quitar foto
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {/* Delete account link inside account card */}
+                  <div className="mt-3 pt-3 border-t border-rule">
+                    <button
+                      type="button"
+                      onClick={() => setDeleteDialogOpen(true)}
+                      className="text-2xs text-muted underline cursor-pointer hover:text-fail transition-colors"
+                    >
+                      Eliminar cuenta
+                    </button>
+                  </div>
+                </DashboardCard>
+              )}
+
+              {/* Quick Stats card */}
+              <DashboardCard title="Estad{'\u00ED'}sticas">
+                <div className="grid grid-cols-2 gap-x-4">
+                  <ProfileStatCard
+                    compact
+                    value={String(profileData.completion.workoutsCompleted)}
+                    label="Entrenamientos"
+                    sublabel={`de ${profileData.completion.totalWorkouts}`}
+                  />
+                  <ProfileStatCard
+                    compact
+                    value={`${profileData.completion.overallSuccessRate}%`}
+                    label="Tasa de {'\u00C9'}xito"
+                  />
+                  <ProfileStatCard
+                    compact
+                    value={`${formatVolume(profileData.volume.totalVolume)} kg`}
+                    label="Volumen Total"
+                    sublabel={`${profileData.volume.totalSets} series / ${profileData.volume.totalReps} reps`}
+                  />
+                  <ProfileStatCard
+                    compact
+                    value={`${profileData.completion.completionPct}%`}
+                    label="Completado"
+                    progress={{
+                      value: profileData.completion.completionPct,
+                      label: `${profileData.completion.workoutsCompleted} de ${profileData.completion.totalWorkouts} entrenamientos`,
+                    }}
+                  />
+                </div>
+              </DashboardCard>
+
+              {/* Streak card */}
+              {(profileData.streak.current > 0 || profileData.streak.longest > 0) && (
+                <DashboardCard title="Racha">
+                  <div className="grid grid-cols-2 gap-x-4">
+                    <ProfileStatCard
+                      compact
+                      value={String(profileData.streak.current)}
+                      label="Racha Actual"
+                      sublabel="consecutivos"
+                    />
+                    <ProfileStatCard
+                      compact
+                      value={String(profileData.streak.longest)}
+                      label="R{'\u00E9'}cord"
+                      sublabel="consecutivos"
+                    />
+                  </div>
+                </DashboardCard>
+              )}
+
+              {/* Monthly Summary card */}
+              {profileData.monthlyReport && (
+                <DashboardCard title={profileData.monthlyReport.monthLabel}>
+                  <div className="grid grid-cols-2 gap-x-4">
+                    <ProfileStatCard
+                      compact
+                      value={String(profileData.monthlyReport.workoutsCompleted)}
+                      label="Entrenamientos"
+                      sublabel="este mes"
+                    />
+                    <ProfileStatCard
+                      compact
+                      value={`${profileData.monthlyReport.successRate}%`}
+                      label="Tasa de {'\u00C9'}xito"
+                    />
+                    <ProfileStatCard
+                      compact
+                      value={String(profileData.monthlyReport.personalRecords)}
+                      label="Nuevos PRs"
+                      accent={profileData.monthlyReport.personalRecords > 0}
+                    />
+                    <ProfileStatCard
+                      compact
+                      value={`${formatVolume(profileData.monthlyReport.totalVolume)} kg`}
+                      label="Volumen"
+                      sublabel={`${profileData.monthlyReport.totalSets} series / ${profileData.monthlyReport.totalReps} reps`}
+                    />
+                  </div>
+                </DashboardCard>
+              )}
+
+              {/* Personal Records card */}
+              <DashboardCard
+                title="R{'\u00E9'}cords Personales (T1)"
+                className="sm:col-span-2 lg:col-span-1"
+              >
+                <div className="grid grid-cols-2 gap-x-4">
+                  {profileData.personalRecords.map((pr) => {
+                    const delta = pr.weight - pr.startWeight;
+                    return (
+                      <ProfileStatCard
+                        key={pr.exercise}
+                        compact
+                        value={`${pr.weight} kg`}
+                        label={names[pr.exercise] ?? pr.exercise}
+                        sublabel={
+                          pr.workoutIndex >= 0
+                            ? `Entrenamiento #${pr.workoutIndex + 1}`
+                            : 'Peso inicial'
+                        }
+                        accent
+                        badge={delta > 0 ? `+${delta} kg` : undefined}
+                        badgeVariant="success"
+                      />
                     );
                   })}
                 </div>
-              </section>
+              </DashboardCard>
+
+              {/* 1RM Estimates card */}
+              {profileData.oneRMEstimates.length > 0 && (
+                <DashboardCard title="1RM Estimado (Epley)">
+                  <div className="grid grid-cols-2 gap-x-4">
+                    {profileData.oneRMEstimates.map((e) => (
+                      <ProfileStatCard
+                        key={e.exercise}
+                        compact
+                        value={`${e.estimatedKg} kg`}
+                        label={e.displayName}
+                        sublabel={`${e.sourceWeight} kg \u00D7 ${e.sourceAmrapReps} reps`}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-2xs text-muted mt-2 text-center opacity-70">
+                    Estimaci{'\u00F3'}n basada en la f{'\u00F3'}rmula de Epley
+                  </p>
+                </DashboardCard>
+              )}
+
+              {/* Lifetime volume card (all programs) */}
+              {allPrograms.length > 1 && (
+                <div ref={volumeSectionRef} data-testid="lifetime-volume">
+                  <DashboardCard title="Volumen Total Global">
+                    <ProfileStatCard
+                      compact
+                      value={lifetimeVolume !== null ? `${formatVolume(lifetimeVolume)} kg` : '...'}
+                      label="Todos los Programas"
+                      sublabel={`${allPrograms.length} programas`}
+                    />
+                  </DashboardCard>
+                </div>
+              )}
+            </div>
+
+            {/* ── Full-width sections ── */}
+
+            {/* Weight Progression Charts */}
+            {chartData && (
+              <div className="mt-6">
+                <DashboardCard title="Progresi{'\u00F3'}n de Peso">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {primaryExercises.map((ex) => {
+                      const data = chartData[ex];
+                      if (!data) return null;
+                      const stats = calculateStats(data);
+                      const hasMark = stats.total > 0;
+                      return (
+                        <div key={ex} className="border border-rule p-3">
+                          <h3 className="text-sm font-bold text-title mb-1">{names[ex] ?? ex}</h3>
+                          {hasMark && (
+                            <p className="text-xs text-muted mb-3">
+                              {stats.currentWeight} kg
+                              {stats.gained > 0 && (
+                                <span className="text-ok"> | +{stats.gained} kg</span>
+                              )}{' '}
+                              | {stats.rate}% {'\u00E9'}xito
+                            </p>
+                          )}
+                          <LineChart data={data} label={names[ex] ?? ex} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </DashboardCard>
+              </div>
             )}
           </>
         )}
+
         {/* Training history */}
         {completedPrograms.length > 0 && (
-          <section className="mb-12">
-            <h2 className="section-label mb-4">Historial</h2>
-            <div className="flex flex-col gap-2">
-              {completedPrograms.map((p) => (
-                <div
-                  key={p.id}
-                  className="bg-card border border-rule px-5 py-3.5 card flex items-center justify-between gap-4"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-title truncate">{p.name}</p>
-                    <p className="text-xs text-muted mt-0.5">
-                      Completado el{' '}
-                      {new Date(p.updatedAt).toLocaleDateString('es-ES', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {p.id !== effectiveInstanceId && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSelectedInstanceId(p.id);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
+          <div className="mt-6">
+            <DashboardCard title="Historial">
+              <div className="flex flex-col gap-2">
+                {completedPrograms.map((p) => (
+                  <div
+                    key={p.id}
+                    className="border border-rule px-4 py-3 flex items-center justify-between gap-4"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-title truncate">{p.name}</p>
+                      <p className="text-xs text-muted mt-0.5">
+                        Completado el{' '}
+                        {new Date(p.updatedAt).toLocaleDateString('es-ES', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {p.id !== effectiveInstanceId && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedInstanceId(p.id);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
+                        >
+                          Ver estad{'\u00ED'}sticas
+                        </Button>
+                      )}
+                      <span
+                        className="shrink-0 font-mono text-2xs tracking-widest uppercase px-2 py-1 text-title"
+                        style={{
+                          background: 'rgba(200,168,78,0.08)',
+                          border: '1px solid rgba(200,168,78,0.2)',
                         }}
                       >
-                        Ver estad{'\u00ED'}sticas
-                      </Button>
-                    )}
-                    <span
-                      className="shrink-0 font-mono text-2xs tracking-widest uppercase px-2 py-1 text-title"
-                      style={{
-                        background: 'rgba(200,168,78,0.08)',
-                        border: '1px solid rgba(200,168,78,0.2)',
-                      }}
-                    >
-                      Completado
-                    </span>
+                        Completado
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Delete account — subtle, at the bottom */}
-        {user && (
-          <div className="mt-16 mb-4 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setDeleteDialogOpen(true)}
-              className="text-xs text-muted underline cursor-pointer hover:text-fail transition-colors"
-            >
-              Eliminar cuenta
-            </button>
+                ))}
+              </div>
+            </DashboardCard>
           </div>
         )}
       </div>
