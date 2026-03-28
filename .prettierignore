@@ -6,3 +6,5 @@ out
 .next
 build
 .tmp
+.idea
+apps/go-api
