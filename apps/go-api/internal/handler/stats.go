@@ -9,7 +9,6 @@ import (
 	"github.com/reche/gravity-room/apps/go-api/internal/redis"
 )
 
-// StatsHandler holds dependencies for stats routes.
 type StatsHandler struct {
 	Redis *redis.Client
 }
@@ -19,13 +18,11 @@ type StatsHandler struct {
 // Matches TS routes/stats.ts behavior.
 func (h *StatsHandler) HandleOnline(w http.ResponseWriter, r *http.Request) {
 	var count *int
-	if h.Redis != nil && h.Redis.Available() {
-		if rdb := h.Redis.Underlying(); rdb != nil {
-			n, err := presence.CountOnline(r.Context(), rdb)
-			if err == nil {
-				c := int(n)
-				count = &c
-			}
+	if h.Redis.Available() {
+		n, err := presence.CountOnline(r.Context(), h.Redis.Underlying())
+		if err == nil {
+			c := int(n)
+			count = &c
 		}
 	}
 	resp := model.StatsOnlineResponse{Count: count}

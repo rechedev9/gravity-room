@@ -36,7 +36,6 @@ type RedisStore struct {
 	log *slog.Logger
 }
 
-// NewRedisStore creates a RedisStore backed by the given client.
 func NewRedisStore(rdb *goredis.Client, log *slog.Logger) *RedisStore {
 	return &RedisStore{rdb: rdb, log: log}
 }

@@ -20,7 +20,6 @@ type MemoryStore struct {
 	cleanupCount atomic.Int64
 }
 
-// NewMemoryStore creates a MemoryStore.
 func NewMemoryStore() *MemoryStore {
 	return &MemoryStore{}
 }

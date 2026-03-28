@@ -21,7 +21,7 @@ func Track(ctx context.Context, rdb *goredis.Client, userID string) error {
 	now := time.Now().UnixMilli()
 	cutoff := now - int64(ttlMs)
 
-	pipe := rdb.TxPipeline()
+	pipe := rdb.Pipeline()
 	pipe.ZAdd(ctx, presenceKey, goredis.Z{Score: float64(now), Member: userID})
 	pipe.ZRemRangeByScore(ctx, presenceKey, "-inf", strconv.FormatInt(cutoff, 10))
 	_, err := pipe.Exec(ctx)

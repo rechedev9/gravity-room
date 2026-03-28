@@ -58,7 +58,6 @@ func (c *Client) Ping(ctx context.Context) (time.Duration, error) {
 }
 
 // Underlying returns the raw go-redis client for use by Lua scripts.
-// Returns nil when Redis is not available.
 func (c *Client) Underlying() *goredis.Client {
 	if c == nil {
 		return nil
@@ -66,7 +65,7 @@ func (c *Client) Underlying() *goredis.Client {
 	return c.rdb
 }
 
-// Close disconnects from Redis. Safe to call on nil client.
+// Close disconnects from Redis.
 func (c *Client) Close() error {
 	if !c.Available() {
 		return nil
