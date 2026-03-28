@@ -241,17 +241,33 @@ func ForkDefinition(ctx context.Context, pool *pgxpool.Pool, userID, sourceID, s
 		return nil, fmt.Errorf("limit exceeded")
 	}
 
-	var defJSON []byte
+	// def is populated by the switch below and passed to CreateDefinition.
+	var def map[string]any
 
 	switch sourceType {
 	case "template":
+		var name, description, author, category, source string
+		var version int
+		var defJSON []byte
 		err := pool.QueryRow(ctx, `
-			SELECT definition FROM program_templates WHERE id = $1 AND is_active = true
-		`, sourceID).Scan(&defJSON)
+			SELECT name, description, author, category, source, version, definition
+			FROM program_templates WHERE id = $1 AND is_active = true
+		`, sourceID).Scan(&name, &description, &author, &category, &source, &version, &defJSON)
 		if err != nil {
 			return nil, fmt.Errorf("not found")
 		}
+		// Re-inject template metadata columns dropped by the typed-struct marshal round-trip.
+		hydratedJSON, hydrateErr := hydrateDefinitionJSON(ctx, pool, defJSON)
+		if hydrateErr != nil {
+			return nil, fmt.Errorf("hydrate fork source: %w", hydrateErr)
+		}
+		injected, injectErr := injectTemplateMetadata(hydratedJSON, sourceID, name, description, author, category, source, version)
+		if injectErr != nil {
+			return nil, injectErr
+		}
+		def = injected
 	case "definition":
+		var defJSON []byte
 		var ownerID string
 		err := pool.QueryRow(ctx, `
 			SELECT definition, user_id FROM program_definitions
@@ -263,14 +279,11 @@ func ForkDefinition(ctx context.Context, pool *pgxpool.Pool, userID, sourceID, s
 		if ownerID != userID {
 			return nil, fmt.Errorf("forbidden")
 		}
+		if err := json.Unmarshal(defJSON, &def); err != nil {
+			return nil, fmt.Errorf("unmarshal source definition: %w", err)
+		}
 	default:
 		return nil, fmt.Errorf("invalid source type")
-	}
-
-	// Parse and modify the definition.
-	var def map[string]any
-	if err := json.Unmarshal(defJSON, &def); err != nil {
-		return nil, fmt.Errorf("unmarshal source definition: %w", err)
 	}
 
 	// Append "(copia)" suffix to name.

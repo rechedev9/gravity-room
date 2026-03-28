@@ -184,14 +184,41 @@ func PreviewDefinition(def engine.ProgramDefinition, rawConfig map[string]any) (
 	return rows[:max], nil
 }
 
-// GetCatalogDefinition returns the raw JSONB definition for a program template.
+// injectTemplateMetadata unmarshals hydratedJSON and overwrites the 7 identity fields
+// that hydrateDefinitionJSON drops (it marshals a typed ProgramDefinition struct which
+// has no fields for columns stored separately in program_templates).
+func injectTemplateMetadata(hydratedJSON []byte, id, name, description, author, category, source string, version int) (map[string]any, error) {
+	var def map[string]any
+	if err := json.Unmarshal(hydratedJSON, &def); err != nil {
+		return nil, fmt.Errorf("unmarshal hydrated definition: %w", err)
+	}
+	def["id"] = id
+	def["name"] = name
+	def["description"] = description
+	def["author"] = author
+	def["category"] = category
+	def["source"] = source
+	def["version"] = version
+	return def, nil
+}
+
+// GetCatalogDefinition returns the hydrated program definition, with template metadata merged in.
 func GetCatalogDefinition(ctx context.Context, pool *pgxpool.Pool, programID string) (any, error) {
-	var defJSON []byte
+	var (
+		id          string
+		name        string
+		description string
+		author      string
+		category    string
+		source      string
+		version     int
+		defJSON     []byte
+	)
 	err := pool.QueryRow(ctx, `
-		SELECT definition
+		SELECT id, name, description, author, category, source, version, definition
 		FROM program_templates
 		WHERE id = $1 AND is_active = true
-	`, programID).Scan(&defJSON)
+	`, programID).Scan(&id, &name, &description, &author, &category, &source, &version, &defJSON)
 	if err != nil {
 		return nil, fmt.Errorf("catalog definition not found")
 	}
@@ -201,9 +228,5 @@ func GetCatalogDefinition(ctx context.Context, pool *pgxpool.Pool, programID str
 		return nil, err
 	}
 
-	var def any
-	if err := json.Unmarshal(hydratedJSON, &def); err != nil {
-		return nil, fmt.Errorf("unmarshal definition: %w", err)
-	}
-	return def, nil
+	return injectTemplateMetadata(hydratedJSON, id, name, description, author, category, source, version)
 }
