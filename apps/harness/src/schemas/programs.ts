@@ -1,5 +1,5 @@
 // http-contract.md §8 — Program instance response shapes
-import { z } from 'zod';
+import { z } from 'zod/v4';
 import { ISO_DATE_REGEX } from '../helpers/assertions';
 
 const ResultEntrySchema = z

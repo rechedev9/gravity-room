@@ -1,6 +1,6 @@
 // http-contract.md §8 — Auth response shapes
 // Verified against routes/auth.ts userResponse() which returns {id, email, name, avatarUrl}
-import { z } from 'zod';
+import { z } from 'zod/v4';
 
 export const UserResponseSchema = z
   .object({

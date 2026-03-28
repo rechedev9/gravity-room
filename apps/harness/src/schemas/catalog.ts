@@ -1,7 +1,7 @@
 // http-contract.md §8 — Catalog response shapes
 // Verified against services/catalog.ts CatalogEntry interface and toCatalogEntry()
 // Actual shape: {id, name, description, author, category, level, source, totalWorkouts, workoutsPerWeek, cycleLength}
-import { z } from 'zod';
+import { z } from 'zod/v4';
 
 const CatalogEntrySchema = z
   .object({
@@ -57,7 +57,7 @@ const GenericSlotRowSchema = z
     isBodyweight: z.boolean().optional(),
     setLogs: z.array(z.unknown()).optional(),
   })
-  .passthrough();
+  .loose();
 
 export const GenericWorkoutRowSchema = z
   .object({

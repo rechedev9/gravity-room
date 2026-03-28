@@ -1,7 +1,7 @@
 // http-contract.md §8 — Exercise response shapes
 // Verified against services/exercises.ts ExerciseEntry interface and toExerciseEntry()
 // Actual shape: {id, name, muscleGroupId, equipment, isCompound, isPreset, createdBy, force, level, mechanic, category, secondaryMuscles}
-import { z } from 'zod';
+import { z } from 'zod/v4';
 
 const ExerciseEntrySchema = z
   .object({

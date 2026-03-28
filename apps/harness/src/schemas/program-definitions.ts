@@ -2,7 +2,7 @@
 // Verified against services/program-definitions.ts toResponse() and ProgramDefinitionResponse
 // Actual shape: {id, userId, definition, status, createdAt, updatedAt, deletedAt}
 // List shape: {data, total}
-import { z } from 'zod';
+import { z } from 'zod/v4';
 import { ISO_DATE_REGEX } from '../helpers/assertions';
 
 const ProgramDefinitionResponseSchema = z

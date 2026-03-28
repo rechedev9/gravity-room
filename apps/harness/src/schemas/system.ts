@@ -1,7 +1,7 @@
 // http-contract.md §8 — System response shapes
 // Verified against create-app.ts /health handler
 // db and redis are objects (not strings): {status, latencyMs?} or {status, error?}
-import { z } from 'zod';
+import { z } from 'zod/v4';
 
 const DbStatusOk = z.object({ status: z.literal('ok'), latencyMs: z.number() }).strict();
 const DbStatusError = z.object({ status: z.literal('error'), error: z.string() }).strict();
