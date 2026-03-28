@@ -87,6 +87,14 @@ export async function guestWithProgram(page: Page, name: string): Promise<void> 
   await expect(page.getByText(/^Día \d+$/).first()).toBeVisible({ timeout: 10_000 });
 }
 
+/** Dismiss cookie consent banner if present — call before clicking buttons near the bottom of long pages. */
+export async function dismissCookieBannerIfPresent(page: Page): Promise<void> {
+  const cookieBtn = page.getByRole('button', { name: 'Entendido' });
+  if (await cookieBtn.isVisible({ timeout: 500 }).catch(() => false)) {
+    await cookieBtn.click();
+  }
+}
+
 /** Dismiss RPE dialog if present — call after marking tiers, before navigating. */
 export async function dismissRpeIfPresent(page: Page): Promise<void> {
   const rpeBtn = page.getByRole('button', { name: /continuar sin rpe/i });
