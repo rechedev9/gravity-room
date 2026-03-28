@@ -12,6 +12,44 @@ import (
 	"github.com/reche/gravity-room/apps/go-api/internal/model"
 )
 
+func loadExerciseRows(ctx context.Context, pool *pgxpool.Pool) ([]engine.ExerciseRow, error) {
+	rows, err := pool.Query(ctx, `SELECT id, name FROM exercises WHERE deleted_at IS NULL`)
+	if err != nil {
+		return nil, fmt.Errorf("load exercises: %w", err)
+	}
+	defer rows.Close()
+
+	exercises := make([]engine.ExerciseRow, 0)
+	for rows.Next() {
+		var row engine.ExerciseRow
+		if err := rows.Scan(&row.ID, &row.Name); err != nil {
+			return nil, fmt.Errorf("scan exercise: %w", err)
+		}
+		exercises = append(exercises, row)
+	}
+
+	return exercises, nil
+}
+
+func hydrateDefinitionJSON(ctx context.Context, pool *pgxpool.Pool, defJSON []byte) ([]byte, error) {
+	exerciseRows, err := loadExerciseRows(ctx, pool)
+	if err != nil {
+		return nil, err
+	}
+
+	hydrated, err := engine.HydrateProgramDefinition(defJSON, exerciseRows)
+	if err != nil {
+		return nil, fmt.Errorf("hydrate definition: %w", err)
+	}
+
+	patched, err := json.Marshal(hydrated)
+	if err != nil {
+		return nil, fmt.Errorf("marshal hydrated definition: %w", err)
+	}
+
+	return patched, nil
+}
+
 // ListCatalog returns all active program templates with metadata.
 func ListCatalog(ctx context.Context, pool *pgxpool.Pool) ([]model.CatalogEntry, error) {
 	rows, err := pool.Query(ctx, `
@@ -108,14 +146,14 @@ func ResolvePreviewConfig(def engine.ProgramDefinition, rawConfig map[string]any
 }
 
 var validRuleTypes = map[string]bool{
-	"add_weight":              true,
-	"advance_stage":           true,
+	"add_weight":               true,
+	"advance_stage":            true,
 	"advance_stage_add_weight": true,
-	"deload_percent":          true,
-	"add_weight_reset_stage":  true,
-	"no_change":               true,
-	"update_tm":               true,
-	"double_progression":      true,
+	"deload_percent":           true,
+	"add_weight_reset_stage":   true,
+	"no_change":                true,
+	"update_tm":                true,
+	"double_progression":       true,
 }
 
 func validatePreviewDefinition(def engine.ProgramDefinition) error {
@@ -185,8 +223,13 @@ func GetCatalogDefinition(ctx context.Context, pool *pgxpool.Pool, programID str
 		return nil, fmt.Errorf("catalog definition not found")
 	}
 
+	hydratedJSON, err := hydrateDefinitionJSON(ctx, pool, defJSON)
+	if err != nil {
+		return nil, err
+	}
+
 	var def any
-	if err := json.Unmarshal(defJSON, &def); err != nil {
+	if err := json.Unmarshal(hydratedJSON, &def); err != nil {
 		return nil, fmt.Errorf("unmarshal definition: %w", err)
 	}
 	return def, nil
