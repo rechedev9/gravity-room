@@ -32,7 +32,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	resp := healthResponse{
 		Status:    "ok",
-		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+		Timestamp: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
 		Uptime:    s.Uptime(),
 		DB:        dbResult,
 		Redis:     redis,

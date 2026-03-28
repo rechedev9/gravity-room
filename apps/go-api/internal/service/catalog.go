@@ -13,7 +13,7 @@ import (
 )
 
 func loadExerciseRows(ctx context.Context, pool *pgxpool.Pool) ([]engine.ExerciseRow, error) {
-	rows, err := pool.Query(ctx, `SELECT id, name FROM exercises WHERE deleted_at IS NULL`)
+	rows, err := pool.Query(ctx, `SELECT id, name FROM exercises`)
 	if err != nil {
 		return nil, fmt.Errorf("load exercises: %w", err)
 	}

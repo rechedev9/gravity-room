@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -77,6 +78,11 @@ func (h *ProgramHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
 	cursor := r.URL.Query().Get("cursor")
 	limit := 20
+	if qLimit := r.URL.Query().Get("limit"); qLimit != "" {
+		if parsed, err := strconv.Atoi(qLimit); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
 
 	resp, err := service.ListInstances(r.Context(), h.Pool, userID, limit, cursor)
 	if err != nil {

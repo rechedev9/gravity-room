@@ -502,7 +502,7 @@ func ExportInstance(ctx context.Context, pool *pgxpool.Pool, userID, instanceID 
 
 	return map[string]any{
 		"version":     1,
-		"exportDate":  time.Now().UTC().Format(time.RFC3339Nano),
+		"exportDate":  model.FormatTime(time.Now()),
 		"programId":   resp.ProgramID,
 		"name":        resp.Name,
 		"config":      resp.Config,
