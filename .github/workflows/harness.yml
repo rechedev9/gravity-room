@@ -43,7 +43,19 @@ jobs:
         with:
           bun-version: latest
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/go-api/go.mod
+          cache-dependency-path: apps/go-api/go.sum
+
       - run: bun install --frozen-lockfile
 
-      - name: Run contract tests
+      - name: Run TS API contract tests
         run: bun run test:harness
+
+      - name: Run Go unit tests
+        working-directory: apps/go-api
+        run: go test ./...
+
+      - name: Run Go API contract tests
+        run: scripts/harness-go

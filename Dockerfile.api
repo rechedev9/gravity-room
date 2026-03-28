@@ -12,7 +12,7 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN bun run build:web
 
-FROM golang:1.24-alpine AS go-build
+FROM golang:1.26-alpine AS go-build
 WORKDIR /app
 RUN apk add --no-cache ca-certificates
 COPY apps/go-api/go.mod apps/go-api/go.sum ./apps/go-api/

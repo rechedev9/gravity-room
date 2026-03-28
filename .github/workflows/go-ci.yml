@@ -1,0 +1,62 @@
+name: Go CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/go-api/**'
+      - 'Dockerfile.api'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/go-api/**'
+      - 'Dockerfile.api'
+
+concurrency:
+  group: go-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/go-api/go.mod
+          cache-dependency-path: apps/go-api/go.sum
+
+      - name: Go vet
+        working-directory: apps/go-api
+        run: go vet ./...
+
+      - name: Go lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: apps/go-api
+
+      - name: Go test
+        working-directory: apps/go-api
+        run: go test ./...
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: lint-test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/go-api/go.mod
+          cache-dependency-path: apps/go-api/go.sum
+
+      - name: Build Docker image
+        run: docker build -f Dockerfile.api --build-arg VITE_API_URL=http://localhost:3001 -t gravity-room-api:test .
