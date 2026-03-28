@@ -153,21 +153,3 @@ func TestResolvePreviewConfig_SelectDefault(t *testing.T) {
 	}
 }
 
-func TestCheckPreviewRateLimit_Allows30(t *testing.T) {
-	userID := "test-rate-limit-allows-30"
-	for i := 0; i < 30; i++ {
-		if !CheckPreviewRateLimit(userID) {
-			t.Fatalf("expected request %d to be allowed", i+1)
-		}
-	}
-}
-
-func TestCheckPreviewRateLimit_Blocks31st(t *testing.T) {
-	userID := "test-rate-limit-blocks-31"
-	for i := 0; i < 30; i++ {
-		CheckPreviewRateLimit(userID)
-	}
-	if CheckPreviewRateLimit(userID) {
-		t.Error("expected 31st request to be rate limited")
-	}
-}

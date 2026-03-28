@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,6 +23,9 @@ type ProgramHandler struct {
 // HandleCreate handles POST /api/programs.
 func (h *ProgramHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "programs.create", userID, 20, time.Minute) {
+		return
+	}
 
 	var body struct {
 		ProgramID    string `json:"programId"`
@@ -76,6 +80,9 @@ func (h *ProgramHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 // HandleList handles GET /api/programs.
 func (h *ProgramHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "programs.list", userID, 100, time.Minute) {
+		return
+	}
 	cursor := r.URL.Query().Get("cursor")
 	limit := 20
 	if qLimit := r.URL.Query().Get("limit"); qLimit != "" {
@@ -107,6 +114,9 @@ func (h *ProgramHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 // HandleGet handles GET /api/programs/{id}.
 func (h *ProgramHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "programs.get", userID, 100, time.Minute) {
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := service.GetInstance(r.Context(), h.Pool, userID, id)
@@ -126,6 +136,9 @@ func (h *ProgramHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 // HandleUpdate handles PATCH /api/programs/{id}.
 func (h *ProgramHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "programs.update", userID, 20, time.Minute) {
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	var body struct {
@@ -180,6 +193,9 @@ func (h *ProgramHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 // HandleDelete handles DELETE /api/programs/{id}.
 func (h *ProgramHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "programs.delete", userID, 20, time.Minute) {
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	err := service.DeleteInstance(r.Context(), h.Pool, userID, id)
@@ -198,6 +214,9 @@ func (h *ProgramHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 // HandleUpdateMetadata handles PATCH /api/programs/{id}/metadata.
 func (h *ProgramHandler) HandleUpdateMetadata(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "programs.metadata", userID, 20, time.Minute) {
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	var body struct {
@@ -235,6 +254,9 @@ func (h *ProgramHandler) HandleUpdateMetadata(w http.ResponseWriter, r *http.Req
 // HandleExport handles GET /api/programs/{id}/export.
 func (h *ProgramHandler) HandleExport(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "programs.export", userID, 20, time.Minute) {
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	exported, err := service.ExportInstance(r.Context(), h.Pool, userID, id)
@@ -254,6 +276,9 @@ func (h *ProgramHandler) HandleExport(w http.ResponseWriter, r *http.Request) {
 // HandleImport handles POST /api/programs/import.
 func (h *ProgramHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "programs.import", userID, 20, time.Minute) {
+		return
+	}
 
 	var body map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {

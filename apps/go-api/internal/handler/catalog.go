@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,6 +21,9 @@ type CatalogHandler struct {
 
 // HandleList handles GET /api/catalog.
 func (h *CatalogHandler) HandleList(w http.ResponseWriter, r *http.Request) {
+	if mw.RateLimit(w, "catalog.list", mw.IP(r.Context()), 100, time.Minute) {
+		return
+	}
 	entries, err := service.ListCatalog(r.Context(), h.Pool)
 	if err != nil {
 		log := logging.FromContext(r.Context())
@@ -37,9 +41,7 @@ func (h *CatalogHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 // Requires authentication. Rate limited to 30 requests per hour per user.
 func (h *CatalogHandler) HandlePreview(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
-
-	if !service.CheckPreviewRateLimit(userID) {
-		apierror.New(429, "Too many requests", apierror.CodeRateLimited).Write(w)
+	if mw.RateLimit(w, "catalog.preview", userID, 30, time.Hour) {
 		return
 	}
 
@@ -72,6 +74,9 @@ func (h *CatalogHandler) HandlePreview(w http.ResponseWriter, r *http.Request) {
 
 // HandleGetDefinition handles GET /api/catalog/{programId}.
 func (h *CatalogHandler) HandleGetDefinition(w http.ResponseWriter, r *http.Request) {
+	if mw.RateLimit(w, "catalog.get", mw.IP(r.Context()), 100, time.Minute) {
+		return
+	}
 	programID := chi.URLParam(r, "programId")
 
 	def, err := service.GetCatalogDefinition(r.Context(), h.Pool, programID)

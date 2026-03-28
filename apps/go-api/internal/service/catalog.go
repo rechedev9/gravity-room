@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/reche/gravity-room/apps/go-api/internal/engine"
@@ -86,31 +84,6 @@ func ListCatalog(ctx context.Context, pool *pgxpool.Pool) ([]model.CatalogEntry,
 // ---------------------------------------------------------------------------
 // Preview helpers
 // ---------------------------------------------------------------------------
-
-type rateLimitEntry struct {
-	mu          sync.Mutex
-	count       int
-	windowStart time.Time
-}
-
-var previewRateLimits sync.Map
-
-const previewRateLimit = 30
-const previewWindowDur = time.Hour
-
-// CheckPreviewRateLimit returns true if the request is allowed, false if rate limited.
-func CheckPreviewRateLimit(userID string) bool {
-	actual, _ := previewRateLimits.LoadOrStore(userID, &rateLimitEntry{windowStart: time.Now()})
-	entry := actual.(*rateLimitEntry)
-	entry.mu.Lock()
-	defer entry.mu.Unlock()
-	if time.Since(entry.windowStart) > previewWindowDur {
-		entry.count = 0
-		entry.windowStart = time.Now()
-	}
-	entry.count++
-	return entry.count <= previewRateLimit
-}
 
 // ResolvePreviewConfig resolves the raw config against program configFields.
 func ResolvePreviewConfig(def engine.ProgramDefinition, rawConfig map[string]any) map[string]any {

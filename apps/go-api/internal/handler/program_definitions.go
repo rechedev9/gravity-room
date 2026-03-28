@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -22,6 +23,9 @@ type DefinitionHandler struct {
 // HandleCreate handles POST /api/program-definitions.
 func (h *DefinitionHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "definitions.create", userID, 5, time.Hour) {
+		return
+	}
 
 	var body struct {
 		Definition any `json:"definition"`
@@ -52,6 +56,9 @@ func (h *DefinitionHandler) HandleCreate(w http.ResponseWriter, r *http.Request)
 // HandleList handles GET /api/program-definitions.
 func (h *DefinitionHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "definitions.list", userID, 100, time.Minute) {
+		return
+	}
 	q := r.URL.Query()
 
 	limit := 20
@@ -82,6 +89,9 @@ func (h *DefinitionHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 // HandleGet handles GET /api/program-definitions/{id}.
 func (h *DefinitionHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "definitions.get", userID, 100, time.Minute) {
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	resp, err := service.GetDefinition(r.Context(), h.Pool, userID, id)
@@ -97,6 +107,9 @@ func (h *DefinitionHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 // HandleUpdate handles PUT /api/program-definitions/{id}.
 func (h *DefinitionHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "definitions.update", userID, 20, time.Hour) {
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	var body struct {
@@ -120,6 +133,9 @@ func (h *DefinitionHandler) HandleUpdate(w http.ResponseWriter, r *http.Request)
 // HandleDelete handles DELETE /api/program-definitions/{id}.
 func (h *DefinitionHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "definitions.delete", userID, 20, time.Hour) {
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	err := service.DeleteDefinition(r.Context(), h.Pool, userID, id)
@@ -143,6 +159,9 @@ func (h *DefinitionHandler) HandleDelete(w http.ResponseWriter, r *http.Request)
 // HandleStatusUpdate handles PATCH /api/program-definitions/{id}/status.
 func (h *DefinitionHandler) HandleStatusUpdate(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "definitions.status", userID, 20, time.Hour) {
+		return
+	}
 	id := chi.URLParam(r, "id")
 
 	var body struct {
@@ -183,6 +202,9 @@ func (h *DefinitionHandler) HandleStatusUpdate(w http.ResponseWriter, r *http.Re
 // HandleFork handles POST /api/program-definitions/fork.
 func (h *DefinitionHandler) HandleFork(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "definitions.fork", userID, 10, time.Hour) {
+		return
+	}
 
 	var body struct {
 		SourceID   string `json:"sourceId"`

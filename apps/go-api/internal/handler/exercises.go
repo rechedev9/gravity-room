@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/reche/gravity-room/apps/go-api/internal/apierror"
@@ -20,6 +21,14 @@ type ExerciseHandler struct {
 // HandleList handles GET /api/exercises.
 func (h *ExerciseHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context()) // may be empty for unauthenticated
+	ip := mw.IP(r.Context())
+	rlKey := ip
+	if userID != "" {
+		rlKey = userID + ":" + ip
+	}
+	if mw.RateLimit(w, "exercises.list", rlKey, 100, time.Minute) {
+		return
+	}
 	q := r.URL.Query()
 
 	limit := queryInt(q, "limit", 100)
@@ -63,6 +72,9 @@ func (h *ExerciseHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 // HandleCreate handles POST /api/exercises.
 func (h *ExerciseHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
+	if mw.RateLimit(w, "exercises.create", userID, 20, time.Minute) {
+		return
+	}
 
 	var body struct {
 		Name          string `json:"name"`
@@ -109,6 +121,9 @@ func (h *ExerciseHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 
 // HandleMuscleGroups handles GET /api/muscle-groups.
 func (h *ExerciseHandler) HandleMuscleGroups(w http.ResponseWriter, r *http.Request) {
+	if mw.RateLimit(w, "muscle-groups.list", mw.IP(r.Context()), 100, time.Minute) {
+		return
+	}
 	groups, err := service.ListMuscleGroups(r.Context(), h.Pool)
 	if err != nil {
 		log := logging.FromContext(r.Context())
