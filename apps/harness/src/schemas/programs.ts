@@ -63,16 +63,13 @@ export const ProgramListResponseSchema = z
 
 export const ExportResponseSchema = z
   .object({
+    version: z.literal(1),
+    exportDate: z.string().regex(ISO_DATE_REGEX),
     programId: z.string(),
     name: z.string(),
     config: z.unknown(),
     results: ResultsMapSchema,
-  })
-  .strict();
-
-export const ImportResponseSchema = z
-  .object({
-    imported: z.number(),
+    undoHistory: z.array(UndoEntrySchema),
   })
   .strict();
 

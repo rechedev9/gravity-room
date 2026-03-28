@@ -105,6 +105,98 @@ describe('auth', () => {
     });
   });
 
+  describe('DELETE /api/auth/me', () => {
+    it('returns 204 empty body', async () => {
+      const deleteUser = await seedUser();
+      const res = await deleteUser.client.delete('/api/auth/me', {
+        accessToken: deleteUser.accessToken,
+      });
+      await expectEmpty204(res);
+    });
+
+    it('clears the refresh_token cookie', async () => {
+      const deleteUser = await seedUser();
+      await deleteUser.client.delete('/api/auth/me', {
+        accessToken: deleteUser.accessToken,
+      });
+      const cookie = deleteUser.client.jar.getCookie('refresh_token');
+      expect(cookie).toBeDefined();
+      expect(cookie!.maxAge).toBe(0);
+    });
+
+    it('returns 401 after deletion when fetching /api/auth/me with the old token', async () => {
+      const deleteUser = await seedUser();
+      const delRes = await deleteUser.client.delete('/api/auth/me', {
+        accessToken: deleteUser.accessToken,
+      });
+      await expectEmpty204(delRes);
+
+      const meRes = await deleteUser.client.get('/api/auth/me', {
+        accessToken: deleteUser.accessToken,
+      });
+      expect(meRes.status).toBe(404);
+      const body = await meRes.json();
+      expectErrorShape(body);
+      expect((body as { code: string }).code).toBe('USER_NOT_FOUND');
+    });
+  });
+
+  describe('PATCH /api/auth/me', () => {
+    it('updates name and returns valid UserResponse', async () => {
+      const patchUser = await seedUser();
+      const res = await patchUser.client.patch(
+        '/api/auth/me',
+        { name: 'Updated Name' },
+        { accessToken: patchUser.accessToken }
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      const result = UserResponseSchema.safeParse(body);
+      expect(result.success).toBe(true);
+      expect((body as { name: string }).name).toBe('Updated Name');
+    });
+
+    it('clears avatar when avatarUrl is null', async () => {
+      const patchUser = await seedUser();
+      const res = await patchUser.client.patch(
+        '/api/auth/me',
+        { avatarUrl: null },
+        { accessToken: patchUser.accessToken }
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { avatarUrl: unknown };
+      expect(body.avatarUrl).toBeNull();
+    });
+
+    it('rejects invalid avatar format', async () => {
+      const patchUser = await seedUser();
+      const res = await patchUser.client.patch(
+        '/api/auth/me',
+        { avatarUrl: 'not-a-data-url' },
+        { accessToken: patchUser.accessToken }
+      );
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expectErrorShape(body);
+      expect((body as { code: string }).code).toBe('INVALID_AVATAR');
+    });
+
+    it('rejects oversized avatar', async () => {
+      const patchUser = await seedUser();
+      // Build a valid data URL that exceeds 200KB
+      const bigBase64 = Buffer.from(new Uint8Array(200_000)).toString('base64');
+      const res = await patchUser.client.patch(
+        '/api/auth/me',
+        { avatarUrl: `data:image/png;base64,${bigBase64}` },
+        { accessToken: patchUser.accessToken }
+      );
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expectErrorShape(body);
+      expect((body as { code: string }).code).toBe('AVATAR_TOO_LARGE');
+    });
+  });
+
   describe('POST /api/auth/refresh', () => {
     it('returns new accessToken via cookie jar replay', async () => {
       const refreshUser = await seedUser();
