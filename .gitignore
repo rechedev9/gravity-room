@@ -70,5 +70,5 @@ scripts/*
 !scripts/harness
 !scripts/harness-go
 issues.MD
-migrationtogo.md
+roadmap.MD
 packages/shared/src/antirez.blackbox.stress.test.ts
