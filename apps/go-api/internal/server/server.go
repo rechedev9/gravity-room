@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -32,6 +35,64 @@ type Server struct {
 	cfg    *config.Config
 	pool   *pgxpool.Pool
 	start  time.Time
+}
+
+func findWebDistDir() string {
+	candidates := []string{}
+	if envDir := os.Getenv("WEB_DIST_DIR"); envDir != "" {
+		candidates = append(candidates, envDir)
+	}
+	candidates = append(candidates,
+		filepath.Join("apps", "web", "dist"),
+		filepath.Join("..", "web", "dist"),
+		filepath.Join("/app", "apps", "web", "dist"),
+	)
+
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		candidates = append(candidates,
+			filepath.Join(exeDir, "apps", "web", "dist"),
+			filepath.Join(exeDir, "..", "apps", "web", "dist"),
+		)
+	}
+
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate
+		}
+	}
+
+	return ""
+}
+
+func spaNotFoundHandler(log *slog.Logger) http.HandlerFunc {
+	distDir := findWebDistDir()
+	if distDir == "" {
+		return func(w http.ResponseWriter, _ *http.Request) {
+			apierror.WriteJSON(w, 404, "Not found", apierror.CodeNotFound)
+		}
+	}
+
+	log.Info("serving SPA static assets", slog.String("dist_dir", distDir))
+	indexPath := filepath.Join(distDir, "index.html")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/api" || r.URL.Path == "/health" || r.URL.Path == "/metrics" {
+			apierror.WriteJSON(w, 404, "Not found", apierror.CodeNotFound)
+			return
+		}
+
+		requestedPath := filepath.Join(distDir, filepath.FromSlash(strings.TrimPrefix(r.URL.Path, "/")))
+		if info, err := os.Stat(requestedPath); err == nil && !info.IsDir() {
+			if strings.HasSuffix(r.URL.Path, ".txt") {
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			}
+			http.ServeFile(w, r, requestedPath)
+			return
+		}
+
+		http.ServeFile(w, r, indexPath)
+	}
 }
 
 // New creates a Server with all middleware wired in the contract-mandated order.
@@ -81,10 +142,13 @@ func New(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool) *Server {
 
 	// Auth handler.
 	auth := &handler.AuthHandler{
-		Pool:         pool,
-		JWTSecret:    cfg.JWTSecret,
-		AccessExpiry: accessExpiry,
-		IsProd:       cfg.IsProd(),
+		Pool:             pool,
+		JWTSecret:        cfg.JWTSecret,
+		AccessExpiry:     accessExpiry,
+		GoogleClientID:   cfg.GoogleClientID,
+		TelegramBotToken: cfg.TelegramBotToken,
+		TelegramChatID:   cfg.TelegramChatID,
+		IsProd:           cfg.IsProd(),
 	}
 
 	// Program handler.
@@ -120,20 +184,28 @@ func New(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool) *Server {
 	r.Route("/api", func(api chi.Router) {
 		// Auth routes — no global auth middleware.
 		api.Route("/auth", func(ar chi.Router) {
+			ar.Post("/google", auth.HandleGoogleLogin)
 			ar.Post("/dev", auth.HandleDevLogin)
 			ar.Post("/refresh", auth.HandleRefresh)
 			ar.With(mw.RequireAuth(cfg.JWTSecret)).Post("/signout", auth.HandleSignout)
 			ar.With(mw.RequireAuth(cfg.JWTSecret)).Get("/me", auth.HandleMe)
+			ar.With(mw.RequireAuth(cfg.JWTSecret)).Patch("/me", auth.HandleUpdateProfile)
+			ar.With(mw.RequireAuth(cfg.JWTSecret)).Delete("/me", auth.HandleDeleteAccount)
 		})
 
 		// Program routes — require auth.
 		api.Route("/programs", func(pr chi.Router) {
 			pr.Use(mw.RequireAuth(cfg.JWTSecret))
 			pr.Post("/", prog.HandleCreate)
+			pr.Post("/import", prog.HandleImport)
 			pr.Get("/", prog.HandleList)
 			pr.Get("/{id}", prog.HandleGet)
+			pr.Get("/{id}/export", prog.HandleExport)
+			pr.Patch("/{id}", prog.HandleUpdate)
+			pr.Patch("/{id}/metadata", prog.HandleUpdateMetadata)
 			pr.Delete("/{id}", prog.HandleDelete)
 			pr.Post("/{id}/results", result.HandleRecord)
+			pr.Delete("/{id}/results/{workoutIndex}/{slotId}", result.HandleDeleteResult)
 			pr.Post("/{id}/undo", result.HandleUndo)
 		})
 
@@ -163,10 +235,8 @@ func New(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool) *Server {
 		api.Get("/stats/online", stats.HandleOnline)
 	})
 
-	// Not-found handler — matches TS create-app.ts:77-81.
-	r.NotFound(func(w http.ResponseWriter, _ *http.Request) {
-		apierror.WriteJSON(w, 404, "Not found", apierror.CodeNotFound)
-	})
+	// Not-found handler — serves SPA when dist exists, otherwise JSON 404.
+	r.NotFound(spaNotFoundHandler(log))
 
 	return s
 }
