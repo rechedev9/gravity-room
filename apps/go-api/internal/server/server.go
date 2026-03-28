@@ -18,6 +18,8 @@ import (
 	"github.com/reche/gravity-room/apps/go-api/internal/handler"
 	m "github.com/reche/gravity-room/apps/go-api/internal/metrics"
 	mw "github.com/reche/gravity-room/apps/go-api/internal/middleware"
+	"github.com/reche/gravity-room/apps/go-api/internal/ratelimit"
+	"github.com/reche/gravity-room/apps/go-api/internal/redis"
 	"github.com/reche/gravity-room/apps/go-api/internal/service"
 )
 
@@ -34,6 +36,7 @@ type Server struct {
 	log    *slog.Logger
 	cfg    *config.Config
 	pool   *pgxpool.Pool
+	redis  *redis.Client
 	start  time.Time
 }
 
@@ -102,7 +105,7 @@ func spaNotFoundHandler(log *slog.Logger) http.HandlerFunc {
 //  3. Security headers
 //  4. Request logger (reqId, ip, logging)
 //  5. Recovery / error handler
-func New(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool) *Server {
+func New(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, redisClient *redis.Client) *Server {
 	r := chi.NewRouter()
 
 	accessExpiry, err := service.ParseAccessExpiry(cfg.JWTAccessExpiry)
@@ -111,11 +114,16 @@ func New(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool) *Server {
 		accessExpiry = 15 * time.Minute
 	}
 
+	// Wire rate limit store and presence tracking.
+	mw.SetRateLimitStore(ratelimit.NewStore(redisClient.Underlying(), log))
+	mw.SetPresenceRedis(redisClient.Underlying())
+
 	s := &Server{
 		router: r,
 		log:    log,
 		cfg:    cfg,
 		pool:   pool,
+		redis:  redisClient,
 		start:  time.Now(),
 		http: &http.Server{
 			Addr:              fmt.Sprintf(":%d", cfg.Port),
@@ -178,7 +186,7 @@ func New(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool) *Server {
 	}
 
 	// Stats handler.
-	stats := &handler.StatsHandler{}
+	stats := &handler.StatsHandler{Redis: redisClient}
 
 	// API routes — /api prefix.
 	r.Route("/api", func(api chi.Router) {

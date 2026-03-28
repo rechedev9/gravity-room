@@ -23,19 +23,40 @@ type redisDisabled struct {
 	Status string `json:"status"`
 }
 
+type redisOk struct {
+	Status    string `json:"status"`
+	LatencyMs int    `json:"latencyMs"`
+}
+
+type redisError struct {
+	Status string `json:"status"`
+	Error  string `json:"error"`
+}
+
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	// Real DB probe via pgxpool.
 	dbResult := db.Probe(r.Context(), s.pool)
 
-	// Stub Redis probe — disabled until Lote 4.
-	var redis any = redisDisabled{Status: "disabled"}
+	// Redis probe — matches TS create-app.ts health handler.
+	var redisResult any
+	if !s.redis.Available() {
+		redisResult = redisDisabled{Status: "disabled"}
+	} else {
+		latency, err := s.redis.Ping(r.Context())
+		if err != nil {
+			s.log.Error("redis health check failed", "err", err)
+			redisResult = redisError{Status: "error", Error: "Unavailable"}
+		} else {
+			redisResult = redisOk{Status: "ok", LatencyMs: int(latency.Milliseconds())}
+		}
+	}
 
 	resp := healthResponse{
 		Status:    "ok",
 		Timestamp: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
 		Uptime:    s.Uptime(),
 		DB:        dbResult,
-		Redis:     redis,
+		Redis:     redisResult,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

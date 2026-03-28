@@ -6,10 +6,21 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+	goredis "github.com/redis/go-redis/v9"
 	"github.com/reche/gravity-room/apps/go-api/internal/apierror"
+	"github.com/reche/gravity-room/apps/go-api/internal/logging"
+	"github.com/reche/gravity-room/apps/go-api/internal/presence"
 )
 
 const keyUserID ctxKey = 10
+
+var presenceRedis *goredis.Client
+
+// SetPresenceRedis sets the Redis client used for presence tracking.
+// Must be called before the server starts accepting traffic.
+func SetPresenceRedis(rdb *goredis.Client) {
+	presenceRedis = rdb
+}
 
 // UserID returns the authenticated user's ID from context.
 // Returns empty string if not authenticated.
@@ -31,6 +42,7 @@ func RequireAuth(secret string) func(http.Handler) http.Handler {
 				return
 			}
 			ctx := context.WithValue(r.Context(), keyUserID, userID)
+			trackPresence(ctx, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -44,6 +56,7 @@ func OptionalAuth(secret string) func(http.Handler) http.Handler {
 			userID, err := extractAndVerify(r, secret)
 			if err == nil && userID != "" {
 				ctx := context.WithValue(r.Context(), keyUserID, userID)
+				trackPresence(ctx, userID)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
@@ -78,4 +91,17 @@ func extractAndVerify(r *http.Request, secret string) (string, error) {
 	}
 
 	return sub, nil
+}
+
+// trackPresence fires a background goroutine to mark the user as online.
+// Matches TS auth-guard.ts: fire-and-forget with .catch() logging.
+func trackPresence(ctx context.Context, userID string) {
+	if presenceRedis == nil {
+		return
+	}
+	go func() {
+		if err := presence.Track(context.Background(), presenceRedis, userID); err != nil {
+			logging.FromContext(ctx).Warn("presence track failed", "err", err)
+		}
+	}()
 }

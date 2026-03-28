@@ -9,6 +9,7 @@ import (
 
 	"github.com/reche/gravity-room/apps/go-api/internal/config"
 	"github.com/reche/gravity-room/apps/go-api/internal/logging"
+	"github.com/reche/gravity-room/apps/go-api/internal/redis"
 )
 
 func testServer(t *testing.T) *Server {
@@ -20,7 +21,8 @@ func testServer(t *testing.T) *Server {
 		JWTSecret:       "test-secret-for-unit-tests-must-be-long-enough-64-chars-minimum!",
 		JWTAccessExpiry: "15m",
 	}
-	return New(cfg, logging.NewTestLogger(), nil)
+	log := logging.NewTestLogger()
+	return New(cfg, log, nil, redis.New("", log))
 }
 
 // rawHealth mirrors the harness Zod schema for testing exact JSON shape.

@@ -8,6 +8,7 @@ import (
 	"github.com/reche/gravity-room/apps/go-api/internal/apierror"
 	"github.com/reche/gravity-room/apps/go-api/internal/logging"
 	m "github.com/reche/gravity-room/apps/go-api/internal/metrics"
+	"github.com/reche/gravity-room/apps/go-api/internal/sentry"
 )
 
 // Recovery catches panics and ApiErrors, writing the contract-mandated JSON response.
@@ -52,6 +53,7 @@ func ErrorHandler(w http.ResponseWriter, r *http.Request, err *apierror.ApiError
 func writeAPIError(w http.ResponseWriter, r *http.Request, err *apierror.ApiError, log *slog.Logger) {
 	if err.StatusCode >= 500 {
 		log.Error(err.Message, "status", err.StatusCode, "code", err.Code)
+		sentry.CaptureException(err)
 	} else {
 		log.Warn(err.Message, "status", err.StatusCode, "code", err.Code)
 	}

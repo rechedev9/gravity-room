@@ -5,15 +5,30 @@ import (
 	"net/http"
 
 	"github.com/reche/gravity-room/apps/go-api/internal/model"
+	"github.com/reche/gravity-room/apps/go-api/internal/presence"
+	"github.com/reche/gravity-room/apps/go-api/internal/redis"
 )
 
 // StatsHandler holds dependencies for stats routes.
-type StatsHandler struct{}
+type StatsHandler struct {
+	Redis *redis.Client
+}
 
 // HandleOnline handles GET /api/stats/online.
-// Returns {count: null} until Redis is wired (Lote 4).
-func (h *StatsHandler) HandleOnline(w http.ResponseWriter, _ *http.Request) {
-	resp := model.StatsOnlineResponse{Count: nil}
+// Returns {count: N} when Redis is available, {count: null} otherwise.
+// Matches TS routes/stats.ts behavior.
+func (h *StatsHandler) HandleOnline(w http.ResponseWriter, r *http.Request) {
+	var count *int
+	if h.Redis != nil && h.Redis.Available() {
+		if rdb := h.Redis.Underlying(); rdb != nil {
+			n, err := presence.CountOnline(r.Context(), rdb)
+			if err == nil {
+				c := int(n)
+				count = &c
+			}
+		}
+	}
+	resp := model.StatsOnlineResponse{Count: count}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(resp)
 }

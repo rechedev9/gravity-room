@@ -12,7 +12,9 @@ import (
 	"github.com/reche/gravity-room/apps/go-api/internal/db"
 	"github.com/reche/gravity-room/apps/go-api/internal/logging"
 	"github.com/reche/gravity-room/apps/go-api/internal/migrate"
+	"github.com/reche/gravity-room/apps/go-api/internal/redis"
 	"github.com/reche/gravity-room/apps/go-api/internal/seed"
+	goSentry "github.com/reche/gravity-room/apps/go-api/internal/sentry"
 	"github.com/reche/gravity-room/apps/go-api/internal/server"
 	"github.com/reche/gravity-room/apps/go-api/internal/service"
 )
@@ -28,6 +30,9 @@ func main() {
 	}
 
 	log := logging.NewLogger(cfg.LogLevel, cfg.IsProd())
+
+	// Initialise Sentry — must be before anything that might panic.
+	goSentry.Init(cfg.SentryDSN, cfg.Env, log)
 
 	// Connect to PostgreSQL.
 	pool, err := db.New(context.Background(), cfg.DatabaseURL, cfg.DBPoolSize)
@@ -55,7 +60,10 @@ func main() {
 	}
 	log.Info("reference data seeds complete")
 
-	srv := server.New(cfg, log, pool)
+	// Connect to Redis (optional — graceful fallback to in-memory).
+	redisClient := redis.New(cfg.RedisURL, log)
+
+	srv := server.New(cfg, log, pool, redisClient)
 
 	// Background token cleanup (matches TS bootstrap.ts TOKEN_CLEANUP_INTERVAL_MS = 6h).
 	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
@@ -101,6 +109,12 @@ func main() {
 		if err := srv.Shutdown(shutdownCtx); err != nil {
 			log.Error("error during shutdown", "err", err)
 		}
+
+		if err := redisClient.Close(); err != nil {
+			log.Error("error disconnecting redis", "err", err)
+		}
+
+		goSentry.Flush(2 * time.Second)
 
 		log.Info("shutdown complete")
 	}

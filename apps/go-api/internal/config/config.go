@@ -26,6 +26,7 @@ type Config struct {
 	CORSOrigins []string
 
 	RedisURL     string
+	SentryDSN    string
 	TrustedProxy bool
 	MetricsToken string
 
@@ -49,6 +50,7 @@ func Load() (*Config, error) {
 		JWTAccessExpiry:  envOr("JWT_ACCESS_EXPIRY", "15m"),
 		GoogleClientID:   os.Getenv("GOOGLE_CLIENT_ID"),
 		RedisURL:         os.Getenv("REDIS_URL"),
+		SentryDSN:        os.Getenv("SENTRY_DSN"),
 		MetricsToken:     os.Getenv("METRICS_TOKEN"),
 		TelegramBotToken: os.Getenv("TELEGRAM_BOT_TOKEN"),
 		TelegramChatID:   os.Getenv("TELEGRAM_CHAT_ID"),
