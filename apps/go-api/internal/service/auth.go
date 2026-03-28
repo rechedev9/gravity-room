@@ -275,3 +275,12 @@ func SoftDeleteUser(ctx context.Context, pool *pgxpool.Pool, userID string) erro
 
 	return RevokeAllUserTokens(ctx, pool, userID)
 }
+
+// CleanExpiredTokens deletes all refresh tokens that have passed their expiry.
+func CleanExpiredTokens(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	tag, err := pool.Exec(ctx, `DELETE FROM refresh_tokens WHERE expires_at < NOW()`)
+	if err != nil {
+		return 0, fmt.Errorf("clean expired tokens: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}

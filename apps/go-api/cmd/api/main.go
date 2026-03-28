@@ -12,6 +12,7 @@ import (
 	"github.com/reche/gravity-room/apps/go-api/internal/db"
 	"github.com/reche/gravity-room/apps/go-api/internal/logging"
 	"github.com/reche/gravity-room/apps/go-api/internal/server"
+	"github.com/reche/gravity-room/apps/go-api/internal/service"
 )
 
 // shutdownTimeout matches the TS contract: 10 000 ms grace period.
@@ -37,6 +38,27 @@ func main() {
 	log.Info("database connected")
 
 	srv := server.New(cfg, log, pool)
+
+	// Background token cleanup (matches TS bootstrap.ts TOKEN_CLEANUP_INTERVAL_MS = 6h).
+	cleanupCtx, cleanupCancel := context.WithCancel(context.Background())
+	defer cleanupCancel()
+	go func() {
+		ticker := time.NewTicker(6 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-cleanupCtx.Done():
+				return
+			case <-ticker.C:
+				n, err := service.CleanExpiredTokens(cleanupCtx, pool)
+				if err != nil {
+					log.Error("token cleanup failed", "err", err)
+				} else if n > 0 {
+					log.Info("cleaned expired tokens", "count", n)
+				}
+			}
+		}
+	}()
 
 	// Graceful shutdown on SIGTERM / SIGINT (matches TS bootstrap.ts:209-210).
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
