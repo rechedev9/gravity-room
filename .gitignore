@@ -72,3 +72,10 @@ scripts/*
 issues.MD
 roadmap.MD
 packages/shared/src/antirez.blackbox.stress.test.ts
+
+# IDE
+.idea/
+
+# Go build artifacts
+apps/go-api/api
+apps/go-api/bin/
