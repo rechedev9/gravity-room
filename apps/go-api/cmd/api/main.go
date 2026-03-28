@@ -11,6 +11,8 @@ import (
 	"github.com/reche/gravity-room/apps/go-api/internal/config"
 	"github.com/reche/gravity-room/apps/go-api/internal/db"
 	"github.com/reche/gravity-room/apps/go-api/internal/logging"
+	"github.com/reche/gravity-room/apps/go-api/internal/migrate"
+	"github.com/reche/gravity-room/apps/go-api/internal/seed"
 	"github.com/reche/gravity-room/apps/go-api/internal/server"
 	"github.com/reche/gravity-room/apps/go-api/internal/service"
 )
@@ -36,6 +38,22 @@ func main() {
 	defer pool.Close()
 
 	log.Info("database connected")
+
+	// Run database migrations (DDL, serial, single-connection).
+	log.Info("running database migrations")
+	if err := migrate.Run(context.Background(), cfg.DatabaseURL); err != nil {
+		log.Error("failed to run migrations", "err", err)
+		os.Exit(1)
+	}
+	log.Info("database migrations complete")
+
+	// Run reference data seeds (idempotent, safe to run on every startup).
+	log.Info("running reference data seeds")
+	if err := seed.Run(context.Background(), pool); err != nil {
+		log.Error("failed to run seeds", "err", err)
+		os.Exit(1)
+	}
+	log.Info("reference data seeds complete")
 
 	srv := server.New(cfg, log, pool)
 

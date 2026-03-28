@@ -1,0 +1,2 @@
+-- +goose Up
+CREATE INDEX "refresh_tokens_expires_at_idx" ON "refresh_tokens" USING btree ("expires_at");
