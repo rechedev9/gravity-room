@@ -10,9 +10,12 @@ pre-commit:
     go-vet:
       root: apps/go-api
       run: go vet ./...
+    go-lint:
+      root: apps/go-api
+      run: golangci-lint run ./...
     go-build:
       root: apps/go-api
-      run: go build ./cmd/api
+      run: go build ./...
 
 pre-push:
   commands:
