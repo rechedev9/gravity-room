@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -23,7 +22,7 @@ type ResultHandler struct {
 // HandleRecord handles POST /api/programs/{id}/results.
 func (h *ResultHandler) HandleRecord(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
-	if mw.RateLimit(w, "results.record", userID, 60, time.Minute) {
+	if rateLimit(w, "results.record", userID) {
 		return
 	}
 	instanceID := chi.URLParam(r, "id")
@@ -64,7 +63,7 @@ func (h *ResultHandler) HandleRecord(w http.ResponseWriter, r *http.Request) {
 // HandleDeleteResult handles DELETE /api/programs/{id}/results/{workoutIndex}/{slotId}.
 func (h *ResultHandler) HandleDeleteResult(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
-	if mw.RateLimit(w, "results.delete", userID, 20, time.Minute) {
+	if rateLimit(w, "results.delete", userID) {
 		return
 	}
 	instanceID := chi.URLParam(r, "id")
@@ -97,7 +96,7 @@ func (h *ResultHandler) HandleDeleteResult(w http.ResponseWriter, r *http.Reques
 // HandleUndo handles POST /api/programs/{id}/undo.
 func (h *ResultHandler) HandleUndo(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
-	if mw.RateLimit(w, "results.undo", userID, 20, time.Minute) {
+	if rateLimit(w, "results.undo", userID) {
 		return
 	}
 	instanceID := chi.URLParam(r, "id")

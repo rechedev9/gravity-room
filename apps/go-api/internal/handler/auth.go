@@ -105,7 +105,7 @@ func (h *AuthHandler) HandleDevLogin(w http.ResponseWriter, r *http.Request) {
 
 // HandleGoogleLogin handles POST /api/auth/google.
 func (h *AuthHandler) HandleGoogleLogin(w http.ResponseWriter, r *http.Request) {
-	if mw.RateLimit(w, "auth.google", mw.IP(r.Context()), 10, time.Minute) {
+	if rateLimit(w, "auth.google", mw.IP(r.Context())) {
 		return
 	}
 	var body struct {
@@ -170,7 +170,7 @@ func (h *AuthHandler) HandleGoogleLogin(w http.ResponseWriter, r *http.Request) 
 
 // HandleDeleteAccount handles DELETE /api/auth/me — soft-delete user account.
 func (h *AuthHandler) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
-	if mw.RateLimit(w, "auth.delete", mw.IP(r.Context()), 5, time.Minute) {
+	if rateLimit(w, "auth.delete", mw.IP(r.Context())) {
 		return
 	}
 	userID := mw.UserID(r.Context())
@@ -193,7 +193,7 @@ func (h *AuthHandler) HandleDeleteAccount(w http.ResponseWriter, r *http.Request
 
 // HandleUpdateProfile handles PATCH /api/auth/me — update name and/or avatar.
 func (h *AuthHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request) {
-	if mw.RateLimit(w, "auth.patch", mw.IP(r.Context()), 20, time.Minute) {
+	if rateLimit(w, "auth.patch", mw.IP(r.Context())) {
 		return
 	}
 	userID := mw.UserID(r.Context())
@@ -276,7 +276,7 @@ func (h *AuthHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request
 // HandleMe handles GET /api/auth/me — returns the current user.
 func (h *AuthHandler) HandleMe(w http.ResponseWriter, r *http.Request) {
 	userID := mw.UserID(r.Context())
-	if mw.RateLimit(w, "auth.me", userID, 100, time.Minute) {
+	if rateLimit(w, "auth.me", userID) {
 		return
 	}
 
@@ -295,11 +295,7 @@ func (h *AuthHandler) HandleMe(w http.ResponseWriter, r *http.Request) {
 
 // HandleRefresh handles POST /api/auth/refresh — rotates refresh token.
 func (h *AuthHandler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
-	limit := 20
-	if !h.IsProd {
-		limit = 500
-	}
-	if mw.RateLimit(w, "auth.refresh", mw.IP(r.Context()), limit, time.Minute) {
+	if rateLimitDev(w, "auth.refresh", mw.IP(r.Context()), !h.IsProd) {
 		return
 	}
 	cookie, err := r.Cookie(refreshCookieName)
@@ -337,7 +333,7 @@ func (h *AuthHandler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 
 // HandleSignout handles POST /api/auth/signout — revokes refresh token.
 func (h *AuthHandler) HandleSignout(w http.ResponseWriter, r *http.Request) {
-	if mw.RateLimit(w, "auth.signout", mw.IP(r.Context()), 20, time.Minute) {
+	if rateLimit(w, "auth.signout", mw.IP(r.Context())) {
 		return
 	}
 	cookie, err := r.Cookie(refreshCookieName)
