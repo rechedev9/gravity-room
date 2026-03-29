@@ -7,6 +7,15 @@ pre-commit:
       run: bun run lint
     format:
       run: bun run format:check
+    go-vet:
+      root: apps/go-api
+      run: go vet ./...
+    go-lint:
+      root: apps/go-api
+      run: golangci-lint run ./...
+    go-build:
+      root: apps/go-api
+      run: go build ./...
 
 pre-push:
   commands:
@@ -14,3 +23,6 @@ pre-push:
       run: bun run test
     build:
       run: VITE_API_URL=http://localhost:3001 bun run build
+    go-test:
+      root: apps/go-api
+      run: go test ./...

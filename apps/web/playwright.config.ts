@@ -24,7 +24,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'bun run build:web && bun run dev:api',
+    command: 'bun run build:web && cd apps/go-api && go run ./cmd/api',
     url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
     cwd: resolve(__dirname, '../..'),

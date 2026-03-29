@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { programCard } from './helpers/seed';
+import { programCard, dismissCookieBannerIfPresent } from './helpers/seed';
 import { createAndAuthUser } from './helpers/api';
 
 // ---------------------------------------------------------------------------
@@ -54,6 +54,10 @@ async function navigateToProgressionStep(page: import('@playwright/test').Page):
 
   // Step 3: Progression — now visible
   await expect(page.getByText('Paso 3 de 3')).toBeVisible();
+
+  // The fixed cookie banner at bottom-0 intercepts clicks on buttons that scroll near
+  // the bottom of the progression step (long GZCLP slot list).
+  await dismissCookieBannerIfPresent(page);
 }
 
 // ---------------------------------------------------------------------------

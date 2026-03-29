@@ -1,0 +1,22 @@
+version: "2"
+
+run:
+  timeout: 2m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - misspell
+    - bodyclose
+  settings:
+    govet:
+      disable:
+        - fieldalignment
+        - shadow
+
+formatters:
+  enable: []

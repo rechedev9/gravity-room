@@ -9,6 +9,7 @@ interface ProfileStatCardProps {
     readonly value: number;
     readonly label: string;
   };
+  readonly compact?: boolean;
 }
 
 const BADGE_STYLES = {
@@ -24,13 +25,24 @@ export function ProfileStatCard({
   badge,
   badgeVariant = 'neutral',
   progress,
+  compact,
 }: ProfileStatCardProps): React.ReactNode {
   return (
     <div
-      className={`py-3 sm:py-4 border-b border-rule${accent ? ' border-l-2 border-l-heading pl-3' : ''}`}
+      className={
+        compact
+          ? `py-2${accent ? ' border-l-2 border-l-heading pl-3' : ''}`
+          : `py-3 sm:py-4 border-b border-rule${accent ? ' border-l-2 border-l-heading pl-3' : ''}`
+      }
     >
       <div className="flex items-baseline gap-2">
-        <p className="font-display-data text-4xl sm:text-5xl text-title leading-none tabular-nums">
+        <p
+          className={
+            compact
+              ? 'font-display-data text-2xl sm:text-3xl text-title leading-none tabular-nums'
+              : 'font-display-data text-4xl sm:text-5xl text-title leading-none tabular-nums'
+          }
+        >
           {value}
         </p>
         {badge && (

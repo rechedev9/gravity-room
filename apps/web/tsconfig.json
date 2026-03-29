@@ -3,7 +3,8 @@
   "compilerOptions": {
     "moduleResolution": "bundler",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@gzclp/shared/*": ["./src/lib/shared/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", "**/*.mts"],

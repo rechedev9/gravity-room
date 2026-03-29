@@ -1,0 +1,24 @@
+version: 1
+project_name: TrackerRSN
+stack:
+  language: typescript+go
+  framework: elysia+react
+  build_tool: bun
+  test_cmd: bun run test
+  lint_cmd: bun run lint
+  format_cmd: bun run format:check
+  manifests:
+    - package.json
+skills_path: ''
+commands:
+  build: bun run build
+  test: bun run test
+  lint: bun run lint
+  format: bun run format:check
+  typecheck: bun run typecheck
+  ci: bun run ci
+capabilities:
+  memory_enabled: false
+models:
+  default: ''
+  phases: {}

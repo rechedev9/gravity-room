@@ -1,8 +1,0 @@
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "lib": ["esnext"]
-  },
-  "include": ["src/**/*.ts", "drizzle.config.ts"],
-  "exclude": ["node_modules"]
-}

@@ -30,7 +30,12 @@ export default defineConfig({
         ]
       : []),
   ],
-  resolve: { alias: { '@': resolve(__dirname, 'src') } },
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, 'src'),
+      '@gzclp/shared': resolve(__dirname, 'src/lib/shared'),
+    },
+  },
   build: {
     // Generate hidden source maps only when uploading to Sentry (SENTRY_AUTH_TOKEN set).
     sourcemap: process.env.SENTRY_AUTH_TOKEN ? 'hidden' : false,

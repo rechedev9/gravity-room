@@ -1,0 +1,906 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Gravity Room API",
+    "description": "REST API for the Gravity Room strength training tracker.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "http://localhost:3001", "description": "Local development" }
+  ],
+  "tags": [
+    { "name": "Auth", "description": "Authentication and user management" },
+    { "name": "Programs", "description": "Program instance CRUD" },
+    { "name": "Results", "description": "Workout result recording and undo" },
+    { "name": "Catalog", "description": "Public program catalog" },
+    { "name": "Exercises", "description": "Exercise and muscle group catalog" },
+    { "name": "Program Definitions", "description": "User-created program definitions" },
+    { "name": "System", "description": "Health, metrics, and diagnostics" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": ["error", "code"],
+        "properties": {
+          "error": { "type": "string" },
+          "code": { "type": "string" }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "required": ["id", "email", "name", "avatarUrl"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string", "nullable": true },
+          "avatarUrl": { "type": "string", "nullable": true }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "required": ["user", "accessToken"],
+        "properties": {
+          "user": { "$ref": "#/components/schemas/UserResponse" },
+          "accessToken": { "type": "string" }
+        }
+      },
+      "RefreshResponse": {
+        "type": "object",
+        "required": ["accessToken"],
+        "properties": {
+          "accessToken": { "type": "string" }
+        }
+      },
+      "ProgramInstanceResponse": {
+        "type": "object",
+        "required": ["id", "programId", "name", "config", "metadata", "status", "results", "undoHistory", "resultTimestamps", "completedDates", "definitionId", "customDefinition", "createdAt", "updatedAt"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "programId": { "type": "string" },
+          "name": { "type": "string" },
+          "config": { "type": "object", "description": "Program configuration (JSONB)" },
+          "metadata": { "description": "Arbitrary metadata (JSONB)", "nullable": true },
+          "status": { "type": "string", "enum": ["active", "completed", "archived"] },
+          "results": { "type": "object", "additionalProperties": true },
+          "undoHistory": { "type": "array", "items": { "type": "object" } },
+          "resultTimestamps": { "type": "object", "additionalProperties": { "type": "string" } },
+          "completedDates": { "type": "object", "additionalProperties": { "type": "string" } },
+          "definitionId": { "type": "string", "nullable": true },
+          "customDefinition": { "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProgramInstanceListItem": {
+        "type": "object",
+        "required": ["id", "programId", "name", "status", "createdAt", "updatedAt"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "programId": { "type": "string" },
+          "name": { "type": "string" },
+          "status": { "type": "string", "enum": ["active", "completed", "archived"] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ProgramListResponse": {
+        "type": "object",
+        "required": ["data", "nextCursor"],
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/ProgramInstanceListItem" } },
+          "nextCursor": { "type": "string", "nullable": true }
+        }
+      },
+      "CatalogEntry": {
+        "type": "object",
+        "required": ["id", "name", "description", "author", "category", "level", "source", "totalWorkouts", "workoutsPerWeek", "cycleLength"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "author": { "type": "string" },
+          "category": { "type": "string" },
+          "level": { "type": "string" },
+          "source": { "type": "string" },
+          "totalWorkouts": { "type": "integer" },
+          "workoutsPerWeek": { "type": "integer" },
+          "cycleLength": { "type": "integer" }
+        }
+      },
+      "ExerciseEntry": {
+        "type": "object",
+        "required": ["id", "name", "muscleGroupId", "equipment", "isCompound", "isPreset", "createdBy", "force", "level", "mechanic", "category", "secondaryMuscles"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "muscleGroupId": { "type": "string" },
+          "equipment": { "type": "string", "nullable": true },
+          "isCompound": { "type": "boolean" },
+          "isPreset": { "type": "boolean" },
+          "createdBy": { "type": "string", "nullable": true },
+          "force": { "type": "string", "nullable": true },
+          "level": { "type": "string", "nullable": true },
+          "mechanic": { "type": "string", "nullable": true },
+          "category": { "type": "string", "nullable": true },
+          "secondaryMuscles": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "ExerciseListResponse": {
+        "type": "object",
+        "required": ["data", "total", "offset", "limit"],
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/ExerciseEntry" } },
+          "total": { "type": "integer" },
+          "offset": { "type": "integer" },
+          "limit": { "type": "integer" }
+        }
+      },
+      "MuscleGroupEntry": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" }
+        }
+      },
+      "ProgramDefinitionResponse": {
+        "type": "object",
+        "required": ["id", "userId", "definition", "status", "createdAt", "updatedAt", "deletedAt"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string", "format": "uuid" },
+          "definition": { "type": "object", "description": "Program definition (JSONB)" },
+          "status": { "type": "string", "enum": ["draft", "pending_review", "approved", "rejected"] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "deletedAt": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "ProgramDefinitionListResponse": {
+        "type": "object",
+        "required": ["data", "total"],
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/ProgramDefinitionResponse" } },
+          "total": { "type": "integer" }
+        }
+      },
+      "UndoResponse": {
+        "type": "object",
+        "required": ["undone"],
+        "properties": {
+          "undone": { "nullable": true, "description": "The undone entry, or null if nothing to undo" }
+        }
+      },
+      "StatsOnlineResponse": {
+        "type": "object",
+        "required": ["count"],
+        "properties": {
+          "count": { "type": "integer", "nullable": true }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": ["status", "timestamp", "uptime", "db", "redis"],
+        "properties": {
+          "status": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "uptime": { "type": "integer", "description": "Seconds since server start" },
+          "db": { "type": "object" },
+          "redis": { "type": "object" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Health check",
+        "description": "Liveness probe — checks DB and Redis connectivity.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service healthy",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HealthResponse" } } }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Prometheus metrics",
+        "description": "Returns Prometheus-formatted metrics. Protected by optional METRICS_TOKEN.",
+        "operationId": "getMetrics",
+        "security": [{ "bearerAuth": [] }, {}],
+        "responses": {
+          "200": { "description": "Prometheus metrics text" },
+          "401": {
+            "description": "Invalid metrics token",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/auth/google": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Google sign-in",
+        "description": "Verify Google ID token and create or return user. Rate: 10/min per IP.",
+        "operationId": "authGoogle",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["credential"],
+                "properties": { "credential": { "type": "string", "description": "Google ID token JWT" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Existing user signed in", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } },
+          "201": { "description": "New user created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } },
+          "400": { "description": "Missing credential", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "401": { "description": "Invalid Google token", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "429": { "description": "Rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/auth/dev": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Dev login",
+        "description": "Create or return test user by email. Development only — returns 404 in production.",
+        "operationId": "authDev",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": { "email": { "type": "string", "format": "email" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "User created/returned", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } },
+          "404": { "description": "Not available in production" }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Refresh access token",
+        "description": "Rotate refresh token (httpOnly cookie) and issue new access token. Rate: 20/min per IP.",
+        "operationId": "authRefresh",
+        "responses": {
+          "200": { "description": "Token refreshed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RefreshResponse" } } } },
+          "401": { "description": "Invalid or expired refresh token", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "429": { "description": "Rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/auth/signout": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Sign out",
+        "description": "Revoke refresh token and clear cookie. Rate: 20/min per IP.",
+        "operationId": "authSignout",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "204": { "description": "Signed out" },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Auth"],
+        "summary": "Get current user",
+        "description": "Return the authenticated user's profile. Rate: 100/min per userId.",
+        "operationId": "getMe",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Current user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "patch": {
+        "tags": ["Auth"],
+        "summary": "Update profile",
+        "description": "Update user name and/or avatar. Rate: 20/min per IP.",
+        "operationId": "updateMe",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100, "nullable": true },
+                  "avatarUrl": { "type": "string", "nullable": true, "description": "Base64 data URL (jpeg/png/webp, max 200KB)" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated user", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserResponse" } } } },
+          "400": { "description": "Invalid avatar", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Auth"],
+        "summary": "Delete account",
+        "description": "Soft-delete user account. Rate: 5/min per IP.",
+        "operationId": "deleteMe",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "204": { "description": "Account deleted" },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/programs": {
+      "get": {
+        "tags": ["Programs"],
+        "summary": "List programs",
+        "description": "List user's program instances with cursor-based pagination. Rate: 100/min per userId.",
+        "operationId": "listPrograms",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "maximum": 100 } },
+          { "name": "cursor", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Program list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramListResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Programs"],
+        "summary": "Create program",
+        "description": "Create a new program instance from a catalog program or definition. Rate: 20/min per userId.",
+        "operationId": "createProgram",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "config"],
+                "properties": {
+                  "programId": { "type": "string", "description": "Catalog program ID (mutually exclusive with definitionId)" },
+                  "definitionId": { "type": "string", "description": "User definition ID (mutually exclusive with programId)" },
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "config": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Program created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramInstanceResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/programs/import": {
+      "post": {
+        "tags": ["Programs"],
+        "summary": "Import program",
+        "description": "Import a previously exported program instance. Rate: 20/min per userId.",
+        "operationId": "importProgram",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object" } } }
+        },
+        "responses": {
+          "201": { "description": "Program imported", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramInstanceResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "description": "Invalid import data", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/programs/{id}": {
+      "get": {
+        "tags": ["Programs"],
+        "summary": "Get program",
+        "description": "Get program instance with all results. Rate: 100/min per userId.",
+        "operationId": "getProgram",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Program detail", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramInstanceResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "patch": {
+        "tags": ["Programs"],
+        "summary": "Update program",
+        "description": "Update program name, status, or config. Rate: 20/min per userId.",
+        "operationId": "updateProgram",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+                  "status": { "type": "string", "enum": ["active", "completed", "archived"] },
+                  "config": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated program", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramInstanceResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Programs"],
+        "summary": "Delete program",
+        "description": "Delete program instance and all results. Rate: 20/min per userId.",
+        "operationId": "deleteProgram",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/programs/{id}/metadata": {
+      "patch": {
+        "tags": ["Programs"],
+        "summary": "Update program metadata",
+        "description": "Replace program metadata (max 10KB). Rate: 20/min per userId.",
+        "operationId": "updateProgramMetadata",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["metadata"],
+                "properties": { "metadata": { "type": "object" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated program", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramInstanceResponse" } } } },
+          "400": { "description": "Metadata too large", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/programs/{id}/export": {
+      "get": {
+        "tags": ["Programs"],
+        "summary": "Export program",
+        "description": "Export program instance as portable JSON. Rate: 20/min per userId.",
+        "operationId": "exportProgram",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Exported program JSON", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/programs/{id}/results": {
+      "post": {
+        "tags": ["Results"],
+        "summary": "Record workout result",
+        "description": "Record a result for a specific workout slot. Rate: 60/min per userId.",
+        "operationId": "recordResult",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["workoutIndex", "slotId", "result"],
+                "properties": {
+                  "workoutIndex": { "type": "integer", "minimum": 0 },
+                  "slotId": { "type": "string" },
+                  "result": { "type": "string" },
+                  "amrapReps": { "type": "integer", "nullable": true },
+                  "rpe": { "type": "integer", "nullable": true },
+                  "setLogs": { "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Result recorded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramInstanceResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Program not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/programs/{id}/results/{workoutIndex}/{slotId}": {
+      "delete": {
+        "tags": ["Results"],
+        "summary": "Delete result",
+        "description": "Delete a specific workout result. Rate: 20/min per userId.",
+        "operationId": "deleteResult",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "workoutIndex", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "slotId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "204": { "description": "Result deleted" },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/programs/{id}/undo": {
+      "post": {
+        "tags": ["Results"],
+        "summary": "Undo last action",
+        "description": "Pop the last undo entry and restore previous state. Rate: 20/min per userId.",
+        "operationId": "undoResult",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Undo applied", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UndoResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Program not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/catalog": {
+      "get": {
+        "tags": ["Catalog"],
+        "summary": "List catalog programs",
+        "description": "List all available program definitions. Public. Cached 5min. Rate: 100/min per IP.",
+        "operationId": "listCatalog",
+        "responses": {
+          "200": {
+            "description": "Program catalog",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/CatalogEntry" } } } }
+          }
+        }
+      }
+    },
+    "/api/catalog/preview": {
+      "post": {
+        "tags": ["Catalog"],
+        "summary": "Preview program definition",
+        "description": "Compute preview workouts from a program definition. Rate: 30/hour per userId.",
+        "operationId": "previewCatalog",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["definition", "config"],
+                "properties": {
+                  "definition": { "type": "object" },
+                  "config": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Preview workouts", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "object" } } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "description": "Invalid definition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/catalog/{programId}": {
+      "get": {
+        "tags": ["Catalog"],
+        "summary": "Get catalog program",
+        "description": "Get a specific program definition from the catalog. Public. Cached 5min. Rate: 100/min per IP.",
+        "operationId": "getCatalogProgram",
+        "parameters": [
+          { "name": "programId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Program definition", "content": { "application/json": { "schema": { "type": "object" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/exercises": {
+      "get": {
+        "tags": ["Exercises"],
+        "summary": "List exercises",
+        "description": "Search and filter exercises with offset pagination. Optional auth includes user's custom exercises. Rate: 100/min per IP.",
+        "operationId": "listExercises",
+        "security": [{ "bearerAuth": [] }, {}],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0, "minimum": 0 } },
+          { "name": "q", "in": "query", "schema": { "type": "string" }, "description": "Search query" },
+          { "name": "muscleGroupId", "in": "query", "schema": { "type": "string" } },
+          { "name": "equipment", "in": "query", "schema": { "type": "string" } },
+          { "name": "force", "in": "query", "schema": { "type": "string" } },
+          { "name": "level", "in": "query", "schema": { "type": "string" } },
+          { "name": "mechanic", "in": "query", "schema": { "type": "string" } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "isCompound", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Exercise list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExerciseListResponse" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Exercises"],
+        "summary": "Create custom exercise",
+        "description": "Create a user-specific custom exercise. Rate: 20/min per userId.",
+        "operationId": "createExercise",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "muscleGroupId"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "muscleGroupId": { "type": "string" },
+                  "equipment": { "type": "string" },
+                  "isCompound": { "type": "boolean", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Exercise created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ExerciseEntry" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Duplicate exercise", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "422": { "description": "Validation error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/muscle-groups": {
+      "get": {
+        "tags": ["Exercises"],
+        "summary": "List muscle groups",
+        "description": "List all muscle groups. Public. Cached 10min. Rate: 100/min per IP.",
+        "operationId": "listMuscleGroups",
+        "responses": {
+          "200": {
+            "description": "Muscle group list",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/MuscleGroupEntry" } } } }
+          }
+        }
+      }
+    },
+    "/api/program-definitions": {
+      "get": {
+        "tags": ["Program Definitions"],
+        "summary": "List definitions",
+        "description": "List user's program definitions with offset pagination. Rate: 100/min per userId.",
+        "operationId": "listDefinitions",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 100 } },
+          { "name": "offset", "in": "query", "schema": { "type": "integer", "default": 0, "minimum": 0 } }
+        ],
+        "responses": {
+          "200": { "description": "Definition list", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramDefinitionListResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Program Definitions"],
+        "summary": "Create definition",
+        "description": "Create a new program definition. Rate: 5/hour per userId. Max 10 per user.",
+        "operationId": "createDefinition",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["definition"],
+                "properties": { "definition": { "type": "object" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Definition created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramDefinitionResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/program-definitions/fork": {
+      "post": {
+        "tags": ["Program Definitions"],
+        "summary": "Fork definition",
+        "description": "Fork an existing definition (catalog or user-owned). Rate: 10/hour per userId.",
+        "operationId": "forkDefinition",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["sourceId", "sourceType"],
+                "properties": {
+                  "sourceId": { "type": "string" },
+                  "sourceType": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Definition forked", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramDefinitionResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "403": { "description": "Forbidden", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Source not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/program-definitions/{id}": {
+      "get": {
+        "tags": ["Program Definitions"],
+        "summary": "Get definition",
+        "description": "Get a specific program definition. Rate: 100/min per userId.",
+        "operationId": "getDefinition",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "200": { "description": "Definition detail", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramDefinitionResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "put": {
+        "tags": ["Program Definitions"],
+        "summary": "Update definition",
+        "description": "Replace definition content. Rate: 20/hour per userId.",
+        "operationId": "updateDefinition",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["definition"],
+                "properties": { "definition": { "type": "object" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated definition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramDefinitionResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "delete": {
+        "tags": ["Program Definitions"],
+        "summary": "Delete definition",
+        "description": "Delete a program definition. Fails if active instances exist. Rate: 20/hour per userId.",
+        "operationId": "deleteDefinition",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "409": { "description": "Active instances exist", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/program-definitions/{id}/status": {
+      "patch": {
+        "tags": ["Program Definitions"],
+        "summary": "Update definition status",
+        "description": "Transition definition status (draft/pending_review/approved/rejected). Admin users have elevated transitions. Rate: 20/hour per userId.",
+        "operationId": "updateDefinitionStatus",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["draft", "pending_review", "approved", "rejected"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Status updated", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProgramDefinitionResponse" } } } },
+          "401": { "description": "Unauthorized", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "403": { "description": "Invalid transition", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "404": { "description": "Not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/stats/online": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Online user count",
+        "description": "Get the number of currently online users. Returns null if Redis unavailable.",
+        "operationId": "getOnlineStats",
+        "responses": {
+          "200": { "description": "Online count", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StatsOnlineResponse" } } } }
+        }
+      }
+    }
+  }
+}
