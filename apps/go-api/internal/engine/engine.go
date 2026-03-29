@@ -25,7 +25,11 @@ func RoundToNearest(value, step float64) float64 {
 		return 0
 	}
 	// Float artifact sanitization (e.g. 67.49999... -> 67.5)
-	return math.Round(rounded*1000) / 1000
+	sanitized := math.Round(rounded*1000) / 1000
+	if math.IsInf(sanitized, 0) || math.IsNaN(sanitized) || sanitized < 0 {
+		return 0
+	}
+	return sanitized
 }
 
 // ConfigToNum extracts a numeric value from a config map by key.
@@ -37,6 +41,9 @@ func ConfigToNum(config map[string]any, key string) float64 {
 	}
 	switch val := v.(type) {
 	case float64:
+		if math.IsNaN(val) || math.IsInf(val, 0) {
+			return 0
+		}
 		return val
 	case string:
 		f, err := strconv.ParseFloat(val, 64)
@@ -132,7 +139,7 @@ func deriveSlotResult(slot ExerciseSlot, slotResult SlotResult, targetReps int) 
 	logs := slotResult.SetLogs
 	if slot.ProgressionSetIndex != nil {
 		idx := *slot.ProgressionSetIndex
-		if idx < len(slotResult.SetLogs) {
+		if idx >= 0 && idx < len(slotResult.SetLogs) {
 			logs = slotResult.SetLogs[idx : idx+1]
 		}
 	}
@@ -159,11 +166,19 @@ func deriveSlotResult(slot ExerciseSlot, slotResult SlotResult, targetReps int) 
 	return slotResult.Result
 }
 
+// clampWeight returns 0 for NaN/Inf/negative, otherwise the value.
+func clampWeight(w float64) float64 {
+	if math.IsNaN(w) || math.IsInf(w, 0) || w < 0 {
+		return 0
+	}
+	return w
+}
+
 // applyRule applies a single progression rule to the slot state.
 func applyRule(rule ProgressionRule, state slotState, increment float64, maxStageIdx int, roundingStep float64) slotState {
 	switch rule.Type {
 	case "add_weight":
-		return slotState{weight: state.weight + increment, stage: state.stage, everChanged: state.everChanged}
+		return slotState{weight: clampWeight(state.weight + increment), stage: state.stage, everChanged: state.everChanged}
 	case "advance_stage":
 		newStage := state.stage + 1
 		if newStage > maxStageIdx {
@@ -175,7 +190,7 @@ func applyRule(rule ProgressionRule, state slotState, increment float64, maxStag
 		if newStage > maxStageIdx {
 			newStage = maxStageIdx
 		}
-		return slotState{weight: state.weight + increment, stage: newStage, everChanged: state.everChanged}
+		return slotState{weight: clampWeight(state.weight + increment), stage: newStage, everChanged: state.everChanged}
 	case "deload_percent":
 		pct := 0.0
 		if rule.Percent != nil {
@@ -203,7 +218,7 @@ func applyRule(rule ProgressionRule, state slotState, increment float64, maxStag
 		return state
 	case "double_progression":
 		// Increase weight (same as add_weight); set-log derivation happens in snapshot.
-		return slotState{weight: state.weight + increment, stage: state.stage, everChanged: state.everChanged}
+		return slotState{weight: clampWeight(state.weight + increment), stage: state.stage, everChanged: state.everChanged}
 	default:
 		return state
 	}
@@ -315,6 +330,10 @@ func applySlotProgression(
 
 // ComputeGenericProgram replays all workouts deterministically from definition + config + results.
 func ComputeGenericProgram(definition ProgramDefinition, config map[string]any, results GenericResults) []GenericWorkoutRow {
+	if len(definition.Days) == 0 || definition.TotalWorkouts <= 0 {
+		return nil
+	}
+
 	const defaultRoundingStep = 2.5
 	roundingStep := ConfigToNum(config, "rounding")
 	if roundingStep == 0 {
@@ -421,6 +440,9 @@ func ComputeGenericProgram(definition ProgramDefinition, config map[string]any, 
 
 			// --- GPP slot (no weight, pass/fail only) ---
 			if slot.IsGpp {
+				if len(slot.Stages) == 0 {
+					continue
+				}
 				gppStage := slot.Stages[0]
 
 				row := GenericSlotRow{
@@ -451,7 +473,14 @@ func ComputeGenericProgram(definition ProgramDefinition, config map[string]any, 
 			}
 
 			// --- Standard stage-based slot ---
-			stageConfig := slot.Stages[state.stage]
+			if len(slot.Stages) == 0 {
+				continue
+			}
+			stageIdx := state.stage
+			if stageIdx >= len(slot.Stages) {
+				stageIdx = len(slot.Stages) - 1
+			}
+			stageConfig := slot.Stages[stageIdx]
 
 			// TM-derived weight or absolute weight
 			weight := state.weight
