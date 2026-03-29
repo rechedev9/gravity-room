@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -182,7 +183,9 @@ func RotateRefreshToken(ctx context.Context, pool *pgxpool.Pool, rawToken string
 			`, hash).Scan(&successorUserID)
 			if reuseErr == nil {
 				// Token reuse detected — revoke all user tokens.
-				_, _ = pool.Exec(ctx, `DELETE FROM refresh_tokens WHERE user_id = $1`, successorUserID)
+				if _, err := pool.Exec(ctx, `DELETE FROM refresh_tokens WHERE user_id = $1`, successorUserID); err != nil {
+					slog.WarnContext(ctx, "revoke tokens on reuse detection failed", "err", err, "userID", successorUserID)
+				}
 			}
 			return "", "", fmt.Errorf("invalid refresh token")
 		}
@@ -191,12 +194,16 @@ func RotateRefreshToken(ctx context.Context, pool *pgxpool.Pool, rawToken string
 
 	// Check expiry.
 	if time.Now().After(row.ExpiresAt) {
-		_, _ = pool.Exec(ctx, `DELETE FROM refresh_tokens WHERE token_hash = $1`, hash)
+		if _, err := pool.Exec(ctx, `DELETE FROM refresh_tokens WHERE token_hash = $1`, hash); err != nil {
+			slog.WarnContext(ctx, "delete expired refresh token failed", "err", err)
+		}
 		return "", "", fmt.Errorf("refresh token expired")
 	}
 
 	// Revoke the old token.
-	_, _ = pool.Exec(ctx, `DELETE FROM refresh_tokens WHERE token_hash = $1`, hash)
+	if _, err := pool.Exec(ctx, `DELETE FROM refresh_tokens WHERE token_hash = $1`, hash); err != nil {
+		slog.WarnContext(ctx, "revoke old refresh token failed", "err", err)
+	}
 
 	// Create new token linked to old one.
 	newRaw, createErr := CreateRefreshToken(ctx, pool, row.UserID, &hash)

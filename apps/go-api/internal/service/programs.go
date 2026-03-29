@@ -29,11 +29,13 @@ func CreateInstance(ctx context.Context, pool *pgxpool.Pool, userID, programID, 
 	}
 
 	// Auto-complete existing active instances for this user.
-	_, _ = pool.Exec(ctx, `
+	if _, err := pool.Exec(ctx, `
 		UPDATE program_instances
 		SET status = 'completed', updated_at = NOW()
 		WHERE user_id = $1 AND status = 'active'
-	`, userID)
+	`, userID); err != nil {
+		return nil, fmt.Errorf("auto-complete existing instances: %w", err)
+	}
 
 	var id string
 	var createdAt, updatedAt time.Time
@@ -78,11 +80,13 @@ func CreateCustomInstance(ctx context.Context, pool *pgxpool.Pool, userID, defin
 		return nil, fmt.Errorf("marshal config: %w", err)
 	}
 
-	_, _ = pool.Exec(ctx, `
+	if _, err := pool.Exec(ctx, `
 		UPDATE program_instances
 		SET status = 'completed', updated_at = NOW()
 		WHERE user_id = $1 AND status = 'active'
-	`, userID)
+	`, userID); err != nil {
+		return nil, fmt.Errorf("auto-complete existing instances: %w", err)
+	}
 
 	var id string
 	var createdAt, updatedAt time.Time

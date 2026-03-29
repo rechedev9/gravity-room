@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -84,7 +85,9 @@ func RecordResult(ctx context.Context, pool *pgxpool.Pool, userID, instanceID st
 	}
 
 	// Touch instance timestamp outside transaction.
-	_, _ = pool.Exec(ctx, `UPDATE program_instances SET updated_at = NOW() WHERE id = $1`, instanceID)
+	if _, err := pool.Exec(ctx, `UPDATE program_instances SET updated_at = NOW() WHERE id = $1`, instanceID); err != nil {
+		slog.WarnContext(ctx, "touch instance timestamp failed", "err", err, "instanceID", instanceID)
+	}
 
 	// Build response entry — optional fields omitted when nil.
 	entry := map[string]any{
@@ -148,23 +151,29 @@ func UndoLast(ctx context.Context, pool *pgxpool.Pool, userID, instanceID string
 	}
 
 	// Delete the consumed undo entry.
-	_, _ = tx.Exec(ctx, `DELETE FROM undo_entries WHERE id = $1`, undoID)
+	if _, err := tx.Exec(ctx, `DELETE FROM undo_entries WHERE id = $1`, undoID); err != nil {
+		return nil, fmt.Errorf("delete consumed undo entry: %w", err)
+	}
 
 	// Restore previous state.
 	if prevResult == nil {
 		// No previous result — delete the current result.
-		_, _ = tx.Exec(ctx, `
+		if _, err := tx.Exec(ctx, `
 			DELETE FROM workout_results
 			WHERE instance_id = $1 AND workout_index = $2 AND slot_id = $3
-		`, instanceID, workoutIndex, slotID)
+		`, instanceID, workoutIndex, slotID); err != nil {
+			return nil, fmt.Errorf("delete result during undo: %w", err)
+		}
 	} else {
 		// Restore previous result.
-		_, _ = tx.Exec(ctx, `
+		if _, err := tx.Exec(ctx, `
 			INSERT INTO workout_results (instance_id, workout_index, slot_id, result, amrap_reps, rpe, set_logs)
 			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			ON CONFLICT (instance_id, workout_index, slot_id) DO UPDATE SET
 				result = $4, amrap_reps = $5, rpe = $6, set_logs = $7, updated_at = NOW()
-		`, instanceID, workoutIndex, slotID, *prevResult, prevAmrapReps, prevRpe, prevSetLogsJSON)
+		`, instanceID, workoutIndex, slotID, *prevResult, prevAmrapReps, prevRpe, prevSetLogsJSON); err != nil {
+			return nil, fmt.Errorf("restore result during undo: %w", err)
+		}
 	}
 
 	// Trim undo stack.
@@ -175,7 +184,9 @@ func UndoLast(ctx context.Context, pool *pgxpool.Pool, userID, instanceID string
 	}
 
 	// Touch instance timestamp outside transaction.
-	_, _ = pool.Exec(ctx, `UPDATE program_instances SET updated_at = NOW() WHERE id = $1`, instanceID)
+	if _, err := pool.Exec(ctx, `UPDATE program_instances SET updated_at = NOW() WHERE id = $1`, instanceID); err != nil {
+		slog.WarnContext(ctx, "touch instance timestamp failed", "err", err, "instanceID", instanceID)
+	}
 
 	// Build response — UndoEntryInnerSchema: {i, slotId, prev?, prevSetLogs?}
 	// Note: NO prevRpe/prevAmrapReps in the undo response (different from undoHistory).
@@ -253,7 +264,9 @@ func DeleteResult(ctx context.Context, pool *pgxpool.Pool, userID, instanceID st
 	}
 
 	// Touch instance timestamp outside transaction.
-	_, _ = pool.Exec(ctx, `UPDATE program_instances SET updated_at = NOW() WHERE id = $1`, instanceID)
+	if _, err := pool.Exec(ctx, `UPDATE program_instances SET updated_at = NOW() WHERE id = $1`, instanceID); err != nil {
+		slog.WarnContext(ctx, "touch instance timestamp failed", "err", err, "instanceID", instanceID)
+	}
 
 	return nil
 }
@@ -271,7 +284,9 @@ func trimUndoStack(ctx context.Context, tx pgx.Tx, instanceID string) {
 	if err != nil {
 		return // Fewer than max entries.
 	}
-	_, _ = tx.Exec(ctx, `DELETE FROM undo_entries WHERE instance_id = $1 AND id <= $2`, instanceID, overflowID)
+	if _, err := tx.Exec(ctx, `DELETE FROM undo_entries WHERE instance_id = $1 AND id <= $2`, instanceID, overflowID); err != nil {
+		slog.WarnContext(ctx, "trim undo stack failed", "err", err, "instanceID", instanceID)
+	}
 }
 
 func nilIfNotFound(err error, v *string) *string {
