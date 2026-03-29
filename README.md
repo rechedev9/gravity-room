@@ -425,9 +425,7 @@ Panics and 5xx errors are captured to Sentry via `sentry-go`. Set `SENTRY_DSN` t
 # Install frontend dependencies
 bun install
 
-# Configure environment
-cp apps/api/.env.example apps/api/.env
-# Edit apps/api/.env with DATABASE_URL, JWT_SECRET, GOOGLE_CLIENT_ID, etc.
+# Configure environment (copy .env.example and set DATABASE_URL, JWT_SECRET, etc.)
 
 # Start the Go API (auto-runs migrations and seeds on startup)
 cd apps/go-api && go run ./cmd/api
@@ -551,6 +549,5 @@ Production code enforces: no `any`, no type assertions, no `console.log` (only `
 
 - **Go unit tests:** `go test ./...` in `apps/go-api/`.
 - **TS unit/integration:** `bun:test` with `describe`/`it`. Tests live alongside source (`feature.test.ts`).
-- **Contract tests:** `scripts/harness-go` — API-agnostic Zod-validated tests in `apps/harness/`, works against both Go and TS implementations.
 - **E2E:** Playwright (Chromium only). Tests in `apps/web/e2e/*.spec.ts`. The test server builds the SPA and runs the Go API — testing the production bundle against a real API.
 - **Load tests:** `k6 run scripts/loadtest.js` — smoke, load, and stress scenarios against the Go API.

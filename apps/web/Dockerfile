@@ -2,8 +2,6 @@ FROM oven/bun:latest AS build
 WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/web/package.json ./apps/web/
-COPY apps/api/package.json ./apps/api/
-COPY packages/shared/package.json ./packages/shared/
 RUN bun install
 ARG COMMIT_SHA
 COPY . .

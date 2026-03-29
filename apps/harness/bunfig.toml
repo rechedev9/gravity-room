@@ -1,2 +1,0 @@
-# No preload — the scripts/harness runner handles server lifecycle and health-check.
-# To run harness tests: bun run test:harness (from repo root)
