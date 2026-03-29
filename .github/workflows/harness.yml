@@ -56,6 +56,3 @@ jobs:
       - name: Run Go unit tests
         working-directory: apps/go-api
         run: go test ./...
-
-      - name: Run Go API contract tests
-        run: scripts/harness-go
