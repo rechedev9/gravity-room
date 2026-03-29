@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/reche/gravity-room/apps/go-api/internal/model"
@@ -26,6 +25,5 @@ func (h *StatsHandler) HandleOnline(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	resp := model.StatsOnlineResponse{Count: count}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }

@@ -48,9 +48,7 @@ func (h *DefinitionHandler) HandleCreate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 201, resp)
 }
 
 // HandleList handles GET /api/program-definitions.
@@ -82,8 +80,7 @@ func (h *DefinitionHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }
 
 // HandleGet handles GET /api/program-definitions/{id}.
@@ -100,8 +97,7 @@ func (h *DefinitionHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }
 
 // HandleUpdate handles PUT /api/program-definitions/{id}.
@@ -126,8 +122,7 @@ func (h *DefinitionHandler) HandleUpdate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }
 
 // HandleDelete handles DELETE /api/program-definitions/{id}.
@@ -195,8 +190,7 @@ func (h *DefinitionHandler) HandleStatusUpdate(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }
 
 // HandleFork handles POST /api/program-definitions/fork.
@@ -232,7 +226,5 @@ func (h *DefinitionHandler) HandleFork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 201, resp)
 }

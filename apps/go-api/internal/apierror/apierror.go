@@ -3,6 +3,7 @@ package apierror
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 )
 
@@ -39,17 +40,21 @@ func (e *ApiError) Write(w http.ResponseWriter) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(e.StatusCode)
-	_ = json.NewEncoder(w).Encode(e)
+	if err := json.NewEncoder(w).Encode(e); err != nil {
+		slog.Warn("apierror json encode failed", "err", err)
+	}
 }
 
 // WriteJSON is a convenience for sending arbitrary JSON error responses.
 func WriteJSON(w http.ResponseWriter, status int, message, code string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"error": message,
 		"code":  code,
-	})
+	}); err != nil {
+		slog.Warn("apierror json encode failed", "err", err)
+	}
 }
 
 // Domain error codes — mirrors the TS ApiErrorCode constants from error-handler.ts

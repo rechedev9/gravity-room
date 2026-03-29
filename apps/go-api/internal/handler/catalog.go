@@ -33,8 +33,7 @@ func (h *CatalogHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Cache-Control", "public, max-age=300, stale-while-revalidate=60")
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(entries)
+	respondJSON(w, r, 0, entries)
 }
 
 // HandlePreview handles POST /api/catalog/preview.
@@ -68,8 +67,7 @@ func (h *CatalogHandler) HandlePreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(rows)
+	respondJSON(w, r, 0, rows)
 }
 
 // HandleGetDefinition handles GET /api/catalog/{programId}.
@@ -86,6 +84,5 @@ func (h *CatalogHandler) HandleGetDefinition(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Cache-Control", "public, max-age=300")
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(def)
+	respondJSON(w, r, 0, def)
 }

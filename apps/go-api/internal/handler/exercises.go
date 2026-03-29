@@ -65,8 +65,7 @@ func (h *ExerciseHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 	if userID == "" {
 		w.Header().Set("Cache-Control", "public, max-age=300")
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }
 
 // HandleCreate handles POST /api/exercises.
@@ -114,9 +113,7 @@ func (h *ExerciseHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	_ = json.NewEncoder(w).Encode(entry)
+	respondJSON(w, r, 201, entry)
 }
 
 // HandleMuscleGroups handles GET /api/muscle-groups.
@@ -133,8 +130,7 @@ func (h *ExerciseHandler) HandleMuscleGroups(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Cache-Control", "public, max-age=600")
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(groups)
+	respondJSON(w, r, 0, groups)
 }
 
 func queryInt(q interface{ Get(string) string }, key string, fallback int) int {

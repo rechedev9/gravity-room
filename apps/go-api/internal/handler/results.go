@@ -58,9 +58,7 @@ func (h *ResultHandler) HandleRecord(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	_ = json.NewEncoder(w).Encode(entry)
+	respondJSON(w, r, 201, entry)
 }
 
 // HandleDeleteResult handles DELETE /api/programs/{id}/results/{workoutIndex}/{slotId}.
@@ -117,6 +115,5 @@ func (h *ResultHandler) HandleUndo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := model.UndoResponse{Undone: undone}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }

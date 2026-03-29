@@ -72,9 +72,7 @@ func (h *ProgramHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 201, resp)
 }
 
 // HandleList handles GET /api/programs.
@@ -107,8 +105,7 @@ func (h *ProgramHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }
 
 // HandleGet handles GET /api/programs/{id}.
@@ -129,8 +126,7 @@ func (h *ProgramHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }
 
 // HandleUpdate handles PATCH /api/programs/{id}.
@@ -186,8 +182,7 @@ func (h *ProgramHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }
 
 // HandleDelete handles DELETE /api/programs/{id}.
@@ -247,8 +242,7 @@ func (h *ProgramHandler) HandleUpdateMetadata(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }
 
 // HandleExport handles GET /api/programs/{id}/export.
@@ -269,8 +263,7 @@ func (h *ProgramHandler) HandleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(exported)
+	respondJSON(w, r, 0, exported)
 }
 
 // HandleImport handles POST /api/programs/import.
@@ -317,7 +310,5 @@ func (h *ProgramHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 201, resp)
 }

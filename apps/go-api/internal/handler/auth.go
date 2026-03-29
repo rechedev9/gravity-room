@@ -100,9 +100,7 @@ func (h *AuthHandler) HandleDevLogin(w http.ResponseWriter, r *http.Request) {
 		AccessToken: accessToken,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 201, resp)
 }
 
 // HandleGoogleLogin handles POST /api/auth/google.
@@ -167,8 +165,7 @@ func (h *AuthHandler) HandleGoogleLogin(w http.ResponseWriter, r *http.Request) 
 	}
 
 	resp := model.AuthResponse{User: result.User, AccessToken: accessToken}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }
 
 // HandleDeleteAccount handles DELETE /api/auth/me — soft-delete user account.
@@ -273,8 +270,7 @@ func (h *AuthHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(user)
+	respondJSON(w, r, 0, user)
 }
 
 // HandleMe handles GET /api/auth/me — returns the current user.
@@ -294,8 +290,7 @@ func (h *AuthHandler) HandleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(user)
+	respondJSON(w, r, 0, user)
 }
 
 // HandleRefresh handles POST /api/auth/refresh — rotates refresh token.
@@ -337,8 +332,7 @@ func (h *AuthHandler) HandleRefresh(w http.ResponseWriter, r *http.Request) {
 	h.setRefreshCookie(w, newRawToken)
 
 	resp := model.RefreshResponse{AccessToken: accessToken}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	respondJSON(w, r, 0, resp)
 }
 
 // HandleSignout handles POST /api/auth/signout — revokes refresh token.
