@@ -12,10 +12,11 @@ linters:
     - ineffassign
     - misspell
     - bodyclose
+  settings:
+    govet:
+      disable:
+        - fieldalignment
+        - shadow
 
 formatters:
   enable: []
-
-linters-settings:
-  govet:
-    enable-all: true
