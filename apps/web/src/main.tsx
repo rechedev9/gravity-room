@@ -19,7 +19,7 @@ const CookiePolicyPage = lazyWithRetry(() =>
   import('@/components/cookie-policy-page').then((m) => ({ default: m.CookiePolicyPage }))
 );
 const LandingPage = lazyWithRetry(() =>
-  import('@/components/landing-page').then((m) => ({ default: m.LandingPage }))
+  import('@/components/landing').then((m) => ({ default: m.LandingPage }))
 );
 const ProgramPreviewPage = lazyWithRetry(() =>
   import('@/components/program-preview-page').then((m) => ({ default: m.ProgramPreviewPage }))
