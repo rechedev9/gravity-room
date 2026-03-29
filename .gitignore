@@ -69,6 +69,7 @@ scripts/*
 !scripts/committer
 !scripts/harness
 !scripts/harness-go
+!scripts/loadtest.js
 issues.MD
 roadmap.MD
 packages/shared/src/antirez.blackbox.stress.test.ts

@@ -21,6 +21,7 @@ import (
 	"github.com/reche/gravity-room/apps/go-api/internal/ratelimit"
 	"github.com/reche/gravity-room/apps/go-api/internal/redis"
 	"github.com/reche/gravity-room/apps/go-api/internal/service"
+	"github.com/reche/gravity-room/apps/go-api/internal/swagger"
 )
 
 // CSP value — verbatim from http-contract.md §3 / bootstrap.ts:48-49.
@@ -147,6 +148,11 @@ func New(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, redisClient *
 	// System endpoints — outside /api prefix.
 	r.Get("/health", s.handleHealth)
 	r.Get("/metrics", s.handleMetrics)
+
+	// Swagger UI — dev only, disabled in production (matches TS contract §1).
+	if !cfg.IsProd() {
+		swagger.Mount(r)
+	}
 
 	// Auth handler.
 	auth := &handler.AuthHandler{

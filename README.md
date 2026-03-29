@@ -6,7 +6,7 @@
 
 # Gravity Room
 
-A strength training tracker for any program. Define your progression rules declaratively — the engine handles the rest. Built as a Bun monorepo with a Vite + React 19 SPA frontend and an ElysiaJS API backend.
+A strength training tracker for any program. Define your progression rules declaratively — the engine handles the rest. Built as a monorepo with a Vite + React 19 SPA frontend and a Go (chi) API backend, deployed via Docker on a VPS behind Caddy.
 
 For rationale on every framework and tool choice, see [docs/tech-stack.md](docs/tech-stack.md).
 
@@ -32,17 +32,17 @@ For rationale on every framework and tool choice, see [docs/tech-stack.md](docs/
 
 | Layer      | Technology                                                            |
 | ---------- | --------------------------------------------------------------------- |
-| Runtime    | Bun (package manager, test runner, script runner, API runtime)        |
+| Runtime    | Go 1.26 (API), Bun (package manager, test runner, frontend tooling)   |
 | Frontend   | React 19, Vite, react-router-dom v7, Tailwind CSS 4, TanStack Query 5 |
-| Backend    | ElysiaJS 1.4, PostgreSQL, Drizzle ORM, Redis (optional)               |
+| Backend    | Go + chi/v5, pgx (PostgreSQL), go-redis (optional)                    |
 | Shared     | Pure computation package (`@gzclp/shared`) — no DOM deps              |
-| Validation | Zod v4 (schemas shared between web and API)                           |
+| Validation | Zod v4 (frontend schemas), Go struct validation (API)                 |
 | Auth       | JWT (access + refresh token rotation), Google OAuth                   |
-| Logging    | Pino (structured JSON)                                                |
-| Metrics    | prom-client (Prometheus-compatible)                                   |
+| Logging    | slog (structured JSON)                                                |
+| Metrics    | prometheus/client_golang (Prometheus-compatible)                      |
 | E2E        | Playwright (Chromium)                                                 |
 | Hooks      | Lefthook (parallel pre-commit / pre-push)                             |
-| Deploy     | Railway (single service, Nixpacks)                                    |
+| Deploy     | Docker Compose on VPS, Caddy reverse proxy                            |
 
 ## Monorepo structure
 
@@ -57,15 +57,22 @@ gravity-room/
 │   │   │   ├── lib/          ← API client, auth, guest storage, migrations
 │   │   │   └── styles/       ← Tailwind globals
 │   │   └── e2e/              ← Playwright specs
-│   └── api/                  ← ElysiaJS backend
-│       ├── src/
-│       │   ├── db/           ← Drizzle schema, seed, connection
-│       │   ├── lib/          ← Logger, Redis, metrics, Google auth
-│       │   ├── middleware/   ← Error handler, auth guard, rate limit, request logger
-│       │   ├── plugins/      ← Swagger, metrics plugin
-│       │   ├── routes/       ← Auth, programs, results, catalog
-│       │   └── services/     ← Business logic (auth, programs, results)
-│       └── drizzle/          ← SQL migration files
+│   ├── go-api/               ← Go API backend (production)
+│   │   ├── cmd/api/          ← Entrypoint (main.go)
+│   │   ├── internal/
+│   │   │   ├── config/       ← Environment-driven configuration
+│   │   │   ├── db/           ← Connection pool, probes
+│   │   │   ├── handler/      ← HTTP handlers (auth, programs, results, catalog, exercises, definitions)
+│   │   │   ├── middleware/    ← CORS, auth, rate limit, recovery, security headers, request ID
+│   │   │   ├── migrate/      ← Goose v3 migrations (33 SQL files, embed.FS)
+│   │   │   ├── model/        ← Request/response types
+│   │   │   ├── seed/         ← Reference data seeds (muscle groups, exercises, programs)
+│   │   │   ├── server/       ← HTTP server, router, health check
+│   │   │   ├── service/      ← Business logic (auth, programs, results)
+│   │   │   └── swagger/      ← OpenAPI spec + Swagger UI (dev-only)
+│   │   └── go.mod
+│   ├── api/                  ← ElysiaJS backend (legacy, dev reference only)
+│   └── harness/              ← Contract tests (API-agnostic, validates both Go and TS)
 ├── packages/
 │   └── shared/               ← Pure computation (engine, stats, schemas)
 │       └── src/
@@ -74,44 +81,56 @@ gravity-room/
 │           ├── schemas/              ← Zod v4 schemas (legacy, instance, program-definition)
 │           ├── programs/             ← Program definitions (GZCLP, Nivel 7) + registry
 │           └── types/                ← TypeScript types inferred from Zod
+├── scripts/
+│   ├── committer             ← Safe commit helper (Conventional Commits)
+│   ├── harness-go            ← Go API contract test runner
+│   ├── rollback.sh           ← VPS rollback with migration boundary checks
+│   ├── deploy-log.sh         ← Deploy history management
+│   └── loadtest.js           ← k6 load test (smoke/load/stress)
 ├── docs/
 │   └── tech-stack.md         ← Framework justifications
-├── railway.toml              ← Railway deployment config
+├── Dockerfile.api            ← Multi-stage build (web SPA + Go binary)
+├── docker-compose.yml        ← Production container orchestration
+├── Caddyfile.production      ← Reverse proxy config
 ├── lefthook.yml              ← Git hook definitions
 └── tsconfig.base.json        ← Shared TypeScript compiler options
 ```
 
 ## Architecture overview
 
-The entire application deploys as a **single Railway service**. The ElysiaJS API serves both the API routes and the pre-built SPA static files from the same process.
+Two Docker containers behind a Caddy reverse proxy on a VPS. The Go API serves both REST endpoints and the pre-built SPA static files.
 
 ```
 Browser (SPA)
   │
-  └── HTTPS ──► Railway (single service, port 3001)
+  └── HTTPS ──► Caddy (reverse proxy)
                   │
-                  ├── Static files: apps/web/dist/*  (Vite SPA bundle)
-                  ├── SPA fallback: /*  →  index.html
+                  ├── /api/*  ──────► Go API container (port 3001)
+                  ├── /health ──────►   ├── chi/v5 router
+                  ├── /metrics ─────►   ├── pgx connection pool → PostgreSQL
+                  ├── /swagger/* ───►   ├── go-redis → Redis (optional)
+                  │                     ├── 33 goose migrations (embed.FS)
+                  │                     ├── SPA fallback: /* → index.html
+                  │                     └── Graceful shutdown (10s drain)
                   │
-                  ├── /auth/*          Auth routes (Google OAuth, JWT)
-                  ├── /programs/*      Program CRUD, import/export
-                  ├── /results/*       Workout result recording
-                  ├── /catalog/*       Public program catalog
-                  ├── /health          Liveness probe (DB + Redis)
-                  └── /metrics         Prometheus metrics
-                        │
-                        ├── PostgreSQL (Drizzle ORM, postgres.js driver)
-                        │     └── 5 tables: users, refresh_tokens,
-                        │        program_instances, workout_results, undo_entries
-                        │
-                        └── Redis (optional — rate limiting backend)
+                  └── /* ───────────► Web container (Nginx, port 80)
+                                        └── Vite SPA bundle (apps/web/dist)
+```
+
+```
+                  PostgreSQL
+                    └── 5 tables: users, refresh_tokens,
+                       program_instances, workout_results, undo_entries
+
+                  Redis (optional)
+                    └── Rate limiting, presence tracking, caching
 ```
 
 **Key architectural decisions:**
 
-- **Single-process deployment** — the API serves the SPA via `@elysiajs/static`. No separate static host or CDN. One service, one port, one health check.
-- **Auto-migrations on startup** — Drizzle runs pending migrations before accepting traffic. Zero-touch schema updates on deploy.
-- **Shared computation package** — the progression engine is pure TypeScript with no DOM dependencies. Both the frontend and API import `@gzclp/shared/*` to compute workout state deterministically.
+- **Single Go binary** — the API is compiled to a static binary with `CGO_ENABLED=0`. Migrations and seeds are embedded via `embed.FS`. No runtime dependencies.
+- **Auto-migrations on startup** — Goose v3 runs pending migrations before accepting traffic. Zero-touch schema updates on deploy.
+- **Shared computation package** — the progression engine is pure TypeScript with no DOM dependencies. The frontend imports `@gzclp/shared/*` to compute workout state deterministically.
 
 ## Program system
 
@@ -355,28 +374,28 @@ The app is installable as a Progressive Web App. A service worker is registered 
 
 ## Observability
 
-### Structured logging (Pino)
+### Structured logging (slog)
 
-All API logs are structured JSON with per-request context:
+All API logs are structured JSON via Go's `log/slog`:
 
 - Each request gets a child logger with `reqId`, `method`, `url`, and `ip`
 - The `x-request-id` header is propagated (or generated as a UUID)
 - `authorization` and `cookie` headers are **redacted** in all log output
-- Development uses `pino-pretty` for human-readable output
-
-**Named log events:** `auth.google`, `auth.refresh`, `auth.signout`, `auth.token_reuse_detected`, `program.create`, `program.update`, `program.delete`, `program.import`, `result.record`, `result.delete`, `result.undo`
 
 ### Prometheus metrics (`GET /metrics`)
 
-| Metric                          | Type      | Labels                        |
-| ------------------------------- | --------- | ----------------------------- |
-| `http_request_duration_seconds` | Histogram | method, route, status_code    |
-| `http_requests_total`           | Counter   | method, route, status_code    |
-| `http_errors_total`             | Counter   | status_class, error_code      |
-| `rate_limit_hits_total`         | Counter   | endpoint                      |
-| Default process metrics         | Various   | (memory, CPU, event loop lag) |
+| Metric                          | Type      | Labels                     |
+| ------------------------------- | --------- | -------------------------- |
+| `http_request_duration_seconds` | Histogram | method, route, status_code |
+| `http_requests_total`           | Counter   | method, route, status_code |
+| `http_errors_total`             | Counter   | status_class, error_code   |
+| `rate_limit_hits_total`         | Counter   | endpoint                   |
 
 Route labels normalize dynamic segments (`/programs/abc-123` → `/programs/:id`) to prevent high-cardinality label explosion.
+
+### Error tracking (Sentry)
+
+Panics and 5xx errors are captured to Sentry via `sentry-go`. Set `SENTRY_DSN` to enable.
 
 ## Security
 
@@ -387,59 +406,62 @@ Route labels normalize dynamic segments (`/programs/abc-123` → `/programs/:id`
 | Refresh token storage | SHA-256 hashed in the database, never stored in plaintext.                                                |
 | Rate limiting         | Sliding window per endpoint per IP. Dual backend: in-memory (default) or Redis (when `REDIS_URL` is set). |
 | Security headers      | CSP, X-Frame-Options (DENY), X-Content-Type-Options, Referrer-Policy, HSTS (production).                  |
-| Input validation      | Zod schemas at API boundaries. ElysiaJS schema inference for request bodies.                              |
-| SQL injection         | Drizzle ORM with parameterized queries by default.                                                        |
+| Input validation      | Manual validation in Go handlers. Zod schemas on the frontend.                                            |
+| SQL injection         | pgx with parameterized queries. No string interpolation in SQL.                                           |
 | CORS                  | Explicit origin allowlist via `CORS_ORIGIN`. Required in production.                                      |
 
 ## Getting started
 
 ### Prerequisites
 
-- [Bun](https://bun.sh/) (latest)
+- [Go](https://go.dev/) 1.26+
+- [Bun](https://bun.sh/) (latest) — for frontend tooling and contract tests
 - PostgreSQL (local or managed)
-- Redis (optional — only needed for distributed rate limiting)
+- Redis (optional — only needed for distributed rate limiting and presence)
 
 ### Setup
 
 ```bash
-# Install dependencies
+# Install frontend dependencies
 bun install
 
 # Configure environment
 cp apps/api/.env.example apps/api/.env
-# Edit apps/api/.env with your PostgreSQL URL, JWT secrets, etc.
+# Edit apps/api/.env with DATABASE_URL, JWT_SECRET, GOOGLE_CLIENT_ID, etc.
 
-# Run database migrations
-bun run db:migrate
+# Start the Go API (auto-runs migrations and seeds on startup)
+cd apps/go-api && go run ./cmd/api
 
-# Start development servers
-bun run dev
+# In another terminal, start the web dev server
+bun run dev:web
 ```
 
 The web app runs on `http://localhost:5173` and the API on `http://localhost:3001`.
+Swagger UI is available at `http://localhost:3001/swagger` (dev only).
 
 ## Commands
 
-| Task           | Command                                       |
-| -------------- | --------------------------------------------- |
-| Dev (all)      | `bun run dev`                                 |
-| Dev (web only) | `bun run dev:web`                             |
-| Dev (API only) | `bun run dev:api`                             |
-| Build          | `bun run build`                               |
-| Type check     | `bun run typecheck`                           |
-| Lint           | `bun run lint`                                |
-| Format check   | `bun run format:check`                        |
-| Format fix     | `bun run prettier --write <path>`             |
-| Tests (unit)   | `bun run test`                                |
-| Contract tests | `bun run test:harness`                        |
-| Single test    | `bun test packages/shared/src/engine.test.ts` |
-| E2E tests      | `bun run e2e`                                 |
-| E2E (headed)   | `bun run e2e:headed`                          |
-| E2E (UI mode)  | `bun run e2e:ui`                              |
-| DB generate    | `bun run db:generate`                         |
-| DB migrate     | `bun run db:migrate`                          |
-| DB studio      | `bun run db:studio`                           |
-| Local CI       | `bun run ci`                                  |
+| Task              | Command                                           |
+| ----------------- | ------------------------------------------------- |
+| Dev (web)         | `bun run dev:web`                                 |
+| Dev (Go API)      | `cd apps/go-api && go run ./cmd/api`              |
+| Build (Go API)    | `cd apps/go-api && go build -o bin/api ./cmd/api` |
+| Build (web)       | `bun run build:web`                               |
+| Type check        | `bun run typecheck`                               |
+| Lint (TS)         | `bun run lint`                                    |
+| Lint (Go)         | `cd apps/go-api && go vet ./...`                  |
+| Format check      | `bun run format:check`                            |
+| Tests (TS unit)   | `bun run test`                                    |
+| Tests (Go unit)   | `cd apps/go-api && go test ./...`                 |
+| Contract tests    | `scripts/harness-go`                              |
+| E2E tests         | `bun run e2e`                                     |
+| E2E (headed)      | `bun run e2e:headed`                              |
+| Load test         | `k6 run scripts/loadtest.js`                      |
+| Load test (smoke) | `k6 run scripts/loadtest.js --env SCENARIO=smoke` |
+| Docker build      | `docker compose build`                            |
+| Docker up         | `docker compose up -d`                            |
+| Deploy history    | `scripts/deploy-log.sh list`                      |
+| Rollback          | `scripts/rollback.sh [--force] <sha>`             |
 
 ## Environment variables
 
@@ -450,56 +472,63 @@ The web app runs on `http://localhost:5173` and the API on `http://localhost:300
 | `VITE_API_URL`          | Production | API URL, baked into bundle at build time. Defaults to `http://localhost:3001` in dev. |
 | `VITE_GOOGLE_CLIENT_ID` | Always     | Google OAuth client ID for sign-in                                                    |
 
-### API (`apps/api/`)
+### API (`apps/go-api/`)
 
-| Variable             | Required   | Description                                     |
-| -------------------- | ---------- | ----------------------------------------------- |
-| `DATABASE_URL`       | Always     | PostgreSQL connection string                    |
-| `JWT_ACCESS_SECRET`  | Always     | Signing key for access tokens                   |
-| `JWT_REFRESH_SECRET` | Always     | Signing key for refresh tokens                  |
-| `CORS_ORIGIN`        | Production | Allowed origins (comma-separated)               |
-| `GOOGLE_CLIENT_ID`   | Always     | Google OAuth client ID (server-side validation) |
-| `PORT`               | No         | Server port (default: 3001)                     |
-| `NODE_ENV`           | No         | `production` enables SSL, HSTS, stricter CORS   |
-| `REDIS_URL`          | No         | Redis URL for distributed rate limiting         |
-| `METRICS_TOKEN`      | Production | Bearer token to protect `/metrics` endpoint     |
-| `TRUSTED_PROXY`      | No         | Set to `true` to trust `X-Forwarded-For`        |
-| `LOG_LEVEL`          | No         | Pino log level (default: `info`)                |
-| `JWT_ACCESS_EXPIRY`  | No         | Access token TTL (default: `15m`)               |
-| `JWT_REFRESH_DAYS`   | No         | Refresh token TTL in days (default: `7`)        |
+| Variable             | Required   | Description                                            |
+| -------------------- | ---------- | ------------------------------------------------------ |
+| `DATABASE_URL`       | Always     | PostgreSQL connection string                           |
+| `JWT_SECRET`         | Always     | HS256 signing key (64+ chars in production)            |
+| `CORS_ORIGIN`        | Production | Allowed origins (comma-separated)                      |
+| `GOOGLE_CLIENT_ID`   | Always     | Google OAuth client ID (server-side validation)        |
+| `PORT`               | No         | Server port (default: 3001)                            |
+| `NODE_ENV`           | No         | `production` enables SSL, HSTS, stricter CORS          |
+| `REDIS_URL`          | No         | Redis URL for rate limiting, presence, caching         |
+| `SENTRY_DSN`         | No         | Sentry error tracking DSN                              |
+| `METRICS_TOKEN`      | Production | Bearer token to protect `/metrics` endpoint            |
+| `TRUSTED_PROXY`      | No         | Set to `true` to trust `X-Forwarded-For`               |
+| `LOG_LEVEL`          | No         | slog level (default: `info`)                           |
+| `JWT_ACCESS_EXPIRY`  | No         | Access token TTL (default: `15m`)                      |
+| `DB_POOL_SIZE`       | No         | PostgreSQL connection pool size (default: 50)          |
+| `DB_SSL`             | No         | Force SSL for DB (default: true in prod, false in dev) |
+| `ADMIN_USER_IDS`     | No         | Comma-separated UUIDs for admin access                 |
+| `TELEGRAM_BOT_TOKEN` | No         | Telegram bot token for new-user notifications          |
+| `TELEGRAM_CHAT_ID`   | No         | Telegram chat ID for notifications                     |
 
 ## Deployment
 
-### Railway (production)
+### Docker Compose (production)
 
-The project deploys as a **single Railway service** via Nixpacks:
+The project deploys as two Docker containers on a VPS behind Caddy:
 
-```toml
-# railway.toml
-[build]
-builder = "nixpacks"
-buildCommand = "bun install --frozen-lockfile && bun run build:web"
-
-[deploy]
-startCommand = "bun --cwd apps/api src/index.ts"
-healthcheckPath = "/health"
-healthcheckTimeout = 30
-restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
+```yaml
+# docker-compose.yml
+services:
+  api: # Go binary + embedded web SPA, port 3001
+  web: # Nginx serving SPA, port 80
 ```
 
-**Build:** Nixpacks installs dependencies and builds the Vite SPA to `apps/web/dist/`.
+**Build:** Multi-stage `Dockerfile.api` — Stage 1 builds the Vite SPA with Bun, Stage 2 compiles the Go binary (`CGO_ENABLED=0`), Stage 3 produces an Alpine image with both.
 
-**Runtime:** Bun runs the API directly (no transpilation). The API serves the built SPA from `../web/dist` via `@elysiajs/static`, and runs database migrations before accepting traffic.
+**Runtime:** The Go binary auto-runs goose migrations and seeds on startup, then listens on port 3001. Caddy routes `/api/*`, `/health`, `/metrics`, and `/swagger/*` to the API; everything else to the web container.
 
 ### CI/CD (GitHub Actions)
 
-Two-job pipeline on every push to `main`:
+Three-stage pipeline on every push to `main`:
 
-1. **validate** — install, typecheck, lint, format check, test, build
-2. **deploy** (on push only, after validate passes) — deploy to Railway via `railway up`
+1. **go-harness** — contract tests against Go API (PostgreSQL service container)
+2. **e2e-go** — Playwright E2E tests against Go API
+3. **deploy** (after both pass) — SSH into VPS, pull, build, `docker compose up -d`, health checks, Telegram notification
 
-Concurrency group cancels in-progress runs on new pushes.
+### Rollback
+
+```bash
+scripts/rollback.sh                  # roll back to previous deploy
+scripts/rollback.sh <sha>            # roll back to specific commit
+scripts/rollback.sh --force <sha>    # skip confirmation prompts
+scripts/rollback.sh --list           # show deploy history
+```
+
+The rollback script checks migration boundaries, rebuilds containers, runs health checks, and records the rollback in `.deploy.log`.
 
 ## Quality gates
 
@@ -520,5 +549,8 @@ Production code enforces: no `any`, no type assertions, no `console.log` (only `
 
 ### Testing
 
-- **Unit/integration:** `bun:test` with `describe`/`it`. Tests live alongside source (`feature.test.ts`).
-- **E2E:** Playwright (Chromium only). Tests in `apps/web/e2e/*.spec.ts`. The test server builds the SPA and runs the API — testing the production bundle against a real API.
+- **Go unit tests:** `go test ./...` in `apps/go-api/`.
+- **TS unit/integration:** `bun:test` with `describe`/`it`. Tests live alongside source (`feature.test.ts`).
+- **Contract tests:** `scripts/harness-go` — API-agnostic Zod-validated tests in `apps/harness/`, works against both Go and TS implementations.
+- **E2E:** Playwright (Chromium only). Tests in `apps/web/e2e/*.spec.ts`. The test server builds the SPA and runs the Go API — testing the production bundle against a real API.
+- **Load tests:** `k6 run scripts/loadtest.js` — smoke, load, and stress scenarios against the Go API.
