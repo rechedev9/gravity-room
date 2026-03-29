@@ -30,7 +30,7 @@ jobs:
       - name: Go lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v2
           working-directory: apps/go-api
 
       - name: Go test
