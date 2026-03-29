@@ -48,4 +48,5 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
+        # Build-only validation — runtime tests happen in the integration job
         run: docker build -f Dockerfile.api --build-arg VITE_API_URL=http://localhost:3001 -t gravity-room-api:test .

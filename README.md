@@ -35,7 +35,6 @@ For rationale on every framework and tool choice, see [docs/tech-stack.md](docs/
 | Runtime    | Go 1.26 (API), Bun (package manager, test runner, frontend tooling)   |
 | Frontend   | React 19, Vite, react-router-dom v7, Tailwind CSS 4, TanStack Query 5 |
 | Backend    | Go + chi/v5, pgx (PostgreSQL), go-redis (optional)                    |
-| Shared     | Pure computation package (`@gzclp/shared`) — no DOM deps              |
 | Validation | Zod v4 (frontend schemas), Go struct validation (API)                 |
 | Auth       | JWT (access + refresh token rotation), Google OAuth                   |
 | Logging    | slog (structured JSON)                                                |
@@ -71,19 +70,8 @@ gravity-room/
 │   │   │   ├── service/      ← Business logic (auth, programs, results)
 │   │   │   └── swagger/      ← OpenAPI spec + Swagger UI (dev-only)
 │   │   └── go.mod
-│   ├── api/                  ← ElysiaJS backend (legacy, dev reference only)
-│   └── harness/              ← Contract tests (API-agnostic, validates both Go and TS)
-├── packages/
-│   └── shared/               ← Pure computation (engine, stats, schemas)
-│       └── src/
-│           ├── engine.ts             ← computeProgram (GZCLP legacy)
-│           ├── generic-engine.ts     ← computeGenericProgram (program-agnostic)
-│           ├── schemas/              ← Zod v4 schemas (legacy, instance, program-definition)
-│           ├── programs/             ← Program definitions (GZCLP, Nivel 7) + registry
-│           └── types/                ← TypeScript types inferred from Zod
 ├── scripts/
 │   ├── committer             ← Safe commit helper (Conventional Commits)
-│   ├── harness-go            ← Go API contract test runner
 │   ├── rollback.sh           ← VPS rollback with migration boundary checks
 │   ├── deploy-log.sh         ← Deploy history management
 │   └── loadtest.js           ← k6 load test (smoke/load/stress)
@@ -130,7 +118,7 @@ Browser (SPA)
 
 - **Single Go binary** — the API is compiled to a static binary with `CGO_ENABLED=0`. Migrations and seeds are embedded via `embed.FS`. No runtime dependencies.
 - **Auto-migrations on startup** — Goose v3 runs pending migrations before accepting traffic. Zero-touch schema updates on deploy.
-- **Shared computation package** — the progression engine is pure TypeScript with no DOM dependencies. The frontend imports `@gzclp/shared/*` to compute workout state deterministically.
+- **Progression engine** — the Go API runs the authoritative progression engine. The frontend maintains a TypeScript copy (`apps/web/src/lib/shared/`) for offline display and preview.
 
 ## Program system
 
@@ -451,7 +439,6 @@ Swagger UI is available at `http://localhost:3001/swagger` (dev only).
 | Format check      | `bun run format:check`                            |
 | Tests (TS unit)   | `bun run test`                                    |
 | Tests (Go unit)   | `cd apps/go-api && go test ./...`                 |
-| Contract tests    | `scripts/harness-go`                              |
 | E2E tests         | `bun run e2e`                                     |
 | E2E (headed)      | `bun run e2e:headed`                              |
 | Load test         | `k6 run scripts/loadtest.js`                      |

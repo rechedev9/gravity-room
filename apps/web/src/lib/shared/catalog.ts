@@ -3,7 +3,7 @@
  * Single source of truth for program metadata — consumed by the API seed,
  * the Discord bot, and any other tooling that needs the program list.
  *
- * JSONB definitions live in apps/api/src/db/seeds/programs/ and are
+ * JSONB definitions live in apps/go-api/internal/seed/data/programs/ and are
  * intentionally kept separate (DB-layer concern).
  */
 
