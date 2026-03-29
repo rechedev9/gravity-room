@@ -12,6 +12,7 @@ func setEnv(t *testing.T, key, val string) {
 
 func TestLoad_Defaults(t *testing.T) {
 	setEnv(t, "DATABASE_URL", "postgres://localhost/test")
+	_ = os.Unsetenv("CORS_ORIGIN")
 
 	c, err := Load()
 	if err != nil {
