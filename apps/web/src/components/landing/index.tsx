@@ -1,8 +1,8 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { type CatalogEntry, fetchCatalogList } from '@/lib/api-functions';
 import { queryKeys } from '@/lib/query-keys';
 import { useScrollSpy } from '@/hooks/use-scroll-spy';
-import { useOnlineCount } from '@/hooks/use-online-count';
 import { SECTION_IDS, CATALOG_STALE_TIME, GradientDivider, SkipToContent, Footer } from './shared';
 import { NavBar } from './nav-bar';
 import { HeroSection } from './hero-section';
@@ -25,7 +25,10 @@ export function LandingPage(): React.ReactNode {
   const programCount = catalog?.length ?? 0;
   const minDaysPerWeek =
     catalog && catalog.length > 0 ? Math.min(...catalog.map((p) => p.workoutsPerWeek)) : 0;
-  const onlineCount = useOnlineCount();
+  const totalWorkouts = useMemo(
+    () => catalog?.reduce((sum, p) => sum + p.totalWorkouts, 0) ?? 0,
+    [catalog]
+  );
 
   return (
     <div className="grain-overlay min-h-dvh bg-body overflow-x-hidden">
@@ -38,7 +41,7 @@ export function LandingPage(): React.ReactNode {
         <MetricsSection
           programCount={programCount}
           minDaysPerWeek={minDaysPerWeek}
-          onlineCount={onlineCount}
+          totalWorkouts={totalWorkouts}
         />
         <GradientDivider />
         <FeaturesSection />
