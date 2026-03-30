@@ -157,32 +157,64 @@ export function SkipToContent(): React.ReactNode {
 
 export function Footer(): React.ReactNode {
   return (
-    <footer className="px-6 sm:px-10 py-10 bg-header border-t border-rule">
-      <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+    <footer className="px-6 sm:px-10 py-12 bg-header border-t border-rule">
+      <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-8">
         <div>
-          <p className="text-sm font-bold mb-1 text-title">Gravity Room</p>
-          <p className="text-xs text-muted">Para atletas que se niegan a estancarse.</p>
+          <div className="flex items-center gap-2 mb-2">
+            <img
+              src="/logo.webp"
+              alt=""
+              width={20}
+              height={20}
+              className="rounded-full"
+              aria-hidden="true"
+            />
+            <p className="text-sm font-bold text-title">Gravity Room</p>
+          </div>
+          <p className="text-xs text-muted leading-relaxed">
+            Para atletas que se niegan a estancarse.
+          </p>
         </div>
-        <div className="font-mono flex items-center gap-5 text-[11px] text-muted">
-          <Link to="/privacy" className="hover:text-main transition-colors">
-            Privacidad
-          </Link>
-          <span aria-hidden="true">&middot;</span>
-          <Link to="/cookies" className="hover:text-main transition-colors">
-            Cookies
-          </Link>
-          <span aria-hidden="true">&middot;</span>
+
+        <div>
+          <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-muted mb-3">
+            Navegación
+          </p>
+          <ul className="space-y-2">
+            {NAV_LINKS.map((link) => (
+              <li key={link.href}>
+                <a
+                  href={link.href}
+                  className="text-sm text-muted hover:text-main transition-colors"
+                >
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-muted mb-3">
+            Comunidad
+          </p>
           <a
             href={DISCORD_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 hover:text-[#5865F2] transition-colors"
+            className="flex items-center gap-2 text-sm text-muted hover:text-[#5865F2] transition-colors mb-4"
           >
-            <DiscordIcon className="w-3 h-3" />
+            <DiscordIcon className="w-4 h-4" />
             Discord
           </a>
-          <span aria-hidden="true">&middot;</span>
-          <span>Built by Gravity Room</span>
+          <div className="font-mono flex flex-col gap-1.5 text-[11px] text-muted">
+            <Link to="/privacy" className="hover:text-main transition-colors">
+              Privacidad
+            </Link>
+            <Link to="/cookies" className="hover:text-main transition-colors">
+              Cookies
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

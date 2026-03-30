@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import { fadeUpVariants, fadeInVariants, scaleUpVariants } from '@/lib/motion-primitives';
+import { DiscordIcon, DISCORD_URL } from './shared';
 
 export function FinalCtaSection(): React.ReactNode {
   const reduced = useReducedMotion();
@@ -16,7 +17,15 @@ export function FinalCtaSection(): React.ReactNode {
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse at center bottom, rgba(232,170,32,0.06) 0%, transparent 60%)',
+            'radial-gradient(ellipse at center bottom, rgba(232,170,32,0.12) 0%, transparent 70%)',
+        }}
+      />
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.03]"
+        style={{
+          backgroundImage: 'url(/pattern-bg.webp)',
+          backgroundSize: '400px',
+          backgroundRepeat: 'repeat',
         }}
       />
       <motion.div
@@ -46,6 +55,23 @@ export function FinalCtaSection(): React.ReactNode {
             Comienza a Entrenar Hoy.
           </span>
         </motion.h2>
+        <motion.p
+          variants={fadeInVariants}
+          className="flex items-center justify-center gap-2 mb-8 text-sm text-muted"
+        >
+          <DiscordIcon className="w-4 h-4" />
+          <span>
+            Únete a la comunidad en{' '}
+            <a
+              href={DISCORD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#5865F2] hover:underline"
+            >
+              Discord
+            </a>
+          </span>
+        </motion.p>
         <motion.div variants={scaleUpVariants}>
           <Link
             to="/login"

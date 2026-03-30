@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useScroll, useMotionValueEvent } from 'motion/react';
 import { DISCORD_URL, NAV_LINKS, DiscordIcon } from './shared';
 
 interface NavBarProps {
@@ -6,10 +8,20 @@ interface NavBarProps {
 }
 
 export function NavBar({ activeSection }: NavBarProps): React.ReactNode {
+  const [scrolled, setScrolled] = useState(false);
+  const { scrollY } = useScroll();
+  useMotionValueEvent(scrollY, 'change', (latest: number) => {
+    setScrolled(latest > 80);
+  });
+
   return (
     <nav
       aria-label="Navegación principal"
-      className="sticky top-0 z-50 flex items-center justify-between px-6 sm:px-10 py-4 bg-header/95 backdrop-blur-md border-b border-rule"
+      className={`sticky top-0 z-50 flex items-center justify-between px-6 sm:px-10 py-4 transition-[background-color,border-color,backdrop-filter] duration-300 ${
+        scrolled
+          ? 'bg-header/95 backdrop-blur-md border-b border-rule'
+          : 'bg-transparent border-b border-transparent'
+      }`}
     >
       <div className="flex items-center gap-3">
         <img
@@ -22,18 +34,22 @@ export function NavBar({ activeSection }: NavBarProps): React.ReactNode {
         <span className="text-sm font-bold tracking-tight text-title">Gravity Room</span>
       </div>
       <div className="hidden md:flex items-center gap-8">
-        {NAV_LINKS.map((link) => (
-          <a
-            key={link.href}
-            href={link.href}
-            className={`font-mono text-xs font-semibold tracking-widest uppercase transition-colors duration-200 ${
-              activeSection === link.href.slice(1) ? 'text-title' : 'text-muted hover:text-title'
-            }`}
-            style={{ fontSize: '11px' }}
-          >
-            {link.label}
-          </a>
-        ))}
+        {NAV_LINKS.map((link) => {
+          const active = activeSection === link.href.slice(1);
+          return (
+            <a
+              key={link.href}
+              href={link.href}
+              data-active={active || undefined}
+              className={`nav-link-underline font-mono text-xs font-semibold tracking-widest uppercase transition-colors duration-200 ${
+                active ? 'text-title' : 'text-muted hover:text-title'
+              }`}
+              style={{ fontSize: '11px' }}
+            >
+              {link.label}
+            </a>
+          );
+        })}
       </div>
       <div className="flex items-center gap-3">
         <a

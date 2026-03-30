@@ -398,6 +398,36 @@ dialog::backdrop {
   }
 }
 
+/* ── Nav link underline slide ────────────────── */
+
+.nav-link-underline {
+  position: relative;
+}
+
+.nav-link-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-title);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-link-underline:hover::after,
+.nav-link-underline[data-active='true']::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-link-underline::after {
+    transition: none;
+  }
+}
+
 /* ── Hero number glow ──────────────────────────── */
 
 .hero-number-glow {
