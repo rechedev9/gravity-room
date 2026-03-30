@@ -55,7 +55,7 @@ export function ProgramsSection({ catalogQuery }: ProgramsSectionProps): React.R
                   <StaggerItem key={program.id}>
                     <Link
                       to={`/programs/${program.id}`}
-                      className="relative block bg-card p-8 landing-card-glow landing-program-card group cursor-pointer no-underline text-inherit h-full"
+                      className="relative block bg-card p-8 landing-card-glow program-card-lift group cursor-pointer no-underline text-inherit h-full"
                     >
                       <div
                         className="absolute top-0 left-0 right-0 h-20 pointer-events-none"

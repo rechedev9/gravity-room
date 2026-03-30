@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { getCategoryColor, categoryLabel } from '@/lib/category-colors';
 
 /** Minimal program info needed by ProgramCard — compatible with both CatalogEntry and ProgramDefinition. */
 export interface ProgramCardInfo {
@@ -18,13 +19,9 @@ interface ProgramCardProps {
   readonly isActive?: boolean;
   readonly onSelect?: () => void;
   readonly to?: string;
+  readonly onCustomize?: () => void;
+  readonly customizeDisabled?: boolean;
 }
-
-const CATEGORY_LABELS: Readonly<Record<string, string>> = {
-  strength: 'Fuerza',
-  hypertrophy: 'Hipertrofia',
-  powerlifting: 'Powerlifting',
-};
 
 export function ProgramCard({
   definition,
@@ -33,8 +30,11 @@ export function ProgramCard({
   isActive = false,
   onSelect,
   to,
+  onCustomize,
+  customizeDisabled = false,
 }: ProgramCardProps): React.ReactNode {
-  const categoryLabel = CATEGORY_LABELS[definition.category] ?? definition.category;
+  const catColor = getCategoryColor(definition.category);
+  const label = categoryLabel(definition.category);
 
   const ctaClasses = `mt-auto px-4 py-2.5 text-xs font-bold border-2 cursor-pointer transition-all text-center ${
     isActive
@@ -46,47 +46,77 @@ export function ProgramCard({
 
   return (
     <div
-      className={`bg-card border border-rule p-5 sm:p-6 flex flex-col gap-3 card card-interactive ${disabled ? 'opacity-60' : ''}`}
+      className={`relative overflow-hidden bg-card border border-rule p-5 sm:p-6 card program-card-lift ${disabled ? 'opacity-60' : ''}`}
     >
-      {/* Header: name + category badge */}
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="text-sm sm:text-base font-extrabold text-title leading-tight">
-          {definition.name}
-        </h3>
-        <span className="shrink-0 text-2xs font-bold uppercase tracking-wider px-2 py-0.5 border border-rule text-muted">
-          {categoryLabel}
-        </span>
-      </div>
+      {/* Category gradient overlay */}
+      <div
+        className="absolute top-0 left-0 right-0 h-16 pointer-events-none"
+        style={{ background: `linear-gradient(180deg, ${catColor.gradient}, transparent)` }}
+      />
 
-      {/* Description */}
-      <p className="text-xs text-muted leading-relaxed line-clamp-3">{definition.description}</p>
-
-      {/* Meta: workouts, frequency, author — hidden for placeholder cards */}
-      {!disabled && (
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-info">
-          <span>{definition.totalWorkouts} entrenamientos</span>
-          {definition.workoutsPerWeek > 0 && <span>{definition.workoutsPerWeek}x / semana</span>}
-          {definition.author && <span>Por {definition.author}</span>}
-        </div>
-      )}
-
-      {/* CTA */}
-      {showCta &&
-        (to !== undefined ? (
-          <Link to={to} className={ctaClasses} aria-label={`Ver programa ${definition.name}`}>
-            Ver Programa
-          </Link>
-        ) : (
-          <button
-            onClick={onSelect}
-            disabled={disabled}
-            className={`${ctaClasses} disabled:opacity-30 disabled:cursor-not-allowed ${
-              !isActive ? 'disabled:hover:bg-btn disabled:hover:text-btn-text' : ''
-            }`}
+      <div className="relative flex flex-col gap-3">
+        {/* Header: name + category badge */}
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="text-sm sm:text-base font-extrabold text-title leading-tight">
+            {definition.name}
+          </h3>
+          <span
+            className="shrink-0 text-2xs font-bold uppercase tracking-wider px-2 py-0.5 border"
+            style={{
+              borderColor: `color-mix(in srgb, ${catColor.badge} 40%, transparent)`,
+              color: catColor.badge,
+            }}
           >
-            {disabled ? disabledLabel : isActive ? 'Continuar Entrenamiento' : 'Iniciar Programa'}
+            {label}
+          </span>
+        </div>
+
+        {/* Description */}
+        <p className="text-xs text-muted leading-relaxed line-clamp-3">{definition.description}</p>
+
+        {/* Meta: workouts, frequency, author */}
+        {!disabled && (
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-info">
+            <span>{definition.totalWorkouts} entrenamientos</span>
+            {definition.workoutsPerWeek > 0 && <span>{definition.workoutsPerWeek}x / semana</span>}
+            {definition.author && <span>Por {definition.author}</span>}
+          </div>
+        )}
+
+        {/* CTA */}
+        {showCta &&
+          (to !== undefined ? (
+            <Link
+              to={to}
+              className={`mt-auto ${ctaClasses}`}
+              aria-label={`Ver programa ${definition.name}`}
+            >
+              Ver Programa
+            </Link>
+          ) : (
+            <button
+              onClick={onSelect}
+              disabled={disabled}
+              className={`${ctaClasses} disabled:opacity-30 disabled:cursor-not-allowed ${
+                !isActive ? 'disabled:hover:bg-btn disabled:hover:text-btn-text' : ''
+              }`}
+            >
+              {disabled ? disabledLabel : isActive ? 'Continuar Entrenamiento' : 'Iniciar Programa'}
+            </button>
+          ))}
+
+        {/* Customize action */}
+        {onCustomize !== undefined && (
+          <button
+            type="button"
+            onClick={onCustomize}
+            disabled={customizeDisabled}
+            className="self-center text-2xs font-bold text-muted hover:text-accent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {customizeDisabled ? 'Personalizando...' : 'Personalizar'}
           </button>
-        ))}
+        )}
+      </div>
     </div>
   );
 }

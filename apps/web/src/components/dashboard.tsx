@@ -449,28 +449,22 @@ export function Dashboard({
                     if (!entries || entries.length === 0) return null;
                     return (
                       <div key={level}>
-                        <h3 className="text-xs font-semibold text-muted mb-3">
+                        <h3 className="flex items-center gap-2 text-sm font-bold text-label tracking-wide uppercase mb-4">
+                          <span className="inline-block w-2 h-2 rounded-full bg-accent" />
                           {LEVEL_LABELS[level]}
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                           {entries.map((entry) => (
-                            <div key={entry.id} className="flex flex-col">
-                              <ProgramCard
-                                definition={entry}
-                                isActive={false}
-                                onSelect={() => onStartNewProgram(entry.id)}
-                              />
-                              {user && !isGuest && (
-                                <button
-                                  type="button"
-                                  onClick={() => void handleCustomize(entry.id)}
-                                  disabled={isForking}
-                                  className="mt-1.5 text-2xs font-bold text-zinc-500 hover:text-amber-400 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  {isForking ? 'Personalizando...' : 'Personalizar'}
-                                </button>
-                              )}
-                            </div>
+                            <ProgramCard
+                              key={entry.id}
+                              definition={entry}
+                              isActive={false}
+                              onSelect={() => onStartNewProgram(entry.id)}
+                              onCustomize={
+                                user && !isGuest ? () => void handleCustomize(entry.id) : undefined
+                              }
+                              customizeDisabled={isForking}
+                            />
                           ))}
                         </div>
                       </div>
