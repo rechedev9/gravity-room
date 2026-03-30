@@ -1,3 +1,5 @@
+import { HeaderSkeleton } from './header-skeleton';
+
 /**
  * Full-page skeleton shown while auth state is being restored.
  * Mirrors AppHeader + Toolbar + 3 workout row placeholders so the layout
@@ -6,14 +8,7 @@
 export function AppSkeleton(): React.ReactNode {
   return (
     <div className="min-h-dvh bg-body">
-      {/* Header skeleton */}
-      <header className="flex items-center justify-between px-5 sm:px-8 py-3.5 bg-header border-b border-rule">
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-full bg-rule animate-pulse" />
-          <div className="h-3.5 w-48 bg-rule rounded animate-pulse" />
-        </div>
-        <div className="w-8 h-8 rounded-full bg-rule animate-pulse" />
-      </header>
+      <HeaderSkeleton />
 
       {/* Toolbar skeleton */}
       <div className="bg-card border-b border-rule px-3 sm:px-5 py-2 sm:py-3">

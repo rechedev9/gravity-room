@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { useToast } from '@/contexts/toast-context';
 import { AppSkeleton } from './app-skeleton';
+import { DashboardSkeleton } from './dashboard-skeleton';
+import { ProfileSkeleton } from './profile-skeleton';
 import { OnlineIndicator } from './online-indicator';
 
 const Dashboard = lazy(() => import('./dashboard').then((m) => ({ default: m.Dashboard })));
@@ -175,7 +177,19 @@ export function AppShell(): React.ReactNode {
             className={animationClass}
             onAnimationEnd={isAnimating ? handleAnimationEnd : undefined}
           >
-            <Suspense fallback={null}>{renderView(v)}</Suspense>
+            <Suspense
+              fallback={
+                v === 'dashboard' ? (
+                  <DashboardSkeleton />
+                ) : v === 'profile' ? (
+                  <ProfileSkeleton />
+                ) : (
+                  <AppSkeleton />
+                )
+              }
+            >
+              {renderView(v)}
+            </Suspense>
           </div>
         );
       })}

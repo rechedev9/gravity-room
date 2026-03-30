@@ -7,6 +7,9 @@ import { RouteErrorFallback } from '@/components/route-error-fallback';
 import { RootLayout } from '@/components/root-layout';
 import { AppShell } from '@/components/app-shell';
 import { lazyWithRetry } from '@/lib/lazy-with-retry';
+import { LandingSkeleton } from '@/components/landing-skeleton';
+import { LoginSkeleton } from '@/components/login-skeleton';
+import { ContentPageSkeleton } from '@/components/content-page-skeleton';
 import '@/styles/globals.css';
 
 const LoginPage = lazyWithRetry(() =>
@@ -42,7 +45,7 @@ const router = createBrowserRouter([
       {
         path: '/',
         element: (
-          <Suspense fallback={null}>
+          <Suspense fallback={<LandingSkeleton />}>
             <LandingPage />
           </Suspense>
         ),
@@ -51,7 +54,7 @@ const router = createBrowserRouter([
       {
         path: '/login',
         element: (
-          <Suspense fallback={null}>
+          <Suspense fallback={<LoginSkeleton />}>
             <LoginPage />
           </Suspense>
         ),
@@ -59,7 +62,7 @@ const router = createBrowserRouter([
       {
         path: '/privacy',
         element: (
-          <Suspense fallback={null}>
+          <Suspense fallback={<ContentPageSkeleton />}>
             <PrivacyPage />
           </Suspense>
         ),
@@ -67,7 +70,7 @@ const router = createBrowserRouter([
       {
         path: '/cookies',
         element: (
-          <Suspense fallback={null}>
+          <Suspense fallback={<ContentPageSkeleton />}>
             <CookiePolicyPage />
           </Suspense>
         ),
@@ -75,7 +78,7 @@ const router = createBrowserRouter([
       {
         path: '/programs/:programId',
         element: (
-          <Suspense fallback={null}>
+          <Suspense fallback={<ContentPageSkeleton />}>
             <ProgramPreviewPage />
           </Suspense>
         ),
@@ -83,7 +86,7 @@ const router = createBrowserRouter([
       {
         path: '*',
         element: (
-          <Suspense fallback={null}>
+          <Suspense fallback={<ContentPageSkeleton />}>
             <NotFound />
           </Suspense>
         ),
