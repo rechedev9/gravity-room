@@ -24,7 +24,7 @@ export function CookieBanner(): React.ReactNode {
       <div className="max-w-3xl mx-auto bg-card border border-rule rounded-lg shadow-elevated px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <p className="text-sm text-muted leading-relaxed flex-1">
           Este sitio utiliza una cookie técnica necesaria para mantener tu sesión. No usamos cookies
-          de analítica ni seguimiento.{' '}
+          de seguimiento. Utilizamos Plausible Analytics (sin cookies) para mejorar el servicio.{' '}
           <Link to="/cookies" className="text-accent underline hover:opacity-80 transition-opacity">
             Más información
           </Link>

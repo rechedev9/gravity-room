@@ -17,6 +17,7 @@ import { useDayNavigation } from '@/hooks/use-day-navigation';
 import { useGraduation } from '@/hooks/use-graduation';
 import { useTestWeightModal } from '@/hooks/use-test-weight-modal';
 import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
+import { trackEvent } from '@/lib/analytics';
 import { AppHeader } from './app-header';
 import { ErrorBoundary } from './error-boundary';
 import { GraduationPanel } from './graduation-panel';
@@ -265,6 +266,7 @@ export function ProgramApp({
       return;
     }
     await finishProgram();
+    trackEvent('program_complete', { program: programId });
     if (completionSessionKey) sessionStorage.setItem(completionSessionKey, '1');
     setShowCompletion(true);
   };

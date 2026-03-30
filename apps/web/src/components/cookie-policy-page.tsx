@@ -93,6 +93,25 @@ export function CookiePolicyPage(): React.ReactNode {
           </section>
 
           <section>
+            <h2 className="text-base font-bold text-main mb-2">Analítica</h2>
+            <p>
+              Gravity Room utiliza{' '}
+              <a
+                href="https://plausible.io/privacy-focused-web-analytics"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent underline hover:opacity-80 transition-opacity"
+              >
+                Plausible Analytics
+              </a>
+              , un servicio de analítica web respetuoso con la privacidad. Plausible no utiliza
+              cookies, no recopila datos personales identificables y no rastrea usuarios entre
+              sesiones. Los datos agregados (páginas vistas, país de origen, tipo de dispositivo) se
+              utilizan únicamente para mejorar el servicio.
+            </p>
+          </section>
+
+          <section>
             <h2 className="text-base font-bold text-main mb-2">Base legal</h2>
             <p>
               La cookie <span className="font-mono text-main">refresh_token</span> está exenta de

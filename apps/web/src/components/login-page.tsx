@@ -4,6 +4,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { sanitizeAuthError } from '@/lib/auth-errors';
+import { trackEvent } from '@/lib/analytics';
 
 export function LoginPage(): React.ReactNode {
   const { user, signInWithGoogle, signInWithDev } = useAuth();
@@ -26,6 +27,7 @@ export function LoginPage(): React.ReactNode {
   };
 
   const handleGuestEntry = (): void => {
+    trackEvent('guest_start');
     enterGuestMode();
     navigate('/app');
   };

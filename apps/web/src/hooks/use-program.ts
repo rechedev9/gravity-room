@@ -30,6 +30,7 @@ import {
 } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
+import { trackEvent } from '@/lib/analytics';
 
 // ---------------------------------------------------------------------------
 // Optimistic update helpers (generic slot-keyed format)
@@ -383,6 +384,9 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       } else {
         await createProgram(programId, definition.name, newConfig);
       }
+    },
+    onSuccess: () => {
+      trackEvent('program_start', { program: programId });
     },
     onError: () => {
       toast({ message: 'No se pudo crear el programa. Inténtalo de nuevo.' });

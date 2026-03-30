@@ -3,6 +3,7 @@ import { setAccessToken, refreshAccessToken } from '@/lib/api';
 import { apiFetch } from '@/lib/api-functions';
 import { isRecord } from '@gzclp/shared/type-guards';
 import { setUser as sentrySetUser } from '@/lib/sentry';
+import { trackEvent } from '@/lib/analytics';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,6 +106,7 @@ export function AuthProvider({
         if (userInfo) {
           setUser(userInfo);
           sentrySetUser({ id: userInfo.id, email: userInfo.email });
+          trackEvent('signup');
         }
         return null;
       }

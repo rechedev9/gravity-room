@@ -31,6 +31,14 @@ const NotFound = lazyWithRetry(() =>
   import('@/components/not-found').then((m) => ({ default: m.NotFound }))
 );
 
+if (import.meta.env.VITE_PLAUSIBLE_DOMAIN) {
+  const s = document.createElement('script');
+  s.defer = true;
+  s.dataset.domain = String(import.meta.env.VITE_PLAUSIBLE_DOMAIN);
+  s.src = 'https://plausible.io/js/script.js';
+  document.head.appendChild(s);
+}
+
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' });
