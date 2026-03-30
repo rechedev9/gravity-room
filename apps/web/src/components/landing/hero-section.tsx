@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
 import { EASE_OUT_EXPO, fadeUpVariants } from '@/lib/motion-primitives';
 
 export function HeroSection(): React.ReactNode {
   const reduced = useReducedMotion();
   const init = reduced ? 'visible' : 'hidden';
+  const { scrollY } = useScroll();
+  const heroY = useTransform(scrollY, [0, 600], [0, -60]);
 
   return (
     <section
@@ -101,6 +103,7 @@ export function HeroSection(): React.ReactNode {
               transition: { duration: 0.8, ease: EASE_OUT_EXPO },
             },
           }}
+          style={reduced ? undefined : { y: heroY }}
           className="mt-16 relative max-w-2xl mx-auto"
         >
           <div
