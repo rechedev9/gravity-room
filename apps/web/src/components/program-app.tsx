@@ -1,10 +1,7 @@
-import { Suspense, useState, useTransition, useEffect, useRef, useMemo } from 'react';
+import { Suspense, useState, useTransition, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ResultValue } from '@gzclp/shared/types';
-import { computeGraduationTargets } from '@gzclp/shared/graduation';
-import type { GraduationState } from '@gzclp/shared/graduation';
-import { isRecord } from '@gzclp/shared/type-guards';
 import { useProgram } from '@/hooks/use-program';
 import { useGuestProgram } from '@/hooks/use-guest-program';
 import { useSetLogging } from '@/hooks/use-set-logging';
@@ -15,49 +12,29 @@ import { detectGenericPersonalRecord } from '@/lib/pr-detection';
 import { computeProfileData, compute1RMData } from '@/lib/profile-stats';
 import { useWebMcp } from '@/hooks/use-webmcp';
 import { useWakeLock } from '@/hooks/use-wake-lock';
-
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
+import { useDayNavigation } from '@/hooks/use-day-navigation';
+import { useGraduation } from '@/hooks/use-graduation';
+import { useTestWeightModal } from '@/hooks/use-test-weight-modal';
 import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
 import { AppHeader } from './app-header';
 import { ErrorBoundary } from './error-boundary';
-import { GuestBanner } from './guest-banner';
 import { GraduationPanel } from './graduation-panel';
 import { ProgramCompletionScreen } from './program-completion-screen';
-
+import { ProgramTabContent } from './program-tab-content';
 import { SetupForm } from './setup-form';
 import { StatsSkeleton } from './stats-skeleton';
 import { TabButton } from './tab-button';
 import { TestWeightModal } from './test-weight-modal';
 import { ToastContainer } from './toast';
 import { Toolbar } from './toolbar';
-import { DayNavigator } from './day-navigator';
-import { DayView } from './day-view';
-import { DetailedDayView } from './detailed-day-view';
 import { AppSkeleton } from './app-skeleton';
-import { getViewPreference, saveViewPreference } from '@/lib/view-preference';
-import type { ViewMode } from '@/lib/view-preference';
 import { lazyWithRetry } from '@/lib/lazy-with-retry';
 
 const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
-const preloadStatsPanel = (): void => {
-  void import('./stats-panel');
-};
-
+const preloadStatsPanel = (): void => void import('./stats-panel');
 const GUEST_STATS_MSG = 'Crea una cuenta para ver estadísticas';
 const GUEST_EXPORT_MSG = 'Crea una cuenta para exportar tus datos';
-
-interface TestWeightModalState {
-  readonly workoutIndex: number;
-  readonly slotId: string;
-  readonly exerciseName: string;
-  readonly prefillWeight: number;
-  readonly propagatesTo: string | undefined;
-}
-
-interface ConfigSnapshot {
-  readonly propagatesTo: string;
-  readonly previousValue: number | string | undefined;
-}
 
 interface JawContext {
   readonly block: 1 | 2 | 3;
@@ -105,13 +82,9 @@ export function ProgramApp({
     }
   }, [authLoading, user, isGuest, navigate]);
 
-  // Both hooks are called unconditionally (React rules of hooks).
-  // useProgram's internal queries are disabled when user is null.
-  // useGuestProgram only fetches the public catalog (already cached).
   const authData = useProgram(programId, instanceId);
   const guestData = useGuestProgram(programId);
   const programData = isGuest ? guestData : authData;
-
   const {
     definition,
     config,
@@ -134,7 +107,6 @@ export function ProgramApp({
     resetAll,
     updateConfigAsync,
   } = programData;
-
   const {
     logSet,
     clearSetLogs,
@@ -155,67 +127,26 @@ export function ProgramApp({
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
-
   const [activeTab, setActiveTab] = useState<'program' | 'stats'>('program');
   const [isPending, startTransition] = useTransition();
-
   const [showCompletion, setShowCompletion] = useState(false);
-
-  // Test weight modal state: blocks result recording until user confirms weight
-  const [testWeightModal, setTestWeightModal] = useState<TestWeightModalState | null>(null);
-  const [testWeightLoading, setTestWeightLoading] = useState(false);
-  // Stores previous config values for test slots to enable undo reversion
-  const configSnapshotRef = useRef<Map<string, ConfigSnapshot>>(new Map());
-
-  // Graduation state for MUTENROSHI
-  const isMutenroshi = definition?.displayMode === 'blocks';
-
-  const graduationState = useMemo((): GraduationState => {
-    const defaultState: GraduationState = {
-      squat: false,
-      bench: false,
-      deadlift: false,
-      allPassed: false,
-    };
-    if (!isRecord(metadata)) return defaultState;
-    const grad = metadata.graduation;
-    if (!isRecord(grad)) return defaultState;
-    return {
-      squat: grad.squat === true,
-      bench: grad.bench === true,
-      deadlift: grad.deadlift === true,
-      allPassed: grad.allPassed === true,
-    };
-  }, [metadata]);
-
-  const graduationTargets = useMemo(() => {
-    if (!isMutenroshi || !config) return [];
-    const bodyweight = typeof config.bodyweight === 'number' ? config.bodyweight : 0;
-    const gender = typeof config.gender === 'string' ? config.gender : 'male';
-    const rounding = typeof config.rounding === 'string' ? parseFloat(config.rounding) : 2.5;
-    return computeGraduationTargets(bodyweight, gender, rounding);
-  }, [isMutenroshi, config]);
-
-  const handleGraduationStartJaw = (estimatedTMs: Record<string, number>): void => {
-    // Persist estimated TMs and graduation acknowledgment in metadata
-    updateMetadata({ graduation: { ...graduationState, allPassed: true }, estimatedTMs });
-    onBackToDashboard?.();
-  };
-
-  const handleGraduationDismiss = (): void => {
-    // Persist graduation acknowledgment so panel state survives reloads
-    updateMetadata({ graduation: { ...graduationState, dismissed: true } });
-  };
-
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 4;
   const totalWorkouts = definition?.totalWorkouts ?? 0;
-
   const completedCount = rows.filter((r) => r.slots.every((s) => s.result !== undefined)).length;
 
   const firstPendingIdx = (() => {
     const pending = rows.find((r) => r.slots.some((s) => s.result === undefined));
     return pending ? pending.index : -1;
   })();
+
+  const dayNav = useDayNavigation({ totalWorkouts, firstPendingIdx, config });
+  const graduation = useGraduation({
+    definition,
+    config,
+    metadata,
+    updateMetadata,
+    onBackToDashboard,
+  });
 
   const currentDayName = firstPendingIdx >= 0 ? (rows[firstPendingIdx]?.dayName ?? '') : '';
   const jawContext = deriveJawContext(currentDayName);
@@ -227,31 +158,10 @@ export function ProgramApp({
       : `JAW Bloque ${jawContext.block} · Sem. ${jawContext.week ?? '?'}/18 · Test en sem. ${jawContext.block * 6}.`
     : undefined;
 
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
-  const [viewMode, setViewMode] = useState<ViewMode>(() => getViewPreference());
-  const currentDayIndex = firstPendingIdx;
-  const selectedWorkout = rows[selectedDayIndex];
+  const selectedWorkout = rows[dayNav.selectedDayIndex];
   const isDayComplete = selectedWorkout
     ? selectedWorkout.slots.every((s) => s.result !== undefined)
     : false;
-
-  useEffect(() => {
-    if (firstPendingIdx >= 0) setSelectedDayIndex(firstPendingIdx);
-  }, [config]);
-
-  // Wake lock: keep screen on during active tracker session (gated by isViewActive)
-  useWakeLock(isViewActive && activeTab === 'program' && config !== null);
-
-  const handleSetTap = (
-    workoutIndex: number,
-    slotId: string,
-    setIndex: number,
-    reps: number,
-    weight?: number,
-    rpe?: number
-  ): void => {
-    logSet(workoutIndex, slotId, setIndex, reps, weight, rpe);
-  };
 
   const recordAndToast = (workoutIndex: number, slotId: string, value: ResultValue): void => {
     markResult(workoutIndex, slotId, value);
@@ -261,24 +171,29 @@ export function ProgramApp({
     if (!slot) return;
     const isPr = detectGenericPersonalRecord(rows, workoutIndex, slotId, value);
     if (isPr) {
-      toast({
-        message: `${slot.exerciseName} ${slot.weight} kg`,
-        variant: 'pr',
-      });
+      toast({ message: `${slot.exerciseName} ${slot.weight} kg`, variant: 'pr' });
     } else {
       const resultLabel = value === 'success' ? 'Éxito' : 'Fallo';
       toast({
         message: `#${workoutIndex + 1}: ${slot.exerciseName} ${slot.tier.toUpperCase()} — ${resultLabel}`,
         action: {
           label: 'Deshacer',
-          onClick: () => handleUndoSpecific(workoutIndex, slotId),
+          onClick: () => testWeight.handleUndoSpecific(workoutIndex, slotId),
         },
       });
     }
   };
 
+  const testWeight = useTestWeightModal({
+    config,
+    updateConfigAsync,
+    clearSetLogs,
+    undoSpecific,
+    recordAndToast: (workoutIndex, slotId) => recordAndToast(workoutIndex, slotId, 'success'),
+    toast,
+  });
+
   const handleMarkResult = (workoutIndex: number, slotId: string, value: ResultValue): void => {
-    // Clear any partial set logs when using pass/fail as override
     clearSetLogs(workoutIndex, slotId);
 
     const row = rows[workoutIndex];
@@ -287,10 +202,9 @@ export function ProgramApp({
       return;
     }
 
-    // Test slot intercept: open weight-capture modal instead of recording directly
     const slot = row.slots.find((s) => s.slotId === slotId);
     if (slot?.isTestSlot === true) {
-      setTestWeightModal({
+      testWeight.openTestWeightModal({
         workoutIndex,
         slotId,
         exerciseName: slot.exerciseName,
@@ -300,132 +214,21 @@ export function ProgramApp({
       return;
     }
 
-    // Haptic feedback on supported devices
-    if (typeof navigator.vibrate === 'function') {
-      navigator.vibrate(50);
-    }
-
+    if (typeof navigator.vibrate === 'function') navigator.vibrate(50);
     recordAndToast(workoutIndex, slotId, value);
   };
 
-  const handleTestWeightConfirm = async (weight: number): Promise<void> => {
-    if (!testWeightModal) return;
-    const { workoutIndex, slotId, propagatesTo } = testWeightModal;
+  useWakeLock(isViewActive && activeTab === 'program' && config !== null);
 
-    setTestWeightLoading(true);
-    try {
-      if (propagatesTo !== undefined && config) {
-        // Snapshot the current config value before overwriting
-        const snapshotKey = `${workoutIndex}:${slotId}`;
-        configSnapshotRef.current.set(snapshotKey, {
-          propagatesTo,
-          previousValue: config[propagatesTo],
-        });
+  const handleSetTap = (
+    workoutIndex: number,
+    slotId: string,
+    setIndex: number,
+    reps: number,
+    weight?: number,
+    rpe?: number
+  ): void => logSet(workoutIndex, slotId, setIndex, reps, weight, rpe);
 
-        try {
-          await updateConfigAsync({ [propagatesTo]: weight });
-        } catch {
-          // Config update failed: remove snapshot and show error
-          configSnapshotRef.current.delete(snapshotKey);
-          toast({ message: 'No se pudo actualizar la configuracion. Intentalo de nuevo.' });
-          setTestWeightLoading(false);
-          setTestWeightModal(null);
-          return;
-        }
-      }
-
-      // Config updated (or no propagation needed) — record result and show toast
-      recordAndToast(workoutIndex, slotId, 'success');
-      setTestWeightModal(null);
-    } finally {
-      setTestWeightLoading(false);
-    }
-  };
-
-  const handleTestWeightCancel = (): void => {
-    setTestWeightModal(null);
-  };
-
-  // Wraps undoSpecific to also revert config for test slots and clear set logs
-  const handleUndoSpecific = (workoutIndex: number, slotId: string): void => {
-    // Clear any local set logs for this slot
-    clearSetLogs(workoutIndex, slotId);
-
-    const snapshotKey = `${workoutIndex}:${slotId}`;
-    const snapshot = configSnapshotRef.current.get(snapshotKey);
-
-    // Always undo the result first
-    undoSpecific(workoutIndex, slotId);
-
-    // Revert config if we have a snapshot
-    if (snapshot) {
-      configSnapshotRef.current.delete(snapshotKey);
-      const revertValue = snapshot.previousValue;
-      if (revertValue !== undefined) {
-        updateConfigAsync({ [snapshot.propagatesTo]: revertValue }).catch(() => {
-          toast({ message: 'No se pudo revertir la configuracion del bloque siguiente.' });
-        });
-      }
-    }
-  };
-
-  const completionSessionKey = instanceId !== undefined ? `completion-shown-${instanceId}` : null;
-
-  const handleFinishProgram = async (): Promise<void> => {
-    // Check sessionStorage suppression: skip the screen if already shown
-    if (completionSessionKey && sessionStorage.getItem(completionSessionKey) === '1') {
-      await finishProgram();
-      onBackToDashboard?.();
-      return;
-    }
-
-    await finishProgram();
-
-    // Mark as shown so refresh won't re-trigger
-    if (completionSessionKey) {
-      sessionStorage.setItem(completionSessionKey, '1');
-    }
-    setShowCompletion(true);
-  };
-
-  const handleCompletionDismiss = (): void => {
-    setShowCompletion(false);
-    onBackToDashboard?.();
-  };
-
-  const handleViewProfile = (): void => {
-    setShowCompletion(false);
-    onGoToProfile?.();
-  };
-
-  const handleResetAll = (): void => {
-    resetAll(() => onProgramReset?.());
-  };
-
-  const handleExportCsv = (): void => {
-    if (isGuest) {
-      toast({ message: GUEST_EXPORT_MSG });
-      return;
-    }
-    if (!definition || rows.length === 0) return;
-    const csv = generateProgramCsv(rows, workoutsPerWeek);
-    const date = new Date().toISOString().slice(0, 10);
-    downloadCsv(csv, `${definition.name}-${date}.csv`);
-  };
-
-  const handlePrevDay = (): void => setSelectedDayIndex((i) => Math.max(0, i - 1));
-  const handleNextDay = (): void => setSelectedDayIndex((i) => Math.min(totalWorkouts - 1, i + 1));
-  const handleGoToCurrent = (): void => {
-    if (firstPendingIdx >= 0) setSelectedDayIndex(firstPendingIdx);
-  };
-
-  const handleToggleView = (): void => {
-    const next: ViewMode = viewMode === 'detailed' ? 'compact' : 'detailed';
-    setViewMode(next);
-    saveViewPreference(next);
-  };
-
-  // Derive first pending slot for keyboard shortcuts
   const firstPendingSlot = (() => {
     if (firstPendingIdx < 0) return null;
     const row = rows[firstPendingIdx];
@@ -434,7 +237,6 @@ export function ProgramApp({
     return slot ?? null;
   })();
 
-  // Keyboard shortcuts: s/f/u + ArrowLeft/ArrowRight (gated by isViewActive)
   useKeyboardShortcuts({
     isActive: isViewActive && activeTab === 'program' && config !== null,
     onSuccess: () => {
@@ -448,13 +250,47 @@ export function ProgramApp({
       }
     },
     onUndo: () => {
-      if (undoHistory.length > 0) {
-        undoLast();
-      }
+      if (undoHistory.length > 0) undoLast();
     },
-    onPrevDay: handlePrevDay,
-    onNextDay: handleNextDay,
+    onPrevDay: dayNav.handlePrevDay,
+    onNextDay: dayNav.handleNextDay,
   });
+
+  const completionSessionKey = instanceId !== undefined ? `completion-shown-${instanceId}` : null;
+
+  const handleFinishProgram = async (): Promise<void> => {
+    if (completionSessionKey && sessionStorage.getItem(completionSessionKey) === '1') {
+      await finishProgram();
+      onBackToDashboard?.();
+      return;
+    }
+    await finishProgram();
+    if (completionSessionKey) sessionStorage.setItem(completionSessionKey, '1');
+    setShowCompletion(true);
+  };
+
+  const handleCompletionDismiss = (): void => {
+    setShowCompletion(false);
+    onBackToDashboard?.();
+  };
+
+  const handleViewProfile = (): void => {
+    setShowCompletion(false);
+    onGoToProfile?.();
+  };
+
+  const handleResetAll = (): void => resetAll(() => onProgramReset?.());
+
+  const handleExportCsv = (): void => {
+    if (isGuest) {
+      toast({ message: GUEST_EXPORT_MSG });
+      return;
+    }
+    if (!definition || rows.length === 0) return;
+    const csv = generateProgramCsv(rows, workoutsPerWeek);
+    const date = new Date().toISOString().slice(0, 10);
+    downloadCsv(csv, `${definition.name}-${date}.csv`);
+  };
 
   const handleSignOut = async (): Promise<void> => {
     await signOut();
@@ -462,7 +298,6 @@ export function ProgramApp({
   };
 
   if (!isGuest && (authLoading || user === null)) return null;
-
   if (isLoading && !definition) return <AppSkeleton />;
 
   if (!definition) {
@@ -528,22 +363,20 @@ export function ProgramApp({
           activeGroup={jawContext?.group}
         />
 
-        {/* Graduation panel for MUTENROSHI programs */}
-        {isMutenroshi && config && graduationTargets.length > 0 && (
+        {graduation.isMutenroshi && config && graduation.graduationTargets.length > 0 && (
           <div className="mb-6">
             <GraduationPanel
-              targets={graduationTargets}
-              achieved={graduationState}
+              targets={graduation.graduationTargets}
+              achieved={graduation.graduationState}
               config={config}
-              onStartJaw={handleGraduationStartJaw}
-              onDismiss={handleGraduationDismiss}
+              onStartJaw={graduation.handleGraduationStartJaw}
+              onDismiss={graduation.handleGraduationDismiss}
             />
           </div>
         )}
 
         {config && rows.length > 0 && (
           <>
-            {/* Tabs */}
             <div role="tablist" className="flex gap-0 mb-4 sm:mb-8 border-b-2 border-rule">
               <TabButton
                 id="tab-program"
@@ -572,84 +405,28 @@ export function ProgramApp({
             </div>
 
             {activeTab === 'program' && (
-              <div id="panel-program" role="tabpanel" aria-labelledby="tab-program">
-                {isGuest && <GuestBanner className="mb-4 sm:mb-8" />}
-
-                {/* Program info */}
-                <details className="group bg-card border border-rule mb-4 sm:mb-8 overflow-hidden">
-                  <summary className="px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center [&::marker]:hidden list-none text-xs tracking-wide">
-                    Acerca de {definition.name}
-                    <span className="transition-transform duration-200 group-open:rotate-90">
-                      &#9656;
-                    </span>
-                  </summary>
-                  <div className="px-5 pb-5 border-t border-rule-light">
-                    <p className="mt-3 text-sm leading-7 text-info">{definition.description}</p>
-                    {definition.author && (
-                      <p className="mt-2 text-xs text-muted">Por {definition.author}</p>
-                    )}
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted">
-                      <span>{totalWorkouts} entrenamientos en total</span>
-                      <span>{workoutsPerWeek} por semana</span>
-                      <span>Rotación de {definition.days.length} días</span>
-                    </div>
-                  </div>
-                </details>
-
-                <DayNavigator
-                  selectedDayIndex={selectedDayIndex}
-                  totalDays={totalWorkouts}
-                  currentDayIndex={currentDayIndex}
-                  dayName={selectedWorkout?.dayName ?? ''}
-                  isDayComplete={isDayComplete}
-                  onPrev={handlePrevDay}
-                  onNext={handleNextDay}
-                  onGoToCurrent={handleGoToCurrent}
-                />
-
-                {/* View mode toggle */}
-                <div className="flex justify-end mb-2">
-                  <button
-                    type="button"
-                    onClick={handleToggleView}
-                    aria-label={
-                      viewMode === 'detailed'
-                        ? 'Cambiar a vista compacta'
-                        : 'Cambiar a vista detallada'
-                    }
-                    className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors"
-                  >
-                    {viewMode === 'detailed' ? 'Vista compacta' : 'Vista detallada'}
-                  </button>
-                </div>
-
-                {selectedWorkout &&
-                  (viewMode === 'detailed' ? (
-                    <DetailedDayView
-                      workout={selectedWorkout}
-                      isCurrent={selectedDayIndex === currentDayIndex}
-                      onMark={handleMarkResult}
-                      onUndo={handleUndoSpecific}
-                      onSetAmrapReps={setAmrapReps}
-                      onSetRpe={setRpe}
-                      onSetTap={handleSetTap}
-                      getSetLogs={getSetLogs}
-                      isSlotLogging={isSlotLogging}
-                    />
-                  ) : (
-                    <DayView
-                      workout={selectedWorkout}
-                      isCurrent={selectedDayIndex === currentDayIndex}
-                      onMark={handleMarkResult}
-                      onUndo={handleUndoSpecific}
-                      onSetAmrapReps={setAmrapReps}
-                      onSetRpe={setRpe}
-                      onSetTap={handleSetTap}
-                      getSetLogs={getSetLogs}
-                      isSlotLogging={isSlotLogging}
-                    />
-                  ))}
-              </div>
+              <ProgramTabContent
+                definition={definition}
+                isGuest={isGuest}
+                selectedWorkout={selectedWorkout}
+                selectedDayIndex={dayNav.selectedDayIndex}
+                currentDayIndex={firstPendingIdx}
+                totalWorkouts={totalWorkouts}
+                isDayComplete={isDayComplete}
+                viewMode={dayNav.viewMode}
+                workoutsPerWeek={workoutsPerWeek}
+                onPrevDay={dayNav.handlePrevDay}
+                onNextDay={dayNav.handleNextDay}
+                onGoToCurrent={dayNav.handleGoToCurrent}
+                onToggleView={dayNav.handleToggleView}
+                onMark={handleMarkResult}
+                onUndo={testWeight.handleUndoSpecific}
+                onSetAmrapReps={setAmrapReps}
+                onSetRpe={setRpe}
+                onSetTap={handleSetTap}
+                getSetLogs={getSetLogs}
+                isSlotLogging={isSlotLogging}
+              />
             )}
 
             {activeTab === 'stats' && (
@@ -688,13 +465,13 @@ export function ProgramApp({
       </div>
 
       <TestWeightModal
-        isOpen={testWeightModal !== null}
-        liftName={testWeightModal?.exerciseName ?? ''}
-        hasPropagationTarget={testWeightModal?.propagatesTo !== undefined}
-        defaultWeight={testWeightModal?.prefillWeight ?? 0}
-        loading={testWeightLoading}
-        onConfirm={handleTestWeightConfirm}
-        onCancel={handleTestWeightCancel}
+        isOpen={testWeight.testWeightModal !== null}
+        liftName={testWeight.testWeightModal?.exerciseName ?? ''}
+        hasPropagationTarget={testWeight.testWeightModal?.propagatesTo !== undefined}
+        defaultWeight={testWeight.testWeightModal?.prefillWeight ?? 0}
+        loading={testWeight.testWeightLoading}
+        onConfirm={testWeight.handleTestWeightConfirm}
+        onCancel={testWeight.handleTestWeightCancel}
       />
 
       <ToastContainer />
@@ -702,7 +479,7 @@ export function ProgramApp({
       {showCompletion &&
         definition &&
         config &&
-        !(isMutenroshi && !graduationState.allPassed) &&
+        !(graduation.isMutenroshi && !graduation.graduationState.allPassed) &&
         (() => {
           const profileData = computeProfileData(rows, definition, config, resultTimestamps);
           const oneRMEstimates = compute1RMData(rows, definition);
