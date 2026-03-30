@@ -436,7 +436,7 @@ export function ProgramApp({
                 id="panel-stats"
                 role="tabpanel"
                 aria-labelledby="tab-stats"
-                className="transition-opacity duration-150"
+                className="max-w-2xl mx-auto transition-opacity duration-150"
                 style={{ opacity: isPending ? 0.6 : 1 }}
               >
                 <ErrorBoundary

@@ -59,7 +59,12 @@ export function ProgramTabContent({
   isSlotLogging,
 }: ProgramTabContentProps): React.ReactNode {
   return (
-    <div id="panel-program" role="tabpanel" aria-labelledby="tab-program">
+    <div
+      id="panel-program"
+      role="tabpanel"
+      aria-labelledby="tab-program"
+      className="max-w-2xl mx-auto"
+    >
       {isGuest && <GuestBanner className="mb-4 sm:mb-8" />}
 
       <details className="group bg-card border border-rule mb-4 sm:mb-8 overflow-hidden">
@@ -78,58 +83,56 @@ export function ProgramTabContent({
         </div>
       </details>
 
-      <div className="max-w-2xl mx-auto">
-        <DayNavigator
-          selectedDayIndex={selectedDayIndex}
-          totalDays={totalWorkouts}
-          currentDayIndex={currentDayIndex}
-          dayName={selectedWorkout?.dayName ?? ''}
-          isDayComplete={isDayComplete}
-          onPrev={onPrevDay}
-          onNext={onNextDay}
-          onGoToCurrent={onGoToCurrent}
-        />
+      <DayNavigator
+        selectedDayIndex={selectedDayIndex}
+        totalDays={totalWorkouts}
+        currentDayIndex={currentDayIndex}
+        dayName={selectedWorkout?.dayName ?? ''}
+        isDayComplete={isDayComplete}
+        onPrev={onPrevDay}
+        onNext={onNextDay}
+        onGoToCurrent={onGoToCurrent}
+      />
 
-        <div className="flex justify-end mb-2">
-          <button
-            type="button"
-            onClick={onToggleView}
-            aria-label={
-              viewMode === 'detailed' ? 'Cambiar a vista compacta' : 'Cambiar a vista detallada'
-            }
-            className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors"
-          >
-            {viewMode === 'detailed' ? 'Vista compacta' : 'Vista detallada'}
-          </button>
-        </div>
-
-        {selectedWorkout &&
-          (viewMode === 'detailed' ? (
-            <DetailedDayView
-              workout={selectedWorkout}
-              isCurrent={selectedDayIndex === currentDayIndex}
-              onMark={onMark}
-              onUndo={onUndo}
-              onSetAmrapReps={onSetAmrapReps}
-              onSetRpe={onSetRpe}
-              onSetTap={onSetTap}
-              getSetLogs={getSetLogs}
-              isSlotLogging={isSlotLogging}
-            />
-          ) : (
-            <DayView
-              workout={selectedWorkout}
-              isCurrent={selectedDayIndex === currentDayIndex}
-              onMark={onMark}
-              onUndo={onUndo}
-              onSetAmrapReps={onSetAmrapReps}
-              onSetRpe={onSetRpe}
-              onSetTap={onSetTap}
-              getSetLogs={getSetLogs}
-              isSlotLogging={isSlotLogging}
-            />
-          ))}
+      <div className="flex justify-end mb-2">
+        <button
+          type="button"
+          onClick={onToggleView}
+          aria-label={
+            viewMode === 'detailed' ? 'Cambiar a vista compacta' : 'Cambiar a vista detallada'
+          }
+          className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors"
+        >
+          {viewMode === 'detailed' ? 'Vista compacta' : 'Vista detallada'}
+        </button>
       </div>
+
+      {selectedWorkout &&
+        (viewMode === 'detailed' ? (
+          <DetailedDayView
+            workout={selectedWorkout}
+            isCurrent={selectedDayIndex === currentDayIndex}
+            onMark={onMark}
+            onUndo={onUndo}
+            onSetAmrapReps={onSetAmrapReps}
+            onSetRpe={onSetRpe}
+            onSetTap={onSetTap}
+            getSetLogs={getSetLogs}
+            isSlotLogging={isSlotLogging}
+          />
+        ) : (
+          <DayView
+            workout={selectedWorkout}
+            isCurrent={selectedDayIndex === currentDayIndex}
+            onMark={onMark}
+            onUndo={onUndo}
+            onSetAmrapReps={onSetAmrapReps}
+            onSetRpe={onSetRpe}
+            onSetTap={onSetTap}
+            getSetLogs={getSetLogs}
+            isSlotLogging={isSlotLogging}
+          />
+        ))}
     </div>
   );
 }
