@@ -378,6 +378,26 @@ dialog::backdrop {
   opacity: 1;
 }
 
+/* ── Program card hover lift ─────────────────── */
+
+.landing-program-card {
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.25s ease,
+    box-shadow 0.3s ease;
+}
+
+.landing-program-card:hover {
+  transform: translateY(-4px);
+  background-color: color-mix(in srgb, var(--color-card) 95%, rgba(255, 255, 255, 0.03));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-program-card:hover {
+    transform: none;
+  }
+}
+
 /* ── Hero number glow ──────────────────────────── */
 
 .hero-number-glow {
