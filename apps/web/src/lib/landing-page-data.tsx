@@ -24,8 +24,9 @@ export const FEATURES: readonly Feature[] = [
       <img
         src="/feature-progression.webp"
         alt="Automatic progression icon"
-        width={48}
-        height={48}
+        width={64}
+        height={64}
+        className="w-full h-full object-contain"
       />
     ),
     title: 'Progresión Inteligente',

@@ -18,14 +18,11 @@ export function FeaturesSection(): React.ReactNode {
           subtitleWidth="md"
         />
       </FadeUp>
-      <StaggerContainer
-        stagger={0.08}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-rule"
-      >
+      <StaggerContainer stagger={0.08} className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-rule">
         {FEATURES.map((f) => (
           <StaggerItem
             key={f.title}
-            className="relative bg-card p-6 transition-all landing-card-glow group"
+            className="relative bg-card p-8 transition-all landing-card-glow group flex items-start gap-5"
             style={{ borderTop: '2px solid transparent' }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderTopColor = 'var(--color-accent)';
@@ -34,11 +31,15 @@ export function FeaturesSection(): React.ReactNode {
               e.currentTarget.style.borderTopColor = 'transparent';
             }}
           >
-            <div className="mb-5 group-hover:scale-110 transition-transform duration-300 origin-left text-accent">
+            <div className="shrink-0 w-16 h-16 group-hover:scale-110 transition-transform duration-300 text-accent">
               {f.icon}
             </div>
-            <h3 className="text-sm font-bold mb-2 uppercase tracking-wider text-main">{f.title}</h3>
-            <p className="text-sm leading-relaxed text-muted">{f.desc}</p>
+            <div>
+              <h3 className="text-sm font-bold mb-2 uppercase tracking-wider text-main">
+                {f.title}
+              </h3>
+              <p className="text-sm leading-relaxed text-muted">{f.desc}</p>
+            </div>
           </StaggerItem>
         ))}
       </StaggerContainer>
