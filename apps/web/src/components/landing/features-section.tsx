@@ -1,13 +1,13 @@
 import { FEATURES } from '@/lib/landing-page-data';
 import { FadeUp, StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
-import { SectionHeader } from './shared';
+import { SECTION_PAD, SectionHeader } from './shared';
 
 export function FeaturesSection(): React.ReactNode {
   return (
     <section
       id="features"
       aria-labelledby="features-heading"
-      className="px-6 sm:px-10 py-16 sm:py-24 max-w-5xl mx-auto"
+      className={`${SECTION_PAD} max-w-5xl mx-auto`}
     >
       <FadeUp>
         <SectionHeader

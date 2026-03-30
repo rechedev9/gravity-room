@@ -1,13 +1,13 @@
 import { STEPS } from '@/lib/landing-page-data';
 import { FadeUp, StaggerContainer, StaggerItem, fadeUpVariants } from '@/lib/motion-primitives';
-import { SectionHeader } from './shared';
+import { SECTION_PAD, SectionHeader } from './shared';
 
 export function HowItWorksSection(): React.ReactNode {
   return (
     <section
       id="how-it-works"
       aria-labelledby="how-it-works-heading"
-      className="px-6 sm:px-10 py-16 sm:py-24 bg-header"
+      className={`${SECTION_PAD} bg-header`}
     >
       <div className="max-w-4xl mx-auto">
         <FadeUp>

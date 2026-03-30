@@ -7,7 +7,7 @@ export function FinalCtaSection(): React.ReactNode {
   const init = reduced ? 'visible' : 'hidden';
 
   return (
-    <section className="relative px-6 py-20 sm:py-32 text-center overflow-hidden">
+    <section className="relative px-6 py-16 sm:py-24 text-center overflow-hidden">
       <motion.div
         initial={init}
         whileInView="visible"

@@ -9,7 +9,7 @@ export function HeroSection(): React.ReactNode {
   return (
     <section
       aria-labelledby="hero-heading"
-      className="relative px-6 pt-24 pb-20 sm:pt-32 sm:pb-28 overflow-hidden"
+      className="relative px-6 pt-24 pb-12 sm:pt-32 sm:pb-16 overflow-hidden"
     >
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] pointer-events-none"
@@ -101,7 +101,7 @@ export function HeroSection(): React.ReactNode {
               transition: { duration: 0.8, ease: EASE_OUT_EXPO },
             },
           }}
-          className="mt-16 relative max-w-2xl mx-auto"
+          className="mt-12 relative max-w-2xl mx-auto"
         >
           <div
             className="absolute inset-0 -m-4 rounded-lg pointer-events-none"

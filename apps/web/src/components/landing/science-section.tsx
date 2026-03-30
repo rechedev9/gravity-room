@@ -1,12 +1,12 @@
 import { SCIENCE_CARDS } from '@/lib/landing-page-data';
 import { FadeUp, StaggerContainer, StaggerItem, scaleUpVariants } from '@/lib/motion-primitives';
-import { SectionHeader } from './shared';
+import { SECTION_PAD, SectionHeader } from './shared';
 
 export function ScienceSection(): React.ReactNode {
   return (
     <section
       aria-labelledby="smart-training-heading"
-      className="px-6 sm:px-10 py-16 sm:py-24 max-w-5xl mx-auto"
+      className={`${SECTION_PAD} max-w-5xl mx-auto`}
     >
       <FadeUp>
         <SectionHeader

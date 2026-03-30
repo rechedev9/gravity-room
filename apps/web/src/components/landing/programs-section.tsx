@@ -4,6 +4,7 @@ import type { CatalogEntry } from '@/lib/api-functions';
 import { FadeUp, StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
 import {
   SectionHeader,
+  SECTION_PAD,
   ProgramCardSkeleton,
   categoryLabel,
   estimatedWeeks,
@@ -21,7 +22,7 @@ export function ProgramsSection({ catalogQuery }: ProgramsSectionProps): React.R
     <section
       id="programs"
       aria-labelledby="programs-heading"
-      className="px-6 sm:px-10 py-16 sm:py-24 bg-header"
+      className={`${SECTION_PAD} bg-header`}
     >
       <div className="max-w-4xl mx-auto">
         <FadeUp>

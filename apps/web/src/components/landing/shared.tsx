@@ -14,6 +14,7 @@ export const NAV_LINKS = [
 
 export const MAX_LANDING_PROGRAMS = 6;
 export const CATALOG_STALE_TIME = 5 * 60 * 1000;
+export const SECTION_PAD = 'px-6 sm:px-10 py-14 sm:py-20';
 
 /* ── Gradient Divider ─────────────────────────────── */
 
