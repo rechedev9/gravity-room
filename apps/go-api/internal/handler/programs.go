@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -15,8 +16,82 @@ import (
 )
 
 // ProgramHandler holds dependencies for program routes.
+// Function fields override the default service implementation when non-nil (for tests).
 type ProgramHandler struct {
 	Pool *pgxpool.Pool
+
+	CreateInstance         func(ctx context.Context, pool *pgxpool.Pool, userID, programID, name string, config any) (*model.ProgramInstanceResponse, error)
+	CreateCustomInstance   func(ctx context.Context, pool *pgxpool.Pool, userID, definitionID, name string, config any) (*model.ProgramInstanceResponse, error)
+	ListInstances          func(ctx context.Context, pool *pgxpool.Pool, userID string, limit int, cursor string) (*model.ProgramListResponse, error)
+	GetInstance            func(ctx context.Context, pool *pgxpool.Pool, userID, id string) (*model.ProgramInstanceResponse, error)
+	UpdateInstance         func(ctx context.Context, pool *pgxpool.Pool, userID, instanceID string, name *string, status *string, config any) (*model.ProgramInstanceResponse, error)
+	UpdateInstanceMetadata func(ctx context.Context, pool *pgxpool.Pool, userID, instanceID string, metadata json.RawMessage) (*model.ProgramInstanceResponse, error)
+	ExportInstance         func(ctx context.Context, pool *pgxpool.Pool, userID, instanceID string) (map[string]any, error)
+	ImportInstance         func(ctx context.Context, pool *pgxpool.Pool, userID string, data map[string]any) (*model.ProgramInstanceResponse, error)
+	DeleteInstance         func(ctx context.Context, pool *pgxpool.Pool, userID, id string) error
+}
+
+func (h *ProgramHandler) createInstance(ctx context.Context, userID, programID, name string, config any) (*model.ProgramInstanceResponse, error) {
+	if h.CreateInstance != nil {
+		return h.CreateInstance(ctx, h.Pool, userID, programID, name, config)
+	}
+	return service.CreateInstance(ctx, h.Pool, userID, programID, name, config)
+}
+
+func (h *ProgramHandler) createCustomInstance(ctx context.Context, userID, definitionID, name string, config any) (*model.ProgramInstanceResponse, error) {
+	if h.CreateCustomInstance != nil {
+		return h.CreateCustomInstance(ctx, h.Pool, userID, definitionID, name, config)
+	}
+	return service.CreateCustomInstance(ctx, h.Pool, userID, definitionID, name, config)
+}
+
+func (h *ProgramHandler) listInstances(ctx context.Context, userID string, limit int, cursor string) (*model.ProgramListResponse, error) {
+	if h.ListInstances != nil {
+		return h.ListInstances(ctx, h.Pool, userID, limit, cursor)
+	}
+	return service.ListInstances(ctx, h.Pool, userID, limit, cursor)
+}
+
+func (h *ProgramHandler) getInstance(ctx context.Context, userID, id string) (*model.ProgramInstanceResponse, error) {
+	if h.GetInstance != nil {
+		return h.GetInstance(ctx, h.Pool, userID, id)
+	}
+	return service.GetInstance(ctx, h.Pool, userID, id)
+}
+
+func (h *ProgramHandler) updateInstance(ctx context.Context, userID, instanceID string, name *string, status *string, config any) (*model.ProgramInstanceResponse, error) {
+	if h.UpdateInstance != nil {
+		return h.UpdateInstance(ctx, h.Pool, userID, instanceID, name, status, config)
+	}
+	return service.UpdateInstance(ctx, h.Pool, userID, instanceID, name, status, config)
+}
+
+func (h *ProgramHandler) updateInstanceMetadata(ctx context.Context, userID, instanceID string, metadata json.RawMessage) (*model.ProgramInstanceResponse, error) {
+	if h.UpdateInstanceMetadata != nil {
+		return h.UpdateInstanceMetadata(ctx, h.Pool, userID, instanceID, metadata)
+	}
+	return service.UpdateInstanceMetadata(ctx, h.Pool, userID, instanceID, metadata)
+}
+
+func (h *ProgramHandler) exportInstance(ctx context.Context, userID, instanceID string) (map[string]any, error) {
+	if h.ExportInstance != nil {
+		return h.ExportInstance(ctx, h.Pool, userID, instanceID)
+	}
+	return service.ExportInstance(ctx, h.Pool, userID, instanceID)
+}
+
+func (h *ProgramHandler) importInstance(ctx context.Context, userID string, data map[string]any) (*model.ProgramInstanceResponse, error) {
+	if h.ImportInstance != nil {
+		return h.ImportInstance(ctx, h.Pool, userID, data)
+	}
+	return service.ImportInstance(ctx, h.Pool, userID, data)
+}
+
+func (h *ProgramHandler) deleteInstance(ctx context.Context, userID, id string) error {
+	if h.DeleteInstance != nil {
+		return h.DeleteInstance(ctx, h.Pool, userID, id)
+	}
+	return service.DeleteInstance(ctx, h.Pool, userID, id)
 }
 
 // HandleCreate handles POST /api/programs.
@@ -56,9 +131,9 @@ func (h *ProgramHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		err  error
 	)
 	if body.DefinitionID != "" {
-		resp, err = service.CreateCustomInstance(r.Context(), h.Pool, userID, body.DefinitionID, body.Name, body.Config)
+		resp, err = h.createCustomInstance(r.Context(), userID, body.DefinitionID, body.Name, body.Config)
 	} else {
-		resp, err = service.CreateInstance(r.Context(), h.Pool, userID, body.ProgramID, body.Name, body.Config)
+		resp, err = h.createInstance(r.Context(), userID, body.ProgramID, body.Name, body.Config)
 	}
 	if err != nil {
 		if apiErr, ok := err.(*apierror.ApiError); ok {
@@ -88,7 +163,7 @@ func (h *ProgramHandler) HandleList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resp, err := service.ListInstances(r.Context(), h.Pool, userID, limit, cursor)
+	resp, err := h.listInstances(r.Context(), userID, limit, cursor)
 	if err != nil {
 		if apiErr, ok := err.(*apierror.ApiError); ok {
 			apiErr.Write(w)
@@ -115,7 +190,7 @@ func (h *ProgramHandler) HandleGet(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 
-	resp, err := service.GetInstance(r.Context(), h.Pool, userID, id)
+	resp, err := h.getInstance(r.Context(), userID, id)
 	if err != nil {
 		if apiErr, ok := err.(*apierror.ApiError); ok {
 			apiErr.Write(w)
@@ -165,7 +240,7 @@ func (h *ProgramHandler) HandleUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resp, err := service.UpdateInstance(r.Context(), h.Pool, userID, id, body.Name, body.Status, body.Config)
+	resp, err := h.updateInstance(r.Context(), userID, id, body.Name, body.Status, body.Config)
 	if err != nil {
 		if apiErr, ok := err.(*apierror.ApiError); ok {
 			apiErr.Write(w)
@@ -192,7 +267,7 @@ func (h *ProgramHandler) HandleDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 
-	err := service.DeleteInstance(r.Context(), h.Pool, userID, id)
+	err := h.deleteInstance(r.Context(), userID, id)
 	if err != nil {
 		if apiErr, ok := err.(*apierror.ApiError); ok {
 			apiErr.Write(w)
@@ -221,7 +296,7 @@ func (h *ProgramHandler) HandleUpdateMetadata(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	resp, err := service.UpdateInstanceMetadata(r.Context(), h.Pool, userID, id, body.Metadata)
+	resp, err := h.updateInstanceMetadata(r.Context(), userID, id, body.Metadata)
 	if err != nil {
 		if apiErr, ok := err.(*apierror.ApiError); ok {
 			apiErr.Write(w)
@@ -229,10 +304,6 @@ func (h *ProgramHandler) HandleUpdateMetadata(w http.ResponseWriter, r *http.Req
 		}
 		if err.Error() == "instance not found" {
 			apierror.New(404, "Program not found", apierror.CodeInstanceNotFound).Write(w)
-			return
-		}
-		if err.Error() == "metadata too large" {
-			apierror.New(400, "Metadata exceeds 10KB limit", apierror.CodeMetadataTooLarge).Write(w)
 			return
 		}
 		log := logging.FromContext(r.Context())
@@ -252,7 +323,7 @@ func (h *ProgramHandler) HandleExport(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 
-	exported, err := service.ExportInstance(r.Context(), h.Pool, userID, id)
+	exported, err := h.exportInstance(r.Context(), userID, id)
 	if err != nil {
 		if apiErr, ok := err.(*apierror.ApiError); ok {
 			apiErr.Write(w)
@@ -297,7 +368,7 @@ func (h *ProgramHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := service.ImportInstance(r.Context(), h.Pool, userID, body)
+	resp, err := h.importInstance(r.Context(), userID, body)
 	if err != nil {
 		if apiErr, ok := err.(*apierror.ApiError); ok {
 			apiErr.Write(w)

@@ -1,6 +1,6 @@
 # Gravity Room — Roadmap
 
-> Last updated: 2026-03-29.
+> Last updated: 2026-03-30.
 
 ## Status: Post-Migration Hardening
 
@@ -11,11 +11,10 @@ security audit, CI/CD optimization, and DX improvements.
 
 ## Phase 6 — Test Coverage (In Progress)
 
-Handler coverage improved from 12% → 26%. Service at 7%. Full integration tests
-need a test DB or interface-based mocking.
+Handler coverage improved from 12% → 43.5%. Service at 7%.
 
 - [x] **Handler validation tests** — auth, programs, results validation paths (46 tests total)
-- [ ] **Handler integration tests** — full flows with test DB or service mocking
+- [x] **Handler integration tests** — ProgramHandler full flows via function-field mocking (27 tests)
 - [ ] **Service integration tests** — `service/programs.go` (896 LOC) main flows
 - [x] **Add `coverage` target to Makefile** — `go test -coverprofile` + `go tool cover -html`
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/reche/gravity-room/apps/go-api/internal/logging"
+	mw "github.com/reche/gravity-room/apps/go-api/internal/middleware"
 )
 
 func assertStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {
@@ -43,4 +44,14 @@ func newReqWithID(method, path, body, id string) *http.Request {
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("id", id)
 	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+}
+
+func newAuthReq(method, path, body, userID string) *http.Request {
+	req := newReq(method, path, body)
+	return req.WithContext(mw.WithUserID(req.Context(), userID))
+}
+
+func newAuthReqWithID(method, path, body, routeID, userID string) *http.Request {
+	req := newReqWithID(method, path, body, routeID)
+	return req.WithContext(mw.WithUserID(req.Context(), userID))
 }

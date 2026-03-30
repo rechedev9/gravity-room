@@ -31,6 +31,11 @@ func UserID(ctx context.Context) string {
 	return ""
 }
 
+// WithUserID injects a userID into the context. Intended for tests.
+func WithUserID(ctx context.Context, userID string) context.Context {
+	return context.WithValue(ctx, keyUserID, userID)
+}
+
 // RequireAuth is a chi middleware that extracts and verifies a JWT Bearer token.
 // On failure, returns 401. On success, injects userId into context.
 func RequireAuth(secret string) func(http.Handler) http.Handler {
