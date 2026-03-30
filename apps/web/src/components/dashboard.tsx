@@ -24,6 +24,8 @@ import type { ProgramSummary } from '@/lib/api-functions';
 import { PROGRAM_LEVELS } from '@gzclp/shared/catalog';
 import type { ProgramLevel } from '@gzclp/shared/catalog';
 import { Button } from './button';
+import { OnboardingBanner } from './onboarding-banner';
+import { isOnboardingDismissed, dismissOnboarding } from '@/lib/onboarding';
 
 const LEVEL_LABELS: Readonly<Record<ProgramLevel, string>> = {
   beginner: 'Principiante',
@@ -322,6 +324,7 @@ export function Dashboard({
   const { user } = useAuth();
   const { isGuest } = useGuest();
   const [wizardDefinitionId, setWizardDefinitionId] = useState<string | null>(null);
+  const [onboardingVisible, setOnboardingVisible] = useState(() => !isOnboardingDismissed());
   const { forkAsync, isForking } = useDefinitions();
   const queryClient = useQueryClient();
 
@@ -344,6 +347,14 @@ export function Dashboard({
     if (!programsQuery.data) return null;
     return programsQuery.data.find((p) => p.status === 'active') ?? null;
   })();
+
+  const handleStartProgram = (programId: string): void => {
+    if (onboardingVisible) {
+      dismissOnboarding();
+      setOnboardingVisible(false);
+    }
+    onStartNewProgram(programId);
+  };
 
   const handleCustomize = async (templateId: string): Promise<void> => {
     try {
@@ -372,6 +383,15 @@ export function Dashboard({
 
       <div className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
         {isGuest && <GuestBanner className="mb-6" />}
+
+        {onboardingVisible && !activeProgram && !programsQuery.isLoading && (
+          <OnboardingBanner
+            onDismiss={() => {
+              dismissOnboarding();
+              setOnboardingVisible(false);
+            }}
+          />
+        )}
 
         {/* Active program loading skeleton */}
         {!isGuest && programsQuery.isLoading && (
@@ -459,7 +479,7 @@ export function Dashboard({
                               key={entry.id}
                               definition={entry}
                               isActive={false}
-                              onSelect={() => onStartNewProgram(entry.id)}
+                              onSelect={() => handleStartProgram(entry.id)}
                               onCustomize={
                                 user && !isGuest ? () => void handleCustomize(entry.id) : undefined
                               }
