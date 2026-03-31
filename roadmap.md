@@ -2,7 +2,7 @@
 
 > Last updated: 2026-03-31.
 
-## Status: Phase B — Python Analytics Service
+## Status: Phase C — ML Predictive Features
 
 Phase A (Dashboard UI Foundation) complete. Current focus: Python analytics microservice.
 
@@ -91,25 +91,25 @@ shadcn/ui and Recharts. Replace custom Canvas 2D charts.
 
 ---
 
-## Phase B — Python Analytics Service (Pending)
+## Phase B — Python Analytics Service (Done)
 
 Separate Python microservice that reads workout data from Postgres and
 writes pre-computed insights for the Go API to serve.
 
 ### B.1 — Service Scaffold
 
-- [ ] Create `apps/analytics/` — FastAPI service
-- [ ] `requirements.txt`: fastapi, uvicorn, psycopg[binary] 3.x,
+- [x] Create `apps/analytics/` — FastAPI service
+- [x] `requirements.txt`: fastapi, uvicorn, psycopg[binary] 3.x,
       pandas, scikit-learn, numpy, apscheduler, pydantic
-- [ ] `Dockerfile` — Python 3.12 multi-stage
-- [ ] `main.py` — health endpoint + manual `POST /compute` trigger
-- [ ] `config.py` — `DATABASE_URL` from env
-- [ ] `db.py` — psycopg3 async connection pool (read-only credentials)
-- [ ] Add `analytics` service to `docker-compose.yml`
+- [x] `Dockerfile` — Python 3.12 multi-stage
+- [x] `main.py` — health endpoint + manual `POST /compute` trigger
+- [x] `config.py` — `DATABASE_URL` from env
+- [x] `db.py` — psycopg3 async connection pool (read-only credentials)
+- [x] Add `analytics` service to `docker-compose.yml`
 
 ### B.2 — Database Schema
 
-- [ ] Migration 00034: `user_insights` table
+- [x] Migration 00034: `user_insights` table
 
 ```sql
 CREATE TABLE user_insights (
@@ -132,40 +132,40 @@ Insight types: `volume_trend`, `frequency`, `e1rm_progression`,
 
 ### B.3 — Compute Pipelines
 
-- [ ] `queries.py` — SQL to extract raw data from `program_instances` +
+- [x] `queries.py` — SQL to extract raw data from `program_instances` +
       `workout_results` + `program_templates`
-- [ ] `insights/volume.py` — weekly volume trends, slope, direction
-- [ ] `insights/frequency.py` — sessions/week, streaks, consistency %
-- [ ] `insights/e1rm.py` — Epley 1RM per exercise over time
-- [ ] `insights/summary.py` — per-exercise aggregation (sets, reps,
+- [x] `insights/volume.py` — weekly volume trends, slope, direction
+- [x] `insights/frequency.py` — sessions/week, streaks, consistency %
+- [x] `insights/e1rm.py` — Epley 1RM per exercise over time
+- [x] `insights/summary.py` — per-exercise aggregation (sets, reps,
       volume, success rate, RPE avg)
-- [ ] `compute.py` — orchestrator: for each user, run all pipelines, upsert
-- [ ] `scheduler.py` — APScheduler cron job (every 6 hours)
+- [x] `compute.py` — orchestrator: for each user, run all pipelines, upsert
+- [x] `scheduler.py` — APScheduler cron job (every 6 hours)
 
 ### B.4 — Go API Integration
 
-- [ ] `apps/go-api/internal/handler/insights.go` —
+- [x] `apps/go-api/internal/handler/insights.go` —
       `GET /api/insights?types=volume_trend,frequency,...`
-- [ ] `apps/go-api/internal/service/insights.go` — query `user_insights`
-- [ ] Register route in `server.go` (requires auth)
+- [x] `apps/go-api/internal/service/insights.go` — query `user_insights`
+- [x] Register route in `server.go` (requires auth)
 
 ### B.5 — Frontend Analytics Page
 
-- [ ] `src/components/dashboard/analytics-page.tsx` — main page
-- [ ] `src/components/dashboard/volume-trend-card.tsx`
-- [ ] `src/components/dashboard/frequency-card.tsx`
-- [ ] `src/components/dashboard/e1rm-chart.tsx`
-- [ ] Add `fetchInsights()` to `api-functions.ts`
-- [ ] Add `insights` namespace to `query-keys.ts`
-- [ ] Add "Analíticas" to sidebar nav
+- [x] `src/components/dashboard/analytics-page.tsx` — main page
+- [x] `src/components/dashboard/volume-trend-card.tsx`
+- [x] `src/components/dashboard/frequency-card.tsx`
+- [x] `src/components/dashboard/e1rm-chart.tsx`
+- [x] Add `fetchInsights()` to `api-functions.ts`
+- [x] Add `insights` namespace to `query-keys.ts`
+- [x] Add "Analíticas" to sidebar nav
 
 ### B.6 — Verification
 
-- [ ] Python: `GET /health` responds, `POST /compute` populates insights
-- [ ] Go: `GET /api/insights` returns computed data
-- [ ] Frontend: analytics page renders charts from real data
-- [ ] Docker compose: all 3 services start and communicate
-- [ ] `bun run ci` passes, `go test ./...` passes
+- [x] Python: `GET /health` responds, `POST /compute` populates insights
+- [x] Go: `GET /api/insights` returns computed data
+- [x] Frontend: analytics page renders charts from real data
+- [x] Docker compose: all 3 services start and communicate
+- [x] `bun run ci` passes, `go test ./...` passes
 
 ---
 

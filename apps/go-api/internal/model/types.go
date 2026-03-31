@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 // FormatTime formats a time.Time as ISO 8601 with exactly 3 fractional digits.
 // Matches the TS contract: "2006-01-02T15:04:05.000Z".
@@ -161,6 +164,24 @@ type ProgramDefinitionListResponse struct {
 // StatsOnlineResponse matches StatsOnlineResponseSchema.
 type StatsOnlineResponse struct {
 	Count *int `json:"count"`
+}
+
+// --------------------------------------------------------------------------
+// Insights responses
+// --------------------------------------------------------------------------
+
+// InsightResponse is one pre-computed analytics insight row.
+type InsightResponse struct {
+	InsightType string          `json:"insightType"`
+	ExerciseID  *string         `json:"exerciseId"`
+	Payload     json.RawMessage `json:"payload"`
+	ComputedAt  string          `json:"computedAt"`
+	ValidUntil  *string         `json:"validUntil"`
+}
+
+// InsightsListResponse wraps the insights array.
+type InsightsListResponse struct {
+	Data []InsightResponse `json:"data"`
 }
 
 // --------------------------------------------------------------------------

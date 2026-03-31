@@ -757,3 +757,34 @@ export async function createCustomProgram(
   });
   return parseSummary(data);
 }
+
+// ---------------------------------------------------------------------------
+// Insights
+// ---------------------------------------------------------------------------
+
+export interface InsightItem {
+  readonly insightType: string;
+  readonly exerciseId: string | null;
+  readonly payload: unknown;
+  readonly computedAt: string;
+  readonly validUntil: string | null;
+}
+
+function parseInsight(rec: unknown): InsightItem {
+  if (!isRecord(rec)) throw new Error('Invalid insight response');
+  return {
+    insightType: String(rec.insightType ?? ''),
+    exerciseId: rec.exerciseId != null ? String(rec.exerciseId) : null,
+    payload: rec.payload ?? {},
+    computedAt: String(rec.computedAt ?? ''),
+    validUntil: rec.validUntil != null ? String(rec.validUntil) : null,
+  };
+}
+
+/** Fetch pre-computed insights for the current user. */
+export async function fetchInsights(types?: string[]): Promise<InsightItem[]> {
+  const query = types?.length ? `?types=${types.join(',')}` : '';
+  const data = await apiFetch(`/insights${query}`);
+  if (isRecord(data) && Array.isArray(data.data)) return data.data.map(parseInsight);
+  return [];
+}
