@@ -45,15 +45,15 @@ test.describe('Stats panel', () => {
     });
   });
 
-  test('renders chart canvas elements', async ({ page }) => {
+  test('renders chart svg elements', async ({ page }) => {
     await seedProgram(page, { results: buildSuccessResults(4) });
     await navigateToTracker(page);
     await expect(page.getByRole('progressbar').last()).toBeVisible();
 
     await page.getByRole('tab', { name: 'Estadísticas' }).click();
 
-    // Charts use canvas elements for rendering
-    const canvases = page.locator('canvas');
-    await expect(canvases.first()).toBeVisible();
+    // Charts use Recharts (SVG-based) for rendering
+    const charts = page.locator('.recharts-wrapper');
+    await expect(charts.first()).toBeVisible();
   });
 });

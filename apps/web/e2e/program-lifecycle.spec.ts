@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { enterGuestMode, programCard } from './helpers/seed';
+import { enterGuestMode, programCard, dismissCookieBannerIfPresent } from './helpers/seed';
 
 /**
  * Program lifecycle E2E tests — verifies the critical flows that broke
@@ -19,7 +19,8 @@ async function startProgram(page: Page, name: string): Promise<void> {
 }
 
 async function backToCatalog(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /programas/i }).click();
+  await dismissCookieBannerIfPresent(page);
+  await page.getByRole('navigation').first().getByRole('link', { name: 'Inicio' }).click();
   await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
 }
 

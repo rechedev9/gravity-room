@@ -7,7 +7,7 @@ test.describe('Profile view', () => {
   });
 
   test('shows empty state when user has no active program', async ({ page }) => {
-    await page.goto('/app?view=profile');
+    await page.goto('/app/profile');
 
     // Wait for auth session to restore and profile to render
     await expect(page.getByRole('heading', { name: 'Perfil' })).toBeVisible({ timeout: 10_000 });

@@ -1,16 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { programCard } from './helpers/seed';
+import { enterGuestMode, programCard, dismissCookieBannerIfPresent } from './helpers/seed';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/** Enter guest mode from the login page and land on /app dashboard. */
-async function enterGuestMode(page: import('@playwright/test').Page): Promise<void> {
-  await page.goto('/login');
-  await page.getByRole('button', { name: 'Probar sin cuenta' }).click();
-  await page.waitForURL('**/app**', { timeout: 10_000 });
-}
 
 /** Enter guest mode and start a GZCLP program from the catalog. */
 async function startGuestProgram(page: import('@playwright/test').Page): Promise<void> {
@@ -103,6 +96,7 @@ test.describe('Guest sidebar CTA (REQ-GUI-003, REQ-GUI-008)', () => {
 
   test('clicking sidebar "Crear Cuenta" exits guest mode and goes to /login', async ({ page }) => {
     await enterGuestMode(page);
+    await dismissCookieBannerIfPresent(page);
 
     const nav = page.getByRole('navigation').first();
     await nav.getByRole('button', { name: /crear cuenta/i }).click();
@@ -289,10 +283,9 @@ test.describe('Guest ephemeral state (REQ-GCTX-004)', () => {
 
     // Confirm we're in guest mode — banner visible
     await expect(page.getByRole('status').filter({ hasText: 'Modo invitado' })).toBeVisible();
-    // Header shows "Crear Cuenta"
-    await expect(
-      page.locator('header').getByRole('button', { name: /crear cuenta/i })
-    ).toBeVisible();
+    const nav = page.getByRole('navigation').first();
+    // Sidebar shows "Crear Cuenta"
+    await expect(nav.getByRole('button', { name: /crear cuenta/i })).toBeVisible();
 
     // Reload the page — guest state is ephemeral (React useState, no persistence)
     await page.reload();
@@ -300,7 +293,7 @@ test.describe('Guest ephemeral state (REQ-GCTX-004)', () => {
 
     // Guest banner should be gone
     await expect(page.getByRole('status').filter({ hasText: 'Modo invitado' })).not.toBeVisible();
-    // Header should show "Iniciar Sesión" instead of "Crear Cuenta"
-    await expect(page.locator('header').getByText('Iniciar Sesión')).toBeVisible();
+    // Sidebar should show "Iniciar Sesión" instead of "Crear Cuenta"
+    await expect(nav.getByRole('link', { name: /iniciar sesión/i })).toBeVisible();
   });
 });
