@@ -89,10 +89,12 @@ export async function guestWithProgram(page: Page, name: string): Promise<void> 
 
 /** Dismiss cookie consent banner if present — call before clicking buttons near the bottom of long pages. */
 export async function dismissCookieBannerIfPresent(page: Page): Promise<void> {
-  const cookieBtn = page.getByRole('button', { name: 'Entendido' });
-  if (await cookieBtn.isVisible({ timeout: 500 }).catch(() => false)) {
-    await cookieBtn.click();
-  }
+  // Try to click the dismiss button; ignore failures if banner is not present.
+  // Uses a 3s timeout to handle slow useEffect rendering in CI.
+  await page
+    .getByRole('button', { name: 'Entendido' })
+    .click({ timeout: 3000 })
+    .catch(() => {});
 }
 
 /** Dismiss RPE dialog if present — call after marking tiers, before navigating. */
