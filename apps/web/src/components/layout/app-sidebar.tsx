@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { AvatarDropdown } from '@/components/avatar-dropdown';
@@ -25,6 +25,7 @@ const NAV_ITEMS: readonly NavItem[] = [
 export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNode {
   const { user, signOut } = useAuth();
   const { isGuest, exitGuestMode } = useGuest();
+  const navigate = useNavigate();
 
   // Close sidebar on escape
   useEffect(() => {
@@ -82,6 +83,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
             onClick={() => {
               exitGuestMode();
               onClose();
+              void navigate('/login');
             }}
             className="w-full px-3 py-2 text-xs font-bold text-btn-active-text bg-btn-active border-2 border-btn-ring uppercase tracking-wide cursor-pointer hover:opacity-90 transition-opacity"
           >
