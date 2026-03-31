@@ -2,9 +2,9 @@
 
 > Last updated: 2026-03-31.
 
-## Status: Phase C — ML Predictive Features
+## Status: Backlog
 
-Phase A (Dashboard UI Foundation) complete. Current focus: Python analytics microservice.
+Phases A, B, C complete. Current focus: backlog items (service integration tests, security audit, CI/CD optimization, Sentry, dev compose).
 
 ---
 
@@ -169,49 +169,49 @@ Insight types: `volume_trend`, `frequency`, `e1rm_progression`,
 
 ---
 
-## Phase C — ML Predictive Features (Pending)
+## Phase C — ML Predictive Features (Done)
 
 Add machine learning models to the Python analytics service. All models
 run during the batch compute job and write to `user_insights`.
 
 ### C.1 — Plateau Detection
 
-- [ ] `ml/plateau.py` — linear regression on weight progression
+- [x] `ml/plateau.py` — linear regression on weight progression
       (last 8 weeks, min 8 data points)
-- [ ] Plateau = slope < 0.1 kg/week AND p-value > 0.1
-- [ ] Confidence = `1 - p_value` (capped 0.95)
-- [ ] Insight type: `plateau_detection` (per exercise)
-- [ ] Frontend: `plateau-alert.tsx` — warning card, only shown
+- [x] Plateau = slope < 0.1 kg/week AND p-value > 0.1
+- [x] Confidence = `1 - p_value` (capped 0.95)
+- [x] Insight type: `plateau_detection` (per exercise)
+- [x] Frontend: `plateau-alert.tsx` — warning card, only shown
       when confidence > 0.6
 
 ### C.2 — 1RM Forecasting
 
-- [ ] `ml/forecast.py` — linear regression on weekly Epley-1RM series
+- [x] `ml/forecast.py` — linear regression on weekly Epley-1RM series
       (min 6 weeks of data)
-- [ ] Predict 2-week and 4-week ahead with confidence bands
-- [ ] R² < 0.5 = low confidence, suppress display
-- [ ] Insight type: `e1rm_forecast` (per exercise)
-- [ ] Frontend: `forecast-chart.tsx` — Recharts AreaChart with
+- [x] Predict 2-week and 4-week ahead with confidence bands
+- [x] R² < 0.5 = low confidence, suppress display
+- [x] Insight type: `e1rm_forecast` (per exercise)
+- [x] Frontend: `forecast-chart.tsx` — Recharts AreaChart with
       solid line (historical) + dashed (forecast) + confidence band
 
 ### C.3 — Load Recommendation
 
-- [ ] `ml/recommendation.py` — logistic regression on success probability
-- [ ] Features: weight, success_rate_at_weight, avg_rpe, volume_last_week,
+- [x] `ml/recommendation.py` — logistic regression on success probability
+- [x] Features: weight, success_rate_at_weight, avg_rpe, volume_last_week,
       days_since_last_session (min 10 sessions with RPE data)
-- [ ] Predicted success > 70% → recommend increment, else hold
-- [ ] Fallback without RPE: 3 consecutive successes → increment
-- [ ] Insight type: `load_recommendation` (per exercise)
-- [ ] Frontend: `load-recommendation.tsx` — card with recommended weight + confidence badge
+- [x] Predicted success > 70% → recommend increment, else hold
+- [x] Fallback without RPE: 3 consecutive successes → increment
+- [x] Insight type: `load_recommendation` (per exercise)
+- [x] Frontend: `load-recommendation.tsx` — card with recommended weight + confidence badge
 
 ### C.4 — Verification
 
-- [ ] Unit tests with synthetic data for each ML function
-- [ ] Plateau detection: flags flat progressions, ignores active ones
-- [ ] Forecast: within 10% of actual for linear trends
-- [ ] Recommendation: defaults to hold when data insufficient
-- [ ] Full pipeline: Python → Postgres → Go API → Frontend
-- [ ] ML cards gracefully hidden when min data thresholds not met
+- [x] Unit tests with synthetic data for each ML function
+- [x] Plateau detection: flags flat progressions, ignores active ones
+- [x] Forecast: within 10% of actual for linear trends
+- [x] Recommendation: defaults to hold when data insufficient
+- [x] Full pipeline: Python → Postgres → Go API → Frontend
+- [x] ML cards gracefully hidden when min data thresholds not met
 
 ---
 
