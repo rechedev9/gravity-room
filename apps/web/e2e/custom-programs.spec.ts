@@ -15,13 +15,10 @@ async function openCustomizeWizard(
   await page.goto('/app');
   await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
 
-  // Click the "Personalizar" button — it's a sibling of the card inside a flex-col wrapper
   const card = programCard(page, programName);
   await expect(card).toBeVisible({ timeout: 10_000 });
 
-  // Navigate up to the flex-col wrapper via xpath, then find the Personalizar button
-  const wrapper = card.locator('xpath=..');
-  const personalizeBtn = wrapper.getByRole('button', { name: 'Personalizar' });
+  const personalizeBtn = card.getByRole('button', { name: 'Personalizar' });
 
   // Click and wait for the fork API response
   const [forkResponse] = await Promise.all([
