@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { motion, useReducedMotion } from 'motion/react';
+import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
 
 /* ── Constants ────────────────────────────────────── */
 
@@ -19,7 +21,17 @@ export const SECTION_PAD = 'px-6 sm:px-10 py-14 sm:py-20';
 /* ── Gradient Divider ─────────────────────────────── */
 
 export function GradientDivider(): React.ReactNode {
-  return <div className="landing-gradient-divider" />;
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      className="landing-gradient-divider"
+      initial={reduced ? undefined : { scaleX: 0 }}
+      whileInView={reduced ? undefined : { scaleX: 1 }}
+      viewport={{ once: true, margin: '0px 0px -10px 0px' }}
+      transition={{ duration: 0.9, ease: EASE_OUT_EXPO }}
+      style={{ transformOrigin: 'center' }}
+    />
+  );
 }
 
 /* ── Section label ────────────────────────────────── */

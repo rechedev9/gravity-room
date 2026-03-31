@@ -17,11 +17,11 @@ export function FinalCtaSection(): React.ReactNode {
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse at center bottom, rgba(232,170,32,0.12) 0%, transparent 70%)',
+            'radial-gradient(ellipse at center bottom, rgba(232,170,32,0.2) 0%, rgba(232,170,32,0.04) 55%, transparent 80%)',
         }}
       />
       <div
-        className="absolute inset-0 pointer-events-none opacity-[0.03]"
+        className="absolute inset-0 pointer-events-none opacity-[0.06]"
         style={{
           backgroundImage: 'url(/pattern-bg.webp)',
           backgroundSize: '400px',

@@ -51,6 +51,14 @@ export function ProgramsSection({ catalogQuery }: ProgramsSectionProps): React.R
             >
               {catalog.slice(0, MAX_LANDING_PROGRAMS).map((program) => {
                 const catColor = getCategoryColor(program.category);
+                const levelCount =
+                  program.level === 'beginner' ? 1 : program.level === 'intermediate' ? 2 : 3;
+                const levelLabel =
+                  program.level === 'beginner'
+                    ? 'Principiante'
+                    : program.level === 'intermediate'
+                      ? 'Intermedio'
+                      : 'Avanzado';
                 return (
                   <StaggerItem key={program.id}>
                     <Link
@@ -107,6 +115,25 @@ export function ProgramsSection({ catalogQuery }: ProgramsSectionProps): React.R
                               {pill}
                             </span>
                           ))}
+                        </div>
+
+                        <div className="flex items-center justify-center gap-1.5 mt-3 pt-3 border-t border-rule">
+                          {[1, 2, 3].map((i) => (
+                            <div
+                              key={i}
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{
+                                backgroundColor: catColor.badge,
+                                opacity: i <= levelCount ? 0.8 : 0.2,
+                              }}
+                            />
+                          ))}
+                          <span
+                            className="font-mono text-[9px] tracking-wider uppercase ml-1"
+                            style={{ color: catColor.badge, opacity: 0.65 }}
+                          >
+                            {levelLabel}
+                          </span>
                         </div>
                       </div>
                     </Link>
