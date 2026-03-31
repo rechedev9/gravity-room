@@ -7,6 +7,7 @@ import logging
 from db import get_conn
 from queries import fetch_all_users, fetch_workout_records, upsert_insight
 from insights import e1rm, frequency, summary, volume
+from ml import forecast, plateau, recommendation
 
 log = logging.getLogger(__name__)
 
@@ -59,5 +60,14 @@ async def _compute_user(user_id: str) -> None:
         summary_map = summary.compute_per_exercise(records)
         for exercise_id, payload in summary_map.items():
             await upsert_insight(conn, user_id, "exercise_summary", exercise_id, payload)
+
+        for exercise_id, payload in plateau.compute_per_exercise(records).items():
+            await upsert_insight(conn, user_id, "plateau_detection", exercise_id, payload)
+
+        for exercise_id, payload in forecast.compute_per_exercise(records).items():
+            await upsert_insight(conn, user_id, "e1rm_forecast", exercise_id, payload)
+
+        for exercise_id, payload in recommendation.compute_per_exercise(records).items():
+            await upsert_insight(conn, user_id, "load_recommendation", exercise_id, payload)
 
         await conn.commit()

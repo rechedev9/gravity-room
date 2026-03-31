@@ -7,8 +7,18 @@ import { GuestBanner } from '@/components/guest-banner';
 import { VolumeTrendCard } from './volume-trend-card';
 import { FrequencyCard } from './frequency-card';
 import { E1rmChart } from './e1rm-chart';
+import { PlateauAlert } from './plateau-alert';
+import { ForecastChart } from './forecast-chart';
+import { LoadRecommendation } from './load-recommendation';
 
-const INSIGHT_TYPES = ['volume_trend', 'frequency', 'e1rm_progression'] as const;
+const INSIGHT_TYPES = [
+  'volume_trend',
+  'frequency',
+  'e1rm_progression',
+  'plateau_detection',
+  'e1rm_forecast',
+  'load_recommendation',
+] as const;
 
 export function AnalyticsPage(): React.ReactNode {
   const { user } = useAuth();
@@ -25,6 +35,12 @@ export function AnalyticsPage(): React.ReactNode {
   const frequency = insightsQuery.data?.find((i) => i.insightType === 'frequency');
   const e1rmInsights =
     insightsQuery.data?.filter((i) => i.insightType === 'e1rm_progression') ?? [];
+  const plateauInsights =
+    insightsQuery.data?.filter((i) => i.insightType === 'plateau_detection') ?? [];
+  const forecastInsights =
+    insightsQuery.data?.filter((i) => i.insightType === 'e1rm_forecast') ?? [];
+  const recommendationInsights =
+    insightsQuery.data?.filter((i) => i.insightType === 'load_recommendation') ?? [];
 
   return (
     <div className="min-h-dvh bg-body">
@@ -67,6 +83,14 @@ export function AnalyticsPage(): React.ReactNode {
               {frequency && <FrequencyCard insight={frequency} />}
               {volumeTrend && <VolumeTrendCard insight={volumeTrend} />}
 
+              {plateauInsights.length > 0 && (
+                <section>
+                  {plateauInsights.map((insight) => (
+                    <PlateauAlert key={`plateau-${insight.exerciseId}`} insight={insight} />
+                  ))}
+                </section>
+              )}
+
               {e1rmInsights.length > 0 && (
                 <section>
                   <h2 className="section-label mb-4">1RM Estimado por Ejercicio</h2>
@@ -76,6 +100,28 @@ export function AnalyticsPage(): React.ReactNode {
                         key={`${insight.insightType}-${insight.exerciseId}`}
                         insight={insight}
                       />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {forecastInsights.length > 0 && (
+                <section>
+                  <h2 className="section-label mb-4">Pronóstico 1RM</h2>
+                  <div className="space-y-4">
+                    {forecastInsights.map((insight) => (
+                      <ForecastChart key={`forecast-${insight.exerciseId}`} insight={insight} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {recommendationInsights.length > 0 && (
+                <section>
+                  <h2 className="section-label mb-4">Recomendación de Carga</h2>
+                  <div className="space-y-4">
+                    {recommendationInsights.map((insight) => (
+                      <LoadRecommendation key={`rec-${insight.exerciseId}`} insight={insight} />
                     ))}
                   </div>
                 </section>

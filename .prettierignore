@@ -8,3 +8,5 @@ build
 .tmp
 .idea
 apps/go-api
+**/.venv
+**/.pytest_cache
