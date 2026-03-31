@@ -5,7 +5,6 @@ Computes sessions/week, current streak, and consistency percentage.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from datetime import datetime, timedelta
 
 from queries import WorkoutRecord
@@ -36,11 +35,15 @@ def compute(records: list[WorkoutRecord]) -> dict | None:
     streak = _current_streak(sorted_dates)
     consistency_pct = _consistency_pct(sorted_dates, first, last)
 
+    # Include last 28 days of workout dates for heatmap rendering
+    recent_dates = sorted_dates[-28:] if len(sorted_dates) > 28 else sorted_dates
+
     return {
         "sessionsPerWeek": sessions_per_week,
         "currentStreak": streak,
         "consistencyPct": consistency_pct,
         "totalSessions": len(sorted_dates),
+        "workoutDates": recent_dates,
     }
 
 

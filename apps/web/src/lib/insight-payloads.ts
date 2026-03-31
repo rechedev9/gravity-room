@@ -5,6 +5,7 @@ export interface FrequencyPayload {
   readonly currentStreak: number;
   readonly consistencyPct: number;
   readonly totalSessions: number;
+  readonly workoutDates?: readonly string[];
 }
 
 export function isFrequencyPayload(v: unknown): v is FrequencyPayload {

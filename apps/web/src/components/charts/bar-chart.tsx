@@ -11,43 +11,13 @@ import {
 } from 'recharts';
 import type { VolumeDataPoint } from '@gzclp/shared/types';
 import { getChartTheme, formatChartDate } from './chart-theme';
+import { formatVolLabel, VolumeTooltip } from './volume-tooltip';
 
 const MAX_LABELS = 8;
 
 interface BarChartProps {
   readonly data: readonly VolumeDataPoint[];
   readonly label: string;
-}
-
-function formatVolLabel(kg: number): string {
-  if (kg >= 1000) return `${(kg / 1000).toFixed(kg % 1000 === 0 ? 0 : 1)}k`;
-  return String(kg);
-}
-
-// ---------------------------------------------------------------------------
-// Custom tooltip
-// ---------------------------------------------------------------------------
-
-interface CustomTooltipProps {
-  readonly active?: boolean;
-  readonly payload?: Array<{ value: number; payload: { x: string } }>;
-}
-
-function CustomTooltip({ active, payload }: CustomTooltipProps): React.ReactElement | null {
-  if (!active || !payload?.length) return null;
-  return (
-    <div
-      className="rounded border px-2 py-1.5 text-xs shadow-lg whitespace-nowrap"
-      style={{
-        backgroundColor: 'var(--color-card)',
-        borderColor: 'var(--color-rule)',
-        color: 'var(--color-tooltip-text)',
-      }}
-    >
-      <span className="font-bold">{formatVolLabel(payload[0].value)} kg</span>
-      <span className="ml-1 text-[var(--color-muted)]">{payload[0].payload.x}</span>
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -118,7 +88,7 @@ export function BarChart({ data, label }: BarChartProps): React.ReactNode {
                 fontSize: 9,
               }}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<VolumeTooltip />} />
             <Bar dataKey="vol" fill={theme.line} fillOpacity={0.8} isAnimationActive={false} />
             {avg !== null && (
               <ReferenceLine

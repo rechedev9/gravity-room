@@ -21,7 +21,7 @@ export function KpiCard({
 }: KpiCardProps): React.ReactNode {
   if (loading) {
     return (
-      <div className="bg-card border border-rule p-4 sm:p-5 animate-pulse">
+      <div className="bg-card border border-rule p-4 sm:p-5 animate-pulse" aria-busy="true">
         <div className="h-2.5 w-20 bg-rule rounded mb-3" />
         <div className="h-7 w-16 bg-rule rounded" />
       </div>

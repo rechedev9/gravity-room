@@ -157,6 +157,7 @@ export function ActiveProgramCard({
           aria-valuenow={progressPct}
           aria-valuemin={0}
           aria-valuemax={100}
+          aria-label={`Progreso del programa: ${completedWorkouts} de ${totalWorkouts} entrenamientos`}
         >
           <div className="flex-1 h-2.5 bg-progress-track overflow-hidden rounded-full">
             <div

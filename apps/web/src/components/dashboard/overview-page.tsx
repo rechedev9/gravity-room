@@ -120,7 +120,7 @@ function KpiSummary({ programs, insights, isLoadingInsights }: KpiSummaryProps):
   const loadingKpi = isLoading || isLoadingInsights;
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
       <KpiCard
         label="Sesiones/sem"
         value={freqPayload?.sessionsPerWeek ?? '—'}
@@ -166,6 +166,7 @@ function KpiSummary({ programs, insights, isLoadingInsights }: KpiSummaryProps):
         label="Mejor 1RM"
         value={best1rm.value > 0 ? `${best1rm.value}` : '—'}
         sub={best1rm.value > 0 ? `kg · ${best1rm.exercise}` : 'kg'}
+        accent
         loading={loadingKpi}
       />
     </div>
@@ -298,7 +299,7 @@ export function OverviewPage(): React.ReactNode {
 
         {/* Loading skeleton */}
         {!isGuest && programsQuery.isLoading && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             {[1, 2, 3, 4, 5, 6].map((n) => (
               <div key={n} className="bg-card border border-rule p-4 sm:p-5 animate-pulse">
                 <div className="h-2.5 w-20 bg-rule rounded mb-3" />
@@ -310,7 +311,7 @@ export function OverviewPage(): React.ReactNode {
 
         {/* Main content: program card + analytics side panel */}
         {activeProgram && (
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
             {/* Left: Active program */}
             <div className="lg:col-span-3">
               <h2 className="dash-section-title mb-3">Programa Activo</h2>
@@ -350,7 +351,7 @@ export function OverviewPage(): React.ReactNode {
 
         {/* Plateau alerts */}
         {plateauInsights.length > 0 && (
-          <section className="mb-8">
+          <section className="mb-6">
             <h2 className="dash-section-title mb-3">Alertas</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {plateauInsights.map((insight) => (
@@ -362,7 +363,7 @@ export function OverviewPage(): React.ReactNode {
 
         {/* Load recommendations */}
         {recommendationInsights.length > 0 && (
-          <section className="mb-8">
+          <section className="mb-6">
             <h2 className="dash-section-title mb-3">Recomendación de Carga</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {recommendationInsights.map((insight) => (
@@ -373,7 +374,7 @@ export function OverviewPage(): React.ReactNode {
         )}
 
         {/* Program catalog */}
-        <section className="mb-8">
+        <section className="border-t border-rule pt-8 mt-10 mb-8">
           <h2 className="dash-section-title mb-4">
             {activeProgram ? 'Otros Programas' : 'Elegir un Programa'}
           </h2>
@@ -431,7 +432,7 @@ export function OverviewPage(): React.ReactNode {
 
         {/* Custom definitions */}
         {user && !isGuest && (
-          <section className="mt-12">
+          <section className="border-t border-rule pt-8 mt-10">
             <h2 className="dash-section-title mb-4">Mis Programas Personalizados</h2>
             <MyDefinitionsPanel
               onOpenWizard={setWizardDefinitionId}
