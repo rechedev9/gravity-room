@@ -4,21 +4,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchGenericProgramDetail, fetchCatalogDetail, deleteProgram } from '@/lib/api-functions';
 import type { ProgramSummary } from '@/lib/api-functions';
-import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
-import { isRecord } from '@gzclp/shared/type-guards';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
+import { parseCustomDefinition } from '@/lib/program-utils';
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
 import { computeProfileData, formatVolume } from '@/lib/profile-stats';
 import { useTracker } from '@/contexts/tracker-context';
 import { RecentActivity } from './recent-activity';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Button } from '@/components/button';
-
-function parseCustomDefinition(raw: unknown): ProgramDefinition | undefined {
-  if (!isRecord(raw)) return undefined;
-  const result = ProgramDefinitionSchema.safeParse(raw);
-  return result.success ? result.data : undefined;
-}
 
 interface ActiveProgramCardProps {
   readonly program: ProgramSummary;

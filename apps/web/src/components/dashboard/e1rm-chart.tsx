@@ -2,24 +2,7 @@ import { useMemo } from 'react';
 import { LineChart } from '@/components/charts/line-chart';
 import type { InsightItem } from '@/lib/api-functions';
 import type { ChartDataPoint } from '@gzclp/shared/types';
-
-interface E1rmPayload {
-  dates: string[];
-  e1rms: number[];
-  currentMax: number;
-}
-
-function isE1rmPayload(v: unknown): v is E1rmPayload {
-  if (v === null || typeof v !== 'object') return false;
-  return (
-    'dates' in v &&
-    Array.isArray(v.dates) &&
-    'e1rms' in v &&
-    Array.isArray(v.e1rms) &&
-    'currentMax' in v &&
-    typeof v.currentMax === 'number'
-  );
-}
+import { isE1rmPayload } from '@/lib/insight-payloads';
 
 interface E1rmChartProps {
   readonly insight: InsightItem;

@@ -10,11 +10,11 @@ import {
   fetchInsights,
 } from '@/lib/api-functions';
 import type { InsightItem, ProgramSummary } from '@/lib/api-functions';
-import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
-import { isRecord } from '@gzclp/shared/type-guards';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
 import { computeProfileData, formatVolume } from '@/lib/profile-stats';
+import { parseCustomDefinition } from '@/lib/program-utils';
+import { isFrequencyPayload, isVolumeTrendPayload, isE1rmPayload } from '@/lib/insight-payloads';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { useTracker } from '@/contexts/tracker-context';
@@ -48,50 +48,6 @@ const DASHBOARD_INSIGHT_TYPES = [
   'plateau_detection',
   'load_recommendation',
 ] as const;
-
-// Insight payload type guards
-
-interface FrequencyPayload {
-  sessionsPerWeek: number;
-  currentStreak: number;
-  consistencyPct: number;
-  totalSessions: number;
-}
-
-function isFrequencyPayload(v: unknown): v is FrequencyPayload {
-  if (v === null || typeof v !== 'object') return false;
-  return (
-    'sessionsPerWeek' in v &&
-    typeof v.sessionsPerWeek === 'number' &&
-    'consistencyPct' in v &&
-    typeof v.consistencyPct === 'number'
-  );
-}
-
-interface VolumePayload {
-  volumes: number[];
-  direction: 'up' | 'down' | 'flat';
-}
-
-function isVolumePayload(v: unknown): v is VolumePayload {
-  if (v === null || typeof v !== 'object') return false;
-  return 'volumes' in v && Array.isArray(v.volumes) && 'direction' in v;
-}
-
-interface E1rmPayload {
-  currentMax: number;
-}
-
-function isE1rmPayload(v: unknown): v is E1rmPayload {
-  if (v === null || typeof v !== 'object') return false;
-  return 'currentMax' in v && typeof v.currentMax === 'number';
-}
-
-function parseCustomDefinition(raw: unknown): ProgramDefinition | undefined {
-  if (!isRecord(raw)) return undefined;
-  const result = ProgramDefinitionSchema.safeParse(raw);
-  return result.success ? result.data : undefined;
-}
 
 interface KpiSummaryProps {
   readonly programs: readonly ProgramSummary[];
@@ -144,7 +100,7 @@ function KpiSummary({ programs, insights, isLoadingInsights }: KpiSummaryProps):
 
   const volumeTrend = insights.find((i) => i.insightType === 'volume_trend');
   const volPayload =
-    volumeTrend && isVolumePayload(volumeTrend.payload) ? volumeTrend.payload : null;
+    volumeTrend && isVolumeTrendPayload(volumeTrend.payload) ? volumeTrend.payload : null;
 
   const lastVolume = volPayload?.volumes[volPayload.volumes.length - 1] ?? null;
 
@@ -261,6 +217,19 @@ export function OverviewPage(): React.ReactNode {
   const frequency = insights.find((i) => i.insightType === 'frequency') ?? null;
   const plateauInsights = insights.filter((i) => i.insightType === 'plateau_detection');
   const recommendationInsights = insights.filter((i) => i.insightType === 'load_recommendation');
+
+  const catalogGrouped = useMemo(() => {
+    if (!catalogQuery.data) return null;
+    const filtered = catalogQuery.data.filter((e) => e.id !== activeProgram?.programId);
+    if (filtered.length === 0) return null;
+    const grouped = new Map<ProgramLevel, typeof filtered>();
+    for (const entry of filtered) {
+      const list = grouped.get(entry.level) ?? [];
+      list.push(entry);
+      grouped.set(entry.level, list);
+    }
+    return grouped;
+  }, [catalogQuery.data, activeProgram?.programId]);
 
   const handleStartProgram = (programId: string): void => {
     if (onboardingVisible) {
@@ -428,49 +397,36 @@ export function OverviewPage(): React.ReactNode {
             </div>
           )}
 
-          {catalogQuery.data &&
-            (() => {
-              const filtered = catalogQuery.data.filter((e) => e.id !== activeProgram?.programId);
-              if (filtered.length === 0) return null;
-
-              const grouped = new Map<ProgramLevel, typeof filtered>();
-              for (const entry of filtered) {
-                const list = grouped.get(entry.level) ?? [];
-                list.push(entry);
-                grouped.set(entry.level, list);
-              }
-
-              return (
-                <div className="space-y-8">
-                  {PROGRAM_LEVELS.map((level) => {
-                    const entries = grouped.get(level);
-                    if (!entries?.length) return null;
-                    return (
-                      <div key={level}>
-                        <h3 className="flex items-center gap-2 text-sm font-bold text-label uppercase tracking-wide mb-4">
-                          <span className="inline-block w-2 h-2 rounded-full bg-accent" />
-                          {LEVEL_LABELS[level]}
-                        </h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {entries.map((entry) => (
-                            <ProgramCard
-                              key={entry.id}
-                              definition={entry}
-                              isActive={false}
-                              onSelect={() => handleStartProgram(entry.id)}
-                              onCustomize={
-                                user && !isGuest ? () => void handleCustomize(entry.id) : undefined
-                              }
-                              customizeDisabled={isForking}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
+          {catalogGrouped && (
+            <div className="space-y-8">
+              {PROGRAM_LEVELS.map((level) => {
+                const entries = catalogGrouped.get(level);
+                if (!entries?.length) return null;
+                return (
+                  <div key={level}>
+                    <h3 className="flex items-center gap-2 text-sm font-bold text-label uppercase tracking-wide mb-4">
+                      <span className="inline-block w-2 h-2 rounded-full bg-accent" />
+                      {LEVEL_LABELS[level]}
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {entries.map((entry) => (
+                        <ProgramCard
+                          key={entry.id}
+                          definition={entry}
+                          isActive={false}
+                          onSelect={() => handleStartProgram(entry.id)}
+                          onCustomize={
+                            user && !isGuest ? () => void handleCustomize(entry.id) : undefined
+                          }
+                          customizeDisabled={isForking}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {/* Custom definitions */}

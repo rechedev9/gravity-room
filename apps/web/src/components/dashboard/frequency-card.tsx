@@ -1,23 +1,5 @@
 import type { InsightItem } from '@/lib/api-functions';
-
-interface FrequencyPayload {
-  sessionsPerWeek: number;
-  currentStreak: number;
-  consistencyPct: number;
-  totalSessions: number;
-}
-
-function isFrequencyPayload(v: unknown): v is FrequencyPayload {
-  if (v === null || typeof v !== 'object') return false;
-  return (
-    'sessionsPerWeek' in v &&
-    typeof v.sessionsPerWeek === 'number' &&
-    'currentStreak' in v &&
-    typeof v.currentStreak === 'number' &&
-    'consistencyPct' in v &&
-    typeof v.consistencyPct === 'number'
-  );
-}
+import { isFrequencyPayload } from '@/lib/insight-payloads';
 
 interface FrequencyCardProps {
   readonly insight: InsightItem;

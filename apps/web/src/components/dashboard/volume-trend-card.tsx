@@ -2,28 +2,10 @@ import { useMemo } from 'react';
 import { BarChart } from '@/components/charts/bar-chart';
 import type { InsightItem } from '@/lib/api-functions';
 import type { VolumeDataPoint } from '@gzclp/shared/types';
-
-interface VolumeTrendPayload {
-  weeks: string[];
-  volumes: number[];
-  slope: number;
-  direction: 'up' | 'down' | 'flat';
-}
+import { isVolumeTrendPayload } from '@/lib/insight-payloads';
 
 interface VolumeTrendCardProps {
   readonly insight: InsightItem;
-}
-
-function isVolumeTrendPayload(v: unknown): v is VolumeTrendPayload {
-  if (v === null || typeof v !== 'object') return false;
-  return (
-    'weeks' in v &&
-    Array.isArray(v.weeks) &&
-    'volumes' in v &&
-    Array.isArray(v.volumes) &&
-    'direction' in v &&
-    typeof v.direction === 'string'
-  );
 }
 
 export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactNode {

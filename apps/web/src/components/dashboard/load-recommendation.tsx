@@ -1,26 +1,5 @@
 import type { InsightItem } from '@/lib/api-functions';
-
-interface RecommendationPayload {
-  currentWeight: number;
-  recommendedWeight: number;
-  shouldIncrement: boolean;
-  confidence: number;
-  method: 'logistic_regression' | 'consecutive_success';
-}
-
-function isRecommendationPayload(v: unknown): v is RecommendationPayload {
-  if (v === null || typeof v !== 'object') return false;
-  return (
-    'currentWeight' in v &&
-    typeof v.currentWeight === 'number' &&
-    'recommendedWeight' in v &&
-    typeof v.recommendedWeight === 'number' &&
-    'shouldIncrement' in v &&
-    typeof v.shouldIncrement === 'boolean' &&
-    'confidence' in v &&
-    typeof v.confidence === 'number'
-  );
-}
+import { isRecommendationPayload } from '@/lib/insight-payloads';
 
 interface LoadRecommendationProps {
   readonly insight: InsightItem;

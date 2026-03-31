@@ -12,31 +12,7 @@ import {
 } from 'recharts';
 import type { InsightItem } from '@/lib/api-functions';
 import { getChartTheme } from '@/components/charts/chart-theme';
-
-interface ForecastPayload {
-  weeks: string[];
-  e1rms: number[];
-  slope: number;
-  rSquared: number;
-  forecast2w: number;
-  forecast4w: number;
-  band2w: number;
-  band4w: number;
-}
-
-function isForecastPayload(v: unknown): v is ForecastPayload {
-  if (v === null || typeof v !== 'object') return false;
-  return (
-    'weeks' in v &&
-    Array.isArray(v.weeks) &&
-    'e1rms' in v &&
-    Array.isArray(v.e1rms) &&
-    'forecast2w' in v &&
-    typeof v.forecast2w === 'number' &&
-    'forecast4w' in v &&
-    typeof v.forecast4w === 'number'
-  );
-}
+import { isForecastPayload } from '@/lib/insight-payloads';
 
 interface ForecastPoint {
   readonly x: string;

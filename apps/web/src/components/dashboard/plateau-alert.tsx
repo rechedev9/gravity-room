@@ -1,26 +1,5 @@
 import type { InsightItem } from '@/lib/api-functions';
-
-interface PlateauPayload {
-  isPlateauing: boolean;
-  confidence: number;
-  slope: number;
-  currentWeight: number;
-  weeksAnalyzed: number;
-}
-
-function isPlateauPayload(v: unknown): v is PlateauPayload {
-  if (v === null || typeof v !== 'object') return false;
-  return (
-    'isPlateauing' in v &&
-    typeof v.isPlateauing === 'boolean' &&
-    'confidence' in v &&
-    typeof v.confidence === 'number' &&
-    'currentWeight' in v &&
-    typeof v.currentWeight === 'number' &&
-    'weeksAnalyzed' in v &&
-    typeof v.weeksAnalyzed === 'number'
-  );
-}
+import { isPlateauPayload } from '@/lib/insight-payloads';
 
 interface PlateauAlertProps {
   readonly insight: InsightItem;
