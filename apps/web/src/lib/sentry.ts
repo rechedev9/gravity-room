@@ -25,3 +25,9 @@ export function setUser(user: { readonly id: string; readonly email: string } | 
   if (!dsn) return;
   Sentry.setUser(user);
 }
+
+/** Capture an unknown error from a catch block. Normalises non-Error values. No-op when VITE_SENTRY_DSN is not set. */
+export function captureError(err: unknown): void {
+  if (!dsn) return;
+  Sentry.captureException(err instanceof Error ? err : new Error(String(err)));
+}

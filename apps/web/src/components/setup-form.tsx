@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { captureError } from '@/lib/sentry';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { ConfirmDialog } from './confirm-dialog';
 import { SelectField } from './select-field';
@@ -235,10 +236,7 @@ export function SetupForm({
       setShowConfirm(true);
     } else {
       onGenerate(config).catch((err: unknown) => {
-        console.error(
-          '[setup] Program generation failed:',
-          err instanceof Error ? err.message : err
-        );
+        captureError(err);
         setError(err instanceof Error ? err.message : 'Error al generar el programa.');
       });
     }

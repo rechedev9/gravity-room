@@ -23,6 +23,7 @@ import { ProfileStatCard } from './profile-stat-card';
 import { DashboardCard } from './dashboard-card';
 import { LineChart } from './charts/line-chart';
 import { DeleteAccountDialog } from './delete-account-dialog';
+import { captureError } from '@/lib/sentry';
 
 interface ProfilePageProps {
   readonly programId?: string;
@@ -181,7 +182,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
       await updateProfile({ avatarUrl: dataUrl });
       updateUser({ avatarUrl: dataUrl });
     } catch (err: unknown) {
-      console.error('[profile] Avatar upload failed:', err instanceof Error ? err.message : err);
+      captureError(err);
       toast({ message: 'Error al subir la foto de perfil' });
     } finally {
       setAvatarUploading(false);
@@ -194,7 +195,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
       await updateProfile({ avatarUrl: null });
       updateUser({ avatarUrl: undefined });
     } catch (err: unknown) {
-      console.error('[profile] Avatar removal failed:', err instanceof Error ? err.message : err);
+      captureError(err);
       toast({ message: 'Error al eliminar la foto de perfil' });
     } finally {
       setAvatarUploading(false);
@@ -207,7 +208,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
       await deleteAccount();
       navigate('/');
     } catch (err: unknown) {
-      console.error('[profile] Account deletion failed:', err instanceof Error ? err.message : err);
+      captureError(err);
       toast({ message: 'Error al eliminar la cuenta' });
       setDeleteLoading(false);
     }

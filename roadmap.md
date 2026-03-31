@@ -4,7 +4,7 @@
 
 ## Status: Backlog
 
-Phases A, B, C complete. Current focus: backlog items (Sentry, dev compose).
+Phases A, B, C complete. Current focus: backlog items (dev compose).
 
 ---
 
@@ -225,9 +225,9 @@ Retained from previous roadmap. Can be interleaved with dashboard work.
 - [x] Fix CI health check addresses — add analytics service (port 8001) to `ci.yml` deploy verification
 - [x] Bun dependency caching — `_go-integration.yml` caches `~/.bun/install/cache` keyed on `bun.lockb`
 
-### Observability
+### Observability ✓
 
-- [ ] Frontend error capture via Sentry — replace `console.error` calls
+- [x] Frontend error capture via Sentry — added `captureError(unknown)` helper to `sentry.ts`; replaced all 6 `console.error` calls in `setup-form.tsx`, `profile-page.tsx`, `use-program.ts`
 
 ### DX
 

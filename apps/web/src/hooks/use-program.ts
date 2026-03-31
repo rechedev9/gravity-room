@@ -31,6 +31,7 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { trackEvent } from '@/lib/analytics';
+import { captureError } from '@/lib/sentry';
 
 // ---------------------------------------------------------------------------
 // Optimistic update helpers (generic slot-keyed format)
@@ -599,7 +600,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err: unknown) {
-      console.error('[program] Export failed:', err instanceof Error ? err.message : err);
+      captureError(err);
       toast({ message: 'No se pudo exportar el programa.' });
     }
   };
@@ -611,7 +612,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
       return true;
     } catch (err: unknown) {
-      console.error('[program] Import failed:', err instanceof Error ? err.message : err);
+      captureError(err);
       toast({
         message: 'No se pudo importar el programa. Verifica el archivo e inténtalo de nuevo.',
       });
