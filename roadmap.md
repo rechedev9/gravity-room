@@ -1,43 +1,251 @@
 # Gravity Room — Roadmap
 
-> Last updated: 2026-03-30.
+> Last updated: 2026-03-31.
 
-## Status: Post-Migration Hardening
+## Status: Phase B — Python Analytics Service
 
-Go API migration complete (all 5 phases). Current focus: test coverage,
-security audit, CI/CD optimization, and DX improvements.
+Phase A (Dashboard UI Foundation) complete. Current focus: Python analytics microservice.
 
 ---
 
-## Phase 6 — Test Coverage (In Progress)
+## Phase A — Dashboard UI Foundation (Done)
 
-Handler coverage improved from 12% → 43.5%. Service at 7%.
+Redesign the layout from header-only to sidebar + nested routes. Introduce
+shadcn/ui and Recharts. Replace custom Canvas 2D charts.
 
-- [x] **Handler validation tests** — auth, programs, results validation paths (46 tests total)
-- [x] **Handler integration tests** — ProgramHandler full flows via function-field mocking (27 tests)
-- [ ] **Service integration tests** — `service/programs.go` (896 LOC) main flows
-- [x] **Add `coverage` target to Makefile** — `go test -coverprofile` + `go tool cover -html`
+### A.1 — Tooling & Primitives
 
-## Phase 7 — Security Audit (Pending)
+- [x] Install deps: `@radix-ui/react-slot`, `@radix-ui/react-tooltip`,
+      `@radix-ui/react-dropdown-menu`, `@radix-ui/react-collapsible`,
+      `@radix-ui/react-dialog`, `@radix-ui/react-tabs`, `recharts`,
+      `clsx`, `tailwind-merge`
+- [x] Create `src/lib/cn.ts` — `clsx` + `tailwind-merge` utility
+- [x] Create `src/components/ui/` directory with Radix-wrapped primitives
+      styled against existing `--color-*` CSS vars:
+      `button.tsx`, `card.tsx`, `tooltip.tsx`, `collapsible.tsx`,
+      `dropdown-menu.tsx`, `dialog.tsx`, `tabs.tsx`
+- [x] Add sidebar tokens to `globals.css` `@theme` block:
+      `--color-sidebar`, `--color-sidebar-active`, `--color-sidebar-border`,
+      `--sidebar-width` (240px)
 
-Rate limiting only enforced on `auth.google`. Other sensitive endpoints unprotected.
+### A.2 — Layout & Routing Overhaul
 
-- [ ] **Audit rate limit coverage** — profile updates, program creation, custom definition uploads
-- [ ] **Apply rate limiting** to all write endpoints identified in audit
+- [x] Create `src/components/layout/app-sidebar.tsx` — collapsible sidebar
+      with nav links: Inicio (`/app`), Tracker (`/app/tracker`),
+      Perfil (`/app/profile`), Analíticas (`/app/analytics` — Phase B)
+- [x] Create `src/components/layout/app-layout.tsx` — sidebar + top bar +
+      `<Outlet />` wrapper
+- [x] Create `src/components/layout/sidebar-trigger.tsx` — mobile hamburger
+- [x] Refactor `main.tsx` routing from flat `{ path: '/app', element: <AppShell /> }`
+      to nested routes under `/app` with `<AppLayout>` parent: - `index` → OverviewPage - `tracker/:programId?` → ProgramApp - `profile` → ProfilePage - `analytics` → AnalyticsPage (Phase B)
+- [x] Extract AppShell state (`selectedInstanceId`, `selectedProgramId`,
+      `pendingProgramId`) into URL params + lightweight TrackerContext
+- [x] Remove `app-shell.tsx` — `display:none` toggling replaced by router
+- [x] Strip `<AppHeader>` from Dashboard, ProgramApp, ProfilePage — layout
+      now owns the top bar
+- [x] Mobile: sidebar hidden by default, overlay on hamburger tap.
+      `isCollapsed` persisted to `localStorage`
 
-## Phase 8 — CI/CD Optimization (Pending)
+### A.3 — Recharts Migration
 
-- [ ] **Docker build layer caching** — enable BuildKit cache export/import in `ci.yml`
-- [ ] **Fix CI health check addresses** — replace hardcoded `127.0.0.1:3002` with container DNS names
-- [ ] **Bun dependency caching** — cache `node_modules` or Bun global cache in web build job
+- [x] Create `src/components/charts/chart-theme.ts` — reads `--color-chart-*`
+      CSS vars via `getComputedStyle` for Recharts theming
+- [x] Create `src/components/charts/line-chart.tsx` — Recharts `<LineChart>`
+      replacing the 549-LOC Canvas implementation. Features: stage markers,
+      success/fail dots, PR markers, deload bands, tooltip
+- [x] Create `src/components/charts/bar-chart.tsx` — Recharts `<BarChart>`
+      replacing the 181-LOC Canvas VolumeChart. Average reference line
+- [x] Update `stats-panel.tsx` to import new Recharts components
+- [x] Add `recharts` to `vite.config.ts` `manualChunks`
+- [x] Update or remove Canvas chart tests (`line-chart.test.tsx`,
+      `volume-chart.test.tsx`)
 
-## Phase 9 — Observability (Pending)
+### A.4 — Dashboard Overview Page
 
-- [ ] **Frontend error capture via Sentry** — replace `console.error` calls in `auth-context.tsx`, `profile-page.tsx`, `use-program.ts`, `setup-form.tsx` with Sentry reporting
+- [x] Create `src/components/dashboard/overview-page.tsx` — KPI cards grid:
+      Total Workouts, Current Streak, Active Program %, Total Volume
+- [x] Create `src/components/dashboard/kpi-card.tsx` — metric card primitive
+- [x] Create `src/components/dashboard/recent-activity.tsx` — last 5 workouts
+- [x] Compact volume trend chart (last 30 days)
+- [x] All data derived from existing queries — no new backend needed
 
-## Phase 10 — DX (Pending)
+### A.5 — Verification
 
-- [ ] **`docker-compose.dev.yml`** — local dev setup without external networks (`infra_proxy`, `data_backend`)
+- [x] `bun run typecheck && bun run lint && bun run test`
+- [x] All routes render: `/app`, `/app/tracker/gzclp`, `/app/profile`
+- [x] Browser back/forward works (regression from `display:none` pattern)
+- [x] Mobile 375px: sidebar hidden, hamburger visible, full-width content
+- [x] Desktop 1280px: sidebar visible, content offset
+- [x] Bundle size check: Recharts adds ~120KB gzipped (actual: ~114KB)
+
+#### Critical files
+
+| File                                       | Role                                         |
+| ------------------------------------------ | -------------------------------------------- |
+| `apps/web/src/main.tsx`                    | Router config — restructure to nested routes |
+| `apps/web/src/components/app-shell.tsx`    | Remove — replaced by router                  |
+| `apps/web/src/styles/globals.css`          | Theme — add sidebar tokens                   |
+| `apps/web/src/components/stats-panel.tsx`  | Replace Canvas imports with Recharts         |
+| `apps/web/src/components/line-chart.tsx`   | Remove — replaced by Recharts                |
+| `apps/web/src/components/volume-chart.tsx` | Remove — replaced by Recharts                |
+
+---
+
+## Phase B — Python Analytics Service (Pending)
+
+Separate Python microservice that reads workout data from Postgres and
+writes pre-computed insights for the Go API to serve.
+
+### B.1 — Service Scaffold
+
+- [ ] Create `apps/analytics/` — FastAPI service
+- [ ] `requirements.txt`: fastapi, uvicorn, psycopg[binary] 3.x,
+      pandas, scikit-learn, numpy, apscheduler, pydantic
+- [ ] `Dockerfile` — Python 3.12 multi-stage
+- [ ] `main.py` — health endpoint + manual `POST /compute` trigger
+- [ ] `config.py` — `DATABASE_URL` from env
+- [ ] `db.py` — psycopg3 async connection pool (read-only credentials)
+- [ ] Add `analytics` service to `docker-compose.yml`
+
+### B.2 — Database Schema
+
+- [ ] Migration 00034: `user_insights` table
+
+```sql
+CREATE TABLE user_insights (
+    id           bigserial PRIMARY KEY,
+    user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    insight_type varchar(50) NOT NULL,
+    exercise_id  varchar(100),
+    payload      jsonb NOT NULL,
+    computed_at  timestamptz NOT NULL DEFAULT NOW(),
+    valid_until  timestamptz,
+    CONSTRAINT user_insights_unique
+      UNIQUE (user_id, insight_type, exercise_id)
+);
+CREATE INDEX user_insights_user_type_idx
+  ON user_insights (user_id, insight_type);
+```
+
+Insight types: `volume_trend`, `frequency`, `e1rm_progression`,
+`exercise_summary`
+
+### B.3 — Compute Pipelines
+
+- [ ] `queries.py` — SQL to extract raw data from `program_instances` +
+      `workout_results` + `program_templates`
+- [ ] `insights/volume.py` — weekly volume trends, slope, direction
+- [ ] `insights/frequency.py` — sessions/week, streaks, consistency %
+- [ ] `insights/e1rm.py` — Epley 1RM per exercise over time
+- [ ] `insights/summary.py` — per-exercise aggregation (sets, reps,
+      volume, success rate, RPE avg)
+- [ ] `compute.py` — orchestrator: for each user, run all pipelines, upsert
+- [ ] `scheduler.py` — APScheduler cron job (every 6 hours)
+
+### B.4 — Go API Integration
+
+- [ ] `apps/go-api/internal/handler/insights.go` —
+      `GET /api/insights?types=volume_trend,frequency,...`
+- [ ] `apps/go-api/internal/service/insights.go` — query `user_insights`
+- [ ] Register route in `server.go` (requires auth)
+
+### B.5 — Frontend Analytics Page
+
+- [ ] `src/components/dashboard/analytics-page.tsx` — main page
+- [ ] `src/components/dashboard/volume-trend-card.tsx`
+- [ ] `src/components/dashboard/frequency-card.tsx`
+- [ ] `src/components/dashboard/e1rm-chart.tsx`
+- [ ] Add `fetchInsights()` to `api-functions.ts`
+- [ ] Add `insights` namespace to `query-keys.ts`
+- [ ] Add "Analíticas" to sidebar nav
+
+### B.6 — Verification
+
+- [ ] Python: `GET /health` responds, `POST /compute` populates insights
+- [ ] Go: `GET /api/insights` returns computed data
+- [ ] Frontend: analytics page renders charts from real data
+- [ ] Docker compose: all 3 services start and communicate
+- [ ] `bun run ci` passes, `go test ./...` passes
+
+---
+
+## Phase C — ML Predictive Features (Pending)
+
+Add machine learning models to the Python analytics service. All models
+run during the batch compute job and write to `user_insights`.
+
+### C.1 — Plateau Detection
+
+- [ ] `ml/plateau.py` — linear regression on weight progression
+      (last 8 weeks, min 8 data points)
+- [ ] Plateau = slope < 0.1 kg/week AND p-value > 0.1
+- [ ] Confidence = `1 - p_value` (capped 0.95)
+- [ ] Insight type: `plateau_detection` (per exercise)
+- [ ] Frontend: `plateau-alert.tsx` — warning card, only shown
+      when confidence > 0.6
+
+### C.2 — 1RM Forecasting
+
+- [ ] `ml/forecast.py` — linear regression on weekly Epley-1RM series
+      (min 6 weeks of data)
+- [ ] Predict 2-week and 4-week ahead with confidence bands
+- [ ] R² < 0.5 = low confidence, suppress display
+- [ ] Insight type: `e1rm_forecast` (per exercise)
+- [ ] Frontend: `forecast-chart.tsx` — Recharts AreaChart with
+      solid line (historical) + dashed (forecast) + confidence band
+
+### C.3 — Load Recommendation
+
+- [ ] `ml/recommendation.py` — logistic regression on success probability
+- [ ] Features: weight, success_rate_at_weight, avg_rpe, volume_last_week,
+      days_since_last_session (min 10 sessions with RPE data)
+- [ ] Predicted success > 70% → recommend increment, else hold
+- [ ] Fallback without RPE: 3 consecutive successes → increment
+- [ ] Insight type: `load_recommendation` (per exercise)
+- [ ] Frontend: `load-recommendation.tsx` — card with recommended weight + confidence badge
+
+### C.4 — Verification
+
+- [ ] Unit tests with synthetic data for each ML function
+- [ ] Plateau detection: flags flat progressions, ignores active ones
+- [ ] Forecast: within 10% of actual for linear trends
+- [ ] Recommendation: defaults to hold when data insufficient
+- [ ] Full pipeline: Python → Postgres → Go API → Frontend
+- [ ] ML cards gracefully hidden when min data thresholds not met
+
+---
+
+## Backlog — Existing Phases (Pending)
+
+Retained from previous roadmap. Can be interleaved with dashboard work.
+
+### Service Integration Tests
+
+Handler coverage at 43.5%, service at 7%.
+
+- [ ] `service/programs.go` main flow integration tests
+
+### Security Audit
+
+Rate limiting only enforced on `auth.google`.
+
+- [ ] Audit rate limit coverage — profile updates, program creation,
+      custom definition uploads
+- [ ] Apply rate limiting to all write endpoints
+
+### CI/CD Optimization
+
+- [ ] Docker build layer caching (BuildKit)
+- [ ] Fix CI health check addresses
+- [ ] Bun dependency caching
+
+### Observability
+
+- [ ] Frontend error capture via Sentry — replace `console.error` calls
+
+### DX
+
+- [ ] `docker-compose.dev.yml` — local dev without external networks
 
 ---
 
@@ -45,29 +253,32 @@ Rate limiting only enforced on `auth.google`. Other sensitive endpoints unprotec
 
 ### Dead Code Cleanup ✓
 
-Removed leftover artifacts from the old TypeScript API after Phase 5.
-
-- [x] **Trash `scripts/export-definitions.ts`** — dead one-time utility with 19 broken imports to removed `apps/api/`
-- [x] **Fix `.env` stale comments** — header `apps/api` → `Required`, CORS port `3000` → `5173`, `Pino` → `slog`
+- [x] Trash `scripts/export-definitions.ts`
+- [x] Fix `.env` stale comments
 
 ### Go API Migration (Phases 1–5) ✓
 
-All 30 HTTP endpoints ported with full parity. Observability (Sentry, Redis),
-CI/CD hardening, cutover preparation, and legacy cleanup done. The Go API is
-the sole API. See [git history](https://github.com/rechedev9/gravity-room) for
-full migration details.
+All 30 HTTP endpoints ported with full parity.
+
+### Handler Coverage Improvement ✓
+
+- [x] Handler validation tests (46 tests)
+- [x] Handler integration tests (27 tests)
+- [x] Add `coverage` target to Makefile
 
 ---
 
 ## Decided / Won't Do
 
-| Item                   | Decision  | Reason                                                                                            |
-| ---------------------- | --------- | ------------------------------------------------------------------------------------------------- |
-| GraphQL                | Won't do  | REST is sufficient for this app's complexity                                                      |
-| WebSocket              | Won't do  | Polling for online stats is acceptable                                                            |
-| ORM (GORM/ent)         | Won't do  | Raw SQL via pgx is intentional — matches TS approach                                              |
-| Shared package for Go  | Won't do  | Go types are self-contained; no cross-language sharing needed                                     |
-| React `act()` warnings | Won't fix | bun:test + happy-dom limitation — `act()` env detection broken; warnings are cosmetic, tests pass |
+| Item                       | Decision  | Reason                                                                  |
+| -------------------------- | --------- | ----------------------------------------------------------------------- |
+| GraphQL                    | Won't do  | REST sufficient                                                         |
+| WebSocket                  | Won't do  | Polling acceptable                                                      |
+| ORM (GORM/ent)             | Won't do  | Raw SQL via pgx intentional                                             |
+| Dash/Streamlit             | Won't do  | React SPA better for production consumer UX                             |
+| Plotly.js                  | Won't do  | 3MB bundle, Recharts covers all needs                                   |
+| Replace Go API with Python | Won't do  | Go handles auth/CRUD/engine well, Python adds analytics layer alongside |
+| React `act()` warnings     | Won't fix | bun:test + happy-dom limitation                                         |
 
 ---
 
@@ -77,8 +288,9 @@ full migration details.
 | -------------------- | ------------------------------------------ |
 | Go API source        | `apps/go-api/`                             |
 | Web app              | `apps/web/`                                |
+| Python analytics     | `apps/analytics/` (Phase B)                |
 | Shared lib (inlined) | `apps/web/src/lib/shared/`                 |
 | Go CI workflow       | `.github/workflows/go-ci.yml`              |
-| Integration workflow | `.github/workflows/_go-integration.yml`    |
 | Goose migrations     | `apps/go-api/internal/migrate/migrations/` |
-| Dockerfile           | `Dockerfile.api`                           |
+| Dockerfile (API)     | `Dockerfile.api`                           |
+| Theme / CSS vars     | `apps/web/src/styles/globals.css`          |

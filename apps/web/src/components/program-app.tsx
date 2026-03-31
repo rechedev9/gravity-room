@@ -1,6 +1,5 @@
 import { Suspense, useState, useTransition, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import type { ResultValue } from '@gzclp/shared/types';
 import { useProgram } from '@/hooks/use-program';
 import { useGuestProgram } from '@/hooks/use-guest-program';
@@ -18,7 +17,6 @@ import { useGraduation } from '@/hooks/use-graduation';
 import { useTestWeightModal } from '@/hooks/use-test-weight-modal';
 import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
 import { trackEvent } from '@/lib/analytics';
-import { AppHeader } from './app-header';
 import { ErrorBoundary } from './error-boundary';
 import { GraduationPanel } from './graduation-panel';
 import { ProgramCompletionScreen } from './program-completion-screen';
@@ -73,7 +71,7 @@ export function ProgramApp({
   onProgramReset,
   onGoToProfile,
 }: ProgramAppProps): React.ReactNode {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { isGuest } = useGuest();
   const navigate = useNavigate();
 
@@ -126,7 +124,6 @@ export function ProgramApp({
     undoLast,
   });
 
-  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'program' | 'stats'>('program');
   const [isPending, startTransition] = useTransition();
@@ -294,11 +291,6 @@ export function ProgramApp({
     downloadCsv(csv, `${definition.name}-${date}.csv`);
   };
 
-  const handleSignOut = async (): Promise<void> => {
-    await signOut();
-    queryClient.clear();
-  };
-
   if (!isGuest && (authLoading || user === null)) return null;
   if (isLoading && !definition) return <AppSkeleton />;
 
@@ -333,13 +325,6 @@ export function ProgramApp({
   return (
     <>
       <div className="sticky top-0 z-50">
-        <AppHeader
-          backLabel="Programas"
-          onBack={onBackToDashboard}
-          onGoToProfile={onGoToProfile}
-          onSignOut={() => void handleSignOut()}
-        />
-
         {config && (
           <Toolbar
             completedCount={completedCount}

@@ -5,11 +5,15 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { Providers } from '@/components/providers';
 import { RouteErrorFallback } from '@/components/route-error-fallback';
 import { RootLayout } from '@/components/root-layout';
-import { AppShell } from '@/components/app-shell';
+import { AppLayout } from '@/components/layout/app-layout';
+import { TrackerProvider } from '@/contexts/tracker-context';
 import { lazyWithRetry } from '@/lib/lazy-with-retry';
 import { LandingSkeleton } from '@/components/landing-skeleton';
 import { LoginSkeleton } from '@/components/login-skeleton';
 import { ContentPageSkeleton } from '@/components/content-page-skeleton';
+import { AppSkeleton } from '@/components/app-skeleton';
+import { DashboardSkeleton } from '@/components/dashboard-skeleton';
+import { ProfileSkeleton } from '@/components/profile-skeleton';
 import '@/styles/globals.css';
 
 const LoginPage = lazyWithRetry(() =>
@@ -30,6 +34,18 @@ const ProgramPreviewPage = lazyWithRetry(() =>
 const NotFound = lazyWithRetry(() =>
   import('@/components/not-found').then((m) => ({ default: m.NotFound }))
 );
+const OverviewPage = lazyWithRetry(() =>
+  import('@/components/dashboard/overview-page').then((m) => ({ default: m.OverviewPage }))
+);
+const TrackerPage = lazyWithRetry(() =>
+  import('@/components/pages/tracker-page').then((m) => ({ default: m.TrackerPage }))
+);
+const ProfilePage = lazyWithRetry(() =>
+  import('@/components/profile-page').then((m) => ({ default: m.ProfilePage }))
+);
+const AnalyticsPage = lazyWithRetry(() =>
+  import('@/components/pages/analytics-page').then((m) => ({ default: m.AnalyticsPage }))
+);
 
 if (import.meta.env.VITE_PLAUSIBLE_DOMAIN) {
   const s = document.createElement('script');
@@ -37,6 +53,14 @@ if (import.meta.env.VITE_PLAUSIBLE_DOMAIN) {
   s.dataset.domain = String(import.meta.env.VITE_PLAUSIBLE_DOMAIN);
   s.src = 'https://plausible.io/js/script.js';
   document.head.appendChild(s);
+}
+
+function AppLayoutWithTracker(): React.ReactNode {
+  return (
+    <TrackerProvider>
+      <AppLayout />
+    </TrackerProvider>
+  );
 }
 
 const router = createBrowserRouter([
@@ -52,7 +76,44 @@ const router = createBrowserRouter([
           </Suspense>
         ),
       },
-      { path: '/app', element: <AppShell /> },
+      {
+        path: '/app',
+        element: <AppLayoutWithTracker />,
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<DashboardSkeleton />}>
+                <OverviewPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'tracker/:programId?',
+            element: (
+              <Suspense fallback={<AppSkeleton />}>
+                <TrackerPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'profile',
+            element: (
+              <Suspense fallback={<ProfileSkeleton />}>
+                <ProfilePage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'analytics',
+            element: (
+              <Suspense fallback={<ContentPageSkeleton />}>
+                <AnalyticsPage />
+              </Suspense>
+            ),
+          },
+        ],
+      },
       {
         path: '/login',
         element: (

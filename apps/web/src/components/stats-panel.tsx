@@ -7,8 +7,8 @@ import type {
   RpeDataPoint,
   AmrapDataPoint,
 } from '@gzclp/shared/types';
-import { LineChart } from './line-chart';
-import { VolumeChart } from './volume-chart';
+import { LineChart } from './charts/line-chart';
+import { BarChart } from './charts/bar-chart';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -370,7 +370,7 @@ function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): Re
           onToggle={() => toggleSection('volumen-total')}
         >
           <div className="mt-4">
-            <VolumeChart data={volumeData} label="Volumen por Sesión (kg)" />
+            <BarChart data={volumeData} label="Volumen por Sesión (kg)" />
           </div>
         </CollapsibleSection>
       )}

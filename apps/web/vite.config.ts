@@ -47,6 +47,7 @@ export default defineConfig({
           'vendor-query': ['@tanstack/react-query'],
           'vendor-zod': ['zod'],
           'vendor-motion': ['motion/react'],
+          'vendor-recharts': ['recharts'],
         },
       },
     },

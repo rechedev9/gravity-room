@@ -21,14 +21,13 @@ import { resizeImageToDataUrl } from '@/lib/resize-image';
 import { Button } from './button';
 import { ProfileStatCard } from './profile-stat-card';
 import { DashboardCard } from './dashboard-card';
-import { LineChart } from './line-chart';
-import { AppHeader } from './app-header';
+import { LineChart } from './charts/line-chart';
 import { DeleteAccountDialog } from './delete-account-dialog';
 
 interface ProfilePageProps {
   readonly programId?: string;
   readonly instanceId?: string;
-  readonly onBack: () => void;
+  readonly onBack?: () => void;
 }
 
 export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps): React.ReactNode {
@@ -222,10 +221,10 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
   const activeProgramName = activeProgram?.name ?? definition?.name;
   const isActive = activeProgram?.status === 'active';
 
+  const handleBack = onBack ?? ((): void => void navigate('/app'));
+
   return (
     <div className="min-h-dvh bg-body">
-      <AppHeader backLabel="Dashboard" onBack={onBack} />
-
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Page title */}
         <h1
@@ -341,7 +340,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
               Inicia un programa desde el Dashboard para ver tu perfil de entrenamiento.
             </p>
             <div className="mt-5 flex justify-center">
-              <Button variant="primary" onClick={onBack}>
+              <Button variant="primary" onClick={handleBack}>
                 Ir al Dashboard
               </Button>
             </div>
