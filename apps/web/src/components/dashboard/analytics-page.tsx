@@ -44,15 +44,33 @@ export function AnalyticsPage(): React.ReactNode {
 
   return (
     <div className="min-h-dvh bg-body">
-      <div className="max-w-2xl mx-auto px-5 sm:px-8 py-8 sm:py-12">
-        <h1 className="font-display text-3xl text-title tracking-wide mb-1">Analíticas</h1>
-        <p className="text-sm text-muted mb-8">Rendimiento pre-calculado cada 6 horas.</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Header */}
+        <header className="flex items-end justify-between mb-8">
+          <div>
+            <h1 className="font-display text-2xl sm:text-3xl text-title tracking-wide">
+              Analíticas
+            </h1>
+            <p className="text-xs text-muted mt-0.5">Rendimiento pre-calculado cada 6 horas</p>
+          </div>
+          {insightsQuery.dataUpdatedAt > 0 && (
+            <p className="font-mono text-[10px] text-muted hidden sm:block">
+              {new Date(insightsQuery.dataUpdatedAt).toLocaleString('es-ES', {
+                hour: '2-digit',
+                minute: '2-digit',
+                day: 'numeric',
+                month: 'short',
+              })}
+            </p>
+          )}
+        </header>
 
         {isGuest && <GuestBanner className="mb-6" />}
 
+        {/* Loading state */}
         {!isGuest && insightsQuery.isLoading && (
-          <div className="space-y-4">
-            {[1, 2, 3].map((n) => (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {[1, 2, 3, 4].map((n) => (
               <div key={n} className="bg-card border border-rule p-5 animate-pulse">
                 <div className="h-3 w-32 bg-rule rounded mb-4" />
                 <div className="h-36 bg-rule rounded" />
@@ -61,40 +79,56 @@ export function AnalyticsPage(): React.ReactNode {
           </div>
         )}
 
+        {/* Error state */}
         {!isGuest && insightsQuery.isError && (
           <div className="bg-card border border-rule p-6 text-center">
             <p className="text-sm text-muted">No se pudieron cargar las analíticas.</p>
           </div>
         )}
 
+        {/* Empty state */}
         {!isGuest && insightsQuery.isSuccess && !insightsQuery.data?.length && (
-          <div className="bg-card border border-rule p-6 text-center">
+          <div className="bg-card border border-rule p-8 text-center max-w-lg mx-auto">
             <p className="text-sm text-muted">
               Sin datos todavía. Completa algunos entrenamientos para ver tus analíticas.
             </p>
           </div>
         )}
 
+        {/* Dashboard content */}
         {!isGuest &&
           insightsQuery.isSuccess &&
           insightsQuery.data &&
           insightsQuery.data.length > 0 && (
-            <div className="space-y-6">
-              {frequency && <FrequencyCard insight={frequency} />}
-              {volumeTrend && <VolumeTrendCard insight={volumeTrend} />}
-
-              {plateauInsights.length > 0 && (
+            <div className="space-y-8">
+              {/* Overview row: frequency + volume side by side */}
+              {(frequency || volumeTrend) && (
                 <section>
-                  {plateauInsights.map((insight) => (
-                    <PlateauAlert key={`plateau-${insight.exerciseId}`} insight={insight} />
-                  ))}
+                  <h2 className="dash-section-title mb-3">Resumen</h2>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {frequency && <FrequencyCard insight={frequency} />}
+                    {volumeTrend && <VolumeTrendCard insight={volumeTrend} />}
+                  </div>
                 </section>
               )}
 
+              {/* Plateau alerts — full width banner-style */}
+              {plateauInsights.length > 0 && (
+                <section>
+                  <h2 className="dash-section-title mb-3">Alertas de Plateau</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {plateauInsights.map((insight) => (
+                      <PlateauAlert key={`plateau-${insight.exerciseId}`} insight={insight} />
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* 1RM progression — two-column grid */}
               {e1rmInsights.length > 0 && (
                 <section>
-                  <h2 className="section-label mb-4">1RM Estimado por Ejercicio</h2>
-                  <div className="space-y-4">
+                  <h2 className="dash-section-title mb-3">1RM Estimado por Ejercicio</h2>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {e1rmInsights.map((insight) => (
                       <E1rmChart
                         key={`${insight.insightType}-${insight.exerciseId}`}
@@ -105,10 +139,11 @@ export function AnalyticsPage(): React.ReactNode {
                 </section>
               )}
 
+              {/* Forecasts — two-column grid */}
               {forecastInsights.length > 0 && (
                 <section>
-                  <h2 className="section-label mb-4">Pronóstico 1RM</h2>
-                  <div className="space-y-4">
+                  <h2 className="dash-section-title mb-3">Pronóstico 1RM</h2>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {forecastInsights.map((insight) => (
                       <ForecastChart key={`forecast-${insight.exerciseId}`} insight={insight} />
                     ))}
@@ -116,10 +151,11 @@ export function AnalyticsPage(): React.ReactNode {
                 </section>
               )}
 
+              {/* Load recommendations — three-column grid */}
               {recommendationInsights.length > 0 && (
                 <section>
-                  <h2 className="section-label mb-4">Recomendación de Carga</h2>
-                  <div className="space-y-4">
+                  <h2 className="dash-section-title mb-3">Recomendación de Carga</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {recommendationInsights.map((insight) => (
                       <LoadRecommendation key={`rec-${insight.exerciseId}`} insight={insight} />
                     ))}
