@@ -68,6 +68,20 @@ jobs:
               sleep 5
             done
 
+            for i in 1 2 3 4 5; do
+              if curl -sf http://127.0.0.1:8001/health > /dev/null 2>&1; then
+                echo "Analytics health check passed"
+                break
+              fi
+              if [ "$i" -eq 5 ]; then
+                echo "Analytics health check FAILED after 5 attempts"
+                docker compose logs --tail=50 analytics
+                exit 1
+              fi
+              echo "Analytics not ready, retrying in 5s... (attempt $i/5)"
+              sleep 5
+            done
+
             echo "Deploy verified successfully"
             ./scripts/deploy-log.sh record "$COMMIT_SHA"
             ./scripts/deploy-log.sh rotate

@@ -47,6 +47,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Docker image
         # Build-only validation — runtime tests happen in the integration job
-        run: docker build -f Dockerfile.api --build-arg VITE_API_URL=http://localhost:3001 -t gravity-room-api:test .
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.api
+          push: false
+          build-args: VITE_API_URL=http://localhost:3001
+          tags: gravity-room-api:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

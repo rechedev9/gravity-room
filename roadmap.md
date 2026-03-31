@@ -4,7 +4,7 @@
 
 ## Status: Backlog
 
-Phases A, B, C complete. Current focus: backlog items (service integration tests, security audit, CI/CD optimization, Sentry, dev compose).
+Phases A, B, C complete. Current focus: backlog items (Sentry, dev compose).
 
 ---
 
@@ -219,25 +219,11 @@ run during the batch compute job and write to `user_insights`.
 
 Retained from previous roadmap. Can be interleaved with dashboard work.
 
-### Service Integration Tests
+### CI/CD Optimization ✓
 
-Handler coverage at 43.5%, service at 7%.
-
-- [ ] `service/programs.go` main flow integration tests
-
-### Security Audit
-
-Rate limiting only enforced on `auth.google`.
-
-- [ ] Audit rate limit coverage — profile updates, program creation,
-      custom definition uploads
-- [ ] Apply rate limiting to all write endpoints
-
-### CI/CD Optimization
-
-- [ ] Docker build layer caching (BuildKit)
-- [ ] Fix CI health check addresses
-- [ ] Bun dependency caching
+- [x] Docker build layer caching (BuildKit) — `go-ci.yml` uses `docker/build-push-action` with `type=gha` cache
+- [x] Fix CI health check addresses — add analytics service (port 8001) to `ci.yml` deploy verification
+- [x] Bun dependency caching — `_go-integration.yml` caches `~/.bun/install/cache` keyed on `bun.lockb`
 
 ### Observability
 
@@ -250,6 +236,14 @@ Rate limiting only enforced on `auth.google`.
 ---
 
 ## Completed
+
+### Service Integration Tests ✓
+
+- [x] `service/programs.go` — 22 integration tests (CREATE, LIST/paginate, GET, UPDATE, UPDATE METADATA, DELETE, EXPORT, IMPORT, round-trip, wrong-user ownership checks). Skip gracefully when `TEST_DB_URL` unset.
+
+### Security Audit ✓
+
+Rate limiting already fully applied to all 30 endpoints (auth, programs, results, catalog, exercises, definitions, insights).
 
 ### Dead Code Cleanup ✓
 
