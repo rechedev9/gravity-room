@@ -90,22 +90,22 @@ test.describe('Guest banner (REQ-GUI-002)', () => {
 });
 
 // ===========================================================================
-// REQ-GUI-003, REQ-GUI-008: Guest header CTA
+// REQ-GUI-003, REQ-GUI-008: Guest sidebar CTA
 // ===========================================================================
 
-test.describe('Guest header CTA (REQ-GUI-003, REQ-GUI-008)', () => {
-  test('header shows "Crear Cuenta" button for guests', async ({ page }) => {
+test.describe('Guest sidebar CTA (REQ-GUI-003, REQ-GUI-008)', () => {
+  test('sidebar shows "Crear Cuenta" button for guests', async ({ page }) => {
     await enterGuestMode(page);
 
-    const header = page.locator('header');
-    await expect(header.getByRole('button', { name: /crear cuenta/i })).toBeVisible();
+    const nav = page.getByRole('navigation').first();
+    await expect(nav.getByRole('button', { name: /crear cuenta/i })).toBeVisible();
   });
 
-  test('clicking header "Crear Cuenta" exits guest mode and goes to /login', async ({ page }) => {
+  test('clicking sidebar "Crear Cuenta" exits guest mode and goes to /login', async ({ page }) => {
     await enterGuestMode(page);
 
-    const header = page.locator('header');
-    await header.getByRole('button', { name: /crear cuenta/i }).click();
+    const nav = page.getByRole('navigation').first();
+    await nav.getByRole('button', { name: /crear cuenta/i }).click();
 
     await page.waitForURL('**/login**', { timeout: 10_000 });
     expect(page.url()).toContain('/login');
@@ -121,14 +121,14 @@ test.describe('Guest header CTA (REQ-GUI-003, REQ-GUI-008)', () => {
     expect(page.url()).toContain('/login');
   });
 
-  test('header shows "Iniciar Sesión" for non-guest unauthenticated', async ({ page }) => {
+  test('sidebar shows "Iniciar Sesión" for non-guest unauthenticated', async ({ page }) => {
     await page.goto('/app');
     await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
 
-    const header = page.locator('header');
-    await expect(header.getByText('Iniciar Sesión')).toBeVisible();
+    const nav = page.getByRole('navigation').first();
+    await expect(nav.getByRole('link', { name: /iniciar sesión/i })).toBeVisible();
     // No "Crear Cuenta" button
-    await expect(header.getByRole('button', { name: /crear cuenta/i })).not.toBeVisible();
+    await expect(nav.getByRole('button', { name: /crear cuenta/i })).not.toBeVisible();
   });
 });
 
@@ -170,8 +170,13 @@ test.describe('Guest routing (REQ-GROUT-001, REQ-GROUT-006)', () => {
     await page.goto('/app');
     // App renders dashboard (no auth required for dashboard)
     await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
-    // Header shows "Iniciar Sesión", not "Crear Cuenta"
-    await expect(page.locator('header').getByText('Iniciar Sesión')).toBeVisible();
+    // Sidebar shows "Iniciar Sesión", not "Crear Cuenta"
+    await expect(
+      page
+        .getByRole('navigation')
+        .first()
+        .getByRole('link', { name: /iniciar sesión/i })
+    ).toBeVisible();
   });
 });
 
@@ -213,10 +218,18 @@ test.describe('Guest view gating (REQ-GROUT-003)', () => {
     // Avatar dropdown trigger (profile entry point) is not rendered for guests
     await expect(page.getByRole('button', { name: 'Menú de usuario' })).not.toBeVisible();
     // "Iniciar Sesión" link is also hidden (guest has "Crear Cuenta" instead)
-    await expect(page.locator('header').getByText('Iniciar Sesión')).not.toBeVisible();
-    // Header shows "Crear Cuenta" CTA
     await expect(
-      page.locator('header').getByRole('button', { name: /crear cuenta/i })
+      page
+        .getByRole('navigation')
+        .first()
+        .getByRole('link', { name: /iniciar sesión/i })
+    ).not.toBeVisible();
+    // Sidebar shows "Crear Cuenta" CTA
+    await expect(
+      page
+        .getByRole('navigation')
+        .first()
+        .getByRole('button', { name: /crear cuenta/i })
     ).toBeVisible();
   });
 });
