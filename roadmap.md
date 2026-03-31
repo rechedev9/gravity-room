@@ -1,10 +1,10 @@
 # Gravity Room — Roadmap
 
-> Last updated: 2026-03-31.
+> Last updated: 2026-04-01.
 
-## Status: Backlog
+## Status: Complete
 
-Phases A, B, C complete. Current focus: backlog items (dev compose).
+Phases A, B, C complete. All backlog items done.
 
 ---
 
@@ -229,9 +229,9 @@ Retained from previous roadmap. Can be interleaved with dashboard work.
 
 - [x] Frontend error capture via Sentry — added `captureError(unknown)` helper to `sentry.ts`; replaced all 6 `console.error` calls in `setup-form.tsx`, `profile-page.tsx`, `use-program.ts`
 
-### DX
+### DX ✓
 
-- [ ] `docker-compose.dev.yml` — local dev without external networks
+- [x] `docker-compose.dev.yml` — local dev without external networks
 
 ---
 
