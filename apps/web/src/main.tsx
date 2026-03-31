@@ -39,12 +39,6 @@ if (import.meta.env.VITE_PLAUSIBLE_DOMAIN) {
   document.head.appendChild(s);
 }
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' });
-  });
-}
-
 const router = createBrowserRouter([
   {
     element: <RootLayout />,
