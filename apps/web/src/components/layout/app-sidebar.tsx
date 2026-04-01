@@ -31,8 +31,8 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: '/app/programs', label: 'Programas', Icon: ProgramsIcon },
   { to: '/app/dashboard', label: 'Dashboard', Icon: DashboardIcon },
   { to: '/app/tracker', label: 'Tracker', Icon: TrackerIcon },
-  { to: '/app/profile', label: 'Perfil', Icon: ProfileIcon, guestHidden: true },
   { to: '/app/analytics', label: 'Analíticas', Icon: AnalyticsIcon },
+  { to: '/app/profile', label: 'Perfil', Icon: ProfileIcon, guestHidden: true },
 ];
 
 interface AppSidebarProps {
