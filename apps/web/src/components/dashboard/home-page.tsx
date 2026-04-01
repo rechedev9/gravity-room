@@ -4,6 +4,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
+import { GuestBanner } from '@/components/guest-banner';
 import {
   HomeIcon,
   DashboardIcon,
@@ -86,6 +87,7 @@ export function HomePage(): React.ReactNode {
   return (
     <div className="min-h-dvh bg-body">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        {isGuest && <GuestBanner className="mb-6" />}
         {/* Welcome header */}
         <header className="mb-8">
           <div className="flex items-center gap-3 mb-2">
