@@ -6,7 +6,9 @@ import { OnlineIndicator } from '@/components/online-indicator';
 
 const ROUTE_LABELS: Record<string, string> = {
   '/app': 'Inicio',
+  '/app/dashboard': 'Dashboard',
   '/app/tracker': 'Tracker',
+  '/app/programs': 'Programas',
   '/app/profile': 'Perfil',
   '/app/analytics': 'Analíticas',
 };

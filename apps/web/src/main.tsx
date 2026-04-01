@@ -34,8 +34,14 @@ const ProgramPreviewPage = lazyWithRetry(() =>
 const NotFound = lazyWithRetry(() =>
   import('@/components/not-found').then((m) => ({ default: m.NotFound }))
 );
-const OverviewPage = lazyWithRetry(() =>
-  import('@/components/dashboard/overview-page').then((m) => ({ default: m.OverviewPage }))
+const HomePage = lazyWithRetry(() =>
+  import('@/components/dashboard/home-page').then((m) => ({ default: m.HomePage }))
+);
+const DashboardPage = lazyWithRetry(() =>
+  import('@/components/dashboard/dashboard-page').then((m) => ({ default: m.DashboardPage }))
+);
+const ProgramsPage = lazyWithRetry(() =>
+  import('@/components/dashboard/programs-page').then((m) => ({ default: m.ProgramsPage }))
 );
 const TrackerPage = lazyWithRetry(() =>
   import('@/components/pages/tracker-page').then((m) => ({ default: m.TrackerPage }))
@@ -84,7 +90,23 @@ const router = createBrowserRouter([
             index: true,
             element: (
               <Suspense fallback={<DashboardSkeleton />}>
-                <OverviewPage />
+                <HomePage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'dashboard',
+            element: (
+              <Suspense fallback={<DashboardSkeleton />}>
+                <DashboardPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: 'programs',
+            element: (
+              <Suspense fallback={<DashboardSkeleton />}>
+                <ProgramsPage />
               </Suspense>
             ),
           },
