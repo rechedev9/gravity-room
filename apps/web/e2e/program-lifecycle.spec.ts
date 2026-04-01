@@ -1,5 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
-import { enterGuestMode, programCard, dismissCookieBannerIfPresent } from './helpers/seed';
+import {
+  enterGuestMode,
+  navigateToPrograms,
+  programCard,
+  dismissCookieBannerIfPresent,
+} from './helpers/seed';
 
 /**
  * Program lifecycle E2E tests — verifies the critical flows that broke
@@ -20,8 +25,7 @@ async function startProgram(page: Page, name: string): Promise<void> {
 
 async function backToCatalog(page: Page): Promise<void> {
   await dismissCookieBannerIfPresent(page);
-  await page.getByRole('navigation').first().getByRole('link', { name: 'Inicio' }).click();
-  await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
+  await navigateToPrograms(page);
 }
 
 /* ── Tests ──────────────────────────────────────── */
@@ -29,6 +33,7 @@ async function backToCatalog(page: Page): Promise<void> {
 test.describe('Program Lifecycle — Guest Mode', () => {
   test.beforeEach(async ({ page }) => {
     await enterGuestMode(page);
+    await navigateToPrograms(page);
   });
 
   test('start program → view tracker → back to catalog', async ({ page }) => {
