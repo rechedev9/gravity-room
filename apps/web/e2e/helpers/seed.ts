@@ -50,9 +50,9 @@ export function programCard(page: Page, name: string) {
  */
 export async function navigateToTracker(page: Page): Promise<void> {
   await page.goto('/app');
-  const continueBtn = page.getByRole('button', { name: 'Continuar Entrenamiento' });
-  await expect(continueBtn).toBeVisible({ timeout: 10_000 });
-  await continueBtn.click();
+  const continueLink = page.getByRole('link', { name: 'Continuar Entrenamiento' });
+  await expect(continueLink).toBeVisible({ timeout: 10_000 });
+  await continueLink.click();
   await expect(page.getByRole('progressbar')).toBeVisible({ timeout: 10_000 });
 }
 
@@ -62,13 +62,13 @@ export async function navigateToTracker(page: Page): Promise<void> {
  * Gate: waits for 'Pesos Iniciales (kg)' to confirm setup form is rendered.
  */
 export async function navigateToGzclpSetup(page: Page): Promise<void> {
-  await page.goto('/app');
+  await page.goto('/app/programs');
   await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
   await programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar Programa' }).click();
   await expect(page.getByText('Pesos Iniciales (kg)')).toBeVisible({ timeout: 10_000 });
 }
 
-/** Enter guest mode from the login page. Waits for catalog to load. */
+/** Enter guest mode from the login page. Waits for home page to load. */
 export async function enterGuestMode(page: Page): Promise<void> {
   await page.goto('/login');
   await page.getByRole('button', { name: 'Probar sin cuenta' }).click();
@@ -76,9 +76,20 @@ export async function enterGuestMode(page: Page): Promise<void> {
   await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
 }
 
+/**
+ * SPA-navigate to /app/programs via sidebar link click.
+ * Must use SPA navigation (not page.goto) to preserve ephemeral React state
+ * such as guest mode which lives in useState and is lost on full page reload.
+ */
+export async function navigateToPrograms(page: Page): Promise<void> {
+  await page.locator('a[href="/app/programs"]').first().click();
+  await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+}
+
 /** Enter guest mode, start a program by name, and generate with default weights. */
 export async function guestWithProgram(page: Page, name: string): Promise<void> {
   await enterGuestMode(page);
+  await navigateToPrograms(page);
   await programCard(page, name).getByRole('button', { name: 'Iniciar Programa' }).click();
   await expect(page.getByRole('button', { name: 'Generar Programa' })).toBeVisible({
     timeout: 10_000,

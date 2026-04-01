@@ -7,7 +7,7 @@ test.describe('Catalog flow', () => {
   });
 
   test('dashboard loads program catalog from API', async ({ page }) => {
-    await page.goto('/app');
+    await page.goto('/app/programs');
 
     // Wait for catalog to load — should see at least one program name
     await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
@@ -18,7 +18,7 @@ test.describe('Catalog flow', () => {
   });
 
   test('user can start a GZCLP program from the catalog', async ({ page }) => {
-    await page.goto('/app');
+    await page.goto('/app/programs');
 
     // Wait for catalog to render
     await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
@@ -31,7 +31,7 @@ test.describe('Catalog flow', () => {
   });
 
   test('catalog shows program metadata (author, workouts per week)', async ({ page }) => {
-    await page.goto('/app');
+    await page.goto('/app/programs');
 
     await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
 

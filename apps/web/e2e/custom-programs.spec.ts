@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { programCard, dismissCookieBannerIfPresent } from './helpers/seed';
+import { programCard, navigateToPrograms, dismissCookieBannerIfPresent } from './helpers/seed';
 import { createAndAuthUser } from './helpers/api';
 
 // ---------------------------------------------------------------------------
@@ -12,7 +12,7 @@ async function openCustomizeWizard(
   programName: string
 ): Promise<{ accessToken: string }> {
   const { accessToken } = await createAndAuthUser(page);
-  await page.goto('/app');
+  await page.goto('/app/programs');
   await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
 
   const card = programCard(page, programName);
@@ -205,12 +205,9 @@ test.describe('Custom Programs — Deletion guard', () => {
     // Wait for tracker to load (program is now active)
     await expect(page.getByRole('progressbar')).toBeVisible({ timeout: 15_000 });
 
-    // Navigate back to dashboard
-    await page.goto('/app');
-    await expect(page.getByText('Tu Programa')).toBeVisible({ timeout: 10_000 });
-
-    // The "Mis Programas Personalizados" section should show the definition
-    await expect(page.getByText('Mis Programas Personalizados')).toBeVisible();
+    // Navigate back to programs page
+    await page.goto('/app/programs');
+    await expect(page.getByText('Mis Programas Personalizados')).toBeVisible({ timeout: 10_000 });
 
     // Try to delete it — click "Eliminar" button
     const defPanel = page.locator('section').filter({
@@ -233,7 +230,7 @@ test.describe('Custom Programs — Guest mode', () => {
     await page.goto('/login');
     await page.getByRole('button', { name: 'Probar sin cuenta' }).click();
     await page.waitForURL('**/app**', { timeout: 10_000 });
-    await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
+    await navigateToPrograms(page);
 
     // "Personalizar" should not appear — it's auth-only
     await expect(page.getByText('Personalizar')).not.toBeVisible();

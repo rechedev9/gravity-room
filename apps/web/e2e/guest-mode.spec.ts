@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { enterGuestMode, programCard, dismissCookieBannerIfPresent } from './helpers/seed';
+import {
+  enterGuestMode,
+  navigateToPrograms,
+  programCard,
+  dismissCookieBannerIfPresent,
+} from './helpers/seed';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -8,7 +13,7 @@ import { enterGuestMode, programCard, dismissCookieBannerIfPresent } from './hel
 /** Enter guest mode and start a GZCLP program from the catalog. */
 async function startGuestProgram(page: import('@playwright/test').Page): Promise<void> {
   await enterGuestMode(page);
-  await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+  await navigateToPrograms(page);
   // Guest cards have "Iniciar Programa" button (not "Ver Programa" link)
   await programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar Programa' }).click();
   await expect(page.getByText('Pesos Iniciales (kg)')).toBeVisible({ timeout: 10_000 });
@@ -155,7 +160,7 @@ test.describe('Guest routing (REQ-GROUT-001, REQ-GROUT-006)', () => {
     await enterGuestMode(page);
 
     expect(page.url()).toContain('/app');
-    await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+    // enterGuestMode already gates on "Elegir un Programa" — page is loaded
   });
 
   test('non-guest unauthenticated at /app sees dashboard with "Iniciar Sesión"', async ({
@@ -207,8 +212,7 @@ test.describe('Guest view gating (REQ-GROUT-003)', () => {
   test('guest has no profile access — avatar dropdown hidden', async ({ page }) => {
     await enterGuestMode(page);
 
-    // Guest sees dashboard with catalog
-    await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+    // enterGuestMode gates on "Elegir un Programa" — home page is loaded
     // Avatar dropdown trigger (profile entry point) is not rendered for guests
     await expect(page.getByRole('button', { name: 'Menú de usuario' })).not.toBeVisible();
     // "Iniciar Sesión" link is also hidden (guest has "Crear Cuenta" instead)
@@ -235,16 +239,14 @@ test.describe('Guest view gating (REQ-GROUT-003)', () => {
 test.describe('Guest catalog flow (REQ-GROUT-004)', () => {
   test('guest sees catalog without active programs section', async ({ page }) => {
     await enterGuestMode(page);
-
-    await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+    await navigateToPrograms(page);
     // "Continuar Entrenamiento" should NOT be visible
     await expect(page.getByText('Continuar Entrenamiento')).not.toBeVisible();
   });
 
   test('guest sees "Iniciar Programa" buttons (not "Ver Programa" links)', async ({ page }) => {
     await enterGuestMode(page);
-
-    await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
+    await navigateToPrograms(page);
     const gzclpCard = programCard(page, 'GZCLP');
     await expect(gzclpCard.getByRole('button', { name: 'Iniciar Programa' })).toBeVisible();
   });
