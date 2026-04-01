@@ -28,9 +28,9 @@ interface NavItem {
 
 const NAV_ITEMS: readonly NavItem[] = [
   { to: '/app', label: 'Inicio', end: true, Icon: HomeIcon },
+  { to: '/app/programs', label: 'Programas', Icon: ProgramsIcon },
   { to: '/app/dashboard', label: 'Dashboard', Icon: DashboardIcon },
   { to: '/app/tracker', label: 'Tracker', Icon: TrackerIcon },
-  { to: '/app/programs', label: 'Programas', Icon: ProgramsIcon },
   { to: '/app/profile', label: 'Perfil', Icon: ProfileIcon, guestHidden: true },
   { to: '/app/analytics', label: 'Analíticas', Icon: AnalyticsIcon },
 ];
