@@ -73,3 +73,8 @@ issues.MD
 # Go build artifacts
 apps/go-api/api
 apps/go-api/bin/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
