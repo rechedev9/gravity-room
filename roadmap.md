@@ -1,6 +1,6 @@
 # Gravity Room — Roadmap
 
-> Last updated: 2026-04-01.
+> Last updated: 2026-04-02.
 
 ## Status: Phase D — Profile Page Improvements (in progress)
 
@@ -325,13 +325,13 @@ Every `{'\u00XX'}` inside a JSX **string attribute** (`title="..."`,
 `label="..."`) renders as literal text. Replace with direct UTF-8
 characters.
 
-- [ ] `profile-page.tsx:417` — `title="Estad{'\u00ED'}sticas"` → `title="Estadísticas"`
-- [ ] `profile-page.tsx:429` — `label="Tasa de {'\u00C9'}xito"` → `label="Tasa de Éxito"`
-- [ ] `profile-page.tsx:461` — `label="R{'\u00E9'}cord"` → `label="Récord"`
-- [ ] `profile-page.tsx:481` — `label="Tasa de {'\u00C9'}xito"` → `label="Tasa de Éxito"`
-- [ ] `profile-page.tsx:501` — `title="R{'\u00E9'}cords Personales (T1)"` → `title="Récords Personales (T1)"`
-- [ ] `profile-page.tsx:567` — `title="Progresi{'\u00F3'}n de Peso"` → `title="Progresión de Peso"`
-- [ ] Grep entire codebase for `{'\u00` inside string attributes — fix any other occurrences
+- [x] `profile-page.tsx:417` — `title="Estad{'\u00ED'}sticas"` → `title="Estadísticas"`
+- [x] `profile-page.tsx:429` — `label="Tasa de {'\u00C9'}xito"` → `label="Tasa de Éxito"`
+- [x] `profile-page.tsx:461` — `label="R{'\u00E9'}cord"` → `label="Récord"`
+- [x] `profile-page.tsx:481` — `label="Tasa de {'\u00C9'}xito"` → `label="Tasa de Éxito"`
+- [x] `profile-page.tsx:501` — `title="R{'\u00E9'}cords Personales (T1)"` → `title="Récords Personales (T1)"`
+- [x] `profile-page.tsx:567` — `title="Progresi{'\u00F3'}n de Peso"` → `title="Progresión de Peso"`
+- [x] Grep entire codebase for `{'\u00` inside string attributes — fix any other occurrences
 - [ ] Verify Bebas Neue renders `ÁÉÍÓÚÑ` correctly at `text-transform: uppercase`
 
 ### D.2 — UX Polish: Empty & Low-Data States
@@ -339,47 +339,47 @@ characters.
 When a user has 0 workouts or minimal data, the profile should
 encourage action rather than display walls of zeros.
 
-- [ ] Banner: replace "Entrenamiento 0 de 200" + "0% / 0%" with a
+- [x] Banner: replace "Entrenamiento 0 de 200" + "0% / 0%" with a
       motivational empty state ("Tu primer entrenamiento te espera")
       and a CTA to the tracker
-- [ ] Stats card: when all values are 0, show a single encouraging
+- [x] Stats card: when all values are 0, show a single encouraging
       message instead of a grid of zeros
-- [ ] Records card: hide entirely when no PRs exist (currently shows
+- [x] Records card: hide entirely when no PRs exist (currently shows
       empty grid)
-- [ ] Charts section: hide when no workout data exists
-- [ ] Lifetime volume: hide the "..." loading state when user has only
+- [x] Charts section: hide when no workout data exists
+- [x] Lifetime volume: hide the "..." loading state when user has only
       one program (the card is irrelevant)
 
 ### D.3 — Layout & Visual Polish
 
-- [ ] Equalize card heights in the 3-column grid using CSS `grid-auto-rows`
+- [x] Equalize card heights in the 3-column grid using CSS `grid-auto-rows`
       or `align-items: start` (prevent stretching of short cards)
 - [ ] Add subtle hover effect (`shadow-card-hover`, existing CSS var)
       to interactive cards
 - [ ] Improve program selector: add program status icon, better
       styling to match the dark theme
-- [ ] Move "Eliminar cuenta" to a collapsible "Zona peligrosa" section
+- [x] Move "Eliminar cuenta" to a collapsible "Zona peligrosa" section
       at the bottom — destructive action is too prominent in the
       account card
-- [ ] Avatar fallback: use user initials (first + last) instead of
+- [x] Avatar fallback: use user initials (first + last) instead of
       single letter, with a distinct background gradient (currently
       looks like the Gravity Room logo)
-- [ ] Add rounded corners to progress bars for consistency with the
+- [x] Add rounded corners to progress bars for consistency with the
       badge pill styles
-- [ ] Consistent spacing between full-width sections (charts, history)
+- [x] Consistent spacing between full-width sections (charts, history)
 
 ### D.4 — Component Split (Under 500 LOC)
 
 `profile-page.tsx` is 659 LOC. Extract sections into focused components.
 
-- [ ] `profile-banner.tsx` — Program banner with status badge, metrics,
+- [x] `profile-banner.tsx` — Program banner with status badge, metrics,
       progress bar (~60 LOC)
-- [ ] `profile-account-card.tsx` — Avatar, user info, delete link (~60 LOC)
-- [ ] `profile-stats-grid.tsx` — Quick stats + records + 1RM cards (~80 LOC)
-- [ ] `profile-charts-section.tsx` — Weight progression charts (~40 LOC)
-- [ ] `profile-history.tsx` — Training history list (~50 LOC)
-- [ ] Verify `profile-page.tsx` drops below 500 LOC after extraction
-- [ ] No behavior changes — pure extraction refactor
+- [x] `profile-account-card.tsx` — Avatar, user info, delete link (~60 LOC)
+- [x] `profile-stats-grid.tsx` — Quick stats + records + 1RM cards (~80 LOC)
+- [x] `profile-charts-section.tsx` — Weight progression charts (~40 LOC)
+- [x] `profile-history.tsx` — Training history list (~50 LOC)
+- [x] Verify `profile-page.tsx` drops below 500 LOC after extraction
+- [x] No behavior changes — pure extraction refactor
 
 ### D.5 — Feature: Profile Editing
 
