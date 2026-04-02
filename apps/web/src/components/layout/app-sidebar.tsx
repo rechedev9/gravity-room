@@ -17,6 +17,8 @@ import {
 } from './sidebar-icons';
 
 const COLLAPSE_KEY = 'sidebar:collapsed';
+const SIDEBAR_FOCUS_RING =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-sidebar)]';
 
 interface NavItem {
   readonly to: string;
@@ -50,12 +52,13 @@ function readCollapsed(): boolean {
 
 function navItemClass(isActive: boolean, collapsed: boolean): string {
   return cn(
-    'flex items-center py-2.5 rounded-none transition-colors cursor-pointer',
-    collapsed ? 'justify-center px-0 w-10 h-10 mx-auto' : 'gap-3 px-3',
+    'relative flex items-center rounded-lg transition-colors duration-150 cursor-pointer',
+    SIDEBAR_FOCUS_RING,
+    collapsed ? 'justify-center p-0 w-11 h-11 mx-auto' : 'gap-3 px-3 py-2.5',
     isActive
       ? collapsed
         ? 'text-title bg-[var(--color-sidebar-active)]'
-        : 'text-title bg-[var(--color-sidebar-active)] border-l-2 border-accent -ml-px'
+        : 'text-title bg-[var(--color-sidebar-active)] border-l-[3px] border-accent -ml-px'
       : 'text-muted hover:text-main hover:bg-[var(--color-sidebar-active)]'
   );
 }
@@ -99,9 +102,19 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
           className={({ isActive }) => navItemClass(isActive, collapsed)}
           aria-label={collapsed ? item.label : undefined}
         >
-          <item.Icon className="shrink-0" />
-          {!collapsed && (
-            <span className="text-xs font-bold tracking-wide uppercase">{item.label}</span>
+          {({ isActive }) => (
+            <>
+              <item.Icon className="shrink-0" />
+              {!collapsed && (
+                <span className="text-xs font-bold tracking-wide uppercase">{item.label}</span>
+              )}
+              {collapsed && isActive && (
+                <span
+                  aria-hidden="true"
+                  className="absolute bottom-[5px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[var(--color-accent)]"
+                />
+              )}
+            </>
           )}
         </NavLink>
       );
@@ -129,7 +142,14 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
               collapsed ? 'justify-center px-0' : 'px-5 gap-3'
             }`}
           >
-            <Link to="/app" onClick={onItemClick} className="flex items-center gap-3">
+            <Link
+              to="/app"
+              onClick={onItemClick}
+              className={cn(
+                'flex items-center gap-3 rounded-md hover:opacity-80 transition-opacity duration-150',
+                SIDEBAR_FOCUS_RING
+              )}
+            >
               <img
                 src="/logo.webp"
                 alt="Gravity Room"
@@ -184,7 +204,10 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
             <button
               type="button"
               onClick={toggleCollapse}
-              className="p-2 text-muted hover:text-main hover:bg-[var(--color-sidebar-active)] transition-colors cursor-pointer"
+              className={cn(
+                'p-2.5 rounded-lg text-muted hover:text-main hover:bg-[var(--color-sidebar-active)] transition-colors duration-150 cursor-pointer',
+                SIDEBAR_FOCUS_RING
+              )}
               aria-label={collapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
             >
               {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}

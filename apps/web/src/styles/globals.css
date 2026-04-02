@@ -68,7 +68,7 @@
   --color-sidebar-border: #2a2218;
   --sidebar-width: 240px;
   --sidebar-width-collapsed: 64px;
-  --sidebar-transition: 200ms ease;
+  --sidebar-transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Shadows */
   --shadow-toolbar: 0 2px 12px rgba(0, 0, 0, 0.6);
