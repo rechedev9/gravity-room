@@ -26,6 +26,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/reche/gravity-room/apps/go-api/internal/apierror"
 	"github.com/reche/gravity-room/apps/go-api/internal/logging"
+	mw "github.com/reche/gravity-room/apps/go-api/internal/middleware"
 )
 
 const (
@@ -150,7 +151,7 @@ func TestHandleRecordWorkoutIndexTypeCoercion(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			h := &ResultHandler{} // nil pool — must not be reached
-			req := newReqWithID(http.MethodPost, "/api/programs/prog-id/results", tc.body, "prog-id")
+			req := newAuthReqWithID(http.MethodPost, "/api/programs/prog-id/results", tc.body, "prog-id", "test-coerce-"+tc.name)
 			rec := httptest.NewRecorder()
 
 			func() {
@@ -194,7 +195,7 @@ func TestHandleRecordSetLogsShapes(t *testing.T) {
 		t.Run(fmt.Sprintf("shape_%d", i), func(t *testing.T) {
 			t.Parallel()
 			h := &ResultHandler{}
-			req := newReqWithID(http.MethodPost, "/api/programs/p/results", body, "p")
+			req := newAuthReqWithID(http.MethodPost, "/api/programs/p/results", body, "p", fmt.Sprintf("test-setlogs-%d", i))
 			rec := httptest.NewRecorder()
 			func() {
 				defer func() {
@@ -234,7 +235,7 @@ func TestFuzzHandleRecordNeverPanics(t *testing.T) {
 	}
 
 	for i, body := range bodies {
-		req := newReqWithID(http.MethodPost, "/api/programs/p/results", body, "p")
+		req := newAuthReqWithID(http.MethodPost, "/api/programs/p/results", body, "p", fmt.Sprintf("test-fuzz-%d", i))
 		rec := httptest.NewRecorder()
 		func() {
 			defer func() {
@@ -285,7 +286,8 @@ func TestHandleDeleteResultWorkoutIndexBoundary(t *testing.T) {
 			rctx.URLParams.Add("id", "p")
 			rctx.URLParams.Add("workoutIndex", tc.workoutIndex)
 			rctx.URLParams.Add("slotId", "slot-1")
-			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+			ctx := context.WithValue(req.Context(), chi.RouteCtxKey, rctx)
+			req = req.WithContext(mw.WithUserID(ctx, "test-delete-"+tc.name))
 
 			rec := httptest.NewRecorder()
 			func() {
@@ -357,7 +359,7 @@ func TestStressHandlerGoroutineCount(t *testing.T) {
 	for i := range handlerFuzzIterations {
 		// Use a body that always fails validation (no slotId) → no DB call.
 		body := fmt.Sprintf(`{"workoutIndex":%d}`, i)
-		req := newReqWithID(http.MethodPost, "/api/programs/p/results", body, "p")
+		req := newAuthReqWithID(http.MethodPost, "/api/programs/p/results", body, "p", fmt.Sprintf("stress-%d", i))
 		rec := httptest.NewRecorder()
 		h.HandleRecord(rec, req)
 	}
