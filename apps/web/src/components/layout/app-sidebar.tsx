@@ -129,9 +129,10 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
         <nav aria-label="Navegación principal" className="flex flex-col h-full overflow-hidden">
           {/* Logo */}
           <div
-            className={`py-4 border-b border-[var(--color-sidebar-border)] flex items-center ${
-              collapsed ? 'justify-center px-0' : 'px-5 gap-3'
-            }`}
+            className={cn(
+              'border-b border-[var(--color-sidebar-border)] flex items-center',
+              collapsed ? 'justify-center px-0 py-5' : 'px-5 py-4 gap-3'
+            )}
           >
             <Link
               to="/app"
@@ -157,15 +158,21 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
           </div>
 
           {/* Nav links */}
-          <div className="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
+          <div
+            className={cn(
+              'flex-1 overflow-y-auto',
+              collapsed ? 'px-3 py-5 space-y-4' : 'px-3 py-4 space-y-2'
+            )}
+          >
             {renderNavItems(collapsed, onItemClick)}
           </div>
 
           {/* User section */}
           <div
-            className={`border-t border-[var(--color-sidebar-border)] ${
-              collapsed ? 'px-3 py-4 flex justify-center' : 'px-4 py-4'
-            }`}
+            className={cn(
+              'border-t border-[var(--color-sidebar-border)]',
+              collapsed ? 'px-3 py-5 flex justify-center' : 'px-4 py-4'
+            )}
           >
             {isGuest ? (
               collapsed ? (
