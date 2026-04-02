@@ -116,8 +116,8 @@ test.describe('Custom Programs — Progression step', () => {
     await openCustomizeWizard(page, 'GZCLP');
     await navigateToProgressionStep(page);
 
-    // GZCLP has multiple slots — each SlotCard has an accordion button with aria-expanded
-    const slotCards = page.locator('button[aria-expanded]');
+    // GZCLP has multiple slots — each SlotCard accordion header includes "expandir" or "colapsar"
+    const slotCards = page.getByRole('button', { name: /expandir|colapsar/ });
     await expect(slotCards.first()).toBeVisible();
   });
 
