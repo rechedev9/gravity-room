@@ -5,8 +5,8 @@ interface IconProps {
 export function HomeIcon({ className }: IconProps): React.ReactNode {
   return (
     <svg
-      width="20"
-      height="20"
+      width="24"
+      height="24"
       viewBox="0 0 20 20"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -27,8 +27,8 @@ export function HomeIcon({ className }: IconProps): React.ReactNode {
 export function DashboardIcon({ className }: IconProps): React.ReactNode {
   return (
     <svg
-      width="20"
-      height="20"
+      width="24"
+      height="24"
       viewBox="0 0 20 20"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -46,8 +46,8 @@ export function DashboardIcon({ className }: IconProps): React.ReactNode {
 export function TrackerIcon({ className }: IconProps): React.ReactNode {
   return (
     <svg
-      width="20"
-      height="20"
+      width="24"
+      height="24"
       viewBox="0 0 20 20"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -72,8 +72,8 @@ export function TrackerIcon({ className }: IconProps): React.ReactNode {
 export function ProgramsIcon({ className }: IconProps): React.ReactNode {
   return (
     <svg
-      width="20"
-      height="20"
+      width="24"
+      height="24"
       viewBox="0 0 20 20"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -104,8 +104,8 @@ export function ProgramsIcon({ className }: IconProps): React.ReactNode {
 export function ProfileIcon({ className }: IconProps): React.ReactNode {
   return (
     <svg
-      width="20"
-      height="20"
+      width="24"
+      height="24"
       viewBox="0 0 20 20"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -127,8 +127,8 @@ export function ProfileIcon({ className }: IconProps): React.ReactNode {
 export function AnalyticsIcon({ className }: IconProps): React.ReactNode {
   return (
     <svg
-      width="20"
-      height="20"
+      width="24"
+      height="24"
       viewBox="0 0 20 20"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
@@ -152,8 +152,8 @@ export function AnalyticsIcon({ className }: IconProps): React.ReactNode {
 export function LoginIcon({ className }: IconProps): React.ReactNode {
   return (
     <svg
-      width="20"
-      height="20"
+      width="24"
+      height="24"
       viewBox="0 0 20 20"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"

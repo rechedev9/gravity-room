@@ -44,7 +44,7 @@ function navItemClass(isActive: boolean, collapsed: boolean): string {
   return cn(
     'relative flex items-center rounded-lg transition-colors duration-150 cursor-pointer',
     SIDEBAR_FOCUS_RING,
-    collapsed ? 'justify-center p-0 w-11 h-11 mx-auto' : 'gap-3 px-3 py-2.5',
+    collapsed ? 'justify-center p-0 w-12 h-12 mx-auto' : 'gap-3 px-3 py-2.5',
     isActive
       ? collapsed
         ? 'text-title bg-[var(--color-sidebar-active)]'
@@ -144,8 +144,8 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
               <img
                 src="/logo.webp"
                 alt="Gravity Room"
-                width={28}
-                height={28}
+                width={32}
+                height={32}
                 className="rounded-sm shrink-0"
               />
               {!collapsed && (
@@ -157,14 +157,14 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
           </div>
 
           {/* Nav links */}
-          <div className={`flex-1 py-4 space-y-2 overflow-y-auto ${collapsed ? 'px-2' : 'px-3'}`}>
+          <div className="flex-1 px-3 py-4 space-y-3 overflow-y-auto">
             {renderNavItems(collapsed, onItemClick)}
           </div>
 
           {/* User section */}
           <div
             className={`border-t border-[var(--color-sidebar-border)] ${
-              collapsed ? 'px-2 py-3 flex justify-center' : 'px-4 py-4'
+              collapsed ? 'px-3 py-4 flex justify-center' : 'px-4 py-4'
             }`}
           >
             {isGuest ? (
@@ -173,7 +173,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                   type="button"
                   onClick={() => handleGuestExit(onItemClick)}
                   className={cn(
-                    'w-11 h-11 rounded-full bg-btn-active text-btn-active-text flex items-center justify-center hover:opacity-80 transition-opacity duration-150 cursor-pointer',
+                    'w-12 h-12 rounded-full bg-btn-active text-btn-active-text flex items-center justify-center hover:opacity-80 transition-opacity duration-150 cursor-pointer',
                     SIDEBAR_FOCUS_RING
                   )}
                   aria-label="Crear Cuenta"
@@ -195,7 +195,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                   to="/app/profile"
                   onClick={onItemClick}
                   className={cn(
-                    'w-11 h-11 rounded-full bg-btn-active text-btn-active-text text-sm font-extrabold flex items-center justify-center overflow-hidden hover:opacity-80 transition-opacity duration-150',
+                    'w-12 h-12 rounded-full bg-btn-active text-btn-active-text text-sm font-extrabold flex items-center justify-center overflow-hidden hover:opacity-80 transition-opacity duration-150',
                     SIDEBAR_FOCUS_RING
                   )}
                   aria-label="Ver perfil"
@@ -219,7 +219,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                 to="/login"
                 onClick={onItemClick}
                 className={cn(
-                  'w-11 h-11 rounded-full bg-btn-active text-btn-active-text flex items-center justify-center hover:opacity-80 transition-opacity duration-150',
+                  'w-12 h-12 rounded-full bg-btn-active text-btn-active-text flex items-center justify-center hover:opacity-80 transition-opacity duration-150',
                   SIDEBAR_FOCUS_RING
                 )}
                 aria-label="Iniciar Sesión"
