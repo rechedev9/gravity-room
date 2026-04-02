@@ -1,0 +1,45 @@
+import { calculateStats } from '@gzclp/shared/generic-stats';
+import type { ChartDataPoint } from '@gzclp/shared/types';
+import { DashboardCard } from './dashboard-card';
+import { LineChart } from './charts/line-chart';
+
+interface ProfileChartsSectionProps {
+  readonly chartData: Record<string, ChartDataPoint[]>;
+  readonly primaryExercises: readonly string[];
+  readonly names: Readonly<Record<string, string>>;
+}
+
+export function ProfileChartsSection({
+  chartData,
+  primaryExercises,
+  names,
+}: ProfileChartsSectionProps): React.ReactNode {
+  return (
+    <div className="mt-6">
+      <DashboardCard title="Progresión de Peso">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {primaryExercises.map((ex) => {
+            const data = chartData[ex];
+            if (!data) return null;
+            const stats = calculateStats(data);
+            const hasMark = stats.total > 0;
+            return (
+              <div key={ex} className="border border-rule p-3">
+                <h3 className="text-sm font-bold text-title mb-1">{names[ex] ?? ex}</h3>
+                {hasMark && (
+                  <p className="text-xs text-muted mb-3">
+                    {stats.currentWeight} kg
+                    {stats.gained > 0 && (
+                      <span className="text-ok"> | +{stats.gained} kg</span>
+                    )} | {stats.rate}% éxito
+                  </p>
+                )}
+                <LineChart data={data} label={names[ex] ?? ex} />
+              </div>
+            );
+          })}
+        </div>
+      </DashboardCard>
+    </div>
+  );
+}
