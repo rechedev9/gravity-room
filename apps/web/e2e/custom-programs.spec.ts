@@ -116,11 +116,8 @@ test.describe('Custom Programs — Progression step', () => {
     await openCustomizeWizard(page, 'GZCLP');
     await navigateToProgressionStep(page);
 
-    // GZCLP has multiple slots — at least one slot card should be visible
-    // Slot cards contain exercise names as headings or labels
-    const slotCards = page.locator('[class*="border"]').filter({
-      has: page.locator('button'),
-    });
+    // GZCLP has multiple slots — each SlotCard has an accordion button with aria-expanded
+    const slotCards = page.locator('button[aria-expanded]');
     await expect(slotCards.first()).toBeVisible();
   });
 

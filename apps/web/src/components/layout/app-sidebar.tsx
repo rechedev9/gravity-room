@@ -12,6 +12,7 @@ import {
   ProgramsIcon,
   ProfileIcon,
   AnalyticsIcon,
+  LoginIcon,
 } from './sidebar-icons';
 
 const SIDEBAR_FOCUS_RING =
@@ -70,6 +71,15 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
 
   const handleMouseEnter = useCallback((): void => setIsHovered(true), []);
   const handleMouseLeave = useCallback((): void => setIsHovered(false), []);
+
+  const handleGuestExit = useCallback(
+    (onItemClick: () => void): void => {
+      exitGuestMode();
+      onItemClick();
+      void navigate('/login');
+    },
+    [exitGuestMode, navigate]
+  );
 
   function renderNavItems(collapsed: boolean, onItemClick: () => void): React.ReactNode {
     return NAV_ITEMS.map((item) => {
@@ -158,38 +168,67 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
             }`}
           >
             {isGuest ? (
-              !collapsed && (
+              collapsed ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    exitGuestMode();
-                    onItemClick();
-                    void navigate('/login');
-                  }}
+                  onClick={() => handleGuestExit(onItemClick)}
+                  className={cn(
+                    'w-11 h-11 rounded-full bg-btn-active text-btn-active-text flex items-center justify-center hover:opacity-80 transition-opacity duration-150 cursor-pointer',
+                    SIDEBAR_FOCUS_RING
+                  )}
+                  aria-label="Crear Cuenta"
+                >
+                  <LoginIcon />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleGuestExit(onItemClick)}
                   className="w-full px-3 py-2 text-xs font-bold text-btn-active-text bg-btn-active border-2 border-btn-ring uppercase tracking-wide cursor-pointer hover:opacity-90 transition-opacity"
                 >
                   Crear Cuenta
                 </button>
               )
+            ) : user ? (
+              collapsed ? (
+                <Link
+                  to="/app/profile"
+                  onClick={onItemClick}
+                  className={cn(
+                    'w-11 h-11 rounded-full bg-btn-active text-btn-active-text text-sm font-extrabold flex items-center justify-center overflow-hidden hover:opacity-80 transition-opacity duration-150',
+                    SIDEBAR_FOCUS_RING
+                  )}
+                  aria-label="Ver perfil"
+                >
+                  {user.avatarUrl ? (
+                    <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    (user.email[0]?.toUpperCase() ?? 'U')
+                  )}
+                </Link>
+              ) : (
+                <AvatarDropdown
+                  user={user}
+                  syncStatus="idle"
+                  onSignOut={() => void signOut()}
+                  dropdownPlacement="top"
+                />
+              )
             ) : collapsed ? (
               <Link
-                to="/app/profile"
+                to="/login"
                 onClick={onItemClick}
                 className={cn(
-                  'w-11 h-11 rounded-full bg-btn-active text-btn-active-text text-sm font-extrabold flex items-center justify-center overflow-hidden hover:opacity-80 transition-opacity duration-150',
+                  'w-11 h-11 rounded-full bg-btn-active text-btn-active-text flex items-center justify-center hover:opacity-80 transition-opacity duration-150',
                   SIDEBAR_FOCUS_RING
                 )}
-                aria-label="Ver perfil"
+                aria-label="Iniciar Sesión"
               >
-                {user?.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  (user?.email[0] ?? 'U').toUpperCase()
-                )}
+                <LoginIcon />
               </Link>
             ) : (
               <AvatarDropdown
-                user={user}
+                user={null}
                 syncStatus="idle"
                 onSignOut={() => void signOut()}
                 dropdownPlacement="top"
