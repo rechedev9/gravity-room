@@ -70,8 +70,8 @@ func (h *ResultHandler) HandleDeleteResult(w http.ResponseWriter, r *http.Reques
 	slotID := chi.URLParam(r, "slotId")
 
 	workoutIndex, err := strconv.Atoi(chi.URLParam(r, "workoutIndex"))
-	if err != nil {
-		apierror.New(422, "workoutIndex must be a number", apierror.CodeValidationError).Write(w)
+	if err != nil || workoutIndex < 0 {
+		apierror.New(422, "workoutIndex must be a non-negative number", apierror.CodeValidationError).Write(w)
 		return
 	}
 

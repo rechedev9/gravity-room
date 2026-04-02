@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -287,7 +288,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	if s.cfg.MetricsToken != "" {
 		auth := r.Header.Get("Authorization")
-		if auth != "Bearer "+s.cfg.MetricsToken {
+		if subtle.ConstantTimeCompare([]byte(auth), []byte("Bearer "+s.cfg.MetricsToken)) != 1 {
 			apierror.New(401, "Invalid metrics token", apierror.CodeUnauthorized).Write(w)
 			return
 		}

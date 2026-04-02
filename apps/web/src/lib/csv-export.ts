@@ -27,8 +27,10 @@ export function generateProgramCsv(
 
   const lines: string[] = [headers.join(',')];
 
+  const workoutsPerWeekSafe =
+    Number.isFinite(workoutsPerWeek) && workoutsPerWeek >= 1 ? workoutsPerWeek : 1;
   for (const row of rows) {
-    const week = Math.floor(row.index / workoutsPerWeek) + 1;
+    const week = Math.floor(row.index / workoutsPerWeekSafe) + 1;
     const workoutNum = row.index + 1;
 
     for (const slot of row.slots) {

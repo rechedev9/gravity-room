@@ -4,15 +4,20 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	goredis "github.com/redis/go-redis/v9"
 	"github.com/reche/gravity-room/apps/go-api/internal/apierror"
 	"github.com/reche/gravity-room/apps/go-api/internal/logging"
 	"github.com/reche/gravity-room/apps/go-api/internal/presence"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 const keyUserID ctxKey = 10
+
+// presenceTrackTimeout caps how long the background presence goroutine waits
+// for Redis before giving up. Keeps fire-and-forget calls bounded.
+const presenceTrackTimeout = 5 * time.Second
 
 var presenceRedis *goredis.Client
 
@@ -100,13 +105,18 @@ func extractAndVerify(r *http.Request, secret string) (string, error) {
 
 // trackPresence fires a background goroutine to mark the user as online.
 // Matches TS auth-guard.ts: fire-and-forget with .catch() logging.
+// A detached context with a short deadline is used so the goroutine cannot
+// outlive a blocked Redis call indefinitely.
 func trackPresence(ctx context.Context, userID string) {
 	if presenceRedis == nil {
 		return
 	}
+	log := logging.FromContext(ctx)
 	go func() {
-		if err := presence.Track(context.Background(), presenceRedis, userID); err != nil {
-			logging.FromContext(ctx).Warn("presence track failed", "err", err)
+		tctx, cancel := context.WithTimeout(context.Background(), presenceTrackTimeout)
+		defer cancel()
+		if err := presence.Track(tctx, presenceRedis, userID); err != nil {
+			log.Warn("presence track failed", "err", err)
 		}
 	}()
 }
