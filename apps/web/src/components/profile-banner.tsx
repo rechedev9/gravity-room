@@ -105,22 +105,38 @@ export function ProfileBanner({
       </div>
 
       {allPrograms.length > 1 && (
-        <div className="mb-6">
+        <div className="mb-6 relative">
           <select
             value={effectiveInstanceId ?? ''}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
               onSelectInstance(e.target.value || undefined)
             }
-            className="w-full bg-card border border-rule text-sm text-title px-4 py-3 font-mono appearance-none cursor-pointer focus:outline-none focus:border-accent transition-colors"
+            className="w-full bg-card border border-rule text-sm text-title px-4 py-3 pr-10 font-mono appearance-none cursor-pointer focus:outline-none focus:border-accent transition-colors"
             aria-label="Selector de programa"
           >
             {allPrograms.map((p) => (
               <option key={p.id} value={p.id}>
+                {p.status === 'active' ? '● ' : '○ '}
                 {p.name}
-                {p.status === 'active' ? ' (Activo)' : ''}
+                {p.status === 'active'
+                  ? ' — Activo'
+                  : p.status === 'completed'
+                    ? ' — Completado'
+                    : ''}
               </option>
             ))}
           </select>
+          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path
+                d="M2 4L6 8L10 4"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
         </div>
       )}
     </>

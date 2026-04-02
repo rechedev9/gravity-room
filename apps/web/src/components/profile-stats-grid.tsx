@@ -11,6 +11,8 @@ interface ProfileStatsGridProps {
   readonly lifetimeVolume: number | null;
   readonly volumeSectionRef: React.RefCallback<HTMLElement>;
   readonly accountCard?: React.ReactNode;
+  readonly toDisplay: (kg: number) => number;
+  readonly unitLabel: string;
 }
 
 export function ProfileStatsGrid({
@@ -20,6 +22,8 @@ export function ProfileStatsGrid({
   lifetimeVolume,
   volumeSectionRef,
   accountCard,
+  toDisplay,
+  unitLabel,
 }: ProfileStatsGridProps): React.ReactNode {
   const isEmpty = profileData.completion.workoutsCompleted === 0;
   const hasRecords = profileData.personalRecords.length > 0;
@@ -50,7 +54,7 @@ export function ProfileStatsGrid({
             />
             <ProfileStatCard
               compact
-              value={`${formatVolume(profileData.volume.totalVolume)} kg`}
+              value={`${formatVolume(toDisplay(profileData.volume.totalVolume))} ${unitLabel}`}
               label="Volumen Total"
               sublabel={`${profileData.volume.totalSets} series / ${profileData.volume.totalReps} reps`}
             />
@@ -110,7 +114,7 @@ export function ProfileStatsGrid({
             />
             <ProfileStatCard
               compact
-              value={`${formatVolume(profileData.monthlyReport.totalVolume)} kg`}
+              value={`${formatVolume(toDisplay(profileData.monthlyReport.totalVolume))} ${unitLabel}`}
               label="Volumen"
               sublabel={`${profileData.monthlyReport.totalSets} series / ${profileData.monthlyReport.totalReps} reps`}
             />
@@ -128,13 +132,13 @@ export function ProfileStatsGrid({
                 <ProfileStatCard
                   key={pr.exercise}
                   compact
-                  value={`${pr.weight} kg`}
+                  value={`${toDisplay(pr.weight)} ${unitLabel}`}
                   label={names[pr.exercise] ?? pr.exercise}
                   sublabel={
                     pr.workoutIndex >= 0 ? `Entrenamiento #${pr.workoutIndex + 1}` : 'Peso inicial'
                   }
                   accent
-                  badge={delta > 0 ? `+${delta} kg` : undefined}
+                  badge={delta > 0 ? `+${toDisplay(delta)} ${unitLabel}` : undefined}
                   badgeVariant="success"
                 />
               );
@@ -151,9 +155,9 @@ export function ProfileStatsGrid({
               <ProfileStatCard
                 key={e.exercise}
                 compact
-                value={`${e.estimatedKg} kg`}
+                value={`${toDisplay(e.estimatedKg)} ${unitLabel}`}
                 label={e.displayName}
-                sublabel={`${e.sourceWeight} kg × ${e.sourceAmrapReps} reps`}
+                sublabel={`${toDisplay(e.sourceWeight)} ${unitLabel} × ${e.sourceAmrapReps} reps`}
               />
             ))}
           </div>
@@ -169,7 +173,11 @@ export function ProfileStatsGrid({
           <DashboardCard title="Volumen Total Global">
             <ProfileStatCard
               compact
-              value={lifetimeVolume !== null ? `${formatVolume(lifetimeVolume)} kg` : '...'}
+              value={
+                lifetimeVolume !== null
+                  ? `${formatVolume(toDisplay(lifetimeVolume))} ${unitLabel}`
+                  : '...'
+              }
               label="Todos los Programas"
               sublabel={`${allPrograms.length} programas`}
             />

@@ -7,12 +7,16 @@ interface ProfileChartsSectionProps {
   readonly chartData: Record<string, ChartDataPoint[]>;
   readonly primaryExercises: readonly string[];
   readonly names: Readonly<Record<string, string>>;
+  readonly toDisplay: (kg: number) => number;
+  readonly unitLabel: string;
 }
 
 export function ProfileChartsSection({
   chartData,
   primaryExercises,
   names,
+  toDisplay,
+  unitLabel,
 }: ProfileChartsSectionProps): React.ReactNode {
   return (
     <div className="mt-6">
@@ -28,10 +32,14 @@ export function ProfileChartsSection({
                 <h3 className="text-sm font-bold text-title mb-1">{names[ex] ?? ex}</h3>
                 {hasMark && (
                   <p className="text-xs text-muted mb-3">
-                    {stats.currentWeight} kg
+                    {toDisplay(stats.currentWeight)} {unitLabel}
                     {stats.gained > 0 && (
-                      <span className="text-ok"> | +{stats.gained} kg</span>
-                    )} | {stats.rate}% éxito
+                      <span className="text-ok">
+                        {' '}
+                        | +{toDisplay(stats.gained)} {unitLabel}
+                      </span>
+                    )}{' '}
+                    | {stats.rate}% éxito
                   </p>
                 )}
                 <LineChart data={data} label={names[ex] ?? ex} />

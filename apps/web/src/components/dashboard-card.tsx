@@ -14,7 +14,7 @@ export function DashboardCard({
   children,
 }: DashboardCardProps): React.ReactNode {
   return (
-    <div className={`bg-card border border-rule shadow-card ${className}`}>
+    <div className={`bg-card border border-rule shadow-card card ${className}`}>
       <div className="flex items-center justify-between px-4 py-3 border-b border-rule">
         <div className="flex items-center gap-2">
           {icon && <span className="text-muted text-sm">{icon}</span>}

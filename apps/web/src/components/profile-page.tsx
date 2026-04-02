@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueries } from '@tanstack/react-query';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 import { extractGenericChartData } from '@gzclp/shared/generic-stats';
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
@@ -24,6 +25,7 @@ import { Button } from './button';
 import { DeleteAccountDialog } from './delete-account-dialog';
 import { ProfileBanner } from './profile-banner';
 import { ProfileAccountCard } from './profile-account-card';
+import { ProfileBadges } from './profile-badges';
 import { ProfileStatsGrid } from './profile-stats-grid';
 import { ProfileChartsSection } from './profile-charts-section';
 import { ProfileHistory } from './profile-history';
@@ -47,6 +49,7 @@ function computeInitials(user: UserInfo): string {
 export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps): React.ReactNode {
   const { user, updateUser, deleteAccount } = useAuth();
   const { toast } = useToast();
+  const { unit, toggleUnit, toDisplay } = useUnitPreference();
 
   const { data: allPrograms = [] } = useQuery({
     queryKey: queryKeys.programs.all,
@@ -201,6 +204,17 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
     }
   };
 
+  const handleUpdateName = async (name: string): Promise<void> => {
+    try {
+      await updateProfile({ name });
+      updateUser({ name });
+      toast({ message: 'Nombre actualizado' });
+    } catch (err: unknown) {
+      captureError(err);
+      toast({ message: 'Error al actualizar el nombre' });
+    }
+  };
+
   const handleDeleteAccount = async (): Promise<void> => {
     setDeleteLoading(true);
     try {
@@ -265,12 +279,20 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
 
         {profileData && (
           <>
+            <ProfileBadges
+              profileData={profileData}
+              allPrograms={allPrograms}
+              lifetimeVolume={lifetimeVolume}
+            />
+
             <ProfileStatsGrid
               profileData={profileData}
               names={names}
               allPrograms={allPrograms}
               lifetimeVolume={lifetimeVolume}
               volumeSectionRef={volumeSectionRef}
+              toDisplay={toDisplay}
+              unitLabel={unit}
               accountCard={
                 user && (
                   <ProfileAccountCard
@@ -279,10 +301,13 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
                     userInitials={userInitials}
                     avatarUploading={avatarUploading}
                     fileInputRef={fileInputRef}
+                    unit={unit}
                     onAvatarClick={handleAvatarClick}
                     onFileChange={(e) => void handleFileChange(e)}
                     onRemoveAvatar={() => void handleRemoveAvatar()}
                     onDeleteRequest={() => setDeleteDialogOpen(true)}
+                    onUpdateName={handleUpdateName}
+                    onToggleUnit={toggleUnit}
                   />
                 )
               }
@@ -293,6 +318,8 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
                 chartData={chartData}
                 primaryExercises={primaryExercises}
                 names={names}
+                toDisplay={toDisplay}
+                unitLabel={unit}
               />
             )}
           </>
