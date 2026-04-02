@@ -66,6 +66,8 @@ scripts/*
 !scripts/committer
 !scripts/loadtest.js
 issues.MD
+roadmap.md
+todo.md
 
 # IDE
 .idea/
