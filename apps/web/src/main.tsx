@@ -9,48 +9,50 @@ import { AppLayout } from '@/components/layout/app-layout';
 import { TrackerProvider } from '@/contexts/tracker-context';
 import { lazyWithRetry } from '@/lib/lazy-with-retry';
 import { LandingSkeleton } from '@/components/landing-skeleton';
-import { LoginSkeleton } from '@/components/login-skeleton';
+import { LoginSkeleton } from '@/features/auth/login-skeleton';
 import { ContentPageSkeleton } from '@/components/content-page-skeleton';
 import { AppSkeleton } from '@/components/app-skeleton';
-import { DashboardSkeleton } from '@/components/dashboard-skeleton';
-import { ProfileSkeleton } from '@/components/profile-skeleton';
+import { DashboardSkeleton } from '@/features/legacy-shell/dashboard-skeleton';
+import { ProfileSkeleton } from '@/features/profile/profile-skeleton';
 import '@/styles/globals.css';
 
 const LoginPage = lazyWithRetry(() =>
-  import('@/components/login-page').then((m) => ({ default: m.LoginPage }))
+  import('@/features/auth/login-page').then((m) => ({ default: m.LoginPage }))
 );
 const PrivacyPage = lazyWithRetry(() =>
-  import('@/components/privacy-page').then((m) => ({ default: m.PrivacyPage }))
+  import('@/features/legal/privacy-page').then((m) => ({ default: m.PrivacyPage }))
 );
 const CookiePolicyPage = lazyWithRetry(() =>
-  import('@/components/cookie-policy-page').then((m) => ({ default: m.CookiePolicyPage }))
+  import('@/features/legal/cookie-policy-page').then((m) => ({ default: m.CookiePolicyPage }))
 );
 const LandingPage = lazyWithRetry(() =>
-  import('@/components/landing').then((m) => ({ default: m.LandingPage }))
+  import('@/features/landing').then((m) => ({ default: m.LandingPage }))
 );
 const ProgramPreviewPage = lazyWithRetry(() =>
-  import('@/components/program-preview-page').then((m) => ({ default: m.ProgramPreviewPage }))
+  import('@/features/program-preview/program-preview-page').then((m) => ({
+    default: m.ProgramPreviewPage,
+  }))
 );
 const NotFound = lazyWithRetry(() =>
-  import('@/components/not-found').then((m) => ({ default: m.NotFound }))
+  import('@/features/not-found/not-found').then((m) => ({ default: m.NotFound }))
 );
 const HomePage = lazyWithRetry(() =>
-  import('@/components/dashboard/home-page').then((m) => ({ default: m.HomePage }))
+  import('@/features/home/home-page').then((m) => ({ default: m.HomePage }))
 );
 const DashboardPage = lazyWithRetry(() =>
-  import('@/components/dashboard/dashboard-page').then((m) => ({ default: m.DashboardPage }))
+  import('@/features/dashboard/dashboard-page').then((m) => ({ default: m.DashboardPage }))
 );
 const ProgramsPage = lazyWithRetry(() =>
-  import('@/components/dashboard/programs-page').then((m) => ({ default: m.ProgramsPage }))
+  import('@/features/programs/programs-page').then((m) => ({ default: m.ProgramsPage }))
 );
 const TrackerPage = lazyWithRetry(() =>
-  import('@/components/pages/tracker-page').then((m) => ({ default: m.TrackerPage }))
+  import('@/features/tracker/tracker-page').then((m) => ({ default: m.TrackerPage }))
 );
 const ProfilePage = lazyWithRetry(() =>
-  import('@/components/profile-page').then((m) => ({ default: m.ProfilePage }))
+  import('@/features/profile/profile-page').then((m) => ({ default: m.ProfilePage }))
 );
 const AnalyticsPage = lazyWithRetry(() =>
-  import('@/components/pages/analytics-page').then((m) => ({ default: m.AnalyticsPage }))
+  import('@/features/analytics/analytics-page').then((m) => ({ default: m.AnalyticsPage }))
 );
 
 if (import.meta.env.VITE_PLAUSIBLE_DOMAIN) {

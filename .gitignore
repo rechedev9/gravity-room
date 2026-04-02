@@ -78,3 +78,12 @@ apps/go-api/bin/
 __pycache__/
 *.py[cod]
 *.pyo
+
+# Python local envs and test caches
+.venv/
+.pytest_cache/
+
+# Go coverage artifacts
+*.coverprofile
+coverage.out
+coverage.html
