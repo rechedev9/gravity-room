@@ -11,6 +11,7 @@ interface AvatarDropdownProps {
   readonly syncStatus: SyncStatus;
   readonly onSignOut: () => void;
   readonly onGoToProfile?: () => void;
+  readonly dropdownPlacement?: 'top' | 'bottom';
 }
 
 export function AvatarDropdown({
@@ -18,6 +19,7 @@ export function AvatarDropdown({
   syncStatus,
   onSignOut,
   onGoToProfile,
+  dropdownPlacement,
 }: AvatarDropdownProps): React.ReactNode {
   const { isGuest } = useGuest();
   const [open, setOpen] = useState(false);
@@ -56,7 +58,7 @@ export function AvatarDropdown({
         )}
       </button>
 
-      <DropdownMenu open={open} onClose={close} align="right">
+      <DropdownMenu open={open} onClose={close} align="right" placement={dropdownPlacement}>
         {/* Email */}
         <div className="px-4 py-2.5 text-xs text-muted truncate max-w-[220px]">{user.email}</div>
 

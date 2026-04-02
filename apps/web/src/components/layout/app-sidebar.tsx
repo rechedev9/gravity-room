@@ -12,11 +12,8 @@ import {
   ProgramsIcon,
   ProfileIcon,
   AnalyticsIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
 } from './sidebar-icons';
 
-const COLLAPSE_KEY = 'sidebar:collapsed';
 const SIDEBAR_FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-sidebar)]';
 
@@ -42,14 +39,6 @@ interface AppSidebarProps {
   readonly onClose: () => void;
 }
 
-function readCollapsed(): boolean {
-  try {
-    return localStorage.getItem(COLLAPSE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
 function navItemClass(isActive: boolean, collapsed: boolean): string {
   return cn(
     'relative flex items-center rounded-lg transition-colors duration-150 cursor-pointer',
@@ -67,7 +56,8 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
   const { user, signOut } = useAuth();
   const { isGuest, exitGuestMode } = useGuest();
   const navigate = useNavigate();
-  const [isCollapsed, setIsCollapsed] = useState(readCollapsed);
+  const [isHovered, setIsHovered] = useState(false);
+  const isCollapsed = !isHovered;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -78,17 +68,8 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
     return (): void => document.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
 
-  const toggleCollapse = useCallback((): void => {
-    setIsCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(COLLAPSE_KEY, String(next));
-      } catch {
-        /* noop */
-      }
-      return next;
-    });
-  }, []);
+  const handleMouseEnter = useCallback((): void => setIsHovered(true), []);
+  const handleMouseLeave = useCallback((): void => setIsHovered(false), []);
 
   function renderNavItems(collapsed: boolean, onItemClick: () => void): React.ReactNode {
     return NAV_ITEMS.map((item) => {
@@ -166,7 +147,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
           </div>
 
           {/* Nav links */}
-          <div className={`flex-1 py-4 space-y-1 overflow-y-auto ${collapsed ? 'px-2' : 'px-3'}`}>
+          <div className={`flex-1 py-4 space-y-2 overflow-y-auto ${collapsed ? 'px-2' : 'px-3'}`}>
             {renderNavItems(collapsed, onItemClick)}
           </div>
 
@@ -190,28 +171,30 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                   Crear Cuenta
                 </button>
               )
+            ) : collapsed ? (
+              <Link
+                to="/app/profile"
+                onClick={onItemClick}
+                className={cn(
+                  'w-11 h-11 rounded-full bg-btn-active text-btn-active-text text-sm font-extrabold flex items-center justify-center overflow-hidden hover:opacity-80 transition-opacity duration-150',
+                  SIDEBAR_FOCUS_RING
+                )}
+                aria-label="Ver perfil"
+              >
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  (user?.email[0] ?? 'U').toUpperCase()
+                )}
+              </Link>
             ) : (
-              <AvatarDropdown user={user} syncStatus="idle" onSignOut={() => void signOut()} />
+              <AvatarDropdown
+                user={user}
+                syncStatus="idle"
+                onSignOut={() => void signOut()}
+                dropdownPlacement="top"
+              />
             )}
-          </div>
-
-          {/* Collapse toggle — desktop only */}
-          <div
-            className={`border-t border-[var(--color-sidebar-border)] px-2 py-2 hidden lg:flex ${
-              collapsed ? 'justify-center' : 'justify-end'
-            }`}
-          >
-            <button
-              type="button"
-              onClick={toggleCollapse}
-              className={cn(
-                'p-2.5 rounded-lg text-muted hover:text-main hover:bg-[var(--color-sidebar-active)] transition-colors duration-150 cursor-pointer',
-                SIDEBAR_FOCUS_RING
-              )}
-              aria-label={collapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral'}
-            >
-              {collapsed ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-            </button>
           </div>
         </nav>
       </TooltipProvider>
@@ -227,6 +210,8 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
           width: isCollapsed ? 'var(--sidebar-width-collapsed)' : 'var(--sidebar-width)',
           transition: 'width var(--sidebar-transition)',
         }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         {renderContent(isCollapsed, () => {})}
       </aside>

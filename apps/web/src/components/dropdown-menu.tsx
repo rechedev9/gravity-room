@@ -5,6 +5,7 @@ interface DropdownMenuProps {
   readonly open: boolean;
   readonly onClose: () => void;
   readonly align?: 'left' | 'right';
+  readonly placement?: 'top' | 'bottom';
   readonly children: React.ReactNode;
 }
 
@@ -12,6 +13,7 @@ export function DropdownMenu({
   open,
   onClose,
   align = 'right',
+  placement = 'bottom',
   children,
 }: DropdownMenuProps): React.ReactNode {
   const ref = useRef<HTMLDivElement>(null);
@@ -41,9 +43,9 @@ export function DropdownMenu({
     <div
       ref={ref}
       role="menu"
-      className={`absolute top-full mt-1.5 z-50 min-w-[180px] bg-card border border-rule py-1 animate-[dropdown-enter_0.15s_ease-out] shadow-elevated ${
+      className={`absolute z-50 min-w-[180px] bg-card border border-rule py-1 animate-[dropdown-enter_0.15s_ease-out] shadow-elevated ${
         align === 'right' ? 'right-0' : 'left-0'
-      }`}
+      } ${placement === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
     >
       {children}
     </div>
