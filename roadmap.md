@@ -2,12 +2,11 @@
 
 > Last updated: 2026-04-02.
 
-## Status: Phase D — Profile Page Improvements (in progress)
+## Status: All phases complete (A–E + D)
 
-Phases A–C and E complete. Phase D (profile) in progress. Phase E redesigned
-the post-login experience: icon sidebar, welcome home page, and
-content separation — inspired by GCP Metrics Explorer layout patterns
-adapted to Gravity Room's fitness context.
+Phases A–E and D all complete. Phase D finished with profile editing,
+kg/lbs unit preference, achievement badges, card hover effects, and
+program selector polish.
 
 ---
 
@@ -280,7 +279,7 @@ for route review before polish pass.
 
 ---
 
-## Phase D — Profile Page Improvements
+## Phase D — Profile Page Improvements (Done)
 
 ### Objective
 
@@ -332,7 +331,7 @@ characters.
 - [x] `profile-page.tsx:501` — `title="R{'\u00E9'}cords Personales (T1)"` → `title="Récords Personales (T1)"`
 - [x] `profile-page.tsx:567` — `title="Progresi{'\u00F3'}n de Peso"` → `title="Progresión de Peso"`
 - [x] Grep entire codebase for `{'\u00` inside string attributes — fix any other occurrences
-- [ ] Verify Bebas Neue renders `ÁÉÍÓÚÑ` correctly at `text-transform: uppercase`
+- [x] Verify Bebas Neue renders `ÁÉÍÓÚÑ` correctly at `text-transform: uppercase`
 
 ### D.2 — UX Polish: Empty & Low-Data States
 
@@ -354,9 +353,9 @@ encourage action rather than display walls of zeros.
 
 - [x] Equalize card heights in the 3-column grid using CSS `grid-auto-rows`
       or `align-items: start` (prevent stretching of short cards)
-- [ ] Add subtle hover effect (`shadow-card-hover`, existing CSS var)
+- [x] Add subtle hover effect (`shadow-card-hover`, existing CSS var)
       to interactive cards
-- [ ] Improve program selector: add program status icon, better
+- [x] Improve program selector: add program status icon, better
       styling to match the dark theme
 - [x] Move "Eliminar cuenta" to a collapsible "Zona peligrosa" section
       at the bottom — destructive action is too prominent in the
@@ -383,39 +382,39 @@ encourage action rather than display walls of zeros.
 
 ### D.5 — Feature: Profile Editing
 
-- [ ] Add inline-editable display name (click to edit, Enter to save)
-- [ ] Wire to existing `PATCH /auth/me` endpoint (`updateProfile`)
-- [ ] Show toast on success/error
-- [ ] Persist optimistically via `updateUser` context method
+- [x] Add inline-editable display name (click to edit, Enter to save)
+- [x] Wire to existing `PATCH /auth/me` endpoint (`updateProfile`)
+- [x] Show toast on success/error
+- [x] Persist optimistically via `updateUser` context method
 
 ### D.6 — Feature: Unit Preference (kg / lbs)
 
-- [ ] Add kg/lbs toggle to the account card
-- [ ] Store preference in `localStorage` (no backend change)
-- [ ] Create `useUnitPreference()` hook
-- [ ] Apply conversion factor (×2.20462) to all weight displays in
+- [x] Add kg/lbs toggle to the account card
+- [x] Store preference in `localStorage` (no backend change)
+- [x] Create `useUnitPreference()` hook
+- [x] Apply conversion factor (×2.20462) to all weight displays in
       profile stats, records, charts, and volume
-- [ ] Show unit suffix dynamically
+- [x] Show unit suffix dynamically
 
 ### D.7 — Feature: Achievement Badges
 
-- [ ] Define badge criteria: - "Primer Entrenamiento" — complete 1 workout - "Racha de 5" — 5 consecutive workouts - "100 kg Club" — any T1 exercise reaches 100 kg - "Programa Completo" — finish a full program - "Volumen 10K" — lifetime volume exceeds 10,000 kg
-- [ ] Create `profile-badges.tsx` — horizontal badge strip with
+- [x] Define badge criteria: - "Primer Entrenamiento" — complete 1 workout - "Racha de 5" — 5 consecutive workouts - "100 kg Club" — any T1 exercise reaches 100 kg - "Programa Completo" — finish a full program - "Volumen 10K" — lifetime volume exceeds 10,000 kg
+- [x] Create `profile-badges.tsx` — horizontal badge strip with
       locked/unlocked states
-- [ ] Derive badges from existing `profileData` — no new API
-- [ ] Place between the banner and the stats grid
+- [x] Derive badges from existing `profileData` — no new API
+- [x] Place between the banner and the stats grid
 
 ### D.8 — Verification
 
-- [ ] `bun run typecheck && bun run lint` — no regressions
-- [ ] `bun run test` — all existing tests pass
-- [ ] Visual: all card headers show proper accented characters
+- [x] `bun run typecheck && bun run lint` — no regressions
+- [x] `bun run test` — all existing tests pass (483/483)
+- [x] Visual: all card headers show proper accented characters
       (ESTADÍSTICAS, RÉCORDS, PROGRESIÓN)
-- [ ] Visual: empty-state profile (0 workouts) looks clean, no zeros
-- [ ] Visual: populated profile renders all sections correctly
-- [ ] `profile-page.tsx` is under 500 LOC
-- [ ] Mobile 375px: cards stack to single column, no overflow
-- [ ] Desktop 1280px: 3-column grid, even card heights
+- [x] Visual: empty-state profile (0 workouts) looks clean, no zeros
+- [x] Visual: populated profile renders all sections correctly
+- [x] `profile-page.tsx` is under 500 LOC (343 LOC)
+- [x] Mobile 375px: cards stack to single column, no overflow
+- [x] Desktop 1280px: 3-column grid, even card heights
 
 ### Files Likely Affected
 
