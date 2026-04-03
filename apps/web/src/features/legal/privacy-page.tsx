@@ -1,6 +1,11 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 export function PrivacyPage(): React.ReactNode {
+  useEffect(() => {
+    document.title = 'Política de Privacidad — Gravity Room';
+  }, []);
+
   return (
     <div className="min-h-dvh bg-body">
       <header className="bg-header border-b border-rule px-6 sm:px-10 py-5">

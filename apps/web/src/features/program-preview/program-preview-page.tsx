@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -175,6 +175,17 @@ export function ProgramPreviewPage(): ReactNode {
 
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getViewPreference());
+
+  useEffect(() => {
+    if (definition !== undefined) {
+      document.title = `${definition.name} — Gravity Room`;
+    }
+    return () => {
+      if (definition !== undefined) {
+        document.title = 'Gravity Room — Programas de Entrenamiento con Progresión Automática';
+      }
+    };
+  }, [definition]);
 
   // Build program summary when definition is available
   const summary = definition !== undefined ? buildProgramSummary(definition) : null;
