@@ -161,7 +161,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
           <div
             className={cn(
               'flex-1 overflow-y-auto',
-              collapsed ? 'px-3 py-5 space-y-5' : 'px-3 py-4 space-y-3'
+              collapsed ? 'px-3 py-5 space-y-7' : 'px-3 py-4 space-y-3'
             )}
           >
             {renderNavItems(collapsed, onItemClick)}
