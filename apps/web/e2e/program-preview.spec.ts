@@ -11,12 +11,12 @@ test.describe('Program preview — route and rendering', () => {
   });
 
   test('renders the program name', async ({ page }) => {
-    await expect(page.getByText('GZCLP', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: 'GZCLP' })).toBeVisible({ timeout: 10_000 });
   });
 
   test('program info section is expanded by default', async ({ page }) => {
     // Wait for definition to load
-    await expect(page.getByText('GZCLP', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: 'GZCLP' })).toBeVisible({ timeout: 10_000 });
 
     // The <details open> element should have its content visible
     const description = page.getByText('Acerca de GZCLP');
@@ -27,7 +27,7 @@ test.describe('Program preview — route and rendering', () => {
   });
 
   test('stats tab is not visible', async ({ page }) => {
-    await expect(page.getByText('GZCLP', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: 'GZCLP' })).toBeVisible({ timeout: 10_000 });
 
     // Verify no stats-related UI is present
     await expect(page.getByText('Estadísticas')).not.toBeVisible();
@@ -43,7 +43,7 @@ test.describe('Program preview — interactivity', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/programs/gzclp');
     // Wait for the tracker to be fully loaded
-    await expect(page.getByText('GZCLP', { exact: true })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: 'GZCLP' })).toBeVisible({ timeout: 10_000 });
   });
 
   test('day navigation works (next and prev)', async ({ page }) => {
