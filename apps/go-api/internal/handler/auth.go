@@ -338,7 +338,10 @@ func (h *AuthHandler) HandleSignout(w http.ResponseWriter, r *http.Request) {
 	}
 	cookie, err := r.Cookie(refreshCookieName)
 	if err == nil && cookie.Value != "" {
-		_ = service.RevokeToken(r.Context(), h.Pool, cookie.Value)
+		if revokeErr := service.RevokeToken(r.Context(), h.Pool, cookie.Value); revokeErr != nil {
+			log := logging.FromContext(r.Context())
+			log.Warn("failed to revoke refresh token on signout", "err", revokeErr)
+		}
 	}
 
 	h.clearRefreshCookie(w)
