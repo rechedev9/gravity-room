@@ -92,7 +92,9 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
       ...options,
       headers: mergeHeaders(headers, options.headers),
       credentials: 'include',
-      signal: options.signal ?? AbortSignal.timeout(30_000),
+      signal: options.signal
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(30_000)])
+        : AbortSignal.timeout(30_000),
     });
 
   const res = await doFetch();
@@ -303,8 +305,15 @@ export async function exportProgram(id: string): Promise<unknown> {
   return apiFetch(`/programs/${encodeURIComponent(id)}/export`);
 }
 
-/** Import a program from exported JSON. */
+const ImportPayloadSchema = z.object({
+  version: z.literal(1),
+  programId: z.string().min(1),
+  name: z.string().min(1).max(100),
+});
+
+/** Import a program from exported JSON. Throws a ZodError if the payload is invalid. */
 export async function importProgram(data: unknown): Promise<ProgramSummary> {
+  ImportPayloadSchema.parse(data);
   const result = await apiFetch('/programs/import', {
     method: 'POST',
     body: JSON.stringify(data),
