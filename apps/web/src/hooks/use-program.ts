@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
 import { isRecord } from '@gzclp/shared/type-guards';
@@ -170,6 +170,15 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   // Key format: `${workoutIndex}-${slotId}` — each unique slot has its own timer.
   const amrapTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const rpeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Clear all pending debounce timers on unmount to prevent mutations firing
+  // after the component has been destroyed.
+  useEffect(() => {
+    return () => {
+      amrapTimers.current.forEach(clearTimeout);
+      rpeTimers.current.forEach(clearTimeout);
+    };
+  }, []);
 
   const isCustom = programId.startsWith('custom:');
 
