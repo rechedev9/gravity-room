@@ -1,7 +1,7 @@
 # Gravity Room — Roadmap
 
 **Last updated:** 2026-04-03
-**Status:** Phase 1 — Bug Fixes
+**Status:** Phase 2 — PWA & Offline
 
 ---
 
@@ -56,7 +56,7 @@ UX improvements (PWA offline, surfacing unused analytics, onboarding) and close 
 
 ## Step-by-Step Plan
 
-### Phase 1 — Bug Fixes (Done)
+### Phase 1 — Bug Fixes ✅
 
 Fix all 8 issues from `todo.md`. Grouped by app.
 
