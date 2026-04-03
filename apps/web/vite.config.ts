@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
+import { VitePWA } from 'vite-plugin-pwa';
 
 if (process.env.NODE_ENV === 'production' && !process.env.VITE_API_URL) {
   throw new Error(
@@ -15,6 +16,47 @@ export default defineConfig({
     react({
       babel: {
         plugins: ['babel-plugin-react-compiler'],
+      },
+    }),
+    VitePWA({
+      registerType: 'prompt',
+      // The manifest already lives in public/manifest.webmanifest and index.html
+      // already has <link rel="manifest"> — let the plugin manage the SW only.
+      manifest: false,
+      devOptions: {
+        // Keep SW disabled in dev to avoid caching headaches during development.
+        enabled: false,
+      },
+      workbox: {
+        // Precache all built assets (JS chunks, CSS, HTML, fonts, images).
+        globPatterns: ['**/*.{js,css,html,webp,svg,ico,woff2}'],
+        // For SPA: serve cached index.html for unrecognised navigation requests.
+        // API calls are excluded so fetch errors surface normally.
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api/],
+        runtimeCaching: [
+          {
+            // Auth endpoints: never cache — they set httpOnly cookies and must
+            // always hit the network.
+            urlPattern: /\/api\/auth\//,
+            handler: 'NetworkOnly',
+          },
+          {
+            // All other API calls: try network first, fall back to cache after
+            // 5 s so the app remains usable in a gym with poor signal.
+            urlPattern: /\/api\//,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              networkTimeoutSeconds: 5,
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24, // 24 h
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
     // Sentry plugin must be last. Only runs when SENTRY_AUTH_TOKEN is set (production CI).
