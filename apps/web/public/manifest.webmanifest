@@ -1,7 +1,7 @@
 {
   "name": "Gravity Room",
-  "short_name": "GR",
-  "description": "Science-backed training programs with automatic progression.",
+  "short_name": "Gravity Room",
+  "description": "Programas de entrenamiento respaldados por la ciencia con progresión automática de peso.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
