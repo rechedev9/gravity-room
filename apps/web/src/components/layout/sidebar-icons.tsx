@@ -2,58 +2,55 @@ interface IconProps {
   readonly className?: string;
 }
 
-export function HomeIcon({ className }: IconProps): React.ReactNode {
+function SidebarSvg({
+  className,
+  children,
+}: {
+  readonly className?: string;
+  readonly children: React.ReactNode;
+}): React.ReactNode {
   return (
     <svg
-      width="24"
-      height="24"
+      width="28"
+      height="28"
       viewBox="0 0 20 20"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
       className={className}
     >
+      {children}
+    </svg>
+  );
+}
+
+export function HomeIcon({ className }: IconProps): React.ReactNode {
+  return (
+    <SidebarSvg className={className}>
       <path
         d="M2.5 8.125L10 2.5L17.5 8.125V17.5H12.5V12.5H7.5V17.5H2.5V8.125Z"
         stroke="currentColor"
         strokeWidth="2"
         strokeLinejoin="round"
       />
-    </svg>
+    </SidebarSvg>
   );
 }
 
-// 2×2 tile grid — intentionally distinct from AnalyticsIcon (line chart)
 export function DashboardIcon({ className }: IconProps): React.ReactNode {
   return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 20 20"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-      className={className}
-    >
+    <SidebarSvg className={className}>
       <rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1" stroke="currentColor" strokeWidth="2" />
       <rect x="11" y="2.5" width="6.5" height="6.5" rx="1" stroke="currentColor" strokeWidth="2" />
       <rect x="2.5" y="11" width="6.5" height="6.5" rx="1" stroke="currentColor" strokeWidth="2" />
       <rect x="11" y="11" width="6.5" height="6.5" rx="1" stroke="currentColor" strokeWidth="2" />
-    </svg>
+    </SidebarSvg>
   );
 }
 
 export function TrackerIcon({ className }: IconProps): React.ReactNode {
   return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 20 20"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-      className={className}
-    >
+    <SidebarSvg className={className}>
       <line
         x1="5"
         y1="10"
@@ -65,21 +62,13 @@ export function TrackerIcon({ className }: IconProps): React.ReactNode {
       />
       <rect x="2" y="7" width="2.5" height="6" rx="0.75" stroke="currentColor" strokeWidth="2" />
       <rect x="15" y="7" width="2.5" height="6" rx="0.75" stroke="currentColor" strokeWidth="2" />
-    </svg>
+    </SidebarSvg>
   );
 }
 
 export function ProgramsIcon({ className }: IconProps): React.ReactNode {
   return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 20 20"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-      className={className}
-    >
+    <SidebarSvg className={className}>
       <rect x="3.5" y="2.5" width="13" height="15" rx="1" stroke="currentColor" strokeWidth="2" />
       <line
         x1="6.5"
@@ -97,21 +86,13 @@ export function ProgramsIcon({ className }: IconProps): React.ReactNode {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </svg>
+    </SidebarSvg>
   );
 }
 
 export function ProfileIcon({ className }: IconProps): React.ReactNode {
   return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 20 20"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-      className={className}
-    >
+    <SidebarSvg className={className}>
       <circle cx="10" cy="7" r="3.5" stroke="currentColor" strokeWidth="2" />
       <path
         d="M3 17.5C3 14.462 6.134 12 10 12C13.866 12 17 14.462 17 17.5"
@@ -119,22 +100,13 @@ export function ProfileIcon({ className }: IconProps): React.ReactNode {
         strokeWidth="2"
         strokeLinecap="round"
       />
-    </svg>
+    </SidebarSvg>
   );
 }
 
-// Trend line with filled dots — intentionally distinct from DashboardIcon (tiles)
 export function AnalyticsIcon({ className }: IconProps): React.ReactNode {
   return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 20 20"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-      className={className}
-    >
+    <SidebarSvg className={className}>
       <polyline
         points="2.5,15 7,9.5 11,12.5 17.5,5"
         stroke="currentColor"
@@ -145,21 +117,13 @@ export function AnalyticsIcon({ className }: IconProps): React.ReactNode {
       <circle cx="7" cy="9.5" r="1.5" fill="currentColor" />
       <circle cx="11" cy="12.5" r="1.5" fill="currentColor" />
       <circle cx="17.5" cy="5" r="1.5" fill="currentColor" />
-    </svg>
+    </SidebarSvg>
   );
 }
 
 export function LoginIcon({ className }: IconProps): React.ReactNode {
   return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 20 20"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      aria-hidden="true"
-      className={className}
-    >
+    <SidebarSvg className={className}>
       <path
         d="M8.5 3.5H4.5V16.5H8.5"
         stroke="currentColor"
@@ -175,6 +139,6 @@ export function LoginIcon({ className }: IconProps): React.ReactNode {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </svg>
+    </SidebarSvg>
   );
 }
