@@ -9,7 +9,7 @@ ARG VITE_API_URL
 ARG VITE_GOOGLE_CLIENT_ID
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
-RUN bun run build:web
+RUN bun run build:web && chmod -R a+r /app/apps/web/dist
 
 FROM nginx:alpine
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
