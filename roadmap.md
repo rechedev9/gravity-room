@@ -1,7 +1,7 @@
 # Gravity Room — Roadmap
 
 **Last updated:** 2026-04-03
-**Status:** Phase 3 — Surface exercise_summary
+**Status:** Phase 4 — App Route Document Titles
 
 ---
 
@@ -150,7 +150,7 @@ Fix all 8 issues from `todo.md`. Grouped by app.
 
 ---
 
-### Phase 3 — Surface `exercise_summary` Insight
+### Phase 3 — Surface `exercise_summary` Insight ✅
 
 **Step 3.1 — Create `ExerciseSummaryCard` component**
 - File: `apps/web/src/features/insights/exercise-summary-card.tsx`
@@ -166,9 +166,9 @@ Fix all 8 issues from `todo.md`. Grouped by app.
 - If the dashboard has room, show a compact summary for the active program's exercises.
 
 #### Verification — Phase 3
-- [ ] `bun run typecheck && bun run lint` passes
-- [ ] Analytics page renders exercise summary cards with real data
-- [ ] Empty state (no exercise_summary data) handled gracefully
+- [x] `bun run typecheck && bun run lint` passes
+- [x] Analytics page renders exercise summary cards with real data
+- [x] Empty state (no exercise_summary data) handled gracefully
 
 ---
 
