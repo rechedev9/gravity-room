@@ -69,11 +69,14 @@ func (h *ResultHandler) HandleDeleteResult(w http.ResponseWriter, r *http.Reques
 	instanceID := chi.URLParam(r, "id")
 	slotID := chi.URLParam(r, "slotId")
 
-	workoutIndex, err := strconv.Atoi(chi.URLParam(r, "workoutIndex"))
-	if err != nil || workoutIndex < 0 {
+	// bitSize 63 ensures the value fits in a non-negative int on 64-bit systems
+	// and rejects both negative inputs and values that would overflow int.
+	parsed, parseErr := strconv.ParseUint(chi.URLParam(r, "workoutIndex"), 10, 63)
+	if parseErr != nil {
 		apierror.New(422, "workoutIndex must be a non-negative number", apierror.CodeValidationError).Write(w)
 		return
 	}
+	workoutIndex := int(parsed)
 
 	delErr := service.DeleteResult(r.Context(), h.Pool, userID, instanceID, workoutIndex, slotID)
 	if delErr != nil {
