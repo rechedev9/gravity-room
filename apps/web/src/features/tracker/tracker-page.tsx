@@ -4,18 +4,22 @@ import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms } from '@/lib/api-functions';
 import { useTracker } from '@/contexts/tracker-context';
+import { useAuth } from '@/contexts/auth-context';
+import { useGuest } from '@/contexts/guest-context';
+import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
 import { ProgramApp } from '@/features/tracker/program-app';
-
-const DEFAULT_TITLE = 'Gravity Room — Programas de Entrenamiento con Progresión Automática';
 
 export function TrackerPage(): React.ReactNode {
   const { programId } = useParams<{ programId: string }>();
   const { instanceId, programId: ctxProgramId, clearTracker } = useTracker();
+  const { user } = useAuth();
+  const { isGuest } = useGuest();
   const navigate = useNavigate();
 
   const programsQuery = useQuery({
     queryKey: queryKeys.programs.all,
     queryFn: fetchPrograms,
+    enabled: user !== null && !isGuest,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -32,7 +36,7 @@ export function TrackerPage(): React.ReactNode {
       ? `${programName} — Tracker — Gravity Room`
       : 'Tracker — Gravity Room';
     return () => {
-      document.title = DEFAULT_TITLE;
+      document.title = DEFAULT_PAGE_TITLE;
     };
   }, [programName]);
 

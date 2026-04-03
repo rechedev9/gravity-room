@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
 import type { ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -182,7 +183,7 @@ export function ProgramPreviewPage(): ReactNode {
     }
     return () => {
       if (definition !== undefined) {
-        document.title = 'Gravity Room — Programas de Entrenamiento con Progresión Automática';
+        document.title = DEFAULT_PAGE_TITLE;
       }
     };
   }, [definition]);

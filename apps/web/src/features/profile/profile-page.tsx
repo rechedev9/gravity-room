@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
+import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { useUnitPreference } from '@/hooks/use-unit-preference';
@@ -46,15 +47,13 @@ function computeInitials(user: UserInfo): string {
   return (user.email[0] ?? 'U').toUpperCase();
 }
 
-const DEFAULT_TITLE = 'Gravity Room — Programas de Entrenamiento con Progresión Automática';
-
 export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps): React.ReactNode {
   const { user, updateUser, deleteAccount } = useAuth();
 
   useEffect(() => {
     document.title = 'Perfil — Gravity Room';
     return () => {
-      document.title = DEFAULT_TITLE;
+      document.title = DEFAULT_PAGE_TITLE;
     };
   }, []);
   const { toast } = useToast();

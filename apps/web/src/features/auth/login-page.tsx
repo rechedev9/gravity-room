@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const DEFAULT_TITLE = 'Gravity Room — Programas de Entrenamiento con Progresión Automática';
+import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
@@ -17,7 +16,7 @@ export function LoginPage(): React.ReactNode {
   useEffect(() => {
     document.title = 'Iniciar Sesión — Gravity Room';
     return () => {
-      document.title = DEFAULT_TITLE;
+      document.title = DEFAULT_PAGE_TITLE;
     };
   }, []);
 

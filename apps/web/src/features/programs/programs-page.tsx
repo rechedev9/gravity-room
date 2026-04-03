@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms, fetchCatalogList } from '@/lib/api-functions';
@@ -21,15 +22,13 @@ const LEVEL_LABELS: Readonly<Record<ProgramLevel, string>> = {
   advanced: 'Avanzado',
 };
 
-const DEFAULT_TITLE = 'Gravity Room — Programas de Entrenamiento con Progresión Automática';
-
 export function ProgramsPage(): React.ReactNode {
   const { user } = useAuth();
 
   useEffect(() => {
     document.title = 'Programas — Gravity Room';
     return () => {
-      document.title = DEFAULT_TITLE;
+      document.title = DEFAULT_PAGE_TITLE;
     };
   }, []);
   const { isGuest } = useGuest();

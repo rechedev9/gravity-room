@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchInsights } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
@@ -23,8 +24,6 @@ const INSIGHT_TYPES = [
   'exercise_summary',
 ] as const;
 
-const DEFAULT_TITLE = 'Gravity Room — Programas de Entrenamiento con Progresión Automática';
-
 export function AnalyticsPage(): React.ReactNode {
   const { user } = useAuth();
   const { isGuest } = useGuest();
@@ -32,7 +31,7 @@ export function AnalyticsPage(): React.ReactNode {
   useEffect(() => {
     document.title = 'Analíticas — Gravity Room';
     return () => {
-      document.title = DEFAULT_TITLE;
+      document.title = DEFAULT_PAGE_TITLE;
     };
   }, []);
 
