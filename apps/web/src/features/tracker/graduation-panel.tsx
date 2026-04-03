@@ -99,6 +99,7 @@ export function GraduationPanel({
       {/* Celebration + CTAs when all passed */}
       {achieved.allPassed && (
         <div className="border-t border-rule pt-4">
+          <img src="/graduation-badge.webp" alt="" className="w-20 h-20 mx-auto mb-4 opacity-90" />
           <p className="text-sm font-bold text-title mb-3">Tus 1RM estimados (Epley):</p>
           <div className="flex flex-wrap gap-3 mb-4">
             {Object.entries(estimatedOneRMs).map(([exercise, oneRM]) => (

@@ -36,6 +36,11 @@ export function ProgramCompletionScreen({
       <div className="max-w-2xl mx-auto px-5 sm:px-8 py-12 sm:py-20">
         {/* Celebration header */}
         <div className="text-center mb-12">
+          <img
+            src="/completion-celebration.webp"
+            alt=""
+            className="w-full max-w-xl mx-auto mb-6 opacity-90"
+          />
           <h1
             className="font-display text-5xl sm:text-7xl text-title leading-none mb-3"
             style={{ textShadow: '0 0 40px rgba(240, 192, 64, 0.25)' }}

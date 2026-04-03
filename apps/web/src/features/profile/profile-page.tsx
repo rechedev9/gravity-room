@@ -268,6 +268,12 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
 
         {!profileData && (
           <div className="bg-card border border-rule p-8 sm:p-12 text-center card">
+            <img
+              src="/empty-profile.webp"
+              alt=""
+              className="w-full max-w-xs mx-auto mb-6 opacity-80"
+              loading="lazy"
+            />
             <p
               className="font-display text-6xl sm:text-7xl text-muted leading-none mb-4"
               style={{ textShadow: '0 0 40px rgba(138, 122, 90, 0.15)' }}

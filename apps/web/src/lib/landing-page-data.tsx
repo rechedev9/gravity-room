@@ -14,6 +14,7 @@ export interface Step {
   readonly desc: string;
   readonly quote: string;
   readonly source: string;
+  readonly image: string;
 }
 
 /* ── Data ──────────────────────────────────────── */
@@ -56,6 +57,7 @@ export const STEPS: readonly Step[] = [
     desc: 'Selecciona el programa que se adapte a tus objetivos y configura tus pesos iniciales. La app construye tu plan completo al instante.',
     quote: '"El primer paso siempre es el más importante. Después, la gravedad hace el resto."',
     source: '\u2014 Gravity Room',
+    image: '/howit-choose.webp',
   },
   {
     num: '02',
@@ -63,6 +65,7 @@ export const STEPS: readonly Step[] = [
     desc: 'Cada entrenamiento te dice exactamente qué hacer \u2014 ejercicio, series, repeticiones, peso. Sin adivinar.',
     quote: '"La disciplina es entrenar cuando la motivación ya no está. El programa nunca falla."',
     source: '\u2014 Gravity Room',
+    image: '/howit-train.webp',
   },
   {
     num: '03',
@@ -70,6 +73,7 @@ export const STEPS: readonly Step[] = [
     desc: 'Completa tus reps y el peso sube. El programa se adapta a tu rendimiento para mantenerte avanzando.',
     quote: '"Cada kilo extra en la barra es gravedad que has conquistado."',
     source: '\u2014 Gravity Room',
+    image: '/howit-progress.webp',
   },
 ];
 

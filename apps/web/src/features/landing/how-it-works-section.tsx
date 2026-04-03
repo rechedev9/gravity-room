@@ -48,6 +48,13 @@ export function HowItWorksSection(): React.ReactNode {
                 {s.num}
               </div>
 
+              <img
+                src={s.image}
+                alt=""
+                className="w-20 h-20 mx-auto mb-4 object-contain opacity-85"
+                loading="lazy"
+              />
+
               <h3 className="text-base font-bold mb-3 uppercase tracking-wide text-main">
                 {s.title}
               </h3>

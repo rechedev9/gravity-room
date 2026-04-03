@@ -128,6 +128,12 @@ export function DashboardPage(): React.ReactNode {
           !isGuest &&
           !programsQuery.isLoading && (
             <div className="bg-card border border-rule p-8 text-center mb-6">
+              <img
+                src="/empty-dashboard.webp"
+                alt=""
+                className="w-full max-w-sm mx-auto mb-5 opacity-80"
+                loading="lazy"
+              />
               <p className="text-sm text-muted mb-4">
                 Elige un programa para ver tus métricas aquí.
               </p>

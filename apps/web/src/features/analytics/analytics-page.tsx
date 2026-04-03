@@ -102,6 +102,12 @@ export function AnalyticsPage(): React.ReactNode {
         {/* Empty state */}
         {!isGuest && insightsQuery.isSuccess && !insightsQuery.data?.length && (
           <div className="bg-card border border-rule p-8 text-center max-w-lg mx-auto">
+            <img
+              src="/empty-analytics.webp"
+              alt=""
+              className="w-full max-w-sm mx-auto mb-5 opacity-80"
+              loading="lazy"
+            />
             <p className="text-sm text-muted">
               Sin datos todavía. Completa algunos entrenamientos para ver tus analíticas.
             </p>
