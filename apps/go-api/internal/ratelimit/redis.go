@@ -6,6 +6,8 @@ import (
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
+
+	"github.com/reche/gravity-room/apps/go-api/internal/metrics"
 )
 
 // luaSlidingWindow is the atomic sliding-window Lua script.
@@ -53,6 +55,7 @@ func (s *RedisStore) Check(key string, limit int, window time.Duration) bool {
 
 	if err != nil {
 		s.log.Warn("redis rate limit eval failed, allowing request", "err", err, "key", key)
+		metrics.RateLimitFallbackTotal.Inc()
 		return true // fail-open, matches TS
 	}
 	return result == 1

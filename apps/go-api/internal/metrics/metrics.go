@@ -39,6 +39,14 @@ var (
 		Name: "db_queries_total",
 		Help: "Total database queries",
 	}, []string{"query_type"})
+
+	// RateLimitFallbackTotal counts requests that bypassed rate limiting because
+	// Redis was unavailable (fail-open behaviour). An alert on this counter
+	// signals that the rate limiter is degraded.
+	RateLimitFallbackTotal = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "ratelimit_redis_fallback_total",
+		Help: "Total requests that bypassed rate limiting due to Redis unavailability",
+	})
 )
 
 func init() {
@@ -50,6 +58,7 @@ func init() {
 		RateLimitHitsTotal,
 		HTTPErrorsTotal,
 		DBQueriesTotal,
+		RateLimitFallbackTotal,
 	)
 }
 
