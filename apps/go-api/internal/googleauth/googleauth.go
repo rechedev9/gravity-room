@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/singleflight"
+
 	"github.com/reche/gravity-room/apps/go-api/internal/apierror"
 )
 
@@ -62,8 +64,9 @@ type cacheEntry struct {
 }
 
 var (
-	cacheMu   sync.Mutex
-	jwksCache *cacheEntry
+	cacheMu    sync.Mutex
+	jwksCache  *cacheEntry
+	fetchGroup singleflight.Group
 )
 
 func VerifyToken(ctx context.Context, client *http.Client, credential, clientID string) (TokenPayload, error) {
@@ -152,42 +155,60 @@ func fetchGoogleCerts(ctx context.Context, client *http.Client) ([]jwk, error) {
 	}
 	cacheMu.Unlock()
 
-	if client == nil {
-		client = &http.Client{Timeout: 5 * time.Second}
-	}
+	// singleflight deduplicates concurrent cache misses: only one goroutine
+	// performs the HTTP fetch while others wait and share the result.
+	v, err, _ := fetchGroup.Do("jwks", func() (any, error) {
+		// Re-check inside singleflight: a prior waiter may have just populated
+		// the cache by the time we get the lock.
+		cacheMu.Lock()
+		if jwksCache != nil && time.Since(jwksCache.FetchedAt) < cacheTTL {
+			keys := append([]jwk(nil), jwksCache.Keys...)
+			cacheMu.Unlock()
+			return keys, nil
+		}
+		cacheMu.Unlock()
 
-	requestCtx := ctx
-	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
-		var cancel context.CancelFunc
-		requestCtx, cancel = context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-	}
+		if client == nil {
+			client = &http.Client{Timeout: 5 * time.Second}
+		}
 
-	req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, jwksURL, nil)
+		requestCtx := ctx
+		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+			var cancel context.CancelFunc
+			requestCtx, cancel = context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+		}
+
+		req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, jwksURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("create jwks request: %w", err)
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, apierror.New(503, "Google JWKS endpoint unavailable", apierror.CodeAuthJWKSUnavailable)
+		}
+		defer func() { _ = resp.Body.Close() }()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, apierror.New(503, "Google JWKS endpoint unavailable", apierror.CodeAuthJWKSUnavailable)
+		}
+
+		var payload jwksResponse
+		if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil || len(payload.Keys) == 0 {
+			return nil, apierror.New(503, "Invalid JWKS response format", apierror.CodeAuthJWKSUnavailable)
+		}
+
+		cacheMu.Lock()
+		jwksCache = &cacheEntry{Keys: append([]jwk(nil), payload.Keys...), FetchedAt: time.Now()}
+		cacheMu.Unlock()
+
+		return append([]jwk(nil), payload.Keys...), nil
+	})
 	if err != nil {
-		return nil, fmt.Errorf("create jwks request: %w", err)
+		return nil, err
 	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, apierror.New(503, "Google JWKS endpoint unavailable", apierror.CodeAuthJWKSUnavailable)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, apierror.New(503, "Google JWKS endpoint unavailable", apierror.CodeAuthJWKSUnavailable)
-	}
-
-	var payload jwksResponse
-	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil || len(payload.Keys) == 0 {
-		return nil, apierror.New(503, "Invalid JWKS response format", apierror.CodeAuthJWKSUnavailable)
-	}
-
-	cacheMu.Lock()
-	jwksCache = &cacheEntry{Keys: append([]jwk(nil), payload.Keys...), FetchedAt: time.Now()}
-	cacheMu.Unlock()
-
-	return payload.Keys, nil
+	return v.([]jwk), nil //nolint:forcetypeassert
 }
 
 func decodeJWTPart(raw string, out any) error {
