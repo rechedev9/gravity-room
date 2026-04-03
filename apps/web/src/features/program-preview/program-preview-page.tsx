@@ -282,6 +282,8 @@ export function ProgramPreviewPage(): ReactNode {
 
       {/* Content */}
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+        <h1 className="sr-only">{definition.name}</h1>
+
         {/* Program info — expanded by default */}
         <details open className="group bg-card border border-rule mb-4 sm:mb-8 overflow-hidden">
           <summary className="px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center [&::marker]:hidden list-none text-xs tracking-wide">
