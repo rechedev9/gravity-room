@@ -10,6 +10,7 @@ import { E1rmChart } from '@/features/insights/e1rm-chart';
 import { PlateauAlert } from '@/features/insights/plateau-alert';
 import { ForecastChart } from '@/features/insights/forecast-chart';
 import { LoadRecommendation } from '@/features/insights/load-recommendation';
+import { ExerciseSummaryCard } from '@/features/insights/exercise-summary-card';
 
 const INSIGHT_TYPES = [
   'volume_trend',
@@ -18,6 +19,7 @@ const INSIGHT_TYPES = [
   'plateau_detection',
   'e1rm_forecast',
   'load_recommendation',
+  'exercise_summary',
 ] as const;
 
 export function AnalyticsPage(): React.ReactNode {
@@ -41,6 +43,8 @@ export function AnalyticsPage(): React.ReactNode {
     insightsQuery.data?.filter((i) => i.insightType === 'e1rm_forecast') ?? [];
   const recommendationInsights =
     insightsQuery.data?.filter((i) => i.insightType === 'load_recommendation') ?? [];
+  const exerciseSummaryInsights =
+    insightsQuery.data?.filter((i) => i.insightType === 'exercise_summary') ?? [];
 
   return (
     <div className="min-h-dvh bg-body">
@@ -108,6 +112,21 @@ export function AnalyticsPage(): React.ReactNode {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {frequency && <FrequencyCard insight={frequency} />}
                     {volumeTrend && <VolumeTrendCard insight={volumeTrend} />}
+                  </div>
+                </section>
+              )}
+
+              {/* Exercise summary — compact grid per slot */}
+              {exerciseSummaryInsights.length > 0 && (
+                <section>
+                  <h2 className="dash-section-title mb-3">Resumen por Ejercicio</h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {exerciseSummaryInsights.map((insight) => (
+                      <ExerciseSummaryCard
+                        key={`summary-${insight.exerciseId}`}
+                        insight={insight}
+                      />
+                    ))}
                   </div>
                 </section>
               )}

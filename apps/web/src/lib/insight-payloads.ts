@@ -101,6 +101,28 @@ export function isRecommendationPayload(v: unknown): v is RecommendationPayload 
   );
 }
 
+export interface ExerciseSummaryPayload {
+  readonly totalSets: number;
+  readonly successSets: number;
+  readonly successRate: number;
+  readonly totalVolume: number;
+  readonly avgRpe: number | null;
+}
+
+export function isExerciseSummaryPayload(v: unknown): v is ExerciseSummaryPayload {
+  if (v === null || typeof v !== 'object') return false;
+  return (
+    'totalSets' in v &&
+    typeof v.totalSets === 'number' &&
+    'successSets' in v &&
+    typeof v.successSets === 'number' &&
+    'successRate' in v &&
+    typeof v.successRate === 'number' &&
+    'totalVolume' in v &&
+    typeof v.totalVolume === 'number'
+  );
+}
+
 export interface ForecastPayload {
   readonly weeks: string[];
   readonly e1rms: number[];
