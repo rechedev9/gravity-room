@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms, fetchInsights } from '@/lib/api-functions';
@@ -19,9 +20,18 @@ const DASHBOARD_INSIGHT_TYPES = [
   'load_recommendation',
 ] as const;
 
+const DEFAULT_TITLE = 'Gravity Room — Programas de Entrenamiento con Progresión Automática';
+
 export function DashboardPage(): React.ReactNode {
   const { user } = useAuth();
   const { isGuest } = useGuest();
+
+  useEffect(() => {
+    document.title = 'Dashboard — Gravity Room';
+    return () => {
+      document.title = DEFAULT_TITLE;
+    };
+  }, []);
 
   const programsQuery = useQuery({
     queryKey: queryKeys.programs.all,

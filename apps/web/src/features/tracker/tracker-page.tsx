@@ -1,14 +1,40 @@
+import { useEffect } from 'react';
 import { useParams, useNavigate, Navigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-keys';
+import { fetchPrograms } from '@/lib/api-functions';
 import { useTracker } from '@/contexts/tracker-context';
 import { ProgramApp } from '@/features/tracker/program-app';
+
+const DEFAULT_TITLE = 'Gravity Room — Programas de Entrenamiento con Progresión Automática';
 
 export function TrackerPage(): React.ReactNode {
   const { programId } = useParams<{ programId: string }>();
   const { instanceId, programId: ctxProgramId, clearTracker } = useTracker();
   const navigate = useNavigate();
 
+  const programsQuery = useQuery({
+    queryKey: queryKeys.programs.all,
+    queryFn: fetchPrograms,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Fallback to context programId when URL param is absent
   const effectiveProgramId = programId ?? ctxProgramId;
+
+  const programName =
+    programsQuery.data?.find((p) => p.id === instanceId)?.name ??
+    programsQuery.data?.find((p) => p.status === 'active')?.name ??
+    null;
+
+  useEffect(() => {
+    document.title = programName
+      ? `${programName} — Tracker — Gravity Room`
+      : 'Tracker — Gravity Room';
+    return () => {
+      document.title = DEFAULT_TITLE;
+    };
+  }, [programName]);
 
   if (!effectiveProgramId) {
     return <Navigate replace to="/app" />;

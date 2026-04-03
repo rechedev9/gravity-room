@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchInsights } from '@/lib/api-functions';
@@ -22,9 +23,18 @@ const INSIGHT_TYPES = [
   'exercise_summary',
 ] as const;
 
+const DEFAULT_TITLE = 'Gravity Room — Programas de Entrenamiento con Progresión Automática';
+
 export function AnalyticsPage(): React.ReactNode {
   const { user } = useAuth();
   const { isGuest } = useGuest();
+
+  useEffect(() => {
+    document.title = 'Analíticas — Gravity Room';
+    return () => {
+      document.title = DEFAULT_TITLE;
+    };
+  }, []);
 
   const insightsQuery = useQuery({
     queryKey: queryKeys.insights.list([...INSIGHT_TYPES]),

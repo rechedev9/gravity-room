@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { queryKeys } from '@/lib/query-keys';
@@ -71,9 +72,18 @@ function SectionCard({ title, description, to }: SectionCardProps): React.ReactN
   );
 }
 
+const DEFAULT_TITLE = 'Gravity Room — Programas de Entrenamiento con Progresión Automática';
+
 export function HomePage(): React.ReactNode {
   const { user } = useAuth();
   const { isGuest } = useGuest();
+
+  useEffect(() => {
+    document.title = 'Inicio — Gravity Room';
+    return () => {
+      document.title = DEFAULT_TITLE;
+    };
+  }, []);
 
   const programsQuery = useQuery({
     queryKey: queryKeys.programs.all,
