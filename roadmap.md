@@ -1,7 +1,7 @@
 # Gravity Room — Roadmap
 
 **Last updated:** 2026-04-03
-**Status:** Phase 2 — PWA & Offline
+**Status:** Phase 3 — Surface exercise_summary
 
 ---
 
@@ -117,7 +117,7 @@ Fix all 8 issues from `todo.md`. Grouped by app.
 
 ---
 
-### Phase 2 — PWA & Offline (Done)
+### Phase 2 — PWA & Offline ✅
 
 **Step 2.1 — Install `vite-plugin-pwa`**
 - Add `vite-plugin-pwa` to `apps/web/` devDependencies.
