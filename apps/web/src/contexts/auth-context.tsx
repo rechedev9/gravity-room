@@ -66,8 +66,11 @@ export function AuthProvider({
 
   // Attempt to restore session from refresh cookie on mount
   useEffect(() => {
+    let mounted = true;
+
     const restore = async (): Promise<void> => {
       const token = await refreshAccessToken();
+      if (!mounted) return;
       if (!token) {
         setLoading(false);
         return;
@@ -75,6 +78,7 @@ export function AuthProvider({
 
       try {
         const data = await apiFetch('/auth/me');
+        if (!mounted) return;
         const userInfo = parseUserInfo(data);
         if (userInfo) {
           setUser(userInfo);
@@ -88,10 +92,13 @@ export function AuthProvider({
         );
       }
 
-      setLoading(false);
+      if (mounted) setLoading(false);
     };
 
     void restore();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const signInWithGoogle = async (credential: string): Promise<AuthResult | null> => {
