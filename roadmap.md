@@ -1,7 +1,7 @@
 # Gravity Room — Roadmap
 
 **Last updated:** 2026-04-03
-**Status:** Phase 4 — App Route Document Titles
+**Status:** Phase 5 — Test Coverage
 
 ---
 
@@ -172,7 +172,7 @@ Fix all 8 issues from `todo.md`. Grouped by app.
 
 ---
 
-### Phase 4 — App Route Document Titles
+### Phase 4 — App Route Document Titles ✅
 
 Add `document.title` via `useEffect` to every `/app/*` route, following the pattern
 established in the SEO roadmap for public pages.
@@ -209,9 +209,9 @@ established in the SEO roadmap for public pages.
 All should restore the default title on unmount.
 
 #### Verification — Phase 4
-- [ ] `bun run typecheck && bun run lint` passes
-- [ ] Navigate to each route and confirm tab title updates
-- [ ] Navigate back to `/` and confirm title reverts
+- [x] `bun run typecheck && bun run lint` passes
+- [x] Navigate to each route and confirm tab title updates
+- [x] Navigate back to `/` and confirm title reverts
 
 ---
 
