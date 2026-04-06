@@ -12,7 +12,6 @@ import {
   DashboardIcon,
   TrackerIcon,
   ProgramsIcon,
-  AnalyticsIcon,
 } from '@/components/layout/sidebar-icons';
 
 interface QuickCardProps {
@@ -168,12 +167,6 @@ export function HomePage(): React.ReactNode {
               description="KPIs, volumen, frecuencia y recomendaciones de carga."
               Icon={DashboardIcon}
             />
-            <QuickCard
-              to="/app/analytics"
-              title="Analíticas"
-              description="Evolución del 1RM, tendencias y pronósticos por ejercicio."
-              Icon={AnalyticsIcon}
-            />
           </div>
         </section>
 
@@ -197,11 +190,6 @@ export function HomePage(): React.ReactNode {
               to="/app/programs"
               title="Programas"
               description="Catálogo de programas por nivel. Crea y personaliza tus propios programas."
-            />
-            <SectionCard
-              to="/app/analytics"
-              title="Analíticas"
-              description="Gráficas de evolución del 1RM estimado y proyecciones de rendimiento."
             />
           </div>
         </section>

@@ -4,7 +4,6 @@
 # Ports:
 #   API       → http://localhost:3002
 #   Web       → http://localhost:8080
-#   Analytics → http://localhost:8001
 #   Postgres  → localhost:5432
 #   Redis     → localhost:6379
 
@@ -77,28 +76,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
-    networks:
-      - dev
-
-  analytics:
-    build:
-      context: apps/analytics
-      dockerfile: Dockerfile
-    container_name: gravity-dev-analytics
-    restart: unless-stopped
-    ports:
-      - '8001:8000'
-    environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/gzclp
-    depends_on:
-      postgres:
-        condition: service_healthy
-    healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8000/health']
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
     networks:
       - dev
 

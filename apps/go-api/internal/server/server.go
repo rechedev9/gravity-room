@@ -195,9 +195,6 @@ func New(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, redisClient *
 	// Stats handler.
 	stats := &handler.StatsHandler{Redis: redisClient}
 
-	// Insights handler.
-	insights := &handler.InsightsHandler{Pool: pool}
-
 	// API routes — /api prefix.
 	r.Route("/api", func(api chi.Router) {
 		// Auth routes — no global auth middleware.
@@ -251,9 +248,6 @@ func New(cfg *config.Config, log *slog.Logger, pool *pgxpool.Pool, redisClient *
 
 		// Stats.
 		api.Get("/stats/online", stats.HandleOnline)
-
-		// Insights — require auth.
-		api.With(mw.RequireAuth(cfg.JWTSecret)).Get("/insights", insights.HandleList)
 	})
 
 	// Not-found handler — serves SPA when dist exists, otherwise JSON 404.

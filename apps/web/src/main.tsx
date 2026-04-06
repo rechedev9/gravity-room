@@ -51,9 +51,6 @@ const TrackerPage = lazyWithRetry(() =>
 const ProfilePage = lazyWithRetry(() =>
   import('@/features/profile/profile-page').then((m) => ({ default: m.ProfilePage }))
 );
-const AnalyticsPage = lazyWithRetry(() =>
-  import('@/features/analytics/analytics-page').then((m) => ({ default: m.AnalyticsPage }))
-);
 
 if (import.meta.env.VITE_PLAUSIBLE_DOMAIN) {
   const s = document.createElement('script');
@@ -125,14 +122,6 @@ const router = createBrowserRouter([
             element: (
               <Suspense fallback={<ProfileSkeleton />}>
                 <ProfilePage />
-              </Suspense>
-            ),
-          },
-          {
-            path: 'analytics',
-            element: (
-              <Suspense fallback={<ContentPageSkeleton />}>
-                <AnalyticsPage />
               </Suspense>
             ),
           },

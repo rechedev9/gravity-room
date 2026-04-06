@@ -1,7 +1,6 @@
 package model
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -42,20 +41,20 @@ type RefreshResponse struct {
 // ProgramInstanceResponse matches ProgramInstanceResponseSchema.
 // Fields with `any` use json.RawMessage or interface{} for JSONB passthrough.
 type ProgramInstanceResponse struct {
-	ID               string              `json:"id"`
-	ProgramID        string              `json:"programId"`
-	Name             string              `json:"name"`
-	Config           any                 `json:"config"`
-	Metadata         any                 `json:"metadata"`
-	Status           string              `json:"status"`
-	Results          map[string]any      `json:"results"`
-	UndoHistory      []map[string]any    `json:"undoHistory"`
-	ResultTimestamps map[string]string   `json:"resultTimestamps"`
-	CompletedDates   map[string]string   `json:"completedDates"`
-	DefinitionID     *string             `json:"definitionId"`
-	CustomDefinition any                 `json:"customDefinition"`
-	CreatedAt        string              `json:"createdAt"`
-	UpdatedAt        string              `json:"updatedAt"`
+	ID               string            `json:"id"`
+	ProgramID        string            `json:"programId"`
+	Name             string            `json:"name"`
+	Config           any               `json:"config"`
+	Metadata         any               `json:"metadata"`
+	Status           string            `json:"status"`
+	Results          map[string]any    `json:"results"`
+	UndoHistory      []map[string]any  `json:"undoHistory"`
+	ResultTimestamps map[string]string `json:"resultTimestamps"`
+	CompletedDates   map[string]string `json:"completedDates"`
+	DefinitionID     *string           `json:"definitionId"`
+	CustomDefinition any               `json:"customDefinition"`
+	CreatedAt        string            `json:"createdAt"`
+	UpdatedAt        string            `json:"updatedAt"`
 }
 
 // ProgramInstanceListItem matches ProgramInstanceListItemSchema.
@@ -108,18 +107,18 @@ type CatalogEntry struct {
 // ExerciseEntry matches ExerciseEntrySchema.
 // Nullable fields use *string/*bool so they serialize as null, not omitted.
 type ExerciseEntry struct {
-	ID               string    `json:"id"`
-	Name             string    `json:"name"`
-	MuscleGroupID    string    `json:"muscleGroupId"`
-	Equipment        *string   `json:"equipment"`
-	IsCompound       bool      `json:"isCompound"`
-	IsPreset         bool      `json:"isPreset"`
-	CreatedBy        *string   `json:"createdBy"`
-	Force            *string   `json:"force"`
-	Level            *string   `json:"level"`
-	Mechanic         *string   `json:"mechanic"`
-	Category         *string   `json:"category"`
-	SecondaryMuscles []string  `json:"secondaryMuscles"`
+	ID               string   `json:"id"`
+	Name             string   `json:"name"`
+	MuscleGroupID    string   `json:"muscleGroupId"`
+	Equipment        *string  `json:"equipment"`
+	IsCompound       bool     `json:"isCompound"`
+	IsPreset         bool     `json:"isPreset"`
+	CreatedBy        *string  `json:"createdBy"`
+	Force            *string  `json:"force"`
+	Level            *string  `json:"level"`
+	Mechanic         *string  `json:"mechanic"`
+	Category         *string  `json:"category"`
+	SecondaryMuscles []string `json:"secondaryMuscles"`
 }
 
 // ExerciseListResponse matches ExerciseListResponseSchema.
@@ -164,24 +163,6 @@ type ProgramDefinitionListResponse struct {
 // StatsOnlineResponse matches StatsOnlineResponseSchema.
 type StatsOnlineResponse struct {
 	Count *int `json:"count"`
-}
-
-// --------------------------------------------------------------------------
-// Insights responses
-// --------------------------------------------------------------------------
-
-// InsightResponse is one pre-computed analytics insight row.
-type InsightResponse struct {
-	InsightType string          `json:"insightType"`
-	ExerciseID  *string         `json:"exerciseId"`
-	Payload     json.RawMessage `json:"payload"`
-	ComputedAt  string          `json:"computedAt"`
-	ValidUntil  *string         `json:"validUntil"`
-}
-
-// InsightsListResponse wraps the insights array.
-type InsightsListResponse struct {
-	Data []InsightResponse `json:"data"`
 }
 
 // --------------------------------------------------------------------------

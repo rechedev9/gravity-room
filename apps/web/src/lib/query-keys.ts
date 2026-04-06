@@ -11,11 +11,6 @@ export const queryKeys = {
     list: (): readonly ['definitions', 'list'] => ['definitions', 'list'] as const,
     detail: (id: string): readonly ['definitions', string] => ['definitions', id] as const,
   },
-  insights: {
-    all: ['insights'] as const,
-    list: (types?: readonly string[]): readonly unknown[] =>
-      types?.length ? (['insights', ...types] as const) : (['insights'] as const),
-  },
   catalog: {
     list: (): readonly ['catalog', 'list'] => ['catalog', 'list'] as const,
     detail: (programId: string): readonly ['catalog', 'detail', string] =>
