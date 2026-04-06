@@ -104,23 +104,6 @@ export function ProfileIcon({ className }: IconProps): React.ReactNode {
   );
 }
 
-export function AnalyticsIcon({ className }: IconProps): React.ReactNode {
-  return (
-    <SidebarSvg className={className}>
-      <polyline
-        points="2.5,15 7,9.5 11,12.5 17.5,5"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="7" cy="9.5" r="1.5" fill="currentColor" />
-      <circle cx="11" cy="12.5" r="1.5" fill="currentColor" />
-      <circle cx="17.5" cy="5" r="1.5" fill="currentColor" />
-    </SidebarSvg>
-  );
-}
-
 export function LoginIcon({ className }: IconProps): React.ReactNode {
   return (
     <SidebarSvg className={className}>
