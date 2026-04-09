@@ -21,6 +21,7 @@
     "ci": "bun run typecheck && bun run lint && bun run format:check && bun run test && bun run build"
   },
   "devDependencies": {
+    "@tanstack/router-devtools": "^1.166.11",
     "@types/bun": "^1.3.9",
     "eslint": "^9.39.3",
     "lefthook": "^2.1.1",
@@ -36,5 +37,10 @@
     "lefthook",
     "sharp",
     "unrs-resolver"
-  ]
+  ],
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "@tanstack/react-router": "^1.168.10",
+    "react-hook-form": "^7.72.1"
+  }
 }
