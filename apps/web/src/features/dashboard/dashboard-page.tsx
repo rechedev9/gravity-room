@@ -1,6 +1,5 @@
-import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms, fetchInsights } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
@@ -25,12 +24,7 @@ export function DashboardPage(): React.ReactNode {
   const { user } = useAuth();
   const { isGuest } = useGuest();
 
-  useEffect(() => {
-    document.title = 'Dashboard — Gravity Room';
-    return () => {
-      document.title = DEFAULT_PAGE_TITLE;
-    };
-  }, []);
+  useDocumentTitle('Dashboard — Gravity Room');
 
   const programsQuery = useQuery({
     queryKey: queryKeys.programs.all,

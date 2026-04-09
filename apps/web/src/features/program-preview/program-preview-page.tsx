@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useParams, Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useProgramPreview } from '@/hooks/use-program-preview';
@@ -178,16 +179,9 @@ export function ProgramPreviewPage(): ReactNode {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getViewPreference());
 
-  useEffect(() => {
-    if (definition !== undefined) {
-      document.title = `${definition.name} — Gravity Room`;
-    }
-    return () => {
-      if (definition !== undefined) {
-        document.title = DEFAULT_PAGE_TITLE;
-      }
-    };
-  }, [definition]);
+  useDocumentTitle(
+    definition !== undefined ? `${definition.name} — Gravity Room` : DEFAULT_PAGE_TITLE
+  );
 
   // Build program summary when definition is available
   const summary = definition !== undefined ? buildProgramSummary(definition) : null;

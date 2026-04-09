@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useParams, useNavigate, redirect } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
@@ -6,7 +5,7 @@ import { fetchPrograms } from '@/lib/api-functions';
 import { useTracker } from '@/contexts/tracker-context';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
-import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { ProgramApp } from '@/features/tracker/program-app';
 
 export function TrackerPage(): React.ReactNode {
@@ -33,14 +32,9 @@ export function TrackerPage(): React.ReactNode {
     programsQuery.data?.find((p) => p.status === 'active')?.name ??
     null;
 
-  useEffect(() => {
-    document.title = programName
-      ? `${programName} — Tracker — Gravity Room`
-      : 'Tracker — Gravity Room';
-    return () => {
-      document.title = DEFAULT_PAGE_TITLE;
-    };
-  }, [programName]);
+  useDocumentTitle(
+    programName ? `${programName} — Tracker — Gravity Room` : 'Tracker — Gravity Room'
+  );
 
   if (!effectiveProgramId) {
     throw redirect({ to: '/app', replace: true });

@@ -1,5 +1,5 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
-import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
+import { useState, useRef, useMemo } from 'react';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { useUnitPreference } from '@/hooks/use-unit-preference';
@@ -50,12 +50,7 @@ function computeInitials(user: UserInfo): string {
 export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps): React.ReactNode {
   const { user, updateUser, deleteAccount } = useAuth();
 
-  useEffect(() => {
-    document.title = 'Perfil — Gravity Room';
-    return () => {
-      document.title = DEFAULT_PAGE_TITLE;
-    };
-  }, []);
+  useDocumentTitle('Perfil — Gravity Room');
   const { toast } = useToast();
   const { unit, toggleUnit, toDisplay } = useUnitPreference();
 

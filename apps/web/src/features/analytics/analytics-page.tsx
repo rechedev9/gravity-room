@@ -1,6 +1,5 @@
-import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchInsights } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
@@ -28,12 +27,7 @@ export function AnalyticsPage(): React.ReactNode {
   const { user } = useAuth();
   const { isGuest } = useGuest();
 
-  useEffect(() => {
-    document.title = 'Analíticas — Gravity Room';
-    return () => {
-      document.title = DEFAULT_PAGE_TITLE;
-    };
-  }, []);
+  useDocumentTitle('Analíticas — Gravity Room');
 
   const insightsQuery = useQuery({
     queryKey: queryKeys.insights.list([...INSIGHT_TYPES]),

@@ -1,7 +1,6 @@
-import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
 import { Link } from '@tanstack/react-router';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
@@ -77,12 +76,7 @@ export function HomePage(): React.ReactNode {
   const { user } = useAuth();
   const { isGuest } = useGuest();
 
-  useEffect(() => {
-    document.title = 'Inicio — Gravity Room';
-    return () => {
-      document.title = DEFAULT_PAGE_TITLE;
-    };
-  }, []);
+  useDocumentTitle('Inicio — Gravity Room');
 
   const programsQuery = useQuery({
     queryKey: queryKeys.programs.all,

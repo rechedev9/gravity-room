@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
@@ -13,12 +13,7 @@ export function LoginPage(): React.ReactNode {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    document.title = 'Iniciar Sesión — Gravity Room';
-    return () => {
-      document.title = DEFAULT_PAGE_TITLE;
-    };
-  }, []);
+  useDocumentTitle('Iniciar Sesión — Gravity Room');
 
   const handleGoogleSuccess = async (credential: string): Promise<void> => {
     setError(null);

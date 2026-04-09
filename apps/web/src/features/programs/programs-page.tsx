@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
+import { useState, useMemo } from 'react';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms, fetchCatalogList } from '@/lib/api-functions';
@@ -25,12 +25,7 @@ const LEVEL_LABELS: Readonly<Record<ProgramLevel, string>> = {
 export function ProgramsPage(): React.ReactNode {
   const { user } = useAuth();
 
-  useEffect(() => {
-    document.title = 'Programas — Gravity Room';
-    return () => {
-      document.title = DEFAULT_PAGE_TITLE;
-    };
-  }, []);
+  useDocumentTitle('Programas — Gravity Room');
   const { isGuest } = useGuest();
   const navigate = useNavigate();
   const { setTracker } = useTracker();

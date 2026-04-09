@@ -1,10 +1,8 @@
-import { useEffect } from 'react';
 import { Link } from '@tanstack/react-router';
+import { useDocumentTitle } from '@/hooks/use-document-title';
 
 export function PrivacyPage(): React.ReactNode {
-  useEffect(() => {
-    document.title = 'Política de Privacidad — Gravity Room';
-  }, []);
+  useDocumentTitle('Política de Privacidad — Gravity Room');
 
   return (
     <div className="min-h-dvh bg-body">
