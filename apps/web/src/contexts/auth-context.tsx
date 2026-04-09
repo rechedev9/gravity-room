@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { setAccessToken, refreshAccessToken } from '@/lib/api';
 import { apiFetch, fetchMe, parseUserSafe } from '@/lib/api-functions';
@@ -6,6 +6,7 @@ import type { UserInfo } from '@/lib/api-functions';
 import { isRecord } from '@gzclp/shared/type-guards';
 import { setUser as sentrySetUser } from '@/lib/sentry';
 import { trackEvent } from '@/lib/analytics';
+import { queryKeys } from '@/lib/query-keys';
 
 // ---------------------------------------------------------------------------
 // Re-export UserInfo so existing consumers don't need to update their imports
@@ -37,10 +38,14 @@ interface AuthActions {
 type AuthContextValue = AuthState & AuthActions;
 
 // ---------------------------------------------------------------------------
-// Session query
+// Session query key — exported so external callers can interact with the cache
 // ---------------------------------------------------------------------------
 
-const SESSION_QUERY_KEY = ['auth', 'session'] as const;
+export const SESSION_QUERY_KEY = queryKeys.auth.session;
+
+// ---------------------------------------------------------------------------
+// Session restore
+// ---------------------------------------------------------------------------
 
 async function restoreSession(): Promise<UserInfo | null> {
   const token = await refreshAccessToken();
@@ -57,6 +62,28 @@ async function restoreSession(): Promise<UserInfo | null> {
     );
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Shared sign-in response handler (used by both Google and dev sign-in paths)
+// ---------------------------------------------------------------------------
+
+function applySignInResponse(
+  data: unknown,
+  setQueryData: (userInfo: UserInfo) => void,
+  options: { readonly trackSignup: boolean }
+): AuthResult | null {
+  if (isRecord(data) && typeof data.accessToken === 'string') {
+    setAccessToken(data.accessToken);
+    const userInfo = parseUserSafe(data.user);
+    if (userInfo) {
+      setQueryData(userInfo);
+      sentrySetUser({ id: userInfo.id, email: userInfo.email });
+      if (options.trackSignup) trackEvent('signup');
+    }
+    return null;
+  }
+  return { message: 'Unexpected response from server' };
 }
 
 // ---------------------------------------------------------------------------
@@ -82,63 +109,57 @@ export function AuthProvider({
   const user = session.data ?? null;
   const loading = session.isPending;
 
-  const signInWithGoogle = async (credential: string): Promise<AuthResult | null> => {
-    try {
-      const data = await apiFetch('/auth/google', {
-        method: 'POST',
-        body: JSON.stringify({ credential }),
-      });
-      if (isRecord(data) && typeof data.accessToken === 'string') {
-        setAccessToken(data.accessToken);
-        const userInfo = parseUserSafe(data.user);
-        if (userInfo) {
-          queryClient.setQueryData(SESSION_QUERY_KEY, userInfo);
-          sentrySetUser({ id: userInfo.id, email: userInfo.email });
-          trackEvent('signup');
-        }
-        return null;
-      }
-      return { message: 'Unexpected response from server' };
-    } catch (err: unknown) {
-      return { message: err instanceof Error ? err.message : 'Something went wrong' };
-    }
-  };
+  const setSessionData = useCallback(
+    (userInfo: UserInfo): void => {
+      queryClient.setQueryData(SESSION_QUERY_KEY, userInfo);
+    },
+    [queryClient]
+  );
 
-  const signInWithDev = async (): Promise<AuthResult | null> => {
+  const signInWithGoogle = useCallback(
+    async (credential: string): Promise<AuthResult | null> => {
+      try {
+        const data = await apiFetch('/auth/google', {
+          method: 'POST',
+          body: JSON.stringify({ credential }),
+        });
+        return applySignInResponse(data, setSessionData, { trackSignup: true });
+      } catch (err: unknown) {
+        return { message: err instanceof Error ? err.message : 'Something went wrong' };
+      }
+    },
+    [setSessionData]
+  );
+
+  const signInWithDev = useCallback(async (): Promise<AuthResult | null> => {
     try {
       const data = await apiFetch('/auth/dev', {
         method: 'POST',
         body: JSON.stringify({ email: 'dev@localhost.dev' }),
       });
-      if (isRecord(data) && typeof data.accessToken === 'string') {
-        setAccessToken(data.accessToken);
-        const userInfo = parseUserSafe(data.user);
-        if (userInfo) {
-          queryClient.setQueryData(SESSION_QUERY_KEY, userInfo);
-          sentrySetUser({ id: userInfo.id, email: userInfo.email });
-        }
-        return null;
-      }
-      return { message: 'Unexpected response from server' };
+      return applySignInResponse(data, setSessionData, { trackSignup: false });
     } catch (err: unknown) {
       return { message: err instanceof Error ? err.message : 'Something went wrong' };
     }
-  };
+  }, [setSessionData]);
 
-  const updateUser = (info: Partial<Pick<UserInfo, 'name' | 'avatarUrl'>>): void => {
-    queryClient.setQueryData(SESSION_QUERY_KEY, (prev: UserInfo | null | undefined) =>
-      prev ? { ...prev, ...info } : prev
-    );
-  };
+  const updateUser = useCallback(
+    (info: Partial<Pick<UserInfo, 'name' | 'avatarUrl'>>): void => {
+      queryClient.setQueryData(SESSION_QUERY_KEY, (prev: UserInfo | null | undefined) =>
+        prev ? { ...prev, ...info } : prev
+      );
+    },
+    [queryClient]
+  );
 
-  const deleteAccount = async (): Promise<void> => {
+  const deleteAccount = useCallback(async (): Promise<void> => {
     await apiFetch('/auth/me', { method: 'DELETE' });
     setAccessToken(null);
     queryClient.setQueryData(SESSION_QUERY_KEY, null);
     sentrySetUser(null);
-  };
+  }, [queryClient]);
 
-  const signOut = async (): Promise<void> => {
+  const signOut = useCallback(async (): Promise<void> => {
     try {
       await apiFetch('/auth/signout', { method: 'POST' });
     } catch (err: unknown) {
@@ -151,17 +172,20 @@ export function AuthProvider({
     setAccessToken(null);
     queryClient.setQueryData(SESSION_QUERY_KEY, null);
     sentrySetUser(null);
-  };
+  }, [queryClient]);
 
-  const value: AuthContextValue = {
-    user,
-    loading,
-    signInWithGoogle,
-    signInWithDev,
-    signOut,
-    updateUser,
-    deleteAccount,
-  };
+  const value = useMemo(
+    (): AuthContextValue => ({
+      user,
+      loading,
+      signInWithGoogle,
+      signInWithDev,
+      signOut,
+      updateUser,
+      deleteAccount,
+    }),
+    [user, loading, signInWithGoogle, signInWithDev, signOut, updateUser, deleteAccount]
+  );
 
   return <AuthContext value={value}>{children}</AuthContext>;
 }
