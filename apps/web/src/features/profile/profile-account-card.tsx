@@ -1,7 +1,16 @@
 import { useState, useRef } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod/v4';
 import type { UserInfo } from '@/contexts/auth-context';
 import type { WeightUnit } from '@/hooks/use-unit-preference';
 import { DashboardCard } from '@/components/dashboard-card';
+
+const NameSchema = z.object({
+  name: z.string().trim().min(1, 'Nombre requerido').max(64),
+});
+
+type NameFormValues = z.infer<typeof NameSchema>;
 
 interface ProfileAccountCardProps {
   readonly user: UserInfo;
@@ -34,32 +43,39 @@ export function ProfileAccountCard({
 }: ProfileAccountCardProps): React.ReactNode {
   const [showDangerZone, setShowDangerZone] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [nameValue, setNameValue] = useState('');
   // React fires onBlur when the input unmounts (after setEditing(false)), so without
   // this guard a cancelled edit would still call onUpdateName via the blur handler.
   const cancelRef = useRef(false);
 
+  const { register, handleSubmit, reset } = useForm<NameFormValues>({
+    resolver: zodResolver(NameSchema),
+    defaultValues: { name: displayName },
+  });
+
   const handleEditStart = (): void => {
     cancelRef.current = false;
-    setNameValue(displayName);
+    reset({ name: displayName });
     setEditing(true);
   };
 
-  const handleSave = async (): Promise<void> => {
+  const doSave = async ({ name }: NameFormValues): Promise<void> => {
     if (cancelRef.current) {
       cancelRef.current = false;
       return;
     }
-    const trimmed = nameValue.trim();
     setEditing(false);
-    if (trimmed && trimmed !== displayName) {
-      await onUpdateName(trimmed);
+    if (name.trim() && name.trim() !== displayName) {
+      await onUpdateName(name.trim());
     }
+  };
+
+  const handleBlur = (): void => {
+    void handleSubmit(doSave)();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Enter') {
-      e.currentTarget.blur(); // onBlur handles the save; explicit blur prevents double-fire
+      e.currentTarget.blur(); // onBlur handles the save
     }
     if (e.key === 'Escape') {
       cancelRef.current = true;
@@ -101,9 +117,8 @@ export function ProfileAccountCard({
           {editing ? (
             <input
               type="text"
-              value={nameValue}
-              onChange={(e) => setNameValue(e.target.value)}
-              onBlur={() => void handleSave()}
+              {...register('name')}
+              onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               className="text-sm font-bold text-title bg-transparent border-b border-accent focus:outline-none w-full"
               autoFocus
