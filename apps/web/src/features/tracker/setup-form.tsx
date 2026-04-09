@@ -22,6 +22,8 @@ interface SetupFormProps {
 
 type ConfigField = ProgramDefinition['configFields'][number];
 
+type FormValues = Record<string, string>;
+
 function isWeightField(field: ConfigField): field is ConfigField & { type: 'weight' } {
   return field.type === 'weight';
 }
@@ -76,11 +78,8 @@ export function SetupForm({
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingConfig, setPendingConfig] = useState<Record<string, number | string> | null>(null);
 
-  type FormValues = Record<string, string>;
-
   // Build dynamic Zod schema from configFields. Recomputed only when fields change.
-  // Using z.record(string, string) + superRefine gives Record<string,string> as
-  // both input and output, satisfying the RHF FieldValues constraint.
+  // Using z.record(string, string) + superRefine satisfies the RHF FieldValues constraint.
   const schema = useMemo((): z.ZodType<FormValues, FormValues> => {
     return z.record(z.string(), z.string()).superRefine((values, ctx) => {
       for (const f of fields) {
@@ -116,6 +115,7 @@ export function SetupForm({
     handleSubmit: rhfHandleSubmit,
     setValue,
     getValues,
+    watch,
     trigger,
     formState: { errors, touchedFields, isSubmitting },
   } = useForm<FormValues>({
@@ -124,6 +124,10 @@ export function SetupForm({
     // In edit mode mark all fields touched so errors show immediately
     mode: isEditMode ? 'onChange' : 'onTouched',
   });
+
+  // Subscribe to all field values so displayed weights are reactive to setValue calls.
+  // Without this, getValues() in render returns a stale snapshot that doesn't update.
+  const watchedValues = watch();
 
   // Sync isExpanded with native dialog open/close
   useEffect(() => {
@@ -213,7 +217,7 @@ export function SetupForm({
     setShowConfirm(false);
   };
 
-  const groupedFields: readonly FieldGroup[] = (() => {
+  const groupedFields = useMemo((): readonly FieldGroup[] => {
     const groups: FieldGroup[] = [];
     let pending: { label: string | null; items: ConfigField[] } | null = null;
     for (const f of fields) {
@@ -227,7 +231,7 @@ export function SetupForm({
     }
     if (pending) groups.push({ label: pending.label, fields: pending.items });
     return groups;
-  })();
+  }, [fields]);
 
   const fieldErrorsForDisplay: Record<string, string | null> = {};
   for (const f of fields) {
@@ -287,7 +291,7 @@ export function SetupForm({
                       key={f.key}
                       fieldKey={f.key}
                       label={f.label}
-                      value={getValues(f.key) ?? getFieldDefault(f, initialConfig)}
+                      value={watchedValues[f.key] ?? getFieldDefault(f, initialConfig)}
                       touched={touched}
                       fieldError={fieldErr}
                       step={f.step}
@@ -308,7 +312,7 @@ export function SetupForm({
                       key={f.key}
                       fieldKey={f.key}
                       label={f.label}
-                      value={getValues(f.key) ?? getFieldDefault(f, initialConfig)}
+                      value={watchedValues[f.key] ?? getFieldDefault(f, initialConfig)}
                       options={f.options}
                       touched={touched}
                       fieldError={fieldErr}
@@ -369,7 +373,7 @@ export function SetupForm({
         )}
         <button
           onClick={handleSubmit}
-          disabled={isGenerating ?? isSubmitting}
+          disabled={(isGenerating ?? false) || isSubmitting}
           className="flex-1 py-3.5 border-none bg-header text-title text-base font-bold cursor-pointer hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isGenerating
@@ -403,7 +407,7 @@ export function SetupForm({
                 <p className="text-xs text-muted flex flex-wrap gap-x-3 gap-y-0.5 leading-relaxed">
                   {fields.slice(0, 4).map((f) => (
                     <span key={f.key}>
-                      {f.label}: {initialConfig[f.key]}kg
+                      {f.label}: {initialConfig?.[f.key]}kg
                     </span>
                   ))}
                   {fields.length > 4 && <span>+{fields.length - 4} más</span>}
