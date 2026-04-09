@@ -16,6 +16,7 @@ import { RootLayout } from '@/components/root-layout';
 import { RouteErrorFallback } from '@/components/route-error-fallback';
 import { AppLayout } from '@/components/layout/app-layout';
 import { TrackerProvider } from '@/contexts/tracker-context';
+import { useAuth } from '@/contexts/auth-context';
 import type { UserInfo } from '@/contexts/auth-context';
 
 // ---------------------------------------------------------------------------
@@ -78,6 +79,10 @@ const AnalyticsPage = lazyWithRetry(() =>
 // ---------------------------------------------------------------------------
 
 function AppLayoutWithTracker(): React.ReactNode {
+  const { loading } = useAuth();
+  // Show skeleton while session restore is in progress so the app chrome
+  // (sidebar, header) doesn't flash before authentication is confirmed.
+  if (loading) return <AppSkeleton />;
   return (
     <TrackerProvider>
       <AppLayout />
