@@ -1,9 +1,14 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef } from 'react';
+import { useForm } from 'react-hook-form';
 import { Button } from '@/components/button';
 
 const MIN_WEIGHT = 20;
 const MAX_WEIGHT = 500;
 const WEIGHT_STEP = 2.5;
+
+interface TestWeightFormValues {
+  weight: string;
+}
 
 interface TestWeightModalProps {
   /** Controls modal visibility. */
@@ -22,12 +27,6 @@ interface TestWeightModalProps {
   readonly onCancel: () => void;
 }
 
-function isValidWeight(value: string): boolean {
-  if (value.trim() === '') return false;
-  const num = Number(value);
-  return Number.isFinite(num) && num >= MIN_WEIGHT && num <= MAX_WEIGHT;
-}
-
 export function TestWeightModal({
   isOpen,
   liftName,
@@ -39,32 +38,36 @@ export function TestWeightModal({
 }: TestWeightModalProps): React.ReactNode {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
-  const [weight, setWeight] = useState(String(defaultWeight));
 
-  // Reset weight to defaultWeight when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setWeight(String(defaultWeight));
-    }
-  }, [isOpen, defaultWeight]);
+  const { register, watch, reset } = useForm<TestWeightFormValues>({
+    defaultValues: { weight: String(defaultWeight) },
+  });
 
-  // Sync open prop with native dialog open/close
+  // Watch the current weight value to derive validity synchronously.
+  // formState.isValid lags React re-renders and can't be relied on in tests
+  // that call fireEvent.change + fireEvent.click without awaiting.
+  const watchedWeight = watch('weight', String(defaultWeight));
+  const parsedWeight = parseFloat(watchedWeight);
+  const isWeightValid =
+    Number.isFinite(parsedWeight) && parsedWeight >= MIN_WEIGHT && parsedWeight <= MAX_WEIGHT;
+
+  // Sync dialog open/close with native dialog API and reset form when opening.
+  // These are legitimate DOM imperative calls, not state synchronization.
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-
     if (isOpen && !dialog.open) {
       dialog.showModal();
+      reset({ weight: String(defaultWeight) });
     } else if (!isOpen && dialog.open) {
       dialog.close();
     }
-  }, [isOpen]);
+  }, [isOpen, defaultWeight, reset]);
 
-  // Block Escape key — prevent native cancel event
+  // Block Escape key — prevent native cancel event from closing without our handler
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-
     const handleCancel = (e: Event): void => {
       e.preventDefault();
     };
@@ -74,16 +77,12 @@ export function TestWeightModal({
     };
   }, []);
 
-  const canConfirm = isValidWeight(weight) && !loading;
-
-  const handleConfirm = (): void => {
-    if (!canConfirm) return;
-    onConfirm(Number(weight));
-  };
-
-  const handleSubmit = (e: React.FormEvent): void => {
+  // Synchronous submit: RHF's async handleSubmit would not be awaited by tests
+  // that call fireEvent.click without a waitFor wrapper.
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
-    handleConfirm();
+    if (!isWeightValid) return;
+    onConfirm(parsedWeight);
   };
 
   return (
@@ -92,7 +91,7 @@ export function TestWeightModal({
       aria-labelledby={titleId}
       className="modal-box fixed inset-0 m-auto h-fit bg-card border border-rule p-6 max-w-sm w-[calc(100%-2rem)] shadow-dialog backdrop:bg-black/60 backdrop:backdrop-blur-sm"
     >
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleFormSubmit}>
         <h3 id={titleId} className="text-sm font-bold text-title mb-2">
           Test Maximo — {liftName}
         </h3>
@@ -108,8 +107,7 @@ export function TestWeightModal({
         </label>
         <input
           type="number"
-          value={weight}
-          onChange={(e): void => setWeight(e.target.value)}
+          {...register('weight')}
           min={MIN_WEIGHT}
           max={MAX_WEIGHT}
           step={WEIGHT_STEP}
@@ -121,7 +119,7 @@ export function TestWeightModal({
           <Button type="button" variant="ghost" onClick={onCancel} disabled={loading}>
             Cancelar
           </Button>
-          <Button type="submit" variant="primary" disabled={!canConfirm}>
+          <Button type="submit" variant="primary" disabled={!isWeightValid || loading}>
             {loading ? 'Guardando...' : 'Confirmar'}
           </Button>
         </div>
