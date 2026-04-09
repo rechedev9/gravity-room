@@ -5,7 +5,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms, fetchInsights } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
-import { Link } from 'react-router-dom';
+import { Link } from '@tanstack/react-router';
 import { KpiSummary } from './kpi-summary';
 import { ActiveProgramCard } from './active-program-card';
 import { VolumeTrendCard } from '@/features/insights/volume-trend-card';

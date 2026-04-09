@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@tanstack/react-router';
 
 const COOKIE_BANNER_KEY = 'cookie-banner-dismissed';
 

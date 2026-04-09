@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from '@tanstack/react-router';
 import { motion, useReducedMotion } from 'motion/react';
 import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
 

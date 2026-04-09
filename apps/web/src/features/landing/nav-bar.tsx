@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@tanstack/react-router';
 import { useScroll, useMotionValueEvent } from 'motion/react';
 import { DISCORD_URL, NAV_LINKS, DiscordIcon } from './shared';
 

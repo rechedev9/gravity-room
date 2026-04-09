@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
 import type { ReactNode } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useProgramPreview } from '@/hooks/use-program-preview';
 import { useAuth } from '@/contexts/auth-context';
@@ -90,7 +90,8 @@ function PreviewCtaStartProgram({ programId }: { readonly programId: string }): 
   return (
     <div className="bg-card border border-rule p-5 sm:p-6 mt-6 text-center">
       <Link
-        to={`/app?view=tracker&program=${programId}`}
+        to="/app/tracker/$programId"
+        params={{ programId }}
         className="inline-block px-6 py-2.5 text-xs font-bold border-2 border-btn-ring bg-btn-active text-btn-active-text hover:opacity-90 transition-all"
       >
         Iniciar Programa
@@ -146,7 +147,7 @@ function HeaderCta({
   }
 
   return (
-    <Link to={`/app?view=tracker&program=${programId}`} className={linkClasses}>
+    <Link to="/app/tracker/$programId" params={{ programId }} className={linkClasses}>
       Iniciar Programa
     </Link>
   );
@@ -157,8 +158,8 @@ function HeaderCta({
 // ---------------------------------------------------------------------------
 
 export function ProgramPreviewPage(): ReactNode {
-  const { programId } = useParams<{ programId: string }>();
-  const resolvedProgramId = programId ?? '';
+  const { programId } = useParams({ from: '/programs/$programId' });
+  const resolvedProgramId = programId;
 
   const { definition, rows, isLoading, isError } = useProgramPreview(resolvedProgramId);
   const { user, loading: authLoading } = useAuth();

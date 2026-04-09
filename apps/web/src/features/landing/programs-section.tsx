@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from '@tanstack/react-router';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { CatalogEntry } from '@/lib/api-functions';
 import { FadeUp, StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
@@ -62,7 +62,8 @@ export function ProgramsSection({ catalogQuery }: ProgramsSectionProps): React.R
                 return (
                   <StaggerItem key={program.id}>
                     <Link
-                      to={`/programs/${program.id}`}
+                      to="/programs/$programId"
+                      params={{ programId: program.id }}
                       className="relative block bg-card p-8 landing-card-glow program-card-lift group cursor-pointer no-underline text-inherit h-full"
                     >
                       <div

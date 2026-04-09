@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from '@tanstack/react-router';
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
 import { EASE_OUT_EXPO, fadeUpVariants } from '@/lib/motion-primitives';
 

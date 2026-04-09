@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '@tanstack/react-router';
 import type { UserInfo } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import type { SyncStatus } from '@/types/sync-status';

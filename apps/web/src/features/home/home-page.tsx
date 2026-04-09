@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
-import { Link } from 'react-router-dom';
+import { Link } from '@tanstack/react-router';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
@@ -130,7 +130,8 @@ export function HomePage(): React.ReactNode {
               <p className="text-sm font-bold text-main truncate">{activeProgram.name}</p>
             </div>
             <Link
-              to={`/app/tracker/${activeProgram.programId}`}
+              to="/app/tracker/$programId"
+              params={{ programId: activeProgram.programId }}
               className="shrink-0 px-4 py-2 text-xs font-bold uppercase tracking-wide text-btn-active-text bg-btn-active border-2 border-btn-ring hover:opacity-90 transition-opacity whitespace-nowrap"
               aria-label={`Continuar ${activeProgram.name}`}
             >
@@ -146,13 +147,23 @@ export function HomePage(): React.ReactNode {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {activeProgram ? (
-              <QuickCard
-                to={`/app/tracker/${activeProgram.programId}`}
-                title="Continuar Entrenamiento"
-                description="Registra tu sesión de hoy y avanza en tu programa."
-                Icon={TrackerIcon}
-                accent
-              />
+              <Link
+                to="/app/tracker/$programId"
+                params={{ programId: activeProgram.programId }}
+                className="group bg-card border border-rule p-5 flex flex-col gap-3 hover:border-[var(--color-rule-light)] hover:shadow-[var(--shadow-card-hover)] transition-all cursor-pointer"
+              >
+                <div className="w-9 h-9 flex items-center justify-center border border-accent text-accent bg-[rgba(232,170,32,0.08)] transition-colors">
+                  <TrackerIcon />
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide mb-0.5 text-title">
+                    Continuar Entrenamiento
+                  </p>
+                  <p className="text-xs text-muted leading-relaxed">
+                    Registra tu sesión de hoy y avanza en tu programa.
+                  </p>
+                </div>
+              </Link>
             ) : (
               <QuickCard
                 to="/app/programs"

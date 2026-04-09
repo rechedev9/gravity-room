@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from '@tanstack/react-router';
 import { getCategoryColor, categoryLabel } from '@/lib/category-colors';
 
 /** Minimal program info needed by ProgramCard — compatible with both CatalogEntry and ProgramDefinition. */
