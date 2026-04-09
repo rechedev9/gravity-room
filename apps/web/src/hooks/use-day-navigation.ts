@@ -4,6 +4,12 @@ import { getViewPreference, saveViewPreference, type ViewMode } from '@/lib/view
 interface UseDayNavigationOptions {
   readonly totalWorkouts: number;
   readonly firstPendingIdx: number;
+  /**
+   * Program config object. Identity (reference equality) is used to detect
+   * config changes — passing a new inline object literal on every render
+   * will reset `selectedDayIndex` on every render. Pass a stable reference
+   * (e.g. from a TanStack Query result) to avoid this.
+   */
   readonly config: Record<string, number | string> | null;
 }
 
