@@ -53,3 +53,23 @@ export const ProgramInstanceMapSchema = z.strictObject({
   activeProgramId: z.string().nullable(),
   instances: z.record(z.string(), ProgramInstanceSchema),
 });
+
+// API response schema for fetchGenericProgramDetail / updateProgramMetadata
+export const GenericProgramDetailSchema = z.object({
+  id: z.string(),
+  programId: z.string(),
+  name: z.string(),
+  config: z.record(z.string(), z.union([z.number(), z.string()])).catch({}),
+  metadata: z.unknown(),
+  results: GenericResultsSchema.catch({}),
+  undoHistory: GenericUndoHistorySchema.catch([]),
+  resultTimestamps: z.record(z.string(), z.string()).catch({}),
+  completedDates: z.record(z.string(), z.string()).catch({}),
+  definitionId: z.string().nullable().catch(null),
+  customDefinition: z.unknown(),
+  status: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type GenericProgramDetail = z.infer<typeof GenericProgramDetailSchema>;
