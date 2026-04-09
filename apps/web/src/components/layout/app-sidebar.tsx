@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
-import { AvatarDropdown } from '@/features/legacy-shell/avatar-dropdown';
+import { AvatarDropdown } from '@/components/layout/avatar-dropdown';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
 import {

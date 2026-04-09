@@ -12,7 +12,7 @@ import { LandingSkeleton } from '@/components/landing-skeleton';
 import { LoginSkeleton } from '@/features/auth/login-skeleton';
 import { ContentPageSkeleton } from '@/components/content-page-skeleton';
 import { AppSkeleton } from '@/components/app-skeleton';
-import { DashboardSkeleton } from '@/features/legacy-shell/dashboard-skeleton';
+import { DashboardSkeleton } from '@/components/dashboard-skeleton';
 import { ProfileSkeleton } from '@/features/profile/profile-skeleton';
 import '@/styles/globals.css';
 
