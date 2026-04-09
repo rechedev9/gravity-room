@@ -1,4 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { previewDefinition } from '@/lib/api-functions';
@@ -99,7 +101,23 @@ export function ProgressionStep({
 }: ProgressionStepExtraProps): React.ReactNode {
   const [slots, setSlots] = useState(() => buildInitialSlots(definition));
   const [previewState, setPreviewState] = useState<PreviewState>({ status: 'idle' });
-  const [validationError, setValidationError] = useState<string | null>(null);
+
+  const buildCurrentDef = useCallback((): ProgramDefinition => {
+    const partial = applySlotsToDef(definition, slots);
+    return { ...definition, ...partial };
+  }, [definition, slots]);
+
+  const { handleSubmit } = useForm<ProgramDefinition>({
+    resolver: zodResolver(ProgramDefinitionSchema),
+    defaultValues: buildCurrentDef(),
+  });
+
+  // Derive validity directly from current state — same approach as the original
+  // useMemo, avoids relying on RHF's isValid which starts false before any interaction.
+  const isDefinitionValid = useMemo(
+    () => ProgramDefinitionSchema.safeParse(buildCurrentDef()).success,
+    [buildCurrentDef]
+  );
 
   const handleSlotChange = useCallback((updated: SlotEditorState): void => {
     setSlots((prev) =>
@@ -110,11 +128,6 @@ export function ProgressionStep({
     // Clear stale preview when slots change
     setPreviewState((prev) => (prev.status === 'loaded' ? { status: 'idle' } : prev));
   }, []);
-
-  const buildCurrentDef = useCallback((): ProgramDefinition => {
-    const partial = applySlotsToDef(definition, slots);
-    return { ...definition, ...partial };
-  }, [definition, slots]);
 
   const handlePreview = async (): Promise<void> => {
     setPreviewState({ status: 'loading' });
@@ -127,29 +140,16 @@ export function ProgressionStep({
     }
   };
 
-  const validateAndSave = (startAfter: boolean): void => {
-    const currentDef = buildCurrentDef();
-    const result = ProgramDefinitionSchema.safeParse(currentDef);
-    if (!result.success) {
-      setValidationError(result.error.message);
-      return;
-    }
-    setValidationError(null);
-
-    onUpdate(applySlotsToDef(definition, slots));
-
-    if (startAfter) {
-      onSaveAndStart();
-    } else {
-      onSaveDraft();
-    }
+  const onSave = (startAfter: boolean): void => {
+    void handleSubmit(() => {
+      onUpdate(applySlotsToDef(definition, slots));
+      if (startAfter) {
+        onSaveAndStart();
+      } else {
+        onSaveDraft();
+      }
+    })();
   };
-
-  // Memoised validation — avoids re-running applySlotsToDef + safeParse on every render
-  const isValid = useMemo(
-    () => ProgramDefinitionSchema.safeParse(buildCurrentDef()).success,
-    [buildCurrentDef]
-  );
 
   // Group slots by day
   const groupedByDay = new Map<number, SlotEditorState[]>();
@@ -200,13 +200,6 @@ export function ProgressionStep({
         )}
       </div>
 
-      {/* Validation error */}
-      {validationError && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3">
-          <p className="text-xs text-red-400">{validationError}</p>
-        </div>
-      )}
-
       {/* Footer */}
       <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4">
         <Button variant="ghost" onClick={onBack} disabled={isSaving}>
@@ -215,15 +208,15 @@ export function ProgressionStep({
         <div className="flex gap-3">
           <Button
             variant="ghost"
-            onClick={() => validateAndSave(false)}
-            disabled={isSaving || !isValid}
+            onClick={() => onSave(false)}
+            disabled={isSaving || !isDefinitionValid}
           >
             {isSaving ? 'Guardando...' : 'Guardar borrador'}
           </Button>
           <Button
             variant="primary"
-            onClick={() => validateAndSave(true)}
-            disabled={isSaving || !isValid}
+            onClick={() => onSave(true)}
+            disabled={isSaving || !isDefinitionValid}
           >
             {isSaving ? 'Guardando...' : 'Guardar y empezar'}
           </Button>
