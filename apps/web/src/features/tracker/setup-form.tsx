@@ -1,4 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod/v4';
 import { captureError } from '@/lib/sentry';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { ConfirmDialog } from '@/components/confirm-dialog';
@@ -23,23 +26,6 @@ function isWeightField(field: ConfigField): field is ConfigField & { type: 'weig
   return field.type === 'weight';
 }
 
-function validateField(value: string, min: number): string | null {
-  const num = parseFloat(value);
-  if (value.trim() === '' || isNaN(num)) return 'Requerido';
-  if (num < min) return `Mín ${min} kg`;
-  if (num > 500) return 'Máx 500 kg';
-  return null;
-}
-
-function validateConfigField(field: ConfigField, value: string): string | null {
-  if (isWeightField(field)) {
-    return validateField(value, field.min);
-  }
-  // Select fields: just check a value was selected
-  if (value.trim() === '') return 'Requerido';
-  return null;
-}
-
 /** Returns the default display value for a config field. */
 function getFieldDefault(
   field: ConfigField,
@@ -53,14 +39,19 @@ function getFieldDefault(
   return field.options[0]?.value ?? '';
 }
 
+/** Returns step value for a weight field, 1 for select fields. */
+function getFieldStep(field: ConfigField): number {
+  return isWeightField(field) ? field.step : 1;
+}
+
 /** Returns min value for a weight field, 0 for select fields. */
 function getFieldMin(field: ConfigField): number {
   return isWeightField(field) ? field.min : 0;
 }
 
-/** Returns step value for a weight field, 1 for select fields. */
-function getFieldStep(field: ConfigField): number {
-  return isWeightField(field) ? field.step : 1;
+interface FieldGroup {
+  readonly label: string | null;
+  readonly fields: readonly ConfigField[];
 }
 
 export function SetupForm({
@@ -81,6 +72,58 @@ export function SetupForm({
   // setIsExpanded(true) became a no-op and the dialog never opened.
   const [isExpanded, setIsExpanded] = useState(false);
   const editDialogRef = useRef<HTMLDialogElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingConfig, setPendingConfig] = useState<Record<string, number | string> | null>(null);
+
+  type FormValues = Record<string, string>;
+
+  // Build dynamic Zod schema from configFields. Recomputed only when fields change.
+  // Using z.record(string, string) + superRefine gives Record<string,string> as
+  // both input and output, satisfying the RHF FieldValues constraint.
+  const schema = useMemo((): z.ZodType<FormValues, FormValues> => {
+    return z.record(z.string(), z.string()).superRefine((values, ctx) => {
+      for (const f of fields) {
+        const v = values[f.key] ?? '';
+        if (isWeightField(f)) {
+          const min = f.min ?? 1;
+          const n = parseFloat(v);
+          if (v.trim() === '' || isNaN(n)) {
+            ctx.addIssue({ code: 'custom', path: [f.key], message: 'Valor inválido' });
+          } else if (n < min) {
+            ctx.addIssue({ code: 'custom', path: [f.key], message: `Mínimo ${min} kg` });
+          } else if (n > 500) {
+            ctx.addIssue({ code: 'custom', path: [f.key], message: 'Máximo 500 kg' });
+          }
+        } else {
+          if (v.trim() === '') {
+            ctx.addIssue({ code: 'custom', path: [f.key], message: 'Requerido' });
+          }
+        }
+      }
+    });
+  }, [fields]);
+
+  const defaultValues = useMemo((): FormValues => {
+    const init: FormValues = {};
+    for (const f of fields) {
+      init[f.key] = getFieldDefault(f, initialConfig);
+    }
+    return init;
+  }, [fields, initialConfig]);
+
+  const {
+    handleSubmit: rhfHandleSubmit,
+    setValue,
+    getValues,
+    trigger,
+    formState: { errors, touchedFields, isSubmitting },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues,
+    // In edit mode mark all fields touched so errors show immediately
+    mode: isEditMode ? 'onChange' : 'onTouched',
+  });
 
   // Sync isExpanded with native dialog open/close
   useEffect(() => {
@@ -115,70 +158,60 @@ export function SetupForm({
     }
   }, [isEditMode, firstFieldKey]);
 
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [pendingConfig, setPendingConfig] = useState<Record<string, number | string> | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    const init: Record<string, string> = {};
-    for (const f of fields) {
-      init[f.key] = getFieldDefault(f, initialConfig);
-    }
-    return init;
-  });
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>(() => {
-    if (!isEditMode) return {};
-    const init: Record<string, string | null> = {};
-    for (const f of fields) {
-      const val = getFieldDefault(f, initialConfig);
-      init[f.key] = validateConfigField(f, val);
-    }
-    return init;
-  });
-  const [touched, setTouched] = useState<Record<string, boolean>>(() => {
-    if (!isEditMode) return {};
-    const init: Record<string, boolean> = {};
-    for (const f of fields) {
-      init[f.key] = true;
-    }
-    return init;
-  });
-
-  const handleChange = (key: string, value: string): void => {
-    setValues((prev) => ({ ...prev, [key]: value }));
-    const field = fields.find((f) => f.key === key);
-    if (touched[key] && field) {
-      setFieldErrors((prev) => ({ ...prev, [key]: validateConfigField(field, value) }));
-    }
-  };
-
-  const handleBlur = (key: string, value: string): void => {
-    const field = fields.find((f) => f.key === key);
-    setTouched((prev) => ({ ...prev, [key]: true }));
-    if (field) {
-      setFieldErrors((prev) => ({ ...prev, [key]: validateConfigField(field, value) }));
-    }
-  };
-
   const adjustWeight = (key: string, delta: number): void => {
     const field = fields.find((f) => f.key === key);
     const step = field ? getFieldStep(field) : 0.5;
     const min = field ? getFieldMin(field) : step;
-    setValues((prev) => {
-      const current = parseFloat(prev[key]) || 0;
-      const next = Math.max(min, Math.round((current + delta) / step) * step);
-      const nextStr = String(next);
-      setTouched((t) => ({ ...t, [key]: true }));
-      if (field) {
-        setFieldErrors((fe) => ({ ...fe, [key]: validateConfigField(field, nextStr) }));
-      }
-      return { ...prev, [key]: nextStr };
-    });
+    const current = parseFloat(getValues(key)) || 0;
+    const next = Math.max(min, Math.round((current + delta) / step) * step);
+    setValue(key, String(next), { shouldValidate: true, shouldTouch: true });
   };
 
-  interface FieldGroup {
-    readonly label: string | null;
-    readonly fields: readonly ConfigField[];
-  }
+  // Convert validated string values to the typed config format
+  const parseConfig = (values: FormValues): Record<string, number | string> => {
+    const parsed: Record<string, number | string> = {};
+    for (const f of fields) {
+      if (isWeightField(f)) {
+        parsed[f.key] = parseFloat(values[f.key]);
+      } else {
+        parsed[f.key] = values[f.key];
+      }
+    }
+    return parsed;
+  };
+
+  const onValid = (values: FormValues): void => {
+    setError(null);
+    const config = parseConfig(values);
+
+    if (isEditMode && onUpdateConfig) {
+      setPendingConfig(config);
+      setShowConfirm(true);
+    } else {
+      onGenerate(config).catch((err: unknown) => {
+        captureError(err);
+        setError(err instanceof Error ? err.message : 'Error al generar el programa.');
+      });
+    }
+  };
+
+  const handleSubmit = (): void => {
+    void rhfHandleSubmit(onValid)();
+  };
+
+  const handleConfirmUpdate = (): void => {
+    if (pendingConfig && onUpdateConfig) {
+      onUpdateConfig(pendingConfig);
+      setPendingConfig(null);
+      setIsExpanded(false);
+    }
+    setShowConfirm(false);
+  };
+
+  const handleCancelUpdate = (): void => {
+    setPendingConfig(null);
+    setShowConfirm(false);
+  };
 
   const groupedFields: readonly FieldGroup[] = (() => {
     const groups: FieldGroup[] = [];
@@ -196,65 +229,15 @@ export function SetupForm({
     return groups;
   })();
 
-  const validateAndParse = (): Record<string, number | string> | null => {
-    setError(null);
+  const fieldErrorsForDisplay: Record<string, string | null> = {};
+  for (const f of fields) {
+    fieldErrorsForDisplay[f.key] = errors[f.key]?.message ?? null;
+  }
 
-    const errors: Record<string, string | null> = {};
-    let hasError = false;
-    for (const f of fields) {
-      const err = validateConfigField(f, values[f.key]);
-      errors[f.key] = err;
-      if (err) hasError = true;
-    }
-    setFieldErrors(errors);
-    setTouched(Object.fromEntries(fields.map((f) => [f.key, true])));
-
-    if (hasError) {
-      setError('Por favor corrige los campos resaltados.');
-      return null;
-    }
-
-    const parsed: Record<string, number | string> = {};
-    for (const f of fields) {
-      if (isWeightField(f)) {
-        parsed[f.key] = parseFloat(values[f.key]);
-      } else {
-        // Select fields: pass through as string
-        parsed[f.key] = values[f.key];
-      }
-    }
-
-    return parsed;
-  };
-
-  const handleSubmit = (): void => {
-    const config = validateAndParse();
-    if (!config) return;
-
-    if (isEditMode && onUpdateConfig) {
-      setPendingConfig(config);
-      setShowConfirm(true);
-    } else {
-      onGenerate(config).catch((err: unknown) => {
-        captureError(err);
-        setError(err instanceof Error ? err.message : 'Error al generar el programa.');
-      });
-    }
-  };
-
-  const handleConfirmUpdate = (): void => {
-    if (pendingConfig && onUpdateConfig) {
-      onUpdateConfig(pendingConfig);
-      setPendingConfig(null);
-      setIsExpanded(false);
-    }
-    setShowConfirm(false);
-  };
-
-  const handleCancelUpdate = (): void => {
-    setPendingConfig(null);
-    setShowConfirm(false);
-  };
+  const touchedForDisplay: Record<string, boolean> = {};
+  for (const f of fields) {
+    touchedForDisplay[f.key] = !!touchedFields[f.key];
+  }
 
   const formContent = (
     <>
@@ -296,20 +279,27 @@ export function SetupForm({
                 </div>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {group.fields.map((f) =>
-                  isWeightField(f) ? (
+                {group.fields.map((f) => {
+                  const touched = touchedForDisplay[f.key] ?? false;
+                  const fieldErr = touched ? (fieldErrorsForDisplay[f.key] ?? null) : null;
+                  return isWeightField(f) ? (
                     <WeightField
                       key={f.key}
                       fieldKey={f.key}
                       label={f.label}
-                      value={values[f.key]}
-                      touched={!!touched[f.key]}
-                      fieldError={touched[f.key] ? (fieldErrors[f.key] ?? null) : null}
+                      value={getValues(f.key) ?? getFieldDefault(f, initialConfig)}
+                      touched={touched}
+                      fieldError={fieldErr}
                       step={f.step}
                       min={f.min}
                       hint={f.hint}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
+                      onChange={(key, value) => {
+                        setValue(key, value, { shouldValidate: touched, shouldTouch: false });
+                      }}
+                      onBlur={(key, value) => {
+                        setValue(key, value, { shouldTouch: true });
+                        void trigger(key);
+                      }}
                       onAdjust={adjustWeight}
                       onSubmit={handleSubmit}
                     />
@@ -318,15 +308,20 @@ export function SetupForm({
                       key={f.key}
                       fieldKey={f.key}
                       label={f.label}
-                      value={values[f.key]}
+                      value={getValues(f.key) ?? getFieldDefault(f, initialConfig)}
                       options={f.options}
-                      touched={!!touched[f.key]}
-                      fieldError={touched[f.key] ? (fieldErrors[f.key] ?? null) : null}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
+                      touched={touched}
+                      fieldError={fieldErr}
+                      onChange={(key, value) => {
+                        setValue(key, value, { shouldValidate: true, shouldTouch: true });
+                      }}
+                      onBlur={(key, value) => {
+                        setValue(key, value, { shouldTouch: true });
+                        void trigger(key);
+                      }}
                     />
-                  )
-                )}
+                  );
+                })}
               </div>
             </div>
           );
@@ -345,7 +340,7 @@ export function SetupForm({
             <p className="text-xs mb-1">Por favor corrige lo siguiente:</p>
             <ul className="text-[11px] font-normal list-disc ml-4">
               {fields
-                .filter((f) => fieldErrors[f.key])
+                .filter((f) => fieldErrorsForDisplay[f.key])
                 .map((f) => (
                   <li key={f.key}>
                     <button
@@ -355,7 +350,7 @@ export function SetupForm({
                     >
                       {f.label}
                     </button>
-                    : {fieldErrors[f.key]}
+                    : {fieldErrorsForDisplay[f.key]}
                   </li>
                 ))}
             </ul>
@@ -374,7 +369,7 @@ export function SetupForm({
         )}
         <button
           onClick={handleSubmit}
-          disabled={isGenerating}
+          disabled={isGenerating ?? isSubmitting}
           className="flex-1 py-3.5 border-none bg-header text-title text-base font-bold cursor-pointer hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isGenerating
