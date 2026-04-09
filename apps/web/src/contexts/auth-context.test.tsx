@@ -1,6 +1,7 @@
 import { mock, describe, it, expect, beforeEach } from 'bun:test';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mock setup — mock the API modules before importing auth-context
@@ -18,9 +19,25 @@ mock.module('@/lib/api', () => ({
 const mockApiFetch = mock<(path: string, options?: RequestInit) => Promise<unknown>>(() =>
   Promise.reject(new Error('Unauthorized'))
 );
+const mockFetchMe = mock<
+  () => Promise<{ id: string; email: string; name?: string; avatarUrl?: string } | null>
+>(() => Promise.resolve(null));
 
 mock.module('@/lib/api-functions', () => ({
   apiFetch: mockApiFetch,
+  fetchMe: mockFetchMe,
+  parseUserSafe: mock((data: unknown) => {
+    if (data && typeof data === 'object' && 'id' in data && 'email' in data) {
+      const rec = data as Record<string, unknown>;
+      return {
+        id: String(rec.id),
+        email: String(rec.email),
+        name: typeof rec.name === 'string' ? rec.name : undefined,
+        avatarUrl: typeof rec.avatarUrl === 'string' ? rec.avatarUrl : undefined,
+      };
+    }
+    return null;
+  }),
   // Provide stubs for all other exports used by consumers
   fetchPrograms: mock(() => Promise.resolve([])),
   createProgram: mock(() => Promise.resolve({})),
@@ -37,8 +54,14 @@ import { AuthProvider, useAuth } from './auth-context';
 // Helpers
 // ---------------------------------------------------------------------------
 
+let testQueryClient: QueryClient;
+
 function wrapper({ children }: { readonly children: React.ReactNode }): React.ReactNode {
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <QueryClientProvider client={testQueryClient}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
+  );
 }
 
 function resetAllMocks(): void {
@@ -47,6 +70,8 @@ function resetAllMocks(): void {
   mockSetAccessToken.mockReset();
   mockApiFetch.mockReset();
   mockApiFetch.mockImplementation(() => Promise.reject(new Error('Unauthorized')));
+  mockFetchMe.mockReset();
+  mockFetchMe.mockImplementation(() => Promise.resolve(null));
 }
 
 // Helper: create a valid JWT with given payload (base64url encoded)
@@ -71,6 +96,9 @@ describe('useAuth', () => {
 describe('AuthProvider', () => {
   beforeEach(() => {
     resetAllMocks();
+    testQueryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
   });
 
   describe('initial state', () => {
@@ -104,8 +132,8 @@ describe('AuthProvider', () => {
     it('should restore user from refresh token', async () => {
       const token = fakeJwt({ sub: 'user-123', email: 'test@example.com' });
       mockRefreshAccessToken.mockImplementation(() => Promise.resolve(token));
-      mockApiFetch.mockImplementation(() =>
-        Promise.resolve({ id: 'user-123', email: 'test@example.com', name: null })
+      mockFetchMe.mockImplementation(() =>
+        Promise.resolve({ id: 'user-123', email: 'test@example.com' })
       );
 
       const { result } = renderHook(() => useAuth(), { wrapper });
@@ -143,8 +171,10 @@ describe('AuthProvider', () => {
       });
 
       expect(authResult).toBeNull();
-      expect(result.current.user?.id).toBe('user-1');
       expect(mockSetAccessToken).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(result.current.user?.id).toBe('user-1');
+      });
     });
 
     it('should return error message on failure', async () => {
@@ -175,10 +205,8 @@ describe('AuthProvider', () => {
       // Start with a logged-in user
       const token = fakeJwt({ sub: 'user-1', email: 'a@b.com' });
       mockRefreshAccessToken.mockImplementation(() => Promise.resolve(token));
+      mockFetchMe.mockImplementation(() => Promise.resolve({ id: 'user-1', email: 'a@b.com' }));
       mockApiFetch.mockImplementation((path: string) => {
-        if (path === '/auth/me') {
-          return Promise.resolve({ id: 'user-1', email: 'a@b.com', name: null });
-        }
         if (path === '/auth/signout') {
           return Promise.resolve(null);
         }
@@ -196,7 +224,9 @@ describe('AuthProvider', () => {
       });
 
       expect(mockSetAccessToken).toHaveBeenCalledWith(null);
-      expect(result.current.user).toBeNull();
+      await waitFor(() => {
+        expect(result.current.user).toBeNull();
+      });
     });
   });
 });

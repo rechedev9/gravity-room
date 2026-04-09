@@ -1,20 +1,21 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { setAccessToken, refreshAccessToken } from '@/lib/api';
-import { apiFetch } from '@/lib/api-functions';
+import { apiFetch, fetchMe, parseUserSafe } from '@/lib/api-functions';
+import type { UserInfo } from '@/lib/api-functions';
 import { isRecord } from '@gzclp/shared/type-guards';
 import { setUser as sentrySetUser } from '@/lib/sentry';
 import { trackEvent } from '@/lib/analytics';
 
 // ---------------------------------------------------------------------------
-// Types
+// Re-export UserInfo so existing consumers don't need to update their imports
 // ---------------------------------------------------------------------------
 
-export interface UserInfo {
-  readonly id: string;
-  readonly email: string;
-  readonly name?: string;
-  readonly avatarUrl?: string;
-}
+export type { UserInfo };
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface AuthResult {
   readonly message: string;
@@ -36,18 +37,26 @@ interface AuthActions {
 type AuthContextValue = AuthState & AuthActions;
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Session query
 // ---------------------------------------------------------------------------
 
-function parseUserInfo(data: unknown): UserInfo | null {
-  if (!isRecord(data)) return null;
-  if (typeof data.id !== 'string' || typeof data.email !== 'string') return null;
-  return {
-    id: data.id,
-    email: data.email,
-    ...(typeof data.name === 'string' ? { name: data.name } : {}),
-    ...(typeof data.avatarUrl === 'string' ? { avatarUrl: data.avatarUrl } : {}),
-  };
+const SESSION_QUERY_KEY = ['auth', 'session'] as const;
+
+async function restoreSession(): Promise<UserInfo | null> {
+  const token = await refreshAccessToken();
+  if (!token) return null;
+  try {
+    const user = await fetchMe();
+    sentrySetUser({ id: user.id, email: user.email });
+    return user;
+  } catch (err: unknown) {
+    // Token may be invalid — user stays null
+    console.warn(
+      '[auth] Session restore failed:',
+      err instanceof Error ? err.message : 'Unknown error'
+    );
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -61,45 +70,17 @@ export function AuthProvider({
 }: {
   readonly children: React.ReactNode;
 }): React.ReactNode {
-  const [user, setUser] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const session = useQuery({
+    queryKey: SESSION_QUERY_KEY,
+    queryFn: restoreSession,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    retry: false,
+  });
 
-  // Attempt to restore session from refresh cookie on mount
-  useEffect(() => {
-    let mounted = true;
-
-    const restore = async (): Promise<void> => {
-      const token = await refreshAccessToken();
-      if (!mounted) return;
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const data = await apiFetch('/auth/me');
-        if (!mounted) return;
-        const userInfo = parseUserInfo(data);
-        if (userInfo) {
-          setUser(userInfo);
-          sentrySetUser({ id: userInfo.id, email: userInfo.email });
-        }
-      } catch (err: unknown) {
-        // Token may be invalid — user stays null
-        console.warn(
-          '[auth] Session restore failed:',
-          err instanceof Error ? err.message : 'Unknown error'
-        );
-      }
-
-      if (mounted) setLoading(false);
-    };
-
-    void restore();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const user = session.data ?? null;
+  const loading = session.isPending;
 
   const signInWithGoogle = async (credential: string): Promise<AuthResult | null> => {
     try {
@@ -109,9 +90,9 @@ export function AuthProvider({
       });
       if (isRecord(data) && typeof data.accessToken === 'string') {
         setAccessToken(data.accessToken);
-        const userInfo = parseUserInfo(data.user);
+        const userInfo = parseUserSafe(data.user);
         if (userInfo) {
-          setUser(userInfo);
+          queryClient.setQueryData(SESSION_QUERY_KEY, userInfo);
           sentrySetUser({ id: userInfo.id, email: userInfo.email });
           trackEvent('signup');
         }
@@ -131,9 +112,9 @@ export function AuthProvider({
       });
       if (isRecord(data) && typeof data.accessToken === 'string') {
         setAccessToken(data.accessToken);
-        const userInfo = parseUserInfo(data.user);
+        const userInfo = parseUserSafe(data.user);
         if (userInfo) {
-          setUser(userInfo);
+          queryClient.setQueryData(SESSION_QUERY_KEY, userInfo);
           sentrySetUser({ id: userInfo.id, email: userInfo.email });
         }
         return null;
@@ -145,13 +126,15 @@ export function AuthProvider({
   };
 
   const updateUser = (info: Partial<Pick<UserInfo, 'name' | 'avatarUrl'>>): void => {
-    setUser((prev) => (prev ? { ...prev, ...info } : prev));
+    queryClient.setQueryData(SESSION_QUERY_KEY, (prev: UserInfo | null | undefined) =>
+      prev ? { ...prev, ...info } : prev
+    );
   };
 
   const deleteAccount = async (): Promise<void> => {
     await apiFetch('/auth/me', { method: 'DELETE' });
     setAccessToken(null);
-    setUser(null);
+    queryClient.setQueryData(SESSION_QUERY_KEY, null);
     sentrySetUser(null);
   };
 
@@ -166,7 +149,7 @@ export function AuthProvider({
       );
     }
     setAccessToken(null);
-    setUser(null);
+    queryClient.setQueryData(SESSION_QUERY_KEY, null);
     sentrySetUser(null);
   };
 

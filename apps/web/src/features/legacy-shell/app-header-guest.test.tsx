@@ -7,6 +7,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { createElement, useEffect, useRef } from 'react';
 import type { FC, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mock API layer — control whether auth bootstraps a user
@@ -15,6 +16,9 @@ import { MemoryRouter } from 'react-router-dom';
 const mockRefreshAccessToken = mock<() => Promise<string | null>>(() => Promise.resolve(null));
 const mockApiFetch = mock<(path: string) => Promise<unknown>>(() =>
   Promise.reject(new Error('no auth'))
+);
+const mockFetchMe = mock<() => Promise<{ id: string; email: string; name?: string | null } | null>>(
+  () => Promise.resolve(null)
 );
 
 mock.module('@/lib/api', () => ({
@@ -25,6 +29,8 @@ mock.module('@/lib/api', () => ({
 
 mock.module('@/lib/api-functions', () => ({
   apiFetch: mockApiFetch,
+  fetchMe: mockFetchMe,
+  parseUserSafe: mock(() => null),
   fetchCatalogList: mock(() => Promise.resolve([])),
   fetchCatalogDetail: mock(() => Promise.resolve(null)),
   fetchPrograms: mock(() => Promise.resolve([])),
@@ -70,6 +76,9 @@ function GuestProbe(): ReactNode {
 /** Creates a wrapper with real providers; optionally activates guest mode. */
 function createWrapper(opts: { guest?: boolean } = {}): FC<{ readonly children: ReactNode }> {
   return function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
     const inner = opts.guest
       ? createElement(GuestActivator, null, children, createElement(GuestProbe))
       : createElement('div', null, children, createElement(GuestProbe));
@@ -77,7 +86,11 @@ function createWrapper(opts: { guest?: boolean } = {}): FC<{ readonly children: 
     return createElement(
       MemoryRouter,
       null,
-      createElement(GuestProvider, null, createElement(AuthProvider, null, inner))
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(GuestProvider, null, createElement(AuthProvider, null, inner))
+      )
     );
   };
 }
@@ -91,6 +104,8 @@ beforeEach(() => {
   mockRefreshAccessToken.mockImplementation(() => Promise.resolve(null));
   mockApiFetch.mockClear();
   mockApiFetch.mockImplementation(() => Promise.reject(new Error('no auth')));
+  mockFetchMe.mockClear();
+  mockFetchMe.mockImplementation(() => Promise.resolve(null));
 });
 
 describe('AppHeader — Guest mode', () => {
@@ -108,11 +123,9 @@ describe('AppHeader — Guest mode', () => {
       // Simulate authenticated user
       const token = fakeJwt({ sub: 'u1', email: 'test@test.com' });
       mockRefreshAccessToken.mockImplementation(() => Promise.resolve(token));
-      mockApiFetch.mockImplementation((path: string) => {
-        if (path === '/auth/me')
-          return Promise.resolve({ id: 'u1', email: 'test@test.com', name: null });
-        return Promise.reject(new Error('Unauthorized'));
-      });
+      mockFetchMe.mockImplementation(() =>
+        Promise.resolve({ id: 'u1', email: 'test@test.com', name: null })
+      );
 
       const Wrapper = createWrapper({ guest: false });
       render(createElement(Wrapper, null, createElement(AppHeader)));
@@ -141,11 +154,9 @@ describe('AppHeader — Guest mode', () => {
     it('should show the avatar button when user is authenticated and not guest', async () => {
       const token = fakeJwt({ sub: 'u1', email: 'test@test.com' });
       mockRefreshAccessToken.mockImplementation(() => Promise.resolve(token));
-      mockApiFetch.mockImplementation((path: string) => {
-        if (path === '/auth/me')
-          return Promise.resolve({ id: 'u1', email: 'test@test.com', name: null });
-        return Promise.reject(new Error('Unauthorized'));
-      });
+      mockFetchMe.mockImplementation(() =>
+        Promise.resolve({ id: 'u1', email: 'test@test.com', name: null })
+      );
 
       const Wrapper = createWrapper({ guest: false });
       render(createElement(Wrapper, null, createElement(AppHeader)));

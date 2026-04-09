@@ -7,6 +7,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
 import type { FC, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
 // Mock API layer (required by AuthProvider bootstrap)
@@ -22,6 +23,8 @@ mock.module('@/lib/api', () => ({
 
 mock.module('@/lib/api-functions', () => ({
   apiFetch: mock(() => Promise.reject(new Error('no auth'))),
+  fetchMe: mock(() => Promise.resolve(null)),
+  parseUserSafe: mock(() => null),
   fetchCatalogList: mock(() => Promise.resolve([])),
   fetchCatalogDetail: mock(() => Promise.resolve(null)),
   fetchPrograms: mock(() => Promise.resolve([])),
@@ -52,13 +55,20 @@ function GuestStateProbe(): ReactNode {
 
 function createWrapper(): FC<{ readonly children: ReactNode }> {
   return function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
     return createElement(
       MemoryRouter,
       { initialEntries: ['/login'] },
       createElement(
-        GuestProvider,
-        null,
-        createElement(AuthProvider, null, children, createElement(GuestStateProbe))
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(
+          GuestProvider,
+          null,
+          createElement(AuthProvider, null, children, createElement(GuestStateProbe))
+        )
       )
     );
   };
