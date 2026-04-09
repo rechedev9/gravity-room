@@ -5,69 +5,43 @@
  */
 import { getAccessToken, refreshAccessToken } from './api';
 import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
+import { GenericProgramDetailSchema } from '@gzclp/shared/schemas/instance';
+import { ProgramSummarySchema } from '@gzclp/shared/schemas/program-summary';
+import { CatalogEntrySchema } from '@gzclp/shared/schemas/catalog';
+import {
+  ExerciseEntrySchema,
+  MuscleGroupEntrySchema,
+  PaginatedExercisesResponseSchema,
+} from '@gzclp/shared/schemas/exercises';
+import {
+  ProgramDefinitionResponseSchema,
+  ProgramDefinitionListResponseSchema,
+} from '@gzclp/shared/schemas/program-definition-response';
+import { InsightItemSchema } from '@gzclp/shared/schemas/insights';
+import { GenericWorkoutRowSchema } from '@gzclp/shared/schemas/workout-rows';
+import { UserResponseSchema, parseUserSafe } from '@gzclp/shared/schemas/user';
 import type { ResultValue, SetLogEntry, GenericWorkoutRow } from '@gzclp/shared/types';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
-import type { GenericResults, GenericUndoHistory } from '@gzclp/shared/types/program';
 import { isRecord } from '@gzclp/shared/type-guards';
-import { PROGRAM_LEVELS } from '@gzclp/shared/catalog';
-import type { ProgramLevel } from '@gzclp/shared/catalog';
 import { z } from 'zod/v4';
 
+// Re-export types derived from schemas
+export type { UserInfo } from '@gzclp/shared/schemas/user';
+export type { ProgramSummary } from '@gzclp/shared/schemas/program-summary';
+export type { CatalogEntry } from '@gzclp/shared/schemas/catalog';
+export type {
+  ExerciseEntry,
+  MuscleGroupEntry,
+  PaginatedExercisesResponse,
+} from '@gzclp/shared/schemas/exercises';
+export type { ProgramDefinitionResponse } from '@gzclp/shared/schemas/program-definition-response';
+export type { InsightItem } from '@gzclp/shared/schemas/insights';
+export type { GenericProgramDetail } from '@gzclp/shared/schemas/instance';
+
+// Re-export helpers from user schema
+export { parseUserSafe };
+
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
-
-// ---------------------------------------------------------------------------
-// User schema (will be relocated to lib/shared/schemas/user.ts in Phase 3.8)
-// ---------------------------------------------------------------------------
-
-const UserResponseSchema = z
-  .object({
-    id: z.string(),
-    email: z.string(),
-    name: z.string().nullable().optional(),
-    avatarUrl: z.string().nullable().optional(),
-  })
-  .transform((data) => ({
-    id: data.id,
-    email: data.email,
-    name: data.name ?? undefined,
-    avatarUrl: data.avatarUrl ?? undefined,
-  }));
-
-export type UserInfo = z.infer<typeof UserResponseSchema>;
-
-export function parseUserSafe(data: unknown): UserInfo | null {
-  const result = UserResponseSchema.safeParse(data);
-  return result.success ? result.data : null;
-}
-
-// ---------------------------------------------------------------------------
-// Response types (what our API functions return to consumers)
-// ---------------------------------------------------------------------------
-
-export interface ProgramSummary {
-  readonly id: string;
-  readonly programId: string;
-  readonly name: string;
-  readonly config: Record<string, number | string>;
-  readonly status: string;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
-
-export interface GenericProgramDetail {
-  readonly id: string;
-  readonly programId: string;
-  readonly name: string;
-  readonly config: Record<string, number | string>;
-  readonly metadata: unknown;
-  readonly results: GenericResults;
-  readonly undoHistory: GenericUndoHistory;
-  readonly resultTimestamps: Readonly<Record<string, string>>;
-  readonly completedDates: Readonly<Record<string, string>>;
-  readonly definitionId: string | null;
-  readonly customDefinition: unknown | null;
-  readonly status: string;
-}
 
 // ---------------------------------------------------------------------------
 // Auth-aware fetch wrapper with automatic retry on 401
@@ -143,116 +117,20 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   return res.json();
 }
 
-function parseMixedConfigRecord(value: unknown): Record<string, number | string> {
-  if (!isRecord(value)) return {};
-  const out: Record<string, number | string> = {};
-  for (const [k, v] of Object.entries(value)) {
-    if (typeof v === 'number') out[k] = v;
-    else if (typeof v === 'string') out[k] = v;
-  }
-  return out;
-}
-
-function parseStringRecord(value: unknown): Record<string, string> {
-  if (!isRecord(value)) return {};
-  const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(value)) {
-    if (typeof v === 'string') out[k] = v;
-  }
-  return out;
-}
-
-function parseSummary(rec: unknown): ProgramSummary {
-  if (!isRecord(rec)) throw new Error('Invalid program response');
-  return {
-    id: String(rec.id ?? ''),
-    programId: String(rec.programId ?? ''),
-    name: String(rec.name ?? ''),
-    config: parseMixedConfigRecord(rec.config),
-    status: String(rec.status ?? 'active'),
-    createdAt: String(rec.createdAt ?? ''),
-    updatedAt: String(rec.updatedAt ?? ''),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // API Functions
 // ---------------------------------------------------------------------------
 
 /** Fetch all program instances for the current user (first page). */
-export async function fetchPrograms(): Promise<ProgramSummary[]> {
+export async function fetchPrograms(): Promise<
+  import('@gzclp/shared/schemas/program-summary').ProgramSummary[]
+> {
   const data = await apiFetch('/programs');
   // Handle both legacy array response and new paginated { data, nextCursor } shape
-  if (Array.isArray(data)) return data.map(parseSummary);
-  if (isRecord(data) && Array.isArray(data.data)) return data.data.map(parseSummary);
+  if (Array.isArray(data)) return data.map((item) => ProgramSummarySchema.parse(item));
+  if (isRecord(data) && Array.isArray(data.data))
+    return data.data.map((item) => ProgramSummarySchema.parse(item));
   return [];
-}
-
-// ---------------------------------------------------------------------------
-// Shared result / undo parsers (used by both legacy and generic fetch)
-// ---------------------------------------------------------------------------
-
-function parseSetLogs(raw: unknown): SetLogEntry[] | undefined {
-  if (!Array.isArray(raw)) return undefined;
-  const logs: SetLogEntry[] = [];
-  for (const entry of raw) {
-    if (!isRecord(entry) || typeof entry.reps !== 'number') continue;
-    logs.push({
-      reps: entry.reps,
-      ...(typeof entry.weight === 'number' ? { weight: entry.weight } : {}),
-      ...(typeof entry.rpe === 'number' ? { rpe: entry.rpe } : {}),
-    });
-  }
-  return logs.length > 0 ? logs : undefined;
-}
-
-function parseGenericResults(raw: unknown): GenericResults {
-  if (!isRecord(raw)) return {};
-  const results: GenericResults = {};
-  for (const [indexStr, slots] of Object.entries(raw)) {
-    if (!isRecord(slots)) continue;
-    const slotMap: Record<
-      string,
-      {
-        result?: 'success' | 'fail';
-        amrapReps?: number;
-        rpe?: number;
-        setLogs?: SetLogEntry[];
-      }
-    > = {};
-    for (const [slotId, slotData] of Object.entries(slots)) {
-      if (!isRecord(slotData)) continue;
-      const parsedSetLogs = parseSetLogs(slotData.setLogs);
-      slotMap[slotId] = {
-        ...(slotData.result === 'success' || slotData.result === 'fail'
-          ? { result: slotData.result }
-          : {}),
-        ...(typeof slotData.amrapReps === 'number' ? { amrapReps: slotData.amrapReps } : {}),
-        ...(typeof slotData.rpe === 'number' ? { rpe: slotData.rpe } : {}),
-        ...(parsedSetLogs !== undefined ? { setLogs: parsedSetLogs } : {}),
-      };
-    }
-    results[indexStr] = slotMap;
-  }
-  return results;
-}
-
-function isValidUndoEntry(
-  entry: Record<string, unknown>
-): entry is Record<string, unknown> & { i: number; slotId: string } {
-  return typeof entry.i === 'number' && typeof entry.slotId === 'string';
-}
-
-function parseGenericUndoHistory(raw: unknown): GenericUndoHistory {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter(isRecord)
-    .filter(isValidUndoEntry)
-    .map((entry) => ({
-      i: entry.i,
-      slotId: entry.slotId,
-      ...(entry.prev === 'success' || entry.prev === 'fail' ? { prev: entry.prev } : {}),
-    }));
 }
 
 /** Create a new program instance. */
@@ -260,12 +138,12 @@ export async function createProgram(
   programId: string,
   name: string,
   config: Record<string, number | string>
-): Promise<ProgramSummary> {
+): Promise<import('@gzclp/shared/schemas/program-summary').ProgramSummary> {
   const data = await apiFetch('/programs', {
     method: 'POST',
     body: JSON.stringify({ programId, name, config: { ...config } }),
   });
-  return parseSummary(data);
+  return ProgramSummarySchema.parse(data);
 }
 
 /** Update a program instance's config (e.g., start weights). */
@@ -283,26 +161,12 @@ export async function updateProgramConfig(
 export async function updateProgramMetadata(
   id: string,
   metadata: Record<string, unknown>
-): Promise<GenericProgramDetail> {
+): Promise<import('@gzclp/shared/schemas/instance').GenericProgramDetail> {
   const data = await apiFetch(`/programs/${encodeURIComponent(id)}/metadata`, {
     method: 'PATCH',
     body: JSON.stringify({ metadata }),
   });
-  if (!isRecord(data)) throw new Error('Invalid metadata response');
-  return {
-    id: String(data.id ?? ''),
-    programId: String(data.programId ?? ''),
-    name: String(data.name ?? ''),
-    config: parseMixedConfigRecord(data.config),
-    metadata: data.metadata ?? null,
-    results: parseGenericResults(data.results),
-    undoHistory: parseGenericUndoHistory(data.undoHistory),
-    resultTimestamps: parseStringRecord(data.resultTimestamps),
-    completedDates: parseStringRecord(data.completedDates),
-    definitionId: typeof data.definitionId === 'string' ? data.definitionId : null,
-    customDefinition: data.customDefinition ?? null,
-    status: String(data.status ?? 'active'),
-  };
+  return GenericProgramDetailSchema.parse(data);
 }
 
 /** Mark a program instance as completed (preserves all data). */
@@ -337,13 +201,15 @@ const ImportPayloadSchema = z.object({
 });
 
 /** Import a program from exported JSON. Throws a ZodError if the payload is invalid. */
-export async function importProgram(data: unknown): Promise<ProgramSummary> {
+export async function importProgram(
+  data: unknown
+): Promise<import('@gzclp/shared/schemas/program-summary').ProgramSummary> {
   ImportPayloadSchema.parse(data);
   const result = await apiFetch('/programs/import', {
     method: 'POST',
     body: JSON.stringify(data),
   });
-  return parseSummary(result);
+  return ProgramSummarySchema.parse(result);
 }
 
 // ---------------------------------------------------------------------------
@@ -351,7 +217,7 @@ export async function importProgram(data: unknown): Promise<ProgramSummary> {
 // ---------------------------------------------------------------------------
 
 /** Fetch the authenticated user's profile. */
-export async function fetchMe(): Promise<UserInfo> {
+export async function fetchMe(): Promise<import('@gzclp/shared/schemas/user').UserInfo> {
   const data = await apiFetch('/auth/me');
   return UserResponseSchema.parse(data);
 }
@@ -360,18 +226,12 @@ export async function fetchMe(): Promise<UserInfo> {
 export async function updateProfile(fields: {
   name?: string;
   avatarUrl?: string | null;
-}): Promise<{ id: string; email: string; name: string | null; avatarUrl: string | null }> {
+}): Promise<import('@gzclp/shared/schemas/user').UserInfo> {
   const data = await apiFetch('/auth/me', {
     method: 'PATCH',
     body: JSON.stringify(fields),
   });
-  if (!isRecord(data)) throw new Error('Invalid profile response');
-  return {
-    id: String(data.id ?? ''),
-    email: String(data.email ?? ''),
-    name: typeof data.name === 'string' ? data.name : null,
-    avatarUrl: typeof data.avatarUrl === 'string' ? data.avatarUrl : null,
-  };
+  return UserResponseSchema.parse(data);
 }
 
 /** Soft-delete the current user account. */
@@ -379,14 +239,18 @@ export async function deleteAccount(): Promise<void> {
   await apiFetch('/auth/me', { method: 'DELETE' });
 }
 
+const StatsOnlineResponseSchema = z.object({
+  count: z.number().int().nonnegative(),
+});
+
 /** Fetch the count of users active in the last 60 seconds. Public endpoint — no auth required. */
 export async function fetchOnlineCount(): Promise<number | null> {
   try {
     const res = await fetch(`${API_URL}/api/stats/online`);
     if (!res.ok) return null;
-    const data: unknown = await res.json();
-    if (isRecord(data) && typeof data.count === 'number') return data.count;
-    return null;
+    const raw: unknown = await res.json();
+    const parsed = StatsOnlineResponseSchema.safeParse(raw);
+    return parsed.success ? parsed.data.count : null;
   } catch {
     return null;
   }
@@ -397,24 +261,11 @@ export async function fetchOnlineCount(): Promise<number | null> {
 // ---------------------------------------------------------------------------
 
 /** Fetch a program instance with results in generic slot-keyed format (no legacy conversion). */
-export async function fetchGenericProgramDetail(id: string): Promise<GenericProgramDetail> {
+export async function fetchGenericProgramDetail(
+  id: string
+): Promise<import('@gzclp/shared/schemas/instance').GenericProgramDetail> {
   const data = await apiFetch(`/programs/${encodeURIComponent(id)}`);
-  if (!isRecord(data)) throw new Error('Invalid program response');
-
-  return {
-    id: String(data.id ?? ''),
-    programId: String(data.programId ?? ''),
-    name: String(data.name ?? ''),
-    config: parseMixedConfigRecord(data.config),
-    metadata: data.metadata ?? null,
-    results: parseGenericResults(data.results),
-    undoHistory: parseGenericUndoHistory(data.undoHistory),
-    resultTimestamps: parseStringRecord(data.resultTimestamps),
-    completedDates: parseStringRecord(data.completedDates),
-    definitionId: typeof data.definitionId === 'string' ? data.definitionId : null,
-    customDefinition: data.customDefinition ?? null,
-    status: String(data.status ?? 'active'),
-  };
+  return GenericProgramDetailSchema.parse(data);
 }
 
 /** Record a workout result using slot ID directly (no tier conversion). */
@@ -453,73 +304,16 @@ export async function deleteGenericResult(
 }
 
 // ---------------------------------------------------------------------------
-// Catalog types (mirrors API service types)
-// ---------------------------------------------------------------------------
-
-export interface CatalogEntry {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
-  readonly author: string;
-  readonly category: string;
-  readonly level: ProgramLevel;
-  readonly source: string;
-  readonly totalWorkouts: number;
-  readonly workoutsPerWeek: number;
-  readonly cycleLength: number;
-}
-
-export interface ExerciseEntry {
-  readonly id: string;
-  readonly name: string;
-  readonly muscleGroupId: string;
-  readonly equipment: string | null;
-  readonly isCompound: boolean;
-  readonly isPreset: boolean;
-  readonly createdBy: string | null;
-  readonly force: string | null;
-  readonly level: string | null;
-  readonly mechanic: string | null;
-  readonly category: string | null;
-  readonly secondaryMuscles: readonly string[] | null;
-}
-
-export interface MuscleGroupEntry {
-  readonly id: string;
-  readonly name: string;
-}
-
-// ---------------------------------------------------------------------------
 // Catalog API functions (public, no auth required)
 // ---------------------------------------------------------------------------
 
-const VALID_LEVELS: ReadonlySet<string> = new Set(PROGRAM_LEVELS);
-
-function isValidLevel(value: unknown): value is ProgramLevel {
-  return typeof value === 'string' && VALID_LEVELS.has(value);
-}
-
-function parseCatalogEntry(raw: unknown): CatalogEntry {
-  if (!isRecord(raw)) throw new Error('Invalid catalog entry');
-  return {
-    id: String(raw.id ?? ''),
-    name: String(raw.name ?? ''),
-    description: String(raw.description ?? ''),
-    author: String(raw.author ?? ''),
-    category: String(raw.category ?? ''),
-    level: isValidLevel(raw.level) ? raw.level : 'intermediate',
-    source: String(raw.source ?? ''),
-    totalWorkouts: typeof raw.totalWorkouts === 'number' ? raw.totalWorkouts : 0,
-    workoutsPerWeek: typeof raw.workoutsPerWeek === 'number' ? raw.workoutsPerWeek : 0,
-    cycleLength: typeof raw.cycleLength === 'number' ? raw.cycleLength : 0,
-  };
-}
-
 /** Fetch the catalog list of all preset programs (no auth required). */
-export async function fetchCatalogList(): Promise<readonly CatalogEntry[]> {
+export async function fetchCatalogList(): Promise<
+  readonly import('@gzclp/shared/schemas/catalog').CatalogEntry[]
+> {
   const data = await apiFetch('/catalog');
   if (!Array.isArray(data)) return [];
-  return data.map(parseCatalogEntry);
+  return data.map((item) => CatalogEntrySchema.parse(item));
 }
 
 /** Fetch a full hydrated ProgramDefinition by program ID (no auth required). */
@@ -565,64 +359,21 @@ function buildExerciseQueryString(filter?: ExerciseFilter): string {
 // Exercise API functions
 // ---------------------------------------------------------------------------
 
-function parseSecondaryMuscles(value: unknown): readonly string[] | null {
-  if (!Array.isArray(value)) return null;
-  const strings: string[] = [];
-  for (const item of value) {
-    if (typeof item === 'string') strings.push(item);
-  }
-  return strings.length > 0 ? strings : null;
-}
-
 /** Exported for testing — parses a raw API response object into a typed ExerciseEntry. */
-export function parseExerciseEntry(raw: unknown): ExerciseEntry {
-  if (!isRecord(raw)) throw new Error('Invalid exercise entry');
-  return {
-    id: String(raw.id ?? ''),
-    name: String(raw.name ?? ''),
-    muscleGroupId: String(raw.muscleGroupId ?? ''),
-    equipment: typeof raw.equipment === 'string' ? raw.equipment : null,
-    isCompound: raw.isCompound === true,
-    isPreset: raw.isPreset === true,
-    createdBy: typeof raw.createdBy === 'string' ? raw.createdBy : null,
-    force: typeof raw.force === 'string' ? raw.force : null,
-    level: typeof raw.level === 'string' ? raw.level : null,
-    mechanic: typeof raw.mechanic === 'string' ? raw.mechanic : null,
-    category: typeof raw.category === 'string' ? raw.category : null,
-    secondaryMuscles: parseSecondaryMuscles(raw.secondaryMuscles),
-  };
-}
-
-function parseMuscleGroupEntry(raw: unknown): MuscleGroupEntry {
-  if (!isRecord(raw)) throw new Error('Invalid muscle group entry');
-  return {
-    id: String(raw.id ?? ''),
-    name: String(raw.name ?? ''),
-  };
-}
-
-/** Zod schema for the paginated exercises API response (zod/v4). */
-const PaginatedExercisesResponseSchema = z.object({
-  data: z.array(z.record(z.string(), z.unknown())),
-  total: z.number(),
-  offset: z.number(),
-  limit: z.number(),
-});
-
-/** Paginated exercises response from GET /exercises. */
-export interface PaginatedExercisesResponse {
-  readonly data: readonly ExerciseEntry[];
-  readonly total: number;
-  readonly offset: number;
-  readonly limit: number;
+export function parseExerciseEntry(
+  raw: unknown
+): import('@gzclp/shared/schemas/exercises').ExerciseEntry {
+  return ExerciseEntrySchema.parse(raw);
 }
 
 /** Fetch exercises visible to the current user, with optional filtering. */
-export async function fetchExercises(filter?: ExerciseFilter): Promise<PaginatedExercisesResponse> {
+export async function fetchExercises(
+  filter?: ExerciseFilter
+): Promise<import('@gzclp/shared/schemas/exercises').PaginatedExercisesResponse> {
   const raw = await apiFetch(`/exercises${buildExerciseQueryString(filter)}`);
   const parsed = PaginatedExercisesResponseSchema.parse(raw);
   return {
-    data: parsed.data.map(parseExerciseEntry),
+    data: parsed.data.map((item) => ExerciseEntrySchema.parse(item)),
     total: parsed.total,
     offset: parsed.offset,
     limit: parsed.limit,
@@ -630,85 +381,65 @@ export async function fetchExercises(filter?: ExerciseFilter): Promise<Paginated
 }
 
 /** Fetch all muscle groups (no auth required). */
-export async function fetchMuscleGroups(): Promise<readonly MuscleGroupEntry[]> {
+export async function fetchMuscleGroups(): Promise<
+  readonly import('@gzclp/shared/schemas/exercises').MuscleGroupEntry[]
+> {
   const data = await apiFetch('/muscle-groups');
   if (!Array.isArray(data)) return [];
-  return data.map(parseMuscleGroupEntry);
+  return data.map((item) => MuscleGroupEntrySchema.parse(item));
 }
 
 // ---------------------------------------------------------------------------
 // Program Definitions (user-created custom programs)
 // ---------------------------------------------------------------------------
 
-export interface ProgramDefinitionResponse {
-  readonly id: string;
-  readonly userId: string;
-  readonly definition: unknown;
-  readonly status: string;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  readonly deletedAt: string | null;
-}
-
-function parseDefinitionResponse(raw: unknown): ProgramDefinitionResponse {
-  if (!isRecord(raw)) throw new Error('Invalid program definition response');
-  return {
-    id: String(raw.id ?? ''),
-    userId: String(raw.userId ?? ''),
-    definition: raw.definition ?? null,
-    status: String(raw.status ?? 'draft'),
-    createdAt: String(raw.createdAt ?? ''),
-    updatedAt: String(raw.updatedAt ?? ''),
-    deletedAt: typeof raw.deletedAt === 'string' ? raw.deletedAt : null,
-  };
-}
-
 /** Fork a program definition from a template or existing definition. */
 export async function forkDefinition(
   sourceId: string,
   sourceType: 'template' | 'definition'
-): Promise<ProgramDefinitionResponse> {
+): Promise<import('@gzclp/shared/schemas/program-definition-response').ProgramDefinitionResponse> {
   const data = await apiFetch('/program-definitions/fork', {
     method: 'POST',
     body: JSON.stringify({ sourceId, sourceType }),
   });
-  return parseDefinitionResponse(data);
+  return ProgramDefinitionResponseSchema.parse(data);
 }
 
 /** Fetch user's program definitions with pagination. */
 export async function fetchDefinitions(
   offset?: number,
   limit?: number
-): Promise<{ readonly data: readonly ProgramDefinitionResponse[]; readonly total: number }> {
+): Promise<{
+  readonly data: readonly import('@gzclp/shared/schemas/program-definition-response').ProgramDefinitionResponse[];
+  readonly total: number;
+}> {
   const params = new URLSearchParams();
   if (offset !== undefined) params.set('offset', String(offset));
   if (limit !== undefined) params.set('limit', String(limit));
   const qs = params.toString();
   const data = await apiFetch(`/program-definitions${qs ? `?${qs}` : ''}`);
-  if (!isRecord(data)) throw new Error('Invalid definitions response');
-  const rawData = Array.isArray(data.data) ? data.data : [];
-  return {
-    data: rawData.map(parseDefinitionResponse),
-    total: typeof data.total === 'number' ? data.total : 0,
-  };
+  const parsed = ProgramDefinitionListResponseSchema.parse(data);
+  return { data: parsed.data, total: parsed.total };
 }
 
 /** Fetch a single program definition by ID. */
-export async function fetchDefinition(id: string): Promise<ProgramDefinitionResponse> {
+export async function fetchDefinition(
+  id: string
+): Promise<import('@gzclp/shared/schemas/program-definition-response').ProgramDefinitionResponse> {
   const data = await apiFetch(`/program-definitions/${encodeURIComponent(id)}`);
-  return parseDefinitionResponse(data);
+  return ProgramDefinitionResponseSchema.parse(data);
 }
 
 /** Update a program definition. */
 export async function updateDefinition(
   id: string,
   payload: unknown
-): Promise<ProgramDefinitionResponse> {
+): Promise<import('@gzclp/shared/schemas/program-definition-response').ProgramDefinitionResponse> {
   const data = await apiFetch(`/program-definitions/${encodeURIComponent(id)}`, {
     method: 'PUT',
     body: JSON.stringify({ definition: payload }),
   });
-  return parseDefinitionResponse(data);
+  return ProgramDefinitionResponseSchema.parse(data);
 }
 
 /** Delete (soft) a program definition. */
@@ -732,53 +463,7 @@ export async function previewDefinition(
   if (!Array.isArray(data)) {
     throw new Error('Error al generar la vista previa');
   }
-  return parsePreviewRows(data);
-}
-
-function parsePreviewRows(raw: readonly unknown[]): readonly GenericWorkoutRow[] {
-  // The API returns GenericWorkoutRow[] — validate shape minimally
-  return raw.filter(isRecord).map(
-    (row): GenericWorkoutRow => ({
-      index: typeof row.index === 'number' ? row.index : 0,
-      dayName: typeof row.dayName === 'string' ? row.dayName : '',
-      slots: Array.isArray(row.slots) ? row.slots.filter(isRecord).map(parseSlotRow) : [],
-      isChanged: row.isChanged === true,
-      completedAt: typeof row.completedAt === 'string' ? row.completedAt : undefined,
-    })
-  );
-}
-
-function parseSlotRow(raw: Record<string, unknown>): GenericWorkoutRow['slots'][number] {
-  return {
-    slotId: String(raw.slotId ?? ''),
-    exerciseId: String(raw.exerciseId ?? ''),
-    exerciseName: String(raw.exerciseName ?? ''),
-    tier: String(raw.tier ?? ''),
-    weight: typeof raw.weight === 'number' ? raw.weight : 0,
-    stage: typeof raw.stage === 'number' ? raw.stage : 0,
-    sets: typeof raw.sets === 'number' ? raw.sets : 0,
-    reps: typeof raw.reps === 'number' ? raw.reps : 0,
-    repsMax: typeof raw.repsMax === 'number' ? raw.repsMax : undefined,
-    isAmrap: raw.isAmrap === true,
-    stagesCount: typeof raw.stagesCount === 'number' ? raw.stagesCount : 1,
-    result: raw.result === 'success' || raw.result === 'fail' ? raw.result : undefined,
-    amrapReps: typeof raw.amrapReps === 'number' ? raw.amrapReps : undefined,
-    rpe: typeof raw.rpe === 'number' ? raw.rpe : undefined,
-    isChanged: raw.isChanged === true,
-    isDeload: raw.isDeload === true,
-    role:
-      raw.role === 'primary' || raw.role === 'secondary' || raw.role === 'accessory'
-        ? raw.role
-        : undefined,
-    notes: typeof raw.notes === 'string' ? raw.notes : undefined,
-    prescriptions: undefined,
-    isGpp: raw.isGpp === true ? true : undefined,
-    complexReps: typeof raw.complexReps === 'string' ? raw.complexReps : undefined,
-    propagatesTo: typeof raw.propagatesTo === 'string' ? raw.propagatesTo : undefined,
-    isTestSlot: raw.isTestSlot === true ? true : undefined,
-    isBodyweight: raw.isBodyweight === true ? true : undefined,
-    setLogs: undefined,
-  };
+  return data.map((item) => GenericWorkoutRowSchema.parse(item));
 }
 
 /** Create a program instance from a custom definition. */
@@ -786,7 +471,7 @@ export async function createCustomProgram(
   definitionId: string,
   name: string,
   config: Record<string, number | string>
-): Promise<ProgramSummary> {
+): Promise<import('@gzclp/shared/schemas/program-summary').ProgramSummary> {
   const data = await apiFetch('/programs', {
     method: 'POST',
     body: JSON.stringify({
@@ -795,36 +480,20 @@ export async function createCustomProgram(
       config: { ...config },
     }),
   });
-  return parseSummary(data);
+  return ProgramSummarySchema.parse(data);
 }
 
 // ---------------------------------------------------------------------------
 // Insights
 // ---------------------------------------------------------------------------
 
-export interface InsightItem {
-  readonly insightType: string;
-  readonly exerciseId: string | null;
-  readonly payload: unknown;
-  readonly computedAt: string;
-  readonly validUntil: string | null;
-}
-
-function parseInsight(rec: unknown): InsightItem {
-  if (!isRecord(rec)) throw new Error('Invalid insight response');
-  return {
-    insightType: String(rec.insightType ?? ''),
-    exerciseId: rec.exerciseId != null ? String(rec.exerciseId) : null,
-    payload: rec.payload ?? {},
-    computedAt: String(rec.computedAt ?? ''),
-    validUntil: rec.validUntil != null ? String(rec.validUntil) : null,
-  };
-}
-
 /** Fetch pre-computed insights for the current user. */
-export async function fetchInsights(types?: string[]): Promise<InsightItem[]> {
+export async function fetchInsights(
+  types?: string[]
+): Promise<import('@gzclp/shared/schemas/insights').InsightItem[]> {
   const query = types?.length ? `?types=${types.join(',')}` : '';
   const data = await apiFetch(`/insights${query}`);
-  if (isRecord(data) && Array.isArray(data.data)) return data.data.map(parseInsight);
+  if (isRecord(data) && Array.isArray(data.data))
+    return data.data.map((item) => InsightItemSchema.parse(item));
   return [];
 }
