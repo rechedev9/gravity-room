@@ -17,7 +17,7 @@ const SlotRowSchema = z.object({
   slotId: z.string().catch(''),
   exerciseId: z.string().catch(''),
   exerciseName: z.string().catch(''),
-  tier: z.string().catch(''),
+  tier: z.string().min(1).catch(''),
   weight: z.number().catch(0),
   stage: z.number().int().catch(0),
   sets: z.number().int().catch(0),
@@ -32,8 +32,9 @@ const SlotRowSchema = z.object({
   isDeload: z.boolean().catch(false),
   role: nu<'primary' | 'secondary' | 'accessory'>(z.enum(['primary', 'secondary', 'accessory'])),
   notes: nu<string>(z.string()),
-  // prescriptions is always undefined — populated client-side by the engine, not from the API
-  prescriptions: z.unknown().transform((): undefined => undefined),
+  // prescriptions is always undefined in API responses — populated client-side by the engine.
+  // z.any() signals intentional discard of whatever the API sends (if anything).
+  prescriptions: z.any().transform((): undefined => undefined),
   isGpp: nu<boolean>(z.boolean()),
   complexReps: nu<string>(z.string()),
   propagatesTo: nu<string>(z.string()),

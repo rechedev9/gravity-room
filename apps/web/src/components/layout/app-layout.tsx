@@ -4,7 +4,9 @@ import { AppSidebar } from './app-sidebar';
 import { SidebarTrigger } from './sidebar-trigger';
 import { OnlineIndicator } from '@/components/online-indicator';
 
-const ROUTE_LABELS: Record<string, string> = {
+// Typed as Record<string, string | undefined> so the lookup result is string | undefined,
+// making the ?? fallback in getPageTitle semantically correct rather than dead code.
+const ROUTE_LABELS: Record<string, string | undefined> = {
   '/app': 'Inicio',
   '/app/dashboard': 'Dashboard',
   '/app/tracker': 'Tracker',

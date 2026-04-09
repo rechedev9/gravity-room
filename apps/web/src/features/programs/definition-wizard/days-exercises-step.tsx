@@ -163,7 +163,6 @@ export function DaysAndExercisesStep({
       }),
     }));
 
-    // Build configFields for each unique exercise
     const seenKeys = new Set<string>();
     const configFields: ProgramDefinition['configFields'] = [];
     for (const day of updatedDays) {
@@ -173,7 +172,7 @@ export function DaysAndExercisesStep({
           configFields.push({
             key: slot.startWeightKey,
             label: exercises[slot.exerciseId]?.name ?? slot.exerciseId,
-            type: 'weight' as const,
+            type: 'weight',
             min: 0,
             step: 2.5,
           });
@@ -181,7 +180,6 @@ export function DaysAndExercisesStep({
       }
     }
 
-    // Build weightIncrements for each unique exercise
     const weightIncrements: Record<string, number> = {};
     for (const key of seenKeys) {
       weightIncrements[key] = 2.5;
