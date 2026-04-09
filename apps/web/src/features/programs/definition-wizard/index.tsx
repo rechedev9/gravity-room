@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
 import { isRecord } from '@gzclp/shared/type-guards';
@@ -30,8 +30,7 @@ export function DefinitionWizard({
   onCancel,
 }: DefinitionWizardProps): React.ReactNode {
   const [currentStep, setCurrentStep] = useState<WizardStepId>('basic-info');
-  const [localDef, setLocalDef] = useState<ProgramDefinition | null>(null);
-  const [isDirty, setIsDirty] = useState(false);
+  const [draft, setDraft] = useState<ProgramDefinition | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,23 +40,22 @@ export function DefinitionWizard({
     staleTime: 30_000,
   });
 
-  // Parse definition from API response once loaded
-  useEffect(() => {
-    if (defQuery.data && localDef === null) {
-      const parsed = parseDefinition(defQuery.data.definition);
-      if (parsed) {
-        setLocalDef(parsed);
-      }
-    }
-  }, [defQuery.data, localDef]);
+  // Derive the working definition: user's unsaved edits take precedence over server state.
+  // If draft is null, fall back to the parsed query data (no edits yet).
+  const serverDef = defQuery.data ? parseDefinition(defQuery.data.definition) : null;
+  const workingDef = draft ?? serverDef;
+  const isDirty = draft !== null;
 
-  const handleUpdate = useCallback((partial: Partial<ProgramDefinition>): void => {
-    setLocalDef((prev): ProgramDefinition | null => {
-      if (!prev) return prev;
-      return { ...prev, ...partial };
-    });
-    setIsDirty(true);
-  }, []);
+  const handleUpdate = useCallback(
+    (partial: Partial<ProgramDefinition>): void => {
+      setDraft((prev): ProgramDefinition | null => {
+        const base = prev ?? serverDef;
+        if (!base) return prev;
+        return { ...base, ...partial };
+      });
+    },
+    [serverDef]
+  );
 
   const stepIndex = STEPS.indexOf(currentStep);
 
@@ -76,19 +74,19 @@ export function DefinitionWizard({
   };
 
   const handleSaveAndStart = async (): Promise<void> => {
-    if (!localDef) return;
+    if (!workingDef) return;
     setIsSaving(true);
     setError(null);
     try {
-      await updateDefinition(definitionId, localDef);
+      await updateDefinition(definitionId, workingDef);
       // Create a program instance from this definition
       const defaultConfig: Record<string, number | string> = {};
-      for (const field of localDef.configFields) {
+      for (const field of workingDef.configFields) {
         if (field.type === 'weight') {
           defaultConfig[field.key] = field.min;
         }
       }
-      await createCustomProgram(definitionId, localDef.name, defaultConfig);
+      await createCustomProgram(definitionId, workingDef.name, defaultConfig);
       onComplete(definitionId);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Error al guardar';
@@ -99,12 +97,12 @@ export function DefinitionWizard({
   };
 
   const handleSaveDraft = async (): Promise<void> => {
-    if (!localDef) return;
+    if (!workingDef) return;
     setIsSaving(true);
     setError(null);
     try {
-      await updateDefinition(definitionId, localDef);
-      setIsDirty(false);
+      await updateDefinition(definitionId, workingDef);
+      setDraft(null);
       onCancel();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Error al guardar';
@@ -122,7 +120,7 @@ export function DefinitionWizard({
     );
   }
 
-  if (!localDef) {
+  if (!workingDef) {
     return (
       <div className="fixed inset-0 bg-zinc-950/95 z-50 flex items-center justify-center p-4">
         <div className="text-center">
@@ -197,7 +195,7 @@ export function DefinitionWizard({
         {/* Step content */}
         {currentStep === 'basic-info' && (
           <BasicInfoStep
-            definition={localDef}
+            definition={workingDef}
             onUpdate={handleUpdate}
             onNext={handleNext}
             onBack={handleBack}
@@ -205,7 +203,7 @@ export function DefinitionWizard({
         )}
         {currentStep === 'days-exercises' && (
           <DaysAndExercisesStep
-            definition={localDef}
+            definition={workingDef}
             onUpdate={handleUpdate}
             onNext={handleNext}
             onBack={handleBack}
@@ -213,7 +211,7 @@ export function DefinitionWizard({
         )}
         {currentStep === 'progression' && (
           <ProgressionStep
-            definition={localDef}
+            definition={workingDef}
             onUpdate={handleUpdate}
             onNext={handleNext}
             onBack={handleBack}
