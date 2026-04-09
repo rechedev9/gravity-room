@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod/v4';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { Button } from '@/components/button';
 import { ExercisePicker } from './exercise-picker';
@@ -18,6 +21,10 @@ type WizardSlot = ExerciseSlot & { readonly exerciseName: string };
 interface WizardDay {
   name: string;
   slots: WizardSlot[];
+}
+
+interface FormValues {
+  days: WizardDay[];
 }
 
 /** Defaults applied to brand-new slots added by the user. */
@@ -40,50 +47,86 @@ function generateSlotId(dayIndex: number, slotIndex: number): string {
   return `d${dayIndex + 1}-s${slotIndex + 1}`;
 }
 
+// Schema validates structural constraints only; slot items are typed via z.custom
+// so the inferred output matches FormValues exactly without unsafe casts.
+const DaysSchema: z.ZodType<FormValues, FormValues> = z.object({
+  days: z
+    .array(
+      z.object({
+        name: z.string(),
+        slots: z.array(z.custom<WizardSlot>()).min(1, 'Añade al menos 1 ejercicio'),
+      })
+    )
+    .min(1),
+});
+
 export function DaysAndExercisesStep({
   definition,
   onUpdate,
   onNext,
   onBack,
 }: WizardStepProps): React.ReactNode {
-  const [days, setDays] = useState<WizardDay[]>(() =>
-    definition.days.map((d) => ({
-      name: d.name,
-      slots: d.slots.map(
-        (s): WizardSlot => ({
-          ...s,
-          exerciseName: definition.exercises[s.exerciseId]?.name ?? s.exerciseId,
-        })
-      ),
-    }))
-  );
   const [selectedDay, setSelectedDay] = useState(0);
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
-  const [error, setError] = useState<string | null>(null);
+
+  const {
+    control,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<FormValues>({
+    resolver: zodResolver(DaysSchema),
+    defaultValues: {
+      days: definition.days.map((d) => ({
+        name: d.name,
+        slots: d.slots.map(
+          (s): WizardSlot => ({
+            ...s,
+            exerciseName: definition.exercises[s.exerciseId]?.name ?? s.exerciseId,
+          })
+        ),
+      })),
+    },
+  });
+
+  const {
+    fields: dayFields,
+    append: appendDay,
+    remove: removeDay,
+    update: updateDay,
+  } = useFieldArray({
+    control,
+    name: 'days',
+  });
+
+  const watchedDays = watch('days');
 
   const handleAddDay = (): void => {
-    if (days.length >= MAX_DAYS) return;
-    const newIndex = days.length;
-    setDays((prev) => [...prev, { name: `Dia ${newIndex + 1}`, slots: [] }]);
+    if (dayFields.length >= MAX_DAYS) return;
+    const newIndex = dayFields.length;
+    appendDay({ name: `Dia ${newIndex + 1}`, slots: [] });
     setSelectedDay(newIndex);
   };
 
   const handleRemoveDay = (index: number): void => {
-    if (days.length <= 1) return;
-    setDays((prev) => prev.filter((_, i) => i !== index));
-    setSelectedDay((prev) => Math.min(prev, days.length - 2));
+    if (dayFields.length <= 1) return;
+    removeDay(index);
+    setSelectedDay((prev) => Math.min(prev, dayFields.length - 2));
   };
 
   const handleDayNameChange = (index: number, name: string): void => {
-    setDays((prev) => prev.map((d, i) => (i === index ? { ...d, name } : d)));
+    const current = watchedDays[index];
+    if (!current) return;
+    updateDay(index, { ...current, name });
   };
 
   const handleRemoveSlot = (dayIndex: number, slotIndex: number): void => {
-    setDays((prev) =>
-      prev.map((d, i) =>
-        i === dayIndex ? { ...d, slots: d.slots.filter((_, si) => si !== slotIndex) } : d
-      )
-    );
+    const current = watchedDays[dayIndex];
+    if (!current) return;
+    updateDay(dayIndex, {
+      ...current,
+      slots: current.slots.filter((_, si) => si !== slotIndex),
+    });
   };
 
   const handleExerciseSelected = (exercise: {
@@ -92,42 +135,25 @@ export function DaysAndExercisesStep({
   }): void => {
     if (pickerTarget === null) return;
     const { dayIndex } = pickerTarget;
-    setDays((prev) =>
-      prev.map((d, i) => {
-        if (i !== dayIndex) return d;
-        const slotIndex = d.slots.length;
-        const newSlot: WizardSlot = {
-          ...NEW_SLOT_DEFAULTS,
-          id: generateSlotId(dayIndex, slotIndex),
-          exerciseId: exercise.id,
-          startWeightKey: exercise.id,
-          exerciseName: exercise.name,
-        };
-        return { ...d, slots: [...d.slots, newSlot] };
-      })
-    );
+    const current = watchedDays[dayIndex];
+    if (!current) return;
+    const slotIndex = current.slots.length;
+    const newSlot: WizardSlot = {
+      ...NEW_SLOT_DEFAULTS,
+      id: generateSlotId(dayIndex, slotIndex),
+      exerciseId: exercise.id,
+      startWeightKey: exercise.id,
+      exerciseName: exercise.name,
+    };
+    updateDay(dayIndex, { ...current, slots: [...current.slots, newSlot] });
     setPickerTarget(null);
   };
 
-  const validate = (): boolean => {
-    for (let i = 0; i < days.length; i++) {
-      if (days[i].slots.length === 0) {
-        setError(`El dia "${days[i].name}" necesita al menos un ejercicio`);
-        setSelectedDay(i);
-        return false;
-      }
-    }
-    setError(null);
-    return true;
-  };
-
-  const handleNext = (): void => {
-    if (!validate()) return;
-
+  const onValid = (values: FormValues): void => {
     // Map directly from full-fidelity state — no index-based reconstruction needed.
     // Each WizardSlot already carries all ExerciseSlot properties.
     const exercises: Record<string, { readonly name: string }> = {};
-    const updatedDays: ProgramDefinition['days'] = days.map((day, dayIdx) => ({
+    const updatedDays: ProgramDefinition['days'] = values.days.map((day, dayIdx) => ({
       name: day.name,
       slots: day.slots.map((slot, slotIdx) => {
         exercises[slot.exerciseId] = { name: slot.exerciseName };
@@ -171,15 +197,18 @@ export function DaysAndExercisesStep({
     onNext();
   };
 
-  const currentDay = days[selectedDay];
+  const currentDay = watchedDays[selectedDay];
+  // Pick up per-day slot error from RHF (slots array min(1) constraint)
+  const currentDayError =
+    errors.days?.[selectedDay]?.slots?.root?.message ?? errors.days?.[selectedDay]?.slots?.message;
 
   return (
     <div className="space-y-4">
       {/* Day tabs */}
       <div className="flex items-center gap-2 flex-wrap">
-        {days.map((day, i) => (
+        {dayFields.map((field, i) => (
           <button
-            key={i}
+            key={field.id}
             type="button"
             onClick={() => setSelectedDay(i)}
             className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
@@ -188,10 +217,10 @@ export function DaysAndExercisesStep({
                 : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-zinc-200'
             }`}
           >
-            {day.name}
+            {watchedDays[i]?.name ?? field.id}
           </button>
         ))}
-        {days.length < MAX_DAYS && (
+        {dayFields.length < MAX_DAYS && (
           <button
             type="button"
             onClick={handleAddDay}
@@ -213,7 +242,7 @@ export function DaysAndExercisesStep({
               className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none transition-colors"
               placeholder="Nombre del dia"
             />
-            {days.length > 1 && (
+            {dayFields.length > 1 && (
               <Button variant="danger" size="sm" onClick={() => handleRemoveDay(selectedDay)}>
                 Eliminar dia
               </Button>
@@ -250,13 +279,13 @@ export function DaysAndExercisesStep({
         </div>
       )}
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {currentDayError && <p className="text-xs text-red-400">{currentDayError}</p>}
 
       <div className="flex justify-between pt-4">
         <Button variant="ghost" onClick={onBack}>
           Atras
         </Button>
-        <Button variant="primary" onClick={handleNext}>
+        <Button variant="primary" onClick={() => void handleSubmit(onValid)()}>
           Siguiente
         </Button>
       </div>
