@@ -70,7 +70,9 @@ export function ProfileAccountCard({
   };
 
   const handleBlur = (): void => {
-    void handleSubmit(doSave)();
+    // On validation failure (e.g. blank name), collapse editing mode rather than
+    // leaving the user stuck with a visible error and no way out except Escape.
+    void handleSubmit(doSave, () => setEditing(false))();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
