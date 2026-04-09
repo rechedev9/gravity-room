@@ -1,7 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod/v4';
 import { Button } from './button';
 
 const CONFIRM_WORD = 'ELIMINAR';
+
+const DeleteAccountFormSchema = z.object({
+  input: z.string().refine((v) => v.trim().toUpperCase() === CONFIRM_WORD, 'Incorrecto'),
+});
+
+type DeleteAccountFormValues = z.infer<typeof DeleteAccountFormSchema>;
 
 interface DeleteAccountDialogProps {
   readonly open: boolean;
@@ -16,20 +25,31 @@ export function DeleteAccountDialog({
   onCancel,
   loading = false,
 }: DeleteAccountDialogProps): React.ReactNode {
-  const [input, setInput] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const dialogDivRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
-  const isConfirmed = input.trim().toUpperCase() === CONFIRM_WORD;
+  const {
+    register,
+    formState: { isValid },
+    reset,
+  } = useForm<DeleteAccountFormValues>({
+    resolver: zodResolver(DeleteAccountFormSchema),
+    defaultValues: { input: '' },
+    mode: 'onChange',
+  });
 
+  // Reset and focus input when dialog opens (legitimate imperative DOM focus call)
   useEffect(() => {
     if (open) {
-      setInput('');
-      // Focus the input after a tick so the dialog is rendered
-      requestAnimationFrame(() => inputRef.current?.focus());
+      reset({ input: '' });
+      requestAnimationFrame(() => {
+        const input = dialogDivRef.current?.querySelector<HTMLInputElement>('input');
+        input?.focus();
+      });
     }
-  }, [open]);
+  }, [open, reset]);
 
+  // Escape key handling
   useEffect(() => {
     if (!open) return;
     const handleKey = (e: KeyboardEvent): void => {
@@ -43,9 +63,9 @@ export function DeleteAccountDialog({
 
   const handleDialogKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
     if (e.key !== 'Tab') return;
-    const focusable: HTMLElement[] = [];
-    if (inputRef.current) focusable.push(inputRef.current);
-    if (cancelRef.current) focusable.push(cancelRef.current);
+    const focusable = Array.from(
+      dialogDivRef.current?.querySelectorAll<HTMLElement>('input, button') ?? []
+    );
     if (focusable.length < 2) return;
 
     const first = focusable[0];
@@ -68,6 +88,7 @@ export function DeleteAccountDialog({
       onClick={onCancel}
     >
       <div
+        ref={dialogDivRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-account-title"
@@ -90,10 +111,8 @@ export function DeleteAccountDialog({
         </div>
 
         <input
-          ref={inputRef}
+          {...register('input')}
           type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
           placeholder={CONFIRM_WORD}
           className="w-full px-3 py-2 mb-4 text-xs bg-body border border-rule text-main placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
           autoComplete="off"
@@ -105,7 +124,7 @@ export function DeleteAccountDialog({
           <Button ref={cancelRef} variant="ghost" onClick={onCancel} disabled={loading}>
             Cancelar
           </Button>
-          <Button variant="danger" onClick={onConfirm} disabled={!isConfirmed || loading}>
+          <Button variant="danger" onClick={onConfirm} disabled={!isValid || loading}>
             {loading ? 'Eliminando...' : 'Eliminar Cuenta'}
           </Button>
         </div>
