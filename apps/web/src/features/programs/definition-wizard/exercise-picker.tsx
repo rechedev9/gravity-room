@@ -1,26 +1,15 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useDeferredValue, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchExercises, type ExerciseEntry } from '@/lib/api-functions';
 import { Button } from '@/components/button';
 import type { ExercisePickerProps } from './types';
 
-const DEBOUNCE_MS = 300;
-
 export function ExercisePicker({ onSelect, onClose }: ExercisePickerProps): React.ReactNode {
   const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (timerRef.current !== null) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      setDebouncedSearch(search);
-    }, DEBOUNCE_MS);
-    return (): void => {
-      if (timerRef.current !== null) clearTimeout(timerRef.current);
-    };
-  }, [search]);
+  // useDeferredValue defers the filter computation to low-priority rendering,
+  // giving the input immediate response while filtering runs asynchronously.
+  const deferredSearch = useDeferredValue(search);
 
   const exercisesQuery = useQuery({
     queryKey: queryKeys.catalog.exercises({ limit: 1000 }),
@@ -30,10 +19,10 @@ export function ExercisePicker({ onSelect, onClose }: ExercisePickerProps): Reac
 
   const filtered = useMemo((): readonly ExerciseEntry[] => {
     if (!exercisesQuery.data) return [];
-    const q = debouncedSearch.toLowerCase().trim();
+    const q = deferredSearch.toLowerCase().trim();
     if (q.length === 0) return exercisesQuery.data.data;
     return exercisesQuery.data.data.filter((e) => e.name.toLowerCase().includes(q));
-  }, [exercisesQuery.data, debouncedSearch]);
+  }, [exercisesQuery.data, deferredSearch]);
 
   const handleSelect = (exercise: ExerciseEntry): void => {
     onSelect({ id: exercise.id, name: exercise.name });
