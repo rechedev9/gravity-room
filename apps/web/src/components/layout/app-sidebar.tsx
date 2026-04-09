@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { AvatarDropdown } from '@/components/layout/avatar-dropdown';
@@ -53,6 +53,37 @@ function navItemClass(isActive: boolean, collapsed: boolean): string {
   );
 }
 
+interface SidebarNavLinkProps {
+  readonly item: NavItem;
+  readonly collapsed: boolean;
+  readonly onItemClick: () => void;
+}
+
+function SidebarNavLink({ item, collapsed, onItemClick }: SidebarNavLinkProps): React.ReactNode {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isActive = item.end ? pathname === item.to : pathname.startsWith(item.to);
+
+  return (
+    <Link
+      to={item.to}
+      onClick={onItemClick}
+      className={navItemClass(isActive, collapsed)}
+      aria-label={collapsed ? item.label : undefined}
+    >
+      <item.Icon className="shrink-0" />
+      {!collapsed && (
+        <span className="text-xs font-bold tracking-wide uppercase">{item.label}</span>
+      )}
+      {collapsed && isActive && (
+        <span
+          aria-hidden="true"
+          className="absolute bottom-[5px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[var(--color-accent)]"
+        />
+      )}
+    </Link>
+  );
+}
+
 export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNode {
   const { user, signOut } = useAuth();
   const { isGuest, exitGuestMode } = useGuest();
@@ -76,7 +107,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
     (onItemClick: () => void): void => {
       exitGuestMode();
       onItemClick();
-      void navigate('/login');
+      void navigate({ to: '/login' });
     },
     [exitGuestMode, navigate]
   );
@@ -85,29 +116,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
     return NAV_ITEMS.map((item) => {
       if (item.guestHidden && isGuest) return null;
       const link = (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.end}
-          onClick={onItemClick}
-          className={({ isActive }) => navItemClass(isActive, collapsed)}
-          aria-label={collapsed ? item.label : undefined}
-        >
-          {({ isActive }) => (
-            <>
-              <item.Icon className="shrink-0" />
-              {!collapsed && (
-                <span className="text-xs font-bold tracking-wide uppercase">{item.label}</span>
-              )}
-              {collapsed && isActive && (
-                <span
-                  aria-hidden="true"
-                  className="absolute bottom-[5px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[var(--color-accent)]"
-                />
-              )}
-            </>
-          )}
-        </NavLink>
+        <SidebarNavLink key={item.to} item={item} collapsed={collapsed} onItemClick={onItemClick} />
       );
       if (collapsed) {
         return (

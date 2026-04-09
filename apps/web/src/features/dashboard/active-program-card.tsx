@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchGenericProgramDetail, fetchCatalogDetail, deleteProgram } from '@/lib/api-functions';
@@ -92,7 +92,7 @@ export function ActiveProgramCard({
 
   const handleContinue = (): void => {
     setTracker(program.programId, program.id);
-    navigate(`/app/tracker/${program.programId}`);
+    void navigate({ to: '/app/tracker/$programId', params: { programId: program.programId } });
   };
 
   if (!definition) {

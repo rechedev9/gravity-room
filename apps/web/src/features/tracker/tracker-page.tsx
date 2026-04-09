@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useParams, useNavigate, Navigate } from 'react-router-dom';
+import { useParams, useNavigate, redirect } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms } from '@/lib/api-functions';
@@ -10,7 +10,9 @@ import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
 import { ProgramApp } from '@/features/tracker/program-app';
 
 export function TrackerPage(): React.ReactNode {
-  const { programId } = useParams<{ programId: string }>();
+  const rawParams = useParams({ strict: false });
+  const programIdParam: string | undefined =
+    typeof rawParams.programId === 'string' ? rawParams.programId : undefined;
   const { instanceId, programId: ctxProgramId, clearTracker } = useTracker();
   const { user } = useAuth();
   const { isGuest } = useGuest();
@@ -24,7 +26,7 @@ export function TrackerPage(): React.ReactNode {
   });
 
   // Fallback to context programId when URL param is absent
-  const effectiveProgramId = programId ?? ctxProgramId;
+  const effectiveProgramId = programIdParam ?? ctxProgramId;
 
   const programName =
     programsQuery.data?.find((p) => p.id === instanceId)?.name ??
@@ -41,21 +43,25 @@ export function TrackerPage(): React.ReactNode {
   }, [programName]);
 
   if (!effectiveProgramId) {
-    return <Navigate replace to="/app" />;
+    throw redirect({ to: '/app', replace: true });
   }
 
   const handleBack = (): void => {
     clearTracker();
-    navigate('/app');
+    void navigate({ to: '/app' });
   };
 
   const handleReset = (): void => {
     // Keep programId, clear instanceId — re-navigate to same URL without instance
-    navigate(`/app/tracker/${effectiveProgramId}`, { replace: true });
+    void navigate({
+      to: '/app/tracker/$programId',
+      params: { programId: effectiveProgramId },
+      replace: true,
+    });
   };
 
   const handleGoToProfile = (): void => {
-    navigate('/app/profile');
+    void navigate({ to: '/app/profile' });
   };
 
   return (

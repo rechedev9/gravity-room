@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '@/contexts/auth-context';
@@ -8,7 +8,7 @@ import { sanitizeAuthError } from '@/lib/auth-errors';
 import { trackEvent } from '@/lib/analytics';
 
 export function LoginPage(): React.ReactNode {
-  const { user, signInWithGoogle, signInWithDev } = useAuth();
+  const { signInWithGoogle, signInWithDev } = useAuth();
   const { enterGuestMode } = useGuest();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
@@ -20,24 +20,20 @@ export function LoginPage(): React.ReactNode {
     };
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      navigate('/app');
-    }
-  }, [user, navigate]);
-
   const handleGoogleSuccess = async (credential: string): Promise<void> => {
     setError(null);
     const authError = await signInWithGoogle(credential);
     if (authError) {
       setError(sanitizeAuthError(authError.message));
+    } else {
+      void navigate({ to: '/app' });
     }
   };
 
   const handleGuestEntry = (): void => {
     trackEvent('guest_start');
     enterGuestMode();
-    navigate('/app');
+    void navigate({ to: '/app' });
   };
 
   const handleDevLogin = async (): Promise<void> => {
@@ -45,6 +41,8 @@ export function LoginPage(): React.ReactNode {
     const authError = await signInWithDev();
     if (authError) {
       setError(sanitizeAuthError(authError.message));
+    } else {
+      void navigate({ to: '/app' });
     }
   };
 

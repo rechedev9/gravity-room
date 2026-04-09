@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { useTracker } from '@/contexts/tracker-context';
 import { useDefinitions } from '@/hooks/use-definitions';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { ProgramCard } from './program-card';
 import { MyDefinitionsPanel } from './my-definitions-panel';
 import { DefinitionWizard } from './definition-wizard';
@@ -68,7 +68,7 @@ export function ProgramsPage(): React.ReactNode {
   const handleStartProgram = (programId: string): void => {
     if (!isOnboardingDismissed()) dismissOnboarding();
     setTracker(programId, undefined);
-    navigate(`/app/tracker/${programId}`);
+    void navigate({ to: '/app/tracker/$programId', params: { programId } });
   };
 
   const handleCustomize = async (templateId: string): Promise<void> => {

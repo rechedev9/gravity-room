@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueries } from '@tanstack/react-query';
 import { useUnitPreference } from '@/hooks/use-unit-preference';
 import { extractGenericChartData } from '@gzclp/shared/generic-stats';
@@ -227,7 +227,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
     setDeleteLoading(true);
     try {
       await deleteAccount();
-      navigate('/');
+      void navigate({ to: '/' });
     } catch (err: unknown) {
       captureError(err);
       toast({ message: 'Error al eliminar la cuenta' });
@@ -242,7 +242,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
   const activeProgramName = activeProgram?.name ?? definition?.name;
   const isActive = activeProgram?.status === 'active';
 
-  const handleBack = onBack ?? ((): void => void navigate('/app'));
+  const handleBack = onBack ?? ((): void => void navigate({ to: '/app' }));
 
   return (
     <div className="min-h-dvh bg-body">

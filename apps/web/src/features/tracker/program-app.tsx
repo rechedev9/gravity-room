@@ -1,5 +1,4 @@
-import { Suspense, useState, useTransition, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Suspense, useState, useTransition } from 'react';
 import type { ResultValue } from '@gzclp/shared/types';
 import { useProgram } from '@/hooks/use-program';
 import { useGuestProgram } from '@/hooks/use-guest-program';
@@ -73,13 +72,6 @@ export function ProgramApp({
 }: ProgramAppProps): React.ReactNode {
   const { user, loading: authLoading } = useAuth();
   const { isGuest } = useGuest();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!authLoading && user === null && !isGuest) {
-      navigate('/login', { replace: true });
-    }
-  }, [authLoading, user, isGuest, navigate]);
 
   const authData = useProgram(programId, instanceId);
   const guestData = useGuestProgram(programId);

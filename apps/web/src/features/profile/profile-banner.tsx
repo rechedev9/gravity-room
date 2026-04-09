@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import type { ProgramSummary } from '@/lib/api-functions';
 import type { ProfileData } from '@/lib/profile-stats';
 import { Button } from '@/components/button';
@@ -67,7 +67,7 @@ export function ProfileBanner({
             )}
           </div>
           {isEmpty ? (
-            <Button size="sm" onClick={() => void navigate('/app/tracker')}>
+            <Button size="sm" onClick={() => void navigate({ to: '/app/tracker' })}>
               Comenzar
             </Button>
           ) : (
