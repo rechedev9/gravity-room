@@ -6,7 +6,13 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
 import type { FC, ReactNode } from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import {
+  createRouter,
+  createRootRoute,
+  createRoute,
+  RouterProvider,
+  createMemoryHistory,
+} from '@tanstack/react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // ---------------------------------------------------------------------------
@@ -44,6 +50,31 @@ import { GuestProvider, useGuest } from '@/contexts/guest-context';
 import { LoginPage } from './login-page';
 
 // ---------------------------------------------------------------------------
+// Test router factory
+// ---------------------------------------------------------------------------
+
+function createTestRouter(component: ReactNode): ReturnType<typeof createRouter> {
+  const rootRoute = createRootRoute({
+    component: () => component,
+  });
+  const loginRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/login',
+    component: () => component,
+  });
+  const appRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/app',
+    component: () => createElement('div', null, 'App'),
+  });
+  const routeTree = rootRoute.addChildren([loginRoute, appRoute]);
+  return createRouter({
+    routeTree,
+    history: createMemoryHistory({ initialEntries: ['/login'] }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -58,9 +89,7 @@ function createWrapper(): FC<{ readonly children: ReactNode }> {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: 0 } },
     });
-    return createElement(
-      MemoryRouter,
-      { initialEntries: ['/login'] },
+    const testRouter = createTestRouter(
       createElement(
         QueryClientProvider,
         { client: queryClient },
@@ -71,6 +100,7 @@ function createWrapper(): FC<{ readonly children: ReactNode }> {
         )
       )
     );
+    return createElement(RouterProvider, { router: testRouter });
   };
 }
 

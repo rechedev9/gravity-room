@@ -6,7 +6,6 @@ import { describe, it, expect, mock } from 'bun:test';
 import { render, screen } from '@testing-library/react';
 import { createElement, useEffect, useRef } from 'react';
 import type { FC, ReactNode } from 'react';
-import { MemoryRouter } from 'react-router-dom';
 
 // ---------------------------------------------------------------------------
 // Mock API layer (required by any provider that touches auth)
@@ -25,6 +24,13 @@ mock.module('@/lib/api-functions', () => ({
   fetchPrograms: mock(() => Promise.resolve([])),
   fetchGenericProgramDetail: mock(() => Promise.resolve(null)),
   deleteProgram: mock(() => Promise.resolve()),
+}));
+
+// Mock router navigation — tests don't exercise navigation
+mock.module('@tanstack/react-router', () => ({
+  useNavigate: () => mock(() => Promise.resolve()),
+  Link: ({ children, ...rest }: { readonly children: ReactNode; readonly [k: string]: unknown }) =>
+    createElement('a', rest, children),
 }));
 
 // Real providers
@@ -50,11 +56,7 @@ function GuestActivator({ children }: { readonly children: ReactNode }): ReactNo
 
 function createGuestWrapper(): FC<{ readonly children: ReactNode }> {
   return function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
-    return createElement(
-      MemoryRouter,
-      null,
-      createElement(GuestProvider, null, createElement(GuestActivator, null, children))
-    );
+    return createElement(GuestProvider, null, createElement(GuestActivator, null, children));
   };
 }
 
