@@ -53,7 +53,7 @@ function buildInitialSlots(definition: ProgramDefinition): readonly SlotEditorSt
 function applySlotsToDef(
   definition: ProgramDefinition,
   slots: readonly SlotEditorState[]
-): Partial<ProgramDefinition> {
+): Pick<ProgramDefinition, 'days' | 'totalWorkouts' | 'workoutsPerWeek'> {
   const updatedDays: ProgramDefinition['days'] = definition.days.map((day, di) => ({
     name: day.name,
     slots: day.slots.map((origSlot, si) => {
@@ -102,21 +102,20 @@ export function ProgressionStep({
   const [slots, setSlots] = useState(() => buildInitialSlots(definition));
   const [previewState, setPreviewState] = useState<PreviewState>({ status: 'idle' });
 
-  const buildCurrentDef = useCallback((): ProgramDefinition => {
+  const currentDef = useMemo((): ProgramDefinition => {
     const partial = applySlotsToDef(definition, slots);
     return { ...definition, ...partial };
   }, [definition, slots]);
 
   const { handleSubmit } = useForm<ProgramDefinition>({
     resolver: zodResolver(ProgramDefinitionSchema),
-    defaultValues: buildCurrentDef(),
+    defaultValues: currentDef,
   });
 
-  // Derive validity directly from current state — same approach as the original
-  // useMemo, avoids relying on RHF's isValid which starts false before any interaction.
+  // Derived directly from state to avoid RHF's isValid starting false before any interaction.
   const isDefinitionValid = useMemo(
-    () => ProgramDefinitionSchema.safeParse(buildCurrentDef()).success,
-    [buildCurrentDef]
+    () => ProgramDefinitionSchema.safeParse(currentDef).success,
+    [currentDef]
   );
 
   const handleSlotChange = useCallback((updated: SlotEditorState): void => {
@@ -125,14 +124,13 @@ export function ProgressionStep({
         s.dayIndex === updated.dayIndex && s.slotIndex === updated.slotIndex ? updated : s
       )
     );
-    // Clear stale preview when slots change
+    // Reset a loaded preview — slot changes invalidate it
     setPreviewState((prev) => (prev.status === 'loaded' ? { status: 'idle' } : prev));
   }, []);
 
   const handlePreview = async (): Promise<void> => {
     setPreviewState({ status: 'loading' });
     try {
-      const currentDef = buildCurrentDef();
       const rows = await previewDefinition(currentDef);
       setPreviewState({ status: 'loaded', rows });
     } catch {
@@ -142,7 +140,7 @@ export function ProgressionStep({
 
   const onSave = (startAfter: boolean): void => {
     void handleSubmit(() => {
-      onUpdate(applySlotsToDef(definition, slots));
+      onUpdate(currentDef);
       if (startAfter) {
         onSaveAndStart();
       } else {
@@ -151,7 +149,6 @@ export function ProgressionStep({
     })();
   };
 
-  // Group slots by day
   const groupedByDay = new Map<number, SlotEditorState[]>();
   for (const slot of slots) {
     const list = groupedByDay.get(slot.dayIndex) ?? [];
