@@ -26,3 +26,6 @@ pre-push:
     go-test:
       root: apps/go-api
       run: go test ./...
+    api-types-drift:
+      root: apps/web
+      run: bun run api:types && git diff --exit-code src/lib/api/generated.ts
