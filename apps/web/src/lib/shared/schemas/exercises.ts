@@ -3,7 +3,7 @@ import { z } from 'zod/v4';
 function processSecondaryMuscles(val: unknown): readonly string[] | null {
   if (!Array.isArray(val)) return null;
   // Array.isArray narrows val to any[] — no cast needed
-  const strings = val.filter((x): x is string => typeof x === 'string');
+  const strings = val.filter((x): x is string => typeof x === 'string' && x.length > 0);
   return strings.length > 0 ? strings : null;
 }
 
