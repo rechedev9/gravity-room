@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { useGuest } from '@/contexts/guest-context';
 
 interface GuestBannerProps {
@@ -11,7 +11,7 @@ export function GuestBanner({ className }: GuestBannerProps): React.ReactNode {
 
   const handleCreateAccount = (): void => {
     exitGuestMode();
-    navigate('/login');
+    void navigate({ to: '/login' });
   };
 
   return (

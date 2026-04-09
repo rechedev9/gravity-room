@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useRouterState } from '@tanstack/react-router';
 import { AppSidebar } from './app-sidebar';
 import { SidebarTrigger } from './sidebar-trigger';
 import { OnlineIndicator } from '@/components/online-indicator';
@@ -21,7 +21,7 @@ function getPageTitle(pathname: string): string {
 
 export function AppLayout(): React.ReactNode {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const location = useLocation();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   const closeSidebar = useCallback((): void => {
     setSidebarOpen(false);
@@ -34,9 +34,9 @@ export function AppLayout(): React.ReactNode {
   // Close mobile sidebar on route change
   useEffect(() => {
     setSidebarOpen(false);
-  }, [location.pathname]);
+  }, [pathname]);
 
-  const pageTitle = getPageTitle(location.pathname);
+  const pageTitle = getPageTitle(pathname);
 
   return (
     <div className="flex min-h-dvh bg-body">

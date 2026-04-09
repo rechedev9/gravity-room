@@ -1,14 +1,12 @@
-import { useRouteError } from 'react-router-dom';
+import type { ErrorComponentProps } from '@tanstack/react-router';
 import { captureException } from '@/lib/sentry';
 
 /**
- * React-router errorElement fallback. Catches errors that bypass
+ * TanStack Router errorComponent fallback. Catches errors that bypass
  * React error boundaries (e.g. failed lazy imports, loader errors)
  * and shows a branded reload page instead of the default dev error.
  */
-export function RouteErrorFallback(): React.ReactNode {
-  const error = useRouteError();
-
+export function RouteErrorFallback({ error }: ErrorComponentProps): React.ReactNode {
   captureException(error instanceof Error ? error : new Error(String(error)));
 
   return (
