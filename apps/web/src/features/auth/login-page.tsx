@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { GoogleLogin } from '@react-oauth/google';
@@ -14,6 +14,10 @@ export function LoginPage(): React.ReactNode {
   const [error, setError] = useState<string | null>(null);
 
   useDocumentTitle('Iniciar Sesión — Gravity Room');
+
+  useEffect(() => {
+    trackEvent('login_page_view');
+  }, []);
 
   const handleGoogleSuccess = async (credential: string): Promise<void> => {
     setError(null);
