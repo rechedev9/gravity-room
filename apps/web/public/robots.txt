@@ -53,3 +53,5 @@ Disallow: /app
 Disallow: /login
 
 Sitemap: https://gravityroom.app/sitemap.xml
+
+# LLM context: /llms.txt (summary) and /llms-full.txt (extended)
