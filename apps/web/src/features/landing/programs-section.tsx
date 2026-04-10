@@ -53,6 +53,7 @@ export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps)
             >
               {catalog.slice(0, MAX_LANDING_PROGRAMS).map((program) => {
                 const catColor = getCategoryColor(program.category);
+                const weeks = estimatedWeeks(program.totalWorkouts, program.workoutsPerWeek);
                 const levelCount =
                   program.level === 'beginner' ? 1 : program.level === 'intermediate' ? 2 : 3;
                 const levelLabel =
@@ -101,23 +102,14 @@ export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps)
                         </p>
 
                         <div className="flex flex-wrap justify-center gap-2">
-                          {(() => {
-                            const weeks = estimatedWeeks(
-                              program.totalWorkouts,
-                              program.workoutsPerWeek
-                            );
-                            return [
-                              `${program.workoutsPerWeek} ${content.daysPerWeek}`,
-                              ...(weeks > 0 ? [`${weeks} ${content.weeks}`] : []),
-                            ];
-                          })().map((pill) => (
-                            <span
-                              key={pill}
-                              className="font-mono text-[10px] tracking-wider uppercase px-3 py-1 border border-rule-light bg-body text-muted"
-                            >
-                              {pill}
+                          <span className="font-mono text-[10px] tracking-wider uppercase px-3 py-1 border border-rule-light bg-body text-muted">
+                            {program.workoutsPerWeek} {content.daysPerWeek}
+                          </span>
+                          {weeks > 0 && (
+                            <span className="font-mono text-[10px] tracking-wider uppercase px-3 py-1 border border-rule-light bg-body text-muted">
+                              {weeks} {content.weeks}
                             </span>
-                          ))}
+                          )}
                         </div>
 
                         <div className="flex items-center justify-center gap-1.5 mt-3 pt-3 border-t border-rule">
