@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { DEFAULT_PAGE_TITLE } from '@/lib/page-title';
-import { useDocumentTitle } from '@/hooks/use-document-title';
+import { useProgramHead } from '@/hooks/use-head';
+import { trackEvent } from '@/lib/analytics';
 import { useParams, Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useProgramPreview } from '@/hooks/use-program-preview';
@@ -179,9 +179,14 @@ export function ProgramPreviewPage(): ReactNode {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getViewPreference());
 
-  useDocumentTitle(
-    definition !== undefined ? `${definition.name} — Gravity Room` : DEFAULT_PAGE_TITLE
-  );
+  useProgramHead(resolvedProgramId, definition?.name, definition?.description);
+
+  // Track program preview view once definition is loaded
+  useEffect(() => {
+    if (definition !== undefined) {
+      trackEvent('program_preview_view', { program_id: resolvedProgramId });
+    }
+  }, [definition, resolvedProgramId]);
 
   // Build program summary when definition is available
   const summary = definition !== undefined ? buildProgramSummary(definition) : null;
