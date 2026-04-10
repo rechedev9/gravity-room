@@ -46,14 +46,15 @@ export function programCard(page: Page, name: string) {
 /**
  * Navigates to the tracker view via the dashboard UI.
  * Requires a seeded active program to be present (seedProgram must be called first).
- * Gate: waits for 'Día' text (DayNavigator) to confirm tracker is live.
+ * Gate: waits for 'Día N' text (DayNavigator) to confirm tracker data is fully loaded,
+ * not just the progressbar (which only requires config, not the catalog definition).
  */
 export async function navigateToTracker(page: Page): Promise<void> {
   await page.goto('/app');
   const continueLink = page.getByRole('link', { name: 'Continuar Entrenamiento' });
   await expect(continueLink).toBeVisible({ timeout: 10_000 });
   await continueLink.click();
-  await expect(page.getByRole('progressbar')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/^Día \d+$/).first()).toBeVisible({ timeout: 10_000 });
 }
 
 /**

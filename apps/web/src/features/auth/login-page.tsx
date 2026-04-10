@@ -8,19 +8,27 @@ import { sanitizeAuthError } from '@/lib/auth-errors';
 import { trackEvent } from '@/lib/analytics';
 
 export function LoginPage(): React.ReactNode {
-  const { signInWithGoogle, signInWithDev } = useAuth();
-  const { enterGuestMode } = useGuest();
+  const { signInWithGoogle, signInWithDev, user, loading } = useAuth();
+  const { enterGuestMode, isGuest } = useGuest();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
   useDocumentTitle('Iniciar Sesión — Gravity Room');
 
+  // Redirect away from /login once session restore completes with an authenticated user.
+  // beforeLoad only runs once at navigation time; this handles the async restore case.
+  useEffect(() => {
+    if (!loading && (user !== null || isGuest)) {
+      void navigate({ to: '/app' });
+    }
+  }, [loading, user, isGuest, navigate]);
+
   const loginTracked = useRef(false);
   useEffect(() => {
-    if (loginTracked.current) return;
+    if (loginTracked.current || loading || user !== null || isGuest) return;
     loginTracked.current = true;
     trackEvent('login_page_view');
-  }, []);
+  }, [loading, user, isGuest]);
 
   const handleGoogleSuccess = async (credential: string): Promise<void> => {
     setError(null);

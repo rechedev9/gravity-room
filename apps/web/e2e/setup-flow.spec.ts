@@ -36,7 +36,7 @@ test.describe('Setup flow', () => {
     await squatInput.fill('1');
     await squatInput.blur();
 
-    await expect(page.getByRole('alert').filter({ hasText: 'Mín 2.5 kg' })).toBeVisible();
+    await expect(page.getByRole('alert').filter({ hasText: 'Mínimo 2.5 kg' })).toBeVisible();
   });
 
   test('Generate Program creates program and shows Día 1', async ({ page }) => {
