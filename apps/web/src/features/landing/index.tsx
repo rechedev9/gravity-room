@@ -1,91 +1,19 @@
-import { useMemo, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { type CatalogEntry, fetchCatalogList } from '@/lib/api-functions';
-import { queryKeys } from '@/lib/query-keys';
-import { useScrollSpy } from '@/hooks/use-scroll-spy';
-import { useHead } from '@/hooks/use-head';
-import { trackEvent, getUtmProps } from '@/lib/analytics';
 import { ES_CONTENT } from './content';
-import {
-  SECTION_IDS,
-  CATALOG_STALE_TIME,
-  GradientDivider,
-  SkipToContent,
-  Footer,
-  LangBanner,
-} from './shared';
-import { NavBar } from './nav-bar';
-import { HeroSection } from './hero-section';
-import { MetricsSection } from './metrics-section';
-import { FeaturesSection } from './features-section';
-import { HowItWorksSection } from './how-it-works-section';
-import { ScienceSection } from './science-section';
-import { ProgramsSection } from './programs-section';
-import { FinalCtaSection } from './final-cta-section';
+import { LandingPageShell } from './landing-page-shell';
+
+const ES_HEAD = {
+  title: 'Gravity Room — Programas de Entrenamiento con Progresión Automática',
+  description:
+    'Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis.',
+  canonical: 'https://gravityroom.app/',
+  ogLocale: 'es_ES',
+  ogTitle: 'Gravity Room — Programas de Entrenamiento con Progresión Automática',
+  ogDescription:
+    'Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis.',
+  ogUrl: 'https://gravityroom.app/',
+  lang: 'es',
+} as const;
 
 export function LandingPage(): React.ReactNode {
-  const activeSection = useScrollSpy(SECTION_IDS);
-
-  useHead({
-    title: 'Gravity Room — Programas de Entrenamiento con Progresión Automática',
-    description:
-      'Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis.',
-    canonical: 'https://gravityroom.app/',
-    ogLocale: 'es_ES',
-    ogTitle: 'Gravity Room — Programas de Entrenamiento con Progresión Automática',
-    ogDescription:
-      'Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis.',
-    ogUrl: 'https://gravityroom.app/',
-    lang: 'es',
-  });
-
-  // Track landing page view with UTM attribution on first mount
-  useEffect(() => {
-    trackEvent('landing_view', { lang: 'es', ...getUtmProps() });
-  }, []);
-
-  const catalogQuery = useQuery<readonly CatalogEntry[]>({
-    queryKey: queryKeys.catalog.list(),
-    queryFn: fetchCatalogList,
-    staleTime: CATALOG_STALE_TIME,
-  });
-  const catalog = catalogQuery.data;
-  const programCount = catalog?.length ?? 0;
-  const minDaysPerWeek =
-    catalog && catalog.length > 0 ? Math.min(...catalog.map((p) => p.workoutsPerWeek)) : 0;
-  const totalWorkouts = useMemo(
-    () => catalog?.reduce((sum, p) => sum + p.totalWorkouts, 0) ?? 0,
-    [catalog]
-  );
-
-  return (
-    <div className="grain-overlay min-h-dvh bg-body overflow-x-hidden">
-      <SkipToContent label={ES_CONTENT.skipLabel} />
-      <LangBanner label={ES_CONTENT.langSwitch.label} href={ES_CONTENT.langSwitch.href} />
-      <NavBar activeSection={activeSection} content={ES_CONTENT.nav} />
-
-      <main id="main-content">
-        <HeroSection content={ES_CONTENT.hero} />
-        <GradientDivider />
-        <MetricsSection
-          programCount={programCount}
-          minDaysPerWeek={minDaysPerWeek}
-          totalWorkouts={totalWorkouts}
-          content={ES_CONTENT.metrics}
-        />
-        <GradientDivider />
-        <FeaturesSection content={ES_CONTENT.features} />
-        <GradientDivider />
-        <HowItWorksSection content={ES_CONTENT.howItWorks} />
-        <GradientDivider />
-        <ScienceSection content={ES_CONTENT.science} />
-        <GradientDivider />
-        <ProgramsSection catalogQuery={catalogQuery} content={ES_CONTENT.programs} />
-        <GradientDivider />
-        <FinalCtaSection content={ES_CONTENT.finalCta} />
-      </main>
-
-      <Footer content={ES_CONTENT.footer} navLinks={ES_CONTENT.nav.links} />
-    </div>
-  );
+  return <LandingPageShell content={ES_CONTENT} head={ES_HEAD} lang="es" />;
 }
