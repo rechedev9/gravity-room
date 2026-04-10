@@ -10,10 +10,16 @@
       name="description"
       content="Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis."
     />
+    <!-- Canonical is set per-route by useHead; this default covers the root -->
     <link rel="canonical" href="https://gravityroom.app/" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="/logo.webp" />
+    <link rel="apple-touch-icon" href="/logo.png" />
     <meta name="robots" content="index, follow" />
+
+    <!-- hreflang: Spanish root + English /en -->
+    <link rel="alternate" hreflang="es" href="https://gravityroom.app/" />
+    <link rel="alternate" hreflang="en" href="https://gravityroom.app/en" />
+    <link rel="alternate" hreflang="x-default" href="https://gravityroom.app/en" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
@@ -28,17 +34,18 @@
       property="og:description"
       content="Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis."
     />
-    <meta property="og:image" content="https://gravityroom.app/og-image.webp" />
+    <meta property="og:image" content="https://gravityroom.app/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="Captura de Gravity Room mostrando el tracker de entrenamiento con progresión automática"
+      content="Gravity Room — training tracker with automatic weight progression"
     />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="https://gravityroom.app/og-image.webp" />
+    <meta name="twitter:image" content="https://gravityroom.app/og-image.png" />
     <meta
       name="twitter:title"
       content="Gravity Room — Programas de Entrenamiento con Progresión Automática"
@@ -48,13 +55,18 @@
       content="Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis."
     />
 
-    <!-- Fonts via Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Self-hosted fonts (no Google Fonts CDN — GDPR compliant, zero external DNS) -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/fonts/bebas-neue-400.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
+    <link rel="preload" href="/fonts/barlow-400.woff2" as="font" type="font/woff2" crossorigin />
+
+    <!-- Hero image preload -->
+    <link rel="preload" href="/hero.webp" as="image" type="image/webp" />
 
     <!-- JSON-LD: WebSite (enables site name in search results) -->
     <script type="application/ld+json">
@@ -78,14 +90,15 @@
         "operatingSystem": "Web",
         "browserRequirements": "Requires a modern web browser",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-        "description": "App web gratuita para seguir programas de entrenamiento con progresión automática. Te dice exactamente qué levantar en cada sesión y ajusta el peso, series y repeticiones según tu rendimiento.",
-        "screenshot": "https://gravityroom.app/og-image.webp",
-        "featureList": "Progresión automática de peso, Progresión lineal GZCLP, Múltiples programas de entrenamiento, Estadísticas y curvas de fuerza, Sincronización en la nube, Integración con calendario, Soporte offline PWA",
-        "inLanguage": ["en", "es"]
+        "description": "Free web app for structured weightlifting programs with automatic progression. Tells you exactly what to lift each session and adjusts weight, sets, and reps based on your performance.",
+        "screenshot": "https://gravityroom.app/og-image.png",
+        "featureList": "Automatic weight progression, Linear progression GZCLP, Multiple training programs, Statistics and strength curves, Cloud sync, Calendar integration, Offline PWA support",
+        "inLanguage": ["en", "es"],
+        "sameAs": ["https://github.com/rechedev/gravity-room", "https://discord.gg/FXNBrgYf7U"]
       }
     </script>
 
-    <!-- JSON-LD: FAQPage (high-value for AI answer engines) -->
+    <!-- JSON-LD: FAQPage (high-value for AI answer engines + Google rich snippets) -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -96,7 +109,7 @@
             "name": "What is Gravity Room?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Gravity Room is a free web app for structured weightlifting programs with automatic progression. It tells you exactly what to lift each session and adjusts weight, sets, and reps based on your performance."
+              "text": "Gravity Room is a free web app for structured weightlifting programs with automatic progression. It tells you exactly what to lift each session and adjusts weight, sets, and reps based on your performance. No spreadsheets, no guessing."
             }
           },
           {
@@ -104,7 +117,7 @@
             "name": "What is GZCLP?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "GZCLP is a linear progression weightlifting program that uses a tier system (T1, T2, T3) with different set/rep schemes per tier. When you fail a lift, the program automatically adjusts through stages before deloading, keeping you progressing longer."
+              "text": "GZCLP is a linear progression weightlifting program that uses a tier system (T1, T2, T3) with different set/rep schemes per tier. When you fail a lift, the program automatically adjusts through stages before deloading, keeping you progressing longer than simple 5x5 programs."
             }
           },
           {
@@ -112,7 +125,7 @@
             "name": "Is Gravity Room free?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Yes, Gravity Room is 100% free. All features including cloud sync, statistics, and all training programs are available at no cost."
+              "text": "Yes, Gravity Room is 100% free. All features including cloud sync, strength statistics, and all training programs are available at no cost — no premium tier, no ads."
             }
           },
           {
@@ -125,10 +138,42 @@
           },
           {
             "@type": "Question",
+            "name": "What is progressive overload?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Progressive overload is the gradual increase of stress placed on the body during exercise. For weightlifting, this means consistently adding more weight, reps, or sets over time. It is the foundational principle behind all effective strength training programs."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What is the best beginner weightlifting program?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "For beginners, GZCLP and StrongLifts 5x5 are two of the most recommended programs. GZCLP has a more nuanced progression system with tier-based exercises, while StrongLifts 5x5 is simpler with alternating A/B workouts. Both are available in Gravity Room with automatic progression tracking."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "GZCLP vs StrongLifts 5x5 — which is better?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "GZCLP handles progression failures more intelligently through a staged system (5x3 → 6x2 → deload) before resetting weight, so you progress longer. StrongLifts 5x5 resets weight by 10% after three failed attempts. GZCLP also uses a three-tier exercise structure that trains more muscle groups per session. For most beginners, GZCLP is the better long-term choice."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I track gym progress effectively?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "The most effective way to track gym progress is to log every workout with weights, sets, and reps, and follow a structured program with built-in progression rules. Apps like Gravity Room automate this — they tell you what to lift and automatically increase the weight when you hit your targets."
+            }
+          },
+          {
+            "@type": "Question",
             "name": "¿Qué es Gravity Room?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Gravity Room es una app web gratuita para seguir programas de entrenamiento con progresión automática. Te dice exactamente qué levantar en cada sesión y ajusta el peso, series y repeticiones según tu rendimiento."
+              "text": "Gravity Room es una app web gratuita para seguir programas de entrenamiento con progresión automática. Te dice exactamente qué levantar en cada sesión y ajusta el peso, series y repeticiones según tu rendimiento. Sin hojas de cálculo, sin adivinar."
             }
           },
           {
@@ -144,7 +189,7 @@
             "name": "¿Gravity Room es gratis?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Sí, Gravity Room es 100% gratis. Todas las funciones incluyendo sincronización en la nube, estadísticas y todos los programas de entrenamiento están disponibles sin coste."
+              "text": "Sí, Gravity Room es 100% gratis. Todas las funciones incluyendo sincronización en la nube, estadísticas y todos los programas de entrenamiento están disponibles sin coste — sin nivel premium, sin anuncios."
             }
           }
         ]
@@ -155,54 +200,54 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
 
-    <!-- Fallback for non-JS crawlers (AI bots, accessibility tools) -->
+    <!-- Fallback for non-JS crawlers (AI bots, search engines, accessibility tools) -->
     <noscript>
       <div style="max-width: 800px; margin: 0 auto; padding: 40px 20px; font-family: sans-serif">
         <h1>Gravity Room — Programas de Entrenamiento con Progresión Automática</h1>
+        <p>
+          Stop guessing at the gym. Follow proven programs that automatically adjust weight, sets,
+          and reps — so every session moves you forward.
+        </p>
         <p>
           Deja de adivinar en el gimnasio. Sigue programas probados que ajustan automáticamente el
           peso, series y repeticiones — para que cada sesión te haga avanzar.
         </p>
 
-        <h2>Características</h2>
+        <h2>Features / Características</h2>
         <ul>
           <li>
-            <strong>Progresión Inteligente</strong> — La app decide cuándo agregar peso y cómo
-            manejar el fallo.
+            <strong>Smart Progression / Progresión Inteligente</strong> — The app decides when to
+            add weight and how to handle failure.
           </li>
           <li>
-            <strong>Programas Probados</strong> — Programas de entrenamiento respaldados por la
-            ciencia con periodización estructurada.
+            <strong>Proven Programs / Programas Probados</strong> — Science-backed training with
+            structured periodization.
           </li>
           <li>
-            <strong>Estadísticas y Gráficas</strong> — Ve tu curva de fuerza a lo largo del tiempo.
+            <strong>Stats &amp; Charts / Estadísticas y Gráficas</strong> — See your strength curve
+            over time.
           </li>
           <li>
-            <strong>Sincronización en la Nube</strong> — Tus datos se sincronizan automáticamente
-            entre dispositivos.
+            <strong>Cloud Sync / Sincronización en la Nube</strong> — Your data syncs automatically
+            across devices.
           </li>
         </ul>
 
-        <h2>Cómo Funciona</h2>
-        <ol>
-          <li>Elige tu programa y configura tus pesos iniciales.</li>
-          <li>
-            Cada entrenamiento te dice exactamente qué hacer — ejercicio, series, repeticiones,
-            peso.
-          </li>
-          <li>
-            Completa tus reps y el peso sube automáticamente. Si fallas, el programa se adapta.
-          </li>
-        </ol>
-
-        <h2>Programas Disponibles</h2>
-        <p>
-          GZCLP, y más programas añadidos regularmente en categorías de fuerza, hipertrofia y
-          powerlifting. Todos 100% gratis.
-        </p>
+        <h2>Programs / Programas Disponibles</h2>
+        <ul>
+          <li><a href="/programs/gzclp">GZCLP</a></li>
+          <li><a href="/programs/stronglifts-5x5">StrongLifts 5x5</a></li>
+          <li><a href="/programs/phraks-greyskull-lp">Phrak's Greyskull LP</a></li>
+          <li><a href="/programs/531-boring-but-big">5/3/1 Boring But Big</a></li>
+          <li><a href="/programs/531-for-beginners">5/3/1 for Beginners</a></li>
+          <li><a href="/programs/phul">PHUL</a></li>
+          <li><a href="/programs/hexan-ppl">Hexan PPL</a></li>
+        </ul>
 
         <p>
-          <a href="https://gravityroom.app/privacy">Política de Privacidad</a>
+          <a href="/en">English version</a> ·
+          <a href="/privacy">Privacy Policy / Política de Privacidad</a> ·
+          <a href="/cookies">Cookies</a>
         </p>
       </div>
     </noscript>
