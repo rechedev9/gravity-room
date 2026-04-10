@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { GoogleLogin } from '@react-oauth/google';
@@ -15,7 +15,10 @@ export function LoginPage(): React.ReactNode {
 
   useDocumentTitle('Iniciar Sesión — Gravity Room');
 
+  const loginTracked = useRef(false);
   useEffect(() => {
+    if (loginTracked.current) return;
+    loginTracked.current = true;
     trackEvent('login_page_view');
   }, []);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useProgramHead } from '@/hooks/use-head';
 import { trackEvent } from '@/lib/analytics';
@@ -160,9 +160,8 @@ function HeaderCta({
 
 export function ProgramPreviewPage(): ReactNode {
   const { programId } = useParams({ from: '/programs/$programId' });
-  const resolvedProgramId = programId;
 
-  const { definition, rows, isLoading, isError } = useProgramPreview(resolvedProgramId);
+  const { definition, rows, isLoading, isError } = useProgramPreview(programId);
   const { user, loading: authLoading } = useAuth();
 
   // Conditionally fetch programs to check for active program (only when authenticated)
@@ -179,14 +178,15 @@ export function ProgramPreviewPage(): ReactNode {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getViewPreference());
 
-  useProgramHead(resolvedProgramId, definition?.name, definition?.description);
+  useProgramHead(programId, definition?.name, definition?.description);
 
-  // Track program preview view once definition is loaded
+  const previewTracked = useRef(false);
   useEffect(() => {
-    if (definition !== undefined) {
-      trackEvent('program_preview_view', { program_id: resolvedProgramId });
+    if (definition !== undefined && !previewTracked.current) {
+      previewTracked.current = true;
+      trackEvent('program_preview_view', { program_id: programId });
     }
-  }, [definition, resolvedProgramId]);
+  }, [definition, programId]);
 
   // Build program summary when definition is available
   const summary = definition !== undefined ? buildProgramSummary(definition) : null;
@@ -276,7 +276,7 @@ export function ProgramPreviewPage(): ReactNode {
             user={user}
             hasActiveProgram={hasActiveProgram}
             programsQueryFailed={programsQueryFailed}
-            programId={resolvedProgramId}
+            programId={programId}
           />
         )}
       </header>
@@ -364,7 +364,7 @@ export function ProgramPreviewPage(): ReactNode {
           ) : hasActiveProgram ? (
             <PreviewCtaActiveWarning />
           ) : (
-            <PreviewCtaStartProgram programId={resolvedProgramId} />
+            <PreviewCtaStartProgram programId={programId} />
           ))}
       </div>
 
