@@ -12,19 +12,11 @@ export interface HeadProps {
   readonly lang?: string;
 }
 
-function getMeta(selector: string): HTMLMetaElement | null {
-  return document.querySelector<HTMLMetaElement>(selector);
-}
-
-function getLink(selector: string): HTMLLinkElement | null {
-  return document.querySelector<HTMLLinkElement>(selector);
-}
-
 function setMetaName(name: string, value: string): () => void {
-  let el = getMeta(`meta[name="${name}"]`);
+  let el = document.head.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
   const prev = el?.content;
-  const created = !el;
-  if (!el) {
+  const created = el === null;
+  if (el === null) {
     el = document.createElement('meta');
     el.name = name;
     document.head.appendChild(el);
@@ -41,10 +33,10 @@ function setMetaName(name: string, value: string): () => void {
 }
 
 function setMetaProperty(property: string, value: string): () => void {
-  let el = getMeta(`meta[property="${property}"]`);
+  let el = document.head.querySelector<HTMLMetaElement>(`meta[property="${property}"]`);
   const prev = el?.content;
-  const created = !el;
-  if (!el) {
+  const created = el === null;
+  if (el === null) {
     el = document.createElement('meta');
     el.setAttribute('property', property);
     document.head.appendChild(el);
@@ -61,10 +53,10 @@ function setMetaProperty(property: string, value: string): () => void {
 }
 
 function setCanonical(href: string): () => void {
-  let el = getLink('link[rel="canonical"]');
+  let el = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
   const prev = el?.getAttribute('href');
-  const created = !el;
-  if (!el) {
+  const created = el === null;
+  if (el === null) {
     el = document.createElement('link');
     el.rel = 'canonical';
     document.head.appendChild(el);
@@ -80,10 +72,6 @@ function setCanonical(href: string): () => void {
   };
 }
 
-/**
- * Manages per-route document head metadata (title, meta tags, canonical link, lang).
- * Restores previous values on unmount so unmounted routes don't leave stale tags.
- */
 export function useHead({
   title,
   description,
@@ -127,10 +115,6 @@ export function useHead({
   }, [title, description, canonical, ogTitle, ogDescription, ogUrl, ogLocale, lang]);
 }
 
-/**
- * Sets og:title/description/url from program data once loaded.
- * Falls back gracefully to defaults defined in index.html.
- */
 export function useProgramHead(
   programId: string,
   name: string | undefined,
