@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useScroll, useMotionValueEvent } from 'motion/react';
-import { DISCORD_URL, NAV_LINKS, DiscordIcon } from './shared';
+import type { NavContent } from './content';
+import { DISCORD_URL, DiscordIcon } from './shared';
 
 interface NavBarProps {
   readonly activeSection: string | null;
+  readonly content: NavContent;
 }
 
-export function NavBar({ activeSection }: NavBarProps): React.ReactNode {
+export function NavBar({ activeSection, content }: NavBarProps): React.ReactNode {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { scrollY } = useScroll();
@@ -26,7 +28,7 @@ export function NavBar({ activeSection }: NavBarProps): React.ReactNode {
 
   return (
     <nav
-      aria-label="Navegación principal"
+      aria-label={content.navLabel}
       className={`sticky top-0 z-50 transition-[background-color,border-color,backdrop-filter] duration-300 ${
         scrolled || menuOpen
           ? 'bg-header/95 backdrop-blur-md border-b border-rule'
@@ -46,7 +48,7 @@ export function NavBar({ activeSection }: NavBarProps): React.ReactNode {
         </div>
 
         <div className="hidden md:flex items-center gap-8">
-          {NAV_LINKS.map((link) => {
+          {content.links.map((link) => {
             const active = activeSection === link.href.slice(1);
             return (
               <a
@@ -69,7 +71,7 @@ export function NavBar({ activeSection }: NavBarProps): React.ReactNode {
             href={DISCORD_URL}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Únete a la comunidad en Discord"
+            aria-label={content.discordAriaLabel}
             className="flex items-center gap-2 text-muted hover:text-[#5865F2] transition-colors duration-200"
           >
             <DiscordIcon className="w-4 h-4" />
@@ -84,14 +86,14 @@ export function NavBar({ activeSection }: NavBarProps): React.ReactNode {
             to="/login"
             className="hidden md:inline-block font-mono text-xs font-bold tracking-widest uppercase text-btn-text border border-btn-ring px-5 py-2.5 hover:bg-btn-active hover:text-btn-active-text hover:shadow-[0_0_20px_rgba(232,170,32,0.25)] transition-all duration-200"
           >
-            Iniciar Sesión →
+            {content.signInLabel}
           </Link>
 
           <button
             type="button"
             className="md:hidden p-1.5 text-muted hover:text-main transition-colors"
             onClick={() => setMenuOpen((v) => !v)}
-            aria-label={menuOpen ? 'Cerrar menú' : 'Abrir menú'}
+            aria-label={menuOpen ? content.closeMenuLabel : content.openMenuLabel}
             aria-expanded={menuOpen}
             aria-haspopup="true"
             aria-controls="mobile-nav"
@@ -114,7 +116,7 @@ export function NavBar({ activeSection }: NavBarProps): React.ReactNode {
 
       {menuOpen && (
         <div id="mobile-nav" className="md:hidden border-t border-rule px-6 py-2 flex flex-col">
-          {NAV_LINKS.map((link) => (
+          {content.links.map((link) => (
             <a
               key={link.href}
               href={link.href}
@@ -130,7 +132,7 @@ export function NavBar({ activeSection }: NavBarProps): React.ReactNode {
               onClick={() => setMenuOpen(false)}
               className="font-mono text-xs font-bold tracking-widest uppercase text-btn-text border border-btn-ring px-5 py-2.5 hover:bg-btn-active hover:text-btn-active-text transition-all duration-200 inline-block"
             >
-              Iniciar Sesión →
+              {content.signInLabel}
             </Link>
           </div>
         </div>

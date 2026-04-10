@@ -1,8 +1,12 @@
-import { STEPS } from '@/lib/landing-page-data';
 import { FadeUp, StaggerContainer, StaggerItem, fadeUpVariants } from '@/lib/motion-primitives';
 import { SECTION_PAD, SectionHeader } from './shared';
+import type { HowItWorksContent } from './content';
 
-export function HowItWorksSection(): React.ReactNode {
+interface HowItWorksSectionProps {
+  readonly content: HowItWorksContent;
+}
+
+export function HowItWorksSection({ content }: HowItWorksSectionProps): React.ReactNode {
   return (
     <section
       id="how-it-works"
@@ -12,10 +16,10 @@ export function HowItWorksSection(): React.ReactNode {
       <div className="max-w-4xl mx-auto">
         <FadeUp>
           <SectionHeader
-            label="Cómo Funciona"
+            label={content.sectionLabel}
             headingId="how-it-works-heading"
-            title="Tres Pasos. Eso es Todo."
-            subtitle="Sin configuración complicada. Sin hojas de cálculo. Solo elige tus pesos y entrena."
+            title={content.title}
+            subtitle={content.subtitle}
           />
         </FadeUp>
 
@@ -30,7 +34,7 @@ export function HowItWorksSection(): React.ReactNode {
             }}
           />
           <div className="grid grid-cols-3">
-            {STEPS.map((s) => (
+            {content.steps.map((s) => (
               <div key={s.num} className="flex justify-center">
                 <div className="w-8 h-8 rounded-full border-2 border-accent bg-header flex items-center justify-center">
                   <span className="font-mono text-[10px] font-bold text-accent">{s.num}</span>
@@ -41,7 +45,7 @@ export function HowItWorksSection(): React.ReactNode {
         </div>
 
         <StaggerContainer stagger={0.15} className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-6">
-          {STEPS.map((s) => (
+          {content.steps.map((s) => (
             <StaggerItem key={s.num} variants={fadeUpVariants} className="relative text-center">
               {/* Mobile step number */}
               <div className="sm:hidden font-display text-4xl font-bold mb-3 text-accent opacity-60">

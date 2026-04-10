@@ -1,6 +1,21 @@
-import { FEATURES } from '@/lib/landing-page-data';
 import { FadeUp, StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
 import { SECTION_PAD, SectionHeader } from './shared';
+import type { FeaturesContent } from './content';
+
+/* ── Feature icons (language-independent visual assets) ─────────────────── */
+
+const FEATURE_ICONS: readonly React.ReactNode[] = [
+  <img
+    src="/feature-progression.webp"
+    alt="Automatic progression icon"
+    width={64}
+    height={64}
+    className="w-full h-full object-contain"
+  />,
+  <img src="/feature-tracking.webp" alt="Exercise tracking icon" width={48} height={48} />,
+  <img src="/feature-stats.webp" alt="Statistics icon" width={48} height={48} />,
+  <img src="/feature-sync.webp" alt="Synchronization icon" width={48} height={48} />,
+];
 
 function AppPreview(): React.ReactNode {
   return (
@@ -67,7 +82,11 @@ function AppPreview(): React.ReactNode {
   );
 }
 
-export function FeaturesSection(): React.ReactNode {
+interface FeaturesSectionProps {
+  readonly content: FeaturesContent;
+}
+
+export function FeaturesSection({ content }: FeaturesSectionProps): React.ReactNode {
   return (
     <section
       id="features"
@@ -76,15 +95,15 @@ export function FeaturesSection(): React.ReactNode {
     >
       <FadeUp>
         <SectionHeader
-          label="Características"
+          label={content.sectionLabel}
           headingId="features-heading"
-          title="Todo lo que Necesitas"
-          subtitle="Sin relleno. Solo herramientas enfocadas que hacen que cada repetición cuente."
+          title={content.title}
+          subtitle={content.subtitle}
           subtitleWidth="md"
         />
       </FadeUp>
       <StaggerContainer stagger={0.08} className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-rule">
-        {FEATURES.map((f) => (
+        {content.items.map((f, idx) => (
           <StaggerItem
             key={f.title}
             className="relative bg-card p-8 transition-all landing-card-glow group flex items-start gap-5"
@@ -97,7 +116,7 @@ export function FeaturesSection(): React.ReactNode {
             }}
           >
             <div className="shrink-0 w-16 h-16 group-hover:scale-110 transition-transform duration-300 text-accent">
-              {f.icon}
+              {FEATURE_ICONS[idx]}
             </div>
             <div>
               <h3 className="text-sm font-bold mb-2 uppercase tracking-wider text-main">

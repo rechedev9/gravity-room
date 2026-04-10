@@ -2,8 +2,14 @@ import { Link } from '@tanstack/react-router';
 import { motion, useReducedMotion } from 'motion/react';
 import { fadeUpVariants, fadeInVariants, scaleUpVariants } from '@/lib/motion-primitives';
 import { DiscordIcon, DISCORD_URL } from './shared';
+import { trackEvent } from '@/lib/analytics';
+import type { FinalCtaContent } from './content';
 
-export function FinalCtaSection(): React.ReactNode {
+interface FinalCtaSectionProps {
+  readonly content: FinalCtaContent;
+}
+
+export function FinalCtaSection({ content }: FinalCtaSectionProps): React.ReactNode {
   const reduced = useReducedMotion();
   const init = reduced ? 'visible' : 'hidden';
 
@@ -39,7 +45,7 @@ export function FinalCtaSection(): React.ReactNode {
           variants={fadeInVariants}
           className="font-mono text-[11px] tracking-[0.3em] uppercase mb-6 text-muted"
         >
-          ¿Listo para subir la gravedad?
+          {content.eyebrow}
         </motion.p>
         <motion.h2
           variants={fadeUpVariants}
@@ -49,10 +55,10 @@ export function FinalCtaSection(): React.ReactNode {
             letterSpacing: '0.02em',
           }}
         >
-          Entra a la Gravity Room.
+          {content.line1}
           <br />
           <span className="text-main" style={{ opacity: 0.8 }}>
-            Comienza a Entrenar Hoy.
+            {content.line2}
           </span>
         </motion.h2>
         <motion.p
@@ -61,7 +67,7 @@ export function FinalCtaSection(): React.ReactNode {
         >
           <DiscordIcon className="w-4 h-4" />
           <span>
-            Únete a la comunidad en{' '}
+            {content.discordText}{' '}
             <a
               href={DISCORD_URL}
               target="_blank"
@@ -75,9 +81,10 @@ export function FinalCtaSection(): React.ReactNode {
         <motion.div variants={scaleUpVariants}>
           <Link
             to="/login"
+            onClick={() => trackEvent('landing_cta_click', { location: 'final_cta' })}
             className="font-mono inline-block px-12 py-4 text-sm font-bold tracking-widest uppercase border-2 border-btn-ring bg-btn-active text-btn-active-text hover:shadow-[0_0_48px_rgba(232,170,32,0.4)] transition-all duration-300"
           >
-            Comienza Gratis →
+            {content.cta}
           </Link>
         </motion.div>
       </motion.div>

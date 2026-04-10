@@ -5,7 +5,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useScrollSpy } from '@/hooks/use-scroll-spy';
 import { useHead } from '@/hooks/use-head';
 import { trackEvent, getUtmProps } from '@/lib/analytics';
-import { ES_CONTENT } from './content';
+import { EN_CONTENT } from './content';
 import {
   SECTION_IDS,
   CATALOG_STALE_TIME,
@@ -23,25 +23,25 @@ import { ScienceSection } from './science-section';
 import { ProgramsSection } from './programs-section';
 import { FinalCtaSection } from './final-cta-section';
 
-export function LandingPage(): React.ReactNode {
+export function LandingPageEn(): React.ReactNode {
   const activeSection = useScrollSpy(SECTION_IDS);
 
   useHead({
-    title: 'Gravity Room — Programas de Entrenamiento con Progresión Automática',
+    title: 'Gravity Room — Weightlifting Programs with Automatic Progression',
     description:
-      'Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis.',
-    canonical: 'https://gravityroom.app/',
-    ogLocale: 'es_ES',
-    ogTitle: 'Gravity Room — Programas de Entrenamiento con Progresión Automática',
+      'Stop guessing at the gym. Follow proven weightlifting programs that automatically adjust weight, sets, and reps. 100% free.',
+    canonical: 'https://gravityroom.app/en',
+    ogLocale: 'en_US',
+    ogTitle: 'Gravity Room — Weightlifting Programs with Automatic Progression',
     ogDescription:
-      'Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis.',
-    ogUrl: 'https://gravityroom.app/',
-    lang: 'es',
+      'Stop guessing at the gym. Follow proven weightlifting programs that automatically adjust weight, sets, and reps. 100% free.',
+    ogUrl: 'https://gravityroom.app/en',
+    lang: 'en',
   });
 
   // Track landing page view with UTM attribution on first mount
   useEffect(() => {
-    trackEvent('landing_view', { lang: 'es', ...getUtmProps() });
+    trackEvent('landing_view', { lang: 'en', ...getUtmProps() });
   }, []);
 
   const catalogQuery = useQuery<readonly CatalogEntry[]>({
@@ -60,32 +60,32 @@ export function LandingPage(): React.ReactNode {
 
   return (
     <div className="grain-overlay min-h-dvh bg-body overflow-x-hidden">
-      <SkipToContent label={ES_CONTENT.skipLabel} />
-      <LangBanner label={ES_CONTENT.langSwitch.label} href={ES_CONTENT.langSwitch.href} />
-      <NavBar activeSection={activeSection} content={ES_CONTENT.nav} />
+      <SkipToContent label={EN_CONTENT.skipLabel} />
+      <LangBanner label={EN_CONTENT.langSwitch.label} href={EN_CONTENT.langSwitch.href} />
+      <NavBar activeSection={activeSection} content={EN_CONTENT.nav} />
 
       <main id="main-content">
-        <HeroSection content={ES_CONTENT.hero} />
+        <HeroSection content={EN_CONTENT.hero} />
         <GradientDivider />
         <MetricsSection
           programCount={programCount}
           minDaysPerWeek={minDaysPerWeek}
           totalWorkouts={totalWorkouts}
-          content={ES_CONTENT.metrics}
+          content={EN_CONTENT.metrics}
         />
         <GradientDivider />
-        <FeaturesSection content={ES_CONTENT.features} />
+        <FeaturesSection content={EN_CONTENT.features} />
         <GradientDivider />
-        <HowItWorksSection content={ES_CONTENT.howItWorks} />
+        <HowItWorksSection content={EN_CONTENT.howItWorks} />
         <GradientDivider />
-        <ScienceSection content={ES_CONTENT.science} />
+        <ScienceSection content={EN_CONTENT.science} />
         <GradientDivider />
-        <ProgramsSection catalogQuery={catalogQuery} content={ES_CONTENT.programs} />
+        <ProgramsSection catalogQuery={catalogQuery} content={EN_CONTENT.programs} />
         <GradientDivider />
-        <FinalCtaSection content={ES_CONTENT.finalCta} />
+        <FinalCtaSection content={EN_CONTENT.finalCta} />
       </main>
 
-      <Footer content={ES_CONTENT.footer} navLinks={ES_CONTENT.nav.links} />
+      <Footer content={EN_CONTENT.footer} navLinks={EN_CONTENT.nav.links} />
     </div>
   );
 }

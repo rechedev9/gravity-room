@@ -1,18 +1,14 @@
 import { Link } from '@tanstack/react-router';
 import { motion, useReducedMotion } from 'motion/react';
 import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
+import type { FooterContent, NavLink } from './content';
 
 /* ── Constants ────────────────────────────────────── */
 
 export const DISCORD_URL = 'https://discord.gg/FXNBrgYf7U';
+export const GITHUB_URL = 'https://github.com/rechedev/gravity-room';
 
 export const SECTION_IDS = ['features', 'how-it-works', 'programs'] as const;
-
-export const NAV_LINKS = [
-  { label: 'Características', href: '#features' },
-  { label: 'Cómo Funciona', href: '#how-it-works' },
-  { label: 'Programas', href: '#programs' },
-] as const;
 
 export const MAX_LANDING_PROGRAMS = 6;
 export const CATALOG_STALE_TIME = 5 * 60 * 1000;
@@ -94,6 +90,23 @@ export function DiscordIcon({ className }: { readonly className?: string }): Rea
   );
 }
 
+/* ── GitHub icon ──────────────────────────────────── */
+
+export function GitHubIcon({ className }: { readonly className?: string }): React.ReactNode {
+  return (
+    <svg
+      role="img"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      aria-hidden="true"
+    >
+      <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
+    </svg>
+  );
+}
+
 /* ── Program helpers ──────────────────────────────── */
 
 export { getCategoryColor, categoryLabel } from '@/lib/category-colors';
@@ -125,20 +138,45 @@ export function ProgramCardSkeleton(): React.ReactNode {
 
 /* ── Skip-navigation link ─────────────────────────── */
 
-export function SkipToContent(): React.ReactNode {
+export function SkipToContent({ label }: { readonly label: string }): React.ReactNode {
   return (
     <a
       href="#main-content"
       className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-btn-active focus:text-btn-active-text focus:text-sm focus:font-bold"
     >
-      Ir al contenido
+      {label}
     </a>
+  );
+}
+
+/* ── Language switch banner ───────────────────────── */
+
+export function LangBanner({
+  label,
+  href,
+}: {
+  readonly label: string;
+  readonly href: string;
+}): React.ReactNode {
+  return (
+    <div className="w-full bg-card border-b border-rule text-center py-2 px-4">
+      <span className="font-mono text-[11px] tracking-wider text-muted">
+        <Link to={href} className="hover:text-accent transition-colors duration-200">
+          {label}
+        </Link>
+      </span>
+    </div>
   );
 }
 
 /* ── Footer ───────────────────────────────────────── */
 
-export function Footer(): React.ReactNode {
+interface FooterProps {
+  readonly content: FooterContent;
+  readonly navLinks: readonly NavLink[];
+}
+
+export function Footer({ content, navLinks }: FooterProps): React.ReactNode {
   return (
     <footer className="px-6 sm:px-10 py-12 bg-header border-t border-rule">
       <div className="max-w-5xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-10 sm:gap-8">
@@ -154,17 +192,15 @@ export function Footer(): React.ReactNode {
             />
             <p className="text-sm font-bold text-title">Gravity Room</p>
           </div>
-          <p className="text-xs text-muted leading-relaxed">
-            Para atletas que se niegan a estancarse.
-          </p>
+          <p className="text-xs text-muted leading-relaxed">{content.tagline}</p>
         </div>
 
         <div>
           <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-muted mb-3">
-            Navegación
+            {content.navLabel}
           </p>
           <ul className="space-y-2">
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <li key={link.href}>
                 <a
                   href={link.href}
@@ -179,23 +215,32 @@ export function Footer(): React.ReactNode {
 
         <div>
           <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-muted mb-3">
-            Comunidad
+            {content.communityLabel}
           </p>
           <a
             href={DISCORD_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 text-sm text-muted hover:text-[#5865F2] transition-colors mb-4"
+            className="flex items-center gap-2 text-sm text-muted hover:text-[#5865F2] transition-colors mb-2"
           >
             <DiscordIcon className="w-4 h-4" />
             Discord
           </a>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm text-muted hover:text-main transition-colors mb-4"
+          >
+            <GitHubIcon className="w-4 h-4" />
+            {content.githubLabel}
+          </a>
           <div className="font-mono flex flex-col gap-1.5 text-[11px] text-muted">
             <Link to="/privacy" className="hover:text-main transition-colors">
-              Privacidad
+              {content.privacyLabel}
             </Link>
             <Link to="/cookies" className="hover:text-main transition-colors">
-              Cookies
+              {content.cookiesLabel}
             </Link>
           </div>
         </div>

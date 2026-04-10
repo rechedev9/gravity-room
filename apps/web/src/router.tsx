@@ -47,6 +47,9 @@ const CookiePolicyPage = lazyWithRetry(() =>
 const LandingPage = lazyWithRetry(() =>
   import('@/features/landing').then((m) => ({ default: m.LandingPage }))
 );
+const LandingPageEn = lazyWithRetry(() =>
+  import('@/features/landing/landing-page-en').then((m) => ({ default: m.LandingPageEn }))
+);
 const ProgramPreviewPage = lazyWithRetry(() =>
   import('@/features/program-preview/program-preview-page').then((m) => ({
     default: m.ProgramPreviewPage,
@@ -106,6 +109,18 @@ const landingRoute = createRoute({
     return (
       <Suspense fallback={<LandingSkeleton />}>
         <LandingPage />
+      </Suspense>
+    );
+  },
+});
+
+const landingEnRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/en',
+  component: function LandingEnRoute(): React.ReactNode {
+    return (
+      <Suspense fallback={<LandingSkeleton />}>
+        <LandingPageEn />
       </Suspense>
     );
   },
@@ -278,6 +293,7 @@ const analyticsRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   landingRoute,
+  landingEnRoute,
   loginRoute,
   privacyRoute,
   cookiesRoute,

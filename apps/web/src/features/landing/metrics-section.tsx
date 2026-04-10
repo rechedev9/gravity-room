@@ -2,17 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
 import { useInViewport } from '@/hooks/use-in-viewport';
+import type { MetricsContent } from './content';
 
 interface MetricsSectionProps {
   readonly programCount: number;
   readonly minDaysPerWeek: number;
   readonly totalWorkouts: number;
-}
-
-interface MetricCell {
-  readonly prefix?: string;
-  readonly value: string;
-  readonly label: string;
+  readonly content: MetricsContent;
 }
 
 function useCountUp(target: number, active: boolean, skipAnimation: boolean): number {
@@ -41,10 +37,17 @@ function useCountUp(target: number, active: boolean, skipAnimation: boolean): nu
   return active ? current : 0;
 }
 
+interface MetricCell {
+  readonly prefix?: string;
+  readonly value: string;
+  readonly label: string;
+}
+
 export function MetricsSection({
   programCount,
   minDaysPerWeek,
   totalWorkouts,
+  content,
 }: MetricsSectionProps): React.ReactNode {
   const [sectionRef, visible] = useInViewport();
   const reduced = useReducedMotion() ?? false;
@@ -55,24 +58,24 @@ export function MetricsSection({
   const metrics: readonly MetricCell[] = [
     {
       value: programCount > 0 ? String(programAnimated) : '—',
-      label: 'Programas Disponibles',
+      label: content.programs.label,
     },
-    { value: '100%', label: 'Gratis' },
+    { value: '100%', label: content.free.label },
     {
-      prefix: 'Desde',
+      prefix: content.days.prefix,
       value: minDaysPerWeek > 0 ? String(minDaysPerWeek) : '—',
-      label: 'Días por Semana',
+      label: content.days.label,
     },
     {
       value: totalWorkouts > 0 ? String(workoutsAnimated) : '—',
-      label: 'Entrenamientos',
+      label: content.workouts.label,
     },
   ];
 
   return (
     <section
       ref={sectionRef}
-      aria-label="Métricas del programa"
+      aria-label={content.ariaLabel}
       className="px-6 sm:px-10 py-16 sm:py-20 bg-header"
     >
       <StaggerContainer

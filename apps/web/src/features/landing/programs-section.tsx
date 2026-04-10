@@ -11,12 +11,14 @@ import {
   estimatedWeeks,
   MAX_LANDING_PROGRAMS,
 } from './shared';
+import type { ProgramsContent } from './content';
 
 interface ProgramsSectionProps {
   readonly catalogQuery: UseQueryResult<readonly CatalogEntry[]>;
+  readonly content: ProgramsContent;
 }
 
-export function ProgramsSection({ catalogQuery }: ProgramsSectionProps): React.ReactNode {
+export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps): React.ReactNode {
   const catalog = catalogQuery.data;
 
   return (
@@ -28,10 +30,10 @@ export function ProgramsSection({ catalogQuery }: ProgramsSectionProps): React.R
       <div className="max-w-4xl mx-auto">
         <FadeUp>
           <SectionHeader
-            label="Catálogo"
+            label={content.sectionLabel}
             headingId="programs-heading"
-            title="Elige Tu Programa"
-            subtitle="Programas de entrenamiento con progresión automática. Elige el que se adapte a tus objetivos."
+            title={content.title}
+            subtitle={content.subtitle}
           />
         </FadeUp>
 
@@ -55,10 +57,10 @@ export function ProgramsSection({ catalogQuery }: ProgramsSectionProps): React.R
                   program.level === 'beginner' ? 1 : program.level === 'intermediate' ? 2 : 3;
                 const levelLabel =
                   program.level === 'beginner'
-                    ? 'Principiante'
+                    ? content.levelLabels.beginner
                     : program.level === 'intermediate'
-                      ? 'Intermedio'
-                      : 'Avanzado';
+                      ? content.levelLabels.intermediate
+                      : content.levelLabels.advanced;
                 return (
                   <StaggerItem key={program.id}>
                     <Link
@@ -91,7 +93,7 @@ export function ProgramsSection({ catalogQuery }: ProgramsSectionProps): React.R
                         </h3>
 
                         <p className="font-mono text-center text-[11px] tracking-wider uppercase mb-4 text-muted">
-                          por {program.author}
+                          {content.by} {program.author}
                         </p>
 
                         <p className="text-sm text-center leading-relaxed mb-6 line-clamp-2 text-muted">
@@ -105,8 +107,8 @@ export function ProgramsSection({ catalogQuery }: ProgramsSectionProps): React.R
                               program.workoutsPerWeek
                             );
                             return [
-                              `${program.workoutsPerWeek} días/semana`,
-                              ...(weeks > 0 ? [`${weeks} semanas`] : []),
+                              `${program.workoutsPerWeek} ${content.daysPerWeek}`,
+                              ...(weeks > 0 ? [`${weeks} ${content.weeks}`] : []),
                             ];
                           })().map((pill) => (
                             <span
@@ -148,7 +150,7 @@ export function ProgramsSection({ catalogQuery }: ProgramsSectionProps): React.R
                   to="/login"
                   className="font-mono text-sm tracking-wider uppercase text-muted hover:text-accent transition-colors"
                 >
-                  Ver los {catalog.length} programas →
+                  {content.moreProgramsFn(catalog.length)}
                 </Link>
               </div>
             )}
@@ -156,7 +158,7 @@ export function ProgramsSection({ catalogQuery }: ProgramsSectionProps): React.R
         )}
 
         {catalogQuery.isError && (
-          <p className="text-sm text-center text-muted">No se pudieron cargar los programas.</p>
+          <p className="text-sm text-center text-muted">{content.errorText}</p>
         )}
       </div>
     </section>

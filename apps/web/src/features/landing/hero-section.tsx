@@ -1,8 +1,14 @@
 import { Link } from '@tanstack/react-router';
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
 import { EASE_OUT_EXPO, fadeUpVariants } from '@/lib/motion-primitives';
+import { trackEvent } from '@/lib/analytics';
+import type { HeroContent } from './content';
 
-export function HeroSection(): React.ReactNode {
+interface HeroSectionProps {
+  readonly content: HeroContent;
+}
+
+export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
   const reduced = useReducedMotion();
   const init = reduced ? 'visible' : 'hidden';
   const { scrollY } = useScroll();
@@ -48,7 +54,7 @@ export function HeroSection(): React.ReactNode {
         >
           <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
           <span className="text-[10px] font-medium tracking-[0.3em] uppercase text-muted">
-            100% Gratis &middot; Sincroniza entre Dispositivos
+            {content.badge}
           </span>
         </motion.div>
 
@@ -61,10 +67,10 @@ export function HeroSection(): React.ReactNode {
             letterSpacing: '0.02em',
           }}
         >
-          Entrena Mejor.
+          {content.line1}
           <br />
           <span className="text-main" style={{ opacity: 0.9 }}>
-            Progresa Más Rápido.
+            {content.line2}
           </span>
         </motion.h1>
 
@@ -72,8 +78,7 @@ export function HeroSection(): React.ReactNode {
           variants={fadeUpVariants}
           className="text-base sm:text-lg max-w-xl mx-auto mb-12 leading-relaxed text-muted"
         >
-          Deja de adivinar en el gimnasio. Sigue programas probados que ajustan automáticamente el
-          peso, series y repeticiones — para que cada sesión te haga avanzar.
+          {content.subtitle}
         </motion.p>
 
         <motion.div
@@ -82,15 +87,16 @@ export function HeroSection(): React.ReactNode {
         >
           <Link
             to="/login"
+            onClick={() => trackEvent('landing_cta_click', { location: 'hero' })}
             className="font-mono px-10 py-4 text-sm font-bold tracking-widest uppercase border-2 border-btn-ring bg-btn-active text-btn-active-text hover:shadow-[0_0_32px_rgba(232,170,32,0.35)] transition-all duration-300 min-w-[220px]"
           >
-            Comenzar →
+            {content.primaryCta}
           </Link>
           <a
             href="#how-it-works"
             className="font-mono px-10 py-4 text-sm font-bold tracking-widest uppercase border-2 border-rule text-muted hover:border-rule-light hover:text-main transition-all duration-300 min-w-[220px]"
           >
-            Cómo Funciona
+            {content.secondaryCta}
           </a>
         </motion.div>
 
