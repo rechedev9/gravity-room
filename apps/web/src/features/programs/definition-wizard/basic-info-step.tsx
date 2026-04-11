@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod/v4';
@@ -7,18 +8,24 @@ import type { WizardStepProps } from './types';
 const MAX_NAME_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 500;
 
-const BasicInfoSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, 'El nombre es obligatorio')
-    .max(MAX_NAME_LENGTH, `Maximo ${MAX_NAME_LENGTH} caracteres`),
-  description: z
-    .string()
-    .max(MAX_DESCRIPTION_LENGTH, `Maximo ${MAX_DESCRIPTION_LENGTH} caracteres`),
-});
+function useBasicInfoSchema() {
+  const { t } = useTranslation();
+  return z.object({
+    name: z
+      .string()
+      .trim()
+      .min(1, t('programs.wizard.name_required'))
+      .max(MAX_NAME_LENGTH, t('programs.wizard.name_max', { max: MAX_NAME_LENGTH })),
+    description: z
+      .string()
+      .max(
+        MAX_DESCRIPTION_LENGTH,
+        t('programs.wizard.description_max', { max: MAX_DESCRIPTION_LENGTH })
+      ),
+  });
+}
 
-type BasicInfoFormValues = z.infer<typeof BasicInfoSchema>;
+type BasicInfoFormValues = z.infer<ReturnType<typeof useBasicInfoSchema>>;
 
 export function BasicInfoStep({
   definition,
@@ -26,13 +33,15 @@ export function BasicInfoStep({
   onNext,
   onBack,
 }: WizardStepProps): React.ReactNode {
+  const { t } = useTranslation();
+  const schema = useBasicInfoSchema();
   const {
     register,
     handleSubmit,
     watch,
     formState: { errors },
   } = useForm<BasicInfoFormValues>({
-    resolver: zodResolver(BasicInfoSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       name: definition.name,
       description: definition.description ?? '',
@@ -52,7 +61,7 @@ export function BasicInfoStep({
     <form onSubmit={handleSubmit(onValid)} className="space-y-6">
       <div>
         <label htmlFor="def-name" className="block text-xs font-bold text-muted mb-1.5">
-          Nombre del programa
+          {t('programs.wizard.program_name')}
         </label>
         <input
           id="def-name"
@@ -60,7 +69,7 @@ export function BasicInfoStep({
           {...register('name')}
           maxLength={MAX_NAME_LENGTH}
           className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none transition-colors"
-          placeholder="Mi programa personalizado"
+          placeholder={t('programs.wizard.program_name_placeholder')}
         />
         {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name.message}</p>}
         <p className="text-2xs text-zinc-500 mt-1">
@@ -70,7 +79,7 @@ export function BasicInfoStep({
 
       <div>
         <label htmlFor="def-description" className="block text-xs font-bold text-muted mb-1.5">
-          Descripcion (opcional)
+          {t('programs.wizard.description_optional')}
         </label>
         <textarea
           id="def-description"
@@ -78,7 +87,7 @@ export function BasicInfoStep({
           maxLength={MAX_DESCRIPTION_LENGTH}
           rows={3}
           className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none transition-colors resize-none"
-          placeholder="Describe tu programa..."
+          placeholder={t('programs.wizard.description_placeholder')}
         />
         {errors.description && (
           <p className="text-xs text-red-400 mt-1">{errors.description.message}</p>
@@ -90,10 +99,10 @@ export function BasicInfoStep({
 
       <div className="flex justify-between pt-4">
         <Button type="button" variant="ghost" onClick={onBack}>
-          Cancelar
+          {t('programs.wizard.cancel')}
         </Button>
         <Button type="submit" variant="primary">
-          Siguiente
+          {t('programs.wizard.next')}
         </Button>
       </div>
     </form>

@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
@@ -16,25 +17,26 @@ import {
   AnalyticsIcon,
   LoginIcon,
 } from './sidebar-icons';
+import { LanguageSelector } from '@/components/language-selector';
 
 const SIDEBAR_FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-sidebar)]';
 
 interface NavItem {
   readonly to: string;
-  readonly label: string;
+  readonly labelKey: string;
   readonly end?: boolean;
   readonly Icon: React.ComponentType<{ readonly className?: string }>;
   readonly guestHidden?: boolean;
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
-  { to: '/app', label: 'Inicio', end: true, Icon: HomeIcon },
-  { to: '/app/programs', label: 'Programas', Icon: ProgramsIcon },
-  { to: '/app/dashboard', label: 'Dashboard', Icon: DashboardIcon },
-  { to: '/app/tracker', label: 'Tracker', Icon: TrackerIcon },
-  { to: '/app/analytics', label: 'Analíticas', Icon: AnalyticsIcon },
-  { to: '/app/profile', label: 'Perfil', Icon: ProfileIcon, guestHidden: true },
+  { to: '/app', labelKey: 'navigation.home', end: true, Icon: HomeIcon },
+  { to: '/app/programs', labelKey: 'navigation.programs', Icon: ProgramsIcon },
+  { to: '/app/dashboard', labelKey: 'navigation.dashboard', Icon: DashboardIcon },
+  { to: '/app/tracker', labelKey: 'navigation.tracker', Icon: TrackerIcon },
+  { to: '/app/analytics', labelKey: 'navigation.analytics', Icon: AnalyticsIcon },
+  { to: '/app/profile', labelKey: 'navigation.profile', Icon: ProfileIcon, guestHidden: true },
 ];
 
 interface AppSidebarProps {
@@ -62,20 +64,20 @@ interface SidebarNavLinkProps {
 }
 
 function SidebarNavLink({ item, collapsed, onItemClick }: SidebarNavLinkProps): React.ReactNode {
+  const { t } = useTranslation();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = item.end ? pathname === item.to : pathname.startsWith(item.to);
+  const label = t(item.labelKey);
 
   return (
     <Link
       to={item.to}
       onClick={onItemClick}
       className={navItemClass(isActive, collapsed)}
-      aria-label={collapsed ? item.label : undefined}
+      aria-label={collapsed ? label : undefined}
     >
       <item.Icon className="shrink-0" />
-      {!collapsed && (
-        <span className="text-xs font-bold tracking-wide uppercase">{item.label}</span>
-      )}
+      {!collapsed && <span className="text-xs font-bold tracking-wide uppercase">{label}</span>}
       {collapsed && isActive && (
         <span
           aria-hidden="true"
@@ -117,8 +119,10 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
   );
 
   function renderNavItems(collapsed: boolean, onItemClick: () => void): React.ReactNode {
+    const { t } = useTranslation();
     return NAV_ITEMS.map((item) => {
       if (item.guestHidden && isGuest) return null;
+      const label = t(item.labelKey);
       const link = (
         <SidebarNavLink key={item.to} item={item} collapsed={collapsed} onItemClick={onItemClick} />
       );
@@ -127,7 +131,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
           <Tooltip key={item.to} delayDuration={300}>
             <TooltipTrigger asChild>{link}</TooltipTrigger>
             <TooltipContent side="right" sideOffset={8}>
-              {item.label}
+              {label}
             </TooltipContent>
           </Tooltip>
         );
@@ -137,9 +141,14 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
   }
 
   function renderContent(collapsed: boolean, onItemClick: () => void): React.ReactNode {
+    const { t } = useTranslation();
+
     return (
       <TooltipProvider>
-        <nav aria-label="Navegación principal" className="flex flex-col h-full overflow-hidden">
+        <nav
+          aria-label={t('navigation.main_nav_label')}
+          className="flex flex-col h-full overflow-hidden"
+        >
           {/* Logo */}
           <div
             className={cn(
@@ -180,6 +189,13 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
             {renderNavItems(collapsed, onItemClick)}
           </div>
 
+          {/* Language selector (expanded only) */}
+          {!collapsed && (
+            <div className="px-4 py-2 flex justify-center">
+              <LanguageSelector />
+            </div>
+          )}
+
           {/* User section */}
           <div
             className={cn(
@@ -196,7 +212,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                     'w-12 h-12 rounded-full bg-btn-active text-btn-active-text flex items-center justify-center hover:opacity-80 transition-opacity duration-150 cursor-pointer',
                     SIDEBAR_FOCUS_RING
                   )}
-                  aria-label="Crear Cuenta"
+                  aria-label={t('auth.create_account')}
                 >
                   <LoginIcon />
                 </button>
@@ -206,7 +222,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                   onClick={() => handleGuestExit(onItemClick)}
                   className="w-full px-3 py-2 text-xs font-bold text-btn-active-text bg-btn-active border-2 border-btn-ring uppercase tracking-wide cursor-pointer hover:opacity-90 transition-opacity"
                 >
-                  Crear Cuenta
+                  {t('auth.create_account')}
                 </button>
               )
             ) : user ? (
@@ -218,7 +234,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                     'w-12 h-12 rounded-full bg-btn-active text-btn-active-text text-sm font-extrabold flex items-center justify-center overflow-hidden hover:opacity-80 transition-opacity duration-150',
                     SIDEBAR_FOCUS_RING
                   )}
-                  aria-label="Ver perfil"
+                  aria-label={t('navigation.view_profile')}
                 >
                   {user.avatarUrl ? (
                     <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -242,7 +258,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                   'w-12 h-12 rounded-full bg-btn-active text-btn-active-text flex items-center justify-center hover:opacity-80 transition-opacity duration-150',
                   SIDEBAR_FOCUS_RING
                 )}
-                aria-label="Iniciar Sesión"
+                aria-label={t('auth.sign_in')}
               >
                 <LoginIcon />
               </Link>

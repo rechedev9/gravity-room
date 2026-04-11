@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ProgramSummary } from '@/lib/api-functions';
 import type { ProfileData } from '@/lib/profile-stats';
 
@@ -18,37 +19,38 @@ interface ProfileBadgesProps {
 function deriveBadges(
   profileData: ProfileData,
   allPrograms: readonly ProgramSummary[],
-  lifetimeVolume: number | null
+  lifetimeVolume: number | null,
+  t: (key: string) => string
 ): readonly Badge[] {
   return [
     {
       id: 'first-workout',
-      label: 'Primer Entrenamiento',
-      description: 'Completa 1 entrenamiento',
+      label: t('profile.badges.first_workout.label'),
+      description: t('profile.badges.first_workout.description'),
       unlocked: profileData.completion.workoutsCompleted >= 1,
     },
     {
       id: 'streak-5',
-      label: 'Racha de 5',
-      description: '5 entrenamientos consecutivos',
+      label: t('profile.badges.streak_5.label'),
+      description: t('profile.badges.streak_5.description'),
       unlocked: profileData.streak.longest >= 5,
     },
     {
       id: '100kg-club',
-      label: 'Club 100 kg',
-      description: 'Cualquier T1 llega a 100 kg',
+      label: t('profile.badges.club_100kg.label'),
+      description: t('profile.badges.club_100kg.description'),
       unlocked: profileData.personalRecords.some((pr) => pr.weight >= 100),
     },
     {
       id: 'complete-program',
-      label: 'Programa Completo',
-      description: 'Termina un programa completo',
+      label: t('profile.badges.complete_program.label'),
+      description: t('profile.badges.complete_program.description'),
       unlocked: allPrograms.some((p) => p.status === 'completed'),
     },
     {
       id: 'volume-10k',
-      label: 'Volumen 10K',
-      description: '10.000 kg de volumen total',
+      label: t('profile.badges.volume_10k.label'),
+      description: t('profile.badges.volume_10k.description'),
       // Single-program users: lifetimeVolume stays null (the lazy-loaded section
       // never renders), so fall back to the current program's volume.
       unlocked:
@@ -64,16 +66,19 @@ export function ProfileBadges({
   allPrograms,
   lifetimeVolume,
 }: ProfileBadgesProps): React.ReactNode {
+  const { t } = useTranslation();
   const badges = useMemo(
-    () => deriveBadges(profileData, allPrograms, lifetimeVolume),
-    [profileData, allPrograms, lifetimeVolume]
+    () => deriveBadges(profileData, allPrograms, lifetimeVolume, t),
+    [profileData, allPrograms, lifetimeVolume, t]
   );
   const unlockedCount = badges.filter((b) => b.unlocked).length;
 
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold text-muted uppercase tracking-wider">Logros</p>
+        <p className="text-xs font-semibold text-muted uppercase tracking-wider">
+          {t('profile.badges.section_title')}
+        </p>
         <span className="text-xs text-muted">
           {unlockedCount}/{badges.length}
         </span>

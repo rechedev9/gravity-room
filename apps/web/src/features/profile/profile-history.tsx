@@ -1,4 +1,5 @@
 import type { ProgramSummary } from '@/lib/api-functions';
+import { useTranslation } from 'react-i18next';
 import { DashboardCard } from '@/components/dashboard-card';
 import { Button } from '@/components/button';
 
@@ -18,11 +19,12 @@ export function ProfileHistory({
   effectiveInstanceId,
   onSelectInstance,
 }: ProfileHistoryProps): React.ReactNode {
+  const { t } = useTranslation();
   if (completedPrograms.length === 0) return null;
 
   return (
     <div className="mt-6">
-      <DashboardCard title="Historial">
+      <DashboardCard title={t('profile.history.title')}>
         <div className="flex flex-col gap-2">
           {completedPrograms.map((p) => (
             <div
@@ -32,7 +34,7 @@ export function ProfileHistory({
               <div className="min-w-0">
                 <p className="text-sm font-bold text-title truncate">{p.name}</p>
                 <p className="text-xs text-muted mt-0.5">
-                  Completado el{' '}
+                  {t('profile.history.completed_on')}{' '}
                   {new Date(p.updatedAt).toLocaleDateString('es-ES', {
                     day: 'numeric',
                     month: 'short',
@@ -50,14 +52,14 @@ export function ProfileHistory({
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                   >
-                    Ver estadísticas
+                    {t('profile.history.view_stats')}
                   </Button>
                 )}
                 <span
                   className="shrink-0 font-mono text-2xs tracking-widest uppercase px-2 py-1 text-title"
                   style={completedBadgeStyle}
                 >
-                  Completado
+                  {t('profile.history.badge_completed')}
                 </span>
               </div>
             </div>

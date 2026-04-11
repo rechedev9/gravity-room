@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod/v4';
@@ -47,18 +48,19 @@ function generateSlotId(dayIndex: number, slotIndex: number): string {
   return `d${dayIndex + 1}-s${slotIndex + 1}`;
 }
 
-// Schema validates structural constraints only; slot items are typed via z.custom
-// so the inferred output matches FormValues exactly without unsafe casts.
-const DaysSchema: z.ZodType<FormValues, FormValues> = z.object({
-  days: z
-    .array(
-      z.object({
-        name: z.string(),
-        slots: z.array(z.custom<WizardSlot>()).min(1, 'Añade al menos 1 ejercicio'),
-      })
-    )
-    .min(1),
-});
+function useDaysSchema() {
+  const { t } = useTranslation();
+  return z.object({
+    days: z
+      .array(
+        z.object({
+          name: z.string(),
+          slots: z.array(z.custom<WizardSlot>()).min(1, t('programs.wizard.min_one_exercise')),
+        })
+      )
+      .min(1),
+  }) satisfies z.ZodType<FormValues, FormValues>;
+}
 
 export function DaysAndExercisesStep({
   definition,
@@ -66,6 +68,8 @@ export function DaysAndExercisesStep({
   onNext,
   onBack,
 }: WizardStepProps): React.ReactNode {
+  const { t } = useTranslation();
+  const daysSchema = useDaysSchema();
   const [selectedDay, setSelectedDay] = useState(0);
   const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null);
 
@@ -75,7 +79,7 @@ export function DaysAndExercisesStep({
     watch,
     formState: { errors },
   } = useForm<FormValues>({
-    resolver: zodResolver(DaysSchema),
+    resolver: zodResolver(daysSchema),
     defaultValues: {
       days: definition.days.map((d) => ({
         name: d.name,
@@ -104,7 +108,7 @@ export function DaysAndExercisesStep({
   const handleAddDay = (): void => {
     if (dayFields.length >= MAX_DAYS) return;
     const newIndex = dayFields.length;
-    appendDay({ name: `Dia ${newIndex + 1}`, slots: [] });
+    appendDay({ name: t('programs.wizard.day_label', { number: newIndex + 1 }), slots: [] });
     setSelectedDay(newIndex);
   };
 
@@ -224,7 +228,7 @@ export function DaysAndExercisesStep({
             onClick={handleAddDay}
             className="px-3 py-1.5 text-xs font-bold text-zinc-500 border border-dashed border-zinc-600 rounded-lg hover:text-zinc-300 hover:border-zinc-500 transition-colors cursor-pointer"
           >
-            + Dia
+            {t('programs.wizard.add_day')}
           </button>
         )}
       </div>
@@ -238,11 +242,11 @@ export function DaysAndExercisesStep({
               value={currentDay.name}
               onChange={(e) => handleDayNameChange(selectedDay, e.target.value)}
               className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none transition-colors"
-              placeholder="Nombre del dia"
+              placeholder={t('programs.wizard.day_name_placeholder')}
             />
             {dayFields.length > 1 && (
               <Button variant="danger" size="sm" onClick={() => handleRemoveDay(selectedDay)}>
-                Eliminar dia
+                {t('programs.wizard.delete_day')}
               </Button>
             )}
           </div>
@@ -259,9 +263,11 @@ export function DaysAndExercisesStep({
                   type="button"
                   onClick={() => handleRemoveSlot(selectedDay, slotIdx)}
                   className="text-xs text-zinc-500 hover:text-red-400 transition-colors cursor-pointer"
-                  aria-label={`Eliminar ${slot.exerciseName}`}
+                  aria-label={t('programs.wizard.remove_exercise_a11y', {
+                    name: slot.exerciseName,
+                  })}
                 >
-                  Quitar
+                  {t('programs.wizard.remove')}
                 </button>
               </div>
             ))}
@@ -272,7 +278,7 @@ export function DaysAndExercisesStep({
             size="sm"
             onClick={() => setPickerTarget({ dayIndex: selectedDay })}
           >
-            + Agregar ejercicio
+            {t('programs.wizard.add_exercise')}
           </Button>
         </div>
       )}
@@ -281,10 +287,10 @@ export function DaysAndExercisesStep({
 
       <div className="flex justify-between pt-4">
         <Button variant="ghost" onClick={onBack}>
-          Atras
+          {t('programs.wizard.back')}
         </Button>
         <Button variant="primary" onClick={() => void handleSubmit(onValid)()}>
-          Siguiente
+          {t('programs.wizard.next')}
         </Button>
       </div>
 

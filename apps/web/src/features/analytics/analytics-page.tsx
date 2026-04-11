@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { queryKeys } from '@/lib/query-keys';
@@ -12,6 +13,7 @@ import { PlateauAlert } from '@/features/insights/plateau-alert';
 import { ForecastChart } from '@/features/insights/forecast-chart';
 import { LoadRecommendation } from '@/features/insights/load-recommendation';
 import { ExerciseSummaryCard } from '@/features/insights/exercise-summary-card';
+import { StaggerContainer, StaggerItem, fadeUpFastVariants } from '@/lib/motion-primitives';
 
 const INSIGHT_TYPES = [
   'volume_trend',
@@ -24,10 +26,11 @@ const INSIGHT_TYPES = [
 ] as const;
 
 export function AnalyticsPage(): React.ReactNode {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { isGuest } = useGuest();
 
-  useDocumentTitle('Analíticas — Gravity Room');
+  useDocumentTitle(t('analytics.page.title'));
 
   const insightsQuery = useQuery({
     queryKey: queryKeys.insights.list([...INSIGHT_TYPES]),
@@ -56,9 +59,9 @@ export function AnalyticsPage(): React.ReactNode {
         <header className="flex items-end justify-between mb-8">
           <div>
             <h1 className="font-display text-2xl sm:text-3xl text-title tracking-wide">
-              Analíticas
+              {t('analytics.page.heading')}
             </h1>
-            <p className="text-xs text-muted mt-0.5">Rendimiento pre-calculado cada 6 horas</p>
+            <p className="text-xs text-muted mt-0.5">{t('analytics.page.subtitle')}</p>
           </div>
           {insightsQuery.dataUpdatedAt > 0 && (
             <p className="font-mono text-[10px] text-muted hidden sm:block">
@@ -89,7 +92,7 @@ export function AnalyticsPage(): React.ReactNode {
         {/* Error state */}
         {!isGuest && insightsQuery.isError && (
           <div className="bg-card border border-rule p-6 text-center">
-            <p className="text-sm text-muted">No se pudieron cargar las analíticas.</p>
+            <p className="text-sm text-muted">{t('analytics.error.loading')}</p>
           </div>
         )}
 
@@ -102,9 +105,7 @@ export function AnalyticsPage(): React.ReactNode {
               className="w-full max-w-sm mx-auto mb-5 opacity-80"
               loading="lazy"
             />
-            <p className="text-sm text-muted">
-              Sin datos todavía. Completa algunos entrenamientos para ver tus analíticas.
-            </p>
+            <p className="text-sm text-muted">{t('analytics.empty.message')}</p>
           </div>
         )}
 
@@ -117,77 +118,129 @@ export function AnalyticsPage(): React.ReactNode {
               {/* Overview row: frequency + volume side by side */}
               {(frequency || volumeTrend) && (
                 <section>
-                  <h2 className="dash-section-title mb-3">Resumen</h2>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {frequency && <FrequencyCard insight={frequency} />}
-                    {volumeTrend && <VolumeTrendCard insight={volumeTrend} />}
-                  </div>
+                  <h2 className="dash-section-title mb-3">{t('analytics.sections.overview')}</h2>
+                  <StaggerContainer
+                    className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+                    stagger={0.05}
+                  >
+                    {frequency && (
+                      <StaggerItem variants={fadeUpFastVariants}>
+                        <FrequencyCard insight={frequency} />
+                      </StaggerItem>
+                    )}
+                    {volumeTrend && (
+                      <StaggerItem variants={fadeUpFastVariants}>
+                        <VolumeTrendCard insight={volumeTrend} />
+                      </StaggerItem>
+                    )}
+                  </StaggerContainer>
                 </section>
               )}
 
               {/* Exercise summary — compact grid per slot */}
               {exerciseSummaryInsights.length > 0 && (
                 <section>
-                  <h2 className="dash-section-title mb-3">Resumen por Ejercicio</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <h2 className="dash-section-title mb-3">
+                    {t('analytics.sections.exercise_summary')}
+                  </h2>
+                  <StaggerContainer
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+                    stagger={0.05}
+                  >
                     {exerciseSummaryInsights.map((insight) => (
-                      <ExerciseSummaryCard
+                      <StaggerItem
                         key={`summary-${insight.exerciseId}`}
-                        insight={insight}
-                      />
+                        variants={fadeUpFastVariants}
+                      >
+                        <ExerciseSummaryCard insight={insight} />
+                      </StaggerItem>
                     ))}
-                  </div>
+                  </StaggerContainer>
                 </section>
               )}
 
               {/* Plateau alerts — full width banner-style */}
               {plateauInsights.length > 0 && (
                 <section>
-                  <h2 className="dash-section-title mb-3">Alertas de Plateau</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <h2 className="dash-section-title mb-3">
+                    {t('analytics.sections.plateau_alerts')}
+                  </h2>
+                  <StaggerContainer
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+                    stagger={0.05}
+                  >
                     {plateauInsights.map((insight) => (
-                      <PlateauAlert key={`plateau-${insight.exerciseId}`} insight={insight} />
+                      <StaggerItem
+                        key={`plateau-${insight.exerciseId}`}
+                        variants={fadeUpFastVariants}
+                      >
+                        <PlateauAlert insight={insight} />
+                      </StaggerItem>
                     ))}
-                  </div>
+                  </StaggerContainer>
                 </section>
               )}
 
               {/* 1RM progression — two-column grid */}
               {e1rmInsights.length > 0 && (
                 <section>
-                  <h2 className="dash-section-title mb-3">1RM Estimado por Ejercicio</h2>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <h2 className="dash-section-title mb-3">
+                    {t('analytics.sections.e1rm_progression')}
+                  </h2>
+                  <StaggerContainer
+                    className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+                    stagger={0.05}
+                  >
                     {e1rmInsights.map((insight) => (
-                      <E1rmChart
+                      <StaggerItem
                         key={`${insight.insightType}-${insight.exerciseId}`}
-                        insight={insight}
-                      />
+                        variants={fadeUpFastVariants}
+                      >
+                        <E1rmChart insight={insight} />
+                      </StaggerItem>
                     ))}
-                  </div>
+                  </StaggerContainer>
                 </section>
               )}
 
               {/* Forecasts — two-column grid */}
               {forecastInsights.length > 0 && (
                 <section>
-                  <h2 className="dash-section-title mb-3">Pronóstico 1RM</h2>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <h2 className="dash-section-title mb-3">
+                    {t('analytics.sections.e1rm_forecast')}
+                  </h2>
+                  <StaggerContainer
+                    className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+                    stagger={0.05}
+                  >
                     {forecastInsights.map((insight) => (
-                      <ForecastChart key={`forecast-${insight.exerciseId}`} insight={insight} />
+                      <StaggerItem
+                        key={`forecast-${insight.exerciseId}`}
+                        variants={fadeUpFastVariants}
+                      >
+                        <ForecastChart insight={insight} />
+                      </StaggerItem>
                     ))}
-                  </div>
+                  </StaggerContainer>
                 </section>
               )}
 
               {/* Load recommendations — three-column grid */}
               {recommendationInsights.length > 0 && (
                 <section>
-                  <h2 className="dash-section-title mb-3">Recomendación de Carga</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <h2 className="dash-section-title mb-3">
+                    {t('analytics.sections.load_recommendation')}
+                  </h2>
+                  <StaggerContainer
+                    className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+                    stagger={0.05}
+                  >
                     {recommendationInsights.map((insight) => (
-                      <LoadRecommendation key={`rec-${insight.exerciseId}`} insight={insight} />
+                      <StaggerItem key={`rec-${insight.exerciseId}`} variants={fadeUpFastVariants}>
+                        <LoadRecommendation insight={insight} />
+                      </StaggerItem>
                     ))}
-                  </div>
+                  </StaggerContainer>
                 </section>
               )}
             </div>

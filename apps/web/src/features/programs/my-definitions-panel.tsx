@@ -1,13 +1,14 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { isRecord } from '@gzclp/shared/type-guards';
 import { useDefinitions } from '@/hooks/use-definitions';
 import { Button } from '@/components/button';
 
 const STATUS_LABELS: Readonly<Record<string, string>> = {
-  draft: 'Borrador',
-  pending_review: 'En revision',
-  approved: 'Aprobado',
-  rejected: 'Rechazado',
+  draft: 'programs.definitions.status_draft',
+  pending_review: 'programs.definitions.status_pending_review',
+  approved: 'programs.definitions.status_approved',
+  rejected: 'programs.definitions.status_rejected',
 };
 
 const STATUS_COLORS: Readonly<Record<string, string>> = {
@@ -26,6 +27,7 @@ export function MyDefinitionsPanel({
   onOpenWizard,
   onStartProgram,
 }: MyDefinitionsPanelProps): React.ReactNode {
+  const { t } = useTranslation();
   const {
     definitions,
     isLoading,
@@ -40,7 +42,7 @@ export function MyDefinitionsPanel({
   useEffect(() => clearDeleteError, [clearDeleteError]);
 
   const handleDelete = (id: string, name: string): void => {
-    if (!window.confirm(`¿Eliminar "${name}"? Esta accion no se puede deshacer.`)) return;
+    if (!window.confirm(t('programs.definitions.confirm_delete', { name }))) return;
     deleteDefinition(id);
   };
 
@@ -60,9 +62,7 @@ export function MyDefinitionsPanel({
   if (definitions.length === 0) {
     return (
       <div className="bg-card border border-rule p-6 text-center">
-        <p className="text-sm text-muted">
-          No tienes programas personalizados. Personaliza uno desde el catalogo.
-        </p>
+        <p className="text-sm text-muted">{t('programs.definitions.empty_state')}</p>
       </div>
     );
   }
@@ -70,11 +70,11 @@ export function MyDefinitionsPanel({
   return (
     <div className="space-y-3">
       {definitions.map((def) => {
-        const statusLabel = STATUS_LABELS[def.status] ?? def.status;
+        const statusLabel = t(STATUS_LABELS[def.status] ?? def.status);
         const statusColor = STATUS_COLORS[def.status] ?? STATUS_COLORS.draft;
 
         // Extract name from the definition JSONB using type guard
-        let name = 'Programa sin nombre';
+        let name = t('programs.definitions.unnamed_program');
         if (isRecord(def.definition) && typeof def.definition.name === 'string') {
           name = def.definition.name;
         }
@@ -94,17 +94,18 @@ export function MyDefinitionsPanel({
                   </span>
                 </div>
                 <p className="text-2xs text-muted">
-                  Actualizado: {new Date(def.updatedAt).toLocaleDateString('es-ES')}
+                  {t('programs.definitions.updated_label')}:{' '}
+                  {new Date(def.updatedAt).toLocaleDateString('es-ES')}
                 </p>
               </div>
 
               <div className="flex gap-2 flex-wrap">
                 <Button size="sm" variant="ghost" onClick={() => onOpenWizard(def.id)}>
-                  Editar
+                  {t('programs.definitions.actions.edit')}
                 </Button>
                 {def.status === 'draft' && (
                   <Button size="sm" variant="primary" onClick={() => onStartProgram(def.id)}>
-                    Empezar
+                    {t('programs.definitions.actions.start')}
                   </Button>
                 )}
                 <Button
@@ -113,7 +114,7 @@ export function MyDefinitionsPanel({
                   onClick={() => handleDelete(def.id, name)}
                   disabled={isDeleting}
                 >
-                  Eliminar
+                  {t('programs.definitions.actions.delete')}
                 </Button>
               </div>
             </div>

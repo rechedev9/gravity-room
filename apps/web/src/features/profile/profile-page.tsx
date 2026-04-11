@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useNavigate } from '@tanstack/react-router';
 import { useQuery, useQueries } from '@tanstack/react-query';
@@ -48,9 +49,10 @@ function computeInitials(user: UserInfo): string {
 }
 
 export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps): React.ReactNode {
+  const { t } = useTranslation();
   const { user, updateUser, deleteAccount } = useAuth();
 
-  useDocumentTitle('Perfil — Gravity Room');
+  useDocumentTitle(t('profile.page.title'));
   const { toast } = useToast();
   const { unit, toggleUnit, toDisplay } = useUnitPreference();
 
@@ -188,7 +190,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
       updateUser({ avatarUrl: dataUrl });
     } catch (err: unknown) {
       captureError(err);
-      toast({ message: 'Error al subir la foto de perfil' });
+      toast({ message: t('profile.avatar.upload_error') });
     } finally {
       setAvatarUploading(false);
     }
@@ -201,7 +203,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
       updateUser({ avatarUrl: undefined });
     } catch (err: unknown) {
       captureError(err);
-      toast({ message: 'Error al eliminar la foto de perfil' });
+      toast({ message: t('profile.avatar.remove_error') });
     } finally {
       setAvatarUploading(false);
     }
@@ -211,10 +213,10 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
     try {
       await updateProfile({ name });
       updateUser({ name });
-      toast({ message: 'Nombre actualizado' });
+      toast({ message: t('profile.name.updated') });
     } catch (err: unknown) {
       captureError(err);
-      toast({ message: 'Error al actualizar el nombre' });
+      toast({ message: t('profile.name.update_error') });
     }
   };
 
@@ -225,7 +227,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
       void navigate({ to: '/' });
     } catch (err: unknown) {
       captureError(err);
-      toast({ message: 'Error al eliminar la cuenta' });
+      toast({ message: t('profile.account_errors.delete_error') });
       setDeleteLoading(false);
     }
   };
@@ -246,7 +248,7 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
           className="font-display text-4xl sm:text-5xl text-title leading-none mb-6"
           style={{ textShadow: '0 0 30px rgba(240, 192, 64, 0.12)' }}
         >
-          Perfil
+          {t('profile.page.heading')}
         </h1>
 
         {profileData && activeProgramName && (
@@ -273,14 +275,12 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
               className="font-display text-6xl sm:text-7xl text-muted leading-none mb-4"
               style={{ textShadow: '0 0 40px rgba(138, 122, 90, 0.15)' }}
             >
-              SIN PROGRAMA
+              {t('profile.empty.heading')}
             </p>
-            <p className="text-sm text-muted">
-              Inicia un programa desde el Dashboard para ver tu perfil de entrenamiento.
-            </p>
+            <p className="text-sm text-muted">{t('profile.empty.description')}</p>
             <div className="mt-5 flex justify-center">
               <Button variant="primary" onClick={handleBack}>
-                Ir al Dashboard
+                {t('profile.empty.cta')}
               </Button>
             </div>
           </div>

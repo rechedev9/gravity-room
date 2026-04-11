@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod/v4';
@@ -7,7 +8,7 @@ import type { WeightUnit } from '@/hooks/use-unit-preference';
 import { DashboardCard } from '@/components/dashboard-card';
 
 const NameSchema = z.object({
-  name: z.string().trim().min(1, 'Nombre requerido').max(64),
+  name: z.string().trim().min(1, 'Name required').max(64),
 });
 
 type NameFormValues = z.infer<typeof NameSchema>;
@@ -41,6 +42,7 @@ export function ProfileAccountCard({
   onUpdateName,
   onToggleUnit,
 }: ProfileAccountCardProps): React.ReactNode {
+  const { t } = useTranslation();
   const [showDangerZone, setShowDangerZone] = useState(false);
   const [editing, setEditing] = useState(false);
   // React fires onBlur when the input unmounts (after setEditing(false)), so without
@@ -86,14 +88,14 @@ export function ProfileAccountCard({
   };
 
   return (
-    <DashboardCard title="Cuenta">
+    <DashboardCard title={t('profile.account.title')}>
       <div className="flex items-center gap-4">
         <button
           type="button"
           onClick={onAvatarClick}
           disabled={avatarUploading}
           className="group relative w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-btn-active text-btn-active-text text-lg sm:text-xl font-extrabold cursor-pointer transition-opacity flex items-center justify-center overflow-hidden shrink-0 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-50"
-          aria-label="Cambiar avatar"
+          aria-label={t('profile.account.change_avatar_label')}
         >
           {user.avatarUrl ? (
             <img src={user.avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -102,7 +104,7 @@ export function ProfileAccountCard({
           )}
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors pointer-events-none">
             <span className="text-white text-2xs font-bold uppercase opacity-0 group-hover:opacity-100 transition-opacity">
-              Cambiar
+              {t('profile.account.change_avatar_text')}
             </span>
           </div>
         </button>
@@ -124,14 +126,14 @@ export function ProfileAccountCard({
               onKeyDown={handleKeyDown}
               className="text-sm font-bold text-title bg-transparent border-b border-accent focus:outline-none w-full"
               autoFocus
-              aria-label="Nombre de usuario"
+              aria-label={t('profile.account.username_input_label')}
             />
           ) : (
             <button
               type="button"
               onClick={handleEditStart}
               className="group flex items-center gap-1 text-sm font-bold text-title hover:text-main transition-colors cursor-pointer text-left truncate w-full"
-              title="Editar nombre"
+              title={t('profile.account.edit_name_tooltip')}
             >
               <span className="truncate">{displayName}</span>
               <span className="text-muted opacity-0 group-hover:opacity-60 transition-opacity shrink-0">
@@ -147,7 +149,7 @@ export function ProfileAccountCard({
               disabled={avatarUploading}
               className="text-2xs text-muted underline mt-1 cursor-pointer hover:text-main transition-colors disabled:opacity-50"
             >
-              Quitar foto
+              {t('profile.account.remove_photo')}
             </button>
           )}
         </div>
@@ -155,12 +157,12 @@ export function ProfileAccountCard({
 
       {/* Unit preference toggle */}
       <div className="mt-3 pt-3 border-t border-rule flex items-center justify-between">
-        <span className="text-2xs text-muted">Unidad de peso</span>
+        <span className="text-2xs text-muted">{t('profile.account.weight_unit_label')}</span>
         <button
           type="button"
           onClick={onToggleUnit}
           className="flex items-center gap-0.5 font-mono text-2xs border border-rule px-2 py-0.5 hover:border-accent hover:text-title transition-colors"
-          aria-label={`Cambiar a ${unit === 'kg' ? 'libras' : 'kilogramos'}`}
+          aria-label={`Cambiar a ${unit === 'kg' ? t('profile.account.unit_lbs') : t('profile.account.unit_kg')}`}
         >
           <span className={unit === 'kg' ? 'text-title font-bold' : 'text-muted'}>kg</span>
           <span className="text-muted mx-0.5">/</span>
@@ -176,7 +178,7 @@ export function ProfileAccountCard({
           className="text-2xs text-muted hover:text-main transition-colors"
           aria-expanded={showDangerZone}
         >
-          Zona peligrosa {showDangerZone ? '▲' : '▼'}
+          {t('profile.account.danger_zone')} {showDangerZone ? '\u25b2' : '\u25bc'}
         </button>
         {showDangerZone && (
           <div className="mt-2">
@@ -185,7 +187,7 @@ export function ProfileAccountCard({
               onClick={onDeleteRequest}
               className="text-2xs text-muted underline cursor-pointer hover:text-fail transition-colors"
             >
-              Eliminar cuenta
+              {t('profile.account.delete_account')}
             </button>
           </div>
         )}

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { InsightItem } from '@/lib/api-functions';
 import { isExerciseSummaryPayload } from '@/lib/insight-payloads';
 import { formatVolume } from '@/lib/profile-stats';
@@ -14,10 +15,12 @@ export function ExerciseSummaryCard({
   insight,
   exerciseName,
 }: ExerciseSummaryCardProps): React.ReactNode {
+  const { t } = useTranslation();
   const payload = insight.payload;
   if (!isExerciseSummaryPayload(payload)) return null;
 
-  const name = exerciseName ?? insight.exerciseId ?? 'Ejercicio';
+  const name =
+    exerciseName ?? insight.exerciseId ?? t('insights.exercise_summary.default_exercise');
 
   const successTextColor =
     payload.successRate >= SUCCESS_GOOD
@@ -42,21 +45,21 @@ export function ExerciseSummaryCard({
       <div className="grid grid-cols-2 gap-3">
         <div>
           <p className="font-mono text-[9px] text-muted uppercase tracking-widest mb-0.5">
-            Series totales
+            {t('insights.exercise_summary.total_sets_label')}
           </p>
           <p className="font-display-data text-2xl text-title">{payload.totalSets}</p>
         </div>
 
         <div>
           <p className="font-mono text-[9px] text-muted uppercase tracking-widest mb-0.5">
-            Tasa de éxito
+            {t('insights.exercise_summary.success_rate_label')}
           </p>
           <p className={`font-display-data text-2xl ${successTextColor}`}>{payload.successRate}%</p>
         </div>
 
         <div>
           <p className="font-mono text-[9px] text-muted uppercase tracking-widest mb-0.5">
-            Volumen total
+            {t('insights.exercise_summary.total_volume_label')}
           </p>
           <p className="font-display-data text-2xl text-title">
             {formatVolume(payload.totalVolume)}
@@ -67,7 +70,7 @@ export function ExerciseSummaryCard({
         {payload.avgRpe != null && (
           <div>
             <p className="font-mono text-[9px] text-muted uppercase tracking-widest mb-0.5">
-              RPE promedio
+              {t('insights.exercise_summary.avg_rpe_label')}
             </p>
             <p className="font-display-data text-2xl text-title">{payload.avgRpe}</p>
           </div>
@@ -81,7 +84,9 @@ export function ExerciseSummaryCard({
           aria-valuenow={payload.successRate}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label={`Tasa de éxito: ${payload.successRate}%`}
+          aria-label={t('insights.exercise_summary.success_rate_a11y', {
+            rate: payload.successRate,
+          })}
         >
           <div
             className={`h-full rounded-full ${successBgColor}`}

@@ -4,6 +4,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms, fetchInsights } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
+import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
 import { KpiSummary } from './kpi-summary';
 import { ActiveProgramCard } from './active-program-card';
@@ -11,6 +12,7 @@ import { VolumeTrendCard } from '@/features/insights/volume-trend-card';
 import { FrequencyCard } from '@/features/insights/frequency-card';
 import { PlateauAlert } from '@/features/insights/plateau-alert';
 import { LoadRecommendation } from '@/features/insights/load-recommendation';
+import { StaggerContainer, StaggerItem, fadeUpFastVariants } from '@/lib/motion-primitives';
 
 const DASHBOARD_INSIGHT_TYPES = [
   'volume_trend',
@@ -21,6 +23,7 @@ const DASHBOARD_INSIGHT_TYPES = [
 ] as const;
 
 export function DashboardPage(): React.ReactNode {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { isGuest } = useGuest();
 
@@ -56,13 +59,13 @@ export function DashboardPage(): React.ReactNode {
         <header className="flex items-end justify-between mb-6">
           <div>
             <h1 className="font-display text-2xl sm:text-3xl text-title tracking-wide">
-              Dashboard
+              {t('dashboard.title')}
             </h1>
-            <p className="text-xs text-muted mt-0.5">Rendimiento y progreso de entrenamiento</p>
+            <p className="text-xs text-muted mt-0.5">{t('dashboard.subtitle')}</p>
           </div>
           {insightsQuery.data && insightsQuery.data.length > 0 && (
             <p className="font-mono text-[10px] text-muted hidden sm:block">
-              Datos actualizados cada 6h
+              {t('dashboard.data_updated_6h')}
             </p>
           )}
         </header>
@@ -91,21 +94,19 @@ export function DashboardPage(): React.ReactNode {
         {activeProgram ? (
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
             <div className="lg:col-span-3">
-              <h2 className="dash-section-title mb-3">Programa Activo</h2>
+              <h2 className="dash-section-title mb-3">{t('dashboard.active_program')}</h2>
               <ActiveProgramCard
                 program={activeProgram}
                 onOrphanDeleted={() => void programsQuery.refetch()}
               />
             </div>
             <div className="lg:col-span-2 space-y-4">
-              <h2 className="dash-section-title mb-3">Rendimiento</h2>
+              <h2 className="dash-section-title mb-3">{t('dashboard.performance')}</h2>
               {volumeTrend && <VolumeTrendCard insight={volumeTrend} />}
               {frequency && <FrequencyCard insight={frequency} />}
               {!volumeTrend && !frequency && !insightsQuery.isLoading && (
                 <div className="bg-card border border-rule p-6 text-center">
-                  <p className="text-xs text-muted">
-                    Completa entrenamientos para ver tus analíticas aquí.
-                  </p>
+                  <p className="text-xs text-muted">{t('dashboard.complete_workouts_message')}</p>
                 </div>
               )}
               {insightsQuery.isLoading && (
@@ -128,14 +129,12 @@ export function DashboardPage(): React.ReactNode {
                 className="w-full max-w-sm mx-auto mb-5 opacity-80"
                 loading="lazy"
               />
-              <p className="text-sm text-muted mb-4">
-                Elige un programa para ver tus métricas aquí.
-              </p>
+              <p className="text-sm text-muted mb-4">{t('dashboard.no_programs_message')}</p>
               <Link
                 to="/app/programs"
                 className="inline-block px-4 py-2 text-xs font-bold uppercase tracking-wide text-btn-active-text bg-btn-active border-2 border-btn-ring hover:opacity-90 transition-opacity"
               >
-                Ver Programas
+                {t('dashboard.view_programs')}
               </Link>
             </div>
           )
@@ -144,24 +143,36 @@ export function DashboardPage(): React.ReactNode {
         {/* Plateau alerts */}
         {plateauInsights.length > 0 && (
           <section className="mb-6">
-            <h2 className="dash-section-title mb-3">Alertas</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <h2 className="dash-section-title mb-3">{t('dashboard.alerts')}</h2>
+            <StaggerContainer
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+              stagger={0.05}
+            >
               {plateauInsights.map((insight) => (
-                <PlateauAlert key={`plateau-${insight.exerciseId}`} insight={insight} />
+                <StaggerItem key={`plateau-${insight.exerciseId}`} variants={fadeUpFastVariants}>
+                  <PlateauAlert insight={insight} />
+                </StaggerItem>
               ))}
-            </div>
+            </StaggerContainer>
           </section>
         )}
 
         {/* Load recommendations */}
         {recommendationInsights.length > 0 && (
           <section className="mb-6">
-            <h2 className="dash-section-title mb-3">Recomendación de Carga</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <h2 className="dash-section-title mb-3">
+              {t('dashboard.load_recommendation_section')}
+            </h2>
+            <StaggerContainer
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+              stagger={0.05}
+            >
               {recommendationInsights.map((insight) => (
-                <LoadRecommendation key={`rec-${insight.exerciseId}`} insight={insight} />
+                <StaggerItem key={`rec-${insight.exerciseId}`} variants={fadeUpFastVariants}>
+                  <LoadRecommendation insight={insight} />
+                </StaggerItem>
               ))}
-            </div>
+            </StaggerContainer>
           </section>
         )}
       </div>

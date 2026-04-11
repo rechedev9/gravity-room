@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AreaChart,
   Area,
@@ -21,6 +22,7 @@ interface VolumeTrendCardProps {
 }
 
 export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactNode {
+  const { t } = useTranslation();
   const payload = insight.payload;
   if (!isVolumeTrendPayload(payload)) return null;
 
@@ -46,16 +48,16 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
 
   const directionLabel =
     payload.direction === 'up'
-      ? '↑ subiendo'
+      ? t('insights.volume_trend.direction_up')
       : payload.direction === 'down'
-        ? '↓ bajando'
-        : '→ estable';
+        ? t('insights.volume_trend.direction_down')
+        : t('insights.volume_trend.direction_stable');
 
   return (
     <div className="bg-card border border-rule card p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-mono text-[10px] font-bold text-muted uppercase tracking-widest">
-          Tendencia de Volumen
+          {t('insights.volume_trend.title')}
         </h3>
         <span className="font-mono text-[10px] text-muted">{directionLabel}</span>
       </div>
@@ -64,11 +66,13 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
           className="flex items-center justify-center h-[clamp(200px,25vw,300px)]"
           style={{ background: theme.bg }}
         >
-          <p className="font-mono text-xs text-[var(--color-chart-text)]">Sin datos de volumen</p>
+          <p className="font-mono text-xs text-[var(--color-chart-text)]">
+            {t('insights.volume_trend.no_data')}
+          </p>
         </div>
       ) : (
         <figure data-testid="volume-chart">
-          <figcaption className="sr-only">Tendencia de volumen semanal</figcaption>
+          <figcaption className="sr-only">{t('insights.volume_trend.chart_sr_only')}</figcaption>
           <div style={{ height: 'clamp(200px, 25vw, 300px)' }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={points} margin={{ top: 8, right: 8, bottom: 4, left: 2 }}>
@@ -108,7 +112,8 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
                   stroke={theme.line}
                   strokeWidth={2}
                   fill="url(#volFill)"
-                  isAnimationActive={false}
+                  animationDuration={320}
+                  animationEasing="ease-out"
                 />
                 {avg !== null && (
                   <ReferenceLine

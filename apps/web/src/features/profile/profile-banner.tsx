@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from '@tanstack/react-router';
 import type { ProgramSummary } from '@/lib/api-functions';
 import type { ProfileData } from '@/lib/profile-stats';
@@ -27,6 +28,7 @@ export function ProfileBanner({
   effectiveInstanceId,
   onSelectInstance,
 }: ProfileBannerProps): React.ReactNode {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const isEmpty = profileData.completion.workoutsCompleted === 0;
 
@@ -42,7 +44,7 @@ export function ProfileBanner({
             <div className="flex items-center gap-3 mb-1">
               {isActive && (
                 <span className="shrink-0 font-mono text-2xs tracking-widest uppercase px-2 py-0.5 bg-ok-bg border border-ok-ring text-ok">
-                  Activo
+                  {t('profile.banner.badge_active')}
                 </span>
               )}
               {!isActive && activeProgram && (
@@ -50,7 +52,7 @@ export function ProfileBanner({
                   className="shrink-0 font-mono text-2xs tracking-widest uppercase px-2 py-0.5 text-title"
                   style={completedBadgeStyle}
                 >
-                  Completado
+                  {t('profile.banner.badge_completed')}
                 </span>
               )}
             </div>
@@ -58,17 +60,19 @@ export function ProfileBanner({
               {activeProgramName}
             </p>
             {isEmpty ? (
-              <p className="text-xs text-muted mt-1.5">Tu primer entrenamiento te espera</p>
+              <p className="text-xs text-muted mt-1.5">
+                {t('profile.banner.first_workout_message')}
+              </p>
             ) : (
               <p className="text-xs text-muted mt-1.5">
-                Entrenamiento {profileData.completion.workoutsCompleted} de{' '}
-                {profileData.completion.totalWorkouts}
+                {t('profile.banner.workout_label')} {profileData.completion.workoutsCompleted}{' '}
+                {t('profile.banner.workout_of')} {profileData.completion.totalWorkouts}
               </p>
             )}
           </div>
           {isEmpty ? (
             <Button size="sm" onClick={() => void navigate({ to: '/app/tracker' })}>
-              Comenzar
+              {t('profile.banner.cta_start')}
             </Button>
           ) : (
             <div className="flex items-center gap-6 shrink-0">
@@ -76,13 +80,15 @@ export function ProfileBanner({
                 <p className="font-display-data text-3xl sm:text-4xl text-title leading-none tabular-nums">
                   {profileData.completion.completionPct}%
                 </p>
-                <p className="text-2xs text-muted mt-1">Completado</p>
+                <p className="text-2xs text-muted mt-1">
+                  {t('profile.banner.completed_pct_label')}
+                </p>
               </div>
               <div className="text-center">
                 <p className="font-display-data text-3xl sm:text-4xl text-title leading-none tabular-nums">
                   {profileData.completion.overallSuccessRate}%
                 </p>
-                <p className="text-2xs text-muted mt-1">Éxito</p>
+                <p className="text-2xs text-muted mt-1">{t('profile.banner.success_rate_label')}</p>
               </div>
             </div>
           )}
@@ -93,7 +99,7 @@ export function ProfileBanner({
           aria-valuenow={profileData.completion.completionPct}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label={`${profileData.completion.workoutsCompleted} de ${profileData.completion.totalWorkouts} entrenamientos`}
+          aria-label={`${profileData.completion.workoutsCompleted} ${t('profile.banner.workout_of')} ${profileData.completion.totalWorkouts} ${t('profile.banner.workout_label')}`}
         >
           <div
             className="h-full bg-accent rounded-full transition-[width] duration-300 ease-out progress-fill"
@@ -112,16 +118,16 @@ export function ProfileBanner({
               onSelectInstance(e.target.value || undefined)
             }
             className="w-full bg-card border border-rule text-sm text-title px-4 py-3 pr-10 font-mono appearance-none cursor-pointer focus:outline-none focus:border-accent transition-colors"
-            aria-label="Selector de programa"
+            aria-label={t('profile.banner.program_selector_label')}
           >
             {allPrograms.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.status === 'active' ? '● ' : '○ '}
+                {p.status === 'active' ? '\u25cf ' : '\u25cb '}
                 {p.name}
                 {p.status === 'active'
-                  ? ' — Activo'
+                  ? t('profile.banner.status_active')
                   : p.status === 'completed'
-                    ? ' — Completado'
+                    ? t('profile.banner.status_completed')
                     : ''}
               </option>
             ))}

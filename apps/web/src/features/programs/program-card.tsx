@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
 import { getCategoryColor, categoryLabel } from '@/lib/category-colors';
 
@@ -26,15 +27,17 @@ interface ProgramCardProps {
 export function ProgramCard({
   definition,
   disabled = false,
-  disabledLabel = 'Próximamente',
+  disabledLabel,
   isActive = false,
   onSelect,
   to,
   onCustomize,
   customizeDisabled = false,
 }: ProgramCardProps): React.ReactNode {
+  const { t } = useTranslation();
   const catColor = getCategoryColor(definition.category);
   const label = categoryLabel(definition.category);
+  const resolvedDisabledLabel = disabledLabel ?? t('programs.card.coming_soon');
 
   const ctaClasses = `mt-auto px-4 py-2.5 text-xs font-bold border-2 cursor-pointer transition-all text-center ${
     isActive
@@ -77,9 +80,13 @@ export function ProgramCard({
         {/* Meta: workouts, frequency, author */}
         {!disabled && (
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-info">
-            <span>{definition.totalWorkouts} entrenamientos</span>
-            {definition.workoutsPerWeek > 0 && <span>{definition.workoutsPerWeek}x / semana</span>}
-            {definition.author && <span>Por {definition.author}</span>}
+            <span>{t('programs.card.workouts_count', { count: definition.totalWorkouts })}</span>
+            {definition.workoutsPerWeek > 0 && (
+              <span>{t('programs.card.frequency', { count: definition.workoutsPerWeek })}</span>
+            )}
+            {definition.author && (
+              <span>{t('programs.card.author', { author: definition.author })}</span>
+            )}
           </div>
         )}
 
@@ -91,7 +98,7 @@ export function ProgramCard({
               className={`mt-auto ${ctaClasses}`}
               aria-label={`Ver programa ${definition.name}`}
             >
-              Ver Programa
+              {t('programs.card.view_program')}
             </Link>
           ) : (
             <button
@@ -101,7 +108,11 @@ export function ProgramCard({
                 !isActive ? 'disabled:hover:bg-btn disabled:hover:text-btn-text' : ''
               }`}
             >
-              {disabled ? disabledLabel : isActive ? 'Continuar Entrenamiento' : 'Iniciar Programa'}
+              {disabled
+                ? resolvedDisabledLabel
+                : isActive
+                  ? t('programs.card.continue_training')
+                  : t('programs.card.start_program')}
             </button>
           ))}
 
@@ -113,7 +124,7 @@ export function ProgramCard({
             disabled={customizeDisabled}
             className="self-center text-2xs font-bold text-muted hover:text-accent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {customizeDisabled ? 'Personalizando...' : 'Personalizar'}
+            {customizeDisabled ? t('programs.card.customizing') : t('programs.card.customize')}
           </button>
         )}
       </div>

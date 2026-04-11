@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { DropdownMenu, DropdownItem } from '@/components/dropdown-menu';
@@ -23,6 +24,7 @@ function ProgressBar({
   readonly total: number;
   readonly className?: string;
 }): ReactNode {
+  const { t } = useTranslation();
   const pct = Math.round((completed / total) * 100);
   return (
     <div className={`flex items-center gap-3 ${className ?? ''}`}>
@@ -32,7 +34,7 @@ function ProgressBar({
         aria-valuenow={completed}
         aria-valuemin={0}
         aria-valuemax={total}
-        aria-label="Progreso de entrenamiento"
+        aria-label={t('toolbar.progress_aria')}
       >
         <div
           className="h-full bg-accent transition-[width] duration-300 ease-out progress-fill rounded-full"

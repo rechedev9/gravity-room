@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
 import type { UserInfo } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
@@ -21,6 +22,7 @@ export function AvatarDropdown({
   onGoToProfile,
   dropdownPlacement,
 }: AvatarDropdownProps): React.ReactNode {
+  const { t } = useTranslation();
   const { isGuest } = useGuest();
   const [open, setOpen] = useState(false);
   const close = (): void => setOpen(false);
@@ -34,7 +36,7 @@ export function AvatarDropdown({
         to="/login"
         className="px-2 py-2 sm:px-3.5 sm:py-2.5 min-h-[44px] border-2 border-btn-ring text-[10px] sm:text-xs font-bold cursor-pointer bg-btn text-btn-text whitespace-nowrap transition-all hover:bg-btn-active hover:text-btn-active-text inline-flex items-center no-underline"
       >
-        Iniciar Sesión
+        {t('auth.sign_in')}
       </Link>
     );
   }
@@ -47,7 +49,7 @@ export function AvatarDropdown({
       <button
         onClick={() => setOpen((prev) => !prev)}
         className="w-11 h-11 rounded-full bg-btn-active text-btn-active-text text-sm font-extrabold cursor-pointer transition-all duration-150 hover:opacity-80 hover:shadow-[0_0_12px_rgba(232,170,32,0.2)] active:scale-95 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body focus-visible:outline-none overflow-hidden"
-        aria-label="Menú de usuario"
+        aria-label={t('avatar_dropdown.user_menu')}
         aria-haspopup="true"
         aria-expanded={open}
       >
@@ -78,7 +80,7 @@ export function AvatarDropdown({
               onGoToProfile();
             }}
           >
-            Perfil
+            {t('avatar_dropdown.profile')}
           </DropdownItem>
         )}
 
@@ -88,7 +90,7 @@ export function AvatarDropdown({
             onSignOut();
           }}
         >
-          Cerrar Sesión
+          {t('avatar_dropdown.sign_out')}
         </DropdownItem>
       </DropdownMenu>
     </div>

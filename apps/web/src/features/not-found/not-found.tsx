@@ -1,6 +1,8 @@
+import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
 
 export function NotFound(): React.ReactNode {
+  const { t } = useTranslation();
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center bg-body px-6 text-center relative overflow-hidden">
       {/* Ambient glow */}
@@ -13,7 +15,7 @@ export function NotFound(): React.ReactNode {
 
       <img
         src="/logo.webp"
-        alt="Gravity Room logo"
+        alt={t('not_found.logo_alt')}
         width={64}
         height={64}
         className="rounded-full mb-8 relative"
@@ -25,14 +27,12 @@ export function NotFound(): React.ReactNode {
       >
         404
       </h1>
-      <p className="text-sm text-muted mb-8 max-w-xs relative">
-        Esta página no existe. Puede que haya sido movida, o escribiste la URL incorrectamente.
-      </p>
+      <p className="text-sm text-muted mb-8 max-w-xs relative">{t('not_found.message')}</p>
       <Link
         to="/"
         className="px-6 py-3 text-xs font-bold border-2 border-btn-ring bg-btn-active text-btn-active-text hover:opacity-90 transition-all active:scale-[0.97] relative"
       >
-        Ir al Inicio
+        {t('not_found.go_home')}
       </Link>
     </div>
   );

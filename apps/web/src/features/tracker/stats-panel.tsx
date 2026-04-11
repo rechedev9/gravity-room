@@ -1,4 +1,5 @@
 import { useState, useMemo, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { extractAllGenericStats, calculateStats } from '@gzclp/shared/generic-stats';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import type {
@@ -14,7 +15,7 @@ import { BarChart } from '@/components/charts/bar-chart';
 // Constants
 // ---------------------------------------------------------------------------
 
-const UNCOVERED_GROUP_LABEL = 'Otros';
+const UNCOVERED_GROUP_KEY = '__uncovered__';
 const MIN_RPE_POINTS = 2;
 const MIN_AMRAP_POINTS = 2;
 const MIN_VOLUME_POINTS = 3;
@@ -57,7 +58,7 @@ function groupExercises(definition: ProgramDefinition): readonly ExerciseGroup[]
   const covered = new Set(definition.configFields.map((f) => f.key));
   const uncovered = Object.keys(definition.exercises).filter((id) => !covered.has(id));
   if (uncovered.length > 0) {
-    groups.push({ label: UNCOVERED_GROUP_LABEL, exerciseIds: uncovered });
+    groups.push({ label: UNCOVERED_GROUP_KEY, exerciseIds: uncovered });
   }
 
   return groups;
@@ -112,15 +113,17 @@ function StatCard({
   readonly successes: number;
   readonly total: number;
 }): ReactNode {
+  const { t } = useTranslation();
   return (
     <div className="bg-th/50 p-4">
       <h4 className="font-mono text-xs font-bold text-muted mb-2">{name}</h4>
       <div className="font-display-data text-3xl mb-1 text-title">{currentWeight} kg</div>
       <div className="text-xs text-muted">
-        Inicio: {startWeight} kg | {gained >= 0 ? '+' : ''}
-        {gained} kg ganados
+        {t('tracker.stats_panel.start')}: {startWeight} kg | {gained >= 0 ? '+' : ''}
+        {gained} kg {t('tracker.stats_panel.gained')}
         <br />
-        Etapa {currentStage} | {rate}% éxito ({successes}/{total})
+        {t('tracker.stats_panel.stage')} {currentStage} | {rate}% {t('tracker.stats_panel.success')}{' '}
+        ({successes}/{total})
       </div>
     </div>
   );
@@ -141,6 +144,7 @@ function CollapsibleSection({
   readonly onToggle: () => void;
   readonly children: ReactNode;
 }): ReactNode {
+  const { t } = useTranslation();
   const contentId = `section-${sanitizeKey(sectionKey)}-content`;
 
   return (
@@ -155,7 +159,7 @@ function CollapsibleSection({
         {label}
         <span className="flex items-center gap-3">
           <span className="text-muted font-normal normal-case tracking-normal">
-            {exerciseCount} ejercicio{exerciseCount !== 1 ? 's' : ''}
+            {exerciseCount} {t('tracker.stats_panel.exercise', { count: exerciseCount })}
           </span>
           <span
             className="transition-transform duration-200"
@@ -185,6 +189,7 @@ function CollapsibleSection({
 // ---------------------------------------------------------------------------
 
 function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): ReactNode {
+  const { t } = useTranslation();
   // Single-pass extraction — all 4 data structures computed in one iteration
   const { chartData, rpeData, amrapData, volumeData } = useMemo(
     () => extractAllGenericStats(definition, rows, resultTimestamps),
@@ -221,10 +226,8 @@ function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): Re
   if (!hasAnyResults) {
     return (
       <div className="text-center py-16">
-        <p className="text-sm font-bold text-muted mb-2">Sin datos aún</p>
-        <p className="text-xs text-muted">
-          Completa tu primer entrenamiento para ver estadísticas y gráficas.
-        </p>
+        <p className="text-sm font-bold text-muted mb-2">{t('tracker.stats_panel.no_data_yet')}</p>
+        <p className="text-xs text-muted">{t('tracker.stats_panel.complete_first_workout')}</p>
       </div>
     );
   }
@@ -254,7 +257,11 @@ function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): Re
           <CollapsibleSection
             key={sectionKey}
             sectionKey={sectionKey}
-            label={group.label ?? 'Ejercicios'}
+            label={
+              group.label === UNCOVERED_GROUP_KEY
+                ? t('tracker.stats_panel.other')
+                : (group.label ?? t('tracker.stats_panel.exercises'))
+            }
             exerciseCount={exercisesWithData.length}
             isOpen={isOpen}
             onToggle={() => toggleSection(sectionKey)}
@@ -289,7 +296,7 @@ function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): Re
                     return (
                       <div key={id} className="bg-th/50 p-4">
                         <h4 className="font-mono text-xs font-bold text-muted mb-3">
-                          {name} — Progresión
+                          {name} — {t('tracker.stats_panel.progression')}
                         </h4>
                         <LineChart
                           data={chartData[id]}
@@ -340,7 +347,7 @@ function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): Re
                           className="bg-th/50 p-4"
                         >
                           <h4 className="font-mono text-xs font-bold text-muted mb-3">
-                            {name} — AMRAP (reps)
+                            {name} — {t('tracker.stats_panel.amrap_reps')}
                           </h4>
                           <LineChart
                             data={amrapToChartData(amrapData[id])}
@@ -364,13 +371,13 @@ function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): Re
       {volumeData.length >= MIN_VOLUME_POINTS && (
         <CollapsibleSection
           sectionKey="volumen-total"
-          label="Volumen Total"
+          label={t('tracker.stats_panel.total_volume')}
           exerciseCount={volumeData.length}
           isOpen={openSections['volumen-total'] ?? false}
           onToggle={() => toggleSection('volumen-total')}
         >
           <div className="mt-4">
-            <BarChart data={volumeData} label="Volumen por Sesión (kg)" />
+            <BarChart data={volumeData} label={t('tracker.stats_panel.volume_per_session')} />
           </div>
         </CollapsibleSection>
       )}

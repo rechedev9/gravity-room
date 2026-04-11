@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/button';
 
 const MIN_WEIGHT = 20;
@@ -36,6 +37,7 @@ export function TestWeightModal({
   onConfirm,
   onCancel,
 }: TestWeightModalProps): React.ReactNode {
+  const { t } = useTranslation();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
@@ -93,17 +95,17 @@ export function TestWeightModal({
     >
       <form onSubmit={handleFormSubmit}>
         <h3 id={titleId} className="text-sm font-bold text-title mb-2">
-          Test Maximo — {liftName}
+          {t('tracker.test_weight.title')} {liftName}
         </h3>
 
         <p className="text-xs text-muted leading-relaxed mb-4">
           {hasPropagationTarget
-            ? 'Registra tu maximo. Este peso se usara como Training Max del siguiente bloque.'
-            : 'Registra tu maximo. Este es tu resultado final del protocolo JAW.'}
+            ? t('tracker.test_weight.description_propagation')
+            : t('tracker.test_weight.description_final')}
         </p>
 
         <label className="block text-xs font-medium text-main mb-1.5">
-          Cuanto levantaste? (kg)
+          {t('tracker.test_weight.weight_label')}
         </label>
         <input
           type="number"
@@ -117,10 +119,12 @@ export function TestWeightModal({
 
         <div className="border-t border-rule pt-4 flex justify-end gap-3">
           <Button type="button" variant="ghost" onClick={onCancel} disabled={loading}>
-            Cancelar
+            {t('tracker.test_weight.cancel_button')}
           </Button>
           <Button type="submit" variant="primary" disabled={!isWeightValid || loading}>
-            {loading ? 'Guardando...' : 'Confirmar'}
+            {loading
+              ? t('tracker.test_weight.saving_loading')
+              : t('tracker.test_weight.confirm_button')}
           </Button>
         </div>
       </form>

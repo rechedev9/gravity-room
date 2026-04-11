@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { GenericWorkoutRow } from '@gzclp/shared/types';
 
 interface PreviewTableProps {
@@ -5,20 +6,35 @@ interface PreviewTableProps {
 }
 
 export function PreviewTable({ rows }: PreviewTableProps): React.ReactNode {
+  const { t } = useTranslation();
   if (rows.length === 0) {
-    return <p className="text-xs text-zinc-500 text-center py-4">Sin datos de vista previa.</p>;
+    return (
+      <p className="text-xs text-zinc-500 text-center py-4">
+        {t('programs.wizard.preview.no_data')}
+      </p>
+    );
   }
 
   return (
     <div className="overflow-x-auto border border-zinc-700 rounded-lg">
-      <table className="w-full text-xs" aria-label="Vista previa del programa">
+      <table className="w-full text-xs" aria-label={t('programs.wizard.preview.table_aria')}>
         <thead>
           <tr className="bg-zinc-800/80 text-zinc-400 text-left">
-            <th className="px-3 py-2 font-bold whitespace-nowrap">Entrenamiento</th>
-            <th className="px-3 py-2 font-bold whitespace-nowrap">Ejercicio</th>
-            <th className="px-3 py-2 font-bold text-center whitespace-nowrap">Series</th>
-            <th className="px-3 py-2 font-bold text-center whitespace-nowrap">Reps</th>
-            <th className="px-3 py-2 font-bold text-center whitespace-nowrap">Peso</th>
+            <th className="px-3 py-2 font-bold whitespace-nowrap">
+              {t('programs.wizard.preview.columns.workout')}
+            </th>
+            <th className="px-3 py-2 font-bold whitespace-nowrap">
+              {t('programs.wizard.preview.columns.exercise')}
+            </th>
+            <th className="px-3 py-2 font-bold text-center whitespace-nowrap">
+              {t('programs.wizard.preview.columns.sets')}
+            </th>
+            <th className="px-3 py-2 font-bold text-center whitespace-nowrap">
+              {t('programs.wizard.preview.columns.reps')}
+            </th>
+            <th className="px-3 py-2 font-bold text-center whitespace-nowrap">
+              {t('programs.wizard.preview.columns.weight')}
+            </th>
           </tr>
         </thead>
         <tbody>

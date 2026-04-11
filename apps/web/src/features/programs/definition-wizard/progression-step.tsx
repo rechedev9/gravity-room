@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
@@ -99,6 +100,7 @@ export function ProgressionStep({
   onSaveDraft,
   isSaving,
 }: ProgressionStepExtraProps): React.ReactNode {
+  const { t } = useTranslation();
   const [slots, setSlots] = useState(() => buildInitialSlots(definition));
   const [previewState, setPreviewState] = useState<PreviewState>({ status: 'idle' });
 
@@ -134,7 +136,7 @@ export function ProgressionStep({
       const rows = await previewDefinition(currentDef);
       setPreviewState({ status: 'loaded', rows });
     } catch {
-      setPreviewState({ status: 'error', message: 'Error al generar la vista previa' });
+      setPreviewState({ status: 'error', message: t('programs.wizard.preview_error') });
     }
   };
 
@@ -161,7 +163,9 @@ export function ProgressionStep({
   return (
     <div className="space-y-4">
       {Array.from(groupedByDay.entries()).map(([dayIndex, daySlots]) => {
-        const dayName = definition.days[dayIndex]?.name ?? `Dia ${dayIndex + 1}`;
+        const dayName =
+          definition.days[dayIndex]?.name ??
+          t('programs.wizard.day_label', { number: dayIndex + 1 });
         return (
           <div key={dayIndex}>
             <h4 className="text-xs font-bold text-zinc-400 mb-2">{dayName}</h4>
@@ -187,7 +191,7 @@ export function ProgressionStep({
           onClick={() => void handlePreview()}
           disabled={isPreviewLoading || isSaving}
         >
-          {isPreviewLoading ? 'Cargando...' : 'Vista previa'}
+          {isPreviewLoading ? t('programs.wizard.loading') : t('programs.wizard.preview')}
         </Button>
 
         {previewState.status === 'loaded' && <PreviewTable rows={previewState.rows} />}
@@ -200,7 +204,7 @@ export function ProgressionStep({
       {/* Footer */}
       <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4">
         <Button variant="ghost" onClick={onBack} disabled={isSaving}>
-          Atras
+          {t('programs.wizard.back')}
         </Button>
         <div className="flex gap-3">
           <Button
@@ -208,14 +212,14 @@ export function ProgressionStep({
             onClick={() => onSave(false)}
             disabled={isSaving || !isDefinitionValid}
           >
-            {isSaving ? 'Guardando...' : 'Guardar borrador'}
+            {isSaving ? t('programs.wizard.saving') : t('programs.wizard.save_draft')}
           </Button>
           <Button
             variant="primary"
             onClick={() => onSave(true)}
             disabled={isSaving || !isDefinitionValid}
           >
-            {isSaving ? 'Guardando...' : 'Guardar y empezar'}
+            {isSaving ? t('programs.wizard.saving') : t('programs.wizard.save_and_start')}
           </Button>
         </div>
       </div>

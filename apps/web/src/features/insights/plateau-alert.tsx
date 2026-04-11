@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { InsightItem } from '@/lib/api-functions';
 import { isPlateauPayload } from '@/lib/insight-payloads';
 
@@ -9,11 +10,12 @@ interface PlateauAlertProps {
 const CONFIDENCE_THRESHOLD = 0.6;
 
 export function PlateauAlert({ insight, exerciseName }: PlateauAlertProps): React.ReactNode {
+  const { t } = useTranslation();
   const payload = insight.payload;
   if (!isPlateauPayload(payload)) return null;
   if (!payload.isPlateauing || payload.confidence <= CONFIDENCE_THRESHOLD) return null;
 
-  const name = exerciseName ?? insight.exerciseId ?? 'Ejercicio';
+  const name = exerciseName ?? insight.exerciseId ?? t('insights.plateau.default_exercise');
   const confidencePct = Math.round(payload.confidence * 100);
 
   return (
@@ -36,15 +38,16 @@ export function PlateauAlert({ insight, exerciseName }: PlateauAlertProps): Reac
           </svg>
           <div>
             <h3 className="font-mono text-[10px] font-bold text-amber-500 uppercase tracking-widest mb-1">
-              Plateau detectado
+              {t('insights.plateau.heading')}
             </h3>
             <p className="font-mono text-xs text-muted">
-              {name} — {payload.currentWeight} kg sin progresar en {payload.weeksAnalyzed} semanas
+              {name} — {payload.currentWeight} kg {t('insights.plateau.no_progress_in')}{' '}
+              {payload.weeksAnalyzed} {t('insights.plateau.weeks_label')}
             </p>
           </div>
         </div>
         <span className="font-mono text-[10px] text-amber-500 shrink-0">
-          {confidencePct}% conf.
+          {confidencePct}% {t('insights.plateau.confidence_abbrev')}
         </span>
       </div>
     </div>

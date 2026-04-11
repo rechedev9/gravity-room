@@ -1,4 +1,5 @@
 import { useState, useDeferredValue, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchExercises, type ExerciseEntry } from '@/lib/api-functions';
@@ -6,6 +7,7 @@ import { Button } from '@/components/button';
 import type { ExercisePickerProps } from './types';
 
 export function ExercisePicker({ onSelect, onClose }: ExercisePickerProps): React.ReactNode {
+  const { t } = useTranslation();
   const [search, setSearch] = useState('');
   // useDeferredValue defers the filter computation to low-priority rendering,
   // giving the input immediate response while filtering runs asynchronously.
@@ -33,16 +35,18 @@ export function ExercisePicker({ onSelect, onClose }: ExercisePickerProps): Reac
       <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-md max-h-[80vh] flex flex-col">
         <div className="p-4 border-b border-zinc-700">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-zinc-100">Seleccionar ejercicio</h3>
+            <h3 className="text-sm font-bold text-zinc-100">
+              {t('programs.wizard.select_exercise')}
+            </h3>
             <Button variant="ghost" size="sm" onClick={onClose}>
-              Cerrar
+              {t('programs.wizard.close')}
             </Button>
           </div>
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar ejercicio..."
+            placeholder={t('programs.wizard.search_exercise')}
             autoFocus
             className="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none transition-colors"
           />
@@ -50,13 +54,19 @@ export function ExercisePicker({ onSelect, onClose }: ExercisePickerProps): Reac
 
         <div className="flex-1 overflow-y-auto p-2">
           {exercisesQuery.isLoading && (
-            <p className="text-xs text-zinc-500 text-center py-8">Cargando ejercicios...</p>
+            <p className="text-xs text-zinc-500 text-center py-8">
+              {t('programs.wizard.loading_exercises')}
+            </p>
           )}
           {exercisesQuery.isError && (
-            <p className="text-xs text-red-400 text-center py-8">Error al cargar los ejercicios</p>
+            <p className="text-xs text-red-400 text-center py-8">
+              {t('programs.wizard.load_exercises_error')}
+            </p>
           )}
           {filtered.length === 0 && !exercisesQuery.isLoading && (
-            <p className="text-xs text-zinc-500 text-center py-8">No se encontraron ejercicios</p>
+            <p className="text-xs text-zinc-500 text-center py-8">
+              {t('programs.wizard.no_exercises_found')}
+            </p>
           )}
           {filtered.map((exercise) => (
             <button

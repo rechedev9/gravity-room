@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from '@tanstack/react-router';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { GoogleLogin } from '@react-oauth/google';
@@ -8,12 +9,13 @@ import { sanitizeAuthError } from '@/lib/auth-errors';
 import { trackEvent } from '@/lib/analytics';
 
 export function LoginPage(): React.ReactNode {
+  const { t } = useTranslation();
   const { signInWithGoogle, signInWithDev, user, loading } = useAuth();
   const { enterGuestMode, isGuest } = useGuest();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
-  useDocumentTitle('Iniciar Sesión — Gravity Room');
+  useDocumentTitle(t('login.page.title'));
 
   // Redirect away from /login once session restore completes with an authenticated user.
   // beforeLoad only runs once at navigation time; this handles the async restore case.
@@ -21,7 +23,7 @@ export function LoginPage(): React.ReactNode {
     if (!loading && (user !== null || isGuest)) {
       void navigate({ to: '/app' });
     }
-  }, [loading, user, isGuest, navigate]);
+  }, [loading, user, isGuest, navigate, t]);
 
   const loginTracked = useRef(false);
   useEffect(() => {
@@ -143,7 +145,7 @@ export function LoginPage(): React.ReactNode {
           className="font-mono text-[9px] tracking-[0.35em] uppercase flex-shrink-0 text-title"
           style={{ textShadow: '0 0 10px rgba(200,168,78,0.5)' }}
         >
-          Entra a la Cámara
+          {t('login.auth_separator')}
         </span>
         <div
           className="flex-1 h-px"
@@ -182,7 +184,7 @@ export function LoginPage(): React.ReactNode {
           }}
         >
           <p className="font-mono text-[9px] tracking-[0.35em] uppercase mb-5 text-title">
-            Autenticar
+            {t('login.form.title')}
           </p>
 
           {/* Google button — dark inset slot */}
@@ -198,7 +200,7 @@ export function LoginPage(): React.ReactNode {
                 if (credential) void handleGoogleSuccess(credential);
               }}
               onError={() => {
-                setError('Error al iniciar sesión con Google. Inténtalo de nuevo.');
+                setError(t('login.errors.google_auth_error'));
               }}
               theme="filled_black"
               size="large"
@@ -218,7 +220,7 @@ export function LoginPage(): React.ReactNode {
                 color: 'rgba(200,168,78,0.6)',
               }}
             >
-              ⚗ Dev Login
+              {t('login.dev.dev_login')}
             </button>
           )}
 
@@ -245,7 +247,7 @@ export function LoginPage(): React.ReactNode {
         className="mt-5 font-mono text-[10px] tracking-[0.25em] uppercase cursor-pointer text-muted transition-colors hover:text-title focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none px-4 py-2"
         style={{ animation: 'riseIn 0.55s ease both', animationDelay: '0.28s' }}
       >
-        Probar sin cuenta
+        {t('login.guest.cta')}
       </button>
 
       {/* Tagline */}
@@ -257,7 +259,7 @@ export function LoginPage(): React.ReactNode {
           animationDelay: '0.32s',
         }}
       >
-        Entrena mejor · Progresa más rápido
+        {t('login.tagline')}
       </p>
     </div>
   );

@@ -1,6 +1,7 @@
 import type { ResultValue, GenericWorkoutRow, SetLogEntry } from '@gzclp/shared/types';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import type { ViewMode } from '@/lib/view-preference';
+import { useTranslation } from 'react-i18next';
 import { GuestBanner } from '@/components/guest-banner';
 import { DayNavigator } from '@/features/program-view/day-navigator';
 import { DayView } from '@/features/program-view/day-view';
@@ -58,6 +59,7 @@ export function ProgramTabContent({
   getSetLogs,
   isSlotLogging,
 }: ProgramTabContentProps): React.ReactNode {
+  const { t } = useTranslation();
   return (
     <div
       id="panel-program"
@@ -69,16 +71,27 @@ export function ProgramTabContent({
 
       <details className="group bg-card border border-rule mb-4 sm:mb-8 overflow-hidden">
         <summary className="px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center [&::marker]:hidden list-none text-xs tracking-wide">
-          Acerca de {definition.name}
+          {t('tracker.tab_content.about_label')} {definition.name}
           <span className="transition-transform duration-200 group-open:rotate-90">&#9656;</span>
         </summary>
         <div className="px-5 pb-5 border-t border-rule-light">
           <p className="mt-3 text-sm leading-7 text-info">{definition.description}</p>
-          {definition.author && <p className="mt-2 text-xs text-muted">Por {definition.author}</p>}
+          {definition.author && (
+            <p className="mt-2 text-xs text-muted">
+              {t('programs.card.author', { author: definition.author })}
+            </p>
+          )}
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted">
-            <span>{totalWorkouts} entrenamientos en total</span>
-            <span>{workoutsPerWeek} por semana</span>
-            <span>Rotación de {definition.days.length} días</span>
+            <span>
+              {totalWorkouts} {t('tracker.tab_content.total_workouts')}
+            </span>
+            <span>
+              {workoutsPerWeek} {t('tracker.tab_content.per_week')}
+            </span>
+            <span>
+              {t('tracker.tab_content.rotation_of')} {definition.days.length}{' '}
+              {t('tracker.tab_content.days')}
+            </span>
           </div>
         </div>
       </details>
@@ -99,11 +112,15 @@ export function ProgramTabContent({
           type="button"
           onClick={onToggleView}
           aria-label={
-            viewMode === 'detailed' ? 'Cambiar a vista compacta' : 'Cambiar a vista detallada'
+            viewMode === 'detailed'
+              ? t('tracker.tab_content.aria_compact_view')
+              : t('tracker.tab_content.aria_detailed_view')
           }
           className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors"
         >
-          {viewMode === 'detailed' ? 'Vista compacta' : 'Vista detallada'}
+          {viewMode === 'detailed'
+            ? t('tracker.tab_content.compact_view')
+            : t('tracker.tab_content.detailed_view')}
         </button>
       </div>
 

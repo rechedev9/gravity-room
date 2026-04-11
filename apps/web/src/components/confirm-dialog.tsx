@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from './button';
 
 interface ConfirmDialogProps {
@@ -17,15 +18,19 @@ export function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = 'Confirmar',
-  cancelLabel = 'Cancelar',
+  confirmLabel,
+  cancelLabel,
   variant = 'default',
   loading = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps): React.ReactNode {
+  const { t } = useTranslation();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+
+  const resolvedConfirmLabel = confirmLabel ?? t('confirm_dialog.confirm');
+  const resolvedCancelLabel = cancelLabel ?? t('confirm_dialog.cancel');
 
   // Sync open prop with native dialog open/close
   useEffect(() => {
@@ -74,10 +79,10 @@ export function ConfirmDialog({
       <div className="text-xs text-muted leading-relaxed">{message}</div>
       <div className="border-t border-rule pt-4 mt-5 flex justify-end gap-3">
         <Button variant="ghost" onClick={onCancel} disabled={loading}>
-          {cancelLabel}
+          {resolvedCancelLabel}
         </Button>
         <Button variant={variant} onClick={onConfirm} disabled={loading}>
-          {loading ? 'Procesando…' : confirmLabel}
+          {loading ? t('confirm_dialog.processing') : resolvedConfirmLabel}
         </Button>
       </div>
     </dialog>

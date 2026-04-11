@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { z } from 'zod/v4';
 import type {
   ProgressionRuleSchema,
@@ -21,6 +22,7 @@ interface SlotCardProps {
 const DEFAULT_RULE: ProgressionRule = { type: 'no_change' };
 
 export function SlotCard({ slot, onChange, defaultOpen }: SlotCardProps): React.ReactNode {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(defaultOpen === true);
   const [showAdvanced, setShowAdvanced] = useState(slot.showAdvanced);
 
@@ -65,7 +67,7 @@ export function SlotCard({ slot, onChange, defaultOpen }: SlotCardProps): React.
         onClick={toggleOpen}
         className="w-full flex items-center justify-between px-4 py-3 text-left cursor-pointer hover:bg-zinc-700/30 transition-colors"
         aria-expanded={isOpen}
-        aria-label={`${slot.exerciseName} — ${isOpen ? 'colapsar' : 'expandir'}`}
+        aria-label={t('programs.wizard.exercise_card_toggle', { name: slot.exerciseName })}
       >
         <span className="text-sm font-medium text-zinc-200">{slot.exerciseName}</span>
         <span className="text-zinc-500 text-xs">{isOpen ? '▲' : '▼'}</span>
@@ -77,17 +79,17 @@ export function SlotCard({ slot, onChange, defaultOpen }: SlotCardProps): React.
           {/* Template quick-select */}
           <div className="pt-3">
             <label className="block text-2xs font-bold text-zinc-400 uppercase tracking-wide mb-1">
-              Plantilla
+              {t('programs.wizard.template')}
             </label>
             <select
               value={slot.templateId}
               onChange={(e) => handleTemplateChange(e.target.value)}
               className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1.5 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none"
-              aria-label={`Plantilla para ${slot.exerciseName}`}
+              aria-label={t('programs.wizard.template_for_exercise', { name: slot.exerciseName })}
             >
-              {PROGRESSION_TEMPLATES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.label}
+              {PROGRESSION_TEMPLATES.map((tmpl) => (
+                <option key={tmpl.id} value={tmpl.id}>
+                  {tmpl.label}
                 </option>
               ))}
             </select>
@@ -99,21 +101,21 @@ export function SlotCard({ slot, onChange, defaultOpen }: SlotCardProps): React.
           {/* Standard rule selectors */}
           <div className="space-y-3">
             <RuleSelector
-              label="Al completar"
+              label={t('programs.wizard.on_complete')}
               rule={slot.onSuccess}
               onChange={(rule) => {
                 if (rule) updateField('onSuccess', rule);
               }}
             />
             <RuleSelector
-              label="Al fallar (etapa intermedia)"
+              label={t('programs.wizard.on_fail_mid_stage')}
               rule={slot.onMidStageFail}
               onChange={(rule) => {
                 if (rule) updateField('onMidStageFail', rule);
               }}
             />
             <RuleSelector
-              label="Al fallar (etapa final)"
+              label={t('programs.wizard.on_fail_final_stage')}
               rule={slot.onFinalStageFail}
               onChange={(rule) => {
                 if (rule) updateField('onFinalStageFail', rule);
@@ -129,7 +131,9 @@ export function SlotCard({ slot, onChange, defaultOpen }: SlotCardProps): React.
               className="text-2xs text-amber-400 hover:text-amber-300 cursor-pointer font-bold uppercase tracking-wide"
               aria-expanded={showAdvanced}
             >
-              {showAdvanced ? '▼ Avanzado' : '▶ Avanzado'}
+              {showAdvanced
+                ? t('programs.wizard.collapse_advanced')
+                : t('programs.wizard.expand_advanced')}
             </button>
 
             {showAdvanced && (
@@ -137,17 +141,17 @@ export function SlotCard({ slot, onChange, defaultOpen }: SlotCardProps): React.
                 {/* Ultra-advanced: onFinalStageSuccess + onUndefined */}
                 <div className="bg-zinc-900/50 rounded-lg p-3 space-y-3">
                   <p className="text-2xs font-bold text-zinc-500 uppercase tracking-wide">
-                    Ultra-avanzado
+                    {t('programs.wizard.ultra_advanced')}
                   </p>
                   <RuleSelector
-                    label="Al completar la ultima etapa"
+                    label={t('programs.wizard.on_complete_last_stage')}
                     rule={slot.onFinalStageSuccess ?? DEFAULT_RULE}
                     onChange={(rule) => updateField('onFinalStageSuccess', rule)}
                     optional
                     advanced
                   />
                   <RuleSelector
-                    label="Sin resultado definido"
+                    label={t('programs.wizard.undefined_result')}
                     rule={slot.onUndefined ?? DEFAULT_RULE}
                     onChange={(rule) => updateField('onUndefined', rule)}
                     optional

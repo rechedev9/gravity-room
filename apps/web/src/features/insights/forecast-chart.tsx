@@ -119,7 +119,7 @@ export function ForecastChart({ insight, exerciseName }: ForecastChartProps): Re
             itemStyle={{ color: accent }}
             labelStyle={{ color: textColor }}
           />
-          {/* Confidence band */}
+          {/* Confidence band — no animation; stacked fill behaves oddly when animated */}
           <Area
             type="monotone"
             dataKey="forecastMin"
@@ -127,6 +127,7 @@ export function ForecastChart({ insight, exerciseName }: ForecastChartProps): Re
             stroke="none"
             fill="transparent"
             connectNulls={false}
+            isAnimationActive={false}
           />
           <Area
             type="monotone"
@@ -136,6 +137,7 @@ export function ForecastChart({ insight, exerciseName }: ForecastChartProps): Re
             fill={accent}
             fillOpacity={0.12}
             connectNulls={false}
+            isAnimationActive={false}
           />
           {/* Historical line */}
           <Line
@@ -145,6 +147,8 @@ export function ForecastChart({ insight, exerciseName }: ForecastChartProps): Re
             strokeWidth={2}
             dot={false}
             connectNulls={false}
+            animationDuration={320}
+            animationEasing="ease-out"
           />
           {/* Forecast dashed line */}
           <Line
@@ -155,6 +159,8 @@ export function ForecastChart({ insight, exerciseName }: ForecastChartProps): Re
             strokeDasharray="5 3"
             dot={false}
             connectNulls={false}
+            animationDuration={320}
+            animationEasing="ease-out"
           />
           <ReferenceLine x="+2w" stroke={gridColor} strokeDasharray="2 2" />
         </ComposedChart>

@@ -1,0 +1,728 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "start": "Start",
+    "required": "Required",
+    "optional": "Optional",
+    "success": "Success",
+    "failed": "Failed",
+    "completed": "Completed",
+    "active": "Active",
+    "draft": "Draft",
+    "pending_review": "Pending review",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "coming_soon": "Coming soon",
+    "no_data": "No data yet",
+    "something_went_wrong": "Something went wrong",
+    "reload": "Reload",
+    "unexpected_response": "Unexpected response from server",
+    "update": "Update",
+    "preview": "Preview",
+    "advanced": "Advanced",
+    "collapse": "collapse",
+    "expand": "expand"
+  },
+  "auth": {
+    "sign_in": "Sign In",
+    "sign_out": "Sign Out",
+    "create_account": "Create Account",
+    "dev_login": "⚗ Dev Login",
+    "try_without_account": "Try without account",
+    "authenticate": "Authenticate",
+    "enter_the_chamber": "Enter the Chamber",
+    "train_better_progress_faster": "Train better · Progress faster",
+    "google_auth_error": "Error signing in with Google. Please try again."
+  },
+  "navigation": {
+    "home": "Home",
+    "programs": "Programs",
+    "dashboard": "Dashboard",
+    "tracker": "Tracker",
+    "analytics": "Analytics",
+    "profile": "Profile",
+    "main_nav_label": "Main navigation",
+    "view_profile": "View profile"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Training performance and progress",
+    "data_updated_6h": "Data updated every 6h",
+    "active_program": "Active Program",
+    "performance": "Performance",
+    "alerts": "Alerts",
+    "load_recommendation": "Load Recommendation",
+    "complete_workouts_message": "Complete workouts to see your analytics here.",
+    "no_programs_message": "Choose a program to see your metrics here.",
+    "view_programs": "View Programs",
+    "load_recommendation_section": "Load Recommendation"
+  },
+  "programs": {
+    "page_title": "Programs — Gravity Room",
+    "title": "Programs",
+    "subtitle": "Level-based training program catalog",
+    "retry": "Retry",
+    "catalog_load_error": "Could not load catalog.",
+    "other_programs": "Other Programs",
+    "choose_program": "Choose a Program",
+    "my_custom_programs": "My Custom Programs",
+    "card": {
+      "level_beginner": "Beginner",
+      "level_intermediate": "Intermediate",
+      "level_advanced": "Advanced",
+      "coming_soon": "Coming soon",
+      "workouts_count": "{{count}} workouts",
+      "frequency": "{{count}}x / week",
+      "author": "By {{author}}",
+      "view_program": "View Program",
+      "continue_training": "Continue Training",
+      "start_program": "Start Program",
+      "customizing": "Customizing...",
+      "customize": "Customize"
+    },
+    "definitions": {
+      "status_draft": "Draft",
+      "status_pending_review": "Pending review",
+      "status_approved": "Approved",
+      "status_rejected": "Rejected",
+      "confirm_delete": "Delete \"{{name}}\"? This action cannot be undone.",
+      "empty_state": "You have no custom programs. Customize one from the catalog.",
+      "unnamed_program": "Unnamed program",
+      "updated_label": "Updated:",
+      "edit": "Edit",
+      "start": "Start",
+      "delete": "Delete"
+    },
+    "wizard": {
+      "title": "Edit program",
+      "step_basic_info": "Basic info",
+      "step_days_exercises": "Days and exercises",
+      "step_progression": "Progression",
+      "loading_definition": "Loading definition...",
+      "load_error": "Could not load program definition.",
+      "back": "Back",
+      "close": "Close",
+      "step_counter": "Step {{current}} of {{total}}",
+      "unsaved_changes": "unsaved changes",
+      "save_error": "Error saving",
+      "basic_info": {
+        "name_required": "Name is required",
+        "max_chars": "Maximum {{max}} characters",
+        "name_label": "Program name",
+        "name_placeholder": "My custom program",
+        "description_label": "Description (optional)",
+        "description_placeholder": "Describe your program...",
+        "cancel": "Cancel",
+        "next": "Next"
+      },
+      "days_exercises": {
+        "min_exercises": "Add at least 1 exercise",
+        "default_day_name": "Day {{n}}",
+        "add_day": "+ Day",
+        "day_name_placeholder": "Day name",
+        "remove_day": "Remove day",
+        "remove_exercise": "Remove",
+        "add_exercise": "+ Add exercise",
+        "back": "Back",
+        "next": "Next"
+      },
+      "exercise_picker": {
+        "title": "Select exercise",
+        "close": "Close",
+        "search_placeholder": "Search exercise...",
+        "loading": "Loading exercises...",
+        "load_error": "Error loading exercises",
+        "no_results": "No exercises found"
+      },
+      "progression": {
+        "fallback_day_name": "Day {{n}}",
+        "loading": "Loading...",
+        "preview": "Preview",
+        "preview_error": "Error generating preview",
+        "back": "Back",
+        "saving": "Saving...",
+        "save_draft": "Save draft",
+        "save_and_start": "Save and start"
+      },
+      "rule_selector": {
+        "none": "None",
+        "rules": {
+          "add_weight": "Add weight",
+          "advance_stage": "Advance stage",
+          "add_weight_reset_stage": "Add weight and reset stage",
+          "deload_percent": "Deload (percentage)",
+          "no_change": "No change",
+          "double_progression": "Double progression",
+          "update_tm": "Update training max",
+          "advance_stage_add_weight": "Advance stage and add weight"
+        },
+        "fields": {
+          "deload_percent": "Deload percentage",
+          "amount_kg": "Amount to add (kg)",
+          "min_reps": "Min reps",
+          "max_reps": "Max reps",
+          "amount": "Amount",
+          "min_amrap_reps": "Min AMRAP reps"
+        },
+        "validation": {
+          "rep_range": "Min reps cannot exceed max reps"
+        }
+      },
+      "slot_card": {
+        "collapse": "collapse",
+        "expand": "expand",
+        "template": "Template",
+        "on_success": "On success",
+        "on_mid_stage_fail": "On fail (intermediate stage)",
+        "on_final_stage_fail": "On fail (final stage)",
+        "advanced": {
+          "toggle": "Advanced",
+          "section": "Ultra-advanced",
+          "on_final_stage_success": "On completing final stage",
+          "on_undefined": "Undefined result"
+        }
+      },
+      "stage_editor": {
+        "title": "Stages",
+        "sets": "Sets",
+        "reps": "Reps",
+        "amrap": "AMRAP",
+        "reps_max": "Max reps",
+        "remove_stage": "Remove stage",
+        "add_stage": "+ Add stage"
+      },
+      "preview": {
+        "no_data": "No preview data.",
+        "table_aria": "Program preview",
+        "columns": {
+          "workout": "Workout",
+          "exercise": "Exercise",
+          "sets": "Sets",
+          "reps": "Reps",
+          "weight": "Weight"
+        }
+      }
+    }
+  },
+  "tracker": {
+    "page_title": "Tracker — Gravity Room",
+    "program": "Program",
+    "statistics": "Statistics",
+    "retry": "Retry",
+    "stats_load_error": "Could not load statistics.",
+    "back_to_panel": "Back to panel",
+    "delete_and_return": "Delete program and return",
+    "catalog_removed": "The program {{programId}} no longer exists in the catalog.",
+    "guest_stats_message": "Create an account to see statistics",
+    "guest_export_message": "Create an account to export your data",
+    "jaw_block": "JAW Block",
+    "jaw_test_week_update_tm": "Test week — update Block TM",
+    "jaw_last_block": "last JAW block.",
+    "jaw_test_in_week": "Test in wk.",
+    "tab_content": {
+      "about_label": "About",
+      "total_workouts": "total workouts",
+      "per_week": "per week",
+      "rotation_of": "Rotation of",
+      "days": "days",
+      "aria_compact_view": "Switch to compact view",
+      "aria_detailed_view": "Switch to detailed view",
+      "compact_view": "Compact view",
+      "detailed_view": "Detailed view"
+    },
+    "setup_form": {
+      "invalid_value": "Invalid value",
+      "min_weight": "Minimum {{min}} kg",
+      "max_weight": "Maximum 500 kg",
+      "required": "Required",
+      "generate_error": "Error generating program.",
+      "edit_title_default": "Edit Starting Weights (kg)",
+      "create_title_default": "Starting Weights (kg)",
+      "edit_description_default": "Update your starting weights — the program will recalculate with new values",
+      "create_description_default": "Enter your starting weights for",
+      "active_group_indicator": "← update here",
+      "error_header": "Please correct the following:",
+      "cancel_button": "Cancel",
+      "generating_loading": "Generating...",
+      "update_button_short": "Update",
+      "update_button": "Update Weights",
+      "generate_button": "Generate Program",
+      "collapsed_title": "Starting Weights",
+      "overflow_indicator": "+{{n}} more",
+      "edit_button_short": "Edit",
+      "edit_button": "Edit Weights",
+      "close_aria": "Close",
+      "confirm_title": "Update Starting Weights",
+      "confirm_message": "Your success/fail history will be preserved, but projected weights will change. Continue?",
+      "confirm_label": "Update"
+    },
+    "toolbar": {
+      "progress_aria": "Training progress",
+      "undo_actions_aria": "undoable actions",
+      "undo_button": "Undo",
+      "more_actions_aria": "More actions",
+      "finishing_loading": "Finishing...",
+      "finish_program": "Finish Program",
+      "export_csv": "Export CSV",
+      "reset_all": "Reset All",
+      "finish_confirm_message": "Your progress and statistics will be saved. You can review them anytime from the dashboard.",
+      "finish_confirm_label": "Finish",
+      "reset_confirm_title": "Reset All Progress",
+      "reset_confirm_message": "Are you sure you want to reset ALL progress? This cannot be undone.",
+      "reset_confirm_label": "Reset All"
+    },
+    "stats_panel": {
+      "other_group": "Other",
+      "exercise_plural": "exercise / exercises",
+      "empty_title": "No data yet",
+      "empty_description": "Complete your first workout to see statistics and charts.",
+      "default_section_label": "Exercises",
+      "card_start": "Start:",
+      "card_gained": "kg gained",
+      "card_stage": "Stage",
+      "card_success_rate": "success",
+      "progression_suffix": "Progression",
+      "amrap_chart_suffix": "AMRAP (reps)",
+      "volume_section_label": "Total Volume",
+      "volume_chart_label": "Volume per Session (kg)"
+    },
+    "graduation": {
+      "exercise_squat": "Squat",
+      "exercise_bench": "Bench Press",
+      "exercise_deadlift": "Deadlift",
+      "criteria_squat": "3 reps (tempo 5-3-5)",
+      "criteria_bench": "1 rep (perfect technique)",
+      "criteria_deadlift": "10 reps (controlled)",
+      "completed_title": "Graduation Completed",
+      "pending_title": "Graduation Objectives",
+      "completed_description": "You have achieved all objectives. You are ready for the JAW Protocol.",
+      "pending_description": "Complete these objectives to graduate to the next program.",
+      "estimated_1rm_header": "Your estimated 1RMs (Epley):",
+      "start_jaw": "Start JAW Protocol",
+      "keep_training": "Keep training"
+    },
+    "test_weight": {
+      "title": "Max Test —",
+      "description_propagation": "Record your max. This weight will be used as Training Max for the next block.",
+      "description_final": "Record your max. This is your final result of the JAW protocol.",
+      "weight_label": "How much did you lift? (kg)",
+      "cancel_button": "Cancel",
+      "saving_loading": "Saving...",
+      "confirm_button": "Confirm"
+    },
+    "day_view": {
+      "workout_aria": "Workout",
+      "deload_badge": "Deload"
+    },
+    "detailed_day_view": {
+      "workout_aria": "Workout",
+      "col_set": "Set",
+      "col_weight": "Kg",
+      "col_reps": "Reps",
+      "deload_badge": "Deload",
+      "table_aria_prefix": "Sets of",
+      "set_completed_aria": "Set completed",
+      "set_failed_aria": "Set failed",
+      "confirm_set_aria_prefix": "Confirm set"
+    },
+    "day_navigator": {
+      "prev_aria": "Previous day",
+      "prev_button": "Previous",
+      "day_label": "Day",
+      "completed_aria": "Completed",
+      "pending_aria": "Pending",
+      "go_to_current": "Current",
+      "next_aria": "Next day",
+      "next_button": "Next"
+    },
+    "completion": {
+      "header": "COMPLETED!",
+      "workouts_label": "Workouts",
+      "workouts_of": "of",
+      "total_volume": "Total Volume",
+      "weight_gained": "Weight Gained",
+      "personal_records": "Personal Records",
+      "estimated_1rm": "Estimated 1RM (Epley)",
+      "epley_note": "Estimate based on Epley formula",
+      "view_profile": "View Training Profile",
+      "back_to_dashboard": "Back to Dashboard"
+    },
+    "weight_field": {
+      "decrease_label": "Decrease {{label}}",
+      "increase_label": "Increase {{label}}",
+      "valid": "Valid",
+      "min_hint": "Min {{min}} kg"
+    },
+    "result_cell": {
+      "success": "Success",
+      "fail": "Fail"
+    },
+    "amrap_input": {
+      "label": "AMRAP Reps",
+      "placeholder": "Extra reps"
+    },
+    "rpe_select": {
+      "label": "RPE",
+      "placeholder": "Select"
+    },
+    "stage_tag": {
+      "stage": "Stage"
+    }
+  },
+  "profile": {
+    "page": {
+      "title": "Profile — Gravity Room",
+      "heading": "Profile"
+    },
+    "empty": {
+      "heading": "NO PROGRAM",
+      "description": "Start a program from the Dashboard to see your training profile.",
+      "cta": "Go to Dashboard"
+    },
+    "history": {
+      "title": "History",
+      "completed_on": "Completed on",
+      "view_stats": "View statistics",
+      "badge_completed": "Completed"
+    },
+    "banner": {
+      "badge_active": "Active",
+      "badge_completed": "Completed",
+      "first_workout_message": "Your first workout awaits",
+      "workout_label": "Workout",
+      "workout_of": "of",
+      "completed_pct_label": "Completed",
+      "success_rate_label": "Success",
+      "cta_start": "Start",
+      "program_selector_label": "Program selector",
+      "status_active": "— Active",
+      "status_completed": "— Completed"
+    },
+    "badges": {
+      "section_title": "Achievements",
+      "first_workout": {
+        "label": "First Workout",
+        "description": "Complete 1 workout"
+      },
+      "streak_5": {
+        "label": "Streak of 5",
+        "description": "5 consecutive workouts"
+      },
+      "club_100kg": {
+        "label": "100 kg Club",
+        "description": "Any T1 reaches 100 kg"
+      },
+      "complete_program": {
+        "label": "Complete Program",
+        "description": "Finish a complete program"
+      },
+      "volume_10k": {
+        "label": "Volume 10K",
+        "description": "10,000 kg total volume"
+      }
+    },
+    "charts": {
+      "weight_progression_title": "Weight Progression",
+      "success_rate_label": "success"
+    },
+    "stats_grid": {
+      "stats_title": "Statistics",
+      "empty_message": "Complete your first workout to see your statistics.",
+      "workouts_label": "Workouts",
+      "workouts_of": "of",
+      "workouts_label_plural": "workouts",
+      "success_rate_label": "Success Rate",
+      "total_volume_label": "Total Volume",
+      "sets_label": "sets",
+      "reps_label": "reps",
+      "completed_label": "Completed",
+      "streak_title": "Streak",
+      "current_streak_label": "Current Streak",
+      "consecutive_label": "consecutive",
+      "longest_streak_label": "Record",
+      "this_month_label": "this month",
+      "new_prs_label": "New PRs",
+      "volume_label": "Volume",
+      "personal_records_title": "Personal Records (T1)",
+      "workout_number_label": "Workout #",
+      "initial_weight_label": "Initial weight",
+      "e1rm_title": "Estimated 1RM (Epley)",
+      "epley_note": "Estimate based on Epley formula",
+      "lifetime_volume_title": "Lifetime Total Volume",
+      "all_programs_label": "All Programs",
+      "programs_label_plural": "programs"
+    },
+    "account": {
+      "title": "Account",
+      "change_avatar_label": "Change avatar",
+      "change_avatar_text": "Change",
+      "username_input_label": "Username",
+      "edit_name_tooltip": "Edit name",
+      "remove_photo": "Remove photo",
+      "weight_unit_label": "Weight unit",
+      "unit_lbs": "pounds",
+      "unit_kg": "kilograms",
+      "danger_zone": "Danger zone",
+      "delete_account": "Delete account",
+      "name_required": "Name required"
+    },
+    "avatar": {
+      "upload_error": "Error uploading profile photo",
+      "remove_error": "Error removing profile photo"
+    },
+    "name": {
+      "updated": "Name updated",
+      "update_error": "Error updating name"
+    },
+    "account_errors": {
+      "delete_error": "Error deleting account"
+    }
+  },
+  "analytics": {
+    "page": {
+      "title": "Analytics — Gravity Room",
+      "heading": "Analytics",
+      "subtitle": "Pre-calculated performance every 6 hours"
+    },
+    "error": {
+      "loading": "Could not load analytics."
+    },
+    "empty": {
+      "message": "No data yet. Complete some workouts to see your analytics."
+    },
+    "sections": {
+      "overview": "Summary",
+      "exercise_summary": "Exercise Summary",
+      "plateau_alerts": "Plateau Alerts",
+      "e1rm_progression": "Estimated 1RM by Exercise",
+      "e1rm_forecast": "1RM Forecast",
+      "load_recommendation": "Load Recommendation"
+    }
+  },
+  "insights": {
+    "exercise_summary": {
+      "default_exercise": "Exercise",
+      "total_sets_label": "Total sets",
+      "success_rate_label": "Success rate",
+      "total_volume_label": "Total volume",
+      "avg_rpe_label": "Avg RPE",
+      "success_rate_a11y": "Success rate:"
+    },
+    "volume_trend": {
+      "direction_up": "↑ rising",
+      "direction_down": "↓ falling",
+      "direction_stable": "→ stable",
+      "title": "Volume Trend",
+      "no_data": "No volume data",
+      "chart_sr_only": "Weekly volume trend",
+      "avg_label": "avg"
+    },
+    "frequency": {
+      "day_labels": ["M", "T", "W", "T", "F", "S", "S"],
+      "title": "Weekly Activity",
+      "days_label": "days",
+      "total_sessions_label": "total sessions"
+    },
+    "plateau": {
+      "default_exercise": "Exercise",
+      "heading": "Plateau detected",
+      "no_progress_in": "no progress in",
+      "weeks_label": "weeks",
+      "confidence_abbrev": "conf."
+    },
+    "load_rec": {
+      "default_exercise": "Exercise",
+      "action_increment": "increment",
+      "action_maintain": "maintain",
+      "from": "from",
+      "to": "to",
+      "rule_method_label": "rule",
+      "current_load_label": "Current load",
+      "increment_to_label": "Increment to",
+      "maintain_at_label": "Maintain at",
+      "confidence_label": "confidence"
+    }
+  },
+  "login": {
+    "page": {
+      "title": "Sign In — Gravity Room"
+    },
+    "tagline": "Train better · Progress faster",
+    "auth_separator": "Enter the Chamber",
+    "form": {
+      "title": "Authenticate"
+    },
+    "errors": {
+      "google_auth_error": "Error signing in with Google. Please try again."
+    },
+    "dev": {
+      "dev_login": "⚗ Dev Login"
+    },
+    "guest": {
+      "cta": "Try without account"
+    }
+  },
+  "not_found": {
+    "logo_alt": "Gravity Room logo",
+    "message": "This page doesn't exist. It may have been moved, or you typed the URL incorrectly.",
+    "go_home": "Go to Home"
+  },
+  "guest_banner": {
+    "mode": "Guest mode",
+    "prompt": "Create an account to save your progress",
+    "create_account": "Create Account",
+    "create_account_aria": "Create account to save your progress"
+  },
+  "legal": {
+    "back": "← Back",
+    "privacy": {
+      "document_title": "Privacy Policy — Gravity Room",
+      "title": "Privacy Policy",
+      "data_stored": {
+        "title": "Data We Store",
+        "body": "All training data (exercises, weights, sets, repetitions, and results) is stored locally in your browser's localStorage. This data never leaves your device unless you explicitly enable cloud sync."
+      },
+      "cloud_sync": {
+        "title": "Cloud Sync (Optional)",
+        "body": "If you create an account, we store your email address and training data in a secure database (PostgreSQL). This allows synchronization between devices. Cloud sync is completely optional — the app works fully offline without an account."
+      },
+      "google_login": {
+        "title": "Google Sign-In (Optional)",
+        "body": "If you sign in with Google, we receive your email address and profile name from Google. We do not access your contacts, calendar, or any other Google data."
+      },
+      "cookies": {
+        "title": "Cookies, Analytics, and Tracking",
+        "body_prefix": "We only use a technical cookie necessary to maintain authenticated user sessions. We do not use analytics, tracking, or advertising cookies. No data is shared with advertisers or third parties. See our",
+        "link": "Cookie Policy",
+        "body_suffix": "for more information."
+      },
+      "delete_data": {
+        "title": "Delete Your Data",
+        "local_label": "Local data:",
+        "local_body": "Clear your browser's localStorage or use the \"Reset All\" option in the app.",
+        "cloud_label": "Cloud data:",
+        "cloud_body": "If you have an account and wish to delete your cloud data, contact us and we will delete your account and all associated data from our database."
+      },
+      "contact": {
+        "title": "Contact",
+        "body": "For privacy questions or data deletion requests, open an issue on the project repository or contact the maintainer."
+      }
+    },
+    "cookie_policy": {
+      "document_title": "Cookie Policy — Gravity Room",
+      "title": "Cookie Policy",
+      "what_are_cookies": {
+        "title": "What are cookies?",
+        "body": "Cookies are small text files that websites store in your browser. They may be necessary for the technical functioning of the site or used for analytical or advertising purposes."
+      },
+      "which_cookies": {
+        "title": "What cookies does Gravity Room use?",
+        "body": "Gravity Room only uses a technical cookie strictly necessary for authentication functionality.",
+        "no_tracking": "We do not use analytics, advertising, or tracking cookies of any kind."
+      },
+      "table": {
+        "name": "Name",
+        "type": "Type",
+        "purpose": "Purpose",
+        "duration": "Duration",
+        "owner": "Owner",
+        "technical_type": "Technical (necessary)",
+        "refresh_token_purpose": "Maintain authenticated user session. Contains an opaque identifier (no personal data). It is httpOnly and not accessible by JavaScript.",
+        "refresh_token_duration": "7 days",
+        "refresh_token_owner": "Gravity Room (first-party)"
+      },
+      "third_party": {
+        "title": "Third-party cookies",
+        "body_prefix": "When using Google sign-in, Google's service may set its own cookies during the authentication process. These cookies are managed by Google and subject to their",
+        "privacy_policy_link": "privacy policy",
+        "no_access": "Gravity Room does not control or have access to such cookies."
+      },
+      "local_storage": {
+        "title": "Local storage",
+        "body": "In addition to the cookie mentioned above, Gravity Room uses browser local storage to save display preferences and training data in guest mode. This data is never sent to any server and can be deleted by clearing your site data in your browser."
+      },
+      "analytics": {
+        "title": "Analytics",
+        "body": "a privacy-friendly web analytics service. Plausible does not use cookies, does not collect identifiable personal data, and does not track users between sessions. Aggregated data (page views, country of origin, device type) is used solely to improve the service."
+      },
+      "legal_basis": {
+        "title": "Legal basis",
+        "body": "is exempt from prior consent under article 22.2 of Law 34/2002 (LSSI-CE), as it is strictly necessary for the provision of the authentication service expressly requested by the user. This exemption is also recognized by Recital 66 of Directive 2009/136/EC and the guidelines of the European Data Protection Board."
+      },
+      "disable_cookies": {
+        "title": "How to disable cookies?",
+        "body_prefix": "You can configure your browser to block or delete cookies. Note that if you block the cookie",
+        "body_suffix": "you will not be able to maintain your session and will need to authenticate again on each visit. The app will continue to work in guest mode without cookies."
+      },
+      "contact": {
+        "title": "Contact",
+        "body": "For questions about cookie usage, open an issue on the project repository or contact the maintainer."
+      },
+      "last_updated": "Last updated: March 2026."
+    }
+  },
+  "avatar_dropdown": {
+    "user_menu": "User menu",
+    "profile": "Profile",
+    "sign_out": "Sign Out"
+  },
+  "delete_account": {
+    "confirm_word": "DELETE",
+    "validation": {
+      "incorrect": "Incorrect"
+    },
+    "title": "Delete Account",
+    "description": "This action will mark your account for deletion. Your data will be permanently deleted after 30 days.",
+    "confirm_instruction": "Type {{word}} to confirm.",
+    "cancel": "Cancel",
+    "loading": "Deleting...",
+    "confirm_button": "Delete Account"
+  },
+  "confirm_dialog": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "processing": "Processing…"
+  },
+  "cookie_banner": {
+    "message": "This site uses a technical cookie necessary to maintain your session. We do not use tracking cookies. We use Plausible Analytics (no cookies) to improve the service.",
+    "learn_more": "More information",
+    "accept": "Got it"
+  },
+  "sw_update": {
+    "available": "New version available",
+    "update": "Update",
+    "close": "Close"
+  },
+  "guest_banner": {
+    "mode": "Guest mode",
+    "prompt": "create an account to save your progress",
+    "create_account_aria": "Create account to save your progress",
+    "create_account": "Create Account"
+  },
+  "online_indicator": {
+    "aria_label": "{{count}} users online — Join our Discord",
+    "label": "{{count}} online"
+  },
+  "error_boundary": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. Reloading the page should fix it.",
+    "reload_button": "Reload"
+  },
+  "toast": {
+    "provider_error": "useToast must be used within ToastProvider"
+  },
+  "guest": {
+    "provider_error": "useGuest must be used within GuestProvider"
+  }
+}

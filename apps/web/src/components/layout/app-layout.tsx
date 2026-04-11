@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Outlet, useRouterState } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppSidebar } from './app-sidebar';
 import { SidebarTrigger } from './sidebar-trigger';
@@ -9,21 +10,23 @@ import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
 // Typed as Record<string, string | undefined> so the lookup result is string | undefined,
 // making the ?? fallback in getPageTitle semantically correct rather than dead code.
 const ROUTE_LABELS: Record<string, string | undefined> = {
-  '/app': 'Inicio',
-  '/app/dashboard': 'Dashboard',
-  '/app/tracker': 'Tracker',
-  '/app/programs': 'Programas',
-  '/app/profile': 'Perfil',
-  '/app/analytics': 'Analíticas',
+  '/app': 'navigation.home',
+  '/app/dashboard': 'navigation.dashboard',
+  '/app/tracker': 'navigation.tracker',
+  '/app/programs': 'navigation.programs',
+  '/app/profile': 'navigation.profile',
+  '/app/analytics': 'navigation.analytics',
 };
 
-function getPageTitle(pathname: string): string {
+function getPageTitle(pathname: string, t: ReturnType<typeof useTranslation>['t']): string {
   // Match tracker subroutes
-  if (pathname.startsWith('/app/tracker')) return 'Tracker';
-  return ROUTE_LABELS[pathname] ?? 'Gravity Room';
+  if (pathname.startsWith('/app/tracker')) return t('navigation.tracker');
+  const key = ROUTE_LABELS[pathname];
+  return key ? t(key) : 'Gravity Room';
 }
 
 export function AppLayout(): React.ReactNode {
+  const { t } = useTranslation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const reduced = useReducedMotion();
@@ -42,7 +45,7 @@ export function AppLayout(): React.ReactNode {
     setSidebarOpen(false);
   }, [pathname]);
 
-  const pageTitle = getPageTitle(pathname);
+  const pageTitle = getPageTitle(pathname, t);
 
   return (
     <div className="flex min-h-dvh bg-body">

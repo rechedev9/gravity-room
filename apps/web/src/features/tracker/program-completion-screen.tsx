@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import type { CompletionStats, PersonalRecord, OneRMEstimate } from '@/lib/profile-stats';
 import { formatVolume } from '@/lib/profile-stats';
 import { ProfileStatCard } from '@/features/profile/profile-stat-card';
@@ -23,6 +24,8 @@ export function ProgramCompletionScreen({
   onViewProfile,
   onBackToDashboard,
 }: ProgramCompletionScreenProps): React.ReactNode {
+  const { t } = useTranslation();
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onBackToDashboard();
@@ -45,7 +48,7 @@ export function ProgramCompletionScreen({
             className="font-display text-5xl sm:text-7xl text-title leading-none mb-3"
             style={{ textShadow: '0 0 40px rgba(240, 192, 64, 0.25)' }}
           >
-            {'\u00A1'}COMPLETADO!
+            {t('tracker.completion.header')}
           </h1>
           <p className="text-lg sm:text-xl text-info font-bold">{programName}</p>
           <div
@@ -61,18 +64,21 @@ export function ProgramCompletionScreen({
           <div className="grid grid-cols-3 gap-3">
             <ProfileStatCard
               value={`${completion.workoutsCompleted}`}
-              label="Entrenamientos"
-              sublabel={`de ${completion.totalWorkouts}`}
+              label={t('tracker.completion.workouts_label')}
+              sublabel={`${t('tracker.completion.workouts_of')} ${completion.totalWorkouts}`}
             />
-            <ProfileStatCard value={`${formatVolume(totalVolume)} kg`} label="Volumen Total" />
+            <ProfileStatCard
+              value={`${formatVolume(totalVolume)} kg`}
+              label={t('tracker.completion.total_volume')}
+            />
             {completion.totalWeightGained > 0 ? (
               <ProfileStatCard
                 value={`+${completion.totalWeightGained} kg`}
-                label="Peso Ganado"
+                label={t('tracker.completion.weight_gained')}
                 accent
               />
             ) : (
-              <ProfileStatCard value={'\u2014'} label="Peso Ganado" />
+              <ProfileStatCard value={'\u2014'} label={t('tracker.completion.weight_gained')} />
             )}
           </div>
         </section>
@@ -80,7 +86,7 @@ export function ProgramCompletionScreen({
         {/* Personal Records */}
         {personalRecords.length > 0 && (
           <section className="mb-10">
-            <h2 className="section-label mb-4">R{'\u00E9'}cords Personales</h2>
+            <h2 className="section-label mb-4">{t('tracker.completion.personal_records')}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {personalRecords.map((pr) => {
                 const delta = pr.weight - pr.startWeight;
@@ -102,7 +108,7 @@ export function ProgramCompletionScreen({
         {/* 1RM Estimates */}
         {oneRMEstimates.length > 0 && (
           <section className="mb-10">
-            <h2 className="section-label mb-4">1RM Estimado (Epley)</h2>
+            <h2 className="section-label mb-4">{t('tracker.completion.estimated_1rm')}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {oneRMEstimates.map((e) => (
                 <ProfileStatCard
@@ -114,7 +120,7 @@ export function ProgramCompletionScreen({
               ))}
             </div>
             <p className="text-[10px] text-muted mt-2 text-center">
-              Estimaci{'\u00F3'}n basada en la f{'\u00F3'}rmula de Epley
+              {t('tracker.completion.epley_note')}
             </p>
           </section>
         )}
@@ -126,14 +132,14 @@ export function ProgramCompletionScreen({
             onClick={onViewProfile}
             className="px-8 py-3 text-sm font-bold border-2 border-accent bg-accent text-body cursor-pointer transition-all hover:opacity-90 active:scale-95"
           >
-            Ver Perfil de Entrenamiento
+            {t('tracker.completion.view_profile')}
           </button>
           <button
             type="button"
             onClick={onBackToDashboard}
             className="px-8 py-3 text-sm font-bold border-2 border-btn-ring bg-transparent text-title cursor-pointer transition-all hover:bg-btn-active active:scale-95"
           >
-            Volver al Dashboard
+            {t('tracker.completion.back_to_dashboard')}
           </button>
         </div>
       </div>

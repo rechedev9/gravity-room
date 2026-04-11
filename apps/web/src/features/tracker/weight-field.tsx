@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next';
+
 interface WeightFieldProps {
   readonly fieldKey: string;
   readonly label: string;
@@ -27,6 +29,7 @@ export function WeightField({
   onAdjust,
   onSubmit,
 }: WeightFieldProps): React.ReactNode {
+  const { t } = useTranslation();
   const isValid = touched && !fieldError;
   const fieldId = `weight-${fieldKey}`;
   const errorId = `${fieldKey}-error`;
@@ -44,7 +47,7 @@ export function WeightField({
           type="button"
           onClick={() => onAdjust(fieldKey, -step)}
           className="px-3 min-h-[44px] border-2 border-r-0 border-rule bg-card text-btn-text text-lg font-bold cursor-pointer hover:bg-hover-row hover:text-title transition-all duration-150 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
-          aria-label={`Disminuir ${label}`}
+          aria-label={t('tracker.weight_field.decrease_label', { label })}
         >
           &minus;
         </button>
@@ -73,7 +76,7 @@ export function WeightField({
           type="button"
           onClick={() => onAdjust(fieldKey, step)}
           className="px-3 min-h-[44px] border-2 border-l-0 border-rule bg-card text-btn-text text-lg font-bold cursor-pointer hover:bg-hover-row hover:text-title transition-all duration-150 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
-          aria-label={`Aumentar ${label}`}
+          aria-label={t('tracker.weight_field.increase_label', { label })}
         >
           +
         </button>
@@ -88,10 +91,12 @@ export function WeightField({
         </p>
       ) : isValid ? (
         <p className="flex items-center gap-1 text-[11px] font-bold text-ok mt-1">
-          <span aria-hidden="true">&#10003;</span> Válido
+          <span aria-hidden="true">&#10003;</span> {t('tracker.weight_field.valid')}
         </p>
       ) : (
-        <p className="text-[10px] text-muted mt-1">{hint ?? `Mín ${min} kg`}</p>
+        <p className="text-[10px] text-muted mt-1">
+          {hint ?? t('tracker.weight_field.min_hint', { min })}
+        </p>
       )}
     </div>
   );

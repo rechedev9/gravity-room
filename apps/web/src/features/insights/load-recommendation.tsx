@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { InsightItem } from '@/lib/api-functions';
 import { isRecommendationPayload } from '@/lib/insight-payloads';
 
@@ -10,28 +11,34 @@ export function LoadRecommendation({
   insight,
   exerciseName,
 }: LoadRecommendationProps): React.ReactNode {
+  const { t } = useTranslation();
   const payload = insight.payload;
   if (!isRecommendationPayload(payload)) return null;
 
-  const name = exerciseName ?? insight.exerciseId ?? 'Ejercicio';
+  const name = exerciseName ?? insight.exerciseId ?? t('insights.load_rec.default_exercise');
   const confidencePct = Math.round(payload.confidence * 100);
   const isML = payload.method === 'logistic_regression';
+  const actionLabel = payload.shouldIncrement
+    ? t('insights.load_rec.action_increment')
+    : t('insights.load_rec.action_maintain');
 
   return (
     <div
       className="bg-card border border-rule card p-5"
-      aria-label={`${name}: ${payload.shouldIncrement ? 'incrementar' : 'mantener'} de ${payload.currentWeight}kg a ${payload.recommendedWeight}kg`}
+      aria-label={`${name}: ${actionLabel} ${t('insights.load_rec.from')} ${payload.currentWeight}kg ${t('insights.load_rec.to')} ${payload.recommendedWeight}kg`}
     >
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-mono text-[10px] font-bold text-muted uppercase tracking-widest">
           {name}
         </h3>
-        <span className="font-mono text-[9px] text-muted">{isML ? 'ML' : 'regla'}</span>
+        <span className="font-mono text-[9px] text-muted">
+          {isML ? 'ML' : t('insights.load_rec.rule_method_label')}
+        </span>
       </div>
       <div className="flex items-center justify-between">
         <div>
           <p className="font-mono text-[9px] text-muted uppercase tracking-widest mb-1">
-            Carga actual
+            {t('insights.load_rec.current_load_label')}
           </p>
           <p className="font-display-data text-2xl text-muted">{payload.currentWeight} kg</p>
         </div>
@@ -50,7 +57,9 @@ export function LoadRecommendation({
         </svg>
         <div className="text-right">
           <p className="font-mono text-[9px] text-muted uppercase tracking-widest mb-1">
-            {payload.shouldIncrement ? 'Incrementar a' : 'Mantener en'}
+            {payload.shouldIncrement
+              ? t('insights.load_rec.increment_to_label')
+              : t('insights.load_rec.maintain_at_label')}
           </p>
           <p
             className={`font-display-data text-2xl ${payload.shouldIncrement ? 'text-main' : 'text-title'}`}
@@ -65,7 +74,7 @@ export function LoadRecommendation({
             payload.shouldIncrement ? 'border-main/40 text-main' : 'border-rule text-muted'
           }`}
         >
-          {confidencePct}% confianza
+          {confidencePct}% {t('insights.load_rec.confidence_label')}
         </span>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
 import { isRecord } from '@gzclp/shared/type-guards';
@@ -12,11 +13,14 @@ import type { DefinitionWizardProps, WizardStepId } from './types';
 
 const STEPS: readonly WizardStepId[] = ['basic-info', 'days-exercises', 'progression'];
 
-const STEP_LABELS: Readonly<Record<WizardStepId, string>> = {
-  'basic-info': 'Informacion basica',
-  'days-exercises': 'Dias y ejercicios',
-  progression: 'Progresion',
-};
+function useStepLabels() {
+  const { t } = useTranslation();
+  return {
+    'basic-info': t('programs.wizard.basic_info'),
+    'days-exercises': t('programs.wizard.days_exercises'),
+    progression: t('programs.wizard.progression'),
+  } as const satisfies Readonly<Record<WizardStepId, string>>;
+}
 
 function parseDefinition(raw: unknown): ProgramDefinition | null {
   if (!isRecord(raw)) return null;
@@ -29,6 +33,8 @@ export function DefinitionWizard({
   onComplete,
   onCancel,
 }: DefinitionWizardProps): React.ReactNode {
+  const { t } = useTranslation();
+  const stepLabels = useStepLabels();
   const [currentStep, setCurrentStep] = useState<WizardStepId>('basic-info');
   const [draft, setDraft] = useState<ProgramDefinition | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -89,7 +95,7 @@ export function DefinitionWizard({
       await createCustomProgram(definitionId, workingDef.name, defaultConfig);
       onComplete(definitionId);
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al guardar';
+      const message = e instanceof Error ? e.message : t('programs.wizard.error_saving');
       setError(message);
     } finally {
       setIsSaving(false);
@@ -105,7 +111,7 @@ export function DefinitionWizard({
       setDraft(null);
       onCancel();
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al guardar';
+      const message = e instanceof Error ? e.message : t('programs.wizard.error_saving');
       setError(message);
     } finally {
       setIsSaving(false);
@@ -115,7 +121,7 @@ export function DefinitionWizard({
   if (defQuery.isLoading) {
     return (
       <div className="fixed inset-0 bg-zinc-950/95 z-50 flex items-center justify-center">
-        <p className="text-sm text-zinc-400">Cargando definicion...</p>
+        <p className="text-sm text-zinc-400">{t('programs.wizard.loading_definition')}</p>
       </div>
     );
   }
@@ -124,15 +130,13 @@ export function DefinitionWizard({
     return (
       <div className="fixed inset-0 bg-zinc-950/95 z-50 flex items-center justify-center p-4">
         <div className="text-center">
-          <p className="text-sm text-zinc-400 mb-4">
-            No se pudo cargar la definicion del programa.
-          </p>
+          <p className="text-sm text-zinc-400 mb-4">{t('programs.wizard.load_error')}</p>
           <button
             type="button"
             onClick={onCancel}
             className="text-xs text-amber-400 hover:text-amber-300 cursor-pointer transition-colors"
           >
-            Volver
+            {t('programs.wizard.back')}
           </button>
         </div>
       </div>
@@ -144,13 +148,13 @@ export function DefinitionWizard({
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-zinc-100">Editar programa</h2>
+          <h2 className="text-lg font-bold text-zinc-100">{t('programs.wizard.edit_program')}</h2>
           <button
             type="button"
             onClick={onCancel}
             className="text-xs text-zinc-500 hover:text-zinc-300 cursor-pointer transition-colors"
           >
-            Cerrar
+            {t('programs.wizard.close')}
           </button>
         </div>
 
@@ -174,7 +178,7 @@ export function DefinitionWizard({
                   i === stepIndex ? 'text-zinc-200 font-medium' : 'text-zinc-500'
                 }`}
               >
-                {STEP_LABELS[step]}
+                {stepLabels[step]}
               </span>
               {i < STEPS.length - 1 && <div className="w-8 h-px bg-zinc-700" />}
             </div>
@@ -182,8 +186,8 @@ export function DefinitionWizard({
         </div>
 
         <p className="text-xs text-zinc-500 mb-6">
-          Paso {stepIndex + 1} de {STEPS.length}
-          {isDirty && ' — cambios sin guardar'}
+          {t('programs.wizard.step_indicator', { current: stepIndex + 1, total: STEPS.length })}
+          {isDirty && ` — ${t('programs.wizard.unsaved_changes')}`}
         </p>
 
         {error && (

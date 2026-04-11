@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { InsightItem } from '@/lib/api-functions';
 import { isFrequencyPayload } from '@/lib/insight-payloads';
 import { formatDateISO } from '@/lib/calendar';
@@ -6,8 +7,6 @@ import { formatDateISO } from '@/lib/calendar';
 interface FrequencyCardProps {
   readonly insight: InsightItem;
 }
-
-const DAY_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
 
 /**
  * Build a 4-week × 7-day grid from the last 28 calendar days,
@@ -38,24 +37,31 @@ function buildHeatmap(workoutDates: readonly string[]): boolean[][] {
 }
 
 export function FrequencyCard({ insight }: FrequencyCardProps): React.ReactNode {
+  const { t } = useTranslation();
   const payload = insight.payload;
   if (!isFrequencyPayload(payload)) return null;
 
   const grid = useMemo(() => buildHeatmap(payload.workoutDates ?? []), [payload.workoutDates]);
 
   const activeDays = grid.flat().filter(Boolean).length;
+  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+  const dayLabels = t('insights.frequency.day_labels', {
+    returnObjects: true,
+  }) as string[];
 
   return (
     <div className="bg-card border border-rule card p-5">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-mono text-[10px] font-bold text-muted uppercase tracking-widest">
-          Actividad Semanal
+          {t('insights.frequency.title')}
         </h3>
-        <span className="font-mono text-[10px] text-muted">{activeDays}/28 días</span>
+        <span className="font-mono text-[10px] text-muted">
+          {activeDays}/28 {t('insights.frequency.days_label')}
+        </span>
       </div>
 
       <div className="grid grid-cols-7 gap-1.5 mb-1.5">
-        {DAY_LABELS.map((label) => (
+        {dayLabels.map((label) => (
           <span key={label} className="font-mono text-[8px] text-muted text-center select-none">
             {label}
           </span>
@@ -76,7 +82,7 @@ export function FrequencyCard({ insight }: FrequencyCardProps): React.ReactNode 
       </div>
 
       <p className="font-mono text-[9px] text-muted text-right mt-3">
-        {payload.totalSessions} sesiones totales
+        {payload.totalSessions} {t('insights.frequency.total_sessions_label')}
       </p>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { ProgramSummary } from '@/lib/api-functions';
 import type { ProfileData } from '@/lib/profile-stats';
 import { formatVolume } from '@/lib/profile-stats';
@@ -25,6 +26,7 @@ export function ProfileStatsGrid({
   toDisplay,
   unitLabel,
 }: ProfileStatsGridProps): React.ReactNode {
+  const { t } = useTranslation();
   const isEmpty = profileData.completion.workoutsCompleted === 0;
   const hasRecords = profileData.personalRecords.length > 0;
 
@@ -34,37 +36,37 @@ export function ProfileStatsGrid({
       {accountCard}
 
       {/* Quick Stats */}
-      <DashboardCard title="Estadísticas">
+      <DashboardCard title={t('profile.stats_grid.stats_title')}>
         {isEmpty ? (
           <p className="text-sm text-muted py-2 text-center">
-            Completa tu primer entrenamiento para ver tus estadísticas.
+            {t('profile.stats_grid.empty_message')}
           </p>
         ) : (
           <div className="grid grid-cols-2 gap-x-4">
             <ProfileStatCard
               compact
               value={String(profileData.completion.workoutsCompleted)}
-              label="Entrenamientos"
-              sublabel={`de ${profileData.completion.totalWorkouts}`}
+              label={t('profile.stats_grid.workouts_label')}
+              sublabel={`${t('profile.stats_grid.workouts_of')} ${profileData.completion.totalWorkouts}`}
             />
             <ProfileStatCard
               compact
               value={`${profileData.completion.overallSuccessRate}%`}
-              label="Tasa de Éxito"
+              label={t('profile.stats_grid.success_rate_label')}
             />
             <ProfileStatCard
               compact
               value={`${formatVolume(toDisplay(profileData.volume.totalVolume))} ${unitLabel}`}
-              label="Volumen Total"
-              sublabel={`${profileData.volume.totalSets} series / ${profileData.volume.totalReps} reps`}
+              label={t('profile.stats_grid.total_volume_label')}
+              sublabel={`${profileData.volume.totalSets} ${t('profile.stats_grid.sets_label')} / ${profileData.volume.totalReps} ${t('profile.stats_grid.reps_label')}`}
             />
             <ProfileStatCard
               compact
               value={`${profileData.completion.completionPct}%`}
-              label="Completado"
+              label={t('profile.stats_grid.completed_label')}
               progress={{
                 value: profileData.completion.completionPct,
-                label: `${profileData.completion.workoutsCompleted} de ${profileData.completion.totalWorkouts} entrenamientos`,
+                label: `${profileData.completion.workoutsCompleted} ${t('profile.stats_grid.workouts_of')} ${profileData.completion.totalWorkouts} ${t('profile.stats_grid.workouts_label_plural')}`,
               }}
             />
           </div>
@@ -73,19 +75,19 @@ export function ProfileStatsGrid({
 
       {/* Streak — hidden when no data */}
       {(profileData.streak.current > 0 || profileData.streak.longest > 0) && (
-        <DashboardCard title="Racha">
+        <DashboardCard title={t('profile.stats_grid.streak_title')}>
           <div className="grid grid-cols-2 gap-x-4">
             <ProfileStatCard
               compact
               value={String(profileData.streak.current)}
-              label="Racha Actual"
-              sublabel="consecutivos"
+              label={t('profile.stats_grid.current_streak_label')}
+              sublabel={t('profile.stats_grid.consecutive_label')}
             />
             <ProfileStatCard
               compact
               value={String(profileData.streak.longest)}
-              label="Récord"
-              sublabel="consecutivos"
+              label={t('profile.stats_grid.longest_streak_label')}
+              sublabel={t('profile.stats_grid.consecutive_label')}
             />
           </div>
         </DashboardCard>
@@ -98,25 +100,25 @@ export function ProfileStatsGrid({
             <ProfileStatCard
               compact
               value={String(profileData.monthlyReport.workoutsCompleted)}
-              label="Entrenamientos"
-              sublabel="este mes"
+              label={t('profile.stats_grid.workouts_label')}
+              sublabel={t('profile.stats_grid.this_month_label')}
             />
             <ProfileStatCard
               compact
               value={`${profileData.monthlyReport.successRate}%`}
-              label="Tasa de Éxito"
+              label={t('profile.stats_grid.success_rate_label')}
             />
             <ProfileStatCard
               compact
               value={String(profileData.monthlyReport.personalRecords)}
-              label="Nuevos PRs"
+              label={t('profile.stats_grid.new_prs_label')}
               accent={profileData.monthlyReport.personalRecords > 0}
             />
             <ProfileStatCard
               compact
               value={`${formatVolume(toDisplay(profileData.monthlyReport.totalVolume))} ${unitLabel}`}
-              label="Volumen"
-              sublabel={`${profileData.monthlyReport.totalSets} series / ${profileData.monthlyReport.totalReps} reps`}
+              label={t('profile.stats_grid.volume_label')}
+              sublabel={`${profileData.monthlyReport.totalSets} ${t('profile.stats_grid.sets_label')} / ${profileData.monthlyReport.totalReps} ${t('profile.stats_grid.reps_label')}`}
             />
           </div>
         </DashboardCard>
@@ -124,7 +126,10 @@ export function ProfileStatsGrid({
 
       {/* Personal Records — hidden when no PRs exist */}
       {hasRecords && (
-        <DashboardCard title="Récords Personales (T1)" className="sm:col-span-2 lg:col-span-1">
+        <DashboardCard
+          title={t('profile.stats_grid.personal_records_title')}
+          className="sm:col-span-2 lg:col-span-1"
+        >
           <div className="grid grid-cols-2 gap-x-4">
             {profileData.personalRecords.map((pr) => {
               const delta = pr.weight - pr.startWeight;
@@ -135,7 +140,9 @@ export function ProfileStatsGrid({
                   value={`${toDisplay(pr.weight)} ${unitLabel}`}
                   label={names[pr.exercise] ?? pr.exercise}
                   sublabel={
-                    pr.workoutIndex >= 0 ? `Entrenamiento #${pr.workoutIndex + 1}` : 'Peso inicial'
+                    pr.workoutIndex >= 0
+                      ? `${t('profile.stats_grid.workout_number_label')}${pr.workoutIndex + 1}`
+                      : t('profile.stats_grid.initial_weight_label')
                   }
                   accent
                   badge={delta > 0 ? `+${toDisplay(delta)} ${unitLabel}` : undefined}
@@ -149,7 +156,7 @@ export function ProfileStatsGrid({
 
       {/* 1RM Estimates */}
       {profileData.oneRMEstimates.length > 0 && (
-        <DashboardCard title="1RM Estimado (Epley)">
+        <DashboardCard title={t('profile.stats_grid.e1rm_title')}>
           <div className="grid grid-cols-2 gap-x-4">
             {profileData.oneRMEstimates.map((e) => (
               <ProfileStatCard
@@ -162,7 +169,7 @@ export function ProfileStatsGrid({
             ))}
           </div>
           <p className="text-2xs text-muted mt-2 text-center opacity-70">
-            Estimación basada en la fórmula de Epley
+            {t('profile.stats_grid.epley_note')}
           </p>
         </DashboardCard>
       )}
@@ -170,7 +177,7 @@ export function ProfileStatsGrid({
       {/* Lifetime Volume — only when multiple programs */}
       {allPrograms.length > 1 && (
         <div ref={volumeSectionRef} data-testid="lifetime-volume">
-          <DashboardCard title="Volumen Total Global">
+          <DashboardCard title={t('profile.stats_grid.lifetime_volume_title')}>
             <ProfileStatCard
               compact
               value={
@@ -178,8 +185,8 @@ export function ProfileStatsGrid({
                   ? `${formatVolume(toDisplay(lifetimeVolume))} ${unitLabel}`
                   : '...'
               }
-              label="Todos los Programas"
-              sublabel={`${allPrograms.length} programas`}
+              label={t('profile.stats_grid.all_programs_label')}
+              sublabel={`${allPrograms.length} ${t('profile.stats_grid.programs_label_plural')}`}
             />
           </DashboardCard>
         </div>

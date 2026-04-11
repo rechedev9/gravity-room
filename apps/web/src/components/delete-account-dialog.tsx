@@ -1,16 +1,21 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod/v4';
 import { Button } from './button';
 
-const CONFIRM_WORD = 'ELIMINAR';
+const DeleteAccountDialogSchema = (t: (key: string) => string) =>
+  z.object({
+    input: z
+      .string()
+      .refine(
+        (v) => v.trim().toUpperCase() === 'ELIMINAR',
+        t('delete_account.validation.incorrect')
+      ),
+  });
 
-const DeleteAccountFormSchema = z.object({
-  input: z.string().refine((v) => v.trim().toUpperCase() === CONFIRM_WORD, 'Incorrecto'),
-});
-
-type DeleteAccountFormValues = z.infer<typeof DeleteAccountFormSchema>;
+type DeleteAccountFormValues = z.infer<ReturnType<typeof DeleteAccountDialogSchema>>;
 
 interface DeleteAccountDialogProps {
   readonly open: boolean;
@@ -25,15 +30,17 @@ export function DeleteAccountDialog({
   onCancel,
   loading = false,
 }: DeleteAccountDialogProps): React.ReactNode {
+  const { t } = useTranslation();
   const dialogDivRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
+  const schema = DeleteAccountDialogSchema(t);
   const {
     register,
     formState: { isValid },
     reset,
   } = useForm<DeleteAccountFormValues>({
-    resolver: zodResolver(DeleteAccountFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: { input: '' },
     mode: 'onChange',
   });
@@ -97,23 +104,20 @@ export function DeleteAccountDialog({
         onKeyDown={handleDialogKeyDown}
       >
         <h3 id="delete-account-title" className="text-sm font-bold text-fail mb-2">
-          Eliminar Cuenta
+          {t('delete_account.title')}
         </h3>
 
         <div className="text-xs text-muted mb-4 leading-relaxed">
-          <p className="mb-2">
-            Esta acción marcará tu cuenta para eliminación. Tus datos serán eliminados
-            permanentemente tras 30 días.
-          </p>
+          <p className="mb-2">{t('delete_account.description')}</p>
           <p>
-            Escribe <strong className="text-main">{CONFIRM_WORD}</strong> para confirmar.
+            {t('delete_account.confirm_instruction', { word: t('delete_account.confirm_word') })}
           </p>
         </div>
 
         <input
           {...register('input')}
           type="text"
-          placeholder={CONFIRM_WORD}
+          placeholder={t('delete_account.confirm_word')}
           className="w-full px-3 py-2 mb-4 text-xs bg-body border border-rule text-main placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
           autoComplete="off"
           spellCheck={false}
@@ -122,10 +126,10 @@ export function DeleteAccountDialog({
 
         <div className="flex justify-end gap-3">
           <Button ref={cancelRef} variant="ghost" onClick={onCancel} disabled={loading}>
-            Cancelar
+            {t('delete_account.cancel')}
           </Button>
           <Button variant="danger" onClick={onConfirm} disabled={!isValid || loading}>
-            {loading ? 'Eliminando...' : 'Eliminar Cuenta'}
+            {loading ? t('delete_account.loading') : t('delete_account.confirm_button')}
           </Button>
         </div>
       </div>

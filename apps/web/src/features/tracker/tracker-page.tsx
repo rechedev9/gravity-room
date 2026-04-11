@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, redirect } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
@@ -9,6 +10,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 import { ProgramApp } from '@/features/tracker/program-app';
 
 export function TrackerPage(): React.ReactNode {
+  const { t } = useTranslation();
   const rawParams = useParams({ strict: false });
   const programIdParam: string | undefined =
     typeof rawParams.programId === 'string' ? rawParams.programId : undefined;
@@ -33,7 +35,7 @@ export function TrackerPage(): React.ReactNode {
     null;
 
   useDocumentTitle(
-    programName ? `${programName} — Tracker — Gravity Room` : 'Tracker — Gravity Room'
+    programName ? `${programName} — ${t('tracker.page_title')}` : t('tracker.page_title')
   );
 
   if (!effectiveProgramId) {

@@ -1,4 +1,5 @@
 import type { GraduationTarget, GraduationState } from '@gzclp/shared/graduation';
+import { useTranslation } from 'react-i18next';
 import { computeEpley1RM } from '@gzclp/shared/graduation';
 
 interface GraduationPanelProps {
@@ -10,15 +11,15 @@ interface GraduationPanelProps {
 }
 
 const EXERCISE_LABELS: Readonly<Record<string, string>> = {
-  squat: 'Sentadilla',
-  bench: 'Press Banca',
-  deadlift: 'Peso Muerto',
+  squat: 'tracker.graduation.squat',
+  bench: 'tracker.graduation.bench',
+  deadlift: 'tracker.graduation.deadlift',
 };
 
 const REP_CRITERIA: Readonly<Record<string, string>> = {
-  squat: '3 reps (tempo 5-3-5)',
-  bench: '1 rep (tecnica perfecta)',
-  deadlift: '10 reps (controlado)',
+  squat: 'tracker.graduation.squat_criteria',
+  bench: 'tracker.graduation.bench_criteria',
+  deadlift: 'tracker.graduation.deadlift_criteria',
 };
 
 function roundToNearest(value: number, rounding: number): number {
@@ -33,6 +34,7 @@ export function GraduationPanel({
   onStartJaw,
   onDismiss,
 }: GraduationPanelProps): React.ReactNode {
+  const { t } = useTranslation();
   const rounding = typeof config.rounding === 'string' ? parseFloat(config.rounding) : 2.5;
 
   // Compute Epley 1RM estimates for each target
@@ -56,12 +58,14 @@ export function GraduationPanel({
   return (
     <div className="bg-card border border-rule p-4 sm:p-6 card">
       <h3 className="font-display text-xl text-title mb-1">
-        {achieved.allPassed ? 'Graduacion Completada' : 'Objetivos de Graduacion'}
+        {achieved.allPassed
+          ? t('tracker.graduation.completed')
+          : t('tracker.graduation.objectives')}
       </h3>
       <p className="text-[13px] text-muted mb-4">
         {achieved.allPassed
-          ? 'Has alcanzado todos los objetivos. Estas listo para el Protocollo JAW.'
-          : 'Completa estos objetivos para graduarte al siguiente programa.'}
+          ? t('tracker.graduation.all_passed_message')
+          : t('tracker.graduation.incomplete_message')}
       </p>
 
       {/* Criteria checklist */}
@@ -80,10 +84,11 @@ export function GraduationPanel({
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-title">
-                  {EXERCISE_LABELS[target.exercise] ?? target.exercise}
+                  {t(EXERCISE_LABELS[target.exercise] ?? target.exercise)}
                 </p>
                 <p className="text-[12px] text-muted">
-                  {REP_CRITERIA[target.exercise] ?? target.description} @ {target.targetWeight} kg
+                  {t(REP_CRITERIA[target.exercise] ?? target.description)} @ {target.targetWeight}{' '}
+                  kg
                 </p>
               </div>
               {done && estimatedOneRMs[target.exercise] !== undefined && (
@@ -100,7 +105,9 @@ export function GraduationPanel({
       {achieved.allPassed && (
         <div className="border-t border-rule pt-4">
           <img src="/graduation-badge.webp" alt="" className="w-20 h-20 mx-auto mb-4 opacity-90" />
-          <p className="text-sm font-bold text-title mb-3">Tus 1RM estimados (Epley):</p>
+          <p className="text-sm font-bold text-title mb-3">
+            {t('tracker.graduation.estimated_1rm')}
+          </p>
           <div className="flex flex-wrap gap-3 mb-4">
             {Object.entries(estimatedOneRMs).map(([exercise, oneRM]) => (
               <div
@@ -108,7 +115,7 @@ export function GraduationPanel({
                 className="px-3 py-2 bg-header/10 border border-rule rounded-sm text-center"
               >
                 <p className="text-[11px] font-bold uppercase text-muted">
-                  {EXERCISE_LABELS[exercise] ?? exercise}
+                  {t(EXERCISE_LABELS[exercise] ?? exercise)}
                 </p>
                 <p className="font-display text-lg text-accent">{oneRM} kg</p>
               </div>
@@ -120,13 +127,13 @@ export function GraduationPanel({
               onClick={handleStartJaw}
               className="flex-1 py-3.5 border-none bg-header text-title text-base font-bold cursor-pointer hover:opacity-85 transition-opacity"
             >
-              Empezar Protocollo JAW
+              {t('tracker.graduation.start_jaw')}
             </button>
             <button
               onClick={onDismiss}
               className="py-3.5 px-4 border-2 border-rule bg-card text-muted text-sm font-bold cursor-pointer hover:bg-hover-row hover:text-main transition-colors"
             >
-              Seguir entrenando
+              {t('tracker.graduation.keep_training')}
             </button>
           </div>
         </div>
