@@ -1,4 +1,3 @@
-import { Suspense } from 'react';
 import {
   createRootRouteWithContext,
   createRoute,
@@ -105,25 +104,15 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 const landingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: function LandingRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<LandingSkeleton />}>
-        <LandingPage />
-      </Suspense>
-    );
-  },
+  pendingComponent: LandingSkeleton,
+  component: LandingPage,
 });
 
 const landingEnRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en',
-  component: function LandingEnRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<LandingSkeleton />}>
-        <LandingPageEn />
-      </Suspense>
-    );
-  },
+  pendingComponent: LandingSkeleton,
+  component: LandingPageEn,
 });
 
 const loginRoute = createRoute({
@@ -134,61 +123,36 @@ const loginRoute = createRoute({
       throw redirect({ to: '/app', replace: true });
     }
   },
-  component: function LoginRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<LoginSkeleton />}>
-        <LoginPage />
-      </Suspense>
-    );
-  },
+  pendingComponent: LoginSkeleton,
+  component: LoginPage,
 });
 
 const privacyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/privacy',
-  component: function PrivacyRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<ContentPageSkeleton />}>
-        <PrivacyPage />
-      </Suspense>
-    );
-  },
+  pendingComponent: ContentPageSkeleton,
+  component: PrivacyPage,
 });
 
 const cookiesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/cookies',
-  component: function CookiesRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<ContentPageSkeleton />}>
-        <CookiePolicyPage />
-      </Suspense>
-    );
-  },
+  pendingComponent: ContentPageSkeleton,
+  component: CookiePolicyPage,
 });
 
 const programPreviewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/programs/$programId',
-  component: function ProgramPreviewRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<ContentPageSkeleton />}>
-        <ProgramPreviewPage />
-      </Suspense>
-    );
-  },
+  pendingComponent: ContentPageSkeleton,
+  component: ProgramPreviewPage,
 });
 
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '*',
-  component: function NotFoundRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<ContentPageSkeleton />}>
-        <NotFound />
-      </Suspense>
-    );
-  },
+  pendingComponent: ContentPageSkeleton,
+  component: NotFound,
 });
 
 // /app parent route — guarded
@@ -206,85 +170,50 @@ const appLayoutRoute = createRoute({
 const appIndexRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app',
-  component: function AppIndexRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<DashboardSkeleton />}>
-        <HomePage />
-      </Suspense>
-    );
-  },
+  pendingComponent: DashboardSkeleton,
+  component: HomePage,
 });
 
 const dashboardRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/dashboard',
-  component: function DashboardRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<DashboardSkeleton />}>
-        <DashboardPage />
-      </Suspense>
-    );
-  },
+  pendingComponent: DashboardSkeleton,
+  component: DashboardPage,
 });
 
 const programsRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/programs',
-  component: function ProgramsRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<DashboardSkeleton />}>
-        <ProgramsPage />
-      </Suspense>
-    );
-  },
+  pendingComponent: DashboardSkeleton,
+  component: ProgramsPage,
 });
 
 const trackerIndexRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/tracker',
-  component: function TrackerIndexRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<AppSkeleton />}>
-        <TrackerPage />
-      </Suspense>
-    );
-  },
+  pendingComponent: AppSkeleton,
+  component: TrackerPage,
 });
 
 const trackerProgramRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/tracker/$programId',
-  component: function TrackerProgramRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<AppSkeleton />}>
-        <TrackerPage />
-      </Suspense>
-    );
-  },
+  pendingComponent: AppSkeleton,
+  component: TrackerPage,
 });
 
 const profileRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/profile',
-  component: function ProfileRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<ProfileSkeleton />}>
-        <ProfilePage />
-      </Suspense>
-    );
-  },
+  pendingComponent: ProfileSkeleton,
+  component: ProfilePage,
 });
 
 const analyticsRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/analytics',
-  component: function AnalyticsRoute(): React.ReactNode {
-    return (
-      <Suspense fallback={<ContentPageSkeleton />}>
-        <AnalyticsPage />
-      </Suspense>
-    );
-  },
+  pendingComponent: ContentPageSkeleton,
+  component: AnalyticsPage,
 });
 
 // ---------------------------------------------------------------------------
@@ -323,8 +252,8 @@ export const router = createRouter({
       isGuest: false,
     },
   },
-  // Pending flags for Fase 4 skeleton debounce. Currently a no-op because each
-  // route owns its own <Suspense>; activates when we migrate to defaultPendingComponent.
+  // Skeleton debounce: only show pendingComponent if lazy chunk takes >200 ms.
+  // Activated in Fase 4 — each route now uses pendingComponent, not inline <Suspense>.
   defaultPendingMs: 200,
   defaultPendingMinMs: 400,
 });
