@@ -44,7 +44,7 @@ interface AppSidebarProps {
 
 function navItemClass(isActive: boolean, collapsed: boolean): string {
   return cn(
-    'relative flex items-center rounded-lg transition-colors duration-150 cursor-pointer',
+    'relative flex items-center rounded-lg transition-[color,background-color,transform] duration-[var(--duration-instant)] cursor-pointer active:scale-[0.98]',
     SIDEBAR_FOCUS_RING,
     collapsed ? 'justify-center p-0 w-12 h-12 mx-auto' : 'gap-3 px-3 py-3',
     isActive

@@ -511,8 +511,15 @@ dialog::backdrop {
   background-color: color-mix(in srgb, var(--color-card) 95%, rgba(255, 255, 255, 0.03));
 }
 
+.program-card-lift:active {
+  transform: translateY(0);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .program-card-lift:hover {
+    transform: none;
+  }
+  .program-card-lift:active {
     transform: none;
   }
 }

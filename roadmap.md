@@ -1,7 +1,7 @@
 # Gravity Room — Roadmap
 
 **Last updated:** 2026-04-11
-**Status:** Active — Fase 1 overlay replication (post CP-0, Fase 0 cerrada)
+**Status:** Active — Fase 1 overlay replication pendiente (Fases 0 y 2 cerradas; Fase 2 saltó a Fase 1 por decisión del usuario)
 
 ---
 
@@ -95,12 +95,9 @@ Una vez el dialog funciona, el resto es mecánico:
 
 ---
 
-### Fase 2 — Feedback táctil y micro-interacciones de botones
+### Fase 2 — Feedback táctil y micro-interacciones de botones (Done — 2026-04-11)
 
-12. **Botones**: buscar `<button>` y variantes de `Button` en `src/components/ui/`. Añadir `active:scale-[0.97] transition-transform duration-[var(--duration-instant)]` al variant base. Sin esto, el botón en móvil no da feedback de tap y se siente muerto. Keep `will-change: transform` sólo durante interacción si se nota jank.
-13. **Enlaces del sidebar / nav**: ya tienen `transition-colors` — añadir `active:scale-[0.98]` al botón mobile-menu hamburger; los items de sidebar en móvil pueden llevar el mismo active scale.
-14. **Cards de programas**: `.program-card-lift` ya existe. Añadir `active:translate-y-0` en móvil (tap state).
-15. **Revisar `globals.css:607`:** la regla blanket `prefers-reduced-motion` con `!important` también capará `active:scale`. Mantenerla (accesibilidad), pero aceptar que los feedbacks de tap desaparecen bajo `reduced-motion` — es lo correcto.
+Movida a [Completed](#completed).
 
 ---
 
@@ -263,3 +260,27 @@ Objetivo original: demostrar end-to-end que el patrón elegido (Radix `data-stat
 - **Regla performance:** sólo animar `transform`, `opacity`, `filter`. `will-change: transform` sólo se declara en puntos calientes comprobados (hoy: `motion.aside` del drawer móvil). Nunca permanente.
 - **`animation-*`, nunca `transition-*`, para salidas de overlays Radix.** Radix difiere el unmount consultando `getAnimations()`, que no reporta transitions. Si se usa por error `transition: opacity 200ms` en `data-[state=closed]`, Radix desmonta instantáneo y la animación de salida no corre.
 - **Todo componente `motion.*` nuevo debe llamar `useReducedMotion()`.** La regla blanket de CSS con `!important` no afecta a animaciones JS.
+
+---
+
+### Fase 2 — Feedback táctil y micro-interacciones de botones (Done — 2026-04-11)
+
+Objetivo: eliminar la sensación "muerta" al tap en móvil añadiendo feedback visual inmediato a botones, items de sidebar, hamburger, y program cards. Se saltó Fase 1 por decisión del usuario — Fase 2 es ortogonal.
+
+- [x] **12. Botones** — `apps/web/src/components/button.tsx:4`. El `active:scale-[0.97]` ya existía; el único cambio real es `duration-150` → `duration-[var(--duration-instant)]` (120 ms, derivado del token compartido de Fase 0). **Desviación del literal del roadmap:** se mantuvo `transition-all` en lugar de narrow a `transition-transform` para preservar las transiciones de hover color/opacity en las variantes `primary`/`danger`/`ghost`.
+- [x] **13. Sidebar / nav** — `apps/web/src/components/layout/sidebar-trigger.tsx:13` (hamburger) pasa a `transition-[color,transform] duration-[var(--duration-instant)] active:scale-[0.98]`. `apps/web/src/components/layout/app-sidebar.tsx:49` (`navItemClass` base) pasa a `transition-[color,background-color,transform] duration-[var(--duration-instant)] active:scale-[0.98]`. El mismo componente renderiza en desktop y en el drawer móvil; el `:active` en desktop dura lo que el click y es imperceptible — aceptable.
+- [x] **14. Cards de programas** — `apps/web/src/styles/globals.css:502-518`. Añadida regla `.program-card-lift:active { transform: translateY(0); }` fuera del bloque `:hover`, con replica dentro del `@media (prefers-reduced-motion: reduce)`. Una sola edición aplica a ambos usos del selector: landing (`features/landing/programs-section.tsx:70`) y app (`features/programs/program-card.tsx:52`).
+- [x] **15. Regla blanket `prefers-reduced-motion`** — **No requiere cambio.** Está en `globals.css:645-652` (el roadmap decía 607, wrong). Cappea `animation-duration`/`transition-duration` a `0.01ms !important` pero no nulifica `transform`. Bajo reduced-motion, los `active:scale` disparan **instantáneamente** (sin easing) en lugar de "desaparecer" como el texto original sugería. Esto es correcto bajo WCAG 2.3.3 ("Animation from Interactions") que prohíbe animación *triggered*, no cambios de estado instantáneos. Documentación actualizada en `log.md`.
+
+**Descubrimientos no triviales:**
+
+- **El `Button` real vive en `apps/web/src/components/button.tsx` (14 imports), no en `apps/web/src/components/ui/button.tsx` (0 imports, dead code).** El roadmap apuntaba al path equivocado. `ui/button.tsx` es estructuralmente casi idéntico (`VARIANTS`/`SIZES` en lugar de `VARIANT_STYLES`/`SIZE_STYLES`) — follow-up de limpieza.
+- **Convención divergente abierta:** 71 `<button>` raw en 36 archivos usan `active:scale-95`, no el `[0.97]` del Button compartido. Dos convenciones coexistiendo. Unificar sería un barrido separado de bajo ROI; no se hizo en Fase 2.
+
+**Cierre pendiente** (no bloquea, queda en la lista al retomar):
+
+- QA en iPhone Safari real — el compositor iOS es el benchmark para feedback táctil.
+- Toggle `prefers-reduced-motion: reduce` en DevTools sobre los 4 elementos y confirmar que el snap instantáneo no se siente atascado.
+- `bun run e2e` completo cuando se resuelva la infra de Playwright.
+- Borrar `apps/web/src/components/ui/button.tsx` (dead code, 0 imports) en una limpieza separada.
+- Evaluar si unificar los 71 `<button>` raw con `active:scale-95` → `active:scale-[0.97]` merece un barrido (consistencia pura, bajo ROI).

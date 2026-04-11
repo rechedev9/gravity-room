@@ -10,7 +10,7 @@ export function SidebarTrigger({ isOpen, onToggle }: SidebarTriggerProps): React
       onClick={onToggle}
       aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}
       aria-expanded={isOpen}
-      className="flex flex-col justify-center items-center w-10 h-10 gap-1.5 cursor-pointer text-muted hover:text-main transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      className="flex flex-col justify-center items-center w-10 h-10 gap-1.5 cursor-pointer text-muted hover:text-main transition-[color,transform] duration-[var(--duration-instant)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       <span
         className="block h-0.5 w-5 bg-current transition-transform duration-200"

@@ -57,3 +57,42 @@ Implementación de Fase 0 del animation refactor. 5 archivos, 0 dependencias nue
 - `bun run e2e`: bloqueado. El webServer de Playwright arranca el go-api y pide `DATABASE_URL`; infra local no estaba levantada y no se autorizó levantarla en esta sesión.
 
 **Cerrado como aceptable** con conocimiento de que la verificación final (E2E con infra + QA manual en iPhone Safari real) queda pendiente para cuando se retome Fase 1. El código está listo para que Fase 1 replique el patrón al resto de overlays Radix (dropdowns, tooltip, avatar-dropdown).
+
+---
+
+## 2026-04-11 — Fase 2 cerrada (feedback táctil y micro-interacciones)
+
+Se saltó Fase 1 por decisión del usuario — Fase 2 es ortogonal al trabajo de overlays Radix y ataca el síntoma más visible en móvil (la app "muerta" al tap). 4 archivos, ~8 líneas netas, 0 dependencias nuevas.
+
+**Archivos:**
+
+- `apps/web/src/components/button.tsx` — BASE: `transition-all duration-150` → `transition-all duration-[var(--duration-instant)]`. El `active:scale-[0.97]` ya existía desde antes de Fase 0, el único cambio real es unificar el duration al token compartido (120 ms).
+- `apps/web/src/components/layout/sidebar-trigger.tsx` — hamburger: `transition-colors` → `transition-[color,transform] duration-[var(--duration-instant)] active:scale-[0.98]`. Feedback subtle al tocar el trigger del drawer móvil.
+- `apps/web/src/components/layout/app-sidebar.tsx` — `navItemClass()` base: `transition-colors duration-150` → `transition-[color,background-color,transform] duration-[var(--duration-instant)] active:scale-[0.98]`. Mismo componente renderiza en desktop y drawer móvil; el `:active` de desktop es imperceptible (dura lo que el click) y en móvil da el feedback buscado.
+- `apps/web/src/styles/globals.css` — añadido `.program-card-lift:active { transform: translateY(0); }` fuera del bloque `:hover`, con replica dentro del `@media (prefers-reduced-motion: reduce)`. Una regla CSS, aplica a ambos usos (`features/landing/programs-section.tsx:70` y `features/programs/program-card.tsx:52`).
+
+**Descubrimientos de implementación:**
+
+- **El roadmap apuntaba al archivo equivocado.** Decía "buscar `Button` en `src/components/ui/`" — el `Button` real vive en `apps/web/src/components/button.tsx` (14 imports); `apps/web/src/components/ui/button.tsx` es código muerto (0 imports). Estructura casi idéntica con `VARIANTS`/`SIZES` en lugar de `VARIANT_STYLES`/`SIZE_STYLES`. Borrar es follow-up de limpieza — no tocado en esta sesión.
+- **Desviación deliberada del literal del roadmap:** el texto decía `transition-transform duration-[var(--duration-instant)]` pero aplicarlo literal hubiera roto las transiciones de hover color/opacity en las variantes (`primary`, `danger`, `ghost`) porque Tailwind compila `transition-transform` como `transition-property: transform`, dejando fuera `background-color` y `opacity`. Decisión: mantener `transition-all`, solo migrar el `duration-150` al token. El espíritu (unificar en el sistema de tokens, acelerar a 120 ms) se cumple, el hover smooth se preserva.
+- **La regla blanket `prefers-reduced-motion` está en `globals.css:645-652`, no 607 como decía el roadmap.** Corregir si el roadmap se retoma. El comportamiento es correcto: cappea `animation-duration` y `transition-duration` a `0.01ms !important`, pero **no nulifica la propiedad `transform` en sí**. Bajo reduced-motion, `active:scale` dispara instantáneamente (sin easing) — lo cual es correcto bajo WCAG 2.3.3 ("Animation from Interactions"), que prohíbe animación _triggered_, no cambios de estado instantáneos. El texto del roadmap ("el feedback de tap desaparece bajo reduced-motion") era impreciso — el feedback no desaparece, se vuelve instantáneo. Task 15 por lo tanto no requirió código, solo documentación.
+- **Convención divergente que queda abierta:** 71 `<button>` raw en 36 archivos usan `active:scale-95` (no `[0.97]`). El Button compartido usa `[0.97]`. Dos convenciones coexistiendo. Fuera de scope en Fase 2 — unificar sería un barrido separado de bajo ROI.
+- **`sharedButtons` visibles en `/app` guest eran pocos** (el único encontrado fue un "Reintentar" en estado de error de `/app/programs` al no haber API). Verificación del token vino por ese botón solitario: computed `transitionDuration: 0.12s`, `transitionProperty: all` — exactamente lo esperado.
+
+**Gate de verificación — estado al cerrar:**
+
+- `bun run typecheck`: verde.
+- `bunx eslint` sobre los 3 archivos TS editados (`button.tsx`, `sidebar-trigger.tsx`, `app-sidebar.tsx`): verde, 0 errores.
+- `bunx prettier --check` sobre los 4 archivos: verde (Fase 2 commit hecho con WIP i18n temporalmente revertido, así que el gate global pasó limpio).
+- Sin tests unit para los componentes tocados (son clases CSS). Verificación visual via Chrome:
+  - SidebarTrigger en `/app` guest: computed `transition-property: color, transform`, `transition-duration: 0.12s`, className con `active:scale-[0.98]`. ✓
+  - Sidebar nav items en `/app` guest (3 items encontrados): computed `transition-property: color, background-color, transform`, `transition-duration: 0.12s`, className con `active:scale-[0.98]`. ✓
+  - Button compartido ("Reintentar" en `/app/programs` error state): className con `active:scale-[0.97]`, `transition-all duration-[var(--duration-instant)]`, computed `transition-duration: 0.12s`. ✓
+  - `.program-card-lift:active` en stylesheet compilado: `.program-card-lift:active { transform: translateY(0px); }` + replica dentro del bloque `@media (prefers-reduced-motion: reduce)`. ✓
+- `bun run ci` / `bun run e2e` completos: no ejecutados en su forma full (E2E necesita infra Playwright levantada; ci parcial pasó en el gate de commit).
+
+**Pendientes de cierre al retomar trabajo:**
+
+- QA en iPhone Safari real — el compositor de iOS es el único benchmark real para el feedback táctil.
+- Probar con `prefers-reduced-motion: reduce` activo en DevTools sobre los 4 elementos — verificar que el `transform` snap instantáneo no se siente atascado.
+- Al limpiar la deuda de Fase 0 (WIP i18n, E2E), correr `bun run ci` completo para validar que Fase 2 no introdujo regresiones silenciosas.
