@@ -199,7 +199,7 @@ function SlotTable({
       } ${isCurrent && !fullyDone ? 'accent-left-gold' : 'accent-left-muted'} ${
         slot.isChanged && !isDone ? 'bg-changed' : ''
       }`}
-      style={{ animation: 'card-enter 0.2s ease-out' }}
+      style={{ animation: 'card-enter var(--duration-fast) var(--ease-standard)' }}
     >
       {/* Header: Tier + Exercise + Stage + Deload */}
       <div className="flex items-center gap-2 mb-1">

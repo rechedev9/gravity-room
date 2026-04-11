@@ -117,7 +117,7 @@ export function DayView({
             } ${isCurrent && !fullyDone ? 'accent-left-gold' : 'accent-left-muted'} ${
               slot.isChanged && !isDone ? 'bg-changed' : ''
             }`}
-            style={{ animation: 'card-enter 0.2s ease-out' }}
+            style={{ animation: 'card-enter var(--duration-fast) var(--ease-standard)' }}
           >
             {/* Row 1: Tier + Exercise + Stage */}
             <div className="flex items-center gap-2 mb-1">

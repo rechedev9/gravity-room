@@ -11,6 +11,12 @@ export const fadeUpVariants: Variants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: EASE_OUT_EXPO } },
 };
 
+/** Faster variant for in-app lists — shorter travel and duration than the landing. */
+export const fadeUpFastVariants: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: EASE_OUT_EXPO } },
+};
+
 export const fadeInVariants: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.6, ease: EASE_OUT_EXPO } },

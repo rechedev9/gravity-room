@@ -13,6 +13,7 @@ import {
   ProgramsIcon,
   AnalyticsIcon,
 } from '@/components/layout/sidebar-icons';
+import { StaggerContainer, StaggerItem, fadeUpFastVariants } from '@/lib/motion-primitives';
 
 interface QuickCardProps {
   readonly to: string;
@@ -20,12 +21,21 @@ interface QuickCardProps {
   readonly description: string;
   readonly Icon: React.ComponentType<{ readonly className?: string }>;
   readonly accent?: boolean;
+  readonly params?: Record<string, string>;
 }
 
-function QuickCard({ to, title, description, Icon, accent }: QuickCardProps): React.ReactNode {
+function QuickCard({
+  to,
+  title,
+  description,
+  Icon,
+  accent,
+  params,
+}: QuickCardProps): React.ReactNode {
   return (
     <Link
       to={to}
+      params={params}
       className="group bg-card border border-rule p-5 flex flex-col gap-3 hover:border-[var(--color-rule-light)] hover:shadow-[var(--shadow-card-hover)] transition-all cursor-pointer"
     >
       <div
@@ -139,47 +149,46 @@ export function HomePage(): React.ReactNode {
           <h2 className="text-[10px] font-bold text-muted uppercase tracking-widest mb-4">
             Acceso Rápido
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-3 gap-4" stagger={0.05}>
             {activeProgram ? (
-              <Link
-                to="/app/tracker/$programId"
-                params={{ programId: activeProgram.programId }}
-                className="group bg-card border border-rule p-5 flex flex-col gap-3 hover:border-[var(--color-rule-light)] hover:shadow-[var(--shadow-card-hover)] transition-all cursor-pointer"
-              >
-                <div className="w-9 h-9 flex items-center justify-center border border-accent text-accent bg-[rgba(232,170,32,0.08)] transition-colors">
-                  <TrackerIcon />
-                </div>
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide mb-0.5 text-title">
-                    Continuar Entrenamiento
-                  </p>
-                  <p className="text-xs text-muted leading-relaxed">
-                    Registra tu sesión de hoy y avanza en tu programa.
-                  </p>
-                </div>
-              </Link>
+              <StaggerItem variants={fadeUpFastVariants}>
+                <QuickCard
+                  to="/app/tracker/$programId"
+                  params={{ programId: activeProgram.programId }}
+                  title="Continuar Entrenamiento"
+                  description="Registra tu sesión de hoy y avanza en tu programa."
+                  Icon={TrackerIcon}
+                  accent
+                />
+              </StaggerItem>
             ) : (
-              <QuickCard
-                to="/app/programs"
-                title="Elegir un Programa"
-                description="Selecciona un programa de fuerza para comenzar."
-                Icon={ProgramsIcon}
-                accent
-              />
+              <StaggerItem variants={fadeUpFastVariants}>
+                <QuickCard
+                  to="/app/programs"
+                  title="Elegir un Programa"
+                  description="Selecciona un programa de fuerza para comenzar."
+                  Icon={ProgramsIcon}
+                  accent
+                />
+              </StaggerItem>
             )}
-            <QuickCard
-              to="/app/dashboard"
-              title="Ver tu Progreso"
-              description="KPIs, volumen, frecuencia y recomendaciones de carga."
-              Icon={DashboardIcon}
-            />
-            <QuickCard
-              to="/app/analytics"
-              title="Analíticas"
-              description="Evolución del 1RM, tendencias y pronósticos por ejercicio."
-              Icon={AnalyticsIcon}
-            />
-          </div>
+            <StaggerItem variants={fadeUpFastVariants}>
+              <QuickCard
+                to="/app/dashboard"
+                title="Ver tu Progreso"
+                description="KPIs, volumen, frecuencia y recomendaciones de carga."
+                Icon={DashboardIcon}
+              />
+            </StaggerItem>
+            <StaggerItem variants={fadeUpFastVariants}>
+              <QuickCard
+                to="/app/analytics"
+                title="Analíticas"
+                description="Evolución del 1RM, tendencias y pronósticos por ejercicio."
+                Icon={AnalyticsIcon}
+              />
+            </StaggerItem>
+          </StaggerContainer>
         </section>
 
         {/* Section overview */}
@@ -187,28 +196,36 @@ export function HomePage(): React.ReactNode {
           <h2 className="text-[10px] font-bold text-muted uppercase tracking-widest mb-4">
             Secciones
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            <SectionCard
-              to="/app/dashboard"
-              title="Dashboard"
-              description="Métricas clave, programa activo, alertas de meseta y recomendaciones de carga."
-            />
-            <SectionCard
-              to="/app/tracker"
-              title="Tracker"
-              description="Registra sets, reps y pesos de cada sesión. Sigue el progreso del programa."
-            />
-            <SectionCard
-              to="/app/programs"
-              title="Programas"
-              description="Catálogo de programas por nivel. Crea y personaliza tus propios programas."
-            />
-            <SectionCard
-              to="/app/analytics"
-              title="Analíticas"
-              description="Gráficas de evolución del 1RM estimado y proyecciones de rendimiento."
-            />
-          </div>
+          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 gap-2" stagger={0.05}>
+            <StaggerItem variants={fadeUpFastVariants}>
+              <SectionCard
+                to="/app/dashboard"
+                title="Dashboard"
+                description="Métricas clave, programa activo, alertas de meseta y recomendaciones de carga."
+              />
+            </StaggerItem>
+            <StaggerItem variants={fadeUpFastVariants}>
+              <SectionCard
+                to="/app/tracker"
+                title="Tracker"
+                description="Registra sets, reps y pesos de cada sesión. Sigue el progreso del programa."
+              />
+            </StaggerItem>
+            <StaggerItem variants={fadeUpFastVariants}>
+              <SectionCard
+                to="/app/programs"
+                title="Programas"
+                description="Catálogo de programas por nivel. Crea y personaliza tus propios programas."
+              />
+            </StaggerItem>
+            <StaggerItem variants={fadeUpFastVariants}>
+              <SectionCard
+                to="/app/analytics"
+                title="Analíticas"
+                description="Gráficas de evolución del 1RM estimado y proyecciones de rendimiento."
+              />
+            </StaggerItem>
+          </StaggerContainer>
         </section>
       </div>
     </div>

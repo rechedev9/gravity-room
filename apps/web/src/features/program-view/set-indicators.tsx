@@ -67,7 +67,7 @@ function InlineStepper({
 
   return (
     <div
-      className="inline-flex items-center gap-1.5 animate-[card-enter_0.15s_ease-out]"
+      className="inline-flex items-center gap-1.5 animate-[card-enter_var(--duration-instant)_var(--ease-standard)]"
       role="group"
       aria-label={ariaLabel}
     >
