@@ -41,7 +41,7 @@ describe('RuleSelector', () => {
     );
 
     const percentInput = screen.getByLabelText(
-      'programs.wizard.rule_selector.fields.deload_percent'
+      'programs.wizard.deload_percent_label'
     ) as HTMLInputElement;
     expect(percentInput.value).toBe('10');
   });
@@ -51,12 +51,10 @@ describe('RuleSelector', () => {
 
     render(<RuleSelector label="Al completar" rule={{ type: 'no_change' }} onChange={onChange} />);
 
-    expect(
-      screen.queryByLabelText('programs.wizard.rule_selector.fields.deload_percent')
-    ).toBeNull();
-    expect(screen.queryByLabelText('programs.wizard.rule_selector.fields.amount_kg')).toBeNull();
-    expect(screen.queryByLabelText('programs.wizard.rule_selector.fields.min_reps')).toBeNull();
-    expect(screen.queryByLabelText('programs.wizard.rule_selector.fields.max_reps')).toBeNull();
+    expect(screen.queryByLabelText('programs.wizard.deload_percent_label')).toBeNull();
+    expect(screen.queryByLabelText('programs.wizard.add_weight_amount_label')).toBeNull();
+    expect(screen.queryByLabelText('programs.wizard.min_reps_label')).toBeNull();
+    expect(screen.queryByLabelText('programs.wizard.max_reps_label')).toBeNull();
   });
 
   it('shows amount field when add_weight_reset_stage is selected', () => {
@@ -70,9 +68,7 @@ describe('RuleSelector', () => {
       />
     );
 
-    expect(
-      screen.getByLabelText('programs.wizard.rule_selector.fields.amount_kg')
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText('programs.wizard.add_weight_amount_label')).toBeInTheDocument();
   });
 
   it('shows repRangeBottom and repRangeTop fields when double_progression is selected', () => {
@@ -86,12 +82,8 @@ describe('RuleSelector', () => {
       />
     );
 
-    expect(
-      screen.getByLabelText('programs.wizard.rule_selector.fields.min_reps')
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText('programs.wizard.rule_selector.fields.max_reps')
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText('programs.wizard.min_reps_label')).toBeInTheDocument();
+    expect(screen.getByLabelText('programs.wizard.max_reps_label')).toBeInTheDocument();
   });
 
   it('calls onChange with correct rule shape when dropdown changes', () => {
