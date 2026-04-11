@@ -40,9 +40,7 @@ describe('RuleSelector', () => {
       />
     );
 
-    const percentInput = screen.getByLabelText(
-      'programs.wizard.deload_percent_label'
-    ) as HTMLInputElement;
+    const percentInput = screen.getByLabelText('Porcentaje de descarga') as HTMLInputElement;
     expect(percentInput.value).toBe('10');
   });
 
@@ -51,10 +49,10 @@ describe('RuleSelector', () => {
 
     render(<RuleSelector label="Al completar" rule={{ type: 'no_change' }} onChange={onChange} />);
 
-    expect(screen.queryByLabelText('programs.wizard.deload_percent_label')).toBeNull();
-    expect(screen.queryByLabelText('programs.wizard.add_weight_amount_label')).toBeNull();
-    expect(screen.queryByLabelText('programs.wizard.min_reps_label')).toBeNull();
-    expect(screen.queryByLabelText('programs.wizard.max_reps_label')).toBeNull();
+    expect(screen.queryByLabelText('Porcentaje de descarga')).toBeNull();
+    expect(screen.queryByLabelText('Cantidad a subir')).toBeNull();
+    expect(screen.queryByLabelText('Reps minimas')).toBeNull();
+    expect(screen.queryByLabelText('Reps maximas')).toBeNull();
   });
 
   it('shows amount field when add_weight_reset_stage is selected', () => {
@@ -68,7 +66,7 @@ describe('RuleSelector', () => {
       />
     );
 
-    expect(screen.getByLabelText('programs.wizard.add_weight_amount_label')).toBeInTheDocument();
+    expect(screen.getByLabelText('Cantidad a subir')).toBeInTheDocument();
   });
 
   it('shows repRangeBottom and repRangeTop fields when double_progression is selected', () => {
@@ -82,8 +80,8 @@ describe('RuleSelector', () => {
       />
     );
 
-    expect(screen.getByLabelText('programs.wizard.min_reps_label')).toBeInTheDocument();
-    expect(screen.getByLabelText('programs.wizard.max_reps_label')).toBeInTheDocument();
+    expect(screen.getByLabelText('Reps minimas')).toBeInTheDocument();
+    expect(screen.getByLabelText('Reps maximas')).toBeInTheDocument();
   });
 
   it('calls onChange with correct rule shape when dropdown changes', () => {

@@ -47,10 +47,10 @@ describe('WeightField', () => {
   });
 
   describe('hint text (REQ-CCF-003)', () => {
-    it('should show hint text when untouched and no error', () => {
+    it('should show "Mín 20 kg" when untouched and no error', () => {
       render(<WeightField {...buildProps({ min: 20, touched: false, fieldError: null })} />);
 
-      expect(screen.getByText(/tracker\.weight_field\.min_hint/)).toBeInTheDocument();
+      expect(screen.getByText('Mín 20 kg')).toBeInTheDocument();
     });
 
     it('should show error message instead of hint when touched and error is set', () => {
@@ -61,7 +61,7 @@ describe('WeightField', () => {
       );
 
       expect(screen.getByRole('alert').textContent).toContain('El peso es demasiado bajo');
-      expect(screen.queryByText(/tracker\.weight_field\.min_hint/)).not.toBeInTheDocument();
+      expect(screen.queryByText('Mín 20 kg')).not.toBeInTheDocument();
     });
   });
 });

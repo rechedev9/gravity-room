@@ -1,32 +1,24 @@
-import { useTranslation } from 'react-i18next';
 import type { z } from 'zod/v4';
 import type { ProgressionRuleSchema } from '@gzclp/shared/schemas/program-definition';
 
 type ProgressionRule = z.infer<typeof ProgressionRuleSchema>;
 type RuleType = ProgressionRule['type'];
 
-function useRuleOptions() {
-  const { t } = useTranslation();
+// Standard rule types (shown in main selectors)
+const STANDARD_RULE_OPTIONS: readonly { readonly value: RuleType; readonly label: string }[] = [
+  { value: 'add_weight', label: 'Subir peso' },
+  { value: 'advance_stage', label: 'Avanzar etapa' },
+  { value: 'add_weight_reset_stage', label: 'Subir peso y reiniciar etapa' },
+  { value: 'deload_percent', label: 'Descarga (porcentaje)' },
+  { value: 'no_change', label: 'Sin cambio' },
+  { value: 'double_progression', label: 'Doble progresion' },
+];
 
-  const standardOptions: readonly { readonly value: RuleType; readonly label: string }[] = [
-    { value: 'add_weight', label: t('programs.wizard.rule_add_weight') },
-    { value: 'advance_stage', label: t('programs.wizard.rule_advance_stage') },
-    { value: 'add_weight_reset_stage', label: t('programs.wizard.rule_add_weight_reset_stage') },
-    { value: 'deload_percent', label: t('programs.wizard.rule_deload_percent') },
-    { value: 'no_change', label: t('programs.wizard.rule_no_change') },
-    { value: 'double_progression', label: t('programs.wizard.rule_double_progression') },
-  ];
-
-  const advancedOptions: readonly { readonly value: RuleType; readonly label: string }[] = [
-    { value: 'update_tm', label: t('programs.wizard.rule_update_tm') },
-    {
-      value: 'advance_stage_add_weight',
-      label: t('programs.wizard.rule_advance_stage_add_weight'),
-    },
-  ];
-
-  return { standardOptions, advancedOptions };
-}
+// Advanced rule types (only in Avanzado section)
+const ADVANCED_RULE_OPTIONS: readonly { readonly value: RuleType; readonly label: string }[] = [
+  { value: 'update_tm', label: 'Actualizar maximo de entrenamiento' },
+  { value: 'advance_stage_add_weight', label: 'Avanzar etapa y subir peso' },
+];
 
 const ALL_RULE_TYPES: ReadonlySet<string> = new Set<string>([
   'add_weight',
@@ -89,9 +81,9 @@ export function RuleSelector({
   optional,
   advanced,
 }: RuleSelectorProps): React.ReactNode {
-  const { t } = useTranslation();
-  const { standardOptions, advancedOptions } = useRuleOptions();
-  const options = advanced ? [...standardOptions, ...advancedOptions] : standardOptions;
+  const options = advanced
+    ? [...STANDARD_RULE_OPTIONS, ...ADVANCED_RULE_OPTIONS]
+    : STANDARD_RULE_OPTIONS;
 
   const handleTypeChange = (newType: string): void => {
     if (newType === '__none__') {
@@ -113,7 +105,7 @@ export function RuleSelector({
         className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1.5 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none"
         aria-label={label}
       >
-        {optional && <option value="__none__">{t('programs.wizard.rule_none')}</option>}
+        {optional && <option value="__none__">Ninguna</option>}
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
             {opt.label}
@@ -124,9 +116,7 @@ export function RuleSelector({
       {/* Param fields per rule type */}
       {rule.type === 'deload_percent' && (
         <div>
-          <label className="block text-2xs text-zinc-500 mb-0.5">
-            {t('programs.wizard.deload_percent_label')}
-          </label>
+          <label className="block text-2xs text-zinc-500 mb-0.5">Porcentaje de descarga</label>
           <input
             type="number"
             min={1}
@@ -134,16 +124,14 @@ export function RuleSelector({
             value={rule.percent}
             onChange={(e) => onChange({ ...rule, percent: Number(e.target.value) })}
             className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none text-center"
-            aria-label={t('programs.wizard.deload_percent_label')}
+            aria-label="Porcentaje de descarga"
           />
         </div>
       )}
 
       {rule.type === 'add_weight_reset_stage' && (
         <div>
-          <label className="block text-2xs text-zinc-500 mb-0.5">
-            {t('programs.wizard.add_weight_amount_label')}
-          </label>
+          <label className="block text-2xs text-zinc-500 mb-0.5">Cantidad a subir (kg)</label>
           <input
             type="number"
             min={0.5}
@@ -151,7 +139,7 @@ export function RuleSelector({
             value={rule.amount}
             onChange={(e) => onChange({ ...rule, amount: Number(e.target.value) })}
             className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none text-center"
-            aria-label={t('programs.wizard.add_weight_amount_label')}
+            aria-label="Cantidad a subir"
           />
         </div>
       )}
@@ -159,34 +147,30 @@ export function RuleSelector({
       {rule.type === 'double_progression' && (
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-2xs text-zinc-500 mb-0.5">
-              {t('programs.wizard.min_reps_label')}
-            </label>
+            <label className="block text-2xs text-zinc-500 mb-0.5">Reps minimas</label>
             <input
               type="number"
               min={1}
               value={rule.repRangeBottom}
               onChange={(e) => onChange({ ...rule, repRangeBottom: Number(e.target.value) })}
               className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none text-center"
-              aria-label={t('programs.wizard.min_reps_label')}
+              aria-label="Reps minimas"
             />
           </div>
           <div>
-            <label className="block text-2xs text-zinc-500 mb-0.5">
-              {t('programs.wizard.max_reps_label')}
-            </label>
+            <label className="block text-2xs text-zinc-500 mb-0.5">Reps maximas</label>
             <input
               type="number"
               min={1}
               value={rule.repRangeTop}
               onChange={(e) => onChange({ ...rule, repRangeTop: Number(e.target.value) })}
               className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none text-center"
-              aria-label={t('programs.wizard.max_reps_label')}
+              aria-label="Reps maximas"
             />
           </div>
           {rule.repRangeBottom > rule.repRangeTop && (
             <p className="col-span-2 text-2xs text-red-400">
-              {t('programs.wizard.reps_validation_error')}
+              Las reps minimas no pueden superar las reps maximas
             </p>
           )}
         </div>
@@ -195,29 +179,25 @@ export function RuleSelector({
       {rule.type === 'update_tm' && (
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="block text-2xs text-zinc-500 mb-0.5">
-              {t('programs.wizard.amount_label')}
-            </label>
+            <label className="block text-2xs text-zinc-500 mb-0.5">Cantidad</label>
             <input
               type="number"
               step={0.5}
               value={rule.amount}
               onChange={(e) => onChange({ ...rule, amount: Number(e.target.value) })}
               className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none text-center"
-              aria-label={t('programs.wizard.amount_label')}
+              aria-label="Cantidad"
             />
           </div>
           <div>
-            <label className="block text-2xs text-zinc-500 mb-0.5">
-              {t('programs.wizard.min_amrap_reps_label')}
-            </label>
+            <label className="block text-2xs text-zinc-500 mb-0.5">Reps AMRAP minimas</label>
             <input
               type="number"
               min={0}
               value={rule.minAmrapReps}
               onChange={(e) => onChange({ ...rule, minAmrapReps: Number(e.target.value) })}
               className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none text-center"
-              aria-label={t('programs.wizard.min_amrap_reps_label')}
+              aria-label="Reps AMRAP minimas"
             />
           </div>
         </div>

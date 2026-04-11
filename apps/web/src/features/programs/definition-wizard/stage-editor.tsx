@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next';
 import type { z } from 'zod/v4';
 import type { StageDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
 
@@ -16,7 +15,6 @@ interface StageEditorProps {
 }
 
 export function StageEditor({ stages, onChange }: StageEditorProps): React.ReactNode {
-  const { t } = useTranslation();
   const canRemove = stages.length > 1;
 
   const updateStage = (
@@ -53,16 +51,12 @@ export function StageEditor({ stages, onChange }: StageEditorProps): React.React
 
   return (
     <div className="space-y-2">
-      <p className="text-2xs font-bold text-zinc-400 uppercase tracking-wide">
-        {t('programs.wizard.stage_editor.title')}
-      </p>
+      <p className="text-2xs font-bold text-zinc-400 uppercase tracking-wide">Etapas</p>
       {stages.map((stage, i) => (
         <div key={i} className="flex items-center gap-2 bg-zinc-900/50 rounded-lg p-2">
           <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div>
-              <label className="block text-2xs text-zinc-500 mb-0.5">
-                {t('programs.wizard.stage_editor.fields.sets')}
-              </label>
+              <label className="block text-2xs text-zinc-500 mb-0.5">Series</label>
               <input
                 type="number"
                 min={MIN_SETS}
@@ -70,13 +64,11 @@ export function StageEditor({ stages, onChange }: StageEditorProps): React.React
                 value={stage.sets}
                 onChange={(e) => updateStage(i, 'sets', Number(e.target.value))}
                 className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none text-center"
-                aria-label={`${t('programs.wizard.stage_editor.fields.sets')} ${i + 1}`}
+                aria-label={`Series etapa ${i + 1}`}
               />
             </div>
             <div>
-              <label className="block text-2xs text-zinc-500 mb-0.5">
-                {t('programs.wizard.stage_editor.fields.reps')}
-              </label>
+              <label className="block text-2xs text-zinc-500 mb-0.5">Reps</label>
               <input
                 type="number"
                 min={MIN_REPS}
@@ -84,7 +76,7 @@ export function StageEditor({ stages, onChange }: StageEditorProps): React.React
                 value={stage.reps}
                 onChange={(e) => updateStage(i, 'reps', Number(e.target.value))}
                 className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none text-center"
-                aria-label={`${t('programs.wizard.stage_editor.fields.reps')} ${i + 1}`}
+                aria-label={`Reps etapa ${i + 1}`}
               />
             </div>
             <div className="flex items-end gap-1.5">
@@ -94,23 +86,21 @@ export function StageEditor({ stages, onChange }: StageEditorProps): React.React
                   checked={stage.amrap === true}
                   onChange={(e) => updateStage(i, 'amrap', e.target.checked)}
                   className="accent-amber-500"
-                  aria-label={`AMRAP ${i + 1}`}
+                  aria-label={`AMRAP etapa ${i + 1}`}
                 />
                 AMRAP
               </label>
             </div>
             {stage.amrap && (
               <div>
-                <label className="block text-2xs text-zinc-500 mb-0.5">
-                  {t('programs.wizard.stage_editor.fields.reps_max')}
-                </label>
+                <label className="block text-2xs text-zinc-500 mb-0.5">Reps max</label>
                 <input
                   type="number"
                   min={1}
                   value={stage.repsMax ?? ''}
                   onChange={(e) => updateStage(i, 'repsMax', Number(e.target.value))}
                   className="w-full bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none text-center"
-                  aria-label={`${t('programs.wizard.stage_editor.fields.reps_max')} ${i + 1}`}
+                  aria-label={`Reps max etapa ${i + 1}`}
                 />
               </div>
             )}
@@ -120,9 +110,9 @@ export function StageEditor({ stages, onChange }: StageEditorProps): React.React
             onClick={() => removeStage(i)}
             disabled={!canRemove}
             className="text-2xs text-red-400 hover:text-red-300 disabled:opacity-25 disabled:cursor-not-allowed cursor-pointer px-1"
-            aria-label={`${t('programs.wizard.stage_editor.remove_stage')} ${i + 1}`}
+            aria-label={`Eliminar etapa ${i + 1}`}
           >
-            {t('programs.wizard.stage_editor.remove_stage')}
+            Eliminar etapa
           </button>
         </div>
       ))}
@@ -131,7 +121,7 @@ export function StageEditor({ stages, onChange }: StageEditorProps): React.React
         onClick={addStage}
         className="text-2xs text-amber-400 hover:text-amber-300 cursor-pointer"
       >
-        {t('programs.wizard.stage_editor.add_stage')}
+        + Anadir etapa
       </button>
     </div>
   );

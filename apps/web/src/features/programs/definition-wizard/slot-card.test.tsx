@@ -48,13 +48,13 @@ describe('SlotCard', () => {
     render(<SlotCard slot={makeSlot()} onChange={onChange} />);
 
     // Body is initially collapsed (no defaultOpen)
-    expect(screen.queryByText('programs.wizard.stage_editor.title')).toBeNull();
+    expect(screen.queryByText('Etapas')).toBeNull();
 
     // Click header to expand
     fireEvent.click(screen.getByText('Sentadilla'));
 
-    // Body should now be visible (StageEditor renders title label)
-    expect(screen.getByText('programs.wizard.stage_editor.title')).toBeInTheDocument();
+    // Body should now be visible (StageEditor renders "Etapas" label)
+    expect(screen.getByText('Etapas')).toBeInTheDocument();
   });
 
   it('shows additional rule selectors when "Avanzado" toggle is clicked', () => {
@@ -63,20 +63,16 @@ describe('SlotCard', () => {
     render(<SlotCard slot={makeSlot()} onChange={onChange} defaultOpen />);
 
     // Advanced section should be collapsed by default
-    expect(screen.queryByText('programs.wizard.slot_card.advanced.toggle')).toBeNull();
+    expect(screen.queryByText('Ultra-avanzado')).toBeNull();
 
     // Click "Avanzado" toggle
-    const advancedButton = screen.getByRole('button', {
-      name: /programs\.wizard\.slot_card\.advanced\.toggle/,
-    });
+    const advancedButton = screen.getByRole('button', { name: /Avanzado/ });
     fireEvent.click(advancedButton);
 
     // Now Ultra-avanzado section should be visible
-    expect(screen.getByText('programs.wizard.slot_card.advanced.section')).toBeInTheDocument();
-    expect(
-      screen.getByText('programs.wizard.slot_card.advanced.on_final_stage_success')
-    ).toBeInTheDocument();
-    expect(screen.getByText('programs.wizard.slot_card.advanced.on_undefined')).toBeInTheDocument();
+    expect(screen.getByText('Ultra-avanzado')).toBeInTheDocument();
+    expect(screen.getByText('Al completar la ultima etapa')).toBeInTheDocument();
+    expect(screen.getByText('Sin resultado definido')).toBeInTheDocument();
   });
 
   it('does not clear advanced rule values when collapsing "Avanzado"', () => {
@@ -91,9 +87,7 @@ describe('SlotCard', () => {
     render(<SlotCard slot={slot} onChange={onChange} defaultOpen />);
 
     // Click "Avanzado" to collapse
-    const advancedButton = screen.getByRole('button', {
-      name: /programs\.wizard\.slot_card\.advanced\.toggle/,
-    });
+    const advancedButton = screen.getByRole('button', { name: /Avanzado/ });
     fireEvent.click(advancedButton);
 
     // The onChange should be called with showAdvanced: false but onFinalStageSuccess preserved
@@ -113,7 +107,7 @@ describe('SlotCard', () => {
     render(<SlotCard slot={slot} onChange={onChange} defaultOpen />);
 
     // Select "Doble Progresion" template
-    const templateSelect = screen.getByLabelText(/programs\.wizard\.slot_card\.template/);
+    const templateSelect = screen.getByLabelText(/Plantilla para Sentadilla/);
     fireEvent.change(templateSelect, { target: { value: 'double-progression' } });
 
     expect(onChange).toHaveBeenCalled();
