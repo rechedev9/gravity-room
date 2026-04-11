@@ -19,7 +19,8 @@ export function DropdownMenuContent({
         align={align}
         className={cn(
           'min-w-[180px] bg-card border border-rule py-1 z-50 shadow-elevated',
-          'animate-[dropdown-enter_0.15s_ease-out]',
+          'data-[state=open]:animate-[dropdown-enter_var(--duration-instant)_var(--ease-out-expo)]',
+          'data-[state=closed]:animate-[dropdown-exit_var(--duration-instant)_var(--ease-standard)]',
           className
         )}
         {...props}
