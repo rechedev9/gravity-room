@@ -11,7 +11,12 @@ export function DialogOverlay({
 }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>): React.ReactNode {
   return (
     <DialogPrimitive.Overlay
-      className={cn('fixed inset-0 bg-black/60 backdrop-blur-sm z-50', className)}
+      className={cn(
+        'fixed inset-0 bg-black/60 backdrop-blur-sm z-50',
+        'data-[state=open]:animate-[overlay-in_var(--duration-fast)_var(--ease-standard)]',
+        'data-[state=closed]:animate-[overlay-out_var(--duration-instant)_var(--ease-standard)]',
+        className
+      )}
       {...props}
     />
   );
@@ -27,9 +32,10 @@ export function DialogContent({
       <DialogOverlay />
       <DialogPrimitive.Content
         className={cn(
-          'fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50',
-          'bg-card border border-rule shadow-dialog modal-box',
-          'w-full max-w-md px-6 py-5',
+          'fixed inset-0 m-auto h-fit w-full max-w-md z-50',
+          'bg-card border border-rule shadow-dialog px-6 py-5',
+          'data-[state=open]:animate-[modal-enter_var(--duration-fast)_var(--ease-out-expo)]',
+          'data-[state=closed]:animate-[modal-exit_var(--duration-instant)_var(--ease-standard)]',
           className
         )}
         {...props}

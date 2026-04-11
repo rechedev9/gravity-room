@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { AvatarDropdown } from '@/components/layout/avatar-dropdown';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
+import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
 import {
   HomeIcon,
   DashboardIcon,
@@ -90,6 +92,8 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState(false);
   const isCollapsed = !isHovered;
+  const reduced = useReducedMotion();
+  const drawerDuration = reduced ? 0 : 0.22;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -272,21 +276,31 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
       </aside>
 
       {/* Mobile overlay + drawer — always expanded */}
-      {isOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
-            aria-hidden="true"
-          />
-          <aside
-            className="relative z-10 bg-[var(--color-sidebar)] border-r border-[var(--color-sidebar-border)] h-full flex flex-col animate-[slideInFromLeft_0.2s_ease-out]"
-            style={{ width: 'var(--sidebar-width)' }}
-          >
-            {renderContent(false, onClose)}
-          </aside>
-        </div>
-      )}
+      <AnimatePresence>
+        {isOpen && (
+          <div className="lg:hidden fixed inset-0 z-50 flex">
+            <motion.div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={onClose}
+              aria-hidden="true"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: drawerDuration, ease: EASE_OUT_EXPO }}
+            />
+            <motion.aside
+              className="relative z-10 bg-[var(--color-sidebar)] border-r border-[var(--color-sidebar-border)] h-full flex flex-col"
+              style={{ width: 'var(--sidebar-width)', willChange: 'transform' }}
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ duration: drawerDuration, ease: EASE_OUT_EXPO }}
+            >
+              {renderContent(false, onClose)}
+            </motion.aside>
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

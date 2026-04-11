@@ -1,277 +1,265 @@
 # Gravity Room — Roadmap
 
-**Last updated:** 2026-04-10
-**Status:** All phases complete — ready for launch
+**Last updated:** 2026-04-11
+**Status:** Active — Fase 1 overlay replication (post CP-0, Fase 0 cerrada)
 
 ---
 
 ## Objective
 
-Prepare Gravity Room for public launch on HackerNews, ProductHunt, Y Combinator, and similar English-speaking tech communities. The app currently targets Spanish-speaking users only. This roadmap covers: English landing page, SEO hardening, Generative Engine Optimization (GEO), performance tuning, social sharing improvements, analytics hardening, and infrastructure fixes that would embarrass on launch day.
+Hacer que `apps/web` se sienta fluida y viva en escritorio y móvil: transiciones de ruta sin parpadeo, entradas y **salidas** animadas en overlays, feedback táctil en botones, y orquestación coherente basada en tokens compartidos — sin añadir dependencias nuevas y respetando `prefers-reduced-motion`.
+
+El objetivo no es "más animación", es **animación que esconde la latencia y comunica jerarquía**. Cada cambio debe servir a uno de estos tres propósitos:
+
+1. Ocultar transiciones de estado (ruta, Suspense, mount/unmount).
+2. Dar feedback inmediato a interacción del usuario (tap/hover/focus).
+3. Guiar la atención hacia el cambio que importa (nuevo dato, PR, set marcado).
+
+Todo lo demás es decoración y no va.
 
 ---
 
 ## Current State
 
-**What exists (strong foundation):**
-- Static SEO in `index.html`: `<title>`, `<meta description>`, Open Graph, Twitter Cards, 3 JSON-LD blocks (WebSite, SoftwareApplication, FAQPage with bilingual Q&A)
-- `robots.txt`: well-configured — blocks `/app`, `/login`, AI training bots; allows AI retrieval bots (ChatGPT-User, Claude-SearchBot, PerplexityBot)
-- `sitemap.xml`: 19 URLs (root + 2 legal + 16 program preview pages), hand-maintained, hardcoded `lastmod`
-- `llms.txt`: bilingual (EN/ES), covers app purpose, features, technical details
-- `manifest.webmanifest`: PWA-ready with standalone display
-- `noscript` fallback: meaningful HTML for non-JS crawlers
-- Plausible Analytics: privacy-focused, 4 custom events (signup, guest_start, program_start, program_complete)
-- Sentry error tracking
-- PWA via `vite-plugin-pwa` with workbox runtime caching
-- Code splitting per route via `lazyWithRetry`
-- nginx: gzip, immutable cache for hashed assets, no-cache for HTML
+Explorado directamente en `apps/web/src/router.tsx`, `apps/web/src/styles/globals.css`, `apps/web/src/components/ui/dialog.tsx`, `apps/web/src/components/layout/app-sidebar.tsx`, `apps/web/src/components/toast.tsx`, `apps/web/src/lib/motion-primitives.tsx`.
 
-**What's broken or missing:**
-- **Language**: entire landing page, legal pages, and all UI copy is Spanish-only. No i18n framework. HN/PH/YC audiences are predominantly English-speaking.
-- **CSP blocks Plausible**: `plausible.io` is not in `script-src` or `connect-src` in `security-headers.conf`. The injected Plausible script is silently blocked in production.
-- **Per-route meta tags**: every URL shares the same OG title/description/image/canonical. Program preview pages (`/programs/gzclp`, etc.) show the generic landing page preview when shared on social media.
-- **Canonical URL**: hardcoded to `https://gravityroom.app/` for all routes. Crawlers see the root canonical on `/programs/gzclp`, `/privacy`, etc.
-- **OG image format**: `og-image.webp` — some platforms (LinkedIn, older Facebook crawlers, iMessage) don't reliably render `.webp` OG images. PNG/JPEG is safer.
-- **Twitter handles missing**: `twitter:site` and `twitter:creator` not set.
-- **No Brotli compression**: nginx only serves gzip. Brotli saves 15-25% additional on JS/CSS.
-- **Google Fonts not self-hosted**: external dependency adds latency and has GDPR implications (German court precedent). Three font families loaded from `fonts.googleapis.com`.
-- **No `<link rel="preload">`**: no preloading of critical font files or hero image.
-- **Sitemap is static**: `lastmod` hardcoded to `2026-04-03`, won't reflect new programs automatically.
-- **PWA manifest icons are `.webp`**: Safari and some older install flows prefer PNG.
-- **`VITE_PLAUSIBLE_DOMAIN` not typed**: not in `vite-env.d.ts`, reads as `string | undefined` without type narrowing.
-- **No conversion funnel tracking**: Plausible has 4 events but no funnel (landing → login → signup → first workout). No UTM parameter capture for attribution.
-- **No English content**: no way for English-speaking HN/PH visitors to read what the app does.
-- **No social proof**: no testimonials, user count, or community size on landing page.
-- **No changelog/what's new page**: nothing to share on launch day to show momentum.
-- **Only Discord for community**: no Twitter/X handle, no GitHub stars badge.
+- **Stack:** Tailwind v4 (sin config, `@theme {}` en `globals.css`), Radix UI (dialog, dropdown, collapsible, tabs, tooltip), TanStack Router v1, `motion` v12 (sucesor de framer-motion) ya instalado, React 19 + React Compiler.
+- **Animaciones existentes:** 11 `@keyframes` en `globals.css` (`modal-enter`, `fadeSlideUp`, `dropdown-enter`, `pop-in`, `slideInFromLeft`, etc.). Clases aplicadas por atributo `animate-[…]` en ~73 archivos.
+- **Tokens de motion:** hay un único cubic-bezier compartido (`--sidebar-transition: 250ms cubic-bezier(0.4, 0, 0.2, 1)`); easing y duración están hardcodeados en cada sitio.
+- **Radix `data-state`:** presente en el DOM pero **ningún** estilo engancha a `data-[state=open]`/`data-[state=closed]`. Los primitivos Radix soportan diferir el unmount mientras dure la animación — hoy no se aprovecha.
+- **Motion library:** usado sólo en landing (`src/lib/motion-primitives.tsx`, 6 archivos). `AnimatePresence` no se usa en ningún sitio de la app autenticada.
+- **Router:** cada ruta en `router.tsx` mete un `<Suspense fallback={<Skeleton />}>` propio dentro del `component`. No hay `pendingComponent`, no hay `defaultPendingMs`/`defaultPendingMinMs`, no hay `AnimatePresence` alrededor del `<Outlet>`. Resultado: el swap de ruta es un re-render instantáneo con flash de skeleton incluso en navegaciones de <50 ms.
+- **Única pareja enter+exit funcionando hoy:** el toast (`src/components/toast.tsx`) con un flag `t.exiting` propio. Es la referencia de "cómo debería sentirse todo lo demás".
+- **Sidebar desktop:** colapsa con transición inline `width var(--sidebar-transition)` — funciona bien.
+- **Sidebar móvil (drawer):** `{isOpen && <aside …>}` con `animate-[slideInFromLeft_0.2s]` — **no tiene animación de salida**; al cerrar desaparece instantáneo. Este es, probablemente, el momento más janky del producto en móvil.
+- **Diálogos:** `DialogContent` tiene `modal-box` (enter), sin salida. Al cerrar, el contenido se desmonta seco.
+- **Dropdowns:** idéntico problema — `animate-[dropdown-enter_0.15s]`, sin salida.
+- **Skeletons:** 8 componentes con `animate-pulse`. Swap skeleton → contenido es instantáneo (sin cross-fade).
+- **Recharts:** usa su transición SVG por defecto. Listas (dashboard, programas, insights) aparecen de golpe.
+- **`prefers-reduced-motion`:** regla blanket global en `globals.css:607` que pone `animation-duration: 0.01ms !important` y `transition-duration: 0.01ms !important`. Correcta, pero hay que asegurarse de que las animaciones JS de `motion/react` también respondan (`useReducedMotion` ya se usa en el landing; hay que replicarlo en los nuevos sitios).
+- **View Transitions API:** cero uso.
+- **`will-change`:** cero uso.
 
 ---
 
 ## Approach
 
-**Chosen strategy: fix blockers first (CSP, OG format, canonical), then build the English landing page, then layer SEO/GEO improvements, then performance.**
+**Elegido: Radix `data-state` CSS + `motion/react` `AnimatePresence` + tokens compartidos en `globals.css`.**
 
-The English landing page is the highest-leverage item — without it, sharing on HN/PH is pointless because the audience can't read the page. But CSP and OG fixes are prerequisite because they affect whether the shared links even preview correctly.
+Rechazado:
 
-**Alternatives considered and rejected:**
-- *Full i18n with react-intl/i18next*: rejected for launch timeline. Extracting ~200 UI strings across 50+ files into translation keys is weeks of work. Instead: add a parallel English landing page at `/en` (or auto-detect `Accept-Language`) and keep the app UI Spanish for now. The app's value proposition is clear from the landing page; users who sign up will figure out the Spanish UI (it's a gym tracker, not a legal document).
-- *SSR/prerendering for per-route meta*: rejected. Adding SSR (Next.js, Vite SSR, Astro) is a massive migration. Instead: inject per-route `<meta>` tags client-side via a lightweight `useHead` hook + ensure the `noscript` fallback covers program preview pages. For social crawlers that don't execute JS, add a minimal prerender middleware at the Caddy layer (or nginx) that serves static meta for known public routes.
-- *Full prerender service (prerender.io, rendertron)*: rejected as overkill for 19 public URLs. A static approach (build-time generation of per-route `index.html` variants or Caddy-level HTML snippets) is simpler and has zero runtime cost.
+- _Añadir `tailwindcss-animate` o similar._ No aporta sobre lo que Tailwind v4 y nuestras keyframes ya hacen y mete otra dependencia.
+- _Migrar todo a `motion/react`._ Exagerado. Los overlays Radix ya resuelven la parte difícil (focus trap, portal, diferir unmount cuando detectan animación); sólo necesitan los keyframes `-exit`. Usar JS animations para un dialog simple es bazucazo.
+- _View Transitions API como base._ Buen progressive enhancement futuro pero soporte aún desigual en Safari iOS a día de hoy; no puede ser el cimiento. Se deja como posible fase opcional.
+- _Layer-por-layer (tokens → keyframes → aplicar en cada componente → router)._ Entregar vertical slice: una ruta con transición + un overlay con exit + drawer móvil con exit, todo end-to-end antes de replicar.
+
+**Por qué esta combinación:**
+
+- **Radix + CSS data-state** → gratis. Radix **ya** difiere el `unmount` si detecta `getAnimations()` no vacío. Añadir `data-[state=closed]:animate-…` al `DialogContent`/`DropdownMenuContent`/`TooltipContent` arregla la salida sin tocar la lógica de los primitivos. Es CSS, corre en compositor, es lo más rápido posible en móvil.
+- **`motion/react` + `AnimatePresence`** → necesario donde NO hay Radix (drawer móvil, `<Outlet>` de ruta, listas con stagger). Ya está instalado y el equipo ya sabe usarlo (landing).
+- **Tokens en `@theme`** → evita que 73 archivos deriven a su propio easing y duración. El objetivo es sentir el producto como **un sistema**, no una colección de transiciones ad-hoc.
+- **Reglas de performance duras:** sólo animar `transform` y `opacity`. Nada de `width`/`height`/`top`/`left` salvo el sidebar desktop que ya existe y funciona. En móvil, eso es la diferencia entre 60 fps y un producto roto.
 
 ---
 
 ## Constraints
 
-- `bun run ci` must be green at every checkpoint.
-- No new runtime dependencies unless they solve a clear problem.
-- The Go API is not touched in this wave — all changes are frontend + infrastructure.
-- The app UI stays Spanish for now; only public-facing marketing pages get English.
-- Launch timeline is soon — prioritize impact over perfection.
-
----
-
-## Workstreams
-
-Three parallel tracks after the initial blocker fixes:
-
-1. **English Landing + Content** — the English landing page and content for HN/PH audiences
-2. **SEO + GEO Hardening** — per-route meta, structured data, sitemap automation, social sharing
-3. **Performance + Infrastructure** — font self-hosting, Brotli, preloads, CSP fixes, analytics hardening
+- `bun run ci` verde en cada checkpoint.
+- **Sin dependencias nuevas.** `motion` ya está en `package.json`.
+- **TypeScript estricto (`~/.claude/rules/typescript.md`):** cada función exportada declara su return type; nada de `any`, `!.`, `@ts-ignore`.
+- **Respeta `prefers-reduced-motion`:** tanto la regla blanket en CSS como `useReducedMotion()` en cualquier componente nuevo que use `motion/react`.
+- **60 fps en móvil:** sólo animar props del compositor (`transform`, `opacity`, `filter`). Nada que provoque layout o paint en el hilo principal.
+- **Sin cambios visuales que rompan tests E2E.** Las animaciones añaden latencia de cierre en overlays — revisar selectores Playwright que hagan `click` y luego `expect(…).not.toBeVisible()` inmediatamente; pueden necesitar `waitFor` o reducir animación bajo `PLAYWRIGHT` env.
+- React Compiler activo — ya probado con `motion/react` en el landing, pero validar con `bun run typecheck` + dev server en cada fase.
+- `log.md` y `roadmap.md` son fuentes vivas — actualizar al cerrar cada fase.
 
 ---
 
 ## Step-by-Step Plan
 
-### Phase 1 — Fix Blockers (Done)
+### Fase 0 — Tracer bullet (Done — 2026-04-11)
 
-**Step 1.1 — Fix CSP to allow Plausible** ✅
-- Added `https://plausible.io` to `script-src` and `connect-src` in `security-headers.conf`.
-- Removed Google Fonts from `style-src` and `font-src` (now self-hosted).
-
-**Step 1.2 — Add OG image in PNG format** ✅
-- Generated `og-image.png` via `sips`. Updated `index.html` with PNG path + `og:image:type`.
-
-**Step 1.3 — Type `VITE_PLAUSIBLE_DOMAIN` in env** ✅
-- Added `readonly VITE_PLAUSIBLE_DOMAIN?: string` to `vite-env.d.ts`.
-
-**Step 1.4 — Twitter handles** ✅
-- No Twitter/X handle. Skipped `twitter:site` / `twitter:creator`.
-
-#### Checkpoint 1 ✅
-- [x] `bun run ci` green
-- [x] CSP allows Plausible
-- [x] OG image is PNG
+Movida a [Completed](#completed). Archivada con resumen de ejecución, divergencias del plan original, y estado del gate de verificación.
 
 ---
 
-### Phase 2 — English Landing Page (Done)
+### Fase 1 — Replicar el patrón overlay a todos los primitivos Radix
 
-**Step 2.1 — Content abstraction** ✅
-- Extracted all translatable text into `src/features/landing/content.ts`. Defines `LandingContent` interface + `ES_CONTENT` + `EN_CONTENT`.
-- All section components refactored to accept required `content` prop.
+Una vez el dialog funciona, el resto es mecánico:
 
-**Step 2.2 — English landing page route** ✅
-- `landing-page-en.tsx` at `/en`. Shares all section components with Spanish page.
-
-**Step 2.3 — Language banner** ✅
-- Both pages show a subtle language-switch banner with a 5s fade.
-
-**Step 2.4 — English meta tags via `useHead`** ✅
-- `src/hooks/use-head.ts` manages per-route title, lang, description, canonical, og:* tags. Restores on unmount.
-
-**Step 2.5 — hreflang** ✅
-- Added `hreflang="es"`, `hreflang="en"`, `hreflang="x-default"` to `index.html`.
-
-**Step 2.6 — Sitemap** ✅
-- Added `/en` URL to `sitemap.xml`.
-
-**Step 2.7 — llms.txt** ✅
-- `llms.txt` references `/en`. `llms-full.txt` created.
-
-#### Checkpoint 2 ✅
-- [x] `bun run ci` green
-- [x] `/en` renders English landing page
-- [x] Language switch banner works both directions
-- [x] English meta tags set correctly
-- [x] Sitemap includes `/en`
+7. **Dropdown**: `apps/web/src/components/ui/dropdown-menu.tsx` — mismo patrón `data-[state=open]:animate-… data-[state=closed]:animate-…`. Reemplazar el `animate-[dropdown-enter_0.15s]` ad-hoc actual.
+8. **Dropdown hand-rolled**: `apps/web/src/components/dropdown-menu.tsx` — este no usa Radix. Dos opciones: (a) migrar a Radix (más limpio, más trabajo), (b) envolver su render condicional en `AnimatePresence`. Decidir leyendo el archivo — si el dropdown tiene focus trap y keyboard handling propios que están bien, opción (b); si no, (a).
+9. **Tooltip**: `apps/web/src/components/ui/tooltip.tsx` — añadir `data-[state=delayed-open]:animate-…` / `data-[state=closed]:animate-…`. Delay natural del tooltip ya lo maneja Radix.
+10. **Tabs** (Radix): `apps/web/src/components/ui/tabs.tsx` (si existe) — transición sutil de contenido (fade/slide-x 4 px). Baja prioridad; sólo si se usa en rutas visibles.
+11. **Avatar dropdown**: `apps/web/src/components/layout/avatar-dropdown.tsx` — aplicar el mismo patrón que el dropdown general.
 
 ---
 
-### Phase 3 — SEO Hardening (Done)
+### Fase 2 — Feedback táctil y micro-interacciones de botones
 
-**Step 3.1 — Per-route canonical URLs** ✅
-- `useHead` manages canonical per route. Static canonical removed from `index.html`.
-
-**Step 3.2 — Per-route OG for program preview pages** ✅
-- `useProgramHead` in `program-preview-page.tsx` sets og:title, og:description, og:url per program.
-
-**Step 3.3 — Dynamic OG image generation** — skipped for launch (generic image acceptable).
-
-**Step 3.4 — Structured data per program preview** — deferred post-launch.
-
-**Step 3.5 — Expand FAQ JSON-LD** ✅
-- Expanded from 7 to 11 entries targeting progressive overload, beginner programs, GZCLP vs StrongLifts.
-
-**Step 3.6 — hreflang** ✅ (done in Phase 2)
-
-**Step 3.7 — Sitemap automation** — deferred. Static sitemap is sufficient for launch (19 URLs, low churn).
-
-#### Checkpoint 3 ✅
-- [x] `bun run ci` green
-- [x] Each public route has its own canonical URL
-- [x] Program preview pages have unique OG title/description
-- [x] FAQ expanded with launch-relevant questions
+12. **Botones**: buscar `<button>` y variantes de `Button` en `src/components/ui/`. Añadir `active:scale-[0.97] transition-transform duration-[var(--duration-instant)]` al variant base. Sin esto, el botón en móvil no da feedback de tap y se siente muerto. Keep `will-change: transform` sólo durante interacción si se nota jank.
+13. **Enlaces del sidebar / nav**: ya tienen `transition-colors` — añadir `active:scale-[0.98]` al botón mobile-menu hamburger; los items de sidebar en móvil pueden llevar el mismo active scale.
+14. **Cards de programas**: `.program-card-lift` ya existe. Añadir `active:translate-y-0` en móvil (tap state).
+15. **Revisar `globals.css:607`:** la regla blanket `prefers-reduced-motion` con `!important` también capará `active:scale`. Mantenerla (accesibilidad), pero aceptar que los feedbacks de tap desaparecen bajo `reduced-motion` — es lo correcto.
 
 ---
 
-### Phase 4 — GEO (Done)
+### Fase 3 — Entrada orquestada en listas y páginas pesadas
 
-**Step 4.1 — Enhance `llms.txt`** ✅
-- Added GZCLP vs StrongLifts comparison, progressive overload explanation, technical architecture, `/en` reference.
-
-**Step 4.2 — Add `llms-full.txt`** ✅
-- Full program catalog descriptions + FAQ + architecture for AI context.
-
-**Step 4.3 — noscript program coverage** ✅
-- Expanded noscript block with bilingual content and program links.
-
-**Step 4.4 — robots.txt references llms.txt** ✅
-
-#### Checkpoint 4 ✅
-- [x] `llms.txt` expanded with comparison content
-- [x] `llms-full.txt` exists
-- [x] Program preview pages have noscript coverage
-- [x] robots.txt references llms.txt
+16. **Stagger reutilizable no-landing**: mover/duplicar `FadeUp` y `StaggerContainer` de `src/lib/motion-primitives.tsx` a un helper genérico si el landing los sigue necesitando. O simplemente importarlos desde su ubicación actual — ya son genéricos. Confirmar leyendo el archivo. Añadir variantes más cortas (`fadeUpFastVariants` con `y: 8, duration: 0.3`) para in-app (landing es más lento por ser marketing).
+17. **Dashboard cards**: `apps/web/src/features/dashboard/dashboard-page.tsx` — envolver el grid principal con `StaggerContainer` + cada card con `StaggerItem`. Stagger de 40–60 ms.
+18. **Programs grid**: `apps/web/src/features/programs/programs-page.tsx` — mismo patrón.
+19. **Home page**: `apps/web/src/features/home/home-page.tsx` — ya usa heavy animation classes; revisar si se puede simplificar bajo el nuevo sistema de tokens.
+20. **Insights/analytics**: tablas y charts. Recharts tiene `animationDuration` prop — unificar a `var(--duration-slow)` equivalente (~320 ms) y `animationEasing="ease-out"`. No tocar la animación SVG por dentro; sólo afinar los props.
 
 ---
 
-### Phase 5 — Performance and Infrastructure (Done)
+### Fase 4 — Skeleton → contenido cross-fade
 
-**Step 5.1 — Self-host Google Fonts** ✅
-- Downloaded Bebas Neue, Barlow (400/500/600/700), JetBrains Mono variable as woff2. `@font-face` in `globals.css`. Google Fonts CDN removed.
-
-**Step 5.2 — Preload critical fonts** ✅
-- Added preload for `bebas-neue-400.woff2`, `barlow-400.woff2`.
-
-**Step 5.3 — Preload hero image** ✅
-- Added `<link rel="preload" href="/hero.webp" as="image">`.
-
-**Step 5.4 — Brotli** — deferred. No `ngx_brotli` module in current nginx image. Not worth a Docker rebuild for launch.
-
-**Step 5.5 — Convert PWA manifest icons to PNG** ✅
-- `logo.png`, `logo-192.png`, `logo-maskable.png` generated. `manifest.webmanifest` updated.
-
-**Step 5.6 — Analytics events** ✅
-- Added `landing_view`, `landing_cta_click`, `program_preview_view`, `login_page_view` events.
-- Added `getUtmProps()` for UTM attribution capture.
-- All four events wired up in their respective components.
-
-**Step 5.7 — Caddy improvements** — deferred. Caddy config is adequate for launch.
-
-**Step 5.8 — Fix build VITE_API_URL guard** ✅
-- Moved guard inside `defineConfig(({ mode }) => { ... })` using `loadEnv`. Top-level guard was running before Vite loaded `.env` files.
-
-#### Checkpoint 5 ✅
-- [x] `bun run ci` green
-- [x] Fonts load from `/fonts/` (no Google Fonts CDN)
-- [x] PWA icons are PNG
-- [x] Analytics events fire for conversion funnel
-- [x] UTM params captured
+21. **Objetivo:** cuando un skeleton desaparezca (fallback de Suspense), el contenido real no debe parpadear. Hoy es: skeleton → pop → contenido.
+22. **Patrón:** envolver cada `<Suspense fallback={<X />}>` con un componente `FadeSwap` que hace cross-fade entre `fallback` y `children` usando `AnimatePresence`. Alternativamente, aprovechar `pendingComponent` + `defaultPendingMs` que ya activamos en Fase 0 y dejar que las skeletons sólo aparezcan cuando realmente tarden >200 ms, lo cual ya ataca el 80 % del problema.
+23. **Decisión:** hacer primero sólo el approach `pendingComponent`. Re-evaluar si todavía hay parpadeo notable. Si lo hay, añadir el `FadeSwap`. **No construir `FadeSwap` especulativamente.**
 
 ---
 
-### Phase 6 — Launch Content and Social Polish (Done)
+### Fase 5 — Polish y verificación final
 
-**Step 6.1 — Social media links** ✅
-- GitHub link added to footer in both ES and EN content.
-- `SoftwareApplication` JSON-LD updated with `sameAs: [github, discord]`.
-- No Twitter/X handle — skipped.
-
-**Step 6.2 — Social proof** — deferred. Numbers are small; will add after launch when there's real data.
-
-**Step 6.3 — Changelog page** — deferred post-launch.
-
-**Step 6.4 — HN/PH preparation** — content ready; `/en` is the primary share link.
-
-#### Checkpoint 6 ✅
-- [x] Social links present in footer (Discord, GitHub)
-- [x] English landing page tells a clear story
+24. **Auditoría de `will-change`:** añadir `will-change: transform` sólo en los elementos que realmente se animan con frecuencia (drawer móvil durante apertura, cards con hover lift). Nunca dejarlo permanente — invierte la optimización.
+25. **Auditoría de keyframes muertas:** `progress-shimmer`, `card-enter`, `slideInFromRight` si nadie las usa después de la refactor → borrar. Si se usan, engancharlas al sistema de tokens.
+26. **QA manual en dispositivos reales:** iPhone Safari, Android Chrome. Abrir diálogos, navegar, rotar, usar bajo `reduced-motion` forzado en Ajustes del SO. Validar que nada se siente "pegajoso" (animación de cierre >200 ms duele al usuario impaciente).
+27. **Benchmark de performance:** Chrome DevTools Performance, mobile CPU 4×slowdown, grabar una navegación completa (landing → login → dashboard → tracker → abrir dialog → cerrar → navegar a analytics). Confirmar 60 fps sostenido y <50 ms long tasks.
+28. **`bun run ci` final + `bun run e2e`.**
+29. **Actualizar este roadmap:** mover fases completadas a sección Completed, bump Last updated.
 
 ---
 
-## Completed
+## Checkpoints
 
-All six phases shipped on 2026-04-10. `bun run ci` green (typecheck + lint + format + test + build: 481 tests, 0 fail).
+- **CP-0 — fin de Fase 0 (tracer bullet).** Revisar conmigo antes de replicar a 40 archivos. Si el patrón no se siente bien en una ruta + un dialog + el drawer, cambiar el approach, no doblar la apuesta.
+- **CP-1 — fin de Fase 1 (todos los overlays).** QA manual cerrando cada tipo de overlay. Verificar que los tests E2E no rompieron por timing.
+- **CP-2 — fin de Fase 3 (listas y páginas).** Revisar que las animaciones de entrada no pisan el contenido "above the fold" de forma molesta (la gente no quiere esperar a que su dashboard aparezca).
+- **CP-final — antes del merge.** `bun run ci` + `bun run e2e` + QA en al menos un dispositivo móvil real.
 
-**Post-launch follow-ups (not blocking):**
-- Brotli compression (requires `ngx_brotli` in Docker image)
-- Per-program OG image generation (satori/sharp build script)
-- Structured data JSON-LD per program preview page
-- Sitemap generation script (auto-updates from API catalog)
-- Caddy config improvements
-- Social proof section once real usage numbers exist
-- Changelog page
+---
+
+## Files Likely Affected
+
+**Core (toca seguro):**
+
+- `apps/web/src/styles/globals.css` — tokens, keyframes de salida, posibles podas de keyframes muertas.
+- `apps/web/src/router.tsx` — `defaultPendingMs`, `defaultPendingMinMs`.
+- `apps/web/src/components/layout/app-layout.tsx` — wrapper `AnimatePresence` alrededor del `<Outlet>`.
+- `apps/web/src/components/layout/app-sidebar.tsx` — drawer móvil con `motion.aside` + `AnimatePresence`.
+- `apps/web/src/components/ui/dialog.tsx` — clases `data-[state]`.
+- `apps/web/src/components/ui/dropdown-menu.tsx` — idem.
+- `apps/web/src/components/ui/tooltip.tsx` — idem.
+- `apps/web/src/components/dropdown-menu.tsx` (hand-rolled) — envolver en `AnimatePresence` o migrar a Radix.
+- `apps/web/src/components/layout/avatar-dropdown.tsx` — idem.
+
+**Probable (toca por replicación):**
+
+- `apps/web/src/features/dashboard/dashboard-page.tsx` — stagger.
+- `apps/web/src/features/programs/programs-page.tsx` — stagger.
+- `apps/web/src/features/home/home-page.tsx` — stagger / simplificación.
+- `apps/web/src/features/analytics/analytics-page.tsx` — Recharts props.
+- `apps/web/src/features/insights/…` — idem.
+- `apps/web/src/components/ui/button.tsx` (si existe) o donde vivan los variants — `active:scale`.
+
+**Posible (si escala la refactor):**
+
+- `apps/web/src/lib/motion-primitives.tsx` — añadir variantes más cortas (`*FastVariants`) para in-app.
+- Nuevo: `apps/web/src/lib/motion-tokens.ts` — tipo-safe access a los duration/easing desde JS en los componentes `motion.*` (para que motion y CSS usen los mismos números). **Crear sólo si aparece duplicación real durante la implementación.**
+
+**Fuera de scope:**
+
+- `apps/web/src/features/landing/**` — ya tiene su sistema, no tocar salvo para alinear tokens.
+- `apps/web/src/features/tracker/program-view/result-cell.tsx` — `pop-in` actual es la mejor micro-interacción del producto; no tocar salvo migrar al token de easing.
+- `apps/go-api/**`, `apps/analytics/**` — backend, irrelevante.
 
 ---
 
 ## Risks
 
-| Risk | Phase | Mitigation |
-|---|---|---|
-| English landing page copy is awkward or off-brand | 2 | User reviews the English copy before shipping. Keep the same structure as Spanish — just translate, don't redesign |
-| `useHead` hook causes meta tag flicker or race conditions | 2, 3 | Set defaults in `index.html` that are acceptable for any page. Per-route overrides happen on mount — crawlers that don't execute JS see the defaults (acceptable for SPA) |
-| Self-hosting fonts increases bundle/public size | 5 | woff2 is compact (~50KB total for 3 families). Worth it for the latency and GDPR win |
-| Brotli requires custom nginx Docker image | 5 | Fallback: use build-time pre-compression with `vite-plugin-compression` and `brotli_static on` |
-| Sitemap generation script breaks if Go API is down at build time | 3 | Fallback: read catalog from a committed JSON snapshot. Regenerate snapshot periodically |
-| OG preview caching: social platforms cache OG tags aggressively | 1, 3 | After changes, use each platform's cache-clearing tool (Twitter Card Validator, Facebook Sharing Debugger) to re-scrape |
+- **E2E flakiness por animaciones de cierre.** Playwright espera ver el DOM ausente; si un close anima 180 ms, un `expect(...).not.toBeVisible()` seco puede fallar. Mitigación: tests ya deberían usar `toBeHidden()`/`waitFor`; si no, o añadir `waitFor` o desactivar animaciones en E2E vía `prefers-reduced-motion` del contexto de Playwright (`launchOptions: { args: ['--force-prefers-reduced-motion'] }` o `use.colorScheme` + reduce). Validar en CP-1.
+- **React Compiler + `motion/react`:** ya validado en landing, pero cualquier nuevo hook personalizado que se cree encima de `useReducedMotion` debe seguir las reglas del compiler. `bun run typecheck` + dev server en cada fase.
+- **Regla blanket de `reduced-motion` en `globals.css:607`** tiene `!important`, lo cual tumba incluso las nuevas animaciones CSS. Esto es **intencional** (accesibilidad), pero hay que confirmar que los componentes `motion/react` también cortocircuitan con `useReducedMotion()` — si no, la animación JS sigue corriendo. Convertir en norma en este proyecto: **todo `motion.*` nuevo debe consultar `useReducedMotion()`**.
+- **`AnimatePresence mode="wait"` en route transition añade latencia percibida** al navegar (no muestra la nueva ruta hasta que la vieja salga). 180 ms es el tope tolerable; si alguna ruta se siente lenta, bajar a 120 ms o cambiar a `mode="popLayout"`.
+- **Radix `getAnimations()` diferido unmount** asume que hay `@keyframes`, no transiciones CSS. Si se usa por error `transition: opacity 200ms` en el `data-[state=closed]`, Radix desmonta instantáneo y la animación de salida no corre. **Usar `animation-*`, no `transition-*`, para las salidas de overlays Radix.**
+- **CLS (Cumulative Layout Shift):** cualquier animación de entrada que empuje contenido por debajo debe reservar su espacio antes de animar (translate/opacity, no margin/height). Ya es la regla "sólo compositor"; recordarla en cada commit.
+- **Sobre-animación.** El riesgo más sutil: animar todo hace que la app se sienta más lenta aunque los números digan 60 fps. Presupuesto: nunca >240 ms para una salida, nunca >320 ms para una entrada de página, nunca >120 ms para feedback táctil. Si algo necesita más, es porque está mal pensado.
 
 ---
 
 ## Verification
 
-After each phase:
-- `bun run ci` (typecheck + lint + format + test + build)
-- Manual verification of the phase's acceptance criteria
-- After Phase 2: screenshot the English landing page on mobile and desktop
-- After Phase 5: Lighthouse audit (target: Performance 90+, SEO 95+, Accessibility 90+, Best Practices 90+)
-- After Phase 6: paste `https://gravityroom.app/en` into Twitter, LinkedIn, Slack → verify OG preview shows English title, description, and image
+- **Por fase:** `bun run typecheck && bun run lint` después de cada paso; `bun run ci` al final de cada fase.
+- **Tests unit:** `cd apps/web && bun test src/components/layout` y los archivos tocados.
+- **E2E:** `bun run e2e` después de Fase 1 (overlays + router) y antes del merge. Si algún test rompe por timing de animación, arreglar el test con `waitFor` en lugar de desactivar la animación en producción.
+- **Manual QA — checklist por checkpoint:**
+  - Navegación entre rutas `/app` ↔ `/app/dashboard` ↔ `/app/tracker` ↔ `/app/analytics`. ¿Hay flash de skeleton? ¿La transición se siente coherente?
+  - Abrir/cerrar cada tipo de overlay (dialog, dropdown, tooltip, drawer móvil, avatar menu). ¿Hay salida animada? ¿Se siente la misma "voz"?
+  - Botones en móvil: ¿hay feedback de tap (`active:scale`)?
+  - `prefers-reduced-motion: reduce` activado en DevTools → todo debe ser instantáneo pero funcional, sin elementos "atascados".
+  - iPhone Safari real — scroll, dialog, drawer. El compositor de iOS es el benchmark.
+  - Chrome DevTools Performance, mobile CPU 4×slowdown → grabar navegación completa, verificar 60 fps y ausencia de long tasks >50 ms durante animaciones.
+- **Lighthouse / CLS:** correr Lighthouse mobile sobre `/app/dashboard` antes y después. CLS no debe subir.
+
+---
+
+## Open Questions
+
+_Ninguna bloqueante. El approach está decidido._
+
+---
+
+## Completed
+
+### Fase 0 — Tracer bullet (Done — 2026-04-11)
+
+Objetivo original: demostrar end-to-end que el patrón elegido (Radix `data-state` CSS + `motion/react` `AnimatePresence` + tokens en `@theme`) funciona en una ruta, un overlay y el drawer, antes de replicarlo a 40+ archivos.
+
+**Entregado en 5 archivos, 0 dependencias nuevas:**
+
+1. **Tokens de motion en `apps/web/src/styles/globals.css`** dentro de `@theme {}`: `--ease-out-expo`, `--ease-standard`, `--ease-emphasized`, `--duration-instant` (120ms), `--duration-fast` (180ms), `--duration-base` (240ms), `--duration-slow` (320ms). Añadidos tras `--sidebar-transition` sin renombrar ni romper el token existente del sidebar desktop.
+2. **Keyframes de salida en `globals.css`:** `modal-exit`, `overlay-in`, `overlay-out`. **Divergencia del plan:** el roadmap original también listaba `dropdown-exit` y `fadeSlideLeftOut` — se descartaron por ahora. `dropdown-exit` es trabajo de Fase 1 (todavía nadie lo consume); `fadeSlideLeftOut` habría sido código muerto porque el drawer móvil se migró a `motion/react`, no CSS. Se añadirán cuando haga falta.
+3. **`apps/web/src/components/ui/dialog.tsx` — Radix `data-state` engine:**
+   - `DialogOverlay`: `data-[state=open]:animate-[overlay-in_var(--duration-fast)_var(--ease-standard)]` + `data-[state=closed]:animate-[overlay-out_var(--duration-instant)_var(--ease-standard)]`.
+   - `DialogContent`: `data-[state=open]:animate-[modal-enter_var(--duration-fast)_var(--ease-out-expo)]` + `data-[state=closed]:animate-[modal-exit_var(--duration-instant)_var(--ease-standard)]`.
+   - **Bug latente corregido al paso:** el `DialogContent` original se centraba con `left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2` **y** aplicaba `modal-box` (animación `modal-enter ... forwards`). Una animación CSS sobreescribe el `transform` entero del elemento mientras corre, y con `forwards` el estado final `translateY(0)` quedaba pegado — el diálogo perdía el centering tanto durante la animación como al terminarla. Fix: migrar el centering a `fixed inset-0 m-auto h-fit`, el mismo patrón que ya usan `confirm-dialog.tsx`, `test-weight-modal.tsx`, `delete-account-dialog.tsx` y `setup-form.tsx`. Bonus: consistencia con el resto de los modales del producto.
+   - **`.modal-box` CSS class preservada en `globals.css`** — todavía la consumen 4 `<dialog>` nativos. Limpieza queda para Fase 1 o Fase 5.
+4. **`apps/web/src/components/layout/app-sidebar.tsx` — drawer móvil con `AnimatePresence`:**
+   - Bloque `{isOpen && <div lg:hidden …>}` (líneas 290-304) envuelto en `<AnimatePresence>`.
+   - `<aside>` → `motion.aside` con `initial={{ x: '-100%' }}`, `animate={{ x: 0 }}`, `exit={{ x: '-100%' }}`.
+   - Backdrop `<div>` → `motion.div` con opacity 0→1→0.
+   - `useReducedMotion()` → duración 0 cuando el usuario tiene `prefers-reduced-motion` activo.
+   - `willChange: 'transform'` inline en el `motion.aside` (único sitio con `will-change` en la app — no dejar permanente en otros sitios).
+   - Easing reutilizado: `EASE_OUT_EXPO` importado de `lib/motion-primitives.tsx` (ya existía para landing, evita duplicación).
+5. **`apps/web/src/components/layout/app-layout.tsx` — route cross-fade:**
+   - `<Outlet />` envuelto en `<AnimatePresence mode="wait">` + `motion.div` keyed por `pathname` (ya derivado vía `useRouterState` línea 29).
+   - Cross-fade 180 ms con `EASE_OUT_EXPO`. Respeta `useReducedMotion()`.
+6. **`apps/web/src/router.tsx` — `createRouter`:** añadidos `defaultPendingMs: 200` y `defaultPendingMinMs: 400`. **Sutileza documentada en el código:** estos flags sólo controlan `pendingComponent` / `defaultPendingComponent`, no fallbacks de React `<Suspense>`. Cada ruta todavía envuelve su página en su propio `<Suspense fallback={<Skeleton />}>`, así que los flags son no-op hoy. Activarán cuando Fase 4 migre los Suspense fallbacks al sistema del router. Se dejan puestos ahora porque es la configuración correcta y porque Fase 4 va a necesitarlos.
+
+**Gate de verificación (parcial — se cerró como aceptable):**
+
+| Check | Estado |
+|---|---|
+| `bun run typecheck` | ✅ verde |
+| Lint de los 5 archivos tocados | ✅ verde (verificado con `eslint` target explícito) |
+| `bun run lint` (completo) | ⚠️ 2 errores en archivos de WIP i18n pre-sesión (`delete-account-dialog.tsx`, `language-selector.tsx`) — ajenos a Fase 0 |
+| `bun run format:check` | ⚠️ 10 archivos con warnings, todos del WIP i18n pre-sesión |
+| `bun run test` | ⚠️ 469 pass / 12 fail — las 12 en `confirm-dialog.test.tsx`, `guest-banner.test.tsx`, `login-page.test.tsx` (i18n WIP); ninguno de los archivos de Fase 0 tiene tests fallando. El test `should have modal-box class on dialog element` pasa — el refactor de `DialogContent` no rompió nada en `confirm-dialog` que usa la clase sobre un `<dialog>` nativo |
+| `bun run build` | ✅ verde, `vendor-motion` bundle sin cambio de peso (134 kB / gzip 44 kB) |
+| `bun run e2e` | ⚠️ bloqueado — webServer de Playwright requiere `DATABASE_URL`, infra local no disponible |
+
+**Cierre pendiente de Fase 0** (para retomar en una sesión futura si alguna de estas cosas empieza a doler):
+
+- QA manual en iPhone Safari real. El drawer móvil es el cambio más visible y hay que sentirlo en compositor iOS, no en DevTools.
+- E2E completo con infra levantada. Riesgo principal: close de `DialogContent` pasó de 0 ms a ~120 ms; cualquier test Playwright con `click` → `expect(...).not.toBeVisible()` seco puede flakear. Mitigación preferida: cambiar el test a `toBeHidden()`/`waitFor`. Mitigación de último recurso: `--force-prefers-reduced-motion` en el launch de Playwright.
+- Validar con `prefers-reduced-motion: reduce` activo en DevTools que tanto la regla blanket de CSS (`globals.css:607`) como `useReducedMotion()` en JS capan las animaciones nuevas.
+
+**Decisiones estructurales que se llevan a Fase 1:**
+
+- **Reutilizar `EASE_OUT_EXPO` de `lib/motion-primitives.tsx`** en lugar de crear `lib/motion-tokens.ts`. Sólo hay 2 usos hoy; no merece abstracción todavía.
+- **Regla performance:** sólo animar `transform`, `opacity`, `filter`. `will-change: transform` sólo se declara en puntos calientes comprobados (hoy: `motion.aside` del drawer móvil). Nunca permanente.
+- **`animation-*`, nunca `transition-*`, para salidas de overlays Radix.** Radix difiere el unmount consultando `getAnimations()`, que no reporta transitions. Si se usa por error `transition: opacity 200ms` en `data-[state=closed]`, Radix desmonta instantáneo y la animación de salida no corre.
+- **Todo componente `motion.*` nuevo debe llamar `useReducedMotion()`.** La regla blanket de CSS con `!important` no afecta a animaciones JS.

@@ -323,6 +323,10 @@ export const router = createRouter({
       isGuest: false,
     },
   },
+  // Pending flags for Fase 4 skeleton debounce. Currently a no-op because each
+  // route owns its own <Suspense>; activates when we migrate to defaultPendingComponent.
+  defaultPendingMs: 200,
+  defaultPendingMinMs: 400,
 });
 
 // ---------------------------------------------------------------------------
