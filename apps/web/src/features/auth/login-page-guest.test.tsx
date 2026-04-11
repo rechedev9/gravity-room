@@ -120,7 +120,7 @@ describe('LoginPage — Guest entry', () => {
       render(createElement(Wrapper, null, createElement(LoginPage)));
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Probar sin cuenta/i })).toBeDefined();
+        expect(screen.getByRole('button', { name: /login\.guest\.cta/i })).toBeDefined();
       });
     });
 
@@ -129,7 +129,7 @@ describe('LoginPage — Guest entry', () => {
       render(createElement(Wrapper, null, createElement(LoginPage)));
 
       await waitFor(() => {
-        const button = screen.getByRole('button', { name: /Probar sin cuenta/i });
+        const button = screen.getByRole('button', { name: /login\.guest\.cta/i });
         expect(button.getAttribute('type')).toBe('button');
       });
     });
@@ -139,10 +139,10 @@ describe('LoginPage — Guest entry', () => {
       render(createElement(Wrapper, null, createElement(LoginPage)));
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Probar sin cuenta/i })).toBeDefined();
+        expect(screen.getByRole('button', { name: /login\.guest\.cta/i })).toBeDefined();
       });
 
-      fireEvent.click(screen.getByRole('button', { name: /Probar sin cuenta/i }));
+      fireEvent.click(screen.getByRole('button', { name: /login\.guest\.cta/i }));
 
       // Verify isGuest changed via the probe
       await waitFor(() => {
@@ -161,7 +161,7 @@ describe('LoginPage — Guest entry', () => {
       });
 
       const googleLogin = screen.getByTestId('google-login');
-      const guestButton = screen.getByRole('button', { name: /Probar sin cuenta/i });
+      const guestButton = screen.getByRole('button', { name: /login\.guest\.cta/i });
 
       // DOCUMENT_POSITION_FOLLOWING means guestButton follows googleLogin
       const comparison = googleLogin.compareDocumentPosition(guestButton);
@@ -174,10 +174,10 @@ describe('LoginPage — Guest entry', () => {
       render(createElement(Wrapper, null, createElement(LoginPage)));
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Probar sin cuenta/i })).toBeDefined();
+        expect(screen.getByRole('button', { name: /login\.guest\.cta/i })).toBeDefined();
       });
 
-      const guestButton = screen.getByRole('button', { name: /Probar sin cuenta/i });
+      const guestButton = screen.getByRole('button', { name: /login\.guest\.cta/i });
       // The auth card has the text "Autenticar"
       const authLabel = screen.getByText('Autenticar');
       // Walk up to the styled card container

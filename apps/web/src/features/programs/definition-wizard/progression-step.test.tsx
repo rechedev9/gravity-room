@@ -137,7 +137,7 @@ describe('ProgressionStep', () => {
   it('calls previewDefinition when "Vista previa" button is clicked', async () => {
     render(<ProgressionStep {...baseProps} />);
 
-    const previewButton = screen.getByText('Vista previa');
+    const previewButton = screen.getByText('programs.wizard.progression.actions.preview');
     fireEvent.click(previewButton);
 
     await waitFor(() => {
@@ -157,15 +157,15 @@ describe('ProgressionStep', () => {
 
     render(<ProgressionStep {...baseProps} />);
 
-    const previewButton = screen.getByText('Vista previa');
+    const previewButton = screen.getByText('programs.wizard.progression.actions.preview');
     fireEvent.click(previewButton);
 
-    // Button should show "Cargando..." and be disabled
+    // Button should show loading and be disabled
     await waitFor(() => {
-      expect(screen.getByText('Cargando...')).toBeInTheDocument();
+      expect(screen.getByText('programs.wizard.progression.loading')).toBeInTheDocument();
     });
 
-    const loadingButton = screen.getByText('Cargando...');
+    const loadingButton = screen.getByText('programs.wizard.progression.loading');
     expect(loadingButton).toBeDisabled();
 
     // Resolve to clean up
@@ -175,10 +175,12 @@ describe('ProgressionStep', () => {
   it('renders PreviewTable after successful preview response', async () => {
     render(<ProgressionStep {...baseProps} />);
 
-    fireEvent.click(screen.getByText('Vista previa'));
+    fireEvent.click(screen.getByText('programs.wizard.progression.actions.preview'));
 
     await waitFor(() => {
-      expect(screen.getByRole('table', { name: 'Vista previa del programa' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('table', { name: 'programs.wizard.preview.table_aria' })
+      ).toBeInTheDocument();
     });
   });
 
@@ -187,10 +189,12 @@ describe('ProgressionStep', () => {
 
     render(<ProgressionStep {...baseProps} />);
 
-    fireEvent.click(screen.getByText('Vista previa'));
+    fireEvent.click(screen.getByText('programs.wizard.progression.actions.preview'));
 
     await waitFor(() => {
-      expect(screen.getByText('Error al generar la vista previa')).toBeInTheDocument();
+      expect(
+        screen.getByText('programs.wizard.progression.errors.preview_failed')
+      ).toBeInTheDocument();
     });
   });
 
@@ -199,14 +203,16 @@ describe('ProgressionStep', () => {
 
     // The first slot card renders with defaultOpen=true, so the template
     // dropdown should already be visible.
-    const templateSelect = screen.getByLabelText(/Plantilla para Sentadilla/);
+    const templateSelect = screen.getByLabelText(/programs\.wizard\.slot_card\.template/);
     expect(templateSelect).toBeInTheDocument();
 
     // Show preview
-    fireEvent.click(screen.getByText('Vista previa'));
+    fireEvent.click(screen.getByText('programs.wizard.progression.actions.preview'));
 
     await waitFor(() => {
-      expect(screen.getByRole('table', { name: 'Vista previa del programa' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('table', { name: 'programs.wizard.preview.table_aria' })
+      ).toBeInTheDocument();
     });
 
     // Change the template dropdown — this triggers handleSlotChange which
@@ -215,21 +221,23 @@ describe('ProgressionStep', () => {
 
     // The preview table should be cleared (back to idle state)
     await waitFor(() => {
-      expect(screen.queryByRole('table', { name: 'Vista previa del programa' })).toBeNull();
+      expect(
+        screen.queryByRole('table', { name: 'programs.wizard.preview.table_aria' })
+      ).toBeNull();
     });
   });
 
   it('enables "Guardar y empezar" button when definition is valid', () => {
     render(<ProgressionStep {...baseProps} />);
 
-    const saveButton = screen.getByText('Guardar y empezar');
+    const saveButton = screen.getByText('programs.wizard.progression.actions.save_and_start');
     expect(saveButton).not.toBeDisabled();
   });
 
   it('enables "Guardar borrador" button when definition is valid', () => {
     render(<ProgressionStep {...baseProps} />);
 
-    const draftButton = screen.getByText('Guardar borrador');
+    const draftButton = screen.getByText('programs.wizard.progression.actions.save_draft');
     expect(draftButton).not.toBeDisabled();
   });
 });

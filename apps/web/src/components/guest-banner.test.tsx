@@ -70,7 +70,7 @@ describe('GuestBanner', () => {
       const Wrapper = createGuestWrapper();
       render(createElement(Wrapper, null, createElement(GuestBanner)));
 
-      expect(screen.getByText(/Modo invitado/)).toBeDefined();
+      expect(screen.getByText(/guest_banner\.mode/)).toBeDefined();
     });
 
     it('should have role="status" for accessibility', () => {
@@ -84,7 +84,7 @@ describe('GuestBanner', () => {
       const Wrapper = createGuestWrapper();
       render(createElement(Wrapper, null, createElement(GuestBanner)));
 
-      const button = screen.getByRole('button', { name: /Crear cuenta/i });
+      const button = screen.getByRole('button', { name: /guest_banner\.create_account/i });
       expect(button).toBeDefined();
     });
 
@@ -102,7 +102,7 @@ describe('GuestBanner', () => {
       const Wrapper = createGuestWrapper();
       render(createElement(Wrapper, null, createElement(GuestBanner)));
 
-      const button = screen.getByRole('button', { name: /Crear cuenta/i });
+      const button = screen.getByRole('button', { name: /guest_banner\.create_account/i });
       expect(button.getAttribute('type')).toBe('button');
     });
 
@@ -110,7 +110,7 @@ describe('GuestBanner', () => {
       const Wrapper = createGuestWrapper();
       render(createElement(Wrapper, null, createElement(GuestBanner)));
 
-      const button = screen.getByLabelText(/Crear cuenta para guardar tu progreso/i);
+      const button = screen.getByLabelText(/guest_banner\.create_account_aria/i);
       expect(button).toBeDefined();
     });
   });

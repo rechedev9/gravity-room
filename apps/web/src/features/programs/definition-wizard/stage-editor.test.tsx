@@ -27,16 +27,16 @@ describe('StageEditor', () => {
 
     render(<StageEditor stages={stages} onChange={onChange} />);
 
-    const seriesInputs = screen.getAllByLabelText(/^Series etapa/);
+    const seriesInputs = screen.getAllByLabelText(/^programs\.wizard\.stage_editor\.fields\.sets/);
     expect(seriesInputs.length).toBe(2);
   });
 
-  it('appends stage with defaults when "Anadir etapa" is clicked', () => {
+  it('appends stage with defaults when "Add stage" is clicked', () => {
     const stages = [makeStage()];
     const onChange = mock();
 
     render(<StageEditor stages={stages} onChange={onChange} />);
-    fireEvent.click(screen.getByText('+ Anadir etapa'));
+    fireEvent.click(screen.getByText('programs.wizard.stage_editor.add_stage'));
 
     expect(onChange).toHaveBeenCalledTimes(1);
     const newStages = onChange.mock.calls[0][0] as Array<{
@@ -53,7 +53,7 @@ describe('StageEditor', () => {
     const onChange = mock();
 
     render(<StageEditor stages={stages} onChange={onChange} />);
-    const removeButtons = screen.getAllByText('Eliminar etapa');
+    const removeButtons = screen.getAllByText('programs.wizard.stage_editor.remove_stage');
     fireEvent.click(removeButtons[1]);
 
     expect(onChange).toHaveBeenCalledTimes(1);
@@ -61,12 +61,12 @@ describe('StageEditor', () => {
     expect(remaining.length).toBe(1);
   });
 
-  it('disables "Eliminar etapa" when only 1 stage remains', () => {
+  it('disables remove stage when only 1 stage remains', () => {
     const stages = [makeStage()];
     const onChange = mock();
 
     render(<StageEditor stages={stages} onChange={onChange} />);
-    const removeButton = screen.getByText('Eliminar etapa');
+    const removeButton = screen.getByText('programs.wizard.stage_editor.remove_stage');
 
     expect(removeButton).toBeDisabled();
   });
@@ -78,10 +78,10 @@ describe('StageEditor', () => {
     render(<StageEditor stages={stages} onChange={onChange} />);
 
     // Initially no repsMax field
-    expect(screen.queryByLabelText('Reps max etapa 1')).toBeNull();
+    expect(screen.queryByLabelText('programs.wizard.stage_editor.fields.reps_max 1')).toBeNull();
 
     // Check the AMRAP checkbox
-    fireEvent.click(screen.getByLabelText('AMRAP etapa 1'));
+    fireEvent.click(screen.getByLabelText('AMRAP 1'));
 
     // onChange is called with amrap: true — re-render with updated stages
     const updatedStages = onChange.mock.calls[0][0] as Array<{ amrap: boolean }>;
@@ -95,10 +95,12 @@ describe('StageEditor', () => {
     render(<StageEditor stages={stages} onChange={onChange} />);
 
     // repsMax should be visible
-    expect(screen.getByLabelText('Reps max etapa 1')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('programs.wizard.stage_editor.fields.reps_max 1')
+    ).toBeInTheDocument();
 
     // Uncheck AMRAP
-    fireEvent.click(screen.getByLabelText('AMRAP etapa 1'));
+    fireEvent.click(screen.getByLabelText('AMRAP 1'));
 
     const updatedStages = onChange.mock.calls[0][0] as Array<{ amrap: boolean; repsMax?: number }>;
     expect(updatedStages[0].amrap).toBe(false);
@@ -110,7 +112,7 @@ describe('StageEditor', () => {
     const onChange = mock();
 
     render(<StageEditor stages={stages} onChange={onChange} />);
-    const setsInput = screen.getByLabelText('Series etapa 1');
+    const setsInput = screen.getByLabelText('programs.wizard.stage_editor.fields.sets 1');
     fireEvent.change(setsInput, { target: { value: '0' } });
 
     // onChange should NOT be called because 0 is below minimum

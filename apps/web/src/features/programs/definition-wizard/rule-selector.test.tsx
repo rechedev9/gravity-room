@@ -40,7 +40,9 @@ describe('RuleSelector', () => {
       />
     );
 
-    const percentInput = screen.getByLabelText('Porcentaje de descarga') as HTMLInputElement;
+    const percentInput = screen.getByLabelText(
+      'programs.wizard.rule_selector.fields.deload_percent'
+    ) as HTMLInputElement;
     expect(percentInput.value).toBe('10');
   });
 
@@ -49,10 +51,12 @@ describe('RuleSelector', () => {
 
     render(<RuleSelector label="Al completar" rule={{ type: 'no_change' }} onChange={onChange} />);
 
-    expect(screen.queryByLabelText('Porcentaje de descarga')).toBeNull();
-    expect(screen.queryByLabelText('Cantidad a subir')).toBeNull();
-    expect(screen.queryByLabelText('Reps minimas')).toBeNull();
-    expect(screen.queryByLabelText('Reps maximas')).toBeNull();
+    expect(
+      screen.queryByLabelText('programs.wizard.rule_selector.fields.deload_percent')
+    ).toBeNull();
+    expect(screen.queryByLabelText('programs.wizard.rule_selector.fields.amount_kg')).toBeNull();
+    expect(screen.queryByLabelText('programs.wizard.rule_selector.fields.min_reps')).toBeNull();
+    expect(screen.queryByLabelText('programs.wizard.rule_selector.fields.max_reps')).toBeNull();
   });
 
   it('shows amount field when add_weight_reset_stage is selected', () => {
@@ -66,7 +70,9 @@ describe('RuleSelector', () => {
       />
     );
 
-    expect(screen.getByLabelText('Cantidad a subir')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('programs.wizard.rule_selector.fields.amount_kg')
+    ).toBeInTheDocument();
   });
 
   it('shows repRangeBottom and repRangeTop fields when double_progression is selected', () => {
@@ -80,8 +86,12 @@ describe('RuleSelector', () => {
       />
     );
 
-    expect(screen.getByLabelText('Reps minimas')).toBeInTheDocument();
-    expect(screen.getByLabelText('Reps maximas')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('programs.wizard.rule_selector.fields.min_reps')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('programs.wizard.rule_selector.fields.max_reps')
+    ).toBeInTheDocument();
   });
 
   it('calls onChange with correct rule shape when dropdown changes', () => {
