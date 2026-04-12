@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useParams, useNavigate, redirect } from '@tanstack/react-router';
+import { useParams, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms } from '@/lib/api-functions';
@@ -26,21 +27,26 @@ export function TrackerPage(): React.ReactNode {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fallback to context programId when URL param is absent
-  const effectiveProgramId = programIdParam ?? ctxProgramId;
+  // Fallback chain: URL param → context → active program from API
+  const activeProgram = programsQuery.data?.find((p) => p.status === 'active');
+  const effectiveProgramId = programIdParam ?? ctxProgramId ?? activeProgram?.programId;
 
   const programName =
-    programsQuery.data?.find((p) => p.id === instanceId)?.name ??
-    programsQuery.data?.find((p) => p.status === 'active')?.name ??
-    null;
+    programsQuery.data?.find((p) => p.id === instanceId)?.name ?? activeProgram?.name ?? null;
 
   useDocumentTitle(
     programName ? `${programName} — ${t('tracker.page_title')}` : t('tracker.page_title')
   );
 
-  if (!effectiveProgramId) {
-    throw redirect({ to: '/app', replace: true });
-  }
+  // Redirect to home when no program is available (after query settles)
+  const shouldRedirect = !effectiveProgramId && !programsQuery.isLoading;
+  useEffect(() => {
+    if (shouldRedirect) {
+      void navigate({ to: '/app', replace: true });
+    }
+  }, [shouldRedirect, navigate]);
+
+  if (!effectiveProgramId) return null;
 
   const handleBack = (): void => {
     clearTracker();
