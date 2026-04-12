@@ -83,24 +83,28 @@ export function ProfileBadges({
           {unlockedCount}/{badges.length}
         </span>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {badges.map((badge) => (
-          <div
-            key={badge.id}
-            title={badge.description}
-            className={`
-              px-3 py-1.5 border text-xs font-semibold tracking-wide transition-colors
-              ${
-                badge.unlocked
-                  ? 'bg-ok-bg border-ok-ring text-ok'
-                  : 'bg-card border-rule text-muted opacity-40'
-              }
-            `}
-          >
-            {badge.unlocked ? '★' : '☆'} {badge.label}
-          </div>
-        ))}
-      </div>
+      {unlockedCount === 0 ? (
+        <p className="text-xs text-muted py-2">{t('profile.badges.zero_state')}</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {badges.map((badge) => (
+            <div
+              key={badge.id}
+              title={badge.description}
+              className={`
+                px-3 py-1.5 border text-xs font-semibold tracking-wide transition-colors
+                ${
+                  badge.unlocked
+                    ? 'bg-ok-bg border-ok-ring text-ok'
+                    : 'bg-card border-rule text-muted opacity-40'
+                }
+              `}
+            >
+              {badge.unlocked ? '★' : '☆'} {badge.label}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

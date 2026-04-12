@@ -1,84 +1,30 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { queryKeys } from '@/lib/query-keys';
-import { fetchPrograms } from '@/lib/api-functions';
+import { fetchPrograms, fetchInsights } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
+import { isFrequencyPayload } from '@/lib/insight-payloads';
+import type { FrequencyPayload } from '@/lib/insight-payloads';
 import { GuestBanner } from '@/components/guest-banner';
-import {
-  HomeIcon,
-  DashboardIcon,
-  TrackerIcon,
-  ProgramsIcon,
-} from '@/components/layout/sidebar-icons';
+import { ActiveProgramCard } from '@/features/dashboard/active-program-card';
 import { StaggerContainer, StaggerItem, fadeUpFastVariants } from '@/lib/motion-primitives';
+import { HomeHeader } from './home-header';
+import { HomeKpiStrip } from './home-kpi-strip';
+import { HomeEmptyState } from './home-empty-state';
 
-interface QuickCardProps {
-  readonly to: string;
-  readonly title: string;
-  readonly description: string;
-  readonly Icon: React.ComponentType<{ readonly className?: string }>;
-  readonly accent?: boolean;
-  readonly params?: Record<string, string>;
-}
+const HOME_INSIGHT_TYPES = ['frequency', 'volume_trend'] as const;
 
-function QuickCard({
-  to,
-  title,
-  description,
-  Icon,
-  accent,
-  params,
-}: QuickCardProps): React.ReactNode {
-  return (
-    <Link
-      to={to}
-      params={params}
-      className="group bg-card border border-rule p-5 flex flex-col gap-3 hover:border-[var(--color-rule-light)] hover:shadow-[var(--shadow-card-hover)] transition-all cursor-pointer"
-    >
-      <div
-        className={`w-9 h-9 flex items-center justify-center border ${
-          accent
-            ? 'border-accent text-accent bg-[rgba(232,170,32,0.08)]'
-            : 'border-rule text-muted group-hover:text-main group-hover:border-rule-light'
-        } transition-colors`}
-      >
-        <Icon />
-      </div>
-      <div>
-        <p
-          className={`text-xs font-bold uppercase tracking-wide mb-0.5 ${accent ? 'text-title' : 'text-main group-hover:text-title transition-colors'}`}
-        >
-          {title}
-        </p>
-        <p className="text-xs text-muted leading-relaxed">{description}</p>
-      </div>
-    </Link>
-  );
-}
-
-interface SectionCardProps {
-  readonly title: string;
-  readonly description: string;
-  readonly to: string;
-}
-
-function SectionCard({ title, description, to }: SectionCardProps): React.ReactNode {
-  return (
-    <Link
-      to={to}
-      className="group bg-card border border-rule px-4 py-3 flex items-start gap-3 hover:bg-[var(--color-sidebar-active)] transition-colors cursor-pointer"
-    >
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold text-main uppercase tracking-wide group-hover:text-title transition-colors">
-          {title}
-        </p>
-        <p className="text-xs text-muted mt-0.5 leading-relaxed">{description}</p>
-      </div>
-      <span className="text-muted text-xs mt-0.5 shrink-0">→</span>
-    </Link>
-  );
+function daysSinceLastWorkout(workoutDates: readonly string[] | undefined): number | null {
+  if (!workoutDates || workoutDates.length === 0) return null;
+  let latest = workoutDates[0];
+  for (let i = 1; i < workoutDates.length; i++) {
+    if (workoutDates[i] > latest) latest = workoutDates[i];
+  }
+  const diff = Date.now() - new Date(latest).getTime();
+  return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
 }
 
 export function HomePage(): React.ReactNode {
@@ -93,124 +39,86 @@ export function HomePage(): React.ReactNode {
     enabled: user !== null && !isGuest,
   });
 
+  const insightsQuery = useQuery({
+    queryKey: queryKeys.insights.list([...HOME_INSIGHT_TYPES]),
+    queryFn: () => fetchInsights([...HOME_INSIGHT_TYPES]),
+    enabled: user !== null && !isGuest,
+    staleTime: 10 * 60 * 1000,
+  });
+
   const activeProgram = programsQuery.data?.find((p) => p.status === 'active') ?? null;
   const userName = user?.email?.split('@')[0] ?? null;
+
+  const freqPayload = useMemo((): FrequencyPayload | null => {
+    const item = insightsQuery.data?.find((i) => i.insightType === 'frequency');
+    if (!item || !isFrequencyPayload(item.payload)) return null;
+    return item.payload;
+  }, [insightsQuery.data]);
+
+  const daysSinceLast = useMemo(
+    () => daysSinceLastWorkout(freqPayload?.workoutDates),
+    [freqPayload]
+  );
+
+  const showKpi = !isGuest && (activeProgram !== null || insightsQuery.isLoading);
 
   return (
     <div className="min-h-dvh bg-body">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
         {isGuest && <GuestBanner className="mb-6" />}
-        {/* Welcome header */}
-        <header className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 flex items-center justify-center text-accent">
-              <HomeIcon />
-            </div>
-            <h1 className="font-display text-2xl sm:text-3xl text-title tracking-wide">
-              {userName ? `Bienvenido, ${userName}` : 'Bienvenido a Gravity Room'}
-            </h1>
-          </div>
-          <p className="text-sm text-muted max-w-xl leading-relaxed">
-            Tu entrenador de fuerza inteligente. Lleva el registro de tu progresión, detecta mesetas
-            y recibe recomendaciones de carga basadas en tus datos reales.
-          </p>
-        </header>
 
-        {/* Active program mini-status */}
-        {programsQuery.isLoading && (
-          <div className="bg-card border border-rule p-5 mb-8 animate-pulse">
-            <div className="h-3 w-32 bg-rule rounded mb-3" />
-            <div className="h-2 w-full bg-rule rounded" />
-          </div>
-        )}
+        <StaggerContainer className="flex flex-col gap-6" stagger={0.06}>
+          <StaggerItem variants={fadeUpFastVariants}>
+            <HomeHeader
+              userName={userName}
+              streakDays={freqPayload?.currentStreak ?? null}
+              daysSinceLast={daysSinceLast}
+            />
+          </StaggerItem>
 
-        {activeProgram && !programsQuery.isLoading && (
-          <div className="bg-card border border-rule border-l-2 border-l-accent p-5 mb-8 flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold text-accent uppercase tracking-wide mb-1">
-                Programa Activo
-              </p>
-              <p className="text-sm font-bold text-main truncate">{activeProgram.name}</p>
-            </div>
-            <Link
-              to="/app/tracker/$programId"
-              params={{ programId: activeProgram.programId }}
-              className="shrink-0 px-4 py-2 text-xs font-bold uppercase tracking-wide text-btn-active-text bg-btn-active border-2 border-btn-ring hover:opacity-90 transition-opacity whitespace-nowrap"
-              aria-label={`Continuar ${activeProgram.name}`}
-            >
-              Continuar
-            </Link>
-          </div>
-        )}
+          {showKpi && (
+            <StaggerItem variants={fadeUpFastVariants}>
+              <HomeKpiStrip freqPayload={freqPayload} isLoading={insightsQuery.isLoading} />
+            </StaggerItem>
+          )}
 
-        {/* Quick-start cards */}
-        <section className="mb-10">
-          <h2 className="text-[10px] font-bold text-muted uppercase tracking-widest mb-4">
-            Acceso Rápido
-          </h2>
-          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 gap-4" stagger={0.05}>
-            {activeProgram ? (
-              <StaggerItem variants={fadeUpFastVariants}>
-                <QuickCard
-                  to="/app/tracker/$programId"
-                  params={{ programId: activeProgram.programId }}
-                  title="Continuar Entrenamiento"
-                  description="Registra tu sesión de hoy y avanza en tu programa."
-                  Icon={TrackerIcon}
-                  accent
-                />
-              </StaggerItem>
+          <StaggerItem variants={fadeUpFastVariants}>
+            {isGuest ? (
+              <HomeEmptyState variant="guest" />
+            ) : activeProgram ? (
+              <ActiveProgramCard program={activeProgram} />
+            ) : programsQuery.isLoading ? (
+              <div className="bg-card border border-rule p-6 animate-pulse">
+                <div className="h-5 w-48 bg-rule rounded mb-3" />
+                <div className="h-2 bg-progress-track rounded mb-4" />
+                <div className="h-10 w-48 bg-rule rounded" />
+              </div>
             ) : (
-              <StaggerItem variants={fadeUpFastVariants}>
-                <QuickCard
-                  to="/app/programs"
-                  title="Elegir un Programa"
-                  description="Selecciona un programa de fuerza para comenzar."
-                  Icon={ProgramsIcon}
-                  accent
-                />
-              </StaggerItem>
+              <HomeEmptyState variant="no-program" />
             )}
-            <StaggerItem variants={fadeUpFastVariants}>
-              <QuickCard
-                to="/app/dashboard"
-                title="Ver tu Progreso"
-                description="KPIs, volumen, frecuencia y recomendaciones de carga."
-                Icon={DashboardIcon}
-              />
-            </StaggerItem>
-          </StaggerContainer>
-        </section>
+          </StaggerItem>
 
-        {/* Section overview */}
-        <section>
-          <h2 className="text-[10px] font-bold text-muted uppercase tracking-widest mb-4">
-            Secciones
-          </h2>
-          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 gap-2" stagger={0.05}>
+          {!isGuest && (
             <StaggerItem variants={fadeUpFastVariants}>
-              <SectionCard
-                to="/app/dashboard"
-                title="Dashboard"
-                description="Métricas clave, programa activo, alertas de meseta y recomendaciones de carga."
-              />
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                <Link
+                  to="/app/profile"
+                  className="text-xs text-muted hover:text-main transition-colors inline-flex items-center gap-1"
+                >
+                  Ver estadisticas en Perfil
+                  <span aria-hidden="true">&rarr;</span>
+                </Link>
+                <Link
+                  to="/app/profile"
+                  className="text-xs text-muted hover:text-main transition-colors inline-flex items-center gap-1"
+                >
+                  Cambia el idioma en Perfil
+                  <span aria-hidden="true">&rarr;</span>
+                </Link>
+              </div>
             </StaggerItem>
-            <StaggerItem variants={fadeUpFastVariants}>
-              <SectionCard
-                to="/app/tracker"
-                title="Tracker"
-                description="Registra sets, reps y pesos de cada sesión. Sigue el progreso del programa."
-              />
-            </StaggerItem>
-            <StaggerItem variants={fadeUpFastVariants}>
-              <SectionCard
-                to="/app/programs"
-                title="Programas"
-                description="Catálogo de programas por nivel. Crea y personaliza tus propios programas."
-              />
-            </StaggerItem>
-          </StaggerContainer>
-        </section>
+          )}
+        </StaggerContainer>
       </div>
     </div>
   );

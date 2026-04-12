@@ -11,7 +11,6 @@ interface ProfileStatsGridProps {
   readonly allPrograms: readonly ProgramSummary[];
   readonly lifetimeVolume: number | null;
   readonly volumeSectionRef: React.RefCallback<HTMLElement>;
-  readonly accountCard?: React.ReactNode;
   readonly toDisplay: (kg: number) => number;
   readonly unitLabel: string;
 }
@@ -22,7 +21,6 @@ export function ProfileStatsGrid({
   allPrograms,
   lifetimeVolume,
   volumeSectionRef,
-  accountCard,
   toDisplay,
   unitLabel,
 }: ProfileStatsGridProps): React.ReactNode {
@@ -33,8 +31,6 @@ export function ProfileStatsGrid({
   return (
     // items-start prevents short cards from stretching to fill the tallest cell
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
-      {accountCard}
-
       {/* Quick Stats */}
       <DashboardCard title={t('profile.stats_grid.stats_title')}>
         {isEmpty ? (
@@ -94,7 +90,7 @@ export function ProfileStatsGrid({
       )}
 
       {/* Monthly Summary */}
-      {profileData.monthlyReport && (
+      {profileData.monthlyReport && profileData.monthlyReport.workoutsCompleted > 0 && (
         <DashboardCard title={profileData.monthlyReport.monthLabel}>
           <div className="grid grid-cols-2 gap-x-4">
             <ProfileStatCard

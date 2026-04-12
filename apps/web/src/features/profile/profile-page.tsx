@@ -17,6 +17,7 @@ import {
   fetchPrograms,
   fetchGenericProgramDetail,
   fetchCatalogDetail,
+  fetchInsights,
   updateProfile,
   type ProgramSummary,
 } from '@/lib/api-functions';
@@ -31,6 +32,15 @@ import { ProfileBadges } from './profile-badges';
 import { ProfileStatsGrid } from './profile-stats-grid';
 import { ProfileChartsSection } from './profile-charts-section';
 import { ProfileHistory } from './profile-history';
+import { ProfileInsightsSection } from './profile-insights-section';
+
+const PROFILE_INSIGHT_TYPES = [
+  'volume_trend',
+  'frequency',
+  'e1rm_progression',
+  'plateau_detection',
+  'load_recommendation',
+] as const;
 
 interface ProfilePageProps {
   readonly programId?: string;
@@ -60,6 +70,13 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
     queryKey: queryKeys.programs.all,
     queryFn: fetchPrograms,
     enabled: user !== null,
+  });
+
+  const insightsQuery = useQuery({
+    queryKey: queryKeys.insights.list([...PROFILE_INSIGHT_TYPES]),
+    queryFn: () => fetchInsights([...PROFILE_INSIGHT_TYPES]),
+    enabled: user !== null,
+    staleTime: 10 * 60 * 1000,
   });
 
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>(undefined);
@@ -244,12 +261,15 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
   return (
     <div className="min-h-dvh bg-body">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <h1
-          className="font-display text-4xl sm:text-5xl text-title leading-none mb-6"
-          style={{ textShadow: '0 0 30px rgba(240, 192, 64, 0.12)' }}
-        >
-          {t('profile.page.heading')}
-        </h1>
+        <div className="mb-8">
+          <h1
+            className="font-display text-4xl sm:text-5xl text-title leading-none"
+            style={{ textShadow: '0 0 30px rgba(240, 192, 64, 0.12)' }}
+          >
+            {t('profile.page.heading')}
+          </h1>
+          {user && <p className="text-sm text-muted mt-1">{displayName}</p>}
+        </div>
 
         {profileData && activeProgramName && (
           <ProfileBanner
@@ -294,33 +314,17 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
               lifetimeVolume={lifetimeVolume}
             />
 
-            <ProfileStatsGrid
-              profileData={profileData}
-              names={names}
-              allPrograms={allPrograms}
-              lifetimeVolume={lifetimeVolume}
-              volumeSectionRef={volumeSectionRef}
-              toDisplay={toDisplay}
-              unitLabel={unit}
-              accountCard={
-                user && (
-                  <ProfileAccountCard
-                    user={user}
-                    displayName={displayName}
-                    userInitials={userInitials}
-                    avatarUploading={avatarUploading}
-                    fileInputRef={fileInputRef}
-                    unit={unit}
-                    onAvatarClick={handleAvatarClick}
-                    onFileChange={(e) => void handleFileChange(e)}
-                    onRemoveAvatar={() => void handleRemoveAvatar()}
-                    onDeleteRequest={() => setDeleteDialogOpen(true)}
-                    onUpdateName={handleUpdateName}
-                    onToggleUnit={toggleUnit}
-                  />
-                )
-              }
-            />
+            <div className="mt-4">
+              <ProfileStatsGrid
+                profileData={profileData}
+                names={names}
+                allPrograms={allPrograms}
+                lifetimeVolume={lifetimeVolume}
+                volumeSectionRef={volumeSectionRef}
+                toDisplay={toDisplay}
+                unitLabel={unit}
+              />
+            </div>
 
             {chartData && primaryExercises.length > 0 && (
               <ProfileChartsSection
@@ -331,6 +335,11 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
                 unitLabel={unit}
               />
             )}
+
+            <ProfileInsightsSection
+              insights={insightsQuery.data ?? []}
+              isLoading={insightsQuery.isLoading}
+            />
           </>
         )}
 
@@ -339,6 +348,26 @@ export function ProfilePage({ programId, instanceId, onBack }: ProfilePageProps)
           effectiveInstanceId={effectiveInstanceId}
           onSelectInstance={setSelectedInstanceId}
         />
+
+        {user && (
+          <div className="mt-10">
+            <h2 className="section-label mb-4">{t('profile.account.section_title')}</h2>
+            <ProfileAccountCard
+              user={user}
+              displayName={displayName}
+              userInitials={userInitials}
+              avatarUploading={avatarUploading}
+              fileInputRef={fileInputRef}
+              unit={unit}
+              onAvatarClick={handleAvatarClick}
+              onFileChange={(e) => void handleFileChange(e)}
+              onRemoveAvatar={() => void handleRemoveAvatar()}
+              onDeleteRequest={() => setDeleteDialogOpen(true)}
+              onUpdateName={handleUpdateName}
+              onToggleUnit={toggleUnit}
+            />
+          </div>
+        )}
       </div>
 
       <DeleteAccountDialog

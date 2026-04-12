@@ -355,7 +355,7 @@
       "estimated_1rm": "1RM Estimado (Epley)",
       "epley_note": "Estimación basada en la fórmula de Epley",
       "view_profile": "Ver Perfil de Entrenamiento",
-      "back_to_dashboard": "Volver al Dashboard"
+      "back_to_dashboard": "Volver al Inicio"
     },
     "weight_field": {
       "decrease_label": "Disminuir {{label}}",
@@ -382,12 +382,13 @@
   "profile": {
     "page": {
       "title": "Perfil — Gravity Room",
-      "heading": "Perfil"
+      "heading": "Perfil",
+      "subtitle": "Tu progreso de entrenamiento"
     },
     "empty": {
       "heading": "SIN PROGRAMA",
-      "description": "Inicia un programa desde el Dashboard para ver tu perfil de entrenamiento.",
-      "cta": "Ir al Dashboard"
+      "description": "Inicia un programa para ver tu perfil de entrenamiento.",
+      "cta": "Ir al Inicio"
     },
     "history": {
       "title": "Historial",
@@ -429,7 +430,8 @@
       "volume_10k": {
         "label": "Volumen 10K",
         "description": "10.000 kg de volumen total"
-      }
+      },
+      "zero_state": "Completa entrenamientos para desbloquear logros"
     },
     "charts": {
       "weight_progression_title": "Progresión de Peso",
@@ -464,6 +466,7 @@
     },
     "account": {
       "title": "Cuenta",
+      "section_title": "Ajustes de Cuenta",
       "change_avatar_label": "Cambiar avatar",
       "change_avatar_text": "Cambiar",
       "username_input_label": "Nombre de usuario",
