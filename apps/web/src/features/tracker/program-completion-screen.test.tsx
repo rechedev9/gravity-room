@@ -75,11 +75,11 @@ describe('ProgramCompletionScreen', () => {
     expect(screen.getByText('120 kg')).toBeDefined();
   });
 
-  it('should call onBackToDashboard when "Volver al Dashboard" button clicked', () => {
+  it('should call onBackToDashboard when "Volver al Inicio" button clicked', () => {
     const onDismiss = mock();
     renderScreen({ onDismiss });
 
-    fireEvent.click(screen.getByText('Volver al Dashboard'));
+    fireEvent.click(screen.getByText('Volver al Inicio'));
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
