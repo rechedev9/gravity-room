@@ -18,7 +18,7 @@ export function LanguageSelector({ className }: { readonly className?: string })
   return (
     <div
       className={cn(
-        'flex items-center gap-1 rounded-md bg-[var(--color-sidebar-active)] p-0.5',
+        'flex items-center gap-1 rounded-md bg-[var(--color-card,var(--color-sidebar-active))] border border-rule p-0.5',
         className
       )}
       role="radiogroup"

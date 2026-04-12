@@ -6,6 +6,7 @@ import { z } from 'zod/v4';
 import type { UserInfo } from '@/contexts/auth-context';
 import type { WeightUnit } from '@/hooks/use-unit-preference';
 import { DashboardCard } from '@/components/dashboard-card';
+import { LanguageSelector } from '@/components/language-selector';
 
 const NameSchema = z.object({
   name: z.string().trim().min(1, 'Name required').max(64),
@@ -168,6 +169,12 @@ export function ProfileAccountCard({
           <span className="text-muted mx-0.5">/</span>
           <span className={unit === 'lbs' ? 'text-title font-bold' : 'text-muted'}>lbs</span>
         </button>
+      </div>
+
+      {/* Language preference */}
+      <div className="mt-3 pt-3 border-t border-rule flex items-center justify-between">
+        <span className="text-2xs text-muted">{t('profile.account.language_label')}</span>
+        <LanguageSelector />
       </div>
 
       {/* Zona peligrosa — collapsible to reduce prominence of destructive action */}
