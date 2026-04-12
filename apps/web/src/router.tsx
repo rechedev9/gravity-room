@@ -60,9 +60,6 @@ const NotFound = lazyWithRetry(() =>
 const HomePage = lazyWithRetry(() =>
   import('@/features/home/home-page').then((m) => ({ default: m.HomePage }))
 );
-const DashboardPage = lazyWithRetry(() =>
-  import('@/features/dashboard/dashboard-page').then((m) => ({ default: m.DashboardPage }))
-);
 const ProgramsPage = lazyWithRetry(() =>
   import('@/features/programs/programs-page').then((m) => ({ default: m.ProgramsPage }))
 );
@@ -171,11 +168,12 @@ const appIndexRoute = createRoute({
   component: HomePage,
 });
 
-const dashboardRoute = createRoute({
+const dashboardRedirectRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/dashboard',
-  pendingComponent: DashboardSkeleton,
-  component: DashboardPage,
+  beforeLoad: () => {
+    throw redirect({ to: '/app/profile', replace: true });
+  },
 });
 
 const programsRoute = createRoute({
@@ -220,7 +218,7 @@ const routeTree = rootRoute.addChildren([
   notFoundRoute,
   appLayoutRoute.addChildren([
     appIndexRoute,
-    dashboardRoute,
+    dashboardRedirectRoute,
     programsRoute,
     trackerIndexRoute,
     trackerProgramRoute,

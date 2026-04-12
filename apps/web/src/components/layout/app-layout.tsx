@@ -11,7 +11,6 @@ import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
 // making the ?? fallback in getPageTitle semantically correct rather than dead code.
 const ROUTE_LABELS: Record<string, string | undefined> = {
   '/app': 'navigation.home',
-  '/app/dashboard': 'navigation.dashboard',
   '/app/tracker': 'navigation.tracker',
   '/app/programs': 'navigation.programs',
   '/app/profile': 'navigation.profile',

@@ -8,14 +8,7 @@ import { AvatarDropdown } from '@/components/layout/avatar-dropdown';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
 import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
-import {
-  HomeIcon,
-  DashboardIcon,
-  TrackerIcon,
-  ProgramsIcon,
-  ProfileIcon,
-  LoginIcon,
-} from './sidebar-icons';
+import { HomeIcon, TrackerIcon, ProgramsIcon, ProfileIcon, LoginIcon } from './sidebar-icons';
 
 const SIDEBAR_FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-sidebar)]';
@@ -31,7 +24,6 @@ interface NavItem {
 const NAV_ITEMS: readonly NavItem[] = [
   { to: '/app', labelKey: 'navigation.home', end: true, Icon: HomeIcon },
   { to: '/app/programs', labelKey: 'navigation.programs', Icon: ProgramsIcon },
-  { to: '/app/dashboard', labelKey: 'navigation.dashboard', Icon: DashboardIcon },
   { to: '/app/tracker', labelKey: 'navigation.tracker', Icon: TrackerIcon },
   { to: '/app/profile', labelKey: 'navigation.profile', Icon: ProfileIcon, guestHidden: true },
 ];
