@@ -14,10 +14,8 @@ import {
   TrackerIcon,
   ProgramsIcon,
   ProfileIcon,
-  AnalyticsIcon,
   LoginIcon,
 } from './sidebar-icons';
-import { LanguageSelector } from '@/components/language-selector';
 
 const SIDEBAR_FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-sidebar)]';
@@ -35,7 +33,6 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: '/app/programs', labelKey: 'navigation.programs', Icon: ProgramsIcon },
   { to: '/app/dashboard', labelKey: 'navigation.dashboard', Icon: DashboardIcon },
   { to: '/app/tracker', labelKey: 'navigation.tracker', Icon: TrackerIcon },
-  { to: '/app/analytics', labelKey: 'navigation.analytics', Icon: AnalyticsIcon },
   { to: '/app/profile', labelKey: 'navigation.profile', Icon: ProfileIcon, guestHidden: true },
 ];
 
@@ -188,13 +185,6 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
           >
             {renderNavItems(collapsed, onItemClick)}
           </div>
-
-          {/* Language selector (expanded only) */}
-          {!collapsed && (
-            <div className="px-4 py-2 flex justify-center">
-              <LanguageSelector />
-            </div>
-          )}
 
           {/* User section */}
           <div

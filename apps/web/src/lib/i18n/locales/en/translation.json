@@ -50,7 +50,6 @@
     "programs": "Programs",
     "dashboard": "Dashboard",
     "tracker": "Tracker",
-    "analytics": "Analytics",
     "profile": "Profile",
     "main_nav_label": "Main navigation",
     "view_profile": "View profile"
@@ -471,6 +470,7 @@
       "edit_name_tooltip": "Edit name",
       "remove_photo": "Remove photo",
       "weight_unit_label": "Weight unit",
+      "language_label": "Language",
       "unit_lbs": "pounds",
       "unit_kg": "kilograms",
       "danger_zone": "Danger zone",
@@ -487,27 +487,6 @@
     },
     "account_errors": {
       "delete_error": "Error deleting account"
-    }
-  },
-  "analytics": {
-    "page": {
-      "title": "Analytics — Gravity Room",
-      "heading": "Analytics",
-      "subtitle": "Pre-calculated performance every 6 hours"
-    },
-    "error": {
-      "loading": "Could not load analytics."
-    },
-    "empty": {
-      "message": "No data yet. Complete some workouts to see your analytics."
-    },
-    "sections": {
-      "overview": "Summary",
-      "exercise_summary": "Exercise Summary",
-      "plateau_alerts": "Plateau Alerts",
-      "e1rm_progression": "Estimated 1RM by Exercise",
-      "e1rm_forecast": "1RM Forecast",
-      "load_recommendation": "Load Recommendation"
     }
   },
   "insights": {

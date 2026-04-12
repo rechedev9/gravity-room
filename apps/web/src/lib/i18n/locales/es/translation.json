@@ -50,7 +50,6 @@
     "programs": "Programas",
     "dashboard": "Dashboard",
     "tracker": "Tracker",
-    "analytics": "Analíticas",
     "profile": "Perfil",
     "main_nav_label": "Navegación principal",
     "view_profile": "Ver perfil"
@@ -471,6 +470,7 @@
       "edit_name_tooltip": "Editar nombre",
       "remove_photo": "Quitar foto",
       "weight_unit_label": "Unidad de peso",
+      "language_label": "Idioma",
       "unit_lbs": "libras",
       "unit_kg": "kilogramos",
       "danger_zone": "Zona peligrosa",
@@ -487,27 +487,6 @@
     },
     "account_errors": {
       "delete_error": "Error al eliminar la cuenta"
-    }
-  },
-  "analytics": {
-    "page": {
-      "title": "Analíticas — Gravity Room",
-      "heading": "Analíticas",
-      "subtitle": "Rendimiento pre-calculado cada 6 horas"
-    },
-    "error": {
-      "loading": "No se pudieron cargar las analíticas."
-    },
-    "empty": {
-      "message": "Sin datos todavía. Completa algunos entrenamientos para ver tus analíticas."
-    },
-    "sections": {
-      "overview": "Resumen",
-      "exercise_summary": "Resumen por Ejercicio",
-      "plateau_alerts": "Alertas de Plateau",
-      "e1rm_progression": "1RM Estimado por Ejercicio",
-      "e1rm_forecast": "Pronóstico 1RM",
-      "load_recommendation": "Recomendación de Carga"
     }
   },
   "insights": {

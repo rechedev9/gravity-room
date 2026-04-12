@@ -15,7 +15,6 @@ const ROUTE_LABELS: Record<string, string | undefined> = {
   '/app/tracker': 'navigation.tracker',
   '/app/programs': 'navigation.programs',
   '/app/profile': 'navigation.profile',
-  '/app/analytics': 'navigation.analytics',
 };
 
 function getPageTitle(pathname: string, t: ReturnType<typeof useTranslation>['t']): string {

@@ -72,9 +72,6 @@ const TrackerPage = lazyWithRetry(() =>
 const ProfilePage = lazyWithRetry(() =>
   import('@/features/profile/profile-page').then((m) => ({ default: m.ProfilePage }))
 );
-const AnalyticsPage = lazyWithRetry(() =>
-  import('@/features/analytics/analytics-page').then((m) => ({ default: m.AnalyticsPage }))
-);
 
 // ---------------------------------------------------------------------------
 // AppLayout wrapped with TrackerProvider
@@ -209,13 +206,6 @@ const profileRoute = createRoute({
   component: ProfilePage,
 });
 
-const analyticsRoute = createRoute({
-  getParentRoute: () => appLayoutRoute,
-  path: '/app/analytics',
-  pendingComponent: ContentPageSkeleton,
-  component: AnalyticsPage,
-});
-
 // ---------------------------------------------------------------------------
 // Route tree assembly
 // ---------------------------------------------------------------------------
@@ -235,7 +225,6 @@ const routeTree = rootRoute.addChildren([
     trackerIndexRoute,
     trackerProgramRoute,
     profileRoute,
-    analyticsRoute,
   ]),
 ]);
 

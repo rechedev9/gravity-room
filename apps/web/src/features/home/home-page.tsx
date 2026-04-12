@@ -11,7 +11,6 @@ import {
   DashboardIcon,
   TrackerIcon,
   ProgramsIcon,
-  AnalyticsIcon,
 } from '@/components/layout/sidebar-icons';
 import { StaggerContainer, StaggerItem, fadeUpFastVariants } from '@/lib/motion-primitives';
 
@@ -149,7 +148,7 @@ export function HomePage(): React.ReactNode {
           <h2 className="text-[10px] font-bold text-muted uppercase tracking-widest mb-4">
             Acceso Rápido
           </h2>
-          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-3 gap-4" stagger={0.05}>
+          <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 gap-4" stagger={0.05}>
             {activeProgram ? (
               <StaggerItem variants={fadeUpFastVariants}>
                 <QuickCard
@@ -180,14 +179,6 @@ export function HomePage(): React.ReactNode {
                 Icon={DashboardIcon}
               />
             </StaggerItem>
-            <StaggerItem variants={fadeUpFastVariants}>
-              <QuickCard
-                to="/app/analytics"
-                title="Analíticas"
-                description="Evolución del 1RM, tendencias y pronósticos por ejercicio."
-                Icon={AnalyticsIcon}
-              />
-            </StaggerItem>
           </StaggerContainer>
         </section>
 
@@ -216,13 +207,6 @@ export function HomePage(): React.ReactNode {
                 to="/app/programs"
                 title="Programas"
                 description="Catálogo de programas por nivel. Crea y personaliza tus propios programas."
-              />
-            </StaggerItem>
-            <StaggerItem variants={fadeUpFastVariants}>
-              <SectionCard
-                to="/app/analytics"
-                title="Analíticas"
-                description="Gráficas de evolución del 1RM estimado y proyecciones de rendimiento."
               />
             </StaggerItem>
           </StaggerContainer>
