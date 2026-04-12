@@ -171,7 +171,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
           {/* Nav links */}
           <div
             className={cn(
-              'flex-1 overflow-y-auto',
+              'flex-1 overflow-y-auto overflow-x-hidden',
               collapsed ? 'py-5 space-y-7' : 'px-3 py-4 space-y-3'
             )}
           >
