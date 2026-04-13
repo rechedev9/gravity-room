@@ -19,13 +19,6 @@ export interface GraduationState {
   readonly allPassed: boolean;
 }
 
-/** Full graduation status with targets and achievement */
-export interface GraduationStatus {
-  readonly targets: readonly GraduationTarget[];
-  readonly achieved: GraduationState;
-  readonly estimatedOneRMs: Readonly<Record<string, number>> | null;
-}
-
 /**
  * Compute graduation weight targets based on bodyweight and gender.
  * Male: 100% BW, Female: 70% BW, rounded to nearest `rounding`.
@@ -63,61 +56,10 @@ export function computeGraduationTargets(
 }
 
 /**
- * Check if a specific graduation criterion is met.
- * - squat: reps >= 3 AND weight >= targetWeight
- * - bench: reps >= 1 AND weight >= targetWeight
- * - deadlift: reps >= 10 AND weight >= targetWeight
- */
-export function checkGraduationCriterion(
-  exercise: 'squat' | 'bench' | 'deadlift',
-  weight: number,
-  reps: number,
-  targetWeight: number
-): boolean {
-  if (weight < targetWeight) return false;
-
-  switch (exercise) {
-    case 'squat':
-      return reps >= 3;
-    case 'bench':
-      return reps >= 1;
-    case 'deadlift':
-      return reps >= 10;
-  }
-}
-
-/**
  * Compute Epley 1RM estimate: weight * (1 + reps / 30).
  * Returns 0 if weight or reps are 0 or negative.
  */
 export function computeEpley1RM(weight: number, reps: number): number {
   if (weight <= 0 || reps <= 0) return 0;
   return weight * (1 + reps / 30);
-}
-
-/**
- * Suggest next session weight based on history.
- * - No history (both undefined): return null
- * - Only one session (secondPrevious undefined): previous + rounding
- * - If increased last time (previous > secondPrevious): maintain (consolidate)
- * - If maintained or decreased: increase by rounding
- */
-export function suggestNextWeight(
-  previousWeight: number | undefined,
-  secondPreviousWeight: number | undefined,
-  rounding: number
-): number | null {
-  if (previousWeight === undefined) return null;
-
-  if (secondPreviousWeight === undefined) {
-    return roundToNearest(previousWeight + rounding, rounding);
-  }
-
-  // If increased last time, consolidate (maintain)
-  if (previousWeight > secondPreviousWeight) {
-    return previousWeight;
-  }
-
-  // If maintained or decreased, suggest increase
-  return roundToNearest(previousWeight + rounding, rounding);
 }
