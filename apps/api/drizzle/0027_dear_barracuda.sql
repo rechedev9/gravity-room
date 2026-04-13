@@ -1,0 +1,1 @@
+ALTER TABLE "program_templates" ADD COLUMN "level" varchar(20) DEFAULT 'intermediate' NOT NULL;

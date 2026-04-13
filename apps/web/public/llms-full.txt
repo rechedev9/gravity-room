@@ -100,10 +100,10 @@ Gravity Room solves all four by implementing the progression rules of establishe
 - TypeScript strict mode throughout
 - PWA via vite-plugin-pwa with Workbox runtime caching
 
-### Backend (apps/go-api)
-- Go with chi router
-- PostgreSQL with pgx driver and goose migrations
-- Redis for session management and presence tracking
+### Backend (apps/api)
+- ElysiaJS (Bun-native HTTP framework)
+- PostgreSQL with Drizzle ORM and Drizzle migrations
+- Redis for rate limiting, presence tracking, caching, and singleflight
 - JWT access token (in-memory) + refresh token (httpOnly cookie)
 - Google OAuth 2.0 for authentication
 - Sentry for error tracking

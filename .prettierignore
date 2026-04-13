@@ -7,6 +7,6 @@ out
 build
 .tmp
 .idea
-apps/go-api
+apps/api/drizzle
 **/.venv
 **/.pytest_cache

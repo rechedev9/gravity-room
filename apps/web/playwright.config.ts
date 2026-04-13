@@ -12,6 +12,7 @@ export default defineConfig({
 
   use: {
     baseURL: 'http://localhost:3001',
+    locale: 'es-ES',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -24,7 +25,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'bun run build:web && cd apps/go-api && go run ./cmd/api',
+    command: 'bun run build:web && cd apps/api && bun src/index.ts',
     url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
     cwd: resolve(__dirname, '../..'),

@@ -1,4 +1,4 @@
-// k6 load test for Gravity Room Go API.
+// k6 load test for Gravity Room API.
 //
 // Prerequisites:
 //   brew install k6       (macOS)

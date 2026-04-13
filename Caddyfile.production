@@ -1,9 +1,9 @@
 gravityroom.app {
-    @api path /auth/* /catalog /catalog/* /programs /programs/* /program-definitions /program-definitions/* /exercises /exercises/* /muscle-groups /muscle-groups/* /stats /stats/* /health /metrics /swagger/*
+    @api path /api/* /health /metrics /swagger/*
     handle @api {
-        reverse_proxy gzclp-api:3001
+        reverse_proxy gravity-room-api:3001
     }
     handle {
-        reverse_proxy gzclp-web:80
+        reverse_proxy gravity-room-web:80
     }
 }

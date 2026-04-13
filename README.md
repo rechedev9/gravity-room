@@ -1,6 +1,6 @@
 # Gravity Room
 
-A strength training tracker with a React SPA, a Go API, and a separate analytics service. The repo is deployed with Docker Compose on a VPS behind Caddy.
+A strength training tracker with a React SPA, an ElysiaJS API, and a separate analytics service. The repo is deployed with Docker Compose on a VPS behind Caddy.
 
 ## Contents
 
@@ -13,18 +13,18 @@ A strength training tracker with a React SPA, a Go API, and a separate analytics
 
 ## Stack
 
-| Layer      | Technology                                                            |
-| ---------- | --------------------------------------------------------------------- |
-| Runtime    | Go 1.26 (API), Bun (frontend/tooling), Python 3 (analytics)           |
-| Frontend   | React 19, Vite, react-router-dom v7, Tailwind CSS 4, TanStack Query 5 |
-| Backend    | Go + chi/v5, pgx (PostgreSQL), go-redis (optional), FastAPI analytics |
-| Validation | Zod v4 (frontend schemas), Go struct validation (API)                 |
-| Auth       | JWT (access + refresh token rotation), Google OAuth                   |
-| Logging    | slog (structured JSON)                                                |
-| Metrics    | prometheus/client_golang (Prometheus-compatible)                      |
-| E2E        | Playwright (Chromium)                                                 |
-| Hooks      | Lefthook (parallel pre-commit / pre-push)                             |
-| Deploy     | Docker Compose on VPS, Caddy reverse proxy                            |
+| Layer      | Technology                                                        |
+| ---------- | ----------------------------------------------------------------- |
+| Runtime    | Bun (API + frontend/tooling), Python 3 (analytics)                |
+| Frontend   | React 19, Vite, TanStack Router, Tailwind CSS 4, TanStack Query 5 |
+| Backend    | ElysiaJS, Drizzle ORM (PostgreSQL), Redis, FastAPI analytics      |
+| Validation | Zod v4 (frontend schemas), ElysiaJS type validation (API)         |
+| Auth       | JWT (access + refresh token rotation), Google OAuth               |
+| Logging    | pino (structured JSON)                                            |
+| Metrics    | prom-client (Prometheus-compatible)                               |
+| E2E        | Playwright (Chromium)                                             |
+| Hooks      | Lefthook (parallel pre-commit / pre-push)                         |
+| Deploy     | Docker Compose on VPS, Caddy reverse proxy                        |
 
 ## Monorepo structure
 
@@ -40,20 +40,14 @@ gravity-room/
 │   │   │   ├── lib/          ← API client and shared frontend utilities
 │   │   │   └── styles/       ← Tailwind globals
 │   │   └── e2e/              ← Playwright specs
-│   ├── go-api/               ← Go API backend (production)
-│   │   ├── cmd/api/          ← Entrypoint (main.go)
-│   │   ├── internal/
-│   │   │   ├── config/       ← Environment-driven configuration
-│   │   │   ├── db/           ← Connection pool, probes
-│   │   │   ├── handler/      ← HTTP handlers (auth, programs, results, insights, catalog)
-│   │   │   ├── middleware/   ← CORS, auth, rate limit, recovery, security headers, request ID
-│   │   │   ├── migrate/      ← Goose v3 migrations (33 SQL files, embed.FS)
-│   │   │   ├── model/        ← Request/response types
-│   │   │   ├── seed/         ← Reference data seeds
-│   │   │   ├── server/       ← HTTP server, router, health check
-│   │   │   ├── service/      ← Business logic (auth, programs, results)
-│   │   │   └── swagger/      ← OpenAPI spec + Swagger UI (dev-only)
-│   │   └── go.mod
+│   ├── api/                  ← ElysiaJS API backend
+│   │   └── src/
+│   │       ├── routes/       ← HTTP route handlers
+│   │       ├── services/     ← Business logic
+│   │       ├── middleware/   ← Auth, rate limiting, logging, error handling
+│   │       ├── db/           ← Drizzle schema, seeds, migrations
+│   │       ├── lib/          ← Redis, metrics, sentry, telegram, logger
+│   │       └── plugins/      ← Swagger, metrics plugins
 │   └── analytics/            ← FastAPI analytics worker/service
 │       ├── insights/         ← Derived analytics payload builders
 │       ├── ml/               ← Forecast / plateau / recommendation logic
@@ -64,11 +58,7 @@ gravity-room/
 │   ├── rollback.sh           ← VPS rollback with migration boundary checks
 │   ├── deploy-log.sh         ← Deploy history management
 │   └── loadtest.js           ← k6 load test (smoke/load/stress)
-├── docs/
-│   ├── handoff.md            ← Session handoff notes
-│   ├── pickup.md             ← Session rehydration checklist
-│   └── roadmapvisuals.md     ← Visual roadmap notes
-├── Dockerfile.api            ← Multi-stage build (web SPA + Go binary)
+├── Dockerfile.api            ← Multi-stage build (web SPA + Bun API)
 ├── docker-compose.yml        ← Production container orchestration
 ├── Caddyfile.production      ← Reverse proxy config
 ├── lefthook.yml              ← Git hook definitions
@@ -77,17 +67,17 @@ gravity-room/
 
 ## Architecture overview
 
-Three application services behind a Caddy reverse proxy on a VPS. The Go API serves REST endpoints, the web container serves the SPA, and the analytics service pre-computes insights consumed by the API/frontend.
+Three application services behind a Caddy reverse proxy on a VPS. The ElysiaJS API serves REST endpoints, the web container serves the SPA, and the analytics service pre-computes insights consumed by the API/frontend.
 
 ```
 Browser (SPA)
   │
   └── HTTPS ──► Caddy (reverse proxy)
                   │
-                  ├── /api/*      ───► Go API container (port 3001)
-                  ├── /health      ───► Go API health endpoint
-                  ├── /metrics     ───► Go API metrics endpoint
-                  ├── /swagger/*   ───► Go API Swagger UI (dev only)
+                  ├── /api/*      ───► ElysiaJS API container (port 3001)
+                  ├── /health      ───► API health endpoint
+                  ├── /metrics     ───► API metrics endpoint
+                  ├── /swagger/*   ───► API Swagger UI (dev only)
                   └── /*           ───► Web container (Nginx, port 80)
 
 Analytics service (FastAPI, port 8000)
@@ -101,36 +91,35 @@ Analytics service (FastAPI, port 8000)
                     └── 5 tables: users, refresh_tokens,
                        program_instances, workout_results, undo_entries
 
-                  Redis (optional)
-                    └── Rate limiting, presence tracking, caching
+                  Redis
+                    └── Rate limiting, presence tracking, caching, singleflight
 ```
 
 **Key architectural decisions:**
 
-- **Single Go binary** — the API is compiled to a static binary with `CGO_ENABLED=0`. Migrations and seeds are embedded via `embed.FS`. No runtime dependencies.
-- **Auto-migrations on startup** — Goose v3 runs pending migrations before accepting traffic. Zero-touch schema updates on deploy.
-- **Progression engine** — the Go API runs the authoritative progression engine. The frontend maintains a TypeScript copy (`apps/web/src/lib/shared/`) for offline display and preview.
+- **Bun runtime** — the API runs on Bun with ElysiaJS. Drizzle ORM handles database access and migrations. Seeds are run on startup via `bootstrap.ts`.
+- **Auto-migrations on startup** — Drizzle migrator runs pending migrations before accepting traffic. Zero-touch schema updates on deploy.
+- **Progression engine** — the API and frontend share the authoritative progression engine via `apps/web/src/lib/shared/` (resolved through tsconfig path alias `@gzclp/shared/*`).
 - **Feature-first frontend** — route-owned screens and domain UI now live under `apps/web/src/features/`, while `components/` is reserved for shared UI and root app scaffolding.
 
 ## Getting started
 
 ### Prerequisites
 
-- [Go](https://go.dev/) 1.26+
-- [Bun](https://bun.sh/) (latest) — for frontend tooling and contract tests
+- [Bun](https://bun.sh/) (latest) — for API, frontend tooling, and tests
 - PostgreSQL (local or managed)
 - Redis (optional — only needed for distributed rate limiting and presence)
 
 ### Setup
 
 ```bash
-# Install frontend dependencies
+# Install dependencies
 bun install
 
 # Configure environment (copy .env.example and set DATABASE_URL, JWT_SECRET, etc.)
 
-# Start the Go API (auto-runs migrations and seeds on startup)
-cd apps/go-api && go run ./cmd/api
+# Start the API (auto-runs migrations and seeds on startup)
+bun run dev:api
 
 # In another terminal, start the web dev server
 bun run dev:web
@@ -146,17 +135,16 @@ The web app runs on `http://localhost:5173`, the API on `http://localhost:3001`,
 | Task              | Command                                           |
 | ----------------- | ------------------------------------------------- |
 | Dev (web)         | `bun run dev:web`                                 |
-| Dev (Go API)      | `cd apps/go-api && go run ./cmd/api`              |
+| Dev (API)         | `bun run dev:api`                                 |
 | Dev (analytics)   | `cd apps/analytics && uvicorn main:app --reload`  |
-| Build (Go API)    | `cd apps/go-api && go build -o bin/api ./cmd/api` |
 | Build (web)       | `bun run build:web`                               |
-| Type check        | `bun run typecheck`                               |
+| Type check (web)  | `bun run typecheck`                               |
+| Type check (API)  | `bun run typecheck:api`                           |
 | Lint (TS)         | `bun run lint`                                    |
-| Lint (Go)         | `cd apps/go-api && go vet ./...`                  |
 | Test (analytics)  | `cd apps/analytics && pytest`                     |
 | Format check      | `bun run format:check`                            |
 | Tests (TS unit)   | `bun run test`                                    |
-| Tests (Go unit)   | `cd apps/go-api && go test ./...`                 |
+| Tests (API unit)  | `bun run test:api`                                |
 | E2E tests         | `bun run e2e`                                     |
 | E2E (headed)      | `bun run e2e:headed`                              |
 | Load test         | `k6 run scripts/loadtest.js`                      |

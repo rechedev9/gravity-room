@@ -1,6 +1,6 @@
 /**
  * AUTO-GENERATED — do not edit by hand.
- * Source: apps/go-api/internal/swagger/openapi.json
+ * Source: ElysiaJS API /swagger/json endpoint
  * Regenerate: bun run api:types (from apps/web/)
  *
  * This file is committed to enable CI drift detection:
@@ -11,210 +11,111 @@
  */
 import { z } from 'zod/v4';
 
-const HealthResponse = z
+const patchApiAuthMe_Body = z
   .object({
-    status: z.string(),
-    timestamp: z.string().datetime({ offset: true }),
-    uptime: z.number().int(),
-    db: z.object({}).partial().passthrough().readonly(),
-    redis: z.object({}).partial().passthrough().readonly(),
+    name: z.string().min(1).max(100),
+    avatarUrl: z.union([z.string(), z.null()]).nullable(),
   })
-  .passthrough()
-  .readonly();
-const Error = z.object({ error: z.string(), code: z.string() }).passthrough().readonly();
-const UserResponse = z
-  .object({
-    id: z.string().uuid(),
-    email: z.string().email(),
-    name: z.string().nullable(),
-    avatarUrl: z.string().nullable(),
-  })
-  .passthrough()
-  .readonly();
-const AuthResponse = z
-  .object({ user: UserResponse, accessToken: z.string() })
-  .passthrough()
-  .readonly();
-const RefreshResponse = z.object({ accessToken: z.string() }).passthrough().readonly();
-const updateMe_Body = z
-  .object({ name: z.string().min(1).max(100).nullable(), avatarUrl: z.string().nullable() })
   .partial()
   .passthrough()
   .readonly();
-const ProgramInstanceListItem = z
+const limit = z.union([z.string(), z.number()]).optional();
+const postApiPrograms_Body = z
   .object({
-    id: z.string().uuid(),
-    programId: z.string(),
-    name: z.string(),
-    status: z.enum(['active', 'completed', 'archived']),
-    createdAt: z.string().datetime({ offset: true }),
-    updatedAt: z.string().datetime({ offset: true }),
-  })
-  .passthrough()
-  .readonly();
-const ProgramListResponse = z
-  .object({ data: z.array(ProgramInstanceListItem).readonly(), nextCursor: z.string().nullable() })
-  .passthrough()
-  .readonly();
-const createProgram_Body = z
-  .object({
-    programId: z.string().optional(),
-    definitionId: z.string().optional(),
+    programId: z.string().min(1).optional(),
+    definitionId: z.string().min(1).optional(),
     name: z.string().min(1).max(100),
     config: z.object({}).partial().passthrough().readonly(),
   })
   .passthrough()
   .readonly();
-const ProgramInstanceResponse = z
+const patchApiProgramsById_Body = z
   .object({
-    id: z.string().uuid(),
-    programId: z.string(),
-    name: z.string(),
+    name: z.string().min(1).max(100),
+    status: z.union([z.string(), z.string(), z.string()]),
     config: z.object({}).partial().passthrough().readonly(),
-    metadata: z.unknown().nullable(),
-    status: z.enum(['active', 'completed', 'archived']),
+  })
+  .partial()
+  .passthrough()
+  .readonly();
+const postApiProgramsImport_Body = z
+  .object({
+    version: z.number(),
+    exportDate: z.string().datetime({ offset: true }),
+    programId: z.string().min(1),
+    name: z.string().min(1).max(100),
+    config: z.object({}).partial().passthrough().readonly(),
     results: z.object({}).partial().passthrough().readonly(),
-    undoHistory: z.array(z.object({}).partial().passthrough().readonly()).readonly(),
-    resultTimestamps: z.record(z.string()),
-    completedDates: z.record(z.string()),
-    definitionId: z.string().nullable(),
-    customDefinition: z.unknown().nullable(),
-    createdAt: z.string().datetime({ offset: true }),
-    updatedAt: z.string().datetime({ offset: true }),
+    undoHistory: z
+      .array(
+        z
+          .object({
+            i: z.union([z.string(), z.number()]),
+            slotId: z.string().min(1),
+            prev: z.union([z.string(), z.string()]).optional(),
+            prevRpe: z.union([z.string(), z.number()]).optional(),
+            prevAmrapReps: z.union([z.string(), z.number()]).optional(),
+          })
+          .passthrough()
+          .readonly()
+      )
+      .readonly()
+      .max(500),
   })
   .passthrough()
   .readonly();
-const updateProgram_Body = z
+const postApiExercises_Body = z
   .object({
     name: z.string().min(1).max(100),
-    status: z.enum(['active', 'completed', 'archived']),
-    config: z.object({}).partial().passthrough().readonly(),
+    muscleGroupId: z.string().min(1).max(50),
+    equipment: z.string().max(50).optional(),
+    isCompound: z.boolean().optional(),
   })
-  .partial()
   .passthrough()
   .readonly();
-const recordResult_Body = z
+const postApiProgramsByIdResults_Body = z
   .object({
-    workoutIndex: z.number().int().gte(0),
-    slotId: z.string(),
-    result: z.string(),
-    amrapReps: z.number().int().nullish(),
-    rpe: z.number().int().nullish(),
-    setLogs: z.unknown().nullish(),
+    workoutIndex: z.union([z.string(), z.number()]),
+    slotId: z.string().min(1),
+    result: z.union([z.string(), z.string()]),
+    amrapReps: z.union([z.string(), z.number()]).optional(),
+    rpe: z.union([z.string(), z.number()]).optional(),
+    setLogs: z
+      .array(
+        z
+          .object({
+            reps: z.union([z.string(), z.number()]),
+            weight: z.number().gte(0).optional(),
+            rpe: z.union([z.string(), z.number()]).optional(),
+          })
+          .passthrough()
+          .readonly()
+      )
+      .readonly()
+      .max(20)
+      .optional(),
   })
   .passthrough()
   .readonly();
-const UndoResponse = z.object({ undone: z.unknown().nullable() }).passthrough().readonly();
-const CatalogEntry = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    description: z.string(),
-    author: z.string(),
-    category: z.string(),
-    level: z.string(),
-    source: z.string(),
-    totalWorkouts: z.number().int(),
-    workoutsPerWeek: z.number().int(),
-    cycleLength: z.number().int(),
-  })
+const workoutIndex = z.union([z.string(), z.number()]);
+const postApiProgram_definitionsFork_Body = z
+  .object({ sourceId: z.string().min(1), sourceType: z.union([z.string(), z.string()]) })
   .passthrough()
   .readonly();
-const previewCatalog_Body = z
-  .object({
-    definition: z.object({}).partial().passthrough().readonly(),
-    config: z.object({}).partial().passthrough().readonly(),
-  })
-  .passthrough()
-  .readonly();
-const ExerciseEntry = z
-  .object({
-    id: z.string(),
-    name: z.string(),
-    muscleGroupId: z.string(),
-    equipment: z.string().nullable(),
-    isCompound: z.boolean(),
-    isPreset: z.boolean(),
-    createdBy: z.string().nullable(),
-    force: z.string().nullable(),
-    level: z.string().nullable(),
-    mechanic: z.string().nullable(),
-    category: z.string().nullable(),
-    secondaryMuscles: z.array(z.string()).readonly(),
-  })
-  .passthrough()
-  .readonly();
-const ExerciseListResponse = z
-  .object({
-    data: z.array(ExerciseEntry).readonly(),
-    total: z.number().int(),
-    offset: z.number().int(),
-    limit: z.number().int(),
-  })
-  .passthrough()
-  .readonly();
-const createExercise_Body = z
-  .object({
-    name: z.string(),
-    muscleGroupId: z.string(),
-    equipment: z.string().optional(),
-    isCompound: z.boolean().nullish(),
-  })
-  .passthrough()
-  .readonly();
-const MuscleGroupEntry = z.object({ id: z.string(), name: z.string() }).passthrough().readonly();
-const ProgramDefinitionResponse = z
-  .object({
-    id: z.string().uuid(),
-    userId: z.string().uuid(),
-    definition: z.object({}).partial().passthrough().readonly(),
-    status: z.enum(['draft', 'pending_review', 'approved', 'rejected']),
-    createdAt: z.string().datetime({ offset: true }),
-    updatedAt: z.string().datetime({ offset: true }),
-    deletedAt: z.string().datetime({ offset: true }).nullable(),
-  })
-  .passthrough()
-  .readonly();
-const ProgramDefinitionListResponse = z
-  .object({ data: z.array(ProgramDefinitionResponse).readonly(), total: z.number().int() })
-  .passthrough()
-  .readonly();
-const forkDefinition_Body = z
-  .object({ sourceId: z.string(), sourceType: z.string() })
-  .passthrough()
-  .readonly();
-const updateDefinitionStatus_Body = z
-  .object({ status: z.enum(['draft', 'pending_review', 'approved', 'rejected']) })
-  .passthrough()
-  .readonly();
-const StatsOnlineResponse = z
-  .object({ count: z.number().int().nullable() })
+const patchApiProgram_definitionsByIdStatus_Body = z
+  .object({ status: z.union([z.string(), z.string(), z.string(), z.string()]) })
   .passthrough()
   .readonly();
 
 export const schemas = {
-  HealthResponse,
-  Error,
-  UserResponse,
-  AuthResponse,
-  RefreshResponse,
-  updateMe_Body,
-  ProgramInstanceListItem,
-  ProgramListResponse,
-  createProgram_Body,
-  ProgramInstanceResponse,
-  updateProgram_Body,
-  recordResult_Body,
-  UndoResponse,
-  CatalogEntry,
-  previewCatalog_Body,
-  ExerciseEntry,
-  ExerciseListResponse,
-  createExercise_Body,
-  MuscleGroupEntry,
-  ProgramDefinitionResponse,
-  ProgramDefinitionListResponse,
-  forkDefinition_Body,
-  updateDefinitionStatus_Body,
-  StatsOnlineResponse,
+  patchApiAuthMe_Body,
+  limit,
+  postApiPrograms_Body,
+  patchApiProgramsById_Body,
+  postApiProgramsImport_Body,
+  postApiExercises_Body,
+  postApiProgramsByIdResults_Body,
+  workoutIndex,
+  postApiProgram_definitionsFork_Body,
+  patchApiProgram_definitionsByIdStatus_Body,
 };
