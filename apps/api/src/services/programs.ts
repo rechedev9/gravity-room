@@ -17,6 +17,7 @@ import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definitio
 import type { GenericResults, GenericUndoHistory } from '@gzclp/shared/types/program';
 import { ApiError } from '../middleware/error-handler';
 import { logger } from '../lib/logger';
+import { type Result, ok, err } from '../lib/hydrate-program';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -246,7 +247,7 @@ export async function createInstance(
   return toResponse(instance, [], []);
 }
 
-export interface ProgramInstanceListItem {
+interface ProgramInstanceListItem {
   readonly id: string;
   readonly programId: string;
   readonly name: string;
@@ -255,7 +256,7 @@ export interface ProgramInstanceListItem {
   readonly updatedAt: string;
 }
 
-export interface PaginatedInstances {
+interface PaginatedInstances {
   readonly data: ProgramInstanceListItem[];
   readonly nextCursor: string | null;
 }
@@ -445,26 +446,6 @@ export async function deleteInstance(userId: string, instanceId: string): Promis
 // Custom instance creation
 // ---------------------------------------------------------------------------
 
-interface Ok<T> {
-  readonly ok: true;
-  readonly value: T;
-}
-
-interface Err<E> {
-  readonly ok: false;
-  readonly error: E;
-}
-
-type Result<T, E> = Ok<T> | Err<E>;
-
-function ok<T>(value: T): Ok<T> {
-  return { ok: true, value };
-}
-
-function err<E>(error: E): Err<E> {
-  return { ok: false, error };
-}
-
 export type InstantiationError =
   | 'DEFINITION_NOT_FOUND'
   | 'FORBIDDEN'
@@ -496,10 +477,6 @@ export async function createCustomInstance(
 
   if (!defRow) {
     return err('DEFINITION_NOT_FOUND');
-  }
-
-  if (defRow.userId !== userId) {
-    return err('FORBIDDEN');
   }
 
   // Validate definition against ProgramDefinitionSchema

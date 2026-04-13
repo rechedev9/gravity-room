@@ -260,6 +260,13 @@ export function gppSlot(id: string, exerciseId: string, reps: number, sets: numb
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// BRUNETTI SHARED CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════
+
+export const TEMPO_D5F2S5 = 'Tempo: 5s bajada, 2s pausa, 5s subida (d5f2s5).';
+export const REST_6MIN = 'Descanso: 6 min entre series de fundamentales.';
+
+// ═══════════════════════════════════════════════════════════════════════
 // BRUNETTI HELPERS — shared across brunetti-365.ts, sala-1/2/3.ts
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -279,13 +286,6 @@ export const BRUNETTI_JAW_TM = {
   B2: { SQUAT: 'squat_jaw_b2_tm', BENCH: 'bench_jaw_b2_tm', DEADLIFT: 'deadlift_jaw_b2_tm' },
   B3: { SQUAT: 'squat_jaw_b3_tm', BENCH: 'bench_jaw_b3_tm', DEADLIFT: 'deadlift_jaw_b3_tm' },
 } as const;
-
-/** Union of all Brunetti TM key string literals. */
-export type BrunettiTmKeys =
-  | (typeof BRUNETTI_TM)[keyof typeof BRUNETTI_TM]
-  | (typeof BRUNETTI_JAW_TM)['B1'][keyof (typeof BRUNETTI_JAW_TM)['B1']]
-  | (typeof BRUNETTI_JAW_TM)['B2'][keyof (typeof BRUNETTI_JAW_TM)['B2']]
-  | (typeof BRUNETTI_JAW_TM)['B3'][keyof (typeof BRUNETTI_JAW_TM)['B3']];
 
 /** Create a TM-based slot with no_change progression (Brunetti programs). */
 export function tmNcSlot(
