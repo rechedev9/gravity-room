@@ -25,9 +25,9 @@ interface UndoEntryRowFixture {
   readonly instanceId: string;
   readonly workoutIndex: number;
   readonly slotId: string;
-  readonly prevResult: ResultType | null;
-  readonly prevAmrapReps: number | null;
-  readonly prevRpe: number | null;
+  readonly previousResult: ResultType | null;
+  readonly previousAmrapReps: number | null;
+  readonly previousRpe: number | null;
   readonly createdAt: Date;
 }
 
@@ -44,10 +44,12 @@ function buildUndoHistory(rows: readonly UndoEntryRowFixture[]): UndoHistoryEntr
   return rows.map((row) => ({
     i: row.workoutIndex,
     slotId: row.slotId,
-    ...(row.prevResult !== null ? { prev: row.prevResult } : {}),
-    ...(row.prevRpe !== null && row.prevRpe !== undefined ? { prevRpe: row.prevRpe } : {}),
-    ...(row.prevAmrapReps !== null && row.prevAmrapReps !== undefined
-      ? { prevAmrapReps: row.prevAmrapReps }
+    ...(row.previousResult !== null ? { prev: row.previousResult } : {}),
+    ...(row.previousRpe !== null && row.previousRpe !== undefined
+      ? { prevRpe: row.previousRpe }
+      : {}),
+    ...(row.previousAmrapReps !== null && row.previousAmrapReps !== undefined
+      ? { prevAmrapReps: row.previousAmrapReps }
       : {}),
   }));
 }
@@ -58,9 +60,9 @@ function makeRow(overrides: Partial<UndoEntryRowFixture> = {}): UndoEntryRowFixt
     instanceId: 'inst-1',
     workoutIndex: 0,
     slotId: 't1',
-    prevResult: null,
-    prevAmrapReps: null,
-    prevRpe: null,
+    previousResult: null,
+    previousAmrapReps: null,
+    previousRpe: null,
     createdAt: new Date(),
     ...overrides,
   };
@@ -71,9 +73,9 @@ function makeRow(overrides: Partial<UndoEntryRowFixture> = {}): UndoEntryRowFixt
 // ---------------------------------------------------------------------------
 
 describe('buildUndoHistory', () => {
-  describe('prevRpe serialization', () => {
-    it('should include prevRpe when DB row has prev_rpe set', () => {
-      const rows = [makeRow({ prevRpe: 8 })];
+  describe('previousRpe serialization', () => {
+    it('should include prevRpe when DB row has previous_rpe set', () => {
+      const rows = [makeRow({ previousRpe: 8 })];
 
       const result = buildUndoHistory(rows);
 
@@ -81,7 +83,7 @@ describe('buildUndoHistory', () => {
     });
 
     it('should not include prevRpe key when DB column is null', () => {
-      const rows = [makeRow({ prevRpe: null })];
+      const rows = [makeRow({ previousRpe: null })];
 
       const result = buildUndoHistory(rows);
 
@@ -89,9 +91,9 @@ describe('buildUndoHistory', () => {
     });
   });
 
-  describe('prevAmrapReps serialization', () => {
-    it('should include prevAmrapReps when DB row has prev_amrap_reps set', () => {
-      const rows = [makeRow({ prevAmrapReps: 12 })];
+  describe('previousAmrapReps serialization', () => {
+    it('should include prevAmrapReps when DB row has previous_amrap_reps set', () => {
+      const rows = [makeRow({ previousAmrapReps: 12 })];
 
       const result = buildUndoHistory(rows);
 
@@ -99,7 +101,7 @@ describe('buildUndoHistory', () => {
     });
 
     it('should not include prevAmrapReps key when DB column is null', () => {
-      const rows = [makeRow({ prevAmrapReps: null })];
+      const rows = [makeRow({ previousAmrapReps: null })];
 
       const result = buildUndoHistory(rows);
 
@@ -109,7 +111,9 @@ describe('buildUndoHistory', () => {
 
   describe('backward compatibility', () => {
     it('should omit both prevRpe and prevAmrapReps when DB columns are null', () => {
-      const rows = [makeRow({ prevResult: 'success', prevRpe: null, prevAmrapReps: null })];
+      const rows = [
+        makeRow({ previousResult: 'success', previousRpe: null, previousAmrapReps: null }),
+      ];
 
       const result = buildUndoHistory(rows);
 

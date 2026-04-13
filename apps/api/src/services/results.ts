@@ -212,15 +212,15 @@ export async function recordResult(
       throw new ApiError(500, 'Failed to record result', 'INSERT_FAILED');
     }
 
-    // Push undo entry — captures prevResult, prevAmrapReps, prevRpe, and prevSetLogs
+    // Push undo entry — captures previousResult, previousAmrapReps, previousRpe, and previousSetLogs
     await tx.insert(undoEntries).values({
       instanceId,
       workoutIndex: input.workoutIndex,
       slotId: input.slotId,
-      prevResult: existing?.result ?? null,
-      prevAmrapReps: existing?.amrapReps ?? null,
-      prevRpe: existing?.rpe ?? null,
-      prevSetLogs: existing?.setLogs ?? null,
+      previousResult: existing?.result ?? null,
+      previousAmrapReps: existing?.amrapReps ?? null,
+      previousRpe: existing?.rpe ?? null,
+      previousSetLogs: existing?.setLogs ?? null,
     });
 
     await trimUndoStack(tx, instanceId);
@@ -273,10 +273,10 @@ export async function deleteResult(
       instanceId,
       workoutIndex,
       slotId,
-      prevResult: existing.result,
-      prevAmrapReps: existing.amrapReps ?? null,
-      prevRpe: existing.rpe ?? null,
-      prevSetLogs: existing.setLogs ?? null,
+      previousResult: existing.result,
+      previousAmrapReps: existing.amrapReps ?? null,
+      previousRpe: existing.rpe ?? null,
+      previousSetLogs: existing.setLogs ?? null,
     });
 
     await tx.delete(workoutResults).where(eq(workoutResults.id, existing.id));
@@ -315,9 +315,9 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
     // Remove the undo entry (consumed)
     await tx.delete(undoEntries).where(eq(undoEntries.id, found.id));
 
-    const prevSetLogsValue = found.prevSetLogs ?? null;
+    const prevSetLogsValue = found.previousSetLogs ?? null;
 
-    if (found.prevResult === null) {
+    if (found.previousResult === null) {
       // Previous state was "no result" — delete the current result
       await tx
         .delete(workoutResults)
@@ -336,17 +336,17 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
           instanceId,
           workoutIndex: found.workoutIndex,
           slotId: found.slotId,
-          result: found.prevResult,
-          amrapReps: found.prevAmrapReps ?? null,
-          rpe: found.prevRpe ?? null,
+          result: found.previousResult,
+          amrapReps: found.previousAmrapReps ?? null,
+          rpe: found.previousRpe ?? null,
           setLogs: prevSetLogsValue,
         })
         .onConflictDoUpdate({
           target: [workoutResults.instanceId, workoutResults.workoutIndex, workoutResults.slotId],
           set: {
-            result: found.prevResult,
-            amrapReps: found.prevAmrapReps ?? null,
-            rpe: found.prevRpe ?? null,
+            result: found.previousResult,
+            amrapReps: found.previousAmrapReps ?? null,
+            rpe: found.previousRpe ?? null,
             setLogs: prevSetLogsValue,
           },
         });
