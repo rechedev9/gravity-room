@@ -75,9 +75,7 @@ function computeSlotVolume(slot: GenericSlotRow): number {
 
 /**
  * Single-pass extraction of all stats data from workout rows.
- * Produces identical output to calling extractGenericChartData,
- * extractGenericRpeData, extractGenericAmrapData, and
- * extractWeeklyVolumeData individually — but in a single iteration.
+ * Produces chartData, rpeData, amrapData, and volumeData in a single iteration.
  */
 export function extractAllGenericStats(
   definition: ProgramDefinition,
@@ -145,10 +143,6 @@ export function extractAllGenericStats(
   return { chartData, rpeData, amrapData, volumeData };
 }
 
-// ---------------------------------------------------------------------------
-// Backward-compatible public API (delegates to single-pass)
-// ---------------------------------------------------------------------------
-
 /**
  * Extracts chart data from generic program workout rows.
  * Delegates to `extractAllGenericStats` and returns the chartData portion.
@@ -179,70 +173,4 @@ export function calculateStats(data: readonly ChartDataPoint[]): ExerciseStats {
     gained: lastMarked && first ? +(lastMarked.weight - first.weight).toFixed(1) : 0,
     currentStage: lastMarked ? lastMarked.stage : 1,
   };
-}
-
-/**
- * Extracts RPE trend series per exercise from generic workout rows.
- * Delegates to `extractAllGenericStats` and returns the rpeData portion.
- */
-export function extractGenericRpeData(
-  definition: ProgramDefinition,
-  rows: readonly GenericWorkoutRow[],
-  resultTimestamps?: Readonly<Record<string, string>>
-): Record<string, RpeDataPoint[]> {
-  return extractAllGenericStats(definition, rows, resultTimestamps).rpeData;
-}
-
-/**
- * Extracts AMRAP trend series per exercise from generic workout rows.
- * Delegates to `extractAllGenericStats` and returns the amrapData portion.
- */
-export function extractGenericAmrapData(
-  definition: ProgramDefinition,
-  rows: readonly GenericWorkoutRow[],
-  resultTimestamps?: Readonly<Record<string, string>>
-): Record<string, AmrapDataPoint[]> {
-  return extractAllGenericStats(definition, rows, resultTimestamps).amrapData;
-}
-
-/**
- * Computes per-workout volume totals from workout rows.
- *
- * Volume uses per-set `setLogs` when available, falling back to
- * `weight * sets * reps` for slots without set logs.
- * Only slots with `result === 'success'` contribute to volume.
- *
- * Workouts with no successful slots are excluded from the series
- * (sparse series showing only sessions with completed work).
- *
- * Volume values are rounded to the nearest integer.
- */
-export function extractWeeklyVolumeData(
-  rows: readonly GenericWorkoutRow[],
-  resultTimestamps?: Readonly<Record<string, string>>
-): VolumeDataPoint[] {
-  const data: VolumeDataPoint[] = [];
-
-  for (const row of rows) {
-    let volumeKg = 0;
-    for (const slot of row.slots) {
-      if (slot.result === 'success') {
-        volumeKg += computeSlotVolume(slot);
-      }
-    }
-
-    if (volumeKg <= 0) continue;
-
-    const workoutIndexStr = String(row.index);
-    const timestamp = resultTimestamps?.[workoutIndexStr];
-    const date = timestamp !== undefined ? formatDateLabel(timestamp) : undefined;
-
-    data.push({
-      workout: row.index + 1,
-      volumeKg: Math.round(volumeKg),
-      date,
-    });
-  }
-
-  return data;
 }
