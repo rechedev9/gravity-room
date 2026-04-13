@@ -85,7 +85,3 @@ __pycache__/
 .venv/
 .pytest_cache/
 
-# Go coverage artifacts
-*.coverprofile
-coverage.out
-coverage.html

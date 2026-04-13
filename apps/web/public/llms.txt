@@ -46,7 +46,7 @@ Structured programs with built-in progression rules produce consistent strength 
 ## Technical Architecture
 
 - **Frontend**: React 19, Vite, TanStack Router, TanStack Query, Tailwind v4, TypeScript strict
-- **Backend**: Go (chi router), PostgreSQL, Redis
+- **Backend**: ElysiaJS (Bun), PostgreSQL, Redis
 - **Analytics**: Python FastAPI with scikit-learn for plateau detection and 1RM forecasting
 - **Auth**: Google OAuth 2.0
 - **Source**: https://github.com/rechedev/gravity-room
