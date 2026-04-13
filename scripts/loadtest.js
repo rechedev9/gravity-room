@@ -1,8 +1,7 @@
 // k6 load test for Gravity Room API.
 //
 // Prerequisites:
-//   brew install k6       (macOS)
-//   go install go.k6.io/k6@latest  (from source)
+//   brew install k6
 //
 // Usage:
 //   k6 run scripts/loadtest.js                                  # default "load" scenario
