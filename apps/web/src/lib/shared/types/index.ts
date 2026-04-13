@@ -1,5 +1,4 @@
 export type ResultValue = 'success' | 'fail';
-export type Tier = string;
 
 /** A single set's recorded data. */
 export interface SetLogEntry {

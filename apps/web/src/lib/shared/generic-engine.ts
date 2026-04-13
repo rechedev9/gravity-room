@@ -7,7 +7,7 @@ import type {
   SetLogEntry,
 } from './types/index';
 
-export function roundToNearestHalf(value: number): number {
+function roundToNearestHalf(value: number): number {
   const rounded = Math.round(value * 2) / 2;
   if (!Number.isFinite(rounded) || rounded < 0) return 0;
   return rounded;

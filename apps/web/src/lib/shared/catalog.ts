@@ -7,13 +7,13 @@
  * kept separate (DB-layer concern).
  */
 
-export type ProgramCategory = 'strength' | 'hypertrophy' | 'powerlifting';
+type ProgramCategory = 'strength' | 'hypertrophy' | 'powerlifting';
 
 export const PROGRAM_LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
 
 export type ProgramLevel = (typeof PROGRAM_LEVELS)[number];
 
-export type ProgramMeta = {
+type ProgramMeta = {
   readonly id: string;
   readonly name: string;
   readonly description: string;
