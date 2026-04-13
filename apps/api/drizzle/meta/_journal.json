@@ -239,6 +239,13 @@
       "when": 1773400000000,
       "tag": "0033_add_user_insights",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1773500000000,
+      "tag": "0034_index_renames",
+      "breakpoints": true
     }
   ]
 }
