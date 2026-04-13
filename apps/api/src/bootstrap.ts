@@ -118,6 +118,52 @@ async function runMigrations(): Promise<void> {
   // ALTER TYPE to a wider varchar is non-destructive and requires no data migration.
   await migrationClient`ALTER TABLE IF EXISTS "exercises" ALTER COLUMN "id" TYPE varchar(100)`;
 
+  // Goose-to-Drizzle bridge: if the DB has existing schema (from goose) but no
+  // Drizzle migration entries, seed the journal so Drizzle skips already-applied
+  // migrations. This is a one-time operation for databases migrated from the Go API.
+  const [{ exists: schemaExists }] = await migrationClient<[{ exists: boolean }]>`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'users'
+    )`;
+  if (schemaExists) {
+    // Drizzle stores migrations in the "drizzle" schema, not "public"
+    await migrationClient`CREATE SCHEMA IF NOT EXISTS "drizzle"`;
+    await migrationClient`
+      CREATE TABLE IF NOT EXISTS "drizzle"."__drizzle_migrations" (
+        id SERIAL PRIMARY KEY,
+        hash text NOT NULL,
+        created_at bigint
+      )`;
+    const [{ count: entryCount }] = await migrationClient<[{ count: number }]>`
+      SELECT count(*)::int as count FROM "drizzle"."__drizzle_migrations"`;
+    if (entryCount === 0) {
+      logger.info('detected goose-managed DB without Drizzle entries — seeding migration history');
+      const { readdir, readFile } = await import('fs/promises');
+      const { createHash } = await import('crypto');
+      const files = (await readdir(migrationsFolder)).filter((f) => f.endsWith('.sql')).sort();
+      // Migrations 0000-0031 correspond to goose-managed schema; 0032+ are new.
+      const gooseEquivalent = files.filter((f) => {
+        const idx = parseInt(f.split('_')[0] ?? '', 10);
+        return idx <= 31;
+      });
+      const journalJson = JSON.parse(
+        await readFile(join(migrationsFolder, 'meta', '_journal.json'), 'utf-8')
+      ) as { entries: Array<{ tag: string; when: number }> };
+      for (const file of gooseEquivalent) {
+        const content = await readFile(join(migrationsFolder, file), 'utf-8');
+        const hash = createHash('sha256').update(content).digest('hex');
+        const tag = file.replace(/\.sql$/, '');
+        const entry = journalJson.entries.find((e) => e.tag === tag);
+        const createdAt = entry?.when ?? Date.now();
+        await migrationClient`
+          INSERT INTO "drizzle"."__drizzle_migrations" (hash, created_at)
+          VALUES (${hash}, ${createdAt})`;
+      }
+      logger.info({ count: gooseEquivalent.length }, 'seeded Drizzle migration journal');
+    }
+  }
+
   logger.info({ migrationsFolder }, 'running database migrations');
   await migrate(migrationDb, { migrationsFolder });
   await migrationClient.end();
