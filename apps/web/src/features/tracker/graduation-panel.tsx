@@ -11,15 +11,15 @@ interface GraduationPanelProps {
 }
 
 const EXERCISE_LABELS: Readonly<Record<string, string>> = {
-  squat: 'tracker.graduation.squat',
-  bench: 'tracker.graduation.bench',
-  deadlift: 'tracker.graduation.deadlift',
+  squat: 'tracker.graduation.exercise_squat',
+  bench: 'tracker.graduation.exercise_bench',
+  deadlift: 'tracker.graduation.exercise_deadlift',
 };
 
 const REP_CRITERIA: Readonly<Record<string, string>> = {
-  squat: 'tracker.graduation.squat_criteria',
-  bench: 'tracker.graduation.bench_criteria',
-  deadlift: 'tracker.graduation.deadlift_criteria',
+  squat: 'tracker.graduation.criteria_squat',
+  bench: 'tracker.graduation.criteria_bench',
+  deadlift: 'tracker.graduation.criteria_deadlift',
 };
 
 function roundToNearest(value: number, rounding: number): number {
@@ -59,13 +59,13 @@ export function GraduationPanel({
     <div className="bg-card border border-rule p-4 sm:p-6 card">
       <h3 className="font-display text-xl text-title mb-1">
         {achieved.allPassed
-          ? t('tracker.graduation.completed')
-          : t('tracker.graduation.objectives')}
+          ? t('tracker.graduation.completed_title')
+          : t('tracker.graduation.pending_title')}
       </h3>
       <p className="text-[13px] text-muted mb-4">
         {achieved.allPassed
-          ? t('tracker.graduation.all_passed_message')
-          : t('tracker.graduation.incomplete_message')}
+          ? t('tracker.graduation.completed_description')
+          : t('tracker.graduation.pending_description')}
       </p>
 
       {/* Criteria checklist */}
@@ -106,7 +106,7 @@ export function GraduationPanel({
         <div className="border-t border-rule pt-4">
           <img src="/graduation-badge.webp" alt="" className="w-20 h-20 mx-auto mb-4 opacity-90" />
           <p className="text-sm font-bold text-title mb-3">
-            {t('tracker.graduation.estimated_1rm')}
+            {t('tracker.graduation.estimated_1rm_header')}
           </p>
           <div className="flex flex-wrap gap-3 mb-4">
             {Object.entries(estimatedOneRMs).map(([exercise, oneRM]) => (
