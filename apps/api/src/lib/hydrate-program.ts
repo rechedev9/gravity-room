@@ -22,11 +22,11 @@ interface Err<E> {
 
 export type Result<T, E> = Ok<T> | Err<E>;
 
-function ok<T>(value: T): Ok<T> {
+export function ok<T>(value: T): Ok<T> {
   return { ok: true, value };
 }
 
-function err<E>(error: E): Err<E> {
+export function err<E>(error: E): Err<E> {
   return { ok: false, error };
 }
 

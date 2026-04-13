@@ -6,7 +6,7 @@
 // would fragment the data without improving readability.
 
 import type { ProgramDay, SlotDef } from './shared';
-import { tmNcSlot, flatNcSlot, maxTestSlot } from './shared';
+import { TEMPO_D5F2S5, REST_6MIN, tmNcSlot, flatNcSlot, maxTestSlot } from './shared';
 
 // ═══════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -30,10 +30,6 @@ const FZ_KEYS = {
   BENCH: 'fz_bench_start',
   DEADLIFT: 'fz_deadlift_start',
 } as const;
-
-// ── Tempo Notes ──
-const TEMPO_D5F2S5 = 'Tempo: 5s bajada, 2s pausa, 5s subida (d5f2s5).';
-const REST_6MIN = 'Descanso: 6 min entre series de fundamentales.';
 
 // ── JAW Schedule Constants ──
 const JAW_B1_SCHEDULE = [

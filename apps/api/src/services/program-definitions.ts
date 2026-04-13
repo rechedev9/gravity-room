@@ -9,33 +9,9 @@ import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definitio
 import { ApiError } from '../middleware/error-handler';
 import { logger } from '../lib/logger';
 import { invalidateCatalogList, invalidateCatalogDetail } from '../lib/catalog-cache';
-import { hydrateProgramDefinition } from '../lib/hydrate-program';
+import { hydrateProgramDefinition, type Result, ok, err } from '../lib/hydrate-program';
 import { isRecord } from '@gzclp/shared/type-guards';
 import { randomUUID } from 'crypto';
-
-// ---------------------------------------------------------------------------
-// Result type (same pattern as hydrate-program.ts)
-// ---------------------------------------------------------------------------
-
-interface Ok<T> {
-  readonly ok: true;
-  readonly value: T;
-}
-
-interface Err<E> {
-  readonly ok: false;
-  readonly error: E;
-}
-
-type Result<T, E> = Ok<T> | Err<E>;
-
-function ok<T>(value: T): Ok<T> {
-  return { ok: true, value };
-}
-
-function err<E>(error: E): Err<E> {
-  return { ok: false, error };
-}
 
 // ---------------------------------------------------------------------------
 // Types
