@@ -19,12 +19,12 @@ interface ExerciseRow {
   readonly muscleGroupId: string;
   readonly equipment: string | null;
   readonly isCompound: boolean;
-  readonly isPreset: boolean;
-  readonly createdBy: string | null;
+  readonly isSystem: boolean;
+  readonly createdByUserId: string | null;
   readonly createdAt: Date;
-  readonly force: string | null;
+  readonly forceType: string | null;
   readonly level: string | null;
-  readonly mechanic: string | null;
+  readonly movementMechanic: string | null;
   readonly category: string | null;
   readonly secondaryMuscles: readonly string[] | null;
 }
@@ -37,12 +37,12 @@ const PRESET_EXERCISE: ExerciseRow = {
   muscleGroupId: 'legs',
   equipment: 'barbell',
   isCompound: true,
-  isPreset: true,
-  createdBy: null,
+  isSystem: true,
+  createdByUserId: null,
   createdAt: NOW,
-  force: 'push',
+  forceType: 'push',
   level: 'beginner',
-  mechanic: 'compound',
+  movementMechanic: 'compound',
   category: 'strength',
   secondaryMuscles: ['back', 'core'],
 };
@@ -53,12 +53,12 @@ const USER_EXERCISE: ExerciseRow = {
   muscleGroupId: 'arms',
   equipment: 'dumbbell',
   isCompound: false,
-  isPreset: false,
-  createdBy: 'user-1',
+  isSystem: false,
+  createdByUserId: 'user-1',
   createdAt: NOW,
-  force: 'pull',
+  forceType: 'pull',
   level: 'beginner',
-  mechanic: 'isolation',
+  movementMechanic: 'isolation',
   category: 'strength',
   secondaryMuscles: null,
 };
@@ -302,12 +302,12 @@ describe('createExercise', () => {
       muscleGroupId: 'chest',
       equipment: null,
       isCompound: false,
-      isPreset: false,
-      createdBy: 'user-1',
+      isSystem: false,
+      createdByUserId: 'user-1',
       createdAt: NOW,
-      force: null,
+      forceType: null,
       level: null,
-      mechanic: null,
+      movementMechanic: null,
       category: null,
       secondaryMuscles: null,
     };

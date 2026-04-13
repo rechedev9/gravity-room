@@ -1054,8 +1054,8 @@ export async function seedExercises(db: DbClient): Promise<void> {
         muscleGroupId: ex.muscleGroupId,
         equipment: ex.equipment,
         isCompound: ex.isCompound,
-        isPreset: true,
-        createdBy: null,
+        isSystem: true,
+        createdByUserId: null,
       }))
     )
     .onConflictDoNothing();

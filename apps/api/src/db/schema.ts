@@ -279,26 +279,28 @@ export const exercises = pgTable(
       .notNull(),
     equipment: varchar({ length: 50 }),
     isCompound: boolean('is_compound').notNull().default(false),
-    isPreset: boolean('is_preset').notNull().default(true),
+    isSystem: boolean('is_system').notNull().default(true),
     /**
      * Owner of custom exercises. `onDelete: 'set null'` means user deletion
-     * orphans the exercise (is_preset=false, created_by=NULL). The partial
+     * orphans the exercise (is_system=false, created_by_user_id=NULL). The partial
      * index `exercises_orphaned_idx` enables efficient cleanup queries.
      */
-    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdByUserId: uuid('created_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    force: varchar({ length: 20 }),
+    forceType: varchar('force_type', { length: 20 }),
     level: varchar({ length: 20 }),
-    mechanic: varchar({ length: 20 }),
+    movementMechanic: varchar('movement_mechanic', { length: 20 }),
     category: varchar({ length: 50 }),
     secondaryMuscles: text('secondary_muscles').array(),
   },
   (table) => [
     index('exercises_muscle_group_id_idx').on(table.muscleGroupId),
-    index('exercises_created_by_idx').on(table.createdBy),
+    index('exercises_created_by_idx').on(table.createdByUserId),
     // Performance indexes (migration 0015_add_performance_indexes)
     index('exercises_filter_composite_idx').on(
-      table.isPreset,
+      table.isSystem,
       table.level,
       table.equipment,
       table.category
@@ -306,7 +308,7 @@ export const exercises = pgTable(
     index('exercises_is_compound_idx').on(table.isCompound),
     // NOTE: exercises_name_trgm_idx (GIN pg_trgm) is migration-only —
     // Drizzle's index() builder does not support GIN indexes.
-    // NOTE: exercises_orphaned_idx (partial index WHERE is_preset=false AND created_by IS NULL)
+    // NOTE: exercises_orphaned_idx (partial index WHERE is_system=false AND created_by_user_id IS NULL)
     // is migration-only (0021) — finds orphaned custom exercises after user deletion.
   ]
 );
@@ -317,7 +319,7 @@ export const exercisesRelations = relations(exercises, ({ one }) => ({
     references: [muscleGroups.id],
   }),
   creator: one(users, {
-    fields: [exercises.createdBy],
+    fields: [exercises.createdByUserId],
     references: [users.id],
   }),
 }));

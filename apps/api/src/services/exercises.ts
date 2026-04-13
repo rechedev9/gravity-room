@@ -105,11 +105,11 @@ function toExerciseEntry(row: typeof exercises.$inferSelect): ExerciseEntry {
     muscleGroupId: row.muscleGroupId,
     equipment: row.equipment,
     isCompound: row.isCompound,
-    isPreset: row.isPreset,
-    createdBy: row.createdBy,
-    force: row.force ?? null,
+    isPreset: row.isSystem,
+    createdBy: row.createdByUserId,
+    force: row.forceType ?? null,
     level: row.level ?? null,
-    mechanic: row.mechanic ?? null,
+    mechanic: row.movementMechanic ?? null,
     category: row.category ?? null,
     secondaryMuscles: row.secondaryMuscles ?? null,
   };
@@ -155,8 +155,8 @@ export async function listExercises(
 
     const conditions = [
       userId
-        ? or(eq(exercises.isPreset, true), eq(exercises.createdBy, userId))
-        : eq(exercises.isPreset, true),
+        ? or(eq(exercises.isSystem, true), eq(exercises.createdByUserId, userId))
+        : eq(exercises.isSystem, true),
     ];
 
     if (filter?.q) {
@@ -169,13 +169,13 @@ export async function listExercises(
       conditions.push(inArray(exercises.equipment, [...filter.equipment]));
     }
     if (filter?.force && filter.force.length > 0) {
-      conditions.push(inArray(exercises.force, [...filter.force]));
+      conditions.push(inArray(exercises.forceType, [...filter.force]));
     }
     if (filter?.level && filter.level.length > 0) {
       conditions.push(inArray(exercises.level, [...filter.level]));
     }
     if (filter?.mechanic && filter.mechanic.length > 0) {
-      conditions.push(inArray(exercises.mechanic, [...filter.mechanic]));
+      conditions.push(inArray(exercises.movementMechanic, [...filter.mechanic]));
     }
     if (filter?.category && filter.category.length > 0) {
       conditions.push(inArray(exercises.category, [...filter.category]));
@@ -259,8 +259,8 @@ export async function createExercise(
       muscleGroupId: input.muscleGroupId,
       equipment: input.equipment ?? null,
       isCompound: input.isCompound ?? false,
-      isPreset: false,
-      createdBy: userId,
+      isSystem: false,
+      createdByUserId: userId,
     })
     .onConflictDoNothing()
     .returning();

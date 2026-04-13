@@ -267,6 +267,13 @@
       "when": 1773500000003,
       "tag": "0037_program_instances_renames",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1773500000004,
+      "tag": "0038_exercises_renames",
+      "breakpoints": true
     }
   ]
 }
