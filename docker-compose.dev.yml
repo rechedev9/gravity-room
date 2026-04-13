@@ -128,7 +128,7 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost/']
+      test: ['CMD', 'curl', '-f', '-s', 'http://localhost/']
       interval: 10s
       timeout: 5s
       retries: 3

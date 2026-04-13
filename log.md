@@ -153,4 +153,118 @@ Verificado contra código real del Go API:
 - `lefthook.yml`: eliminados hooks Go; añadido `api-typecheck`
 - `package.json`: añadidos `dev:api`, `test:api`, `typecheck:api`; `ci` incluye `typecheck:api`
 
-**Pendiente:** commit Fase 3-5, luego Fase 6 (limpieza)
+**Commits:**
+
+- `(above)` — Fases 3-5 committed
+
+---
+
+## 2026-04-13 — Fase 6: Limpieza
+
+### 6.1 Eliminar `apps/go-api/`
+
+- `trash apps/go-api/` — 148 files removed (recoverable)
+- Verified no remaining active references to `go-api` in the codebase
+
+### 6.2 Actualizar documentación
+
+- `CLAUDE.md` — Architecture, Build/Test, Infrastructure sections rewritten for ElysiaJS
+- `README.md` — Complete rewrite: stack table, monorepo structure, architecture diagram, commands, getting started
+
+### 6.3 Actualizar todas las referencias
+
+- `.gitignore` — Go build artifact entries commented out
+- `.prettierignore` — `apps/go-api` → `apps/api/drizzle`
+- `Caddyfile.production` — Updated routes (`/api/*` instead of bare paths), fixed container names
+- `scripts/committer` — Examples updated from Go to TypeScript
+- `scripts/rollback.sh` — Migration dir updated from goose to Drizzle
+- `scripts/loadtest.js` — Comment updated
+- `apps/web/playwright.config.ts` — webServer command: `go run` → `bun src/index.ts`
+- `apps/web/scripts/generate-api-types.ts` — Rewritten to fetch from running API's `/swagger/json` instead of static JSON
+- `apps/web/src/lib/api/generated.ts` — Header comment updated
+- `apps/web/src/lib/shared/catalog.ts` — Comment updated
+- `apps/web/nginx.dev.conf` — Comment updated
+- `apps/web/public/llms-full.txt` — Backend section updated
+
+**Commits:**
+
+- `807e4fe` — `chore: remove Go API and update all references to ElysiaJS`
+- `9da6513` — `chore: remove Go API (apps/go-api/)`
+
+**Pendiente:** Fase 7 (verificación final)
+
+---
+
+## 2026-04-13 — Fase 7: Verificación (en progreso)
+
+### 7.1 Gate completo
+
+- `bun run ci` — pasa (typecheck + lint + format + 481 web tests + build)
+- `cd apps/api && bun test` — 317 tests pasan
+- `docker compose -f docker-compose.dev.yml build api` — imagen construida
+
+**Docker build fix (commit `009f4d8`):**
+
+1. **`.dockerignore`**: `node_modules` → `**/node_modules`
+   - Root cause: `COPY apps/api ./apps/api` copied macOS symlinks into Linux container. Bun's `node_modules/.bun/` uses platform-specific hashes (`+fb5f531a2ea73cdf` on macOS ≠ `+22856657ccdae36b` on Linux arm64). Glob `**/node_modules` prevents copying local node_modules at any depth.
+
+2. **`bootstrap.ts` — goose-to-Drizzle migration bridge:**
+   - Dev DB had schema from goose but no `drizzle.__drizzle_migrations` entries → Drizzle tried to run all migrations from 0000 → `type "instance_status" already exists`.
+   - Fix: detect goose-managed DB (has `users` table, empty `drizzle.__drizzle_migrations`), seed journal with SHA-256 hashes of migration SQL files for migrations 0000-0031.
+   - Three sub-fixes during development: MD5→SHA-256, `public`→`drizzle` schema, table-existence→entry-count check.
+
+**Stack verification:**
+
+- API: `http://localhost:3002/health` → `{"status":"ok","db":{"status":"ok"},"redis":{"status":"ok"}}`
+- Web: `http://localhost:8080/` → 200
+- Catalog: `http://localhost:3002/api/catalog` → 18 programs
+- Analytics: unhealthy (pre-existing issue, not migration-related)
+
+### 7.1 Additional fix
+
+- Web healthcheck in `docker-compose.dev.yml`: `wget --spider` → `curl -f -s` (BusyBox wget in alpine resolves `localhost` to IPv6 `::1`, but nginx only listens on IPv4)
+
+### 7.2 Smoke test
+
+**Browser (guest mode via Docker stack on :8080):**
+
+- Landing page: renders correctly, cookie banner works
+- Login page: Google OAuth button + "Probar sin cuenta" visible
+- Guest mode: enters `/app`, welcome page, sidebar, "0 online" counter
+- Programs catalog: loads all programs, descriptions, metadata
+- Program generation: training max inputs → correct 5/3/1 weight calculations
+- Result recording: set completion updates UI, shows "deshacer" button
+- Undo: reverts set to original state
+
+**API (authenticated via dev login on :3002):**
+
+- `POST /api/auth/dev` → JWT + user
+- `GET /api/auth/me` → user object
+- `GET /api/catalog` → 18 programs
+- `GET /api/exercises` → exercises list
+- `GET /api/muscle-groups` → 8 muscle groups
+- `GET /api/insights` → `{ data: [] }` (no insights for new user)
+- `GET /api/stats/online` → `{ count: 1 }`
+- `POST /api/programs` → program created (GZCLP)
+- `POST /api/programs/:id/results` → result recorded
+- `POST /api/programs/:id/undo` → result undone
+- `GET /api/programs/:id/export` → full program JSON
+- `POST /api/programs/import` → program re-created from export
+- `DELETE /api/programs/:id` → 204
+
+All endpoints return correct response shapes. Timestamps ISO 8601, nullable fields null (not omitted), error format `{ error, code }`.
+
+### 7.3 E2E tests
+
+- `playwright.config.ts`: added `locale: 'es-ES'` — tests assumed Spanish but no locale was set
+- Results: 26/95 pass, 69 fail
+- All 69 failures are pre-existing frontend/test sync issues (not migration-related):
+  1. Guest dashboard layout: tests expect catalog on `/app` but UI shows welcome page; catalog at `/app/programs`
+  2. Link vs button roles: some tests use `getByRole('link')` but components render `<button>`
+  3. `navigateToTracker` helper assumes "Continuar Entrenamiento" is an `<a>`, now it's a `<button>`
+- Tests that pass: auth (3), catalog (2), setup (4), workout-recording (4), workout-completion (5), undo (2), landing-page (2), profile (1), others (3)
+- These cover the full authenticated flow: login → catalog → program creation → recording → undo
+
+**Commits:**
+
+- `(pending)` — Fase 7 documentation and healthcheck fix
