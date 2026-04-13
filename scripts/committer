@@ -3,7 +3,7 @@
 # Usage: committer "type(scope): message" "file1" ["file2" ...]
 #
 # Examples:
-#   committer "feat(go-api): add rate limiting" apps/go-api/internal/middleware/ratelimit.go
+#   committer "feat(api): add rate limiting" apps/api/src/middleware/rate-limit.ts
 #   committer "fix(web): login redirect loop" apps/web/src/pages/login.tsx apps/web/src/hooks/use-auth.ts
 #
 # Adapted from steipete/agent-scripts for Bun monorepo workflow.
@@ -22,7 +22,7 @@ export _COMMITTER_TOKEN
 usage() {
   printf 'Usage: %s [--force] "commit message" "file" ["file" ...]\n' "$(basename "$0")" >&2
   printf '\nExamples:\n' >&2
-  printf '  %s "feat(go-api): add endpoint" apps/go-api/internal/handler/new.go\n' "$(basename "$0")" >&2
+  printf '  %s "feat(api): add endpoint" apps/api/src/routes/new.ts\n' "$(basename "$0")" >&2
   printf '  %s "fix(web): button alignment" apps/web/src/components/Button.tsx\n' "$(basename "$0")" >&2
   exit 2
 }

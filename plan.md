@@ -177,26 +177,37 @@ El Go API añadió funcionalidad post-migración que el ElysiaJS no tiene:
 
 ### 6.1 Eliminar `apps/go-api/`
 
-- [ ] `trash apps/go-api/` (recuperable)
-- [ ] Verificar que nada más referencia `go-api`:
-  - `docker-compose*.yml`
-  - `.github/workflows/`
-  - `lefthook.yml`
-  - `CLAUDE.md`
-  - `README.md`
+- [x] `trash apps/go-api/` (recuperable)
+- [x] Verificar que nada más referencia `go-api`:
+  - `docker-compose*.yml` — clean
+  - `.github/workflows/` — clean (Go workflows already deleted in Fase 5)
+  - `lefthook.yml` — clean (Go hooks already removed in Fase 5)
+  - `CLAUDE.md` — updated
+  - `README.md` — updated
+  - `.gitignore` — Go entries commented out
+  - `.prettierignore` — updated to `apps/api/drizzle`
+  - `scripts/committer` — examples updated
+  - `scripts/rollback.sh` — migration dir updated to Drizzle
+  - `scripts/loadtest.js` — comment updated
+  - `Caddyfile.production` — updated routes and container names
+  - `apps/web/playwright.config.ts` — webServer command updated
+  - `apps/web/nginx.dev.conf` — comment updated
+  - `apps/web/src/lib/shared/catalog.ts` — comment updated
+  - `apps/web/src/lib/api/generated.ts` — header updated
+  - `apps/web/public/llms-full.txt` — backend section updated
 
 ### 6.2 Actualizar documentación
 
-- [ ] `CLAUDE.md` — actualizar sección Architecture para reflejar ElysiaJS en vez de Go
-- [ ] `CLAUDE.md` — actualizar Build/Test commands (eliminar Go commands)
-- [ ] `CLAUDE.md` — actualizar Infrastructure section
-- [ ] `README.md` — si existe, actualizar stack description
+- [x] `CLAUDE.md` — actualizar sección Architecture para reflejar ElysiaJS en vez de Go
+- [x] `CLAUDE.md` — actualizar Build/Test commands (eliminar Go commands)
+- [x] `CLAUDE.md` — actualizar Infrastructure section
+- [x] `README.md` — actualizado stack description, monorepo structure, architecture, commands
 
 ### 6.3 Actualizar OpenAPI spec generación
 
-- [ ] ElysiaJS con `@elysiajs/swagger` auto-genera la spec
-- [ ] Verificar que `apps/web/` script `api:types` (openapi-zod-client) sigue funcionando con la spec auto-generada
-- [ ] Si no, ajustar o mantener spec manual como fallback
+- [x] ElysiaJS con `@elysiajs/swagger` auto-genera la spec at `/swagger/json`
+- [x] `apps/web/scripts/generate-api-types.ts` updated to fetch from running API instead of static JSON
+- [x] `apps/web/src/lib/api/generated.ts` header comment updated
 
 ---
 

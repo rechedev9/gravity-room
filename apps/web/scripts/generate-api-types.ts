@@ -1,11 +1,14 @@
 #!/usr/bin/env bun
 /**
- * Generates Zod schemas from the Go API's OpenAPI spec.
+ * Generates Zod schemas from the ElysiaJS API's OpenAPI spec.
  *
  * Output: src/lib/api/generated.ts (committed to git)
- * Purpose: drift detection — if the Go API's openapi.json changes without
+ * Purpose: drift detection — if the API's OpenAPI spec changes without
  *   updating our hand-written Zod schemas, CI will detect the divergence
  *   via `git diff --exit-code src/lib/api/generated.ts`.
+ *
+ * Requires the API to be running locally (bun run dev:api).
+ * The spec is fetched from http://localhost:3001/swagger/json.
  *
  * The generated schemas are NOT imported by app code. Our hand-written schemas
  * in lib/shared/schemas/ are more precisely typed and include coercive defaults.
@@ -17,12 +20,23 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const dir = dirname(fileURLToPath(import.meta.url));
-const specPath = resolve(dir, '../../../apps/go-api/internal/swagger/openapi.json');
+const specUrl = process.env.API_SPEC_URL ?? 'http://localhost:3001/swagger/json';
+const tmpSpecPath = '/tmp/gravity-room-openapi.json';
 const tmpPath = '/tmp/gravity-room-generated-raw.ts';
 const outputPath = resolve(dir, '../src/lib/api/generated.ts');
 
+// Fetch the OpenAPI spec from the running API
+const res = await fetch(specUrl);
+if (!res.ok) {
+  process.stderr.write(
+    `Failed to fetch OpenAPI spec from ${specUrl} (${res.status}). Is the API running?\n`
+  );
+  process.exit(1);
+}
+await Bun.write(tmpSpecPath, await res.text());
+
 // Run openapi-zod-client
-await $`bunx openapi-zod-client ${specPath} --output ${tmpPath} --export-schemas --all-readonly`;
+await $`bunx openapi-zod-client ${tmpSpecPath} --output ${tmpPath} --export-schemas --all-readonly`;
 
 let content = await Bun.file(tmpPath).text();
 
@@ -43,7 +57,7 @@ if (endpointsIdx !== -1) {
 const header = [
   '/**',
   ' * AUTO-GENERATED — do not edit by hand.',
-  ' * Source: apps/go-api/internal/swagger/openapi.json',
+  ' * Source: ElysiaJS API /swagger/json endpoint',
   ' * Regenerate: bun run api:types (from apps/web/)',
   ' *',
   ' * This file is committed to enable CI drift detection:',

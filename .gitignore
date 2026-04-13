@@ -72,9 +72,9 @@ todo.md
 # IDE
 .idea/
 
-# Go build artifacts
-apps/go-api/api
-apps/go-api/bin/
+# Go build artifacts (legacy — kept for history; directory removed)
+# apps/go-api/api
+# apps/go-api/bin/
 
 # Python cache
 __pycache__/

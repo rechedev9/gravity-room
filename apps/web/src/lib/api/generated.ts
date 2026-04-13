@@ -1,6 +1,6 @@
 /**
  * AUTO-GENERATED — do not edit by hand.
- * Source: apps/go-api/internal/swagger/openapi.json
+ * Source: ElysiaJS API /swagger/json endpoint
  * Regenerate: bun run api:types (from apps/web/)
  *
  * This file is committed to enable CI drift detection:
