@@ -1,9 +1,18 @@
+# Web framework
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
+
+# Database
 psycopg[binary,pool]==3.2.4
-pandas==2.2.3
-scikit-learn==1.6.1
+
+# Data / ML
 numpy==2.2.1
+scikit-learn==1.6.1
+scipy==1.15.1
+
+# Scheduling
 APScheduler==3.11.0
+
+# Config / validation
 pydantic==2.10.6
 pydantic-settings==2.7.1
