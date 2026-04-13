@@ -132,6 +132,7 @@
         "day_name_placeholder": "Day name",
         "remove_day": "Remove day",
         "remove_exercise": "Remove",
+        "remove_exercise_aria": "Remove {{name}}",
         "add_exercise": "+ Add exercise",
         "back": "Back",
         "next": "Next"

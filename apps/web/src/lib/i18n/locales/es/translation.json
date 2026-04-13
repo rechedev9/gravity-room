@@ -132,6 +132,7 @@
         "day_name_placeholder": "Nombre del día",
         "remove_day": "Eliminar día",
         "remove_exercise": "Quitar",
+        "remove_exercise_aria": "Quitar {{name}}",
         "add_exercise": "+ Agregar ejercicio",
         "back": "Atrás",
         "next": "Siguiente"

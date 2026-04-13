@@ -268,7 +268,9 @@ export function DaysAndExercisesStep({
                   type="button"
                   onClick={() => handleRemoveSlot(selectedDay, slotIdx)}
                   className="text-xs text-zinc-500 hover:text-red-400 transition-colors cursor-pointer"
-                  aria-label={t('programs.wizard.days_exercises.remove_exercise')}
+                  aria-label={t('programs.wizard.days_exercises.remove_exercise_aria', {
+                    name: slot.exerciseName,
+                  })}
                 >
                   {t('programs.wizard.days_exercises.remove_exercise')}
                 </button>
