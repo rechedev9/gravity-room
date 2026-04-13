@@ -38,10 +38,10 @@ interface AuthActions {
 type AuthContextValue = AuthState & AuthActions;
 
 // ---------------------------------------------------------------------------
-// Session query key — exported so external callers can interact with the cache
+// Session query key
 // ---------------------------------------------------------------------------
 
-export const SESSION_QUERY_KEY = queryKeys.auth.session;
+const SESSION_QUERY_KEY = queryKeys.auth.session;
 
 // ---------------------------------------------------------------------------
 // Session restore

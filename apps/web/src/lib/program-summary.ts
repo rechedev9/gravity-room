@@ -75,9 +75,6 @@ export interface ProgramSummary {
   readonly stageCount: number;
 }
 
-/** Re-export alias for component props. */
-export type ProgramOverviewProps = ProgramSummary;
-
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
