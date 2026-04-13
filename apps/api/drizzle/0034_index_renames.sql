@@ -1,0 +1,7 @@
+ALTER INDEX IF EXISTS refresh_tokens_prev_hash_idx RENAME TO refresh_tokens_previous_token_hash_idx;
+ALTER INDEX IF EXISTS workout_results_instance_slot_idx RENAME TO workout_results_instance_slot_uq;
+ALTER INDEX IF EXISTS undo_entries_instance_id_desc_idx RENAME TO undo_entries_instance_recency_idx;
+ALTER INDEX IF EXISTS program_definitions_list_idx RENAME TO program_definitions_user_deleted_updated_idx;
+ALTER INDEX IF EXISTS exercises_is_compound_true_idx RENAME TO exercises_is_compound_idx;
+ALTER INDEX IF EXISTS user_insights_user_type_exercise_idx RENAME TO user_insights_user_type_exercise_uq;
+ALTER INDEX IF EXISTS program_instances_one_active_per_user RENAME TO program_instances_one_active_per_user_idx;

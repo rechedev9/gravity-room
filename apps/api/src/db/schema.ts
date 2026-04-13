@@ -83,7 +83,7 @@ export const refreshTokens = pgTable(
   (table) => [
     index('refresh_tokens_user_id_idx').on(table.userId),
     index('refresh_tokens_expires_at_idx').on(table.expiresAt),
-    index('refresh_tokens_prev_hash_idx').on(table.previousTokenHash),
+    index('refresh_tokens_previous_token_hash_idx').on(table.previousTokenHash),
   ]
 );
 
@@ -156,7 +156,7 @@ export const workoutResults = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
-    unique('workout_results_instance_slot_idx').on(
+    unique('workout_results_instance_slot_uq').on(
       table.instanceId,
       table.workoutIndex,
       table.slotId
@@ -194,7 +194,7 @@ export const undoEntries = pgTable(
   },
   (table) => [
     index('undo_entries_instance_id_idx').on(table.instanceId),
-    index('undo_entries_instance_id_desc_idx').on(table.instanceId, table.id),
+    index('undo_entries_instance_recency_idx').on(table.instanceId, table.id),
   ]
 );
 
@@ -243,7 +243,7 @@ export const programDefinitions = pgTable(
     index('program_definitions_user_id_idx').on(table.userId),
     index('program_definitions_status_idx').on(table.status),
     // Performance index for list query: WHERE user_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC
-    index('program_definitions_list_idx').on(table.userId, table.deletedAt, table.updatedAt),
+    index('program_definitions_user_deleted_updated_idx').on(table.userId, table.deletedAt, table.updatedAt),
   ]
 );
 
@@ -299,7 +299,7 @@ export const exercises = pgTable(
       table.equipment,
       table.category
     ),
-    index('exercises_is_compound_true_idx').on(table.isCompound),
+    index('exercises_is_compound_idx').on(table.isCompound),
     // NOTE: exercises_name_trgm_idx (GIN pg_trgm) is migration-only —
     // Drizzle's index() builder does not support GIN indexes.
     // NOTE: exercises_orphaned_idx (partial index WHERE is_preset=false AND created_by IS NULL)
@@ -359,7 +359,7 @@ export const userInsights = pgTable(
     validUntil: timestamp('valid_until', { withTimezone: true }),
   },
   (table) => [
-    unique('user_insights_user_type_exercise_idx').on(
+    unique('user_insights_user_type_exercise_uq').on(
       table.userId,
       table.insightType,
       table.exerciseId
