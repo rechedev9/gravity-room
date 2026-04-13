@@ -1,4 +1,6 @@
 process.env['LOG_LEVEL'] = 'silent';
+// Force in-memory store so tests are self-contained and don't hit a live Redis.
+delete process.env['REDIS_URL'];
 
 import { describe, it, expect } from 'bun:test';
 import { MemoryRateLimitStore, rateLimit } from './rate-limit';
