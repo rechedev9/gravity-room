@@ -39,3 +39,27 @@ Started: 2026-04-13
 **Commits:**
 
 - `04e3951` — `docs: add ElysiaJS migration plan`
+
+---
+
+## 2026-04-13 — Fase 0: Restauración
+
+### 0.1 Restaurar `apps/api/` desde el historial
+
+- `git checkout 29655e9 -- apps/api/` restauró 99 source files + tests
+- Problema: `@gzclp/shared` era un workspace package que ya no existe (fue inlined en `apps/web/src/lib/shared/`)
+- Solución: eliminé la dependencia workspace del `package.json` del API y añadí un path alias en `tsconfig.json` → `"@gzclp/shared/*": ["../web/src/lib/shared/*"]`
+- Añadí `zod ^4.3.6` como dependency (requerida por el shared code)
+- `bun install` OK, `tsc --noEmit` pasa limpio, web tests (481) siguen verdes
+
+### 0.2 Inventario de deltas confirmado
+
+Verificado contra código real del Go API:
+
+1. Migration 00032 — CHECK constraints: `amrap_reps` 0-99, `rpe` 1-10, `workout_index` >= 0 (en `workout_results` y `undo_entries`)
+2. Migration 00033 — `exercises.id` varchar(50) → varchar(100)
+3. Migration 00034 — tabla `user_insights` con PK, FK, payload jsonb, unique constraint
+4. `GET /api/insights` — handler en Go, no existe en ElysiaJS
+5. Program templates: Go usa 20 JSON files; ElysiaJS usa TS modules con shared catalog
+
+**Pendiente:** commit checkpoint, luego Fase 1
