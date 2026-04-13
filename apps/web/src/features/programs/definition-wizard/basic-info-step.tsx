@@ -14,13 +14,13 @@ function useBasicInfoSchema() {
     name: z
       .string()
       .trim()
-      .min(1, t('programs.wizard.name_required'))
-      .max(MAX_NAME_LENGTH, t('programs.wizard.name_max', { max: MAX_NAME_LENGTH })),
+      .min(1, t('programs.wizard.basic_info.name_required'))
+      .max(MAX_NAME_LENGTH, t('programs.wizard.basic_info.max_chars', { max: MAX_NAME_LENGTH })),
     description: z
       .string()
       .max(
         MAX_DESCRIPTION_LENGTH,
-        t('programs.wizard.description_max', { max: MAX_DESCRIPTION_LENGTH })
+        t('programs.wizard.basic_info.max_chars', { max: MAX_DESCRIPTION_LENGTH })
       ),
   });
 }
@@ -61,7 +61,7 @@ export function BasicInfoStep({
     <form onSubmit={handleSubmit(onValid)} className="space-y-6">
       <div>
         <label htmlFor="def-name" className="block text-xs font-bold text-muted mb-1.5">
-          {t('programs.wizard.program_name')}
+          {t('programs.wizard.basic_info.name_label')}
         </label>
         <input
           id="def-name"
@@ -69,7 +69,7 @@ export function BasicInfoStep({
           {...register('name')}
           maxLength={MAX_NAME_LENGTH}
           className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none transition-colors"
-          placeholder={t('programs.wizard.program_name_placeholder')}
+          placeholder={t('programs.wizard.basic_info.name_placeholder')}
         />
         {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name.message}</p>}
         <p className="text-2xs text-zinc-500 mt-1">
@@ -79,7 +79,7 @@ export function BasicInfoStep({
 
       <div>
         <label htmlFor="def-description" className="block text-xs font-bold text-muted mb-1.5">
-          {t('programs.wizard.description_optional')}
+          {t('programs.wizard.basic_info.description_label')}
         </label>
         <textarea
           id="def-description"
@@ -87,7 +87,7 @@ export function BasicInfoStep({
           maxLength={MAX_DESCRIPTION_LENGTH}
           rows={3}
           className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2.5 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none transition-colors resize-none"
-          placeholder={t('programs.wizard.description_placeholder')}
+          placeholder={t('programs.wizard.basic_info.description_placeholder')}
         />
         {errors.description && (
           <p className="text-xs text-red-400 mt-1">{errors.description.message}</p>
@@ -99,10 +99,10 @@ export function BasicInfoStep({
 
       <div className="flex justify-between pt-4">
         <Button type="button" variant="ghost" onClick={onBack}>
-          {t('programs.wizard.cancel')}
+          {t('programs.wizard.basic_info.cancel')}
         </Button>
         <Button type="submit" variant="primary">
-          {t('programs.wizard.next')}
+          {t('programs.wizard.basic_info.next')}
         </Button>
       </div>
     </form>
