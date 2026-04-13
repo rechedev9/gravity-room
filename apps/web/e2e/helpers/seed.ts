@@ -51,9 +51,9 @@ export function programCard(page: Page, name: string) {
  */
 export async function navigateToTracker(page: Page): Promise<void> {
   await page.goto('/app');
-  const continueLink = page.getByRole('link', { name: 'Continuar Entrenamiento' });
-  await expect(continueLink).toBeVisible({ timeout: 10_000 });
-  await continueLink.click();
+  const continueButton = page.getByRole('button', { name: 'Continuar Entrenamiento' });
+  await expect(continueButton).toBeVisible({ timeout: 10_000 });
+  await continueButton.click();
   await expect(page.getByText(/^Día \d+$/).first()).toBeVisible({ timeout: 10_000 });
 }
 
@@ -74,7 +74,7 @@ export async function enterGuestMode(page: Page): Promise<void> {
   await page.goto('/login');
   await page.getByRole('button', { name: 'Probar sin cuenta' }).click();
   await page.waitForURL('**/app**', { timeout: 10_000 });
-  await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Modo invitado')).toBeVisible({ timeout: 10_000 });
 }
 
 /**

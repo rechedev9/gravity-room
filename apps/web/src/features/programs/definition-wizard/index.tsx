@@ -148,7 +148,7 @@ export function DefinitionWizard({
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-zinc-100">{t('programs.wizard.edit_program')}</h2>
+          <h2 className="text-lg font-bold text-zinc-100">{t('programs.wizard.title')}</h2>
           <button
             type="button"
             onClick={onCancel}

@@ -17,10 +17,10 @@ test.describe('Profile view', () => {
 
     // Supporting sentence confirming the full empty-state block rendered
     await expect(
-      page.getByText('Inicia un programa desde el Dashboard para ver tu perfil de entrenamiento.')
+      page.getByText('Inicia un programa para ver tu perfil de entrenamiento.')
     ).toBeVisible();
 
-    // CTA button to navigate back to dashboard
-    await expect(page.getByRole('button', { name: 'Ir al Dashboard' })).toBeVisible();
+    // CTA button to navigate back to home
+    await expect(page.getByRole('button', { name: 'Ir al Inicio' })).toBeVisible();
   });
 });

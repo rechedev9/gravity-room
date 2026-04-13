@@ -81,7 +81,7 @@ test.describe('Guest banner (REQ-GUI-002)', () => {
   test('banner not visible for unauthenticated non-guest', async ({ page }) => {
     await page.goto('/app');
     // Wait for page to settle
-    await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Sin programa activo')).toBeVisible({ timeout: 10_000 });
     // No guest banner
     await expect(page.getByRole('status').filter({ hasText: 'Modo invitado' })).not.toBeVisible();
   });
@@ -122,7 +122,7 @@ test.describe('Guest sidebar CTA (REQ-GUI-003, REQ-GUI-008)', () => {
 
   test('sidebar shows "Iniciar Sesión" for non-guest unauthenticated', async ({ page }) => {
     await page.goto('/app');
-    await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Sin programa activo')).toBeVisible({ timeout: 10_000 });
 
     const nav = page.getByRole('navigation').first();
     await expect(nav.getByRole('link', { name: /iniciar sesión/i })).toBeVisible();
@@ -160,7 +160,7 @@ test.describe('Guest routing (REQ-GROUT-001, REQ-GROUT-006)', () => {
     await enterGuestMode(page);
 
     expect(page.url()).toContain('/app');
-    // enterGuestMode already gates on "Elegir un Programa" — page is loaded
+    // enterGuestMode already gates on "Modo invitado" — page is loaded
   });
 
   test('non-guest unauthenticated at /app sees dashboard with "Iniciar Sesión"', async ({
@@ -168,7 +168,7 @@ test.describe('Guest routing (REQ-GROUT-001, REQ-GROUT-006)', () => {
   }) => {
     await page.goto('/app');
     // App renders dashboard (no auth required for dashboard)
-    await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Sin programa activo')).toBeVisible({ timeout: 10_000 });
     // Sidebar shows "Iniciar Sesión", not "Crear Cuenta"
     await expect(
       page
@@ -212,7 +212,7 @@ test.describe('Guest view gating (REQ-GROUT-003)', () => {
   test('guest has no profile access — avatar dropdown hidden', async ({ page }) => {
     await enterGuestMode(page);
 
-    // enterGuestMode gates on "Elegir un Programa" — home page is loaded
+    // enterGuestMode gates on "Modo invitado" — home page is loaded
     // Avatar dropdown trigger (profile entry point) is not rendered for guests
     await expect(page.getByRole('button', { name: 'Menú de usuario' })).not.toBeVisible();
     // "Iniciar Sesión" link is also hidden (guest has "Crear Cuenta" instead)
@@ -291,7 +291,7 @@ test.describe('Guest ephemeral state (REQ-GCTX-004)', () => {
 
     // Reload the page — guest state is ephemeral (React useState, no persistence)
     await page.reload();
-    await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('Sin programa activo')).toBeVisible({ timeout: 10_000 });
 
     // Guest banner should be gone
     await expect(page.getByRole('status').filter({ hasText: 'Modo invitado' })).not.toBeVisible();
