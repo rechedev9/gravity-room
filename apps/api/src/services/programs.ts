@@ -138,9 +138,9 @@ function toResponse(
 ): ProgramInstanceResponse {
   return {
     id: instance.id,
-    programId: instance.programId,
+    programId: instance.templateId,
     name: instance.name,
-    config: instance.config,
+    config: instance.programConfig,
     metadata: instance.metadata ?? null,
     status: instance.status,
     results: buildGenericResults(resultRows),
@@ -220,9 +220,9 @@ export async function createInstance(
     .insert(programInstances)
     .values({
       userId,
-      programId,
+      templateId: programId,
       name,
-      config,
+      programConfig: config,
       status: 'active',
     })
     .returning();
@@ -285,7 +285,7 @@ export async function getInstances(
   const rows = await getDb()
     .select({
       id: programInstances.id,
-      programId: programInstances.programId,
+      templateId: programInstances.templateId,
       name: programInstances.name,
       status: programInstances.status,
       createdAt: programInstances.createdAt,
@@ -304,7 +304,7 @@ export async function getInstances(
   return {
     data: page.map((i) => ({
       id: i.id,
-      programId: i.programId,
+      programId: i.templateId,
       name: i.name,
       status: i.status,
       createdAt: i.createdAt.toISOString(),
@@ -322,11 +322,11 @@ export async function getInstance(
     .select({
       id: programInstances.id,
       userId: programInstances.userId,
-      programId: programInstances.programId,
+      templateId: programInstances.templateId,
       definitionId: programInstances.definitionId,
       customDefinition: programInstances.customDefinition,
       name: programInstances.name,
-      config: programInstances.config,
+      programConfig: programInstances.programConfig,
       metadata: programInstances.metadata,
       status: programInstances.status,
       createdAt: programInstances.createdAt,
@@ -358,13 +358,13 @@ export async function updateInstance(
     updatedAt: Date;
     name?: string;
     status?: 'active' | 'completed' | 'archived';
-    config?: Record<string, number | string>;
+    programConfig?: Record<string, number | string>;
   };
   // Value overridden by set_updated_at trigger; kept to ensure valid UPDATE
   const updateValues: ProgramInstanceUpdate = { updatedAt: new Date() };
   if (updates.name !== undefined) updateValues.name = updates.name;
   if (updates.status !== undefined) updateValues.status = updates.status;
-  if (updates.config !== undefined) updateValues.config = updates.config;
+  if (updates.config !== undefined) updateValues.programConfig = updates.config;
 
   // Single UPDATE WHERE userId AND id — one round-trip instead of SELECT+UPDATE
   const [updated] = await getDb()
@@ -503,9 +503,9 @@ export async function importInstance(
       .insert(programInstances)
       .values({
         userId,
-        programId: data.programId,
+        templateId: data.programId,
         name: data.name,
-        config,
+        programConfig: config,
         status: 'active',
       })
       .returning();

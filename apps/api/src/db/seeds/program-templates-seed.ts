@@ -72,14 +72,14 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
       .where(
         and(
           eq(programInstances.status, 'active'),
-          inArray(programInstances.programId, deactivatingIds)
+          inArray(programInstances.templateId, deactivatingIds)
         )
       )
-      .returning({ id: programInstances.id, programId: programInstances.programId });
+      .returning({ id: programInstances.id, templateId: programInstances.templateId });
 
     if (completed.length > 0) {
       console.error(
-        `[seed] Auto-completed ${completed.length} active instance(s) for deactivated templates: ${completed.map((c) => `${c.id} (${c.programId})`).join(', ')}`
+        `[seed] Auto-completed ${completed.length} active instance(s) for deactivated templates: ${completed.map((c) => `${c.id} (${c.templateId})`).join(', ')}`
       );
     }
   }

@@ -253,6 +253,20 @@
       "when": 1773500000001,
       "tag": "0035_undo_entries_renames",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1773500000002,
+      "tag": "0036_perf_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1773500000003,
+      "tag": "0037_program_instances_renames",
+      "breakpoints": true
     }
   ]
 }

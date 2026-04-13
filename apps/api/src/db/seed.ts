@@ -43,9 +43,9 @@ async function seed(): Promise<void> {
   // Create a sample GZCLP program instance
   await db.insert(programInstances).values({
     userId: user.id,
-    programId: 'gzclp',
+    templateId: 'gzclp',
     name: 'My GZCLP Program',
-    config: {
+    programConfig: {
       squat: 100,
       bench: 60,
       deadlift: 100,

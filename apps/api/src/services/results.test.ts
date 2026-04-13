@@ -597,7 +597,7 @@ describe('undoLast — transaction scope', () => {
 
 describe('syncCompletedAt — new signature', () => {
   it('syncCompletedAt skips gracefully when expectedSlots is undefined (definition not found)', async () => {
-    // verifyInstanceOwnership returns programId=undefined (not in catalog)
+    // verifyInstanceOwnership returns templateId=undefined (not in catalog)
     // This makes getExpectedSlotCount return undefined, which is passed to syncCompletedAt
     const row = makeResultRow();
     selectQueue = [[{ id: 'inst-1' }], []];
@@ -621,7 +621,7 @@ describe('syncCompletedAt — new signature', () => {
 describe('deleteResult — passes expectedSlots to syncCompletedAt', () => {
   it('completes successfully when definition is not found (expectedSlots = undefined)', async () => {
     const existingRow = makeResultRow();
-    // Queue: 1) verifyInstanceOwnership (no programId), 2) existing result
+    // Queue: 1) verifyInstanceOwnership (no templateId), 2) existing result
     selectQueue = [[{ id: 'inst-1' }], [existingRow]];
 
     // Should not throw — getExpectedSlotCount returns undefined, syncCompletedAt skips
@@ -634,7 +634,7 @@ describe('deleteResult — passes expectedSlots to syncCompletedAt', () => {
 describe('undoLast — passes expectedSlots to syncCompletedAt', () => {
   it('completes successfully when definition is not found (expectedSlots = undefined)', async () => {
     const undoRow = makeUndoRow({ previousResult: 'fail' });
-    // Queue: 1) verifyInstanceOwnership (no programId), 2) undo entry
+    // Queue: 1) verifyInstanceOwnership (no templateId), 2) undo entry
     selectQueue = [[{ id: 'inst-1' }], [undoRow]];
     insertReturningResult = [];
 
