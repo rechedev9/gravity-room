@@ -41,10 +41,10 @@ interface ResultProjection {
 interface UndoProjection {
   readonly workoutIndex: number;
   readonly slotId: string;
-  readonly prevResult: 'success' | 'fail' | null;
-  readonly prevAmrapReps: number | null;
-  readonly prevRpe: number | null;
-  readonly prevSetLogs: unknown;
+  readonly previousResult: 'success' | 'fail' | null;
+  readonly previousAmrapReps: number | null;
+  readonly previousRpe: number | null;
+  readonly previousSetLogs: unknown;
 }
 
 export interface ProgramInstanceResponse {
@@ -112,14 +112,14 @@ function buildGenericResults(rows: readonly ResultProjection[]): GenericResults 
 /** Reconstructs GenericUndoHistory from undo_entries rows. */
 function buildUndoHistory(rows: readonly UndoProjection[]): GenericUndoHistory {
   return rows.map((row) => {
-    const prevSetLogs = isSetLogsArray(row.prevSetLogs) ? row.prevSetLogs : undefined;
+    const previousSetLogs = isSetLogsArray(row.previousSetLogs) ? row.previousSetLogs : undefined;
     return {
       i: row.workoutIndex,
       slotId: row.slotId,
-      ...(row.prevResult !== null ? { prev: row.prevResult } : {}),
-      ...(row.prevRpe !== null ? { prevRpe: row.prevRpe } : {}),
-      ...(row.prevAmrapReps !== null ? { prevAmrapReps: row.prevAmrapReps } : {}),
-      ...(prevSetLogs !== undefined ? { prevSetLogs } : {}),
+      ...(row.previousResult !== null ? { prev: row.previousResult } : {}),
+      ...(row.previousRpe !== null ? { prevRpe: row.previousRpe } : {}),
+      ...(row.previousAmrapReps !== null ? { prevAmrapReps: row.previousAmrapReps } : {}),
+      ...(previousSetLogs !== undefined ? { prevSetLogs: previousSetLogs } : {}),
     };
   });
 }
@@ -185,10 +185,10 @@ async function fetchResultsAndUndo(
       .select({
         workoutIndex: undoEntries.workoutIndex,
         slotId: undoEntries.slotId,
-        prevResult: undoEntries.prevResult,
-        prevAmrapReps: undoEntries.prevAmrapReps,
-        prevRpe: undoEntries.prevRpe,
-        prevSetLogs: undoEntries.prevSetLogs,
+        previousResult: undoEntries.previousResult,
+        previousAmrapReps: undoEntries.previousAmrapReps,
+        previousRpe: undoEntries.previousRpe,
+        previousSetLogs: undoEntries.previousSetLogs,
       })
       .from(undoEntries)
       .where(eq(undoEntries.instanceId, instanceId))
@@ -652,10 +652,10 @@ export async function importInstance(
         instanceId: instance.id,
         workoutIndex: entry.i,
         slotId: entry.slotId,
-        prevResult: entry.prev ?? null,
-        prevRpe: entry.prevRpe ?? null,
-        prevAmrapReps: entry.prevAmrapReps ?? null,
-        prevSetLogs: entry.prevSetLogs ?? null,
+        previousResult: entry.prev ?? null,
+        previousRpe: entry.prevRpe ?? null,
+        previousAmrapReps: entry.prevAmrapReps ?? null,
+        previousSetLogs: entry.prevSetLogs ?? null,
       }));
       await tx.insert(undoEntries).values(undoValues);
     }

@@ -136,8 +136,8 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
         undone: {
           i: entry.workoutIndex,
           slotId: entry.slotId,
-          ...(entry.prevResult !== null ? { prev: entry.prevResult } : {}),
-          ...(entry.prevSetLogs !== null ? { prevSetLogs: entry.prevSetLogs } : {}),
+          ...(entry.previousResult !== null ? { prev: entry.previousResult } : {}),
+          ...(entry.previousSetLogs !== null ? { prevSetLogs: entry.previousSetLogs } : {}),
         },
       };
     },

@@ -246,6 +246,13 @@
       "when": 1773500000000,
       "tag": "0034_index_renames",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1773500000001,
+      "tag": "0035_undo_entries_renames",
+      "breakpoints": true
     }
   ]
 }

@@ -186,10 +186,10 @@ export const undoEntries = pgTable(
       .notNull(),
     workoutIndex: smallint('workout_index').notNull(),
     slotId: varchar('slot_id', { length: 50 }).notNull(),
-    prevResult: resultTypeEnum('prev_result'),
-    prevAmrapReps: smallint('prev_amrap_reps'),
-    prevRpe: smallint('prev_rpe'),
-    prevSetLogs: jsonb('prev_set_logs'),
+    previousResult: resultTypeEnum('previous_result'),
+    previousAmrapReps: smallint('previous_amrap_reps'),
+    previousRpe: smallint('previous_rpe'),
+    previousSetLogs: jsonb('previous_set_logs'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
@@ -243,7 +243,11 @@ export const programDefinitions = pgTable(
     index('program_definitions_user_id_idx').on(table.userId),
     index('program_definitions_status_idx').on(table.status),
     // Performance index for list query: WHERE user_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC
-    index('program_definitions_user_deleted_updated_idx').on(table.userId, table.deletedAt, table.updatedAt),
+    index('program_definitions_user_deleted_updated_idx').on(
+      table.userId,
+      table.deletedAt,
+      table.updatedAt
+    ),
   ]
 );
 

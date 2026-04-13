@@ -34,10 +34,10 @@ interface UndoEntryRow {
   readonly instanceId: string;
   readonly workoutIndex: number;
   readonly slotId: string;
-  readonly prevResult: 'success' | 'fail' | null;
-  readonly prevAmrapReps: number | null;
-  readonly prevRpe: number | null;
-  readonly prevSetLogs: unknown;
+  readonly previousResult: 'success' | 'fail' | null;
+  readonly previousAmrapReps: number | null;
+  readonly previousRpe: number | null;
+  readonly previousSetLogs: unknown;
   readonly createdAt: Date;
 }
 
@@ -70,10 +70,10 @@ function makeUndoRow(overrides: Partial<UndoEntryRow> = {}): UndoEntryRow {
     instanceId: 'inst-1',
     workoutIndex: 0,
     slotId: 't1',
-    prevResult: null,
-    prevAmrapReps: null,
-    prevRpe: null,
-    prevSetLogs: null,
+    previousResult: null,
+    previousAmrapReps: null,
+    previousRpe: null,
+    previousSetLogs: null,
     createdAt: NOW,
     ...overrides,
   };
@@ -375,7 +375,7 @@ describe('undoLast', () => {
   });
 
   it('should pop and restore previous result', async () => {
-    const undoRow = makeUndoRow({ prevResult: 'fail', prevAmrapReps: 3, prevRpe: 7 });
+    const undoRow = makeUndoRow({ previousResult: 'fail', previousAmrapReps: 3, previousRpe: 7 });
     // Queue: 1) verifyInstanceOwnership, 2) undo entry found
     selectQueue = [[{ id: 'inst-1' }], [undoRow]];
     insertReturningResult = [];
@@ -398,9 +398,9 @@ describe('undoLast', () => {
     }
   });
 
-  it('should pop and restore undo entry with prevSetLogs', async () => {
-    const prevSetLogs = [{ reps: 5 }, { reps: 5 }, { reps: 3 }];
-    const undoRow = makeUndoRow({ prevResult: 'success', prevSetLogs });
+  it('should pop and restore undo entry with previousSetLogs', async () => {
+    const previousSetLogs = [{ reps: 5 }, { reps: 5 }, { reps: 3 }];
+    const undoRow = makeUndoRow({ previousResult: 'success', previousSetLogs });
     // Queue: 1) verifyInstanceOwnership, 2) undo entry found
     selectQueue = [[{ id: 'inst-1' }], [undoRow]];
     insertReturningResult = [];
@@ -408,11 +408,11 @@ describe('undoLast', () => {
     const result = await undoLast('user-1', 'inst-1');
 
     expect(result).not.toBeNull();
-    expect(result!.prevSetLogs).toEqual(prevSetLogs);
+    expect(result!.previousSetLogs).toEqual(previousSetLogs);
   });
 
-  it('should pop undo entry with null prevSetLogs (no previous set logs)', async () => {
-    const undoRow = makeUndoRow({ prevResult: 'fail', prevSetLogs: null });
+  it('should pop undo entry with null previousSetLogs (no previous set logs)', async () => {
+    const undoRow = makeUndoRow({ previousResult: 'fail', previousSetLogs: null });
     // Queue: 1) verifyInstanceOwnership, 2) undo entry found
     selectQueue = [[{ id: 'inst-1' }], [undoRow]];
     insertReturningResult = [];
@@ -420,7 +420,7 @@ describe('undoLast', () => {
     const result = await undoLast('user-1', 'inst-1');
 
     expect(result).not.toBeNull();
-    expect(result!.prevSetLogs).toBeNull();
+    expect(result!.previousSetLogs).toBeNull();
   });
 });
 
@@ -557,7 +557,7 @@ describe('deleteResult — transaction scope', () => {
 
 describe('undoLast — transaction scope', () => {
   it('calls touchInstanceTimestamp after the transaction resolves', async () => {
-    const undoRow = makeUndoRow({ prevResult: 'fail' });
+    const undoRow = makeUndoRow({ previousResult: 'fail' });
     // Queue: 1) verifyInstanceOwnership, 2) undo entry found
     selectQueue = [[{ id: 'inst-1' }], [undoRow]];
     insertReturningResult = [];
@@ -633,7 +633,7 @@ describe('deleteResult — passes expectedSlots to syncCompletedAt', () => {
 
 describe('undoLast — passes expectedSlots to syncCompletedAt', () => {
   it('completes successfully when definition is not found (expectedSlots = undefined)', async () => {
-    const undoRow = makeUndoRow({ prevResult: 'fail' });
+    const undoRow = makeUndoRow({ previousResult: 'fail' });
     // Queue: 1) verifyInstanceOwnership (no programId), 2) undo entry
     selectQueue = [[{ id: 'inst-1' }], [undoRow]];
     insertReturningResult = [];
