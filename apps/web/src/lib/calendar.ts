@@ -1,13 +1,13 @@
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import type { GenericWorkoutRow } from '@gzclp/shared/types';
 
-export interface CalendarEventOptions {
+interface CalendarEventOptions {
   readonly date?: string;
   readonly startHour?: number;
   readonly durationMinutes?: number;
 }
 
-export interface CalendarEvent {
+interface CalendarEvent {
   readonly calendarUrl: string;
   readonly title: string;
   readonly date: string;
