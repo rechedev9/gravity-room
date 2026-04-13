@@ -6,6 +6,7 @@ import { ResultCell } from './result-cell';
 import { AmrapInput } from './amrap-input';
 import { RpeSelect } from './rpe-select';
 import { StageTag } from './stage-tag';
+import { tierColorClass } from './tier-color';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -14,7 +15,7 @@ import { StageTag } from './stage-tag';
 const EM_DASH = '\u2014';
 
 // ---------------------------------------------------------------------------
-// Types (Task 2.1)
+// Types
 // ---------------------------------------------------------------------------
 
 /** Represents a single row in the per-set table. */
@@ -29,7 +30,7 @@ interface SetTableRow {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers (Task 2.1)
+// Helpers
 // ---------------------------------------------------------------------------
 
 /**
@@ -64,7 +65,7 @@ export function buildSetRows(slot: GenericSlotRow): readonly SetTableRow[] {
           setIndex: globalIndex++,
           label,
           plannedWeight: noWeight ? undefined : entry.weight,
-          plannedReps: slot.complexReps !== undefined ? entry.reps : entry.reps,
+          plannedReps: entry.reps,
           isAmrap: slot.isAmrap && isLastGlobal,
           isWarmup,
         });
@@ -88,16 +89,6 @@ export function buildSetRows(slot: GenericSlotRow): readonly SetTableRow[] {
   }
 
   return rows;
-}
-
-// ---------------------------------------------------------------------------
-// Tier badge color (mirrors day-view.tsx)
-// ---------------------------------------------------------------------------
-
-function tierColorClass(role: GenericSlotRow['role']): string {
-  if (role === 'primary') return 'text-accent';
-  if (role === 'secondary') return 'text-main';
-  return 'text-muted';
 }
 
 // ---------------------------------------------------------------------------
@@ -356,7 +347,7 @@ function SlotTable({
 }
 
 // ---------------------------------------------------------------------------
-// Main Component (Task 2.2)
+// Main Component
 // ---------------------------------------------------------------------------
 
 export function DetailedDayView({

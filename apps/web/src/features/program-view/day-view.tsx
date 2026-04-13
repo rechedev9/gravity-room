@@ -11,6 +11,7 @@ import { AmrapInput } from './amrap-input';
 import { RpeSelect } from './rpe-select';
 import { StageTag } from './stage-tag';
 import { SetIndicators } from './set-indicators';
+import { tierColorClass } from './tier-color';
 
 export interface DayViewProps {
   readonly workout: GenericWorkoutRow;
@@ -76,13 +77,6 @@ function renderStandardScheme(slot: GenericSlotRow): ReactNode {
       {slot.isAmrap && <span className="text-2xs ml-0.5 text-accent">+</span>}
     </span>
   );
-}
-
-/** Tier badge color based on role */
-function tierColorClass(role: GenericSlotRow['role']): string {
-  if (role === 'primary') return 'text-accent';
-  if (role === 'secondary') return 'text-main';
-  return 'text-muted';
 }
 
 export function DayView({
