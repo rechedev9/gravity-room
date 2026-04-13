@@ -7,7 +7,7 @@ interface HomeHeaderProps {
 function formatDaysAgo(days: number): string {
   if (days === 0) return 'hoy';
   if (days === 1) return 'ayer';
-  return `hace ${days} dias`;
+  return `hace ${days} días`;
 }
 
 export function HomeHeader({
@@ -30,7 +30,7 @@ export function HomeHeader({
               {daysSinceLast !== null && ' · '}
             </span>
           )}
-          {daysSinceLast !== null && <span>Ultima sesion: {formatDaysAgo(daysSinceLast)}</span>}
+          {daysSinceLast !== null && <span>Última sesión: {formatDaysAgo(daysSinceLast)}</span>}
         </p>
       )}
     </header>
