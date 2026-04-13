@@ -55,6 +55,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   refreshTokens: many(refreshTokens),
   programInstances: many(programInstances),
   programDefinitions: many(programDefinitions),
+  userInsights: many(userInsights),
 }));
 
 // ---------------------------------------------------------------------------
@@ -339,3 +340,34 @@ export const programTemplates = pgTable(
   },
   (table) => [index('program_templates_is_active_idx').on(table.isActive)]
 );
+
+// ---------------------------------------------------------------------------
+// user_insights — pre-computed analytics from the Python service
+// ---------------------------------------------------------------------------
+
+export const userInsights = pgTable(
+  'user_insights',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    insightType: varchar('insight_type', { length: 50 }).notNull(),
+    exerciseId: varchar('exercise_id', { length: 100 }),
+    payload: jsonb().notNull(),
+    computedAt: timestamp('computed_at', { withTimezone: true }).defaultNow().notNull(),
+    validUntil: timestamp('valid_until', { withTimezone: true }),
+  },
+  (table) => [
+    unique('user_insights_user_type_exercise_idx').on(
+      table.userId,
+      table.insightType,
+      table.exerciseId
+    ),
+    index('user_insights_user_type_idx').on(table.userId, table.insightType),
+  ]
+);
+
+export const userInsightsRelations = relations(userInsights, ({ one }) => ({
+  user: one(users, { fields: [userInsights.userId], references: [users.id] }),
+}));

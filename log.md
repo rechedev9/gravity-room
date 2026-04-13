@@ -62,4 +62,39 @@ Verificado contra código real del Go API:
 4. `GET /api/insights` — handler en Go, no existe en ElysiaJS
 5. Program templates: Go usa 20 JSON files; ElysiaJS usa TS modules con shared catalog
 
-**Pendiente:** commit checkpoint, luego Fase 1
+**Commits:**
+
+- `5d9ff86` — `chore(api): restore ElysiaJS API from git history and resolve shared imports`
+
+---
+
+## 2026-04-13 — Fase 1: Tracer Bullet
+
+### 1.1 Actualizar dependencias
+
+- Solo `@types/bun` estaba desactualizado (1.3.9 → 1.3.12)
+- `bun update` bumped otras deps (eslint, prettier, typescript-eslint, tanstack)
+- Typecheck pasa limpio
+
+### 1.2 Reconciliar schema Drizzle
+
+- `exercises.id` ya es varchar(100) en schema.ts — OK
+- CHECK constraints (migration 0031 Drizzle) — ya cubiertas
+- Agregada tabla `user_insights` al schema con todas las columnas, FK, unique constraint e index
+- Agregada relación `userInsights` a `usersRelations`
+
+### 1.3 Migraciones Drizzle faltantes
+
+- Creada `0032_widen_exercises_id.sql` — idempotente
+- Creada `0033_add_user_insights.sql` — idempotente con IF NOT EXISTS
+- Actualizado `_journal.json` con los nuevos entries
+
+### 1.4 Tracer bullet verificado
+
+- Postgres + Redis levantados via docker-compose (OrbStack)
+- API levantado localmente con `bun run dev`
+- `GET /health` → 200, DB ok, Redis ok
+- `POST /api/auth/dev` → 200, devuelve JWT + user
+- `GET /api/auth/me` → 200, devuelve usuario autenticado
+
+**Pendiente:** commit checkpoint, luego Fase 2 (insights endpoint + program templates)

@@ -18,21 +18,21 @@ El backend actual (`apps/go-api/`) usa Go + chi + pgx + goose. Anteriormente exi
 
 ### 0.1 Restaurar `apps/api/` desde el historial git
 
-- [ ] `git checkout 29655e9 -- apps/api/` para recuperar todo el directorio
-- [ ] Verificar que los archivos se restauran correctamente
-- [ ] `bun install` para resolver dependencias del workspace
+- [x] `git checkout 29655e9 -- apps/api/` para recuperar todo el directorio
+- [x] Verificar que los archivos se restauran correctamente
+- [x] `bun install` para resolver dependencias del workspace
 
 ### 0.2 Inventario de deltas Go vs ElysiaJS
 
 El Go API añadió funcionalidad post-migración que el ElysiaJS no tiene:
 
-- [ ] Migración `00032_add_check_constraints.sql` — CHECK constraints en `amrap_reps` (0-99) y `rpe` (1-10)
-- [ ] Migración `00033_widen_exercises_id.sql` — `exercises.id` de varchar(50) a varchar(100)
-- [ ] Migración `00034_user_insights.sql` — tabla `user_insights`
-- [ ] Endpoint `GET /api/insights` — lee insights pre-computados por el servicio Python
-- [ ] OpenAPI spec manual (`internal/swagger/openapi.json`) — ElysiaJS ya tiene `@elysiajs/swagger` auto-generado
-- [ ] Endpoint `GET /api/stats/online` — **ya existe** en el ElysiaJS (commit `29655e9`)
-- [ ] Program templates nuevos en JSON — Go usa JSON files, ElysiaJS usaba TypeScript definitions
+- [x] Migración `00032_add_check_constraints.sql` — CHECK constraints en `amrap_reps` (0-99) y `rpe` (1-10)
+- [x] Migración `00033_widen_exercises_id.sql` — `exercises.id` de varchar(50) a varchar(100)
+- [x] Migración `00034_user_insights.sql` — tabla `user_insights`
+- [x] Endpoint `GET /api/insights` — lee insights pre-computados por el servicio Python
+- [x] OpenAPI spec manual (`internal/swagger/openapi.json`) — ElysiaJS ya tiene `@elysiajs/swagger` auto-generado
+- [x] Endpoint `GET /api/stats/online` — **ya existe** en el ElysiaJS (commit `29655e9`)
+- [x] Program templates nuevos en JSON — Go usa JSON files, ElysiaJS usaba TypeScript definitions
 
 ---
 
@@ -40,34 +40,34 @@ El Go API añadió funcionalidad post-migración que el ElysiaJS no tiene:
 
 ### 1.1 Actualizar dependencias
 
-- [ ] Actualizar `apps/api/package.json`: bump elysia, drizzle-orm, ioredis, pino, etc. a últimas versiones
-- [ ] `bun install` y verificar que compila sin errores
+- [x] Actualizar `apps/api/package.json`: bump elysia, drizzle-orm, ioredis, pino, etc. a últimas versiones
+- [x] `bun install` y verificar que compila sin errores
 
 ### 1.2 Reconciliar schema de Drizzle con la DB actual
 
-- [ ] Ejecutar `drizzle-kit introspect` contra la DB de producción/dev para obtener el schema real
-- [ ] Comparar con `apps/api/src/db/schema.ts` del historial
-- [ ] Añadir columnas/tablas faltantes al schema Drizzle:
+- [x] Ejecutar `drizzle-kit introspect` contra la DB de producción/dev para obtener el schema real
+- [x] Comparar con `apps/api/src/db/schema.ts` del historial
+- [x] Añadir columnas/tablas faltantes al schema Drizzle:
   - `user_insights` table
   - CHECK constraints en `workout_results` y `undo_entries`
   - `exercises.id` como varchar(100)
   - Cualquier otro delta
-- [ ] **NO generar nuevas migraciones Drizzle** — la DB ya tiene el schema correcto vía goose. Drizzle solo necesita reflejar el estado actual para queries
+- [x] **NO generar nuevas migraciones Drizzle** — la DB ya tiene el schema correcto vía goose. Drizzle solo necesita reflejar el estado actual para queries
 
 ### 1.3 Añadir migraciones Drizzle faltantes
 
-- [ ] Crear migration `0032_add_check_constraints.sql` (idempotente)
-- [ ] Crear migration `0033_widen_exercises_id.sql` (idempotente)
-- [ ] Crear migration `0034_user_insights.sql` (idempotente)
-- [ ] Actualizar `bootstrap.ts` para manejar la coexistencia con goose (la DB puede tener `goose_db_version` pero también `__drizzle_migrations`)
+- [x] Crear migration `0032_widen_exercises_id.sql` (idempotente)
+- [x] Crear migration `0033_add_user_insights.sql` (idempotente)
+- [x] CHECK constraints ya cubiertos por Drizzle migration `0031_add_check_constraints.sql`
+- [x] `bootstrap.ts` ya maneja coexistencia con goose (hotfixes idempotentes + Drizzle migrator)
 
 ### 1.4 Verificar tracer bullet
 
-- [ ] Levantar Postgres + Redis con `docker-compose.dev.yml` (solo infra, sin API)
-- [ ] Ejecutar `bun run --filter api dev` localmente
-- [ ] Verificar `GET /health` responde correctamente
-- [ ] Verificar `POST /api/auth/dev` funciona (login de desarrollo)
-- [ ] Verificar `GET /api/auth/me` retorna el usuario
+- [x] Levantar Postgres + Redis con `docker-compose.dev.yml` (solo infra, sin API)
+- [x] Ejecutar `bun run --filter api dev` localmente
+- [x] Verificar `GET /health` responde correctamente
+- [x] Verificar `POST /api/auth/dev` funciona (login de desarrollo)
+- [x] Verificar `GET /api/auth/me` retorna el usuario
 
 ---
 
