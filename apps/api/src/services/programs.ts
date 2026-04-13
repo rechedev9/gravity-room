@@ -17,7 +17,7 @@ import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definitio
 import type { GenericResults, GenericUndoHistory } from '@gzclp/shared/types/program';
 import { ApiError } from '../middleware/error-handler';
 import { logger } from '../lib/logger';
-import { type Result, ok, err } from '../lib/hydrate-program';
+import { type Result, ok, err } from '../lib/result';
 
 // ---------------------------------------------------------------------------
 // Types

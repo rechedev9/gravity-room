@@ -9,7 +9,8 @@ import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definitio
 import { ApiError } from '../middleware/error-handler';
 import { logger } from '../lib/logger';
 import { invalidateCatalogList, invalidateCatalogDetail } from '../lib/catalog-cache';
-import { hydrateProgramDefinition, type Result, ok, err } from '../lib/hydrate-program';
+import { hydrateProgramDefinition } from '../lib/hydrate-program';
+import { type Result, ok, err } from '../lib/result';
 import { isRecord } from '@gzclp/shared/type-guards';
 import { randomUUID } from 'crypto';
 

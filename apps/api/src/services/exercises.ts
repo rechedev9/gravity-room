@@ -13,7 +13,7 @@ import {
 } from '../lib/exercise-cache';
 import { getCachedMuscleGroups, setCachedMuscleGroups } from '../lib/muscle-groups-cache';
 import { SingleflightMap } from '../lib/singleflight';
-import { type Result, ok, err } from '../lib/hydrate-program';
+import { type Result, ok, err } from '../lib/result';
 
 // Singleflight instances — one per return type for type safety
 const exerciseFlight = new SingleflightMap<PaginatedExercises>();

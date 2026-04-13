@@ -1,6 +1,6 @@
 """Load recommendation via logistic regression on success probability.
 
-Features: weight, success_rate_at_weight, avg_rpe, volume_last_week,
+Features: weight, success_rate_at_weight, avg_rpe, volume_in_last_7_days,
 days_since_last_session.
 
 Requires min 10 sessions with RPE data for ML path.
