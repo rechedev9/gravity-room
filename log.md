@@ -122,4 +122,35 @@ Verificado contra código real del Go API:
 
 - Health, Auth (dev login + me), Programs, Catalog, Exercises, Insights, Stats/online, Program-definitions: todos responden 200
 
-**Pendiente:** commit Fase 2, luego Fase 3 (compatibilidad de contrato API)
+**Commits:**
+
+- `(above)` — Fase 2 committed
+
+---
+
+## 2026-04-13 — Fase 3: Compatibilidad de contrato + Fase 4: Tests + Fase 5: Infra
+
+### Fase 3 — Contrato API verificado
+
+- Timestamps: `.toISOString()` = Go `FormatTime()` — idéntico formato
+- Error responses: `{ error, code }` — match
+- Nullable fields: null (not omitted) — match
+- Cursor pagination: `<ISO>_<uuid>` — match
+- Rate limits: todos coinciden con Go API
+- 481 web tests pasan (Zod schema validation)
+
+### Fase 4 — Tests API
+
+- 317 tests pasan (84 lib + 100 services/middleware + 19 catalog + 45 definitions + 66 routes + 3 insights)
+- Rate limit tests requieren Redis limpio (stale entries causan fallos)
+- No se necesitaron cambios en mocks/fixtures
+
+### Fase 5 — Infraestructura
+
+- `Dockerfile.api`: Go multi-stage → Bun single runtime (copia shared lib + web dist)
+- `docker-compose.dev.yml` + `docker-compose.yml`: healthcheck `wget` → `bun -e fetch()`
+- CI: eliminada dependency en `_go-integration.yml`; borrados `go-ci.yml` y `_go-integration.yml`
+- `lefthook.yml`: eliminados hooks Go; añadido `api-typecheck`
+- `package.json`: añadidos `dev:api`, `test:api`, `typecheck:api`; `ci` incluye `typecheck:api`
+
+**Pendiente:** commit Fase 3-5, luego Fase 6 (limpieza)
