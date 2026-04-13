@@ -97,4 +97,29 @@ Verificado contra código real del Go API:
 - `POST /api/auth/dev` → 200, devuelve JWT + user
 - `GET /api/auth/me` → 200, devuelve usuario autenticado
 
-**Pendiente:** commit checkpoint, luego Fase 2 (insights endpoint + program templates)
+**Commits:**
+
+- `(pending)` — Fase 1 committed above
+
+---
+
+## 2026-04-13 — Fase 2: Endpoints faltantes
+
+### 2.1 Insights endpoint
+
+- Creado `services/insights.ts` — query a `user_insights` con filtro por types + order by
+- Creado `routes/insights.ts` — `GET /insights?types=...`, auth requerido, rate limit 30/min
+- Registrado en `create-app.ts`
+- 3 tests unitarios pasan
+
+### 2.2 Program templates sync
+
+- Comparación slug-a-slug: 20 slugs idénticos en Go JSON, ElysiaJS TS modules y PROGRAM_CATALOG
+- No hay templates faltantes en ninguna dirección
+- TS modules se mantienen (formato original)
+
+### 2.3 Smoke test de todos los endpoints
+
+- Health, Auth (dev login + me), Programs, Catalog, Exercises, Insights, Stats/online, Program-definitions: todos responden 200
+
+**Pendiente:** commit Fase 2, luego Fase 3 (compatibilidad de contrato API)

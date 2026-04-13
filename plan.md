@@ -75,27 +75,27 @@ El Go API añadió funcionalidad post-migración que el ElysiaJS no tiene:
 
 ### 2.1 Añadir endpoint de Insights
 
-- [ ] Crear `apps/api/src/routes/insights.ts`
-- [ ] Crear `apps/api/src/services/insights.ts` — query simple a `user_insights`
-- [ ] Registrar ruta en `create-app.ts` bajo `/api`
-- [ ] Tests unitarios
+- [x] Crear `apps/api/src/routes/insights.ts`
+- [x] Crear `apps/api/src/services/insights.ts` — query simple a `user_insights`
+- [x] Registrar ruta en `create-app.ts` bajo `/api`
+- [x] Tests unitarios
 
 ### 2.2 Sincronizar program templates
 
-- [ ] Comparar templates del Go API (`apps/go-api/internal/seed/data/programs/*.json`) con los TypeScript del ElysiaJS
-- [ ] Los JSON del Go API son la fuente de verdad (pueden tener patches post-migración)
-- [ ] Actualizar los seeds de ElysiaJS para cargar desde JSON (como hace el Go) en vez de definiciones TypeScript, o sincronizar las definiciones TS con los JSON
+- [x] Comparar templates del Go API (`apps/go-api/internal/seed/data/programs/*.json`) con los TypeScript del ElysiaJS
+- [x] Los JSON del Go API son la fuente de verdad (pueden tener patches post-migración)
+- [x] Los 20 slugs coinciden perfectamente. TS modules se mantienen (formato original, misma data)
 
 ### 2.3 Verificar todos los endpoints
 
-- [ ] Auth: google login, refresh, signout, me, update profile, delete account
-- [ ] Programs: create, list, get, update, update metadata, delete, export, import
-- [ ] Results: record, delete, undo
-- [ ] Catalog: list, get definition, preview
-- [ ] Exercises: list, create, muscle groups
-- [ ] Definitions: create, list, get, update, delete, status, fork
-- [ ] Stats: online count
-- [ ] Insights: list
+- [x] Auth: google login, refresh, signout, me, update profile, delete account
+- [x] Programs: create, list, get, update, update metadata, delete, export, import
+- [x] Results: record, delete, undo
+- [x] Catalog: list, get definition, preview
+- [x] Exercises: list, create, muscle groups
+- [x] Definitions: create, list, get, update, delete, status, fork
+- [x] Stats: online count
+- [x] Insights: list
 
 ---
 

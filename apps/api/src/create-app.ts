@@ -16,6 +16,7 @@ import { exerciseRoutes } from './routes/exercises';
 import { resultRoutes } from './routes/results';
 import { programDefinitionRoutes } from './routes/program-definitions';
 import { statsRoutes } from './routes/stats';
+import { insightsRoutes } from './routes/insights';
 import { getDb } from './db';
 import { getRedis } from './lib/redis';
 import { logger } from './lib/logger';
@@ -106,6 +107,7 @@ export function createApp(options: CreateAppOptions) {
         .use(resultRoutes)
         .use(programDefinitionRoutes)
         .use(statsRoutes)
+        .use(insightsRoutes)
     )
     .get(
       '/health',
