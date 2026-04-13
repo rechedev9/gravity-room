@@ -132,6 +132,7 @@
         "day_name_placeholder": "Day name",
         "remove_day": "Remove day",
         "remove_exercise": "Remove",
+        "remove_exercise_aria": "Remove {{name}}",
         "add_exercise": "+ Add exercise",
         "back": "Back",
         "next": "Next"
@@ -685,12 +686,6 @@
     "available": "New version available",
     "update": "Update",
     "close": "Close"
-  },
-  "guest_banner": {
-    "mode": "Guest mode",
-    "prompt": "create an account to save your progress",
-    "create_account_aria": "Create account to save your progress",
-    "create_account": "Create Account"
   },
   "online_indicator": {
     "aria_label": "{{count}} users online — Join our Discord",

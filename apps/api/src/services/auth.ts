@@ -95,7 +95,7 @@ export async function findOrCreateGoogleUser(
   if (user.deletedAt) {
     throw new ApiError(
       403,
-      'Esta cuenta ha sido eliminada. Contacta con soporte si deseas recuperarla.',
+      'This account has been deleted. Contact support if you wish to recover it.',
       'ACCOUNT_DELETED'
     );
   }

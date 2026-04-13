@@ -132,6 +132,7 @@
         "day_name_placeholder": "Nombre del día",
         "remove_day": "Eliminar día",
         "remove_exercise": "Quitar",
+        "remove_exercise_aria": "Quitar {{name}}",
         "add_exercise": "+ Agregar ejercicio",
         "back": "Atrás",
         "next": "Siguiente"
@@ -225,7 +226,7 @@
     "catalog_removed": "El programa {{programId}} ya no existe en el catálogo.",
     "guest_stats_message": "Crea una cuenta para ver estadísticas",
     "guest_export_message": "Crea una cuenta para exportar tus datos",
-    "jaw_block": "JAW Bloque",
+    "jaw_block": "Bloque JAW",
     "jaw_test_week_update_tm": "Semana de test — actualiza los TM del Bloque",
     "jaw_last_block": "último bloque de JAW.",
     "jaw_test_in_week": "Test en sem.",
@@ -508,7 +509,7 @@
       "title": "Tendencia de Volumen",
       "no_data": "Sin datos de volumen",
       "chart_sr_only": "Tendencia de volumen semanal",
-      "avg_label": "avg"
+      "avg_label": "prom"
     },
     "frequency": {
       "day_labels": ["L", "M", "X", "J", "V", "S", "D"],
@@ -643,7 +644,7 @@
         "body": "está exenta de consentimiento previo según el artículo 22.2 de la Ley 34/2002 (LSSI-CE), al ser estrictamente necesaria para la prestación del servicio de autenticación solicitado expresamente por el usuario. Esta exención está reconocida también por el Considerando 66 de la Directiva 2009/136/CE y las directrices del Comité Europeo de Protección de Datos."
       },
       "disable_cookies": {
-        "title": "¿cómo desactivar las cookies?",
+        "title": "¿Cómo desactivar las cookies?",
         "body_prefix": "Puedes configurar tu navegador para bloquear o eliminar cookies. Ten en cuenta que si bloqueas la cookie",
         "body_suffix": "no podrás mantener la sesión iniciada y tendrás que autenticarte de nuevo en cada visita. La app seguirá funcionando en modo invitado sin cookies."
       },
@@ -685,12 +686,6 @@
     "available": "Nueva versión disponible",
     "update": "Actualizar",
     "close": "Cerrar"
-  },
-  "guest_banner": {
-    "mode": "Modo invitado",
-    "prompt": "crea una cuenta para guardar tu progreso",
-    "create_account_aria": "Crear cuenta para guardar tu progreso",
-    "create_account": "Crear Cuenta"
   },
   "online_indicator": {
     "aria_label": "{{count}} usuarios online — Únete a nuestro Discord",

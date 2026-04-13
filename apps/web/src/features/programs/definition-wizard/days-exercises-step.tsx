@@ -55,7 +55,9 @@ function useDaysSchema() {
       .array(
         z.object({
           name: z.string(),
-          slots: z.array(z.custom<WizardSlot>()).min(1, t('programs.wizard.min_one_exercise')),
+          slots: z
+            .array(z.custom<WizardSlot>())
+            .min(1, t('programs.wizard.days_exercises.min_exercises')),
         })
       )
       .min(1),
@@ -108,7 +110,10 @@ export function DaysAndExercisesStep({
   const handleAddDay = (): void => {
     if (dayFields.length >= MAX_DAYS) return;
     const newIndex = dayFields.length;
-    appendDay({ name: t('programs.wizard.day_label', { number: newIndex + 1 }), slots: [] });
+    appendDay({
+      name: t('programs.wizard.days_exercises.default_day_name', { n: newIndex + 1 }),
+      slots: [],
+    });
     setSelectedDay(newIndex);
   };
 
@@ -228,7 +233,7 @@ export function DaysAndExercisesStep({
             onClick={handleAddDay}
             className="px-3 py-1.5 text-xs font-bold text-zinc-500 border border-dashed border-zinc-600 rounded-lg hover:text-zinc-300 hover:border-zinc-500 transition-colors cursor-pointer"
           >
-            {t('programs.wizard.add_day')}
+            {t('programs.wizard.days_exercises.add_day')}
           </button>
         )}
       </div>
@@ -242,11 +247,11 @@ export function DaysAndExercisesStep({
               value={currentDay.name}
               onChange={(e) => handleDayNameChange(selectedDay, e.target.value)}
               className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 focus:border-amber-500 focus:outline-none transition-colors"
-              placeholder={t('programs.wizard.day_name_placeholder')}
+              placeholder={t('programs.wizard.days_exercises.day_name_placeholder')}
             />
             {dayFields.length > 1 && (
               <Button variant="danger" size="sm" onClick={() => handleRemoveDay(selectedDay)}>
-                {t('programs.wizard.delete_day')}
+                {t('programs.wizard.days_exercises.remove_day')}
               </Button>
             )}
           </div>
@@ -263,11 +268,11 @@ export function DaysAndExercisesStep({
                   type="button"
                   onClick={() => handleRemoveSlot(selectedDay, slotIdx)}
                   className="text-xs text-zinc-500 hover:text-red-400 transition-colors cursor-pointer"
-                  aria-label={t('programs.wizard.remove_exercise_a11y', {
+                  aria-label={t('programs.wizard.days_exercises.remove_exercise_aria', {
                     name: slot.exerciseName,
                   })}
                 >
-                  {t('programs.wizard.remove')}
+                  {t('programs.wizard.days_exercises.remove_exercise')}
                 </button>
               </div>
             ))}
@@ -278,7 +283,7 @@ export function DaysAndExercisesStep({
             size="sm"
             onClick={() => setPickerTarget({ dayIndex: selectedDay })}
           >
-            {t('programs.wizard.add_exercise')}
+            {t('programs.wizard.days_exercises.add_exercise')}
           </Button>
         </div>
       )}
@@ -287,10 +292,10 @@ export function DaysAndExercisesStep({
 
       <div className="flex justify-between pt-4">
         <Button variant="ghost" onClick={onBack}>
-          {t('programs.wizard.back')}
+          {t('programs.wizard.days_exercises.back')}
         </Button>
         <Button variant="primary" onClick={() => void handleSubmit(onValid)()}>
-          {t('programs.wizard.next')}
+          {t('programs.wizard.days_exercises.next')}
         </Button>
       </div>
 

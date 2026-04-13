@@ -407,7 +407,8 @@ export function SetupForm({
                 <p className="text-xs text-muted flex flex-wrap gap-x-3 gap-y-0.5 leading-relaxed">
                   {fields.slice(0, 4).map((f) => (
                     <span key={f.key}>
-                      {f.label}: {initialConfig?.[f.key]}kg
+                      {f.label}:{' '}
+                      {isWeightField(f) ? `${initialConfig?.[f.key]}kg` : initialConfig?.[f.key]}
                     </span>
                   ))}
                   {fields.length > 4 && <span>+{fields.length - 4} más</span>}

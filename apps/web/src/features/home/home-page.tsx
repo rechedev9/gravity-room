@@ -105,7 +105,7 @@ export function HomePage(): React.ReactNode {
                   to="/app/profile"
                   className="text-xs text-muted hover:text-main transition-colors inline-flex items-center gap-1"
                 >
-                  Ver estadisticas en Perfil
+                  Ver estadísticas en Perfil
                   <span aria-hidden="true">&rarr;</span>
                 </Link>
                 <Link

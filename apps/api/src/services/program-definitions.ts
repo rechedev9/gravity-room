@@ -507,7 +507,7 @@ export async function forkDefinition(
   const cloned = {
     ...parsed,
     id: newId,
-    name: `${parsed.name} (copia)`,
+    name: `${parsed.name} (copy)`,
     source: 'custom' as const,
   };
 
