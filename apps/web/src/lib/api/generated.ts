@@ -27,7 +27,6 @@ const postApiPrograms_Body = z
     name: z.string().min(1).max(100),
     config: z.object({}).partial().passthrough().readonly(),
   })
-  .passthrough()
   .readonly();
 const patchApiProgramsById_Body = z
   .object({
@@ -62,7 +61,6 @@ const postApiProgramsImport_Body = z
       .readonly()
       .max(500),
   })
-  .passthrough()
   .readonly();
 const postApiExercises_Body = z
   .object({
@@ -95,7 +93,6 @@ const postApiProgramsByIdResults_Body = z
       .max(20)
       .optional(),
   })
-  .passthrough()
   .readonly();
 const workoutIndex = z.union([z.string(), z.number()]);
 const postApiProgram_definitionsFork_Body = z

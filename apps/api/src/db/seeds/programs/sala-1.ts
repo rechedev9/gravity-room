@@ -5,15 +5,13 @@
 // Slow movements, isometrics, technical perfection at 40-70% TM.
 
 import type { ProgramDay } from './shared';
-import { BRUNETTI_TM, tmNcSlot, flatNcSlot } from './shared';
+import { BRUNETTI_TM, TEMPO_D5F2S5, tmNcSlot, flatNcSlot } from './shared';
 
 // ═══════════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════
 
 const TM = BRUNETTI_TM;
-
-const TEMPO_D5F2S5 = 'Tempo: 5s bajada, 2s pausa, 5s subida (d5f2s5).';
 
 // ═══════════════════════════════════════════════════════════════════════
 // PHASE BUILDER

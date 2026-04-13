@@ -13,6 +13,7 @@ import {
 } from '../lib/exercise-cache';
 import { getCachedMuscleGroups, setCachedMuscleGroups } from '../lib/muscle-groups-cache';
 import { SingleflightMap } from '../lib/singleflight';
+import { type Result, ok, err } from '../lib/result';
 
 // Singleflight instances — one per return type for type safety
 const exerciseFlight = new SingleflightMap<PaginatedExercises>();
@@ -87,30 +88,6 @@ interface InvalidMuscleGroupError {
 }
 
 export type CreateExerciseError = ExerciseConflictError | InvalidMuscleGroupError;
-
-// ---------------------------------------------------------------------------
-// Result type (same pattern as hydrate-program.ts)
-// ---------------------------------------------------------------------------
-
-interface Ok<T> {
-  readonly ok: true;
-  readonly value: T;
-}
-
-interface Err<E> {
-  readonly ok: false;
-  readonly error: E;
-}
-
-type Result<T, E> = Ok<T> | Err<E>;
-
-function ok<T>(value: T): Ok<T> {
-  return { ok: true, value };
-}
-
-function err<E>(error: E): Err<E> {
-  return { ok: false, error };
-}
 
 // ---------------------------------------------------------------------------
 // Helpers

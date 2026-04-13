@@ -37,7 +37,6 @@ import { ProfileInsightsSection } from './profile-insights-section';
 const PROFILE_INSIGHT_TYPES = [
   'volume_trend',
   'frequency',
-  'e1rm_progression',
   'plateau_detection',
   'load_recommendation',
 ] as const;

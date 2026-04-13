@@ -17,7 +17,7 @@ import type { SetLogEntry } from '@gzclp/shared/types';
 type WorkoutResultRow = typeof workoutResults.$inferSelect;
 type UndoEntryRow = typeof undoEntries.$inferSelect;
 
-export interface RecordResultInput {
+interface RecordResultInput {
   readonly workoutIndex: number;
   readonly slotId: string;
   readonly result: 'success' | 'fail';

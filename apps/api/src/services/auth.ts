@@ -11,11 +11,11 @@ import { ApiError } from '../middleware/error-handler';
 // Shared types
 // ---------------------------------------------------------------------------
 
-export type UserRow = typeof users.$inferSelect;
-export type RefreshTokenRow = typeof refreshTokens.$inferSelect;
+type UserRow = typeof users.$inferSelect;
+type RefreshTokenRow = typeof refreshTokens.$inferSelect;
 
 /** Result of findOrCreateGoogleUser — includes new-user detection flag. */
-export interface FindOrCreateResult {
+interface FindOrCreateResult {
   readonly user: UserRow;
   readonly isNewUser: boolean;
 }

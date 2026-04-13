@@ -1,6 +1,6 @@
 """Load recommendation via logistic regression on success probability.
 
-Features: weight, success_rate_at_weight, avg_rpe, volume_last_week,
+Features: weight, success_rate_at_weight, avg_rpe, volume_in_last_7_days,
 days_since_last_session.
 
 Requires min 10 sessions with RPE data for ML path.
@@ -10,7 +10,7 @@ Fallback (insufficient RPE data): 3 consecutive successes → increment.
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
@@ -64,7 +64,7 @@ def _ml_recommendation(
         outcomes = weight_outcomes.get(w, [])
         return sum(outcomes) / len(outcomes) if outcomes else 0.5
 
-    volume_last_week = _volume_last_week(all_records)
+    volume_last_week = _volume_for_date(all_records, current_date)
     days_since = _days_since_last(all_records, current_date)
 
     features: list[list[float]] = []
@@ -131,11 +131,6 @@ def _fallback_recommendation(
         "confidence": 0.7 if all_success else 0.5,
         "method": "consecutive_success",
     }
-
-
-def _volume_last_week(records: list[WorkoutRecord]) -> float:
-    now = datetime.now(tz=timezone.utc)
-    return _volume_in_window(records, now - timedelta(weeks=1), now)
 
 
 def _volume_for_date(records: list[WorkoutRecord], ref_date: str | None) -> float:

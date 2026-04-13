@@ -7,7 +7,7 @@
 // Test weeks (6, 12, 18): ramping to heavy singles/doubles without grinding.
 
 import type { ProgramDay, SlotDef } from './shared';
-import { BRUNETTI_JAW_TM, tmNcSlot, flatNcSlot, maxTestSlot } from './shared';
+import { BRUNETTI_JAW_TM, REST_6MIN, tmNcSlot, flatNcSlot, maxTestSlot } from './shared';
 
 // ═══════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -22,9 +22,6 @@ const ACC = {
   SEAL_ROW: 'acc_seal_row',
   ONE_ARM_ROW: 'acc_one_arm_row',
 } as const;
-
-// ── Rest Note ──
-const REST_6MIN = 'Descanso: 6 min entre series de fundamentales.';
 
 // ═══════════════════════════════════════════════════════════════════════
 // JAW MOD SCHEDULE CONSTANTS (-10% starting loads vs original JAW)

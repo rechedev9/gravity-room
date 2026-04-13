@@ -5,16 +5,13 @@
 // Neural potentiation: transferring technique to heavier loads (60-95% TM).
 
 import type { ProgramDay, SlotDef } from './shared';
-import { BRUNETTI_TM, tmNcSlot, flatNcSlot } from './shared';
+import { BRUNETTI_TM, TEMPO_D5F2S5, REST_6MIN, tmNcSlot, flatNcSlot } from './shared';
 
 // ═══════════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════
 
 const TM = BRUNETTI_TM;
-
-const TEMPO_D5F2S5 = 'Tempo: 5s bajada, 2s pausa, 5s subida (d5f2s5).';
-const REST_6MIN = 'Descanso: 6 min entre series de fundamentales.';
 
 // ═══════════════════════════════════════════════════════════════════════
 // TYPES

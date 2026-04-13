@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { DISCORD_URL } from '@/features/landing/shared';
 import { useOnlineCount } from '@/hooks/use-online-count';
-
-const DISCORD_URL = 'https://discord.gg/FXNBrgYf7U';
 
 export function OnlineIndicator(): React.ReactNode {
   const { t } = useTranslation();

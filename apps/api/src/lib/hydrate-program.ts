@@ -6,29 +6,9 @@ import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definitio
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { isRecord } from '@gzclp/shared/type-guards';
 
-// ---------------------------------------------------------------------------
-// Result type (project has no built-in Result — defined locally)
-// ---------------------------------------------------------------------------
-
-interface Ok<T> {
-  readonly ok: true;
-  readonly value: T;
-}
-
-interface Err<E> {
-  readonly ok: false;
-  readonly error: E;
-}
-
-export type Result<T, E> = Ok<T> | Err<E>;
-
-function ok<T>(value: T): Ok<T> {
-  return { ok: true, value };
-}
-
-function err<E>(error: E): Err<E> {
-  return { ok: false, error };
-}
+import { type Result, ok, err } from './result';
+export type { Result };
+export { ok, err };
 
 // ---------------------------------------------------------------------------
 // Types
