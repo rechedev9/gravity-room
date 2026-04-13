@@ -488,7 +488,7 @@ export async function createCustomInstance(
     .select({
       id: programDefinitions.id,
       userId: programDefinitions.userId,
-      definition: programDefinitions.definition,
+      programBody: programDefinitions.programBody,
     })
     .from(programDefinitions)
     .where(and(eq(programDefinitions.id, definitionId), eq(programDefinitions.userId, userId)))
@@ -503,7 +503,7 @@ export async function createCustomInstance(
   }
 
   // Validate definition against ProgramDefinitionSchema
-  const parseResult = ProgramDefinitionSchema.safeParse(defRow.definition);
+  const parseResult = ProgramDefinitionSchema.safeParse(defRow.programBody);
   if (!parseResult.success) {
     logger.warn(
       { event: 'program.createCustom.validation_failed', definitionId },

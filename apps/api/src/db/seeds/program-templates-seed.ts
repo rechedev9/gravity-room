@@ -95,8 +95,8 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         version: 1,
         category: meta.category,
         level: meta.level,
-        source: 'preset',
-        definition: DEFINITION_MAP[meta.id],
+        sourceType: 'preset',
+        programBody: DEFINITION_MAP[meta.id],
         isActive: meta.isActive,
       }))
     )
@@ -109,8 +109,8 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         version: sql`excluded.version`,
         category: sql`excluded.category`,
         level: sql`excluded.level`,
-        source: sql`excluded.source`,
-        definition: sql`excluded.definition`,
+        sourceType: sql`excluded.source_type`,
+        programBody: sql`excluded.program_body`,
         isActive: sql`excluded.is_active`,
       },
     });

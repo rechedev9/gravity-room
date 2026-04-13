@@ -233,7 +233,7 @@ export const programDefinitions = pgTable(
     userId: uuid('user_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
-    definition: jsonb().notNull(),
+    programBody: jsonb('program_body').notNull(),
     status: programDefinitionStatusEnum().notNull().default('draft'),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -332,8 +332,8 @@ export const programTemplates = pgTable(
     version: smallint().notNull().default(1),
     category: varchar({ length: 50 }).notNull().default('strength'),
     level: varchar({ length: 20 }).notNull().default('intermediate'),
-    source: varchar({ length: 10 }).notNull().default('preset'),
-    definition: jsonb().notNull(),
+    sourceType: varchar('source_type', { length: 10 }).notNull().default('preset'),
+    programBody: jsonb('program_body').notNull(),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -354,7 +354,7 @@ export const userInsights = pgTable(
       .notNull(),
     insightType: varchar('insight_type', { length: 50 }).notNull(),
     exerciseId: varchar('exercise_id', { length: 100 }),
-    payload: jsonb().notNull(),
+    insightData: jsonb('insight_data').notNull(),
     computedAt: timestamp('computed_at', { withTimezone: true }).defaultNow().notNull(),
     validUntil: timestamp('valid_until', { withTimezone: true }),
   },

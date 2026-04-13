@@ -105,7 +105,7 @@ export function toResponse(row: ProgramDefinitionRow): ProgramDefinitionResponse
   return {
     id: row.id,
     userId: row.userId,
-    definition: row.definition,
+    definition: row.programBody,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -154,7 +154,7 @@ export async function create(
     .insert(programDefinitions)
     .values({
       userId,
-      definition: parsed,
+      programBody: parsed,
       status: 'draft',
     })
     .returning();
@@ -261,7 +261,7 @@ export async function update(
   const [updated] = await db
     .update(programDefinitions)
     .set({
-      definition: parsed,
+      programBody: parsed,
       status: newStatus,
     })
     .where(
@@ -361,7 +361,7 @@ export async function updateStatus(
 
   // Invalidate catalog cache on approval so the new template appears immediately
   if (newStatus === 'approved') {
-    const def: unknown = row.definition;
+    const def: unknown = row.programBody;
     const programId = isRecord(def) && typeof def['id'] === 'string' ? def['id'] : undefined;
     void invalidateCatalogList();
     if (programId) {
@@ -444,8 +444,8 @@ export async function forkDefinition(
         author: programTemplates.author,
         version: programTemplates.version,
         category: programTemplates.category,
-        source: programTemplates.source,
-        definition: programTemplates.definition,
+        source: programTemplates.sourceType,
+        definition: programTemplates.programBody,
       })
       .from(programTemplates)
       .where(and(eq(programTemplates.id, sourceId), eq(programTemplates.isActive, true)))
@@ -478,7 +478,7 @@ export async function forkDefinition(
     parsed = hydrateResult.value;
   } else {
     const [definition] = await db
-      .select({ definition: programDefinitions.definition, userId: programDefinitions.userId })
+      .select({ programBody: programDefinitions.programBody, userId: programDefinitions.userId })
       .from(programDefinitions)
       .where(and(eq(programDefinitions.id, sourceId), isNull(programDefinitions.deletedAt)))
       .limit(1);
@@ -491,7 +491,7 @@ export async function forkDefinition(
     }
 
     // User definitions store the full schema in JSONB (already hydrated)
-    const parseResult = ProgramDefinitionSchema.safeParse(definition.definition);
+    const parseResult = ProgramDefinitionSchema.safeParse(definition.programBody);
     if (!parseResult.success) {
       logger.warn(
         { event: 'definition.fork.validation_failed', sourceId, sourceType },
@@ -516,7 +516,7 @@ export async function forkDefinition(
       .insert(programDefinitions)
       .values({
         userId,
-        definition: cloned,
+        programBody: cloned,
         status: 'draft',
       })
       .returning();

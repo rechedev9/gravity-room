@@ -22,7 +22,7 @@ export async function getInsights(userId: string, types: string[]): Promise<Insi
     .select({
       insightType: userInsights.insightType,
       exerciseId: userInsights.exerciseId,
-      payload: userInsights.payload,
+      payload: userInsights.insightData,
       computedAt: userInsights.computedAt,
       validUntil: userInsights.validUntil,
     })

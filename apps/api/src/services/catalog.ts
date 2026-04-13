@@ -61,8 +61,8 @@ interface CatalogProjectedRow {
   readonly author: string;
   readonly category: string;
   readonly level: string;
-  readonly source: string;
-  readonly definition: {
+  readonly sourceType: string;
+  readonly programBody: {
     readonly totalWorkouts: number;
     readonly workoutsPerWeek: number;
     readonly cycleLength: number;
@@ -87,10 +87,10 @@ function toCatalogEntry(row: CatalogProjectedRow): CatalogEntry {
     author: row.author,
     category: row.category,
     level: toLevel(row.level),
-    source: row.source,
-    totalWorkouts: row.definition.totalWorkouts,
-    workoutsPerWeek: row.definition.workoutsPerWeek,
-    cycleLength: row.definition.cycleLength,
+    source: row.sourceType,
+    totalWorkouts: row.programBody.totalWorkouts,
+    workoutsPerWeek: row.programBody.workoutsPerWeek,
+    cycleLength: row.programBody.cycleLength,
   };
 }
 
@@ -128,15 +128,15 @@ export async function listPrograms(): Promise<readonly CatalogEntry[]> {
         author: programTemplates.author,
         category: programTemplates.category,
         level: programTemplates.level,
-        source: programTemplates.source,
-        definition: sql<{
+        sourceType: programTemplates.sourceType,
+        programBody: sql<{
           totalWorkouts: number;
           workoutsPerWeek: number;
           cycleLength: number;
         }>`jsonb_build_object(
-          'totalWorkouts', (${programTemplates.definition}->>'totalWorkouts')::int,
-          'workoutsPerWeek', (${programTemplates.definition}->>'workoutsPerWeek')::int,
-          'cycleLength', (${programTemplates.definition}->>'cycleLength')::int
+          'totalWorkouts', (${programTemplates.programBody}->>'totalWorkouts')::int,
+          'workoutsPerWeek', (${programTemplates.programBody}->>'workoutsPerWeek')::int,
+          'cycleLength', (${programTemplates.programBody}->>'cycleLength')::int
         )`,
       })
       .from(programTemplates)
@@ -174,7 +174,7 @@ export async function getProgramDefinition(programId: string): Promise<GetProgra
     if (!template) return { status: 'not_found' as const };
 
     // Collect referenced exercise IDs from the definition
-    const exerciseIds = collectExerciseIds(template.definition);
+    const exerciseIds = collectExerciseIds(template.programBody);
 
     // Fetch exercise rows
     const exerciseRows =
@@ -194,8 +194,8 @@ export async function getProgramDefinition(programId: string): Promise<GetProgra
         author: template.author,
         version: template.version,
         category: template.category,
-        source: template.source,
-        definition: template.definition,
+        source: template.sourceType,
+        definition: template.programBody,
       },
       exerciseRows
     );
