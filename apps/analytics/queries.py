@@ -44,33 +44,25 @@ async def fetch_workout_records(
     conn: psycopg.AsyncConnection,
     user_id: str,
 ) -> list[WorkoutRecord]:
-    """
-    Return all workout slot results for a user, expanded from the JSONB
-    results column of program_instances.
-
-    The results column shape: {workout_index: {slot_id: {result, weight, rpe, amrapReps}}}
-    result_timestamps: {workout_index: ISO timestamp}
-    """
+    """Return all workout slot results for a user from the normalized workout_results table."""
     rows = await conn.execute(
         """
         SELECT
             pi.user_id::text,
-            pi.id::text AS instance_id,
+            pi.id::text                              AS instance_id,
             pi.program_id,
-            workout_idx::int,
-            slot_entry.key AS slot_id,
-            (slot_entry.value->>'weight')::float AS weight,
-            slot_entry.value->>'result' AS result,
-            NULLIF(slot_entry.value->>'rpe', '')::float AS rpe,
-            NULLIF(slot_entry.value->>'amrapReps', '')::int AS amrap_reps,
-            pi.result_timestamps->>workout_idx AS recorded_at
-        FROM program_instances pi,
-             jsonb_each(pi.results) AS res(workout_idx, workout_data),
-             jsonb_each(res.workout_data) AS slot_entry
+            wr.workout_index,
+            wr.slot_id,
+            (wr.set_logs->0->>'weight')::float       AS weight,
+            wr.result::text,
+            wr.rpe::float,
+            wr.amrap_reps,
+            COALESCE(wr.completed_at, wr.created_at)::text  AS recorded_at
+        FROM workout_results wr
+        JOIN program_instances pi ON pi.id = wr.instance_id
         WHERE pi.user_id = $1::uuid
-          AND slot_entry.value->>'result' IS NOT NULL
-          AND slot_entry.value->>'weight' IS NOT NULL
-        ORDER BY pi.created_at, workout_idx::int, slot_entry.key
+          AND (wr.set_logs->0->>'weight') IS NOT NULL
+        ORDER BY pi.created_at, wr.workout_index, wr.slot_id
         """,
         (user_id,),
     )
@@ -85,7 +77,7 @@ async def fetch_workout_records(
                 slot_id=r[4],
                 weight=float(r[5]),
                 result=r[6],
-                rpe=r[7],
+                rpe=float(r[7]) if r[7] is not None else None,
                 amrap_reps=r[8],
                 recorded_at=r[9],
             )
@@ -107,7 +99,7 @@ async def upsert_insight(
         """
         INSERT INTO user_insights (user_id, insight_type, exercise_id, payload, computed_at)
         VALUES ($1::uuid, $2, $3, $4::jsonb, NOW())
-        ON CONFLICT ON CONSTRAINT user_insights_unique
+        ON CONFLICT (user_id, insight_type, exercise_id)
         DO UPDATE SET payload = EXCLUDED.payload, computed_at = NOW()
         """,
         (user_id, insight_type, exercise_id, json.dumps(payload)),
