@@ -226,6 +226,17 @@ describe('POST /auth/refresh', () => {
     expect(res.status).toBe(200);
     expect(typeof body.accessToken).toBe('string');
   });
+
+  it('returns 401 with AUTH_ACCOUNT_DELETED when the token belongs to a soft-deleted user', async () => {
+    mockFindRefreshToken.mockImplementation(() => Promise.resolve(TEST_REFRESH_TOKEN));
+    mockFindUserById.mockImplementation(() => Promise.resolve(undefined));
+
+    const res = await post('/auth/refresh', {}, { Cookie: 'refresh_token=some-token-value' });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_ACCOUNT_DELETED');
+  });
 });
 
 // ---------------------------------------------------------------------------

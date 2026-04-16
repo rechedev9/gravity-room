@@ -209,6 +209,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
       }
 
+      const user = await findUserById(stored.userId);
+      if (!user) {
+        await revokeRefreshToken(tokenHash);
+        refreshCookie.remove();
+        throw new ApiError(401, 'Account has been deleted', 'AUTH_ACCOUNT_DELETED');
+      }
+
       if (stored.expiresAt < new Date()) {
         await revokeRefreshToken(tokenHash);
         refreshCookie.remove();
