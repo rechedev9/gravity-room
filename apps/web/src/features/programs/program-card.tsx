@@ -20,8 +20,6 @@ interface ProgramCardProps {
   readonly isActive?: boolean;
   readonly onSelect?: () => void;
   readonly to?: string;
-  readonly onCustomize?: () => void;
-  readonly customizeDisabled?: boolean;
 }
 
 export function ProgramCard({
@@ -31,8 +29,6 @@ export function ProgramCard({
   isActive = false,
   onSelect,
   to,
-  onCustomize,
-  customizeDisabled = false,
 }: ProgramCardProps): React.ReactNode {
   const { t } = useTranslation();
   const catColor = getCategoryColor(definition.category);
@@ -115,18 +111,6 @@ export function ProgramCard({
                   : t('programs.card.start_program')}
             </button>
           ))}
-
-        {/* Customize action */}
-        {onCustomize !== undefined && (
-          <button
-            type="button"
-            onClick={onCustomize}
-            disabled={customizeDisabled}
-            className="self-center text-2xs font-bold text-muted hover:text-accent transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {customizeDisabled ? t('programs.card.customizing') : t('programs.card.customize')}
-          </button>
-        )}
       </div>
     </div>
   );

@@ -1,17 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDocumentTitle } from '@/hooks/use-document-title';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchPrograms, fetchCatalogList } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { useTracker } from '@/contexts/tracker-context';
-import { useDefinitions } from '@/hooks/use-definitions';
 import { useNavigate } from '@tanstack/react-router';
 import { ProgramCard } from './program-card';
-import { MyDefinitionsPanel } from './my-definitions-panel';
-import { DefinitionWizard } from './definition-wizard';
 import { Button } from '@/components/button';
 import { isOnboardingDismissed, dismissOnboarding } from '@/lib/onboarding';
 import { PROGRAM_LEVELS } from '@gzclp/shared/catalog';
@@ -32,9 +29,6 @@ export function ProgramsPage(): React.ReactNode {
   const { isGuest } = useGuest();
   const navigate = useNavigate();
   const { setTracker } = useTracker();
-  const { forkAsync, isForking } = useDefinitions();
-  const queryClient = useQueryClient();
-  const [wizardDefinitionId, setWizardDefinitionId] = useState<string | null>(null);
 
   const catalogQuery = useQuery({
     queryKey: queryKeys.catalog.list(),
@@ -67,22 +61,6 @@ export function ProgramsPage(): React.ReactNode {
     if (!isOnboardingDismissed()) dismissOnboarding();
     setTracker(programId, undefined);
     void navigate({ to: '/app/tracker/$programId', params: { programId } });
-  };
-
-  const handleCustomize = async (templateId: string): Promise<void> => {
-    try {
-      const forked = await forkAsync(templateId, 'template');
-      setWizardDefinitionId(forked.id);
-    } catch {
-      /* Fork failed — error handled by mutation */
-    }
-  };
-
-  const handleWizardComplete = (definitionId: string): void => {
-    setWizardDefinitionId(null);
-    void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.definitions.all });
-    handleStartProgram(`custom:${definitionId}`);
   };
 
   return (
@@ -141,10 +119,6 @@ export function ProgramsPage(): React.ReactNode {
                             definition={entry}
                             isActive={false}
                             onSelect={() => handleStartProgram(entry.id)}
-                            onCustomize={
-                              user && !isGuest ? () => void handleCustomize(entry.id) : undefined
-                            }
-                            customizeDisabled={isForking}
                           />
                         </StaggerItem>
                       ))}
@@ -155,28 +129,7 @@ export function ProgramsPage(): React.ReactNode {
             </div>
           )}
         </section>
-
-        {/* Custom definitions */}
-        {user && !isGuest && (
-          <section className="border-t border-rule pt-8">
-            <h2 className="dash-section-title mb-4">{t('programs.my_custom_programs')}</h2>
-            <MyDefinitionsPanel
-              onOpenWizard={setWizardDefinitionId}
-              onStartProgram={(defId) => {
-                setWizardDefinitionId(defId);
-              }}
-            />
-          </section>
-        )}
       </div>
-
-      {wizardDefinitionId !== null && (
-        <DefinitionWizard
-          definitionId={wizardDefinitionId}
-          onComplete={handleWizardComplete}
-          onCancel={() => setWizardDefinitionId(null)}
-        />
-      )}
     </div>
   );
 }

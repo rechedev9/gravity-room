@@ -22,11 +22,11 @@ const patchApiAuthMe_Body = z
 const limit = z.union([z.string(), z.number()]).optional();
 const postApiPrograms_Body = z
   .object({
-    programId: z.string().min(1).optional(),
-    definitionId: z.string().min(1).optional(),
+    programId: z.string().min(1),
     name: z.string().min(1).max(100),
     config: z.object({}).partial().passthrough().readonly(),
   })
+  .passthrough()
   .readonly();
 const patchApiProgramsById_Body = z
   .object({
@@ -61,6 +61,7 @@ const postApiProgramsImport_Body = z
       .readonly()
       .max(500),
   })
+  .passthrough()
   .readonly();
 const postApiExercises_Body = z
   .object({
@@ -93,16 +94,9 @@ const postApiProgramsByIdResults_Body = z
       .max(20)
       .optional(),
   })
+  .passthrough()
   .readonly();
 const workoutIndex = z.union([z.string(), z.number()]);
-const postApiProgram_definitionsFork_Body = z
-  .object({ sourceId: z.string().min(1), sourceType: z.union([z.string(), z.string()]) })
-  .passthrough()
-  .readonly();
-const patchApiProgram_definitionsByIdStatus_Body = z
-  .object({ status: z.union([z.string(), z.string(), z.string(), z.string()]) })
-  .passthrough()
-  .readonly();
 
 export const schemas = {
   patchApiAuthMe_Body,
@@ -113,6 +107,4 @@ export const schemas = {
   postApiExercises_Body,
   postApiProgramsByIdResults_Body,
   workoutIndex,
-  postApiProgram_definitionsFork_Body,
-  patchApiProgram_definitionsByIdStatus_Body,
 };

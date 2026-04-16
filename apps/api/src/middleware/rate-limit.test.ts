@@ -164,20 +164,6 @@ describe('rateLimit function', () => {
     );
   });
 
-  it('GET /program-definitions rate limit throws ApiError(429) after limit (REQ-RL-009)', async () => {
-    await rateLimit('user-pd', 'GET /program-definitions', { maxRequests: 1 });
-    await expect(
-      rateLimit('user-pd', 'GET /program-definitions', { maxRequests: 1 })
-    ).rejects.toBeInstanceOf(ApiError);
-  });
-
-  it('GET /program-definitions/:id rate limit throws ApiError(429) after limit (REQ-RL-010)', async () => {
-    await rateLimit('user-pdid', 'GET /program-definitions/:id', { maxRequests: 1 });
-    await expect(
-      rateLimit('user-pdid', 'GET /program-definitions/:id', { maxRequests: 1 })
-    ).rejects.toBeInstanceOf(ApiError);
-  });
-
   it('different users/IPs have independent counters and do not interfere', async () => {
     // Fill up the limit for user-a
     await rateLimit('user-a', 'GET /programs', { maxRequests: 1 });

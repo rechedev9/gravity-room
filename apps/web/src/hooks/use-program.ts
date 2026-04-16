@@ -2,7 +2,6 @@ import { useRef, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
 import { isRecord } from '@gzclp/shared/type-guards';
-import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
 import type {
   ProgramDefinition,
   GenericResults,
@@ -15,7 +14,6 @@ import {
   fetchGenericProgramDetail,
   fetchCatalogDetail,
   createProgram,
-  createCustomProgram,
   updateProgramConfig,
   updateProgramMetadata,
   completeProgram,
@@ -182,7 +180,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
 
   const isCustom = programId.startsWith('custom:');
 
-  // Fetch the program definition from the catalog API (skip for custom programs)
+  // Fetch the program definition from the catalog API (custom: programs have no catalog entry)
   const catalogQuery = useQuery({
     queryKey: queryKeys.catalog.detail(programId),
     queryFn: () => fetchCatalogDetail(programId),
@@ -221,16 +219,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   const resultTimestamps: Readonly<Record<string, string>> = detail?.resultTimestamps ?? {};
   const completedDates: Readonly<Record<string, string>> = detail?.completedDates ?? {};
 
-  // For custom programs, extract definition from the instance's customDefinition snapshot
-  const customDefinition = useMemo((): ProgramDefinition | undefined => {
-    if (!isCustom || !detail?.customDefinition) return undefined;
-    const raw: unknown = detail.customDefinition;
-    if (!isRecord(raw)) return undefined;
-    const parseResult = ProgramDefinitionSchema.safeParse(raw);
-    return parseResult.success ? parseResult.data : undefined;
-  }, [isCustom, detail?.customDefinition]);
-
-  const definition = isCustom ? customDefinition : catalogQuery.data;
+  const definition: ProgramDefinition | undefined = catalogQuery.data;
 
   const isLoading =
     (!isCustom && catalogQuery.isLoading) || programsQuery.isLoading || detailQuery.isLoading;
@@ -388,12 +377,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   const generateProgramMutation = useMutation({
     mutationFn: async (newConfig: Record<string, number | string>) => {
       if (!definition) throw new Error('Unknown program definition');
-      if (isCustom) {
-        const defId = programId.replace('custom:', '');
-        await createCustomProgram(defId, definition.name, newConfig);
-      } else {
-        await createProgram(programId, definition.name, newConfig);
-      }
+      await createProgram(programId, definition.name, newConfig);
     },
     onSuccess: () => {
       trackEvent('program_start', { program: programId });
