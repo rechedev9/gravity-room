@@ -292,7 +292,7 @@ export function ProgramApp({
         <p className="text-muted text-sm text-center">
           El programa <span className="font-mono">{programId}</span> ya no existe en el catálogo.
         </p>
-        {instanceId && (
+        {(instanceId ?? authData.activeInstanceId) && (
           <button
             type="button"
             onClick={handleResetAll}
