@@ -42,6 +42,7 @@ yarn-error.log*
 CLAUDE.md
 AGENTS.md
 .claude/
+.worktrees/
 openspec/.cache/
 openspec/changes/**/.cache/
 openspec/changes/**/.pending/
