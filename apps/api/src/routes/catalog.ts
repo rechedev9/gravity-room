@@ -25,11 +25,11 @@ function parseMixedConfig(raw: unknown): Record<string, number | string> | undef
 }
 
 export const catalogRoutes = new Elysia({ prefix: '/catalog' })
+  .use(requestLogger)
 
   // --- Auth-protected preview route ---
   .group('/preview', (app) =>
     app
-      .use(requestLogger)
       .use(jwtPlugin)
       .resolve(resolveUserId)
       .post(
@@ -73,13 +73,14 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
       )
   )
 
+  .use(requestLogger)
+
   // --- Public routes (no auth) ---
 
   // GET /catalog — list all available program definitions
   .get(
     '/',
-    async ({ headers, set }) => {
-      const ip = headers['x-forwarded-for'] ?? 'anonymous';
+    async ({ ip, set }) => {
       await rateLimit(ip, 'GET /catalog', { maxRequests: 100 });
       const result = await listPrograms();
       set.headers['Cache-Control'] = 'public, max-age=300, stale-while-revalidate=60';
@@ -101,8 +102,7 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
   // GET /catalog/:programId — get a specific hydrated program definition
   .get(
     '/:programId',
-    async ({ params, headers, set }) => {
-      const ip = headers['x-forwarded-for'] ?? 'anonymous';
+    async ({ params, ip, set }) => {
       await rateLimit(ip, 'GET /catalog/:id', { maxRequests: 100 });
       const result = await getProgramDefinition(params.programId);
       if (result.status === 'not_found') {

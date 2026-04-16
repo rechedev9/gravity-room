@@ -215,6 +215,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         throw new ApiError(401, 'Refresh token expired', 'AUTH_REFRESH_EXPIRED');
       }
 
+      const user = await findUserById(stored.userId);
+      if (!user) {
+        await revokeRefreshToken(tokenHash);
+        refreshCookie.remove();
+        throw new ApiError(401, 'Account has been deleted', 'AUTH_ACCOUNT_DELETED');
+      }
+
       // Rotate: revoke old token, issue new one — pass hash so successor can detect reuse
       await revokeRefreshToken(tokenHash);
       const newRefreshToken = await createAndStoreRefreshToken(stored.userId, tokenHash);

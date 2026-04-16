@@ -5,9 +5,10 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 
 from compute import run_all
+from config import settings
 from db import close_pool, init_pool
 from scheduler import get_scheduler
 
@@ -36,7 +37,11 @@ async def health() -> dict:
 
 
 @app.post("/compute")
-async def trigger_compute() -> dict:
-    """Manually trigger a full compute run. Useful for testing and backfills."""
+async def trigger_compute(
+    x_internal_secret: str | None = Header(default=None),
+) -> dict:
+    """Manually trigger a full compute run. Requires X-Internal-Secret header."""
+    if not settings.internal_secret or x_internal_secret != settings.internal_secret:
+        raise HTTPException(status_code=403, detail="Forbidden")
     result = await run_all()
     return {"ok": True, **result}

@@ -90,11 +90,10 @@ const publicExerciseRoutes = new Elysia()
   // GET /exercises — optional auth: preset-only for unauthenticated, preset+own for authenticated
   .get(
     '/exercises',
-    async ({ jwt: jwtCtx, headers, query, set }) => {
+    async ({ jwt: jwtCtx, headers, query, set, ip }) => {
       const { userId } = await resolveOptionalUserId({ jwt: jwtCtx, headers });
 
       // Compound rate-limit key: userId:ip for authenticated, ip-only for anonymous
-      const ip = headers['x-forwarded-for']?.split(',')[0]?.trim() ?? 'anonymous';
       const rateLimitKey = userId ? `${userId}:${ip}` : ip;
       await rateLimit(rateLimitKey, 'GET /exercises', { maxRequests: 100 });
 
@@ -149,8 +148,7 @@ const publicExerciseRoutes = new Elysia()
   // GET /muscle-groups — no auth required
   .get(
     '/muscle-groups',
-    async ({ headers, set }) => {
-      const ip = headers['x-forwarded-for'] ?? 'anonymous';
+    async ({ ip, set }) => {
       await rateLimit(ip, 'GET /muscle-groups', { maxRequests: 100 });
       const result = await listMuscleGroups();
       set.headers['Cache-Control'] = 'public, max-age=600';

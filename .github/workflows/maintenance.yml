@@ -35,6 +35,20 @@ jobs:
             echo "=== Disk usage ==="
             df -h / | tail -1
 
+      - name: Purge soft-deleted users (30-day retention)
+        id: purge
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT }}
+          script: |
+            set -euo pipefail
+            echo "=== Purge deleted users ==="
+            docker exec -T gravity-room-api \
+              bun run src/scripts/purge-deleted-users.ts
+
       - name: Notify via Telegram
         if: always()
         env:
