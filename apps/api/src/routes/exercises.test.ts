@@ -267,21 +267,20 @@ describe('GET /exercises — rate-limit key', () => {
     // Act
     await get('/exercises', {
       Authorization: `Bearer ${token}`,
-      'x-forwarded-for': '203.0.113.42',
     });
 
-    // Assert — first arg to rateLimit is the key
+    // Assert — first arg to rateLimit is the key (uses ip from context, not x-forwarded-for)
     const call = mockRateLimit.mock.calls[0] as unknown as [string, string, ...unknown[]];
-    expect(call[0]).toBe('user-1:203.0.113.42');
+    expect(call[0]).toBe('user-1:unknown');
   });
 
   it('unauthenticated request uses IP-only key', async () => {
     // Act
-    await get('/exercises', { 'x-forwarded-for': '198.51.100.1' });
+    await get('/exercises');
 
     // Assert
     const call = mockRateLimit.mock.calls[0] as unknown as [string, string, ...unknown[]];
-    expect(call[0]).toBe('198.51.100.1');
+    expect(call[0]).toBe('unknown');
   });
 });
 
