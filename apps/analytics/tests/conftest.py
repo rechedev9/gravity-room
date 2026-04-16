@@ -6,14 +6,18 @@ import sys
 from types import ModuleType
 from unittest.mock import MagicMock
 
+
+def _stub_module(name: str, **attrs: object) -> ModuleType:
+    mod = ModuleType(name)
+    for k, v in attrs.items():
+        setattr(mod, k, v)
+    return mod
+
+
 # Stub psycopg before any analytics module is imported
 if "psycopg" not in sys.modules:
-    psycopg_stub = ModuleType("psycopg")
-    psycopg_stub.AsyncConnection = MagicMock()  # type: ignore[attr-defined]
-    sys.modules["psycopg"] = psycopg_stub
+    sys.modules["psycopg"] = _stub_module("psycopg", AsyncConnection=MagicMock())
 
 # Stub psycopg_pool before any analytics module is imported
 if "psycopg_pool" not in sys.modules:
-    psycopg_pool_stub = ModuleType("psycopg_pool")
-    psycopg_pool_stub.AsyncConnectionPool = MagicMock()  # type: ignore[attr-defined]
-    sys.modules["psycopg_pool"] = psycopg_pool_stub
+    sys.modules["psycopg_pool"] = _stub_module("psycopg_pool", AsyncConnectionPool=MagicMock())

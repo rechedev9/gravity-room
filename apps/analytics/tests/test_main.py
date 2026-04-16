@@ -3,18 +3,12 @@
 from __future__ import annotations
 
 import sys
-from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-
-def _stub_module(name: str, **attrs: object) -> ModuleType:
-    mod = ModuleType(name)
-    for k, v in attrs.items():
-        setattr(mod, k, v)
-    return mod
+from tests.conftest import _stub_module
 
 
 def _install_heavy_stubs() -> None:
@@ -40,14 +34,15 @@ def _install_heavy_stubs() -> None:
 @pytest.fixture()
 def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """Test client with mocked lifespan and INTERNAL_SECRET set."""
-    monkeypatch.setenv("INTERNAL_SECRET", "test-secret-xyz")
-
     # Install stubs for packages not installed in the test environment.
     # conftest already stubs psycopg and psycopg_pool.
     _install_heavy_stubs()
 
     # config.Settings() runs at module level — stub it out before main is imported.
-    config_stub = _stub_module("config", settings=MagicMock(database_url="postgresql://x"))
+    config_stub = _stub_module(
+        "config",
+        settings=MagicMock(database_url="postgresql://x", internal_secret="test-secret-xyz"),
+    )
     sys.modules["config"] = config_stub
 
     # Stub the heavy application modules that main.py imports at the top level.
