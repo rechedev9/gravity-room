@@ -50,6 +50,8 @@ services:
     container_name: gravity-room-analytics
     restart: unless-stopped
     env_file: .env.production
+    environment:
+      - INTERNAL_SECRET=${INTERNAL_SECRET}
     ports:
       - '127.0.0.1:8001:8000'
     healthcheck:
