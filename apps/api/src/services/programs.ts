@@ -4,20 +4,11 @@
  */
 import { eq, and, lt, desc, or, gt, asc, sql, type SQL } from 'drizzle-orm';
 import { getDb } from '../db';
-import {
-  programInstances,
-  programTemplates,
-  programDefinitions,
-  workoutResults,
-  undoEntries,
-} from '../db/schema';
+import { programInstances, programTemplates, workoutResults, undoEntries } from '../db/schema';
 import { getProgramDefinition } from '../services/catalog';
 import { ProgramInstanceSchema } from '@gzclp/shared/schemas/instance';
-import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
 import type { GenericResults, GenericUndoHistory } from '@gzclp/shared/types/program';
 import { ApiError } from '../middleware/error-handler';
-import { logger } from '../lib/logger';
-import { type Result, ok, err } from '../lib/result';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -207,10 +198,6 @@ export async function createInstance(
   config: Record<string, number | string>
 ): Promise<ProgramInstanceResponse> {
   // Validate program exists in the curated catalog (program_templates).
-  // TODO(#17): When program_definitions approval flow is complete, also allow
-  // instantiation from approved definitions (check program_definitions
-  // WHERE status = 'approved' as fallback). See schema.ts architecture note
-  // on program_templates vs program_definitions duality.
   const [template] = await getDb()
     .select({ id: programTemplates.id })
     .from(programTemplates)
@@ -439,94 +426,6 @@ export async function deleteInstance(userId: string, instanceId: string): Promis
 
   if (deleted.length === 0) {
     throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Custom instance creation
-// ---------------------------------------------------------------------------
-
-export type InstantiationError =
-  | 'DEFINITION_NOT_FOUND'
-  | 'FORBIDDEN'
-  | 'DEFINITION_INVALID'
-  | 'DATABASE_ERROR';
-
-/**
- * Create a program instance from a user-owned program definition.
- * Snapshots the definition into customDefinition for offline/fast reads.
- */
-export async function createCustomInstance(
-  userId: string,
-  definitionId: string,
-  name: string,
-  config: Record<string, number | string>
-): Promise<Result<ProgramInstanceResponse, InstantiationError>> {
-  const db = getDb();
-
-  // Query the definition
-  const [defRow] = await db
-    .select({
-      id: programDefinitions.id,
-      userId: programDefinitions.userId,
-      definition: programDefinitions.definition,
-    })
-    .from(programDefinitions)
-    .where(and(eq(programDefinitions.id, definitionId), eq(programDefinitions.userId, userId)))
-    .limit(1);
-
-  if (!defRow) {
-    return err('DEFINITION_NOT_FOUND');
-  }
-
-  // Validate definition against ProgramDefinitionSchema
-  const parseResult = ProgramDefinitionSchema.safeParse(defRow.definition);
-  if (!parseResult.success) {
-    logger.warn(
-      { event: 'program.createCustom.validation_failed', definitionId },
-      'custom definition failed validation'
-    );
-    return err('DEFINITION_INVALID');
-  }
-
-  const definition = parseResult.data;
-
-  // Auto-complete any existing active instance
-  await db
-    .update(programInstances)
-    .set({ status: 'completed' })
-    .where(and(eq(programInstances.userId, userId), eq(programInstances.status, 'active')));
-
-  try {
-    const [instance] = await db
-      .insert(programInstances)
-      .values({
-        userId,
-        programId: `custom:${definitionId}`,
-        definitionId,
-        customDefinition: definition,
-        name,
-        config,
-        status: 'active',
-      })
-      .returning();
-
-    if (!instance) {
-      return err('DATABASE_ERROR');
-    }
-
-    logger.info(
-      { event: 'program.createCustom', userId, definitionId, instanceId: instance.id },
-      'custom program instance created'
-    );
-
-    return ok(toResponse(instance, [], []));
-  } catch (e: unknown) {
-    logger.error(
-      { event: 'program.createCustom.error', definitionId, error: e },
-      'custom instance creation database error'
-    );
-    return err('DATABASE_ERROR');
   }
 }
 

@@ -7,7 +7,6 @@ import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
 import {
   createInstance,
-  createCustomInstance,
   getInstances,
   getInstance,
   updateInstance,
@@ -16,7 +15,6 @@ import {
   exportInstance,
   importInstance,
 } from '../services/programs';
-import { ApiError } from '../middleware/error-handler';
 import {
   getCachedInstance,
   setCachedInstance,
@@ -60,55 +58,19 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
     }
   )
 
-  // POST /programs — create a new program instance (catalog or custom definition)
+  // POST /programs — create a new program instance from the catalog
   .post(
     '/',
     async ({ userId, body, set, reqLogger }) => {
       reqLogger.info({ event: 'program.create', userId }, 'creating program instance');
       await rateLimit(userId, 'POST /programs');
-
-      const { programId: bodyProgramId, definitionId: bodyDefinitionId } = body;
-      const hasProgram = bodyProgramId !== undefined && bodyProgramId.length > 0;
-      const hasDef = bodyDefinitionId !== undefined && bodyDefinitionId.length > 0;
-
-      if (hasProgram && hasDef) {
-        throw new ApiError(
-          422,
-          'Provide either programId or definitionId, not both',
-          'AMBIGUOUS_SOURCE'
-        );
-      }
-      if (!hasProgram && !hasDef) {
-        throw new ApiError(422, 'Provide programId or definitionId', 'MISSING_PROGRAM_SOURCE');
-      }
-
-      if (hasDef && bodyDefinitionId) {
-        const result = await createCustomInstance(userId, bodyDefinitionId, body.name, body.config);
-        if (!result.ok) {
-          const errorMap: Record<string, { status: number; code: string }> = {
-            DEFINITION_NOT_FOUND: { status: 404, code: 'NOT_FOUND' },
-            FORBIDDEN: { status: 403, code: 'FORBIDDEN' },
-            DEFINITION_INVALID: { status: 422, code: 'DEFINITION_INVALID' },
-            DATABASE_ERROR: { status: 500, code: 'INTERNAL_ERROR' },
-          };
-          const mapped = errorMap[result.error] ?? { status: 500, code: 'INTERNAL_ERROR' };
-          throw new ApiError(mapped.status, result.error, mapped.code);
-        }
-        set.status = 201;
-        return result.value;
-      }
-
-      if (!bodyProgramId) {
-        throw new ApiError(422, 'Provide programId or definitionId', 'MISSING_PROGRAM_SOURCE');
-      }
-      const instance = await createInstance(userId, bodyProgramId, body.name, body.config);
+      const instance = await createInstance(userId, body.programId, body.name, body.config);
       set.status = 201;
       return instance;
     },
     {
       body: t.Object({
-        programId: t.Optional(t.String({ minLength: 1 })),
-        definitionId: t.Optional(t.String({ minLength: 1 })),
+        programId: t.String({ minLength: 1 }),
         name: t.String({ minLength: 1, maxLength: 100 }),
         config: t.Record(
           t.String({ maxLength: 30 }),
@@ -119,15 +81,12 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         tags: ['Programs'],
         summary: 'Create a program instance',
         description:
-          'Creates a new program instance for the authenticated user. Provide either `programId` (catalog) or `definitionId` (custom). `config` holds the starting weights keyed by exercise ID.',
+          'Creates a new program instance for the authenticated user from the catalog. `config` holds the starting weights keyed by exercise ID.',
         security,
         responses: {
           201: { description: 'Program instance created' },
           400: { description: 'Unknown programId or invalid config' },
           401: { description: 'Missing or invalid token' },
-          403: { description: 'Definition not owned by user' },
-          404: { description: 'Definition not found' },
-          422: { description: 'Ambiguous source or invalid definition' },
           429: { description: 'Rate limited' },
         },
       },

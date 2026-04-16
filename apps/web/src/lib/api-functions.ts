@@ -13,14 +13,9 @@ import {
   MuscleGroupEntrySchema,
   PaginatedExercisesResponseSchema,
 } from '@gzclp/shared/schemas/exercises';
-import {
-  ProgramDefinitionResponseSchema,
-  ProgramDefinitionListResponseSchema,
-} from '@gzclp/shared/schemas/program-definition-response';
 import { InsightItemSchema } from '@gzclp/shared/schemas/insights';
-import { GenericWorkoutRowSchema } from '@gzclp/shared/schemas/workout-rows';
 import { UserResponseSchema, parseUserSafe } from '@gzclp/shared/schemas/user';
-import type { ResultValue, SetLogEntry, GenericWorkoutRow } from '@gzclp/shared/types';
+import type { ResultValue, SetLogEntry } from '@gzclp/shared/types';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { isRecord } from '@gzclp/shared/type-guards';
 import { z } from 'zod/v4';
@@ -34,7 +29,6 @@ export type {
   MuscleGroupEntry,
   PaginatedExercisesResponse,
 } from '@gzclp/shared/schemas/exercises';
-export type { ProgramDefinitionResponse } from '@gzclp/shared/schemas/program-definition-response';
 export type { InsightItem } from '@gzclp/shared/schemas/insights';
 export type { GenericProgramDetail } from '@gzclp/shared/schemas/instance';
 
@@ -387,100 +381,6 @@ export async function fetchMuscleGroups(): Promise<
   const data = await apiFetch('/muscle-groups');
   if (!Array.isArray(data)) return [];
   return data.map((item) => MuscleGroupEntrySchema.parse(item));
-}
-
-// ---------------------------------------------------------------------------
-// Program Definitions (user-created custom programs)
-// ---------------------------------------------------------------------------
-
-/** Fork a program definition from a template or existing definition. */
-export async function forkDefinition(
-  sourceId: string,
-  sourceType: 'template' | 'definition'
-): Promise<import('@gzclp/shared/schemas/program-definition-response').ProgramDefinitionResponse> {
-  const data = await apiFetch('/program-definitions/fork', {
-    method: 'POST',
-    body: JSON.stringify({ sourceId, sourceType }),
-  });
-  return ProgramDefinitionResponseSchema.parse(data);
-}
-
-/** Fetch user's program definitions with pagination. */
-export async function fetchDefinitions(
-  offset?: number,
-  limit?: number
-): Promise<{
-  readonly data: readonly import('@gzclp/shared/schemas/program-definition-response').ProgramDefinitionResponse[];
-  readonly total: number;
-}> {
-  const params = new URLSearchParams();
-  if (offset !== undefined) params.set('offset', String(offset));
-  if (limit !== undefined) params.set('limit', String(limit));
-  const qs = params.toString();
-  const data = await apiFetch(`/program-definitions${qs ? `?${qs}` : ''}`);
-  const parsed = ProgramDefinitionListResponseSchema.parse(data);
-  return { data: parsed.data, total: parsed.total };
-}
-
-/** Fetch a single program definition by ID. */
-export async function fetchDefinition(
-  id: string
-): Promise<import('@gzclp/shared/schemas/program-definition-response').ProgramDefinitionResponse> {
-  const data = await apiFetch(`/program-definitions/${encodeURIComponent(id)}`);
-  return ProgramDefinitionResponseSchema.parse(data);
-}
-
-/** Update a program definition. */
-export async function updateDefinition(
-  id: string,
-  payload: unknown
-): Promise<import('@gzclp/shared/schemas/program-definition-response').ProgramDefinitionResponse> {
-  const data = await apiFetch(`/program-definitions/${encodeURIComponent(id)}`, {
-    method: 'PUT',
-    body: JSON.stringify({ definition: payload }),
-  });
-  return ProgramDefinitionResponseSchema.parse(data);
-}
-
-/** Delete (soft) a program definition. */
-export async function deleteDefinition(id: string): Promise<void> {
-  await apiFetch(`/program-definitions/${encodeURIComponent(id)}`, { method: 'DELETE' });
-}
-
-/** Preview a program definition (dry-run, no save). */
-export async function previewDefinition(
-  definition: ProgramDefinition,
-  config?: Record<string, number | string>
-): Promise<readonly GenericWorkoutRow[]> {
-  const body: Record<string, unknown> = { definition };
-  if (config) {
-    body['config'] = config;
-  }
-  const data = await apiFetch('/catalog/preview', {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-  if (!Array.isArray(data)) {
-    throw new Error('Error al generar la vista previa');
-  }
-  return data.map((item) => GenericWorkoutRowSchema.parse(item));
-}
-
-/** Create a program instance from a custom definition. */
-export async function createCustomProgram(
-  definitionId: string,
-  name: string,
-  config: Record<string, number | string>
-): Promise<import('@gzclp/shared/schemas/program-summary').ProgramSummary> {
-  const data = await apiFetch('/programs', {
-    method: 'POST',
-    body: JSON.stringify({
-      definitionId,
-      name,
-      config: { ...config },
-    }),
-  });
-  return ProgramSummarySchema.parse(data);
 }
 
 // ---------------------------------------------------------------------------

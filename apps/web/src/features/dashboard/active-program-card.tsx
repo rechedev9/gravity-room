@@ -5,7 +5,6 @@ import { queryKeys } from '@/lib/query-keys';
 import { fetchGenericProgramDetail, fetchCatalogDetail, deleteProgram } from '@/lib/api-functions';
 import type { ProgramSummary } from '@/lib/api-functions';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
-import { parseCustomDefinition } from '@/lib/program-utils';
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
 import { computeProfileData, formatVolume } from '@/lib/profile-stats';
 import { useTracker } from '@/contexts/tracker-context';
@@ -49,9 +48,7 @@ export function ActiveProgramCard({
     queryFn: () => fetchGenericProgramDetail(program.id),
   });
 
-  const definition: ProgramDefinition | undefined = isCustomProgram
-    ? parseCustomDefinition(detailQuery.data?.customDefinition)
-    : catalogQuery.data;
+  const definition: ProgramDefinition | undefined = isCustomProgram ? undefined : catalogQuery.data;
 
   const rows = useMemo(() => {
     if (!detailQuery.data || !definition) return [];

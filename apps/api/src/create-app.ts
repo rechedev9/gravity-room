@@ -14,7 +14,6 @@ import { programRoutes } from './routes/programs';
 import { catalogRoutes } from './routes/catalog';
 import { exerciseRoutes } from './routes/exercises';
 import { resultRoutes } from './routes/results';
-import { programDefinitionRoutes } from './routes/program-definitions';
 import { statsRoutes } from './routes/stats';
 import { insightsRoutes } from './routes/insights';
 import { getDb } from './db';
@@ -105,7 +104,6 @@ export function createApp(options: CreateAppOptions) {
         .use(catalogRoutes)
         .use(exerciseRoutes)
         .use(resultRoutes)
-        .use(programDefinitionRoutes)
         .use(statsRoutes)
         .use(insightsRoutes)
     )
