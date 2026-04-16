@@ -48,7 +48,7 @@ export function ActiveProgramCard({
     queryFn: () => fetchGenericProgramDetail(program.id),
   });
 
-  const definition: ProgramDefinition | undefined = isCustomProgram ? undefined : catalogQuery.data;
+  const definition: ProgramDefinition | undefined = catalogQuery.data;
 
   const rows = useMemo(() => {
     if (!detailQuery.data || !definition) return [];
@@ -93,7 +93,7 @@ export function ActiveProgramCard({
   };
 
   if (!definition) {
-    const isOrphan = isCustomProgram ? detailQuery.isFetched && !definition : catalogQuery.isError;
+    const isOrphan = isCustomProgram ? detailQuery.isFetched : catalogQuery.isError;
     if (isOrphan) {
       return (
         <>
@@ -197,7 +197,7 @@ export function ActiveProgramCard({
       )}
 
       {/* Recent activity */}
-      {definition && rows.length > 0 && detailQuery.data && (
+      {rows.length > 0 && detailQuery.data && (
         <div className="px-5 py-4 border-t border-rule">
           <h4 className="font-mono text-[10px] font-bold text-muted uppercase tracking-widest mb-3">
             Actividad Reciente

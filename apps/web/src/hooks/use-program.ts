@@ -178,11 +178,14 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     };
   }, []);
 
-  // Fetch the program definition from the catalog API
+  const isCustom = programId.startsWith('custom:');
+
+  // Fetch the program definition from the catalog API (custom: programs have no catalog entry)
   const catalogQuery = useQuery({
     queryKey: queryKeys.catalog.detail(programId),
     queryFn: () => fetchCatalogDetail(programId),
     staleTime: 5 * 60 * 1000,
+    enabled: !isCustom,
   });
 
   // Fetch the list of programs to find the active one
@@ -218,7 +221,8 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
 
   const definition: ProgramDefinition | undefined = catalogQuery.data;
 
-  const isLoading = catalogQuery.isLoading || programsQuery.isLoading || detailQuery.isLoading;
+  const isLoading =
+    (!isCustom && catalogQuery.isLoading) || programsQuery.isLoading || detailQuery.isLoading;
 
   // Compute rows from definition + config + results (memoized — avoids O(W×S) replay on every render)
   const rows: readonly GenericWorkoutRow[] = useMemo(() => {
