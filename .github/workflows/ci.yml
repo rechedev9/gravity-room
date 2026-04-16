@@ -23,6 +23,12 @@ jobs:
             set -euo pipefail
             umask 0022
             cd ${{ secrets.VPS_PROJECT_PATH }}
+            if [ ! -w .git/index ]; then
+              echo "ERROR: .git/index is not writable by $(id -un)."
+              echo "Likely cause: someone ran git/edits as root in this directory."
+              echo "Fix on VPS: chown -R deploy:deploy $(pwd)"
+              exit 1
+            fi
             git fetch origin main
             git reset --hard origin/main
             git clean -fd -e .env.production
