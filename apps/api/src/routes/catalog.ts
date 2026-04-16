@@ -73,6 +73,8 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
       )
   )
 
+  .use(requestLogger)
+
   // --- Public routes (no auth) ---
 
   // GET /catalog — list all available program definitions
