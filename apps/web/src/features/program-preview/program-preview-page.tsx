@@ -63,7 +63,7 @@ function PreviewError({ onRetry }: { readonly onRetry: () => void }): ReactNode 
           {t('common.retry')}
         </button>
         <Link to="/" className="text-xs text-muted hover:text-main transition-colors">
-          {t('catalog.program_preview.back_aria')}
+          {t('catalog.program_preview.back_label')}
         </Link>
       </div>
     </div>

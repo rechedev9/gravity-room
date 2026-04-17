@@ -7,7 +7,6 @@ interface CalendarEventOptions {
   readonly date?: string;
   readonly startHour?: number;
   readonly durationMinutes?: number;
-  /** When provided, localizes the event title and description; otherwise falls back to Spanish. */
   readonly t?: TFunction;
 }
 

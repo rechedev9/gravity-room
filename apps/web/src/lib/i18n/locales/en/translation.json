@@ -170,7 +170,6 @@
     "authenticate": "Authenticate",
     "enter_the_chamber": "Enter the Chamber",
     "train_better_progress_faster": "Train better · Progress faster",
-    "google_auth_error": "Error signing in with Google. Please try again.",
     "errors": {
       "google_failed": "Google sign-in failed. Please try again.",
       "session_expired": "Your session has expired. Please sign in again.",
@@ -505,7 +504,6 @@
       "placeholder": "Select"
     },
     "stage_tag": {
-      "stage": "Stage",
       "title_template": "Stage {{n}}: {{label}}",
       "labels": {
         "normal": "Normal",

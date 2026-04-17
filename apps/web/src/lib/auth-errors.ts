@@ -7,7 +7,6 @@ const ERROR_MAP: ReadonlyMap<string, string> = new Map([
 
 const GENERIC_KEY = 'auth.errors.generic';
 
-/** Maps a raw auth error message to a translation key. Resolve with `t()` at the callsite. */
 export function sanitizeAuthError(rawMessage: string): string {
   const exact = ERROR_MAP.get(rawMessage);
   if (exact) return exact;
