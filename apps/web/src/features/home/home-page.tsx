@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useDocumentTitle } from '@/hooks/use-document-title';
@@ -28,10 +29,11 @@ function daysSinceLastWorkout(workoutDates: readonly string[] | undefined): numb
 }
 
 export function HomePage(): React.ReactNode {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { isGuest } = useGuest();
 
-  useDocumentTitle('Inicio — Gravity Room');
+  useDocumentTitle(t('home.page_title'));
 
   const programsQuery = useQuery({
     queryKey: queryKeys.programs.all,
@@ -105,14 +107,14 @@ export function HomePage(): React.ReactNode {
                   to="/app/profile"
                   className="text-xs text-muted hover:text-main transition-colors inline-flex items-center gap-1"
                 >
-                  Ver estadísticas en Perfil
+                  {t('home.footer.view_stats')}
                   <span aria-hidden="true">&rarr;</span>
                 </Link>
                 <Link
                   to="/app/profile"
                   className="text-xs text-muted hover:text-main transition-colors inline-flex items-center gap-1"
                 >
-                  Cambia el idioma en Perfil
+                  {t('home.footer.change_language')}
                   <span aria-hidden="true">&rarr;</span>
                 </Link>
               </div>

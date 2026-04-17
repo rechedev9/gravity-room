@@ -845,5 +845,38 @@
   },
   "guest": {
     "provider_error": "useGuest debe usarse dentro de GuestProvider"
+  },
+  "home": {
+    "page_title": "Inicio — Gravity Room",
+    "header": {
+      "greeting_named": "Bienvenido, {{name}}",
+      "greeting_generic": "Bienvenido a Gravity Room",
+      "streak_inline": "Racha: {{count}}",
+      "last_session_label": "Última sesión:",
+      "last_today": "hoy",
+      "last_yesterday": "ayer",
+      "last_days_ago_one": "hace {{count}} día",
+      "last_days_ago_other": "hace {{count}} días"
+    },
+    "kpi": {
+      "streak_label": "Racha",
+      "streak_sub": "seguidos",
+      "sessions_label": "Sesiones/sem",
+      "sessions_sub": "frecuencia",
+      "consistency_label": "Consistencia",
+      "consistency_sub_total": "{{count}} total"
+    },
+    "empty": {
+      "guest_title": "Modo invitado",
+      "guest_body": "Crea tu cuenta gratis para guardar tu progreso y seguir tu programa.",
+      "guest_cta": "Crear Cuenta",
+      "no_program_title": "Sin programa activo",
+      "no_program_body": "Elige un programa para empezar a registrar tu entrenamiento.",
+      "no_program_cta": "Ver Programas"
+    },
+    "footer": {
+      "view_stats": "Ver estadísticas en Perfil",
+      "change_language": "Cambia el idioma en Perfil"
+    }
   }
 }

@@ -845,5 +845,38 @@
   },
   "guest": {
     "provider_error": "useGuest must be used within GuestProvider"
+  },
+  "home": {
+    "page_title": "Home — Gravity Room",
+    "header": {
+      "greeting_named": "Welcome, {{name}}",
+      "greeting_generic": "Welcome to Gravity Room",
+      "streak_inline": "Streak: {{count}}",
+      "last_session_label": "Last session:",
+      "last_today": "today",
+      "last_yesterday": "yesterday",
+      "last_days_ago_one": "{{count}} day ago",
+      "last_days_ago_other": "{{count}} days ago"
+    },
+    "kpi": {
+      "streak_label": "Streak",
+      "streak_sub": "in a row",
+      "sessions_label": "Sessions/wk",
+      "sessions_sub": "frequency",
+      "consistency_label": "Consistency",
+      "consistency_sub_total": "{{count}} total"
+    },
+    "empty": {
+      "guest_title": "Guest mode",
+      "guest_body": "Create your free account to save your progress and follow your program.",
+      "guest_cta": "Create Account",
+      "no_program_title": "No active program",
+      "no_program_body": "Pick a program to start logging your training.",
+      "no_program_cta": "View Programs"
+    },
+    "footer": {
+      "view_stats": "View stats in Profile",
+      "change_language": "Change language in Profile"
+    }
   }
 }
