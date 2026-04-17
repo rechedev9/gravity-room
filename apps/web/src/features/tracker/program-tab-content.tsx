@@ -2,6 +2,7 @@ import type { ResultValue, GenericWorkoutRow, SetLogEntry } from '@gzclp/shared/
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import type { ViewMode } from '@/lib/view-preference';
 import { useTranslation } from 'react-i18next';
+import { localizedProgramDescription, localizedProgramName } from '@/lib/catalog-display';
 import { GuestBanner } from '@/components/guest-banner';
 import { DayNavigator } from '@/features/program-view/day-navigator';
 import { DayView } from '@/features/program-view/day-view';
@@ -60,6 +61,8 @@ export function ProgramTabContent({
   isSlotLogging,
 }: ProgramTabContentProps): React.ReactNode {
   const { t } = useTranslation();
+  const name = localizedProgramName(t, definition.id, definition.name);
+  const description = localizedProgramDescription(t, definition.id, definition.description);
   return (
     <div
       id="panel-program"
@@ -71,27 +74,20 @@ export function ProgramTabContent({
 
       <details className="group bg-card border border-rule mb-4 sm:mb-8 overflow-hidden">
         <summary className="px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center [&::marker]:hidden list-none text-xs tracking-wide">
-          {t('tracker.tab_content.about_label')} {definition.name}
+          {t('tracker.tab_content.about_label')} {name}
           <span className="transition-transform duration-200 group-open:rotate-90">&#9656;</span>
         </summary>
         <div className="px-5 pb-5 border-t border-rule-light">
-          <p className="mt-3 text-sm leading-7 text-info">{definition.description}</p>
+          <p className="mt-3 text-sm leading-7 text-info">{description}</p>
           {definition.author && (
             <p className="mt-2 text-xs text-muted">
               {t('programs.card.author', { author: definition.author })}
             </p>
           )}
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted">
-            <span>
-              {totalWorkouts} {t('tracker.tab_content.total_workouts')}
-            </span>
-            <span>
-              {workoutsPerWeek} {t('tracker.tab_content.per_week')}
-            </span>
-            <span>
-              {t('tracker.tab_content.rotation_of')} {definition.days.length}{' '}
-              {t('tracker.tab_content.days')}
-            </span>
+            <span>{t('catalog.meta.total_workouts', { count: totalWorkouts })}</span>
+            <span>{t('catalog.meta.per_week', { count: workoutsPerWeek })}</span>
+            <span>{t('catalog.meta.day_rotation', { count: definition.days.length })}</span>
           </div>
         </div>
       </details>

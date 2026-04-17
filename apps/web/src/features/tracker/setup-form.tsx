@@ -2,10 +2,12 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod/v4';
+import { useTranslation } from 'react-i18next';
 import { captureError } from '@/lib/sentry';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { SelectField } from '@/components/select-field';
+import { localizedProgramName } from '@/lib/catalog-display';
 import { WeightField } from './weight-field';
 
 interface SetupFormProps {
@@ -65,6 +67,7 @@ export function SetupForm({
   statusNote,
   activeGroup,
 }: SetupFormProps): React.ReactNode {
+  const { t } = useTranslation();
   const fields = definition.configFields;
   const isEditMode = initialConfig !== null && initialConfig !== undefined;
   // Always start closed. isExpanded only controls the edit dialog (edit mode);
@@ -78,7 +81,7 @@ export function SetupForm({
   const [showConfirm, setShowConfirm] = useState(false);
   const [pendingConfig, setPendingConfig] = useState<Record<string, number | string> | null>(null);
 
-  // Build dynamic Zod schema from configFields. Recomputed only when fields change.
+  // Build dynamic Zod schema from configFields. Recomputed when fields or locale change.
   // Using z.record(string, string) + superRefine satisfies the RHF FieldValues constraint.
   const schema = useMemo((): z.ZodType<FormValues, FormValues> => {
     return z.record(z.string(), z.string()).superRefine((values, ctx) => {
@@ -88,20 +91,36 @@ export function SetupForm({
           const min = f.min ?? 1;
           const n = parseFloat(v);
           if (v.trim() === '' || isNaN(n)) {
-            ctx.addIssue({ code: 'custom', path: [f.key], message: 'Valor inválido' });
+            ctx.addIssue({
+              code: 'custom',
+              path: [f.key],
+              message: t('tracker.setup_form.invalid_value'),
+            });
           } else if (n < min) {
-            ctx.addIssue({ code: 'custom', path: [f.key], message: `Mínimo ${min} kg` });
+            ctx.addIssue({
+              code: 'custom',
+              path: [f.key],
+              message: t('tracker.setup_form.min_weight', { min }),
+            });
           } else if (n > 500) {
-            ctx.addIssue({ code: 'custom', path: [f.key], message: 'Máximo 500 kg' });
+            ctx.addIssue({
+              code: 'custom',
+              path: [f.key],
+              message: t('tracker.setup_form.max_weight'),
+            });
           }
         } else {
           if (v.trim() === '') {
-            ctx.addIssue({ code: 'custom', path: [f.key], message: 'Requerido' });
+            ctx.addIssue({
+              code: 'custom',
+              path: [f.key],
+              message: t('tracker.setup_form.required'),
+            });
           }
         }
       }
     });
-  }, [fields]);
+  }, [fields, t]);
 
   const defaultValues = useMemo((): FormValues => {
     const init: FormValues = {};
@@ -194,7 +213,7 @@ export function SetupForm({
     } else {
       onGenerate(config).catch((err: unknown) => {
         captureError(err);
-        setError(err instanceof Error ? err.message : 'Error al generar el programa.');
+        setError(err instanceof Error ? err.message : t('tracker.setup_form.generate_error'));
       });
     }
   };
@@ -243,18 +262,19 @@ export function SetupForm({
     touchedForDisplay[f.key] = !!touchedFields[f.key];
   }
 
+  const localizedName = localizedProgramName(t, definition.id, definition.name);
   const formContent = (
     <>
       <h2 className="font-display mb-1.5 leading-none text-title" style={{ fontSize: '28px' }}>
         {isEditMode
-          ? (definition.configEditTitle ?? 'Editar Pesos Iniciales (kg)')
-          : (definition.configTitle ?? 'Pesos Iniciales (kg)')}
+          ? (definition.configEditTitle ?? t('tracker.setup_form.edit_title_default'))
+          : (definition.configTitle ?? t('tracker.setup_form.create_title_default'))}
       </h2>
       <p className="text-[13px] text-muted mb-5 whitespace-pre-line">
         {isEditMode
-          ? (definition.configEditDescription ??
-            'Actualiza tus pesos iniciales — el programa se recalculará con los nuevos valores')
-          : (definition.configDescription ?? `Ingresa tus pesos iniciales para ${definition.name}`)}
+          ? (definition.configEditDescription ?? t('tracker.setup_form.edit_description_default'))
+          : (definition.configDescription ??
+            t('tracker.setup_form.create_description_default', { name: localizedName }))}
       </p>
 
       <div className="mb-6 space-y-5">
@@ -273,7 +293,7 @@ export function SetupForm({
                     {group.label}
                     {isActive && (
                       <span className="ml-2 normal-case tracking-normal font-bold text-[9px]">
-                        ← actualiza aquí
+                        {t('tracker.setup_form.active_group_indicator')}
                       </span>
                     )}
                   </h3>
@@ -341,7 +361,7 @@ export function SetupForm({
             &#9888;
           </span>
           <div className="flex-1">
-            <p className="text-xs mb-1">Por favor corrige lo siguiente:</p>
+            <p className="text-xs mb-1">{t('tracker.setup_form.error_header')}</p>
             <ul className="text-[11px] font-normal list-disc ml-4">
               {fields
                 .filter((f) => fieldErrorsForDisplay[f.key])
@@ -368,7 +388,7 @@ export function SetupForm({
             onClick={() => setIsExpanded(false)}
             className="flex-1 py-3.5 border-2 border-rule bg-card text-muted text-base font-bold cursor-pointer hover:bg-hover-row hover:text-main transition-colors"
           >
-            Cancelar
+            {t('tracker.setup_form.cancel_button')}
           </button>
         )}
         <button
@@ -377,12 +397,12 @@ export function SetupForm({
           className="flex-1 py-3.5 border-none bg-header text-title text-base font-bold cursor-pointer hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isGenerating
-            ? 'Generando...'
+            ? t('tracker.setup_form.generating_loading')
             : isEditMode
               ? definition.configEditTitle
-                ? 'Actualizar'
-                : 'Actualizar Pesos'
-              : 'Generar Programa'}
+                ? t('tracker.setup_form.update_button_short')
+                : t('tracker.setup_form.update_button')
+              : t('tracker.setup_form.generate_button')}
         </button>
       </div>
     </>
@@ -399,7 +419,7 @@ export function SetupForm({
                   className="font-display mb-1 leading-none text-title"
                   style={{ fontSize: '22px' }}
                 >
-                  {definition.configTitle ?? 'Pesos Iniciales'}
+                  {definition.configTitle ?? t('tracker.setup_form.collapsed_title')}
                 </h2>
                 {statusNote && (
                   <p className="text-[11px] font-bold text-accent mb-1">{statusNote}</p>
@@ -411,14 +431,20 @@ export function SetupForm({
                       {isWeightField(f) ? `${initialConfig?.[f.key]}kg` : initialConfig?.[f.key]}
                     </span>
                   ))}
-                  {fields.length > 4 && <span>+{fields.length - 4} más</span>}
+                  {fields.length > 4 && (
+                    <span>
+                      {t('tracker.setup_form.overflow_indicator', { n: fields.length - 4 })}
+                    </span>
+                  )}
                 </p>
               </div>
               <button
                 onClick={() => setIsExpanded(true)}
                 className="px-4 py-2.5 min-h-[44px] border-2 border-btn-ring text-xs font-bold cursor-pointer bg-btn text-btn-text whitespace-nowrap transition-all hover:bg-btn-active hover:text-btn-active-text"
               >
-                {definition.configEditTitle ? 'Editar' : 'Editar Pesos'}
+                {definition.configEditTitle
+                  ? t('tracker.setup_form.edit_button_short')
+                  : t('tracker.setup_form.edit_button')}
               </button>
             </div>
           </div>
@@ -434,7 +460,7 @@ export function SetupForm({
               type="button"
               onClick={() => setIsExpanded(false)}
               className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-muted hover:text-title transition-colors cursor-pointer"
-              aria-label="Cerrar"
+              aria-label={t('tracker.setup_form.close_aria')}
             >
               &#10005;
             </button>
@@ -449,13 +475,17 @@ export function SetupForm({
 
       <ConfirmDialog
         open={showConfirm}
-        title={definition.configEditTitle ?? 'Actualizar Pesos Iniciales'}
+        title={definition.configEditTitle ?? t('tracker.setup_form.confirm_title')}
         message={
           definition.configEditDescription
-            ? `${definition.configEditDescription} Tu historial de éxitos/fallos se conservará, pero los pesos proyectados cambiarán. ¿Continuar?`
-            : 'Esto recalculará todo el programa con los nuevos pesos iniciales. Tu historial de éxitos/fallos se conservará, pero los pesos proyectados cambiarán. ¿Continuar?'
+            ? `${definition.configEditDescription} ${t('tracker.setup_form.confirm_message')}`
+            : t('tracker.setup_form.confirm_message')
         }
-        confirmLabel={definition.configEditTitle ? 'Actualizar' : 'Actualizar Pesos'}
+        confirmLabel={
+          definition.configEditTitle
+            ? t('tracker.setup_form.confirm_label')
+            : t('tracker.setup_form.update_button')
+        }
         onConfirm={handleConfirmUpdate}
         onCancel={handleCancelUpdate}
       />

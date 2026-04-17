@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchGenericProgramDetail, fetchCatalogDetail, deleteProgram } from '@/lib/api-functions';
 import type { ProgramSummary } from '@/lib/api-functions';
@@ -8,6 +9,7 @@ import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
 import { computeProfileData, formatVolume } from '@/lib/profile-stats';
 import { useTracker } from '@/contexts/tracker-context';
+import { localizedProgramName, localizedProgramDescription } from '@/lib/catalog-display';
 import { RecentActivity } from './recent-activity';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Button } from '@/components/button';
@@ -22,6 +24,7 @@ export function ActiveProgramCard({
   onOrphanDeleted,
 }: ActiveProgramCardProps): React.ReactNode {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { setTracker } = useTracker();
   const queryClient = useQueryClient();
   const [showOrphanConfirm, setShowOrphanConfirm] = useState(false);
@@ -98,24 +101,25 @@ export function ActiveProgramCard({
       return (
         <>
           <div className="bg-card border border-rule p-6">
-            <h3 className="text-base font-extrabold text-title mb-2">Programa no disponible</h3>
-            <p className="text-xs text-muted mb-5">
-              La definición de este programa ya no existe. Elimina esta instancia para iniciar uno
-              nuevo.
-            </p>
+            <h3 className="text-base font-extrabold text-title mb-2">
+              {t('catalog.active_card.orphan_title')}
+            </h3>
+            <p className="text-xs text-muted mb-5">{t('catalog.active_card.orphan_description')}</p>
             <Button
               onClick={() => setShowOrphanConfirm(true)}
               disabled={deleteOrphanMutation.isPending}
             >
-              {deleteOrphanMutation.isPending ? 'Eliminando…' : 'Eliminar programa'}
+              {deleteOrphanMutation.isPending
+                ? t('catalog.active_card.orphan_delete_loading')
+                : t('catalog.active_card.orphan_delete_button')}
             </Button>
           </div>
           <ConfirmDialog
             open={showOrphanConfirm}
-            title="Eliminar programa huérfano"
-            message="Se eliminarán todos los resultados asociados. ¿Continuar?"
-            confirmLabel="Eliminar"
-            cancelLabel="Cancelar"
+            title={t('catalog.active_card.orphan_confirm_title')}
+            message={t('catalog.active_card.orphan_confirm_message')}
+            confirmLabel={t('common.delete')}
+            cancelLabel={t('common.cancel')}
             onConfirm={() => {
               setShowOrphanConfirm(false);
               deleteOrphanMutation.mutate();
@@ -134,18 +138,22 @@ export function ActiveProgramCard({
     );
   }
 
+  const displayName = localizedProgramName(t, definition.id, definition.name);
+  const displayDescription = localizedProgramDescription(t, definition.id, definition.description);
+  const shortDescription = `${displayDescription.split('.')[0]}.`;
+
   return (
     <div className="bg-card border border-rule card overflow-hidden h-full flex flex-col">
       {/* Header */}
       <div className="p-5 sm:p-6 accent-left-gold flex-1">
-        <h3 className="text-base font-extrabold text-title leading-tight mb-1">
-          {definition.name}
-        </h3>
-        <p className="text-xs text-muted">{definition.description.split('.')[0]}.</p>
+        <h3 className="text-base font-extrabold text-title leading-tight mb-1">{displayName}</h3>
+        <p className="text-xs text-muted">{shortDescription}</p>
 
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-info mt-2 mb-3">
-          <span>{totalWorkouts} entrenamientos</span>
-          {definition.workoutsPerWeek > 0 && <span>{definition.workoutsPerWeek}x / semana</span>}
+          <span>{t('catalog.active_card.workouts_count', { count: totalWorkouts })}</span>
+          {definition.workoutsPerWeek > 0 && (
+            <span>{t('catalog.active_card.frequency', { count: definition.workoutsPerWeek })}</span>
+          )}
         </div>
 
         <div
@@ -154,7 +162,10 @@ export function ActiveProgramCard({
           aria-valuenow={progressPct}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label={`Progreso del programa: ${completedWorkouts} de ${totalWorkouts} entrenamientos`}
+          aria-label={t('catalog.active_card.progress_aria', {
+            completed: completedWorkouts,
+            total: totalWorkouts,
+          })}
         >
           <div className="flex-1 h-2.5 bg-progress-track overflow-hidden rounded-full">
             <div
@@ -168,7 +179,7 @@ export function ActiveProgramCard({
         </div>
 
         <Button variant="primary" onClick={handleContinue}>
-          Continuar Entrenamiento
+          {t('programs.card.continue_training')}
         </Button>
       </div>
 
@@ -176,18 +187,22 @@ export function ActiveProgramCard({
       {profileData && (
         <div className="grid grid-cols-3 divide-x divide-rule border-t border-rule">
           <div className="px-4 py-3 text-center">
-            <p className="font-mono text-[9px] text-muted uppercase tracking-widest mb-1">Racha</p>
+            <p className="font-mono text-[9px] text-muted uppercase tracking-widest mb-1">
+              {t('catalog.active_card.kpi_streak')}
+            </p>
             <p className="font-display-data text-xl text-title">{profileData.streak.current}</p>
           </div>
           <div className="px-4 py-3 text-center">
-            <p className="font-mono text-[9px] text-muted uppercase tracking-widest mb-1">Éxito</p>
+            <p className="font-mono text-[9px] text-muted uppercase tracking-widest mb-1">
+              {t('catalog.active_card.kpi_success')}
+            </p>
             <p className="font-display-data text-xl text-main">
               {profileData.completion.overallSuccessRate}%
             </p>
           </div>
           <div className="px-4 py-3 text-center">
             <p className="font-mono text-[9px] text-muted uppercase tracking-widest mb-1">
-              Volumen
+              {t('catalog.active_card.kpi_volume')}
             </p>
             <p className="font-display-data text-xl text-main">
               {formatVolume(profileData.volume.totalVolume)} kg
@@ -200,7 +215,7 @@ export function ActiveProgramCard({
       {rows.length > 0 && detailQuery.data && (
         <div className="px-5 py-4 border-t border-rule">
           <h4 className="font-mono text-[10px] font-bold text-muted uppercase tracking-widest mb-3">
-            Actividad Reciente
+            {t('catalog.active_card.recent_activity')}
           </h4>
           <RecentActivity
             rows={rows}
