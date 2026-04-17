@@ -1,0 +1,379 @@
+import { useState, useMemo, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { extractAllGenericStats, calculateStats } from '@gzclp/shared/generic-stats';
+import type { ProgramDefinition } from '@gzclp/shared/types/program';
+import type {
+  GenericWorkoutRow,
+  ChartDataPoint,
+  RpeDataPoint,
+  AmrapDataPoint,
+} from '@gzclp/shared/types';
+import { LineChart } from '@/components/charts/line-chart';
+import { BarChart } from '@/components/charts/bar-chart';
+import { groupByConsecutive } from '@/lib/group-by-consecutive';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const UNCOVERED_GROUP_KEY = '__uncovered__';
+const MIN_RPE_POINTS = 2;
+const MIN_AMRAP_POINTS = 2;
+const MIN_VOLUME_POINTS = 3;
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
+interface StatsPanelProps {
+  readonly definition: ProgramDefinition;
+  readonly rows: readonly GenericWorkoutRow[];
+  readonly resultTimestamps: Readonly<Record<string, string>>;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+interface ExerciseGroup {
+  readonly label: string | null;
+  readonly exerciseIds: readonly string[];
+}
+
+function groupExercises(definition: ProgramDefinition): readonly ExerciseGroup[] {
+  const groups = groupByConsecutive(definition.configFields, (f) => f.group).map(
+    ({ label, items }) => ({ label, exerciseIds: items.map((f) => f.key) })
+  );
+
+  // Include any exercises not in configFields (fallback)
+  const covered = new Set(definition.configFields.map((f) => f.key));
+  const uncovered = Object.keys(definition.exercises).filter((id) => !covered.has(id));
+  if (uncovered.length > 0) {
+    return [...groups, { label: UNCOVERED_GROUP_KEY, exerciseIds: uncovered }];
+  }
+
+  return groups;
+}
+
+/** Convert RPE data points to ChartDataPoint[] for LineChart (numeric mode) */
+function rpeToChartData(points: readonly RpeDataPoint[]): ChartDataPoint[] {
+  return points.map((p) => ({
+    workout: p.workout,
+    weight: p.rpe,
+    stage: 1,
+    result: 'success' as const,
+    date: p.date,
+  }));
+}
+
+/** Convert AMRAP data points to ChartDataPoint[] for LineChart (numeric mode) */
+function amrapToChartData(points: readonly AmrapDataPoint[]): ChartDataPoint[] {
+  return points.map((p) => ({
+    workout: p.workout,
+    weight: p.reps,
+    stage: 1,
+    result: 'success' as const,
+    date: p.date,
+  }));
+}
+
+function sanitizeKey(key: string): string {
+  return key.replace(/\s+/g, '_');
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function StatCard({
+  name,
+  currentWeight,
+  startWeight,
+  gained,
+  currentStage,
+  rate,
+  successes,
+  total,
+}: {
+  readonly name: string;
+  readonly currentWeight: number;
+  readonly startWeight: number;
+  readonly gained: number;
+  readonly currentStage: number;
+  readonly rate: number;
+  readonly successes: number;
+  readonly total: number;
+}): ReactNode {
+  const { t } = useTranslation();
+  return (
+    <div className="bg-th/50 p-4">
+      <h4 className="font-mono text-xs font-bold text-muted mb-2">{name}</h4>
+      <div className="font-display-data text-3xl mb-1 text-title">{currentWeight} kg</div>
+      <div className="text-xs text-muted">
+        {t('tracker.stats_panel.start')}: {startWeight} kg | {gained >= 0 ? '+' : ''}
+        {gained} kg {t('tracker.stats_panel.gained')}
+        <br />
+        {t('tracker.stats_panel.stage')} {currentStage} | {rate}% {t('tracker.stats_panel.success')}{' '}
+        ({successes}/{total})
+      </div>
+    </div>
+  );
+}
+
+function CollapsibleSection({
+  sectionKey,
+  label,
+  exerciseCount,
+  isOpen,
+  onToggle,
+  children,
+}: {
+  readonly sectionKey: string;
+  readonly label: string;
+  readonly exerciseCount: number;
+  readonly isOpen: boolean;
+  readonly onToggle: () => void;
+  readonly children: ReactNode;
+}): ReactNode {
+  const { t } = useTranslation();
+  const contentId = `section-${sanitizeKey(sectionKey)}-content`;
+
+  return (
+    <div className="bg-card border border-rule overflow-hidden card">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        aria-controls={contentId}
+        className="w-full px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center text-xs tracking-wide bg-transparent border-none text-inherit"
+      >
+        {label}
+        <span className="flex items-center gap-3">
+          <span className="text-muted font-normal normal-case tracking-normal">
+            {exerciseCount} {t('tracker.stats_panel.exercise', { count: exerciseCount })}
+          </span>
+          <span
+            className="transition-transform duration-200"
+            style={{ transform: isOpen ? 'rotate(90deg)' : 'none' }}
+          >
+            &#9656;
+          </span>
+        </span>
+      </button>
+
+      <div
+        id={contentId}
+        aria-hidden={!isOpen}
+        className="grid transition-[grid-template-rows] duration-300 ease-in-out"
+        style={{ gridTemplateRows: isOpen ? '1fr' : '0fr' }}
+      >
+        <div className="overflow-hidden">
+          <div className="px-5 pb-5 border-t border-rule-light">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
+function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): ReactNode {
+  const { t } = useTranslation();
+  // Single-pass extraction — all 4 data structures computed in one iteration
+  const { chartData, rpeData, amrapData, volumeData } = useMemo(
+    () => extractAllGenericStats(definition, rows, resultTimestamps),
+    [definition, rows, resultTimestamps]
+  );
+
+  const groups = groupExercises(definition);
+
+  const hasAnyResults = Object.values(chartData).some((series) =>
+    series.some((d) => d.result !== null)
+  );
+
+  // Lazy-init: default the first exercise group with data to open
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    let firstSet = false;
+    for (const group of groups) {
+      const key = group.label ?? '_ungrouped';
+      const hasData = group.exerciseIds.some(
+        (id) => chartData[id] && chartData[id].some((d) => d.result !== null)
+      );
+      if (hasData && !firstSet) {
+        initial[key] = true;
+        firstSet = true;
+      }
+    }
+    return initial;
+  });
+
+  const toggleSection = (key: string): void => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  if (!hasAnyResults) {
+    return (
+      <div className="text-center py-16">
+        <p className="text-sm font-bold text-muted mb-2">{t('tracker.stats_panel.no_data_yet')}</p>
+        <p className="text-xs text-muted">{t('tracker.stats_panel.complete_first_workout')}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {groups.map((group) => {
+        const sectionKey = group.label ?? '_ungrouped';
+        const isOpen = openSections[sectionKey] ?? false;
+        const exercisesWithData = group.exerciseIds.filter(
+          (id) => chartData[id] && chartData[id].some((d) => d.result !== null)
+        );
+
+        if (exercisesWithData.length === 0) return null;
+
+        // RPE exercises with enough data points in this group
+        const rpeExercises = exercisesWithData.filter(
+          (id) => rpeData[id] && rpeData[id].length >= MIN_RPE_POINTS
+        );
+
+        // AMRAP exercises with enough data points in this group
+        const amrapExercises = exercisesWithData.filter(
+          (id) => amrapData[id] && amrapData[id].length >= MIN_AMRAP_POINTS
+        );
+
+        return (
+          <CollapsibleSection
+            key={sectionKey}
+            sectionKey={sectionKey}
+            label={
+              group.label === UNCOVERED_GROUP_KEY
+                ? t('tracker.stats_panel.other')
+                : (group.label ?? t('tracker.stats_panel.exercises'))
+            }
+            exerciseCount={exercisesWithData.length}
+            isOpen={isOpen}
+            onToggle={() => toggleSection(sectionKey)}
+          >
+            {/* Summary cards */}
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 mt-4 mb-4">
+              {exercisesWithData.map((id) => {
+                const s = calculateStats(chartData[id]);
+                const name = definition.exercises[id].name;
+                return (
+                  <StatCard
+                    key={id}
+                    name={name}
+                    currentWeight={s.currentWeight}
+                    startWeight={s.startWeight}
+                    gained={s.gained}
+                    currentStage={s.currentStage}
+                    rate={s.rate}
+                    successes={s.successes}
+                    total={s.total}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Weight Progression Charts — only render when section is open */}
+            {isOpen && (
+              <>
+                <div className="grid grid-cols-2 gap-5 max-[900px]:grid-cols-1">
+                  {exercisesWithData.map((id) => {
+                    const name = definition.exercises[id].name;
+                    return (
+                      <div key={id} className="bg-th/50 p-4">
+                        <h4 className="font-mono text-xs font-bold text-muted mb-3">
+                          {name} — {t('tracker.stats_panel.progression')}
+                        </h4>
+                        <LineChart
+                          data={chartData[id]}
+                          label={name}
+                          resultTimestamps={resultTimestamps}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* RPE Trend Charts */}
+                {rpeExercises.length > 0 && (
+                  <div className="grid grid-cols-2 gap-5 max-[900px]:grid-cols-1 mt-5">
+                    {rpeExercises.map((id) => {
+                      const name = definition.exercises[id].name;
+                      return (
+                        <div
+                          key={`rpe-${id}`}
+                          data-testid={`rpe-chart-${id}`}
+                          className="bg-th/50 p-4"
+                        >
+                          <h4 className="font-mono text-xs font-bold text-muted mb-3">
+                            {name} — RPE
+                          </h4>
+                          <LineChart
+                            data={rpeToChartData(rpeData[id])}
+                            label={`${name} RPE`}
+                            mode="numeric"
+                            yAxisLabel="RPE"
+                            showAllPrs={false}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* AMRAP Trend Charts */}
+                {amrapExercises.length > 0 && (
+                  <div className="grid grid-cols-2 gap-5 max-[900px]:grid-cols-1 mt-5">
+                    {amrapExercises.map((id) => {
+                      const name = definition.exercises[id].name;
+                      return (
+                        <div
+                          key={`amrap-${id}`}
+                          data-testid={`amrap-chart-${id}`}
+                          className="bg-th/50 p-4"
+                        >
+                          <h4 className="font-mono text-xs font-bold text-muted mb-3">
+                            {name} — {t('tracker.stats_panel.amrap_reps')}
+                          </h4>
+                          <LineChart
+                            data={amrapToChartData(amrapData[id])}
+                            label={`${name} AMRAP`}
+                            mode="numeric"
+                            yAxisLabel="Reps"
+                            showAllPrs={false}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </CollapsibleSection>
+        );
+      })}
+
+      {/* Weekly Volume Section — standalone at the bottom */}
+      {volumeData.length >= MIN_VOLUME_POINTS && (
+        <CollapsibleSection
+          sectionKey="volumen-total"
+          label={t('tracker.stats_panel.total_volume')}
+          exerciseCount={volumeData.length}
+          isOpen={openSections['volumen-total'] ?? false}
+          onToggle={() => toggleSection('volumen-total')}
+        >
+          <div className="mt-4">
+            <BarChart data={volumeData} label={t('tracker.stats_panel.volume_per_session')} />
+          </div>
+        </CollapsibleSection>
+      )}
+    </div>
+  );
+}
+
+export default StatsPanel;

@@ -1,0 +1,279 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1771356860012,
+      "tag": "0000_clumsy_thunderbolt",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771359352907,
+      "tag": "0001_needy_silk_fever",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771444676136,
+      "tag": "0002_lively_wolf_cub",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771468183923,
+      "tag": "0003_woozy_sue_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1771560000000,
+      "tag": "0004_google_oauth",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1771680540020,
+      "tag": "0005_optimal_lord_hawal",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1771702800000,
+      "tag": "0006_add_missing_rpe_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771878328475,
+      "tag": "0007_lean_fat_cobra",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771900000000,
+      "tag": "0008_slot_id_varchar50",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771942990285,
+      "tag": "0009_silky_crystal",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1772000000000,
+      "tag": "0010_add_muscle_groups",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1772000000001,
+      "tag": "0011_add_exercises",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1772000000002,
+      "tag": "0012_add_program_templates",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1772000000003,
+      "tag": "0013_add_program_instances_fk",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1772100000000,
+      "tag": "0014_add_exercise_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1772200000000,
+      "tag": "0015_add_performance_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1772300000000,
+      "tag": "0016_add_undo_entries_composite_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1772400000000,
+      "tag": "0017_enable_pg_stat_statements",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1772500000000,
+      "tag": "0018_gzclp_t1_amrap",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1772600000000,
+      "tag": "0019_one_active_program_per_user",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1772700000000,
+      "tag": "0020_auto_updated_at_trigger",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1772700000001,
+      "tag": "0021_add_exercises_orphan_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1772700000002,
+      "tag": "0022_add_workout_results_compound_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1772700000003,
+      "tag": "0023_add_workout_results_updated_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1772700000004,
+      "tag": "0024_bigserial_pks",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1772700000005,
+      "tag": "0025_pagination_covering_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1772700000006,
+      "tag": "0026_add_metadata_to_program_instances",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1772827638593,
+      "tag": "0027_dear_barracuda",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1772886585166,
+      "tag": "0028_giant_psylocke",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1773000000000,
+      "tag": "0029_rename_program_ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1773100000000,
+      "tag": "0030_add_custom_definition_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1773200000000,
+      "tag": "0031_add_check_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1773300000000,
+      "tag": "0032_widen_exercises_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1773400000000,
+      "tag": "0033_add_user_insights",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1773500000000,
+      "tag": "0034_index_renames",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1773500000001,
+      "tag": "0035_undo_entries_renames",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1773500000002,
+      "tag": "0036_perf_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1773500000003,
+      "tag": "0037_program_instances_renames",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1773500000004,
+      "tag": "0038_exercises_renames",
+      "breakpoints": true
+    }
+  ]
+}

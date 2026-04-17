@@ -1,0 +1,6 @@
+# Security disclosure policy for Gravity Room
+# https://securitytxt.org/
+
+Contact: https://github.com/rechedev9/gravity-room/issues
+Expires: 2027-03-01T00:00:00Z
+Preferred-Languages: en, es

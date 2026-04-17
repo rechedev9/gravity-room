@@ -1,0 +1,72 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      args:
+        VITE_API_URL: https://gravityroom.app
+        VITE_GOOGLE_CLIENT_ID: 563649081217-uh092o7iapi9t4d5a38d1522j8s66981.apps.googleusercontent.com
+        COMMIT_SHA: ${COMMIT_SHA:-unknown}
+    container_name: gravity-room-api
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3002:3001'
+    env_file: .env.production
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'bun',
+          '-e',
+          "fetch('http://localhost:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - proxy
+      - backend
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: https://gravityroom.app
+        VITE_GOOGLE_CLIENT_ID: 563649081217-uh092o7iapi9t4d5a38d1522j8s66981.apps.googleusercontent.com
+        COMMIT_SHA: ${COMMIT_SHA:-unknown}
+    container_name: gravity-room-web
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8080:80'
+    networks:
+      - proxy
+
+  analytics:
+    build:
+      context: apps/analytics
+      dockerfile: Dockerfile
+    container_name: gravity-room-analytics
+    restart: unless-stopped
+    env_file: .env.production
+    environment:
+      - INTERNAL_SECRET=${INTERNAL_SECRET}
+    ports:
+      - '127.0.0.1:8001:8000'
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:8000/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - backend
+
+networks:
+  proxy:
+    external: true
+    name: infra_proxy
+  backend:
+    external: true
+    name: data_backend

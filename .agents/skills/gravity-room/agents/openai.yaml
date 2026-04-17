@@ -1,0 +1,6 @@
+interface:
+  display_name: 'Gravity Room'
+  short_description: 'Repo-specific patterns and workflows for gravity-room'
+  default_prompt: 'Use the gravity-room repo skill to follow existing architecture, testing, and workflow conventions.'
+policy:
+  allow_implicit_invocation: true

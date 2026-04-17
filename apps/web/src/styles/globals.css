@@ -1,0 +1,631 @@
+@import 'tailwindcss';
+
+/* ── Self-hosted fonts (Latin subset, no Google Fonts CDN) ─────────────────
+ * Bebas Neue: industrial condensed display headers
+ * Barlow: clean readable body prose
+ * JetBrains Mono: data, weights, sets/reps (variable font covering 400+600)
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+@font-face {
+  font-family: 'Bebas Neue';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/bebas-neue-400.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/barlow-400.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/barlow-500.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/barlow-600.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/barlow-700.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* JetBrains Mono variable font — covers weights 400 through 600 */
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('/fonts/jetbrains-mono-variable.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ── Font stack ───────────────────────────────── */
+/* Display: Bebas Neue — industrial condensed headers */
+/* Mono: JetBrains Mono — data, weights, sets/reps  */
+/* Body: Barlow — clean readable prose               */
+
+@theme {
+  /* Surfaces */
+  --color-body: #0b0906;
+  --color-card: #130f09;
+  --color-header: #070504;
+  --color-th: #1a1410;
+  --color-hover-row: #1a1410;
+  --color-progress-track: #2a2218;
+  --color-changed: #1f1a08;
+  --color-error-bg: #2e1414;
+  --color-tooltip-bg: #070504;
+
+  /* Text */
+  --color-main: #f0e8d8;
+  --color-title: #f0c040;
+  --color-muted: #8a7a5a;
+  --color-label: #a89870;
+  --color-info: #8a7a5a;
+  --color-error: #c06060;
+  --color-tooltip-text: #f0e8d8;
+
+  /* Borders */
+  --color-rule: #2a2218;
+  --color-rule-light: #3a3025;
+  --color-error-line: #7a2828;
+
+  /* Accent */
+  --color-accent: #e8aa20;
+
+  /* Buttons */
+  --color-btn-ring: #e8aa20;
+  --color-btn: #130f09;
+  --color-btn-text: #e8aa20;
+  --color-btn-active: #e8aa20;
+  --color-btn-active-text: #0b0906;
+
+  /* Badges */
+  --color-ok-bg: #0f2010;
+  --color-ok-ring: #3a6828;
+  --color-ok: #6aaa3a;
+  --color-fail-bg: #240e0e;
+  --color-fail-ring: #7a2828;
+  --color-fail: #c05050;
+
+  /* Stages */
+  --color-stage-1: #f0e8d8;
+  --color-stage-2: #f07000;
+  --color-stage-3: #d02020;
+
+  /* Chart */
+  --color-chart-grid: #2a2218;
+  --color-chart-text: #8a7a5a;
+  --color-chart-line: #f0c040;
+  --color-chart-ok: #3a6828;
+  --color-chart-fail: #7a2828;
+  --color-chart-pr: #d4a843;
+
+  /* Sidebar */
+  --color-sidebar: #0f0c08;
+  --color-sidebar-active: #1a1410;
+  --color-sidebar-border: #2a2218;
+  --sidebar-width: 240px;
+  --sidebar-width-collapsed: 72px;
+  --sidebar-transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Motion — shared across CSS keyframes and motion/react components */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --duration-instant: 120ms;
+  --duration-fast: 180ms;
+  --duration-base: 240ms;
+  --duration-slow: 320ms;
+
+  /* Shadows */
+  --shadow-toolbar: 0 2px 12px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 6px rgba(0, 0, 0, 0.15);
+  --shadow-card-hover: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(232, 170, 32, 0.06);
+  --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(232, 170, 32, 0.04);
+  --shadow-glow-gold: 0 0 20px rgba(232, 170, 32, 0.1);
+  --shadow-glow-success: 0 0 12px rgba(106, 170, 58, 0.15);
+  --shadow-glow-fail: 0 0 12px rgba(192, 80, 80, 0.15);
+  --shadow-inset-subtle: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  --shadow-dialog:
+    0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(232, 170, 32, 0.04), 0 0 60px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Keyframes ─────────────────────────────────── */
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeSlideDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dropdown-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modal-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dropdown-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+@keyframes tooltip-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes tooltip-exit {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ── Table scroll shadow indicators ────────────── */
+
+.table-scroll-shadow {
+  position: relative;
+}
+
+.table-scroll-shadow::before,
+.table-scroll-shadow::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.table-scroll-shadow::before {
+  left: 0;
+  background: linear-gradient(90deg, var(--color-body), transparent);
+}
+
+.table-scroll-shadow::after {
+  right: 0;
+  background: linear-gradient(270deg, var(--color-body), transparent);
+}
+
+.table-scroll-shadow[data-scroll-left='true']::before {
+  opacity: 1;
+}
+
+.table-scroll-shadow[data-scroll-right='true']::after {
+  opacity: 1;
+}
+
+/* ── Animation classes ─────────────────────────── */
+
+.modal-overlay {
+  backdrop-filter: blur(4px);
+}
+
+.modal-box {
+  animation: modal-enter var(--duration-fast) var(--ease-out-expo) forwards;
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+/* ── Card system ──────────────────────────────── */
+
+.card {
+  box-shadow: var(--shadow-card);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.25s ease,
+    transform 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--color-rule-light);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card-interactive:hover {
+  transform: translateY(-1px);
+}
+
+.card-glow-gold {
+  box-shadow: var(--shadow-card), var(--shadow-glow-gold);
+}
+
+/* ── Progress bar glow edge ──────────────────── */
+
+.progress-fill {
+  position: relative;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  background: linear-gradient(90deg, transparent, rgba(232, 170, 32, 0.35));
+  pointer-events: none;
+}
+
+/* ── Accent borders ──────────────────────────── */
+
+.accent-left-gold {
+  border-left: 3px solid var(--color-accent);
+}
+
+.accent-left-muted {
+  border-left: 2px solid var(--color-rule-light);
+}
+
+/* ── Gradient top edge ────────────────────────── */
+
+.edge-glow-top {
+  position: relative;
+}
+
+.edge-glow-top::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 10%,
+    rgba(232, 170, 32, 0.25) 50%,
+    transparent 90%
+  );
+  pointer-events: none;
+}
+
+/* ── Grain texture overlay ─────────────────────── */
+
+.grain-overlay::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
+
+/* ── Landing-specific extras ───────────────────── */
+
+.landing-gradient-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(232, 170, 32, 0.25) 50%,
+    transparent 100%
+  );
+}
+
+.landing-quote-glow {
+  background: linear-gradient(135deg, rgba(232, 170, 32, 0.05) 0%, transparent 60%);
+  border-left: 2px solid;
+  border-image: linear-gradient(180deg, rgba(232, 170, 32, 0.9) 0%, rgba(232, 170, 32, 0.15) 100%) 1;
+}
+
+.landing-card-glow:hover {
+  border-color: var(--color-rule-light);
+  box-shadow:
+    0 0 24px rgba(232, 170, 32, 0.07),
+    inset 0 1px 0 rgba(232, 170, 32, 0.08);
+}
+
+.landing-card-glow::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232, 170, 32, 0.5), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.landing-card-glow:hover::before {
+  opacity: 1;
+}
+
+/* ── Program card hover lift ─────────────────── */
+
+.program-card-lift {
+  transition:
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.25s ease,
+    box-shadow 0.3s ease;
+}
+
+.program-card-lift:hover {
+  transform: translateY(-4px);
+  background-color: color-mix(in srgb, var(--color-card) 95%, rgba(255, 255, 255, 0.03));
+}
+
+.program-card-lift:active {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .program-card-lift:hover {
+    transform: none;
+  }
+  .program-card-lift:active {
+    transform: none;
+  }
+}
+
+/* ── Nav link underline slide ────────────────── */
+
+.nav-link-underline {
+  position: relative;
+}
+
+.nav-link-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-title);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.nav-link-underline:hover::after,
+.nav-link-underline[data-active='true']::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-link-underline::after {
+    transition: none;
+  }
+}
+
+/* ── Hero number glow ──────────────────────────── */
+
+.hero-number-glow {
+  text-shadow:
+    0 0 40px rgba(232, 170, 32, 0.4),
+    0 0 80px rgba(232, 170, 32, 0.1);
+}
+
+/* ── Horizontal rule with label ─────────────────── */
+
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.section-label::before,
+.section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-rule);
+}
+
+/* ── Dashboard section header ──────────────────── */
+
+.dash-section-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-muted);
+}
+
+/* ── Type scale: custom size ────────────────────── */
+
+@utility text-2xs {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+/* ── Font utility classes ───────────────────────── */
+
+/* JetBrains Mono — data, weights, labels, monospaced UI */
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Bebas Neue — display headings (letter-spacing 0.04em variant) */
+.font-display {
+  font-family: 'Bebas Neue', system-ui;
+  letter-spacing: 0.04em;
+}
+
+/* Bebas Neue — stat numbers (data-optimized, tighter tracking than .font-display) */
+.font-display-data {
+  font-family: 'Bebas Neue', system-ui;
+  letter-spacing: 0.02em;
+}
+
+/* Week/badge label — small mono pill inside week header */
+.week-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+}
+
+/* ── Base ───────────────────────────────────────── */
+
+html {
+  scroll-behavior: smooth;
+}
+
+section[id] {
+  scroll-margin-top: 80px;
+}
+
+body {
+  font-family:
+    'Barlow',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background: var(--color-body);
+  color: var(--color-main);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── Reduced motion ─────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,89 @@
+# dependencies
+node_modules
+
+# testing
+coverage
+coverage.*
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# next.js
+.next/
+out/
+
+# production
+build
+dist
+
+# misc
+.DS_Store
+*.pem
+
+# google oauth credentials (never commit)
+google-oauth-credentials.json
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (example is committed for onboarding)
+.env*
+!.env.example
+!.env.production.example
+
+# vercel
+.vercel
+
+# AI tooling (Claude Code, SDD workflow)
+CLAUDE.md
+AGENTS.md
+.claude/
+.worktrees/
+openspec/.cache/
+openspec/changes/**/.cache/
+openspec/changes/**/.pending/
+
+# deploy log (written on VPS)
+.deploy.log
+
+# temporary files (PDF extracts, screenshots, scripts)
+.tmp/
+.playwright-mcp/
+.railwayignore
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# project docs and scripts (generated, not source)
+docs/*
+!docs/issues.md
+scripts/*
+!scripts/deploy-log.sh
+!scripts/rollback.sh
+!scripts/committer
+!scripts/loadtest.js
+issues.MD
+roadmap.md
+todo.md
+
+# IDE
+.idea/
+
+# Go build artifacts (legacy — kept for history; directory removed)
+# apps/go-api/api
+# apps/go-api/bin/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Python local envs and test caches
+.venv/
+.pytest_cache/
+

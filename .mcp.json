@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp"
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@0.0.41",
+        "--browser",
+        "chromium",
+        "--viewport-size",
+        "1280x720"
+      ]
+    }
+  }
+}

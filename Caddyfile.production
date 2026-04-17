@@ -1,0 +1,9 @@
+gravityroom.app {
+    @api path /api/* /health /metrics /swagger/*
+    handle @api {
+        reverse_proxy gravity-room-api:3001
+    }
+    handle {
+        reverse_proxy gravity-room-web:80
+    }
+}

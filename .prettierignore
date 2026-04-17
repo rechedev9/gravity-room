@@ -1,0 +1,14 @@
+*.toml
+*.lock
+node_modules
+dist
+out
+.next
+build
+.tmp
+.idea
+.claude
+.agents
+apps/api/drizzle
+**/.venv
+**/.pytest_cache

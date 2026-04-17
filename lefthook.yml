@@ -1,0 +1,22 @@
+pre-commit:
+  parallel: true
+  commands:
+    typecheck:
+      run: bun run typecheck
+    lint:
+      run: bun run lint
+    format:
+      run: bun run format:check
+    api-typecheck:
+      root: apps/api
+      run: bun run typecheck
+
+pre-push:
+  commands:
+    test:
+      run: bun run test
+    build:
+      run: VITE_API_URL=http://localhost:3001 bun run build
+    api-types-drift:
+      root: apps/web
+      run: bun run api:types && git diff --exit-code src/lib/api/generated.ts

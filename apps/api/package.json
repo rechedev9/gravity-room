@@ -1,0 +1,37 @@
+{
+  "name": "api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "lint": "eslint",
+    "test": "bun test src/lib && bun test src/services/auth.test.ts src/services/exercises.test.ts src/services/programs.test.ts src/services/results.test.ts src/middleware src/index.test.ts && bun test src/services/catalog.test.ts && bun test src/routes",
+    "test:e2e": "bun test --preload ./test/db-setup.ts test/e2e",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "bunx drizzle-kit generate",
+    "db:migrate": "bunx drizzle-kit migrate",
+    "db:studio": "bunx drizzle-kit studio",
+    "db:seed": "bun run src/db/seed.ts",
+    "db:update-definitions": "bun run src/db/scripts/update-program-definitions.ts"
+  },
+  "dependencies": {
+    "elysia": "^1.4.25",
+    "@elysiajs/cors": "^1.4.1",
+    "@elysiajs/jwt": "^1.4.0",
+    "@elysiajs/static": "^1.4.0",
+    "@elysiajs/swagger": "^1.3.1",
+    "drizzle-orm": "^0.45.1",
+    "postgres": "^3.4.8",
+    "ioredis": "^5.9.3",
+    "@sentry/bun": "^10.40.0",
+    "pino": "^10.3.1",
+    "prom-client": "^15.1.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.9",
+    "pino-pretty": "^13.0.0"
+  }
+}

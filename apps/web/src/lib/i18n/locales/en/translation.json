@@ -1,0 +1,888 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save",
+    "edit": "Edit",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "start": "Start",
+    "required": "Required",
+    "optional": "Optional",
+    "success": "Success",
+    "failed": "Failed",
+    "completed": "Completed",
+    "active": "Active",
+    "draft": "Draft",
+    "pending_review": "Pending review",
+    "approved": "Approved",
+    "rejected": "Rejected",
+    "coming_soon": "Coming soon",
+    "no_data": "No data yet",
+    "something_went_wrong": "Something went wrong",
+    "reload": "Reload",
+    "unexpected_response": "Unexpected response from server",
+    "update": "Update",
+    "preview": "Preview",
+    "advanced": "Advanced",
+    "collapse": "collapse",
+    "expand": "expand"
+  },
+  "calendar": {
+    "session_prefix": "Workout #{{index}} — {{dayName}}",
+    "stage_label": "Stage"
+  },
+  "catalog": {
+    "category": {
+      "strength": "Strength",
+      "hypertrophy": "Hypertrophy",
+      "powerlifting": "Powerlifting"
+    },
+    "meta": {
+      "total_workouts": "{{count}} total workouts",
+      "per_week": "{{count}} per week",
+      "day_rotation": "{{count}}-day rotation"
+    },
+    "card": {
+      "view_program_aria": "View {{name}}"
+    },
+    "program_preview": {
+      "about": "About {{name}}",
+      "by_author": "By {{author}}",
+      "back_label": "← Home",
+      "back_aria": "Back to home",
+      "error_not_found": "Program not found",
+      "error_details": "The requested program does not exist or could not be loaded.",
+      "cta_signup_prompt": "Create an account to track your progress",
+      "cta_view_dashboard": "View Dashboard",
+      "cta_active_warning": "Finish your current program before starting a new one."
+    },
+    "active_card": {
+      "workouts_count": "{{count}} workouts",
+      "frequency": "{{count}}x / week",
+      "progress_aria": "Program progress: {{completed}} of {{total}} workouts",
+      "kpi_streak": "Streak",
+      "kpi_success": "Success",
+      "kpi_volume": "Volume",
+      "recent_activity": "Recent Activity",
+      "orphan_title": "Program unavailable",
+      "orphan_description": "This program's definition no longer exists. Delete this instance to start a new one.",
+      "orphan_delete_button": "Delete program",
+      "orphan_delete_loading": "Deleting…",
+      "orphan_confirm_title": "Delete orphaned program",
+      "orphan_confirm_message": "All associated results will be deleted. Continue?",
+      "recent_activity_empty": "Complete your first workout to see recent activity."
+    },
+    "programs": {
+      "gzclp": {
+        "name": "GZCLP",
+        "description": "How to train on Kaio-sama's planet: linear progression under constant pressure. 4-day rotation with T1, T2, and T3 exercises. Fail a lift and you switch stages and keep fighting. Inspired by Cody LeFever's GZCL method."
+      },
+      "hexan-ppl": {
+        "name": "HeXaN PPL",
+        "description": "Six days of Kaioken: push your body to the limit with strength and volume. Push/Pull/Legs combining 5/3/1 on the main compounds with double progression on accessories. Inspired by HeXaN's methodology."
+      },
+      "stronglifts-5x5": {
+        "name": "StrongLifts 5x5",
+        "description": "A classic beginner strength program. Two alternating workouts (A/B), 3 days per week. Squat every session, linear progression of +2.5 kg per workout (+5 kg on deadlift). Three consecutive failures trigger a 10% deload."
+      },
+      "phraks-greyskull-lp": {
+        "name": "Phrak's Greyskull LP",
+        "description": "Phrakture's beginner strength program. Two alternating workouts (A/B), 3 days per week. Every exercise ends with an AMRAP set (to technical failure). Linear progression with a 10% deload on failure."
+      },
+      "531-boring-but-big": {
+        "name": "5/3/1 Boring But Big",
+        "description": "Master Roshi's secret to strength: boring reps, huge results. 4-week cycles (5s, 3s, 5/3/1, deload) with 5×10 supplemental volume. 4 days per week. Inspired by Jim Wendler's 5/3/1 BBB."
+      },
+      "531-for-beginners": {
+        "name": "5/3/1 for Beginners",
+        "description": "Full-body training at Kami's Lookout: 3 days per week, two main lifts per session. 3-week cycles (5s, 3s, 5/3/1) with FSL 5×5 as supplemental work. Methodical and balanced. Inspired by Jim Wendler's 5/3/1 for Beginners."
+      },
+      "phul": {
+        "name": "PHUL",
+        "description": "Strength and size like Vegeta in his gravity chamber: two days of pure power (heavy compounds, 3–5 reps) and two of hypertrophy (8–12 reps). 4 days per week. Inspired by Brandon Campbell's PHUL."
+      },
+      "nivel-7": {
+        "name": "Level 7",
+        "description": "A 12-week strength program with reverse periodization. You set your target record (week 6) and weights are calculated backwards. Block 1 (5×5) with a deload in week 3, Block 2 (3×3) peaking at the record. Cycle 2 repeats the wave with +2.5 kg. Accessories use double progression 3×8–12. 4 days/week: shoulders/triceps, back/calves, chest/biceps, legs."
+      },
+      "caparazon-de-tortuga": {
+        "name": "Turtle Shell",
+        "description": "Your training at Kame House: start from zero with bodyweight and gradually add the bar. 200 sessions, 3 days/week. 4 blocks per session: Core, Activation, Proprioception, and the Fundamental Lift. Inspired by Amerigo Brunetti's methodology."
+      },
+      "365-programmare-lipertrofia": {
+        "name": "365 Programmare l'Ipertrofia",
+        "description": "Amerigo Brunetti's year-long hypertrophy program, structured in 5 phases across 212 sessions. Phase Zero (8 weeks): technique with minimal loads. Phase T1 (6 weeks): introducing load on the three fundamental lifts. Phase PN (13 weeks): progressive ramping with specific overloads. Phase JAW (18 weeks): 3 independent intensification blocks with their own TMs and a 1RM test at the end of each. Phase IS (12 weeks): isolation and consolidation work, 12–30 reps. 4 days per week."
+      },
+      "la-sala-del-tiempo": {
+        "name": "Hyperbolic Time Chamber",
+        "description": "Inspired by Amerigo Brunetti's methodology. Your year in the Hyperbolic Time Chamber: 196 sessions of hypertrophy structured in 4 phases of increasing intensity (T1, PN, JAW, IS). Only for warriors who already own the squat, bench press, and deadlift. 4 days per week."
+      },
+      "sala-del-tiempo-1": {
+        "name": "Hyperbolic Time Chamber 1",
+        "description": "Phase T1 — Perfezionamento Tecnico: 24 sessions of technique with light loads (40–70% TM). Isometrics, tempos, and movement control on the squat, bench press, and deadlift. 6 weeks, 4 days/week. Inspired by Amerigo Brunetti's methodology."
+      },
+      "sala-del-tiempo-2": {
+        "name": "Hyperbolic Time Chamber 2",
+        "description": "Phase PN — Potenziamento Neurale: 52 sessions of progressive neural potentiation (60–95% TM). Load ramping and strength sets to carry technique over to heavier weights. 13 weeks, 4 days/week. Inspired by Amerigo Brunetti's methodology."
+      },
+      "sala-del-tiempo-3": {
+        "name": "Hyperbolic Time Chamber 3",
+        "description": "Phase JAW Mod — 72 sessions of intensification across 3 six-week blocks (60 → 70 → 80% TM). Each block ends with a 1RM test that feeds the next block's TM. 18 weeks, 4 days/week. Inspired by Amerigo Brunetti's methodology."
+      },
+      "tenkaichi-budokai-sentadilla": {
+        "name": "Tenkaichi Budokai — Squat",
+        "description": "A 16-week tournament prep with a squat focus. Exact percentages of your 1RM, mesocycle periodization, deload before competition. 4 days per week. Inspired by Boris Sheiko's methodology."
+      },
+      "tenkaichi-budokai-press-banca": {
+        "name": "Tenkaichi Budokai — Bench Press",
+        "description": "A 16-week tournament prep with a bench focus. Exact percentages of your 1RM, multiple bench variations. 4 days per week. Inspired by Boris Sheiko's methodology."
+      },
+      "tenkaichi-budokai-peso-muerto": {
+        "name": "Tenkaichi Budokai — Deadlift",
+        "description": "A 16-week tournament prep with a deadlift focus. Deficit, blocks, chains, bands — every deadlift variation. 4 days per week. Inspired by Boris Sheiko's methodology."
+      },
+      "tenkaichi-budokai-solo-banca": {
+        "name": "Tenkaichi Budokai — Bench Only",
+        "description": "An 18-week prep focused entirely on the bench press. No competition squat or deadlift — all energy going into a single strike. 4 days per week. Inspired by Boris Sheiko's methodology."
+      },
+      "tenkaichi-budokai-veterano": {
+        "name": "Tenkaichi Budokai — Veteran",
+        "description": "Sheiko's most popular program for experienced warriors. 4 prep mesocycles with moderate volume and a built-in 1RM test. Use your combat experience to reach the tournament at your best. 4 days per week. Inspired by Boris Sheiko's methodology."
+      },
+      "furia-oscura": {
+        "name": "Dark Fury",
+        "description": "Train like a Saiyan: Push/Pull/Legs with A/B weekly alternation. 3 days/week, Hyperbolic Time Chamber style, double progression until you break your limits."
+      }
+    }
+  },
+  "auth": {
+    "sign_in": "Sign In",
+    "sign_out": "Sign Out",
+    "create_account": "Create Account",
+    "dev_login": "⚗ Dev Login",
+    "try_without_account": "Try without account",
+    "authenticate": "Authenticate",
+    "enter_the_chamber": "Enter the Chamber",
+    "train_better_progress_faster": "Train better · Progress faster",
+    "errors": {
+      "google_failed": "Google sign-in failed. Please try again.",
+      "session_expired": "Your session has expired. Please sign in again.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "navigation": {
+    "home": "Home",
+    "programs": "Programs",
+    "dashboard": "Dashboard",
+    "tracker": "Tracker",
+    "profile": "Profile",
+    "main_nav_label": "Main navigation",
+    "view_profile": "View profile"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Training performance and progress",
+    "data_updated_6h": "Data updated every 6h",
+    "active_program": "Active Program",
+    "performance": "Performance",
+    "alerts": "Alerts",
+    "load_recommendation": "Load Recommendation",
+    "complete_workouts_message": "Complete workouts to see your analytics here.",
+    "no_programs_message": "Choose a program to see your metrics here.",
+    "view_programs": "View Programs",
+    "load_recommendation_section": "Load Recommendation"
+  },
+  "programs": {
+    "page_title": "Programs — Gravity Room",
+    "title": "Programs",
+    "subtitle": "Level-based training program catalog",
+    "retry": "Retry",
+    "catalog_load_error": "Could not load catalog.",
+    "other_programs": "Other Programs",
+    "choose_program": "Choose a Program",
+    "my_custom_programs": "My Custom Programs",
+    "card": {
+      "level_beginner": "Beginner",
+      "level_intermediate": "Intermediate",
+      "level_advanced": "Advanced",
+      "coming_soon": "Coming soon",
+      "workouts_count": "{{count}} workouts",
+      "frequency": "{{count}}x / week",
+      "author": "By {{author}}",
+      "view_program": "View Program",
+      "continue_training": "Continue Training",
+      "start_program": "Start Program",
+      "customizing": "Customizing...",
+      "customize": "Customize"
+    },
+    "definitions": {
+      "status_draft": "Draft",
+      "status_pending_review": "Pending review",
+      "status_approved": "Approved",
+      "status_rejected": "Rejected",
+      "confirm_delete": "Delete \"{{name}}\"? This action cannot be undone.",
+      "empty_state": "You have no custom programs. Customize one from the catalog.",
+      "unnamed_program": "Unnamed program",
+      "updated_label": "Updated:",
+      "edit": "Edit",
+      "start": "Start",
+      "delete": "Delete"
+    },
+    "wizard": {
+      "title": "Edit program",
+      "step_basic_info": "Basic info",
+      "step_days_exercises": "Days and exercises",
+      "step_progression": "Progression",
+      "loading_definition": "Loading definition...",
+      "load_error": "Could not load program definition.",
+      "back": "Back",
+      "close": "Close",
+      "step_counter": "Step {{current}} of {{total}}",
+      "unsaved_changes": "unsaved changes",
+      "save_error": "Error saving",
+      "basic_info": {
+        "name_required": "Name is required",
+        "max_chars": "Maximum {{max}} characters",
+        "name_label": "Program name",
+        "name_placeholder": "My custom program",
+        "description_label": "Description (optional)",
+        "description_placeholder": "Describe your program...",
+        "cancel": "Cancel",
+        "next": "Next"
+      },
+      "days_exercises": {
+        "min_exercises": "Add at least 1 exercise",
+        "default_day_name": "Day {{n}}",
+        "add_day": "+ Day",
+        "day_name_placeholder": "Day name",
+        "remove_day": "Remove day",
+        "remove_exercise": "Remove",
+        "remove_exercise_aria": "Remove {{name}}",
+        "add_exercise": "+ Add exercise",
+        "back": "Back",
+        "next": "Next"
+      },
+      "exercise_picker": {
+        "title": "Select exercise",
+        "close": "Close",
+        "search_placeholder": "Search exercise...",
+        "loading": "Loading exercises...",
+        "load_error": "Error loading exercises",
+        "no_results": "No exercises found"
+      },
+      "progression": {
+        "fallback_day_name": "Day {{n}}",
+        "loading": "Loading...",
+        "preview": "Preview",
+        "preview_error": "Error generating preview",
+        "back": "Back",
+        "saving": "Saving...",
+        "save_draft": "Save draft",
+        "save_and_start": "Save and start"
+      },
+      "rule_selector": {
+        "none": "None",
+        "rules": {
+          "add_weight": "Add weight",
+          "advance_stage": "Advance stage",
+          "add_weight_reset_stage": "Add weight and reset stage",
+          "deload_percent": "Deload (percentage)",
+          "no_change": "No change",
+          "double_progression": "Double progression",
+          "update_tm": "Update training max",
+          "advance_stage_add_weight": "Advance stage and add weight"
+        },
+        "fields": {
+          "deload_percent": "Deload percentage",
+          "amount_kg": "Amount to add (kg)",
+          "min_reps": "Min reps",
+          "max_reps": "Max reps",
+          "amount": "Amount",
+          "min_amrap_reps": "Min AMRAP reps"
+        },
+        "validation": {
+          "rep_range": "Min reps cannot exceed max reps"
+        }
+      },
+      "slot_card": {
+        "collapse": "collapse",
+        "expand": "expand",
+        "template": "Template",
+        "on_success": "On success",
+        "on_mid_stage_fail": "On fail (intermediate stage)",
+        "on_final_stage_fail": "On fail (final stage)",
+        "advanced": {
+          "toggle": "Advanced",
+          "section": "Ultra-advanced",
+          "on_final_stage_success": "On completing final stage",
+          "on_undefined": "Undefined result"
+        }
+      },
+      "stage_editor": {
+        "title": "Stages",
+        "sets": "Sets",
+        "reps": "Reps",
+        "amrap": "AMRAP",
+        "reps_max": "Max reps",
+        "remove_stage": "Remove stage",
+        "add_stage": "+ Add stage"
+      },
+      "preview": {
+        "no_data": "No preview data.",
+        "table_aria": "Program preview",
+        "columns": {
+          "workout": "Workout",
+          "exercise": "Exercise",
+          "sets": "Sets",
+          "reps": "Reps",
+          "weight": "Weight"
+        }
+      }
+    }
+  },
+  "tracker": {
+    "page_title": "Tracker — Gravity Room",
+    "program": "Program",
+    "statistics": "Statistics",
+    "retry": "Retry",
+    "stats_load_error": "Could not load statistics.",
+    "back_to_panel": "Back to panel",
+    "delete_and_return": "Delete program and return",
+    "catalog_removed": "The program {{programId}} no longer exists in the catalog.",
+    "guest_stats_message": "Create an account to see statistics",
+    "guest_export_message": "Create an account to export your data",
+    "jaw_status_test_week": "JAW Block {{block}} · Test week — update Block {{next}} TM when done.",
+    "jaw_status_final_test_week": "JAW Block 3 · Final test week — last JAW block.",
+    "jaw_status_progress": "JAW Block {{block}} · Wk. {{week}}/18 · Test in wk. {{testWeek}}.",
+    "result_toast": "#{{index}}: {{exercise}} {{tier}} — {{result}}",
+    "tab_content": {
+      "about_label": "About",
+      "aria_compact_view": "Switch to compact view",
+      "aria_detailed_view": "Switch to detailed view",
+      "compact_view": "Compact view",
+      "detailed_view": "Detailed view"
+    },
+    "setup_form": {
+      "invalid_value": "Invalid value",
+      "min_weight": "Minimum {{min}} kg",
+      "max_weight": "Maximum 500 kg",
+      "required": "Required",
+      "generate_error": "Error generating program.",
+      "edit_title_default": "Edit Starting Weights (kg)",
+      "create_title_default": "Starting Weights (kg)",
+      "edit_description_default": "Update your starting weights — the program will recalculate with new values",
+      "create_description_default": "Enter your starting weights for {{name}}",
+      "active_group_indicator": "← update here",
+      "error_header": "Please correct the following:",
+      "cancel_button": "Cancel",
+      "generating_loading": "Generating...",
+      "update_button_short": "Update",
+      "update_button": "Update Weights",
+      "generate_button": "Generate Program",
+      "collapsed_title": "Starting Weights",
+      "overflow_indicator": "+{{n}} more",
+      "edit_button_short": "Edit",
+      "edit_button": "Edit Weights",
+      "close_aria": "Close",
+      "confirm_title": "Update Starting Weights",
+      "confirm_message": "Your success/fail history will be preserved, but projected weights will change. Continue?",
+      "confirm_label": "Update"
+    },
+    "toolbar": {
+      "progress_aria": "Training progress",
+      "undo_actions_aria": "undoable actions",
+      "undo_button": "Undo",
+      "more_actions_aria": "More actions",
+      "finishing_loading": "Finishing...",
+      "finish_program": "Finish Program",
+      "export_csv": "Export CSV",
+      "reset_all": "Reset All",
+      "finish_confirm_message": "Your progress and statistics will be saved. You can review them anytime from the dashboard.",
+      "finish_confirm_label": "Finish",
+      "reset_confirm_title": "Reset All Progress",
+      "reset_confirm_message": "Are you sure you want to reset ALL progress? This cannot be undone.",
+      "reset_confirm_label": "Reset All"
+    },
+    "stats_panel": {
+      "other_group": "Other",
+      "exercise_plural": "exercise / exercises",
+      "empty_title": "No data yet",
+      "empty_description": "Complete your first workout to see statistics and charts.",
+      "default_section_label": "Exercises",
+      "card_start": "Start:",
+      "card_gained": "kg gained",
+      "card_stage": "Stage",
+      "card_success_rate": "success",
+      "progression_suffix": "Progression",
+      "amrap_chart_suffix": "AMRAP (reps)",
+      "volume_section_label": "Total Volume",
+      "volume_chart_label": "Volume per Session (kg)"
+    },
+    "graduation": {
+      "exercise_squat": "Squat",
+      "exercise_bench": "Bench Press",
+      "exercise_deadlift": "Deadlift",
+      "criteria_squat": "3 reps (tempo 5-3-5)",
+      "criteria_bench": "1 rep (perfect technique)",
+      "criteria_deadlift": "10 reps (controlled)",
+      "completed_title": "Graduation Completed",
+      "pending_title": "Graduation Objectives",
+      "completed_description": "You have achieved all objectives. You are ready for the JAW Protocol.",
+      "pending_description": "Complete these objectives to graduate to the next program.",
+      "estimated_1rm_header": "Your estimated 1RMs (Epley):",
+      "start_jaw": "Start JAW Protocol",
+      "keep_training": "Keep training"
+    },
+    "test_weight": {
+      "title": "Max Test —",
+      "description_propagation": "Record your max. This weight will be used as Training Max for the next block.",
+      "description_final": "Record your max. This is your final result of the JAW protocol.",
+      "weight_label": "How much did you lift? (kg)",
+      "cancel_button": "Cancel",
+      "saving_loading": "Saving...",
+      "confirm_button": "Confirm"
+    },
+    "day_view": {
+      "workout_aria": "Workout",
+      "deload_badge": "Deload"
+    },
+    "detailed_day_view": {
+      "workout_aria": "Workout",
+      "col_set": "Set",
+      "col_weight": "Kg",
+      "col_reps": "Reps",
+      "deload_badge": "Deload",
+      "table_aria_prefix": "Sets of",
+      "set_completed_aria": "Set completed",
+      "set_failed_aria": "Set failed",
+      "confirm_set_aria_prefix": "Confirm set"
+    },
+    "day_navigator": {
+      "prev_aria": "Previous day",
+      "prev_button": "Previous",
+      "day_label": "Day",
+      "completed_aria": "Completed",
+      "pending_aria": "Pending",
+      "go_to_current": "Current",
+      "next_aria": "Next day",
+      "next_button": "Next"
+    },
+    "completion": {
+      "header": "COMPLETED!",
+      "workouts_label": "Workouts",
+      "workouts_of": "of",
+      "total_volume": "Total Volume",
+      "weight_gained": "Weight Gained",
+      "personal_records": "Personal Records",
+      "estimated_1rm": "Estimated 1RM (Epley)",
+      "epley_note": "Estimate based on Epley formula",
+      "view_profile": "View Training Profile",
+      "back_to_dashboard": "Back to Home"
+    },
+    "weight_field": {
+      "decrease_label": "Decrease {{label}}",
+      "increase_label": "Increase {{label}}",
+      "valid": "Valid",
+      "min_hint": "Min {{min}} kg"
+    },
+    "result_cell": {
+      "success": "Success",
+      "fail": "Fail"
+    },
+    "amrap_input": {
+      "label": "AMRAP Reps",
+      "placeholder": "Extra reps"
+    },
+    "rpe_select": {
+      "label": "RPE",
+      "placeholder": "Select"
+    },
+    "stage_tag": {
+      "title_template": "Stage {{n}}: {{label}}",
+      "labels": {
+        "normal": "Normal",
+        "caution": "Caution",
+        "reset_next_fail": "Reset on next failure"
+      }
+    },
+    "errors": {
+      "amrap_save_failed": "Could not save AMRAP reps.",
+      "rpe_save_failed": "Could not save RPE.",
+      "undo_failed": "Could not undo. Please try again.",
+      "program_create_failed": "Could not create the program. Please try again.",
+      "config_update_failed": "Could not update the configuration. Please try again.",
+      "program_finish_failed": "Could not finish the program. Please try again.",
+      "program_reset_failed": "Could not reset the program. Please try again.",
+      "program_export_failed": "Could not export the program.",
+      "program_import_failed": "Could not import the program. Verify the file and try again.",
+      "next_block_revert_failed": "Could not revert the next block's configuration."
+    },
+    "exercise_role": {
+      "primary": "Primary",
+      "secondary": "Secondary",
+      "accessory": "Accessory"
+    }
+  },
+  "profile": {
+    "page": {
+      "title": "Profile — Gravity Room",
+      "heading": "Profile",
+      "subtitle": "Your training progress"
+    },
+    "empty": {
+      "heading": "NO PROGRAM",
+      "description": "Start a program to see your training profile.",
+      "cta": "Go to Home"
+    },
+    "history": {
+      "title": "History",
+      "completed_on": "Completed on",
+      "view_stats": "View statistics",
+      "badge_completed": "Completed"
+    },
+    "banner": {
+      "badge_active": "Active",
+      "badge_completed": "Completed",
+      "first_workout_message": "Your first workout awaits",
+      "workout_label": "Workout",
+      "workout_of": "of",
+      "completed_pct_label": "Completed",
+      "success_rate_label": "Success",
+      "cta_start": "Start",
+      "program_selector_label": "Program selector",
+      "status_active": "— Active",
+      "status_completed": "— Completed"
+    },
+    "badges": {
+      "section_title": "Achievements",
+      "first_workout": {
+        "label": "First Workout",
+        "description": "Complete 1 workout"
+      },
+      "streak_5": {
+        "label": "Streak of 5",
+        "description": "5 consecutive workouts"
+      },
+      "club_100kg": {
+        "label": "100 kg Club",
+        "description": "Any T1 reaches 100 kg"
+      },
+      "complete_program": {
+        "label": "Complete Program",
+        "description": "Finish a complete program"
+      },
+      "volume_10k": {
+        "label": "Volume 10K",
+        "description": "10,000 kg total volume"
+      },
+      "zero_state": "Complete workouts to unlock achievements"
+    },
+    "charts": {
+      "weight_progression_title": "Weight Progression",
+      "success_rate_label": "success"
+    },
+    "stats_grid": {
+      "stats_title": "Statistics",
+      "empty_message": "Complete your first workout to see your statistics.",
+      "workouts_label": "Workouts",
+      "workouts_of": "of",
+      "workouts_label_plural": "workouts",
+      "success_rate_label": "Success Rate",
+      "total_volume_label": "Total Volume",
+      "sets_label": "sets",
+      "reps_label": "reps",
+      "completed_label": "Completed",
+      "streak_title": "Streak",
+      "current_streak_label": "Current Streak",
+      "consecutive_label": "consecutive",
+      "longest_streak_label": "Record",
+      "this_month_label": "this month",
+      "new_prs_label": "New PRs",
+      "volume_label": "Volume",
+      "personal_records_title": "Personal Records (T1)",
+      "workout_number_label": "Workout #",
+      "initial_weight_label": "Initial weight",
+      "e1rm_title": "Estimated 1RM (Epley)",
+      "epley_note": "Estimate based on Epley formula",
+      "lifetime_volume_title": "Lifetime Total Volume",
+      "all_programs_label": "All Programs",
+      "programs_label_plural": "programs"
+    },
+    "account": {
+      "title": "Account",
+      "section_title": "Account Settings",
+      "change_avatar_label": "Change avatar",
+      "change_avatar_text": "Change",
+      "username_input_label": "Username",
+      "edit_name_tooltip": "Edit name",
+      "remove_photo": "Remove photo",
+      "weight_unit_label": "Weight unit",
+      "language_label": "Language",
+      "unit_lbs": "pounds",
+      "unit_kg": "kilograms",
+      "danger_zone": "Danger zone",
+      "delete_account": "Delete account",
+      "name_required": "Name required"
+    },
+    "avatar": {
+      "upload_error": "Error uploading profile photo",
+      "remove_error": "Error removing profile photo"
+    },
+    "name": {
+      "updated": "Name updated",
+      "update_error": "Error updating name"
+    },
+    "account_errors": {
+      "delete_error": "Error deleting account"
+    }
+  },
+  "insights": {
+    "exercise_summary": {
+      "default_exercise": "Exercise",
+      "total_sets_label": "Total sets",
+      "success_rate_label": "Success rate",
+      "total_volume_label": "Total volume",
+      "avg_rpe_label": "Avg RPE",
+      "success_rate_a11y": "Success rate:"
+    },
+    "volume_trend": {
+      "direction_up": "↑ rising",
+      "direction_down": "↓ falling",
+      "direction_stable": "→ stable",
+      "title": "Volume Trend",
+      "no_data": "No volume data",
+      "chart_sr_only": "Weekly volume trend",
+      "avg_label": "avg"
+    },
+    "frequency": {
+      "day_labels": ["M", "T", "W", "T", "F", "S", "S"],
+      "title": "Weekly Activity",
+      "days_label": "days",
+      "total_sessions_label": "total sessions"
+    },
+    "plateau": {
+      "default_exercise": "Exercise",
+      "heading": "Plateau detected",
+      "no_progress_in": "no progress in",
+      "weeks_label": "weeks",
+      "confidence_abbrev": "conf."
+    },
+    "load_rec": {
+      "default_exercise": "Exercise",
+      "action_increment": "increment",
+      "action_maintain": "maintain",
+      "from": "from",
+      "to": "to",
+      "rule_method_label": "rule",
+      "current_load_label": "Current load",
+      "increment_to_label": "Increment to",
+      "maintain_at_label": "Maintain at",
+      "confidence_label": "confidence"
+    }
+  },
+  "login": {
+    "page": {
+      "title": "Sign In — Gravity Room"
+    },
+    "tagline": "Train better · Progress faster",
+    "auth_separator": "Enter the Chamber",
+    "form": {
+      "title": "Authenticate"
+    },
+    "errors": {
+      "google_auth_error": "Error signing in with Google. Please try again."
+    },
+    "dev": {
+      "dev_login": "⚗ Dev Login"
+    },
+    "guest": {
+      "cta": "Try without account"
+    }
+  },
+  "not_found": {
+    "logo_alt": "Gravity Room logo",
+    "message": "This page doesn't exist. It may have been moved, or you typed the URL incorrectly.",
+    "go_home": "Go to Home"
+  },
+  "guest_banner": {
+    "mode": "Guest mode",
+    "prompt": "Create an account to save your progress",
+    "create_account": "Create Account",
+    "create_account_aria": "Create account to save your progress"
+  },
+  "legal": {
+    "back": "← Back",
+    "privacy": {
+      "document_title": "Privacy Policy — Gravity Room",
+      "title": "Privacy Policy",
+      "data_stored": {
+        "title": "Data We Store",
+        "body": "All training data (exercises, weights, sets, repetitions, and results) is stored locally in your browser's localStorage. This data never leaves your device unless you explicitly enable cloud sync."
+      },
+      "cloud_sync": {
+        "title": "Cloud Sync (Optional)",
+        "body": "If you create an account, we store your email address and training data in a secure database (PostgreSQL). This allows synchronization between devices. Cloud sync is completely optional — the app works fully offline without an account."
+      },
+      "google_login": {
+        "title": "Google Sign-In (Optional)",
+        "body": "If you sign in with Google, we receive your email address and profile name from Google. We do not access your contacts, calendar, or any other Google data."
+      },
+      "cookies": {
+        "title": "Cookies, Analytics, and Tracking",
+        "body_prefix": "We only use a technical cookie necessary to maintain authenticated user sessions. We do not use analytics, tracking, or advertising cookies. No data is shared with advertisers or third parties. See our",
+        "link": "Cookie Policy",
+        "body_suffix": "for more information."
+      },
+      "delete_data": {
+        "title": "Delete Your Data",
+        "local_label": "Local data:",
+        "local_body": "Clear your browser's localStorage or use the \"Reset All\" option in the app.",
+        "cloud_label": "Cloud data:",
+        "cloud_body": "If you have an account and wish to delete your cloud data, contact us and we will delete your account and all associated data from our database."
+      },
+      "contact": {
+        "title": "Contact",
+        "body": "For privacy questions or data deletion requests, open an issue on the project repository or contact the maintainer."
+      }
+    },
+    "cookie_policy": {
+      "document_title": "Cookie Policy — Gravity Room",
+      "title": "Cookie Policy",
+      "what_are_cookies": {
+        "title": "What are cookies?",
+        "body": "Cookies are small text files that websites store in your browser. They may be necessary for the technical functioning of the site or used for analytical or advertising purposes."
+      },
+      "which_cookies": {
+        "title": "What cookies does Gravity Room use?",
+        "body": "Gravity Room only uses a technical cookie strictly necessary for authentication functionality.",
+        "no_tracking": "We do not use analytics, advertising, or tracking cookies of any kind."
+      },
+      "table": {
+        "name": "Name",
+        "type": "Type",
+        "purpose": "Purpose",
+        "duration": "Duration",
+        "owner": "Owner",
+        "technical_type": "Technical (necessary)",
+        "refresh_token_purpose": "Maintain authenticated user session. Contains an opaque identifier (no personal data). It is httpOnly and not accessible by JavaScript.",
+        "refresh_token_duration": "7 days",
+        "refresh_token_owner": "Gravity Room (first-party)"
+      },
+      "third_party": {
+        "title": "Third-party cookies",
+        "body_prefix": "When using Google sign-in, Google's service may set its own cookies during the authentication process. These cookies are managed by Google and subject to their",
+        "privacy_policy_link": "privacy policy",
+        "no_access": "Gravity Room does not control or have access to such cookies."
+      },
+      "local_storage": {
+        "title": "Local storage",
+        "body": "In addition to the cookie mentioned above, Gravity Room uses browser local storage to save display preferences and training data in guest mode. This data is never sent to any server and can be deleted by clearing your site data in your browser."
+      },
+      "analytics": {
+        "title": "Analytics",
+        "body": "a privacy-friendly web analytics service. Plausible does not use cookies, does not collect identifiable personal data, and does not track users between sessions. Aggregated data (page views, country of origin, device type) is used solely to improve the service."
+      },
+      "legal_basis": {
+        "title": "Legal basis",
+        "body": "is exempt from prior consent under article 22.2 of Law 34/2002 (LSSI-CE), as it is strictly necessary for the provision of the authentication service expressly requested by the user. This exemption is also recognized by Recital 66 of Directive 2009/136/EC and the guidelines of the European Data Protection Board."
+      },
+      "disable_cookies": {
+        "title": "How to disable cookies?",
+        "body_prefix": "You can configure your browser to block or delete cookies. Note that if you block the cookie",
+        "body_suffix": "you will not be able to maintain your session and will need to authenticate again on each visit. The app will continue to work in guest mode without cookies."
+      },
+      "contact": {
+        "title": "Contact",
+        "body": "For questions about cookie usage, open an issue on the project repository or contact the maintainer."
+      },
+      "last_updated": "Last updated: March 2026."
+    }
+  },
+  "avatar_dropdown": {
+    "user_menu": "User menu",
+    "profile": "Profile",
+    "sign_out": "Sign Out"
+  },
+  "delete_account": {
+    "confirm_word": "DELETE",
+    "validation": {
+      "incorrect": "Incorrect"
+    },
+    "title": "Delete Account",
+    "description": "This action will mark your account for deletion. Your data will be permanently deleted after 30 days.",
+    "confirm_instruction": "Type {{word}} to confirm.",
+    "cancel": "Cancel",
+    "loading": "Deleting...",
+    "confirm_button": "Delete Account"
+  },
+  "confirm_dialog": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "processing": "Processing…"
+  },
+  "cookie_banner": {
+    "message": "This site uses a technical cookie necessary to maintain your session. We do not use tracking cookies. We use Plausible Analytics (no cookies) to improve the service.",
+    "learn_more": "More information",
+    "accept": "Got it"
+  },
+  "sw_update": {
+    "available": "New version available",
+    "update": "Update",
+    "close": "Close"
+  },
+  "online_indicator": {
+    "aria_label": "{{count}} users online — Join our Discord",
+    "label": "{{count}} online"
+  },
+  "error_boundary": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. Reloading the page should fix it.",
+    "reload_button": "Reload"
+  },
+  "toast": {
+    "provider_error": "useToast must be used within ToastProvider"
+  },
+  "guest": {
+    "provider_error": "useGuest must be used within GuestProvider"
+  },
+  "home": {
+    "page_title": "Home — Gravity Room",
+    "header": {
+      "greeting_named": "Welcome, {{name}}",
+      "greeting_generic": "Welcome to Gravity Room",
+      "streak_inline": "Streak: {{count}}",
+      "last_session_label": "Last session:",
+      "last_today": "today",
+      "last_yesterday": "yesterday",
+      "last_days_ago_one": "{{count}} day ago",
+      "last_days_ago_other": "{{count}} days ago"
+    },
+    "kpi": {
+      "streak_label": "Streak",
+      "streak_sub": "in a row",
+      "sessions_label": "Sessions/wk",
+      "sessions_sub": "frequency",
+      "consistency_label": "Consistency",
+      "consistency_sub_total": "{{count}} total"
+    },
+    "empty": {
+      "guest_title": "Guest mode",
+      "guest_body": "Create a free account to save your progress and stick with your plan.",
+      "guest_cta": "Create Account",
+      "no_program_title": "No active program",
+      "no_program_body": "Pick a program to start logging your training.",
+      "no_program_cta": "View Programs"
+    },
+    "footer": {
+      "view_stats": "View stats in Profile",
+      "change_language": "Change language in Profile"
+    }
+  }
+}
