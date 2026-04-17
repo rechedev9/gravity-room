@@ -1,6 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
-import { getCategoryColor, categoryLabel } from '@/lib/category-colors';
+import { getCategoryColor } from '@/lib/category-colors';
+import {
+  localizedCategoryLabel,
+  localizedProgramDescription,
+  localizedProgramName,
+} from '@/lib/catalog-display';
 
 /** Minimal program info needed by ProgramCard — compatible with both CatalogEntry and ProgramDefinition. */
 export interface ProgramCardInfo {
@@ -32,7 +37,9 @@ export function ProgramCard({
 }: ProgramCardProps): React.ReactNode {
   const { t } = useTranslation();
   const catColor = getCategoryColor(definition.category);
-  const label = categoryLabel(definition.category);
+  const label = localizedCategoryLabel(t, definition.category);
+  const name = localizedProgramName(t, definition.id, definition.name);
+  const description = localizedProgramDescription(t, definition.id, definition.description);
   const resolvedDisabledLabel = disabledLabel ?? t('programs.card.coming_soon');
 
   const ctaClasses = `mt-auto px-4 py-2.5 text-xs font-bold border-2 cursor-pointer transition-all text-center ${
@@ -56,9 +63,7 @@ export function ProgramCard({
       <div className="relative flex flex-col gap-3">
         {/* Header: name + category badge */}
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm sm:text-base font-extrabold text-title leading-tight">
-            {definition.name}
-          </h3>
+          <h3 className="text-sm sm:text-base font-extrabold text-title leading-tight">{name}</h3>
           <span
             className="shrink-0 text-2xs font-bold uppercase tracking-wider px-2 py-0.5 border"
             style={{
@@ -71,7 +76,7 @@ export function ProgramCard({
         </div>
 
         {/* Description */}
-        <p className="text-xs text-muted leading-relaxed line-clamp-3">{definition.description}</p>
+        <p className="text-xs text-muted leading-relaxed line-clamp-3">{description}</p>
 
         {/* Meta: workouts, frequency, author */}
         {!disabled && (
@@ -92,7 +97,7 @@ export function ProgramCard({
             <Link
               to={to}
               className={`mt-auto ${ctaClasses}`}
-              aria-label={`Ver programa ${definition.name}`}
+              aria-label={t('catalog.card.view_program_aria', { name })}
             >
               {t('programs.card.view_program')}
             </Link>

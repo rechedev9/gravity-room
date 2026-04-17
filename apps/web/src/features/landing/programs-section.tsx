@@ -1,12 +1,17 @@
 import { Link } from '@tanstack/react-router';
 import type { UseQueryResult } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@/lib/api-functions';
 import { FadeUp, StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
+import {
+  localizedCategoryLabel,
+  localizedProgramDescription,
+  localizedProgramName,
+} from '@/lib/catalog-display';
 import {
   SectionHeader,
   SECTION_PAD,
   ProgramCardSkeleton,
-  categoryLabel,
   getCategoryColor,
   estimatedWeeks,
   MAX_LANDING_PROGRAMS,
@@ -19,6 +24,7 @@ interface ProgramsSectionProps {
 }
 
 export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps): React.ReactNode {
+  const { t } = useTranslation();
   const catalog = catalogQuery.data;
 
   return (
@@ -84,13 +90,13 @@ export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps)
                             color: catColor.badge,
                           }}
                         >
-                          {categoryLabel(program.category)}
+                          {localizedCategoryLabel(t, program.category)}
                         </span>
                       </div>
 
                       <div className="relative">
                         <h3 className="font-display text-center text-3xl mb-1 tracking-wide text-title">
-                          {program.name}
+                          {localizedProgramName(t, program.id, program.name)}
                         </h3>
 
                         <p className="font-mono text-center text-[11px] tracking-wider uppercase mb-4 text-muted">
@@ -98,7 +104,7 @@ export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps)
                         </p>
 
                         <p className="text-sm text-center leading-relaxed mb-6 line-clamp-2 text-muted">
-                          {program.description}
+                          {localizedProgramDescription(t, program.id, program.description)}
                         </p>
 
                         <div className="flex flex-wrap justify-center gap-2">

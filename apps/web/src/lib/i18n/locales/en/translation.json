@@ -34,6 +34,133 @@
     "collapse": "collapse",
     "expand": "expand"
   },
+  "calendar": {
+    "session_prefix": "Workout #{{index}} — {{dayName}}",
+    "stage_label": "Stage"
+  },
+  "catalog": {
+    "category": {
+      "strength": "Strength",
+      "hypertrophy": "Hypertrophy",
+      "powerlifting": "Powerlifting"
+    },
+    "meta": {
+      "total_workouts": "{{count}} total workouts",
+      "per_week": "{{count}} per week",
+      "day_rotation": "{{count}}-day rotation"
+    },
+    "card": {
+      "view_program_aria": "View {{name}}"
+    },
+    "program_preview": {
+      "about": "About {{name}}",
+      "by_author": "By {{author}}",
+      "back_label": "← Home",
+      "back_aria": "Back to home",
+      "error_not_found": "Program not found",
+      "error_details": "The requested program does not exist or could not be loaded.",
+      "cta_signup_prompt": "Create an account to track your progress",
+      "cta_view_dashboard": "View Dashboard",
+      "cta_active_warning": "Finish your current program before starting a new one."
+    },
+    "active_card": {
+      "workouts_count": "{{count}} workouts",
+      "frequency": "{{count}}x / week",
+      "progress_aria": "Program progress: {{completed}} of {{total}} workouts",
+      "kpi_streak": "Streak",
+      "kpi_success": "Success",
+      "kpi_volume": "Volume",
+      "recent_activity": "Recent Activity",
+      "orphan_title": "Program unavailable",
+      "orphan_description": "This program's definition no longer exists. Delete this instance to start a new one.",
+      "orphan_delete_button": "Delete program",
+      "orphan_delete_loading": "Deleting…",
+      "orphan_confirm_title": "Delete orphaned program",
+      "orphan_confirm_message": "All associated results will be deleted. Continue?"
+    },
+    "programs": {
+      "gzclp": {
+        "name": "GZCLP",
+        "description": "How to train on Kaio-sama's planet: linear progression under constant pressure. 4-day rotation with T1, T2, and T3 exercises. Fail a lift and you switch stages and keep fighting. Inspired by Cody LeFever's GZCL method."
+      },
+      "hexan-ppl": {
+        "name": "HeXaN PPL",
+        "description": "Six days of Kaioken: push your body to the limit with strength and volume. Push/Pull/Legs combining 5/3/1 on the main compounds with double progression on accessories. Inspired by HeXaN's methodology."
+      },
+      "stronglifts-5x5": {
+        "name": "StrongLifts 5x5",
+        "description": "A classic beginner strength program. Two alternating workouts (A/B), 3 days per week. Squat every session, linear progression of +2.5 kg per workout (+5 kg on deadlift). Three consecutive failures trigger a 10% deload."
+      },
+      "phraks-greyskull-lp": {
+        "name": "Phrak's Greyskull LP",
+        "description": "Phrakture's beginner strength program. Two alternating workouts (A/B), 3 days per week. Every exercise ends with an AMRAP set (to technical failure). Linear progression with a 10% deload on failure."
+      },
+      "531-boring-but-big": {
+        "name": "5/3/1 Boring But Big",
+        "description": "Master Roshi's secret to strength: boring reps, huge results. 4-week cycles (5s, 3s, 5/3/1, deload) with 5×10 supplemental volume. 4 days per week. Inspired by Jim Wendler's 5/3/1 BBB."
+      },
+      "531-for-beginners": {
+        "name": "5/3/1 for Beginners",
+        "description": "Full-body training at Kami's Lookout: 3 days per week, two main lifts per session. 3-week cycles (5s, 3s, 5/3/1) with FSL 5×5 as supplemental work. Methodical and balanced. Inspired by Jim Wendler's 5/3/1 for Beginners."
+      },
+      "phul": {
+        "name": "PHUL",
+        "description": "Strength and size like Vegeta in his gravity chamber: two days of pure power (heavy compounds, 3–5 reps) and two of hypertrophy (8–12 reps). 4 days per week. Inspired by Brandon Campbell's PHUL."
+      },
+      "nivel-7": {
+        "name": "Level 7",
+        "description": "A 12-week strength program with reverse periodization. You set your target record (week 6) and weights are calculated backwards. Block 1 (5×5) with a deload in week 3, Block 2 (3×3) peaking at the record. Cycle 2 repeats the wave with +2.5 kg. Accessories use double progression 3×8–12. 4 days/week: shoulders/triceps, back/calves, chest/biceps, legs."
+      },
+      "caparazon-de-tortuga": {
+        "name": "Turtle Shell",
+        "description": "Your training at Kame House: start from zero with bodyweight and gradually add the bar. 200 sessions, 3 days/week. 4 blocks per session: Core, Activation, Proprioception, and the Fundamental Lift. Inspired by Amerigo Brunetti's methodology."
+      },
+      "365-programmare-lipertrofia": {
+        "name": "365 Programmare l'Ipertrofia",
+        "description": "Amerigo Brunetti's year-long hypertrophy program, structured in 5 phases across 212 sessions. Phase Zero (8 weeks): technique with minimal loads. Phase T1 (6 weeks): introducing load on the three fundamental lifts. Phase PN (13 weeks): progressive ramping with specific overloads. Phase JAW (18 weeks): 3 independent intensification blocks with their own TMs and a 1RM test at the end of each. Phase IS (12 weeks): isolation and consolidation work, 12–30 reps. 4 days per week."
+      },
+      "la-sala-del-tiempo": {
+        "name": "Hyperbolic Time Chamber",
+        "description": "Inspired by Amerigo Brunetti's methodology. Your year in the Hyperbolic Time Chamber: 196 sessions of hypertrophy structured in 4 phases of increasing intensity (T1, PN, JAW, IS). Only for warriors who already own the squat, bench press, and deadlift. 4 days per week."
+      },
+      "sala-del-tiempo-1": {
+        "name": "Hyperbolic Time Chamber 1",
+        "description": "Phase T1 — Perfezionamento Tecnico: 24 sessions of technique with light loads (40–70% TM). Isometrics, tempos, and movement control on the squat, bench press, and deadlift. 6 weeks, 4 days/week. Inspired by Amerigo Brunetti's methodology."
+      },
+      "sala-del-tiempo-2": {
+        "name": "Hyperbolic Time Chamber 2",
+        "description": "Phase PN — Potenziamento Neurale: 52 sessions of progressive neural potentiation (60–95% TM). Load ramping and strength sets to carry technique over to heavier weights. 13 weeks, 4 days/week. Inspired by Amerigo Brunetti's methodology."
+      },
+      "sala-del-tiempo-3": {
+        "name": "Hyperbolic Time Chamber 3",
+        "description": "Phase JAW Mod — 72 sessions of intensification across 3 six-week blocks (60 → 70 → 80% TM). Each block ends with a 1RM test that feeds the next block's TM. 18 weeks, 4 days/week. Inspired by Amerigo Brunetti's methodology."
+      },
+      "tenkaichi-budokai-sentadilla": {
+        "name": "Tenkaichi Budokai — Squat",
+        "description": "A 16-week tournament prep with a squat focus. Exact percentages of your 1RM, mesocycle periodization, deload before competition. 4 days per week. Inspired by Boris Sheiko's methodology."
+      },
+      "tenkaichi-budokai-press-banca": {
+        "name": "Tenkaichi Budokai — Bench Press",
+        "description": "A 16-week tournament prep with a bench focus. Exact percentages of your 1RM, multiple bench variations. 4 days per week. Inspired by Boris Sheiko's methodology."
+      },
+      "tenkaichi-budokai-peso-muerto": {
+        "name": "Tenkaichi Budokai — Deadlift",
+        "description": "A 16-week tournament prep with a deadlift focus. Deficit, blocks, chains, bands — every deadlift variation. 4 days per week. Inspired by Boris Sheiko's methodology."
+      },
+      "tenkaichi-budokai-solo-banca": {
+        "name": "Tenkaichi Budokai — Bench Only",
+        "description": "An 18-week prep focused entirely on the bench press. No competition squat or deadlift — all energy going into a single strike. 4 days per week. Inspired by Boris Sheiko's methodology."
+      },
+      "tenkaichi-budokai-veterano": {
+        "name": "Tenkaichi Budokai — Veteran",
+        "description": "Sheiko's most popular program for experienced warriors. 4 prep mesocycles with moderate volume and a built-in 1RM test. Use your combat experience to reach the tournament at your best. 4 days per week. Inspired by Boris Sheiko's methodology."
+      },
+      "furia-oscura": {
+        "name": "Dark Fury",
+        "description": "Train like a Saiyan: Push/Pull/Legs with A/B weekly alternation. 3 days/week, Hyperbolic Time Chamber style, double progression until you break your limits."
+      }
+    }
+  },
   "auth": {
     "sign_in": "Sign In",
     "sign_out": "Sign Out",
@@ -43,7 +170,11 @@
     "authenticate": "Authenticate",
     "enter_the_chamber": "Enter the Chamber",
     "train_better_progress_faster": "Train better · Progress faster",
-    "google_auth_error": "Error signing in with Google. Please try again."
+    "errors": {
+      "google_failed": "Google sign-in failed. Please try again.",
+      "session_expired": "Your session has expired. Please sign in again.",
+      "generic": "Something went wrong. Please try again."
+    }
   },
   "navigation": {
     "home": "Home",
@@ -226,16 +357,12 @@
     "catalog_removed": "The program {{programId}} no longer exists in the catalog.",
     "guest_stats_message": "Create an account to see statistics",
     "guest_export_message": "Create an account to export your data",
-    "jaw_block": "JAW Block",
-    "jaw_test_week_update_tm": "Test week — update Block TM",
-    "jaw_last_block": "last JAW block.",
-    "jaw_test_in_week": "Test in wk.",
+    "jaw_status_test_week": "JAW Block {{block}} · Test week — update Block {{next}} TM when done.",
+    "jaw_status_final_test_week": "JAW Block 3 · Final test week — last JAW block.",
+    "jaw_status_progress": "JAW Block {{block}} · Wk. {{week}}/18 · Test in wk. {{testWeek}}.",
+    "result_toast": "#{{index}}: {{exercise}} {{tier}} — {{result}}",
     "tab_content": {
       "about_label": "About",
-      "total_workouts": "total workouts",
-      "per_week": "per week",
-      "rotation_of": "Rotation of",
-      "days": "days",
       "aria_compact_view": "Switch to compact view",
       "aria_detailed_view": "Switch to detailed view",
       "compact_view": "Compact view",
@@ -250,7 +377,7 @@
       "edit_title_default": "Edit Starting Weights (kg)",
       "create_title_default": "Starting Weights (kg)",
       "edit_description_default": "Update your starting weights — the program will recalculate with new values",
-      "create_description_default": "Enter your starting weights for",
+      "create_description_default": "Enter your starting weights for {{name}}",
       "active_group_indicator": "← update here",
       "error_header": "Please correct the following:",
       "cancel_button": "Cancel",
@@ -377,7 +504,24 @@
       "placeholder": "Select"
     },
     "stage_tag": {
-      "stage": "Stage"
+      "title_template": "Stage {{n}}: {{label}}",
+      "labels": {
+        "normal": "Normal",
+        "caution": "Caution",
+        "reset_next_fail": "Reset on next failure"
+      }
+    },
+    "errors": {
+      "amrap_save_failed": "Could not save AMRAP reps.",
+      "rpe_save_failed": "Could not save RPE.",
+      "undo_failed": "Could not undo. Please try again.",
+      "program_create_failed": "Could not create the program. Please try again.",
+      "config_update_failed": "Could not update the configuration. Please try again.",
+      "program_finish_failed": "Could not finish the program. Please try again.",
+      "program_reset_failed": "Could not reset the program. Please try again.",
+      "program_export_failed": "Could not export the program.",
+      "program_import_failed": "Could not import the program. Verify the file and try again.",
+      "next_block_revert_failed": "Could not revert the next block's configuration."
     }
   },
   "profile": {

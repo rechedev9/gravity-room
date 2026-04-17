@@ -268,7 +268,7 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     id: 'furia-oscura',
     name: 'Furia Oscura',
     description:
-      'Entrena como un Saiyajin: Push/Pull/Legs con alternancia A/B semanal. 3 dias/semana al estilo Sala del Tiempo, doble progresion hasta superar tus limites.',
+      'Entrena como un Saiyajin: Push/Pull/Legs con alternancia A/B semanal. 3 días/semana al estilo Sala del Tiempo, doble progresión hasta superar tus límites.',
     author: 'Gravity Room',
     category: 'hypertrophy',
     level: 'intermediate',

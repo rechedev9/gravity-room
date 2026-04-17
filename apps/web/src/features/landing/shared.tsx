@@ -109,7 +109,7 @@ export function GitHubIcon({ className }: { readonly className?: string }): Reac
 
 /* ── Program helpers ──────────────────────────────── */
 
-export { getCategoryColor, categoryLabel } from '@/lib/category-colors';
+export { getCategoryColor } from '@/lib/category-colors';
 
 export function estimatedWeeks(totalWorkouts: number, workoutsPerWeek: number): number {
   if (workoutsPerWeek <= 0) return 0;

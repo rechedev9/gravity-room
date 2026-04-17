@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export interface TestWeightModalState {
   readonly workoutIndex: number;
@@ -39,6 +40,7 @@ export function useTestWeightModal({
   recordAndToast,
   toast,
 }: UseTestWeightModalOptions): UseTestWeightModalReturn {
+  const { t } = useTranslation();
   const [testWeightModal, setTestWeightModal] = useState<TestWeightModalState | null>(null);
   const [testWeightLoading, setTestWeightLoading] = useState(false);
   const configSnapshotRef = useRef<Map<string, ConfigSnapshot>>(new Map());
@@ -64,7 +66,7 @@ export function useTestWeightModal({
           await updateConfigAsync({ [propagatesTo]: weight });
         } catch {
           configSnapshotRef.current.delete(snapshotKey);
-          toast({ message: 'No se pudo actualizar la configuracion. Intentalo de nuevo.' });
+          toast({ message: t('tracker.errors.config_update_failed') });
           setTestWeightLoading(false);
           setTestWeightModal(null);
           return;
@@ -95,7 +97,7 @@ export function useTestWeightModal({
       const revertValue = snapshot.previousValue;
       if (revertValue !== undefined) {
         updateConfigAsync({ [snapshot.propagatesTo]: revertValue }).catch(() => {
-          toast({ message: 'No se pudo revertir la configuracion del bloque siguiente.' });
+          toast({ message: t('tracker.errors.next_block_revert_failed') });
         });
       }
     }

@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { localizedProgramDescription, localizedProgramName } from '@/lib/catalog-display';
 import { useProgramHead } from '@/hooks/use-head';
 import { trackEvent } from '@/lib/analytics';
 import { useParams, Link } from '@tanstack/react-router';
@@ -47,22 +49,21 @@ function PreviewSkeleton(): ReactNode {
 // ---------------------------------------------------------------------------
 
 function PreviewError({ onRetry }: { readonly onRetry: () => void }): ReactNode {
+  const { t } = useTranslation();
   return (
     <div className="text-center py-16 px-4">
-      <p className="text-muted mb-2 text-sm">Programa no encontrado</p>
-      <p className="text-muted mb-6 text-xs">
-        El programa solicitado no existe o no se pudo cargar.
-      </p>
+      <p className="text-muted mb-2 text-sm">{t('catalog.program_preview.error_not_found')}</p>
+      <p className="text-muted mb-6 text-xs">{t('catalog.program_preview.error_details')}</p>
       <div className="flex flex-col items-center gap-3">
         <button
           type="button"
           onClick={onRetry}
           className="px-5 py-2 bg-accent text-white font-bold cursor-pointer text-sm"
         >
-          Reintentar
+          {t('common.retry')}
         </button>
         <Link to="/" className="text-xs text-muted hover:text-main transition-colors">
-          Volver al inicio
+          {t('catalog.program_preview.back_label')}
         </Link>
       </div>
     </div>
@@ -74,20 +75,22 @@ function PreviewError({ onRetry }: { readonly onRetry: () => void }): ReactNode 
 // ---------------------------------------------------------------------------
 
 function PreviewCtaUnauthenticated(): ReactNode {
+  const { t } = useTranslation();
   return (
     <div className="bg-card border border-rule p-5 sm:p-6 mt-6 text-center">
-      <p className="text-xs text-muted mb-3">Crea una cuenta para registrar tu progreso</p>
+      <p className="text-xs text-muted mb-3">{t('catalog.program_preview.cta_signup_prompt')}</p>
       <Link
         to="/login"
         className="inline-block px-6 py-2.5 text-xs font-bold border-2 border-btn-ring bg-btn text-btn-text hover:bg-btn-active hover:text-btn-active-text transition-all"
       >
-        Crear cuenta
+        {t('auth.create_account')}
       </Link>
     </div>
   );
 }
 
 function PreviewCtaStartProgram({ programId }: { readonly programId: string }): ReactNode {
+  const { t } = useTranslation();
   return (
     <div className="bg-card border border-rule p-5 sm:p-6 mt-6 text-center">
       <Link
@@ -95,18 +98,17 @@ function PreviewCtaStartProgram({ programId }: { readonly programId: string }): 
         params={{ programId }}
         className="inline-block px-6 py-2.5 text-xs font-bold border-2 border-btn-ring bg-btn-active text-btn-active-text hover:opacity-90 transition-all"
       >
-        Iniciar Programa
+        {t('programs.card.start_program')}
       </Link>
     </div>
   );
 }
 
 function PreviewCtaActiveWarning(): ReactNode {
+  const { t } = useTranslation();
   return (
     <div className="bg-card border border-amber-500/30 p-5 sm:p-6 mt-6 text-center" role="alert">
-      <p className="text-xs text-amber-400">
-        Finaliza tu programa actual antes de iniciar uno nuevo.
-      </p>
+      <p className="text-xs text-amber-400">{t('catalog.program_preview.cta_active_warning')}</p>
     </div>
   );
 }
@@ -128,13 +130,14 @@ function HeaderCta({
   programsQueryFailed,
   programId,
 }: HeaderCtaProps): ReactNode {
+  const { t } = useTranslation();
   const linkClasses =
     'font-mono text-xs font-bold tracking-widest uppercase text-btn-text border border-btn-ring px-4 py-2 hover:bg-btn-active hover:text-btn-active-text transition-all duration-200';
 
   if (user === null || programsQueryFailed) {
     return (
       <Link to="/login" className={linkClasses}>
-        Crear cuenta
+        {t('auth.create_account')}
       </Link>
     );
   }
@@ -142,14 +145,14 @@ function HeaderCta({
   if (hasActiveProgram) {
     return (
       <Link to="/app" className={linkClasses}>
-        Ver Dashboard
+        {t('catalog.program_preview.cta_view_dashboard')}
       </Link>
     );
   }
 
   return (
     <Link to="/app/tracker/$programId" params={{ programId }} className={linkClasses}>
-      Iniciar Programa
+      {t('programs.card.start_program')}
     </Link>
   );
 }
@@ -159,6 +162,7 @@ function HeaderCta({
 // ---------------------------------------------------------------------------
 
 export function ProgramPreviewPage(): ReactNode {
+  const { t } = useTranslation();
   const { programId } = useParams({ from: '/programs/$programId' });
 
   const { definition, rows, isLoading, isError } = useProgramPreview(programId);
@@ -178,7 +182,11 @@ export function ProgramPreviewPage(): ReactNode {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getViewPreference());
 
-  useProgramHead(programId, definition?.name, definition?.description);
+  const headName = definition ? localizedProgramName(t, definition.id, definition.name) : undefined;
+  const headDescription = definition
+    ? localizedProgramDescription(t, definition.id, definition.description)
+    : undefined;
+  useProgramHead(programId, headName, headDescription);
 
   const previewTracked = useRef(false);
   useEffect(() => {
@@ -256,6 +264,8 @@ export function ProgramPreviewPage(): ReactNode {
   const selectedWorkout = rows[selectedDayIndex];
   const totalWorkouts = definition.totalWorkouts;
   const isDayComplete = false;
+  const name = localizedProgramName(t, definition.id, definition.name);
+  const description = localizedProgramDescription(t, definition.id, definition.description);
 
   return (
     <div className="grain-overlay min-h-dvh bg-body">
@@ -264,13 +274,11 @@ export function ProgramPreviewPage(): ReactNode {
         <Link
           to="/"
           className="text-xs font-bold text-muted hover:text-main transition-colors"
-          aria-label="Volver al inicio"
+          aria-label={t('catalog.program_preview.back_aria')}
         >
-          &larr; Inicio
+          {t('catalog.program_preview.back_label')}
         </Link>
-        <span className="font-display text-sm tracking-wide text-title truncate mx-4">
-          {definition.name}
-        </span>
+        <span className="font-display text-sm tracking-wide text-title truncate mx-4">{name}</span>
         {!authLoading && (
           <HeaderCta
             user={user}
@@ -283,29 +291,31 @@ export function ProgramPreviewPage(): ReactNode {
 
       {/* Content */}
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
-        <h1 className="sr-only">{definition.name}</h1>
+        <h1 className="sr-only">{name}</h1>
 
         {/* Program info — expanded by default */}
         <details open className="group bg-card border border-rule mb-4 sm:mb-8 overflow-hidden">
           <summary className="px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center [&::marker]:hidden list-none text-xs tracking-wide">
-            Acerca de {definition.name}
+            {t('catalog.program_preview.about', { name })}
             <span className="transition-transform duration-200 group-open:rotate-90">&#9656;</span>
           </summary>
           <div className="px-5 pb-5 border-t border-rule-light">
-            <p className="mt-3 text-sm leading-7 text-info">{definition.description}</p>
+            <p className="mt-3 text-sm leading-7 text-info">{description}</p>
             {definition.author && (
-              <p className="mt-2 text-xs text-muted">Por {definition.author}</p>
+              <p className="mt-2 text-xs text-muted">
+                {t('catalog.program_preview.by_author', { author: definition.author })}
+              </p>
             )}
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted">
-              <span>{totalWorkouts} entrenamientos en total</span>
-              <span>{definition.workoutsPerWeek} por semana</span>
-              <span>Rotaci&oacute;n de {definition.days.length} d&iacute;as</span>
+              <span>{t('catalog.meta.total_workouts', { count: totalWorkouts })}</span>
+              <span>{t('catalog.meta.per_week', { count: definition.workoutsPerWeek })}</span>
+              <span>{t('catalog.meta.day_rotation', { count: definition.days.length })}</span>
             </div>
           </div>
         </details>
 
         {/* Program overview — auto-generated explanatory section */}
-        {summary !== null && <ProgramOverview summary={summary} programName={definition.name} />}
+        {summary !== null && <ProgramOverview summary={summary} programName={name} />}
 
         {/* Day navigator */}
         <DayNavigator

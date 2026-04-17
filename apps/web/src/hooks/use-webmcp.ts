@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ResultValue, GenericWorkoutRow } from '@gzclp/shared/types';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import { extractGenericChartData, calculateStats } from '@gzclp/shared/generic-stats';
@@ -75,6 +76,7 @@ const TOOL_NAMES = [
 // ---------------------------------------------------------------------------
 
 export function useWebMcp(options: UseWebMcpOptions): void {
+  const { t } = useTranslation();
   const stateRef = useRef(options);
 
   // Ref-sync effect: intentionally has no dependency array so it runs after every render.
@@ -442,7 +444,7 @@ export function useWebMcp(options: UseWebMcpOptions): void {
           return errorResponse(`workoutIndex must be an integer between 0 and ${tw - 1}.`);
         }
 
-        const event = buildGoogleCalendarUrl(row, def, { date, startHour, durationMinutes });
+        const event = buildGoogleCalendarUrl(row, def, { date, startHour, durationMinutes, t });
 
         return textResponse({
           calendarUrl: event.calendarUrl,

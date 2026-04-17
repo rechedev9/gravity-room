@@ -36,7 +36,7 @@ export function LoginPage(): React.ReactNode {
     setError(null);
     const authError = await signInWithGoogle(credential);
     if (authError) {
-      setError(sanitizeAuthError(authError.message));
+      setError(t(sanitizeAuthError(authError.message)));
     } else {
       void navigate({ to: '/app' });
     }
@@ -52,7 +52,7 @@ export function LoginPage(): React.ReactNode {
     setError(null);
     const authError = await signInWithDev();
     if (authError) {
-      setError(sanitizeAuthError(authError.message));
+      setError(t(sanitizeAuthError(authError.message)));
     } else {
       void navigate({ to: '/app' });
     }

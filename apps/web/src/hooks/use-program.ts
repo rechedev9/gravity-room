@@ -1,4 +1,5 @@
 import { useRef, useMemo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { computeGenericProgram } from '@gzclp/shared/generic-engine';
 import { isRecord } from '@gzclp/shared/type-guards';
@@ -163,6 +164,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   // Per-key debounce timers for high-frequency mutations (AMRAP, RPE).
   // Key format: `${workoutIndex}-${slotId}` — each unique slot has its own timer.
@@ -304,7 +306,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       }),
     onError: (err, vars, ctx) => {
       detailOnError(err, vars, ctx);
-      toast({ message: 'No se pudo guardar las repeticiones AMRAP' });
+      toast({ message: t('tracker.errors.amrap_save_failed') });
     },
     // onSettled omitted — setAmrapRepsCb updates the cache directly (immediate setQueryData +
     // debounced mutate); invalidating here would trigger a redundant GET on every click.
@@ -343,7 +345,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       }),
     onError: (err, vars, ctx) => {
       detailOnError(err, vars, ctx);
-      toast({ message: 'No se pudo guardar el RPE' });
+      toast({ message: t('tracker.errors.rpe_save_failed') });
     },
     // onSettled omitted — setRpeCb updates the cache directly (immediate setQueryData +
     // debounced mutate); invalidating here would trigger a redundant GET on every selection.
@@ -369,7 +371,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       await undoLastResult(activeInstanceId);
     },
     onError: () => {
-      toast({ message: 'No se pudo deshacer. Inténtalo de nuevo.' });
+      toast({ message: t('tracker.errors.undo_failed') });
     },
     onSettled: detailOnSettled,
   });
@@ -383,7 +385,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       trackEvent('program_start', { program: programId });
     },
     onError: () => {
-      toast({ message: 'No se pudo crear el programa. Inténtalo de nuevo.' });
+      toast({ message: t('tracker.errors.program_create_failed') });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
@@ -396,7 +398,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       await updateProgramConfig(activeInstanceId, newConfig);
     },
     onError: () => {
-      toast({ message: 'No se pudo actualizar la configuración. Inténtalo de nuevo.' });
+      toast({ message: t('tracker.errors.config_update_failed') });
     },
     onSettled: detailOnSettled,
   });
@@ -440,7 +442,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       }
     },
     onError: () => {
-      toast({ message: 'No se pudo finalizar el programa. Inténtalo de nuevo.' });
+      toast({ message: t('tracker.errors.program_finish_failed') });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
@@ -457,7 +459,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       await deleteProgram(activeInstanceId);
     },
     onError: () => {
-      toast({ message: 'No se pudo reiniciar el programa. Inténtalo de nuevo.' });
+      toast({ message: t('tracker.errors.program_reset_failed') });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
@@ -594,7 +596,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       URL.revokeObjectURL(url);
     } catch (err: unknown) {
       captureError(err);
-      toast({ message: 'No se pudo exportar el programa.' });
+      toast({ message: t('tracker.errors.program_export_failed') });
     }
   };
 
@@ -606,9 +608,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       return true;
     } catch (err: unknown) {
       captureError(err);
-      toast({
-        message: 'No se pudo importar el programa. Verifica el archivo e inténtalo de nuevo.',
-      });
+      toast({ message: t('tracker.errors.program_import_failed') });
       return false;
     }
   };

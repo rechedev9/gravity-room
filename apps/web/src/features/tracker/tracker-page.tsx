@@ -8,6 +8,7 @@ import { useTracker } from '@/contexts/tracker-context';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { useDocumentTitle } from '@/hooks/use-document-title';
+import { localizedProgramName } from '@/lib/catalog-display';
 import { ProgramApp } from '@/features/tracker/program-app';
 
 export function TrackerPage(): React.ReactNode {
@@ -31,11 +32,15 @@ export function TrackerPage(): React.ReactNode {
   const activeProgram = programsQuery.data?.find((p) => p.status === 'active');
   const effectiveProgramId = programIdParam ?? ctxProgramId ?? activeProgram?.programId;
 
-  const programName =
+  const storedName =
     programsQuery.data?.find((p) => p.id === instanceId)?.name ?? activeProgram?.name ?? null;
+  const displayName =
+    effectiveProgramId && storedName
+      ? localizedProgramName(t, effectiveProgramId, storedName)
+      : storedName;
 
   useDocumentTitle(
-    programName ? `${programName} — ${t('tracker.page_title')}` : t('tracker.page_title')
+    displayName ? `${displayName} — ${t('tracker.page_title')}` : t('tracker.page_title')
   );
 
   // Redirect to home when no program is available (after query settles)

@@ -15,16 +15,3 @@ export function getCategoryColor(category: string): {
 } {
   return CATEGORY_COLORS[category] ?? FALLBACK_CATEGORY_COLOR;
 }
-
-export function categoryLabel(category: string): string {
-  switch (category) {
-    case 'strength':
-      return 'Fuerza';
-    case 'hypertrophy':
-      return 'Hipertrofia';
-    case 'powerlifting':
-      return 'Powerlifting';
-    default:
-      return category.charAt(0).toUpperCase() + category.slice(1);
-  }
-}
