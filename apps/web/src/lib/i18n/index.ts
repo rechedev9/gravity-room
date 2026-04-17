@@ -33,4 +33,13 @@ i18n
     },
   });
 
+if (import.meta.hot) {
+  import.meta.hot.accept('./locales/es/translation.json', (mod) => {
+    if (mod) i18n.addResourceBundle('es', 'translation', mod.default, true, true);
+  });
+  import.meta.hot.accept('./locales/en/translation.json', (mod) => {
+    if (mod) i18n.addResourceBundle('en', 'translation', mod.default, true, true);
+  });
+}
+
 export default i18n;
