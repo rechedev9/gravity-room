@@ -1,4 +1,5 @@
 import { Suspense, useState, useTransition } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ResultValue } from '@gzclp/shared/types';
 import { useProgram } from '@/hooks/use-program';
 import { useGuestProgram } from '@/hooks/use-guest-program';
@@ -16,6 +17,7 @@ import { useGraduation } from '@/hooks/use-graduation';
 import { useTestWeightModal } from '@/hooks/use-test-weight-modal';
 import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
 import { trackEvent } from '@/lib/analytics';
+import { localizedProgramName } from '@/lib/catalog-display';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { ToastContainer } from '@/components/toast';
 import { AppSkeleton } from '@/components/app-skeleton';
@@ -31,8 +33,6 @@ import { lazyWithRetry } from '@/lib/lazy-with-retry';
 
 const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
 const preloadStatsPanel = (): void => void import('./stats-panel');
-const GUEST_STATS_MSG = 'Crea una cuenta para ver estadísticas';
-const GUEST_EXPORT_MSG = 'Crea una cuenta para exportar tus datos';
 
 interface JawContext {
   readonly block: 1 | 2 | 3;
@@ -70,6 +70,7 @@ export function ProgramApp({
   onProgramReset,
   onGoToProfile,
 }: ProgramAppProps): React.ReactNode {
+  const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { isGuest } = useGuest();
 
@@ -274,13 +275,14 @@ export function ProgramApp({
 
   const handleExportCsv = (): void => {
     if (isGuest) {
-      toast({ message: GUEST_EXPORT_MSG });
+      toast({ message: t('tracker.guest_export_message') });
       return;
     }
     if (!definition || rows.length === 0) return;
     const csv = generateProgramCsv(rows, workoutsPerWeek);
     const date = new Date().toISOString().slice(0, 10);
-    downloadCsv(csv, `${definition.name}-${date}.csv`);
+    const filenameBase = localizedProgramName(t, definition.id, definition.name);
+    downloadCsv(csv, `${filenameBase}-${date}.csv`);
   };
 
   if (!isGuest && (authLoading || user === null)) return null;
@@ -290,7 +292,7 @@ export function ProgramApp({
     return (
       <div className="min-h-dvh flex flex-col items-center justify-center gap-4 px-5">
         <p className="text-muted text-sm text-center">
-          El programa <span className="font-mono">{programId}</span> ya no existe en el catálogo.
+          {t('tracker.catalog_removed', { programId })}
         </p>
         {(instanceId ?? programData.activeInstanceId) && (
           <button
@@ -298,7 +300,7 @@ export function ProgramApp({
             onClick={handleResetAll}
             className="px-5 py-2.5 text-xs font-bold cursor-pointer bg-btn text-btn-text border-2 border-btn-ring hover:bg-btn-active hover:text-btn-active-text transition-colors"
           >
-            Eliminar programa y volver
+            {t('tracker.delete_and_return')}
           </button>
         )}
         {onBackToDashboard && (
@@ -307,7 +309,7 @@ export function ProgramApp({
             onClick={onBackToDashboard}
             className="text-xs text-muted hover:text-title cursor-pointer transition-colors"
           >
-            Volver al panel
+            {t('tracker.back_to_panel')}
           </button>
         )}
       </div>
@@ -363,7 +365,7 @@ export function ProgramApp({
                 active={activeTab === 'program'}
                 onClick={() => startTransition(() => setActiveTab('program'))}
               >
-                Programa
+                {t('tracker.program')}
               </TabButton>
               <TabButton
                 id="tab-stats"
@@ -371,7 +373,7 @@ export function ProgramApp({
                 active={activeTab === 'stats'}
                 onClick={() => {
                   if (isGuest) {
-                    toast({ message: GUEST_STATS_MSG });
+                    toast({ message: t('tracker.guest_stats_message') });
                     return;
                   }
                   startTransition(() => setActiveTab('stats'));
@@ -379,7 +381,7 @@ export function ProgramApp({
                 onMouseEnter={isGuest ? undefined : preloadStatsPanel}
                 onFocus={isGuest ? undefined : preloadStatsPanel}
               >
-                <span className={isGuest ? 'opacity-50' : ''}>Estadísticas</span>
+                <span className={isGuest ? 'opacity-50' : ''}>{t('tracker.statistics')}</span>
               </TabButton>
             </div>
 
@@ -464,7 +466,7 @@ export function ProgramApp({
           const oneRMEstimates = compute1RMData(rows, definition);
           return (
             <ProgramCompletionScreen
-              programName={definition.name}
+              programName={localizedProgramName(t, definition.id, definition.name)}
               completion={profileData.completion}
               personalRecords={profileData.personalRecords}
               oneRMEstimates={oneRMEstimates}
