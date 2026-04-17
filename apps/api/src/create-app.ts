@@ -71,7 +71,7 @@ export function createApp(options: CreateAppOptions) {
         const level = error.statusCode >= 500 ? 'error' : 'warn';
         log[level]({ status: error.statusCode, code: error.code, latencyMs }, error.message);
         if (error.statusCode >= 500) captureException(error);
-        return { error: error.message, code: error.code };
+        return { error: error.message, code: error.code, ...(error.details ?? {}) };
       }
 
       if (code === 'NOT_FOUND') {

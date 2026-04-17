@@ -10,7 +10,7 @@ export type InsightRow = {
   validUntil: Date | null;
 };
 
-export async function getInsights(userId: string, types: string[]): Promise<InsightRow[]> {
+export async function getInsights(userId: string, types: readonly string[]): Promise<InsightRow[]> {
   const db = getDb();
 
   const conditions = [eq(userInsights.userId, userId)];

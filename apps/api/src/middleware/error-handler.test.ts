@@ -50,4 +50,25 @@ describe('ApiError', () => {
     // Assert
     expect(err instanceof ApiError).toBe(true);
   });
+
+  it('exposes details when provided via options', () => {
+    const err = new ApiError(400, 'bad', 'BAD', {
+      details: { invalidValues: ['x'], validValues: ['a', 'b'] },
+    });
+    expect(err.details).toEqual({ invalidValues: ['x'], validValues: ['a', 'b'] });
+  });
+
+  it('details is undefined when not provided', () => {
+    const err = new ApiError(404, 'nope', 'NOT_FOUND');
+    expect(err.details).toBeUndefined();
+  });
+
+  it('details coexists with headers', () => {
+    const err = new ApiError(429, 'slow down', 'RATE_LIMITED', {
+      headers: { 'Retry-After': '30' },
+      details: { limit: 30 },
+    });
+    expect(err.headers).toEqual({ 'Retry-After': '30' });
+    expect(err.details).toEqual({ limit: 30 });
+  });
 });

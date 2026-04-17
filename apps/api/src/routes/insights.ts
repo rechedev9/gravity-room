@@ -3,6 +3,8 @@ import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
 import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
 import { getInsights } from '../services/insights';
+import { ApiError } from '../middleware/error-handler';
+import { INSIGHT_TYPES, parseInsightTypesQuery } from '../lib/insight-types';
 import { logger } from '../lib/logger';
 
 const security = [{ bearerAuth: [] }];
@@ -15,18 +17,20 @@ export const insightsRoutes = new Elysia({ prefix: '/insights' })
   .get(
     '/',
     async ({ userId, query }) => {
-      await rateLimit(userId, 'GET /insights', { maxRequests: 30 });
-
-      let types: string[] = [];
-      if (query.types) {
-        types = query.types
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
+      const parsed = parseInsightTypesQuery(query.types);
+      if (!parsed.ok) {
+        throw new ApiError(400, 'Invalid insight type', 'INVALID_INSIGHT_TYPE', {
+          details: {
+            invalidValues: parsed.error.invalidValues,
+            validValues: INSIGHT_TYPES,
+          },
+        });
       }
 
+      await rateLimit(userId, 'GET /insights', { maxRequests: 30 });
+
       try {
-        const rows = await getInsights(userId, types);
+        const rows = await getInsights(userId, parsed.value);
         return {
           data: rows.map((r) => ({
             insightType: r.insightType,
@@ -50,7 +54,9 @@ export const insightsRoutes = new Elysia({ prefix: '/insights' })
         summary: 'List user insights',
         description:
           'Returns pre-computed analytics insights for the authenticated user. ' +
-          'Optionally filter by comma-separated insight types (e.g. ?types=volume_trend,frequency).',
+          'Optionally filter by comma-separated insight types. ' +
+          'Valid values: volume_trend, frequency, plateau_detection, load_recommendation. ' +
+          'Unknown types return 400 with { code: "INVALID_INSIGHT_TYPE", invalidValues, validValues }.',
         security,
       },
     }
