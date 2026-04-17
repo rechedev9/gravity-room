@@ -1,17 +1,10 @@
-/**
- * Unit tests for formatDaysAgo helper.
- * Covers counts 0, 1, 2, 21 in both es and en locales.
- * Spec: REQ — Days-ago display uses locale-aware pluralization.
- */
 import { describe, it, expect, afterEach } from 'bun:test';
 import i18n from 'i18next';
-
-// formatDaysAgo does not exist yet — import will fail → RED
 import { formatDaysAgo } from './format-days-ago';
 
 describe('formatDaysAgo', () => {
   afterEach(async () => {
-    await i18n.changeLanguage('es');
+    if (i18n.language !== 'es') await i18n.changeLanguage('es');
   });
 
   describe('Spanish (default)', () => {

@@ -1,8 +1,3 @@
-/**
- * Locale key parity test for the home namespace.
- * Ensures en/es have identical key sets under home.*.
- * Spec: REQ — Locale files maintain identical key parity under home.*
- */
 import { describe, it, expect } from 'bun:test';
 import en from '@/lib/i18n/locales/en/translation.json';
 import es from '@/lib/i18n/locales/es/translation.json';
