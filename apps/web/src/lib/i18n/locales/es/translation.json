@@ -170,7 +170,12 @@
     "authenticate": "Autenticar",
     "enter_the_chamber": "Entra a la Cámara",
     "train_better_progress_faster": "Entrena mejor · Progresa más rápido",
-    "google_auth_error": "Error al iniciar sesión con Google. Inténtalo de nuevo."
+    "google_auth_error": "Error al iniciar sesión con Google. Inténtalo de nuevo.",
+    "errors": {
+      "google_failed": "Error al iniciar sesión con Google. Inténtalo de nuevo.",
+      "session_expired": "Tu sesión ha expirado. Por favor, inicia sesión de nuevo.",
+      "generic": "Algo salió mal. Por favor, inténtalo de nuevo."
+    }
   },
   "navigation": {
     "home": "Inicio",
@@ -500,7 +505,25 @@
       "placeholder": "Seleccionar"
     },
     "stage_tag": {
-      "stage": "Etapa"
+      "stage": "Etapa",
+      "title_template": "Etapa {{n}}: {{label}}",
+      "labels": {
+        "normal": "Normal",
+        "caution": "Precaución",
+        "reset_next_fail": "Reinicio próximo fallo"
+      }
+    },
+    "errors": {
+      "amrap_save_failed": "No se pudo guardar las repeticiones AMRAP.",
+      "rpe_save_failed": "No se pudo guardar el RPE.",
+      "undo_failed": "No se pudo deshacer. Inténtalo de nuevo.",
+      "program_create_failed": "No se pudo crear el programa. Inténtalo de nuevo.",
+      "config_update_failed": "No se pudo actualizar la configuración. Inténtalo de nuevo.",
+      "program_finish_failed": "No se pudo finalizar el programa. Inténtalo de nuevo.",
+      "program_reset_failed": "No se pudo reiniciar el programa. Inténtalo de nuevo.",
+      "program_export_failed": "No se pudo exportar el programa.",
+      "program_import_failed": "No se pudo importar el programa. Verifica el archivo e inténtalo de nuevo.",
+      "next_block_revert_failed": "No se pudo revertir la configuración del siguiente bloque."
     }
   },
   "profile": {

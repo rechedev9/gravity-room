@@ -170,7 +170,12 @@
     "authenticate": "Authenticate",
     "enter_the_chamber": "Enter the Chamber",
     "train_better_progress_faster": "Train better · Progress faster",
-    "google_auth_error": "Error signing in with Google. Please try again."
+    "google_auth_error": "Error signing in with Google. Please try again.",
+    "errors": {
+      "google_failed": "Google sign-in failed. Please try again.",
+      "session_expired": "Your session has expired. Please sign in again.",
+      "generic": "Something went wrong. Please try again."
+    }
   },
   "navigation": {
     "home": "Home",
@@ -500,7 +505,25 @@
       "placeholder": "Select"
     },
     "stage_tag": {
-      "stage": "Stage"
+      "stage": "Stage",
+      "title_template": "Stage {{n}}: {{label}}",
+      "labels": {
+        "normal": "Normal",
+        "caution": "Caution",
+        "reset_next_fail": "Reset on next failure"
+      }
+    },
+    "errors": {
+      "amrap_save_failed": "Could not save AMRAP reps.",
+      "rpe_save_failed": "Could not save RPE.",
+      "undo_failed": "Could not undo. Please try again.",
+      "program_create_failed": "Could not create the program. Please try again.",
+      "config_update_failed": "Could not update the configuration. Please try again.",
+      "program_finish_failed": "Could not finish the program. Please try again.",
+      "program_reset_failed": "Could not reset the program. Please try again.",
+      "program_export_failed": "Could not export the program.",
+      "program_import_failed": "Could not import the program. Verify the file and try again.",
+      "next_block_revert_failed": "Could not revert the next block's configuration."
     }
   },
   "profile": {

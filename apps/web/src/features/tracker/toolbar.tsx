@@ -58,6 +58,7 @@ export function Toolbar({
   onReset,
   onExportCsv,
 }: ToolbarProps) {
+  const { t } = useTranslation();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -81,12 +82,12 @@ export function Toolbar({
         {/* Left */}
         <div className="flex items-center gap-3 shrink-0">
           <Button size="sm" onClick={onUndo} disabled={undoCount === 0}>
-            Deshacer
+            {t('tracker.toolbar.undo_button')}
           </Button>
           {undoCount > 0 && (
             <span
               className="font-mono text-xs text-muted tabular-nums"
-              aria-label={`${undoCount} acciones deshacibles`}
+              aria-label={`${undoCount} ${t('tracker.toolbar.undo_actions_aria')}`}
             >
               {undoCount}x
             </span>
@@ -105,7 +106,9 @@ export function Toolbar({
           {/* Proactive finish CTA when program is complete */}
           {completedCount >= totalWorkouts && (
             <Button size="sm" onClick={() => setFinishConfirmOpen(true)} disabled={isFinishing}>
-              {isFinishing ? 'Finalizando…' : 'Finalizar Programa'}
+              {isFinishing
+                ? t('tracker.toolbar.finishing_loading')
+                : t('tracker.toolbar.finish_program')}
             </Button>
           )}
 
@@ -115,7 +118,7 @@ export function Toolbar({
               size="sm"
               variant="ghost"
               onClick={() => setMenuOpen((prev) => !prev)}
-              aria-label="Más acciones"
+              aria-label={t('tracker.toolbar.more_actions_aria')}
               aria-haspopup="true"
               aria-expanded={menuOpen}
             >
@@ -128,7 +131,7 @@ export function Toolbar({
                   onExportCsv();
                 }}
               >
-                Exportar CSV
+                {t('tracker.toolbar.export_csv')}
               </DropdownItem>
               <DropdownItem
                 onClick={() => {
@@ -136,7 +139,7 @@ export function Toolbar({
                   setFinishConfirmOpen(true);
                 }}
               >
-                Finalizar Programa
+                {t('tracker.toolbar.finish_program')}
               </DropdownItem>
               <DropdownItem
                 variant="danger"
@@ -145,7 +148,7 @@ export function Toolbar({
                   setConfirmOpen(true);
                 }}
               >
-                Reiniciar Todo
+                {t('tracker.toolbar.reset_all')}
               </DropdownItem>
             </DropdownMenu>
           </div>
@@ -154,9 +157,9 @@ export function Toolbar({
 
       <ConfirmDialog
         open={finishConfirmOpen}
-        title="Finalizar Programa"
-        message="Tu progreso y estadísticas se guardarán. Podrás consultarlos en cualquier momento desde el dashboard."
-        confirmLabel="Finalizar"
+        title={t('tracker.toolbar.finish_program')}
+        message={t('tracker.toolbar.finish_confirm_message')}
+        confirmLabel={t('tracker.toolbar.finish_confirm_label')}
         loading={isFinishing}
         onConfirm={() => {
           void onFinish().finally(() => setFinishConfirmOpen(false));
@@ -166,9 +169,9 @@ export function Toolbar({
 
       <ConfirmDialog
         open={confirmOpen}
-        title="Reiniciar Todo el Progreso"
-        message="¿Estás seguro de que quieres reiniciar TODO el progreso? Esto no se puede deshacer."
-        confirmLabel="Reiniciar Todo"
+        title={t('tracker.toolbar.reset_confirm_title')}
+        message={t('tracker.toolbar.reset_confirm_message')}
+        confirmLabel={t('tracker.toolbar.reset_confirm_label')}
         variant="danger"
         onConfirm={() => {
           onReset();
