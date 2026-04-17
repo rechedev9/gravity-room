@@ -65,7 +65,7 @@ async function verifyInstanceOwnership(
   instanceId: string
 ): Promise<string> {
   const [instance] = await db
-    .select({ id: programInstances.id, programId: programInstances.programId })
+    .select({ id: programInstances.id, templateId: programInstances.templateId })
     .from(programInstances)
     .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
     .limit(1);
@@ -74,7 +74,7 @@ async function verifyInstanceOwnership(
     throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
   }
 
-  return instance.programId;
+  return instance.templateId;
 }
 
 /**

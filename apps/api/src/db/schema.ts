@@ -102,13 +102,13 @@ export const programInstances = pgTable(
     userId: uuid('user_id')
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
-    programId: varchar('program_id', { length: 50 }).notNull(),
+    templateId: varchar('template_id', { length: 50 }).notNull(),
     /** UUID FK to program_definitions — set when the user forks/customises a program. */
     definitionId: uuid('definition_id'),
     /** Inline snapshot of the forked definition (denormalised for offline / fast reads). */
     customDefinition: jsonb('custom_definition'),
     name: varchar({ length: 100 }).notNull(),
-    config: jsonb().notNull(),
+    programConfig: jsonb('program_config').notNull(),
     metadata: jsonb('metadata'),
     status: instanceStatusEnum().notNull().default('active'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -123,7 +123,7 @@ export const programInstances = pgTable(
 export const programInstancesRelations = relations(programInstances, ({ one, many }) => ({
   user: one(users, { fields: [programInstances.userId], references: [users.id] }),
   programTemplate: one(programTemplates, {
-    fields: [programInstances.programId],
+    fields: [programInstances.templateId],
     references: [programTemplates.id],
   }),
   definition: one(programDefinitions, {
@@ -214,7 +214,7 @@ export const undoEntriesRelations = relations(undoEntries, ({ one }) => ({
 // These two tables serve different roles in the program lifecycle:
 //
 //   program_templates  — Curated catalog of programs (GZCLP, 5/3/1 BBB, etc.).
-//                        Seeded by admins. `program_instances.programId` FK
+//                        Seeded by admins. `program_instances.templateId` FK
 //                        points here — only catalog programs can be instantiated.
 //
 //   program_definitions — User-submitted custom programs going through an

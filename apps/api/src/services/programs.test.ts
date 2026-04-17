@@ -188,7 +188,7 @@ const UUID_A = 'a0000000-0000-0000-0000-000000000001';
 
 interface InstanceListRow {
   readonly id: string;
-  readonly programId: string;
+  readonly templateId: string;
   readonly name: string;
   readonly status: string;
   readonly createdAt: Date;
@@ -198,7 +198,7 @@ interface InstanceListRow {
 function makeInstanceRow(overrides: Partial<InstanceListRow> = {}): InstanceListRow {
   return {
     id: UUID_A,
-    programId: 'gzclp',
+    templateId: 'gzclp',
     name: 'Test Program',
     status: 'active',
     createdAt: NOW,
@@ -403,9 +403,9 @@ describe('updateInstanceMetadata', () => {
     const instanceRow = {
       id: 'inst-1',
       userId: 'user-1',
-      programId: 'gzclp',
+      templateId: 'gzclp',
       name: 'Test',
-      config: {},
+      programConfig: {},
       metadata: { theme: 'dark' },
       status: 'active',
       createdAt: NOW,
@@ -465,9 +465,9 @@ describe('getInstance', () => {
     const instanceRow = {
       id: 'inst-1',
       userId: 'user-1',
-      programId: 'gzclp',
+      templateId: 'gzclp',
       name: 'Test Program',
-      config: { squat: 80 },
+      programConfig: { squat: 80 },
       metadata: null,
       status: 'active',
       createdAt: NOW,
