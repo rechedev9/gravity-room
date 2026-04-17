@@ -7,6 +7,8 @@ out
 build
 .tmp
 .idea
+.claude
+.agents
 apps/api/drizzle
 **/.venv
 **/.pytest_cache

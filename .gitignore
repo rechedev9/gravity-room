@@ -41,7 +41,6 @@ yarn-error.log*
 # AI tooling (Claude Code, SDD workflow)
 CLAUDE.md
 AGENTS.md
-.claude/
 .worktrees/
 openspec/.cache/
 openspec/changes/**/.cache/
@@ -69,7 +68,6 @@ scripts/*
 !scripts/loadtest.js
 issues.MD
 roadmap.md
-todo.md
 
 # IDE
 .idea/
