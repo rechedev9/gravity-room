@@ -34,6 +34,10 @@
     "collapse": "collapse",
     "expand": "expand"
   },
+  "calendar": {
+    "session_prefix": "Workout #{{index}} — {{dayName}}",
+    "stage_label": "Stage"
+  },
   "catalog": {
     "category": {
       "strength": "Strength",
@@ -349,10 +353,10 @@
     "catalog_removed": "The program {{programId}} no longer exists in the catalog.",
     "guest_stats_message": "Create an account to see statistics",
     "guest_export_message": "Create an account to export your data",
-    "jaw_block": "JAW Block",
-    "jaw_test_week_update_tm": "Test week — update Block TM",
-    "jaw_last_block": "last JAW block.",
-    "jaw_test_in_week": "Test in wk.",
+    "jaw_status_test_week": "JAW Block {{block}} · Test week — update Block {{next}} TM when done.",
+    "jaw_status_final_test_week": "JAW Block 3 · Final test week — last JAW block.",
+    "jaw_status_progress": "JAW Block {{block}} · Wk. {{week}}/18 · Test in wk. {{testWeek}}.",
+    "result_toast": "#{{index}}: {{exercise}} {{tier}} — {{result}}",
     "tab_content": {
       "about_label": "About",
       "aria_compact_view": "Switch to compact view",

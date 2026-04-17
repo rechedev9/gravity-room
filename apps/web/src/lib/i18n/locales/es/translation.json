@@ -34,6 +34,10 @@
     "collapse": "colapsar",
     "expand": "expandir"
   },
+  "calendar": {
+    "session_prefix": "Entrenamiento #{{index}} — {{dayName}}",
+    "stage_label": "Etapa"
+  },
   "catalog": {
     "category": {
       "strength": "Fuerza",
@@ -349,10 +353,10 @@
     "catalog_removed": "El programa {{programId}} ya no existe en el catálogo.",
     "guest_stats_message": "Crea una cuenta para ver estadísticas",
     "guest_export_message": "Crea una cuenta para exportar tus datos",
-    "jaw_block": "Bloque JAW",
-    "jaw_test_week_update_tm": "Semana de test — actualiza los TM del Bloque",
-    "jaw_last_block": "último bloque de JAW.",
-    "jaw_test_in_week": "Test en sem.",
+    "jaw_status_test_week": "JAW Bloque {{block}} · Semana de test — actualiza los TM del Bloque {{next}} al terminar.",
+    "jaw_status_final_test_week": "JAW Bloque 3 · Semana de test final — último bloque de JAW.",
+    "jaw_status_progress": "JAW Bloque {{block}} · Sem. {{week}}/18 · Test en sem. {{testWeek}}.",
+    "result_toast": "#{{index}}: {{exercise}} {{tier}} — {{result}}",
     "tab_content": {
       "about_label": "Acerca de",
       "aria_compact_view": "Cambiar a vista compacta",

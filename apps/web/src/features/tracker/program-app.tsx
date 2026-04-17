@@ -144,9 +144,16 @@ export function ProgramApp({
   const jawStatusNote = jawContext
     ? jawContext.isTestWeek
       ? jawContext.block < 3
-        ? `JAW Bloque ${jawContext.block} · Semana de test — actualiza los TM del Bloque ${jawContext.block + 1} al terminar.`
-        : 'JAW Bloque 3 · Semana de test final — último bloque de JAW.'
-      : `JAW Bloque ${jawContext.block} · Sem. ${jawContext.week ?? '?'}/18 · Test en sem. ${jawContext.block * 6}.`
+        ? t('tracker.jaw_status_test_week', {
+            block: jawContext.block,
+            next: jawContext.block + 1,
+          })
+        : t('tracker.jaw_status_final_test_week')
+      : t('tracker.jaw_status_progress', {
+          block: jawContext.block,
+          week: jawContext.week ?? '?',
+          testWeek: jawContext.block * 6,
+        })
     : undefined;
 
   const selectedWorkout = rows[dayNav.selectedDayIndex];
@@ -164,11 +171,16 @@ export function ProgramApp({
     if (isPr) {
       toast({ message: `${slot.exerciseName} ${slot.weight} kg`, variant: 'pr' });
     } else {
-      const resultLabel = value === 'success' ? 'Éxito' : 'Fallo';
+      const resultLabel = value === 'success' ? t('common.success') : t('common.failed');
       toast({
-        message: `#${workoutIndex + 1}: ${slot.exerciseName} ${slot.tier.toUpperCase()} — ${resultLabel}`,
+        message: t('tracker.result_toast', {
+          index: workoutIndex + 1,
+          exercise: slot.exerciseName,
+          tier: slot.tier.toUpperCase(),
+          result: resultLabel,
+        }),
         action: {
-          label: 'Deshacer',
+          label: t('tracker.toolbar.undo_button'),
           onClick: () => testWeight.handleUndoSpecific(workoutIndex, slotId),
         },
       });
@@ -421,12 +433,12 @@ export function ProgramApp({
                 <ErrorBoundary
                   fallback={({ reset }) => (
                     <div className="text-center py-16">
-                      <p className="text-muted mb-4">No se pudieron cargar las estadísticas.</p>
+                      <p className="text-muted mb-4">{t('tracker.stats_load_error')}</p>
                       <button
                         onClick={reset}
                         className="px-5 py-2 bg-accent text-white font-bold cursor-pointer"
                       >
-                        Reintentar
+                        {t('tracker.retry')}
                       </button>
                     </div>
                   )}

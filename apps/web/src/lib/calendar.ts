@@ -1,10 +1,14 @@
+import type { TFunction } from 'i18next';
 import type { ProgramDefinition } from '@gzclp/shared/types/program';
 import type { GenericWorkoutRow } from '@gzclp/shared/types';
+import { localizedProgramName } from '@/lib/catalog-display';
 
 interface CalendarEventOptions {
   readonly date?: string;
   readonly startHour?: number;
   readonly durationMinutes?: number;
+  /** When provided, localizes the event title and description; otherwise falls back to Spanish. */
+  readonly t?: TFunction;
 }
 
 interface CalendarEvent {
@@ -56,13 +60,21 @@ export function buildGoogleCalendarUrl(
   }
 
   const exerciseNames = row.slots.map((s) => s.exerciseName);
-  const title = `${definition.name} ${row.dayName} — ${exerciseNames.join(' / ')}`;
+  const programName = options?.t
+    ? localizedProgramName(options.t, definition.id, definition.name)
+    : definition.name;
+  const title = `${programName} ${row.dayName} — ${exerciseNames.join(' / ')}`;
 
-  const lines = [`Entrenamiento #${row.index + 1} — ${row.dayName}`, ''];
+  const sessionLine = options?.t
+    ? options.t('calendar.session_prefix', { index: row.index + 1, dayName: row.dayName })
+    : `Entrenamiento #${row.index + 1} — ${row.dayName}`;
+  const stageLabel = options?.t ? options.t('calendar.stage_label') : 'Etapa';
+
+  const lines = [sessionLine, ''];
   for (const slot of row.slots) {
     lines.push(
       `${slot.tier.toUpperCase()}: ${slot.exerciseName} — ${slot.weight}kg` +
-        ` (${slot.sets}\u00d7${slot.reps}, Etapa ${slot.stage + 1})`
+        ` (${slot.sets}\u00d7${slot.reps}, ${stageLabel} ${slot.stage + 1})`
     );
   }
   const description = lines.join('\n');
