@@ -53,6 +53,33 @@ False-alarm from the audit: the 45 kB `zod-*.js` chunk is _not_ a duplicate Zod 
 - Sentry shim must buffer early calls: any error before `initSentryDeferred()` resolves still lands in Sentry once the SDK is ready. Shim is tiny (~50 LOC) and has no runtime cost when DSN is absent.
 - Main-chunk target in plan was ≤330 kB; actual is 230.74 kB (far beyond target).
 
+## 2026-04-18 — Phase 2 chart lazy boundaries shipped
+
+Single commit: `perf(web): lazy-load profile page charts to keep recharts off preload`. Tests 403/403 pass.
+
+Changes:
+
+- `profile-page.tsx` — `ProfileChartsSection` replaced with `lazyWithRetry(() => import('./profile-charts-section'))`, wrapped in `<Suspense fallback={<ChartsFallback />}>`.
+- `profile-insights-section.tsx` — `VolumeTrendCard` replaced with `lazyWithRetry(() => import('@/features/insights/volume-trend-card'))`, wrapped in `<Suspense fallback={<VolumeTrendFallback />}>`. Non-chart cards (`FrequencyCard`, `PlateauAlert`, `LoadRecommendation`) stay eager.
+
+New chunks emitted:
+
+| Chunk                         | Raw     | Gzip    |
+| ----------------------------- | ------- | ------- |
+| `profile-charts-section-*.js` | 1.66 kB | 0.90 kB |
+| `volume-trend-card-*.js`      | 3.63 kB | 1.68 kB |
+| `line-chart-*.js`             | 9.11 kB | 3.73 kB |
+| `volume-tooltip-*.js`         | 0.91 kB | 0.56 kB |
+
+`profile-page-*.js` dropped from 49.50 kB → 46.90 kB. More importantly, `vendor-recharts` (387.22 kB) is now only referenced in Vite's `__vite__mapDeps` runtime-dispatch table — it is no longer a static import from the profile-page chunk, so the browser will not preload it when navigating to `/app/profile`. Recharts fetches on-demand when either Suspense boundary resolves.
+
+**Not done here:** Phase 2 bullet "optional IntersectionObserver gate" deferred. The existing `useInViewport` helper is already used for programDetail queries; could be added later if recharts fetch timing becomes an issue.
+
 ## Plan for next phase
 
-Phase 2 of `roadmap.md`: lazy-load Recharts-consuming chart components on the `/app/profile` route (`ProfileChartsSection`, `VolumeTrendCard`). Current `vendor-recharts` 387 kB ships as part of the profile page's initial preload; the goal is to keep Recharts off the preload and let it resolve when the chart container first becomes visible.
+Phase 3 of `roadmap.md` — rendering hot paths:
+
+1. Split `ToastProvider` into state + dispatch contexts (`apps/web/src/contexts/toast-context.tsx`) so toast emitters stop re-rendering on toast churn.
+2. Memoize `TrackerProvider` value (`apps/web/src/contexts/tracker-context.tsx:30`) — spread-in-JSX hides the dependency from React Compiler.
+3. Hoist completion-screen compute out of render (`apps/web/src/features/tracker/program-app.tsx:472-490`) — JSX-inline IIFE with heavy compute every re-render.
+4. Confirm React Compiler is actually running on the tracker files.
