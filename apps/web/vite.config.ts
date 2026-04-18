@@ -101,6 +101,7 @@ export default defineConfig(({ mode }) => {
             if (/[\\/]node_modules[\\/]zod[\\/]/.test(id)) return 'vendor-zod';
             if (/[\\/]node_modules[\\/]motion[\\/]/.test(id)) return 'vendor-motion';
             if (/[\\/]node_modules[\\/]recharts[\\/]/.test(id)) return 'vendor-recharts';
+            if (/[\\/]node_modules[\\/]@sentry[\\/]/.test(id)) return 'vendor-sentry';
             return undefined;
           },
         },

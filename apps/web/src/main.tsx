@@ -1,10 +1,10 @@
-import '@/lib/sentry';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from '@tanstack/react-router';
 import { Providers } from '@/components/providers';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
+import { initSentryDeferred } from '@/lib/sentry';
 import { router } from './router';
 import '@/styles/globals.css';
 
@@ -33,3 +33,16 @@ createRoot(rootEl).render(
     </Providers>
   </StrictMode>
 );
+
+// Defer Sentry SDK load until the browser is idle so it stays off the critical path.
+const idle =
+  typeof window.requestIdleCallback === 'function'
+    ? (cb: () => void): void => {
+        window.requestIdleCallback(cb, { timeout: 2000 });
+      }
+    : (cb: () => void): void => {
+        window.setTimeout(cb, 1000);
+      };
+idle(() => {
+  void initSentryDeferred();
+});
