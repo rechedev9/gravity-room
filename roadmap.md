@@ -2,7 +2,7 @@
 
 **Scope:** `apps/web/` (React 19 + Vite + React Compiler + TanStack Router/Query).
 **Goal:** reduce TTI on cold-load, reduce JS parse/eval work, cut bundle weight, and remove render-amplifier patterns that React Compiler cannot fix on its own.
-**Status:** Phases 0–4 shipped (main-entry chunk 523 → 231 kB; recharts off profile preload; sentry idle-deferred; rendering hot paths hoisted/memoized; data-layer invalidations tightened). Phases 5–6 pending. Last updated 2026-04-18.
+**Status:** Phases 0–5 shipped (main-entry chunk 523 → 231 kB; recharts off profile preload; sentry idle-deferred; rendering hot paths hoisted/memoized; data-layer invalidations tightened; Caddy edge does zstd/gzip; nginx serves uncompressed + immutable static assets; PWA `autoUpdate`; JetBrains Mono preloaded). Phase 6 pending. Last updated 2026-04-18.
 
 This is a multi-track refactor ordered by ROI. Each phase is independently verifiable end-to-end (tracer-bullet style — we build, measure, ship, repeat).
 
@@ -118,7 +118,7 @@ Target: remove the waterfall on tracker cold load and stop broad cache busts.
 
 **Checkpoint:** Cold-load the tracker with Chrome DevTools Network tab. Expect: 1 refresh request (not 2), no catalog→detail sequential gap on warm navigation, and preflights only on cross-origin endpoints that actually need them.
 
-### Phase 5 — Edge & PWA (workstream 1, infra)
+### Phase 5 — Edge & PWA (Done)
 
 Target: smaller payloads on the wire, stronger long-term caching for hashed assets, fresher SW updates.
 

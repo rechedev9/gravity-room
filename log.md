@@ -105,8 +105,31 @@ Two commits. Tests 403/403 pass.
 - **Auth 2-fetch collapse** (`restoreSession` at `apps/web/src/contexts/auth-context.tsx:50-64`): requires changing `/api/auth/refresh` to return `user` in its payload. Touches API + web together; out of scope for a web-only sweep.
 - **Hover/focus prefetch on program cards**: additive feature, not a regression fix. Leaves more work than reward for this phase.
 
+## 2026-04-18 — Phase 5 edge & PWA shipped
+
+Infra sweep: compression moved to the Caddy edge, long-lived cache for fonts/images, PWA `autoUpdate`, and JetBrains Mono preload. Typecheck + lint + prettier + build all green. Bundle numbers unchanged (same 230.71 kB main entry, 75.72 kB gzip) — this phase optimizes _how_ bytes reach the browser, not _what_ bytes ship.
+
+### Changes
+
+1. `Caddyfile.production` — added `encode zstd gzip` at the site level. Caddy now chooses the best encoding per client `Accept-Encoding`; origins (nginx + ElysiaJS) return uncompressed.
+2. `apps/web/nginx.conf` — removed the nginx-level `gzip on` block (would force gzip-only and starve Caddy of zstd choice) and added a `location ~* \.(woff2|webp|png|svg|ico)$` block with `Cache-Control: public, max-age=31536000, immutable`. Hashed `/assets/*` kept its own immutable block; fonts and root-served images (`/hero.webp`, `/logo.webp`, `/og-image.webp`, `/favicon.webp`) now stop inheriting the root `no-store` header.
+3. `apps/web/vite.config.ts` — switched `VitePWA({ registerType })` from `'prompt'` to `'autoUpdate'`. The existing `SwUpdatePrompt` component (`useRegisterSW` from `virtual:pwa-register/react`) still renders a reload banner on `needRefresh`, so mid-workout users don't silently lose tracker state — the new SW activates in the background, the user clicks to reload.
+4. `apps/web/index.html` — added `<link rel="preload" href="/fonts/jetbrains-mono-variable.woff2" as="font" type="font/woff2" crossorigin>` alongside the existing Bebas + Barlow preloads. JetBrains Mono is used in the tracker (weight/reps cells) and profile stats tables — preloading cuts layout shift on first data paint.
+
+### Decision: Brotli at Caddy, not nginx
+
+Roadmap called for `ngx_brotli` in nginx. The web image is `nginx:alpine`, which doesn't ship the module — adding it would require either switching to a Debian base (image size bump) or compiling from source (new Dockerfile complexity). Caddy 2 handles `zstd` and `gzip` natively and sits at the TLS edge already; adding `encode zstd gzip` there covers the wire-compression goal without a new dependency. Brotli-via-Caddy requires a third-party plugin (not in core) and was skipped — gzip + zstd in Caddy beats plain gzip in nginx for modern clients (Chrome + Firefox advertise `zstd`). If a future audit shows `br` would materially beat `zstd` for our payload mix, revisit with a custom Caddy build.
+
+### Verification
+
+- `bun run typecheck` — pass.
+- `bun run lint` — pass.
+- `bun run format:check` — pass.
+- `bun run build:web` — pass. 71 precache entries (2652.55 KiB), unchanged mix.
+- `caddy validate` not available locally; syntax (`encode zstd gzip`) is canonical v2 directive. Verify on deploy with `curl -H 'Accept-Encoding: zstd' -I https://gravityroom.app/assets/<hashed>.js` → expect `Content-Encoding: zstd`.
+
 ## Current status
 
-Phases 0–4 of `roadmap.md` shipped. Main-entry chunk went from 523.59 kB → 230.74 kB (-54%). Recharts (387 kB) is fully off the profile preload graph. Sentry (~446 kB with DSN) is idle-deferred. Toast emitters no longer re-render on toast churn. Completion-screen compute no longer runs every render. Program cache invalidations are scoped. Default `refetchOnReconnect` disabled.
+Phases 0–5 of `roadmap.md` shipped. Main-entry chunk 523.59 kB → 230.74 kB (-54%). Recharts off profile preload. Sentry idle-deferred. Toast emitters no longer re-render on toast churn. Completion-screen compute no longer runs every render. Program cache invalidations are scoped. Default `refetchOnReconnect` disabled. Caddy edge now does `zstd`/`gzip`, nginx serves uncompressed + immutable static assets, PWA is `autoUpdate`, JetBrains Mono preloaded.
 
-Phases 5 (edge/PWA — Brotli in nginx, Caddy encoding, font/image cache block, PWA `autoUpdate`, JetBrains Mono preload) and 6 (stretch Recharts replacement) remain. Both are infra/out-of-scope-of-React and can be tackled as their own tasks.
+Phase 6 (stretch Recharts → uplot replacement) remains. Decision on whether to run it depends on post-deploy Lighthouse: if `vendor-recharts` (387 kB raw / 113 kB gzip) still dominates the authenticated waterfall after `zstd` kicks in, proceed; otherwise defer indefinitely.
