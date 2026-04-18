@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useNavigate } from '@tanstack/react-router';
@@ -24,15 +24,30 @@ import {
 import { queryKeys } from '@/lib/query-keys';
 import { resizeImageToDataUrl } from '@/lib/resize-image';
 import { captureError } from '@/lib/sentry';
+import { lazyWithRetry } from '@/lib/lazy-with-retry';
 import { Button } from '@/components/button';
 import { DeleteAccountDialog } from '@/components/delete-account-dialog';
 import { ProfileBanner } from './profile-banner';
 import { ProfileAccountCard } from './profile-account-card';
 import { ProfileBadges } from './profile-badges';
 import { ProfileStatsGrid } from './profile-stats-grid';
-import { ProfileChartsSection } from './profile-charts-section';
 import { ProfileHistory } from './profile-history';
 import { ProfileInsightsSection } from './profile-insights-section';
+
+// Recharts lands in its own 387 kB chunk; keep it off the profile-route preload
+// by loading the chart section on demand once the user has something to chart.
+const ProfileChartsSection = lazyWithRetry(() =>
+  import('./profile-charts-section').then((m) => ({ default: m.ProfileChartsSection }))
+);
+
+function ChartsFallback(): React.ReactNode {
+  return (
+    <div className="mt-6 bg-card border border-rule p-5 animate-pulse">
+      <div className="h-4 w-40 bg-rule rounded mb-4" />
+      <div className="h-48 bg-rule rounded" />
+    </div>
+  );
+}
 
 const PROFILE_INSIGHT_TYPES = [
   'volume_trend',
@@ -317,13 +332,15 @@ export function ProfilePage(): React.ReactNode {
             </div>
 
             {chartData && primaryExercises.length > 0 && (
-              <ProfileChartsSection
-                chartData={chartData}
-                primaryExercises={primaryExercises}
-                names={names}
-                toDisplay={toDisplay}
-                unitLabel={unit}
-              />
+              <Suspense fallback={<ChartsFallback />}>
+                <ProfileChartsSection
+                  chartData={chartData}
+                  primaryExercises={primaryExercises}
+                  names={names}
+                  toDisplay={toDisplay}
+                  unitLabel={unit}
+                />
+              </Suspense>
             )}
 
             <ProfileInsightsSection

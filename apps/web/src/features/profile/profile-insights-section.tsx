@@ -1,10 +1,25 @@
+import { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { InsightItem } from '@/lib/api-functions';
-import { VolumeTrendCard } from '@/features/insights/volume-trend-card';
+import { lazyWithRetry } from '@/lib/lazy-with-retry';
 import { FrequencyCard } from '@/features/insights/frequency-card';
 import { PlateauAlert } from '@/features/insights/plateau-alert';
 import { LoadRecommendation } from '@/features/insights/load-recommendation';
 import { StaggerContainer, StaggerItem, fadeUpFastVariants } from '@/lib/motion-primitives';
+
+// VolumeTrendCard pulls in recharts; keep it out of the profile preload chunk.
+const VolumeTrendCard = lazyWithRetry(() =>
+  import('@/features/insights/volume-trend-card').then((m) => ({ default: m.VolumeTrendCard }))
+);
+
+function VolumeTrendFallback(): React.ReactNode {
+  return (
+    <div className="bg-card border border-rule p-5 animate-pulse">
+      <div className="h-3 w-32 bg-rule rounded mb-4" />
+      <div className="h-36 bg-rule rounded" />
+    </div>
+  );
+}
 
 interface ProfileInsightsSectionProps {
   readonly insights: readonly InsightItem[];
@@ -40,7 +55,11 @@ export function ProfileInsightsSection({
         )}
         {(volumeTrend || frequency) && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {volumeTrend && <VolumeTrendCard insight={volumeTrend} />}
+            {volumeTrend && (
+              <Suspense fallback={<VolumeTrendFallback />}>
+                <VolumeTrendCard insight={volumeTrend} />
+              </Suspense>
+            )}
             {frequency && <FrequencyCard insight={frequency} />}
           </div>
         )}
