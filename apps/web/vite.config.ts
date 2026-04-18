@@ -24,7 +24,11 @@ export default defineConfig(({ mode }) => {
         },
       }),
       VitePWA({
-        registerType: 'prompt',
+        // autoUpdate: new SW activates via skipWaiting on install. The in-page
+        // SwUpdatePrompt still shows a reload banner so mid-workout users don't
+        // lose in-flight tracker state — the new SW is ready, but the reload
+        // only happens on user click.
+        registerType: 'autoUpdate',
         // The manifest already lives in public/manifest.webmanifest and index.html
         // already has <link rel="manifest"> — let the plugin manage the SW only.
         manifest: false,
