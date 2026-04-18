@@ -388,7 +388,10 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       toast({ message: t('tracker.errors.program_create_failed') });
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
+      // exact: true busts the programs list only. No detail exists yet for a
+      // freshly created program, so prefix-invalidating every cached detail
+      // would only cause unnecessary refetches.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all, exact: true });
     },
   });
 
@@ -445,7 +448,9 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       toast({ message: t('tracker.errors.program_finish_failed') });
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
+      // The finished detail is removed explicitly below; other details are
+      // unaffected by finishing one program, so keep the invalidation exact.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all, exact: true });
       // Clean up the detail cache so stale 'active' status can't be served
       if (activeInstanceId) {
         queryClient.removeQueries({ queryKey: queryKeys.programs.detail(activeInstanceId) });
@@ -462,7 +467,13 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       toast({ message: t('tracker.errors.program_reset_failed') });
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
+      const deletedId = activeInstanceId;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all, exact: true });
+      // The deleted program's detail is the only one affected; remove it
+      // rather than invalidating every cached detail by prefix.
+      if (deletedId) {
+        queryClient.removeQueries({ queryKey: queryKeys.programs.detail(deletedId) });
+      }
     },
   });
 
@@ -604,7 +615,9 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     try {
       const parsed: unknown = JSON.parse(json);
       await importProgram(parsed);
-      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all });
+      // Importing adds a new program to the list; no existing detail cache
+      // applies to it, so keep the invalidation scoped to the list.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all, exact: true });
       return true;
     } catch (err: unknown) {
       captureError(err);
