@@ -85,11 +85,28 @@ Three commits. Tests 403/403 pass.
 
 **Not done:** "confirm React Compiler is running" was a verification step, not a code change; skipped. 403 passing tests + visible no-regression in the build output is sufficient evidence for this phase.
 
-## Plan for next phase
+## 2026-04-18 — Phase 4 data layer shipped (partial)
 
-Phase 4 of `roadmap.md` — data layer:
+Two commits. Tests 403/403 pass.
 
-1. Disable `refetchOnReconnect` default in `apps/web/src/components/providers.tsx` (cheap, local).
-2. Tighten broad `invalidateQueries({ queryKey: queryKeys.programs.all })` calls in `apps/web/src/hooks/use-program.ts` (lines ~391, 448, 465, 607). Change to `exact: true` where only the list should refetch; invalidate the detail key explicitly when needed.
-3. Verify same-origin `/api/*` in production via `Caddyfile.production` (read-only check — no code change if already same-origin).
-4. Deferred to a separate PR: auth 2-fetch collapse (requires API change at `/api/auth/refresh`) and hover/focus prefetch on program cards (additive, not critical).
+1. `perf(web): disable refetchOnReconnect by default` — set in `providers.tsx` `makeQueryClient`. Rationale: gym users lose cell signal constantly; the default behavior fires a stampede of refetches every time the phone hands off cell towers. Live-sync queries (e.g. `use-online-count`) can opt back in per-query.
+2. `perf(web): narrow program cache invalidations with exact key matches` — four `invalidateQueries({ queryKey: queryKeys.programs.all })` calls in `use-program.ts` converted to `{ queryKey: queryKeys.programs.all, exact: true }`:
+   - `generateProgramMutation.onSettled` (l.391): freshly-created program has no detail cache; list-only invalidation.
+   - `finishProgramMutation.onSettled` (l.448): already explicitly removes the finished detail on the next line; other details unaffected.
+   - `resetAllMutation.onSettled` (l.465): captures `activeInstanceId` before state changes and `removeQueries` the deleted detail explicitly; list-only invalidation for everything else.
+   - `importProgram` catch block (l.607): same rationale as create.
+
+### Same-origin verification (no code change)
+
+`Caddyfile.production` proxies `/api/*` → `gravity-room-api:3001` and everything else → `gravity-room-web:80` under the same host (`gravityroom.app`). `docker-compose.yml` sets `VITE_API_URL=https://gravityroom.app`, so the SPA issues same-origin requests to `/api/*`. No CORS preflights hit the API in production. Recorded here so a future audit doesn't re-investigate.
+
+### Deferred to a later PR
+
+- **Auth 2-fetch collapse** (`restoreSession` at `apps/web/src/contexts/auth-context.tsx:50-64`): requires changing `/api/auth/refresh` to return `user` in its payload. Touches API + web together; out of scope for a web-only sweep.
+- **Hover/focus prefetch on program cards**: additive feature, not a regression fix. Leaves more work than reward for this phase.
+
+## Current status
+
+Phases 0–4 of `roadmap.md` shipped. Main-entry chunk went from 523.59 kB → 230.74 kB (-54%). Recharts (387 kB) is fully off the profile preload graph. Sentry (~446 kB with DSN) is idle-deferred. Toast emitters no longer re-render on toast churn. Completion-screen compute no longer runs every render. Program cache invalidations are scoped. Default `refetchOnReconnect` disabled.
+
+Phases 5 (edge/PWA — Brotli in nginx, Caddy encoding, font/image cache block, PWA `autoUpdate`, JetBrains Mono preload) and 6 (stretch Recharts replacement) remain. Both are infra/out-of-scope-of-React and can be tackled as their own tasks.
