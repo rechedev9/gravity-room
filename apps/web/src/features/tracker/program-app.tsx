@@ -1,4 +1,4 @@
-import { Suspense, useState, useTransition } from 'react';
+import { Suspense, useMemo, useState, useTransition } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ResultValue } from '@gzclp/shared/types';
 import { useProgram } from '@/hooks/use-program';
@@ -160,6 +160,24 @@ export function ProgramApp({
   const isDayComplete = selectedWorkout
     ? selectedWorkout.slots.every((s) => s.result !== undefined)
     : false;
+
+  // Completion screen compute is O(rows × slots) and was running inline in JSX
+  // on every render once the screen opened. Hoist it into useMemo so it only
+  // recomputes when any of its inputs change.
+  const mutenroshiBlocksCompletion =
+    graduation.isMutenroshi && !graduation.graduationState.allPassed;
+  const shouldShowCompletion = showCompletion && !mutenroshiBlocksCompletion;
+  const completionData = useMemo(() => {
+    if (!shouldShowCompletion || !definition || !config) return null;
+    const profileData = computeProfileData(rows, definition, config, resultTimestamps);
+    const oneRMEstimates = compute1RMData(rows, definition);
+    return {
+      completion: profileData.completion,
+      personalRecords: profileData.personalRecords,
+      oneRMEstimates,
+      totalVolume: profileData.volume.totalVolume,
+    };
+  }, [shouldShowCompletion, definition, config, rows, resultTimestamps]);
 
   const recordAndToast = (workoutIndex: number, slotId: string, value: ResultValue): void => {
     markResult(workoutIndex, slotId, value);
@@ -469,25 +487,17 @@ export function ProgramApp({
 
       <ToastContainer />
 
-      {showCompletion &&
-        definition &&
-        config &&
-        !(graduation.isMutenroshi && !graduation.graduationState.allPassed) &&
-        (() => {
-          const profileData = computeProfileData(rows, definition, config, resultTimestamps);
-          const oneRMEstimates = compute1RMData(rows, definition);
-          return (
-            <ProgramCompletionScreen
-              programName={localizedProgramName(t, definition.id, definition.name)}
-              completion={profileData.completion}
-              personalRecords={profileData.personalRecords}
-              oneRMEstimates={oneRMEstimates}
-              totalVolume={profileData.volume.totalVolume}
-              onViewProfile={handleViewProfile}
-              onBackToDashboard={handleCompletionDismiss}
-            />
-          );
-        })()}
+      {completionData && definition && (
+        <ProgramCompletionScreen
+          programName={localizedProgramName(t, definition.id, definition.name)}
+          completion={completionData.completion}
+          personalRecords={completionData.personalRecords}
+          oneRMEstimates={completionData.oneRMEstimates}
+          totalVolume={completionData.totalVolume}
+          onViewProfile={handleViewProfile}
+          onBackToDashboard={handleCompletionDismiss}
+        />
+      )}
     </>
   );
 }
