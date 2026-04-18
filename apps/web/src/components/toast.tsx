@@ -1,10 +1,11 @@
 import { createPortal } from 'react-dom';
-import { useToast } from '@/contexts/toast-context';
+import { useToast, useToastState } from '@/contexts/toast-context';
 
 const PR_TOAST_PREFIX = 'NUEVO PR';
 
 export function ToastContainer(): React.ReactNode {
-  const { toasts, dismiss } = useToast();
+  const toasts = useToastState();
+  const { dismiss } = useToast();
 
   return createPortal(
     <div
