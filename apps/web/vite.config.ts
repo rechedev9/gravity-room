@@ -89,12 +89,19 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       rollupOptions: {
         output: {
-          manualChunks: {
-            'vendor-react': ['react', 'react-dom'],
-            'vendor-query': ['@tanstack/react-query'],
-            'vendor-zod': ['zod'],
-            'vendor-motion': ['motion/react'],
-            'vendor-recharts': ['recharts'],
+          manualChunks(id: string): string | undefined {
+            if (!id.includes('node_modules')) return undefined;
+            // React + TanStack (router + query) must share a chunk: otherwise Rollup's
+            // chunk-merge heuristic fuses React into the main entry and emits an empty
+            // vendor-react chunk.
+            if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id))
+              return 'vendor-react-core';
+            if (/[\\/]node_modules[\\/]@tanstack[\\/]/.test(id)) return 'vendor-react-core';
+            // Match zod by path so both `zod` and subpaths like `zod/v4` land together.
+            if (/[\\/]node_modules[\\/]zod[\\/]/.test(id)) return 'vendor-zod';
+            if (/[\\/]node_modules[\\/]motion[\\/]/.test(id)) return 'vendor-motion';
+            if (/[\\/]node_modules[\\/]recharts[\\/]/.test(id)) return 'vendor-recharts';
+            return undefined;
           },
         },
       },
