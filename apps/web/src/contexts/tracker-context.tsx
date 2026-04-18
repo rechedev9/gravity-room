@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, useCallback, type ReactNode } from 'react';
 
 interface TrackerState {
   readonly instanceId: string | undefined;
@@ -26,11 +26,14 @@ export function TrackerProvider({ children }: { readonly children: ReactNode }):
     setState({ programId: undefined, instanceId: undefined });
   }, []);
 
-  return (
-    <TrackerContext.Provider value={{ ...state, setTracker, clearTracker }}>
-      {children}
-    </TrackerContext.Provider>
+  // Spreading state in JSX hides the identity from React Compiler, so
+  // memoise the value explicitly. setTracker/clearTracker are already stable.
+  const value = useMemo<TrackerContextValue>(
+    () => ({ ...state, setTracker, clearTracker }),
+    [state, setTracker, clearTracker]
   );
+
+  return <TrackerContext.Provider value={value}>{children}</TrackerContext.Provider>;
 }
 
 export function useTracker(): TrackerContextValue {
