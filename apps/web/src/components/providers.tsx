@@ -39,6 +39,10 @@ function makeQueryClient(): QueryClient {
         staleTime: 5 * 60 * 1000,
         retry: 1,
         refetchOnWindowFocus: false,
+        // Gym users lose signal constantly. Reconnect refetches would stampede
+        // the API every time the phone changes cell tower. Opt-in per query
+        // (use-online-count) rather than refetching everything.
+        refetchOnReconnect: false,
       },
     },
   });
