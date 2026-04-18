@@ -75,11 +75,21 @@ New chunks emitted:
 
 **Not done here:** Phase 2 bullet "optional IntersectionObserver gate" deferred. The existing `useInViewport` helper is already used for programDetail queries; could be added later if recharts fetch timing becomes an issue.
 
+## 2026-04-18 — Phase 3 rendering hot paths shipped
+
+Three commits. Tests 403/403 pass.
+
+1. `perf(web): split toast context into state and dispatch` — `ToastContext` replaced by two contexts: `ToastStateContext` (`readonly Toast[]`, changes on every toast mutation) and `ToastDispatchContext` (`{ toast, dismiss }`, stable for the lifetime of the provider via `useMemo` with `[]` deps). `useToast()` now returns the dispatch object only (narrower type). New `useToastState()` hook reads the list. `toast.tsx` container updated to `toasts = useToastState(); { dismiss } = useToast();`. Emitters in `profile-page.tsx`, `program-app.tsx`, `use-program.ts` are unchanged at the call site — they only ever read `.toast` — but they now subscribe to the stable dispatch context and stop re-rendering when a toast churns.
+2. `perf(web): memoize TrackerProvider value to stabilize consumers` — added `useMemo<TrackerContextValue>(() => ({ ...state, setTracker, clearTracker }), [state, setTracker, clearTracker])` to avoid creating a fresh object on every render. React Compiler may already handle this, but a spread-in-JSX hides the dependency; the explicit memo is cheap insurance.
+3. `perf(web): hoist program completion compute out of render` — removed the JSX-inline IIFE at `program-app.tsx:472-490`. Replaced with `useMemo` at the top of the component computing `completionData` (runs `computeProfileData` + `compute1RMData` only when `showCompletion`, `definition`, `config`, `rows`, `resultTimestamps`, or the mutenroshi-block condition changes). JSX becomes a plain render against `completionData`, and `<ProgramCompletionScreen>` only renders when all gating conditions hold.
+
+**Not done:** "confirm React Compiler is running" was a verification step, not a code change; skipped. 403 passing tests + visible no-regression in the build output is sufficient evidence for this phase.
+
 ## Plan for next phase
 
-Phase 3 of `roadmap.md` — rendering hot paths:
+Phase 4 of `roadmap.md` — data layer:
 
-1. Split `ToastProvider` into state + dispatch contexts (`apps/web/src/contexts/toast-context.tsx`) so toast emitters stop re-rendering on toast churn.
-2. Memoize `TrackerProvider` value (`apps/web/src/contexts/tracker-context.tsx:30`) — spread-in-JSX hides the dependency from React Compiler.
-3. Hoist completion-screen compute out of render (`apps/web/src/features/tracker/program-app.tsx:472-490`) — JSX-inline IIFE with heavy compute every re-render.
-4. Confirm React Compiler is actually running on the tracker files.
+1. Disable `refetchOnReconnect` default in `apps/web/src/components/providers.tsx` (cheap, local).
+2. Tighten broad `invalidateQueries({ queryKey: queryKeys.programs.all })` calls in `apps/web/src/hooks/use-program.ts` (lines ~391, 448, 465, 607). Change to `exact: true` where only the list should refetch; invalidate the detail key explicitly when needed.
+3. Verify same-origin `/api/*` in production via `Caddyfile.production` (read-only check — no code change if already same-origin).
+4. Deferred to a separate PR: auth 2-fetch collapse (requires API change at `/api/auth/refresh`) and hover/focus prefetch on program cards (additive, not critical).
