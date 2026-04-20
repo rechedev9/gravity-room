@@ -30,7 +30,10 @@ export async function bootstrapDatabase(client: DatabaseClient = getDatabase()):
   }
 
   if (!bootstrapPromise) {
-    bootstrapPromise = client.execAsync(PROGRAM_SUMMARIES_TABLE_SQL);
+    bootstrapPromise = client.execAsync(PROGRAM_SUMMARIES_TABLE_SQL).catch((error) => {
+      bootstrapPromise = null;
+      throw error;
+    });
   }
 
   await bootstrapPromise;

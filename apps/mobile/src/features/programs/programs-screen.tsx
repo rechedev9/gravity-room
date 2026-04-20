@@ -2,24 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import {
-  listProgramSummaries,
-  type ProgramSummary,
-  upsertProgramSummaries,
-} from '../../lib/programs/program-repository';
-
-const SEEDED_PROGRAMS: readonly ProgramSummary[] = [
-  {
-    id: 'starter-strength',
-    title: 'Starter Strength',
-    updatedAt: '2026-04-20T08:00:00.000Z',
-  },
-  {
-    id: 'hypertrophy-foundation',
-    title: 'Hypertrophy Foundation',
-    updatedAt: '2026-04-18T12:30:00.000Z',
-  },
-];
+import { listProgramSummaries, type ProgramSummary } from '../../lib/programs/program-repository';
 
 export function ProgramsScreen() {
   const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
@@ -30,7 +13,6 @@ export function ProgramsScreen() {
 
     void (async () => {
       try {
-        await upsertProgramSummaries(SEEDED_PROGRAMS);
         const cachedPrograms = await listProgramSummaries();
         if (active) {
           setPrograms(cachedPrograms);
