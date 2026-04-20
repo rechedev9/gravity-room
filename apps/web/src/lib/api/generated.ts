@@ -7,7 +7,7 @@
  *   bun run api:types && git diff --exit-code src/lib/api/generated.ts
  *
  * DO NOT import from this file in application code.
- * Use the hand-written schemas in lib/shared/schemas/ instead.
+ * Use the hand-written schemas in @gzclp/domain/schemas/* instead.
  */
 import { z } from 'zod/v4';
 

@@ -11,7 +11,7 @@
  * The spec is fetched from http://localhost:3001/swagger/json.
  *
  * The generated schemas are NOT imported by app code. Our hand-written schemas
- * in lib/shared/schemas/ are more precisely typed and include coercive defaults.
+ * in @gzclp/domain/schemas/* are more precisely typed and include coercive defaults.
  * The generated file is the reference layer that proves the hand-written schemas
  * track the real API contract.
  */
@@ -64,7 +64,7 @@ const header = [
   ' *   bun run api:types && git diff --exit-code src/lib/api/generated.ts',
   ' *',
   ' * DO NOT import from this file in application code.',
-  ' * Use the hand-written schemas in lib/shared/schemas/ instead.',
+  ' * Use the hand-written schemas in @gzclp/domain/schemas/* instead.',
   ' */',
   '',
 ].join('\n');
