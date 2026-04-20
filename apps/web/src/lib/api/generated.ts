@@ -238,19 +238,22 @@ export const endpoints = [
           .readonly(),
       },
     ],
-    response: z.void(),
-    errors: [
-      {
-        status: 401,
-        description: `Invalid or expired Google credential`,
-        schema: z.void(),
-      },
-      {
-        status: 429,
-        description: `Rate limited`,
-        schema: z.void(),
-      },
-    ],
+    response: z
+      .object({
+        user: z
+          .object({
+            id: z.string(),
+            email: z.string().email(),
+            name: z.union([z.string(), z.null()]).nullable(),
+            avatarUrl: z.union([z.string(), z.null()]).nullable(),
+          })
+          .passthrough()
+          .readonly(),
+        accessToken: z.string(),
+        refreshToken: z.string(),
+      })
+      .passthrough()
+      .readonly(),
   },
   {
     method: 'post',
@@ -264,19 +267,22 @@ export const endpoints = [
         schema: z.object({ refreshToken: z.string() }).partial().passthrough().readonly(),
       },
     ],
-    response: z.void(),
-    errors: [
-      {
-        status: 401,
-        description: `Missing, invalid, expired, or reused refresh token`,
-        schema: z.void(),
-      },
-      {
-        status: 429,
-        description: `Rate limited`,
-        schema: z.void(),
-      },
-    ],
+    response: z
+      .object({
+        accessToken: z.string(),
+        refreshToken: z.string(),
+        user: z
+          .object({
+            id: z.string(),
+            email: z.string().email(),
+            name: z.union([z.string(), z.null()]).nullable(),
+            avatarUrl: z.union([z.string(), z.null()]).nullable(),
+          })
+          .passthrough()
+          .readonly(),
+      })
+      .passthrough()
+      .readonly(),
   },
   {
     method: 'post',

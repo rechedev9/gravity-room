@@ -67,6 +67,25 @@ interface UserProfile {
   readonly avatarUrl: string | null;
 }
 
+const userProfileResponseSchema = t.Object({
+  id: t.String(),
+  email: t.String({ format: 'email' }),
+  name: t.Nullable(t.String()),
+  avatarUrl: t.Nullable(t.String()),
+});
+
+const mobileGoogleAuthResponseSchema = t.Object({
+  user: userProfileResponseSchema,
+  accessToken: t.String(),
+  refreshToken: t.String(),
+});
+
+const mobileRefreshAuthResponseSchema = t.Object({
+  accessToken: t.String(),
+  refreshToken: t.String(),
+  user: userProfileResponseSchema,
+});
+
 function userResponse(user: UserProfile & { avatarUrl?: string | null }): UserProfile {
   return {
     id: user.id,
@@ -268,16 +287,12 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     },
     {
       body: t.Object({ credential: t.String({ minLength: 1 }) }),
+      response: { 200: mobileGoogleAuthResponseSchema },
       detail: {
         tags: ['Auth'],
         summary: 'Sign in with Google for mobile clients',
         description:
           'Verifies a Google ID token, finds or creates the user, and returns both access and refresh tokens in the response body.',
-        responses: {
-          200: { description: 'Authenticated; access token and refresh token in response body' },
-          401: { description: 'Invalid or expired Google credential' },
-          429: { description: 'Rate limited' },
-        },
       },
     }
   )
@@ -362,16 +377,12 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     },
     {
       body: t.Object({ refreshToken: t.Optional(t.String()) }),
+      response: { 200: mobileRefreshAuthResponseSchema },
       detail: {
         tags: ['Auth'],
         summary: 'Refresh mobile auth tokens',
         description:
           'Rotates the mobile refresh token and returns a new access token, refresh token, and current user profile in the response body.',
-        responses: {
-          200: { description: 'New access token and refresh token issued in response body' },
-          401: { description: 'Missing, invalid, expired, or reused refresh token' },
-          429: { description: 'Rate limited' },
-        },
       },
     }
   )
