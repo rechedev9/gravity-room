@@ -18,6 +18,7 @@
 import { $ } from 'bun';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { buildGeneratedArtifact } from './generate-api-types-lib';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const specUrl = process.env.API_SPEC_URL ?? 'http://localhost:3001/swagger/json';
@@ -38,34 +39,8 @@ await Bun.write(tmpSpecPath, await res.text());
 // Run openapi-zod-client
 await $`bunx openapi-zod-client ${tmpSpecPath} --output ${tmpPath} --export-schemas --all-readonly`;
 
-let content = await Bun.file(tmpPath).text();
-
-const endpointMetadata = [
-  ...content.matchAll(/method: '([^']+)',\s+path: '([^']+)',\s+alias: '([^']+)'/g),
-].map(([, method, path, alias]) => ({ method, path, alias }));
-
-// Fix: use zod/v4 (project standard) instead of zod
-content = content.replace(/from 'zod'/g, "from 'zod/v4'");
-
-// Strip Zodios client code — we only want the schema declarations
-content = content.replace(
-  /^import \{ makeApi, Zodios, type ZodiosOptions \} from '@zodios\/core';\n/m,
-  ''
-);
-const endpointsIdx = content.indexOf('\nconst endpoints =');
-if (endpointsIdx !== -1) {
-  content = content.slice(0, endpointsIdx).trimEnd() + '\n';
-}
-
-if (endpointMetadata.length > 0) {
-  const serializedEndpointMetadata = endpointMetadata
-    .map(
-      ({ method, path, alias }) => `  { method: '${method}', path: '${path}', alias: '${alias}' },`
-    )
-    .join('\n');
-
-  content += `\nexport const endpointMetadata = [\n${serializedEndpointMetadata}\n] as const;\n`;
-}
+const rawContent = await Bun.file(tmpPath).text();
+const content = buildGeneratedArtifact(rawContent);
 
 // Add header comment
 const header = [
