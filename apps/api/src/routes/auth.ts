@@ -64,11 +64,16 @@ interface UserProfile {
   readonly id: string;
   readonly email: string;
   readonly name: string | null;
-  readonly avatarUrl: string | null | undefined;
+  readonly avatarUrl: string | null;
 }
 
-function userResponse(user: UserProfile): UserProfile {
-  return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl };
+function userResponse(user: UserProfile & { avatarUrl?: string | null }): UserProfile {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    avatarUrl: user.avatarUrl ?? null,
+  };
 }
 
 /** Signs a JWT, creates a refresh token, and sets the cookie in one step. */

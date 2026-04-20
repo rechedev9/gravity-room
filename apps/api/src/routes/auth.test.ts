@@ -304,7 +304,7 @@ describe('POST /auth/mobile/refresh', () => {
     const body = (await res.json()) as {
       accessToken: string;
       refreshToken: string;
-      user: { id: string; email: string; name: string | null; avatarUrl?: string | null };
+      user: { id: string; email: string; name: string | null; avatarUrl: string | null };
     };
 
     expect(res.status).toBe(200);
@@ -314,7 +314,7 @@ describe('POST /auth/mobile/refresh', () => {
       id: TEST_USER.id,
       email: TEST_USER.email,
       name: null,
-      avatarUrl: undefined,
+      avatarUrl: null,
     });
     expect(mockRevokeRefreshToken).toHaveBeenCalledTimes(1);
     expect(mockCreateAndStoreRefreshToken).toHaveBeenCalledWith(
