@@ -16,20 +16,20 @@ export async function upsertProgramSummaries(programs: readonly ProgramSummary[]
   const database = getDatabase();
   await bootstrapDatabase(database);
 
-  await database.withTransactionAsync(async () => {
+  await database.withExclusiveTransactionAsync(async (transaction) => {
     if (programs.length === 0) {
-      await database.runAsync('DELETE FROM program_summaries');
+      await transaction.runAsync('DELETE FROM program_summaries');
       return;
     }
 
     const placeholders = programs.map(() => '?').join(', ');
-    await database.runAsync(
+    await transaction.runAsync(
       `DELETE FROM program_summaries WHERE id NOT IN (${placeholders})`,
       ...programs.map((program) => program.id)
     );
 
     for (const program of programs) {
-      await database.runAsync(
+      await transaction.runAsync(
         `INSERT INTO program_summaries (id, title, updated_at)
          VALUES (?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET

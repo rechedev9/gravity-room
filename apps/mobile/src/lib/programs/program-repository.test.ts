@@ -10,53 +10,62 @@ let mockFailNextInsert = false;
 jest.mock('../db/client', () => ({
   bootstrapDatabase: jest.fn(async () => undefined),
   getDatabase: jest.fn(() => ({
-    withTransactionAsync: jest.fn(async (callback: () => Promise<void>) => {
-      const snapshot = rows.map((row) => ({ ...row }));
+    withExclusiveTransactionAsync: jest.fn(
+      async (
+        callback: (client: {
+          runAsync: (sql: string, ...params: unknown[]) => Promise<unknown>;
+        }) => Promise<void>
+      ) => {
+        const snapshot = rows.map((row) => ({ ...row }));
+        const transactionClient = {
+          runAsync: async (sql: string, ...params: unknown[]) => {
+            if (sql.includes('DELETE FROM program_summaries WHERE id NOT IN')) {
+              const ids = new Set(params as string[]);
 
-      try {
-        await callback();
-      } catch (error) {
-        rows.length = 0;
-        rows.push(...snapshot);
-        throw error;
-      }
-    }),
-    runAsync: jest.fn(async (sql: string, ...params: unknown[]) => {
-      if (sql.includes('DELETE FROM program_summaries WHERE id NOT IN')) {
-        const ids = new Set(params as string[]);
+              for (let index = rows.length - 1; index >= 0; index -= 1) {
+                const row = rows[index];
 
-        for (let index = rows.length - 1; index >= 0; index -= 1) {
-          const row = rows[index];
+                if (row && !ids.has(row.id)) {
+                  rows.splice(index, 1);
+                }
+              }
+            }
 
-          if (row && !ids.has(row.id)) {
-            rows.splice(index, 1);
-          }
+            if (sql === 'DELETE FROM program_summaries') {
+              rows.length = 0;
+            }
+
+            if (sql.includes('INSERT INTO program_summaries')) {
+              if (mockFailNextInsert) {
+                mockFailNextInsert = false;
+                throw new Error('write failed');
+              }
+
+              const [id, title, updatedAt] = params as [string, string, string];
+              const existingIndex = rows.findIndex((row) => row.id === id);
+              const nextRow = { id, title, updated_at: updatedAt };
+
+              if (existingIndex >= 0) {
+                rows[existingIndex] = nextRow;
+              } else {
+                rows.push(nextRow);
+              }
+            }
+
+            return { changes: 1, lastInsertRowId: 0 };
+          },
+        };
+
+        try {
+          await callback(transactionClient);
+        } catch (error) {
+          rows.length = 0;
+          rows.push(...snapshot);
+          throw error;
         }
       }
-
-      if (sql === 'DELETE FROM program_summaries') {
-        rows.length = 0;
-      }
-
-      if (sql.includes('INSERT INTO program_summaries')) {
-        if (mockFailNextInsert) {
-          mockFailNextInsert = false;
-          throw new Error('write failed');
-        }
-
-        const [id, title, updatedAt] = params as [string, string, string];
-        const existingIndex = rows.findIndex((row) => row.id === id);
-        const nextRow = { id, title, updated_at: updatedAt };
-
-        if (existingIndex >= 0) {
-          rows[existingIndex] = nextRow;
-        } else {
-          rows.push(nextRow);
-        }
-      }
-
-      return { changes: 1, lastInsertRowId: 0 };
-    }),
+    ),
+    runAsync: jest.fn(async () => ({ changes: 1, lastInsertRowId: 0 })),
     getAllAsync: jest.fn(async (sql: string) => {
       if (!sql.includes('SELECT id, title, updated_at FROM program_summaries')) {
         return [];
