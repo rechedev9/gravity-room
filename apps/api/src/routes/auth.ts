@@ -215,11 +215,12 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     '/google',
     async ({ jwt, body, cookie, set, reqLogger, ip, request }) => {
       await rateLimit(ip, '/auth/google', { maxRequests: 10 });
+      const webClientId = getWebGoogleClientId();
 
       let googlePayload: Awaited<ReturnType<typeof verifyGoogleToken>>;
       try {
         googlePayload = await verifyGoogleToken(body.credential, {
-          allowedClientIds: [getWebGoogleClientId()],
+          allowedClientIds: [webClientId],
         });
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'Google token verification failed');

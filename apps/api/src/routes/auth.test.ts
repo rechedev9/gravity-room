@@ -174,6 +174,22 @@ describe('POST /auth/google', () => {
     expect(body.error).toBe('Invalid Google credential');
   });
 
+  it('returns 500 CONFIGURATION_ERROR when GOOGLE_CLIENT_ID is absent', async () => {
+    const previousClientId = process.env['GOOGLE_CLIENT_ID'];
+    delete process.env['GOOGLE_CLIENT_ID'];
+
+    try {
+      const res = await post('/auth/google', { credential: 'valid-id-token' });
+      const body = (await res.json()) as { code: string; error: string };
+
+      expect(res.status).toBe(500);
+      expect(body.code).toBe('CONFIGURATION_ERROR');
+      expect(body.error).toBe('GOOGLE_CLIENT_ID env var must be set');
+    } finally {
+      process.env['GOOGLE_CLIENT_ID'] = previousClientId;
+    }
+  });
+
   it('returns 200 with accessToken and user on success', async () => {
     const res = await post('/auth/google', { credential: 'valid-id-token' });
     const body = (await res.json()) as { accessToken: string; user: { email: string } };
