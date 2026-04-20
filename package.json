@@ -14,16 +14,18 @@
     "build:web": "bun run --filter web build",
     "typecheck": "bun run --filter web typecheck",
     "typecheck:api": "bun run --filter api typecheck",
+    "typecheck:domain": "bun run --filter @gzclp/domain typecheck",
     "typecheck:mobile": "bun run --filter mobile typecheck",
     "lint": "bun run --filter web lint",
     "format:check": "prettier --check .",
     "format:fix": "prettier --write .",
-    "test": "bun run --filter web test",
+    "test": "bun run --filter web test && bun run test:domain",
     "test:api": "bun run --filter api test",
+    "test:domain": "bun run --filter @gzclp/domain test",
     "e2e": "bun run --filter web e2e",
     "e2e:ui": "bun run --filter web e2e:ui",
     "e2e:headed": "bun run --filter web e2e:headed",
-    "ci": "bun run typecheck && bun run typecheck:api && bun run lint && bun run format:check && bun run test && bun run build"
+    "ci": "bun run typecheck && bun run typecheck:api && bun run typecheck:domain && bun run lint && bun run format:check && bun run test && bun run build"
   },
   "devDependencies": {
     "@types/bun": "^1.3.12",
