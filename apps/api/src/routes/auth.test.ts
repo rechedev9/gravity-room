@@ -323,6 +323,22 @@ describe('POST /auth/mobile/refresh', () => {
     );
   });
 
+  it('returns 401 with AUTH_NO_REFRESH_TOKEN when refreshToken is missing', async () => {
+    const res = await post('/auth/mobile/refresh', {});
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_NO_REFRESH_TOKEN');
+  });
+
+  it('returns 401 with AUTH_NO_REFRESH_TOKEN when refreshToken is empty', async () => {
+    const res = await post('/auth/mobile/refresh', { refreshToken: '' });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_NO_REFRESH_TOKEN');
+  });
+
   it('returns 401 with AUTH_INVALID_REFRESH when token is not found in DB', async () => {
     mockFindRefreshToken.mockImplementation(() => Promise.resolve(undefined));
 

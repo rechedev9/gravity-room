@@ -348,11 +348,15 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     async ({ jwt, body, reqLogger, ip }) => {
       await rateLimit(ip, '/auth/mobile/refresh', IS_PRODUCTION ? undefined : { maxRequests: 500 });
 
+      if (!body.refreshToken || body.refreshToken.length === 0) {
+        throw new ApiError(401, 'No refresh token', 'AUTH_NO_REFRESH_TOKEN');
+      }
+
       const refreshed = await refreshAuthToken(jwt, reqLogger, body.refreshToken);
       return refreshed;
     },
     {
-      body: t.Object({ refreshToken: t.String({ minLength: 1 }) }),
+      body: t.Object({ refreshToken: t.Optional(t.String()) }),
       detail: {
         tags: ['Auth'],
         summary: 'Refresh mobile auth tokens',
