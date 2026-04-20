@@ -339,6 +339,7 @@ export const endpoints = [
     errors: [
       {
         status: 429,
+        description: `Rate limited`,
         schema: z.object({ error: z.string(), code: z.string() }).passthrough().readonly(),
       },
     ],

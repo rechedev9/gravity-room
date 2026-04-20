@@ -465,7 +465,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     {
       body: t.Object({ refreshToken: t.Optional(t.String()) }),
       response: {
-        429: authErrorResponseSchema,
+        429: t.Object({ error: t.String(), code: t.String() }, { description: 'Rate limited' }),
       },
       detail: {
         tags: ['Auth'],

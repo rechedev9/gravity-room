@@ -117,14 +117,16 @@ export function createApiClient(baseUrl: string, options?: ZodiosOptions) {
     const mobileGoogleStart = generated.indexOf("path: '/api/auth/mobile/google'");
     const mobileRefreshStart = generated.indexOf("path: '/api/auth/mobile/refresh'");
     const mobileSignoutStart = generated.indexOf("path: '/api/auth/mobile/signout'");
+    const refreshStart = generated.indexOf("path: '/api/auth/refresh'");
 
     const mobileGoogleSection = generated.slice(mobileGoogleStart, mobileRefreshStart);
     const mobileRefreshSection = generated.slice(mobileRefreshStart, mobileSignoutStart);
-    const mobileSignoutSection = generated.slice(mobileSignoutStart);
+    const mobileSignoutSection = generated.slice(mobileSignoutStart, refreshStart);
 
     expect(mobileGoogleStart).toBeGreaterThanOrEqual(0);
     expect(mobileRefreshStart).toBeGreaterThanOrEqual(0);
     expect(mobileSignoutStart).toBeGreaterThanOrEqual(0);
+    expect(refreshStart).toBeGreaterThanOrEqual(0);
 
     expect(mobileGoogleSection).toContain('response: z');
     expect(mobileGoogleSection).toContain('user: z');
@@ -184,5 +186,6 @@ export function createApiClient(baseUrl: string, options?: ZodiosOptions) {
     expect(mobileSignoutSection).toContain(
       'schema: z.object({ error: z.string(), code: z.string() })'
     );
+    expect(mobileSignoutSection).not.toContain("path: '/api/auth/refresh'");
   });
 });

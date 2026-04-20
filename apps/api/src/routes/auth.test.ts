@@ -282,8 +282,23 @@ describe('POST /auth/mobile/google', () => {
     await post('/auth/mobile/google', { credential: 'valid-id-token' });
 
     expect(mockVerifyGoogleToken).toHaveBeenCalledWith('valid-id-token', {
-      allowedClientIds: ['mobile-client-id', 'web-client-id'],
+      allowedClientIds: ['mobile-client-id'],
     });
+  });
+
+  it('falls back to the web client id for mobile only when GOOGLE_CLIENT_IDS is absent', async () => {
+    const previousMobileClientIds = process.env['GOOGLE_CLIENT_IDS'];
+    delete process.env['GOOGLE_CLIENT_IDS'];
+
+    try {
+      await post('/auth/mobile/google', { credential: 'valid-id-token' });
+
+      expect(mockVerifyGoogleToken).toHaveBeenCalledWith('valid-id-token', {
+        allowedClientIds: ['web-client-id'],
+      });
+    } finally {
+      process.env['GOOGLE_CLIENT_IDS'] = previousMobileClientIds;
+    }
   });
 });
 

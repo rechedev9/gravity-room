@@ -42,7 +42,16 @@ export function getWebGoogleClientId(): string {
 }
 
 export function getMobileGoogleClientIds(): string[] {
-  return getAllowedGoogleClientIds();
+  const clientIds = process.env['GOOGLE_CLIENT_IDS']
+    ?.split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  if (clientIds && clientIds.length > 0) {
+    return [...new Set(clientIds)];
+  }
+
+  return [getWebGoogleClientId()];
 }
 
 // ---------------------------------------------------------------------------
