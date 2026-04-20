@@ -1,0 +1,10 @@
+{
+  "name": "@gzclp/domain",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./type-guards": "./src/type-guards.ts"
+  }
+}

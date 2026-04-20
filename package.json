@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "dev": "bun run --filter web dev",
@@ -13,6 +14,7 @@
     "build:web": "bun run --filter web build",
     "typecheck": "bun run --filter web typecheck",
     "typecheck:api": "bun run --filter api typecheck",
+    "typecheck:mobile": "bun run --filter mobile typecheck",
     "lint": "bun run --filter web lint",
     "format:check": "prettier --check .",
     "format:fix": "prettier --write .",
