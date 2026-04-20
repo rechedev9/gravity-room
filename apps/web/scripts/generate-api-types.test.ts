@@ -137,8 +137,14 @@ export function createApiClient(baseUrl: string, options?: ZodiosOptions) {
     expect(mobileGoogleSection).toContain('errors: [');
     expect(mobileGoogleSection).toContain('status: 401');
     expect(mobileGoogleSection).toContain('description: `Invalid or expired Google credential`');
+    expect(mobileGoogleSection).toContain(
+      'schema: z.object({ error: z.string(), code: z.string() })'
+    );
     expect(mobileGoogleSection).toContain('status: 429');
     expect(mobileGoogleSection).toContain('description: `Rate limited`');
+    expect(mobileGoogleSection).toContain(
+      'schema: z.object({ error: z.string(), code: z.string() })'
+    );
 
     expect(mobileRefreshSection).toContain('response: z');
     expect(mobileRefreshSection).toContain('accessToken: z.string()');
@@ -153,8 +159,14 @@ export function createApiClient(baseUrl: string, options?: ZodiosOptions) {
     expect(mobileRefreshSection).toContain(
       'description: `Missing, invalid, expired, or reused refresh token`'
     );
+    expect(mobileRefreshSection).toContain(
+      'schema: z.object({ error: z.string(), code: z.string() })'
+    );
     expect(mobileRefreshSection).toContain('status: 429');
     expect(mobileRefreshSection).toContain('description: `Rate limited`');
+    expect(mobileRefreshSection).toContain(
+      'schema: z.object({ error: z.string(), code: z.string() })'
+    );
 
     expect(mobileSignoutSection).toContain('response: z.void()');
   });

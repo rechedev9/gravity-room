@@ -258,12 +258,12 @@ export const endpoints = [
       {
         status: 401,
         description: `Invalid or expired Google credential`,
-        schema: z.object({}).partial().passthrough().readonly(),
+        schema: z.object({ error: z.string(), code: z.string() }).passthrough().readonly(),
       },
       {
         status: 429,
         description: `Rate limited`,
-        schema: z.object({}).partial().passthrough().readonly(),
+        schema: z.object({ error: z.string(), code: z.string() }).passthrough().readonly(),
       },
     ],
   },
@@ -299,12 +299,12 @@ export const endpoints = [
       {
         status: 401,
         description: `Missing, invalid, expired, or reused refresh token`,
-        schema: z.object({}).partial().passthrough().readonly(),
+        schema: z.object({ error: z.string(), code: z.string() }).passthrough().readonly(),
       },
       {
         status: 429,
         description: `Rate limited`,
-        schema: z.object({}).partial().passthrough().readonly(),
+        schema: z.object({ error: z.string(), code: z.string() }).passthrough().readonly(),
       },
     ],
   },
