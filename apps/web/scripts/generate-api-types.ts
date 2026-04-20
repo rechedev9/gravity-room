@@ -40,6 +40,10 @@ await $`bunx openapi-zod-client ${tmpSpecPath} --output ${tmpPath} --export-sche
 
 let content = await Bun.file(tmpPath).text();
 
+const endpointMetadata = [
+  ...content.matchAll(/method: '([^']+)',\s+path: '([^']+)',\s+alias: '([^']+)'/g),
+].map(([, method, path, alias]) => ({ method, path, alias }));
+
 // Fix: use zod/v4 (project standard) instead of zod
 content = content.replace(/from 'zod'/g, "from 'zod/v4'");
 
@@ -51,6 +55,16 @@ content = content.replace(
 const endpointsIdx = content.indexOf('\nconst endpoints =');
 if (endpointsIdx !== -1) {
   content = content.slice(0, endpointsIdx).trimEnd() + '\n';
+}
+
+if (endpointMetadata.length > 0) {
+  const serializedEndpointMetadata = endpointMetadata
+    .map(
+      ({ method, path, alias }) => `  { method: '${method}', path: '${path}', alias: '${alias}' },`
+    )
+    .join('\n');
+
+  content += `\nexport const endpointMetadata = [\n${serializedEndpointMetadata}\n] as const;\n`;
 }
 
 // Add header comment
