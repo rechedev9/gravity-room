@@ -1,6 +1,6 @@
 import { z } from 'zod/v4';
-import { SetLogEntrySchema } from '@gzclp/shared/schemas/instance';
-import type { SetLogEntry } from '@gzclp/shared/types';
+import { SetLogEntrySchema } from '@gzclp/domain/schemas/instance';
+import type { SetLogEntry } from '@gzclp/domain/types';
 
 // For fields typed as `T | undefined` (required key) in GenericSlotRow, use nu<T>().
 // z.union([T, z.undefined()]) makes the key optional (`?`) in Zod's inferred type, which

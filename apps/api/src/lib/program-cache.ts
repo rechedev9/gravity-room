@@ -4,7 +4,7 @@
  */
 import { getRedis } from './redis';
 import { logger } from './logger';
-import { isRecord } from '@gzclp/shared/type-guards';
+import { isRecord } from '@gzclp/domain/type-guards';
 import type { ProgramInstanceResponse } from '../services/programs';
 
 const CACHE_TTL_SECONDS = 300; // 5 minutes — writes actively invalidate, so longer TTL is safe

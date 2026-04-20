@@ -2,9 +2,9 @@
  * Hydration layer — reconstructs a ProgramDefinition from a program_templates row
  * and an exercises array. Pure function: no DB calls.
  */
-import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
-import { isRecord } from '@gzclp/shared/type-guards';
+import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import { isRecord } from '@gzclp/domain/type-guards';
 
 import { type Result, ok, err } from './result';
 import { collectExerciseIds } from './definition-utils';

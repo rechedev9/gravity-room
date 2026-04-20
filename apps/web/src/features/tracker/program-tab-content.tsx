@@ -1,5 +1,5 @@
-import type { ResultValue, GenericWorkoutRow, SetLogEntry } from '@gzclp/shared/types';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
+import type { ResultValue, GenericWorkoutRow, SetLogEntry } from '@gzclp/domain/types';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type { ViewMode } from '@/lib/view-preference';
 import { useTranslation } from 'react-i18next';
 import { localizedProgramDescription, localizedProgramName } from '@/lib/catalog-display';

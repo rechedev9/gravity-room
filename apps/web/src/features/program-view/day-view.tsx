@@ -5,7 +5,7 @@ import type {
   GenericWorkoutRow,
   GenericSlotRow,
   SetLogEntry,
-} from '@gzclp/shared/types';
+} from '@gzclp/domain/types';
 import { ResultCell } from './result-cell';
 import { AmrapInput } from './amrap-input';
 import { RpeSelect } from './rpe-select';

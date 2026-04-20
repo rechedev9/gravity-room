@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
-import type { GenericWorkoutRow } from '@gzclp/shared/types';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import { localizedProgramName } from '@/lib/catalog-display';
 
 interface CalendarEventOptions {

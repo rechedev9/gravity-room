@@ -1,4 +1,4 @@
-import type { GenericWorkoutRow, ResultValue } from '@gzclp/shared/types';
+import type { GenericWorkoutRow, ResultValue } from '@gzclp/domain/types';
 
 /**
  * Detects a T1 personal record for generic (non-GZCLP) programs.

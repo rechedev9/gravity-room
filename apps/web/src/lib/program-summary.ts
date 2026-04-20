@@ -1,4 +1,4 @@
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,6 +105,8 @@ function describeRule(rule: ProgressionRule): string {
     case 'double_progression':
       return `Sube reps (${rule.repRangeBottom}-${rule.repRangeTop}); al tope, sube peso`;
   }
+
+  return '';
 }
 
 /** Maps a progression rule to its trigger context string. */
@@ -125,6 +127,8 @@ function describeTrigger(rule: ProgressionRule): string {
     case 'update_tm':
       return `Serie AMRAP >= ${rule.minAmrapReps} reps`;
   }
+
+  return '';
 }
 
 type SlotShape = ProgramDefinition['days'][number]['slots'][number];

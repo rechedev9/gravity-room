@@ -2,7 +2,7 @@
  * Google ID token verification using Web Crypto + JWKS (RS256).
  * No google-auth-library dependency — pure Web Crypto API.
  */
-import { isRecord } from '@gzclp/shared/type-guards';
+import { isRecord } from '@gzclp/domain/type-guards';
 import { ApiError } from '../middleware/error-handler';
 
 const JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';

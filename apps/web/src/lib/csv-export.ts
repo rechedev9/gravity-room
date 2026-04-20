@@ -1,4 +1,4 @@
-import type { GenericWorkoutRow } from '@gzclp/shared/types';
+import type { GenericWorkoutRow } from '@gzclp/domain/types';
 
 function escapeCsvField(value: string): string {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {

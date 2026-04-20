@@ -1,7 +1,7 @@
 /**
  * Idempotent seed for the program_templates table.
  * Metadata (name, description, author, category, isActive) comes from
- * @gzclp/shared/catalog — the single source of truth.
+ * @gzclp/domain/catalog — the single source of truth.
  * JSONB definitions are kept here as a DB-layer concern.
  *
  * Safety: before deactivating a template, any active program instances
@@ -11,7 +11,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { sql, eq, and, inArray } from 'drizzle-orm';
 import { programTemplates, programInstances } from '../schema';
 import type * as schema from '../schema';
-import { PROGRAM_CATALOG } from '@gzclp/shared/catalog';
+import { PROGRAM_CATALOG } from '@gzclp/domain/catalog';
 import { GZCLP_DEFINITION_JSONB } from './programs/gzclp';
 import { PPL531_DEFINITION_JSONB } from './programs/ppl531';
 import { STRONGLIFTS_DEFINITION_JSONB } from './programs/stronglifts';

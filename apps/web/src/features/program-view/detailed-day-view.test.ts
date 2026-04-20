@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import type { GenericSlotRow, ResolvedPrescription } from '@gzclp/shared/types';
+import type { GenericSlotRow, ResolvedPrescription } from '@gzclp/domain/types';
 import { buildSetRows } from './detailed-day-view';
 
 // ---------------------------------------------------------------------------

@@ -84,7 +84,6 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src'),
-        '@gzclp/shared': resolve(__dirname, 'src/lib/shared'),
       },
     },
     build: {

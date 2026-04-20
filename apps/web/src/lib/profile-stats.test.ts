@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
-import { computeGenericProgram } from '@gzclp/shared/generic-engine';
-import type { GenericResults } from '@gzclp/shared/types/program';
+import { computeGenericProgram } from '@gzclp/domain/generic-engine';
+import type { GenericResults } from '@gzclp/domain/types/program';
 import { computeProfileData, compute1RMData, formatVolume } from './profile-stats';
 import {
   GZCLP_DEFINITION_FIXTURE,

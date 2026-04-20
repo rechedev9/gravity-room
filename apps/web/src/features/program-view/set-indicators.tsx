@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import type { ResultValue, SetLogEntry } from '@gzclp/shared/types';
+import type { ResultValue, SetLogEntry } from '@gzclp/domain/types';
 
 // ---------------------------------------------------------------------------
 // Constants

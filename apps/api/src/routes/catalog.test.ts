@@ -5,7 +5,7 @@
 process.env['LOG_LEVEL'] = 'silent';
 
 import { mock, describe, it, expect, beforeEach } from 'bun:test';
-import type { GenericWorkoutRow } from '@gzclp/shared/types';
+import type { GenericWorkoutRow } from '@gzclp/domain/types';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module

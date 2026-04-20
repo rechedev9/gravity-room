@@ -9,7 +9,7 @@ import { mock, describe, it, expect, beforeEach } from 'bun:test';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type { UseProgramReturn } from '@/hooks/use-program';
 
 // ---------------------------------------------------------------------------

@@ -7,9 +7,9 @@ import { listPrograms, getProgramDefinition, previewDefinition } from '../servic
 import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
 import { requestLogger } from '../middleware/request-logger';
 import { rateLimit } from '../middleware/rate-limit';
-import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
+import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import { ApiError } from '../middleware/error-handler';
-import { isRecord } from '@gzclp/shared/type-guards';
+import { isRecord } from '@gzclp/domain/type-guards';
 
 const HOUR_MS = 3_600_000;
 const security = [{ bearerAuth: [] }];

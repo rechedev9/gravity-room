@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { SALA_3_DEFINITION_JSONB } from './sala-3';
-import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
+import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 
 // ---------------------------------------------------------------------------
 // Types (test-only)

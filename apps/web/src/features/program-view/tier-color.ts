@@ -1,4 +1,4 @@
-import type { GenericSlotRow } from '@gzclp/shared/types';
+import type { GenericSlotRow } from '@gzclp/domain/types';
 
 export function tierColorClass(role: GenericSlotRow['role']): string {
   if (role === 'primary') return 'text-accent';

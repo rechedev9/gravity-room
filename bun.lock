@@ -21,6 +21,7 @@
         "@elysiajs/jwt": "^1.4.0",
         "@elysiajs/static": "^1.4.0",
         "@elysiajs/swagger": "^1.3.1",
+        "@gzclp/domain": "workspace:*",
         "@sentry/bun": "^10.40.0",
         "drizzle-orm": "^0.45.1",
         "elysia": "^1.4.25",
@@ -43,6 +44,7 @@
       "name": "web",
       "version": "0.1.0",
       "dependencies": {
+        "@gzclp/domain": "workspace:*",
         "@hookform/resolvers": "^5.2.2",
         "@radix-ui/react-collapsible": "^1.1.12",
         "@radix-ui/react-dialog": "^1.1.15",
@@ -90,6 +92,9 @@
     "packages/domain": {
       "name": "@gzclp/domain",
       "version": "0.0.1",
+      "dependencies": {
+        "zod": "^4.3.6",
+      },
     },
   },
   "trustedDependencies": [

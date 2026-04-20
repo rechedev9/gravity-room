@@ -6,8 +6,8 @@
 import { describe, it, expect } from 'bun:test';
 import { render, screen, fireEvent } from '@testing-library/react';
 import StatsPanel from './stats-panel';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
-import type { GenericWorkoutRow, GenericSlotRow } from '@gzclp/shared/types';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import type { GenericWorkoutRow, GenericSlotRow } from '@gzclp/domain/types';
 
 // ---------------------------------------------------------------------------
 // Fixture helpers

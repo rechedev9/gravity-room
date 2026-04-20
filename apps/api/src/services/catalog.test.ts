@@ -352,7 +352,7 @@ describe('getProgramDefinition', () => {
       id: 'gzclp',
       name: 'Cached GZCLP',
       days: [],
-    } as unknown as import('@gzclp/shared/types/program').ProgramDefinition;
+    } as unknown as import('@gzclp/domain/types/program').ProgramDefinition;
     mockGetCachedCatalogDetail.mockImplementation(() => Promise.resolve(cachedDef));
 
     const result = await getProgramDefinition('gzclp');
@@ -368,7 +368,7 @@ describe('getProgramDefinition', () => {
 const { previewDefinition } = await import('./catalog');
 
 // Minimal valid ProgramDefinition fixture for preview tests
-const PREVIEW_DEFINITION: import('@gzclp/shared/types/program').ProgramDefinition = {
+const PREVIEW_DEFINITION: import('@gzclp/domain/types/program').ProgramDefinition = {
   id: 'preview-test',
   name: 'Preview Test Program',
   description: 'Minimal program for preview tests',
@@ -419,7 +419,7 @@ const PREVIEW_DEFINITION: import('@gzclp/shared/types/program').ProgramDefinitio
 };
 
 // Small program fixture with fewer than 10 total workouts
-const SMALL_DEFINITION: import('@gzclp/shared/types/program').ProgramDefinition = {
+const SMALL_DEFINITION: import('@gzclp/domain/types/program').ProgramDefinition = {
   ...PREVIEW_DEFINITION,
   id: 'small-preview',
   totalWorkouts: 4,

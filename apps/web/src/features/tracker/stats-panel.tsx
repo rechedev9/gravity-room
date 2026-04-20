@@ -1,13 +1,13 @@
 import { useState, useMemo, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { extractAllGenericStats, calculateStats } from '@gzclp/shared/generic-stats';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
+import { extractAllGenericStats, calculateStats } from '@gzclp/domain/generic-stats';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type {
   GenericWorkoutRow,
   ChartDataPoint,
   RpeDataPoint,
   AmrapDataPoint,
-} from '@gzclp/shared/types';
+} from '@gzclp/domain/types';
 import { LineChart } from '@/components/charts/line-chart';
 import { BarChart } from '@/components/charts/bar-chart';
 import { groupByConsecutive } from '@/lib/group-by-consecutive';

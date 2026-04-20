@@ -5,8 +5,8 @@
  */
 import { getRedis } from './redis';
 import { logger } from './logger';
-import { isRecord } from '@gzclp/shared/type-guards';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
+import { isRecord } from '@gzclp/domain/type-guards';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 
 const CACHE_TTL_SECONDS = 300; // 5 minutes
 

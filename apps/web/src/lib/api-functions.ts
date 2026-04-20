@@ -4,33 +4,33 @@
  * All consumers work with slot-keyed generic format.
  */
 import { getAccessToken, refreshAccessToken } from './api';
-import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
-import { GenericProgramDetailSchema } from '@gzclp/shared/schemas/instance';
-import { ProgramSummarySchema } from '@gzclp/shared/schemas/program-summary';
-import { CatalogEntrySchema } from '@gzclp/shared/schemas/catalog';
+import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
+import { GenericProgramDetailSchema } from '@gzclp/domain/schemas/instance';
+import { ProgramSummarySchema } from '@gzclp/domain/schemas/program-summary';
+import { CatalogEntrySchema } from '@gzclp/domain/schemas/catalog';
 import {
   ExerciseEntrySchema,
   MuscleGroupEntrySchema,
   PaginatedExercisesResponseSchema,
-} from '@gzclp/shared/schemas/exercises';
-import { InsightItemSchema } from '@gzclp/shared/schemas/insights';
-import { UserResponseSchema, parseUserSafe } from '@gzclp/shared/schemas/user';
-import type { ResultValue, SetLogEntry } from '@gzclp/shared/types';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
-import { isRecord } from '@gzclp/shared/type-guards';
+} from '@gzclp/domain/schemas/exercises';
+import { InsightItemSchema } from '@gzclp/domain/schemas/insights';
+import { UserResponseSchema, parseUserSafe } from '@gzclp/domain/schemas/user';
+import type { ResultValue, SetLogEntry } from '@gzclp/domain/types';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import { isRecord } from '@gzclp/domain/type-guards';
 import { z } from 'zod/v4';
 
 // Re-export types derived from schemas
-export type { UserInfo } from '@gzclp/shared/schemas/user';
-export type { ProgramSummary } from '@gzclp/shared/schemas/program-summary';
-export type { CatalogEntry } from '@gzclp/shared/schemas/catalog';
+export type { UserInfo } from '@gzclp/domain/schemas/user';
+export type { ProgramSummary } from '@gzclp/domain/schemas/program-summary';
+export type { CatalogEntry } from '@gzclp/domain/schemas/catalog';
 export type {
   ExerciseEntry,
   MuscleGroupEntry,
   PaginatedExercisesResponse,
-} from '@gzclp/shared/schemas/exercises';
-export type { InsightItem } from '@gzclp/shared/schemas/insights';
-export type { GenericProgramDetail } from '@gzclp/shared/schemas/instance';
+} from '@gzclp/domain/schemas/exercises';
+export type { InsightItem } from '@gzclp/domain/schemas/insights';
+export type { GenericProgramDetail } from '@gzclp/domain/schemas/instance';
 
 // Re-export helpers from user schema
 export { parseUserSafe };
@@ -117,7 +117,7 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 
 /** Fetch all program instances for the current user (first page). */
 export async function fetchPrograms(): Promise<
-  import('@gzclp/shared/schemas/program-summary').ProgramSummary[]
+  import('@gzclp/domain/schemas/program-summary').ProgramSummary[]
 > {
   const data = await apiFetch('/programs');
   // Handle both legacy array response and new paginated { data, nextCursor } shape
@@ -132,7 +132,7 @@ export async function createProgram(
   programId: string,
   name: string,
   config: Record<string, number | string>
-): Promise<import('@gzclp/shared/schemas/program-summary').ProgramSummary> {
+): Promise<import('@gzclp/domain/schemas/program-summary').ProgramSummary> {
   const data = await apiFetch('/programs', {
     method: 'POST',
     body: JSON.stringify({ programId, name, config: { ...config } }),
@@ -155,7 +155,7 @@ export async function updateProgramConfig(
 export async function updateProgramMetadata(
   id: string,
   metadata: Record<string, unknown>
-): Promise<import('@gzclp/shared/schemas/instance').GenericProgramDetail> {
+): Promise<import('@gzclp/domain/schemas/instance').GenericProgramDetail> {
   const data = await apiFetch(`/programs/${encodeURIComponent(id)}/metadata`, {
     method: 'PATCH',
     body: JSON.stringify({ metadata }),
@@ -197,7 +197,7 @@ const ImportPayloadSchema = z.object({
 /** Import a program from exported JSON. Throws a ZodError if the payload is invalid. */
 export async function importProgram(
   data: unknown
-): Promise<import('@gzclp/shared/schemas/program-summary').ProgramSummary> {
+): Promise<import('@gzclp/domain/schemas/program-summary').ProgramSummary> {
   ImportPayloadSchema.parse(data);
   const result = await apiFetch('/programs/import', {
     method: 'POST',
@@ -211,7 +211,7 @@ export async function importProgram(
 // ---------------------------------------------------------------------------
 
 /** Fetch the authenticated user's profile. */
-export async function fetchMe(): Promise<import('@gzclp/shared/schemas/user').UserInfo> {
+export async function fetchMe(): Promise<import('@gzclp/domain/schemas/user').UserInfo> {
   const data = await apiFetch('/auth/me');
   return UserResponseSchema.parse(data);
 }
@@ -220,7 +220,7 @@ export async function fetchMe(): Promise<import('@gzclp/shared/schemas/user').Us
 export async function updateProfile(fields: {
   name?: string;
   avatarUrl?: string | null;
-}): Promise<import('@gzclp/shared/schemas/user').UserInfo> {
+}): Promise<import('@gzclp/domain/schemas/user').UserInfo> {
   const data = await apiFetch('/auth/me', {
     method: 'PATCH',
     body: JSON.stringify(fields),
@@ -257,7 +257,7 @@ export async function fetchOnlineCount(): Promise<number | null> {
 /** Fetch a program instance with results in generic slot-keyed format (no legacy conversion). */
 export async function fetchGenericProgramDetail(
   id: string
-): Promise<import('@gzclp/shared/schemas/instance').GenericProgramDetail> {
+): Promise<import('@gzclp/domain/schemas/instance').GenericProgramDetail> {
   const data = await apiFetch(`/programs/${encodeURIComponent(id)}`);
   return GenericProgramDetailSchema.parse(data);
 }
@@ -303,7 +303,7 @@ export async function deleteGenericResult(
 
 /** Fetch the catalog list of all preset programs (no auth required). */
 export async function fetchCatalogList(): Promise<
-  readonly import('@gzclp/shared/schemas/catalog').CatalogEntry[]
+  readonly import('@gzclp/domain/schemas/catalog').CatalogEntry[]
 > {
   const data = await apiFetch('/catalog');
   if (!Array.isArray(data)) return [];
@@ -356,14 +356,14 @@ function buildExerciseQueryString(filter?: ExerciseFilter): string {
 /** Exported for testing — parses a raw API response object into a typed ExerciseEntry. */
 export function parseExerciseEntry(
   raw: unknown
-): import('@gzclp/shared/schemas/exercises').ExerciseEntry {
+): import('@gzclp/domain/schemas/exercises').ExerciseEntry {
   return ExerciseEntrySchema.parse(raw);
 }
 
 /** Fetch exercises visible to the current user, with optional filtering. */
 export async function fetchExercises(
   filter?: ExerciseFilter
-): Promise<import('@gzclp/shared/schemas/exercises').PaginatedExercisesResponse> {
+): Promise<import('@gzclp/domain/schemas/exercises').PaginatedExercisesResponse> {
   const raw = await apiFetch(`/exercises${buildExerciseQueryString(filter)}`);
   const parsed = PaginatedExercisesResponseSchema.parse(raw);
   return {
@@ -376,7 +376,7 @@ export async function fetchExercises(
 
 /** Fetch all muscle groups (no auth required). */
 export async function fetchMuscleGroups(): Promise<
-  readonly import('@gzclp/shared/schemas/exercises').MuscleGroupEntry[]
+  readonly import('@gzclp/domain/schemas/exercises').MuscleGroupEntry[]
 > {
   const data = await apiFetch('/muscle-groups');
   if (!Array.isArray(data)) return [];
@@ -390,7 +390,7 @@ export async function fetchMuscleGroups(): Promise<
 /** Fetch pre-computed insights for the current user. */
 export async function fetchInsights(
   types?: string[]
-): Promise<import('@gzclp/shared/schemas/insights').InsightItem[]> {
+): Promise<import('@gzclp/domain/schemas/insights').InsightItem[]> {
   const query = types?.length ? `?types=${types.join(',')}` : '';
   const data = await apiFetch(`/insights${query}`);
   if (isRecord(data) && Array.isArray(data.data))

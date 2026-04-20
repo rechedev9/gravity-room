@@ -6,8 +6,8 @@ import { eq, and, lt, desc, or, gt, asc, sql, type SQL } from 'drizzle-orm';
 import { getDb } from '../db';
 import { programInstances, programTemplates, workoutResults, undoEntries } from '../db/schema';
 import { getProgramDefinition } from '../services/catalog';
-import { ProgramInstanceSchema } from '@gzclp/shared/schemas/instance';
-import type { GenericResults, GenericUndoHistory } from '@gzclp/shared/types/program';
+import { ProgramInstanceSchema } from '@gzclp/domain/schemas/instance';
+import type { GenericResults, GenericUndoHistory } from '@gzclp/domain/types/program';
 import { ApiError } from '../middleware/error-handler';
 
 // ---------------------------------------------------------------------------

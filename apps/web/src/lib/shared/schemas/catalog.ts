@@ -1,5 +1,5 @@
 import { z } from 'zod/v4';
-import { PROGRAM_LEVELS } from '@gzclp/shared/catalog';
+import { PROGRAM_LEVELS } from '@gzclp/domain/catalog';
 
 export const CatalogEntrySchema = z.object({
   id: z.string().catch(''),

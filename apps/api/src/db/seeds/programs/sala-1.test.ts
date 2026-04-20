@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { SALA_1_DEFINITION_JSONB } from './sala-1';
-import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
+import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 
 // ---------------------------------------------------------------------------
 // Helpers — merge metadata for schema validation

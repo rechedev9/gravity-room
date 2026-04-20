@@ -8,7 +8,7 @@ import { programInstances, workoutResults, undoEntries } from '../db/schema';
 import { ApiError } from '../middleware/error-handler';
 import { logger } from '../lib/logger';
 import { getProgramDefinition } from '../services/catalog';
-import type { SetLogEntry } from '@gzclp/shared/types';
+import type { SetLogEntry } from '@gzclp/domain/types';
 
 // ---------------------------------------------------------------------------
 // Types

@@ -1,4 +1,4 @@
-import type { ResultValue } from '@gzclp/shared/types';
+import type { ResultValue } from '@gzclp/domain/types';
 
 interface ResultCellProps {
   readonly index: number;
