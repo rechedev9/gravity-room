@@ -300,7 +300,16 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           { error: t.String(), code: t.String() },
           { description: 'Invalid or expired Google credential' }
         ),
+        403: t.Object({ error: t.String(), code: t.String() }, { description: 'Account deleted' }),
         429: t.Object({ error: t.String(), code: t.String() }, { description: 'Rate limited' }),
+        500: t.Object(
+          { error: t.String(), code: t.String() },
+          { description: 'Internal or configuration error' }
+        ),
+        503: t.Object(
+          { error: t.String(), code: t.String() },
+          { description: 'Google JWKS unavailable' }
+        ),
       },
       detail: {
         tags: ['Auth'],

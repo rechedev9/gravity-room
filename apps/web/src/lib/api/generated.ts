@@ -261,8 +261,23 @@ export const endpoints = [
         schema: z.object({ error: z.string(), code: z.string() }).passthrough().readonly(),
       },
       {
+        status: 403,
+        description: `Account deleted`,
+        schema: z.object({ error: z.string(), code: z.string() }).passthrough().readonly(),
+      },
+      {
         status: 429,
         description: `Rate limited`,
+        schema: z.object({ error: z.string(), code: z.string() }).passthrough().readonly(),
+      },
+      {
+        status: 500,
+        description: `Internal or configuration error`,
+        schema: z.object({ error: z.string(), code: z.string() }).passthrough().readonly(),
+      },
+      {
+        status: 503,
+        description: `Google JWKS unavailable`,
         schema: z.object({ error: z.string(), code: z.string() }).passthrough().readonly(),
       },
     ],

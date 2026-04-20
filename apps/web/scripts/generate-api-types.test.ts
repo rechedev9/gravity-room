@@ -145,6 +145,12 @@ export function createApiClient(baseUrl: string, options?: ZodiosOptions) {
     expect(mobileGoogleSection).toContain(
       'schema: z.object({ error: z.string(), code: z.string() })'
     );
+    expect(mobileGoogleSection).toContain('status: 403');
+    expect(mobileGoogleSection).toContain('description: `Account deleted`');
+    expect(mobileGoogleSection).toContain('status: 500');
+    expect(mobileGoogleSection).toContain('description: `Internal or configuration error`');
+    expect(mobileGoogleSection).toContain('status: 503');
+    expect(mobileGoogleSection).toContain('description: `Google JWKS unavailable`');
 
     expect(mobileRefreshSection).toContain('response: z');
     expect(mobileRefreshSection).toContain('accessToken: z.string()');
