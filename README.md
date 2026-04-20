@@ -52,6 +52,9 @@ gravity-room/
 │       ├── insights/         ← Derived analytics payload builders
 │       ├── ml/               ← Forecast / plateau / recommendation logic
 │       └── tests/            ← Python tests for analytics logic
+├── packages/
+│   └── domain/               ← Shared domain package for engine, schemas and types
+│       └── src/              ← Imported by web and api via @gzclp/domain/*
 ├── scripts/
 │   ├── committer             ← Safe commit helper (Conventional Commits)
 │   ├── docs-list.ts          ← Docs index and read_when hints
@@ -132,27 +135,28 @@ The web app runs on `http://localhost:5173`, the API on `http://localhost:3001`,
 
 ## Commands
 
-| Task              | Command                                           |
-| ----------------- | ------------------------------------------------- |
-| Dev (web)         | `bun run dev:web`                                 |
-| Dev (API)         | `bun run dev:api`                                 |
-| Dev (analytics)   | `cd apps/analytics && uvicorn main:app --reload`  |
-| Build (web)       | `bun run build:web`                               |
-| Type check (web)  | `bun run typecheck`                               |
-| Type check (API)  | `bun run typecheck:api`                           |
-| Lint (TS)         | `bun run lint`                                    |
-| Test (analytics)  | `cd apps/analytics && pytest`                     |
-| Format check      | `bun run format:check`                            |
-| Tests (TS unit)   | `bun run test`                                    |
-| Tests (API unit)  | `bun run test:api`                                |
-| E2E tests         | `bun run e2e`                                     |
-| E2E (headed)      | `bun run e2e:headed`                              |
-| Load test         | `k6 run scripts/loadtest.js`                      |
-| Load test (smoke) | `k6 run scripts/loadtest.js --env SCENARIO=smoke` |
-| Docker build      | `docker compose build`                            |
-| Docker up         | `docker compose up -d`                            |
-| Deploy history    | `scripts/deploy-log.sh list`                      |
-| Rollback          | `scripts/rollback.sh [--force] <sha>`             |
+| Task                               | Command                                           |
+| ---------------------------------- | ------------------------------------------------- |
+| Dev (web)                          | `bun run dev:web`                                 |
+| Dev (API)                          | `bun run dev:api`                                 |
+| Dev (analytics)                    | `cd apps/analytics && uvicorn main:app --reload`  |
+| Build (web)                        | `bun run build:web`                               |
+| Type check (web + domain + mobile) | `bun run typecheck`                               |
+| Type check (API)                   | `bun run typecheck:api`                           |
+| Type check (domain)                | `bun run typecheck:domain`                        |
+| Lint (TS)                          | `bun run lint`                                    |
+| Test (analytics)                   | `cd apps/analytics && pytest`                     |
+| Format check                       | `bun run format:check`                            |
+| Tests (workspace TS unit)          | `bun run test`                                    |
+| Tests (API unit)                   | `bun run test:api`                                |
+| E2E tests                          | `bun run e2e`                                     |
+| E2E (headed)                       | `bun run e2e:headed`                              |
+| Load test                          | `k6 run scripts/loadtest.js`                      |
+| Load test (smoke)                  | `k6 run scripts/loadtest.js --env SCENARIO=smoke` |
+| Docker build                       | `docker compose build`                            |
+| Docker up                          | `docker compose up -d`                            |
+| Deploy history                     | `scripts/deploy-log.sh list`                      |
+| Rollback                           | `scripts/rollback.sh [--force] <sha>`             |
 
 ## Docs
 

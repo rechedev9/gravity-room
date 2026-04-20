@@ -23,7 +23,7 @@ export const INSIGHT_TYPES = [
 export type InsightType = (typeof INSIGHT_TYPES)[number];
 ```
 
-**Considered and rejected**: placing it in `@gzclp/shared/catalog/insight-types` to deduplicate the two hardcoded lists in `apps/web/src/features/profile/profile-page.tsx:37-42` and `apps/web/src/features/home/home-page.tsx:18`.
+**Considered and rejected**: placing it in `@gzclp/domain/catalog/insight-types` to deduplicate the two hardcoded lists in `apps/web/src/features/profile/profile-page.tsx:37-42` and `apps/web/src/features/home/home-page.tsx:18`.
 
 **Why api-local wins here**: the proposal scopes this change to the API. Introducing a shared export and rewiring the two web files expands the blast radius and the diff. Keeping the list api-local now leaves the shared refactor as a clean follow-up change — `sdd-new dedupe-insight-types-catalog` — with its own proposal.
 

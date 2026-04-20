@@ -35,5 +35,5 @@ Modified:
 
 ## Follow-ups (deliberately out of scope)
 
-- **`sdd-new dedupe-insight-types-catalog`** — extract `INSIGHT_TYPES` to `@gzclp/shared/catalog/insight-types` and rewire `apps/web/src/features/profile/profile-page.tsx:37-42` and `apps/web/src/features/home/home-page.tsx:18` to import from it. See design.md §D1 for why this was deferred.
+- **`sdd-new dedupe-insight-types-catalog`** — extract `INSIGHT_TYPES` to `@gzclp/domain/catalog/insight-types` and rewire `apps/web/src/features/profile/profile-page.tsx:37-42` and `apps/web/src/features/home/home-page.tsx:18` to import from it. See design.md §D1 for why this was deferred.
 - **OpenAPI `detail.responses` for 400** — the Elysia `detail.description` mentions the new shape but the `responses` block could be expanded with an explicit `400` schema for client code generators. Small, purely documentary.
