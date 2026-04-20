@@ -21,7 +21,7 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { ApiError } from '../middleware/error-handler';
 
 // We import verifyGoogleToken after setting up env vars.
-import { verifyGoogleToken } from './google-auth';
+import { getMobileGoogleClientIds, verifyGoogleToken } from './google-auth';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -221,5 +221,20 @@ describe('verifyGoogleToken — multiple audiences', () => {
       email: 'web@example.com',
       name: 'Web User',
     });
+  });
+});
+
+describe('getMobileGoogleClientIds', () => {
+  it('throws CONFIGURATION_ERROR when GOOGLE_CLIENT_IDS is unset', () => {
+    const previousMobileClientIds = process.env['GOOGLE_CLIENT_IDS'];
+    delete process.env['GOOGLE_CLIENT_IDS'];
+
+    try {
+      expect(() => getMobileGoogleClientIds()).toThrow(
+        new ApiError(500, 'GOOGLE_CLIENT_IDS env var must be set', 'CONFIGURATION_ERROR')
+      );
+    } finally {
+      process.env['GOOGLE_CLIENT_IDS'] = previousMobileClientIds;
+    }
   });
 });

@@ -51,7 +51,7 @@ export function getMobileGoogleClientIds(): string[] {
     return [...new Set(clientIds)];
   }
 
-  return [getWebGoogleClientId()];
+  throw new ApiError(500, 'GOOGLE_CLIENT_IDS env var must be set', 'CONFIGURATION_ERROR');
 }
 
 // ---------------------------------------------------------------------------

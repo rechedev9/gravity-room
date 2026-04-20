@@ -133,6 +133,7 @@ function get(path: string, headers?: Record<string, string>): Promise<Response> 
 describe('POST /auth/google', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockVerifyGoogleToken.mockClear();
     mockVerifyGoogleToken.mockImplementation(() =>
       Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
     );
@@ -290,16 +291,17 @@ describe('POST /auth/mobile/google', () => {
     });
   });
 
-  it('falls back to the web client id for mobile only when GOOGLE_CLIENT_IDS is absent', async () => {
+  it('returns 500 CONFIGURATION_ERROR when GOOGLE_CLIENT_IDS is absent', async () => {
     const previousMobileClientIds = process.env['GOOGLE_CLIENT_IDS'];
     delete process.env['GOOGLE_CLIENT_IDS'];
 
     try {
-      await post('/auth/mobile/google', { credential: 'valid-id-token' });
+      const res = await post('/auth/mobile/google', { credential: 'valid-id-token' });
+      const body = (await res.json()) as { code: string; error: string };
 
-      expect(mockVerifyGoogleToken).toHaveBeenCalledWith('valid-id-token', {
-        allowedClientIds: ['web-client-id'],
-      });
+      expect(res.status).toBe(500);
+      expect(body.code).toBe('CONFIGURATION_ERROR');
+      expect(body.error).toBe('GOOGLE_CLIENT_IDS env var must be set');
     } finally {
       process.env['GOOGLE_CLIENT_IDS'] = previousMobileClientIds;
     }
