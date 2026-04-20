@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { listProgramSummaries, type ProgramSummary } from '../../lib/programs/program-repository';
+import {
+  listProgramSummaries,
+  type ProgramSummary,
+  upsertProgramSummaries,
+} from '../../lib/programs/program-repository';
+import { fetchProgramSummaries } from '../../lib/programs/program-service';
 
 export function ProgramsScreen() {
   const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
@@ -12,6 +17,13 @@ export function ProgramsScreen() {
 
   async function loadPrograms(signal: { active: boolean }): Promise<void> {
     try {
+      try {
+        const remotePrograms = await fetchProgramSummaries();
+        await upsertProgramSummaries(remotePrograms);
+      } catch {
+        // Fall back to whatever is already cached locally.
+      }
+
       const cachedPrograms = await listProgramSummaries();
       if (signal.active) {
         setPrograms(cachedPrograms);
