@@ -5,10 +5,22 @@ interface ProgramSummaryRow {
 }
 
 const rows: ProgramSummaryRow[] = [];
+let mockFailNextInsert = false;
 
 jest.mock('../db/client', () => ({
   bootstrapDatabase: jest.fn(async () => undefined),
   getDatabase: jest.fn(() => ({
+    withTransactionAsync: jest.fn(async (callback: () => Promise<void>) => {
+      const snapshot = rows.map((row) => ({ ...row }));
+
+      try {
+        await callback();
+      } catch (error) {
+        rows.length = 0;
+        rows.push(...snapshot);
+        throw error;
+      }
+    }),
     runAsync: jest.fn(async (sql: string, ...params: unknown[]) => {
       if (sql.includes('DELETE FROM program_summaries WHERE id NOT IN')) {
         const ids = new Set(params as string[]);
@@ -27,6 +39,11 @@ jest.mock('../db/client', () => ({
       }
 
       if (sql.includes('INSERT INTO program_summaries')) {
+        if (mockFailNextInsert) {
+          mockFailNextInsert = false;
+          throw new Error('write failed');
+        }
+
         const [id, title, updatedAt] = params as [string, string, string];
         const existingIndex = rows.findIndex((row) => row.id === id);
         const nextRow = { id, title, updated_at: updatedAt };
@@ -59,6 +76,7 @@ import { listProgramSummaries, upsertProgramSummaries } from './program-reposito
 describe('program repository', () => {
   beforeEach(() => {
     rows.length = 0;
+    mockFailNextInsert = false;
   });
 
   it('reads persisted program summaries back in updated order', async () => {
@@ -132,5 +150,45 @@ describe('program repository', () => {
     await upsertProgramSummaries([]);
 
     await expect(listProgramSummaries()).resolves.toEqual([]);
+  });
+
+  it('rolls back snapshot replacement when a write fails mid-transaction', async () => {
+    await upsertProgramSummaries([
+      {
+        id: 'program-a',
+        title: 'Strength Base',
+        updatedAt: '2026-04-18T10:00:00.000Z',
+      },
+      {
+        id: 'program-b',
+        title: 'Power Block',
+        updatedAt: '2026-04-20T08:00:00.000Z',
+      },
+    ]);
+
+    mockFailNextInsert = true;
+
+    await expect(
+      upsertProgramSummaries([
+        {
+          id: 'program-b',
+          title: 'Power Block',
+          updatedAt: '2026-04-20T08:00:00.000Z',
+        },
+      ])
+    ).rejects.toThrow('write failed');
+
+    await expect(listProgramSummaries()).resolves.toEqual([
+      {
+        id: 'program-b',
+        title: 'Power Block',
+        updatedAt: '2026-04-20T08:00:00.000Z',
+      },
+      {
+        id: 'program-a',
+        title: 'Strength Base',
+        updatedAt: '2026-04-18T10:00:00.000Z',
+      },
+    ]);
   });
 });

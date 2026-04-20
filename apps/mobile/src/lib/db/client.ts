@@ -6,6 +6,7 @@ export interface DatabaseClient {
   execAsync(source: string): Promise<void>;
   runAsync(source: string, ...params: unknown[]): Promise<unknown>;
   getAllAsync<T>(source: string, ...params: unknown[]): Promise<T[]>;
+  withTransactionAsync(task: () => Promise<void>): Promise<void>;
 }
 
 let bootstrapPromise: Promise<void> | null = null;

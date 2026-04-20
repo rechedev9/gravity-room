@@ -16,29 +16,31 @@ export async function upsertProgramSummaries(programs: readonly ProgramSummary[]
   const database = getDatabase();
   await bootstrapDatabase(database);
 
-  if (programs.length === 0) {
-    await database.runAsync('DELETE FROM program_summaries');
-    return;
-  }
+  await database.withTransactionAsync(async () => {
+    if (programs.length === 0) {
+      await database.runAsync('DELETE FROM program_summaries');
+      return;
+    }
 
-  const placeholders = programs.map(() => '?').join(', ');
-  await database.runAsync(
-    `DELETE FROM program_summaries WHERE id NOT IN (${placeholders})`,
-    ...programs.map((program) => program.id)
-  );
-
-  for (const program of programs) {
+    const placeholders = programs.map(() => '?').join(', ');
     await database.runAsync(
-      `INSERT INTO program_summaries (id, title, updated_at)
-       VALUES (?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         title = excluded.title,
-         updated_at = excluded.updated_at`,
-      program.id,
-      program.title,
-      program.updatedAt
+      `DELETE FROM program_summaries WHERE id NOT IN (${placeholders})`,
+      ...programs.map((program) => program.id)
     );
-  }
+
+    for (const program of programs) {
+      await database.runAsync(
+        `INSERT INTO program_summaries (id, title, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           title = excluded.title,
+           updated_at = excluded.updated_at`,
+        program.id,
+        program.title,
+        program.updatedAt
+      );
+    }
+  });
 }
 
 export async function listProgramSummaries(): Promise<ProgramSummary[]> {

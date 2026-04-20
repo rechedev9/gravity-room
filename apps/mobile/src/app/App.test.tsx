@@ -49,6 +49,25 @@ describe('App', () => {
     expect(screen.queryByText('Continue with Google')).toBeNull();
   });
 
+  it('renders a load error instead of the empty cache state when program loading fails', async () => {
+    mockedRestoreSession.mockResolvedValue({
+      accessToken: 'restored-access-token',
+      user: {
+        id: 'user-123',
+        email: 'athlete@example.com',
+        name: 'Test Athlete',
+        avatarUrl: null,
+      },
+    });
+    mockedListProgramSummaries.mockRejectedValue(new Error('SQLite unavailable'));
+
+    render(<App />);
+
+    expect(await screen.findByText('Unable to load cached programs.')).toBeTruthy();
+    expect(screen.getByText('Retry')).toBeTruthy();
+    expect(screen.queryByText('No cached programs yet.')).toBeNull();
+  });
+
   it('falls back to the signed-out shell when session restore rejects', async () => {
     mockedRestoreSession.mockRejectedValue(new Error('Network request failed'));
 

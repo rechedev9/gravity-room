@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { listProgramSummaries, type ProgramSummary } from '../../lib/programs/program-repository';
@@ -7,27 +7,47 @@ import { listProgramSummaries, type ProgramSummary } from '../../lib/programs/pr
 export function ProgramsScreen() {
   const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  async function loadPrograms(signal: { active: boolean }): Promise<void> {
+    try {
+      const cachedPrograms = await listProgramSummaries();
+      if (signal.active) {
+        setPrograms(cachedPrograms);
+        setError(null);
+      }
+    } catch {
+      if (signal.active) {
+        setPrograms([]);
+        setError('Unable to load cached programs.');
+      }
+    } finally {
+      if (signal.active) {
+        setLoading(false);
+      }
+    }
+  }
 
   useEffect(() => {
     let active = true;
+    const signal = {
+      get active() {
+        return active;
+      },
+    };
 
-    void (async () => {
-      try {
-        const cachedPrograms = await listProgramSummaries();
-        if (active) {
-          setPrograms(cachedPrograms);
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    })();
+    setLoading(true);
+    void loadPrograms(signal);
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadToken]);
+
+  function handleRetry() {
+    setReloadToken((value) => value + 1);
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -40,6 +60,13 @@ export function ProgramsScreen() {
         {loading ? (
           <View style={styles.stateBlock}>
             <ActivityIndicator color="#F8FAFC" />
+          </View>
+        ) : error ? (
+          <View style={styles.stateBlock}>
+            <Text style={styles.error}>{error}</Text>
+            <Pressable accessibilityRole="button" onPress={handleRetry} style={styles.retryButton}>
+              <Text style={styles.retryLabel}>Retry</Text>
+            </Pressable>
           </View>
         ) : (
           <FlatList
@@ -100,6 +127,25 @@ const styles = StyleSheet.create({
   empty: {
     color: '#CBD5E1',
     fontSize: 16,
+  },
+  error: {
+    color: '#FCA5A5',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 12,
+    alignItems: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  retryLabel: {
+    color: '#F8FAFC',
+    fontSize: 15,
+    fontWeight: '600',
   },
   card: {
     borderRadius: 20,
