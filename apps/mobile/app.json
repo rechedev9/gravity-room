@@ -5,6 +5,6 @@
     "android": {
       "package": "com.gravityroom.mobile"
     },
-    "plugins": ["expo-sqlite"]
+    "plugins": ["expo-sqlite", "expo-secure-store"]
   }
 }

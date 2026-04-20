@@ -1,4 +1,8 @@
-import { restoreSession } from './session';
+import { getAccessToken, restoreSession, setAccessToken } from './session';
+
+afterEach(() => {
+  setAccessToken(null);
+});
 
 describe('restoreSession', () => {
   it('restores the user session and rotates the stored refresh token', async () => {
@@ -88,7 +92,7 @@ describe('restoreSession', () => {
     expect(storage.setRefreshToken).toHaveBeenCalledTimes(1);
   });
 
-  it('returns null and clears the stored refresh token when refresh fails', async () => {
+  it('returns null and clears the stored refresh token when refresh is auth-invalid', async () => {
     const storage = {
       getRefreshToken: jest
         .fn<Promise<string | null>, []>()
@@ -106,5 +110,28 @@ describe('restoreSession', () => {
     expect(refreshSession).toHaveBeenCalledWith('stale-refresh-token');
     expect(storage.clearRefreshToken).toHaveBeenCalledTimes(1);
     expect(storage.setRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it('preserves the stored refresh token when refresh fails transiently', async () => {
+    const storage = {
+      getRefreshToken: jest
+        .fn<Promise<string | null>, []>()
+        .mockResolvedValue('retryable-refresh-token'),
+      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
+      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+
+    const refreshSession = jest
+      .fn<Promise<never>, [string]>()
+      .mockRejectedValue(new Error('Network request failed'));
+
+    setAccessToken('stale-access-token');
+
+    await expect(restoreSession({ storage, refreshSession })).resolves.toBeNull();
+
+    expect(refreshSession).toHaveBeenCalledWith('retryable-refresh-token');
+    expect(storage.clearRefreshToken).not.toHaveBeenCalled();
+    expect(storage.setRefreshToken).not.toHaveBeenCalled();
+    expect(getAccessToken()).toBeNull();
   });
 });

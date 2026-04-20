@@ -38,4 +38,12 @@ describe('App', () => {
     expect(await screen.findByText('Test Athlete')).toBeTruthy();
     expect(screen.queryByText('Continue with Google')).toBeNull();
   });
+
+  it('falls back to the signed-out shell when session restore rejects', async () => {
+    mockedRestoreSession.mockRejectedValue(new Error('Network request failed'));
+
+    render(<App />);
+
+    expect(await screen.findByText('Continue with Google')).toBeTruthy();
+  });
 });
