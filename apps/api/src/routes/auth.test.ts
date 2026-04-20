@@ -71,12 +71,14 @@ const mockVerifyGoogleToken = mock(() =>
   Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
 );
 
+const mockRateLimit = mock<() => Promise<void>>(() => Promise.resolve());
+
 mock.module('../lib/google-auth', () => ({
   verifyGoogleToken: mockVerifyGoogleToken,
 }));
 
 mock.module('../middleware/rate-limit', () => ({
-  rateLimit: (): Promise<void> => Promise.resolve(),
+  rateLimit: mockRateLimit,
 }));
 
 const mockSendTelegramMessage = mock((): void => undefined);
@@ -130,6 +132,7 @@ function get(path: string, headers?: Record<string, string>): Promise<Response> 
 
 describe('POST /auth/google', () => {
   beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
     mockVerifyGoogleToken.mockImplementation(() =>
       Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
     );
@@ -204,6 +207,7 @@ describe('POST /auth/google', () => {
 
 describe('POST /auth/mobile/google', () => {
   beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
     mockVerifyGoogleToken.mockImplementation(() =>
       Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
     );
@@ -300,6 +304,19 @@ describe('POST /auth/mobile/google', () => {
       process.env['GOOGLE_CLIENT_IDS'] = previousMobileClientIds;
     }
   });
+
+  it('returns 429 RATE_LIMITED with the documented error shape when rate limited', async () => {
+    mockRateLimit.mockImplementation(() =>
+      Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
+    );
+
+    const res = await post('/auth/mobile/google', { credential: 'valid-id-token' });
+    const body = (await res.json()) as { code: string; error: string };
+
+    expect(res.status).toBe(429);
+    expect(body.code).toBe('RATE_LIMITED');
+    expect(body.error).toBe('Too many requests');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -307,6 +324,10 @@ describe('POST /auth/mobile/google', () => {
 // ---------------------------------------------------------------------------
 
 describe('POST /auth/refresh', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+  });
+
   it('returns 401 with AUTH_NO_REFRESH_TOKEN when no cookie is present', async () => {
     const res = await post('/auth/refresh', {});
     const body = (await res.json()) as { code: string };
@@ -372,6 +393,7 @@ describe('POST /auth/refresh', () => {
 
 describe('POST /auth/mobile/refresh', () => {
   beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
     mockHashToken.mockClear();
     mockRevokeRefreshToken.mockClear();
     mockRevokeAllUserTokens.mockClear();
@@ -470,6 +492,19 @@ describe('POST /auth/mobile/refresh', () => {
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_ACCOUNT_DELETED');
   });
+
+  it('returns 429 RATE_LIMITED with the documented error shape when rate limited', async () => {
+    mockRateLimit.mockImplementation(() =>
+      Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
+    );
+
+    const res = await post('/auth/mobile/refresh', { refreshToken: 'mobile-refresh-token' });
+    const body = (await res.json()) as { code: string; error: string };
+
+    expect(res.status).toBe(429);
+    expect(body.code).toBe('RATE_LIMITED');
+    expect(body.error).toBe('Too many requests');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -477,6 +512,10 @@ describe('POST /auth/mobile/refresh', () => {
 // ---------------------------------------------------------------------------
 
 describe('POST /auth/mobile/signout', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+  });
+
   it('accepts refreshToken in the request body and returns 204', async () => {
     mockHashToken.mockClear();
     mockRevokeRefreshToken.mockClear();
@@ -497,6 +536,30 @@ describe('POST /auth/mobile/signout', () => {
     expect(res.status).toBe(204);
     expect(mockHashToken).not.toHaveBeenCalled();
     expect(mockRevokeRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it('returns 204 when refreshToken is omitted entirely', async () => {
+    mockHashToken.mockClear();
+    mockRevokeRefreshToken.mockClear();
+
+    const res = await post('/auth/mobile/signout', {});
+
+    expect(res.status).toBe(204);
+    expect(mockHashToken).not.toHaveBeenCalled();
+    expect(mockRevokeRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it('returns 429 RATE_LIMITED with the documented error shape when rate limited', async () => {
+    mockRateLimit.mockImplementation(() =>
+      Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
+    );
+
+    const res = await post('/auth/mobile/signout', { refreshToken: 'mobile-refresh-token' });
+    const body = (await res.json()) as { code: string; error: string };
+
+    expect(res.status).toBe(429);
+    expect(body.code).toBe('RATE_LIMITED');
+    expect(body.error).toBe('Too many requests');
   });
 });
 
@@ -552,6 +615,7 @@ describe('GET /auth/me', () => {
 
 describe('POST /auth/google — Telegram notification (REQ-AUTH-004)', () => {
   beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
     mockVerifyGoogleToken.mockImplementation(() =>
       Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
     );
@@ -594,6 +658,7 @@ describe('POST /auth/google — Telegram notification (REQ-AUTH-004)', () => {
 
 describe('POST /auth/google — fire-and-forget timing (REQ-AUTH-004)', () => {
   beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
     mockVerifyGoogleToken.mockImplementation(() =>
       Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
     );
@@ -631,6 +696,7 @@ describe('POST /auth/google — fire-and-forget timing (REQ-AUTH-004)', () => {
 
 describe('POST /auth/google — notification message format (REQ-AUTH-005)', () => {
   beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
     mockVerifyGoogleToken.mockImplementation(() =>
       Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
     );
