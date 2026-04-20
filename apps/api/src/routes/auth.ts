@@ -287,7 +287,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     },
     {
       body: t.Object({ credential: t.String({ minLength: 1 }) }),
-      response: { 200: mobileGoogleAuthResponseSchema },
+      response: {
+        200: mobileGoogleAuthResponseSchema,
+        401: t.Object({}, { description: 'Invalid or expired Google credential' }),
+        429: t.Object({}, { description: 'Rate limited' }),
+      },
       detail: {
         tags: ['Auth'],
         summary: 'Sign in with Google for mobile clients',
@@ -377,7 +381,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     },
     {
       body: t.Object({ refreshToken: t.Optional(t.String()) }),
-      response: { 200: mobileRefreshAuthResponseSchema },
+      response: {
+        200: mobileRefreshAuthResponseSchema,
+        401: t.Object({}, { description: 'Missing, invalid, expired, or reused refresh token' }),
+        429: t.Object({}, { description: 'Rate limited' }),
+      },
       detail: {
         tags: ['Auth'],
         summary: 'Refresh mobile auth tokens',

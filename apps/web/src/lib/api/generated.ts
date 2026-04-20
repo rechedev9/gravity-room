@@ -254,6 +254,18 @@ export const endpoints = [
       })
       .passthrough()
       .readonly(),
+    errors: [
+      {
+        status: 401,
+        description: `Invalid or expired Google credential`,
+        schema: z.object({}).partial().passthrough().readonly(),
+      },
+      {
+        status: 429,
+        description: `Rate limited`,
+        schema: z.object({}).partial().passthrough().readonly(),
+      },
+    ],
   },
   {
     method: 'post',
@@ -283,6 +295,18 @@ export const endpoints = [
       })
       .passthrough()
       .readonly(),
+    errors: [
+      {
+        status: 401,
+        description: `Missing, invalid, expired, or reused refresh token`,
+        schema: z.object({}).partial().passthrough().readonly(),
+      },
+      {
+        status: 429,
+        description: `Rate limited`,
+        schema: z.object({}).partial().passthrough().readonly(),
+      },
+    ],
   },
   {
     method: 'post',
