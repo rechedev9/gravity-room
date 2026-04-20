@@ -155,6 +155,19 @@ describe('POST /auth/google', () => {
     expect(body.code).toBe('AUTH_GOOGLE_INVALID');
   });
 
+  it('keeps normalizing ApiError failures from verifyGoogleToken to 401 AUTH_GOOGLE_INVALID', async () => {
+    mockVerifyGoogleToken.mockImplementation(() =>
+      Promise.reject(new ApiError(503, 'JWKS unavailable', 'AUTH_JWKS_UNAVAILABLE'))
+    );
+
+    const res = await post('/auth/google', { credential: 'bad-token' });
+    const body = (await res.json()) as { code: string; error: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_GOOGLE_INVALID');
+    expect(body.error).toBe('Invalid Google credential');
+  });
+
   it('returns 200 with accessToken and user on success', async () => {
     const res = await post('/auth/google', { credential: 'valid-id-token' });
     const body = (await res.json()) as { accessToken: string; user: { email: string } };

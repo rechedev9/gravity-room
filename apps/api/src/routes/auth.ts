@@ -217,7 +217,6 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         googlePayload = await verifyGoogleToken(body.credential);
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'Google token verification failed');
-        if (e instanceof ApiError) throw e;
         throw new ApiError(401, 'Invalid Google credential', 'AUTH_GOOGLE_INVALID');
       }
 
