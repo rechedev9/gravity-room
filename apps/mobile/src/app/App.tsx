@@ -1,7 +1,7 @@
 import { ActivityIndicator, View } from 'react-native';
 
 import { LoginScreen } from '../features/auth/login-screen';
-import { ProfileScreen } from '../features/profile/profile-screen';
+import { ProgramsScreen } from '../features/programs/programs-screen';
 import { useAuth } from './auth-provider';
 import { AppProviders } from './providers';
 
@@ -23,7 +23,7 @@ function AppShell() {
     );
   }
 
-  if (user) return <ProfileScreen user={user} />;
+  if (user) return <ProgramsScreen />;
 
   return <LoginScreen />;
 }

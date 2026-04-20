@@ -7,3 +7,11 @@ jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn(),
   deleteItemAsync: jest.fn(),
 }));
+
+jest.mock('expo-sqlite', () => ({
+  openDatabaseSync: jest.fn(() => ({
+    execAsync: jest.fn(async () => undefined),
+    runAsync: jest.fn(async () => ({ changes: 1, lastInsertRowId: 0 })),
+    getAllAsync: jest.fn(async () => []),
+  })),
+}));

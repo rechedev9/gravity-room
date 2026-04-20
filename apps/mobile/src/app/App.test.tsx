@@ -22,7 +22,7 @@ describe('App', () => {
     return expect(screen.findByText('Continue with Google')).resolves.toBeTruthy();
   });
 
-  it('renders the restored user profile when a session is available', async () => {
+  it('renders cached programs when a session is available', async () => {
     mockedRestoreSession.mockResolvedValue({
       accessToken: 'restored-access-token',
       user: {
@@ -35,7 +35,7 @@ describe('App', () => {
 
     render(<App />);
 
-    expect(await screen.findByText('Test Athlete')).toBeTruthy();
+    expect(await screen.findByText('Cached training blocks')).toBeTruthy();
     expect(screen.queryByText('Continue with Google')).toBeNull();
   });
 
