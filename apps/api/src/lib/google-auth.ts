@@ -15,16 +15,18 @@ function getAllowedGoogleClientIds(): string[] {
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
 
-  if (clientIds && clientIds.length > 0) {
-    return clientIds;
+  const clientId = process.env['GOOGLE_CLIENT_ID']?.trim();
+  const allowedClientIds = new Set<string>(clientIds);
+
+  if (clientId) {
+    allowedClientIds.add(clientId);
   }
 
-  const clientId = process.env['GOOGLE_CLIENT_ID'];
-  if (!clientId) {
+  if (allowedClientIds.size === 0) {
     throw new ApiError(500, 'GOOGLE_CLIENT_ID env var must be set', 'CONFIGURATION_ERROR');
   }
 
-  return [clientId];
+  return [...allowedClientIds];
 }
 
 // ---------------------------------------------------------------------------

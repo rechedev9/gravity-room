@@ -205,6 +205,16 @@ describe('POST /auth/mobile/google', () => {
     expect(body.refreshToken).toBe('mobile-initial-refresh-token');
     expect(body.user.email).toBe(TEST_USER.email);
   });
+
+  it('returns 401 with AUTH_GOOGLE_INVALID when token verification fails', async () => {
+    mockVerifyGoogleToken.mockImplementation(() => Promise.reject(new Error('Invalid signature')));
+
+    const res = await post('/auth/mobile/google', { credential: 'bad-token' });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_GOOGLE_INVALID');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -279,8 +289,10 @@ describe('POST /auth/mobile/refresh', () => {
   beforeEach(() => {
     mockHashToken.mockClear();
     mockRevokeRefreshToken.mockClear();
+    mockRevokeAllUserTokens.mockClear();
     mockCreateAndStoreRefreshToken.mockClear();
     mockFindRefreshToken.mockImplementation(() => Promise.resolve({ ...TEST_REFRESH_TOKEN }));
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() => Promise.resolve(undefined));
     mockFindUserById.mockImplementation(() => Promise.resolve({ ...TEST_USER }));
     mockCreateAndStoreRefreshToken.mockImplementation(() =>
       Promise.resolve('new-mobile-refresh-token')
@@ -309,6 +321,53 @@ describe('POST /auth/mobile/refresh', () => {
       TEST_REFRESH_TOKEN.userId,
       'a'.repeat(64)
     );
+  });
+
+  it('returns 401 with AUTH_INVALID_REFRESH when token is not found in DB', async () => {
+    mockFindRefreshToken.mockImplementation(() => Promise.resolve(undefined));
+
+    const res = await post('/auth/mobile/refresh', { refreshToken: 'mobile-refresh-token' });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_INVALID_REFRESH');
+  });
+
+  it('revokes all user sessions when a rotated-away token is reused', async () => {
+    mockFindRefreshToken.mockImplementation(() => Promise.resolve(undefined));
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
+      Promise.resolve({ ...TEST_REFRESH_TOKEN })
+    );
+
+    const res = await post('/auth/mobile/refresh', { refreshToken: 'stolen-mobile-token' });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_INVALID_REFRESH');
+    expect(mockRevokeAllUserTokens).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 401 with AUTH_REFRESH_EXPIRED when the refresh token is expired', async () => {
+    mockFindRefreshToken.mockImplementation(() =>
+      Promise.resolve({ ...TEST_REFRESH_TOKEN, expiresAt: new Date(Date.now() - 60_000) })
+    );
+
+    const res = await post('/auth/mobile/refresh', { refreshToken: 'expired-mobile-token' });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_REFRESH_EXPIRED');
+    expect(mockRevokeRefreshToken).toHaveBeenCalledWith('a'.repeat(64));
+  });
+
+  it('returns 401 with AUTH_ACCOUNT_DELETED when the token belongs to a deleted user', async () => {
+    mockFindUserById.mockImplementation(() => Promise.resolve(undefined));
+
+    const res = await post('/auth/mobile/refresh', { refreshToken: 'deleted-user-token' });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_ACCOUNT_DELETED');
   });
 });
 

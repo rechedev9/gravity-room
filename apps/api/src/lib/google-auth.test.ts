@@ -188,4 +188,38 @@ describe('verifyGoogleToken — multiple audiences', () => {
       name: 'Test User',
     });
   });
+
+  it('accepts GOOGLE_CLIENT_ID alongside GOOGLE_CLIENT_IDS during staged rollout', async () => {
+    process.env['GOOGLE_CLIENT_ID'] = 'web-client-id';
+    process.env['GOOGLE_CLIENT_IDS'] = 'mobile-client-id';
+
+    const keyPair = await sharedKeyPairPromise;
+    const jwksBody = await buildJwksResponse(SHARED_KID, keyPair.publicKey);
+
+    const mockFetch = mock(
+      (): Promise<Response> =>
+        Promise.resolve(
+          new Response(JSON.stringify(jwksBody), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+    );
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const token = await signJwt(SHARED_KID, keyPair.privateKey, {
+      sub: 'user-456',
+      email: 'web@example.com',
+      name: 'Web User',
+      aud: 'web-client-id',
+      iss: 'accounts.google.com',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    await expect(verifyGoogleToken(token)).resolves.toEqual({
+      sub: 'user-456',
+      email: 'web@example.com',
+      name: 'Web User',
+    });
+  });
 });
