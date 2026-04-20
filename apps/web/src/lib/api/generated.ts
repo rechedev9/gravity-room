@@ -317,19 +317,14 @@ export const endpoints = [
       {
         name: 'body',
         type: 'Body',
-        schema: z
-          .object({ refreshToken: z.string().min(1) })
-          .partial()
-          .passthrough()
-          .readonly(),
+        schema: z.object({ refreshToken: z.string() }).partial().passthrough().readonly(),
       },
     ],
     response: z.void(),
     errors: [
       {
         status: 429,
-        description: `Rate limited`,
-        schema: z.void(),
+        schema: z.object({ error: z.string(), code: z.string() }).passthrough().readonly(),
       },
     ],
   },

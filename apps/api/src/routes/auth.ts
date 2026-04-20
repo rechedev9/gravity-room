@@ -86,6 +86,11 @@ const mobileRefreshAuthResponseSchema = t.Object({
   user: userProfileResponseSchema,
 });
 
+const authErrorResponseSchema = t.Object({
+  error: t.String(),
+  code: t.String(),
+});
+
 function userResponse(user: UserProfile & { avatarUrl?: string | null }): UserProfile {
   return {
     id: user.id,
@@ -212,6 +217,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         googlePayload = await verifyGoogleToken(body.credential);
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'Google token verification failed');
+        if (e instanceof ApiError) throw e;
         throw new ApiError(401, 'Invalid Google credential', 'AUTH_GOOGLE_INVALID');
       }
 
@@ -260,6 +266,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         googlePayload = await verifyGoogleToken(body.credential);
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'Google token verification failed');
+        if (e instanceof ApiError) throw e;
         throw new ApiError(401, 'Invalid Google credential', 'AUTH_GOOGLE_INVALID');
       }
 
@@ -440,15 +447,14 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       set.status = 204;
     },
     {
-      body: t.Object({ refreshToken: t.Optional(t.String({ minLength: 1 })) }),
+      body: t.Object({ refreshToken: t.Optional(t.String()) }),
+      response: {
+        429: authErrorResponseSchema,
+      },
       detail: {
         tags: ['Auth'],
         summary: 'Sign out mobile client',
         description: 'Revokes the provided refresh token when present.',
-        responses: {
-          204: { description: 'Signed out successfully' },
-          429: { description: 'Rate limited' },
-        },
       },
     }
   )

@@ -215,6 +215,19 @@ describe('POST /auth/mobile/google', () => {
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_GOOGLE_INVALID');
   });
+
+  it('preserves ApiError status and code from verifyGoogleToken', async () => {
+    mockVerifyGoogleToken.mockImplementation(() =>
+      Promise.reject(new ApiError(503, 'JWKS unavailable', 'AUTH_JWKS_UNAVAILABLE'))
+    );
+
+    const res = await post('/auth/mobile/google', { credential: 'bad-token' });
+    const body = (await res.json()) as { code: string; error: string };
+
+    expect(res.status).toBe(503);
+    expect(body.code).toBe('AUTH_JWKS_UNAVAILABLE');
+    expect(body.error).toBe('JWKS unavailable');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -401,6 +414,17 @@ describe('POST /auth/mobile/signout', () => {
     expect(res.status).toBe(204);
     expect(mockHashToken).toHaveBeenCalledWith('mobile-refresh-token');
     expect(mockRevokeRefreshToken).toHaveBeenCalledWith('a'.repeat(64));
+  });
+
+  it('treats an empty refreshToken as a no-op and returns 204', async () => {
+    mockHashToken.mockClear();
+    mockRevokeRefreshToken.mockClear();
+
+    const res = await post('/auth/mobile/signout', { refreshToken: '' });
+
+    expect(res.status).toBe(204);
+    expect(mockHashToken).not.toHaveBeenCalled();
+    expect(mockRevokeRefreshToken).not.toHaveBeenCalled();
   });
 });
 

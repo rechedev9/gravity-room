@@ -168,6 +168,15 @@ export function createApiClient(baseUrl: string, options?: ZodiosOptions) {
       'schema: z.object({ error: z.string(), code: z.string() })'
     );
 
+    expect(mobileSignoutSection).toContain(
+      'schema: z.object({ refreshToken: z.string() }).partial().passthrough().readonly()'
+    );
+    expect(mobileSignoutSection).not.toContain('min(1)');
     expect(mobileSignoutSection).toContain('response: z.void()');
+    expect(mobileSignoutSection).toContain('status: 429');
+    expect(mobileSignoutSection).toContain('description: `Rate limited`');
+    expect(mobileSignoutSection).toContain(
+      'schema: z.object({ error: z.string(), code: z.string() })'
+    );
   });
 });
