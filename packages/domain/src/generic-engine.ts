@@ -28,6 +28,14 @@ interface DoubleProgressionParams {
   readonly repRangeBottom: number;
 }
 
+function requireValue<T>(value: T | undefined, message: string): T {
+  if (value === undefined) {
+    throw new Error(message);
+  }
+
+  return value;
+}
+
 export function deriveResultFromSetLogs(
   setLogs: readonly SetLogEntry[] | undefined,
   rule: DoubleProgressionParams
@@ -61,10 +69,9 @@ function deriveSlotResult(
   }
 
   const idx = slot.progressionSetIndex;
-  const logs =
-    idx !== undefined && idx < slotResult.setLogs.length
-      ? [slotResult.setLogs[idx]]
-      : slotResult.setLogs;
+  const selectedLog =
+    idx !== undefined && idx < slotResult.setLogs.length ? slotResult.setLogs[idx] : undefined;
+  const logs = selectedLog !== undefined ? [selectedLog] : slotResult.setLogs;
 
   if (slot.onSuccess.type === 'double_progression') {
     const derived = deriveResultFromSetLogs(logs, slot.onSuccess);
@@ -107,11 +114,15 @@ type UpdateTmRule = {
 type SlotDef = ProgramDefinition['days'][number]['slots'][number];
 
 type SlotResult = {
-  result?: 'success' | 'fail';
-  amrapReps?: number;
-  rpe?: number;
-  setLogs?: readonly SetLogEntry[];
+  result?: 'success' | 'fail' | undefined;
+  amrapReps?: number | undefined;
+  rpe?: number | undefined;
+  setLogs?: readonly SetLogEntry[] | undefined;
 };
+
+function toSlotResult(value: GenericResults[string][string] | undefined): SlotResult {
+  return value ?? {};
+}
 
 function applyRule(
   rule: ProgressionRule,
@@ -167,11 +178,9 @@ function applyUpdateTm(
     throw new Error('update_tm rule requires trainingMaxKey on slot');
   }
   const amrapReps = slotResult.amrapReps;
+  const currentTm = tmState[slot.trainingMaxKey] ?? 0;
   if (amrapReps !== undefined && amrapReps >= rule.minAmrapReps) {
-    tmState[slot.trainingMaxKey] = roundToNearest(
-      tmState[slot.trainingMaxKey] + rule.amount,
-      roundingStep
-    );
+    tmState[slot.trainingMaxKey] = roundToNearest(currentTm + rule.amount, roundingStep);
     slotState[slot.id] = { ...state, everChanged: true };
   } else {
     slotState[slot.id] = { ...state, everChanged: state.everChanged };
@@ -274,14 +283,18 @@ export function computeGenericProgram(
   const prevWeightByExerciseId = new Map<string, number>();
 
   for (let i = 0; i < definition.totalWorkouts; i++) {
-    const day = definition.days[i % cycleLength];
+    const day = requireValue(definition.days[i % cycleLength], `Missing day for workout ${i}`);
     const workoutResult = results[String(i)] ?? {};
     const derivedResultsBySlotId: Record<string, ResultValue | undefined> = {};
 
     const slots: GenericSlotRow[] = day.slots.map((slot) => {
-      const state = slotState[slot.id];
-      const slotResult = workoutResult[slot.id] ?? {};
-      const exerciseName = definition.exercises[slot.exerciseId].name;
+      const state = requireValue(slotState[slot.id], `Missing slot state for ${slot.id}`);
+      const slotResult = toSlotResult(workoutResult[slot.id]);
+      const exercise = requireValue(
+        definition.exercises[slot.exerciseId],
+        `Missing exercise definition for ${slot.exerciseId}`
+      );
+      const exerciseName = exercise.name;
       const role = resolveRole(slot.role, slot.tier);
 
       if (slot.prescriptions !== undefined && slot.percentOf !== undefined) {
@@ -294,7 +307,10 @@ export function computeGenericProgram(
           weight: roundToNearest((base1rm * p.percent) / 100, roundingStep),
         }));
 
-        const workingSet = resolvedPrescriptions[resolvedPrescriptions.length - 1];
+        const workingSet = requireValue(
+          resolvedPrescriptions[resolvedPrescriptions.length - 1],
+          `Missing working set for ${slot.id}`
+        );
 
         return {
           slotId: slot.id,
@@ -326,7 +342,7 @@ export function computeGenericProgram(
       }
 
       if (slot.isGpp === true) {
-        const gppStage = slot.stages[0];
+        const gppStage = requireValue(slot.stages[0], `Missing GPP stage for ${slot.id}`);
         return {
           slotId: slot.id,
           exerciseId: slot.exerciseId,
@@ -356,11 +372,14 @@ export function computeGenericProgram(
         };
       }
 
-      const stageConfig = slot.stages[state.stage];
+      const stageConfig = requireValue(
+        slot.stages[state.stage],
+        `Missing stage ${state.stage} for ${slot.id}`
+      );
 
       const weight =
         slot.trainingMaxKey !== undefined && slot.tmPercent !== undefined
-          ? roundToNearest(tmState[slot.trainingMaxKey] * slot.tmPercent, roundingStep)
+          ? roundToNearest((tmState[slot.trainingMaxKey] ?? 0) * slot.tmPercent, roundingStep)
           : state.weight;
 
       const prevWeight = prevWeightByExerciseId.get(slot.exerciseId);
@@ -376,7 +395,10 @@ export function computeGenericProgram(
         stageConfig.amrap === true &&
         slotResult.setLogs !== undefined &&
         slotResult.setLogs.length > 0
-          ? slotResult.setLogs[slotResult.setLogs.length - 1].reps
+          ? requireValue(
+              slotResult.setLogs[slotResult.setLogs.length - 1],
+              `Missing set log for ${slot.id}`
+            ).reps
           : slotResult.amrapReps;
 
       return {
@@ -419,8 +441,8 @@ export function computeGenericProgram(
     for (const slot of day.slots) {
       if (slot.prescriptions !== undefined || slot.isGpp === true) continue;
 
-      const state = slotState[slot.id];
-      const slotResult = workoutResult[slot.id] ?? {};
+      const state = requireValue(slotState[slot.id], `Missing slot state for ${slot.id}`);
+      const slotResult = toSlotResult(workoutResult[slot.id]);
       const resultValue = derivedResultsBySlotId[slot.id];
       const increment = definition.weightIncrements[slot.exerciseId] ?? 0;
       applySlotProgression(

@@ -13,26 +13,51 @@ export function ProgramsScreen() {
   const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
 
   async function loadPrograms(signal: { active: boolean }): Promise<void> {
     try {
+      const cachedPrograms = await listProgramSummaries();
+      if (!signal.active) {
+        return;
+      }
+
+      setPrograms(cachedPrograms);
+      setError(null);
+      setSyncNotice(null);
+
+      if (cachedPrograms.length > 0) {
+        setLoading(false);
+      }
+
       try {
         const remotePrograms = await fetchProgramSummaries();
         await upsertProgramSummaries(remotePrograms);
-      } catch {
-        // Fall back to whatever is already cached locally.
-      }
+        const refreshedPrograms = await listProgramSummaries();
 
-      const cachedPrograms = await listProgramSummaries();
-      if (signal.active) {
-        setPrograms(cachedPrograms);
-        setError(null);
+        if (signal.active) {
+          setPrograms(refreshedPrograms);
+          setSyncNotice(null);
+          setError(null);
+        }
+      } catch {
+        if (!signal.active) {
+          return;
+        }
+
+        if (cachedPrograms.length === 0) {
+          setError('Unable to sync programs right now.');
+        } else {
+          setSyncNotice('Showing cached programs. Sync will retry when you refresh.');
+        }
       }
     } catch {
       if (signal.active) {
         setPrograms([]);
         setError('Unable to load cached programs.');
+        setSyncNotice(null);
       }
     } finally {
       if (signal.active) {
@@ -61,6 +86,17 @@ export function ProgramsScreen() {
     setReloadToken((value) => value + 1);
   }
 
+  if (selectedProgramId) {
+    const { TrackerScreen } =
+      require('../tracker/tracker-screen') as typeof import('../tracker/tracker-screen');
+    return (
+      <TrackerScreen
+        programInstanceId={selectedProgramId}
+        onBack={() => setSelectedProgramId(null)}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.content}>
@@ -81,18 +117,36 @@ export function ProgramsScreen() {
             </Pressable>
           </View>
         ) : (
-          <FlatList
-            data={programs}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={<Text style={styles.empty}>No cached programs yet.</Text>}
-            renderItem={({ item }) => (
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.cardMeta}>Updated {item.updatedAt.slice(0, 10)}</Text>
+          <>
+            {syncNotice ? (
+              <View style={styles.syncNoticeBlock}>
+                <Text style={styles.syncNotice}>{syncNotice}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleRetry}
+                  style={styles.retryButton}
+                >
+                  <Text style={styles.retryLabel}>Retry</Text>
+                </Pressable>
               </View>
-            )}
-          />
+            ) : null}
+            <FlatList
+              data={programs}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContent}
+              ListEmptyComponent={<Text style={styles.empty}>No cached programs yet.</Text>}
+              renderItem={({ item }) => (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setSelectedProgramId(item.id)}
+                  style={styles.card}
+                >
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.cardMeta}>Updated {item.updatedAt.slice(0, 10)}</Text>
+                </Pressable>
+              )}
+            />
+          </>
         )}
       </View>
     </SafeAreaView>
@@ -144,6 +198,15 @@ const styles = StyleSheet.create({
     color: '#FCA5A5',
     fontSize: 16,
     textAlign: 'center',
+  },
+  syncNotice: {
+    color: '#FBBF24',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  syncNoticeBlock: {
+    gap: 12,
+    alignItems: 'flex-start',
   },
   retryButton: {
     marginTop: 12,

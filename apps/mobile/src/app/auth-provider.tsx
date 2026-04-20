@@ -9,6 +9,8 @@ import {
 
 import type { AuthUser } from '../lib/auth/session';
 import { clearSession, restoreSession } from '../lib/auth/session';
+import { clearLocalAppData } from '../lib/db/client';
+import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation-sync-service';
 
 interface AuthContextValue {
   readonly user: AuthUser | null;
@@ -29,6 +31,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       .then((session) => {
         if (!active) return;
         setUser(session?.user ?? null);
+        if (session?.accessToken) {
+          void flushQueuedMutations(session.accessToken).catch(() => {
+            // Leave queued mutations in place for a later retry.
+          });
+        }
       })
       .catch(() => {
         if (!active) return;
@@ -49,6 +56,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
       user,
       loading,
       signOut: async () => {
+        await clearQueuedMutations().catch(() => {
+          // Best-effort cleanup only; local queue issues must not block sign-out.
+        });
+        await clearLocalAppData().catch(() => {
+          // Best-effort cleanup only; local cache issues must not block sign-out.
+        });
         await clearSession();
         setUser(null);
       },

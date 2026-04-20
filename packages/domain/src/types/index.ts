@@ -2,8 +2,8 @@ export type ResultValue = 'success' | 'fail';
 
 export interface SetLogEntry {
   readonly reps: number;
-  readonly weight?: number;
-  readonly rpe?: number;
+  readonly weight?: number | undefined;
+  readonly rpe?: number | undefined;
 }
 
 export interface ResolvedPrescription {
@@ -54,27 +54,27 @@ export interface ChartDataPoint {
   readonly weight: number;
   readonly stage: number;
   readonly result: ResultValue | null;
-  readonly date?: string;
-  readonly amrapReps?: number;
+  readonly date?: string | undefined;
+  readonly amrapReps?: number | undefined;
 }
 
 export interface RpeDataPoint {
   readonly workout: number;
   readonly rpe: number;
-  readonly date?: string;
+  readonly date?: string | undefined;
 }
 
 export interface AmrapDataPoint {
   readonly workout: number;
   readonly reps: number;
   readonly weight: number;
-  readonly date?: string;
+  readonly date?: string | undefined;
 }
 
 export interface VolumeDataPoint {
   readonly workout: number;
   readonly volumeKg: number;
-  readonly date?: string;
+  readonly date?: string | undefined;
 }
 
 export interface ExerciseStats {
