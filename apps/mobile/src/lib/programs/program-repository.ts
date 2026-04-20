@@ -13,10 +13,19 @@ interface ProgramSummaryRow {
 }
 
 export async function upsertProgramSummaries(programs: readonly ProgramSummary[]): Promise<void> {
-  if (programs.length === 0) return;
-
   const database = getDatabase();
   await bootstrapDatabase(database);
+
+  if (programs.length === 0) {
+    await database.runAsync('DELETE FROM program_summaries');
+    return;
+  }
+
+  const placeholders = programs.map(() => '?').join(', ');
+  await database.runAsync(
+    `DELETE FROM program_summaries WHERE id NOT IN (${placeholders})`,
+    ...programs.map((program) => program.id)
+  );
 
   for (const program of programs) {
     await database.runAsync(
