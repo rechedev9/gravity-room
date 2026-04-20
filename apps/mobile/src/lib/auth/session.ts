@@ -16,6 +16,13 @@ export interface RefreshResponse extends SessionState {
   readonly refreshToken: string;
 }
 
+export class InvalidRefreshTokenError extends Error {
+  constructor(message = 'Invalid refresh token') {
+    super(message);
+    this.name = 'InvalidRefreshTokenError';
+  }
+}
+
 interface RestoreSessionDependencies {
   readonly storage?: RefreshTokenStorage;
   readonly refreshSession?: (refreshToken: string) => Promise<RefreshResponse>;
@@ -40,6 +47,9 @@ async function refreshMobileSession(refreshToken: string): Promise<RefreshRespon
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new InvalidRefreshTokenError();
+    }
     throw new Error(`Mobile session refresh failed with status ${response.status}`);
   }
 
@@ -84,9 +94,11 @@ export async function restoreSession(
         accessToken: refreshed.accessToken,
         user: refreshed.user,
       };
-    } catch {
+    } catch (error) {
       accessToken = null;
-      await storage.clearRefreshToken();
+      if (error instanceof InvalidRefreshTokenError) {
+        await storage.clearRefreshToken();
+      }
       return null;
     }
   })();

@@ -25,11 +25,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let active = true;
 
-    void restoreSession().then((session) => {
-      if (!active) return;
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    void restoreSession()
+      .then((session) => {
+        if (!active) return;
+        setUser(session?.user ?? null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setUser(null);
+      })
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
 
     return () => {
       active = false;

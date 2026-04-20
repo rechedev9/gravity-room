@@ -1,4 +1,9 @@
-import { getAccessToken, restoreSession, setAccessToken } from './session';
+import {
+  getAccessToken,
+  InvalidRefreshTokenError,
+  restoreSession,
+  setAccessToken,
+} from './session';
 
 afterEach(() => {
   setAccessToken(null);
@@ -103,7 +108,7 @@ describe('restoreSession', () => {
 
     const refreshSession = jest
       .fn<Promise<never>, [string]>()
-      .mockRejectedValue(new Error('AUTH_INVALID_REFRESH'));
+      .mockRejectedValue(new InvalidRefreshTokenError('AUTH_INVALID_REFRESH'));
 
     await expect(restoreSession({ storage, refreshSession })).resolves.toBeNull();
 

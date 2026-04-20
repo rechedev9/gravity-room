@@ -1,4 +1,4 @@
-const refreshTokenStore = new Map<string, string>();
+import * as SecureStore from 'expo-secure-store';
 
 const REFRESH_TOKEN_KEY = 'auth.refresh-token';
 
@@ -10,12 +10,12 @@ export interface RefreshTokenStorage {
 
 export const secureRefreshTokenStorage: RefreshTokenStorage = {
   async getRefreshToken() {
-    return refreshTokenStore.get(REFRESH_TOKEN_KEY) ?? null;
+    return SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
   },
   async setRefreshToken(token) {
-    refreshTokenStore.set(REFRESH_TOKEN_KEY, token);
+    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
   },
   async clearRefreshToken() {
-    refreshTokenStore.delete(REFRESH_TOKEN_KEY);
+    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
   },
 };
