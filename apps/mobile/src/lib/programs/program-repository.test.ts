@@ -10,6 +10,22 @@ jest.mock('../db/client', () => ({
   bootstrapDatabase: jest.fn(async () => undefined),
   getDatabase: jest.fn(() => ({
     runAsync: jest.fn(async (sql: string, ...params: unknown[]) => {
+      if (sql.includes('DELETE FROM program_summaries WHERE id NOT IN')) {
+        const ids = new Set(params as string[]);
+
+        for (let index = rows.length - 1; index >= 0; index -= 1) {
+          const row = rows[index];
+
+          if (row && !ids.has(row.id)) {
+            rows.splice(index, 1);
+          }
+        }
+      }
+
+      if (sql === 'DELETE FROM program_summaries') {
+        rows.length = 0;
+      }
+
       if (sql.includes('INSERT INTO program_summaries')) {
         const [id, title, updatedAt] = params as [string, string, string];
         const existingIndex = rows.findIndex((row) => row.id === id);
@@ -81,5 +97,40 @@ describe('program repository', () => {
         updatedAt: '2026-04-18T10:00:00.000Z',
       },
     ]);
+  });
+
+  it('replaces the cached snapshot when rows are removed or emptied', async () => {
+    await upsertProgramSummaries([
+      {
+        id: 'program-a',
+        title: 'Strength Base',
+        updatedAt: '2026-04-18T10:00:00.000Z',
+      },
+      {
+        id: 'program-b',
+        title: 'Power Block',
+        updatedAt: '2026-04-20T08:00:00.000Z',
+      },
+    ]);
+
+    await upsertProgramSummaries([
+      {
+        id: 'program-b',
+        title: 'Power Block',
+        updatedAt: '2026-04-20T08:00:00.000Z',
+      },
+    ]);
+
+    await expect(listProgramSummaries()).resolves.toEqual([
+      {
+        id: 'program-b',
+        title: 'Power Block',
+        updatedAt: '2026-04-20T08:00:00.000Z',
+      },
+    ]);
+
+    await upsertProgramSummaries([]);
+
+    await expect(listProgramSummaries()).resolves.toEqual([]);
   });
 });
