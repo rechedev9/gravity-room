@@ -176,6 +176,38 @@ describe('POST /auth/google', () => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /auth/mobile/google
+// ---------------------------------------------------------------------------
+
+describe('POST /auth/mobile/google', () => {
+  beforeEach(() => {
+    mockVerifyGoogleToken.mockImplementation(() =>
+      Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
+    );
+    mockFindOrCreateGoogleUser.mockImplementation(() =>
+      Promise.resolve({ user: { ...TEST_USER }, isNewUser: false })
+    );
+    mockCreateAndStoreRefreshToken.mockImplementation(() =>
+      Promise.resolve('mobile-initial-refresh-token')
+    );
+  });
+
+  it('returns accessToken, refreshToken, and user in the response body', async () => {
+    const res = await post('/auth/mobile/google', { credential: 'valid-id-token' });
+    const body = (await res.json()) as {
+      accessToken: string;
+      refreshToken: string;
+      user: { email: string };
+    };
+
+    expect(res.status).toBe(200);
+    expect(typeof body.accessToken).toBe('string');
+    expect(body.refreshToken).toBe('mobile-initial-refresh-token');
+    expect(body.user.email).toBe(TEST_USER.email);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // POST /auth/refresh
 // ---------------------------------------------------------------------------
 
@@ -236,6 +268,64 @@ describe('POST /auth/refresh', () => {
 
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_ACCOUNT_DELETED');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /auth/mobile/refresh
+// ---------------------------------------------------------------------------
+
+describe('POST /auth/mobile/refresh', () => {
+  beforeEach(() => {
+    mockHashToken.mockClear();
+    mockRevokeRefreshToken.mockClear();
+    mockCreateAndStoreRefreshToken.mockClear();
+    mockFindRefreshToken.mockImplementation(() => Promise.resolve({ ...TEST_REFRESH_TOKEN }));
+    mockFindUserById.mockImplementation(() => Promise.resolve({ ...TEST_USER }));
+    mockCreateAndStoreRefreshToken.mockImplementation(() =>
+      Promise.resolve('new-mobile-refresh-token')
+    );
+  });
+
+  it('accepts refreshToken in the request body, rotates it, and returns user data', async () => {
+    const res = await post('/auth/mobile/refresh', { refreshToken: 'mobile-refresh-token' });
+    const body = (await res.json()) as {
+      accessToken: string;
+      refreshToken: string;
+      user: { id: string; email: string; name: string | null; avatarUrl?: string | null };
+    };
+
+    expect(res.status).toBe(200);
+    expect(typeof body.accessToken).toBe('string');
+    expect(body.refreshToken).toBe('new-mobile-refresh-token');
+    expect(body.user).toEqual({
+      id: TEST_USER.id,
+      email: TEST_USER.email,
+      name: null,
+      avatarUrl: undefined,
+    });
+    expect(mockRevokeRefreshToken).toHaveBeenCalledTimes(1);
+    expect(mockCreateAndStoreRefreshToken).toHaveBeenCalledWith(
+      TEST_REFRESH_TOKEN.userId,
+      'a'.repeat(64)
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /auth/mobile/signout
+// ---------------------------------------------------------------------------
+
+describe('POST /auth/mobile/signout', () => {
+  it('accepts refreshToken in the request body and returns 204', async () => {
+    mockHashToken.mockClear();
+    mockRevokeRefreshToken.mockClear();
+
+    const res = await post('/auth/mobile/signout', { refreshToken: 'mobile-refresh-token' });
+
+    expect(res.status).toBe(204);
+    expect(mockHashToken).toHaveBeenCalledWith('mobile-refresh-token');
+    expect(mockRevokeRefreshToken).toHaveBeenCalledWith('a'.repeat(64));
   });
 });
 

@@ -9,6 +9,24 @@ const JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
+function getAllowedGoogleClientIds(): string[] {
+  const clientIds = process.env['GOOGLE_CLIENT_IDS']
+    ?.split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  if (clientIds && clientIds.length > 0) {
+    return clientIds;
+  }
+
+  const clientId = process.env['GOOGLE_CLIENT_ID'];
+  if (!clientId) {
+    throw new ApiError(500, 'GOOGLE_CLIENT_ID env var must be set', 'CONFIGURATION_ERROR');
+  }
+
+  return [clientId];
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -110,9 +128,7 @@ async function fetchGoogleCerts(): Promise<GoogleJwk[]> {
 
 /** Verifies a Google ID token (RS256) against Google's JWKS. */
 export async function verifyGoogleToken(credential: string): Promise<GoogleTokenPayload> {
-  const clientId = process.env['GOOGLE_CLIENT_ID'];
-  if (!clientId)
-    throw new ApiError(500, 'GOOGLE_CLIENT_ID env var must be set', 'CONFIGURATION_ERROR');
+  const allowedClientIds = getAllowedGoogleClientIds();
 
   const parts = credential.split('.');
   if (parts.length !== 3)
@@ -165,7 +181,9 @@ export async function verifyGoogleToken(credential: string): Promise<GoogleToken
   }
 
   const audiences = Array.isArray(rawPayload.aud) ? rawPayload.aud : [rawPayload.aud];
-  if (!audiences.includes(clientId)) throw new ApiError(401, 'Invalid audience', 'AUTH_INVALID');
+  if (!audiences.some((audience) => allowedClientIds.includes(audience))) {
+    throw new ApiError(401, 'Invalid audience', 'AUTH_INVALID');
+  }
 
   return {
     sub: rawPayload.sub,
