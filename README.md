@@ -99,7 +99,7 @@ Analytics service (FastAPI, port 8000)
 
 - **Bun runtime** — the API runs on Bun with ElysiaJS. Drizzle ORM handles database access and migrations. Seeds are run on startup via `bootstrap.ts`.
 - **Auto-migrations on startup** — Drizzle migrator runs pending migrations before accepting traffic. Zero-touch schema updates on deploy.
-- **Progression engine** — the API and frontend share the authoritative progression engine via `apps/web/src/lib/shared/` (resolved through tsconfig path alias `@gzclp/shared/*`).
+- **Progression engine** — the API and frontend share the authoritative progression engine via `packages/domain/`, imported through the workspace package `@gzclp/domain/*`.
 - **Feature-first frontend** — route-owned screens and domain UI now live under `apps/web/src/features/`, while `components/` is reserved for shared UI and root app scaffolding.
 
 ## Getting started
