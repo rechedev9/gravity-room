@@ -23,7 +23,11 @@ import {
   softDeleteUser,
   REFRESH_TOKEN_DAYS,
 } from '../services/auth';
-import { verifyGoogleToken } from '../lib/google-auth';
+import {
+  getMobileGoogleClientIds,
+  getWebGoogleClientId,
+  verifyGoogleToken,
+} from '../lib/google-auth';
 import { sendTelegramMessage } from '../lib/telegram';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
@@ -214,7 +218,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
       let googlePayload: Awaited<ReturnType<typeof verifyGoogleToken>>;
       try {
-        googlePayload = await verifyGoogleToken(body.credential);
+        googlePayload = await verifyGoogleToken(body.credential, {
+          allowedClientIds: [getWebGoogleClientId()],
+        });
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'Google token verification failed');
         throw new ApiError(401, 'Invalid Google credential', 'AUTH_GOOGLE_INVALID');
@@ -262,7 +268,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
       let googlePayload: Awaited<ReturnType<typeof verifyGoogleToken>>;
       try {
-        googlePayload = await verifyGoogleToken(body.credential);
+        googlePayload = await verifyGoogleToken(body.credential, {
+          allowedClientIds: getMobileGoogleClientIds(),
+        });
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'Google token verification failed');
         if (e instanceof ApiError) throw e;

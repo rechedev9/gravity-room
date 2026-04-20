@@ -9,6 +9,10 @@ const JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
+interface VerifyGoogleTokenOptions {
+  readonly allowedClientIds?: readonly string[];
+}
+
 function getAllowedGoogleClientIds(): string[] {
   const clientIds = process.env['GOOGLE_CLIENT_IDS']
     ?.split(',')
@@ -27,6 +31,18 @@ function getAllowedGoogleClientIds(): string[] {
   }
 
   return [...allowedClientIds];
+}
+
+export function getWebGoogleClientId(): string {
+  const clientId = process.env['GOOGLE_CLIENT_ID']?.trim();
+  if (!clientId) {
+    throw new ApiError(500, 'GOOGLE_CLIENT_ID env var must be set', 'CONFIGURATION_ERROR');
+  }
+  return clientId;
+}
+
+export function getMobileGoogleClientIds(): string[] {
+  return getAllowedGoogleClientIds();
 }
 
 // ---------------------------------------------------------------------------
@@ -129,8 +145,13 @@ async function fetchGoogleCerts(): Promise<GoogleJwk[]> {
 // ---------------------------------------------------------------------------
 
 /** Verifies a Google ID token (RS256) against Google's JWKS. */
-export async function verifyGoogleToken(credential: string): Promise<GoogleTokenPayload> {
-  const allowedClientIds = getAllowedGoogleClientIds();
+export async function verifyGoogleToken(
+  credential: string,
+  options?: VerifyGoogleTokenOptions
+): Promise<GoogleTokenPayload> {
+  const allowedClientIds = options?.allowedClientIds?.length
+    ? [...options.allowedClientIds]
+    : getAllowedGoogleClientIds();
 
   const parts = credential.split('.');
   if (parts.length !== 3)

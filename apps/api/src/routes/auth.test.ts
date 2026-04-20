@@ -3,6 +3,8 @@
  * DB-dependent services and the Google token verifier are mocked via mock.module().
  */
 process.env['LOG_LEVEL'] = 'silent';
+process.env['GOOGLE_CLIENT_ID'] = 'web-client-id';
+process.env['GOOGLE_CLIENT_IDS'] = 'mobile-client-id';
 
 import { mock, describe, it, expect, beforeEach, afterAll } from 'bun:test';
 
@@ -186,6 +188,14 @@ describe('POST /auth/google', () => {
       'Test User'
     );
   });
+
+  it('verifies web google tokens against only the web client id', async () => {
+    await post('/auth/google', { credential: 'valid-id-token' });
+
+    expect(mockVerifyGoogleToken).toHaveBeenCalledWith('valid-id-token', {
+      allowedClientIds: ['web-client-id'],
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -240,6 +250,40 @@ describe('POST /auth/mobile/google', () => {
     expect(res.status).toBe(503);
     expect(body.code).toBe('AUTH_JWKS_UNAVAILABLE');
     expect(body.error).toBe('JWKS unavailable');
+  });
+
+  it('preserves passthrough 403 ACCOUNT_DELETED errors', async () => {
+    mockVerifyGoogleToken.mockImplementation(() =>
+      Promise.reject(new ApiError(403, 'Account deleted', 'ACCOUNT_DELETED'))
+    );
+
+    const res = await post('/auth/mobile/google', { credential: 'bad-token' });
+    const body = (await res.json()) as { code: string; error: string };
+
+    expect(res.status).toBe(403);
+    expect(body.code).toBe('ACCOUNT_DELETED');
+    expect(body.error).toBe('Account deleted');
+  });
+
+  it('preserves passthrough 500 internal/configuration errors', async () => {
+    mockVerifyGoogleToken.mockImplementation(() =>
+      Promise.reject(new ApiError(500, 'Database write failed', 'DB_WRITE_ERROR'))
+    );
+
+    const res = await post('/auth/mobile/google', { credential: 'bad-token' });
+    const body = (await res.json()) as { code: string; error: string };
+
+    expect(res.status).toBe(500);
+    expect(body.code).toBe('DB_WRITE_ERROR');
+    expect(body.error).toBe('Database write failed');
+  });
+
+  it('verifies mobile google tokens against the mobile allowlist with web fallback', async () => {
+    await post('/auth/mobile/google', { credential: 'valid-id-token' });
+
+    expect(mockVerifyGoogleToken).toHaveBeenCalledWith('valid-id-token', {
+      allowedClientIds: ['mobile-client-id', 'web-client-id'],
+    });
   });
 });
 
