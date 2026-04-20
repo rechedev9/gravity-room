@@ -1,13 +1,13 @@
 import { View } from 'react-native';
 
-import { LoginScreen } from '../features/auth/login-screen';
+import { ProfileScreen } from '../features/profile/profile-screen';
 import { AppProviders } from './providers';
 
 export function App() {
   return (
     <AppProviders>
       <View style={{ flex: 1 }}>
-        <LoginScreen />
+        <ProfileScreen />
       </View>
     </AppProviders>
   );
