@@ -13,8 +13,11 @@
     "@gzclp/domain": "workspace:*",
     "@tanstack/react-query": "^5.90.21",
     "expo": "^54.0.23",
+    "expo-auth-session": "~7.0.10",
+    "expo-crypto": "~15.0.8",
     "expo-secure-store": "~15.0.8",
     "expo-sqlite": "~16.0.8",
+    "expo-web-browser": "~15.0.10",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-safe-area-context": "~5.6.0"

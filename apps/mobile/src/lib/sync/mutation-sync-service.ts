@@ -1,3 +1,4 @@
+import { fetchWithAccessToken } from '../auth/session';
 import {
   acknowledgeQueuedMutations,
   clearQueuedMutations as clearQueuedMutationsFromRepository,
@@ -18,58 +19,47 @@ export async function clearQueuedMutations(): Promise<void> {
   await clearQueuedMutationsFromRepository();
 }
 
-function getApiBaseUrl(): string {
-  const processLike = Reflect.get(globalThis, 'process');
-  if (typeof processLike !== 'object' || processLike === null) {
-    return 'http://localhost:3001';
-  }
-
-  const envLike = Reflect.get(processLike, 'env');
-  if (typeof envLike !== 'object' || envLike === null) {
-    return 'http://localhost:3001';
-  }
-
-  const configuredBaseUrl = Reflect.get(envLike, 'EXPO_PUBLIC_API_URL');
-  return typeof configuredBaseUrl === 'string' ? configuredBaseUrl : 'http://localhost:3001';
-}
-
-function buildProgramRequestUrl(entityId: string): URL {
-  const requestUrl = new URL(getApiBaseUrl());
-  const basePath = requestUrl.pathname.replace(/\/$/, '');
-  requestUrl.pathname = `${basePath}/programs/${encodeURIComponent(entityId)}`;
-  return requestUrl;
+function buildProgramRequestPath(entityId: string): string {
+  return `/programs/${encodeURIComponent(entityId)}`;
 }
 
 async function replayQueuedMutation(
   mutation: QueuedMutation,
   accessToken: string,
   signal: AbortSignal
-): Promise<void> {
-  const requestUrl = buildProgramRequestUrl(mutation.entityId);
+): Promise<string> {
+  const requestPath = buildProgramRequestPath(mutation.entityId);
   const headers = {
-    Authorization: `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
   };
 
-  let response: Response;
+  let authorizedResponse: { readonly accessToken: string; readonly response: Response };
 
   switch (mutation.operation) {
     case 'record-result': {
-      response = await fetch(`${requestUrl.toString()}/results`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(mutation.payload),
-        signal,
-      });
+      authorizedResponse = await fetchWithAccessToken(
+        `${requestPath}/results`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(mutation.payload),
+          signal,
+        },
+        { initialAccessToken: accessToken }
+      );
       break;
     }
     case 'update-metadata': {
-      response = await fetch(`${requestUrl.toString()}/metadata`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify(mutation.payload),
-        signal,
-      });
+      authorizedResponse = await fetchWithAccessToken(
+        `${requestPath}/metadata`,
+        {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(mutation.payload),
+          signal,
+        },
+        { initialAccessToken: accessToken }
+      );
       break;
     }
     case 'delete-result': {
@@ -79,13 +69,14 @@ async function replayQueuedMutation(
         throw new Error('Invalid delete-result mutation payload');
       }
 
-      response = await fetch(
-        `${requestUrl.toString()}/results/${workoutIndex}/${encodeURIComponent(slotId)}`,
+      authorizedResponse = await fetchWithAccessToken(
+        `${requestPath}/results/${workoutIndex}/${encodeURIComponent(slotId)}`,
         {
           method: 'DELETE',
           headers,
           signal,
-        }
+        },
+        { initialAccessToken: accessToken }
       );
       break;
     }
@@ -93,13 +84,17 @@ async function replayQueuedMutation(
       throw new Error(`Unsupported queued mutation operation: ${mutation.operation}`);
   }
 
+  const response = authorizedResponse.response;
+
   if (mutation.operation === 'delete-result' && response.status === 404) {
-    return;
+    return authorizedResponse.accessToken;
   }
 
   if (!response.ok) {
     throw new Error(`Queued mutation sync failed with status ${response.status}`);
   }
+
+  return authorizedResponse.accessToken;
 }
 
 export async function flushQueuedMutations(
@@ -124,11 +119,16 @@ export async function flushQueuedMutations(
       return { processedCount: 0 };
     }
 
+    let nextAccessToken = accessToken;
     const acknowledgedIds: number[] = [];
 
     for (const mutation of queuedMutations) {
       try {
-        await replayQueuedMutation(mutation, accessToken, abortController.signal);
+        nextAccessToken = await replayQueuedMutation(
+          mutation,
+          nextAccessToken,
+          abortController.signal
+        );
         acknowledgedIds.push(mutation.id);
       } catch (error) {
         if (acknowledgedIds.length > 0) {

@@ -1,13 +1,23 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { App } from './App';
 import { listProgramSummaries, upsertProgramSummaries } from '../lib/programs/program-repository';
 import { fetchProgramSummaries } from '../lib/programs/program-service';
-import { restoreSession } from '../lib/auth/session';
+import { restoreSession, signInWithGoogleIdToken } from '../lib/auth/session';
 import { flushQueuedMutations } from '../lib/sync/mutation-sync-service';
 
 jest.mock('../lib/auth/session', () => ({
   restoreSession: jest.fn(),
+  signInWithGoogleIdToken: jest.fn(),
+}));
+
+const mockPromptAsync = jest.fn<Promise<string | null>, []>();
+
+jest.mock('../features/auth/google-sign-in', () => ({
+  useGoogleIdTokenPrompt: () => ({
+    disabled: false,
+    promptAsync: () => mockPromptAsync(),
+  }),
 }));
 
 jest.mock('../lib/sync/mutation-sync-service', () => ({
@@ -32,6 +42,7 @@ jest.mock('../features/tracker/tracker-screen', () => ({
 }));
 
 const mockedRestoreSession = jest.mocked(restoreSession);
+const mockedSignInWithGoogleIdToken = jest.mocked(signInWithGoogleIdToken);
 const mockedListProgramSummaries = jest.mocked(listProgramSummaries);
 const mockedUpsertProgramSummaries = jest.mocked(upsertProgramSummaries);
 const mockedFetchProgramSummaries = jest.mocked(fetchProgramSummaries);
@@ -40,14 +51,17 @@ const mockedFlushQueuedMutations = jest.mocked(flushQueuedMutations);
 describe('App', () => {
   beforeEach(() => {
     mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
+    mockPromptAsync.mockResolvedValue('google-id-token');
   });
 
   afterEach(() => {
     mockedRestoreSession.mockReset();
+    mockedSignInWithGoogleIdToken.mockReset();
     mockedListProgramSummaries.mockReset();
     mockedUpsertProgramSummaries.mockReset();
     mockedFetchProgramSummaries.mockReset();
     mockedFlushQueuedMutations.mockReset();
+    mockPromptAsync.mockReset();
   });
 
   it('renders the Google sign-in CTA', () => {
@@ -56,6 +70,32 @@ describe('App', () => {
     render(<App />);
 
     return expect(screen.findByText('Continue with Google')).resolves.toBeTruthy();
+  });
+
+  it('signs into the mobile shell after tapping Continue with Google', async () => {
+    mockedRestoreSession.mockResolvedValue(null);
+    mockedSignInWithGoogleIdToken.mockResolvedValue({
+      accessToken: 'fresh-access-token',
+      user: {
+        id: 'user-123',
+        email: 'athlete@example.com',
+        name: 'Test Athlete',
+        avatarUrl: null,
+      },
+    });
+    mockedFetchProgramSummaries.mockResolvedValue([]);
+    mockedUpsertProgramSummaries.mockResolvedValue();
+    mockedListProgramSummaries.mockResolvedValue([]);
+    mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
+
+    render(<App />);
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Continue with Google' }));
+
+    await waitFor(() => {
+      expect(mockedSignInWithGoogleIdToken).toHaveBeenCalledTimes(1);
+    });
+    expect(await screen.findByText('Cached training blocks')).toBeTruthy();
   });
 
   it('renders cached programs when a session is available', async () => {

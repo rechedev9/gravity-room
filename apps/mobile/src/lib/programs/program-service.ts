@@ -1,4 +1,4 @@
-import { getAccessToken } from '../auth/session';
+import { fetchWithAccessToken, getAccessToken } from '../auth/session';
 import type { ProgramSummary } from './program-repository';
 
 interface RemoteProgramSummary {
@@ -42,28 +42,8 @@ function readRemoteProgramsPage(value: unknown): RemoteProgramsPage {
   };
 }
 
-function isProcessLike(
-  value: unknown
-): value is { readonly env?: Record<string, string | undefined> } {
-  return isRecord(value);
-}
-
-function getApiBaseUrl(): string {
-  const globalProcess = Reflect.get(globalThis, 'process');
-  const processEnv = isProcessLike(globalProcess) ? globalProcess.env : undefined;
-  return processEnv?.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001';
-}
-
-function buildProgramsRequestUrl(): URL {
-  const requestUrl = new URL(getApiBaseUrl());
-  const basePath = requestUrl.pathname.replace(/\/$/, '');
-  requestUrl.pathname = `${basePath}/programs`;
-  return requestUrl;
-}
-
 export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
-  const accessToken = getAccessToken();
-  if (!accessToken) {
+  if (!getAccessToken()) {
     throw new Error('Program summaries require an access token');
   }
 
@@ -71,16 +51,13 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
   let nextCursor: string | null | undefined;
 
   do {
-    const requestUrl = buildProgramsRequestUrl();
+    const requestUrl = new URL('http://localhost');
+    requestUrl.pathname = '/programs';
     if (nextCursor) {
       requestUrl.searchParams.set('cursor', nextCursor);
     }
 
-    const response = await fetch(requestUrl.toString(), {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
+    const { response } = await fetchWithAccessToken(`${requestUrl.pathname}${requestUrl.search}`);
 
     if (!response.ok) {
       throw new Error(`Program summary fetch failed with status ${response.status}`);

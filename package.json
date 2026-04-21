@@ -23,7 +23,7 @@
     "test": "bun run --filter web test && bun run test:domain && bun run test:mobile",
     "test:api": "bun run --filter api test",
     "test:domain": "bun run --filter @gzclp/domain test",
-    "test:mobile": "bun run --filter mobile test src/app/App.test.tsx",
+    "test:mobile": "bun run --filter mobile test",
     "e2e": "bun run --filter web e2e",
     "e2e:ui": "bun run --filter web e2e:ui",
     "e2e:headed": "bun run --filter web e2e:headed",

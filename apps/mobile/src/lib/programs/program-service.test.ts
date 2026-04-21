@@ -1,66 +1,74 @@
 import { fetchProgramSummaries } from './program-service';
 
 const mockGetAccessToken = jest.fn<string | null, []>();
+const mockFetchWithAccessToken = jest.fn<
+  Promise<{ readonly accessToken: string; readonly response: Response }>,
+  [string, RequestInit | undefined]
+>();
 
 jest.mock('../auth/session', () => ({
   getAccessToken: () => mockGetAccessToken(),
+  fetchWithAccessToken: (path: string, init?: RequestInit) => mockFetchWithAccessToken(path, init),
 }));
 
 describe('fetchProgramSummaries', () => {
-  let fetchSpy: jest.SpiedFunction<typeof fetch> | undefined;
   const originalProcess = globalThis.process;
 
   afterEach(() => {
-    fetchSpy?.mockRestore();
-    fetchSpy = undefined;
     mockGetAccessToken.mockReset();
+    mockFetchWithAccessToken.mockReset();
     globalThis.process = originalProcess;
   });
 
   it('follows paginated /programs responses and returns the full snapshot', async () => {
     mockGetAccessToken.mockReturnValue('mobile-access-token');
 
-    fetchSpy = jest.spyOn(globalThis, 'fetch');
-    fetchSpy
+    mockFetchWithAccessToken
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            data: [
-              {
-                id: 'program-a',
-                name: 'Strength Base',
-                updatedAt: '2026-04-20T08:00:00.000Z',
+        Promise.resolve({
+          accessToken: 'mobile-access-token',
+          response: new Response(
+            JSON.stringify({
+              data: [
+                {
+                  id: 'program-a',
+                  name: 'Strength Base',
+                  updatedAt: '2026-04-20T08:00:00.000Z',
+                },
+              ],
+              nextCursor: 'cursor-2',
+            }),
+            {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/json',
               },
-            ],
-            nextCursor: 'cursor-2',
-          }),
-          {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        )
+            }
+          ),
+        })
       )
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            data: [
-              {
-                id: 'program-b',
-                name: 'Power Block',
-                updatedAt: '2026-04-18T08:00:00.000Z',
+        Promise.resolve({
+          accessToken: 'mobile-access-token',
+          response: new Response(
+            JSON.stringify({
+              data: [
+                {
+                  id: 'program-b',
+                  name: 'Power Block',
+                  updatedAt: '2026-04-18T08:00:00.000Z',
+                },
+              ],
+              nextCursor: null,
+            }),
+            {
+              status: 200,
+              headers: {
+                'Content-Type': 'application/json',
               },
-            ],
-            nextCursor: null,
-          }),
-          {
-            status: 200,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          }
-        )
+            }
+          ),
+        })
       );
 
     await expect(fetchProgramSummaries()).resolves.toEqual([
@@ -76,23 +84,11 @@ describe('fetchProgramSummaries', () => {
       },
     ]);
 
-    expect(fetchSpy).toHaveBeenNthCalledWith(
-      1,
-      'http://localhost:3001/programs',
-      expect.objectContaining({
-        headers: {
-          Authorization: 'Bearer mobile-access-token',
-        },
-      })
-    );
-    expect(fetchSpy).toHaveBeenNthCalledWith(
+    expect(mockFetchWithAccessToken).toHaveBeenNthCalledWith(1, '/programs', undefined);
+    expect(mockFetchWithAccessToken).toHaveBeenNthCalledWith(
       2,
-      'http://localhost:3001/programs?cursor=cursor-2',
-      expect.objectContaining({
-        headers: {
-          Authorization: 'Bearer mobile-access-token',
-        },
-      })
+      '/programs?cursor=cursor-2',
+      undefined
     );
   });
 
@@ -106,9 +102,9 @@ describe('fetchProgramSummaries', () => {
       },
     };
 
-    fetchSpy = jest.spyOn(globalThis, 'fetch');
-    fetchSpy.mockResolvedValueOnce(
-      new Response(
+    mockFetchWithAccessToken.mockResolvedValueOnce({
+      accessToken: 'mobile-access-token',
+      response: new Response(
         JSON.stringify({
           data: [],
           nextCursor: null,
@@ -119,18 +115,47 @@ describe('fetchProgramSummaries', () => {
             'Content-Type': 'application/json',
           },
         }
-      )
-    );
+      ),
+    });
 
     await expect(fetchProgramSummaries()).resolves.toEqual([]);
 
-    expect(fetchSpy).toHaveBeenCalledWith(
-      'https://api.example.com/mobile-api/programs',
-      expect.objectContaining({
-        headers: {
-          Authorization: 'Bearer mobile-access-token',
-        },
-      })
-    );
+    expect(mockFetchWithAccessToken).toHaveBeenCalledWith('/programs', undefined);
+  });
+
+  it('retries program summary requests after refreshing an expired access token', async () => {
+    mockGetAccessToken.mockReturnValue('expired-access-token');
+
+    mockFetchWithAccessToken.mockResolvedValueOnce({
+      accessToken: 'fresh-access-token',
+      response: new Response(
+        JSON.stringify({
+          data: [
+            {
+              id: 'program-a',
+              name: 'Strength Base',
+              updatedAt: '2026-04-20T08:00:00.000Z',
+            },
+          ],
+          nextCursor: null,
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      ),
+    });
+
+    await expect(fetchProgramSummaries()).resolves.toEqual([
+      {
+        id: 'program-a',
+        title: 'Strength Base',
+        updatedAt: '2026-04-20T08:00:00.000Z',
+      },
+    ]);
+
+    expect(mockFetchWithAccessToken).toHaveBeenCalledTimes(1);
   });
 });

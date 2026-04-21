@@ -8,13 +8,14 @@ import {
 } from 'react';
 
 import type { AuthUser } from '../lib/auth/session';
-import { clearSession, restoreSession } from '../lib/auth/session';
+import { restoreSession, signInWithGoogleIdToken, signOutSession } from '../lib/auth/session';
 import { clearLocalAppData } from '../lib/db/client';
 import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation-sync-service';
 
 interface AuthContextValue {
   readonly user: AuthUser | null;
   readonly loading: boolean;
+  readonly signInWithGoogle: (credential: string) => Promise<void>;
   readonly signOut: () => Promise<void>;
 }
 
@@ -55,14 +56,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
     () => ({
       user,
       loading,
+      signInWithGoogle: async (credential: string) => {
+        const session = await signInWithGoogleIdToken(credential);
+        setUser(session.user);
+        void flushQueuedMutations(session.accessToken).catch(() => {
+          // Leave queued mutations in place for a later retry.
+        });
+      },
       signOut: async () => {
         await clearQueuedMutations().catch(() => {
           // Best-effort cleanup only; local queue issues must not block sign-out.
         });
+        await signOutSession();
         await clearLocalAppData().catch(() => {
           // Best-effort cleanup only; local cache issues must not block sign-out.
         });
-        await clearSession();
         setUser(null);
       },
     }),

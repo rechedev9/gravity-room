@@ -2,13 +2,14 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { Text } from 'react-native';
 
 import { AuthProvider, useAuth } from './auth-provider';
-import { clearSession, restoreSession } from '../lib/auth/session';
+import { restoreSession, signInWithGoogleIdToken, signOutSession } from '../lib/auth/session';
 import { clearLocalAppData } from '../lib/db/client';
 import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation-sync-service';
 
 jest.mock('../lib/auth/session', () => ({
-  clearSession: jest.fn(async () => undefined),
   restoreSession: jest.fn(),
+  signInWithGoogleIdToken: jest.fn(),
+  signOutSession: jest.fn(async () => undefined),
 }));
 
 jest.mock('../lib/db/client', () => ({
@@ -21,7 +22,8 @@ jest.mock('../lib/sync/mutation-sync-service', () => ({
 }));
 
 const mockedRestoreSession = jest.mocked(restoreSession);
-const mockedClearSession = jest.mocked(clearSession);
+const mockedSignInWithGoogleIdToken = jest.mocked(signInWithGoogleIdToken);
+const mockedSignOutSession = jest.mocked(signOutSession);
 const mockedClearLocalAppData = jest.mocked(clearLocalAppData);
 const mockedClearQueuedMutations = jest.mocked(clearQueuedMutations);
 const mockedFlushQueuedMutations = jest.mocked(flushQueuedMutations);
@@ -38,7 +40,7 @@ function createDeferred<T>() {
 }
 
 function AuthProbe() {
-  const { loading, signOut, user } = useAuth();
+  const { loading, signInWithGoogle, signOut, user } = useAuth();
   if (loading) return <Text>loading</Text>;
   if (!user) return <Text>signed-out</Text>;
 
@@ -52,9 +54,22 @@ function AuthProbe() {
   );
 }
 
+function SignInProbe() {
+  const { loading, signInWithGoogle, user } = useAuth();
+  if (loading) return <Text>loading</Text>;
+  if (user) return <Text>{user.email}</Text>;
+
+  return (
+    <Text accessibilityRole="button" onPress={() => void signInWithGoogle('google-id-token')}>
+      sign-in
+    </Text>
+  );
+}
+
 describe('AuthProvider', () => {
   afterEach(() => {
-    mockedClearSession.mockReset();
+    mockedSignInWithGoogleIdToken.mockReset();
+    mockedSignOutSession.mockReset();
     mockedClearLocalAppData.mockReset();
     mockedClearQueuedMutations.mockReset();
     mockedRestoreSession.mockReset();
@@ -122,7 +137,7 @@ describe('AuthProvider', () => {
       },
     });
     mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
-    mockedClearSession.mockResolvedValue();
+    mockedSignOutSession.mockResolvedValue();
     mockedClearLocalAppData.mockResolvedValue();
     mockedClearQueuedMutations.mockResolvedValue();
 
@@ -137,15 +152,18 @@ describe('AuthProvider', () => {
     fireEvent.press(screen.getByRole('button', { name: 'sign-out' }));
 
     await waitFor(() => {
-      expect(mockedClearSession).toHaveBeenCalledTimes(1);
+      expect(mockedSignOutSession).toHaveBeenCalledTimes(1);
       expect(mockedClearLocalAppData).toHaveBeenCalledTimes(1);
       expect(mockedClearQueuedMutations).toHaveBeenCalledTimes(1);
     });
+    const signOutOrder = mockedSignOutSession.mock.invocationCallOrder[0];
     const firstQueueClearOrder = mockedClearQueuedMutations.mock.invocationCallOrder[0];
     const firstLocalClearOrder = mockedClearLocalAppData.mock.invocationCallOrder[0];
+    expect(signOutOrder).toBeDefined();
     expect(firstQueueClearOrder).toBeDefined();
     expect(firstLocalClearOrder).toBeDefined();
-    expect(firstQueueClearOrder ?? 0).toBeLessThan(firstLocalClearOrder ?? 0);
+    expect(firstQueueClearOrder ?? 0).toBeLessThan(signOutOrder ?? 0);
+    expect(signOutOrder ?? 0).toBeLessThan(firstLocalClearOrder ?? 0);
     expect(await screen.findByText('signed-out')).toBeTruthy();
   });
 
@@ -160,7 +178,7 @@ describe('AuthProvider', () => {
       },
     });
     mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
-    mockedClearSession.mockResolvedValue();
+    mockedSignOutSession.mockResolvedValue();
     mockedClearLocalAppData.mockRejectedValue(new Error('SQLite unavailable'));
     mockedClearQueuedMutations.mockRejectedValue(new Error('SQLite unavailable'));
 
@@ -177,13 +195,42 @@ describe('AuthProvider', () => {
     await waitFor(() => {
       expect(mockedClearLocalAppData).toHaveBeenCalledTimes(1);
       expect(mockedClearQueuedMutations).toHaveBeenCalledTimes(1);
-      expect(mockedClearSession).toHaveBeenCalledTimes(1);
+      expect(mockedSignOutSession).toHaveBeenCalledTimes(1);
     });
+    const signOutOrder = mockedSignOutSession.mock.invocationCallOrder[0];
     const firstQueueClearOrder = mockedClearQueuedMutations.mock.invocationCallOrder[0];
     const firstLocalClearOrder = mockedClearLocalAppData.mock.invocationCallOrder[0];
+    expect(signOutOrder).toBeDefined();
     expect(firstQueueClearOrder).toBeDefined();
     expect(firstLocalClearOrder).toBeDefined();
-    expect(firstQueueClearOrder ?? 0).toBeLessThan(firstLocalClearOrder ?? 0);
+    expect(firstQueueClearOrder ?? 0).toBeLessThan(signOutOrder ?? 0);
+    expect(signOutOrder ?? 0).toBeLessThan(firstLocalClearOrder ?? 0);
     expect(await screen.findByText('signed-out')).toBeTruthy();
+  });
+
+  it('hydrates auth state after exchanging a Google credential', async () => {
+    mockedRestoreSession.mockResolvedValue(null);
+    mockedSignInWithGoogleIdToken.mockResolvedValue({
+      accessToken: 'fresh-access-token',
+      user: {
+        id: 'user-123',
+        email: 'athlete@example.com',
+        name: 'Test Athlete',
+        avatarUrl: null,
+      },
+    });
+    mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
+
+    render(
+      <AuthProvider>
+        <SignInProbe />
+      </AuthProvider>
+    );
+
+    fireEvent.press(await screen.findByRole('button', { name: 'sign-in' }));
+
+    expect(await screen.findByText('athlete@example.com')).toBeTruthy();
+    expect(mockedSignInWithGoogleIdToken).toHaveBeenCalledWith('google-id-token');
+    expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('fresh-access-token');
   });
 });

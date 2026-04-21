@@ -33,13 +33,31 @@ function createDeferred<T>() {
   };
 }
 
+function expectAuthorizationHeader(
+  init: RequestInit | undefined,
+  token: string,
+  contentType = 'application/json'
+): void {
+  const headers = init?.headers;
+  if (!(headers instanceof Headers)) {
+    throw new Error('Expected request headers to be a Headers instance');
+  }
+
+  expect(headers.get('Authorization')).toBe(`Bearer ${token}`);
+  expect(headers.get('Content-Type')).toBe(contentType);
+}
+
 describe('flushQueuedMutations', () => {
   const originalFetch = globalThis.fetch;
-  const originalProcess = globalThis.process;
+  const originalExpoPublicApiUrl = process.env.EXPO_PUBLIC_API_URL;
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    globalThis.process = originalProcess;
+    if (originalExpoPublicApiUrl === undefined) {
+      delete process.env.EXPO_PUBLIC_API_URL;
+    } else {
+      process.env.EXPO_PUBLIC_API_URL = originalExpoPublicApiUrl;
+    }
     mockedListQueuedMutations.mockReset();
     mockedAcknowledgeQueuedMutations.mockReset();
     mockedClearQueuedMutationsFromRepository.mockReset();
@@ -142,13 +160,9 @@ describe('flushQueuedMutations', () => {
 
     expect(fetchSpy).toHaveBeenNthCalledWith(
       1,
-      'http://localhost:3001/programs/instance-1/results',
+      'http://localhost:3001/api/programs/instance-1/results',
       expect.objectContaining({
         method: 'POST',
-        headers: expect.objectContaining({
-          Authorization: 'Bearer mobile-access-token',
-          'Content-Type': 'application/json',
-        }),
         body: JSON.stringify({
           workoutIndex: 0,
           slotId: 'squat-t1',
@@ -156,9 +170,10 @@ describe('flushQueuedMutations', () => {
         }),
       })
     );
+    expectAuthorizationHeader(fetchSpy.mock.calls[0]?.[1], 'mobile-access-token');
     expect(fetchSpy).toHaveBeenNthCalledWith(
       2,
-      'http://localhost:3001/programs/instance-1/metadata',
+      'http://localhost:3001/api/programs/instance-1/metadata',
       expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({
@@ -168,13 +183,15 @@ describe('flushQueuedMutations', () => {
         }),
       })
     );
+    expectAuthorizationHeader(fetchSpy.mock.calls[1]?.[1], 'mobile-access-token');
     expect(fetchSpy).toHaveBeenNthCalledWith(
       3,
-      'http://localhost:3001/programs/instance-1/results/2/bench-t2',
+      'http://localhost:3001/api/programs/instance-1/results/2/bench-t2',
       expect.objectContaining({
         method: 'DELETE',
       })
     );
+    expectAuthorizationHeader(fetchSpy.mock.calls[2]?.[1], 'mobile-access-token');
     expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([11, 12, 13]);
   });
 
@@ -256,7 +273,7 @@ describe('flushQueuedMutations', () => {
     });
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      'http://localhost:3001/programs/instance-1/results',
+      'http://localhost:3001/api/programs/instance-1/results',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
@@ -305,7 +322,7 @@ describe('flushQueuedMutations', () => {
     });
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      'http://localhost:3001/programs/instance-1/results',
+      'http://localhost:3001/api/programs/instance-1/results',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
@@ -352,7 +369,7 @@ describe('flushQueuedMutations', () => {
     });
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      'http://localhost:3001/programs/instance%2F1%20value/results',
+      'http://localhost:3001/api/programs/instance%2F1%20value/results',
       expect.objectContaining({
         method: 'POST',
       })
@@ -382,14 +399,12 @@ describe('flushQueuedMutations', () => {
     });
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      'http://localhost:3001/programs/instance-1/results/2/bench%2Ft2%20heavy',
+      'http://localhost:3001/api/programs/instance-1/results/2/bench%2Ft2%20heavy',
       expect.objectContaining({
         method: 'DELETE',
-        headers: expect.objectContaining({
-          Authorization: 'Bearer mobile-access-token',
-        }),
       })
     );
+    expectAuthorizationHeader(fetchSpy.mock.calls[0]?.[1], 'mobile-access-token');
     expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([41]);
   });
 
@@ -416,7 +431,7 @@ describe('flushQueuedMutations', () => {
     });
 
     expect(fetchSpy).toHaveBeenCalledWith(
-      'http://localhost:3001/programs/instance-1/results/2/bench-t2',
+      'http://localhost:3001/api/programs/instance-1/results/2/bench-t2',
       expect.objectContaining({
         method: 'DELETE',
       })
@@ -439,13 +454,7 @@ describe('flushQueuedMutations', () => {
         createdAt: '2026-04-20T10:00:00.000Z',
       },
     ]);
-    globalThis.process = {
-      ...originalProcess,
-      env: {
-        ...originalProcess.env,
-        EXPO_PUBLIC_API_URL: 'https://api.example.com/mobile-api',
-      },
-    };
+    process.env.EXPO_PUBLIC_API_URL = 'https://api.example.com/mobile-api';
 
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
     fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 201 }));
@@ -536,22 +545,16 @@ describe('flushQueuedMutations', () => {
     expect(mockedListQueuedMutations).toHaveBeenCalledTimes(2);
     expect(fetchSpy).toHaveBeenNthCalledWith(
       1,
-      'http://localhost:3001/programs/instance-1/results',
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer mobile-access-token',
-        }),
-      })
+      'http://localhost:3001/api/programs/instance-1/results',
+      expect.objectContaining({})
     );
+    expectAuthorizationHeader(fetchSpy.mock.calls[0]?.[1], 'mobile-access-token');
     expect(fetchSpy).toHaveBeenNthCalledWith(
       2,
-      'http://localhost:3001/programs/instance-1/results',
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer rotated-access-token',
-        }),
-      })
+      'http://localhost:3001/api/programs/instance-1/results',
+      expect.objectContaining({})
     );
+    expectAuthorizationHeader(fetchSpy.mock.calls[1]?.[1], 'rotated-access-token');
   });
 
   it('skips ack work when there is nothing queued', async () => {

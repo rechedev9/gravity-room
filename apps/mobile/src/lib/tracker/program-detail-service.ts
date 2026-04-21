@@ -5,38 +5,14 @@ import {
   type ProgramDefinition,
 } from '@gzclp/domain';
 
-import { getAccessToken } from '../auth/session';
+import { buildApiUrl, fetchWithAccessToken, getAccessToken } from '../auth/session';
 
-function getApiBaseUrl(): string {
-  const processLike = Reflect.get(globalThis, 'process');
-  if (typeof processLike !== 'object' || processLike === null) {
-    return 'http://localhost:3001';
-  }
-
-  const envLike = Reflect.get(processLike, 'env');
-  if (typeof envLike !== 'object' || envLike === null) {
-    return 'http://localhost:3001';
-  }
-
-  const configuredBaseUrl = Reflect.get(envLike, 'EXPO_PUBLIC_API_URL');
-  return typeof configuredBaseUrl === 'string' ? configuredBaseUrl : 'http://localhost:3001';
-}
-
-function getAuthorizedHeaders(): { readonly Authorization: string } {
-  const accessToken = getAccessToken();
-  if (!accessToken) {
+export async function fetchProgramDetail(programInstanceId: string): Promise<GenericProgramDetail> {
+  if (!getAccessToken()) {
     throw new Error('Program detail fetch requires an access token');
   }
 
-  return {
-    Authorization: `Bearer ${accessToken}`,
-  };
-}
-
-export async function fetchProgramDetail(programInstanceId: string): Promise<GenericProgramDetail> {
-  const response = await fetch(`${getApiBaseUrl()}/programs/${programInstanceId}`, {
-    headers: getAuthorizedHeaders(),
-  });
+  const { response } = await fetchWithAccessToken(`/programs/${programInstanceId}`);
   if (!response.ok) {
     throw new Error(`Program detail fetch failed with status ${response.status}`);
   }
@@ -45,7 +21,7 @@ export async function fetchProgramDetail(programInstanceId: string): Promise<Gen
 }
 
 export async function fetchProgramDefinition(programId: string): Promise<ProgramDefinition> {
-  const response = await fetch(`${getApiBaseUrl()}/catalog/${programId}`);
+  const response = await fetch(buildApiUrl(`/catalog/${programId}`));
   if (!response.ok) {
     throw new Error(`Program definition fetch failed with status ${response.status}`);
   }

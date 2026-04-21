@@ -133,6 +133,16 @@ cd apps/analytics && uvicorn main:app --reload --port 8000
 
 The web app runs on `http://localhost:5173`, the API on `http://localhost:3001`, and analytics on `http://localhost:8000`.
 
+For the Expo mobile app, set `EXPO_PUBLIC_API_URL` to the API origin and configure the Google OAuth client IDs needed by `apps/mobile`:
+
+- `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`
+- `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`
+- `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
+
+The API also requires `GOOGLE_CLIENT_IDS` to include the same mobile/web client IDs accepted by `/api/auth/mobile/google`.
+
+If you already front the API with a path prefix such as `/mobile-api`, set that full prefixed base in `EXPO_PUBLIC_API_URL`. Otherwise the mobile client defaults to `http://localhost:3001/api/*`.
+
 ## Commands
 
 | Task                               | Command                                           |
