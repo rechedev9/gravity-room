@@ -147,9 +147,9 @@ async function runMigrations(): Promise<void> {
         const idx = parseInt(f.split('_')[0] ?? '', 10);
         return idx <= 31;
       });
-      const journalJson = JSON.parse(
+      const journalJson: { entries: Array<{ tag: string; when: number }> } = JSON.parse(
         await readFile(join(migrationsFolder, 'meta', '_journal.json'), 'utf-8')
-      ) as { entries: Array<{ tag: string; when: number }> };
+      );
       for (const file of gooseEquivalent) {
         const content = await readFile(join(migrationsFolder, file), 'utf-8');
         const hash = createHash('sha256').update(content).digest('hex');

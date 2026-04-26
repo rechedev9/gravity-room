@@ -90,11 +90,6 @@ const mobileRefreshAuthResponseSchema = t.Object({
   user: userProfileResponseSchema,
 });
 
-const authErrorResponseSchema = t.Object({
-  error: t.String(),
-  code: t.String(),
-});
-
 function userResponse(user: UserProfile & { avatarUrl?: string | null }): UserProfile {
   return {
     id: user.id,
