@@ -2,97 +2,94 @@ name: Validate
 
 on:
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
     branches: [main]
-  push:
-    branches: ['**']
 
 concurrency:
-  group: validate-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.sha }}
   cancel-in-progress: true
 
 jobs:
-  web:
+  detect:
     runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.resolve.outputs.web }}
+      api: ${{ steps.resolve.outputs.api }}
+      analytics: ${{ steps.resolve.outputs.analytics }}
+      domain: ${{ steps.filter.outputs.domain }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v5
         with:
-          bun-version: latest
+          fetch-depth: 2
 
-      - uses: actions/cache@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          filters: |
+            workflows:
+              - '.github/workflows/**'
+            web:
+              - 'apps/web/**'
+              - 'packages/domain/**'
+              - 'bun.lock'
+              - 'package.json'
+              - 'tsconfig.base.json'
+              - 'prettier.config.*'
+              - 'eslint.config.*'
+            api:
+              - 'apps/api/**'
+              - 'packages/domain/**'
+              - 'Dockerfile.api'
+              - 'bun.lock'
+              - 'package.json'
+              - 'tsconfig.base.json'
+              - 'prettier.config.*'
+              - 'eslint.config.*'
+            analytics:
+              - 'apps/analytics/**'
+              - 'prettier.config.*'
+            domain:
+              - 'packages/domain/**'
 
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
+      # Resolve final values: force web/api/analytics to true when any workflow file changed
+      - name: Resolve outputs
+        id: resolve
+        run: |
+          WORKFLOWS="${{ steps.filter.outputs.workflows }}"
+          echo "web=$(      [ "$WORKFLOWS" = "true" ] && echo true || echo "${{ steps.filter.outputs.web }}"      )" >> $GITHUB_OUTPUT
+          echo "api=$(      [ "$WORKFLOWS" = "true" ] && echo true || echo "${{ steps.filter.outputs.api }}"      )" >> $GITHUB_OUTPUT
+          echo "analytics=$([ "$WORKFLOWS" = "true" ] && echo true || echo "${{ steps.filter.outputs.analytics }}" )" >> $GITHUB_OUTPUT
 
-      - name: Typecheck
-        run: bun run --filter web typecheck
-
-      - name: Lint
-        run: bun run --filter web lint
-
-      - name: Format check
-        run: bun run format:check
-
-      - name: Test
-        run: bun run --filter web test
-
-      - name: Build
-        run: bun run --filter web build
-        env:
-          VITE_API_URL: http://localhost:3001
+  web:
+    needs: [detect]
+    if: needs.detect.outputs.web == 'true' && github.event.pull_request.draft != true
+    uses: ./.github/workflows/_validate-web.yml
 
   api:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Typecheck
-        run: bun run --filter api typecheck
-
-      - name: Lint
-        run: bun run --filter api lint
-
-      - name: Test
-        run: bun run --filter api test
+    needs: [detect]
+    if: needs.detect.outputs.api == 'true' && github.event.pull_request.draft != true
+    uses: ./.github/workflows/_validate-api.yml
 
   analytics:
+    needs: [detect]
+    if: needs.detect.outputs.analytics == 'true' && github.event.pull_request.draft != true
+    uses: ./.github/workflows/_validate-analytics.yml
+
+  validate:
+    name: 'Validate'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/analytics
+    needs: [detect, web, api, analytics]
+    if: always() && github.event.pull_request.draft != true
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-          cache-dependency-path: apps/analytics/requirements*.txt
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt -r requirements-dev.txt
-
-      - name: Lint
-        run: ruff check .
-
-      - name: Test
-        run: pytest -q
+      - name: Check job results
+        run: |
+          if [[ "${{ needs.web.result }}" == "failure" || "${{ needs.web.result }}" == "cancelled" || \
+                "${{ needs.api.result }}" == "failure" || "${{ needs.api.result }}" == "cancelled" || \
+                "${{ needs.analytics.result }}" == "failure" || "${{ needs.analytics.result }}" == "cancelled" ]]; then
+            echo "One or more validate jobs failed or were cancelled"
+            exit 1
+          fi
+          echo "All validate jobs passed or were skipped"
 
 # ---------------------------------------------------------------------------
 # E2E JOB (DISABLED — uncomment to enable, see TODO below)
@@ -136,13 +133,13 @@ jobs:
 #     VITE_API_URL: http://localhost:3001
 #
 #   steps:
-#     - uses: actions/checkout@v4
+#     - uses: actions/checkout@v5
 #
 #     - uses: oven-sh/setup-bun@v2
 #       with:
 #         bun-version: latest
 #
-#     - uses: actions/cache@v4
+#     - uses: actions/cache@v5
 #       with:
 #         path: ~/.bun/install/cache
 #         key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}

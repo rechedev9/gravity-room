@@ -80,6 +80,15 @@ class TestAnalyzeSlot:
         if result is not None and result["isPlateauing"]:
             assert result["confidence"] <= 0.95
 
+    def test_perfectly_flat_returns_high_confidence(self) -> None:
+        """Flat series must yield isPlateauing=True and confidence >= 0.9 regardless
+        of whether scipy returns NaN or 1.0 as the p-value."""
+        records = _flat_records("squat", n=10)
+        result = _analyze_slot(records)
+        assert result is not None
+        assert result["isPlateauing"] is True
+        assert result["confidence"] >= 0.9
+
 
 class TestComputePerExercise:
     def test_flat_slot_included(self) -> None:

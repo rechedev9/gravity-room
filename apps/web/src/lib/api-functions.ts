@@ -17,6 +17,16 @@ import { InsightItemSchema } from '@gzclp/domain/schemas/insights';
 import { UserResponseSchema, parseUserSafe } from '@gzclp/domain/schemas/user';
 import type { ResultValue, SetLogEntry } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import type { ProgramSummary } from '@gzclp/domain/schemas/program-summary';
+import type { GenericProgramDetail } from '@gzclp/domain/schemas/instance';
+import type { UserInfo } from '@gzclp/domain/schemas/user';
+import type { CatalogEntry } from '@gzclp/domain/schemas/catalog';
+import type {
+  ExerciseEntry,
+  MuscleGroupEntry,
+  PaginatedExercisesResponse,
+} from '@gzclp/domain/schemas/exercises';
+import type { InsightItem } from '@gzclp/domain/schemas/insights';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { z } from 'zod/v4';
 
@@ -116,9 +126,7 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 // ---------------------------------------------------------------------------
 
 /** Fetch all program instances for the current user (first page). */
-export async function fetchPrograms(): Promise<
-  import('@gzclp/domain/schemas/program-summary').ProgramSummary[]
-> {
+export async function fetchPrograms(): Promise<ProgramSummary[]> {
   const data = await apiFetch('/programs');
   // Handle both legacy array response and new paginated { data, nextCursor } shape
   if (Array.isArray(data)) return data.map((item) => ProgramSummarySchema.parse(item));
@@ -132,7 +140,7 @@ export async function createProgram(
   programId: string,
   name: string,
   config: Record<string, number | string>
-): Promise<import('@gzclp/domain/schemas/program-summary').ProgramSummary> {
+): Promise<ProgramSummary> {
   const data = await apiFetch('/programs', {
     method: 'POST',
     body: JSON.stringify({ programId, name, config: { ...config } }),
@@ -155,7 +163,7 @@ export async function updateProgramConfig(
 export async function updateProgramMetadata(
   id: string,
   metadata: Record<string, unknown>
-): Promise<import('@gzclp/domain/schemas/instance').GenericProgramDetail> {
+): Promise<GenericProgramDetail> {
   const data = await apiFetch(`/programs/${encodeURIComponent(id)}/metadata`, {
     method: 'PATCH',
     body: JSON.stringify({ metadata }),
@@ -195,9 +203,7 @@ const ImportPayloadSchema = z.object({
 });
 
 /** Import a program from exported JSON. Throws a ZodError if the payload is invalid. */
-export async function importProgram(
-  data: unknown
-): Promise<import('@gzclp/domain/schemas/program-summary').ProgramSummary> {
+export async function importProgram(data: unknown): Promise<ProgramSummary> {
   ImportPayloadSchema.parse(data);
   const result = await apiFetch('/programs/import', {
     method: 'POST',
@@ -211,7 +217,7 @@ export async function importProgram(
 // ---------------------------------------------------------------------------
 
 /** Fetch the authenticated user's profile. */
-export async function fetchMe(): Promise<import('@gzclp/domain/schemas/user').UserInfo> {
+export async function fetchMe(): Promise<UserInfo> {
   const data = await apiFetch('/auth/me');
   return UserResponseSchema.parse(data);
 }
@@ -220,7 +226,7 @@ export async function fetchMe(): Promise<import('@gzclp/domain/schemas/user').Us
 export async function updateProfile(fields: {
   name?: string;
   avatarUrl?: string | null;
-}): Promise<import('@gzclp/domain/schemas/user').UserInfo> {
+}): Promise<UserInfo> {
   const data = await apiFetch('/auth/me', {
     method: 'PATCH',
     body: JSON.stringify(fields),
@@ -255,9 +261,7 @@ export async function fetchOnlineCount(): Promise<number | null> {
 // ---------------------------------------------------------------------------
 
 /** Fetch a program instance with results in generic slot-keyed format (no legacy conversion). */
-export async function fetchGenericProgramDetail(
-  id: string
-): Promise<import('@gzclp/domain/schemas/instance').GenericProgramDetail> {
+export async function fetchGenericProgramDetail(id: string): Promise<GenericProgramDetail> {
   const data = await apiFetch(`/programs/${encodeURIComponent(id)}`);
   return GenericProgramDetailSchema.parse(data);
 }
@@ -302,9 +306,7 @@ export async function deleteGenericResult(
 // ---------------------------------------------------------------------------
 
 /** Fetch the catalog list of all preset programs (no auth required). */
-export async function fetchCatalogList(): Promise<
-  readonly import('@gzclp/domain/schemas/catalog').CatalogEntry[]
-> {
+export async function fetchCatalogList(): Promise<readonly CatalogEntry[]> {
   const data = await apiFetch('/catalog');
   if (!Array.isArray(data)) return [];
   return data.map((item) => CatalogEntrySchema.parse(item));
@@ -354,16 +356,12 @@ function buildExerciseQueryString(filter?: ExerciseFilter): string {
 // ---------------------------------------------------------------------------
 
 /** Exported for testing — parses a raw API response object into a typed ExerciseEntry. */
-export function parseExerciseEntry(
-  raw: unknown
-): import('@gzclp/domain/schemas/exercises').ExerciseEntry {
+export function parseExerciseEntry(raw: unknown): ExerciseEntry {
   return ExerciseEntrySchema.parse(raw);
 }
 
 /** Fetch exercises visible to the current user, with optional filtering. */
-export async function fetchExercises(
-  filter?: ExerciseFilter
-): Promise<import('@gzclp/domain/schemas/exercises').PaginatedExercisesResponse> {
+export async function fetchExercises(filter?: ExerciseFilter): Promise<PaginatedExercisesResponse> {
   const raw = await apiFetch(`/exercises${buildExerciseQueryString(filter)}`);
   const parsed = PaginatedExercisesResponseSchema.parse(raw);
   return {
@@ -375,9 +373,7 @@ export async function fetchExercises(
 }
 
 /** Fetch all muscle groups (no auth required). */
-export async function fetchMuscleGroups(): Promise<
-  readonly import('@gzclp/domain/schemas/exercises').MuscleGroupEntry[]
-> {
+export async function fetchMuscleGroups(): Promise<readonly MuscleGroupEntry[]> {
   const data = await apiFetch('/muscle-groups');
   if (!Array.isArray(data)) return [];
   return data.map((item) => MuscleGroupEntrySchema.parse(item));
@@ -388,9 +384,7 @@ export async function fetchMuscleGroups(): Promise<
 // ---------------------------------------------------------------------------
 
 /** Fetch pre-computed insights for the current user. */
-export async function fetchInsights(
-  types?: string[]
-): Promise<import('@gzclp/domain/schemas/insights').InsightItem[]> {
+export async function fetchInsights(types?: string[]): Promise<InsightItem[]> {
   const query = types?.length ? `?types=${types.join(',')}` : '';
   const data = await apiFetch(`/insights${query}`);
   if (isRecord(data) && Array.isArray(data.data))

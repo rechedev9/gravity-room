@@ -9,6 +9,7 @@ build
 .idea
 .claude
 .agents
+.weave
 apps/api/drizzle
 **/.venv
 **/.pytest_cache

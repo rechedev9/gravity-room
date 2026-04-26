@@ -167,6 +167,16 @@ function createMockDb(): Record<string, unknown> {
       const tx = createMockTx();
       return await fn(tx);
     }),
+    // Support standalone getDb().select() calls (e.g. getProgramDefinition in catalog.ts).
+    // Returns an empty result set so getProgramDefinition yields { status: 'not_found' },
+    // causing getExpectedSlotCount to return undefined and syncCompletedAt to skip.
+    select: mock(function select() {
+      return {
+        from: mock(function from() {
+          return chainable([]);
+        }),
+      };
+    }),
     // Support standalone touchInstanceTimestamp outside tx
     update: mock(function update() {
       return {
