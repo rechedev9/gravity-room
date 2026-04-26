@@ -8,12 +8,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from queries import WorkoutRecord
 from ml.recommendation import (
     _fallback_recommendation,
     _ml_recommendation,
     compute_per_exercise,
 )
+from queries import WorkoutRecord
 
 
 def _record(
