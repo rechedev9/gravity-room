@@ -32,12 +32,12 @@ jobs:
 
       - name: Test
         id: test
-        timeout-minutes: 10
+        timeout-minutes: 5
         run: |
-          bun run --filter web test > /tmp/web-test-output.txt 2>&1
+          set -o pipefail
+          bun run --filter web test 2>&1 | tee /tmp/web-test-output.txt
           TEST_COUNT=$(grep -oP '\d+(?= (pass|test))' /tmp/web-test-output.txt | head -1 || echo "n/a")
           echo "count=${TEST_COUNT}" >> "$GITHUB_OUTPUT"
-          cat /tmp/web-test-output.txt
 
       - name: Build
         id: build
