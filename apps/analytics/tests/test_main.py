@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from types import ModuleType
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -59,6 +60,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         mock_scheduler.return_value.shutdown = lambda wait: None
 
         import importlib
+
         import main as main_module
         importlib.reload(main_module)
 

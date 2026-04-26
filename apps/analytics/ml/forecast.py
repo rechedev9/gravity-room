@@ -11,7 +11,8 @@ from collections import defaultdict
 from datetime import datetime
 
 import numpy as np
-from scipy.stats import linregress, t as t_dist
+from scipy.stats import linregress
+from scipy.stats import t as t_dist
 
 from insights.e1rm import epley
 from queries import WorkoutRecord

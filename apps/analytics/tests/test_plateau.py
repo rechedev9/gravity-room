@@ -9,8 +9,8 @@ from pathlib import Path
 # Add analytics root to path so imports resolve
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from queries import WorkoutRecord
 from ml.plateau import _analyze_slot, compute_per_exercise
+from queries import WorkoutRecord
 
 
 def _record(slot_id: str, weight: float, days_ago: int, result: str = "success") -> WorkoutRecord:
