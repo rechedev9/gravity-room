@@ -8,7 +8,7 @@
  * fail with 401 simultaneously, only one refresh attempt runs — the others
  * wait for its result.
  */
-import { isRecord } from '@gzclp/shared/type-guards';
+import { isRecord } from '@gzclp/domain/type-guards';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 

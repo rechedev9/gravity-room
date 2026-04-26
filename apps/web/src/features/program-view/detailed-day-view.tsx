@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import type { GenericSlotRow } from '@gzclp/shared/types';
+import type { GenericSlotRow } from '@gzclp/domain/types';
 import type { DayViewProps } from './day-view';
 import { ResultCell } from './result-cell';
 import { AmrapInput } from './amrap-input';

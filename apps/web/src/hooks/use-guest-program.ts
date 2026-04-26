@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { computeGenericProgram } from '@gzclp/shared/generic-engine';
-import { isRecord } from '@gzclp/shared/type-guards';
+import { computeGenericProgram } from '@gzclp/domain/generic-engine';
+import { isRecord } from '@gzclp/domain/type-guards';
 import type {
   ProgramDefinition,
   GenericResults,
   GenericUndoHistory,
-} from '@gzclp/shared/types/program';
-import type { GenericWorkoutRow, ResultValue, SetLogEntry } from '@gzclp/shared/types';
+} from '@gzclp/domain/types/program';
+import type { GenericWorkoutRow, ResultValue, SetLogEntry } from '@gzclp/domain/types';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchCatalogDetail } from '@/lib/api-functions';
 import type { UseProgramReturn } from '@/hooks/use-program';

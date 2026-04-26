@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ResultValue, GenericWorkoutRow } from '@gzclp/shared/types';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
-import { extractGenericChartData, calculateStats } from '@gzclp/shared/generic-stats';
-import { isRecord } from '@gzclp/shared/type-guards';
+import type { ResultValue, GenericWorkoutRow } from '@gzclp/domain/types';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import { extractGenericChartData, calculateStats } from '@gzclp/domain/generic-stats';
+import { isRecord } from '@gzclp/domain/type-guards';
 import { buildGoogleCalendarUrl } from '@/lib/calendar';
 
 interface UseWebMcpOptions {

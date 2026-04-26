@@ -7,7 +7,7 @@ process.env['LOG_LEVEL'] = 'silent';
 
 import { describe, it, expect } from 'bun:test';
 import { hydrateProgramDefinition, type TemplateRow, type ExerciseRow } from './hydrate-program';
-import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
+import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 
 // ---------------------------------------------------------------------------
 // Minimal GZCLP template fixture (matches program-templates-seed.ts shape)

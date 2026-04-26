@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { buildGoogleCalendarUrl } from './calendar';
-import { computeGenericProgram } from '@gzclp/shared/generic-engine';
+import { computeGenericProgram } from '@gzclp/domain/generic-engine';
 import { DEFAULT_WEIGHTS, GZCLP_DEFINITION_FIXTURE } from '../../test/helpers/fixtures';
 
 const DEF = GZCLP_DEFINITION_FIXTURE;

@@ -1,5 +1,5 @@
-import { calculateStats } from '@gzclp/shared/generic-stats';
-import type { ChartDataPoint } from '@gzclp/shared/types';
+import { calculateStats } from '@gzclp/domain/generic-stats';
+import type { ChartDataPoint } from '@gzclp/domain/types';
 import { DashboardCard } from '@/components/dashboard-card';
 import { LineChart } from '@/components/charts/line-chart';
 

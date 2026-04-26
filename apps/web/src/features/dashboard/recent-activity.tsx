@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import type { GenericWorkoutRow } from '@gzclp/shared/types';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
+import type { GenericWorkoutRow } from '@gzclp/domain/types';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import { formatChartDate } from '@/components/charts/chart-theme';
 
 interface RecentActivityProps {

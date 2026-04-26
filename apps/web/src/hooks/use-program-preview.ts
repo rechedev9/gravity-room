@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { computeGenericProgram } from '@gzclp/shared/generic-engine';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
-import type { GenericWorkoutRow } from '@gzclp/shared/types';
+import { computeGenericProgram } from '@gzclp/domain/generic-engine';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import { queryKeys } from '@/lib/query-keys';
 import { fetchCatalogDetail } from '@/lib/api-functions';
 

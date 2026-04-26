@@ -7,12 +7,12 @@ import { getDb } from '../db';
 import { programTemplates, exercises } from '../db/schema';
 import { hydrateProgramDefinition } from '../lib/hydrate-program';
 import { collectExerciseIds } from '../lib/definition-utils';
-import { computeGenericProgram } from '@gzclp/shared/generic-engine';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
-import type { GenericWorkoutRow } from '@gzclp/shared/types';
-import { PROGRAM_LEVELS } from '@gzclp/shared/catalog';
-import type { ProgramLevel } from '@gzclp/shared/catalog';
-import { isRecord } from '@gzclp/shared/type-guards';
+import { computeGenericProgram } from '@gzclp/domain/generic-engine';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import type { GenericWorkoutRow } from '@gzclp/domain/types';
+import { PROGRAM_LEVELS } from '@gzclp/domain/catalog';
+import type { ProgramLevel } from '@gzclp/domain/catalog';
+import { isRecord } from '@gzclp/domain/type-guards';
 import {
   getCachedCatalogList,
   setCachedCatalogList,

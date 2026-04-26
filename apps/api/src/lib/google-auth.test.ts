@@ -21,7 +21,7 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { ApiError } from '../middleware/error-handler';
 
 // We import verifyGoogleToken after setting up env vars.
-import { verifyGoogleToken } from './google-auth';
+import { getMobileGoogleClientIds, verifyGoogleToken } from './google-auth';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -69,6 +69,9 @@ async function generateRsaKeyPair(): Promise<CryptoKeyPair> {
   );
 }
 
+const SHARED_KID = 'test-key-1';
+const sharedKeyPairPromise = generateRsaKeyPair();
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -109,9 +112,8 @@ describe('verifyGoogleToken — JWKS fetch failure', () => {
 describe('verifyGoogleToken — expired token', () => {
   it('4.11: throws ApiError with code AUTH_INVALID and status 401 for expired token', async () => {
     // Arrange: generate RSA key pair and build a JWKS
-    const keyPair = await generateRsaKeyPair();
-    const kid = 'test-key-1';
-    const jwksBody = await buildJwksResponse(kid, keyPair.publicKey);
+    const keyPair = await sharedKeyPairPromise;
+    const jwksBody = await buildJwksResponse(SHARED_KID, keyPair.publicKey);
 
     // Mock fetch to return a valid JWKS
     const mockFetch = mock(
@@ -135,7 +137,7 @@ describe('verifyGoogleToken — expired token', () => {
       exp: Math.floor(Date.now() / 1000) - 3600, // 1 hour in the past
     };
 
-    const token = await signJwt(kid, keyPair.privateKey, expiredPayload);
+    const token = await signJwt(SHARED_KID, keyPair.privateKey, expiredPayload);
 
     // Act
     let thrown: unknown;
@@ -149,5 +151,90 @@ describe('verifyGoogleToken — expired token', () => {
     expect(thrown instanceof ApiError).toBe(true);
     expect((thrown as ApiError).code).toBe('AUTH_INVALID');
     expect((thrown as ApiError).statusCode).toBe(401);
+  });
+});
+
+describe('verifyGoogleToken — multiple audiences', () => {
+  it('accepts an audience listed in GOOGLE_CLIENT_IDS', async () => {
+    process.env['GOOGLE_CLIENT_ID'] = 'web-client-id';
+    process.env['GOOGLE_CLIENT_IDS'] = 'web-client-id,mobile-client-id';
+
+    const keyPair = await sharedKeyPairPromise;
+    const jwksBody = await buildJwksResponse(SHARED_KID, keyPair.publicKey);
+
+    const mockFetch = mock(
+      (): Promise<Response> =>
+        Promise.resolve(
+          new Response(JSON.stringify(jwksBody), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+    );
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const token = await signJwt(SHARED_KID, keyPair.privateKey, {
+      sub: 'user-123',
+      email: 'test@example.com',
+      name: 'Test User',
+      aud: 'mobile-client-id',
+      iss: 'accounts.google.com',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    await expect(verifyGoogleToken(token)).resolves.toEqual({
+      sub: 'user-123',
+      email: 'test@example.com',
+      name: 'Test User',
+    });
+  });
+
+  it('accepts GOOGLE_CLIENT_ID alongside GOOGLE_CLIENT_IDS during staged rollout', async () => {
+    process.env['GOOGLE_CLIENT_ID'] = 'web-client-id';
+    process.env['GOOGLE_CLIENT_IDS'] = 'mobile-client-id';
+
+    const keyPair = await sharedKeyPairPromise;
+    const jwksBody = await buildJwksResponse(SHARED_KID, keyPair.publicKey);
+
+    const mockFetch = mock(
+      (): Promise<Response> =>
+        Promise.resolve(
+          new Response(JSON.stringify(jwksBody), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+    );
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const token = await signJwt(SHARED_KID, keyPair.privateKey, {
+      sub: 'user-456',
+      email: 'web@example.com',
+      name: 'Web User',
+      aud: 'web-client-id',
+      iss: 'accounts.google.com',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    await expect(verifyGoogleToken(token)).resolves.toEqual({
+      sub: 'user-456',
+      email: 'web@example.com',
+      name: 'Web User',
+    });
+  });
+});
+
+describe('getMobileGoogleClientIds', () => {
+  it('throws CONFIGURATION_ERROR when GOOGLE_CLIENT_IDS is unset', () => {
+    const previousMobileClientIds = process.env['GOOGLE_CLIENT_IDS'];
+    delete process.env['GOOGLE_CLIENT_IDS'];
+
+    try {
+      expect(() => getMobileGoogleClientIds()).toThrow(
+        new ApiError(500, 'GOOGLE_CLIENT_IDS env var must be set', 'CONFIGURATION_ERROR')
+      );
+    } finally {
+      process.env['GOOGLE_CLIENT_IDS'] = previousMobileClientIds;
+    }
   });
 });

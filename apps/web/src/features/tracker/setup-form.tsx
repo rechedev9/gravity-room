@@ -5,7 +5,7 @@ import { z } from 'zod/v4';
 import { useTranslation } from 'react-i18next';
 import { captureError } from '@/lib/sentry';
 import { groupByConsecutive } from '@/lib/group-by-consecutive';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { SelectField } from '@/components/select-field';
 import { localizedProgramName } from '@/lib/catalog-display';

@@ -1,0 +1,32 @@
+{
+  "name": "@gzclp/domain",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "zod": "^4.3.6"
+  },
+  "scripts": {
+    "test": "bun test src",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./catalog": "./src/catalog.ts",
+    "./generic-engine": "./src/generic-engine.ts",
+    "./generic-stats": "./src/generic-stats.ts",
+    "./graduation": "./src/graduation.ts",
+    "./type-guards": "./src/type-guards.ts",
+    "./schemas/catalog": "./src/schemas/catalog.ts",
+    "./schemas/exercises": "./src/schemas/exercises.ts",
+    "./schemas/insights": "./src/schemas/insights.ts",
+    "./schemas/instance": "./src/schemas/instance.ts",
+    "./schemas/program-definition": "./src/schemas/program-definition.ts",
+    "./schemas/program-definition-response": "./src/schemas/program-definition-response.ts",
+    "./schemas/program-summary": "./src/schemas/program-summary.ts",
+    "./schemas/user": "./src/schemas/user.ts",
+    "./schemas/workout-rows": "./src/schemas/workout-rows.ts",
+    "./types": "./src/types/index.ts",
+    "./types/program": "./src/types/program.ts"
+  }
+}

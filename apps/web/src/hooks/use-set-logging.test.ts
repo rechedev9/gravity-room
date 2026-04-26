@@ -1,8 +1,8 @@
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { renderHook, act } from '@testing-library/react';
 import { useSetLogging } from './use-set-logging';
-import type { GenericWorkoutRow, SetLogEntry } from '@gzclp/shared/types';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
+import type { GenericWorkoutRow, SetLogEntry } from '@gzclp/domain/types';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import { GZCLP_DEFINITION_FIXTURE } from '../../test/helpers/fixtures';
 
 // ---------------------------------------------------------------------------

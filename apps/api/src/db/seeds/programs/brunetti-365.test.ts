@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { BRUNETTI365_EXP_DEFINITION_JSONB, BRUNETTI365_DEFINITION_JSONB } from './brunetti-365';
-import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
+import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 
 // ---------------------------------------------------------------------------
 // Helpers — find JAW test slots by day name pattern

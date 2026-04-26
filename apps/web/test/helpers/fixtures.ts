@@ -1,4 +1,4 @@
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 
 /**
  * GZCLP definition fixture for web tests.
@@ -242,7 +242,7 @@ export const DEFAULT_WEIGHTS: Record<string, number> = {
 // Generic (slot-keyed) test helpers
 // ---------------------------------------------------------------------------
 
-import type { GenericResults } from '@gzclp/shared/types/program';
+import type { GenericResults } from '@gzclp/domain/types/program';
 
 /** Map day index → slot IDs for GZCLP (4-day rotation). */
 export const GZCLP_DAY_SLOTS: Readonly<Record<number, { t1: string; t2: string; t3: string }>> = {

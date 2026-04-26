@@ -1,4 +1,4 @@
-import { isRecord } from '@gzclp/shared/type-guards';
+import { isRecord } from '@gzclp/domain/type-guards';
 
 /**
  * Collects all unique exercise IDs referenced in a definition JSONB —

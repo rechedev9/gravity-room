@@ -8,7 +8,7 @@
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { exercises } from '../schema';
 import type * as schema from '../schema';
-import { isRecord } from '@gzclp/shared/type-guards';
+import { isRecord } from '@gzclp/domain/type-guards';
 import rawData from './data/exercises-expanded.json';
 
 type DbClient = PostgresJsDatabase<typeof schema>;

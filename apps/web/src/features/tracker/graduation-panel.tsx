@@ -1,6 +1,6 @@
-import type { GraduationTarget, GraduationState } from '@gzclp/shared/graduation';
+import type { GraduationTarget, GraduationState } from '@gzclp/domain/graduation';
 import { useTranslation } from 'react-i18next';
-import { computeEpley1RM } from '@gzclp/shared/graduation';
+import { computeEpley1RM } from '@gzclp/domain/graduation';
 
 interface GraduationPanelProps {
   readonly targets: readonly GraduationTarget[];

@@ -11,13 +11,14 @@
  * The spec is fetched from http://localhost:3001/swagger/json.
  *
  * The generated schemas are NOT imported by app code. Our hand-written schemas
- * in lib/shared/schemas/ are more precisely typed and include coercive defaults.
+ * in @gzclp/domain/schemas/* are more precisely typed and include coercive defaults.
  * The generated file is the reference layer that proves the hand-written schemas
  * track the real API contract.
  */
 import { $ } from 'bun';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { buildGeneratedArtifact } from './generate-api-types-lib';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const specUrl = process.env.API_SPEC_URL ?? 'http://localhost:3001/swagger/json';
@@ -38,20 +39,8 @@ await Bun.write(tmpSpecPath, await res.text());
 // Run openapi-zod-client
 await $`bunx openapi-zod-client ${tmpSpecPath} --output ${tmpPath} --export-schemas --all-readonly`;
 
-let content = await Bun.file(tmpPath).text();
-
-// Fix: use zod/v4 (project standard) instead of zod
-content = content.replace(/from 'zod'/g, "from 'zod/v4'");
-
-// Strip Zodios client code — we only want the schema declarations
-content = content.replace(
-  /^import \{ makeApi, Zodios, type ZodiosOptions \} from '@zodios\/core';\n/m,
-  ''
-);
-const endpointsIdx = content.indexOf('\nconst endpoints =');
-if (endpointsIdx !== -1) {
-  content = content.slice(0, endpointsIdx).trimEnd() + '\n';
-}
+const rawContent = await Bun.file(tmpPath).text();
+const content = buildGeneratedArtifact(rawContent);
 
 // Add header comment
 const header = [
@@ -64,7 +53,7 @@ const header = [
   ' *   bun run api:types && git diff --exit-code src/lib/api/generated.ts',
   ' *',
   ' * DO NOT import from this file in application code.',
-  ' * Use the hand-written schemas in lib/shared/schemas/ instead.',
+  ' * Use the hand-written schemas in @gzclp/domain/schemas/* instead.',
   ' */',
   '',
 ].join('\n');

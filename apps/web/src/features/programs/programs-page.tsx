@@ -10,8 +10,8 @@ import { useTracker } from '@/contexts/tracker-context';
 import { useNavigate } from '@tanstack/react-router';
 import { ProgramCard } from './program-card';
 import { Button } from '@/components/button';
-import { PROGRAM_LEVELS } from '@gzclp/shared/catalog';
-import type { ProgramLevel } from '@gzclp/shared/catalog';
+import { PROGRAM_LEVELS } from '@gzclp/domain/catalog';
+import type { ProgramLevel } from '@gzclp/domain/catalog';
 import { StaggerContainer, StaggerItem, fadeUpFastVariants } from '@/lib/motion-primitives';
 
 const LEVEL_LABEL_KEYS: Readonly<Record<ProgramLevel, string>> = {

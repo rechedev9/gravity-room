@@ -9,7 +9,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from 'recharts';
-import type { VolumeDataPoint } from '@gzclp/shared/types';
+import type { VolumeDataPoint } from '@gzclp/domain/types';
 import { getChartTheme, formatChartDate } from './chart-theme';
 import { formatVolLabel, VolumeTooltip } from './volume-tooltip';
 

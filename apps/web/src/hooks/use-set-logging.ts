@@ -2,9 +2,9 @@ import { useCallback, useRef, useState } from 'react';
 import {
   deriveResultFromSetLogs,
   deriveResultFromSetLogsSimple,
-} from '@gzclp/shared/generic-engine';
-import type { GenericWorkoutRow, ResultValue, SetLogEntry } from '@gzclp/shared/types';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
+} from '@gzclp/domain/generic-engine';
+import type { GenericWorkoutRow, ResultValue, SetLogEntry } from '@gzclp/domain/types';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 
 // ---------------------------------------------------------------------------
 // Types

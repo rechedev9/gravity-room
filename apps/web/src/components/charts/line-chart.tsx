@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   type DotProps,
 } from 'recharts';
-import type { ChartDataPoint } from '@gzclp/shared/types';
+import type { ChartDataPoint } from '@gzclp/domain/types';
 import { getChartTheme, formatChartDate } from './chart-theme';
 
 const MAX_LABELS = 6;

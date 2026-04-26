@@ -52,6 +52,9 @@ gravity-room/
 │       ├── insights/         ← Derived analytics payload builders
 │       ├── ml/               ← Forecast / plateau / recommendation logic
 │       └── tests/            ← Python tests for analytics logic
+├── packages/
+│   └── domain/               ← Shared domain package for engine, schemas and types
+│       └── src/              ← Imported by web and api via @gzclp/domain/*
 ├── scripts/
 │   ├── committer             ← Safe commit helper (Conventional Commits)
 │   ├── docs-list.ts          ← Docs index and read_when hints
@@ -99,7 +102,7 @@ Analytics service (FastAPI, port 8000)
 
 - **Bun runtime** — the API runs on Bun with ElysiaJS. Drizzle ORM handles database access and migrations. Seeds are run on startup via `bootstrap.ts`.
 - **Auto-migrations on startup** — Drizzle migrator runs pending migrations before accepting traffic. Zero-touch schema updates on deploy.
-- **Progression engine** — the API and frontend share the authoritative progression engine via `apps/web/src/lib/shared/` (resolved through tsconfig path alias `@gzclp/shared/*`).
+- **Progression engine** — the API and frontend share the authoritative progression engine via `packages/domain/`, imported through the workspace package `@gzclp/domain/*`.
 - **Feature-first frontend** — route-owned screens and domain UI now live under `apps/web/src/features/`, while `components/` is reserved for shared UI and root app scaffolding.
 
 ## Getting started
@@ -130,29 +133,40 @@ cd apps/analytics && uvicorn main:app --reload --port 8000
 
 The web app runs on `http://localhost:5173`, the API on `http://localhost:3001`, and analytics on `http://localhost:8000`.
 
+For the Expo mobile app, set `EXPO_PUBLIC_API_URL` to the API origin and configure the Google OAuth client IDs needed by `apps/mobile`:
+
+- `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`
+- `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`
+- `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
+
+The API also requires `GOOGLE_CLIENT_IDS` to include the same mobile/web client IDs accepted by `/api/auth/mobile/google`.
+
+If you already front the API with a path prefix such as `/mobile-api`, set that full prefixed base in `EXPO_PUBLIC_API_URL`. Otherwise the mobile client defaults to `http://localhost:3001/api/*`.
+
 ## Commands
 
-| Task              | Command                                           |
-| ----------------- | ------------------------------------------------- |
-| Dev (web)         | `bun run dev:web`                                 |
-| Dev (API)         | `bun run dev:api`                                 |
-| Dev (analytics)   | `cd apps/analytics && uvicorn main:app --reload`  |
-| Build (web)       | `bun run build:web`                               |
-| Type check (web)  | `bun run typecheck`                               |
-| Type check (API)  | `bun run typecheck:api`                           |
-| Lint (TS)         | `bun run lint`                                    |
-| Test (analytics)  | `cd apps/analytics && pytest`                     |
-| Format check      | `bun run format:check`                            |
-| Tests (TS unit)   | `bun run test`                                    |
-| Tests (API unit)  | `bun run test:api`                                |
-| E2E tests         | `bun run e2e`                                     |
-| E2E (headed)      | `bun run e2e:headed`                              |
-| Load test         | `k6 run scripts/loadtest.js`                      |
-| Load test (smoke) | `k6 run scripts/loadtest.js --env SCENARIO=smoke` |
-| Docker build      | `docker compose build`                            |
-| Docker up         | `docker compose up -d`                            |
-| Deploy history    | `scripts/deploy-log.sh list`                      |
-| Rollback          | `scripts/rollback.sh [--force] <sha>`             |
+| Task                               | Command                                           |
+| ---------------------------------- | ------------------------------------------------- |
+| Dev (web)                          | `bun run dev:web`                                 |
+| Dev (API)                          | `bun run dev:api`                                 |
+| Dev (analytics)                    | `cd apps/analytics && uvicorn main:app --reload`  |
+| Build (web)                        | `bun run build:web`                               |
+| Type check (web + domain + mobile) | `bun run typecheck`                               |
+| Type check (API)                   | `bun run typecheck:api`                           |
+| Type check (domain)                | `bun run typecheck:domain`                        |
+| Lint (TS)                          | `bun run lint`                                    |
+| Test (analytics)                   | `cd apps/analytics && pytest`                     |
+| Format check                       | `bun run format:check`                            |
+| Tests (workspace TS unit)          | `bun run test`                                    |
+| Tests (API unit)                   | `bun run test:api`                                |
+| E2E tests                          | `bun run e2e`                                     |
+| E2E (headed)                       | `bun run e2e:headed`                              |
+| Load test                          | `k6 run scripts/loadtest.js`                      |
+| Load test (smoke)                  | `k6 run scripts/loadtest.js --env SCENARIO=smoke` |
+| Docker build                       | `docker compose build`                            |
+| Docker up                          | `docker compose up -d`                            |
+| Deploy history                     | `scripts/deploy-log.sh list`                      |
+| Rollback                           | `scripts/rollback.sh [--force] <sha>`             |
 
 ## Docs
 

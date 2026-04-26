@@ -3,8 +3,8 @@ import {
   computeGraduationTargets,
   type GraduationState,
   type GraduationTarget,
-} from '@gzclp/shared/graduation';
-import { isRecord } from '@gzclp/shared/type-guards';
+} from '@gzclp/domain/graduation';
+import { isRecord } from '@gzclp/domain/type-guards';
 
 interface UseGraduationOptions {
   readonly definition: { readonly displayMode?: string } | undefined;

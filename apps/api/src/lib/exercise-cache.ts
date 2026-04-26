@@ -5,7 +5,7 @@
  */
 import { getRedis } from './redis';
 import { logger } from './logger';
-import { isRecord } from '@gzclp/shared/type-guards';
+import { isRecord } from '@gzclp/domain/type-guards';
 import type { ExerciseEntry, PaginatedExercises } from '../services/exercises';
 
 // ---------------------------------------------------------------------------

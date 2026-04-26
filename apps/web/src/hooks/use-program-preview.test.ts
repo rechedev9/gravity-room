@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { buildDefaultConfig } from './use-program-preview';
-import type { ProgramDefinition } from '@gzclp/shared/types/program';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 
 // ---------------------------------------------------------------------------
 // Type alias for config fields (avoids verbose inline types)

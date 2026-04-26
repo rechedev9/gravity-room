@@ -15,7 +15,7 @@
 
 import { describe, it, expect } from 'bun:test';
 import { generateProgramCsv } from './csv-export';
-import type { GenericWorkoutRow, ResultValue } from '@gzclp/shared/types';
+import type { GenericWorkoutRow, ResultValue } from '@gzclp/domain/types';
 
 // ---------------------------------------------------------------------------
 // Fixture helpers

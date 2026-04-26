@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { setAccessToken, refreshAccessToken } from '@/lib/api';
 import { apiFetch, fetchMe, parseUserSafe } from '@/lib/api-functions';
 import type { UserInfo } from '@/lib/api-functions';
-import { isRecord } from '@gzclp/shared/type-guards';
+import { isRecord } from '@gzclp/domain/type-guards';
 import { setUser as sentrySetUser } from '@/lib/sentry';
 import { trackEvent } from '@/lib/analytics';
 import { queryKeys } from '@/lib/query-keys';

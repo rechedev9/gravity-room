@@ -2,12 +2,57 @@
  * Google ID token verification using Web Crypto + JWKS (RS256).
  * No google-auth-library dependency — pure Web Crypto API.
  */
-import { isRecord } from '@gzclp/shared/type-guards';
+import { isRecord } from '@gzclp/domain/type-guards';
 import { ApiError } from '../middleware/error-handler';
 
 const JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+interface VerifyGoogleTokenOptions {
+  readonly allowedClientIds?: readonly string[];
+}
+
+function getAllowedGoogleClientIds(): string[] {
+  const clientIds = process.env['GOOGLE_CLIENT_IDS']
+    ?.split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  const clientId = process.env['GOOGLE_CLIENT_ID']?.trim();
+  const allowedClientIds = new Set<string>(clientIds);
+
+  if (clientId) {
+    allowedClientIds.add(clientId);
+  }
+
+  if (allowedClientIds.size === 0) {
+    throw new ApiError(500, 'GOOGLE_CLIENT_ID env var must be set', 'CONFIGURATION_ERROR');
+  }
+
+  return [...allowedClientIds];
+}
+
+export function getWebGoogleClientId(): string {
+  const clientId = process.env['GOOGLE_CLIENT_ID']?.trim();
+  if (!clientId) {
+    throw new ApiError(500, 'GOOGLE_CLIENT_ID env var must be set', 'CONFIGURATION_ERROR');
+  }
+  return clientId;
+}
+
+export function getMobileGoogleClientIds(): string[] {
+  const clientIds = process.env['GOOGLE_CLIENT_IDS']
+    ?.split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  if (clientIds && clientIds.length > 0) {
+    return [...new Set(clientIds)];
+  }
+
+  throw new ApiError(500, 'GOOGLE_CLIENT_IDS env var must be set', 'CONFIGURATION_ERROR');
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -109,10 +154,13 @@ async function fetchGoogleCerts(): Promise<GoogleJwk[]> {
 // ---------------------------------------------------------------------------
 
 /** Verifies a Google ID token (RS256) against Google's JWKS. */
-export async function verifyGoogleToken(credential: string): Promise<GoogleTokenPayload> {
-  const clientId = process.env['GOOGLE_CLIENT_ID'];
-  if (!clientId)
-    throw new ApiError(500, 'GOOGLE_CLIENT_ID env var must be set', 'CONFIGURATION_ERROR');
+export async function verifyGoogleToken(
+  credential: string,
+  options?: VerifyGoogleTokenOptions
+): Promise<GoogleTokenPayload> {
+  const allowedClientIds = options?.allowedClientIds?.length
+    ? [...options.allowedClientIds]
+    : getAllowedGoogleClientIds();
 
   const parts = credential.split('.');
   if (parts.length !== 3)
@@ -165,7 +213,9 @@ export async function verifyGoogleToken(credential: string): Promise<GoogleToken
   }
 
   const audiences = Array.isArray(rawPayload.aud) ? rawPayload.aud : [rawPayload.aud];
-  if (!audiences.includes(clientId)) throw new ApiError(401, 'Invalid audience', 'AUTH_INVALID');
+  if (!audiences.some((audience) => allowedClientIds.includes(audience))) {
+    throw new ApiError(401, 'Invalid audience', 'AUTH_INVALID');
+  }
 
   return {
     sub: rawPayload.sub,

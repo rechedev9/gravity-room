@@ -23,7 +23,11 @@ import {
   softDeleteUser,
   REFRESH_TOKEN_DAYS,
 } from '../services/auth';
-import { verifyGoogleToken } from '../lib/google-auth';
+import {
+  getMobileGoogleClientIds,
+  getWebGoogleClientId,
+  verifyGoogleToken,
+} from '../lib/google-auth';
 import { sendTelegramMessage } from '../lib/telegram';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
@@ -67,8 +71,37 @@ interface UserProfile {
   readonly avatarUrl: string | null;
 }
 
-function userResponse(user: UserProfile): UserProfile {
-  return { id: user.id, email: user.email, name: user.name, avatarUrl: user.avatarUrl };
+const userProfileResponseSchema = t.Object({
+  id: t.String(),
+  email: t.String({ format: 'email' }),
+  name: t.Nullable(t.String()),
+  avatarUrl: t.Nullable(t.String()),
+});
+
+const mobileGoogleAuthResponseSchema = t.Object({
+  user: userProfileResponseSchema,
+  accessToken: t.String(),
+  refreshToken: t.String(),
+});
+
+const mobileRefreshAuthResponseSchema = t.Object({
+  accessToken: t.String(),
+  refreshToken: t.String(),
+  user: userProfileResponseSchema,
+});
+
+const authErrorResponseSchema = t.Object({
+  error: t.String(),
+  code: t.String(),
+});
+
+function userResponse(user: UserProfile & { avatarUrl?: string | null }): UserProfile {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    avatarUrl: user.avatarUrl ?? null,
+  };
 }
 
 /** Signs a JWT, creates a refresh token, and sets the cookie in one step. */
@@ -90,6 +123,85 @@ async function issueTokens(
   return { accessToken };
 }
 
+async function issueMobileTokens(
+  jwt: { sign: (payload: { sub: string; email?: string; exp: string }) => Promise<string> },
+  user: { id: string; email?: string }
+): Promise<{ accessToken: string; refreshToken: string }> {
+  const [accessToken, refreshToken] = await Promise.all([
+    jwt.sign({
+      sub: user.id,
+      ...(user.email ? { email: user.email } : {}),
+      exp: ACCESS_TOKEN_EXPIRY,
+    }),
+    createAndStoreRefreshToken(user.id),
+  ]);
+
+  return { accessToken, refreshToken };
+}
+
+async function refreshAuthToken(
+  jwt: { sign: (payload: { sub: string; email?: string; exp: string }) => Promise<string> },
+  reqLogger: {
+    warn: (context: Record<string, unknown>, message: string) => void;
+    info: (context: Record<string, unknown>, message: string) => void;
+  },
+  refreshToken: string,
+  onInvalidatedToken?: () => void
+): Promise<{ accessToken: string; refreshToken: string; user: UserProfile }> {
+  const tokenHash = await hashToken(refreshToken);
+  const stored = await findRefreshToken(tokenHash);
+
+  if (!stored) {
+    const successor = await findRefreshTokenByPreviousHash(tokenHash);
+    if (successor) {
+      reqLogger.warn(
+        { event: 'auth.token_reuse_detected', userId: successor.userId },
+        'refresh token reuse detected — revoking all user sessions'
+      );
+      await revokeAllUserTokens(successor.userId);
+    }
+    throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
+  }
+
+  if (stored.expiresAt < new Date()) {
+    await revokeRefreshToken(tokenHash);
+    onInvalidatedToken?.();
+    throw new ApiError(401, 'Refresh token expired', 'AUTH_REFRESH_EXPIRED');
+  }
+
+  const user = await findUserById(stored.userId);
+  if (!user) {
+    await revokeRefreshToken(tokenHash);
+    onInvalidatedToken?.();
+    throw new ApiError(401, 'Account has been deleted', 'AUTH_ACCOUNT_DELETED');
+  }
+
+  await revokeRefreshToken(tokenHash);
+  const newRefreshToken = await createAndStoreRefreshToken(stored.userId, tokenHash);
+
+  const accessToken = await jwt.sign({
+    sub: stored.userId,
+    exp: ACCESS_TOKEN_EXPIRY,
+  });
+
+  reqLogger.info({ event: 'auth.refresh', userId: stored.userId }, 'token refreshed');
+
+  return {
+    accessToken,
+    refreshToken: newRefreshToken,
+    user: userResponse(user),
+  };
+}
+
+async function signOutWithRefreshToken(refreshToken: unknown): Promise<void> {
+  if (!refreshToken || typeof refreshToken !== 'string') {
+    return;
+  }
+
+  const tokenHash = await hashToken(refreshToken);
+  await revokeRefreshToken(tokenHash);
+}
+
 const authSecurity = [{ bearerAuth: [] }];
 
 export const authRoutes = new Elysia({ prefix: '/auth' })
@@ -103,10 +215,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     '/google',
     async ({ jwt, body, cookie, set, reqLogger, ip, request }) => {
       await rateLimit(ip, '/auth/google', { maxRequests: 10 });
+      const webClientId = getWebGoogleClientId();
 
       let googlePayload: Awaited<ReturnType<typeof verifyGoogleToken>>;
       try {
-        googlePayload = await verifyGoogleToken(body.credential);
+        googlePayload = await verifyGoogleToken(body.credential, {
+          allowedClientIds: [webClientId],
+        });
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'Google token verification failed');
         throw new ApiError(401, 'Invalid Google credential', 'AUTH_GOOGLE_INVALID');
@@ -143,6 +258,72 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           401: { description: 'Invalid or expired Google credential' },
           429: { description: 'Rate limited' },
         },
+      },
+    }
+  )
+
+  .post(
+    '/mobile/google',
+    async ({ jwt, body, set, reqLogger, ip, request }) => {
+      await rateLimit(ip, '/auth/mobile/google', { maxRequests: 10 });
+
+      let googlePayload: Awaited<ReturnType<typeof verifyGoogleToken>>;
+      try {
+        googlePayload = await verifyGoogleToken(body.credential, {
+          allowedClientIds: getMobileGoogleClientIds(),
+        });
+      } catch (e: unknown) {
+        reqLogger.warn({ err: e }, 'Google token verification failed');
+        if (e instanceof ApiError) throw e;
+        throw new ApiError(401, 'Invalid Google credential', 'AUTH_GOOGLE_INVALID');
+      }
+
+      const { user, isNewUser } = await findOrCreateGoogleUser(
+        googlePayload.sub,
+        googlePayload.email,
+        googlePayload.name
+      );
+      const tokens = await issueMobileTokens(jwt, user);
+
+      if (isNewUser) {
+        const userAgent = request.headers.get('user-agent') ?? undefined;
+        const deviceType = classifyDevice(userAgent);
+        const timestamp = new Date().toISOString();
+        const text = `New user: ${user.email} | ${deviceType} | ${timestamp}`;
+        void sendTelegramMessage(text);
+      }
+
+      reqLogger.info(
+        { event: 'auth.mobile_google', userId: user.id, isNewUser },
+        'mobile google sign-in'
+      );
+      set.status = 200;
+      return { user: userResponse(user), ...tokens };
+    },
+    {
+      body: t.Object({ credential: t.String({ minLength: 1 }) }),
+      response: {
+        200: mobileGoogleAuthResponseSchema,
+        401: t.Object(
+          { error: t.String(), code: t.String() },
+          { description: 'Invalid or expired Google credential' }
+        ),
+        403: t.Object({ error: t.String(), code: t.String() }, { description: 'Account deleted' }),
+        429: t.Object({ error: t.String(), code: t.String() }, { description: 'Rate limited' }),
+        500: t.Object(
+          { error: t.String(), code: t.String() },
+          { description: 'Internal or configuration error' }
+        ),
+        503: t.Object(
+          { error: t.String(), code: t.String() },
+          { description: 'Google JWKS unavailable' }
+        ),
+      },
+      detail: {
+        tags: ['Auth'],
+        summary: 'Sign in with Google for mobile clients',
+        description:
+          'Verifies a Google ID token, finds or creates the user, and returns both access and refresh tokens in the response body.',
       },
     }
   )
@@ -191,50 +372,12 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         throw new ApiError(401, 'No refresh token', 'AUTH_NO_REFRESH_TOKEN');
       }
 
-      const tokenHash = await hashToken(tokenValue);
-      const stored = await findRefreshToken(tokenHash);
-
-      if (!stored) {
-        // Token not found — check if it was already rotated (indicates possible theft)
-        const successor = await findRefreshTokenByPreviousHash(tokenHash);
-        if (successor) {
-          // A live token claims this as its predecessor → the old token was reused.
-          // Revoke all sessions for this user as a precaution.
-          reqLogger.warn(
-            { event: 'auth.token_reuse_detected', userId: successor.userId },
-            'refresh token reuse detected — revoking all user sessions'
-          );
-          await revokeAllUserTokens(successor.userId);
-        }
-        throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
-      }
-
-      if (stored.expiresAt < new Date()) {
-        await revokeRefreshToken(tokenHash);
+      const refreshed = await refreshAuthToken(jwt, reqLogger, tokenValue, () => {
         refreshCookie.remove();
-        throw new ApiError(401, 'Refresh token expired', 'AUTH_REFRESH_EXPIRED');
-      }
-
-      const user = await findUserById(stored.userId);
-      if (!user) {
-        await revokeRefreshToken(tokenHash);
-        refreshCookie.remove();
-        throw new ApiError(401, 'Account has been deleted', 'AUTH_ACCOUNT_DELETED');
-      }
-
-      // Rotate: revoke old token, issue new one — pass hash so successor can detect reuse
-      await revokeRefreshToken(tokenHash);
-      const newRefreshToken = await createAndStoreRefreshToken(stored.userId, tokenHash);
-
-      const accessToken = await jwt.sign({
-        sub: stored.userId,
-        exp: ACCESS_TOKEN_EXPIRY,
       });
 
-      refreshCookie.set({ value: newRefreshToken, ...REFRESH_COOKIE_OPTIONS });
-
-      reqLogger.info({ event: 'auth.refresh', userId: stored.userId }, 'token refreshed');
-      return { accessToken };
+      refreshCookie.set({ value: refreshed.refreshToken, ...REFRESH_COOKIE_OPTIONS });
+      return { accessToken: refreshed.accessToken };
     },
     {
       detail: {
@@ -251,6 +394,37 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     }
   )
 
+  .post(
+    '/mobile/refresh',
+    async ({ jwt, body, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/mobile/refresh', IS_PRODUCTION ? undefined : { maxRequests: 500 });
+
+      if (!body.refreshToken || body.refreshToken.length === 0) {
+        throw new ApiError(401, 'No refresh token', 'AUTH_NO_REFRESH_TOKEN');
+      }
+
+      const refreshed = await refreshAuthToken(jwt, reqLogger, body.refreshToken);
+      return refreshed;
+    },
+    {
+      body: t.Object({ refreshToken: t.Optional(t.String()) }),
+      response: {
+        200: mobileRefreshAuthResponseSchema,
+        401: t.Object(
+          { error: t.String(), code: t.String() },
+          { description: 'Missing, invalid, expired, or reused refresh token' }
+        ),
+        429: t.Object({ error: t.String(), code: t.String() }, { description: 'Rate limited' }),
+      },
+      detail: {
+        tags: ['Auth'],
+        summary: 'Refresh mobile auth tokens',
+        description:
+          'Rotates the mobile refresh token and returns a new access token, refresh token, and current user profile in the response body.',
+      },
+    }
+  )
+
   // -----------------------------------------------------------------------
   // POST /auth/signout
   // -----------------------------------------------------------------------
@@ -260,12 +434,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       await rateLimit(ip, '/auth/signout');
 
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
-      const tokenValue = refreshCookie?.value;
-
-      if (tokenValue && typeof tokenValue === 'string') {
-        const tokenHash = await hashToken(tokenValue);
-        await revokeRefreshToken(tokenHash);
-      }
+      await signOutWithRefreshToken(refreshCookie?.value);
 
       refreshCookie?.remove();
       reqLogger.info({ event: 'auth.signout' }, 'user signed out');
@@ -280,6 +449,29 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           204: { description: 'Signed out successfully' },
           429: { description: 'Rate limited' },
         },
+      },
+    }
+  )
+
+  .post(
+    '/mobile/signout',
+    async ({ body, set, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/mobile/signout');
+
+      await signOutWithRefreshToken(body.refreshToken);
+
+      reqLogger.info({ event: 'auth.mobile_signout' }, 'mobile user signed out');
+      set.status = 204;
+    },
+    {
+      body: t.Object({ refreshToken: t.Optional(t.String()) }),
+      response: {
+        429: t.Object({ error: t.String(), code: t.String() }, { description: 'Rate limited' }),
+      },
+      detail: {
+        tags: ['Auth'],
+        summary: 'Sign out mobile client',
+        description: 'Revokes the provided refresh token when present.',
       },
     }
   )

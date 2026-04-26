@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { detectGenericPersonalRecord } from './pr-detection';
-import type { GenericWorkoutRow, GenericSlotRow } from '@gzclp/shared/types';
+import type { GenericWorkoutRow, GenericSlotRow } from '@gzclp/domain/types';
 
 // ---------------------------------------------------------------------------
 // Helpers — minimal row factories

@@ -1,10 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["esnext"],
-    "paths": {
-      "@gzclp/shared/*": ["../web/src/lib/shared/*"]
-    }
+    "lib": ["esnext"]
   },
   "include": ["src/**/*.ts", "drizzle.config.ts"],
   "exclude": ["node_modules"]

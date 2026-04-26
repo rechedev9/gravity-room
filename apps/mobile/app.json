@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Gravity Room",
+    "slug": "gravity-room-mobile",
+    "scheme": "gravity-room-mobile",
+    "android": {
+      "package": "com.gravityroom.mobile"
+    },
+    "plugins": ["expo-sqlite", "expo-secure-store", "expo-web-browser"]
+  }
+}

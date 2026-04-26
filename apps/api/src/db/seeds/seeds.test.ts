@@ -12,7 +12,7 @@
 process.env['LOG_LEVEL'] = 'silent';
 
 import { describe, it, expect } from 'bun:test';
-import { ProgramDefinitionSchema } from '@gzclp/shared/schemas/program-definition';
+import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import { SHEIKO_7_1_DEFINITION } from './programs/sheiko-7-1';
 import { SHEIKO_7_2_DEFINITION } from './programs/sheiko-7-2';
 import { SHEIKO_7_3_DEFINITION } from './programs/sheiko-7-3';

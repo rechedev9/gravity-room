@@ -1,6 +1,6 @@
 import { Suspense, useMemo, useState, useTransition } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ResultValue } from '@gzclp/shared/types';
+import type { ResultValue } from '@gzclp/domain/types';
 import { useProgram } from '@/hooks/use-program';
 import { useGuestProgram } from '@/hooks/use-guest-program';
 import { useSetLogging } from '@/hooks/use-set-logging';

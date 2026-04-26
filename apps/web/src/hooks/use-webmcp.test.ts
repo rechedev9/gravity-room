@@ -1,9 +1,9 @@
 import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test';
 import { renderHook } from '@testing-library/react';
 import { useWebMcp } from './use-webmcp';
-import { computeGenericProgram } from '@gzclp/shared/generic-engine';
-import type { GenericResults } from '@gzclp/shared/types/program';
-import type { GenericWorkoutRow } from '@gzclp/shared/types';
+import { computeGenericProgram } from '@gzclp/domain/generic-engine';
+import type { GenericResults } from '@gzclp/domain/types/program';
+import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import {
   DEFAULT_WEIGHTS,
   GZCLP_DEFINITION_FIXTURE,
