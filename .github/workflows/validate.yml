@@ -10,6 +10,9 @@ concurrency:
   group: validate-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   web:
     runs-on: ubuntu-latest
@@ -93,6 +96,39 @@ jobs:
 
       - name: Test
         run: pytest -q
+
+  audit-bun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Audit
+        run: bun audit
+
+  audit-python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/analytics
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: apps/analytics/requirements*.txt
+      - name: Install pip-audit
+        run: pip install pip-audit
+      - name: Audit
+        run: pip-audit -r requirements.txt -r requirements-dev.txt
 
 # ---------------------------------------------------------------------------
 # E2E JOB (DISABLED — uncomment to enable, see TODO below)
