@@ -4,36 +4,35 @@ on:
   pull_request:
     branches: [main]
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
   sync-lockfile:
     if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Fetch Dependabot metadata
         id: meta
-        uses: dependabot/fetch-metadata@v2
+        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Checkout PR branch
         if: steps.meta.outputs.package-ecosystem == 'npm_and_yarn'
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         if: steps.meta.outputs.package-ecosystem == 'npm_and_yarn'
         with:
           bun-version: latest
 
       - name: Update bun.lock
         if: steps.meta.outputs.package-ecosystem == 'npm_and_yarn'
-        run: bun install --no-frozen-lockfile
+        run: bun install --no-frozen-lockfile --ignore-scripts
 
       - name: Commit and push if changed
         if: steps.meta.outputs.package-ecosystem == 'npm_and_yarn'

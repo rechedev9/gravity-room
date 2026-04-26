@@ -227,11 +227,11 @@ Every change reaches `main` only after automated validation passes; merges to `m
   **What**: `lefthook.yml` already runs `bun run test` on pre-push. No change needed for this plan. If we later want to also run `test:api` pre-push, do it in a separate PR — keeping this plan focused.
   **Acceptance**: N/A — informational.
 
-- [ ] 13. Push branch and open PR to validate the workflow file itself
+- [x] 13. Push branch and open PR to validate the workflow file itself
   **What**: Create a feature branch (e.g. `chore/pre-merge-validation`), commit the new files, push, open a PR. The new `validate.yml` will run on the PR — verify all 3 jobs pass before merging.
   **Acceptance**: PR shows green `validate / web`, `validate / api`, `validate / analytics` checks. `ci.yml` does NOT run on the PR (it is push-to-main only).
 
-- [ ] 14. Apply branch protection + merge settings via `gh` (manual, post-merge of step 13)
+- [x] 14. Apply branch protection + merge settings via `gh` (manual, post-merge of step 13)
   **What**: After step 13's PR is merged (using a temporary squash-merge through current settings), run these commands. **User must run these — do not script into CI.**
 
   Repo: `rechedev9/gravity-room` (confirmed from `ci.yml` Telegram block).
