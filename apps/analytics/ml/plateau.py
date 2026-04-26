@@ -72,14 +72,17 @@ def _analyze_slot(records: list[WorkoutRecord]) -> dict | None:
     slope = float(reg.slope)
     raw_pvalue = reg.pvalue
     # nan p_value means zero y-variance — perfectly flat, definitively a plateau
-    pvalue_is_nan = raw_pvalue != raw_pvalue
-    p_value = 0.0 if pvalue_is_nan else float(raw_pvalue)
-    r_squared = 0.0 if pvalue_is_nan else float(reg.rvalue ** 2)
+    # scipy >= 1.14 may return 1.0 instead of nan for perfectly flat data
+    import math
+    pvalue_is_nan = math.isnan(raw_pvalue) if not (raw_pvalue != raw_pvalue) else True
+    pvalue_is_degenerate = pvalue_is_nan or raw_pvalue >= 1.0
+    p_value = 0.0 if pvalue_is_degenerate else float(raw_pvalue)
+    r_squared = 0.0 if pvalue_is_degenerate else float(reg.rvalue ** 2)
 
-    is_plateau = slope < _PLATEAU_SLOPE_THRESHOLD and (pvalue_is_nan or p_value > _PLATEAU_PVALUE_THRESHOLD)
-    # For nan case: perfectly flat → max confidence; otherwise confidence = 1 - p_value
+    is_plateau = slope < _PLATEAU_SLOPE_THRESHOLD and (pvalue_is_degenerate or p_value > _PLATEAU_PVALUE_THRESHOLD)
+    # For degenerate case (perfectly flat): max confidence; otherwise confidence = 1 - p_value
     if is_plateau:
-        confidence = _MAX_CONFIDENCE if pvalue_is_nan else min(1.0 - p_value, _MAX_CONFIDENCE)
+        confidence = _MAX_CONFIDENCE if pvalue_is_degenerate else min(1.0 - p_value, _MAX_CONFIDENCE)
     else:
         confidence = 0.0
 
