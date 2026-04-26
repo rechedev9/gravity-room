@@ -5,9 +5,9 @@ from __future__ import annotations
 import logging
 
 from db import get_conn
-from queries import fetch_all_users, fetch_workout_records, upsert_insight
 from insights import e1rm, frequency, summary, volume
 from ml import forecast, plateau, recommendation
+from queries import fetch_all_users, fetch_workout_records, upsert_insight
 
 log = logging.getLogger(__name__)
 
