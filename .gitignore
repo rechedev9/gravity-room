@@ -60,15 +60,15 @@ openspec/changes/**/.pending/
 next-env.d.ts
 
 # project docs and scripts (generated, not source)
-docs/*
-!docs/issues.md
+docs/roadmap.md
+docs/log.md
+docs/issues.md
 scripts/*
 !scripts/deploy-log.sh
 !scripts/rollback.sh
 !scripts/committer
 !scripts/loadtest.js
 issues.MD
-roadmap.md
 todo.md
 
 # IDE
