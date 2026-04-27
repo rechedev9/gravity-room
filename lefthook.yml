@@ -8,7 +8,7 @@ pre-commit:
     format:
       run: bun run format:check
     api-typecheck:
-      root: apps/api
+      root: apps/backend/api
       run: bun run typecheck
 
 pre-push:
@@ -17,6 +17,14 @@ pre-push:
       run: bun run test
     build:
       run: VITE_API_URL=http://localhost:3001 bun run build
-    api-types-drift:
-      root: apps/web
-      run: bun run api:types && git diff --exit-code src/lib/api/generated.ts
+
+# api-types-drift was removed from pre-push because it requires a live API on
+# http://localhost:3001/swagger/json that nobody has running locally before
+# pushing — every push without the dev stack up was rejected.
+#
+# TODO(ci): port this check into .github/workflows/_validate-web.yml as a job
+# that boots postgres + redis + the API before running `bun run api:types`
+# and `git diff --exit-code apps/frontend/web/src/lib/api/generated.ts`. Until
+# then, regenerate the client manually whenever an API contract changes:
+#   cd apps/frontend/web && bun run api:types
+#   git diff --exit-code src/lib/api/generated.ts

@@ -58,16 +58,16 @@ import { getUser } from './user_service';
 **Trigger:** When you need to add or modify a database table/schema.  
 **Command:** `/new-table`
 
-1. Edit or add migration SQL files in `apps/api/drizzle/*.sql`.
-2. Update the schema definition in `apps/api/src/db/schema.ts`.
-3. Update migration metadata in `apps/api/drizzle/meta/_journal.json`.
+1. Edit or add migration SQL files in `apps/backend/api/drizzle/*.sql`.
+2. Update the schema definition in `apps/backend/api/src/db/schema.ts`.
+3. Update migration metadata in `apps/backend/api/drizzle/meta/_journal.json`.
 4. Update the dependency lockfile (`bun.lock`).
-5. Update documentation or planning files (`log.md`, `plan.md`).
+5. Update documentation or planning files (`docs/log.md`, `.weave/plans/`).
 
 **Example:**
 
 ```sql
--- apps/api/drizzle/20240610_add_users_table.sql
+-- apps/backend/api/drizzle/20240610_add_users_table.sql
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL
@@ -75,7 +75,7 @@ CREATE TABLE users (
 ```
 
 ```typescript
-// apps/api/src/db/schema.ts
+// apps/backend/api/src/db/schema.ts
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
@@ -89,16 +89,16 @@ export const users = pgTable('users', {
 **Trigger:** When you need to implement a new API endpoint.  
 **Command:** `/new-endpoint`
 
-1. Add or edit a route handler in `apps/api/src/routes/*.ts`.
-2. Add or edit service logic in `apps/api/src/services/*.ts`.
-3. Add or edit tests in `apps/api/src/services/*.test.ts`.
-4. Update app bootstrap or registration in `apps/api/src/create-app.ts`.
-5. Update documentation or planning files (`log.md`, `plan.md`).
+1. Add or edit a route handler in `apps/backend/api/src/routes/*.ts`.
+2. Add or edit service logic in `apps/backend/api/src/services/*.ts`.
+3. Add or edit tests in `apps/backend/api/src/services/*.test.ts`.
+4. Update app bootstrap or registration in `apps/backend/api/src/create-app.ts`.
+5. Update documentation or planning files (`docs/log.md`, `.weave/plans/`).
 
 **Example:**
 
 ```typescript
-// apps/api/src/routes/user_routes.ts
+// apps/backend/api/src/routes/user_routes.ts
 import { getUser } from '../services/user_service';
 
 export function registerUserRoutes(app) {
@@ -110,14 +110,14 @@ export function registerUserRoutes(app) {
 ```
 
 ```typescript
-// apps/api/src/services/user_service.ts
+// apps/backend/api/src/services/user_service.ts
 export async function getUser(id: string) {
   // ...fetch user from db
 }
 ```
 
 ```typescript
-// apps/api/src/services/user_service.test.ts
+// apps/backend/api/src/services/user_service.test.ts
 import { getUser } from './user_service';
 import { test, expect } from '@playwright/test';
 
@@ -134,20 +134,20 @@ test('getUser returns user by id', async () => {
 **Trigger:** When you need to document project progress, plans, or verify milestones.  
 **Command:** `/update-docs`
 
-1. Edit `log.md` to record progress or verification.
-2. Edit `plan.md` to update migration plans or phase status.
+1. Edit `docs/log.md` to record progress or verification.
+2. Edit a `.weave/plans/<name>.md` file to update migration plans or phase status.
 
 **Example:**
 
 ```markdown
-// log.md
+// docs/log.md
 
 ## 2024-06-10
 
 - Added users table migration
 - Implemented user API endpoint
 
-// plan.md
+// .weave/plans/<plan-name>.md
 
 ### Next Steps
 
@@ -162,7 +162,7 @@ test('getUser returns user by id', async () => {
 - **Example:**
 
   ```typescript
-  // apps/api/src/services/user_service.test.ts
+  // apps/backend/api/src/services/user_service.test.ts
   import { test, expect } from '@playwright/test';
   import { getUser } from './user_service';
 

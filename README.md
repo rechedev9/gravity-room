@@ -1,6 +1,8 @@
 # Gravity Room
 
-A strength training tracker with a React SPA, an ElysiaJS API, and a separate analytics service. The repo is deployed with Docker Compose on a VPS behind Caddy.
+A strength training tracker with a React SPA, an Expo mobile client, an
+ElysiaJS API, and a Python analytics microservice. Deployed with Docker
+Compose on a VPS behind Caddy.
 
 ## Contents
 
@@ -15,10 +17,11 @@ A strength training tracker with a React SPA, an ElysiaJS API, and a separate an
 
 | Layer      | Technology                                                        |
 | ---------- | ----------------------------------------------------------------- |
-| Runtime    | Bun (API + frontend/tooling), Python 3 (analytics)                |
+| Runtime    | Bun (TS apps + tooling), Python 3 (analytics)                     |
 | Frontend   | React 19, Vite, TanStack Router, Tailwind CSS 4, TanStack Query 5 |
+| Mobile     | Expo 54, React Native 0.81, expo-sqlite, expo-auth-session        |
 | Backend    | ElysiaJS, Drizzle ORM (PostgreSQL), Redis, FastAPI analytics      |
-| Validation | Zod v4 (frontend schemas), ElysiaJS type validation (API)         |
+| Validation | Zod v4 (shared via `@gzclp/domain`), ElysiaJS type validation     |
 | Auth       | JWT (access + refresh token rotation), Google OAuth               |
 | Logging    | pino (structured JSON)                                            |
 | Metrics    | prom-client (Prometheus-compatible)                               |
@@ -28,49 +31,63 @@ A strength training tracker with a React SPA, an ElysiaJS API, and a separate an
 
 ## Monorepo structure
 
+The repo is organized so that frontend and backend tiers are visible from the
+`apps/` root:
+
 ```
 gravity-room/
 ├── apps/
-│   ├── web/                  ← Vite + React 19 SPA (PWA-installable)
-│   │   ├── src/
-│   │   │   ├── features/     ← Product features and route-owned UI
-│   │   │   ├── components/   ← Shared UI primitives and app infrastructure
-│   │   │   ├── contexts/     ← Auth, guest, toast, tracker state
-│   │   │   ├── hooks/        ← Program, preview, guest and UI hooks
-│   │   │   ├── lib/          ← API client and shared frontend utilities
-│   │   │   └── styles/       ← Tailwind globals
-│   │   └── e2e/              ← Playwright specs
-│   ├── api/                  ← ElysiaJS API backend
-│   │   └── src/
-│   │       ├── routes/       ← HTTP route handlers
-│   │       ├── services/     ← Business logic
-│   │       ├── middleware/   ← Auth, rate limiting, logging, error handling
-│   │       ├── db/           ← Drizzle schema, seeds, migrations
-│   │       ├── lib/          ← Redis, metrics, sentry, telegram, logger
-│   │       └── plugins/      ← Swagger, metrics plugins
-│   └── analytics/            ← FastAPI analytics worker/service
-│       ├── insights/         ← Derived analytics payload builders
-│       ├── ml/               ← Forecast / plateau / recommendation logic
-│       └── tests/            ← Python tests for analytics logic
+│   ├── frontend/
+│   │   ├── web/                ← Vite + React 19 SPA (PWA-installable)
+│   │   │   ├── src/
+│   │   │   │   ├── features/   ← Product features and route-owned UI
+│   │   │   │   ├── components/ ← Shared UI primitives and app shell
+│   │   │   │   ├── contexts/   ← Auth, guest, toast, tracker state
+│   │   │   │   ├── hooks/
+│   │   │   │   ├── lib/        ← API client, i18n, sentry, utils
+│   │   │   │   └── styles/
+│   │   │   ├── codegen/        ← OpenAPI -> Zod client generator (api:types)
+│   │   │   └── e2e/            ← Playwright specs
+│   │   └── mobile/             ← Expo / React Native client
+│   │       └── src/
+│   │           ├── features/   ← auth, profile, programs, tracker
+│   │           └── lib/        ← auth, db (expo-sqlite), sync, tracker
+│   └── backend/
+│       ├── api/                ← ElysiaJS API
+│       │   ├── src/
+│       │   │   ├── routes/     ← HTTP route handlers
+│       │   │   ├── services/   ← Business logic (1:1 with routes)
+│       │   │   ├── middleware/ ← Auth guard, rate limit, error handler, logger
+│       │   │   ├── db/         ← Drizzle schema, seeds
+│       │   │   ├── lib/        ← Redis, sentry, telegram, caches, google-auth
+│       │   │   └── plugins/    ← Swagger, metrics
+│       │   ├── drizzle/        ← Generated SQL migrations
+│       │   └── Dockerfile      ← Production API image
+│       └── analytics/          ← FastAPI analytics service
+│           ├── insights/       ← e1RM, frequency, summary, volume
+│           ├── ml/             ← forecast, plateau, recommendation
+│           └── tests/          ← pytest
 ├── packages/
-│   └── domain/               ← Shared domain package for engine, schemas and types
-│       └── src/              ← Imported by web and api via @gzclp/domain/*
-├── scripts/
-│   ├── committer             ← Safe commit helper (Conventional Commits)
-│   ├── docs-list.ts          ← Docs index and read_when hints
-│   ├── rollback.sh           ← VPS rollback with migration boundary checks
-│   ├── deploy-log.sh         ← Deploy history management
-│   └── loadtest.js           ← k6 load test (smoke/load/stress)
-├── Dockerfile.api            ← Multi-stage build (web SPA + Bun API)
-├── docker-compose.yml        ← Production container orchestration
-├── Caddyfile.production      ← Reverse proxy config
-├── lefthook.yml              ← Git hook definitions
-└── tsconfig.base.json        ← Shared TypeScript compiler options
+│   └── domain/                 ← @gzclp/domain — Zod schemas + GZCLP engine,
+│                                  imported by web, mobile and api as workspace:*
+├── docs/                       ← architecture, llm-map, roadmap, log
+├── scripts/                    ← ops scripts (commit helper, deploy, rollback, k6)
+├── docker-compose.yml          ← Production orchestration
+├── docker-compose.dev.yml      ← Dev orchestration (adds postgres + redis)
+├── Caddyfile.production        ← Reverse proxy config (lives outside in prod)
+├── lefthook.yml                ← Git hooks
+└── tsconfig.base.json          ← Shared TS compiler options
 ```
+
+A flat path → purpose lookup is in [`docs/llm-map.md`](docs/llm-map.md).
+Architectural rationale and topology diagrams in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Architecture overview
 
-Three application services behind a Caddy reverse proxy on a VPS. The ElysiaJS API serves REST endpoints, the web container serves the SPA, and the analytics service pre-computes insights consumed by the API/frontend.
+Three application services behind a Caddy reverse proxy on a VPS. The ElysiaJS
+API serves REST endpoints, the web container (nginx) serves the SPA, and the
+analytics service pre-computes insights consumed by the API/frontend.
 
 ```
 Browser (SPA)
@@ -81,7 +98,7 @@ Browser (SPA)
                   ├── /health      ───► API health endpoint
                   ├── /metrics     ───► API metrics endpoint
                   ├── /swagger/*   ───► API Swagger UI (dev only)
-                  └── /*           ───► Web container (Nginx, port 80)
+                  └── /*           ───► Web container (nginx, port 80)
 
 Analytics service (FastAPI, port 8000)
   ├── scheduled insight computation
@@ -100,10 +117,18 @@ Analytics service (FastAPI, port 8000)
 
 **Key architectural decisions:**
 
-- **Bun runtime** — the API runs on Bun with ElysiaJS. Drizzle ORM handles database access and migrations. Seeds are run on startup via `bootstrap.ts`.
-- **Auto-migrations on startup** — Drizzle migrator runs pending migrations before accepting traffic. Zero-touch schema updates on deploy.
-- **Progression engine** — the API and frontend share the authoritative progression engine via `packages/domain/`, imported through the workspace package `@gzclp/domain/*`.
-- **Feature-first frontend** — route-owned screens and domain UI now live under `apps/web/src/features/`, while `components/` is reserved for shared UI and root app scaffolding.
+- **Bun runtime** — the API runs on Bun with ElysiaJS. Drizzle ORM handles
+  database access and migrations. Seeds are run on startup via `bootstrap.ts`.
+- **Auto-migrations on startup** — Drizzle migrator runs pending migrations
+  before accepting traffic. Zero-touch schema updates on deploy.
+- **Progression engine in `packages/domain`** — the API, web and mobile share
+  the authoritative engine via `@gzclp/domain` (workspace package).
+- **Feature-first frontend** — route-owned screens and domain UI live under
+  `apps/frontend/web/src/features/`; `components/` is reserved for shared UI
+  primitives and the app shell.
+- **API serves only HTTP** — the SPA is exclusively served by the nginx
+  container (`apps/frontend/web/Dockerfile`). The API image
+  (`apps/backend/api/Dockerfile`) does not bake the SPA.
 
 ## Getting started
 
@@ -112,6 +137,7 @@ Analytics service (FastAPI, port 8000)
 - [Bun](https://bun.sh/) (latest) — for API, frontend tooling, and tests
 - PostgreSQL (local or managed)
 - Redis (optional — only needed for distributed rate limiting and presence)
+- Python 3.12 + pip (only for the analytics service)
 
 ### Setup
 
@@ -128,52 +154,62 @@ bun run dev:api
 bun run dev:web
 
 # Optional: run analytics service
-cd apps/analytics && uvicorn main:app --reload --port 8000
+cd apps/backend/analytics && uvicorn main:app --reload --port 8000
 ```
 
-The web app runs on `http://localhost:5173`, the API on `http://localhost:3001`, and analytics on `http://localhost:8000`.
+Or, to run the full stack with infra (postgres + redis):
 
-For the Expo mobile app, set `EXPO_PUBLIC_API_URL` to the API origin and configure the Google OAuth client IDs needed by `apps/mobile`:
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+The web app runs on `http://localhost:5173`, the API on
+`http://localhost:3001`, and analytics on `http://localhost:8000`.
+
+For the Expo mobile app, set `EXPO_PUBLIC_API_URL` to the API origin and
+configure the Google OAuth client IDs needed by `apps/frontend/mobile`:
 
 - `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`
 - `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`
 - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
 
-The API also requires `GOOGLE_CLIENT_IDS` to include the same mobile/web client IDs accepted by `/api/auth/mobile/google`.
+The API also requires `GOOGLE_CLIENT_IDS` to include the same mobile/web
+client IDs accepted by `/api/auth/mobile/google`.
 
-If you already front the API with a path prefix such as `/mobile-api`, set that full prefixed base in `EXPO_PUBLIC_API_URL`. Otherwise the mobile client defaults to `http://localhost:3001/api/*`.
+If you already front the API with a path prefix such as `/mobile-api`, set
+that full prefixed base in `EXPO_PUBLIC_API_URL`. Otherwise the mobile client
+defaults to `http://localhost:3001/api/*`.
 
 ## Commands
 
-| Task                               | Command                                           |
-| ---------------------------------- | ------------------------------------------------- |
-| Dev (web)                          | `bun run dev:web`                                 |
-| Dev (API)                          | `bun run dev:api`                                 |
-| Dev (analytics)                    | `cd apps/analytics && uvicorn main:app --reload`  |
-| Build (web)                        | `bun run build:web`                               |
-| Type check (web + domain + mobile) | `bun run typecheck`                               |
-| Type check (API)                   | `bun run typecheck:api`                           |
-| Type check (domain)                | `bun run typecheck:domain`                        |
-| Lint (TS)                          | `bun run lint`                                    |
-| Test (analytics)                   | `cd apps/analytics && pytest`                     |
-| Format check                       | `bun run format:check`                            |
-| Tests (workspace TS unit)          | `bun run test`                                    |
-| Tests (API unit)                   | `bun run test:api`                                |
-| E2E tests                          | `bun run e2e`                                     |
-| E2E (headed)                       | `bun run e2e:headed`                              |
-| Load test                          | `k6 run scripts/loadtest.js`                      |
-| Load test (smoke)                  | `k6 run scripts/loadtest.js --env SCENARIO=smoke` |
-| Docker build                       | `docker compose build`                            |
-| Docker up                          | `docker compose up -d`                            |
-| Deploy history                     | `scripts/deploy-log.sh list`                      |
-| Rollback                           | `scripts/rollback.sh [--force] <sha>`             |
+| Task                               | Command                                                  |
+| ---------------------------------- | -------------------------------------------------------- |
+| Dev (web)                          | `bun run dev:web`                                        |
+| Dev (API)                          | `bun run dev:api`                                        |
+| Dev (analytics)                    | `cd apps/backend/analytics && uvicorn main:app --reload` |
+| Build (web)                        | `bun run build:web`                                      |
+| Type check (web + domain + mobile) | `bun run typecheck`                                      |
+| Type check (API)                   | `bun run typecheck:api`                                  |
+| Type check (domain)                | `bun run typecheck:domain`                               |
+| Lint (TS)                          | `bun run lint`                                           |
+| Test (analytics)                   | `cd apps/backend/analytics && pytest`                    |
+| Format check                       | `bun run format:check`                                   |
+| Tests (workspace TS unit)          | `bun run test`                                           |
+| Tests (API unit)                   | `bun run test:api`                                       |
+| E2E tests                          | `bun run e2e`                                            |
+| E2E (headed)                       | `bun run e2e:headed`                                     |
+| Load test                          | `k6 run scripts/loadtest.js`                             |
+| Load test (smoke)                  | `k6 run scripts/loadtest.js --env SCENARIO=smoke`        |
+| Docker build                       | `docker compose build`                                   |
+| Docker up                          | `docker compose up -d`                                   |
+| Deploy history                     | `scripts/deploy-log.sh list`                             |
+| Rollback                           | `scripts/rollback.sh [--force] <sha>`                    |
 
 ## Docs
 
-The repo currently keeps project context in:
-
-- `docs/pickup.md` for session startup
-- `docs/handoff.md` for latest handoff state
-- `docs/roadmapvisuals.md` for visual roadmap notes
-
-Use `bun scripts/docs-list.ts` to list docs and their `read_when` hints.
+| File                                           | Purpose                                                 |
+| ---------------------------------------------- | ------------------------------------------------------- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Tier split, stack per service, production topology      |
+| [`docs/llm-map.md`](docs/llm-map.md)           | Flat path -> purpose table for fast navigation          |
+| `docs/roadmap.md`                              | Living roadmap (gitignored — local working copy)        |
+| `docs/log.md`                                  | Deploy / progress log (gitignored — local working copy) |

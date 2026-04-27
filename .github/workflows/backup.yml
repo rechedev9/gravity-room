@@ -23,13 +23,18 @@ jobs:
             ls -lh /tmp/backup_*.dump
 
       - name: Download backup from VPS
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          echo "$VPS_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           TIMESTAMP=$(date +%Y-%m-%d_%H%M)
-          scp -P ${{ secrets.VPS_SSH_PORT }} -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/backup_${TIMESTAMP}.dump ./backup_${TIMESTAMP}.dump
+          scp -P "$VPS_SSH_PORT" -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            "${VPS_USER}@${VPS_HOST}:/tmp/backup_${TIMESTAMP}.dump" "./backup_${TIMESTAMP}.dump"
           rm ~/.ssh/deploy_key
 
       - name: Clean up remote backup
