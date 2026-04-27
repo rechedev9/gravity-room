@@ -45,7 +45,7 @@ services:
 
   analytics:
     build:
-      context: apps/analytics
+      context: apps/backend/analytics
       dockerfile: Dockerfile
     container_name: gravity-room-analytics
     restart: unless-stopped

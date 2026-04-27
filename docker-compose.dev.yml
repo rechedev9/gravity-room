@@ -88,7 +88,7 @@ services:
 
   analytics:
     build:
-      context: apps/analytics
+      context: apps/backend/analytics
       dockerfile: Dockerfile
     container_name: gravity-dev-analytics
     restart: unless-stopped
