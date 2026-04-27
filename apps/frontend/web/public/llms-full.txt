@@ -89,7 +89,7 @@ Gravity Room solves all four by implementing the progression rules of establishe
 
 ## Technical Architecture
 
-### Frontend (apps/web)
+### Frontend (apps/frontend/web)
 - React 19 with React Compiler (babel-plugin-react-compiler)
 - Vite 7 with code splitting per route via lazyWithRetry
 - TanStack Router (file-based route inference)
@@ -100,7 +100,7 @@ Gravity Room solves all four by implementing the progression rules of establishe
 - TypeScript strict mode throughout
 - PWA via vite-plugin-pwa with Workbox runtime caching
 
-### Backend (apps/api)
+### Backend (apps/backend/api)
 - ElysiaJS (Bun-native HTTP framework)
 - PostgreSQL with Drizzle ORM and Drizzle migrations
 - Redis for rate limiting, presence tracking, caching, and singleflight
@@ -109,7 +109,7 @@ Gravity Room solves all four by implementing the progression rules of establishe
 - Sentry for error tracking
 - Swagger/OpenAPI spec at /swagger/json (non-production only)
 
-### Analytics microservice (apps/analytics)
+### Analytics microservice (apps/backend/analytics)
 - Python FastAPI with APScheduler
 - pandas, scikit-learn for data processing
 - Estimated 1RM (e1RM) computation using Epley formula

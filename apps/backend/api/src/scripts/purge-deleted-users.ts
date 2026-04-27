@@ -4,7 +4,7 @@
  * All related data (program_instances, workout_results, undo_entries,
  * refresh_tokens, program_definitions) is cascaded automatically by FK constraints.
  *
- * Usage: DATABASE_URL=... bun run apps/api/src/scripts/purge-deleted-users.ts
+ * Usage: DATABASE_URL=... bun run apps/backend/api/src/scripts/purge-deleted-users.ts
  */
 import { lt, and, isNotNull } from 'drizzle-orm';
 import { getDb } from '../db';
