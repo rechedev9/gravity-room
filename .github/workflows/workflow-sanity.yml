@@ -24,7 +24,7 @@ jobs:
   actionlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install actionlint
         run: |
@@ -41,7 +41,7 @@ jobs:
   no-tabs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Fail on tabs in workflow files
         run: |
