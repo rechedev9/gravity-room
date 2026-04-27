@@ -6,6 +6,7 @@ import { describe, it, expect, mock } from 'bun:test';
 import { render, screen } from '@testing-library/react';
 import { createElement, useEffect, useRef } from 'react';
 import type { FC, ReactNode } from 'react';
+import { apiFunctionsStubs } from '../../test/helpers/api-functions-mock';
 
 // ---------------------------------------------------------------------------
 // Mock API layer (required by any provider that touches auth)
@@ -18,12 +19,8 @@ mock.module('@/lib/api', () => ({
 }));
 
 mock.module('@/lib/api-functions', () => ({
+  ...apiFunctionsStubs,
   apiFetch: mock(() => Promise.reject(new Error('no auth'))),
-  fetchCatalogList: mock(() => Promise.resolve([])),
-  fetchCatalogDetail: mock(() => Promise.resolve(null)),
-  fetchPrograms: mock(() => Promise.resolve([])),
-  fetchGenericProgramDetail: mock(() => Promise.resolve(null)),
-  deleteProgram: mock(() => Promise.resolve()),
 }));
 
 // Mock router navigation — tests don't exercise navigation

@@ -2,6 +2,7 @@ import { mock, describe, it, expect, beforeEach } from 'bun:test';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { apiFunctionsStubs } from '../../test/helpers/api-functions-mock';
 
 // ---------------------------------------------------------------------------
 // Mock setup — mock the API modules before importing auth-context
@@ -24,6 +25,7 @@ const mockFetchMe = mock<
 >(() => Promise.resolve(null));
 
 mock.module('@/lib/api-functions', () => ({
+  ...apiFunctionsStubs,
   apiFetch: mockApiFetch,
   fetchMe: mockFetchMe,
   parseUserSafe: mock((data: unknown) => {

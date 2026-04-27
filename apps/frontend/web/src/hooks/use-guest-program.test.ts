@@ -80,7 +80,10 @@ const mockFetchCatalogDetail = mock<(id: string) => Promise<ProgramDefinition>>(
   Promise.resolve(MINIMAL_DEFINITION)
 );
 
+import { apiFunctionsStubs } from '../../test/helpers/api-functions-mock';
+
 mock.module('@/lib/api-functions', () => ({
+  ...apiFunctionsStubs,
   fetchCatalogDetail: mockFetchCatalogDetail,
 }));
 

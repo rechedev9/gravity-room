@@ -7,6 +7,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ProgramSummary } from '@/lib/api-functions';
+import { apiFunctionsStubs } from '../../test/helpers/api-functions-mock';
 
 // ---------------------------------------------------------------------------
 // Mock setup — must be declared before imports
@@ -39,6 +40,7 @@ const mockFetchPrograms = mock<() => Promise<ProgramSummary[]>>(() =>
 );
 
 mock.module('@/lib/api-functions', () => ({
+  ...apiFunctionsStubs,
   apiFetch: mock((path: string) => {
     if (path === '/auth/me') return Promise.resolve({ id: 'user-1', email: 'test@test.com' });
     return Promise.reject(new Error(`Unexpected path: ${path}`));

@@ -14,6 +14,7 @@ import {
   createMemoryHistory,
 } from '@tanstack/react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { apiFunctionsStubs } from '../../../test/helpers/api-functions-mock';
 
 // ---------------------------------------------------------------------------
 // Mock API layer (required by AuthProvider bootstrap)
@@ -28,14 +29,8 @@ mock.module('@/lib/api', () => ({
 }));
 
 mock.module('@/lib/api-functions', () => ({
+  ...apiFunctionsStubs,
   apiFetch: mock(() => Promise.reject(new Error('no auth'))),
-  fetchMe: mock(() => Promise.resolve(null)),
-  parseUserSafe: mock(() => null),
-  fetchCatalogList: mock(() => Promise.resolve([])),
-  fetchCatalogDetail: mock(() => Promise.resolve(null)),
-  fetchPrograms: mock(() => Promise.resolve([])),
-  fetchGenericProgramDetail: mock(() => Promise.resolve(null)),
-  deleteProgram: mock(() => Promise.resolve()),
 }));
 
 // Mock @react-oauth/google — third-party, no own tests in this project
