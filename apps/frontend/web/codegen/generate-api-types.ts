@@ -47,7 +47,7 @@ const header = [
   '/**',
   ' * AUTO-GENERATED — do not edit by hand.',
   ' * Source: ElysiaJS API /swagger/json endpoint',
-  ' * Regenerate: bun run api:types (from apps/web/)',
+  ' * Regenerate: bun run api:types (from apps/frontend/web/)',
   ' *',
   ' * This file is committed to enable CI drift detection:',
   ' *   bun run api:types && git diff --exit-code src/lib/api/generated.ts',
