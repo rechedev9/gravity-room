@@ -10,6 +10,6 @@ build
 .claude
 .agents
 .weave
-apps/api/drizzle
+apps/backend/api/drizzle
 **/.venv
 **/.pytest_cache

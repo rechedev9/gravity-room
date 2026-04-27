@@ -29,7 +29,7 @@ jobs:
             workflows:
               - '.github/workflows/**'
             web:
-              - 'apps/web/**'
+              - 'apps/frontend/web/**'
               - 'packages/domain/**'
               - 'bun.lock'
               - 'package.json'
@@ -37,16 +37,15 @@ jobs:
               - 'prettier.config.*'
               - 'eslint.config.*'
             api:
-              - 'apps/api/**'
+              - 'apps/backend/api/**'
               - 'packages/domain/**'
-              - 'Dockerfile.api'
               - 'bun.lock'
               - 'package.json'
               - 'tsconfig.base.json'
               - 'prettier.config.*'
               - 'eslint.config.*'
             analytics:
-              - 'apps/analytics/**'
+              - 'apps/backend/analytics/**'
               - 'prettier.config.*'
             domain:
               - 'packages/domain/**'
