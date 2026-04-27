@@ -46,7 +46,7 @@ jobs:
               - 'prettier.config.*'
               - 'eslint.config.*'
             analytics:
-              - 'apps/analytics/**'
+              - 'apps/backend/analytics/**'
               - 'prettier.config.*'
             domain:
               - 'packages/domain/**'

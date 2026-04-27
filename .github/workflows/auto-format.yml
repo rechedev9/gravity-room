@@ -43,7 +43,7 @@ jobs:
 
       - name: Run ruff fix
         run: |
-          cd apps/analytics
+          cd apps/backend/analytics
           pip install ruff --quiet
           ruff check --fix .
           ruff format .
