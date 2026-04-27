@@ -1,9 +1,7 @@
 import { captureException } from './lib/sentry';
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
-import { staticPlugin } from '@elysiajs/static';
 import { sql } from 'drizzle-orm';
-import { resolve } from 'path';
 import { ApiError } from './middleware/error-handler';
 import { requestLogger } from './middleware/request-logger';
 import { swaggerPlugin } from './plugins/swagger';
@@ -173,20 +171,7 @@ export function createApp(options: CreateAppOptions) {
       }
       set.headers['content-type'] = registry.contentType;
       return registry.metrics();
-    })
-    .use(
-      staticPlugin({
-        assets: resolve(import.meta.dir, '../../web/dist'),
-        prefix: '/',
-        alwaysStatic: true,
-      })
-    )
-    .get('/', () => Bun.file(resolve(import.meta.dir, '../../web/dist/index.html')))
-    .get('/.well-known/security.txt', ({ set }) => {
-      set.headers['content-type'] = 'text/plain; charset=utf-8';
-      return Bun.file(resolve(import.meta.dir, '../../web/dist/.well-known/security.txt'));
-    })
-    .get('/*', () => Bun.file(resolve(import.meta.dir, '../../web/dist/index.html')));
+    });
 
   return app;
 }
