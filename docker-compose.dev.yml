@@ -46,13 +46,8 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile.api
-      # Dockerfile.api includes a web build stage; these args satisfy it.
-      # The web SPA baked into the api image is not served here — the
-      # dedicated 'web' nginx service is canonical in this dev stack.
+      dockerfile: apps/backend/api/Dockerfile
       args:
-        VITE_API_URL: http://localhost:3002
-        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
         COMMIT_SHA: ${COMMIT_SHA:-dev}
     container_name: gravity-dev-api
     restart: unless-stopped

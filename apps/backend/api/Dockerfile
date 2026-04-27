@@ -1,22 +1,18 @@
-FROM oven/bun:latest AS web-build
-WORKDIR /app
-COPY package.json bun.lock tsconfig.base.json ./
-COPY apps/frontend/web/package.json ./apps/frontend/web/
-COPY apps/backend/api/package.json ./apps/backend/api/
-RUN bun install
-COPY . .
-ARG VITE_API_URL
-ARG VITE_GOOGLE_CLIENT_ID
-ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
-RUN bun run build:web
-
+# Build context is the repo root (see docker-compose.yml services.api.build.context).
 FROM oven/bun:latest
 WORKDIR /app
+
+# Workspace manifests + the shared domain package must be present before
+# `bun install` so that `@gzclp/domain: workspace:*` resolves to the in-tree
+# package and the workspace graph (apps/backend/*, apps/frontend/*) loads
+# without missing-manifest errors.
 COPY package.json bun.lock tsconfig.base.json ./
 COPY apps/backend/api/package.json ./apps/backend/api/
 COPY apps/frontend/web/package.json ./apps/frontend/web/
+COPY apps/frontend/mobile/package.json ./apps/frontend/mobile/
+COPY packages ./packages
 RUN bun install
+
 COPY apps/backend/api ./apps/backend/api
 
 ARG COMMIT_SHA

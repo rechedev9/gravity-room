@@ -39,7 +39,6 @@ jobs:
             api:
               - 'apps/backend/api/**'
               - 'packages/domain/**'
-              - 'Dockerfile.api'
               - 'bun.lock'
               - 'package.json'
               - 'tsconfig.base.json'
