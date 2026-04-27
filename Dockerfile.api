@@ -2,7 +2,7 @@ FROM oven/bun:latest AS web-build
 WORKDIR /app
 COPY package.json bun.lock tsconfig.base.json ./
 COPY apps/web/package.json ./apps/web/
-COPY apps/api/package.json ./apps/api/
+COPY apps/backend/api/package.json ./apps/backend/api/
 RUN bun install
 COPY . .
 ARG VITE_API_URL
@@ -14,17 +14,15 @@ RUN bun run build:web
 FROM oven/bun:latest
 WORKDIR /app
 COPY package.json bun.lock tsconfig.base.json ./
-COPY apps/api/package.json ./apps/api/
+COPY apps/backend/api/package.json ./apps/backend/api/
 COPY apps/web/package.json ./apps/web/
 RUN bun install
-COPY apps/api ./apps/api
-COPY apps/web/src/lib/shared ./apps/web/src/lib/shared
-COPY --from=web-build /app/apps/web/dist ./apps/web/dist
+COPY apps/backend/api ./apps/backend/api
 
 ARG COMMIT_SHA
 LABEL org.opencontainers.image.source="https://github.com/rechedev9/gravity-room"
 LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
 
 EXPOSE 3001
-WORKDIR /app/apps/api
+WORKDIR /app/apps/backend/api
 CMD ["bun", "src/index.ts"]

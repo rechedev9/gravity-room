@@ -8,7 +8,7 @@ pre-commit:
     format:
       run: bun run format:check
     api-typecheck:
-      root: apps/api
+      root: apps/backend/api
       run: bun run typecheck
 
 pre-push:

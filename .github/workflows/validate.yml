@@ -37,7 +37,7 @@ jobs:
               - 'prettier.config.*'
               - 'eslint.config.*'
             api:
-              - 'apps/api/**'
+              - 'apps/backend/api/**'
               - 'packages/domain/**'
               - 'Dockerfile.api'
               - 'bun.lock'

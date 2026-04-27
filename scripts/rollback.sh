@@ -21,7 +21,7 @@ set -euo pipefail
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 readonly DEPLOY_LOG_SCRIPT="${SCRIPT_DIR}/deploy-log.sh"
-readonly MIGRATIONS_DIR="${PROJECT_DIR}/apps/api/drizzle"
+readonly MIGRATIONS_DIR="${PROJECT_DIR}/apps/backend/api/drizzle"
 readonly HEALTH_CHECK_RETRIES=5
 readonly HEALTH_CHECK_DELAY=5
 readonly API_HEALTH_URL="http://127.0.0.1:3002/health"
@@ -129,7 +129,7 @@ check_migration_boundary() {
   current_migrations="$(count_migrations "${MIGRATIONS_DIR}")"
 
   local target_migrations
-  target_migrations="$(git -C "${PROJECT_DIR}" show "${target_sha}:apps/api/drizzle" 2>/dev/null \
+  target_migrations="$(git -C "${PROJECT_DIR}" show "${target_sha}:apps/backend/api/drizzle" 2>/dev/null \
     | grep -c '\.sql$' || echo 0)"
 
   echo "  Current migrations: ${current_migrations}"

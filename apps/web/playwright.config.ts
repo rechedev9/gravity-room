@@ -25,7 +25,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'bun run build:web && cd apps/api && bun src/index.ts',
+    command: 'bun run build:web && cd apps/backend/api && bun src/index.ts',
     url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
     cwd: resolve(__dirname, '../..'),
