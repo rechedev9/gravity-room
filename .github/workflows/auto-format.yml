@@ -47,11 +47,13 @@ jobs:
           ruff format .
 
       - name: Auto-commit formatting changes
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           git config --global user.name github-actions
           git config --global user.email "github-actions@github.com"
           git add .
           if ! git diff-index --quiet HEAD; then
             git commit -m "chore(format): apply prettier-write + ruff --fix"
-            git push origin ${{ github.head_ref }}
+            git push origin "$HEAD_REF"
           fi

@@ -63,11 +63,17 @@ jobs:
       # Resolve final values: force web/api/analytics to true when any workflow file changed
       - name: Resolve outputs
         id: resolve
+        env:
+          FILTER_WORKFLOWS: ${{ steps.filter.outputs.workflows }}
+          FILTER_WEB: ${{ steps.filter.outputs.web }}
+          FILTER_API: ${{ steps.filter.outputs.api }}
+          FILTER_ANALYTICS: ${{ steps.filter.outputs.analytics }}
         run: |
-          WORKFLOWS="${{ steps.filter.outputs.workflows }}"
-          echo "web=$(      [ "$WORKFLOWS" = "true" ] && echo true || echo "${{ steps.filter.outputs.web }}"      )" >> $GITHUB_OUTPUT
-          echo "api=$(      [ "$WORKFLOWS" = "true" ] && echo true || echo "${{ steps.filter.outputs.api }}"      )" >> $GITHUB_OUTPUT
-          echo "analytics=$([ "$WORKFLOWS" = "true" ] && echo true || echo "${{ steps.filter.outputs.analytics }}" )" >> $GITHUB_OUTPUT
+          {
+            echo "web=$(      [ "$FILTER_WORKFLOWS" = "true" ] && echo true || echo "$FILTER_WEB"      )"
+            echo "api=$(      [ "$FILTER_WORKFLOWS" = "true" ] && echo true || echo "$FILTER_API"      )"
+            echo "analytics=$([ "$FILTER_WORKFLOWS" = "true" ] && echo true || echo "$FILTER_ANALYTICS" )"
+          } >> "$GITHUB_OUTPUT"
 
   web:
     needs: [detect]

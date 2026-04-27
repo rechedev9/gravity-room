@@ -52,10 +52,12 @@ jobs:
       - name: Step summary
         if: always()
         run: |
-          echo "## Web Validation Summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| | |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **App** | web |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Tests passed** | ${{ steps.test.outputs.count }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Build duration** | ${{ steps.build.outputs.duration }}s |" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Web Validation Summary"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **App** | web |"
+            echo "| **Tests passed** | ${{ steps.test.outputs.count }} |"
+            echo "| **Build duration** | ${{ steps.build.outputs.duration }}s |"
+          } >> "$GITHUB_STEP_SUMMARY"

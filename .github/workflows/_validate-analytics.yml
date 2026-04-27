@@ -34,9 +34,11 @@ jobs:
       - name: Step summary
         if: always()
         run: |
-          echo "## Analytics Validation Summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| | |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **App** | analytics |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| **Tests passed** | ${{ steps.test.outputs.count }} |" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Analytics Validation Summary"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **App** | analytics |"
+            echo "| **Tests passed** | ${{ steps.test.outputs.count }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
