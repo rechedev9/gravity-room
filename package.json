@@ -32,10 +32,10 @@
   },
   "devDependencies": {
     "@types/bun": "^1.3.12",
-    "eslint": "^9.39.4",
+    "eslint": "^10.2.1",
     "lefthook": "^2.1.5",
     "prettier": "^3.8.2",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.58.1"
   },
   "trustedDependencies": [
