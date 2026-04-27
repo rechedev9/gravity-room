@@ -4,6 +4,8 @@
   "private": true,
   "workspaces": [
     "apps/*",
+    "apps/backend/*",
+    "apps/frontend/*",
     "packages/*"
   ],
   "scripts": {
