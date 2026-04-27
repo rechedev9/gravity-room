@@ -15,4 +15,4 @@ APScheduler==3.11.0
 
 # Config / validation
 pydantic==2.10.6
-pydantic-settings==2.7.1
+pydantic-settings==2.14.0
