@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - '*'
+
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: pip
+    directory: '/apps/backend/analytics'
+    schedule:
+      interval: weekly

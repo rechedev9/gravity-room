@@ -4,6 +4,16 @@ on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: Branch, tag, or commit SHA to validate (defaults to current ref)
+        required: false
+        default: ''
+        type: string
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.sha }}
