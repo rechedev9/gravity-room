@@ -35,34 +35,7 @@
         "pino-pretty": "^13.0.0",
       },
     },
-    "apps/mobile": {
-      "name": "mobile",
-      "version": "0.0.1",
-      "dependencies": {
-        "@babel/runtime": "^7.28.4",
-        "@gzclp/domain": "workspace:*",
-        "@tanstack/react-query": "^5.90.21",
-        "expo": "^54.0.23",
-        "expo-auth-session": "~7.0.10",
-        "expo-crypto": "~15.0.8",
-        "expo-secure-store": "~15.0.8",
-        "expo-sqlite": "~16.0.8",
-        "expo-web-browser": "~15.0.10",
-        "react": "19.1.0",
-        "react-native": "0.81.5",
-        "react-native-safe-area-context": "~5.6.0",
-      },
-      "devDependencies": {
-        "@testing-library/react-native": "^13.3.3",
-        "@types/jest": "^29.5.14",
-        "@types/react": "^19.2.2",
-        "babel-preset-expo": "^54.0.7",
-        "jest": "^29.7.0",
-        "jest-expo": "~54.0.13",
-        "react-test-renderer": "19.1.0",
-      },
-    },
-    "apps/web": {
+    "apps/frontend/web": {
       "name": "web",
       "version": "0.1.0",
       "dependencies": {
@@ -109,6 +82,33 @@
         "tailwindcss": "^4",
         "vite": "^7.3.1",
         "vite-plugin-pwa": "^1.2.0",
+      },
+    },
+    "apps/mobile": {
+      "name": "mobile",
+      "version": "0.0.1",
+      "dependencies": {
+        "@babel/runtime": "^7.28.4",
+        "@gzclp/domain": "workspace:*",
+        "@tanstack/react-query": "^5.90.21",
+        "expo": "^54.0.23",
+        "expo-auth-session": "~7.0.10",
+        "expo-crypto": "~15.0.8",
+        "expo-secure-store": "~15.0.8",
+        "expo-sqlite": "~16.0.8",
+        "expo-web-browser": "~15.0.10",
+        "react": "19.1.0",
+        "react-native": "0.81.5",
+        "react-native-safe-area-context": "~5.6.0",
+      },
+      "devDependencies": {
+        "@testing-library/react-native": "^13.3.3",
+        "@types/jest": "^29.5.14",
+        "@types/react": "^19.2.2",
+        "babel-preset-expo": "^54.0.7",
+        "jest": "^29.7.0",
+        "jest-expo": "~54.0.13",
+        "react-test-renderer": "19.1.0",
       },
     },
     "packages/domain": {
@@ -2575,7 +2575,7 @@
 
     "wcwidth": ["wcwidth@1.0.1", "", { "dependencies": { "defaults": "^1.0.3" } }, "sha512-XHPEwS0q6TaxcvG85+8EYkbiCux2XtWG2mkc47Ng2A77BQu9+DqIOJldST4HgPkuea7dvKSj5VgX3P1d4rW8Tg=="],
 
-    "web": ["web@workspace:apps/web"],
+    "web": ["web@workspace:apps/frontend/web"],
 
     "webidl-conversions": ["webidl-conversions@5.0.0", "", {}, "sha512-VlZwKPCkYKxQgeSbH5EyngOmRp7Ww7I9rQLERETtf5ofd9pGeswWiOtogpEO850jziPRarreGxn5QIiTqpb2wA=="],
 

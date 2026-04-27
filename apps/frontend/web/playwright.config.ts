@@ -28,6 +28,6 @@ export default defineConfig({
     command: 'bun run build:web && cd apps/backend/api && bun src/index.ts',
     url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
-    cwd: resolve(__dirname, '../..'),
+    cwd: resolve(__dirname, '../../..'),
   },
 });

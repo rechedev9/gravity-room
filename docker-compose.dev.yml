@@ -111,7 +111,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/frontend/web/Dockerfile
       args:
         # Point to the same origin so CSP connect-src 'self' is satisfied.
         # Nginx proxies /api/ and /auth/ to the api container (see nginx.dev.conf).
@@ -123,7 +123,7 @@ services:
     ports:
       - '8080:80'
     volumes:
-      - ./apps/web/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./apps/frontend/web/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       api:
         condition: service_healthy

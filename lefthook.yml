@@ -18,5 +18,5 @@ pre-push:
     build:
       run: VITE_API_URL=http://localhost:3001 bun run build
     api-types-drift:
-      root: apps/web
+      root: apps/frontend/web
       run: bun run api:types && git diff --exit-code src/lib/api/generated.ts

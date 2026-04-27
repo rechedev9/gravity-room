@@ -31,7 +31,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/frontend/web/Dockerfile
       args:
         VITE_API_URL: https://gravityroom.app
         VITE_GOOGLE_CLIENT_ID: 563649081217-uh092o7iapi9t4d5a38d1522j8s66981.apps.googleusercontent.com
