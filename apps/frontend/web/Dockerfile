@@ -1,7 +1,13 @@
 FROM oven/bun:latest AS build
 WORKDIR /app
-COPY package.json bun.lock ./
+# Workspace manifests + the shared domain package must be present before
+# `bun install` so that `@gzclp/domain: workspace:*` resolves to the in-tree
+# package and the workspace graph loads without missing-manifest errors.
+COPY package.json bun.lock tsconfig.base.json ./
+COPY apps/backend/api/package.json ./apps/backend/api/
 COPY apps/frontend/web/package.json ./apps/frontend/web/
+COPY apps/frontend/mobile/package.json ./apps/frontend/mobile/
+COPY packages ./packages
 RUN bun install
 ARG COMMIT_SHA
 COPY . .
