@@ -42,8 +42,20 @@ def _record(
 def _rpe_records(slot_id: str, n: int = 15, mostly_success: bool = True) -> list[WorkoutRecord]:
     records = []
     for i in range(n):
-        result = "success" if (mostly_success and i % 5 != 0) or (not mostly_success and i % 5 == 0) else "fail"
-        records.append(_record(slot_id, 100.0 + (i // 3) * 2.5, days_ago=(n - i) * 3, result=result, rpe=7.0 + (i % 3) * 0.5))
+        result = (
+            "success"
+            if (mostly_success and i % 5 != 0) or (not mostly_success and i % 5 == 0)
+            else "fail"
+        )
+        records.append(
+            _record(
+                slot_id,
+                100.0 + (i // 3) * 2.5,
+                days_ago=(n - i) * 3,
+                result=result,
+                rpe=7.0 + (i % 3) * 0.5,
+            )
+        )
     return records
 
 
@@ -77,7 +89,13 @@ class TestFallbackRecommendation:
     def test_payload_keys_present(self) -> None:
         records = [_record("squat", 100.0, days_ago=i * 3, result="success") for i in range(3)]
         result = _fallback_recommendation(records, 100.0)
-        for key in ("currentWeight", "recommendedWeight", "shouldIncrement", "confidence", "method"):
+        for key in (
+            "currentWeight",
+            "recommendedWeight",
+            "shouldIncrement",
+            "confidence",
+            "method",
+        ):
             assert key in result
 
 
@@ -102,7 +120,9 @@ class TestMlRecommendation:
             assert 0.0 <= result["confidence"] <= 0.99
 
     def test_single_class_falls_back(self) -> None:
-        records = [_record("squat", 100.0, days_ago=i * 3, result="success", rpe=7.0) for i in range(15)]
+        records = [
+            _record("squat", 100.0, days_ago=i * 3, result="success", rpe=7.0) for i in range(15)
+        ]
         result = _ml_recommendation(records, records, 100.0, records[-1].recorded_at)
         # Single class → falls back to consecutive_success
         assert result is not None

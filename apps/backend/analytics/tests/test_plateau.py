@@ -71,7 +71,15 @@ class TestAnalyzeSlot:
         records = _flat_records("bench", n=12)
         result = _analyze_slot(records)
         assert result is not None
-        for key in ("isPlateauing", "confidence", "slope", "pValue", "rSquared", "weeksAnalyzed", "currentWeight"):
+        for key in (
+            "isPlateauing",
+            "confidence",
+            "slope",
+            "pValue",
+            "rSquared",
+            "weeksAnalyzed",
+            "currentWeight",
+        ):
             assert key in result
 
     def test_confidence_capped_at_0_95(self) -> None:

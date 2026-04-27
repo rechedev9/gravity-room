@@ -48,7 +48,10 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
 
     # Stub the heavy application modules that main.py imports at the top level.
     sys.modules.setdefault("compute", _stub_module("compute", run_all=AsyncMock()))
-    sys.modules.setdefault("db", _stub_module("db", init_pool=AsyncMock(), close_pool=AsyncMock(), get_conn=MagicMock()))
+    sys.modules.setdefault(
+        "db",
+        _stub_module("db", init_pool=AsyncMock(), close_pool=AsyncMock(), get_conn=MagicMock()),
+    )
     sys.modules.setdefault("scheduler", _stub_module("scheduler", get_scheduler=MagicMock()))
 
     with (
@@ -62,6 +65,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
         import importlib
 
         import main as main_module
+
         importlib.reload(main_module)
 
         yield TestClient(main_module.app, raise_server_exceptions=False)

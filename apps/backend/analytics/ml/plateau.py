@@ -78,12 +78,16 @@ def _analyze_slot(records: list[WorkoutRecord]) -> dict | None:
     # treat zero slope + zero y-variance as equivalent to NaN.
     pvalue_is_degenerate = pvalue_is_nan or (slope == 0.0 and float(np.std(ys)) == 0.0)
     p_value = 0.0 if pvalue_is_degenerate else float(raw_pvalue)
-    r_squared = 0.0 if pvalue_is_degenerate else float(reg.rvalue ** 2)
+    r_squared = 0.0 if pvalue_is_degenerate else float(reg.rvalue**2)
 
-    is_plateau = slope < _PLATEAU_SLOPE_THRESHOLD and (pvalue_is_degenerate or p_value > _PLATEAU_PVALUE_THRESHOLD)
+    is_plateau = slope < _PLATEAU_SLOPE_THRESHOLD and (
+        pvalue_is_degenerate or p_value > _PLATEAU_PVALUE_THRESHOLD
+    )
     # For degenerate case: perfectly flat → max confidence; otherwise confidence = 1 - p_value
     if is_plateau:
-        confidence = _MAX_CONFIDENCE if pvalue_is_degenerate else min(1.0 - p_value, _MAX_CONFIDENCE)
+        confidence = (
+            _MAX_CONFIDENCE if pvalue_is_degenerate else min(1.0 - p_value, _MAX_CONFIDENCE)
+        )
     else:
         confidence = 0.0
 

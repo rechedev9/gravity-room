@@ -67,7 +67,7 @@ def _forecast_slot(records: list[WorkoutRecord]) -> dict | None:
     # nan rvalue means zero y-variance (flat e1rm) — no meaningful trend to forecast
     if raw_rvalue != raw_rvalue:
         return None
-    r_squared = float(raw_rvalue ** 2)
+    r_squared = float(raw_rvalue**2)
 
     if r_squared < _R2_THRESHOLD:
         return None
@@ -82,7 +82,7 @@ def _forecast_slot(records: list[WorkoutRecord]) -> dict | None:
     x_mean = float(xs.mean())
     ss_xx = float(((xs - x_mean) ** 2).sum())
     residuals = ys - (intercept + slope * xs)
-    mse = float((residuals ** 2).sum()) / (n - 2) if n > 2 else 0.0
+    mse = float((residuals**2).sum()) / (n - 2) if n > 2 else 0.0
     t_crit = float(t_dist.ppf(0.975, df=n - 2)) if n > 2 else 1.96
 
     def _band(x_new: float) -> float:

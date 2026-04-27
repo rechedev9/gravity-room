@@ -42,7 +42,10 @@ def _linear_records(slot_id: str, weeks: int = 8, start: float = 80.0) -> list[W
 def _random_records(slot_id: str, weeks: int = 8) -> list[WorkoutRecord]:
     """Records with no clear trend (varying weights)."""
     weights = [90.0, 82.5, 95.0, 80.0, 92.5, 85.0, 97.5, 82.5]
-    return [_record(slot_id, weights[i % len(weights)], days_ago=(weeks - 1 - i) * 7) for i in range(weeks)]
+    return [
+        _record(slot_id, weights[i % len(weights)], days_ago=(weeks - 1 - i) * 7)
+        for i in range(weeks)
+    ]
 
 
 class TestForecastSlot:
@@ -57,7 +60,16 @@ class TestForecastSlot:
         records = _linear_records("squat", weeks=8)
         result = _forecast_slot(records)
         assert result is not None
-        for key in ("weeks", "e1rms", "slope", "rSquared", "forecast2w", "forecast4w", "band2w", "band4w"):
+        for key in (
+            "weeks",
+            "e1rms",
+            "slope",
+            "rSquared",
+            "forecast2w",
+            "forecast4w",
+            "band2w",
+            "band4w",
+        ):
             assert key in result
 
     def test_insufficient_weeks_returns_none(self) -> None:
