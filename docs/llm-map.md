@@ -42,19 +42,14 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 | Path                                                  | Role                                                                           |
 | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `scripts/committer`                                   | bash helper to author Conventional Commit messages                             |
-| `scripts/deploy-log.sh`                               | append entries to deploy log                                                   |
-| `scripts/rollback.sh`                                 | rollback the VPS to a previous commit (checks migration boundary)              |
 | `scripts/loadtest.js`                                 | k6 load test (smoke / load / stress)                                           |
 | `lefthook.yml`                                        | pre-commit (typecheck, lint, format) + pre-push (test, build, api-types-drift) |
 | `tsconfig.base.json`                                  | shared TypeScript compiler options                                             |
 | `.prettierrc` / `.prettierignore`                     | repo-wide formatting                                                           |
-| `Caddyfile.production`                                | reference copy of the external Caddy reverse proxy                             |
-| `docker-compose.yml`                                  | production compose (api, web, analytics)                                       |
 | `docker-compose.dev.yml`                              | dev compose with postgres + redis                                              |
 | `.github/workflows/validate.yml`                      | per-service paths-filter, dispatches reusable workflows                        |
 | `.github/workflows/_validate-{web,api,analytics}.yml` | per-service validation pipelines                                               |
 | `.github/workflows/auto-format.yml`                   | runs prettier + ruff on PRs                                                    |
-| `.github/workflows/ci.yml`                            | deploy pipeline                                                                |
 
 ## Docs
 

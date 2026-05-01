@@ -1,8 +1,7 @@
 # Gravity Room
 
 A strength training tracker with a React SPA, an Expo mobile client, an
-ElysiaJS API, and a Python analytics microservice. Deployed with Docker
-Compose on a VPS behind Caddy.
+ElysiaJS API, and a Python analytics microservice.
 
 ## Contents
 
@@ -27,7 +26,6 @@ Compose on a VPS behind Caddy.
 | Metrics    | prom-client (Prometheus-compatible)                               |
 | E2E        | Playwright (Chromium)                                             |
 | Hooks      | Lefthook (parallel pre-commit / pre-push)                         |
-| Deploy     | Docker Compose on VPS, Caddy reverse proxy                        |
 
 ## Monorepo structure
 
@@ -71,10 +69,8 @@ gravity-room/
 │   └── domain/                 ← @gzclp/domain — Zod schemas + GZCLP engine,
 │                                  imported by web, mobile and api as workspace:*
 ├── docs/                       ← architecture, llm-map, roadmap, log
-├── scripts/                    ← ops scripts (commit helper, deploy, rollback, k6)
-├── docker-compose.yml          ← Production orchestration
+├── scripts/                    ← ops scripts (commit helper, k6 load test)
 ├── docker-compose.dev.yml      ← Dev orchestration (adds postgres + redis)
-├── Caddyfile.production        ← Reverse proxy config (lives outside in prod)
 ├── lefthook.yml                ← Git hooks
 └── tsconfig.base.json          ← Shared TS compiler options
 ```
@@ -85,20 +81,18 @@ Architectural rationale and topology diagrams in
 
 ## Architecture overview
 
-Three application services behind a Caddy reverse proxy on a VPS. The ElysiaJS
-API serves REST endpoints, the web container (nginx) serves the SPA, and the
-analytics service pre-computes insights consumed by the API/frontend.
+Three application services. The ElysiaJS API serves REST endpoints, the web
+container (nginx) serves the SPA, and the analytics service pre-computes
+insights consumed by the API/frontend.
 
 ```
 Browser (SPA)
   │
-  └── HTTPS ──► Caddy (reverse proxy)
-                  │
-                  ├── /api/*      ───► ElysiaJS API container (port 3001)
-                  ├── /health      ───► API health endpoint
-                  ├── /metrics     ───► API metrics endpoint
-                  ├── /swagger/*   ───► API Swagger UI (dev only)
-                  └── /*           ───► Web container (nginx, port 80)
+  ├── /api/*      ───► ElysiaJS API (port 3001)
+  ├── /health      ───► API health endpoint
+  ├── /metrics     ───► API metrics endpoint
+  ├── /swagger/*   ───► API Swagger UI (dev only)
+  └── /*           ───► Web container (nginx, port 80)
 
 Analytics service (FastAPI, port 8000)
   ├── scheduled insight computation
@@ -200,10 +194,7 @@ defaults to `http://localhost:3001/api/*`.
 | E2E (headed)                       | `bun run e2e:headed`                                     |
 | Load test                          | `k6 run scripts/loadtest.js`                             |
 | Load test (smoke)                  | `k6 run scripts/loadtest.js --env SCENARIO=smoke`        |
-| Docker build                       | `docker compose build`                                   |
-| Docker up                          | `docker compose up -d`                                   |
-| Deploy history                     | `scripts/deploy-log.sh list`                             |
-| Rollback                           | `scripts/rollback.sh [--force] <sha>`                    |
+| Docker (dev stack)                 | `docker compose -f docker-compose.dev.yml up --build`    |
 
 ## Docs
 

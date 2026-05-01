@@ -33,7 +33,6 @@ yarn-error.log*
 # env files (example is committed for onboarding)
 .env*
 !.env.example
-!.env.production.example
 
 # vercel
 .vercel
@@ -46,9 +45,6 @@ AGENTS.md
 openspec/.cache/
 openspec/changes/**/.cache/
 openspec/changes/**/.pending/
-
-# deploy log (written on VPS)
-.deploy.log
 
 # temporary files (PDF extracts, screenshots, scripts)
 .tmp/
@@ -64,8 +60,6 @@ docs/roadmap.md
 docs/log.md
 docs/issues.md
 scripts/*
-!scripts/deploy-log.sh
-!scripts/rollback.sh
 !scripts/committer
 !scripts/loadtest.js
 issues.MD
