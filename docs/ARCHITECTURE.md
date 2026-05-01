@@ -19,12 +19,10 @@ gravity-room/
 │   └── domain/              ← @gzclp/domain — Zod schemas + GZCLP engine,
 │                              consumed by web, mobile and api as workspace:*
 ├── docs/                    ← architecture, roadmap, log, llm-map (this folder)
-├── scripts/                 ← ops scripts: deploy-log, rollback, loadtest, committer
+├── scripts/                 ← ops scripts: loadtest, committer
 ├── .github/workflows/       ← CI: per-service reusable workflows + auto-format
 ├── .weave/                  ← Weave agent plans + sessions (gitignored except plans/)
-├── docker-compose.yml       ← prod compose (api, web, analytics behind external Caddy)
 ├── docker-compose.dev.yml   ← dev compose (adds postgres + redis)
-├── Caddyfile.production     ← reverse proxy (lives outside, copied for reference)
 ├── tsconfig.base.json       ← shared TS compiler options
 └── package.json             ← workspaces: apps/backend/*, apps/frontend/*, packages/*
 ```
@@ -54,28 +52,20 @@ gravity-room/
   `@react-oauth/google` (web), `expo-auth-session` (mobile), and
   `apps/backend/api/src/lib/google-auth.ts` (server).
 
-## Production topology
+## Service topology
 
 ```
-            ┌──────────────────────────┐
-            │    Caddy (external)      │
-            │  Caddyfile.production    │
-            └───────────┬──────────────┘
-                        │ host: gravityroom.app
-        ┌───────────────┼───────────────┐
-        │               │               │
+        ┌───────────────────────────────┐
+        │  /api/*, /health, /metrics,   │
+        │  /swagger/*  ─────►  api      │
+        │              (Elysia, :3001)  │
+        │                               │
+        │  everything else  ─►  web     │
+        │              (nginx, :80)     │
+        └───────────────────────────────┘
+                        │
+        ┌───────────────┴───────────────┐
         ▼               ▼               ▼
-   /api/*           /health         everything
-   /swagger/*      /metrics         else
-        │               │               │
-        ▼               ▼               ▼
-  ┌──────────┐   ┌──────────┐    ┌──────────┐
-  │   api    │   │   api    │    │   web    │
-  │ Elysia   │   │ Elysia   │    │  nginx   │
-  │ :3001    │   │ :3001    │    │  :80     │
-  └────┬─────┘   └──────────┘    └──────────┘
-       │
-       ▼
   ┌──────────┐  ┌──────────┐  ┌──────────┐
   │ Postgres │  │  Redis   │  │analytics │
   │ external │  │ external │  │ FastAPI  │
@@ -84,11 +74,10 @@ gravity-room/
 
 - The web container (nginx) serves the SPA. The API never serves static assets;
   `apps/backend/api/src/create-app.ts` is HTTP-API only.
-- Postgres and Redis are external dependencies (not in `docker-compose.yml`).
-  The dev compose (`docker-compose.dev.yml`) adds them locally on a `dev` bridge
-  network.
-- The analytics service runs on the `backend` network alongside the API and is
-  consumed internally — it is not exposed publicly through Caddy.
+- Postgres and Redis are external dependencies. The dev compose
+  (`docker-compose.dev.yml`) adds them locally on a `dev` bridge network.
+- The analytics service is consumed internally by the API and is not exposed
+  publicly.
 
 ## Local development
 
@@ -123,7 +112,7 @@ docker compose -f docker-compose.dev.yml up --build
    dependency. Web, mobile and api compile against the same Zod schemas and the
    same GZCLP rules, eliminating drift.
 3. **Single SPA serving path** — earlier the SPA was baked into the API image
-   _and_ served by a separate nginx container. Caddy only ever routed to nginx,
+   _and_ served by a separate nginx container. Only nginx was ever routed to,
    so the API copy was dead weight. Now the API is HTTP-only and the Dockerfile
    lives next to its source (`apps/backend/api/Dockerfile`).
 4. **Disambiguated tooling** — `apps/frontend/web/codegen/` (was `scripts/`) no

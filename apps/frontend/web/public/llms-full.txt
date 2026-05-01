@@ -117,8 +117,7 @@ Gravity Room solves all four by implementing the progression rules of establishe
 - ML-based strength forecasting
 
 ### Infrastructure
-- Docker Compose for local dev and production
-- Caddy as TLS termination + reverse proxy
+- Docker Compose for local dev
 - nginx serving the SPA (gzip, immutable cache for hashed assets)
 - Plausible Analytics (privacy-first, no cookies)
 - OrbStack for local container management (macOS)
