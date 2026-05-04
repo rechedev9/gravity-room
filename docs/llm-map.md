@@ -55,13 +55,6 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 | `CLAUDE.md`            | auto-loaded agent context (live API + DB schema) |
 | `README.md`            | top-level entry point                            |
 
-## Agent / planning
-
-| Path        | Role                                              |
-| ----------- | ------------------------------------------------- |
-| `.codex/`   | Codex CLI agent config                            |
-| `openspec/` | Spec-driven change workflow (proposals → archive) |
-
 ## Quick "where do I look for…"
 
 | Question                                           | Path                                                                                                           |
