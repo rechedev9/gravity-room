@@ -38,7 +38,6 @@ yarn-error.log*
 .vercel
 
 # AI tooling (Claude Code, SDD workflow)
-CLAUDE.md
 AGENTS.md
 .claude/
 .worktrees/
@@ -62,6 +61,7 @@ docs/issues.md
 scripts/*
 !scripts/committer
 !scripts/loadtest.js
+!scripts/refresh-claude-context.ts
 issues.MD
 todo.md
 
