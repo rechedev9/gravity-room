@@ -59,8 +59,7 @@ gravity-room/
 │       │   │   ├── db/         ← Drizzle schema, seeds
 │       │   │   ├── lib/        ← Redis, sentry, telegram, caches, google-auth
 │       │   │   └── plugins/    ← Swagger, metrics
-│       │   ├── drizzle/        ← Generated SQL migrations
-│       │   └── Dockerfile      ← Production API image
+│       │   └── drizzle/        ← Generated SQL migrations
 │       └── analytics/          ← FastAPI analytics service
 │           ├── insights/       ← e1RM, frequency, summary, volume
 │           ├── ml/             ← forecast, plateau, recommendation
@@ -69,8 +68,7 @@ gravity-room/
 │   └── domain/                 ← @gzclp/domain — Zod schemas + GZCLP engine,
 │                                  imported by web, mobile and api as workspace:*
 ├── docs/                       ← architecture, llm-map, roadmap, log
-├── scripts/                    ← ops scripts (commit helper, k6 load test)
-├── docker-compose.dev.yml      ← Dev orchestration (adds postgres + redis)
+├── scripts/                    ← ops scripts (commit helper, k6 loadtest)
 ├── lefthook.yml                ← Git hooks
 └── tsconfig.base.json          ← Shared TS compiler options
 ```
@@ -81,18 +79,18 @@ Architectural rationale and topology diagrams in
 
 ## Architecture overview
 
-Three application services. The ElysiaJS API serves REST endpoints, the web
-container (nginx) serves the SPA, and the analytics service pre-computes
+Three application services: the ElysiaJS API serves REST endpoints, the Vite
+build outputs the SPA as static assets, and the analytics service pre-computes
 insights consumed by the API/frontend.
 
 ```
-Browser (SPA)
-  │
-  ├── /api/*      ───► ElysiaJS API (port 3001)
-  ├── /health      ───► API health endpoint
-  ├── /metrics     ───► API metrics endpoint
-  ├── /swagger/*   ───► API Swagger UI (dev only)
-  └── /*           ───► Web container (nginx, port 80)
+Browser (SPA)  ──►  ElysiaJS API (port 3001)
+                      ├── /api/*
+                      ├── /health
+                      ├── /metrics
+                      └── /swagger/*   (dev only)
+
+Web SPA (Vite-built static assets, served by any static host)
 
 Analytics service (FastAPI, port 8000)
   ├── scheduled insight computation
@@ -120,9 +118,9 @@ Analytics service (FastAPI, port 8000)
 - **Feature-first frontend** — route-owned screens and domain UI live under
   `apps/frontend/web/src/features/`; `components/` is reserved for shared UI
   primitives and the app shell.
-- **API serves only HTTP** — the SPA is exclusively served by the nginx
-  container (`apps/frontend/web/Dockerfile`). The API image
-  (`apps/backend/api/Dockerfile`) does not bake the SPA.
+- **API serves only HTTP** — the SPA is served separately; the API
+  (`apps/backend/api/src/create-app.ts`) is HTTP-only and never serves static
+  assets.
 
 ## Getting started
 
@@ -149,12 +147,6 @@ bun run dev:web
 
 # Optional: run analytics service
 cd apps/backend/analytics && uvicorn main:app --reload --port 8000
-```
-
-Or, to run the full stack with infra (postgres + redis):
-
-```bash
-docker compose -f docker-compose.dev.yml up --build
 ```
 
 The web app runs on `http://localhost:5173`, the API on
@@ -194,13 +186,11 @@ defaults to `http://localhost:3001/api/*`.
 | E2E (headed)                       | `bun run e2e:headed`                                     |
 | Load test                          | `k6 run scripts/loadtest.js`                             |
 | Load test (smoke)                  | `k6 run scripts/loadtest.js --env SCENARIO=smoke`        |
-| Docker (dev stack)                 | `docker compose -f docker-compose.dev.yml up --build`    |
 
 ## Docs
 
-| File                                           | Purpose                                                 |
-| ---------------------------------------------- | ------------------------------------------------------- |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Tier split, stack per service, production topology      |
-| [`docs/llm-map.md`](docs/llm-map.md)           | Flat path -> purpose table for fast navigation          |
-| `docs/roadmap.md`                              | Living roadmap (gitignored — local working copy)        |
-| `docs/log.md`                                  | Deploy / progress log (gitignored — local working copy) |
+| File                                           | Purpose                                          |
+| ---------------------------------------------- | ------------------------------------------------ |
+| [`CLAUDE.md`](CLAUDE.md)                       | Auto-loaded agent context (live API + DB schema) |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Tier split, stack per service                    |
+| [`docs/llm-map.md`](docs/llm-map.md)           | Flat path -> purpose table for fast navigation   |

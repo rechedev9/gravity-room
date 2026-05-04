@@ -24,7 +24,6 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 | `apps/backend/api/src/lib/`                  | backend  | redis, logger, sentry, caches, telegram, google-auth                 | TS                                            | unit tests in same folder                                                  |
 | `apps/backend/api/src/db/`                   | backend  | Drizzle schema + seeds (catalog, programs, exercises, muscle groups) | Drizzle ORM 0.45 + postgres                   | `bun run --filter api db:migrate` / seeds tests                            |
 | `apps/backend/api/drizzle/`                  | backend  | Generated SQL migrations                                             | drizzle-kit                                   | applied on bootstrap                                                       |
-| `apps/backend/api/Dockerfile`                | backend  | Production API image                                                 | Bun base                                      | `docker compose build api`                                                 |
 | `apps/backend/analytics/`                    | backend  | Python insights microservice                                         | FastAPI 0.115, psycopg 3, sklearn             | `pytest` (in folder) / `ruff check .`                                      |
 | `apps/backend/analytics/insights/`           | backend  | e1RM, frequency, summary, volume calculators                         | numpy/pandas                                  | `pytest tests/`                                                            |
 | `apps/backend/analytics/ml/`                 | backend  | forecast, plateau, recommendation models                             | scikit-learn                                  | unit tests                                                                 |
@@ -39,39 +38,29 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Tooling
 
-| Path                                                  | Role                                                                           |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `scripts/committer`                                   | bash helper to author Conventional Commit messages                             |
-| `scripts/loadtest.js`                                 | k6 load test (smoke / load / stress)                                           |
-| `lefthook.yml`                                        | pre-commit (typecheck, lint, format) + pre-push (test, build, api-types-drift) |
-| `tsconfig.base.json`                                  | shared TypeScript compiler options                                             |
-| `.prettierrc` / `.prettierignore`                     | repo-wide formatting                                                           |
-| `docker-compose.dev.yml`                              | dev compose with postgres + redis                                              |
-| `.github/workflows/validate.yml`                      | per-service paths-filter, dispatches reusable workflows                        |
-| `.github/workflows/_validate-{web,api,analytics}.yml` | per-service validation pipelines                                               |
-| `.github/workflows/auto-format.yml`                   | runs prettier + ruff on PRs                                                    |
+| Path                              | Role                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------ |
+| `scripts/committer`               | bash helper to author Conventional Commit messages                             |
+| `scripts/loadtest.js`             | k6 load test (smoke / load / stress)                                           |
+| `lefthook.yml`                    | pre-commit (typecheck, lint, format) + pre-push (test, build, api-types-drift) |
+| `tsconfig.base.json`              | shared TypeScript compiler options                                             |
+| `.prettierrc` / `.prettierignore` | repo-wide formatting                                                           |
 
 ## Docs
 
-| Path                   | Role                                                |
-| ---------------------- | --------------------------------------------------- |
-| `docs/ARCHITECTURE.md` | architectural overview (this layout's rationale)    |
-| `docs/llm-map.md`      | this file                                           |
-| `docs/roadmap.md`      | living roadmap (gitignored, not committed)          |
-| `docs/log.md`          | deploy and progress log (gitignored, not committed) |
-| `docs/issues.md`       | known issues (gitignored, not committed)            |
-| `README.md`            | top-level entry point                               |
+| Path                   | Role                                             |
+| ---------------------- | ------------------------------------------------ |
+| `docs/ARCHITECTURE.md` | architectural overview (this layout's rationale) |
+| `docs/llm-map.md`      | this file                                        |
+| `CLAUDE.md`            | auto-loaded agent context (live API + DB schema) |
+| `README.md`            | top-level entry point                            |
 
 ## Agent / planning
 
-| Path                                   | Role                                              |
-| -------------------------------------- | ------------------------------------------------- |
-| `.weave/plans/`                        | Weave plan files (markdown front-matter + steps)  |
-| `.weave/runtime/`                      | Session JSONs (gitignored)                        |
-| `.weave/scratch/`                      | Working notes (gitignored)                        |
-| `.agents/skills/gravity-room/SKILL.md` | Auto-discovered repo conventions for agents       |
-| `.codex/`                              | Codex CLI agent config                            |
-| `openspec/`                            | Spec-driven change workflow (proposals → archive) |
+| Path        | Role                                              |
+| ----------- | ------------------------------------------------- |
+| `.codex/`   | Codex CLI agent config                            |
+| `openspec/` | Spec-driven change workflow (proposals → archive) |
 
 ## Quick "where do I look for…"
 
@@ -82,8 +71,6 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 | "Where is auth handled on the server?"             | `apps/backend/api/src/routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` + `lib/google-auth.ts` |
 | "Where is the OpenAPI client used by the web app?" | `apps/frontend/web/src/lib/api/generated.ts` (do not edit by hand)                                             |
 | "Where is shared UI?"                              | `apps/frontend/web/src/components/` (vs feature-local under `features/`)                                       |
-| "Where is the SPA Dockerfile?"                     | `apps/frontend/web/Dockerfile` (nginx)                                                                         |
-| "Where is the API Dockerfile?"                     | `apps/backend/api/Dockerfile`                                                                                  |
 | "Where are migrations?"                            | `apps/backend/api/drizzle/`                                                                                    |
 | "Where are program seeds?"                         | `apps/backend/api/src/db/seeds/programs/`                                                                      |
 | "Where is the analytics insights logic?"           | `apps/backend/analytics/insights/`                                                                             |

@@ -18,11 +18,9 @@ gravity-room/
 ├── packages/
 │   └── domain/              ← @gzclp/domain — Zod schemas + GZCLP engine,
 │                              consumed by web, mobile and api as workspace:*
-├── docs/                    ← architecture, roadmap, log, llm-map (this folder)
+├── docs/                    ← architecture, llm-map
 ├── scripts/                 ← ops scripts: loadtest, committer
-├── .github/workflows/       ← CI: per-service reusable workflows + auto-format
-├── .weave/                  ← Weave agent plans + sessions (gitignored except plans/)
-├── docker-compose.dev.yml   ← dev compose (adds postgres + redis)
+├── .github/workflows/       ← Claude bot integrations (review, code-review)
 ├── tsconfig.base.json       ← shared TS compiler options
 └── package.json             ← workspaces: apps/backend/*, apps/frontend/*, packages/*
 ```
@@ -52,32 +50,11 @@ gravity-room/
   `@react-oauth/google` (web), `expo-auth-session` (mobile), and
   `apps/backend/api/src/lib/google-auth.ts` (server).
 
-## Service topology
+## Service split
 
-```
-        ┌───────────────────────────────┐
-        │  /api/*, /health, /metrics,   │
-        │  /swagger/*  ─────►  api      │
-        │              (Elysia, :3001)  │
-        │                               │
-        │  everything else  ─►  web     │
-        │              (nginx, :80)     │
-        └───────────────────────────────┘
-                        │
-        ┌───────────────┴───────────────┐
-        ▼               ▼               ▼
-  ┌──────────┐  ┌──────────┐  ┌──────────┐
-  │ Postgres │  │  Redis   │  │analytics │
-  │ external │  │ external │  │ FastAPI  │
-  └──────────┘  └──────────┘  └──────────┘
-```
-
-- The web container (nginx) serves the SPA. The API never serves static assets;
-  `apps/backend/api/src/create-app.ts` is HTTP-API only.
-- Postgres and Redis are external dependencies. The dev compose
-  (`docker-compose.dev.yml`) adds them locally on a `dev` bridge network.
-- The analytics service is consumed internally by the API and is not exposed
-  publicly.
+- The SPA is served separately from the API. `apps/backend/api/src/create-app.ts`
+  is HTTP-API only and never serves static assets.
+- The analytics service is consumed internally by the API.
 
 ## Local development
 
@@ -85,9 +62,10 @@ gravity-room/
 bun install
 bun run dev           # web on :5173 (vite dev)
 bun run dev:api       # api on :3001 (bun --watch)
-# or, full stack with infra
-docker compose -f docker-compose.dev.yml up --build
 ```
+
+Postgres and Redis must be available locally — point `DATABASE_URL` and
+`REDIS_URL` at your own instances.
 
 ## Validation per service
 
@@ -111,10 +89,8 @@ docker compose -f docker-compose.dev.yml up --build
 2. **Shared engine in one place** — `packages/domain` is the only cross-tier
    dependency. Web, mobile and api compile against the same Zod schemas and the
    same GZCLP rules, eliminating drift.
-3. **Single SPA serving path** — earlier the SPA was baked into the API image
-   _and_ served by a separate nginx container. Only nginx was ever routed to,
-   so the API copy was dead weight. Now the API is HTTP-only and the Dockerfile
-   lives next to its source (`apps/backend/api/Dockerfile`).
+3. **API is HTTP-only** — the SPA is never served from the API. The API
+   (`apps/backend/api/src/create-app.ts`) returns JSON exclusively.
 4. **Disambiguated tooling** — `apps/frontend/web/codegen/` (was `scripts/`) no
    longer collides with the repo-root `scripts/` (ops scripts). `docs/`
    centralizes living-state documents (roadmap, log) that the README points at.
