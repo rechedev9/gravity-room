@@ -46,9 +46,9 @@ export function ProgramCard({
 
   const baseCtaClasses =
     'px-4 py-2.5 text-xs font-bold border-2 cursor-pointer transition-all text-center border-btn-ring';
-  const primaryCtaVariant = 'bg-btn-active text-btn-active-text hover:opacity-90';
-  const secondaryCtaVariant = 'bg-btn text-btn-text hover:bg-btn-active hover:text-btn-active-text';
-  const ctaClasses = `mt-auto ${baseCtaClasses} ${isActive ? primaryCtaVariant : secondaryCtaVariant}`;
+  const primaryCtaClass = `${baseCtaClasses} bg-btn-active text-btn-active-text hover:opacity-90`;
+  const secondaryCtaClass = `${baseCtaClasses} bg-btn text-btn-text hover:bg-btn-active hover:text-btn-active-text`;
+  const ctaClasses = `mt-auto ${isActive ? primaryCtaClass : secondaryCtaClass}`;
 
   const showDualActions = previewTo !== undefined && onSelect !== undefined && !disabled;
   const showCta = showDualActions || to !== undefined || onSelect !== undefined || disabled;
@@ -99,12 +99,12 @@ export function ProgramCard({
           <div className="mt-auto flex flex-col gap-2">
             <Link
               to={previewTo}
-              className={`${baseCtaClasses} ${primaryCtaVariant}`}
+              className={primaryCtaClass}
               aria-label={t('catalog.card.view_program_aria', { name })}
             >
               {t('programs.card.preview')}
             </Link>
-            <button onClick={onSelect} className={`${baseCtaClasses} ${secondaryCtaVariant}`}>
+            <button onClick={onSelect} className={secondaryCtaClass}>
               {isActive ? t('programs.card.continue_training') : t('programs.card.start_program')}
             </button>
           </div>
