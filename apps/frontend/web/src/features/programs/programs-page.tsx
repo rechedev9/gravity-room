@@ -116,6 +116,7 @@ export function ProgramsPage(): React.ReactNode {
                           <ProgramCard
                             definition={entry}
                             isActive={false}
+                            previewTo={`/programs/${entry.id}`}
                             onSelect={() => handleStartProgram(entry.id)}
                           />
                         </StaggerItem>

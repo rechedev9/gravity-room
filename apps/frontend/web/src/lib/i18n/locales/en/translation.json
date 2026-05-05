@@ -217,6 +217,7 @@
       "frequency": "{{count}}x / week",
       "author": "By {{author}}",
       "view_program": "View Program",
+      "preview": "Preview",
       "continue_training": "Continue Training",
       "start_program": "Start Program",
       "customizing": "Customizing...",

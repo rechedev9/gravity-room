@@ -24,6 +24,7 @@ interface ProgramCardProps {
   readonly disabledLabel?: string;
   readonly isActive?: boolean;
   readonly onSelect?: () => void;
+  readonly previewTo?: string;
   readonly to?: string;
 }
 
@@ -33,6 +34,7 @@ export function ProgramCard({
   disabledLabel,
   isActive = false,
   onSelect,
+  previewTo,
   to,
 }: ProgramCardProps): React.ReactNode {
   const { t } = useTranslation();
@@ -42,13 +44,14 @@ export function ProgramCard({
   const description = localizedProgramDescription(t, definition.id, definition.description);
   const resolvedDisabledLabel = disabledLabel ?? t('programs.card.coming_soon');
 
-  const ctaClasses = `mt-auto px-4 py-2.5 text-xs font-bold border-2 cursor-pointer transition-all text-center ${
-    isActive
-      ? 'border-btn-ring bg-btn-active text-btn-active-text hover:opacity-90'
-      : 'border-btn-ring bg-btn text-btn-text hover:bg-btn-active hover:text-btn-active-text'
-  }`;
+  const baseCtaClasses =
+    'px-4 py-2.5 text-xs font-bold border-2 cursor-pointer transition-all text-center border-btn-ring';
+  const primaryCtaVariant = 'bg-btn-active text-btn-active-text hover:opacity-90';
+  const secondaryCtaVariant = 'bg-btn text-btn-text hover:bg-btn-active hover:text-btn-active-text';
+  const ctaClasses = `mt-auto ${baseCtaClasses} ${isActive ? primaryCtaVariant : secondaryCtaVariant}`;
 
-  const showCta = to !== undefined || onSelect !== undefined || disabled;
+  const showDualActions = previewTo !== undefined && onSelect !== undefined && !disabled;
+  const showCta = showDualActions || to !== undefined || onSelect !== undefined || disabled;
 
   return (
     <div
@@ -92,11 +95,24 @@ export function ProgramCard({
         )}
 
         {/* CTA */}
-        {showCta &&
-          (to !== undefined ? (
+        {showDualActions ? (
+          <div className="mt-auto flex flex-col gap-2">
+            <Link
+              to={previewTo}
+              className={`${baseCtaClasses} ${primaryCtaVariant}`}
+              aria-label={t('catalog.card.view_program_aria', { name })}
+            >
+              {t('programs.card.preview')}
+            </Link>
+            <button onClick={onSelect} className={`${baseCtaClasses} ${secondaryCtaVariant}`}>
+              {isActive ? t('programs.card.continue_training') : t('programs.card.start_program')}
+            </button>
+          </div>
+        ) : showCta ? (
+          to !== undefined ? (
             <Link
               to={to}
-              className={`mt-auto ${ctaClasses}`}
+              className={ctaClasses}
               aria-label={t('catalog.card.view_program_aria', { name })}
             >
               {t('programs.card.view_program')}
@@ -115,7 +131,8 @@ export function ProgramCard({
                   ? t('programs.card.continue_training')
                   : t('programs.card.start_program')}
             </button>
-          ))}
+          )
+        ) : null}
       </div>
     </div>
   );
