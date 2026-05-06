@@ -47,6 +47,10 @@ AGENTS.md
 .playwright-mcp/
 .railwayignore
 
+# Weave local runtime artifacts
+.weave/runtime/
+.weave/state.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -77,4 +81,3 @@ __pycache__/
 # Python local envs and test caches
 .venv/
 .pytest_cache/
-

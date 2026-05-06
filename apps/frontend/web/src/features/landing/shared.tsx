@@ -8,7 +8,7 @@ import type { FooterContent, NavLink } from './content';
 export const DISCORD_URL = 'https://discord.gg/FXNBrgYf7U';
 export const GITHUB_URL = 'https://github.com/rechedev/gravity-room';
 
-export const SECTION_IDS = ['features', 'how-it-works', 'programs'] as const;
+export const SECTION_IDS = ['how-it-works', 'programs', 'free-trust', 'faq'] as const;
 
 export const MAX_LANDING_PROGRAMS = 6;
 export const CATALOG_STALE_TIME = 5 * 60 * 1000;
@@ -142,7 +142,7 @@ export function SkipToContent({ label }: { readonly label: string }): React.Reac
   return (
     <a
       href="#main-content"
-      className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:bg-btn-active focus:text-btn-active-text focus:text-sm focus:font-bold"
+      className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:z-50 focus-visible:top-2 focus-visible:left-2 focus-visible:px-4 focus-visible:py-2 focus-visible:bg-btn-active focus-visible:text-btn-active-text focus-visible:text-sm focus-visible:font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >
       {label}
     </a>

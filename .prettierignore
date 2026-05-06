@@ -8,6 +8,8 @@ build
 .tmp
 .idea
 .claude
+.weave/runtime
+.weave/state.json
 apps/backend/api/drizzle
 **/.venv
 **/.pytest_cache

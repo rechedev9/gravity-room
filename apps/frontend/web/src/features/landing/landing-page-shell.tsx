@@ -22,6 +22,11 @@ import { HowItWorksSection } from './how-it-works-section';
 import { ScienceSection } from './science-section';
 import { ProgramsSection } from './programs-section';
 import { FinalCtaSection } from './final-cta-section';
+import { ProblemSection } from './problem-section';
+import { MidPageCtaSection } from './mid-page-cta-section';
+import { FreeTrustSection } from './free-trust-section';
+import { ComparisonSection } from './comparison-section';
+import { FaqSection } from './faq-section';
 import type { HeadProps } from '@/hooks/use-head';
 
 interface LandingPageShellProps {
@@ -65,7 +70,9 @@ export function LandingPageShell({ content, head, lang }: LandingPageShellProps)
       <NavBar activeSection={activeSection} content={content.nav} />
 
       <main id="main-content">
-        <HeroSection content={content.hero} />
+        <HeroSection content={content.hero} productPreview={content.productPreview} />
+        <GradientDivider />
+        <ProblemSection content={content.problem} />
         <GradientDivider />
         <MetricsSection
           programCount={programCount}
@@ -74,13 +81,20 @@ export function LandingPageShell({ content, head, lang }: LandingPageShellProps)
           content={content.metrics}
         />
         <GradientDivider />
+        <HowItWorksSection content={content.howItWorks} />
+        <MidPageCtaSection content={content.midPageCta} />
+        <GradientDivider />
         <FeaturesSection content={content.features} />
         <GradientDivider />
-        <HowItWorksSection content={content.howItWorks} />
+        <ProgramsSection catalogQuery={catalogQuery} content={content.programs} />
         <GradientDivider />
         <ScienceSection content={content.science} />
         <GradientDivider />
-        <ProgramsSection catalogQuery={catalogQuery} content={content.programs} />
+        <FreeTrustSection content={content.freeTrust} />
+        <GradientDivider />
+        <ComparisonSection content={content.comparison} />
+        <GradientDivider />
+        <FaqSection content={content.faq} />
         <GradientDivider />
         <FinalCtaSection content={content.finalCta} />
       </main>

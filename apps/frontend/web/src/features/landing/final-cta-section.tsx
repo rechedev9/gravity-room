@@ -14,7 +14,30 @@ export function FinalCtaSection({ content }: FinalCtaSectionProps): React.ReactN
   const init = reduced ? 'visible' : 'hidden';
 
   return (
-    <section className="relative px-6 py-16 sm:py-24 text-center overflow-hidden">
+    <section
+      aria-labelledby="final-cta-heading"
+      className="relative px-6 py-16 sm:py-24 text-center overflow-hidden"
+    >
+      {/* Background image — atmospheric, behind overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        aria-hidden="true"
+        style={{
+          backgroundImage: 'url(/landing-final-cta-bg.webp)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          opacity: 0.15,
+        }}
+      />
+      {/* Dark overlay for text legibility */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        aria-hidden="true"
+        style={{
+          background: 'linear-gradient(180deg, rgba(10,10,10,0.7) 0%, rgba(10,10,10,0.85) 100%)',
+        }}
+      />
       <motion.div
         initial={init}
         whileInView="visible"
@@ -48,6 +71,7 @@ export function FinalCtaSection({ content }: FinalCtaSectionProps): React.ReactN
           {content.eyebrow}
         </motion.p>
         <motion.h2
+          id="final-cta-heading"
           variants={fadeUpVariants}
           className="font-display mb-10 leading-none text-title"
           style={{
@@ -78,14 +102,15 @@ export function FinalCtaSection({ content }: FinalCtaSectionProps): React.ReactN
             </a>
           </span>
         </motion.p>
-        <motion.div variants={scaleUpVariants}>
+        <motion.div variants={scaleUpVariants} className="flex flex-col items-center gap-3">
           <Link
             to="/login"
             onClick={() => trackEvent('landing_cta_click', { location: 'final_cta' })}
-            className="font-mono inline-block px-12 py-4 text-sm font-bold tracking-widest uppercase border-2 border-btn-ring bg-btn-active text-btn-active-text hover:shadow-[0_0_48px_rgba(232,170,32,0.4)] transition-all duration-300"
+            className="font-mono inline-block px-12 py-4 text-sm font-bold tracking-widest uppercase border-2 border-btn-ring bg-btn-active text-btn-active-text hover:shadow-[0_0_48px_rgba(232,170,32,0.4)] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body"
           >
             {content.cta}
           </Link>
+          <p className="font-mono text-[11px] tracking-wider text-muted">{content.microcopy}</p>
         </motion.div>
       </motion.div>
     </section>

@@ -469,6 +469,12 @@ dialog::backdrop {
   opacity: 1;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .landing-card-glow::before {
+    transition: none;
+  }
+}
+
 /* ── Program card hover lift ─────────────────── */
 
 .program-card-lift {
@@ -601,6 +607,12 @@ dialog::backdrop {
 
 html {
   scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 section[id] {
