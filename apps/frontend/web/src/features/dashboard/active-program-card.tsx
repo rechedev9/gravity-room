@@ -90,6 +90,21 @@ export function ActiveProgramCard({
 
   const totalWorkouts = definition?.totalWorkouts ?? 0;
 
+  const nextPendingWorkout = useMemo(() => {
+    if (!detailQuery.data || !definition) return null;
+    const results = detailQuery.data.results;
+    for (let i = 0; i < definition.totalWorkouts; i++) {
+      const dayIndex = i % definition.cycleLength;
+      const day = definition.days[dayIndex];
+      const workoutResult = results[String(i)];
+      const allDone = day.slots.every((slot) => workoutResult?.[slot.id]?.result !== undefined);
+      if (!allDone) {
+        return { index: i + 1, dayName: day.name };
+      }
+    }
+    return null;
+  }, [detailQuery.data, definition]);
+
   const handleContinue = (): void => {
     setTracker(program.programId, program.id);
     void navigate({ to: '/app/tracker/$programId', params: { programId: program.programId } });
@@ -169,6 +184,14 @@ export function ActiveProgramCard({
         <Button variant="primary" onClick={handleContinue}>
           {t('programs.card.continue_training')}
         </Button>
+        {nextPendingWorkout && (
+          <p className="text-xs text-muted mt-2">
+            {t('catalog.active_card.next_workout', {
+              index: nextPendingWorkout.index,
+              name: nextPendingWorkout.dayName,
+            })}
+          </p>
+        )}
       </div>
 
       {/* KPI mini row */}

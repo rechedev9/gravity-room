@@ -33,6 +33,7 @@ import { ProfileBadges } from './profile-badges';
 import { ProfileStatsGrid } from './profile-stats-grid';
 import { ProfileHistory } from './profile-history';
 import { ProfileInsightsSection } from './profile-insights-section';
+import { ZoneHint } from '@/features/home/zone-hint';
 
 // Recharts lands in its own 387 kB chunk; keep it off the profile-route preload
 // by loading the chart section on demand once the user has something to chart.
@@ -275,6 +276,8 @@ export function ProfilePage(): React.ReactNode {
           </h1>
           {user && <p className="text-sm text-muted mt-1">{displayName}</p>}
         </div>
+
+        <ZoneHint zone="profile" className="mb-6" />
 
         {profileData && activeProgramName && (
           <ProfileBanner

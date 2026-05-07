@@ -419,6 +419,7 @@ export function ProgramApp({
               <ProgramTabContent
                 definition={definition}
                 isGuest={isGuest}
+                rows={rows}
                 selectedWorkout={selectedWorkout}
                 selectedDayIndex={dayNav.selectedDayIndex}
                 currentDayIndex={firstPendingIdx}
@@ -426,9 +427,11 @@ export function ProgramApp({
                 isDayComplete={isDayComplete}
                 viewMode={dayNav.viewMode}
                 workoutsPerWeek={workoutsPerWeek}
+                resultTimestamps={resultTimestamps}
                 onPrevDay={dayNav.handlePrevDay}
                 onNextDay={dayNav.handleNextDay}
                 onGoToCurrent={dayNav.handleGoToCurrent}
+                onSelectDay={dayNav.handleSelectDay}
                 onToggleView={dayNav.handleToggleView}
                 onMark={handleMarkResult}
                 onUndo={testWeight.handleUndoSpecific}

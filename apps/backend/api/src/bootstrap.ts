@@ -69,53 +69,65 @@ async function runMigrations(): Promise<void> {
   // compares the last applied created_at against each migration's folderMillis;
   // a future-dated entry caused all subsequent migrations to be silently skipped.
   // These are all idempotent (IF NOT EXISTS / IF NOT EXISTS) — safe to keep permanently.
+  //
+  // Guard: only run these hotfixes if the base schema already exists (i.e. this is
+  // an existing/legacy DB). On a fresh DB, Drizzle migrations will create everything
+  // correctly and these ALTER statements would fail on non-existent tables.
+  const [{ workoutResultsExists }] = await migrationClient<[{ workoutResultsExists: boolean }]>`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'workout_results'
+    ) AS "workoutResultsExists"`;
 
-  // 0005/0006: RPE columns
-  await migrationClient`ALTER TABLE "workout_results" ADD COLUMN IF NOT EXISTS "rpe" smallint`;
-  await migrationClient`ALTER TABLE "undo_entries" ADD COLUMN IF NOT EXISTS "prev_rpe" smallint`;
+  if (workoutResultsExists) {
+    // 0005/0006: RPE columns
+    await migrationClient`ALTER TABLE "workout_results" ADD COLUMN IF NOT EXISTS "rpe" smallint`;
+    await migrationClient`ALTER TABLE "undo_entries" ADD COLUMN IF NOT EXISTS "prev_rpe" smallint`;
 
-  // 0007: program_definitions table + enum
-  await migrationClient`DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'program_definition_status') THEN
-      CREATE TYPE "public"."program_definition_status"
-        AS ENUM('draft', 'pending_review', 'approved', 'rejected');
-    END IF;
-  END $$`;
-  await migrationClient`CREATE TABLE IF NOT EXISTS "program_definitions" (
-    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-    "user_id" uuid NOT NULL,
-    "definition" jsonb NOT NULL,
-    "status" "program_definition_status" DEFAULT 'draft' NOT NULL,
-    "deleted_at" timestamp with time zone,
-    "created_at" timestamp with time zone DEFAULT now() NOT NULL,
-    "updated_at" timestamp with time zone DEFAULT now() NOT NULL
-  )`;
-  await migrationClient`DO $$ BEGIN
-    IF NOT EXISTS (
-      SELECT 1 FROM information_schema.table_constraints
-      WHERE constraint_name = 'program_definitions_user_id_users_id_fk'
-    ) THEN
-      ALTER TABLE "program_definitions" ADD CONSTRAINT "program_definitions_user_id_users_id_fk"
-        FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
-    END IF;
-  END $$`;
-  await migrationClient`CREATE INDEX IF NOT EXISTS "program_definitions_user_id_idx"
-    ON "program_definitions" USING btree ("user_id")`;
-  await migrationClient`CREATE INDEX IF NOT EXISTS "program_definitions_status_idx"
-    ON "program_definitions" USING btree ("status")`;
+    // 0007: program_definitions table + enum
+    await migrationClient`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'program_definition_status') THEN
+        CREATE TYPE "public"."program_definition_status"
+          AS ENUM('draft', 'pending_review', 'approved', 'rejected');
+      END IF;
+    END $$`;
+    await migrationClient`CREATE TABLE IF NOT EXISTS "program_definitions" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "user_id" uuid NOT NULL,
+      "definition" jsonb NOT NULL,
+      "status" "program_definition_status" DEFAULT 'draft' NOT NULL,
+      "deleted_at" timestamp with time zone,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    )`;
+    await migrationClient`DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE constraint_name = 'program_definitions_user_id_users_id_fk'
+      ) THEN
+        ALTER TABLE "program_definitions" ADD CONSTRAINT "program_definitions_user_id_users_id_fk"
+          FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+      END IF;
+    END $$`;
+    await migrationClient`CREATE INDEX IF NOT EXISTS "program_definitions_user_id_idx"
+      ON "program_definitions" USING btree ("user_id")`;
+    await migrationClient`CREATE INDEX IF NOT EXISTS "program_definitions_status_idx"
+      ON "program_definitions" USING btree ("status")`;
 
-  // 0008: widen slot_id columns (varchar → varchar(50)). ALTER TYPE is idempotent
-  // if the column is already varchar(50) — PostgreSQL accepts the same type.
-  await migrationClient`ALTER TABLE "workout_results" ALTER COLUMN "slot_id" TYPE varchar(50)`;
-  await migrationClient`ALTER TABLE "undo_entries" ALTER COLUMN "slot_id" TYPE varchar(50)`;
+    // 0008: widen slot_id columns (varchar → varchar(50)). ALTER TYPE is idempotent
+    // if the column is already varchar(50) — PostgreSQL accepts the same type.
+    await migrationClient`ALTER TABLE "workout_results" ALTER COLUMN "slot_id" TYPE varchar(50)`;
+    await migrationClient`ALTER TABLE "undo_entries" ALTER COLUMN "slot_id" TYPE varchar(50)`;
 
-  // 0009: user profile columns
-  await migrationClient`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatar_url" text`;
-  await migrationClient`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp with time zone`;
+    // 0009: user profile columns
+    await migrationClient`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatar_url" text`;
+    await migrationClient`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp with time zone`;
+  }
 
   // Widen exercises.id from varchar(50) to varchar(100) — 9 expanded exercise IDs
   // exceed 50 chars (e.g. 'lying_close_grip_barbell_triceps_extension_behind_the_head').
   // ALTER TYPE to a wider varchar is non-destructive and requires no data migration.
+  // Uses IF EXISTS so it is safe on a fresh DB (Drizzle migration 0032 handles it there).
   await migrationClient`ALTER TABLE IF EXISTS "exercises" ALTER COLUMN "id" TYPE varchar(100)`;
 
   // Goose-to-Drizzle bridge: if the DB has existing schema (from goose) but no

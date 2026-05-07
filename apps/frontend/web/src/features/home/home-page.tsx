@@ -15,6 +15,7 @@ import { StaggerContainer, StaggerItem, fadeUpFastVariants } from '@/lib/motion-
 import { HomeHeader } from './home-header';
 import { HomeKpiStrip } from './home-kpi-strip';
 import { HomeEmptyState } from './home-empty-state';
+import { HomeMentorWidget } from './home-mentor-widget';
 
 const HOME_INSIGHT_TYPES = ['frequency', 'volume_trend'] as const;
 
@@ -76,6 +77,10 @@ export function HomePage(): React.ReactNode {
               streakDays={freqPayload?.currentStreak ?? null}
               daysSinceLast={daysSinceLast}
             />
+          </StaggerItem>
+
+          <StaggerItem variants={fadeUpFastVariants}>
+            <HomeMentorWidget />
           </StaggerItem>
 
           {showKpi && (

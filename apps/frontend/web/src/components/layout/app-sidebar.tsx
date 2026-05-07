@@ -78,6 +78,7 @@ function SidebarNavLink({ item, collapsed, onItemClick }: SidebarNavLinkProps): 
 }
 
 export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNode {
+  const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const { isGuest, exitGuestMode } = useGuest();
   const navigate = useNavigate();
@@ -108,7 +109,6 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
   );
 
   function renderNavItems(collapsed: boolean, onItemClick: () => void): React.ReactNode {
-    const { t } = useTranslation();
     return NAV_ITEMS.map((item) => {
       if (item.guestHidden && isGuest) return null;
       const label = t(item.labelKey);
@@ -130,8 +130,6 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
   }
 
   function renderContent(collapsed: boolean, onItemClick: () => void): React.ReactNode {
-    const { t } = useTranslation();
-
     return (
       <TooltipProvider>
         <nav

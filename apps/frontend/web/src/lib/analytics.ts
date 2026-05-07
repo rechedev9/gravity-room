@@ -6,7 +6,14 @@ type AnalyticsEvent =
   | 'landing_view'
   | 'landing_cta_click'
   | 'program_preview_view'
-  | 'login_page_view';
+  | 'login_page_view'
+  | 'mentor_tutorial_start'
+  | 'mentor_tutorial_complete'
+  | 'mentor_tour_checklist_dismiss'
+  | 'mentor_tour_zone_visit'
+  | 'mentor_tour_reset'
+  | 'program_navigation_jump'
+  | 'program_navigation_mode_change';
 
 declare global {
   interface Window {

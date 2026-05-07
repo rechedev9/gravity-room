@@ -16,9 +16,11 @@ import type { ViewMode } from '@/lib/view-preference';
 import { ProgramOverview } from '@/features/program-view/program-overview';
 import { ProgramAboutSection } from '@/features/program-view/program-about-section';
 import { DayNavigator } from '@/features/program-view/day-navigator';
+import { CalendarNavigator } from '@/features/program-view/calendar-navigator';
 import { DayView } from '@/features/program-view/day-view';
 import { DetailedDayView } from '@/features/program-view/detailed-day-view';
 import { ToastContainer } from '@/components/toast';
+import { ZoneHint } from '@/features/home/zone-hint';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -222,6 +224,11 @@ export function ProgramPreviewPage(): ReactNode {
     setSelectedDayIndex(CURRENT_DAY_INDEX);
   };
 
+  const handleSelectDay = (index: number): void => {
+    if (rows.length === 0) return;
+    setSelectedDayIndex(Math.min(Math.max(0, index), rows.length - 1));
+  };
+
   // ---------------------------------------------------------------------------
   // View toggle
   // ---------------------------------------------------------------------------
@@ -292,6 +299,8 @@ export function ProgramPreviewPage(): ReactNode {
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
         <h1 className="sr-only">{name}</h1>
 
+        <ZoneHint zone="preview" className="mb-4" />
+
         {/* Program info — expanded by default */}
         <ProgramAboutSection
           title={t('catalog.program_preview.about', { name })}
@@ -322,6 +331,18 @@ export function ProgramPreviewPage(): ReactNode {
           onGoToCurrent={handleGoToCurrent}
         />
 
+        {/* Calendar navigator — program weeks, no real completion state */}
+        <div className="mt-4">
+          <CalendarNavigator
+            rows={rows}
+            selectedDayIndex={selectedDayIndex}
+            currentDayIndex={CURRENT_DAY_INDEX}
+            workoutsPerWeek={definition.workoutsPerWeek}
+            context="preview"
+            onSelectDay={handleSelectDay}
+          />
+        </div>
+
         {/* View mode toggle */}
         <div className="flex justify-end mb-2">
           <button
@@ -332,7 +353,7 @@ export function ProgramPreviewPage(): ReactNode {
                 ? t('tracker.tab_content.aria_compact_view')
                 : t('tracker.tab_content.aria_detailed_view')
             }
-            className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors"
+            className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors min-h-[44px] px-2 inline-flex items-center"
           >
             {viewMode === 'detailed'
               ? t('tracker.tab_content.compact_view')

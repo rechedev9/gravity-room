@@ -38,6 +38,44 @@
     "session_prefix": "Entrenamiento #{{index}} — {{dayName}}",
     "stage_label": "Etapa"
   },
+  "calendar_navigator": {
+    "jump_form_aria": "Ir a un entrenamiento específico",
+    "jump_label": "Ir al entrenamiento",
+    "jump_button": "Ir",
+    "jump_button_aria": "Ir al entrenamiento indicado",
+    "jump_error": "Introduce un número entre 1 y {{max}}",
+    "week_chips_aria": "Semanas del programa",
+    "week_chip_label": "Semana de programa {{week}}",
+    "week_chip_aria": "Semana de programa {{week}}, entrenamientos {{from}} al {{to}}",
+    "week_grid_aria": "Entrenamientos de la semana {{week}}",
+    "day_tile_aria": "Entrenamiento {{index}} — {{state}}",
+    "tile_state": {
+      "selected": "seleccionado",
+      "current": "actual",
+      "completed": "completado",
+      "pending": "pendiente"
+    },
+    "nav_mode_group_aria": "Modo de vista del calendario",
+    "nav_mode": {
+      "day": "Día",
+      "week": "Semana",
+      "month": "Mes"
+    },
+    "day_summary_aria": "Resumen del entrenamiento {{index}}",
+    "month_prev_aria": "Página anterior del mes",
+    "month_next_aria": "Página siguiente del mes",
+    "month_page_label": "Página {{page}} de {{total}}",
+    "month_current_aria": "Ir a la página del mes actual",
+    "month_current_label": "Actual",
+    "preview_program_weeks_label": "Semanas de programa (relativas)",
+    "reading_mode_group_aria": "Modo de lectura del calendario",
+    "reading_mode": {
+      "program": "Programa",
+      "history": "Historial real"
+    },
+    "history_microcopy": "Las fechas reales aparecen cuando completas entrenamientos.",
+    "history_empty": "Aún no hay entrenamientos completados."
+  },
   "catalog": {
     "category": {
       "strength": "Fuerza",
@@ -77,7 +115,8 @@
       "orphan_delete_loading": "Eliminando…",
       "orphan_confirm_title": "Eliminar programa huérfano",
       "orphan_confirm_message": "Se eliminarán todos los resultados asociados. ¿Continuar?",
-      "recent_activity_empty": "Completa tu primer entrenamiento para ver la actividad reciente."
+      "recent_activity_empty": "Completa tu primer entrenamiento para ver la actividad reciente.",
+      "next_workout": "Siguiente: Día {{index}} — {{name}}"
     },
     "programs": {
       "gzclp": {
@@ -473,7 +512,12 @@
       "pending_aria": "Pendiente",
       "go_to_current": "Actual",
       "next_aria": "Siguiente día",
-      "next_button": "Siguiente"
+      "next_button": "Siguiente",
+      "kbd_prev": "anterior",
+      "kbd_next": "siguiente",
+      "kbd_success": "éxito",
+      "kbd_fail": "fallo",
+      "kbd_undo": "deshacer"
     },
     "completion": {
       "header": "¡COMPLETADO!",
@@ -495,7 +539,11 @@
     },
     "result_cell": {
       "success": "Éxito",
-      "fail": "Fallo"
+      "fail": "Fallo",
+      "aria_mark_success": "Marcar {{tier}} éxito",
+      "aria_mark_fail": "Marcar {{tier}} fallo",
+      "aria_undo": "Deshacer {{tier}} {{result}}",
+      "aria_register_max": "Registrar Maximo {{tier}}"
     },
     "amrap_input": {
       "label": "Reps AMRAP",
@@ -884,6 +932,83 @@
     "footer": {
       "view_stats": "Ver estadísticas en Perfil",
       "change_language": "Cambia el idioma en Perfil"
+    },
+    "mentor": {
+      "widget_title": "Sensei de la Sala",
+      "prompt": "Bienvenido, ¿quieres un pequeño tutorial?",
+      "cta_start": "Empezar mini tutorial",
+      "cta_dismiss": "Ahora no",
+      "intro_title": "Tour rápido — 4 pasos",
+      "intro_body": "Te guiaremos por las secciones principales de Gravity Room.",
+      "start": "Empezar",
+      "cancel": "Cancelar",
+      "next": "Siguiente",
+      "finish": "Finalizar",
+      "exit": "Salir del tutorial",
+      "repeat": "Repetir tutorial",
+      "completed_hint": "Tutorial completado.",
+      "all_done": "🎉 ¡Todo listo! Disfruta Gravity Room.",
+      "steps": {
+        "step_home": {
+          "title": "Inicio",
+          "body": "Tu programa activo vive aquí. De un vistazo ves racha, sesiones semanales y consistencia."
+        },
+        "step_programs": {
+          "title": "Programas",
+          "body": "Abre Programas para elegir rutina, personalizar un programa o gestionar los que ya tienes."
+        },
+        "step_tracker": {
+          "title": "Tracker",
+          "body": "En el tracker puedes registrar éxito, fallo, AMRAP y RPE en cada serie de tu entrenamiento."
+        },
+        "step_profile": {
+          "title": "Perfil",
+          "body": "Revisa estadísticas, logros y tu historial de programas en la sección Perfil."
+        }
+      }
+    }
+  },
+  "mentor_tour": {
+    "prompt": {
+      "title": "Bienvenido, ¿quieres un pequeño tutorial?",
+      "start": "Empezar mini tutorial",
+      "dismiss": "Ahora no"
+    },
+    "checklist": {
+      "title": "Sensei de la Sala",
+      "progress": "{{done}}/{{total}} zonas exploradas",
+      "go": "Ir",
+      "all_done": "🎉 ¡Has explorado todas las zonas!",
+      "all_done_short": "Tour completado.",
+      "dismiss_all": "No mostrar más",
+      "repeat": "Reiniciar tour",
+      "dismiss_aria": "Cerrar lista del tour"
+    },
+    "zone_hint": {
+      "aria_label": "Consejo del Sensei",
+      "dismiss_aria": "Cerrar este consejo"
+    },
+    "zones": {
+      "home": {
+        "label": "Inicio",
+        "hint": "Tu programa activo vive aquí. Consulta tu racha, sesiones semanales y consistencia de un vistazo."
+      },
+      "programs": {
+        "label": "Programas",
+        "hint": "Explora el catálogo, previsualiza rutinas e inicia un nuevo programa desde aquí."
+      },
+      "preview": {
+        "label": "Vista previa",
+        "hint": "Explora el calendario completo de cualquier programa antes de empezarlo. Toca un entrenamiento para ver los ejercicios."
+      },
+      "tracker": {
+        "label": "Tracker",
+        "hint": "Registra éxito, fallo, AMRAP y RPE en cada serie. El calendario muestra tu progreso a lo largo del tiempo."
+      },
+      "profile": {
+        "label": "Perfil",
+        "hint": "Aquí encontrarás tus estadísticas, insignias, gráficas de volumen e historial de programas."
+      }
     }
   }
 }
