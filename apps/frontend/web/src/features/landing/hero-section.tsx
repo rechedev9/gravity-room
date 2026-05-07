@@ -30,7 +30,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
-          opacity: 0.18,
+          opacity: 0.28,
         }}
       />
       {/* Dark gradient overlay to keep text readable */}
@@ -39,7 +39,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
         aria-hidden="true"
         style={{
           background:
-            'linear-gradient(135deg, rgba(10,10,10,0.85) 0%, rgba(10,10,10,0.55) 50%, rgba(10,10,10,0.75) 100%)',
+            'linear-gradient(135deg, rgba(11,9,6,0.72) 0%, rgba(11,9,6,0.36) 48%, rgba(11,9,6,0.66) 100%), linear-gradient(180deg, rgba(11,9,6,0.18) 0%, rgba(11,9,6,0.82) 100%)',
         }}
       />
 
@@ -49,7 +49,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
         aria-hidden="true"
         style={{
           background:
-            'radial-gradient(ellipse at center, rgba(232,170,32,0.07) 0%, transparent 65%)',
+            'radial-gradient(ellipse at center, rgba(232,170,32,0.14) 0%, rgba(232,170,32,0.05) 36%, transparent 70%)',
         }}
       />
 
@@ -72,7 +72,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
       />
 
       {/* Two-column grid: copy | preview — stacks on mobile */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+      <div className="relative z-10 max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
         {/* ── Left column: copy ── */}
         <motion.div
           initial={init}
@@ -83,7 +83,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
           {/* Kicker / badge */}
           <motion.div
             variants={fadeUpVariants}
-            className="font-mono inline-flex items-center gap-3 mb-6 px-4 py-2 border border-rule-light bg-card"
+            className="font-mono inline-flex items-center gap-3 mb-6 px-4 py-2 border border-rule-light bg-card shadow-[0_0_24px_rgba(232,170,32,0.08)]"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" aria-hidden="true" />
             <span className="text-[10px] font-medium tracking-[0.3em] uppercase text-muted">
@@ -95,7 +95,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
           <motion.h1
             id="hero-heading"
             variants={fadeUpVariants}
-            className="font-display mb-5 leading-none tracking-wide text-title"
+            className="hero-title-glow font-display mb-5 leading-none tracking-wide text-title"
             style={{
               fontSize: 'clamp(40px, 6vw, 72px)',
               letterSpacing: '0.01em',
@@ -103,15 +103,14 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
           >
             {content.line1}
             <br />
-            <span className="text-main" style={{ opacity: 0.9 }}>
-              {content.line2}
-            </span>
+            <span className="text-main">{content.line2}</span>
           </motion.h1>
 
           {/* Subtitle */}
           <motion.p
             variants={fadeUpVariants}
-            className="text-base sm:text-lg max-w-lg mb-8 leading-relaxed text-muted"
+            className="text-base sm:text-lg max-w-lg mb-8 leading-relaxed text-main"
+            style={{ opacity: 0.82 }}
           >
             {content.subtitle}
           </motion.p>
@@ -124,14 +123,14 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
             <Link
               to="/login"
               onClick={() => trackEvent('landing_cta_click', { location: 'hero_primary' })}
-              className="font-mono px-8 py-4 text-sm font-bold tracking-widest uppercase border-2 border-btn-ring bg-btn-active text-btn-active-text hover:shadow-[0_0_32px_rgba(232,170,32,0.35)] transition-all duration-300 min-w-[220px] text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body"
+              className="landing-primary-cta font-mono px-8 py-4 text-sm font-bold tracking-widest uppercase border-2 border-btn-ring bg-btn-active text-btn-active-text transition-all duration-300 min-w-[220px] text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body"
             >
               {content.primaryCta}
             </Link>
             <a
               href="#how-it-works"
               onClick={() => trackEvent('landing_cta_click', { location: 'hero_secondary' })}
-              className="font-mono px-8 py-4 text-sm font-bold tracking-widest uppercase border-2 border-rule text-muted hover:border-rule-light hover:text-main transition-all duration-300 min-w-[220px] text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body"
+              className="font-mono px-8 py-4 text-sm font-bold tracking-widest uppercase border-2 border-rule-light text-main hover:border-accent hover:text-title hover:shadow-[0_0_20px_rgba(232,170,32,0.12)] transition-all duration-300 min-w-[220px] text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body"
             >
               {content.secondaryCta}
             </a>
@@ -140,7 +139,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
           {/* Microcopy — reassurance below CTA */}
           <motion.p
             variants={fadeUpVariants}
-            className="font-mono text-[11px] tracking-wider text-muted mb-8"
+            className="font-mono text-[11px] tracking-wider text-label mb-8"
           >
             {content.microcopy}
           </motion.p>
@@ -154,7 +153,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
             {content.proofItems.map((item) => (
               <li
                 key={item.label}
-                className="font-mono inline-flex items-center gap-2 px-3 py-1.5 border border-rule bg-card text-[11px] tracking-wide text-muted"
+                className="font-mono inline-flex items-center gap-2 px-3 py-1.5 border border-rule-light bg-card text-[11px] tracking-wide text-label shadow-[0_0_18px_rgba(232,170,32,0.04)]"
               >
                 <span className="text-accent font-bold" aria-hidden="true">
                   {item.value}
