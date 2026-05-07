@@ -1,30 +1,20 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
-import resourcesToBackend from 'i18next-resources-to-backend';
 
-// Default locale (Spanish) ships statically so first-paint never waits on a fetch.
+// Both locales ship statically — the JSON files are small and this avoids
+// async backend races in tests (and on first render when the detector picks 'en').
 import es from './locales/es/translation.json';
-
-// Non-default locales resolve through a dynamic import so they only load when
-// the detector (or an explicit change) actually selects them.
-const backend = resourcesToBackend(async (language: string) => {
-  if (language === 'en') {
-    const mod = await import('./locales/en/translation.json');
-    return mod.default;
-  }
-  return {};
-});
+import en from './locales/en/translation.json';
 
 i18n
-  .use(backend)
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: {
       es: { translation: es },
+      en: { translation: en },
     },
-    partialBundledLanguages: true,
     fallbackLng: 'es',
     supportedLngs: ['es', 'en'],
     debug: import.meta.env.DEV,
