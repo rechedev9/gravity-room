@@ -15,6 +15,9 @@ permissions:
   contents: read
   deployments: write
 
+env:
+  RAILWAY_CLI_VERSION: 4.48.0
+
 jobs:
   deploy-web:
     name: Deploy Web to Railway
@@ -44,7 +47,7 @@ jobs:
           fi
 
       - name: Install Railway CLI
-        run: npm install -g @railway/cli
+        run: npm install -g "@railway/cli@$RAILWAY_CLI_VERSION"
 
       - name: Deploy to Railway
         run: railway up --service "$RAILWAY_SERVICE" --environment "$RAILWAY_ENVIRONMENT" --detach

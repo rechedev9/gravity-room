@@ -1,3 +1,5 @@
+min_version: 2.1.5
+
 pre-commit:
   parallel: true
   commands:
@@ -16,7 +18,7 @@ pre-push:
     test:
       run: bun run test
     build:
-      run: VITE_API_URL=http://localhost:3001 bun run build
+      run: bun run build:ci
 
 # api-types-drift was removed from pre-push because it requires a live API on
 # http://localhost:3001/swagger/json that nobody has running locally before

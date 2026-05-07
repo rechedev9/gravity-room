@@ -30,19 +30,18 @@ for (const [exportName, value] of Object.entries(schema)) {
   const tableName = getTableName(value);
 
   const columns: ColInfo[] = Object.values(cols).map((col) => {
-    const c = col as unknown as {
-      name: string;
-      columnType?: string;
-      notNull?: boolean;
-      primary?: boolean;
-      isUnique?: boolean;
-    };
+    const name = Reflect.get(col, 'name');
+    const columnType = Reflect.get(col, 'columnType');
+    const notNull = Reflect.get(col, 'notNull');
+    const primary = Reflect.get(col, 'primary');
+    const isUnique = Reflect.get(col, 'isUnique');
+
     return {
-      name: c.name,
-      type: stripPgPrefix(c.columnType ?? 'unknown'),
-      notNull: !!c.notNull,
-      primary: !!c.primary,
-      unique: !!c.isUnique,
+      name: typeof name === 'string' ? name : 'unknown',
+      type: stripPgPrefix(typeof columnType === 'string' ? columnType : 'unknown'),
+      notNull: notNull === true,
+      primary: primary === true,
+      unique: isUnique === true,
     };
   });
 

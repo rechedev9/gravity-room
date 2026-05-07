@@ -19,9 +19,13 @@ jobs:
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun ci
 
       - name: Run CI checks
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
         run: bun run ci
