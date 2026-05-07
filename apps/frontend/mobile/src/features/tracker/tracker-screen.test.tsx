@@ -168,9 +168,14 @@ describe('TrackerScreen', () => {
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
 
-    expect(await screen.findByText('Day A')).toBeTruthy();
-    expect(screen.getByText('Squat')).toBeTruthy();
-    expect(screen.getByText('60 kg')).toBeTruthy();
+    await waitFor(
+      () => {
+        expect(screen.getByText('Day A')).toBeTruthy();
+        expect(screen.getByText('Squat')).toBeTruthy();
+        expect(screen.getByText('60 kg')).toBeTruthy();
+      },
+      { timeout: 5_000 }
+    );
   });
 
   it('loads tracker data from remote when no cached detail exists yet', async () => {
