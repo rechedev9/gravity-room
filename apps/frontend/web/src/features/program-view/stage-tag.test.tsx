@@ -1,28 +1,6 @@
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect } from 'bun:test';
 import { render, screen } from '@testing-library/react';
 import { StageTag } from './stage-tag';
-
-// Mock react-i18next so tests are independent of i18n initialization order.
-// Provides the minimal translations needed by StageTag.
-const TRANSLATIONS: Record<string, string> = {
-  'tracker.stage_tag.title_template': 'Etapa {{n}}: {{label}}',
-  'tracker.stage_tag.labels.normal': 'Normal',
-  'tracker.stage_tag.labels.caution': 'Precaución',
-  'tracker.stage_tag.labels.reset_next_fail': 'Reinicio próximo fallo',
-};
-
-mock.module('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, opts?: Record<string, unknown>) => {
-      const template = TRANSLATIONS[key] ?? key;
-      if (!opts) return template;
-      return Object.entries(opts).reduce(
-        (acc, [k, v]) => acc.replace(`{{${k}}}`, String(v)),
-        template
-      );
-    },
-  }),
-}));
 
 // ---------------------------------------------------------------------------
 // StageTag — render contract tests
