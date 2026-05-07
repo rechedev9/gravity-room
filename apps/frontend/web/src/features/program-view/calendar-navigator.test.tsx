@@ -18,15 +18,9 @@ function makeRows(count: number): GenericWorkoutRow[] {
   }));
 }
 
-// i18n mock — returns key so assertions are key-based
-mock.module('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, opts?: Record<string, unknown>) => {
-      if (!opts) return key;
-      return Object.entries(opts).reduce((acc, [k, v]) => acc.replace(`{{${k}}}`, String(v)), key);
-    },
-  }),
-}));
+// NOTE: No react-i18next mock here — the global test setup (test/setup.ts) initialises
+// i18n with real ES translations so components render translated text.
+// Assertions below use the actual Spanish translations from the ES locale file.
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -57,7 +51,7 @@ describe('CalendarNavigator', () => {
 
       const input = screen.getByRole('spinbutton');
       fireEvent.change(input, { target: { value: '1' } });
-      fireEvent.click(screen.getByRole('button', { name: /jump_button_aria/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Ir al entrenamiento indicado/i }));
 
       expect(onSelectDay).toHaveBeenCalledWith(0);
     });
@@ -77,7 +71,7 @@ describe('CalendarNavigator', () => {
 
       const input = screen.getByRole('spinbutton');
       fireEvent.change(input, { target: { value: '200' } });
-      fireEvent.click(screen.getByRole('button', { name: /jump_button_aria/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Ir al entrenamiento indicado/i }));
 
       expect(onSelectDay).toHaveBeenCalledWith(199);
     });
@@ -220,10 +214,8 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      // Tiles are buttons with aria-label matching day_tile_aria pattern
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      // Tiles are buttons with data-testid="day-tile"
+      const tiles = screen.getAllByTestId('day-tile');
       expect(tiles.length).toBe(2);
     });
   });
@@ -244,9 +236,7 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const tiles = screen.getAllByTestId('day-tile');
       expect(tiles.length).toBe(3);
     });
 
@@ -263,9 +253,7 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const tiles = screen.getAllByTestId('day-tile');
       expect(tiles.length).toBe(4);
     });
 
@@ -282,9 +270,7 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const tiles = screen.getAllByTestId('day-tile');
       expect(tiles.length).toBe(6);
     });
 
@@ -339,9 +325,7 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const tiles = screen.getAllByTestId('day-tile');
 
       // Only the selected tile (index 1) should have aria-current=true
       expect(tiles[1].getAttribute('aria-current')).toBe('true');
@@ -488,9 +472,7 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const tiles = screen.getAllByTestId('day-tile');
       expect(tiles.length).toBe(4);
     });
 
@@ -507,9 +489,7 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const tiles = screen.getAllByTestId('day-tile');
 
       fireEvent.click(tiles[2]); // 3rd tile = index 2
       expect(onSelectDay).toHaveBeenCalledWith(2);
@@ -551,8 +531,7 @@ describe('CalendarNavigator', () => {
         .filter(
           (b) =>
             b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('calendar_navigator.reading_mode.program') ||
-              b.textContent?.includes('calendar_navigator.reading_mode.history'))
+            (b.textContent?.includes('Programa') || b.textContent?.includes('Historial real'))
         );
       expect(readingButtons.length).toBe(0);
     });
@@ -613,11 +592,8 @@ describe('CalendarNavigator', () => {
 
       // No day tiles should be disabled in preview — all days must be selectable
       const disabledTiles = screen
-        .getAllByRole('button')
-        .filter(
-          (b) =>
-            b.hasAttribute('disabled') && b.getAttribute('aria-label')?.includes('day_tile_aria')
-        );
+        .getAllByTestId('day-tile')
+        .filter((b) => b.hasAttribute('disabled'));
       expect(disabledTiles.length).toBe(0);
     });
 
@@ -635,9 +611,7 @@ describe('CalendarNavigator', () => {
       );
 
       // All day tiles are enabled; click the 4th tile (index 3, future day)
-      const dayTiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const dayTiles = screen.getAllByTestId('day-tile');
       expect(dayTiles.length).toBe(4); // first week has 4 tiles
       fireEvent.click(dayTiles[3]); // 4th tile = index 3 (future day)
       expect(onSelectDay).toHaveBeenCalledWith(3);
@@ -683,9 +657,9 @@ describe('CalendarNavigator', () => {
         .filter(
           (b) =>
             b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('nav_mode.day') ||
-              b.textContent?.includes('nav_mode.week') ||
-              b.textContent?.includes('nav_mode.month'))
+            (b.textContent?.includes('Día') ||
+              b.textContent?.includes('Semana') ||
+              b.textContent?.includes('Mes'))
         );
       expect(modeButtons.length).toBe(3);
     });
@@ -727,9 +701,9 @@ describe('CalendarNavigator', () => {
         .filter(
           (b) =>
             b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('nav_mode.day') ||
-              b.textContent?.includes('nav_mode.week') ||
-              b.textContent?.includes('nav_mode.month'))
+            (b.textContent?.includes('Día') ||
+              b.textContent?.includes('Semana') ||
+              b.textContent?.includes('Mes'))
         );
       fireEvent.click(modeButtons[0]); // Day
 
@@ -758,15 +732,15 @@ describe('CalendarNavigator', () => {
         .filter(
           (b) =>
             b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('nav_mode.day') ||
-              b.textContent?.includes('nav_mode.week') ||
-              b.textContent?.includes('nav_mode.month'))
+            (b.textContent?.includes('Día') ||
+              b.textContent?.includes('Semana') ||
+              b.textContent?.includes('Mes'))
         );
       fireEvent.click(modeButtons[2]); // Month
 
       // Month navigation arrows should be present
-      const prevBtn = screen.getByRole('button', { name: /month_prev_aria/i });
-      const nextBtn = screen.getByRole('button', { name: /month_next_aria/i });
+      const prevBtn = screen.getByRole('button', { name: /Página anterior del mes/i });
+      const nextBtn = screen.getByRole('button', { name: /Página siguiente del mes/i });
       expect(prevBtn).toBeTruthy();
       expect(nextBtn).toBeTruthy();
     });
@@ -789,9 +763,9 @@ describe('CalendarNavigator', () => {
         .filter(
           (b) =>
             b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('nav_mode.day') ||
-              b.textContent?.includes('nav_mode.week') ||
-              b.textContent?.includes('nav_mode.month'))
+            (b.textContent?.includes('Día') ||
+              b.textContent?.includes('Semana') ||
+              b.textContent?.includes('Mes'))
         );
 
       // Default is week (index 1)
@@ -806,9 +780,9 @@ describe('CalendarNavigator', () => {
         .filter(
           (b) =>
             b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('nav_mode.day') ||
-              b.textContent?.includes('nav_mode.week') ||
-              b.textContent?.includes('nav_mode.month'))
+            (b.textContent?.includes('Día') ||
+              b.textContent?.includes('Semana') ||
+              b.textContent?.includes('Mes'))
         );
       expect(updatedButtons[2].getAttribute('aria-pressed')).toBe('true');
       expect(updatedButtons[1].getAttribute('aria-pressed')).toBe('false');
@@ -872,9 +846,9 @@ describe('CalendarNavigator', () => {
         .filter(
           (b) =>
             b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('nav_mode.day') ||
-              b.textContent?.includes('nav_mode.week') ||
-              b.textContent?.includes('nav_mode.month'))
+            (b.textContent?.includes('Día') ||
+              b.textContent?.includes('Semana') ||
+              b.textContent?.includes('Mes'))
         );
       fireEvent.click(modeButtons[2]); // Month
 
@@ -898,7 +872,7 @@ describe('CalendarNavigator', () => {
       );
 
       // Month mode should be active: month nav buttons visible
-      const prevBtn = screen.queryByRole('button', { name: /month_prev_aria/i });
+      const prevBtn = screen.queryByRole('button', { name: /Página anterior del mes/i });
       expect(prevBtn).toBeTruthy();
 
       // Week chips should NOT be visible
@@ -939,7 +913,7 @@ describe('CalendarNavigator', () => {
       // Switch to month mode
       const modeButtons = screen
         .getAllByRole('button')
-        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('nav_mode.month'));
+        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('Mes'));
       fireEvent.click(modeButtons[0]);
     }
 
@@ -947,9 +921,7 @@ describe('CalendarNavigator', () => {
       const rows = makeRows(8);
       renderInMonthMode(rows, { workoutsPerWeek: 4 });
 
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const tiles = screen.getAllByTestId('day-tile');
 
       // First tile should contain "1" (workout number)
       expect(tiles[0].textContent).toContain('1');
@@ -959,9 +931,7 @@ describe('CalendarNavigator', () => {
       const rows = makeRows(4);
       renderInMonthMode(rows, { workoutsPerWeek: 4 });
 
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const tiles = screen.getAllByTestId('day-tile');
 
       // dayName is "Day 1", "Day 2", etc. — should appear (possibly truncated)
       expect(tiles[0].textContent).toContain('Day 1');
@@ -971,9 +941,7 @@ describe('CalendarNavigator', () => {
       const rows = makeRows(4);
       renderInMonthMode(rows, { workoutsPerWeek: 4 });
 
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const tiles = screen.getAllByTestId('day-tile');
 
       // title attribute should include workout number and full dayName
       expect(tiles[0].getAttribute('title')).toContain('#1');
@@ -988,9 +956,7 @@ describe('CalendarNavigator', () => {
         currentDayIndex: 1,
       });
 
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const tiles = screen.getAllByTestId('day-tile');
 
       // Selected tile has aria-current=true
       expect(tiles[0].getAttribute('aria-current')).toBe('true');
@@ -1028,9 +994,7 @@ describe('CalendarNavigator', () => {
       const rows = makeRows(4);
       renderInMonthMode(rows, { workoutsPerWeek: 4 });
 
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const tiles = screen.getAllByTestId('day-tile');
 
       // All tiles should have the 44px min-height class
       for (const tile of tiles) {
@@ -1042,8 +1006,8 @@ describe('CalendarNavigator', () => {
       const rows = makeRows(24);
       renderInMonthMode(rows, { workoutsPerWeek: 3 });
 
-      const prevBtn = screen.getByRole('button', { name: /month_prev_aria/i });
-      const nextBtn = screen.getByRole('button', { name: /month_next_aria/i });
+      const prevBtn = screen.getByRole('button', { name: /Página anterior del mes/i });
+      const nextBtn = screen.getByRole('button', { name: /Página siguiente del mes/i });
 
       expect(prevBtn.className).toContain('min-h-[44px]');
       expect(nextBtn.className).toContain('min-h-[44px]');
@@ -1093,7 +1057,7 @@ describe('CalendarNavigator', () => {
       expect(screen.queryByTestId('month-current-btn')).toBeNull();
 
       // Prev button should be disabled (we're on page 0)
-      const prevBtn = screen.getByRole('button', { name: /month_prev_aria/i });
+      const prevBtn = screen.getByRole('button', { name: /Página anterior del mes/i });
       expect(prevBtn.hasAttribute('disabled')).toBe(true);
     });
 
@@ -1101,7 +1065,7 @@ describe('CalendarNavigator', () => {
       const rows = makeRows(24);
       renderInMonthMode(rows, { workoutsPerWeek: 3, selectedDayIndex: 0 });
 
-      const prevBtn = screen.getByRole('button', { name: /month_prev_aria/i });
+      const prevBtn = screen.getByRole('button', { name: /Página anterior del mes/i });
       expect(prevBtn.hasAttribute('disabled')).toBe(true);
     });
 
@@ -1110,7 +1074,7 @@ describe('CalendarNavigator', () => {
       const rows = makeRows(12);
       renderInMonthMode(rows, { workoutsPerWeek: 3, selectedDayIndex: 0 });
 
-      const nextBtn = screen.getByRole('button', { name: /month_next_aria/i });
+      const nextBtn = screen.getByRole('button', { name: /Página siguiente del mes/i });
       expect(nextBtn.hasAttribute('disabled')).toBe(true);
     });
 
@@ -1119,11 +1083,11 @@ describe('CalendarNavigator', () => {
       const rows = makeRows(200);
       renderInMonthMode(rows, { workoutsPerWeek: 4, selectedDayIndex: 0 });
 
-      const nextBtn = screen.getByRole('button', { name: /month_next_aria/i });
+      const nextBtn = screen.getByRole('button', { name: /Página siguiente del mes/i });
       fireEvent.click(nextBtn);
 
       // After clicking next, prev button should be enabled (no longer on first page)
-      const prevBtn = screen.getByRole('button', { name: /month_prev_aria/i });
+      const prevBtn = screen.getByRole('button', { name: /Página anterior del mes/i });
       expect(prevBtn.hasAttribute('disabled')).toBe(false);
     });
 
@@ -1132,9 +1096,7 @@ describe('CalendarNavigator', () => {
       const rows = makeRows(16);
       renderInMonthMode(rows, { workoutsPerWeek: 4, selectedDayIndex: 0 });
 
-      const tiles = screen
-        .getAllByRole('button')
-        .filter((b) => b.getAttribute('aria-label')?.includes('day_tile_aria'));
+      const tiles = screen.getAllByTestId('day-tile');
       expect(tiles.length).toBe(16);
     });
 
@@ -1171,8 +1133,7 @@ describe('CalendarNavigator', () => {
         .filter(
           (b) =>
             b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('reading_mode.program') ||
-              b.textContent?.includes('reading_mode.history'))
+            (b.textContent?.includes('Programa') || b.textContent?.includes('Historial real'))
         );
       expect(readingButtons.length).toBe(2);
     });
@@ -1196,9 +1157,9 @@ describe('CalendarNavigator', () => {
         .filter(
           (b) =>
             b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('nav_mode.day') ||
-              b.textContent?.includes('nav_mode.week') ||
-              b.textContent?.includes('nav_mode.month'))
+            (b.textContent?.includes('Día') ||
+              b.textContent?.includes('Semana') ||
+              b.textContent?.includes('Mes'))
         );
       expect(navModeButtons.length).toBe(3);
 
@@ -1222,16 +1183,14 @@ describe('CalendarNavigator', () => {
       // Click "Historial real" button
       const readingButtons = screen
         .getAllByRole('button')
-        .filter(
-          (b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('reading_mode.history')
-        );
+        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('Historial real'));
       expect(readingButtons.length).toBe(1);
       fireEvent.click(readingButtons[0]);
 
       // Microcopy should appear
       const microcopy = screen.getByTestId('history-microcopy');
       expect(microcopy).toBeTruthy();
-      expect(microcopy.textContent).toContain('history_microcopy');
+      expect(microcopy.textContent).toContain('Las fechas reales aparecen');
     });
 
     it('history mode with no completed workouts shows empty state', () => {
@@ -1250,9 +1209,7 @@ describe('CalendarNavigator', () => {
 
       const readingButtons = screen
         .getAllByRole('button')
-        .filter(
-          (b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('reading_mode.history')
-        );
+        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('Historial real'));
       fireEvent.click(readingButtons[0]);
 
       expect(screen.getByTestId('history-empty')).toBeTruthy();
@@ -1275,9 +1232,7 @@ describe('CalendarNavigator', () => {
 
       const readingButtons = screen
         .getAllByRole('button')
-        .filter(
-          (b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('reading_mode.history')
-        );
+        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('Historial real'));
       fireEvent.click(readingButtons[0]);
 
       // Should show 3 completed session buttons (#1, #3, #5)
@@ -1307,9 +1262,7 @@ describe('CalendarNavigator', () => {
 
       const readingButtons = screen
         .getAllByRole('button')
-        .filter(
-          (b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('reading_mode.history')
-        );
+        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('Historial real'));
       fireEvent.click(readingButtons[0]);
 
       // Should show 2 completed sessions
@@ -1334,9 +1287,7 @@ describe('CalendarNavigator', () => {
 
       const readingButtons = screen
         .getAllByRole('button')
-        .filter(
-          (b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('reading_mode.history')
-        );
+        .filter((b) => b.hasAttribute('aria-pressed') && b.textContent?.includes('Historial real'));
       fireEvent.click(readingButtons[0]);
 
       // Nav mode buttons (Day/Week/Month) should not be visible
@@ -1345,9 +1296,9 @@ describe('CalendarNavigator', () => {
         .filter(
           (b) =>
             b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('nav_mode.day') ||
-              b.textContent?.includes('nav_mode.week') ||
-              b.textContent?.includes('nav_mode.month'))
+            (b.textContent?.includes('Día') ||
+              b.textContent?.includes('Semana') ||
+              b.textContent?.includes('Mes'))
         );
       expect(navModeButtons.length).toBe(0);
     });

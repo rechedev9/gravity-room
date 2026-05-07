@@ -104,6 +104,7 @@ function DayTile({ row, state, onSelect }: DayTileProps): ReactNode {
   return (
     <button
       type="button"
+      data-testid="day-tile"
       onClick={onSelect}
       aria-label={label}
       aria-current={state === 'selected' ? 'true' : undefined}
@@ -458,6 +459,7 @@ function MonthTile({ row, state, onSelect }: MonthTileProps): ReactNode {
   return (
     <button
       type="button"
+      data-testid="day-tile"
       onClick={onSelect}
       aria-label={label}
       title={`#${row.index + 1} ${row.dayName}`}
