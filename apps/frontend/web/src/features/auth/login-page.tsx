@@ -109,7 +109,7 @@ export function LoginPage(): React.ReactNode {
           }}
         />
         <img
-          src="/logo.webp"
+          src="/logo-192.webp"
           alt="Gravity Room logo"
           width={68}
           height={68}

@@ -6,7 +6,6 @@ import { eq, and, desc, lte } from 'drizzle-orm';
 import { getDb } from '../db';
 import { programInstances, workoutResults, undoEntries } from '../db/schema';
 import { ApiError } from '../middleware/error-handler';
-import { logger } from '../lib/logger';
 import { getProgramDefinition } from '../services/catalog';
 import type { SetLogEntry } from '@gzclp/domain/types';
 
@@ -34,10 +33,18 @@ const MAX_UNDO_STACK = 50;
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
 
-// Value overridden by set_updated_at trigger; kept to ensure valid UPDATE.
-// Runs outside the transaction to reduce lock hold time on program_instances.
-async function touchInstanceTimestamp(instanceId: string): Promise<void> {
-  await getDb()
+// Columns captured into undo_entries when a result is created/updated/deleted.
+const undoSnapshotFields = {
+  result: workoutResults.result,
+  amrapReps: workoutResults.amrapReps,
+  rpe: workoutResults.rpe,
+  setLogs: workoutResults.setLogs,
+} as const;
+
+// The `updated_at` value is overridden by the BEFORE UPDATE trigger; we still
+// need an UPDATE statement to fire it.
+async function touchInstanceTimestamp(tx: Tx, instanceId: string): Promise<void> {
+  await tx
     .update(programInstances)
     .set({ updatedAt: new Date() })
     .where(eq(programInstances.id, instanceId));
@@ -174,7 +181,7 @@ export async function recordResult(
     const programId = await verifyInstanceOwnership(tx, userId, instanceId);
     // Capture existing state for undo (must happen before upsert)
     const [existing] = await tx
-      .select()
+      .select(undoSnapshotFields)
       .from(workoutResults)
       .where(
         and(
@@ -229,12 +236,10 @@ export async function recordResult(
     const expectedSlots = await getExpectedSlotCount(programId, input.workoutIndex);
     await syncCompletedAt(tx, instanceId, input.workoutIndex, expectedSlots);
 
+    await touchInstanceTimestamp(tx, instanceId);
+
     return row;
   });
-
-  await touchInstanceTimestamp(instanceId).catch((err: unknown) =>
-    logger.warn({ err, instanceId }, 'touchInstanceTimestamp failed')
-  );
 
   return result;
 }
@@ -253,8 +258,7 @@ export async function deleteResult(
     const programId = await verifyInstanceOwnership(tx, userId, instanceId);
 
     const [existing] = await tx
-      .select()
-      .from(workoutResults)
+      .delete(workoutResults)
       .where(
         and(
           eq(workoutResults.instanceId, instanceId),
@@ -262,13 +266,12 @@ export async function deleteResult(
           eq(workoutResults.slotId, slotId)
         )
       )
-      .limit(1);
+      .returning(undoSnapshotFields);
 
     if (!existing) {
       throw new ApiError(404, 'Result not found', 'RESULT_NOT_FOUND');
     }
 
-    // Push undo entry before deleting (captures amrapReps, rpe, and setLogs)
     await tx.insert(undoEntries).values({
       instanceId,
       workoutIndex,
@@ -279,18 +282,14 @@ export async function deleteResult(
       previousSetLogs: existing.setLogs ?? null,
     });
 
-    await tx.delete(workoutResults).where(eq(workoutResults.id, existing.id));
-
     await trimUndoStack(tx, instanceId);
 
     // Resolve expected slot count and sync completed_at
     const expectedSlots = await getExpectedSlotCount(programId, workoutIndex);
     await syncCompletedAt(tx, instanceId, workoutIndex, expectedSlots);
-  });
 
-  await touchInstanceTimestamp(instanceId).catch((err: unknown) =>
-    logger.warn({ err, instanceId }, 'touchInstanceTimestamp failed')
-  );
+    await touchInstanceTimestamp(tx, instanceId);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -356,14 +355,10 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
     const expectedSlots = await getExpectedSlotCount(programId, found.workoutIndex);
     await syncCompletedAt(tx, instanceId, found.workoutIndex, expectedSlots);
 
+    await touchInstanceTimestamp(tx, instanceId);
+
     return found;
   });
-
-  if (entry) {
-    await touchInstanceTimestamp(instanceId).catch((err: unknown) =>
-      logger.warn({ err, instanceId }, 'touchInstanceTimestamp failed')
-    );
-  }
 
   return entry;
 }

@@ -44,5 +44,21 @@
   },
   "trustedDependencies": [
     "lefthook"
-  ]
+  ],
+  "overrides": {
+    "axios": ">=1.15.1",
+    "vite": ">=7.3.2",
+    "rollup": ">=4.59.0",
+    "happy-dom": ">=20.8.9",
+    "serialize-javascript": ">=7.0.3",
+    "picomatch": ">=4.0.4",
+    "postcss": ">=8.5.10",
+    "brace-expansion": ">=1.1.13",
+    "follow-redirects": ">=1.15.12",
+    "ajv": ">=6.14.0",
+    "fast-uri": ">=3.1.1",
+    "esbuild": ">=0.25.0",
+    "flatted": ">=3.4.0",
+    "@tootallnate/once": ">=3.0.1"
+  }
 }

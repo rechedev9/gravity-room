@@ -183,7 +183,7 @@ export function Footer({ content, navLinks }: FooterProps): React.ReactNode {
         <div>
           <div className="flex items-center gap-2 mb-2">
             <img
-              src="/logo.webp"
+              src="/logo-192.webp"
               alt=""
               width={20}
               height={20}

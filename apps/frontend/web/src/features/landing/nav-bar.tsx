@@ -38,7 +38,7 @@ export function NavBar({ activeSection, content }: NavBarProps): React.ReactNode
       <div className="flex items-center justify-between px-6 sm:px-10 py-4">
         <div className="flex items-center gap-3">
           <img
-            src="/logo.webp"
+            src="/logo-192.webp"
             alt="Gravity Room logo"
             width={32}
             height={32}

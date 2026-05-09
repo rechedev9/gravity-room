@@ -2,6 +2,7 @@ import { captureException } from './lib/sentry';
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { sql } from 'drizzle-orm';
+import { timingSafeEqual } from 'node:crypto';
 import { ApiError } from './middleware/error-handler';
 import { requestLogger } from './middleware/request-logger';
 import { swaggerPlugin } from './plugins/swagger';
@@ -35,11 +36,19 @@ export type CreateAppOptions = {
 export function createApp(options: CreateAppOptions) {
   const { corsOrigins, csp, permissionsPolicy } = options;
 
+  const metricsExpected = process.env['METRICS_TOKEN']
+    ? Buffer.from(`Bearer ${process.env['METRICS_TOKEN']}`)
+    : null;
+
   const app = new Elysia()
     .use(
       cors({
         origin: corsOrigins,
         credentials: true,
+        // Cache preflight response for 24h. Browsers cap (Chrome=2h, Firefox=24h),
+        // but without this the @elysiajs/cors default is 5s, forcing a fresh OPTIONS
+        // round trip for nearly every API call.
+        maxAge: 86400,
       })
     )
     .use(swaggerPlugin)
@@ -162,10 +171,11 @@ export function createApp(options: CreateAppOptions) {
       }
     )
     .get('/metrics', async ({ set, headers }) => {
-      const expectedToken = process.env['METRICS_TOKEN'];
-      if (expectedToken) {
-        const auth = headers['authorization'];
-        if (auth !== `Bearer ${expectedToken}`) {
+      if (metricsExpected) {
+        const provided = Buffer.from(headers['authorization'] ?? '');
+        const ok =
+          provided.length === metricsExpected.length && timingSafeEqual(provided, metricsExpected);
+        if (!ok) {
           throw new ApiError(401, 'Invalid metrics token', 'UNAUTHORIZED');
         }
       }

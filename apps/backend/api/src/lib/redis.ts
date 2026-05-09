@@ -16,6 +16,7 @@ export function getRedis(): Redis | undefined {
   _redis = new Redis(url, {
     maxRetriesPerRequest: 3,
     lazyConnect: true,
+    enableAutoPipelining: true,
   });
 
   _redis.on('error', (err: unknown) => {

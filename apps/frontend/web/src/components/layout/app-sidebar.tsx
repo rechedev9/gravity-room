@@ -152,7 +152,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
               )}
             >
               <img
-                src="/logo.webp"
+                src="/logo-192.webp"
                 alt="Gravity Room"
                 width={32}
                 height={32}

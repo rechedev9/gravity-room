@@ -14,7 +14,7 @@ export function NotFound(): React.ReactNode {
       />
 
       <img
-        src="/logo.webp"
+        src="/logo-192.webp"
         alt={t('not_found.logo_alt')}
         width={64}
         height={64}

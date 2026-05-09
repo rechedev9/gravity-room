@@ -113,7 +113,9 @@ describe('GET /catalog', () => {
     const res = await get('/catalog');
 
     // Assert
-    expect(res.headers.get('cache-control')).toBe('public, max-age=300, stale-while-revalidate=60');
+    expect(res.headers.get('cache-control')).toBe(
+      'public, max-age=300, s-maxage=3600, stale-while-revalidate=60'
+    );
   });
 });
 
@@ -155,7 +157,7 @@ describe('GET /catalog/:programId', () => {
 
     // Assert
     const cacheControl = res.headers.get('cache-control');
-    expect(cacheControl).toBe('public, max-age=300');
+    expect(cacheControl).toBe('public, max-age=300, s-maxage=3600');
     expect(cacheControl).not.toContain('stale-while-revalidate');
   });
 
