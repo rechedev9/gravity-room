@@ -1,0 +1,25 @@
+{
+	email rechedev@hotmail.com
+}
+
+api.gravityroom.app {
+	encode zstd gzip
+	reverse_proxy api:3001 {
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
+
+gravityroom.app, www.gravityroom.app {
+	encode zstd gzip
+	root * /srv/web
+
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	@html path *.html /
+	header @html Cache-Control "no-cache"
+
+	try_files {path} /index.html
+	file_server
+}
