@@ -6,7 +6,7 @@ COPY packages/domain/package.json ./packages/domain/
 COPY apps/backend/api/package.json ./apps/backend/api/
 COPY apps/frontend/web/package.json ./apps/frontend/web/
 COPY apps/frontend/mobile/package.json ./apps/frontend/mobile/
-RUN bun install --frozen-lockfile --filter api --filter @gzclp/domain
+RUN bun install --frozen-lockfile
 
 FROM oven/bun:1.3.10-alpine
 RUN apk add --no-cache curl tini
