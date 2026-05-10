@@ -62,6 +62,7 @@ jobs:
       - name: Build SPA
         env:
           VITE_API_URL: https://api.gravityroom.app
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: bun run --filter web build
 
       - uses: actions/upload-artifact@v4
