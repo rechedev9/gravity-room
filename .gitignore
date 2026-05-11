@@ -45,6 +45,8 @@ yarn-error.log*
 AGENTS.md
 .claude/
 .worktrees/
+.agents/
+skills-lock.json
 
 # temporary files (PDF extracts, screenshots, scripts)
 .tmp/
