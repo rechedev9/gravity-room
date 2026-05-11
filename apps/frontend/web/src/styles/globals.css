@@ -598,6 +598,26 @@ dialog::backdrop {
   line-height: 1.4;
 }
 
+/* ── Slate-drop (toast enter) ───────────────────── */
+
+@keyframes slate-drop {
+  0% {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(1px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animate-slate-drop {
+  animation: slate-drop 220ms cubic-bezier(0.3, 1.1, 0.4, 1) both;
+}
+
 /* ── Font utility classes ───────────────────────── */
 
 /* JetBrains Mono — data, weights, labels, monospaced UI */

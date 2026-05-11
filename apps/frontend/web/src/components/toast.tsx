@@ -17,10 +17,10 @@ export function ToastContainer(): React.ReactNode {
       {toasts.map((t) => {
         const animation = t.exiting
           ? 'animate-[fadeSlideDown_0.2s_ease-out_forwards]'
-          : 'animate-[fadeSlideUp_0.2s_ease-out]';
+          : 'animate-slate-drop';
         const variantStyle =
           t.variant === 'pr'
-            ? 'bg-changed text-title border-2 border-accent'
+            ? 'bg-victory text-victory-on border-[1.5px] border-victory shadow-[var(--shadow-victory)]'
             : 'bg-header text-title border border-rule';
 
         return (
