@@ -25,6 +25,10 @@ jobs:
       - name: Install dependencies
         run: bun ci
 
+      - name: Install Playwright Chromium (needed for prerender)
+        working-directory: apps/frontend/web
+        run: bunx playwright install --with-deps chromium
+
       - name: Run CI checks
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
