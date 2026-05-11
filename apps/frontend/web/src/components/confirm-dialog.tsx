@@ -70,7 +70,7 @@ export function ConfirmDialog({
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
-      className="modal-box fixed inset-0 m-auto h-fit bg-card border border-rule p-6 max-w-sm w-[calc(100%-2rem)] shadow-dialog backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+      className="modal-box fixed inset-0 m-auto h-fit bg-card border-[1.5px] border-rule rounded-[var(--radius-base)] p-6 max-w-sm w-[calc(100%-2rem)] shadow-[var(--shadow-elevated)] backdrop:bg-black/72 backdrop:backdrop-blur-md"
       onClick={handleBackdropClick}
     >
       <h3 id={titleId} className="text-sm font-bold text-title mb-2">

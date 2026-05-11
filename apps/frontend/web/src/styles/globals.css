@@ -219,13 +219,13 @@
 }
 
 @keyframes modal-enter {
-  from {
+  0% {
+    transform: scale(0.98);
     opacity: 0;
-    transform: translateY(12px);
   }
-  to {
+  100% {
+    transform: scale(1);
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -252,13 +252,13 @@
 }
 
 @keyframes modal-exit {
-  from {
+  0% {
+    transform: scale(1);
     opacity: 1;
-    transform: translateY(0);
   }
-  to {
+  100% {
+    transform: scale(0.98);
     opacity: 0;
-    transform: translateY(8px);
   }
 }
 
