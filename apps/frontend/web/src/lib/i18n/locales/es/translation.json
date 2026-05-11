@@ -463,7 +463,21 @@
       "progression_suffix": "Progresión",
       "amrap_chart_suffix": "AMRAP (reps)",
       "volume_section_label": "Volumen Total",
-      "volume_chart_label": "Volumen por Sesión (kg)"
+      "volume_chart_label": "Volumen por Sesión (kg)",
+      "start": "Inicio",
+      "gained": "kg ganados",
+      "stage": "Etapa",
+      "success": "éxito",
+      "exercise_one": "ejercicio",
+      "exercise_other": "ejercicios",
+      "no_data_yet": "Sin datos aún",
+      "complete_first_workout": "Completa tu primer entrenamiento para ver estadísticas y gráficas.",
+      "other": "Otros",
+      "exercises": "Ejercicios",
+      "progression": "Progresión",
+      "amrap_reps": "AMRAP (reps)",
+      "total_volume": "Volumen Total",
+      "volume_per_session": "Volumen por Sesión (kg)"
     },
     "graduation": {
       "exercise_squat": "Sentadilla",
