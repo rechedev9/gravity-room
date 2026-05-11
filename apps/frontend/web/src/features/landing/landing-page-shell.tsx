@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef } from 'react';
+import { lazy, Suspense, useMemo, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { type CatalogEntry, fetchCatalogList } from '@/lib/api-functions';
 import { queryKeys } from '@/lib/query-keys';
@@ -17,17 +17,31 @@ import {
 import { NavBar } from './nav-bar';
 import { HeroSection } from './hero-section';
 import { MetricsSection } from './metrics-section';
-import { FeaturesSection } from './features-section';
-import { HowItWorksSection } from './how-it-works-section';
-import { ScienceSection } from './science-section';
-import { ProgramsSection } from './programs-section';
-import { FinalCtaSection } from './final-cta-section';
 import { ProblemSection } from './problem-section';
 import { MidPageCtaSection } from './mid-page-cta-section';
 import { FreeTrustSection } from './free-trust-section';
-import { ComparisonSection } from './comparison-section';
-import { FaqSection } from './faq-section';
+import { FinalCtaSection } from './final-cta-section';
 import type { HeadProps } from '@/hooks/use-head';
+
+// Below-the-fold sections — lazy-loaded so the initial landing payload only
+// carries the hero + first two sections. The Suspense fallback is `null`
+// because the sections animate in on scroll anyway.
+const FeaturesSection = lazy(() =>
+  import('./features-section').then((m) => ({ default: m.FeaturesSection }))
+);
+const HowItWorksSection = lazy(() =>
+  import('./how-it-works-section').then((m) => ({ default: m.HowItWorksSection }))
+);
+const ScienceSection = lazy(() =>
+  import('./science-section').then((m) => ({ default: m.ScienceSection }))
+);
+const ProgramsSection = lazy(() =>
+  import('./programs-section').then((m) => ({ default: m.ProgramsSection }))
+);
+const ComparisonSection = lazy(() =>
+  import('./comparison-section').then((m) => ({ default: m.ComparisonSection }))
+);
+const FaqSection = lazy(() => import('./faq-section').then((m) => ({ default: m.FaqSection })));
 
 interface LandingPageShellProps {
   readonly content: LandingContent;
@@ -81,20 +95,26 @@ export function LandingPageShell({ content, head, lang }: LandingPageShellProps)
           content={content.metrics}
         />
         <GradientDivider />
-        <HowItWorksSection content={content.howItWorks} />
+        <Suspense fallback={null}>
+          <HowItWorksSection content={content.howItWorks} />
+        </Suspense>
         <MidPageCtaSection content={content.midPageCta} />
         <GradientDivider />
-        <FeaturesSection content={content.features} />
-        <GradientDivider />
-        <ProgramsSection catalogQuery={catalogQuery} content={content.programs} />
-        <GradientDivider />
-        <ScienceSection content={content.science} />
+        <Suspense fallback={null}>
+          <FeaturesSection content={content.features} />
+          <GradientDivider />
+          <ProgramsSection catalogQuery={catalogQuery} content={content.programs} />
+          <GradientDivider />
+          <ScienceSection content={content.science} />
+        </Suspense>
         <GradientDivider />
         <FreeTrustSection content={content.freeTrust} />
         <GradientDivider />
-        <ComparisonSection content={content.comparison} />
-        <GradientDivider />
-        <FaqSection content={content.faq} />
+        <Suspense fallback={null}>
+          <ComparisonSection content={content.comparison} />
+          <GradientDivider />
+          <FaqSection content={content.faq} />
+        </Suspense>
         <GradientDivider />
         <FinalCtaSection content={content.finalCta} />
       </main>

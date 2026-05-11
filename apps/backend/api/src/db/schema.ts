@@ -12,7 +12,7 @@ import {
   unique,
   boolean,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, desc, sql } from 'drizzle-orm';
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -33,23 +33,32 @@ export const programDefinitionStatusEnum = pgEnum('program_definition_status', [
 // users — Google OAuth identity
 // ---------------------------------------------------------------------------
 
-export const users = pgTable('users', {
-  id: uuid().defaultRandom().primaryKey(),
-  email: varchar({ length: 255 }).unique().notNull(),
-  googleId: varchar('google_id', { length: 255 }).unique().notNull(),
-  name: varchar({ length: 100 }),
-  avatarUrl: text('avatar_url'),
-  /**
-   * Soft-delete timestamp. When set, the user is in a 30-day grace period
-   * before `purge-deleted-users.ts` hard-deletes (CASCADE) the row and all
-   * related data. The JWT middleware's `findUserById()` filters
-   * `WHERE deleted_at IS NULL`, so soft-deleted users cannot authenticate.
-   * Short-lived access tokens (~15 min) naturally expire within the window.
-   */
-  deletedAt: timestamp('deleted_at', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+export const users = pgTable(
+  'users',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    email: varchar({ length: 255 }).unique().notNull(),
+    googleId: varchar('google_id', { length: 255 }).unique().notNull(),
+    name: varchar({ length: 100 }),
+    avatarUrl: text('avatar_url'),
+    /**
+     * Soft-delete timestamp. When set, the user is in a 30-day grace period
+     * before `purge-deleted-users.ts` hard-deletes (CASCADE) the row and all
+     * related data. The JWT middleware's `findUserById()` filters
+     * `WHERE deleted_at IS NULL`, so soft-deleted users cannot authenticate.
+     * Short-lived access tokens (~15 min) naturally expire within the window.
+     */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    // Partial index for the soft-delete purge job (scans only deleted rows).
+    index('users_deleted_at_idx')
+      .on(table.deletedAt)
+      .where(sql`${table.deletedAt} IS NOT NULL`),
+  ]
+);
 
 export const usersRelations = relations(users, ({ many }) => ({
   refreshTokens: many(refreshTokens),
@@ -83,7 +92,12 @@ export const refreshTokens = pgTable(
   (table) => [
     index('refresh_tokens_user_id_idx').on(table.userId),
     index('refresh_tokens_expires_at_idx').on(table.expiresAt),
-    index('refresh_tokens_previous_token_hash_idx').on(table.previousTokenHash),
+    // Partial index: only ~half of refresh_tokens rows carry a previous-hash
+    // (the other half are first-issue tokens). The partial keeps the index
+    // tighter and skips index entries for the common NULL case.
+    index('refresh_tokens_previous_token_hash_partial_idx')
+      .on(table.previousTokenHash)
+      .where(sql`${table.previousTokenHash} IS NOT NULL`),
   ]
 );
 
@@ -116,7 +130,11 @@ export const programInstances = pgTable(
   },
   (table) => [
     index('program_instances_user_status_idx').on(table.userId, table.status),
-    index('program_instances_user_created_id_idx').on(table.userId, table.createdAt, table.id),
+    index('program_instances_user_created_id_idx').on(
+      table.userId,
+      desc(table.createdAt),
+      table.id
+    ),
   ]
 );
 

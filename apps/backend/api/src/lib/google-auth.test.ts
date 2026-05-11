@@ -176,6 +176,7 @@ describe('verifyGoogleToken — multiple audiences', () => {
     const token = await signJwt(SHARED_KID, keyPair.privateKey, {
       sub: 'user-123',
       email: 'test@example.com',
+      email_verified: true,
       name: 'Test User',
       aud: 'mobile-client-id',
       iss: 'accounts.google.com',
@@ -210,6 +211,7 @@ describe('verifyGoogleToken — multiple audiences', () => {
     const token = await signJwt(SHARED_KID, keyPair.privateKey, {
       sub: 'user-456',
       email: 'web@example.com',
+      email_verified: true,
       name: 'Web User',
       aud: 'web-client-id',
       iss: 'accounts.google.com',

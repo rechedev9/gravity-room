@@ -53,7 +53,12 @@ async function makeValidJwt(userId: string): Promise<string> {
   const secret = process.env['JWT_SECRET'] ?? 'dev-secret-change-me';
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
-    JSON.stringify({ sub: userId, exp: Math.floor(Date.now() / 1000) + 3600 })
+    JSON.stringify({
+      sub: userId,
+      iss: 'gravity-room-api',
+      aud: 'gravity-room-clients',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })
   ).toString('base64url');
   const signingInput = `${header}.${payload}`;
   const key = await crypto.subtle.importKey(

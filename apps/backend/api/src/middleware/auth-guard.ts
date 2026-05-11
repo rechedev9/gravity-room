@@ -36,10 +36,16 @@ if (!secret) {
 }
 const JWT_SECRET = secret ?? TEST_SECRET;
 
+export const JWT_ISSUER = 'gravity-room-api';
+export const JWT_AUDIENCE = 'gravity-room-clients';
+
 export const jwtPlugin = new Elysia({ name: 'jwt-plugin' }).use(
   jwt({
     name: 'jwt',
     secret: JWT_SECRET,
+    alg: 'HS256',
+    iss: JWT_ISSUER,
+    aud: JWT_AUDIENCE,
   })
 );
 
@@ -73,6 +79,16 @@ export async function resolveUserId({
 
   if (!payload) {
     throw new ApiError(401, 'Invalid or expired token', 'TOKEN_INVALID');
+  }
+
+  if (payload['iss'] !== JWT_ISSUER) {
+    throw new ApiError(401, 'Invalid token issuer', 'TOKEN_INVALID');
+  }
+
+  const aud = payload['aud'];
+  const audMatches = Array.isArray(aud) ? aud.includes(JWT_AUDIENCE) : aud === JWT_AUDIENCE;
+  if (!audMatches) {
+    throw new ApiError(401, 'Invalid token audience', 'TOKEN_INVALID');
   }
 
   const userId = payload['sub'];

@@ -37,8 +37,10 @@ export default defineConfig(({ mode }) => {
           enabled: false,
         },
         workbox: {
-          // Precache all built assets (JS chunks, CSS, HTML, fonts, images).
-          globPatterns: ['**/*.{js,css,html,webp,svg,ico,woff2}'],
+          // Precache built code/fonts/icons. WebPs are pulled out of the
+          // precache to keep the SW install payload small — they hit the
+          // CacheFirst rule below on first request instead.
+          globPatterns: ['**/*.{js,css,html,svg,ico,woff2}'],
           // For SPA: serve cached index.html for unrecognised navigation requests.
           // API calls are excluded so fetch errors surface normally.
           navigateFallback: 'index.html',
@@ -61,6 +63,18 @@ export default defineConfig(({ mode }) => {
                 expiration: {
                   maxEntries: 100,
                   maxAgeSeconds: 60 * 60 * 24, // 24 h
+                },
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
+            {
+              urlPattern: /\.webp$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'webp-images',
+                expiration: {
+                  maxEntries: 20,
+                  maxAgeSeconds: 7 * 24 * 3600,
                 },
                 cacheableResponse: { statuses: [0, 200] },
               },
@@ -90,8 +104,15 @@ export default defineConfig(({ mode }) => {
       // Generate hidden source maps only when uploading to Sentry (SENTRY_AUTH_TOKEN set).
       sourcemap: process.env.SENTRY_AUTH_TOKEN ? 'hidden' : false,
       outDir: 'dist',
+      chunkSizeWarningLimit: 300,
       rollupOptions: {
         output: {
+          // Vite 8 / Rolldown ignores top-level esbuild.drop. The drop-console
+          // / debugger flags ride along here via the oxc minifier options.
+          minify:
+            mode === 'production'
+              ? { compress: { dropConsole: true, dropDebugger: true } }
+              : undefined,
           manualChunks(id: string): string | undefined {
             if (!id.includes('node_modules')) return undefined;
             // React + TanStack (router + query) must share a chunk: otherwise Rollup's
@@ -102,7 +123,12 @@ export default defineConfig(({ mode }) => {
             if (/[\\/]node_modules[\\/]@tanstack[\\/]/.test(id)) return 'vendor-react-core';
             // Match zod by path so both `zod` and subpaths like `zod/v4` land together.
             if (/[\\/]node_modules[\\/]zod[\\/]/.test(id)) return 'vendor-zod';
-            if (/[\\/]node_modules[\\/]motion[\\/]/.test(id)) return 'vendor-motion';
+            if (
+              /[\\/]node_modules[\\/](motion|motion-dom|motion-utils|framer-motion-dom)[\\/]/.test(
+                id
+              )
+            )
+              return 'vendor-motion';
             if (/[\\/]node_modules[\\/]recharts[\\/]/.test(id)) return 'vendor-recharts';
             if (/[\\/]node_modules[\\/]@sentry[\\/]/.test(id)) return 'vendor-sentry';
             return undefined;
