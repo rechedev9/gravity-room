@@ -83,13 +83,13 @@
   --color-body: oklch(0.14 0.005 50);
   --color-card: oklch(0.19 0.008 50); /* alias used everywhere; semantic name = surface */
   --color-surface-2: oklch(0.24 0.01 45);
-  --color-header: oklch(0.1 0.003 50); /* alias = recess */
+  --color-header: oklch(0.09 0.003 50); /* alias = recess */
   --color-th: oklch(0.22 0.01 45);
   --color-hover-row: oklch(0.22 0.01 45);
   --color-progress-track: oklch(0.22 0.01 45);
   --color-changed: oklch(0.22 0.04 70);
   --color-error-bg: oklch(0.2 0.06 25);
-  --color-tooltip-bg: oklch(0.1 0.003 50);
+  --color-tooltip-bg: oklch(0.09 0.003 50);
 
   /* TEXT */
   --color-main: oklch(0.94 0.008 80);
@@ -148,8 +148,8 @@
   --color-sidebar: oklch(0.12 0.005 50);
   --color-sidebar-active: oklch(0.22 0.01 45);
   --color-sidebar-border: oklch(0.26 0.008 50);
-  --sidebar-width: 224px; /* CHANGED — was 240; expanded fixed; matches spec */
-  --sidebar-width-collapsed: 224px; /* CHANGED — no longer collapses on lg+ */
+  --sidebar-width: 224px; /* unified — sidebar is always fully expanded on lg+ (no hover-collapse) */
+  --sidebar-width-collapsed: 224px; /* kept for back-compat; same value to prevent JS-driven width swap */
   --sidebar-transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 
   /* RADII */
@@ -162,6 +162,13 @@
   --shadow-dialog: 4px 4px 0 0 oklch(0 0 0 / 0.6), inset 0 0 0 1px oklch(1 0 0 / 0.03);
   --shadow-inset-subtle: inset 0 0 0 1px oklch(1 0 0 / 0.02);
   --shadow-victory: 0 0 28px var(--color-victory-glow);
+
+  /* Component-specific shadows (consumed by .card-interactive, toolbar, result-cell) */
+  --shadow-card-hover: 3px 3px 0 0 oklch(0 0 0 / 0.6), inset 0 0 0 1px oklch(1 0 0 / 0.04);
+  --shadow-toolbar: 0 1px 0 0 oklch(0 0 0 / 0.4);
+  --shadow-glow-success: 0 0 12px oklch(0.68 0.14 145 / 0.4);
+  --shadow-glow-fail: 0 0 12px oklch(0.65 0.18 25 / 0.4);
+  --shadow-glow-gold: var(--shadow-victory); /* alias — .card-glow-gold is removed in Task 3 */
 
   /* MOTION — keep existing, add press */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
