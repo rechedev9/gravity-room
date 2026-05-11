@@ -49,7 +49,7 @@ Structured programs with built-in progression rules produce consistent strength 
 - **Backend**: ElysiaJS (Bun), PostgreSQL, Redis
 - **Analytics**: Python FastAPI with scikit-learn for plateau detection and 1RM forecasting
 - **Auth**: Google OAuth 2.0
-- **Source**: https://github.com/rechedev/gravity-room
+- **Source**: https://github.com/rechedev9/gravity-room
 
 ## Links
 
@@ -57,7 +57,7 @@ Structured programs with built-in progression rules produce consistent strength 
 - Home (Spanish): https://gravityroom.app/
 - Privacy Policy: https://gravityroom.app/privacy
 - Extended LLM context: https://gravityroom.app/llms-full.txt
-- GitHub: https://github.com/rechedev/gravity-room
+- GitHub: https://github.com/rechedev9/gravity-room
 - Community: https://discord.gg/FXNBrgYf7U
 
 ---

@@ -2,7 +2,29 @@
 	email rechedev@hotmail.com
 }
 
+# Snippet: security/SEO headers shared by all serving sites.
+# CSP mirrors the value previously set via <meta http-equiv> in
+# apps/frontend/web/index.html. As a header it ALSO enforces
+# frame-ancestors (ignored when delivered via meta) and applies to
+# non-HTML responses (images, fonts, manifest).
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "interest-cohort=(), browsing-topics=()"
+		Content-Security-Policy "default-src 'self'; script-src 'self' https://accounts.google.com https://plausible.io https://*.sentry.io; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://plausible.io https://*.sentry.io https://*.ingest.sentry.io; frame-src https://accounts.google.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';"
+	}
+}
+
+# www -> apex 301 (consolidates link equity, eliminates duplicate-host 200s).
+www.gravityroom.app {
+	import security_headers
+	redir https://gravityroom.app{uri} permanent
+}
+
 api.gravityroom.app {
+	import security_headers
 	encode zstd gzip
 	reverse_proxy api:3001 {
 		header_up X-Forwarded-For {remote_host}
@@ -10,7 +32,8 @@ api.gravityroom.app {
 	}
 }
 
-gravityroom.app, www.gravityroom.app {
+gravityroom.app {
+	import security_headers
 	encode zstd gzip
 	root * /srv/web
 
@@ -20,6 +43,21 @@ gravityroom.app, www.gravityroom.app {
 	@html path *.html /
 	header @html Cache-Control "no-cache"
 
-	try_files {path} /index.html
+	# Soft-404 fix: prerendered routes exist as real files on disk
+	# (e.g. /srv/web/programs/gzclp/index.html). Unknown paths are
+	# NOT rewritten to index.html anymore — file_server emits a real
+	# 404, then handle_errors serves /404.html as the body while
+	# preserving the 404 status code. Assumes prerender emits
+	# /srv/web/404.html; if it isn't there yet the response is still
+	# a true 404, just without a styled body.
+	try_files {path} {path}/index.html
 	file_server
+
+	handle_errors {
+		@404 expression `{http.error.status_code} == 404`
+		handle @404 {
+			rewrite * /404.html
+			file_server
+		}
+	}
 }

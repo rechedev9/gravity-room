@@ -1,14 +1,20 @@
 import { FadeUp } from '@/lib/motion-primitives';
 import { SECTION_PAD, SectionLabel } from './shared';
 import type { FaqContent } from './content';
+import { buildFaqJsonLd } from './faq-content';
 
 interface FaqSectionProps {
   readonly content: FaqContent;
 }
 
 export function FaqSection({ content }: FaqSectionProps): React.ReactNode {
+  const jsonLd = buildFaqJsonLd(content.items);
   return (
     <section id="faq" aria-labelledby="faq-heading" className={`${SECTION_PAD} max-w-3xl mx-auto`}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <FadeUp className="text-center mb-12">
         <SectionLabel>{content.sectionLabel}</SectionLabel>
         <h2

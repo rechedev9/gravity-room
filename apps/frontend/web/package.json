@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "bunx --bun vite",
-    "build": "vite build",
+    "build": "vite build && bun run scripts/prerender.ts",
+    "build:no-prerender": "vite build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint --max-warnings=0 .",
     "lint:fix": "eslint --fix .",

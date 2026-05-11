@@ -142,9 +142,13 @@ const programPreviewRoute = createRoute({
   component: ProgramPreviewPage,
 });
 
+// TanStack Router v1 reads not-found from `defaultNotFoundComponent` on the
+// router (or `notFoundComponent` on a route) — `path: '*'` is not a real
+// wildcard match. We keep a route registered so the prerender script can hit
+// `/__not_found__` and snapshot the rendered output for `dist/404.html`.
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '*',
+  path: '__not_found__',
   pendingComponent: ContentPageSkeleton,
   component: NotFound,
 });
@@ -245,6 +249,7 @@ export const router = createRouter({
   defaultPendingMinMs: 400,
   defaultPreload: 'intent',
   defaultPreloadDelay: 50,
+  defaultNotFoundComponent: NotFound,
 });
 
 // ---------------------------------------------------------------------------

@@ -6,7 +6,7 @@ import type { FooterContent, NavLink } from './content';
 /* ── Constants ────────────────────────────────────── */
 
 export const DISCORD_URL = 'https://discord.gg/FXNBrgYf7U';
-export const GITHUB_URL = 'https://github.com/rechedev/gravity-room';
+export const GITHUB_URL = 'https://github.com/rechedev9/gravity-room';
 
 export const SECTION_IDS = ['how-it-works', 'programs', 'free-trust', 'faq'] as const;
 

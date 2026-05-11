@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { localizedProgramDescription, localizedProgramName } from '@/lib/catalog-display';
 import { useProgramHead } from '@/hooks/use-head';
+import { ProgramJsonLd } from '@/features/program-preview/program-json-ld';
 import { trackEvent } from '@/lib/analytics';
 import { useParams, Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -185,10 +186,15 @@ export function ProgramPreviewPage(): ReactNode {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getViewPreference());
 
-  const headName = definition ? localizedProgramName(t, definition.id, definition.name) : undefined;
-  const headDescription = definition
-    ? localizedProgramDescription(t, definition.id, definition.description)
-    : undefined;
+  // Resolve head meta from translation keys as soon as the route params are known.
+  // The catalog API may still be in flight (or be intercepted by prerender) — title
+  // and description must land in the prerendered HTML regardless, so we don't depend
+  // on `definition` for them. localizedProgramName falls back to '' when the key is
+  // missing (unknown program id); useProgramHead treats undefined/empty as "skip".
+  const translatedName = localizedProgramName(t, programId, '');
+  const translatedDescription = localizedProgramDescription(t, programId, '');
+  const headName = translatedName !== '' ? translatedName : undefined;
+  const headDescription = translatedDescription !== '' ? translatedDescription : undefined;
   useProgramHead(programId, headName, headDescription);
 
   const previewTracked = useRef(false);
@@ -275,6 +281,14 @@ export function ProgramPreviewPage(): ReactNode {
 
   return (
     <div className="grain-overlay min-h-dvh bg-body">
+      <ProgramJsonLd
+        programId={programId}
+        name={name}
+        description={description}
+        totalWorkouts={totalWorkouts}
+        workoutsPerWeek={definition.workoutsPerWeek}
+        days={definition.days}
+      />
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 bg-header/95 backdrop-blur-md border-b border-rule">
         <Link

@@ -2,7 +2,12 @@
  * All translatable strings for every section are defined here.
  * ES_CONTENT and EN_CONTENT are consumed by LandingPage (/) and
  * LandingPageEn (/en) respectively. Section components accept these as props.
+ *
+ * FAQ items live in `./faq-content` — single source of truth shared between
+ * the rendered FAQ section and the FAQPage JSON-LD generator.
  * ─────────────────────────────────────────────────────────────────────────── */
+
+import { FAQ_ITEMS_EN, FAQ_ITEMS_ES } from './faq-content';
 
 export interface NavLink {
   readonly label: string;
@@ -547,38 +552,7 @@ export const ES_CONTENT: LandingContent = {
   faq: {
     sectionLabel: 'Preguntas Frecuentes',
     title: 'Preguntas Frecuentes',
-    items: [
-      {
-        question: '¿Qué incluye gratis?',
-        answer:
-          'Todo. No necesitas tarjeta de crédito ni suscripción para empezar. Accedes a todos los programas disponibles sin coste.',
-      },
-      {
-        question: '¿Necesito entender cómo funcionan los métodos de progresión?',
-        answer:
-          'No. La app aplica las reglas de progresión automáticamente — sube el peso cuando completas las series y lo reduce si fallas. No necesitas conocer la teoría detrás del programa para usarlo.',
-      },
-      {
-        question: '¿Es adecuado para principiantes?',
-        answer:
-          'Sí. El catálogo incluye programas diseñados específicamente para principiantes que te guían paso a paso desde el primer día. También hay opciones para niveles intermedio y avanzado.',
-      },
-      {
-        question: '¿Qué pasa si fallo las repeticiones?',
-        answer:
-          'El programa detecta el fallo y ajusta automáticamente la carga para la siguiente sesión. No tienes que calcular nada manualmente — la app gestiona la recuperación por ti.',
-      },
-      {
-        question: '¿Puedo usar Gravity Room en el móvil y en el ordenador?',
-        answer:
-          'Sí. Hay una app móvil disponible además de la versión web. Tus datos y tu progresión se sincronizan entre todos tus dispositivos en tiempo real.',
-      },
-      {
-        question: '¿En qué idiomas está disponible la app?',
-        answer:
-          'La landing page está disponible en español e inglés. La experiencia de la aplicación utiliza el idioma disponible según tu configuración regional donde esté soportado.',
-      },
-    ],
+    items: FAQ_ITEMS_ES,
   },
   finalCta: {
     eyebrow: '¿Listo para subir la gravedad?',
@@ -884,38 +858,7 @@ export const EN_CONTENT: LandingContent = {
   faq: {
     sectionLabel: 'FAQ',
     title: 'Frequently Asked Questions',
-    items: [
-      {
-        question: 'What is included for free?',
-        answer:
-          'Everything. No credit card or subscription is required to get started. You get access to all available programs at no cost.',
-      },
-      {
-        question: 'Do I need to understand how progression methods work?',
-        answer:
-          "No. The app applies progression rules automatically — it adds weight when you hit your sets and drops it when you miss. You don't need to know the theory behind the program to use it.",
-      },
-      {
-        question: 'Is it suitable for beginners?',
-        answer:
-          'Yes. The catalog includes programs designed specifically for beginners that guide you step by step from day one. There are also options for intermediate and advanced athletes.',
-      },
-      {
-        question: 'What happens if I miss reps?',
-        answer:
-          "The program detects the failure and automatically adjusts the load for the next session. You don't have to calculate anything manually — the app handles the recovery for you.",
-      },
-      {
-        question: 'Can I use Gravity Room on both mobile and desktop?',
-        answer:
-          'Yes. There is a mobile app available in addition to the web version. Your data and progression sync across all your devices in real time.',
-      },
-      {
-        question: 'What languages is the app available in?',
-        answer:
-          'The landing page is available in Spanish and English. The app experience uses the available locale where supported.',
-      },
-    ],
+    items: FAQ_ITEMS_EN,
   },
   finalCta: {
     eyebrow: 'Ready to raise the gravity?',

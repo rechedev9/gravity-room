@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
+import { useHead } from '@/hooks/use-head';
 
 export function NotFound(): React.ReactNode {
   const { t } = useTranslation();
+  useHead({ robots: 'noindex, follow' });
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center bg-body px-6 text-center relative overflow-hidden">
       {/* Ambient glow */}
