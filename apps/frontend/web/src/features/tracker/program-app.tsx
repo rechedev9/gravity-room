@@ -29,6 +29,7 @@ import { StatsSkeleton } from './stats-skeleton';
 import { TabButton } from './tab-button';
 import { TestWeightModal } from './test-weight-modal';
 import { Toolbar } from './toolbar';
+import { ShortcutsOverlay } from './shortcuts-overlay';
 import { lazyWithRetry } from '@/lib/lazy-with-retry';
 
 const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
@@ -487,6 +488,8 @@ export function ProgramApp({
         onConfirm={testWeight.handleTestWeightConfirm}
         onCancel={testWeight.handleTestWeightCancel}
       />
+
+      <ShortcutsOverlay />
 
       <ToastContainer />
 
