@@ -21,6 +21,10 @@ interface SetupFormProps {
   readonly statusNote?: string;
   /** Group label to highlight in the edit modal as the currently active group. */
   readonly activeGroup?: string;
+  /** When true, the edit dialog opens immediately on mount (edit mode only). */
+  readonly defaultExpanded?: boolean;
+  /** Called when the edit dialog is closed without saving. */
+  readonly onClose?: () => void;
 }
 
 type ConfigField = ProgramDefinition['configFields'][number];
@@ -67,6 +71,8 @@ export function SetupForm({
   onUpdateConfig,
   statusNote,
   activeGroup,
+  defaultExpanded = false,
+  onClose,
 }: SetupFormProps): React.ReactNode {
   const { t } = useTranslation();
   const fields = definition.configFields;
@@ -76,7 +82,7 @@ export function SetupForm({
   // has no effect on rendering. Initialising to !isEditMode caused a bug:
   // after generating a program (create → edit mode), isExpanded stayed true so
   // setIsExpanded(true) became a no-op and the dialog never opened.
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(isEditMode && defaultExpanded);
   const editDialogRef = useRef<HTMLDialogElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -167,12 +173,13 @@ export function SetupForm({
     const handleCancel = (e: Event): void => {
       e.preventDefault();
       setIsExpanded(false);
+      onClose?.();
     };
     dialog.addEventListener('cancel', handleCancel);
     return (): void => {
       dialog.removeEventListener('cancel', handleCancel);
     };
-  }, []);
+  }, [onClose]);
 
   // Auto-focus first field on initial setup (not edit mode)
   const firstFieldKey = fields[0]?.key;
@@ -379,7 +386,10 @@ export function SetupForm({
       <div className="flex gap-3">
         {isEditMode && (
           <button
-            onClick={() => setIsExpanded(false)}
+            onClick={() => {
+              setIsExpanded(false);
+              onClose?.();
+            }}
             className="flex-1 py-3.5 border-2 border-rule bg-card text-muted text-base font-bold cursor-pointer hover:bg-hover-row hover:text-main transition-colors"
           >
             {t('tracker.setup_form.cancel_button')}
@@ -447,12 +457,18 @@ export function SetupForm({
             ref={editDialogRef}
             className="relative modal-box bg-card border border-rule p-6 sm:p-8 max-w-2xl w-[calc(100%-2rem)] max-h-[90vh] overflow-y-auto shadow-dialog backdrop:bg-black/60 backdrop:backdrop-blur-sm"
             onClick={(e) => {
-              if (e.target === editDialogRef.current) setIsExpanded(false);
+              if (e.target === editDialogRef.current) {
+                setIsExpanded(false);
+                onClose?.();
+              }
             }}
           >
             <button
               type="button"
-              onClick={() => setIsExpanded(false)}
+              onClick={() => {
+                setIsExpanded(false);
+                onClose?.();
+              }}
               className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-muted hover:text-title transition-colors cursor-pointer"
               aria-label={t('tracker.setup_form.close_aria')}
             >

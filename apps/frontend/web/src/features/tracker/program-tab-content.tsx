@@ -1,7 +1,7 @@
 import type { ResultValue, GenericWorkoutRow, SetLogEntry } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type { ViewMode } from '@/lib/view-preference';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { localizedProgramDescription, localizedProgramName } from '@/lib/catalog-display';
 import { GuestBanner } from '@/components/guest-banner';
@@ -11,6 +11,7 @@ import { CalendarNavigator } from '@/features/program-view/calendar-navigator';
 import { ProgramAboutSection } from '@/features/program-view/program-about-section';
 import { DayView } from '@/features/program-view/day-view';
 import { DetailedDayView } from '@/features/program-view/detailed-day-view';
+import { DayStatusPill } from './day-status-pill';
 
 interface ProgramTabContentProps {
   readonly definition: ProgramDefinition;
@@ -74,12 +75,18 @@ export function ProgramTabContent({
   const name = localizedProgramName(t, definition.id, definition.name);
   const description = localizedProgramDescription(t, definition.id, definition.description);
 
-  // Derive completed day indices from slot results (preferred over resultTimestamps)
   const completedDayIndices = useMemo<ReadonlySet<number>>(
     () =>
       new Set(rows.filter((r) => r.slots.every((s) => s.result !== undefined)).map((r) => r.index)),
     [rows]
   );
+
+  const [navExpanded, setNavExpanded] = useState(false);
+
+  const handleSelectDay = (idx: number): void => {
+    onSelectDay(idx);
+    setNavExpanded(false);
+  };
 
   return (
     <div
@@ -90,63 +97,65 @@ export function ProgramTabContent({
     >
       {isGuest && <GuestBanner className="mb-4 sm:mb-8" />}
 
-      <ZoneHint zone="tracker" className="mb-4" />
-
-      <ProgramAboutSection
-        title={`${t('tracker.tab_content.about_label')} ${name}`}
-        description={description}
-        authorLine={
-          definition.author ? t('programs.card.author', { author: definition.author }) : undefined
-        }
-        totalWorkouts={totalWorkouts}
-        workoutsPerWeek={workoutsPerWeek}
-        dayCount={definition.days.length}
-      />
-
-      <DayNavigator
-        selectedDayIndex={selectedDayIndex}
+      {/* 1. Slim day header with collapsible nav trigger */}
+      <DayStatusPill
+        dayIndex={selectedDayIndex}
         totalDays={totalWorkouts}
-        currentDayIndex={currentDayIndex}
         dayName={selectedWorkout?.dayName ?? ''}
-        isDayComplete={isDayComplete}
-        showKeyboardHints
-        onPrev={onPrevDay}
-        onNext={onNextDay}
-        onGoToCurrent={onGoToCurrent}
+        isComplete={isDayComplete}
+        isCurrent={selectedDayIndex === currentDayIndex}
+        navExpanded={navExpanded}
+        onToggleNav={() => setNavExpanded((x) => !x)}
       />
 
-      {rows.length > 0 && (
+      {/* 2. Collapsible nav-block: DayNavigator + CalendarNavigator + view toggle */}
+      {navExpanded && (
         <div className="mb-4">
-          <CalendarNavigator
-            rows={rows}
+          <DayNavigator
             selectedDayIndex={selectedDayIndex}
+            totalDays={totalWorkouts}
             currentDayIndex={currentDayIndex}
-            workoutsPerWeek={workoutsPerWeek}
-            resultTimestamps={resultTimestamps}
-            completedDayIndices={completedDayIndices}
-            context="tracker"
-            onSelectDay={onSelectDay}
+            dayName={selectedWorkout?.dayName ?? ''}
+            isDayComplete={isDayComplete}
+            showKeyboardHints
+            onPrev={onPrevDay}
+            onNext={onNextDay}
+            onGoToCurrent={onGoToCurrent}
           />
+          {rows.length > 0 && (
+            <div className="mt-3">
+              <CalendarNavigator
+                rows={rows}
+                selectedDayIndex={selectedDayIndex}
+                currentDayIndex={currentDayIndex}
+                workoutsPerWeek={workoutsPerWeek}
+                resultTimestamps={resultTimestamps}
+                completedDayIndices={completedDayIndices}
+                context="tracker"
+                onSelectDay={handleSelectDay}
+              />
+            </div>
+          )}
+          <div className="flex justify-end mt-2">
+            <button
+              type="button"
+              onClick={onToggleView}
+              aria-label={
+                viewMode === 'detailed'
+                  ? t('tracker.tab_content.aria_compact_view')
+                  : t('tracker.tab_content.aria_detailed_view')
+              }
+              className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors min-h-[44px] px-2 inline-flex items-center"
+            >
+              {viewMode === 'detailed'
+                ? t('tracker.tab_content.compact_view')
+                : t('tracker.tab_content.detailed_view')}
+            </button>
+          </div>
         </div>
       )}
 
-      <div className="flex justify-end mb-2">
-        <button
-          type="button"
-          onClick={onToggleView}
-          aria-label={
-            viewMode === 'detailed'
-              ? t('tracker.tab_content.aria_compact_view')
-              : t('tracker.tab_content.aria_detailed_view')
-          }
-          className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors min-h-[44px] px-2 inline-flex items-center"
-        >
-          {viewMode === 'detailed'
-            ? t('tracker.tab_content.compact_view')
-            : t('tracker.tab_content.detailed_view')}
-        </button>
-      </div>
-
+      {/* 3. Exercises — what the user came for */}
       {selectedWorkout &&
         (viewMode === 'detailed' ? (
           <DetailedDayView
@@ -173,6 +182,21 @@ export function ProgramTabContent({
             isSlotLogging={isSlotLogging}
           />
         ))}
+
+      {/* 4. Secondary content moved below exercises */}
+      <div className="mt-8 sm:mt-12 space-y-4">
+        <ZoneHint zone="tracker" />
+        <ProgramAboutSection
+          title={`${t('tracker.tab_content.about_label')} ${name}`}
+          description={description}
+          authorLine={
+            definition.author ? t('programs.card.author', { author: definition.author }) : undefined
+          }
+          totalWorkouts={totalWorkouts}
+          workoutsPerWeek={workoutsPerWeek}
+          dayCount={definition.days.length}
+        />
+      </div>
     </div>
   );
 }
