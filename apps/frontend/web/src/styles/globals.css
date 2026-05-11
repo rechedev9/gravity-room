@@ -380,10 +380,6 @@ dialog::backdrop {
   transform: translateY(-1px);
 }
 
-.card-glow-gold {
-  box-shadow: var(--shadow-card), var(--shadow-glow-gold);
-}
-
 /* ── Progress bar glow edge ──────────────────── */
 
 .progress-fill {
@@ -402,14 +398,6 @@ dialog::backdrop {
 }
 
 /* ── Accent borders ──────────────────────────── */
-
-.accent-left-gold {
-  border-left: 3px solid var(--color-accent);
-}
-
-.accent-left-muted {
-  border-left: 2px solid var(--color-rule-light);
-}
 
 /* ── Gradient top edge ────────────────────────── */
 
@@ -603,17 +591,6 @@ dialog::backdrop {
   background: var(--color-rule);
 }
 
-/* ── Dashboard section header ──────────────────── */
-
-.dash-section-title {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--color-muted);
-}
-
 /* ── Type scale: custom size ────────────────────── */
 
 @utility text-2xs {
@@ -684,4 +661,45 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* === Brutalist surface utilities ============================ */
+
+/* Concrete grain — applied via .concrete-noise on the app shell <body> */
+.concrete-noise::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.6'/></svg>");
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+}
+
+/* Vignette — radial darken on body edges */
+.vignette::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse at center, transparent 50%, oklch(0.06 0 0 / 0.35) 100%);
+}
+
+/* Chalk-stamp label — replaces .dash-section-title (kept as alias) */
+.chalk-stamp,
+.dash-section-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-label);
+}
+
+/* Base focus ring (was per-component before) */
+:where(button, a, input, select, textarea, [role='button'], [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
