@@ -457,7 +457,7 @@ export function ProgramApp({
                       <p className="text-muted mb-4">{t('tracker.stats_load_error')}</p>
                       <button
                         onClick={reset}
-                        className="px-5 py-2 bg-accent text-white font-bold cursor-pointer"
+                        className="px-5 py-2 bg-accent text-on-accent font-bold cursor-pointer"
                       >
                         {t('tracker.retry')}
                       </button>

@@ -22,7 +22,7 @@ function RootErrorFallback(): React.ReactNode {
         <p className="text-muted mb-6">{t('error_boundary.description')}</p>
         <button
           onClick={() => window.location.reload()}
-          className="px-6 py-2.5 bg-accent text-white font-bold cursor-pointer"
+          className="px-6 py-2.5 bg-accent text-on-accent font-bold cursor-pointer"
         >
           {t('error_boundary.reload_button')}
         </button>

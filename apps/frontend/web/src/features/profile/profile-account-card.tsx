@@ -104,7 +104,7 @@ export function ProfileAccountCard({
             userInitials
           )}
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors pointer-events-none">
-            <span className="text-white text-2xs font-bold uppercase opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="text-main text-2xs font-bold uppercase opacity-0 group-hover:opacity-100 transition-opacity">
               {t('profile.account.change_avatar_text')}
             </span>
           </div>

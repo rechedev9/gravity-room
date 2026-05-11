@@ -34,7 +34,7 @@ export function LanguageSelector({ className }: { readonly className?: string })
           onClick={() => handleChange(lang.code)}
           className={cn(
             'px-2 py-1 text-[10px] font-bold rounded-sm transition-all cursor-pointer',
-            currentLang === lang.code ? 'bg-accent text-white' : 'text-muted hover:text-main'
+            currentLang === lang.code ? 'bg-accent text-on-accent' : 'text-muted hover:text-main'
           )}
         >
           {lang.label}
