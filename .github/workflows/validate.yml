@@ -33,3 +33,12 @@ jobs:
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
         run: bun run ci
+
+      # Catch drift between REQUIRED_ENV (src/lib/env-validation.ts) and the
+      # production .env example. If a contributor adds a required-in-prod var
+      # without updating the example, this step fails — preventing the PR #67
+      # scenario where the VPS .env diverged from what code expected.
+      - name: Validate .env.production.example matches REQUIRED_ENV
+        run: |
+          bun run apps/backend/api/scripts/check-env.ts \
+            --env-file apps/backend/api/.env.production.example

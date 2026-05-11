@@ -18,6 +18,7 @@ import { insightsRoutes } from './routes/insights';
 import { getDb } from './db';
 import { getRedis } from './lib/redis';
 import { logger } from './lib/logger';
+import { formatValidationError, validateEnv } from './lib/env-validation';
 
 // ---------------------------------------------------------------------------
 // Options
@@ -36,10 +37,16 @@ export type CreateAppOptions = {
 export function createApp(options: CreateAppOptions) {
   const { corsOrigins, csp, permissionsPolicy } = options;
 
-  const metricsToken = process.env['METRICS_TOKEN'];
-  if (process.env['NODE_ENV'] === 'production' && !metricsToken) {
-    throw new Error('METRICS_TOKEN is required in production');
+  // Single consolidated env check. In production this surfaces EVERY missing
+  // required var (and constraint violation) in one error so a misconfigured
+  // deploy fails fast with the complete picture, not "fix one, redeploy,
+  // hit next". Outside production it is a no-op.
+  const envResult = validateEnv();
+  if (!envResult.ok) {
+    throw new Error(formatValidationError(envResult));
   }
+
+  const metricsToken = process.env['METRICS_TOKEN'];
   const metricsExpected = metricsToken ? Buffer.from(`Bearer ${metricsToken}`) : null;
 
   const app = new Elysia()

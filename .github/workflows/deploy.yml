@@ -118,6 +118,22 @@ jobs:
             ./web-dist/ \
             "${VPS_USER}@${VPS_HOST}:/opt/gravity-room/data/web-dist/"
 
+      # Pre-flight check: validate the VPS .env against the new api image
+      # BEFORE attempting `docker compose up -d`. This catches the class of
+      # bug that broke prod via PR #67 — a required-in-prod var added in
+      # code without a matching .env update entered a restart loop only
+      # AFTER the deploy reached docker compose up. Now we fail the workflow
+      # step with a complete list of missing vars instead.
+      - name: Validate VPS env
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new \
+            "${VPS_USER}@${VPS_HOST}" \
+            "docker run --rm --env-file /opt/gravity-room/.env -e NODE_ENV=production ghcr.io/${{ github.repository_owner }}/gravity-room-api:${IMAGE_TAG} bun run /app/apps/backend/api/scripts/check-env.ts"
+
       - name: Pull images and restart stack
         env:
           VPS_USER: ${{ secrets.VPS_USER }}
