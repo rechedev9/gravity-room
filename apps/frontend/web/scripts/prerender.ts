@@ -201,25 +201,23 @@ async function startPreviewServer(): Promise<ChildProcess> {
     }
   );
 
-  let serverReady = false;
-  child.stdout?.on('data', (buf: Buffer) => {
-    const text = buf.toString();
-    process.stdout.write(`[preview] ${text}`);
-    if (text.includes(`${PREVIEW_HOST}:${PREVIEW_PORT}`)) serverReady = true;
-  });
+  child.stdout?.on('data', (buf: Buffer) => process.stdout.write(`[preview] ${buf.toString()}`));
   child.stderr?.on('data', (buf: Buffer) => process.stderr.write(`[preview!] ${buf.toString()}`));
 
-  // Wait for the server to be ready. We rely on the "Local:" stdout marker —
-  // some bun/fetch combinations race with the listener creation, so doing an
-  // HTTP probe before that line lands gives flaky ECONNREFUSED.
+  // HTTP probe — more reliable than parsing stdout. Vite colours the port with
+  // ANSI escapes (`http://127.0.0.1:\x1b[1m4173\x1b[22m/`) so a naïve
+  // `.includes("127.0.0.1:4173")` matched in local TTY runs but failed in CI.
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    if (serverReady) {
-      // Give the server one extra tick to actually start accepting connections.
-      await new Promise((r) => setTimeout(r, 250));
-      return child;
+    try {
+      const res = await fetch(PREVIEW_ORIGIN, { signal: AbortSignal.timeout(1_000) });
+      // Any HTTP response means the listener is up — even a 404 from vite's
+      // fallback handler is fine here.
+      if (res.ok || res.status === 404) return child;
+    } catch {
+      // ECONNREFUSED while the listener is binding — keep polling.
     }
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 200));
   }
   child.kill('SIGTERM');
   throw new Error(`vite preview did not come up on ${PREVIEW_ORIGIN}`);
