@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
-import { ProgramsIcon } from '@/components/layout/sidebar-icons';
 import { Button } from '@/components/button';
 
 interface HomeEmptyStateProps {
@@ -11,15 +10,14 @@ export function HomeEmptyState({ variant }: HomeEmptyStateProps): React.ReactNod
   const { t } = useTranslation();
 
   return (
-    <div className="bg-card border border-rule p-8 text-center">
-      <div className="w-10 h-10 mx-auto flex items-center justify-center border border-rule text-muted mb-4">
-        <ProgramsIcon />
-      </div>
-
+    <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-elevated)] p-8 sm:p-12 text-center">
       {variant === 'guest' ? (
         <>
-          <p className="text-sm font-bold text-main mb-1">{t('home.empty.guest_title')}</p>
-          <p className="text-xs text-muted mb-5 max-w-sm mx-auto leading-relaxed">
+          <p className="chalk-stamp text-label">INVITADO</p>
+          <h1 className="font-display text-4xl sm:text-6xl text-main my-4">
+            {t('home.empty.guest_title')}
+          </h1>
+          <p className="text-muted mb-6 max-w-sm mx-auto leading-relaxed">
             {t('home.empty.guest_body')}
           </p>
           <Link to="/login">
@@ -28,8 +26,11 @@ export function HomeEmptyState({ variant }: HomeEmptyStateProps): React.ReactNod
         </>
       ) : (
         <>
-          <p className="text-sm font-bold text-main mb-1">{t('home.empty.no_program_title')}</p>
-          <p className="text-xs text-muted mb-5 max-w-sm mx-auto leading-relaxed">
+          <p className="chalk-stamp text-label">SIN PROGRAMA</p>
+          <h1 className="font-display text-4xl sm:text-6xl text-main my-4">
+            {t('home.empty.no_program_title')}
+          </h1>
+          <p className="text-muted mb-6 max-w-sm mx-auto leading-relaxed">
             {t('home.empty.no_program_body')}
           </p>
           <Link to="/app/programs">
@@ -37,6 +38,6 @@ export function HomeEmptyState({ variant }: HomeEmptyStateProps): React.ReactNod
           </Link>
         </>
       )}
-    </div>
+    </section>
   );
 }
