@@ -24,7 +24,11 @@ www.gravityroom.app {
 }
 
 api.gravityroom.app {
-	import security_headers
+	# Intentionally NOT importing security_headers: the API sets its own
+	# CSP and Permissions-Policy tailored to its OAuth/font origins, and
+	# Caddy's `header` directive appends rather than replaces — so layering
+	# both produced duplicate response headers. HSTS for this subdomain is
+	# inherited from the apex's `includeSubDomains; preload`.
 	encode zstd gzip
 	reverse_proxy api:3001 {
 		header_up X-Forwarded-For {remote_host}
