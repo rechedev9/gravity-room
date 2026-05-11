@@ -13,3 +13,4 @@ build
 apps/backend/api/drizzle
 **/.venv
 **/.pytest_cache
+audit

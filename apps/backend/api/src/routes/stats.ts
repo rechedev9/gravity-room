@@ -1,10 +1,13 @@
 import { Elysia } from 'elysia';
 import { getRedis } from '../lib/redis';
 import { countOnlineUsers } from '../lib/presence';
+import { rateLimit } from '../middleware/rate-limit';
+import { requestLogger } from '../middleware/request-logger';
 
-export const statsRoutes = new Elysia().get(
+export const statsRoutes = new Elysia().use(requestLogger).get(
   '/stats/online',
-  async () => {
+  async ({ ip }) => {
+    await rateLimit(ip, 'GET /stats/online', { maxRequests: 30, windowMs: 60_000 });
     const redis = getRedis();
     if (!redis) return { count: null };
     try {

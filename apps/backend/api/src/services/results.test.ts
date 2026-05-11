@@ -168,6 +168,8 @@ function createMockTx(): Record<string, unknown> {
         }),
       };
     }),
+    // Raw sql execution — used by trimUndoStack's single-statement DELETE.
+    execute: mock(() => Promise.resolve()),
   };
 }
 
@@ -177,12 +179,14 @@ function createMockDb(): Record<string, unknown> {
       const tx = createMockTx();
       return await fn(tx);
     }),
-    // Standalone getDb().select() — used by getProgramDefinition in catalog.ts.
-    // Empty result set drives getExpectedSlotCount → undefined → syncCompletedAt no-ops.
+    // Standalone getDb().select() — used by verifyInstanceOwnership and the
+    // undoLast peek now that both run pre-transaction. Consumes the same queue
+    // as tx.select() so each test only sees one ordered list of result sets.
     select: mock(function select() {
       return {
         from: mock(function from() {
-          return chainable([]);
+          const result = selectQueue.shift() ?? [];
+          return chainable(result);
         }),
       };
     }),
@@ -193,6 +197,13 @@ let mockDb = createMockDb();
 
 mock.module('../db', () => ({
   getDb: () => mockDb,
+}));
+
+// Stub getProgramDefinition so getExpectedSlotCount resolves to `undefined`
+// without touching the DB queue (template/exercise lookups are out of scope
+// for these unit tests; syncCompletedAt no-ops on undefined).
+mock.module('./catalog', () => ({
+  getProgramDefinition: () => Promise.resolve({ status: 'not_found' as const }),
 }));
 
 // Must import AFTER mock.module
@@ -385,8 +396,8 @@ describe('undoLast', () => {
 
   it('should pop and restore previous result', async () => {
     const undoRow = makeUndoRow({ previousResult: 'fail', previousAmrapReps: 3, previousRpe: 7 });
-    // Queue: 1) verifyInstanceOwnership, 2) undo entry found
-    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    // Queue: 1) ownership pre-tx, 2) pre-tx peek for workoutIndex, 3) in-tx pop
+    selectQueue = [[{ id: 'inst-1' }], [undoRow], [undoRow]];
     insertReturningResult = [];
 
     const result = await undoLast('user-1', 'inst-1');
@@ -410,8 +421,8 @@ describe('undoLast', () => {
   it('should pop and restore undo entry with previousSetLogs', async () => {
     const previousSetLogs = [{ reps: 5 }, { reps: 5 }, { reps: 3 }];
     const undoRow = makeUndoRow({ previousResult: 'success', previousSetLogs });
-    // Queue: 1) verifyInstanceOwnership, 2) undo entry found
-    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    // Queue: 1) ownership pre-tx, 2) pre-tx peek for workoutIndex, 3) in-tx pop
+    selectQueue = [[{ id: 'inst-1' }], [undoRow], [undoRow]];
     insertReturningResult = [];
 
     const result = await undoLast('user-1', 'inst-1');
@@ -422,8 +433,8 @@ describe('undoLast', () => {
 
   it('should pop undo entry with null previousSetLogs (no previous set logs)', async () => {
     const undoRow = makeUndoRow({ previousResult: 'fail', previousSetLogs: null });
-    // Queue: 1) verifyInstanceOwnership, 2) undo entry found
-    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    // Queue: 1) ownership pre-tx, 2) pre-tx peek for workoutIndex, 3) in-tx pop
+    selectQueue = [[{ id: 'inst-1' }], [undoRow], [undoRow]];
     insertReturningResult = [];
 
     const result = await undoLast('user-1', 'inst-1');
@@ -503,7 +514,8 @@ describe('deleteResult — transaction scope', () => {
 describe('undoLast — transaction scope', () => {
   it('calls touchInstanceTimestamp inside the transaction, before commit', async () => {
     const undoRow = makeUndoRow({ previousResult: 'fail' });
-    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    // Queue: 1) ownership pre-tx, 2) pre-tx peek for workoutIndex, 3) in-tx pop
+    selectQueue = [[{ id: 'inst-1' }], [undoRow], [undoRow]];
     insertReturningResult = [];
 
     const callOrder: string[] = [];
@@ -568,8 +580,8 @@ describe('deleteResult — passes expectedSlots to syncCompletedAt', () => {
 describe('undoLast — passes expectedSlots to syncCompletedAt', () => {
   it('completes successfully when definition is not found (expectedSlots = undefined)', async () => {
     const undoRow = makeUndoRow({ previousResult: 'fail' });
-    // Queue: 1) verifyInstanceOwnership (no templateId), 2) undo entry
-    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    // Queue: 1) ownership pre-tx, 2) pre-tx peek for workoutIndex, 3) in-tx pop
+    selectQueue = [[{ id: 'inst-1' }], [undoRow], [undoRow]];
     insertReturningResult = [];
 
     // Should not throw — getExpectedSlotCount returns undefined, syncCompletedAt skips

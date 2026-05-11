@@ -2,7 +2,7 @@
  * Results service — record, delete, and undo workout results.
  * Every mutation pushes an undo entry for reversibility.
  */
-import { eq, and, desc, lte } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { getDb } from '../db';
 import { programInstances, workoutResults, undoEntries } from '../db/schema';
 import { ApiError } from '../middleware/error-handler';
@@ -51,19 +51,18 @@ async function touchInstanceTimestamp(tx: Tx, instanceId: string): Promise<void>
 }
 
 async function trimUndoStack(tx: Tx, instanceId: string): Promise<void> {
-  const [overflow] = await tx
-    .select({ id: undoEntries.id })
-    .from(undoEntries)
-    .where(eq(undoEntries.instanceId, instanceId))
-    .orderBy(desc(undoEntries.id))
-    .offset(MAX_UNDO_STACK)
-    .limit(1);
-
-  if (overflow) {
-    await tx
-      .delete(undoEntries)
-      .where(and(eq(undoEntries.instanceId, instanceId), lte(undoEntries.id, overflow.id)));
-  }
+  // Single statement: delete any entry beyond the MAX_UNDO_STACK most recent.
+  // Subquery returns the ids to evict; OFFSET skips the keepers.
+  await tx.execute(sql`
+    DELETE FROM undo_entries
+    WHERE instance_id = ${instanceId}
+      AND id IN (
+        SELECT id FROM undo_entries
+        WHERE instance_id = ${instanceId}
+        ORDER BY id DESC
+        OFFSET ${sql.raw(String(MAX_UNDO_STACK))}
+      )
+  `);
 }
 
 async function verifyInstanceOwnership(
@@ -177,8 +176,12 @@ export async function recordResult(
 
   const setLogsValue = input.setLogs ?? null;
 
+  // Resolve template + expected slot count BEFORE opening the tx — neither
+  // changes during the tx and `getProgramDefinition` does its own DB read.
+  const programId = await verifyInstanceOwnership(getDb(), userId, instanceId);
+  const expectedSlots = await getExpectedSlotCount(programId, input.workoutIndex);
+
   const result = await getDb().transaction(async (tx) => {
-    const programId = await verifyInstanceOwnership(tx, userId, instanceId);
     // Capture existing state for undo (must happen before upsert)
     const [existing] = await tx
       .select(undoSnapshotFields)
@@ -232,8 +235,6 @@ export async function recordResult(
 
     await trimUndoStack(tx, instanceId);
 
-    // Resolve expected slot count and sync completed_at
-    const expectedSlots = await getExpectedSlotCount(programId, input.workoutIndex);
     await syncCompletedAt(tx, instanceId, input.workoutIndex, expectedSlots);
 
     await touchInstanceTimestamp(tx, instanceId);
@@ -254,9 +255,11 @@ export async function deleteResult(
   workoutIndex: number,
   slotId: string
 ): Promise<void> {
-  await getDb().transaction(async (tx) => {
-    const programId = await verifyInstanceOwnership(tx, userId, instanceId);
+  // Resolve template + expected slot count BEFORE opening the tx.
+  const programId = await verifyInstanceOwnership(getDb(), userId, instanceId);
+  const expectedSlots = await getExpectedSlotCount(programId, workoutIndex);
 
+  await getDb().transaction(async (tx) => {
     const [existing] = await tx
       .delete(workoutResults)
       .where(
@@ -284,8 +287,6 @@ export async function deleteResult(
 
     await trimUndoStack(tx, instanceId);
 
-    // Resolve expected slot count and sync completed_at
-    const expectedSlots = await getExpectedSlotCount(programId, workoutIndex);
     await syncCompletedAt(tx, instanceId, workoutIndex, expectedSlots);
 
     await touchInstanceTimestamp(tx, instanceId);
@@ -297,8 +298,22 @@ export async function deleteResult(
 // ---------------------------------------------------------------------------
 
 export async function undoLast(userId: string, instanceId: string): Promise<UndoEntryRow | null> {
+  // Ownership + template resolution + peek at the top-of-stack workoutIndex
+  // happen BEFORE the tx — none of these change frequently and the slot count
+  // is keyed by the program definition + workoutIndex pair. Even if a
+  // concurrent op pops a different undo entry inside the tx, `syncCompletedAt`
+  // is keyed by workoutIndex and remains correct.
+  const programId = await verifyInstanceOwnership(getDb(), userId, instanceId);
+  const [peek] = await getDb()
+    .select({ workoutIndex: undoEntries.workoutIndex })
+    .from(undoEntries)
+    .where(eq(undoEntries.instanceId, instanceId))
+    .orderBy(desc(undoEntries.id))
+    .limit(1);
+  if (!peek) return null;
+  const expectedSlots = await getExpectedSlotCount(programId, peek.workoutIndex);
+
   const entry = await getDb().transaction(async (tx) => {
-    const programId = await verifyInstanceOwnership(tx, userId, instanceId);
     // Pop the most recent undo entry (LIFO — highest id)
     const [found] = await tx
       .select()
@@ -351,9 +366,13 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
         });
     }
 
-    // Resolve expected slot count and sync completed_at
-    const expectedSlots = await getExpectedSlotCount(programId, found.workoutIndex);
-    await syncCompletedAt(tx, instanceId, found.workoutIndex, expectedSlots);
+    // expectedSlots was resolved pre-tx for peek.workoutIndex; if the popped
+    // entry's workoutIndex differs (concurrent undo), re-resolve to stay correct.
+    const slots =
+      found.workoutIndex === peek.workoutIndex
+        ? expectedSlots
+        : await getExpectedSlotCount(programId, found.workoutIndex);
+    await syncCompletedAt(tx, instanceId, found.workoutIndex, slots);
 
     await touchInstanceTimestamp(tx, instanceId);
 

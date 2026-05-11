@@ -2,13 +2,21 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from '@tanstack/react-router';
 import { useDocumentTitle } from '@/hooks/use-document-title';
-import { GoogleLogin } from '@react-oauth/google';
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { sanitizeAuthError } from '@/lib/auth-errors';
 import { trackEvent } from '@/lib/analytics';
 
 export function LoginPage(): React.ReactNode {
+  return (
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''}>
+      <LoginPageInner />
+    </GoogleOAuthProvider>
+  );
+}
+
+function LoginPageInner(): React.ReactNode {
   const { t } = useTranslation();
   const { signInWithGoogle, signInWithDev, user, loading } = useAuth();
   const { enterGuestMode, isGuest } = useGuest();
@@ -49,6 +57,7 @@ export function LoginPage(): React.ReactNode {
   };
 
   const handleDevLogin = async (): Promise<void> => {
+    if (!signInWithDev) return;
     setError(null);
     const authError = await signInWithDev();
     if (authError) {

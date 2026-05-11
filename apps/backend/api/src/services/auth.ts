@@ -12,7 +12,19 @@ import { ApiError } from '../middleware/error-handler';
 // ---------------------------------------------------------------------------
 
 type UserRow = typeof users.$inferSelect;
-type RefreshTokenRow = typeof refreshTokens.$inferSelect;
+
+/**
+ * Subset of refresh_tokens columns required by the auth flows.
+ * Explicit projection keeps the SELECT narrow and decouples callers from
+ * future column additions (e.g. user-agent fingerprints) that have no
+ * business being shipped on every auth round-trip.
+ */
+export interface RefreshTokenRow {
+  readonly userId: string;
+  readonly expiresAt: Date;
+  readonly tokenHash: string;
+  readonly previousTokenHash: string | null;
+}
 
 /** Result of findOrCreateGoogleUser — includes new-user detection flag. */
 interface FindOrCreateResult {
@@ -158,11 +170,18 @@ export async function storeRefreshToken(
  * Used for token reuse detection: if an already-rotated token is presented,
  * this finds its successor, revealing the affected userId.
  */
+const REFRESH_TOKEN_COLUMNS = {
+  userId: refreshTokens.userId,
+  expiresAt: refreshTokens.expiresAt,
+  tokenHash: refreshTokens.tokenHash,
+  previousTokenHash: refreshTokens.previousTokenHash,
+} as const;
+
 export async function findRefreshTokenByPreviousHash(
   previousHash: string
 ): Promise<RefreshTokenRow | undefined> {
   const [token] = await getDb()
-    .select()
+    .select(REFRESH_TOKEN_COLUMNS)
     .from(refreshTokens)
     .where(eq(refreshTokens.previousTokenHash, previousHash))
     .limit(1);
@@ -171,7 +190,7 @@ export async function findRefreshTokenByPreviousHash(
 
 export async function findRefreshToken(tokenHash: string): Promise<RefreshTokenRow | undefined> {
   const [token] = await getDb()
-    .select()
+    .select(REFRESH_TOKEN_COLUMNS)
     .from(refreshTokens)
     .where(eq(refreshTokens.tokenHash, tokenHash))
     .limit(1);

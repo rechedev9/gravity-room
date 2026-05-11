@@ -243,6 +243,8 @@ export const router = createRouter({
   // Activated in Fase 4 — each route now uses pendingComponent, not inline <Suspense>.
   defaultPendingMs: 200,
   defaultPendingMinMs: 400,
+  defaultPreload: 'intent',
+  defaultPreloadDelay: 50,
 });
 
 // ---------------------------------------------------------------------------

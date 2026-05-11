@@ -48,8 +48,8 @@ function classifyDevice(userAgent: string | undefined): DeviceType {
 }
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
-const BEARER_PREFIX = 'Bearer ';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
+const DEV_AUTH_ENABLED = process.env['AUTH_DEV_ROUTE_ENABLED'] === 'true' && !IS_PRODUCTION;
 
 /** Max avatar data URL size in bytes (~200KB base64 ≈ ~150KB image). */
 const MAX_AVATAR_BYTES = 200_000;
@@ -324,30 +324,34 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   )
 
   // -----------------------------------------------------------------------
-  // POST /auth/dev — dev-only sign-in for E2E tests (returns 404 in production)
+  // POST /auth/dev — dev-only sign-in for E2E tests.
+  // Only registered when AUTH_DEV_ROUTE_ENABLED=true and NODE_ENV != production.
   // -----------------------------------------------------------------------
-  .post(
-    '/dev',
-    async ({ jwt, body, cookie, set }) => {
-      if (IS_PRODUCTION) {
-        throw new ApiError(404, 'Not found', 'NOT_FOUND');
-      }
-      // Reuse existing user by email (dev logins generate a new googleId each time,
-      // which would violate the email unique constraint on repeated calls).
-      const existing = await findUserByEmail(body.email);
-      const user = existing
-        ? existing
-        : (await findOrCreateGoogleUser(`dev-${crypto.randomUUID()}`, body.email, undefined)).user;
-      const { accessToken } = await issueTokens(jwt, cookie, user);
-      set.status = 201;
-      return { user: userResponse(user), accessToken };
-    },
-    {
-      body: t.Object({
-        email: t.String({ format: 'email' }),
-      }),
-      detail: { tags: ['Auth'], summary: 'Dev-only test sign-in (404 in production)' },
-    }
+  .use((app) =>
+    DEV_AUTH_ENABLED
+      ? app.post(
+          '/dev',
+          async ({ jwt, body, cookie, set, ip }) => {
+            await rateLimit(ip, 'POST /auth/dev', { maxRequests: 5, windowMs: 60_000 });
+            // Reuse existing user by email (dev logins generate a new googleId each time,
+            // which would violate the email unique constraint on repeated calls).
+            const existing = await findUserByEmail(body.email);
+            const user = existing
+              ? existing
+              : (await findOrCreateGoogleUser(`dev-${crypto.randomUUID()}`, body.email, undefined))
+                  .user;
+            const { accessToken } = await issueTokens(jwt, cookie, user);
+            set.status = 201;
+            return { user: userResponse(user), accessToken };
+          },
+          {
+            body: t.Object({
+              email: t.String({ format: 'email' }),
+            }),
+            detail: { tags: ['Auth'], summary: 'Dev-only test sign-in (404 in production)' },
+          }
+        )
+      : app
   )
 
   // -----------------------------------------------------------------------
@@ -477,24 +481,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .get(
     '/me',
     async ({ jwt, headers }) => {
-      const authorization = headers['authorization'];
-      if (!authorization?.startsWith(BEARER_PREFIX)) {
-        throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
-      }
+      const { userId } = await resolveUserId({ jwt, headers });
+      await rateLimit(userId, 'GET /auth/me', { maxRequests: 100 });
 
-      const token = authorization.slice(BEARER_PREFIX.length);
-      if (!token) {
-        throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
-      }
-
-      const payload = await jwt.verify(token);
-      if (!payload || typeof payload['sub'] !== 'string') {
-        throw new ApiError(401, 'Invalid or expired token', 'TOKEN_INVALID');
-      }
-
-      await rateLimit(payload['sub'], 'GET /auth/me', { maxRequests: 100 });
-
-      const user = await findUserById(payload['sub']);
+      const user = await findUserById(userId);
       if (!user) {
         throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
       }

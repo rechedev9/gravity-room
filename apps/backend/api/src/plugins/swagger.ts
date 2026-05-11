@@ -3,10 +3,12 @@ import { swagger } from '@elysiajs/swagger';
 import { version } from '../../package.json';
 
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
+// Positive feature flag: must be explicitly enabled, and never in production.
+const SWAGGER_ENABLED = process.env['SWAGGER_ENABLED'] === 'true' && !IS_PRODUCTION;
 
-// Swagger UI is disabled in production to avoid exposing the API surface.
-// Access the JSON spec directly at /swagger/json in non-production environments.
-export const swaggerPlugin = IS_PRODUCTION
+// Swagger UI is disabled by default to avoid exposing the API surface.
+// Set SWAGGER_ENABLED=true in non-production environments to expose /swagger and /swagger/json.
+export const swaggerPlugin = !SWAGGER_ENABLED
   ? new Elysia({ name: 'swagger-plugin' })
   : swagger({
       documentation: {

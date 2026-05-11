@@ -21,6 +21,9 @@ dist
 .DS_Store
 *.pem
 
+# local audit artifacts (agent-generated reports, not part of source)
+audit/
+
 # google oauth credentials (never commit)
 google-oauth-credentials.json
 

@@ -177,8 +177,15 @@ export function ProfilePage(): React.ReactNode {
   const catalogDataRefs = catalogDetailQueries.map((q) => q.data);
   const programDataRefs = programDetailQueries.map((q) => q.data);
 
-  // O(P×W×S) computation across all programs. TanStack Query guarantees stable
-  // .data references when data hasn't changed, so spreading them as deps is safe.
+  // Stable dep signature derived from each query's dataUpdatedAt timestamp.
+  // Lets us avoid spreading data arrays into the deps list (variable size).
+  const querySignature =
+    catalogDetailQueries.map((q) => q.dataUpdatedAt).join('|') +
+    '#' +
+    programDetailQueries.map((q) => q.dataUpdatedAt).join('|');
+
+  // O(P×W×S) computation across all programs. The querySignature changes only
+  // when any underlying query's data actually mutates.
   const lifetimeVolume: number | null = useMemo(() => {
     if (!allCatalogLoaded || !allDetailLoaded) return null;
 
@@ -196,7 +203,7 @@ export function ProfilePage(): React.ReactNode {
       total += vol.totalVolume;
     }
     return total;
-  }, [allCatalogLoaded, allDetailLoaded, allPrograms, ...catalogDataRefs, ...programDataRefs]);
+  }, [allCatalogLoaded, allDetailLoaded, allPrograms.length, querySignature]);
 
   const handleAvatarClick = (): void => {
     fileInputRef.current?.click();

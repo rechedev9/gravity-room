@@ -111,7 +111,11 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       });
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
+      }),
       detail: {
         tags: ['Programs'],
         summary: 'Get program instance',
@@ -141,7 +145,11 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       return result;
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
+      }),
       body: t.Object({
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
         status: t.Optional(
@@ -184,7 +192,11 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       return result;
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
+      }),
       body: t.Object({
         metadata: t.Record(
           t.String({ maxLength: 50 }),
@@ -221,7 +233,11 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       set.status = 204;
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
+      }),
       detail: {
         tags: ['Programs'],
         summary: 'Delete program instance',
@@ -246,7 +262,11 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       return exportInstance(userId, params.id);
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
+      }),
       detail: {
         tags: ['Programs'],
         summary: 'Export program instance',

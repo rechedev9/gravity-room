@@ -36,9 +36,11 @@ export type CreateAppOptions = {
 export function createApp(options: CreateAppOptions) {
   const { corsOrigins, csp, permissionsPolicy } = options;
 
-  const metricsExpected = process.env['METRICS_TOKEN']
-    ? Buffer.from(`Bearer ${process.env['METRICS_TOKEN']}`)
-    : null;
+  const metricsToken = process.env['METRICS_TOKEN'];
+  if (process.env['NODE_ENV'] === 'production' && !metricsToken) {
+    throw new Error('METRICS_TOKEN is required in production');
+  }
+  const metricsExpected = metricsToken ? Buffer.from(`Bearer ${metricsToken}`) : null;
 
   const app = new Elysia()
     .use(

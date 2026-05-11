@@ -6,6 +6,7 @@ import { join } from 'path';
 import { cleanupExpiredTokens } from './services/auth';
 import { getDb, closeDb } from './db';
 import { getRedis } from './lib/redis';
+import { runPresenceJanitor } from './lib/presence';
 import { logger } from './lib/logger';
 import { seedMuscleGroups } from './db/seeds/muscle-groups-seed';
 import { seedExercises } from './db/seeds/exercises-seed';
@@ -281,3 +282,19 @@ function runCleanup(): void {
 
 runCleanup();
 setInterval(runCleanup, TOKEN_CLEANUP_INTERVAL_MS);
+
+// ---------------------------------------------------------------------------
+// Presence sorted-set janitor — runs every 60s when Redis is available
+// ---------------------------------------------------------------------------
+
+const PRESENCE_JANITOR_INTERVAL_MS = 60_000;
+
+function runPresenceCleanup(): void {
+  const redis = getRedis();
+  if (!redis) return;
+  runPresenceJanitor(redis).catch((err: unknown) =>
+    logger.error({ err }, 'Presence janitor failed')
+  );
+}
+
+setInterval(runPresenceCleanup, PRESENCE_JANITOR_INTERVAL_MS);
