@@ -31,8 +31,8 @@ export function ProfileStatCard({
     <div
       className={
         compact
-          ? `py-2${accent ? ' border-l-2 border-l-heading pl-3' : ''}`
-          : `py-3 sm:py-4 border-b border-rule${accent ? ' border-l-2 border-l-heading pl-3' : ''}`
+          ? `py-2${accent ? ' border-t-2 border-t-accent' : ''}`
+          : `py-3 sm:py-4 border-b border-rule${accent ? ' border-t-2 border-t-accent' : ''}`
       }
     >
       <div className="flex items-baseline gap-2">
