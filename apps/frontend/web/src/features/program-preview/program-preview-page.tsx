@@ -62,7 +62,7 @@ function PreviewError({ onRetry }: { readonly onRetry: () => void }): ReactNode 
         <button
           type="button"
           onClick={onRetry}
-          className="px-5 py-2 bg-accent text-white font-bold cursor-pointer text-sm"
+          className="px-5 py-2 bg-accent text-on-accent font-bold cursor-pointer text-sm"
         >
           {t('common.retry')}
         </button>

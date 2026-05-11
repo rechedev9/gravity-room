@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 const STAGE_STYLES = [
   'bg-stage-1 text-header border-stage-1',
   'bg-stage-2 text-black border-stage-2',
-  'bg-stage-3 text-white border-stage-3',
+  'bg-stage-3 text-on-accent border-stage-3',
 ] as const;
 
 const STAGE_LABEL_KEYS = [

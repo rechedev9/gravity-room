@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { cn } from '@/lib/cn';
 
 interface ProgressBarProps {
   readonly completed: number;
@@ -15,19 +16,25 @@ export function ProgressBar({
   showPercent = false,
   className,
 }: ProgressBarProps): ReactNode {
-  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+  const done = total > 0 && completed >= total;
+
   return (
     <div
-      className={`flex items-center gap-3 ${className ?? ''}`}
       role="progressbar"
-      aria-valuenow={pct}
-      aria-valuemin={0}
-      aria-valuemax={100}
       aria-label={ariaLabel}
+      aria-valuemin={0}
+      aria-valuemax={total}
+      aria-valuenow={completed}
+      className={cn('flex items-center gap-3', className)}
     >
-      <div className="flex-1 h-2.5 bg-progress-track overflow-hidden rounded-full">
+      <div className="flex-1 h-2.5 bg-progress-track rounded-full overflow-hidden">
         <div
-          className="h-full bg-accent transition-[width] duration-300 ease-out progress-fill rounded-full"
+          data-fill
+          className={cn(
+            'h-full rounded-full transition-[width] duration-300 ease-out progress-fill',
+            done ? 'bg-victory shadow-[var(--shadow-victory)]' : 'bg-accent'
+          )}
           style={{ width: `${pct}%` }}
         />
       </div>

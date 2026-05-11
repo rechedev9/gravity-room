@@ -275,10 +275,7 @@ export function ProfilePage(): React.ReactNode {
     <div className="min-h-dvh bg-body">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="mb-8">
-          <h1
-            className="font-display text-4xl sm:text-5xl text-title leading-none"
-            style={{ textShadow: '0 0 30px rgba(240, 192, 64, 0.12)' }}
-          >
+          <h1 className="font-display text-4xl sm:text-5xl text-title leading-none hero-title-glow">
             {t('profile.page.heading')}
           </h1>
           {user && <p className="text-sm text-muted mt-1">{displayName}</p>}
@@ -306,10 +303,7 @@ export function ProfilePage(): React.ReactNode {
               className="w-full max-w-xs mx-auto mb-6 opacity-80"
               loading="lazy"
             />
-            <p
-              className="font-display text-6xl sm:text-7xl text-muted leading-none mb-4"
-              style={{ textShadow: '0 0 40px rgba(138, 122, 90, 0.15)' }}
-            >
+            <p className="font-display text-6xl sm:text-7xl text-muted leading-none mb-4 hero-title-glow">
               {t('profile.empty.heading')}
             </p>
             <p className="text-sm text-muted">{t('profile.empty.description')}</p>

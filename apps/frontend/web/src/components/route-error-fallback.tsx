@@ -25,7 +25,7 @@ export function RouteErrorFallback({ error }: ErrorComponentProps): React.ReactN
         </p>
         <button
           onClick={() => window.location.reload()}
-          className="px-6 py-2.5 bg-accent text-white font-bold cursor-pointer"
+          className="px-6 py-2.5 bg-accent text-on-accent font-bold cursor-pointer"
         >
           Recargar
         </button>

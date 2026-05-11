@@ -79,90 +79,108 @@
 /* Body: Barlow — clean readable prose               */
 
 @theme {
-  /* Surfaces */
-  --color-body: #0b0906;
-  --color-card: #130f09;
-  --color-header: #070504;
-  --color-th: #1a1410;
-  --color-hover-row: #1a1410;
-  --color-progress-track: #2a2218;
-  --color-changed: #1f1a08;
-  --color-error-bg: #2e1414;
-  --color-tooltip-bg: #070504;
+  /* SURFACES — clear perceptual delta (L* ≥ 5% between levels) */
+  --color-body: oklch(0.14 0.005 50);
+  --color-card: oklch(0.19 0.008 50); /* alias used everywhere; semantic name = surface */
+  --color-surface-2: oklch(0.24 0.01 45);
+  --color-header: oklch(0.09 0.003 50); /* alias = recess */
+  --color-th: oklch(0.22 0.01 45);
+  --color-hover-row: oklch(0.22 0.01 45);
+  --color-progress-track: oklch(0.22 0.01 45);
+  --color-changed: oklch(0.22 0.04 70);
+  --color-error-bg: oklch(0.2 0.06 25);
+  --color-tooltip-bg: oklch(0.09 0.003 50);
 
-  /* Text */
-  --color-main: #f0e8d8;
-  --color-title: #f0c040;
-  --color-muted: #8a7a5a;
-  --color-label: #a89870;
-  --color-info: #8a7a5a;
-  --color-error: #c06060;
-  --color-tooltip-text: #f0e8d8;
+  /* TEXT */
+  --color-main: oklch(0.94 0.008 80);
+  --color-title: oklch(0.94 0.008 80); /* DEMOTED — was gold; chalk now */
+  --color-heading: oklch(0.94 0.008 80); /* FIX — was undefined */
+  --color-muted: oklch(0.6 0.012 50);
+  --color-label: oklch(0.68 0.015 50);
+  --color-info: oklch(0.6 0.012 50);
+  --color-error: oklch(0.68 0.18 25);
+  --color-tooltip-text: oklch(0.94 0.008 80);
 
-  /* Borders */
-  --color-rule: #2a2218;
-  --color-rule-light: #3a3025;
-  --color-error-line: #7a2828;
+  /* BORDERS */
+  --color-rule: oklch(0.26 0.008 50);
+  --color-rule-light: oklch(0.4 0.014 50);
+  --color-error-line: oklch(0.45 0.12 25);
 
-  /* Accent */
-  --color-accent: #e8aa20;
+  /* PRIMARY ACCENT — rust */
+  --color-accent: oklch(0.62 0.13 50);
+  --color-accent-hover: oklch(0.67 0.15 50);
+  --color-on-accent: oklch(0.1 0.003 50);
+  --color-btn-ring: oklch(0.62 0.13 50);
+  --color-btn: oklch(0.19 0.008 50);
+  --color-btn-text: oklch(0.62 0.13 50);
+  --color-btn-active: oklch(0.62 0.13 50);
+  --color-btn-active-text: oklch(0.1 0.003 50);
 
-  /* Buttons */
-  --color-btn-ring: #e8aa20;
-  --color-btn: #130f09;
-  --color-btn-text: #e8aa20;
-  --color-btn-active: #e8aa20;
-  --color-btn-active-text: #0b0906;
+  /* CEREMONIAL — scarce gold */
+  --color-victory: oklch(0.82 0.14 85);
+  --color-victory-on: oklch(0.1 0.003 50);
+  --color-victory-glow: oklch(0.82 0.14 85 / 0.35);
 
-  /* Badges */
-  --color-ok-bg: #0f2010;
-  --color-ok-ring: #3a6828;
-  --color-ok: #6aaa3a;
-  --color-fail-bg: #240e0e;
-  --color-fail-ring: #7a2828;
-  --color-fail: #c05050;
+  /* SEMANTIC / STATE */
+  --color-online: oklch(0.72 0.14 145);
+  --color-ok-bg: oklch(0.2 0.04 145);
+  --color-ok-ring: oklch(0.5 0.1 145);
+  --color-ok: oklch(0.68 0.14 145);
+  --color-fail-bg: oklch(0.2 0.06 25);
+  --color-fail-ring: oklch(0.45 0.12 25);
+  --color-fail: oklch(0.65 0.18 25);
+  --color-warn: oklch(0.75 0.16 70);
 
-  /* Stages */
-  --color-stage-1: #f0e8d8;
-  --color-stage-2: #f07000;
-  --color-stage-3: #d02020;
+  /* STAGE COLORS — keep semantic, recoloured to brutalist */
+  --color-stage-1: oklch(0.94 0.008 80);
+  --color-stage-2: oklch(0.68 0.16 50);
+  --color-stage-3: oklch(0.58 0.21 25);
 
-  /* Chart */
-  --color-chart-grid: #2a2218;
-  --color-chart-text: #8a7a5a;
-  --color-chart-line: #f0c040;
-  --color-chart-ok: #3a6828;
-  --color-chart-fail: #7a2828;
-  --color-chart-pr: #d4a843;
+  /* CHART */
+  --color-chart-grid: oklch(0.26 0.008 50);
+  --color-chart-text: oklch(0.6 0.012 50);
+  --color-chart-line: oklch(0.62 0.13 50);
+  --color-chart-ok: oklch(0.5 0.1 145);
+  --color-chart-fail: oklch(0.45 0.12 25);
+  --color-chart-pr: oklch(0.82 0.14 85);
 
-  /* Sidebar */
-  --color-sidebar: #0f0c08;
-  --color-sidebar-active: #1a1410;
-  --color-sidebar-border: #2a2218;
-  --sidebar-width: 240px;
-  --sidebar-width-collapsed: 72px;
+  /* SIDEBAR — width unchanged; colors retuned */
+  --color-sidebar: oklch(0.12 0.005 50);
+  --color-sidebar-active: oklch(0.22 0.01 45);
+  --color-sidebar-border: oklch(0.26 0.008 50);
+  --sidebar-width: 224px; /* unified — sidebar is always fully expanded on lg+ (no hover-collapse) */
+  --sidebar-width-collapsed: 224px; /* kept for back-compat; same value to prevent JS-driven width swap */
   --sidebar-transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* Motion — shared across CSS keyframes and motion/react components */
+  /* RADII */
+  --radius-base: 2px;
+  --radius-pill: 9999px;
+
+  /* SHADOWS — sharp drop + hairline inset */
+  --shadow-card: 2px 2px 0 0 oklch(0 0 0 / 0.5), inset 0 0 0 1px oklch(1 0 0 / 0.02);
+  --shadow-elevated: 4px 4px 0 0 oklch(0 0 0 / 0.6), inset 0 0 0 1px oklch(1 0 0 / 0.03);
+  --shadow-dialog: 4px 4px 0 0 oklch(0 0 0 / 0.6), inset 0 0 0 1px oklch(1 0 0 / 0.03);
+  --shadow-inset-subtle: inset 0 0 0 1px oklch(1 0 0 / 0.02);
+  --shadow-victory: 0 0 28px var(--color-victory-glow);
+
+  /* Component-specific shadows (consumed by .card-interactive, toolbar, result-cell) */
+  --shadow-card-hover: 3px 3px 0 0 oklch(0 0 0 / 0.6), inset 0 0 0 1px oklch(1 0 0 / 0.04);
+  --shadow-toolbar: 0 1px 0 0 oklch(0 0 0 / 0.4);
+  --shadow-glow-success: 0 0 12px oklch(0.68 0.14 145 / 0.4);
+  --shadow-glow-fail: 0 0 12px oklch(0.65 0.18 25 / 0.4);
+  --shadow-glow-gold: var(--shadow-victory); /* alias — .card-glow-gold is removed in Task 3 */
+
+  /* MOTION — keep existing, add press */
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --ease-press: cubic-bezier(0.3, 0, 0.7, 1);
   --duration-instant: 120ms;
   --duration-fast: 180ms;
   --duration-base: 240ms;
   --duration-slow: 320ms;
-
-  /* Shadows */
-  --shadow-toolbar: 0 2px 12px rgba(0, 0, 0, 0.6);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 6px rgba(0, 0, 0, 0.15);
-  --shadow-card-hover: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(232, 170, 32, 0.06);
-  --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(232, 170, 32, 0.04);
-  --shadow-glow-gold: 0 0 20px rgba(232, 170, 32, 0.1);
-  --shadow-glow-success: 0 0 12px rgba(106, 170, 58, 0.15);
-  --shadow-glow-fail: 0 0 12px rgba(192, 80, 80, 0.15);
-  --shadow-inset-subtle: inset 0 1px 0 rgba(255, 255, 255, 0.02);
-  --shadow-dialog:
-    0 8px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(232, 170, 32, 0.04), 0 0 60px rgba(0, 0, 0, 0.5);
+  --duration-press: 80ms;
+  --press-translate-y: 1px;
 }
 
 /* ── Keyframes ─────────────────────────────────── */
@@ -201,13 +219,13 @@
 }
 
 @keyframes modal-enter {
-  from {
+  0% {
+    transform: scale(0.98);
     opacity: 0;
-    transform: translateY(12px);
   }
-  to {
+  100% {
+    transform: scale(1);
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -234,13 +252,13 @@
 }
 
 @keyframes modal-exit {
-  from {
+  0% {
+    transform: scale(1);
     opacity: 1;
-    transform: translateY(0);
   }
-  to {
+  100% {
+    transform: scale(0.98);
     opacity: 0;
-    transform: translateY(8px);
   }
 }
 
@@ -362,10 +380,6 @@ dialog::backdrop {
   transform: translateY(-1px);
 }
 
-.card-glow-gold {
-  box-shadow: var(--shadow-card), var(--shadow-glow-gold);
-}
-
 /* ── Progress bar glow edge ──────────────────── */
 
 .progress-fill {
@@ -384,14 +398,6 @@ dialog::backdrop {
 }
 
 /* ── Accent borders ──────────────────────────── */
-
-.accent-left-gold {
-  border-left: 3px solid var(--color-accent);
-}
-
-.accent-left-muted {
-  border-left: 2px solid var(--color-rule-light);
-}
 
 /* ── Gradient top edge ────────────────────────── */
 
@@ -585,22 +591,31 @@ dialog::backdrop {
   background: var(--color-rule);
 }
 
-/* ── Dashboard section header ──────────────────── */
-
-.dash-section-title {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--color-muted);
-}
-
 /* ── Type scale: custom size ────────────────────── */
 
 @utility text-2xs {
   font-size: 10px;
   line-height: 1.4;
+}
+
+/* ── Slate-drop (toast enter) ───────────────────── */
+
+@keyframes slate-drop {
+  0% {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(1px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animate-slate-drop {
+  animation: slate-drop 220ms cubic-bezier(0.3, 1.1, 0.4, 1) both;
 }
 
 /* ── Font utility classes ───────────────────────── */
@@ -666,4 +681,45 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* === Brutalist surface utilities ============================ */
+
+/* Concrete grain — applied via .concrete-noise on the app shell <body> */
+.concrete-noise::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.6'/></svg>");
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+}
+
+/* Vignette — radial darken on body edges */
+.vignette::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse at center, transparent 50%, oklch(0.06 0 0 / 0.35) 100%);
+}
+
+/* Chalk-stamp label — replaces .dash-section-title (kept as alias) */
+.chalk-stamp,
+.dash-section-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-label);
+}
+
+/* Base focus ring (was per-component before) */
+:where(button, a, input, select, textarea, [role='button'], [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
