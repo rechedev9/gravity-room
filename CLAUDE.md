@@ -55,7 +55,7 @@ three runnable services and one shared TS package.
 
 ## Tooling
 
-- **Lefthook** — pre-commit: typecheck, lint, format. Pre-push: test, build, api-types-drift check. Don't bypass with `--no-verify`.
+- **Lefthook** — pre-commit: typecheck, lint, format. Pre-push: test, build. Don't bypass with `--no-verify`.
 - **OpenAPI codegen** — `apps/frontend/web/codegen/generate-api-types.ts` (web only).
 - **Drizzle** — `db:generate`, `db:migrate`, `db:studio` (in `apps/backend/api`).
 - **Playwright** — chromium e2e from `apps/frontend/web/e2e/`. Run via `bun run e2e`.
