@@ -46,6 +46,7 @@ AGENTS.md
 .claude/
 .worktrees/
 .agents/
+.atl/
 skills-lock.json
 
 # temporary files (PDF extracts, screenshots, scripts)
