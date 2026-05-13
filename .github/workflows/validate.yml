@@ -122,6 +122,10 @@ jobs:
       GOOGLE_CLIENT_ID: test-client-id
       GOOGLE_CLIENT_IDS: test-client-id
       REDIS_URL: redis://localhost:6379
+      # vite.config.ts throws when mode === 'production' && !VITE_API_URL.
+      # Playwright's webServer runs `bun run build:web` (vite build, prod mode);
+      # the API container responds on the same baseURL the e2e suite hits.
+      VITE_API_URL: http://localhost:3001
     services:
       postgres:
         image: postgres:18-alpine
