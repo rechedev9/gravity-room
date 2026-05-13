@@ -33,7 +33,7 @@ Internet
    │
    ▼
 ┌──────────────────────────── gr-prod (Hetzner CCX13, fsn1) ────────────────────────────┐
-│  Ubuntu 24.04 · IPv4 178.105.107.25 · ufw 22/80/443 · fail2ban                        │
+│  Ubuntu LTS · IPv4 <redacted> · ufw 22/80/443 · fail2ban                              │
 │                                                                                       │
 │   ┌──────────── docker compose stack — /opt/gravity-room/ ────────────┐               │
 │   │                                                                   │               │

@@ -111,18 +111,6 @@ export const schemas = {
 
 export const endpoints = [
   {
-    method: 'get',
-    path: '',
-    requestFormat: 'json',
-    response: z.void(),
-  },
-  {
-    method: 'get',
-    path: '/',
-    requestFormat: 'json',
-    response: z.void(),
-  },
-  {
     method: 'post',
     path: '/api/auth/dev',
     requestFormat: 'json',
@@ -626,7 +614,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),
@@ -657,7 +645,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),
@@ -688,7 +676,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),
@@ -719,7 +707,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),
@@ -753,7 +741,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),
@@ -789,7 +777,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),
@@ -825,7 +813,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
       {
         name: 'workoutIndex',
@@ -861,7 +849,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),

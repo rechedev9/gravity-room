@@ -27,6 +27,9 @@ export default defineConfig({
   webServer: {
     command: 'bun run build:web && cd apps/backend/api && bun src/index.ts',
     url: 'http://localhost:3001',
+    // build:web does vite build + prerender of 24 routes (~50s in CI),
+    // then the API boots. Default 60s is too tight for CI runners.
+    timeout: 180_000,
     reuseExistingServer: !process.env.CI,
     cwd: resolve(__dirname, '../../..'),
     env: {

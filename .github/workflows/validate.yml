@@ -13,6 +13,27 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/gravity_room_test
+      JWT_SECRET: test-secret-min-64-chars-for-validation-only-please-replace-in-ci-only
+      NODE_ENV: test
+      AUTH_DEV_ROUTE_ENABLED: 'true'
+      GOOGLE_CLIENT_ID: test-client-id
+      GOOGLE_CLIENT_IDS: test-client-id
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gravity_room_test
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -21,6 +42,14 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: .bun-version
+
+      - name: Cache Bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
 
       - name: Install dependencies
         run: bun ci
@@ -33,6 +62,45 @@ jobs:
         env:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
         run: bun run ci
+
+      - name: Run API tests
+        run: bun run test:api
+
+      # Catch drift between the live ElysiaJS OpenAPI surface and the committed
+      # zod client at apps/frontend/web/src/lib/api/generated.ts. Boots the API
+      # against the Postgres service container, polls /health, regenerates the
+      # client, and fails on any diff. SWAGGER_ENABLED=true exposes /swagger/json
+      # which is the codegen source. The trap cleans up the API process even on
+      # failure.
+      - name: API types drift check
+        env:
+          SWAGGER_ENABLED: 'true'
+          PORT: '3001'
+          CORS_ORIGIN: http://localhost:3000
+        run: |
+          set -euo pipefail
+          bun run --filter api start &
+          API_PID=$!
+          trap 'kill $API_PID 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3001/health > /dev/null 2>&1; then
+              echo "API healthy after ${i} retries"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "::error::API did not become healthy within 60s — check migration logs"
+              exit 1
+            fi
+            sleep 2
+          done
+
+          bun run --filter web api:types
+
+          if ! git diff --exit-code apps/frontend/web/src/lib/api/generated.ts; then
+            echo "::error::API types are out of sync. Run 'bun run --filter web api:types' locally and commit the regenerated apps/frontend/web/src/lib/api/generated.ts."
+            exit 1
+          fi
 
       # Catch drift between REQUIRED_ENV (src/lib/env-validation.ts) and the
       # production .env example. If a contributor adds a required-in-prod var

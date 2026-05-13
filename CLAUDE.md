@@ -26,7 +26,7 @@ three runnable services and one shared TS package.
 ## Cross-cutting contracts
 
 - **GZCLP rules + Zod schemas live in `packages/domain`** (imported as `@gzclp/domain` via `workspace:*` by web, mobile, api). It is the single source of truth — never duplicate logic that belongs here.
-- **API contract**: ElysiaJS exposes `/swagger/json` (non-prod). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. Lefthook's `pre-push.api-types-drift` blocks pushes if it drifts. **Mobile does NOT consume this generated client** — it hand-writes API calls. Unifying is on the roadmap (`packages/api-client`).
+- **API contract**: ElysiaJS exposes `/swagger/json` (non-prod). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. CI gates drift in `.github/workflows/validate.yml` (the `validate` job boots the API against a Postgres service container and runs `git diff --exit-code` on the generated client) — Lefthook no longer runs this check pre-push because it requires a live API. **Mobile does NOT consume this generated client** — it hand-writes API calls. Unifying is on the roadmap (`packages/api-client`).
 - **Auth**: JWT access + refresh-token rotation. Google OAuth on all three clients. Server logic split: `apps/backend/api/src/routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` + `lib/google-auth.ts`.
 - **Migrations**: applied automatically on API startup (`apps/backend/api/src/bootstrap.ts`). Drizzle config at `apps/backend/api/drizzle.config.ts`. Schema at `apps/backend/api/src/db/schema.ts`. Generated SQL at `apps/backend/api/drizzle/`.
 - **Analytics → API integration**: insights are pre-computed by the Python service and stored in the `user_insights` table. `POST /compute` requires an internal secret.
@@ -55,7 +55,7 @@ three runnable services and one shared TS package.
 
 ## Tooling
 
-- **Lefthook** — pre-commit: typecheck, lint, format. Pre-push: test, build, api-types-drift check. Don't bypass with `--no-verify`.
+- **Lefthook** — pre-commit: typecheck, lint, format. Pre-push: test, build. Don't bypass with `--no-verify`.
 - **OpenAPI codegen** — `apps/frontend/web/codegen/generate-api-types.ts` (web only).
 - **Drizzle** — `db:generate`, `db:migrate`, `db:studio` (in `apps/backend/api`).
 - **Playwright** — chromium e2e from `apps/frontend/web/e2e/`. Run via `bun run e2e`.
@@ -176,12 +176,11 @@ _10 tables. Source: `apps/backend/api/src/db/schema.ts`._
 
 ## Recently removed (don't suggest reintroducing)
 
-The following were intentionally removed in commits up to `6876320 chore: remove VPS deployment (#61)`:
+The following remain removed from the repo today (some were originally swept out in `6876320 chore: remove VPS deployment (#61)`; the VPS path was later re-introduced via PR #62, so only the entries below are still gone):
 
-- VPS deployment (no Hetzner/Caddy config). Frontend can be hosted anywhere static; API anywhere Bun-capable; analytics anywhere Python-capable.
-- All Dockerfiles (`apps/backend/api/Dockerfile`, `apps/backend/analytics/Dockerfile`, `apps/frontend/web/Dockerfile`) and `docker-compose.dev.yml`.
+- `apps/frontend/web/Dockerfile` and `docker-compose.dev.yml` (the web container and the dev compose file). The API and analytics still ship as Docker images — `apps/backend/api/Dockerfile` and `apps/backend/analytics/Dockerfile` are active and consumed by `.github/workflows/deploy.yml`. Production `docker-compose.yml` is also active.
 - nginx configs (`apps/frontend/web/nginx*.conf`, `security-headers.conf`).
-- CI workflows: `validate.yml`, `_validate-api.yml`, `_validate-web.yml`, `_validate-analytics.yml`, `auto-format.yml`, `workflow-sanity.yml`. **Active workflows:** `claude.yml`, `claude-code-review.yml`.
+- CI workflows: `_validate-api.yml`, `_validate-web.yml`, `_validate-analytics.yml`, `auto-format.yml`, `workflow-sanity.yml`. **Active workflows:** `claude.yml`, `claude-code-review.yml`, `deploy.yml`, `validate.yml`.
 - Dependabot config.
 
 If a task suggests bringing any of these back, confirm intent first.
