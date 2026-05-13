@@ -59,4 +59,9 @@ const header = [
 ].join('\n');
 
 await Bun.write(outputPath, header + content);
+
+// Normalize formatting so local + CI regenerations produce byte-identical
+// output (drift check would otherwise false-positive on whitespace).
+await $`bunx prettier --write --log-level=warn ${outputPath}`;
+
 process.stdout.write(`Generated: ${outputPath}\n`);
