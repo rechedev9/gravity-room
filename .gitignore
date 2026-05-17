@@ -55,8 +55,7 @@ skills-lock.json
 .railwayignore
 
 # Weave local runtime artifacts
-.weave/runtime/
-.weave/state.json
+.weave/
 
 # typescript
 *.tsbuildinfo
