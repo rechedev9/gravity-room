@@ -28,7 +28,7 @@ three runnable services and one shared TS package.
 - **GZCLP rules + Zod schemas live in `packages/domain`** (imported as `@gzclp/domain` via `workspace:*` by web, mobile, api). It is the single source of truth — never duplicate logic that belongs here.
 - **API contract**: ElysiaJS exposes `/swagger/json` (non-prod). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. CI gates drift in `.github/workflows/validate.yml` (the `validate` job boots the API against a Postgres service container and runs `git diff --exit-code` on the generated client) — Lefthook no longer runs this check pre-push because it requires a live API. **Mobile does NOT consume this generated client** — it hand-writes API calls. Unifying is on the roadmap (`packages/api-client`).
 - **Auth**: JWT access + refresh-token rotation. Google OAuth on all three clients. Server logic split: `apps/backend/api/src/routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` + `lib/google-auth.ts`.
-- **Migrations**: applied automatically on API startup (`apps/backend/api/src/bootstrap.ts`). Drizzle config at `apps/backend/api/drizzle.config.ts`. Schema at `apps/backend/api/src/db/schema.ts`. Generated SQL at `apps/backend/api/drizzle/`.
+- **Migrations**: applied automatically on API startup (`apps/backend/api/src/bootstrap.ts`). Drizzle config at `packages/database/drizzle.config.ts`. Schema at `packages/database/src/schema.ts`. Generated SQL at `packages/database/migrations/`.
 - **Analytics → API integration**: insights are pre-computed by the Python service and stored in the `user_insights` table. `POST /compute` requires an internal secret.
 - **Soft delete**: `users.deletedAt` triggers a 30-day grace period before `purge-deleted-users.ts` hard-deletes (CASCADE). The auth middleware filters `WHERE deleted_at IS NULL`, so soft-deleted users cannot authenticate.
 
@@ -130,7 +130,7 @@ _31 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
 
 <!-- AUTO:DB-START -->
 
-_10 tables. Source: `apps/backend/api/src/db/schema.ts`._
+_10 tables. Source: `packages/database/src/schema.ts`._
 
 ### `exercises`
 
@@ -178,7 +178,7 @@ _10 tables. Source: `apps/backend/api/src/db/schema.ts`._
 
 The following remain removed from the repo today (some were originally swept out in `6876320 chore: remove VPS deployment (#61)`; the VPS path was later re-introduced via PR #62, so only the entries below are still gone):
 
-- `apps/frontend/web/Dockerfile` and `docker-compose.dev.yml` (the web container and the dev compose file). The API and analytics still ship as Docker images — `apps/backend/api/Dockerfile` and `apps/backend/analytics/Dockerfile` are active and consumed by `.github/workflows/deploy.yml`. Production `docker-compose.yml` is also active.
+- `apps/frontend/web/Dockerfile` and `docker-compose.dev.yml` (the web container and the dev compose file). The API and analytics still ship as Docker images — `apps/backend/api/Dockerfile` and `apps/backend/analytics/Dockerfile` are active and consumed by `.github/workflows/deploy.yml`. Production compose lives at `infra/production/docker-compose.yml`.
 - nginx configs (`apps/frontend/web/nginx*.conf`, `security-headers.conf`).
 - CI workflows: `_validate-api.yml`, `_validate-web.yml`, `_validate-analytics.yml`, `auto-format.yml`, `workflow-sanity.yml`. **Active workflows:** `claude.yml`, `claude-code-review.yml`, `deploy.yml`, `validate.yml`.
 - Dependabot config.
@@ -189,7 +189,7 @@ If a task suggests bringing any of these back, confirm intent first.
 
 - Architecture rationale: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 - Path-by-path navigation: [`docs/llm-map.md`](./docs/llm-map.md).
-- Drizzle schema: [`apps/backend/api/src/db/schema.ts`](./apps/backend/api/src/db/schema.ts).
+- Drizzle schema: [`packages/database/src/schema.ts`](./packages/database/src/schema.ts).
 - API routes folder: [`apps/backend/api/src/routes/`](./apps/backend/api/src/routes/).
 - Env reference: [`.env.example`](./.env.example).
 - Refresh this file: `bun run context:refresh` (requires `bun run dev:api`).

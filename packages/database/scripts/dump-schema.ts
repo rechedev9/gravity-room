@@ -4,7 +4,7 @@
  * Consumed by scripts/refresh-claude-context.ts in the repo root.
  */
 import { is, getTableColumns, getTableName, Table } from 'drizzle-orm';
-import * as schema from '../src/db/schema';
+import * as schema from '@gzclp/database/schema';
 
 type ColInfo = {
   name: string;

@@ -3,11 +3,11 @@
  * Run with: bun run db:seed
  */
 import { getDb } from './index';
-import { users, programInstances } from './schema';
-import { seedMuscleGroups } from './seeds/muscle-groups-seed';
-import { seedExercises } from './seeds/exercises-seed';
-import { seedProgramTemplates } from './seeds/program-templates-seed';
-import { seedExercisesExpanded } from './seeds/exercises-seed-expanded';
+import { users, programInstances } from '@gzclp/database/schema';
+import { seedMuscleGroups } from '@gzclp/database/seeds/muscle-groups-seed';
+import { seedExercises } from '@gzclp/database/seeds/exercises-seed';
+import { seedProgramTemplates } from '@gzclp/database/seeds/program-templates-seed';
+import { seedExercisesExpanded } from '@gzclp/database/seeds/exercises-seed-expanded';
 
 async function seed(): Promise<void> {
   if (process.env['NODE_ENV'] === 'production') {

@@ -4,7 +4,12 @@
  */
 import { eq, and, lt, desc, or, gt, asc, sql, type SQL } from 'drizzle-orm';
 import { getDb } from '../db';
-import { programInstances, programTemplates, workoutResults, undoEntries } from '../db/schema';
+import {
+  programInstances,
+  programTemplates,
+  workoutResults,
+  undoEntries,
+} from '@gzclp/database/schema';
 import { getProgramDefinition } from '../services/catalog';
 import { ProgramInstanceSchema } from '@gzclp/domain/schemas/instance';
 import type { GenericResults, GenericUndoHistory } from '@gzclp/domain/types/program';

@@ -3,7 +3,7 @@
  * Creates real database rows for use in test scenarios.
  */
 import { getTestDb } from './db-setup';
-import { users, programInstances } from '../src/db/schema';
+import { users, programInstances } from '@gzclp/database/schema';
 import { hashPassword } from '../src/services/auth';
 
 export interface TestUser {

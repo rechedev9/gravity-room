@@ -4,14 +4,17 @@
  * IMPORTANT: This test requires a running PostgreSQL database with all
  * migrations applied. It is SKIPPED by default in unit test runs.
  * To run it manually:
- *   DATABASE_URL=... bun test apps/backend/api/src/db/seeds/seeds.test.ts
+ *   RUN_DB_SEED_INTEGRATION=true DATABASE_URL=... bun test packages/database/src/seeds/seeds.test.ts
  *
  * Verifies REQ-DATA-004: running seeds twice produces the same counts
  * with no errors (idempotent via onConflictDoNothing).
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect } from 'bun:test';
+import { afterAll, describe, it, expect } from 'bun:test';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
+import * as schema from '../schema';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import { SHEIKO_7_1_DEFINITION } from './programs/sheiko-7-1';
 import { SHEIKO_7_2_DEFINITION } from './programs/sheiko-7-2';
@@ -43,14 +46,34 @@ describe('Sheiko seed schema validation', () => {
   }
 });
 
-// Detect if DATABASE_URL is set — skip if not
-const hasDb = typeof process.env['DATABASE_URL'] === 'string' && process.env['DATABASE_URL'] !== '';
+// Integration tests are opt-in: CI may set DATABASE_URL before migrations run.
+const hasDb =
+  process.env['RUN_DB_SEED_INTEGRATION'] === 'true' &&
+  typeof process.env['DATABASE_URL'] === 'string' &&
+  process.env['DATABASE_URL'] !== '';
+
+type SeedTestDb = ReturnType<typeof drizzle<typeof schema>>;
+let seedClient: postgres.Sql | undefined;
+let seedDb: SeedTestDb | undefined;
+
+function getSeedTestDb(): SeedTestDb {
+  const url = process.env['DATABASE_URL'];
+  if (!url) throw new Error('DATABASE_URL is required for seed integration tests');
+  if (!seedDb) {
+    seedClient = postgres(url, { max: 5 });
+    seedDb = drizzle(seedClient, { schema });
+  }
+  return seedDb;
+}
+
+afterAll(async () => {
+  await seedClient?.end();
+});
 
 describe.skipIf(!hasDb)('seeds idempotency (integration)', () => {
   it('should run muscle-groups seed twice without error', async () => {
-    const { getDb } = await import('../index');
     const { seedMuscleGroups } = await import('./muscle-groups-seed');
-    const db = getDb();
+    const db = getSeedTestDb();
 
     // First run
     await seedMuscleGroups(db);
@@ -60,41 +83,37 @@ describe.skipIf(!hasDb)('seeds idempotency (integration)', () => {
   });
 
   it('should run exercises seed twice without error', async () => {
-    const { getDb } = await import('../index');
     const { seedExercises } = await import('./exercises-seed');
-    const db = getDb();
+    const db = getSeedTestDb();
 
     await seedExercises(db);
     await expect(seedExercises(db)).resolves.toBeUndefined();
   });
 
   it('should run exercises-expanded seed twice without error', async () => {
-    const { getDb } = await import('../index');
     const { seedExercisesExpanded } = await import('./exercises-seed-expanded');
-    const db = getDb();
+    const db = getSeedTestDb();
 
     await seedExercisesExpanded(db);
     await expect(seedExercisesExpanded(db)).resolves.toBeUndefined();
   });
 
   it('should run program-templates seed twice without error', async () => {
-    const { getDb } = await import('../index');
     const { seedProgramTemplates } = await import('./program-templates-seed');
-    const db = getDb();
+    const db = getSeedTestDb();
 
     await seedProgramTemplates(db);
     await expect(seedProgramTemplates(db)).resolves.toBeUndefined();
   });
 
   it('should produce consistent counts across runs', async () => {
-    const { getDb } = await import('../index');
     const { seedMuscleGroups } = await import('./muscle-groups-seed');
     const { seedExercises } = await import('./exercises-seed');
     const { seedExercisesExpanded } = await import('./exercises-seed-expanded');
     const { seedProgramTemplates } = await import('./program-templates-seed');
-    const { muscleGroups, exercises, programTemplates } = await import('../schema');
+    const { muscleGroups, exercises, programTemplates } = schema;
     const { count } = await import('drizzle-orm');
-    const db = getDb();
+    const db = getSeedTestDb();
 
     // Run all seeds
     await seedMuscleGroups(db);

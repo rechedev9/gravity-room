@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'bun:test';
+import { PROGRAM_CATALOG } from '@gzclp/domain/catalog';
 import { BRUNETTI365_EXP_DEFINITION_JSONB, BRUNETTI365_DEFINITION_JSONB } from './brunetti-365';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 
@@ -16,6 +17,27 @@ type DayLike = {
   readonly name: string;
   readonly slots: readonly SlotLike[];
 };
+
+type DefinitionJsonb = {
+  readonly exercises: Record<string, unknown>;
+};
+
+function hydratedDefinition(id: string, definition: DefinitionJsonb): Record<string, unknown> {
+  const meta = PROGRAM_CATALOG.find((entry) => entry.id === id);
+  if (!meta) throw new Error(`Missing PROGRAM_CATALOG metadata for ${id}`);
+
+  const { level: _level, isActive: _isActive, ...schemaMeta } = meta;
+
+  return {
+    ...schemaMeta,
+    version: 1,
+    source: 'preset' as const,
+    ...definition,
+    exercises: Object.fromEntries(
+      Object.keys(definition.exercises).map((key) => [key, { name: key }])
+    ),
+  };
+}
 
 function findTestSlot(
   days: readonly DayLike[],
@@ -110,14 +132,24 @@ describe('brunetti-365 JAW test slots', () => {
 
   describe('full definition schema validation', () => {
     it('should pass ProgramDefinitionSchema.safeParse for EXP variant', () => {
-      const result = ProgramDefinitionSchema.safeParse(BRUNETTI365_EXP_DEFINITION_JSONB);
+      const result = ProgramDefinitionSchema.safeParse(
+        hydratedDefinition('la-sala-del-tiempo', BRUNETTI365_EXP_DEFINITION_JSONB)
+      );
 
+      if (!result.success) {
+        console.error('brunetti-365 EXP failed:', JSON.stringify(result.error.issues, null, 2));
+      }
       expect(result.success).toBe(true);
     });
 
     it('should pass ProgramDefinitionSchema.safeParse for full variant', () => {
-      const result = ProgramDefinitionSchema.safeParse(BRUNETTI365_DEFINITION_JSONB);
+      const result = ProgramDefinitionSchema.safeParse(
+        hydratedDefinition('365-programmare-lipertrofia', BRUNETTI365_DEFINITION_JSONB)
+      );
 
+      if (!result.success) {
+        console.error('brunetti-365 full failed:', JSON.stringify(result.error.issues, null, 2));
+      }
       expect(result.success).toBe(true);
     });
   });

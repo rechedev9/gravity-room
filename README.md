@@ -54,7 +54,7 @@ Internet
 
 ### Servicios del compose
 
-Definidos en [`docker-compose.yml`](docker-compose.yml). Cinco servicios
+Definidos en [`infra/production/docker-compose.yml`](infra/production/docker-compose.yml). Cinco servicios
 sobre una sola red bridge (`gr-net`):
 
 | Servicio    | Imagen                                     | Rol                                                                    |
@@ -67,7 +67,7 @@ sobre una sola red bridge (`gr-net`):
 
 **Por qué Caddy y no nginx:** TLS automático con Let's Encrypt sin tocar
 configuración, sintaxis declarativa más legible que nginx, y una sola fuente
-para reverse proxy + servir SPA. El [`Caddyfile`](Caddyfile) describe las
+para reverse proxy + servir SPA. El [`infra/production/Caddyfile`](infra/production/Caddyfile) describe las
 tres vhosts (apex, www, api) y un snippet de `security_headers` compartido
 (HSTS, CSP, Referrer-Policy, COOP).
 
@@ -87,7 +87,7 @@ Dispara en push a `main`:
 2. **Build del SPA** con Vite. Variables baked-in: `VITE_API_URL`,
    `VITE_GOOGLE_CLIENT_ID`. Prerender con Playwright Chromium para evitar
    soft-404 en rutas estáticas.
-3. **Sync al VPS** vía rsync sobre SSH: `docker-compose.yml`, `Caddyfile` y
+3. **Sync al VPS** vía rsync sobre SSH: `infra/production/docker-compose.yml`, `infra/production/Caddyfile` y
    el `dist/` del SPA a `/opt/gravity-room/data/web-dist/`.
 4. **Validación de `.env`** — corre `bun run scripts/check-env.ts` contra el
    `.env` real del VPS _antes_ de levantar el stack. Esto evita el caso de
@@ -176,8 +176,8 @@ TypeScript sería una pelea contra la falta de librerías. Aquí Python brilla.
 ### Persistencia
 
 - **Postgres** — 10 tablas, esquema en
-  [`apps/backend/api/src/db/schema.ts`](apps/backend/api/src/db/schema.ts).
-  Migraciones generadas en `drizzle/` y aplicadas al startup.
+  [`packages/database/src/schema.ts`](packages/database/src/schema.ts).
+  Migraciones generadas en `packages/database/migrations/` y aplicadas al startup.
 - **Redis** — rate limiting distribuido, conteo de usuarios online (presence),
   caché de respuestas hot y singleflight para evitar dogpile en endpoints
   caros. Si `REDIS_URL` no está seteado, todo cae a stores en memoria con
@@ -363,11 +363,11 @@ arreglar antes de subir.
 
 ## 6. Documentación adicional
 
-| Archivo                                        | Propósito                                                  |
-| ---------------------------------------------- | ---------------------------------------------------------- |
-| [`CLAUDE.md`](CLAUDE.md)                       | Contexto autogenerado para agentes (API + DB en vivo)      |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Split por tiers, stack detallado de cada servicio          |
-| [`docs/llm-map.md`](docs/llm-map.md)           | Tabla path → propósito para navegación rápida              |
-| [`.env.example`](.env.example)                 | Referencia completa de variables de entorno                |
-| [`Caddyfile`](Caddyfile)                       | Config del reverse proxy / static host en producción       |
-| [`docker-compose.yml`](docker-compose.yml)     | Stack completo de producción (mismo archivo en dev y prod) |
+| Archivo                                                                      | Propósito                                                  |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [`CLAUDE.md`](CLAUDE.md)                                                     | Contexto autogenerado para agentes (API + DB en vivo)      |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                               | Split por tiers, stack detallado de cada servicio          |
+| [`docs/llm-map.md`](docs/llm-map.md)                                         | Tabla path → propósito para navegación rápida              |
+| [`.env.example`](.env.example)                                               | Referencia completa de variables de entorno                |
+| [`infra/production/Caddyfile`](infra/production/Caddyfile)                   | Config del reverse proxy / static host en producción       |
+| [`infra/production/docker-compose.yml`](infra/production/docker-compose.yml) | Stack completo de producción (mismo archivo en dev y prod) |

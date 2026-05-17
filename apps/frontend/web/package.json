@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@gzclp/domain": "workspace:*",
+    "@gzclp/database": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -46,8 +47,8 @@
     "@vitejs/plugin-react": "^5.1.4",
     "babel-plugin-react-compiler": "^1.0.0",
     "tailwindcss": "^4",
-    "vite": "^7.3.1",
-    "vite-plugin-pwa": "^1.2.0",
+    "vite": "^8.0.11",
+    "vite-plugin-pwa": "^1.3.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",

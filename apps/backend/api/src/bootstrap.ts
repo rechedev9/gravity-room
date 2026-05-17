@@ -8,10 +8,11 @@ import { getDb, closeDb } from './db';
 import { getRedis } from './lib/redis';
 import { runPresenceJanitor } from './lib/presence';
 import { logger } from './lib/logger';
-import { seedMuscleGroups } from './db/seeds/muscle-groups-seed';
-import { seedExercises } from './db/seeds/exercises-seed';
-import { seedExercisesExpanded } from './db/seeds/exercises-seed-expanded';
-import { seedProgramTemplates } from './db/seeds/program-templates-seed';
+import { MIGRATIONS_DIR } from '@gzclp/database/migrations';
+import { seedMuscleGroups } from '@gzclp/database/seeds/muscle-groups-seed';
+import { seedExercises } from '@gzclp/database/seeds/exercises-seed';
+import { seedExercisesExpanded } from '@gzclp/database/seeds/exercises-seed-expanded';
+import { seedProgramTemplates } from '@gzclp/database/seeds/program-templates-seed';
 import { createApp } from './create-app';
 
 // ---------------------------------------------------------------------------
@@ -63,7 +64,7 @@ async function runMigrations(): Promise<void> {
   // Single-connection client for migrations (DDL must run serially)
   const migrationClient = postgres(url, { max: 1 });
   const migrationDb = drizzle(migrationClient);
-  const migrationsFolder = join(import.meta.dir, '..', 'drizzle');
+  const migrationsFolder = MIGRATIONS_DIR;
 
   // Hotfix: apply DDL from migrations 0005-0009 that were skipped due to a
   // poisoned migration timestamp in __drizzle_migrations. Drizzle's migrator

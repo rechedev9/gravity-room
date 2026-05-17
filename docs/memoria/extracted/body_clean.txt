@@ -1,0 +1,1447 @@
+CICLO FORMATIVO DE GRADO SUPERIOR
+Desarrollo de Aplicaciones Web (DAW)
+GRAVITY ROOM
+Tracker de entrenamiento de fuerza con motor de progresión declarativo
+Autor: Luis Reche Amado
+Tutor: Pascual Barrer
+Ciclo formativo: CFGS Desarrollo de Aplicaciones Web
+Módulo: Proyecto de DAW
+Curso académico: 2025 / 2026
+CESUR
+Convocatoria de junio de 2026
+
+1. Resumen
+Este proyecto presenta el diseño, desarrollo y despliegue de Gravity Room,
+una aplicación web full-stack para el seguimiento de programas de
+entrenamiento de fuerza progresivos. Frente a la mayoría de aplicaciones del
+sector —que actúan como simples registros pasivos de sesiones de
+gimnasio—, Gravity Room implementa un motor de progresión declarativo
+que calcula de forma determinista qué peso, series y repeticiones
+corresponden a la siguiente sesión a partir del histórico del usuario y las reglas
+del programa.
+La arquitectura se compone de un cliente SPA (React 19 + TanStack
+Router/Query, instalable como PWA), una API REST tipada sobre Bun y
+ElysiaJS con persistencia en PostgreSQL vía Drizzle ORM, autenticación con
+Google OAuth y rotación dual de JWT, y un despliegue en VPS propio sobre
+Hetzner Cloud orquestado con Docker Compose, Caddy como reverse proxy
+con TLS automático e integración continua sobre GitHub Actions. El código del
+motor de progresión es TypeScript compartido entre cliente y servidor,
+garantizando resultados idénticos en ambas capas.
+Como conclusión, el proyecto demuestra que es viable construir un producto
+full-stack completo, con un modelo de dominio no trivial, desplegado
+públicamente y operable por terceros, con un coste de infraestructura
+reducido (alrededor de 13,50 € mensuales) y sin renunciar a buenas prácticas
+profesionales
+(tipado
+extremo
+a
+extremo,
+pruebas
+automatizadas,
+observabilidad estructurada, migraciones automáticas y trazabilidad por
+commit). La separación entre la definición de un programa y su estado permite
+añadir nuevos programas al catálogo como un trabajo de configuración, no de
+programación, validando la hipótesis inicial del proyecto.
+Enlaces del proyecto
+Aplicación en vivo: https://gravityroom.app
+Repositorio (AGPL-3.0): https://github.com/rechedev9/gravity-room
+
+2. Índice
+1. Resumen​
+2
+2. Índice​
+3
+3. Justificación​
+4
+3.1 ¿Por qué este proyecto?​
+4
+3.2 ¿Para qué?​
+4
+3.3 Estado del arte y alternativas​
+4
+3.4 Relevancia para el ciclo formativo​
+7
+3.5 Origen de la idea​
+7
+4. Objetivos​
+8
+4.1 Objetivo general​
+8
+4.2 Objetivos específicos​
+9
+5. Desarrollo​
+10
+5.1 Contextualización del sector profesional​
+10
+5.2 Desarrollo del proyecto​
+13
+5.2.1 Elección del stack y justificación​
+13
+5.2.2 Arquitectura general​
+14
+5.2.3 Motor de progresión declarativo​
+15
+5.2.4 Despliegue e integración continua​
+19
+5.2.5 Modelo de datos​
+22
+5.2.6 API REST y autenticación​
+25
+5.2.7 Aplicación web (SPA + PWA + modo invitado)​
+26
+5.2.8 Diseño de interfaz y experiencia de usuario​
+27
+5.2.9 Control de versiones con Git y GitHub​
+32
+5.2.10 Calidad y verificación​
+33
+5.2.11 Hitos de desarrollo​
+33
+6. Conclusiones​
+34
+6.1 Cumplimiento de los objetivos​
+35
+6.2 Aprendizajes​
+35
+6.3 Líneas futuras​
+36
+6.4 Reflexión final​
+36
+7. Bibliografía​
+38
+
+3. Justificación
+El sector del fitness y el entrenamiento de fuerza ha vivido en la última década
+una explosión de aplicaciones móviles centradas en el seguimiento de
+entrenamientos (Hevy, Strong, Boostcamp, Liftin'). Sin embargo, la inmensa
+mayoría operan como registros pasivos: el usuario apunta lo que levantó, y la
+aplicación se limita a almacenarlo y dibujar gráficos. La carga cognitiva de
+decidir qué peso usar la próxima sesión sigue recayendo íntegramente sobre el
+practicante o, en el mejor de los casos, sobre un entrenador personal.
+3.1 ¿Por qué este proyecto?
+Porque los programas de fuerza serios (GZCLP, 5/3/1, StrongLifts 5x5, Texas
+Method, nSuns, etc.) son algoritmos deterministas: si conocemos los
+resultados pasados y las reglas de progresión, el siguiente entrenamiento se
+puede calcular, no estimar. La inmensa mayoría de las aplicaciones no lo
+hacen porque modelar progresiones genéricas requiere una abstracción no
+trivial: hay que separar la definición del programa (qué ejercicios, qué etapas,
+qué reglas) del estado (qué pesos, qué históricos, qué versión del plan), y
+reproducir el cálculo de forma idéntica en cliente y servidor.
+3.2 ¿Para qué?
+El proyecto persigue dos metas, ordenadas de la más concreta a la más
+amplia:
+1.​ Resolver un problema real para el usuario final. Eliminar la fricción
+mental de decidir qué peso, series y repeticiones tocan en cada sesión,
+delegando ese cálculo en un software que aplica reglas declaradas y
+auditables, no estimaciones. El usuario se ocupa de seguir un plan
+determinado.
+2.​ Validar una decisión arquitectónica concreta: separar definición y
+estado. Demostrar que esa separación permite añadir programas
+nuevos como configuración —una definición declarativa más— sin tocar
+el motor de cómputo, y que el mismo cálculo, ejecutado en cliente y
+servidor, da resultados idénticos. Esto soporta dos requisitos de
+producto: catálogo extensible y modo invitado sin red.
+En resumen, el proyecto resuelve un problema real con una arquitectura no
+trivial, ejecutada de principio a fin como un producto desplegado, no como
+un prototipo de laboratorio.
+
+3.3 Estado del arte y alternativas
+Para situar al lector no familiarizado con el sector, conviene aclarar qué se
+entiende por un programa de fuerza progresivo. Se trata de un plan de
+entrenamiento estructurado en sesiones repetibles (típicamente entre tres y
+cinco por semana) en el que el peso, las series y las repeticiones de cada
+ejercicio se ajustan sesión a sesión siguiendo reglas predefinidas. La regla
+básica es la sobrecarga progresiva: si el atleta completa todas las
+repeticiones prescritas con buena técnica, en la sesión siguiente se incrementa
+la carga; si falla, el programa reduce la carga (deload) o cambia el esquema de
+series y repeticiones antes de volver a subir. Programas como GZCLP o 5/3/1
+son ejemplos concretos de estas reglas, codificadas tradicionalmente en hojas
+de cálculo o en la memoria del entrenador.
+El panorama actual
+El mercado de aplicaciones para el seguimiento de entrenamientos de fuerza
+es maduro y heterogéneo. Las opciones más populares pueden agruparse, sin
+caricaturizarlas, en tres familias:
+•​
+Aplicaciones de registro con funciones avanzadas (Hevy, Strong,
+FitNotes). Permiten apuntar series, repeticiones y peso, definir plantillas
+de rutina, configurar tiempos de descanso y dibujar gráficos históricos.
+En sus versiones de pago, Hevy ofrece además sugerencias de carga y
+sustituciones automáticas de ejercicios. La progresión, no obstante,
+depende de la rutina concreta que el usuario haya definido, no de un
+motor configurable que se aplique a cualquier programa.
+•​
+Aplicaciones con prescripción automática (Boostcamp, Fitbod,
+Juggernaut AI, Caliber). Boostcamp dispone de un catálogo amplio de
+programas con progresión automática implementada en el código nativo
+de la aplicación para cada uno de ellos (GZCLP, 5/3/1, nSuns y muchos
+otros). Fitbod aplica un modelo propio basado en grupos musculares y
+recuperación estimada. Juggernaut AI y Caliber van más allá y ofrecen
+entrenamientos generados por algoritmos propietarios cuya lógica no es
+pública. Es decir, existen soluciones pero son de pago.
+•​
+Hojas de cálculo comunitarias (Google Sheets con macros, plantillas
+distribuidas en foros como /r/weightroom o liftvault.com). Ofrecen
+flexibilidad total y son auditables, a costa de una experiencia de usuario
+muy pobre en móvil: ninguna está optimizada para registrar series
+durante una sesión real en el gimnasio. Es irreal pensar que un usuario
+en 2026 quiere usar una hoja de cálculo para seguir un plan de
+entrenamiento.
+
+Lo que no resuelve el panorama actual
+Examinando estas tres familias, se identifican tres carencias concretas que
+justifican el desarrollo de una solución nueva:
+•​
+La progresión está acoplada al programa, no a un motor genérico.
+Las aplicaciones con prescripción automática implementan la lógica de
+cada programa por separado dentro de su código fuente. Añadir un
+programa nuevo es una operación de desarrollo y un cambio de versión,
+no una tarea que el usuario, un entrenador o un colaborador puedan
+realizar mediante una definición declarativa.
+•​
+El cómputo vive únicamente en servidor. Las apps comerciales
+requieren cuenta y conexión para calcular el siguiente entrenamiento.
+Esto impide ofrecer un modo invitado funcional sin red ni registro: o el
+usuario crea una cuenta y entrega sus datos desde el primer minuto, o
+no puede probar el producto.
+•​
+Son productos cerrados o de pago. Las funciones más interesantes
+(sugerencias,
+sustituciones,
+sincronización
+entre
+dispositivos,
+exportación) suelen estar detrás de una suscripción mensual, y el
+usuario no puede auditar las reglas que se le aplican. En un dominio
+donde la salud y la progresión a medio plazo dependen de esas reglas,
+poder verlas y discutirlas es un requisito legítimo.
+Cómo se posiciona Gravity Room
+Frente a este panorama, Gravity Room propone una combinación específica de
+cuatro propiedades, ninguna de las cuales es exclusiva por separado, pero
+cuya intersección no cubre ninguna de las aplicaciones anteriores:
+1.​ Motor declarativo genérico. Un único algoritmo, ejecuta cualquier
+programa cuya definición respete el contrato de reglas. Añadir un
+programa al catálogo es escribir un objeto declarativo —días, slots,
+reglas de éxito y de fallo—, no modificar el motor.
+2.​ Cómputo compartido entre cliente y servidor. El mismo paquete
+TypeScript (@gzclp/shared) se ejecuta tanto en el navegador como en
+la API, garantizando que ambas capas calculan exactamente el mismo
+siguiente entrenamiento. Esto elimina por construcción las divergencias
+entre lo que ve el usuario y lo que el servidor considera correcto. Esto
+permite mejorar la escalabilidad del producto a largo plazo.
+3.​ Modo invitado real, sin red ni cuenta. Gracias al punto anterior, el
+motor funciona íntegramente en el navegador con los resultados
+persistidos en localStorage. El registro se produce sólo si el usuario
+
+decide conservar su histórico en el servidor, y al hacerlo se importan
+automáticamente los datos generados como invitado.
+4.​ Producto abierto, gratuito y sin publicidad. El código se publica bajo
+licencia AGPL-3.0, lo que permite auditar las reglas que se aplican al
+usuario, proponer programas nuevos o desplegar instancias propias. No
+hay tier de pago, anuncios ni venta de datos.
+La hipótesis del proyecto es que esta intersección es un nicho real: existe un
+grupo de usuarios para los que ninguna de las apps existentes cumple
+simultáneamente sus tres criterios habituales —auditabilidad de las reglas,
+gratuidad sin contrapartidas y experiencia móvil cuidada—, y Gravity Room
+cubre ese hueco con una arquitectura que no es sólo «otra app de tracking»,
+sino una decisión técnica concreta sobre dónde y cómo se computa la
+progresión.
+3.4 Relevancia para el ciclo formativo
+Desde la óptica académica, este proyecto permite articular en un único
+entregable competencias de varios módulos del ciclo DAW:
+•​
+Desarrollo web en entorno cliente: React 19, TypeScript, consumo de
+API REST, PWA e internacionalización.
+•​
+Desarrollo web en entorno servidor: API REST tipada, autenticación
+con Google OAuth y JWT, validación de entrada, manejo de errores.
+•​
+Bases de datos: modelo relacional, normalización, índices parciales,
+JSONB, migraciones versionadas y borrado lógico.
+•​
+Despliegue de aplicaciones web: Docker Compose, reverse proxy,
+TLS automático, CI/CD, observabilidad y backups.
+•​
+Inglés técnico: documentación, nombres de dominio y colaboración en
+comunidades internacionales (issues, pull requests).
+•​
+Horizontales: IPE1 e IPE2 (iniciativa profesional y emprendedora,
+viabilidad económica, prevención de riesgos del puesto) y Proyecto
+(planificación y redacción técnica).
+La decisión de desarrollarlo como producto desplegado públicamente, en
+lugar de como prototipo local, se justifica también en términos pedagógicos: la
+transición entre «funciona en mi máquina» y «funciona en producción bajo
+tráfico real» introduce problemas (gestión de secretos, health checks,
+observabilidad, rollbacks) que constituyen una parte significativa del trabajo
+profesional real y que difícilmente se abordan en ejercicios académicos
+convencionales.
+
+3.5 Origen de la idea
+La idea surge de la combinación de dos intereses personales: el entrenamiento
+de fuerza (con varios años practicando programas como GZCLP) y el
+desarrollo de software. La frustración con las aplicaciones existentes —que
+obligan a recordar manualmente la lógica de progresión entre sesiones—
+motivó la búsqueda de una solución técnica al problema. La hipótesis de
+partida es sencilla pero potente: si la progresión de un programa de fuerza está
+definida por reglas deterministas, un software bien diseñado puede asumir
+íntegramente el cálculo de cargas y devolverle al usuario el foco que merece,
+ejecutar bien la técnica de cada levantamiento.
+
+4. Objetivos
+4.1 Objetivo general
+Diseñar, implementar y desplegar una aplicación web full-stack que permita a
+un usuario seguir programas de entrenamiento de fuerza progresivos,
+delegando el cálculo de cargas a un motor de progresión declarativo común a
+cliente y servidor.
+4.2 Objetivos específicos
+Los objetivos específicos concretan el objetivo general en entregables
+verificables:
+1.​ Implementar un motor de progresión genérico. Modelar programas
+como definiciones declarativas (ejercicios, etapas, reglas de progresión)
+y computar el estado actual mediante replay determinista del historial.
+Mismo código TypeScript en cliente y servidor.
+2.​ Construir una aplicación web SPA. Interfaz reactiva (React 19 + Vite +
+TanStack Router/Query) instalable como PWA, con modo invitado y
+sincronización transparente al iniciar sesión.
+3.​ Diseñar una API REST tipada. Servicio sobre Bun y ElysiaJS con
+Drizzle ORM, autenticación con Google OAuth y rotación dual de JWT,
+rate limiting, métricas Prometheus y logging estructurado.
+4.​ Modelar un esquema relacional flexible. Diez tablas en PostgreSQL
+con índices, JSONB para configuraciones por programa, borrado lógico
+con periodo de gracia y separación entre catálogo curado y aportaciones
+de usuarios.
+5.​ Desplegar el sistema en VPS propio. Orquestación con Docker
+Compose detrás de Caddy (TLS automático sobre Let's Encrypt), CI/CD
+desde GitHub Actions con health checks, validación previa de variables
+de entorno y migraciones automáticas en arranque.
+6.​ Internacionalizar la aplicación. Soporte completo español e inglés en
+toda la SPA con react-i18next y detección de idioma del navegador.
+7.​ Garantizar la calidad del código. Comprobación de tipos, linting,
+formato y pruebas (unidad, integración y E2E con Playwright) integradas
+en git hooks y en CI.
+8.​ Documentar el sistema de forma reproducible. Esquemas Drizzle
+versionados, Swagger en desarrollo, diagramas de arquitectura y
+documentación de operaciones (runbook) en el repositorio.
+
+5. Desarrollo
+5.1 Contextualización del sector profesional
+Este proyecto se encuadra en el sector profesional del desarrollo de
+aplicaciones web, y más concretamente en el perfil del desarrollador full-stack
+dentro de los ciclos formativos de la familia Informática y Comunicaciones
+(DAW — Desarrollo de Aplicaciones Web — y DAM — Desarrollo de
+Aplicaciones Multiplataforma).
+El sector se caracteriza por una elevada demanda laboral, ciclos de cambio
+tecnológico cortos (frameworks que evolucionan en plazos de meses) y una
+creciente exigencia de competencias transversales: además de programar, el
+profesional moderno debe entender redes, contenedorización, observabilidad,
+seguridad básica, user experience y, cada vez más, integración de servicios de
+inteligencia artificial. Los puestos típicos —frontend developer, backend
+developer, full-stack developer, DevOps engineer— se desempeñan tanto en
+oficina como en remoto y comparten un patrón común: jornadas largas frente a
+una pantalla, alta carga cognitiva y resolución continua de problemas bajo
+presión de plazos.
+Riesgos laborales y medidas preventivas
+A pesar de tratarse de una actividad de oficina sin exposición a maquinaria
+pesada ni a sustancias químicas, el desarrollo de software presenta riesgos
+laborales concretos y bien tipificados por la normativa española (Ley
+31/1995 de Prevención de Riesgos Laborales, R.D. 488/1997 sobre puestos
+con
+pantallas
+de
+visualización
+de
+datos
+y
+normativa
+autonómica
+complementaria). La tabla siguiente resume los riesgos más relevantes,
+organizados por categorías según la metodología habitual en evaluaciones de
+riesgos (seguridad, medioambientales, ergonómicos y psicosociales).
+Categoría
+Riesgo
+Medidas preventivas
+EPI /
+equipamient
+o
+Seguridad
+Caídas al mismo nivel
+por cables sueltos.
+Contactos eléctricos
+por cargadores
+defectuosos. Incendio
+por sobrecarga de
+regletas.
+Pasacables. Revisión
+periódica del material
+eléctrico. Regletas con
+protección térmica y
+diferencial. Formación en uso
+de extintores.
+Calzado
+cerrado.
+Extintores
+accesibles.
+
+Categoría
+Riesgo
+Medidas preventivas
+EPI /
+equipamient
+o
+Medioambi
+entales
+Iluminación deficiente
+o reflejos en pantalla.
+Temperatura
+inadecuada. Calidad
+del aire pobre en
+oficinas cerradas.
+Iluminación entre 300–500
+lux, sin deslumbramientos.
+Climatización 21–24 °C.
+Ventilación o purificación del
+aire.
+Persianas o
+filtros de
+pantalla
+antirreflejo.
+Ergonómic
+as
+Trastornos
+musculoesqueléticos
+(cervicalgia,
+lumbalgia, túnel
+carpiano, tendinitis de
+pulgar y codo). Fatiga
+visual (síndrome
+visual informático).
+Silla ergonómica regulable.
+Pantalla a la altura de los ojos
+y a 50–70 cm. Teclado y ratón
+ergonómicos.
+Regla
+20-20-201.
+Pausas
+activas
+cada
+50–60
+min.
+Estiramientos.
+Reposamuñ
+ecas.
+Reposapiés.
+Filtro de luz
+azul o gafas
+con
+tratamiento.
+Psicosocial
+es
+Estrés por plazos.
+Sobrecarga mental.
+Burnout. Aislamiento
+(especialmente en
+remoto). Tecnoestrés.
+Planificación realista. Derecho
+a la desconexión digital (Ley
+10/2021).
+Reuniones
+1:12
+frecuentes.
+Fomento
+del
+trabajo en equipo. Respeto
+del horario laboral.
+No aplica
+EPI físico.
+Formación
+en gestión
+del estrés y
+mindfulness.
+Tabla 1. Riesgos laborales del puesto de desarrollador full-stack y medidas
+preventivas asociadas. Elaboración propia a partir de la Ley 31/1995 y el R.D.
+488/1997.
+Cabe destacar que, en el caso particular de este proyecto, el desarrollador
+trabaja con pantallas durante jornadas prolongadas, lo que hace especialmente
+relevantes las medidas ergonómicas y la prevención de la fatiga visual. La
+empresa empleadora está obligada a realizar reconocimientos médicos
+periódicos que incluyan revisión oftalmológica (R.D. 488/1997, art. 4) y a
+proporcionar gafas correctoras específicas si el trabajador las requiere para el
+uso de la pantalla.
+2Una reunión 1:1 es un encuentro periódico entre un trabajador y su responsable directo, breve y
+recurrente (típicamente semanal o quincenal), destinado a alinear prioridades, detectar problemas y
+prevenir el aislamiento del trabajador. Es una práctica generalizada en empresas tecnológicas como
+medida preventiva frente a tecnoestrés y burnout.
+1Regla 20-20-20: cada 20 minutos de pantalla, mirar durante 20 segundos un punto a unos 6 m (20 pies)
+de distancia para relajar la musculatura ciliar y prevenir la fatiga visual.
+
+A las medidas de prevención tradicionales se suma el derecho a la
+desconexión digital, reconocido en la Ley Orgánica 3/2018 de Protección de
+Datos y Garantía de los Derechos Digitales y en la Ley 10/2021 de trabajo a
+distancia. Este derecho es especialmente importante en un sector con alta
+presencia de teletrabajo y herramientas de comunicación asíncrona (Slack,
+Teams, correo), en el que resulta fácil prolongar la jornada de manera informal
+y acumular burnout.
+
+5.2 Desarrollo del proyecto
+5.2.1 Elección del stack y justificación
+La selección de tecnologías responde a tres criterios ordenados: (1) compartir
+código entre cliente y servidor siempre que sea posible, para garantizar
+consistencia del motor de progresión; (2) favorecer el tipado extremo a
+extremo, para detectar errores en tiempo de compilación; y (3) minimizar la
+complejidad operacional, para poder desplegar en un VPS modesto sin
+dependencias propietarias.
+Bun + TypeScript en todo el backend y herramientas. Bun es un runtime de
+JavaScript moderno (basado en JavaScriptCore en lugar de V8) que incluye
+gestor de paquetes, ejecutor de tests, bundler y servidor HTTP nativo. La
+motivación principal no es el rendimiento sino la homogeneidad: un único
+runtime y lenguaje en cliente y servidor evita duplicar el motor de progresión.
+Como efecto secundario, el arranque del contenedor de API es notablemente
+más rápido que con Node, lo que reduce el tiempo entre un despliegue y la
+primera respuesta saludable.
+React 19 + Vite + TanStack Router/Query. React 19 incorpora el
+react-compiler, que memoriza componentes y hooks automáticamente y
+elimina buena parte del código defensivo (useMemo, useCallback). TanStack
+Router proporciona routing tipado en tiempo de compilación, y TanStack Query
+gestiona la caché del servidor con actualizaciones optimistas, claves
+invalidables y reintentos. Vite ofrece arranque casi instantáneo en desarrollo y
+un bundle de producción optimizado.
+PostgreSQL + Drizzle ORM. PostgreSQL aporta consistencia transaccional,
+integridad referencial y soporte robusto para tipos JSONB. Drizzle es un ORM
+schema-first en TypeScript que genera tipos a partir del esquema, evita la
+pérdida de tipado típica de ORMs basados en decoradores y genera migrations
+SQL versionadas que se aplican automáticamente al arranque. Los campos
+JSONB se utilizan únicamente donde la flexibilidad lo justifica (configuraciones
+por programa, setLogs detallados), nunca como vertedero.
+Hetzner Cloud + Docker Compose + Caddy. Hetzner ofrece VPS con red
+europea, buen rendimiento por euro y firewall propio a nivel de red. Docker
+Compose
+es
+suficientemente expresivo para un sistema de cuatro
+contenedores y evita la curva de aprendizaje de Kubernetes, claramente
+sobredimensionada para este caso. Caddy actúa como reverse proxy con TLS
+automático sobre Let's Encrypt sin un solo bloque server complicado: una
+sintaxis breve y declarativa frente a las decenas de líneas que necesitaría una
+configuración equivalente en Nginx.
+
+Zod en frontend y backend. Zod permite definir esquemas de validación una
+sola vez y reutilizarlos en ambos lados: el cliente valida antes de enviar, el
+servidor valida antes de aceptar, y ambos infieren el mismo tipo TypeScript.
+Esto cierra la clase de errores «el cliente y el servidor esperan formatos
+distintos» a coste cero en tiempo de ejecución.
+5.2.2 Arquitectura general
+La arquitectura del sistema se organiza en torno a un motor de progresión
+compartido entre cliente y servidor, tal como muestra la Figura 1.
+Figura 1. Arquitectura funcional general de Gravity Room, con el motor de progresión
+declarativo compartido entre cliente y servidor. Elaboración propia.
+Se distinguen cuatro bloques funcionales: cliente SPA (navegador / PWA),
+motor compartido en el paquete @gzclp/shared, API REST (ElysiaJS sobre
+Bun) y persistencia (PostgreSQL + Redis para rate limiting y caché). La
+observabilidad (Pino para logs, Prometheus para métricas) atraviesa
+transversalmente la API y la SPA. El punto clave es que tanto el cliente como el
+servicio de API dependen del mismo paquete @gzclp/shared para ejecutar el
+motor computeGenericProgram(), de manera que el cálculo de la siguiente
+sesión da exactamente el mismo resultado en ambas capas.
+
+5.2.3 Motor de progresión declarativo
+El
+corazón
+del
+proyecto
+es
+el
+motor
+computeGenericProgram(),
+implementado en TypeScript en el paquete @gzclp/shared. La idea de diseño
+es separar definición (inmutable, versionable: qué días, qué slots, qué
+ejercicios, qué reglas de progresión) de estado (mutable, derivable: qué peso
+usar hoy, en qué etapa está cada ejercicio, cuál es el siguiente entrenamiento).
+El estado no se persiste como tal: se calcula mediante repetición determinista
+del historial de resultados sobre la definición, de forma análoga a un event
+sourcing simplificado.
+Este diseño tiene tres virtudes prácticas:
+•​
+Elimina clases enteras de errores de sincronización. Si dos clientes
+modifican resultados desde distintos dispositivos y luego se reconcilian,
+el estado resultante depende únicamente del conjunto de resultados, no
+del orden en que se aplicaron las mutaciones.
+•​
+Permite añadir programas nuevos como configuración, no como
+código. Basta con publicar una nueva definición que respete el contrato
+de reglas; el motor no cambia.
+•​
+Permite ejecutar el motor en el cliente. De ahí que el modo invitado
+funcione
+sin
+red,
+almacenando
+únicamente los resultados en
+localStorage.
+Las reglas de progresión disponibles son seis: add_weight (incrementa peso),
+advance_stage
+(pasa
+al
+siguiente
+esquema
+serie×repetición),
+advance_stage_add_weight (ambos), deload_percent (reduce peso un
+porcentaje y reinicia etapa), add_weight_reset_stage y no_change. Una
+definición de programa es un objeto declarativo que enumera días, slots por día
+y, para cada slot, la regla a aplicar en caso de éxito o fallo. El catálogo actual
+incluye ocho programas: GZCLP, StrongLifts 5x5, Phrak's Greyskull LP, 5/3/1
+Boring But Big, 5/3/1 for Beginners, PHUL, Hexan PPL y Nivel 7.
+Modelo declarativo en TypeScript
+La interfaz que materializa esta estructura en el paquete @gzclp/shared se
+reduce a unas pocas declaraciones de tipo. Cada nivel es serializable a JSON,
+lo que permite versionar las definiciones en disco, validarlas con esquemas Zod
+equivalentes y servirlas como contenido público desde el endpoint /catalog sin
+lógica adicional. El fragmento siguiente recoge la forma reducida de la interfaz:
+// Definición declarativa de un programa de fuerza
+export interface ProgramDefinition {
+  id: string;                            // "gzclp", "stronglifts-5x5", ...
+  name: string;
+  level: "beginner" | "intermediate" | "advanced";
+
+  category: "strength" | "hypertrophy";
+  days: Day[];                           // ciclo semanal (3-5 días)
+}
+export interface Day {
+  dayIndex: number;
+  label: string;                         // "Día A", "Día B", ...
+  slots: Slot[];                         // ejercicios prescritos, en orden
+}
+export interface Slot {
+  slotId: string;
+  exerciseId: string;                    // referencia a la tabla exercises
+  stageIndex: number;                    // etapa inicial (0 por defecto)
+  stages: Stage[];                       // etapas progresivas del slot
+}
+export interface Stage {
+  sets: number;                          // p. ej. 5
+  reps: number;                          // p. ej. 3
+  amrap: boolean;                        // ¿última serie como AMRAP?
+  intensityPct: number;                  // % sobre Training Max
+  successRule: ProgressionRule;          // si se completan todas las reps
+  failureRule: ProgressionRule;          // si se falla cualquier serie
+}
+export type ProgressionRule =
+  | { type: "add_weight";               kg: number }
+  | { type: "advance_stage" }
+  | { type: "advance_stage_add_weight"; kg: number }
+  | { type: "deload_percent";           pct: number }
+  | { type: "add_weight_reset_stage";   kg: number }
+  | { type: "no_change" };
+El punto importante es que ProgressionRule es la única parte del modelo que el
+motor interpreta de forma especial. Todo lo demás —días, etapas,
+intensidades, AMRAP, redondeos— es contenido pasivo. Añadir un programa
+nuevo al catálogo se reduce, por tanto, a publicar una definición que respete el
+contrato; ni una línea del motor cambia. El catálogo actual (ocho programas,
+desde GZCLP hasta Hexan PPL) se ha construido íntegramente sobre este
+principio.
+Caso trabajado: GZCLP, sentadilla T1
+Para ilustrar cómo opera el motor, conviene seguir la evolución del estado de
+un slot real paso a paso. El ejercicio sentadilla T1 del programa GZCLP define
+tres etapas progresivas —5×3+, 6×2+ y 10×1+, con AMRAP en la última serie
+de cada una— y aplica add_weight (+5 kg) en caso de éxito y advance_stage
+en caso de fallo. Partiendo de un Training Max de 100 kg y sin historial previo,
+la traza de las tres primeras sesiones es la siguiente:
+
+// Estado inicial: GZCLP, sentadilla T1, primer día, sin historial
+{
+  trainingMax: { squat: 100 },                  // kg
+  slots: { "day1.t1-squat": { stageIndex: 0 } },
+  history: []
+}
+// Stage 0 prescribe: 5 sets × 3+ reps @ 85% TM
+// successRule: add_weight(+5kg);   failureRule: advance_stage
+// --- Sesión 1 (T1 sentadilla) -----------------------------------
+// Prescrito:  5×3+ @ 85 kg  (última serie AMRAP)
+// Logueado:   [3, 3, 3, 3, 5]   ->  outcome: success
+// applyRule(add_weight, +5)  ->  trainingMax.squat = 105
+// --- Sesión 2 ---------------------------------------------------
+// Prescrito:  5×3+ @ 90 kg  (redondeo a placas de 2.5 kg)
+// Logueado:   [3, 3, 3, 3, 4]   ->  outcome: success
+// applyRule(add_weight, +5)  ->  trainingMax.squat = 110
+// --- Sesión 3 ---------------------------------------------------
+// Prescrito:  5×3+ @ 95 kg
+// Logueado:   [3, 3, 2, 1, 0]   ->  outcome: failure
+// applyRule(advance_stage)   ->  slot.stageIndex = 1 (6×2+ @ 90%)
+// trainingMax.squat sin cambio. Próxima sesión: 6×2+ @ 99 kg.
+De esta traza se desprenden tres consecuencias prácticas. Primero, el estado
+mostrado al usuario (qué peso, qué etapa, qué AMRAP) es un derivado puro
+del historial y la definición, no un valor almacenado redundantemente en otra
+tabla. Segundo, si dos dispositivos del mismo usuario sincronizan sus
+historiales y el conjunto resultante coincide, el peso prescrito para la próxima
+sesión es idéntico en ambos por construcción, sin reglas ad-hoc de resolución
+de conflictos. Y tercero, deshacer un resultado equivale matemáticamente a
+eliminar la última entrada del historial y volver a computar el estado: por eso la
+pila LIFO de la tabla undo_entries descrita en la sección 5.2.5 es suficiente
+para implementar un deshacer global sin invariantes adicionales.
+Algoritmo de replay
+El cálculo del estado se implementa como un fold determinista sobre el historial
+ordenado de resultados, en la línea del event sourcing pero sin la maquinaria
+de los frameworks dedicados al patrón (no hay buses de eventos, ni
+proyecciones nominales, ni snapshots intermedios). El núcleo del algoritmo
+cabe en una veintena de líneas:
+function computeGenericProgram(
+  definition: ProgramDefinition,
+  history:    WorkoutResult[],
+  userMaxes:  TrainingMaxes,
+): ProgramState {
+  // 1. Estado inicial derivado de la definición + Training Max del usuario
+
+  let state: ProgramState = initialState(definition, userMaxes);
+  // 2. Fold determinista sobre el historial ordenado
+  for (const result of history) {
+    const slot  = state.slots[result.slotId];
+    const stage = slot.definition.stages[slot.stageIndex];
+    const rule = result.outcome === "success"
+      ? stage.successRule
+      : stage.failureRule;
+    state = applyRule(state, slot, rule);
+  }
+  // 3. El estado resultante codifica qué hacer la próxima sesión:
+  //    peso prescrito, etapa actual, próximo día del ciclo.
+  return state;
+}
+La complejidad temporal es O(n) en el tamaño del historial. Para los volúmenes
+típicos del dominio —del orden de 200 a 300 sesiones por programa
+completado, con cinco a diez series por sesión—, el tiempo de recálculo se
+mantiene por debajo del milisegundo en cliente y servidor, lo que hace
+innecesario cualquier mecanismo de caché o snapshot intermedio. El mismo
+código se ejecuta sobre Bun en la API y sobre el motor V8/JSC del navegador
+en la SPA, dando el mismo resultado en ambas capas porque las reglas son
+puras y la aritmética es determinista.
+Por qué event sourcing en este dominio
+La elección de un modelo basado en repetición del historial frente a un estado
+mutable persistente tiene un coste obvio —recalcular el estado en cada
+lectura— y un conjunto de ventajas que en este dominio compensan
+ampliamente ese coste.
+A favor del modelo mutable estaría la simplicidad de la consulta puntual
+(«dime qué peso usar hoy»): basta con leer una fila. Esto resulta atractivo
+cuando el dataset es grande o el cálculo es caro. Ninguna de las dos
+condiciones se cumple aquí: el historial de un usuario es del orden de kilobytes
+incluso después de años de entrenamiento, y el cálculo es lineal y rápido.
+A favor del event sourcing simplificado están cuatro propiedades difíciles de
+obtener de otra forma. La primera, la reconciliación trivial entre dispositivos: dos
+clientes que han registrado resultados en paralelo se reconcilian sumando sus
+historiales y volviendo a computar, sin reglas de merge ad-hoc. La segunda, la
+auditabilidad completa: cualquier estado del usuario puede reconstruirse hasta
+el set exacto que produjo la transición, lo cual es valioso tanto para depurar
+comportamientos inesperados como para responder a una solicitud de
+
+portabilidad de datos del RGPD. La tercera, la implementación del modo
+invitado sin servidor: el motor corre en el navegador con el historial en
+localStorage, ejecutando exactamente el mismo código que la API. Y la cuarta,
+el deshacer como operación puramente sintáctica: eliminar la última entrada y
+devolver el estado al instante anterior, sin maquinaria de comandos
+compensatorios.
+5.2.4 Despliegue e integración continua
+El sistema se despliega sobre un VPS propio en Hetzner Cloud (tipo CCX13,
+datacenter Falkenstein, Ubuntu 24.04), con un coste mensual aproximado de
+13,50 € sumando servidor, IPv4 y volumen de datos. La Figura 2 detalla la
+topología completa del sistema, incluyendo el flujo de CI/CD.
+Figura 2. Topología de despliegue sobre VPS Hetzner con Docker Compose, Caddy como
+reverse proxy con TLS automático y flujo CI/CD desde GitHub Actions. Elaboración propia.
+Una petición HTTPS del usuario llega al VPS sobre el puerto 443, donde
+Caddy actúa como reverse proxy con TLS automático vía Let's Encrypt y
+resuelve tres sites: el apex gravityroom.app sirve la SPA estática
+directamente desde disco (/srv/web, alimentado por rsync desde el pipeline
+de despliegue, sin contenedor web intermedio); api.gravityroom.app hace
+reverse proxy al contenedor de API (Bun + ElysiaJS); y www.gravityroom.app
+responde con un 301 al apex para consolidar link equity. Dentro del VPS, el
+
+contenedor de API se comunica por una red Docker privada con PostgreSQL
+18 (cuyos datos viven en un volumen Hetzner separado de 10 GB montado en
+/mnt/pg-vol, para aislar el almacenamiento del sistema operativo) y con
+Redis 7 ejecutado en modo no persistente (tmpfs, máximo 256 MB, evicción
+allkeys-lru) como backend de rate limiting y caché.
+Dominio y delegación DNS
+El dominio gravityroom.app se registró en Namecheap por un periodo de dos
+años (febrero de 2026 a febrero de 2028), con la opción de privacidad WHOIS
+activada (servicio WithheldforPrivacy) para evitar exponer datos personales del
+registrante en consultas WHOIS públicas y cumplir así con el principio de
+minimización del RGPD. La elección del TLD .app no es estética: Google opera
+el registro de .app dentro de la lista de HSTS preload, lo que significa que
+todos los navegadores rechazan por defecto cualquier conexión HTTP no
+cifrada al dominio, incluso antes de la primera respuesta del servidor. Esto
+fuerza HTTPS por diseño y elimina los vectores de ataque del tipo SSL
+stripping sin depender de la configuración correcta del servidor.
+La administración de DNS se delegó al DNS Console de Hetzner
+(helium.ns.hetzner.de, hydrogen.ns.hetzner.com y oxygen.ns.hetzner.com como
+nameservers autoritativos), en lugar de utilizar los servidores DNS por defecto
+de Namecheap (Figura 3). La decisión responde a dos motivos: mantener
+registro y hosting bajo un único punto de gestión reduce la complejidad
+operacional, y los nameservers de Hetzner ofrecen un rendimiento competitivo
+sin coste adicional. En el panel de DNS se configuraron tres registros A
+apuntando a la IP del VPS: el ápex gravityroom.app, www.gravityroom.app (al
+que Caddy responde con un 301 al ápex) y api.gravityroom.app (que el reverse
+proxy redirige al contenedor de API). Cualquier cambio futuro en la IP del
+servidor se resuelve modificando un único registro centralizado en Hetzner
+DNS, sin necesidad de tocar la configuración del proveedor de registro.
+
+Figura 3. Configuración del dominio gravityroom.app en el panel de Namecheap, con los
+nameservers personalizados delegando la administración de DNS al panel de Hetzner. Captura
+propia.
+Seguridad de infraestructura
+La seguridad se implementa en dos capas: el firewall de Hetzner Cloud filtra
+el tráfico en el edge antes de alcanzar el host (sólo 22, 80 y 443 abiertos), y el
+firewall del host (ufw) repite la misma lista a nivel de sistema operativo.
+fail2ban protege SSH frente a ataques de fuerza bruta. Caddy aplica HSTS
+con preload anual, CSP, Permissions-Policy y COOP. No existe ninguna
+dependencia de Cloudflare ni de servicios gestionados de terceros, decisión
+tomada tras la caída de Cloudflare del 10 de mayo de 20263 y motivada
+también por el deseo de mantener el control completo de la infraestructura.
+Pipeline de despliegue continuo
+Cada git push a main dispara un workflow de GitHub Actions con tres
+trabajos en paralelo: dos construyen las imágenes Docker de la API y, si
+procede, de servicios auxiliares y las publican en el GitHub Container
+Registry (GHCR) público con doble tag (latest y el SHA del commit); el
+tercero construye la SPA y la sube como artefacto. Cuando los tres finalizan
+correctamente, un cuarto trabajo se conecta al VPS por SSH, sincroniza
+docker-compose.yml, Caddyfile y la carpeta dist/ de la SPA, valida en frío
+que el nuevo .env contiene todas las variables requeridas por la nueva imagen
+de API y, sólo si esa validación pasa, ejecuta docker compose pull && up
+3El 10 de mayo de 2026 una caída prolongada de Cloudflare afectó a un porcentaje significativo del tráfico
+web mundial, incluyendo numerosas plataformas alojadas en Railway. Tras este incidente se decidió
+eliminar toda dependencia de Cloudflare y migrar el alojamiento a infraestructura propia.
+
+-d y entra en un bucle de health checks antes de marcar el despliegue como
+exitoso.
+La validación previa de variables de entorno se incorporó tras un incidente real:
+la PR #67 introdujo una variable requerida en producción sin actualizar el .env
+del VPS, lo que provocó que el contenedor entrara en restart-loop en lugar de
+fallar el despliegue. Desde entonces, la pipeline compara la lista de variables
+requeridas por el código contra el .env real antes de tocar el estado del
+sistema, y un trabajo complementario verifica esa misma lista contra
+.env.production.example en cada pull request para detectar la deriva
+temprano.
+Backups y migración Railway → VPS
+Los backups se realizan mediante un cron diario a las 04:00 UTC que ejecuta
+pg_dump en formato comprimido sobre el disco raíz del VPS (separado del
+volumen de datos, para que un incidente en el volumen no se lleve también las
+copias), con retención de siete días. Los snapshots nativos de volumen Hetzner
+—contemplados originalmente— quedaron descartados al ser deprecados por
+Hetzner a mediados de 2026.
+La infraestructura actual es el resultado de una migración explícita desde
+Railway, la plataforma Platform-as-a-Service sobre la que se desplegó
+originalmente el proyecto. La caída de Cloudflare del 10 de mayo de 2026
+afectó al edge de Railway durante varias horas y motivó la decisión de migrar a
+infraestructura propia, eliminando la dependencia de Cloudflare y reduciendo el
+coste mensual aproximadamente un 60 %. La adopción de este pipeline tiene
+dos consecuencias prácticas. Primero, nunca se sirve tráfico contra un
+esquema de base de datos desactualizado: las migraciones de Drizzle se
+ejecutan como paso previo al arranque del contenedor, y si fallan, el despliegue
+se aborta antes de aceptar peticiones. Segundo, la trazabilidad del producto
+es total: cada versión en producción corresponde a un commit concreto, con
+sus métricas y logs asociados, y los rollbacks se reducen a ejecutar el workflow
+apuntando a un IMAGE_TAG anterior.
+5.2.5 Modelo de datos
+El modelo relacional se diseñó para respetar tres invariantes: cumplimiento
+del RGPD, flexibilidad para programas futuros y auditabilidad de los
+cambios relevantes. El esquema consta de diez tablas en PostgreSQL,
+agrupadas en cuatro dominios: autenticación, instancias y resultados de
+programas, catálogo, y analítica. La Figura 4 resume el diagrama
+entidad-relación con las entidades principales y sus relaciones.
+
+Figura 4. Diagrama entidad-relación simplificado de la base de datos PostgreSQL, con las diez
+entidades del sistema agrupadas por dominio. Elaboración propia.
+Las tablas son las siguientes:
+•​
+users — usuarios autenticados vía Google OAuth, con deletedAt para
+borrado lógico, periodo de gracia de 30 días e índice parcial que permite
+a un job periódico realizar el borrado físico de forma eficiente.
+•​
+refresh_tokens
+—
+tokens
+de
+refresco
+con
+tokenHash
+y
+previousTokenHash para implementar rotación con detección de
+reutilización (véase la sección de autenticación).
+•​
+program_instances — instancias de programa activas para un usuario;
+referencian
+opcionalmente
+un
+templateId
+del
+catálogo o un
+definitionId
+de
+una
+definición
+a
+medida,
+e
+incluyen
+una
+customDefinition
+JSONB como snapshot denormalizado para
+garantizar que la instancia sigue siendo computable aunque la definición
+original cambie.
+
+•​
+workout_results — resultados normalizados por sesión y slot, con
+setLogs JSONB para el detalle por serie, amrapReps para series
+AMRAP y rpe para esfuerzo percibido.
+•​
+undo_entries — pila LIFO por instancia, basada en bigserial, que
+permite deshacer la última acción del usuario. Cada POST /results
+inserta el resultado y empuja una entrada de deshacer dentro de la
+misma transacción; POST /undo extrae la entrada más reciente y
+restaura el estado previo.
+•​
+program_definitions — definiciones de programa creadas por
+usuarios, con un enum de estado draft → pending_review →
+approved → rejected y deletedAt para borrado lógico. Permiten que
+la comunidad proponga nuevos programas que un administrador pueda
+revisar antes de promoverlos al catálogo.
+•​
+program_templates — el catálogo curado de programas (los ocho ya
+descritos). Es lo que el usuario puede instanciar directamente desde la
+SPA.
+•​
+muscle_groups — taxonomía de grupos musculares utilizada para
+clasificar ejercicios y precomputar volumen.
+•​
+exercises
+—
+ejercicios
+del
+sistema
+y
+personalizados
+(con
+createdByUserId), incluyendo forceType (empuje/tracción), level
+(intermedio/avanzado), movementMechanic, category y un array
+secondaryMuscles.
+•​
+user_insights — analítica precomputada por usuario (volumen
+semanal por grupo muscular, estimación de repetición máxima con la
+fórmula de Epley, detección de mesetas), servida con un campo
+validUntil para invalidación cacheada.
+Una decisión arquitectónica explícita merece comentario: la separación entre
+program_templates (catálogo curado) y program_definitions (aportaciones
+de usuarios). Mantener ambas tablas separadas permite que un usuario pueda
+diseñar y guardar su propio programa sin contaminar el catálogo público, y que
+la promoción al catálogo sea una acción administrativa con un flujo de revisión
+claro (draft → pending_review → approved → rejected) en lugar de un
+campo isPublic boolean sin control.
+Otras decisiones de diseño del modelo:
+•​
+Eliminaciones en cascada (ON DELETE CASCADE) desde users hacia
+todas sus entidades derivadas, para facilitar el cumplimiento del RGPD
+ante una solicitud de borrado.
+
+•​
+Eliminaciones lógicas (deletedAt) en users y program_definitions
+para proporcionar un periodo de gracia antes del borrado físico, con
+índices parciales que permiten al job de purga operar sin escanear toda
+la tabla.
+•​
+JSONB con validación Zod en los campos customDefinition y
+setLogs, combinando la flexibilidad schema-less con la consistencia
+transaccional de PostgreSQL.
+•​
+Pila de deshacer acotada: cada instancia mantiene un máximo de 50
+entradas, recortando las más antiguas dentro de la propia transacción de
+mutación para evitar crecimiento ilimitado.
+5.2.6 API REST y autenticación
+La API se implementa con ElysiaJS sobre Bun y se organiza en cuatro grupos
+de rutas: /auth/* (autenticación), /programs/* (CRUD de instancias,
+importación de invitado, exportación), /programs/:id/results (registro y
+deshacer de resultados) y /catalog/* (catálogo público, sin autenticación). La
+validación de payloads se hace con esquemas Zod en el middleware, de forma
+que el servidor nunca procesa una petición mal formada.
+Autenticación con Google OAuth y rotación dual de JWT
+La autenticación se basa exclusivamente en Google OAuth: no existe registro
+tradicional con correo y contraseña. Esta decisión elimina toda la superficie de
+ataque relacionada con almacenamiento de contraseñas (hashing, fugas,
+recuperación) y simplifica enormemente la operativa. Existen endpoints
+separados para el flujo web (Google One Tap sobre el navegador) y para el
+flujo móvil (verificación de ID token emitido por la SDK nativa), con la misma
+lógica de sesión por debajo.
+Sobre el OAuth se monta un esquema de access token corto (15 minutos, en
+memoria del cliente) más refresh token largo (7 días, en cookie HttpOnly
+Secure SameSite=Strict). El refresh token se almacena en la base de datos
+como SHA-256 y se rota en cada uso: el viejo queda invalidado, se emite uno
+nuevo y se guarda el hash del anterior en la columna previousTokenHash. Si
+un refresh token ya rotado vuelve a presentarse, la API detecta la reutilización y
+revoca todas las sesiones del usuario, porque se asume que ha habido
+compromiso. Esta estrategia sigue las recomendaciones de OAuth 2.0 BCP4 y
+protege contra ataques de reutilización de refresh tokens robados.
+El cliente implementa además un mutex basado en promesas sobre la
+operación de refresco: cuando varias peticiones simultáneas reciben un 401,
+4IETF RFC 9700: OAuth 2.0 Best Current Practice (2024). Véase la sección sobre rotación de refresh
+tokens y detección de reutilización.
+
+todas esperan a la misma promesa de refresco, evitando carreras en las que el
+primer refresco invalida el token que las siguientes están a punto de utilizar.
+Modo invitado y sincronización
+Una de las decisiones de producto más importantes fue que el usuario no
+necesita registrarse para probar la aplicación. El modo invitado ejecuta el
+motor de progresión en el navegador y persiste los resultados en
+localStorage, validando cada escritura con esquemas Zod compartidos con
+la API. Cuando el usuario finalmente inicia sesión con Google, los datos locales
+se importan al servidor mediante POST /programs/import en una transacción
+que fusiona los resultados locales con los eventuales datos del servidor,
+priorizando los más recientes en caso de conflicto, y a continuación se limpia el
+localStorage. El efecto, desde el punto de vista del usuario, es que todo lo
+registrado como invitado se conserva al registrarse.
+Limitación de tasa, observabilidad y notificaciones
+Cada endpoint tiene un rate limit en ventana deslizante por dirección IP, con
+dos backends intercambiables (en memoria para desarrollo, Redis en
+producción). La observabilidad se cubre por dos canales: Pino emite logs
+estructurados en JSON con identificador único por petición (reqId) y redacción
+automática de cabeceras sensibles; prom-client expone métricas Prometheus
+en /metrics (latencia por ruta, contadores de error, hits de rate limit),
+protegidas con un bearer token en producción para evitar la exfiltración de
+cardinalidad. Como notificación opcional, la API envía un mensaje a un canal
+privado de Telegram cuando se registra un nuevo usuario, lo que sustituye a un
+panel de administración rudimentario en esta fase del proyecto.
+5.2.7 Aplicación web (SPA + PWA + modo invitado)
+El frontend es una aplicación de página única construida con React 19.2
+sobre Vite 7.3. Aprovecha el react-compiler para memorización automática,
+TanStack Router para rutas tipadas (rutas perezosas en pantallas secundarias
+como /login, /privacy y el 404), TanStack Query para la caché del servidor
+y Tailwind CSS 4 para los estilos. Los formularios usan react-hook-form con
+@hookform/resolvers/zod para validar contra los mismos esquemas que la
+API. Los primitivos accesibles vienen de Radix UI; las animaciones, de Motion
+(continuación de framer-motion); los gráficos de evolución de fuerza, de
+Recharts.
+Estado y actualizaciones optimistas
+Todas las mutaciones de resultados usan el patrón de actualizaciones
+optimistas de TanStack Query: en onMutate se cancelan las consultas en
+
+vuelo, se hace snapshot del estado previo y se aplica la mutación a la caché
+local; en onError se restaura el snapshot si la petición falla; en onSettled se
+invalidan las consultas para reconciliar con el servidor. Un helper compartido
+genera los tres callbacks para cualquier mutación (marcar resultado, registrar
+AMRAP, fijar RPE, deshacer), evitando la duplicación entre componentes.
+PWA y experiencia móvil
+La aplicación se distribuye como Progressive Web App mediante
+vite-plugin-pwa sobre Workbox, lo que permite su instalación en pantalla de
+inicio en dispositivos iOS y Android, funcionamiento sin red (el motor de
+progresión y la SPA están en caché) y notificaciones de actualización cuando
+hay una versión nueva disponible. El manifest web declara iconos, color de
+tema y orientación, y el service worker precachea los recursos estáticos y
+aplica una estrategia network-first con fallback a caché para las llamadas a
+/api.
+Internacionalización
+La SPA es bilingüe en español e inglés en su totalidad mediante
+react-i18next 17.0 con i18next-browser-languagedetector, que detecta
+el idioma del navegador y permite cambiarlo manualmente. Las cadenas están
+organizadas por archivo de funcionalidad y el hook useTranslation() se
+utiliza en decenas de componentes: dashboard, vista de programa, insights,
+layout, avatar de usuario, alertas de meseta, actividad reciente, calendario, etc.
+Las páginas estáticas de marketing (landing, política de privacidad) se sirven
+además con prerender estático para SEO.
+Errores y resiliencia en cliente
+La SPA monta dos niveles de Error Boundary: uno global en la raíz del árbol
+de proveedores que captura cualquier error no controlado y muestra una
+pantalla de recarga, y otro a nivel de la sección de estadísticas que aísla los
+fallos de los gráficos (Recharts ante datos inesperados) sin tirar abajo el
+tracker. Las analíticas de uso se recogen con Plausible Analytics sin cookies,
+para minimizar la fricción regulatoria.
+5.2.8 Diseño de interfaz y experiencia de usuario
+Aunque la mayor parte de la complejidad del proyecto reside en el motor de
+progresión y la infraestructura, el éxito del producto frente al usuario final
+depende casi por completo de la calidad del diseño de interfaz. Gravity Room
+sigue tres principios de diseño que se han mantenido constantes durante todo
+
+el desarrollo: eliminar fricción durante la sesión —el usuario está en el
+gimnasio, con manos sudadas, y debe poder confirmar o fallar un set en un
+único tap—, mostrar siempre el siguiente paso —nunca un menú; siempre
+una acción concreta— y respetar el contexto móvil —tema oscuro por
+defecto, sin imágenes pesadas, sin carousels ni vídeos.
+Identidad visual
+La paleta es deliberadamente sobria: fondo negro con tinte cálido, texto blanco
+roto y un único color de acento (ámbar dorado) reservado para las llamadas a
+la acción y los elementos activos. La tipografía combina una fuente display
+condensada para titulares y nombres de programa, una sans-serif legible para
+el cuerpo y una monospace tipo terminal para elementos técnicos como rutas,
+etiquetas y rangos de series. El tema oscuro no se ofrece como opción sino
+como base: además de ser el más solicitado por los usuarios de aplicaciones
+de gimnasio (donde la luz ambiental suele ser intensa y la pantalla está cerca
+de la cara), reduce el consumo de batería en pantallas OLED y refuerza el
+carácter de «herramienta de gimnasio» frente al de «producto de redes
+sociales».
+Página pública y captación
+La página pública (Figura 5) se enfoca en transmitir tres mensajes en cinco
+segundos: qué hace, es gratis y no requiere cuenta. El hero explicita el
+problema («Tu plan de fuerza con progresión automática, gratis») y la solución
+(«La app calcula el peso, las series y las repeticiones — tú solo entrenas»),
+acompañado de una vista previa en miniatura del tracker que anticipa el
+aspecto real de la aplicación. Los tres indicadores de confianza bajo los
+botones («Programas probados», «Progresión automática», «0 € Sin tarjeta»)
+cierran las objeciones habituales sin ocupar espacio en la cabecera. La
+navegación incluye un enlace directo al servidor de Discord, donde se atienden
+dudas y se discuten programas con la comunidad sin necesidad de crear
+cuenta previamente.
+
+Figura 5. Página pública de aterrizaje (gravityroom.app) con la propuesta de valor principal,
+indicadores de confianza y vista previa del tracker. Elaboración propia.
+Catálogo de programas
+El catálogo (Figura 6) se ha diseñado como una rejilla de tarjetas agrupada por
+nivel: principiante, intermedio y avanzado. Cada tarjeta condensa la
+información mínima que un usuario necesita para decidir si un programa le
+encaja —nombre, etiqueta de objetivo (FUERZA, HIPERTROFIA), descripción
+de tres líneas, duración total, frecuencia semanal y autor— y ofrece dos
+acciones diferenciadas visualmente: «Vista Previa», que abre el plan completo
+sin crear nada, e «Iniciar Programa», que materializa una instancia activa para
+el usuario. La diferenciación entre el botón principal (fondo ámbar) y el
+secundario (contorno) refuerza la jerarquía de decisión: lo más reversible
+—ver— es lo más prominente. El indicador «1 online» del pie de la barra lateral
+refleja la presencia en tiempo real sobre el servidor de Discord, y contribuye a
+transmitir que el proyecto es vivo, no un escaparate estático.
+
+Figura 6. Catálogo de programas agrupados por nivel, con tarjetas que sintetizan duración,
+frecuencia, autor y categoría de cada programa. Elaboración propia.
+El tracker: la pantalla central
+El tracker (Figura 7) es la pantalla en la que el usuario pasa el 95 % del tiempo
+activo en la aplicación y, por ello, concentra las decisiones de diseño más
+cuidadas. Cada slot del entrenamiento se muestra como un bloque con sus
+series, repeticiones y peso prescritos, calculados automáticamente por el motor
+de progresión a partir del historial. El usuario solo realiza dos gestos posibles:
+confirmar el set con el botón verde ✓ o fallarlo con el rojo ✗. Ambos botones
+son intencionadamente grandes (objetivo táctil holgado, pensado para manos
+sudadas) y se separan horizontalmente para reducir errores de selección. En la
+parte superior, una barra de progreso muestra el porcentaje completado del
+programa global, y el botón DESHACER permanece siempre accesible: un
+único tap revierte la última acción —sea cual sea— sin diálogos de
+confirmación que rompan el flujo, apoyándose en la pila LIFO de la tabla
+undo_entries descrita en la sección 5.2.5.
+
+Figura 7. Pantalla del tracker durante una sesión activa, con confirmación binaria por set,
+deshacer global y barra de progreso del programa. Elaboración propia.
+Perfil, progreso y gamificación contenida
+La pantalla de perfil (Figura 8) cumple una doble función: mostrar el estado del
+programa activo y proporcionar suficiente retroalimentación de progreso para
+mantener al usuario motivado, sin caer en la gamificación agresiva que
+predomina en el sector. Los logros se limitan a cinco hitos sobrios (Primer
+Entrenamiento, Racha de 5, Club 100 kg, Programa Completo, Volumen 10K),
+el volumen total global se expresa como una métrica única en kilogramos
+sumada sobre todos los programas, y el historial lista los programas
+finalizados
+con
+un
+enlace
+directo
+a
+sus
+estadísticas
+detalladas.
+Deliberadamente no hay rankings públicos, ni notificaciones de inactividad, ni
+emergentes para promocionar planes de pago (que tampoco existen). La
+motivación se cultiva a través del progreso real medido, no de bucles de
+recompensa diseñados para retener atención.
+
+Figura 8. Pantalla de perfil con el programa activo, fila de logros, volumen total global e historial
+de programas completados. Elaboración propia.
+5.2.9 Control de versiones con Git y GitHub
+Todo el código del proyecto se gestiona con Git como sistema de control de
+versiones distribuido y se aloja en un repositorio público en GitHub bajo
+licencia AGPL-3.0. Esta decisión no es meramente operativa: en un monorepo
+con un motor de progresión, una API y una SPA que evolucionan en paralelo, la
+trazabilidad fina de cada cambio es imprescindible para localizar regresiones,
+revisar decisiones técnicas y permitir colaboraciones externas. Git proporciona
+una historia auditable de cada modificación, y GitHub aporta la capa de
+revisión, automatización y colaboración sobre esa historia.
+Flujo de trabajo y ramas
+El flujo seguido es una variante simplificada de GitHub Flow: la rama main es la
+única rama protegida y siempre desplegable, y cada cambio se desarrolla en
+una rama efímera con prefijo descriptivo (feat/, fix/, refactor/, chore/, etc.) que
+se incorpora a main mediante un pull request. La configuración de protección
+exige que el último commit del pull request haya pasado todos los checks de CI
+(typecheck, lint, formato, pruebas y build) antes de poder fusionarse, lo que
+impide por construcción que llegue a main código que rompa la compilación o
+las pruebas. No se mantienen ramas de larga duración (develop, staging)
+porque añaden complejidad sin beneficio para un proyecto con un único
+desplegable y un único entorno de producción.
+Conventional Commits
+Los mensajes de commit siguen el estándar Conventional Commits, con un
+tipo predefinido (feat, fix, refactor, docs, test, chore, perf, build, ci, style), un
+
+scope opcional entre paréntesis que identifica el subsistema afectado y una
+descripción en imperativo. Por ejemplo: feat(api): add rate limiting o fix(web):
+correct login redirect loop. Un script propio (committer) valida el formato antes
+de crear el commit y aborta si no se respeta. Esta disciplina aporta dos
+beneficios concretos: permite generar notas de versión de forma automática a
+partir del log y, sobre todo, localizar rápidamente cuándo y dónde se introdujo
+una regresión filtrando por tipo y scope sobre el histórico de commits.
+Git hooks con Lefthook
+Los git hooks locales se gestionan con Lefthook (sustituyendo a la pareja
+husky + lint-staged por sencillez de configuración y paralelización nativa). El
+pre-commit ejecuta en paralelo typecheck, lint y format:check, y el pre-push
+ejecuta test y build:ci. El efecto práctico es que ningún commit mal tipado o sin
+formato llega siquiera a la rama remota, y que las pruebas fallidas se detectan
+antes del push en lugar de descubrirse al cabo de varios minutos en GitHub
+Actions, reduciendo los ciclos de retroalimentación por errores triviales.
+GitHub Actions y trazabilidad por commit
+Cada git push a main dispara el pipeline de CI/CD descrito en la sección 5.2.4.
+Las imágenes Docker resultantes se etiquetan con doble tag (latest y el SHA
+del commit) y se publican en el GitHub Container Registry (GHCR), de forma
+que cada versión en producción es trazable hasta un commit concreto del
+repositorio. Los rollbacks son, en consecuencia, una operación trivial: basta con
+relanzar el workflow apuntando a un IMAGE_TAG anterior, sin necesidad de
+manipular el estado del VPS. Las funcionalidades de planificación de GitHub
+(issues, milestones, pull requests con plantilla) se utilizan además para
+gestionar el trabajo, manteniendo una correspondencia directa entre lo
+planeado, lo implementado y lo desplegado.
+5.2.10 Calidad y verificación
+La calidad del código se garantiza mediante una cadena de controles que se
+ejecutan tanto localmente, a través de los git hooks descritos en la sección
+5.2.9, como en CI sobre cada push a main.
+El linter es ESLint en configuración flat config, combinado con Prettier
+3.8 como formateador. En código de producción se prohíben any, aserciones
+as Type, @ts-ignore, @ts-expect-error, aserciones de no-nulo (!),
+llamadas a console.log (sólo console.warn y console.error) y un
+anidamiento máximo de tres niveles. Los ficheros de test relajan algunas de
+estas reglas.
+La pirámide de pruebas incluye pruebas unitarias del motor y de las reglas de
+progresión ejecutadas con bun:test; pruebas de integración de la API contra
+
+una base de datos PostgreSQL efímera levantada en Docker; y pruebas
+end-to-end con Playwright sobre Chromium que validan los flujos críticos
+(inicio de sesión con Google mock, creación de programa, completar un
+entrenamiento, deshacer un resultado). Las pruebas E2E se ejecutan contra el
+bundle de producción y la API real, no contra el servidor de desarrollo de Vite,
+para detectar errores que sólo aparecen tras el build.
+5.2.11 Hitos de desarrollo
+El proyecto se organizó en hitos incrementales, cada uno culminado con un
+despliegue en producción:
+1.​ Diseño del motor declarativo (computeGenericProgram): definición de
+la estructura de un programa (días → slots → etapas → reglas de
+progresión) y del algoritmo de replay.
+2.​ API base y autenticación. Google OAuth + JWT con rotación dual y
+detección de reutilización de refresh tokens.
+3.​ SPA con modo invitado. Persistencia local validada con Zod e
+importación al servidor en el primer inicio de sesión.
+4.​ Catálogo de programas. GZCLP como primer programa completo, con
+extensión progresiva hasta los ocho actuales (StrongLifts 5x5, Phrak's
+Greyskull LP, 5/3/1 Boring But Big, 5/3/1 for Beginners, PHUL, Hexan
+PPL, Nivel 7).
+5.​ PWA e internacionalización. Instalación en dispositivos móviles y
+soporte completo bilingüe español/inglés.
+6.​ Despliegue inicial en Railway. Primera versión pública servida desde
+una plataforma Platform-as-a-Service, para validar el producto bajo
+tráfico real con coste operacional mínimo.
+7.​ Migración a VPS propio en Hetzner. Docker Compose + Caddy +
+GitHub Actions con health checks, validación previa de variables de
+entorno y pg_dump diario. Motivada por la caída de Cloudflare del 10 de
+mayo de 2026 y por la voluntad de eliminar dependencias de terceros.
+8.​ Observabilidad. Pino para logs estructurados y Prometheus para
+métricas.
+9.​ Catálogo abierto a la comunidad. Tablas program_definitions y
+program_templates, con flujo de revisión draft → pending_review
+→ approved → rejected para promover programas creados por
+usuarios al catálogo público.
+
+6. Conclusiones
+El proyecto demuestra que es viable construir un producto full-stack completo,
+con un modelo declarativo no trivial, en un tiempo razonable y con un coste de
+infraestructura mínimo (un VPS modesto en torno a 13,50 € mensuales). La
+separación entre definición y estado del programa ha resultado clave: añadir un
+nuevo programa al catálogo es un trabajo de configuración, no de
+programación, validando la hipótesis inicial.
+Igualmente, la migración de Railway a VPS propio bajo Hetzner ha demostrado
+que la complejidad operacional de un despliegue clásico con Docker
+Compose y Caddy es asumible incluso para un único desarrollador, y que
+las ventajas en coste, soberanía sobre los datos y eliminación de dependencias
+de edges externos compensan ampliamente la curva de aprendizaje inicial. La
+incidencia que motivó la migración (caída de Cloudflare el 10 de mayo de 2026)
+es un recordatorio práctico de la importancia de evitar puntos únicos de fallo en
+arquitecturas que se presentan como «gestionadas».
+6.1 Cumplimiento de los objetivos
+Los ocho objetivos específicos enunciados en la sección 4.2 se han cumplido
+en su totalidad, y en varios casos con un alcance superior al previsto
+inicialmente. El motor de progresión genérico opera sobre los ocho
+programas del catálogo (no únicamente GZCLP, como se contempló al arrancar
+el proyecto), y su algoritmo de replay determinista garantiza resultados
+idénticos en cliente y servidor, validando empíricamente la hipótesis central. La
+aplicación web SPA se distribuye como PWA instalable y bilingüe, con modo
+invitado funcional sin red ni cuenta. La API REST tipada expone autenticación
+con Google OAuth y rotación dual de JWT con detección de reutilización, rate
+limiting
+en
+ventana
+deslizante
+y
+observabilidad
+estructurada
+(Pino,
+Prometheus).
+El esquema relacional consta de diez tablas con índices parciales, JSONB
+validado por Zod, borrado lógico con periodo de gracia y separación entre
+catálogo curado y aportaciones de la comunidad. El despliegue en VPS
+propio supera además el alcance inicial: tras una primera etapa en Railway, la
+migración a Hetzner ha demostrado que es viable mantener un stack de
+producción profesional con coste por debajo de los 15 € mensuales y sin
+dependencias de terceros. Por último, la internacionalización cubre toda la
+SPA en español e inglés, la cadena de calidad (Lefthook, ESLint, Prettier,
+pruebas unitarias, de integración y end-to-end con Playwright) bloquea código
+defectuoso en pre-commit, pre-push y CI, y la documentación reproducible
+
+(migraciones Drizzle versionadas, OpenAPI autogenerada, diagramas de
+arquitectura y esta propia memoria) cierra el conjunto de objetivos propuestos.
+6.2 Aprendizajes
+El proyecto ha consolidado tres tipos de aprendizajes que conviene explicitar
+por separado.
+Desde el punto de vista técnico, el aprendizaje más valioso ha sido entender
+en la práctica las virtudes y los costes del tipado extremo a extremo.
+Compartir esquemas Zod y tipos TypeScript entre cliente y servidor elimina por
+construcción clases enteras de errores —desajustes de contrato, formatos
+inconsistentes, validaciones desincronizadas— a cambio de una disciplina
+inicial mayor al definir los modelos. El event sourcing simplificado del motor de
+progresión, donde el estado se recalcula a partir del historial en lugar de
+persistirse, ha resultado también pedagógicamente revelador: un patrón
+aparentemente más complejo que ha simplificado de hecho la reconciliación
+entre dispositivos y la implementación del modo invitado.
+Desde el punto de vista operacional, el trabajo en producción real ha
+enseñado lecciones difíciles de aprender en ejercicios académicos: la
+importancia de los health checks y de validar las variables de entorno antes de
+tocar el estado del sistema (descubierto a raíz del incidente que motivó añadir
+esa validación al pipeline), el valor de la trazabilidad por commit cuando hay
+que revertir un cambio en caliente, y la conveniencia de configurar una capa de
+observabilidad (logs, métricas y errores) desde el primer despliegue, no como
+un añadido a posteriori. La migración de Railway a Hetzner, motivada por la
+caída de Cloudflare del 10 de mayo de 2026, ha sido también una lección sobre
+soberanía operacional: una plataforma «gestionada» simplifica el día uno
+pero traslada riesgos no obvios al día n.
+Desde el punto de vista académico, el proyecto ha articulado en un único
+entregable competencias de varios módulos del ciclo formativo: desarrollo web
+cliente (React, PWA, internacionalización), desarrollo web servidor (API tipada,
+OAuth, validación), bases de datos (modelo relacional, JSONB, migraciones,
+borrado lógico), despliegue de aplicaciones web (Docker, reverse proxy, TLS,
+CI/CD), inglés técnico (documentación, colaboración en comunidades
+internacionales) y los módulos horizontales de iniciativa profesional y
+emprendedora y de proyecto (planificación, viabilidad económica y prevención
+de riesgos laborales).
+6.3 Líneas futuras
+Más allá del alcance ya entregado, se identifican cinco líneas de evolución del
+producto:
+
+•​
+Ampliación continua del catálogo de programas a partir de las
+definiciones creadas por la comunidad.
+•​
+Detección
+automática
+de
+regresiones
+(bajadas
+de
+rendimiento
+sostenidas) y sugerencia proactiva de deload mediante análisis de
+tendencia y aprendizaje automático sobre los datos de la tabla
+user_insights.
+•​
+Sincronización con wearables (Apple Health, Google Fit) para contrastar
+carga con recuperación (HRV, sueño) y enriquecer la recomendación de
+carga siguiente.
+•​
+Exportación de datos en CSV y PDF para compartir el histórico con
+entrenadores.
+•​
+Replicación geográfica de backups fuera del proveedor Hetzner para
+cubrir el escenario de fallo de proveedor.
+
+6.4 Reflexión final
+Mirando hacia atrás, dos decisiones del proyecto destacan especialmente
+porque han cambiado mi manera de plantear el desarrollo de software. La
+primera es haber migrado el despliegue desde Railway a un VPS propio en
+Hetzner. En el momento pesaba el incidente concreto de Cloudflare, pero en
+perspectiva lo que más valoro no es el ahorro económico (que también: el
+coste mensual bajó aproximadamente un 60 %), sino la sensación de control
+que da tener delante un servidor con su Docker Compose, su Caddyfile y sus
+logs accesibles, en lugar de la opacidad relativa de una plataforma gestionada.
+La contrapartida —asumir las copias de seguridad, las actualizaciones del
+sistema y los reinicios— es menos onerosa de lo que parece desde fuera una
+vez la pipeline de CI/CD está estable, y a partir de este proyecto recomendaría
+sinceramente esta opción a cualquier desarrollador con un producto
+desplegado y conocimientos básicos de Linux.
+La segunda decisión es haber apostado por TypeScript de extremo a
+extremo, con esquemas Zod compartidos entre cliente y servidor y un cliente
+HTTP generado automáticamente a partir del OpenAPI de la API. Lo que en
+frío suena a obsesión por los tipos tiene un efecto práctico muy concreto:
+cualquier desajuste entre lo que la API expone y lo que la SPA espera aparece
+como un error de compilación en local, no como un fallo en producción. Esto
+acorta drásticamente el ciclo entre detectar un problema usando yo mismo la
+aplicación durante un entrenamiento —un peso mal calculado, un botón que no
+avanza, una traducción ausente— y dejarlo arreglado y desplegado: el
+compilador me dice exactamente dónde tocar, sin tener que adivinar. Sospecho
+que es ese feedback loop tan corto entre uso real y corrección lo que más ha
+contribuido a que el proyecto sobreviva al cansancio típico de los proyectos
+personales largos, y es la lección que con más seguridad arrastraré a los
+proyectos profesionales que vengan después del ciclo formativo.
+
+7. Bibliografía
+Bun Team. (2025). Bun — Incredibly fast JavaScript runtime, bundler, test
+runner, and package manager. Documentación oficial. https://bun.sh/docs
+ElysiaJS Team. (2025). ElysiaJS — Ergonomic Framework for Humans.
+https://elysiajs.com/
+TanStack. (2025). TanStack Router & TanStack Query — Type-safe router and
+async state management for TS/JS. https://tanstack.com/
+Drizzle Team. (2025). Drizzle ORM — Lightweight and performant TypeScript
+ORM. https://orm.drizzle.team/
+Meta / React Team. (2024). React 19 — Release notes. https://react.dev/blog
+React Compiler Team. (2025). React Compiler — Automatic memoization for
+React. https://react.dev/learn/react-compiler
+Tailwind Labs. (2025). Tailwind CSS v4. https://tailwindcss.com/
+Caddy Authors. (2025). Caddy — The Ultimate Server with Automatic HTTPS.
+https://caddyserver.com/docs/
+Docker Inc. (2025). Docker Compose — Define and run multi-container
+applications. https://docs.docker.com/compose/
+Hetzner
+Online
+GmbH.
+(2026).
+Hetzner
+Cloud
+—
+Documentation.
+https://docs.hetzner.com/cloud/
+Bendell, C., Parecki, A. et al. (2024). RFC 9700 — Best Current Practice for
+OAuth 2.0 Security. IETF. https://www.rfc-editor.org/rfc/rfc9700
+Google. (2025). Sign in with Google for Web — Developer documentation.
+https://developers.google.com/identity/gsi/web
+Lexa,
+C.
+(2019).
+The
+GZCLP
+Program
+for
+Beginners.
+Liftvault.
+https://liftvault.com/programs/gzclp/
+Epley, B. (1985). Poundage Chart. Boyd Epley Workout. Lincoln, NE: Body
+Enterprises.
+Jefatura del Estado. (1995). Ley 31/1995, de 8 de noviembre, de Prevención de
+Riesgos
+Laborales.
+BOE
+n.º
+269.
+https://www.boe.es/eli/es/l/1995/11/08/31/con
+Ministerio de Trabajo y Asuntos Sociales. (1997). Real Decreto 488/1997, de 14
+de abril, sobre disposiciones mínimas de seguridad y salud relativas al
+trabajo con equipos que incluyen pantallas de visualización. BOE n.º 97.
+https://www.boe.es/eli/es/rd/1997/04/14/488/con
+
+Jefatura del Estado. (2021). Ley 10/2021, de 9 de julio, de trabajo a distancia.
+BOE n.º 164. https://www.boe.es/eli/es/l/2021/07/09/10/con
+PostgreSQL
+Global
+Development
+Group.
+(2025).
+PostgreSQL
+18
+Documentation. https://www.postgresql.org/docs/18/
+Playwright Team. (2025). Playwright — Reliable end-to-end testing for modern
+web apps. https://playwright.dev/
+Prometheus Authors. (2024). Prometheus — Monitoring system & time series
+database. https://prometheus.io/docs/

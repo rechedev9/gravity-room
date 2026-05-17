@@ -1,0 +1,26 @@
+{
+  "name": "@gzclp/database",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@gzclp/domain": "workspace:*",
+    "drizzle-orm": "^0.45.1"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.9",
+    "postgres": "^3.4.8"
+  },
+  "scripts": {
+    "test": "bun test src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:generate": "bunx drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "bunx drizzle-kit migrate --config drizzle.config.ts",
+    "db:studio": "bunx drizzle-kit studio --config drizzle.config.ts"
+  },
+  "exports": {
+    "./schema": "./src/schema.ts",
+    "./migrations": "./src/migrations.ts",
+    "./seeds/*": "./src/seeds/*.ts"
+  }
+}

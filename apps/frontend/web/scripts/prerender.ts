@@ -34,28 +34,28 @@ import { PROGRAM_CATALOG } from '@gzclp/domain/catalog';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 
-import { GZCLP_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/gzclp';
-import { PPL531_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/ppl531';
-import { STRONGLIFTS_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/stronglifts';
-import { GSLP_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/greyskull';
-import { BBB_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/bbb';
-import { FSL531_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/fsl531';
-import { PHUL_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/phul';
-import { NIVEL7_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/nivel7';
-import { MUTENROSHI_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/mutenroshi';
+import { GZCLP_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/gzclp';
+import { PPL531_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/ppl531';
+import { STRONGLIFTS_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/stronglifts';
+import { GSLP_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/greyskull';
+import { BBB_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/bbb';
+import { FSL531_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/fsl531';
+import { PHUL_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/phul';
+import { NIVEL7_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/nivel7';
+import { MUTENROSHI_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/mutenroshi';
 import {
   BRUNETTI365_DEFINITION_JSONB,
   BRUNETTI365_EXP_DEFINITION_JSONB,
-} from '../../../backend/api/src/db/seeds/programs/brunetti-365';
-import { SHEIKO_7_1_DEFINITION } from '../../../backend/api/src/db/seeds/programs/sheiko-7-1';
-import { SHEIKO_7_2_DEFINITION } from '../../../backend/api/src/db/seeds/programs/sheiko-7-2';
-import { SHEIKO_7_3_DEFINITION } from '../../../backend/api/src/db/seeds/programs/sheiko-7-3';
-import { SHEIKO_7_4_DEFINITION } from '../../../backend/api/src/db/seeds/programs/sheiko-7-4';
-import { SHEIKO_7_5_DEFINITION } from '../../../backend/api/src/db/seeds/programs/sheiko-7-5';
-import { SALA_1_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/sala-1';
-import { SALA_2_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/sala-2';
-import { SALA_3_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/sala-3';
-import { PPL_AB_DEFINITION_JSONB } from '../../../backend/api/src/db/seeds/programs/ppl-ab';
+} from '@gzclp/database/seeds/programs/brunetti-365';
+import { SHEIKO_7_1_DEFINITION } from '@gzclp/database/seeds/programs/sheiko-7-1';
+import { SHEIKO_7_2_DEFINITION } from '@gzclp/database/seeds/programs/sheiko-7-2';
+import { SHEIKO_7_3_DEFINITION } from '@gzclp/database/seeds/programs/sheiko-7-3';
+import { SHEIKO_7_4_DEFINITION } from '@gzclp/database/seeds/programs/sheiko-7-4';
+import { SHEIKO_7_5_DEFINITION } from '@gzclp/database/seeds/programs/sheiko-7-5';
+import { SALA_1_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/sala-1';
+import { SALA_2_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/sala-2';
+import { SALA_3_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/sala-3';
+import { PPL_AB_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/ppl-ab';
 
 // ---------------------------------------------------------------------------
 // Paths & config
@@ -74,7 +74,7 @@ const PREVIEW_ORIGIN = `http://${PREVIEW_HOST}:${PREVIEW_PORT}`;
 const ROUTE_TIMEOUT_MS = 5000;
 
 // ---------------------------------------------------------------------------
-// Program JSONB lookup — mirrors apps/backend/api/src/db/seeds/program-templates-seed.ts
+// Program JSONB lookup — mirrors packages/database/src/seeds/program-templates-seed.ts
 // ---------------------------------------------------------------------------
 
 const DEFINITION_MAP: Readonly<Record<string, unknown>> = {

@@ -1,5 +1,5 @@
 import { getDb } from '../db';
-import { userInsights } from '../db/schema';
+import { userInsights } from '@gzclp/database/schema';
 import { eq, and, inArray, asc } from 'drizzle-orm';
 
 export type InsightRow = {

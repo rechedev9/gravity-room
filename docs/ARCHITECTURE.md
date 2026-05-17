@@ -16,11 +16,13 @@ gravity-room/
 │       ├── api/             ← ElysiaJS on Bun (REST + Postgres + Redis)
 │       └── analytics/       ← Python / FastAPI microservice (insights, ML)
 ├── packages/
-│   └── domain/              ← @gzclp/domain — Zod schemas + GZCLP engine,
-│                              consumed by web, mobile and api as workspace:*
-├── docs/                    ← architecture, llm-map
-├── scripts/                 ← ops scripts: loadtest, committer
-├── .github/workflows/       ← Claude bot integrations (review, code-review)
+│   ├── domain/              ← @gzclp/domain — Zod schemas + GZCLP engine
+│   └── database/            ← @gzclp/database — Drizzle schema, seeds, migrations
+├── infra/
+│   └── production/          ← Docker Compose + Caddyfile used by VPS deploy
+├── docs/                    ← architecture, llm-map, memoria artifacts
+├── scripts/                 ← ops scripts: loadtest, committer, context refresh
+├── .github/workflows/       ← CI/CD and Claude bot integrations
 ├── tsconfig.base.json       ← shared TS compiler options
 └── package.json             ← workspaces: apps/backend/*, apps/frontend/*, packages/*
 ```
@@ -34,12 +36,18 @@ gravity-room/
 | `apps/backend/api`       | backend  | Bun        | ElysiaJS 1.4, Drizzle ORM + Postgres, ioredis, prom-client, pino, Zod 4, Sentry/Bun                 |
 | `apps/backend/analytics` | backend  | Python     | FastAPI 0.115, psycopg 3, scikit-learn, scipy, APScheduler, pydantic 2, ruff                        |
 | `packages/domain`        | shared   | Bun        | Pure TS + Zod 4. Exports the GZCLP progression engine and 9 schema modules                          |
+| `packages/database`      | database | Bun        | Drizzle schema, SQL migrations, reference seeds, schema dump tooling                                |
 
 ## Cross-cutting contracts
 
 - **`@gzclp/domain` (shared)** — single source of truth for the GZCLP engine,
   graduation rules, catalog, and Zod schemas. Imported by web, mobile and api as
   `"@gzclp/domain": "workspace:*"`.
+- **`@gzclp/database` (database)** — single source of truth for Postgres:
+  Drizzle schema (`packages/database/src/schema.ts`), migrations
+  (`packages/database/migrations/`), and reference seeds
+  (`packages/database/src/seeds/`). The API owns runtime connections but imports
+  schema/seeds/migrations from this package.
 - **OpenAPI → Zod codegen** — the API exposes `/swagger/json`. The web app
   regenerates `apps/frontend/web/src/lib/api/generated.ts` via
   `bun run --filter web api:types` (`apps/frontend/web/codegen/generate-api-types.ts`).
@@ -71,11 +79,11 @@ Postgres and Redis must be available locally — point `DATABASE_URL` and
 
 | Command                                | What it covers                                |
 | -------------------------------------- | --------------------------------------------- |
-| `bun run typecheck`                    | web + domain + mobile (TS-strict)             |
+| `bun run typecheck`                    | web + domain + database + mobile (TS-strict)  |
 | `bun run typecheck:api`                | apps/backend/api                              |
 | `bun run lint`                         | web (eslint v9 + typescript-eslint)           |
 | `bun run format:check`                 | repo-wide prettier 3                          |
-| `bun run test`                         | web + domain + mobile bun:test                |
+| `bun run test`                         | web + domain + database + mobile bun:test     |
 | `bun run test:api`                     | apps/backend/api bun:test (services + routes) |
 | `bun run --filter web e2e`             | playwright (chromium)                         |
 | `pytest` (in `apps/backend/analytics`) | analytics unit tests                          |
@@ -86,12 +94,17 @@ Postgres and Redis must be available locally — point `DATABASE_URL` and
    (`apps/{api,web,mobile,analytics}`) hid the role of each service behind the
    name. New contributors and LLM agents can now classify a path by reading the
    first two segments.
-2. **Shared engine in one place** — `packages/domain` is the only cross-tier
-   dependency. Web, mobile and api compile against the same Zod schemas and the
-   same GZCLP rules, eliminating drift.
-3. **API is HTTP-only** — the SPA is never served from the API. The API
+2. **Shared engine in one place** — `packages/domain` owns cross-tier
+   training logic. Web, mobile and api compile against the same Zod schemas and
+   the same GZCLP rules, eliminating drift.
+3. **Database in one place** — `packages/database` owns Postgres structure and
+   reference data. The API still owns connections and service-level queries, but
+   schema/migrations/seeds no longer hide inside the API app.
+4. **Infra is explicit** — production-only deployment files live under
+   `infra/production/`, not mixed into the repo root.
+5. **API is HTTP-only** — the SPA is never served from the API. The API
    (`apps/backend/api/src/create-app.ts`) returns JSON exclusively.
-4. **Disambiguated tooling** — `apps/frontend/web/codegen/` (was `scripts/`) no
+6. **Disambiguated tooling** — `apps/frontend/web/codegen/` (was `scripts/`) no
    longer collides with the repo-root `scripts/` (ops scripts). `docs/`
    centralizes living-state documents (roadmap, log) that the README points at.
 

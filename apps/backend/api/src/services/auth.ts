@@ -4,7 +4,7 @@
  */
 import { eq, lt, and, isNull, sql } from 'drizzle-orm';
 import { getDb } from '../db';
-import { users, refreshTokens } from '../db/schema';
+import { users, refreshTokens } from '@gzclp/database/schema';
 import { ApiError } from '../middleware/error-handler';
 
 // ---------------------------------------------------------------------------

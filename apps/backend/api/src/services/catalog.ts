@@ -4,7 +4,7 @@
  */
 import { eq, and, asc, inArray, sql } from 'drizzle-orm';
 import { getDb } from '../db';
-import { programTemplates, exercises } from '../db/schema';
+import { programTemplates, exercises } from '@gzclp/database/schema';
 import { hydrateProgramDefinition } from '../lib/hydrate-program';
 import { collectExerciseIds } from '../lib/definition-utils';
 import { computeGenericProgram } from '@gzclp/domain/generic-engine';

@@ -105,7 +105,7 @@ jobs:
         run: |
           rsync -az \
             -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new" \
-            docker-compose.yml Caddyfile \
+            infra/production/docker-compose.yml infra/production/Caddyfile \
             "${VPS_USER}@${VPS_HOST}:/opt/gravity-room/"
 
       - name: Sync web dist

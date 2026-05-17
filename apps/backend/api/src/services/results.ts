@@ -4,7 +4,7 @@
  */
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { getDb } from '../db';
-import { programInstances, workoutResults, undoEntries } from '../db/schema';
+import { programInstances, workoutResults, undoEntries } from '@gzclp/database/schema';
 import { ApiError } from '../middleware/error-handler';
 import { getProgramDefinition } from '../services/catalog';
 import type { SetLogEntry } from '@gzclp/domain/types';

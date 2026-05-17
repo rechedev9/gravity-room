@@ -77,14 +77,14 @@ async function fetchAndFormatApi(): Promise<string> {
 }
 
 async function dumpAndFormatDb(): Promise<string> {
-  const result = await $`bun apps/backend/api/scripts/dump-schema.ts`.cwd(REPO_ROOT).quiet();
+  const result = await $`bun packages/database/scripts/dump-schema.ts`.cwd(REPO_ROOT).quiet();
   const tables = JSON.parse(result.stdout.toString()) as TableInfo[];
   return formatDbSection(tables);
 }
 
 function formatDbSection(tables: TableInfo[]): string {
   const out: string[] = [
-    `_${tables.length} tables. Source: \`apps/backend/api/src/db/schema.ts\`._`,
+    `_${tables.length} tables. Source: \`packages/database/src/schema.ts\`._`,
     '',
   ];
   for (const t of tables) {

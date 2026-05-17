@@ -15,7 +15,7 @@
     "build": "bun run --filter web build",
     "build:ci": "VITE_API_URL=${VITE_API_URL:-http://localhost:3001} bun run build",
     "build:web": "bun run --filter web build",
-    "typecheck": "bun run --filter web typecheck && bun run typecheck:domain && bun run typecheck:mobile",
+    "typecheck": "bun run --filter web typecheck && bun run typecheck:domain && bun run typecheck:database && bun run typecheck:mobile",
     "typecheck:api": "bun run --filter api typecheck",
     "typecheck:domain": "bun run --filter @gzclp/domain typecheck",
     "typecheck:mobile": "bun run --filter mobile typecheck",
@@ -23,7 +23,7 @@
     "lint:fix": "bun run --filter web lint:fix && bun run --filter api lint:fix",
     "format:check": "prettier --check .",
     "format:fix": "prettier --write .",
-    "test": "bun run --filter web test && bun run test:domain && bun run test:mobile",
+    "test": "bun run --filter web test && bun run test:domain && bun run test:database && bun run test:mobile",
     "test:api": "bun run --filter api test",
     "test:domain": "bun run --filter @gzclp/domain test",
     "test:mobile": "bun run --filter mobile test",
@@ -32,7 +32,12 @@
     "e2e:headed": "bun run --filter web e2e:headed",
     "hooks:validate": "lefthook validate",
     "ci": "bun run hooks:validate && bun run typecheck && bun run typecheck:api && bun run lint && bun run format:check && bun run test && bun run build:ci",
-    "context:refresh": "bun run scripts/refresh-claude-context.ts"
+    "context:refresh": "bun run scripts/refresh-claude-context.ts",
+    "typecheck:database": "bun run --filter @gzclp/database typecheck",
+    "test:database": "bun run --filter @gzclp/database test",
+    "db:generate": "bun run --filter @gzclp/database db:generate",
+    "db:migrate": "bun run --filter @gzclp/database db:migrate",
+    "db:studio": "bun run --filter @gzclp/database db:studio"
   },
   "devDependencies": {
     "@types/bun": "^1.3.12",

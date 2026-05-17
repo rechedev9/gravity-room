@@ -8,7 +8,7 @@
  */
 import { lt, and, isNotNull } from 'drizzle-orm';
 import { getDb } from '../db';
-import { users } from '../db/schema';
+import { users } from '@gzclp/database/schema';
 
 const PURGE_AFTER_DAYS = 30;
 const PURGE_CUTOFF_MS = PURGE_AFTER_DAYS * 24 * 60 * 60 * 1000;
