@@ -41,9 +41,10 @@ yarn-error.log*
 # vercel
 .vercel
 
-# AI tooling (Claude Code, SDD workflow)
+# AI tooling (Claude Code, Codex, SDD workflow)
 AGENTS.md
 .claude/
+.codex/
 .worktrees/
 .agents/
 .atl/

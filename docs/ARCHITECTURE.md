@@ -51,7 +51,9 @@ gravity-room/
 - **OpenAPI → Zod codegen** — the API exposes `/swagger/json`. The web app
   regenerates `apps/frontend/web/src/lib/api/generated.ts` via
   `bun run --filter web api:types` (`apps/frontend/web/codegen/generate-api-types.ts`).
-  Lefthook's `pre-push.api-types-drift` ensures the committed file stays in sync.
+  CI's `validate` workflow boots the API against Postgres, regenerates the
+  client, and fails on generated-client drift. Lefthook no longer runs this
+  check locally because it requires a live API.
   Mobile does **not** consume this generated client; it implements API calls by
   hand. Unifying this is on the roadmap (`packages/api-client`).
 - **Auth** — JWT access + refresh rotation. Google OAuth via

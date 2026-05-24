@@ -219,8 +219,8 @@ forzar componentes universales termina mal en ambas.
 * **PWA instalable** con service worker. Funciona offline para las pantallas
   de tracking más usadas.
 * **Cliente generado desde OpenAPI** — [`codegen/generate-api-types.ts`](apps/frontend/web/codegen/generate-api-types.ts)
-  toma `/swagger/json` del API y genera `src/lib/api/generated.ts`. Lefthook
-  bloquea push si el archivo generado y el swagger del API divergen.
+  toma `/swagger/json` del API y genera `src/lib/api/generated.ts`. El workflow
+  `validate` de CI bloquea drift entre el swagger real y el cliente generado.
 * **Tests E2E con Playwright** (chromium) en `e2e/`.
 
 Estructura interna:
@@ -353,8 +353,10 @@ aceptar tokens de `/api/auth/mobile/google`.
 [Lefthook](lefthook.yml) corre en paralelo:
 
 - **pre-commit:** typecheck + lint + format
-- **pre-push:** tests + build + chequeo de drift entre tipos generados del
-  API y el swagger real
+- **pre-push:** tests + build
+
+El chequeo de drift entre el swagger real del API y el cliente generado vive en
+CI (`validate`), porque necesita arrancar el API contra Postgres.
 
 No saltees los hooks con `--no-verify`. Si fallan es porque hay algo que
 arreglar antes de subir.

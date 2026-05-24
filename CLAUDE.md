@@ -61,6 +61,106 @@ three runnable services and one shared TS package.
 - **Playwright** — chromium e2e from `apps/frontend/web/e2e/`. Run via `bun run e2e`.
 - **k6 load test** — `scripts/loadtest.js` (smoke / load / stress scenarios).
 
+## Local development & E2E
+
+> Local dev runs **natively** with Bun + a local Postgres (Redis optional). There is no dev
+> `docker-compose`; the `apps/backend/*/Dockerfile` images are for production/CI only.
+
+### Prerequisites
+
+| Tool       | Version  | Notes                                            |
+| ---------- | -------- | ------------------------------------------------ |
+| Bun        | ≥ 1.3.10 | `curl -fsSL https://bun.sh/install \| bash`      |
+| PostgreSQL | ≥ 14     | Local instance or managed (Supabase, Neon, …)    |
+| Redis      | optional | Rate-limiting falls back to in-memory without it |
+| Node/npm   | not used | Bun handles everything                           |
+
+### Environment
+
+Bun auto-loads `.env` from the workspace root and from each package dir.
+
+- **API** — `.env` and/or `apps/backend/api/.env`. Minimum:
+
+  ```dotenv
+  DATABASE_URL=postgres://USER:PASSWORD@localhost:5432/gravity_room  # REQUIRED — API throws at startup if missing
+  JWT_SECRET=change-me-dev-secret-at-least-32-chars-long             # ≥32 chars dev, ≥64 prod
+  GOOGLE_CLIENT_ID=...apps.googleusercontent.com                     # optional; POST /api/auth/dev works without it
+  GOOGLE_CLIENT_IDS=...web,...mobile                                 # optional
+  CORS_ORIGIN=http://localhost:5173                                  # defaults to http://localhost:3000 in dev
+  # REDIS_URL=redis://localhost:6379                                 # optional → in-memory rate limiting
+  ```
+
+  Migrations + reference-data seeds run automatically on every startup — no manual `db:migrate`.
+
+- **Web** — `apps/frontend/web/.env.local`. `VITE_API_URL` is optional in dev (defaults to
+  `http://localhost:3001`) but **required** for production builds.
+
+**Local Postgres bootstrap (Ubuntu/Debian):**
+
+```bash
+sudo pg_ctlcluster 16 main start
+sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+sudo -u postgres createdb gravity_room
+PGPASSWORD=postgres psql -h localhost -U postgres -d gravity_room -c "SELECT 1"
+```
+
+Default dev string: `postgres://postgres:postgres@localhost:5432/gravity_room`.
+
+### Run
+
+```bash
+bun install            # from repo root — installs all workspaces
+bun run dev:api        # API on :3001 (or: cd apps/backend/api && bun --watch src/index.ts)
+bun run dev:web        # web on :5173 (alias: bun run dev)
+curl http://localhost:3001/health   # → {"status":"ok"}
+```
+
+Startup logs migrations → reference-data seeds → `API started` on port 3001. A wrong or unreachable
+`DATABASE_URL` exits the process immediately (`connect ECONNREFUSED`). The web app calls the API at
+`VITE_API_URL`; keep `CORS_ORIGIN=http://localhost:5173` in the API env so the browser isn't blocked.
+
+### Validate
+
+```bash
+bun run test           # web + domain + mobile
+bun run test:api       # API only (needs DATABASE_URL)
+bun run test:domain    # domain only (no DB)
+bun run typecheck      # web + domain + mobile
+bun run typecheck:api  # API
+bun run lint           # web + API
+bun run e2e            # Playwright/Chromium — webServer builds web + starts API; set DATABASE_URL first (it does NOT start Postgres)
+bun run e2e:ui         # interactive UI mode
+bun run e2e:headed     # visible browser
+```
+
+### Database ops (from `apps/backend/api`)
+
+```bash
+bun run db:generate    # generate migration SQL from schema changes
+bun run db:migrate     # apply manually (normally auto-applied on startup)
+bun run db:studio      # Drizzle Studio at http://local.drizzle.studio
+```
+
+### Gotchas
+
+- **OpenAPI drift**: after changing API routes, regenerate the web client with the API running on
+  :3001 — `cd apps/frontend/web && bun run api:types`. Drift is gated by CI's `validate` job, **not**
+  by Lefthook pre-push (it needs a live API; see Cross-cutting contracts).
+- **Service worker**: the PWA SW is disabled in dev (`devOptions.enabled: false` in `vite.config.ts`),
+  so stale cache isn't a dev concern. After a prod build, unregister the SW + clear site data in
+  DevTools, or hard-reload (Ctrl/Cmd+Shift+R).
+
+### Common errors
+
+| Error                                            | Cause                      | Fix                                                       |
+| ------------------------------------------------ | -------------------------- | --------------------------------------------------------- |
+| `DATABASE_URL environment variable is required`  | Missing env var            | Add `DATABASE_URL` to `.env`                              |
+| `connect ECONNREFUSED 127.0.0.1:5432`            | Postgres not running       | Start Postgres                                            |
+| `CORS_ORIGIN contains invalid URL`               | Malformed CORS value       | Use a full URL: `http://localhost:5173`                   |
+| `VITE_API_URL must be set for production builds` | Missing var in prod build  | Set `VITE_API_URL` before `bun run build`                 |
+| CI `validate` job fails on API-types drift       | Generated client stale     | Run `bun run api:types` with API running, commit          |
+| Playwright `net::ERR_CONNECTION_REFUSED`         | API not started before e2e | Set `DATABASE_URL`; Playwright starts API via `webServer` |
+
 ## Auto-generated: API surface
 
 <!-- AUTO:API-START -->
