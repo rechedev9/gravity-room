@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { buildHeatmapGrid, type CompletedWorkout, type CellLevel } from './week-heatmap-utils';
 import { cn } from '@/lib/cn';
 
@@ -14,13 +15,18 @@ interface WeekHeatmapProps {
 }
 
 export function WeekHeatmap({ workouts, weeks = 12 }: WeekHeatmapProps): React.ReactNode {
+  const { t } = useTranslation();
   const grid = buildHeatmapGrid(workouts, new Date(), weeks);
   const todayKey = new Date().toDateString();
 
   return (
     <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-4 sm:p-5">
-      <p className="chalk-stamp mb-3">ÚLTIMAS {weeks} SEMANAS</p>
-      <div className="flex gap-1 overflow-x-auto" role="grid" aria-label="weekly workout heatmap">
+      <p className="chalk-stamp mb-3">{t('dashboard.heatmap.title', { weeks })}</p>
+      <div
+        className="flex gap-1 overflow-x-auto"
+        role="grid"
+        aria-label={t('dashboard.heatmap.aria')}
+      >
         {grid.map((col, ci) => (
           <motion.div
             key={ci}
@@ -41,7 +47,10 @@ export function WeekHeatmap({ workouts, weeks = 12 }: WeekHeatmapProps): React.R
                     LEVEL_CLASS[cell.level],
                     isToday && 'ring-1 ring-main'
                   )}
-                  title={`${cell.date.toDateString()} — ${cell.count} workout${cell.count !== 1 ? 's' : ''}`}
+                  title={t('dashboard.heatmap.cell_title', {
+                    date: cell.date.toDateString(),
+                    count: cell.count,
+                  })}
                 />
               );
             })}

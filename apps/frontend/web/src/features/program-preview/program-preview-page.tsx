@@ -206,7 +206,7 @@ export function ProgramPreviewPage(): ReactNode {
   }, [definition, programId]);
 
   // Build program summary when definition is available
-  const summary = definition !== undefined ? buildProgramSummary(definition) : null;
+  const summary = definition !== undefined ? buildProgramSummary(definition, t) : null;
 
   // ---------------------------------------------------------------------------
   // Interaction stubs — preview is read-only, interactions prompt signup/login

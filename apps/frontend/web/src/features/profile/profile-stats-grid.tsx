@@ -91,7 +91,7 @@ export function ProfileStatsGrid({
 
       {/* Monthly Summary */}
       {profileData.monthlyReport && profileData.monthlyReport.workoutsCompleted > 0 && (
-        <DashboardCard title={profileData.monthlyReport.monthLabel}>
+        <DashboardCard title={t('profile.stats_grid.rolling_30_days_title')}>
           <div className="grid grid-cols-2 gap-x-4">
             <ProfileStatCard
               compact

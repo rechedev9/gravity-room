@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
@@ -24,15 +25,13 @@ import { HomeEmptyState } from './home-empty-state';
 
 const HOME_INSIGHT_TYPES = ['frequency', 'volume_trend'] as const;
 
-const MENTOR_TIPS = [
-  'Si fallas, bajas de etapa pero no paras. Vuelves a la barra.',
-  'La progresión no es lineal. La constancia sí.',
-  'El peso no se levanta solo.',
-  'Cada entrenamiento es una deuda que el cuerpo agradece.',
-  'Más vale peso controlado que ego en el suelo.',
-] as const;
-
 const EMPTY_LIFT_HISTORY: readonly LiftHistoryRow[] = [];
+
+function getMentorTips(t: TFunction): readonly string[] {
+  const tips = t('home.mentor_tips', { returnObjects: true });
+  if (!Array.isArray(tips)) return [];
+  return tips.filter((tip): tip is string => typeof tip === 'string');
+}
 
 function DashboardSkeleton(): React.ReactNode {
   return (
@@ -69,6 +68,7 @@ export function HomePage(): React.ReactNode {
   });
 
   const activeProgram = programsQuery.data?.find((p) => p.status === 'active') ?? null;
+  const mentorTips = getMentorTips(t);
 
   const freqPayload = useMemo((): FrequencyPayload | null => {
     const item = insightsQuery.data?.find((i) => i.insightType === 'frequency');
@@ -140,7 +140,7 @@ export function HomePage(): React.ReactNode {
         split={
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <PrRoadCard road={prRoad} />
-            <MentorPill tips={MENTOR_TIPS} />
+            <MentorPill tips={mentorTips} />
           </div>
         }
         recent={<RecentSessionsList sessions={[]} />}

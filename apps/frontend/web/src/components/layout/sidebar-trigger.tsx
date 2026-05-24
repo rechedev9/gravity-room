@@ -1,14 +1,18 @@
+import { useTranslation } from 'react-i18next';
+
 interface SidebarTriggerProps {
   readonly isOpen: boolean;
   readonly onToggle: () => void;
 }
 
 export function SidebarTrigger({ isOpen, onToggle }: SidebarTriggerProps): React.ReactNode {
+  const { t } = useTranslation();
+
   return (
     <button
       type="button"
       onClick={onToggle}
-      aria-label={isOpen ? 'Cerrar menú' : 'Abrir menú'}
+      aria-label={isOpen ? t('sidebar.close_menu') : t('sidebar.open_menu')}
       aria-expanded={isOpen}
       className="flex flex-col justify-center items-center w-10 h-10 gap-1.5 cursor-pointer text-muted hover:text-main transition-[color,transform] duration-[var(--duration-instant)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
     >

@@ -7,7 +7,7 @@ const LANGUAGES = [
 ];
 
 export function LanguageSelector({ className }: { readonly className?: string }): React.ReactNode {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const rawLang = i18n.language.split('-')[0];
   const currentLang: 'es' | 'en' = rawLang === 'es' ? 'es' : 'en';
 
@@ -22,7 +22,7 @@ export function LanguageSelector({ className }: { readonly className?: string })
         className
       )}
       role="radiogroup"
-      aria-label="Language selector"
+      aria-label={t('language_selector.aria_label')}
     >
       {LANGUAGES.map((lang) => (
         <button

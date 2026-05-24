@@ -236,7 +236,55 @@
     "complete_workouts_message": "Completa entrenamientos para ver tus analíticas aquí.",
     "no_programs_message": "Elige un programa para ver tus métricas aquí.",
     "view_programs": "Ver Programas",
-    "load_recommendation_section": "Recomendación de Carga"
+    "load_recommendation_section": "Recomendación de Carga",
+    "kpi_strip": {
+      "streak": "RACHA",
+      "day_one": "día",
+      "day_other": "días",
+      "sessions": "SESIONES",
+      "completed": "completadas",
+      "weekly_pr": "PR ESTA SEM",
+      "no_weekly_pr": "sin PR esta semana"
+    },
+    "pr_road": {
+      "title": "CAMINO AL PR",
+      "empty": "Aún no hay datos para calcular PR.",
+      "lift": "Lift",
+      "current": "Actual",
+      "remaining": "Falta",
+      "aria": "progreso hacia PR de {{lift}}"
+    },
+    "mentor": {
+      "title": "DEL MAESTRO",
+      "signature": "el maestro",
+      "next": "siguiente →"
+    },
+    "next_set": {
+      "no_program": "SIN PROGRAMA",
+      "choose_forge": "ELIGE TU FORJA",
+      "empty_body": "El primer paso es elegir un programa.",
+      "view_programs": "VER PROGRAMAS",
+      "day_one": "DÍA UNO",
+      "day_one_body": "El peso no se levanta solo.",
+      "enter": "ENTRAR AL HIERRO",
+      "today_day": "HOY · DÍA {{day}}",
+      "next_set": "PRÓXIMA SERIE",
+      "not_today": "hoy no",
+      "last_set": "última: {{weight}}×{{reps}} · +{{delta}}kg desde inicio del programa"
+    },
+    "heatmap": {
+      "title": "ÚLTIMAS {{weeks}} SEMANAS",
+      "aria": "mapa semanal de entrenamientos",
+      "cell_title": "{{date}} — {{count}} entrenamiento",
+      "cell_title_one": "{{date}} — {{count}} entrenamiento",
+      "cell_title_other": "{{date}} — {{count}} entrenamientos"
+    },
+    "recent_sessions": {
+      "title": "ACTIVIDAD RECIENTE",
+      "empty_title": "AÚN NO HAY ENTRENAMIENTOS",
+      "empty_body": "Día uno te espera.",
+      "day_abbrev": "D{{day}}"
+    }
   },
   "programs": {
     "page_title": "Programas — Gravity Room",
@@ -591,6 +639,22 @@
       "primary": "Principal",
       "secondary": "Secundario",
       "accessory": "Accesorio"
+    },
+    "day_status": {
+      "today_prefix": "HOY · ",
+      "day_label": "DÍA",
+      "complete_suffix": " · COMPLETO",
+      "close": "cerrar ▴",
+      "change_day": "cambiar día ▾"
+    },
+    "shortcuts": {
+      "title": "ATAJOS DE TECLADO",
+      "success": "éxito",
+      "fail": "fallo",
+      "prev_set": "serie anterior",
+      "next_set": "serie siguiente",
+      "undo_last": "deshacer último",
+      "understood": "ENTENDIDO"
     }
   },
   "profile": {
@@ -649,7 +713,8 @@
     },
     "charts": {
       "weight_progression_title": "Progresión de Peso",
-      "success_rate_label": "éxito"
+      "success_rate_label": "éxito",
+      "success_rate_inline": "{{rate}}% éxito"
     },
     "stats_grid": {
       "stats_title": "Estadísticas",
@@ -676,7 +741,8 @@
       "epley_note": "Estimación basada en la fórmula de Epley",
       "lifetime_volume_title": "Volumen Total Global",
       "all_programs_label": "Todos los Programas",
-      "programs_label_plural": "programas"
+      "programs_label_plural": "programas",
+      "rolling_30_days_title": "Últimos 30 días"
     },
     "account": {
       "title": "Cuenta",
@@ -850,11 +916,13 @@
       },
       "analytics": {
         "title": "Analítica",
-        "body": "un servicio de analítica web respetuoso con la privacidad. Plausible no utiliza cookies, no recopila datos personales identificables y no rastrea usuarios entre sesiones. Los datos agregados (páginas vistas, país de origen, tipo de dispositivo) se utilizan únicamente para mejorar el servicio."
+        "body": "un servicio de analítica web respetuoso con la privacidad. Plausible no utiliza cookies, no recopila datos personales identificables y no rastrea usuarios entre sesiones. Los datos agregados (páginas vistas, país de origen, tipo de dispositivo) se utilizan únicamente para mejorar el servicio.",
+        "body_prefix": "Gravity Room utiliza"
       },
       "legal_basis": {
         "title": "Base legal",
-        "body": "está exenta de consentimiento previo según el artículo 22.2 de la Ley 34/2002 (LSSI-CE), al ser estrictamente necesaria para la prestación del servicio de autenticación solicitado expresamente por el usuario. Esta exención está reconocida también por el Considerando 66 de la Directiva 2009/136/CE y las directrices del Comité Europeo de Protección de Datos."
+        "body": "está exenta de consentimiento previo según el artículo 22.2 de la Ley 34/2002 (LSSI-CE), al ser estrictamente necesaria para la prestación del servicio de autenticación solicitado expresamente por el usuario. Esta exención está reconocida también por el Considerando 66 de la Directiva 2009/136/CE y las directrices del Comité Europeo de Protección de Datos.",
+        "body_prefix": "La cookie"
       },
       "disable_cookies": {
         "title": "¿Cómo desactivar las cookies?",
@@ -910,7 +978,9 @@
     "reload_button": "Recargar"
   },
   "toast": {
-    "provider_error": "useToast debe usarse dentro de ToastProvider"
+    "provider_error": "useToast debe usarse dentro de ToastProvider",
+    "close_notification": "Cerrar notificación",
+    "new_pr": "NUEVO PR"
   },
   "guest": {
     "provider_error": "useGuest debe usarse dentro de GuestProvider"
@@ -980,7 +1050,14 @@
           "body": "Revisa estadísticas, logros y tu historial de programas en la sección Perfil."
         }
       }
-    }
+    },
+    "mentor_tips": [
+      "Si fallas, bajas de etapa pero no paras. Vuelves a la barra.",
+      "La progresión no es lineal. La constancia sí.",
+      "El peso no se levanta solo.",
+      "Cada entrenamiento es una deuda que el cuerpo agradece.",
+      "Más vale peso controlado que ego en el suelo."
+    ]
   },
   "mentor_tour": {
     "prompt": {
@@ -1023,6 +1100,68 @@
         "label": "Perfil",
         "hint": "Aquí encontrarás tus estadísticas, insignias, gráficas de volumen e historial de programas."
       }
+    }
+  },
+  "language_selector": {
+    "aria_label": "Selector de idioma"
+  },
+  "program_overview": {
+    "aria_label": "Resumen del programa {{programName}}",
+    "how_it_works": "Cómo funciona",
+    "day_structure": "Estructura de días",
+    "exercises": "Ejercicios ({{count}})",
+    "progression_rules": "Reglas de progresión",
+    "stages": "Etapas",
+    "stages_description": "{{count}} etapas disponibles si no completas las series. Cada etapa ajusta el esquema de series y repeticiones para que puedas seguir progresando."
+  },
+  "sidebar": {
+    "open_menu": "Abrir menú",
+    "close_menu": "Cerrar menú"
+  },
+  "route_error": {
+    "image_alt": "Estado de error, cámara de gravedad dañada",
+    "title": "Algo ha salido mal",
+    "description": "Ha ocurrido un error inesperado. Recargar la página debería solucionarlo.",
+    "reload": "Recargar"
+  },
+  "offline_banner": {
+    "message": "Sin conexión. Los cambios se guardarán cuando vuelvas a estar en línea"
+  },
+  "chart": {
+    "result_success": "✓ Éxito",
+    "result_fail": "✗ Fallo",
+    "empty": "Completa entrenamientos para ver el gráfico",
+    "insufficient_data": "Datos insuficientes aún",
+    "data_summary": "Datos: {{label}}",
+    "workout_header": "Ent.",
+    "weight_header": "Peso",
+    "result_header": "Resultado"
+  },
+  "tracker_extra": {},
+  "sync_status": {
+    "syncing": "Sincronizando...",
+    "synced": "Sincronizado",
+    "offline": "Sin conexión",
+    "error": "Error de sincronización"
+  },
+  "program_summary": {
+    "rules": {
+      "add_weight": "Sube peso en el siguiente entrenamiento",
+      "deload_percent": "Descarga al {{percent}}% del peso actual",
+      "advance_stage": "Pasa a la siguiente etapa (menos reps, más series)",
+      "add_weight_reset_stage": "Sube {{amount}} kg y vuelve a la primera etapa",
+      "no_change": "Mantiene el peso actual",
+      "advance_stage_add_weight": "Sube peso y pasa de etapa",
+      "update_tm": "Actualiza el training max en {{amount}} kg",
+      "double_progression": "Sube reps ({{bottom}}-{{top}}); al tope, sube peso"
+    },
+    "triggers": {
+      "complete_all_sets": "Completar todas las series",
+      "mid_program_fail": "Fallar a mitad del programa",
+      "final_stage_fail": "Fallar en la última etapa",
+      "final_stage_success": "Completar la última etapa",
+      "undefined_result": "Resultado indefinido",
+      "amrap_threshold": "Serie AMRAP >= {{reps}} reps"
     }
   }
 }

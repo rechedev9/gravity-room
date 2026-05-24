@@ -86,12 +86,12 @@ describe('ToastContainer', () => {
   });
 
   describe('PR toast text format (REQ-CCF-001)', () => {
-    it('should render full text NUEVO PR — Sentadilla 100 kg for PR variant', () => {
+    it('should render full text NUEVO PR: Sentadilla 100 kg for PR variant', () => {
       renderWithToast('Sentadilla 100 kg', 'pr');
 
       const span = document.querySelector('.hero-number-glow');
 
-      expect(span?.textContent).toBe('NUEVO PR — Sentadilla 100 kg');
+      expect(span?.textContent).toBe('NUEVO PR: Sentadilla 100 kg');
     });
   });
 

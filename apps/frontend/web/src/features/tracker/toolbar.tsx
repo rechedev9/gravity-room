@@ -43,7 +43,7 @@ export function Toolbar({
       <ProgressBar
         completed={completedCount}
         total={totalWorkouts}
-        ariaLabel={t('toolbar.progress_aria')}
+        ariaLabel={t('tracker.toolbar.progress_aria')}
         showPercent
         className="mb-2 sm:mb-0 sm:hidden"
       />
@@ -68,7 +68,7 @@ export function Toolbar({
         <ProgressBar
           completed={completedCount}
           total={totalWorkouts}
-          ariaLabel={t('toolbar.progress_aria')}
+          ariaLabel={t('tracker.toolbar.progress_aria')}
           showPercent
           className="flex-1 hidden sm:flex"
         />

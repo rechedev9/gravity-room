@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ComposedChart,
   Line,
@@ -129,11 +130,13 @@ interface CustomTooltipProps {
 }
 
 function CustomTooltip({ active, payload }: CustomTooltipProps): React.ReactElement | null {
+  const { t } = useTranslation();
+
   if (!active || !payload?.length) return null;
   const pt = payload[0].payload;
   if (!pt || pt.result === null) return null;
 
-  const resultLabel = pt.result === 'success' ? '✓ Éxito' : '✗ Fallo';
+  const resultLabel = pt.result === 'success' ? t('chart.result_success') : t('chart.result_fail');
   const dateLabel = pt.date ? formatChartDate(pt.date) : null;
 
   return (
@@ -167,6 +170,7 @@ export function LineChart({
   yAxisLabel,
   showAllPrs,
 }: LineChartProps): React.ReactNode {
+  const { t } = useTranslation();
   const theme = getChartTheme();
   const effectiveShowPrs = showAllPrs ?? mode === 'weight';
 
@@ -244,9 +248,7 @@ export function LineChart({
         className="flex items-center justify-center h-[clamp(200px,25vw,300px)]"
         style={{ background: theme.bg }}
       >
-        <p className="font-mono text-xs text-[var(--color-chart-text)]">
-          Completa entrenamientos para ver el gráfico
-        </p>
+        <p className="font-mono text-xs text-[var(--color-chart-text)]">{t('chart.empty')}</p>
       </div>
     );
   }
@@ -257,7 +259,9 @@ export function LineChart({
         className="flex items-center justify-center h-[clamp(200px,25vw,300px)]"
         style={{ background: theme.bg }}
       >
-        <p className="font-mono text-xs text-[var(--color-chart-text)]">Datos insuficientes aún</p>
+        <p className="font-mono text-xs text-[var(--color-chart-text)]">
+          {t('chart.insufficient_data')}
+        </p>
       </div>
     );
   }
@@ -361,13 +365,13 @@ export function LineChart({
         </ResponsiveContainer>
       </div>
       <details className="sr-only">
-        <summary>Datos: {label}</summary>
+        <summary>{t('chart.data_summary', { label })}</summary>
         <table>
           <thead>
             <tr>
-              <th>Ent.</th>
-              <th>Peso</th>
-              <th>Resultado</th>
+              <th>{t('chart.workout_header')}</th>
+              <th>{t('chart.weight_header')}</th>
+              <th>{t('chart.result_header')}</th>
             </tr>
           </thead>
           <tbody>

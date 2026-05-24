@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router';
 import type { UserInfo } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import type { SyncStatus } from '@/types/sync-status';
-import { SYNC_LABELS, SYNC_COLORS } from '@/types/sync-status';
+import { SYNC_COLORS } from '@/types/sync-status';
 import { DropdownMenu, DropdownItem, DropdownDivider } from '@/components/dropdown-menu';
 
 interface AvatarDropdownProps {
@@ -42,7 +42,7 @@ export function AvatarDropdown({
   }
 
   const initial = (user.email[0] ?? 'U').toUpperCase();
-  const syncLabel = SYNC_LABELS[syncStatus];
+  const syncLabel = syncStatus === 'idle' ? '' : t(`sync_status.${syncStatus}`);
 
   return (
     <div className="relative">

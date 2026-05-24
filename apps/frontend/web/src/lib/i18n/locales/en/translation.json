@@ -236,7 +236,55 @@
     "complete_workouts_message": "Complete workouts to see your analytics here.",
     "no_programs_message": "Choose a program to see your metrics here.",
     "view_programs": "View Programs",
-    "load_recommendation_section": "Load Recommendation"
+    "load_recommendation_section": "Load Recommendation",
+    "kpi_strip": {
+      "streak": "STREAK",
+      "day_one": "day",
+      "day_other": "days",
+      "sessions": "SESSIONS",
+      "completed": "completed",
+      "weekly_pr": "PR THIS WEEK",
+      "no_weekly_pr": "no PR this week"
+    },
+    "pr_road": {
+      "title": "ROAD TO PR",
+      "empty": "Not enough data to calculate a PR yet.",
+      "lift": "Lift",
+      "current": "Current",
+      "remaining": "Remaining",
+      "aria": "progress toward {{lift}} PR"
+    },
+    "mentor": {
+      "title": "FROM THE MASTER",
+      "signature": "the master",
+      "next": "next →"
+    },
+    "next_set": {
+      "no_program": "NO PROGRAM",
+      "choose_forge": "CHOOSE YOUR FORGE",
+      "empty_body": "The first step is choosing a program.",
+      "view_programs": "VIEW PROGRAMS",
+      "day_one": "DAY ONE",
+      "day_one_body": "The weight will not lift itself.",
+      "enter": "ENTER THE IRON",
+      "today_day": "TODAY · DAY {{day}}",
+      "next_set": "NEXT SET",
+      "not_today": "not today",
+      "last_set": "last: {{weight}}×{{reps}} · +{{delta}}kg since program start"
+    },
+    "heatmap": {
+      "title": "LAST {{weeks}} WEEKS",
+      "aria": "weekly workout heatmap",
+      "cell_title": "{{date}} — {{count}} workout",
+      "cell_title_one": "{{date}} — {{count}} workout",
+      "cell_title_other": "{{date}} — {{count}} workouts"
+    },
+    "recent_sessions": {
+      "title": "RECENT ACTIVITY",
+      "empty_title": "NO WORKOUTS YET",
+      "empty_body": "Day one is waiting.",
+      "day_abbrev": "D{{day}}"
+    }
   },
   "programs": {
     "page_title": "Programs — Gravity Room",
@@ -591,6 +639,22 @@
       "primary": "Primary",
       "secondary": "Secondary",
       "accessory": "Accessory"
+    },
+    "day_status": {
+      "today_prefix": "TODAY · ",
+      "day_label": "DAY",
+      "complete_suffix": " · COMPLETE",
+      "close": "close ▴",
+      "change_day": "change day ▾"
+    },
+    "shortcuts": {
+      "title": "KEYBOARD SHORTCUTS",
+      "success": "success",
+      "fail": "fail",
+      "prev_set": "previous set",
+      "next_set": "next set",
+      "undo_last": "undo last",
+      "understood": "GOT IT"
     }
   },
   "profile": {
@@ -649,7 +713,8 @@
     },
     "charts": {
       "weight_progression_title": "Weight Progression",
-      "success_rate_label": "success"
+      "success_rate_label": "success",
+      "success_rate_inline": "{{rate}}% success"
     },
     "stats_grid": {
       "stats_title": "Statistics",
@@ -676,7 +741,8 @@
       "epley_note": "Estimate based on Epley formula",
       "lifetime_volume_title": "Lifetime Total Volume",
       "all_programs_label": "All Programs",
-      "programs_label_plural": "programs"
+      "programs_label_plural": "programs",
+      "rolling_30_days_title": "Last 30 days"
     },
     "account": {
       "title": "Account",
@@ -850,11 +916,13 @@
       },
       "analytics": {
         "title": "Analytics",
-        "body": "a privacy-friendly web analytics service. Plausible does not use cookies, does not collect identifiable personal data, and does not track users between sessions. Aggregated data (page views, country of origin, device type) is used solely to improve the service."
+        "body": "a privacy-friendly web analytics service. Plausible does not use cookies, does not collect identifiable personal data, and does not track users between sessions. Aggregated data (page views, country of origin, device type) is used solely to improve the service.",
+        "body_prefix": "Gravity Room uses"
       },
       "legal_basis": {
         "title": "Legal basis",
-        "body": "is exempt from prior consent under article 22.2 of Law 34/2002 (LSSI-CE), as it is strictly necessary for the provision of the authentication service expressly requested by the user. This exemption is also recognized by Recital 66 of Directive 2009/136/EC and the guidelines of the European Data Protection Board."
+        "body": "is exempt from prior consent under article 22.2 of Law 34/2002 (LSSI-CE), as it is strictly necessary for the provision of the authentication service expressly requested by the user. This exemption is also recognized by Recital 66 of Directive 2009/136/EC and the guidelines of the European Data Protection Board.",
+        "body_prefix": "The cookie"
       },
       "disable_cookies": {
         "title": "How to disable cookies?",
@@ -910,7 +978,9 @@
     "reload_button": "Reload"
   },
   "toast": {
-    "provider_error": "useToast must be used within ToastProvider"
+    "provider_error": "useToast must be used within ToastProvider",
+    "close_notification": "Close notification",
+    "new_pr": "NEW PR"
   },
   "guest": {
     "provider_error": "useGuest must be used within GuestProvider"
@@ -980,7 +1050,14 @@
           "body": "Check your stats, achievements, and program history in the Profile section."
         }
       }
-    }
+    },
+    "mentor_tips": [
+      "If you fail, you drop a stage, not the bar. Get back under it.",
+      "Progress is not linear. Consistency is.",
+      "The weight will not lift itself.",
+      "Every workout is a debt your body will repay.",
+      "Controlled weight beats ego on the floor."
+    ]
   },
   "mentor_tour": {
     "prompt": {
@@ -1023,6 +1100,67 @@
         "label": "Profile",
         "hint": "View your stats, badges, volume charts, and program history here."
       }
+    }
+  },
+  "language_selector": {
+    "aria_label": "Language selector"
+  },
+  "program_overview": {
+    "aria_label": "{{programName}} program summary",
+    "how_it_works": "How it works",
+    "day_structure": "Day structure",
+    "exercises": "Exercises ({{count}})",
+    "progression_rules": "Progression rules",
+    "stages": "Stages",
+    "stages_description": "{{count}} stages are available if you miss the prescribed sets. Each stage adjusts the sets and reps so you can keep progressing."
+  },
+  "sidebar": {
+    "open_menu": "Open menu",
+    "close_menu": "Close menu"
+  },
+  "route_error": {
+    "image_alt": "Error state, damaged gravity chamber",
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. Reloading the page should fix it.",
+    "reload": "Reload"
+  },
+  "offline_banner": {
+    "message": "Offline. Changes will be saved when you are back online"
+  },
+  "chart": {
+    "result_success": "✓ Success",
+    "result_fail": "✗ Fail",
+    "empty": "Complete workouts to see the chart",
+    "insufficient_data": "Not enough data yet",
+    "data_summary": "Data: {{label}}",
+    "workout_header": "Wkt.",
+    "weight_header": "Weight",
+    "result_header": "Result"
+  },
+  "sync_status": {
+    "syncing": "Syncing...",
+    "synced": "Synced",
+    "offline": "Offline",
+    "error": "Sync error"
+  },
+  "program_summary": {
+    "rules": {
+      "add_weight": "Add weight next workout",
+      "deload_percent": "Deload to {{percent}}% of current weight",
+      "advance_stage": "Move to the next stage (fewer reps, more sets)",
+      "add_weight_reset_stage": "Add {{amount}} kg and reset to the first stage",
+      "no_change": "Keep the current weight",
+      "advance_stage_add_weight": "Add weight and advance stage",
+      "update_tm": "Update training max by {{amount}} kg",
+      "double_progression": "Add reps ({{bottom}}-{{top}}); at the top, add weight"
+    },
+    "triggers": {
+      "complete_all_sets": "Complete all sets",
+      "mid_program_fail": "Fail in the middle of the program",
+      "final_stage_fail": "Fail in the final stage",
+      "final_stage_success": "Complete the final stage",
+      "undefined_result": "Undefined result",
+      "amrap_threshold": "AMRAP set >= {{reps}} reps"
     }
   }
 }
