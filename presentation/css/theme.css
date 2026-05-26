@@ -17,7 +17,10 @@
 }
 
 .reveal-viewport {
-  background: var(--bg);
+  background-color: var(--bg);
+  /* Faint amber "stage light" from the top centre — adds depth over flat black
+     behind every slide (the portada layers its own halo on top of this). */
+  background-image: radial-gradient(90% 55% at 50% -5%, rgba(224, 168, 46, 0.07), transparent 60%);
 }
 
 .reveal {
@@ -50,6 +53,17 @@
 }
 .reveal h2 {
   font-size: 1.7em;
+}
+/* Short amber rule under section headings for structure (skips the centred
+   ¡Gracias! heading, which uses h2.accent). */
+.reveal h2:not(.accent)::after {
+  content: '';
+  display: block;
+  width: 2.2em;
+  height: 3px;
+  margin-top: 0.28em;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent);
 }
 .reveal h3 {
   font-size: 1.15em;
@@ -124,10 +138,14 @@
 
 /* Cards & grids */
 .reveal .card {
-  background: var(--surface);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 0.9em 1.1em;
+  /* Inset top highlight + soft drop shadow lift the card off the background. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 10px 28px rgba(0, 0, 0, 0.38);
 }
 .reveal .card h3 {
   color: var(--accent);
@@ -209,11 +227,15 @@
 /* Slide number + progress in brand color */
 .reveal .progress {
   color: var(--accent);
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
 }
 .reveal .slide-number {
   background: transparent;
   color: var(--muted);
   font-family: var(--mono);
+  font-size: 0.5em;
+  letter-spacing: 0.05em;
 }
 
 /* SVG diagram text inherits theme */
