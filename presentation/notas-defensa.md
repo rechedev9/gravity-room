@@ -162,15 +162,41 @@ Con **umbrales** que deben cumplirse: latencia **p95 < 500 ms** y **menos del 1 
 **Cómo uso la IA.** Como copiloto para ir más rápido, pero **yo pongo las reglas**: hay un
 `CLAUDE.md` en el repo que fija convenciones, estilo y flujo de trabajo (incluido TDD).
 
-**Por qué las barreras estrictas dan valor al trabajar con IA.**
+### Qué nos da el tipado estricto (de punta a punta) al trabajar con LLMs
 
-- **Tipado estricto de punta a punta:** dominio, API y web comparten tipos; el contrato está
-  tipado de la base de datos a la interfaz.
-- **ESLint configurado en duro:** prohíbe `any`, las aserciones `as` y los comentarios
-  `@ts-ignore`/`@ts-expect-error`, limita el anidamiento, etc. La consecuencia es que **ni yo
-  ni la IA podemos "tapar" un error de tipos** para que compile: hay que arreglar la causa.
-- **TDD:** primero escribo el test que falla, luego el código mínimo que lo hace pasar.
+- **Es un contrato verificado por la máquina.** Un LLM puede alucinar un campo o una forma
+  equivocada; el compilador lo caza al instante → **ese código no compila**. No depende de
+  que yo lo detecte leyendo.
+- **Los tipos se comparten entre capas** (dominio → API → web). Si la IA cambia un esquema,
+  **todos los consumidores que quedan mal se encienden en rojo**: no puede desincronizar las
+  capas en silencio.
+- **Los tipos también son contexto para la IA:** con buenas firmas, sus sugerencias son más
+  certeras (autocompletado e inferencia la guían).
+- **Convierte fallos de runtime en errores de compilación:** se ven _antes_ de desplegar, no
+  en producción.
 
-**Idea fuerza:** la IA **acelera** la escritura, pero la **corrección la garantiza el sistema**
-(tipos + lint + tests). El código que sugiere la IA pasa exactamente por el mismo listón que
-el mío; si no cumple, no entra.
+### Qué nos da tener ESLint configurado así al trabajar con LLMs
+
+Cada regla **cierra una "escapatoria" típica con la que un LLM hace que algo compile sin
+arreglar el problema de fondo** (reglas reales de `apps/frontend/web/eslint.config.mjs`):
+
+- `no-explicit-any` → no puede ensanchar a `any` para esquivar un error de tipos.
+- `consistent-type-assertions: never` → no puede colar un `as` para forzar un tipo.
+- `ban-ts-comment` → no puede silenciar el compilador con `@ts-ignore` / `@ts-expect-error`.
+- `no-non-null-assertion` → no puede usar `!` ("confía, no es null").
+- `max-depth: 3` → fuerza funciones pequeñas con _early returns_, más fáciles de revisar.
+- `no-console` → nada de logs de depuración sueltos.
+
+El efecto neto: **la IA está obligada a arreglar la causa, no a taparla.** Y el lint corre en
+**pre-commit (Lefthook) y en CI**, así que el código que no cumple **literalmente no entra**.
+
+### Y TDD
+
+Primero escribo el **test que falla**, luego el código mínimo que lo hace pasar: el
+comportamiento queda fijado **antes** que la solución, también cuando la escribe la IA.
+
+**Idea fuerza:** no puedo revisar a ojo todo lo que escribe un LLM. Los **tipos + el lint
+estrictos** son **revisores automáticos e innegociables** en cada commit y en CI: convierten
+"confiar en la IA" en "**verificar a la IA mecánicamente**". Su código pasa por el **mismo
+listón** que el mío; si no cumple, no entra. La IA **acelera**; la **corrección la garantiza
+el sistema**.

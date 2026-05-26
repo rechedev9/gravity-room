@@ -681,42 +681,45 @@ export function nextSession(
         <section>
           <span class="eyebrow">Cómo trabajo</span>
           <h2>IA con disciplina</h2>
-          <div class="grid cols-2" style="margin-top: 0.5em">
-            <div>
-              <ul class="small">
-                <li class="fragment">
-                  Uso IA como copiloto, pero <strong>las reglas las pongo yo</strong>: un
-                  <code>CLAUDE.md</code> en el repo fija convenciones y flujo de trabajo
-                </li>
-                <li class="fragment">
-                  <strong>Tipado estricto de punta a punta</strong>: dominio, API y web comparten
-                  tipos — nada de <code>any</code>
-                </li>
-                <li class="fragment">
-                  <strong>ESLint</strong> prohíbe <code>any</code>, los <code>as</code> y
-                  <code>@ts-ignore</code>: la IA no puede "tapar" errores de tipos
-                </li>
-                <li class="fragment">
-                  Normalmente <strong>TDD</strong>: primero el test que falla, luego el código
-                  mínimo que pasa
-                </li>
-              </ul>
-            </div>
-            <div class="card">
-              <h3>Por qué importa</h3>
+          <p class="small" style="margin-top: 0.25em">
+            Uso la IA como copiloto, pero <strong>las reglas las pongo yo</strong>: un
+            <code>CLAUDE.md</code> en el repo fija convenciones, estilo y TDD.
+          </p>
+          <div class="grid cols-3" style="margin-top: 0.45em">
+            <div class="card fragment">
+              <h3>Tipado estricto e2e</h3>
               <p class="small">
-                Con barreras estrictas, el código que sugiere la IA pasa por
-                <strong>el mismo listón</strong> que el mío: si no cumple tipos y lint, no entra. La
-                IA <strong>acelera</strong>; la <strong>corrección la garantiza el sistema</strong>.
+                Dominio, API y web comparten tipos: un
+                <strong>contrato que verifica la máquina</strong>. Si la IA desincroniza capas,
+                <strong>no compila</strong>.
+              </p>
+            </div>
+            <div class="card fragment">
+              <h3>ESLint sin escapatorias</h3>
+              <p class="small">
+                Prohíbe <code>any</code>, <code>as</code>, <code>@ts-ignore</code> y <code>!</code>:
+                la IA no puede <strong>tapar</strong> un error, debe arreglar la causa.
+              </p>
+            </div>
+            <div class="card fragment">
+              <h3>TDD</h3>
+              <p class="small">
+                Primero el <strong>test que falla</strong>, luego el código mínimo: fija el
+                comportamiento antes que la solución.
               </p>
             </div>
           </div>
+          <p class="small muted" style="margin-top: 0.5em">
+            Tipos + lint son <strong>revisores automáticos</strong> en cada commit y en CI: la IA
+            pasa por <strong>el mismo listón</strong> que yo.
+          </p>
           <aside class="notes">
-            La IA es parte de mi flujo, pero con control. Tengo un CLAUDE.md en el repo con mis
-            reglas, todo está tipado de punta a punta y ESLint prohíbe any, los as y los @ts-ignore,
-            así que ni yo ni la IA podemos esconder un error de tipos. Y trabajo con TDD: primero el
-            test que falla. Resultado: la IA acelera, pero la corrección la garantizan las barreras
-            del proyecto.
+            (Detalle ampliado en notas-defensa.md, slide 13.) Uso la IA como copiloto, pero las
+            reglas las pongo yo. El tipado estricto de punta a punta y el ESLint que prohíbe any,
+            as, @ts-ignore y la aserción ! cierran las escapatorias con las que un LLM haría que
+            algo compile sin arreglar el fondo. TDD fija el comportamiento antes. Resultado: tipos y
+            lint son revisores automáticos en cada commit y en CI; el código de la IA pasa por el
+            mismo listón que el mío.
           </aside>
         </section>
 
