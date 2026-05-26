@@ -33,8 +33,14 @@ aislados y reproducibles.
 reparte (la web estática y la API en `api.gravityroom.app`). Lo elegí sobre nginx porque
 gestiona los **certificados TLS automáticamente** (ver abajo) con una configuración mínima.
 
-**Por qué Redis.** Almacén en memoria muy rápido para _rate-limiting_ (límite de peticiones),
-caché y presencia (usuarios online). Es opcional: si no está, la API cae a un modo en memoria.
+**Por qué Redis.** Almacén en memoria muy rápido que uso para tres cosas, las tres con
+_fallback_ a memoria si no está: **rate-limiting** (ventana deslizante con un script Lua
+**atómico**), **presencia** (usuarios online → `GET /api/stats/online`) y **caché de
+lecturas** (catálogo/ejercicios, para no golpear Postgres en cada petición). El valor: es un
+**estado compartido y atómico** que **sobrevive a reinicios** y serviría con varias
+instancias de la API —en memoria sería por proceso y se perdería—. Y es **opcional**: en
+local sin Redis la app funciona (cae a memoria / a la BD), así que no es un punto único de
+fallo.
 
 **Cómo funciona el CI/CD (GitHub Actions, `deploy.yml`).** Al hacer `push` a `main`:
 
