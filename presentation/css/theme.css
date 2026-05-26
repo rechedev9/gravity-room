@@ -1,0 +1,246 @@
+/* Gravity Room — reveal.js theme. Amber-on-near-black, system fonts only
+   (no external font fetches → served fine under the strict apex CSP). */
+
+:root {
+  --bg: #0b0b0d;
+  --surface: #16161a;
+  --surface-2: #1e1e24;
+  --text: #ededed;
+  --muted: #a1a1aa;
+  --accent: #e0a82e; /* amber/gold brand accent */
+  --accent-dim: #b9842033;
+  --border: rgba(224, 168, 46, 0.28);
+  --ok: #5fbf6b;
+  --bad: #e0564a;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+}
+
+.reveal-viewport {
+  background: var(--bg);
+}
+
+.reveal {
+  font-family: var(--sans);
+  color: var(--text);
+  font-size: 34px;
+}
+
+.reveal .slides {
+  text-align: left;
+}
+.reveal .slides section {
+  height: 100%;
+}
+
+/* Headings */
+.reveal h1,
+.reveal h2,
+.reveal h3,
+.reveal h4 {
+  color: var(--text);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  text-transform: none;
+  margin: 0 0 0.4em;
+  line-height: 1.1;
+}
+.reveal h1 {
+  font-size: 2.5em;
+}
+.reveal h2 {
+  font-size: 1.7em;
+}
+.reveal h3 {
+  font-size: 1.15em;
+}
+
+.reveal p {
+  line-height: 1.4;
+}
+.reveal .lead {
+  font-size: 1.05em;
+  color: var(--muted);
+}
+
+/* Accents & helpers */
+.reveal .accent {
+  color: var(--accent);
+}
+.reveal strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+.reveal .muted {
+  color: var(--muted);
+}
+.reveal .small {
+  font-size: 0.72em;
+}
+.reveal .center {
+  text-align: center;
+}
+.reveal .eyebrow {
+  font-family: var(--mono);
+  color: var(--accent);
+  font-size: 0.42em;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+/* Lists */
+.reveal ul {
+  margin-left: 1em;
+}
+.reveal li {
+  margin: 0.35em 0;
+}
+.reveal li::marker {
+  color: var(--accent);
+}
+
+/* Tables */
+.reveal table {
+  font-size: 0.62em;
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 0.5em;
+}
+.reveal th {
+  color: var(--accent);
+  font-family: var(--mono);
+  text-transform: uppercase;
+  font-size: 0.85em;
+  letter-spacing: 0.05em;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  padding: 0.45em 0.7em;
+}
+.reveal td {
+  border-bottom: 1px solid #ffffff14;
+  padding: 0.45em 0.7em;
+  vertical-align: top;
+}
+
+/* Cards & grids */
+.reveal .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.9em 1.1em;
+}
+.reveal .card h3 {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.75em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.reveal .grid {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+/* allow grid columns to shrink below intrinsic content width (wide images) */
+.reveal .grid > * {
+  min-width: 0;
+}
+.reveal .cols-2 {
+  grid-template-columns: 1fr 1fr;
+}
+.reveal .cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* Code */
+.reveal pre {
+  box-shadow: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #0e0e12;
+  width: 100%;
+  font-size: 0.7em;
+}
+.reveal pre code {
+  font-family: var(--mono);
+  padding: 1em;
+  border-radius: 10px;
+}
+
+/* Screenshots */
+.reveal .shot {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  max-height: 58vh;
+  background: transparent;
+  display: block;
+  margin: 0 auto;
+}
+.reveal .shot-cap {
+  font-family: var(--mono);
+  font-size: 0.5em;
+  color: var(--muted);
+  margin-top: 0.4em;
+  text-align: center;
+}
+
+/* Badges */
+.reveal .badge {
+  font-family: var(--mono);
+  font-size: 0.42em;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2em 0.85em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.reveal .footer-url {
+  font-family: var(--mono);
+  color: var(--accent);
+}
+.reveal .layer-label {
+  font-family: var(--mono);
+  font-size: 0.5em;
+  color: var(--accent);
+  letter-spacing: 0.15em;
+}
+
+/* Slide number + progress in brand color */
+.reveal .progress {
+  color: var(--accent);
+}
+.reveal .slide-number {
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+}
+
+/* SVG diagram text inherits theme */
+.reveal svg text {
+  font-family: var(--sans);
+  fill: var(--text);
+}
+
+/* Portada (title slide): faint pattern is set via reveal data-background-*;
+   here we add the amber radial halo above it and the brand mark. */
+.reveal section.portada::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(60% 50% at 50% 34%, rgba(224, 168, 46, 0.16), transparent 62%);
+}
+.reveal section.portada > * {
+  position: relative;
+  z-index: 1;
+}
+.reveal .brand-mark {
+  width: 92px;
+  height: 92px;
+  border-radius: 18px;
+  display: block;
+  margin: 0 auto 0.25em;
+  box-shadow: 0 0 40px rgba(224, 168, 46, 0.25);
+}

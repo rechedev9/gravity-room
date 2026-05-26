@@ -58,6 +58,9 @@ skills-lock.json
 # Weave local runtime artifacts
 .weave/
 
+# Superpowers brainstorming scratch (visual companion mockups)
+.superpowers/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

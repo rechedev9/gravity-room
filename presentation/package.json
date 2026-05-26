@@ -1,0 +1,13 @@
+{
+  "name": "gravity-room-presentation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "serve": "node build.mjs && cd dist && python3 -m http.server 4321"
+  },
+  "dependencies": {
+    "reveal.js": "^5.1.0"
+  }
+}
