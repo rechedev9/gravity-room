@@ -157,7 +157,7 @@ Con **umbrales** que deben cumplirse: latencia **p95 < 500 ms** y **menos del 1 
 
 ---
 
-## Slide 13 · IA con disciplina
+## Slide 12 · IA con disciplina
 
 **Cómo uso la IA.** Como copiloto para ir más rápido, pero **yo pongo las reglas**: hay un
 `CLAUDE.md` en el repo que fija convenciones, estilo y flujo de trabajo (incluido TDD).
