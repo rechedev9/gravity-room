@@ -51,18 +51,19 @@ bunx decktape reveal "http://localhost:4321/presentacion/" slides-export.pdf
 
 ## Desplegar a producción
 
+**Automático vía CI.** El deck se empaqueta dentro del artefacto de la web en
+`.github/workflows/deploy.yml` (job `build-web`, paso _"Bundle presentation deck
+into web dist"_), así que **cada `git push` a `main` lo despliega** junto con la
+SPA y el `rsync --delete` ya **no** lo borra. Servido por Caddy con
+`try_files {path} {path}/index.html` → <https://gravityroom.app/presentacion>.
+
+**Manual (opcional)**, para actualizar solo el deck sin un deploy completo:
+
 ```bash
 cd presentation
 node build.mjs
 rsync -az -e "ssh -i <SSH_KEY> -o StrictHostKeyChecking=accept-new" \
   dist/ <USER>@178.105.107.25:/opt/gravity-room/data/web-dist/presentacion/
-# → https://gravityroom.app/presentacion
 ```
 
-`--delete` se omite a propósito: solo añadimos la subcarpeta `presentacion/`.
-Caddy ya la sirve con su `try_files {path} {path}/index.html`.
-
-> ⚠️ **Aviso:** el deploy de la web vía CI (`git push main`) hace
-> `rsync --delete` sobre `/srv/web`, así que **borra** `/presentacion`. Si tras
-> la defensa se hace un push a `main`, vuelve a ejecutar el `rsync` de arriba
-> para restaurarla. Hacerla permanente = integrarla en `.github/workflows/deploy.yml`.
+(`--delete` se omite: solo añadimos la subcarpeta `presentacion/`.)

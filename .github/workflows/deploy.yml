@@ -69,6 +69,16 @@ jobs:
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: bun run --filter web build
 
+      # Bundle the reveal.js defense deck into the web dist so it ships with
+      # the SPA. Without this it lived only as a manual rsync and the
+      # `--delete` web-dist sync below wiped /presentacion on every deploy.
+      # build.mjs has no deps (node:fs only) and writes presentation/dist/.
+      - name: Bundle presentation deck into web dist
+        run: |
+          node presentation/build.mjs
+          mkdir -p apps/frontend/web/dist/presentacion
+          cp -r presentation/dist/. apps/frontend/web/dist/presentacion/
+
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist
