@@ -42,9 +42,11 @@ export default defineConfig(({ mode }) => {
           // CacheFirst rule below on first request instead.
           globPatterns: ['**/*.{js,css,html,svg,ico,woff2}'],
           // For SPA: serve cached index.html for unrecognised navigation requests.
-          // API calls are excluded so fetch errors surface normally.
+          // API calls are excluded so fetch errors surface normally. /presentacion
+          // is a separate static deck served by Caddy (not an SPA route) — without
+          // this denylist entry the SW hijacks its navigation and shows the SPA 404.
           navigateFallback: 'index.html',
-          navigateFallbackDenylist: [/^\/api/],
+          navigateFallbackDenylist: [/^\/api/, /^\/presentacion/],
           runtimeCaching: [
             {
               // Auth endpoints: never cache — they set httpOnly cookies and must
