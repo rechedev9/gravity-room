@@ -55,9 +55,11 @@ export default defineConfig(({ mode }) => {
               handler: 'NetworkOnly',
             },
             {
-              // All other API calls: try network first, fall back to cache after
-              // 5 s so the app remains usable in a gym with poor signal.
-              urlPattern: /\/api\//,
+              // Public, non-user-specific API calls may be cached for offline
+              // resilience. Authenticated API responses are intentionally
+              // excluded so workout/profile/insight data never lands in
+              // Cache Storage.
+              urlPattern: /\/api\/(?:catalog|exercises|muscle-groups|stats\/online)(?:\/|$|\?)/,
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'api-cache',
@@ -120,6 +122,15 @@ export default defineConfig(({ mode }) => {
             maxSize: 250 * 1024,
             groups: [
               {
+                name: 'vendor-recharts',
+                test: /[\\/]node_modules[\\/]recharts[\\/]/,
+                priority: 10,
+                // Recharts has internal circular imports that Rolldown can split
+                // incorrectly when a small global maxSize applies, leaving default
+                // axis props undefined at runtime. Keep the library in one chunk.
+                maxSize: 2 * 1024 * 1024,
+              },
+              {
                 name(id: string): string | null {
                   if (!id.includes('node_modules')) return null;
                   if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
@@ -134,7 +145,6 @@ export default defineConfig(({ mode }) => {
                     )
                   )
                     return 'vendor-motion';
-                  if (/[\\/]node_modules[\\/]recharts[\\/]/.test(id)) return 'vendor-recharts';
                   if (/[\\/]node_modules[\\/]@sentry[\\/]/.test(id)) return 'vendor-sentry';
                   return null;
                 },

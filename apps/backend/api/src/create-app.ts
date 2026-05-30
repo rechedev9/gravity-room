@@ -30,6 +30,13 @@ export type CreateAppOptions = {
   permissionsPolicy: string;
 };
 
+function shouldDisableHttpCache(request: Request): boolean {
+  const url = new URL(request.url);
+  if (url.pathname.startsWith('/api/auth/')) return true;
+  if (request.headers.has('authorization')) return true;
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
@@ -62,7 +69,7 @@ export function createApp(options: CreateAppOptions) {
     )
     .use(swaggerPlugin)
     .use(metricsPlugin)
-    .onAfterHandle(({ set }) => {
+    .onAfterHandle(({ set, request }) => {
       set.headers['x-content-type-options'] = 'nosniff';
       set.headers['x-frame-options'] = 'DENY';
       set.headers['referrer-policy'] = 'strict-origin-when-cross-origin';
@@ -71,6 +78,9 @@ export function createApp(options: CreateAppOptions) {
         set.headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
       }
       set.headers['permissions-policy'] = permissionsPolicy;
+      if (shouldDisableHttpCache(request)) {
+        set.headers['cache-control'] = 'no-store';
+      }
     })
     .use(requestLogger)
     .onError(({ code, error, set, reqLogger, startMs }) => {

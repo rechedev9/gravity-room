@@ -63,6 +63,9 @@ jobs:
           VITE_API_URL: ${{ vars.VITE_API_URL }}
         run: bun run ci
 
+      - name: Validate production security headers contract
+        run: bun run security:headers
+
       - name: Run API tests
         run: bun run test:api
 

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { guestWithProgram } from './helpers/seed';
+import { expandDayControls, expectSelectedDay, guestWithProgram } from './helpers/seed';
 
 /**
  * Tracker interaction E2E tests — covers the core tracking UX:
@@ -33,20 +33,23 @@ test.describe('Day navigation', () => {
   });
 
   test('prev button is disabled on day 1', async ({ page }) => {
+    await expandDayControls(page);
     await expect(page.getByRole('button', { name: 'Día anterior' })).toBeDisabled();
   });
 
   test('next button navigates to day 2', async ({ page }) => {
+    await expandDayControls(page);
     await page.getByRole('button', { name: 'Siguiente día' }).click();
-    await expect(page.getByText(/^Día 2$/).first()).toBeVisible();
+    await expectSelectedDay(page, 2);
   });
 
   test('can navigate forward and back', async ({ page }) => {
+    await expandDayControls(page);
     await page.getByRole('button', { name: 'Siguiente día' }).click();
-    await expect(page.getByText(/^Día 2$/).first()).toBeVisible();
+    await expectSelectedDay(page, 2);
 
     await page.getByRole('button', { name: 'Día anterior' }).click();
-    await expect(page.getByText(/^Día 1$/).first()).toBeVisible();
+    await expectSelectedDay(page, 1);
   });
 });
 
@@ -58,6 +61,7 @@ test.describe('View toggle', () => {
   });
 
   test('can switch to compact view and back', async ({ page }) => {
+    await expandDayControls(page);
     const compactBtn = page.getByRole('button', { name: 'Cambiar a vista compacta' });
     await expect(compactBtn).toBeVisible();
     await compactBtn.click();
@@ -78,7 +82,7 @@ test.describe('Edit weights', () => {
   });
 
   test('"Editar Pesos" opens modal with "Actualizar Pesos" button', async ({ page }) => {
-    await page.getByRole('button', { name: 'Editar Pesos' }).click();
+    await page.getByRole('button', { name: /editar/i }).click();
     await expect(page.getByRole('button', { name: 'Actualizar Pesos' })).toBeVisible({
       timeout: 5_000,
     });
@@ -86,12 +90,12 @@ test.describe('Edit weights', () => {
   });
 
   test('cancelling edit returns to tracker', async ({ page }) => {
-    await page.getByRole('button', { name: 'Editar Pesos' }).click();
+    await page.getByRole('button', { name: /editar/i }).click();
     await expect(page.getByRole('button', { name: 'Actualizar Pesos' })).toBeVisible({
       timeout: 5_000,
     });
     await page.getByRole('button', { name: 'Cancelar' }).click();
-    await expect(page.getByText(/^Día \d+$/).first()).toBeVisible({ timeout: 5_000 });
+    await expectSelectedDay(page, 1);
   });
 });
 

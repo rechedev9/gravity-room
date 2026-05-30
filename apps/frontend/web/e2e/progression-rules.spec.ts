@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedProgram, navigateToTracker } from './helpers/seed';
+import { seedProgram, navigateToTracker, selectWorkoutDay } from './helpers/seed';
 import { buildSuccessResults } from './helpers/fixtures';
 
 test.describe('Progression rules', () => {
@@ -7,7 +7,7 @@ test.describe('Progression rules', () => {
     // Seed 4 all-success workouts (indices 0–3, one full rotation)
     await seedProgram(page, { results: buildSuccessResults(4) });
     await navigateToTracker(page);
-    await expect(page.getByText('Día 5', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
+    await selectWorkoutDay(page, 5);
 
     // Workout #5 (index 4) is Day 1 = Squat T1
     // Squat T1 should show 65 (60 start + 5 increment) — weight column shows number only
@@ -25,7 +25,7 @@ test.describe('Progression rules', () => {
       },
     });
     await navigateToTracker(page);
-    await expect(page.getByText('Día 5', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
+    await selectWorkoutDay(page, 5);
 
     // Workout #5 (index 4) T1 Squat: weight stays 60, stage advances to S2
     await expect(page.getByText('60', { exact: true }).first()).toBeVisible();

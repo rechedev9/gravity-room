@@ -20,6 +20,12 @@ services:
     image: ghcr.io/rechedev9/gravity-room-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file: .env
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
     networks: [gr-net]
     depends_on:
       postgres:
@@ -37,6 +43,12 @@ services:
     image: ghcr.io/rechedev9/gravity-room-analytics:${IMAGE_TAG:-latest}
     restart: unless-stopped
     env_file: .env
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
     networks: [gr-net]
     depends_on:
       postgres:

@@ -383,11 +383,9 @@ export const userInsights = pgTable(
     validUntil: timestamp('valid_until', { withTimezone: true }),
   },
   (table) => [
-    unique('user_insights_user_type_exercise_uq').on(
-      table.userId,
-      table.insightType,
-      table.exerciseId
-    ),
+    unique('user_insights_user_type_exercise_uq')
+      .on(table.userId, table.insightType, table.exerciseId)
+      .nullsNotDistinct(),
     index('user_insights_user_type_idx').on(table.userId, table.insightType),
   ]
 );

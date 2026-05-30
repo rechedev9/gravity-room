@@ -151,10 +151,10 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new \
-            "${VPS_USER}@${VPS_HOST}" bash <<EOF
+            "${VPS_USER}@${VPS_HOST}" "IMAGE_TAG=${IMAGE_TAG} bash -s" <<'EOF'
           set -e
           cd /opt/gravity-room
-          export IMAGE_TAG=${IMAGE_TAG}
+          export IMAGE_TAG
           docker compose pull
           docker compose up -d --remove-orphans
           EOF
@@ -172,15 +172,44 @@ jobs:
           sleep 20
           docker compose ps
           echo "---"
+          healthy=0
           for i in 1 2 3 4 5 6 7 8 9 10; do
             if docker compose exec -T api curl -fsS http://localhost:3001/health > /dev/null 2>&1; then
               echo "✓ API healthy"
-              exit 0
+              healthy=1
+              break
             fi
             echo "  retry $i/10..."
             sleep 5
           done
-          echo "✗ API failed health check"
-          docker compose logs --tail 100 api postgres
-          exit 1
+          if [ "$healthy" -ne 1 ]; then
+            echo "✗ API failed health check"
+            docker compose logs --tail 100 api postgres
+            exit 1
+          fi
+          echo "Checking required database indexes..."
+          docker compose exec -T api bun - <<'BUN'
+          import postgres from "postgres";
+
+          const sql = postgres(process.env.DATABASE_URL, { max: 1 });
+          try {
+            const [row] = await sql`
+              select exists (
+                select 1
+                from pg_indexes
+                where schemaname = 'public'
+                  and tablename = 'user_insights'
+                  and indexname = 'user_insights_user_type_subject_unique'
+                  and indexdef ilike '%NULLS NOT DISTINCT%'
+              ) as ok
+            `;
+            if (!row?.ok) {
+              console.error("✗ required user_insights NULLS NOT DISTINCT index is missing");
+              process.exit(1);
+            }
+            console.log("✓ required database indexes present");
+          } finally {
+            await sql.end();
+          }
+          BUN
           EOF

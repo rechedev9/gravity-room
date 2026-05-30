@@ -16,6 +16,12 @@ function tierToSlotId(workoutIndex: number, tier: string): string | null {
   return SLOT_MAP[workoutIndex % 4]?.[tier] ?? null;
 }
 
+export async function skipFirstRunOverlays(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    window.localStorage.setItem('gr-shortcuts-seen-v1', '1');
+  });
+}
+
 interface AuthResult {
   readonly email: string;
   readonly accessToken: string;
@@ -30,6 +36,7 @@ interface AuthResult {
  * returns 404 in production, making it safe to include in the API.
  */
 export async function createAndAuthUser(page: Page): Promise<AuthResult> {
+  await skipFirstRunOverlays(page);
   const email = `e2e-${crypto.randomUUID()}@test.local`;
 
   const res = await page.request.post(`${BASE_URL}/api/auth/dev`, {

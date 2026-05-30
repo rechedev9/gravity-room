@@ -84,10 +84,42 @@ async function verifyInstanceOwnership(
 }
 
 /**
- * Get the expected number of slots for a given workout index from the program definition.
- * Returns undefined if the definition cannot be resolved (completed_at will be skipped).
+ * Get the expected number of slots for a given workout index from the program
+ * definition, while validating that the caller is writing to a real workout
+ * slot. If the catalog definition cannot be resolved in unit-test/migration
+ * edge cases, return undefined to preserve the existing completed_at no-op
+ * behavior.
  */
-async function getExpectedSlotCount(
+async function getExpectedSlotCountForMutation(
+  programId: string,
+  workoutIndex: number,
+  slotId: string
+): Promise<number | undefined> {
+  const defResult = await getProgramDefinition(programId);
+  if (defResult.status !== 'found') return undefined;
+
+  const def = defResult.definition;
+  const maxWorkoutIndex = def.totalWorkouts - 1;
+  if (workoutIndex > maxWorkoutIndex) {
+    throw new ApiError(400, `Invalid workoutIndex: ${workoutIndex}`, 'INVALID_DATA');
+  }
+
+  const cycleLength = def.days.length;
+  const day = def.days[workoutIndex % cycleLength];
+  if (!day.slots.some((slot) => slot.id === slotId)) {
+    throw new ApiError(400, `Unknown slotId: ${slotId}`, 'INVALID_DATA');
+  }
+
+  return day.slots.length;
+}
+
+/**
+ * Undo entries were created by prior validated mutations. For legacy entries
+ * (or mocked unit tests), only resolve the expected slot count needed to keep
+ * completed_at in sync; do not reject an old undo stack because the catalog
+ * changed after it was written.
+ */
+async function getExpectedSlotCountForUndo(
   programId: string,
   workoutIndex: number
 ): Promise<number | undefined> {
@@ -97,7 +129,7 @@ async function getExpectedSlotCount(
   const def = defResult.definition;
   const cycleLength = def.days.length;
   const day = def.days[workoutIndex % cycleLength];
-  return day.slots.length;
+  return day?.slots.length;
 }
 
 /**
@@ -179,7 +211,11 @@ export async function recordResult(
   // Resolve template + expected slot count BEFORE opening the tx — neither
   // changes during the tx and `getProgramDefinition` does its own DB read.
   const programId = await verifyInstanceOwnership(getDb(), userId, instanceId);
-  const expectedSlots = await getExpectedSlotCount(programId, input.workoutIndex);
+  const expectedSlots = await getExpectedSlotCountForMutation(
+    programId,
+    input.workoutIndex,
+    input.slotId
+  );
 
   const result = await getDb().transaction(async (tx) => {
     // Capture existing state for undo (must happen before upsert)
@@ -257,7 +293,7 @@ export async function deleteResult(
 ): Promise<void> {
   // Resolve template + expected slot count BEFORE opening the tx.
   const programId = await verifyInstanceOwnership(getDb(), userId, instanceId);
-  const expectedSlots = await getExpectedSlotCount(programId, workoutIndex);
+  const expectedSlots = await getExpectedSlotCountForMutation(programId, workoutIndex, slotId);
 
   await getDb().transaction(async (tx) => {
     const [existing] = await tx
@@ -311,7 +347,7 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
     .orderBy(desc(undoEntries.id))
     .limit(1);
   if (!peek) return null;
-  const expectedSlots = await getExpectedSlotCount(programId, peek.workoutIndex);
+  const expectedSlots = await getExpectedSlotCountForUndo(programId, peek.workoutIndex);
 
   const entry = await getDb().transaction(async (tx) => {
     // Pop the most recent undo entry (LIFO — highest id)
@@ -371,7 +407,7 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
     const slots =
       found.workoutIndex === peek.workoutIndex
         ? expectedSlots
-        : await getExpectedSlotCount(programId, found.workoutIndex);
+        : await getExpectedSlotCountForUndo(programId, found.workoutIndex);
     await syncCompletedAt(tx, instanceId, found.workoutIndex, slots);
 
     await touchInstanceTimestamp(tx, instanceId);

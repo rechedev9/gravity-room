@@ -281,6 +281,13 @@
       "when": 1773500000005,
       "tag": "0039_partial_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1773500000006,
+      "tag": "0040_user_insights_nulls_not_distinct",
+      "breakpoints": true
     }
   ]
 }

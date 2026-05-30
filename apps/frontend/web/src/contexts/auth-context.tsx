@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { setAccessToken, refreshAccessToken } from '@/lib/api';
+import { clearApiResponseCache, setAccessToken, refreshAccessToken } from '@/lib/api';
 import { apiFetch, fetchMe, parseUserSafe } from '@/lib/api-functions';
 import type { UserInfo } from '@/lib/api-functions';
 import { isRecord } from '@gzclp/domain/type-guards';
@@ -160,6 +160,7 @@ export function AuthProvider({
   const deleteAccount = useCallback(async (): Promise<void> => {
     await apiFetch('/auth/me', { method: 'DELETE' });
     setAccessToken(null);
+    await clearApiResponseCache();
     queryClient.setQueryData(SESSION_QUERY_KEY, null);
     sentrySetUser(null);
   }, [queryClient]);
@@ -175,6 +176,7 @@ export function AuthProvider({
       );
     }
     setAccessToken(null);
+    await clearApiResponseCache();
     queryClient.setQueryData(SESSION_QUERY_KEY, null);
     sentrySetUser(null);
   }, [queryClient]);

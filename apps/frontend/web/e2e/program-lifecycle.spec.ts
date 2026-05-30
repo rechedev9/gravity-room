@@ -19,8 +19,9 @@ async function startProgram(page: Page, name: string): Promise<void> {
   await expect(page.getByRole('button', { name: 'Generar Programa' })).toBeVisible({
     timeout: 10_000,
   });
+  await dismissCookieBannerIfPresent(page);
   await page.getByRole('button', { name: 'Generar Programa' }).click();
-  await expect(page.getByText(/^Día \d+$/).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('progressbar')).toBeVisible({ timeout: 10_000 });
 }
 
 async function backToCatalog(page: Page): Promise<void> {

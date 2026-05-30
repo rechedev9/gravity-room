@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { guestWithProgram, dismissRpeIfPresent } from './helpers/seed';
+import {
+  guestWithProgram,
+  dismissRpeIfPresent,
+  expandDayControls,
+  expectSelectedDay,
+} from './helpers/seed';
 
 /**
  * Workout completion E2E tests — covers full day completion,
@@ -33,8 +38,9 @@ test.describe('Full day completion', () => {
   test('completing day 1 then navigating to day 2 shows new exercises', async ({ page }) => {
     await completeDay1(page);
 
+    await expandDayControls(page);
     await page.getByRole('button', { name: 'Siguiente día' }).click();
-    await expect(page.getByText(/^Día 2$/).first()).toBeVisible();
+    await expectSelectedDay(page, 2);
 
     await expect(page.getByRole('button', { name: 'Marcar d2-t1 éxito' })).toBeVisible();
   });

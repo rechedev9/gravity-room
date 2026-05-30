@@ -26,6 +26,16 @@ export interface RefreshTokenRow {
   readonly previousTokenHash: string | null;
 }
 
+export type RotateRefreshTokenResult =
+  | { readonly status: 'not_found' }
+  | { readonly status: 'expired' }
+  | { readonly status: 'account_deleted' }
+  | {
+      readonly status: 'rotated';
+      readonly user: UserRow;
+      readonly refreshToken: string;
+    };
+
 /** Result of findOrCreateGoogleUser — includes new-user detection flag. */
 interface FindOrCreateResult {
   readonly user: UserRow;
@@ -203,6 +213,52 @@ export async function revokeRefreshToken(tokenHash: string): Promise<void> {
 
 export async function revokeAllUserTokens(userId: string): Promise<void> {
   await getDb().delete(refreshTokens).where(eq(refreshTokens.userId, userId));
+}
+
+/**
+ * Atomically consumes one refresh token and writes its successor.
+ *
+ * The old implementation selected the token, deleted it, then inserted the
+ * replacement as separate operations. Two concurrent refresh requests could
+ * both observe the old token before either delete happened and each mint a
+ * valid successor. This transaction uses DELETE ... RETURNING as the compare-
+ * and-swap boundary: only the request that actually deletes the current token
+ * may create the next token in the family.
+ */
+export async function rotateRefreshToken(tokenHash: string): Promise<RotateRefreshTokenResult> {
+  return getDb().transaction(async (tx) => {
+    const [stored] = await tx
+      .delete(refreshTokens)
+      .where(eq(refreshTokens.tokenHash, tokenHash))
+      .returning(REFRESH_TOKEN_COLUMNS);
+
+    if (!stored) return { status: 'not_found' };
+
+    if (stored.expiresAt < new Date()) {
+      return { status: 'expired' };
+    }
+
+    const [user] = await tx
+      .select()
+      .from(users)
+      .where(and(eq(users.id, stored.userId), isNull(users.deletedAt)))
+      .limit(1);
+
+    if (!user) return { status: 'account_deleted' };
+
+    const refreshToken = generateRefreshToken();
+    const newTokenHash = await hashToken(refreshToken);
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MS);
+
+    await tx.insert(refreshTokens).values({
+      userId: stored.userId,
+      tokenHash: newTokenHash,
+      expiresAt,
+      previousTokenHash: tokenHash,
+    });
+
+    return { status: 'rotated', user, refreshToken };
+  });
 }
 
 // ---------------------------------------------------------------------------

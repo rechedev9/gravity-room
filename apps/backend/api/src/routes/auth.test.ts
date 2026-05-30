@@ -34,6 +34,16 @@ const TEST_REFRESH_TOKEN = {
   createdAt: new Date(),
 };
 
+type MockRotateRefreshTokenResult =
+  | { readonly status: 'not_found' }
+  | { readonly status: 'expired' }
+  | { readonly status: 'account_deleted' }
+  | {
+      readonly status: 'rotated';
+      readonly user: typeof TEST_USER;
+      readonly refreshToken: string;
+    };
+
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
@@ -51,6 +61,13 @@ const mockFindRefreshTokenByPreviousHash = mock<
   () => Promise<typeof TEST_REFRESH_TOKEN | undefined>
 >(() => Promise.resolve(undefined));
 const mockCreateAndStoreRefreshToken = mock(() => Promise.resolve('mock-raw-refresh-token'));
+const mockRotateRefreshToken = mock<() => Promise<MockRotateRefreshTokenResult>>(() =>
+  Promise.resolve({
+    status: 'rotated' as const,
+    user: { ...TEST_USER },
+    refreshToken: 'new-raw-refresh-token',
+  })
+);
 const mockFindOrCreateGoogleUser = mock<
   () => Promise<{ user: typeof TEST_USER; isNewUser: boolean }>
 >(() => Promise.resolve({ user: { ...TEST_USER }, isNewUser: false }));
@@ -63,6 +80,7 @@ mock.module('../services/auth', () => ({
   revokeRefreshToken: mockRevokeRefreshToken,
   revokeAllUserTokens: mockRevokeAllUserTokens,
   createAndStoreRefreshToken: mockCreateAndStoreRefreshToken,
+  rotateRefreshToken: mockRotateRefreshToken,
   findOrCreateGoogleUser: mockFindOrCreateGoogleUser,
   REFRESH_TOKEN_DAYS: 7,
 }));
@@ -344,6 +362,15 @@ describe('POST /auth/mobile/google', () => {
 describe('POST /auth/refresh', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockRotateRefreshToken.mockImplementation(() =>
+      Promise.resolve({
+        status: 'rotated',
+        user: { ...TEST_USER },
+        refreshToken: 'new-raw-refresh-token',
+      })
+    );
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() => Promise.resolve(undefined));
+    mockRevokeAllUserTokens.mockClear();
   });
 
   it('returns 401 with AUTH_NO_REFRESH_TOKEN when no cookie is present', async () => {
@@ -355,7 +382,7 @@ describe('POST /auth/refresh', () => {
   });
 
   it('returns 401 with AUTH_INVALID_REFRESH when token is not found in DB', async () => {
-    mockFindRefreshToken.mockImplementation(() => Promise.resolve(undefined));
+    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
     mockFindRefreshTokenByPreviousHash.mockImplementation(() => Promise.resolve(undefined));
 
     const res = await post('/auth/refresh', {}, { Cookie: 'refresh_token=some-token-value' });
@@ -366,7 +393,7 @@ describe('POST /auth/refresh', () => {
   });
 
   it('revokes all user sessions when a rotated-away token is reused (theft detection)', async () => {
-    mockFindRefreshToken.mockImplementation(() => Promise.resolve(undefined));
+    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
     // Successor token exists → the presented token was already rotated
     mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
       Promise.resolve({ ...TEST_REFRESH_TOKEN })
@@ -381,9 +408,12 @@ describe('POST /auth/refresh', () => {
   });
 
   it('returns 200 with a new accessToken when a valid refresh token is provided', async () => {
-    mockFindRefreshToken.mockImplementation(() => Promise.resolve(TEST_REFRESH_TOKEN));
-    mockCreateAndStoreRefreshToken.mockImplementation(() =>
-      Promise.resolve('new-raw-refresh-token')
+    mockRotateRefreshToken.mockImplementation(() =>
+      Promise.resolve({
+        status: 'rotated',
+        user: { ...TEST_USER },
+        refreshToken: 'new-raw-refresh-token',
+      })
     );
 
     const res = await post('/auth/refresh', {}, { Cookie: 'refresh_token=some-token-value' });
@@ -394,8 +424,7 @@ describe('POST /auth/refresh', () => {
   });
 
   it('returns 401 with AUTH_ACCOUNT_DELETED when the token belongs to a soft-deleted user', async () => {
-    mockFindRefreshToken.mockImplementation(() => Promise.resolve(TEST_REFRESH_TOKEN));
-    mockFindUserById.mockImplementation(() => Promise.resolve(undefined));
+    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'account_deleted' }));
 
     const res = await post('/auth/refresh', {}, { Cookie: 'refresh_token=some-token-value' });
     const body = (await res.json()) as { code: string };
@@ -416,7 +445,13 @@ describe('POST /auth/mobile/refresh', () => {
     mockRevokeRefreshToken.mockClear();
     mockRevokeAllUserTokens.mockClear();
     mockCreateAndStoreRefreshToken.mockClear();
-    mockFindRefreshToken.mockImplementation(() => Promise.resolve({ ...TEST_REFRESH_TOKEN }));
+    mockRotateRefreshToken.mockImplementation(() =>
+      Promise.resolve({
+        status: 'rotated',
+        user: { ...TEST_USER },
+        refreshToken: 'new-mobile-refresh-token',
+      })
+    );
     mockFindRefreshTokenByPreviousHash.mockImplementation(() => Promise.resolve(undefined));
     mockFindUserById.mockImplementation(() => Promise.resolve({ ...TEST_USER }));
     mockCreateAndStoreRefreshToken.mockImplementation(() =>
@@ -441,11 +476,7 @@ describe('POST /auth/mobile/refresh', () => {
       name: null,
       avatarUrl: null,
     });
-    expect(mockRevokeRefreshToken).toHaveBeenCalledTimes(1);
-    expect(mockCreateAndStoreRefreshToken).toHaveBeenCalledWith(
-      TEST_REFRESH_TOKEN.userId,
-      'a'.repeat(64)
-    );
+    expect(mockRotateRefreshToken).toHaveBeenCalledWith('a'.repeat(64));
   });
 
   it('returns 401 with AUTH_NO_REFRESH_TOKEN when refreshToken is missing', async () => {
@@ -465,7 +496,7 @@ describe('POST /auth/mobile/refresh', () => {
   });
 
   it('returns 401 with AUTH_INVALID_REFRESH when token is not found in DB', async () => {
-    mockFindRefreshToken.mockImplementation(() => Promise.resolve(undefined));
+    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
 
     const res = await post('/auth/mobile/refresh', { refreshToken: 'mobile-refresh-token' });
     const body = (await res.json()) as { code: string };
@@ -475,7 +506,7 @@ describe('POST /auth/mobile/refresh', () => {
   });
 
   it('revokes all user sessions when a rotated-away token is reused', async () => {
-    mockFindRefreshToken.mockImplementation(() => Promise.resolve(undefined));
+    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
     mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
       Promise.resolve({ ...TEST_REFRESH_TOKEN })
     );
@@ -489,20 +520,17 @@ describe('POST /auth/mobile/refresh', () => {
   });
 
   it('returns 401 with AUTH_REFRESH_EXPIRED when the refresh token is expired', async () => {
-    mockFindRefreshToken.mockImplementation(() =>
-      Promise.resolve({ ...TEST_REFRESH_TOKEN, expiresAt: new Date(Date.now() - 60_000) })
-    );
+    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'expired' }));
 
     const res = await post('/auth/mobile/refresh', { refreshToken: 'expired-mobile-token' });
     const body = (await res.json()) as { code: string };
 
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_REFRESH_EXPIRED');
-    expect(mockRevokeRefreshToken).toHaveBeenCalledWith('a'.repeat(64));
   });
 
   it('returns 401 with AUTH_ACCOUNT_DELETED when the token belongs to a deleted user', async () => {
-    mockFindUserById.mockImplementation(() => Promise.resolve(undefined));
+    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'account_deleted' }));
 
     const res = await post('/auth/mobile/refresh', { refreshToken: 'deleted-user-token' });
     const body = (await res.json()) as { code: string };

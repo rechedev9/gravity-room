@@ -11,12 +11,12 @@ import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
 import {
   hashToken,
-  findUserById,
-  findRefreshToken,
   findRefreshTokenByPreviousHash,
   revokeRefreshToken,
   revokeAllUserTokens,
   createAndStoreRefreshToken,
+  rotateRefreshToken,
+  findUserById,
   findOrCreateGoogleUser,
   findUserByEmail,
   updateUserProfile,
@@ -50,6 +50,7 @@ function classifyDevice(userAgent: string | undefined): DeviceType {
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
 const DEV_AUTH_ENABLED = process.env['AUTH_DEV_ROUTE_ENABLED'] === 'true' && !IS_PRODUCTION;
+const DEV_AUTH_RATE_LIMIT = { maxRequests: 1_000, windowMs: 60_000 };
 
 /** Max avatar data URL size in bytes (~200KB base64 ≈ ~150KB image). */
 const MAX_AVATAR_BYTES = 200_000;
@@ -144,9 +145,9 @@ async function refreshAuthToken(
   onInvalidatedToken?: () => void
 ): Promise<{ accessToken: string; refreshToken: string; user: UserProfile }> {
   const tokenHash = await hashToken(refreshToken);
-  const stored = await findRefreshToken(tokenHash);
+  const rotation = await rotateRefreshToken(tokenHash);
 
-  if (!stored) {
+  if (rotation.status === 'not_found') {
     const successor = await findRefreshTokenByPreviousHash(tokenHash);
     if (successor) {
       reqLogger.warn(
@@ -158,33 +159,27 @@ async function refreshAuthToken(
     throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
   }
 
-  if (stored.expiresAt < new Date()) {
-    await revokeRefreshToken(tokenHash);
+  if (rotation.status === 'expired') {
     onInvalidatedToken?.();
     throw new ApiError(401, 'Refresh token expired', 'AUTH_REFRESH_EXPIRED');
   }
 
-  const user = await findUserById(stored.userId);
-  if (!user) {
-    await revokeRefreshToken(tokenHash);
+  if (rotation.status === 'account_deleted') {
     onInvalidatedToken?.();
     throw new ApiError(401, 'Account has been deleted', 'AUTH_ACCOUNT_DELETED');
   }
 
-  await revokeRefreshToken(tokenHash);
-  const newRefreshToken = await createAndStoreRefreshToken(stored.userId, tokenHash);
-
   const accessToken = await jwt.sign({
-    sub: stored.userId,
+    sub: rotation.user.id,
     exp: ACCESS_TOKEN_EXPIRY,
   });
 
-  reqLogger.info({ event: 'auth.refresh', userId: stored.userId }, 'token refreshed');
+  reqLogger.info({ event: 'auth.refresh', userId: rotation.user.id }, 'token refreshed');
 
   return {
     accessToken,
-    refreshToken: newRefreshToken,
-    user: userResponse(user),
+    refreshToken: rotation.refreshToken,
+    user: userResponse(rotation.user),
   };
 }
 
@@ -332,7 +327,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       ? app.post(
           '/dev',
           async ({ jwt, body, cookie, set, ip }) => {
-            await rateLimit(ip, 'POST /auth/dev', { maxRequests: 5, windowMs: 60_000 });
+            await rateLimit(ip, 'POST /auth/dev', DEV_AUTH_RATE_LIMIT);
             // Reuse existing user by email (dev logins generate a new googleId each time,
             // which would violate the email unique constraint on repeated calls).
             const existing = await findUserByEmail(body.email);
