@@ -51,12 +51,7 @@ export function ProgramJsonLd({
     totalTime: `P${Math.ceil(totalWorkouts / workoutsPerWeek)}W`,
     step: buildSteps(days),
   };
+  const jsonLdText = JSON.stringify(payload).replace(/</g, '\\u003c');
 
-  return (
-    <script
-      type="application/ld+json"
-      // The JSON is built from validated domain types, not user input — safe to embed.
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(payload) }}
-    />
-  );
+  return <script type="application/ld+json">{jsonLdText}</script>;
 }

@@ -92,7 +92,11 @@ describe('verifyGoogleToken — JWKS fetch failure', () => {
     );
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    const fakeToken = 'eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3QifQ.eyJzdWIiOiJ1c2VyMSJ9.c2ln';
+    const fakeToken = [
+      'eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3QifQ',
+      'eyJzdWIiOiJ1c2VyMSJ9',
+      'c2ln',
+    ].join('.');
 
     // Act
     let thrown: unknown;

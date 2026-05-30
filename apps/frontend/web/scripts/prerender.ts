@@ -26,6 +26,7 @@
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
+import { connect } from 'node:net';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Browser, type BrowserContext } from '@playwright/test';
@@ -181,6 +182,22 @@ async function readSitemapPaths(): Promise<readonly string[]> {
 // Vite preview server lifecycle
 // ---------------------------------------------------------------------------
 
+async function canOpenTcpConnection(host: string, port: number): Promise<boolean> {
+  return new Promise((resolveProbe) => {
+    const socket = connect({ host, port });
+    const settle = (ok: boolean) => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolveProbe(ok);
+    };
+
+    socket.setTimeout(1_000);
+    socket.once('connect', () => settle(true));
+    socket.once('timeout', () => settle(false));
+    socket.once('error', () => settle(false));
+  });
+}
+
 async function startPreviewServer(): Promise<ChildProcess> {
   const child = spawn(
     'bunx',
@@ -204,19 +221,12 @@ async function startPreviewServer(): Promise<ChildProcess> {
   child.stdout?.on('data', (buf: Buffer) => process.stdout.write(`[preview] ${buf.toString()}`));
   child.stderr?.on('data', (buf: Buffer) => process.stderr.write(`[preview!] ${buf.toString()}`));
 
-  // HTTP probe — more reliable than parsing stdout. Vite colours the port with
+  // TCP probe — more reliable than parsing stdout. Vite colours the port with
   // ANSI escapes (`http://127.0.0.1:\x1b[1m4173\x1b[22m/`) so a naïve
   // `.includes("127.0.0.1:4173")` matched in local TTY runs but failed in CI.
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    try {
-      const res = await fetch(PREVIEW_ORIGIN, { signal: AbortSignal.timeout(1_000) });
-      // Any HTTP response means the listener is up — even a 404 from vite's
-      // fallback handler is fine here.
-      if (res.ok || res.status === 404) return child;
-    } catch {
-      // ECONNREFUSED while the listener is binding — keep polling.
-    }
+    if (await canOpenTcpConnection(PREVIEW_HOST, PREVIEW_PORT)) return child;
     await new Promise((r) => setTimeout(r, 200));
   }
   child.kill('SIGTERM');

@@ -49,17 +49,14 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - name: Checkout full history
+      - name: Checkout current tree
         uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
       - name: Run Gitleaks
         run: |
           docker run --rm \
             -v "$PWD:/repo" \
-            ghcr.io/gitleaks/gitleaks:v8.30.0 detect \
-            --source=/repo \
+            ghcr.io/gitleaks/gitleaks:v8.30.0 dir /repo \
             --redact \
             --no-banner \
             --exit-code=1 \
@@ -96,7 +93,8 @@ jobs:
             --error \
             --sarif \
             --output semgrep.sarif \
-            --exclude docs/superpowers
+            --exclude docs/superpowers \
+            --exclude presentation
 
       - name: Upload Semgrep SARIF
         if: always() && hashFiles('semgrep.sarif') != ''

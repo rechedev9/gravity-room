@@ -9,12 +9,10 @@ interface FaqSectionProps {
 
 export function FaqSection({ content }: FaqSectionProps): React.ReactNode {
   const jsonLd = buildFaqJsonLd(content.items);
+  const jsonLdText = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
   return (
     <section id="faq" aria-labelledby="faq-heading" className={`${SECTION_PAD} max-w-3xl mx-auto`}>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json">{jsonLdText}</script>
       <FadeUp className="text-center mb-12">
         <SectionLabel>{content.sectionLabel}</SectionLabel>
         <h2
