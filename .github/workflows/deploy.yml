@@ -83,6 +83,7 @@ jobs:
         with:
           name: web-dist
           path: apps/frontend/web/dist/
+          include-hidden-files: true
           retention-days: 7
 
   deploy:
@@ -157,6 +158,7 @@ jobs:
           export IMAGE_TAG
           docker compose pull
           docker compose up -d --remove-orphans
+          docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
           EOF
 
       - name: Health check via VPS
