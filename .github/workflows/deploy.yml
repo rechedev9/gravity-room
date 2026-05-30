@@ -158,7 +158,8 @@ jobs:
           export IMAGE_TAG
           docker compose pull
           docker compose up -d --remove-orphans
-          docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+          docker compose up -d --no-deps --force-recreate caddy
+          docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile </dev/null
           EOF
 
       - name: Health check via VPS
@@ -176,7 +177,7 @@ jobs:
           echo "---"
           healthy=0
           for i in 1 2 3 4 5 6 7 8 9 10; do
-            if docker compose exec -T api curl -fsS http://localhost:3001/health > /dev/null 2>&1; then
+            if docker compose exec -T api curl -fsS http://localhost:3001/health </dev/null > /dev/null 2>&1; then
               echo "✓ API healthy"
               healthy=1
               break
@@ -215,3 +216,20 @@ jobs:
           }
           BUN
           EOF
+
+      - name: Verify production web security surface
+        run: |
+          set -euo pipefail
+
+          web_headers="$(curl -fsSI https://gravityroom.app)"
+          printf '%s\n' "$web_headers" | grep -qi "script-src-attr 'none'"
+          printf '%s\n' "$web_headers" | grep -qi "manifest-src 'self'"
+          printf '%s\n' "$web_headers" | grep -qi "worker-src 'self'"
+          printf '%s\n' "$web_headers" | grep -qi "upgrade-insecure-requests"
+
+          api_headers="$(curl -fsSI https://api.gravityroom.app/health)"
+          printf '%s\n' "$api_headers" | grep -qi "script-src-attr 'none'"
+          printf '%s\n' "$api_headers" | grep -qi "form-action 'self'"
+          printf '%s\n' "$api_headers" | grep -qi "upgrade-insecure-requests"
+
+          curl -fsS https://gravityroom.app/.well-known/security.txt | grep -q '^Contact:'
