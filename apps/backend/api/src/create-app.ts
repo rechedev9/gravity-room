@@ -37,6 +37,32 @@ function shouldDisableHttpCache(request: Request): boolean {
   return false;
 }
 
+/**
+ * Applies the response security headers. Called from BOTH onAfterHandle (success
+ * path) and onError — in Elysia onAfterHandle does not run when a handler throws,
+ * so without the onError call every 4xx/5xx response (validation errors, 401s,
+ * 404s, 429s, 500s) would ship without CSP, HSTS, X-Frame-Options or nosniff.
+ * Those are exactly the responses most likely to reflect attacker input.
+ */
+function applySecurityHeaders(
+  set: { headers: Record<string, string | number> },
+  request: Request,
+  csp: string,
+  permissionsPolicy: string
+): void {
+  set.headers['x-content-type-options'] = 'nosniff';
+  set.headers['x-frame-options'] = 'DENY';
+  set.headers['referrer-policy'] = 'strict-origin-when-cross-origin';
+  set.headers['content-security-policy'] = csp;
+  if (process.env['NODE_ENV'] === 'production') {
+    set.headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
+  }
+  set.headers['permissions-policy'] = permissionsPolicy;
+  if (shouldDisableHttpCache(request)) {
+    set.headers['cache-control'] = 'no-store';
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
@@ -70,20 +96,11 @@ export function createApp(options: CreateAppOptions) {
     .use(swaggerPlugin)
     .use(metricsPlugin)
     .onAfterHandle(({ set, request }) => {
-      set.headers['x-content-type-options'] = 'nosniff';
-      set.headers['x-frame-options'] = 'DENY';
-      set.headers['referrer-policy'] = 'strict-origin-when-cross-origin';
-      set.headers['content-security-policy'] = csp;
-      if (process.env['NODE_ENV'] === 'production') {
-        set.headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
-      }
-      set.headers['permissions-policy'] = permissionsPolicy;
-      if (shouldDisableHttpCache(request)) {
-        set.headers['cache-control'] = 'no-store';
-      }
+      applySecurityHeaders(set, request, csp, permissionsPolicy);
     })
     .use(requestLogger)
-    .onError(({ code, error, set, reqLogger, startMs }) => {
+    .onError(({ code, error, set, request, reqLogger, startMs }) => {
+      applySecurityHeaders(set, request, csp, permissionsPolicy);
       const log = reqLogger ?? logger;
       const latencyMs = startMs != null ? Date.now() - startMs : undefined;
 

@@ -3,6 +3,10 @@ import { DEFAULT_WEIGHTS } from './fixtures';
 
 const BASE_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
 
+// Shared secret for the dev-only /auth/dev endpoint. Must match the API's
+// AUTH_DEV_ROUTE_SECRET (set in playwright.config.ts and CI). Non-prod only.
+const DEV_AUTH_SECRET = process.env['AUTH_DEV_ROUTE_SECRET'] ?? 'e2e-dev-secret-not-for-prod';
+
 // GZCLP slot map (mirrors GZCLP_DEFINITION.days — stable, defined in gzclp.ts)
 // T3 slots alternate between latpulldown-t3 (days 1, 3) and dbrow-t3 (days 2, 4)
 const SLOT_MAP: Record<number, Record<string, string>> = {
@@ -40,6 +44,7 @@ export async function createAndAuthUser(page: Page): Promise<AuthResult> {
   const email = `e2e-${crypto.randomUUID()}@test.local`;
 
   const res = await page.request.post(`${BASE_URL}/api/auth/dev`, {
+    headers: { 'x-dev-auth-secret': DEV_AUTH_SECRET },
     data: { email },
   });
   if (!res.ok()) throw new Error(`Dev sign-in failed: ${res.status()} ${await res.text()}`);

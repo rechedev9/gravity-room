@@ -56,10 +56,10 @@ describe('generateRefreshToken', () => {
     expect(token.length).toBeGreaterThan(0);
   });
 
-  it('should return a UUID-format string', () => {
+  it('should return 256 bits of entropy as a 64-char hex string', () => {
     const token = generateRefreshToken();
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-    expect(uuidPattern.test(token)).toBe(true);
+    expect(token).toHaveLength(64);
+    expect(/^[0-9a-f]{64}$/.test(token)).toBe(true);
   });
 
   it('should generate unique tokens', () => {

@@ -33,6 +33,7 @@ export default defineConfig({
       cwd: resolve(__dirname, '../../..'),
       env: {
         AUTH_DEV_ROUTE_ENABLED: 'true',
+        AUTH_DEV_ROUTE_SECRET: 'e2e-dev-secret-not-for-prod',
       },
     },
     {

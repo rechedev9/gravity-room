@@ -84,3 +84,20 @@ describe('GET /health', () => {
     expect('db' in body).toBe(true);
   });
 });
+
+describe('security headers', () => {
+  it('are present on success responses', async () => {
+    const res = await app.handle(new Request('http://localhost/health'));
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(res.headers.get('x-frame-options')).toBe('DENY');
+    expect(res.headers.get('content-security-policy')).toBe("default-src 'self'");
+  });
+
+  it('are present on error responses too (onAfterHandle does not run on throw)', async () => {
+    const res = await app.handle(new Request('http://localhost/does-not-exist'));
+    expect(res.status).toBe(404);
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(res.headers.get('x-frame-options')).toBe('DENY');
+    expect(res.headers.get('content-security-policy')).toBe("default-src 'self'");
+  });
+});

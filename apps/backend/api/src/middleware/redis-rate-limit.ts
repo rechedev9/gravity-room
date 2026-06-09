@@ -10,8 +10,9 @@
  * between check and increment.
  */
 import { createHash } from 'node:crypto';
-import type { RateLimitStore } from './rate-limit';
+import { MemoryRateLimitStore, type RateLimitStore } from './rate-limit';
 import { getRedis } from '../lib/redis';
+import { logger } from '../lib/logger';
 
 const LUA_SLIDING_WINDOW = `
 local key      = KEYS[1]
@@ -43,9 +44,17 @@ function isNoScriptError(err: unknown): boolean {
 }
 
 export class RedisRateLimitStore implements RateLimitStore {
+  // Per-instance fallback used when Redis is unavailable. Falling back to the
+  // in-memory limiter keeps the limit ENFORCED (per instance) during a Redis
+  // outage rather than failing open — a transient Redis blip must not silently
+  // disable brute-force protection on auth endpoints. It also never lets a
+  // connection error propagate as a 500, which would turn a Redis hiccup into a
+  // DoS of every rate-limited route.
+  private readonly fallback = new MemoryRateLimitStore();
+
   async check(key: string, windowMs: number, maxRequests: number): Promise<boolean> {
     const redis = getRedis();
-    if (!redis) return true; // fail-open: no Redis available
+    if (!redis) return this.fallback.check(key, windowMs, maxRequests);
 
     const args: [number, string, string, string, string] = [
       1,
@@ -57,14 +66,18 @@ export class RedisRateLimitStore implements RateLimitStore {
 
     // Try EVALSHA first; on cache miss (NOSCRIPT) Redis tells us to fall back
     // to EVAL, which repopulates the script cache for future EVALSHA calls.
-    let result: unknown;
     try {
-      result = await redis.evalsha(LUA_SHA, ...args);
+      let result: unknown;
+      try {
+        result = await redis.evalsha(LUA_SHA, ...args);
+      } catch (err: unknown) {
+        if (!isNoScriptError(err)) throw err;
+        result = await redis.eval(LUA_SLIDING_WINDOW, ...args);
+      }
+      return result === 1;
     } catch (err: unknown) {
-      if (!isNoScriptError(err)) throw err;
-      result = await redis.eval(LUA_SLIDING_WINDOW, ...args);
+      logger.warn({ err }, 'Redis rate limiter unavailable, falling back to in-memory');
+      return this.fallback.check(key, windowMs, maxRequests);
     }
-
-    return result === 1;
   }
 }

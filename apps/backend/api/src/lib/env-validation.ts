@@ -144,6 +144,14 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     example: 'false',
   },
   {
+    name: 'AUTH_DEV_ROUTE_SECRET',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Shared secret (>= 16 chars) required in the x-dev-auth-secret header by POST /api/auth/dev. The route is not registered unless this is set; never set in production.',
+    example: '<random-32-byte-hex>',
+  },
+  {
     name: 'SWAGGER_ENABLED',
     service: 'api',
     requiredInProd: false,

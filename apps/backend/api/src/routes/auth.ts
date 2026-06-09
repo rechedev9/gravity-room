@@ -5,6 +5,7 @@
  * Refresh tokens: opaque UUID in httpOnly cookie, SHA-256 hashed in DB.
  */
 import { Elysia, t } from 'elysia';
+import { timingSafeEqual } from 'node:crypto';
 import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
 import { ApiError } from '../middleware/error-handler';
 import { rateLimit } from '../middleware/rate-limit';
@@ -49,8 +50,25 @@ function classifyDevice(userAgent: string | undefined): DeviceType {
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
-const DEV_AUTH_ENABLED = process.env['AUTH_DEV_ROUTE_ENABLED'] === 'true' && !IS_PRODUCTION;
+// The dev sign-in route mints a full session for ANY email with no Google
+// token. Gating it on NODE_ENV alone is fragile: any internet-reachable
+// staging/preview env with the flag set becomes a one-request impersonation
+// oracle for real accounts. Require a strong shared secret too, and only
+// register the route when that secret is actually configured.
+const DEV_AUTH_SECRET = process.env['AUTH_DEV_ROUTE_SECRET'] ?? '';
+const DEV_AUTH_ENABLED =
+  process.env['AUTH_DEV_ROUTE_ENABLED'] === 'true' &&
+  !IS_PRODUCTION &&
+  DEV_AUTH_SECRET.length >= 16;
 const DEV_AUTH_RATE_LIMIT = { maxRequests: 1_000, windowMs: 60_000 };
+
+/** Constant-time comparison of the dev-auth secret header against the configured value. */
+function devAuthSecretMatches(provided: string | undefined): boolean {
+  if (!provided) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(DEV_AUTH_SECRET);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 /** Max avatar data URL size in bytes (~200KB base64 ≈ ~150KB image). */
 const MAX_AVATAR_BYTES = 200_000;
@@ -326,8 +344,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     DEV_AUTH_ENABLED
       ? app.post(
           '/dev',
-          async ({ jwt, body, cookie, set, ip }) => {
+          async ({ jwt, body, cookie, set, ip, headers }) => {
             await rateLimit(ip, 'POST /auth/dev', DEV_AUTH_RATE_LIMIT);
+            if (!devAuthSecretMatches(headers['x-dev-auth-secret'])) {
+              throw new ApiError(401, 'Invalid dev auth secret', 'UNAUTHORIZED');
+            }
             // Reuse existing user by email (dev logins generate a new googleId each time,
             // which would violate the email unique constraint on repeated calls).
             const existing = await findUserByEmail(body.email);

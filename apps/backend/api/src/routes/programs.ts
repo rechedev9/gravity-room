@@ -302,6 +302,10 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
           t.String({ maxLength: 30 }),
           t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })])
         ),
+        // Bounded to keep a single import from forcing an unbounded in-memory
+        // array + one huge transaction. Outer key = workoutIndex (capped well
+        // above any real program length); inner key = slotId (capped above any
+        // real day's slot count). undoHistory below is bounded the same way.
         results: t.Record(
           t.String(),
           t.Record(
@@ -310,8 +314,10 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
               result: t.Optional(t.Union([t.Literal('success'), t.Literal('fail')])),
               amrapReps: t.Optional(t.Integer({ minimum: 0 })),
               rpe: t.Optional(t.Integer({ minimum: 6, maximum: 10 })),
-            })
-          )
+            }),
+            { maxProperties: 50 }
+          ),
+          { maxProperties: 1000 }
         ),
         undoHistory: t.Array(
           t.Object({

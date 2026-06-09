@@ -54,7 +54,10 @@ const REFRESH_TOKEN_MS = REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000;
 // ---------------------------------------------------------------------------
 
 export function generateRefreshToken(): string {
-  return crypto.randomUUID();
+  // 32 random bytes (256 bits) hex-encoded. A v4 UUID carries only ~122 bits
+  // and a fixed structure; for a 7-day bearer secret prefer full entropy.
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /** SHA-256 hash of a token for safe DB storage. */
@@ -109,10 +112,27 @@ export async function findOrCreateGoogleUser(
         email: sql`EXCLUDED.email`,
         updatedAt: new Date(),
       },
+      // Never touch a soft-deleted row. Without this guard the DO UPDATE
+      // overwrites the email/name of a deleted account on every sign-in
+      // attempt, mutating a row the 30-day purge job reasons about.
+      setWhere: isNull(users.deletedAt),
     })
     .returning();
 
-  if (!user) throw new ApiError(500, 'Failed to upsert user', 'DB_WRITE_ERROR');
+  // RETURNING yields no row when the conflict matched a soft-deleted account
+  // (the setWhere filtered the UPDATE out). Look it up to return the correct
+  // 403 instead of a misleading 500.
+  if (!user) {
+    const [deleted] = await db.select().from(users).where(eq(users.googleId, googleId)).limit(1);
+    if (deleted?.deletedAt) {
+      throw new ApiError(
+        403,
+        'This account has been deleted. Contact support if you wish to recover it.',
+        'ACCOUNT_DELETED'
+      );
+    }
+    throw new ApiError(500, 'Failed to upsert user', 'DB_WRITE_ERROR');
+  }
 
   if (user.deletedAt) {
     throw new ApiError(
