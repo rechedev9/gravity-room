@@ -1,8 +1,7 @@
 import { useRef, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { computeGenericProgram } from '@gzclp/domain/generic-engine';
-import { isRecord } from '@gzclp/domain/type-guards';
 import type {
   ProgramDefinition,
   GenericResults,
@@ -14,68 +13,15 @@ import {
   fetchPrograms,
   fetchGenericProgramDetail,
   fetchCatalogDetail,
-  createProgram,
-  updateProgramConfig,
-  updateProgramMetadata,
-  completeProgram,
-  deleteProgram,
-  recordGenericResult,
-  deleteGenericResult,
-  undoLastResult,
   exportProgram,
   importProgram,
   type GenericProgramDetail,
-  type ProgramSummary,
 } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
-import { trackEvent } from '@/lib/analytics';
 import { captureError } from '@/lib/sentry';
-import {
-  setSlotResult as setSlotResultOptimistic,
-  removeSlotResult,
-  patchSlotField as patchSlotFieldPure,
-} from '@/lib/slot-result-helpers';
-
-// ---------------------------------------------------------------------------
-// Shared optimistic mutation lifecycle callbacks
-// ---------------------------------------------------------------------------
-
-interface OptimisticContext {
-  readonly previousDetail: GenericProgramDetail | undefined;
-}
-
-function optimisticDetailCallbacks(
-  queryClient: QueryClient,
-  instanceId: string | null
-): {
-  snapshotAndUpdate: (
-    updater: (prev: GenericProgramDetail) => GenericProgramDetail
-  ) => Promise<OptimisticContext>;
-  onError: (_err: unknown, _vars: unknown, context: OptimisticContext | undefined) => void;
-  onSettled: () => void;
-} {
-  const detailKey = queryKeys.programs.detail(instanceId ?? '');
-
-  return {
-    snapshotAndUpdate: async (updater) => {
-      await queryClient.cancelQueries({ queryKey: detailKey });
-      const previousDetail = queryClient.getQueryData<GenericProgramDetail>(detailKey);
-      if (previousDetail) {
-        queryClient.setQueryData<GenericProgramDetail>(detailKey, updater(previousDetail));
-      }
-      return { previousDetail };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previousDetail) {
-        queryClient.setQueryData(detailKey, context.previousDetail);
-      }
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: detailKey });
-    },
-  };
-}
+import { patchSlotField as patchSlotFieldPure } from '@/lib/slot-result-helpers';
+import { useProgramMutations } from '@/hooks/use-program-mutations';
 
 // ---------------------------------------------------------------------------
 // Hook interface
@@ -195,244 +141,23 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   // -------------------------------------------------------------------------
 
   const {
-    snapshotAndUpdate,
-    onError: detailOnError,
-    onSettled: detailOnSettled,
-  } = optimisticDetailCallbacks(queryClient, activeInstanceId);
-
-  const markResultMutation = useMutation({
-    mutationFn: async ({
-      index,
-      slotId,
-      value,
-      setLogs,
-    }: {
-      index: number;
-      slotId: string;
-      value: ResultValue;
-      setLogs?: readonly SetLogEntry[];
-    }) => {
-      if (!activeInstanceId) throw new Error('No active program');
-      await recordGenericResult(
-        activeInstanceId,
-        index,
-        slotId,
-        value,
-        undefined,
-        undefined,
-        setLogs
-      );
-    },
-    onMutate: ({ index, slotId, value, setLogs }) =>
-      snapshotAndUpdate((prev) => ({
-        ...prev,
-        results: setSlotResultOptimistic(prev.results, index, slotId, value, undefined, setLogs),
-      })),
-    onError: detailOnError,
-    onSettled: detailOnSettled,
-  });
-
-  const setAmrapMutation = useMutation({
-    mutationFn: async ({
-      index,
-      slotId,
-      reps,
-    }: {
-      index: number;
-      slotId: string;
-      reps: number | undefined;
-    }) => {
-      if (!activeInstanceId) throw new Error('No active program');
-      const currentResult = results[String(index)]?.[slotId]?.result;
-      if (!currentResult) return;
-      await recordGenericResult(activeInstanceId, index, slotId, currentResult, reps);
-    },
-    onMutate: ({ index, slotId, reps }) =>
-      snapshotAndUpdate((prev) => {
-        const key = String(index);
-        const updatedResults = { ...prev.results };
-        const workoutEntry = { ...updatedResults[key] };
-        const slotEntry = { ...workoutEntry[slotId] };
-        if (reps === undefined) {
-          delete slotEntry.amrapReps;
-        } else {
-          slotEntry.amrapReps = reps;
-        }
-        workoutEntry[slotId] = slotEntry;
-        updatedResults[key] = workoutEntry;
-        return { ...prev, results: updatedResults };
-      }),
-    onError: (err, vars, ctx) => {
-      detailOnError(err, vars, ctx);
-      toast({ message: t('tracker.errors.amrap_save_failed') });
-    },
-    // onSettled omitted — setAmrapRepsCb updates the cache directly (immediate setQueryData +
-    // debounced mutate); invalidating here would trigger a redundant GET on every click.
-  });
-
-  const setRpeMutation = useMutation({
-    mutationFn: async ({
-      index,
-      slotId,
-      rpe,
-    }: {
-      index: number;
-      slotId: string;
-      rpe: number | undefined;
-    }) => {
-      if (!activeInstanceId) throw new Error('No active program');
-      const currentResult = results[String(index)]?.[slotId]?.result;
-      if (!currentResult) return;
-      const amrapReps = results[String(index)]?.[slotId]?.amrapReps;
-      await recordGenericResult(activeInstanceId, index, slotId, currentResult, amrapReps, rpe);
-    },
-    onMutate: ({ index, slotId, rpe }) =>
-      snapshotAndUpdate((prev) => {
-        const key = String(index);
-        const updatedResults = { ...prev.results };
-        const workoutEntry = { ...updatedResults[key] };
-        const slotEntry = { ...workoutEntry[slotId] };
-        if (rpe === undefined) {
-          delete slotEntry.rpe;
-        } else {
-          slotEntry.rpe = rpe;
-        }
-        workoutEntry[slotId] = slotEntry;
-        updatedResults[key] = workoutEntry;
-        return { ...prev, results: updatedResults };
-      }),
-    onError: (err, vars, ctx) => {
-      detailOnError(err, vars, ctx);
-      toast({ message: t('tracker.errors.rpe_save_failed') });
-    },
-    // onSettled omitted — setRpeCb updates the cache directly (immediate setQueryData +
-    // debounced mutate); invalidating here would trigger a redundant GET on every selection.
-  });
-
-  const undoSpecificMutation = useMutation({
-    mutationFn: async ({ index, slotId }: { index: number; slotId: string }) => {
-      if (!activeInstanceId) throw new Error('No active program');
-      await deleteGenericResult(activeInstanceId, index, slotId);
-    },
-    onMutate: ({ index, slotId }) =>
-      snapshotAndUpdate((prev) => ({
-        ...prev,
-        results: removeSlotResult(prev.results, index, slotId),
-      })),
-    onError: detailOnError,
-    onSettled: detailOnSettled,
-  });
-
-  const undoLastMutation = useMutation({
-    mutationFn: async () => {
-      if (!activeInstanceId) throw new Error('No active program');
-      await undoLastResult(activeInstanceId);
-    },
-    onError: () => {
-      toast({ message: t('tracker.errors.undo_failed') });
-    },
-    onSettled: detailOnSettled,
-  });
-
-  const generateProgramMutation = useMutation({
-    mutationFn: async (newConfig: Record<string, number | string>) => {
-      if (!definition) throw new Error('Unknown program definition');
-      await createProgram(programId, definition.name, newConfig);
-    },
-    onSuccess: () => {
-      trackEvent('program_start', { program: programId });
-    },
-    onError: () => {
-      toast({ message: t('tracker.errors.program_create_failed') });
-    },
-    onSettled: () => {
-      // exact: true busts the programs list only. No detail exists yet for a
-      // freshly created program, so prefix-invalidating every cached detail
-      // would only cause unnecessary refetches.
-      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all, exact: true });
-    },
-  });
-
-  const updateConfigMutation = useMutation({
-    mutationFn: async (newConfig: Record<string, number | string>) => {
-      if (!activeInstanceId) throw new Error('No active program');
-      await updateProgramConfig(activeInstanceId, newConfig);
-    },
-    onError: () => {
-      toast({ message: t('tracker.errors.config_update_failed') });
-    },
-    onSettled: detailOnSettled,
-  });
-
-  const updateMetadataMutation = useMutation({
-    mutationFn: async (newMetadata: Record<string, unknown>) => {
-      if (!activeInstanceId) throw new Error('No active program');
-      await updateProgramMetadata(activeInstanceId, newMetadata);
-    },
-    onMutate: (newMetadata) =>
-      snapshotAndUpdate((prev) => ({
-        ...prev,
-        metadata: {
-          ...(isRecord(prev.metadata) ? prev.metadata : {}),
-          ...newMetadata,
-        },
-      })),
-    onError: detailOnError,
-    onSettled: detailOnSettled,
-  });
-
-  const finishProgramMutation = useMutation({
-    mutationFn: async () => {
-      if (!activeInstanceId) throw new Error('No active program');
-      await completeProgram(activeInstanceId);
-    },
-    onSuccess: () => {
-      // Optimistically mark this instance as completed in the list cache so the
-      // dashboard immediately shows enabled catalog cards when we navigate back.
-      const idToComplete = activeInstanceId;
-      if (idToComplete) {
-        queryClient.setQueryData<ProgramSummary[]>(
-          queryKeys.programs.all,
-          (prev: ProgramSummary[] | undefined) => {
-            if (!prev) return prev;
-            return prev.map((p: ProgramSummary) =>
-              p.id === idToComplete ? { ...p, status: 'completed' } : p
-            );
-          }
-        );
-      }
-    },
-    onError: () => {
-      toast({ message: t('tracker.errors.program_finish_failed') });
-    },
-    onSettled: () => {
-      // The finished detail is removed explicitly below; other details are
-      // unaffected by finishing one program, so keep the invalidation exact.
-      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all, exact: true });
-      // Clean up the detail cache so stale 'active' status can't be served
-      if (activeInstanceId) {
-        queryClient.removeQueries({ queryKey: queryKeys.programs.detail(activeInstanceId) });
-      }
-    },
-  });
-
-  const resetAllMutation = useMutation({
-    mutationFn: async () => {
-      if (!activeInstanceId) throw new Error('No active program');
-      await deleteProgram(activeInstanceId);
-    },
-    onError: () => {
-      toast({ message: t('tracker.errors.program_reset_failed') });
-    },
-    onSettled: () => {
-      const deletedId = activeInstanceId;
-      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all, exact: true });
-      // The deleted program's detail is the only one affected; remove it
-      // rather than invalidating every cached detail by prefix.
-      if (deletedId) {
-        queryClient.removeQueries({ queryKey: queryKeys.programs.detail(deletedId) });
-      }
-    },
+    markResultMutation,
+    setAmrapMutation,
+    setRpeMutation,
+    undoSpecificMutation,
+    undoLastMutation,
+    generateProgramMutation,
+    updateConfigMutation,
+    updateMetadataMutation,
+    finishProgramMutation,
+    resetAllMutation,
+  } = useProgramMutations({
+    activeInstanceId,
+    programId,
+    definition,
+    queryClient,
+    toast,
+    t,
   });
 
   // -------------------------------------------------------------------------
