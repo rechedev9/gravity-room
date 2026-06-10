@@ -40,6 +40,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@babel/runtime": "^7.28.4",
+        "@gzclp/api-client": "workspace:*",
         "@gzclp/domain": "workspace:*",
         "@tanstack/react-query": "^5.90.21",
         "expo": "^54.0.23",
@@ -66,6 +67,7 @@
       "name": "web",
       "version": "0.1.0",
       "dependencies": {
+        "@gzclp/api-client": "workspace:*",
         "@gzclp/domain": "workspace:*",
         "@hookform/resolvers": "^5.2.2",
         "@radix-ui/react-collapsible": "^1.1.12",

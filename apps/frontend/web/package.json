@@ -14,6 +14,7 @@
     "api:types": "bun run codegen/generate-api-types.ts"
   },
   "dependencies": {
+    "@gzclp/api-client": "workspace:*",
     "@gzclp/domain": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-collapsible": "^1.1.12",
