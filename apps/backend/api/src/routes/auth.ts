@@ -5,7 +5,7 @@
  * Refresh tokens: opaque UUID in httpOnly cookie, SHA-256 hashed in DB.
  */
 import { Elysia, t } from 'elysia';
-import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
+import { jwtPlugin, resolveUserId, extractBearerToken } from '../middleware/auth-guard';
 import { ApiError } from '../middleware/error-handler';
 import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
@@ -477,16 +477,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .get(
     '/me',
     async ({ jwt, headers }) => {
-      const authorization = headers['authorization'];
-      if (!authorization?.startsWith(BEARER_PREFIX)) {
-        throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
-      }
-
-      const token = authorization.slice(BEARER_PREFIX.length);
-      if (!token) {
-        throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
-      }
-
+      const token = extractBearerToken(headers);
       const payload = await jwt.verify(token);
       if (!payload || typeof payload['sub'] !== 'string') {
         throw new ApiError(401, 'Invalid or expired token', 'TOKEN_INVALID');

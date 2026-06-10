@@ -208,9 +208,10 @@ export async function createInstance(
     throw new ApiError(400, `Unknown program: ${programId}`, 'INVALID_PROGRAM');
   }
 
-  // Auto-complete any existing active program for this user (self-healing guard).
-  // The DB also enforces this via a unique partial index, but handling it here
-  // lets us resolve the conflict gracefully instead of throwing a constraint error.
+  // Auto-complete any existing active program before inserting a new one.
+  // This prevents multiple concurrent active programs and ensures graceful resolution
+  // of the "one active program per user" invariant. If a concurrent duplicate INSERT
+  // somehow bypasses this UPDATE, the application will handle the resulting conflict.
   await getDb()
     .update(programInstances)
     .set({ status: 'completed' })
