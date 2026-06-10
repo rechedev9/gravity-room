@@ -43,5 +43,9 @@ async def trigger_compute(
     """Manually trigger a full compute run. Requires X-Internal-Secret header."""
     if not settings.internal_secret or x_internal_secret != settings.internal_secret:
         raise HTTPException(status_code=403, detail="Forbidden")
-    result = await run_all()
-    return {"ok": True, **result}
+    try:
+        result = await run_all()
+        return {"ok": True, **result}
+    except Exception as e:
+        log.error("Compute failed", exc_info=True)
+        raise HTTPException(status_code=500, detail={"error": "compute_failed", "message": str(e)})
