@@ -1,4 +1,4 @@
-import { Suspense, useState, useTransition } from 'react';
+import { Suspense, useState, useTransition, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ResultValue } from '@gzclp/domain/types';
 import { useProgram } from '@/hooks/use-program';
@@ -229,13 +229,13 @@ export function ProgramApp({
     rpe?: number
   ): void => logSet(workoutIndex, slotId, setIndex, reps, weight, rpe);
 
-  const firstPendingSlot = (() => {
+  const firstPendingSlot = useMemo(() => {
     if (firstPendingIdx < 0) return null;
     const row = rows[firstPendingIdx];
     if (!row) return null;
     const slot = row.slots.find((s) => s.result === undefined);
     return slot ?? null;
-  })();
+  }, [rows, firstPendingIdx]);
 
   useKeyboardShortcuts({
     isActive: isViewActive && activeTab === 'program' && config !== null,
@@ -385,13 +385,15 @@ export function ProgramApp({
                 onNextDay={dayNav.handleNextDay}
                 onGoToCurrent={dayNav.handleGoToCurrent}
                 onToggleView={dayNav.handleToggleView}
-                onMark={handleMarkResult}
-                onUndo={testWeight.handleUndoSpecific}
-                onSetAmrapReps={setAmrapReps}
-                onSetRpe={setRpe}
-                onSetTap={handleSetTap}
-                getSetLogs={getSetLogs}
-                isSlotLogging={isSlotLogging}
+                slotActions={{
+                  onMark: handleMarkResult,
+                  onUndo: testWeight.handleUndoSpecific,
+                  onSetAmrapReps: setAmrapReps,
+                  onSetRpe: setRpe,
+                  onSetTap: handleSetTap,
+                  getSetLogs,
+                  isSlotLogging,
+                }}
               />
             )}
 

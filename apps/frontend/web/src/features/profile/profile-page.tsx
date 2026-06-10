@@ -93,14 +93,14 @@ export function ProfilePage(): React.ReactNode {
     .filter((p) => p.status === 'completed')
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
-  const effectiveInstanceId: string | undefined = (() => {
+  const effectiveInstanceId: string | undefined = useMemo(() => {
     if (selectedInstanceId) return selectedInstanceId;
     const active = allPrograms.find((p) => p.status === 'active');
     if (active) return active.id;
     return completedPrograms[0]?.id;
-  })();
+  }, [selectedInstanceId, allPrograms, completedPrograms]);
 
-  const effectiveProgramId: string = (() => {
+  const effectiveProgramId: string = useMemo(() => {
     if (selectedInstanceId) {
       const selected = allPrograms.find((p) => p.id === selectedInstanceId);
       if (selected) return selected.programId;
@@ -108,7 +108,7 @@ export function ProfilePage(): React.ReactNode {
     const active = allPrograms.find((p) => p.status === 'active');
     if (active) return active.programId;
     return completedPrograms[0]?.programId ?? 'gzclp';
-  })();
+  }, [selectedInstanceId, allPrograms, completedPrograms]);
 
   const { definition, config, rows, resultTimestamps } = useProgram(
     effectiveProgramId,

@@ -1,4 +1,4 @@
-import type { ResultValue, GenericWorkoutRow, SetLogEntry } from '@gzclp/domain/types';
+import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type { ViewMode } from '@/lib/view-preference';
 import { useTranslation } from 'react-i18next';
@@ -6,7 +6,7 @@ import { localizedProgramDescription, localizedProgramName } from '@/lib/catalog
 import { GuestBanner } from '@/components/guest-banner';
 import { DayNavigator } from '@/features/program-view/day-navigator';
 import { ProgramAboutSection } from '@/features/program-view/program-about-section';
-import { DayView } from '@/features/program-view/day-view';
+import { DayView, type SlotActions } from '@/features/program-view/day-view';
 import { DetailedDayView } from '@/features/program-view/detailed-day-view';
 
 interface ProgramTabContentProps {
@@ -23,20 +23,7 @@ interface ProgramTabContentProps {
   readonly onNextDay: () => void;
   readonly onGoToCurrent: () => void;
   readonly onToggleView: () => void;
-  readonly onMark: (workoutIndex: number, slotId: string, value: ResultValue) => void;
-  readonly onUndo: (workoutIndex: number, slotId: string) => void;
-  readonly onSetAmrapReps: (workoutIndex: number, slotId: string, reps: number | undefined) => void;
-  readonly onSetRpe: (workoutIndex: number, slotId: string, rpe: number | undefined) => void;
-  readonly onSetTap: (
-    workoutIndex: number,
-    slotId: string,
-    setIndex: number,
-    reps: number,
-    weight?: number,
-    rpe?: number
-  ) => void;
-  readonly getSetLogs: (workoutIndex: number, slotId: string) => readonly SetLogEntry[] | undefined;
-  readonly isSlotLogging: (workoutIndex: number, slotId: string) => boolean;
+  readonly slotActions: SlotActions;
 }
 
 export function ProgramTabContent({
@@ -53,14 +40,10 @@ export function ProgramTabContent({
   onNextDay,
   onGoToCurrent,
   onToggleView,
-  onMark,
-  onUndo,
-  onSetAmrapReps,
-  onSetRpe,
-  onSetTap,
-  getSetLogs,
-  isSlotLogging,
+  slotActions,
 }: ProgramTabContentProps): React.ReactNode {
+  const { onMark, onUndo, onSetAmrapReps, onSetRpe, onSetTap, getSetLogs, isSlotLogging } =
+    slotActions;
   const { t } = useTranslation();
   const name = localizedProgramName(t, definition.id, definition.name);
   const description = localizedProgramDescription(t, definition.id, definition.description);

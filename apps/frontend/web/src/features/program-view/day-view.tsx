@@ -10,9 +10,8 @@ import { SetIndicators } from './set-indicators';
 import { SlotCardShell } from './slot-card-shell';
 import { SlotResultFooter } from './slot-result-footer';
 
-export interface DayViewProps {
-  readonly workout: GenericWorkoutRow;
-  readonly isCurrent: boolean;
+/** All slot-level interaction callbacks, grouped for prop-drilling convenience. */
+export interface SlotActions {
   readonly onMark: (workoutIndex: number, slotId: string, value: ResultValue) => void;
   readonly onUndo: (workoutIndex: number, slotId: string) => void;
   readonly onSetAmrapReps: (workoutIndex: number, slotId: string, reps: number | undefined) => void;
@@ -33,6 +32,18 @@ export interface DayViewProps {
   ) => readonly SetLogEntry[] | undefined;
   /** Check if set logging is in progress for a slot. */
   readonly isSlotLogging?: (workoutIndex: number, slotId: string) => boolean;
+}
+
+export interface DayViewProps {
+  readonly workout: GenericWorkoutRow;
+  readonly isCurrent: boolean;
+  readonly onMark: SlotActions['onMark'];
+  readonly onUndo: SlotActions['onUndo'];
+  readonly onSetAmrapReps: SlotActions['onSetAmrapReps'];
+  readonly onSetRpe?: SlotActions['onSetRpe'];
+  readonly onSetTap?: SlotActions['onSetTap'];
+  readonly getSetLogs?: SlotActions['getSetLogs'];
+  readonly isSlotLogging?: SlotActions['isSlotLogging'];
 }
 
 /** Render prescription ladder: warm-ups -> working set separated by | */
