@@ -1,3 +1,4 @@
+import { createSingleFlight } from '@gzclp/api-client/single-flight';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { secureRefreshTokenStorage, type RefreshTokenStorage } from './secure-storage';
 
@@ -45,7 +46,34 @@ interface RestoreSessionDependencies {
 }
 
 let accessToken: string | null = null;
-let inFlightRestore: Promise<SessionState | null> | null = null;
+let pendingRestoreDeps: RestoreSessionDependencies = {};
+
+const singleFlightRestore = createSingleFlight(async () => {
+  const storage = pendingRestoreDeps.storage ?? secureRefreshTokenStorage;
+  const refreshSession = pendingRestoreDeps.refreshSession ?? refreshMobileSession;
+
+  const refreshToken = await storage.getRefreshToken();
+  if (!refreshToken) {
+    accessToken = null;
+    return null;
+  }
+
+  try {
+    const refreshed = await refreshSession(refreshToken);
+    accessToken = refreshed.accessToken;
+    await storage.setRefreshToken(refreshed.refreshToken);
+    return {
+      accessToken: refreshed.accessToken,
+      user: refreshed.user,
+    } as SessionState;
+  } catch (error) {
+    accessToken = null;
+    if (error instanceof InvalidRefreshTokenError) {
+      await storage.clearRefreshToken();
+    }
+    return null;
+  }
+});
 
 function readAuthUser(value: unknown): AuthUser {
   if (!isRecord(value)) {
@@ -286,38 +314,6 @@ export async function signOutSession(dependencies: SignOutDependencies = {}): Pr
 export async function restoreSession(
   dependencies: RestoreSessionDependencies = {}
 ): Promise<SessionState | null> {
-  if (inFlightRestore) return inFlightRestore;
-
-  const storage = dependencies.storage ?? secureRefreshTokenStorage;
-  const refreshSession = dependencies.refreshSession ?? refreshMobileSession;
-
-  inFlightRestore = (async () => {
-    const refreshToken = await storage.getRefreshToken();
-    if (!refreshToken) {
-      accessToken = null;
-      return null;
-    }
-
-    try {
-      const refreshed = await refreshSession(refreshToken);
-      accessToken = refreshed.accessToken;
-      await storage.setRefreshToken(refreshed.refreshToken);
-      return {
-        accessToken: refreshed.accessToken,
-        user: refreshed.user,
-      };
-    } catch (error) {
-      accessToken = null;
-      if (error instanceof InvalidRefreshTokenError) {
-        await storage.clearRefreshToken();
-      }
-      return null;
-    }
-  })();
-
-  try {
-    return await inFlightRestore;
-  } finally {
-    inFlightRestore = null;
-  }
+  pendingRestoreDeps = dependencies;
+  return singleFlightRestore();
 }
