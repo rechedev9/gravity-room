@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  api-types-drift:
+    name: OpenAPI client drift detection
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: gzclp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:password@localhost:5432/gzclp
+      JWT_SECRET: ci-jwt-secret-at-least-64-chars-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      GOOGLE_CLIENT_ID: placeholder-not-used-in-drift-check
+      GOOGLE_CLIENT_IDS: placeholder-not-used-in-drift-check
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Start API server
+        working-directory: apps/backend/api
+        run: bun run dev &
+
+      - name: Wait for API to be healthy
+        run: |
+          echo "Waiting for API at http://localhost:3001/health..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3001/health > /dev/null; then
+              echo "API is healthy"
+              exit 0
+            fi
+            echo "  attempt $i/30 — retrying in 2s"
+            sleep 2
+          done
+          echo "API did not become healthy after 60s"
+          exit 1
+
+      - name: Regenerate OpenAPI client
+        working-directory: apps/frontend/web
+        run: bun run api:types
+
+      - name: Check for drift
+        run: git diff --exit-code apps/frontend/web/src/lib/api/generated.ts

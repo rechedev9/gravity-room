@@ -144,23 +144,19 @@ export function ProgramApp({
   const mutenroshiBlocksCompletion =
     graduation.isMutenroshi && !graduation.graduationState.allPassed;
 
-  const {
-    completionData,
-    handleFinishProgram: hookFinishProgram,
-    handleCompletionDismiss: hookCompletionDismiss,
-    handleViewProfile: hookViewProfile,
-  } = useProgramCompletion({
-    instanceId,
-    programId,
-    definition,
-    config,
-    rows,
-    resultTimestamps,
-    mutenroshiBlocksCompletion,
-    finishProgram,
-    onBackToDashboard,
-    onGoToProfile,
-  });
+  const { completionData, handleFinishProgram, handleCompletionDismiss, handleViewProfile } =
+    useProgramCompletion({
+      instanceId,
+      programId,
+      definition,
+      config,
+      rows,
+      resultTimestamps,
+      mutenroshiBlocksCompletion,
+      finishProgram,
+      onBackToDashboard,
+      onGoToProfile,
+    });
 
   const recordAndToast = (workoutIndex: number, slotId: string, value: ResultValue): void => {
     markResult(workoutIndex, slotId, value);
@@ -259,18 +255,6 @@ export function ProgramApp({
     onPrevDay: dayNav.handlePrevDay,
     onNextDay: dayNav.handleNextDay,
   });
-
-  const handleFinishProgram = async (): Promise<void> => {
-    await hookFinishProgram();
-  };
-
-  const handleCompletionDismiss = (): void => {
-    hookCompletionDismiss();
-  };
-
-  const handleViewProfile = (): void => {
-    hookViewProfile();
-  };
 
   const handleResetAll = (): void => resetAll(() => onProgramReset?.());
 
