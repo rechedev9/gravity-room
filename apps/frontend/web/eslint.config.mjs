@@ -3,6 +3,8 @@ import tseslint from 'typescript-eslint';
 
 const eslintConfig = defineConfig([
   ...tseslint.configs.recommended,
+  // Ignore generated code and build outputs to avoid linting auto-generated or dist files.
+  // generated.ts (from codegen/generate-api-types.ts) is separately excluded in tsconfig.
   globalIgnores(['.next/**', 'out/**', 'dist/**', 'build/**']),
   // Project conventions (CLAUDE.md)
   {

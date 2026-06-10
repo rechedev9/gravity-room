@@ -7,5 +7,7 @@
     }
   },
   "include": ["**/*.ts", "**/*.tsx", "**/*.mts"],
+  // generated.ts: auto-generated from OpenAPI schema (codegen/generate-api-types.ts).
+  // Excluded from type-checking to avoid cascading type errors if the API schema evolves.
   "exclude": ["node_modules", "src/lib/api/generated.ts"]
 }

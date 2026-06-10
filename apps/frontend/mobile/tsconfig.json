@@ -1,4 +1,7 @@
 {
+  // Expo requires its tsconfig.base for module resolution (moduleResolution: "node")
+  // and bundler configuration specific to Metro. Overriding these would break
+  // the Expo/Metro build pipeline. See: https://docs.expo.dev/guides/typescript/
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
