@@ -31,53 +31,11 @@ import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { trackEvent } from '@/lib/analytics';
 import { captureError } from '@/lib/sentry';
-
-// ---------------------------------------------------------------------------
-// Optimistic update helpers (generic slot-keyed format)
-// ---------------------------------------------------------------------------
-
-function setSlotResultOptimistic(
-  prev: GenericResults,
-  workoutIndex: number,
-  slotId: string,
-  result: ResultValue,
-  amrapReps?: number,
-  setLogs?: readonly SetLogEntry[]
-): GenericResults {
-  const key = String(workoutIndex);
-  const existing = prev[key] ?? {};
-  return {
-    ...prev,
-    [key]: {
-      ...existing,
-      [slotId]: {
-        ...existing[slotId],
-        result,
-        ...(amrapReps !== undefined ? { amrapReps } : {}),
-        ...(setLogs !== undefined ? { setLogs: [...setLogs] } : {}),
-      },
-    },
-  };
-}
-
-function removeSlotResult(
-  results: GenericResults,
-  workoutIndex: number,
-  slotId: string
-): GenericResults {
-  const key = String(workoutIndex);
-  const updated = { ...results };
-  if (updated[key]) {
-    const entry = { ...updated[key] };
-    delete entry[slotId];
-    if (Object.keys(entry).length === 0) {
-      delete updated[key];
-    } else {
-      updated[key] = entry;
-    }
-  }
-  return updated;
-}
+import {
+  setSlotResult as setSlotResultOptimistic,
+  removeSlotResult,
+  patchSlotField as patchSlotFieldPure,
+} from '@/lib/slot-result-helpers';
 
 // ---------------------------------------------------------------------------
 // Shared optimistic mutation lifecycle callbacks
@@ -500,18 +458,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     const detailKey = queryKeys.programs.detail(activeInstanceId ?? '');
     queryClient.setQueryData<GenericProgramDetail>(detailKey, (prev) => {
       if (!prev) return prev;
-      const key = String(index);
-      const updatedResults = { ...prev.results };
-      const workoutEntry = { ...updatedResults[key] };
-      const slotEntry = { ...workoutEntry[slotId] };
-      if (value === undefined) {
-        delete slotEntry[field];
-      } else {
-        slotEntry[field] = value;
-      }
-      workoutEntry[slotId] = slotEntry;
-      updatedResults[key] = workoutEntry;
-      return { ...prev, results: updatedResults };
+      return { ...prev, results: patchSlotFieldPure(prev.results, index, slotId, field, value) };
     });
   };
 

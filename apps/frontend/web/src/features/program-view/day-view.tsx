@@ -6,12 +6,9 @@ import type {
   GenericSlotRow,
   SetLogEntry,
 } from '@gzclp/domain/types';
-import { ResultCell } from './result-cell';
-import { AmrapInput } from './amrap-input';
-import { RpeSelect } from './rpe-select';
-import { StageTag } from './stage-tag';
 import { SetIndicators } from './set-indicators';
-import { tierColorClass } from './tier-color';
+import { SlotCardShell } from './slot-card-shell';
+import { SlotResultFooter } from './slot-result-footer';
 
 export interface DayViewProps {
   readonly workout: GenericWorkoutRow;
@@ -94,44 +91,12 @@ export function DayView({
     <div className="flex flex-col gap-3" aria-label={`Entrenamiento ${workout.index + 1}`}>
       {workout.slots.map((slot) => {
         const isDone = slot.result !== undefined;
-        const needsAmrap =
-          slot.result === 'success' && slot.isAmrap && slot.amrapReps === undefined;
-        const fullyDone = isDone && !needsAmrap;
         const hasPrescriptions = slot.prescriptions !== undefined;
         const isGpp = slot.isGpp === true;
         const isBodyweight = slot.isBodyweight === true;
-        const showStage = slot.stagesCount > 1 && !hasPrescriptions && !isGpp;
-        const showRpe = slot.role === 'primary';
 
         return (
-          <div
-            key={slot.slotId}
-            className={`border border-rule bg-card px-4 py-3.5 transition-opacity duration-200 ${
-              fullyDone ? 'opacity-70' : ''
-            } ${isCurrent && !fullyDone ? 'accent-left-gold' : 'accent-left-muted'} ${
-              slot.isChanged && !isDone ? 'bg-changed' : ''
-            }`}
-            style={{ animation: 'card-enter var(--duration-fast) var(--ease-standard)' }}
-          >
-            {/* Row 1: Tier + Exercise + Stage */}
-            <div className="flex items-center gap-2 mb-1">
-              <span
-                className={`text-xs font-bold uppercase tracking-widest font-mono ${tierColorClass(slot.role)}`}
-              >
-                {slot.tier.toUpperCase()}
-              </span>
-              <span className="font-bold text-sm text-main truncate">{slot.exerciseName}</span>
-              {showStage && slot.stage > 0 && <StageTag stage={slot.stage} size="sm" />}
-              {slot.isDeload && (
-                <span className="text-2xs font-bold text-muted tracking-wider uppercase font-mono">
-                  {'\u2193'} Deload
-                </span>
-              )}
-            </div>
-
-            {/* Notes */}
-            {slot.notes !== undefined && <p className="text-xs text-muted mb-1.5">{slot.notes}</p>}
-
+          <SlotCardShell key={slot.slotId} slot={slot} isCurrent={isCurrent}>
             {/* Row 2: Weight + Scheme */}
             <div className="flex items-baseline gap-3 mb-2.5">
               {/* Weight */}
@@ -174,48 +139,16 @@ export function DayView({
             )}
 
             {/* Row 4: Result action */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <ResultCell
-                index={workout.index}
-                tier={slot.slotId}
-                result={slot.result}
-                variant="card"
-                isTestSlot={slot.isTestSlot === true}
-                isSetLogging={isSlotLogging?.(workout.index, slot.slotId) === true}
-                onMark={onMark}
-                onUndo={onUndo}
-              />
-
-              {/* AMRAP input: shown when slot is AMRAP and has a success result, hidden when set logging is active */}
-              {slot.result === 'success' &&
-                slot.isAmrap &&
-                !isSlotLogging?.(workout.index, slot.slotId) &&
-                slot.setLogs === undefined && (
-                  <AmrapInput
-                    value={slot.amrapReps}
-                    onChange={(reps) => onSetAmrapReps(workout.index, slot.slotId, reps)}
-                    variant="card"
-                    weight={slot.weight}
-                    result={slot.result}
-                  />
-                )}
-
-              {/* RPE select: shown for primary slots with a success result */}
-              {slot.result === 'success' && showRpe && onSetRpe && (
-                <RpeSelect
-                  value={slot.rpe}
-                  onChange={(rpe) => onSetRpe(workout.index, slot.slotId, rpe)}
-                  workoutIndex={workout.index}
-                  slotKey={slot.slotId}
-                />
-              )}
-
-              {/* RPE display: shown for primary slots with non-success result but RPE already set */}
-              {slot.result !== 'success' && slot.rpe !== undefined && (
-                <span className="text-xs font-bold text-main">RPE {slot.rpe}</span>
-              )}
-            </div>
-          </div>
+            <SlotResultFooter
+              slot={slot}
+              workoutIndex={workout.index}
+              isLogging={isSlotLogging?.(workout.index, slot.slotId) === true}
+              onMark={onMark}
+              onUndo={onUndo}
+              onSetAmrapReps={onSetAmrapReps}
+              onSetRpe={onSetRpe}
+            />
+          </SlotCardShell>
         );
       })}
     </div>

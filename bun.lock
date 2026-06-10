@@ -111,6 +111,13 @@
         "vite-plugin-pwa": "^1.2.0",
       },
     },
+    "packages/api-client": {
+      "name": "@gzclp/api-client",
+      "version": "0.0.1",
+      "dependencies": {
+        "@gzclp/domain": "workspace:*",
+      },
+    },
     "packages/domain": {
       "name": "@gzclp/domain",
       "version": "0.0.1",
@@ -534,6 +541,8 @@
     "@floating-ui/react-dom": ["@floating-ui/react-dom@2.1.8", "", { "dependencies": { "@floating-ui/dom": "^1.7.6" }, "peerDependencies": { "react": ">=16.8.0", "react-dom": ">=16.8.0" } }, "sha512-cC52bHwM/n/CxS87FH0yWdngEZrjdtLW/qVruo68qg+prK7ZQ4YGdut2GyDVpoGeAYe/h899rVeOVm6Oi40k2A=="],
 
     "@floating-ui/utils": ["@floating-ui/utils@0.2.11", "", {}, "sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg=="],
+
+    "@gzclp/api-client": ["@gzclp/api-client@workspace:packages/api-client"],
 
     "@gzclp/domain": ["@gzclp/domain@workspace:packages/domain"],
 

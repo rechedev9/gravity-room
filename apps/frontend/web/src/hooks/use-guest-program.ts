@@ -11,78 +11,13 @@ import type { GenericWorkoutRow, ResultValue, SetLogEntry } from '@gzclp/domain/
 import { queryKeys } from '@/lib/query-keys';
 import { fetchCatalogDetail } from '@/lib/api-functions';
 import type { UseProgramReturn } from '@/hooks/use-program';
+import { setSlotResult, removeSlotResult, patchSlotField } from '@/lib/slot-result-helpers';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const GUEST_INSTANCE_ID = 'guest';
-
-// ---------------------------------------------------------------------------
-// Helpers (mirrors use-program.ts helpers for in-memory mutations)
-// ---------------------------------------------------------------------------
-
-function setSlotResult(
-  prev: GenericResults,
-  workoutIndex: number,
-  slotId: string,
-  result: ResultValue,
-  setLogs?: readonly SetLogEntry[]
-): GenericResults {
-  const key = String(workoutIndex);
-  const existing = prev[key] ?? {};
-  return {
-    ...prev,
-    [key]: {
-      ...existing,
-      [slotId]: {
-        ...existing[slotId],
-        result,
-        ...(setLogs !== undefined ? { setLogs: [...setLogs] } : {}),
-      },
-    },
-  };
-}
-
-function removeSlotResult(
-  results: GenericResults,
-  workoutIndex: number,
-  slotId: string
-): GenericResults {
-  const key = String(workoutIndex);
-  const updated = { ...results };
-  if (updated[key]) {
-    const entry = { ...updated[key] };
-    delete entry[slotId];
-    if (Object.keys(entry).length === 0) {
-      delete updated[key];
-    } else {
-      updated[key] = entry;
-    }
-  }
-  return updated;
-}
-
-function patchSlotField(
-  prev: GenericResults,
-  workoutIndex: number,
-  slotId: string,
-  field: 'amrapReps' | 'rpe',
-  value: number | undefined
-): GenericResults {
-  const key = String(workoutIndex);
-  const updatedResults = { ...prev };
-  const workoutEntry = { ...updatedResults[key] };
-  const slotEntry = { ...workoutEntry[slotId] };
-  if (value === undefined) {
-    delete slotEntry[field];
-  } else {
-    slotEntry[field] = value;
-  }
-  workoutEntry[slotId] = slotEntry;
-  updatedResults[key] = workoutEntry;
-  return updatedResults;
-}
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -137,7 +72,7 @@ export function useGuestProgram(programId: string): UseProgramReturn {
     value: ResultValue,
     setLogs?: readonly SetLogEntry[]
   ): void => {
-    setResults((prev) => setSlotResult(prev, index, slotId, value, setLogs));
+    setResults((prev) => setSlotResult(prev, index, slotId, value, undefined, setLogs));
     setUndoHistory((prev) => [...prev, { i: index, slotId }]);
     setResultTimestamps((prev) => ({
       ...prev,
