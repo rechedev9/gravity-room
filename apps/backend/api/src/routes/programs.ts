@@ -289,7 +289,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
             t.Object({
               result: t.Optional(t.Union([t.Literal('success'), t.Literal('fail')])),
               amrapReps: t.Optional(t.Integer({ minimum: 0 })),
-              rpe: t.Optional(t.Integer({ minimum: 6, maximum: 10 })),
+              rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
             })
           )
         ),
