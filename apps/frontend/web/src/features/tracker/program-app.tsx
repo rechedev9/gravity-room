@@ -9,6 +9,7 @@ import { useGuest } from '@/contexts/guest-context';
 import { useToast } from '@/contexts/toast-context';
 import { detectGenericPersonalRecord } from '@/lib/pr-detection';
 import { computeProfileData, compute1RMData } from '@/lib/profile-stats';
+import { deriveJawContext } from '@/lib/jaw-context';
 import { useWebMcp } from '@/hooks/use-webmcp';
 import { useWakeLock } from '@/hooks/use-wake-lock';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
@@ -33,25 +34,6 @@ import { lazyWithRetry } from '@/lib/lazy-with-retry';
 
 const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
 const preloadStatsPanel = (): void => void import('./stats-panel');
-
-interface JawContext {
-  readonly block: 1 | 2 | 3;
-  readonly week: number | null;
-  readonly isTestWeek: boolean;
-  readonly group: string;
-}
-
-function deriveJawContext(dayName: string): JawContext | null {
-  const blockMatch = dayName.match(/JAW (?:B|Bloque )(\d)/);
-  if (!blockMatch) return null;
-  const blockStr = blockMatch[1];
-  if (blockStr !== '1' && blockStr !== '2' && blockStr !== '3') return null;
-  const block: 1 | 2 | 3 = blockStr === '1' ? 1 : blockStr === '2' ? 2 : 3;
-  const semMatch = dayName.match(/Sem\.\s*(\d+)/);
-  const isTestWeek = dayName.includes('Test Maximo') || dayName.includes('Recuperacion');
-  const week = semMatch ? Number(semMatch[1]) : isTestWeek ? block * 6 : null;
-  return { block, week, isTestWeek, group: `JAW Bloque ${block} — TM` };
-}
 
 interface ProgramAppProps {
   readonly programId: string;
