@@ -497,6 +497,14 @@
       "success": "Success",
       "fail": "Fail"
     },
+    "set_stepper": {
+      "group_aria": "Set {{index}} of {{total}} reps",
+      "group_aria_amrap": "Set {{index}} of {{total}} reps (AMRAP)",
+      "decrease_aria": "Decrease reps",
+      "increase_aria": "Increase reps",
+      "confirm_aria": "Confirm reps",
+      "cancel_aria": "Cancel"
+    },
     "amrap_input": {
       "label": "AMRAP Reps",
       "placeholder": "Extra reps"

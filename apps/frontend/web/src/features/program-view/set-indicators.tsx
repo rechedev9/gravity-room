@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ResultValue, SetLogEntry } from '@gzclp/domain/types';
 
 // ---------------------------------------------------------------------------
@@ -48,6 +49,7 @@ function InlineStepper({
   onConfirm,
   onCancel,
 }: InlineStepperProps): ReactNode {
+  const { t } = useTranslation();
   const [reps, setReps] = useState(initialReps);
 
   const decrement = (): void => {
@@ -62,8 +64,10 @@ function InlineStepper({
     onConfirm(reps);
   };
 
-  const amrapLabel = isAmrap ? ' (AMRAP)' : '';
-  const ariaLabel = `Reps serie ${setIndex + 1} de ${totalSets}${amrapLabel}`;
+  const groupAriaKey = isAmrap
+    ? 'tracker.set_stepper.group_aria_amrap'
+    : 'tracker.set_stepper.group_aria';
+  const ariaLabel = t(groupAriaKey, { index: setIndex + 1, total: totalSets });
 
   return (
     <div
@@ -75,7 +79,7 @@ function InlineStepper({
         type="button"
         onClick={decrement}
         disabled={reps <= MIN_REPS}
-        aria-label="Disminuir reps"
+        aria-label={t('tracker.set_stepper.decrease_aria')}
         className="min-w-[36px] min-h-[36px] font-bold border-2 border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default text-sm"
       >
         &minus;
@@ -90,7 +94,7 @@ function InlineStepper({
         type="button"
         onClick={increment}
         disabled={reps >= MAX_REPS}
-        aria-label="Aumentar reps"
+        aria-label={t('tracker.set_stepper.increase_aria')}
         className="min-w-[36px] min-h-[36px] font-bold border-2 border-rule bg-card text-btn-text cursor-pointer transition-all duration-150 hover:bg-hover-row hover:text-title active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default text-sm"
       >
         +
@@ -98,7 +102,7 @@ function InlineStepper({
       <button
         type="button"
         onClick={handleConfirm}
-        aria-label="Confirmar reps"
+        aria-label={t('tracker.set_stepper.confirm_aria')}
         className="min-w-[36px] min-h-[36px] font-bold border-2 border-ok-ring bg-transparent text-ok cursor-pointer transition-all duration-150 hover:bg-ok-bg active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none text-sm"
       >
         &#10003;
@@ -106,7 +110,7 @@ function InlineStepper({
       <button
         type="button"
         onClick={onCancel}
-        aria-label="Cancelar"
+        aria-label={t('tracker.set_stepper.cancel_aria')}
         className="min-w-[36px] min-h-[36px] font-bold border-2 border-fail-ring bg-transparent text-fail cursor-pointer transition-all duration-150 hover:bg-fail-bg active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none text-sm"
       >
         &#10007;
