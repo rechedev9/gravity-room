@@ -1,3 +1,4 @@
+import { isRecord } from '@gzclp/domain/type-guards';
 import { secureRefreshTokenStorage, type RefreshTokenStorage } from './secure-storage';
 
 export interface AuthUser {
@@ -45,10 +46,6 @@ interface RestoreSessionDependencies {
 
 let accessToken: string | null = null;
 let inFlightRestore: Promise<SessionState | null> | null = null;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function readAuthUser(value: unknown): AuthUser {
   if (!isRecord(value)) {
