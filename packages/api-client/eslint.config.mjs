@@ -1,12 +1,7 @@
-import { defineConfig, globalIgnores } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
-const eslintConfig = defineConfig([
+export default tseslint.config(
   ...tseslint.configs.recommended,
-  // Ignore generated code and build outputs to avoid linting auto-generated or dist files.
-  // generated.ts (from codegen/generate-api-types.ts) is separately excluded in tsconfig.
-  globalIgnores(['.next/**', 'out/**', 'dist/**', 'build/**']),
-  // Project conventions (CLAUDE.md)
   {
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
@@ -22,7 +17,7 @@ const eslintConfig = defineConfig([
   },
   // Test files: allow assertions and non-null operators
   {
-    files: ['**/*.test.ts', '**/*.test.tsx'],
+    files: ['**/*.test.ts'],
     rules: {
       '@typescript-eslint/consistent-type-assertions': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
@@ -31,19 +26,5 @@ const eslintConfig = defineConfig([
         { 'ts-ignore': true, 'ts-expect-error': false },
       ],
     },
-  },
-  // E2E test files: same relaxed rules as unit tests
-  {
-    files: ['e2e/**/*.ts'],
-    rules: {
-      '@typescript-eslint/consistent-type-assertions': 'off',
-      '@typescript-eslint/no-non-null-assertion': 'off',
-      '@typescript-eslint/ban-ts-comment': [
-        'error',
-        { 'ts-ignore': true, 'ts-expect-error': false },
-      ],
-    },
-  },
-]);
-
-export default eslintConfig;
+  }
+);

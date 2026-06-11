@@ -1,3 +1,4 @@
+import { isRecord } from '@gzclp/domain/type-guards';
 import { fetchWithAccessToken, getAccessToken } from '../auth/session';
 import type { ProgramSummary } from './program-repository';
 
@@ -10,10 +11,6 @@ interface RemoteProgramSummary {
 interface RemoteProgramsPage {
   readonly data?: readonly RemoteProgramSummary[];
   readonly nextCursor?: string | null;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 function isRemoteProgramSummary(value: unknown): value is RemoteProgramSummary {

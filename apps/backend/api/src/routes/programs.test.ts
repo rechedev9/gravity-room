@@ -111,6 +111,18 @@ const VALID_IMPORT_PAYLOAD = {
 };
 
 describe('POST /programs/import — rpe validation', () => {
+  it('accepts import payload with rpe: 5 in a result entry (401 = auth needed, not validation error)', async () => {
+    const payload = {
+      ...VALID_IMPORT_PAYLOAD,
+      results: { '0': { t1: { result: 'success', rpe: 5 } } },
+    };
+    const res = await post('/programs/import', payload);
+
+    // 401 means body passed validation (auth guard rejected it)
+    // 400 would mean body validation failed — which would be a regression
+    expect(res.status).toBe(401);
+  });
+
   it('accepts import payload with rpe: 8 in a result entry (401 = auth needed, not validation error)', async () => {
     const payload = {
       ...VALID_IMPORT_PAYLOAD,

@@ -46,5 +46,9 @@ async def trigger_compute(
         raise HTTPException(status_code=403, detail="Forbidden")
     if not compare_digest(x_internal_secret, settings.internal_secret):
         raise HTTPException(status_code=403, detail="Forbidden")
-    result = await run_all()
-    return {"ok": True, **result}
+    try:
+        result = await run_all()
+        return {"ok": True, **result}
+    except Exception as e:
+        log.error("Compute failed", exc_info=True)
+        raise HTTPException(status_code=500, detail={"error": "compute_failed", "message": str(e)})

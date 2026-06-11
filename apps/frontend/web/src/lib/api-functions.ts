@@ -29,6 +29,8 @@ import type {
 import type { InsightItem } from '@gzclp/domain/schemas/insights';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { z } from 'zod/v4';
+import { mergeHeaders } from '@gzclp/api-client/merge-headers';
+import { ApiError, parseApiErrorBody } from '@gzclp/api-client/api-error';
 
 // Re-export types derived from schemas
 export type { UserInfo } from '@gzclp/domain/schemas/user';
@@ -51,36 +53,11 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 // Auth-aware fetch wrapper with automatic retry on 401
 // ---------------------------------------------------------------------------
 
-function mergeHeaders(
-  base: Record<string, string>,
-  extra: HeadersInit | undefined
-): Record<string, string> {
-  if (!extra) return base;
-  if (extra instanceof Headers) {
-    const merged = { ...base };
-    extra.forEach((value, key) => {
-      merged[key] = value;
-    });
-    return merged;
-  }
-  if (Array.isArray(extra)) {
-    const merged = { ...base };
-    for (const [key, value] of extra) {
-      merged[key] = value;
-    }
-    return merged;
-  }
-  return { ...base, ...extra };
-}
-
-async function extractErrorMessage(res: Response, fallback: string): Promise<string> {
+async function extractApiError(res: Response, fallback: string): Promise<ApiError> {
   const body: unknown = await res.json().catch(() => ({}));
-  if (isRecord(body) && typeof body.error === 'string') {
-    // Include the machine-readable error code (if present) so callers can match on it
-    if (typeof body.code === 'string') return `${body.error} [${body.code}]`;
-    return body.error;
-  }
-  return fallback;
+  const { message, code } = parseApiErrorBody(body);
+  const msg = message === 'Unknown error' ? fallback : message;
+  return new ApiError(msg, res.status, code);
 }
 
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<unknown> {
@@ -107,16 +84,15 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
     if (newToken) {
       headers['Authorization'] = `Bearer ${newToken}`;
       const retry = await doFetch();
-      if (!retry.ok)
-        throw new Error(await extractErrorMessage(retry, `API error: ${retry.status}`));
+      if (!retry.ok) throw await extractApiError(retry, `API error: ${retry.status}`);
       if (retry.status === 204) return null;
       return retry.json();
     }
 
-    throw new Error(await extractErrorMessage(res, 'Authentication failed'));
+    throw await extractApiError(res, 'Authentication failed');
   }
 
-  if (!res.ok) throw new Error(await extractErrorMessage(res, `API error: ${res.status}`));
+  if (!res.ok) throw await extractApiError(res, `API error: ${res.status}`);
   if (res.status === 204) return null;
   return res.json();
 }

@@ -2,12 +2,8 @@ import { useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { GenericSlotRow } from '@gzclp/domain/types';
 import type { DayViewProps } from './day-view';
-import { ResultCell } from './result-cell';
-import { AmrapInput } from './amrap-input';
-import { RpeSelect } from './rpe-select';
-import { StageTag } from './stage-tag';
-import { tierColorClass } from './tier-color';
-import { CornerTicks } from '@/components/corner-ticks';
+import { SlotCardShell } from './slot-card-shell';
+import { SlotResultFooter } from './slot-result-footer';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -130,16 +126,9 @@ function SlotTable({
   isSlotLogging,
 }: SlotTableProps): ReactNode {
   const isDone = slot.result !== undefined;
-  const needsAmrap = slot.result === 'success' && slot.isAmrap && slot.amrapReps === undefined;
-  const fullyDone = isDone && !needsAmrap;
-  const hasPrescriptions = slot.prescriptions !== undefined;
   const isGpp = slot.isGpp === true;
   const isBodyweight = slot.isBodyweight === true;
-  const showStage = slot.stagesCount > 1 && !hasPrescriptions && !isGpp;
-  const showRpe = slot.role === 'primary';
   const noWeight = isGpp || isBodyweight;
-
-  const isCurrentSlot = isCurrent && !fullyDone;
 
   const tableRows = buildSetRows(slot);
 
@@ -187,34 +176,7 @@ function SlotTable({
   );
 
   return (
-    <div
-      className={`relative border border-rule bg-card px-4 py-3.5 transition-opacity duration-200 ${
-        fullyDone ? 'opacity-70' : ''
-      } ${isCurrentSlot ? 'accent-left-gold' : 'accent-left-muted'} ${
-        slot.isChanged && !isDone ? 'bg-changed' : ''
-      }`}
-      style={{ animation: 'card-enter var(--duration-fast) var(--ease-standard)' }}
-    >
-      {isCurrentSlot && <CornerTicks />}
-      {/* Header: Tier + Exercise + Stage + Deload */}
-      <div className="flex items-center gap-2 mb-1">
-        <span
-          className={`text-xs font-bold uppercase tracking-widest font-mono ${tierColorClass(slot.role)}`}
-        >
-          {slot.tier.toUpperCase()}
-        </span>
-        <span className="font-bold text-sm text-main truncate">{slot.exerciseName}</span>
-        {showStage && slot.stage > 0 && <StageTag stage={slot.stage} size="sm" />}
-        {slot.isDeload && (
-          <span className="text-2xs font-bold text-muted tracking-wider uppercase font-mono">
-            {'\u2193'} Deload
-          </span>
-        )}
-      </div>
-
-      {/* Notes */}
-      {slot.notes !== undefined && <p className="text-xs text-muted mb-1.5">{slot.notes}</p>}
-
+    <SlotCardShell slot={slot} isCurrent={isCurrent}>
       {/* Per-set table */}
       <div className="overflow-x-auto mb-3">
         <table className="w-full border-collapse" aria-label={`Series de ${slot.exerciseName}`}>
@@ -308,45 +270,16 @@ function SlotTable({
       </div>
 
       {/* Footer: Result actions */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <ResultCell
-          index={workoutIndex}
-          tier={slot.slotId}
-          result={slot.result}
-          variant="card"
-          isTestSlot={slot.isTestSlot === true}
-          isSetLogging={logging}
-          onMark={onMark}
-          onUndo={onUndo}
-        />
-
-        {/* AMRAP input: shown when slot is AMRAP and has a success result, hidden when set logging is active */}
-        {slot.result === 'success' && slot.isAmrap && !logging && slot.setLogs === undefined && (
-          <AmrapInput
-            value={slot.amrapReps}
-            onChange={(reps) => onSetAmrapReps(workoutIndex, slot.slotId, reps)}
-            variant="card"
-            weight={slot.weight}
-            result={slot.result}
-          />
-        )}
-
-        {/* RPE select: shown for primary slots with a success result */}
-        {slot.result === 'success' && showRpe && onSetRpe && (
-          <RpeSelect
-            value={slot.rpe}
-            onChange={(rpe) => onSetRpe(workoutIndex, slot.slotId, rpe)}
-            workoutIndex={workoutIndex}
-            slotKey={slot.slotId}
-          />
-        )}
-
-        {/* RPE display: shown for primary slots with non-success result but RPE already set */}
-        {slot.result !== 'success' && slot.rpe !== undefined && (
-          <span className="text-xs font-bold text-main">RPE {slot.rpe}</span>
-        )}
-      </div>
-    </div>
+      <SlotResultFooter
+        slot={slot}
+        workoutIndex={workoutIndex}
+        isLogging={logging}
+        onMark={onMark}
+        onUndo={onUndo}
+        onSetAmrapReps={onSetAmrapReps}
+        onSetRpe={onSetRpe}
+      />
+    </SlotCardShell>
   );
 }
 

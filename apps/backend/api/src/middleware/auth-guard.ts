@@ -49,7 +49,7 @@ export const jwtPlugin = new Elysia({ name: 'jwt-plugin' }).use(
   })
 );
 
-function extractBearerToken(headers: Record<string, string | undefined>): string {
+export function extractBearerToken(headers: Record<string, string | undefined>): string {
   const authorization = headers['authorization'];
   if (!authorization?.startsWith(BEARER_PREFIX)) {
     throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');

@@ -1,0 +1,21 @@
+{
+  "name": "@gzclp/api-client",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@gzclp/domain": "workspace:*"
+  },
+  "scripts": {
+    "test": "bun test src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./merge-headers": "./src/merge-headers.ts",
+    "./api-error": "./src/api-error.ts",
+    "./single-flight": "./src/single-flight.ts",
+    "./url": "./src/url.ts"
+  }
+}

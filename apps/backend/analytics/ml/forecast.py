@@ -75,6 +75,10 @@ def _forecast_slot(records: list[WorkoutRecord]) -> dict | None:
     slope = float(reg.slope)
     intercept = float(reg.intercept)
 
+    # Guard against NaN or Inf in regression results
+    if not (np.isfinite(slope) and np.isfinite(intercept)):
+        return None
+
     forecast_2w = intercept + slope * (n + 1)
     forecast_4w = intercept + slope * (n + 3)
 

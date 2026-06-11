@@ -1,3 +1,4 @@
+import { isRecord } from '@gzclp/domain/type-guards';
 import { bootstrapDatabase, getDatabase } from '../db/client';
 
 export type MutationPayload = Record<string, unknown>;
@@ -27,10 +28,6 @@ type QueuedMutationRow = {
   readonly payload_json: string;
   readonly created_at: string;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function parsePayload(payloadJson: string): MutationPayload {
   try {
