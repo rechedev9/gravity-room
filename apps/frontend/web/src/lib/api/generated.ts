@@ -112,6 +112,19 @@ export const schemas = {
 export const endpoints = [
   {
     method: 'post',
+    path: '/api/auth/dev',
+    requestFormat: 'json',
+    parameters: [
+      {
+        name: 'body',
+        type: 'Body',
+        schema: z.object({ email: z.string().email() }).passthrough().readonly(),
+      },
+    ],
+    response: z.void(),
+  },
+  {
+    method: 'post',
     path: '/api/auth/google',
     description: `Verifies a Google ID token (RS256 + JWKS), finds or creates the user, and issues tokens.`,
     requestFormat: 'json',

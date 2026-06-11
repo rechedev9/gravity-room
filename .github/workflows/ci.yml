@@ -44,6 +44,12 @@ jobs:
       # Swagger is behind a positive feature flag (disabled by default); the
       # codegen fetches /swagger/json, so it must be enabled for this job.
       SWAGGER_ENABLED: 'true'
+      # Mirror validate.yml so the generated client matches the committed one:
+      # the dev-auth route is only registered (and thus in the OpenAPI surface)
+      # when these are set.
+      NODE_ENV: test
+      AUTH_DEV_ROUTE_ENABLED: 'true'
+      AUTH_DEV_ROUTE_SECRET: e2e-dev-secret-not-for-prod
 
     steps:
       - uses: actions/checkout@v5
