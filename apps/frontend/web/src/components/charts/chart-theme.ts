@@ -15,6 +15,10 @@ type ChartTheme = {
   readonly fail: string;
   readonly pr: string;
   readonly bg: string;
+  /** Idle flat-bar fill (raised surface). */
+  readonly surface2: string;
+  /** Prominent hairline stroke for idle bars / baselines. */
+  readonly ruleStrong: string;
 };
 
 let _theme: ChartTheme | null = null;
@@ -30,6 +34,8 @@ function readTheme(): ChartTheme {
     fail: get('--color-chart-fail') || '#7a2828',
     pr: get('--color-chart-pr') || '#d4a843',
     bg: get('--color-th') || '#1a1410',
+    surface2: get('--color-surface-2') || '#26211a',
+    ruleStrong: get('--color-rule-light') || '#4a4338',
   };
 }
 
