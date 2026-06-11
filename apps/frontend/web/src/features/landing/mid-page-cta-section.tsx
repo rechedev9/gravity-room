@@ -57,7 +57,7 @@ export function MidPageCtaSection({ content }: MidPageCtaSectionProps): React.Re
           <Link
             to="/login"
             onClick={() => trackEvent('landing_cta_click', { location: 'mid_page_cta' })}
-            className="font-mono inline-block px-8 py-3 text-xs font-bold tracking-widest uppercase border border-btn-ring text-main hover:bg-btn-active hover:text-btn-active-text hover:border-btn-ring hover:shadow-[0_0_24px_rgba(232,170,32,0.25)] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body"
+            className="font-mono inline-block px-8 py-3 text-xs font-bold tracking-widest uppercase border border-btn-ring text-main hover:bg-btn-active hover:text-btn-active-text hover:border-btn-ring transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body"
           >
             {content.cta}
           </Link>

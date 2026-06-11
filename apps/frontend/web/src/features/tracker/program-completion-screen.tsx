@@ -44,10 +44,7 @@ export function ProgramCompletionScreen({
             alt=""
             className="w-full max-w-xl mx-auto mb-6 opacity-90"
           />
-          <h1
-            className="font-display text-5xl sm:text-7xl text-title leading-none mb-3"
-            style={{ textShadow: '0 0 40px rgba(240, 192, 64, 0.25)' }}
-          >
+          <h1 className="font-display text-5xl sm:text-7xl text-title leading-none mb-3">
             {t('tracker.completion.header')}
           </h1>
           <p className="text-lg sm:text-xl text-info font-bold">{programName}</p>

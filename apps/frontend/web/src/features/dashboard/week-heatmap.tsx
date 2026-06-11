@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { buildHeatmapGrid, type CompletedWorkout, type CellLevel } from './week-heatmap-utils';
 import { cn } from '@/lib/cn';
 
+// Forged Iron: trained days fill with dim-gold "heat"; a full day flares to bright gold.
 const LEVEL_CLASS: Record<CellLevel, string> = {
   empty: 'bg-transparent border-rule',
-  partial: 'bg-accent/30 border-accent/40',
-  full: 'bg-accent border-accent',
+  partial: 'bg-heat/60 border-heat',
+  full: 'bg-accent border-accent-hover',
 };
 
 interface WeekHeatmapProps {
@@ -20,7 +21,7 @@ export function WeekHeatmap({ workouts, weeks = 12 }: WeekHeatmapProps): React.R
   const todayKey = new Date().toDateString();
 
   return (
-    <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-4 sm:p-5">
+    <section className="bg-card border border-rule rounded-[var(--radius-base)] p-4 sm:p-5">
       <p className="chalk-stamp mb-3">{t('dashboard.heatmap.title', { weeks })}</p>
       <div
         className="flex gap-1 overflow-x-auto"

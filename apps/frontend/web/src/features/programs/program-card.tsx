@@ -45,9 +45,9 @@ export function ProgramCard({
   const resolvedDisabledLabel = disabledLabel ?? t('programs.card.coming_soon');
 
   const baseCtaClasses =
-    'px-4 py-2.5 text-xs font-bold border-2 cursor-pointer transition-all text-center border-btn-ring';
-  const primaryCtaClass = `${baseCtaClasses} bg-btn-active text-btn-active-text hover:opacity-90`;
-  const secondaryCtaClass = `${baseCtaClasses} bg-btn text-btn-text hover:bg-btn-active hover:text-btn-active-text`;
+    'px-4 py-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.14em] border rounded-[var(--radius-base)] cursor-pointer transition-colors text-center';
+  const primaryCtaClass = `${baseCtaClasses} bg-accent text-on-accent border-accent-hover hover:bg-accent-hover`;
+  const secondaryCtaClass = `${baseCtaClasses} bg-transparent text-main border-rule-light hover:border-accent-deep hover:text-accent`;
   const ctaClasses = `mt-auto ${isActive ? primaryCtaClass : secondaryCtaClass}`;
 
   const showDualActions = previewTo !== undefined && onSelect !== undefined && !disabled;
@@ -57,18 +57,20 @@ export function ProgramCard({
     <div
       className={`relative overflow-hidden bg-card border border-rule p-5 sm:p-6 card program-card-lift ${disabled ? 'opacity-60' : ''}`}
     >
-      {/* Category gradient overlay */}
+      {/* Category hairline top edge (was a soft gradient glow) */}
       <div
-        className="absolute top-0 left-0 right-0 h-16 pointer-events-none"
-        style={{ background: `linear-gradient(180deg, ${catColor.gradient}, transparent)` }}
+        className="absolute top-0 left-0 right-0 h-px pointer-events-none"
+        style={{ background: catColor.badge, opacity: 0.5 }}
       />
 
       <div className="relative flex flex-col gap-3">
         {/* Header: name + category badge */}
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm sm:text-base font-extrabold text-title leading-tight">{name}</h3>
+          <h3 className="font-display text-xl sm:text-2xl text-main leading-none tracking-[0.02em]">
+            {name}
+          </h3>
           <span
-            className="shrink-0 text-2xs font-bold uppercase tracking-wider px-2 py-0.5 border"
+            className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-[0.16em] px-2 py-[3px] border rounded-[1px]"
             style={{
               borderColor: `color-mix(in srgb, ${catColor.badge} 40%, transparent)`,
               color: catColor.badge,

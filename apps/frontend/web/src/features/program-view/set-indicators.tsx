@@ -193,7 +193,7 @@ export function SetIndicators({
                 key={i}
                 role="img"
                 aria-label={`Serie ${i + 1}: ${log.reps} repeticiones`}
-                className={`relative w-5 h-5 rounded-full border-2 ${colorClass} flex items-center justify-center`}
+                className={`relative w-5 h-5 rounded-[2px] border-2 ${colorClass} flex items-center justify-center`}
               >
                 {showAmrapMark && (
                   <span className="absolute -top-1.5 -right-1.5 text-2xs font-bold text-accent">
@@ -211,7 +211,7 @@ export function SetIndicators({
                 type="button"
                 onClick={() => handleSetTap(i)}
                 aria-label={`Registrar serie ${i + 1} de ${sets}`}
-                className="relative w-7 h-7 rounded-full border-2 border-accent bg-transparent cursor-pointer transition-all duration-150 hover:bg-accent/20 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none flex items-center justify-center"
+                className="relative w-7 h-7 rounded-[2px] border-2 border-accent bg-transparent cursor-pointer transition-all duration-150 hover:bg-accent/20 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none flex items-center justify-center"
               >
                 {showAmrapMark && (
                   <span className="absolute -top-1.5 -right-1.5 text-2xs font-bold text-accent">
@@ -226,7 +226,7 @@ export function SetIndicators({
           return (
             <span
               key={i}
-              className="relative w-5 h-5 rounded-full border-2 border-rule bg-transparent opacity-40"
+              className="relative w-5 h-5 rounded-[2px] border-2 border-rule bg-transparent opacity-40"
             >
               {showAmrapMark && (
                 <span className="absolute -top-1.5 -right-1.5 text-2xs font-bold text-accent">
@@ -276,7 +276,7 @@ function renderDecorativeCircles(
         const showAmrapMark = isAmrap && isLast;
 
         return (
-          <span key={i} className={`relative w-5 h-5 rounded-full border-2 ${colorClass}`}>
+          <span key={i} className={`relative w-5 h-5 rounded-[2px] border-2 ${colorClass}`}>
             {showAmrapMark && (
               <span className="absolute -top-1.5 -right-1.5 text-2xs font-bold text-accent">+</span>
             )}

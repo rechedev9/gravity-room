@@ -7,6 +7,7 @@ import { AmrapInput } from './amrap-input';
 import { RpeSelect } from './rpe-select';
 import { StageTag } from './stage-tag';
 import { tierColorClass } from './tier-color';
+import { CornerTicks } from '@/components/corner-ticks';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -138,6 +139,8 @@ function SlotTable({
   const showRpe = slot.role === 'primary';
   const noWeight = isGpp || isBodyweight;
 
+  const isCurrentSlot = isCurrent && !fullyDone;
+
   const tableRows = buildSetRows(slot);
 
   // In-progress and committed set logs
@@ -185,13 +188,14 @@ function SlotTable({
 
   return (
     <div
-      className={`border border-rule bg-card px-4 py-3.5 transition-opacity duration-200 ${
+      className={`relative border border-rule bg-card px-4 py-3.5 transition-opacity duration-200 ${
         fullyDone ? 'opacity-70' : ''
-      } ${isCurrent && !fullyDone ? 'accent-left-gold' : 'accent-left-muted'} ${
+      } ${isCurrentSlot ? 'accent-left-gold' : 'accent-left-muted'} ${
         slot.isChanged && !isDone ? 'bg-changed' : ''
       }`}
       style={{ animation: 'card-enter var(--duration-fast) var(--ease-standard)' }}
     >
+      {isCurrentSlot && <CornerTicks />}
       {/* Header: Tier + Exercise + Stage + Deload */}
       <div className="flex items-center gap-2 mb-1">
         <span

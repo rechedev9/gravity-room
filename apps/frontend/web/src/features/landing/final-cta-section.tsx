@@ -43,11 +43,7 @@ export function FinalCtaSection({ content }: FinalCtaSectionProps): React.ReactN
         whileInView="visible"
         viewport={{ once: true, margin: '0px 0px -40px 0px' }}
         variants={fadeInVariants}
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(ellipse at center bottom, rgba(232,170,32,0.2) 0%, rgba(232,170,32,0.04) 55%, transparent 80%)',
-        }}
+        className="hatch-dim absolute inset-0 pointer-events-none opacity-50"
       />
       <div
         className="absolute inset-0 pointer-events-none opacity-[0.06]"
@@ -106,7 +102,7 @@ export function FinalCtaSection({ content }: FinalCtaSectionProps): React.ReactN
           <Link
             to="/login"
             onClick={() => trackEvent('landing_cta_click', { location: 'final_cta' })}
-            className="font-mono inline-block px-12 py-4 text-sm font-bold tracking-widest uppercase border-2 border-btn-ring bg-btn-active text-btn-active-text hover:shadow-[0_0_48px_rgba(232,170,32,0.4)] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body"
+            className="font-mono inline-block px-12 py-4 text-sm font-bold tracking-widest uppercase border-2 border-btn-ring bg-btn-active text-btn-active-text transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body"
           >
             {content.cta}
           </Link>

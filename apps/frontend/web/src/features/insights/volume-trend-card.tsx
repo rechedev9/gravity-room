@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
+  Cell,
+  LabelList,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -41,6 +43,9 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
       ? Math.round(payload.volumes.reduce((s, v) => s + v, 0) / payload.volumes.length)
       : null;
 
+  // Only the most recent week is gold ("hot"); the rest are idle steel bars.
+  const hotIdx = points.length - 1;
+
   const tickFormatter = (val: string): string => (val.startsWith('_') ? '' : val);
 
   const directionLabel =
@@ -72,13 +77,7 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
           <figcaption className="sr-only">{t('insights.volume_trend.chart_sr_only')}</figcaption>
           <div style={{ height: 'clamp(200px, 25vw, 300px)' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={points} margin={{ top: 8, right: 8, bottom: 4, left: 2 }}>
-                <defs>
-                  <linearGradient id="volFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={theme.line} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={theme.line} stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
+              <BarChart data={points} margin={{ top: 8, right: 8, bottom: 4, left: 2 }}>
                 <CartesianGrid stroke={theme.grid} strokeWidth={0.5} vertical={false} />
                 <XAxis
                   dataKey="x"
@@ -103,15 +102,37 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
                   }}
                 />
                 <Tooltip content={<VolumeTooltip />} />
-                <Area
-                  type="monotone"
-                  dataKey="vol"
-                  stroke={theme.line}
-                  strokeWidth={2}
-                  fill="url(#volFill)"
-                  animationDuration={320}
-                  animationEasing="ease-out"
-                />
+                <Bar dataKey="vol" radius={[1, 1, 0, 0]} isAnimationActive={false}>
+                  {points.map((p, i) => (
+                    <Cell
+                      key={`bar-${i}`}
+                      fill={i === hotIdx ? theme.line : theme.surface2}
+                      stroke={i === hotIdx ? theme.pr : theme.ruleStrong}
+                      strokeWidth={1}
+                    />
+                  ))}
+                  <LabelList
+                    dataKey="vol"
+                    position="top"
+                    content={({ x, y, width, value, index }) => {
+                      if (index !== hotIdx || value === undefined) return null;
+                      const cx = Number(x) + Number(width) / 2;
+                      return (
+                        <text
+                          x={cx}
+                          y={Number(y) - 4}
+                          textAnchor="middle"
+                          fill={theme.line}
+                          fontSize={9}
+                          fontWeight={700}
+                          fontFamily="JetBrains Mono, monospace"
+                        >
+                          {formatVolLabel(Number(value))}
+                        </text>
+                      );
+                    }}
+                  />
+                </Bar>
                 {avg !== null && (
                   <ReferenceLine
                     y={avg}
@@ -126,7 +147,7 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
                     }}
                   />
                 )}
-              </AreaChart>
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </figure>

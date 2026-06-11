@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import {
   BarChart as RechartsBarChart,
   Bar,
+  Cell,
+  LabelList,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -39,6 +41,9 @@ export function BarChart({ data, label }: BarChartProps): React.ReactNode {
       vol: d.volumeKg,
     }));
   }, [data]);
+
+  // Forged Iron: only the latest ("hot") bar is gold and labelled; the rest are idle steel.
+  const hotIdx = points.length - 1;
 
   const avg = useMemo(
     () =>
@@ -89,7 +94,37 @@ export function BarChart({ data, label }: BarChartProps): React.ReactNode {
               }}
             />
             <Tooltip content={<VolumeTooltip />} />
-            <Bar dataKey="vol" fill={theme.line} fillOpacity={0.8} isAnimationActive={false} />
+            <Bar dataKey="vol" radius={[1, 1, 0, 0]} isAnimationActive={false}>
+              {points.map((p, i) => (
+                <Cell
+                  key={`bar-${i}`}
+                  fill={i === hotIdx ? theme.line : theme.surface2}
+                  stroke={i === hotIdx ? theme.pr : theme.ruleStrong}
+                  strokeWidth={1}
+                />
+              ))}
+              <LabelList
+                dataKey="vol"
+                position="top"
+                content={({ x, y, width, value, index }) => {
+                  if (index !== hotIdx || value === undefined) return null;
+                  const cx = Number(x) + Number(width) / 2;
+                  return (
+                    <text
+                      x={cx}
+                      y={Number(y) - 4}
+                      textAnchor="middle"
+                      fill={theme.line}
+                      fontSize={9}
+                      fontWeight={700}
+                      fontFamily="JetBrains Mono, monospace"
+                    >
+                      {formatVolLabel(Number(value))}
+                    </text>
+                  );
+                }}
+              />
+            </Bar>
             {avg !== null && (
               <ReferenceLine
                 y={avg}

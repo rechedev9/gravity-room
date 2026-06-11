@@ -173,12 +173,9 @@ describe('LoginPage — Guest entry', () => {
       });
 
       const guestButton = screen.getByRole('button', { name: /Probar sin cuenta/i });
-      // The auth card has the text "Autenticar"
-      const authLabel = screen.getByText('Autenticar');
-      // Walk up to the styled card container
-      const authCard = authLabel.closest('div[style]');
+      const authCard = screen.getByTestId('auth-card');
 
-      expect(authCard?.contains(guestButton)).toBe(false);
+      expect(authCard.contains(guestButton)).toBe(false);
     });
   });
 });
