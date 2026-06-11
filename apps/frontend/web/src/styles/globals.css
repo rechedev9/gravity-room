@@ -394,6 +394,16 @@ dialog::backdrop {
   position: relative;
 }
 
+/* ── Tier accent bar — left machined edge on slot / program cards ── */
+
+.accent-left-gold {
+  border-left: 3px solid var(--color-accent);
+}
+
+.accent-left-muted {
+  border-left: 3px solid var(--color-rule-light);
+}
+
 /* ── Hatch — 45° safety striping, the "this matters" marker ── */
 
 .hatch {
