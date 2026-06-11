@@ -17,7 +17,6 @@ import {
   fetchPrograms,
   fetchGenericProgramDetail,
   fetchCatalogDetail,
-  fetchInsights,
   updateProfile,
   type ProgramSummary,
 } from '@/lib/api-functions';
@@ -32,7 +31,6 @@ import { ProfileAccountCard } from './profile-account-card';
 import { ProfileBadges } from './profile-badges';
 import { ProfileStatsGrid } from './profile-stats-grid';
 import { ProfileHistory } from './profile-history';
-import { ProfileInsightsSection } from './profile-insights-section';
 import { ZoneHint } from '@/features/home/zone-hint';
 
 // Recharts lands in its own 387 kB chunk; keep it off the profile-route preload
@@ -49,13 +47,6 @@ function ChartsFallback(): React.ReactNode {
     </div>
   );
 }
-
-const PROFILE_INSIGHT_TYPES = [
-  'volume_trend',
-  'frequency',
-  'plateau_detection',
-  'load_recommendation',
-] as const;
 
 function computeInitials(user: UserInfo): string {
   if (user.name) {
@@ -79,13 +70,6 @@ export function ProfilePage(): React.ReactNode {
     queryKey: queryKeys.programs.all,
     queryFn: fetchPrograms,
     enabled: user !== null,
-  });
-
-  const insightsQuery = useQuery({
-    queryKey: queryKeys.insights.list([...PROFILE_INSIGHT_TYPES]),
-    queryFn: () => fetchInsights([...PROFILE_INSIGHT_TYPES]),
-    enabled: user !== null,
-    staleTime: 10 * 60 * 1000,
   });
 
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>(undefined);
@@ -346,11 +330,6 @@ export function ProfilePage(): React.ReactNode {
                 />
               </Suspense>
             )}
-
-            <ProfileInsightsSection
-              insights={insightsQuery.data ?? []}
-              isLoading={insightsQuery.isLoading}
-            />
           </>
         )}
 

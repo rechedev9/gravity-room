@@ -221,6 +221,7 @@
     "programs": "Programas",
     "dashboard": "Dashboard",
     "tracker": "Tracker",
+    "insights": "Análisis",
     "profile": "Perfil",
     "main_nav_label": "Navegación principal",
     "view_profile": "Ver perfil"
@@ -773,6 +774,15 @@
     }
   },
   "insights": {
+    "page": {
+      "title": "Análisis",
+      "meta": "ÚLTIMAS 12 SEMANAS",
+      "updated_today": "ACTUALIZADO HOY",
+      "section_charts": "Tendencias",
+      "section_signals": "Señales",
+      "empty_heading": "Sin análisis todavía",
+      "empty_description": "Registra unas cuantas sesiones y aquí verás tendencias de volumen, recomendaciones de carga y alertas de estancamiento."
+    },
     "exercise_summary": {
       "default_exercise": "Ejercicio",
       "total_sets_label": "Series totales",
