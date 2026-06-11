@@ -41,6 +41,9 @@ jobs:
       GOOGLE_CLIENT_ID: placeholder-not-used-in-drift-check
       GOOGLE_CLIENT_IDS: placeholder-not-used-in-drift-check
       REDIS_URL: redis://localhost:6379
+      # Swagger is behind a positive feature flag (disabled by default); the
+      # codegen fetches /swagger/json, so it must be enabled for this job.
+      SWAGGER_ENABLED: 'true'
 
     steps:
       - uses: actions/checkout@v5
