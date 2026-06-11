@@ -574,9 +574,12 @@ dialog::backdrop {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
   font-weight: 600;
-  color: var(--color-muted);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-label);
 }
 
 .section-label::before,
