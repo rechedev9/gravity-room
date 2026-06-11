@@ -8,6 +8,14 @@ build
 .tmp
 .idea
 .claude
+.agents
+skills-lock.json
+.weave/runtime
+.weave/state.json
 apps/backend/api/drizzle
 **/.venv
 **/.pytest_cache
+audit
+
+# vendored reveal.js runtime (third-party, do not reformat)
+presentation/reveal

@@ -17,7 +17,6 @@ import {
   fetchPrograms,
   fetchGenericProgramDetail,
   fetchCatalogDetail,
-  fetchInsights,
   updateProfile,
   type ProgramSummary,
 } from '@/lib/api-functions';
@@ -32,7 +31,7 @@ import { ProfileAccountCard } from './profile-account-card';
 import { ProfileBadges } from './profile-badges';
 import { ProfileStatsGrid } from './profile-stats-grid';
 import { ProfileHistory } from './profile-history';
-import { ProfileInsightsSection } from './profile-insights-section';
+import { ZoneHint } from '@/features/home/zone-hint';
 
 // Recharts lands in its own 387 kB chunk; keep it off the profile-route preload
 // by loading the chart section on demand once the user has something to chart.
@@ -48,13 +47,6 @@ function ChartsFallback(): React.ReactNode {
     </div>
   );
 }
-
-const PROFILE_INSIGHT_TYPES = [
-  'volume_trend',
-  'frequency',
-  'plateau_detection',
-  'load_recommendation',
-] as const;
 
 function computeInitials(user: UserInfo): string {
   if (user.name) {
@@ -78,13 +70,6 @@ export function ProfilePage(): React.ReactNode {
     queryKey: queryKeys.programs.all,
     queryFn: fetchPrograms,
     enabled: user !== null,
-  });
-
-  const insightsQuery = useQuery({
-    queryKey: queryKeys.insights.list([...PROFILE_INSIGHT_TYPES]),
-    queryFn: () => fetchInsights([...PROFILE_INSIGHT_TYPES]),
-    enabled: user !== null,
-    staleTime: 10 * 60 * 1000,
   });
 
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>(undefined);
@@ -176,8 +161,15 @@ export function ProfilePage(): React.ReactNode {
   const catalogDataRefs = catalogDetailQueries.map((q) => q.data);
   const programDataRefs = programDetailQueries.map((q) => q.data);
 
-  // O(P×W×S) computation across all programs. TanStack Query guarantees stable
-  // .data references when data hasn't changed, so spreading them as deps is safe.
+  // Stable dep signature derived from each query's dataUpdatedAt timestamp.
+  // Lets us avoid spreading data arrays into the deps list (variable size).
+  const querySignature =
+    catalogDetailQueries.map((q) => q.dataUpdatedAt).join('|') +
+    '#' +
+    programDetailQueries.map((q) => q.dataUpdatedAt).join('|');
+
+  // O(P×W×S) computation across all programs. The querySignature changes only
+  // when any underlying query's data actually mutates.
   const lifetimeVolume: number | null = useMemo(() => {
     if (!allCatalogLoaded || !allDetailLoaded) return null;
 
@@ -195,7 +187,7 @@ export function ProfilePage(): React.ReactNode {
       total += vol.totalVolume;
     }
     return total;
-  }, [allCatalogLoaded, allDetailLoaded, allPrograms, ...catalogDataRefs, ...programDataRefs]);
+  }, [allCatalogLoaded, allDetailLoaded, allPrograms.length, querySignature]);
 
   const handleAvatarClick = (): void => {
     fileInputRef.current?.click();
@@ -267,14 +259,13 @@ export function ProfilePage(): React.ReactNode {
     <div className="min-h-dvh bg-body">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="mb-8">
-          <h1
-            className="font-display text-4xl sm:text-5xl text-title leading-none"
-            style={{ textShadow: '0 0 30px rgba(240, 192, 64, 0.12)' }}
-          >
+          <h1 className="font-display text-4xl sm:text-5xl text-title leading-none hero-title-glow">
             {t('profile.page.heading')}
           </h1>
           {user && <p className="text-sm text-muted mt-1">{displayName}</p>}
         </div>
+
+        <ZoneHint zone="profile" className="mb-6" />
 
         {profileData && activeProgramName && (
           <ProfileBanner
@@ -296,10 +287,7 @@ export function ProfilePage(): React.ReactNode {
               className="w-full max-w-xs mx-auto mb-6 opacity-80"
               loading="lazy"
             />
-            <p
-              className="font-display text-6xl sm:text-7xl text-muted leading-none mb-4"
-              style={{ textShadow: '0 0 40px rgba(138, 122, 90, 0.15)' }}
-            >
+            <p className="font-display text-6xl sm:text-7xl text-muted leading-none mb-4 hero-title-glow">
               {t('profile.empty.heading')}
             </p>
             <p className="text-sm text-muted">{t('profile.empty.description')}</p>
@@ -342,11 +330,6 @@ export function ProfilePage(): React.ReactNode {
                 />
               </Suspense>
             )}
-
-            <ProfileInsightsSection
-              insights={insightsQuery.data ?? []}
-              isLoading={insightsQuery.isLoading}
-            />
           </>
         )}
 

@@ -5,18 +5,19 @@
  * Refresh tokens: opaque UUID in httpOnly cookie, SHA-256 hashed in DB.
  */
 import { Elysia, t } from 'elysia';
-import { jwtPlugin, resolveUserId, extractBearerToken } from '../middleware/auth-guard';
+import { timingSafeEqual } from 'node:crypto';
+import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
 import { ApiError } from '../middleware/error-handler';
 import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
 import {
   hashToken,
-  findUserById,
-  findRefreshToken,
   findRefreshTokenByPreviousHash,
   revokeRefreshToken,
   revokeAllUserTokens,
   createAndStoreRefreshToken,
+  rotateRefreshToken,
+  findUserById,
   findOrCreateGoogleUser,
   findUserByEmail,
   updateUserProfile,
@@ -49,6 +50,25 @@ function classifyDevice(userAgent: string | undefined): DeviceType {
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
+// The dev sign-in route mints a full session for ANY email with no Google
+// token. Gating it on NODE_ENV alone is fragile: any internet-reachable
+// staging/preview env with the flag set becomes a one-request impersonation
+// oracle for real accounts. Require a strong shared secret too, and only
+// register the route when that secret is actually configured.
+const DEV_AUTH_SECRET = process.env['AUTH_DEV_ROUTE_SECRET'] ?? '';
+const DEV_AUTH_ENABLED =
+  process.env['AUTH_DEV_ROUTE_ENABLED'] === 'true' &&
+  !IS_PRODUCTION &&
+  DEV_AUTH_SECRET.length >= 16;
+const DEV_AUTH_RATE_LIMIT = { maxRequests: 1_000, windowMs: 60_000 };
+
+/** Constant-time comparison of the dev-auth secret header against the configured value. */
+function devAuthSecretMatches(provided: string | undefined): boolean {
+  if (!provided) return false;
+  const a = Buffer.from(provided);
+  const b = Buffer.from(DEV_AUTH_SECRET);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 /** Max avatar data URL size in bytes (~200KB base64 ≈ ~150KB image). */
 const MAX_AVATAR_BYTES = 200_000;
@@ -143,9 +163,9 @@ async function refreshAuthToken(
   onInvalidatedToken?: () => void
 ): Promise<{ accessToken: string; refreshToken: string; user: UserProfile }> {
   const tokenHash = await hashToken(refreshToken);
-  const stored = await findRefreshToken(tokenHash);
+  const rotation = await rotateRefreshToken(tokenHash);
 
-  if (!stored) {
+  if (rotation.status === 'not_found') {
     const successor = await findRefreshTokenByPreviousHash(tokenHash);
     if (successor) {
       reqLogger.warn(
@@ -157,33 +177,27 @@ async function refreshAuthToken(
     throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
   }
 
-  if (stored.expiresAt < new Date()) {
-    await revokeRefreshToken(tokenHash);
+  if (rotation.status === 'expired') {
     onInvalidatedToken?.();
     throw new ApiError(401, 'Refresh token expired', 'AUTH_REFRESH_EXPIRED');
   }
 
-  const user = await findUserById(stored.userId);
-  if (!user) {
-    await revokeRefreshToken(tokenHash);
+  if (rotation.status === 'account_deleted') {
     onInvalidatedToken?.();
     throw new ApiError(401, 'Account has been deleted', 'AUTH_ACCOUNT_DELETED');
   }
 
-  await revokeRefreshToken(tokenHash);
-  const newRefreshToken = await createAndStoreRefreshToken(stored.userId, tokenHash);
-
   const accessToken = await jwt.sign({
-    sub: stored.userId,
+    sub: rotation.user.id,
     exp: ACCESS_TOKEN_EXPIRY,
   });
 
-  reqLogger.info({ event: 'auth.refresh', userId: stored.userId }, 'token refreshed');
+  reqLogger.info({ event: 'auth.refresh', userId: rotation.user.id }, 'token refreshed');
 
   return {
     accessToken,
-    refreshToken: newRefreshToken,
-    user: userResponse(user),
+    refreshToken: rotation.refreshToken,
+    user: userResponse(rotation.user),
   };
 }
 
@@ -339,30 +353,37 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   )
 
   // -----------------------------------------------------------------------
-  // POST /auth/dev — dev-only sign-in for E2E tests (returns 404 in production)
+  // POST /auth/dev — dev-only sign-in for E2E tests.
+  // Only registered when AUTH_DEV_ROUTE_ENABLED=true and NODE_ENV != production.
   // -----------------------------------------------------------------------
-  .post(
-    '/dev',
-    async ({ jwt, body, cookie, set }) => {
-      if (IS_PRODUCTION) {
-        throw new ApiError(404, 'Not found', 'NOT_FOUND');
-      }
-      // Reuse existing user by email (dev logins generate a new googleId each time,
-      // which would violate the email unique constraint on repeated calls).
-      const existing = await findUserByEmail(body.email);
-      const user = existing
-        ? existing
-        : (await findOrCreateGoogleUser(`dev-${crypto.randomUUID()}`, body.email, undefined)).user;
-      const { accessToken } = await issueTokens(jwt, cookie, user);
-      set.status = 201;
-      return { user: userResponse(user), accessToken };
-    },
-    {
-      body: t.Object({
-        email: t.String({ format: 'email' }),
-      }),
-      detail: { tags: ['Auth'], summary: 'Dev-only test sign-in (404 in production)' },
-    }
+  .use((app) =>
+    DEV_AUTH_ENABLED
+      ? app.post(
+          '/dev',
+          async ({ jwt, body, cookie, set, ip, headers }) => {
+            await rateLimit(ip, 'POST /auth/dev', DEV_AUTH_RATE_LIMIT);
+            if (!devAuthSecretMatches(headers['x-dev-auth-secret'])) {
+              throw new ApiError(401, 'Invalid dev auth secret', 'UNAUTHORIZED');
+            }
+            // Reuse existing user by email (dev logins generate a new googleId each time,
+            // which would violate the email unique constraint on repeated calls).
+            const existing = await findUserByEmail(body.email);
+            const user = existing
+              ? existing
+              : (await findOrCreateGoogleUser(`dev-${crypto.randomUUID()}`, body.email, undefined))
+                  .user;
+            const { accessToken } = await issueTokens(jwt, cookie, user);
+            set.status = 201;
+            return { user: userResponse(user), accessToken };
+          },
+          {
+            body: t.Object({
+              email: t.String({ format: 'email' }),
+            }),
+            detail: { tags: ['Auth'], summary: 'Dev-only test sign-in (404 in production)' },
+          }
+        )
+      : app
   )
 
   // -----------------------------------------------------------------------
@@ -492,15 +513,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .get(
     '/me',
     async ({ jwt, headers }) => {
-      const token = extractBearerToken(headers);
-      const payload = await jwt.verify(token);
-      if (!payload || typeof payload['sub'] !== 'string') {
-        throw new ApiError(401, 'Invalid or expired token', 'TOKEN_INVALID');
-      }
+      const { userId } = await resolveUserId({ jwt, headers });
+      await rateLimit(userId, 'GET /auth/me', { maxRequests: 100 });
 
-      await rateLimit(payload['sub'], 'GET /auth/me', { maxRequests: 100 });
-
-      const user = await findUserById(payload['sub']);
+      const user = await findUserById(userId);
       if (!user) {
         throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
       }

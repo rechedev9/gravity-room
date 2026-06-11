@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from hmac import compare_digest
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException
@@ -41,7 +42,9 @@ async def trigger_compute(
     x_internal_secret: str | None = Header(default=None),
 ) -> dict:
     """Manually trigger a full compute run. Requires X-Internal-Secret header."""
-    if not settings.internal_secret or x_internal_secret != settings.internal_secret:
+    if not settings.internal_secret or not x_internal_secret:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if not compare_digest(x_internal_secret, settings.internal_secret):
         raise HTTPException(status_code=403, detail="Forbidden")
     try:
         result = await run_all()

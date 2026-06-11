@@ -37,17 +37,6 @@ export function HomeIcon({ className }: IconProps): React.ReactNode {
   );
 }
 
-export function DashboardIcon({ className }: IconProps): React.ReactNode {
-  return (
-    <SidebarSvg className={className}>
-      <rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1" stroke="currentColor" strokeWidth="2" />
-      <rect x="11" y="2.5" width="6.5" height="6.5" rx="1" stroke="currentColor" strokeWidth="2" />
-      <rect x="2.5" y="11" width="6.5" height="6.5" rx="1" stroke="currentColor" strokeWidth="2" />
-      <rect x="11" y="11" width="6.5" height="6.5" rx="1" stroke="currentColor" strokeWidth="2" />
-    </SidebarSvg>
-  );
-}
-
 export function TrackerIcon({ className }: IconProps): React.ReactNode {
   return (
     <SidebarSvg className={className}>
@@ -90,6 +79,25 @@ export function ProgramsIcon({ className }: IconProps): React.ReactNode {
   );
 }
 
+export function InsightsIcon({ className }: IconProps): React.ReactNode {
+  return (
+    <SidebarSvg className={className}>
+      <line
+        x1="3"
+        y1="17"
+        x2="17"
+        y2="17"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <rect x="4" y="11" width="3" height="5" stroke="currentColor" strokeWidth="2" />
+      <rect x="8.5" y="7" width="3" height="9" stroke="currentColor" strokeWidth="2" />
+      <rect x="13" y="9" width="3" height="7" stroke="currentColor" strokeWidth="2" />
+    </SidebarSvg>
+  );
+}
+
 export function ProfileIcon({ className }: IconProps): React.ReactNode {
   return (
     <SidebarSvg className={className}>
@@ -100,23 +108,6 @@ export function ProfileIcon({ className }: IconProps): React.ReactNode {
         strokeWidth="2"
         strokeLinecap="round"
       />
-    </SidebarSvg>
-  );
-}
-
-export function AnalyticsIcon({ className }: IconProps): React.ReactNode {
-  return (
-    <SidebarSvg className={className}>
-      <polyline
-        points="2.5,15 7,9.5 11,12.5 17.5,5"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="7" cy="9.5" r="1.5" fill="currentColor" />
-      <circle cx="11" cy="12.5" r="1.5" fill="currentColor" />
-      <circle cx="17.5" cy="5" r="1.5" fill="currentColor" />
     </SidebarSvg>
   );
 }

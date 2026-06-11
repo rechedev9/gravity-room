@@ -21,6 +21,9 @@ dist
 .DS_Store
 *.pem
 
+# local audit artifacts (agent-generated reports, not part of source)
+audit/
+
 # google oauth credentials (never commit)
 google-oauth-credentials.json
 
@@ -30,22 +33,33 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (example is committed for onboarding)
+# env files (examples are committed for onboarding)
 .env*
 !.env.example
+!.env.production.example
 
 # vercel
 .vercel
 
-# AI tooling (Claude Code, SDD workflow)
+# AI tooling (Claude Code, Codex, SDD workflow)
 AGENTS.md
 .claude/
+.codex/
 .worktrees/
+.agents/
+.atl/
+skills-lock.json
 
 # temporary files (PDF extracts, screenshots, scripts)
 .tmp/
 .playwright-mcp/
 .railwayignore
+
+# Weave local runtime artifacts
+.weave/
+
+# Superpowers brainstorming scratch (visual companion mockups)
+.superpowers/
 
 # typescript
 *.tsbuildinfo
@@ -77,4 +91,3 @@ __pycache__/
 # Python local envs and test caches
 .venv/
 .pytest_cache/
-

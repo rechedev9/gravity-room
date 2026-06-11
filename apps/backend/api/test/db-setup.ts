@@ -15,8 +15,8 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import { sql } from 'drizzle-orm';
 import postgres from 'postgres';
-import { join } from 'path';
-import * as schema from '../src/db/schema';
+import * as schema from '@gzclp/database/schema';
+import { MIGRATIONS_DIR } from '@gzclp/database/migrations';
 
 // ── Redirect DATABASE_URL → test database ────────────────────────────────────
 // Must happen BEFORE any service module is imported so getDb() picks it up.
@@ -48,7 +48,7 @@ export async function setupTestDb(): Promise<TestDb> {
   // Run migrations with a dedicated single-connection client (DDL must be serial)
   const migrationClient = postgres(TEST_DB_URL, { max: 1 });
   await migrate(drizzle(migrationClient), {
-    migrationsFolder: join(import.meta.dir, '..', 'drizzle'),
+    migrationsFolder: MIGRATIONS_DIR,
   });
   await migrationClient.end();
 

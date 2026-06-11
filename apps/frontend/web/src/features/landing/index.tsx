@@ -2,14 +2,14 @@ import { ES_CONTENT } from './content';
 import { LandingPageShell } from './landing-page-shell';
 
 const ES_HEAD = {
-  title: 'Gravity Room — Programas de Entrenamiento con Progresión Automática',
+  title: 'Gravity Room — Planes de fuerza gratis con progresión automática',
   description:
-    'Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis.',
+    'Crea un plan de fuerza gratis, sigue programas probados y deja que Gravity Room calcule pesos, series y ajustes de cada entrenamiento.',
   canonical: 'https://gravityroom.app/',
   ogLocale: 'es_ES',
-  ogTitle: 'Gravity Room — Programas de Entrenamiento con Progresión Automática',
+  ogTitle: 'Gravity Room — Planes de fuerza gratis con progresión automática',
   ogDescription:
-    'Deja de adivinar en el gimnasio. Programas de entrenamiento con progresión automática de peso, series y repeticiones. 100% gratis.',
+    'Crea un plan de fuerza gratis, sigue programas probados y deja que Gravity Room calcule pesos, series y ajustes de cada entrenamiento.',
   ogUrl: 'https://gravityroom.app/',
   lang: 'es',
 } as const;

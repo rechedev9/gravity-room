@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { setAccessToken, refreshAccessToken } from '@/lib/api';
+import { clearApiResponseCache, setAccessToken, refreshAccessToken } from '@/lib/api';
 import { apiFetch, fetchMe, parseUserSafe } from '@/lib/api-functions';
 import type { UserInfo } from '@/lib/api-functions';
 import { isRecord } from '@gzclp/domain/type-guards';
@@ -29,7 +29,8 @@ interface AuthState {
 
 interface AuthActions {
   readonly signInWithGoogle: (credential: string) => Promise<AuthResult | null>;
-  readonly signInWithDev: () => Promise<AuthResult | null>;
+  // DEV-only — undefined in production builds (esbuild dead-code-eliminates the branch).
+  readonly signInWithDev?: () => Promise<AuthResult | null>;
   readonly signOut: () => Promise<void>;
   readonly updateUser: (info: Partial<Pick<UserInfo, 'name' | 'avatarUrl'>>) => void;
   readonly deleteAccount: () => Promise<void>;
@@ -131,7 +132,7 @@ export function AuthProvider({
     [setSessionData]
   );
 
-  const signInWithDev = useCallback(async (): Promise<AuthResult | null> => {
+  const signInWithDevImpl = useCallback(async (): Promise<AuthResult | null> => {
     try {
       const data = await apiFetch('/auth/dev', {
         method: 'POST',
@@ -142,6 +143,10 @@ export function AuthProvider({
       return { message: err instanceof Error ? err.message : 'Something went wrong' };
     }
   }, [setSessionData]);
+  // Strip the dev sign-in entry-point in production. The /auth/dev API route
+  // returns 404 in prod anyway, but removing the caller keeps it out of the
+  // bundle entirely.
+  const signInWithDev = import.meta.env.DEV ? signInWithDevImpl : undefined;
 
   const updateUser = useCallback(
     (info: Partial<Pick<UserInfo, 'name' | 'avatarUrl'>>): void => {
@@ -155,6 +160,7 @@ export function AuthProvider({
   const deleteAccount = useCallback(async (): Promise<void> => {
     await apiFetch('/auth/me', { method: 'DELETE' });
     setAccessToken(null);
+    await clearApiResponseCache();
     queryClient.setQueryData(SESSION_QUERY_KEY, null);
     sentrySetUser(null);
   }, [queryClient]);
@@ -170,6 +176,7 @@ export function AuthProvider({
       );
     }
     setAccessToken(null);
+    await clearApiResponseCache();
     queryClient.setQueryData(SESSION_QUERY_KEY, null);
     sentrySetUser(null);
   }, [queryClient]);

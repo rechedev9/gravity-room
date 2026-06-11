@@ -1,7 +1,10 @@
+import { cn } from '@/lib/cn';
+
 interface DashboardCardProps {
   readonly title: string;
   readonly icon?: React.ReactNode;
   readonly action?: React.ReactNode;
+  readonly interactive?: boolean;
   readonly className?: string;
   readonly children: React.ReactNode;
 }
@@ -10,19 +13,26 @@ export function DashboardCard({
   title,
   icon,
   action,
-  className = '',
+  interactive = false,
+  className,
   children,
 }: DashboardCardProps): React.ReactNode {
   return (
-    <div className={`bg-card border border-rule shadow-card card ${className}`}>
-      <div className="flex items-center justify-between px-4 py-3 border-b border-rule">
-        <div className="flex items-center gap-2">
-          {icon && <span className="text-muted text-sm">{icon}</span>}
-          <h3 className="text-xs font-semibold text-muted uppercase tracking-wider">{title}</h3>
-        </div>
-        {action && <div className="shrink-0">{action}</div>}
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
+    <section
+      className={cn(
+        'bg-card border border-rule rounded-[var(--radius-base)]',
+        interactive &&
+          'transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out-expo)] hover:border-rule-light',
+        className
+      )}
+    >
+      <header className="flex items-center gap-3 px-4 pt-4 pb-3">
+        <span className="block w-6 h-px bg-accent" aria-hidden="true" />
+        <h2 className="chalk-stamp flex-1">{title}</h2>
+        {icon}
+        {action}
+      </header>
+      <div className="px-4 pb-4">{children}</div>
+    </section>
   );
 }

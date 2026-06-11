@@ -6,11 +6,13 @@ import { join } from 'path';
 import { cleanupExpiredTokens } from './services/auth';
 import { getDb, closeDb } from './db';
 import { getRedis } from './lib/redis';
+import { runPresenceJanitor } from './lib/presence';
 import { logger } from './lib/logger';
-import { seedMuscleGroups } from './db/seeds/muscle-groups-seed';
-import { seedExercises } from './db/seeds/exercises-seed';
-import { seedExercisesExpanded } from './db/seeds/exercises-seed-expanded';
-import { seedProgramTemplates } from './db/seeds/program-templates-seed';
+import { MIGRATIONS_DIR } from '@gzclp/database/migrations';
+import { seedMuscleGroups } from '@gzclp/database/seeds/muscle-groups-seed';
+import { seedExercises } from '@gzclp/database/seeds/exercises-seed';
+import { seedExercisesExpanded } from '@gzclp/database/seeds/exercises-seed-expanded';
+import { seedProgramTemplates } from '@gzclp/database/seeds/program-templates-seed';
 import { createApp } from './create-app';
 
 // ---------------------------------------------------------------------------
@@ -46,7 +48,7 @@ const PORT = Number(process.env['PORT'] ?? 3001);
 // ---------------------------------------------------------------------------
 
 const CSP =
-  "default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com; img-src 'self' data: blob: https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://*.ingest.sentry.io; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; frame-src https://accounts.google.com; frame-ancestors 'none'";
+  "default-src 'self'; script-src 'self' https://accounts.google.com; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com; img-src 'self' data: blob: https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://*.ingest.sentry.io; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-src https://accounts.google.com; frame-ancestors 'none'; upgrade-insecure-requests";
 
 const PERMISSIONS_POLICY: string =
   'camera=(), microphone=(), geolocation=(), payment=(), interest-cohort=()';
@@ -62,25 +64,24 @@ async function runMigrations(): Promise<void> {
   // Single-connection client for migrations (DDL must run serially)
   const migrationClient = postgres(url, { max: 1 });
   const migrationDb = drizzle(migrationClient);
-  const migrationsFolder = join(import.meta.dir, '..', 'drizzle');
+  const migrationsFolder = MIGRATIONS_DIR;
 
-  // Detect whether this is a fresh DB or one that already has schema (e.g. the
-  // prod DB migrated from goose). The hotfix DDL + goose-to-Drizzle bridge below
-  // are only meaningful for an existing schema; on a fresh DB, the regular
-  // `migrate()` call at the end of this function creates everything from scratch.
-  const [{ exists: schemaExists }] = await migrationClient<[{ exists: boolean }]>`
+  // Hotfix: apply DDL from migrations 0005-0009 that were skipped due to a
+  // poisoned migration timestamp in __drizzle_migrations. Drizzle's migrator
+  // compares the last applied created_at against each migration's folderMillis;
+  // a future-dated entry caused all subsequent migrations to be silently skipped.
+  // These are all idempotent (IF NOT EXISTS / IF NOT EXISTS) — safe to keep permanently.
+  //
+  // Guard: only run these hotfixes if the base schema already exists (i.e. this is
+  // an existing/legacy DB). On a fresh DB, Drizzle migrations will create everything
+  // correctly and these ALTER statements would fail on non-existent tables.
+  const [{ workoutResultsExists }] = await migrationClient<[{ workoutResultsExists: boolean }]>`
     SELECT EXISTS (
       SELECT 1 FROM information_schema.tables
-      WHERE table_schema = 'public' AND table_name = 'users'
-    )`;
+      WHERE table_schema = 'public' AND table_name = 'workout_results'
+    ) AS "workoutResultsExists"`;
 
-  if (schemaExists) {
-    // Hotfix: apply DDL from migrations 0005-0009 that were skipped due to a
-    // poisoned migration timestamp in __drizzle_migrations. Drizzle's migrator
-    // compares the last applied created_at against each migration's folderMillis;
-    // a future-dated entry caused all subsequent migrations to be silently skipped.
-    // All statements are idempotent (IF NOT EXISTS / ALTER TYPE no-op when type matches).
-
+  if (workoutResultsExists) {
     // 0005/0006: RPE columns
     await migrationClient`ALTER TABLE "workout_results" ADD COLUMN IF NOT EXISTS "rpe" smallint`;
     await migrationClient`ALTER TABLE "undo_entries" ADD COLUMN IF NOT EXISTS "prev_rpe" smallint`;
@@ -123,15 +124,23 @@ async function runMigrations(): Promise<void> {
     // 0009: user profile columns
     await migrationClient`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatar_url" text`;
     await migrationClient`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp with time zone`;
+  }
 
-    // Widen exercises.id from varchar(50) to varchar(100) — 9 expanded exercise IDs
-    // exceed 50 chars (e.g. 'lying_close_grip_barbell_triceps_extension_behind_the_head').
-    // ALTER TYPE to a wider varchar is non-destructive and requires no data migration.
-    await migrationClient`ALTER TABLE IF EXISTS "exercises" ALTER COLUMN "id" TYPE varchar(100)`;
+  // Widen exercises.id from varchar(50) to varchar(100) — 9 expanded exercise IDs
+  // exceed 50 chars (e.g. 'lying_close_grip_barbell_triceps_extension_behind_the_head').
+  // ALTER TYPE to a wider varchar is non-destructive and requires no data migration.
+  // Uses IF EXISTS so it is safe on a fresh DB (Drizzle migration 0032 handles it there).
+  await migrationClient`ALTER TABLE IF EXISTS "exercises" ALTER COLUMN "id" TYPE varchar(100)`;
 
-    // Goose-to-Drizzle bridge: if the DB has existing schema (from goose) but no
-    // Drizzle migration entries, seed the journal so Drizzle skips already-applied
-    // migrations. This is a one-time operation for databases migrated from the Go API.
+  // Goose-to-Drizzle bridge: if the DB has existing schema (from goose) but no
+  // Drizzle migration entries, seed the journal so Drizzle skips already-applied
+  // migrations. This is a one-time operation for databases migrated from the Go API.
+  const [{ exists: schemaExists }] = await migrationClient<[{ exists: boolean }]>`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'users'
+    )`;
+  if (schemaExists) {
     // Drizzle stores migrations in the "drizzle" schema, not "public"
     await migrationClient`CREATE SCHEMA IF NOT EXISTS "drizzle"`;
     await migrationClient`
@@ -152,9 +161,6 @@ async function runMigrations(): Promise<void> {
         const idx = parseInt(f.split('_')[0] ?? '', 10);
         return idx <= 31;
       });
-      // JSON.parse returns `any`; this file is the Drizzle-generated journal,
-      // shape is fixed by drizzle-kit, so we accept the unsafe assignment here.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const journalJson: { entries: Array<{ tag: string; when: number }> } = JSON.parse(
         await readFile(join(migrationsFolder, 'meta', '_journal.json'), 'utf-8')
       );
@@ -244,7 +250,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
   try {
     const redis = getRedis();
     if (redis) {
-      redis.disconnect();
+      await redis.disconnect();
     }
   } catch (err: unknown) {
     logger.error({ err }, 'error disconnecting Redis');
@@ -277,3 +283,19 @@ function runCleanup(): void {
 
 runCleanup();
 setInterval(runCleanup, TOKEN_CLEANUP_INTERVAL_MS);
+
+// ---------------------------------------------------------------------------
+// Presence sorted-set janitor — runs every 60s when Redis is available
+// ---------------------------------------------------------------------------
+
+const PRESENCE_JANITOR_INTERVAL_MS = 60_000;
+
+function runPresenceCleanup(): void {
+  const redis = getRedis();
+  if (!redis) return;
+  runPresenceJanitor(redis).catch((err: unknown) =>
+    logger.error({ err }, 'Presence janitor failed')
+  );
+}
+
+setInterval(runPresenceCleanup, PRESENCE_JANITOR_INTERVAL_MS);

@@ -105,14 +105,21 @@ function isIdTokenHeader(value: unknown): value is IdTokenHeader {
 interface IdTokenPayload {
   readonly sub: string;
   readonly email: string;
+  readonly email_verified?: boolean;
   readonly name?: string;
   readonly aud: string | string[];
   readonly iss: string;
   readonly exp: number;
+  readonly nbf?: number;
+  readonly iat?: number;
 }
 
 function isIdTokenPayload(value: unknown): value is IdTokenPayload {
   if (!isRecord(value)) return false;
+  if (value['email_verified'] !== undefined && typeof value['email_verified'] !== 'boolean')
+    return false;
+  if (value['nbf'] !== undefined && typeof value['nbf'] !== 'number') return false;
+  if (value['iat'] !== undefined && typeof value['iat'] !== 'number') return false;
   return (
     typeof value['sub'] === 'string' &&
     typeof value['email'] === 'string' &&
@@ -204,9 +211,18 @@ export async function verifyGoogleToken(
   const rawPayload: unknown = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
   if (!isIdTokenPayload(rawPayload)) throw new ApiError(401, 'Invalid JWT payload', 'AUTH_INVALID');
 
-  // Validate standard claims
-  if (Date.now() / 1000 > rawPayload.exp)
+  // Validate standard claims with ±60 s clock-skew tolerance
+  const CLOCK_SKEW_S = 60;
+  const nowS = Date.now() / 1000;
+
+  if (nowS - CLOCK_SKEW_S > rawPayload.exp)
     throw new ApiError(401, 'Token has expired', 'AUTH_INVALID');
+
+  if (rawPayload.nbf !== undefined && nowS + CLOCK_SKEW_S < rawPayload.nbf)
+    throw new ApiError(401, 'Token not yet valid', 'AUTH_INVALID');
+
+  if (rawPayload.iat !== undefined && nowS + CLOCK_SKEW_S < rawPayload.iat)
+    throw new ApiError(401, 'Token issued in the future', 'AUTH_INVALID');
 
   if (!GOOGLE_ISSUERS.has(rawPayload.iss)) {
     throw new ApiError(401, 'Invalid token issuer', 'AUTH_INVALID');
@@ -215,6 +231,10 @@ export async function verifyGoogleToken(
   const audiences = Array.isArray(rawPayload.aud) ? rawPayload.aud : [rawPayload.aud];
   if (!audiences.some((audience) => allowedClientIds.includes(audience))) {
     throw new ApiError(401, 'Invalid audience', 'AUTH_INVALID');
+  }
+
+  if (rawPayload.email_verified !== true) {
+    throw new ApiError(401, 'Email not verified by Google', 'AUTH_INVALID');
   }
 
   return {

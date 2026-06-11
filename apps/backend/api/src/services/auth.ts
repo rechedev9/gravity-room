@@ -4,7 +4,7 @@
  */
 import { eq, lt, and, isNull, sql } from 'drizzle-orm';
 import { getDb } from '../db';
-import { users, refreshTokens } from '../db/schema';
+import { users, refreshTokens } from '@gzclp/database/schema';
 import { ApiError } from '../middleware/error-handler';
 
 // ---------------------------------------------------------------------------
@@ -12,7 +12,29 @@ import { ApiError } from '../middleware/error-handler';
 // ---------------------------------------------------------------------------
 
 type UserRow = typeof users.$inferSelect;
-type RefreshTokenRow = typeof refreshTokens.$inferSelect;
+
+/**
+ * Subset of refresh_tokens columns required by the auth flows.
+ * Explicit projection keeps the SELECT narrow and decouples callers from
+ * future column additions (e.g. user-agent fingerprints) that have no
+ * business being shipped on every auth round-trip.
+ */
+export interface RefreshTokenRow {
+  readonly userId: string;
+  readonly expiresAt: Date;
+  readonly tokenHash: string;
+  readonly previousTokenHash: string | null;
+}
+
+export type RotateRefreshTokenResult =
+  | { readonly status: 'not_found' }
+  | { readonly status: 'expired' }
+  | { readonly status: 'account_deleted' }
+  | {
+      readonly status: 'rotated';
+      readonly user: UserRow;
+      readonly refreshToken: string;
+    };
 
 /** Result of findOrCreateGoogleUser — includes new-user detection flag. */
 interface FindOrCreateResult {
@@ -32,7 +54,10 @@ const REFRESH_TOKEN_MS = REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000;
 // ---------------------------------------------------------------------------
 
 export function generateRefreshToken(): string {
-  return crypto.randomUUID();
+  // 32 random bytes (256 bits) hex-encoded. A v4 UUID carries only ~122 bits
+  // and a fixed structure; for a 7-day bearer secret prefer full entropy.
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 /** SHA-256 hash of a token for safe DB storage. */
@@ -87,10 +112,27 @@ export async function findOrCreateGoogleUser(
         email: sql`EXCLUDED.email`,
         updatedAt: new Date(),
       },
+      // Never touch a soft-deleted row. Without this guard the DO UPDATE
+      // overwrites the email/name of a deleted account on every sign-in
+      // attempt, mutating a row the 30-day purge job reasons about.
+      setWhere: isNull(users.deletedAt),
     })
     .returning();
 
-  if (!user) throw new ApiError(500, 'Failed to upsert user', 'DB_WRITE_ERROR');
+  // RETURNING yields no row when the conflict matched a soft-deleted account
+  // (the setWhere filtered the UPDATE out). Look it up to return the correct
+  // 403 instead of a misleading 500.
+  if (!user) {
+    const [deleted] = await db.select().from(users).where(eq(users.googleId, googleId)).limit(1);
+    if (deleted?.deletedAt) {
+      throw new ApiError(
+        403,
+        'This account has been deleted. Contact support if you wish to recover it.',
+        'ACCOUNT_DELETED'
+      );
+    }
+    throw new ApiError(500, 'Failed to upsert user', 'DB_WRITE_ERROR');
+  }
 
   if (user.deletedAt) {
     throw new ApiError(
@@ -158,11 +200,18 @@ export async function storeRefreshToken(
  * Used for token reuse detection: if an already-rotated token is presented,
  * this finds its successor, revealing the affected userId.
  */
+const REFRESH_TOKEN_COLUMNS = {
+  userId: refreshTokens.userId,
+  expiresAt: refreshTokens.expiresAt,
+  tokenHash: refreshTokens.tokenHash,
+  previousTokenHash: refreshTokens.previousTokenHash,
+} as const;
+
 export async function findRefreshTokenByPreviousHash(
   previousHash: string
 ): Promise<RefreshTokenRow | undefined> {
   const [token] = await getDb()
-    .select()
+    .select(REFRESH_TOKEN_COLUMNS)
     .from(refreshTokens)
     .where(eq(refreshTokens.previousTokenHash, previousHash))
     .limit(1);
@@ -171,7 +220,7 @@ export async function findRefreshTokenByPreviousHash(
 
 export async function findRefreshToken(tokenHash: string): Promise<RefreshTokenRow | undefined> {
   const [token] = await getDb()
-    .select()
+    .select(REFRESH_TOKEN_COLUMNS)
     .from(refreshTokens)
     .where(eq(refreshTokens.tokenHash, tokenHash))
     .limit(1);
@@ -184,6 +233,52 @@ export async function revokeRefreshToken(tokenHash: string): Promise<void> {
 
 export async function revokeAllUserTokens(userId: string): Promise<void> {
   await getDb().delete(refreshTokens).where(eq(refreshTokens.userId, userId));
+}
+
+/**
+ * Atomically consumes one refresh token and writes its successor.
+ *
+ * The old implementation selected the token, deleted it, then inserted the
+ * replacement as separate operations. Two concurrent refresh requests could
+ * both observe the old token before either delete happened and each mint a
+ * valid successor. This transaction uses DELETE ... RETURNING as the compare-
+ * and-swap boundary: only the request that actually deletes the current token
+ * may create the next token in the family.
+ */
+export async function rotateRefreshToken(tokenHash: string): Promise<RotateRefreshTokenResult> {
+  return getDb().transaction(async (tx) => {
+    const [stored] = await tx
+      .delete(refreshTokens)
+      .where(eq(refreshTokens.tokenHash, tokenHash))
+      .returning(REFRESH_TOKEN_COLUMNS);
+
+    if (!stored) return { status: 'not_found' };
+
+    if (stored.expiresAt < new Date()) {
+      return { status: 'expired' };
+    }
+
+    const [user] = await tx
+      .select()
+      .from(users)
+      .where(and(eq(users.id, stored.userId), isNull(users.deletedAt)))
+      .limit(1);
+
+    if (!user) return { status: 'account_deleted' };
+
+    const refreshToken = generateRefreshToken();
+    const newTokenHash = await hashToken(refreshToken);
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MS);
+
+    await tx.insert(refreshTokens).values({
+      userId: stored.userId,
+      tokenHash: newTokenHash,
+      expiresAt,
+      previousTokenHash: tokenHash,
+    });
+
+    return { status: 'rotated', user, refreshToken };
+  });
 }
 
 // ---------------------------------------------------------------------------

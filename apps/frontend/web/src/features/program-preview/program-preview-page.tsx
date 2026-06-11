@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { localizedProgramDescription, localizedProgramName } from '@/lib/catalog-display';
 import { useProgramHead } from '@/hooks/use-head';
+import { ProgramJsonLd } from '@/features/program-preview/program-json-ld';
 import { trackEvent } from '@/lib/analytics';
 import { useParams, Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -16,9 +17,11 @@ import type { ViewMode } from '@/lib/view-preference';
 import { ProgramOverview } from '@/features/program-view/program-overview';
 import { ProgramAboutSection } from '@/features/program-view/program-about-section';
 import { DayNavigator } from '@/features/program-view/day-navigator';
+import { CalendarNavigator } from '@/features/program-view/calendar-navigator';
 import { DayView } from '@/features/program-view/day-view';
 import { DetailedDayView } from '@/features/program-view/detailed-day-view';
 import { ToastContainer } from '@/components/toast';
+import { ZoneHint } from '@/features/home/zone-hint';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -59,7 +62,7 @@ function PreviewError({ onRetry }: { readonly onRetry: () => void }): ReactNode 
         <button
           type="button"
           onClick={onRetry}
-          className="px-5 py-2 bg-accent text-white font-bold cursor-pointer text-sm"
+          className="px-5 py-2 bg-accent text-on-accent font-bold cursor-pointer text-sm"
         >
           {t('common.retry')}
         </button>
@@ -183,10 +186,15 @@ export function ProgramPreviewPage(): ReactNode {
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<ViewMode>(() => getViewPreference());
 
-  const headName = definition ? localizedProgramName(t, definition.id, definition.name) : undefined;
-  const headDescription = definition
-    ? localizedProgramDescription(t, definition.id, definition.description)
-    : undefined;
+  // Resolve head meta from translation keys as soon as the route params are known.
+  // The catalog API may still be in flight (or be intercepted by prerender) — title
+  // and description must land in the prerendered HTML regardless, so we don't depend
+  // on `definition` for them. localizedProgramName falls back to '' when the key is
+  // missing (unknown program id); useProgramHead treats undefined/empty as "skip".
+  const translatedName = localizedProgramName(t, programId, '');
+  const translatedDescription = localizedProgramDescription(t, programId, '');
+  const headName = translatedName !== '' ? translatedName : undefined;
+  const headDescription = translatedDescription !== '' ? translatedDescription : undefined;
   useProgramHead(programId, headName, headDescription);
 
   const previewTracked = useRef(false);
@@ -198,7 +206,7 @@ export function ProgramPreviewPage(): ReactNode {
   }, [definition, programId]);
 
   // Build program summary when definition is available
-  const summary = definition !== undefined ? buildProgramSummary(definition) : null;
+  const summary = definition !== undefined ? buildProgramSummary(definition, t) : null;
 
   // ---------------------------------------------------------------------------
   // Interaction stubs — preview is read-only, interactions prompt signup/login
@@ -220,6 +228,11 @@ export function ProgramPreviewPage(): ReactNode {
 
   const handleGoToCurrent = (): void => {
     setSelectedDayIndex(CURRENT_DAY_INDEX);
+  };
+
+  const handleSelectDay = (index: number): void => {
+    if (rows.length === 0) return;
+    setSelectedDayIndex(Math.min(Math.max(0, index), rows.length - 1));
   };
 
   // ---------------------------------------------------------------------------
@@ -268,6 +281,14 @@ export function ProgramPreviewPage(): ReactNode {
 
   return (
     <div className="grain-overlay min-h-dvh bg-body">
+      <ProgramJsonLd
+        programId={programId}
+        name={name}
+        description={description}
+        totalWorkouts={totalWorkouts}
+        workoutsPerWeek={definition.workoutsPerWeek}
+        days={definition.days}
+      />
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 bg-header/95 backdrop-blur-md border-b border-rule">
         <Link
@@ -291,6 +312,8 @@ export function ProgramPreviewPage(): ReactNode {
       {/* Content */}
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
         <h1 className="sr-only">{name}</h1>
+
+        <ZoneHint zone="preview" className="mb-4" />
 
         {/* Program info — expanded by default */}
         <ProgramAboutSection
@@ -322,6 +345,18 @@ export function ProgramPreviewPage(): ReactNode {
           onGoToCurrent={handleGoToCurrent}
         />
 
+        {/* Calendar navigator — program weeks, no real completion state */}
+        <div className="mt-4">
+          <CalendarNavigator
+            rows={rows}
+            selectedDayIndex={selectedDayIndex}
+            currentDayIndex={CURRENT_DAY_INDEX}
+            workoutsPerWeek={definition.workoutsPerWeek}
+            context="preview"
+            onSelectDay={handleSelectDay}
+          />
+        </div>
+
         {/* View mode toggle */}
         <div className="flex justify-end mb-2">
           <button
@@ -332,7 +367,7 @@ export function ProgramPreviewPage(): ReactNode {
                 ? t('tracker.tab_content.aria_compact_view')
                 : t('tracker.tab_content.aria_detailed_view')
             }
-            className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors"
+            className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors min-h-[44px] px-2 inline-flex items-center"
           >
             {viewMode === 'detailed'
               ? t('tracker.tab_content.compact_view')

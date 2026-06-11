@@ -150,6 +150,65 @@ describe('useDayNavigation', () => {
     });
   });
 
+  describe('handleSelectDay', () => {
+    it('jumps directly to any valid index without sequential navigation', () => {
+      const { result } = renderHook(() =>
+        useDayNavigation({ totalWorkouts: 100, firstPendingIdx: 0, config: CONFIG_A })
+      );
+
+      // Jump directly to index 75 — no sequential steps needed
+      act(() => result.current.handleSelectDay(75));
+      expect(result.current.selectedDayIndex).toBe(75);
+    });
+
+    it('clamps index below 0 to 0', () => {
+      const { result } = renderHook(() =>
+        useDayNavigation({ totalWorkouts: 10, firstPendingIdx: 5, config: CONFIG_A })
+      );
+
+      act(() => result.current.handleSelectDay(-5));
+      expect(result.current.selectedDayIndex).toBe(0);
+    });
+
+    it('clamps index above totalWorkouts-1 to totalWorkouts-1', () => {
+      const { result } = renderHook(() =>
+        useDayNavigation({ totalWorkouts: 10, firstPendingIdx: 0, config: CONFIG_A })
+      );
+
+      act(() => result.current.handleSelectDay(999));
+      expect(result.current.selectedDayIndex).toBe(9);
+    });
+
+    it('is a no-op when totalWorkouts is 0', () => {
+      const { result } = renderHook(() =>
+        useDayNavigation({ totalWorkouts: 0, firstPendingIdx: -1, config: CONFIG_A })
+      );
+
+      act(() => result.current.handleSelectDay(0));
+      expect(result.current.selectedDayIndex).toBe(0);
+    });
+
+    it('can jump to index 0 from any position', () => {
+      const { result } = renderHook(() =>
+        useDayNavigation({ totalWorkouts: 50, firstPendingIdx: 40, config: CONFIG_A })
+      );
+
+      expect(result.current.selectedDayIndex).toBe(40);
+
+      act(() => result.current.handleSelectDay(0));
+      expect(result.current.selectedDayIndex).toBe(0);
+    });
+
+    it('can jump to last index (totalWorkouts - 1)', () => {
+      const { result } = renderHook(() =>
+        useDayNavigation({ totalWorkouts: 50, firstPendingIdx: 0, config: CONFIG_A })
+      );
+
+      act(() => result.current.handleSelectDay(49));
+      expect(result.current.selectedDayIndex).toBe(49);
+    });
+  });
+
   describe('view mode', () => {
     it('starts as detailed when localStorage has no preference', () => {
       const { result } = renderHook(() =>

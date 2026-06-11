@@ -16,29 +16,36 @@ import { getRedis } from '../lib/redis';
 import { trackPresence } from '../lib/presence';
 
 const BEARER_PREFIX = 'Bearer ';
-const DEV_SECRET = 'dev-secret-change-me';
+const TEST_SECRET = 'test-secret-do-not-use-outside-tests';
 
-const rawSecret = process.env['JWT_SECRET'];
-if (!rawSecret) {
-  if (process.env['NODE_ENV'] === 'production') {
-    throw new Error('JWT_SECRET env var must be set in production');
-  }
-  logger.warn('JWT_SECRET not set — using insecure default. Set it in .env.local');
+const isProduction = process.env['NODE_ENV'] === 'production';
+const isTest = process.env['NODE_ENV'] === 'test';
+const secret = process.env['JWT_SECRET'];
+
+if (!secret && !isTest) {
+  throw new Error(
+    'JWT_SECRET env var must be set (only NODE_ENV=test allows the built-in fallback)'
+  );
 }
-if (process.env['NODE_ENV'] === 'production') {
-  if (rawSecret === DEV_SECRET) {
-    throw new Error('JWT_SECRET must not use the default dev value in production');
-  }
-  if ((rawSecret ?? '').length < 64) {
-    throw new Error('JWT_SECRET must be at least 64 characters in production');
-  }
+const minLen = isProduction ? 64 : 32;
+if (secret && secret.length < minLen) {
+  throw new Error(`JWT_SECRET must be at least ${minLen} characters (got ${secret.length})`);
 }
-const JWT_SECRET = rawSecret ?? DEV_SECRET;
+if (!secret) {
+  logger.warn('JWT_SECRET not set — using test-only fallback (NODE_ENV=test).');
+}
+const JWT_SECRET = secret ?? TEST_SECRET;
+
+export const JWT_ISSUER = 'gravity-room-api';
+export const JWT_AUDIENCE = 'gravity-room-clients';
 
 export const jwtPlugin = new Elysia({ name: 'jwt-plugin' }).use(
   jwt({
     name: 'jwt',
     secret: JWT_SECRET,
+    alg: 'HS256',
+    iss: JWT_ISSUER,
+    aud: JWT_AUDIENCE,
   })
 );
 
@@ -72,6 +79,16 @@ export async function resolveUserId({
 
   if (!payload) {
     throw new ApiError(401, 'Invalid or expired token', 'TOKEN_INVALID');
+  }
+
+  if (payload['iss'] !== JWT_ISSUER) {
+    throw new ApiError(401, 'Invalid token issuer', 'TOKEN_INVALID');
+  }
+
+  const aud = payload['aud'];
+  const audMatches = Array.isArray(aud) ? aud.includes(JWT_AUDIENCE) : aud === JWT_AUDIENCE;
+  if (!audMatches) {
+    throw new ApiError(401, 'Invalid token audience', 'TOKEN_INVALID');
   }
 
   const userId = payload['sub'];

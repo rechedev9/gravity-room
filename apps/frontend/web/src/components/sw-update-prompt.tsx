@@ -25,7 +25,7 @@ export function SwUpdatePrompt(): React.ReactNode {
       <div className="flex items-center gap-2">
         <button
           onClick={() => void updateServiceWorker(true)}
-          className="px-3 py-1.5 bg-accent text-white font-bold cursor-pointer hover:opacity-90 transition-opacity"
+          className="px-3 py-1.5 bg-accent text-on-accent font-bold cursor-pointer hover:opacity-90 transition-opacity"
         >
           {t('sw_update.update')}
         </button>

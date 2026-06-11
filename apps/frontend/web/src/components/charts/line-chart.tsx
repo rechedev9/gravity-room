@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ComposedChart,
   Line,
@@ -65,6 +66,11 @@ function buildLabel(
 // Custom dot renderers
 // ---------------------------------------------------------------------------
 
+/** Diamond (rotated square) PR marker — the Forged Iron data accent. */
+function diamondPath(cx: number, cy: number, r: number): string {
+  return `M ${cx} ${cy - r} L ${cx + r} ${cy} L ${cx} ${cy + r} L ${cx - r} ${cy} Z`;
+}
+
 function CustomDot(props: DotProps & { payload?: ChartPoint }): React.ReactElement | null {
   const { cx, cy, payload } = props;
   if (!payload || cx === undefined || cy === undefined) return null;
@@ -76,14 +82,22 @@ function CustomDot(props: DotProps & { payload?: ChartPoint }): React.ReactEleme
   if (payload.isCurrentPr) {
     return (
       <g key={`pr-cur-${payload.idx}`}>
-        <circle cx={cx} cy={cy} r={7} fill={theme.pr} opacity={0.25} />
-        <circle cx={cx} cy={cy} r={5} fill={theme.pr} />
+        <path d={diamondPath(cx, cy, 9)} fill={theme.pr} opacity={0.22} />
+        <path d={diamondPath(cx, cy, 6)} fill={theme.pr} stroke={theme.bg} strokeWidth={1.5} />
       </g>
     );
   }
 
   if (payload.isPr) {
-    return <circle key={`pr-${payload.idx}`} cx={cx} cy={cy} r={4} fill={theme.pr} />;
+    return (
+      <path
+        key={`pr-${payload.idx}`}
+        d={diamondPath(cx, cy, 5)}
+        fill={theme.pr}
+        stroke={theme.bg}
+        strokeWidth={1}
+      />
+    );
   }
 
   if (payload.result === 'success') {
@@ -129,11 +143,13 @@ interface CustomTooltipProps {
 }
 
 function CustomTooltip({ active, payload }: CustomTooltipProps): React.ReactElement | null {
+  const { t } = useTranslation();
+
   if (!active || !payload?.length) return null;
   const pt = payload[0].payload;
   if (!pt || pt.result === null) return null;
 
-  const resultLabel = pt.result === 'success' ? '✓ Éxito' : '✗ Fallo';
+  const resultLabel = pt.result === 'success' ? t('chart.result_success') : t('chart.result_fail');
   const dateLabel = pt.date ? formatChartDate(pt.date) : null;
 
   return (
@@ -167,6 +183,7 @@ export function LineChart({
   yAxisLabel,
   showAllPrs,
 }: LineChartProps): React.ReactNode {
+  const { t } = useTranslation();
   const theme = getChartTheme();
   const effectiveShowPrs = showAllPrs ?? mode === 'weight';
 
@@ -244,9 +261,7 @@ export function LineChart({
         className="flex items-center justify-center h-[clamp(200px,25vw,300px)]"
         style={{ background: theme.bg }}
       >
-        <p className="font-mono text-xs text-[var(--color-chart-text)]">
-          Completa entrenamientos para ver el gráfico
-        </p>
+        <p className="font-mono text-xs text-[var(--color-chart-text)]">{t('chart.empty')}</p>
       </div>
     );
   }
@@ -257,7 +272,9 @@ export function LineChart({
         className="flex items-center justify-center h-[clamp(200px,25vw,300px)]"
         style={{ background: theme.bg }}
       >
-        <p className="font-mono text-xs text-[var(--color-chart-text)]">Datos insuficientes aún</p>
+        <p className="font-mono text-xs text-[var(--color-chart-text)]">
+          {t('chart.insufficient_data')}
+        </p>
       </div>
     );
   }
@@ -329,14 +346,14 @@ export function LineChart({
               />
             ))}
 
-            {/* Gradient fill + solid line */}
+            {/* Stepped fill + line (machined, no curves) */}
             <Area
-              type="monotone"
+              type="stepAfter"
               dataKey="weight"
               stroke={theme.line}
               strokeWidth={2}
               fill={theme.line}
-              fillOpacity={0.08}
+              fillOpacity={0.07}
               dot={<CustomDot />}
               activeDot={false}
               isAnimationActive={false}
@@ -346,7 +363,7 @@ export function LineChart({
             {projectedPoints.length > 0 && (
               <Line
                 data={projectedPoints}
-                type="monotone"
+                type="stepAfter"
                 dataKey="weight"
                 stroke={theme.line}
                 strokeWidth={2}
@@ -361,13 +378,13 @@ export function LineChart({
         </ResponsiveContainer>
       </div>
       <details className="sr-only">
-        <summary>Datos: {label}</summary>
+        <summary>{t('chart.data_summary', { label })}</summary>
         <table>
           <thead>
             <tr>
-              <th>Ent.</th>
-              <th>Peso</th>
-              <th>Resultado</th>
+              <th>{t('chart.workout_header')}</th>
+              <th>{t('chart.weight_header')}</th>
+              <th>{t('chart.result_header')}</th>
             </tr>
           </thead>
           <tbody>

@@ -86,12 +86,12 @@ describe('ToastContainer', () => {
   });
 
   describe('PR toast text format (REQ-CCF-001)', () => {
-    it('should render full text NUEVO PR — Sentadilla 100 kg for PR variant', () => {
+    it('should render full text NUEVO PR: Sentadilla 100 kg for PR variant', () => {
       renderWithToast('Sentadilla 100 kg', 'pr');
 
       const span = document.querySelector('.hero-number-glow');
 
-      expect(span?.textContent).toBe('NUEVO PR — Sentadilla 100 kg');
+      expect(span?.textContent).toBe('NUEVO PR: Sentadilla 100 kg');
     });
   });
 
@@ -118,6 +118,36 @@ describe('ToastContainer', () => {
 
       expect(actionBtn).not.toBeNull();
       expect(actionBtn?.textContent).toBe('Deshacer');
+    });
+  });
+
+  describe('PR variant victory background (REQ-TOAST-003)', () => {
+    it('PR variant renders with bg-victory class', () => {
+      renderWithToast('PR! Banca 70kg', 'pr');
+
+      const toastEl = document.querySelector('.bg-victory');
+
+      expect(toastEl).not.toBeNull();
+    });
+
+    it('default variant does NOT render bg-victory class', () => {
+      renderWithToast('Simple message', 'default');
+
+      const toastEl = document.querySelector('.bg-victory');
+
+      expect(toastEl).toBeNull();
+    });
+  });
+
+  describe('no inline Undo button without action (REQ-TOAST-004)', () => {
+    it('does NOT render a button inside the toast body when no action is provided', () => {
+      renderWithToast('Hello');
+
+      // Only the close button should be present; no action/undo button
+      const buttons = document.querySelectorAll('button');
+      const undoBtn = Array.from(buttons).find((b) => /undo|deshacer/i.test(b.textContent ?? ''));
+
+      expect(undoBtn).toBeUndefined();
     });
   });
 

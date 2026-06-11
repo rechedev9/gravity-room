@@ -61,8 +61,11 @@ export function FrequencyCard({ insight }: FrequencyCardProps): React.ReactNode 
       </div>
 
       <div className="grid grid-cols-7 gap-1.5 mb-1.5">
-        {dayLabels.map((label) => (
-          <span key={label} className="font-mono text-[8px] text-muted text-center select-none">
+        {dayLabels.map((label, i) => (
+          <span
+            key={`${i}-${label}`}
+            className="font-mono text-[8px] text-muted text-center select-none"
+          >
             {label}
           </span>
         ))}

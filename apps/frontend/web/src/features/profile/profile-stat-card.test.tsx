@@ -16,12 +16,13 @@ describe('ProfileStatCard', () => {
     expect(screen.getByText('of 90')).toBeTruthy();
   });
 
-  it('should apply gold left border when accent is true', () => {
+  it('should apply top accent border when accent is true', () => {
     const { container } = render(<ProfileStatCard value="80 kg" label="Squat" accent />);
     const card = container.firstElementChild as HTMLElement;
 
-    expect(card.className).toContain('border-l-2');
-    expect(card.className).toContain('border-l-heading');
+    expect(card.className).toContain('border-t-2');
+    expect(card.className).toContain('border-t-accent');
+    expect(card.className).not.toContain('border-l-heading');
   });
 
   it('should render badge when provided', () => {

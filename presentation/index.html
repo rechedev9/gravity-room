@@ -1,0 +1,763 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- base href lets relative asset URLs resolve at /presentacion or /presentacion/ -->
+    <base href="/presentacion/" />
+    <title>Gravity Room — Defensa Proyecto Fin de Ciclo (DAW)</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="reveal/reset.css" />
+    <link rel="stylesheet" href="reveal/reveal.css" />
+    <link rel="stylesheet" href="reveal/plugin/highlight/zenburn.css" />
+    <link rel="stylesheet" href="css/theme.css" />
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <!-- 1 · PORTADA -->
+        <section
+          data-auto-animate
+          class="portada"
+          data-background-color="#0b0b0d"
+          data-background-image="assets/pattern-bg.webp"
+          data-background-size="340px"
+          data-background-repeat="repeat"
+          data-background-opacity="0.08"
+        >
+          <div class="center" style="margin-top: 0.5em">
+            <img class="brand-mark" src="assets/logo.webp" alt="Logo de Gravity Room" />
+            <span class="eyebrow">Proyecto Fin de Ciclo · Desarrollo de Aplicaciones Web</span>
+            <h1 class="accent" style="margin-top: 0.3em">Gravity Room</h1>
+            <p class="lead">
+              <strong>Programas probados</strong> de fuerza e hipertrofia<br />
+              con <strong>progresión automática</strong>
+            </p>
+            <p class="small muted" style="margin-top: 2em">
+              Luis Reche &nbsp;·&nbsp; Tutor: Pascual Barrer &nbsp;·&nbsp; 27/05/2026
+            </p>
+          </div>
+          <aside class="notes">
+            Buenos días. Soy Luis Reche y os presento Gravity Room, una aplicación web para seguir
+            entrenamientos de fuerza con progresión automática, mi proyecto del ciclo de Desarrollo
+            de Aplicaciones Web. Voy a explicarlo de abajo arriba: primero la idea, luego veréis un
+            mapa del sistema, y a partir de ahí subiremos desde la infraestructura hasta la
+            interfaz.
+          </aside>
+        </section>
+
+        <!-- 2 · ORIGEN DE LA IDEA -->
+        <section>
+          <span class="eyebrow">El origen</span>
+          <h2>El problema</h2>
+          <div class="grid cols-2" style="margin-top: 0.6em">
+            <div>
+              <p>Seguir un <strong>programa de fuerza</strong> con progresión a mano es un caos:</p>
+              <ul>
+                <li>Cada sesión decides si <strong>subes peso, repites o bajas</strong></li>
+                <li>Los cálculos manuales son tediosos y propensos a errores</li>
+                <li>Las hojas de cálculo se rompen en cuanto el programa se complica</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>La solución</h3>
+              <p><strong>Gravity Room automatiza la progresión de forma determinista.</strong></p>
+              <p class="small">
+                Según <strong>cumplas o no</strong> el objetivo del día, la app
+                <strong>ajusta sola la siguiente sesión</strong> —subir, repetir o bajar— con la
+                misma regla siempre y sin cálculos a mano.
+              </p>
+            </div>
+          </div>
+          <aside class="notes">
+            Los programas de fuerza populares —GZCLP, 5/3/1, StrongLifts y muchos más— son de
+            progresión: cada sesión decides si subes peso, repites o bajas según cómo fue la
+            anterior. Calcular eso a mano es tedioso y propenso a errores; la gente lo lleva en
+            hojas de cálculo que se rompen enseguida. Esto nació de mi propia frustración
+            entrenando. Gravity Room automatiza esa lógica: tú registras y la app decide.
+          </aside>
+        </section>
+
+        <!-- 3 · OBJETIVOS -->
+        <section>
+          <span class="eyebrow">Qué me propuse</span>
+          <h2>Objetivos</h2>
+          <ul style="margin-top: 0.6em">
+            <li class="fragment">
+              Implementar un <strong>motor de reglas de progresión</strong> reutilizable para un
+              <strong>catálogo de programas</strong> (GZCLP, 5/3/1, StrongLifts…)
+            </li>
+            <li class="fragment">
+              Construir una <strong>app web (PWA)</strong> rápida y usable desde el móvil
+            </li>
+            <li class="fragment">
+              Diseñar una <strong>API propia</strong> con autenticación segura
+            </li>
+            <li class="fragment">
+              Desplegar el proyecto en <strong>producción real</strong> — no solo en local
+            </li>
+          </ul>
+          <aside class="notes">
+            Cuatro objetivos: primero, un motor de reglas de progresión reutilizable que sirva a
+            varios programas —GZCLP, 5/3/1, StrongLifts y más—; segundo, una web instalable como app
+            en el móvil; tercero, una API propia con login seguro; y cuarto, y esto era lo
+            ambicioso, ponerlo en producción de verdad.
+          </aside>
+        </section>
+
+        <!-- 4 · VISIÓN GENERAL + ARQUITECTURA (EL MAPA) -->
+        <section>
+          <span class="eyebrow">El mapa</span>
+          <h2>Visión general</h2>
+          <svg viewBox="0 0 920 470" width="100%" style="max-height: 54vh">
+            <defs>
+              <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+                <path d="M0,0 L7,3 L0,6 Z" fill="#a1a1aa" />
+              </marker>
+              <marker
+                id="arrowamber"
+                markerWidth="9"
+                markerHeight="9"
+                refX="7"
+                refY="3"
+                orient="auto"
+              >
+                <path d="M0,0 L7,3 L0,6 Z" fill="#e0a82e" />
+              </marker>
+            </defs>
+            <!-- Caddy gateway (entry point) -->
+            <rect
+              x="360"
+              y="12"
+              width="200"
+              height="50"
+              rx="10"
+              fill="#16161a"
+              stroke="#3f3f46"
+              stroke-width="1.5"
+              stroke-dasharray="5 3"
+            />
+            <text
+              x="460"
+              y="34"
+              text-anchor="middle"
+              font-size="18"
+              font-weight="700"
+              fill="#ededed"
+            >
+              Caddy · HTTPS
+            </text>
+            <text x="460" y="53" text-anchor="middle" font-size="13" fill="#a1a1aa">
+              reverse proxy
+            </text>
+            <!-- Web PWA (client) -->
+            <rect
+              x="110"
+              y="120"
+              width="230"
+              height="66"
+              rx="10"
+              fill="#16161a"
+              stroke="#e0a82e"
+              stroke-width="1.5"
+            />
+            <text
+              x="225"
+              y="150"
+              text-anchor="middle"
+              font-size="19"
+              font-weight="700"
+              fill="#ededed"
+            >
+              Web PWA
+            </text>
+            <text x="225" y="172" text-anchor="middle" font-size="14" fill="#a1a1aa">
+              React · Vite
+            </text>
+            <!-- API -->
+            <rect
+              x="580"
+              y="120"
+              width="230"
+              height="66"
+              rx="10"
+              fill="#16161a"
+              stroke="#e0a82e"
+              stroke-width="1.5"
+            />
+            <text
+              x="695"
+              y="150"
+              text-anchor="middle"
+              font-size="18"
+              font-weight="700"
+              fill="#ededed"
+            >
+              API · ElysiaJS + Bun
+            </text>
+            <text x="695" y="172" text-anchor="middle" font-size="13" fill="#a1a1aa">
+              JWT · OAuth · OpenAPI
+            </text>
+            <!-- shared domain package -->
+            <rect x="350" y="212" width="220" height="66" rx="12" fill="#e0a82e" />
+            <text
+              x="460"
+              y="242"
+              text-anchor="middle"
+              font-size="19"
+              font-weight="800"
+              fill="#0b0b0d"
+            >
+              @gzclp/domain
+            </text>
+            <text x="460" y="264" text-anchor="middle" font-size="13" fill="#0b0b0d">
+              reglas + Zod · fuente única
+            </text>
+            <!-- data row -->
+            <rect
+              x="470"
+              y="352"
+              width="190"
+              height="58"
+              rx="10"
+              fill="#1e1e24"
+              stroke="#3f3f46"
+              stroke-width="1.5"
+            />
+            <text
+              x="565"
+              y="387"
+              text-anchor="middle"
+              font-size="17"
+              font-weight="700"
+              fill="#ededed"
+            >
+              PostgreSQL
+            </text>
+            <rect
+              x="688"
+              y="352"
+              width="142"
+              height="58"
+              rx="10"
+              fill="#1e1e24"
+              stroke="#3f3f46"
+              stroke-width="1.5"
+            />
+            <text
+              x="759"
+              y="380"
+              text-anchor="middle"
+              font-size="17"
+              font-weight="700"
+              fill="#ededed"
+            >
+              Redis
+            </text>
+            <text x="759" y="398" text-anchor="middle" font-size="11" fill="#a1a1aa">
+              caché · rate-limit
+            </text>
+            <!-- Caddy -> clients -->
+            <path
+              d="M415,62 L262,120"
+              stroke="#a1a1aa"
+              stroke-width="1.5"
+              fill="none"
+              marker-end="url(#arrow)"
+            />
+            <path
+              d="M505,62 L658,120"
+              stroke="#a1a1aa"
+              stroke-width="1.5"
+              fill="none"
+              marker-end="url(#arrow)"
+            />
+            <!-- Web -> API (REST) -->
+            <path
+              d="M340,145 L576,145"
+              stroke="#a1a1aa"
+              stroke-width="1.5"
+              fill="none"
+              marker-end="url(#arrow)"
+            />
+            <text
+              x="458"
+              y="136"
+              text-anchor="middle"
+              font-size="13"
+              font-family="ui-monospace, monospace"
+              fill="#a1a1aa"
+            >
+              REST /api
+            </text>
+            <!-- both import the shared domain -->
+            <path
+              d="M250,186 L398,214"
+              stroke="#e0a82e"
+              stroke-width="1.4"
+              stroke-dasharray="5 4"
+              fill="none"
+              marker-end="url(#arrowamber)"
+            />
+            <path
+              d="M660,186 L522,214"
+              stroke="#e0a82e"
+              stroke-width="1.4"
+              stroke-dasharray="5 4"
+              fill="none"
+              marker-end="url(#arrowamber)"
+            />
+            <text x="460" y="205" text-anchor="middle" font-size="12" fill="#e0a82e">
+              ambos importan el dominio
+            </text>
+            <!-- API -> data -->
+            <path
+              d="M690,186 L582,352"
+              stroke="#a1a1aa"
+              stroke-width="1.5"
+              fill="none"
+              marker-end="url(#arrow)"
+            />
+            <path
+              d="M712,186 L752,352"
+              stroke="#a1a1aa"
+              stroke-width="1.5"
+              fill="none"
+              marker-end="url(#arrow)"
+            />
+          </svg>
+          <p class="small muted">
+            La pieza central es el <strong>paquete de dominio</strong>: una sola fuente de verdad
+            para la web y la API. <strong>A partir de aquí, subimos de abajo arriba.</strong>
+          </p>
+          <aside class="notes">
+            Esta es la arquitectura y mi slide más importante. La pieza central es el paquete de
+            dominio: las reglas del método viven en un único sitio y las importan tanto la web como
+            la API, así que no hay lógica duplicada. La API guarda los datos en PostgreSQL. A partir
+            de aquí recorremos de abajo arriba: la infraestructura y el dominio, la base de datos,
+            la API, el paquete de dominio compartido y, por último, la interfaz.
+          </aside>
+        </section>
+
+        <!-- 5 · DESPLIEGUE E INFRAESTRUCTURA (LA BASE) -->
+        <section>
+          <span class="eyebrow">La base · capa 1</span>
+          <h2>Despliegue e infraestructura</h2>
+          <p class="lead">En producción, no en local 🚀</p>
+          <ul style="margin-top: 0.4em">
+            <li class="fragment">
+              <strong>Servidor propio</strong> (VPS en Hetzner), todo en
+              <strong>Docker Compose</strong>
+            </li>
+            <li class="fragment">
+              4 contenedores: <strong>Caddy</strong> + API + PostgreSQL + Redis
+            </li>
+            <li class="fragment">
+              <strong>CI/CD</strong> con GitHub Actions: construye imágenes, compila la web y la
+              sube al servidor en cada cambio
+            </li>
+            <li class="fragment">
+              <strong>HTTPS automático</strong> con Caddy, sin configuración manual de certificados
+            </li>
+          </ul>
+          <aside class="notes">
+            Empezamos por la base. No se queda en mi portátil: está desplegado en producción en un
+            servidor propio, todo orquestado con Docker Compose: el proxy Caddy, la API, PostgreSQL
+            y Redis. Tengo integración y despliegue continuo con GitHub Actions, que en cada cambio
+            compila todo y lo sube al servidor. Caddy gestiona el HTTPS y la renovación de
+            certificados automáticamente. Este punto me diferencia de casi cualquier otro proyecto
+            del ciclo: no lo escondo.
+          </aside>
+        </section>
+
+        <!-- 5b · DOMINIO Y DNS -->
+        <section>
+          <span class="eyebrow">La base · el punto de entrada</span>
+          <h2>Dominio y DNS</h2>
+          <div class="grid cols-2" style="margin-top: 0.5em; grid-template-columns: 1.05fr 0.95fr">
+            <div>
+              <ul class="small">
+                <li>
+                  Dominio <strong>gravityroom.app</strong> registrado en
+                  <strong>Namecheap</strong> (feb 2026–2028)
+                </li>
+                <li><strong>Privacidad WHOIS</strong> activada — minimización de datos (RGPD)</li>
+                <li>
+                  TLD <strong>.app</strong> está en la lista <strong>HSTS preload</strong> de
+                  Google: el navegador <strong>fuerza HTTPS</strong> por diseño, sin SSL stripping
+                </li>
+                <li>
+                  DNS <strong>delegado a Hetzner</strong> (nameservers personalizados) → registro y
+                  hosting en un único panel
+                </li>
+                <li>
+                  <strong>3 registros A</strong> → IP del VPS: ápex, <code>www</code> (301 → ápex) y
+                  <code>api</code>
+                </li>
+              </ul>
+            </div>
+            <div class="center">
+              <img
+                class="shot"
+                style="width: 100%; max-height: 56vh; object-fit: contain"
+                src="assets/screenshots/05-namecheap-dns.png"
+                alt="Panel de Namecheap con nameservers de Hetzner"
+              />
+              <div class="shot-cap">Panel de Namecheap · nameservers delegados a Hetzner</div>
+            </div>
+          </div>
+          <aside class="notes">
+            Lo más bajo de todo: el dominio. Compré gravityroom.app en Namecheap, con privacidad
+            WHOIS para no exponer mis datos. Elegí el TLD .app a propósito: está en la lista HSTS
+            preload de Google, así que los navegadores rechazan HTTP por defecto y se fuerza HTTPS
+            antes incluso de la primera respuesta. En vez de usar el DNS de Namecheap, delegué los
+            nameservers al DNS de Hetzner para tener registro y hosting en un único punto, y
+            configuré tres registros A apuntando al VPS: el ápex, www (que Caddy redirige al ápex) y
+            api. Si cambia la IP del servidor, toco un solo registro.
+          </aside>
+        </section>
+
+        <!-- 6 · BASE DE DATOS -->
+        <section>
+          <span class="eyebrow">Capa 2 · los datos</span>
+          <h2>Base de datos</h2>
+          <div class="grid cols-2" style="margin-top: 0.5em">
+            <div>
+              <ul>
+                <li>
+                  <strong>PostgreSQL</strong> con el ORM <strong>Drizzle</strong> (todo tipado)
+                </li>
+                <li><strong>10 tablas</strong> modelando usuarios, programas y resultados</li>
+                <li><strong>Migraciones automáticas</strong> al arrancar la API</li>
+              </ul>
+            </div>
+            <div>
+              <svg viewBox="0 0 460 360" width="100%" style="max-height: 50vh">
+                <defs>
+                  <marker
+                    id="erarrow"
+                    markerWidth="10"
+                    markerHeight="10"
+                    refX="8"
+                    refY="3"
+                    orient="auto"
+                  >
+                    <path d="M0,0 L8,3 L0,6 Z" fill="#e0a82e" />
+                  </marker>
+                </defs>
+                <!-- users -->
+                <rect
+                  x="120"
+                  y="10"
+                  width="220"
+                  height="78"
+                  rx="10"
+                  fill="#16161a"
+                  stroke="#e0a82e"
+                  stroke-width="1.5"
+                />
+                <text x="135" y="36" font-size="18" font-weight="800" fill="#e0a82e">users</text>
+                <text x="135" y="58" font-size="13" fill="#a1a1aa">id · email · google_id</text>
+                <text x="135" y="76" font-size="13" fill="#a1a1aa">deleted_at</text>
+                <!-- program_instances -->
+                <rect
+                  x="120"
+                  y="140"
+                  width="220"
+                  height="78"
+                  rx="10"
+                  fill="#16161a"
+                  stroke="#e0a82e"
+                  stroke-width="1.5"
+                />
+                <text x="135" y="166" font-size="18" font-weight="800" fill="#e0a82e">
+                  program_instances
+                </text>
+                <text x="135" y="188" font-size="13" fill="#a1a1aa">id · user_id · name</text>
+                <text x="135" y="206" font-size="13" fill="#a1a1aa">program_config</text>
+                <!-- workout_results -->
+                <rect
+                  x="120"
+                  y="270"
+                  width="220"
+                  height="78"
+                  rx="10"
+                  fill="#16161a"
+                  stroke="#e0a82e"
+                  stroke-width="1.5"
+                />
+                <text x="135" y="296" font-size="18" font-weight="800" fill="#e0a82e">
+                  workout_results
+                </text>
+                <text x="135" y="318" font-size="13" fill="#a1a1aa">slot_id · result</text>
+                <text x="135" y="336" font-size="13" fill="#a1a1aa">amrap_reps · rpe</text>
+                <!-- edges with 1..N labels -->
+                <path
+                  d="M230,88 L230,140"
+                  stroke="#e0a82e"
+                  stroke-width="1.5"
+                  marker-end="url(#erarrow)"
+                />
+                <text x="244" y="118" font-size="13" fill="#a1a1aa">1 ──&lt; N</text>
+                <path
+                  d="M230,218 L230,270"
+                  stroke="#e0a82e"
+                  stroke-width="1.5"
+                  marker-end="url(#erarrow)"
+                />
+                <text x="244" y="248" font-size="13" fill="#a1a1aa">1 ──&lt; N</text>
+              </svg>
+            </div>
+          </div>
+          <aside class="notes">
+            Subimos a los datos. Uso PostgreSQL con Drizzle, un ORM que mantiene todo tipado en
+            TypeScript: son diez tablas. El modelo central es sencillo de seguir: un usuario tiene
+            programas de entrenamiento, y cada programa registra los resultados de cada serie. Las
+            migraciones se aplican automáticamente al arrancar la API.
+          </aside>
+        </section>
+
+        <!-- 7 · API -->
+        <section>
+          <span class="eyebrow">Capa 3 · la API</span>
+          <h2>API propia</h2>
+          <div class="grid cols-2" style="margin-top: 0.5em">
+            <div>
+              <ul>
+                <li>
+                  <strong>ElysiaJS</strong> sobre <strong>Bun</strong> (runtime más rápido que Node)
+                </li>
+                <li><strong>~31 endpoints</strong> REST</li>
+                <li>Login con <strong>JWT + rotación de refresh tokens</strong></li>
+                <li>Entrar también con <strong>Google</strong> (OAuth)</li>
+                <li>Contrato <strong>OpenAPI</strong> que genera el cliente tipado de la web</li>
+              </ul>
+            </div>
+            <div>
+              <pre><code data-trim data-noescape class="language-http">POST /api/auth/google
+GET  /api/catalog/
+GET  /api/programs/
+POST /api/programs/{id}/results
+POST /api/programs/{id}/undo</code></pre>
+            </div>
+          </div>
+          <aside class="notes">
+            La API la diseñé yo, con ElysiaJS sobre Bun, que es más rápido que Node. Son unos 31
+            endpoints. El login usa JWT con rotación de refresh tokens —tokens de corta duración que
+            se renuevan de forma segura— y permite entrar con Google. Además expone su contrato en
+            OpenAPI, y de ahí genero automáticamente el cliente tipado que consume la web: si cambio
+            la API, el cliente se actualiza y el build avisa si algo no cuadra.
+          </aside>
+        </section>
+
+        <!-- 8 · DOMINIO COMPARTIDO (FUENTE ÚNICA DE VERDAD) -->
+        <section>
+          <span class="eyebrow">El puente backend ↔ frontend</span>
+          <h2>Una sola fuente de verdad</h2>
+          <div class="grid cols-2" style="margin-top: 0.5em">
+            <div>
+              <p class="small">
+                ❌ <strong>Lo fácil:</strong> copiar las reglas en el cliente y en el servidor → se
+                desincronizan y aparecen bugs.
+              </p>
+              <p class="small">
+                ✅ <strong>Mi decisión:</strong> un <strong>paquete compartido</strong> con
+                TypeScript + Zod que además <strong>valida los datos con el mismo esquema</strong>
+                en cliente y servidor.
+              </p>
+            </div>
+            <div>
+              <pre><code data-trim data-noescape class="language-ts">// packages/domain
+// (web y API)
+
+export const WorkoutResult =
+  z.enum(['completed', 'failed'])
+
+// Reglas del método: aquí,
+// no en cada cliente
+export function nextSession(
+  prev: SessionState
+): SessionState {
+  /* reglas del programa */
+}</code></pre>
+            </div>
+          </div>
+          <aside class="notes">
+            Esta es la decisión de la que estoy más orgulloso, y une el backend con el frontend. Lo
+            fácil habría sido copiar las reglas en cada cliente, pero eso genera bugs en cuanto uno
+            se actualiza y otro no. En su lugar usé un paquete compartido con TypeScript y Zod que,
+            además de centralizar las reglas, valida los datos con el mismo esquema en el navegador
+            y en el servidor. Es la diferencia entre un proyecto de juguete y uno mantenible.
+          </aside>
+        </section>
+
+        <!-- 9 · FRONTEND -->
+        <section>
+          <span class="eyebrow">Capa 4 · la interfaz</span>
+          <h2>Frontend</h2>
+          <div class="grid cols-2" style="margin-top: 0.5em; grid-template-columns: 1.2fr 0.8fr">
+            <div>
+              <ul>
+                <li><strong>React 19</strong> + Vite + TanStack Router/Query</li>
+                <li>Estilos con <strong>Tailwind 4</strong></li>
+                <li><strong>PWA instalable</strong> en el móvil como una app</li>
+                <li>Usable en el gym con <strong>mala señal</strong> (cache inteligente)</li>
+              </ul>
+            </div>
+            <div class="center">
+              <img
+                class="shot"
+                style="max-height: 60vh"
+                src="assets/screenshots/04-tracker-movil.png"
+                alt="Tracker en móvil"
+              />
+            </div>
+          </div>
+          <aside class="notes">
+            Llegamos a la interfaz. El frontend está hecho con React 19, Vite y TanStack para
+            routing y datos, con Tailwind para los estilos. Es una PWA: se instala en el móvil como
+            una app y sigue siendo usable en el gimnasio aunque haya mala cobertura, gracias a una
+            estrategia de cache. Aquí lo veis en el móvil.
+          </aside>
+        </section>
+
+        <!-- 11 · CALIDAD Y PROCESO -->
+        <section>
+          <span class="eyebrow">Cómo lo construyo</span>
+          <h2>Calidad y proceso</h2>
+          <ul style="margin-top: 0.5em">
+            <li class="fragment"><strong>Tests</strong> en web, API y dominio</li>
+            <li class="fragment">Pruebas <strong>end-to-end</strong> con Playwright</li>
+            <li class="fragment">
+              <strong>Lefthook</strong>: typecheck, lint y tests automáticos antes de cada
+              commit/push
+            </li>
+            <li class="fragment">
+              CI que <strong>bloquea</strong> el cambio si el cliente de la API queda desincronizado
+            </li>
+            <li class="fragment">Pruebas de carga con <strong>k6</strong></li>
+          </ul>
+          <aside class="notes">
+            Y no es solo que funcione: lo construyo con un flujo profesional. Hay tests en el
+            frontend, la API y el dominio, pruebas end-to-end con Playwright que simulan al usuario,
+            y Lefthook ejecuta typecheck, lint y tests automáticamente antes de cada commit. La CI
+            incluso bloquea el cambio si el cliente generado de la API queda desincronizado, y hago
+            pruebas de carga con k6. (Slide recortable si voy de tiempo.)
+          </aside>
+        </section>
+
+        <!-- 12 · CÓMO USO LA IA -->
+        <section>
+          <span class="eyebrow">Cómo trabajo</span>
+          <h2>IA con disciplina</h2>
+          <p class="small" style="margin-top: 0.25em">
+            Uso la IA como copiloto, pero <strong>las reglas las pongo yo</strong>: un
+            <code>CLAUDE.md</code> en el repo fija convenciones, estilo y TDD.
+          </p>
+          <div class="grid cols-3" style="margin-top: 0.45em">
+            <div class="card fragment">
+              <h3>Tipado estricto e2e</h3>
+              <p class="small">
+                Dominio, API y web comparten tipos: un
+                <strong>contrato que verifica la máquina</strong>. Si la IA desincroniza capas,
+                <strong>no compila</strong>.
+              </p>
+            </div>
+            <div class="card fragment">
+              <h3>ESLint sin escapatorias</h3>
+              <p class="small">
+                Prohíbe <code>any</code>, <code>as</code>, <code>@ts-ignore</code> y <code>!</code>:
+                la IA no puede <strong>tapar</strong> un error, debe arreglar la causa.
+              </p>
+            </div>
+            <div class="card fragment">
+              <h3>TDD</h3>
+              <p class="small">
+                Primero el <strong>test que falla</strong>, luego el código mínimo: fija el
+                comportamiento antes que la solución.
+              </p>
+            </div>
+          </div>
+          <p class="small muted" style="margin-top: 0.5em">
+            Tipos + lint son <strong>revisores automáticos</strong> en cada commit y en CI: la IA
+            pasa por <strong>el mismo listón</strong> que yo.
+          </p>
+          <aside class="notes">
+            (Detalle ampliado en notas-defensa.md, slide 12.) Uso la IA como copiloto, pero las
+            reglas las pongo yo. El tipado estricto de punta a punta y el ESLint que prohíbe any,
+            as, @ts-ignore y la aserción ! cierran las escapatorias con las que un LLM haría que
+            algo compile sin arreglar el fondo. TDD fija el comportamiento antes. Resultado: tipos y
+            lint son revisores automáticos en cada commit y en CI; el código de la IA pasa por el
+            mismo listón que el mío.
+          </aside>
+        </section>
+
+        <!-- 13 · RESULTADOS Y CONCLUSIONES -->
+        <section>
+          <span class="eyebrow">Resultados</span>
+          <h2>Resultados y conclusiones</h2>
+          <div class="grid cols-2" style="margin-top: 0.5em">
+            <div class="card">
+              <h3>Logros</h3>
+              <ul class="small">
+                <li>
+                  Los <strong>4 objetivos cumplidos</strong>: app funcional, desplegada y usable
+                </li>
+                <li>Web instalable, API segura y automatización real del método</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Lo que aprendí</h3>
+              <ul class="small">
+                <li>Diseñar para <strong>no repetirme</strong> (el paquete compartido)</li>
+                <li>Todo el proceso de <strong>llevar algo a producción</strong></li>
+                <li>Me peleé con <em>el despliegue y la autenticación</em></li>
+              </ul>
+            </div>
+          </div>
+          <aside class="notes">
+            Como resultado, cumplí los cuatro objetivos: una app funcional, desplegada y usable. Lo
+            que más aprendí fue a diseñar para no repetirme —el paquete compartido— y todo el
+            proceso de llevar algo a producción, que en clase no se ve tanto. Y para ser honesto,
+            donde más me peleé fue con el despliegue y con la autenticación. No vendo perfección.
+          </aside>
+        </section>
+
+        <!-- 14 · LÍNEAS FUTURAS + GRACIAS -->
+        <section>
+          <span class="eyebrow">Lo que viene</span>
+          <h2>Líneas futuras</h2>
+          <ul style="margin-top: 0.4em">
+            <li class="fragment">
+              <strong>Recordatorios</strong> de entrenamiento con notificaciones push (la PWA ya
+              tiene service worker)
+            </li>
+            <li class="fragment">
+              <strong>Modo offline</strong> más completo para entrenar sin conexión
+            </li>
+            <li class="fragment">
+              Disponible en <strong>más idiomas</strong> además de español e inglés
+            </li>
+          </ul>
+          <div class="center" style="margin-top: 1.2em">
+            <h2 class="accent">¡Gracias!</h2>
+            <p>Disponible en <span class="footer-url">https://gravityroom.app</span></p>
+            <p class="muted">¿Preguntas?</p>
+          </div>
+          <aside class="notes">
+            De cara al futuro: añadir recordatorios con notificaciones push aprovechando que la PWA
+            ya tiene service worker, un modo offline más completo para el gimnasio, y soporte para
+            más idiomas además de español e inglés. La app está disponible en gravityroom.app.
+            Muchas gracias, quedo a vuestra disposición para preguntas.
+          </aside>
+        </section>
+      </div>
+    </div>
+
+    <script src="reveal/reveal.js"></script>
+    <script src="reveal/plugin/notes/notes.js"></script>
+    <script src="reveal/plugin/highlight/highlight.js"></script>
+    <!-- External, NOT inline: apex CSP is `script-src 'self'` (no unsafe-inline). -->
+    <script src="js/init.js"></script>
+  </body>
+</html>

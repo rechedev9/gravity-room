@@ -92,7 +92,11 @@ describe('verifyGoogleToken — JWKS fetch failure', () => {
     );
     globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-    const fakeToken = 'eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3QifQ.eyJzdWIiOiJ1c2VyMSJ9.c2ln';
+    const fakeToken = [
+      'eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3QifQ',
+      'eyJzdWIiOiJ1c2VyMSJ9',
+      'c2ln',
+    ].join('.');
 
     // Act
     let thrown: unknown;
@@ -176,6 +180,7 @@ describe('verifyGoogleToken — multiple audiences', () => {
     const token = await signJwt(SHARED_KID, keyPair.privateKey, {
       sub: 'user-123',
       email: 'test@example.com',
+      email_verified: true,
       name: 'Test User',
       aud: 'mobile-client-id',
       iss: 'accounts.google.com',
@@ -210,6 +215,7 @@ describe('verifyGoogleToken — multiple audiences', () => {
     const token = await signJwt(SHARED_KID, keyPair.privateKey, {
       sub: 'user-456',
       email: 'web@example.com',
+      email_verified: true,
       name: 'Web User',
       aud: 'web-client-id',
       iss: 'accounts.google.com',

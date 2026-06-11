@@ -37,12 +37,16 @@ export default defineConfig(({ mode }) => {
           enabled: false,
         },
         workbox: {
-          // Precache all built assets (JS chunks, CSS, HTML, fonts, images).
-          globPatterns: ['**/*.{js,css,html,webp,svg,ico,woff2}'],
+          // Precache built code/fonts/icons. WebPs are pulled out of the
+          // precache to keep the SW install payload small — they hit the
+          // CacheFirst rule below on first request instead.
+          globPatterns: ['**/*.{js,css,html,svg,ico,woff2}'],
           // For SPA: serve cached index.html for unrecognised navigation requests.
-          // API calls are excluded so fetch errors surface normally.
+          // API calls are excluded so fetch errors surface normally. /presentacion
+          // is a separate static deck served by Caddy (not an SPA route) — without
+          // this denylist entry the SW hijacks its navigation and shows the SPA 404.
           navigateFallback: 'index.html',
-          navigateFallbackDenylist: [/^\/api/],
+          navigateFallbackDenylist: [/^\/api/, /^\/presentacion/],
           runtimeCaching: [
             {
               // Auth endpoints: never cache — they set httpOnly cookies and must
@@ -51,9 +55,11 @@ export default defineConfig(({ mode }) => {
               handler: 'NetworkOnly',
             },
             {
-              // All other API calls: try network first, fall back to cache after
-              // 5 s so the app remains usable in a gym with poor signal.
-              urlPattern: /\/api\//,
+              // Public, non-user-specific API calls may be cached for offline
+              // resilience. Authenticated API responses are intentionally
+              // excluded so workout/profile/insight data never lands in
+              // Cache Storage.
+              urlPattern: /\/api\/(?:catalog|exercises|muscle-groups|stats\/online)(?:\/|$|\?)/,
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'api-cache',
@@ -61,6 +67,18 @@ export default defineConfig(({ mode }) => {
                 expiration: {
                   maxEntries: 100,
                   maxAgeSeconds: 60 * 60 * 24, // 24 h
+                },
+                cacheableResponse: { statuses: [0, 200] },
+              },
+            },
+            {
+              urlPattern: /\.webp$/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'webp-images',
+                expiration: {
+                  maxEntries: 20,
+                  maxAgeSeconds: 7 * 24 * 3600,
                 },
                 cacheableResponse: { statuses: [0, 200] },
               },
@@ -90,23 +108,55 @@ export default defineConfig(({ mode }) => {
       // Generate hidden source maps only when uploading to Sentry (SENTRY_AUTH_TOKEN set).
       sourcemap: process.env.SENTRY_AUTH_TOKEN ? 'hidden' : false,
       outDir: 'dist',
-      rollupOptions: {
+      chunkSizeWarningLimit: 300,
+      rolldownOptions: {
+        // React Compiler intentionally runs through vite:react-babel; the full
+        // web production build is still ~3-4s, so keep CI output focused on
+        // actionable warnings instead of Rolldown's plugin timing hint.
+        checks: { pluginTimings: false },
         output: {
-          manualChunks(id: string): string | undefined {
-            if (!id.includes('node_modules')) return undefined;
-            // React + TanStack (router + query) must share a chunk: otherwise Rollup's
-            // chunk-merge heuristic fuses React into the main entry and emits an empty
-            // vendor-react chunk.
-            if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id))
-              return 'vendor-react-core';
-            if (/[\\/]node_modules[\\/]@tanstack[\\/]/.test(id)) return 'vendor-react-core';
-            // Match zod by path so both `zod` and subpaths like `zod/v4` land together.
-            if (/[\\/]node_modules[\\/]zod[\\/]/.test(id)) return 'vendor-zod';
-            if (/[\\/]node_modules[\\/]motion[\\/]/.test(id)) return 'vendor-motion';
-            if (/[\\/]node_modules[\\/]recharts[\\/]/.test(id)) return 'vendor-recharts';
-            if (/[\\/]node_modules[\\/]@sentry[\\/]/.test(id)) return 'vendor-sentry';
-            return undefined;
+          // Vite 8 uses Rolldown; use output.codeSplitting instead of the
+          // deprecated Rollup-compatible manualChunks hook to avoid build-time
+          // "Unknown input options: manualChunks" warnings.
+          codeSplitting: {
+            maxSize: 250 * 1024,
+            groups: [
+              {
+                name: 'vendor-recharts',
+                test: /[\\/]node_modules[\\/]recharts[\\/]/,
+                priority: 10,
+                // Recharts has internal circular imports that Rolldown can split
+                // incorrectly when a small global maxSize applies, leaving default
+                // axis props undefined at runtime. Keep the library in one chunk.
+                maxSize: 2 * 1024 * 1024,
+              },
+              {
+                name(id: string): string | null {
+                  if (!id.includes('node_modules')) return null;
+                  if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
+                    return 'vendor-react-core';
+                  }
+                  if (/[\\/]node_modules[\\/]@tanstack[\\/]/.test(id)) return 'vendor-tanstack';
+                  // Match zod by path so both `zod` and subpaths like `zod/v4` land together.
+                  if (/[\\/]node_modules[\\/]zod[\\/]/.test(id)) return 'vendor-zod';
+                  if (
+                    /[\\/]node_modules[\\/](motion|motion-dom|motion-utils|framer-motion-dom)[\\/]/.test(
+                      id
+                    )
+                  )
+                    return 'vendor-motion';
+                  if (/[\\/]node_modules[\\/]@sentry[\\/]/.test(id)) return 'vendor-sentry';
+                  return null;
+                },
+              },
+            ],
           },
+          // Vite 8 / Rolldown ignores top-level esbuild.drop. The drop-console
+          // / debugger flags ride along here via the oxc minifier options.
+          minify:
+            mode === 'production'
+              ? { compress: { dropConsole: true, dropDebugger: true } }
+              : undefined,
         },
       },
     },

@@ -69,6 +69,9 @@ const TrackerPage = lazyWithRetry(() =>
 const ProfilePage = lazyWithRetry(() =>
   import('@/features/profile/profile-page').then((m) => ({ default: m.ProfilePage }))
 );
+const InsightsPage = lazyWithRetry(() =>
+  import('@/features/insights/insights-page').then((m) => ({ default: m.InsightsPage }))
+);
 
 // ---------------------------------------------------------------------------
 // AppLayout wrapped with TrackerProvider
@@ -142,9 +145,13 @@ const programPreviewRoute = createRoute({
   component: ProgramPreviewPage,
 });
 
+// TanStack Router v1 reads not-found from `defaultNotFoundComponent` on the
+// router (or `notFoundComponent` on a route) — `path: '*'` is not a real
+// wildcard match. We keep a route registered so the prerender script can hit
+// `/__not_found__` and snapshot the rendered output for `dist/404.html`.
 const notFoundRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '*',
+  path: '__not_found__',
   pendingComponent: ContentPageSkeleton,
   component: NotFound,
 });
@@ -197,6 +204,13 @@ const trackerProgramRoute = createRoute({
   component: TrackerPage,
 });
 
+const insightsRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/app/insights',
+  pendingComponent: DashboardSkeleton,
+  component: InsightsPage,
+});
+
 const profileRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/profile',
@@ -222,6 +236,7 @@ const routeTree = rootRoute.addChildren([
     programsRoute,
     trackerIndexRoute,
     trackerProgramRoute,
+    insightsRoute,
     profileRoute,
   ]),
 ]);
@@ -243,6 +258,9 @@ export const router = createRouter({
   // Activated in Fase 4 — each route now uses pendingComponent, not inline <Suspense>.
   defaultPendingMs: 200,
   defaultPendingMinMs: 400,
+  defaultPreload: 'intent',
+  defaultPreloadDelay: 50,
+  defaultNotFoundComponent: NotFound,
 });
 
 // ---------------------------------------------------------------------------

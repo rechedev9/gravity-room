@@ -1,19 +1,17 @@
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
-
 test.describe('Landing page', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });
 
   test('renders hero section', async ({ page }) => {
-    await expect(page.getByText('Entrena Mejor.')).toBeVisible();
-    await expect(page.getByText('Progresa Más Rápido.')).toBeVisible();
+    await expect(page.getByText('Tu plan de fuerza con')).toBeVisible();
+    await expect(page.getByText('progresión automática, gratis.')).toBeVisible();
   });
 
   test('displays CTA links', async ({ page }) => {
-    const startLink = page.getByRole('link', { name: /Comenzar/ }).first();
+    const startLink = page.getByRole('link', { name: /Crear mi plan gratis/ }).first();
     await expect(startLink).toBeVisible();
     await expect(startLink).toHaveAttribute('href', '/login');
 
@@ -24,7 +22,7 @@ test.describe('Landing page', () => {
 
   test('Start Training navigates to /login', async ({ page }) => {
     await page
-      .getByRole('link', { name: /Comenzar/ })
+      .getByRole('link', { name: /Crear mi plan gratis/ })
       .first()
       .click();
     await expect(page).toHaveURL(/\/login/);
@@ -33,7 +31,7 @@ test.describe('Landing page', () => {
 
 test.describe('security.txt', () => {
   test('GET /.well-known/security.txt returns plain-text RFC 9116 document', async ({ page }) => {
-    const res = await page.request.get(`${BASE_URL}/.well-known/security.txt`);
+    const res = await page.request.get('/.well-known/security.txt');
 
     expect(res.status()).toBe(200);
 

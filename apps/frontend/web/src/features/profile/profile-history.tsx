@@ -2,11 +2,7 @@ import type { ProgramSummary } from '@/lib/api-functions';
 import { useTranslation } from 'react-i18next';
 import { DashboardCard } from '@/components/dashboard-card';
 import { Button } from '@/components/button';
-
-const completedBadgeStyle = {
-  background: 'rgba(200,168,78,0.08)',
-  border: '1px solid rgba(200,168,78,0.2)',
-} as const;
+import { Tag } from '@/components/tag';
 
 interface ProfileHistoryProps {
   readonly completedPrograms: readonly ProgramSummary[];
@@ -55,12 +51,9 @@ export function ProfileHistory({
                     {t('profile.history.view_stats')}
                   </Button>
                 )}
-                <span
-                  className="shrink-0 font-mono text-2xs tracking-widest uppercase px-2 py-1 text-title"
-                  style={completedBadgeStyle}
-                >
+                <Tag tone="ok" className="shrink-0">
                   {t('profile.history.badge_completed')}
-                </span>
+                </Tag>
               </div>
             </div>
           ))}

@@ -84,7 +84,7 @@ describe('Toolbar', () => {
 
       const btn = screen.getByLabelText('Más acciones');
 
-      expect(btn.className).toContain('bg-card');
+      expect(btn.className).toContain('border-transparent');
     });
 
     it('should render "Deshacer" WITHOUT ghost variant class (REQ-SPACE-002)', () => {

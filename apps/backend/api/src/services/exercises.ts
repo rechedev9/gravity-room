@@ -4,7 +4,7 @@
  */
 import { and, asc, count, eq, ilike, inArray, or } from 'drizzle-orm';
 import { getDb } from '../db';
-import { exercises, muscleGroups } from '../db/schema';
+import { exercises, muscleGroups } from '@gzclp/database/schema';
 import {
   buildFilterHash,
   getCachedExercises,

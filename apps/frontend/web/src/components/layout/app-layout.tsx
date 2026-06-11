@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppSidebar } from './app-sidebar';
 import { SidebarTrigger } from './sidebar-trigger';
-import { OnlineIndicator } from '@/components/online-indicator';
 import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
 
 // Typed as Record<string, string | undefined> so the lookup result is string | undefined,
@@ -12,6 +11,7 @@ import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
 const ROUTE_LABELS: Record<string, string | undefined> = {
   '/app': 'navigation.home',
   '/app/tracker': 'navigation.tracker',
+  '/app/insights': 'navigation.insights',
   '/app/programs': 'navigation.programs',
   '/app/profile': 'navigation.profile',
 };
@@ -55,8 +55,6 @@ export function AppLayout(): React.ReactNode {
           <SidebarTrigger isOpen={sidebarOpen} onToggle={toggleSidebar} />
           <span className="text-sm font-bold text-title tracking-tight">{pageTitle}</span>
         </header>
-
-        <OnlineIndicator />
 
         <main className="flex-1">
           <AnimatePresence mode="wait">

@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import * as schema from './schema';
+import * as schema from '@gzclp/database/schema';
 import { logger } from '../lib/logger';
 import { dbQueriesTotal } from '../lib/metrics';
 

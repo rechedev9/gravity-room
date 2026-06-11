@@ -55,6 +55,7 @@ export function HowItWorksSection({ content }: HowItWorksSectionProps): React.Re
               <img
                 src={s.image}
                 alt=""
+                aria-hidden="true"
                 className="w-20 h-20 mx-auto mb-4 object-contain opacity-85"
                 loading="lazy"
               />
@@ -64,12 +65,9 @@ export function HowItWorksSection({ content }: HowItWorksSectionProps): React.Re
               </h3>
               <p className="text-sm leading-relaxed mb-5 text-muted">{s.desc}</p>
 
-              <blockquote className="landing-quote-glow p-4 text-left">
-                <p className="text-sm italic leading-relaxed text-main">{s.quote}</p>
-                <cite className="font-mono text-[11px] not-italic block mt-2 text-muted">
-                  {s.source}
-                </cite>
-              </blockquote>
+              <p className="landing-quote-glow p-3 text-sm font-medium text-accent text-left">
+                {s.quote}
+              </p>
             </StaggerItem>
           ))}
         </StaggerContainer>

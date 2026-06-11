@@ -1,31 +1,32 @@
 import * as matchers from '@testing-library/jest-dom/matchers';
 import { afterEach, expect } from 'bun:test';
 import { cleanup } from '@testing-library/react';
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import es from '../src/lib/i18n/locales/es/translation.json';
+// Import the app's i18n instance to ensure it is resolved and initialized
+// before any component import does so asynchronously.
+import i18n from '../src/lib/i18n/index';
 import en from '../src/lib/i18n/locales/en/translation.json';
+import es from '../src/lib/i18n/locales/es/translation.json';
 
 // happy-dom is registered in register-dom.ts (must run first via preload order)
 expect.extend(matchers);
 
-// Initialize i18next synchronously for tests — no LanguageDetector, forced Spanish.
-// Tests assert Spanish copy; deterministic language avoids locale drift from happy-dom defaults.
-// useSuspense:false so components don't suspend waiting for async loads (resources are static).
+// Keep translations deterministic in tests regardless of detected browser locale.
+// Do not mock react-i18next globally: Bun keeps module mocks alive for the worker,
+// which can leak raw-key translations into unrelated test files in CI.
 if (!i18n.isInitialized) {
-  void i18n.use(initReactI18next).init({
-    resources: {
-      es: { translation: es },
-      en: { translation: en },
-    },
-    lng: 'es',
-    fallbackLng: 'es',
-    interpolation: { escapeValue: false },
-    react: { useSuspense: false },
+  await new Promise<void>((resolve) => {
+    i18n.on('initialized', () => resolve());
   });
 }
+i18n.addResourceBundle('es', 'translation', es, true, true);
+i18n.addResourceBundle('en', 'translation', en, true, true);
+// Disable suspense so useTranslation resolves synchronously during tests
+i18n.options.react = { ...i18n.options.react, useSuspense: false };
+void i18n.changeLanguage('es');
 
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  // Reset language to Spanish after each test in case a test changed it
+  void i18n.changeLanguage('es');
 });

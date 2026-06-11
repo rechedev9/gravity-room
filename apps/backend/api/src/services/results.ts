@@ -2,11 +2,10 @@
  * Results service — record, delete, and undo workout results.
  * Every mutation pushes an undo entry for reversibility.
  */
-import { eq, and, desc, lte } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import { getDb } from '../db';
-import { programInstances, workoutResults, undoEntries } from '../db/schema';
+import { programInstances, workoutResults, undoEntries } from '@gzclp/database/schema';
 import { ApiError } from '../middleware/error-handler';
-import { logger } from '../lib/logger';
 import { getProgramDefinition } from '../services/catalog';
 import type { SetLogEntry } from '@gzclp/domain/types';
 
@@ -34,29 +33,36 @@ const MAX_UNDO_STACK = 50;
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
 
-// Value overridden by set_updated_at trigger; kept to ensure valid UPDATE.
-// Runs outside the transaction to reduce lock hold time on program_instances.
-async function touchInstanceTimestamp(instanceId: string): Promise<void> {
-  await getDb()
+// Columns captured into undo_entries when a result is created/updated/deleted.
+const undoSnapshotFields = {
+  result: workoutResults.result,
+  amrapReps: workoutResults.amrapReps,
+  rpe: workoutResults.rpe,
+  setLogs: workoutResults.setLogs,
+} as const;
+
+// The `updated_at` value is overridden by the BEFORE UPDATE trigger; we still
+// need an UPDATE statement to fire it.
+async function touchInstanceTimestamp(tx: Tx, instanceId: string): Promise<void> {
+  await tx
     .update(programInstances)
     .set({ updatedAt: new Date() })
     .where(eq(programInstances.id, instanceId));
 }
 
 async function trimUndoStack(tx: Tx, instanceId: string): Promise<void> {
-  const [overflow] = await tx
-    .select({ id: undoEntries.id })
-    .from(undoEntries)
-    .where(eq(undoEntries.instanceId, instanceId))
-    .orderBy(desc(undoEntries.id))
-    .offset(MAX_UNDO_STACK)
-    .limit(1);
-
-  if (overflow) {
-    await tx
-      .delete(undoEntries)
-      .where(and(eq(undoEntries.instanceId, instanceId), lte(undoEntries.id, overflow.id)));
-  }
+  // Single statement: delete any entry beyond the MAX_UNDO_STACK most recent.
+  // Subquery returns the ids to evict; OFFSET skips the keepers.
+  await tx.execute(sql`
+    DELETE FROM undo_entries
+    WHERE instance_id = ${instanceId}
+      AND id IN (
+        SELECT id FROM undo_entries
+        WHERE instance_id = ${instanceId}
+        ORDER BY id DESC
+        OFFSET ${sql.raw(String(MAX_UNDO_STACK))}
+      )
+  `);
 }
 
 async function verifyInstanceOwnership(
@@ -78,10 +84,42 @@ async function verifyInstanceOwnership(
 }
 
 /**
- * Get the expected number of slots for a given workout index from the program definition.
- * Returns undefined if the definition cannot be resolved (completed_at will be skipped).
+ * Get the expected number of slots for a given workout index from the program
+ * definition, while validating that the caller is writing to a real workout
+ * slot. If the catalog definition cannot be resolved in unit-test/migration
+ * edge cases, return undefined to preserve the existing completed_at no-op
+ * behavior.
  */
-async function getExpectedSlotCount(
+async function getExpectedSlotCountForMutation(
+  programId: string,
+  workoutIndex: number,
+  slotId: string
+): Promise<number | undefined> {
+  const defResult = await getProgramDefinition(programId);
+  if (defResult.status !== 'found') return undefined;
+
+  const def = defResult.definition;
+  const maxWorkoutIndex = def.totalWorkouts - 1;
+  if (workoutIndex > maxWorkoutIndex) {
+    throw new ApiError(400, `Invalid workoutIndex: ${workoutIndex}`, 'INVALID_DATA');
+  }
+
+  const cycleLength = def.days.length;
+  const day = def.days[workoutIndex % cycleLength];
+  if (!day.slots.some((slot) => slot.id === slotId)) {
+    throw new ApiError(400, `Unknown slotId: ${slotId}`, 'INVALID_DATA');
+  }
+
+  return day.slots.length;
+}
+
+/**
+ * Undo entries were created by prior validated mutations. For legacy entries
+ * (or mocked unit tests), only resolve the expected slot count needed to keep
+ * completed_at in sync; do not reject an old undo stack because the catalog
+ * changed after it was written.
+ */
+async function getExpectedSlotCountForUndo(
   programId: string,
   workoutIndex: number
 ): Promise<number | undefined> {
@@ -91,7 +129,7 @@ async function getExpectedSlotCount(
   const def = defResult.definition;
   const cycleLength = def.days.length;
   const day = def.days[workoutIndex % cycleLength];
-  return day.slots.length;
+  return day?.slots.length;
 }
 
 /**
@@ -170,11 +208,19 @@ export async function recordResult(
 
   const setLogsValue = input.setLogs ?? null;
 
+  // Resolve template + expected slot count BEFORE opening the tx — neither
+  // changes during the tx and `getProgramDefinition` does its own DB read.
+  const programId = await verifyInstanceOwnership(getDb(), userId, instanceId);
+  const expectedSlots = await getExpectedSlotCountForMutation(
+    programId,
+    input.workoutIndex,
+    input.slotId
+  );
+
   const result = await getDb().transaction(async (tx) => {
-    const programId = await verifyInstanceOwnership(tx, userId, instanceId);
     // Capture existing state for undo (must happen before upsert)
     const [existing] = await tx
-      .select()
+      .select(undoSnapshotFields)
       .from(workoutResults)
       .where(
         and(
@@ -225,16 +271,12 @@ export async function recordResult(
 
     await trimUndoStack(tx, instanceId);
 
-    // Resolve expected slot count and sync completed_at
-    const expectedSlots = await getExpectedSlotCount(programId, input.workoutIndex);
     await syncCompletedAt(tx, instanceId, input.workoutIndex, expectedSlots);
+
+    await touchInstanceTimestamp(tx, instanceId);
 
     return row;
   });
-
-  await touchInstanceTimestamp(instanceId).catch((err: unknown) =>
-    logger.warn({ err, instanceId }, 'touchInstanceTimestamp failed')
-  );
 
   return result;
 }
@@ -249,12 +291,13 @@ export async function deleteResult(
   workoutIndex: number,
   slotId: string
 ): Promise<void> {
-  await getDb().transaction(async (tx) => {
-    const programId = await verifyInstanceOwnership(tx, userId, instanceId);
+  // Resolve template + expected slot count BEFORE opening the tx.
+  const programId = await verifyInstanceOwnership(getDb(), userId, instanceId);
+  const expectedSlots = await getExpectedSlotCountForMutation(programId, workoutIndex, slotId);
 
+  await getDb().transaction(async (tx) => {
     const [existing] = await tx
-      .select()
-      .from(workoutResults)
+      .delete(workoutResults)
       .where(
         and(
           eq(workoutResults.instanceId, instanceId),
@@ -262,13 +305,12 @@ export async function deleteResult(
           eq(workoutResults.slotId, slotId)
         )
       )
-      .limit(1);
+      .returning(undoSnapshotFields);
 
     if (!existing) {
       throw new ApiError(404, 'Result not found', 'RESULT_NOT_FOUND');
     }
 
-    // Push undo entry before deleting (captures amrapReps, rpe, and setLogs)
     await tx.insert(undoEntries).values({
       instanceId,
       workoutIndex,
@@ -279,18 +321,12 @@ export async function deleteResult(
       previousSetLogs: existing.setLogs ?? null,
     });
 
-    await tx.delete(workoutResults).where(eq(workoutResults.id, existing.id));
-
     await trimUndoStack(tx, instanceId);
 
-    // Resolve expected slot count and sync completed_at
-    const expectedSlots = await getExpectedSlotCount(programId, workoutIndex);
     await syncCompletedAt(tx, instanceId, workoutIndex, expectedSlots);
-  });
 
-  await touchInstanceTimestamp(instanceId).catch((err: unknown) =>
-    logger.warn({ err, instanceId }, 'touchInstanceTimestamp failed')
-  );
+    await touchInstanceTimestamp(tx, instanceId);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -298,8 +334,22 @@ export async function deleteResult(
 // ---------------------------------------------------------------------------
 
 export async function undoLast(userId: string, instanceId: string): Promise<UndoEntryRow | null> {
+  // Ownership + template resolution + peek at the top-of-stack workoutIndex
+  // happen BEFORE the tx — none of these change frequently and the slot count
+  // is keyed by the program definition + workoutIndex pair. Even if a
+  // concurrent op pops a different undo entry inside the tx, `syncCompletedAt`
+  // is keyed by workoutIndex and remains correct.
+  const programId = await verifyInstanceOwnership(getDb(), userId, instanceId);
+  const [peek] = await getDb()
+    .select({ workoutIndex: undoEntries.workoutIndex })
+    .from(undoEntries)
+    .where(eq(undoEntries.instanceId, instanceId))
+    .orderBy(desc(undoEntries.id))
+    .limit(1);
+  if (!peek) return null;
+  const expectedSlots = await getExpectedSlotCountForUndo(programId, peek.workoutIndex);
+
   const entry = await getDb().transaction(async (tx) => {
-    const programId = await verifyInstanceOwnership(tx, userId, instanceId);
     // Pop the most recent undo entry (LIFO — highest id)
     const [found] = await tx
       .select()
@@ -352,18 +402,18 @@ export async function undoLast(userId: string, instanceId: string): Promise<Undo
         });
     }
 
-    // Resolve expected slot count and sync completed_at
-    const expectedSlots = await getExpectedSlotCount(programId, found.workoutIndex);
-    await syncCompletedAt(tx, instanceId, found.workoutIndex, expectedSlots);
+    // expectedSlots was resolved pre-tx for peek.workoutIndex; if the popped
+    // entry's workoutIndex differs (concurrent undo), re-resolve to stay correct.
+    const slots =
+      found.workoutIndex === peek.workoutIndex
+        ? expectedSlots
+        : await getExpectedSlotCountForUndo(programId, found.workoutIndex);
+    await syncCompletedAt(tx, instanceId, found.workoutIndex, slots);
+
+    await touchInstanceTimestamp(tx, instanceId);
 
     return found;
   });
-
-  if (entry) {
-    await touchInstanceTimestamp(instanceId).catch((err: unknown) =>
-      logger.warn({ err, instanceId }, 'touchInstanceTimestamp failed')
-    );
-  }
 
   return entry;
 }

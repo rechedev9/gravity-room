@@ -38,6 +38,44 @@
     "session_prefix": "Workout #{{index}} — {{dayName}}",
     "stage_label": "Stage"
   },
+  "calendar_navigator": {
+    "jump_form_aria": "Jump to a specific workout",
+    "jump_label": "Go to workout",
+    "jump_button": "Go",
+    "jump_button_aria": "Go to the specified workout",
+    "jump_error": "Enter a number between 1 and {{max}}",
+    "week_chips_aria": "Program weeks",
+    "week_chip_label": "Program week {{week}}",
+    "week_chip_aria": "Program week {{week}}, workouts {{from}} to {{to}}",
+    "week_grid_aria": "Workouts for week {{week}}",
+    "day_tile_aria": "Workout {{index}} — {{state}}",
+    "tile_state": {
+      "selected": "selected",
+      "current": "current",
+      "completed": "completed",
+      "pending": "pending"
+    },
+    "nav_mode_group_aria": "Calendar view mode",
+    "nav_mode": {
+      "day": "Day",
+      "week": "Week",
+      "month": "Month"
+    },
+    "day_summary_aria": "Summary for workout {{index}}",
+    "month_prev_aria": "Previous month page",
+    "month_next_aria": "Next month page",
+    "month_page_label": "Page {{page}} of {{total}}",
+    "month_current_aria": "Jump to current month page",
+    "month_current_label": "Current",
+    "preview_program_weeks_label": "Program weeks (relative)",
+    "reading_mode_group_aria": "Calendar reading mode",
+    "reading_mode": {
+      "program": "Program",
+      "history": "Real history"
+    },
+    "history_microcopy": "Real dates appear when you complete workouts.",
+    "history_empty": "No completed workouts yet."
+  },
   "catalog": {
     "category": {
       "strength": "Strength",
@@ -77,7 +115,8 @@
       "orphan_delete_loading": "Deleting…",
       "orphan_confirm_title": "Delete orphaned program",
       "orphan_confirm_message": "All associated results will be deleted. Continue?",
-      "recent_activity_empty": "Complete your first workout to see recent activity."
+      "recent_activity_empty": "Complete your first workout to see recent activity.",
+      "next_workout": "Next: Day {{index}} — {{name}}"
     },
     "programs": {
       "gzclp": {
@@ -182,6 +221,7 @@
     "programs": "Programs",
     "dashboard": "Dashboard",
     "tracker": "Tracker",
+    "insights": "Insights",
     "profile": "Profile",
     "main_nav_label": "Main navigation",
     "view_profile": "View profile"
@@ -197,7 +237,55 @@
     "complete_workouts_message": "Complete workouts to see your analytics here.",
     "no_programs_message": "Choose a program to see your metrics here.",
     "view_programs": "View Programs",
-    "load_recommendation_section": "Load Recommendation"
+    "load_recommendation_section": "Load Recommendation",
+    "kpi_strip": {
+      "streak": "STREAK",
+      "day_one": "day",
+      "day_other": "days",
+      "sessions": "SESSIONS",
+      "completed": "completed",
+      "weekly_pr": "PR THIS WEEK",
+      "no_weekly_pr": "no PR this week"
+    },
+    "pr_road": {
+      "title": "ROAD TO PR",
+      "empty": "Not enough data to calculate a PR yet.",
+      "lift": "Lift",
+      "current": "Current",
+      "remaining": "Remaining",
+      "aria": "progress toward {{lift}} PR"
+    },
+    "mentor": {
+      "title": "FROM THE MASTER",
+      "signature": "the master",
+      "next": "next →"
+    },
+    "next_set": {
+      "no_program": "NO PROGRAM",
+      "choose_forge": "CHOOSE YOUR FORGE",
+      "empty_body": "The first step is choosing a program.",
+      "view_programs": "VIEW PROGRAMS",
+      "day_one": "DAY ONE",
+      "day_one_body": "The weight will not lift itself.",
+      "enter": "ENTER THE IRON",
+      "today_day": "TODAY · DAY {{day}}",
+      "next_set": "NEXT SET",
+      "not_today": "not today",
+      "last_set": "last: {{weight}}×{{reps}} · +{{delta}}kg since program start"
+    },
+    "heatmap": {
+      "title": "LAST {{weeks}} WEEKS",
+      "aria": "weekly workout heatmap",
+      "cell_title": "{{date}} — {{count}} workout",
+      "cell_title_one": "{{date}} — {{count}} workout",
+      "cell_title_other": "{{date}} — {{count}} workouts"
+    },
+    "recent_sessions": {
+      "title": "RECENT ACTIVITY",
+      "empty_title": "NO WORKOUTS YET",
+      "empty_body": "Day one is waiting.",
+      "day_abbrev": "D{{day}}"
+    }
   },
   "programs": {
     "page_title": "Programs — Gravity Room",
@@ -424,7 +512,21 @@
       "progression_suffix": "Progression",
       "amrap_chart_suffix": "AMRAP (reps)",
       "volume_section_label": "Total Volume",
-      "volume_chart_label": "Volume per Session (kg)"
+      "volume_chart_label": "Volume per Session (kg)",
+      "start": "Start",
+      "gained": "kg gained",
+      "stage": "Stage",
+      "success": "success",
+      "exercise_one": "exercise",
+      "exercise_other": "exercises",
+      "no_data_yet": "No data yet",
+      "complete_first_workout": "Complete your first workout to see statistics and charts.",
+      "other": "Other",
+      "exercises": "Exercises",
+      "progression": "Progression",
+      "amrap_reps": "AMRAP (reps)",
+      "total_volume": "Total Volume",
+      "volume_per_session": "Volume per Session (kg)"
     },
     "graduation": {
       "exercise_squat": "Squat",
@@ -473,7 +575,12 @@
       "pending_aria": "Pending",
       "go_to_current": "Current",
       "next_aria": "Next day",
-      "next_button": "Next"
+      "next_button": "Next",
+      "kbd_prev": "prev",
+      "kbd_next": "next",
+      "kbd_success": "success",
+      "kbd_fail": "fail",
+      "kbd_undo": "undo"
     },
     "completion": {
       "header": "COMPLETED!",
@@ -495,7 +602,11 @@
     },
     "result_cell": {
       "success": "Success",
-      "fail": "Fail"
+      "fail": "Fail",
+      "aria_mark_success": "Mark {{tier}} success",
+      "aria_mark_fail": "Mark {{tier}} fail",
+      "aria_undo": "Undo {{tier}} {{result}}",
+      "aria_register_max": "Register Max {{tier}}"
     },
     "set_stepper": {
       "group_aria": "Set {{index}} of {{total}} reps",
@@ -537,6 +648,22 @@
       "primary": "Primary",
       "secondary": "Secondary",
       "accessory": "Accessory"
+    },
+    "day_status": {
+      "today_prefix": "TODAY · ",
+      "day_label": "DAY",
+      "complete_suffix": " · COMPLETE",
+      "close": "close ▴",
+      "change_day": "change day ▾"
+    },
+    "shortcuts": {
+      "title": "KEYBOARD SHORTCUTS",
+      "success": "success",
+      "fail": "fail",
+      "prev_set": "previous set",
+      "next_set": "next set",
+      "undo_last": "undo last",
+      "understood": "GOT IT"
     }
   },
   "profile": {
@@ -595,7 +722,8 @@
     },
     "charts": {
       "weight_progression_title": "Weight Progression",
-      "success_rate_label": "success"
+      "success_rate_label": "success",
+      "success_rate_inline": "{{rate}}% success"
     },
     "stats_grid": {
       "stats_title": "Statistics",
@@ -622,7 +750,8 @@
       "epley_note": "Estimate based on Epley formula",
       "lifetime_volume_title": "Lifetime Total Volume",
       "all_programs_label": "All Programs",
-      "programs_label_plural": "programs"
+      "programs_label_plural": "programs",
+      "rolling_30_days_title": "Last 30 days"
     },
     "account": {
       "title": "Account",
@@ -653,6 +782,15 @@
     }
   },
   "insights": {
+    "page": {
+      "title": "Insights",
+      "meta": "LAST 12 WEEKS",
+      "updated_today": "UPDATED TODAY",
+      "section_charts": "Trends",
+      "section_signals": "Signals",
+      "empty_heading": "No insights yet",
+      "empty_description": "Log a few sessions and you'll see volume trends, load recommendations and plateau alerts here."
+    },
     "exercise_summary": {
       "default_exercise": "Exercise",
       "total_sets_label": "Total sets",
@@ -796,11 +934,13 @@
       },
       "analytics": {
         "title": "Analytics",
-        "body": "a privacy-friendly web analytics service. Plausible does not use cookies, does not collect identifiable personal data, and does not track users between sessions. Aggregated data (page views, country of origin, device type) is used solely to improve the service."
+        "body": "a privacy-friendly web analytics service. Plausible does not use cookies, does not collect identifiable personal data, and does not track users between sessions. Aggregated data (page views, country of origin, device type) is used solely to improve the service.",
+        "body_prefix": "Gravity Room uses"
       },
       "legal_basis": {
         "title": "Legal basis",
-        "body": "is exempt from prior consent under article 22.2 of Law 34/2002 (LSSI-CE), as it is strictly necessary for the provision of the authentication service expressly requested by the user. This exemption is also recognized by Recital 66 of Directive 2009/136/EC and the guidelines of the European Data Protection Board."
+        "body": "is exempt from prior consent under article 22.2 of Law 34/2002 (LSSI-CE), as it is strictly necessary for the provision of the authentication service expressly requested by the user. This exemption is also recognized by Recital 66 of Directive 2009/136/EC and the guidelines of the European Data Protection Board.",
+        "body_prefix": "The cookie"
       },
       "disable_cookies": {
         "title": "How to disable cookies?",
@@ -856,7 +996,9 @@
     "reload_button": "Reload"
   },
   "toast": {
-    "provider_error": "useToast must be used within ToastProvider"
+    "provider_error": "useToast must be used within ToastProvider",
+    "close_notification": "Close notification",
+    "new_pr": "NEW PR"
   },
   "guest": {
     "provider_error": "useGuest must be used within GuestProvider"
@@ -892,6 +1034,151 @@
     "footer": {
       "view_stats": "View stats in Profile",
       "change_language": "Change language in Profile"
+    },
+    "mentor": {
+      "widget_title": "Gravity Sensei",
+      "prompt": "Welcome, want a quick tour?",
+      "cta_start": "Start mini tour",
+      "cta_dismiss": "Not now",
+      "intro_title": "Quick tour — 4 steps",
+      "intro_body": "We'll walk you through the main sections of Gravity Room.",
+      "start": "Start",
+      "cancel": "Cancel",
+      "next": "Next",
+      "finish": "Finish",
+      "exit": "Exit tour",
+      "repeat": "Repeat tour",
+      "completed_hint": "Tour completed.",
+      "all_done": "🎉 You're all set! Enjoy Gravity Room.",
+      "steps": {
+        "step_home": {
+          "title": "Home",
+          "body": "Your active program lives here. At a glance you see your streak, weekly sessions, and consistency."
+        },
+        "step_programs": {
+          "title": "Programs",
+          "body": "Open Programs to choose a routine, customize a program, or manage the ones you already have."
+        },
+        "step_tracker": {
+          "title": "Tracker",
+          "body": "In the Tracker you can log success, fail, AMRAP, and RPE for every set of your workout."
+        },
+        "step_profile": {
+          "title": "Profile",
+          "body": "Check your stats, achievements, and program history in the Profile section."
+        }
+      }
+    },
+    "mentor_tips": [
+      "If you fail, you drop a stage, not the bar. Get back under it.",
+      "Progress is not linear. Consistency is.",
+      "The weight will not lift itself.",
+      "Every workout is a debt your body will repay.",
+      "Controlled weight beats ego on the floor."
+    ]
+  },
+  "mentor_tour": {
+    "prompt": {
+      "title": "Welcome! Would you like a quick tutorial?",
+      "start": "Start mini tutorial",
+      "dismiss": "Not now"
+    },
+    "checklist": {
+      "title": "Gravity Sensei",
+      "progress": "{{done}}/{{total}} zones explored",
+      "go": "Go",
+      "all_done": "🎉 You've explored all zones!",
+      "all_done_short": "Tour completed.",
+      "dismiss_all": "Don't show again",
+      "repeat": "Reset tour",
+      "dismiss_aria": "Dismiss tour checklist"
+    },
+    "zone_hint": {
+      "aria_label": "Sensei tip",
+      "dismiss_aria": "Dismiss this tip"
+    },
+    "zones": {
+      "home": {
+        "label": "Home",
+        "hint": "Your active program lives here. Check your streak, weekly sessions, and consistency at a glance."
+      },
+      "programs": {
+        "label": "Programs",
+        "hint": "Browse the catalog, preview routines, and start a new program from here."
+      },
+      "preview": {
+        "label": "Program Preview",
+        "hint": "Explore any program's full schedule before committing. Tap a workout to see the exercises."
+      },
+      "tracker": {
+        "label": "Tracker",
+        "hint": "Log success, fail, AMRAP, and RPE for every set. The calendar shows your progress over time."
+      },
+      "profile": {
+        "label": "Profile",
+        "hint": "View your stats, badges, volume charts, and program history here."
+      }
+    }
+  },
+  "language_selector": {
+    "aria_label": "Language selector"
+  },
+  "program_overview": {
+    "aria_label": "{{programName}} program summary",
+    "how_it_works": "How it works",
+    "day_structure": "Day structure",
+    "exercises": "Exercises ({{count}})",
+    "progression_rules": "Progression rules",
+    "stages": "Stages",
+    "stages_description": "{{count}} stages are available if you miss the prescribed sets. Each stage adjusts the sets and reps so you can keep progressing."
+  },
+  "sidebar": {
+    "open_menu": "Open menu",
+    "close_menu": "Close menu"
+  },
+  "route_error": {
+    "image_alt": "Error state, damaged gravity chamber",
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. Reloading the page should fix it.",
+    "reload": "Reload"
+  },
+  "offline_banner": {
+    "message": "Offline. Changes will be saved when you are back online"
+  },
+  "chart": {
+    "result_success": "✓ Success",
+    "result_fail": "✗ Fail",
+    "empty": "Complete workouts to see the chart",
+    "insufficient_data": "Not enough data yet",
+    "data_summary": "Data: {{label}}",
+    "workout_header": "Wkt.",
+    "weight_header": "Weight",
+    "result_header": "Result"
+  },
+  "sync_status": {
+    "syncing": "Syncing...",
+    "synced": "Synced",
+    "offline": "Offline",
+    "error": "Sync error"
+  },
+  "program_summary": {
+    "rules": {
+      "add_weight": "Add weight next workout",
+      "deload_percent": "Deload to {{percent}}% of current weight",
+      "advance_stage": "Move to the next stage (fewer reps, more sets)",
+      "add_weight_reset_stage": "Add {{amount}} kg and reset to the first stage",
+      "no_change": "Keep the current weight",
+      "advance_stage_add_weight": "Add weight and advance stage",
+      "update_tm": "Update training max by {{amount}} kg",
+      "double_progression": "Add reps ({{bottom}}-{{top}}); at the top, add weight"
+    },
+    "triggers": {
+      "complete_all_sets": "Complete all sets",
+      "mid_program_fail": "Fail in the middle of the program",
+      "final_stage_fail": "Fail in the final stage",
+      "final_stage_success": "Complete the final stage",
+      "undefined_result": "Undefined result",
+      "amrap_threshold": "AMRAP set >= {{reps}} reps"
     }
   }
 }

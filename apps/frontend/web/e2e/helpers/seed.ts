@@ -1,6 +1,11 @@
 import { expect, type Page } from '@playwright/test';
 import { DEFAULT_WEIGHTS } from './fixtures';
-import { createAndAuthUser, createTestProgram, seedResultsViaAPI } from './api';
+import {
+  createAndAuthUser,
+  createTestProgram,
+  seedResultsViaAPI,
+  skipFirstRunOverlays,
+} from './api';
 
 interface SeedOptions {
   readonly startWeights?: typeof DEFAULT_WEIGHTS;
@@ -51,10 +56,38 @@ export function programCard(page: Page, name: string) {
  */
 export async function navigateToTracker(page: Page): Promise<void> {
   await page.goto('/app');
-  const continueLink = page.getByRole('link', { name: 'Continuar Entrenamiento' });
+  const continueLink = page
+    .getByRole('link', { name: /continuar entrenamiento|entrar al hierro/i })
+    .first();
   await expect(continueLink).toBeVisible({ timeout: 10_000 });
   await continueLink.click();
   await expect(page.getByText(/^Día \d+$/).first()).toBeVisible({ timeout: 10_000 });
+}
+
+/** Assert the selected tracker day using the current compact day status pill. */
+export async function expectSelectedDay(page: Page, day: number): Promise<void> {
+  await expect(page.getByText(new RegExp(`DÍA ${day} /`, 'i')).first()).toBeVisible({
+    timeout: 10_000,
+  });
+}
+
+/** Select a tracker workout by its 1-based day number using the public day-jump control. */
+export async function selectWorkoutDay(page: Page, day: number): Promise<void> {
+  await expandDayControls(page);
+  await page.getByRole('spinbutton', { name: /ir al entrenamiento/i }).fill(String(day));
+  await page.getByRole('button', { name: /ir al entrenamiento indicado/i }).click();
+  await expectSelectedDay(page, day);
+}
+
+/** Open the collapsible day controls if they are currently collapsed. */
+export async function expandDayControls(page: Page): Promise<void> {
+  const changeDay = page.getByRole('button', { name: /cambiar día/i });
+  if (await changeDay.isVisible({ timeout: 500 }).catch(() => false)) {
+    await changeDay.click();
+  }
+  await expect(page.getByRole('button', { name: 'Siguiente día' })).toBeVisible({
+    timeout: 5_000,
+  });
 }
 
 /**
@@ -71,10 +104,13 @@ export async function navigateToGzclpSetup(page: Page): Promise<void> {
 
 /** Enter guest mode from the login page. Waits for home page to load. */
 export async function enterGuestMode(page: Page): Promise<void> {
+  await skipFirstRunOverlays(page);
   await page.goto('/login');
   await page.getByRole('button', { name: 'Probar sin cuenta' }).click();
   await page.waitForURL('**/app**', { timeout: 10_000 });
-  await expect(page.getByText('Elegir un Programa')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('status').filter({ hasText: 'Modo invitado' })).toBeVisible({
+    timeout: 10_000,
+  });
 }
 
 /**

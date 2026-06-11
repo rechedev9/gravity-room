@@ -20,6 +20,11 @@ interface UseDayNavigationReturn {
   readonly handleNextDay: () => void;
   readonly handleGoToCurrent: () => void;
   readonly handleToggleView: () => void;
+  /**
+   * Jump directly to a specific day index. The value is clamped to
+   * `[0, totalWorkouts - 1]`. No-ops when `totalWorkouts` is 0.
+   */
+  readonly handleSelectDay: (index: number) => void;
 }
 
 export function useDayNavigation({
@@ -50,6 +55,10 @@ export function useDayNavigation({
   const handleGoToCurrent = (): void => {
     if (firstPendingIdx >= 0) setSelectedDayIndex(firstPendingIdx);
   };
+  const handleSelectDay = (index: number): void => {
+    if (totalWorkouts === 0) return;
+    setSelectedDayIndex(Math.min(Math.max(0, index), totalWorkouts - 1));
+  };
   const handleToggleView = (): void => {
     const next: ViewMode = viewMode === 'detailed' ? 'compact' : 'detailed';
     setViewMode(next);
@@ -62,6 +71,7 @@ export function useDayNavigation({
     handlePrevDay,
     handleNextDay,
     handleGoToCurrent,
+    handleSelectDay,
     handleToggleView,
   };
 }

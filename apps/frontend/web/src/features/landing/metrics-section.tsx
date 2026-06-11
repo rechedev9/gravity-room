@@ -41,6 +41,7 @@ interface MetricCell {
   readonly prefix?: string;
   readonly value: string;
   readonly label: string;
+  readonly sub: string;
 }
 
 export function MetricsSection({
@@ -59,16 +60,19 @@ export function MetricsSection({
     {
       value: programCount > 0 ? String(programAnimated) : '—',
       label: content.programs.label,
+      sub: content.programs.sub,
     },
-    { value: '100%', label: content.free.label },
+    { value: '100%', label: content.free.label, sub: content.free.sub },
     {
       prefix: content.days.prefix,
       value: minDaysPerWeek > 0 ? String(minDaysPerWeek) : '—',
       label: content.days.label,
+      sub: content.days.sub,
     },
     {
       value: totalWorkouts > 0 ? String(workoutsAnimated) : '—',
       label: content.workouts.label,
+      sub: content.workouts.sub,
     },
   ];
 
@@ -100,6 +104,9 @@ export function MetricsSection({
             </div>
             <div className="font-mono text-[11px] tracking-[0.2em] uppercase text-muted">
               {m.label}
+            </div>
+            <div className="mt-1 text-[11px] text-muted/70 leading-snug max-w-[140px] mx-auto">
+              {m.sub}
             </div>
           </StaggerItem>
         ))}

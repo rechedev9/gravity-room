@@ -75,7 +75,7 @@ const postApiExercises_Body = z
 const postApiProgramsByIdResults_Body = z
   .object({
     workoutIndex: z.union([z.string(), z.number()]),
-    slotId: z.string().min(1),
+    slotId: z.string().min(1).max(50),
     result: z.union([z.string(), z.string()]),
     amrapReps: z.union([z.string(), z.number()]).optional(),
     rpe: z.union([z.string(), z.number()]).optional(),
@@ -110,18 +110,6 @@ export const schemas = {
 };
 
 export const endpoints = [
-  {
-    method: 'get',
-    path: '',
-    requestFormat: 'json',
-    response: z.void(),
-  },
-  {
-    method: 'get',
-    path: '/',
-    requestFormat: 'json',
-    response: z.void(),
-  },
   {
     method: 'post',
     path: '/api/auth/dev',
@@ -626,7 +614,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),
@@ -657,7 +645,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),
@@ -688,7 +676,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),
@@ -719,7 +707,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),
@@ -753,7 +741,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),
@@ -789,7 +777,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),
@@ -825,7 +813,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
       {
         name: 'workoutIndex',
@@ -835,7 +823,7 @@ export const endpoints = [
       {
         name: 'slotId',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().min(1).max(50),
       },
     ],
     response: z.void(),
@@ -861,7 +849,7 @@ export const endpoints = [
       {
         name: 'id',
         type: 'Path',
-        schema: z.string(),
+        schema: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
       },
     ],
     response: z.void(),

@@ -2,6 +2,7 @@ import { captureException } from './lib/sentry';
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { sql } from 'drizzle-orm';
+import { timingSafeEqual } from 'node:crypto';
 import { ApiError } from './middleware/error-handler';
 import { requestLogger } from './middleware/request-logger';
 import { swaggerPlugin } from './plugins/swagger';
@@ -17,6 +18,7 @@ import { insightsRoutes } from './routes/insights';
 import { getDb } from './db';
 import { getRedis } from './lib/redis';
 import { logger } from './lib/logger';
+import { formatValidationError, validateEnv } from './lib/env-validation';
 
 // ---------------------------------------------------------------------------
 // Options
@@ -28,6 +30,39 @@ export type CreateAppOptions = {
   permissionsPolicy: string;
 };
 
+function shouldDisableHttpCache(request: Request): boolean {
+  const url = new URL(request.url);
+  if (url.pathname.startsWith('/api/auth/')) return true;
+  if (request.headers.has('authorization')) return true;
+  return false;
+}
+
+/**
+ * Applies the response security headers. Called from BOTH onAfterHandle (success
+ * path) and onError — in Elysia onAfterHandle does not run when a handler throws,
+ * so without the onError call every 4xx/5xx response (validation errors, 401s,
+ * 404s, 429s, 500s) would ship without CSP, HSTS, X-Frame-Options or nosniff.
+ * Those are exactly the responses most likely to reflect attacker input.
+ */
+function applySecurityHeaders(
+  set: { headers: Record<string, string | number> },
+  request: Request,
+  csp: string,
+  permissionsPolicy: string
+): void {
+  set.headers['x-content-type-options'] = 'nosniff';
+  set.headers['x-frame-options'] = 'DENY';
+  set.headers['referrer-policy'] = 'strict-origin-when-cross-origin';
+  set.headers['content-security-policy'] = csp;
+  if (process.env['NODE_ENV'] === 'production') {
+    set.headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
+  }
+  set.headers['permissions-policy'] = permissionsPolicy;
+  if (shouldDisableHttpCache(request)) {
+    set.headers['cache-control'] = 'no-store';
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
@@ -35,27 +70,37 @@ export type CreateAppOptions = {
 export function createApp(options: CreateAppOptions) {
   const { corsOrigins, csp, permissionsPolicy } = options;
 
+  // Single consolidated env check. In production this surfaces EVERY missing
+  // required var (and constraint violation) in one error so a misconfigured
+  // deploy fails fast with the complete picture, not "fix one, redeploy,
+  // hit next". Outside production it is a no-op.
+  const envResult = validateEnv();
+  if (!envResult.ok) {
+    throw new Error(formatValidationError(envResult));
+  }
+
+  const metricsToken = process.env['METRICS_TOKEN'];
+  const metricsExpected = metricsToken ? Buffer.from(`Bearer ${metricsToken}`) : null;
+
   const app = new Elysia()
     .use(
       cors({
         origin: corsOrigins,
         credentials: true,
+        // Cache preflight response for 24h. Browsers cap (Chrome=2h, Firefox=24h),
+        // but without this the @elysiajs/cors default is 5s, forcing a fresh OPTIONS
+        // round trip for nearly every API call.
+        maxAge: 86400,
       })
     )
     .use(swaggerPlugin)
     .use(metricsPlugin)
-    .onAfterHandle(({ set }) => {
-      set.headers['x-content-type-options'] = 'nosniff';
-      set.headers['x-frame-options'] = 'DENY';
-      set.headers['referrer-policy'] = 'strict-origin-when-cross-origin';
-      set.headers['content-security-policy'] = csp;
-      if (process.env['NODE_ENV'] === 'production') {
-        set.headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
-      }
-      set.headers['permissions-policy'] = permissionsPolicy;
+    .onAfterHandle(({ set, request }) => {
+      applySecurityHeaders(set, request, csp, permissionsPolicy);
     })
     .use(requestLogger)
-    .onError(({ code, error, set, reqLogger, startMs }) => {
+    .onError(({ code, error, set, request, reqLogger, startMs }) => {
+      applySecurityHeaders(set, request, csp, permissionsPolicy);
       const log = reqLogger ?? logger;
       const latencyMs = startMs != null ? Date.now() - startMs : undefined;
 
@@ -162,10 +207,11 @@ export function createApp(options: CreateAppOptions) {
       }
     )
     .get('/metrics', async ({ set, headers }) => {
-      const expectedToken = process.env['METRICS_TOKEN'];
-      if (expectedToken) {
-        const auth = headers['authorization'];
-        if (auth !== `Bearer ${expectedToken}`) {
+      if (metricsExpected) {
+        const provided = Buffer.from(headers['authorization'] ?? '');
+        const ok =
+          provided.length === metricsExpected.length && timingSafeEqual(provided, metricsExpected);
+        if (!ok) {
           throw new ApiError(401, 'Invalid metrics token', 'UNAUTHORIZED');
         }
       }

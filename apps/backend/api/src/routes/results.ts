@@ -44,10 +44,14 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
       };
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
+      }),
       body: t.Object({
         workoutIndex: t.Integer({ minimum: 0 }),
-        slotId: t.String({ minLength: 1 }),
+        slotId: t.String({ minLength: 1, maxLength: 50 }),
         result: t.Union([t.Literal('success'), t.Literal('fail')]),
         amrapReps: t.Optional(t.Integer({ minimum: 0 })),
         rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
@@ -93,15 +97,18 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
         },
         'deleting result'
       );
+      await rateLimit(userId, 'DELETE /programs/results', { maxRequests: 60, windowMs: 60_000 });
       await deleteResult(userId, params.id, params.workoutIndex, params.slotId);
       await invalidateCachedInstance(userId, params.id);
       set.status = 204;
     },
     {
       params: t.Object({
-        id: t.String(),
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
         workoutIndex: t.Numeric(),
-        slotId: t.String(),
+        slotId: t.String({ minLength: 1, maxLength: 50 }),
       }),
       detail: {
         tags: ['Results'],
@@ -142,7 +149,11 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
       };
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
+      }),
       detail: {
         tags: ['Results'],
         summary: 'Undo last result action',

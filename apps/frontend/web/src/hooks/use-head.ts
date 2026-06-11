@@ -10,6 +10,7 @@ export interface HeadProps {
   readonly ogUrl?: string;
   readonly ogLocale?: string;
   readonly lang?: string;
+  readonly robots?: string;
 }
 
 function setMetaName(name: string, value: string): () => void {
@@ -81,6 +82,7 @@ export function useHead({
   ogUrl,
   ogLocale,
   lang,
+  robots,
 }: HeadProps): void {
   useEffect(() => {
     const cleanups: Array<() => void> = [];
@@ -108,11 +110,12 @@ export function useHead({
       cleanups.push(setMetaProperty('og:description', ogDescription));
     if (ogUrl !== undefined) cleanups.push(setMetaProperty('og:url', ogUrl));
     if (ogLocale !== undefined) cleanups.push(setMetaProperty('og:locale', ogLocale));
+    if (robots !== undefined) cleanups.push(setMetaName('robots', robots));
 
     return (): void => {
       cleanups.forEach((fn) => fn());
     };
-  }, [title, description, canonical, ogTitle, ogDescription, ogUrl, ogLocale, lang]);
+  }, [title, description, canonical, ogTitle, ogDescription, ogUrl, ogLocale, lang, robots]);
 }
 
 export function useProgramHead(

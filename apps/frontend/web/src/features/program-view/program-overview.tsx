@@ -51,10 +51,11 @@ function RoleBadge({ role }: { readonly role: string }): ReactNode {
 // ---------------------------------------------------------------------------
 
 function DayRotationSection({ summary }: { readonly summary: ProgramSummary }): ReactNode {
+  const { t } = useTranslation();
   return (
     <div>
       <h4 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">
-        Estructura de días
+        {t('program_overview.day_structure')}
       </h4>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {summary.days.map((day) => (
@@ -80,10 +81,11 @@ function DayRotationSection({ summary }: { readonly summary: ProgramSummary }): 
 }
 
 function ExerciseListSection({ summary }: { readonly summary: ProgramSummary }): ReactNode {
+  const { t } = useTranslation();
   return (
     <div>
       <h4 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">
-        Ejercicios ({summary.uniqueExerciseCount})
+        {t('program_overview.exercises', { count: summary.uniqueExerciseCount })}
       </h4>
       <div className="flex flex-wrap gap-2">
         {summary.uniqueExercises.map((exercise) => (
@@ -102,12 +104,13 @@ function ExerciseListSection({ summary }: { readonly summary: ProgramSummary }):
 }
 
 function ProgressionRulesSection({ summary }: { readonly summary: ProgramSummary }): ReactNode {
+  const { t } = useTranslation();
   if (summary.progressionRules.length === 0) return null;
 
   return (
     <div>
       <h4 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">
-        Reglas de progresión
+        {t('program_overview.progression_rules')}
       </h4>
       <ul className="space-y-2">
         {summary.progressionRules.map((rule) => (
@@ -122,14 +125,16 @@ function ProgressionRulesSection({ summary }: { readonly summary: ProgramSummary
 }
 
 function StagesSummarySection({ summary }: { readonly summary: ProgramSummary }): ReactNode {
+  const { t } = useTranslation();
   if (!summary.hasStages) return null;
 
   return (
     <div>
-      <h4 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">Etapas</h4>
+      <h4 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">
+        {t('program_overview.stages')}
+      </h4>
       <p className="text-xs text-info leading-relaxed">
-        {summary.stageCount} etapas disponibles si no completas las series. Cada etapa ajusta el
-        esquema de series y repeticiones para que puedas seguir progresando.
+        {t('program_overview.stages_description', { count: summary.stageCount })}
       </p>
     </div>
   );
@@ -140,13 +145,16 @@ function StagesSummarySection({ summary }: { readonly summary: ProgramSummary })
 // ---------------------------------------------------------------------------
 
 export function ProgramOverview({ summary, programName }: ProgramOverviewProps): ReactNode {
+  const { t } = useTranslation();
   return (
     <section
       className="bg-card border border-rule mb-4 sm:mb-8 overflow-hidden"
-      aria-label={`Resumen del programa ${programName}`}
+      aria-label={t('program_overview.aria_label', { programName })}
     >
       <div className="px-5 py-4 border-b border-rule-light">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-muted">Cómo funciona</h3>
+        <h3 className="text-xs font-bold uppercase tracking-wider text-muted">
+          {t('program_overview.how_it_works')}
+        </h3>
       </div>
 
       <div className="px-5 py-5 space-y-6">

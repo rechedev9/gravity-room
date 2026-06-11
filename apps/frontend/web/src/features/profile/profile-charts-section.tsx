@@ -1,5 +1,6 @@
 import { calculateStats } from '@gzclp/domain/generic-stats';
 import type { ChartDataPoint } from '@gzclp/domain/types';
+import { useTranslation } from 'react-i18next';
 import { DashboardCard } from '@/components/dashboard-card';
 import { LineChart } from '@/components/charts/line-chart';
 
@@ -18,9 +19,11 @@ export function ProfileChartsSection({
   toDisplay,
   unitLabel,
 }: ProfileChartsSectionProps): React.ReactNode {
+  const { t } = useTranslation();
+
   return (
     <div className="mt-6">
-      <DashboardCard title="Progresión de Peso">
+      <DashboardCard title={t('profile.charts.weight_progression_title')}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {primaryExercises.map((ex) => {
             const data = chartData[ex];
@@ -39,7 +42,7 @@ export function ProfileChartsSection({
                         | +{toDisplay(stats.gained)} {unitLabel}
                       </span>
                     )}{' '}
-                    | {stats.rate}% éxito
+                    | {t('profile.charts.success_rate_inline', { rate: stats.rate })}
                   </p>
                 )}
                 <LineChart data={data} label={names[ex] ?? ex} />

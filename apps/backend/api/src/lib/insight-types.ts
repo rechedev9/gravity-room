@@ -24,8 +24,12 @@ export function parseInsightTypesQuery(
 ): Result<readonly InsightType[], InvalidInsightTypesError> {
   if (raw === undefined || raw === '') return ok([]);
 
+  // Cap before allocating/validating: there are only a handful of valid types,
+  // so any caller sending more than that is malformed. Without the slice a
+  // request with tens of thousands of comma-separated junk values would force a
+  // large allocation and an equally large `invalidValues` error echo.
   const entries = raw
-    .split(',')
+    .split(',', INSIGHT_TYPES.length + 1)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
 

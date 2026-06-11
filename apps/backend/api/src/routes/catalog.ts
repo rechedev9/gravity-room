@@ -83,7 +83,11 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
     async ({ ip, set }) => {
       await rateLimit(ip, 'GET /catalog', { maxRequests: 100 });
       const result = await listPrograms();
-      set.headers['Cache-Control'] = 'public, max-age=300, stale-while-revalidate=60';
+      // s-maxage lets a configured CDN cache the list for an hour while browsers
+      // re-validate every 5 min. The list changes only when an admin publishes a
+      // new program template, so a longer shared TTL is safe.
+      set.headers['Cache-Control'] =
+        'public, max-age=300, s-maxage=3600, stale-while-revalidate=60';
       return result;
     },
     {
@@ -111,7 +115,7 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
       if (result.status === 'hydration_failed') {
         throw new ApiError(500, 'Program definition hydration failed', 'HYDRATION_FAILED');
       }
-      set.headers['Cache-Control'] = 'public, max-age=300';
+      set.headers['Cache-Control'] = 'public, max-age=300, s-maxage=3600';
       return result.definition;
     },
     {

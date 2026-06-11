@@ -62,6 +62,16 @@ describe('parseInsightTypesQuery', () => {
     if (!result.ok) expect(result.error.invalidValues).toEqual(['bogus', 'also-bogus']);
   });
 
+  it('caps parsing so a flood of junk values cannot force a huge allocation/echo', () => {
+    const flood = Array.from({ length: 10_000 }, (_, i) => `junk${i}`).join(',');
+    const result = parseInsightTypesQuery(flood);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      // Bounded to the small number of valid types, not the 10k input size.
+      expect(result.error.invalidValues.length).toBeLessThanOrEqual(INSIGHT_TYPES.length + 1);
+    }
+  });
+
   it('INSIGHT_TYPES contains the four documented types', () => {
     expect(INSIGHT_TYPES).toEqual([
       'volume_trend',

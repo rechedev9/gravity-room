@@ -4,7 +4,7 @@ import { Link } from '@tanstack/react-router';
 import type { UserInfo } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import type { SyncStatus } from '@/types/sync-status';
-import { SYNC_LABELS, SYNC_COLORS } from '@/types/sync-status';
+import { SYNC_COLORS } from '@/types/sync-status';
 import { DropdownMenu, DropdownItem, DropdownDivider } from '@/components/dropdown-menu';
 
 interface AvatarDropdownProps {
@@ -42,13 +42,13 @@ export function AvatarDropdown({
   }
 
   const initial = (user.email[0] ?? 'U').toUpperCase();
-  const syncLabel = SYNC_LABELS[syncStatus];
+  const syncLabel = syncStatus === 'idle' ? '' : t(`sync_status.${syncStatus}`);
 
   return (
     <div className="relative">
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className="w-11 h-11 rounded-full bg-btn-active text-btn-active-text text-sm font-extrabold cursor-pointer transition-all duration-150 hover:opacity-80 hover:shadow-[0_0_12px_rgba(232,170,32,0.2)] active:scale-95 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body focus-visible:outline-none overflow-hidden"
+        className="w-11 h-11 rounded-full bg-btn-active text-btn-active-text text-sm font-extrabold cursor-pointer transition-all duration-150 hover:opacity-80 active:scale-95 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body focus-visible:outline-none overflow-hidden"
         aria-label={t('avatar_dropdown.user_menu')}
         aria-haspopup="true"
         aria-expanded={open}

@@ -154,10 +154,22 @@ function createMockTx(): Record<string, unknown> {
       return {
         where: mock(function where() {
           deletedIds.push('deleted');
-          return Promise.resolve();
+          return {
+            returning: mock(() => Promise.resolve(selectQueue.shift() ?? [])),
+            then: (fn: (val: unknown) => unknown, reject?: (err: unknown) => unknown): unknown => {
+              try {
+                return Promise.resolve(fn(undefined));
+              } catch (err: unknown) {
+                if (reject) return reject(err);
+                return Promise.reject(err);
+              }
+            },
+          };
         }),
       };
     }),
+    // Raw sql execution — used by trimUndoStack's single-statement DELETE.
+    execute: mock(() => Promise.resolve()),
   };
 }
 
@@ -167,23 +179,14 @@ function createMockDb(): Record<string, unknown> {
       const tx = createMockTx();
       return await fn(tx);
     }),
-    // Support standalone getDb().select() calls (e.g. getProgramDefinition in catalog.ts).
-    // Returns an empty result set so getProgramDefinition yields { status: 'not_found' },
-    // causing getExpectedSlotCount to return undefined and syncCompletedAt to skip.
+    // Standalone getDb().select() — used by verifyInstanceOwnership and the
+    // undoLast peek now that both run pre-transaction. Consumes the same queue
+    // as tx.select() so each test only sees one ordered list of result sets.
     select: mock(function select() {
       return {
         from: mock(function from() {
-          return chainable([]);
-        }),
-      };
-    }),
-    // Support standalone touchInstanceTimestamp outside tx
-    update: mock(function update() {
-      return {
-        set: mock(function set() {
-          return {
-            where: mock(() => Promise.resolve()),
-          };
+          const result = selectQueue.shift() ?? [];
+          return chainable(result);
         }),
       };
     }),
@@ -194,6 +197,13 @@ let mockDb = createMockDb();
 
 mock.module('../db', () => ({
   getDb: () => mockDb,
+}));
+
+// Stub getProgramDefinition so getExpectedSlotCount resolves to `undefined`
+// without touching the DB queue (template/exercise lookups are out of scope
+// for these unit tests; syncCompletedAt no-ops on undefined).
+mock.module('./catalog', () => ({
+  getProgramDefinition: () => Promise.resolve({ status: 'not_found' as const }),
 }));
 
 // Must import AFTER mock.module
@@ -386,8 +396,8 @@ describe('undoLast', () => {
 
   it('should pop and restore previous result', async () => {
     const undoRow = makeUndoRow({ previousResult: 'fail', previousAmrapReps: 3, previousRpe: 7 });
-    // Queue: 1) verifyInstanceOwnership, 2) undo entry found
-    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    // Queue: 1) ownership pre-tx, 2) pre-tx peek for workoutIndex, 3) in-tx pop
+    selectQueue = [[{ id: 'inst-1' }], [undoRow], [undoRow]];
     insertReturningResult = [];
 
     const result = await undoLast('user-1', 'inst-1');
@@ -411,8 +421,8 @@ describe('undoLast', () => {
   it('should pop and restore undo entry with previousSetLogs', async () => {
     const previousSetLogs = [{ reps: 5 }, { reps: 5 }, { reps: 3 }];
     const undoRow = makeUndoRow({ previousResult: 'success', previousSetLogs });
-    // Queue: 1) verifyInstanceOwnership, 2) undo entry found
-    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    // Queue: 1) ownership pre-tx, 2) pre-tx peek for workoutIndex, 3) in-tx pop
+    selectQueue = [[{ id: 'inst-1' }], [undoRow], [undoRow]];
     insertReturningResult = [];
 
     const result = await undoLast('user-1', 'inst-1');
@@ -423,8 +433,8 @@ describe('undoLast', () => {
 
   it('should pop undo entry with null previousSetLogs (no previous set logs)', async () => {
     const undoRow = makeUndoRow({ previousResult: 'fail', previousSetLogs: null });
-    // Queue: 1) verifyInstanceOwnership, 2) undo entry found
-    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    // Queue: 1) ownership pre-tx, 2) pre-tx peek for workoutIndex, 3) in-tx pop
+    selectQueue = [[{ id: 'inst-1' }], [undoRow], [undoRow]];
     insertReturningResult = [];
 
     const result = await undoLast('user-1', 'inst-1');
@@ -435,35 +445,33 @@ describe('undoLast', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Transaction scope — touchInstanceTimestamp runs AFTER the transaction
+// Transaction scope
 // ---------------------------------------------------------------------------
 
+function makeOrderTrackingTx(callOrder: string[]): Record<string, unknown> {
+  const tx = createMockTx();
+  const originalUpdate = tx['update'] as () => unknown;
+  tx['update'] = mock(function update() {
+    callOrder.push('touchInstanceTimestamp-called');
+    return originalUpdate();
+  });
+  return tx;
+}
+
 describe('recordResult — transaction scope', () => {
-  it('calls touchInstanceTimestamp after the transaction resolves, not inside it', async () => {
+  it('calls touchInstanceTimestamp inside the transaction, before commit', async () => {
     const row = makeResultRow();
-    // Queue: 1) verifyInstanceOwnership, 2) existing result check
     selectQueue = [[{ id: 'inst-1' }], []];
     insertReturningResult = [row];
 
-    // Track the order of operations
     const callOrder: string[] = [];
     (mockDb as Record<string, unknown>).transaction = mock(async function transaction(
       fn: (tx: unknown) => Promise<unknown>
     ) {
-      const tx = createMockTx();
+      const tx = makeOrderTrackingTx(callOrder);
       const result = await fn(tx);
       callOrder.push('transaction-committed');
       return result;
-    });
-    (mockDb as Record<string, unknown>).update = mock(function update() {
-      callOrder.push('touchInstanceTimestamp-called');
-      return {
-        set: mock(function set() {
-          return {
-            where: mock(() => Promise.resolve()),
-          };
-        }),
-      };
     });
 
     await recordResult('user-1', 'inst-1', {
@@ -472,131 +480,59 @@ describe('recordResult — transaction scope', () => {
       result: 'success',
     });
 
-    // Assert: touchInstanceTimestamp called AFTER transaction committed
-    expect(callOrder.indexOf('transaction-committed')).toBeLessThan(
-      callOrder.indexOf('touchInstanceTimestamp-called')
+    expect(callOrder.indexOf('touchInstanceTimestamp-called')).toBeGreaterThanOrEqual(0);
+    expect(callOrder.indexOf('touchInstanceTimestamp-called')).toBeLessThan(
+      callOrder.indexOf('transaction-committed')
     );
-  });
-
-  it('does not re-throw if touchInstanceTimestamp fails after a successful transaction', async () => {
-    const row = makeResultRow();
-    // Queue: 1) verifyInstanceOwnership, 2) existing result check
-    selectQueue = [[{ id: 'inst-1' }], []];
-    insertReturningResult = [row];
-
-    // Make touchInstanceTimestamp fail
-    (mockDb as Record<string, unknown>).update = mock(function update() {
-      return {
-        set: mock(function set() {
-          return {
-            where: mock(() => Promise.reject(new Error('connection refused'))),
-          };
-        }),
-      };
-    });
-
-    // Act — should NOT throw even though touchInstanceTimestamp fails
-    const result = await recordResult('user-1', 'inst-1', {
-      workoutIndex: 0,
-      slotId: 't1',
-      result: 'success',
-    });
-
-    // Assert — result is still returned successfully
-    expect(result).toEqual(row);
   });
 });
 
 describe('deleteResult — transaction scope', () => {
-  it('calls touchInstanceTimestamp after the transaction resolves', async () => {
+  it('calls touchInstanceTimestamp inside the transaction, before commit', async () => {
     const existingRow = makeResultRow();
-    // Queue: 1) verifyInstanceOwnership, 2) existing result
     selectQueue = [[{ id: 'inst-1' }], [existingRow]];
 
     const callOrder: string[] = [];
     (mockDb as Record<string, unknown>).transaction = mock(async function transaction(
       fn: (tx: unknown) => Promise<unknown>
     ) {
-      const tx = createMockTx();
+      const tx = makeOrderTrackingTx(callOrder);
       const result = await fn(tx);
       callOrder.push('transaction-committed');
       return result;
     });
-    (mockDb as Record<string, unknown>).update = mock(function update() {
-      callOrder.push('touchInstanceTimestamp-called');
-      return {
-        set: mock(function set() {
-          return {
-            where: mock(() => Promise.resolve()),
-          };
-        }),
-      };
-    });
 
     await deleteResult('user-1', 'inst-1', 0, 't1');
 
-    // Assert: touchInstanceTimestamp called AFTER transaction committed
-    expect(callOrder.indexOf('transaction-committed')).toBeLessThan(
-      callOrder.indexOf('touchInstanceTimestamp-called')
+    expect(callOrder.indexOf('touchInstanceTimestamp-called')).toBeGreaterThanOrEqual(0);
+    expect(callOrder.indexOf('touchInstanceTimestamp-called')).toBeLessThan(
+      callOrder.indexOf('transaction-committed')
     );
-  });
-
-  it('does not re-throw if touchInstanceTimestamp fails after deletion', async () => {
-    const existingRow = makeResultRow();
-    // Queue: 1) verifyInstanceOwnership, 2) existing result
-    selectQueue = [[{ id: 'inst-1' }], [existingRow]];
-
-    // Make touchInstanceTimestamp fail
-    (mockDb as Record<string, unknown>).update = mock(function update() {
-      return {
-        set: mock(function set() {
-          return {
-            where: mock(() => Promise.reject(new Error('connection refused'))),
-          };
-        }),
-      };
-    });
-
-    // Act — should NOT throw
-    await deleteResult('user-1', 'inst-1', 0, 't1');
-
-    // Assert — no exception was thrown
-    expect(true).toBe(true);
   });
 });
 
 describe('undoLast — transaction scope', () => {
-  it('calls touchInstanceTimestamp after the transaction resolves', async () => {
+  it('calls touchInstanceTimestamp inside the transaction, before commit', async () => {
     const undoRow = makeUndoRow({ previousResult: 'fail' });
-    // Queue: 1) verifyInstanceOwnership, 2) undo entry found
-    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    // Queue: 1) ownership pre-tx, 2) pre-tx peek for workoutIndex, 3) in-tx pop
+    selectQueue = [[{ id: 'inst-1' }], [undoRow], [undoRow]];
     insertReturningResult = [];
 
     const callOrder: string[] = [];
     (mockDb as Record<string, unknown>).transaction = mock(async function transaction(
       fn: (tx: unknown) => Promise<unknown>
     ) {
-      const tx = createMockTx();
+      const tx = makeOrderTrackingTx(callOrder);
       const result = await fn(tx);
       callOrder.push('transaction-committed');
       return result;
     });
-    (mockDb as Record<string, unknown>).update = mock(function update() {
-      callOrder.push('touchInstanceTimestamp-called');
-      return {
-        set: mock(function set() {
-          return {
-            where: mock(() => Promise.resolve()),
-          };
-        }),
-      };
-    });
 
     await undoLast('user-1', 'inst-1');
 
-    // Assert: touchInstanceTimestamp called AFTER transaction committed
-    expect(callOrder.indexOf('transaction-committed')).toBeLessThan(
-      callOrder.indexOf('touchInstanceTimestamp-called')
+    expect(callOrder.indexOf('touchInstanceTimestamp-called')).toBeGreaterThanOrEqual(0);
+    expect(callOrder.indexOf('touchInstanceTimestamp-called')).toBeLessThan(
+      callOrder.indexOf('transaction-committed')
     );
   });
 });
@@ -644,8 +580,8 @@ describe('deleteResult — passes expectedSlots to syncCompletedAt', () => {
 describe('undoLast — passes expectedSlots to syncCompletedAt', () => {
   it('completes successfully when definition is not found (expectedSlots = undefined)', async () => {
     const undoRow = makeUndoRow({ previousResult: 'fail' });
-    // Queue: 1) verifyInstanceOwnership (no templateId), 2) undo entry
-    selectQueue = [[{ id: 'inst-1' }], [undoRow]];
+    // Queue: 1) ownership pre-tx, 2) pre-tx peek for workoutIndex, 3) in-tx pop
+    selectQueue = [[{ id: 'inst-1' }], [undoRow], [undoRow]];
     insertReturningResult = [];
 
     // Should not throw — getExpectedSlotCount returns undefined, syncCompletedAt skips

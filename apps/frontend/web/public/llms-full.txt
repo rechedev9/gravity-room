@@ -157,10 +157,10 @@ A: For beginners following linear progression, 3 days per week (Monday/Wednesday
 A: A deload is a planned reduction in training volume or intensity, typically lasting one week. It allows the body to recover from accumulated fatigue and consolidate strength gains. In GZCLP, the T1 deloads to 85% of the last working weight when 6×2 fails. In 5/3/1, the fourth week of each block is a deload week.
 
 **Q: Is Gravity Room open source?**
-A: Yes. Source code is available at https://github.com/rechedev/gravity-room
+A: Yes — Gravity Room is open source. The code lives at https://github.com/rechedev9/gravity-room. It's a free single-developer project.
 
 ## Contact and Community
 
 - Discord: https://discord.gg/FXNBrgYf7U
-- GitHub: https://github.com/rechedev/gravity-room
+- GitHub: https://github.com/rechedev9/gravity-room
 - Privacy Policy: https://gravityroom.app/privacy

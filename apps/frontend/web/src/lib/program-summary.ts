@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 
 // ---------------------------------------------------------------------------
@@ -85,24 +86,37 @@ function formatSetsXReps(sets: number, reps: number, amrap?: boolean): string {
   return `${sets}x${reps}${amrap === true ? '+' : ''}`;
 }
 
-/** Maps a progression rule to a Spanish description string. */
-function describeRule(rule: ProgressionRule): string {
+/** Maps a progression rule to a localized description string. */
+function describeRule(rule: ProgressionRule, t?: TFunction): string {
   switch (rule.type) {
     case 'add_weight':
+      if (t) return t('program_summary.rules.add_weight');
       return 'Sube peso en el siguiente entrenamiento';
     case 'deload_percent':
+      if (t) return t('program_summary.rules.deload_percent', { percent: rule.percent });
       return `Descarga al ${rule.percent}% del peso actual`;
     case 'advance_stage':
+      if (t) return t('program_summary.rules.advance_stage');
       return 'Pasa a la siguiente etapa (menos reps, más series)';
     case 'add_weight_reset_stage':
+      if (t) return t('program_summary.rules.add_weight_reset_stage', { amount: rule.amount });
       return `Sube ${rule.amount} kg y vuelve a la primera etapa`;
     case 'no_change':
+      if (t) return t('program_summary.rules.no_change');
       return 'Mantiene el peso actual';
     case 'advance_stage_add_weight':
+      if (t) return t('program_summary.rules.advance_stage_add_weight');
       return 'Sube peso y pasa de etapa';
     case 'update_tm':
+      if (t) return t('program_summary.rules.update_tm', { amount: rule.amount });
       return `Actualiza el training max en ${rule.amount} kg`;
     case 'double_progression':
+      if (t) {
+        return t('program_summary.rules.double_progression', {
+          bottom: rule.repRangeBottom,
+          top: rule.repRangeTop,
+        });
+      }
       return `Sube reps (${rule.repRangeBottom}-${rule.repRangeTop}); al tope, sube peso`;
   }
 
@@ -110,21 +124,27 @@ function describeRule(rule: ProgressionRule): string {
 }
 
 /** Maps a progression rule to its trigger context string. */
-function describeTrigger(rule: ProgressionRule): string {
+function describeTrigger(rule: ProgressionRule, t?: TFunction): string {
   switch (rule.type) {
     case 'add_weight':
     case 'double_progression':
     case 'advance_stage_add_weight':
+      if (t) return t('program_summary.triggers.complete_all_sets');
       return 'Completar todas las series';
     case 'advance_stage':
+      if (t) return t('program_summary.triggers.mid_program_fail');
       return 'Fallar a mitad del programa';
     case 'deload_percent':
+      if (t) return t('program_summary.triggers.final_stage_fail');
       return 'Fallar en la última etapa';
     case 'add_weight_reset_stage':
+      if (t) return t('program_summary.triggers.final_stage_success');
       return 'Completar la última etapa';
     case 'no_change':
+      if (t) return t('program_summary.triggers.undefined_result');
       return 'Resultado indefinido';
     case 'update_tm':
+      if (t) return t('program_summary.triggers.amrap_threshold', { reps: rule.minAmrapReps });
       return `Serie AMRAP >= ${rule.minAmrapReps} reps`;
   }
 
@@ -151,13 +171,14 @@ function collectSlotRules(slot: SlotShape): readonly ProgressionRule[] {
 /** Adds new rules from a slot to the rule map (deduplicated by type). */
 function addRulesToMap(
   ruleMap: Map<string, ProgressionRuleEntry>,
-  rules: readonly ProgressionRule[]
+  rules: readonly ProgressionRule[],
+  t?: TFunction
 ): void {
   for (const rule of rules) {
     if (ruleMap.has(rule.type)) continue;
     ruleMap.set(rule.type, {
-      trigger: describeTrigger(rule),
-      description: describeRule(rule),
+      trigger: describeTrigger(rule, t),
+      description: describeRule(rule, t),
     });
   }
 }
@@ -166,7 +187,7 @@ function addRulesToMap(
 // Main function
 // ---------------------------------------------------------------------------
 
-export function buildProgramSummary(definition: ProgramDefinition): ProgramSummary {
+export function buildProgramSummary(definition: ProgramDefinition, t?: TFunction): ProgramSummary {
   const exerciseMap = new Map<string, UniqueExercise>();
   const ruleMap = new Map<string, ProgressionRuleEntry>();
   const tierSet = new Set<string>();
@@ -200,7 +221,7 @@ export function buildProgramSummary(definition: ProgramDefinition): ProgramSumma
       }
 
       // Collect progression rules (deduplicated by type)
-      addRulesToMap(ruleMap, collectSlotRules(slot));
+      addRulesToMap(ruleMap, collectSlotRules(slot), t);
 
       // Build slot summary for day overview
       slotSummaries.push({
@@ -220,8 +241,8 @@ export function buildProgramSummary(definition: ProgramDefinition): ProgramSumma
         exerciseName,
         tier: slot.tier,
         stages,
-        onSuccessText: describeRule(slot.onSuccess),
-        onFailText: describeRule(slot.onMidStageFail),
+        onSuccessText: describeRule(slot.onSuccess, t),
+        onFailText: describeRule(slot.onMidStageFail, t),
         role: slot.role,
         notes: slot.notes,
         isBodyweight: slot.isBodyweight,

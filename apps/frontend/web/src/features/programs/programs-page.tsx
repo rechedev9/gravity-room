@@ -13,6 +13,7 @@ import { Button } from '@/components/button';
 import { PROGRAM_LEVELS } from '@gzclp/domain/catalog';
 import type { ProgramLevel } from '@gzclp/domain/catalog';
 import { StaggerContainer, StaggerItem, fadeUpFastVariants } from '@/lib/motion-primitives';
+import { ZoneHint } from '@/features/home/zone-hint';
 
 const LEVEL_LABEL_KEYS: Readonly<Record<ProgramLevel, string>> = {
   beginner: 'programs.card.level_beginner',
@@ -71,6 +72,8 @@ export function ProgramsPage(): React.ReactNode {
           <p className="text-xs text-muted mt-0.5">{t('programs.subtitle')}</p>
         </header>
 
+        <ZoneHint zone="programs" className="mb-6" />
+
         {/* Catalog */}
         <section className="mb-10">
           <h2 className="dash-section-title mb-4">
@@ -103,8 +106,8 @@ export function ProgramsPage(): React.ReactNode {
                 if (!entries?.length) return null;
                 return (
                   <div key={level}>
-                    <h3 className="flex items-center gap-2 text-sm font-bold text-label uppercase tracking-wide mb-4">
-                      <span className="inline-block w-2 h-2 rounded-full bg-accent" />
+                    <h3 className="flex items-center gap-2.5 font-mono text-[10px] font-semibold text-label uppercase tracking-[0.22em] mb-4">
+                      <span className="inline-block w-1.5 h-1.5 rounded-[1px] bg-accent" />
                       {t(LEVEL_LABEL_KEYS[level])}
                     </h3>
                     <StaggerContainer

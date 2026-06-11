@@ -1,0 +1,103 @@
+name: gravity-room
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data
+      - ./data/web-dist:/srv/web:ro
+    networks: [gr-net]
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    image: ghcr.io/rechedev9/gravity-room-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks: [gr-net]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:3001/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  analytics:
+    image: ghcr.io/rechedev9/gravity-room-analytics:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks: [gr-net]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:8000/health']
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - /mnt/pg-vol:/var/lib/postgresql
+    networks: [gr-net]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      [
+        'redis-server',
+        '--save',
+        '',
+        '--appendonly',
+        'no',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'allkeys-lru',
+      ]
+    tmpfs:
+      - /data
+    networks: [gr-net]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  gr-net:
+    driver: bridge

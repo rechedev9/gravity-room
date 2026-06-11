@@ -12,7 +12,9 @@ test.describe('Authenticated dashboard', () => {
   test('shows "Continuar Entrenamiento" when user has active program', async ({ page }) => {
     await seedProgram(page);
     await page.goto('/app');
-    await expect(page.getByRole('link', { name: 'Continuar Entrenamiento' })).toBeVisible({
+    await expect(
+      page.getByRole('link', { name: /continuar entrenamiento|entrar al hierro/i })
+    ).toBeVisible({
       timeout: 10_000,
     });
   });

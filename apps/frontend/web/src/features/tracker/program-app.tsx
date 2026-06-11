@@ -29,6 +29,8 @@ import { StatsSkeleton } from './stats-skeleton';
 import { TabButton } from './tab-button';
 import { TestWeightModal } from './test-weight-modal';
 import { Toolbar } from './toolbar';
+import { ShortcutsOverlay } from './shortcuts-overlay';
+import { WeightsPill } from './weights-pill';
 import { lazyWithRetry } from '@/lib/lazy-with-retry';
 
 const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
@@ -101,6 +103,7 @@ export function ProgramApp({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'program' | 'stats'>('program');
   const [isPending, startTransition] = useTransition();
+  const [editingWeights, setEditingWeights] = useState(false);
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 4;
   const totalWorkouts = definition?.totalWorkouts ?? 0;
   const completedCount = rows.filter((r) => r.slots.every((s) => s.result !== undefined)).length;
@@ -319,15 +322,42 @@ export function ProgramApp({
       </div>
 
       <div className="max-w-[1300px] mx-auto px-3 sm:px-5 pb-24">
-        <SetupForm
-          definition={definition}
-          initialConfig={config}
-          isGenerating={isGenerating}
-          onGenerate={generateProgram}
-          onUpdateConfig={updateConfig}
-          statusNote={jawStatusNote}
-          activeGroup={jawContext?.group}
-        />
+        {config && rows.length > 0 ? (
+          <>
+            {editingWeights ? (
+              <SetupForm
+                definition={definition}
+                initialConfig={config}
+                isGenerating={isGenerating}
+                onGenerate={generateProgram}
+                onUpdateConfig={(cfg) => {
+                  updateConfig(cfg);
+                  setEditingWeights(false);
+                }}
+                statusNote={jawStatusNote}
+                activeGroup={jawContext?.group}
+                defaultExpanded
+                onClose={() => setEditingWeights(false)}
+              />
+            ) : (
+              <WeightsPill
+                definition={definition}
+                config={config}
+                onEdit={() => setEditingWeights(true)}
+              />
+            )}
+          </>
+        ) : (
+          <SetupForm
+            definition={definition}
+            initialConfig={config}
+            isGenerating={isGenerating}
+            onGenerate={generateProgram}
+            onUpdateConfig={updateConfig}
+            statusNote={jawStatusNote}
+            activeGroup={jawContext?.group}
+          />
+        )}
 
         {graduation.isMutenroshi && config && graduation.graduationTargets.length > 0 && (
           <div className="mb-6">
@@ -374,6 +404,7 @@ export function ProgramApp({
               <ProgramTabContent
                 definition={definition}
                 isGuest={isGuest}
+                rows={rows}
                 selectedWorkout={selectedWorkout}
                 selectedDayIndex={dayNav.selectedDayIndex}
                 currentDayIndex={firstPendingIdx}
@@ -381,9 +412,11 @@ export function ProgramApp({
                 isDayComplete={isDayComplete}
                 viewMode={dayNav.viewMode}
                 workoutsPerWeek={workoutsPerWeek}
+                resultTimestamps={resultTimestamps}
                 onPrevDay={dayNav.handlePrevDay}
                 onNextDay={dayNav.handleNextDay}
                 onGoToCurrent={dayNav.handleGoToCurrent}
+                onSelectDay={dayNav.handleSelectDay}
                 onToggleView={dayNav.handleToggleView}
                 slotActions={{
                   onMark: handleMarkResult,
@@ -411,7 +444,7 @@ export function ProgramApp({
                       <p className="text-muted mb-4">{t('tracker.stats_load_error')}</p>
                       <button
                         onClick={reset}
-                        className="px-5 py-2 bg-accent text-white font-bold cursor-pointer"
+                        className="px-5 py-2 bg-accent text-on-accent font-bold cursor-pointer"
                       >
                         {t('tracker.retry')}
                       </button>
@@ -441,6 +474,8 @@ export function ProgramApp({
         onConfirm={testWeight.handleTestWeightConfirm}
         onCancel={testWeight.handleTestWeightCancel}
       />
+
+      <ShortcutsOverlay />
 
       <ToastContainer />
 

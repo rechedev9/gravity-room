@@ -38,13 +38,13 @@ export function NavBar({ activeSection, content }: NavBarProps): React.ReactNode
       <div className="flex items-center justify-between px-6 sm:px-10 py-4">
         <div className="flex items-center gap-3">
           <img
-            src="/logo.webp"
+            src="/logo-192.webp"
             alt="Gravity Room logo"
             width={32}
             height={32}
             className="rounded-full"
           />
-          <span className="text-sm font-bold tracking-tight text-title">Gravity Room</span>
+          <span className="font-display text-lg tracking-[0.06em] text-main">Gravity Room</span>
         </div>
 
         <div className="hidden md:flex items-center gap-8">
@@ -84,7 +84,7 @@ export function NavBar({ activeSection, content }: NavBarProps): React.ReactNode
           </a>
           <Link
             to="/login"
-            className="hidden md:inline-block font-mono text-xs font-bold tracking-widest uppercase text-btn-text border border-btn-ring px-5 py-2.5 hover:bg-btn-active hover:text-btn-active-text hover:shadow-[0_0_20px_rgba(232,170,32,0.25)] transition-all duration-200"
+            className="hidden md:inline-block font-mono text-xs font-bold tracking-widest uppercase text-btn-text border border-btn-ring px-5 py-2.5 hover:bg-btn-active hover:text-btn-active-text transition-colors duration-200"
           >
             {content.signInLabel}
           </Link>

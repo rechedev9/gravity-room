@@ -26,6 +26,11 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
+export async function clearApiResponseCache(): Promise<void> {
+  if (!('caches' in globalThis)) return;
+  await globalThis.caches.delete('api-cache');
+}
+
 // ---------------------------------------------------------------------------
 // Refresh mutex — ensures only one refresh runs at a time
 // ---------------------------------------------------------------------------
@@ -38,6 +43,7 @@ const refreshAccessToken = createSingleFlight(async (): Promise<string | null> =
 
   if (!res.ok) {
     setAccessToken(null);
+    await clearApiResponseCache();
     return null;
   }
 
@@ -48,6 +54,7 @@ const refreshAccessToken = createSingleFlight(async (): Promise<string | null> =
   }
 
   setAccessToken(null);
+  await clearApiResponseCache();
   return null;
 });
 

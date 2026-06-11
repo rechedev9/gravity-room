@@ -33,17 +33,12 @@ export function Toolbar({
   const closeMenu = (): void => setMenuOpen(false);
 
   return (
-    <div
-      className="bg-card border-b border-rule px-3 sm:px-5 py-2 sm:py-3 shadow-toolbar"
-      style={{
-        backgroundImage: 'linear-gradient(to bottom, rgba(232, 170, 32, 0.02), transparent)',
-      }}
-    >
+    <div className="bg-card border-b border-rule px-3 sm:px-5 py-2 sm:py-3 shadow-toolbar">
       {/* Mobile progress bar */}
       <ProgressBar
         completed={completedCount}
         total={totalWorkouts}
-        ariaLabel={t('toolbar.progress_aria')}
+        ariaLabel={t('tracker.toolbar.progress_aria')}
         showPercent
         className="mb-2 sm:mb-0 sm:hidden"
       />
@@ -68,7 +63,7 @@ export function Toolbar({
         <ProgressBar
           completed={completedCount}
           total={totalWorkouts}
-          ariaLabel={t('toolbar.progress_aria')}
+          ariaLabel={t('tracker.toolbar.progress_aria')}
           showPercent
           className="flex-1 hidden sm:flex"
         />

@@ -113,7 +113,11 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       });
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
+      }),
       detail: {
         tags: ['Programs'],
         summary: 'Get program instance',
@@ -143,7 +147,11 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       return result;
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
+      }),
       body: t.Object({
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
         status: t.Optional(
@@ -186,7 +194,11 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       return result;
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
+      }),
       body: t.Object({
         metadata: t.Record(
           t.String({ maxLength: 50 }),
@@ -223,7 +235,11 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       set.status = 204;
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
+      }),
       detail: {
         tags: ['Programs'],
         summary: 'Delete program instance',
@@ -248,7 +264,11 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       return exportInstance(userId, params.id);
     },
     {
-      params: t.Object({ id: t.String() }),
+      params: t.Object({
+        id: t.String({
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+        }),
+      }),
       detail: {
         tags: ['Programs'],
         summary: 'Export program instance',
@@ -281,6 +301,10 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         programId: t.String({ minLength: 1 }),
         name: t.String({ minLength: 1, maxLength: 100 }),
         config: programConfigSchema,
+        // Bounded to keep a single import from forcing an unbounded in-memory
+        // array + one huge transaction. Outer key = workoutIndex (capped well
+        // above any real program length); inner key = slotId (capped above any
+        // real day's slot count). undoHistory below is bounded the same way.
         results: t.Record(
           t.String(),
           t.Record(
@@ -289,8 +313,10 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
               result: t.Optional(t.Union([t.Literal('success'), t.Literal('fail')])),
               amrapReps: t.Optional(t.Integer({ minimum: 0 })),
               rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
-            })
-          )
+            }),
+            { maxProperties: 50 }
+          ),
+          { maxProperties: 1000 }
         ),
         undoHistory: t.Array(
           t.Object({

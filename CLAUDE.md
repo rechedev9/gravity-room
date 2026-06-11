@@ -26,9 +26,9 @@ three runnable services and one shared TS package.
 ## Cross-cutting contracts
 
 - **GZCLP rules + Zod schemas live in `packages/domain`** (imported as `@gzclp/domain` via `workspace:*` by web, mobile, api). It is the single source of truth — never duplicate logic that belongs here.
-- **API contract**: ElysiaJS exposes `/swagger/json` (non-prod). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. Lefthook's `pre-push.api-types-drift` blocks pushes if it drifts. **Mobile does NOT consume this generated client** — it hand-writes API calls. Unifying is on the roadmap (`packages/api-client`).
+- **API contract**: ElysiaJS exposes `/swagger/json` (non-prod). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. CI gates drift in `.github/workflows/validate.yml` (the `validate` job boots the API against a Postgres service container and runs `git diff --exit-code` on the generated client) — Lefthook no longer runs this check pre-push because it requires a live API. **Mobile does NOT consume this generated client** — it hand-writes API calls. Unifying is on the roadmap (`packages/api-client`).
 - **Auth**: JWT access + refresh-token rotation. Google OAuth on all three clients. Server logic split: `apps/backend/api/src/routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` + `lib/google-auth.ts`.
-- **Migrations**: applied automatically on API startup (`apps/backend/api/src/bootstrap.ts`). Drizzle config at `apps/backend/api/drizzle.config.ts`. Schema at `apps/backend/api/src/db/schema.ts`. Generated SQL at `apps/backend/api/drizzle/`.
+- **Migrations**: applied automatically on API startup (`apps/backend/api/src/bootstrap.ts`). Drizzle config at `packages/database/drizzle.config.ts`. Schema at `packages/database/src/schema.ts`. Generated SQL at `packages/database/migrations/`.
 - **Analytics → API integration**: insights are pre-computed by the Python service and stored in the `user_insights` table. `POST /compute` requires an internal secret.
 - **Soft delete**: `users.deletedAt` triggers a 30-day grace period before `purge-deleted-users.ts` hard-deletes (CASCADE). The auth middleware filters `WHERE deleted_at IS NULL`, so soft-deleted users cannot authenticate.
 
@@ -55,11 +55,111 @@ three runnable services and one shared TS package.
 
 ## Tooling
 
-- **Lefthook** — pre-commit: typecheck, lint, format. Pre-push: test, build, api-types-drift check. Don't bypass with `--no-verify`.
+- **Lefthook** — pre-commit: typecheck, lint, format. Pre-push: test, build. Don't bypass with `--no-verify`.
 - **OpenAPI codegen** — `apps/frontend/web/codegen/generate-api-types.ts` (web only).
 - **Drizzle** — `db:generate`, `db:migrate`, `db:studio` (in `apps/backend/api`).
 - **Playwright** — chromium e2e from `apps/frontend/web/e2e/`. Run via `bun run e2e`.
 - **k6 load test** — `scripts/loadtest.js` (smoke / load / stress scenarios).
+
+## Local development & E2E
+
+> Local dev runs **natively** with Bun + a local Postgres (Redis optional). There is no dev
+> `docker-compose`; the `apps/backend/*/Dockerfile` images are for production/CI only.
+
+### Prerequisites
+
+| Tool       | Version  | Notes                                            |
+| ---------- | -------- | ------------------------------------------------ |
+| Bun        | ≥ 1.3.10 | `curl -fsSL https://bun.sh/install \| bash`      |
+| PostgreSQL | ≥ 14     | Local instance or managed (Supabase, Neon, …)    |
+| Redis      | optional | Rate-limiting falls back to in-memory without it |
+| Node/npm   | not used | Bun handles everything                           |
+
+### Environment
+
+Bun auto-loads `.env` from the workspace root and from each package dir.
+
+- **API** — `.env` and/or `apps/backend/api/.env`. Minimum:
+
+  ```dotenv
+  DATABASE_URL=postgres://USER:PASSWORD@localhost:5432/gravity_room  # REQUIRED — API throws at startup if missing
+  JWT_SECRET=change-me-dev-secret-at-least-32-chars-long             # ≥32 chars dev, ≥64 prod
+  GOOGLE_CLIENT_ID=...apps.googleusercontent.com                     # optional; POST /api/auth/dev works without it
+  GOOGLE_CLIENT_IDS=...web,...mobile                                 # optional
+  CORS_ORIGIN=http://localhost:5173                                  # defaults to http://localhost:3000 in dev
+  # REDIS_URL=redis://localhost:6379                                 # optional → in-memory rate limiting
+  ```
+
+  Migrations + reference-data seeds run automatically on every startup — no manual `db:migrate`.
+
+- **Web** — `apps/frontend/web/.env.local`. `VITE_API_URL` is optional in dev (defaults to
+  `http://localhost:3001`) but **required** for production builds.
+
+**Local Postgres bootstrap (Ubuntu/Debian):**
+
+```bash
+sudo pg_ctlcluster 16 main start
+sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+sudo -u postgres createdb gravity_room
+PGPASSWORD=postgres psql -h localhost -U postgres -d gravity_room -c "SELECT 1"
+```
+
+Default dev string: `postgres://postgres:postgres@localhost:5432/gravity_room`.
+
+### Run
+
+```bash
+bun install            # from repo root — installs all workspaces
+bun run dev:api        # API on :3001 (or: cd apps/backend/api && bun --watch src/index.ts)
+bun run dev:web        # web on :5173 (alias: bun run dev)
+curl http://localhost:3001/health   # → {"status":"ok"}
+```
+
+Startup logs migrations → reference-data seeds → `API started` on port 3001. A wrong or unreachable
+`DATABASE_URL` exits the process immediately (`connect ECONNREFUSED`). The web app calls the API at
+`VITE_API_URL`; keep `CORS_ORIGIN=http://localhost:5173` in the API env so the browser isn't blocked.
+
+### Validate
+
+```bash
+bun run test           # web + domain + mobile
+bun run test:api       # API only (needs DATABASE_URL)
+bun run test:domain    # domain only (no DB)
+bun run typecheck      # web + domain + mobile
+bun run typecheck:api  # API
+bun run lint           # web + API
+bun run e2e            # Playwright/Chromium — webServer builds web + starts API; set DATABASE_URL first (it does NOT start Postgres)
+bun run e2e:ui         # interactive UI mode
+bun run e2e:headed     # visible browser
+```
+
+### Database ops (from `apps/backend/api`)
+
+```bash
+bun run db:generate    # generate migration SQL from schema changes
+bun run db:migrate     # apply manually (normally auto-applied on startup)
+bun run db:studio      # Drizzle Studio at http://local.drizzle.studio
+```
+
+### Gotchas
+
+- **OpenAPI drift**: after changing API routes, regenerate the web client with the API running on
+  :3001 — `cd apps/frontend/web && bun run api:types`. Drift is gated by CI's `validate` job, **not**
+  by Lefthook pre-push (it needs a live API; see Cross-cutting contracts).
+- **Service worker**: the PWA SW is disabled in dev (`devOptions.enabled: false` in `vite.config.ts`),
+  so stale cache isn't a dev concern. After a prod build, unregister the SW + clear site data in
+  DevTools, or hard-reload (Ctrl/Cmd+Shift+R).
+
+### Common errors
+
+| Error                                            | Cause                      | Fix                                                       |
+| ------------------------------------------------ | -------------------------- | --------------------------------------------------------- |
+| `DATABASE_URL environment variable is required`  | Missing env var            | Add `DATABASE_URL` to `.env`                              |
+| `connect ECONNREFUSED 127.0.0.1:5432`            | Postgres not running       | Start Postgres                                            |
+| `CORS_ORIGIN contains invalid URL`               | Malformed CORS value       | Use a full URL: `http://localhost:5173`                   |
+| `VITE_API_URL must be set for production builds` | Missing var in prod build  | Set `VITE_API_URL` before `bun run build`                 |
+| CI `validate` job fails on API-types drift       | Generated client stale     | Run `bun run api:types` with API running, commit          |
+| Playwright `net::ERR_CONNECTION_REFUSED`         | API not started before e2e | Set `DATABASE_URL`; Playwright starts API via `webServer` |
 
 ## Auto-generated: API surface
 
@@ -130,7 +230,7 @@ _31 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
 
 <!-- AUTO:DB-START -->
 
-_10 tables. Source: `apps/backend/api/src/db/schema.ts`._
+_10 tables. Source: `packages/database/src/schema.ts`._
 
 ### `exercises`
 
@@ -176,12 +276,11 @@ _10 tables. Source: `apps/backend/api/src/db/schema.ts`._
 
 ## Recently removed (don't suggest reintroducing)
 
-The following were intentionally removed in commits up to `6876320 chore: remove VPS deployment (#61)`:
+The following remain removed from the repo today (some were originally swept out in `6876320 chore: remove VPS deployment (#61)`; the VPS path was later re-introduced via PR #62, so only the entries below are still gone):
 
-- VPS deployment (no Hetzner/Caddy config). Frontend can be hosted anywhere static; API anywhere Bun-capable; analytics anywhere Python-capable.
-- All Dockerfiles (`apps/backend/api/Dockerfile`, `apps/backend/analytics/Dockerfile`, `apps/frontend/web/Dockerfile`) and `docker-compose.dev.yml`.
+- `apps/frontend/web/Dockerfile` and `docker-compose.dev.yml` (the web container and the dev compose file). The API and analytics still ship as Docker images — `apps/backend/api/Dockerfile` and `apps/backend/analytics/Dockerfile` are active and consumed by `.github/workflows/deploy.yml`. Production compose lives at `infra/production/docker-compose.yml`.
 - nginx configs (`apps/frontend/web/nginx*.conf`, `security-headers.conf`).
-- CI workflows: `validate.yml`, `_validate-api.yml`, `_validate-web.yml`, `_validate-analytics.yml`, `auto-format.yml`, `workflow-sanity.yml`. **Active workflows:** `claude.yml`, `claude-code-review.yml`.
+- CI workflows: `_validate-api.yml`, `_validate-web.yml`, `_validate-analytics.yml`, `auto-format.yml`, `workflow-sanity.yml`. **Active workflows:** `claude.yml`, `claude-code-review.yml`, `deploy.yml`, `validate.yml`.
 - Dependabot config.
 
 If a task suggests bringing any of these back, confirm intent first.
@@ -190,7 +289,7 @@ If a task suggests bringing any of these back, confirm intent first.
 
 - Architecture rationale: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 - Path-by-path navigation: [`docs/llm-map.md`](./docs/llm-map.md).
-- Drizzle schema: [`apps/backend/api/src/db/schema.ts`](./apps/backend/api/src/db/schema.ts).
+- Drizzle schema: [`packages/database/src/schema.ts`](./packages/database/src/schema.ts).
 - API routes folder: [`apps/backend/api/src/routes/`](./apps/backend/api/src/routes/).
 - Env reference: [`.env.example`](./.env.example).
 - Refresh this file: `bun run context:refresh` (requires `bun run dev:api`).
