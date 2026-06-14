@@ -105,9 +105,17 @@ export function useHead({
 
     if (description !== undefined) cleanups.push(setMetaName('description', description));
     if (canonical !== undefined) cleanups.push(setCanonical(canonical));
-    if (ogTitle !== undefined) cleanups.push(setMetaProperty('og:title', ogTitle));
-    if (ogDescription !== undefined)
+    if (ogTitle !== undefined) {
+      cleanups.push(setMetaProperty('og:title', ogTitle));
+      // Mirror into the Twitter card — without this, prerendered subpages keep
+      // the static landing `twitter:title` from index.html (Twitter only falls
+      // back to og:* when its own tag is absent, and the default is present).
+      cleanups.push(setMetaName('twitter:title', ogTitle));
+    }
+    if (ogDescription !== undefined) {
       cleanups.push(setMetaProperty('og:description', ogDescription));
+      cleanups.push(setMetaName('twitter:description', ogDescription));
+    }
     if (ogUrl !== undefined) cleanups.push(setMetaProperty('og:url', ogUrl));
     if (ogLocale !== undefined) cleanups.push(setMetaProperty('og:locale', ogLocale));
     if (robots !== undefined) cleanups.push(setMetaName('robots', robots));
@@ -121,13 +129,18 @@ export function useHead({
 export function useProgramHead(
   programId: string,
   name: string | undefined,
-  description: string | undefined
+  description: string | undefined,
+  lang?: string
 ): void {
+  const desc = description !== undefined ? description.slice(0, 200) : undefined;
+  const ogLocale = lang?.startsWith('en') ? 'en_US' : lang?.startsWith('es') ? 'es_ES' : undefined;
   useHead({
     title: name !== undefined ? `${name} — Gravity Room` : DEFAULT_PAGE_TITLE,
+    description: desc,
     canonical: programId !== '' ? `https://gravityroom.app/programs/${programId}` : undefined,
     ogTitle: name !== undefined ? `${name} — Gravity Room` : undefined,
-    ogDescription: description !== undefined ? description.slice(0, 200) : undefined,
+    ogDescription: desc,
     ogUrl: programId !== '' ? `https://gravityroom.app/programs/${programId}` : undefined,
+    ogLocale,
   });
 }

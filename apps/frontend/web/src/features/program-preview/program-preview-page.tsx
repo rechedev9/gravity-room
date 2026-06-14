@@ -166,7 +166,7 @@ function HeaderCta({
 // ---------------------------------------------------------------------------
 
 export function ProgramPreviewPage(): ReactNode {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { programId } = useParams({ from: '/programs/$programId' });
 
   const { definition, rows, isLoading, isError } = useProgramPreview(programId);
@@ -195,7 +195,7 @@ export function ProgramPreviewPage(): ReactNode {
   const translatedDescription = localizedProgramDescription(t, programId, '');
   const headName = translatedName !== '' ? translatedName : undefined;
   const headDescription = translatedDescription !== '' ? translatedDescription : undefined;
-  useProgramHead(programId, headName, headDescription);
+  useProgramHead(programId, headName, headDescription, i18n.language);
 
   const previewTracked = useRef(false);
   useEffect(() => {
