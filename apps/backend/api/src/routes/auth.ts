@@ -210,6 +210,55 @@ async function signOutWithRefreshToken(refreshToken: unknown): Promise<void> {
   await revokeRefreshToken(tokenHash);
 }
 
+interface GoogleSignInResult {
+  readonly user: { id: string; email: string; name: string | null; avatarUrl: string | null };
+  readonly isNewUser: boolean;
+}
+
+/**
+ * Shared Google sign-in core: verifies the credential, upserts the user, and
+ * fires the Telegram new-user notification (fire-and-forget).
+ *
+ * @param credential      Raw Google ID token from the client.
+ * @param allowedClientIds Audience list passed to verifyGoogleToken.
+ * @param passthroughApiErrors When true, ApiErrors thrown by verifyGoogleToken
+ *   are re-thrown as-is (mobile behaviour). When false, all verification errors
+ *   are normalised to 401 AUTH_GOOGLE_INVALID (web behaviour).
+ * @param userAgent       Raw User-Agent header value for device classification.
+ * @param reqLogger       Request-scoped logger for diagnostic warn output.
+ */
+async function processGoogleSignIn(
+  credential: string,
+  allowedClientIds: readonly string[],
+  passthroughApiErrors: boolean,
+  userAgent: string | null,
+  reqLogger: { warn: (context: Record<string, unknown>, message: string) => void }
+): Promise<GoogleSignInResult> {
+  let googlePayload: Awaited<ReturnType<typeof verifyGoogleToken>>;
+  try {
+    googlePayload = await verifyGoogleToken(credential, { allowedClientIds });
+  } catch (e: unknown) {
+    reqLogger.warn({ err: e }, 'Google token verification failed');
+    if (passthroughApiErrors && e instanceof ApiError) throw e;
+    throw new ApiError(401, 'Invalid Google credential', 'AUTH_GOOGLE_INVALID');
+  }
+
+  const { user, isNewUser } = await findOrCreateGoogleUser(
+    googlePayload.sub,
+    googlePayload.email,
+    googlePayload.name
+  );
+
+  if (isNewUser) {
+    const deviceType = classifyDevice(userAgent ?? undefined);
+    const timestamp = new Date().toISOString();
+    const text = `New user: ${user.email} | ${deviceType} | ${timestamp}`;
+    void sendTelegramMessage(text);
+  }
+
+  return { user, isNewUser };
+}
+
 const authSecurity = [{ bearerAuth: [] }];
 
 export const authRoutes = new Elysia({ prefix: '/auth' })
@@ -225,30 +274,14 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       await rateLimit(ip, '/auth/google', { maxRequests: 10 });
       const webClientId = getWebGoogleClientId();
 
-      let googlePayload: Awaited<ReturnType<typeof verifyGoogleToken>>;
-      try {
-        googlePayload = await verifyGoogleToken(body.credential, {
-          allowedClientIds: [webClientId],
-        });
-      } catch (e: unknown) {
-        reqLogger.warn({ err: e }, 'Google token verification failed');
-        throw new ApiError(401, 'Invalid Google credential', 'AUTH_GOOGLE_INVALID');
-      }
-
-      const { user, isNewUser } = await findOrCreateGoogleUser(
-        googlePayload.sub,
-        googlePayload.email,
-        googlePayload.name
+      const { user, isNewUser } = await processGoogleSignIn(
+        body.credential,
+        [webClientId],
+        false,
+        request.headers.get('user-agent'),
+        reqLogger
       );
       const { accessToken } = await issueTokens(jwt, cookie, user);
-
-      if (isNewUser) {
-        const userAgent = request.headers.get('user-agent') ?? undefined;
-        const deviceType = classifyDevice(userAgent);
-        const timestamp = new Date().toISOString();
-        const text = `New user: ${user.email} | ${deviceType} | ${timestamp}`;
-        void sendTelegramMessage(text);
-      }
 
       reqLogger.info({ event: 'auth.google', userId: user.id, isNewUser }, 'google sign-in');
       set.status = 200;
@@ -275,31 +308,14 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     async ({ jwt, body, set, reqLogger, ip, request }) => {
       await rateLimit(ip, '/auth/mobile/google', { maxRequests: 10 });
 
-      let googlePayload: Awaited<ReturnType<typeof verifyGoogleToken>>;
-      try {
-        googlePayload = await verifyGoogleToken(body.credential, {
-          allowedClientIds: getMobileGoogleClientIds(),
-        });
-      } catch (e: unknown) {
-        reqLogger.warn({ err: e }, 'Google token verification failed');
-        if (e instanceof ApiError) throw e;
-        throw new ApiError(401, 'Invalid Google credential', 'AUTH_GOOGLE_INVALID');
-      }
-
-      const { user, isNewUser } = await findOrCreateGoogleUser(
-        googlePayload.sub,
-        googlePayload.email,
-        googlePayload.name
+      const { user, isNewUser } = await processGoogleSignIn(
+        body.credential,
+        getMobileGoogleClientIds(),
+        true,
+        request.headers.get('user-agent'),
+        reqLogger
       );
       const tokens = await issueMobileTokens(jwt, user);
-
-      if (isNewUser) {
-        const userAgent = request.headers.get('user-agent') ?? undefined;
-        const deviceType = classifyDevice(userAgent);
-        const timestamp = new Date().toISOString();
-        const text = `New user: ${user.email} | ${deviceType} | ${timestamp}`;
-        void sendTelegramMessage(text);
-      }
 
       reqLogger.info(
         { event: 'auth.mobile_google', userId: user.id, isNewUser },

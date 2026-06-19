@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useState, useTransition } from 'react';
+import { Suspense, useState, useTransition, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ResultValue } from '@gzclp/domain/types';
 import { useProgram } from '@/hooks/use-program';
@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { useToast } from '@/contexts/toast-context';
 import { detectGenericPersonalRecord } from '@/lib/pr-detection';
-import { computeProfileData, compute1RMData } from '@/lib/profile-stats';
+import { deriveJawContext } from '@/lib/jaw-context';
 import { useWebMcp } from '@/hooks/use-webmcp';
 import { useWakeLock } from '@/hooks/use-wake-lock';
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts';
@@ -16,8 +16,8 @@ import { useDayNavigation } from '@/hooks/use-day-navigation';
 import { useGraduation } from '@/hooks/use-graduation';
 import { useTestWeightModal } from '@/hooks/use-test-weight-modal';
 import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
-import { trackEvent } from '@/lib/analytics';
 import { localizedProgramName } from '@/lib/catalog-display';
+import { useProgramCompletion } from '@/hooks/use-program-completion';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { ToastContainer } from '@/components/toast';
 import { AppSkeleton } from '@/components/app-skeleton';
@@ -35,25 +35,6 @@ import { lazyWithRetry } from '@/lib/lazy-with-retry';
 
 const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
 const preloadStatsPanel = (): void => void import('./stats-panel');
-
-interface JawContext {
-  readonly block: 1 | 2 | 3;
-  readonly week: number | null;
-  readonly isTestWeek: boolean;
-  readonly group: string;
-}
-
-function deriveJawContext(dayName: string): JawContext | null {
-  const blockMatch = dayName.match(/JAW (?:B|Bloque )(\d)/);
-  if (!blockMatch) return null;
-  const blockStr = blockMatch[1];
-  if (blockStr !== '1' && blockStr !== '2' && blockStr !== '3') return null;
-  const block: 1 | 2 | 3 = blockStr === '1' ? 1 : blockStr === '2' ? 2 : 3;
-  const semMatch = dayName.match(/Sem\.\s*(\d+)/);
-  const isTestWeek = dayName.includes('Test Maximo') || dayName.includes('Recuperacion');
-  const week = semMatch ? Number(semMatch[1]) : isTestWeek ? block * 6 : null;
-  return { block, week, isTestWeek, group: `JAW Bloque ${block} — TM` };
-}
 
 interface ProgramAppProps {
   readonly programId: string;
@@ -122,7 +103,6 @@ export function ProgramApp({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'program' | 'stats'>('program');
   const [isPending, startTransition] = useTransition();
-  const [showCompletion, setShowCompletion] = useState(false);
   const [editingWeights, setEditingWeights] = useState(false);
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 4;
   const totalWorkouts = definition?.totalWorkouts ?? 0;
@@ -164,23 +144,22 @@ export function ProgramApp({
     ? selectedWorkout.slots.every((s) => s.result !== undefined)
     : false;
 
-  // Completion screen compute is O(rows × slots) and was running inline in JSX
-  // on every render once the screen opened. Hoist it into useMemo so it only
-  // recomputes when any of its inputs change.
   const mutenroshiBlocksCompletion =
     graduation.isMutenroshi && !graduation.graduationState.allPassed;
-  const shouldShowCompletion = showCompletion && !mutenroshiBlocksCompletion;
-  const completionData = useMemo(() => {
-    if (!shouldShowCompletion || !definition || !config) return null;
-    const profileData = computeProfileData(rows, definition, config, resultTimestamps);
-    const oneRMEstimates = compute1RMData(rows, definition);
-    return {
-      completion: profileData.completion,
-      personalRecords: profileData.personalRecords,
-      oneRMEstimates,
-      totalVolume: profileData.volume.totalVolume,
-    };
-  }, [shouldShowCompletion, definition, config, rows, resultTimestamps]);
+
+  const { completionData, handleFinishProgram, handleCompletionDismiss, handleViewProfile } =
+    useProgramCompletion({
+      instanceId,
+      programId,
+      definition,
+      config,
+      rows,
+      resultTimestamps,
+      mutenroshiBlocksCompletion,
+      finishProgram,
+      onBackToDashboard,
+      onGoToProfile,
+    });
 
   const recordAndToast = (workoutIndex: number, slotId: string, value: ResultValue): void => {
     markResult(workoutIndex, slotId, value);
@@ -253,13 +232,13 @@ export function ProgramApp({
     rpe?: number
   ): void => logSet(workoutIndex, slotId, setIndex, reps, weight, rpe);
 
-  const firstPendingSlot = (() => {
+  const firstPendingSlot = useMemo(() => {
     if (firstPendingIdx < 0) return null;
     const row = rows[firstPendingIdx];
     if (!row) return null;
     const slot = row.slots.find((s) => s.result === undefined);
     return slot ?? null;
-  })();
+  }, [rows, firstPendingIdx]);
 
   useKeyboardShortcuts({
     isActive: isViewActive && activeTab === 'program' && config !== null,
@@ -279,30 +258,6 @@ export function ProgramApp({
     onPrevDay: dayNav.handlePrevDay,
     onNextDay: dayNav.handleNextDay,
   });
-
-  const completionSessionKey = instanceId !== undefined ? `completion-shown-${instanceId}` : null;
-
-  const handleFinishProgram = async (): Promise<void> => {
-    if (completionSessionKey && sessionStorage.getItem(completionSessionKey) === '1') {
-      await finishProgram();
-      onBackToDashboard?.();
-      return;
-    }
-    await finishProgram();
-    trackEvent('program_complete', { program: programId });
-    if (completionSessionKey) sessionStorage.setItem(completionSessionKey, '1');
-    setShowCompletion(true);
-  };
-
-  const handleCompletionDismiss = (): void => {
-    setShowCompletion(false);
-    onBackToDashboard?.();
-  };
-
-  const handleViewProfile = (): void => {
-    setShowCompletion(false);
-    onGoToProfile?.();
-  };
 
   const handleResetAll = (): void => resetAll(() => onProgramReset?.());
 
@@ -463,13 +418,15 @@ export function ProgramApp({
                 onGoToCurrent={dayNav.handleGoToCurrent}
                 onSelectDay={dayNav.handleSelectDay}
                 onToggleView={dayNav.handleToggleView}
-                onMark={handleMarkResult}
-                onUndo={testWeight.handleUndoSpecific}
-                onSetAmrapReps={setAmrapReps}
-                onSetRpe={setRpe}
-                onSetTap={handleSetTap}
-                getSetLogs={getSetLogs}
-                isSlotLogging={isSlotLogging}
+                slotActions={{
+                  onMark: handleMarkResult,
+                  onUndo: testWeight.handleUndoSpecific,
+                  onSetAmrapReps: setAmrapReps,
+                  onSetRpe: setRpe,
+                  onSetTap: handleSetTap,
+                  getSetLogs,
+                  isSlotLogging,
+                }}
               />
             )}
 

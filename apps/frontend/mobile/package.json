@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@babel/runtime": "^7.28.4",
+    "@gzclp/api-client": "workspace:*",
     "@gzclp/domain": "workspace:*",
     "@tanstack/react-query": "^5.90.21",
     "expo": "^54.0.23",

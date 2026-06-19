@@ -4,11 +4,11 @@
  * The access token is stored in-memory (module-level variable) — never in
  * localStorage. api-functions.ts injects it on every outgoing request.
  *
- * Token refresh is handled with a promise-based mutex: if multiple requests
- * fail with 401 simultaneously, only one refresh attempt runs — the others
- * wait for its result.
+ * Token refresh uses createSingleFlight: if multiple requests fail with 401
+ * simultaneously, only one refresh attempt runs — the others wait for its result.
  */
 import { isRecord } from '@gzclp/domain/type-guards';
+import { createSingleFlight } from '@gzclp/api-client/single-flight';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -35,9 +35,7 @@ export async function clearApiResponseCache(): Promise<void> {
 // Refresh mutex — ensures only one refresh runs at a time
 // ---------------------------------------------------------------------------
 
-let refreshPromise: Promise<string | null> | null = null;
-
-async function doRefresh(): Promise<string | null> {
+const refreshAccessToken = createSingleFlight(async (): Promise<string | null> => {
   const res = await fetch(`${API_URL}/api/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
@@ -58,14 +56,6 @@ async function doRefresh(): Promise<string | null> {
   setAccessToken(null);
   await clearApiResponseCache();
   return null;
-}
+});
 
-export async function refreshAccessToken(): Promise<string | null> {
-  if (refreshPromise) return refreshPromise;
-
-  refreshPromise = doRefresh().finally(() => {
-    refreshPromise = null;
-  });
-
-  return refreshPromise;
-}
+export { refreshAccessToken };

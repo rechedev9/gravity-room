@@ -253,15 +253,21 @@ export function SetupForm({
     [fields]
   );
 
-  const fieldErrorsForDisplay: Record<string, string | null> = {};
-  for (const f of fields) {
-    fieldErrorsForDisplay[f.key] = errors[f.key]?.message ?? null;
-  }
+  const fieldErrorsForDisplay = useMemo((): Record<string, string | null> => {
+    const map: Record<string, string | null> = {};
+    for (const f of fields) {
+      map[f.key] = errors[f.key]?.message ?? null;
+    }
+    return map;
+  }, [fields, errors]);
 
-  const touchedForDisplay: Record<string, boolean> = {};
-  for (const f of fields) {
-    touchedForDisplay[f.key] = !!touchedFields[f.key];
-  }
+  const touchedForDisplay = useMemo((): Record<string, boolean> => {
+    const map: Record<string, boolean> = {};
+    for (const f of fields) {
+      map[f.key] = !!touchedFields[f.key];
+    }
+    return map;
+  }, [fields, touchedFields]);
 
   const localizedName = localizedProgramName(t, definition.id, definition.name);
   const formContent = (

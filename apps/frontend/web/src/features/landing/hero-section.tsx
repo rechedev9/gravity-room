@@ -43,16 +43,6 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
         }}
       />
 
-      {/* Ambient radial glow */}
-      <div
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[600px] pointer-events-none"
-        aria-hidden="true"
-        style={{
-          background:
-            'radial-gradient(ellipse at center, rgba(232,170,32,0.14) 0%, rgba(232,170,32,0.05) 36%, transparent 70%)',
-        }}
-      />
-
       {/* Vertical rule lines (decorative, large screens only) */}
       <div
         className="absolute left-[6%] top-0 bottom-0 w-px pointer-events-none hidden lg:block"
@@ -83,7 +73,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
           {/* Kicker / badge */}
           <motion.div
             variants={fadeUpVariants}
-            className="font-mono inline-flex items-center gap-3 mb-6 px-4 py-2 border border-rule-light bg-card shadow-[0_0_24px_rgba(232,170,32,0.08)]"
+            className="font-mono inline-flex items-center gap-3 mb-6 px-4 py-2 border border-rule-light bg-card"
           >
             <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" aria-hidden="true" />
             <span className="text-[10px] font-medium tracking-[0.3em] uppercase text-muted">
@@ -130,7 +120,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
             <a
               href="#how-it-works"
               onClick={() => trackEvent('landing_cta_click', { location: 'hero_secondary' })}
-              className="font-mono px-8 py-4 text-sm font-bold tracking-widest uppercase border-2 border-rule-light text-main hover:border-accent hover:text-title hover:shadow-[0_0_20px_rgba(232,170,32,0.12)] transition-all duration-300 min-w-[220px] text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body"
+              className="font-mono px-8 py-4 text-sm font-bold tracking-widest uppercase border-2 border-rule-light text-main hover:border-accent hover:text-title transition-all duration-300 min-w-[220px] text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body"
             >
               {content.secondaryCta}
             </a>
@@ -153,7 +143,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
             {content.proofItems.map((item) => (
               <li
                 key={item.label}
-                className="font-mono inline-flex items-center gap-2 px-3 py-1.5 border border-rule-light bg-card text-[11px] tracking-wide text-label shadow-[0_0_18px_rgba(232,170,32,0.04)]"
+                className="font-mono inline-flex items-center gap-2 px-3 py-1.5 border border-rule-light bg-card text-[11px] tracking-wide text-label"
               >
                 <span className="text-accent font-bold" aria-hidden="true">
                   {item.value}

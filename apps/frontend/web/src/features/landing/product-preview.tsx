@@ -32,16 +32,6 @@ export function ProductPreview({
 
   return (
     <figure role="img" aria-label={alt} className="relative max-w-md mx-auto">
-      {/* Ambient glow behind the frame */}
-      <div
-        className="absolute -inset-6 pointer-events-none"
-        aria-hidden="true"
-        style={{
-          background:
-            'radial-gradient(ellipse at 50% 40%, rgba(232,170,32,0.18) 0%, rgba(232,170,32,0.06) 38%, transparent 72%)',
-        }}
-      />
-
       {/* Browser-chrome frame */}
       <div className="landing-preview-frame relative bg-card border border-rule-light overflow-hidden">
         {/* Title bar */}
@@ -59,7 +49,7 @@ export function ProductPreview({
         </div>
 
         {/* App body */}
-        <div className={`bg-body ${pad} shadow-[inset_0_1px_0_rgba(232,170,32,0.05)]`}>
+        <div className={`bg-body ${pad}`}>
           {/* Program header row */}
           <div className="flex items-start justify-between mb-4">
             <div>
@@ -74,12 +64,12 @@ export function ProductPreview({
           </div>
 
           {/* Current exercise card */}
-          <div className="bg-card border border-rule-light p-3 mb-3 shadow-[0_0_20px_rgba(232,170,32,0.05)]">
+          <div className="bg-card border border-rule-light p-3 mb-3">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-bold uppercase tracking-wider text-main">
                 {labels.exerciseLabel}
               </p>
-              <p className="font-display-data text-2xl text-title">{labels.weightLabel}</p>
+              <p className="font-display-data text-2xl text-accent">{labels.weightLabel}</p>
             </div>
             {/* Set grid: 3 done, 2 remaining */}
             <div className="grid grid-cols-5 gap-1.5" aria-label={labels.setsAriaLabel}>

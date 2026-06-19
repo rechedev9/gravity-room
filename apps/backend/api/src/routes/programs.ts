@@ -25,6 +25,11 @@ import { SingleflightMap } from '../lib/singleflight';
 // Singleflight: concurrent GETs for the same program instance share one DB fetch
 const instanceFlight = new SingleflightMap<unknown>();
 
+const programConfigSchema = t.Record(
+  t.String({ maxLength: 30 }),
+  t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })])
+);
+
 const security = [{ bearerAuth: [] }];
 
 export const programRoutes = new Elysia({ prefix: '/programs' })
@@ -72,10 +77,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       body: t.Object({
         programId: t.String({ minLength: 1 }),
         name: t.String({ minLength: 1, maxLength: 100 }),
-        config: t.Record(
-          t.String({ maxLength: 30 }),
-          t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })])
-        ),
+        config: programConfigSchema,
       }),
       detail: {
         tags: ['Programs'],
@@ -298,10 +300,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         exportDate: t.String({ format: 'date-time' }),
         programId: t.String({ minLength: 1 }),
         name: t.String({ minLength: 1, maxLength: 100 }),
-        config: t.Record(
-          t.String({ maxLength: 30 }),
-          t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })])
-        ),
+        config: programConfigSchema,
         // Bounded to keep a single import from forcing an unbounded in-memory
         // array + one huge transaction. Outer key = workoutIndex (capped well
         // above any real program length); inner key = slotId (capped above any
@@ -313,7 +312,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
             t.Object({
               result: t.Optional(t.Union([t.Literal('success'), t.Literal('fail')])),
               amrapReps: t.Optional(t.Integer({ minimum: 0 })),
-              rpe: t.Optional(t.Integer({ minimum: 6, maximum: 10 })),
+              rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
             }),
             { maxProperties: 50 }
           ),

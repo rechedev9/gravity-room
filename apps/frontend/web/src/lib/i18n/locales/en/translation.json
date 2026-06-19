@@ -221,6 +221,7 @@
     "programs": "Programs",
     "dashboard": "Dashboard",
     "tracker": "Tracker",
+    "insights": "Insights",
     "profile": "Profile",
     "main_nav_label": "Main navigation",
     "view_profile": "View profile"
@@ -607,6 +608,14 @@
       "aria_undo": "Undo {{tier}} {{result}}",
       "aria_register_max": "Register Max {{tier}}"
     },
+    "set_stepper": {
+      "group_aria": "Set {{index}} of {{total}} reps",
+      "group_aria_amrap": "Set {{index}} of {{total}} reps (AMRAP)",
+      "decrease_aria": "Decrease reps",
+      "increase_aria": "Increase reps",
+      "confirm_aria": "Confirm reps",
+      "cancel_aria": "Cancel"
+    },
     "amrap_input": {
       "label": "AMRAP Reps",
       "placeholder": "Extra reps"
@@ -773,6 +782,15 @@
     }
   },
   "insights": {
+    "page": {
+      "title": "Insights",
+      "meta": "LAST 12 WEEKS",
+      "updated_today": "UPDATED TODAY",
+      "section_charts": "Trends",
+      "section_signals": "Signals",
+      "empty_heading": "No insights yet",
+      "empty_description": "Log a few sessions and you'll see volume trends, load recommendations and plateau alerts here."
+    },
     "exercise_summary": {
       "default_exercise": "Exercise",
       "total_sets_label": "Total sets",

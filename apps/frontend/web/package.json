@@ -17,6 +17,7 @@
     "preview": "vite preview --host 127.0.0.1 --port 5173 --strictPort"
   },
   "dependencies": {
+    "@gzclp/api-client": "workspace:*",
     "@gzclp/domain": "workspace:*",
     "@gzclp/database": "workspace:*",
     "@hookform/resolvers": "^5.2.2",

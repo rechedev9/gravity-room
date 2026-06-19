@@ -66,6 +66,11 @@ function buildLabel(
 // Custom dot renderers
 // ---------------------------------------------------------------------------
 
+/** Diamond (rotated square) PR marker — the Forged Iron data accent. */
+function diamondPath(cx: number, cy: number, r: number): string {
+  return `M ${cx} ${cy - r} L ${cx + r} ${cy} L ${cx} ${cy + r} L ${cx - r} ${cy} Z`;
+}
+
 function CustomDot(props: DotProps & { payload?: ChartPoint }): React.ReactElement | null {
   const { cx, cy, payload } = props;
   if (!payload || cx === undefined || cy === undefined) return null;
@@ -77,14 +82,22 @@ function CustomDot(props: DotProps & { payload?: ChartPoint }): React.ReactEleme
   if (payload.isCurrentPr) {
     return (
       <g key={`pr-cur-${payload.idx}`}>
-        <circle cx={cx} cy={cy} r={7} fill={theme.pr} opacity={0.25} />
-        <circle cx={cx} cy={cy} r={5} fill={theme.pr} />
+        <path d={diamondPath(cx, cy, 9)} fill={theme.pr} opacity={0.22} />
+        <path d={diamondPath(cx, cy, 6)} fill={theme.pr} stroke={theme.bg} strokeWidth={1.5} />
       </g>
     );
   }
 
   if (payload.isPr) {
-    return <circle key={`pr-${payload.idx}`} cx={cx} cy={cy} r={4} fill={theme.pr} />;
+    return (
+      <path
+        key={`pr-${payload.idx}`}
+        d={diamondPath(cx, cy, 5)}
+        fill={theme.pr}
+        stroke={theme.bg}
+        strokeWidth={1}
+      />
+    );
   }
 
   if (payload.result === 'success') {
@@ -333,14 +346,14 @@ export function LineChart({
               />
             ))}
 
-            {/* Gradient fill + solid line */}
+            {/* Stepped fill + line (machined, no curves) */}
             <Area
-              type="monotone"
+              type="stepAfter"
               dataKey="weight"
               stroke={theme.line}
               strokeWidth={2}
               fill={theme.line}
-              fillOpacity={0.08}
+              fillOpacity={0.07}
               dot={<CustomDot />}
               activeDot={false}
               isAnimationActive={false}
@@ -350,7 +363,7 @@ export function LineChart({
             {projectedPoints.length > 0 && (
               <Line
                 data={projectedPoints}
-                type="monotone"
+                type="stepAfter"
                 dataKey="weight"
                 stroke={theme.line}
                 strokeWidth={2}

@@ -9,7 +9,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { OnlineIndicator } from '@/components/online-indicator';
 import { cn } from '@/lib/cn';
 import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
-import { HomeIcon, TrackerIcon, ProgramsIcon, ProfileIcon } from './sidebar-icons';
+import { HomeIcon, TrackerIcon, InsightsIcon, ProgramsIcon, ProfileIcon } from './sidebar-icons';
 
 const SIDEBAR_FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-sidebar)]';
@@ -24,8 +24,9 @@ interface NavItem {
 
 const NAV_ITEMS: readonly NavItem[] = [
   { to: '/app', labelKey: 'navigation.home', end: true, Icon: HomeIcon },
-  { to: '/app/programs', labelKey: 'navigation.programs', Icon: ProgramsIcon },
   { to: '/app/tracker', labelKey: 'navigation.tracker', Icon: TrackerIcon },
+  { to: '/app/insights', labelKey: 'navigation.insights', Icon: InsightsIcon, guestHidden: true },
+  { to: '/app/programs', labelKey: 'navigation.programs', Icon: ProgramsIcon },
   { to: '/app/profile', labelKey: 'navigation.profile', Icon: ProfileIcon, guestHidden: true },
 ];
 
@@ -36,10 +37,10 @@ interface AppSidebarProps {
 
 function navItemClass(isActive: boolean): string {
   return cn(
-    'relative flex items-center gap-3 px-3 py-3 rounded-lg transition-[color,background-color,transform] duration-[var(--duration-instant)] cursor-pointer active:scale-[0.98]',
+    'relative flex items-center gap-3 px-3 py-3 rounded-[var(--radius-base)] transition-[color,background-color] duration-[var(--duration-instant)] cursor-pointer',
     SIDEBAR_FOCUS_RING,
     isActive
-      ? 'text-title bg-[var(--color-sidebar-active)]'
+      ? 'text-main bg-[var(--color-sidebar-active)]'
       : 'text-muted hover:text-main hover:bg-[var(--color-sidebar-active)]/40'
   );
 }
@@ -59,12 +60,12 @@ function SidebarNavLink({ item, onItemClick }: SidebarNavLinkProps): React.React
     <Link to={item.to} onClick={onItemClick} className={navItemClass(isActive)}>
       {isActive && (
         <span
-          className="absolute left-2 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full bg-[var(--color-accent)]"
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[var(--color-accent)]"
           aria-hidden="true"
         />
       )}
-      <item.Icon className="shrink-0" />
-      <span className="text-xs font-bold tracking-wide uppercase">{label}</span>
+      <item.Icon className={cn('shrink-0', isActive && 'text-accent')} />
+      <span className="font-mono text-[11px] font-bold tracking-[0.14em] uppercase">{label}</span>
     </Link>
   );
 }
@@ -126,7 +127,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                 height={32}
                 className="rounded-sm shrink-0"
               />
-              <span className="text-sm font-bold tracking-tight text-title whitespace-nowrap">
+              <span className="font-display text-xl tracking-[0.06em] text-main whitespace-nowrap">
                 Gravity Room
               </span>
             </Link>

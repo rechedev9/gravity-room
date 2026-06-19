@@ -69,6 +69,9 @@ const TrackerPage = lazyWithRetry(() =>
 const ProfilePage = lazyWithRetry(() =>
   import('@/features/profile/profile-page').then((m) => ({ default: m.ProfilePage }))
 );
+const InsightsPage = lazyWithRetry(() =>
+  import('@/features/insights/insights-page').then((m) => ({ default: m.InsightsPage }))
+);
 
 // ---------------------------------------------------------------------------
 // AppLayout wrapped with TrackerProvider
@@ -201,6 +204,13 @@ const trackerProgramRoute = createRoute({
   component: TrackerPage,
 });
 
+const insightsRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/app/insights',
+  pendingComponent: DashboardSkeleton,
+  component: InsightsPage,
+});
+
 const profileRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/profile',
@@ -226,6 +236,7 @@ const routeTree = rootRoute.addChildren([
     programsRoute,
     trackerIndexRoute,
     trackerProgramRoute,
+    insightsRoute,
     profileRoute,
   ]),
 ]);

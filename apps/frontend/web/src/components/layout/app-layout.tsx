@@ -11,6 +11,7 @@ import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
 const ROUTE_LABELS: Record<string, string | undefined> = {
   '/app': 'navigation.home',
   '/app/tracker': 'navigation.tracker',
+  '/app/insights': 'navigation.insights',
   '/app/programs': 'navigation.programs',
   '/app/profile': 'navigation.profile',
 };
