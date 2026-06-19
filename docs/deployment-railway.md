@@ -1,5 +1,7 @@
 # Railway deployment
 
+> **Status: exploratory — not the live deployment.** Production runs entirely on the Hetzner VPS ([`infra/production/docker-compose.yml`](../infra/production/docker-compose.yml) and [`Caddyfile`](../infra/production/Caddyfile), deployed by [`.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)). This Railway stack is a parallel experiment that is **not** used for production — treat this document as a reference for a possible alternative, not the current deploy path.
+
 The web SPA + API + Postgres + Redis run on a single Railway project. Web SPA static-served by Railpack; API runs on Bun via Railpack with the Bun-workspace shared-monorepo pattern.
 
 ## Project topology

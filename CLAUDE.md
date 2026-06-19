@@ -12,24 +12,26 @@
 ## What is Gravity Room
 
 A GZCLP linear-progression weightlifting tracker. Bun-workspaces monorepo with
-four runnable services (web, mobile, api, analytics) and two shared TS packages
-(`@gzclp/domain`, `@gzclp/database`).
+four runnable services (web, mobile, api, analytics) and three shared TS packages
+(`@gzclp/domain`, `@gzclp/database`, `@gzclp/api-client`).
 
 ## Service map
 
-| Service           | Path                     | Tech                                                | Entry                               | Dev                                                |
-| ----------------- | ------------------------ | --------------------------------------------------- | ----------------------------------- | -------------------------------------------------- |
-| Web SPA           | `apps/frontend/web`      | Vite 7, React 19, TanStack Router/Query, Tailwind 4 | `src/main.tsx`                      | `bun run dev`                                      |
-| Mobile            | `apps/frontend/mobile`   | Expo 54, RN 0.81, expo-sqlite                       | `App.tsx`                           | (Expo CLI)                                         |
-| API               | `apps/backend/api`       | ElysiaJS 1.4 + Drizzle + Postgres + Redis           | `src/index.ts` → `src/bootstrap.ts` | `bun run dev:api`                                  |
-| Analytics         | `apps/backend/analytics` | FastAPI + scikit-learn + APScheduler                | `main.py`                           | `uvicorn main:app --reload`                        |
-| Domain (shared)   | `packages/domain`        | TS + Zod 4 (no runtime)                             | `src/index.ts`                      | `bun run typecheck:domain`                         |
-| Database (shared) | `packages/database`      | Drizzle ORM schema + migrations + seeds             | `src/schema.ts`                     | `bun run db:generate` / `db:migrate` / `db:studio` |
+| Service             | Path                     | Tech                                                | Entry                               | Dev                                                |
+| ------------------- | ------------------------ | --------------------------------------------------- | ----------------------------------- | -------------------------------------------------- |
+| Web SPA             | `apps/frontend/web`      | Vite 7, React 19, TanStack Router/Query, Tailwind 4 | `src/main.tsx`                      | `bun run dev`                                      |
+| Mobile              | `apps/frontend/mobile`   | Expo 54, RN 0.81, expo-sqlite                       | `App.tsx`                           | (Expo CLI)                                         |
+| API                 | `apps/backend/api`       | ElysiaJS 1.4 + Drizzle + Postgres + Redis           | `src/index.ts` → `src/bootstrap.ts` | `bun run dev:api`                                  |
+| Analytics           | `apps/backend/analytics` | FastAPI + scikit-learn + APScheduler                | `main.py`                           | `uvicorn main:app --reload`                        |
+| Domain (shared)     | `packages/domain`        | TS + Zod 4 (no runtime)                             | `src/index.ts`                      | `bun run typecheck:domain`                         |
+| Database (shared)   | `packages/database`      | Drizzle ORM schema + migrations + seeds             | `src/schema.ts`                     | `bun run db:generate` / `db:migrate` / `db:studio` |
+| API client (shared) | `packages/api-client`    | TS source-only (no build) — shared fetch primitives | `src/index.ts`                      | `bun run typecheck:api-client`                     |
 
 ## Cross-cutting contracts
 
 - **GZCLP rules + Zod schemas live in `packages/domain`** (imported as `@gzclp/domain` via `workspace:*` by web, mobile, api). It is the single source of truth — never duplicate logic that belongs here.
-- **API contract**: ElysiaJS exposes `/swagger` + `/swagger/json` only when `SWAGGER_ENABLED=true` (a positive flag; hard-disabled in production regardless). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. CI gates drift in `.github/workflows/validate.yml` (the `validate` job boots the API against a Postgres service container with `SWAGGER_ENABLED=true` and runs `git diff --exit-code` on the generated client) — Lefthook no longer runs this check pre-push because it requires a live API. **Mobile does NOT consume this generated client** — it hand-writes API calls. Unifying is on the roadmap (`packages/api-client`).
+- **API contract**: ElysiaJS exposes `/swagger` + `/swagger/json` only when `SWAGGER_ENABLED=true` (a positive flag; hard-disabled in production regardless). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. CI gates drift in `.github/workflows/validate.yml` (the required `validate` job boots the API against a Postgres service container with `SWAGGER_ENABLED=true` and runs `git diff --exit-code` on the generated client) — Lefthook no longer runs this check pre-push because it requires a live API. **Mobile does NOT consume this generated typed client** — it hand-writes API calls. Both web and mobile DO share low-level fetch primitives via the `@gzclp/api-client` package (`merge-headers`, `api-error`, `single-flight`, `url`): web uses `single-flight` + `merge-headers` + `api-error`, mobile uses only `single-flight`. Unifying the typed request/response surface across the two clients is still on the roadmap.
+- **Shared API-client primitives (`@gzclp/api-client`)**: a source-only TS package (no build step; subpath `exports` resolve straight to `src/*.ts`) of framework-agnostic fetch helpers — `ApiError`/`parseApiErrorBody`, `mergeHeaders`, `createSingleFlight`, `buildApiUrl`. Depends only on `@gzclp/domain`. It is NOT the OpenAPI-generated typed client (that stays web-only at `apps/frontend/web/src/lib/api/generated.ts`). Consumed by web (`src/lib/api.ts`, `src/lib/api-functions.ts`) and mobile (`src/lib/auth/session.ts`).
 - **Auth**: JWT access + refresh-token rotation. Google OAuth on all three clients. Server logic split: `apps/backend/api/src/routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` + `lib/google-auth.ts`.
 - **Migrations + seeds**: the `@gzclp/database` package owns persistence. Migrations and reference-data seeds are applied automatically on API startup (`apps/backend/api/src/bootstrap.ts`). Drizzle config at `packages/database/drizzle.config.ts`, schema at `packages/database/src/schema.ts`, generated SQL at `packages/database/migrations/`, seeds at `packages/database/src/seeds/`.
 - **Analytics → API integration**: insights are pre-computed by the Python service and stored in the `user_insights` table. `POST /compute` is guarded by the shared `INTERNAL_SECRET` (rejects every request when unset).
@@ -72,7 +74,7 @@ and `.env.production.example` (prod template).
 
 ## Tooling
 
-- **Lefthook** — pre-commit: typecheck (web/domain/database/mobile) + api typecheck + lint + format. Pre-push: test + `build:ci`. Don't bypass with `--no-verify`.
+- **Lefthook** — pre-commit: typecheck (web/domain/database/api-client/mobile) + api typecheck + lint + format. Pre-push: test + `build:ci`. Don't bypass with `--no-verify`.
 - **OpenAPI codegen** — `apps/frontend/web/codegen/generate-api-types.ts` (web only).
 - **Drizzle** — `db:generate`, `db:migrate`, `db:studio` live in `packages/database`; run from the repo root (`bun run db:*`) — they delegate to `@gzclp/database`.
 - **Env contract gate** — `bun run apps/backend/api/scripts/check-env.ts --env-file <file>` validates an env file against `REQUIRED_ENV` (used at deploy time and in CI).
@@ -144,13 +146,14 @@ Startup logs migrations → reference-data seeds → `API started` on port 3001.
 ### Validate
 
 ```bash
-bun run test           # web + domain + database + mobile
-bun run test:api       # API only (needs DATABASE_URL)
-bun run test:domain    # domain only (no DB)
-bun run test:database  # database package only
-bun run typecheck      # web + domain + database + mobile
-bun run typecheck:api  # API
-bun run lint           # web + API
+bun run test             # web + domain + database + api-client + mobile
+bun run test:api         # API only (needs DATABASE_URL)
+bun run test:domain      # domain only (no DB)
+bun run test:database    # database package only
+bun run test:api-client  # api-client package only
+bun run typecheck        # web + domain + database + api-client + mobile
+bun run typecheck:api    # API
+bun run lint             # web + API + api-client
 bun run security:headers  # production response-header contract (no server needed)
 bun run e2e            # Playwright/Chromium — webServer builds web + starts API; set DATABASE_URL first (it does NOT start Postgres)
 bun run e2e:ui         # interactive UI mode
@@ -308,7 +311,7 @@ The following remain removed from the repo today (some were originally swept out
 
 - `apps/frontend/web/Dockerfile` and `docker-compose.dev.yml` (the web container and the dev compose file). The API and analytics still ship as Docker images — `apps/backend/api/Dockerfile` and `apps/backend/analytics/Dockerfile` are active and consumed by `.github/workflows/deploy.yml`. Production compose lives at `infra/production/docker-compose.yml`.
 - nginx configs (`apps/frontend/web/nginx*.conf`, `security-headers.conf`).
-- CI workflows: `_validate-api.yml`, `_validate-web.yml`, `_validate-analytics.yml`, `auto-format.yml`, `workflow-sanity.yml`. **Active workflows:** `claude.yml`, `claude-code-review.yml`, `deploy.yml`, `validate.yml`, `security.yml` (CodeQL, Gitleaks, Semgrep, dependency audit, security-header contract).
+- CI workflows: `_validate-api.yml`, `_validate-web.yml`, `_validate-analytics.yml`, `auto-format.yml`, `workflow-sanity.yml`, and `ci.yml` (the last removed now as a redundant duplicate — its OpenAPI client-drift job repeated the check already run by `validate.yml`'s required `validate` job, which remains the sole drift gate). **Active workflows:** `claude.yml`, `claude-code-review.yml`, `deploy.yml`, `validate.yml`, `security.yml` (CodeQL, Gitleaks, Semgrep, dependency audit, security-header contract).
 - Dependabot config.
 
 If a task suggests bringing any of these back, confirm intent first.
@@ -320,6 +323,6 @@ If a task suggests bringing any of these back, confirm intent first.
 - Drizzle schema: [`packages/database/src/schema.ts`](./packages/database/src/schema.ts).
 - API routes folder: [`apps/backend/api/src/routes/`](./apps/backend/api/src/routes/).
 - Env contract: [`env-validation.ts`](./apps/backend/api/src/lib/env-validation.ts) — source of truth; examples in [`.env.example`](./.env.example) (dev) and [`.env.production.example`](./.env.production.example) (prod).
-- Production infra: [`infra/production/docker-compose.yml`](./infra/production/docker-compose.yml) + [`Caddyfile`](./infra/production/Caddyfile) (Hetzner VPS; see `README.md`).
+- Production infra (canonical — Hetzner VPS): [`infra/production/docker-compose.yml`](./infra/production/docker-compose.yml) + [`Caddyfile`](./infra/production/Caddyfile); deployed by [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) (builds api/analytics images → GHCR, then SSH/rsync to the VPS + `docker compose up -d`). See `README.md`. Note: [`docs/deployment-railway.md`](./docs/deployment-railway.md) describes an exploratory Railway alternative — **not** the live deployment.
 - The web build also bundles a static defense deck served at `/presentacion` (excluded from the PWA navigation fallback).
 - Refresh this file: `SWAGGER_ENABLED=true bun run dev:api`, then `bun run context:refresh`.
