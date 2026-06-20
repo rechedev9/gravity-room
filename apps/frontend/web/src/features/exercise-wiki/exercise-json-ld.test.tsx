@@ -3,11 +3,20 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { ExerciseJsonLd } from './exercise-json-ld';
 import { placeholderArticle } from './content/_placeholder';
 
-function parseLd(markup: string): Record<string, unknown> {
-  const start = markup.indexOf('<script type="application/ld+json">');
-  const end = markup.indexOf('</script>', start);
-  if (start === -1 || end === -1) throw new Error('no ld+json script');
-  const content = markup.slice(start + '<script type="application/ld+json">'.length, end);
+const LD_OPEN = '<script type="application/ld+json">';
+const LD_CLOSE = '</script>';
+
+function parseLd(markup: string, index = 0): Record<string, unknown> {
+  let pos = 0;
+  let found = -1;
+  for (let i = 0; i <= index; i++) {
+    found = markup.indexOf(LD_OPEN, pos);
+    if (found === -1) throw new Error(`no ld+json script at index ${String(i)}`);
+    pos = found + LD_OPEN.length;
+  }
+  const end = markup.indexOf(LD_CLOSE, pos);
+  if (end === -1) throw new Error('no closing script tag');
+  const content = markup.slice(pos, end);
   return JSON.parse(content.replace(/\\u003c/g, '<')) as Record<string, unknown>;
 }
 
@@ -23,5 +32,18 @@ describe('ExerciseJsonLd', () => {
     const html = renderToStaticMarkup(<ExerciseJsonLd article={placeholderArticle} lang="en" />);
     const ld = parseLd(html);
     expect(ld.url).toBe('https://gravityroom.app/en/exercises/squat');
+  });
+  it('uses the es localized canonical url', () => {
+    const html = renderToStaticMarkup(<ExerciseJsonLd article={placeholderArticle} lang="es" />);
+    const ld = parseLd(html);
+    expect(ld.url).toBe('https://gravityroom.app/ejercicios/sentadilla');
+  });
+  it('emits a BreadcrumbList as the second ld+json script', () => {
+    const html = renderToStaticMarkup(<ExerciseJsonLd article={placeholderArticle} lang="en" />);
+    const ld = parseLd(html, 1);
+    expect(ld['@type']).toBe('BreadcrumbList');
+    const items = ld.itemListElement as Array<Record<string, unknown>>;
+    expect(items).toHaveLength(2);
+    expect(items[1].item).toBe('https://gravityroom.app/en/exercises/squat');
   });
 });

@@ -40,5 +40,31 @@ export function ExerciseJsonLd({
     },
   };
   const jsonLdText = JSON.stringify(payload).replace(/</g, '\\u003c');
-  return <script type="application/ld+json">{jsonLdText}</script>;
+
+  const breadcrumbPayload = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: lang === 'es' ? 'Ejercicios' : 'Exercises',
+        item: lang === 'es' ? `${ORIGIN}/ejercicios` : `${ORIGIN}/en/exercises`,
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: c.title,
+        item: url,
+      },
+    ],
+  };
+  const breadcrumbText = JSON.stringify(breadcrumbPayload).replace(/</g, '\\u003c');
+
+  return (
+    <>
+      <script type="application/ld+json">{jsonLdText}</script>
+      <script type="application/ld+json">{breadcrumbText}</script>
+    </>
+  );
 }
