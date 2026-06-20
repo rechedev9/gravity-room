@@ -2,15 +2,7 @@ import { useEffect } from 'react';
 import type { ArticleLang, ExerciseArticle } from '@gzclp/domain/schemas/exercise-article';
 import { useHead } from '@/hooks/use-head';
 import { articleUrl } from './exercise-json-ld';
-
-function addAlternate(hreflang: string, href: string): () => void {
-  const el = document.createElement('link');
-  el.rel = 'alternate';
-  el.setAttribute('hreflang', hreflang);
-  el.setAttribute('href', href);
-  document.head.appendChild(el);
-  return () => el.remove();
-}
+import { appendHreflangAlternates } from './hreflang';
 
 export function useExerciseHead(article: ExerciseArticle, lang: ArticleLang): void {
   const c = article.content[lang];
@@ -28,11 +20,10 @@ export function useExerciseHead(article: ExerciseArticle, lang: ArticleLang): vo
   useEffect(() => {
     const esUrl = articleUrl(article, 'es');
     const enUrl = articleUrl(article, 'en');
-    const cleanups = [
-      addAlternate('es', esUrl),
-      addAlternate('en', enUrl),
-      addAlternate('x-default', enUrl),
-    ];
-    return () => cleanups.forEach((fn) => fn());
+    return appendHreflangAlternates([
+      { hreflang: 'es', href: esUrl },
+      { hreflang: 'en', href: enUrl },
+      { hreflang: 'x-default', href: enUrl },
+    ]);
   }, [article]);
 }

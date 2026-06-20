@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import type { ArticleLang } from '@gzclp/domain/schemas/exercise-article';
 import { useHead } from '@/hooks/use-head';
 import { getAllArticles } from './content/registry';
+import { appendHreflangAlternates } from './hreflang';
 
 const COPY = {
   es: {
@@ -26,6 +27,13 @@ export function ExerciseWikiIndexPage({ lang }: { readonly lang: ArticleLang }):
     canonical: `https://gravityroom.app${base}`,
     lang,
   });
+  useEffect(() => {
+    return appendHreflangAlternates([
+      { hreflang: 'es', href: 'https://gravityroom.app/ejercicios' },
+      { hreflang: 'en', href: 'https://gravityroom.app/en/exercises' },
+      { hreflang: 'x-default', href: 'https://gravityroom.app/en/exercises' },
+    ]);
+  }, []);
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <header className="space-y-2">

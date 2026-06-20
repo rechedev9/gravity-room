@@ -34,4 +34,14 @@ describe('ExerciseWikiIndexPage', () => {
     const links = screen.getAllByTestId('exercise-card');
     expect(links).toHaveLength(EXERCISE_ARTICLES.length);
   });
+
+  it('adds hreflang alternates to <head>', () => {
+    render(<ExerciseWikiIndexPage lang="es" />);
+    const esLink = document.head.querySelector('link[rel="alternate"][hreflang="es"]');
+    const enLink = document.head.querySelector('link[rel="alternate"][hreflang="en"]');
+    const defaultLink = document.head.querySelector('link[rel="alternate"][hreflang="x-default"]');
+    expect(esLink?.getAttribute('href')).toBe('https://gravityroom.app/ejercicios');
+    expect(enLink?.getAttribute('href')).toBe('https://gravityroom.app/en/exercises');
+    expect(defaultLink?.getAttribute('href')).toBe('https://gravityroom.app/en/exercises');
+  });
 });
