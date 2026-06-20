@@ -91,4 +91,33 @@ describe('ExerciseArticleSchema', () => {
       false
     );
   });
+  it('accepts an article with a valid variations array', () => {
+    const withVariations = {
+      ...validArticle,
+      content: {
+        es: {
+          ...validArticle.content.es,
+          variations: [{ name: 'Sentadilla baja', detail: 'Mayor activación de glúteos.' }],
+        },
+        en: {
+          ...validArticle.content.en,
+          variations: [{ name: 'Low-bar squat', detail: 'More hip drive.' }],
+        },
+      },
+    };
+    expect(ExerciseArticleSchema.safeParse(withVariations).success).toBe(true);
+  });
+  it('rejects a variations entry missing detail', () => {
+    const badVariations = {
+      ...validArticle,
+      content: {
+        ...validArticle.content,
+        en: {
+          ...validArticle.content.en,
+          variations: [{ name: 'Low-bar squat' }],
+        },
+      },
+    };
+    expect(ExerciseArticleSchema.safeParse(badVariations).success).toBe(false);
+  });
 });

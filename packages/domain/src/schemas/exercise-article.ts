@@ -27,6 +27,7 @@ export const LocalizedArticleSchema = z.object({
     )
     .min(1),
   commonMistakes: z.array(z.string().min(1)).min(1),
+  variations: z.array(z.object({ name: z.string().min(1), detail: z.string().min(1) })).optional(),
 });
 
 export const ExerciseArticleSchema = z.object({
