@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wiki de Ejercicios — Resumen de implementación</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --body: #17150f;
+        --card: #201d16;
+        --surface-2: #2a261d;
+        --header: #1b1812;
+        --rule: #36301f;
+        --rule-soft: #2b2619;
+        --ink: #100e09;
+        --main: #ece7da;
+        --title: #f6f1e6;
+        --muted: #9b9484;
+        --label: #7d7666;
+        --accent: #e0b24d;
+        --accent-hi: #efc566;
+        --online: #5ec8d8;
+        --ok: #7bbf6a;
+        --fail: #d8694e;
+        --warn: #d99a3f;
+      }
+      * {
+        box-sizing: border-box;
+        min-width: 0;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        background: var(--body);
+        color: var(--main);
+        font-family: 'Barlow', system-ui, sans-serif;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+        background-image:
+          radial-gradient(ellipse at top, rgba(224, 178, 77, 0.05), transparent 60%),
+          repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 2px,
+            rgba(0, 0, 0, 0.12) 2px,
+            rgba(0, 0, 0, 0.12) 4px
+          );
+        background-blend-mode: normal;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 40px 24px 80px;
+      }
+      .display {
+        font-family: 'Bebas Neue', sans-serif;
+        font-weight: 400;
+        letter-spacing: 0.02em;
+        line-height: 1;
+      }
+      .mono {
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+      }
+      code,
+      .mono {
+        font-family: 'JetBrains Mono', ui-monospace, monospace;
+      }
+
+      /* Header */
+      header.hero {
+        border: 1px solid var(--rule);
+        border-radius: 8px;
+        background: linear-gradient(180deg, var(--card), var(--header));
+        padding: 30px 30px 26px;
+        position: relative;
+        overflow: hidden;
+      }
+      .kicker {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin: 0 0 10px;
+      }
+      h1.display {
+        font-size: clamp(40px, 7vw, 68px);
+        color: var(--title);
+        margin: 0 0 6px;
+      }
+      .sub {
+        color: var(--muted);
+        font-size: 16px;
+        max-width: 70ch;
+        margin: 0 0 22px;
+      }
+      .branch {
+        color: var(--accent);
+      }
+      .badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        border: 1px solid var(--rule);
+        background: var(--ink);
+        border-radius: 999px;
+        padding: 6px 13px;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .badge .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex: none;
+      }
+      .dot.ok {
+        background: var(--ok);
+        box-shadow: 0 0 8px rgba(123, 191, 106, 0.6);
+      }
+      .dot.warn {
+        background: var(--warn);
+        box-shadow: 0 0 8px rgba(217, 154, 63, 0.6);
+      }
+      .dot.acc {
+        background: var(--accent);
+        box-shadow: 0 0 8px rgba(224, 178, 77, 0.6);
+      }
+      .badge .num {
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--title);
+      }
+
+      /* Section heading */
+      section {
+        margin-top: 46px;
+      }
+      .sec-head {
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        border-bottom: 1px solid var(--rule);
+        padding-bottom: 10px;
+        margin-bottom: 22px;
+      }
+      .sec-head .n {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        color: var(--accent);
+        font-weight: 700;
+      }
+      .sec-head h2 {
+        font-family: 'Bebas Neue', sans-serif;
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        font-size: 30px;
+        color: var(--title);
+        margin: 0;
+      }
+      .sec-head .tail {
+        margin-left: auto;
+        color: var(--label);
+        font-size: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        text-align: right;
+      }
+
+      p.lead {
+        color: var(--muted);
+        margin: 0 0 22px;
+        max-width: 78ch;
+      }
+
+      /* Pipeline diagram */
+      .pipe {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+      }
+      .stage {
+        border: 1px solid var(--rule);
+        border-radius: 7px;
+        background: var(--card);
+        padding: 16px 15px;
+        position: relative;
+      }
+      .stage .si {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--label);
+      }
+      .stage h3 {
+        font-size: 15px;
+        margin: 6px 0 5px;
+        color: var(--title);
+        font-weight: 600;
+      }
+      .stage p {
+        font-size: 12.5px;
+        color: var(--muted);
+        margin: 0;
+      }
+      .stage .files {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10.5px;
+        color: var(--accent);
+        margin-top: 9px;
+        word-break: break-word;
+      }
+
+      /* Cards row */
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+      }
+      .card {
+        border: 1px solid var(--rule);
+        border-radius: 8px;
+        background: var(--card);
+        padding: 20px;
+      }
+      .card.lift {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .lift .top {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .lift .name {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 26px;
+        letter-spacing: 0.03em;
+        color: var(--title);
+      }
+      .lift .refs {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        color: var(--accent);
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .lift .slugs {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        color: var(--muted);
+        word-break: break-all;
+      }
+      .lift .slugs b {
+        color: var(--main);
+        font-weight: 500;
+      }
+      .lift .verified {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--ok);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      /* Task table */
+      .table-scroll {
+        overflow-x: auto;
+        border: 1px solid var(--rule);
+        border-radius: 8px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+        min-width: 540px;
+      }
+      thead th {
+        background: var(--ink);
+        color: var(--label);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10.5px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        text-align: left;
+        padding: 11px 14px;
+        font-weight: 700;
+        border-bottom: 1px solid var(--rule);
+      }
+      tbody td {
+        padding: 11px 14px;
+        border-bottom: 1px solid var(--rule-soft);
+        vertical-align: top;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      tbody tr:hover {
+        background: rgba(224, 178, 77, 0.03);
+      }
+      td .tn {
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--accent);
+        font-weight: 700;
+      }
+      td.task strong {
+        color: var(--title);
+        font-weight: 600;
+      }
+      td.task span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 2px;
+      }
+      td .sha {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .pill {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        font-family: 'JetBrains Mono', monospace;
+        padding: 3px 9px;
+        border-radius: 4px;
+        white-space: nowrap;
+      }
+      .pill.ok {
+        color: var(--ok);
+        background: rgba(123, 191, 106, 0.1);
+        border: 1px solid rgba(123, 191, 106, 0.3);
+      }
+      .pill.fix {
+        color: var(--warn);
+        background: rgba(217, 154, 63, 0.1);
+        border: 1px solid rgba(217, 154, 63, 0.3);
+      }
+      .pill.pending {
+        color: var(--accent);
+        background: rgba(224, 178, 77, 0.1);
+        border: 1px solid rgba(224, 178, 77, 0.3);
+      }
+
+      /* Two-col */
+      .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 720px) {
+        .two {
+          grid-template-columns: 1fr;
+        }
+      }
+      .panel {
+        border: 1px solid var(--rule);
+        border-radius: 8px;
+        background: var(--card);
+        padding: 20px 22px;
+      }
+      .panel h3 {
+        font-family: 'Bebas Neue', sans-serif;
+        letter-spacing: 0.04em;
+        font-size: 21px;
+        color: var(--title);
+        margin: 0 0 14px;
+        font-weight: 400;
+      }
+      ul.checks {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      ul.checks li {
+        position: relative;
+        padding-left: 26px;
+        margin-bottom: 10px;
+        font-size: 13.5px;
+        color: var(--main);
+      }
+      ul.checks li:last-child {
+        margin-bottom: 0;
+      }
+      ul.checks li::before {
+        content: '✓';
+        position: absolute;
+        left: 0;
+        top: 0;
+        color: var(--ok);
+        font-weight: 700;
+      }
+      ul.checks li code {
+        color: var(--accent);
+        font-size: 12px;
+      }
+      ul.checks li b {
+        color: var(--title);
+      }
+
+      /* Callout */
+      .callout {
+        border: 1px solid rgba(224, 178, 77, 0.4);
+        border-left: 4px solid var(--accent);
+        border-radius: 8px;
+        background: linear-gradient(180deg, rgba(224, 178, 77, 0.07), var(--card));
+        padding: 24px 26px;
+      }
+      .callout h2 {
+        font-family: 'Bebas Neue', sans-serif;
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        font-size: 28px;
+        color: var(--accent-hi);
+        margin: 0 0 6px;
+      }
+      .callout p.intro {
+        color: var(--main);
+        margin: 0 0 18px;
+        max-width: 80ch;
+      }
+      ol.steps {
+        margin: 0;
+        padding-left: 0;
+        list-style: none;
+        counter-reset: step;
+      }
+      ol.steps li {
+        counter-increment: step;
+        position: relative;
+        padding: 0 0 16px 44px;
+        min-height: 30px;
+      }
+      ol.steps li:last-child {
+        padding-bottom: 0;
+      }
+      ol.steps li::before {
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        top: -2px;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--accent);
+        color: var(--ink);
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      ol.steps li strong {
+        color: var(--title);
+      }
+      ol.steps li .d {
+        color: var(--muted);
+        font-size: 13.5px;
+      }
+      ol.steps code {
+        background: var(--ink);
+        border: 1px solid var(--rule);
+        border-radius: 4px;
+        padding: 1px 6px;
+        font-size: 12px;
+        color: var(--accent);
+        word-break: break-all;
+      }
+      .flags {
+        margin-top: 18px;
+        border-top: 1px dashed var(--rule);
+        padding-top: 16px;
+      }
+      .flags .ft {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--warn);
+        margin-bottom: 10px;
+      }
+      .flags ul {
+        margin: 0;
+        padding-left: 18px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .flags ul li {
+        margin-bottom: 7px;
+      }
+      .flags b {
+        color: var(--main);
+      }
+
+      footer {
+        margin-top: 50px;
+        border-top: 1px solid var(--rule);
+        padding-top: 20px;
+        color: var(--label);
+        font-size: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 22px;
+        justify-content: space-between;
+      }
+      .gold {
+        color: var(--accent);
+      }
+      .stat-strip {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 12px;
+        margin-bottom: 26px;
+      }
+      .stat {
+        border: 1px solid var(--rule);
+        border-radius: 7px;
+        background: var(--card);
+        padding: 14px 16px;
+        text-align: center;
+      }
+      .stat .v {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 34px;
+        color: var(--accent-hi);
+        line-height: 1;
+      }
+      .stat .l {
+        font-size: 11px;
+        color: var(--muted);
+        font-family: 'JetBrains Mono', monospace;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-top: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="hero">
+        <p class="kicker">Gravity Room · feature branch</p>
+        <h1 class="display">Wiki de Ejercicios</h1>
+        <p class="sub">
+          Una wiki de ejercicios respaldada por ciencia, bilingüe e indexable para SEO, construida
+          sobre el SPA de Vite con prerender en build. Rama
+          <span class="branch mono">feature/exercise-wiki</span> — 16 commits.
+        </p>
+        <div class="badges">
+          <span class="badge"
+            ><span class="dot ok"></span><span class="num">643</span> tests pasan</span
+          >
+          <span class="badge"><span class="dot ok"></span><span class="num">0</span> fallos</span>
+          <span class="badge"><span class="dot ok"></span>typecheck + lint limpios</span>
+          <span class="badge"><span class="dot ok"></span>build + prerender ✓</span>
+          <span class="badge"
+            ><span class="dot acc"></span>contenido <span class="num">PENDING</span> revisión
+            humana</span
+          >
+        </div>
+      </header>
+
+      <!-- METRICS -->
+      <section>
+        <div class="stat-strip">
+          <div class="stat">
+            <div class="v">11</div>
+            <div class="l">tareas TDD</div>
+          </div>
+          <div class="stat">
+            <div class="v">3</div>
+            <div class="l">fichas bilingües</div>
+          </div>
+          <div class="stat">
+            <div class="v">18</div>
+            <div class="l">citas verificadas</div>
+          </div>
+          <div class="stat">
+            <div class="v">8</div>
+            <div class="l">URLs SEO nuevas</div>
+          </div>
+          <div class="stat">
+            <div class="v">2</div>
+            <div class="l">idiomas (es/en)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WHAT WAS BUILT -->
+      <section>
+        <div class="sec-head">
+          <span class="n">01</span>
+          <h2>Qué se construyó · la plataforma</h2>
+          <span class="tail">Tasks 1–8 · cada una revisada por subagente</span>
+        </div>
+        <p class="lead">
+          El sitio es un SPA puro de Vite sin SSR; el SEO funciona porque un paso de prerender
+          (Playwright) serializa cada URL del sitemap tras hidratar. La wiki se monta sobre esa
+          maquinaria existente: sin backend, sin SSR, sin toolchain nuevo.
+        </p>
+        <div class="pipe">
+          <div class="stage">
+            <div class="si">Schema</div>
+            <h3>ExerciseArticle (Zod)</h3>
+            <p>Citas exigen DOI/PMID; artículo bilingüe es+en obligatorio.</p>
+            <div class="files">@gzclp/domain/schemas/exercise-article</div>
+          </div>
+          <div class="stage">
+            <div class="si">Contenido</div>
+            <h3>Registry tipado</h3>
+            <p>Datos TS versionados; única fuente de qué fichas existen.</p>
+            <div class="files">content/registry.ts</div>
+          </div>
+          <div class="stage">
+            <div class="si">SEO</div>
+            <h3>ExerciseJsonLd</h3>
+            <p>schema.org Article + citation[] + BreadcrumbList.</p>
+            <div class="files">exercise-json-ld.tsx</div>
+          </div>
+          <div class="stage">
+            <div class="si">SEO</div>
+            <h3>useExerciseHead</h3>
+            <p>Canonical, OG/Twitter y hreflang es/en/x-default.</p>
+            <div class="files">use-exercise-head.ts</div>
+          </div>
+          <div class="stage">
+            <div class="si">UI</div>
+            <h3>ExerciseArticleView</h3>
+            <p>Plantilla única: técnica, evidencia, errores, referencias.</p>
+            <div class="files">exercise-article-view.tsx</div>
+          </div>
+          <div class="stage">
+            <div class="si">Rutas</div>
+            <h3>Índice + ficha</h3>
+            <p>/ejercicios · /en/exercises · públicas, lazy, sitemap.</p>
+            <div class="files">router.tsx · sitemap.xml</div>
+          </div>
+          <div class="stage">
+            <div class="si">Gate</div>
+            <h3>verify-citations</h3>
+            <p>Crossref/PubMed, fail-closed; rechaza PENDING.</p>
+            <div class="files">scripts/verify-citations.ts</div>
+          </div>
+          <div class="stage">
+            <div class="si">Build</div>
+            <h3>Prerender</h3>
+            <p>Las 8 URLs nuevas → HTML indexable (sin cambios al script).</p>
+            <div class="files">scripts/prerender.ts</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- THE JOURNEY -->
+      <section>
+        <div class="sec-head">
+          <span class="n">02</span>
+          <h2>El recorrido · 11 tareas</h2>
+          <span class="tail">implementador + revisor por tarea</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 38px">#</th>
+                <th>Tarea</th>
+                <th style="width: 110px">Commit</th>
+                <th style="width: 130px">Veredicto</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="tn">1</span></td>
+                <td class="task">
+                  <strong>Schema Zod en domain</strong
+                  ><span>citas DOI/PMID, bilingüe obligatorio</span>
+                </td>
+                <td><span class="sha">28e4e9d5</span></td>
+                <td><span class="pill ok">Approved</span></td>
+              </tr>
+              <tr>
+                <td><span class="tn">2</span></td>
+                <td class="task">
+                  <strong>Content registry</strong><span>lookup por slug, lista curada</span>
+                </td>
+                <td><span class="sha">b5e730a4</span></td>
+                <td><span class="pill ok">Approved</span></td>
+              </tr>
+              <tr>
+                <td><span class="tn">3</span></td>
+                <td class="task">
+                  <strong>ExerciseJsonLd</strong><span>+ BreadcrumbList añadido en review</span>
+                </td>
+                <td><span class="sha">765c3eaa</span></td>
+                <td><span class="pill fix">Fix → OK</span></td>
+              </tr>
+              <tr>
+                <td><span class="tn">4</span></td>
+                <td class="task">
+                  <strong>useExerciseHead</strong
+                  ><span>canonical + hreflang, cleanup verificado</span>
+                </td>
+                <td><span class="sha">00f90644</span></td>
+                <td><span class="pill ok">Approved</span></td>
+              </tr>
+              <tr>
+                <td><span class="tn">5</span></td>
+                <td class="task">
+                  <strong>ExerciseArticleView</strong><span>plantilla con marcadores de cita</span>
+                </td>
+                <td><span class="sha">dbababe6</span></td>
+                <td><span class="pill ok">Approved</span></td>
+              </tr>
+              <tr>
+                <td><span class="tn">6</span></td>
+                <td class="task">
+                  <strong>Páginas índice + ficha</strong
+                  ><span>resuelto hook condicional (rules-of-hooks)</span>
+                </td>
+                <td><span class="sha">6b029591</span></td>
+                <td><span class="pill ok">Approved</span></td>
+              </tr>
+              <tr>
+                <td><span class="tn">7</span></td>
+                <td class="task">
+                  <strong>Rutas + sitemap</strong><span>test de registro + 8 entradas</span>
+                </td>
+                <td><span class="sha">17e0e803</span></td>
+                <td><span class="pill ok">Approved</span></td>
+              </tr>
+              <tr>
+                <td><span class="tn">8</span></td>
+                <td class="task">
+                  <strong>Gate de citas</strong><span>fail-closed en 3 vectores</span>
+                </td>
+                <td><span class="sha">8e8369f7</span></td>
+                <td><span class="pill ok">Approved</span></td>
+              </tr>
+              <tr>
+                <td><span class="tn">9</span></td>
+                <td class="task">
+                  <strong>Research + 3 fichas</strong
+                  ><span>+ fixes editoriales ajustando claims a la fuente</span>
+                </td>
+                <td><span class="sha">437452ed</span></td>
+                <td><span class="pill pending">PENDING review</span></td>
+              </tr>
+              <tr>
+                <td><span class="tn">10</span></td>
+                <td class="task">
+                  <strong>Revisión factual humana</strong><span>flip reviewedBy — solo tú</span>
+                </td>
+                <td><span class="sha">—</span></td>
+                <td><span class="pill pending">Tu turno</span></td>
+              </tr>
+              <tr>
+                <td><span class="tn">11</span></td>
+                <td class="task">
+                  <strong>Build + prerender + review final</strong
+                  ><span>SEO payload asertado · hreflang en índices</span>
+                </td>
+                <td><span class="sha">f1f99f8e</span></td>
+                <td><span class="pill ok">✓ ready</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- THE ARTICLES -->
+      <section>
+        <div class="sec-head">
+          <span class="n">03</span>
+          <h2>Las 3 fichas · citas reales</h2>
+          <span class="tail">todas las DOIs/PMIDs resuelven en Crossref/PubMed</span>
+        </div>
+        <div class="cards">
+          <div class="card lift">
+            <div class="top">
+              <span class="name">Sentadilla</span>
+              <span class="refs">7 refs</span>
+            </div>
+            <div class="slugs">
+              es <b>/ejercicios/sentadilla</b><br />en <b>/en/exercises/squat</b>
+            </div>
+            <div class="verified">✓ 7 citas verificadas · grupo: piernas</div>
+          </div>
+          <div class="card lift">
+            <div class="top">
+              <span class="name">Press Banca</span>
+              <span class="refs">6 refs</span>
+            </div>
+            <div class="slugs">
+              es <b>/ejercicios/press-banca</b><br />en <b>/en/exercises/bench-press</b>
+            </div>
+            <div class="verified">✓ 6 citas verificadas · grupo: pecho</div>
+          </div>
+          <div class="card lift">
+            <div class="top">
+              <span class="name">Peso Muerto</span>
+              <span class="refs">5 refs</span>
+            </div>
+            <div class="slugs">
+              es <b>/ejercicios/peso-muerto</b><br />en <b>/en/exercises/deadlift</b>
+            </div>
+            <div class="verified">✓ 5 citas verificadas · grupo: espalda</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VERIFICATION -->
+      <section>
+        <div class="sec-head">
+          <span class="n">04</span>
+          <h2>Verificación end-to-end</h2>
+          <span class="tail">qué se comprobó, no se asume</span>
+        </div>
+        <div class="two">
+          <div class="panel">
+            <h3>Integridad de código</h3>
+            <ul class="checks">
+              <li><b>643 tests</b> pasan, 0 fallos (estable en repetidas corridas)</li>
+              <li><b>typecheck</b> limpio en todo el monorepo</li>
+              <li><b>ESLint</b> sin warnings (max-warnings=0)</li>
+              <li>
+                Arreglado un test <b>flaky</b>: footgun de <code>mock.module</code> global de Bun
+                pisando el RouterProvider real
+              </li>
+              <li>
+                Gate de citas: <b>las 18 DOIs/PMIDs resuelven</b>; falla en PENDING por diseño
+              </li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>SEO en el HTML prerenderizado</h3>
+            <ul class="checks">
+              <li>JSON-LD <b>Article + BreadcrumbList</b> en cada ficha</li>
+              <li><code>&lt;title&gt;</code>, <b>canonical</b> y <b>OG/Twitter</b> por ruta</li>
+              <li><b>hreflang</b> es/en/x-default en fichas <em>y</em> en índices</li>
+              <li>7 nodos <code>citation</code> en squat (= nº de referencias)</li>
+              <li>Índice prerenderizado con sus 3 tarjetas · <b>32 rutas</b> totales OK</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- NEXT -->
+      <section>
+        <div class="sec-head">
+          <span class="n">05</span>
+          <h2>Lo que falta · tu turno</h2>
+          <span class="tail">Task 10 — innegociable</span>
+        </div>
+        <div class="callout">
+          <h2>Revisión factual del contenido</h2>
+          <p class="intro">
+            El contenido está marcado <code class="mono">reviewedBy: 'PENDING'</code> y el gate
+            <strong>falla a propósito</strong> hasta que lo revises. La IA encontró papers reales y
+            verificó que sus DOIs resuelven, pero no puede garantizar que cada afirmación coincida
+            con lo que el estudio demuestra. Esa firma es humana.
+          </p>
+          <ol class="steps">
+            <li>
+              <strong>Lee las 3 fichas</strong>
+              <span class="d">
+                en
+                <code
+                  >apps/frontend/web/src/features/exercise-wiki/content/{squat,bench,deadlift}.ts</code
+                >
+                y confirma que cada claim coincide con su fuente.</span
+              >
+            </li>
+            <li>
+              <strong>Cambia <code>reviewedBy: 'PENDING'</code> → tu nombre</strong>
+              <span class="d"> en las fichas que apruebes (corrige lo que veas primero).</span>
+            </li>
+            <li>
+              <strong>Verifica el gate</strong>
+              <span class="d">
+                <code>bun run scripts/verify-citations.ts</code> → debe decir "All citations
+                resolved and all articles reviewed." y salir 0.</span
+              >
+            </li>
+            <li>
+              <strong>Mergea</strong>
+              <span class="d"> p. ej. con <code>/land</code>.</span>
+            </li>
+          </ol>
+          <div class="flags">
+            <div class="ft">⚑ Claims que más conviene que mires</div>
+            <ul>
+              <li>
+                <b>squat</b> — "hipertrofia superior a largo plazo" con ROM completo (estudios en
+                entrenados, ventanas cortas: ¿acotar "en las poblaciones estudiadas"?).
+              </li>
+              <li>
+                <b>bench</b> — riesgo de hombro con agarre ancho proviene de un estudio de
+                <em>simulación</em> musculoesquelética, no clínico.
+              </li>
+              <li><b>deadlift</b> — claim de presión discal lumbar (estudio de RMN agudo).</li>
+            </ul>
+          </div>
+        </div>
+        <div class="panel" style="margin-top: 16px">
+          <h3>Follow-up menor (no bloquea)</h3>
+          <ul class="checks">
+            <li>
+              Cablear <code>verify-citations.ts</code> a un job de <b>CI</b> (hace red → no en
+              pre-commit). Hoy es manual.
+            </li>
+            <li>
+              Bloque "ejercicio no encontrado" sin <code>noindex</code> — aceptable porque el
+              prerender solo visita slugs del sitemap.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <footer>
+        <span>Gravity Room · <span class="gold">feature/exercise-wiki</span> · 16 commits</span>
+        <span>HEAD <span class="gold">f1f99f8e</span> · spec + plan en docs/superpowers/</span>
+      </footer>
+    </div>
+  </body>
+</html>
