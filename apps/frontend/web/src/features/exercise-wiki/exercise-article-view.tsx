@@ -8,6 +8,7 @@ const LABELS = {
     technique: 'Técnica',
     evidence: 'Evidencia',
     mistakes: 'Errores comunes',
+    variations: 'Variantes y progresiones',
     references: 'Referencias',
     videoGuide: 'Guía en vídeo',
   },
@@ -16,6 +17,7 @@ const LABELS = {
     technique: 'Technique',
     evidence: 'Evidence',
     mistakes: 'Common mistakes',
+    variations: 'Variations & progressions',
     references: 'References',
     videoGuide: 'Video guide',
   },
@@ -98,6 +100,19 @@ export function ExerciseArticleView({
           ))}
         </ul>
       </section>
+
+      {c.variations !== undefined && c.variations.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="font-display text-2xl text-main">{l.variations}</h2>
+          <ul className="space-y-1 text-main">
+            {c.variations.map((v, i) => (
+              <li key={i}>
+                <span className="font-semibold text-title">{v.name}</span> — {v.detail}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="space-y-2">
         <h2 className="font-display text-2xl text-main">{l.references}</h2>

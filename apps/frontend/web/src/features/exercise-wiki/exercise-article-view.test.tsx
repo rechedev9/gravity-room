@@ -20,4 +20,18 @@ describe('ExerciseArticleView', () => {
     expect(iframe).not.toBeNull();
     expect(iframe?.src).toContain('t2b8UdqmlFs');
   });
+  it('renders a variations section with the variation name when provided', () => {
+    const articleWithVariations = {
+      ...squatArticle,
+      content: {
+        ...squatArticle.content,
+        en: {
+          ...squatArticle.content.en,
+          variations: [{ name: 'Low-bar squat', detail: 'More hip drive.' }],
+        },
+      },
+    };
+    render(<ExerciseArticleView article={articleWithVariations} lang="en" />);
+    expect(screen.getByText('Low-bar squat')).toBeTruthy();
+  });
 });
