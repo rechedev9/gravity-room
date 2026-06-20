@@ -178,7 +178,9 @@ export async function softDeleteUser(userId: string): Promise<void> {
 
   if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
 
-  // Revoke all refresh tokens so the user is immediately logged out everywhere
+  // Revoke all refresh tokens so no new access tokens can be minted. Any access
+  // token already issued stays valid until it expires (~15 min) — the
+  // resource-route guard validates JWTs statelessly and does not check deletedAt.
   await revokeAllUserTokens(userId);
 }
 
