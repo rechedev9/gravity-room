@@ -243,6 +243,6 @@ export const squatArticle: ExerciseArticle = {
       ],
     },
   },
-  reviewedBy: 'PENDING',
+  reviewedBy: 'Luis Reche',
   reviewedAt: '2026-06-20',
 };
