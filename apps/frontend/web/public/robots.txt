@@ -52,8 +52,33 @@ Disallow: /login
 User-agent: PerplexityBot
 Allow: /
 
+# Perplexity user-initiated fetch (answers a live query). Often ignores
+# robots.txt anyway, but declare intent to allow.
+User-agent: Perplexity-User
+Allow: /
+
+# Apple — Applebot indexes for Siri/Spotlight + Apple Intelligence retrieval.
+User-agent: Applebot
+Allow: /
+
+# Applebot-Extended is an opt-OUT token for Apple Intelligence *training* only;
+# leaving it allowed keeps us in Applebot's retrieval index.
+User-agent: Applebot-Extended
+Allow: /
+
+# Mistral Le Chat user-initiated fetch.
+User-agent: MistralAI-User
+Allow: /
+
 User-agent: Amazonbot
 Allow: /
+
+# Google misc/AI fetcher (distinct from Googlebot).
+User-agent: GoogleOther
+Allow: /
+Disallow: /app
+Disallow: /login
+Disallow: /api/
 
 # ── Scrapers agresivos (block) ────────────────
 # Sin valor de visibilidad — solo scraping masivo de datos

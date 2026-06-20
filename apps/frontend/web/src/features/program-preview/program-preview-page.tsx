@@ -1,9 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { localizedProgramDescription, localizedProgramName } from '@/lib/catalog-display';
+import {
+  localizedProgramDescription,
+  localizedProgramName,
+  localizedProgramSeoTitle,
+  localizedProgramSeoDescription,
+  localizedProgramFaq,
+} from '@/lib/catalog-display';
 import { useProgramHead } from '@/hooks/use-head';
 import { ProgramJsonLd } from '@/features/program-preview/program-json-ld';
+import { ProgramFaq } from '@/features/program-preview/program-faq';
 import { trackEvent } from '@/lib/analytics';
 import { useParams, Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -166,7 +173,7 @@ function HeaderCta({
 // ---------------------------------------------------------------------------
 
 export function ProgramPreviewPage(): ReactNode {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { programId } = useParams({ from: '/programs/$programId' });
 
   const { definition, rows, isLoading, isError } = useProgramPreview(programId);
@@ -195,7 +202,14 @@ export function ProgramPreviewPage(): ReactNode {
   const translatedDescription = localizedProgramDescription(t, programId, '');
   const headName = translatedName !== '' ? translatedName : undefined;
   const headDescription = translatedDescription !== '' ? translatedDescription : undefined;
-  useProgramHead(programId, headName, headDescription);
+  const seoTitle = localizedProgramSeoTitle(t, programId);
+  const seoDescription = localizedProgramSeoDescription(t, programId);
+  const faqItems = localizedProgramFaq(t, programId);
+  useProgramHead(programId, headName, headDescription, {
+    seoTitle,
+    seoDescription,
+    lang: i18n.language,
+  });
 
   const previewTracked = useRef(false);
   useEffect(() => {
@@ -398,6 +412,9 @@ export function ProgramPreviewPage(): ReactNode {
               onSetTap={noopHandler}
             />
           ))}
+
+        {/* Per-program FAQ — visible Q&A + FAQPage JSON-LD for AI/search extraction */}
+        <ProgramFaq items={faqItems} />
 
         {/* Auth-aware CTA section */}
         {!authLoading &&

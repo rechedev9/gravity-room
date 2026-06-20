@@ -233,3 +233,15 @@ jobs:
           printf '%s\n' "$api_headers" | grep -qi "upgrade-insecure-requests"
 
           curl -fsS https://gravityroom.app/.well-known/security.txt | grep -q '^Contact:'
+
+      # Push the (now-live) sitemap URLs to IndexNow so Bing — and the engines
+      # that draw on its index (ChatGPT Search, Copilot) — re-crawl without
+      # waiting for discovery. The script is dependency-free and best-effort.
+      - name: Set up Bun for IndexNow ping
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Ping IndexNow (Bing / ChatGPT Search)
+        continue-on-error: true
+        run: bun apps/frontend/web/scripts/indexnow-ping.ts

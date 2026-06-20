@@ -117,10 +117,10 @@ Gravity Room solves all four by implementing the progression rules of establishe
 - ML-based strength forecasting
 
 ### Infrastructure
-- Docker Compose for local dev
-- nginx serving the SPA (gzip, immutable cache for hashed assets)
+- Native Bun + local Postgres for development (no dev container/compose)
+- Production: single Hetzner VPS running Docker Compose (API + analytics images)
+- Caddy reverse proxy serving the prerendered SPA and terminating TLS (gzip, immutable cache for hashed assets, security headers)
 - Plausible Analytics (privacy-first, no cookies)
-- OrbStack for local container management (macOS)
 
 ## Progression Science
 

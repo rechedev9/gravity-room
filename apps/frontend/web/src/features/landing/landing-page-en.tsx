@@ -12,6 +12,11 @@ const EN_HEAD = {
     'Build a free strength plan, follow proven programs, and let Gravity Room calculate weights, sets, and adjustments for every workout.',
   ogUrl: 'https://gravityroom.app/en',
   lang: 'en',
+  alternates: [
+    { hreflang: 'es', href: 'https://gravityroom.app/' },
+    { hreflang: 'en', href: 'https://gravityroom.app/en' },
+    { hreflang: 'x-default', href: 'https://gravityroom.app/en' },
+  ],
 } as const;
 
 export function LandingPageEn(): React.ReactNode {

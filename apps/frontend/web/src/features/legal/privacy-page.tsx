@@ -1,10 +1,16 @@
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { useDocumentTitle } from '@/hooks/use-document-title';
+import { useHead } from '@/hooks/use-head';
 
 export function PrivacyPage(): React.ReactNode {
   const { t } = useTranslation();
-  useDocumentTitle(t('legal.privacy.document_title'));
+  // Self-referencing canonical so this page stops inheriting the landing's
+  // canonical/OG from index.html.
+  useHead({
+    title: t('legal.privacy.document_title'),
+    description: t('legal.privacy.meta_description'),
+    canonical: 'https://gravityroom.app/privacy',
+  });
 
   return (
     <div className="min-h-dvh bg-body">
