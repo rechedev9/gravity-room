@@ -1,5 +1,10 @@
 import * as matchers from '@testing-library/jest-dom/matchers';
-import { afterEach, expect } from 'bun:test';
+import { afterEach, expect, mock } from 'bun:test';
+
+// virtual:pwa-register/react is a Vite plugin virtual module unavailable in Bun test.
+mock.module('virtual:pwa-register/react', () => ({
+  useRegisterSW: () => ({ needRefresh: [false, () => {}], updateServiceWorker: () => {} }),
+}));
 import { cleanup } from '@testing-library/react';
 // Import the app's i18n instance to ensure it is resolved and initialized
 // before any component import does so asynchronously.
