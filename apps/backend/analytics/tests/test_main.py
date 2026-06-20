@@ -88,6 +88,21 @@ def test_compute_accepts_correct_secret(client: TestClient) -> None:
     assert res.json()["ok"] is True
 
 
+def test_compute_failure_does_not_leak_exception_message(client: TestClient) -> None:
+    secret_detail = "asyncpg connect failed host=db.internal port=5432 password=hunter2"
+    with patch(
+        "main.run_all",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError(secret_detail),
+    ):
+        res = client.post("/compute", headers={"X-Internal-Secret": "test-secret-xyz"})
+    assert res.status_code == 500
+    body = res.json()
+    assert body["detail"] == {"error": "compute_failed"}
+    # The raw exception text must never reach the caller.
+    assert secret_detail not in res.text
+
+
 def test_health_is_always_accessible(client: TestClient) -> None:
     res = client.get("/health")
     assert res.status_code == 200
