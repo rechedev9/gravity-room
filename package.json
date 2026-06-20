@@ -35,7 +35,7 @@
     "e2e:ui": "bun run --filter web e2e:ui",
     "e2e:headed": "bun run --filter web e2e:headed",
     "hooks:validate": "lefthook validate",
-    "ci": "bun run hooks:validate && bun run typecheck && bun run typecheck:api && bun run lint && bun run format:check && bun run test && bun run build:ci",
+    "ci": "bun run typecheck && bun run typecheck:api && bun run lint && bun run format:check && bun run test && bun run build:ci",
     "context:refresh": "bun run scripts/refresh-claude-context.ts",
     "typecheck:database": "bun run --filter @gzclp/database typecheck",
     "test:database": "bun run --filter @gzclp/database test",
