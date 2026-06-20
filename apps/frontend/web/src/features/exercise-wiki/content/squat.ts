@@ -81,10 +81,10 @@ export const squatArticle: ExerciseArticle = {
     es: {
       title: 'Sentadilla con barra',
       description:
-        'Guía basada en evidencia de la sentadilla con barra: técnica, músculos implicados y errores comunes para progresión lineal GZCLP.',
+        'Guía basada en evidencia de la sentadilla con barra: técnica, músculos implicados y errores comunes para programas de fuerza.',
       summary: [
         'La sentadilla con barra es uno de los ejercicios compuestos más completos para el desarrollo del tren inferior. Involucra principalmente el cuádriceps y el glúteo mayor, con una contribución significativa de los isquiotibiales, aductores y la musculatura estabilizadora del core.',
-        'En el contexto de la progresión lineal GZCLP, la sentadilla ocupa el rol de movimiento T1 (primer nivel) en el día de pierna: cada sesión se añade peso al levantamiento hasta alcanzar el fallo en la progresión triple. Su simplicidad de carga y su alto retorno en masa muscular y fuerza la convierten en el eje central del programa.',
+        'Es un pilar fundamental en la mayoría de los programas de fuerza y progresión lineal: su sencilla lógica de carga progresiva y su alto retorno en masa muscular y fuerza la convierten en uno de los movimientos más presentes en el entrenamiento con barra.',
         'La evidencia indica que la profundidad de la sentadilla influye en el reclutamiento muscular y en las adaptaciones estructurales a largo plazo. Las sentadillas profundas (por debajo de la paralela) producen mayor activación del glúteo mayor y del aductor mayor en comparación con sentadillas parciales, sin que ello suponga un riesgo adicional para la rodilla cuando la técnica es correcta.',
       ],
       technique: [
@@ -129,10 +129,10 @@ export const squatArticle: ExerciseArticle = {
     en: {
       title: 'Barbell Back Squat',
       description:
-        'Evidence-based guide to the barbell back squat: technique, muscles worked, and common mistakes for GZCLP linear progression.',
+        'Evidence-based guide to the barbell back squat: technique, muscles worked, and common mistakes for strength programs.',
       summary: [
         'The barbell back squat is one of the most complete compound movements for lower-body development. It primarily targets the quadriceps and gluteus maximus, with significant contributions from the hamstrings, adductors, and core stabilizers.',
-        'In the GZCLP linear-progression context, the squat serves as the T1 (top-tier) movement on lower-body days: load increases each session until progression stalls at the triple progression target. Its straightforward loading scheme and high yield in muscle mass and strength make it the cornerstone of the program.',
+        'It is a staple of most strength and linear-progression programs: its straightforward progressive-overload loading scheme and high yield in muscle mass and strength make it one of the most widely programmed barbell movements in existence.',
         'Evidence shows that squat depth meaningfully influences muscle recruitment and long-term structural adaptations. Deep squats (below parallel) produce greater gluteus maximus and adductor magnus activation compared with partial squats, and do not impose additional knee risk when technique is sound.',
       ],
       technique: [

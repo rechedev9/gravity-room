@@ -71,7 +71,7 @@ export const benchArticle: ExerciseArticle = {
         'Guía técnica y científica del press de banca con barra: músculos, biomecánica, agarre y errores comunes para progresar con menor riesgo.',
       summary: [
         'El press de banca con barra es el ejercicio de empuje horizontal más estudiado en la literatura científica. Activa principalmente el pectoral mayor y el tríceps braquial, con participación del deltoides anterior como músculo sinérgico.',
-        'En el contexto del programa GZCLP, el press de banca suele programarse como movimiento T1 (fuerza máxima) o T2 (volumen de hipertrofia), permitiendo una progresión lineal de carga semana a semana para principiantes e intermedios.',
+        'Es un pilar de la mayoría de los programas de fuerza e hipertrofia, donde se emplea como movimiento de empuje horizontal principal, con progresión de carga semanal o mensual según el nivel del practicante.',
         'Dominar la técnica antes de aumentar el peso es fundamental: un patrón de movimiento correcto reduce el estrés innecesario sobre el hombro y maximiza la activación del pectoral.',
       ],
       technique: [
@@ -120,7 +120,7 @@ export const benchArticle: ExerciseArticle = {
         'Evidence-based technical guide to the barbell bench press: muscles worked, biomechanics, grip width, and common mistakes for lower-risk, efficient progress.',
       summary: [
         'The barbell bench press is the most extensively researched horizontal pushing exercise in the strength training literature. It primarily activates the pectoralis major and triceps brachii, with the anterior deltoid contributing as a synergist.',
-        'Within a GZCLP program, the bench press is typically programmed as a T1 movement (maximal strength) or T2 movement (hypertrophy volume), allowing consistent linear load progression for beginner and intermediate lifters.',
+        "It is a staple of most strength and hypertrophy programs, where it serves as the primary horizontal push movement, with load progression structured weekly or monthly depending on the lifter's training level.",
         'Mastering technique before chasing heavier weights is critical: correct movement patterns reduce unnecessary shoulder stress and maximize pectoral recruitment.',
       ],
       technique: [

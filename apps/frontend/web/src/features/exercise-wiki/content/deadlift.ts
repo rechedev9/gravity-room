@@ -62,7 +62,7 @@ export const deadliftArticle: ExerciseArticle = {
       summary: [
         'El peso muerto con barra es uno de los ejercicios multiarticulares más completos del entrenamiento de fuerza. Implica la extensión simultánea de caderas y rodillas para elevar una barra desde el suelo, reclutando con alta intensidad los músculos posteriores del tronco y de las extremidades inferiores.',
         'Existen dos variantes principales: el peso muerto convencional, con los pies a la anchura de las caderas y un agarre exterior a las piernas, y el sumo, con una postura más abierta y agarre interior. El convencional genera mayor activación de isquiotibiales y erectores espinales lumbares; el sumo reduce el momento de flexión en la columna al permitir un torso más vertical.',
-        'En el contexto GZCLP, el peso muerto es el movimiento T1 o T2 por excelencia de la cadena posterior. Su alta demanda neuromuscular justifica ejecutarlo fresco al inicio de la sesión, antes de los accesorios.',
+        'Su alta demanda neuromuscular lo convierte en un movimiento principal en la mayoría de los programas de fuerza, lo que justifica ejecutarlo fresco al inicio de la sesión, antes de los accesorios y del trabajo secundario.',
       ],
       technique: [
         'Coloca los pies a la anchura de las caderas, con la barra sobre la línea media del pie (a 2-3 cm de las espinillas).',
@@ -110,7 +110,7 @@ export const deadliftArticle: ExerciseArticle = {
       summary: [
         'The barbell deadlift is one of the most complete compound movements in strength training. It requires simultaneous hip and knee extension to lift a loaded barbell from the floor, producing high-intensity recruitment of the posterior trunk and lower-limb musculature.',
         'Two main variants exist: the conventional deadlift, with feet hip-width apart and a grip outside the legs, and the sumo deadlift, with a wider stance and inside grip. The conventional style generates greater hamstring and lumbar erector activation; the sumo style reduces the lumbar flexion moment by allowing a more vertical torso.',
-        'In a GZCLP context, the deadlift is the archetypal T1 or T2 posterior-chain movement. Its high neuromuscular demand justifies performing it fresh at the start of the session, before accessory work.',
+        'Its high neuromuscular demand makes it a primary movement in the majority of strength programs, which is why it is best performed fresh at the start of the session, before secondary and accessory work.',
       ],
       technique: [
         'Stand with feet hip-width apart, barbell over the mid-foot (roughly 2–3 cm from the shins).',
