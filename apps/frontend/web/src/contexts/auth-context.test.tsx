@@ -8,7 +8,9 @@ import { apiFunctionsStubs } from '../../test/helpers/api-functions-mock';
 // Mock setup — mock the API modules before importing auth-context
 // ---------------------------------------------------------------------------
 
-const mockRefreshAccessToken = mock<() => Promise<string | null>>(() => Promise.resolve(null));
+const mockRefreshAccessToken = mock<() => Promise<{ accessToken: string; user: unknown } | null>>(
+  () => Promise.resolve(null)
+);
 const mockSetAccessToken = mock<(token: string | null) => void>(() => {});
 
 mock.module('@/lib/api', () => ({
@@ -131,9 +133,29 @@ describe('AuthProvider', () => {
       expect(result.current.user).toBeNull();
     });
 
-    it('should restore user from refresh token', async () => {
+    it('should restore user from the refresh response in a single round-trip', async () => {
       const token = fakeJwt({ sub: 'user-123', email: 'test@example.com' });
-      mockRefreshAccessToken.mockImplementation(() => Promise.resolve(token));
+      mockRefreshAccessToken.mockImplementation(() =>
+        Promise.resolve({ accessToken: token, user: { id: 'user-123', email: 'test@example.com' } })
+      );
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      expect(result.current.user?.id).toBe('user-123');
+      expect(result.current.user?.email).toBe('test@example.com');
+      // The user came from /auth/refresh — no follow-up GET /auth/me.
+      expect(mockFetchMe).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to GET /auth/me when the refresh response omits the user', async () => {
+      const token = fakeJwt({ sub: 'user-123', email: 'test@example.com' });
+      mockRefreshAccessToken.mockImplementation(() =>
+        Promise.resolve({ accessToken: token, user: undefined })
+      );
       mockFetchMe.mockImplementation(() =>
         Promise.resolve({ id: 'user-123', email: 'test@example.com' })
       );
@@ -145,7 +167,7 @@ describe('AuthProvider', () => {
       });
 
       expect(result.current.user?.id).toBe('user-123');
-      expect(result.current.user?.email).toBe('test@example.com');
+      expect(mockFetchMe).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -206,8 +228,9 @@ describe('AuthProvider', () => {
     it('should call signout API and clear user', async () => {
       // Start with a logged-in user
       const token = fakeJwt({ sub: 'user-1', email: 'a@b.com' });
-      mockRefreshAccessToken.mockImplementation(() => Promise.resolve(token));
-      mockFetchMe.mockImplementation(() => Promise.resolve({ id: 'user-1', email: 'a@b.com' }));
+      mockRefreshAccessToken.mockImplementation(() =>
+        Promise.resolve({ accessToken: token, user: { id: 'user-1', email: 'a@b.com' } })
+      );
       mockApiFetch.mockImplementation((path: string) => {
         if (path === '/auth/signout') {
           return Promise.resolve(null);

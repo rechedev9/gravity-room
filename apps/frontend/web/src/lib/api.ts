@@ -35,7 +35,17 @@ export async function clearApiResponseCache(): Promise<void> {
 // Refresh mutex — ensures only one refresh runs at a time
 // ---------------------------------------------------------------------------
 
-const refreshAccessToken = createSingleFlight(async (): Promise<string | null> => {
+/**
+ * Refresh result. `user` is the raw profile payload the endpoint now returns
+ * alongside the token — callers that need a session (restoreSession) parse it,
+ * letting them skip a follow-up GET /auth/me. The 401-retry path ignores it.
+ */
+export interface RefreshResult {
+  readonly accessToken: string;
+  readonly user: unknown;
+}
+
+const refreshAccessToken = createSingleFlight(async (): Promise<RefreshResult | null> => {
   const res = await fetch(`${API_URL}/api/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
@@ -50,7 +60,7 @@ const refreshAccessToken = createSingleFlight(async (): Promise<string | null> =
   const body: unknown = await res.json();
   if (isRecord(body) && typeof body.accessToken === 'string') {
     setAccessToken(body.accessToken);
-    return body.accessToken;
+    return { accessToken: body.accessToken, user: body.user };
   }
 
   setAccessToken(null);

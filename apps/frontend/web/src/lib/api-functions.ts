@@ -80,9 +80,9 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
   const res = await doFetch();
 
   if (res.status === 401) {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      headers['Authorization'] = `Bearer ${newToken}`;
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      headers['Authorization'] = `Bearer ${refreshed.accessToken}`;
       const retry = await doFetch();
       if (!retry.ok) throw await extractApiError(retry, `API error: ${retry.status}`);
       if (retry.status === 204) return null;
