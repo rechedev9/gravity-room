@@ -72,6 +72,26 @@ const ProfilePage = lazyWithRetry(() =>
 const InsightsPage = lazyWithRetry(() =>
   import('@/features/insights/insights-page').then((m) => ({ default: m.InsightsPage }))
 );
+const ExerciseWikiIndexPageEs = lazyWithRetry(() =>
+  import('@/features/exercise-wiki/exercise-wiki-index-page').then((m) => ({
+    default: () => m.ExerciseWikiIndexPage({ lang: 'es' }),
+  }))
+);
+const ExerciseWikiIndexPageEn = lazyWithRetry(() =>
+  import('@/features/exercise-wiki/exercise-wiki-index-page').then((m) => ({
+    default: () => m.ExerciseWikiIndexPage({ lang: 'en' }),
+  }))
+);
+const ExerciseArticlePageEs = lazyWithRetry(() =>
+  import('@/features/exercise-wiki/exercise-article-page').then((m) => ({
+    default: () => m.ExerciseArticlePage({ lang: 'es' }),
+  }))
+);
+const ExerciseArticlePageEn = lazyWithRetry(() =>
+  import('@/features/exercise-wiki/exercise-article-page').then((m) => ({
+    default: () => m.ExerciseArticlePage({ lang: 'en' }),
+  }))
+);
 
 // ---------------------------------------------------------------------------
 // AppLayout wrapped with TrackerProvider
@@ -143,6 +163,34 @@ const programPreviewRoute = createRoute({
   path: '/programs/$programId',
   pendingComponent: ContentPageSkeleton,
   component: ProgramPreviewPage,
+});
+
+const ejerciciosRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/ejercicios',
+  pendingComponent: ContentPageSkeleton,
+  component: ExerciseWikiIndexPageEs,
+});
+
+const ejerciciosArticleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/ejercicios/$slug',
+  pendingComponent: ContentPageSkeleton,
+  component: ExerciseArticlePageEs,
+});
+
+const exercisesEnRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/en/exercises',
+  pendingComponent: ContentPageSkeleton,
+  component: ExerciseWikiIndexPageEn,
+});
+
+const exercisesEnArticleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/en/exercises/$slug',
+  pendingComponent: ContentPageSkeleton,
+  component: ExerciseArticlePageEn,
 });
 
 // TanStack Router v1 reads not-found from `defaultNotFoundComponent` on the
@@ -229,6 +277,10 @@ const routeTree = rootRoute.addChildren([
   privacyRoute,
   cookiesRoute,
   programPreviewRoute,
+  ejerciciosRoute,
+  ejerciciosArticleRoute,
+  exercisesEnRoute,
+  exercisesEnArticleRoute,
   notFoundRoute,
   appLayoutRoute.addChildren([
     appIndexRoute,
