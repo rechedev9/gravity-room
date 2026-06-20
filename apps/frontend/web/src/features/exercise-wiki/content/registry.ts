@@ -1,7 +1,13 @@
 import type { ArticleLang, ExerciseArticle } from '@gzclp/domain/schemas/exercise-article';
-import { placeholderArticle } from './_placeholder';
+import { squatArticle } from './squat';
+import { benchArticle } from './bench';
+import { deadliftArticle } from './deadlift';
 
-export const EXERCISE_ARTICLES: readonly ExerciseArticle[] = [placeholderArticle];
+export const EXERCISE_ARTICLES: readonly ExerciseArticle[] = [
+  squatArticle,
+  benchArticle,
+  deadliftArticle,
+];
 
 export function getAllArticles(): readonly ExerciseArticle[] {
   return EXERCISE_ARTICLES;

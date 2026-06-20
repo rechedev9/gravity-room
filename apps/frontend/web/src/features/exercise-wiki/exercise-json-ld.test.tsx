@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { ExerciseJsonLd } from './exercise-json-ld';
-import { placeholderArticle } from './content/_placeholder';
+import { squatArticle } from './content/squat';
 
 const LD_OPEN = '<script type="application/ld+json">';
 const LD_CLOSE = '</script>';
@@ -22,24 +22,24 @@ function parseLd(markup: string, index = 0): Record<string, unknown> {
 
 describe('ExerciseJsonLd', () => {
   it('emits an Article whose citation count matches references', () => {
-    const html = renderToStaticMarkup(<ExerciseJsonLd article={placeholderArticle} lang="es" />);
+    const html = renderToStaticMarkup(<ExerciseJsonLd article={squatArticle} lang="es" />);
     const ld = parseLd(html);
     expect(ld['@type']).toBe('Article');
     expect(Array.isArray(ld.citation)).toBe(true);
-    expect(ld.citation).toHaveLength(placeholderArticle.references.length);
+    expect(ld.citation).toHaveLength(squatArticle.references.length);
   });
   it('uses the localized canonical url', () => {
-    const html = renderToStaticMarkup(<ExerciseJsonLd article={placeholderArticle} lang="en" />);
+    const html = renderToStaticMarkup(<ExerciseJsonLd article={squatArticle} lang="en" />);
     const ld = parseLd(html);
     expect(ld.url).toBe('https://gravityroom.app/en/exercises/squat');
   });
   it('uses the es localized canonical url', () => {
-    const html = renderToStaticMarkup(<ExerciseJsonLd article={placeholderArticle} lang="es" />);
+    const html = renderToStaticMarkup(<ExerciseJsonLd article={squatArticle} lang="es" />);
     const ld = parseLd(html);
     expect(ld.url).toBe('https://gravityroom.app/ejercicios/sentadilla');
   });
   it('emits a BreadcrumbList as the second ld+json script', () => {
-    const html = renderToStaticMarkup(<ExerciseJsonLd article={placeholderArticle} lang="en" />);
+    const html = renderToStaticMarkup(<ExerciseJsonLd article={squatArticle} lang="en" />);
     const ld = parseLd(html, 1);
     expect(ld['@type']).toBe('BreadcrumbList');
     const items = ld.itemListElement as Array<Record<string, unknown>>;

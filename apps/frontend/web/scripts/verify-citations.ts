@@ -18,25 +18,31 @@ async function pmidResolves(pmid: string): Promise<boolean> {
   return json.result?.[pmid] !== undefined;
 }
 
-let failures = 0;
+// Sentinel values an article carries until a human signs off its factual review.
+const UNREVIEWED = new Set(['PLACEHOLDER', 'PENDING']);
+
+let citationFailures = 0;
+let unreviewed = 0;
 for (const a of EXERCISE_ARTICLES) {
-  if (a.reviewedBy === 'PLACEHOLDER') {
-    console.error(`✗ ${a.exerciseId}: still PLACEHOLDER (not reviewed)`);
-    failures++;
-    continue;
-  }
+  // Always verify citations resolve — even for not-yet-reviewed articles, so
+  // a fabricated DOI is caught the moment the content lands.
   for (const r of a.references) {
     const ok = r.doi !== undefined ? await doiResolves(r.doi) : await pmidResolves(r.pmid ?? '');
     if (!ok) {
       console.error(`✗ ${a.exerciseId}: unresolved ${r.doi ?? r.pmid} — "${r.title}"`);
-      failures++;
+      citationFailures++;
     } else {
       console.error(`✓ ${a.exerciseId}: ${r.doi ?? r.pmid}`);
     }
   }
+  if (UNREVIEWED.has(a.reviewedBy)) {
+    console.error(`✗ ${a.exerciseId}: not reviewed (reviewedBy="${a.reviewedBy}")`);
+    unreviewed++;
+  }
 }
-if (failures > 0) {
-  console.error(`\n${failures} citation failure(s).`);
+
+if (citationFailures > 0 || unreviewed > 0) {
+  console.error(`\n${citationFailures} citation failure(s), ${unreviewed} unreviewed article(s).`);
   process.exit(1);
 }
-console.error('\nAll citations resolved.');
+console.error('\nAll citations resolved and all articles reviewed.');
