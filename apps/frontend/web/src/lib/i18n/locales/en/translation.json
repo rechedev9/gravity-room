@@ -92,6 +92,7 @@
     },
     "program_preview": {
       "about": "About {{name}}",
+      "faq_title": "Frequently asked questions",
       "by_author": "By {{author}}",
       "back_label": "← Home",
       "back_aria": "Back to home",
@@ -121,39 +122,183 @@
     "programs": {
       "gzclp": {
         "name": "GZCLP",
-        "description": "How to train on Kaio-sama's planet: linear progression under constant pressure. 4-day rotation with T1, T2, and T3 exercises. Fail a lift and you switch stages and keep fighting. Inspired by Cody LeFever's GZCL method."
+        "description": "How to train on Kaio-sama's planet: linear progression under constant pressure. 4-day rotation with T1, T2, and T3 exercises. Fail a lift and you switch stages and keep fighting. Inspired by Cody LeFever's GZCL method.",
+        "seoTitle": "GZCLP Linear Progression, 4-Day Program | Gravity Room",
+        "seoDescription": "GZCLP is a beginner program based on Cody LeFever's GZCL method: 4-day rotation with T1, T2, T3 tiers and linear progression (5x3, 6x2, deload).",
+        "faq": [
+          {
+            "question": "Is GZCLP good for beginners?",
+            "answer": "Yes. GZCLP is a beginner-level program built on the GZCL method, using linear progression so you add weight steadily over a 4-day training rotation."
+          },
+          {
+            "question": "How many days a week is GZCLP?",
+            "answer": "GZCLP runs on a 4-day rotation, with each session built around T1, T2 and T3 tier exercises."
+          },
+          {
+            "question": "What happens in GZCLP when you fail a lift?",
+            "answer": "When you fail, you change stage rather than stalling: the progression moves from 5x3 to 6x2 and then to a deload before resetting."
+          }
+        ]
       },
       "hexan-ppl": {
         "name": "HeXaN PPL",
-        "description": "Six days of Kaioken: push your body to the limit with strength and volume. Push/Pull/Legs combining 5/3/1 on the main compounds with double progression on accessories. Inspired by HeXaN's methodology."
+        "description": "Six days of Kaioken: push your body to the limit with strength and volume. Push/Pull/Legs combining 5/3/1 on the main compounds with double progression on accessories. Inspired by HeXaN's methodology.",
+        "seoTitle": "5/3/1 Push Pull Legs, 6 Days/Week - HeXaN | Gravity Room",
+        "seoDescription": "5/3/1 Push/Pull/Legs program, 6 days a week: 5/3/1 on the main compound lifts plus double progression on accessories. Free workout tracker.",
+        "faq": [
+          {
+            "question": "How many days a week is the HeXaN PPL program?",
+            "answer": "HeXaN PPL runs 6 days a week, training Push, Pull and Legs twice each week."
+          },
+          {
+            "question": "How does progression work in HeXaN PPL?",
+            "answer": "Main compound lifts progress via 5/3/1, while accessory exercises use double progression: add reps first, then weight."
+          },
+          {
+            "question": "What training method does HeXaN PPL use?",
+            "answer": "It combines a Push/Pull/Legs split with 5/3/1 for the main compound lifts and double progression on accessories, inspired by the HeXaN methodology."
+          }
+        ]
       },
       "stronglifts-5x5": {
         "name": "StrongLifts 5x5",
-        "description": "A classic beginner strength program. Two alternating workouts (A/B), 3 days per week. Squat every session, linear progression of +2.5 kg per workout (+5 kg on deadlift). Three consecutive failures trigger a 10% deload."
+        "description": "A classic beginner strength program. Two alternating workouts (A/B), 3 days per week. Squat every session, linear progression of +2.5 kg per workout (+5 kg on deadlift). Three consecutive failures trigger a 10% deload.",
+        "seoTitle": "StrongLifts 5x5 - 3-Day A/B Strength | Gravity Room",
+        "seoDescription": "StrongLifts 5x5 by Mehdi Hadim: a beginner strength program, 3 days/week, alternating A/B workouts with squats every session and linear +2.5 kg progression.",
+        "faq": [
+          {
+            "question": "How many days a week is StrongLifts 5x5?",
+            "answer": "StrongLifts 5x5 runs 3 days per week, alternating two workouts (A and B) on non-consecutive days."
+          },
+          {
+            "question": "Is StrongLifts 5x5 good for beginners?",
+            "answer": "Yes, it is a classic beginner strength program built around simple linear progression and the main barbell lifts."
+          },
+          {
+            "question": "How does weight progression work in StrongLifts 5x5?",
+            "answer": "You add +2.5 kg each workout (+5 kg on deadlift); after three consecutive failures on a lift you deload that lift by 10%."
+          }
+        ]
       },
       "phraks-greyskull-lp": {
         "name": "Phrak's Greyskull LP",
-        "description": "Phrakture's beginner strength program. Two alternating workouts (A/B), 3 days per week. Every exercise ends with an AMRAP set (to technical failure). Linear progression with a 10% deload on failure."
+        "description": "Phrakture's beginner strength program. Two alternating workouts (A/B), 3 days per week. Every exercise ends with an AMRAP set (to technical failure). Linear progression with a 10% deload on failure.",
+        "seoTitle": "Phrak's Greyskull LP: 3-Day Beginner | Gravity Room",
+        "seoDescription": "Phrak's Greyskull LP: beginner strength program, 3 days/week, alternating A/B workouts with an AMRAP final set and linear progression (10% deload on failure).",
+        "faq": [
+          {
+            "question": "Is Phrak's Greyskull LP good for beginners?",
+            "answer": "Yes. It is a beginner-level linear-progression strength program with a simple A/B structure designed to add weight each session."
+          },
+          {
+            "question": "How many days a week is Phrak's Greyskull LP?",
+            "answer": "It runs 3 days per week, alternating between two workouts (A and B)."
+          },
+          {
+            "question": "What happens when you fail a lift on Phrak's Greyskull LP?",
+            "answer": "When you fail to progress, the weight is reduced by 10% (a deload) and you climb back up via linear progression. Each exercise also ends with an AMRAP final set."
+          }
+        ]
       },
       "531-boring-but-big": {
         "name": "5/3/1 Boring But Big",
-        "description": "Master Roshi's secret to strength: boring reps, huge results. 4-week cycles (5s, 3s, 5/3/1, deload) with 5×10 supplemental volume. 4 days per week. Inspired by Jim Wendler's 5/3/1 BBB."
+        "description": "Master Roshi's secret to strength: boring reps, huge results. 4-week cycles (5s, 3s, 5/3/1, deload) with 5×10 supplemental volume. 4 days per week. Inspired by Jim Wendler's 5/3/1 BBB.",
+        "seoTitle": "5/3/1 Boring But Big — 4-Day Strength | Gravity Room",
+        "seoDescription": "Wendler 5/3/1 Boring But Big tracker: 4-day intermediate strength program, 4-week cycles (5s, 3s, 5/3/1, deload) with 5x10 supplemental volume.",
+        "faq": [
+          {
+            "question": "How many days a week is 5/3/1 Boring But Big?",
+            "answer": "5/3/1 Boring But Big runs 4 days per week, organized in 4-week cycles."
+          },
+          {
+            "question": "What is the structure of 5/3/1 BBB?",
+            "answer": "Each 4-week cycle follows a 5s week, a 3s week, a 5/3/1 week, and a deload week, with 5x10 supplemental volume on top of the main lifts."
+          },
+          {
+            "question": "Is 5/3/1 Boring But Big good for intermediate lifters?",
+            "answer": "Yes. It is classified as an intermediate strength program, built on Jim Wendler's 5/3/1 BBB and designed to add muscle and strength through high-volume 5x10 supplemental work."
+          }
+        ]
       },
       "531-for-beginners": {
         "name": "5/3/1 for Beginners",
-        "description": "Full-body training at Kami's Lookout: 3 days per week, two main lifts per session. 3-week cycles (5s, 3s, 5/3/1) with FSL 5×5 as supplemental work. Methodical and balanced. Inspired by Jim Wendler's 5/3/1 for Beginners."
+        "description": "Full-body training at Kami's Lookout: 3 days per week, two main lifts per session. 3-week cycles (5s, 3s, 5/3/1) with FSL 5×5 as supplemental work. Methodical and balanced. Inspired by Jim Wendler's 5/3/1 for Beginners.",
+        "seoTitle": "5/3/1 for Beginners — 3-Day Strength | Gravity Room",
+        "seoDescription": "Jim Wendler's 5/3/1 for Beginners: full-body strength, 3 days/week, two main lifts per session, 3-week 5s/3s/5-3-1 cycles with FSL 5x5 supplemental.",
+        "faq": [
+          {
+            "question": "How many days a week is 5/3/1 for Beginners?",
+            "answer": "It runs 3 days per week, training the full body each session with two main lifts per workout."
+          },
+          {
+            "question": "Is 5/3/1 for Beginners good for new lifters?",
+            "answer": "Yes. It's Jim Wendler's beginner-oriented 5/3/1 variant, using simple full-body sessions and a structured 3-week cycle to build strength."
+          },
+          {
+            "question": "What is the structure and progression of 5/3/1 for Beginners?",
+            "answer": "It uses 3-week cycles (5s, 3s, then 5/3/1) on the main lifts, with First Set Last (FSL) 5x5 as the supplemental work."
+          }
+        ]
       },
       "phul": {
         "name": "PHUL",
-        "description": "Strength and size like Vegeta in his gravity chamber: two days of pure power (heavy compounds, 3–5 reps) and two of hypertrophy (8–12 reps). 4 days per week. Inspired by Brandon Campbell's PHUL."
+        "description": "Strength and size like Vegeta in his gravity chamber: two days of pure power (heavy compounds, 3–5 reps) and two of hypertrophy (8–12 reps). 4 days per week. Inspired by Brandon Campbell's PHUL.",
+        "seoTitle": "PHUL Workout: 4-Day Power & Hypertrophy | Gravity Room",
+        "seoDescription": "PHUL (Power Hypertrophy Upper Lower) is a 4-day intermediate split: 2 power days (heavy compounds, 3-5 reps) and 2 hypertrophy days (8-12 reps).",
+        "faq": [
+          {
+            "question": "How many days a week is the PHUL program?",
+            "answer": "PHUL runs 4 days per week: two power days and two hypertrophy days, each split into upper and lower body sessions."
+          },
+          {
+            "question": "What is the difference between power and hypertrophy days in PHUL?",
+            "answer": "Power days use heavy compound lifts in the 3-5 rep range to build strength, while hypertrophy days use 8-12 reps to drive muscle growth."
+          },
+          {
+            "question": "Is PHUL good for intermediate lifters?",
+            "answer": "Yes. PHUL is an intermediate-level program, based on Brandon Campbell's Power Hypertrophy Upper Lower split, that combines strength and size work across 4 weekly sessions."
+          }
+        ]
       },
       "nivel-7": {
         "name": "Level 7",
-        "description": "A 12-week strength program with reverse periodization. You set your target record (week 6) and weights are calculated backwards. Block 1 (5×5) with a deload in week 3, Block 2 (3×3) peaking at the record. Cycle 2 repeats the wave with +2.5 kg. Accessories use double progression 3×8–12. 4 days/week: shoulders/triceps, back/calves, chest/biceps, legs."
+        "description": "A 12-week strength program with reverse periodization. You set your target record (week 6) and weights are calculated backwards. Block 1 (5×5) with a deload in week 3, Block 2 (3×3) peaking at the record. Cycle 2 repeats the wave with +2.5 kg. Accessories use double progression 3×8–12. 4 days/week: shoulders/triceps, back/calves, chest/biceps, legs.",
+        "seoTitle": "12-Week Reverse Periodization Strength, 4 Days | Gravity Room",
+        "seoDescription": "12-week reverse-periodization strength program, 4 days/week: Block 1 5x5, Block 2 3x3, 3x8-12 accessories. Set a week-6 target record; weights back-calculate.",
+        "faq": [
+          {
+            "question": "How many days per week is this 12-week strength program?",
+            "answer": "It runs 4 days per week across 12 weeks, structured as Block 1 (5x5) followed by Block 2 (3x3)."
+          },
+          {
+            "question": "How does reverse periodization work in this program?",
+            "answer": "You set a target record for week 6 and the program calculates the weights backward from it, so earlier weeks build up to that planned peak."
+          },
+          {
+            "question": "What set and rep scheme does this program use?",
+            "answer": "The main work is Block 1 at 5x5 and Block 2 at 3x3, with accessories run as 3x8-12 using double progression."
+          }
+        ]
       },
       "caparazon-de-tortuga": {
         "name": "Turtle Shell",
-        "description": "Your training at Kame House: start from zero with bodyweight and gradually add the bar. 200 sessions, 3 days/week. 4 blocks per session: Core, Activation, Proprioception, and the Fundamental Lift. Inspired by Amerigo Brunetti's methodology."
+        "description": "Your training at Kame House: start from zero with bodyweight and gradually add the bar. 200 sessions, 3 days/week. 4 blocks per session: Core, Activation, Proprioception, and the Fundamental Lift. Inspired by Amerigo Brunetti's methodology.",
+        "seoTitle": "Brunetti Bodyweight-to-Barbell, 3 Days/Wk | Gravity Room",
+        "seoDescription": "Beginner strength program based on Amerigo Brunetti's bodyweight-to-barbell method: 200 sessions, 3 days/week, 4 blocks per session.",
+        "faq": [
+          {
+            "question": "Is the Amerigo Brunetti bodyweight-to-barbell method good for beginners?",
+            "answer": "Yes. It is a beginner-level strength program that starts from zero with bodyweight exercises and gradually adds the barbell, so no prior lifting experience is needed."
+          },
+          {
+            "question": "How many days a week and how many sessions is this program?",
+            "answer": "It runs 3 days per week across 200 total sessions, making it a long-term progression from bodyweight toward barbell training."
+          },
+          {
+            "question": "How is each session structured?",
+            "answer": "Every session has 4 blocks: Core, Activation, Proprioception, and the Fundamental Exercise (main lift), following Amerigo Brunetti's methodology."
+          }
+        ]
       },
       "365-programmare-lipertrofia": {
         "name": "365 Programmare l'Ipertrofia",
@@ -165,39 +310,183 @@
       },
       "sala-del-tiempo-1": {
         "name": "Hyperbolic Time Chamber 1",
-        "description": "Phase T1 — Perfezionamento Tecnico: 24 sessions of technique with light loads (40–70% TM). Isometrics, tempos, and movement control on the squat, bench press, and deadlift. 6 weeks, 4 days/week. Inspired by Amerigo Brunetti's methodology."
+        "description": "Phase T1 — Perfezionamento Tecnico: 24 sessions of technique with light loads (40–70% TM). Isometrics, tempos, and movement control on the squat, bench press, and deadlift. 6 weeks, 4 days/week. Inspired by Amerigo Brunetti's methodology.",
+        "seoTitle": "Brunetti 365 Phase T1 Technique - 4 days/wk | Gravity Room",
+        "seoDescription": "Brunetti 365 phase T1 technique block: 24 sessions, 6 weeks, 4 days/week of tempo, isometric and control work at 40-70% TM on squat, bench, deadlift.",
+        "faq": [
+          {
+            "question": "What is the Brunetti 365 T1 technique phase?",
+            "answer": "It is the T1 phase (T1 — Perfezionamento Tecnico) of Amerigo Brunetti's 365 hypertrophy program: 24 sessions of technique work with light loads at 40-70% of your training max, focused on tempo, isometrics and control on the squat, bench press and deadlift."
+          },
+          {
+            "question": "How many days a week and weeks long is the program?",
+            "answer": "It runs 4 days per week for 6 weeks, totaling 24 sessions."
+          },
+          {
+            "question": "What does this T1 technique phase focus on?",
+            "answer": "It focuses on refining squat, bench press and deadlift technique through tempo work, isometrics and control with light loads (40-70% training max)."
+          }
+        ]
       },
       "sala-del-tiempo-2": {
         "name": "Hyperbolic Time Chamber 2",
-        "description": "Phase PN — Potenziamento Neurale: 52 sessions of progressive neural potentiation (60–95% TM). Load ramping and strength sets to carry technique over to heavier weights. 13 weeks, 4 days/week. Inspired by Amerigo Brunetti's methodology."
+        "description": "Phase PN — Potenziamento Neurale: 52 sessions of progressive neural potentiation (60–95% TM). Load ramping and strength sets to carry technique over to heavier weights. 13 weeks, 4 days/week. Inspired by Amerigo Brunetti's methodology.",
+        "seoTitle": "Brunetti 365 PN Phase, 4-Day Hypertrophy | Gravity Room",
+        "seoDescription": "Brunetti 365 PN neural potentiation phase: 13-week, 4-day/week hypertrophy block, 52 sessions with load ramping and strength sets at 60-95% of training max.",
+        "faq": [
+          {
+            "question": "What is the Brunetti 365 PN phase?",
+            "answer": "It is the Potenziamento Neurale (neural potentiation) phase of Amerigo Brunetti's 365 hypertrophy program: 52 sessions of progressive neural potentiation working between 60-95% of your training max with load ramping and strength sets."
+          },
+          {
+            "question": "How many days a week and how long is the PN phase?",
+            "answer": "The PN phase runs 13 weeks at 4 days per week, totaling 52 training sessions."
+          },
+          {
+            "question": "What does the Brunetti 365 PN phase involve?",
+            "answer": "It is a hypertrophy block built on progressive neural potentiation, with load ramping and strength sets that work between 60-95% of your training max across 52 sessions."
+          }
+        ]
       },
       "sala-del-tiempo-3": {
         "name": "Hyperbolic Time Chamber 3",
-        "description": "Phase JAW Mod — 72 sessions of intensification across 3 six-week blocks (60 → 70 → 80% TM). Each block ends with a 1RM test that feeds the next block's TM. 18 weeks, 4 days/week. Inspired by Amerigo Brunetti's methodology."
+        "description": "Phase JAW Mod — 72 sessions of intensification across 3 six-week blocks (60 → 70 → 80% TM). Each block ends with a 1RM test that feeds the next block's TM. 18 weeks, 4 days/week. Inspired by Amerigo Brunetti's methodology.",
+        "seoTitle": "Brunetti 365 JAW Phase, 4-Day Intermediate | Gravity Room",
+        "seoDescription": "Brunetti 365 JAW phase: 18-week intermediate hypertrophy program, 4 days/week, 72 sessions in three 6-week blocks (60-70-80% TM), each ending in a 1RM test.",
+        "faq": [
+          {
+            "question": "What is the Brunetti 365 JAW phase?",
+            "answer": "It is the JAW (intensification) phase of Amerigo Brunetti's 365 hypertrophy program: 72 sessions across three 6-week blocks at 60%, 70% and 80% of training max, with a 1RM test at the end of each block."
+          },
+          {
+            "question": "How many days a week is the Brunetti 365 JAW program?",
+            "answer": "It runs 4 days per week over 18 weeks, totaling 72 intensification sessions."
+          },
+          {
+            "question": "Who is the Brunetti 365 JAW phase for?",
+            "answer": "It targets intermediate lifters focused on hypertrophy who want progressive intensification, since each 6-week block steps up the load from 60% to 70% to 80% of training max."
+          }
+        ]
       },
       "tenkaichi-budokai-sentadilla": {
         "name": "Tenkaichi Budokai — Squat",
-        "description": "A 16-week tournament prep with a squat focus. Exact percentages of your 1RM, mesocycle periodization, deload before competition. 4 days per week. Inspired by Boris Sheiko's methodology."
+        "description": "A 16-week tournament prep with a squat focus. Exact percentages of your 1RM, mesocycle periodization, deload before competition. 4 days per week. Inspired by Boris Sheiko's methodology.",
+        "seoTitle": "Sheiko Squat Program, 16 Weeks 4 Days | Gravity Room",
+        "seoDescription": "Boris Sheiko-inspired 16-week squat-focused powerlifting prep: 4 days/week, exact 1RM percentages, mesocycle periodization and a pre-meet deload.",
+        "faq": [
+          {
+            "question": "How many days a week is this Sheiko squat program?",
+            "answer": "It runs 4 days per week across a 16-week block with a squat emphasis."
+          },
+          {
+            "question": "Who is this Boris Sheiko-inspired program for?",
+            "answer": "It is a squat-focused powerlifting prep for lifters peaking for a meet, using exact 1RM percentages and mesocycle periodization."
+          },
+          {
+            "question": "Does this program include a deload before competition?",
+            "answer": "Yes. It periodizes training across mesocycles and schedules a deload before competing to peak for a meet."
+          }
+        ]
       },
       "tenkaichi-budokai-press-banca": {
         "name": "Tenkaichi Budokai — Bench Press",
-        "description": "A 16-week tournament prep with a bench focus. Exact percentages of your 1RM, multiple bench variations. 4 days per week. Inspired by Boris Sheiko's methodology."
+        "description": "A 16-week tournament prep with a bench focus. Exact percentages of your 1RM, multiple bench variations. 4 days per week. Inspired by Boris Sheiko's methodology.",
+        "seoTitle": "Sheiko Bench Program, 16 Weeks 4 Days | Gravity Room",
+        "seoDescription": "Sheiko-inspired 16-week powerlifting bench specialization, 4 days/week, percentage-based off your 1RM with multiple bench variations. For advanced lifters.",
+        "faq": [
+          {
+            "question": "How long is this Sheiko-inspired bench program?",
+            "answer": "It runs 16 weeks of bench-emphasis powerlifting prep, training 4 days per week."
+          },
+          {
+            "question": "Is this Sheiko bench program suitable for beginners?",
+            "answer": "No. It is an advanced program that uses exact percentages of your 1RM and multiple bench variations, so it assumes an established 1RM and lifting experience."
+          },
+          {
+            "question": "How is the load programmed in this bench program?",
+            "answer": "Every session is percentage-based off your current 1RM, with several bench press variations spread across 4 training days a week."
+          }
+        ]
       },
       "tenkaichi-budokai-peso-muerto": {
         "name": "Tenkaichi Budokai — Deadlift",
-        "description": "A 16-week tournament prep with a deadlift focus. Deficit, blocks, chains, bands — every deadlift variation. 4 days per week. Inspired by Boris Sheiko's methodology."
+        "description": "A 16-week tournament prep with a deadlift focus. Deficit, blocks, chains, bands — every deadlift variation. 4 days per week. Inspired by Boris Sheiko's methodology.",
+        "seoTitle": "Sheiko Deadlift Prep, 4 Days/Week | Gravity Room",
+        "seoDescription": "Boris Sheiko-inspired 16-week deadlift-focused powerlifting prep: deficit pulls, training blocks, chains and bands, 4 days per week.",
+        "faq": [
+          {
+            "question": "How many days a week is this Sheiko-style deadlift program?",
+            "answer": "It runs 4 days per week across a 16-week powerlifting preparation cycle with deadlift emphasis."
+          },
+          {
+            "question": "What is this Boris Sheiko-inspired program focused on?",
+            "answer": "It is a 16-week powerlifting preparation block centered on building the deadlift."
+          },
+          {
+            "question": "What deadlift variations and tools does it use?",
+            "answer": "It emphasizes the deadlift using deficit pulls, training blocks, and accommodating resistance from chains and bands."
+          }
+        ]
       },
       "tenkaichi-budokai-solo-banca": {
         "name": "Tenkaichi Budokai — Bench Only",
-        "description": "An 18-week prep focused entirely on the bench press. No competition squat or deadlift — all energy going into a single strike. 4 days per week. Inspired by Boris Sheiko's methodology."
+        "description": "An 18-week prep focused entirely on the bench press. No competition squat or deadlift — all energy going into a single strike. 4 days per week. Inspired by Boris Sheiko's methodology.",
+        "seoTitle": "Sheiko Bench-Only Program, 4 Days/Week | Gravity Room",
+        "seoDescription": "An 18-week, bench-press-only powerlifting program inspired by Boris Sheiko, 4 days/week, with no competition squat or deadlift.",
+        "faq": [
+          {
+            "question": "How many weeks and days per week is this Sheiko bench-only program?",
+            "answer": "It runs for 18 weeks at 4 training days per week, focused exclusively on the bench press."
+          },
+          {
+            "question": "Does this program include squat and deadlift?",
+            "answer": "No. It is a bench-press-only specialization with no competition squat or deadlift; all sessions center on the bench press."
+          },
+          {
+            "question": "Who is this Boris Sheiko bench program for?",
+            "answer": "It is a powerlifting program for lifters who want to peak their bench press, inspired by Boris Sheiko's bench-only methodology."
+          }
+        ]
       },
       "tenkaichi-budokai-veterano": {
         "name": "Tenkaichi Budokai — Veteran",
-        "description": "Sheiko's most popular program for experienced warriors. 4 prep mesocycles with moderate volume and a built-in 1RM test. Use your combat experience to reach the tournament at your best. 4 days per week. Inspired by Boris Sheiko's methodology."
+        "description": "Sheiko's most popular program for experienced warriors. 4 prep mesocycles with moderate volume and a built-in 1RM test. Use your combat experience to reach the tournament at your best. 4 days per week. Inspired by Boris Sheiko's methodology.",
+        "seoTitle": "Sheiko Advanced Program, 4 Days/Week | Gravity Room",
+        "seoDescription": "Boris Sheiko's most popular powerlifting program for experienced lifters: 4 mesocycles, medium volume, built-in 1RM test, 4 days/week. Free tracker.",
+        "faq": [
+          {
+            "question": "Who is this Sheiko-inspired program for?",
+            "answer": "It is designed for advanced, experienced powerlifters. It is Boris Sheiko's most popular program, built around 4 medium-volume preparation mesocycles with a built-in 1RM test."
+          },
+          {
+            "question": "How many days a week is the Sheiko program?",
+            "answer": "It runs 4 days per week, organized into 4 preparation mesocycles with a built-in 1RM test."
+          },
+          {
+            "question": "Does this program test your 1-rep max?",
+            "answer": "Yes. It includes a 1RM test integrated into the program, so you can measure strength gains after the 4 preparation mesocycles."
+          }
+        ]
       },
       "furia-oscura": {
         "name": "Dark Fury",
-        "description": "Train like a Saiyan: Push/Pull/Legs with A/B weekly alternation. 3 days/week, Hyperbolic Time Chamber style, double progression until you break your limits."
+        "description": "Train like a Saiyan: Push/Pull/Legs with A/B weekly alternation. 3 days/week, Hyperbolic Time Chamber style, double progression until you break your limits.",
+        "seoTitle": "Push Pull Legs A/B, 3 Days/Week | Gravity Room",
+        "seoDescription": "Push/Pull/Legs A/B split, 3 days a week with weekly A/B alternation and double progression. Track this routine free on Gravity Room.",
+        "faq": [
+          {
+            "question": "How many days a week is this Push/Pull/Legs program?",
+            "answer": "It runs 3 days a week, alternating between A and B sessions each week so you cover Push, Pull, and Legs across the rotation."
+          },
+          {
+            "question": "How does the A/B alternation work?",
+            "answer": "You train 3 days a week and swap between the A and B versions of the Push, Pull, and Legs sessions from one week to the next, so the rotation stays varied."
+          },
+          {
+            "question": "How does progression work on this program?",
+            "answer": "It uses double progression: you add reps within a target range and then increase the weight once you hit the top of the range."
+          }
+        ]
       }
     }
   },
@@ -868,6 +1157,7 @@
     "back": "← Back",
     "privacy": {
       "document_title": "Privacy Policy — Gravity Room",
+      "meta_description": "Gravity Room privacy policy: what data we store, optional cloud sync, and your rights. Free, open-source weightlifting tracker.",
       "title": "Privacy Policy",
       "data_stored": {
         "title": "Data We Store",
@@ -901,6 +1191,7 @@
     },
     "cookie_policy": {
       "document_title": "Cookie Policy — Gravity Room",
+      "meta_description": "Gravity Room cookie policy: which cookies we use and why. Privacy-friendly analytics, no advertising or tracking cookies.",
       "title": "Cookie Policy",
       "what_are_cookies": {
         "title": "What are cookies?",

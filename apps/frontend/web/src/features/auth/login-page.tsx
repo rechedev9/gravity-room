@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from '@tanstack/react-router';
-import { useDocumentTitle } from '@/hooks/use-document-title';
+import { useHead } from '@/hooks/use-head';
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
@@ -27,7 +27,13 @@ function LoginPageInner(): React.ReactNode {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
-  useDocumentTitle(t('login.page.title'));
+  // /login is disallowed in robots.txt and behind auth — keep it out of the
+  // index explicitly and give it a self-canonical instead of the landing's.
+  useHead({
+    title: t('login.page.title'),
+    canonical: 'https://gravityroom.app/login',
+    robots: 'noindex, follow',
+  });
 
   // Redirect away from /login once session restore completes with an authenticated user.
   // beforeLoad only runs once at navigation time; this handles the async restore case.

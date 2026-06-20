@@ -1,10 +1,16 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
-import { useDocumentTitle } from '@/hooks/use-document-title';
+import { useHead } from '@/hooks/use-head';
 
 export function CookiePolicyPage(): React.ReactNode {
   const { t } = useTranslation();
-  useDocumentTitle(t('legal.cookie_policy.document_title'));
+  // Self-referencing canonical so this page stops inheriting the landing's
+  // canonical/OG from index.html.
+  useHead({
+    title: t('legal.cookie_policy.document_title'),
+    description: t('legal.cookie_policy.meta_description'),
+    canonical: 'https://gravityroom.app/cookies',
+  });
 
   return (
     <div className="min-h-dvh bg-body">

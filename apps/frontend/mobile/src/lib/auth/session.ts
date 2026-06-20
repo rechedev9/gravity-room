@@ -128,6 +128,12 @@ function readRefreshResponse(value: unknown): RefreshResponse {
 function getApiBaseUrl(): string {
   const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL;
   if (typeof configuredApiUrl === 'string' && configuredApiUrl.length > 0) {
+    // In production builds refuse cleartext: a misconfigured http:// URL would
+    // send the bearer access token and refresh token unencrypted. Plain http is
+    // only allowed in dev (e.g. http://localhost:3001 against a local API).
+    if (!__DEV__ && !configuredApiUrl.startsWith('https://')) {
+      throw new Error('EXPO_PUBLIC_API_URL must use https:// in production builds');
+    }
     return configuredApiUrl;
   }
 

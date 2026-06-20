@@ -44,9 +44,13 @@ export const users = pgTable(
     /**
      * Soft-delete timestamp. When set, the user is in a 30-day grace period
      * before `purge-deleted-users.ts` hard-deletes (CASCADE) the row and all
-     * related data. The JWT middleware's `findUserById()` filters
-     * `WHERE deleted_at IS NULL`, so soft-deleted users cannot authenticate.
-     * Short-lived access tokens (~15 min) naturally expire within the window.
+     * related data. The `/me` and token-refresh paths filter
+     * `WHERE deleted_at IS NULL` (via `findUserById()` and token rotation), so a
+     * soft-deleted user cannot fetch their profile or obtain NEW tokens. The
+     * resource-route guard (`resolveUserId`) validates the JWT statelessly and
+     * does not check `deleted_at`, so an access token issued before deletion
+     * keeps working until it expires (~15 min) — `softDeleteUser` revokes the
+     * refresh tokens, so no further tokens can be minted after that window.
      */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

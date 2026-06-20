@@ -15,12 +15,17 @@
     <link rel="canonical" href="https://gravityroom.app/" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/logo-192.webp" />
+
+    <!-- Warm up the cross-origin API connection (DNS + TLS) before the first
+         catalog/auth fetch. api.gravityroom.app is a separate subdomain. -->
+    <link rel="preconnect" href="https://api.gravityroom.app" crossorigin />
+    <link rel="dns-prefetch" href="https://api.gravityroom.app" />
     <meta name="robots" content="index, follow" />
 
-    <!-- hreflang: Spanish root + English /en -->
-    <link rel="alternate" hreflang="es" href="https://gravityroom.app/" />
-    <link rel="alternate" hreflang="en" href="https://gravityroom.app/en" />
-    <link rel="alternate" hreflang="x-default" href="https://gravityroom.app/en" />
+    <!-- hreflang is set per-route by useHead (landing ES `/` + EN `/en` only).
+         It is intentionally NOT static here: a static set would leak onto every
+         prerendered page (program/legal) and falsely advertise the landing as
+         their language alternate. -->
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
@@ -73,6 +78,18 @@
         "@type": "WebSite",
         "name": "Gravity Room",
         "url": "https://gravityroom.app"
+      }
+    </script>
+
+    <!-- JSON-LD: Organization (brand entity — logo + social profiles) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "Gravity Room",
+        "url": "https://gravityroom.app",
+        "logo": "https://gravityroom.app/logo.webp",
+        "sameAs": ["https://github.com/rechedev9/gravity-room", "https://discord.gg/FXNBrgYf7U"]
       }
     </script>
 

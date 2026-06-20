@@ -26,17 +26,17 @@ jobs:
           - service: analytics
             dockerfile: apps/backend/analytics/Dockerfile
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: ${{ matrix.dockerfile }}
@@ -51,9 +51,9 @@ jobs:
     name: Build web SPA
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version-file: .bun-version
 
@@ -79,7 +79,7 @@ jobs:
           mkdir -p apps/frontend/web/dist/presentacion
           cp -r presentation/dist/. apps/frontend/web/dist/presentacion/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: web-dist
           path: apps/frontend/web/dist/
@@ -91,9 +91,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-images, build-web]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: web-dist
           path: ./web-dist
@@ -233,3 +233,15 @@ jobs:
           printf '%s\n' "$api_headers" | grep -qi "upgrade-insecure-requests"
 
           curl -fsS https://gravityroom.app/.well-known/security.txt | grep -q '^Contact:'
+
+      # Push the (now-live) sitemap URLs to IndexNow so Bing — and the engines
+      # that draw on its index (ChatGPT Search, Copilot) — re-crawl without
+      # waiting for discovery. The script is dependency-free and best-effort.
+      - name: Set up Bun for IndexNow ping
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Ping IndexNow (Bing / ChatGPT Search)
+        continue-on-error: true
+        run: bun apps/frontend/web/scripts/indexnow-ping.ts

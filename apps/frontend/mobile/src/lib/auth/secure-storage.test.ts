@@ -24,7 +24,8 @@ describe('secureRefreshTokenStorage', () => {
     expect(mockedSecureStore.getItemAsync).toHaveBeenCalledWith('auth.refresh-token');
     expect(mockedSecureStore.setItemAsync).toHaveBeenCalledWith(
       'auth.refresh-token',
-      'next-refresh-token'
+      'next-refresh-token',
+      { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY }
     );
     expect(mockedSecureStore.deleteItemAsync).toHaveBeenCalledWith('auth.refresh-token');
   });

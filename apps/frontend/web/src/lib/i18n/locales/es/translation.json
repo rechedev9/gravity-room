@@ -92,6 +92,7 @@
     },
     "program_preview": {
       "about": "Acerca de {{name}}",
+      "faq_title": "Preguntas frecuentes",
       "by_author": "Por {{author}}",
       "back_label": "← Inicio",
       "back_aria": "Volver al inicio",
@@ -121,39 +122,183 @@
     "programs": {
       "gzclp": {
         "name": "GZCLP",
-        "description": "Como entrenar en el planeta de Kaio-sama: progresión lineal bajo presión constante. Rotación de 4 días con ejercicios T1, T2 y T3. Si fallas, cambias de etapa y sigues luchando. Inspirado en el método GZCL de Cody LeFever."
+        "description": "Como entrenar en el planeta de Kaio-sama: progresión lineal bajo presión constante. Rotación de 4 días con ejercicios T1, T2 y T3. Si fallas, cambias de etapa y sigues luchando. Inspirado en el método GZCL de Cody LeFever.",
+        "seoTitle": "GZCLP: progresión lineal 4 días | Gravity Room",
+        "seoDescription": "GZCLP es un programa para principiantes del método GZCL de Cody LeFever: rotación de 4 días, niveles T1, T2 y T3 y progresión lineal (5x3, 6x2, deload).",
+        "faq": [
+          {
+            "question": "¿Es GZCLP bueno para principiantes?",
+            "answer": "Sí. GZCLP es un programa de nivel principiante basado en el método GZCL, con progresión lineal para subir peso de forma constante en una rotación de 4 días."
+          },
+          {
+            "question": "¿Cuántos días a la semana es GZCLP?",
+            "answer": "GZCLP se organiza en una rotación de 4 días, y cada sesión se estructura en torno a ejercicios de los niveles T1, T2 y T3."
+          },
+          {
+            "question": "¿Qué pasa en GZCLP cuando fallas una serie?",
+            "answer": "Cuando fallas, cambias de etapa en lugar de estancarte: la progresión pasa de 5x3 a 6x2 y luego a un deload antes de reiniciar."
+          }
+        ]
       },
       "hexan-ppl": {
         "name": "HeXaN PPL",
-        "description": "Seis días de Kaioken: empuja tu cuerpo al máximo con fuerza y volumen. Push/Pull/Legs combinando 5/3/1 para los compuestos principales con doble progresión en accesorios. Inspirado en la metodología de HeXaN."
+        "description": "Seis días de Kaioken: empuja tu cuerpo al máximo con fuerza y volumen. Push/Pull/Legs combinando 5/3/1 para los compuestos principales con doble progresión en accesorios. Inspirado en la metodología de HeXaN.",
+        "seoTitle": "PPL 5/3/1, 6 días/semana - HeXaN | Gravity Room",
+        "seoDescription": "Programa Push/Pull/Legs 5/3/1, 6 días/semana: 5/3/1 en los compuestos principales y doble progresión en accesorios. Seguimiento de entrenos gratis.",
+        "faq": [
+          {
+            "question": "¿Cuántos días a la semana es el programa HeXaN PPL?",
+            "answer": "HeXaN PPL son 6 días a la semana, entrenando Push, Pull y Legs dos veces cada uno."
+          },
+          {
+            "question": "¿Cómo funciona la progresión en HeXaN PPL?",
+            "answer": "Los compuestos principales progresan con 5/3/1, mientras que los accesorios usan doble progresión: primero sumar repeticiones y luego peso."
+          },
+          {
+            "question": "¿Qué método de entrenamiento usa HeXaN PPL?",
+            "answer": "Combina un esquema Push/Pull/Legs con 5/3/1 en los compuestos principales y doble progresión en accesorios, inspirado en la metodología de HeXaN."
+          }
+        ]
       },
       "stronglifts-5x5": {
         "name": "StrongLifts 5x5",
-        "description": "Programa clásico de fuerza para principiantes. Dos entrenamientos alternos (A/B), 3 días por semana. Sentadilla en cada sesión, progresión lineal de +2.5 kg por entrenamiento (+5 kg en peso muerto). Tres fallos consecutivos provocan una descarga del 10%."
+        "description": "Programa clásico de fuerza para principiantes. Dos entrenamientos alternos (A/B), 3 días por semana. Sentadilla en cada sesión, progresión lineal de +2.5 kg por entrenamiento (+5 kg en peso muerto). Tres fallos consecutivos provocan una descarga del 10%.",
+        "seoTitle": "StrongLifts 5x5: fuerza A/B 3 días | Gravity Room",
+        "seoDescription": "StrongLifts 5x5 de Mehdi Hadim: programa de fuerza para principiantes, 3 días/semana, entrenos alternos A/B, sentadilla siempre y progresión lineal +2.5 kg.",
+        "faq": [
+          {
+            "question": "¿Cuántos días por semana es StrongLifts 5x5?",
+            "answer": "StrongLifts 5x5 son 3 días por semana, alternando dos entrenamientos (A y B) en días no consecutivos."
+          },
+          {
+            "question": "¿Es StrongLifts 5x5 bueno para principiantes?",
+            "answer": "Sí, es un programa clásico de fuerza para principiantes basado en progresión lineal sencilla y los levantamientos básicos con barra."
+          },
+          {
+            "question": "¿Cómo funciona la progresión de peso en StrongLifts 5x5?",
+            "answer": "Sumas +2.5 kg en cada entrenamiento (+5 kg en peso muerto); tras tres fallos consecutivos en un ejercicio se aplica una descarga del 10%."
+          }
+        ]
       },
       "phraks-greyskull-lp": {
         "name": "Phrak's Greyskull LP",
-        "description": "Programa de fuerza para principiantes de Phrakture. Dos entrenamientos alternos (A/B), 3 días por semana. Cada ejercicio termina con una serie AMRAP (al fallo técnico). Progresión lineal con descarga del 10% al fallar."
+        "description": "Programa de fuerza para principiantes de Phrakture. Dos entrenamientos alternos (A/B), 3 días por semana. Cada ejercicio termina con una serie AMRAP (al fallo técnico). Progresión lineal con descarga del 10% al fallar.",
+        "seoTitle": "Greyskull LP de Phrak: 3 días/semana | Gravity Room",
+        "seoDescription": "Greyskull LP de Phrak: programa de fuerza para principiantes, 3 días/semana, entrenamientos A/B alternos con serie AMRAP y progresión lineal (descarga 10% al fallar).",
+        "faq": [
+          {
+            "question": "¿El Greyskull LP de Phrak es bueno para principiantes?",
+            "answer": "Sí. Es un programa de fuerza de progresión lineal para principiantes con una estructura A/B sencilla, pensado para añadir peso en cada sesión."
+          },
+          {
+            "question": "¿Cuántos días a la semana es el Greyskull LP de Phrak?",
+            "answer": "Son 3 días por semana, alternando entre dos entrenamientos (A y B)."
+          },
+          {
+            "question": "¿Qué pasa al fallar un ejercicio en el Greyskull LP de Phrak?",
+            "answer": "Cuando no progresas, se reduce el peso un 10% (descarga) y vuelves a subir con progresión lineal. Además, cada ejercicio termina con una serie AMRAP."
+          }
+        ]
       },
       "531-boring-but-big": {
         "name": "5/3/1 Boring But Big",
-        "description": "El secreto de la fuerza según el Maestro Roshi: repeticiones aburridas pero enormes resultados. Ciclos de 4 semanas (5s, 3s, 5/3/1, descarga) con 5×10 de volumen suplementario. 4 días por semana. Inspirado en 5/3/1 BBB de Jim Wendler."
+        "description": "El secreto de la fuerza según el Maestro Roshi: repeticiones aburridas pero enormes resultados. Ciclos de 4 semanas (5s, 3s, 5/3/1, descarga) con 5×10 de volumen suplementario. 4 días por semana. Inspirado en 5/3/1 BBB de Jim Wendler.",
+        "seoTitle": "5/3/1 Boring But Big — Fuerza 4 días | Gravity Room",
+        "seoDescription": "Tracker de 5/3/1 Boring But Big de Wendler: programa de fuerza intermedio de 4 días, ciclos de 4 semanas (5s, 3s, 5/3/1, descarga) con 5x10 suplementario.",
+        "faq": [
+          {
+            "question": "¿Cuántos días a la semana es 5/3/1 Boring But Big?",
+            "answer": "5/3/1 Boring But Big se entrena 4 días por semana, organizado en ciclos de 4 semanas."
+          },
+          {
+            "question": "¿Cómo se estructura 5/3/1 BBB?",
+            "answer": "Cada ciclo de 4 semanas sigue una semana de 5s, una de 3s, una de 5/3/1 y una de descarga, con 5x10 de volumen suplementario sobre los levantamientos principales."
+          },
+          {
+            "question": "¿Es 5/3/1 Boring But Big adecuado para nivel intermedio?",
+            "answer": "Sí. Es un programa de fuerza de nivel intermedio, basado en el 5/3/1 BBB de Jim Wendler y pensado para ganar músculo y fuerza con el alto volumen del 5x10 suplementario."
+          }
+        ]
       },
       "531-for-beginners": {
         "name": "5/3/1 for Beginners",
-        "description": "Entrenamiento de cuerpo completo en el Palacio Celeste: 3 días por semana, dos levantamientos principales por sesión. Ciclos de 3 semanas (5s, 3s, 5/3/1) con FSL 5×5 como suplemento. Metódico y equilibrado. Inspirado en 5/3/1 for Beginners de Jim Wendler."
+        "description": "Entrenamiento de cuerpo completo en el Palacio Celeste: 3 días por semana, dos levantamientos principales por sesión. Ciclos de 3 semanas (5s, 3s, 5/3/1) con FSL 5×5 como suplemento. Metódico y equilibrado. Inspirado en 5/3/1 for Beginners de Jim Wendler.",
+        "seoTitle": "5/3/1 for Beginners — Fuerza 3 días | Gravity Room",
+        "seoDescription": "5/3/1 for Beginners de Jim Wendler: fuerza de cuerpo completo, 3 días/semana, dos básicos por sesión, ciclos de 3 semanas (5s, 3s, 5/3/1) con FSL 5x5.",
+        "faq": [
+          {
+            "question": "¿Cuántos días a la semana es 5/3/1 for Beginners?",
+            "answer": "Se entrena 3 días por semana, trabajando el cuerpo completo en cada sesión con dos levantamientos principales por entrenamiento."
+          },
+          {
+            "question": "¿Es 5/3/1 for Beginners bueno para principiantes?",
+            "answer": "Sí. Es la variante de 5/3/1 de Jim Wendler orientada a principiantes, con sesiones de cuerpo completo y un ciclo estructurado de 3 semanas para ganar fuerza."
+          },
+          {
+            "question": "¿Cómo es la estructura y progresión de 5/3/1 for Beginners?",
+            "answer": "Usa ciclos de 3 semanas (5s, 3s y 5/3/1) en los básicos, con First Set Last (FSL) 5x5 como trabajo suplementario."
+          }
+        ]
       },
       "phul": {
         "name": "PHUL",
-        "description": "Fuerza y tamaño como Vegeta en su cámara de gravedad: dos días de poder puro (compuestos pesados 3-5 reps) y dos de hipertrofia (8-12 reps). 4 días por semana. Inspirado en PHUL de Brandon Campbell."
+        "description": "Fuerza y tamaño como Vegeta en su cámara de gravedad: dos días de poder puro (compuestos pesados 3-5 reps) y dos de hipertrofia (8-12 reps). 4 días por semana. Inspirado en PHUL de Brandon Campbell.",
+        "seoTitle": "Rutina PHUL: 4 días fuerza e hipertrofia | Gravity Room",
+        "seoDescription": "PHUL (Power Hypertrophy Upper Lower) es una rutina intermedia de 4 días: 2 de fuerza (compuestos pesados, 3-5 reps) y 2 de hipertrofia (8-12 reps).",
+        "faq": [
+          {
+            "question": "¿Cuántos días a la semana es la rutina PHUL?",
+            "answer": "PHUL se entrena 4 días por semana: dos días de fuerza y dos de hipertrofia, divididos en sesiones de tren superior e inferior."
+          },
+          {
+            "question": "¿Cuál es la diferencia entre los días de fuerza e hipertrofia en PHUL?",
+            "answer": "Los días de fuerza usan compuestos pesados en el rango de 3-5 repeticiones para ganar fuerza, mientras que los de hipertrofia usan 8-12 repeticiones para ganar masa muscular."
+          },
+          {
+            "question": "¿Es PHUL adecuada para nivel intermedio?",
+            "answer": "Sí. PHUL es una rutina de nivel intermedio, inspirada en el Power Hypertrophy Upper Lower de Brandon Campbell, que combina fuerza y volumen en 4 sesiones semanales."
+          }
+        ]
       },
       "nivel-7": {
         "name": "Nivel 7",
-        "description": "Programa de fuerza de 12 semanas con periodización inversa. Configuras el récord objetivo (semana 6) y los pesos se calculan hacia atrás. Bloque 1 (5×5) con descarga en semana 3, Bloque 2 (3×3) culminando en récord. Ciclo 2 repite la onda con +2.5kg. Accesorios con doble progresión 3×8-12. 4 días/semana: hombros/tríceps, espalda/gemelo, pecho/bíceps, pierna."
+        "description": "Programa de fuerza de 12 semanas con periodización inversa. Configuras el récord objetivo (semana 6) y los pesos se calculan hacia atrás. Bloque 1 (5×5) con descarga en semana 3, Bloque 2 (3×3) culminando en récord. Ciclo 2 repite la onda con +2.5kg. Accesorios con doble progresión 3×8-12. 4 días/semana: hombros/tríceps, espalda/gemelo, pecho/bíceps, pierna.",
+        "seoTitle": "Fuerza periodización inversa 12 semanas, 4 días | Gravity Room",
+        "seoDescription": "Programa de fuerza de 12 semanas con periodización inversa, 4 días/semana: Bloque 1 5x5, Bloque 2 3x3, accesorios 3x8-12. Récord objetivo en semana 6, pesos hacia atrás.",
+        "faq": [
+          {
+            "question": "¿Cuántos días por semana es este programa de fuerza de 12 semanas?",
+            "answer": "Son 4 días por semana durante 12 semanas, con el Bloque 1 (5x5) seguido del Bloque 2 (3x3)."
+          },
+          {
+            "question": "¿Cómo funciona la periodización inversa en este programa?",
+            "answer": "Configuras un récord objetivo para la semana 6 y el programa calcula los pesos hacia atrás a partir de él, de modo que las semanas previas construyen hacia ese pico planificado."
+          },
+          {
+            "question": "¿Qué esquema de series y repeticiones usa este programa?",
+            "answer": "El trabajo principal es Bloque 1 a 5x5 y Bloque 2 a 3x3, con accesorios a 3x8-12 mediante doble progresión."
+          }
+        ]
       },
       "caparazon-de-tortuga": {
         "name": "Caparazón de Tortuga",
-        "description": "Tu entrenamiento en la Kame House: empieza desde cero con tu peso corporal y poco a poco añade la barra. 200 sesiones, 3 días/semana. 4 bloques por sesión: Core, Activación, Propiocepción y el Ejercicio Fundamental. Inspirado en la metodología de Amerigo Brunetti."
+        "description": "Tu entrenamiento en la Kame House: empieza desde cero con tu peso corporal y poco a poco añade la barra. 200 sesiones, 3 días/semana. 4 bloques por sesión: Core, Activación, Propiocepción y el Ejercicio Fundamental. Inspirado en la metodología de Amerigo Brunetti.",
+        "seoTitle": "Brunetti: peso corporal a barra, 3 días | Gravity Room",
+        "seoDescription": "Programa de fuerza para principiantes basado en el método de Amerigo Brunetti: del peso corporal a la barra. 200 sesiones, 3 días/semana, 4 bloques por sesión.",
+        "faq": [
+          {
+            "question": "¿El método de Amerigo Brunetti de peso corporal a barra es bueno para principiantes?",
+            "answer": "Sí. Es un programa de fuerza de nivel principiante que empieza desde cero con tu peso corporal y poco a poco añade la barra, sin necesidad de experiencia previa."
+          },
+          {
+            "question": "¿Cuántos días a la semana y cuántas sesiones tiene el programa?",
+            "answer": "Son 3 días por semana a lo largo de 200 sesiones en total, una progresión de largo plazo del peso corporal hacia la barra."
+          },
+          {
+            "question": "¿Cómo se estructura cada sesión?",
+            "answer": "Cada sesión tiene 4 bloques: Core, Activación, Propiocepción y el Ejercicio Fundamental, siguiendo la metodología de Amerigo Brunetti."
+          }
+        ]
       },
       "365-programmare-lipertrofia": {
         "name": "365 Programmare l'Ipertrofia",
@@ -165,39 +310,183 @@
       },
       "sala-del-tiempo-1": {
         "name": "La Sala del Tiempo 1",
-        "description": "Fase T1 — Perfezionamento Tecnico: 24 sesiones de técnica con cargas ligeras (40-70% TM). Isométricos, tempos y control del movimiento en sentadilla, press banca y peso muerto. 6 semanas, 4 días/semana. Inspirado en la metodología de Amerigo Brunetti."
+        "description": "Fase T1 — Perfezionamento Tecnico: 24 sesiones de técnica con cargas ligeras (40-70% TM). Isométricos, tempos y control del movimiento en sentadilla, press banca y peso muerto. 6 semanas, 4 días/semana. Inspirado en la metodología de Amerigo Brunetti.",
+        "seoTitle": "Brunetti 365 Fase T1 Técnica - 4 días/sem | Gravity Room",
+        "seoDescription": "Bloque técnico T1 de Brunetti 365: 24 sesiones, 6 semanas, 4 días/semana de tempos, isométricos y control al 40-70% TM en sentadilla, banca y peso muerto.",
+        "faq": [
+          {
+            "question": "¿Qué es la fase técnica T1 de Brunetti 365?",
+            "answer": "Es la fase T1 (T1 — Perfezionamento Tecnico) del programa de hipertrofia 365 de Amerigo Brunetti: 24 sesiones de técnica con cargas ligeras al 40-70% del training max, centradas en tempos, isométricos y control en sentadilla, press banca y peso muerto."
+          },
+          {
+            "question": "¿Cuántos días por semana y cuántas semanas dura?",
+            "answer": "Son 4 días por semana durante 6 semanas, con un total de 24 sesiones."
+          },
+          {
+            "question": "¿En qué se centra esta fase técnica T1?",
+            "answer": "Se centra en perfeccionar la técnica de sentadilla, press banca y peso muerto mediante tempos, isométricos y control con cargas ligeras (40-70% del training max)."
+          }
+        ]
       },
       "sala-del-tiempo-2": {
         "name": "La Sala del Tiempo 2",
-        "description": "Fase PN — Potenziamento Neurale: 52 sesiones de potenciación neural progresiva (60-95% TM). Ramping de cargas y series de fuerza para transferir técnica a pesos pesados. 13 semanas, 4 días/semana. Inspirado en la metodología de Amerigo Brunetti."
+        "description": "Fase PN — Potenziamento Neurale: 52 sesiones de potenciación neural progresiva (60-95% TM). Ramping de cargas y series de fuerza para transferir técnica a pesos pesados. 13 semanas, 4 días/semana. Inspirado en la metodología de Amerigo Brunetti.",
+        "seoTitle": "Brunetti 365 Fase PN, hipertrofia 4 días | Gravity Room",
+        "seoDescription": "Fase PN del Brunetti 365: bloque de hipertrofia de 13 semanas, 4 días/semana, 52 sesiones de potenciación neural con ramping de cargas al 60-95% del TM.",
+        "faq": [
+          {
+            "question": "¿Qué es la fase PN del Brunetti 365?",
+            "answer": "Es la fase de Potenziamento Neurale (potenciación neural) del programa de hipertrofia 365 de Amerigo Brunetti: 52 sesiones de potenciación neural progresiva trabajando entre el 60-95% del TM con ramping de cargas y series de fuerza."
+          },
+          {
+            "question": "¿Cuántos días por semana dura la fase PN y cuánto se prolonga?",
+            "answer": "La fase PN dura 13 semanas a 4 días por semana, con un total de 52 sesiones de entrenamiento."
+          },
+          {
+            "question": "¿En qué consiste la fase PN del Brunetti 365?",
+            "answer": "Es un bloque de hipertrofia basado en la potenciación neural progresiva, con ramping de cargas y series de fuerza que trabajan entre el 60-95% del TM a lo largo de 52 sesiones."
+          }
+        ]
       },
       "sala-del-tiempo-3": {
         "name": "La Sala del Tiempo 3",
-        "description": "Fase JAW Mod — 72 sesiones de intensificación en 3 bloques de 6 semanas (60→70→80% TM). Cada bloque termina con test de 1RM que alimenta el TM del siguiente. 18 semanas, 4 días/semana. Inspirado en la metodología de Amerigo Brunetti."
+        "description": "Fase JAW Mod — 72 sesiones de intensificación en 3 bloques de 6 semanas (60→70→80% TM). Cada bloque termina con test de 1RM que alimenta el TM del siguiente. 18 semanas, 4 días/semana. Inspirado en la metodología de Amerigo Brunetti.",
+        "seoTitle": "Brunetti 365 Fase JAW, 4 días intermedio | Gravity Room",
+        "seoDescription": "Fase JAW de Brunetti 365: hipertrofia intermedia, 18 semanas, 4 días/semana, 72 sesiones en tres bloques de 6 semanas (60-70-80% TM) con test de 1RM por bloque.",
+        "faq": [
+          {
+            "question": "¿Qué es la fase JAW de Brunetti 365?",
+            "answer": "Es la fase JAW (intensificación) del programa de hipertrofia 365 de Amerigo Brunetti: 72 sesiones en tres bloques de 6 semanas al 60%, 70% y 80% del TM, con un test de 1RM al final de cada bloque."
+          },
+          {
+            "question": "¿Cuántos días por semana es el programa Brunetti 365 fase JAW?",
+            "answer": "Son 4 días por semana durante 18 semanas, con un total de 72 sesiones de intensificación."
+          },
+          {
+            "question": "¿Para quién es la fase JAW de Brunetti 365?",
+            "answer": "Está pensada para levantadores intermedios enfocados en hipertrofia que buscan intensificación progresiva, ya que cada bloque de 6 semanas sube la carga del 60% al 70% y al 80% del TM."
+          }
+        ]
       },
       "tenkaichi-budokai-sentadilla": {
         "name": "Tenkaichi Budokai — Sentadilla",
-        "description": "Preparación de 16 semanas para el torneo con énfasis en sentadilla. Porcentajes exactos de tu 1RM, periodización por mesociclos, deload antes de competir. 4 días por semana. Inspirado en la metodología de Boris Sheiko."
+        "description": "Preparación de 16 semanas para el torneo con énfasis en sentadilla. Porcentajes exactos de tu 1RM, periodización por mesociclos, deload antes de competir. 4 días por semana. Inspirado en la metodología de Boris Sheiko.",
+        "seoTitle": "Programa Sheiko Sentadilla 16 Sem 4 Días | Gravity Room",
+        "seoDescription": "Preparación de powerlifting tipo Boris Sheiko de 16 semanas con énfasis en sentadilla: 4 días/semana, porcentajes exactos del 1RM, periodización y deload precompetición.",
+        "faq": [
+          {
+            "question": "¿Cuántos días por semana es este programa Sheiko de sentadilla?",
+            "answer": "Son 4 días por semana durante un bloque de 16 semanas con énfasis en sentadilla."
+          },
+          {
+            "question": "¿Para quién es este programa inspirado en Boris Sheiko?",
+            "answer": "Es una preparación de powerlifting con énfasis en sentadilla para llegar al pico en competición, con porcentajes exactos del 1RM y periodización por mesociclos."
+          },
+          {
+            "question": "¿Incluye un deload antes de competir?",
+            "answer": "Sí. Periodiza el entrenamiento por mesociclos y programa un deload antes de competir para llegar al pico en la competición."
+          }
+        ]
       },
       "tenkaichi-budokai-press-banca": {
         "name": "Tenkaichi Budokai — Press Banca",
-        "description": "Preparación de 16 semanas para el torneo con énfasis en press banca. Porcentajes exactos de tu 1RM, múltiples variaciones de banca. 4 días por semana. Inspirado en la metodología de Boris Sheiko."
+        "description": "Preparación de 16 semanas para el torneo con énfasis en press banca. Porcentajes exactos de tu 1RM, múltiples variaciones de banca. 4 días por semana. Inspirado en la metodología de Boris Sheiko.",
+        "seoTitle": "Sheiko Press Banca, 16 Semanas 4 Días | Gravity Room",
+        "seoDescription": "Especialización de press banca powerlifting estilo Sheiko: 16 semanas, 4 días/semana, porcentajes de tu 1RM y varias variaciones de banca. Nivel avanzado.",
+        "faq": [
+          {
+            "question": "¿Cuánto dura este programa de press banca estilo Sheiko?",
+            "answer": "Dura 16 semanas de preparación powerlifting con énfasis en press banca, entrenando 4 días por semana."
+          },
+          {
+            "question": "¿Es apto para principiantes este programa de press banca?",
+            "answer": "No. Es un programa de nivel avanzado que usa porcentajes exactos de tu 1RM y varias variaciones de banca, por lo que requiere un 1RM establecido y experiencia previa."
+          },
+          {
+            "question": "¿Cómo se programan las cargas en este programa de banca?",
+            "answer": "Cada sesión se basa en porcentajes de tu 1RM actual, con múltiples variaciones de press banca repartidas en 4 días de entrenamiento a la semana."
+          }
+        ]
       },
       "tenkaichi-budokai-peso-muerto": {
         "name": "Tenkaichi Budokai — Peso Muerto",
-        "description": "Preparación de 16 semanas para el torneo con énfasis en peso muerto. Déficit, bloques, cadenas, bandas — todas las variaciones de peso muerto. 4 días por semana. Inspirado en la metodología de Boris Sheiko."
+        "description": "Preparación de 16 semanas para el torneo con énfasis en peso muerto. Déficit, bloques, cadenas, bandas — todas las variaciones de peso muerto. 4 días por semana. Inspirado en la metodología de Boris Sheiko.",
+        "seoTitle": "Sheiko Peso Muerto, 4 Días/Semana | Gravity Room",
+        "seoDescription": "Preparación de powerlifting de 16 semanas inspirada en Boris Sheiko centrada en peso muerto: tirones a déficit, bloques, cadenas y bandas, 4 días/semana.",
+        "faq": [
+          {
+            "question": "¿Cuántos días a la semana es este programa de peso muerto estilo Sheiko?",
+            "answer": "Son 4 días por semana dentro de un ciclo de preparación de powerlifting de 16 semanas con énfasis en peso muerto."
+          },
+          {
+            "question": "¿En qué se centra este programa inspirado en Boris Sheiko?",
+            "answer": "Es un bloque de preparación de powerlifting de 16 semanas centrado en desarrollar el peso muerto."
+          },
+          {
+            "question": "¿Qué variantes y herramientas de peso muerto utiliza?",
+            "answer": "Hace énfasis en el peso muerto con tirones a déficit, bloques de entrenamiento y resistencia variable mediante cadenas y bandas."
+          }
+        ]
       },
       "tenkaichi-budokai-solo-banca": {
         "name": "Tenkaichi Budokai — Solo Banca",
-        "description": "Preparación de 18 semanas exclusiva para press banca. Sin sentadilla ni peso muerto de competición — toda la energía en un solo golpe. 4 días por semana. Inspirado en la metodología de Boris Sheiko."
+        "description": "Preparación de 18 semanas exclusiva para press banca. Sin sentadilla ni peso muerto de competición — toda la energía en un solo golpe. 4 días por semana. Inspirado en la metodología de Boris Sheiko.",
+        "seoTitle": "Sheiko Solo Press Banca, 4 Días/Sem | Gravity Room",
+        "seoDescription": "Programa de powerlifting de 18 semanas solo para press banca inspirado en Boris Sheiko, 4 días/semana, sin sentadilla ni peso muerto.",
+        "faq": [
+          {
+            "question": "¿Cuántas semanas y días por semana tiene este programa Sheiko solo de press banca?",
+            "answer": "Dura 18 semanas con 4 días de entrenamiento por semana, centrados exclusivamente en el press banca."
+          },
+          {
+            "question": "¿Este programa incluye sentadilla y peso muerto?",
+            "answer": "No. Es una especialización solo de press banca, sin sentadilla ni peso muerto de competición; todas las sesiones giran en torno al press banca."
+          },
+          {
+            "question": "¿Para quién es este programa de press banca de Boris Sheiko?",
+            "answer": "Es un programa de powerlifting para quienes buscan mejorar su press banca, inspirado en la metodología solo de press banca de Boris Sheiko."
+          }
+        ]
       },
       "tenkaichi-budokai-veterano": {
         "name": "Tenkaichi Budokai — Veterano",
-        "description": "El programa más popular de Sheiko para guerreros experimentados. 4 mesociclos de preparación con volumen medio y test de 1RM integrado. Usa tu experiencia de combate para llegar al torneo en tu mejor forma. 4 días por semana. Inspirado en la metodología de Boris Sheiko."
+        "description": "El programa más popular de Sheiko para guerreros experimentados. 4 mesociclos de preparación con volumen medio y test de 1RM integrado. Usa tu experiencia de combate para llegar al torneo en tu mejor forma. 4 días por semana. Inspirado en la metodología de Boris Sheiko.",
+        "seoTitle": "Programa Sheiko avanzado, 4 días/semana | Gravity Room",
+        "seoDescription": "El programa de powerlifting más popular de Boris Sheiko para experimentados: 4 mesociclos, volumen medio, test de 1RM integrado, 4 días/semana. Gratis.",
+        "faq": [
+          {
+            "question": "¿Para quién es este programa inspirado en Sheiko?",
+            "answer": "Está diseñado para powerlifters avanzados y experimentados. Es el programa más popular de Boris Sheiko, basado en 4 mesociclos de preparación con volumen medio y un test de 1RM integrado."
+          },
+          {
+            "question": "¿Cuántos días a la semana es el programa de Sheiko?",
+            "answer": "Son 4 días por semana, organizados en 4 mesociclos de preparación con un test de 1RM integrado."
+          },
+          {
+            "question": "¿Este programa incluye test de 1RM?",
+            "answer": "Sí. Incorpora un test de 1RM integrado, para que midas tu progreso de fuerza tras los 4 mesociclos de preparación."
+          }
+        ]
       },
       "furia-oscura": {
         "name": "Furia Oscura",
-        "description": "Entrena como un Saiyajin: Push/Pull/Legs con alternancia A/B semanal. 3 días/semana al estilo Sala del Tiempo, doble progresión hasta superar tus límites."
+        "description": "Entrena como un Saiyajin: Push/Pull/Legs con alternancia A/B semanal. 3 días/semana al estilo Sala del Tiempo, doble progresión hasta superar tus límites.",
+        "seoTitle": "Push Pull Legs A/B, 3 días/sem | Gravity Room",
+        "seoDescription": "Rutina Push/Pull/Legs A/B, 3 días a la semana con alternancia A/B semanal y doble progresión. Sigue este programa gratis en Gravity Room.",
+        "faq": [
+          {
+            "question": "¿Cuántos días a la semana es esta rutina Push/Pull/Legs?",
+            "answer": "Son 3 días a la semana, alternando entre las sesiones A y B cada semana para cubrir Push, Pull y Legs a lo largo de la rotación."
+          },
+          {
+            "question": "¿Cómo funciona la alternancia A/B?",
+            "answer": "Entrenas 3 días a la semana e intercambias entre las versiones A y B de las sesiones Push, Pull y Legs de una semana a otra, manteniendo variada la rotación."
+          },
+          {
+            "question": "¿Cómo funciona la progresión en este programa?",
+            "answer": "Usa doble progresión: sumas repeticiones dentro de un rango objetivo y, al llegar al tope, subes el peso."
+          }
+        ]
       }
     }
   },
@@ -868,6 +1157,7 @@
     "back": "← Volver",
     "privacy": {
       "document_title": "Política de Privacidad — Gravity Room",
+      "meta_description": "Política de privacidad de Gravity Room: qué datos almacenamos, sincronización en la nube opcional y tus derechos. App gratuita y open source.",
       "title": "Política de Privacidad",
       "data_stored": {
         "title": "Datos que Almacenamos",
@@ -901,6 +1191,7 @@
     },
     "cookie_policy": {
       "document_title": "Política de Cookies — Gravity Room",
+      "meta_description": "Política de cookies de Gravity Room: qué cookies usamos y por qué. Analítica respetuosa con la privacidad, sin cookies de seguimiento publicitario.",
       "title": "Política de Cookies",
       "what_are_cookies": {
         "title": "¿Qué son las cookies?",

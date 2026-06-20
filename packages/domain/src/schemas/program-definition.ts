@@ -111,9 +111,17 @@ export const ExerciseSlotSchema = z
     { message: 'trainingMaxKey is required when any progression rule uses update_tm' }
   );
 
+// Upper bounds guard against malicious/oversized definitions driving the
+// O(totalWorkouts x slots) compute loop in the generic engine (DoS). They sit
+// well above the largest real preset (brunetti-365: 212 workouts/212 days;
+// max 9 slots/day) so every legitimate client-built program still validates.
+export const MAX_SLOTS_PER_DAY = 50;
+export const MAX_DAYS = 1000;
+export const MAX_TOTAL_WORKOUTS = 2000;
+
 export const ProgramDaySchema = z.strictObject({
   name: z.string().min(1),
-  slots: z.array(ExerciseSlotSchema).min(1),
+  slots: z.array(ExerciseSlotSchema).min(1).max(MAX_SLOTS_PER_DAY),
 });
 
 const WeightConfigFieldSchema = z.strictObject({
@@ -153,9 +161,9 @@ export const ProgramDefinitionSchema = z.strictObject({
   version: z.number().int().positive(),
   category: z.string(),
   source: z.enum(['preset', 'custom']),
-  days: z.array(ProgramDaySchema).min(1),
+  days: z.array(ProgramDaySchema).min(1).max(MAX_DAYS),
   cycleLength: z.number().int().positive(),
-  totalWorkouts: z.number().int().positive(),
+  totalWorkouts: z.number().int().positive().max(MAX_TOTAL_WORKOUTS),
   workoutsPerWeek: z.number().int().positive(),
   exercises: z.record(z.string(), z.strictObject({ name: z.string().min(1) })),
   configFields: z.array(ConfigFieldSchema),
