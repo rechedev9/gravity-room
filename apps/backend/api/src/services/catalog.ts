@@ -238,7 +238,12 @@ export function previewDefinition(
   }
 
   try {
-    const allRows = computeGenericProgram(definition, resolvedConfig, {});
+    const allRows = computeGenericProgram(
+      definition,
+      resolvedConfig,
+      {},
+      { maxRows: MAX_PREVIEW_ROWS }
+    );
     return allRows.slice(0, MAX_PREVIEW_ROWS);
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : 'Unknown engine error';

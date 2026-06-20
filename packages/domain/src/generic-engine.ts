@@ -247,7 +247,11 @@ function configToNum(config: Record<string, number | string>, key: string): numb
 export function computeGenericProgram(
   definition: ProgramDefinition,
   config: Record<string, number | string>,
-  results: GenericResults
+  results: GenericResults,
+  // Callers that only need the first N rows (e.g. catalog preview) pass maxRows
+  // so the loop stops early instead of materializing every workout — a cheap
+  // guard against compute amplification on top of the schema's totalWorkouts cap.
+  options?: { maxRows?: number }
 ): GenericWorkoutRow[] {
   const DEFAULT_ROUNDING_STEP = 2.5;
   const roundingStep = configToNum(config, 'rounding') || DEFAULT_ROUNDING_STEP;
@@ -282,7 +286,9 @@ export function computeGenericProgram(
   const cycleLength = definition.days.length;
   const prevWeightByExerciseId = new Map<string, number>();
 
-  for (let i = 0; i < definition.totalWorkouts; i++) {
+  const rowLimit = Math.min(definition.totalWorkouts, options?.maxRows ?? definition.totalWorkouts);
+
+  for (let i = 0; i < rowLimit; i++) {
     const day = requireValue(definition.days[i % cycleLength], `Missing day for workout ${i}`);
     const workoutResult = results[String(i)] ?? {};
     const derivedResultsBySlotId: Record<string, ResultValue | undefined> = {};

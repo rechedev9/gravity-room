@@ -49,6 +49,8 @@ async def trigger_compute(
     try:
         result = await run_all()
         return {"ok": True, **result}
-    except Exception as e:
+    except Exception:
+        # Log the full exception server-side; do not echo str(e) to the caller,
+        # since connection-layer errors can carry DSN host:port / SQL detail.
         log.error("Compute failed", exc_info=True)
-        raise HTTPException(status_code=500, detail={"error": "compute_failed", "message": str(e)})
+        raise HTTPException(status_code=500, detail={"error": "compute_failed"})

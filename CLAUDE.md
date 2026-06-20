@@ -30,7 +30,7 @@ three runnable services and one shared TS package.
 - **Auth**: JWT access + refresh-token rotation. Google OAuth on all three clients. Server logic split: `apps/backend/api/src/routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` + `lib/google-auth.ts`.
 - **Migrations**: applied automatically on API startup (`apps/backend/api/src/bootstrap.ts`). Drizzle config at `packages/database/drizzle.config.ts`. Schema at `packages/database/src/schema.ts`. Generated SQL at `packages/database/migrations/`.
 - **Analytics → API integration**: insights are pre-computed by the Python service and stored in the `user_insights` table. `POST /compute` requires an internal secret.
-- **Soft delete**: `users.deletedAt` triggers a 30-day grace period before `purge-deleted-users.ts` hard-deletes (CASCADE). The auth middleware filters `WHERE deleted_at IS NULL`, so soft-deleted users cannot authenticate.
+- **Soft delete**: `users.deletedAt` triggers a 30-day grace period before `purge-deleted-users.ts` hard-deletes (CASCADE). The `/me` and token-refresh paths filter `WHERE deleted_at IS NULL` (so a soft-deleted user cannot fetch their profile or mint new tokens), and `softDeleteUser` revokes all refresh tokens. The resource-route guard (`resolveUserId`) validates JWTs statelessly and does **not** re-check `deleted_at`, so an access token issued before deletion keeps working until it expires (≤`JWT_ACCESS_EXPIRY`, default 15m).
 
 ## Config flags (from `.env.example`)
 
