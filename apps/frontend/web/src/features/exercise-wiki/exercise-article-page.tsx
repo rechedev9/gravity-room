@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { Link, useParams } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import type { ArticleLang, ExerciseArticle } from '@gzclp/domain/schemas/exercise-article';
 import { getArticleBySlug } from './content/registry';
+import { ArticleNotFound } from './article-not-found';
 import { ExerciseArticleView } from './exercise-article-view';
 import { ExerciseJsonLd } from './exercise-json-ld';
 import { useExerciseHead } from './use-exercise-head';
@@ -28,17 +29,7 @@ export function ExerciseArticlePage({ lang }: { readonly lang: ArticleLang }): R
   const article = getArticleBySlug(lang, slug);
 
   if (article === undefined) {
-    const backTo = lang === 'es' ? '/ejercicios' : '/en/exercises';
-    return (
-      <div className="text-center py-16 px-4">
-        <p className="text-muted mb-6 text-sm">
-          {lang === 'es' ? 'Ejercicio no encontrado.' : 'Exercise not found.'}
-        </p>
-        <Link to={backTo} className="text-accent text-sm">
-          {lang === 'es' ? 'Volver' : 'Back'}
-        </Link>
-      </div>
-    );
+    return <ArticleNotFound lang={lang} />;
   }
 
   return <ArticleContent article={article} lang={lang} />;
