@@ -37,6 +37,15 @@ export const ExerciseArticleSchema = z.object({
   level: z.enum(['beginner', 'intermediate', 'advanced']),
   primaryMuscles: z.array(z.string().min(1)).min(1),
   secondaryMuscles: z.array(z.string().min(1)),
+  video: z
+    .object({
+      youtubeId: z.string().min(1),
+      title: z.string().min(1),
+      channel: z.string().min(1),
+      uploadDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      duration: z.string().regex(/^PT/),
+    })
+    .optional(),
   references: z.array(ExerciseReferenceSchema).min(1),
   content: z.object({ es: LocalizedArticleSchema, en: LocalizedArticleSchema }),
   reviewedBy: z.string().min(1),

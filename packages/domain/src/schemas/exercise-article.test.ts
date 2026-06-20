@@ -54,6 +54,32 @@ describe('ExerciseArticleSchema', () => {
   it('accepts a complete bilingual article', () => {
     expect(ExerciseArticleSchema.safeParse(validArticle).success).toBe(true);
   });
+  it('accepts an article with a valid video field', () => {
+    const withVideo = {
+      ...validArticle,
+      video: {
+        youtubeId: 't2b8UdqmlFs',
+        title: "How To Squat: Layne Norton's Squat Tutorial",
+        channel: 'Bodybuilding.com',
+        uploadDate: '2015-03-19',
+        duration: 'PT16M53S',
+      },
+    };
+    expect(ExerciseArticleSchema.safeParse(withVideo).success).toBe(true);
+  });
+  it('rejects an article with a malformed video uploadDate', () => {
+    const badVideo = {
+      ...validArticle,
+      video: {
+        youtubeId: 't2b8UdqmlFs',
+        title: 'Some title',
+        channel: 'Some channel',
+        uploadDate: '19-03-2015',
+        duration: 'PT16M53S',
+      },
+    };
+    expect(ExerciseArticleSchema.safeParse(badVideo).success).toBe(false);
+  });
   it('rejects an article missing references', () => {
     expect(ExerciseArticleSchema.safeParse({ ...validArticle, references: [] }).success).toBe(
       false
