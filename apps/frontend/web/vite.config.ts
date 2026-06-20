@@ -121,15 +121,14 @@ export default defineConfig(({ mode }) => {
           codeSplitting: {
             maxSize: 250 * 1024,
             groups: [
-              {
-                name: 'vendor-recharts',
-                test: /[\\/]node_modules[\\/]recharts[\\/]/,
-                priority: 10,
-                // Recharts has internal circular imports that Rolldown can split
-                // incorrectly when a small global maxSize applies, leaving default
-                // axis props undefined at runtime. Keep the library in one chunk.
-                maxSize: 2 * 1024 * 1024,
-              },
+              // NOTE: do NOT add a dedicated `{ name: 'vendor-recharts', test: /recharts/ }`
+              // group. A test-based group emits an *initial* chunk that Rolldown hoists into
+              // the entry's static import graph — recharts (≈110 KB gz) then downloads on every
+              // route, including the public landing/login that never render a chart (verified via
+              // network trace). Left ungrouped, recharts' circular SCC stays atomic in a single
+              // async chunk (co-located with chart-theme) reachable only from the lazy chart
+              // routes (insights / profile / tracker stats), so the "undefined axis props"
+              // split-bug does not occur and the public bundle drops ~110 KB gz.
               {
                 name(id: string): string | null {
                   if (!id.includes('node_modules')) return null;
@@ -137,6 +136,8 @@ export default defineConfig(({ mode }) => {
                     return 'vendor-react-core';
                   }
                   if (/[\\/]node_modules[\\/]@tanstack[\\/]/.test(id)) return 'vendor-tanstack';
+                  if (/[\\/]node_modules[\\/](i18next|react-i18next)/.test(id))
+                    return 'vendor-i18n';
                   // Match zod by path so both `zod` and subpaths like `zod/v4` land together.
                   if (/[\\/]node_modules[\\/]zod[\\/]/.test(id)) return 'vendor-zod';
                   if (

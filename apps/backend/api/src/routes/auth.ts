@@ -408,14 +408,16 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       });
 
       refreshCookie.set({ value: refreshed.refreshToken, ...REFRESH_COOKIE_OPTIONS });
-      return { accessToken: refreshed.accessToken };
+      // Include the user so the web client can restore the session in a single
+      // round-trip (refresh → user) instead of chaining a follow-up GET /auth/me.
+      return { accessToken: refreshed.accessToken, user: userResponse(refreshed.user) };
     },
     {
       detail: {
         tags: ['Auth'],
         summary: 'Refresh access token',
         description:
-          'Rotates the refresh token (family tracking for theft detection) and issues a new short-lived access token.',
+          'Rotates the refresh token (family tracking for theft detection), issues a new short-lived access token, and returns the current user profile.',
         responses: {
           200: { description: 'New access token issued; refresh token cookie rotated' },
           401: { description: 'Missing, invalid, expired, or reused refresh token' },

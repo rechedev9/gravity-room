@@ -335,7 +335,7 @@ export const endpoints = [
   {
     method: 'post',
     path: '/api/auth/refresh',
-    description: `Rotates the refresh token (family tracking for theft detection) and issues a new short-lived access token.`,
+    description: `Rotates the refresh token (family tracking for theft detection), issues a new short-lived access token, and returns the current user profile.`,
     requestFormat: 'json',
     response: z.void(),
     errors: [

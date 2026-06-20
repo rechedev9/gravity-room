@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import {
   createRootRouteWithContext,
   createRoute,
@@ -13,8 +14,6 @@ import { DashboardSkeleton } from '@/components/dashboard-skeleton';
 import { ProfileSkeleton } from '@/features/profile/profile-skeleton';
 import { RootLayout } from '@/components/root-layout';
 import { RouteErrorFallback } from '@/components/route-error-fallback';
-import { AppLayout } from '@/components/layout/app-layout';
-import { TrackerProvider } from '@/contexts/tracker-context';
 import { useAuth } from '@/contexts/auth-context';
 import type { UserInfo } from '@/contexts/auth-context';
 
@@ -72,6 +71,10 @@ const ProfilePage = lazyWithRetry(() =>
 const InsightsPage = lazyWithRetry(() =>
   import('@/features/insights/insights-page').then((m) => ({ default: m.InsightsPage }))
 );
+// Lazy so the app chrome's motion dependency (~32 KB gz) stays off the public/eager path.
+const AppShell = lazyWithRetry(() =>
+  import('@/components/layout/app-shell').then((m) => ({ default: m.AppShell }))
+);
 
 // ---------------------------------------------------------------------------
 // AppLayout wrapped with TrackerProvider
@@ -82,10 +85,12 @@ function AppLayoutWithTracker(): React.ReactNode {
   // Show skeleton while session restore is in progress so the app chrome
   // (sidebar, header) doesn't flash before authentication is confirmed.
   if (loading) return <AppSkeleton />;
+  // AppShell is lazy-loaded (keeps motion off the public path); Suspense shows
+  // the same skeleton during the brief chunk fetch.
   return (
-    <TrackerProvider>
-      <AppLayout />
-    </TrackerProvider>
+    <Suspense fallback={<AppSkeleton />}>
+      <AppShell />
+    </Suspense>
   );
 }
 
