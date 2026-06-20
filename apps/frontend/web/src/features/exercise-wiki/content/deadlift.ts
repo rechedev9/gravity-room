@@ -8,6 +8,13 @@ export const deadliftArticle: ExerciseArticle = {
   level: 'beginner',
   primaryMuscles: ['erector spinae', 'gluteus maximus', 'hamstrings'],
   secondaryMuscles: ['quadriceps', 'trapezius', 'latissimus dorsi'],
+  video: {
+    youtubeId: 'iQ5rY_beDLY',
+    title: '"Big on the Basics Beyond": Deadlift with Richard Hawthorne',
+    channel: 'Animal',
+    uploadDate: '2014-01-30',
+    duration: 'PT16M34S',
+  },
   references: [
     {
       doi: '10.1097/00005768-200007000-00013',
