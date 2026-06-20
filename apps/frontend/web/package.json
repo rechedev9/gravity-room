@@ -15,6 +15,7 @@
     "e2e:ui": "playwright test --ui",
     "e2e:headed": "playwright test --headed",
     "api:types": "bun run codegen/generate-api-types.ts",
+    "verify:citations": "bun run scripts/verify-citations.ts",
     "preview": "vite preview --host 127.0.0.1 --port 5173 --strictPort"
   },
   "dependencies": {

@@ -636,6 +636,47 @@ dialog::backdrop {
   letter-spacing: 0.02em;
 }
 
+/* ── Exercise-wiki entrance animations ─────────────
+ * Prerender-safe: the resting state is fully visible (opacity 1), so a
+ * non-animating crawler or the serialized static HTML never hides content.
+ * The keyframes are pure enhancement, played once on load, and fully disabled
+ * under prefers-reduced-motion. */
+@keyframes wiki-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wiki-rule-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.anim-rise {
+  animation: wiki-rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.anim-rule {
+  transform-origin: left center;
+  animation: wiki-rule-draw 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.12s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise,
+  .anim-rule {
+    animation: none;
+  }
+}
+
 /* Week/badge label — small mono pill inside week header */
 .week-badge {
   font-family: 'JetBrains Mono', monospace;

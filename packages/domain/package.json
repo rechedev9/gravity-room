@@ -18,6 +18,7 @@
     "./graduation": "./src/graduation.ts",
     "./type-guards": "./src/type-guards.ts",
     "./schemas/catalog": "./src/schemas/catalog.ts",
+    "./schemas/exercise-article": "./src/schemas/exercise-article.ts",
     "./schemas/exercises": "./src/schemas/exercises.ts",
     "./schemas/insights": "./src/schemas/insights.ts",
     "./schemas/instance": "./src/schemas/instance.ts",
