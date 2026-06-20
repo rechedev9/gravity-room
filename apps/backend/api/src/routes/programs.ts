@@ -21,13 +21,15 @@ import {
   invalidateCachedInstance,
 } from '../lib/program-cache';
 import { SingleflightMap } from '../lib/singleflight';
+import { MAX_PROGRAM_CONFIG_KEYS } from '@gzclp/domain/schemas/instance';
 
 // Singleflight: concurrent GETs for the same program instance share one DB fetch
 const instanceFlight = new SingleflightMap<unknown>();
 
 const programConfigSchema = t.Record(
   t.String({ maxLength: 30 }),
-  t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })])
+  t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })]),
+  { maxProperties: MAX_PROGRAM_CONFIG_KEYS }
 );
 
 const security = [{ bearerAuth: [] }];
@@ -157,12 +159,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         status: t.Optional(
           t.Union([t.Literal('active'), t.Literal('completed'), t.Literal('archived')])
         ),
-        config: t.Optional(
-          t.Record(
-            t.String({ maxLength: 30 }),
-            t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })])
-          )
-        ),
+        config: t.Optional(programConfigSchema),
       }),
       detail: {
         tags: ['Programs'],

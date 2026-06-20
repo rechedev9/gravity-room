@@ -112,4 +112,26 @@ describe('computeGenericProgram', () => {
       'Missing exercise definition for squat'
     );
   });
+
+  it('stops at maxRows instead of materializing every workout', () => {
+    const definition: ProgramDefinition = {
+      ...BASE_DEFINITION,
+      totalWorkouts: 1000,
+    };
+
+    const rows = computeGenericProgram(definition, { squat: 100 }, {}, { maxRows: 10 });
+
+    expect(rows).toHaveLength(10);
+  });
+
+  it('ignores maxRows larger than totalWorkouts', () => {
+    const definition: ProgramDefinition = {
+      ...BASE_DEFINITION,
+      totalWorkouts: 3,
+    };
+
+    const rows = computeGenericProgram(definition, { squat: 100 }, {}, { maxRows: 100 });
+
+    expect(rows).toHaveLength(3);
+  });
 });
