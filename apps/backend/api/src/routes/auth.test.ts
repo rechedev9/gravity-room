@@ -417,10 +417,13 @@ describe('POST /auth/refresh', () => {
     );
 
     const res = await post('/auth/refresh', {}, { Cookie: 'refresh_token=some-token-value' });
-    const body = (await res.json()) as { accessToken: string };
+    const body = (await res.json()) as { accessToken: string; user: { email: string } };
 
     expect(res.status).toBe(200);
     expect(typeof body.accessToken).toBe('string');
+    // The user is returned alongside the token so the web client restores the
+    // session in a single round-trip (no follow-up GET /auth/me).
+    expect(body.user.email).toBe(TEST_USER.email);
   });
 
   it('returns 401 with AUTH_ACCOUNT_DELETED when the token belongs to a soft-deleted user', async () => {

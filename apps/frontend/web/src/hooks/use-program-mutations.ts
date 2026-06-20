@@ -19,7 +19,44 @@ import { isRecord } from '@gzclp/domain/type-guards';
 import {
   setSlotResult as setSlotResultOptimistic,
   removeSlotResult,
+  patchSlotField,
 } from '@/lib/slot-result-helpers';
+import type { GenericUndoHistory } from '@gzclp/domain/types/program';
+
+// ---------------------------------------------------------------------------
+// Optimistic undo-last reconstruction
+// ---------------------------------------------------------------------------
+
+/**
+ * Replicate the server's `undoLast` (results.ts) on the cached results so the
+ * UI reverts instantly instead of waiting for the round-trip. The undo stack is
+ * ordered ascending by id, so the last entry is the LIFO top the server pops.
+ * `prev === undefined` mirrors `previousResult === null` (the slot had no result
+ * before → delete it); otherwise restore the snapshot exactly. onSettled
+ * reconciles against the server afterward.
+ */
+function applyUndoLast(results: GenericResults, undoHistory: GenericUndoHistory): GenericResults {
+  const top = undoHistory[undoHistory.length - 1];
+  if (!top) return results;
+  if (top.prev === undefined) {
+    return removeSlotResult(results, top.i, top.slotId);
+  }
+  // Clear the current slot first so stale amrapReps/rpe/setLogs from the action
+  // being undone don't linger, then write the previous snapshot verbatim.
+  const cleared = removeSlotResult(results, top.i, top.slotId);
+  let restored = setSlotResultOptimistic(
+    cleared,
+    top.i,
+    top.slotId,
+    top.prev,
+    top.prevAmrapReps,
+    top.prevSetLogs
+  );
+  if (top.prevRpe !== undefined) {
+    restored = patchSlotField(restored, top.i, top.slotId, 'rpe', top.prevRpe);
+  }
+  return restored;
+}
 
 // ---------------------------------------------------------------------------
 // Shared optimistic mutation lifecycle callbacks
@@ -230,7 +267,14 @@ export function useProgramMutations({
       if (!activeInstanceId) throw new Error('No active program');
       await undoLastResult(activeInstanceId);
     },
-    onError: () => {
+    onMutate: () =>
+      snapshotAndUpdate((prev) => ({
+        ...prev,
+        results: applyUndoLast(prev.results, prev.undoHistory),
+        undoHistory: prev.undoHistory.slice(0, -1),
+      })),
+    onError: (err, vars, ctx) => {
+      detailOnError(err, vars, ctx);
       toast({ message: t('tracker.errors.undo_failed') });
     },
     onSettled: detailOnSettled,

@@ -49,10 +49,13 @@ const SESSION_QUERY_KEY = queryKeys.auth.session;
 // ---------------------------------------------------------------------------
 
 async function restoreSession(): Promise<UserInfo | null> {
-  const token = await refreshAccessToken();
-  if (!token) return null;
+  const refreshed = await refreshAccessToken();
+  if (!refreshed) return null;
   try {
-    const user = await fetchMe();
+    // /auth/refresh returns the user alongside the token, so the common path
+    // restores the session in one round-trip. Fall back to GET /auth/me only if
+    // the payload is missing/unexpected (e.g. an older API without the field).
+    const user = parseUserSafe(refreshed.user) ?? (await fetchMe());
     sentrySetUser({ id: user.id, email: user.email });
     return user;
   } catch (err: unknown) {
