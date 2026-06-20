@@ -33,6 +33,28 @@ describe('buildApiUrl', () => {
 
     expect(buildApiUrl('/programs')).toBe('https://api.example.com/mobile-api/programs');
   });
+
+  it('rejects a cleartext http:// API URL in production builds', () => {
+    const prevDev = (globalThis as { __DEV__?: boolean | undefined }).__DEV__;
+    (globalThis as { __DEV__?: boolean | undefined }).__DEV__ = false;
+    process.env.EXPO_PUBLIC_API_URL = 'http://api.example.com';
+    try {
+      expect(() => buildApiUrl('/programs')).toThrow(/https/);
+    } finally {
+      (globalThis as { __DEV__?: boolean | undefined }).__DEV__ = prevDev;
+    }
+  });
+
+  it('allows https:// API URL in production builds', () => {
+    const prevDev = (globalThis as { __DEV__?: boolean | undefined }).__DEV__;
+    (globalThis as { __DEV__?: boolean | undefined }).__DEV__ = false;
+    process.env.EXPO_PUBLIC_API_URL = 'https://api.example.com';
+    try {
+      expect(buildApiUrl('/programs')).toBe('https://api.example.com/api/programs');
+    } finally {
+      (globalThis as { __DEV__?: boolean | undefined }).__DEV__ = prevDev;
+    }
+  });
 });
 
 describe('restoreSession', () => {

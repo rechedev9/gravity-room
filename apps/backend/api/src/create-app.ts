@@ -81,6 +81,12 @@ export function createApp(options: CreateAppOptions) {
 
   const metricsToken = process.env['METRICS_TOKEN'];
   const metricsExpected = metricsToken ? Buffer.from(`Bearer ${metricsToken}`) : null;
+  // /metrics may only be served unauthenticated in explicit local dev/test.
+  // Any named deployment (staging/preview/production) must set METRICS_TOKEN —
+  // production already boot-crashes without it; this fails the others closed
+  // instead of exposing the registry. NODE_ENV unset === local dev.
+  const nodeEnv = process.env['NODE_ENV'];
+  const metricsOpenAllowed = !nodeEnv || nodeEnv === 'development' || nodeEnv === 'test';
 
   const app = new Elysia()
     .use(
@@ -214,6 +220,9 @@ export function createApp(options: CreateAppOptions) {
         if (!ok) {
           throw new ApiError(401, 'Invalid metrics token', 'UNAUTHORIZED');
         }
+      } else if (!metricsOpenAllowed) {
+        // No token configured outside local dev/test — fail closed.
+        throw new ApiError(401, 'Metrics endpoint requires authentication', 'UNAUTHORIZED');
       }
       set.headers['content-type'] = registry.contentType;
       return registry.metrics();

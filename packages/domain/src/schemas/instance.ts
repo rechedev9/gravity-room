@@ -39,11 +39,22 @@ export type GenericUndoHistory = z.infer<typeof GenericUndoHistorySchema>;
 
 const ProgramInstanceStatusSchema = z.enum(['active', 'completed', 'archived']);
 
+// Upper bound on program-config keys. Config is keyed by program config-field
+// keys (largest real preset has 30); 100 leaves headroom while preventing a
+// jsonb cell from being inflated with thousands of junk keys.
+export const MAX_PROGRAM_CONFIG_KEYS = 100;
+
+export const ProgramConfigSchema = z
+  .record(z.string(), z.union([z.number(), z.string()]))
+  .refine((cfg) => Object.keys(cfg).length <= MAX_PROGRAM_CONFIG_KEYS, {
+    message: `config must have at most ${MAX_PROGRAM_CONFIG_KEYS} keys`,
+  });
+
 export const ProgramInstanceSchema = z.strictObject({
   id: z.string().min(1),
   programId: z.string().min(1),
   name: z.string().min(1),
-  config: z.record(z.string(), z.union([z.number(), z.string()])),
+  config: ProgramConfigSchema,
   results: GenericResultsSchema,
   undoHistory: GenericUndoHistorySchema,
   status: ProgramInstanceStatusSchema,

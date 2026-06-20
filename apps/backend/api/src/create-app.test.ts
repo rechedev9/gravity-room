@@ -85,6 +85,57 @@ describe('GET /health', () => {
   });
 });
 
+describe('GET /metrics auth gate', () => {
+  const withEnv = async (
+    env: { NODE_ENV?: string; METRICS_TOKEN?: string },
+    authHeader?: string
+  ) => {
+    const prevNodeEnv = process.env['NODE_ENV'];
+    const prevToken = process.env['METRICS_TOKEN'];
+    if (env.NODE_ENV === undefined) delete process.env['NODE_ENV'];
+    else process.env['NODE_ENV'] = env.NODE_ENV;
+    if (env.METRICS_TOKEN === undefined) delete process.env['METRICS_TOKEN'];
+    else process.env['METRICS_TOKEN'] = env.METRICS_TOKEN;
+    try {
+      const localApp = createApp({
+        corsOrigins: '*',
+        csp: "default-src 'self'",
+        permissionsPolicy: '',
+      });
+      return await localApp.handle(
+        new Request('http://localhost/metrics', {
+          headers: authHeader ? { authorization: authHeader } : {},
+        })
+      );
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env['NODE_ENV'];
+      else process.env['NODE_ENV'] = prevNodeEnv;
+      if (prevToken === undefined) delete process.env['METRICS_TOKEN'];
+      else process.env['METRICS_TOKEN'] = prevToken;
+    }
+  };
+
+  it('is open without a token in local dev (NODE_ENV unset)', async () => {
+    const res = await withEnv({ NODE_ENV: undefined, METRICS_TOKEN: undefined });
+    expect(res.status).toBe(200);
+  });
+
+  it('fails closed without a token outside dev/test (e.g. staging)', async () => {
+    const res = await withEnv({ NODE_ENV: 'staging', METRICS_TOKEN: undefined });
+    expect(res.status).toBe(401);
+  });
+
+  it('enforces the bearer token when configured', async () => {
+    const unauth = await withEnv({ NODE_ENV: 'staging', METRICS_TOKEN: 'super-secret' });
+    expect(unauth.status).toBe(401);
+    const authed = await withEnv(
+      { NODE_ENV: 'staging', METRICS_TOKEN: 'super-secret' },
+      'Bearer super-secret'
+    );
+    expect(authed.status).toBe(200);
+  });
+});
+
 describe('security headers', () => {
   it('are present on success responses', async () => {
     const res = await app.handle(new Request('http://localhost/health'));
