@@ -97,14 +97,14 @@ export const deadliftArticle: ExerciseArticle = {
       ],
       commonMistakes: [
         'Redondear la espalda baja al inicio del tirón: surge de no generar tensión previa en la columna (extensión torácica + Valsalva) antes de arrancar.',
-        'Alejar la barra del cuerpo durante el ascenso, lo que aumenta exponencialmente el momento de fuerza en la columna lumbar.',
+        'Alejar la barra del cuerpo durante el ascenso, lo que aumenta considerablemente el momento de fuerza en la columna lumbar.',
         'Hiperextender la zona lumbar al bloquear, sustituyendo la extensión de cadera por extensión lumbar y sobrecargando los arcos vertebrales posteriores.',
         'Iniciar el movimiento tirando de los hombros hacia atrás en lugar de empujar el suelo con los pies, lo que rompe el ritmo lumbopélvico.',
         'No mantener la presión intraabdominal durante todo el recorrido, desestabilizando el raquis bajo carga.',
       ],
     },
     en: {
-      title: 'Barbell deadlift',
+      title: 'Barbell Deadlift',
       description:
         'A posterior-chain movement training the glutes, hamstrings, and erector spinae through a coordinated hip and knee extension from the floor.',
       summary: [
@@ -145,7 +145,7 @@ export const deadliftArticle: ExerciseArticle = {
       ],
       commonMistakes: [
         'Rounding the lower back at the start of the pull: caused by failing to generate spinal tension (thoracic extension + Valsalva) before initiating.',
-        'Allowing the bar to drift away from the body during the ascent, which exponentially increases the lumbar moment arm.',
+        'Allowing the bar to drift away from the body during the ascent, which substantially increases the lumbar moment arm.',
         'Hyperextending the lumbar spine at lockout, substituting lumbar extension for hip extension and overloading the posterior facet joints.',
         'Initiating the movement by pulling the shoulders back instead of pushing the floor away with the feet, breaking the lumbo-pelvic rhythm.',
         'Losing intra-abdominal pressure mid-lift, destabilizing the spine under load.',

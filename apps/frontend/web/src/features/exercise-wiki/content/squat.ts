@@ -83,7 +83,7 @@ export const squatArticle: ExerciseArticle = {
       technique: [
         'Coloca la barra sobre los trapecios (barra alta) o sobre las espinas escapulares (barra baja). La posición de barra alta acentúa el trabajo de cuádriceps; la barra baja distribuye más carga al glúteo y cadena posterior.',
         'Separa los pies a la anchura de los hombros o algo más amplia, con las puntas de los pies ligeramente giradas hacia fuera (15-30°). El ancho de la pisada y la rotación external de la cadera dependerán de tu morfología.',
-        'Toma aire profundo (maniobra de Valsalva parcial), contrae el core para crear presión intraabdominal y mantén el torso tenso durante todo el descenso.',
+        'Toma aire profundo (maniobra de Valsalva), contrae el core para crear presión intraabdominal y mantén el torso tenso durante todo el descenso.',
         'Inicia el movimiento empujando las rodillas hacia fuera en la dirección de los pies mientras bajas la cadera hacia atrás y abajo. Desciende hasta que los pliegues de las caderas queden por debajo de la rótula (paralela o más profundo).',
         'En el punto más bajo, mantén la espalda neutra —evita el "butt wink" excesivo— y comienza el ascenso empujando el suelo hacia abajo y hacia atrás, extendiendo simultáneamente cadera y rodilla.',
         'Expulsa el aire de forma controlada durante el ascenso una vez superado el punto de mayor esfuerzo (sticking point).',
@@ -101,7 +101,7 @@ export const squatArticle: ExerciseArticle = {
         },
         {
           claim:
-            'La carga sobre la articulación de la rodilla (fuerza de cizallamiento en el ligamento cruzado anterior y posterior) aumenta con la profundidad, pero permanece dentro de límites fisiológicamente seguros en una técnica correcta.',
+            'La carga sobre la articulación de la rodilla (fuerza de cizallamiento en el ligamento cruzado anterior y posterior) aumenta con la profundidad, pero se mantiene muy por debajo de los umbrales de fallo tisular reportados en estudios biomecánicos cuando la técnica es correcta.',
           refIndices: [2, 5],
         },
         {
@@ -114,7 +114,7 @@ export const squatArticle: ExerciseArticle = {
         'Rodillas que colapsan hacia dentro (valgo de rodilla) durante el descenso o el ascenso. Cuida de empujar activamente las rodillas hacia fuera.',
         'Talones que se levantan del suelo, señal de falta de movilidad en el tobillo. Trabaja la dorsiflejión o usa elevaciones temporales bajo el talón mientras mejoras la movilidad.',
         'Excesiva inclinación del torso hacia delante, especialmente en barra alta. Mantén el pecho alto y la columna neutra.',
-        'Ascenso en dos tiempos ("mañana de rodillas"): extender primero la rodilla y luego la cadera crea un momento de flexión lumbar potencialmente peligroso. Cadera y rodilla deben extenderse al mismo tiempo.',
+        'Ascenso tipo "buenos días": la cadera sube antes que el pecho y la barra se desplaza al frente, convirtiendo la sentadilla en un buenos días. Cadera y rodilla deben extenderse al mismo tiempo.',
         'Profundidad insuficiente. Bajarse solo hasta media sentadilla reduce la activación del glúteo y los beneficios adaptativos del movimiento.',
         'Contener el aire en exceso durante todo el ascenso o soltar el aire antes de tiempo, lo que reduce la estabilidad del core en el punto más exigente del movimiento.',
       ],
@@ -149,7 +149,7 @@ export const squatArticle: ExerciseArticle = {
         },
         {
           claim:
-            'Knee-joint loads (anterior and posterior cruciate ligament shear forces) increase with depth but remain within physiologically safe limits under correct technique.',
+            'Knee shear forces increase with squat depth but remain well below reported tissue-failure thresholds in biomechanical studies when technique is sound.',
           refIndices: [2, 5],
         },
         {

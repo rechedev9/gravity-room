@@ -68,7 +68,7 @@ export const benchArticle: ExerciseArticle = {
     es: {
       title: 'Press de Banca con Barra',
       description:
-        'Guía técnica y científica del press de banca con barra: músculos, biomecánica, agarre y errores comunes para progresar de forma segura.',
+        'Guía técnica y científica del press de banca con barra: músculos, biomecánica, agarre y errores comunes para progresar con menor riesgo.',
       summary: [
         'El press de banca con barra es el ejercicio de empuje horizontal más estudiado en la literatura científica. Activa principalmente el pectoral mayor y el tríceps braquial, con participación del deltoides anterior como músculo sinérgico.',
         'En el contexto del programa GZCLP, el press de banca suele programarse como movimiento T1 (fuerza máxima) o T2 (volumen de hipertrofia), permitiendo una progresión lineal de carga semana a semana para principiantes e intermedios.',
@@ -96,7 +96,7 @@ export const benchArticle: ExerciseArticle = {
         },
         {
           claim:
-            'Variaciones de agarre y ángulo afectan también el rendimiento en la zona de adherencia (sticking region): el agarre medio (biacromial) ofrece un equilibrio entre producción de fuerza y activación muscular total.',
+            'El ancho de agarre influye en la producción de fuerza y el equilibrio muscular en la zona de adherencia (sticking region): un agarre medio (aproximadamente biacromial) ofrece un buen equilibrio entre producción de fuerza y activación total del pectoral y el tríceps.',
           refIndices: [1, 5],
         },
         {
@@ -117,7 +117,7 @@ export const benchArticle: ExerciseArticle = {
     en: {
       title: 'Barbell Bench Press',
       description:
-        'Evidence-based technical guide to the barbell bench press: muscles worked, biomechanics, grip width, and common mistakes for safe, efficient progress.',
+        'Evidence-based technical guide to the barbell bench press: muscles worked, biomechanics, grip width, and common mistakes for lower-risk, efficient progress.',
       summary: [
         'The barbell bench press is the most extensively researched horizontal pushing exercise in the strength training literature. It primarily activates the pectoralis major and triceps brachii, with the anterior deltoid contributing as a synergist.',
         'Within a GZCLP program, the bench press is typically programmed as a T1 movement (maximal strength) or T2 movement (hypertrophy volume), allowing consistent linear load progression for beginner and intermediate lifters.',
@@ -145,7 +145,7 @@ export const benchArticle: ExerciseArticle = {
         },
         {
           claim:
-            'Grip width and bench angle also influence performance at the sticking region: a medium grip (biacromial width) offers the best balance between force output and overall muscle activation.',
+            'Grip width influences force output and muscle balance at the sticking region: a medium grip (about biacromial width) offers a good balance between force production and overall pectoral/triceps activation.',
           refIndices: [1, 5],
         },
         {
