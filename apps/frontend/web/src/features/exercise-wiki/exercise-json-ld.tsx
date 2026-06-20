@@ -61,10 +61,26 @@ export function ExerciseJsonLd({
   };
   const breadcrumbText = JSON.stringify(breadcrumbPayload).replace(/</g, '\\u003c');
 
+  const videoText =
+    article.video !== undefined
+      ? JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'VideoObject',
+          name: article.video.title,
+          description: c.description,
+          thumbnailUrl: `https://i.ytimg.com/vi/${article.video.youtubeId}/hqdefault.jpg`,
+          uploadDate: article.video.uploadDate,
+          duration: article.video.duration,
+          embedUrl: `https://www.youtube-nocookie.com/embed/${article.video.youtubeId}`,
+          contentUrl: `https://www.youtube.com/watch?v=${article.video.youtubeId}`,
+        }).replace(/</g, '\\u003c')
+      : null;
+
   return (
     <>
       <script type="application/ld+json">{jsonLdText}</script>
       <script type="application/ld+json">{breadcrumbText}</script>
+      {videoText !== null && <script type="application/ld+json">{videoText}</script>}
     </>
   );
 }

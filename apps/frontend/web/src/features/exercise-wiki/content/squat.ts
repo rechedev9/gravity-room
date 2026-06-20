@@ -14,6 +14,13 @@ export const squatArticle: ExerciseArticle = {
     'gastrocnemius',
     'core stabilizers',
   ],
+  video: {
+    youtubeId: 't2b8UdqmlFs',
+    title: "How To Squat: Layne Norton's Squat Tutorial",
+    channel: 'Bodybuilding.com',
+    uploadDate: '2015-03-19',
+    duration: 'PT16M53S',
+  },
   references: [
     {
       pmid: '12173958',

@@ -9,6 +9,7 @@ const LABELS = {
     evidence: 'Evidencia',
     mistakes: 'Errores comunes',
     references: 'Referencias',
+    videoGuide: 'Guía en vídeo',
   },
   en: {
     summary: 'Summary',
@@ -16,6 +17,7 @@ const LABELS = {
     evidence: 'Evidence',
     mistakes: 'Common mistakes',
     references: 'References',
+    videoGuide: 'Video guide',
   },
 } as const;
 
@@ -34,6 +36,23 @@ export function ExerciseArticleView({
         <h1 className="font-display text-4xl text-title">{c.title}</h1>
         <p className="text-muted">{c.description}</p>
       </header>
+
+      {article.video !== undefined && (
+        <section className="space-y-2">
+          <h2 className="font-display text-2xl text-main">{l.videoGuide}</h2>
+          <div className="aspect-video w-full overflow-hidden rounded-sm border border-rule">
+            <iframe
+              className="h-full w-full"
+              src={`https://www.youtube-nocookie.com/embed/${article.video.youtubeId}`}
+              title={article.video.title}
+              loading="lazy"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+            />
+          </div>
+        </section>
+      )}
 
       <section className="space-y-2">
         <h2 className="font-display text-2xl text-main">{l.summary}</h2>

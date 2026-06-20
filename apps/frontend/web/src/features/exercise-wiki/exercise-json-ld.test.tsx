@@ -46,4 +46,10 @@ describe('ExerciseJsonLd', () => {
     expect(items).toHaveLength(2);
     expect(items[1].item).toBe('https://gravityroom.app/en/exercises/squat');
   });
+  it('emits a VideoObject as the third ld+json script with the correct embedUrl', () => {
+    const html = renderToStaticMarkup(<ExerciseJsonLd article={squatArticle} lang="en" />);
+    const ld = parseLd(html, 2);
+    expect(ld['@type']).toBe('VideoObject');
+    expect(ld.embedUrl as string).toContain('t2b8UdqmlFs');
+  });
 });

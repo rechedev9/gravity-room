@@ -14,4 +14,10 @@ describe('ExerciseArticleView', () => {
     const refs = screen.getByTestId('exercise-references');
     expect(refs.querySelectorAll('li')).toHaveLength(squatArticle.references.length);
   });
+  it('renders an iframe whose src contains the video youtubeId', () => {
+    render(<ExerciseArticleView article={squatArticle} lang="en" />);
+    const iframe = document.querySelector('iframe');
+    expect(iframe).not.toBeNull();
+    expect(iframe?.src).toContain('t2b8UdqmlFs');
+  });
 });
