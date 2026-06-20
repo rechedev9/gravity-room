@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "bunx --bun vite",
-    "build": "vite build && bun run scripts/prerender.ts",
+    "build": "bun run scripts/generate-sitemap.ts && vite build && bun run scripts/prerender.ts",
     "build:no-prerender": "vite build",
+    "sitemap": "bun run scripts/generate-sitemap.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint --max-warnings=0 .",
     "lint:fix": "eslint --fix .",
