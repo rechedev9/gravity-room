@@ -1,11 +1,22 @@
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { CatalogEntry, GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
 
 import { ProgramsScreen } from './programs-screen';
 import {
   listProgramSummaries,
   upsertProgramSummaries,
 } from '../../lib/programs/program-repository';
-import { fetchProgramSummaries } from '../../lib/programs/program-service';
+import {
+  buildDefaultProgramConfig,
+  createProgramInstance,
+  fetchCatalogDefinition,
+  fetchCatalogEntries,
+  fetchProgramSummaries,
+} from '../../lib/programs/program-service';
+import {
+  upsertProgramDefinition,
+  upsertProgramDetail,
+} from '../../lib/tracker/program-detail-repository';
 
 jest.mock('../../lib/programs/program-repository', () => ({
   listProgramSummaries: jest.fn(),
@@ -13,27 +24,119 @@ jest.mock('../../lib/programs/program-repository', () => ({
 }));
 
 jest.mock('../../lib/programs/program-service', () => ({
+  buildDefaultProgramConfig: jest.fn(),
+  createProgramInstance: jest.fn(),
+  fetchCatalogDefinition: jest.fn(),
+  fetchCatalogEntries: jest.fn(),
   fetchProgramSummaries: jest.fn(),
+}));
+
+jest.mock('../../lib/tracker/program-detail-repository', () => ({
+  upsertProgramDefinition: jest.fn(),
+  upsertProgramDetail: jest.fn(),
 }));
 
 // TrackerScreen is lazy-required inside programs-screen on navigation;
 // it is not exercised by these tests so we stub the whole module.
 jest.mock('../tracker/tracker-screen', () => ({
-  TrackerScreen: () => null,
+  TrackerScreen: ({ programInstanceId }: { readonly programInstanceId: string }) => {
+    const React = require('react');
+    const { Text } = require('react-native');
+    return React.createElement(Text, null, programInstanceId);
+  },
 }));
 
 const mockedListProgramSummaries = jest.mocked(listProgramSummaries);
 const mockedUpsertProgramSummaries = jest.mocked(upsertProgramSummaries);
+const mockedBuildDefaultProgramConfig = jest.mocked(buildDefaultProgramConfig);
+const mockedCreateProgramInstance = jest.mocked(createProgramInstance);
+const mockedFetchCatalogDefinition = jest.mocked(fetchCatalogDefinition);
+const mockedFetchCatalogEntries = jest.mocked(fetchCatalogEntries);
 const mockedFetchProgramSummaries = jest.mocked(fetchProgramSummaries);
+const mockedUpsertProgramDefinition = jest.mocked(upsertProgramDefinition);
+const mockedUpsertProgramDetail = jest.mocked(upsertProgramDetail);
 
 const PROGRAM_A = { id: 'prog-1', title: 'GZCLP A', updatedAt: '2026-01-15T00:00:00.000Z' };
 const PROGRAM_B = { id: 'prog-2', title: 'Stronglifts 5x5', updatedAt: '2026-02-20T00:00:00.000Z' };
+const CATALOG_ENTRY = {
+  id: 'gzclp',
+  name: 'GZCLP',
+  description: 'Linear progression',
+  author: 'Gravity Room',
+  category: 'strength',
+  level: 'beginner',
+  source: 'preset',
+  totalWorkouts: 36,
+  workoutsPerWeek: 3,
+  cycleLength: 3,
+} satisfies CatalogEntry;
+const PROGRAM_DEFINITION = {
+  id: 'gzclp',
+  name: 'GZCLP',
+  description: 'Linear progression',
+  author: 'Gravity Room',
+  version: 1,
+  category: 'strength',
+  source: 'preset',
+  days: [
+    {
+      name: 'Day 1',
+      slots: [
+        {
+          id: 'squat-t1',
+          exerciseId: 'squat',
+          tier: 'T1',
+          stages: [{ sets: 5, reps: 3 }],
+          onSuccess: { type: 'add_weight' },
+          onMidStageFail: { type: 'advance_stage' },
+          onFinalStageFail: { type: 'deload_percent', percent: 10 },
+          startWeightKey: 'squat',
+        },
+      ],
+    },
+  ],
+  cycleLength: 1,
+  totalWorkouts: 1,
+  workoutsPerWeek: 3,
+  exercises: { squat: { name: 'Squat' } },
+  configFields: [{ key: 'squat', label: 'Squat', type: 'weight', min: 20, step: 2.5 }],
+  weightIncrements: { T1: 2.5 },
+} satisfies ProgramDefinition;
+const CREATED_DETAIL = {
+  id: 'created-program',
+  programId: 'gzclp',
+  name: 'GZCLP',
+  config: { squat: 20 },
+  metadata: null,
+  results: {},
+  undoHistory: [],
+  resultTimestamps: {},
+  completedDates: {},
+  definitionId: null,
+  customDefinition: null,
+  status: 'active',
+  createdAt: '2026-06-21T10:00:00.000Z',
+  updatedAt: '2026-06-21T10:00:00.000Z',
+} satisfies GenericProgramDetail;
 
 describe('ProgramsScreen', () => {
+  beforeEach(() => {
+    mockedFetchCatalogEntries.mockImplementation(() => new Promise(() => undefined));
+    mockedBuildDefaultProgramConfig.mockReturnValue({ squat: 20 });
+    mockedUpsertProgramDefinition.mockResolvedValue();
+    mockedUpsertProgramDetail.mockResolvedValue();
+  });
+
   afterEach(() => {
     mockedListProgramSummaries.mockReset();
     mockedUpsertProgramSummaries.mockReset();
+    mockedBuildDefaultProgramConfig.mockReset();
+    mockedCreateProgramInstance.mockReset();
+    mockedFetchCatalogDefinition.mockReset();
+    mockedFetchCatalogEntries.mockReset();
     mockedFetchProgramSummaries.mockReset();
+    mockedUpsertProgramDefinition.mockReset();
+    mockedUpsertProgramDetail.mockReset();
   });
 
   it('renders a loading indicator while the initial cache read is pending', async () => {
@@ -154,5 +257,36 @@ describe('ProgramsScreen', () => {
     await waitFor(() => {
       expect(mockedUpsertProgramSummaries).toHaveBeenCalledWith(freshPrograms);
     });
+  });
+
+  it('creates a catalog program and opens the tracker', async () => {
+    mockedListProgramSummaries.mockResolvedValue([]);
+    mockedFetchProgramSummaries.mockResolvedValue([]);
+    mockedUpsertProgramSummaries.mockResolvedValue();
+    mockedFetchCatalogEntries.mockResolvedValue([CATALOG_ENTRY]);
+    mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
+    mockedCreateProgramInstance.mockResolvedValue(CREATED_DETAIL);
+
+    render(<ProgramsScreen />);
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
+
+    await waitFor(() => {
+      expect(mockedCreateProgramInstance).toHaveBeenCalledWith({
+        programId: 'gzclp',
+        name: 'GZCLP',
+        config: { squat: 20 },
+      });
+    });
+    expect(mockedUpsertProgramDefinition).toHaveBeenCalledWith(PROGRAM_DEFINITION);
+    expect(mockedUpsertProgramDetail).toHaveBeenCalledWith(CREATED_DETAIL);
+    expect(mockedUpsertProgramSummaries).toHaveBeenCalledWith([
+      {
+        id: 'created-program',
+        title: 'GZCLP',
+        updatedAt: '2026-06-21T10:00:00.000Z',
+      },
+    ]);
+    expect(await screen.findByText('created-program')).toBeTruthy();
   });
 });

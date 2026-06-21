@@ -1,21 +1,45 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { CatalogEntry } from '@gzclp/domain';
 
+import { TrackerScreen } from '../tracker/tracker-screen';
+import { colors, radii, spacing } from '../../app/design';
 import {
   listProgramSummaries,
   type ProgramSummary,
   upsertProgramSummaries,
 } from '../../lib/programs/program-repository';
-import { fetchProgramSummaries } from '../../lib/programs/program-service';
+import {
+  buildDefaultProgramConfig,
+  createProgramInstance,
+  fetchCatalogDefinition,
+  fetchCatalogEntries,
+  fetchProgramSummaries,
+} from '../../lib/programs/program-service';
+import {
+  upsertProgramDefinition,
+  upsertProgramDetail,
+} from '../../lib/tracker/program-detail-repository';
+
+function mergeProgramSummary(
+  programs: readonly ProgramSummary[],
+  nextProgram: ProgramSummary
+): ProgramSummary[] {
+  return [nextProgram, ...programs.filter((program) => program.id !== nextProgram.id)];
+}
 
 export function ProgramsScreen() {
   const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
+  const [catalog, setCatalog] = useState<readonly CatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
+  const [creatingProgramId, setCreatingProgramId] = useState<string | null>(null);
 
   async function loadPrograms(signal: { active: boolean }): Promise<void> {
     try {
@@ -66,6 +90,27 @@ export function ProgramsScreen() {
     }
   }
 
+  async function loadCatalog(signal: { active: boolean }): Promise<void> {
+    try {
+      const catalogEntries = await fetchCatalogEntries();
+      if (!signal.active) {
+        return;
+      }
+
+      setCatalog(catalogEntries);
+      setCatalogError(null);
+    } catch {
+      if (signal.active) {
+        setCatalog([]);
+        setCatalogError('Unable to load the program catalog right now.');
+      }
+    } finally {
+      if (signal.active) {
+        setCatalogLoading(false);
+      }
+    }
+  }
+
   useEffect(() => {
     let active = true;
     const signal = {
@@ -75,7 +120,9 @@ export function ProgramsScreen() {
     };
 
     setLoading(true);
+    setCatalogLoading(true);
     void loadPrograms(signal);
+    void loadCatalog(signal);
 
     return () => {
       active = false;
@@ -86,9 +133,44 @@ export function ProgramsScreen() {
     setReloadToken((value) => value + 1);
   }
 
+  async function handleCreateProgram(entry: CatalogEntry): Promise<void> {
+    if (creatingProgramId) {
+      return;
+    }
+
+    setCreatingProgramId(entry.id);
+    setCatalogError(null);
+
+    try {
+      const definition = await fetchCatalogDefinition(entry.id);
+      const detail = await createProgramInstance({
+        programId: definition.id,
+        name: definition.name,
+        config: buildDefaultProgramConfig(definition),
+      });
+      const nextSummary = {
+        id: detail.id,
+        title: detail.name,
+        updatedAt: detail.updatedAt,
+      };
+      const nextPrograms = mergeProgramSummary(programs, nextSummary);
+
+      await upsertProgramDefinition(definition);
+      await upsertProgramDetail(detail);
+      await upsertProgramSummaries(nextPrograms);
+
+      setPrograms(nextPrograms);
+      setSyncNotice(null);
+      setError(null);
+      setSelectedProgramId(detail.id);
+    } catch {
+      setCatalogError('Unable to start that program right now.');
+    } finally {
+      setCreatingProgramId(null);
+    }
+  }
+
   if (selectedProgramId) {
-    const { TrackerScreen } =
-      require('../tracker/tracker-screen') as typeof import('../tracker/tracker-screen');
     return (
       <TrackerScreen
         programInstanceId={selectedProgramId}
@@ -103,7 +185,7 @@ export function ProgramsScreen() {
         <Text style={styles.eyebrow}>Programs</Text>
         <Text style={styles.title}>Cached training blocks</Text>
         <Text style={styles.body}>
-          The current mobile read path is local-first while sync work lands later.
+          Your active blocks stay available offline. Start a preset to cache it on this device.
         </Text>
         {loading ? (
           <View style={styles.stateBlock}>
@@ -146,6 +228,59 @@ export function ProgramsScreen() {
                 </Pressable>
               )}
             />
+            <View style={styles.catalogSection}>
+              <Text style={styles.sectionTitle}>Start a program</Text>
+              {catalogLoading ? (
+                <View style={styles.catalogStateBlock}>
+                  <ActivityIndicator color={colors.textPrimary} />
+                </View>
+              ) : catalogError ? (
+                <View style={styles.catalogStateBlock}>
+                  <Text style={styles.error}>{catalogError}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleRetry}
+                    style={styles.retryButton}
+                  >
+                    <Text style={styles.retryLabel}>Retry</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.catalogList}>
+                  {catalog.map((entry) => {
+                    const isCreating = creatingProgramId === entry.id;
+                    return (
+                      <View key={entry.id} style={styles.catalogCard}>
+                        <View style={styles.catalogCopy}>
+                          <Text style={styles.cardTitle}>{entry.name}</Text>
+                          <Text style={styles.cardMeta}>{entry.description}</Text>
+                          <Text style={styles.catalogMeta}>
+                            {entry.level} · {entry.totalWorkouts} workouts · {entry.workoutsPerWeek}
+                            /week
+                          </Text>
+                        </View>
+                        <Pressable
+                          accessibilityLabel={`Start ${entry.name}`}
+                          accessibilityRole="button"
+                          disabled={creatingProgramId !== null}
+                          onPress={() => {
+                            void handleCreateProgram(entry);
+                          }}
+                          style={[
+                            styles.startButton,
+                            isCreating ? styles.startButtonDisabled : null,
+                          ]}
+                        >
+                          <Text style={styles.startLabel}>
+                            {isCreating ? 'Starting...' : 'Start'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
           </>
         )}
       </View>
@@ -156,28 +291,28 @@ export function ProgramsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#050816',
+    backgroundColor: colors.canvas,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.screenX,
     paddingTop: 24,
-    gap: 12,
+    gap: spacing.stack,
   },
   eyebrow: {
-    color: '#8B9AF4',
+    color: colors.accentPrimary,
     fontSize: 14,
     fontWeight: '600',
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
   title: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 28,
     fontWeight: '700',
   },
   body: {
-    color: '#CBD5E1',
+    color: colors.textSecondary,
     fontSize: 16,
     lineHeight: 24,
   },
@@ -191,16 +326,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   empty: {
-    color: '#CBD5E1',
+    color: colors.textSecondary,
     fontSize: 16,
   },
   error: {
-    color: '#FCA5A5',
+    color: colors.textError,
     fontSize: 16,
     textAlign: 'center',
   },
   syncNotice: {
-    color: '#FBBF24',
+    color: colors.accentWarning,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -213,28 +348,75 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.borderSubtle,
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
   retryLabel: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
   card: {
     borderRadius: 20,
-    backgroundColor: '#111827',
+    backgroundColor: colors.card,
     padding: 16,
     gap: 6,
   },
   cardTitle: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
   cardMeta: {
-    color: '#94A3B8',
+    color: colors.textMuted,
     fontSize: 14,
+  },
+  catalogSection: {
+    gap: spacing.stack,
+    paddingBottom: 24,
+  },
+  sectionTitle: {
+    color: colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  catalogStateBlock: {
+    alignItems: 'center',
+    gap: spacing.stack,
+    paddingVertical: 20,
+  },
+  catalogList: {
+    gap: spacing.stack,
+  },
+  catalogCard: {
+    borderRadius: radii.card,
+    backgroundColor: colors.card,
+    padding: spacing.card,
+    gap: spacing.stack,
+  },
+  catalogCopy: {
+    gap: 6,
+  },
+  catalogMeta: {
+    color: colors.accentPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  startButton: {
+    alignItems: 'center',
+    borderRadius: radii.pill,
+    backgroundColor: colors.accentSuccess,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  startButtonDisabled: {
+    opacity: 0.55,
+  },
+  startLabel: {
+    color: '#04130A',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
