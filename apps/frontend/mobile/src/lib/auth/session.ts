@@ -48,7 +48,7 @@ interface RestoreSessionDependencies {
 let accessToken: string | null = null;
 let pendingRestoreDeps: RestoreSessionDependencies = {};
 
-const singleFlightRestore = createSingleFlight(async () => {
+const singleFlightRestore = createSingleFlight(async (): Promise<SessionState | null> => {
   const storage = pendingRestoreDeps.storage ?? secureRefreshTokenStorage;
   const refreshSession = pendingRestoreDeps.refreshSession ?? refreshMobileSession;
 
@@ -65,7 +65,7 @@ const singleFlightRestore = createSingleFlight(async () => {
     return {
       accessToken: refreshed.accessToken,
       user: refreshed.user,
-    } as SessionState;
+    };
   } catch (error) {
     accessToken = null;
     if (error instanceof InvalidRefreshTokenError) {
