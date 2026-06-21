@@ -2,8 +2,15 @@
 FROM oven/bun:1.3.10-alpine AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
+# `bun install --frozen-lockfile` resolves the WHOLE workspace, so EVERY
+# workspace member's package.json must be present here — even ones this image
+# never imports (web, mobile, api-client). A missing one fails the build with
+# `error: Workspace dependency "<name>" not found`. Adding a package under
+# packages/* or apps/* REQUIRES a line below. The `docker-build` job in
+# validate.yml builds this image on every PR to catch that drift pre-merge.
 COPY packages/domain/package.json ./packages/domain/
 COPY packages/database/package.json ./packages/database/
+COPY packages/api-client/package.json ./packages/api-client/
 COPY apps/backend/api/package.json ./apps/backend/api/
 COPY apps/frontend/web/package.json ./apps/frontend/web/
 COPY apps/frontend/mobile/package.json ./apps/frontend/mobile/
