@@ -9,13 +9,23 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { OnlineIndicator } from '@/components/online-indicator';
 import { cn } from '@/lib/cn';
 import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
-import { HomeIcon, TrackerIcon, InsightsIcon, ProgramsIcon, ProfileIcon } from './sidebar-icons';
+import {
+  HomeIcon,
+  TrackerIcon,
+  InsightsIcon,
+  ProgramsIcon,
+  ProfileIcon,
+  ExercisesIcon,
+} from './sidebar-icons';
 
 const SIDEBAR_FOCUS_RING =
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-sidebar)]';
 
 interface NavItem {
   readonly to: string;
+  // Language-specific target for public localized routes (e.g. the exercise
+  // wiki lives at /ejercicios in es and /en/exercises in en).
+  readonly toEn?: string;
   readonly labelKey: string;
   readonly end?: boolean;
   readonly Icon: React.ComponentType<{ readonly className?: string }>;
@@ -27,6 +37,12 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: '/app/tracker', labelKey: 'navigation.tracker', Icon: TrackerIcon },
   { to: '/app/insights', labelKey: 'navigation.insights', Icon: InsightsIcon, guestHidden: true },
   { to: '/app/programs', labelKey: 'navigation.programs', Icon: ProgramsIcon },
+  {
+    to: '/ejercicios',
+    toEn: '/en/exercises',
+    labelKey: 'navigation.exercises',
+    Icon: ExercisesIcon,
+  },
   { to: '/app/profile', labelKey: 'navigation.profile', Icon: ProfileIcon, guestHidden: true },
 ];
 
@@ -51,13 +67,14 @@ interface SidebarNavLinkProps {
 }
 
 function SidebarNavLink({ item, onItemClick }: SidebarNavLinkProps): React.ReactNode {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const isActive = item.end ? pathname === item.to : pathname.startsWith(item.to);
+  const to = item.toEn !== undefined && i18n.language.startsWith('en') ? item.toEn : item.to;
+  const isActive = item.end ? pathname === to : pathname.startsWith(to);
   const label = t(item.labelKey);
 
   return (
-    <Link to={item.to} onClick={onItemClick} className={navItemClass(isActive)}>
+    <Link to={to} onClick={onItemClick} className={navItemClass(isActive)}>
       {isActive && (
         <span
           className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-[var(--color-accent)]"

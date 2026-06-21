@@ -507,6 +507,7 @@
   },
   "navigation": {
     "home": "Inicio",
+    "exercises": "Ejercicios",
     "programs": "Programas",
     "dashboard": "Dashboard",
     "tracker": "Tracker",
