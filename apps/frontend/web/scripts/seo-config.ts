@@ -6,6 +6,7 @@
  * missing/over-listing programs).
  */
 import { PROGRAM_CATALOG } from '@gzclp/domain/catalog';
+import { EXERCISE_ARTICLES } from '../src/features/exercise-wiki/content/registry';
 
 export const SITE_ORIGIN = 'https://gravityroom.app';
 
@@ -35,14 +36,25 @@ const STATIC_ENTRIES: readonly SitemapEntry[] = [
   { path: '/cookies', priority: '0.3', changefreq: 'monthly' },
 ];
 
-/** All indexable entries: static routes + every ACTIVE catalog program. */
+// Exercise-wiki index pages (es + en). Article detail URLs are derived from the
+// wiki registry below so the sitemap can never drift from the published articles.
+const WIKI_INDEX_ENTRIES: readonly SitemapEntry[] = [
+  { path: '/ejercicios', priority: '0.8', changefreq: 'weekly' },
+  { path: '/en/exercises', priority: '0.8', changefreq: 'weekly' },
+];
+
+/** All indexable entries: static routes + active catalog programs + the wiki. */
 export function sitemapEntries(): readonly SitemapEntry[] {
   const programs: readonly SitemapEntry[] = PROGRAM_CATALOG.filter((p) => p.isActive).map((p) => ({
     path: `/programs/${p.id}`,
     priority: '0.7',
     changefreq: 'monthly',
   }));
-  return [...STATIC_ENTRIES, ...programs];
+  const wikiArticles: readonly SitemapEntry[] = EXERCISE_ARTICLES.flatMap((a) => [
+    { path: `/ejercicios/${a.slug.es}`, priority: '0.7', changefreq: 'monthly' },
+    { path: `/en/exercises/${a.slug.en}`, priority: '0.7', changefreq: 'monthly' },
+  ]);
+  return [...STATIC_ENTRIES, ...programs, ...WIKI_INDEX_ENTRIES, ...wikiArticles];
 }
 
 /** Absolute URLs for every indexable entry. */
