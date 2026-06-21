@@ -1,9 +1,19 @@
 name: gravity-room
 
+# Shared log-rotation policy: cap every container's json-file log so a chatty
+# service can never fill the root disk (no host-level /etc/docker/daemon.json
+# needed - this rides the compose file the deploy pipeline already syncs).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
 services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - '80:80'
       - '443:443'
@@ -19,6 +29,7 @@ services:
   api:
     image: ghcr.io/rechedev9/gravity-room-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    logging: *default-logging
     env_file: .env
     cap_drop: [ALL]
     security_opt:
@@ -42,6 +53,7 @@ services:
   analytics:
     image: ghcr.io/rechedev9/gravity-room-analytics:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    logging: *default-logging
     env_file: .env
     cap_drop: [ALL]
     security_opt:
@@ -63,7 +75,14 @@ services:
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped
+    logging: *default-logging
     env_file: .env
+    # no_new_privs blocks privilege GAIN (setuid escalation); it does NOT block the
+    # entrypoint's gosu step-down to the postgres user, so this is safe here.
+    # (cap_drop:[ALL]/read_only are intentionally NOT applied - postgres must write
+    # its data dir and the entrypoint needs CAP_SETUID/SETGID to drop privileges.)
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - /mnt/pg-vol:/var/lib/postgresql
     networks: [gr-net]
@@ -77,6 +96,12 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    logging: *default-logging
+    # no_new_privs only (NOT cap_drop:[ALL]): the redis entrypoint starts as root and
+    # uses su-exec to drop to the redis user, which needs CAP_SETUID/SETGID - dropping
+    # all caps would crash-loop the container.
+    security_opt:
+      - no-new-privileges:true
     command:
       [
         'redis-server',

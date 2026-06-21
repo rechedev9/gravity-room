@@ -109,7 +109,7 @@ jobs:
           ssh-keyscan -t ed25519 -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           chmod 644 ~/.ssh/known_hosts
 
-      - name: Sync compose + Caddyfile
+      - name: Sync compose, Caddyfile, ops scripts
         env:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -118,6 +118,14 @@ jobs:
             -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new" \
             infra/production/docker-compose.yml infra/production/Caddyfile \
             "${VPS_USER}@${VPS_HOST}:/opt/gravity-room/"
+          # Ops scripts (backup/heartbeat/restore-test). Sync without --delete so
+          # box-local files are preserved; --chmod keeps them executable. The cron
+          # units in infra/production/cron/ are root-owned and installed manually
+          # (the deploy user cannot write /etc/cron.d) - see OPERATIONS.md.
+          rsync -az --chmod=F755 \
+            -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new" \
+            infra/production/scripts/ \
+            "${VPS_USER}@${VPS_HOST}:/opt/gravity-room/scripts/"
 
       - name: Sync web dist
         env:
@@ -233,6 +241,19 @@ jobs:
           printf '%s\n' "$api_headers" | grep -qi "upgrade-insecure-requests"
 
           curl -fsS https://gravityroom.app/.well-known/security.txt | grep -q '^Contact:'
+
+      # Reclaim disk by removing release images older than 7 days. Runs only after
+      # the deploy is verified healthy, so the last week of sha-tagged images stays
+      # cached for fast rollback. `prune` never touches images used by a running
+      # container, so the live :latest and current :sha are always safe.
+      - name: Prune stale Docker images on VPS
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new \
+            "${VPS_USER}@${VPS_HOST}" \
+            'docker image prune -af --filter "until=168h" && docker builder prune -af --filter "until=168h"'
 
       # Push the (now-live) sitemap URLs to IndexNow so Bing — and the engines
       # that draw on its index (ChatGPT Search, Copilot) — re-crawl without
