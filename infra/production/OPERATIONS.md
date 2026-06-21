@@ -11,13 +11,13 @@ the box; this doc is how you (re)create them.
 
 ## Stack at a glance
 
-| Service     | Image                  | Notes                                                        |
-| ----------- | ---------------------- | ------------------------------------------------------------ |
-| `caddy`     | `caddy:2-alpine`       | TLS, security headers, serves web SPA, reverse-proxies api   |
-| `api`       | gravity-room-api       | `read_only`, `cap_drop: ALL`, `no-new-privileges`            |
-| `analytics` | gravity-room-analytics | `read_only`, `cap_drop: ALL`, `no-new-privileges`            |
-| `postgres`  | `postgres:18-alpine`   | data on the `pg-vol` Hetzner volume (`/mnt/pg-vol`)          |
-| `redis`     | `redis:7-alpine`       | ephemeral cache (tmpfs, `--save ''`), 256mb LRU              |
+| Service     | Image                  | Notes                                                      |
+| ----------- | ---------------------- | ---------------------------------------------------------- |
+| `caddy`     | `caddy:2-alpine`       | TLS, security headers, serves web SPA, reverse-proxies api |
+| `api`       | gravity-room-api       | `read_only`, `cap_drop: ALL`, `no-new-privileges`          |
+| `analytics` | gravity-room-analytics | `read_only`, `cap_drop: ALL`, `no-new-privileges`          |
+| `postgres`  | `postgres:18-alpine`   | data on the `pg-vol` Hetzner volume (`/mnt/pg-vol`)        |
+| `redis`     | `redis:7-alpine`       | ephemeral cache (tmpfs, `--save ''`), 256mb LRU            |
 
 All container logs are capped (`json-file`, `max-size: 10m`, `max-file: 3`) so a
 chatty container can never fill the root disk.
