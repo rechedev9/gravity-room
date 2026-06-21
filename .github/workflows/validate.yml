@@ -146,3 +146,33 @@ jobs:
       - name: Verify exercise-wiki citations
         working-directory: apps/frontend/web
         run: bun run verify:citations
+
+  # Build the production Docker images (api + analytics) on every PR WITHOUT
+  # pushing them. The VPS deploy (deploy.yml) only builds these AFTER merge, so
+  # a broken Dockerfile — e.g. a new workspace package not copied into the api
+  # image's deps stage (see apps/backend/api/Dockerfile) — used to surface only
+  # at deploy time. Building here fails the PR instead. Mirrors deploy.yml's
+  # build-images job, minus the GHCR push.
+  docker-build:
+    name: Build ${{ matrix.service }} image (no push)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            dockerfile: apps/backend/api/Dockerfile
+          - service: analytics
+            dockerfile: apps/backend/analytics/Dockerfile
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,scope=${{ matrix.service }}-pr,mode=max

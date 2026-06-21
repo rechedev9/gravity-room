@@ -161,6 +161,60 @@ bun run db:studio      # Drizzle Studio at http://local.drizzle.studio
 | CI `validate` job fails on API-types drift       | Generated client stale     | Run `bun run api:types` with API running, commit          |
 | Playwright `net::ERR_CONNECTION_REFUSED`         | API not started before e2e | Set `DATABASE_URL`; Playwright starts API via `webServer` |
 
+## VPS deploy (production)
+
+> Production runs on a single VPS. Deploys are **automatic on push to `main`**
+> via `.github/workflows/deploy.yml` (also `workflow_dispatch`). There is no
+> manual deploy step. Compose lives at `infra/production/docker-compose.yml`.
+
+### Pipeline (`deploy.yml`)
+
+1. **`build-images`** (matrix: `api`, `analytics`) — builds each `Dockerfile`
+   with buildx and pushes to GHCR as `ghcr.io/<owner>/gravity-room-<svc>:latest`
+   and `:<sha>`. `fail-fast: true` — if one image fails, the deploy is skipped.
+2. **`build-web`** — `bun install` + `bun run --filter web build` (Vite +
+   Playwright prerender) on the runner, bundles the `/presentacion` deck, and
+   uploads the `dist/` as the `web-dist` artifact. The web app is **static**
+   (no web image) — it is rsynced, not containerised.
+3. **`deploy`** (needs both above) — over SSH to the VPS at
+   `/opt/gravity-room/`: rsync `docker-compose.yml` + `Caddyfile`, rsync
+   `web-dist/` → `data/web-dist/` (`--delete`), **validate the VPS `.env`**
+   against the new api image (`check-env.ts`), `docker compose pull` +
+   `up -d`, reload Caddy, health-check `/health`, assert the index, verify
+   prod security headers, then ping IndexNow.
+
+VPS layout: `/opt/gravity-room/{docker-compose.yml, Caddyfile, .env, data/web-dist/}`.
+Secrets/vars used by the workflow: `VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER`,
+`VITE_GOOGLE_CLIENT_ID`.
+
+### Don't break the deploy — known footguns (each now has a CI guard)
+
+- **New workspace package → update the api Dockerfile.** The api image runs
+  `bun install --frozen-lockfile`, which resolves the **whole** workspace, so
+  every member's `package.json` must be `COPY`d into the `deps` stage of
+  `apps/backend/api/Dockerfile` — even ones the api never imports (web, mobile,
+  `api-client`). A missing one fails with
+  `error: Workspace dependency "<name>" not found` (this is exactly how PR #72
+  broke prod by adding `@gzclp/api-client`). **Guard:** the `docker-build` job
+  in `validate.yml` builds both images on every PR, so this fails the PR
+  instead of the post-merge deploy. Local-only dev and the rest of CI do NOT
+  catch it because they install the full checkout, not the Docker context.
+- **New required-in-prod env var → update two places.** Add it to
+  `apps/backend/api/.env.production.example` (CI `validate` runs `check-env.ts`
+  against it) **and** to the VPS `/opt/gravity-room/.env`. The deploy validates
+  the VPS `.env` against the new image before `compose up`, so a missing var
+  fails the deploy step cleanly instead of entering a restart loop (the PR #67
+  scenario).
+- **The `deploy` job only runs if BOTH image builds AND the web build pass.**
+  A red `build-images` (api or analytics) skips the deploy entirely.
+
+### Diagnosing a failed deploy
+
+`gh run list --workflow deploy.yml` → open the failed run →
+`gh run view <id> --log-failed`. Most failures are in `build-images` (Docker
+build) — look for the failing `RUN` step. `deploy`-job failures print
+`docker compose ps` + `logs` for the api/postgres containers.
+
 ## Auto-generated: API surface
 
 <!-- AUTO:API-START -->
