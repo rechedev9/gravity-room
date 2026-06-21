@@ -112,6 +112,20 @@ export function ProfileIcon({ className }: IconProps): React.ReactNode {
   );
 }
 
+export function ExercisesIcon({ className }: IconProps): React.ReactNode {
+  return (
+    <SidebarSvg className={className}>
+      <path
+        d="M10 5C8.5 3.8 6 3.5 3.5 4V15.5C6 15 8.5 15.3 10 16.5C11.5 15.3 14 15 16.5 15.5V4C14 3.5 11.5 3.8 10 5Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <line x1="10" y1="5" x2="10" y2="16.5" stroke="currentColor" strokeWidth="2" />
+    </SidebarSvg>
+  );
+}
+
 export function LoginIcon({ className }: IconProps): React.ReactNode {
   return (
     <SidebarSvg className={className}>
