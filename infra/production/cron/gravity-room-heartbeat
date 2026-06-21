@@ -1,0 +1,6 @@
+# Healthchecks.io ping every 5 minutes
+# Install: copy to /etc/cron.d/gravity-room-heartbeat (root-owned, mode 644).
+# No-op until /opt/gravity-room/.hc-url is configured (see OPERATIONS.md).
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+*/5 * * * * deploy /opt/gravity-room/scripts/heartbeat.sh
