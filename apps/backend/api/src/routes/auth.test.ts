@@ -188,6 +188,24 @@ mock.module('../lib/apple-auth', () => ({
   parseAppleUserName: mockParseAppleUserName,
 }));
 
+const mockIsGitHubConfigured = mock(() => true);
+const mockBuildGitHubAuthorizeUrl = mock(
+  () => 'https://github.com/login/oauth/authorize?client_id=x&state=state-fixed-123'
+);
+const mockExchangeGitHubCode = mock(() => Promise.resolve('gho_token'));
+const mockFetchGitHubIdentity = mock<
+  () => Promise<{ id: string; email: string; emailVerified: boolean; name: string | undefined }>
+>(() =>
+  Promise.resolve({ id: 'gh-123', email: 'octo@example.com', emailVerified: true, name: 'Octo' })
+);
+
+mock.module('../lib/github-auth', () => ({
+  isGitHubConfigured: mockIsGitHubConfigured,
+  buildGitHubAuthorizeUrl: mockBuildGitHubAuthorizeUrl,
+  exchangeGitHubCode: mockExchangeGitHubCode,
+  fetchGitHubIdentity: mockFetchGitHubIdentity,
+}));
+
 const mockVerifyGoogleToken = mock(() =>
   Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
 );
@@ -1161,5 +1179,84 @@ describe('POST /auth/apple/callback', () => {
     expect(loc).toContain('/auth/callback?provider=apple');
     expect(loc).not.toContain('error=');
     expect(res.headers.getSetCookie().some((c) => c.startsWith('refresh_token='))).toBe(true);
+  });
+});
+
+describe('GET /auth/github/start', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockIsGitHubConfigured.mockImplementation(() => true);
+    mockGenerateRefreshToken.mockImplementation(() => 'state-fixed-123');
+  });
+
+  it('redirects to GitHub and sets a state cookie when configured', async () => {
+    const res = await get('/auth/github/start');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('github.com/login/oauth/authorize');
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_state='))).toBe(true);
+  });
+
+  it('redirects to the SPA callback with an error when not configured', async () => {
+    mockIsGitHubConfigured.mockImplementation(() => false);
+    const res = await get('/auth/github/start');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain(
+      '/auth/callback?provider=github&error=provider_not_configured'
+    );
+  });
+});
+
+describe('GET /auth/github/callback', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockCreateAndStoreRefreshToken.mockImplementation(() => Promise.resolve('refresh-token'));
+    mockExchangeGitHubCode.mockImplementation(() => Promise.resolve('gho_token'));
+    mockFetchGitHubIdentity.mockImplementation(() =>
+      Promise.resolve({
+        id: 'gh-123',
+        email: 'octo@example.com',
+        emailVerified: true,
+        name: 'Octo',
+      })
+    );
+    mockFindOrCreateUserByIdentity.mockImplementation(() =>
+      Promise.resolve({ user: { ...PW_USER, email: 'octo@example.com' }, isNewUser: false })
+    );
+  });
+
+  it('redirects with state_mismatch when no state cookie is present', async () => {
+    const res = await get('/auth/github/callback?code=abc&state=xyz');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('error=state_mismatch');
+  });
+
+  it('redirects with cancelled when GitHub returns an error', async () => {
+    const res = await get('/auth/github/callback?error=access_denied', {
+      Cookie: 'oauth_state=xyz',
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('error=cancelled');
+  });
+
+  it('exchanges the code, sets the refresh cookie, and redirects on success', async () => {
+    const res = await get('/auth/github/callback?code=abc&state=xyz', {
+      Cookie: 'oauth_state=xyz',
+    });
+    expect(res.status).toBe(302);
+    const loc = res.headers.get('location') ?? '';
+    expect(loc).toContain('/auth/callback?provider=github');
+    expect(loc).not.toContain('error=');
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('refresh_token='))).toBe(true);
+  });
+
+  it('redirects with email_required when the GitHub account has no verified email', async () => {
+    mockFetchGitHubIdentity.mockImplementation(() =>
+      Promise.reject(new ApiError(401, 'No verified email', 'AUTH_EMAIL_UNVERIFIED'))
+    );
+    const res = await get('/auth/github/callback?code=abc&state=xyz', {
+      Cookie: 'oauth_state=xyz',
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('error=email_required');
   });
 });

@@ -49,6 +49,12 @@ import {
   verifyAppleIdToken,
   parseAppleUserName,
 } from '../lib/apple-auth';
+import {
+  isGitHubConfigured,
+  buildGitHubAuthorizeUrl,
+  exchangeGitHubCode,
+  fetchGitHubIdentity,
+} from '../lib/github-auth';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
 
@@ -692,6 +698,100 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         summary: 'Apple sign-in callback (form_post)',
         description:
           'Verifies the Apple ID token, links or creates the user, sets the refresh cookie, and redirects to the SPA callback.',
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // GET /auth/github/start — redirect to GitHub authorization
+  // -----------------------------------------------------------------------
+  .get(
+    '/github/start',
+    async ({ cookie, redirect, ip }) => {
+      await rateLimit(ip, '/auth/github/start', { maxRequests: 30 });
+      if (!isGitHubConfigured()) {
+        return redirect(socialCallbackUrl('github', 'provider_not_configured'));
+      }
+      const state = generateRefreshToken();
+      cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('lax') });
+      return redirect(
+        buildGitHubAuthorizeUrl(state, `${getApiBaseUrl()}/api/auth/github/callback`)
+      );
+    },
+    {
+      detail: {
+        tags: ['Auth'],
+        summary: 'Start GitHub sign-in',
+        description:
+          'Redirects to GitHub authorization and sets a short-lived CSRF state cookie (SameSite=Lax).',
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // GET /auth/github/callback — exchange code, look up user, issue session
+  // -----------------------------------------------------------------------
+  .get(
+    '/github/callback',
+    async ({ jwt, query, cookie, redirect, request, reqLogger }) => {
+      const stateCookie = cookie[OAUTH_STATE_COOKIE];
+      const expectedState = stateCookie?.value;
+      stateCookie?.remove();
+
+      if (query.error || !query.code || !query.state) {
+        return redirect(socialCallbackUrl('github', 'cancelled'));
+      }
+      if (!expectedState || expectedState !== query.state) {
+        return redirect(socialCallbackUrl('github', 'state_mismatch'));
+      }
+
+      let identity;
+      try {
+        const redirectUri = `${getApiBaseUrl()}/api/auth/github/callback`;
+        const accessToken = await exchangeGitHubCode(query.code, redirectUri);
+        identity = await fetchGitHubIdentity(accessToken);
+      } catch (e: unknown) {
+        reqLogger.warn({ err: e }, 'github: oauth exchange/lookup failed');
+        const code =
+          e instanceof ApiError && e.code === 'AUTH_EMAIL_UNVERIFIED'
+            ? 'email_required'
+            : 'provider_error';
+        return redirect(socialCallbackUrl('github', code));
+      }
+
+      try {
+        const { user, isNewUser } = await findOrCreateUserByIdentity({
+          provider: 'github',
+          providerAccountId: identity.id,
+          email: identity.email,
+          emailVerified: identity.emailVerified,
+          name: identity.name,
+        });
+        if (isNewUser) {
+          const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
+          void sendTelegramMessage(
+            `New user: ${user.email} | github/${deviceType} | ${new Date().toISOString()}`
+          );
+        }
+        await issueTokens(jwt, cookie, user);
+        reqLogger.info({ event: 'auth.github', userId: user.id }, 'github sign-in');
+        return redirect(socialCallbackUrl('github'));
+      } catch (e: unknown) {
+        reqLogger.warn({ err: e }, 'github: sign-in failed');
+        return redirect(socialCallbackUrl('github', identityErrorCode(e)));
+      }
+    },
+    {
+      query: t.Object({
+        code: t.Optional(t.String()),
+        state: t.Optional(t.String()),
+        error: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'GitHub sign-in callback',
+        description:
+          'Exchanges the code, looks up the GitHub user + primary verified email, links or creates the user, sets the refresh cookie, and redirects to the SPA callback.',
       },
     }
   )
