@@ -81,6 +81,8 @@ export async function truncateAllTables(): Promise<void> {
           workout_results,
           program_instances,
           password_reset_tokens,
+          email_verification_tokens,
+          user_identities,
           refresh_tokens,
           users
         CASCADE`

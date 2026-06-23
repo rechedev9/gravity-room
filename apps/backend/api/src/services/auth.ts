@@ -2,9 +2,10 @@
  * Auth service — refresh token management, user CRUD.
  * Framework-agnostic: no Elysia dependency. JWT signing handled in routes.
  */
-import { eq, lt, and, isNull, sql } from 'drizzle-orm';
+import { eq, lt, and, isNull } from 'drizzle-orm';
+import { isRecord } from '@gzclp/domain/type-guards';
 import { getDb } from '../db';
-import { users, refreshTokens } from '@gzclp/database/schema';
+import { users, refreshTokens, userIdentities } from '@gzclp/database/schema';
 import { ApiError } from '../middleware/error-handler';
 
 // ---------------------------------------------------------------------------
@@ -36,10 +37,22 @@ export type RotateRefreshTokenResult =
       readonly refreshToken: string;
     };
 
-/** Result of findOrCreateGoogleUser — includes new-user detection flag. */
-interface FindOrCreateResult {
+/** Result of findOrCreateUserByIdentity — includes new-user detection flag. */
+export interface FindOrCreateResult {
   readonly user: UserRow;
   readonly isNewUser: boolean;
+}
+
+/** External auth providers, plus the local email/password method. */
+export type AuthProvider = 'google' | 'apple' | 'github' | 'password';
+
+/** Identity descriptor passed to findOrCreateUserByIdentity. */
+export interface IdentityInput {
+  readonly provider: AuthProvider;
+  readonly providerAccountId: string;
+  readonly email: string;
+  readonly emailVerified: boolean;
+  readonly name?: string | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -89,61 +102,161 @@ export async function findUserByEmail(email: string): Promise<UserRow | undefine
   return user;
 }
 
+/** Reusable 403 for sign-in attempts against a soft-deleted account. */
+function accountDeletedError(): ApiError {
+  return new ApiError(
+    403,
+    'This account has been deleted. Contact support if you wish to recover it.',
+    'ACCOUNT_DELETED'
+  );
+}
+
+/** True for a PostgreSQL unique-violation (SQLSTATE 23505). */
+export function isUniqueViolation(error: unknown): boolean {
+  return isRecord(error) && error['code'] === '23505';
+}
+
+/** What to do with an incoming identity that matches an existing account by email. */
+export type IdentityLinkDecision = 'link' | 'conflict' | 'account_deleted';
+
 /**
- * Finds a user by their Google sub claim, creating them if they don't exist.
- * Uses an atomic INSERT ... ON CONFLICT upsert to eliminate the TOCTOU race
- * condition that exists in a SELECT-then-INSERT pattern.
- * Updates name and email on every sign-in via the DO UPDATE clause.
+ * Pure linking policy (no DB). An incoming identity is linked to the existing
+ * account only when BOTH the incoming email is provider-verified and the
+ * existing account's email is verified — otherwise it is a conflict. This is
+ * the anti-takeover guard: an attacker who pre-registers an unverified account
+ * for a victim's address must never capture the victim's later social sign-in.
+ */
+export function decideIdentityLink(
+  incomingEmailVerified: boolean,
+  existing: { readonly emailVerified: boolean; readonly isDeleted: boolean }
+): IdentityLinkDecision {
+  if (existing.isDeleted) return 'account_deleted';
+  if (incomingEmailVerified && existing.emailVerified) return 'link';
+  return 'conflict';
+}
+
+/**
+ * Resolves the user owning an external identity: returns the existing user,
+ * links the identity to a matching verified account, or creates a new
+ * user+identity pair. Runs in a transaction so the pair is created atomically.
+ *
+ * Account linking is intentionally conservative: an incoming identity is only
+ * linked to an existing user when BOTH the incoming email is provider-verified
+ * and the existing account's email is verified. This blocks the classic
+ * email-based takeover where an attacker pre-registers an unverified account
+ * for a victim's address and then captures the victim's social sign-in.
+ */
+async function upsertIdentity(input: IdentityInput): Promise<FindOrCreateResult> {
+  const email = input.email.toLowerCase();
+
+  return getDb().transaction(async (tx): Promise<FindOrCreateResult> => {
+    // 1. Known identity → return its user (rejecting soft-deleted accounts).
+    const [identity] = await tx
+      .select({ userId: userIdentities.userId })
+      .from(userIdentities)
+      .where(
+        and(
+          eq(userIdentities.provider, input.provider),
+          eq(userIdentities.providerAccountId, input.providerAccountId)
+        )
+      )
+      .limit(1);
+
+    if (identity) {
+      const [user] = await tx.select().from(users).where(eq(users.id, identity.userId)).limit(1);
+      if (!user) throw new ApiError(500, 'Identity references a missing user', 'DB_WRITE_ERROR');
+      if (user.deletedAt) throw accountDeletedError();
+      return { user, isNewUser: false };
+    }
+
+    // 2. No identity yet — link to an existing account by email when safe.
+    const [existing] = await tx.select().from(users).where(eq(users.email, email)).limit(1);
+
+    if (existing) {
+      const decision = decideIdentityLink(input.emailVerified, {
+        emailVerified: existing.emailVerified,
+        isDeleted: existing.deletedAt !== null,
+      });
+
+      if (decision === 'account_deleted') throw accountDeletedError();
+      if (decision === 'conflict') {
+        throw new ApiError(
+          409,
+          'An account with this email already exists. Sign in with your original method.',
+          'ACCOUNT_EXISTS_DIFFERENT_METHOD'
+        );
+      }
+
+      // decision === 'link'
+      await tx.insert(userIdentities).values({
+        userId: existing.id,
+        provider: input.provider,
+        providerAccountId: input.providerAccountId,
+      });
+      return { user: existing, isNewUser: false };
+    }
+
+    // 3. Brand-new user. Keep the legacy google_id populated for the Google
+    // provider so any read still referencing it works during the transition.
+    const [user] = await tx
+      .insert(users)
+      .values({
+        email,
+        name: input.name ?? null,
+        emailVerified: input.emailVerified,
+        googleId: input.provider === 'google' ? input.providerAccountId : null,
+      })
+      .returning();
+
+    if (!user) throw new ApiError(500, 'Failed to create user', 'DB_WRITE_ERROR');
+
+    await tx.insert(userIdentities).values({
+      userId: user.id,
+      provider: input.provider,
+      providerAccountId: input.providerAccountId,
+    });
+
+    return { user, isNewUser: true };
+  });
+}
+
+/**
+ * Finds the user owning an external identity, creating or linking as needed.
+ *
+ * A concurrent first sign-in can lose the create race (unique violation on the
+ * identity or the email). We retry once: on the second attempt the row now
+ * exists and is resolved by lookup. See {@link upsertIdentity} for the linking
+ * policy.
+ */
+export async function findOrCreateUserByIdentity(
+  input: IdentityInput
+): Promise<FindOrCreateResult> {
+  try {
+    return await upsertIdentity(input);
+  } catch (error: unknown) {
+    if (isUniqueViolation(error)) {
+      return upsertIdentity(input);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Google-specific wrapper kept for the /auth/google routes. Google verifies
+ * email ownership, so emailVerified is always true.
  */
 export async function findOrCreateGoogleUser(
   googleId: string,
   email: string,
   name: string | undefined
 ): Promise<FindOrCreateResult> {
-  const db = getDb();
-
-  const [user] = await db
-    .insert(users)
-    .values({ googleId, email: email.toLowerCase(), name: name ?? null })
-    .onConflictDoUpdate({
-      target: users.googleId,
-      set: {
-        name: sql`EXCLUDED.name`,
-        email: sql`EXCLUDED.email`,
-        updatedAt: new Date(),
-      },
-      // Never touch a soft-deleted row. Without this guard the DO UPDATE
-      // overwrites the email/name of a deleted account on every sign-in
-      // attempt, mutating a row the 30-day purge job reasons about.
-      setWhere: isNull(users.deletedAt),
-    })
-    .returning();
-
-  // RETURNING yields no row when the conflict matched a soft-deleted account
-  // (the setWhere filtered the UPDATE out). Look it up to return the correct
-  // 403 instead of a misleading 500.
-  if (!user) {
-    const [deleted] = await db.select().from(users).where(eq(users.googleId, googleId)).limit(1);
-    if (deleted?.deletedAt) {
-      throw new ApiError(
-        403,
-        'This account has been deleted. Contact support if you wish to recover it.',
-        'ACCOUNT_DELETED'
-      );
-    }
-    throw new ApiError(500, 'Failed to upsert user', 'DB_WRITE_ERROR');
-  }
-
-  if (user.deletedAt) {
-    throw new ApiError(
-      403,
-      'This account has been deleted. Contact support if you wish to recover it.',
-      'ACCOUNT_DELETED'
-    );
-  }
-
-  const isNewUser = Math.abs(user.createdAt.getTime() - user.updatedAt.getTime()) < 2_000;
-  return { user, isNewUser };
+  return findOrCreateUserByIdentity({
+    provider: 'google',
+    providerAccountId: googleId,
+    email,
+    emailVerified: true,
+    name,
+  });
 }
 
 /** Update user profile fields (name, avatarUrl). */

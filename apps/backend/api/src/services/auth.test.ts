@@ -1,49 +1,24 @@
 /**
- * Auth service tests — pure functions and DB-error path.
+ * Auth service tests — pure functions only.
  *
- * The pure function tests (generateRefreshToken, hashToken, REFRESH_TOKEN_DAYS)
- * do not touch the DB. Task 4.12 tests the DB-write-error path of
- * findOrCreateGoogleUser by mocking getDb().
- *
- * mock.module() is hoisted and intercepts any transitively imported DB calls.
+ * Token helpers (generateRefreshToken, hashToken) and the identity-linking
+ * policy (decideIdentityLink, isUniqueViolation) are pure and need no DB. The
+ * DB-backed flows (findOrCreateUserByIdentity, refresh-token rotation) are
+ * exercised against a real Postgres in the integration suite
+ * (test/e2e/auth-identity.e2e.test.ts) and via the API boot in CI.
  */
 process.env['DATABASE_URL'] = 'postgres://test:test@localhost:5432/test';
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect } from 'bun:test';
-
-// ---------------------------------------------------------------------------
-// Mocks — must be declared before imports
-// ---------------------------------------------------------------------------
-
-// DB query chain: insert().values().onConflictDoUpdate().returning() → [] (empty = failed upsert)
-const mockReturning = mock(() => Promise.resolve([] as unknown[]));
-const mockOnConflictDoUpdate = mock(() => ({ returning: mockReturning }));
-const mockValues = mock(() => ({ onConflictDoUpdate: mockOnConflictDoUpdate }));
-const mockInsert = mock(() => ({ values: mockValues }));
-
-// select().from().where().limit() — kept for non-upsert select queries
-const mockLimit = mock(() => Promise.resolve([] as unknown[]));
-const mockWhere = mock(() => ({ limit: mockLimit }));
-const mockFrom = mock(() => ({ where: mockWhere }));
-const mockSelect = mock(() => ({ from: mockFrom }));
-
-const mockDb = {
-  insert: mockInsert,
-  select: mockSelect,
-};
-
-mock.module('../db', () => ({
-  getDb: mock(() => mockDb),
-}));
+import { describe, it, expect } from 'bun:test';
 
 import {
   generateRefreshToken,
   hashToken,
   REFRESH_TOKEN_DAYS,
-  findOrCreateGoogleUser,
+  decideIdentityLink,
+  isUniqueViolation,
 } from './auth';
-import { ApiError } from '../middleware/error-handler';
 
 // ---------------------------------------------------------------------------
 // Refresh token generation
@@ -110,198 +85,53 @@ describe('REFRESH_TOKEN_DAYS', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4.12: findOrCreateGoogleUser — DB write error path
+// Identity-linking policy (anti-takeover guard)
 // ---------------------------------------------------------------------------
 
-describe('findOrCreateGoogleUser — DB_WRITE_ERROR', () => {
-  it('4.12: throws ApiError with code DB_WRITE_ERROR and status 500 when insert returns empty array', async () => {
-    // Arrange: mockReturning returns [] → insert produced no row
-    mockReturning.mockImplementation(() => Promise.resolve([]));
-    mockLimit.mockImplementation(() => Promise.resolve([])); // no existing user
+describe('decideIdentityLink', () => {
+  it('links when both the incoming and existing emails are verified', () => {
+    expect(decideIdentityLink(true, { emailVerified: true, isDeleted: false })).toBe('link');
+  });
 
-    // Act
-    let thrown: unknown;
-    try {
-      await findOrCreateGoogleUser('google-sub-123', 'user@example.com', 'Test User');
-    } catch (e) {
-      thrown = e;
-    }
+  it('conflicts when the incoming email is unverified', () => {
+    expect(decideIdentityLink(false, { emailVerified: true, isDeleted: false })).toBe('conflict');
+  });
 
-    // Assert
-    expect(thrown instanceof ApiError).toBe(true);
-    expect((thrown as ApiError).code).toBe('DB_WRITE_ERROR');
-    expect((thrown as ApiError).statusCode).toBe(500);
+  it('conflicts when the existing account email is unverified', () => {
+    expect(decideIdentityLink(true, { emailVerified: false, isDeleted: false })).toBe('conflict');
+  });
+
+  it('conflicts when neither side is verified', () => {
+    expect(decideIdentityLink(false, { emailVerified: false, isDeleted: false })).toBe('conflict');
+  });
+
+  it('reports account_deleted for a soft-deleted account regardless of verification', () => {
+    expect(decideIdentityLink(true, { emailVerified: true, isDeleted: true })).toBe(
+      'account_deleted'
+    );
+    expect(decideIdentityLink(false, { emailVerified: false, isDeleted: true })).toBe(
+      'account_deleted'
+    );
   });
 });
 
 // ---------------------------------------------------------------------------
-// findOrCreateGoogleUser — atomic upsert behavior
+// Postgres unique-violation detection (drives the create-race retry)
 // ---------------------------------------------------------------------------
 
-describe('findOrCreateGoogleUser', () => {
-  it('inserts and returns a new user on first sign-in', async () => {
-    // Arrange: upsert returns a new user row
-    const newUser = {
-      id: 'user-001',
-      googleId: 'G-123',
-      email: 'alice@example.com',
-      name: 'Alice',
-      avatarUrl: null,
-      deletedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    mockReturning.mockImplementation(() => Promise.resolve([newUser]));
-
-    // Act
-    const result = await findOrCreateGoogleUser('G-123', 'alice@example.com', 'Alice');
-
-    // Assert
-    expect(result.user.id).toBe('user-001');
-    expect(result.user.name).toBe('Alice');
-    expect(result.user.email).toBe('alice@example.com');
-    expect(mockInsert).toHaveBeenCalled();
+describe('isUniqueViolation', () => {
+  it('is true for a Postgres 23505 error', () => {
+    expect(isUniqueViolation({ code: '23505' })).toBe(true);
   });
 
-  it('returns existing user with updated name on repeat sign-in', async () => {
-    // Arrange: upsert returns existing user with updated name
-    const existingUser = {
-      id: 'user-002',
-      googleId: 'G-123',
-      email: 'alice@example.com',
-      name: 'Alice Smith',
-      avatarUrl: null,
-      deletedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    mockReturning.mockImplementation(() => Promise.resolve([existingUser]));
-
-    // Act
-    const result = await findOrCreateGoogleUser('G-123', 'alice@example.com', 'Alice Smith');
-
-    // Assert
-    expect(result.user.name).toBe('Alice Smith');
+  it('is false for other Postgres error codes', () => {
+    expect(isUniqueViolation({ code: '23503' })).toBe(false);
   });
 
-  it('throws ApiError 403 when returned user has deletedAt set', async () => {
-    // Arrange: upsert returns a soft-deleted user
-    const deletedUser = {
-      id: 'user-003',
-      googleId: 'G-789',
-      email: 'bob@example.com',
-      name: 'Bob',
-      avatarUrl: null,
-      deletedAt: new Date('2026-01-01T00:00:00Z'),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    mockReturning.mockImplementation(() => Promise.resolve([deletedUser]));
-
-    // Act
-    let thrown: unknown;
-    try {
-      await findOrCreateGoogleUser('G-789', 'bob@example.com', 'Bob');
-    } catch (e) {
-      thrown = e;
-    }
-
-    // Assert
-    expect(thrown).toBeInstanceOf(ApiError);
-    expect((thrown as ApiError).statusCode).toBe(403);
-    expect((thrown as ApiError).code).toBe('ACCOUNT_DELETED');
-  });
-
-  it('returns successfully when user has deletedAt = null', async () => {
-    // Arrange: upsert returns active user
-    const activeUser = {
-      id: 'user-004',
-      googleId: 'G-111',
-      email: 'carol@example.com',
-      name: 'Carol',
-      avatarUrl: null,
-      deletedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    mockReturning.mockImplementation(() => Promise.resolve([activeUser]));
-
-    // Act
-    const result = await findOrCreateGoogleUser('G-111', 'carol@example.com', 'Carol');
-
-    // Assert
-    expect(result.user.deletedAt).toBeNull();
-    expect(result.user.id).toBe('user-004');
-  });
-
-  it('returns isNewUser: true when createdAt equals updatedAt within 2 seconds', async () => {
-    // Arrange: DB returns a user where createdAt and updatedAt differ by < 2000ms
-    const now = new Date();
-    const newUser = {
-      id: 'user-new-001',
-      googleId: 'G-NEW',
-      email: 'fresh@example.com',
-      name: 'Fresh',
-      avatarUrl: null,
-      deletedAt: null,
-      createdAt: now,
-      updatedAt: new Date(now.getTime() + 500), // 500ms difference — new user
-    };
-    mockReturning.mockImplementation(() => Promise.resolve([newUser]));
-
-    // Act
-    const result = await findOrCreateGoogleUser('G-NEW', 'fresh@example.com', 'Fresh');
-
-    // Assert
-    expect(result.isNewUser).toBe(true);
-  });
-
-  it('returns isNewUser: false when createdAt differs from updatedAt by 2 seconds or more', async () => {
-    // Arrange: DB returns a user where updatedAt is 2+ seconds after createdAt
-    const createdAt = new Date('2024-01-01T00:00:00.000Z');
-    const updatedAt = new Date('2024-01-01T00:00:02.000Z'); // exactly 2000ms — returning user
-    const returningUser = {
-      id: 'user-ret-001',
-      googleId: 'G-RET',
-      email: 'returning@example.com',
-      name: 'Returning',
-      avatarUrl: null,
-      deletedAt: null,
-      createdAt,
-      updatedAt,
-    };
-    mockReturning.mockImplementation(() => Promise.resolve([returningUser]));
-
-    // Act
-    const result = await findOrCreateGoogleUser('G-RET', 'returning@example.com', 'Returning');
-
-    // Assert
-    expect(result.isNewUser).toBe(false);
-  });
-
-  it('lowercases email before upsert', async () => {
-    // Arrange
-    mockValues.mockClear();
-    const user = {
-      id: 'user-005',
-      googleId: 'G-222',
-      email: 'alice@example.com',
-      name: 'Alice',
-      avatarUrl: null,
-      deletedAt: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    mockReturning.mockImplementation(() => Promise.resolve([user]));
-
-    // Act
-    await findOrCreateGoogleUser('G-222', 'Alice@EXAMPLE.COM', 'Alice');
-
-    // Assert — the email passed to values() should be lowercased
-    expect(mockValues).toHaveBeenCalled();
-    const calls = mockValues.mock.calls as unknown as [Record<string, unknown>][];
-    const capturedValues = calls[0]?.[0];
-    expect(capturedValues).toBeDefined();
-    expect(capturedValues?.email).toBe('alice@example.com');
+  it('is false for non-objects and nullish values', () => {
+    expect(isUniqueViolation(null)).toBe(false);
+    expect(isUniqueViolation(undefined)).toBe(false);
+    expect(isUniqueViolation('23505')).toBe(false);
+    expect(isUniqueViolation(new Error('boom'))).toBe(false);
   });
 });
