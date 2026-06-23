@@ -7,6 +7,7 @@
  * fail-soft Telegram module — auth flows never block on email delivery.
  */
 import { logger } from './logger';
+import { getWebBaseUrl } from './app-url';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 const EMAIL_TIMEOUT_MS = 10_000;
@@ -16,12 +17,6 @@ interface SendEmailInput {
   readonly subject: string;
   readonly html: string;
   readonly text: string;
-}
-
-/** First configured web origin (for action links), defaulting to local dev. */
-export function getWebBaseUrl(): string {
-  const first = process.env['CORS_ORIGIN']?.split(',')[0]?.trim();
-  return first && first.length > 0 ? first.replace(/\/$/, '') : 'http://localhost:5173';
 }
 
 /**

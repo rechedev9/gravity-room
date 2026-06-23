@@ -123,6 +123,10 @@ const mockConsumePasswordResetToken = mock<() => Promise<string | null>>(() =>
   Promise.resolve(null)
 );
 const mockSetUserPassword = mock(() => Promise.resolve());
+const mockFindOrCreateUserByIdentity = mock<
+  () => Promise<{ user: MockUserRow; isNewUser: boolean }>
+>(() => Promise.resolve({ user: { ...PW_USER }, isNewUser: false }));
+const mockGenerateRefreshToken = mock(() => 'state-fixed-123');
 
 mock.module('../services/auth', () => ({
   hashToken: mockHashToken,
@@ -135,6 +139,8 @@ mock.module('../services/auth', () => ({
   createAndStoreRefreshToken: mockCreateAndStoreRefreshToken,
   rotateRefreshToken: mockRotateRefreshToken,
   findOrCreateGoogleUser: mockFindOrCreateGoogleUser,
+  findOrCreateUserByIdentity: mockFindOrCreateUserByIdentity,
+  generateRefreshToken: mockGenerateRefreshToken,
   authenticatePassword: mockAuthenticatePassword,
   createPasswordUser: mockCreatePasswordUser,
   createEmailVerificationToken: mockCreateEmailVerificationToken,
@@ -152,6 +158,34 @@ const mockSendPasswordResetEmail = mock(() => Promise.resolve());
 mock.module('../lib/email', () => ({
   sendVerificationEmail: mockSendVerificationEmail,
   sendPasswordResetEmail: mockSendPasswordResetEmail,
+}));
+
+const mockIsAppleConfigured = mock(() => true);
+const mockBuildAppleAuthorizeUrl = mock(
+  () => 'https://appleid.apple.com/auth/authorize?client_id=x&state=state-fixed-123'
+);
+const mockVerifyAppleIdToken = mock<
+  () => Promise<{
+    sub: string;
+    email: string | undefined;
+    emailVerified: boolean;
+    name: string | undefined;
+  }>
+>(() =>
+  Promise.resolve({
+    sub: 'apple-sub',
+    email: 'apple@example.com',
+    emailVerified: true,
+    name: 'Ada',
+  })
+);
+const mockParseAppleUserName = mock<() => string | undefined>(() => undefined);
+
+mock.module('../lib/apple-auth', () => ({
+  isAppleConfigured: mockIsAppleConfigured,
+  buildAppleAuthorizeUrl: mockBuildAppleAuthorizeUrl,
+  verifyAppleIdToken: mockVerifyAppleIdToken,
+  parseAppleUserName: mockParseAppleUserName,
 }));
 
 const mockVerifyGoogleToken = mock(() =>
@@ -1057,5 +1091,75 @@ describe('POST /auth/reset-password', () => {
     expect(res.status).toBe(200);
     expect(mockSetUserPassword).toHaveBeenCalledTimes(1);
     expect(mockRevokeAllUserTokens).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('GET /auth/apple/start', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockIsAppleConfigured.mockImplementation(() => true);
+    mockGenerateRefreshToken.mockImplementation(() => 'state-fixed-123');
+  });
+
+  it('redirects to Apple and sets a state cookie when configured', async () => {
+    const res = await get('/auth/apple/start');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('appleid.apple.com/auth/authorize');
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_state='))).toBe(true);
+  });
+
+  it('redirects to the SPA callback with an error when not configured', async () => {
+    mockIsAppleConfigured.mockImplementation(() => false);
+    const res = await get('/auth/apple/start');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain(
+      '/auth/callback?provider=apple&error=provider_not_configured'
+    );
+  });
+});
+
+describe('POST /auth/apple/callback', () => {
+  beforeEach(() => {
+    mockCreateAndStoreRefreshToken.mockImplementation(() => Promise.resolve('refresh-token'));
+    mockVerifyAppleIdToken.mockImplementation(() =>
+      Promise.resolve({
+        sub: 'apple-sub',
+        email: 'apple@example.com',
+        emailVerified: true,
+        name: 'Ada',
+      })
+    );
+    mockFindOrCreateUserByIdentity.mockImplementation(() =>
+      Promise.resolve({ user: { ...PW_USER, email: 'apple@example.com' }, isNewUser: false })
+    );
+  });
+
+  it('redirects with state_mismatch when no state cookie is present', async () => {
+    const res = await post('/auth/apple/callback', { id_token: 'tok', state: 'abc' });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('error=state_mismatch');
+  });
+
+  it('redirects with cancelled when Apple returns an error field', async () => {
+    const res = await post(
+      '/auth/apple/callback',
+      { error: 'user_cancelled_authorize' },
+      { Cookie: 'oauth_state=abc' }
+    );
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('error=cancelled');
+  });
+
+  it('verifies the token, sets the refresh cookie, and redirects on success', async () => {
+    const res = await post(
+      '/auth/apple/callback',
+      { id_token: 'tok', state: 'abc' },
+      { Cookie: 'oauth_state=abc' }
+    );
+    expect(res.status).toBe(302);
+    const loc = res.headers.get('location') ?? '';
+    expect(loc).toContain('/auth/callback?provider=apple');
+    expect(loc).not.toContain('error=');
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('refresh_token='))).toBe(true);
   });
 });

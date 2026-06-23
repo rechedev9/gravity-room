@@ -19,6 +19,8 @@ import {
   rotateRefreshToken,
   findUserById,
   findOrCreateGoogleUser,
+  findOrCreateUserByIdentity,
+  generateRefreshToken,
   findUserByEmail,
   updateUserProfile,
   softDeleteUser,
@@ -40,6 +42,13 @@ import {
 } from '../lib/google-auth';
 import { sendTelegramMessage } from '../lib/telegram';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/email';
+import { getApiBaseUrl, getWebBaseUrl } from '../lib/app-url';
+import {
+  isAppleConfigured,
+  buildAppleAuthorizeUrl,
+  verifyAppleIdToken,
+  parseAppleUserName,
+} from '../lib/apple-auth';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
 
@@ -267,6 +276,45 @@ async function processGoogleSignIn(
   }
 
   return { user, isNewUser };
+}
+
+// ---------------------------------------------------------------------------
+// Social sign-in (Apple, GitHub) — server-side redirect flows
+// ---------------------------------------------------------------------------
+
+const OAUTH_STATE_COOKIE = 'oauth_state';
+const OAUTH_STATE_TTL_S = 10 * 60; // 10 minutes
+
+/**
+ * State-cookie options. Apple replies via cross-site form_post (needs
+ * SameSite=None, which mandates Secure); GitHub returns via a top-level GET
+ * navigation, where Lax is sufficient.
+ */
+function stateCookieOptions(sameSite: 'lax' | 'none'): Record<string, unknown> {
+  return {
+    httpOnly: true,
+    secure: IS_PRODUCTION || sameSite === 'none',
+    sameSite,
+    maxAge: OAUTH_STATE_TTL_S,
+    path: '/api/auth',
+  };
+}
+
+/** Builds the SPA callback URL the browser is redirected to, with an optional error code. */
+function socialCallbackUrl(provider: string, error?: string): string {
+  const base = `${getWebBaseUrl()}/auth/callback`;
+  return error
+    ? `${base}?provider=${provider}&error=${encodeURIComponent(error)}`
+    : `${base}?provider=${provider}`;
+}
+
+/** Maps a findOrCreateUserByIdentity ApiError to a stable callback error code. */
+function identityErrorCode(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === 'ACCOUNT_DELETED') return 'account_deleted';
+    if (error.code === 'ACCOUNT_EXISTS_DIFFERENT_METHOD') return 'account_exists';
+  }
+  return 'signin_failed';
 }
 
 const authSecurity = [{ bearerAuth: [] }];
@@ -552,6 +600,98 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           400: { description: 'Invalid or expired token' },
           429: { description: 'Rate limited' },
         },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // GET /auth/apple/start — redirect to Apple authorization
+  // -----------------------------------------------------------------------
+  .get(
+    '/apple/start',
+    async ({ cookie, redirect, ip }) => {
+      await rateLimit(ip, '/auth/apple/start', { maxRequests: 30 });
+      if (!isAppleConfigured()) {
+        return redirect(socialCallbackUrl('apple', 'provider_not_configured'));
+      }
+      const state = generateRefreshToken();
+      cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('none') });
+      return redirect(buildAppleAuthorizeUrl(state, `${getApiBaseUrl()}/api/auth/apple/callback`));
+    },
+    {
+      detail: {
+        tags: ['Auth'],
+        summary: 'Start Sign in with Apple',
+        description:
+          'Redirects to Apple authorization (response_mode=form_post) and sets a short-lived CSRF state cookie.',
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/apple/callback — verify Apple ID token, issue session, redirect
+  // -----------------------------------------------------------------------
+  .post(
+    '/apple/callback',
+    async ({ jwt, body, cookie, redirect, request, reqLogger }) => {
+      const stateCookie = cookie[OAUTH_STATE_COOKIE];
+      const expectedState = stateCookie?.value;
+      stateCookie?.remove();
+
+      if (body.error || !body.id_token || !body.state) {
+        return redirect(socialCallbackUrl('apple', 'cancelled'));
+      }
+      if (!expectedState || expectedState !== body.state) {
+        return redirect(socialCallbackUrl('apple', 'state_mismatch'));
+      }
+
+      let claims;
+      try {
+        claims = await verifyAppleIdToken(body.id_token);
+      } catch (e: unknown) {
+        reqLogger.warn({ err: e }, 'apple: id_token verification failed');
+        return redirect(socialCallbackUrl('apple', 'invalid_token'));
+      }
+
+      if (!claims.email) {
+        return redirect(socialCallbackUrl('apple', 'email_required'));
+      }
+
+      try {
+        const { user, isNewUser } = await findOrCreateUserByIdentity({
+          provider: 'apple',
+          providerAccountId: claims.sub,
+          email: claims.email,
+          emailVerified: claims.emailVerified,
+          name: claims.name ?? parseAppleUserName(body.user),
+        });
+        if (isNewUser) {
+          const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
+          void sendTelegramMessage(
+            `New user: ${user.email} | apple/${deviceType} | ${new Date().toISOString()}`
+          );
+        }
+        await issueTokens(jwt, cookie, user);
+        reqLogger.info({ event: 'auth.apple', userId: user.id }, 'apple sign-in');
+        return redirect(socialCallbackUrl('apple'));
+      } catch (e: unknown) {
+        reqLogger.warn({ err: e }, 'apple: sign-in failed');
+        return redirect(socialCallbackUrl('apple', identityErrorCode(e)));
+      }
+    },
+    {
+      body: t.Object({
+        id_token: t.Optional(t.String()),
+        state: t.Optional(t.String()),
+        code: t.Optional(t.String()),
+        user: t.Optional(t.String()),
+        error: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Apple sign-in callback (form_post)',
+        description:
+          'Verifies the Apple ID token, links or creates the user, sets the refresh cookie, and redirects to the SPA callback.',
       },
     }
   )
