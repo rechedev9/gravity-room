@@ -38,7 +38,16 @@ export const users = pgTable(
   {
     id: uuid().defaultRandom().primaryKey(),
     email: varchar({ length: 255 }).unique().notNull(),
-    googleId: varchar('google_id', { length: 255 }).unique().notNull(),
+    /**
+     * Legacy Google identity column. External identities now live in
+     * `user_identities`; this is kept (nullable) for backfill and back-compat
+     * and is no longer the identity key. New non-Google users have it NULL.
+     */
+    googleId: varchar('google_id', { length: 255 }).unique(),
+    /** argon2id hash for the email/password method (NULL for OAuth-only users). */
+    passwordHash: text('password_hash'),
+    /** True once the email is provider-verified (OAuth) or confirmed via link. */
+    emailVerified: boolean('email_verified').notNull().default(false),
     name: varchar({ length: 100 }),
     avatarUrl: text('avatar_url'),
     /**
@@ -66,6 +75,7 @@ export const users = pgTable(
 
 export const usersRelations = relations(users, ({ many }) => ({
   refreshTokens: many(refreshTokens),
+  identities: many(userIdentities),
   programInstances: many(programInstances),
   programDefinitions: many(programDefinitions),
   userInsights: many(userInsights),
@@ -107,6 +117,83 @@ export const refreshTokens = pgTable(
 
 export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
   user: one(users, { fields: [refreshTokens.userId], references: [users.id] }),
+}));
+
+// ---------------------------------------------------------------------------
+// user_identities — external auth providers linked to a user
+// ---------------------------------------------------------------------------
+//
+// One user can own many identities. `(provider, provider_account_id)` is
+// globally unique, so the same provider account can never map to two users.
+// `provider` is one of 'google' | 'apple' | 'github' | 'password'; for the
+// 'password' provider the account id is the user's own id.
+
+export const userIdentities = pgTable(
+  'user_identities',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    provider: varchar({ length: 20 }).notNull(),
+    providerAccountId: varchar('provider_account_id', { length: 255 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique('user_identities_provider_account_uq').on(table.provider, table.providerAccountId),
+    index('user_identities_user_id_idx').on(table.userId),
+  ]
+);
+
+export const userIdentitiesRelations = relations(userIdentities, ({ one }) => ({
+  user: one(users, { fields: [userIdentities.userId], references: [users.id] }),
+}));
+
+// ---------------------------------------------------------------------------
+// password_reset_tokens / email_verification_tokens — single-use, short-lived
+// tokens (SHA-256 hashed) for the email/password method (consumed in PR2).
+// ---------------------------------------------------------------------------
+
+export const passwordResetTokens = pgTable(
+  'password_reset_tokens',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    tokenHash: varchar('token_hash', { length: 64 }).unique().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('password_reset_tokens_user_id_idx').on(table.userId),
+    index('password_reset_tokens_expires_at_idx').on(table.expiresAt),
+  ]
+);
+
+export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
+  user: one(users, { fields: [passwordResetTokens.userId], references: [users.id] }),
+}));
+
+export const emailVerificationTokens = pgTable(
+  'email_verification_tokens',
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    userId: uuid('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    tokenHash: varchar('token_hash', { length: 64 }).unique().notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('email_verification_tokens_user_id_idx').on(table.userId),
+    index('email_verification_tokens_expires_at_idx').on(table.expiresAt),
+  ]
+);
+
+export const emailVerificationTokensRelations = relations(emailVerificationTokens, ({ one }) => ({
+  user: one(users, { fields: [emailVerificationTokens.userId], references: [users.id] }),
 }));
 
 // ---------------------------------------------------------------------------

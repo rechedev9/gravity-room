@@ -174,6 +174,53 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
       'Set to the literal string "false" to disable SSL. Any other value keeps SSL enabled in production.',
     example: 'false',
   },
+  {
+    name: 'API_PUBLIC_URL',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Public base URL of this API, used to build OAuth/OIDC redirect URIs (Apple/GitHub). Falls back to http://localhost:3001 when unset.',
+    example: 'https://gravityroom.app',
+  },
+  {
+    name: 'RESEND_API_KEY',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Resend API key for transactional email (verification, password reset). Email sending is a silent no-op when unset; required once email/password sign-in is live.',
+    example: 're_<resend-api-key>',
+  },
+  {
+    name: 'EMAIL_FROM',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'From address for transactional email. Required alongside RESEND_API_KEY for email to send.',
+    example: 'Gravity Room <auth@gravityroom.app>',
+  },
+  {
+    name: 'APPLE_CLIENT_ID',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Apple Service ID (audience) for Sign in with Apple. Apple sign-in is disabled when unset.',
+    example: 'app.gravityroom.web',
+  },
+  {
+    name: 'GITHUB_CLIENT_ID',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'GitHub OAuth app client ID. GitHub sign-in is disabled unless both id and secret are set.',
+    example: '<github-oauth-client-id>',
+  },
+  {
+    name: 'GITHUB_CLIENT_SECRET',
+    service: 'api',
+    requiredInProd: false,
+    description: 'GitHub OAuth app client secret. Pairs with GITHUB_CLIENT_ID.',
+    example: '<github-oauth-client-secret>',
+  },
 
   // ── analytics ────────────────────────────────────────────────────────────
   {

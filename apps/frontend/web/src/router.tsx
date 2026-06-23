@@ -36,6 +36,15 @@ export interface RouterContext {
 const LoginPage = lazyWithRetry(() =>
   import('@/features/auth/login-page').then((m) => ({ default: m.LoginPage }))
 );
+const AuthCallbackPage = lazyWithRetry(() =>
+  import('@/features/auth/auth-flows').then((m) => ({ default: m.AuthCallbackPage }))
+);
+const VerifyEmailPage = lazyWithRetry(() =>
+  import('@/features/auth/auth-flows').then((m) => ({ default: m.VerifyEmailPage }))
+);
+const ResetPasswordPage = lazyWithRetry(() =>
+  import('@/features/auth/auth-flows').then((m) => ({ default: m.ResetPasswordPage }))
+);
 const PrivacyPage = lazyWithRetry(() =>
   import('@/features/legal/privacy-page').then((m) => ({ default: m.PrivacyPage }))
 );
@@ -147,6 +156,27 @@ const loginRoute = createRoute({
   },
   pendingComponent: LoginSkeleton,
   component: LoginPage,
+});
+
+const authCallbackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/callback',
+  pendingComponent: LoginSkeleton,
+  component: AuthCallbackPage,
+});
+
+const verifyEmailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/verify-email',
+  pendingComponent: LoginSkeleton,
+  component: VerifyEmailPage,
+});
+
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password',
+  pendingComponent: LoginSkeleton,
+  component: ResetPasswordPage,
 });
 
 const privacyRoute = createRoute({
@@ -279,6 +309,9 @@ const routeTree = rootRoute.addChildren([
   landingRoute,
   landingEnRoute,
   loginRoute,
+  authCallbackRoute,
+  verifyEmailRoute,
+  resetPasswordRoute,
   privacyRoute,
   cookiesRoute,
   programPreviewRoute,

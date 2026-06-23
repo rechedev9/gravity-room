@@ -1133,14 +1133,71 @@
     "form": {
       "title": "Autenticar"
     },
+    "social": {
+      "google": "Continuar con Google",
+      "apple": "Continuar con Apple",
+      "github": "Continuar con GitHub",
+      "coming_soon": "Pronto"
+    },
+    "divider": "o",
+    "email": {
+      "toggle": "Continuar con email",
+      "email_label": "Correo",
+      "email_placeholder": "tu@ejemplo.com",
+      "password_label": "Contraseña",
+      "password_placeholder": "Tu contraseña",
+      "name_label": "Nombre",
+      "name_placeholder": "Tu nombre (opcional)",
+      "submit_signin": "Entrar",
+      "submit_signup": "Crear cuenta",
+      "to_signup": "¿No tienes cuenta? Crear una",
+      "to_signin": "¿Ya tienes cuenta? Entrar",
+      "forgot": "¿Olvidaste tu contraseña?"
+    },
+    "signup_success": "Cuenta creada. Revisa tu correo para verificar tu dirección antes de entrar.",
     "errors": {
-      "google_auth_error": "Error al iniciar sesión con Google. Inténtalo de nuevo."
+      "google_auth_error": "Error al iniciar sesión con Google. Inténtalo de nuevo.",
+      "INVALID_CREDENTIALS": "Correo o contraseña incorrectos.",
+      "EMAIL_NOT_VERIFIED": "Verifica tu correo antes de entrar. Revisa tu bandeja de entrada.",
+      "EMAIL_TAKEN": "Ya existe una cuenta con este correo.",
+      "INVALID_TOKEN": "Este enlace no es válido o ha caducado.",
+      "RATE_LIMITED": "Demasiados intentos. Inténtalo de nuevo más tarde.",
+      "generic": "Algo salió mal. Inténtalo de nuevo."
     },
     "dev": {
       "dev_login": "⚗ Dev Login"
     },
     "guest": {
       "cta": "Probar sin cuenta"
+    },
+    "callback": {
+      "verifying": "Completando el inicio de sesión…",
+      "error_title": "No se pudo iniciar sesión",
+      "back_to_login": "Volver a iniciar sesión",
+      "account_exists": "Este correo ya está registrado con otro método. Entra con tu método original.",
+      "account_deleted": "Esta cuenta ha sido eliminada.",
+      "email_required": "Tu proveedor no compartió un correo verificado, necesario para entrar.",
+      "provider_not_configured": "Este método de inicio de sesión no está disponible ahora mismo.",
+      "generic": "No pudimos completar el inicio de sesión. Inténtalo de nuevo."
+    },
+    "verify_email": {
+      "title": "Verifica tu correo",
+      "verifying": "Verificando tu correo…",
+      "success": "Tu correo está verificado. Redirigiendo…",
+      "error": "Este enlace de verificación no es válido o ha caducado.",
+      "back_to_login": "Volver a iniciar sesión"
+    },
+    "reset_password": {
+      "title": "Restablece tu contraseña",
+      "request_intro": "Introduce tu correo y te enviaremos un enlace para restablecerla.",
+      "request_submit": "Enviar enlace",
+      "request_sent": "Si existe una cuenta con ese correo, te hemos enviado un enlace.",
+      "new_password_label": "Nueva contraseña",
+      "new_password_placeholder": "Tu nueva contraseña",
+      "submit": "Actualizar contraseña",
+      "success": "Contraseña actualizada. Ya puedes iniciar sesión.",
+      "error": "Este enlace de restablecimiento no es válido o ha caducado.",
+      "back_to_login": "Volver a iniciar sesión"
     }
   },
   "not_found": {

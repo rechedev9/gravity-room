@@ -19,9 +19,20 @@ import {
   rotateRefreshToken,
   findUserById,
   findOrCreateGoogleUser,
+  findOrCreateUserByIdentity,
+  generateRefreshToken,
   findUserByEmail,
   updateUserProfile,
   softDeleteUser,
+  hashPassword,
+  authenticatePassword,
+  createPasswordUser,
+  createEmailVerificationToken,
+  consumeEmailVerificationToken,
+  markEmailVerified,
+  createPasswordResetToken,
+  consumePasswordResetToken,
+  setUserPassword,
   REFRESH_TOKEN_DAYS,
 } from '../services/auth';
 import {
@@ -30,6 +41,20 @@ import {
   verifyGoogleToken,
 } from '../lib/google-auth';
 import { sendTelegramMessage } from '../lib/telegram';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/email';
+import { getApiBaseUrl, getWebBaseUrl } from '../lib/app-url';
+import {
+  isAppleConfigured,
+  buildAppleAuthorizeUrl,
+  verifyAppleIdToken,
+  parseAppleUserName,
+} from '../lib/apple-auth';
+import {
+  isGitHubConfigured,
+  buildGitHubAuthorizeUrl,
+  exchangeGitHubCode,
+  fetchGitHubIdentity,
+} from '../lib/github-auth';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
 
@@ -259,6 +284,45 @@ async function processGoogleSignIn(
   return { user, isNewUser };
 }
 
+// ---------------------------------------------------------------------------
+// Social sign-in (Apple, GitHub) — server-side redirect flows
+// ---------------------------------------------------------------------------
+
+const OAUTH_STATE_COOKIE = 'oauth_state';
+const OAUTH_STATE_TTL_S = 10 * 60; // 10 minutes
+
+/**
+ * State-cookie options. Apple replies via cross-site form_post (needs
+ * SameSite=None, which mandates Secure); GitHub returns via a top-level GET
+ * navigation, where Lax is sufficient.
+ */
+function stateCookieOptions(sameSite: 'lax' | 'none'): Record<string, unknown> {
+  return {
+    httpOnly: true,
+    secure: IS_PRODUCTION || sameSite === 'none',
+    sameSite,
+    maxAge: OAUTH_STATE_TTL_S,
+    path: '/api/auth',
+  };
+}
+
+/** Builds the SPA callback URL the browser is redirected to, with an optional error code. */
+function socialCallbackUrl(provider: string, error?: string): string {
+  const base = `${getWebBaseUrl()}/auth/callback`;
+  return error
+    ? `${base}?provider=${provider}&error=${encodeURIComponent(error)}`
+    : `${base}?provider=${provider}`;
+}
+
+/** Maps a findOrCreateUserByIdentity ApiError to a stable callback error code. */
+function identityErrorCode(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.code === 'ACCOUNT_DELETED') return 'account_deleted';
+    if (error.code === 'ACCOUNT_EXISTS_DIFFERENT_METHOD') return 'account_exists';
+  }
+  return 'signin_failed';
+}
+
 const authSecurity = [{ bearerAuth: [] }];
 
 export const authRoutes = new Elysia({ prefix: '/auth' })
@@ -348,6 +412,386 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         summary: 'Sign in with Google for mobile clients',
         description:
           'Verifies a Google ID token, finds or creates the user, and returns both access and refresh tokens in the response body.',
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/signup — email + password registration
+  // -----------------------------------------------------------------------
+  .post(
+    '/signup',
+    async ({ body, set, reqLogger, ip, request }) => {
+      await rateLimit(ip, '/auth/signup', { maxRequests: 10 });
+
+      const passwordHash = await hashPassword(body.password);
+      const user = await createPasswordUser({ email: body.email, passwordHash, name: body.name });
+
+      const token = await createEmailVerificationToken(user.id);
+      void sendVerificationEmail(user.email, token);
+
+      const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
+      void sendTelegramMessage(
+        `New user: ${user.email} | ${deviceType} | ${new Date().toISOString()}`
+      );
+
+      reqLogger.info({ event: 'auth.signup', userId: user.id }, 'email signup');
+      set.status = 201;
+      return { message: 'Account created. Check your email to verify your address.' };
+    },
+    {
+      body: t.Object({
+        email: t.String({ format: 'email' }),
+        password: t.String({ minLength: 8, maxLength: 200 }),
+        name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Sign up with email and password',
+        description:
+          'Creates an unverified email/password account and sends a verification email. The user must verify before logging in.',
+        responses: {
+          201: { description: 'Account created; verification email sent' },
+          409: { description: 'Email already registered' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/login — email + password sign-in
+  // -----------------------------------------------------------------------
+  .post(
+    '/login',
+    async ({ jwt, body, cookie, set, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/login', { maxRequests: 10 });
+
+      const user = await authenticatePassword(body.email, body.password);
+      if (!user) {
+        throw new ApiError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
+      }
+      if (!user.emailVerified) {
+        throw new ApiError(403, 'Email not verified', 'EMAIL_NOT_VERIFIED');
+      }
+
+      const { accessToken } = await issueTokens(jwt, cookie, user);
+      reqLogger.info({ event: 'auth.login', userId: user.id }, 'password login');
+      set.status = 200;
+      return { user: userResponse(user), accessToken };
+    },
+    {
+      body: t.Object({
+        email: t.String({ format: 'email' }),
+        password: t.String({ minLength: 1, maxLength: 200 }),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Log in with email and password',
+        description:
+          'Verifies credentials and issues tokens. Returns a generic 401 for bad credentials (no enumeration) and 403 when the email is unverified.',
+        responses: {
+          200: { description: 'Authenticated; access token in body, refresh token in cookie' },
+          401: { description: 'Invalid credentials' },
+          403: { description: 'Email not verified' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/verify-email — confirm address, then auto-login
+  // -----------------------------------------------------------------------
+  .post(
+    '/verify-email',
+    async ({ jwt, body, cookie, set, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/verify-email', { maxRequests: 20 });
+
+      const userId = await consumeEmailVerificationToken(body.token);
+      if (!userId) {
+        throw new ApiError(400, 'Invalid or expired verification token', 'INVALID_TOKEN');
+      }
+      const user = await markEmailVerified(userId);
+      if (!user) {
+        throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+      }
+
+      const { accessToken } = await issueTokens(jwt, cookie, user);
+      reqLogger.info({ event: 'auth.email_verified', userId }, 'email verified');
+      set.status = 200;
+      return { user: userResponse(user), accessToken };
+    },
+    {
+      body: t.Object({ token: t.String({ minLength: 1 }) }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Verify email address',
+        description: 'Consumes a verification token, marks the email verified, and issues tokens.',
+        responses: {
+          200: { description: 'Email verified; tokens issued' },
+          400: { description: 'Invalid or expired token' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/forgot-password — request a reset link (always generic 200)
+  // -----------------------------------------------------------------------
+  .post(
+    '/forgot-password',
+    async ({ body, set, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/forgot-password', { maxRequests: 5 });
+
+      const user = await findUserByEmail(body.email);
+      if (user?.passwordHash) {
+        const token = await createPasswordResetToken(user.id);
+        void sendPasswordResetEmail(user.email, token);
+        reqLogger.info({ event: 'auth.forgot_password', userId: user.id }, 'reset email queued');
+      }
+
+      // Always generic — never reveal whether the account exists.
+      set.status = 200;
+      return { message: 'If an account exists for that email, a reset link has been sent.' };
+    },
+    {
+      body: t.Object({ email: t.String({ format: 'email' }) }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Request a password reset',
+        description:
+          'Sends a reset link when a password account exists. Always returns 200 to avoid account enumeration.',
+        responses: {
+          200: { description: 'Generic acknowledgement' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/reset-password — consume token, set new password, revoke sessions
+  // -----------------------------------------------------------------------
+  .post(
+    '/reset-password',
+    async ({ body, set, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/reset-password', { maxRequests: 10 });
+
+      const userId = await consumePasswordResetToken(body.token);
+      if (!userId) {
+        throw new ApiError(400, 'Invalid or expired reset token', 'INVALID_TOKEN');
+      }
+      const passwordHash = await hashPassword(body.password);
+      await setUserPassword(userId, passwordHash);
+      // A reset invalidates every existing session (defense against a compromise).
+      await revokeAllUserTokens(userId);
+
+      reqLogger.info({ event: 'auth.password_reset', userId }, 'password reset');
+      set.status = 200;
+      return { message: 'Password updated. Sign in with your new password.' };
+    },
+    {
+      body: t.Object({
+        token: t.String({ minLength: 1 }),
+        password: t.String({ minLength: 8, maxLength: 200 }),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Reset password',
+        description: 'Consumes a reset token, sets a new password, and revokes all sessions.',
+        responses: {
+          200: { description: 'Password updated' },
+          400: { description: 'Invalid or expired token' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // GET /auth/apple/start — redirect to Apple authorization
+  // -----------------------------------------------------------------------
+  .get(
+    '/apple/start',
+    async ({ cookie, redirect, ip }) => {
+      await rateLimit(ip, '/auth/apple/start', { maxRequests: 30 });
+      if (!isAppleConfigured()) {
+        return redirect(socialCallbackUrl('apple', 'provider_not_configured'));
+      }
+      const state = generateRefreshToken();
+      cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('none') });
+      return redirect(buildAppleAuthorizeUrl(state, `${getApiBaseUrl()}/api/auth/apple/callback`));
+    },
+    {
+      detail: {
+        tags: ['Auth'],
+        summary: 'Start Sign in with Apple',
+        description:
+          'Redirects to Apple authorization (response_mode=form_post) and sets a short-lived CSRF state cookie.',
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/apple/callback — verify Apple ID token, issue session, redirect
+  // -----------------------------------------------------------------------
+  .post(
+    '/apple/callback',
+    async ({ jwt, body, cookie, redirect, request, reqLogger }) => {
+      const stateCookie = cookie[OAUTH_STATE_COOKIE];
+      const expectedState = stateCookie?.value;
+      stateCookie?.remove();
+
+      if (body.error || !body.id_token || !body.state) {
+        return redirect(socialCallbackUrl('apple', 'cancelled'));
+      }
+      if (!expectedState || expectedState !== body.state) {
+        return redirect(socialCallbackUrl('apple', 'state_mismatch'));
+      }
+
+      let claims;
+      try {
+        claims = await verifyAppleIdToken(body.id_token);
+      } catch (e: unknown) {
+        reqLogger.warn({ err: e }, 'apple: id_token verification failed');
+        return redirect(socialCallbackUrl('apple', 'invalid_token'));
+      }
+
+      if (!claims.email) {
+        return redirect(socialCallbackUrl('apple', 'email_required'));
+      }
+
+      try {
+        const { user, isNewUser } = await findOrCreateUserByIdentity({
+          provider: 'apple',
+          providerAccountId: claims.sub,
+          email: claims.email,
+          emailVerified: claims.emailVerified,
+          name: claims.name ?? parseAppleUserName(body.user),
+        });
+        if (isNewUser) {
+          const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
+          void sendTelegramMessage(
+            `New user: ${user.email} | apple/${deviceType} | ${new Date().toISOString()}`
+          );
+        }
+        await issueTokens(jwt, cookie, user);
+        reqLogger.info({ event: 'auth.apple', userId: user.id }, 'apple sign-in');
+        return redirect(socialCallbackUrl('apple'));
+      } catch (e: unknown) {
+        reqLogger.warn({ err: e }, 'apple: sign-in failed');
+        return redirect(socialCallbackUrl('apple', identityErrorCode(e)));
+      }
+    },
+    {
+      body: t.Object({
+        id_token: t.Optional(t.String()),
+        state: t.Optional(t.String()),
+        code: t.Optional(t.String()),
+        user: t.Optional(t.String()),
+        error: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Apple sign-in callback (form_post)',
+        description:
+          'Verifies the Apple ID token, links or creates the user, sets the refresh cookie, and redirects to the SPA callback.',
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // GET /auth/github/start — redirect to GitHub authorization
+  // -----------------------------------------------------------------------
+  .get(
+    '/github/start',
+    async ({ cookie, redirect, ip }) => {
+      await rateLimit(ip, '/auth/github/start', { maxRequests: 30 });
+      if (!isGitHubConfigured()) {
+        return redirect(socialCallbackUrl('github', 'provider_not_configured'));
+      }
+      const state = generateRefreshToken();
+      cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('lax') });
+      return redirect(
+        buildGitHubAuthorizeUrl(state, `${getApiBaseUrl()}/api/auth/github/callback`)
+      );
+    },
+    {
+      detail: {
+        tags: ['Auth'],
+        summary: 'Start GitHub sign-in',
+        description:
+          'Redirects to GitHub authorization and sets a short-lived CSRF state cookie (SameSite=Lax).',
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // GET /auth/github/callback — exchange code, look up user, issue session
+  // -----------------------------------------------------------------------
+  .get(
+    '/github/callback',
+    async ({ jwt, query, cookie, redirect, request, reqLogger }) => {
+      const stateCookie = cookie[OAUTH_STATE_COOKIE];
+      const expectedState = stateCookie?.value;
+      stateCookie?.remove();
+
+      if (query.error || !query.code || !query.state) {
+        return redirect(socialCallbackUrl('github', 'cancelled'));
+      }
+      if (!expectedState || expectedState !== query.state) {
+        return redirect(socialCallbackUrl('github', 'state_mismatch'));
+      }
+
+      let identity;
+      try {
+        const redirectUri = `${getApiBaseUrl()}/api/auth/github/callback`;
+        const accessToken = await exchangeGitHubCode(query.code, redirectUri);
+        identity = await fetchGitHubIdentity(accessToken);
+      } catch (e: unknown) {
+        reqLogger.warn({ err: e }, 'github: oauth exchange/lookup failed');
+        const code =
+          e instanceof ApiError && e.code === 'AUTH_EMAIL_UNVERIFIED'
+            ? 'email_required'
+            : 'provider_error';
+        return redirect(socialCallbackUrl('github', code));
+      }
+
+      try {
+        const { user, isNewUser } = await findOrCreateUserByIdentity({
+          provider: 'github',
+          providerAccountId: identity.id,
+          email: identity.email,
+          emailVerified: identity.emailVerified,
+          name: identity.name,
+        });
+        if (isNewUser) {
+          const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
+          void sendTelegramMessage(
+            `New user: ${user.email} | github/${deviceType} | ${new Date().toISOString()}`
+          );
+        }
+        await issueTokens(jwt, cookie, user);
+        reqLogger.info({ event: 'auth.github', userId: user.id }, 'github sign-in');
+        return redirect(socialCallbackUrl('github'));
+      } catch (e: unknown) {
+        reqLogger.warn({ err: e }, 'github: sign-in failed');
+        return redirect(socialCallbackUrl('github', identityErrorCode(e)));
+      }
+    },
+    {
+      query: t.Object({
+        code: t.Optional(t.String()),
+        state: t.Optional(t.String()),
+        error: t.Optional(t.String()),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'GitHub sign-in callback',
+        description:
+          'Exchanges the code, looks up the GitHub user + primary verified email, links or creates the user, sets the refresh cookie, and redirects to the SPA callback.',
       },
     }
   )
