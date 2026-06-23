@@ -67,6 +67,8 @@ jobs:
         env:
           VITE_API_URL: https://api.gravityroom.app
           VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+          VITE_AUTH_APPLE_ENABLED: ${{ vars.VITE_AUTH_APPLE_ENABLED }}
+          VITE_AUTH_GITHUB_ENABLED: ${{ vars.VITE_AUTH_GITHUB_ENABLED }}
         run: bun run --filter web build
 
       # Bundle the reveal.js defense deck into the web dist so it ships with
