@@ -7,6 +7,7 @@ type AnalyticsEvent =
   | 'landing_cta_click'
   | 'program_preview_view'
   | 'login_page_view'
+  | 'login_social_click'
   | 'mentor_tutorial_start'
   | 'mentor_tutorial_complete'
   | 'mentor_tour_checklist_dismiss'

@@ -1133,14 +1133,71 @@
     "form": {
       "title": "Authenticate"
     },
+    "social": {
+      "google": "Continue with Google",
+      "apple": "Continue with Apple",
+      "github": "Continue with GitHub",
+      "coming_soon": "Soon"
+    },
+    "divider": "or",
+    "email": {
+      "toggle": "Continue with email",
+      "email_label": "Email",
+      "email_placeholder": "you@example.com",
+      "password_label": "Password",
+      "password_placeholder": "Your password",
+      "name_label": "Name",
+      "name_placeholder": "Your name (optional)",
+      "submit_signin": "Sign in",
+      "submit_signup": "Create account",
+      "to_signup": "Need an account? Sign up",
+      "to_signin": "Already have an account? Sign in",
+      "forgot": "Forgot your password?"
+    },
+    "signup_success": "Account created. Check your email to verify your address before signing in.",
     "errors": {
-      "google_auth_error": "Error signing in with Google. Please try again."
+      "google_auth_error": "Error signing in with Google. Please try again.",
+      "INVALID_CREDENTIALS": "Invalid email or password.",
+      "EMAIL_NOT_VERIFIED": "Verify your email before signing in. Check your inbox.",
+      "EMAIL_TAKEN": "An account with this email already exists.",
+      "INVALID_TOKEN": "This link is invalid or has expired.",
+      "RATE_LIMITED": "Too many attempts. Please try again later.",
+      "generic": "Something went wrong. Please try again."
     },
     "dev": {
       "dev_login": "⚗ Dev Login"
     },
     "guest": {
       "cta": "Try without account"
+    },
+    "callback": {
+      "verifying": "Completing sign-in…",
+      "error_title": "Sign-in failed",
+      "back_to_login": "Back to sign in",
+      "account_exists": "This email is already registered with a different method. Sign in with your original method.",
+      "account_deleted": "This account has been deleted.",
+      "email_required": "Your provider did not share a verified email, which is required to sign in.",
+      "provider_not_configured": "This sign-in method is not available right now.",
+      "generic": "We couldn't complete sign-in. Please try again."
+    },
+    "verify_email": {
+      "title": "Verify your email",
+      "verifying": "Verifying your email…",
+      "success": "Your email is verified. Redirecting…",
+      "error": "This verification link is invalid or has expired.",
+      "back_to_login": "Back to sign in"
+    },
+    "reset_password": {
+      "title": "Reset your password",
+      "request_intro": "Enter your email and we'll send you a reset link.",
+      "request_submit": "Send reset link",
+      "request_sent": "If an account exists for that email, a reset link has been sent.",
+      "new_password_label": "New password",
+      "new_password_placeholder": "Your new password",
+      "submit": "Update password",
+      "success": "Password updated. You can now sign in.",
+      "error": "This reset link is invalid or has expired.",
+      "back_to_login": "Back to sign in"
     }
   },
   "not_found": {

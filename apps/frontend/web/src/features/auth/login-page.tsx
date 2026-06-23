@@ -12,6 +12,10 @@ import { CornerTicks } from '@/components/corner-ticks';
 
 const EST_LINE = 'EST. 2025 · OPEN SOURCE · AGPL-3.0';
 
+const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+const APPLE_ENABLED = import.meta.env.VITE_AUTH_APPLE_ENABLED === 'true';
+const GITHUB_ENABLED = import.meta.env.VITE_AUTH_GITHUB_ENABLED === 'true';
+
 export function LoginPage(): React.ReactNode {
   return (
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''}>
@@ -20,12 +24,25 @@ export function LoginPage(): React.ReactNode {
   );
 }
 
+type EmailMode = 'signin' | 'signup';
+type FormMessage = { readonly kind: 'error' | 'success'; readonly text: string };
+
 function LoginPageInner(): React.ReactNode {
   const { t } = useTranslation();
-  const { signInWithGoogle, signInWithDev, user, loading } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, signInWithDev, user, loading } =
+    useAuth();
   const { enterGuestMode, isGuest } = useGuest();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+
+  // Email/password progressive-disclosure form state.
+  const [showEmail, setShowEmail] = useState(false);
+  const [emailMode, setEmailMode] = useState<EmailMode>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [formMessage, setFormMessage] = useState<FormMessage | null>(null);
 
   // /login is disallowed in robots.txt and behind auth — keep it out of the
   // index explicitly and give it a self-canonical instead of the landing's.
@@ -50,6 +67,10 @@ function LoginPageInner(): React.ReactNode {
     trackEvent('login_page_view');
   }, [loading, user, isGuest]);
 
+  /** Translates an API error code to a localized message, falling back to generic. */
+  const codeMessage = (code: string | undefined): string =>
+    t([`login.errors.${code ?? 'generic'}`, 'login.errors.generic']);
+
   const handleGoogleSuccess = async (credential: string): Promise<void> => {
     setError(null);
     const authError = await signInWithGoogle(credential);
@@ -57,6 +78,38 @@ function LoginPageInner(): React.ReactNode {
       setError(t(sanitizeAuthError(authError.message)));
     } else {
       void navigate({ to: '/app' });
+    }
+  };
+
+  const handleSocialRedirect = (provider: 'apple' | 'github'): void => {
+    trackEvent('login_social_click');
+    window.location.href = `${API_BASE}/api/auth/${provider}/start`;
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
+    if (submitting) return;
+    setError(null);
+    setFormMessage(null);
+    setSubmitting(true);
+    try {
+      if (emailMode === 'signin') {
+        const result = await signInWithEmail(email.trim(), password);
+        if (result.ok) {
+          void navigate({ to: '/app' });
+        } else {
+          setFormMessage({ kind: 'error', text: codeMessage(result.code) });
+        }
+      } else {
+        const result = await signUpWithEmail(email.trim(), password, name.trim() || undefined);
+        if (result.ok) {
+          setFormMessage({ kind: 'success', text: t('login.signup_success') });
+        } else {
+          setFormMessage({ kind: 'error', text: codeMessage(result.code) });
+        }
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -117,7 +170,7 @@ function LoginPageInner(): React.ReactNode {
       <main className="flex flex-col items-center justify-center px-6 py-12 sm:px-12">
         <div
           data-testid="auth-card"
-          className="relative w-full max-w-[380px] border border-rule bg-card p-8"
+          className="relative w-full max-w-[400px] border border-rule bg-card p-8"
         >
           <CornerTicks colorClass="border-rule-light" size={10} />
 
@@ -128,20 +181,149 @@ function LoginPageInner(): React.ReactNode {
             Gravity Room
           </h1>
 
-          {/* Google button */}
-          <div className="mt-7 flex justify-center border border-rule bg-header py-3">
-            <GoogleLogin
-              onSuccess={({ credential }) => {
-                if (credential) void handleGoogleSuccess(credential);
-              }}
-              onError={() => {
-                setError(t('login.errors.google_auth_error'));
-              }}
-              theme="filled_black"
-              size="large"
-              width="260"
+          {/* Social providers — Google (One Tap), then Apple + GitHub */}
+          <div className="mt-7 flex flex-col gap-2.5">
+            <div className="flex justify-center border border-rule bg-header py-3">
+              <GoogleLogin
+                onSuccess={({ credential }) => {
+                  if (credential) void handleGoogleSuccess(credential);
+                }}
+                onError={() => {
+                  setError(t('login.errors.google_auth_error'));
+                }}
+                theme="filled_black"
+                size="large"
+                width="320"
+              />
+            </div>
+
+            <SocialButton
+              label={t('login.social.apple')}
+              enabled={APPLE_ENABLED}
+              comingSoonLabel={t('login.social.coming_soon')}
+              onClick={() => handleSocialRedirect('apple')}
+            />
+            <SocialButton
+              label={t('login.social.github')}
+              enabled={GITHUB_ENABLED}
+              comingSoonLabel={t('login.social.coming_soon')}
+              onClick={() => handleSocialRedirect('github')}
             />
           </div>
+
+          {/* Divider */}
+          <div className="my-5 flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-rule" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-label">
+              {t('login.divider')}
+            </span>
+            <span className="h-px flex-1 bg-rule" />
+          </div>
+
+          {/* Email — progressive disclosure */}
+          {!showEmail ? (
+            <button
+              type="button"
+              onClick={() => setShowEmail(true)}
+              className="w-full cursor-pointer border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light"
+            >
+              ▸ {t('login.email.toggle')}
+            </button>
+          ) : (
+            <form onSubmit={(e) => void handleEmailSubmit(e)} className="flex flex-col gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-label">
+                  {t('login.email.email_label')}
+                </span>
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={t('login.email.email_placeholder')}
+                  className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
+                />
+              </label>
+
+              {emailMode === 'signup' && (
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-label">
+                    {t('login.email.name_label')}
+                  </span>
+                  <input
+                    type="text"
+                    autoComplete="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={t('login.email.name_placeholder')}
+                    className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
+                  />
+                </label>
+              )}
+
+              <label className="flex flex-col gap-1">
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-label">
+                  {t('login.email.password_label')}
+                </span>
+                <input
+                  type="password"
+                  required
+                  minLength={emailMode === 'signup' ? 8 : undefined}
+                  autoComplete={emailMode === 'signup' ? 'new-password' : 'current-password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={t('login.email.password_placeholder')}
+                  className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full cursor-pointer border border-accent-dim bg-accent-deep/10 py-2.5 font-mono text-[11px] uppercase tracking-[0.16em] text-accent transition-colors hover:bg-accent-deep/20 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {emailMode === 'signin'
+                  ? t('login.email.submit_signin')
+                  : t('login.email.submit_signup')}
+              </button>
+
+              <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.12em]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmailMode((m) => (m === 'signin' ? 'signup' : 'signin'));
+                    setFormMessage(null);
+                  }}
+                  className="cursor-pointer text-muted transition-colors hover:text-main"
+                >
+                  {emailMode === 'signin' ? t('login.email.to_signup') : t('login.email.to_signin')}
+                </button>
+                {emailMode === 'signin' && (
+                  <button
+                    type="button"
+                    onClick={() => void navigate({ to: '/reset-password' })}
+                    className="cursor-pointer text-muted transition-colors hover:text-main"
+                  >
+                    {t('login.email.forgot')}
+                  </button>
+                )}
+              </div>
+
+              {formMessage && (
+                <div
+                  role="alert"
+                  className={
+                    formMessage.kind === 'error'
+                      ? 'border border-error-line bg-error-bg px-3 py-2 text-xs text-error'
+                      : 'border border-rule bg-header px-3 py-2 text-xs text-main'
+                  }
+                >
+                  {formMessage.text}
+                </div>
+              )}
+            </form>
+          )}
 
           {/* Dev-only bypass — stripped from production builds */}
           {import.meta.env.DEV && (
@@ -154,7 +336,7 @@ function LoginPageInner(): React.ReactNode {
             </button>
           )}
 
-          {/* Error */}
+          {/* Top-level error (Google / dev) */}
           {error && (
             <div
               className="mt-3 flex items-start gap-2 border border-error-line bg-error-bg px-3 py-2 text-xs text-error"
@@ -181,5 +363,33 @@ function LoginPageInner(): React.ReactNode {
         </p>
       </main>
     </div>
+  );
+}
+
+function SocialButton({
+  label,
+  enabled,
+  comingSoonLabel,
+  onClick,
+}: {
+  readonly label: string;
+  readonly enabled: boolean;
+  readonly comingSoonLabel: string;
+  readonly onClick: () => void;
+}): React.ReactNode {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!enabled}
+      className="flex w-full items-center justify-center gap-2 border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <span>{label}</span>
+      {!enabled && (
+        <span className="font-mono text-[9px] tracking-[0.1em] text-label">
+          [{comingSoonLabel}]
+        </span>
+      )}
+    </button>
   );
 }
