@@ -27,6 +27,17 @@ const postApiAuthReset_password_Body = z
   .object({ token: z.string().min(1), password: z.string().min(8).max(200) })
   .passthrough()
   .readonly();
+const postApiAuthAppleCallback_Body = z
+  .object({
+    id_token: z.string(),
+    state: z.string(),
+    code: z.string(),
+    user: z.string(),
+    error: z.string(),
+  })
+  .partial()
+  .passthrough()
+  .readonly();
 const patchApiAuthMe_Body = z
   .object({
     name: z.string().min(1).max(100),
@@ -118,6 +129,7 @@ export const schemas = {
   postApiAuthSignup_Body,
   postApiAuthLogin_Body,
   postApiAuthReset_password_Body,
+  postApiAuthAppleCallback_Body,
   patchApiAuthMe_Body,
   limit,
   postApiPrograms_Body,
@@ -129,6 +141,27 @@ export const schemas = {
 };
 
 export const endpoints = [
+  {
+    method: 'post',
+    path: '/api/auth/apple/callback',
+    description: `Verifies the Apple ID token, links or creates the user, sets the refresh cookie, and redirects to the SPA callback.`,
+    requestFormat: 'json',
+    parameters: [
+      {
+        name: 'body',
+        type: 'Body',
+        schema: postApiAuthAppleCallback_Body,
+      },
+    ],
+    response: z.void(),
+  },
+  {
+    method: 'get',
+    path: '/api/auth/apple/start',
+    description: `Redirects to Apple authorization (response_mode&#x3D;form_post) and sets a short-lived CSRF state cookie.`,
+    requestFormat: 'json',
+    response: z.void(),
+  },
   {
     method: 'post',
     path: '/api/auth/forgot-password',
@@ -149,6 +182,37 @@ export const endpoints = [
         schema: z.void(),
       },
     ],
+  },
+  {
+    method: 'get',
+    path: '/api/auth/github/callback',
+    description: `Exchanges the code, looks up the GitHub user + primary verified email, links or creates the user, sets the refresh cookie, and redirects to the SPA callback.`,
+    requestFormat: 'json',
+    parameters: [
+      {
+        name: 'code',
+        type: 'Query',
+        schema: z.string().optional(),
+      },
+      {
+        name: 'state',
+        type: 'Query',
+        schema: z.string().optional(),
+      },
+      {
+        name: 'error',
+        type: 'Query',
+        schema: z.string().optional(),
+      },
+    ],
+    response: z.void(),
+  },
+  {
+    method: 'get',
+    path: '/api/auth/github/start',
+    description: `Redirects to GitHub authorization and sets a short-lived CSRF state cookie (SameSite&#x3D;Lax).`,
+    requestFormat: 'json',
+    response: z.void(),
   },
   {
     method: 'post',
