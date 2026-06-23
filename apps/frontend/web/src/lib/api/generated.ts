@@ -11,6 +11,22 @@
  */
 import { z } from 'zod/v4';
 
+const postApiAuthSignup_Body = z
+  .object({
+    email: z.string().email(),
+    password: z.string().min(8).max(200),
+    name: z.string().min(1).max(100).optional(),
+  })
+  .passthrough()
+  .readonly();
+const postApiAuthLogin_Body = z
+  .object({ email: z.string().email(), password: z.string().min(1).max(200) })
+  .passthrough()
+  .readonly();
+const postApiAuthReset_password_Body = z
+  .object({ token: z.string().min(1), password: z.string().min(8).max(200) })
+  .passthrough()
+  .readonly();
 const patchApiAuthMe_Body = z
   .object({
     name: z.string().min(1).max(100),
@@ -99,6 +115,9 @@ const postApiProgramsByIdResults_Body = z
 const workoutIndex = z.union([z.string(), z.number()]);
 
 export const schemas = {
+  postApiAuthSignup_Body,
+  postApiAuthLogin_Body,
+  postApiAuthReset_password_Body,
   patchApiAuthMe_Body,
   limit,
   postApiPrograms_Body,
@@ -112,7 +131,8 @@ export const schemas = {
 export const endpoints = [
   {
     method: 'post',
-    path: '/api/auth/dev',
+    path: '/api/auth/forgot-password',
+    description: `Sends a reset link when a password account exists. Always returns 200 to avoid account enumeration.`,
     requestFormat: 'json',
     parameters: [
       {
@@ -122,6 +142,13 @@ export const endpoints = [
       },
     ],
     response: z.void(),
+    errors: [
+      {
+        status: 429,
+        description: `Rate limited`,
+        schema: z.void(),
+      },
+    ],
   },
   {
     method: 'post',
@@ -143,6 +170,37 @@ export const endpoints = [
       {
         status: 401,
         description: `Invalid or expired Google credential`,
+        schema: z.void(),
+      },
+      {
+        status: 429,
+        description: `Rate limited`,
+        schema: z.void(),
+      },
+    ],
+  },
+  {
+    method: 'post',
+    path: '/api/auth/login',
+    description: `Verifies credentials and issues tokens. Returns a generic 401 for bad credentials (no enumeration) and 403 when the email is unverified.`,
+    requestFormat: 'json',
+    parameters: [
+      {
+        name: 'body',
+        type: 'Body',
+        schema: postApiAuthLogin_Body,
+      },
+    ],
+    response: z.void(),
+    errors: [
+      {
+        status: 401,
+        description: `Invalid credentials`,
+        schema: z.void(),
+      },
+      {
+        status: 403,
+        description: `Email not verified`,
         schema: z.void(),
       },
       {
@@ -353,11 +411,92 @@ export const endpoints = [
   },
   {
     method: 'post',
+    path: '/api/auth/reset-password',
+    description: `Consumes a reset token, sets a new password, and revokes all sessions.`,
+    requestFormat: 'json',
+    parameters: [
+      {
+        name: 'body',
+        type: 'Body',
+        schema: postApiAuthReset_password_Body,
+      },
+    ],
+    response: z.void(),
+    errors: [
+      {
+        status: 400,
+        description: `Invalid or expired token`,
+        schema: z.void(),
+      },
+      {
+        status: 429,
+        description: `Rate limited`,
+        schema: z.void(),
+      },
+    ],
+  },
+  {
+    method: 'post',
     path: '/api/auth/signout',
     description: `Revokes the current refresh token and clears the cookie.`,
     requestFormat: 'json',
     response: z.void(),
     errors: [
+      {
+        status: 429,
+        description: `Rate limited`,
+        schema: z.void(),
+      },
+    ],
+  },
+  {
+    method: 'post',
+    path: '/api/auth/signup',
+    description: `Creates an unverified email/password account and sends a verification email. The user must verify before logging in.`,
+    requestFormat: 'json',
+    parameters: [
+      {
+        name: 'body',
+        type: 'Body',
+        schema: postApiAuthSignup_Body,
+      },
+    ],
+    response: z.void(),
+    errors: [
+      {
+        status: 409,
+        description: `Email already registered`,
+        schema: z.void(),
+      },
+      {
+        status: 429,
+        description: `Rate limited`,
+        schema: z.void(),
+      },
+    ],
+  },
+  {
+    method: 'post',
+    path: '/api/auth/verify-email',
+    description: `Consumes a verification token, marks the email verified, and issues tokens.`,
+    requestFormat: 'json',
+    parameters: [
+      {
+        name: 'body',
+        type: 'Body',
+        schema: z
+          .object({ token: z.string().min(1) })
+          .passthrough()
+          .readonly(),
+      },
+    ],
+    response: z.void(),
+    errors: [
+      {
+        status: 400,
+        description: `Invalid or expired token`,
+        schema: z.void(),
+      },
       {
         status: 429,
         description: `Rate limited`,
