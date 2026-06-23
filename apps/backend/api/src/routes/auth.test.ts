@@ -72,9 +72,62 @@ const mockFindOrCreateGoogleUser = mock<
   () => Promise<{ user: typeof TEST_USER; isNewUser: boolean }>
 >(() => Promise.resolve({ user: { ...TEST_USER }, isNewUser: false }));
 
+// Fuller user shape for the email/password paths (mutable booleans, nullable fields).
+interface MockUserRow {
+  id: string;
+  email: string;
+  googleId: string | null;
+  passwordHash: string | null;
+  emailVerified: boolean;
+  name: string | null;
+  avatarUrl: string | null;
+  deletedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const PW_USER: MockUserRow = {
+  id: 'user-123',
+  email: 'test@example.com',
+  googleId: null,
+  passwordHash: 'argon2-hash',
+  emailVerified: true,
+  name: null,
+  avatarUrl: null,
+  deletedAt: null,
+  createdAt: new Date('2024-01-01'),
+  updatedAt: new Date('2024-01-01'),
+};
+
+const mockFindUserByEmail = mock<() => Promise<MockUserRow | undefined>>(() =>
+  Promise.resolve(undefined)
+);
+// hashPassword is intentionally NOT mocked — it is a pure Bun.password call that
+// needs no DB, and mocking it here leaks into the service unit tests (Bun's
+// mock.module is process-global). Letting it run real keeps both suites correct.
+const mockAuthenticatePassword = mock<() => Promise<MockUserRow | null>>(() =>
+  Promise.resolve(null)
+);
+const mockCreatePasswordUser = mock<() => Promise<MockUserRow>>(() =>
+  Promise.resolve({ ...PW_USER })
+);
+const mockCreateEmailVerificationToken = mock(() => Promise.resolve('verify-token'));
+const mockConsumeEmailVerificationToken = mock<() => Promise<string | null>>(() =>
+  Promise.resolve(null)
+);
+const mockMarkEmailVerified = mock<() => Promise<MockUserRow | undefined>>(() =>
+  Promise.resolve({ ...PW_USER })
+);
+const mockCreatePasswordResetToken = mock(() => Promise.resolve('reset-token'));
+const mockConsumePasswordResetToken = mock<() => Promise<string | null>>(() =>
+  Promise.resolve(null)
+);
+const mockSetUserPassword = mock(() => Promise.resolve());
+
 mock.module('../services/auth', () => ({
   hashToken: mockHashToken,
   findUserById: mockFindUserById,
+  findUserByEmail: mockFindUserByEmail,
   findRefreshToken: mockFindRefreshToken,
   findRefreshTokenByPreviousHash: mockFindRefreshTokenByPreviousHash,
   revokeRefreshToken: mockRevokeRefreshToken,
@@ -82,7 +135,23 @@ mock.module('../services/auth', () => ({
   createAndStoreRefreshToken: mockCreateAndStoreRefreshToken,
   rotateRefreshToken: mockRotateRefreshToken,
   findOrCreateGoogleUser: mockFindOrCreateGoogleUser,
+  authenticatePassword: mockAuthenticatePassword,
+  createPasswordUser: mockCreatePasswordUser,
+  createEmailVerificationToken: mockCreateEmailVerificationToken,
+  consumeEmailVerificationToken: mockConsumeEmailVerificationToken,
+  markEmailVerified: mockMarkEmailVerified,
+  createPasswordResetToken: mockCreatePasswordResetToken,
+  consumePasswordResetToken: mockConsumePasswordResetToken,
+  setUserPassword: mockSetUserPassword,
   REFRESH_TOKEN_DAYS: 7,
+}));
+
+const mockSendVerificationEmail = mock(() => Promise.resolve());
+const mockSendPasswordResetEmail = mock(() => Promise.resolve());
+
+mock.module('../lib/email', () => ({
+  sendVerificationEmail: mockSendVerificationEmail,
+  sendPasswordResetEmail: mockSendPasswordResetEmail,
 }));
 
 const mockVerifyGoogleToken = mock(() =>
@@ -825,5 +894,168 @@ describe('POST /auth/google — notification message format (REQ-AUTH-005)', () 
     // Assert
     const [text] = mockSendTelegramMessage.mock.calls[0] as unknown as [string];
     expect(text).toMatch(/^New user: .+\|.+\|.+/);
+  });
+});
+
+describe('POST /auth/signup', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockCreatePasswordUser.mockClear();
+    mockCreatePasswordUser.mockImplementation(() => Promise.resolve({ ...PW_USER }));
+    mockCreateEmailVerificationToken.mockImplementation(() => Promise.resolve('verify-token'));
+    mockSendVerificationEmail.mockClear();
+  });
+
+  it('creates an account and returns 201 without tokens', async () => {
+    const res = await post('/auth/signup', { email: 'new@example.com', password: 'password123' });
+    const body = (await res.json()) as { message: string; accessToken?: string };
+    expect(res.status).toBe(201);
+    expect(body.message).toContain('verify');
+    expect(body.accessToken).toBeUndefined();
+    expect(mockSendVerificationEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a password shorter than 8 chars before touching the service', async () => {
+    const res = await post('/auth/signup', { email: 'new@example.com', password: 'short' });
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBeLessThan(500);
+    expect(mockCreatePasswordUser).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 EMAIL_TAKEN when the email already exists', async () => {
+    mockCreatePasswordUser.mockImplementation(() =>
+      Promise.reject(new ApiError(409, 'An account with this email already exists', 'EMAIL_TAKEN'))
+    );
+    const res = await post('/auth/signup', {
+      email: 'taken@example.com',
+      password: 'password123',
+    });
+    const body = (await res.json()) as { code: string };
+    expect(res.status).toBe(409);
+    expect(body.code).toBe('EMAIL_TAKEN');
+  });
+});
+
+describe('POST /auth/login', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockCreateAndStoreRefreshToken.mockImplementation(() => Promise.resolve('refresh-token'));
+  });
+
+  it('returns a generic 401 for invalid credentials', async () => {
+    mockAuthenticatePassword.mockImplementation(() => Promise.resolve(null));
+    const res = await post('/auth/login', { email: 'a@b.com', password: 'wrong-password' });
+    const body = (await res.json()) as { code: string };
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('INVALID_CREDENTIALS');
+  });
+
+  it('returns 403 EMAIL_NOT_VERIFIED for an unverified account', async () => {
+    mockAuthenticatePassword.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, emailVerified: false })
+    );
+    const res = await post('/auth/login', { email: 'a@b.com', password: 'password123' });
+    const body = (await res.json()) as { code: string };
+    expect(res.status).toBe(403);
+    expect(body.code).toBe('EMAIL_NOT_VERIFIED');
+  });
+
+  it('returns 200 with an access token for a verified user', async () => {
+    mockAuthenticatePassword.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, emailVerified: true })
+    );
+    const res = await post('/auth/login', { email: 'a@b.com', password: 'password123' });
+    const body = (await res.json()) as { accessToken: string; user: { email: string } };
+    expect(res.status).toBe(200);
+    expect(typeof body.accessToken).toBe('string');
+    expect(body.user.email).toBe(PW_USER.email);
+  });
+});
+
+describe('POST /auth/verify-email', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockCreateAndStoreRefreshToken.mockImplementation(() => Promise.resolve('refresh-token'));
+  });
+
+  it('returns 400 INVALID_TOKEN for an unknown token', async () => {
+    mockConsumeEmailVerificationToken.mockImplementation(() => Promise.resolve(null));
+    const res = await post('/auth/verify-email', { token: 'bad-token' });
+    const body = (await res.json()) as { code: string };
+    expect(res.status).toBe(400);
+    expect(body.code).toBe('INVALID_TOKEN');
+  });
+
+  it('verifies and auto-logs-in for a valid token', async () => {
+    mockConsumeEmailVerificationToken.mockImplementation(() => Promise.resolve(PW_USER.id));
+    mockMarkEmailVerified.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, emailVerified: true })
+    );
+    const res = await post('/auth/verify-email', { token: 'good-token' });
+    const body = (await res.json()) as { accessToken: string };
+    expect(res.status).toBe(200);
+    expect(typeof body.accessToken).toBe('string');
+  });
+});
+
+describe('POST /auth/forgot-password', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockCreatePasswordResetToken.mockImplementation(() => Promise.resolve('reset-token'));
+    mockSendPasswordResetEmail.mockClear();
+    mockCreatePasswordResetToken.mockClear();
+  });
+
+  it('returns a generic 200 and sends nothing when no account exists', async () => {
+    mockFindUserByEmail.mockImplementation(() => Promise.resolve(undefined));
+    const res = await post('/auth/forgot-password', { email: 'nobody@example.com' });
+    expect(res.status).toBe(200);
+    expect(mockSendPasswordResetEmail).not.toHaveBeenCalled();
+  });
+
+  it('sends a reset email for a password account, still generic 200', async () => {
+    mockFindUserByEmail.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, passwordHash: 'argon2-hash' })
+    );
+    const res = await post('/auth/forgot-password', { email: PW_USER.email });
+    expect(res.status).toBe(200);
+    expect(mockSendPasswordResetEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends nothing for an OAuth-only account (no password hash)', async () => {
+    mockFindUserByEmail.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, passwordHash: null })
+    );
+    const res = await post('/auth/forgot-password', { email: PW_USER.email });
+    expect(res.status).toBe(200);
+    expect(mockSendPasswordResetEmail).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /auth/reset-password', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockSetUserPassword.mockClear();
+    mockRevokeAllUserTokens.mockClear();
+  });
+
+  it('returns 400 INVALID_TOKEN for an unknown token', async () => {
+    mockConsumePasswordResetToken.mockImplementation(() => Promise.resolve(null));
+    const res = await post('/auth/reset-password', { token: 'bad', password: 'password123' });
+    const body = (await res.json()) as { code: string };
+    expect(res.status).toBe(400);
+    expect(body.code).toBe('INVALID_TOKEN');
+    expect(mockSetUserPassword).not.toHaveBeenCalled();
+  });
+
+  it('sets the new password and revokes all sessions for a valid token', async () => {
+    mockConsumePasswordResetToken.mockImplementation(() => Promise.resolve(PW_USER.id));
+    const res = await post('/auth/reset-password', {
+      token: 'good',
+      password: 'new-password-123',
+    });
+    expect(res.status).toBe(200);
+    expect(mockSetUserPassword).toHaveBeenCalledTimes(1);
+    expect(mockRevokeAllUserTokens).toHaveBeenCalledTimes(1);
   });
 });

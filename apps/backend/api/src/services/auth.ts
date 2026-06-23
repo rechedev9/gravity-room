@@ -5,7 +5,13 @@
 import { eq, lt, and, isNull } from 'drizzle-orm';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { getDb } from '../db';
-import { users, refreshTokens, userIdentities } from '@gzclp/database/schema';
+import {
+  users,
+  refreshTokens,
+  userIdentities,
+  passwordResetTokens,
+  emailVerificationTokens,
+} from '@gzclp/database/schema';
 import { ApiError } from '../middleware/error-handler';
 
 // ---------------------------------------------------------------------------
@@ -111,9 +117,16 @@ function accountDeletedError(): ApiError {
   );
 }
 
-/** True for a PostgreSQL unique-violation (SQLSTATE 23505). */
+/**
+ * True for a PostgreSQL unique-violation (SQLSTATE 23505). Drizzle wraps driver
+ * errors in a `DrizzleQueryError` whose `.cause` is the real pg error, so we
+ * check both the error itself and its cause.
+ */
 export function isUniqueViolation(error: unknown): boolean {
-  return isRecord(error) && error['code'] === '23505';
+  if (!isRecord(error)) return false;
+  if (error['code'] === '23505') return true;
+  const cause = error['cause'];
+  return isRecord(cause) && cause['code'] === '23505';
 }
 
 /** What to do with an incoming identity that matches an existing account by email. */
@@ -257,6 +270,145 @@ export async function findOrCreateGoogleUser(
     emailVerified: true,
     name,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Email / password method
+// ---------------------------------------------------------------------------
+
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
+const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+/** Hashes a plaintext password with argon2id (native to Bun — no dependency). */
+export async function hashPassword(password: string): Promise<string> {
+  return Bun.password.hash(password, { algorithm: 'argon2id' });
+}
+
+/** Verifies a plaintext password against a stored argon2id/bcrypt hash. */
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  try {
+    return await Bun.password.verify(password, hash);
+  } catch {
+    return false;
+  }
+}
+
+// A dummy hash computed once so authenticatePassword spends comparable time
+// whether or not the email exists — closes a timing-based user-enumeration oracle.
+let dummyHashPromise: Promise<string> | null = null;
+function getDummyHash(): Promise<string> {
+  return (dummyHashPromise ??= hashPassword('timing-equalization-placeholder'));
+}
+
+/**
+ * Verifies an email+password login. Returns the user on success, null on bad
+ * credentials. Always runs one hash verification (against a dummy hash when the
+ * account or its password is missing) to equalize timing and avoid enumeration.
+ */
+export async function authenticatePassword(
+  email: string,
+  password: string
+): Promise<UserRow | null> {
+  const user = await findUserByEmail(email);
+  const hash = user?.passwordHash ?? (await getDummyHash());
+  const ok = await verifyPassword(password, hash);
+  if (!user || !user.passwordHash || !ok) return null;
+  return user;
+}
+
+/**
+ * Creates a new email/password user plus its 'password' identity (account id =
+ * the user id). Throws 409 EMAIL_TAKEN when the email already exists.
+ */
+export async function createPasswordUser(input: {
+  email: string;
+  passwordHash: string;
+  name?: string | undefined;
+}): Promise<UserRow> {
+  const email = input.email.toLowerCase();
+  try {
+    return await getDb().transaction(async (tx) => {
+      const [user] = await tx
+        .insert(users)
+        .values({
+          email,
+          name: input.name ?? null,
+          passwordHash: input.passwordHash,
+          emailVerified: false,
+        })
+        .returning();
+      if (!user) throw new ApiError(500, 'Failed to create user', 'DB_WRITE_ERROR');
+      await tx
+        .insert(userIdentities)
+        .values({ userId: user.id, provider: 'password', providerAccountId: user.id });
+      return user;
+    });
+  } catch (error: unknown) {
+    if (isUniqueViolation(error)) {
+      throw new ApiError(409, 'An account with this email already exists', 'EMAIL_TAKEN');
+    }
+    throw error;
+  }
+}
+
+/** Sets or replaces a user's password hash. */
+export async function setUserPassword(userId: string, passwordHash: string): Promise<void> {
+  const [updated] = await getDb()
+    .update(users)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .returning({ id: users.id });
+  if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+}
+
+/** Marks a user's email as verified. Returns the updated row, or undefined if absent. */
+export async function markEmailVerified(userId: string): Promise<UserRow | undefined> {
+  const [updated] = await getDb()
+    .update(users)
+    .set({ emailVerified: true, updatedAt: new Date() })
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .returning();
+  return updated;
+}
+
+// Single-use tokens (SHA-256 hashed at rest, like refresh tokens) ------------
+
+export async function createEmailVerificationToken(userId: string): Promise<string> {
+  const token = generateRefreshToken();
+  const tokenHash = await hashToken(token);
+  const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
+  await getDb().insert(emailVerificationTokens).values({ userId, tokenHash, expiresAt });
+  return token;
+}
+
+/** Consumes a verification token; returns its userId if valid & unexpired, else null. */
+export async function consumeEmailVerificationToken(token: string): Promise<string | null> {
+  const tokenHash = await hashToken(token);
+  const [row] = await getDb()
+    .delete(emailVerificationTokens)
+    .where(eq(emailVerificationTokens.tokenHash, tokenHash))
+    .returning();
+  if (!row || row.expiresAt < new Date()) return null;
+  return row.userId;
+}
+
+export async function createPasswordResetToken(userId: string): Promise<string> {
+  const token = generateRefreshToken();
+  const tokenHash = await hashToken(token);
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+  await getDb().insert(passwordResetTokens).values({ userId, tokenHash, expiresAt });
+  return token;
+}
+
+/** Consumes a reset token; returns its userId if valid & unexpired, else null. */
+export async function consumePasswordResetToken(token: string): Promise<string | null> {
+  const tokenHash = await hashToken(token);
+  const [row] = await getDb()
+    .delete(passwordResetTokens)
+    .where(eq(passwordResetTokens.tokenHash, tokenHash))
+    .returning();
+  if (!row || row.expiresAt < new Date()) return null;
+  return row.userId;
 }
 
 /** Update user profile fields (name, avatarUrl). */

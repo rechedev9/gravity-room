@@ -22,6 +22,15 @@ import {
   findUserByEmail,
   updateUserProfile,
   softDeleteUser,
+  hashPassword,
+  authenticatePassword,
+  createPasswordUser,
+  createEmailVerificationToken,
+  consumeEmailVerificationToken,
+  markEmailVerified,
+  createPasswordResetToken,
+  consumePasswordResetToken,
+  setUserPassword,
   REFRESH_TOKEN_DAYS,
 } from '../services/auth';
 import {
@@ -30,6 +39,7 @@ import {
   verifyGoogleToken,
 } from '../lib/google-auth';
 import { sendTelegramMessage } from '../lib/telegram';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/email';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
 
@@ -348,6 +358,200 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         summary: 'Sign in with Google for mobile clients',
         description:
           'Verifies a Google ID token, finds or creates the user, and returns both access and refresh tokens in the response body.',
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/signup — email + password registration
+  // -----------------------------------------------------------------------
+  .post(
+    '/signup',
+    async ({ body, set, reqLogger, ip, request }) => {
+      await rateLimit(ip, '/auth/signup', { maxRequests: 10 });
+
+      const passwordHash = await hashPassword(body.password);
+      const user = await createPasswordUser({ email: body.email, passwordHash, name: body.name });
+
+      const token = await createEmailVerificationToken(user.id);
+      void sendVerificationEmail(user.email, token);
+
+      const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
+      void sendTelegramMessage(
+        `New user: ${user.email} | ${deviceType} | ${new Date().toISOString()}`
+      );
+
+      reqLogger.info({ event: 'auth.signup', userId: user.id }, 'email signup');
+      set.status = 201;
+      return { message: 'Account created. Check your email to verify your address.' };
+    },
+    {
+      body: t.Object({
+        email: t.String({ format: 'email' }),
+        password: t.String({ minLength: 8, maxLength: 200 }),
+        name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Sign up with email and password',
+        description:
+          'Creates an unverified email/password account and sends a verification email. The user must verify before logging in.',
+        responses: {
+          201: { description: 'Account created; verification email sent' },
+          409: { description: 'Email already registered' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/login — email + password sign-in
+  // -----------------------------------------------------------------------
+  .post(
+    '/login',
+    async ({ jwt, body, cookie, set, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/login', { maxRequests: 10 });
+
+      const user = await authenticatePassword(body.email, body.password);
+      if (!user) {
+        throw new ApiError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
+      }
+      if (!user.emailVerified) {
+        throw new ApiError(403, 'Email not verified', 'EMAIL_NOT_VERIFIED');
+      }
+
+      const { accessToken } = await issueTokens(jwt, cookie, user);
+      reqLogger.info({ event: 'auth.login', userId: user.id }, 'password login');
+      set.status = 200;
+      return { user: userResponse(user), accessToken };
+    },
+    {
+      body: t.Object({
+        email: t.String({ format: 'email' }),
+        password: t.String({ minLength: 1, maxLength: 200 }),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Log in with email and password',
+        description:
+          'Verifies credentials and issues tokens. Returns a generic 401 for bad credentials (no enumeration) and 403 when the email is unverified.',
+        responses: {
+          200: { description: 'Authenticated; access token in body, refresh token in cookie' },
+          401: { description: 'Invalid credentials' },
+          403: { description: 'Email not verified' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/verify-email — confirm address, then auto-login
+  // -----------------------------------------------------------------------
+  .post(
+    '/verify-email',
+    async ({ jwt, body, cookie, set, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/verify-email', { maxRequests: 20 });
+
+      const userId = await consumeEmailVerificationToken(body.token);
+      if (!userId) {
+        throw new ApiError(400, 'Invalid or expired verification token', 'INVALID_TOKEN');
+      }
+      const user = await markEmailVerified(userId);
+      if (!user) {
+        throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+      }
+
+      const { accessToken } = await issueTokens(jwt, cookie, user);
+      reqLogger.info({ event: 'auth.email_verified', userId }, 'email verified');
+      set.status = 200;
+      return { user: userResponse(user), accessToken };
+    },
+    {
+      body: t.Object({ token: t.String({ minLength: 1 }) }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Verify email address',
+        description: 'Consumes a verification token, marks the email verified, and issues tokens.',
+        responses: {
+          200: { description: 'Email verified; tokens issued' },
+          400: { description: 'Invalid or expired token' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/forgot-password — request a reset link (always generic 200)
+  // -----------------------------------------------------------------------
+  .post(
+    '/forgot-password',
+    async ({ body, set, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/forgot-password', { maxRequests: 5 });
+
+      const user = await findUserByEmail(body.email);
+      if (user?.passwordHash) {
+        const token = await createPasswordResetToken(user.id);
+        void sendPasswordResetEmail(user.email, token);
+        reqLogger.info({ event: 'auth.forgot_password', userId: user.id }, 'reset email queued');
+      }
+
+      // Always generic — never reveal whether the account exists.
+      set.status = 200;
+      return { message: 'If an account exists for that email, a reset link has been sent.' };
+    },
+    {
+      body: t.Object({ email: t.String({ format: 'email' }) }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Request a password reset',
+        description:
+          'Sends a reset link when a password account exists. Always returns 200 to avoid account enumeration.',
+        responses: {
+          200: { description: 'Generic acknowledgement' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/reset-password — consume token, set new password, revoke sessions
+  // -----------------------------------------------------------------------
+  .post(
+    '/reset-password',
+    async ({ body, set, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/reset-password', { maxRequests: 10 });
+
+      const userId = await consumePasswordResetToken(body.token);
+      if (!userId) {
+        throw new ApiError(400, 'Invalid or expired reset token', 'INVALID_TOKEN');
+      }
+      const passwordHash = await hashPassword(body.password);
+      await setUserPassword(userId, passwordHash);
+      // A reset invalidates every existing session (defense against a compromise).
+      await revokeAllUserTokens(userId);
+
+      reqLogger.info({ event: 'auth.password_reset', userId }, 'password reset');
+      set.status = 200;
+      return { message: 'Password updated. Sign in with your new password.' };
+    },
+    {
+      body: t.Object({
+        token: t.String({ minLength: 1 }),
+        password: t.String({ minLength: 8, maxLength: 200 }),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Reset password',
+        description: 'Consumes a reset token, sets a new password, and revokes all sessions.',
+        responses: {
+          200: { description: 'Password updated' },
+          400: { description: 'Invalid or expired token' },
+          429: { description: 'Rate limited' },
+        },
       },
     }
   )

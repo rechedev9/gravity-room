@@ -18,6 +18,8 @@ import {
   REFRESH_TOKEN_DAYS,
   decideIdentityLink,
   isUniqueViolation,
+  hashPassword,
+  verifyPassword,
 } from './auth';
 
 // ---------------------------------------------------------------------------
@@ -124,8 +126,13 @@ describe('isUniqueViolation', () => {
     expect(isUniqueViolation({ code: '23505' })).toBe(true);
   });
 
-  it('is false for other Postgres error codes', () => {
+  it('is true for a DrizzleQueryError wrapping a 23505 cause', () => {
+    expect(isUniqueViolation({ query: 'insert ...', cause: { code: '23505' } })).toBe(true);
+  });
+
+  it('is false for other Postgres error codes (direct or wrapped)', () => {
     expect(isUniqueViolation({ code: '23503' })).toBe(false);
+    expect(isUniqueViolation({ cause: { code: '23503' } })).toBe(false);
   });
 
   it('is false for non-objects and nullish values', () => {
@@ -133,5 +140,37 @@ describe('isUniqueViolation', () => {
     expect(isUniqueViolation(undefined)).toBe(false);
     expect(isUniqueViolation('23505')).toBe(false);
     expect(isUniqueViolation(new Error('boom'))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Password hashing (argon2id via Bun.password — no DB)
+// ---------------------------------------------------------------------------
+
+describe('hashPassword / verifyPassword', () => {
+  it('hashes to an argon2id PHC string distinct from the plaintext', async () => {
+    const hash = await hashPassword('correct horse battery staple');
+    expect(hash.startsWith('$argon2id$')).toBe(true);
+    expect(hash).not.toContain('correct horse battery staple');
+  });
+
+  it('verifies a correct password', async () => {
+    const hash = await hashPassword('s3cret-password');
+    expect(await verifyPassword('s3cret-password', hash)).toBe(true);
+  });
+
+  it('rejects an incorrect password', async () => {
+    const hash = await hashPassword('s3cret-password');
+    expect(await verifyPassword('wrong-password', hash)).toBe(false);
+  });
+
+  it('salts — the same password hashes differently each time', async () => {
+    const a = await hashPassword('same-password');
+    const b = await hashPassword('same-password');
+    expect(a).not.toBe(b);
+  });
+
+  it('returns false instead of throwing on a malformed hash', async () => {
+    expect(await verifyPassword('whatever', 'not-a-valid-hash')).toBe(false);
   });
 });
