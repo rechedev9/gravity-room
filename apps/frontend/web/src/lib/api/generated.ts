@@ -164,6 +164,19 @@ export const endpoints = [
   },
   {
     method: 'post',
+    path: '/api/auth/dev',
+    requestFormat: 'json',
+    parameters: [
+      {
+        name: 'body',
+        type: 'Body',
+        schema: z.object({ email: z.string().email() }).passthrough().readonly(),
+      },
+    ],
+    response: z.void(),
+  },
+  {
+    method: 'post',
     path: '/api/auth/forgot-password',
     description: `Sends a reset link when a password account exists. Always returns 200 to avoid account enumeration.`,
     requestFormat: 'json',
