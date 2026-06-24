@@ -20,9 +20,16 @@ import { mock, describe, it, expect, beforeEach } from 'bun:test';
 // ---------------------------------------------------------------------------
 
 const mockRateLimit = mock((): Promise<void> => Promise.resolve());
+const mockFindUserById = mock(
+  (id: string): Promise<{ id: string } | undefined> => Promise.resolve({ id })
+);
 
 mock.module('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
+}));
+
+mock.module('../services/auth', () => ({
+  findUserById: mockFindUserById,
 }));
 
 interface PaginatedResult {
@@ -93,6 +100,18 @@ describe('GET /exercises', () => {
   it('returns 200 with filter query params', async () => {
     const res = await get('/exercises?q=squat&equipment=barbell&isCompound=true');
     expect(res.status).toBe(200);
+  });
+
+  it('returns 401 when optional auth token belongs to an inactive user', async () => {
+    mockFindUserById.mockImplementation(() => Promise.resolve(undefined));
+    const token = await makeValidJwt('deleted-user');
+
+    const res = await get('/exercises', { Authorization: `Bearer ${token}` });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('TOKEN_USER_INACTIVE');
+    expect(mockListExercises).not.toHaveBeenCalled();
   });
 });
 
@@ -207,12 +226,32 @@ describe('POST /exercises — slug validation', () => {
 // GET /exercises — filter cap behavior (REQ-SEC-002)
 // ---------------------------------------------------------------------------
 
+describe('GET /exercises — filter query validation', () => {
+  it('rejects oversized comma-separated filters before rate limiting or listing', async () => {
+    const res = await get(`/exercises?equipment=${'a'.repeat(2050)}`);
+
+    expect(res.status).toBe(400);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockListExercises).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized boolean filters before rate limiting or listing', async () => {
+    const res = await get(`/exercises?isCompound=${'true'.repeat(32)}`);
+
+    expect(res.status).toBe(400);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockListExercises).not.toHaveBeenCalled();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Reset mocks between tests
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
   mockRateLimit.mockClear();
+  mockFindUserById.mockClear();
+  mockFindUserById.mockImplementation((id: string) => Promise.resolve({ id }));
   mockListExercises.mockClear();
   // Restore default paginated response
   mockListExercises.mockImplementation(
@@ -358,17 +397,23 @@ describe('GET /exercises — filter cap', () => {
     expect(res.status).toBe(200);
   });
 
-  it('returns 200 with 21 comma-separated values (silently capped to 20)', async () => {
-    // Implementation truncates to MAX_FILTER_VALUES=20 rather than rejecting
+  it('returns 400 with 21 comma-separated values instead of silently truncating', async () => {
     const values = Array.from({ length: 21 }, (_, i) => `val${i}`).join(',');
     const res = await get(`/exercises?level=${values}`);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
+    expect(mockListExercises).not.toHaveBeenCalled();
   });
 
-  it('returns 200 with q param containing a long plain string (not a CSV list)', async () => {
-    // q is a plain search string, not comma-separated — cap does not apply
-    const longQ = 'bench press overhead squat romanian deadlift lunge curl extension lat pulldown';
+  it('returns 400 with q longer than the bounded public search length', async () => {
+    const longQ = 'x'.repeat(101);
     const res = await get(`/exercises?q=${encodeURIComponent(longQ)}`);
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(400);
+    expect(mockListExercises).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when offset exceeds the bounded public pagination window', async () => {
+    const res = await get('/exercises?offset=10001');
+    expect(res.status).toBe(400);
+    expect(mockListExercises).not.toHaveBeenCalled();
   });
 });

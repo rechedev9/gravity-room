@@ -6,6 +6,7 @@ import { getInsights } from '../services/insights';
 import { ApiError } from '../middleware/error-handler';
 import { INSIGHT_TYPES, parseInsightTypesQuery } from '../lib/insight-types';
 const security = [{ bearerAuth: [] }];
+const MAX_INSIGHT_TYPES_QUERY_LENGTH = 256;
 
 export const insightsRoutes = new Elysia({ prefix: '/insights' })
   .use(requestLogger)
@@ -15,6 +16,8 @@ export const insightsRoutes = new Elysia({ prefix: '/insights' })
   .get(
     '/',
     async ({ userId, query }) => {
+      await rateLimit(userId, 'GET /insights', { maxRequests: 30 });
+
       const parsed = parseInsightTypesQuery(query.types);
       if (!parsed.ok) {
         throw new ApiError(400, 'Invalid insight type', 'INVALID_INSIGHT_TYPE', {
@@ -24,8 +27,6 @@ export const insightsRoutes = new Elysia({ prefix: '/insights' })
           },
         });
       }
-
-      await rateLimit(userId, 'GET /insights', { maxRequests: 30 });
 
       const rows = await getInsights(userId, parsed.value);
       return {
@@ -40,7 +41,7 @@ export const insightsRoutes = new Elysia({ prefix: '/insights' })
     },
     {
       query: t.Object({
-        types: t.Optional(t.String()),
+        types: t.Optional(t.String({ maxLength: MAX_INSIGHT_TYPES_QUERY_LENGTH })),
       }),
       detail: {
         tags: ['Insights'],

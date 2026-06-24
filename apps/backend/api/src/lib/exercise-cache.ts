@@ -6,6 +6,7 @@
 import { getRedis } from './redis';
 import { logger } from './logger';
 import { isRecord } from '@gzclp/domain/type-guards';
+import { createHash } from 'node:crypto';
 import type { ExerciseEntry, PaginatedExercises } from '../services/exercises';
 
 // ---------------------------------------------------------------------------
@@ -67,7 +68,7 @@ export function buildFilterHash(filter: Record<string, unknown>): string {
     cleaned[key] = Array.isArray(val) ? [...val].sort() : val;
   }
   if (Object.keys(cleaned).length === 0) return '';
-  return JSON.stringify(cleaned);
+  return createHash('sha256').update(JSON.stringify(cleaned)).digest('hex');
 }
 
 function presetKey(filterHash: string): string {

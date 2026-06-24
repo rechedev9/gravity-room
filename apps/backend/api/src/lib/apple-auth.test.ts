@@ -27,7 +27,11 @@ describe('buildAppleAuthorizeUrl', () => {
 
   it('builds an authorize URL with form_post and the expected params', () => {
     const url = new URL(
-      buildAppleAuthorizeUrl('state-123', 'https://api.example.com/api/auth/apple/callback')
+      buildAppleAuthorizeUrl(
+        'state-123',
+        'https://api.example.com/api/auth/apple/callback',
+        'nonce-123'
+      )
     );
     expect(url.origin + url.pathname).toBe('https://appleid.apple.com/auth/authorize');
     expect(url.searchParams.get('client_id')).toBe('com.example.service');
@@ -38,6 +42,7 @@ describe('buildAppleAuthorizeUrl', () => {
       'https://api.example.com/api/auth/apple/callback'
     );
     expect(url.searchParams.get('scope')).toBe('name email');
+    expect(url.searchParams.get('nonce')).toBe('nonce-123');
   });
 
   it('throws when the client id is missing', () => {

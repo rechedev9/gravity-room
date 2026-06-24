@@ -125,7 +125,7 @@ export const refreshTokensRelations = relations(refreshTokens, ({ one }) => ({
 //
 // One user can own many identities. `(provider, provider_account_id)` is
 // globally unique, so the same provider account can never map to two users.
-// `provider` is one of 'google' | 'apple' | 'github' | 'password'; for the
+// `provider` is one of 'google' | 'apple' | 'github' | 'microsoft' | 'password'; for the
 // 'password' provider the account id is the user's own id.
 
 export const userIdentities = pgTable(

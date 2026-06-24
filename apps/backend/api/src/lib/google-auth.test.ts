@@ -113,6 +113,33 @@ describe('verifyGoogleToken — JWKS fetch failure', () => {
   });
 });
 
+describe('verifyGoogleToken — malformed JWT JSON', () => {
+  it('throws AUTH_INVALID instead of an unhandled parser error', async () => {
+    const malformedHeader = Buffer.from('not json').toString('base64url');
+    const validPayload = Buffer.from(
+      JSON.stringify({
+        sub: 'user-123',
+        email: 'test@example.com',
+        email_verified: true,
+        aud: 'test-client-id',
+        iss: 'accounts.google.com',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      })
+    ).toString('base64url');
+
+    let thrown: unknown;
+    try {
+      await verifyGoogleToken(`${malformedHeader}.${validPayload}.signature`);
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown instanceof ApiError).toBe(true);
+    expect((thrown as ApiError).code).toBe('AUTH_INVALID');
+    expect((thrown as ApiError).statusCode).toBe(401);
+  });
+});
+
 describe('verifyGoogleToken — expired token', () => {
   it('4.11: throws ApiError with code AUTH_INVALID and status 401 for expired token', async () => {
     // Arrange: generate RSA key pair and build a JWKS

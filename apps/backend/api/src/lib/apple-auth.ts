@@ -29,7 +29,7 @@ function getAppleClientId(): string {
 }
 
 /** Builds the Apple authorization URL the browser is redirected to. */
-export function buildAppleAuthorizeUrl(state: string, redirectUri: string): string {
+export function buildAppleAuthorizeUrl(state: string, redirectUri: string, nonce?: string): string {
   const params = new URLSearchParams({
     client_id: getAppleClientId(),
     redirect_uri: redirectUri,
@@ -38,16 +38,21 @@ export function buildAppleAuthorizeUrl(state: string, redirectUri: string): stri
     scope: 'name email',
     state,
   });
+  if (nonce) params.set('nonce', nonce);
   return `${APPLE_AUTHORIZE_URL}?${params.toString()}`;
 }
 
 /** Verifies an Apple ID token from the callback against Apple's JWKS. */
-export async function verifyAppleIdToken(idToken: string): Promise<OidcClaims> {
+export async function verifyAppleIdToken(
+  idToken: string,
+  expectedNonce?: string
+): Promise<OidcClaims> {
   return verifyOidcIdToken({
     token: idToken,
     jwksUrl: APPLE_JWKS_URL,
     issuers: [APPLE_ISSUER],
     audiences: [getAppleClientId()],
+    expectedNonce,
   });
 }
 

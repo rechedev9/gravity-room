@@ -151,6 +151,19 @@ describe('buildFilterHash', () => {
   it('returns empty string when all values are stripped', () => {
     expect(buildFilterHash({ q: undefined, level: null, tags: [] })).toBe('');
   });
+
+  it('returns a fixed-length digest instead of raw filter JSON', () => {
+    const hash = buildFilterHash({ q: 'bench', level: ['beginner'] });
+
+    expect(hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(hash).not.toContain('bench');
+  });
+
+  it('bounds hash length for large filter values', () => {
+    const hash = buildFilterHash({ q: 'x'.repeat(10_000) });
+
+    expect(hash.length).toBe(64);
+  });
 });
 
 // ---------------------------------------------------------------------------

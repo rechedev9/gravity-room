@@ -14,6 +14,7 @@ import {
   createExercise,
   type ExerciseFilter,
 } from '../services/exercises';
+import { findUserById } from '../services/auth';
 import { ApiError } from '../middleware/error-handler';
 
 const security = [{ bearerAuth: [] }];
@@ -24,15 +25,26 @@ const security = [{ bearerAuth: [] }];
 
 /** Maximum number of values allowed in a comma-separated filter parameter. */
 const MAX_FILTER_VALUES = 20;
+const MAX_FILTER_VALUE_LENGTH = 80;
+const MAX_FILTER_QUERY_LENGTH = MAX_FILTER_VALUES * MAX_FILTER_VALUE_LENGTH + MAX_FILTER_VALUES - 1;
+const MAX_BOOLEAN_QUERY_LENGTH = 5;
+const MAX_SEARCH_QUERY_LENGTH = 100;
+const MAX_OFFSET = 10_000;
+const filterQuerySchema = t.String({ maxLength: MAX_FILTER_QUERY_LENGTH });
 
-/** Split a comma-separated string into a trimmed non-empty array, or undefined. Capped at MAX_FILTER_VALUES. */
+/** Split a comma-separated string into a trimmed non-empty array, or undefined. */
 function parseCommaSeparated(value: string | undefined): readonly string[] | undefined {
   if (!value) return undefined;
   const parts = value
     .split(',')
     .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, MAX_FILTER_VALUES);
+    .filter(Boolean);
+  if (parts.length > MAX_FILTER_VALUES) {
+    throw new ApiError(400, 'Too many filter values', 'INVALID_FILTER');
+  }
+  if (parts.some((part) => part.length > MAX_FILTER_VALUE_LENGTH)) {
+    throw new ApiError(400, 'Filter value is too long', 'INVALID_FILTER');
+  }
   return parts.length > 0 ? parts : undefined;
 }
 
@@ -74,6 +86,11 @@ async function resolveOptionalUserId({
   const userId = payload['sub'];
   if (typeof userId !== 'string') {
     return { userId: undefined };
+  }
+
+  const user = await findUserById(userId);
+  if (!user || user.deletedAt) {
+    throw new ApiError(401, 'User account is inactive', 'TOKEN_USER_INACTIVE');
   }
 
   return { userId };
@@ -122,16 +139,16 @@ const publicExerciseRoutes = new Elysia()
     },
     {
       query: t.Object({
-        q: t.Optional(t.String()),
-        muscleGroupId: t.Optional(t.String()),
-        equipment: t.Optional(t.String()),
-        force: t.Optional(t.String()),
-        level: t.Optional(t.String()),
-        mechanic: t.Optional(t.String()),
-        category: t.Optional(t.String()),
-        isCompound: t.Optional(t.String()),
+        q: t.Optional(t.String({ maxLength: MAX_SEARCH_QUERY_LENGTH })),
+        muscleGroupId: t.Optional(filterQuerySchema),
+        equipment: t.Optional(filterQuerySchema),
+        force: t.Optional(filterQuerySchema),
+        level: t.Optional(filterQuerySchema),
+        mechanic: t.Optional(filterQuerySchema),
+        category: t.Optional(filterQuerySchema),
+        isCompound: t.Optional(t.String({ maxLength: MAX_BOOLEAN_QUERY_LENGTH })),
         limit: t.Optional(t.Numeric({ minimum: 1, maximum: 1000 })),
-        offset: t.Optional(t.Numeric({ minimum: 0 })),
+        offset: t.Optional(t.Numeric({ minimum: 0, maximum: MAX_OFFSET })),
       }),
       detail: {
         tags: ['Exercises'],
@@ -207,6 +224,9 @@ const protectedExerciseRoutes = new Elysia()
       if (!result.ok) {
         if (result.error.code === 'EXERCISE_ID_CONFLICT') {
           throw new ApiError(409, 'Exercise ID already exists', 'DUPLICATE');
+        }
+        if (result.error.code === 'INVALID_EXERCISE_INPUT') {
+          throw new ApiError(400, 'Invalid exercise input', 'VALIDATION_ERROR');
         }
         throw new ApiError(400, 'Invalid muscle group', 'VALIDATION_ERROR');
       }

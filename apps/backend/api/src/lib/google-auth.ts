@@ -129,6 +129,14 @@ function isIdTokenPayload(value: unknown): value is IdTokenPayload {
   );
 }
 
+function parseJwtJsonSegment(segment: string, label: 'header' | 'payload'): unknown {
+  try {
+    return JSON.parse(Buffer.from(segment, 'base64url').toString('utf8'));
+  } catch {
+    throw new ApiError(401, `Invalid JWT ${label}`, 'AUTH_INVALID');
+  }
+}
+
 // ---------------------------------------------------------------------------
 // JWKS cache
 // ---------------------------------------------------------------------------
@@ -177,7 +185,7 @@ export async function verifyGoogleToken(
   const payloadB64 = parts[1] ?? '';
   const signatureB64 = parts[2] ?? '';
 
-  const rawHeader: unknown = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8'));
+  const rawHeader = parseJwtJsonSegment(headerB64, 'header');
   if (!isIdTokenHeader(rawHeader)) throw new ApiError(401, 'Invalid JWT header', 'AUTH_INVALID');
 
   if (rawHeader.alg !== 'RS256')
@@ -208,7 +216,7 @@ export async function verifyGoogleToken(
 
   if (!isValid) throw new ApiError(401, 'Invalid JWT signature', 'AUTH_INVALID');
 
-  const rawPayload: unknown = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+  const rawPayload = parseJwtJsonSegment(payloadB64, 'payload');
   if (!isIdTokenPayload(rawPayload)) throw new ApiError(401, 'Invalid JWT payload', 'AUTH_INVALID');
 
   // Validate standard claims with ±60 s clock-skew tolerance

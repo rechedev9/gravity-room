@@ -1,5 +1,10 @@
 import { z } from 'zod/v4';
 
+export const MAX_PROGRAM_STRING_LENGTH = 1000;
+
+const ProgramStringSchema = z.string().max(MAX_PROGRAM_STRING_LENGTH);
+const RequiredProgramStringSchema = ProgramStringSchema.min(1);
+
 const AddWeightRuleSchema = z.strictObject({
   type: z.literal('add_weight'),
 });
@@ -60,7 +65,7 @@ export const StageDefinitionSchema = z.strictObject({
   repsMax: z.number().int().positive().optional(),
 });
 
-export const TierSchema = z.string().min(1);
+export const TierSchema = RequiredProgramStringSchema;
 
 const RoleSchema = z.enum(['primary', 'secondary', 'accessory']);
 
@@ -70,29 +75,32 @@ export const SetPrescriptionSchema = z.strictObject({
   sets: z.number().int().positive(),
 });
 
+export const MAX_STAGES_PER_SLOT = 100;
+export const MAX_PRESCRIPTIONS_PER_SLOT = 100;
+
 export const ExerciseSlotSchema = z
   .strictObject({
-    id: z.string().min(1),
-    exerciseId: z.string().min(1),
+    id: RequiredProgramStringSchema,
+    exerciseId: RequiredProgramStringSchema,
     tier: TierSchema,
-    stages: z.array(StageDefinitionSchema).min(1),
+    stages: z.array(StageDefinitionSchema).min(1).max(MAX_STAGES_PER_SLOT),
     onSuccess: ProgressionRuleSchema,
     onFinalStageSuccess: ProgressionRuleSchema.optional(),
     onUndefined: ProgressionRuleSchema.optional(),
     onMidStageFail: ProgressionRuleSchema,
     onFinalStageFail: ProgressionRuleSchema,
-    startWeightKey: z.string().min(1),
+    startWeightKey: RequiredProgramStringSchema,
     startWeightMultiplier: z.number().positive().optional(),
     startWeightOffset: z.number().int().optional(),
-    trainingMaxKey: z.string().min(1).optional(),
+    trainingMaxKey: RequiredProgramStringSchema.optional(),
     tmPercent: z.number().positive().max(1).optional(),
     role: RoleSchema.optional(),
-    notes: z.string().min(1).optional(),
-    prescriptions: z.array(SetPrescriptionSchema).min(1).optional(),
-    percentOf: z.string().min(1).optional(),
+    notes: RequiredProgramStringSchema.optional(),
+    prescriptions: z.array(SetPrescriptionSchema).min(1).max(MAX_PRESCRIPTIONS_PER_SLOT).optional(),
+    percentOf: RequiredProgramStringSchema.optional(),
     isGpp: z.boolean().optional(),
-    complexReps: z.string().min(1).optional(),
-    propagatesTo: z.string().min(1).optional(),
+    complexReps: RequiredProgramStringSchema.optional(),
+    propagatesTo: RequiredProgramStringSchema.optional(),
     isTestSlot: z.boolean().optional(),
     isBodyweight: z.boolean().optional(),
     progressionSetIndex: z.number().int().nonnegative().optional(),
@@ -118,34 +126,39 @@ export const ExerciseSlotSchema = z
 export const MAX_SLOTS_PER_DAY = 50;
 export const MAX_DAYS = 1000;
 export const MAX_TOTAL_WORKOUTS = 2000;
+export const MAX_TOTAL_SLOTS = 5000;
+export const MAX_PROGRAM_EXERCISES = 100;
+export const MAX_PROGRAM_CONFIG_FIELDS = 100;
+export const MAX_PROGRAM_WEIGHT_INCREMENTS = 100;
+export const MAX_SELECT_OPTIONS = 100;
 
 export const ProgramDaySchema = z.strictObject({
-  name: z.string().min(1),
+  name: RequiredProgramStringSchema,
   slots: z.array(ExerciseSlotSchema).min(1).max(MAX_SLOTS_PER_DAY),
 });
 
 const WeightConfigFieldSchema = z.strictObject({
-  key: z.string().min(1),
-  label: z.string().min(1),
+  key: RequiredProgramStringSchema,
+  label: RequiredProgramStringSchema,
   type: z.literal('weight'),
   min: z.number(),
   step: z.number().positive(),
-  group: z.string().min(1).optional(),
-  hint: z.string().min(1).optional(),
-  groupHint: z.string().min(1).optional(),
+  group: RequiredProgramStringSchema.optional(),
+  hint: RequiredProgramStringSchema.optional(),
+  groupHint: RequiredProgramStringSchema.optional(),
 });
 
 const SelectOptionSchema = z.strictObject({
-  label: z.string().min(1),
-  value: z.string().min(1),
+  label: RequiredProgramStringSchema,
+  value: RequiredProgramStringSchema,
 });
 
 const SelectConfigFieldSchema = z.strictObject({
-  key: z.string().min(1),
-  label: z.string().min(1),
+  key: RequiredProgramStringSchema,
+  label: RequiredProgramStringSchema,
   type: z.literal('select'),
-  options: z.array(SelectOptionSchema).min(1),
-  group: z.string().min(1).optional(),
+  options: z.array(SelectOptionSchema).min(1).max(MAX_SELECT_OPTIONS),
+  group: RequiredProgramStringSchema.optional(),
 });
 
 export const ConfigFieldSchema = z.discriminatedUnion('type', [
@@ -153,26 +166,40 @@ export const ConfigFieldSchema = z.discriminatedUnion('type', [
   SelectConfigFieldSchema,
 ]);
 
-export const ProgramDefinitionSchema = z.strictObject({
-  id: z.string().min(1),
-  name: z.string().min(1),
-  description: z.string(),
-  author: z.string(),
-  version: z.number().int().positive(),
-  category: z.string(),
-  source: z.enum(['preset', 'custom']),
-  days: z.array(ProgramDaySchema).min(1).max(MAX_DAYS),
-  cycleLength: z.number().int().positive(),
-  totalWorkouts: z.number().int().positive().max(MAX_TOTAL_WORKOUTS),
-  workoutsPerWeek: z.number().int().positive(),
-  exercises: z.record(z.string(), z.strictObject({ name: z.string().min(1) })),
-  configFields: z.array(ConfigFieldSchema),
-  weightIncrements: z.record(z.string(), z.number().nonnegative()),
-  configTitle: z.string().min(1).optional(),
-  configDescription: z.string().min(1).optional(),
-  configEditTitle: z.string().min(1).optional(),
-  configEditDescription: z.string().min(1).optional(),
-  displayMode: z.enum(['flat', 'blocks']).optional(),
-});
+export const ProgramDefinitionSchema = z
+  .strictObject({
+    id: RequiredProgramStringSchema,
+    name: RequiredProgramStringSchema,
+    description: ProgramStringSchema,
+    author: ProgramStringSchema,
+    version: z.number().int().positive(),
+    category: ProgramStringSchema,
+    source: z.enum(['preset', 'custom']),
+    days: z.array(ProgramDaySchema).min(1).max(MAX_DAYS),
+    cycleLength: z.number().int().positive(),
+    totalWorkouts: z.number().int().positive().max(MAX_TOTAL_WORKOUTS),
+    workoutsPerWeek: z.number().int().positive(),
+    exercises: z
+      .record(ProgramStringSchema, z.strictObject({ name: RequiredProgramStringSchema }))
+      .refine((exercises) => Object.keys(exercises).length <= MAX_PROGRAM_EXERCISES, {
+        message: `exercises must have at most ${MAX_PROGRAM_EXERCISES} entries`,
+      }),
+    configFields: z.array(ConfigFieldSchema).max(MAX_PROGRAM_CONFIG_FIELDS),
+    weightIncrements: z
+      .record(ProgramStringSchema, z.number().nonnegative())
+      .refine((increments) => Object.keys(increments).length <= MAX_PROGRAM_WEIGHT_INCREMENTS, {
+        message: `weightIncrements must have at most ${MAX_PROGRAM_WEIGHT_INCREMENTS} entries`,
+      }),
+    configTitle: RequiredProgramStringSchema.optional(),
+    configDescription: RequiredProgramStringSchema.optional(),
+    configEditTitle: RequiredProgramStringSchema.optional(),
+    configEditDescription: RequiredProgramStringSchema.optional(),
+    displayMode: z.enum(['flat', 'blocks']).optional(),
+  })
+  .refine(
+    (definition) =>
+      definition.days.reduce((total, day) => total + day.slots.length, 0) <= MAX_TOTAL_SLOTS,
+    { message: `days must contain at most ${MAX_TOTAL_SLOTS} slots in total` }
+  );
 
 export type ProgramDefinition = z.infer<typeof ProgramDefinitionSchema>;

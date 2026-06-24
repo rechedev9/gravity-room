@@ -18,6 +18,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { apiFunctionsStubs } from '../../../test/helpers/api-functions-mock';
 
 const mockRefreshAccessToken = mock<() => Promise<string | null>>(() => Promise.resolve(null));
+const mockFetchAuthProviders = mock(() =>
+  Promise.resolve({
+    emailPassword: true,
+    google: true,
+    apple: true,
+    github: true,
+    microsoft: true,
+  })
+);
 
 mock.module('@/lib/api', () => ({
   refreshAccessToken: mockRefreshAccessToken,
@@ -28,6 +37,7 @@ mock.module('@/lib/api', () => ({
 mock.module('@/lib/api-functions', () => ({
   ...apiFunctionsStubs,
   apiFetch: mock(() => Promise.reject(new Error('no auth'))),
+  fetchAuthProviders: mockFetchAuthProviders,
 }));
 
 mock.module('@react-oauth/google', () => ({
@@ -74,16 +84,30 @@ function createWrapper(): FC<{ readonly children: ReactNode }> {
 beforeEach(() => {
   mockRefreshAccessToken.mockClear();
   mockRefreshAccessToken.mockImplementation(() => Promise.resolve(null));
+  mockFetchAuthProviders.mockClear();
+  mockFetchAuthProviders.mockImplementation(() =>
+    Promise.resolve({
+      emailPassword: true,
+      google: true,
+      apple: true,
+      github: true,
+      microsoft: true,
+    })
+  );
 });
 
 describe('LoginPage — Mockup B (social-first + email)', () => {
-  it('renders Google, Apple, and GitHub provider options', async () => {
+  it('renders provider options from /auth/providers including Microsoft Outlook', async () => {
     render(createElement(createWrapper(), null, createElement(LoginPage)));
     await waitFor(() => {
       expect(screen.getByTestId('google-login')).toBeDefined();
     });
     expect(screen.getByRole('button', { name: /Continuar con Apple/i })).toBeDefined();
     expect(screen.getByRole('button', { name: /Continuar con GitHub/i })).toBeDefined();
+    const microsoftButton = screen.getByRole('button', { name: /Continuar con Outlook/i });
+    expect(microsoftButton).toBeDefined();
+    expect((microsoftButton as HTMLButtonElement).disabled).toBe(false);
+    expect(mockFetchAuthProviders).toHaveBeenCalledTimes(1);
   });
 
   it('expands the email form on disclosure and toggles to sign-up (name field)', async () => {

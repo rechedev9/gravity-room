@@ -46,6 +46,8 @@ interface OidcTokenPayload {
   readonly email?: string;
   readonly email_verified?: boolean | string;
   readonly name?: string;
+  readonly nonce?: string;
+  readonly tid?: string;
   readonly aud: string | string[];
   readonly iss: string;
   readonly exp: number;
@@ -57,6 +59,8 @@ function isOidcTokenPayload(value: unknown): value is OidcTokenPayload {
   if (!isRecord(value)) return false;
   if (value['nbf'] !== undefined && typeof value['nbf'] !== 'number') return false;
   if (value['iat'] !== undefined && typeof value['iat'] !== 'number') return false;
+  if (value['nonce'] !== undefined && typeof value['nonce'] !== 'string') return false;
+  if (value['tid'] !== undefined && typeof value['tid'] !== 'string') return false;
   return (
     typeof value['sub'] === 'string' &&
     typeof value['iss'] === 'string' &&
@@ -68,6 +72,14 @@ function isOidcTokenPayload(value: unknown): value is OidcTokenPayload {
 // Apple emits `email_verified` as the boolean true or the string "true".
 function normalizeEmailVerified(value: boolean | string | undefined): boolean {
   return value === true || value === 'true';
+}
+
+function parseJwtJsonSegment(segment: string, label: 'header' | 'payload'): unknown {
+  try {
+    return JSON.parse(Buffer.from(segment, 'base64url').toString('utf8'));
+  } catch {
+    throw new ApiError(401, `Invalid JWT ${label}`, 'AUTH_INVALID');
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +123,16 @@ export interface VerifyOidcOptions {
   readonly jwksUrl: string;
   readonly issuers: readonly string[];
   readonly audiences: readonly string[];
+  readonly issuerTemplates?: readonly string[];
+  readonly expectedNonce?: string;
+}
+
+function issuerMatchesTemplate(template: string, payload: OidcTokenPayload): boolean {
+  return (
+    payload.tid !== undefined &&
+    template.includes('{tenantid}') &&
+    template.replace('{tenantid}', payload.tid) === payload.iss
+  );
 }
 
 /** Verifies a provider ID token (RS256) against its JWKS and standard claims. */
@@ -123,7 +145,7 @@ export async function verifyOidcIdToken(opts: VerifyOidcOptions): Promise<OidcCl
   const payloadB64 = parts[1] ?? '';
   const signatureB64 = parts[2] ?? '';
 
-  const rawHeader: unknown = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8'));
+  const rawHeader = parseJwtJsonSegment(headerB64, 'header');
   if (!isTokenHeader(rawHeader)) throw new ApiError(401, 'Invalid JWT header', 'AUTH_INVALID');
   if (rawHeader.alg !== 'RS256')
     throw new ApiError(401, 'Unsupported token algorithm', 'AUTH_INVALID');
@@ -148,7 +170,7 @@ export async function verifyOidcIdToken(opts: VerifyOidcOptions): Promise<OidcCl
   );
   if (!isValid) throw new ApiError(401, 'Invalid JWT signature', 'AUTH_INVALID');
 
-  const rawPayload: unknown = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+  const rawPayload = parseJwtJsonSegment(payloadB64, 'payload');
   if (!isOidcTokenPayload(rawPayload))
     throw new ApiError(401, 'Invalid JWT payload', 'AUTH_INVALID');
 
@@ -160,12 +182,17 @@ export async function verifyOidcIdToken(opts: VerifyOidcOptions): Promise<OidcCl
   if (rawPayload.iat !== undefined && nowS + CLOCK_SKEW_S < rawPayload.iat)
     throw new ApiError(401, 'Token issued in the future', 'AUTH_INVALID');
 
-  if (!opts.issuers.includes(rawPayload.iss))
-    throw new ApiError(401, 'Invalid token issuer', 'AUTH_INVALID');
+  const issuerAllowed =
+    opts.issuers.includes(rawPayload.iss) ||
+    (opts.issuerTemplates ?? []).some((template) => issuerMatchesTemplate(template, rawPayload));
+  if (!issuerAllowed) throw new ApiError(401, 'Invalid token issuer', 'AUTH_INVALID');
 
   const audiences = Array.isArray(rawPayload.aud) ? rawPayload.aud : [rawPayload.aud];
   if (!audiences.some((audience) => opts.audiences.includes(audience)))
     throw new ApiError(401, 'Invalid audience', 'AUTH_INVALID');
+
+  if (opts.expectedNonce !== undefined && rawPayload.nonce !== opts.expectedNonce)
+    throw new ApiError(401, 'Invalid token nonce', 'AUTH_INVALID');
 
   return {
     sub: rawPayload.sub,

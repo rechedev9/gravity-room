@@ -7,6 +7,8 @@ import { getDb } from '../db';
 import { programInstances, workoutResults, undoEntries } from '@gzclp/database/schema';
 import { ApiError } from '../middleware/error-handler';
 import { getProgramDefinition } from '../services/catalog';
+import { SetLogEntrySchema } from '@gzclp/domain/schemas/instance';
+import { MAX_TOTAL_WORKOUTS } from '@gzclp/domain/schemas/program-definition';
 import type { SetLogEntry } from '@gzclp/domain/types';
 
 // ---------------------------------------------------------------------------
@@ -100,7 +102,7 @@ async function getExpectedSlotCountForMutation(
 
   const def = defResult.definition;
   const maxWorkoutIndex = def.totalWorkouts - 1;
-  if (workoutIndex > maxWorkoutIndex) {
+  if (workoutIndex < 0 || workoutIndex > maxWorkoutIndex) {
     throw new ApiError(400, `Invalid workoutIndex: ${workoutIndex}`, 'INVALID_DATA');
   }
 
@@ -193,17 +195,50 @@ async function syncCompletedAt(
 // ---------------------------------------------------------------------------
 
 const MAX_AMRAP_REPS = 99;
+const MAX_RESULT_WORKOUT_INDEX = MAX_TOTAL_WORKOUTS - 1;
+const MAX_SET_LOG_WEIGHT = 10_000;
+const MAX_SET_LOG_ITEMS = 20;
+const MAX_SLOT_ID_LENGTH = 50;
+
+function assertWorkoutIndexInRange(workoutIndex: number): void {
+  if (
+    !Number.isInteger(workoutIndex) ||
+    workoutIndex < 0 ||
+    workoutIndex > MAX_RESULT_WORKOUT_INDEX
+  ) {
+    throw new ApiError(400, `Invalid workoutIndex: ${workoutIndex}`, 'INVALID_DATA');
+  }
+}
+
+function assertSlotIdValid(slotId: string): void {
+  if (slotId.length < 1 || slotId.length > MAX_SLOT_ID_LENGTH) {
+    throw new ApiError(400, `Invalid slotId: ${slotId}`, 'INVALID_DATA');
+  }
+}
 
 export async function recordResult(
   userId: string,
   instanceId: string,
   input: RecordResultInput
 ): Promise<WorkoutResultRow> {
+  assertWorkoutIndexInRange(input.workoutIndex);
+  assertSlotIdValid(input.slotId);
   if (input.amrapReps !== undefined && input.amrapReps > MAX_AMRAP_REPS) {
     throw new ApiError(400, `amrapReps cannot exceed ${MAX_AMRAP_REPS}`, 'INVALID_DATA');
   }
   if (input.rpe !== undefined && (input.rpe < 1 || input.rpe > 10)) {
     throw new ApiError(400, 'rpe must be between 1 and 10', 'INVALID_DATA');
+  }
+  if (input.setLogs !== undefined && input.setLogs.length > MAX_SET_LOG_ITEMS) {
+    throw new ApiError(400, `setLogs cannot exceed ${MAX_SET_LOG_ITEMS} entries`, 'INVALID_DATA');
+  }
+  for (const setLog of input.setLogs ?? []) {
+    if (!SetLogEntrySchema.safeParse(setLog).success) {
+      throw new ApiError(400, 'Invalid setLogs entry', 'INVALID_DATA');
+    }
+    if (setLog.weight !== undefined && setLog.weight > MAX_SET_LOG_WEIGHT) {
+      throw new ApiError(400, `setLogs.weight cannot exceed ${MAX_SET_LOG_WEIGHT}`, 'INVALID_DATA');
+    }
   }
 
   const setLogsValue = input.setLogs ?? null;
@@ -291,6 +326,9 @@ export async function deleteResult(
   workoutIndex: number,
   slotId: string
 ): Promise<void> {
+  assertWorkoutIndexInRange(workoutIndex);
+  assertSlotIdValid(slotId);
+
   // Resolve template + expected slot count BEFORE opening the tx.
   const programId = await verifyInstanceOwnership(getDb(), userId, instanceId);
   const expectedSlots = await getExpectedSlotCountForMutation(programId, workoutIndex, slotId);

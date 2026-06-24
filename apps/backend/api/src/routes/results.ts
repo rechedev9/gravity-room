@@ -8,8 +8,12 @@ import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
 import { recordResult, deleteResult, undoLast } from '../services/results';
 import { invalidateCachedInstance } from '../lib/program-cache';
+import { MAX_TOTAL_WORKOUTS } from '@gzclp/domain/schemas/program-definition';
 
 const security = [{ bearerAuth: [] }];
+const MAX_RESULT_WORKOUT_INDEX = MAX_TOTAL_WORKOUTS - 1;
+const MAX_AMRAP_REPS = 99;
+const MAX_SET_LOG_WEIGHT = 10_000;
 
 export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
   .use(requestLogger)
@@ -50,16 +54,16 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
         }),
       }),
       body: t.Object({
-        workoutIndex: t.Integer({ minimum: 0 }),
+        workoutIndex: t.Integer({ minimum: 0, maximum: MAX_RESULT_WORKOUT_INDEX }),
         slotId: t.String({ minLength: 1, maxLength: 50 }),
         result: t.Union([t.Literal('success'), t.Literal('fail')]),
-        amrapReps: t.Optional(t.Integer({ minimum: 0 })),
+        amrapReps: t.Optional(t.Integer({ minimum: 0, maximum: MAX_AMRAP_REPS })),
         rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
         setLogs: t.Optional(
           t.Array(
             t.Object({
               reps: t.Integer({ minimum: 0, maximum: 999 }),
-              weight: t.Optional(t.Number({ minimum: 0 })),
+              weight: t.Optional(t.Number({ minimum: 0, maximum: MAX_SET_LOG_WEIGHT })),
               rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
             }),
             { maxItems: 20 }
@@ -107,7 +111,7 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
         id: t.String({
           pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
         }),
-        workoutIndex: t.Numeric(),
+        workoutIndex: t.Numeric({ minimum: 0, maximum: MAX_RESULT_WORKOUT_INDEX }),
         slotId: t.String({ minLength: 1, maxLength: 50 }),
       }),
       detail: {

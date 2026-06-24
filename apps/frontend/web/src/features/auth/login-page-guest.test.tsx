@@ -21,6 +21,15 @@ import { apiFunctionsStubs } from '../../../test/helpers/api-functions-mock';
 // ---------------------------------------------------------------------------
 
 const mockRefreshAccessToken = mock<() => Promise<string | null>>(() => Promise.resolve(null));
+const mockFetchAuthProviders = mock(() =>
+  Promise.resolve({
+    emailPassword: true,
+    google: true,
+    apple: false,
+    github: false,
+    microsoft: false,
+  })
+);
 
 mock.module('@/lib/api', () => ({
   refreshAccessToken: mockRefreshAccessToken,
@@ -31,6 +40,7 @@ mock.module('@/lib/api', () => ({
 mock.module('@/lib/api-functions', () => ({
   ...apiFunctionsStubs,
   apiFetch: mock(() => Promise.reject(new Error('no auth'))),
+  fetchAuthProviders: mockFetchAuthProviders,
 }));
 
 // Mock @react-oauth/google — third-party, no own tests in this project
@@ -106,6 +116,16 @@ function createWrapper(): FC<{ readonly children: ReactNode }> {
 beforeEach(() => {
   mockRefreshAccessToken.mockClear();
   mockRefreshAccessToken.mockImplementation(() => Promise.resolve(null));
+  mockFetchAuthProviders.mockClear();
+  mockFetchAuthProviders.mockImplementation(() =>
+    Promise.resolve({
+      emailPassword: true,
+      google: true,
+      apple: false,
+      github: false,
+      microsoft: false,
+    })
+  );
 });
 
 describe('LoginPage — Guest entry', () => {

@@ -221,6 +221,29 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     description: 'GitHub OAuth app client secret. Pairs with GITHUB_CLIENT_ID.',
     example: '<github-oauth-client-secret>',
   },
+  {
+    name: 'MICROSOFT_CLIENT_ID',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Microsoft identity platform application client ID. Microsoft/Outlook sign-in is disabled unless both id and secret are set.',
+    example: '<microsoft-application-client-id>',
+  },
+  {
+    name: 'MICROSOFT_CLIENT_SECRET',
+    service: 'api',
+    requiredInProd: false,
+    description: 'Microsoft identity platform client secret. Pairs with MICROSOFT_CLIENT_ID.',
+    example: '<microsoft-client-secret>',
+  },
+  {
+    name: 'MICROSOFT_TENANT_ID',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Microsoft tenant segment for OAuth endpoints. Defaults to consumers for Outlook/Microsoft personal accounts; set common, organizations, or a tenant id when needed.',
+    example: 'consumers',
+  },
 
   // ── analytics ────────────────────────────────────────────────────────────
   {

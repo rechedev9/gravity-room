@@ -6,6 +6,7 @@ import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { sanitizeAuthError } from '@/lib/auth-errors';
+import { fetchAuthProviders, type AuthProviders } from '@/lib/api-functions';
 import { trackEvent } from '@/lib/analytics';
 import { Kicker } from '@/components/kicker';
 import { CornerTicks } from '@/components/corner-ticks';
@@ -13,8 +14,13 @@ import { CornerTicks } from '@/components/corner-ticks';
 const EST_LINE = 'EST. 2025 · OPEN SOURCE · AGPL-3.0';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
-const APPLE_ENABLED = import.meta.env.VITE_AUTH_APPLE_ENABLED === 'true';
-const GITHUB_ENABLED = import.meta.env.VITE_AUTH_GITHUB_ENABLED === 'true';
+const DEFAULT_AUTH_PROVIDERS: AuthProviders = {
+  emailPassword: true,
+  google: true,
+  apple: false,
+  github: false,
+  microsoft: false,
+};
 
 export function LoginPage(): React.ReactNode {
   return (
@@ -43,6 +49,7 @@ function LoginPageInner(): React.ReactNode {
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formMessage, setFormMessage] = useState<FormMessage | null>(null);
+  const [authProviders, setAuthProviders] = useState<AuthProviders>(DEFAULT_AUTH_PROVIDERS);
 
   // /login is disallowed in robots.txt and behind auth — keep it out of the
   // index explicitly and give it a self-canonical instead of the landing's.
@@ -67,6 +74,20 @@ function LoginPageInner(): React.ReactNode {
     trackEvent('login_page_view');
   }, [loading, user, isGuest]);
 
+  useEffect(() => {
+    let active = true;
+    void fetchAuthProviders()
+      .then((providers) => {
+        if (active) setAuthProviders(providers);
+      })
+      .catch(() => {
+        // Keep the conservative defaults if the public provider discovery call fails.
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   /** Translates an API error code to a localized message, falling back to generic. */
   const codeMessage = (code: string | undefined): string =>
     t([`login.errors.${code ?? 'generic'}`, 'login.errors.generic']);
@@ -81,7 +102,7 @@ function LoginPageInner(): React.ReactNode {
     }
   };
 
-  const handleSocialRedirect = (provider: 'apple' | 'github'): void => {
+  const handleSocialRedirect = (provider: 'apple' | 'github' | 'microsoft'): void => {
     trackEvent('login_social_click');
     window.location.href = `${API_BASE}/api/auth/${provider}/start`;
   };
@@ -181,33 +202,48 @@ function LoginPageInner(): React.ReactNode {
             Gravity Room
           </h1>
 
-          {/* Social providers — Google (One Tap), then Apple + GitHub */}
+          {/* Social providers — deployment availability comes from /auth/providers. */}
           <div className="mt-7 flex flex-col gap-2.5">
-            <div className="flex justify-center border border-rule bg-header py-3">
-              <GoogleLogin
-                onSuccess={({ credential }) => {
-                  if (credential) void handleGoogleSuccess(credential);
-                }}
-                onError={() => {
-                  setError(t('login.errors.google_auth_error'));
-                }}
-                theme="filled_black"
-                size="large"
-                width="320"
+            {authProviders.google ? (
+              <div className="flex justify-center border border-rule bg-header py-3">
+                <GoogleLogin
+                  onSuccess={({ credential }) => {
+                    if (credential) void handleGoogleSuccess(credential);
+                  }}
+                  onError={() => {
+                    setError(t('login.errors.google_auth_error'));
+                  }}
+                  theme="filled_black"
+                  size="large"
+                  width="320"
+                />
+              </div>
+            ) : (
+              <SocialButton
+                label={t('login.social.google')}
+                enabled={false}
+                comingSoonLabel={t('login.social.coming_soon')}
+                onClick={() => undefined}
               />
-            </div>
+            )}
 
             <SocialButton
               label={t('login.social.apple')}
-              enabled={APPLE_ENABLED}
+              enabled={authProviders.apple}
               comingSoonLabel={t('login.social.coming_soon')}
               onClick={() => handleSocialRedirect('apple')}
             />
             <SocialButton
               label={t('login.social.github')}
-              enabled={GITHUB_ENABLED}
+              enabled={authProviders.github}
               comingSoonLabel={t('login.social.coming_soon')}
               onClick={() => handleSocialRedirect('github')}
+            />
+            <SocialButton
+              label={t('login.social.microsoft')}
+              enabled={authProviders.microsoft}
+              comingSoonLabel={t('login.social.coming_soon')}
+              onClick={() => handleSocialRedirect('microsoft')}
             />
           </div>
 
@@ -224,10 +260,16 @@ function LoginPageInner(): React.ReactNode {
           {!showEmail ? (
             <button
               type="button"
+              disabled={!authProviders.emailPassword}
               onClick={() => setShowEmail(true)}
-              className="w-full cursor-pointer border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light"
+              className="w-full cursor-pointer border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light disabled:cursor-not-allowed disabled:opacity-50"
             >
               ▸ {t('login.email.toggle')}
+              {!authProviders.emailPassword && (
+                <span className="ml-2 font-mono text-[9px] tracking-[0.1em] text-label">
+                  [{t('login.social.coming_soon')}]
+                </span>
+              )}
             </button>
           ) : (
             <form onSubmit={(e) => void handleEmailSubmit(e)} className="flex flex-col gap-3">

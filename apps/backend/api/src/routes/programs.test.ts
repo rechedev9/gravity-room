@@ -4,26 +4,34 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect } from 'bun:test';
+import { mock, describe, it, expect, beforeEach } from 'bun:test';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
+const mockRateLimit = mock<() => Promise<void>>(() => Promise.resolve());
+
 mock.module('../middleware/rate-limit', () => ({
-  rateLimit: (): Promise<void> => Promise.resolve(),
+  rateLimit: mockRateLimit,
+}));
+
+mock.module('../services/auth', () => ({
+  findUserById: mock((id: string) => Promise.resolve({ id })),
 }));
 
 const mockGetInstances = mock(() => Promise.resolve({ data: [], nextCursor: null }));
+const mockCreateInstance = mock(() => Promise.resolve({ id: 'new-id' }));
+const mockImportInstance = mock(() => Promise.resolve({ id: 'imported-id' }));
 
 mock.module('../services/programs', () => ({
   getInstances: mockGetInstances,
-  createInstance: mock(() => Promise.resolve({ id: 'new-id' })),
+  createInstance: mockCreateInstance,
   getInstance: mock(() => Promise.resolve({ id: 'inst-id' })),
   updateInstance: mock(() => Promise.resolve({ id: 'inst-id' })),
   deleteInstance: mock(() => Promise.resolve()),
   exportInstance: mock(() => Promise.resolve({})),
-  importInstance: mock(() => Promise.resolve({ id: 'imported-id' })),
+  importInstance: mockImportInstance,
 }));
 
 import { Elysia } from 'elysia';
@@ -37,6 +45,10 @@ const testApp = new Elysia()
       set.status = error.statusCode;
       return { error: error.message, code: error.code };
     }
+    if ('code' in error && error.code === 'VALIDATION') {
+      set.status = 400;
+      return { error: 'Validation failed', code: 'VALIDATION_ERROR' };
+    }
     set.status = 401;
     return { error: 'Unauthorized', code: 'UNAUTHORIZED' };
   })
@@ -48,6 +60,29 @@ const testApp = new Elysia()
 
 function get(path: string, headers?: Record<string, string>): Promise<Response> {
   return testApp.handle(new Request(`http://localhost${path}`, { headers }));
+}
+
+async function makeValidJwt(userId: string): Promise<string> {
+  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: userId,
+      iss: 'gravity-room-api',
+      aud: 'gravity-room-clients',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })
+  ).toString('base64url');
+  const signingInput = `${header}.${payload}`;
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signingInput));
+  return `${signingInput}.${Buffer.from(sig).toString('base64url')}`;
 }
 
 function post(path: string, body: unknown, headers?: Record<string, string>): Promise<Response> {
@@ -93,6 +128,31 @@ describe('POST /programs without auth', () => {
       { Authorization: 'Bearer not-a-real-jwt' }
     );
     expect(res.status).toBe(401);
+  });
+});
+
+describe('POST /programs — programId validation', () => {
+  beforeEach(() => {
+    mockCreateInstance.mockClear();
+    mockRateLimit.mockClear();
+  });
+
+  it('rejects oversized program IDs before creating an instance', async () => {
+    const token = await makeValidJwt('user-1');
+
+    const res = await post(
+      '/programs',
+      {
+        programId: 'x'.repeat(51),
+        name: 'Test',
+        config: {},
+      },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockCreateInstance).not.toHaveBeenCalled();
   });
 });
 
@@ -174,11 +234,129 @@ describe('POST /programs/import — rpe validation', () => {
   });
 });
 
+describe('POST /programs/import — programId validation', () => {
+  beforeEach(() => {
+    mockImportInstance.mockClear();
+    mockRateLimit.mockClear();
+  });
+
+  it('rejects oversized program IDs before importing an instance', async () => {
+    const token = await makeValidJwt('user-1');
+
+    const res = await post(
+      '/programs/import',
+      { ...VALID_IMPORT_PAYLOAD, programId: 'x'.repeat(51) },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockImportInstance).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /programs/import — result key validation', () => {
+  beforeEach(() => {
+    mockImportInstance.mockClear();
+    mockRateLimit.mockClear();
+  });
+
+  it('rejects oversized workout result index keys before importing an instance', async () => {
+    const token = await makeValidJwt('user-1');
+
+    const res = await post(
+      '/programs/import',
+      {
+        ...VALID_IMPORT_PAYLOAD,
+        results: { ['1'.repeat(4)]: { t1: { result: 'success' } } },
+      },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockImportInstance).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized result slot IDs before importing an instance', async () => {
+    const token = await makeValidJwt('user-1');
+
+    const res = await post(
+      '/programs/import',
+      {
+        ...VALID_IMPORT_PAYLOAD,
+        results: { '0': { ['s'.repeat(51)]: { result: 'success' } } },
+      },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockImportInstance).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized undo history slot IDs before importing an instance', async () => {
+    const token = await makeValidJwt('user-1');
+
+    const res = await post(
+      '/programs/import',
+      {
+        ...VALID_IMPORT_PAYLOAD,
+        undoHistory: [{ i: 0, slotId: 's'.repeat(51), prev: 'success' }],
+      },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockImportInstance).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized result AMRAP reps before importing an instance', async () => {
+    const token = await makeValidJwt('user-1');
+
+    const res = await post(
+      '/programs/import',
+      {
+        ...VALID_IMPORT_PAYLOAD,
+        results: { '0': { t1: { result: 'success', amrapReps: 100 } } },
+      },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockImportInstance).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized undo AMRAP reps before importing an instance', async () => {
+    const token = await makeValidJwt('user-1');
+
+    const res = await post(
+      '/programs/import',
+      {
+        ...VALID_IMPORT_PAYLOAD,
+        undoHistory: [{ i: 0, slotId: 't1', prevAmrapReps: 100 }],
+      },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockImportInstance).not.toHaveBeenCalled();
+  });
+});
+
 // ---------------------------------------------------------------------------
 // GET /programs — pagination query param validation
 // ---------------------------------------------------------------------------
 
 describe('GET /programs — pagination query params', () => {
+  beforeEach(() => {
+    mockGetInstances.mockClear();
+    mockRateLimit.mockClear();
+  });
+
   it('returns 400 when limit is below minimum', async () => {
     const res = await get('/programs?limit=0');
     // Either 400 (validation) or 401 (no auth) — the key thing is it does not crash
@@ -188,5 +366,17 @@ describe('GET /programs — pagination query params', () => {
   it('returns 400 when limit exceeds maximum', async () => {
     const res = await get('/programs?limit=999');
     expect([400, 401]).toContain(res.status);
+  });
+
+  it('rejects oversized cursors before listing program instances', async () => {
+    const token = await makeValidJwt('user-1');
+
+    const res = await get(`/programs?cursor=${'x'.repeat(257)}`, {
+      Authorization: `Bearer ${token}`,
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockGetInstances).not.toHaveBeenCalled();
   });
 });

@@ -31,6 +31,12 @@ interface AuthResult {
   readonly accessToken: string;
 }
 
+interface PasswordUserSeedInput {
+  readonly email: string;
+  readonly password: string;
+  readonly name?: string;
+}
+
 /**
  * Creates a unique test user via the dev-only /auth/dev endpoint and signs in.
  * page.request shares cookies with the browser context, so the refresh_token
@@ -51,6 +57,23 @@ export async function createAndAuthUser(page: Page): Promise<AuthResult> {
 
   const body = (await res.json()) as { accessToken: string };
   return { email, accessToken: body.accessToken };
+}
+
+/**
+ * Creates or updates a verified email/password user without signing in.
+ * This exercises the real public login form while keeping E2E setup deterministic.
+ */
+export async function createVerifiedPasswordUser(
+  page: Page,
+  input: PasswordUserSeedInput
+): Promise<void> {
+  await skipFirstRunOverlays(page);
+  const res = await page.request.post(`${BASE_URL}/api/auth/dev/password-user`, {
+    headers: { 'x-dev-auth-secret': DEV_AUTH_SECRET },
+    data: input,
+  });
+  if (!res.ok())
+    throw new Error(`Dev password user seed failed: ${res.status()} ${await res.text()}`);
 }
 
 /**

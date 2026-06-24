@@ -31,3 +31,49 @@ jest.mock('expo-sqlite', () => ({
     getAllAsync: jest.fn(async () => []),
   })),
 }));
+
+jest.mock('react-native/Libraries/Lists/FlatList', () => {
+  const React = require('react');
+
+  function renderComponent(Component) {
+    if (!Component) return null;
+    if (React.isValidElement(Component)) return Component;
+    return React.createElement(Component);
+  }
+
+  function FlatList({
+    data = [],
+    keyExtractor,
+    renderItem,
+    ListEmptyComponent,
+    contentContainerStyle,
+  }) {
+    const items = Array.isArray(data) ? data : [];
+    return React.createElement(
+      'View',
+      { style: contentContainerStyle },
+      items.length === 0
+        ? renderComponent(ListEmptyComponent)
+        : items.map((item, index) =>
+            React.createElement(
+              React.Fragment,
+              { key: keyExtractor ? keyExtractor(item, index) : String(index) },
+              renderItem({
+                item,
+                index,
+                separators: {
+                  highlight: jest.fn(),
+                  unhighlight: jest.fn(),
+                  updateProps: jest.fn(),
+                },
+              })
+            )
+          )
+    );
+  }
+
+  return {
+    __esModule: true,
+    default: FlatList,
+  };
+});

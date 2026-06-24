@@ -14,6 +14,7 @@ import {
 import { getCachedMuscleGroups, setCachedMuscleGroups } from '../lib/muscle-groups-cache';
 import { SingleflightMap } from '../lib/singleflight';
 import { type Result, ok, err } from '../lib/result';
+import { ApiError } from '../middleware/error-handler';
 
 // Singleflight instances — one per return type for type safety
 const exerciseFlight = new SingleflightMap<PaginatedExercises>();
@@ -21,6 +22,17 @@ const muscleGroupFlight = new SingleflightMap<readonly MuscleGroupEntry[]>();
 
 /** Default pagination values when pagination is not explicitly provided. */
 const DEFAULT_PAGINATION: PaginationParams = { limit: 100, offset: 0 };
+const MIN_EXERCISE_LIMIT = 1;
+const MAX_EXERCISE_LIMIT = 1000;
+const MIN_EXERCISE_OFFSET = 0;
+const MAX_EXERCISE_OFFSET = 10_000;
+const MAX_SEARCH_QUERY_LENGTH = 100;
+const MAX_FILTER_VALUES = 20;
+const MAX_FILTER_VALUE_LENGTH = 80;
+const MAX_CREATE_EXERCISE_ID_LENGTH = 50;
+const MAX_CREATE_EXERCISE_NAME_LENGTH = 100;
+const MAX_CREATE_EXERCISE_MUSCLE_GROUP_ID_LENGTH = 50;
+const MAX_CREATE_EXERCISE_EQUIPMENT_LENGTH = 50;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,7 +99,14 @@ interface InvalidMuscleGroupError {
   readonly code: 'INVALID_MUSCLE_GROUP';
 }
 
-export type CreateExerciseError = ExerciseConflictError | InvalidMuscleGroupError;
+interface InvalidExerciseInputError {
+  readonly code: 'INVALID_EXERCISE_INPUT';
+}
+
+export type CreateExerciseError =
+  | ExerciseConflictError
+  | InvalidMuscleGroupError
+  | InvalidExerciseInputError;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -96,6 +115,57 @@ export type CreateExerciseError = ExerciseConflictError | InvalidMuscleGroupErro
 /** Escape special LIKE/ILIKE characters so user input is treated as literal. */
 function escapeLikePattern(raw: string): string {
   return raw.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
+function assertPaginationInRange(page: PaginationParams): void {
+  if (
+    !Number.isInteger(page.limit) ||
+    page.limit < MIN_EXERCISE_LIMIT ||
+    page.limit > MAX_EXERCISE_LIMIT
+  ) {
+    throw new ApiError(400, 'Invalid exercise limit', 'INVALID_FILTER');
+  }
+  if (
+    !Number.isInteger(page.offset) ||
+    page.offset < MIN_EXERCISE_OFFSET ||
+    page.offset > MAX_EXERCISE_OFFSET
+  ) {
+    throw new ApiError(400, 'Invalid exercise offset', 'INVALID_FILTER');
+  }
+}
+
+function assertFilterValuesInRange(values: readonly string[] | undefined): void {
+  if (values === undefined) return;
+  if (values.length > MAX_FILTER_VALUES) {
+    throw new ApiError(400, 'Too many exercise filter values', 'INVALID_FILTER');
+  }
+  if (values.some((value) => value.length > MAX_FILTER_VALUE_LENGTH)) {
+    throw new ApiError(400, 'Exercise filter value is too long', 'INVALID_FILTER');
+  }
+}
+
+function assertFilterInRange(filter: ExerciseFilter | undefined): void {
+  if (filter?.q !== undefined && filter.q.length > MAX_SEARCH_QUERY_LENGTH) {
+    throw new ApiError(400, 'Invalid exercise search query', 'INVALID_FILTER');
+  }
+  assertFilterValuesInRange(filter?.muscleGroupId);
+  assertFilterValuesInRange(filter?.equipment);
+  assertFilterValuesInRange(filter?.force);
+  assertFilterValuesInRange(filter?.level);
+  assertFilterValuesInRange(filter?.mechanic);
+  assertFilterValuesInRange(filter?.category);
+}
+
+function isCreateExerciseInputInvalid(input: CreateExerciseInput): boolean {
+  return (
+    input.id.length < 1 ||
+    input.id.length > MAX_CREATE_EXERCISE_ID_LENGTH ||
+    input.name.length < 1 ||
+    input.name.length > MAX_CREATE_EXERCISE_NAME_LENGTH ||
+    input.muscleGroupId.length < 1 ||
+    input.muscleGroupId.length > MAX_CREATE_EXERCISE_MUSCLE_GROUP_ID_LENGTH ||
+    (input.equipment !== undefined && input.equipment.length > MAX_CREATE_EXERCISE_EQUIPMENT_LENGTH)
+  );
 }
 
 function toExerciseEntry(row: typeof exercises.$inferSelect): ExerciseEntry {
@@ -132,6 +202,8 @@ export async function listExercises(
   pagination?: PaginationParams
 ): Promise<PaginatedExercises> {
   const page = pagination ?? DEFAULT_PAGINATION;
+  assertPaginationInRange(page);
+  assertFilterInRange(filter);
 
   // Include pagination in filter hash so different pages cache independently
   const filterForHash: Record<string, unknown> = {
@@ -239,6 +311,10 @@ export async function createExercise(
   userId: string,
   input: CreateExerciseInput
 ): Promise<Result<ExerciseEntry, CreateExerciseError>> {
+  if (isCreateExerciseInputInvalid(input)) {
+    return err({ code: 'INVALID_EXERCISE_INPUT' });
+  }
+
   // Validate muscle group exists
   const [mg] = await getDb()
     .select({ id: muscleGroups.id })

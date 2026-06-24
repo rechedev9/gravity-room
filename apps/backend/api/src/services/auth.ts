@@ -50,7 +50,7 @@ export interface FindOrCreateResult {
 }
 
 /** External auth providers, plus the local email/password method. */
-export type AuthProvider = 'google' | 'apple' | 'github' | 'password';
+export type AuthProvider = 'google' | 'apple' | 'github' | 'microsoft' | 'password';
 
 /** Identity descriptor passed to findOrCreateUserByIdentity. */
 export interface IdentityInput {

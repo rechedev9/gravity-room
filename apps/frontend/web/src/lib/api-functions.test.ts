@@ -7,9 +7,15 @@
  * secondaryMuscles:null (s3), mixed-type secondaryMuscles array (s4),
  * paginated envelope parsing via Zod schema (REQ-EXPAG-005).
  */
-import { describe, it, expect } from 'bun:test';
+import { afterEach, describe, expect, it, mock } from 'bun:test';
 import { z } from 'zod/v4';
-import { parseExerciseEntry } from './api-functions';
+import { fetchAuthProviders, parseExerciseEntry } from './api-functions';
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+});
 
 // ---------------------------------------------------------------------------
 // Base fixture — minimal valid exercise raw response
@@ -240,5 +246,49 @@ describe('fetchExercises — paginated envelope Zod validation', () => {
       error = e;
     }
     expect(error).toBeDefined();
+  });
+});
+
+describe('fetchAuthProviders', () => {
+  it('parses the provider availability response from the auth endpoint', async () => {
+    const fetchMock = mock(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            emailPassword: true,
+            google: true,
+            apple: false,
+            github: true,
+            microsoft: true,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const providers = await fetchAuthProviders();
+
+    expect(providers).toEqual({
+      emailPassword: true,
+      google: true,
+      apple: false,
+      github: true,
+      microsoft: true,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects malformed provider availability payloads', async () => {
+    globalThis.fetch = mock(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ emailPassword: true, google: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    ) as unknown as typeof fetch;
+
+    await expect(fetchAuthProviders()).rejects.toThrow();
   });
 });

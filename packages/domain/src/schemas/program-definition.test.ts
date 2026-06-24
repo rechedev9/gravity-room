@@ -2,7 +2,10 @@ import { describe, expect, it } from 'bun:test';
 
 import {
   MAX_DAYS,
+  MAX_PRESCRIPTIONS_PER_SLOT,
+  MAX_STAGES_PER_SLOT,
   MAX_SLOTS_PER_DAY,
+  MAX_TOTAL_SLOTS,
   MAX_TOTAL_WORKOUTS,
   ProgramDefinitionSchema,
 } from './program-definition';
@@ -34,6 +37,42 @@ const BASE = {
   weightIncrements: { squat: 5 },
   days: [{ name: 'Day A', slots: [SLOT] }],
 };
+
+const MAX_DEFINITION_MAP_KEYS = 100;
+const OVERSIZED_SELECT_OPTIONS = 101;
+const OVERSIZED_PROGRAM_STRING = 'x'.repeat(1001);
+const OVERSIZED_PRESCRIPTIONS = MAX_PRESCRIPTIONS_PER_SLOT + 1;
+const OVERSIZED_STAGES = MAX_STAGES_PER_SLOT + 1;
+
+function buildExerciseMap(count: number) {
+  return Object.fromEntries(
+    Array.from({ length: count }, (_, index) => [
+      `exercise-${index}`,
+      { name: `Exercise ${index}` },
+    ])
+  );
+}
+
+function buildWeightIncrementMap(count: number) {
+  return Object.fromEntries(Array.from({ length: count }, (_, index) => [`exercise-${index}`, 5]));
+}
+
+function buildConfigFields(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    key: `exercise-${index}`,
+    label: `Exercise ${index}`,
+    type: 'weight' as const,
+    min: 0,
+    step: 2.5,
+  }));
+}
+
+function buildSelectOptions(count: number) {
+  return Array.from({ length: count }, (_, index) => ({
+    label: `Option ${index}`,
+    value: `option-${index}`,
+  }));
+}
 
 describe('ProgramDefinitionSchema bounds (DoS guard)', () => {
   it('accepts a minimal valid definition', () => {
@@ -71,5 +110,134 @@ describe('ProgramDefinitionSchema bounds (DoS guard)', () => {
     expect(
       ProgramDefinitionSchema.safeParse({ ...BASE, days: [{ name: 'D', slots }] }).success
     ).toBe(false);
+  });
+
+  it('rejects more exercise definitions than the cap', () => {
+    expect(
+      ProgramDefinitionSchema.safeParse({
+        ...BASE,
+        exercises: buildExerciseMap(MAX_DEFINITION_MAP_KEYS + 1),
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects more config fields than the cap', () => {
+    expect(
+      ProgramDefinitionSchema.safeParse({
+        ...BASE,
+        configFields: buildConfigFields(MAX_DEFINITION_MAP_KEYS + 1),
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects more select options than the cap', () => {
+    expect(
+      ProgramDefinitionSchema.safeParse({
+        ...BASE,
+        configFields: [
+          {
+            key: 'variant',
+            label: 'Variant',
+            type: 'select',
+            options: buildSelectOptions(OVERSIZED_SELECT_OPTIONS),
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects more weight increments than the cap', () => {
+    expect(
+      ProgramDefinitionSchema.safeParse({
+        ...BASE,
+        weightIncrements: buildWeightIncrementMap(MAX_DEFINITION_MAP_KEYS + 1),
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects string fields above the cap', () => {
+    expect(
+      ProgramDefinitionSchema.safeParse({
+        ...BASE,
+        description: OVERSIZED_PROGRAM_STRING,
+      }).success
+    ).toBe(false);
+
+    expect(
+      ProgramDefinitionSchema.safeParse({
+        ...BASE,
+        days: [{ name: 'Day A', slots: [{ ...SLOT, notes: OVERSIZED_PROGRAM_STRING }] }],
+      }).success
+    ).toBe(false);
+
+    expect(
+      ProgramDefinitionSchema.safeParse({
+        ...BASE,
+        configFields: [
+          {
+            key: 'variant',
+            label: 'Variant',
+            type: 'select',
+            options: [{ label: 'Option', value: OVERSIZED_PROGRAM_STRING }],
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects more prescriptions per slot than the cap', () => {
+    expect(
+      ProgramDefinitionSchema.safeParse({
+        ...BASE,
+        days: [
+          {
+            name: 'Day A',
+            slots: [
+              {
+                ...SLOT,
+                percentOf: 'squat_tm',
+                prescriptions: Array.from({ length: OVERSIZED_PRESCRIPTIONS }, () => ({
+                  percent: 75,
+                  reps: 5,
+                  sets: 1,
+                })),
+              },
+            ],
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects more stages per slot than the cap', () => {
+    expect(
+      ProgramDefinitionSchema.safeParse({
+        ...BASE,
+        days: [
+          {
+            name: 'Day A',
+            slots: [
+              {
+                ...SLOT,
+                stages: Array.from({ length: OVERSIZED_STAGES }, () => ({ sets: 3, reps: 5 })),
+              },
+            ],
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects more aggregate slots than the cap', () => {
+    const dayCount = Math.floor(MAX_TOTAL_SLOTS / MAX_SLOTS_PER_DAY) + 1;
+    const days = Array.from({ length: dayCount }, (_, dayIndex) => ({
+      name: `Day ${dayIndex}`,
+      slots: Array.from({ length: MAX_SLOTS_PER_DAY }, (_, slotIndex) => ({
+        ...SLOT,
+        id: `slot-${dayIndex}-${slotIndex}`,
+      })),
+    }));
+
+    expect(ProgramDefinitionSchema.safeParse({ ...BASE, days }).success).toBe(false);
   });
 });

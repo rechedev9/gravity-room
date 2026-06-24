@@ -11,7 +11,11 @@ import {
   undoEntries,
 } from '@gzclp/database/schema';
 import { getProgramDefinition } from '../services/catalog';
-import { ProgramInstanceSchema } from '@gzclp/domain/schemas/instance';
+import {
+  GenericUndoHistorySchema,
+  ProgramInstanceSchema,
+  SetLogEntrySchema,
+} from '@gzclp/domain/schemas/instance';
 import type { GenericResults, GenericUndoHistory } from '@gzclp/domain/types/program';
 import { ApiError } from '../middleware/error-handler';
 
@@ -63,6 +67,11 @@ export interface ProgramInstanceResponse {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+const MAX_AMRAP_REPS = 99;
+const MAX_SET_LOG_ITEMS = 20;
+const MAX_SET_LOG_WEIGHT = 10_000;
+const MAX_METADATA_BYTES = 10_000;
 
 /** Maps each workoutIndex to the earliest createdAt timestamp for that workout. */
 function buildResultTimestamps(rows: readonly ResultProjection[]): Record<string, string> {
@@ -397,23 +406,38 @@ export async function updateInstanceMetadata(
   metadata: Record<string, string | number | boolean | null>
 ): Promise<ProgramInstanceResponse> {
   // Validate incoming patch size before sending to DB
-  const MAX_METADATA_BYTES = 10_000;
   const serialized = JSON.stringify(metadata);
   if (serialized.length > MAX_METADATA_BYTES) {
     throw new ApiError(400, 'Metadata exceeds 10KB limit', 'METADATA_TOO_LARGE');
   }
 
-  // Single UPDATE with JSONB merge — no preceding SELECT needed
+  const mergedMetadata = sql`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${metadata}::jsonb`;
+
+  // Single UPDATE with JSONB merge and final-size guard — no preceding SELECT needed
   const [updated] = await getDb()
     .update(programInstances)
     .set({
-      metadata: sql`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${metadata}::jsonb`,
+      metadata: mergedMetadata,
       updatedAt: new Date(),
     })
-    .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+    .where(
+      and(
+        eq(programInstances.id, instanceId),
+        eq(programInstances.userId, userId),
+        sql`length((${mergedMetadata})::text) <= ${MAX_METADATA_BYTES}`
+      )
+    )
     .returning();
 
   if (!updated) {
+    const [existing] = await getDb()
+      .select({ id: programInstances.id })
+      .from(programInstances)
+      .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+      .limit(1);
+    if (existing) {
+      throw new ApiError(400, 'Metadata exceeds 10KB limit', 'METADATA_TOO_LARGE');
+    }
     throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
   }
 
@@ -446,6 +470,33 @@ export interface ExportedProgram {
   readonly config: unknown;
   readonly results: GenericResults;
   readonly undoHistory: GenericUndoHistory;
+}
+
+function assertSetLogEntriesValid(
+  setLogs: readonly unknown[] | undefined,
+  fieldName: string
+): void {
+  if (setLogs === undefined) return;
+  if (setLogs.length > MAX_SET_LOG_ITEMS) {
+    throw new ApiError(
+      400,
+      `${fieldName} cannot exceed ${MAX_SET_LOG_ITEMS} entries`,
+      'INVALID_DATA'
+    );
+  }
+  for (const setLog of setLogs) {
+    const parsed = SetLogEntrySchema.safeParse(setLog);
+    if (!parsed.success) {
+      throw new ApiError(400, `Invalid ${fieldName} entry`, 'INVALID_DATA');
+    }
+    if (parsed.data.weight !== undefined && parsed.data.weight > MAX_SET_LOG_WEIGHT) {
+      throw new ApiError(
+        400,
+        `${fieldName}.weight cannot exceed ${MAX_SET_LOG_WEIGHT}`,
+        'INVALID_DATA'
+      );
+    }
+  }
 }
 
 export async function exportInstance(userId: string, instanceId: string): Promise<ExportedProgram> {
@@ -496,10 +547,28 @@ export async function importInstance(
       if (!validSlotIds.has(slotId)) {
         throw new ApiError(400, `Unknown slotId: ${slotId}`, 'INVALID_DATA');
       }
-      if (slotData.amrapReps !== undefined && slotData.amrapReps > 99) {
-        throw new ApiError(400, 'amrapReps cannot exceed 99', 'INVALID_DATA');
+      if (slotData.amrapReps !== undefined && slotData.amrapReps > MAX_AMRAP_REPS) {
+        throw new ApiError(400, `amrapReps cannot exceed ${MAX_AMRAP_REPS}`, 'INVALID_DATA');
       }
+      assertSetLogEntriesValid(slotData.setLogs, 'setLogs');
     }
+  }
+
+  const undoHistoryResult = GenericUndoHistorySchema.safeParse(data.undoHistory);
+  if (!undoHistoryResult.success) {
+    throw new ApiError(400, 'Invalid undoHistory format', 'INVALID_DATA');
+  }
+  for (const entry of undoHistoryResult.data) {
+    if (entry.i > maxWorkoutIndex) {
+      throw new ApiError(400, `Invalid undo workoutIndex: ${entry.i}`, 'INVALID_DATA');
+    }
+    if (!validSlotIds.has(entry.slotId)) {
+      throw new ApiError(400, `Unknown undo slotId: ${entry.slotId}`, 'INVALID_DATA');
+    }
+    if (entry.prevAmrapReps !== undefined && entry.prevAmrapReps > MAX_AMRAP_REPS) {
+      throw new ApiError(400, `prevAmrapReps cannot exceed ${MAX_AMRAP_REPS}`, 'INVALID_DATA');
+    }
+    assertSetLogEntriesValid(entry.prevSetLogs, 'prevSetLogs');
   }
 
   // Wrap all inserts in a transaction — partial failure rolls back everything

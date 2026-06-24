@@ -11,8 +11,14 @@ import type { GenericWorkoutRow } from '@gzclp/domain/types';
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
+const mockRateLimit = mock<() => Promise<void>>(() => Promise.resolve());
+
 mock.module('../middleware/rate-limit', () => ({
-  rateLimit: (): Promise<void> => Promise.resolve(),
+  rateLimit: mockRateLimit,
+}));
+
+mock.module('../services/auth', () => ({
+  findUserById: mock((id: string) => Promise.resolve({ id })),
 }));
 
 type CatalogResult =
@@ -85,6 +91,10 @@ const testApp = new Elysia()
       set.status = error.statusCode;
       return { error: error.message, code: error.code };
     }
+    if ('code' in error && error.code === 'VALIDATION') {
+      set.status = 400;
+      return { error: 'Validation failed', code: 'VALIDATION_ERROR' };
+    }
     set.status = 500;
     return { error: 'Internal server error', code: 'INTERNAL_ERROR' };
   })
@@ -96,6 +106,29 @@ const testApp = new Elysia()
 
 function get(path: string, headers?: Record<string, string>): Promise<Response> {
   return testApp.handle(new Request(`http://localhost${path}`, { headers }));
+}
+
+async function makeValidJwt(userId: string): Promise<string> {
+  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: userId,
+      iss: 'gravity-room-api',
+      aud: 'gravity-room-clients',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })
+  ).toString('base64url');
+  const signingInput = `${header}.${payload}`;
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signingInput));
+  return `${signingInput}.${Buffer.from(sig).toString('base64url')}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -124,6 +157,11 @@ describe('GET /catalog', () => {
 // ---------------------------------------------------------------------------
 
 describe('GET /catalog/:programId', () => {
+  beforeEach(() => {
+    mockRateLimit.mockClear();
+    mockGetProgramDefinition.mockClear();
+  });
+
   it('returns 200 for an existing program', async () => {
     mockGetProgramDefinition.mockImplementation(() =>
       Promise.resolve({
@@ -173,6 +211,16 @@ describe('GET /catalog/:programId', () => {
     // Assert
     const cacheControl = res.headers.get('cache-control');
     expect(cacheControl === null || !cacheControl.includes('public')).toBe(true);
+  });
+
+  it('rejects oversized program IDs before rate limiting or catalog lookup', async () => {
+    const res = await get(`/catalog/${'x'.repeat(101)}`);
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(400);
+    expect(body.code).toBe('VALIDATION_ERROR');
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockGetProgramDefinition).not.toHaveBeenCalled();
   });
 });
 
@@ -241,6 +289,7 @@ function postPreview(body: unknown, headers?: Record<string, string>): Promise<R
 
 describe('POST /catalog/preview', () => {
   beforeEach(() => {
+    mockRateLimit.mockClear();
     mockPreviewDefinition.mockClear();
     mockPreviewDefinition.mockImplementation(() => MOCK_PREVIEW_ROWS);
   });
@@ -265,5 +314,21 @@ describe('POST /catalog/preview', () => {
     );
 
     expect(res.status).toBe(401);
+  });
+
+  it('rejects oversized config objects before rate limiting or previewing', async () => {
+    const token = await makeValidJwt('user-1');
+    const oversizedConfig = Object.fromEntries(
+      Array.from({ length: 101 }, (_, index) => [`field-${index}`, index])
+    );
+
+    const res = await postPreview(
+      { definition: VALID_DEFINITION_PAYLOAD, config: oversizedConfig },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockPreviewDefinition).not.toHaveBeenCalled();
   });
 });

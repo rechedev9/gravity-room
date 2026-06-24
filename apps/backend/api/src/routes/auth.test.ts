@@ -99,6 +99,8 @@ const PW_USER: MockUserRow = {
   updatedAt: new Date('2024-01-01'),
 };
 
+const OVERSIZED_EMAIL = `${'a'.repeat(250)}@e.co`;
+
 const mockFindUserByEmail = mock<() => Promise<MockUserRow | undefined>>(() =>
   Promise.resolve(undefined)
 );
@@ -127,6 +129,9 @@ const mockFindOrCreateUserByIdentity = mock<
   () => Promise<{ user: MockUserRow; isNewUser: boolean }>
 >(() => Promise.resolve({ user: { ...PW_USER }, isNewUser: false }));
 const mockGenerateRefreshToken = mock(() => 'state-fixed-123');
+const mockUpdateUserProfile = mock(() =>
+  Promise.resolve({ ...PW_USER, name: 'Updated User', avatarUrl: null })
+);
 
 mock.module('../services/auth', () => ({
   hashToken: mockHashToken,
@@ -141,6 +146,7 @@ mock.module('../services/auth', () => ({
   findOrCreateGoogleUser: mockFindOrCreateGoogleUser,
   findOrCreateUserByIdentity: mockFindOrCreateUserByIdentity,
   generateRefreshToken: mockGenerateRefreshToken,
+  updateUserProfile: mockUpdateUserProfile,
   authenticatePassword: mockAuthenticatePassword,
   createPasswordUser: mockCreatePasswordUser,
   createEmailVerificationToken: mockCreateEmailVerificationToken,
@@ -154,10 +160,12 @@ mock.module('../services/auth', () => ({
 
 const mockSendVerificationEmail = mock(() => Promise.resolve());
 const mockSendPasswordResetEmail = mock(() => Promise.resolve());
+const mockIsEmailConfigured = mock(() => true);
 
 mock.module('../lib/email', () => ({
   sendVerificationEmail: mockSendVerificationEmail,
   sendPasswordResetEmail: mockSendPasswordResetEmail,
+  isEmailConfigured: mockIsEmailConfigured,
 }));
 
 const mockIsAppleConfigured = mock(() => true);
@@ -165,7 +173,10 @@ const mockBuildAppleAuthorizeUrl = mock(
   () => 'https://appleid.apple.com/auth/authorize?client_id=x&state=state-fixed-123'
 );
 const mockVerifyAppleIdToken = mock<
-  () => Promise<{
+  (
+    idToken: string,
+    expectedNonce?: string
+  ) => Promise<{
     sub: string;
     email: string | undefined;
     emailVerified: boolean;
@@ -193,6 +204,8 @@ const mockBuildGitHubAuthorizeUrl = mock(
   () => 'https://github.com/login/oauth/authorize?client_id=x&state=state-fixed-123'
 );
 const mockExchangeGitHubCode = mock(() => Promise.resolve('gho_token'));
+const mockGeneratePkceVerifier = mock(() => 'github-pkce-verifier');
+const mockPkceChallenge = mock(() => Promise.resolve('github-pkce-challenge'));
 const mockFetchGitHubIdentity = mock<
   () => Promise<{ id: string; email: string; emailVerified: boolean; name: string | undefined }>
 >(() =>
@@ -203,7 +216,34 @@ mock.module('../lib/github-auth', () => ({
   isGitHubConfigured: mockIsGitHubConfigured,
   buildGitHubAuthorizeUrl: mockBuildGitHubAuthorizeUrl,
   exchangeGitHubCode: mockExchangeGitHubCode,
+  generatePkceVerifier: mockGeneratePkceVerifier,
+  pkceChallenge: mockPkceChallenge,
   fetchGitHubIdentity: mockFetchGitHubIdentity,
+}));
+
+const mockIsMicrosoftConfigured = mock(() => true);
+const mockBuildMicrosoftAuthorizeUrl = mock(
+  () => 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?client_id=x'
+);
+const mockExchangeMicrosoftCode = mock(() =>
+  Promise.resolve({ idToken: 'ms-id-token', accessToken: 'ms-access-token' })
+);
+const mockFetchMicrosoftIdentity = mock<
+  () => Promise<{ id: string; email: string; emailVerified: boolean; name: string | undefined }>
+>(() =>
+  Promise.resolve({
+    id: 'ms-123',
+    email: 'microsoft@example.com',
+    emailVerified: true,
+    name: 'Morgan',
+  })
+);
+
+mock.module('../lib/microsoft-auth', () => ({
+  isMicrosoftConfigured: mockIsMicrosoftConfigured,
+  buildMicrosoftAuthorizeUrl: mockBuildMicrosoftAuthorizeUrl,
+  exchangeMicrosoftCode: mockExchangeMicrosoftCode,
+  fetchMicrosoftIdentity: mockFetchMicrosoftIdentity,
 }));
 
 const mockVerifyGoogleToken = mock(() =>
@@ -265,6 +305,118 @@ function get(path: string, headers?: Record<string, string>): Promise<Response> 
   return testApp.handle(new Request(`http://localhost${path}`, { headers }));
 }
 
+function patch(path: string, body: unknown, headers?: Record<string, string>): Promise<Response> {
+  return testApp.handle(
+    new Request(`http://localhost${path}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    })
+  );
+}
+
+async function makeValidJwt(userId: string): Promise<string> {
+  const secret = process.env['JWT_SECRET'] ?? 'dev-secret-change-me';
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: userId,
+      iss: 'gravity-room-api',
+      aud: 'gravity-room-clients',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })
+  ).toString('base64url');
+  const signingInput = `${header}.${payload}`;
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signingInput));
+  return `${signingInput}.${Buffer.from(sig).toString('base64url')}`;
+}
+
+// ---------------------------------------------------------------------------
+// GET /auth/providers
+// ---------------------------------------------------------------------------
+
+describe('GET /auth/providers', () => {
+  beforeEach(() => {
+    process.env['GOOGLE_CLIENT_ID'] = 'web-client-id';
+    mockRateLimit.mockClear();
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockIsEmailConfigured.mockClear();
+    mockIsAppleConfigured.mockClear();
+    mockIsGitHubConfigured.mockClear();
+    mockIsMicrosoftConfigured.mockClear();
+    mockIsEmailConfigured.mockImplementation(() => true);
+    mockIsAppleConfigured.mockImplementation(() => true);
+    mockIsGitHubConfigured.mockImplementation(() => true);
+    mockIsMicrosoftConfigured.mockImplementation(() => true);
+  });
+
+  it('returns which sign-in methods are currently available', async () => {
+    const res = await get('/auth/providers');
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      emailPassword: true,
+      google: true,
+      apple: true,
+      github: true,
+      microsoft: true,
+    });
+  });
+
+  it('rate-limits provider availability requests before reading provider config', async () => {
+    mockRateLimit.mockImplementation(() =>
+      Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
+    );
+
+    const res = await get('/auth/providers');
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(429);
+    expect(body.code).toBe('RATE_LIMITED');
+    expect(mockIsEmailConfigured).not.toHaveBeenCalled();
+    expect(mockIsAppleConfigured).not.toHaveBeenCalled();
+    expect(mockIsGitHubConfigured).not.toHaveBeenCalled();
+    expect(mockIsMicrosoftConfigured).not.toHaveBeenCalled();
+  });
+
+  it('marks production email/password unavailable when email delivery is unconfigured', async () => {
+    const previousNodeEnv = process.env['NODE_ENV'];
+    try {
+      process.env['NODE_ENV'] = 'production';
+      mockIsEmailConfigured.mockImplementation(() => false);
+      mockIsAppleConfigured.mockImplementation(() => false);
+      mockIsGitHubConfigured.mockImplementation(() => false);
+      mockIsMicrosoftConfigured.mockImplementation(() => false);
+      process.env['GOOGLE_CLIENT_ID'] = '';
+
+      const res = await get('/auth/providers');
+
+      expect(res.status).toBe(200);
+      await expect(res.json()).resolves.toEqual({
+        emailPassword: false,
+        google: false,
+        apple: false,
+        github: false,
+        microsoft: false,
+      });
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete process.env['NODE_ENV'];
+      } else {
+        process.env['NODE_ENV'] = previousNodeEnv;
+      }
+      process.env['GOOGLE_CLIENT_ID'] = 'web-client-id';
+    }
+  });
+});
+
 // ---------------------------------------------------------------------------
 // POST /auth/google
 // ---------------------------------------------------------------------------
@@ -288,6 +440,13 @@ describe('POST /auth/google', () => {
   it('returns 400 for missing credential', async () => {
     const res = await post('/auth/google', {});
     expect(res.status).toBe(400);
+  });
+
+  it('rejects oversized credentials before verifying the Google token', async () => {
+    const res = await post('/auth/google', { credential: 'x'.repeat(12_001) });
+
+    expect(res.status).toBe(400);
+    expect(mockVerifyGoogleToken).not.toHaveBeenCalled();
   });
 
   it('returns 401 with AUTH_GOOGLE_INVALID when token verification fails', async () => {
@@ -364,6 +523,7 @@ describe('POST /auth/google', () => {
 describe('POST /auth/mobile/google', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockVerifyGoogleToken.mockClear();
     mockVerifyGoogleToken.mockImplementation(() =>
       Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
     );
@@ -387,6 +547,13 @@ describe('POST /auth/mobile/google', () => {
     expect(typeof body.accessToken).toBe('string');
     expect(body.refreshToken).toBe('mobile-initial-refresh-token');
     expect(body.user.email).toBe(TEST_USER.email);
+  });
+
+  it('rejects oversized credentials before verifying the mobile Google token', async () => {
+    const res = await post('/auth/mobile/google', { credential: 'x'.repeat(12_001) });
+
+    expect(res.status).toBe(400);
+    expect(mockVerifyGoogleToken).not.toHaveBeenCalled();
   });
 
   it('returns 401 with AUTH_GOOGLE_INVALID when token verification fails', async () => {
@@ -500,6 +667,17 @@ describe('POST /auth/refresh', () => {
 
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_NO_REFRESH_TOKEN');
+  });
+
+  it('rejects oversized refresh cookies before rotation lookup', async () => {
+    mockRotateRefreshToken.mockClear();
+
+    const res = await post('/auth/refresh', {}, { Cookie: `refresh_token=${'x'.repeat(257)}` });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_INVALID_REFRESH');
+    expect(mockRotateRefreshToken).not.toHaveBeenCalled();
   });
 
   it('returns 401 with AUTH_INVALID_REFRESH when token is not found in DB', async () => {
@@ -619,6 +797,17 @@ describe('POST /auth/mobile/refresh', () => {
     expect(body.code).toBe('AUTH_NO_REFRESH_TOKEN');
   });
 
+  it('rejects oversized refreshToken values before hashing', async () => {
+    mockHashToken.mockClear();
+    mockRotateRefreshToken.mockClear();
+
+    const res = await post('/auth/mobile/refresh', { refreshToken: 'x'.repeat(257) });
+
+    expect(res.status).toBe(400);
+    expect(mockHashToken).not.toHaveBeenCalled();
+    expect(mockRotateRefreshToken).not.toHaveBeenCalled();
+  });
+
   it('returns 401 with AUTH_INVALID_REFRESH when token is not found in DB', async () => {
     mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
 
@@ -719,6 +908,17 @@ describe('POST /auth/mobile/signout', () => {
     expect(mockRevokeRefreshToken).not.toHaveBeenCalled();
   });
 
+  it('rejects oversized refreshToken values before hashing', async () => {
+    mockHashToken.mockClear();
+    mockRevokeRefreshToken.mockClear();
+
+    const res = await post('/auth/mobile/signout', { refreshToken: 'x'.repeat(257) });
+
+    expect(res.status).toBe(400);
+    expect(mockHashToken).not.toHaveBeenCalled();
+    expect(mockRevokeRefreshToken).not.toHaveBeenCalled();
+  });
+
   it('returns 429 RATE_LIMITED with the documented error shape when rate limited', async () => {
     mockRateLimit.mockImplementation(() =>
       Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
@@ -781,6 +981,34 @@ describe('GET /auth/me', () => {
     const expiredToken = await makeExpiredJwt('user-123');
     const res = await get('/auth/me', { Authorization: `Bearer ${expiredToken}` });
     expect(res.status).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /auth/me
+// ---------------------------------------------------------------------------
+
+describe('PATCH /auth/me', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockRateLimit.mockClear();
+    mockUpdateUserProfile.mockClear();
+    mockFindUserById.mockImplementation(() => Promise.resolve({ ...TEST_USER }));
+  });
+
+  it('rejects oversized avatar data URLs before rate limiting', async () => {
+    const token = await makeValidJwt('user-123');
+    const oversizedAvatar = `data:image/png;base64,${'A'.repeat(200_004)}`;
+
+    const res = await patch(
+      '/auth/me',
+      { avatarUrl: oversizedAvatar },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockRateLimit).not.toHaveBeenCalled();
+    expect(mockUpdateUserProfile).not.toHaveBeenCalled();
   });
 });
 
@@ -956,6 +1184,7 @@ describe('POST /auth/signup', () => {
     mockCreatePasswordUser.mockImplementation(() => Promise.resolve({ ...PW_USER }));
     mockCreateEmailVerificationToken.mockImplementation(() => Promise.resolve('verify-token'));
     mockSendVerificationEmail.mockClear();
+    mockIsEmailConfigured.mockImplementation(() => true);
   });
 
   it('creates an account and returns 201 without tokens', async () => {
@@ -974,6 +1203,16 @@ describe('POST /auth/signup', () => {
     expect(mockCreatePasswordUser).not.toHaveBeenCalled();
   });
 
+  it('rejects oversized email addresses before creating a password user', async () => {
+    const res = await post('/auth/signup', {
+      email: OVERSIZED_EMAIL,
+      password: 'password123',
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockCreatePasswordUser).not.toHaveBeenCalled();
+  });
+
   it('returns 409 EMAIL_TAKEN when the email already exists', async () => {
     mockCreatePasswordUser.mockImplementation(() =>
       Promise.reject(new ApiError(409, 'An account with this email already exists', 'EMAIL_TAKEN'))
@@ -986,12 +1225,36 @@ describe('POST /auth/signup', () => {
     expect(res.status).toBe(409);
     expect(body.code).toBe('EMAIL_TAKEN');
   });
+
+  it('fails closed in production when transactional email is not configured', async () => {
+    const previousNodeEnv = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = 'production';
+    mockIsEmailConfigured.mockImplementation(() => false);
+
+    try {
+      const res = await post('/auth/signup', {
+        email: 'new@example.com',
+        password: 'password123',
+      });
+      const body = (await res.json()) as { code: string };
+      expect(res.status).toBe(503);
+      expect(body.code).toBe('EMAIL_NOT_CONFIGURED');
+      expect(mockCreatePasswordUser).not.toHaveBeenCalled();
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete process.env['NODE_ENV'];
+      } else {
+        process.env['NODE_ENV'] = previousNodeEnv;
+      }
+    }
+  });
 });
 
 describe('POST /auth/login', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
     mockCreateAndStoreRefreshToken.mockImplementation(() => Promise.resolve('refresh-token'));
+    mockAuthenticatePassword.mockClear();
   });
 
   it('returns a generic 401 for invalid credentials', async () => {
@@ -1022,6 +1285,16 @@ describe('POST /auth/login', () => {
     expect(typeof body.accessToken).toBe('string');
     expect(body.user.email).toBe(PW_USER.email);
   });
+
+  it('rejects oversized email addresses before authenticating credentials', async () => {
+    const res = await post('/auth/login', {
+      email: OVERSIZED_EMAIL,
+      password: 'password123',
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockAuthenticatePassword).not.toHaveBeenCalled();
+  });
 });
 
 describe('POST /auth/verify-email', () => {
@@ -1036,6 +1309,15 @@ describe('POST /auth/verify-email', () => {
     const body = (await res.json()) as { code: string };
     expect(res.status).toBe(400);
     expect(body.code).toBe('INVALID_TOKEN');
+  });
+
+  it('rejects oversized verification tokens before consuming them', async () => {
+    mockConsumeEmailVerificationToken.mockClear();
+
+    const res = await post('/auth/verify-email', { token: 'x'.repeat(257) });
+
+    expect(res.status).toBe(400);
+    expect(mockConsumeEmailVerificationToken).not.toHaveBeenCalled();
   });
 
   it('verifies and auto-logs-in for a valid token', async () => {
@@ -1056,6 +1338,8 @@ describe('POST /auth/forgot-password', () => {
     mockCreatePasswordResetToken.mockImplementation(() => Promise.resolve('reset-token'));
     mockSendPasswordResetEmail.mockClear();
     mockCreatePasswordResetToken.mockClear();
+    mockFindUserByEmail.mockClear();
+    mockIsEmailConfigured.mockImplementation(() => true);
   });
 
   it('returns a generic 200 and sends nothing when no account exists', async () => {
@@ -1082,6 +1366,35 @@ describe('POST /auth/forgot-password', () => {
     expect(res.status).toBe(200);
     expect(mockSendPasswordResetEmail).not.toHaveBeenCalled();
   });
+
+  it('rejects oversized email addresses before looking up accounts', async () => {
+    const res = await post('/auth/forgot-password', { email: OVERSIZED_EMAIL });
+
+    expect(res.status).toBe(400);
+    expect(mockFindUserByEmail).not.toHaveBeenCalled();
+    expect(mockCreatePasswordResetToken).not.toHaveBeenCalled();
+  });
+
+  it('fails closed in production when transactional email is not configured', async () => {
+    const previousNodeEnv = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = 'production';
+    mockIsEmailConfigured.mockImplementation(() => false);
+
+    try {
+      const res = await post('/auth/forgot-password', { email: PW_USER.email });
+      const body = (await res.json()) as { code: string };
+      expect(res.status).toBe(503);
+      expect(body.code).toBe('EMAIL_NOT_CONFIGURED');
+      expect(mockFindUserByEmail).not.toHaveBeenCalled();
+      expect(mockCreatePasswordResetToken).not.toHaveBeenCalled();
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete process.env['NODE_ENV'];
+      } else {
+        process.env['NODE_ENV'] = previousNodeEnv;
+      }
+    }
+  });
 });
 
 describe('POST /auth/reset-password', () => {
@@ -1098,6 +1411,18 @@ describe('POST /auth/reset-password', () => {
     expect(res.status).toBe(400);
     expect(body.code).toBe('INVALID_TOKEN');
     expect(mockSetUserPassword).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized reset tokens before consuming them', async () => {
+    mockConsumePasswordResetToken.mockClear();
+
+    const res = await post('/auth/reset-password', {
+      token: 'x'.repeat(257),
+      password: 'new-password-123',
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockConsumePasswordResetToken).not.toHaveBeenCalled();
   });
 
   it('sets the new password and revokes all sessions for a valid token', async () => {
@@ -1119,11 +1444,17 @@ describe('GET /auth/apple/start', () => {
     mockGenerateRefreshToken.mockImplementation(() => 'state-fixed-123');
   });
 
-  it('redirects to Apple and sets a state cookie when configured', async () => {
+  it('redirects to Apple and sets state and nonce cookies when configured', async () => {
     const res = await get('/auth/apple/start');
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('appleid.apple.com/auth/authorize');
     expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_state='))).toBe(true);
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_nonce='))).toBe(true);
+    expect(mockBuildAppleAuthorizeUrl).toHaveBeenCalledWith(
+      'state-fixed-123',
+      'http://localhost:3001/api/auth/apple/callback',
+      'state-fixed-123'
+    );
   });
 
   it('redirects to the SPA callback with an error when not configured', async () => {
@@ -1138,7 +1469,9 @@ describe('GET /auth/apple/start', () => {
 
 describe('POST /auth/apple/callback', () => {
   beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
     mockCreateAndStoreRefreshToken.mockImplementation(() => Promise.resolve('refresh-token'));
+    mockVerifyAppleIdToken.mockClear();
     mockVerifyAppleIdToken.mockImplementation(() =>
       Promise.resolve({
         sub: 'apple-sub',
@@ -1152,6 +1485,22 @@ describe('POST /auth/apple/callback', () => {
     );
   });
 
+  it('rate-limits callback attempts before processing provider input', async () => {
+    mockRateLimit.mockImplementation(() =>
+      Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
+    );
+
+    const res = await post(
+      '/auth/apple/callback',
+      { id_token: 'tok', state: 'abc' },
+      { Cookie: 'oauth_state=abc; oauth_nonce=nonce-1' }
+    );
+    const body = (await res.json()) as { code: string };
+    expect(res.status).toBe(429);
+    expect(body.code).toBe('RATE_LIMITED');
+    expect(mockVerifyAppleIdToken).not.toHaveBeenCalled();
+  });
+
   it('redirects with state_mismatch when no state cookie is present', async () => {
     const res = await post('/auth/apple/callback', { id_token: 'tok', state: 'abc' });
     expect(res.status).toBe(302);
@@ -1162,23 +1511,48 @@ describe('POST /auth/apple/callback', () => {
     const res = await post(
       '/auth/apple/callback',
       { error: 'user_cancelled_authorize' },
-      { Cookie: 'oauth_state=abc' }
+      { Cookie: 'oauth_state=abc; oauth_nonce=nonce-1' }
     );
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('error=cancelled');
   });
 
-  it('verifies the token, sets the refresh cookie, and redirects on success', async () => {
+  it('redirects with state_mismatch when no nonce cookie is present', async () => {
     const res = await post(
       '/auth/apple/callback',
       { id_token: 'tok', state: 'abc' },
       { Cookie: 'oauth_state=abc' }
     );
     expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('error=state_mismatch');
+    expect(mockVerifyAppleIdToken).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized callback fields before verifying the Apple token', async () => {
+    mockVerifyAppleIdToken.mockClear();
+
+    const res = await post(
+      '/auth/apple/callback',
+      { id_token: 'x'.repeat(12_001), state: 'abc' },
+      { Cookie: 'oauth_state=abc; oauth_nonce=nonce-1' }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockVerifyAppleIdToken).not.toHaveBeenCalled();
+  });
+
+  it('verifies the token, sets the refresh cookie, and redirects on success', async () => {
+    const res = await post(
+      '/auth/apple/callback',
+      { id_token: 'tok', state: 'abc' },
+      { Cookie: 'oauth_state=abc; oauth_nonce=nonce-1' }
+    );
+    expect(res.status).toBe(302);
     const loc = res.headers.get('location') ?? '';
     expect(loc).toContain('/auth/callback?provider=apple');
     expect(loc).not.toContain('error=');
     expect(res.headers.getSetCookie().some((c) => c.startsWith('refresh_token='))).toBe(true);
+    expect(mockVerifyAppleIdToken).toHaveBeenCalledWith('tok', 'nonce-1');
   });
 });
 
@@ -1187,13 +1561,21 @@ describe('GET /auth/github/start', () => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
     mockIsGitHubConfigured.mockImplementation(() => true);
     mockGenerateRefreshToken.mockImplementation(() => 'state-fixed-123');
+    mockGeneratePkceVerifier.mockImplementation(() => 'github-pkce-verifier');
+    mockPkceChallenge.mockImplementation(() => Promise.resolve('github-pkce-challenge'));
   });
 
-  it('redirects to GitHub and sets a state cookie when configured', async () => {
+  it('redirects to GitHub and sets state and PKCE cookies when configured', async () => {
     const res = await get('/auth/github/start');
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('github.com/login/oauth/authorize');
     expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_state='))).toBe(true);
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_pkce='))).toBe(true);
+    expect(mockBuildGitHubAuthorizeUrl).toHaveBeenCalledWith(
+      'state-fixed-123',
+      'http://localhost:3001/api/auth/github/callback',
+      'github-pkce-challenge'
+    );
   });
 
   it('redirects to the SPA callback with an error when not configured', async () => {
@@ -1224,6 +1606,20 @@ describe('GET /auth/github/callback', () => {
     );
   });
 
+  it('rate-limits callback attempts before exchanging the provider code', async () => {
+    mockRateLimit.mockImplementation(() =>
+      Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
+    );
+
+    const res = await get('/auth/github/callback?code=abc&state=xyz', {
+      Cookie: 'oauth_state=xyz; oauth_pkce=verifier-1',
+    });
+    const body = (await res.json()) as { code: string };
+    expect(res.status).toBe(429);
+    expect(body.code).toBe('RATE_LIMITED');
+    expect(mockExchangeGitHubCode).not.toHaveBeenCalled();
+  });
+
   it('redirects with state_mismatch when no state cookie is present', async () => {
     const res = await get('/auth/github/callback?code=abc&state=xyz');
     expect(res.status).toBe(302);
@@ -1232,21 +1628,47 @@ describe('GET /auth/github/callback', () => {
 
   it('redirects with cancelled when GitHub returns an error', async () => {
     const res = await get('/auth/github/callback?error=access_denied', {
-      Cookie: 'oauth_state=xyz',
+      Cookie: 'oauth_state=xyz; oauth_pkce=verifier-1',
     });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('error=cancelled');
   });
 
-  it('exchanges the code, sets the refresh cookie, and redirects on success', async () => {
+  it('redirects with state_mismatch when no PKCE verifier cookie is present', async () => {
     const res = await get('/auth/github/callback?code=abc&state=xyz', {
       Cookie: 'oauth_state=xyz',
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('error=state_mismatch');
+    expect(mockExchangeGitHubCode).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized callback query before exchanging the GitHub code', async () => {
+    mockExchangeGitHubCode.mockClear();
+
+    const code = encodeURIComponent('x'.repeat(4097));
+    const res = await get(`/auth/github/callback?code=${code}&state=xyz`, {
+      Cookie: 'oauth_state=xyz; oauth_pkce=verifier-1',
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockExchangeGitHubCode).not.toHaveBeenCalled();
+  });
+
+  it('exchanges the code, sets the refresh cookie, and redirects on success', async () => {
+    const res = await get('/auth/github/callback?code=abc&state=xyz', {
+      Cookie: 'oauth_state=xyz; oauth_pkce=verifier-1',
     });
     expect(res.status).toBe(302);
     const loc = res.headers.get('location') ?? '';
     expect(loc).toContain('/auth/callback?provider=github');
     expect(loc).not.toContain('error=');
     expect(res.headers.getSetCookie().some((c) => c.startsWith('refresh_token='))).toBe(true);
+    expect(mockExchangeGitHubCode).toHaveBeenCalledWith(
+      'abc',
+      'http://localhost:3001/api/auth/github/callback',
+      'verifier-1'
+    );
   });
 
   it('redirects with email_required when the GitHub account has no verified email', async () => {
@@ -1254,7 +1676,145 @@ describe('GET /auth/github/callback', () => {
       Promise.reject(new ApiError(401, 'No verified email', 'AUTH_EMAIL_UNVERIFIED'))
     );
     const res = await get('/auth/github/callback?code=abc&state=xyz', {
+      Cookie: 'oauth_state=xyz; oauth_pkce=verifier-1',
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('error=email_required');
+  });
+});
+
+describe('GET /auth/microsoft/start', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockIsMicrosoftConfigured.mockImplementation(() => true);
+    mockGenerateRefreshToken.mockImplementation(() => 'state-fixed-123');
+    mockGeneratePkceVerifier.mockImplementation(() => 'microsoft-pkce-verifier');
+    mockPkceChallenge.mockImplementation(() => Promise.resolve('microsoft-pkce-challenge'));
+  });
+
+  it('redirects to Microsoft and sets state, nonce, and PKCE cookies when configured', async () => {
+    const res = await get('/auth/microsoft/start');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('login.microsoftonline.com');
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_state='))).toBe(true);
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_nonce='))).toBe(true);
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_pkce='))).toBe(true);
+    expect(mockBuildMicrosoftAuthorizeUrl).toHaveBeenCalledWith(
+      'state-fixed-123',
+      'http://localhost:3001/api/auth/microsoft/callback',
+      'state-fixed-123',
+      'microsoft-pkce-challenge'
+    );
+  });
+
+  it('redirects to the SPA callback with an error when not configured', async () => {
+    mockIsMicrosoftConfigured.mockImplementation(() => false);
+    const res = await get('/auth/microsoft/start');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain(
+      '/auth/callback?provider=microsoft&error=provider_not_configured'
+    );
+  });
+});
+
+describe('GET /auth/microsoft/callback', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockCreateAndStoreRefreshToken.mockImplementation(() => Promise.resolve('refresh-token'));
+    mockExchangeMicrosoftCode.mockClear();
+    mockFetchMicrosoftIdentity.mockClear();
+    mockExchangeMicrosoftCode.mockImplementation(() =>
+      Promise.resolve({ idToken: 'ms-id-token', accessToken: 'ms-access-token' })
+    );
+    mockFetchMicrosoftIdentity.mockImplementation(() =>
+      Promise.resolve({
+        id: 'ms-123',
+        email: 'microsoft@example.com',
+        emailVerified: true,
+        name: 'Morgan',
+      })
+    );
+    mockFindOrCreateUserByIdentity.mockImplementation(() =>
+      Promise.resolve({ user: { ...PW_USER, email: 'microsoft@example.com' }, isNewUser: false })
+    );
+  });
+
+  it('rate-limits callback attempts before exchanging the provider code', async () => {
+    mockRateLimit.mockImplementation(() =>
+      Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
+    );
+
+    const res = await get('/auth/microsoft/callback?code=abc&state=xyz', {
+      Cookie: 'oauth_state=xyz; oauth_nonce=nonce-1; oauth_pkce=verifier-1',
+    });
+    const body = (await res.json()) as { code: string };
+    expect(res.status).toBe(429);
+    expect(body.code).toBe('RATE_LIMITED');
+    expect(mockExchangeMicrosoftCode).not.toHaveBeenCalled();
+  });
+
+  it('redirects with state_mismatch when no state cookie is present', async () => {
+    const res = await get('/auth/microsoft/callback?code=abc&state=xyz');
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('error=state_mismatch');
+  });
+
+  it('redirects with cancelled when Microsoft returns an error', async () => {
+    const res = await get('/auth/microsoft/callback?error=access_denied', {
+      Cookie: 'oauth_state=xyz; oauth_nonce=nonce-1; oauth_pkce=verifier-1',
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('error=cancelled');
+  });
+
+  it('redirects with state_mismatch when nonce or PKCE cookies are missing', async () => {
+    const res = await get('/auth/microsoft/callback?code=abc&state=xyz', {
       Cookie: 'oauth_state=xyz',
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toContain('error=state_mismatch');
+    expect(mockExchangeMicrosoftCode).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized callback query before exchanging the Microsoft code', async () => {
+    mockExchangeMicrosoftCode.mockClear();
+
+    const code = encodeURIComponent('x'.repeat(4097));
+    const res = await get(`/auth/microsoft/callback?code=${code}&state=xyz`, {
+      Cookie: 'oauth_state=xyz; oauth_nonce=nonce-1; oauth_pkce=verifier-1',
+    });
+
+    expect(res.status).toBe(400);
+    expect(mockExchangeMicrosoftCode).not.toHaveBeenCalled();
+  });
+
+  it('exchanges the code, sets the refresh cookie, and redirects on success', async () => {
+    const res = await get('/auth/microsoft/callback?code=abc&state=xyz', {
+      Cookie: 'oauth_state=xyz; oauth_nonce=nonce-1; oauth_pkce=verifier-1',
+    });
+    expect(res.status).toBe(302);
+    const loc = res.headers.get('location') ?? '';
+    expect(loc).toContain('/auth/callback?provider=microsoft');
+    expect(loc).not.toContain('error=');
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('refresh_token='))).toBe(true);
+    expect(mockExchangeMicrosoftCode).toHaveBeenCalledWith(
+      'abc',
+      'http://localhost:3001/api/auth/microsoft/callback',
+      'verifier-1'
+    );
+    expect(mockFetchMicrosoftIdentity).toHaveBeenCalledWith(
+      'ms-id-token',
+      'ms-access-token',
+      'nonce-1'
+    );
+  });
+
+  it('redirects with email_required when the Microsoft account has no usable email', async () => {
+    mockFetchMicrosoftIdentity.mockImplementation(() =>
+      Promise.reject(new ApiError(401, 'No email', 'AUTH_EMAIL_UNVERIFIED'))
+    );
+    const res = await get('/auth/microsoft/callback?code=abc&state=xyz', {
+      Cookie: 'oauth_state=xyz; oauth_nonce=nonce-1; oauth_pkce=verifier-1',
     });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('error=email_required');

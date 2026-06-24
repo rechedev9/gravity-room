@@ -161,6 +161,7 @@ mock.module('../lib/muscle-groups-cache', () => ({
 
 // Must import AFTER mock.module
 const { listExercises, listMuscleGroups, createExercise } = await import('./exercises');
+const { ApiError } = await import('../middleware/error-handler');
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -176,6 +177,8 @@ beforeEach(() => {
   mockSetCachedExercises.mockClear();
   mockGetCachedMuscleGroups.mockClear();
   mockSetCachedMuscleGroups.mockClear();
+  mockBuildFilterHash.mockClear();
+  mockInvalidateUserExercises.mockClear();
 });
 
 describe('listExercises', () => {
@@ -219,6 +222,20 @@ describe('listExercises', () => {
     expect(result.data[0]?.name).toBe('Sentadilla');
   });
 
+  it('rejects oversized text search before cache or database work', async () => {
+    try {
+      await listExercises(undefined, { q: 's'.repeat(101) });
+      expect(true).toBe(false); // should not reach
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as InstanceType<typeof ApiError>).statusCode).toBe(400);
+      expect((err as InstanceType<typeof ApiError>).code).toBe('INVALID_FILTER');
+      expect(mockBuildFilterHash).not.toHaveBeenCalled();
+      expect(mockGetCachedExercises).not.toHaveBeenCalled();
+      expect(selectQueue).toHaveLength(0);
+    }
+  });
+
   it('should accept an empty filter and return all exercises', async () => {
     selectQueue = [[PRESET_EXERCISE, USER_EXERCISE], [{ value: 2 }]];
 
@@ -234,6 +251,36 @@ describe('listExercises', () => {
 
     expect(result.data).toHaveLength(1);
     expect(result.data[0]?.muscleGroupId).toBe('legs');
+  });
+
+  it('rejects too many array filter values before cache or database work', async () => {
+    try {
+      await listExercises(undefined, {
+        muscleGroupId: Array.from({ length: 21 }, (_, i) => `mg-${i}`),
+      });
+      expect(true).toBe(false); // should not reach
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as InstanceType<typeof ApiError>).statusCode).toBe(400);
+      expect((err as InstanceType<typeof ApiError>).code).toBe('INVALID_FILTER');
+      expect(mockBuildFilterHash).not.toHaveBeenCalled();
+      expect(mockGetCachedExercises).not.toHaveBeenCalled();
+      expect(selectQueue).toHaveLength(0);
+    }
+  });
+
+  it('rejects oversized array filter values before cache or database work', async () => {
+    try {
+      await listExercises(undefined, { equipment: ['e'.repeat(81)] });
+      expect(true).toBe(false); // should not reach
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as InstanceType<typeof ApiError>).statusCode).toBe(400);
+      expect((err as InstanceType<typeof ApiError>).code).toBe('INVALID_FILTER');
+      expect(mockBuildFilterHash).not.toHaveBeenCalled();
+      expect(mockGetCachedExercises).not.toHaveBeenCalled();
+      expect(selectQueue).toHaveLength(0);
+    }
   });
 
   it('should accept an isCompound boolean filter', async () => {
@@ -342,6 +389,30 @@ describe('createExercise', () => {
     expect(result.error.code).toBe('INVALID_MUSCLE_GROUP');
   });
 
+  it('rejects oversized names before reading muscle groups', async () => {
+    selectQueue = [[{ id: 'chest' }]];
+    insertResult = [
+      {
+        ...USER_EXERCISE,
+        id: 'oversized',
+        name: 'x'.repeat(101),
+        muscleGroupId: 'chest',
+      },
+    ];
+
+    const result = await createExercise('user-1', {
+      id: 'oversized',
+      name: 'x'.repeat(101),
+      muscleGroupId: 'chest',
+    });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('INVALID_EXERCISE_INPUT');
+    expect(selectQueue).toHaveLength(1);
+    expect(mockInvalidateUserExercises).not.toHaveBeenCalled();
+  });
+
   it('should return Err(EXERCISE_ID_CONFLICT) when ID already exists', async () => {
     selectQueue = [[{ id: 'legs' }]]; // muscle group exists
     insertResult = []; // onConflictDoNothing returns empty when conflict
@@ -375,5 +446,19 @@ describe('listExercises — pagination', () => {
     expect(result.data).toHaveLength(2);
     expect(result.offset).toBe(20);
     expect(result.limit).toBe(10);
+  });
+
+  it('rejects limit above the public route cap before cache or database work', async () => {
+    try {
+      await listExercises(undefined, {}, { limit: 1001, offset: 0 });
+      expect(true).toBe(false); // should not reach
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as InstanceType<typeof ApiError>).statusCode).toBe(400);
+      expect((err as InstanceType<typeof ApiError>).code).toBe('INVALID_FILTER');
+      expect(mockBuildFilterHash).not.toHaveBeenCalled();
+      expect(mockGetCachedExercises).not.toHaveBeenCalled();
+      expect(selectQueue).toHaveLength(0);
+    }
   });
 });

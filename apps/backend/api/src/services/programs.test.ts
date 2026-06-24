@@ -8,6 +8,7 @@ process.env['LOG_LEVEL'] = 'silent';
 
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { ApiError } from '../middleware/error-handler';
+import type { ExportedProgram } from './programs';
 
 // ---------------------------------------------------------------------------
 // Import the private buildUndoHistory function by re-testing via a minimal
@@ -172,12 +173,15 @@ mock.module('../db', () => ({
 }));
 
 // Also mock the catalog service dependency (getProgramDefinition is imported by programs.ts)
+const mockGetProgramDefinition = mock(() => Promise.resolve({ status: 'not_found' }));
+
 mock.module('../services/catalog', () => ({
-  getProgramDefinition: mock(() => Promise.resolve({ status: 'not_found' })),
+  getProgramDefinition: mockGetProgramDefinition,
 }));
 
 // Must import AFTER mock.module
-const { getInstances, getInstance, updateInstanceMetadata } = await import('./programs');
+const { getInstances, getInstance, updateInstanceMetadata, importInstance } =
+  await import('./programs');
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -212,6 +216,8 @@ beforeEach(() => {
   capturedOrderBy = [];
   capturedWhere = undefined;
   mockDb = createMockDb();
+  mockGetProgramDefinition.mockClear();
+  mockGetProgramDefinition.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
 });
 
 // ---------------------------------------------------------------------------
@@ -386,6 +392,19 @@ describe('updateInstanceMetadata', () => {
         }),
       };
     });
+    (mockDb as Record<string, unknown>).select = mock(function select() {
+      return {
+        from: mock(function from() {
+          return {
+            where: mock(function where() {
+              return {
+                limit: mock(() => Promise.resolve([])),
+              };
+            }),
+          };
+        }),
+      };
+    });
 
     let thrown: unknown;
     try {
@@ -397,6 +416,46 @@ describe('updateInstanceMetadata', () => {
     expect(thrown).toBeInstanceOf(ApiError);
     expect((thrown as ApiError).statusCode).toBe(404);
     expect((thrown as ApiError).code).toBe('INSTANCE_NOT_FOUND');
+  });
+
+  it('throws 400 METADATA_TOO_LARGE when merged metadata would exceed 10KB', async () => {
+    (mockDb as Record<string, unknown>).update = mock(function update() {
+      return {
+        set: mock(function set() {
+          return {
+            where: mock(function where() {
+              return {
+                returning: mock(() => Promise.resolve([])),
+              };
+            }),
+          };
+        }),
+      };
+    });
+    (mockDb as Record<string, unknown>).select = mock(function select() {
+      return {
+        from: mock(function from() {
+          return {
+            where: mock(function where() {
+              return {
+                limit: mock(() => Promise.resolve([{ id: 'inst-1' }])),
+              };
+            }),
+          };
+        }),
+      };
+    });
+
+    let thrown: unknown;
+    try {
+      await updateInstanceMetadata('user-1', 'inst-1', { theme: 'dark' });
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(400);
+    expect((thrown as ApiError).code).toBe('METADATA_TOO_LARGE');
   });
 
   it('accepts valid small metadata without throwing size error', async () => {
@@ -548,5 +607,244 @@ describe('getInstance', () => {
     expect(thrown).toBeInstanceOf(ApiError);
     expect((thrown as ApiError).statusCode).toBe(404);
     expect((thrown as ApiError).code).toBe('INSTANCE_NOT_FOUND');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// importInstance — undoHistory validation
+// ---------------------------------------------------------------------------
+
+function useImportableProgramDefinition(): void {
+  mockGetProgramDefinition.mockImplementation(() =>
+    Promise.resolve({
+      status: 'found',
+      definition: {
+        totalWorkouts: 2,
+        days: [
+          {
+            name: 'Day 1',
+            slots: [{ id: 'squat' }],
+          },
+        ],
+      },
+    })
+  );
+}
+
+function baseExportedProgram(overrides: Partial<ExportedProgram> = {}): ExportedProgram {
+  return {
+    version: 1,
+    exportDate: NOW.toISOString(),
+    programId: 'gzclp',
+    name: 'Imported',
+    config: {},
+    results: {},
+    undoHistory: [],
+    ...overrides,
+  };
+}
+
+describe('importInstance — undoHistory validation', () => {
+  it('rejects undo entries with negative workoutIndex before writing to the database', async () => {
+    useImportableProgramDefinition();
+    const transaction = mock(() => {
+      throw new Error('transaction should not run');
+    });
+    mockDb = { transaction };
+
+    let thrown: unknown;
+    try {
+      await importInstance(
+        'user-1',
+        baseExportedProgram({
+          undoHistory: [{ i: -1, slotId: 'squat', prev: 'success' }],
+        })
+      );
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(400);
+    expect((thrown as ApiError).code).toBe('INVALID_DATA');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects undo entries with unknown slotIds before writing to the database', async () => {
+    useImportableProgramDefinition();
+    const transaction = mock(() => {
+      throw new Error('transaction should not run');
+    });
+    mockDb = { transaction };
+
+    let thrown: unknown;
+    try {
+      await importInstance(
+        'user-1',
+        baseExportedProgram({
+          undoHistory: [{ i: 0, slotId: 'unknown', prev: 'fail' }],
+        })
+      );
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(400);
+    expect((thrown as ApiError).code).toBe('INVALID_DATA');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects undo entries with oversized previous AMRAP reps before writing to the database', async () => {
+    useImportableProgramDefinition();
+    const transaction = mock(() => {
+      throw new Error('transaction should not run');
+    });
+    mockDb = { transaction };
+
+    let thrown: unknown;
+    try {
+      await importInstance(
+        'user-1',
+        baseExportedProgram({
+          undoHistory: [{ i: 0, slotId: 'squat', prev: 'success', prevAmrapReps: 100 }],
+        })
+      );
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(400);
+    expect((thrown as ApiError).code).toBe('INVALID_DATA');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects imported result entries with oversized set-log arrays before writing to the database', async () => {
+    useImportableProgramDefinition();
+    const transaction = mock(() => {
+      throw new Error('transaction should not run');
+    });
+    mockDb = { transaction };
+
+    let thrown: unknown;
+    try {
+      await importInstance(
+        'user-1',
+        baseExportedProgram({
+          results: {
+            '0': {
+              squat: {
+                result: 'success',
+                setLogs: Array.from({ length: 21 }, () => ({ reps: 5 })),
+              },
+            },
+          },
+        })
+      );
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(400);
+    expect((thrown as ApiError).code).toBe('INVALID_DATA');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects undo entries with oversized previous set-log arrays before writing to the database', async () => {
+    useImportableProgramDefinition();
+    const transaction = mock(() => {
+      throw new Error('transaction should not run');
+    });
+    mockDb = { transaction };
+
+    let thrown: unknown;
+    try {
+      await importInstance(
+        'user-1',
+        baseExportedProgram({
+          undoHistory: [
+            {
+              i: 0,
+              slotId: 'squat',
+              prev: 'success',
+              prevSetLogs: Array.from({ length: 21 }, () => ({ reps: 5 })),
+            },
+          ],
+        })
+      );
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(400);
+    expect((thrown as ApiError).code).toBe('INVALID_DATA');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects imported result entries with malformed set logs before writing to the database', async () => {
+    useImportableProgramDefinition();
+    const transaction = mock(() => {
+      throw new Error('transaction should not run');
+    });
+    mockDb = { transaction };
+
+    let thrown: unknown;
+    try {
+      await importInstance(
+        'user-1',
+        baseExportedProgram({
+          results: {
+            '0': {
+              squat: {
+                result: 'success',
+                setLogs: [{ reps: -1 }],
+              },
+            },
+          },
+        })
+      );
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(400);
+    expect((thrown as ApiError).code).toBe('INVALID_DATA');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects imported result set-log weights above the service cap before writing to the database', async () => {
+    useImportableProgramDefinition();
+    const transaction = mock(() => {
+      throw new Error('transaction should not run');
+    });
+    mockDb = { transaction };
+
+    let thrown: unknown;
+    try {
+      await importInstance(
+        'user-1',
+        baseExportedProgram({
+          results: {
+            '0': {
+              squat: {
+                result: 'success',
+                setLogs: [{ reps: 5, weight: 10_001 }],
+              },
+            },
+          },
+        })
+      );
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(400);
+    expect((thrown as ApiError).code).toBe('INVALID_DATA');
+    expect(transaction).not.toHaveBeenCalled();
   });
 });

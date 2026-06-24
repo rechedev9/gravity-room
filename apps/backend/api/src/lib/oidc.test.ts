@@ -44,8 +44,24 @@ async function mintToken(
   return `${signingInput}.${Buffer.from(new Uint8Array(sig)).toString('base64url')}`;
 }
 
-function verify(token: string) {
-  return verifyOidcIdToken({ token, jwksUrl, issuers: [ISSUER], audiences: [AUDIENCE] });
+function verify(token: string, expectedNonce?: string) {
+  return verifyOidcIdToken({
+    token,
+    jwksUrl,
+    issuers: [ISSUER],
+    audiences: [AUDIENCE],
+    expectedNonce,
+  });
+}
+
+function verifyWithIssuerTemplate(token: string) {
+  return verifyOidcIdToken({
+    token,
+    jwksUrl,
+    issuers: [],
+    audiences: [AUDIENCE],
+    issuerTemplates: ['https://login.microsoftonline.com/{tenantid}/v2.0'],
+  });
 }
 
 beforeEach(async () => {
@@ -100,6 +116,20 @@ describe('verifyOidcIdToken', () => {
     expect(verify(token)).rejects.toThrow(ApiError);
   });
 
+  it('accepts an issuer template resolved with the token tenant id', async () => {
+    const token = await mintToken({
+      tid: '9188040d-6c67-4c5b-b112-36a304b66dad',
+      iss: 'https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0',
+    });
+    const claims = await verifyWithIssuerTemplate(token);
+    expect(claims.sub).toBe('user-sub-1');
+  });
+
+  it('rejects a token when the expected nonce does not match', async () => {
+    const token = await mintToken({ nonce: 'nonce-from-token' });
+    expect(verify(token, 'nonce-from-cookie')).rejects.toThrow(ApiError);
+  });
+
   it('rejects an expired token', async () => {
     const past = Math.floor(Date.now() / 1000) - 3600;
     const token = await mintToken({ exp: past, iat: past - 600 });
@@ -128,5 +158,19 @@ describe('verifyOidcIdToken', () => {
   it('rejects a malformed token (not 3 segments)', async () => {
     expect(verify('not.a.jwt.token')).rejects.toThrow(ApiError);
     expect(verify('onlyonesegment')).rejects.toThrow(ApiError);
+  });
+
+  it('rejects malformed JWT JSON as an auth error, not an unhandled parser error', async () => {
+    const malformedHeader = Buffer.from('not json').toString('base64url');
+    const validPayload = Buffer.from(
+      JSON.stringify({
+        sub: 'user-sub-1',
+        aud: AUDIENCE,
+        iss: ISSUER,
+        exp: Math.floor(Date.now() / 1000) + 600,
+      })
+    ).toString('base64url');
+
+    await expect(verify(`${malformedHeader}.${validPayload}.signature`)).rejects.toThrow(ApiError);
   });
 });

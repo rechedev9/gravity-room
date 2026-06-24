@@ -12,7 +12,15 @@ import { ApiError } from '../middleware/error-handler';
 import { isRecord } from '@gzclp/domain/type-guards';
 
 const HOUR_MS = 3_600_000;
+const MAX_PROGRAM_ID_CHARS = 50;
+const MAX_PREVIEW_CONFIG_KEYS = 100;
 const security = [{ bearerAuth: [] }];
+
+const previewConfigSchema = t.Record(
+  t.String({ maxLength: 30 }),
+  t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })]),
+  { maxProperties: MAX_PREVIEW_CONFIG_KEYS }
+);
 
 function parseMixedConfig(raw: unknown): Record<string, number | string> | undefined {
   if (!isRecord(raw)) return undefined;
@@ -54,7 +62,7 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
         {
           body: t.Object({
             definition: t.Any(),
-            config: t.Optional(t.Any()),
+            config: t.Optional(previewConfigSchema),
           }),
           detail: {
             tags: ['Catalog'],
@@ -119,7 +127,13 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
       return result.definition;
     },
     {
-      params: t.Object({ programId: t.String() }),
+      params: t.Object({
+        programId: t.String({
+          minLength: 1,
+          maxLength: MAX_PROGRAM_ID_CHARS,
+          pattern: '^[a-z0-9-]+$',
+        }),
+      }),
       detail: {
         tags: ['Catalog'],
         summary: 'Get program definition',

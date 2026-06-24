@@ -1137,6 +1137,7 @@
       "google": "Continue with Google",
       "apple": "Continue with Apple",
       "github": "Continue with GitHub",
+      "microsoft": "Continue with Outlook",
       "coming_soon": "Soon"
     },
     "divider": "or",

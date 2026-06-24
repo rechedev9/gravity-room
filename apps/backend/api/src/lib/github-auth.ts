@@ -14,6 +14,19 @@ const GITHUB_API_USER = 'https://api.github.com/user';
 const GITHUB_API_EMAILS = 'https://api.github.com/user/emails';
 const HTTP_TIMEOUT_MS = 8_000;
 
+/** Generates a PKCE verifier for OAuth authorization-code flow hardening. */
+export function generatePkceVerifier(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return Buffer.from(bytes).toString('base64url');
+}
+
+/** Derives the S256 PKCE code challenge sent to GitHub. */
+export async function pkceChallenge(verifier: string): Promise<string> {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Buffer.from(digest).toString('base64url');
+}
+
 /** True when GitHub sign-in is configured (client id + secret present). */
 export function isGitHubConfigured(): boolean {
   return Boolean(
@@ -35,7 +48,11 @@ function getGitHubClientSecret(): string {
 }
 
 /** Builds the GitHub authorization URL the browser is redirected to. */
-export function buildGitHubAuthorizeUrl(state: string, redirectUri: string): string {
+export function buildGitHubAuthorizeUrl(
+  state: string,
+  redirectUri: string,
+  codeChallenge?: string
+): string {
   const params = new URLSearchParams({
     client_id: getGitHubClientId(),
     redirect_uri: redirectUri,
@@ -43,20 +60,31 @@ export function buildGitHubAuthorizeUrl(state: string, redirectUri: string): str
     state,
     allow_signup: 'true',
   });
+  if (codeChallenge) {
+    params.set('code_challenge', codeChallenge);
+    params.set('code_challenge_method', 'S256');
+  }
   return `${GITHUB_AUTHORIZE_URL}?${params.toString()}`;
 }
 
 /** Exchanges an authorization code for a GitHub access token. */
-export async function exchangeGitHubCode(code: string, redirectUri: string): Promise<string> {
+export async function exchangeGitHubCode(
+  code: string,
+  redirectUri: string,
+  codeVerifier?: string
+): Promise<string> {
+  const body: Record<string, string> = {
+    client_id: getGitHubClientId(),
+    client_secret: getGitHubClientSecret(),
+    code,
+    redirect_uri: redirectUri,
+  };
+  if (codeVerifier) body['code_verifier'] = codeVerifier;
+
   const res = await fetch(GITHUB_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({
-      client_id: getGitHubClientId(),
-      client_secret: getGitHubClientSecret(),
-      code,
-      redirect_uri: redirectUri,
-    }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
   });
   if (!res.ok) throw new ApiError(502, 'GitHub token exchange failed', 'AUTH_PROVIDER_ERROR');

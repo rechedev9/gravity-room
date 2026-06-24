@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { createAndAuthUser } from './helpers/api';
+import { createAndAuthUser, createVerifiedPasswordUser } from './helpers/api';
 
 const BASE_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
 
@@ -9,6 +9,52 @@ test.describe('Auth flow', () => {
 
     await expect(page.getByRole('heading', { name: 'Gravity Room' })).toBeVisible();
     await expect(page.getByText('Autenticar')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /iniciar sesión con google|sign in with google/i })
+    ).toBeVisible();
+  });
+
+  test('provider availability endpoint exposes every supported login method', async ({ page }) => {
+    const res = await page.request.get(`${BASE_URL}/api/auth/providers`);
+    expect(res.ok()).toBe(true);
+
+    const providers = (await res.json()) as Record<string, unknown>;
+    for (const provider of ['emailPassword', 'google', 'apple', 'github', 'microsoft']) {
+      expect(typeof providers[provider]).toBe('boolean');
+    }
+  });
+
+  test('login page mirrors provider availability for email, Apple, GitHub, and Outlook', async ({
+    page,
+  }) => {
+    const res = await page.request.get(`${BASE_URL}/api/auth/providers`);
+    expect(res.ok()).toBe(true);
+    const providers = (await res.json()) as Record<string, boolean>;
+
+    await page.goto('/login');
+
+    const emailButton = page.getByRole('button', { name: /correo|email/i }).first();
+    await expect(emailButton).toBeVisible();
+    if (providers.emailPassword) {
+      await expect(emailButton).toBeEnabled();
+    } else {
+      await expect(emailButton).toBeDisabled();
+    }
+
+    for (const [provider, label] of [
+      ['apple', /Continuar con Apple/i],
+      ['github', /Continuar con GitHub/i],
+      ['microsoft', /Continuar con Outlook/i],
+    ] as const) {
+      const button = page.getByRole('button', { name: label });
+      await expect(button).toBeVisible();
+      if (providers[provider]) {
+        await expect(button).toBeEnabled();
+      } else {
+        await expect(button).toBeDisabled();
+        await expect(button).toContainText(/Pronto/i);
+      }
+    }
   });
 
   test('signed-in user is redirected away from /login', async ({ page }) => {
@@ -21,6 +67,49 @@ test.describe('Auth flow', () => {
     // Should be redirected to /app because the user is already signed in
     await page.waitForURL('**/app**', { timeout: 10_000 });
     expect(page.url()).toContain('/app');
+  });
+
+  test('verified email/password user can sign in from the login form', async ({ page }) => {
+    const email = `password-${crypto.randomUUID()}@test.local`;
+    const password = `Valid-${crypto.randomUUID()}-12345678`;
+
+    await createVerifiedPasswordUser(page, { email, password });
+    await page.goto('/login');
+
+    await page.getByRole('button', { name: /correo|email/i }).click();
+    await page.getByLabel(/correo|email/i).fill(email);
+    await page.getByLabel(/contraseña|password/i).fill(password);
+    await page.getByRole('button', { name: /entrar|sign in/i }).click();
+
+    await page.waitForURL('**/app**', { timeout: 10_000 });
+    expect(page.url()).toContain('/app');
+  });
+
+  test('manual email signup shows the verification-required success state', async ({ page }) => {
+    const email = `signup-${crypto.randomUUID()}@test.local`;
+    const password = `Valid-${crypto.randomUUID()}-12345678`;
+
+    await page.goto('/login');
+    await page.getByRole('button', { name: /correo|email/i }).click();
+    await page.getByRole('button', { name: /crear una|sign up/i }).click();
+    await page.getByLabel(/correo|email/i).fill(email);
+    await page.getByLabel(/contraseña|password/i).fill(password);
+    await page.getByLabel(/nombre|name/i).fill('E2E Signup');
+    await page.getByRole('button', { name: /crear cuenta|create account/i }).click();
+
+    await expect(page.getByRole('alert')).toContainText(/cuenta creada|account created/i);
+  });
+
+  test('password reset request returns the generic email-sent state', async ({ page }) => {
+    const email = `reset-${crypto.randomUUID()}@test.local`;
+
+    await page.goto('/reset-password');
+    await page.getByPlaceholder(/tu@ejemplo.com|you@example.com/i).fill(email);
+    await page.getByRole('button', { name: /enviar enlace|send reset link/i }).click();
+
+    await expect(
+      page.getByText(/te hemos enviado un enlace|reset link has been sent/i)
+    ).toBeVisible();
   });
 
   test('API responses include Permissions-Policy header', async ({ page }) => {

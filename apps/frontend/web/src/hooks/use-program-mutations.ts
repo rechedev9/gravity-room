@@ -1,4 +1,4 @@
-import { useMutation, type QueryClient } from '@tanstack/react-query';
+import { useMutation, type QueryClient, type QueryKey } from '@tanstack/react-query';
 import type { ProgramDefinition, GenericResults } from '@gzclp/domain/types/program';
 import type { ResultValue, SetLogEntry } from '@gzclp/domain/types';
 import { queryKeys } from '@/lib/query-keys';
@@ -66,6 +66,25 @@ interface OptimisticContext {
   readonly previousDetail: GenericProgramDetail | undefined;
 }
 
+const RESULT_RECONCILIATION_DELAY_MS = 2000;
+const reconciliationTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleDetailReconciliation(queryClient: QueryClient, detailKey: QueryKey) {
+  const timerKey = JSON.stringify(detailKey);
+  const existingTimer = reconciliationTimers.get(timerKey);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+
+  reconciliationTimers.set(
+    timerKey,
+    setTimeout(() => {
+      reconciliationTimers.delete(timerKey);
+      void queryClient.invalidateQueries({ queryKey: detailKey });
+    }, RESULT_RECONCILIATION_DELAY_MS)
+  );
+}
+
 function optimisticDetailCallbacks(
   queryClient: QueryClient,
   instanceId: string | null
@@ -75,6 +94,7 @@ function optimisticDetailCallbacks(
   ) => Promise<OptimisticContext>;
   onError: (_err: unknown, _vars: unknown, context: OptimisticContext | undefined) => void;
   onSettled: () => void;
+  onSettledAfterResultIdle: () => void;
 } {
   const detailKey = queryKeys.programs.detail(instanceId ?? '');
 
@@ -94,6 +114,9 @@ function optimisticDetailCallbacks(
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: detailKey });
+    },
+    onSettledAfterResultIdle: () => {
+      scheduleDetailReconciliation(queryClient, detailKey);
     },
   };
 }
@@ -127,6 +150,7 @@ export function useProgramMutations({
     snapshotAndUpdate,
     onError: detailOnError,
     onSettled: detailOnSettled,
+    onSettledAfterResultIdle,
   } = optimisticDetailCallbacks(queryClient, activeInstanceId);
 
   const markResultMutation = useMutation({
@@ -158,7 +182,7 @@ export function useProgramMutations({
         results: setSlotResultOptimistic(prev.results, index, slotId, value, undefined, setLogs),
       })),
     onError: detailOnError,
-    onSettled: detailOnSettled,
+    onSettled: onSettledAfterResultIdle,
   });
 
   const setAmrapMutation = useMutation({

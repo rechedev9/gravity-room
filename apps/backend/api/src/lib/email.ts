@@ -19,6 +19,10 @@ interface SendEmailInput {
   readonly text: string;
 }
 
+export function isEmailConfigured(): boolean {
+  return Boolean(process.env['RESEND_API_KEY'] && process.env['EMAIL_FROM']);
+}
+
 /**
  * Sends one transactional email. Returns true when accepted by Resend, false
  * when skipped (unconfigured) or failed. Never throws.
@@ -27,7 +31,7 @@ export async function sendEmail(input: SendEmailInput): Promise<boolean> {
   const apiKey = process.env['RESEND_API_KEY'];
   const from = process.env['EMAIL_FROM'];
 
-  if (!apiKey || !from) {
+  if (!isEmailConfigured()) {
     logger.warn(
       { to: input.to, subject: input.subject },
       'email: RESEND_API_KEY/EMAIL_FROM unset — skipping send (no-op)'

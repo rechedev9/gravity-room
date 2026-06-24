@@ -10,6 +10,7 @@ process.env['LOG_LEVEL'] = 'silent';
 
 import { describe, it, expect, mock, beforeEach } from 'bun:test';
 import { ApiError } from '../middleware/error-handler';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 
 // ---------------------------------------------------------------------------
 // Types for test fixtures
@@ -91,6 +92,12 @@ function makeUndoRow(overrides: Partial<UndoEntryRow> = {}): UndoEntryRow {
 let selectQueue: unknown[][] = [];
 let insertReturningResult: unknown[] = [];
 let deletedIds: string[] = [];
+let programDefinitionResult:
+  | { readonly status: 'not_found' }
+  | {
+      readonly status: 'found';
+      readonly definition: ProgramDefinition;
+    } = { status: 'not_found' };
 
 function chainable(result: unknown[]): Record<string, unknown> {
   const obj: Record<string, unknown> = {};
@@ -202,8 +209,8 @@ mock.module('../db', () => ({
 // Stub getProgramDefinition so getExpectedSlotCount resolves to `undefined`
 // without touching the DB queue (template/exercise lookups are out of scope
 // for these unit tests; syncCompletedAt no-ops on undefined).
-mock.module('./catalog', () => ({
-  getProgramDefinition: () => Promise.resolve({ status: 'not_found' as const }),
+mock.module('../services/catalog', () => ({
+  getProgramDefinition: () => Promise.resolve(programDefinitionResult),
 }));
 
 // Must import AFTER mock.module
@@ -217,8 +224,43 @@ beforeEach(() => {
   selectQueue = [];
   insertReturningResult = [];
   deletedIds = [];
+  programDefinitionResult = { status: 'not_found' };
   mockDb = createMockDb();
 });
+
+const NO_CHANGE_RULE = { type: 'no_change' } as const;
+const TEST_DEFINITION: ProgramDefinition = {
+  id: 'test-program',
+  name: 'Test Program',
+  description: '',
+  author: 'Gravity Room',
+  version: 1,
+  category: 'test',
+  source: 'preset',
+  days: [
+    {
+      name: 'Day 1',
+      slots: [
+        {
+          id: 't1',
+          exerciseId: 'squat',
+          tier: 't1',
+          stages: [{ sets: 3, reps: 5 }],
+          onSuccess: NO_CHANGE_RULE,
+          onMidStageFail: NO_CHANGE_RULE,
+          onFinalStageFail: NO_CHANGE_RULE,
+          startWeightKey: 'squat',
+        },
+      ],
+    },
+  ],
+  cycleLength: 1,
+  totalWorkouts: 1,
+  workoutsPerWeek: 1,
+  exercises: { squat: { name: 'Squat' } },
+  configFields: [],
+  weightIncrements: {},
+};
 
 // ---------------------------------------------------------------------------
 // recordResult
@@ -267,6 +309,122 @@ describe('recordResult', () => {
     } catch (err) {
       expect(err).toBeInstanceOf(ApiError);
       expect((err as ApiError).code).toBe('INVALID_DATA');
+    }
+  });
+
+  it('should reject set-log weights above the service cap with INVALID_DATA', async () => {
+    selectQueue = [[{ id: 'inst-1' }], []];
+    insertReturningResult = [makeResultRow({ setLogs: [{ reps: 5, weight: 10_001 }] })];
+
+    try {
+      await recordResult('user-1', 'inst-1', {
+        workoutIndex: 0,
+        slotId: 't1',
+        result: 'success',
+        setLogs: [{ reps: 5, weight: 10_001 }],
+      });
+      expect(true).toBe(false); // should not reach
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).code).toBe('INVALID_DATA');
+      expect(selectQueue.length).toBe(2);
+    }
+  });
+
+  it('should reject oversized set-log arrays before reading from the database', async () => {
+    const setLogs = Array.from({ length: 21 }, () => ({ reps: 5 }));
+    selectQueue = [[{ id: 'inst-1' }], []];
+    insertReturningResult = [makeResultRow({ setLogs })];
+
+    try {
+      await recordResult('user-1', 'inst-1', {
+        workoutIndex: 0,
+        slotId: 't1',
+        result: 'success',
+        setLogs,
+      });
+      expect(true).toBe(false); // should not reach
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).code).toBe('INVALID_DATA');
+      expect(selectQueue.length).toBe(2);
+    }
+  });
+
+  it('should reject malformed set-log entries before reading from the database', async () => {
+    selectQueue = [[{ id: 'inst-1' }], []];
+    insertReturningResult = [makeResultRow({ setLogs: [{ reps: -1 }] })];
+
+    try {
+      await recordResult('user-1', 'inst-1', {
+        workoutIndex: 0,
+        slotId: 't1',
+        result: 'success',
+        setLogs: [{ reps: -1 }],
+      });
+      expect(true).toBe(false); // should not reach
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).code).toBe('INVALID_DATA');
+      expect(selectQueue.length).toBe(2);
+    }
+  });
+
+  it('should reject oversized workoutIndex before reading from the database', async () => {
+    selectQueue = [[{ id: 'inst-1', templateId: 'missing-program' }], []];
+    insertReturningResult = [makeResultRow({ workoutIndex: 2000 })];
+
+    try {
+      await recordResult('user-1', 'inst-1', {
+        workoutIndex: 2000,
+        slotId: 't1',
+        result: 'success',
+      });
+      expect(true).toBe(false); // should not reach
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).statusCode).toBe(400);
+      expect((err as ApiError).code).toBe('INVALID_DATA');
+      expect(selectQueue.length).toBe(2);
+    }
+  });
+
+  it('should reject negative workoutIndex before reading from the database', async () => {
+    selectQueue = [[{ id: 'inst-1', templateId: 'missing-program' }], []];
+    insertReturningResult = [makeResultRow({ workoutIndex: -1 })];
+
+    try {
+      await recordResult('user-1', 'inst-1', {
+        workoutIndex: -1,
+        slotId: 't1',
+        result: 'success',
+      });
+      expect(true).toBe(false); // should not reach
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).statusCode).toBe(400);
+      expect((err as ApiError).code).toBe('INVALID_DATA');
+      expect(selectQueue.length).toBe(2);
+    }
+  });
+
+  it('should reject oversized slotId before reading from the database', async () => {
+    const oversizedSlotId = 's'.repeat(51);
+    selectQueue = [[{ id: 'inst-1', templateId: 'missing-program' }], []];
+    insertReturningResult = [makeResultRow({ slotId: oversizedSlotId })];
+
+    try {
+      await recordResult('user-1', 'inst-1', {
+        workoutIndex: 0,
+        slotId: oversizedSlotId,
+        result: 'success',
+      });
+      expect(true).toBe(false); // should not reach
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).statusCode).toBe(400);
+      expect((err as ApiError).code).toBe('INVALID_DATA');
+      expect(selectQueue.length).toBe(2);
     }
   });
 
@@ -336,6 +494,20 @@ describe('recordResult', () => {
 
     expect(result.setLogs).toBeNull();
   });
+
+  it('should reject negative workoutIndex with INVALID_DATA before indexing the program definition', async () => {
+    programDefinitionResult = { status: 'found', definition: TEST_DEFINITION };
+    selectQueue = [[{ id: 'inst-1', templateId: 'test-program' }]];
+
+    try {
+      await deleteResult('user-1', 'inst-1', -1, 't1');
+      expect(true).toBe(false); // should not reach
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).statusCode).toBe(400);
+      expect((err as ApiError).code).toBe('INVALID_DATA');
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -351,6 +523,21 @@ describe('deleteResult', () => {
     await deleteResult('user-1', 'inst-1', 0, 't1');
 
     expect(deletedIds.length).toBeGreaterThan(0);
+  });
+
+  it('should reject oversized workoutIndex before reading from the database', async () => {
+    const existingRow = makeResultRow({ workoutIndex: 2000 });
+    selectQueue = [[{ id: 'inst-1', templateId: 'missing-program' }], [existingRow]];
+
+    try {
+      await deleteResult('user-1', 'inst-1', 2000, 't1');
+      expect(true).toBe(false); // should not reach
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).statusCode).toBe(400);
+      expect((err as ApiError).code).toBe('INVALID_DATA');
+      expect(selectQueue.length).toBe(2);
+    }
   });
 
   it('should throw 404 when result does not exist', async () => {

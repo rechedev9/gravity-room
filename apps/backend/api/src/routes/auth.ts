@@ -41,7 +41,7 @@ import {
   verifyGoogleToken,
 } from '../lib/google-auth';
 import { sendTelegramMessage } from '../lib/telegram';
-import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/email';
+import { isEmailConfigured, sendVerificationEmail, sendPasswordResetEmail } from '../lib/email';
 import { getApiBaseUrl, getWebBaseUrl } from '../lib/app-url';
 import {
   isAppleConfigured,
@@ -53,8 +53,16 @@ import {
   isGitHubConfigured,
   buildGitHubAuthorizeUrl,
   exchangeGitHubCode,
+  generatePkceVerifier,
+  pkceChallenge,
   fetchGitHubIdentity,
 } from '../lib/github-auth';
+import {
+  isMicrosoftConfigured,
+  buildMicrosoftAuthorizeUrl,
+  exchangeMicrosoftCode,
+  fetchMicrosoftIdentity,
+} from '../lib/microsoft-auth';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
 
@@ -75,6 +83,12 @@ function classifyDevice(userAgent: string | undefined): DeviceType {
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
+const MAX_AUTH_TOKEN_CHARS = 256;
+const MAX_EMAIL_CHARS = 254;
+const MAX_OAUTH_CODE_CHARS = 4096;
+const MAX_OAUTH_ERROR_CHARS = 512;
+const MAX_OAUTH_ID_TOKEN_CHARS = 12_000;
+const MAX_OAUTH_USER_CHARS = 4096;
 // The dev sign-in route mints a full session for ANY email with no Google
 // token. Gating it on NODE_ENV alone is fragile: any internet-reachable
 // staging/preview env with the flag set becomes a one-request impersonation
@@ -86,6 +100,7 @@ const DEV_AUTH_ENABLED =
   !IS_PRODUCTION &&
   DEV_AUTH_SECRET.length >= 16;
 const DEV_AUTH_RATE_LIMIT = { maxRequests: 1_000, windowMs: 60_000 };
+const emailInputSchema = t.String({ format: 'email', maxLength: MAX_EMAIL_CHARS });
 
 /** Constant-time comparison of the dev-auth secret header against the configured value. */
 function devAuthSecretMatches(provided: string | undefined): boolean {
@@ -107,6 +122,19 @@ const REFRESH_COOKIE_OPTIONS = {
   maxAge: REFRESH_TOKEN_DAYS * 24 * 60 * 60,
   path: '/api/auth',
 };
+
+function assertEmailConfiguredForProduction(): void {
+  if (process.env['NODE_ENV'] !== 'production' || isEmailConfigured()) return;
+  throw new ApiError(503, 'Email delivery is not configured', 'EMAIL_NOT_CONFIGURED');
+}
+
+function isEmailPasswordAvailable(): boolean {
+  return process.env['NODE_ENV'] !== 'production' || isEmailConfigured();
+}
+
+function isGoogleConfigured(): boolean {
+  return Boolean(process.env['GOOGLE_CLIENT_ID']?.trim());
+}
 
 interface UserProfile {
   readonly id: string;
@@ -187,6 +215,11 @@ async function refreshAuthToken(
   refreshToken: string,
   onInvalidatedToken?: () => void
 ): Promise<{ accessToken: string; refreshToken: string; user: UserProfile }> {
+  if (refreshToken.length > MAX_AUTH_TOKEN_CHARS) {
+    onInvalidatedToken?.();
+    throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
+  }
+
   const tokenHash = await hashToken(refreshToken);
   const rotation = await rotateRefreshToken(tokenHash);
 
@@ -228,6 +261,9 @@ async function refreshAuthToken(
 
 async function signOutWithRefreshToken(refreshToken: unknown): Promise<void> {
   if (!refreshToken || typeof refreshToken !== 'string') {
+    return;
+  }
+  if (refreshToken.length > MAX_AUTH_TOKEN_CHARS) {
     return;
   }
 
@@ -289,6 +325,8 @@ async function processGoogleSignIn(
 // ---------------------------------------------------------------------------
 
 const OAUTH_STATE_COOKIE = 'oauth_state';
+const OAUTH_NONCE_COOKIE = 'oauth_nonce';
+const OAUTH_PKCE_COOKIE = 'oauth_pkce';
 const OAUTH_STATE_TTL_S = 10 * 60; // 10 minutes
 
 /**
@@ -330,6 +368,39 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .use(jwtPlugin)
 
   // -----------------------------------------------------------------------
+  // GET /auth/providers — public provider availability, no secrets exposed
+  // -----------------------------------------------------------------------
+  .get(
+    '/providers',
+    async ({ ip }) => {
+      await rateLimit(ip, '/auth/providers', { maxRequests: 100 });
+
+      return {
+        emailPassword: isEmailPasswordAvailable(),
+        google: isGoogleConfigured(),
+        apple: isAppleConfigured(),
+        github: isGitHubConfigured(),
+        microsoft: isMicrosoftConfigured(),
+      };
+    },
+    {
+      response: t.Object({
+        emailPassword: t.Boolean(),
+        google: t.Boolean(),
+        apple: t.Boolean(),
+        github: t.Boolean(),
+        microsoft: t.Boolean(),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'List available sign-in providers',
+        description:
+          'Returns public booleans for sign-in methods the current deployment can start. Does not expose provider credentials.',
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
   // POST /auth/google — verify Google ID token, find or create user
   // -----------------------------------------------------------------------
   .post(
@@ -352,7 +423,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       return { user: userResponse(user), accessToken };
     },
     {
-      body: t.Object({ credential: t.String({ minLength: 1 }) }),
+      body: t.Object({
+        credential: t.String({ minLength: 1, maxLength: MAX_OAUTH_ID_TOKEN_CHARS }),
+      }),
       detail: {
         tags: ['Auth'],
         summary: 'Sign in with Google',
@@ -389,7 +462,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       return { user: userResponse(user), ...tokens };
     },
     {
-      body: t.Object({ credential: t.String({ minLength: 1 }) }),
+      body: t.Object({
+        credential: t.String({ minLength: 1, maxLength: MAX_OAUTH_ID_TOKEN_CHARS }),
+      }),
       response: {
         200: mobileGoogleAuthResponseSchema,
         401: t.Object(
@@ -423,6 +498,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     '/signup',
     async ({ body, set, reqLogger, ip, request }) => {
       await rateLimit(ip, '/auth/signup', { maxRequests: 10 });
+      assertEmailConfiguredForProduction();
 
       const passwordHash = await hashPassword(body.password);
       const user = await createPasswordUser({ email: body.email, passwordHash, name: body.name });
@@ -441,7 +517,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     },
     {
       body: t.Object({
-        email: t.String({ format: 'email' }),
+        email: emailInputSchema,
         password: t.String({ minLength: 8, maxLength: 200 }),
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
       }),
@@ -482,7 +558,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     },
     {
       body: t.Object({
-        email: t.String({ format: 'email' }),
+        email: emailInputSchema,
         password: t.String({ minLength: 1, maxLength: 200 }),
       }),
       detail: {
@@ -523,7 +599,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       return { user: userResponse(user), accessToken };
     },
     {
-      body: t.Object({ token: t.String({ minLength: 1 }) }),
+      body: t.Object({ token: t.String({ minLength: 1, maxLength: MAX_AUTH_TOKEN_CHARS }) }),
       detail: {
         tags: ['Auth'],
         summary: 'Verify email address',
@@ -544,6 +620,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     '/forgot-password',
     async ({ body, set, reqLogger, ip }) => {
       await rateLimit(ip, '/auth/forgot-password', { maxRequests: 5 });
+      assertEmailConfiguredForProduction();
 
       const user = await findUserByEmail(body.email);
       if (user?.passwordHash) {
@@ -557,7 +634,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       return { message: 'If an account exists for that email, a reset link has been sent.' };
     },
     {
-      body: t.Object({ email: t.String({ format: 'email' }) }),
+      body: t.Object({ email: emailInputSchema }),
       detail: {
         tags: ['Auth'],
         summary: 'Request a password reset',
@@ -594,7 +671,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     },
     {
       body: t.Object({
-        token: t.String({ minLength: 1 }),
+        token: t.String({ minLength: 1, maxLength: MAX_AUTH_TOKEN_CHARS }),
         password: t.String({ minLength: 8, maxLength: 200 }),
       }),
       detail: {
@@ -621,8 +698,12 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         return redirect(socialCallbackUrl('apple', 'provider_not_configured'));
       }
       const state = generateRefreshToken();
+      const nonce = generateRefreshToken();
       cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('none') });
-      return redirect(buildAppleAuthorizeUrl(state, `${getApiBaseUrl()}/api/auth/apple/callback`));
+      cookie[OAUTH_NONCE_COOKIE]?.set({ value: nonce, ...stateCookieOptions('none') });
+      return redirect(
+        buildAppleAuthorizeUrl(state, `${getApiBaseUrl()}/api/auth/apple/callback`, nonce)
+      );
     },
     {
       detail: {
@@ -639,21 +720,30 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .post(
     '/apple/callback',
-    async ({ jwt, body, cookie, redirect, request, reqLogger }) => {
-      const stateCookie = cookie[OAUTH_STATE_COOKIE];
-      const expectedState = stateCookie?.value;
-      stateCookie?.remove();
+    async ({ jwt, body, cookie, redirect, request, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/apple/callback', { maxRequests: 30 });
 
-      if (body.error || !body.id_token || !body.state) {
+      const stateCookie = cookie[OAUTH_STATE_COOKIE];
+      const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
+      stateCookie?.remove();
+      const nonceCookie = cookie[OAUTH_NONCE_COOKIE];
+      const expectedNonce = typeof nonceCookie?.value === 'string' ? nonceCookie.value : undefined;
+      nonceCookie?.remove();
+
+      const idToken = typeof body.id_token === 'string' ? body.id_token : undefined;
+      const requestState = typeof body.state === 'string' ? body.state : undefined;
+      const providerError = typeof body.error === 'string' ? body.error : undefined;
+
+      if (providerError || !idToken || !requestState) {
         return redirect(socialCallbackUrl('apple', 'cancelled'));
       }
-      if (!expectedState || expectedState !== body.state) {
+      if (!expectedState || expectedState !== requestState || !expectedNonce) {
         return redirect(socialCallbackUrl('apple', 'state_mismatch'));
       }
 
       let claims;
       try {
-        claims = await verifyAppleIdToken(body.id_token);
+        claims = await verifyAppleIdToken(idToken, expectedNonce);
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'apple: id_token verification failed');
         return redirect(socialCallbackUrl('apple', 'invalid_token'));
@@ -687,11 +777,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     },
     {
       body: t.Object({
-        id_token: t.Optional(t.String()),
-        state: t.Optional(t.String()),
-        code: t.Optional(t.String()),
-        user: t.Optional(t.String()),
-        error: t.Optional(t.String()),
+        id_token: t.Optional(t.String({ maxLength: MAX_OAUTH_ID_TOKEN_CHARS })),
+        state: t.Optional(t.String({ maxLength: MAX_AUTH_TOKEN_CHARS })),
+        code: t.Optional(t.String({ maxLength: MAX_OAUTH_CODE_CHARS })),
+        user: t.Optional(t.String({ maxLength: MAX_OAUTH_USER_CHARS })),
+        error: t.Optional(t.String({ maxLength: MAX_OAUTH_ERROR_CHARS })),
       }),
       detail: {
         tags: ['Auth'],
@@ -713,9 +803,12 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         return redirect(socialCallbackUrl('github', 'provider_not_configured'));
       }
       const state = generateRefreshToken();
+      const verifier = generatePkceVerifier();
+      const challenge = await pkceChallenge(verifier);
       cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('lax') });
+      cookie[OAUTH_PKCE_COOKIE]?.set({ value: verifier, ...stateCookieOptions('lax') });
       return redirect(
-        buildGitHubAuthorizeUrl(state, `${getApiBaseUrl()}/api/auth/github/callback`)
+        buildGitHubAuthorizeUrl(state, `${getApiBaseUrl()}/api/auth/github/callback`, challenge)
       );
     },
     {
@@ -733,22 +826,31 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .get(
     '/github/callback',
-    async ({ jwt, query, cookie, redirect, request, reqLogger }) => {
-      const stateCookie = cookie[OAUTH_STATE_COOKIE];
-      const expectedState = stateCookie?.value;
-      stateCookie?.remove();
+    async ({ jwt, query, cookie, redirect, request, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/github/callback', { maxRequests: 30 });
 
-      if (query.error || !query.code || !query.state) {
+      const stateCookie = cookie[OAUTH_STATE_COOKIE];
+      const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
+      stateCookie?.remove();
+      const pkceCookie = cookie[OAUTH_PKCE_COOKIE];
+      const codeVerifier = typeof pkceCookie?.value === 'string' ? pkceCookie.value : undefined;
+      pkceCookie?.remove();
+
+      const code = typeof query.code === 'string' ? query.code : undefined;
+      const requestState = typeof query.state === 'string' ? query.state : undefined;
+      const providerError = typeof query.error === 'string' ? query.error : undefined;
+
+      if (providerError || !code || !requestState) {
         return redirect(socialCallbackUrl('github', 'cancelled'));
       }
-      if (!expectedState || expectedState !== query.state) {
+      if (!expectedState || expectedState !== requestState || !codeVerifier) {
         return redirect(socialCallbackUrl('github', 'state_mismatch'));
       }
 
       let identity;
       try {
         const redirectUri = `${getApiBaseUrl()}/api/auth/github/callback`;
-        const accessToken = await exchangeGitHubCode(query.code, redirectUri);
+        const accessToken = await exchangeGitHubCode(code, redirectUri, codeVerifier);
         identity = await fetchGitHubIdentity(accessToken);
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'github: oauth exchange/lookup failed');
@@ -783,9 +885,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     },
     {
       query: t.Object({
-        code: t.Optional(t.String()),
-        state: t.Optional(t.String()),
-        error: t.Optional(t.String()),
+        code: t.Optional(t.String({ maxLength: MAX_OAUTH_CODE_CHARS })),
+        state: t.Optional(t.String({ maxLength: MAX_AUTH_TOKEN_CHARS })),
+        error: t.Optional(t.String({ maxLength: MAX_OAUTH_ERROR_CHARS })),
       }),
       detail: {
         tags: ['Auth'],
@@ -797,36 +899,201 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   )
 
   // -----------------------------------------------------------------------
+  // GET /auth/microsoft/start — redirect to Microsoft authorization
+  // -----------------------------------------------------------------------
+  .get(
+    '/microsoft/start',
+    async ({ cookie, redirect, ip }) => {
+      await rateLimit(ip, '/auth/microsoft/start', { maxRequests: 30 });
+      if (!isMicrosoftConfigured()) {
+        return redirect(socialCallbackUrl('microsoft', 'provider_not_configured'));
+      }
+      const state = generateRefreshToken();
+      const nonce = generateRefreshToken();
+      const verifier = generatePkceVerifier();
+      const challenge = await pkceChallenge(verifier);
+      cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('lax') });
+      cookie[OAUTH_NONCE_COOKIE]?.set({ value: nonce, ...stateCookieOptions('lax') });
+      cookie[OAUTH_PKCE_COOKIE]?.set({ value: verifier, ...stateCookieOptions('lax') });
+      return redirect(
+        buildMicrosoftAuthorizeUrl(
+          state,
+          `${getApiBaseUrl()}/api/auth/microsoft/callback`,
+          nonce,
+          challenge
+        )
+      );
+    },
+    {
+      detail: {
+        tags: ['Auth'],
+        summary: 'Start Microsoft sign-in',
+        description:
+          'Redirects to Microsoft authorization and sets short-lived CSRF, nonce, and PKCE cookies.',
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // GET /auth/microsoft/callback — exchange code, verify ID token, issue session
+  // -----------------------------------------------------------------------
+  .get(
+    '/microsoft/callback',
+    async ({ jwt, query, cookie, redirect, request, reqLogger, ip }) => {
+      await rateLimit(ip, '/auth/microsoft/callback', { maxRequests: 30 });
+
+      const stateCookie = cookie[OAUTH_STATE_COOKIE];
+      const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
+      stateCookie?.remove();
+      const nonceCookie = cookie[OAUTH_NONCE_COOKIE];
+      const expectedNonce = typeof nonceCookie?.value === 'string' ? nonceCookie.value : undefined;
+      nonceCookie?.remove();
+      const pkceCookie = cookie[OAUTH_PKCE_COOKIE];
+      const codeVerifier = typeof pkceCookie?.value === 'string' ? pkceCookie.value : undefined;
+      pkceCookie?.remove();
+
+      const code = typeof query.code === 'string' ? query.code : undefined;
+      const requestState = typeof query.state === 'string' ? query.state : undefined;
+      const providerError = typeof query.error === 'string' ? query.error : undefined;
+
+      if (providerError || !code || !requestState) {
+        return redirect(socialCallbackUrl('microsoft', 'cancelled'));
+      }
+      if (!expectedState || expectedState !== requestState || !expectedNonce || !codeVerifier) {
+        return redirect(socialCallbackUrl('microsoft', 'state_mismatch'));
+      }
+
+      let identity;
+      try {
+        const redirectUri = `${getApiBaseUrl()}/api/auth/microsoft/callback`;
+        const tokenSet = await exchangeMicrosoftCode(code, redirectUri, codeVerifier);
+        identity = await fetchMicrosoftIdentity(
+          tokenSet.idToken,
+          tokenSet.accessToken,
+          expectedNonce
+        );
+      } catch (e: unknown) {
+        reqLogger.warn({ err: e }, 'microsoft: oauth exchange/lookup failed');
+        const code =
+          e instanceof ApiError && e.code === 'AUTH_EMAIL_UNVERIFIED'
+            ? 'email_required'
+            : 'provider_error';
+        return redirect(socialCallbackUrl('microsoft', code));
+      }
+
+      try {
+        const { user, isNewUser } = await findOrCreateUserByIdentity({
+          provider: 'microsoft',
+          providerAccountId: identity.id,
+          email: identity.email,
+          emailVerified: identity.emailVerified,
+          name: identity.name,
+        });
+        if (isNewUser) {
+          const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
+          void sendTelegramMessage(
+            `New user: ${user.email} | microsoft/${deviceType} | ${new Date().toISOString()}`
+          );
+        }
+        await issueTokens(jwt, cookie, user);
+        reqLogger.info({ event: 'auth.microsoft', userId: user.id }, 'microsoft sign-in');
+        return redirect(socialCallbackUrl('microsoft'));
+      } catch (e: unknown) {
+        reqLogger.warn({ err: e }, 'microsoft: sign-in failed');
+        return redirect(socialCallbackUrl('microsoft', identityErrorCode(e)));
+      }
+    },
+    {
+      query: t.Object({
+        code: t.Optional(t.String({ maxLength: MAX_OAUTH_CODE_CHARS })),
+        state: t.Optional(t.String({ maxLength: MAX_AUTH_TOKEN_CHARS })),
+        error: t.Optional(t.String({ maxLength: MAX_OAUTH_ERROR_CHARS })),
+      }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Microsoft sign-in callback',
+        description:
+          'Exchanges the code, verifies the Microsoft ID token, links or creates the user, sets the refresh cookie, and redirects to the SPA callback.',
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
   // POST /auth/dev — dev-only sign-in for E2E tests.
   // Only registered when AUTH_DEV_ROUTE_ENABLED=true and NODE_ENV != production.
   // -----------------------------------------------------------------------
   .use((app) =>
     DEV_AUTH_ENABLED
-      ? app.post(
-          '/dev',
-          async ({ jwt, body, cookie, set, ip, headers }) => {
-            await rateLimit(ip, 'POST /auth/dev', DEV_AUTH_RATE_LIMIT);
-            if (!devAuthSecretMatches(headers['x-dev-auth-secret'])) {
-              throw new ApiError(401, 'Invalid dev auth secret', 'UNAUTHORIZED');
+      ? app
+          .post(
+            '/dev',
+            async ({ jwt, body, cookie, set, ip, headers }) => {
+              await rateLimit(ip, 'POST /auth/dev', DEV_AUTH_RATE_LIMIT);
+              if (!devAuthSecretMatches(headers['x-dev-auth-secret'])) {
+                throw new ApiError(401, 'Invalid dev auth secret', 'UNAUTHORIZED');
+              }
+              // Reuse existing user by email (dev logins generate a new googleId each time,
+              // which would violate the email unique constraint on repeated calls).
+              const existing = await findUserByEmail(body.email);
+              const user = existing
+                ? existing
+                : (
+                    await findOrCreateGoogleUser(
+                      `dev-${crypto.randomUUID()}`,
+                      body.email,
+                      undefined
+                    )
+                  ).user;
+              const { accessToken } = await issueTokens(jwt, cookie, user);
+              set.status = 201;
+              return { user: userResponse(user), accessToken };
+            },
+            {
+              body: t.Object({
+                email: emailInputSchema,
+              }),
+              detail: { tags: ['Auth'], summary: 'Dev-only test sign-in (404 in production)' },
             }
-            // Reuse existing user by email (dev logins generate a new googleId each time,
-            // which would violate the email unique constraint on repeated calls).
-            const existing = await findUserByEmail(body.email);
-            const user = existing
-              ? existing
-              : (await findOrCreateGoogleUser(`dev-${crypto.randomUUID()}`, body.email, undefined))
-                  .user;
-            const { accessToken } = await issueTokens(jwt, cookie, user);
-            set.status = 201;
-            return { user: userResponse(user), accessToken };
-          },
-          {
-            body: t.Object({
-              email: t.String({ format: 'email' }),
-            }),
-            detail: { tags: ['Auth'], summary: 'Dev-only test sign-in (404 in production)' },
-          }
-        )
+          )
+          .post(
+            '/dev/password-user',
+            async ({ body, set, ip, headers }) => {
+              await rateLimit(ip, 'POST /auth/dev/password-user', DEV_AUTH_RATE_LIMIT);
+              if (!devAuthSecretMatches(headers['x-dev-auth-secret'])) {
+                throw new ApiError(401, 'Invalid dev auth secret', 'UNAUTHORIZED');
+              }
+
+              const passwordHash = await hashPassword(body.password);
+              const existing = await findUserByEmail(body.email);
+              const user = existing
+                ? existing
+                : await createPasswordUser({
+                    email: body.email,
+                    passwordHash,
+                    name: body.name,
+                  });
+
+              if (existing) {
+                await setUserPassword(existing.id, passwordHash);
+              }
+              const verified = await markEmailVerified(user.id);
+              if (!verified) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+
+              set.status = 201;
+              return { user: userResponse(verified) };
+            },
+            {
+              body: t.Object({
+                email: emailInputSchema,
+                password: t.String({ minLength: 8, maxLength: 200 }),
+                name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
+              }),
+              detail: {
+                tags: ['Auth'],
+                summary: 'Dev-only verified password-user seed (404 in production)',
+              },
+            }
+          )
       : app
   )
 
@@ -884,7 +1151,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       return refreshed;
     },
     {
-      body: t.Object({ refreshToken: t.Optional(t.String()) }),
+      body: t.Object({ refreshToken: t.Optional(t.String({ maxLength: MAX_AUTH_TOKEN_CHARS })) }),
       response: {
         200: mobileRefreshAuthResponseSchema,
         401: t.Object(
@@ -941,7 +1208,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       set.status = 204;
     },
     {
-      body: t.Object({ refreshToken: t.Optional(t.String()) }),
+      body: t.Object({ refreshToken: t.Optional(t.String({ maxLength: MAX_AUTH_TOKEN_CHARS })) }),
       response: {
         429: t.Object({ error: t.String(), code: t.String() }, { description: 'Rate limited' }),
       },
@@ -1031,7 +1298,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     {
       body: t.Object({
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
-        avatarUrl: t.Optional(t.Nullable(t.String())),
+        avatarUrl: t.Optional(t.Nullable(t.String({ maxLength: MAX_AVATAR_BYTES }))),
       }),
       detail: {
         tags: ['Auth'],

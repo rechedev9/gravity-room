@@ -13,27 +13,27 @@ import { z } from 'zod/v4';
 
 const postApiAuthSignup_Body = z
   .object({
-    email: z.string().email(),
+    email: z.string().max(254).email(),
     password: z.string().min(8).max(200),
     name: z.string().min(1).max(100).optional(),
   })
   .passthrough()
   .readonly();
 const postApiAuthLogin_Body = z
-  .object({ email: z.string().email(), password: z.string().min(1).max(200) })
+  .object({ email: z.string().max(254).email(), password: z.string().min(1).max(200) })
   .passthrough()
   .readonly();
 const postApiAuthReset_password_Body = z
-  .object({ token: z.string().min(1), password: z.string().min(8).max(200) })
+  .object({ token: z.string().min(1).max(256), password: z.string().min(8).max(200) })
   .passthrough()
   .readonly();
 const postApiAuthAppleCallback_Body = z
   .object({
-    id_token: z.string(),
-    state: z.string(),
-    code: z.string(),
-    user: z.string(),
-    error: z.string(),
+    id_token: z.string().max(12000),
+    state: z.string().max(256),
+    code: z.string().max(4096),
+    user: z.string().max(4096),
+    error: z.string().max(512),
   })
   .partial()
   .passthrough()
@@ -49,7 +49,11 @@ const patchApiAuthMe_Body = z
 const limit = z.union([z.string(), z.number()]).optional();
 const postApiPrograms_Body = z
   .object({
-    programId: z.string().min(1),
+    programId: z
+      .string()
+      .min(1)
+      .max(50)
+      .regex(/^[a-z0-9-]+$/),
     name: z.string().min(1).max(100),
     config: z.object({}).partial().passthrough().readonly(),
   })
@@ -68,7 +72,11 @@ const postApiProgramsImport_Body = z
   .object({
     version: z.number(),
     exportDate: z.string().datetime({ offset: true }),
-    programId: z.string().min(1),
+    programId: z
+      .string()
+      .min(1)
+      .max(50)
+      .regex(/^[a-z0-9-]+$/),
     name: z.string().min(1).max(100),
     config: z.object({}).partial().passthrough().readonly(),
     results: z.object({}).partial().passthrough().readonly(),
@@ -77,7 +85,7 @@ const postApiProgramsImport_Body = z
         z
           .object({
             i: z.union([z.string(), z.number()]),
-            slotId: z.string().min(1),
+            slotId: z.string().min(1).max(50),
             prev: z.union([z.string(), z.string()]).optional(),
             prevRpe: z.union([z.string(), z.number()]).optional(),
             prevAmrapReps: z.union([z.string(), z.number()]).optional(),
@@ -111,7 +119,7 @@ const postApiProgramsByIdResults_Body = z
         z
           .object({
             reps: z.union([z.string(), z.number()]),
-            weight: z.number().gte(0).optional(),
+            weight: z.number().gte(0).lte(10000).optional(),
             rpe: z.union([z.string(), z.number()]).optional(),
           })
           .passthrough()
@@ -164,19 +172,6 @@ export const endpoints = [
   },
   {
     method: 'post',
-    path: '/api/auth/dev',
-    requestFormat: 'json',
-    parameters: [
-      {
-        name: 'body',
-        type: 'Body',
-        schema: z.object({ email: z.string().email() }).passthrough().readonly(),
-      },
-    ],
-    response: z.void(),
-  },
-  {
-    method: 'post',
     path: '/api/auth/forgot-password',
     description: `Sends a reset link when a password account exists. Always returns 200 to avoid account enumeration.`,
     requestFormat: 'json',
@@ -184,7 +179,10 @@ export const endpoints = [
       {
         name: 'body',
         type: 'Body',
-        schema: z.object({ email: z.string().email() }).passthrough().readonly(),
+        schema: z
+          .object({ email: z.string().max(254).email() })
+          .passthrough()
+          .readonly(),
       },
     ],
     response: z.void(),
@@ -205,17 +203,17 @@ export const endpoints = [
       {
         name: 'code',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(4096).optional(),
       },
       {
         name: 'state',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(256).optional(),
       },
       {
         name: 'error',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(512).optional(),
       },
     ],
     response: z.void(),
@@ -237,7 +235,7 @@ export const endpoints = [
         name: 'body',
         type: 'Body',
         schema: z
-          .object({ credential: z.string().min(1) })
+          .object({ credential: z.string().min(1).max(12000) })
           .passthrough()
           .readonly(),
       },
@@ -347,6 +345,37 @@ export const endpoints = [
     ],
   },
   {
+    method: 'get',
+    path: '/api/auth/microsoft/callback',
+    description: `Exchanges the code, verifies the Microsoft ID token, links or creates the user, sets the refresh cookie, and redirects to the SPA callback.`,
+    requestFormat: 'json',
+    parameters: [
+      {
+        name: 'code',
+        type: 'Query',
+        schema: z.string().max(4096).optional(),
+      },
+      {
+        name: 'state',
+        type: 'Query',
+        schema: z.string().max(256).optional(),
+      },
+      {
+        name: 'error',
+        type: 'Query',
+        schema: z.string().max(512).optional(),
+      },
+    ],
+    response: z.void(),
+  },
+  {
+    method: 'get',
+    path: '/api/auth/microsoft/start',
+    description: `Redirects to Microsoft authorization and sets short-lived CSRF, nonce, and PKCE cookies.`,
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
     method: 'post',
     path: '/api/auth/mobile/google',
     description: `Verifies a Google ID token, finds or creates the user, and returns both access and refresh tokens in the response body.`,
@@ -356,7 +385,7 @@ export const endpoints = [
         name: 'body',
         type: 'Body',
         schema: z
-          .object({ credential: z.string().min(1) })
+          .object({ credential: z.string().min(1).max(12000) })
           .passthrough()
           .readonly(),
       },
@@ -414,7 +443,11 @@ export const endpoints = [
       {
         name: 'body',
         type: 'Body',
-        schema: z.object({ refreshToken: z.string() }).partial().passthrough().readonly(),
+        schema: z
+          .object({ refreshToken: z.string().max(256) })
+          .partial()
+          .passthrough()
+          .readonly(),
       },
     ],
     response: z
@@ -455,7 +488,11 @@ export const endpoints = [
       {
         name: 'body',
         type: 'Body',
-        schema: z.object({ refreshToken: z.string() }).partial().passthrough().readonly(),
+        schema: z
+          .object({ refreshToken: z.string().max(256) })
+          .partial()
+          .passthrough()
+          .readonly(),
       },
     ],
     response: z.void(),
@@ -466,6 +503,22 @@ export const endpoints = [
         schema: z.object({ error: z.string(), code: z.string() }).passthrough().readonly(),
       },
     ],
+  },
+  {
+    method: 'get',
+    path: '/api/auth/providers',
+    description: `Returns public booleans for sign-in methods the current deployment can start. Does not expose provider credentials.`,
+    requestFormat: 'json',
+    response: z
+      .object({
+        emailPassword: z.boolean(),
+        google: z.boolean(),
+        apple: z.boolean(),
+        github: z.boolean(),
+        microsoft: z.boolean(),
+      })
+      .passthrough()
+      .readonly(),
   },
   {
     method: 'post',
@@ -562,7 +615,7 @@ export const endpoints = [
         name: 'body',
         type: 'Body',
         schema: z
-          .object({ token: z.string().min(1) })
+          .object({ token: z.string().min(1).max(256) })
           .passthrough()
           .readonly(),
       },
@@ -597,7 +650,11 @@ export const endpoints = [
       {
         name: 'programId',
         type: 'Path',
-        schema: z.string(),
+        schema: z
+          .string()
+          .min(1)
+          .max(50)
+          .regex(/^[a-z0-9-]+$/),
       },
     ],
     response: z.void(),
@@ -624,7 +681,10 @@ export const endpoints = [
         name: 'body',
         type: 'Body',
         schema: z
-          .object({ definition: z.unknown(), config: z.unknown().optional() })
+          .object({
+            definition: z.unknown(),
+            config: z.object({}).partial().passthrough().readonly().optional(),
+          })
           .passthrough()
           .readonly(),
       },
@@ -657,42 +717,42 @@ export const endpoints = [
       {
         name: 'q',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(100).optional(),
       },
       {
         name: 'muscleGroupId',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(1619).optional(),
       },
       {
         name: 'equipment',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(1619).optional(),
       },
       {
         name: 'force',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(1619).optional(),
       },
       {
         name: 'level',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(1619).optional(),
       },
       {
         name: 'mechanic',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(1619).optional(),
       },
       {
         name: 'category',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(1619).optional(),
       },
       {
         name: 'isCompound',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(5).optional(),
       },
       {
         name: 'limit',
@@ -752,7 +812,7 @@ export const endpoints = [
       {
         name: 'types',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(256).optional(),
       },
     ],
     response: z.void(),
@@ -778,7 +838,7 @@ export const endpoints = [
       {
         name: 'cursor',
         type: 'Query',
-        schema: z.string().optional(),
+        schema: z.string().max(256).optional(),
       },
     ],
     response: z.void(),

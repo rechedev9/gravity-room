@@ -219,6 +219,22 @@ const StatsOnlineResponseSchema = z.object({
   count: z.number().int().nonnegative(),
 });
 
+const AuthProvidersResponseSchema = z.object({
+  emailPassword: z.boolean(),
+  google: z.boolean(),
+  apple: z.boolean(),
+  github: z.boolean(),
+  microsoft: z.boolean(),
+});
+
+export type AuthProviders = z.infer<typeof AuthProvidersResponseSchema>;
+
+/** Fetch public auth provider availability for the current deployment. */
+export async function fetchAuthProviders(): Promise<AuthProviders> {
+  const data = await apiFetch('/auth/providers');
+  return AuthProvidersResponseSchema.parse(data);
+}
+
 /** Fetch the count of users active in the last 60 seconds. Public endpoint — no auth required. */
 export async function fetchOnlineCount(): Promise<number | null> {
   try {

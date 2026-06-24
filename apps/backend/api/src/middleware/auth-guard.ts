@@ -14,6 +14,7 @@ import { ApiError } from './error-handler';
 import { logger } from '../lib/logger';
 import { getRedis } from '../lib/redis';
 import { trackPresence } from '../lib/presence';
+import { findUserById } from '../services/auth';
 
 const BEARER_PREFIX = 'Bearer ';
 const TEST_SECRET = 'test-secret-do-not-use-outside-tests';
@@ -94,6 +95,11 @@ export async function resolveUserId({
   const userId = payload['sub'];
   if (typeof userId !== 'string') {
     throw new ApiError(401, 'Invalid token payload', 'TOKEN_INVALID');
+  }
+
+  const user = await findUserById(userId);
+  if (!user) {
+    throw new ApiError(401, 'Token user is no longer active', 'TOKEN_USER_INACTIVE');
   }
 
   const redis = getRedis();

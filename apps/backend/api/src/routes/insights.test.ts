@@ -9,8 +9,14 @@ import { mock, describe, it, expect, beforeEach } from 'bun:test';
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
+const mockRateLimit = mock<() => Promise<void>>(() => Promise.resolve());
+
 mock.module('../middleware/rate-limit', () => ({
-  rateLimit: (): Promise<void> => Promise.resolve(),
+  rateLimit: mockRateLimit,
+}));
+
+mock.module('../services/auth', () => ({
+  findUserById: mock((id: string) => Promise.resolve({ id })),
 }));
 
 interface InsightRow {
@@ -39,6 +45,10 @@ const testApp = new Elysia()
     if (error instanceof ApiError) {
       set.status = error.statusCode;
       return { error: error.message, code: error.code, ...(error.details ?? {}) };
+    }
+    if ('code' in error && error.code === 'VALIDATION') {
+      set.status = 400;
+      return { error: 'Validation failed', code: 'VALIDATION_ERROR' };
     }
     set.status = 500;
     return { error: 'Internal server error', code: 'INTERNAL_ERROR' };
@@ -107,6 +117,7 @@ const VOLUME_TREND_ROW: InsightRow = {
 describe('GET /insights — types query validation', () => {
   beforeEach(() => {
     mockGetInsights.mockReset();
+    mockRateLimit.mockClear();
   });
 
   it('returns 200 and filtered rows when all types are known', async () => {
@@ -153,6 +164,20 @@ describe('GET /insights — types query validation', () => {
     expect(body.code).toBe('INVALID_INSIGHT_TYPE');
     expect(body.invalidValues).toEqual(['bogus']);
     expect(body.validValues).toEqual([...INSIGHT_TYPES]);
+    expect(mockRateLimit).toHaveBeenCalledWith(USER_ID, 'GET /insights', { maxRequests: 30 });
+    expect(mockGetInsights).not.toHaveBeenCalled();
+  });
+
+  it('rejects oversized types queries before parsing and echoing invalid values', async () => {
+    const token = await makeValidJwt(USER_ID);
+    const res = await get(`/insights?types=${'x'.repeat(513)}`, {
+      Authorization: `Bearer ${token}`,
+    });
+    const body = (await res.json()) as { code: string; invalidValues?: string[] };
+
+    expect(res.status).toBe(400);
+    expect(body.code).toBe('VALIDATION_ERROR');
+    expect(body.invalidValues).toBeUndefined();
     expect(mockGetInsights).not.toHaveBeenCalled();
   });
 

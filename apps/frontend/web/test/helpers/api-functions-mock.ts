@@ -25,8 +25,17 @@
  * SyntaxError.
  */
 import { mock } from 'bun:test';
+import { z } from 'zod/v4';
 import { ExerciseEntrySchema } from '@gzclp/domain/schemas/exercises';
 import { parseUserSafe as realParseUserSafe } from '@gzclp/domain/schemas/user';
+
+const AuthProvidersResponseSchema = z.object({
+  emailPassword: z.boolean(),
+  google: z.boolean(),
+  apple: z.boolean(),
+  github: z.boolean(),
+  microsoft: z.boolean(),
+});
 
 export const apiFunctionsStubs = {
   // Auth-aware fetch wrapper
@@ -51,6 +60,10 @@ export const apiFunctionsStubs = {
   parseUserSafe: mock((data: unknown) => realParseUserSafe(data)),
 
   // Public stats
+  fetchAuthProviders: mock(async () => {
+    const res = await fetch('http://localhost:3001/api/auth/providers');
+    return AuthProvidersResponseSchema.parse(await res.json());
+  }),
   fetchOnlineCount: mock(() => Promise.resolve(null)),
 
   // Generic (slot-keyed) program operations
