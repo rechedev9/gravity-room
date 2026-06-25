@@ -26,7 +26,7 @@
 import { mkdir, writeFile, readFile, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { connect } from 'node:net';
+import { connect, createServer } from 'node:net';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Browser, type BrowserContext } from '@playwright/test';
@@ -67,8 +67,6 @@ const WEB_ROOT = resolve(__dirname, '..');
 const DIST_DIR = resolve(WEB_ROOT, 'dist');
 const SITEMAP_PATH = resolve(WEB_ROOT, 'public/sitemap.xml');
 const PREVIEW_HOST = '127.0.0.1';
-const PREVIEW_PORT = 4173;
-const PREVIEW_ORIGIN = `http://${PREVIEW_HOST}:${PREVIEW_PORT}`;
 
 // Per-route hydration deadline. Most routes settle well under 1.5 s; we give
 // 5 s before treating a render as stuck.
@@ -198,19 +196,49 @@ async function canOpenTcpConnection(host: string, port: number): Promise<boolean
   });
 }
 
-async function startPreviewServer(): Promise<ChildProcess> {
+/**
+ * Pick a free TCP port on the loopback. A hardcoded 4173 + `--strictPort` made
+ * the prerender fail hard with "Port 4173 is already in use" whenever a prior
+ * run left its preview server orphaned (common on Windows, where SIGTERM to the
+ * `bunx` wrapper does not always reap the vite grandchild). An ephemeral port
+ * sidesteps that entire class of port-collision failures.
+ */
+async function getFreePort(): Promise<number> {
+  return new Promise((resolveProbe, rejectProbe) => {
+    const srv = createServer();
+    srv.unref();
+    srv.once('error', rejectProbe);
+    srv.listen(0, PREVIEW_HOST, () => {
+      const address = srv.address();
+      const port = typeof address === 'object' && address !== null ? address.port : 0;
+      srv.close(() => resolveProbe(port));
+    });
+  });
+}
+
+/**
+ * Best-effort kill of the preview process tree. `bunx` spawns vite as a
+ * grandchild; on Windows a plain SIGTERM to `bunx` leaves vite bound to the
+ * port, so reap the whole tree with taskkill.
+ */
+function killPreviewTree(child: ChildProcess): void {
+  if (child.pid === undefined) {
+    child.kill('SIGTERM');
+    return;
+  }
+  if (process.platform === 'win32') {
+    spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+  } else {
+    child.kill('SIGTERM');
+  }
+}
+
+async function startPreviewServer(): Promise<{ child: ChildProcess; origin: string }> {
+  const port = await getFreePort();
+  const origin = `http://${PREVIEW_HOST}:${port}`;
   const child = spawn(
     'bunx',
-    [
-      '--bun',
-      'vite',
-      'preview',
-      '--host',
-      PREVIEW_HOST,
-      '--port',
-      String(PREVIEW_PORT),
-      '--strictPort',
-    ],
+    ['--bun', 'vite', 'preview', '--host', PREVIEW_HOST, '--port', String(port), '--strictPort'],
     {
       cwd: WEB_ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -222,27 +250,30 @@ async function startPreviewServer(): Promise<ChildProcess> {
   child.stderr?.on('data', (buf: Buffer) => process.stderr.write(`[preview!] ${buf.toString()}`));
 
   // TCP probe — more reliable than parsing stdout. Vite colours the port with
-  // ANSI escapes (`http://127.0.0.1:\x1b[1m4173\x1b[22m/`) so a naïve
-  // `.includes("127.0.0.1:4173")` matched in local TTY runs but failed in CI.
+  // ANSI escapes so a naïve stdout `.includes()` is brittle across TTY/CI.
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
-    if (await canOpenTcpConnection(PREVIEW_HOST, PREVIEW_PORT)) return child;
+    if (await canOpenTcpConnection(PREVIEW_HOST, port)) return { child, origin };
     await new Promise((r) => setTimeout(r, 200));
   }
-  child.kill('SIGTERM');
-  throw new Error(`vite preview did not come up on ${PREVIEW_ORIGIN}`);
+  killPreviewTree(child);
+  throw new Error(`vite preview did not come up on ${origin}`);
 }
 
 // ---------------------------------------------------------------------------
 // Per-route prerender
 // ---------------------------------------------------------------------------
 
-async function prerenderRoute(context: BrowserContext, path: string): Promise<string> {
+async function prerenderRoute(
+  context: BrowserContext,
+  origin: string,
+  path: string
+): Promise<string> {
   const page = await context.newPage();
   // Suppress noisy console output unless explicitly debugging.
   page.on('pageerror', (err) => console.error(`[prerender:${path}] pageerror:`, err.message));
 
-  await page.goto(`${PREVIEW_ORIGIN}${path}`, {
+  await page.goto(`${origin}${path}`, {
     waitUntil: 'networkidle',
     timeout: ROUTE_TIMEOUT_MS,
   });
@@ -294,6 +325,26 @@ async function writeNotFoundFallback(): Promise<void> {
 // Entry
 // ---------------------------------------------------------------------------
 
+/**
+ * Launch headless Chromium with a couple of retries. A cold or
+ * resource-contended machine occasionally blows the launch timeout; a retry is
+ * far cheaper than failing the whole build/deploy on a transient hiccup.
+ */
+async function launchChromiumWithRetry(attempts = 3): Promise<Browser> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await chromium.launch({ timeout: 60_000 });
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[prerender] chromium launch ${attempt}/${attempts} failed: ${msg}`);
+      await new Promise((r) => setTimeout(r, 1_000 * attempt));
+    }
+  }
+  throw lastErr;
+}
+
 async function main(): Promise<void> {
   if (!existsSync(DIST_DIR)) {
     throw new Error(`dist/ not found at ${DIST_DIR} — run \`vite build\` first.`);
@@ -314,10 +365,10 @@ async function main(): Promise<void> {
     if (def !== null) programDefs[meta.id] = def;
   }
 
-  const previewServer = await startPreviewServer();
+  const { child: previewServer, origin: previewOrigin } = await startPreviewServer();
   let browser: Browser | null = null;
   try {
-    browser = await chromium.launch();
+    browser = await launchChromiumWithRetry();
     const context = await browser.newContext({
       // The build hardcodes VITE_API_URL into the bundle; the route below
       // intercepts the catalog endpoint regardless of which absolute origin
@@ -355,7 +406,7 @@ async function main(): Promise<void> {
 
     for (const path of allPaths) {
       try {
-        const html = await prerenderRoute(context, path);
+        const html = await prerenderRoute(context, previewOrigin, path);
         await writeRouteHtml(path, html);
         console.error(`[prerender] OK ${path}`);
       } catch (err) {
@@ -372,7 +423,7 @@ async function main(): Promise<void> {
     await rm(resolve(DIST_DIR, '__not_found__'), { recursive: true, force: true });
   } finally {
     if (browser !== null) await browser.close();
-    previewServer.kill('SIGTERM');
+    killPreviewTree(previewServer);
   }
 }
 

@@ -168,8 +168,18 @@ jobs:
           export IMAGE_TAG
           docker compose pull
           docker compose up -d --remove-orphans
-          docker compose up -d --no-deps --force-recreate caddy
-          docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile </dev/null
+          # Apply Caddyfile changes with a HOT RELOAD, never a force-recreate.
+          # Recreating caddy raced the old container's :443 bind against the new
+          # one ("failed to bind host port 0.0.0.0:443: address already in use"),
+          # which on 2026-06-24 left caddy stuck in "Created" and took the whole
+          # site down. The Caddyfile is a bind-mounted volume so reload alone
+          # applies config changes; the `up -d` above already recreates caddy if
+          # its image genuinely changed. Fall back to `up` only if caddy is not
+          # running (first deploy / previously crashed) - still no force-recreate.
+          if ! docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile </dev/null; then
+            echo "caddy reload failed (container not running?) - starting caddy"
+            docker compose up -d --no-deps caddy
+          fi
           EOF
 
       - name: Health check via VPS
