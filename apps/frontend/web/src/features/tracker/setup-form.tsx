@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { captureError } from '@/lib/sentry';
 import { groupByConsecutive } from '@/lib/group-by-consecutive';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import { Button } from '@/components/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { SelectField } from '@/components/select-field';
 import { localizedProgramName } from '@/lib/catalog-display';
@@ -391,20 +392,24 @@ export function SetupForm({
 
       <div className="flex gap-3">
         {isEditMode && (
-          <button
+          <Button
+            variant="default"
+            size="lg"
             onClick={() => {
               setIsExpanded(false);
               onClose?.();
             }}
-            className="flex-1 py-3.5 border-2 border-rule bg-card text-muted text-base font-bold cursor-pointer hover:bg-hover-row hover:text-main transition-colors"
+            className="flex-1"
           >
             {t('tracker.setup_form.cancel_button')}
-          </button>
+          </Button>
         )}
-        <button
+        <Button
+          variant="primary"
+          size="lg"
           onClick={handleSubmit}
           disabled={(isGenerating ?? false) || isSubmitting}
-          className="flex-1 py-3.5 border-none bg-header text-title text-base font-bold cursor-pointer hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1"
         >
           {isGenerating
             ? t('tracker.setup_form.generating_loading')
@@ -413,7 +418,7 @@ export function SetupForm({
                 ? t('tracker.setup_form.update_button_short')
                 : t('tracker.setup_form.update_button')
               : t('tracker.setup_form.generate_button')}
-        </button>
+        </Button>
       </div>
     </>
   );

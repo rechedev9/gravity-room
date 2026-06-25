@@ -11,6 +11,7 @@ import { useGuest } from '@/contexts/guest-context';
 import { isFrequencyPayload } from '@/lib/insight-payloads';
 import type { FrequencyPayload } from '@/lib/insight-payloads';
 import { GuestBanner } from '@/components/guest-banner';
+import { Kicker } from '@/components/kicker';
 import { DashboardShell } from '@/features/dashboard/dashboard-shell';
 import { NextSetHero } from '@/features/dashboard/next-set-hero';
 import type { ProgramInstance } from '@/features/dashboard/next-set-hero';
@@ -58,6 +59,9 @@ export function HomePage(): React.ReactNode {
     queryKey: queryKeys.programs.all,
     queryFn: fetchPrograms,
     enabled: user !== null && !isGuest,
+    // Returning to the dashboard after logging a session must reflect the new
+    // streak/sessions, so refetch on every mount rather than serving stale cache.
+    refetchOnMount: 'always',
   });
 
   const insightsQuery = useQuery({
@@ -65,6 +69,9 @@ export function HomePage(): React.ReactNode {
     queryFn: () => fetchInsights([...HOME_INSIGHT_TYPES]),
     enabled: user !== null && !isGuest,
     staleTime: 10 * 60 * 1000,
+    // Insights drive the KPI strip; refetch on mount so the dashboard isn't
+    // stuck on the pre-session zero-state after the user logs a workout.
+    refetchOnMount: 'always',
   });
 
   const activeProgram = programsQuery.data?.find((p) => p.status === 'active') ?? null;
@@ -86,6 +93,9 @@ export function HomePage(): React.ReactNode {
   // KPI values from frequency insight
   const streakDays = freqPayload?.currentStreak ?? 0;
   const totalSessions = freqPayload?.totalSessions ?? 0;
+  // Pristine = active program but no sessions logged yet. Show an encouraging
+  // prompt instead of a strip of literal zeros (the hero already owns the gold CTA).
+  const isPristine = totalSessions === 0 && streakDays === 0;
 
   // PR road: no server-side lift history available yet — renders empty state
   const prRoad = usePrRoad(EMPTY_LIFT_HISTORY);
@@ -134,7 +144,25 @@ export function HomePage(): React.ReactNode {
       <DashboardShell
         hero={<NextSetHero programInstance={programInstance} />}
         kpi={
-          <KpiStripBrutalist streakDays={streakDays} totalSessions={totalSessions} weekPr={null} />
+          isPristine ? (
+            <section className="bg-card border border-rule rounded-[var(--radius-base)] p-6 sm:p-8">
+              <Kicker noRule className="mb-3">
+                {t('home.pristine.kicker')}
+              </Kicker>
+              <h2 className="font-display text-3xl sm:text-4xl text-main">
+                {t('home.pristine.title')}
+              </h2>
+              <p className="mt-2 max-w-md text-sm text-muted leading-relaxed">
+                {t('home.pristine.body')}
+              </p>
+            </section>
+          ) : (
+            <KpiStripBrutalist
+              streakDays={streakDays}
+              totalSessions={totalSessions}
+              weekPr={null}
+            />
+          )
         }
         heatmap={<WeekHeatmap workouts={heatmapWorkouts} />}
         split={
@@ -146,21 +174,32 @@ export function HomePage(): React.ReactNode {
         recent={<RecentSessionsList sessions={[]} />}
       />
       {!isGuest && (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-8">
+          <Kicker className="mb-3">{t('home.footer.quick_links')}</Kicker>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Link
               to="/app/profile"
-              className="text-xs text-muted hover:text-main transition-colors inline-flex items-center gap-1"
+              className="group flex items-center justify-between gap-3 bg-card border border-rule rounded-[var(--radius-base)] px-4 py-3 hover:border-rule-light transition-colors"
             >
-              {t('home.footer.view_stats')}
-              <span aria-hidden="true">&rarr;</span>
+              <span className="text-sm text-main">{t('home.footer.view_stats')}</span>
+              <span
+                aria-hidden="true"
+                className="text-muted group-hover:text-main transition-colors"
+              >
+                &rarr;
+              </span>
             </Link>
             <Link
               to="/app/profile"
-              className="text-xs text-muted hover:text-main transition-colors inline-flex items-center gap-1"
+              className="group flex items-center justify-between gap-3 bg-card border border-rule rounded-[var(--radius-base)] px-4 py-3 hover:border-rule-light transition-colors"
             >
-              {t('home.footer.change_language')}
-              <span aria-hidden="true">&rarr;</span>
+              <span className="text-sm text-main">{t('home.footer.change_language')}</span>
+              <span
+                aria-hidden="true"
+                className="text-muted group-hover:text-main transition-colors"
+              >
+                &rarr;
+              </span>
             </Link>
           </div>
         </div>

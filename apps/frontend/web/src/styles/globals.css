@@ -97,8 +97,10 @@
   --color-title: oklch(0.93 0.01 85); /* FORGED IRON — headings are off-white, never gold */
   --color-heading: oklch(0.93 0.01 85); /* matches title */
   --color-muted: oklch(0.7 0.018 78);
-  --color-label: oklch(0.52 0.015 75);
-  --color-info: oklch(0.52 0.015 75);
+  --color-label: oklch(
+    0.575 0.015 75
+  ); /* nudged from 0.52 → AA 4.5:1 for sub-18px on body + card */
+  --color-info: oklch(0.575 0.015 75); /* nudged from 0.52 → AA 4.5:1 for sub-18px on body + card */
   --color-error: oklch(0.66 0.17 28);
   --color-tooltip-text: oklch(0.93 0.01 85);
 

@@ -99,16 +99,16 @@ export function ProgramCard({
         {/* CTA */}
         {showDualActions ? (
           <div className="mt-auto flex flex-col gap-2">
+            <button onClick={onSelect} className={primaryCtaClass}>
+              {isActive ? t('programs.card.continue_training') : t('programs.card.start_program')}
+            </button>
             <Link
               to={previewTo}
-              className={primaryCtaClass}
+              className={secondaryCtaClass}
               aria-label={t('catalog.card.view_program_aria', { name })}
             >
               {t('programs.card.preview')}
             </Link>
-            <button onClick={onSelect} className={secondaryCtaClass}>
-              {isActive ? t('programs.card.continue_training') : t('programs.card.start_program')}
-            </button>
           </div>
         ) : showCta ? (
           to !== undefined ? (

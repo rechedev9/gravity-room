@@ -104,6 +104,17 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
     return (): void => document.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
 
+  // Lock body scroll while the mobile drawer is open so the page behind it
+  // (incl. any sticky tracker toolbar) can't scroll or bleed through.
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return (): void => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+
   const handleGuestExit = useCallback(
     (onItemClick: () => void): void => {
       exitGuestMode();
@@ -120,20 +131,17 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
     });
   }
 
-  function renderContent(onItemClick: () => void): React.ReactNode {
+  function renderContent(onItemClick: () => void, showClose = false): React.ReactNode {
     return (
       <TooltipProvider>
-        <nav
-          aria-label={t('navigation.main_nav_label')}
-          className="flex flex-col h-full overflow-hidden"
-        >
+        <nav aria-label={t('navigation.main_nav_label')} className="flex flex-col h-full min-h-0">
           {/* Logo */}
-          <div className="border-b border-[var(--color-sidebar-border)] flex items-center px-5 py-4 gap-3">
+          <div className="border-b border-[var(--color-sidebar-border)] flex items-center justify-between px-5 py-4 gap-3 shrink-0">
             <Link
               to="/app"
               onClick={onItemClick}
               className={cn(
-                'flex items-center gap-3 rounded-md hover:opacity-80 transition-opacity duration-150',
+                'flex items-center gap-3 min-w-0 rounded-md hover:opacity-80 transition-opacity duration-150',
                 SIDEBAR_FOCUS_RING
               )}
             >
@@ -148,15 +156,42 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                 Gravity Room
               </span>
             </Link>
+            {showClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t('sidebar.close_menu')}
+                className={cn(
+                  'flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--radius-base)] text-muted hover:text-main hover:bg-[var(--color-sidebar-active)]/40 transition-colors cursor-pointer',
+                  SIDEBAR_FOCUS_RING
+                )}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  aria-hidden="true"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M5 5L15 15M15 5L5 15"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </button>
+            )}
           </div>
 
           {/* Nav links */}
-          <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-3">
             {renderNavItems(onItemClick)}
           </div>
 
           {/* User section */}
-          <div className="border-t border-[var(--color-sidebar-border)] px-4 py-4">
+          <div className="border-t border-[var(--color-sidebar-border)] px-4 py-4 shrink-0">
             {isGuest ? (
               <button
                 type="button"
@@ -199,12 +234,14 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
         {renderContent(() => {})}
       </aside>
 
-      {/* Mobile overlay + drawer — always expanded */}
+      {/* Mobile overlay + drawer — always expanded.
+          z-[70] sits above any page-level sticky toolbar (the tracker toolbar is
+          sticky z-50) so the page chrome can't bleed through or steal clicks. */}
       <AnimatePresence>
         {isOpen && (
-          <div className="lg:hidden fixed inset-0 z-50 flex">
+          <div className="lg:hidden fixed inset-0 z-[70] flex">
             <motion.div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
               onClick={onClose}
               aria-hidden="true"
               initial={{ opacity: 0 }}
@@ -220,7 +257,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
               exit={{ x: '-100%' }}
               transition={{ duration: drawerDuration, ease: EASE_OUT_EXPO }}
             >
-              {renderContent(onClose)}
+              {renderContent(onClose, true)}
             </motion.aside>
           </div>
         )}

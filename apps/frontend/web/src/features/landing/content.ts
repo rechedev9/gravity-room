@@ -550,7 +550,7 @@ export const ES_CONTENT: LandingContent = {
     ],
   },
   faq: {
-    sectionLabel: 'Preguntas Frecuentes',
+    sectionLabel: 'Dudas comunes',
     title: 'Preguntas Frecuentes',
     items: FAQ_ITEMS_ES,
   },
@@ -856,7 +856,7 @@ export const EN_CONTENT: LandingContent = {
     ],
   },
   faq: {
-    sectionLabel: 'FAQ',
+    sectionLabel: 'Common questions',
     title: 'Frequently Asked Questions',
     items: FAQ_ITEMS_EN,
   },

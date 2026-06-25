@@ -10,6 +10,7 @@ import type {
 } from '@gzclp/domain/types';
 import { LineChart } from '@/components/charts/line-chart';
 import { BarChart } from '@/components/charts/bar-chart';
+import { EmptyState } from '@/components/empty-state';
 import { groupByConsecutive } from '@/lib/group-by-consecutive';
 
 // ---------------------------------------------------------------------------
@@ -216,9 +217,12 @@ function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): Re
 
   if (!hasAnyResults) {
     return (
-      <div className="text-center py-16">
-        <p className="text-sm font-bold text-muted mb-2">{t('tracker.stats_panel.no_data_yet')}</p>
-        <p className="text-xs text-muted">{t('tracker.stats_panel.complete_first_workout')}</p>
+      <div className="flex min-h-[60vh] flex-col">
+        <EmptyState
+          kicker={t('tracker.stats_panel.empty_kicker')}
+          title={t('tracker.stats_panel.no_data_yet')}
+          body={t('tracker.stats_panel.complete_first_workout')}
+        />
       </div>
     );
   }

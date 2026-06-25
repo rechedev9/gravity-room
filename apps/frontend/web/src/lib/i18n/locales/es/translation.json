@@ -809,6 +809,7 @@
       "success": "éxito",
       "exercise_one": "ejercicio",
       "exercise_other": "ejercicios",
+      "empty_kicker": "SIN DATOS",
       "no_data_yet": "Sin datos aún",
       "complete_first_workout": "Completa tu primer entrenamiento para ver estadísticas y gráficas.",
       "other": "Otros",
@@ -1074,6 +1075,7 @@
   "insights": {
     "page": {
       "title": "Análisis",
+      "kicker": "Tu progreso",
       "meta": "ÚLTIMAS 12 SEMANAS",
       "updated_today": "ACTUALIZADO HOY",
       "section_charts": "Tendencias",
@@ -1382,8 +1384,14 @@
       "no_program_cta": "Ver Programas"
     },
     "footer": {
-      "view_stats": "Ver estadísticas en Perfil",
-      "change_language": "Cambia el idioma en Perfil"
+      "quick_links": "Accesos rápidos",
+      "view_stats": "Estadísticas y logros",
+      "change_language": "Idioma de la app"
+    },
+    "pristine": {
+      "kicker": "Sin sesiones todavía",
+      "title": "Tu primera sesión te espera",
+      "body": "Abre el tracker y registra tu primer entrenamiento. Tu racha y tus sesiones empezarán a contar desde ahí."
     },
     "mentor": {
       "widget_title": "Sensei de la Sala",
@@ -1503,7 +1511,9 @@
     "data_summary": "Datos: {{label}}",
     "workout_header": "Ent.",
     "weight_header": "Peso",
-    "result_header": "Resultado"
+    "result_header": "Resultado",
+    "legend_real": "Real",
+    "legend_projection": "Proyección"
   },
   "tracker_extra": {},
   "sync_status": {

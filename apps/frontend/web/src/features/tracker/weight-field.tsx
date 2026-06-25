@@ -64,7 +64,7 @@ export function WeightField({
           max="500"
           aria-invalid={fieldError ? 'true' : undefined}
           aria-describedby={fieldError ? errorId : undefined}
-          className={`flex-1 min-w-0 px-3 py-2.5 border-2 text-base font-semibold bg-card text-main text-center focus:outline-none transition-colors ${
+          className={`flex-1 min-w-0 px-3 py-2.5 border-2 text-base font-semibold bg-card text-main text-center focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
             fieldError
               ? 'border-error-line focus:border-error-line'
               : isValid

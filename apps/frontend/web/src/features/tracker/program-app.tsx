@@ -475,7 +475,7 @@ export function ProgramApp({
         onCancel={testWeight.handleTestWeightCancel}
       />
 
-      <ShortcutsOverlay />
+      <ShortcutsOverlay enabled={Boolean(config) && rows.length > 0} />
 
       <ToastContainer />
 

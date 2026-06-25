@@ -25,6 +25,10 @@ interface ChartPoint {
   readonly idx: number;
   readonly x: string;
   readonly weight: number;
+  /** Logged sessions: the real, solid-gold series. `null` once the projection begins. */
+  readonly realWeight: number | null;
+  /** Planned projection: the dashed/dimmed series. `null` for the logged segment. */
+  readonly projWeight: number | null;
   readonly result: 'success' | 'fail' | null;
   readonly isPr: boolean;
   readonly isCurrentPr: boolean;
@@ -238,21 +242,44 @@ export function LineChart({
   // Build chart points array
   const points = useMemo<ChartPoint[]>(() => {
     const labelInterval = Math.max(1, Math.ceil(data.length / MAX_LABELS));
-    return data.map((d, i) => ({
-      idx: i,
-      x:
-        i % labelInterval === 0 || i === data.length - 1
-          ? buildLabel(d, i, resultTimestamps)
-          : `_${i}`,
-      weight: d.weight,
-      result: d.result,
-      isPr: prInfo.prSet.has(i),
-      isCurrentPr: i === prInfo.currentMaxIdx,
-      stage: d.stage,
-      date: d.date,
-      amrapReps: d.amrapReps,
-      isProjected: i > lastMarkedIdx,
-    }));
+    let lastEmittedLabel: string | null = null;
+    return data.map((d, i) => {
+      const isProjected = i > lastMarkedIdx;
+      // Split the weight into two series so the logged sessions (solid gold) and
+      // the planned projection (dashed/dimmed) read as different things. The
+      // junction point (lastMarkedIdx) belongs to both so the lines join cleanly.
+      const realWeight = i <= lastMarkedIdx ? d.weight : null;
+      const projWeight = i >= lastMarkedIdx ? d.weight : null;
+
+      // A tick is emitted on the interval (and always for the final point). Skip
+      // the label when it duplicates the previously emitted one so adjacent ticks
+      // (e.g. the logged point and the first projected point both at the origin)
+      // don't overprint as "#1#1". `_${i}` is a sentinel the tickFormatter blanks.
+      const wantsLabel = i % labelInterval === 0 || i === data.length - 1;
+      let x = `_${i}`;
+      if (wantsLabel) {
+        const candidate = buildLabel(d, i, resultTimestamps);
+        if (candidate !== lastEmittedLabel) {
+          x = candidate;
+          lastEmittedLabel = candidate;
+        }
+      }
+
+      return {
+        idx: i,
+        x,
+        weight: d.weight,
+        realWeight,
+        projWeight,
+        result: d.result,
+        isPr: prInfo.prSet.has(i),
+        isCurrentPr: i === prInfo.currentMaxIdx,
+        stage: d.stage,
+        date: d.date,
+        amrapReps: d.amrapReps,
+        isProjected,
+      };
+    });
   }, [data, lastMarkedIdx, prInfo, resultTimestamps]);
 
   if (lastMarkedIdx < 0) {
@@ -279,17 +306,44 @@ export function LineChart({
     );
   }
 
-  const solidPoints = points.slice(0, lastMarkedIdx + 1);
-  const projectedPoints = lastMarkedIdx < data.length - 1 ? points.slice(lastMarkedIdx) : [];
+  const hasProjection = lastMarkedIdx < data.length - 1;
 
   const tickFormatter = (val: string): string => (val.startsWith('_') ? '' : val);
 
   return (
     <figure>
       <figcaption className="sr-only">{label}</figcaption>
-      <div style={{ height: 'clamp(200px, 25vw, 300px)' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={solidPoints} margin={{ top: 8, right: 8, bottom: 4, left: 2 }}>
+      {hasProjection && mode === 'weight' && (
+        <div className="flex items-center gap-4 mb-2 font-mono text-2xs text-muted">
+          <span className="flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="inline-block w-4 h-0.5"
+              style={{ background: theme.line }}
+            />
+            {t('chart.legend_real')}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              aria-hidden
+              className="inline-block w-4 border-t border-dashed"
+              style={{ borderColor: theme.line, opacity: 0.5 }}
+            />
+            {t('chart.legend_projection')}
+          </span>
+        </div>
+      )}
+      <div style={{ width: '100%', height: 'clamp(200px, 25vw, 300px)', minHeight: 200 }}>
+        {/* initialDimension gives recharts a positive size on the very first paint
+            (its default is {-1,-1}, which logs the "width(-1)/height(-1)" warning)
+            before the ResizeObserver reports the real box and corrects it. */}
+        <ResponsiveContainer
+          width="100%"
+          height="100%"
+          minHeight={200}
+          initialDimension={{ width: 320, height: 220 }}
+        >
+          <ComposedChart data={points} margin={{ top: 8, right: 8, bottom: 4, left: 2 }}>
             <CartesianGrid stroke={theme.grid} strokeWidth={0.5} vertical={false} />
             <XAxis
               dataKey="x"
@@ -298,6 +352,7 @@ export function LineChart({
               axisLine={false}
               tickFormatter={tickFormatter}
               interval={0}
+              minTickGap={20}
             />
             <YAxis
               tick={{ fill: theme.text, fontSize: 10, fontFamily: 'JetBrains Mono, monospace' }}
@@ -346,34 +401,38 @@ export function LineChart({
               />
             ))}
 
-            {/* Stepped fill + line (machined, no curves) */}
-            <Area
-              type="stepAfter"
-              dataKey="weight"
-              stroke={theme.line}
-              strokeWidth={2}
-              fill={theme.line}
-              fillOpacity={0.07}
-              dot={<CustomDot />}
-              activeDot={false}
-              isAnimationActive={false}
-            />
-
-            {/* Projected (future) line */}
-            {projectedPoints.length > 0 && (
+            {/* Planned projection — dashed + dimmed so it never reads as logged
+                data. Drawn first so the solid logged series sits on top at the
+                junction. `connectNulls={false}` keeps it off the logged segment. */}
+            {hasProjection && (
               <Line
-                data={projectedPoints}
                 type="stepAfter"
-                dataKey="weight"
+                dataKey="projWeight"
                 stroke={theme.line}
                 strokeWidth={2}
                 strokeDasharray="6 4"
                 strokeOpacity={0.3}
                 dot={false}
                 activeDot={false}
+                connectNulls={false}
                 isAnimationActive={false}
               />
             )}
+
+            {/* Logged sessions — solid gold stepped fill + line with result
+                markers (machined, no curves). */}
+            <Area
+              type="stepAfter"
+              dataKey="realWeight"
+              stroke={theme.line}
+              strokeWidth={2}
+              fill={theme.line}
+              fillOpacity={0.07}
+              dot={<CustomDot />}
+              activeDot={false}
+              connectNulls={false}
+              isAnimationActive={false}
+            />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

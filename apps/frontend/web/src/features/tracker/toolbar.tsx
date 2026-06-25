@@ -44,9 +44,15 @@ export function Toolbar({
       />
 
       <div className="flex items-center gap-4 flex-wrap">
-        {/* Left */}
-        <div className="flex items-center gap-3 shrink-0">
-          <Button size="sm" onClick={onUndo} disabled={undoCount === 0}>
+        {/* Left - canonical undo surface (toolbar). The transient post-action toast
+            offers the same action inline; there is no third competing affordance. */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            onClick={onUndo}
+            disabled={undoCount === 0}
+            className="disabled:opacity-60 disabled:border-rule-light"
+          >
             {t('tracker.toolbar.undo_button')}
           </Button>
           {undoCount > 0 && (

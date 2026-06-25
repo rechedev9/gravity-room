@@ -129,7 +129,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
           {/* Microcopy — reassurance below CTA */}
           <motion.p
             variants={fadeUpVariants}
-            className="font-mono text-[11px] tracking-wider text-label mb-8"
+            className="font-mono text-[11px] tracking-wider text-muted mb-8"
           >
             {content.microcopy}
           </motion.p>
@@ -143,7 +143,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
             {content.proofItems.map((item) => (
               <li
                 key={item.label}
-                className="font-mono inline-flex items-center gap-2 px-3 py-1.5 border border-rule-light bg-card text-[11px] tracking-wide text-label"
+                className="font-mono inline-flex items-center gap-2 px-3 py-1.5 border border-rule-light bg-card text-[11px] tracking-wide text-muted"
               >
                 <span className="text-accent font-bold" aria-hidden="true">
                   {item.value}

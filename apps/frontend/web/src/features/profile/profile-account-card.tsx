@@ -142,7 +142,12 @@ export function ProfileAccountCard({
               </span>
             </button>
           )}
-          <p className="text-xs text-muted truncate">{user.email}</p>
+          {/* When the user has no display name, `displayName` falls back to the
+              email and the editable control above already shows it - so only
+              render the email here when it isn't a duplicate of that control. */}
+          {displayName !== user.email && (
+            <p className="text-xs text-muted truncate">{user.email}</p>
+          )}
           {user.avatarUrl && (
             <button
               type="button"

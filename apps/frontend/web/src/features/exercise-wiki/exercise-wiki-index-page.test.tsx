@@ -26,6 +26,16 @@ mock.module('@tanstack/react-router', () => ({
   },
 }));
 
+// The page reads auth/guest to decide whether to show the back-to-app affordance.
+// Stub both as logged-out so the test renders the public view in isolation
+// (no AuthProvider/GuestProvider needed), matching the Link-mocking convention above.
+mock.module('@/contexts/auth-context', () => ({
+  useAuth: () => ({ user: null }),
+}));
+mock.module('@/contexts/guest-context', () => ({
+  useGuest: () => ({ isGuest: false }),
+}));
+
 import { ExerciseWikiIndexPage } from './exercise-wiki-index-page';
 
 describe('ExerciseWikiIndexPage', () => {

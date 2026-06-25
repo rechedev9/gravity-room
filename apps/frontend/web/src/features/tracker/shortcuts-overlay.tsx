@@ -1,15 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/button';
 import { hasSeenShortcuts, markShortcutsSeen } from './shortcuts-storage';
 
-export function ShortcutsOverlay(): React.ReactNode {
+interface ShortcutsOverlayProps {
+  /**
+   * Only auto-open once the workout grid exists. The shortcuts are meaningless on
+   * the setup screen (no grid to act on), so we defer the first-run prompt until
+   * there is something to apply it to.
+   */
+  readonly enabled: boolean;
+}
+
+export function ShortcutsOverlay({ enabled }: ShortcutsOverlayProps): React.ReactNode {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
-    if (!hasSeenShortcuts()) setOpen(true);
-  }, []);
+    if (enabled && !hasSeenShortcuts()) setOpen(true);
+  }, [enabled]);
 
   useEffect(() => {
     if (open) dialogRef.current?.showModal();
@@ -44,13 +54,9 @@ export function ShortcutsOverlay(): React.ReactNode {
         <dd className="text-main">{t('tracker.shortcuts.undo_last')}</dd>
       </dl>
       <div className="mt-6 flex justify-end">
-        <button
-          type="button"
-          onClick={dismiss}
-          className="bg-accent text-on-accent border-[1.5px] border-accent rounded-[var(--radius-base)] px-5 py-2 font-bold uppercase tracking-wide hover:bg-accent-hover active:translate-y-px transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]"
-        >
+        <Button variant="primary" onClick={dismiss}>
           {t('tracker.shortcuts.understood')}
-        </button>
+        </Button>
       </div>
     </dialog>
   );

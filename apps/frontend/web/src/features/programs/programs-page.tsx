@@ -76,9 +76,9 @@ export function ProgramsPage(): React.ReactNode {
 
         {/* Catalog */}
         <section className="mb-10">
-          <h2 className="dash-section-title mb-4">
-            {activeProgram ? t('programs.other_programs') : t('programs.choose_program')}
-          </h2>
+          {activeProgram && (
+            <h2 className="dash-section-title mb-4">{t('programs.other_programs')}</h2>
+          )}
 
           {catalogQuery.isLoading && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

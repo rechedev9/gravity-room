@@ -175,16 +175,34 @@ function SlotTable({
     [handleConfirmSet]
   );
 
+  // Whether the slot is finished but the user never logged individual sets
+  // (marked success/fail straight from the footer). In that case we still want
+  // to show the prescribed reps rather than collapsing every cell to a dash.
+  const doneWithoutLogs = isDone && confirmedCount === 0;
+  const slotSucceeded = slot.result === 'success';
+
   return (
     <SlotCardShell slot={slot} isCurrent={isCurrent}>
-      {/* Per-set table */}
+      {/* Per-set table. On wide screens it is width-capped and left-aligned so the
+          Kg / Reps columns sit beside Serie instead of stretching edge-to-edge. */}
       <div className="overflow-x-auto mb-3">
-        <table className="w-full border-collapse" aria-label={`Series de ${slot.exerciseName}`}>
+        <table
+          className="w-full lg:max-w-md border-collapse"
+          aria-label={`Series de ${slot.exerciseName}`}
+        >
+          <colgroup>
+            <col className="w-12" />
+            <col />
+            <col />
+            <col />
+            <col className="w-12" />
+          </colgroup>
           <thead>
             <tr className="border-b border-rule">
               <th className="text-2xs font-bold text-muted uppercase text-left py-1 pr-2">Serie</th>
               <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-2">Kg</th>
               <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-2">Reps</th>
+              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-2">Obj.</th>
               <th className="text-2xs font-bold text-muted uppercase text-center py-1 pl-2"> </th>
             </tr>
           </thead>
@@ -195,6 +213,9 @@ function SlotTable({
               const isNextToConfirm = rowIndex === confirmedCount && !isDone;
 
               const metTarget = log !== undefined && log.reps >= row.plannedReps;
+              // For a done-without-logs slot, colour the prescribed reps by the
+              // slot-level result so the completed state still reads at a glance.
+              const doneTone = slotSucceeded ? 'text-ok' : 'text-fail';
 
               const warmupClasses = row.isWarmup ? 'text-muted italic' : '';
               const amrapBorder = row.isAmrap ? 'border-l-2 border-accent' : '';
@@ -216,6 +237,8 @@ function SlotTable({
                       <span className={metTarget ? 'text-ok' : 'text-fail'}>
                         {row.plannedWeight}
                       </span>
+                    ) : doneWithoutLogs ? (
+                      <span className="text-muted">{row.plannedWeight ?? EM_DASH}</span>
                     ) : (
                       <span>{row.plannedWeight ?? EM_DASH}</span>
                     )}
@@ -225,8 +248,16 @@ function SlotTable({
                   <td className="text-sm tabular-nums text-right py-1.5 px-2">
                     {isConfirmed && log ? (
                       <span className={metTarget ? 'text-ok' : 'text-fail'}>{log.reps}</span>
+                    ) : isDone && log ? (
+                      <span className={log.reps >= row.plannedReps ? 'text-ok' : 'text-fail'}>
+                        {log.reps}
+                      </span>
+                    ) : doneWithoutLogs ? (
+                      // Keep prescribed reps visible after completion (greyed) rather
+                      // than collapsing to a dash - the user did complete these.
+                      <span className={`${doneTone} opacity-80`}>{row.plannedReps}</span>
                     ) : isDone ? (
-                      <span className="text-muted">{log?.reps ?? EM_DASH}</span>
+                      <span className="text-muted">{EM_DASH}</span>
                     ) : (
                       <input
                         type="number"
@@ -241,6 +272,12 @@ function SlotTable({
                     )}
                   </td>
 
+                  {/* Target reps \u2014 fills the previously empty horizontal space */}
+                  <td className="text-sm tabular-nums text-right py-1.5 px-2 text-muted">
+                    {row.plannedReps}
+                    {row.isAmrap ? '+' : ''}
+                  </td>
+
                   {/* Confirm button */}
                   <td className="text-center py-1.5 pl-2">
                     {isConfirmed ? (
@@ -249,6 +286,13 @@ function SlotTable({
                         aria-label={metTarget ? 'Serie completada' : 'Serie fallada'}
                       >
                         {metTarget ? '\u2713' : '\u2717'}
+                      </span>
+                    ) : doneWithoutLogs ? (
+                      <span
+                        className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-sm ${slotSucceeded ? 'text-ok bg-ok-bg' : 'text-fail bg-fail-bg'}`}
+                        aria-label={slotSucceeded ? 'Serie completada' : 'Serie fallada'}
+                      >
+                        {slotSucceeded ? '\u2713' : '\u2717'}
                       </span>
                     ) : isDone ? null : (
                       <button

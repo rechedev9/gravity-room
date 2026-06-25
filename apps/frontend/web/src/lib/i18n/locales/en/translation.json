@@ -809,6 +809,7 @@
       "success": "success",
       "exercise_one": "exercise",
       "exercise_other": "exercises",
+      "empty_kicker": "NO DATA",
       "no_data_yet": "No data yet",
       "complete_first_workout": "Complete your first workout to see statistics and charts.",
       "other": "Other",
@@ -1074,6 +1075,7 @@
   "insights": {
     "page": {
       "title": "Insights",
+      "kicker": "Your progress",
       "meta": "LAST 12 WEEKS",
       "updated_today": "UPDATED TODAY",
       "section_charts": "Trends",
@@ -1382,8 +1384,14 @@
       "no_program_cta": "View Programs"
     },
     "footer": {
-      "view_stats": "View stats in Profile",
-      "change_language": "Change language in Profile"
+      "quick_links": "Quick links",
+      "view_stats": "Stats and achievements",
+      "change_language": "App language"
+    },
+    "pristine": {
+      "kicker": "No sessions yet",
+      "title": "Your first session is waiting",
+      "body": "Open the tracker and log your first workout. Your streak and sessions start counting from there."
     },
     "mentor": {
       "widget_title": "Gravity Sensei",
@@ -1503,7 +1511,9 @@
     "data_summary": "Data: {{label}}",
     "workout_header": "Wkt.",
     "weight_header": "Weight",
-    "result_header": "Result"
+    "result_header": "Result",
+    "legend_real": "Real",
+    "legend_projection": "Projection"
   },
   "sync_status": {
     "syncing": "Syncing...",

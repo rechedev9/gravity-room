@@ -11,6 +11,7 @@ import { Kicker } from '@/components/kicker';
 import { Tag } from '@/components/tag';
 import { StatBlock } from '@/components/stat-block';
 import { CornerTicks } from '@/components/corner-ticks';
+import { EmptyState } from '@/components/empty-state';
 import { FrequencyCard } from './frequency-card';
 import { PlateauAlert } from './plateau-alert';
 import { LoadRecommendation } from './load-recommendation';
@@ -86,7 +87,7 @@ export function InsightsPage(): React.ReactNode {
         <header className="mb-8 flex items-end justify-between gap-4">
           <div>
             <Kicker noRule className="mb-2">
-              {t('insights.page.meta')}
+              {t('insights.page.kicker')}
             </Kicker>
             <h1 className="font-display text-4xl leading-none text-main sm:text-5xl">
               {t('insights.page.title')}
@@ -96,16 +97,14 @@ export function InsightsPage(): React.ReactNode {
         </header>
 
         {!hasContent && !insightsQuery.isLoading ? (
-          <div className="border border-rule bg-card px-6 py-16 text-center">
-            <Kicker noRule className="justify-center">
-              {t('insights.page.title')}
-            </Kicker>
-            <p className="mt-4 font-display text-3xl text-muted sm:text-4xl">
-              {t('insights.page.empty_heading')}
-            </p>
-            <p className="mx-auto mt-3 max-w-md text-sm text-muted">
-              {t('insights.page.empty_description')}
-            </p>
+          // min-h gives the self-centering EmptyState panel room to sit
+          // vertically centred in the space below the header.
+          <div className="flex min-h-[50vh] flex-col">
+            <EmptyState
+              kicker={t('insights.page.kicker')}
+              title={t('insights.page.empty_heading')}
+              body={t('insights.page.empty_description')}
+            />
           </div>
         ) : (
           <>
