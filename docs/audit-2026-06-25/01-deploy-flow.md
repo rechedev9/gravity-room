@@ -64,7 +64,12 @@ Resolution (with the owner's choice of fix):
 - [ ] Registry-503 retry on `build-images` (transient-failure resilience).
 - [ ] Auto-rollback to previous `:sha` on health-check failure.
 - [ ] Cache Playwright browser install in `build-web`.
-- [ ] Confirm the new deploy (with the caddy fix) succeeds end to end once my commits land on main.
+- [x] Confirm the new deploy (with the caddy fix) succeeds end to end. **DONE** - deploy run
+      `28193503567` (commit `3c5c471`) finished **success**; prod verified externally (web 200, API
+      health ok, fresh api uptime). First green deploy after the outage; the caddy hot-reload kept the
+      site up through the deploy (no :443 race).
+- [ ] Minor: deploy.yml pins `actions/checkout|upload-artifact|download-artifact` at versions that
+      target Node 20 (now deprecation-warned, forced onto Node 24). Bump to current major when convenient.
 
 ## Log (newest first)
 
