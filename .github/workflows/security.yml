@@ -70,9 +70,15 @@ jobs:
           if [ "$EVENT_NAME" = "pull_request" ]; then
             LOG_OPTS="--log-opts=${PR_BASE_SHA}..${PR_HEAD_SHA}"
           fi
+          # --config is REQUIRED: gitleaks runs with the container CWD at `/`,
+          # not the mounted `/repo`, so it cannot auto-discover the repo's
+          # .gitleaks.toml. Without this, the project allowlist is ignored and
+          # the scan re-flags long-lived false positives (the public IndexNow
+          # key, fake-JWT test fixtures), failing every push to main.
           docker run --rm \
             -v "$PWD:/repo" \
             ghcr.io/gitleaks/gitleaks:v8.30.0 git /repo \
+            --config=/repo/.gitleaks.toml \
             $LOG_OPTS \
             --redact \
             --no-banner \

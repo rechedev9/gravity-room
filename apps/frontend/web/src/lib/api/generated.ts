@@ -17,15 +17,12 @@ const postApiAuthSignup_Body = z
     password: z.string().min(8).max(200),
     name: z.string().min(1).max(100).optional(),
   })
-  .passthrough()
   .readonly();
 const postApiAuthLogin_Body = z
   .object({ email: z.string().max(254).email(), password: z.string().min(1).max(200) })
-  .passthrough()
   .readonly();
 const postApiAuthReset_password_Body = z
   .object({ token: z.string().min(1).max(256), password: z.string().min(8).max(200) })
-  .passthrough()
   .readonly();
 const postApiAuthAppleCallback_Body = z
   .object({
@@ -36,6 +33,14 @@ const postApiAuthAppleCallback_Body = z
     error: z.string().max(512),
   })
   .partial()
+  .passthrough()
+  .readonly();
+const postApiAuthDevPassword_user_Body = z
+  .object({
+    email: z.string().max(254).email(),
+    password: z.string().min(8).max(200),
+    name: z.string().min(1).max(100).optional(),
+  })
   .passthrough()
   .readonly();
 const patchApiAuthMe_Body = z
@@ -138,6 +143,7 @@ export const schemas = {
   postApiAuthLogin_Body,
   postApiAuthReset_password_Body,
   postApiAuthAppleCallback_Body,
+  postApiAuthDevPassword_user_Body,
   patchApiAuthMe_Body,
   limit,
   postApiPrograms_Body,
@@ -172,6 +178,32 @@ export const endpoints = [
   },
   {
     method: 'post',
+    path: '/api/auth/dev',
+    requestFormat: 'json',
+    parameters: [
+      {
+        name: 'body',
+        type: 'Body',
+        schema: z.object({ email: z.string().max(254).email() }).readonly(),
+      },
+    ],
+    response: z.void(),
+  },
+  {
+    method: 'post',
+    path: '/api/auth/dev/password-user',
+    requestFormat: 'json',
+    parameters: [
+      {
+        name: 'body',
+        type: 'Body',
+        schema: postApiAuthDevPassword_user_Body,
+      },
+    ],
+    response: z.void(),
+  },
+  {
+    method: 'post',
     path: '/api/auth/forgot-password',
     description: `Sends a reset link when a password account exists. Always returns 200 to avoid account enumeration.`,
     requestFormat: 'json',
@@ -179,10 +211,7 @@ export const endpoints = [
       {
         name: 'body',
         type: 'Body',
-        schema: z
-          .object({ email: z.string().max(254).email() })
-          .passthrough()
-          .readonly(),
+        schema: z.object({ email: z.string().max(254).email() }).readonly(),
       },
     ],
     response: z.void(),
@@ -614,10 +643,7 @@ export const endpoints = [
       {
         name: 'body',
         type: 'Body',
-        schema: z
-          .object({ token: z.string().min(1).max(256) })
-          .passthrough()
-          .readonly(),
+        schema: z.object({ token: z.string().min(1).max(256) }).readonly(),
       },
     ],
     response: z.void(),
