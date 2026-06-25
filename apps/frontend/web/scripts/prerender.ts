@@ -289,7 +289,12 @@ async function prerenderRoute(
   // resolution comfortably finish inside that window.
   await page.waitForTimeout(600);
 
-  const html = await page.content();
+  // Vite/React inject <link rel="modulepreload"> for route chunks at runtime,
+  // resolved against the live preview origin (http://127.0.0.1:<port>), and
+  // page.content() captures them absolute. Strip the origin so the shipped
+  // static HTML keeps those hrefs root-relative - otherwise the prod CSP blocks
+  // every preload (console-error noise + lost preload perf on prerendered pages).
+  const html = (await page.content()).split(origin).join('');
   await page.close();
   return html;
 }
