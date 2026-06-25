@@ -5,11 +5,11 @@ has been repeatedly painful. Each workstream maintains its own progress file her
 
 ## Workstreams
 
-| #   | Workstream                                        | Owner      | File                                                 | Status                                             |
-| --- | ------------------------------------------------- | ---------- | ---------------------------------------------------- | -------------------------------------------------- |
-| 1   | Deploy flow (GitHub → VPS) review + optimizations | main agent | [`01-deploy-flow.md`](./01-deploy-flow.md)           | ✅ P0 outage fixed + opts applied (proposals open) |
-| 2   | Recurring CI failures: analyze + fix              | subagent A | [`02-ci-failures.md`](./02-ci-failures.md)           | ✅ fixes applied (some proposals open)             |
-| 3   | UI / design E2E review (report-only)              | subagent B | [`03-ui-design-review.md`](./03-ui-design-review.md) | ✅ report complete (12 findings)                   |
+| #   | Workstream                                        | Owner                 | File                                                 | Status                                               |
+| --- | ------------------------------------------------- | --------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
+| 1   | Deploy flow (GitHub → VPS) review + optimizations | main agent            | [`01-deploy-flow.md`](./01-deploy-flow.md)           | ✅ P0 outage fixed + opts applied (proposals open)   |
+| 2   | Recurring CI failures: analyze + fix              | subagent A            | [`02-ci-failures.md`](./02-ci-failures.md)           | ✅ fixes applied (some proposals open)               |
+| 3   | UI / design E2E review + apply                    | subagent B + workflow | [`03-ui-design-review.md`](./03-ui-design-review.md) | ✅ all findings applied (commit `e7702cf`), verified |
 
 ## Context snapshot
 
