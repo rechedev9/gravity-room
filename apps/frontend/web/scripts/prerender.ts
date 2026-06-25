@@ -243,6 +243,9 @@ async function startPreviewServer(): Promise<{ child: ChildProcess; origin: stri
       cwd: WEB_ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: process.env,
+      // On Windows, spawning a bare `bunx` without a shell raises ENOENT (it
+      // resolves to bunx.cmd/.exe only through the shell's PATHEXT lookup).
+      shell: process.platform === 'win32',
     }
   );
 

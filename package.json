@@ -14,6 +14,7 @@
     "dev:api": "bun run --filter api dev",
     "build": "bun run --filter web build",
     "build:ci": "VITE_API_URL=${VITE_API_URL:-http://localhost:3001} bun run build",
+    "build:ci:no-prerender": "VITE_API_URL=${VITE_API_URL:-http://localhost:3001} bun run --filter web build:no-prerender",
     "build:web": "bun run --filter web build",
     "typecheck": "bun run --filter web typecheck && bun run typecheck:domain && bun run typecheck:database && bun run typecheck:api-client && bun run typecheck:mobile",
     "typecheck:api": "bun run --filter api typecheck",

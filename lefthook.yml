@@ -35,7 +35,12 @@ pre-push:
     test:
       run: bun run test
     build:
-      run: bun run build:ci
+      # Build WITHOUT the Playwright prerender. The prerender boots headless
+      # Chromium, which is environment-fragile locally (Chromium launch timeouts
+      # on Windows repeatedly blocked pushes). CI's `build-web` job runs the full
+      # build + prerender on a clean runner and gates the deploy, so pre-push only
+      # needs `vite build` to catch real build/TS breakage fast and reliably.
+      run: bun run build:ci:no-prerender
 
 # api-types-drift was removed from pre-push because it requires a live API on
 # http://localhost:3001/swagger/json that nobody has running locally before
