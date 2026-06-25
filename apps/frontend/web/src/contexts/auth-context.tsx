@@ -67,6 +67,13 @@ type AuthContextValue = AuthState & AuthActions;
 
 const SESSION_QUERY_KEY = queryKeys.auth.session;
 
+// DEV-only shared secret for POST /auth/dev. Must match the API's
+// AUTH_DEV_ROUTE_SECRET. Defaults to the value the e2e suite uses
+// (playwright.config.ts) so the in-app Dev Login works with zero config;
+// override via VITE_DEV_AUTH_SECRET when the API runs a different secret.
+// This whole sign-in path is dead-code-eliminated from production builds.
+const DEV_AUTH_SECRET = import.meta.env.VITE_DEV_AUTH_SECRET ?? 'e2e-dev-secret-not-for-prod';
+
 // ---------------------------------------------------------------------------
 // Session restore
 // ---------------------------------------------------------------------------
@@ -237,6 +244,7 @@ export function AuthProvider({
     try {
       const data = await apiFetch('/auth/dev', {
         method: 'POST',
+        headers: { 'x-dev-auth-secret': DEV_AUTH_SECRET },
         body: JSON.stringify({ email: 'dev@localhost.dev' }),
       });
       return applySignInResponse(data, setSessionData, { trackSignup: false });
