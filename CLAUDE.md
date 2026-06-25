@@ -328,6 +328,44 @@ VPS layout: `/opt/gravity-room/{docker-compose.yml, Caddyfile, .env, data/web-di
 Secrets/vars used by the workflow: `VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER`,
 `VITE_GOOGLE_CLIENT_ID`.
 
+### Accessing the production VPS (SSH)
+
+Deploys are automatic on push to `main`, but managing or diagnosing them is done by SSH-ing into the box.
+The deploy server is a self-hosted Hetzner VPS, reached **directly over its public IP** (`178.105.107.25`),
+not over Tailscale - no VPN needs to be running. Access is key-only (no passwords); the private key is the
+secret, so the host/IP being written down here is harmless.
+
+```powershell
+ssh gr-prod                       # alias → root@178.105.107.25 (ed25519 key)
+ssh root@178.105.107.25           # same box, explicit
+scp ./file gr-prod:/opt/gravity-room/   # copy a file up
+```
+
+The `gr-prod` alias and key live in the operator's local `~/.ssh/` (`C:\Users\reche\.ssh\` on Windows):
+
+- `config` - `Host gr-prod` → `HostName 178.105.107.25`, `User root`, `IdentityFile ~/.ssh/gr_deploy_ed25519`.
+- `gr_deploy_ed25519` (+ `.pub`) - the deploy keypair (same key the CI `VPS_SSH_KEY` secret uses).
+- `known_hosts` - the VPS host keys are pre-trusted so the first connect does not prompt.
+- **Windows ACL gotcha:** the private key file must be locked to your user only
+  (`icacls gr_deploy_ed25519 /inheritance:r /grant:r "$($env:USERNAME):F"`) or Windows OpenSSH refuses it
+  as "permissions are too open" and falls back to a password prompt.
+
+Once on the box, deployments are plain Docker Compose under `/opt/gravity-room/`:
+
+```bash
+cd /opt/gravity-room
+docker compose ps                 # service status (api, postgres, analytics, caddy)
+docker compose logs -f api        # tail a service
+docker compose pull && docker compose up -d   # manual re-deploy (what deploy.yml does over SSH)
+docker compose restart api        # bounce one service
+nano .env && docker compose up -d # apply an env change (see the env-var footgun below)
+curl -fsS localhost/health        # health-check the running api
+```
+
+Prefer pushing to `main` and letting `deploy.yml` run; reach for manual `compose` only to diagnose or
+recover. To watch a deploy from your machine instead of the VPS, use `gh run watch` (see _Diagnosing a
+failed deploy_ below).
+
 ### Don't break the deploy — known footguns (each now has a CI guard)
 
 - **New workspace package → update the api Dockerfile.** The api image runs
