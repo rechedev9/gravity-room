@@ -1,5 +1,11 @@
 # Railway deployment
 
+> **HISTORICAL — superseded.** Gravity Room has migrated off Railway to a single
+> same-origin Vercel project (Neon Postgres + Upstash Redis, serverless Elysia via
+> `app.fetch`). This document is retained only as a record of the old Railway
+> topology and is no longer accurate for deploys. For the current go-live
+> procedure see [`VERCEL_CUTOVER.md`](./VERCEL_CUTOVER.md).
+
 The web SPA + API + Postgres + Redis run on a single Railway project. Web SPA static-served by Railpack; API runs on Bun via Railpack with the Bun-workspace shared-monorepo pattern.
 
 ## Project topology

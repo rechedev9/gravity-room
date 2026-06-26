@@ -144,7 +144,7 @@ _31 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
 
 ### System
 
-- `GET /health` — Health check
+- `GET /api/health` — Health check
 <!-- AUTO:API-END -->
 
 ## Auto-generated: Database schema

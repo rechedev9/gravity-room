@@ -103,61 +103,65 @@ export function createApp(options: CreateAppOptions) {
         .use(statsRoutes)
         .use(insightsRoutes)
         .use(internalRoutes)
-    )
-    .get(
-      '/health',
-      async ({ set }) => {
-        const start = Date.now();
-        let dbStatus: { status: 'ok'; latencyMs: number } | { status: 'error'; error: string };
-        try {
-          await getDb().execute(sql`SELECT 1`);
-          dbStatus = { status: 'ok', latencyMs: Date.now() - start };
-        } catch (e) {
-          logger.error({ err: e }, 'Database health check failed');
-          dbStatus = { status: 'error', error: 'Unavailable' };
-        }
+        // Health lives UNDER /api (GET /api/health) so it is reachable on Vercel,
+        // where only /api/* hits the function and every other path rewrites to
+        // index.html. Stateless probe: a live DB SELECT plus an Upstash ping,
+        // returning 503 only when the database is unreachable.
+        .get(
+          '/health',
+          async ({ set }) => {
+            const start = Date.now();
+            let dbStatus: { status: 'ok'; latencyMs: number } | { status: 'error'; error: string };
+            try {
+              await getDb().execute(sql`SELECT 1`);
+              dbStatus = { status: 'ok', latencyMs: Date.now() - start };
+            } catch (e) {
+              logger.error({ err: e }, 'Database health check failed');
+              dbStatus = { status: 'error', error: 'Unavailable' };
+            }
 
-        type RedisStatus =
-          | { status: 'ok'; latencyMs: number }
-          | { status: 'disabled' }
-          | { status: 'error'; error: string };
+            type RedisStatus =
+              | { status: 'ok'; latencyMs: number }
+              | { status: 'disabled' }
+              | { status: 'error'; error: string };
 
-        let redisStatus: RedisStatus;
-        const redis = getRedis();
-        if (!redis) {
-          redisStatus = { status: 'disabled' };
-        } else {
-          const redisStart = Date.now();
-          try {
-            await redis.ping();
-            redisStatus = { status: 'ok', latencyMs: Date.now() - redisStart };
-          } catch (e) {
-            logger.error({ err: e }, 'Redis health check failed');
-            redisStatus = { status: 'error', error: 'Unavailable' };
-          }
-        }
+            let redisStatus: RedisStatus;
+            const redis = getRedis();
+            if (!redis) {
+              redisStatus = { status: 'disabled' };
+            } else {
+              const redisStart = Date.now();
+              try {
+                await redis.ping();
+                redisStatus = { status: 'ok', latencyMs: Date.now() - redisStart };
+              } catch (e) {
+                logger.error({ err: e }, 'Redis health check failed');
+                redisStatus = { status: 'error', error: 'Unavailable' };
+              }
+            }
 
-        const overall = dbStatus.status === 'ok' ? 'ok' : 'degraded';
-        if (overall === 'degraded') set.status = 503;
-        return {
-          status: overall,
-          timestamp: new Date().toISOString(),
-          db: dbStatus,
-          redis: redisStatus,
-        };
-      },
-      {
-        detail: {
-          tags: ['System'],
-          summary: 'Health check',
-          description:
-            'Stateless probe running a live database SELECT and an Upstash ping. Returns 503 only when the database is unreachable.',
-          responses: {
-            200: { description: 'Server and database are healthy' },
-            503: { description: 'Database unreachable' },
+            const overall = dbStatus.status === 'ok' ? 'ok' : 'degraded';
+            if (overall === 'degraded') set.status = 503;
+            return {
+              status: overall,
+              timestamp: new Date().toISOString(),
+              db: dbStatus,
+              redis: redisStatus,
+            };
           },
-        },
-      }
+          {
+            detail: {
+              tags: ['System'],
+              summary: 'Health check',
+              description:
+                'Stateless probe running a live database SELECT and an Upstash ping. Returns 503 only when the database is unreachable.',
+              responses: {
+                200: { description: 'Server and database are healthy' },
+                503: { description: 'Database unreachable' },
+              },
+            },
+          }
+        )
     );
 
   return app;

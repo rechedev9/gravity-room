@@ -61,8 +61,11 @@ function extractPresentedSecret(headers: Headers): string | undefined {
  * closed when neither secret is configured.
  */
 function assertInternalSecret(headers: Headers): void {
-  const internalSecret = process.env['INTERNAL_SECRET'];
-  const cronSecret = process.env['CRON_SECRET'];
+  // An empty or whitespace-only env value counts as NOT configured: it would
+  // otherwise be a trivially-guessable secret, so fold it into the fail-closed
+  // branch.
+  const internalSecret = normalizeSecret(process.env['INTERNAL_SECRET']);
+  const cronSecret = normalizeSecret(process.env['CRON_SECRET']);
   if (!internalSecret && !cronSecret) {
     logger.error(
       'internal route rejected: neither INTERNAL_SECRET nor CRON_SECRET is configured (fail closed)'
@@ -70,13 +73,21 @@ function assertInternalSecret(headers: Headers): void {
     throw new ApiError(401, 'Unauthorized', 'UNAUTHORIZED');
   }
   const presented = extractPresentedSecret(headers);
+  // Reject an empty presented secret before the constant-time compare.
   const matches =
     presented !== undefined &&
+    presented.length > 0 &&
     ((internalSecret !== undefined && safeEqual(presented, internalSecret)) ||
       (cronSecret !== undefined && safeEqual(presented, cronSecret)));
   if (!matches) {
     throw new ApiError(401, 'Unauthorized', 'UNAUTHORIZED');
   }
+}
+
+/** Treat empty/whitespace-only secrets as unset (returns undefined). */
+function normalizeSecret(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  return raw.trim().length > 0 ? raw : undefined;
 }
 
 /** Resolve the analytics batch size from the environment, clamped to >= 1. */

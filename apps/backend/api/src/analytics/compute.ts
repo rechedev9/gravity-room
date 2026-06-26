@@ -14,6 +14,7 @@ import {
   fetchWorkoutRecords,
   upsertInsight,
   withInsightTransaction,
+  META_INSIGHT_TYPE,
 } from './queries';
 import { computeVolume } from './pipelines/volume';
 import { computeFrequency } from './pipelines/frequency';
@@ -37,9 +38,22 @@ export interface RunAllSummary {
  */
 export async function computeUser(userId: string): Promise<void> {
   const records = await fetchWorkoutRecords(userId);
-  if (records.length === 0) return;
+
+  // Always advance this user's cursor, even with zero records, by upserting the
+  // `_meta` marker row before the records-empty return. fetchLeastRecentlyComputedUsers
+  // orders by max(computed_at) NULLS FIRST, so a record-less active user that
+  // never wrote a computed_at would otherwise be re-selected on every tick and
+  // starve users who have data. The marker is filtered out of GET /api/insights.
+  if (records.length === 0) {
+    await upsertInsight(userId, META_INSIGHT_TYPE, null, {});
+    return;
+  }
 
   await withInsightTransaction(async (tx) => {
+    // Cursor marker (filtered out of GET /api/insights) so this user advances
+    // alongside its real insights and the run stays idempotent.
+    await upsertInsight(userId, META_INSIGHT_TYPE, null, {}, tx);
+
     // Volume trend (aggregate, no exercise_id).
     const volume = computeVolume(records);
     if (volume !== null) await upsertInsight(userId, 'volume_trend', null, volume, tx);

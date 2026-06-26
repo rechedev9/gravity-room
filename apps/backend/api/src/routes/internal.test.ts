@@ -138,6 +138,25 @@ describe('internal routes — secret guard', () => {
     expect(res.status).toBe(401);
     expect(mockCleanupExpiredTokens).not.toHaveBeenCalled();
   });
+
+  it('treats an empty/whitespace-only configured secret as unset (fail closed)', async () => {
+    // Both secrets present but blank → no real secret is configured, so even an
+    // empty presented secret must NOT authenticate.
+    process.env['INTERNAL_SECRET'] = '';
+    process.env['CRON_SECRET'] = '   ';
+    const empty = await post('/internal/cleanup-tokens', { 'x-internal-secret': '' });
+    expect(empty.status).toBe(401);
+    const whitespace = await post('/internal/cleanup-tokens', { 'x-internal-secret': '   ' });
+    expect(whitespace.status).toBe(401);
+    expect(mockCleanupExpiredTokens).not.toHaveBeenCalled();
+  });
+
+  it('rejects an empty presented secret against a real configured secret', async () => {
+    process.env['INTERNAL_SECRET'] = SECRET;
+    const res = await post('/internal/cleanup-tokens', { 'x-internal-secret': '' });
+    expect(res.status).toBe(401);
+    expect(mockCleanupExpiredTokens).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------

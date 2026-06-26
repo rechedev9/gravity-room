@@ -19,6 +19,18 @@ export interface UserRow {
 }
 
 /**
+ * Per-user cursor marker insight type.
+ *
+ * computeUser upserts one row of this type for every user it processes (even
+ * users with zero workout records) so that `fetchLeastRecentlyComputedUsers`,
+ * which orders by max(computed_at), always advances the user's cursor. Without
+ * it a record-less active user would never write a `computed_at` and would be
+ * re-selected on every tick, starving users who actually have data. This marker
+ * is internal bookkeeping only and is filtered out of `GET /api/insights`.
+ */
+export const META_INSIGHT_TYPE = '_meta';
+
+/**
  * A Drizzle executor: either the pooled client or an open transaction handle.
  * Mirrors the pattern used in services/results.ts so insight writes can run
  * inside `withInsightTransaction` or standalone.
@@ -48,6 +60,11 @@ export async function fetchAllUsers(): Promise<UserRow[]> {
  * never been computed are processed before stale ones. The trailing user_id
  * tie-breaker keeps the cursor deterministic across ticks. This drives the
  * bounded cron batch so a single tick never runs unbounded work.
+ *
+ * The max(computed_at) includes the per-user `_meta` marker row that computeUser
+ * always upserts (see META_INSIGHT_TYPE), so even a user with zero workout
+ * records advances out of the NULLS-FIRST head after one run and cannot starve
+ * users who have data.
  */
 export async function fetchLeastRecentlyComputedUsers(limit: number): Promise<UserRow[]> {
   const db = getDb();

@@ -4,7 +4,6 @@ Allow: /
 Disallow: /app
 Disallow: /login
 Disallow: /api/
-Disallow: /health
 
 # ── AI training bots (allow for AI Overviews / ChatGPT / Perplexity) ─────
 User-agent: GPTBot

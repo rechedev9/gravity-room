@@ -4,14 +4,16 @@ import type { Logger } from 'pino';
 import { logger } from '../lib/logger';
 
 /**
- * When TRUSTED_PROXY=true the API sits behind a trusted reverse proxy (on
- * Vercel the platform sets X-Forwarded-For with the real client IP as the
- * left-most entry). We then trust that header for rate-limit keying. Without
- * this flag we cannot trust client-supplied forwarding headers — there is no
- * socket address in a serverless runtime — so the IP is reported as 'unknown'
- * to prevent clients from spoofing their way past rate limits.
+ * Whether to trust the X-Forwarded-For header for rate-limit keying.
+ *
+ * On Vercel the platform terminates the connection and injects the real client
+ * IP as the left-most X-Forwarded-For entry, so we trust it by default whenever
+ * `VERCEL` is set (Vercel sets `VERCEL=1`). Off-Vercel the header is only
+ * trusted when `TRUSTED_PROXY` is explicitly set, because there is no socket
+ * address in a serverless runtime and an untrusted client could otherwise spoof
+ * its way past rate limits — in that case the IP is reported as 'unknown'.
  */
-const TRUSTED_PROXY = !!process.env['TRUSTED_PROXY'];
+const TRUSTED_PROXY = !!process.env['TRUSTED_PROXY'] || !!process.env['VERCEL'];
 
 /** Regex for validating a client-supplied x-request-id before trusting it. */
 const REQ_ID_RE = /^[\w-]{8,64}$/;

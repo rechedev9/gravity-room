@@ -17,52 +17,18 @@
  */
 import './lib/sentry';
 import { createApp } from './create-app';
+import { buildAppOptions } from './app-config';
 import { logger } from './lib/logger';
 
 // ---------------------------------------------------------------------------
-// Environment parsing - identical to api/[...path].ts so dev matches prod.
-// ---------------------------------------------------------------------------
-
-function parseCorsOrigins(raw: string | undefined): string | string[] {
-  if (!raw) {
-    // The web SPA is same-origin, so CORS is optional: same-origin requests are
-    // never subject to CORS and native mobile clients are not browsers. When
-    // CORS_ORIGIN is unset we allow no cross-origin in production (an empty
-    // allow-list) and fall back to the local dev web origin in development.
-    return process.env['NODE_ENV'] === 'production' ? [] : 'http://localhost:3000';
-  }
-  const origins = raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  for (const origin of origins) {
-    try {
-      new URL(origin);
-    } catch {
-      throw new Error(`CORS_ORIGIN contains invalid URL: "${origin}"`);
-    }
-  }
-  const first = origins[0];
-  return origins.length === 1 && first !== undefined ? first : origins;
-}
-
-const CORS_ORIGINS = parseCorsOrigins(process.env['CORS_ORIGIN']);
-
-const CSP =
-  "default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com; img-src 'self' data: blob: https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://*.ingest.sentry.io; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; frame-src https://accounts.google.com; frame-ancestors 'none'";
-
-const PERMISSIONS_POLICY =
-  'camera=(), microphone=(), geolocation=(), payment=(), interest-cohort=()';
-
-// ---------------------------------------------------------------------------
 // Build the app once and serve it on PORT (default 3001).
+//
+// Env wiring (corsOrigins, csp, permissionsPolicy) comes from the shared
+// app-config.ts so the locally served app is byte-for-byte the serverless app
+// that api/[...path].ts builds — there is no duplicated config to drift.
 // ---------------------------------------------------------------------------
 
-const app = createApp({
-  corsOrigins: CORS_ORIGINS,
-  csp: CSP,
-  permissionsPolicy: PERMISSIONS_POLICY,
-});
+const app = createApp(buildAppOptions());
 
 const PORT = Number(process.env['PORT']) || 3001;
 

@@ -63,10 +63,14 @@ export async function rateLimit(
   const limiter = getLimiter(windowMs, maxRequests);
   if (!limiter) return; // dev no-op: permissive when Upstash is absent
 
-  const { success } = await limiter.limit(`${endpoint}:${ip}`);
+  const { success, reset } = await limiter.limit(`${endpoint}:${ip}`);
   if (!success) {
+    // Retry-After is the seconds until THIS limiter window resets (from the
+    // limiter's reset timestamp), not the full window length, so clients are not
+    // told to wait longer than necessary.
+    const retryAfter = Math.max(0, Math.ceil((reset - Date.now()) / 1000));
     throw new ApiError(429, 'Too many requests', 'RATE_LIMITED', {
-      headers: { 'Retry-After': String(Math.ceil(windowMs / 1000)) },
+      headers: { 'Retry-After': String(retryAfter) },
     });
   }
 }

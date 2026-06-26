@@ -92,7 +92,7 @@ function trackWrite(res) {
 export default function () {
   // 1. Public endpoints (no auth)
   group('public', () => {
-    let res = http.get(`${BASE_URL}/health`);
+    let res = http.get(`${BASE_URL}/api/health`);
     check(res, { 'health 200': (r) => r.status === 200 });
     trackRead(res);
 

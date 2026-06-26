@@ -55,6 +55,7 @@ function craftedRecords(): WorkoutRecord[] {
 }
 
 mock.module('./queries', () => ({
+  META_INSIGHT_TYPE: '_meta',
   fetchAllUsers: async () => [{ userId: 'u1' }],
   fetchWorkoutRecords: async () => recordsToReturn,
   // The real version opens a DB transaction; the test runs the body directly
@@ -103,16 +104,31 @@ describe('computeUser', () => {
     expect(upsertCalls.every((c) => c.userId === 'u1')).toBe(true);
   });
 
-  it('emits volume_trend and frequency before any per-exercise insight', async () => {
+  it('advances the cursor by upserting the _meta marker before any insight', async () => {
     await computeUser('u1');
-    expect(upsertCalls[0]?.insightType).toBe('volume_trend');
-    expect(upsertCalls[1]?.insightType).toBe('frequency');
+    // The marker is written first so the user's computed_at advances even if a
+    // later pipeline throws, and it carries a null exercise_id.
+    expect(upsertCalls[0]?.insightType).toBe('_meta');
+    expect(upsertCalls[0]?.exerciseId).toBeNull();
   });
 
-  it('does nothing for a user with no records', async () => {
+  it('emits volume_trend and frequency before any per-exercise insight', async () => {
+    await computeUser('u1');
+    const realInsights = upsertCalls.filter((c) => c.insightType !== '_meta');
+    expect(realInsights[0]?.insightType).toBe('volume_trend');
+    expect(realInsights[1]?.insightType).toBe('frequency');
+  });
+
+  it('advances a zero-record user via the _meta marker so it is not re-picked forever', async () => {
     recordsToReturn = [];
     await computeUser('u1');
-    expect(upsertCalls).toHaveLength(0);
+    // A record-less active user still writes exactly the _meta cursor marker (and
+    // no real insights), so max(computed_at) advances and the user falls out of
+    // the NULLS-FIRST head — it can no longer starve users who have data.
+    expect(upsertCalls).toHaveLength(1);
+    expect(upsertCalls[0]?.insightType).toBe('_meta');
+    expect(upsertCalls[0]?.exerciseId).toBeNull();
+    expect(upsertCalls.some((c) => c.insightType !== '_meta')).toBe(false);
   });
 });
 

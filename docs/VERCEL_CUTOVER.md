@@ -18,7 +18,7 @@ Set each variable in the Vercel project under Settings then Environment Variable
 - `UPSTASH_REDIS_REST_URL` is the Upstash database REST URL, and it is mandatory in Production (the API throws at cold start without it).
 - `UPSTASH_REDIS_REST_TOKEN` is the Upstash database REST token, and it is mandatory in Production alongside the URL.
 - `INTERNAL_SECRET` is a long random secret you generate, used as the Bearer token for manual operator calls to `/api/internal/*`.
-- `CRON_SECRET` is a long random secret you generate, which Vercel automatically sends as `Authorization: Bearer <CRON_SECRET>` on every scheduled cron invocation.
+- `CRON_SECRET` is a long random secret you generate and is REQUIRED in production, because Vercel automatically sends it as `Authorization: Bearer <CRON_SECRET>` on every scheduled cron invocation and without it every cron run is rejected with 401.
 - `CORS_ORIGIN` is left EMPTY because the SPA and API share an origin, so no cross-origin is allowed in Production.
 - `TRUSTED_PROXY` is set to `true` so the API trusts the left-most `X-Forwarded-For` entry Vercel injects for rate-limit keying.
 - `SENTRY_DSN` is optional and, when set, enables `@sentry/node` error and performance tracing.
@@ -29,6 +29,8 @@ Set each variable in the Vercel project under Settings then Environment Variable
 - `ADMIN_USER_IDS` is optional and holds comma-separated admin user UUIDs for program-definition approval.
 - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are optional and enable new-user alerts.
 - `VITE_API_URL` is a build-time web variable that must be empty for same-origin, and the build script already exports `VITE_API_URL=""` so you do not need to set it in the dashboard.
+- `VITE_GOOGLE_CLIENT_ID` is a build-time web variable (the web Google OAuth client ID, same value as `GOOGLE_CLIENT_ID`) that the SPA reads at build time; set it in the dashboard scoped to Production and Preview or web Google sign-in stays broken.
+- `VITE_SENTRY_DSN` and `VITE_PLAUSIBLE_DOMAIN` are optional build-time web variables for browser error tracing and analytics.
 
 Do NOT set any of the removed variables `REDIS_URL`, `METRICS_TOKEN`, `DB_POOL_SIZE`, or `COMPUTE_INTERVAL_HOURS`, because they no longer exist in the codebase.
 
@@ -67,7 +69,7 @@ The internal-route guard fails closed, so if neither `CRON_SECRET` nor `INTERNAL
 Trigger a Production deploy from the Vercel dashboard or run `vercel --prod` from the repo root.
 The build runs `scripts/vercel-build.sh`, which on `VERCEL_ENV=production` runs `bun run --filter api db:deploy` to apply the Drizzle migrations and the idempotent reference-data seeds against `DIRECT_DATABASE_URL`, then builds the SPA with `VITE_API_URL=""`.
 The deploy step is idempotent and safe to re-run, and it is skipped on Preview and local builds (which point at the Neon branch).
-After the deploy finishes, confirm the function and static output are live and that `GET /health` returns `status: ok` with a healthy `db` block.
+After the deploy finishes, confirm the function and static output are live and that `GET /api/health` returns `status: ok` with a healthy `db` block.
 
 ## (f) Register the Vercel domain with Google OAuth
 

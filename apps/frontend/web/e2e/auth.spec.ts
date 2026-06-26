@@ -26,7 +26,7 @@ test.describe('Auth flow', () => {
   test('API responses include Permissions-Policy header', async ({ page }) => {
     const { accessToken } = await createAndAuthUser(page);
 
-    const res = await page.request.get(`${BASE_URL}/health`, {
+    const res = await page.request.get(`${BASE_URL}/api/health`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 

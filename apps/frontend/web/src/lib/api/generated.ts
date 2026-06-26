@@ -947,7 +947,7 @@ export const endpoints = [
   },
   {
     method: 'get',
-    path: '/health',
+    path: '/api/health',
     description: `Stateless probe running a live database SELECT and an Upstash ping. Returns 503 only when the database is unreachable.`,
     requestFormat: 'json',
     response: z.void(),

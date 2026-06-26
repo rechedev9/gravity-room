@@ -9,61 +9,31 @@
  * Runs on the Vercel Node runtime (the default for files under `/api`), NOT Edge.
  */
 import { createApp } from '../apps/backend/api/src/create-app';
+import { buildAppOptions } from '../apps/backend/api/src/app-config';
 
 // ---------------------------------------------------------------------------
-// Environment parsing — mirrors the former bootstrap.ts wiring
+// Elysia app — built once per warm instance (lazy module-scope singleton).
+// Env wiring (corsOrigins, csp, permissionsPolicy) is shared with the local dev
+// server via app-config.ts so the two entrypoints can never drift apart.
 // ---------------------------------------------------------------------------
 
-function parseCorsOrigins(raw: string | undefined): string | string[] {
-  if (!raw) {
-    // The web SPA is now same-origin, so CORS is optional: same-origin requests
-    // are never subject to CORS and native mobile clients are not browsers. When
-    // CORS_ORIGIN is unset we therefore allow no cross-origin in production (an
-    // empty allow-list) and fall back to the local dev web origin in development.
-    return process.env['NODE_ENV'] === 'production' ? [] : 'http://localhost:3000';
-  }
-  const origins = raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  for (const origin of origins) {
-    try {
-      new URL(origin);
-    } catch {
-      throw new Error(`CORS_ORIGIN contains invalid URL: "${origin}"`);
-    }
-  }
-  const first = origins[0];
-  return origins.length === 1 && first !== undefined ? first : origins;
-}
-
-const CORS_ORIGINS = parseCorsOrigins(process.env['CORS_ORIGIN']);
-
-const CSP =
-  "default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://accounts.google.com https://fonts.googleapis.com; img-src 'self' data: blob: https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://*.ingest.sentry.io; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; frame-src https://accounts.google.com; frame-ancestors 'none'";
-
-const PERMISSIONS_POLICY =
-  'camera=(), microphone=(), geolocation=(), payment=(), interest-cohort=()';
-
-// ---------------------------------------------------------------------------
-// Elysia app — built once per warm instance (lazy module-scope singleton)
-// ---------------------------------------------------------------------------
-
-const app = createApp({
-  corsOrigins: CORS_ORIGINS,
-  csp: CSP,
-  permissionsPolicy: PERMISSIONS_POLICY,
-});
+const app = createApp(buildAppOptions());
 
 /** Maximum accepted request body size — replaces Elysia's maxRequestBodySize. */
 const MAX_BODY_BYTES = 1_048_576;
 
+/** Methods that may carry a request body and are therefore size-guarded. */
+const BODY_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
 export default async function handler(request: Request): Promise<Response> {
-  // Body-size guard: reject anything over 1MB before it reaches the app.
-  const contentLength = request.headers.get('content-length');
-  if (contentLength !== null) {
-    const declared = Number(contentLength);
-    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+  // Body-size guard: reject anything over 1MB before it reaches the app. For
+  // body-bearing methods we fail CLOSED when content-length is missing or not a
+  // finite number, so a chunked or header-less body cannot slip past the check.
+  // Vercel's platform body cap (~4.5MB) is only the outer backstop.
+  if (BODY_METHODS.has(request.method)) {
+    const contentLength = request.headers.get('content-length');
+    const declared = contentLength === null ? NaN : Number(contentLength);
+    if (!Number.isFinite(declared) || declared > MAX_BODY_BYTES) {
       return new Response(
         JSON.stringify({ error: 'Payload too large', code: 'PAYLOAD_TOO_LARGE' }),
         {

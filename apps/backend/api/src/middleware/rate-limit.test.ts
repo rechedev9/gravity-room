@@ -27,16 +27,20 @@ const counts = new Map<string, number>();
 mock.module('@upstash/ratelimit', () => {
   class Ratelimit {
     private readonly max: number;
-    constructor(opts: { limiter: { max: number } }) {
+    private readonly windowMs: number;
+    constructor(opts: { limiter: { max: number; windowMs: number } }) {
       this.max = opts.limiter.max;
+      this.windowMs = opts.limiter.windowMs;
     }
-    static slidingWindow(max: number): { max: number } {
-      return { max };
+    static slidingWindow(max: number, window: string): { max: number; windowMs: number } {
+      return { max, windowMs: Number(window.replace(/\s*ms$/, '')) };
     }
-    limit(key: string): Promise<{ success: boolean }> {
+    limit(key: string): Promise<{ success: boolean; reset: number }> {
       const n = (counts.get(key) ?? 0) + 1;
       counts.set(key, n);
-      return Promise.resolve({ success: n <= this.max });
+      // Mirror the real client: `reset` is the absolute ms timestamp at which the
+      // current window clears, so rate-limit.ts can derive Retry-After from it.
+      return Promise.resolve({ success: n <= this.max, reset: Date.now() + this.windowMs });
     }
   }
   return { Ratelimit };
@@ -100,13 +104,14 @@ describe('rateLimit function', () => {
     }
   });
 
-  it('sets a Retry-After header derived from the window', async () => {
+  it('sets a Retry-After header derived from the limiter reset timestamp', async () => {
     await rateLimit('ip-retry', 'TEST /retry', { maxRequests: 1, windowMs: 60_000 });
     try {
       await rateLimit('ip-retry', 'TEST /retry', { maxRequests: 1, windowMs: 60_000 });
       expect(true).toBe(false);
     } catch (err: unknown) {
       expect(err).toBeInstanceOf(ApiError);
+      // reset = now + 60_000 ms, so the seconds-until-reset rounds up to 60.
       expect((err as ApiError).headers?.['Retry-After']).toBe('60');
     }
   });

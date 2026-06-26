@@ -13,8 +13,9 @@ gravity-room/
 │   │   ├── web/             ← React 19 + Vite SPA (PWA)
 │   │   └── mobile/          ← Expo / React Native
 │   └── backend/             ← server-side services
-│       └── api/             ← ElysiaJS on Bun (REST + Postgres + Redis;
-│                              analytics insight pipelines under src/analytics)
+│       └── api/             ← ElysiaJS, serverless via app.fetch (REST + Neon
+│                              Postgres + Upstash Redis; analytics insight
+│                              pipelines under src/analytics)
 ├── packages/
 │   └── domain/              ← @gzclp/domain — Zod schemas + GZCLP engine,
 │                              consumed by web, mobile and api as workspace:*
@@ -27,12 +28,12 @@ gravity-room/
 
 ## Tech stack per service
 
-| Service                | Tier     | Runtime    | Stack                                                                                               |
-| ---------------------- | -------- | ---------- | --------------------------------------------------------------------------------------------------- |
-| `apps/frontend/web`    | frontend | Bun + Vite | React 19, TanStack Router, TanStack Query, Tailwind 4, Zod 4, react-hook-form, i18next, Sentry, PWA |
-| `apps/frontend/mobile` | frontend | Bun + Expo | Expo 54, React Native 0.81, expo-sqlite (local), expo-auth-session, TanStack Query                  |
-| `apps/backend/api`     | backend  | Bun        | ElysiaJS 1.4, Drizzle ORM + Postgres, ioredis, prom-client, pino, Zod 4, Sentry/Bun                 |
-| `packages/domain`      | shared   | Bun        | Pure TS + Zod 4. Exports the GZCLP progression engine and 9 schema modules                          |
+| Service                | Tier     | Runtime       | Stack                                                                                                               |
+| ---------------------- | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `apps/frontend/web`    | frontend | Bun + Vite    | React 19, TanStack Router, TanStack Query, Tailwind 4, Zod 4, react-hook-form, i18next, Sentry, PWA                 |
+| `apps/frontend/mobile` | frontend | Bun + Expo    | Expo 54, React Native 0.81, expo-sqlite (local), expo-auth-session, TanStack Query                                  |
+| `apps/backend/api`     | backend  | Node (Vercel) | ElysiaJS 1.4 (serverless `app.fetch`), Drizzle ORM + Neon Postgres, Upstash Redis (REST), pino, Zod 4, @sentry/node |
+| `packages/domain`      | shared   | Bun           | Pure TS + Zod 4. Exports the GZCLP progression engine and 9 schema modules                                          |
 
 Analytics is not a separate service: the insight pipelines (e1RM, frequency,
 summary, volume, forecast, plateau, recommendation) were ported to TypeScript
@@ -70,11 +71,20 @@ replacing the former numpy/scipy/scikit-learn stack.
 ```bash
 bun install
 bun run dev           # web on :5173 (vite dev)
-bun run dev:api       # api on :3001 (bun --watch)
+bun run dev:api       # api on :3001 (bun --watch src/dev-server.ts)
 ```
 
-Postgres and Redis must be available locally — point `DATABASE_URL` and
-`REDIS_URL` at your own instances.
+On Vercel the API has no `app.listen`: the pure `createApp()` factory is mounted
+by the catch-all serverless function `api/[...path].ts` and driven via
+`app.fetch(request)`. Locally, `src/dev-server.ts` serves that same app on a port
+for tooling (e.g. OpenAPI codegen). Migrations and seeds are NOT boot-time DDL;
+they run in the build-time deploy step `scripts/migrate-deploy.ts` against the
+direct Neon endpoint.
+
+Postgres must be available locally — point `DATABASE_URL` at your own instance.
+Upstash Redis is optional in dev (set `UPSTASH_REDIS_REST_URL` and
+`UPSTASH_REDIS_REST_TOKEN` to enable presence, caches, and rate limiting;
+without them those features degrade gracefully). It is mandatory in production.
 
 ## Validation per service
 

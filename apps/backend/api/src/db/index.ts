@@ -43,11 +43,10 @@ export function getDb(): DbInstance {
     if (!url) {
       throw new Error('DATABASE_URL environment variable is required');
     }
-    // Serverless default: one connection per instance against the pooled
-    // (PgBouncer) endpoint. DB_POOL_SIZE may override for non-serverless use.
-    const poolSize = Number(process.env['DB_POOL_SIZE']) || 1;
     _client = postgres(url, {
-      max: poolSize,
+      // Serverless: exactly one connection per warm instance against the pooled
+      // (PgBouncer) endpoint. Hard-coded to 1 — DB_POOL_SIZE was removed.
+      max: 1,
       idle_timeout: 30,
       connect_timeout: 10,
       ssl:

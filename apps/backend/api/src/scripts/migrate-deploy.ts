@@ -35,8 +35,16 @@ async function runMigrations(): Promise<void> {
     throw new Error('DIRECT_DATABASE_URL or DATABASE_URL environment variable is required');
   }
 
-  // Single-connection client for migrations (DDL must run serially)
-  const migrationClient = postgres(url, { max: 1 });
+  // Single-connection client for migrations (DDL must run serially). TLS mirrors
+  // getDb()'s policy: require in production unless DB_SSL=false, so the migration
+  // connection does not depend solely on sslmode in the connection string.
+  const ssl =
+    process.env['DB_SSL'] === 'false'
+      ? false
+      : process.env['NODE_ENV'] === 'production'
+        ? 'require'
+        : false;
+  const migrationClient = postgres(url, { max: 1, ssl });
   const migrationDb = drizzle(migrationClient);
   // Resolve the drizzle folder relative to this file. fileURLToPath keeps this
   // portable across the Node runtime (no Bun-only `import.meta.dir`).

@@ -15,18 +15,18 @@ ElysiaJS API. Analytics insights are computed in TypeScript inside the API
 
 ## Stack
 
-| Layer      | Technology                                                        |
-| ---------- | ----------------------------------------------------------------- |
-| Runtime    | Bun (TS apps + tooling)                                           |
-| Frontend   | React 19, Vite, TanStack Router, Tailwind CSS 4, TanStack Query 5 |
-| Mobile     | Expo 54, React Native 0.81, expo-sqlite, expo-auth-session        |
-| Backend    | ElysiaJS, Drizzle ORM (PostgreSQL), Redis, TypeScript analytics   |
-| Validation | Zod v4 (shared via `@gzclp/domain`), ElysiaJS type validation     |
-| Auth       | JWT (access + refresh token rotation), Google OAuth               |
-| Logging    | pino (structured JSON)                                            |
-| Metrics    | prom-client (Prometheus-compatible)                               |
-| E2E        | Playwright (Chromium)                                             |
-| Hooks      | Lefthook (parallel pre-commit / pre-push)                         |
+| Layer         | Technology                                                                                                     |
+| ------------- | -------------------------------------------------------------------------------------------------------------- |
+| Runtime       | Bun (TS apps + tooling)                                                                                        |
+| Frontend      | React 19, Vite, TanStack Router, Tailwind CSS 4, TanStack Query 5                                              |
+| Mobile        | Expo 54, React Native 0.81, expo-sqlite, expo-auth-session                                                     |
+| Backend       | ElysiaJS (serverless via `app.fetch`), Drizzle ORM (Neon Postgres), Upstash Redis (REST), TypeScript analytics |
+| Validation    | Zod v4 (shared via `@gzclp/domain`), ElysiaJS type validation                                                  |
+| Auth          | JWT (access + refresh token rotation), Google OAuth                                                            |
+| Logging       | pino (structured JSON) to Vercel log drains                                                                    |
+| Observability | @sentry/node (errors + performance traces); no scrape endpoint                                                 |
+| E2E           | Playwright (Chromium)                                                                                          |
+| Hooks         | Lefthook (parallel pre-commit / pre-push)                                                                      |
 
 ## Monorepo structure
 
@@ -88,7 +88,7 @@ Postgres for the API/frontend to read back.
 Browser (SPA)  ──►  ElysiaJS API (port 3001)
                       ├── /api/*
                       ├── /api/internal/*   (cron: cleanup, purge, analytics)
-                      ├── /health
+                      ├── /api/health
                       └── /swagger/*        (dev only)
 
 Web SPA (Vite-built static assets, served by any static host)
@@ -105,16 +105,18 @@ Analytics (TypeScript, in apps/backend/api/src/analytics)
                     └── 5 tables: users, refresh_tokens,
                        program_instances, workout_results, undo_entries
 
-                  Redis
+                  Upstash Redis (REST)
                     └── Rate limiting, presence tracking, caching, singleflight
 ```
 
 **Key architectural decisions:**
 
-- **Bun runtime** — the API runs on Bun with ElysiaJS. Drizzle ORM handles
-  database access and migrations. Seeds are run on startup via `bootstrap.ts`.
-- **Auto-migrations on startup** — Drizzle migrator runs pending migrations
-  before accepting traffic. Zero-touch schema updates on deploy.
+- **Serverless ElysiaJS** — the pure `createApp()` factory is driven on Vercel's
+  Node runtime by a catch-all function (`api/[...path].ts`) via the Web-standard
+  `app.fetch(request)`; locally `src/dev-server.ts` serves the same app on a port.
+- **Build-time migrations** — Drizzle migrations and idempotent seeds run in a
+  deploy step (`scripts/migrate-deploy.ts`) against the direct Neon endpoint, out
+  of the request path. There is no boot-time DDL or `app.listen`.
 - **Progression engine in `packages/domain`** — the API, web and mobile share
   the authoritative engine via `@gzclp/domain` (workspace package).
 - **Feature-first frontend** — route-owned screens and domain UI live under
@@ -129,8 +131,9 @@ Analytics (TypeScript, in apps/backend/api/src/analytics)
 ### Prerequisites
 
 - [Bun](https://bun.sh/) (latest) — for API, frontend tooling, and tests
-- PostgreSQL (local or managed)
-- Redis (optional — only needed for distributed rate limiting and presence)
+- PostgreSQL (local or managed; Neon in production)
+- Upstash Redis (optional in dev via `UPSTASH_REDIS_REST_URL`/`_TOKEN` — needed
+  for distributed rate limiting and presence; mandatory in production)
 
 ### Setup
 
@@ -140,7 +143,10 @@ bun install
 
 # Configure environment (copy .env.example and set DATABASE_URL, JWT_SECRET, etc.)
 
-# Start the API (auto-runs migrations and seeds on startup)
+# Apply migrations + reference seeds (build-time deploy step; safe to re-run)
+bun run --filter api db:deploy
+
+# Start the API (local dev server on :3001)
 bun run dev:api
 
 # In another terminal, start the web dev server

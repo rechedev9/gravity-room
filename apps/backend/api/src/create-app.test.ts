@@ -54,25 +54,25 @@ const app = createApp({
 
 describe('GET /health', () => {
   it('response includes redis field', async () => {
-    const res = await app.handle(new Request('http://localhost/health'));
+    const res = await app.handle(new Request('http://localhost/api/health'));
     const body = (await res.json()) as Record<string, unknown>;
     expect('redis' in body).toBe(true);
   });
 
   it('redis.status === "disabled" when REDIS_URL is not set', async () => {
-    const res = await app.handle(new Request('http://localhost/health'));
+    const res = await app.handle(new Request('http://localhost/api/health'));
     const body = (await res.json()) as Record<string, unknown>;
     const redis = body.redis as Record<string, unknown>;
     expect(redis.status).toBe('disabled');
   });
 
   it('returns 200 when db is healthy', async () => {
-    const res = await app.handle(new Request('http://localhost/health'));
+    const res = await app.handle(new Request('http://localhost/api/health'));
     expect(res.status).toBe(200);
   });
 
   it('response includes status, timestamp, and db fields', async () => {
-    const res = await app.handle(new Request('http://localhost/health'));
+    const res = await app.handle(new Request('http://localhost/api/health'));
     const body = (await res.json()) as Record<string, unknown>;
     expect('status' in body).toBe(true);
     expect('timestamp' in body).toBe(true);
@@ -80,7 +80,7 @@ describe('GET /health', () => {
   });
 
   it('omits the stateless-incompatible uptime field', async () => {
-    const res = await app.handle(new Request('http://localhost/health'));
+    const res = await app.handle(new Request('http://localhost/api/health'));
     const body = (await res.json()) as Record<string, unknown>;
     expect('uptime' in body).toBe(false);
   });

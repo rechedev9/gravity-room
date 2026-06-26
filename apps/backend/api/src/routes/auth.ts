@@ -64,6 +64,26 @@ const REFRESH_COOKIE_OPTIONS = {
   path: '/api/auth',
 };
 
+/**
+ * Expire (delete) the refresh cookie. Pinned to the same Path the cookie was set
+ * with (`/api/auth`) so the browser always matches and clears it, regardless of
+ * which request URL triggered the removal. Elysia's `cookie.remove()` emits the
+ * deletion at the default path `/`, which would NOT match the scoped cookie.
+ */
+function removeRefreshCookie(refreshCookie: {
+  set: (opts: Record<string, unknown>) => void;
+}): void {
+  refreshCookie.set({
+    value: '',
+    path: REFRESH_COOKIE_OPTIONS.path,
+    httpOnly: REFRESH_COOKIE_OPTIONS.httpOnly,
+    secure: REFRESH_COOKIE_OPTIONS.secure,
+    sameSite: REFRESH_COOKIE_OPTIONS.sameSite,
+    maxAge: 0,
+    expires: new Date(0),
+  });
+}
+
 interface UserProfile {
   readonly id: string;
   readonly email: string;
@@ -368,7 +388,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       }
 
       const refreshed = await refreshAuthToken(jwt, reqLogger, tokenValue, () => {
-        refreshCookie.remove();
+        removeRefreshCookie(refreshCookie);
       });
 
       refreshCookie.set({ value: refreshed.refreshToken, ...REFRESH_COOKIE_OPTIONS });
@@ -431,7 +451,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
       await signOutWithRefreshToken(refreshCookie?.value);
 
-      refreshCookie?.remove();
+      if (refreshCookie) removeRefreshCookie(refreshCookie);
       reqLogger.info({ event: 'auth.signout' }, 'user signed out');
       set.status = 204;
     },
@@ -589,9 +609,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
       await softDeleteUser(userId);
 
-      // Clear the refresh cookie
+      // Clear the refresh cookie (path-pinned to /api/auth so the browser matches).
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
-      refreshCookie?.remove();
+      if (refreshCookie) removeRefreshCookie(refreshCookie);
 
       reqLogger.info({ event: 'auth.account_deleted', userId }, 'account soft-deleted');
       set.status = 204;
