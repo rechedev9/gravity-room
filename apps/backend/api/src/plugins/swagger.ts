@@ -2,15 +2,16 @@ import { Elysia } from 'elysia';
 import { swagger } from '@elysiajs/swagger';
 import { version } from '../../package.json';
 
-// Swagger is disabled only on TRUE production. On Vercel, NODE_ENV is "production"
-// for BOTH preview and production deployments, so we must read VERCEL_ENV to tell
-// them apart: preview keeps swagger ENABLED so the web api-types codegen drift
-// check can target a preview URL, while production stays locked down. Off Vercel
-// (local/CI) VERCEL_ENV is unset, so we fall back to NODE_ENV.
-const IS_PRODUCTION =
-  process.env['VERCEL_ENV'] !== undefined
-    ? process.env['VERCEL_ENV'] === 'production'
-    : process.env['NODE_ENV'] === 'production';
+// Swagger is disabled whenever NODE_ENV is "production". On Vercel that covers
+// BOTH preview and production deployments (Vercel sets NODE_ENV=production for
+// previews too), and that is the intended behavior: `/swagger/json` is mounted
+// at the app root, but vercel.json rewrites every non-`/api` path to
+// `/index.html`, so the spec is unreachable on any Vercel deployment regardless.
+// The CI api-types drift check does NOT depend on a live preview URL: it boots
+// the pure createApp() factory locally with NODE_ENV=development (swagger ON)
+// and scrapes http://localhost:3001/swagger/json. So there is no reason to
+// special-case VERCEL_ENV; NODE_ENV alone gives the correct prod-off/local-on split.
+const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
 
 // Swagger UI is disabled in production to avoid exposing the API surface.
 // Access the JSON spec directly at /swagger/json in non-production environments.

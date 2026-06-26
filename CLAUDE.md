@@ -34,30 +34,45 @@ below).
 - **GZCLP rules + Zod schemas live in `packages/domain`** (imported as `@gzclp/domain` via `workspace:*` by web, mobile, api). It is the single source of truth — never duplicate logic that belongs here.
 - **API contract**: ElysiaJS exposes `/swagger/json` (non-prod). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. Lefthook's `pre-push.api-types-drift` blocks pushes if it drifts. **Mobile does NOT consume this generated client** — it hand-writes API calls. Unifying is on the roadmap (`packages/api-client`).
 - **Auth**: JWT access + refresh-token rotation. Google OAuth on all three clients. Server logic split: `apps/backend/api/src/routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` + `lib/google-auth.ts`.
-- **Migrations**: applied automatically on API startup (`apps/backend/api/src/bootstrap.ts`). Drizzle config at `apps/backend/api/drizzle.config.ts`. Schema at `apps/backend/api/src/db/schema.ts`. Generated SQL at `apps/backend/api/drizzle/`.
+- **Migrations**: applied by the standalone build-time deploy step `apps/backend/api/src/scripts/migrate-deploy.ts` (run via `db:deploy`, gated to production in `scripts/vercel-build.sh`) against `DIRECT_DATABASE_URL` — NOT on API startup (the serverless entrypoint has no boot-time DDL). Drizzle config at `apps/backend/api/drizzle.config.ts`. Schema at `apps/backend/api/src/db/schema.ts`. Generated SQL at `apps/backend/api/drizzle/`.
 - **Analytics → API integration**: insights are pre-computed in TypeScript inside the API (`apps/backend/api/src/analytics/`) and stored in the `user_insights` table. `compute.ts` exports `computeUser(userId)` / `runAll()`; `queries.ts` provides the data access and the `ON CONFLICT` upsert. A Vercel Cron job calls `POST /api/internal/analytics/compute`, which processes a bounded least-recently-computed batch per tick (idempotent upserts). That route, like the other `/api/internal/*` cron routes, requires the `INTERNAL_SECRET` (fails closed when unset). Parity with the old Python outputs is frozen by golden-file tests under `apps/backend/api/src/analytics/__fixtures__/golden.json`.
 - **Soft delete**: `users.deletedAt` triggers a 30-day grace period before `purge-deleted-users.ts` hard-deletes (CASCADE). The auth middleware filters `WHERE deleted_at IS NULL`, so soft-deleted users cannot authenticate.
 
 ## Config flags (from `.env.example`)
 
+The product is one same-origin Vercel project: the API runs as a Node serverless
+function (`api/[...path].ts`), so env vars are set per-environment in the Vercel
+dashboard (Production + Preview). The full go-live procedure with every value and
+source is in [`docs/VERCEL_CUTOVER.md`](./docs/VERCEL_CUTOVER.md).
+
 **Required (api):**
 
-- `DATABASE_URL` — Postgres connection string.
+- `DATABASE_URL` — Neon **pooled** PgBouncer connection string (host contains `-pooler`). The serverless DB client uses pool `max=1`, `prepare:false`. Request-time.
+- `DIRECT_DATABASE_URL` — Neon **direct** (non-pooled) connection string. Used only by the build-time deploy step `db:deploy` (drizzle migrations + seeds). Falls back to `DATABASE_URL` locally.
 - `JWT_SECRET` — JWT signing secret (≥64 chars in prod).
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_IDS` — Google OAuth (web + Android/iOS/web client IDs, comma-separated for the mobile endpoints).
 
-**Network:** `CORS_ORIGIN`, `PORT` (default 3001), `TRUSTED_PROXY` (when behind reverse proxy — reads `X-Forwarded-For` for rate limiting).
+**Required in production:**
 
-**Optional (graceful fallback):**
+- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — Upstash Redis over REST (presence, caches, rate limiting). Mandatory in prod: the API throws at cold start if either is missing while `NODE_ENV=production`. Unset locally degrades gracefully (no-op / cache miss).
+- `INTERNAL_SECRET` — Bearer secret guarding the manual ops path of `/api/internal/*` (cleanup-tokens, purge-users, analytics/compute). The guard fails closed: with neither `INTERNAL_SECRET` nor `CRON_SECRET` set, every internal request is 401.
 
-- `REDIS_URL` — when unset, rate-limiting and presence use in-memory stores (reset on restart).
-- `SENTRY_DSN`, `METRICS_TOKEN` (bearer for `/metrics`), `LOG_LEVEL` (debug | info | warn | error).
+**Cron:** `CRON_SECRET` — injected by Vercel Cron; when set on the project, Vercel sends `Authorization: Bearer <CRON_SECRET>` on every scheduled invocation, which the internal routes accept. Crons get 401 without it. Value is set only in Vercel.
+
+**Network (same-origin):** `CORS_ORIGIN` (leave **empty** for same-origin — no CORS needed; set only for split-origin local dev), `PORT` (local dev server only, default 3001), `TRUSTED_PROXY` (recommended `true` on Vercel — reads left-most `X-Forwarded-For` for rate-limit keying; otherwise IP is `unknown`), `JWT_ACCESS_EXPIRY` (default `15m`).
+
+**Optional:**
+
+- `ANALYTICS_BATCH_SIZE` — users processed per analytics compute cron tick (default 50).
+- `SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE` (default 0.1), `LOG_LEVEL` (debug | info | warn | error). Pull-based metrics and `/metrics` were removed; observability is `@sentry/node` + pino JSON to Vercel log drains.
 - `ADMIN_USER_IDS` — comma-separated UUIDs of admins for program-definition approval.
 - `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` — new-user alerts.
 
-**Web (Vite, build-time):** `VITE_API_URL`, `VITE_PLAUSIBLE_DOMAIN` (runtime-injected).
+**Removed (do not reintroduce):** `REDIS_URL` (→ Upstash REST), `METRICS_TOKEN` and `/metrics` (deleted), `DB_POOL_SIZE` (pool now defaults to `max=1`), `COMPUTE_INTERVAL_HOURS` (analytics scheduling is a Vercel Cron declaration).
 
-**Mobile (Expo):** `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_GOOGLE_*` IDs.
+**Web (Vite, build-time):** `VITE_API_URL` — set to `""` (empty) for same-origin so the SPA issues relative `/api` requests (the Vercel build exports this for you); `VITE_PLAUSIBLE_DOMAIN` (runtime-injected).
+
+**Mobile (Expo):** `EXPO_PUBLIC_API_URL` (point at the Vercel domain), `EXPO_PUBLIC_GOOGLE_*` IDs.
 
 ## Tooling
 
