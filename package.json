@@ -8,8 +8,8 @@
     "dev:web": "pnpm --filter web dev",
     "dev:api": "pnpm --filter api dev",
     "build": "pnpm --filter web build",
-    "build:ci": "VITE_API_URL=${VITE_API_URL:-http://localhost:3001} pnpm run build",
-    "build:ci:no-prerender": "VITE_API_URL=${VITE_API_URL:-http://localhost:3001} pnpm --filter web build:no-prerender",
+    "build:ci": "cross-env VITE_API_URL=http://localhost:3001 pnpm run build",
+    "build:ci:no-prerender": "cross-env VITE_API_URL=http://localhost:3001 pnpm --filter web build:no-prerender",
     "build:web": "pnpm --filter web build",
     "typecheck": "pnpm --filter web typecheck && pnpm run typecheck:domain && pnpm run typecheck:database && pnpm run typecheck:api-client && pnpm run typecheck:mobile",
     "typecheck:api": "pnpm --filter api typecheck",
@@ -40,6 +40,7 @@
     "db:studio": "pnpm --filter @gzclp/database db:studio"
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "eslint": "^9.39.4",
     "lefthook": "^2.1.5",
     "prettier": "^3.8.2",
