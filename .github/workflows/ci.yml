@@ -27,33 +27,31 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
+      - uses: pnpm/action-setup@v4
 
-      - uses: actions/cache@v4
+      - uses: actions/setup-node@v4
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: bun run --filter web typecheck
+        run: pnpm --filter web run typecheck
 
       - name: Lint
-        run: bun run --filter web lint
+        run: pnpm --filter web run lint
 
       - name: Test
-        run: bun run --filter web test
+        run: pnpm --filter web run test
 
       - name: Install Playwright Chromium (needed for prerender)
         working-directory: apps/frontend/web
-        run: bunx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Build (same-origin)
-        run: bun run --filter web build
+        run: pnpm --filter web run build
         env:
           VITE_API_URL: ''
 
@@ -69,26 +67,24 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
+      - uses: pnpm/action-setup@v4
 
-      - uses: actions/cache@v4
+      - uses: actions/setup-node@v4
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: bun run --filter api typecheck
+        run: pnpm --filter api run typecheck
 
       - name: Lint
-        run: bun run --filter api lint
+        run: pnpm --filter api run lint
 
       - name: Test (includes analytics golden-file parity)
-        run: bun run --filter api test
+        run: pnpm --filter api run test
 
   # ---------------------------------------------------------------------------
   # Shared domain package — the single source of truth for the progression
@@ -100,23 +96,21 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
+      - uses: pnpm/action-setup@v4
 
-      - uses: actions/cache@v4
+      - uses: actions/setup-node@v4
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: bun run typecheck:domain
+        run: pnpm run typecheck:domain
 
       - name: Test
-        run: bun run test:domain
+        run: pnpm run test:domain
 
   # ---------------------------------------------------------------------------
   # Shared API client package — the typed fetch wrapper consumed by the clients.
@@ -127,26 +121,24 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
+      - uses: pnpm/action-setup@v4
 
-      - uses: actions/cache@v4
+      - uses: actions/setup-node@v4
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: bun run typecheck:api-client
+        run: pnpm run typecheck:api-client
 
       - name: Lint
-        run: bun run lint:api-client
+        run: pnpm run lint:api-client
 
       - name: Test
-        run: bun run test:api-client
+        run: pnpm run test:api-client
 
   # ---------------------------------------------------------------------------
   # Expo mobile client — typecheck and the Jest unit suite.
@@ -157,23 +149,21 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
+      - uses: pnpm/action-setup@v4
 
-      - uses: actions/cache@v4
+      - uses: actions/setup-node@v4
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
-        run: bun run typecheck:mobile
+        run: pnpm run typecheck:mobile
 
       - name: Test
-        run: bun run test:mobile
+        run: pnpm run test:mobile
 
   # ---------------------------------------------------------------------------
   # Repo-wide Prettier formatting gate.
@@ -184,20 +174,18 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
+      - uses: pnpm/action-setup@v4
 
-      - uses: actions/cache@v4
+      - uses: actions/setup-node@v4
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Format check
-        run: bun run format:check
+        run: pnpm run format:check
 
   # ---------------------------------------------------------------------------
   # Production security-headers contract — asserts the static-config headers the
@@ -209,20 +197,18 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
+      - uses: pnpm/action-setup@v4
 
-      - uses: actions/cache@v4
+      - uses: actions/setup-node@v4
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Validate production security headers contract
-        run: bun run security:headers
+        run: pnpm run security:headers
 
   # ---------------------------------------------------------------------------
   # Exercise-wiki citation gate — resolves every wiki citation against
@@ -237,21 +223,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
+      - uses: pnpm/action-setup@v4
 
-      - uses: actions/cache@v4
+      - uses: actions/setup-node@v4
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Verify exercise-wiki citations
         working-directory: apps/frontend/web
-        run: bun run verify:citations
+        run: pnpm run verify:citations
 
   # ---------------------------------------------------------------------------
   # OpenAPI client drift — regenerates apps/frontend/web/src/lib/api/generated.ts
@@ -259,11 +243,11 @@ jobs:
   #
   # Post-migration the API has no app.listen (it runs serverless via app.fetch),
   # so the local dev server (src/dev-server.ts) boots the same createApp()
-  # factory on :3001 with Bun.serve. SWAGGER_ENABLED=true exposes /swagger/json,
-  # which is the codegen source. The dev-auth route is only registered (and thus
-  # in the OpenAPI surface) when AUTH_DEV_ROUTE_* are set, so they mirror the
-  # values the committed client was generated against. A Postgres service backs
-  # /health, which the readiness poll waits on.
+  # factory on :3001 with @hono/node-server. SWAGGER_ENABLED=true exposes
+  # /swagger/json, which is the codegen source. The dev-auth route is only
+  # registered (and thus in the OpenAPI surface) when AUTH_DEV_ROUTE_* are set,
+  # so they mirror the values the committed client was generated against. A
+  # Postgres service backs /health, which the readiness poll waits on.
   # ---------------------------------------------------------------------------
   api-types-drift:
     name: OpenAPI client drift
@@ -296,25 +280,23 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
+      - uses: pnpm/action-setup@v4
 
-      - uses: actions/cache@v4
+      - uses: actions/setup-node@v4
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Apply migrations + seeds
-        run: bun run --filter api db:deploy
+        run: pnpm --filter api run db:deploy
 
       - name: Regenerate client and check for drift
         run: |
           set -euo pipefail
-          bun run --filter api start &
+          pnpm --filter api run start &
           API_PID=$!
           trap 'kill "$API_PID" 2>/dev/null || true' EXIT
 
@@ -331,9 +313,9 @@ jobs:
             sleep 2
           done
 
-          bun run --filter web api:types
+          pnpm --filter web run api:types
 
           if ! git diff --exit-code apps/frontend/web/src/lib/api/generated.ts; then
-            echo "::error::API types are out of sync. Run 'bun run --filter web api:types' locally with the API running and commit the regenerated client."
+            echo "::error::API types are out of sync. Run 'pnpm --filter web run api:types' locally with the API running and commit the regenerated client."
             exit 1
           fi

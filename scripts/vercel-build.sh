@@ -21,7 +21,7 @@
 #      which is NOT guaranteed in Vercel's build sandbox, so here we run the
 #      Chromium-free path instead: regenerate the sitemap (pure data, no browser)
 #      and then "build:no-prerender" (vite build only). The full Chromium HTML
-#      prerender ("bun run --filter web build") still runs in CI, where Playwright
+#      prerender ("pnpm --filter web build") still runs in CI, where Playwright
 #      Chromium is installed, so SEO snapshots are covered before merge.
 #
 # Fail fast on any error, unset variable, or failed pipe stage.
@@ -29,13 +29,13 @@ set -euo pipefail
 
 if [ "${VERCEL_ENV:-}" = "production" ]; then
   echo "[vercel-build] VERCEL_ENV=production - running db:deploy (migrations + seeds) against DIRECT_DATABASE_URL"
-  bun run --filter api db:deploy
+  pnpm --filter api db:deploy
 else
   echo "[vercel-build] VERCEL_ENV=${VERCEL_ENV:-local} - skipping production db:deploy (preview/local use a Neon branch)"
 fi
 
 echo "[vercel-build] regenerating sitemap.xml (Chromium-free)"
-bun run --filter web sitemap
+pnpm --filter web sitemap
 
 echo "[vercel-build] building web SPA (same-origin: VITE_API_URL=\"\", prerender skipped)"
-VITE_API_URL="" bun run --filter web build:no-prerender
+VITE_API_URL="" pnpm --filter web build:no-prerender

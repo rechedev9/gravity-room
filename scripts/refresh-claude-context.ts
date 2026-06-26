@@ -1,22 +1,29 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S npx tsx
 /**
  * Refreshes the AUTO:* sections of CLAUDE.md with the live API surface
  * (from the running ElysiaJS swagger spec) and the live DB schema (from
  * the Drizzle table definitions).
  *
  * Usage:
- *   bun run dev:api          # in another terminal — required
- *   bun run context:refresh  # this script
+ *   pnpm run dev:api          # in another terminal — required
+ *   pnpm run context:refresh  # this script
  *
  * The script edits only the regions between sentinel comments
  * (<!-- AUTO:API-START --> ... <!-- AUTO:API-END --> and the DB pair).
  * Hand-written sections of CLAUDE.md are left untouched.
  */
-import { $ } from 'bun';
-import { resolve } from 'path';
+import { execFile } from 'node:child_process';
+import { readFile, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
+
+const exec = promisify(execFile);
+// pnpm is a .cmd shim on Windows, so run through a shell there.
+const SHELL = process.platform === 'win32';
 
 const SWAGGER_URL = process.env['API_SPEC_URL'] ?? 'http://localhost:3001/swagger/json';
-const REPO_ROOT = resolve(import.meta.dir, '..');
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CLAUDE_MD = resolve(REPO_ROOT, 'CLAUDE.md');
 
 type ColInfo = {
@@ -46,14 +53,14 @@ async function main() {
   const apiSection = await fetchAndFormatApi();
   const dbSection = await dumpAndFormatDb();
 
-  let md = await Bun.file(CLAUDE_MD).text();
+  let md = await readFile(CLAUDE_MD, 'utf8');
   md = splice(md, 'AUTO:API', apiSection);
   md = splice(md, 'AUTO:DB', dbSection);
-  await Bun.write(CLAUDE_MD, md);
+  await writeFile(CLAUDE_MD, md);
 
   // Keep the file prettier-clean so the lefthook format check doesn't
   // bounce it after every refresh.
-  await $`bunx prettier --write ${CLAUDE_MD}`.cwd(REPO_ROOT).quiet();
+  await exec('pnpm', ['exec', 'prettier', '--write', CLAUDE_MD], { cwd: REPO_ROOT, shell: SHELL });
 
   process.stdout.write(`Updated ${CLAUDE_MD}\n`);
 }
@@ -64,7 +71,7 @@ async function fetchAndFormatApi(): Promise<string> {
     res = await fetch(SWAGGER_URL);
   } catch {
     process.stderr.write(
-      `Could not reach ${SWAGGER_URL} — is the API running? Try: bun run dev:api\n`
+      `Could not reach ${SWAGGER_URL} — is the API running? Try: pnpm run dev:api\n`
     );
     process.exit(1);
   }
@@ -77,7 +84,11 @@ async function fetchAndFormatApi(): Promise<string> {
 }
 
 async function dumpAndFormatDb(): Promise<string> {
-  const result = await $`bun packages/database/scripts/dump-schema.ts`.cwd(REPO_ROOT).quiet();
+  const result = await exec('pnpm', ['exec', 'tsx', 'packages/database/scripts/dump-schema.ts'], {
+    cwd: REPO_ROOT,
+    shell: SHELL,
+    maxBuffer: 10 * 1024 * 1024,
+  });
   const tables = JSON.parse(result.stdout.toString()) as TableInfo[];
   return formatDbSection(tables);
 }
@@ -146,4 +157,7 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-await main();
+main().catch((error: unknown) => {
+  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+  process.exit(1);
+});

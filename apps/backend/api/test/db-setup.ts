@@ -1,7 +1,7 @@
 /**
  * E2E integration test database setup.
  *
- * Usage: bun test --preload ./test/db-setup.ts test/e2e/**
+ * Usage: imported by the e2e suite; run via `pnpm --filter api test:e2e`
  *
  * Redirects DATABASE_URL to DATABASE_URL_TEST so all service functions
  * automatically connect to the test database without any refactoring.

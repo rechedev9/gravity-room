@@ -1,6 +1,6 @@
 # Gravity Room
 
-Tracker de fuerza basado en progresión lineal GZCLP. Monorepo Bun que se
+Tracker de fuerza basado en progresión lineal GZCLP. Monorepo pnpm que se
 despliega como **un único proyecto same-origin en Vercel**: la SPA Vite/React se
 publica como output estático y la API ElysiaJS corre como función serverless.
 Dos frontends (web, mobile) y paquetes TS compartidos completan el repo.
@@ -53,7 +53,7 @@ Internet
 ### Configuración del proyecto
 
 Todo vive en [`vercel.json`](vercel.json) (revisable en git, no en el dashboard):
-`framework: null`, `installCommand: bun install`, `buildCommand: bash
+`framework: null`, `installCommand: pnpm install --frozen-lockfile`, `buildCommand: bash
 scripts/vercel-build.sh`, `outputDirectory: apps/frontend/web/dist`, la función
 `api/[...path].ts` (`maxDuration: 60`), el rewrite de SPA (todo salvo `/api/*` →
 `/index.html`) y las tres crons.
@@ -70,7 +70,7 @@ No hay workflow de GitHub: la integración Git de Vercel despliega en cada push 
 `main`. El build corre [`scripts/vercel-build.sh`](scripts/vercel-build.sh):
 
 1. **Migraciones (solo producción).** Si `VERCEL_ENV=production`, corre
-   `bun run --filter api db:deploy` (migraciones Drizzle + seeds idempotentes)
+   `pnpm --filter api db:deploy` (migraciones Drizzle + seeds idempotentes)
    contra `DIRECT_DATABASE_URL`. Se omite en preview/local (apuntan a una rama
    Neon desechable).
 2. **Sitemap.** Regenera `sitemap.xml` (datos puros, sin navegador).
@@ -112,11 +112,11 @@ dos frontends. Decisiones clave:
   catch-all [`api/[...path].ts`](api/[...path].ts) monta la app y la maneja con
   `app.fetch(request)`; no hay `app.listen`. En local,
   [`src/dev-server.ts`](apps/backend/api/src/dev-server.ts) sirve la misma app
-  con `Bun.serve`, así que dev y prod son byte-for-byte la misma app.
+  con `@hono/node-server`, así que dev y prod son byte-for-byte la misma app.
 - **Migraciones build-time, no boot-time.** Las migraciones Drizzle y los seeds
   corren en el paso de deploy
   ([`src/scripts/migrate-deploy.ts`](apps/backend/api/src/scripts/migrate-deploy.ts),
-  vía `bun run --filter api db:deploy`) contra el endpoint directo de Neon, fuera
+  vía `pnpm --filter api db:deploy`) contra el endpoint directo de Neon, fuera
   del camino del request. Cero DDL al arrancar.
 - **Contrato OpenAPI generado por Elysia.** Expuesto en `/swagger/json` solo
   fuera de producción. Es la fuente de verdad para el cliente generado en web.
@@ -280,7 +280,7 @@ URL) compartido por los clientes.
 
 ### Pre-requisitos
 
-- **Bun** (última versión) — runtime para API, tooling de frontends, y tests
+- **Node 24** + **pnpm 11** — runtime para API (vía `tsx`), tooling de frontends, y tests (vitest)
 - **PostgreSQL** local o managed (Neon en producción)
 - **Upstash Redis** opcional — seteá `UPSTASH_REDIS_REST_URL`/`_TOKEN` para
   habilitar rate limit y presence; sin ellos, caen a memoria
@@ -289,19 +289,19 @@ URL) compartido por los clientes.
 
 ```bash
 # Instalar dependencias del monorepo entero
-bun install
+pnpm install
 
 # Copiar .env.example y completar DATABASE_URL, JWT_SECRET, GOOGLE_CLIENT_ID*, etc.
 cp .env.example .env
 
 # Aplicar migraciones + seeds (paso de deploy build-time; idempotente)
-bun run --filter api db:deploy
+pnpm --filter api db:deploy
 
 # Levantar el API local (src/dev-server.ts; prod usa api/[...path].ts)
-bun run dev:api
+pnpm run dev:api
 
 # En otra terminal, levantar el SPA web
-bun run dev:web
+pnpm run dev:web
 ```
 
 Defaults: web en `http://localhost:5173`, API en `http://localhost:3001`.
@@ -320,19 +320,19 @@ aceptar tokens de `/api/auth/mobile/google`.
 
 | Tarea                          | Comando                                           |
 | ------------------------------ | ------------------------------------------------- |
-| Dev (web)                      | `bun run dev:web`                                 |
-| Dev (API)                      | `bun run dev:api`                                 |
-| Migraciones + seeds            | `bun run --filter api db:deploy`                  |
-| Build (web)                    | `bun run build:web`                               |
-| Type check (todo el workspace) | `bun run typecheck`                               |
-| Type check (API)               | `bun run typecheck:api`                           |
-| Type check (domain)            | `bun run typecheck:domain`                        |
-| Lint (TS)                      | `bun run lint`                                    |
-| Format check                   | `bun run format:check`                            |
-| Tests workspace (unit)         | `bun run test`                                    |
-| Tests API (unit + paridad)     | `bun run test:api`                                |
-| E2E (Playwright)               | `bun run e2e`                                     |
-| E2E con UI                     | `bun run e2e:headed`                              |
+| Dev (web)                      | `pnpm run dev:web`                                |
+| Dev (API)                      | `pnpm run dev:api`                                |
+| Migraciones + seeds            | `pnpm --filter api db:deploy`                     |
+| Build (web)                    | `pnpm run build:web`                              |
+| Type check (todo el workspace) | `pnpm run typecheck`                              |
+| Type check (API)               | `pnpm run typecheck:api`                          |
+| Type check (domain)            | `pnpm run typecheck:domain`                       |
+| Lint (TS)                      | `pnpm run lint`                                   |
+| Format check                   | `pnpm run format:check`                           |
+| Tests workspace (unit)         | `pnpm run test`                                   |
+| Tests API (unit + paridad)     | `pnpm run test:api`                               |
+| E2E (Playwright)               | `pnpm run e2e`                                    |
+| E2E con UI                     | `pnpm run e2e:headed`                             |
 | Load test (k6)                 | `k6 run scripts/loadtest.js`                      |
 | Load test (smoke)              | `k6 run scripts/loadtest.js --env SCENARIO=smoke` |
 

@@ -1,6 +1,6 @@
 # Architecture
 
-Gravity Room is a Bun-workspaces monorepo with three runnable clients/services
+Gravity Room is a pnpm-workspaces monorepo with three runnable clients/services
 (web, mobile, API) and shared TypeScript packages. It deploys as ONE same-origin
 Vercel project: the Vite/React PWA ships as static output and the ElysiaJS API
 runs as a Node serverless function. The repo is organized so that the
@@ -35,12 +35,12 @@ gravity-room/
 
 | Service                | Tier     | Runtime       | Stack                                                                                                               |
 | ---------------------- | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `apps/frontend/web`    | frontend | Bun + Vite    | React 19, TanStack Router, TanStack Query, Tailwind 4, Zod 4, react-hook-form, i18next, Sentry, PWA                 |
-| `apps/frontend/mobile` | frontend | Bun + Expo    | Expo 54, React Native 0.81, expo-sqlite (local), expo-auth-session, TanStack Query                                  |
+| `apps/frontend/web`    | frontend | Node + Vite   | React 19, TanStack Router, TanStack Query, Tailwind 4, Zod 4, react-hook-form, i18next, Sentry, PWA                 |
+| `apps/frontend/mobile` | frontend | Node + Expo   | Expo 54, React Native 0.81, expo-sqlite (local), expo-auth-session, TanStack Query                                  |
 | `apps/backend/api`     | backend  | Node (Vercel) | ElysiaJS 1.4 (serverless `app.fetch`), Drizzle ORM + Neon Postgres, Upstash Redis (REST), pino, Zod 4, @sentry/node |
-| `packages/domain`      | shared   | Bun           | Pure TS + Zod 4. Exports the GZCLP progression engine and 9 schema modules                                          |
-| `packages/database`    | database | Bun           | Drizzle schema, SQL migrations, reference seeds, schema dump tooling                                                |
-| `packages/api-client`  | shared   | Bun           | Typed fetch wrapper (merge-headers, api-error, single-flight, url helpers)                                          |
+| `packages/domain`      | shared   | Node          | Pure TS + Zod 4. Exports the GZCLP progression engine and 9 schema modules                                          |
+| `packages/database`    | database | Node          | Drizzle schema, SQL migrations, reference seeds, schema dump tooling                                                |
+| `packages/api-client`  | shared   | Node          | Typed fetch wrapper (merge-headers, api-error, single-flight, url helpers)                                          |
 
 Analytics is not a separate service: the insight pipelines (e1RM, frequency,
 summary, volume, forecast, plateau, recommendation) were ported to TypeScript and
@@ -61,7 +61,7 @@ frozen by golden-file tests (`src/analytics/pipelines/pipelines.parity.test.ts`)
   schema/seeds/migrations from this package.
 - **OpenAPI → Zod codegen** — the API exposes `/swagger/json`. The web app
   regenerates `apps/frontend/web/src/lib/api/generated.ts` via
-  `bun run --filter web api:types` (`apps/frontend/web/codegen/generate-api-types.ts`).
+  `pnpm --filter web api:types` (`apps/frontend/web/codegen/generate-api-types.ts`).
   CI's `OpenAPI client drift` job in `.github/workflows/ci.yml` boots the API
   against Postgres, regenerates the client, and fails on generated-client drift.
   Lefthook no longer runs this check locally because it requires a live API.
@@ -85,10 +85,10 @@ frozen by golden-file tests (`src/analytics/pipelines/pipelines.parity.test.ts`)
 ## Local development
 
 ```bash
-bun install
-bun run --filter api db:deploy   # apply migrations + reference seeds (safe to re-run)
-bun run dev           # web on :5173 (vite dev)
-bun run dev:api       # api on :3001 (bun --watch src/dev-server.ts)
+pnpm install
+pnpm --filter api db:deploy   # apply migrations + reference seeds (safe to re-run)
+pnpm run dev           # web on :5173 (vite dev)
+pnpm run dev:api       # api on :3001 (tsx watch src/dev-server.ts)
 ```
 
 On Vercel the API has no `app.listen`: the pure `createApp()` factory is mounted
@@ -96,7 +96,7 @@ by the catch-all serverless function `api/[...path].ts` and driven via
 `app.fetch(request)`. Locally, `src/dev-server.ts` serves that same app on a port
 for tooling (e.g. OpenAPI codegen). Migrations and seeds are NOT boot-time DDL;
 they run in the build-time deploy step `src/scripts/migrate-deploy.ts` (via
-`bun run --filter api db:deploy`, gated to production in `scripts/vercel-build.sh`)
+`pnpm --filter api db:deploy`, gated to production in `scripts/vercel-build.sh`)
 against the direct Neon endpoint (`DIRECT_DATABASE_URL`).
 
 Postgres must be available locally — point `DATABASE_URL` at your own instance.
@@ -106,15 +106,15 @@ them those features degrade gracefully). It is mandatory in production.
 
 ## Validation per service
 
-| Command                    | What it covers                                                               |
-| -------------------------- | ---------------------------------------------------------------------------- |
-| `bun run typecheck`        | web + domain + database + api-client + mobile (TS-strict)                    |
-| `bun run typecheck:api`    | apps/backend/api                                                             |
-| `bun run lint`             | web + api + api-client (eslint v9 + typescript-eslint)                       |
-| `bun run format:check`     | repo-wide prettier 3                                                         |
-| `bun run test`             | web + domain + database + api-client + mobile bun:test                       |
-| `bun run test:api`         | apps/backend/api bun:test (services + routes + analytics golden-file parity) |
-| `bun run --filter web e2e` | playwright (chromium)                                                        |
+| Command                  | What it covers                                                             |
+| ------------------------ | -------------------------------------------------------------------------- |
+| `pnpm run typecheck`     | web + domain + database + api-client + mobile (TS-strict)                  |
+| `pnpm run typecheck:api` | apps/backend/api                                                           |
+| `pnpm run lint`          | web + api + api-client (eslint v9 + typescript-eslint)                     |
+| `pnpm run format:check`  | repo-wide prettier 3                                                       |
+| `pnpm run test`          | web + domain + database + api-client + mobile vitest                       |
+| `pnpm run test:api`      | apps/backend/api vitest (services + routes + analytics golden-file parity) |
+| `pnpm --filter web e2e`  | playwright (chromium)                                                      |
 
 ## Why this structure
 

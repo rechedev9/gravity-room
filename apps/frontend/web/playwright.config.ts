@@ -26,7 +26,7 @@ export default defineConfig({
 
   webServer: [
     {
-      command: 'cd apps/backend/api && bun src/dev-server.ts',
+      command: 'pnpm --filter api start',
       url: 'http://localhost:3001/api/health',
       timeout: 180_000,
       reuseExistingServer: !process.env.CI,
@@ -37,7 +37,7 @@ export default defineConfig({
       },
     },
     {
-      command: 'bun run build:web && bun run --filter web preview',
+      command: 'pnpm run build:web && pnpm --filter web preview',
       url: 'http://localhost:5173',
       // build:web does vite build + prerender of 24 routes (~50s in CI),
       // then the preview server boots. Default 60s is too tight for CI runners.

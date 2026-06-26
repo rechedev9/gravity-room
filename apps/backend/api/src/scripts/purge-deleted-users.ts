@@ -7,7 +7,7 @@
  * (program_instances, workout_results, undo_entries, refresh_tokens,
  * program_definitions) is cascaded automatically by FK constraints.
  *
- * Usage: DATABASE_URL=... bun run apps/backend/api/src/scripts/purge-deleted-users.ts
+ * Usage: DATABASE_URL=... tsx apps/backend/api/src/scripts/purge-deleted-users.ts
  */
 import { purgeDeletedUsers } from '../services/purge';
 

@@ -1,10 +1,10 @@
 /**
  * AUTO-GENERATED — do not edit by hand.
  * Source: ElysiaJS API /swagger/json endpoint
- * Regenerate: bun run api:types (from apps/frontend/web/)
+ * Regenerate: pnpm run api:types (from apps/frontend/web/)
  *
  * This file is committed to enable CI drift detection:
- *   bun run api:types && git diff --exit-code src/lib/api/generated.ts
+ *   pnpm run api:types && git diff --exit-code src/lib/api/generated.ts
  *
  * DO NOT import from this file in application code.
  * Use the hand-written schemas in @gzclp/domain/schemas/* instead.

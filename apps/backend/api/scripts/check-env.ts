@@ -1,14 +1,14 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S npx tsx
 // CLI wrapper around validateEnv for runtime gating and CI sync checks.
 //
 // Usage:
-//   bun run apps/backend/api/scripts/check-env.ts
+//   tsx apps/backend/api/scripts/check-env.ts
 //     Validates the current process.env, defaulting NODE_ENV to 'production'.
 //
-//   bun run apps/backend/api/scripts/check-env.ts --env-file <path>
+//   tsx apps/backend/api/scripts/check-env.ts --env-file <path>
 //     Parses <path> as KEY=VALUE pairs and validates those instead.
 //
-//   bun run apps/backend/api/scripts/check-env.ts --node-env <env>
+//   tsx apps/backend/api/scripts/check-env.ts --node-env <env>
 //     Override NODE_ENV (e.g. 'development' to no-op). Default 'production'.
 //
 // Exit codes:

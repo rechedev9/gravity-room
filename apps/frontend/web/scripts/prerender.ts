@@ -200,7 +200,7 @@ async function canOpenTcpConnection(host: string, port: number): Promise<boolean
  * Pick a free TCP port on the loopback. A hardcoded 4173 + `--strictPort` made
  * the prerender fail hard with "Port 4173 is already in use" whenever a prior
  * run left its preview server orphaned (common on Windows, where SIGTERM to the
- * `bunx` wrapper does not always reap the vite grandchild). An ephemeral port
+ * `pnpm` wrapper does not always reap the vite grandchild). An ephemeral port
  * sidesteps that entire class of port-collision failures.
  */
 async function getFreePort(): Promise<number> {
@@ -217,8 +217,8 @@ async function getFreePort(): Promise<number> {
 }
 
 /**
- * Best-effort kill of the preview process tree. `bunx` spawns vite as a
- * grandchild; on Windows a plain SIGTERM to `bunx` leaves vite bound to the
+ * Best-effort kill of the preview process tree. `pnpm` spawns vite as a
+ * grandchild; on Windows a plain SIGTERM to `pnpm` leaves vite bound to the
  * port, so reap the whole tree with taskkill.
  */
 function killPreviewTree(child: ChildProcess): void {
@@ -237,14 +237,14 @@ async function startPreviewServer(): Promise<{ child: ChildProcess; origin: stri
   const port = await getFreePort();
   const origin = `http://${PREVIEW_HOST}:${port}`;
   const child = spawn(
-    'bunx',
-    ['--bun', 'vite', 'preview', '--host', PREVIEW_HOST, '--port', String(port), '--strictPort'],
+    'pnpm',
+    ['exec', 'vite', 'preview', '--host', PREVIEW_HOST, '--port', String(port), '--strictPort'],
     {
       cwd: WEB_ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: process.env,
-      // On Windows, spawning a bare `bunx` without a shell raises ENOENT (it
-      // resolves to bunx.cmd/.exe only through the shell's PATHEXT lookup).
+      // On Windows, spawning a bare `pnpm` without a shell raises ENOENT (it
+      // resolves to pnpm.cmd/.exe only through the shell's PATHEXT lookup).
       shell: process.platform === 'win32',
     }
   );

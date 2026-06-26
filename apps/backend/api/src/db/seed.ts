@@ -1,6 +1,6 @@
 /**
  * Dev seed script — creates a test user, sample program instance, and seed reference data.
- * Run with: bun run db:seed
+ * Run with: pnpm --filter api db:seed
  */
 import { getDb } from './index';
 import { users, programInstances } from '@gzclp/database/schema';
