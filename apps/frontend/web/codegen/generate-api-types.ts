@@ -15,11 +15,12 @@
  * The generated file is the reference layer that proves the hand-written schemas
  * track the real API contract.
  */
-import { writeFile, readFile } from 'node:fs/promises';
+import { writeFile, readFile, mkdtemp, rm } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { resolve, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildGeneratedArtifact } from './generate-api-types-lib';
 
 const exec = promisify(execFile);
@@ -28,9 +29,15 @@ const runViaShell = process.platform === 'win32';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const specUrl = process.env.API_SPEC_URL ?? 'http://localhost:3001/swagger/json';
-const tmpSpecPath = '/tmp/gravity-room-openapi.json';
-const tmpPath = '/tmp/gravity-room-generated-raw.ts';
 const outputPath = resolve(dir, '../src/lib/api/generated.ts');
+
+// Stage the fetched spec and the raw codegen output in a freshly-created,
+// per-run temp directory (unpredictable name) rather than fixed paths under the
+// shared OS temp dir. This is cross-platform (os.tmpdir() vs hardcoded /tmp) and
+// avoids the symlink/pre-creation races a predictable world-writable path invites.
+const tmpDirRoot = await mkdtemp(join(tmpdir(), 'gravity-room-apigen-'));
+const tmpSpecPath = join(tmpDirRoot, 'openapi.json');
+const tmpPath = join(tmpDirRoot, 'generated-raw.ts');
 
 // Fetch the OpenAPI spec from the running API
 const res = await fetch(specUrl);
@@ -83,5 +90,9 @@ await writeFile(outputPath, header + content, 'utf8');
 await exec('pnpm', ['exec', 'prettier', '--write', '--log-level=warn', outputPath], {
   shell: runViaShell,
 });
+
+// Remove the per-run staging directory; the only artifact we keep is the
+// committed generated.ts at outputPath.
+await rm(tmpDirRoot, { recursive: true, force: true });
 
 process.stdout.write(`Generated: ${outputPath}\n`);
