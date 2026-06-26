@@ -16,7 +16,7 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { getDb } from '../db';
+import * as schema from '../db/schema';
 import { logger } from '../lib/logger';
 import { seedMuscleGroups } from '../db/seeds/muscle-groups-seed';
 import { seedExercises } from '../db/seeds/exercises-seed';
@@ -61,10 +61,68 @@ async function runMigrations(): Promise<void> {
     )`;
 
   if (schemaExists) {
+    // Hotfix repair DDL for migrations 0005-0009 (plus the exercises widen). This
+    // runs on EVERY deploy whenever the schema already exists, independent of the
+    // Drizzle journal entry count. It compensates for a poisoned
+    // __drizzle_migrations timestamp that makes Drizzle's migrate() silently skip
+    // 0005-0009, so gating it on the one-time journal seed below would re-introduce
+    // the very columns/tables those migrations add only on a fresh bridge and never
+    // again. Every statement is idempotent (IF NOT EXISTS / ALTER TYPE no-op when
+    // the type already matches), so re-running it on routine deploys is safe.
+
+    // 0005/0006: RPE columns
+    await migrationClient`ALTER TABLE "workout_results" ADD COLUMN IF NOT EXISTS "rpe" smallint`;
+    await migrationClient`ALTER TABLE "undo_entries" ADD COLUMN IF NOT EXISTS "prev_rpe" smallint`;
+
+    // 0007: program_definitions table + enum
+    await migrationClient`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'program_definition_status') THEN
+        CREATE TYPE "public"."program_definition_status"
+          AS ENUM('draft', 'pending_review', 'approved', 'rejected');
+      END IF;
+    END $$`;
+    await migrationClient`CREATE TABLE IF NOT EXISTS "program_definitions" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "user_id" uuid NOT NULL,
+      "definition" jsonb NOT NULL,
+      "status" "program_definition_status" DEFAULT 'draft' NOT NULL,
+      "deleted_at" timestamp with time zone,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "updated_at" timestamp with time zone DEFAULT now() NOT NULL
+    )`;
+    await migrationClient`DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints
+        WHERE constraint_name = 'program_definitions_user_id_users_id_fk'
+      ) THEN
+        ALTER TABLE "program_definitions" ADD CONSTRAINT "program_definitions_user_id_users_id_fk"
+          FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+      END IF;
+    END $$`;
+    await migrationClient`CREATE INDEX IF NOT EXISTS "program_definitions_user_id_idx"
+      ON "program_definitions" USING btree ("user_id")`;
+    await migrationClient`CREATE INDEX IF NOT EXISTS "program_definitions_status_idx"
+      ON "program_definitions" USING btree ("status")`;
+
+    // 0008: widen slot_id columns (varchar → varchar(50)). ALTER TYPE is idempotent
+    // if the column is already varchar(50) — PostgreSQL accepts the same type.
+    await migrationClient`ALTER TABLE "workout_results" ALTER COLUMN "slot_id" TYPE varchar(50)`;
+    await migrationClient`ALTER TABLE "undo_entries" ALTER COLUMN "slot_id" TYPE varchar(50)`;
+
+    // 0009: user profile columns
+    await migrationClient`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatar_url" text`;
+    await migrationClient`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp with time zone`;
+
+    // Widen exercises.id from varchar(50) to varchar(100) — 9 expanded exercise IDs
+    // exceed 50 chars (e.g. 'lying_close_grip_barbell_triceps_extension_behind_the_head').
+    // ALTER TYPE to a wider varchar is non-destructive and requires no data migration.
+    await migrationClient`ALTER TABLE IF EXISTS "exercises" ALTER COLUMN "id" TYPE varchar(100)`;
+
     // Goose-to-Drizzle bridge: if the DB has existing schema (from goose) but no
     // Drizzle migration entries, seed the journal so Drizzle skips already-applied
     // migrations. This is a one-time operation for databases migrated from the Go API.
-    // Drizzle stores migrations in the "drizzle" schema, not "public".
+    // Drizzle stores migrations in the "drizzle" schema, not "public". Only the
+    // journal seed is gated on entryCount === 0; the repair DDL above always runs.
     await migrationClient`CREATE SCHEMA IF NOT EXISTS "drizzle"`;
     await migrationClient`
       CREATE TABLE IF NOT EXISTS "drizzle"."__drizzle_migrations" (
@@ -76,63 +134,6 @@ async function runMigrations(): Promise<void> {
       SELECT count(*)::int as count FROM "drizzle"."__drizzle_migrations"`;
     if (entryCount === 0) {
       logger.info('detected goose-managed DB without Drizzle entries — bridging schema');
-
-      // Hotfix DDL for migrations 0005-0009 (plus the exercises widen). This runs
-      // ONLY on the first goose-to-Drizzle bridge, alongside the journal seed below,
-      // because the seed marks 0000-0031 as already applied — so Drizzle will never
-      // run 0005-0009 itself. Without this DDL the journal would claim those columns
-      // exist when they do not. Once the journal is seeded (entryCount > 0) the schema
-      // already matches, so re-running this on routine deploys would be pure waste.
-      // All statements are still idempotent (IF NOT EXISTS / ALTER TYPE no-op when the
-      // type already matches), which keeps the bridge itself safe to retry.
-
-      // 0005/0006: RPE columns
-      await migrationClient`ALTER TABLE "workout_results" ADD COLUMN IF NOT EXISTS "rpe" smallint`;
-      await migrationClient`ALTER TABLE "undo_entries" ADD COLUMN IF NOT EXISTS "prev_rpe" smallint`;
-
-      // 0007: program_definitions table + enum
-      await migrationClient`DO $$ BEGIN
-        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'program_definition_status') THEN
-          CREATE TYPE "public"."program_definition_status"
-            AS ENUM('draft', 'pending_review', 'approved', 'rejected');
-        END IF;
-      END $$`;
-      await migrationClient`CREATE TABLE IF NOT EXISTS "program_definitions" (
-        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-        "user_id" uuid NOT NULL,
-        "definition" jsonb NOT NULL,
-        "status" "program_definition_status" DEFAULT 'draft' NOT NULL,
-        "deleted_at" timestamp with time zone,
-        "created_at" timestamp with time zone DEFAULT now() NOT NULL,
-        "updated_at" timestamp with time zone DEFAULT now() NOT NULL
-      )`;
-      await migrationClient`DO $$ BEGIN
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.table_constraints
-          WHERE constraint_name = 'program_definitions_user_id_users_id_fk'
-        ) THEN
-          ALTER TABLE "program_definitions" ADD CONSTRAINT "program_definitions_user_id_users_id_fk"
-            FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
-        END IF;
-      END $$`;
-      await migrationClient`CREATE INDEX IF NOT EXISTS "program_definitions_user_id_idx"
-        ON "program_definitions" USING btree ("user_id")`;
-      await migrationClient`CREATE INDEX IF NOT EXISTS "program_definitions_status_idx"
-        ON "program_definitions" USING btree ("status")`;
-
-      // 0008: widen slot_id columns (varchar → varchar(50)). ALTER TYPE is idempotent
-      // if the column is already varchar(50) — PostgreSQL accepts the same type.
-      await migrationClient`ALTER TABLE "workout_results" ALTER COLUMN "slot_id" TYPE varchar(50)`;
-      await migrationClient`ALTER TABLE "undo_entries" ALTER COLUMN "slot_id" TYPE varchar(50)`;
-
-      // 0009: user profile columns
-      await migrationClient`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatar_url" text`;
-      await migrationClient`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "deleted_at" timestamp with time zone`;
-
-      // Widen exercises.id from varchar(50) to varchar(100) — 9 expanded exercise IDs
-      // exceed 50 chars (e.g. 'lying_close_grip_barbell_triceps_extension_behind_the_head').
-      // ALTER TYPE to a wider varchar is non-destructive and requires no data migration.
-      await migrationClient`ALTER TABLE IF EXISTS "exercises" ALTER COLUMN "id" TYPE varchar(100)`;
 
       logger.info('seeding Drizzle migration history');
       const { readdir, readFile } = await import('fs/promises');
@@ -172,14 +173,36 @@ async function runMigrations(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function runSeeds(): Promise<void> {
-  const db = getDb();
-  logger.info('running reference data seeds');
-  await seedMuscleGroups(db);
-  await seedExercises(db);
-  await seedExercisesExpanded(db);
-  await seedProgramTemplates(db);
+  // Seeds run against the SAME direct (non-pooled) endpoint as the migrations, not
+  // the pooled endpoint getDb() resolves from DATABASE_URL. This keeps the deploy
+  // script on its direct-endpoint contract and does not fail when only
+  // DIRECT_DATABASE_URL is provisioned at build time. Falls back to DATABASE_URL
+  // for local dev where only one endpoint is configured.
+  const url = process.env['DIRECT_DATABASE_URL'] ?? process.env['DATABASE_URL'];
+  if (!url) {
+    throw new Error('DIRECT_DATABASE_URL or DATABASE_URL environment variable is required');
+  }
+  // TLS mirrors getDb()/runMigrations(): require in production unless DB_SSL=false.
+  const ssl =
+    process.env['DB_SSL'] === 'false'
+      ? false
+      : process.env['NODE_ENV'] === 'production'
+        ? 'require'
+        : false;
+  const seedClient = postgres(url, { max: 1, ssl });
+  const db = drizzle(seedClient, { schema });
 
-  logger.info('reference data seeds complete');
+  try {
+    logger.info('running reference data seeds');
+    await seedMuscleGroups(db);
+    await seedExercises(db);
+    await seedExercisesExpanded(db);
+    await seedProgramTemplates(db);
+
+    logger.info('reference data seeds complete');
+  } finally {
+    await seedClient.end();
+  }
 }
 
 async function main(): Promise<void> {

@@ -1,4 +1,5 @@
-import { captureException } from './lib/sentry';
+import { captureException, flushSentry } from './lib/sentry';
+import { keepAlive } from './lib/wait-until';
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { sql } from 'drizzle-orm';
@@ -34,6 +35,21 @@ export type CreateAppOptions = {
 export function createApp(options: CreateAppOptions) {
   const { corsOrigins, csp, permissionsPolicy } = options;
 
+  // Shared security headers applied to BOTH the success path (onAfterHandle) and
+  // the error path (onError). Elysia skips onAfterHandle when a handler throws and
+  // routes through onError instead, so without applying them here too every error
+  // response (401/429/400/500) would ship without these headers.
+  const applySecurityHeaders = (headers: Record<string, string | number>): void => {
+    headers['x-content-type-options'] = 'nosniff';
+    headers['x-frame-options'] = 'DENY';
+    headers['referrer-policy'] = 'strict-origin-when-cross-origin';
+    headers['content-security-policy'] = csp;
+    if (process.env['NODE_ENV'] === 'production') {
+      headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
+    }
+    headers['permissions-policy'] = permissionsPolicy;
+  };
+
   const app = new Elysia()
     .use(
       cors({
@@ -43,19 +59,17 @@ export function createApp(options: CreateAppOptions) {
     )
     .use(swaggerPlugin)
     .onAfterHandle(({ set }) => {
-      set.headers['x-content-type-options'] = 'nosniff';
-      set.headers['x-frame-options'] = 'DENY';
-      set.headers['referrer-policy'] = 'strict-origin-when-cross-origin';
-      set.headers['content-security-policy'] = csp;
-      if (process.env['NODE_ENV'] === 'production') {
-        set.headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
-      }
-      set.headers['permissions-policy'] = permissionsPolicy;
+      applySecurityHeaders(set.headers);
     })
     .use(requestLogger)
     .onError(({ code, error, set, reqLogger, startMs }) => {
       const log = reqLogger ?? logger;
       const latencyMs = startMs != null ? Date.now() - startMs : undefined;
+
+      // Error responses bypass onAfterHandle, so apply the same security headers
+      // here too. Done before the ApiError branch so any error-specific headers
+      // (e.g. Retry-After) are layered on top without being overwritten.
+      applySecurityHeaders(set.headers);
 
       if (error instanceof ApiError) {
         set.status = error.statusCode;
@@ -66,7 +80,12 @@ export function createApp(options: CreateAppOptions) {
         }
         const level = error.statusCode >= 500 ? 'error' : 'warn';
         log[level]({ status: error.statusCode, code: error.code, latencyMs }, error.message);
-        if (error.statusCode >= 500) captureException(error);
+        if (error.statusCode >= 500) {
+          captureException(error);
+          // Flush the queued event past the Response so a serverless freeze does
+          // not drop it. keepAlive uses waitUntil on Vercel, run-to-completion off.
+          keepAlive(flushSentry());
+        }
         return { error: error.message, code: error.code, ...(error.details ?? {}) };
       }
 
@@ -90,6 +109,9 @@ export function createApp(options: CreateAppOptions) {
 
       log.error({ err: error, code, status: 500, latencyMs }, 'unhandled error');
       captureException(error);
+      // Flush the queued event past the Response so a serverless freeze does not
+      // drop it. keepAlive uses waitUntil on Vercel, run-to-completion off.
+      keepAlive(flushSentry());
       set.status = 500;
       return { error: 'Internal server error', code: 'INTERNAL_ERROR' };
     })

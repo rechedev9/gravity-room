@@ -11,14 +11,16 @@ import { logger } from './logger';
  * gracefully (presence -> null/zero, caches -> miss, rate limiting -> no-op).
  */
 
-const url = process.env['UPSTASH_REDIS_REST_URL'];
-const token = process.env['UPSTASH_REDIS_REST_TOKEN'];
-
 /**
  * Fails fast at startup when Upstash is not configured in production. Called
- * once at module init below; exported for explicit re-checks if ever needed.
+ * once at module init below; exported for explicit re-checks if ever needed. The
+ * env is read here (not at import-time module scope) so a late-populated env -
+ * e.g. when this module is imported before the env is wired in some tests or
+ * runtimes - is still seen.
  */
 export function assertRedisConfigured(): void {
+  const url = process.env['UPSTASH_REDIS_REST_URL'];
+  const token = process.env['UPSTASH_REDIS_REST_TOKEN'];
   if (process.env['NODE_ENV'] === 'production' && (!url || !token)) {
     throw new Error(
       'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required in production'
@@ -34,12 +36,16 @@ let _warnedMissing = false;
 /**
  * Returns a singleton Upstash Redis client when the REST env is configured, or
  * undefined when running without Redis (development only — production throws at
- * init above). The client is connectionless, so construction is cheap and safe
- * to call per request.
+ * init above). The env is read LAZILY on first call (not at import time) so the
+ * client is still built if the vars are populated after this module is imported.
+ * The client is connectionless, so construction is cheap; it is cached after the
+ * first successful build so it is constructed at most once.
  */
 export function getRedis(): Redis | undefined {
   if (_redis) return _redis;
 
+  const url = process.env['UPSTASH_REDIS_REST_URL'];
+  const token = process.env['UPSTASH_REDIS_REST_TOKEN'];
   if (!url || !token) {
     if (!_warnedMissing) {
       _warnedMissing = true;

@@ -64,7 +64,18 @@ export async function rateLimit(
   const limiter = getLimiter(windowMs, maxRequests);
   if (!limiter) return; // dev no-op: permissive when Upstash is absent
 
-  const { success, reset, pending } = await limiter.limit(`${endpoint}:${ip}`);
+  let result: Awaited<ReturnType<typeof limiter.limit>>;
+  try {
+    result = await limiter.limit(`${endpoint}:${ip}`);
+  } catch (err) {
+    // A transient Upstash REST failure must not turn every rate-limited request
+    // into a 500 (regression vs the old in-memory fallback). Fail OPEN: log and
+    // allow the request through. Only an actual over-limit throws below.
+    logger.warn({ err }, 'Rate limiter: Upstash request failed, allowing request (fail-open)');
+    return;
+  }
+
+  const { success, reset, pending } = result;
   // @upstash/ratelimit performs background multi-region sync / analytics on the
   // `pending` promise. On Vercel the function may freeze once the Response is
   // returned, dropping that work, so keep it alive until it settles. The

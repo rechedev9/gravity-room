@@ -23,6 +23,9 @@ interface UpsertCall {
   insightType: string;
   exerciseId: string | null;
   payload: unknown;
+  // The executor the upsert ran against: the `tx` sentinel for the seven insights
+  // (inside withInsightTransaction) or undefined for the autocommit `_meta` marker.
+  executor: unknown;
 }
 
 const upsertCalls: UpsertCall[] = [];
@@ -65,9 +68,10 @@ mock.module('./queries', () => ({
     userId: string,
     insightType: string,
     exerciseId: string | null,
-    payload: unknown
+    payload: unknown,
+    executor?: unknown
   ) => {
-    upsertCalls.push({ userId, insightType, exerciseId, payload });
+    upsertCalls.push({ userId, insightType, exerciseId, payload, executor });
   },
 }));
 
@@ -104,12 +108,18 @@ describe('computeUser', () => {
     expect(upsertCalls.every((c) => c.userId === 'u1')).toBe(true);
   });
 
-  it('advances the cursor by upserting the _meta marker before any insight', async () => {
+  it('writes the _meta marker outside the transaction, before any insight', async () => {
     await computeUser('u1');
-    // The marker is written first so the user's computed_at advances even if a
-    // later pipeline throws, and it carries a null exercise_id.
+    // The marker is committed in its own autocommit statement (no tx executor) and
+    // written first, so the user's computed_at advances even if the insight
+    // transaction below rolls back; it carries a null exercise_id.
     expect(upsertCalls[0]?.insightType).toBe('_meta');
     expect(upsertCalls[0]?.exerciseId).toBeNull();
+    expect(upsertCalls[0]?.executor).toBeUndefined();
+    // The seven real insights run INSIDE the transaction (the `tx` sentinel).
+    const realInsights = upsertCalls.filter((c) => c.insightType !== '_meta');
+    expect(realInsights.length).toBeGreaterThanOrEqual(7);
+    expect(realInsights.every((c) => c.executor === 'tx')).toBe(true);
   });
 
   it('emits volume_trend and frequency before any per-exercise insight', async () => {
@@ -123,11 +133,13 @@ describe('computeUser', () => {
     recordsToReturn = [];
     await computeUser('u1');
     // A record-less active user still writes exactly the _meta cursor marker (and
-    // no real insights), so max(computed_at) advances and the user falls out of
-    // the NULLS-FIRST head — it can no longer starve users who have data.
+    // no real insights), in its own autocommit statement, so max(computed_at)
+    // advances and the user falls out of the NULLS-FIRST head — it can no longer
+    // starve users who have data.
     expect(upsertCalls).toHaveLength(1);
     expect(upsertCalls[0]?.insightType).toBe('_meta');
     expect(upsertCalls[0]?.exerciseId).toBeNull();
+    expect(upsertCalls[0]?.executor).toBeUndefined();
     expect(upsertCalls.some((c) => c.insightType !== '_meta')).toBe(false);
   });
 });

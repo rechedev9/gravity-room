@@ -15,6 +15,7 @@ import { Elysia } from 'elysia';
 
 mock.module('./lib/sentry', () => ({
   captureException: mock(() => {}),
+  flushSentry: mock(() => Promise.resolve()),
 }));
 
 mock.module('./lib/redis', () => ({

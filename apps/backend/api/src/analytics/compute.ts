@@ -32,28 +32,31 @@ export interface RunAllSummary {
 /**
  * Run all pipelines for a single user and upsert every result.
  *
- * The upserts run inside one transaction so a user's insights commit atomically:
- * a crash mid-run rolls back instead of leaving a half-updated set, and because
- * each upsert is idempotent the tick is safe to replay.
+ * The `_meta` cursor marker is committed FIRST in its own autocommit statement,
+ * OUTSIDE the insight transaction, so the user's computed_at always advances even
+ * if the insight pipeline below throws or the statement_timeout rolls the
+ * transaction back. The seven insight upserts then run inside one transaction so a
+ * user's insights commit atomically: a crash mid-run rolls back instead of leaving
+ * a half-updated set, and because each upsert is idempotent the tick is safe to
+ * replay.
  */
 export async function computeUser(userId: string): Promise<void> {
   const records = await fetchWorkoutRecords(userId);
 
   // Always advance this user's cursor, even with zero records, by upserting the
-  // `_meta` marker row before the records-empty return. fetchLeastRecentlyComputedUsers
-  // orders by max(computed_at) NULLS FIRST, so a record-less active user that
-  // never wrote a computed_at would otherwise be re-selected on every tick and
-  // starve users who have data. The marker is filtered out of GET /api/insights.
-  if (records.length === 0) {
-    await upsertInsight(userId, META_INSIGHT_TYPE, null, {});
-    return;
-  }
+  // `_meta` marker row in its own autocommit statement OUTSIDE the transaction.
+  // fetchLeastRecentlyComputedUsers orders by max(computed_at) NULLS FIRST, so a
+  // user whose computed_at never advanced would be re-selected on every tick and
+  // starve users who have data. Committing the marker independently of the insight
+  // transaction means a failed insight pipeline can no longer roll the marker back
+  // and re-introduce that cron starvation. The marker is filtered out of
+  // GET /api/insights.
+  await upsertInsight(userId, META_INSIGHT_TYPE, null, {});
+
+  // A record-less user has no insights to compute; the marker above is enough.
+  if (records.length === 0) return;
 
   await withInsightTransaction(async (tx) => {
-    // Cursor marker (filtered out of GET /api/insights) so this user advances
-    // alongside its real insights and the run stays idempotent.
-    await upsertInsight(userId, META_INSIGHT_TYPE, null, {}, tx);
-
     // Volume trend (aggregate, no exercise_id).
     const volume = computeVolume(records);
     if (volume !== null) await upsertInsight(userId, 'volume_trend', null, volume, tx);
