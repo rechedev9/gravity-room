@@ -14,6 +14,7 @@ import { ApiError } from './error-handler';
 import { logger } from '../lib/logger';
 import { getRedis } from '../lib/redis';
 import { trackPresence } from '../lib/presence';
+import { keepAlive } from '../lib/wait-until';
 
 const BEARER_PREFIX = 'Bearer ';
 const DEV_SECRET = 'dev-secret-change-me';
@@ -81,9 +82,10 @@ export async function resolveUserId({
 
   const redis = getRedis();
   if (redis) {
-    void trackPresence(userId, redis).catch((err: unknown) => {
-      logger.warn({ err }, 'presence track failed');
-    });
+    // Best-effort presence heartbeat. On Vercel the function may freeze the
+    // instant the Response is returned, so hand the write to keepAlive() to
+    // extend the lifetime until it settles instead of fire-and-forget.
+    keepAlive(trackPresence(userId, redis));
   }
 
   return { userId };

@@ -180,6 +180,7 @@ describe('verifyGoogleToken — multiple audiences', () => {
       aud: 'mobile-client-id',
       iss: 'accounts.google.com',
       exp: Math.floor(Date.now() / 1000) + 3600,
+      email_verified: true,
     });
 
     await expect(verifyGoogleToken(token)).resolves.toEqual({
@@ -214,12 +215,166 @@ describe('verifyGoogleToken — multiple audiences', () => {
       aud: 'web-client-id',
       iss: 'accounts.google.com',
       exp: Math.floor(Date.now() / 1000) + 3600,
+      email_verified: true,
     });
 
     await expect(verifyGoogleToken(token)).resolves.toEqual({
       sub: 'user-456',
       email: 'web@example.com',
       name: 'Web User',
+    });
+  });
+});
+
+describe('verifyGoogleToken — JWKS key rotation', () => {
+  it('forces a single JWKS refetch when the token kid is absent from the stale cache', async () => {
+    process.env['GOOGLE_CLIENT_ID'] = 'test-client-id';
+    delete process.env['GOOGLE_CLIENT_IDS'];
+
+    const oldKeyPair = await generateRsaKeyPair();
+    const newKeyPair = await generateRsaKeyPair();
+    const OLD_KID = 'rotation-old-key';
+    const NEW_KID = 'rotation-new-key';
+
+    const oldJwks = await buildJwksResponse(OLD_KID, oldKeyPair.publicKey);
+    const newJwks = await buildJwksResponse(NEW_KID, newKeyPair.publicKey);
+
+    // The mock serves the OLD key set until Google "rotates" to the NEW set.
+    let currentJwks = oldJwks;
+    const mockFetch = mock(
+      (): Promise<Response> =>
+        Promise.resolve(
+          new Response(JSON.stringify(currentJwks), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+    );
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    // Phase 1: a token signed with OLD_KID populates the cache with the OLD set.
+    const oldToken = await signJwt(OLD_KID, oldKeyPair.privateKey, {
+      sub: 'user-old',
+      email: 'old@example.com',
+      name: 'Old User',
+      aud: 'test-client-id',
+      iss: 'accounts.google.com',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      email_verified: true,
+    });
+    await expect(verifyGoogleToken(oldToken)).resolves.toMatchObject({ sub: 'user-old' });
+
+    // Phase 2: Google rotates keys. The cache (1h TTL) still holds only OLD_KID,
+    // but a freshly minted token references NEW_KID. Verification must force a
+    // single refetch that bypasses the TTL and then succeed.
+    currentJwks = newJwks;
+    const newToken = await signJwt(NEW_KID, newKeyPair.privateKey, {
+      sub: 'user-new',
+      email: 'new@example.com',
+      name: 'New User',
+      aud: 'test-client-id',
+      iss: 'accounts.google.com',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      email_verified: true,
+    });
+
+    await expect(verifyGoogleToken(newToken)).resolves.toEqual({
+      sub: 'user-new',
+      email: 'new@example.com',
+      name: 'New User',
+    });
+  });
+});
+
+describe('verifyGoogleToken — email verification', () => {
+  function mockJwks(jwksBody: { keys: unknown[] }): void {
+    const mockFetch = mock(
+      (): Promise<Response> =>
+        Promise.resolve(
+          new Response(JSON.stringify(jwksBody), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        )
+    );
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+  }
+
+  function basePayload(overrides: Record<string, unknown>): Record<string, unknown> {
+    return {
+      sub: 'user-123',
+      email: 'test@example.com',
+      name: 'Test User',
+      aud: 'test-client-id',
+      iss: 'accounts.google.com',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+      ...overrides,
+    };
+  }
+
+  it('rejects a token with email_verified false (AUTH_EMAIL_UNVERIFIED)', async () => {
+    process.env['GOOGLE_CLIENT_ID'] = 'test-client-id';
+    delete process.env['GOOGLE_CLIENT_IDS'];
+
+    const keyPair = await sharedKeyPairPromise;
+    mockJwks(await buildJwksResponse(SHARED_KID, keyPair.publicKey));
+
+    const token = await signJwt(
+      SHARED_KID,
+      keyPair.privateKey,
+      basePayload({ email_verified: false })
+    );
+
+    let thrown: unknown;
+    try {
+      await verifyGoogleToken(token);
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown instanceof ApiError).toBe(true);
+    expect((thrown as ApiError).code).toBe('AUTH_EMAIL_UNVERIFIED');
+    expect((thrown as ApiError).statusCode).toBe(401);
+  });
+
+  it('rejects a token with email_verified missing (AUTH_EMAIL_UNVERIFIED)', async () => {
+    process.env['GOOGLE_CLIENT_ID'] = 'test-client-id';
+    delete process.env['GOOGLE_CLIENT_IDS'];
+
+    const keyPair = await sharedKeyPairPromise;
+    mockJwks(await buildJwksResponse(SHARED_KID, keyPair.publicKey));
+
+    const token = await signJwt(SHARED_KID, keyPair.privateKey, basePayload({}));
+
+    let thrown: unknown;
+    try {
+      await verifyGoogleToken(token);
+    } catch (e) {
+      thrown = e;
+    }
+
+    expect(thrown instanceof ApiError).toBe(true);
+    expect((thrown as ApiError).code).toBe('AUTH_EMAIL_UNVERIFIED');
+    expect((thrown as ApiError).statusCode).toBe(401);
+  });
+
+  it('accepts a token with email_verified serialized as the string "true"', async () => {
+    process.env['GOOGLE_CLIENT_ID'] = 'test-client-id';
+    delete process.env['GOOGLE_CLIENT_IDS'];
+
+    const keyPair = await sharedKeyPairPromise;
+    mockJwks(await buildJwksResponse(SHARED_KID, keyPair.publicKey));
+
+    const token = await signJwt(
+      SHARED_KID,
+      keyPair.privateKey,
+      basePayload({ email_verified: 'true' })
+    );
+
+    await expect(verifyGoogleToken(token)).resolves.toEqual({
+      sub: 'user-123',
+      email: 'test@example.com',
+      name: 'Test User',
     });
   });
 });

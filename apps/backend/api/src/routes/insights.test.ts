@@ -3,11 +3,18 @@
 // that would override the value AFTER auth-guard already captured it.
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect, beforeEach } from 'bun:test';
+import { mock, describe, it, expect, beforeEach, afterAll } from 'bun:test';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
+
+// bun's mock.module writes to a process-global registry, so these mocks would
+// otherwise leak into other test files run in the same invocation (and
+// mock.restore() does NOT undo module mocks). Capture the real modules first, then
+// re-install them in afterAll so these mocks are fully scoped to this file.
+const realRateLimit = { ...(await import('../middleware/rate-limit')) };
+const realInsightsService = { ...(await import('../services/insights')) };
 
 mock.module('../middleware/rate-limit', () => ({
   rateLimit: (): Promise<void> => Promise.resolve(),
@@ -28,6 +35,11 @@ const mockGetInsights = mock<(userId: string, types: readonly string[]) => Promi
 mock.module('../services/insights', () => ({
   getInsights: mockGetInsights,
 }));
+
+afterAll(() => {
+  mock.module('../middleware/rate-limit', () => realRateLimit);
+  mock.module('../services/insights', () => realInsightsService);
+});
 
 import { Elysia } from 'elysia';
 import { ApiError } from '../middleware/error-handler';

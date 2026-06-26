@@ -7,7 +7,7 @@
     "dev": "bun --watch src/dev-server.ts",
     "start": "bun src/dev-server.ts",
     "lint": "eslint",
-    "test": "bun test src/lib && bun test src/analytics && bun test src/services/auth.test.ts src/services/exercises.test.ts src/services/programs.test.ts src/services/results.test.ts src/middleware src/create-app.test.ts && bun test src/services/catalog.test.ts && bun test src/routes",
+    "test": "bun test src/lib && bun test src/analytics && bun test src/services/auth.test.ts src/services/exercises.test.ts src/services/programs.test.ts src/services/results.test.ts src/middleware src/create-app.test.ts && bun test src/services/catalog.test.ts && bun test src/services/insights.test.ts src/routes",
     "test:e2e": "bun test --preload ./test/db-setup.ts test/e2e",
     "typecheck": "tsc --noEmit",
     "db:generate": "bunx drizzle-kit generate",
@@ -29,6 +29,7 @@
     "@upstash/redis": "^1.35.5",
     "@upstash/ratelimit": "^2.0.6",
     "@sentry/node": "^10.40.0",
+    "@vercel/functions": "^3.7.3",
     "pino": "^10.3.1",
     "zod": "^4.3.6"
   },

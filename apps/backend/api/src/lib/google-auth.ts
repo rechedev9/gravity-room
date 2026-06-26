@@ -109,6 +109,8 @@ interface IdTokenPayload {
   readonly aud: string | string[];
   readonly iss: string;
   readonly exp: number;
+  // Google sends a boolean, but some libraries serialize it as the string "true".
+  readonly email_verified?: boolean | string;
 }
 
 function isIdTokenPayload(value: unknown): value is IdTokenPayload {
@@ -118,7 +120,10 @@ function isIdTokenPayload(value: unknown): value is IdTokenPayload {
     typeof value['email'] === 'string' &&
     typeof value['iss'] === 'string' &&
     typeof value['exp'] === 'number' &&
-    (typeof value['aud'] === 'string' || Array.isArray(value['aud']))
+    (typeof value['aud'] === 'string' || Array.isArray(value['aud'])) &&
+    (value['email_verified'] === undefined ||
+      typeof value['email_verified'] === 'boolean' ||
+      typeof value['email_verified'] === 'string')
   );
 }
 
@@ -129,12 +134,30 @@ function isIdTokenPayload(value: unknown): value is IdTokenPayload {
 interface JwksCache {
   readonly keys: GoogleJwk[];
   readonly fetchedAt: number;
+  readonly ttlMs: number;
 }
 
 let jwksCache: JwksCache | null = null;
 
-async function fetchGoogleCerts(): Promise<GoogleJwk[]> {
-  if (jwksCache && Date.now() - jwksCache.fetchedAt < CACHE_TTL_MS) {
+/** Parse the max-age (in ms) from a Cache-Control header, if present and valid. */
+function parseCacheControlMaxAgeMs(cacheControl: string | null): number | null {
+  if (!cacheControl) return null;
+  const match = /max-age\s*=\s*(\d+)/i.exec(cacheControl);
+  if (!match?.[1]) return null;
+  const seconds = Number(match[1]);
+  if (!Number.isFinite(seconds) || seconds <= 0) return null;
+  return seconds * 1000;
+}
+
+/**
+ * Fetches Google's JWKS, caching it for the response's Cache-Control max-age
+ * (falling back to CACHE_TTL_MS). Pass `forceRefresh` to bypass the cache for a
+ * single fetch — used to pick up freshly rotated signing keys.
+ */
+async function fetchGoogleCerts(options?: {
+  readonly forceRefresh?: boolean;
+}): Promise<GoogleJwk[]> {
+  if (!options?.forceRefresh && jwksCache && Date.now() - jwksCache.fetchedAt < jwksCache.ttlMs) {
     return jwksCache.keys;
   }
 
@@ -145,7 +168,8 @@ async function fetchGoogleCerts(): Promise<GoogleJwk[]> {
   if (!isJwksResponse(rawData))
     throw new ApiError(503, 'Invalid JWKS response format', 'AUTH_JWKS_UNAVAILABLE');
 
-  jwksCache = { keys: rawData.keys, fetchedAt: Date.now() };
+  const ttlMs = parseCacheControlMaxAgeMs(res.headers.get('cache-control')) ?? CACHE_TTL_MS;
+  jwksCache = { keys: rawData.keys, fetchedAt: Date.now(), ttlMs };
   return rawData.keys;
 }
 
@@ -176,8 +200,15 @@ export async function verifyGoogleToken(
   if (rawHeader.alg !== 'RS256')
     throw new ApiError(401, 'Unsupported token algorithm', 'AUTH_INVALID');
 
-  const keys = await fetchGoogleCerts();
-  const jwk = keys.find((k) => k.kid === rawHeader.kid);
+  let keys = await fetchGoogleCerts();
+  let jwk = keys.find((k) => k.kid === rawHeader.kid);
+  if (!jwk) {
+    // The kid may belong to a freshly rotated Google signing key that is not yet
+    // in our cached set. Force a single JWKS refetch (bypassing the TTL) and retry
+    // the lookup once before rejecting, to avoid spurious 401s during key rotation.
+    keys = await fetchGoogleCerts({ forceRefresh: true });
+    jwk = keys.find((k) => k.kid === rawHeader.kid);
+  }
   if (!jwk) throw new ApiError(401, 'Unknown token signing key', 'AUTH_INVALID');
 
   // Pass the narrowed JWK fields directly — TypeScript infers compatibility
@@ -215,6 +246,12 @@ export async function verifyGoogleToken(
   const audiences = Array.isArray(rawPayload.aud) ? rawPayload.aud : [rawPayload.aud];
   if (!audiences.some((audience) => allowedClientIds.includes(audience))) {
     throw new ApiError(401, 'Invalid audience', 'AUTH_INVALID');
+  }
+
+  // Account identity is derived from the Google email, so it must be verified.
+  // Accept boolean true or the string "true"; reject false, "false", or missing.
+  if (rawPayload.email_verified !== true && rawPayload.email_verified !== 'true') {
+    throw new ApiError(401, 'Google email is not verified', 'AUTH_EMAIL_UNVERIFIED');
   }
 
   return {

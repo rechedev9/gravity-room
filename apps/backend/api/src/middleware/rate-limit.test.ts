@@ -35,12 +35,18 @@ mock.module('@upstash/ratelimit', () => {
     static slidingWindow(max: number, window: string): { max: number; windowMs: number } {
       return { max, windowMs: Number(window.replace(/\s*ms$/, '')) };
     }
-    limit(key: string): Promise<{ success: boolean; reset: number }> {
+    limit(key: string): Promise<{ success: boolean; reset: number; pending: Promise<unknown> }> {
       const n = (counts.get(key) ?? 0) + 1;
       counts.set(key, n);
       // Mirror the real client: `reset` is the absolute ms timestamp at which the
       // current window clears, so rate-limit.ts can derive Retry-After from it.
-      return Promise.resolve({ success: n <= this.max, reset: Date.now() + this.windowMs });
+      // `pending` is the background multi-region sync promise the real limiter
+      // returns; rate-limit.ts hands it to keepAlive() for serverless durability.
+      return Promise.resolve({
+        success: n <= this.max,
+        reset: Date.now() + this.windowMs,
+        pending: Promise.resolve(),
+      });
     }
   }
   return { Ratelimit };

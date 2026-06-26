@@ -14,6 +14,7 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { ApiError } from './error-handler';
 import { logger } from '../lib/logger';
 import { getRedis } from '../lib/redis';
+import { keepAlive } from '../lib/wait-until';
 
 // ---------------------------------------------------------------------------
 // Limiter cache — one Ratelimit per distinct {windowMs, maxRequests}
@@ -63,7 +64,12 @@ export async function rateLimit(
   const limiter = getLimiter(windowMs, maxRequests);
   if (!limiter) return; // dev no-op: permissive when Upstash is absent
 
-  const { success, reset } = await limiter.limit(`${endpoint}:${ip}`);
+  const { success, reset, pending } = await limiter.limit(`${endpoint}:${ip}`);
+  // @upstash/ratelimit performs background multi-region sync / analytics on the
+  // `pending` promise. On Vercel the function may freeze once the Response is
+  // returned, dropping that work, so keep it alive until it settles. The
+  // synchronous allow/deny decision below is unaffected.
+  keepAlive(pending);
   if (!success) {
     // Retry-After is the seconds until THIS limiter window resets (from the
     // limiter's reset timestamp), not the full window length, so clients are not

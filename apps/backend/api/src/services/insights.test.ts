@@ -3,7 +3,7 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, mock, beforeEach, afterAll } from 'bun:test';
 
 // ---------------------------------------------------------------------------
 // Mock DB
@@ -36,9 +36,19 @@ const mockWhere = mock(() => ({ orderBy: mockOrderBy }));
 const mockFrom = mock(() => ({ where: mockWhere }));
 const mockSelect = mock(() => ({ from: mockFrom }));
 
+// bun's mock.module writes to a process-global registry, so a module mock left
+// in place would leak into any other test file run in the same invocation (and
+// mock.restore() does NOT undo module mocks). Capture the real export first, then
+// re-install it in afterAll so this file's `../db` mock is fully scoped to itself.
+const realDb = { ...(await import('../db')) };
+
 mock.module('../db', () => ({
   getDb: () => ({ select: mockSelect }),
 }));
+
+afterAll(() => {
+  mock.module('../db', () => realDb);
+});
 
 const { getInsights } = await import('./insights');
 
