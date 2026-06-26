@@ -3,11 +3,21 @@
 // that would override the value AFTER auth-guard already captured it.
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect, beforeEach } from 'bun:test';
+import { mock, describe, it, expect, beforeEach, afterAll } from 'bun:test';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
+
+// bun's mock.module writes to a process-global registry, so these mocks would
+// otherwise leak into other test files run in the same invocation (and
+// mock.restore() does NOT undo module mocks). Capture the real modules first, then
+// re-install them in afterAll so these mocks are fully scoped to this file. Without
+// this, the mocked services/auth (findUserById stub) leaks and 401s the sibling
+// exercises.test.ts + services/insights.test.ts when the suite runs together.
+const realRateLimit = { ...(await import('../middleware/rate-limit')) };
+const realAuth = { ...(await import('../services/auth')) };
+const realInsightsService = { ...(await import('../services/insights')) };
 
 const mockRateLimit = mock<() => Promise<void>>(() => Promise.resolve());
 
@@ -35,6 +45,12 @@ mock.module('../services/insights', () => ({
   getInsights: mockGetInsights,
 }));
 
+afterAll(() => {
+  mock.module('../middleware/rate-limit', () => realRateLimit);
+  mock.module('../services/auth', () => realAuth);
+  mock.module('../services/insights', () => realInsightsService);
+});
+
 import { Elysia } from 'elysia';
 import { ApiError } from '../middleware/error-handler';
 import { insightsRoutes } from './insights';
@@ -60,7 +76,9 @@ const testApp = new Elysia()
 // ---------------------------------------------------------------------------
 
 async function makeValidJwt(userId: string): Promise<string> {
-  const secret = process.env['JWT_SECRET'] ?? 'dev-secret-change-me';
+  // Fallback matches auth-guard's TEST_SECRET (the NODE_ENV=test fallback) so the
+  // token verifies when JWT_SECRET is unset, e.g. under `bun test src/routes`.
+  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({

@@ -155,6 +155,10 @@ mock.module('../services/auth', () => ({
   createPasswordResetToken: mockCreatePasswordResetToken,
   consumePasswordResetToken: mockConsumePasswordResetToken,
   setUserPassword: mockSetUserPassword,
+  // Included so the process-global services/auth mock exposes every export the
+  // routes batch consumes (internal.ts imports cleanupExpiredTokens). Keeps the
+  // frozen export-name set complete regardless of sibling test ordering.
+  cleanupExpiredTokens: mock(() => Promise.resolve(0)),
   REFRESH_TOKEN_DAYS: 7,
 }));
 

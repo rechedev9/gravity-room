@@ -68,6 +68,12 @@ mock.module('../services/auth', () => ({
   createPasswordResetToken: mock(() => Promise.resolve('reset-token')),
   consumePasswordResetToken: mock(() => Promise.resolve(null)),
   setUserPassword: mockSetUserPassword,
+  // Included so the process-global services/auth mock exposes every export the
+  // routes batch consumes. internal.ts imports cleanupExpiredTokens, and this
+  // file runs first (alphabetically) and materializes the module shape via its
+  // `await import('./auth')`, freezing the export-name set; omitting this export
+  // would break internal.ts's static named import at link time.
+  cleanupExpiredTokens: mock(() => Promise.resolve(0)),
   REFRESH_TOKEN_DAYS: 7,
 }));
 

@@ -147,12 +147,13 @@ describe('POST /exercises without auth', () => {
 // auth-guard.ts captures process.env['JWT_SECRET'] at import time (module evaluation).
 // We read the same env var at CALL time (test body execution), which is AFTER all
 // modules load but BEFORE any static test-body override of JWT_SECRET.
-// Fallback: 'dev-secret-change-me' matches auth-guard's DEV_SECRET constant.
+// Fallback: 'test-secret-do-not-use-outside-tests' matches auth-guard's TEST_SECRET
+// constant (the NODE_ENV=test fallback), so the token verifies when JWT_SECRET is unset.
 // ---------------------------------------------------------------------------
 
 async function makeValidJwt(userId: string): Promise<string> {
   // Must read at call time — same env state auth-guard captured at import time.
-  const secret = process.env['JWT_SECRET'] ?? 'dev-secret-change-me';
+  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({
