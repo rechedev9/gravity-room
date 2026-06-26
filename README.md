@@ -153,7 +153,10 @@ a batch locally with `POST /api/internal/analytics/compute` (requires the
 `INTERNAL_SECRET` header).
 
 For the Expo mobile app, set `EXPO_PUBLIC_API_URL` to the API origin and
-configure the Google OAuth client IDs needed by `apps/frontend/mobile`:
+configure the Google OAuth client IDs needed by `apps/frontend/mobile`. For
+production builds this must be the deployed Vercel domain
+(`https://YOUR-APP.vercel.app`, replaced with the real domain after the first
+deploy); for local development point it at `http://localhost:3001`:
 
 - `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`
 - `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`

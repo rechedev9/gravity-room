@@ -18,6 +18,7 @@
 import { $ } from 'bun';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import * as prettier from 'prettier';
 import { buildGeneratedArtifact } from './generate-api-types-lib';
 
 const dir = dirname(fileURLToPath(import.meta.url));
@@ -58,5 +59,18 @@ const header = [
   '',
 ].join('\n');
 
-await Bun.write(outputPath, header + content);
+// Format with the repo Prettier config so the committed artifact is always
+// canonical. Without this the raw codegen output can carry stray blank lines
+// (e.g. when the API drops its last endpoint), which would make the format
+// check and the drift check disagree: one would demand the blank line removed
+// and the other would re-add it on regeneration. Formatting here makes
+// `bun run api:types` emit exactly what `prettier --check` accepts, so the CI
+// drift gate (`git diff --exit-code`) is stable.
+const prettierConfig = await prettier.resolveConfig(outputPath);
+const formatted = await prettier.format(header + content, {
+  ...prettierConfig,
+  parser: 'typescript',
+});
+
+await Bun.write(outputPath, formatted);
 process.stdout.write(`Generated: ${outputPath}\n`);

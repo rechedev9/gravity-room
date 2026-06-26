@@ -111,18 +111,6 @@ export const schemas = {
 
 export const endpoints = [
   {
-    method: 'get',
-    path: '',
-    requestFormat: 'json',
-    response: z.void(),
-  },
-  {
-    method: 'get',
-    path: '/',
-    requestFormat: 'json',
-    response: z.void(),
-  },
-  {
     method: 'post',
     path: '/api/auth/dev',
     requestFormat: 'json',
@@ -555,6 +543,42 @@ export const endpoints = [
   },
   {
     method: 'get',
+    path: '/api/internal/analytics/compute',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'post',
+    path: '/api/internal/analytics/compute',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'get',
+    path: '/api/internal/cleanup-tokens',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'post',
+    path: '/api/internal/cleanup-tokens',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'get',
+    path: '/api/internal/purge-users',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'post',
+    path: '/api/internal/purge-users',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'get',
     path: '/api/muscle-groups',
     description: `Returns all muscle groups. No authentication required.`,
     requestFormat: 'json',
@@ -924,7 +948,7 @@ export const endpoints = [
   {
     method: 'get',
     path: '/health',
-    description: `Returns server uptime and a live database probe. Returns 503 when the database is unreachable.`,
+    description: `Stateless probe running a live database SELECT and an Upstash ping. Returns 503 only when the database is unreachable.`,
     requestFormat: 'json',
     response: z.void(),
     errors: [
@@ -934,11 +958,5 @@ export const endpoints = [
         schema: z.void(),
       },
     ],
-  },
-  {
-    method: 'get',
-    path: '/metrics',
-    requestFormat: 'json',
-    response: z.void(),
   },
 ] as const;

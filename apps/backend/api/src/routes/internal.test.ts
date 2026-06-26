@@ -68,11 +68,17 @@ function post(path: string, headers: Record<string, string> = {}): Promise<Respo
   return testApp.handle(new Request(`http://localhost${path}`, { method: 'POST', headers }));
 }
 
+function get(path: string, headers: Record<string, string> = {}): Promise<Response> {
+  return testApp.handle(new Request(`http://localhost${path}`, { method: 'GET', headers }));
+}
+
 const ORIGINAL_SECRET = process.env['INTERNAL_SECRET'];
+const ORIGINAL_CRON_SECRET = process.env['CRON_SECRET'];
 const ORIGINAL_BATCH = process.env['ANALYTICS_BATCH_SIZE'];
 
 beforeEach(() => {
   process.env['INTERNAL_SECRET'] = SECRET;
+  delete process.env['CRON_SECRET'];
   delete process.env['ANALYTICS_BATCH_SIZE'];
   mockCleanupExpiredTokens.mockReset();
   mockCleanupExpiredTokens.mockImplementation(() => Promise.resolve(0));
@@ -89,6 +95,8 @@ beforeEach(() => {
 afterAll(() => {
   if (ORIGINAL_SECRET === undefined) delete process.env['INTERNAL_SECRET'];
   else process.env['INTERNAL_SECRET'] = ORIGINAL_SECRET;
+  if (ORIGINAL_CRON_SECRET === undefined) delete process.env['CRON_SECRET'];
+  else process.env['CRON_SECRET'] = ORIGINAL_CRON_SECRET;
   if (ORIGINAL_BATCH === undefined) delete process.env['ANALYTICS_BATCH_SIZE'];
   else process.env['ANALYTICS_BATCH_SIZE'] = ORIGINAL_BATCH;
 });
@@ -123,11 +131,56 @@ describe('internal routes — secret guard', () => {
     });
   }
 
-  it('returns 401 when INTERNAL_SECRET is not configured (fail closed)', async () => {
+  it('returns 401 when neither INTERNAL_SECRET nor CRON_SECRET is configured (fail closed)', async () => {
     delete process.env['INTERNAL_SECRET'];
+    delete process.env['CRON_SECRET'];
     const res = await post('/internal/cleanup-tokens', { Authorization: `Bearer ${SECRET}` });
     expect(res.status).toBe(401);
     expect(mockCleanupExpiredTokens).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Vercel Cron: GET requests authenticated by the auto-injected CRON_SECRET
+// ---------------------------------------------------------------------------
+
+describe('internal routes — Vercel Cron (GET + CRON_SECRET)', () => {
+  const CRON_SECRET = 'vercel-injected-cron-secret';
+
+  it('authenticates a GET cron request via Authorization: Bearer <CRON_SECRET>', async () => {
+    process.env['CRON_SECRET'] = CRON_SECRET;
+    mockCleanupExpiredTokens.mockImplementation(() => Promise.resolve(4));
+    const res = await get('/internal/cleanup-tokens', {
+      Authorization: `Bearer ${CRON_SECRET}`,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { deleted: number };
+    expect(body.deleted).toBe(4);
+    expect(mockCleanupExpiredTokens).toHaveBeenCalledTimes(1);
+  });
+
+  it('still accepts the manual INTERNAL_SECRET on a GET request when CRON_SECRET is also set', async () => {
+    process.env['CRON_SECRET'] = CRON_SECRET;
+    const res = await get('/internal/purge-users', { Authorization: `Bearer ${SECRET}` });
+    expect(res.status).toBe(200);
+    expect(mockPurgeDeletedUsers).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a GET request whose bearer token matches neither secret', async () => {
+    process.env['CRON_SECRET'] = CRON_SECRET;
+    const res = await get('/internal/analytics/compute', { Authorization: 'Bearer nope' });
+    expect(res.status).toBe(401);
+    expect(mockFetchLeastRecentlyComputedUsers).not.toHaveBeenCalled();
+  });
+
+  it('authenticates a GET cron request when ONLY CRON_SECRET is configured', async () => {
+    delete process.env['INTERNAL_SECRET'];
+    process.env['CRON_SECRET'] = CRON_SECRET;
+    const res = await get('/internal/cleanup-tokens', {
+      Authorization: `Bearer ${CRON_SECRET}`,
+    });
+    expect(res.status).toBe(200);
+    expect(mockCleanupExpiredTokens).toHaveBeenCalledTimes(1);
   });
 });
 
