@@ -7,7 +7,7 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "lint": "eslint",
-    "test": "bun test src/lib && bun test src/services/auth.test.ts src/services/exercises.test.ts src/services/programs.test.ts src/services/results.test.ts src/middleware src/create-app.test.ts && bun test src/services/catalog.test.ts && bun test src/routes",
+    "test": "bun test src/lib && bun test src/analytics && bun test src/services/auth.test.ts src/services/exercises.test.ts src/services/programs.test.ts src/services/results.test.ts src/middleware src/create-app.test.ts && bun test src/services/catalog.test.ts && bun test src/routes",
     "test:e2e": "bun test --preload ./test/db-setup.ts test/e2e",
     "typecheck": "tsc --noEmit",
     "db:generate": "bunx drizzle-kit generate",
@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@gzclp/domain": "workspace:*",
+    "date-fns": "^4.1.0",
     "elysia": "^1.4.25",
     "@elysiajs/cors": "^1.4.1",
     "@elysiajs/jwt": "^1.4.0",
