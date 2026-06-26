@@ -1,56 +1,68 @@
+/**
+ * rate-limit unit tests — verify the Upstash-backed sliding-window limiter.
+ *
+ * Strategy: mock @upstash/ratelimit with a deterministic in-memory counter so
+ * we can drive the limit/allow decision, and mock ../lib/redis so the limiter
+ * believes Upstash is configured. Each test uses a unique endpoint+IP key to
+ * avoid cross-test contamination in the module-level limiter cache.
+ */
 process.env['LOG_LEVEL'] = 'silent';
-// Force in-memory store so tests are self-contained and don't hit a live Redis.
-delete process.env['REDIS_URL'];
 
-import { describe, it, expect } from 'bun:test';
-import { MemoryRateLimitStore, rateLimit } from './rate-limit';
+import { describe, it, expect, mock, beforeEach } from 'bun:test';
+
+// ---------------------------------------------------------------------------
+// Mocks — must be declared before importing the SUT
+// ---------------------------------------------------------------------------
+
+let redisAvailable = true;
+
+mock.module('../lib/redis', () => ({
+  // Truthy stub; the mocked Ratelimit below ignores the client entirely.
+  getRedis: (): unknown => (redisAvailable ? {} : undefined),
+}));
+
+// Per-key hit counter shared across mocked Ratelimit instances.
+const counts = new Map<string, number>();
+
+mock.module('@upstash/ratelimit', () => {
+  class Ratelimit {
+    private readonly max: number;
+    private readonly windowMs: number;
+    constructor(opts: { limiter: { max: number; windowMs: number } }) {
+      this.max = opts.limiter.max;
+      this.windowMs = opts.limiter.windowMs;
+    }
+    static slidingWindow(max: number, window: string): { max: number; windowMs: number } {
+      return { max, windowMs: Number(window.replace(/\s*ms$/, '')) };
+    }
+    limit(key: string): Promise<{ success: boolean; reset: number; pending: Promise<unknown> }> {
+      const n = (counts.get(key) ?? 0) + 1;
+      counts.set(key, n);
+      // Mirror the real client: `reset` is the absolute ms timestamp at which the
+      // current window clears, so rate-limit.ts can derive Retry-After from it.
+      // `pending` is the background multi-region sync promise the real limiter
+      // returns; rate-limit.ts hands it to keepAlive() for serverless durability.
+      return Promise.resolve({
+        success: n <= this.max,
+        reset: Date.now() + this.windowMs,
+        pending: Promise.resolve(),
+      });
+    }
+  }
+  return { Ratelimit };
+});
+
+// Must import AFTER mock.module
+import { rateLimit } from './rate-limit';
 import { ApiError } from './error-handler';
 
-describe('MemoryRateLimitStore', () => {
-  it('allows a request when the count is under the limit', async () => {
-    const store = new MemoryRateLimitStore();
-    const allowed = await store.check('test:key', 60_000, 5);
-    expect(allowed).toBe(true);
-  });
-
-  it('blocks the request that exceeds the limit', async () => {
-    const store = new MemoryRateLimitStore();
-    for (let i = 0; i < 5; i++) {
-      await store.check('test:block', 60_000, 5);
-    }
-    const blocked = await store.check('test:block', 60_000, 5);
-    expect(blocked).toBe(false);
-  });
-
-  it('uses separate counters per key so different keys do not interfere', async () => {
-    const store = new MemoryRateLimitStore();
-    for (let i = 0; i < 5; i++) {
-      await store.check('key:a', 60_000, 5);
-    }
-    const allowed = await store.check('key:b', 60_000, 5);
-    expect(allowed).toBe(true);
-  });
-
-  it('allows requests again after the window expires', async () => {
-    const store = new MemoryRateLimitStore();
-    // Fill up a 1ms window
-    for (let i = 0; i < 3; i++) {
-      await store.check('test:expire', 1, 3);
-    }
-    // Wait for the window to pass
-    await new Promise<void>((resolve) => setTimeout(resolve, 5));
-    const allowed = await store.check('test:expire', 1, 3);
-    expect(allowed).toBe(true);
-  });
+beforeEach(() => {
+  counts.clear();
+  redisAvailable = true;
 });
 
 // ---------------------------------------------------------------------------
-// rateLimit() function — verifies ApiError(429) shape (REQ-RL-001..010, REQ-RL-011)
-// ---------------------------------------------------------------------------
-//
-// Strategy: use maxRequests:1 so the limit is exceeded on the 2nd call.
-// Each test uses a unique endpoint+IP key to avoid cross-test contamination
-// in the singleton MemoryRateLimitStore.
+// rateLimit() — ApiError(429) shape (REQ-RL-011) and per-key isolation
 // ---------------------------------------------------------------------------
 
 describe('rateLimit function', () => {
@@ -59,9 +71,7 @@ describe('rateLimit function', () => {
   });
 
   it('throws ApiError(429) when the limit is exceeded', async () => {
-    // Consume the one allowed slot
     await rateLimit('ip-limit', 'TEST /limit', { maxRequests: 1 });
-    // Second call should throw
     await expect(rateLimit('ip-limit', 'TEST /limit', { maxRequests: 1 })).rejects.toBeInstanceOf(
       ApiError
     );
@@ -100,9 +110,17 @@ describe('rateLimit function', () => {
     }
   });
 
-  // -- Route-specific limit configurations (REQ-RL-001..REQ-RL-010) --
-  // Each test verifies: (a) correct key structure and (b) that the route limit
-  // of 100 req/min (or 20 for export) is enforced by rateLimit().
+  it('sets a Retry-After header derived from the limiter reset timestamp', async () => {
+    await rateLimit('ip-retry', 'TEST /retry', { maxRequests: 1, windowMs: 60_000 });
+    try {
+      await rateLimit('ip-retry', 'TEST /retry', { maxRequests: 1, windowMs: 60_000 });
+      expect(true).toBe(false);
+    } catch (err: unknown) {
+      expect(err).toBeInstanceOf(ApiError);
+      // reset = now + 60_000 ms, so the seconds-until-reset rounds up to 60.
+      expect((err as ApiError).headers?.['Retry-After']).toBe('60');
+    }
+  });
 
   it('GET /exercises allows up to 100 requests per IP (REQ-RL-001)', async () => {
     for (let i = 0; i < 100; i++) {
@@ -111,41 +129,6 @@ describe('rateLimit function', () => {
     await expect(rateLimit('ip-ex', 'GET /exercises', { maxRequests: 100 })).rejects.toBeInstanceOf(
       ApiError
     );
-  });
-
-  it('GET /muscle-groups rate limit throws ApiError(429) after limit (REQ-RL-002)', async () => {
-    await rateLimit('ip-mg', 'GET /muscle-groups', { maxRequests: 1 });
-    await expect(
-      rateLimit('ip-mg', 'GET /muscle-groups', { maxRequests: 1 })
-    ).rejects.toBeInstanceOf(ApiError);
-  });
-
-  it('GET /catalog rate limit throws ApiError(429) after limit (REQ-RL-003)', async () => {
-    await rateLimit('ip-cat', 'GET /catalog', { maxRequests: 1 });
-    await expect(rateLimit('ip-cat', 'GET /catalog', { maxRequests: 1 })).rejects.toBeInstanceOf(
-      ApiError
-    );
-  });
-
-  it('GET /catalog/:programId rate limit throws ApiError(429) after limit (REQ-RL-004)', async () => {
-    await rateLimit('ip-catid', 'GET /catalog/:id', { maxRequests: 1 });
-    await expect(
-      rateLimit('ip-catid', 'GET /catalog/:id', { maxRequests: 1 })
-    ).rejects.toBeInstanceOf(ApiError);
-  });
-
-  it('GET /programs rate limit throws ApiError(429) after limit (REQ-RL-005)', async () => {
-    await rateLimit('user-1', 'GET /programs', { maxRequests: 1 });
-    await expect(rateLimit('user-1', 'GET /programs', { maxRequests: 1 })).rejects.toBeInstanceOf(
-      ApiError
-    );
-  });
-
-  it('GET /programs/:id rate limit throws ApiError(429) after limit (REQ-RL-006)', async () => {
-    await rateLimit('user-2', 'GET /programs/:id', { maxRequests: 1 });
-    await expect(
-      rateLimit('user-2', 'GET /programs/:id', { maxRequests: 1 })
-    ).rejects.toBeInstanceOf(ApiError);
   });
 
   it('GET /programs/:id/export enforces lower 20 req/min limit (REQ-RL-007)', async () => {
@@ -157,17 +140,20 @@ describe('rateLimit function', () => {
     ).rejects.toBeInstanceOf(ApiError);
   });
 
-  it('GET /auth/me rate limit throws ApiError(429) after limit (REQ-RL-008)', async () => {
-    await rateLimit('user-me', 'GET /auth/me', { maxRequests: 1 });
-    await expect(rateLimit('user-me', 'GET /auth/me', { maxRequests: 1 })).rejects.toBeInstanceOf(
-      ApiError
-    );
-  });
-
   it('different users/IPs have independent counters and do not interfere', async () => {
-    // Fill up the limit for user-a
     await rateLimit('user-a', 'GET /programs', { maxRequests: 1 });
-    // user-b should still be allowed (independent counter)
     await expect(rateLimit('user-b', 'GET /programs', { maxRequests: 1 })).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Dev no-op — when Upstash is not configured the limiter never throws
+// ---------------------------------------------------------------------------
+
+describe('rateLimit without Upstash (dev no-op)', () => {
+  it('permits every request when getRedis() returns undefined', async () => {
+    redisAvailable = false;
+    await rateLimit('ip-noop', 'TEST /noop', { maxRequests: 1 });
+    await expect(rateLimit('ip-noop', 'TEST /noop', { maxRequests: 1 })).resolves.toBeUndefined();
   });
 });

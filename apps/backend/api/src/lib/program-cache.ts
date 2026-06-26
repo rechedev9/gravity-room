@@ -27,10 +27,9 @@ export async function getCachedInstance(
   if (!redis) return undefined;
 
   try {
-    const raw = await redis.get(cacheKey(userId, instanceId));
-    if (!raw) return undefined;
-
-    const parsed: unknown = JSON.parse(raw);
+    // Upstash automatically deserializes JSON values on read.
+    const parsed = await redis.get<unknown>(cacheKey(userId, instanceId));
+    if (parsed === null || parsed === undefined) return undefined;
 
     // Validate shape — if corrupted, evict and treat as miss
     if (!isProgramInstanceResponse(parsed)) {
@@ -56,12 +55,7 @@ export async function setCachedInstance(
   if (!redis) return;
 
   try {
-    await redis.set(
-      cacheKey(userId, instanceId),
-      JSON.stringify(response),
-      'EX',
-      CACHE_TTL_SECONDS
-    );
+    await redis.set(cacheKey(userId, instanceId), response, { ex: CACHE_TTL_SECONDS });
   } catch (err: unknown) {
     logger.warn({ err, userId, instanceId }, 'program-cache: set failed');
   }

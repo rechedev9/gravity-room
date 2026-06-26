@@ -4,16 +4,22 @@ import type { Logger } from 'pino';
 import { logger } from '../lib/logger';
 
 /**
- * When TRUSTED_PROXY=true the server sits behind a single reverse proxy (nginx,
- * Caddy, Fly.io proxy, etc.) that appends the real client IP to X-Forwarded-For.
- * Without this flag we always use the direct socket address to prevent clients
- * from spoofing their IP and bypassing rate limits.
+ * Whether to trust the X-Forwarded-For header for rate-limit keying.
  *
- * Comparison is strict against the literal 'true' — `!!process.env['…']` would
- * treat the string "false" (and any other non-empty value) as truthy, silently
- * enabling proxy trust when an operator meant to disable it.
+ * On Vercel the platform terminates the connection and injects the real client
+ * IP as the LEFTMOST X-Forwarded-For entry, so we trust it whenever `VERCEL` is
+ * set (Vercel sets `VERCEL=1`). Off-Vercel the header is only trusted when
+ * `TRUSTED_PROXY=true` is explicitly set, and there the proxy appends the real
+ * peer address, so the RIGHTMOST entry is the trustworthy one (anti-spoof).
+ * When untrusted there is no socket address in a serverless runtime, so the IP
+ * is reported as 'unknown' rather than a client-controlled value.
+ *
+ * The `=== 'true'` comparison is strict — `!!process.env['…']` would treat the
+ * string "false" (and any other non-empty value) as truthy, silently enabling
+ * proxy trust when an operator meant to disable it.
  */
-const TRUSTED_PROXY = process.env['TRUSTED_PROXY'] === 'true';
+const ON_VERCEL = !!process.env['VERCEL'];
+const TRUSTED_PROXY = process.env['TRUSTED_PROXY'] === 'true' || ON_VERCEL;
 
 /**
  * Extracts the client IP from an X-Forwarded-For header behind exactly one
@@ -38,16 +44,23 @@ const REQ_ID_RE = /^[\w-]{8,64}$/;
 export const requestLogger = new Elysia({ name: 'request-logger' })
   .derive(
     { as: 'global' },
-    ({ request, server }): { reqId: string; reqLogger: Logger; startMs: number; ip: string } => {
+    ({ request }): { reqId: string; reqLogger: Logger; startMs: number; ip: string } => {
       const rawReqId = request.headers.get('x-request-id');
       const reqId = rawReqId && REQ_ID_RE.test(rawReqId) ? rawReqId : randomUUID();
       const method = request.method;
       const url = new URL(request.url).pathname;
-      const socketIp = server?.requestIP(request)?.address ?? 'unknown';
-      let ip = socketIp;
+      // Untrusted (no socket address in a serverless runtime): report 'unknown'
+      // rather than a client-controlled value. When trusted on Vercel the real
+      // client IP is the LEFTMOST x-forwarded-for entry; off-Vercel behind a
+      // single proxy the RIGHTMOST entry is the trustworthy, anti-spoof one.
+      let ip = 'unknown';
       if (TRUSTED_PROXY) {
         const xff = request.headers.get('x-forwarded-for');
-        ip = (xff && clientIpFromXff(xff)) || socketIp;
+        if (xff) {
+          ip = ON_VERCEL
+            ? (xff.split(',')[0]?.trim() ?? 'unknown')
+            : (clientIpFromXff(xff) ?? 'unknown');
+        }
       }
       const startMs = Date.now();
       const reqLogger = logger.child({ reqId, method, url, ip });

@@ -1,4 +1,4 @@
-import type Redis from 'ioredis';
+import type { Redis } from './redis';
 
 const PRESENCE_TTL_SEC = 60;
 const PRESENCE_SORTED_SET_KEY = 'users:online';
@@ -17,13 +17,13 @@ export function trackPresence(userId: string, redis: Redis): Promise<unknown> {
     return Promise.resolve(); // recent heartbeat already on record
   }
   lastTrackByUser.set(userId, now);
-  return redis.zadd(PRESENCE_SORTED_SET_KEY, String(now), userId);
+  return redis.zadd(PRESENCE_SORTED_SET_KEY, { score: now, member: userId });
 }
 
 /** Count active users in O(log N) using a heartbeat sorted set. */
 export async function countOnlineUsers(redis: Redis): Promise<number> {
   const cutoff = Date.now() - TTL_MS;
-  await redis.zremrangebyscore(PRESENCE_SORTED_SET_KEY, '-inf', String(cutoff));
+  await redis.zremrangebyscore(PRESENCE_SORTED_SET_KEY, '-inf', cutoff);
   return redis.zcard(PRESENCE_SORTED_SET_KEY);
 }
 
@@ -33,5 +33,5 @@ export async function countOnlineUsers(redis: Redis): Promise<number> {
  */
 export async function runPresenceJanitor(redis: Redis): Promise<void> {
   const cutoff = Date.now() - TTL_MS;
-  await redis.zremrangebyscore(PRESENCE_SORTED_SET_KEY, '-inf', String(cutoff));
+  await redis.zremrangebyscore(PRESENCE_SORTED_SET_KEY, '-inf', cutoff);
 }

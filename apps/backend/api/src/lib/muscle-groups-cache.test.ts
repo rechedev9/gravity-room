@@ -13,7 +13,7 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test';
 // Mock Redis client
 // ---------------------------------------------------------------------------
 
-const mockGet = mock(() => Promise.resolve(null as string | null));
+const mockGet = mock(() => Promise.resolve(null as unknown));
 const mockSet = mock(() => Promise.resolve('OK'));
 const mockDel = mock(() => Promise.resolve(1));
 
@@ -79,8 +79,8 @@ describe('getCachedMuscleGroups', () => {
   });
 
   it('returns cached array on hit', async () => {
-    // Arrange
-    mockGet.mockResolvedValueOnce(JSON.stringify(CACHED_MUSCLE_GROUPS));
+    // Arrange — Upstash auto-deserializes, so the client returns the array.
+    mockGet.mockResolvedValueOnce(CACHED_MUSCLE_GROUPS);
 
     // Act
     const result = await getCachedMuscleGroups();
@@ -91,7 +91,7 @@ describe('getCachedMuscleGroups', () => {
 
   it('evicts and returns undefined on corrupt entry (non-array)', async () => {
     // Arrange
-    mockGet.mockResolvedValueOnce('"just a string"');
+    mockGet.mockResolvedValueOnce('just a string');
 
     // Act
     const result = await getCachedMuscleGroups();
@@ -103,7 +103,7 @@ describe('getCachedMuscleGroups', () => {
 
   it('evicts and returns undefined on corrupt entry (missing id field)', async () => {
     // Arrange
-    mockGet.mockResolvedValueOnce(JSON.stringify([{ name: 'no id field' }]));
+    mockGet.mockResolvedValueOnce([{ name: 'no id field' }]);
 
     // Act
     const result = await getCachedMuscleGroups();
@@ -146,12 +146,7 @@ describe('setCachedMuscleGroups', () => {
     await setCachedMuscleGroups(CACHED_MUSCLE_GROUPS);
 
     // Assert
-    expect(mockSet).toHaveBeenCalledWith(
-      CACHE_KEY,
-      JSON.stringify(CACHED_MUSCLE_GROUPS),
-      'EX',
-      600
-    );
+    expect(mockSet).toHaveBeenCalledWith(CACHE_KEY, CACHED_MUSCLE_GROUPS, { ex: 600 });
   });
 
   it('swallows errors from redis.set', async () => {
