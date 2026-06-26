@@ -4,7 +4,7 @@
  * IMPORTANT: This test requires a running PostgreSQL database with all
  * migrations applied. It is SKIPPED by default in unit test runs.
  * To run it manually:
- *   RUN_DB_SEED_INTEGRATION=true DATABASE_URL=... bun test packages/database/src/seeds/seeds.test.ts
+ *   RUN_DB_SEED_INTEGRATION=true DATABASE_URL=... vitest run src/seeds/seeds.test.ts
  *
  * Verifies REQ-DATA-004: running seeds twice produces the same counts
  * with no errors (idempotent via onConflictDoNothing).

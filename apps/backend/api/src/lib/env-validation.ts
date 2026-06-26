@@ -94,7 +94,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: false,
     description:
-      'Neon DIRECT (non-pooled) connection string. Used ONLY by the build-time deploy step `bun run --filter api db:deploy` (drizzle migrations + idempotent seeds), which must run DDL serially against a direct connection, never PgBouncer. Falls back to DATABASE_URL when unset, so it is not consumed at request time.',
+      'Neon DIRECT (non-pooled) connection string. Used ONLY by the build-time deploy step `pnpm --filter api db:deploy` (drizzle migrations + idempotent seeds), which must run DDL serially against a direct connection, never PgBouncer. Falls back to DATABASE_URL when unset, so it is not consumed at request time.',
     example: 'postgresql://USER:PASSWORD@HOST.neon.tech/gravity?sslmode=require',
   },
   {
