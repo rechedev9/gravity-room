@@ -1,15 +1,15 @@
 /**
  * Auth routes integration tests — uses Elysia's .handle() method, no real server.
- * DB-dependent services and the Google token verifier are mocked via mock.module().
+ * DB-dependent services and the Google token verifier are mocked via vi.mock().
  */
 process.env['LOG_LEVEL'] = 'silent';
 process.env['GOOGLE_CLIENT_ID'] = 'web-client-id';
 process.env['GOOGLE_CLIENT_IDS'] = 'mobile-client-id';
 
-import { mock, describe, it, expect, beforeEach, afterAll } from 'bun:test';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 
 afterAll(() => {
-  mock.restore();
+  vi.restoreAllMocks();
 });
 
 // ---------------------------------------------------------------------------
@@ -48,29 +48,204 @@ type MockRotateRefreshTokenResult =
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
-const mockHashToken = mock(() => Promise.resolve('a'.repeat(64)));
-const mockFindUserById = mock<() => Promise<typeof TEST_USER | undefined>>(() =>
-  Promise.resolve({ ...TEST_USER })
-);
-const mockFindRefreshToken = mock<() => Promise<typeof TEST_REFRESH_TOKEN | undefined>>(() =>
-  Promise.resolve(undefined)
-);
-const mockRevokeRefreshToken = mock(() => Promise.resolve());
-const mockRevokeAllUserTokens = mock(() => Promise.resolve());
-const mockFindRefreshTokenByPreviousHash = mock<
-  () => Promise<typeof TEST_REFRESH_TOKEN | undefined>
->(() => Promise.resolve(undefined));
-const mockCreateAndStoreRefreshToken = mock(() => Promise.resolve('mock-raw-refresh-token'));
-const mockRotateRefreshToken = mock<() => Promise<MockRotateRefreshTokenResult>>(() =>
-  Promise.resolve({
-    status: 'rotated' as const,
-    user: { ...TEST_USER },
-    refreshToken: 'new-raw-refresh-token',
-  })
-);
-const mockFindOrCreateGoogleUser = mock<
-  () => Promise<{ user: typeof TEST_USER; isNewUser: boolean }>
->(() => Promise.resolve({ user: { ...TEST_USER }, isNewUser: false }));
+const {
+  mockHashToken,
+  mockFindUserById,
+  mockFindRefreshToken,
+  mockRevokeRefreshToken,
+  mockRevokeAllUserTokens,
+  mockFindRefreshTokenByPreviousHash,
+  mockCreateAndStoreRefreshToken,
+  mockRotateRefreshToken,
+  mockFindOrCreateGoogleUser,
+  mockFindUserByEmail,
+  mockAuthenticatePassword,
+  mockCreatePasswordUser,
+  mockCreateEmailVerificationToken,
+  mockConsumeEmailVerificationToken,
+  mockMarkEmailVerified,
+  mockCreatePasswordResetToken,
+  mockConsumePasswordResetToken,
+  mockSetUserPassword,
+  mockFindOrCreateUserByIdentity,
+  mockGenerateRefreshToken,
+  mockUpdateUserProfile,
+  mockSendVerificationEmail,
+  mockSendPasswordResetEmail,
+  mockIsEmailConfigured,
+  mockIsAppleConfigured,
+  mockBuildAppleAuthorizeUrl,
+  mockVerifyAppleIdToken,
+  mockParseAppleUserName,
+  mockIsGitHubConfigured,
+  mockBuildGitHubAuthorizeUrl,
+  mockExchangeGitHubCode,
+  mockGeneratePkceVerifier,
+  mockPkceChallenge,
+  mockFetchGitHubIdentity,
+  mockIsMicrosoftConfigured,
+  mockBuildMicrosoftAuthorizeUrl,
+  mockExchangeMicrosoftCode,
+  mockFetchMicrosoftIdentity,
+  mockVerifyGoogleToken,
+  mockRateLimit,
+  mockSendTelegramMessage,
+} = vi.hoisted(() => {
+  const mockHashToken = vi.fn(() => Promise.resolve('a'.repeat(64)));
+  const mockFindUserById = vi.fn<() => Promise<typeof TEST_USER | undefined>>(() =>
+    Promise.resolve({ ...TEST_USER })
+  );
+  const mockFindRefreshToken = vi.fn<() => Promise<typeof TEST_REFRESH_TOKEN | undefined>>(() =>
+    Promise.resolve(undefined)
+  );
+  const mockRevokeRefreshToken = vi.fn(() => Promise.resolve());
+  const mockRevokeAllUserTokens = vi.fn(() => Promise.resolve());
+  const mockFindRefreshTokenByPreviousHash = vi.fn<
+    () => Promise<typeof TEST_REFRESH_TOKEN | undefined>
+  >(() => Promise.resolve(undefined));
+  const mockCreateAndStoreRefreshToken = vi.fn(() => Promise.resolve('mock-raw-refresh-token'));
+  const mockRotateRefreshToken = vi.fn<() => Promise<MockRotateRefreshTokenResult>>(() =>
+    Promise.resolve({
+      status: 'rotated' as const,
+      user: { ...TEST_USER },
+      refreshToken: 'new-raw-refresh-token',
+    })
+  );
+  const mockFindOrCreateGoogleUser = vi.fn<
+    () => Promise<{ user: typeof TEST_USER; isNewUser: boolean }>
+  >(() => Promise.resolve({ user: { ...TEST_USER }, isNewUser: false }));
+  const mockFindUserByEmail = vi.fn<() => Promise<MockUserRow | undefined>>(() =>
+    Promise.resolve(undefined)
+  );
+  const mockAuthenticatePassword = vi.fn<() => Promise<MockUserRow | null>>(() =>
+    Promise.resolve(null)
+  );
+  const mockCreatePasswordUser = vi.fn<() => Promise<MockUserRow>>(() =>
+    Promise.resolve({ ...PW_USER })
+  );
+  const mockCreateEmailVerificationToken = vi.fn(() => Promise.resolve('verify-token'));
+  const mockConsumeEmailVerificationToken = vi.fn<() => Promise<string | null>>(() =>
+    Promise.resolve(null)
+  );
+  const mockMarkEmailVerified = vi.fn<() => Promise<MockUserRow | undefined>>(() =>
+    Promise.resolve({ ...PW_USER })
+  );
+  const mockCreatePasswordResetToken = vi.fn(() => Promise.resolve('reset-token'));
+  const mockConsumePasswordResetToken = vi.fn<() => Promise<string | null>>(() =>
+    Promise.resolve(null)
+  );
+  const mockSetUserPassword = vi.fn(() => Promise.resolve());
+  const mockFindOrCreateUserByIdentity = vi.fn<
+    () => Promise<{ user: MockUserRow; isNewUser: boolean }>
+  >(() => Promise.resolve({ user: { ...PW_USER }, isNewUser: false }));
+  const mockGenerateRefreshToken = vi.fn(() => 'state-fixed-123');
+  const mockUpdateUserProfile = vi.fn(() =>
+    Promise.resolve({ ...PW_USER, name: 'Updated User', avatarUrl: null })
+  );
+  const mockSendVerificationEmail = vi.fn(() => Promise.resolve());
+  const mockSendPasswordResetEmail = vi.fn(() => Promise.resolve());
+  const mockIsEmailConfigured = vi.fn(() => true);
+  const mockIsAppleConfigured = vi.fn(() => true);
+  const mockBuildAppleAuthorizeUrl = vi.fn(
+    () => 'https://appleid.apple.com/auth/authorize?client_id=x&state=state-fixed-123'
+  );
+  const mockVerifyAppleIdToken = vi.fn<
+    (
+      idToken: string,
+      expectedNonce?: string
+    ) => Promise<{
+      sub: string;
+      email: string | undefined;
+      emailVerified: boolean;
+      name: string | undefined;
+    }>
+  >(() =>
+    Promise.resolve({
+      sub: 'apple-sub',
+      email: 'apple@example.com',
+      emailVerified: true,
+      name: 'Ada',
+    })
+  );
+  const mockParseAppleUserName = vi.fn<() => string | undefined>(() => undefined);
+  const mockIsGitHubConfigured = vi.fn(() => true);
+  const mockBuildGitHubAuthorizeUrl = vi.fn(
+    () => 'https://github.com/login/oauth/authorize?client_id=x&state=state-fixed-123'
+  );
+  const mockExchangeGitHubCode = vi.fn(() => Promise.resolve('gho_token'));
+  const mockGeneratePkceVerifier = vi.fn(() => 'github-pkce-verifier');
+  const mockPkceChallenge = vi.fn(() => Promise.resolve('github-pkce-challenge'));
+  const mockFetchGitHubIdentity = vi.fn<
+    () => Promise<{ id: string; email: string; emailVerified: boolean; name: string | undefined }>
+  >(() =>
+    Promise.resolve({ id: 'gh-123', email: 'octo@example.com', emailVerified: true, name: 'Octo' })
+  );
+  const mockIsMicrosoftConfigured = vi.fn(() => true);
+  const mockBuildMicrosoftAuthorizeUrl = vi.fn(
+    () => 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?client_id=x'
+  );
+  const mockExchangeMicrosoftCode = vi.fn(() =>
+    Promise.resolve({ idToken: 'ms-id-token', accessToken: 'ms-access-token' })
+  );
+  const mockFetchMicrosoftIdentity = vi.fn<
+    () => Promise<{ id: string; email: string; emailVerified: boolean; name: string | undefined }>
+  >(() =>
+    Promise.resolve({
+      id: 'ms-123',
+      email: 'microsoft@example.com',
+      emailVerified: true,
+      name: 'Morgan',
+    })
+  );
+  const mockVerifyGoogleToken = vi.fn(() =>
+    Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
+  );
+  const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
+  const mockSendTelegramMessage = vi.fn((): void => undefined);
+  return {
+    mockHashToken,
+    mockFindUserById,
+    mockFindRefreshToken,
+    mockRevokeRefreshToken,
+    mockRevokeAllUserTokens,
+    mockFindRefreshTokenByPreviousHash,
+    mockCreateAndStoreRefreshToken,
+    mockRotateRefreshToken,
+    mockFindOrCreateGoogleUser,
+    mockFindUserByEmail,
+    mockAuthenticatePassword,
+    mockCreatePasswordUser,
+    mockCreateEmailVerificationToken,
+    mockConsumeEmailVerificationToken,
+    mockMarkEmailVerified,
+    mockCreatePasswordResetToken,
+    mockConsumePasswordResetToken,
+    mockSetUserPassword,
+    mockFindOrCreateUserByIdentity,
+    mockGenerateRefreshToken,
+    mockUpdateUserProfile,
+    mockSendVerificationEmail,
+    mockSendPasswordResetEmail,
+    mockIsEmailConfigured,
+    mockIsAppleConfigured,
+    mockBuildAppleAuthorizeUrl,
+    mockVerifyAppleIdToken,
+    mockParseAppleUserName,
+    mockIsGitHubConfigured,
+    mockBuildGitHubAuthorizeUrl,
+    mockExchangeGitHubCode,
+    mockGeneratePkceVerifier,
+    mockPkceChallenge,
+    mockFetchGitHubIdentity,
+    mockIsMicrosoftConfigured,
+    mockBuildMicrosoftAuthorizeUrl,
+    mockExchangeMicrosoftCode,
+    mockFetchMicrosoftIdentity,
+    mockVerifyGoogleToken,
+    mockRateLimit,
+    mockSendTelegramMessage,
+  };
+});
 
 // Fuller user shape for the email/password paths (mutable booleans, nullable fields).
 interface MockUserRow {
@@ -101,39 +276,16 @@ const PW_USER: MockUserRow = {
 
 const OVERSIZED_EMAIL = `${'a'.repeat(250)}@e.co`;
 
-const mockFindUserByEmail = mock<() => Promise<MockUserRow | undefined>>(() =>
-  Promise.resolve(undefined)
-);
-// hashPassword is intentionally NOT mocked — it is a pure Bun.password call that
+// hashPassword is intentionally NOT mocked — it is a pure @node-rs/argon2 call that
 // needs no DB, and mocking it here leaks into the service unit tests (Bun's
 // mock.module is process-global). Letting it run real keeps both suites correct.
-const mockAuthenticatePassword = mock<() => Promise<MockUserRow | null>>(() =>
-  Promise.resolve(null)
-);
-const mockCreatePasswordUser = mock<() => Promise<MockUserRow>>(() =>
-  Promise.resolve({ ...PW_USER })
-);
-const mockCreateEmailVerificationToken = mock(() => Promise.resolve('verify-token'));
-const mockConsumeEmailVerificationToken = mock<() => Promise<string | null>>(() =>
-  Promise.resolve(null)
-);
-const mockMarkEmailVerified = mock<() => Promise<MockUserRow | undefined>>(() =>
-  Promise.resolve({ ...PW_USER })
-);
-const mockCreatePasswordResetToken = mock(() => Promise.resolve('reset-token'));
-const mockConsumePasswordResetToken = mock<() => Promise<string | null>>(() =>
-  Promise.resolve(null)
-);
-const mockSetUserPassword = mock(() => Promise.resolve());
-const mockFindOrCreateUserByIdentity = mock<
-  () => Promise<{ user: MockUserRow; isNewUser: boolean }>
->(() => Promise.resolve({ user: { ...PW_USER }, isNewUser: false }));
-const mockGenerateRefreshToken = mock(() => 'state-fixed-123');
-const mockUpdateUserProfile = mock(() =>
-  Promise.resolve({ ...PW_USER, name: 'Updated User', avatarUrl: null })
-);
 
-mock.module('../services/auth', () => ({
+// Partial mock: spread the real module so non-DB pure helpers (notably
+// hashPassword, which runs argon2 with no DB) keep their real implementation,
+// then override every DB-backed export with a stub. Under bun's mock.module
+// unlisted exports were merged from the real module; vitest needs this explicit.
+vi.mock('../services/auth', async () => ({
+  ...(await vi.importActual<typeof import('../services/auth')>('../services/auth')),
   hashToken: mockHashToken,
   findUserById: mockFindUserById,
   findUserByEmail: mockFindUserByEmail,
@@ -155,64 +307,27 @@ mock.module('../services/auth', () => ({
   createPasswordResetToken: mockCreatePasswordResetToken,
   consumePasswordResetToken: mockConsumePasswordResetToken,
   setUserPassword: mockSetUserPassword,
+  // Included so the process-global services/auth mock exposes every export the
+  // routes batch consumes (internal.ts imports cleanupExpiredTokens). Keeps the
+  // frozen export-name set complete regardless of sibling test ordering.
+  cleanupExpiredTokens: vi.fn(() => Promise.resolve(0)),
   REFRESH_TOKEN_DAYS: 7,
 }));
 
-const mockSendVerificationEmail = mock(() => Promise.resolve());
-const mockSendPasswordResetEmail = mock(() => Promise.resolve());
-const mockIsEmailConfigured = mock(() => true);
-
-mock.module('../lib/email', () => ({
+vi.mock('../lib/email', () => ({
   sendVerificationEmail: mockSendVerificationEmail,
   sendPasswordResetEmail: mockSendPasswordResetEmail,
   isEmailConfigured: mockIsEmailConfigured,
 }));
 
-const mockIsAppleConfigured = mock(() => true);
-const mockBuildAppleAuthorizeUrl = mock(
-  () => 'https://appleid.apple.com/auth/authorize?client_id=x&state=state-fixed-123'
-);
-const mockVerifyAppleIdToken = mock<
-  (
-    idToken: string,
-    expectedNonce?: string
-  ) => Promise<{
-    sub: string;
-    email: string | undefined;
-    emailVerified: boolean;
-    name: string | undefined;
-  }>
->(() =>
-  Promise.resolve({
-    sub: 'apple-sub',
-    email: 'apple@example.com',
-    emailVerified: true,
-    name: 'Ada',
-  })
-);
-const mockParseAppleUserName = mock<() => string | undefined>(() => undefined);
-
-mock.module('../lib/apple-auth', () => ({
+vi.mock('../lib/apple-auth', () => ({
   isAppleConfigured: mockIsAppleConfigured,
   buildAppleAuthorizeUrl: mockBuildAppleAuthorizeUrl,
   verifyAppleIdToken: mockVerifyAppleIdToken,
   parseAppleUserName: mockParseAppleUserName,
 }));
 
-const mockIsGitHubConfigured = mock(() => true);
-const mockBuildGitHubAuthorizeUrl = mock(
-  () => 'https://github.com/login/oauth/authorize?client_id=x&state=state-fixed-123'
-);
-const mockExchangeGitHubCode = mock(() => Promise.resolve('gho_token'));
-const mockGeneratePkceVerifier = mock(() => 'github-pkce-verifier');
-const mockPkceChallenge = mock(() => Promise.resolve('github-pkce-challenge'));
-const mockFetchGitHubIdentity = mock<
-  () => Promise<{ id: string; email: string; emailVerified: boolean; name: string | undefined }>
->(() =>
-  Promise.resolve({ id: 'gh-123', email: 'octo@example.com', emailVerified: true, name: 'Octo' })
-);
-
-mock.module('../lib/github-auth', () => ({
+vi.mock('../lib/github-auth', () => ({
   isGitHubConfigured: mockIsGitHubConfigured,
   buildGitHubAuthorizeUrl: mockBuildGitHubAuthorizeUrl,
   exchangeGitHubCode: mockExchangeGitHubCode,
@@ -221,48 +336,27 @@ mock.module('../lib/github-auth', () => ({
   fetchGitHubIdentity: mockFetchGitHubIdentity,
 }));
 
-const mockIsMicrosoftConfigured = mock(() => true);
-const mockBuildMicrosoftAuthorizeUrl = mock(
-  () => 'https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize?client_id=x'
-);
-const mockExchangeMicrosoftCode = mock(() =>
-  Promise.resolve({ idToken: 'ms-id-token', accessToken: 'ms-access-token' })
-);
-const mockFetchMicrosoftIdentity = mock<
-  () => Promise<{ id: string; email: string; emailVerified: boolean; name: string | undefined }>
->(() =>
-  Promise.resolve({
-    id: 'ms-123',
-    email: 'microsoft@example.com',
-    emailVerified: true,
-    name: 'Morgan',
-  })
-);
-
-mock.module('../lib/microsoft-auth', () => ({
+vi.mock('../lib/microsoft-auth', () => ({
   isMicrosoftConfigured: mockIsMicrosoftConfigured,
   buildMicrosoftAuthorizeUrl: mockBuildMicrosoftAuthorizeUrl,
   exchangeMicrosoftCode: mockExchangeMicrosoftCode,
   fetchMicrosoftIdentity: mockFetchMicrosoftIdentity,
 }));
 
-const mockVerifyGoogleToken = mock(() =>
-  Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
-);
-
-const mockRateLimit = mock<() => Promise<void>>(() => Promise.resolve());
-
-mock.module('../lib/google-auth', () => ({
+// Partial mock: keep the real getWebGoogleClientId / getMobileGoogleClientIds
+// (which read process.env and throw CONFIGURATION_ERROR when unset) and only
+// override verifyGoogleToken. Under bun's mock.module unlisted exports were
+// merged from the real module; vitest requires this to be explicit.
+vi.mock('../lib/google-auth', async () => ({
+  ...(await vi.importActual<typeof import('../lib/google-auth')>('../lib/google-auth')),
   verifyGoogleToken: mockVerifyGoogleToken,
 }));
 
-mock.module('../middleware/rate-limit', () => ({
+vi.mock('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
 }));
 
-const mockSendTelegramMessage = mock((): void => undefined);
-
-mock.module('../lib/telegram', () => ({
+vi.mock('../lib/telegram', () => ({
   sendTelegramMessage: mockSendTelegramMessage,
 }));
 
@@ -930,6 +1024,31 @@ describe('POST /auth/mobile/signout', () => {
     expect(res.status).toBe(429);
     expect(body.code).toBe('RATE_LIMITED');
     expect(body.error).toBe('Too many requests');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /auth/signout (web, cookie-based)
+// ---------------------------------------------------------------------------
+
+describe('POST /auth/signout', () => {
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+  });
+
+  it('returns a body-less 204 and clears the refresh cookie at /api/auth', async () => {
+    const res = await post('/auth/signout', {}, { Cookie: 'refresh_token=some-token-value' });
+
+    expect(res.status).toBe(204);
+    // 204 must carry no body: Node's undici rejects a non-null body with 204.
+    expect(await res.text()).toBe('');
+
+    // The cookie clear set via the Elysia cookie proxy must still be serialized
+    // onto the explicit `new Response(null, { status: 204 })` we return.
+    const setCookie = res.headers.get('set-cookie') ?? '';
+    expect(setCookie).toContain('refresh_token=');
+    expect(setCookie).toContain('Path=/api/auth');
+    expect(setCookie.toLowerCase()).toMatch(/max-age=0|expires=/);
   });
 });
 

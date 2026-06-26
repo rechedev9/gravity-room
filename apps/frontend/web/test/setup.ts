@@ -1,10 +1,9 @@
-import * as matchers from '@testing-library/jest-dom/matchers';
-import { afterEach, expect, mock } from 'bun:test';
-
-// virtual:pwa-register/react is a Vite plugin virtual module unavailable in Bun test.
-mock.module('virtual:pwa-register/react', () => ({
-  useRegisterSW: () => ({ needRefresh: [false, () => {}], updateServiceWorker: () => {} }),
-}));
+import { afterEach } from 'vitest';
+// Registers the @testing-library/jest-dom matchers on vitest's expect and
+// augments the vitest type definitions in one import.
+import '@testing-library/jest-dom/vitest';
+// Note: virtual:pwa-register/react is resolved to a stub via vitest.config.ts
+// (resolve.alias), so no module mock is needed here.
 import { cleanup } from '@testing-library/react';
 // Import the app's i18n instance to ensure it is resolved and initialized
 // before any component import does so asynchronously.
@@ -12,12 +11,9 @@ import i18n from '../src/lib/i18n/index';
 import en from '../src/lib/i18n/locales/en/translation.json';
 import es from '../src/lib/i18n/locales/es/translation.json';
 
-// happy-dom is registered in register-dom.ts (must run first via preload order)
-expect.extend(matchers);
-
 // Keep translations deterministic in tests regardless of detected browser locale.
-// Do not mock react-i18next globally: Bun keeps module mocks alive for the worker,
-// which can leak raw-key translations into unrelated test files in CI.
+// Do not mock react-i18next globally so unrelated test files don't see raw-key
+// translations leak in.
 if (!i18n.isInitialized) {
   await new Promise<void>((resolve) => {
     i18n.on('initialized', () => resolve());

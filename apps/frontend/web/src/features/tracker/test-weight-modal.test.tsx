@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeAll } from 'bun:test';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TestWeightModal } from './test-weight-modal';
 
@@ -24,8 +24,8 @@ describe('TestWeightModal', () => {
     liftName: 'Sentadilla',
     hasPropagationTarget: true,
     defaultWeight: 100,
-    onConfirm: mock(),
-    onCancel: mock(),
+    onConfirm: vi.fn(),
+    onCancel: vi.fn(),
   };
 
   describe('rendering', () => {
@@ -67,7 +67,7 @@ describe('TestWeightModal', () => {
 
   describe('confirm', () => {
     it('should call onConfirm with the entered weight as a number', () => {
-      const onConfirm = mock();
+      const onConfirm = vi.fn();
       render(<TestWeightModal {...baseProps} onConfirm={onConfirm} defaultWeight={100} />);
 
       const input = screen.getByRole('spinbutton');
@@ -103,7 +103,7 @@ describe('TestWeightModal', () => {
 
   describe('cancel', () => {
     it('should call onCancel when Cancelar button is clicked', () => {
-      const onCancel = mock();
+      const onCancel = vi.fn();
       render(<TestWeightModal {...baseProps} onCancel={onCancel} />);
 
       fireEvent.click(screen.getByText('Cancelar'));
@@ -112,8 +112,8 @@ describe('TestWeightModal', () => {
     });
 
     it('should not call onConfirm when Cancelar is clicked', () => {
-      const onConfirm = mock();
-      const onCancel = mock();
+      const onConfirm = vi.fn();
+      const onCancel = vi.fn();
       render(<TestWeightModal {...baseProps} onConfirm={onConfirm} onCancel={onCancel} />);
 
       fireEvent.click(screen.getByText('Cancelar'));
@@ -124,8 +124,8 @@ describe('TestWeightModal', () => {
 
   describe('blocking behavior', () => {
     it('should prevent dismissal on native cancel event (Escape key)', () => {
-      const onConfirm = mock();
-      const onCancel = mock();
+      const onConfirm = vi.fn();
+      const onCancel = vi.fn();
       render(<TestWeightModal {...baseProps} onConfirm={onConfirm} onCancel={onCancel} />);
 
       const dialog = screen.getByRole('dialog');

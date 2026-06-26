@@ -1,19 +1,22 @@
-// Centralised env validation for the api process and pre-deploy gating.
+// Centralised env validation for the serverless api and pre-deploy gating.
 //
-// REQUIRED_ENV is the single source of truth for "which env vars does any
-// backend service consume, and which of them are required when NODE_ENV is
+// REQUIRED_ENV is the single source of truth for "which env vars does the
+// backend consume, and which of them are required when NODE_ENV is
 // 'production'". It is consumed by:
-//   - create-app.ts at boot (fail-fast with one consolidated error)
-//   - scripts/check-env.ts as a CLI (runtime + CI pre-deploy gate)
-//   - validate.yml in CI (verifies .env.production.example stays in sync)
+//   - create-app.ts at cold start (fail-fast with one consolidated error so a
+//     misconfigured production function crashes immediately instead of serving
+//     500s per-request)
+//   - scripts/check-env.ts as a CLI (local + pre-deploy gate)
 //
-// Adding a new required-in-prod env var here without also updating
-// .env.production.example will make the CI sync check fail. That is the
-// whole point — see commit "feat(api): centralise env validation".
+// The product runs as ONE same-origin Vercel project: the Elysia API is a Node
+// serverless function (api/[...path].ts) backed by Neon Postgres and Upstash
+// Redis (REST). The analytics insight pipelines were ported to TypeScript and
+// run in-process under src/analytics, driven by Vercel Cron — there is no longer
+// a separate analytics service, so every var below is consumed by the api.
 
 export type EnvVarSpec = {
   name: string;
-  service: 'api' | 'analytics';
+  service: 'api';
   requiredInProd: boolean;
   description: string;
   example?: string;
@@ -25,8 +28,41 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     name: 'DATABASE_URL',
     service: 'api',
     requiredInProd: true,
-    description: 'PostgreSQL connection string. Boot-crashes the api if unset.',
-    example: 'postgres://gravity:CHANGE_ME@postgres:5432/gravity',
+    description:
+      'Neon POOLED (PgBouncer) connection string used at request time; host contains "-pooler". The serverless DB client opens at most one connection per warm instance (pool max=1, prepare:false). Boot-crashes the api if unset in production.',
+    example: 'postgresql://USER:PASSWORD@HOST-pooler.neon.tech/gravity?sslmode=require',
+  },
+  {
+    name: 'UPSTASH_REDIS_REST_URL',
+    service: 'api',
+    requiredInProd: true,
+    description:
+      'Upstash Redis REST endpoint backing presence, caches, and rate limiting via the connectionless @upstash/redis client. Mandatory in production (cold-start crash if unset); degrades gracefully when unset in local dev.',
+    example: 'https://YOUR-DB.upstash.io',
+  },
+  {
+    name: 'UPSTASH_REDIS_REST_TOKEN',
+    service: 'api',
+    requiredInProd: true,
+    description:
+      'Upstash Redis REST token, paired with UPSTASH_REDIS_REST_URL. Mandatory in production alongside the URL.',
+    example: '<upstash-rest-token>',
+  },
+  {
+    name: 'INTERNAL_SECRET',
+    service: 'api',
+    requiredInProd: true,
+    description:
+      'Bearer secret guarding the manual ops path of /api/internal/* (cleanup-tokens, purge-users, analytics/compute). The internal guard fails closed: if neither INTERNAL_SECRET nor CRON_SECRET is set, every internal request is rejected 401.',
+    example: '<random-32-byte-hex>',
+  },
+  {
+    name: 'CRON_SECRET',
+    service: 'api',
+    requiredInProd: true,
+    description:
+      'Required in production. Vercel Cron injects it as `Authorization: Bearer <CRON_SECRET>` on every scheduled invocation of the /api/internal/* cron routes; without it every scheduled cron run is rejected 401 and cleanup/purge/analytics silently stop. Set the value in the Vercel project; not needed for local dev.',
+    example: '<vercel-cron-bearer-secret>',
   },
   {
     name: 'JWT_SECRET',
@@ -51,30 +87,30 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     example:
       '<android>.apps.googleusercontent.com,<ios>.apps.googleusercontent.com,<web>.apps.googleusercontent.com',
   },
+
+  // ── api: optional ────────────────────────────────────────────────────────
   {
-    name: 'METRICS_TOKEN',
+    name: 'DIRECT_DATABASE_URL',
     service: 'api',
-    requiredInProd: true,
+    requiredInProd: false,
     description:
-      'Bearer token for GET /metrics. Boot-crashes the api in production when unset (PR #67).',
-    example: '<random-32-byte-hex>',
+      'Neon DIRECT (non-pooled) connection string. Used ONLY by the build-time deploy step `pnpm --filter api db:deploy` (drizzle migrations + idempotent seeds), which must run DDL serially against a direct connection, never PgBouncer. Falls back to DATABASE_URL when unset, so it is not consumed at request time.',
+    example: 'postgresql://USER:PASSWORD@HOST.neon.tech/gravity?sslmode=require',
   },
   {
     name: 'CORS_ORIGIN',
     service: 'api',
-    requiredInProd: true,
+    requiredInProd: false,
     description:
-      'Allowed CORS origin (or comma-separated list). Boot-crashes in production when unset.',
-    example: 'https://gravityroom.app',
+      'Allowed CORS origin (or comma-separated list). LEAVE EMPTY for the same-origin Vercel deployment (the SPA and API share an origin, so no cross-origin is allowed). Set a value only for split-origin local dev.',
+    example: '',
   },
-
-  // ── api: optional ────────────────────────────────────────────────────────
   {
     name: 'NODE_ENV',
     service: 'api',
     requiredInProd: false,
     description:
-      'Runtime mode. Setting to "production" arms hard-fail checks (METRICS_TOKEN, CORS_ORIGIN, JWT min-len).',
+      'Runtime mode. Setting to "production" arms hard-fail checks (DATABASE_URL, UPSTASH_REDIS_REST_*, INTERNAL_SECRET, CRON_SECRET, GOOGLE_CLIENT_ID(S), JWT min-len).',
     example: 'production',
   },
   {
@@ -92,19 +128,28 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     example: 'info',
   },
   {
-    name: 'REDIS_URL',
+    name: 'ANALYTICS_BATCH_SIZE',
     service: 'api',
     requiredInProd: false,
     description:
-      'Redis connection URL. When unset, rate-limit and presence fall back to in-memory stores.',
-    example: 'redis://redis:6379',
+      'Bounded number of least-recently-computed users processed per /api/internal/analytics/compute cron tick. Default 50.',
+    example: '50',
   },
   {
     name: 'SENTRY_DSN',
     service: 'api',
     requiredInProd: false,
-    description: 'Sentry DSN for error tracking. captureException is a no-op when unset.',
+    description:
+      '@sentry/node DSN for error + performance tracing. captureException is a no-op when unset. Pull-based /metrics was removed; observability is Sentry plus pino JSON logs.',
     example: 'https://<key>@<org>.ingest.sentry.io/<project>',
+  },
+  {
+    name: 'SENTRY_TRACES_SAMPLE_RATE',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Fraction of transactions sampled for @sentry/node performance tracing. Default 0.1.',
+    example: '0.1',
   },
   {
     name: 'TRUSTED_PROXY',
@@ -158,13 +203,6 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     description:
       'Exposes /swagger UI and /swagger/json. Hard-disabled in production regardless of value.',
     example: 'false',
-  },
-  {
-    name: 'DB_POOL_SIZE',
-    service: 'api',
-    requiredInProd: false,
-    description: 'postgres-js pool max connections.',
-    example: '50',
   },
   {
     name: 'DB_SSL',
@@ -244,31 +282,6 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
       'Microsoft tenant segment for OAuth endpoints. Defaults to consumers for Outlook/Microsoft personal accounts; set common, organizations, or a tenant id when needed.',
     example: 'consumers',
   },
-
-  // ── analytics ────────────────────────────────────────────────────────────
-  {
-    name: 'DATABASE_URL',
-    service: 'analytics',
-    requiredInProd: true,
-    description:
-      'PostgreSQL connection string. pydantic raises ValidationError at import when unset. Should equal api DATABASE_URL.',
-    example: 'postgres://gravity:CHANGE_ME@postgres:5432/gravity',
-  },
-  {
-    name: 'INTERNAL_SECRET',
-    service: 'analytics',
-    requiredInProd: true,
-    description:
-      'Shared secret guarding POST /compute. When empty, /compute rejects every request silently.',
-    example: '<random-32-byte-hex>',
-  },
-  {
-    name: 'COMPUTE_INTERVAL_HOURS',
-    service: 'analytics',
-    requiredInProd: false,
-    description: 'APScheduler interval for compute job.',
-    example: '6',
-  },
 ];
 
 export type ValidateEnvResult = { ok: true } | { ok: false; missing: string[]; errors: string[] };
@@ -279,8 +292,8 @@ function isPresent(value: string | undefined): value is string {
   return value !== undefined && value.trim().length > 0;
 }
 
-// Unique required-in-prod var names, in REQUIRED_ENV declaration order.
-// DATABASE_URL appears for both api and analytics — same env, treat as one.
+// Unique required-in-prod var names, in REQUIRED_ENV declaration order. The
+// Set-based dedup is defensive: every entry is now a distinct api var.
 function requiredNames(): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -298,7 +311,7 @@ export function validateEnv(
   nodeEnv: string = env['NODE_ENV'] ?? 'development'
 ): ValidateEnvResult {
   // Validation is only enforced in production. Dev/test envs are permissive
-  // because dev workflows routinely run with partial config (no METRICS_TOKEN,
+  // because dev workflows routinely run with partial config (no UPSTASH_*,
   // no GOOGLE_CLIENT_*, etc.) and we don't want to break `bun run dev:api`.
   if (nodeEnv !== 'production') return { ok: true };
 

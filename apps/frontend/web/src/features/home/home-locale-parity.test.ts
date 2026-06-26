@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import en from '@/lib/i18n/locales/en/translation.json';
 import es from '@/lib/i18n/locales/es/translation.json';
 

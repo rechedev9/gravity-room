@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ResultCell } from './result-cell';
 
@@ -12,8 +12,8 @@ describe('ResultCell', () => {
   const baseProps = {
     index: 0,
     tier: 'main',
-    onMark: mock(),
-    onUndo: mock(),
+    onMark: vi.fn(),
+    onUndo: vi.fn(),
   };
 
   describe('pending test slot (isTestSlot=true)', () => {
@@ -41,7 +41,7 @@ describe('ResultCell', () => {
     });
 
     it('should call onMark with (index, tier, "success") when clicked', () => {
-      const onMark = mock();
+      const onMark = vi.fn();
       render(
         <ResultCell
           {...baseProps}
@@ -77,7 +77,7 @@ describe('ResultCell', () => {
 
   describe('completed test slot', () => {
     it('should render undo badge with success styling when result is success', () => {
-      const onUndo = mock();
+      const onUndo = vi.fn();
       render(
         <ResultCell
           {...baseProps}

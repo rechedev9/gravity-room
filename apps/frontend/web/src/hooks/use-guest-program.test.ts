@@ -5,7 +5,7 @@
  * The hook fetches a ProgramDefinition from the catalog API (mocked here)
  * and manages all state in React useState.
  */
-import { mock, describe, it, expect, beforeEach } from 'bun:test';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -76,16 +76,19 @@ const TEST_CONFIG: Record<string, number> = { squat: 60, bench: 40 };
 // Mocks — mock.module must precede the import of the module under test
 // ---------------------------------------------------------------------------
 
-const mockFetchCatalogDetail = mock<(id: string) => Promise<ProgramDefinition>>(() =>
-  Promise.resolve(MINIMAL_DEFINITION)
-);
-
-import { apiFunctionsStubs } from '../../test/helpers/api-functions-mock';
-
-mock.module('@/lib/api-functions', () => ({
-  ...apiFunctionsStubs,
-  fetchCatalogDetail: mockFetchCatalogDetail,
+// vi.mock is hoisted above imports, so the fn the factory/tests reference is
+// created via vi.hoisted and the shared stubs come from a dynamic import.
+const { mockFetchCatalogDetail } = vi.hoisted(() => ({
+  mockFetchCatalogDetail: vi.fn<(id: string) => Promise<ProgramDefinition>>(),
 }));
+
+vi.mock('@/lib/api-functions', async () => {
+  const { apiFunctionsStubs } = await import('../../test/helpers/api-functions-mock');
+  return {
+    ...apiFunctionsStubs,
+    fetchCatalogDetail: mockFetchCatalogDetail,
+  };
+});
 
 // Import after mocks
 import { useGuestProgram } from '@/hooks/use-guest-program';

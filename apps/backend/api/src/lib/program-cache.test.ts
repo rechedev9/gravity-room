@@ -6,19 +6,19 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mock Redis client
 // ---------------------------------------------------------------------------
 
-const mockGet = mock(() => Promise.resolve(null as string | null));
-const mockSet = mock(() => Promise.resolve('OK'));
-const mockDel = mock(() => Promise.resolve(1));
+const mockGet = vi.fn(() => Promise.resolve(null as unknown));
+const mockSet = vi.fn(() => Promise.resolve('OK'));
+const mockDel = vi.fn(() => Promise.resolve(1));
 
 let redisAvailable = true;
 
-mock.module('./redis', () => ({
+vi.mock('./redis', () => ({
   getRedis: (): unknown =>
     redisAvailable ? { get: mockGet, set: mockSet, del: mockDel } : undefined,
 }));
@@ -86,8 +86,8 @@ describe('getCachedInstance', () => {
   });
 
   it('returns parsed data on cache hit', async () => {
-    // Arrange
-    mockGet.mockResolvedValueOnce(JSON.stringify(CACHED_RESPONSE));
+    // Arrange — Upstash auto-deserializes, so the client returns the object.
+    mockGet.mockResolvedValueOnce(CACHED_RESPONSE);
 
     // Act
     const result = await getCachedInstance(USER_ID, INSTANCE_ID);
@@ -98,7 +98,7 @@ describe('getCachedInstance', () => {
 
   it('evicts and returns undefined on corrupt data (not an object)', async () => {
     // Arrange
-    mockGet.mockResolvedValueOnce('"just a string"');
+    mockGet.mockResolvedValueOnce('just a string');
 
     // Act
     const result = await getCachedInstance(USER_ID, INSTANCE_ID);
@@ -110,7 +110,7 @@ describe('getCachedInstance', () => {
 
   it('evicts and returns undefined on corrupt data (missing id)', async () => {
     // Arrange
-    mockGet.mockResolvedValueOnce(JSON.stringify({ name: 'no id field' }));
+    mockGet.mockResolvedValueOnce({ name: 'no id field' });
 
     // Act
     const result = await getCachedInstance(USER_ID, INSTANCE_ID);
@@ -139,12 +139,9 @@ describe('setCachedInstance', () => {
 
     // Assert
     expect(mockSet).toHaveBeenCalledTimes(1);
-    expect(mockSet).toHaveBeenCalledWith(
-      `program:${USER_ID}:${INSTANCE_ID}`,
-      JSON.stringify(CACHED_RESPONSE),
-      'EX',
-      300
-    );
+    expect(mockSet).toHaveBeenCalledWith(`program:${USER_ID}:${INSTANCE_ID}`, CACHED_RESPONSE, {
+      ex: 300,
+    });
   });
 
   it('is a no-op when Redis is not available', async () => {

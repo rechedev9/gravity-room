@@ -4,37 +4,46 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
-const mockRateLimit = mock<() => Promise<void>>(() => Promise.resolve());
+const { mockRateLimit, mockListPrograms, mockGetProgramDefinition, mockPreviewDefinition } =
+  vi.hoisted(() => {
+    const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
+    const mockListPrograms = vi.fn(() =>
+      Promise.resolve([{ id: 'gzclp', name: 'GZCLP', description: 'Linear Progression' }])
+    );
+    const mockGetProgramDefinition = vi.fn<() => Promise<CatalogResult>>(() =>
+      Promise.resolve({
+        status: 'found' as const,
+        definition: { id: 'gzclp', name: 'GZCLP' },
+      })
+    );
+    const mockPreviewDefinition = vi.fn(() => MOCK_PREVIEW_ROWS);
+    return {
+      mockRateLimit,
+      mockListPrograms,
+      mockGetProgramDefinition,
+      mockPreviewDefinition,
+    };
+  });
 
-mock.module('../middleware/rate-limit', () => ({
+vi.mock('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
 }));
 
-mock.module('../services/auth', () => ({
-  findUserById: mock((id: string) => Promise.resolve({ id })),
+vi.mock('../services/auth', () => ({
+  findUserById: vi.fn((id: string) => Promise.resolve({ id })),
 }));
 
 type CatalogResult =
   | { readonly status: 'found'; readonly definition: unknown }
   | { readonly status: 'not_found' }
   | { readonly status: 'hydration_failed'; readonly error: unknown };
-
-const mockListPrograms = mock(() =>
-  Promise.resolve([{ id: 'gzclp', name: 'GZCLP', description: 'Linear Progression' }])
-);
-const mockGetProgramDefinition = mock<() => Promise<CatalogResult>>(() =>
-  Promise.resolve({
-    status: 'found' as const,
-    definition: { id: 'gzclp', name: 'GZCLP' },
-  })
-);
 
 const MOCK_PREVIEW_ROWS: readonly GenericWorkoutRow[] = Array.from({ length: 10 }, (_, i) => ({
   index: i,
@@ -72,9 +81,7 @@ const MOCK_PREVIEW_ROWS: readonly GenericWorkoutRow[] = Array.from({ length: 10 
   completedAt: undefined,
 }));
 
-const mockPreviewDefinition = mock(() => MOCK_PREVIEW_ROWS);
-
-mock.module('../services/catalog', () => ({
+vi.mock('../services/catalog', () => ({
   listPrograms: mockListPrograms,
   getProgramDefinition: mockGetProgramDefinition,
   previewDefinition: mockPreviewDefinition,

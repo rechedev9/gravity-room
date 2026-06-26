@@ -3,20 +3,31 @@
 // that would override the value AFTER auth-guard already captured it.
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
-const mockRateLimit = mock<() => Promise<void>>(() => Promise.resolve());
+// vitest isolates the module registry per test file, so these mocks are scoped
+// to this file automatically — no manual capture/restore is needed.
+const { mockRateLimit, mockGetInsights } = vi.hoisted(() => {
+  const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
+  const mockGetInsights = vi.fn<
+    (userId: string, types: readonly string[]) => Promise<InsightRow[]>
+  >(() => Promise.resolve([]));
+  return {
+    mockRateLimit,
+    mockGetInsights,
+  };
+});
 
-mock.module('../middleware/rate-limit', () => ({
+vi.mock('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
 }));
 
-mock.module('../services/auth', () => ({
-  findUserById: mock((id: string) => Promise.resolve({ id })),
+vi.mock('../services/auth', () => ({
+  findUserById: vi.fn((id: string) => Promise.resolve({ id })),
 }));
 
 interface InsightRow {
@@ -27,11 +38,7 @@ interface InsightRow {
   readonly validUntil: Date | null;
 }
 
-const mockGetInsights = mock<(userId: string, types: readonly string[]) => Promise<InsightRow[]>>(
-  () => Promise.resolve([])
-);
-
-mock.module('../services/insights', () => ({
+vi.mock('../services/insights', () => ({
   getInsights: mockGetInsights,
 }));
 
@@ -60,7 +67,9 @@ const testApp = new Elysia()
 // ---------------------------------------------------------------------------
 
 async function makeValidJwt(userId: string): Promise<string> {
-  const secret = process.env['JWT_SECRET'] ?? 'dev-secret-change-me';
+  // Fallback matches auth-guard's TEST_SECRET (the NODE_ENV=test fallback) so the
+  // token verifies when JWT_SECRET is unset, e.g. under `bun test src/routes`.
+  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({

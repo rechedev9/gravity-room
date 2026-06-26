@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AmrapInput } from './amrap-input';
 
@@ -9,7 +9,7 @@ import { AmrapInput } from './amrap-input';
 describe('AmrapInput', () => {
   describe('display values', () => {
     it('should render em-dash when value is undefined', () => {
-      render(<AmrapInput value={undefined} onChange={mock()} />);
+      render(<AmrapInput value={undefined} onChange={vi.fn()} />);
 
       const display = screen.getByLabelText('Reps AMRAP', { selector: 'span' });
 
@@ -17,7 +17,7 @@ describe('AmrapInput', () => {
     });
 
     it('should render 0 when value is 0', () => {
-      render(<AmrapInput value={0} onChange={mock()} />);
+      render(<AmrapInput value={0} onChange={vi.fn()} />);
 
       const display = screen.getByLabelText('Reps AMRAP', { selector: 'span' });
 
@@ -25,7 +25,7 @@ describe('AmrapInput', () => {
     });
 
     it('should render 5 when value is 5', () => {
-      render(<AmrapInput value={5} onChange={mock()} />);
+      render(<AmrapInput value={5} onChange={vi.fn()} />);
 
       const display = screen.getByLabelText('Reps AMRAP', { selector: 'span' });
 
@@ -35,7 +35,7 @@ describe('AmrapInput', () => {
 
   describe('button state', () => {
     it('should disable decrement button when value is undefined', () => {
-      render(<AmrapInput value={undefined} onChange={mock()} />);
+      render(<AmrapInput value={undefined} onChange={vi.fn()} />);
 
       const decrementBtn = screen.getByLabelText('Disminuir reps');
 
@@ -45,7 +45,7 @@ describe('AmrapInput', () => {
 
   describe('interaction', () => {
     it('should call onChange(1) when + button is clicked and value is undefined', () => {
-      const onChange = mock();
+      const onChange = vi.fn();
       render(<AmrapInput value={undefined} onChange={onChange} />);
 
       const incrementBtn = screen.getByLabelText('Aumentar reps');
@@ -57,7 +57,7 @@ describe('AmrapInput', () => {
 
   describe('inline 1RM estimate', () => {
     it('should show "1RM est." when result=success and weight provided and value > 0', () => {
-      render(<AmrapInput value={5} onChange={mock()} result="success" weight={60} />);
+      render(<AmrapInput value={5} onChange={vi.fn()} result="success" weight={60} />);
 
       const estimateText = screen.getByText(/1RM est\./);
 
@@ -65,7 +65,7 @@ describe('AmrapInput', () => {
     });
 
     it('should NOT show 1RM estimate when result=fail', () => {
-      render(<AmrapInput value={5} onChange={mock()} result="fail" weight={60} />);
+      render(<AmrapInput value={5} onChange={vi.fn()} result="fail" weight={60} />);
 
       const estimateTexts = screen.queryByText(/1RM est\./);
 
@@ -73,7 +73,7 @@ describe('AmrapInput', () => {
     });
 
     it('should NOT show 1RM estimate when value is undefined', () => {
-      render(<AmrapInput value={undefined} onChange={mock()} result="success" weight={60} />);
+      render(<AmrapInput value={undefined} onChange={vi.fn()} result="success" weight={60} />);
 
       const estimateTexts = screen.queryByText(/1RM est\./);
 

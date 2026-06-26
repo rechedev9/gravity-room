@@ -7,18 +7,18 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mock catalog cache — always miss
 // ---------------------------------------------------------------------------
 
-const mockGetCachedCatalogList = mock<() => Promise<unknown>>(() => Promise.resolve(undefined));
-const mockSetCachedCatalogList = mock<() => Promise<void>>(() => Promise.resolve());
-const mockGetCachedCatalogDetail = mock<() => Promise<unknown>>(() => Promise.resolve(undefined));
-const mockSetCachedCatalogDetail = mock<() => Promise<void>>(() => Promise.resolve());
+const mockGetCachedCatalogList = vi.fn<() => Promise<unknown>>(() => Promise.resolve(undefined));
+const mockSetCachedCatalogList = vi.fn<() => Promise<void>>(() => Promise.resolve());
+const mockGetCachedCatalogDetail = vi.fn<() => Promise<unknown>>(() => Promise.resolve(undefined));
+const mockSetCachedCatalogDetail = vi.fn<() => Promise<void>>(() => Promise.resolve());
 
-mock.module('../lib/catalog-cache', () => ({
+vi.mock('../lib/catalog-cache', () => ({
   getCachedCatalogList: mockGetCachedCatalogList,
   setCachedCatalogList: mockSetCachedCatalogList,
   getCachedCatalogDetail: mockGetCachedCatalogDetail,
@@ -111,9 +111,9 @@ let exerciseSelectRows: { id: string; name: string }[] = [];
  */
 function createMockDb(): unknown {
   return {
-    select: mock(function select() {
+    select: vi.fn(function select() {
       return {
-        from: mock(function from(table: { _: { name: string } } | Record<string, unknown>) {
+        from: vi.fn(function from(table: { _: { name: string } } | Record<string, unknown>) {
           // Determine which table is being queried
           const tableName = (table as Record<string, unknown>)?.['_'];
           const name =
@@ -124,9 +124,9 @@ function createMockDb(): unknown {
           const rows = name === 'exercises' ? exerciseSelectRows : templateRows;
 
           return {
-            where: mock(function where() {
+            where: vi.fn(function where() {
               return {
-                orderBy: mock(function orderBy() {
+                orderBy: vi.fn(function orderBy() {
                   // Simulate PostgreSQL ORDER BY name ASC
                   const sorted = [...rows].sort((a, b) =>
                     String(a.name ?? '').localeCompare(String(b.name ?? ''))
@@ -135,7 +135,7 @@ function createMockDb(): unknown {
                     then: (fn: (val: unknown[]) => unknown) => fn(sorted),
                   };
                 }),
-                limit: mock(function limit() {
+                limit: vi.fn(function limit() {
                   return Promise.resolve(rows.slice(0, 1));
                 }),
                 then: (fn: (val: unknown[]) => unknown) => fn(rows),
@@ -151,7 +151,7 @@ function createMockDb(): unknown {
 
 let mockDb = createMockDb();
 
-mock.module('../db', () => ({
+vi.mock('../db', () => ({
   getDb: () => mockDb,
 }));
 
@@ -253,7 +253,7 @@ describe('listPrograms — column projection', () => {
     await listPrograms();
 
     // The mock's select was called — this confirms the query ran through the mock
-    expect((mockDb as Record<string, ReturnType<typeof mock>>).select).toHaveBeenCalled();
+    expect((mockDb as Record<string, ReturnType<typeof vi.fn>>).select).toHaveBeenCalled();
   });
 
   it('maps projected JSONB numeric fields to correct CatalogEntry fields', async () => {

@@ -13,7 +13,7 @@
  *   - downloadCsv: URL.revokeObjectURL called before download can start (documented)
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { generateProgramCsv } from './csv-export';
 import type { GenericWorkoutRow, ResultValue } from '@gzclp/domain/types';
 

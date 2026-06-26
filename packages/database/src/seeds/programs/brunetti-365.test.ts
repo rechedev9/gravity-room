@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { PROGRAM_CATALOG } from '@gzclp/domain/catalog';
 import { BRUNETTI365_EXP_DEFINITION_JSONB, BRUNETTI365_DEFINITION_JSONB } from './brunetti-365';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';

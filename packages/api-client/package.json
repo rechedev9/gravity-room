@@ -6,8 +6,11 @@
   "dependencies": {
     "@gzclp/domain": "workspace:*"
   },
+  "devDependencies": {
+    "vitest": "^4"
+  },
   "scripts": {
-    "test": "bun test src",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint"
   },

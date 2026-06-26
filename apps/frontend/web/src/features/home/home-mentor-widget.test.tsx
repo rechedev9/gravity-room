@@ -1,9 +1,9 @@
-import { describe, it, expect, afterEach, beforeEach, mock } from 'bun:test';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import i18n from 'i18next';
 import { createElement } from 'react';
 
 // Mock framer-motion / motion to avoid animation side-effects in tests
-mock.module('motion/react', () => ({
+vi.mock('motion/react', () => ({
   motion: new Proxy(
     {},
     {
@@ -17,7 +17,7 @@ mock.module('motion/react', () => ({
 }));
 
 // Mock TanStack Router Link so it renders as a plain anchor in tests
-mock.module('@tanstack/react-router', () => ({
+vi.mock('@tanstack/react-router', () => ({
   Link: ({
     children,
     to,

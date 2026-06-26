@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSetLogging } from './use-set-logging';
 import type { GenericWorkoutRow, SetLogEntry } from '@gzclp/domain/types';
@@ -69,11 +69,11 @@ type MarkResultFn = (
 ) => void;
 
 describe('useSetLogging — extended logSet', () => {
-  let markResult: ReturnType<typeof mock<MarkResultFn>>;
+  let markResult: ReturnType<typeof vi.fn<MarkResultFn>>;
   let definition: ProgramDefinition;
 
   beforeEach(() => {
-    markResult = mock<MarkResultFn>();
+    markResult = vi.fn<MarkResultFn>();
     definition = GZCLP_DEFINITION_FIXTURE;
   });
 

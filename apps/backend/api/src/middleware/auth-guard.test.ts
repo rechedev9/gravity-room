@@ -1,26 +1,28 @@
 process.env['NODE_ENV'] = 'test';
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, expect, it, mock, beforeEach } from 'bun:test';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { ApiError } from './error-handler';
 
-const mockFindUserById = mock<(id: string) => Promise<{ id: string } | undefined>>(() =>
-  Promise.resolve({ id: 'user-123' })
-);
+const { mockFindUserById } = vi.hoisted(() => ({
+  mockFindUserById: vi.fn<(id: string) => Promise<{ id: string } | undefined>>(() =>
+    Promise.resolve({ id: 'user-123' })
+  ),
+}));
 
-mock.module('../services/auth', () => ({
+vi.mock('../services/auth', () => ({
   findUserById: mockFindUserById,
 }));
 
-mock.module('../lib/redis', () => ({
-  getRedis: mock(() => null),
+vi.mock('../lib/redis', () => ({
+  getRedis: vi.fn(() => null),
 }));
 
 import { JWT_AUDIENCE, JWT_ISSUER, resolveUserId } from './auth-guard';
 
 function jwtFor(payload: Record<string, unknown>) {
   return {
-    verify: mock(() => Promise.resolve(payload)),
+    verify: vi.fn(() => Promise.resolve(payload)),
   };
 }
 

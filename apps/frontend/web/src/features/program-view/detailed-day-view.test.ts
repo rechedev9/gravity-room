@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import type { GenericSlotRow, ResolvedPrescription } from '@gzclp/domain/types';
 import { buildSetRows } from './detailed-day-view';
 

@@ -1,9 +1,9 @@
-import { describe, expect, it, mock } from 'bun:test';
+import { describe, expect, it, vi } from 'vitest';
 import { createSingleFlight } from './single-flight.js';
 
 describe('createSingleFlight', () => {
   it('calls the underlying fn and returns its value', async () => {
-    const fn = mock(() => Promise.resolve(42));
+    const fn = vi.fn(() => Promise.resolve(42));
     const wrapped = createSingleFlight(fn);
     const result = await wrapped();
     expect(result).toBe(42);
@@ -15,7 +15,7 @@ describe('createSingleFlight', () => {
     const promise = new Promise<number>((res) => {
       resolvePromise = res;
     });
-    const fn = mock(() => promise);
+    const fn = vi.fn(() => promise);
     const wrapped = createSingleFlight(fn);
 
     const p1 = wrapped();
@@ -31,7 +31,7 @@ describe('createSingleFlight', () => {
 
   it('allows a new call after the previous one settles', async () => {
     let callCount = 0;
-    const fn = mock(() => Promise.resolve(++callCount));
+    const fn = vi.fn(() => Promise.resolve(++callCount));
     const wrapped = createSingleFlight(fn);
 
     const first = await wrapped();
@@ -43,7 +43,7 @@ describe('createSingleFlight', () => {
   });
 
   it('clears the in-flight slot even when fn rejects', async () => {
-    const fn = mock(() => Promise.reject(new Error('boom')));
+    const fn = vi.fn(() => Promise.reject(new Error('boom')));
     const wrapped = createSingleFlight(fn);
 
     await expect(wrapped()).rejects.toThrow('boom');

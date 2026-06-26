@@ -1,56 +1,64 @@
-import { mock, describe, it, expect, beforeEach } from 'bun:test';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { apiFunctionsStubs } from '../../test/helpers/api-functions-mock';
 
 // ---------------------------------------------------------------------------
-// Mock setup — mock the API modules before importing auth-context
+// Mock setup — mock the API modules before importing auth-context.
+// vi.mock is hoisted above imports, so every fn the factories/tests reference
+// is created via vi.hoisted (and destructured for unchanged usage below).
 // ---------------------------------------------------------------------------
 
-const mockRefreshAccessToken = mock<() => Promise<{ accessToken: string; user: unknown } | null>>(
-  () => Promise.resolve(null)
+const { mockRefreshAccessToken, mockSetAccessToken, mockApiFetch, mockFetchMe } = vi.hoisted(
+  () => ({
+    mockRefreshAccessToken: vi.fn<() => Promise<{ accessToken: string; user: unknown } | null>>(
+      () => Promise.resolve(null)
+    ),
+    mockSetAccessToken: vi.fn<(token: string | null) => void>(() => {}),
+    mockApiFetch: vi.fn<(path: string, options?: RequestInit) => Promise<unknown>>(() =>
+      Promise.reject(new Error('Unauthorized'))
+    ),
+    mockFetchMe: vi.fn<
+      () => Promise<{ id: string; email: string; name?: string; avatarUrl?: string } | null>
+    >(() => Promise.resolve(null)),
+  })
 );
-const mockSetAccessToken = mock<(token: string | null) => void>(() => {});
 
-mock.module('@/lib/api', () => ({
+vi.mock('@/lib/api', () => ({
   refreshAccessToken: mockRefreshAccessToken,
   setAccessToken: mockSetAccessToken,
-  getAccessToken: mock(() => null),
+  getAccessToken: vi.fn(() => null),
+  clearApiResponseCache: vi.fn(() => Promise.resolve()),
 }));
 
-const mockApiFetch = mock<(path: string, options?: RequestInit) => Promise<unknown>>(() =>
-  Promise.reject(new Error('Unauthorized'))
-);
-const mockFetchMe = mock<
-  () => Promise<{ id: string; email: string; name?: string; avatarUrl?: string } | null>
->(() => Promise.resolve(null));
-
-mock.module('@/lib/api-functions', () => ({
-  ...apiFunctionsStubs,
-  apiFetch: mockApiFetch,
-  fetchMe: mockFetchMe,
-  parseUserSafe: mock((data: unknown) => {
-    if (data && typeof data === 'object' && 'id' in data && 'email' in data) {
-      const rec = data as Record<string, unknown>;
-      return {
-        id: String(rec.id),
-        email: String(rec.email),
-        name: typeof rec.name === 'string' ? rec.name : undefined,
-        avatarUrl: typeof rec.avatarUrl === 'string' ? rec.avatarUrl : undefined,
-      };
-    }
-    return null;
-  }),
-  // Provide stubs for all other exports used by consumers
-  fetchPrograms: mock(() => Promise.resolve([])),
-  createProgram: mock(() => Promise.resolve({})),
-  updateProgramConfig: mock(() => Promise.resolve()),
-  deleteProgram: mock(() => Promise.resolve()),
-  undoLastResult: mock(() => Promise.resolve()),
-  exportProgram: mock(() => Promise.resolve({})),
-  importProgram: mock(() => Promise.resolve({})),
-}));
+vi.mock('@/lib/api-functions', async () => {
+  const { apiFunctionsStubs } = await import('../../test/helpers/api-functions-mock');
+  return {
+    ...apiFunctionsStubs,
+    apiFetch: mockApiFetch,
+    fetchMe: mockFetchMe,
+    parseUserSafe: vi.fn((data: unknown) => {
+      if (data && typeof data === 'object' && 'id' in data && 'email' in data) {
+        const rec = data as Record<string, unknown>;
+        return {
+          id: String(rec.id),
+          email: String(rec.email),
+          name: typeof rec.name === 'string' ? rec.name : undefined,
+          avatarUrl: typeof rec.avatarUrl === 'string' ? rec.avatarUrl : undefined,
+        };
+      }
+      return null;
+    }),
+    // Provide stubs for all other exports used by consumers
+    fetchPrograms: vi.fn(() => Promise.resolve([])),
+    createProgram: vi.fn(() => Promise.resolve({})),
+    updateProgramConfig: vi.fn(() => Promise.resolve()),
+    deleteProgram: vi.fn(() => Promise.resolve()),
+    undoLastResult: vi.fn(() => Promise.resolve()),
+    exportProgram: vi.fn(() => Promise.resolve({})),
+    importProgram: vi.fn(() => Promise.resolve({})),
+  };
+});
 
 import { AuthProvider, useAuth } from './auth-context';
 

@@ -1,0 +1,1628 @@
+{
+  "linregress": [
+    {
+      "name": "perfect_line",
+      "x": [0, 1, 2, 3, 4],
+      "y": [1, 3, 5, 7, 9],
+      "slope": 2.0,
+      "intercept": 1.0,
+      "rvalue": 1.0,
+      "rSquared": 1.0,
+      "pvalue": 1.2004217548761408e-30,
+      "stderr": 0.0
+    },
+    {
+      "name": "small_noisy",
+      "x": [0, 1, 2, 3],
+      "y": [1, 2, 3, 5],
+      "slope": 1.3,
+      "intercept": 0.7999999999999998,
+      "rvalue": 0.9827076298239908,
+      "rSquared": 0.9657142857142859,
+      "pvalue": 0.017292370176009153,
+      "stderr": 0.17320508075688734
+    },
+    {
+      "name": "flat",
+      "x": [0, 1, 2, 3, 4, 5],
+      "y": [100, 100, 100, 100, 100, 100],
+      "slope": 0.0,
+      "intercept": 100.0,
+      "rvalue": 0.0,
+      "rSquared": 0.0,
+      "pvalue": 1.0,
+      "stderr": 0.0
+    },
+    {
+      "name": "e1rm_linear_8w",
+      "x": [0, 1, 2, 3, 4, 5, 6, 7],
+      "y": [
+        93.3333333333, 96.25, 99.1666666667, 102.0833333333, 105.0, 107.9166666667, 110.8333333333,
+        113.75
+      ],
+      "slope": 2.916666666667857,
+      "intercept": 93.33333333332502,
+      "rvalue": 1.0,
+      "rSquared": 1.0,
+      "pvalue": 2.5000000000000343e-60,
+      "stderr": 0.0
+    },
+    {
+      "name": "decreasing",
+      "x": [0, 1, 2, 3, 4, 5, 6, 7],
+      "y": [100, 99, 101, 97, 96, 98, 94, 93],
+      "slope": -1.0,
+      "intercept": 100.75,
+      "rvalue": -0.8699176724016802,
+      "rSquared": 0.7567567567567569,
+      "pvalue": 0.004980032672037406,
+      "stderr": 0.2314550249431378
+    },
+    {
+      "name": "weak_trend",
+      "x": [0, 1, 2, 3, 4, 5, 6, 7],
+      "y": [90, 82.5, 95, 80, 92.5, 85, 97.5, 82.5],
+      "slope": 0.05952380952380952,
+      "intercept": 87.91666666666667,
+      "rvalue": 0.022388683141982252,
+      "rSquared": 0.0005012531328320803,
+      "pvalue": 0.9580352449962661,
+      "stderr": 1.0851197550694696
+    }
+  ],
+  "tCdf": [
+    {
+      "x": 0.0,
+      "df": 5,
+      "cdf": 0.5
+    },
+    {
+      "x": 1.0,
+      "df": 10,
+      "cdf": 0.82955343384897
+    },
+    {
+      "x": 2.0,
+      "df": 8,
+      "cdf": 0.9597418810213687
+    },
+    {
+      "x": -1.5,
+      "df": 4,
+      "cdf": 0.10399999999999993
+    },
+    {
+      "x": 2.570582,
+      "df": 5,
+      "cdf": 0.97500000498643
+    },
+    {
+      "x": 2.228139,
+      "df": 10,
+      "cdf": 0.9750000062735588
+    },
+    {
+      "x": 3.5,
+      "df": 2,
+      "cdf": 0.9635863249727653
+    },
+    {
+      "x": -2.0,
+      "df": 1,
+      "cdf": 0.1475836176504332
+    },
+    {
+      "x": 1.96,
+      "df": 1000,
+      "cdf": 0.9748634075221256
+    },
+    {
+      "x": 0.5,
+      "df": 30,
+      "cdf": 0.6896384975574363
+    }
+  ],
+  "tPpf": [
+    {
+      "p": 0.975,
+      "df": 1,
+      "ppf": 12.706204736432095
+    },
+    {
+      "p": 0.975,
+      "df": 2,
+      "ppf": 4.302652729696142
+    },
+    {
+      "p": 0.95,
+      "df": 5,
+      "ppf": 2.0150483733330233
+    },
+    {
+      "p": 0.975,
+      "df": 5,
+      "ppf": 2.570581835636314
+    },
+    {
+      "p": 0.975,
+      "df": 6,
+      "ppf": 2.4469118511449692
+    },
+    {
+      "p": 0.95,
+      "df": 10,
+      "ppf": 1.8124611228107335
+    },
+    {
+      "p": 0.975,
+      "df": 10,
+      "ppf": 2.2281388519649385
+    },
+    {
+      "p": 0.975,
+      "df": 30,
+      "ppf": 2.0422724563012373
+    },
+    {
+      "p": 0.975,
+      "df": 100,
+      "ppf": 1.9839715184496334
+    },
+    {
+      "p": 0.025,
+      "df": 6,
+      "ppf": -2.4469118511449697
+    },
+    {
+      "p": 0.5,
+      "df": 7,
+      "ppf": 6.878509567092043e-17
+    },
+    {
+      "p": 0.9,
+      "df": 4,
+      "ppf": 1.5332062740589432
+    }
+  ],
+  "epley": [
+    {
+      "weight": 100.0,
+      "reps": 5,
+      "e1rm": 116.66666666666667
+    },
+    {
+      "weight": 100.0,
+      "reps": 1,
+      "e1rm": 100.0
+    },
+    {
+      "weight": 140.0,
+      "reps": 8,
+      "e1rm": 177.33333333333331
+    },
+    {
+      "weight": 60.0,
+      "reps": 3,
+      "e1rm": 66.0
+    },
+    {
+      "weight": 80.0,
+      "reps": 5,
+      "e1rm": 93.33333333333334
+    },
+    {
+      "weight": 0.0,
+      "reps": 5,
+      "e1rm": 0.0
+    }
+  ],
+  "isoWeek": [
+    {
+      "date": "2021-01-01",
+      "isoYear": 2020,
+      "isoWeek": 53,
+      "key": "2020-W53"
+    },
+    {
+      "date": "2020-12-31",
+      "isoYear": 2020,
+      "isoWeek": 53,
+      "key": "2020-W53"
+    },
+    {
+      "date": "2024-12-30",
+      "isoYear": 2025,
+      "isoWeek": 1,
+      "key": "2025-W01"
+    },
+    {
+      "date": "2025-01-01",
+      "isoYear": 2025,
+      "isoWeek": 1,
+      "key": "2025-W01"
+    },
+    {
+      "date": "2023-01-01",
+      "isoYear": 2022,
+      "isoWeek": 52,
+      "key": "2022-W52"
+    },
+    {
+      "date": "2016-01-01",
+      "isoYear": 2015,
+      "isoWeek": 53,
+      "key": "2015-W53"
+    },
+    {
+      "date": "2026-06-26",
+      "isoYear": 2026,
+      "isoWeek": 26,
+      "key": "2026-W26"
+    },
+    {
+      "date": "2019-12-29",
+      "isoYear": 2019,
+      "isoWeek": 52,
+      "key": "2019-W52"
+    },
+    {
+      "date": "2019-12-30",
+      "isoYear": 2020,
+      "isoWeek": 1,
+      "key": "2020-W01"
+    },
+    {
+      "date": "2018-01-01",
+      "isoYear": 2018,
+      "isoWeek": 1,
+      "key": "2018-W01"
+    },
+    {
+      "date": "2015-12-31",
+      "isoYear": 2015,
+      "isoWeek": 53,
+      "key": "2015-W53"
+    }
+  ],
+  "isoWeekTs": [
+    {
+      "ts": "2021-01-01T00:30:00+00:00",
+      "isoYear": 2020,
+      "isoWeek": 53,
+      "key": "2020-W53"
+    },
+    {
+      "ts": "2021-01-01T00:30:00+02:00",
+      "isoYear": 2020,
+      "isoWeek": 53,
+      "key": "2020-W53"
+    },
+    {
+      "ts": "2020-12-31T23:30:00-05:00",
+      "isoYear": 2020,
+      "isoWeek": 53,
+      "key": "2020-W53"
+    },
+    {
+      "ts": "2024-12-30T12:00:00Z",
+      "isoYear": 2025,
+      "isoWeek": 1,
+      "key": "2025-W01"
+    },
+    {
+      "ts": "2026-06-26T08:00:00+00:00",
+      "isoYear": 2026,
+      "isoWeek": 26,
+      "key": "2026-W26"
+    }
+  ],
+  "logistic": [
+    {
+      "name": "rpe_records_like",
+      "X": [
+        [100.0, 0.4, 7.0, 500.0, 3.0],
+        [100.0, 0.8, 7.5, 550.0, 5.0],
+        [100.0, 0.8, 8.0, 600.0, 3.0],
+        [102.5, 0.8, 7.0, 650.0, 5.0],
+        [102.5, 0.8, 7.5, 500.0, 3.0],
+        [102.5, 0.4, 8.0, 550.0, 5.0],
+        [105.0, 0.8, 7.0, 600.0, 3.0],
+        [105.0, 0.8, 7.5, 650.0, 5.0],
+        [105.0, 0.8, 8.0, 500.0, 3.0],
+        [107.5, 0.8, 7.0, 550.0, 5.0],
+        [107.5, 0.4, 7.5, 600.0, 3.0],
+        [107.5, 0.8, 8.0, 650.0, 5.0],
+        [110.0, 0.8, 7.0, 500.0, 3.0],
+        [110.0, 0.8, 7.5, 550.0, 5.0],
+        [110.0, 0.8, 8.0, 600.0, 3.0]
+      ],
+      "y": [0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1],
+      "queries": [
+        [105.0, 0.8, 5.0, 600.0, 3.0],
+        [107.5, 0.5, 5.0, 600.0, 3.0]
+      ],
+      "colMean": [105.0, 0.7200000000000002, 7.5, 570.0, 3.933333333333333],
+      "colStd": [3.5355339059327378, 0.16, 0.408248290463863, 54.1602560309064, 0.9977753031397176],
+      "coef": [
+        0.17880606271924007, 1.6080623730090817, -0.02966092277451139, 0.11849498910910476,
+        0.10147566971455349
+      ],
+      "intercept": 2.0576152469438687,
+      "probs": [0.9532024164992751, 0.5312875028763359]
+    },
+    {
+      "name": "separable",
+      "X": [
+        [60.0, 0.2, 9.0, 200.0, 10.0],
+        [62.5, 0.3, 8.5, 220.0, 8.0],
+        [65.0, 0.4, 8.0, 240.0, 7.0],
+        [100.0, 0.9, 6.0, 600.0, 3.0],
+        [102.5, 0.85, 6.5, 620.0, 3.0],
+        [105.0, 0.95, 5.5, 640.0, 2.0],
+        [70.0, 0.5, 7.5, 300.0, 6.0],
+        [95.0, 0.8, 6.5, 580.0, 4.0],
+        [80.0, 0.6, 7.0, 400.0, 5.0],
+        [110.0, 0.95, 5.0, 700.0, 2.0]
+      ],
+      "y": [0, 0, 0, 1, 1, 1, 0, 1, 0, 1],
+      "queries": [
+        [90.0, 0.7, 6.0, 500.0, 4.0],
+        [92.5, 0.7, 6.0, 500.0, 4.0]
+      ],
+      "colMean": [85.0, 0.6449999999999999, 6.95, 450.0, 5.0],
+      "colStd": [
+        18.540496217739157, 0.26781523481684155, 1.2338962679253065, 187.45666165810167,
+        2.569046515733026
+      ],
+      "coef": [
+        0.6712367866107289, 0.6034313338329403, -0.44953999380389836, 0.6953158721143471,
+        -0.4695155606339705
+      ],
+      "intercept": -0.24243378912602326,
+      "probs": [0.6849981660498916, 0.7041934162458602]
+    }
+  ],
+  "pipelines": {
+    "volume": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 1,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 8,
+          "recordedAt": "2025-03-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "bench",
+          "weight": 60.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-10T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 102.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-17T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 105.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 3,
+          "recordedAt": "2025-03-24T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 1,
+          "slotId": "squat",
+          "weight": 95.0,
+          "result": "fail",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-24T12:00:00+00:00"
+        }
+      ],
+      "payload": {
+        "weeks": ["2025-W10", "2025-W11", "2025-W12", "2025-W13"],
+        "volumes": [1300.0, 300.0, 512.5, 315.0],
+        "slope": -274.25,
+        "direction": "down"
+      }
+    },
+    "frequency": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-20T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-01T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "bench",
+          "weight": 60.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-02T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 1,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-03T12:00:00+00:00"
+        }
+      ],
+      "payload": {
+        "sessionsPerWeek": 2.0,
+        "currentStreak": 3,
+        "consistencyPct": 100.0,
+        "totalSessions": 4,
+        "workoutDates": ["2025-03-20", "2025-04-01", "2025-04-02", "2025-04-03"]
+      }
+    },
+    "e1rm": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 102.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-10T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 105.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 3,
+          "recordedAt": "2025-03-17T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 107.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 8,
+          "recordedAt": "2025-03-24T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 110.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-31T12:00:00+00:00"
+        }
+      ],
+      "payload": {
+        "squat": {
+          "dates": ["2025-03-03", "2025-03-10", "2025-03-17", "2025-03-24", "2025-03-31"],
+          "e1rms": [116.7, 119.6, 115.5, 136.2, 128.3],
+          "currentMax": 136.2
+        }
+      }
+    },
+    "summary": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": 7.0,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": 8.0,
+          "amrapReps": 8,
+          "recordedAt": "2025-03-10T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 105.0,
+          "result": "fail",
+          "rpe": 9.5,
+          "amrapReps": null,
+          "recordedAt": "2025-03-17T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 105.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-24T12:00:00+00:00"
+        }
+      ],
+      "payload": {
+        "squat": {
+          "totalSets": 4,
+          "successSets": 3,
+          "successRate": 75.0,
+          "totalVolume": 1825.0,
+          "avgRpe": 8.2
+        }
+      }
+    },
+    "plateauFlat": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-10T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-17T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-24T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-31T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-07T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-14T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-21T12:00:00+00:00"
+        }
+      ],
+      "payload": {
+        "isPlateauing": true,
+        "confidence": 0.95,
+        "slope": 0.0,
+        "pValue": 0.0,
+        "rSquared": 0.0,
+        "weeksAnalyzed": 8,
+        "currentWeight": 100.0
+      }
+    },
+    "plateauIncreasing": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 80.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 82.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-10T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 85.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-17T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 87.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-24T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 90.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-31T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 92.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-07T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 95.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-14T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 97.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-21T12:00:00+00:00"
+        }
+      ],
+      "payload": {
+        "isPlateauing": false,
+        "confidence": 0.0,
+        "slope": 2.5,
+        "pValue": 0.0,
+        "rSquared": 1.0,
+        "weeksAnalyzed": 8,
+        "currentWeight": 97.5
+      }
+    },
+    "plateauMild": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 101.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-10T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 99.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-17T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-24T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 101.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-31T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 99.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-07T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-14T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-04-21T12:00:00+00:00"
+        }
+      ],
+      "payload": {
+        "isPlateauing": true,
+        "confidence": 0.285,
+        "slope": -0.048,
+        "pValue": 0.7152,
+        "rSquared": 0.024,
+        "weeksAnalyzed": 8,
+        "currentWeight": 100.0
+      }
+    },
+    "forecastLinear": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 80.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 82.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-10T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 85.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-17T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 87.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-24T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 90.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-31T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 92.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-04-07T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 95.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-04-14T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 97.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-04-21T12:00:00+00:00"
+        }
+      ],
+      "payload": {
+        "weeks": [
+          "2025-W10",
+          "2025-W11",
+          "2025-W12",
+          "2025-W13",
+          "2025-W14",
+          "2025-W15",
+          "2025-W16",
+          "2025-W17"
+        ],
+        "e1rms": [93.3, 96.2, 99.2, 102.1, 105.0, 107.9, 110.8, 113.8],
+        "slope": 2.917,
+        "rSquared": 1.0,
+        "forecast2w": 119.6,
+        "forecast4w": 125.4,
+        "band2w": 0.0,
+        "band4w": 0.0
+      }
+    },
+    "forecastLowR2": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 90.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 82.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-10T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 95.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-17T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 80.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-24T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 92.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-31T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 85.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-04-07T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 97.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-04-14T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 82.5,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-04-21T12:00:00+00:00"
+        }
+      ],
+      "payload": null
+    },
+    "forecastNoisy": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 80.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 83.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-10T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 84.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-17T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 88.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-24T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 89.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-03-31T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 93.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-04-07T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 94.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-04-14T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 98.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": 5,
+          "recordedAt": "2025-04-21T12:00:00+00:00"
+        }
+      ],
+      "payload": {
+        "weeks": [
+          "2025-W10",
+          "2025-W11",
+          "2025-W12",
+          "2025-W13",
+          "2025-W14",
+          "2025-W15",
+          "2025-W16",
+          "2025-W17"
+        ],
+        "e1rms": [93.3, 96.8, 98.0, 102.7, 103.8, 108.5, 109.7, 114.3],
+        "slope": 2.903,
+        "rSquared": 0.985,
+        "forecast2w": 119.4,
+        "forecast4w": 125.2,
+        "band2w": 3.1,
+        "band4w": 3.6
+      }
+    },
+    "recommendationMl": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "fail",
+          "rpe": 7.0,
+          "amrapReps": null,
+          "recordedAt": "2025-04-17T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 1,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": 7.5,
+          "amrapReps": null,
+          "recordedAt": "2025-04-20T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 2,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": 8.0,
+          "amrapReps": null,
+          "recordedAt": "2025-04-23T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 3,
+          "slotId": "squat",
+          "weight": 102.5,
+          "result": "success",
+          "rpe": 7.0,
+          "amrapReps": null,
+          "recordedAt": "2025-04-26T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 4,
+          "slotId": "squat",
+          "weight": 102.5,
+          "result": "success",
+          "rpe": 7.5,
+          "amrapReps": null,
+          "recordedAt": "2025-04-29T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 5,
+          "slotId": "squat",
+          "weight": 102.5,
+          "result": "fail",
+          "rpe": 8.0,
+          "amrapReps": null,
+          "recordedAt": "2025-05-02T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 6,
+          "slotId": "squat",
+          "weight": 105.0,
+          "result": "success",
+          "rpe": 7.0,
+          "amrapReps": null,
+          "recordedAt": "2025-05-05T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 7,
+          "slotId": "squat",
+          "weight": 105.0,
+          "result": "success",
+          "rpe": 7.5,
+          "amrapReps": null,
+          "recordedAt": "2025-05-08T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 8,
+          "slotId": "squat",
+          "weight": 105.0,
+          "result": "success",
+          "rpe": 8.0,
+          "amrapReps": null,
+          "recordedAt": "2025-05-11T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 9,
+          "slotId": "squat",
+          "weight": 107.5,
+          "result": "success",
+          "rpe": 7.0,
+          "amrapReps": null,
+          "recordedAt": "2025-05-14T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 10,
+          "slotId": "squat",
+          "weight": 107.5,
+          "result": "fail",
+          "rpe": 7.5,
+          "amrapReps": null,
+          "recordedAt": "2025-05-17T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 11,
+          "slotId": "squat",
+          "weight": 107.5,
+          "result": "success",
+          "rpe": 8.0,
+          "amrapReps": null,
+          "recordedAt": "2025-05-20T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 12,
+          "slotId": "squat",
+          "weight": 110.0,
+          "result": "success",
+          "rpe": 7.0,
+          "amrapReps": null,
+          "recordedAt": "2025-05-23T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 13,
+          "slotId": "squat",
+          "weight": 110.0,
+          "result": "success",
+          "rpe": 7.5,
+          "amrapReps": null,
+          "recordedAt": "2025-05-26T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 14,
+          "slotId": "squat",
+          "weight": 110.0,
+          "result": "success",
+          "rpe": 8.0,
+          "amrapReps": null,
+          "recordedAt": "2025-05-29T12:00:00+00:00"
+        }
+      ],
+      "payload": {
+        "currentWeight": 110.0,
+        "recommendedWeight": 112.5,
+        "shouldIncrement": true,
+        "confidence": 0.88,
+        "method": "logistic_regression"
+      }
+    },
+    "recommendationFallbackIncrement": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 1,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-10T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 2,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-17T12:00:00+00:00"
+        }
+      ],
+      "payload": {
+        "currentWeight": 100.0,
+        "recommendedWeight": 102.5,
+        "shouldIncrement": true,
+        "confidence": 0.7,
+        "method": "consecutive_success"
+      }
+    },
+    "recommendationFallbackHold": {
+      "records": [
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 0,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-03T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 1,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "success",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-10T12:00:00+00:00"
+        },
+        {
+          "userId": "u1",
+          "instanceId": "i1",
+          "programId": "p1",
+          "workoutIndex": 2,
+          "slotId": "squat",
+          "weight": 100.0,
+          "result": "fail",
+          "rpe": null,
+          "amrapReps": null,
+          "recordedAt": "2025-03-17T12:00:00+00:00"
+        }
+      ],
+      "payload": {
+        "currentWeight": 100.0,
+        "recommendedWeight": 100.0,
+        "shouldIncrement": false,
+        "confidence": 0.5,
+        "method": "consecutive_success"
+      }
+    }
+  },
+  "meta": {
+    "scipy": "1.15.1",
+    "sklearn": "1.6.1",
+    "numpy": "2.2.1"
+  }
+}

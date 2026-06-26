@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { sitemapEntries } from '../../../scripts/seo-config';
 import { EXERCISE_ARTICLES } from './content/registry';
 

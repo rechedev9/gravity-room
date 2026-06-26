@@ -1,7 +1,12 @@
 {
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["esnext"]
+    // Inherit the base lib (dom + dom.iterable + esnext). The serverless API
+    // uses Web platform globals (fetch/Request/Response and the Web Crypto
+    // CryptoKey/CryptoKeyPair types in the auth tests) that previously came
+    // from @types/bun; with Bun removed, those types live in the dom lib while
+    // @types/node supplies the Node globals (Buffer/process).
+    "lib": ["esnext", "dom", "dom.iterable"]
   },
   "include": ["src/**/*.ts", "scripts/**/*.ts"],
   "exclude": ["node_modules"]

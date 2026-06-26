@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach, mock } from 'bun:test';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import i18n from 'i18next';
 import { createElement } from 'react';
 
-mock.module('@tanstack/react-router', () => ({
+vi.mock('@tanstack/react-router', () => ({
   Link: ({
     children,
     ...rest

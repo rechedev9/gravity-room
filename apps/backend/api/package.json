@@ -4,35 +4,45 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
+    "dev": "tsx watch src/dev-server.ts",
+    "start": "tsx src/dev-server.ts",
     "lint": "eslint --max-warnings=0 .",
     "lint:fix": "eslint --fix .",
-    "test": "bun test src/lib && bun test src/services/auth.test.ts src/services/exercises.test.ts src/services/programs.test.ts src/services/results.test.ts src/middleware src/index.test.ts && bun test src/services/catalog.test.ts && bun test src/routes",
-    "test:e2e": "bun test --preload ./test/db-setup.ts ./test/e2e",
+    "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.config.e2e.ts",
     "typecheck": "tsc --noEmit",
-    "db:generate": "cd ../../../packages/database && bun run db:generate",
-    "db:migrate": "cd ../../../packages/database && bun run db:migrate",
-    "db:studio": "cd ../../../packages/database && bun run db:studio",
-    "db:seed": "bun run src/db/seed.ts",
-    "db:update-definitions": "bun run src/scripts/update-program-definitions.ts"
+    "db:generate": "cd ../../../packages/database && pnpm run db:generate",
+    "db:migrate": "cd ../../../packages/database && pnpm run db:migrate",
+    "db:studio": "cd ../../../packages/database && pnpm run db:studio",
+    "db:deploy": "tsx src/scripts/migrate-deploy.ts",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:update-definitions": "tsx src/scripts/update-program-definitions.ts"
   },
   "dependencies": {
-    "@gzclp/domain": "workspace:*",
-    "elysia": "^1.4.25",
     "@elysiajs/cors": "^1.4.1",
     "@elysiajs/jwt": "^1.4.0",
     "@elysiajs/swagger": "^1.3.1",
+    "@gzclp/database": "workspace:*",
+    "@gzclp/domain": "workspace:*",
+    "@hono/node-server": "^1",
+    "@node-rs/argon2": "^2",
+    "@sentry/node": "^10.40.0",
+    "@upstash/ratelimit": "^2.0.6",
+    "@upstash/redis": "^1.35.5",
+    "@vercel/functions": "^3.7.3",
+    "bcryptjs": "^2",
+    "date-fns": "^4.1.0",
     "drizzle-orm": "^0.45.1",
-    "postgres": "^3.4.8",
-    "ioredis": "^5.9.3",
-    "@sentry/bun": "^10.40.0",
+    "elysia": "^1.4.25",
     "pino": "^10.3.1",
-    "prom-client": "^15.1.3",
-    "zod": "^4.3.6",
-    "@gzclp/database": "workspace:*"
+    "postgres": "^3.4.8",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "pino-pretty": "^13.0.0"
+    "@types/bcryptjs": "^2",
+    "@types/node": "^24.13.2",
+    "pino-pretty": "^13.0.0",
+    "tsx": "^4",
+    "vitest": "^4"
   }
 }

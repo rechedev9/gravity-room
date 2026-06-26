@@ -1,7 +1,9 @@
 # Gravity Room
 
-Tracker de fuerza basado en progresión lineal GZCLP. Monorepo Bun con cuatro
-servicios desplegables (API, analytics, web, mobile) y un paquete TS compartido.
+Tracker de fuerza basado en progresión lineal GZCLP. Monorepo pnpm que se
+despliega como **un único proyecto same-origin en Vercel**: la SPA Vite/React se
+publica como output estático y la API ElysiaJS corre como función serverless.
+Dos frontends (web, mobile) y paquetes TS compartidos completan el repo.
 
 Este README está ordenado de abajo hacia arriba: primero la infra que sostiene
 todo, después el backend que define el contrato, y por último los frontends que
@@ -10,21 +12,21 @@ saber **cómo** se programa.
 
 ## Contenidos
 
-1. [Despliegue en VPS](#1-despliegue-en-vps) — Cómo corre en producción
+1. [Despliegue en Vercel](#1-despliegue-en-vercel) — Cómo corre en producción
 2. [Backend](#2-backend) — API, analytics y persistencia
 3. [Frontend](#3-frontend) — Web SPA y app móvil
-4. [Paquete compartido](#4-paquete-compartido) — `@gzclp/domain`
+4. [Paquetes compartidos](#4-paquetes-compartidos) — `@gzclp/*`
 5. [Desarrollo local](#5-desarrollo-local) — Setup y comandos
 6. [Documentación adicional](#6-documentación-adicional)
 
 ---
 
-## 1. Despliegue en VPS
+## 1. Despliegue en Vercel
 
-Toda la producción vive en **un solo VPS Hetzner**. Sin Cloudflare, sin
-managed databases, sin Railway. La decisión es deliberada: optimizar coste
-operativo y eliminar dependencias de proveedores que se interpongan en el
-camino entre el usuario y el código.
+Toda la producción vive en **un único proyecto same-origin de Vercel**. La SPA
+estática y la API comparten origen, así que el navegador llama a `/api` relativo
+sin CORS. La decisión es deliberada: eliminar el reverse proxy, los contenedores
+y el servidor que se interponían entre el usuario y el código.
 
 ### Topología
 
@@ -32,168 +34,146 @@ camino entre el usuario y el código.
 Internet
    │
    ▼
-┌──────────────────────────── gr-prod (Hetzner CCX13, fsn1) ────────────────────────────┐
-│  Ubuntu LTS · IPv4 <redacted> · ufw 22/80/443 · fail2ban                              │
-│                                                                                       │
-│   ┌──────────── docker compose stack — /opt/gravity-room/ ────────────┐               │
-│   │                                                                   │               │
-│   │   caddy:443  ──► (TLS Let's Encrypt, security headers, gzip/zstd) │               │
-│   │      │                                                            │               │
-│   │      ├─► gravityroom.app     → file_server /srv/web (SPA estática)│               │
-│   │      ├─► www.gravityroom.app → 301 → gravityroom.app              │               │
-│   │      └─► api.gravityroom.app → reverse_proxy api:3001             │               │
-│   │                                                                   │               │
-│   │   api (Bun/ElysiaJS)      :3001 ──► postgres, redis, analytics    │               │
-│   │   analytics (FastAPI)     :8000 ──► postgres                      │               │
-│   │   postgres:18-alpine            ──► /mnt/pg-vol (Volumen 10 GB)   │               │
-│   │   redis:7-alpine                ──► tmpfs (LRU, 256 MB max)       │               │
-│   │                                                                   │               │
-│   └───────────────────────────────────────────────────────────────────┘               │
-└───────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────── Proyecto Vercel (same-origin) ─────────────────────────┐
+│                                                                                │
+│   https://<dominio>/            → SPA estática (apps/frontend/web/dist)          │
+│   https://<dominio>/api/*       → función serverless api/[...path].ts           │
+│                                     └─► createApp() (ElysiaJS) vía app.fetch     │
+│                                                                                │
+│   Vercel Cron ─► /api/internal/cleanup-tokens   (cada 6 h)                      │
+│               ─► /api/internal/purge-users       (diario)                       │
+│               ─► /api/internal/analytics/compute (horario)                      │
+└────────────────────────────────────────────────────────────────────────────────┘
+        │                                   │
+        ▼                                   ▼
+   Neon Postgres                       Upstash Redis (REST)
+   (pooled + direct)                   (presencia, caché, rate limit)
 ```
 
-### Servicios del compose
+### Configuración del proyecto
 
-Definidos en [`infra/production/docker-compose.yml`](infra/production/docker-compose.yml). Cinco servicios
-sobre una sola red bridge (`gr-net`):
+Todo vive en [`vercel.json`](vercel.json) (revisable en git, no en el dashboard):
+`framework: null`, `installCommand: pnpm install --frozen-lockfile`, `buildCommand: bash
+scripts/vercel-build.sh`, `outputDirectory: apps/frontend/web/dist`, la función
+`api/[...path].ts` (`maxDuration: 60`), el rewrite de SPA (todo salvo `/api/*` →
+`/index.html`) y las tres crons.
 
-| Servicio    | Imagen                                     | Rol                                                                    |
-| ----------- | ------------------------------------------ | ---------------------------------------------------------------------- |
-| `caddy`     | `caddy:2-alpine`                           | Reverse proxy + servidor estático del SPA + TLS automático             |
-| `api`       | `ghcr.io/rechedev9/gravity-room-api`       | API ElysiaJS sobre Bun. Healthcheck en `/health`.                      |
-| `analytics` | `ghcr.io/rechedev9/gravity-room-analytics` | FastAPI: cómputo de insights e ML. Healthcheck en `/health`.           |
-| `postgres`  | `postgres:18-alpine`                       | Datos persistentes en `/mnt/pg-vol` (volumen Hetzner separado del SO). |
-| `redis`     | `redis:7-alpine`                           | Rate limit, presencia, caché. `tmpfs` + LRU — no persiste a disco.     |
-
-**Por qué Caddy y no nginx:** TLS automático con Let's Encrypt sin tocar
-configuración, sintaxis declarativa más legible que nginx, y una sola fuente
-para reverse proxy + servir SPA. El [`infra/production/Caddyfile`](infra/production/Caddyfile) describe las
-tres vhosts (apex, www, api) y un snippet de `security_headers` compartido
-(HSTS, CSP, Referrer-Policy, COOP).
-
-**Por qué el SPA lo sirve Caddy y no el API:** el API es HTTP-only
-([`apps/backend/api/src/create-app.ts`](apps/backend/api/src/create-app.ts))
-y nunca devuelve assets estáticos. Esto permite cachear el SPA agresivamente
-(`/assets/*` con `max-age=31536000, immutable`) sin pasar por Bun, y deja
-al API libre de servir HTML — separación de responsabilidades real.
+**Por qué same-origin y no SPA + API separadas:** al compartir origen no hace
+falta CORS ni un dominio `api.` aparte, las cookies de refresh son first-party
+sin configuración, y la API es HTTP-only
+([`apps/backend/api/src/create-app.ts`](apps/backend/api/src/create-app.ts)) —
+nunca sirve HTML; de eso se encarga el output estático de Vite.
 
 ### Pipeline de despliegue
 
-Definido en [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
-Dispara en push a `main`:
+No hay workflow de GitHub: la integración Git de Vercel despliega en cada push a
+`main`. El build corre [`scripts/vercel-build.sh`](scripts/vercel-build.sh):
 
-1. **Build de imágenes Docker** (api + analytics) en paralelo → push a GHCR.
-   Cacheado vía GHA cache (`scope` por servicio).
-2. **Build del SPA** con Vite. Variables baked-in: `VITE_API_URL`,
-   `VITE_GOOGLE_CLIENT_ID`. Prerender con Playwright Chromium para evitar
-   soft-404 en rutas estáticas.
-3. **Sync al VPS** vía rsync sobre SSH: `infra/production/docker-compose.yml`, `infra/production/Caddyfile` y
-   el `dist/` del SPA a `/opt/gravity-room/data/web-dist/`.
-4. **Validación de `.env`** — corre `bun run scripts/check-env.ts` contra el
-   `.env` real del VPS _antes_ de levantar el stack. Esto evita el caso de
-   variable nueva requerida en producción → restart loop.
-5. **Deploy real**: `docker compose pull && up -d --remove-orphans`.
-6. **Healthcheck** contra `api:3001/health` con reintentos. Si falla, vuelca
-   logs de `api` y `postgres` y aborta.
+1. **Migraciones (solo producción).** Si `VERCEL_ENV=production`, corre
+   `pnpm --filter api db:deploy` (migraciones Drizzle + seeds idempotentes)
+   contra `DIRECT_DATABASE_URL`. Se omite en preview/local (apuntan a una rama
+   Neon desechable).
+2. **Sitemap.** Regenera `sitemap.xml` (datos puros, sin navegador).
+3. **Build del SPA** con `VITE_API_URL=""` (same-origin) por la ruta
+   `build:no-prerender`: el sandbox de build de Vercel no trae Chromium para el
+   prerender de Playwright.
 
-`concurrency.group: deploy-prod` evita deploys concurrentes pisándose entre sí.
+### Datos y estado
 
-### Datos y backups
+- **Neon Postgres:** `DATABASE_URL` es el endpoint _pooled_ (PgBouncer, host con
+  `-pooler`) que usa la función en cada request con pool `max=1`;
+  `DIRECT_DATABASE_URL` es el endpoint directo que usa solo `db:deploy` para el
+  DDL.
+- **Upstash Redis (REST):** rate limit, presencia y caché vía el cliente sin
+  conexión `@upstash/redis`. Obligatorio en producción; en local, si no está,
+  todo cae a stores en memoria con fallback gracioso.
+- **Observabilidad:** `@sentry/node` (errores + trazas) y logs JSON `pino` a los
+  log drains de Vercel. No hay endpoint de scrape (`/metrics` fue eliminado).
 
-- **Postgres:** los datos viven en `/mnt/pg-vol`, un Volumen Hetzner de 10 GB
-  independiente del disco del servidor. Si la VM se destruye y se recrea, el
-  volumen se reattachea y los datos siguen ahí.
-- **Backups:** cron diario en el VPS (`/etc/cron.d/gravity-room-backup`)
-  ejecuta `pg_dump` en formato custom a `/opt/gravity-room/backups/`, con
-  retención de 7 días. Logs vía `journalctl -t gr-backup`.
-- **Redis:** intencionalmente efímero (`tmpfs` + `--save ''` + `--appendonly no`).
-  Rate limit y presencia se reconstruyen solos; el caché tampoco necesita
-  durabilidad.
-
-### Coste
-
-Aproximadamente **€13,50/mes**: CCX13 (€12,49) + IPv4 (€0,50) + Volumen 10 GB
-(€0,40) + snapshots (~€0,12). El techo autoimpuesto es €15/mes — toda
-decisión de infra futura se mide contra ese límite.
+El procedimiento completo de go-live (Neon, Upstash, variables, dominios) está en
+[`docs/VERCEL_CUTOVER.md`](docs/VERCEL_CUTOVER.md).
 
 ---
 
 ## 2. Backend
 
-Dos servicios backend con responsabilidades disjuntas. Comparten Postgres
-pero no se acoplan vía código — el contrato es la base de datos y un endpoint
-HTTP interno.
+Una sola API y unos pipelines de analytics en proceso. El analytics dejó de ser
+un servicio aparte: comparte runtime con la API y se dispara por Vercel Cron.
 
 ### API — `apps/backend/api`
 
-**Stack:** Bun + ElysiaJS 1.4 + Drizzle ORM + Postgres + Redis + Zod 4.
+**Stack:** ElysiaJS 1.4 (serverless vía `app.fetch`) + Drizzle ORM + Neon
+Postgres + Upstash Redis + Zod 4.
 
 Es el corazón del producto. Sirve toda la superficie REST que consumen los
 dos frontends. Decisiones clave:
 
-- **Bun como runtime.** Startup ~10× más rápido que Node, y permite ejecutar
-  TypeScript sin pasos de build en desarrollo. La imagen Docker es multi-stage
-  ([`apps/backend/api/Dockerfile`](apps/backend/api/Dockerfile)) y copia
-  `node_modules` raíz **y** de cada workspace, porque Bun 1.3 usa linker
-  isolated con symlinks a `node_modules/.bun/`.
-- **Drizzle + migraciones automáticas al arrancar.** El `bootstrap.ts` corre
-  las migraciones pendientes antes de aceptar tráfico. Cero pasos manuales en
-  cada deploy.
+- **Serverless con la factory pura `createApp()`.** En Vercel, la función
+  catch-all [`api/[...path].ts`](api/[...path].ts) monta la app y la maneja con
+  `app.fetch(request)`; no hay `app.listen`. En local,
+  [`src/dev-server.ts`](apps/backend/api/src/dev-server.ts) sirve la misma app
+  con `@hono/node-server`, así que dev y prod son byte-for-byte la misma app.
+- **Migraciones build-time, no boot-time.** Las migraciones Drizzle y los seeds
+  corren en el paso de deploy
+  ([`src/scripts/migrate-deploy.ts`](apps/backend/api/src/scripts/migrate-deploy.ts),
+  vía `pnpm --filter api db:deploy`) contra el endpoint directo de Neon, fuera
+  del camino del request. Cero DDL al arrancar.
 - **Contrato OpenAPI generado por Elysia.** Expuesto en `/swagger/json` solo
   fuera de producción. Es la fuente de verdad para el cliente generado en web.
-- **Auth con JWT access + refresh rotation.** Google OAuth tanto en web como
-  en mobile, validado server-side en [`lib/google-auth.ts`](apps/backend/api/src/lib/google-auth.ts).
-- **Observabilidad:** logs JSON estructurados (`pino`), métricas Prometheus en
-  `/metrics` (protegido por bearer token), Sentry opcional.
+- **Auth con JWT access + refresh rotation.** Multi-método (Google, Apple,
+  GitHub, Microsoft, email/contraseña), validado server-side en
+  [`lib/google-auth.ts`](apps/backend/api/src/lib/google-auth.ts) y compañía.
+- **Observabilidad:** logs JSON estructurados (`pino`) a los log drains de
+  Vercel y `@sentry/node` opcional. Sin endpoint de scrape (`/metrics` eliminado).
 
-**Superficie HTTP** (31 endpoints en 9 tags — ver `CLAUDE.md` para la lista
-completa generada automáticamente):
+**Superficie HTTP** (ver `CLAUDE.md` para la lista completa generada
+automáticamente):
 
-- `Auth` — Google OAuth (web/mobile), refresh, perfil, baja
+- `Auth` — sign-in multi-método (web/mobile), refresh, perfil, baja
 - `Catalog` — definiciones de programa (templates y custom)
 - `Programs` — instancias de programa del usuario (CRUD + import/export)
 - `Results` — registrar y deshacer resultados de entrenamiento
 - `Exercises` / `Muscle groups` — catálogo y ejercicios custom
-- `Insights` — lectura de insights pre-computados por analytics
-- `Stats` — usuarios online en tiempo real (Redis presence)
-- `System` — `/health`, `/metrics`
+- `Insights` — lectura de insights pre-computados por los pipelines de analytics
+- `Stats` — usuarios online en tiempo real (Upstash presence)
+- `Internal` — crons (`cleanup-tokens`, `purge-users`, `analytics/compute`)
+- `System` — `/health`
 
-### Analytics — `apps/backend/analytics`
+### Analytics — `apps/backend/api/src/analytics`
 
-**Stack:** Python 3.12 + FastAPI 0.115 + psycopg 3 + scikit-learn + APScheduler.
+Los pipelines de insights (e1RM, frecuencia, summary, volumen, forecast,
+plateau, recommendation) se portaron de Python a **TypeScript en proceso**. Una
+regresión logística IRLS en JS, un helper de stats y uno de ISO-week reemplazan
+el stack numpy/scipy/scikit-learn.
 
-Servicio aparte porque las cargas son distintas: cómputo batch en background,
-ML con SciPy/scikit, y un dominio (predicción y detección de plateau) que en
-TypeScript sería una pelea contra la falta de librerías. Aquí Python brilla.
-
-- **APScheduler** dispara cómputos periódicos por usuario.
-- **Endpoint `POST /compute`** permite trigger manual, protegido por secreto
-  interno (no se expone públicamente; va por la red del compose).
-- **Resultados se escriben en `user_insights`** y el API los devuelve al
-  frontend. Analytics nunca habla directo con un cliente.
-- **Tests con pytest** en `apps/backend/analytics/tests/`.
+- **Vercel Cron** llama a `POST /api/internal/analytics/compute`, que procesa un
+  batch acotado de usuarios (los menos recientemente computados) por tick con
+  upserts idempotentes en `user_insights`.
+- **El guard interno falla cerrado:** acepta el `CRON_SECRET` que Vercel inyecta
+  o un `INTERNAL_SECRET` Bearer manual; sin ninguno, todo `/api/internal/*` da 401.
+- **Paridad con el viejo Python** congelada por golden-file tests
+  ([`src/analytics/pipelines/pipelines.parity.test.ts`](apps/backend/api/src/analytics/pipelines/pipelines.parity.test.ts)).
 
 ### Persistencia
 
-- **Postgres** — 10 tablas, esquema en
+- **Postgres (Neon)** — 10 tablas, esquema en
   [`packages/database/src/schema.ts`](packages/database/src/schema.ts).
-  Migraciones generadas en `packages/database/migrations/` y aplicadas al startup.
-- **Redis** — rate limiting distribuido, conteo de usuarios online (presence),
-  caché de respuestas hot y singleflight para evitar dogpile en endpoints
-  caros. Si `REDIS_URL` no está seteado, todo cae a stores en memoria con
-  fallback gracioso (útil en dev y CI).
+  Migraciones generadas en `packages/database/migrations/` y aplicadas por
+  `db:deploy` en el build.
+- **Upstash Redis (REST)** — rate limiting distribuido, conteo de usuarios online
+  (presence), caché de respuestas hot y singleflight para evitar dogpile en
+  endpoints caros. Si `UPSTASH_REDIS_REST_URL`/`_TOKEN` no están seteados, todo
+  cae a stores en memoria con fallback gracioso (útil en dev y CI).
 
-### Por qué este split y no un monolito
+### Por qué analytics en proceso y no un servicio aparte
 
-- El API necesita latencia baja en cada request HTTP; analytics necesita
-  ejecutar batch de minutos. Mezclarlos en un solo proceso significa o bien
-  bloquear el event loop, o bien meter una cola in-process que se cae si el
-  proceso se reinicia.
-- El stack de ML (scikit, scipy, numpy) no tiene equivalente en JS sin perder
-  rendimiento o precisión. Forzarlo a Bun sería una decisión ideológica, no
-  técnica.
-- El contrato entre los dos es **la base de datos** (tabla `user_insights`)
-  más un único endpoint HTTP. Acoplamiento mínimo.
+- Serverless no tiene un proceso de larga vida donde correr un scheduler propio;
+  Vercel Cron ya da el disparo periódico que antes hacía APScheduler.
+- El cómputo por usuario es acotado y barato una vez portado a TS, así que cabe
+  dentro del presupuesto de una función sin bloquear requests.
+- Un solo runtime (TypeScript + `@gzclp/domain`) elimina el drift entre el modelo
+  de dominio del API y el del cómputo, y borra el coste operativo de mantener un
+  segundo servicio Python.
 
 ---
 
@@ -255,17 +235,16 @@ basurero de "UI library casero" sin uso real.
 
 ### Por qué SPA estática separada del API
 
-- **Cache agresivo gratis.** El SPA es un bundle inmutable: `/assets/*` se
-  sirven con `max-age=31536000` directo desde disco, sin tocar Bun.
-- **El API no carga assets, no compila Vite, no sirve HTML.** Restartear el
-  API no rompe la web ni viceversa.
-- **Build pipeline distinto.** El SPA se buildea en GHA y se sube como
-  artifact; el API se buildea como imagen Docker. Cero acoplamiento entre los
-  dos procesos.
+- **Cache agresivo gratis.** El SPA es un bundle inmutable: Vercel sirve
+  `/assets/*` con `max-age=31536000, immutable` desde su CDN.
+- **El API no carga assets, no compila Vite, no sirve HTML.** Un cold start de
+  la función no afecta al output estático ya servido.
+- **Mismo origen, sin CORS.** Al compartir dominio el SPA llama a `/api`
+  relativo y las cookies de refresh son first-party sin configuración.
 
 ---
 
-## 4. Paquete compartido
+## 4. Paquetes compartidos
 
 ### `packages/domain` — `@gzclp/domain`
 
@@ -284,38 +263,48 @@ Por qué un paquete y no copy/paste: lo más caro en un tracker de progresión
 no es la UI, es que el cliente calcule un próximo peso distinto al que el
 servidor acepta. Single source of truth — fin.
 
+### `packages/database` — `@gzclp/database`
+
+Esquema Drizzle, migraciones SQL generadas y seeds de datos de referencia. El
+API es dueño de las conexiones en runtime pero importa esquema/seeds/migraciones
+desde aquí, así que la estructura de Postgres no vive escondida dentro del API.
+
+### `packages/api-client` — `@gzclp/api-client`
+
+Wrapper de fetch tipado (merge-headers, api-error, single-flight, helpers de
+URL) compartido por los clientes.
+
 ---
 
 ## 5. Desarrollo local
 
 ### Pre-requisitos
 
-- **Bun** (última versión) — runtime para API, tooling de frontends, y tests
-- **PostgreSQL** local o managed
-- **Redis** opcional — sin él, rate limit y presence caen a memoria
-- **Python 3.12** + pip — solo si vas a tocar el servicio de analytics
+- **Node 24** + **pnpm 11** — runtime para API (vía `tsx`), tooling de frontends, y tests (vitest)
+- **PostgreSQL** local o managed (Neon en producción)
+- **Upstash Redis** opcional — seteá `UPSTASH_REDIS_REST_URL`/`_TOKEN` para
+  habilitar rate limit y presence; sin ellos, caen a memoria
 
 ### Setup
 
 ```bash
 # Instalar dependencias del monorepo entero
-bun install
+pnpm install
 
 # Copiar .env.example y completar DATABASE_URL, JWT_SECRET, GOOGLE_CLIENT_ID*, etc.
 cp .env.example .env
 
-# Levantar el API (corre migraciones y seeds al arrancar)
-bun run dev:api
+# Aplicar migraciones + seeds (paso de deploy build-time; idempotente)
+pnpm --filter api db:deploy
+
+# Levantar el API local (src/dev-server.ts; prod usa api/[...path].ts)
+pnpm run dev:api
 
 # En otra terminal, levantar el SPA web
-bun run dev:web
-
-# (Opcional) Levantar analytics
-cd apps/backend/analytics && uvicorn main:app --reload --port 8000
+pnpm run dev:web
 ```
 
-Defaults: web en `http://localhost:5173`, API en `http://localhost:3001`,
-analytics en `http://localhost:8000`.
+Defaults: web en `http://localhost:5173`, API en `http://localhost:3001`.
 
 Para la app mobile, configurá `EXPO_PUBLIC_API_URL` apuntando al API y los
 IDs de Google OAuth que necesita Expo:
@@ -329,24 +318,23 @@ aceptar tokens de `/api/auth/mobile/google`.
 
 ### Comandos
 
-| Tarea                              | Comando                                                  |
-| ---------------------------------- | -------------------------------------------------------- |
-| Dev (web)                          | `bun run dev:web`                                        |
-| Dev (API)                          | `bun run dev:api`                                        |
-| Dev (analytics)                    | `cd apps/backend/analytics && uvicorn main:app --reload` |
-| Build (web)                        | `bun run build:web`                                      |
-| Type check (web + domain + mobile) | `bun run typecheck`                                      |
-| Type check (API)                   | `bun run typecheck:api`                                  |
-| Type check (domain)                | `bun run typecheck:domain`                               |
-| Lint (TS)                          | `bun run lint`                                           |
-| Format check                       | `bun run format:check`                                   |
-| Tests workspace (unit)             | `bun run test`                                           |
-| Tests API (unit)                   | `bun run test:api`                                       |
-| Tests analytics (pytest)           | `cd apps/backend/analytics && pytest`                    |
-| E2E (Playwright)                   | `bun run e2e`                                            |
-| E2E con UI                         | `bun run e2e:headed`                                     |
-| Load test (k6)                     | `k6 run scripts/loadtest.js`                             |
-| Load test (smoke)                  | `k6 run scripts/loadtest.js --env SCENARIO=smoke`        |
+| Tarea                          | Comando                                           |
+| ------------------------------ | ------------------------------------------------- |
+| Dev (web)                      | `pnpm run dev:web`                                |
+| Dev (API)                      | `pnpm run dev:api`                                |
+| Migraciones + seeds            | `pnpm --filter api db:deploy`                     |
+| Build (web)                    | `pnpm run build:web`                              |
+| Type check (todo el workspace) | `pnpm run typecheck`                              |
+| Type check (API)               | `pnpm run typecheck:api`                          |
+| Type check (domain)            | `pnpm run typecheck:domain`                       |
+| Lint (TS)                      | `pnpm run lint`                                   |
+| Format check                   | `pnpm run format:check`                           |
+| Tests workspace (unit)         | `pnpm run test`                                   |
+| Tests API (unit + paridad)     | `pnpm run test:api`                               |
+| E2E (Playwright)               | `pnpm run e2e`                                    |
+| E2E con UI                     | `pnpm run e2e:headed`                             |
+| Load test (k6)                 | `k6 run scripts/loadtest.js`                      |
+| Load test (smoke)              | `k6 run scripts/loadtest.js --env SCENARIO=smoke` |
 
 ### Hooks de git
 
@@ -356,7 +344,8 @@ aceptar tokens de `/api/auth/mobile/google`.
 - **pre-push:** tests + build
 
 El chequeo de drift entre el swagger real del API y el cliente generado vive en
-CI (`validate`), porque necesita arrancar el API contra Postgres.
+CI (`ci.yml`, job `OpenAPI client drift`), porque necesita arrancar el API
+contra Postgres.
 
 No saltees los hooks con `--no-verify`. Si fallan es porque hay algo que
 arreglar antes de subir.
@@ -365,11 +354,11 @@ arreglar antes de subir.
 
 ## 6. Documentación adicional
 
-| Archivo                                                                      | Propósito                                                  |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [`CLAUDE.md`](CLAUDE.md)                                                     | Contexto autogenerado para agentes (API + DB en vivo)      |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                               | Split por tiers, stack detallado de cada servicio          |
-| [`docs/llm-map.md`](docs/llm-map.md)                                         | Tabla path → propósito para navegación rápida              |
-| [`.env.example`](.env.example)                                               | Referencia completa de variables de entorno                |
-| [`infra/production/Caddyfile`](infra/production/Caddyfile)                   | Config del reverse proxy / static host en producción       |
-| [`infra/production/docker-compose.yml`](infra/production/docker-compose.yml) | Stack completo de producción (mismo archivo en dev y prod) |
+| Archivo                                            | Propósito                                                   |
+| -------------------------------------------------- | ----------------------------------------------------------- |
+| [`CLAUDE.md`](CLAUDE.md)                           | Contexto autogenerado para agentes (API + DB en vivo)       |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)     | Split por tiers, stack detallado de cada servicio           |
+| [`docs/VERCEL_CUTOVER.md`](docs/VERCEL_CUTOVER.md) | Runbook de go-live en Vercel (Neon, Upstash, variables)     |
+| [`docs/llm-map.md`](docs/llm-map.md)               | Tabla path → propósito para navegación rápida               |
+| [`.env.example`](.env.example)                     | Referencia completa de variables de entorno                 |
+| [`vercel.json`](vercel.json)                       | Config del proyecto Vercel (build, función, rewrites, cron) |

@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeAll } from 'bun:test';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 
 // Polyfill dialog methods for happy-dom if missing
@@ -24,10 +24,10 @@ function buildToolbarProps(overrides?: Partial<Parameters<typeof Toolbar>[0]>) {
     totalWorkouts: 90,
     undoCount: 0,
     isFinishing: false,
-    onUndo: mock(),
-    onFinish: mock(() => Promise.resolve()),
-    onReset: mock(),
-    onExportCsv: mock(),
+    onUndo: vi.fn(),
+    onFinish: vi.fn(() => Promise.resolve()),
+    onReset: vi.fn(),
+    onExportCsv: vi.fn(),
     ...overrides,
   };
 }
@@ -69,7 +69,7 @@ describe('Toolbar', () => {
     });
 
     it('should call onUndo when clicked', () => {
-      const onUndo = mock();
+      const onUndo = vi.fn();
       render(<Toolbar {...buildToolbarProps({ undoCount: 1, onUndo })} />);
 
       fireEvent.click(screen.getByText('Deshacer'));
@@ -113,7 +113,7 @@ describe('Toolbar', () => {
     });
 
     it('should call onReset when reset is confirmed', () => {
-      const onReset = mock();
+      const onReset = vi.fn();
       render(<Toolbar {...buildToolbarProps({ onReset })} />);
 
       openOverflowMenu();

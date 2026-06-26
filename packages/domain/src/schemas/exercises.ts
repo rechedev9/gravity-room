@@ -6,6 +6,10 @@ function processSecondaryMuscles(val: unknown): readonly string[] | null {
   return strings.length > 0 ? strings : null;
 }
 
+// `.optional()` keeps the field tolerant of an absent value: zod 4.4.3 treats a
+// bare `z.unknown()` object property as non-optional (an absent value throws),
+// whereas this schema must coerce missing/invalid data to null, not reject the row.
+
 export const ExerciseEntrySchema = z.object({
   id: z.string().catch(''),
   name: z.string().catch(''),
@@ -18,7 +22,7 @@ export const ExerciseEntrySchema = z.object({
   level: z.string().nullable().catch(null),
   mechanic: z.string().nullable().catch(null),
   category: z.string().nullable().catch(null),
-  secondaryMuscles: z.unknown().transform(processSecondaryMuscles),
+  secondaryMuscles: z.unknown().optional().transform(processSecondaryMuscles),
 });
 
 export type ExerciseEntry = z.infer<typeof ExerciseEntrySchema>;

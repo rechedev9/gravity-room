@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   isGitHubConfigured,
   buildGitHubAuthorizeUrl,
@@ -83,7 +83,7 @@ describe('exchangeGitHubCode', () => {
   });
 
   it('returns the access token from a successful exchange', async () => {
-    globalThis.fetch = mock(() =>
+    globalThis.fetch = vi.fn(() =>
       Promise.resolve(jsonResponse({ access_token: 'gho_abc' }))
     ) as unknown as typeof fetch;
     expect(await exchangeGitHubCode('code-1', 'https://cb')).toBe('gho_abc');
@@ -91,7 +91,7 @@ describe('exchangeGitHubCode', () => {
 
   it('sends the PKCE code verifier when provided', async () => {
     const calls: unknown[] = [];
-    globalThis.fetch = mock((input: unknown, init?: RequestInit) => {
+    globalThis.fetch = vi.fn((input: unknown, init?: RequestInit) => {
       calls.push({ input, init });
       return Promise.resolve(jsonResponse({ access_token: 'gho_abc' }));
     }) as unknown as typeof fetch;
@@ -105,7 +105,7 @@ describe('exchangeGitHubCode', () => {
   });
 
   it('throws when no token is returned', async () => {
-    globalThis.fetch = mock(() =>
+    globalThis.fetch = vi.fn(() =>
       Promise.resolve(jsonResponse({ error: 'bad_verification_code' }))
     ) as unknown as typeof fetch;
     expect(exchangeGitHubCode('code-1', 'https://cb')).rejects.toThrow(ApiError);
@@ -129,7 +129,7 @@ describe('PKCE helpers', () => {
 
 describe('fetchGitHubIdentity', () => {
   function mockGitHub(user: unknown, emails: unknown): void {
-    globalThis.fetch = mock((input: unknown) => {
+    globalThis.fetch = vi.fn((input: unknown) => {
       const url = String(input);
       return Promise.resolve(jsonResponse(url.endsWith('/user/emails') ? emails : user));
     }) as unknown as typeof fetch;

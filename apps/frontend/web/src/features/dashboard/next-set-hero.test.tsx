@@ -1,10 +1,10 @@
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect, vi } from 'vitest';
 import { createElement } from 'react';
 import { render, screen } from '@testing-library/react';
 import { NextSetHero, type ProgramInstance } from './next-set-hero';
 
 // Mock TanStack Router — tests don't need real navigation
-mock.module('@tanstack/react-router', () => ({
+vi.mock('@tanstack/react-router', () => ({
   Link: ({
     children,
     ...rest

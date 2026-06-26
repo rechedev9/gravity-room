@@ -1,5 +1,5 @@
 // exercise-article-view.test.tsx
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ExerciseArticleView } from './exercise-article-view';
 import { squatArticle } from './content/squat';

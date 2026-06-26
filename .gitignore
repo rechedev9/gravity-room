@@ -73,6 +73,7 @@ scripts/*
 !scripts/committer
 !scripts/loadtest.js
 !scripts/refresh-claude-context.ts
+!scripts/vercel-build.sh
 issues.MD
 todo.md
 

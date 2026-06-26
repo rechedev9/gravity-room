@@ -4,33 +4,42 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
-const mockRateLimit = mock<() => Promise<void>>(() => Promise.resolve());
+const { mockRateLimit, mockGetInstances, mockCreateInstance, mockImportInstance } = vi.hoisted(
+  () => {
+    const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
+    const mockGetInstances = vi.fn(() => Promise.resolve({ data: [], nextCursor: null }));
+    const mockCreateInstance = vi.fn(() => Promise.resolve({ id: 'new-id' }));
+    const mockImportInstance = vi.fn(() => Promise.resolve({ id: 'imported-id' }));
+    return {
+      mockRateLimit,
+      mockGetInstances,
+      mockCreateInstance,
+      mockImportInstance,
+    };
+  }
+);
 
-mock.module('../middleware/rate-limit', () => ({
+vi.mock('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
 }));
 
-mock.module('../services/auth', () => ({
-  findUserById: mock((id: string) => Promise.resolve({ id })),
+vi.mock('../services/auth', () => ({
+  findUserById: vi.fn((id: string) => Promise.resolve({ id })),
 }));
 
-const mockGetInstances = mock(() => Promise.resolve({ data: [], nextCursor: null }));
-const mockCreateInstance = mock(() => Promise.resolve({ id: 'new-id' }));
-const mockImportInstance = mock(() => Promise.resolve({ id: 'imported-id' }));
-
-mock.module('../services/programs', () => ({
+vi.mock('../services/programs', () => ({
   getInstances: mockGetInstances,
   createInstance: mockCreateInstance,
-  getInstance: mock(() => Promise.resolve({ id: 'inst-id' })),
-  updateInstance: mock(() => Promise.resolve({ id: 'inst-id' })),
-  deleteInstance: mock(() => Promise.resolve()),
-  exportInstance: mock(() => Promise.resolve({})),
+  getInstance: vi.fn(() => Promise.resolve({ id: 'inst-id' })),
+  updateInstance: vi.fn(() => Promise.resolve({ id: 'inst-id' })),
+  deleteInstance: vi.fn(() => Promise.resolve()),
+  exportInstance: vi.fn(() => Promise.resolve({})),
   importInstance: mockImportInstance,
 }));
 

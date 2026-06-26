@@ -1,21 +1,25 @@
-import { describe, expect, it, mock } from 'bun:test';
+import { describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import type { GenericProgramDetail } from '@/lib/api-functions';
 import { queryKeys } from '@/lib/query-keys';
 
-const mockRecordGenericResult = mock(() => Promise.resolve());
+// vi.mock is hoisted above imports, so the mock fn the test asserts on must be
+// created via vi.hoisted to exist before the factory runs.
+const { mockRecordGenericResult } = vi.hoisted(() => ({
+  mockRecordGenericResult: vi.fn(() => Promise.resolve()),
+}));
 
-mock.module('@/lib/api-functions', () => ({
+vi.mock('@/lib/api-functions', () => ({
   recordGenericResult: mockRecordGenericResult,
-  createProgram: mock(() => Promise.resolve()),
-  updateProgramConfig: mock(() => Promise.resolve()),
-  updateProgramMetadata: mock(() => Promise.resolve()),
-  completeProgram: mock(() => Promise.resolve()),
-  deleteProgram: mock(() => Promise.resolve()),
-  deleteGenericResult: mock(() => Promise.resolve()),
-  undoLastResult: mock(() => Promise.resolve()),
+  createProgram: vi.fn(() => Promise.resolve()),
+  updateProgramConfig: vi.fn(() => Promise.resolve()),
+  updateProgramMetadata: vi.fn(() => Promise.resolve()),
+  completeProgram: vi.fn(() => Promise.resolve()),
+  deleteProgram: vi.fn(() => Promise.resolve()),
+  deleteGenericResult: vi.fn(() => Promise.resolve()),
+  undoLastResult: vi.fn(() => Promise.resolve()),
 }));
 
 import { useProgramMutations } from './use-program-mutations';

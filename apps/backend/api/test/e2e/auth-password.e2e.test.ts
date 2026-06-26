@@ -6,7 +6,7 @@
  * round-trips through the DB, single-use token create/consume, the EMAIL_TAKEN
  * guard, and the timing-equalized authenticate path.
  */
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'bun:test';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import {
   users,

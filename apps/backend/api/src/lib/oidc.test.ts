@@ -4,7 +4,7 @@
  * JWKS fetch is mocked to return the matching public key. A unique jwksUrl per
  * test avoids the module's per-URL key cache leaking across cases.
  */
-import { describe, it, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { verifyOidcIdToken } from './oidc';
 import { ApiError } from '../middleware/error-handler';
 
@@ -79,7 +79,7 @@ beforeEach(async () => {
   const jwk = { ...publicJwk, kid: KID };
   urlCounter += 1;
   jwksUrl = `https://jwks.test/${urlCounter}`;
-  globalThis.fetch = mock(() =>
+  globalThis.fetch = vi.fn(() =>
     Promise.resolve(new Response(JSON.stringify({ keys: [jwk] }), { status: 200 }))
   ) as unknown as typeof fetch;
 });

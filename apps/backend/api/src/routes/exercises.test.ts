@@ -13,22 +13,32 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
-const mockRateLimit = mock((): Promise<void> => Promise.resolve());
-const mockFindUserById = mock(
-  (id: string): Promise<{ id: string } | undefined> => Promise.resolve({ id })
-);
+const { mockRateLimit, mockFindUserById, mockListExercises } = vi.hoisted(() => {
+  const mockRateLimit = vi.fn((): Promise<void> => Promise.resolve());
+  const mockFindUserById = vi.fn(
+    (id: string): Promise<{ id: string } | undefined> => Promise.resolve({ id })
+  );
+  const mockListExercises = vi.fn<() => Promise<PaginatedResult>>(() =>
+    Promise.resolve({ data: [], total: 0, offset: 0, limit: 100 })
+  );
+  return {
+    mockRateLimit,
+    mockFindUserById,
+    mockListExercises,
+  };
+});
 
-mock.module('../middleware/rate-limit', () => ({
+vi.mock('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
 }));
 
-mock.module('../services/auth', () => ({
+vi.mock('../services/auth', () => ({
   findUserById: mockFindUserById,
 }));
 
@@ -39,14 +49,10 @@ interface PaginatedResult {
   readonly limit: number;
 }
 
-const mockListExercises = mock<() => Promise<PaginatedResult>>(() =>
-  Promise.resolve({ data: [], total: 0, offset: 0, limit: 100 })
-);
-
-mock.module('../services/exercises', () => ({
+vi.mock('../services/exercises', () => ({
   listExercises: mockListExercises,
-  listMuscleGroups: mock(() => Promise.resolve([])),
-  createExercise: mock(() => Promise.resolve({ ok: true, value: { id: 'test_exercise' } })),
+  listMuscleGroups: vi.fn(() => Promise.resolve([])),
+  createExercise: vi.fn(() => Promise.resolve({ ok: true, value: { id: 'test_exercise' } })),
 }));
 
 import { Elysia } from 'elysia';
@@ -147,12 +153,13 @@ describe('POST /exercises without auth', () => {
 // auth-guard.ts captures process.env['JWT_SECRET'] at import time (module evaluation).
 // We read the same env var at CALL time (test body execution), which is AFTER all
 // modules load but BEFORE any static test-body override of JWT_SECRET.
-// Fallback: 'dev-secret-change-me' matches auth-guard's DEV_SECRET constant.
+// Fallback: 'test-secret-do-not-use-outside-tests' matches auth-guard's TEST_SECRET
+// constant (the NODE_ENV=test fallback), so the token verifies when JWT_SECRET is unset.
 // ---------------------------------------------------------------------------
 
 async function makeValidJwt(userId: string): Promise<string> {
   // Must read at call time — same env state auth-guard captured at import time.
-  const secret = process.env['JWT_SECRET'] ?? 'dev-secret-change-me';
+  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({

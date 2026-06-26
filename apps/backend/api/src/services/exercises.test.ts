@@ -7,7 +7,7 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mock DB — track calls via a queue
@@ -73,10 +73,10 @@ let insertResult: unknown[] = [];
 
 function chainable(result: unknown[]): Record<string, unknown> {
   const obj: Record<string, unknown> = {};
-  obj['where'] = mock(() => chainable(result));
-  obj['orderBy'] = mock(() => chainable(result));
-  obj['limit'] = mock(() => chainable(result));
-  obj['offset'] = mock(() => chainable(result));
+  obj['where'] = vi.fn(() => chainable(result));
+  obj['orderBy'] = vi.fn(() => chainable(result));
+  obj['limit'] = vi.fn(() => chainable(result));
+  obj['offset'] = vi.fn(() => chainable(result));
   // Make thenable so `await db.select().from(table).where(...)` works
   obj['then'] = (fn: (val: unknown[]) => unknown, reject?: (err: unknown) => unknown): unknown => {
     try {
@@ -91,24 +91,24 @@ function chainable(result: unknown[]): Record<string, unknown> {
 
 function createMockDb(): unknown {
   return {
-    select: mock(function select() {
+    select: vi.fn(function select() {
       return {
-        from: mock(function from() {
+        from: vi.fn(function from() {
           const result = selectQueue.shift() ?? [];
           return chainable(result);
         }),
       };
     }),
-    insert: mock(function insert() {
+    insert: vi.fn(function insert() {
       return {
-        values: mock(function values() {
+        values: vi.fn(function values() {
           return {
-            onConflictDoNothing: mock(function onConflictDoNothing() {
+            onConflictDoNothing: vi.fn(function onConflictDoNothing() {
               return {
-                returning: mock(() => Promise.resolve(insertResult)),
+                returning: vi.fn(() => Promise.resolve(insertResult)),
               };
             }),
-            returning: mock(() => Promise.resolve(insertResult)),
+            returning: vi.fn(() => Promise.resolve(insertResult)),
           };
         }),
       };
@@ -118,7 +118,7 @@ function createMockDb(): unknown {
 
 let mockDb = createMockDb();
 
-mock.module('../db', () => ({
+vi.mock('../db', () => ({
   getDb: () => mockDb,
 }));
 
@@ -136,25 +136,25 @@ interface PaginatedExercisesFixture {
 let cachedExercisesResult: PaginatedExercisesFixture | undefined = undefined;
 let cachedMuscleGroupsResult: readonly { id: string; name: string }[] | undefined = undefined;
 
-const mockGetCachedExercises = mock(
+const mockGetCachedExercises = vi.fn(
   async (): Promise<PaginatedExercisesFixture | undefined> => cachedExercisesResult
 );
-const mockSetCachedExercises = mock(async (): Promise<void> => undefined);
-const mockGetCachedMuscleGroups = mock(
+const mockSetCachedExercises = vi.fn(async (): Promise<void> => undefined);
+const mockGetCachedMuscleGroups = vi.fn(
   async (): Promise<readonly { id: string; name: string }[] | undefined> => cachedMuscleGroupsResult
 );
-const mockSetCachedMuscleGroups = mock(async (): Promise<void> => undefined);
-const mockInvalidateUserExercises = mock(async (): Promise<void> => undefined);
-const mockBuildFilterHash = mock((): string => '');
+const mockSetCachedMuscleGroups = vi.fn(async (): Promise<void> => undefined);
+const mockInvalidateUserExercises = vi.fn(async (): Promise<void> => undefined);
+const mockBuildFilterHash = vi.fn((): string => '');
 
-mock.module('../lib/exercise-cache', () => ({
+vi.mock('../lib/exercise-cache', () => ({
   getCachedExercises: mockGetCachedExercises,
   setCachedExercises: mockSetCachedExercises,
   invalidateUserExercises: mockInvalidateUserExercises,
   buildFilterHash: mockBuildFilterHash,
 }));
 
-mock.module('../lib/muscle-groups-cache', () => ({
+vi.mock('../lib/muscle-groups-cache', () => ({
   getCachedMuscleGroups: mockGetCachedMuscleGroups,
   setCachedMuscleGroups: mockSetCachedMuscleGroups,
 }));

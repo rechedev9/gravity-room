@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from 'bun:test';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { createElement } from 'react';
 import type { ReactNode } from 'react';
@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 // Mock the router's Link — same pattern as exercise-wiki-index-page.test.tsx.
 // mock.module is process-global in Bun, so we stub Link here to be
 // order-independent and avoid needing a real RouterProvider.
-mock.module('@tanstack/react-router', () => ({
+vi.mock('@tanstack/react-router', () => ({
   Link: ({
     children,
     ...props

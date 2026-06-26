@@ -8,7 +8,7 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import pino from 'pino';
 import { Writable } from 'stream';
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env -S npx tsx
 /**
  * Emits Drizzle table metadata as JSON on stdout.
  * Consumed by scripts/refresh-claude-context.ts in the repo root.

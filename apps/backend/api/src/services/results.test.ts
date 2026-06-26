@@ -8,7 +8,7 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ApiError } from '../middleware/error-handler';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 
@@ -101,10 +101,10 @@ let programDefinitionResult:
 
 function chainable(result: unknown[]): Record<string, unknown> {
   const obj: Record<string, unknown> = {};
-  obj['where'] = mock(() => chainable(result));
-  obj['orderBy'] = mock(() => chainable(result));
-  obj['offset'] = mock(() => chainable(result));
-  obj['limit'] = mock(() => Promise.resolve(result.slice(0, 1)));
+  obj['where'] = vi.fn(() => chainable(result));
+  obj['orderBy'] = vi.fn(() => chainable(result));
+  obj['offset'] = vi.fn(() => chainable(result));
+  obj['limit'] = vi.fn(() => Promise.resolve(result.slice(0, 1)));
   obj['then'] = (fn: (val: unknown[]) => unknown, reject?: (err: unknown) => unknown): unknown => {
     try {
       return Promise.resolve(fn(result));
@@ -118,24 +118,24 @@ function chainable(result: unknown[]): Record<string, unknown> {
 
 function createMockTx(): Record<string, unknown> {
   return {
-    select: mock(function select() {
+    select: vi.fn(function select() {
       return {
-        from: mock(function from() {
+        from: vi.fn(function from() {
           const result = selectQueue.shift() ?? [];
           return chainable(result);
         }),
       };
     }),
-    insert: mock(function insert() {
+    insert: vi.fn(function insert() {
       return {
-        values: mock(function values() {
+        values: vi.fn(function values() {
           return {
-            onConflictDoUpdate: mock(function onConflictDoUpdate() {
+            onConflictDoUpdate: vi.fn(function onConflictDoUpdate() {
               return {
-                returning: mock(() => Promise.resolve(insertReturningResult)),
+                returning: vi.fn(() => Promise.resolve(insertReturningResult)),
               };
             }),
-            returning: mock(() => Promise.resolve(insertReturningResult)),
+            returning: vi.fn(() => Promise.resolve(insertReturningResult)),
             then: (fn: (val: unknown) => unknown, reject?: (err: unknown) => unknown): unknown => {
               try {
                 return Promise.resolve(fn(undefined));
@@ -148,21 +148,21 @@ function createMockTx(): Record<string, unknown> {
         }),
       };
     }),
-    update: mock(function update() {
+    update: vi.fn(function update() {
       return {
-        set: mock(function set() {
+        set: vi.fn(function set() {
           return {
-            where: mock(() => Promise.resolve()),
+            where: vi.fn(() => Promise.resolve()),
           };
         }),
       };
     }),
-    delete: mock(function deleteFn() {
+    delete: vi.fn(function deleteFn() {
       return {
-        where: mock(function where() {
+        where: vi.fn(function where() {
           deletedIds.push('deleted');
           return {
-            returning: mock(() => Promise.resolve(selectQueue.shift() ?? [])),
+            returning: vi.fn(() => Promise.resolve(selectQueue.shift() ?? [])),
             then: (fn: (val: unknown) => unknown, reject?: (err: unknown) => unknown): unknown => {
               try {
                 return Promise.resolve(fn(undefined));
@@ -176,22 +176,22 @@ function createMockTx(): Record<string, unknown> {
       };
     }),
     // Raw sql execution — used by trimUndoStack's single-statement DELETE.
-    execute: mock(() => Promise.resolve()),
+    execute: vi.fn(() => Promise.resolve()),
   };
 }
 
 function createMockDb(): Record<string, unknown> {
   return {
-    transaction: mock(async function transaction(fn: (tx: unknown) => Promise<unknown>) {
+    transaction: vi.fn(async function transaction(fn: (tx: unknown) => Promise<unknown>) {
       const tx = createMockTx();
       return await fn(tx);
     }),
     // Standalone getDb().select() — used by verifyInstanceOwnership and the
     // undoLast peek now that both run pre-transaction. Consumes the same queue
     // as tx.select() so each test only sees one ordered list of result sets.
-    select: mock(function select() {
+    select: vi.fn(function select() {
       return {
-        from: mock(function from() {
+        from: vi.fn(function from() {
           const result = selectQueue.shift() ?? [];
           return chainable(result);
         }),
@@ -202,14 +202,14 @@ function createMockDb(): Record<string, unknown> {
 
 let mockDb = createMockDb();
 
-mock.module('../db', () => ({
+vi.mock('../db', () => ({
   getDb: () => mockDb,
 }));
 
 // Stub getProgramDefinition so getExpectedSlotCount resolves to `undefined`
 // without touching the DB queue (template/exercise lookups are out of scope
 // for these unit tests; syncCompletedAt no-ops on undefined).
-mock.module('../services/catalog', () => ({
+vi.mock('../services/catalog', () => ({
   getProgramDefinition: () => Promise.resolve(programDefinitionResult),
 }));
 
@@ -638,7 +638,7 @@ describe('undoLast', () => {
 function makeOrderTrackingTx(callOrder: string[]): Record<string, unknown> {
   const tx = createMockTx();
   const originalUpdate = tx['update'] as () => unknown;
-  tx['update'] = mock(function update() {
+  tx['update'] = vi.fn(function update() {
     callOrder.push('touchInstanceTimestamp-called');
     return originalUpdate();
   });
@@ -652,7 +652,7 @@ describe('recordResult — transaction scope', () => {
     insertReturningResult = [row];
 
     const callOrder: string[] = [];
-    (mockDb as Record<string, unknown>).transaction = mock(async function transaction(
+    (mockDb as Record<string, unknown>).transaction = vi.fn(async function transaction(
       fn: (tx: unknown) => Promise<unknown>
     ) {
       const tx = makeOrderTrackingTx(callOrder);
@@ -680,7 +680,7 @@ describe('deleteResult — transaction scope', () => {
     selectQueue = [[{ id: 'inst-1' }], [existingRow]];
 
     const callOrder: string[] = [];
-    (mockDb as Record<string, unknown>).transaction = mock(async function transaction(
+    (mockDb as Record<string, unknown>).transaction = vi.fn(async function transaction(
       fn: (tx: unknown) => Promise<unknown>
     ) {
       const tx = makeOrderTrackingTx(callOrder);
@@ -706,7 +706,7 @@ describe('undoLast — transaction scope', () => {
     insertReturningResult = [];
 
     const callOrder: string[] = [];
-    (mockDb as Record<string, unknown>).transaction = mock(async function transaction(
+    (mockDb as Record<string, unknown>).transaction = vi.fn(async function transaction(
       fn: (tx: unknown) => Promise<unknown>
     ) {
       const tx = makeOrderTrackingTx(callOrder);

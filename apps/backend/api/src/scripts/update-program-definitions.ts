@@ -1,7 +1,7 @@
 /**
  * Standalone script to refresh program_templates definitions JSONB.
  * Safe to run in any environment — uses onConflictDoUpdate (idempotent).
- * Usage: bun run src/scripts/update-program-definitions.ts
+ * Usage: pnpm --filter api db:update-definitions
  */
 import { getDb } from '../db';
 import { seedProgramTemplates } from '@gzclp/database/seeds/program-templates-seed';

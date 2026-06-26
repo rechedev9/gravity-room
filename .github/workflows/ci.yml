@@ -5,83 +5,197 @@ on:
     branches: [main]
   pull_request:
 
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  api-types-drift:
-    name: OpenAPI client drift detection
+  # ---------------------------------------------------------------------------
+  # Web SPA — typecheck, lint, unit tests, and a same-origin production build.
+  # The build bakes in VITE_API_URL="" so the static SPA issues relative /api
+  # requests against the same-origin Vercel catch-all function. The web build
+  # also runs a Playwright/Chromium prerender pass, so Chromium is installed
+  # before the build.
+  # ---------------------------------------------------------------------------
+  web:
+    name: Web
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: gzclp
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DATABASE_URL: postgresql://postgres:password@localhost:5432/gzclp
-      JWT_SECRET: ci-jwt-secret-at-least-64-chars-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      GOOGLE_CLIENT_ID: placeholder-not-used-in-drift-check
-      GOOGLE_CLIENT_IDS: placeholder-not-used-in-drift-check
-      REDIS_URL: redis://localhost:6379
-      # Swagger is behind a positive feature flag (disabled by default); the
-      # codegen fetches /swagger/json, so it must be enabled for this job.
-      SWAGGER_ENABLED: 'true'
-      # Mirror validate.yml so the generated client matches the committed one:
-      # the dev-auth route is only registered (and thus in the OpenAPI surface)
-      # when these are set.
-      NODE_ENV: test
-      AUTH_DEV_ROUTE_ENABLED: 'true'
-      AUTH_DEV_ROUTE_SECRET: e2e-dev-secret-not-for-prod
-
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: 24
+          cache: pnpm
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
-      - name: Start API server
-        working-directory: apps/backend/api
-        run: bun run dev &
+      - name: Typecheck
+        run: pnpm --filter web run typecheck
 
-      - name: Wait for API to be healthy
-        run: |
-          echo "Waiting for API at http://localhost:3001/health..."
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:3001/health > /dev/null; then
-              echo "API is healthy"
-              exit 0
-            fi
-            echo "  attempt $i/30 — retrying in 2s"
-            sleep 2
-          done
-          echo "API did not become healthy after 60s"
-          exit 1
+      - name: Lint
+        run: pnpm --filter web run lint
 
-      - name: Regenerate OpenAPI client
+      - name: Test
+        run: pnpm --filter web run test
+
+      - name: Install Playwright Chromium (needed for prerender)
         working-directory: apps/frontend/web
-        run: bun run api:types
+        run: pnpm exec playwright install --with-deps chromium
 
-      - name: Check for drift
-        run: git diff --exit-code apps/frontend/web/src/lib/api/generated.ts
+      - name: Build (same-origin)
+        run: pnpm --filter web run build
+        env:
+          VITE_API_URL: ''
+
+  # ---------------------------------------------------------------------------
+  # API — typecheck, lint, and the full unit suite. The api test script runs the
+  # analytics suite under src/analytics, which includes the golden-file parity
+  # tests (pipelines/pipelines.parity.test.ts) that bound the TypeScript port
+  # against the snapshot of the deleted Python service.
+  # ---------------------------------------------------------------------------
+  api:
+    name: API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter api run typecheck
+
+      - name: Lint
+        run: pnpm --filter api run lint
+
+      - name: Test (includes analytics golden-file parity)
+        run: pnpm --filter api run test
+
+  # ---------------------------------------------------------------------------
+  # Shared domain package — the single source of truth for the progression
+  # engine and schemas consumed by web, mobile, and api.
+  # ---------------------------------------------------------------------------
+  domain:
+    name: Domain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck:domain
+
+      - name: Test
+        run: pnpm run test:domain
+
+  # ---------------------------------------------------------------------------
+  # Shared API client package — the typed fetch wrapper consumed by the clients.
+  # ---------------------------------------------------------------------------
+  api-client:
+    name: API client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck:api-client
+
+      - name: Lint
+        run: pnpm run lint:api-client
+
+      - name: Test
+        run: pnpm run test:api-client
+
+  # ---------------------------------------------------------------------------
+  # Expo mobile client — typecheck and the Jest unit suite.
+  # ---------------------------------------------------------------------------
+  mobile:
+    name: Mobile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck:mobile
+
+      - name: Test
+        run: pnpm run test:mobile
+
+  # ---------------------------------------------------------------------------
+  # Repo-wide Prettier formatting gate.
+  # ---------------------------------------------------------------------------
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm run format:check
+
+  # ---------------------------------------------------------------------------
+  # Aggregate gate. Branch protection requires a single status check named
+  # "Validate"; this job reports it and succeeds only when every job above
+  # passed (a failed dependency leaves it skipped, which does not satisfy the
+  # required check). Keeps the required-checks list stable across CI changes.
+  # ---------------------------------------------------------------------------
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    needs: [web, api, domain, api-client, mobile, format]
+    steps:
+      - run: echo "All CI checks passed."

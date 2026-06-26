@@ -1,0 +1,63 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "bash scripts/vercel-build.sh",
+  "outputDirectory": "apps/frontend/web/dist",
+  "functions": {
+    "api/[...path].ts": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/((?!api/).*)",
+      "headers": [
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains; preload"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "interest-cohort=(), browsing-topics=()"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin-allow-popups"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' https://accounts.google.com https://plausible.io https://*.sentry.io; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://accounts.google.com; style-src-attr 'unsafe-inline'; img-src 'self' data: https://lh3.googleusercontent.com; connect-src 'self' https://accounts.google.com https://plausible.io https://*.sentry.io https://*.ingest.sentry.io; frame-src https://accounts.google.com https://www.youtube-nocookie.com; font-src 'self'; manifest-src 'self'; worker-src 'self'; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/internal/cleanup-tokens",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/internal/purge-users",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/internal/analytics/compute",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

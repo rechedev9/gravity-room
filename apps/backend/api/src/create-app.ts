@@ -1,13 +1,11 @@
-import { captureException } from './lib/sentry';
+import { captureException, flushSentry } from './lib/sentry';
+import { keepAlive } from './lib/wait-until';
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { sql } from 'drizzle-orm';
-import { timingSafeEqual } from 'node:crypto';
 import { ApiError } from './middleware/error-handler';
 import { requestLogger } from './middleware/request-logger';
 import { swaggerPlugin } from './plugins/swagger';
-import { metricsPlugin } from './plugins/metrics';
-import { registry } from './lib/metrics';
 import { authRoutes } from './routes/auth';
 import { programRoutes } from './routes/programs';
 import { catalogRoutes } from './routes/catalog';
@@ -15,6 +13,7 @@ import { exerciseRoutes } from './routes/exercises';
 import { resultRoutes } from './routes/results';
 import { statsRoutes } from './routes/stats';
 import { insightsRoutes } from './routes/insights';
+import { internalRoutes } from './routes/internal';
 import { getDb } from './db';
 import { getRedis } from './lib/redis';
 import { logger } from './lib/logger';
@@ -79,15 +78,6 @@ export function createApp(options: CreateAppOptions) {
     throw new Error(formatValidationError(envResult));
   }
 
-  const metricsToken = process.env['METRICS_TOKEN'];
-  const metricsExpected = metricsToken ? Buffer.from(`Bearer ${metricsToken}`) : null;
-  // /metrics may only be served unauthenticated in explicit local dev/test.
-  // Any named deployment (staging/preview/production) must set METRICS_TOKEN —
-  // production already boot-crashes without it; this fails the others closed
-  // instead of exposing the registry. NODE_ENV unset === local dev.
-  const nodeEnv = process.env['NODE_ENV'];
-  const metricsOpenAllowed = !nodeEnv || nodeEnv === 'development' || nodeEnv === 'test';
-
   const app = new Elysia()
     .use(
       cors({
@@ -100,12 +90,14 @@ export function createApp(options: CreateAppOptions) {
       })
     )
     .use(swaggerPlugin)
-    .use(metricsPlugin)
     .onAfterHandle(({ set, request }) => {
       applySecurityHeaders(set, request, csp, permissionsPolicy);
     })
     .use(requestLogger)
     .onError(({ code, error, set, request, reqLogger, startMs }) => {
+      // Error responses bypass onAfterHandle, so apply the same security headers
+      // here too. Done before the ApiError branch so any error-specific headers
+      // (e.g. Retry-After) are layered on top without being overwritten.
       applySecurityHeaders(set, request, csp, permissionsPolicy);
       const log = reqLogger ?? logger;
       const latencyMs = startMs != null ? Date.now() - startMs : undefined;
@@ -119,7 +111,12 @@ export function createApp(options: CreateAppOptions) {
         }
         const level = error.statusCode >= 500 ? 'error' : 'warn';
         log[level]({ status: error.statusCode, code: error.code, latencyMs }, error.message);
-        if (error.statusCode >= 500) captureException(error);
+        if (error.statusCode >= 500) {
+          captureException(error);
+          // Flush the queued event past the Response so a serverless freeze does
+          // not drop it. keepAlive uses waitUntil on Vercel, run-to-completion off.
+          keepAlive(flushSentry());
+        }
         return { error: error.message, code: error.code, ...(error.details ?? {}) };
       }
 
@@ -143,6 +140,9 @@ export function createApp(options: CreateAppOptions) {
 
       log.error({ err: error, code, status: 500, latencyMs }, 'unhandled error');
       captureException(error);
+      // Flush the queued event past the Response so a serverless freeze does not
+      // drop it. keepAlive uses waitUntil on Vercel, run-to-completion off.
+      keepAlive(flushSentry());
       set.status = 500;
       return { error: 'Internal server error', code: 'INTERNAL_ERROR' };
     })
@@ -155,78 +155,67 @@ export function createApp(options: CreateAppOptions) {
         .use(resultRoutes)
         .use(statsRoutes)
         .use(insightsRoutes)
-    )
-    .get(
-      '/health',
-      async ({ set }) => {
-        const start = Date.now();
-        let dbStatus: { status: 'ok'; latencyMs: number } | { status: 'error'; error: string };
-        try {
-          await getDb().execute(sql`SELECT 1`);
-          dbStatus = { status: 'ok', latencyMs: Date.now() - start };
-        } catch (e) {
-          logger.error({ err: e }, 'Database health check failed');
-          dbStatus = { status: 'error', error: 'Unavailable' };
-        }
+        .use(internalRoutes)
+        // Health lives UNDER /api (GET /api/health) so it is reachable on Vercel,
+        // where only /api/* hits the function and every other path rewrites to
+        // index.html. Stateless probe: a live DB SELECT plus an Upstash ping,
+        // returning 503 only when the database is unreachable.
+        .get(
+          '/health',
+          async ({ set }) => {
+            const start = Date.now();
+            let dbStatus: { status: 'ok'; latencyMs: number } | { status: 'error'; error: string };
+            try {
+              await getDb().execute(sql`SELECT 1`);
+              dbStatus = { status: 'ok', latencyMs: Date.now() - start };
+            } catch (e) {
+              logger.error({ err: e }, 'Database health check failed');
+              dbStatus = { status: 'error', error: 'Unavailable' };
+            }
 
-        type RedisStatus =
-          | { status: 'ok'; latencyMs: number }
-          | { status: 'disabled' }
-          | { status: 'error'; error: string };
+            type RedisStatus =
+              | { status: 'ok'; latencyMs: number }
+              | { status: 'disabled' }
+              | { status: 'error'; error: string };
 
-        let redisStatus: RedisStatus;
-        const redis = getRedis();
-        if (!redis) {
-          redisStatus = { status: 'disabled' };
-        } else {
-          const redisStart = Date.now();
-          try {
-            await redis.ping();
-            redisStatus = { status: 'ok', latencyMs: Date.now() - redisStart };
-          } catch (e) {
-            logger.error({ err: e }, 'Redis health check failed');
-            redisStatus = { status: 'error', error: 'Unavailable' };
-          }
-        }
+            let redisStatus: RedisStatus;
+            const redis = getRedis();
+            if (!redis) {
+              redisStatus = { status: 'disabled' };
+            } else {
+              const redisStart = Date.now();
+              try {
+                await redis.ping();
+                redisStatus = { status: 'ok', latencyMs: Date.now() - redisStart };
+              } catch (e) {
+                logger.error({ err: e }, 'Redis health check failed');
+                redisStatus = { status: 'error', error: 'Unavailable' };
+              }
+            }
 
-        const overall = dbStatus.status === 'ok' ? 'ok' : 'degraded';
-        if (overall === 'degraded') set.status = 503;
-        return {
-          status: overall,
-          timestamp: new Date().toISOString(),
-          uptime: Math.floor(process.uptime()),
-          db: dbStatus,
-          redis: redisStatus,
-        };
-      },
-      {
-        detail: {
-          tags: ['System'],
-          summary: 'Health check',
-          description:
-            'Returns server uptime and a live database probe. Returns 503 when the database is unreachable.',
-          responses: {
-            200: { description: 'Server and database are healthy' },
-            503: { description: 'Database unreachable' },
+            const overall = dbStatus.status === 'ok' ? 'ok' : 'degraded';
+            if (overall === 'degraded') set.status = 503;
+            return {
+              status: overall,
+              timestamp: new Date().toISOString(),
+              db: dbStatus,
+              redis: redisStatus,
+            };
           },
-        },
-      }
-    )
-    .get('/metrics', async ({ set, headers }) => {
-      if (metricsExpected) {
-        const provided = Buffer.from(headers['authorization'] ?? '');
-        const ok =
-          provided.length === metricsExpected.length && timingSafeEqual(provided, metricsExpected);
-        if (!ok) {
-          throw new ApiError(401, 'Invalid metrics token', 'UNAUTHORIZED');
-        }
-      } else if (!metricsOpenAllowed) {
-        // No token configured outside local dev/test — fail closed.
-        throw new ApiError(401, 'Metrics endpoint requires authentication', 'UNAUTHORIZED');
-      }
-      set.headers['content-type'] = registry.contentType;
-      return registry.metrics();
-    });
+          {
+            detail: {
+              tags: ['System'],
+              summary: 'Health check',
+              description:
+                'Stateless probe running a live database SELECT and an Upstash ping. Returns 503 only when the database is unreachable.',
+              responses: {
+                200: { description: 'Server and database are healthy' },
+                503: { description: 'Database unreachable' },
+              },
+            },
+          }
+        )
+    );
 
   return app;
 }

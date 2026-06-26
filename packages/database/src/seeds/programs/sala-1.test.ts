@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { SALA_1_DEFINITION_JSONB } from './sala-1';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 

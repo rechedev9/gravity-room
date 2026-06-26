@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { buildGeneratedArtifact } from './generate-api-types-lib';
-import { resolve } from 'path';
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 describe('buildGeneratedArtifact', () => {
   it('preserves endpoint contracts while stripping runtime client code and aliases', () => {
@@ -111,8 +113,11 @@ export function createApiClient(baseUrl: string, options?: ZodiosOptions) {
   });
 
   it('generated artifact preserves mobile auth response contracts', async () => {
-    const generatedPath = resolve(import.meta.dir, '../src/lib/api/generated.ts');
-    const generated = await Bun.file(generatedPath).text();
+    const generatedPath = resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      '../src/lib/api/generated.ts'
+    );
+    const generated = await readFile(generatedPath, 'utf8');
 
     const mobileGoogleStart = generated.indexOf("path: '/api/auth/mobile/google'");
     const mobileRefreshStart = generated.indexOf("path: '/api/auth/mobile/refresh'");

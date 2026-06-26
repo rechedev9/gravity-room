@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { ExerciseArticleSchema } from '@gzclp/domain/schemas/exercise-article';
 import { EXERCISE_ARTICLES, getArticleBySlug } from './registry';
 

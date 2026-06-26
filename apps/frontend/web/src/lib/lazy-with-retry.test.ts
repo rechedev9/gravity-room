@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, mock } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { isChunkLoadError, handleChunkError } from './lazy-with-retry';
 
 // ── sessionStorage mock ────────────────────────────────────────
 const storage = new Map<string, string>();
-const mockGetItem = mock((key: string) => storage.get(key) ?? null);
-const mockSetItem = mock((key: string, value: string) => {
+const mockGetItem = vi.fn((key: string) => storage.get(key) ?? null);
+const mockSetItem = vi.fn((key: string, value: string) => {
   storage.set(key, value);
 });
 Object.defineProperty(globalThis, 'sessionStorage', {
@@ -13,7 +13,7 @@ Object.defineProperty(globalThis, 'sessionStorage', {
 });
 
 // ── window.location.reload mock ────────────────────────────────
-const reloadMock = mock(() => {});
+const reloadMock = vi.fn(() => {});
 Object.defineProperty(window, 'location', {
   value: { ...window.location, reload: reloadMock },
   writable: true,

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'bun:test';
+import { describe, it, expect, afterEach } from 'vitest';
 import i18n from 'i18next';
 import { formatDaysAgo } from './format-days-ago';
 

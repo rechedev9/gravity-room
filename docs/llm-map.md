@@ -8,36 +8,37 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Apps
 
-| Path                                         | Tier     | Role                                                             | Tech                                          | Run / test                                                           |
-| -------------------------------------------- | -------- | ---------------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------- |
-| `apps/frontend/web/`                         | frontend | React SPA, PWA                                                   | Vite 7, React 19, TanStack Router, Tailwind 4 | `bun run dev` / `bun run test` / `bun run --filter web e2e`          |
-| `apps/frontend/web/src/features/`            | frontend | Feature-folder UI (auth, dashboard, home, insights, etc.)        | React + TanStack Query                        | covered by `bun run --filter web test`                               |
-| `apps/frontend/web/src/components/`          | frontend | Shared UI primitives + app-shell (root-layout, providers)        | Radix UI + Tailwind                           | unit tests via bun:test                                              |
-| `apps/frontend/web/src/lib/api/generated.ts` | frontend | OpenAPI-generated Zod client (committed)                         | openapi-zod-client                            | `bun run --filter web api:types` regenerates it; CI checks for drift |
-| `apps/frontend/web/codegen/`                 | frontend | Codegen sources for `lib/api/generated.ts`                       | Bun TS scripts                                | `bun test apps/frontend/web/codegen/generate-api-types.test.ts`      |
-| `apps/frontend/web/e2e/`                     | frontend | Playwright specs (chromium)                                      | Playwright 1.58                               | `bun run --filter web e2e`                                           |
-| `apps/frontend/mobile/`                      | frontend | Expo / RN client                                                 | Expo 54, RN 0.81, expo-sqlite                 | `bun run --filter mobile typecheck` / Jest                           |
-| `apps/backend/api/`                          | backend  | REST API                                                         | ElysiaJS 1.4 on Bun                           | `bun run dev:api` / `bun run test:api`                               |
-| `apps/backend/api/src/routes/`               | backend  | HTTP route handlers (auth, programs, catalog, etc.)              | Elysia                                        | `bun test apps/backend/api/src/routes`                               |
-| `apps/backend/api/src/services/`             | backend  | Business logic (1:1 with routes)                                 | TS                                            | `bun test apps/backend/api/src/services`                             |
-| `apps/backend/api/src/middleware/`           | backend  | auth-guard, error-handler, rate-limit, request-logger            | Elysia plugins                                | unit tests in same folder                                            |
-| `apps/backend/api/src/lib/`                  | backend  | redis, logger, sentry, caches, telegram, google-auth             | TS                                            | unit tests in same folder                                            |
-| `apps/backend/api/src/db/`                   | backend  | API-owned Postgres connection/pool + dev seed entrypoint         | Drizzle ORM 0.45 + postgres                   | used by API services                                                 |
-| `packages/database/`                         | database | Drizzle schema, migrations, reference seeds, schema dump tooling | drizzle-kit + Drizzle ORM                     | `bun run test:database` / `bun run db:generate`                      |
-| `packages/database/migrations/`              | database | Generated SQL migrations                                         | drizzle-kit                                   | applied by API bootstrap                                             |
-| `apps/backend/analytics/`                    | backend  | Python insights microservice                                     | FastAPI 0.115, psycopg 3, sklearn             | `pytest` (in folder) / `ruff check .`                                |
-| `apps/backend/analytics/insights/`           | backend  | e1RM, frequency, summary, volume calculators                     | numpy/pandas                                  | `pytest tests/`                                                      |
-| `apps/backend/analytics/ml/`                 | backend  | forecast, plateau, recommendation models                         | scikit-learn                                  | unit tests                                                           |
+| Path                                             | Tier     | Role                                                                                                      | Tech                                          | Run / test                                                        |
+| ------------------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------- |
+| `apps/frontend/web/`                             | frontend | React SPA, PWA                                                                                            | Vite 7, React 19, TanStack Router, Tailwind 4 | `pnpm run dev` / `pnpm run test` / `pnpm --filter web e2e`        |
+| `apps/frontend/web/src/features/`                | frontend | Feature-folder UI (auth, dashboard, home, insights, etc.)                                                 | React + TanStack Query                        | covered by `pnpm --filter web test`                               |
+| `apps/frontend/web/src/components/`              | frontend | Shared UI primitives + app-shell (root-layout, providers)                                                 | Radix UI + Tailwind                           | unit tests via vitest                                             |
+| `apps/frontend/web/src/lib/api/generated.ts`     | frontend | OpenAPI-generated Zod client (committed)                                                                  | openapi-zod-client                            | `pnpm --filter web api:types` regenerates it; CI checks for drift |
+| `apps/frontend/web/codegen/`                     | frontend | Codegen sources for `lib/api/generated.ts`                                                                | tsx TS scripts                                | `vitest run apps/frontend/web/codegen/generate-api-types.test.ts` |
+| `apps/frontend/web/e2e/`                         | frontend | Playwright specs (chromium)                                                                               | Playwright 1.58                               | `pnpm --filter web e2e`                                           |
+| `apps/frontend/mobile/`                          | frontend | Expo / RN client                                                                                          | Expo 54, RN 0.81, expo-sqlite                 | `pnpm --filter mobile typecheck` / Jest                           |
+| `apps/backend/api/`                              | backend  | REST API                                                                                                  | ElysiaJS 1.4 on Node                          | `pnpm run dev:api` / `pnpm run test:api`                          |
+| `apps/backend/api/src/routes/`                   | backend  | HTTP route handlers (auth, programs, catalog, etc.)                                                       | Elysia                                        | `vitest run apps/backend/api/src/routes`                          |
+| `apps/backend/api/src/services/`                 | backend  | Business logic (1:1 with routes)                                                                          | TS                                            | `vitest run apps/backend/api/src/services`                        |
+| `apps/backend/api/src/middleware/`               | backend  | auth-guard, error-handler, rate-limit, request-logger                                                     | Elysia plugins                                | unit tests in same folder                                         |
+| `apps/backend/api/src/lib/`                      | backend  | redis, logger, sentry, caches, telegram, google-auth                                                      | TS                                            | unit tests in same folder                                         |
+| `apps/backend/api/src/db/`                       | backend  | API-owned Postgres connection/pool + dev seed entrypoint                                                  | Drizzle ORM 0.45 + postgres                   | used by API services                                              |
+| `apps/backend/api/src/scripts/migrate-deploy.ts` | backend  | Build-time migrations + seeds (db:deploy) against DIRECT_DATABASE_URL                                     | drizzle-kit + Drizzle ORM                     | `pnpm --filter api db:deploy`                                     |
+| `apps/backend/api/src/analytics/`                | backend  | TS insight pipelines (e1RM, frequency, summary, volume, forecast, plateau, recommendation) + Cron compute | TypeScript                                    | `vitest run apps/backend/api/src/analytics`                       |
+| `api/[...path].ts`                               | backend  | Vercel serverless catch-all → createApp().fetch                                                           | Vercel Node runtime                           | covered by API e2e                                                |
+| `packages/database/`                             | database | Drizzle schema, migrations, reference seeds, schema dump tooling                                          | drizzle-kit + Drizzle ORM                     | `pnpm run test:database` / `pnpm run db:generate`                 |
+| `packages/database/migrations/`                  | database | Generated SQL migrations                                                                                  | drizzle-kit                                   | applied by `db:deploy` (build-time)                               |
+| `packages/api-client/`                           | shared   | `@gzclp/api-client` typed fetch wrapper                                                                   | TypeScript                                    | `pnpm run test:api-client`                                        |
 
 ## Shared
 
-| Path                                    | Role                                                                           | Test                                                  |
-| --------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| `packages/domain/`                      | `@gzclp/domain` workspace package — Zod schemas + GZCLP engine                 | `bun run test:domain`                                 |
-| `packages/domain/src/schemas/`          | Catalog, exercises, insights, instance, program-definition, user, workout-rows | covered by domain tests                               |
-| `packages/domain/src/generic-engine.ts` | GZCLP progression engine                                                       | `bun test packages/domain/src/generic-engine.test.ts` |
-| `packages/database/src/schema.ts`       | Postgres tables, relations, indexes                                            | `bun run typecheck:database`                          |
-| `packages/database/src/seeds/`          | Reference data: muscle groups, exercises, program templates                    | `bun run test:database`                               |
+| Path                                    | Role                                                                           | Test                                                    |
+| --------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| `packages/domain/`                      | `@gzclp/domain` workspace package — Zod schemas + GZCLP engine                 | `pnpm run test:domain`                                  |
+| `packages/domain/src/schemas/`          | Catalog, exercises, insights, instance, program-definition, user, workout-rows | covered by domain tests                                 |
+| `packages/domain/src/generic-engine.ts` | GZCLP progression engine                                                       | `vitest run packages/domain/src/generic-engine.test.ts` |
+| `packages/database/src/schema.ts`       | Postgres tables, relations, indexes                                            | `pnpm run typecheck:database`                           |
+| `packages/database/src/seeds/`          | Reference data: muscle groups, exercises, program templates                    | `pnpm run test:database`                                |
 
 ## Tooling
 
@@ -51,12 +52,13 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Docs
 
-| Path                   | Role                                             |
-| ---------------------- | ------------------------------------------------ |
-| `docs/ARCHITECTURE.md` | architectural overview (this layout's rationale) |
-| `docs/llm-map.md`      | this file                                        |
-| `CLAUDE.md`            | auto-loaded agent context (live API + DB schema) |
-| `README.md`            | top-level entry point                            |
+| Path                     | Role                                             |
+| ------------------------ | ------------------------------------------------ |
+| `docs/ARCHITECTURE.md`   | architectural overview (this layout's rationale) |
+| `docs/VERCEL_CUTOVER.md` | Vercel same-origin go-live runbook               |
+| `docs/llm-map.md`        | this file                                        |
+| `CLAUDE.md`              | auto-loaded agent context (live API + DB schema) |
+| `README.md`              | top-level entry point                            |
 
 ## Quick "where do I look for…"
 
@@ -69,7 +71,7 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 | "Where is shared UI?"                              | `apps/frontend/web/src/components/` (vs feature-local under `features/`)                                       |
 | "Where are migrations?"                            | `packages/database/migrations/`                                                                                |
 | "Where are program seeds?"                         | `packages/database/src/seeds/programs/`                                                                        |
-| "Where is the analytics insights logic?"           | `apps/backend/analytics/insights/`                                                                             |
+| "Where is the analytics insights logic?"           | `apps/backend/api/src/analytics/` (TypeScript, Cron-driven)                                                    |
 | "Where do I add a new shared type?"                | `packages/domain/src/schemas/` (Zod schema, infer the type)                                                    |
-| "Where do I change a DB table/index?"              | `packages/database/src/schema.ts`, then `bun run db:generate`                                                  |
-| "Where is production infra?"                       | `infra/production/docker-compose.yml` + `infra/production/Caddyfile`                                           |
+| "Where do I change a DB table/index?"              | `packages/database/src/schema.ts`, then `pnpm run db:generate`                                                 |
+| "Where is production infra?"                       | `vercel.json` + `scripts/vercel-build.sh` (same-origin Vercel); runbook in `docs/VERCEL_CUTOVER.md`            |
