@@ -247,7 +247,7 @@ jobs:
   # /swagger/json, which is the codegen source. The dev-auth route is only
   # registered (and thus in the OpenAPI surface) when AUTH_DEV_ROUTE_* are set,
   # so they mirror the values the committed client was generated against. A
-  # Postgres service backs /health, which the readiness poll waits on.
+  # Postgres service backs /api/health, which the readiness poll waits on.
   # ---------------------------------------------------------------------------
   api-types-drift:
     name: OpenAPI client drift
@@ -300,9 +300,9 @@ jobs:
           API_PID=$!
           trap 'kill "$API_PID" 2>/dev/null || true' EXIT
 
-          echo "Waiting for the API at http://localhost:3001/health..."
+          echo "Waiting for the API at http://localhost:3001/api/health..."
           for i in $(seq 1 30); do
-            if curl -fsS http://localhost:3001/health > /dev/null 2>&1; then
+            if curl -fsS http://localhost:3001/api/health > /dev/null 2>&1; then
               echo "API healthy after ${i} retries"
               break
             fi
