@@ -567,6 +567,14 @@ export async function createAndStoreRefreshToken(
   return refreshToken;
 }
 
-export async function cleanupExpiredTokens(): Promise<void> {
-  await getDb().delete(refreshTokens).where(lt(refreshTokens.expiresAt, new Date()));
+/**
+ * Deletes every refresh token whose `expires_at` is in the past and returns the
+ * number removed. Consumed by the secret-guarded cleanup cron route.
+ */
+export async function cleanupExpiredTokens(): Promise<number> {
+  const deleted = await getDb()
+    .delete(refreshTokens)
+    .where(lt(refreshTokens.expiresAt, new Date()))
+    .returning({ id: refreshTokens.id });
+  return deleted.length;
 }

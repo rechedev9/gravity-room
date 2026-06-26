@@ -123,6 +123,40 @@ const REFRESH_COOKIE_OPTIONS = {
   path: '/api/auth',
 };
 
+/**
+ * Expire (delete) a path-scoped cookie by re-setting it empty at the same Path it
+ * was created with, plus maxAge 0 / expires epoch. Elysia's `cookie.remove()`
+ * emits the deletion at the default path `/`, which would NOT match a cookie
+ * scoped to `/api/auth`, leaving it stranded in the browser. Pinning the Path
+ * guarantees the deletion matches regardless of which request URL triggered it.
+ */
+function expireCookieAtPath(
+  cookie: { set: (opts: Record<string, unknown>) => void },
+  options: {
+    readonly path: string;
+    readonly httpOnly: boolean;
+    readonly secure: boolean;
+    readonly sameSite: 'strict' | 'lax' | 'none';
+  }
+): void {
+  cookie.set({
+    value: '',
+    path: options.path,
+    httpOnly: options.httpOnly,
+    secure: options.secure,
+    sameSite: options.sameSite,
+    maxAge: 0,
+    expires: new Date(0),
+  });
+}
+
+/** Expire the refresh cookie, pinned to its `/api/auth` Path. */
+function removeRefreshCookie(refreshCookie: {
+  set: (opts: Record<string, unknown>) => void;
+}): void {
+  expireCookieAtPath(refreshCookie, REFRESH_COOKIE_OPTIONS);
+}
+
 function assertEmailConfiguredForProduction(): void {
   if (process.env['NODE_ENV'] !== 'production' || isEmailConfigured()) return;
   throw new ApiError(503, 'Email delivery is not configured', 'EMAIL_NOT_CONFIGURED');
@@ -342,6 +376,20 @@ function stateCookieOptions(sameSite: 'lax' | 'none'): Record<string, unknown> {
     maxAge: OAUTH_STATE_TTL_S,
     path: '/api/auth',
   };
+}
+
+/**
+ * Expire an OAuth CSRF/state/nonce/PKCE cookie at its own `/api/auth` Path with
+ * the same attributes it was set with. Like the refresh cookie, these are scoped
+ * to `/api/auth`, so a default-path `cookie.remove()` would not match and clear
+ * them. Pass the same `sameSite` used when the cookie was created.
+ */
+function removeStateCookie(
+  cookie: { set: (opts: Record<string, unknown>) => void } | undefined,
+  sameSite: 'lax' | 'none'
+): void {
+  if (!cookie) return;
+  cookie.set({ ...stateCookieOptions(sameSite), value: '', maxAge: 0, expires: new Date(0) });
 }
 
 /** Builds the SPA callback URL the browser is redirected to, with an optional error code. */
@@ -725,10 +773,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
       const stateCookie = cookie[OAUTH_STATE_COOKIE];
       const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
-      stateCookie?.remove();
+      removeStateCookie(stateCookie, 'none');
       const nonceCookie = cookie[OAUTH_NONCE_COOKIE];
       const expectedNonce = typeof nonceCookie?.value === 'string' ? nonceCookie.value : undefined;
-      nonceCookie?.remove();
+      removeStateCookie(nonceCookie, 'none');
 
       const idToken = typeof body.id_token === 'string' ? body.id_token : undefined;
       const requestState = typeof body.state === 'string' ? body.state : undefined;
@@ -831,10 +879,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
       const stateCookie = cookie[OAUTH_STATE_COOKIE];
       const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
-      stateCookie?.remove();
+      removeStateCookie(stateCookie, 'lax');
       const pkceCookie = cookie[OAUTH_PKCE_COOKIE];
       const codeVerifier = typeof pkceCookie?.value === 'string' ? pkceCookie.value : undefined;
-      pkceCookie?.remove();
+      removeStateCookie(pkceCookie, 'lax');
 
       const code = typeof query.code === 'string' ? query.code : undefined;
       const requestState = typeof query.state === 'string' ? query.state : undefined;
@@ -944,13 +992,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
       const stateCookie = cookie[OAUTH_STATE_COOKIE];
       const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
-      stateCookie?.remove();
+      removeStateCookie(stateCookie, 'lax');
       const nonceCookie = cookie[OAUTH_NONCE_COOKIE];
       const expectedNonce = typeof nonceCookie?.value === 'string' ? nonceCookie.value : undefined;
-      nonceCookie?.remove();
+      removeStateCookie(nonceCookie, 'lax');
       const pkceCookie = cookie[OAUTH_PKCE_COOKIE];
       const codeVerifier = typeof pkceCookie?.value === 'string' ? pkceCookie.value : undefined;
-      pkceCookie?.remove();
+      removeStateCookie(pkceCookie, 'lax');
 
       const code = typeof query.code === 'string' ? query.code : undefined;
       const requestState = typeof query.state === 'string' ? query.state : undefined;
@@ -1115,7 +1163,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       }
 
       const refreshed = await refreshAuthToken(jwt, reqLogger, tokenValue, () => {
-        refreshCookie.remove();
+        removeRefreshCookie(refreshCookie);
       });
 
       refreshCookie.set({ value: refreshed.refreshToken, ...REFRESH_COOKIE_OPTIONS });
@@ -1180,7 +1228,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
       await signOutWithRefreshToken(refreshCookie?.value);
 
-      refreshCookie?.remove();
+      if (refreshCookie) removeRefreshCookie(refreshCookie);
       reqLogger.info({ event: 'auth.signout' }, 'user signed out');
       set.status = 204;
     },
@@ -1326,7 +1374,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
       // Clear the refresh cookie
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
-      refreshCookie?.remove();
+      if (refreshCookie) removeRefreshCookie(refreshCookie);
 
       reqLogger.info({ event: 'auth.account_deleted', userId }, 'account soft-deleted');
       set.status = 204;
