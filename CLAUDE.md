@@ -15,13 +15,19 @@ three runnable services and one shared TS package.
 
 ## Service map
 
-| Service         | Path                     | Tech                                                | Entry                               | Dev                         |
-| --------------- | ------------------------ | --------------------------------------------------- | ----------------------------------- | --------------------------- |
-| Web SPA         | `apps/frontend/web`      | Vite 7, React 19, TanStack Router/Query, Tailwind 4 | `src/main.tsx`                      | `bun run dev`               |
-| Mobile          | `apps/frontend/mobile`   | Expo 54, RN 0.81, expo-sqlite                       | `App.tsx`                           | (Expo CLI)                  |
-| API             | `apps/backend/api`       | ElysiaJS 1.4 + Drizzle + Postgres + Redis           | `src/index.ts` → `src/bootstrap.ts` | `bun run dev:api`           |
-| Analytics       | `apps/backend/analytics` | FastAPI + scikit-learn + APScheduler                | `main.py`                           | `uvicorn main:app --reload` |
-| Domain (shared) | `packages/domain`        | TS + Zod 4 (no runtime)                             | `src/index.ts`                      | `bun run typecheck:domain`  |
+| Service         | Path                   | Tech                                                | Entry                               | Dev                        |
+| --------------- | ---------------------- | --------------------------------------------------- | ----------------------------------- | -------------------------- |
+| Web SPA         | `apps/frontend/web`    | Vite 7, React 19, TanStack Router/Query, Tailwind 4 | `src/main.tsx`                      | `bun run dev`              |
+| Mobile          | `apps/frontend/mobile` | Expo 54, RN 0.81, expo-sqlite                       | `App.tsx`                           | (Expo CLI)                 |
+| API             | `apps/backend/api`     | ElysiaJS 1.4 + Drizzle + Postgres + Redis           | `src/index.ts` → `src/bootstrap.ts` | `bun run dev:api`          |
+| Domain (shared) | `packages/domain`      | TS + Zod 4 (no runtime)                             | `src/index.ts`                      | `bun run typecheck:domain` |
+
+Analytics is no longer a separate service. The insight math (e1RM, frequency,
+summary, volume, plateau, forecast, recommendation) was ported to TypeScript and
+now lives inside the API package at `apps/backend/api/src/analytics/`. It is
+computed by a Vercel Cron job hitting the internal route
+`POST /api/internal/analytics/compute` (see "Analytics → API integration"
+below).
 
 ## Cross-cutting contracts
 
@@ -29,7 +35,7 @@ three runnable services and one shared TS package.
 - **API contract**: ElysiaJS exposes `/swagger/json` (non-prod). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. Lefthook's `pre-push.api-types-drift` blocks pushes if it drifts. **Mobile does NOT consume this generated client** — it hand-writes API calls. Unifying is on the roadmap (`packages/api-client`).
 - **Auth**: JWT access + refresh-token rotation. Google OAuth on all three clients. Server logic split: `apps/backend/api/src/routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` + `lib/google-auth.ts`.
 - **Migrations**: applied automatically on API startup (`apps/backend/api/src/bootstrap.ts`). Drizzle config at `apps/backend/api/drizzle.config.ts`. Schema at `apps/backend/api/src/db/schema.ts`. Generated SQL at `apps/backend/api/drizzle/`.
-- **Analytics → API integration**: insights are pre-computed by the Python service and stored in the `user_insights` table. `POST /compute` requires an internal secret.
+- **Analytics → API integration**: insights are pre-computed in TypeScript inside the API (`apps/backend/api/src/analytics/`) and stored in the `user_insights` table. `compute.ts` exports `computeUser(userId)` / `runAll()`; `queries.ts` provides the data access and the `ON CONFLICT` upsert. A Vercel Cron job calls `POST /api/internal/analytics/compute`, which processes a bounded least-recently-computed batch per tick (idempotent upserts). That route, like the other `/api/internal/*` cron routes, requires the `INTERNAL_SECRET` (fails closed when unset). Parity with the old Python outputs is frozen by golden-file tests under `apps/backend/api/src/analytics/__fixtures__/golden.json`.
 - **Soft delete**: `users.deletedAt` triggers a 30-day grace period before `purge-deleted-users.ts` hard-deletes (CASCADE). The auth middleware filters `WHERE deleted_at IS NULL`, so soft-deleted users cannot authenticate.
 
 ## Config flags (from `.env.example`)
@@ -178,7 +184,7 @@ _10 tables. Source: `apps/backend/api/src/db/schema.ts`._
 
 The following were intentionally removed in commits up to `6876320 chore: remove VPS deployment (#61)`:
 
-- VPS deployment (no Hetzner/Caddy config). Frontend can be hosted anywhere static; API anywhere Bun-capable; analytics anywhere Python-capable.
+- VPS deployment (no Hetzner/Caddy config). Frontend can be hosted anywhere static; API anywhere Bun-capable.
 - All Dockerfiles (`apps/backend/api/Dockerfile`, `apps/backend/analytics/Dockerfile`, `apps/frontend/web/Dockerfile`) and `docker-compose.dev.yml`.
 - nginx configs (`apps/frontend/web/nginx*.conf`, `security-headers.conf`).
 - CI workflows: `validate.yml`, `_validate-api.yml`, `_validate-web.yml`, `_validate-analytics.yml`, `auto-format.yml`, `workflow-sanity.yml`. **Active workflows:** `claude.yml`, `claude-code-review.yml`.

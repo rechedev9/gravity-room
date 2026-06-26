@@ -12,6 +12,7 @@ import { exerciseRoutes } from './routes/exercises';
 import { resultRoutes } from './routes/results';
 import { statsRoutes } from './routes/stats';
 import { insightsRoutes } from './routes/insights';
+import { internalRoutes } from './routes/internal';
 import { getDb } from './db';
 import { getRedis } from './lib/redis';
 import { logger } from './lib/logger';
@@ -101,6 +102,7 @@ export function createApp(options: CreateAppOptions) {
         .use(resultRoutes)
         .use(statsRoutes)
         .use(insightsRoutes)
+        .use(internalRoutes)
     )
     .get(
       '/health',

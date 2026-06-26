@@ -9,7 +9,12 @@
  */
 
 import { logger } from '../lib/logger';
-import { fetchAllUsers, fetchWorkoutRecords, upsertInsight } from './queries';
+import {
+  fetchAllUsers,
+  fetchWorkoutRecords,
+  upsertInsight,
+  withInsightTransaction,
+} from './queries';
 import { computeVolume } from './pipelines/volume';
 import { computeFrequency } from './pipelines/frequency';
 import { computeE1rmPerExercise } from './pipelines/e1rm';
@@ -23,35 +28,43 @@ export interface RunAllSummary {
   readonly errors: number;
 }
 
-/** Run all pipelines for a single user and upsert every result. */
+/**
+ * Run all pipelines for a single user and upsert every result.
+ *
+ * The upserts run inside one transaction so a user's insights commit atomically:
+ * a crash mid-run rolls back instead of leaving a half-updated set, and because
+ * each upsert is idempotent the tick is safe to replay.
+ */
 export async function computeUser(userId: string): Promise<void> {
   const records = await fetchWorkoutRecords(userId);
   if (records.length === 0) return;
 
-  // Volume trend (aggregate, no exercise_id).
-  const volume = computeVolume(records);
-  if (volume !== null) await upsertInsight(userId, 'volume_trend', null, volume);
+  await withInsightTransaction(async (tx) => {
+    // Volume trend (aggregate, no exercise_id).
+    const volume = computeVolume(records);
+    if (volume !== null) await upsertInsight(userId, 'volume_trend', null, volume, tx);
 
-  // Frequency (aggregate, no exercise_id).
-  const frequency = computeFrequency(records);
-  if (frequency !== null) await upsertInsight(userId, 'frequency', null, frequency);
+    // Frequency (aggregate, no exercise_id).
+    const frequency = computeFrequency(records);
+    if (frequency !== null) await upsertInsight(userId, 'frequency', null, frequency, tx);
 
-  // Per-exercise insights.
-  for (const [exerciseId, payload] of computeE1rmPerExercise(records)) {
-    await upsertInsight(userId, 'e1rm_progression', exerciseId, payload);
-  }
-  for (const [exerciseId, payload] of computeSummaryPerExercise(records)) {
-    await upsertInsight(userId, 'exercise_summary', exerciseId, payload);
-  }
-  for (const [exerciseId, payload] of computePlateauPerExercise(records)) {
-    await upsertInsight(userId, 'plateau_detection', exerciseId, payload);
-  }
-  for (const [exerciseId, payload] of computeForecastPerExercise(records)) {
-    await upsertInsight(userId, 'e1rm_forecast', exerciseId, payload);
-  }
-  for (const [exerciseId, payload] of computeRecommendationPerExercise(records)) {
-    await upsertInsight(userId, 'load_recommendation', exerciseId, payload);
-  }
+    // Per-exercise insights.
+    for (const [exerciseId, payload] of computeE1rmPerExercise(records)) {
+      await upsertInsight(userId, 'e1rm_progression', exerciseId, payload, tx);
+    }
+    for (const [exerciseId, payload] of computeSummaryPerExercise(records)) {
+      await upsertInsight(userId, 'exercise_summary', exerciseId, payload, tx);
+    }
+    for (const [exerciseId, payload] of computePlateauPerExercise(records)) {
+      await upsertInsight(userId, 'plateau_detection', exerciseId, payload, tx);
+    }
+    for (const [exerciseId, payload] of computeForecastPerExercise(records)) {
+      await upsertInsight(userId, 'e1rm_forecast', exerciseId, payload, tx);
+    }
+    for (const [exerciseId, payload] of computeRecommendationPerExercise(records)) {
+      await upsertInsight(userId, 'load_recommendation', exerciseId, payload, tx);
+    }
+  });
 }
 
 /** Run the compute for every eligible user. Returns a processed/errors summary. */

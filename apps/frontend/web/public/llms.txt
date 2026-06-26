@@ -46,8 +46,8 @@ Structured programs with built-in progression rules produce consistent strength 
 ## Technical Architecture
 
 - **Frontend**: React 19, Vite, TanStack Router, TanStack Query, Tailwind v4, TypeScript strict
-- **Backend**: ElysiaJS (Bun), PostgreSQL, Redis
-- **Analytics**: Python FastAPI with scikit-learn for plateau detection and 1RM forecasting
+- **Backend**: ElysiaJS on Vercel Node serverless functions, Neon Postgres, Upstash Redis
+- **Analytics**: TypeScript inside the API (plateau detection, 1RM forecasting, volume and frequency insights), computed via Vercel Cron
 - **Auth**: Google OAuth 2.0
 - **Source**: https://github.com/rechedev/gravity-room
 

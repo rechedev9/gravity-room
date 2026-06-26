@@ -41,8 +41,9 @@ export const users = pgTable('users', {
   avatarUrl: text('avatar_url'),
   /**
    * Soft-delete timestamp. When set, the user is in a 30-day grace period
-   * before `purge-deleted-users.ts` hard-deletes (CASCADE) the row and all
-   * related data. The JWT middleware's `findUserById()` filters
+   * before the `/api/internal/purge-users` cron route (services/purge.ts)
+   * hard-deletes (CASCADE) the row and all related data. The JWT middleware's
+   * `findUserById()` filters
    * `WHERE deleted_at IS NULL`, so soft-deleted users cannot authenticate.
    * Short-lived access tokens (~15 min) naturally expire within the window.
    */
@@ -365,11 +366,12 @@ export const userInsights = pgTable(
     validUntil: timestamp('valid_until', { withTimezone: true }),
   },
   (table) => [
-    unique('user_insights_user_type_exercise_uq').on(
-      table.userId,
-      table.insightType,
-      table.exerciseId
-    ),
+    // NULLS NOT DISTINCT so aggregate insights (volume_trend / frequency) whose
+    // exercise_id is NULL collide on (user_id, insight_type) and upsert in place
+    // instead of inserting a duplicate row on every analytics compute run.
+    unique('user_insights_user_type_exercise_uq')
+      .on(table.userId, table.insightType, table.exerciseId)
+      .nullsNotDistinct(),
     index('user_insights_user_type_idx').on(table.userId, table.insightType),
   ]
 );

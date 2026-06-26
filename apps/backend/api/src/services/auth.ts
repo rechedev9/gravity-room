@@ -205,6 +205,15 @@ export async function createAndStoreRefreshToken(
   return refreshToken;
 }
 
-export async function cleanupExpiredTokens(): Promise<void> {
-  await getDb().delete(refreshTokens).where(lt(refreshTokens.expiresAt, new Date()));
+/**
+ * Deletes every refresh token whose `expires_at` is in the past and returns the
+ * number removed. Invoked by the secret-guarded `/api/internal/cleanup-tokens`
+ * cron route (the old in-process `setInterval` was removed for serverless).
+ */
+export async function cleanupExpiredTokens(): Promise<number> {
+  const deleted = await getDb()
+    .delete(refreshTokens)
+    .where(lt(refreshTokens.expiresAt, new Date()))
+    .returning({ id: refreshTokens.id });
+  return deleted.length;
 }

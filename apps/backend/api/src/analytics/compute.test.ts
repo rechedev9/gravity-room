@@ -57,6 +57,9 @@ function craftedRecords(): WorkoutRecord[] {
 mock.module('./queries', () => ({
   fetchAllUsers: async () => [{ userId: 'u1' }],
   fetchWorkoutRecords: async () => recordsToReturn,
+  // The real version opens a DB transaction; the test runs the body directly
+  // with a sentinel executor so no real connection is touched.
+  withInsightTransaction: async (fn: (tx: unknown) => Promise<unknown>) => fn('tx'),
   upsertInsight: async (
     userId: string,
     insightType: string,

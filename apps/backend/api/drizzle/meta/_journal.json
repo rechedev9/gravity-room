@@ -274,6 +274,13 @@
       "when": 1773500000004,
       "tag": "0038_exercises_renames",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1773500000005,
+      "tag": "0039_user_insights_nulls_not_distinct",
+      "breakpoints": true
     }
   ]
 }

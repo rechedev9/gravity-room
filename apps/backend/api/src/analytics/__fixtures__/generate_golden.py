@@ -1,11 +1,22 @@
 """Generate golden reference values from the live scipy / sklearn / numpy stack.
 
-These are the SAME library functions the Python analytics service uses
+NOTE (W13, Vercel migration): THIS SCRIPT CAN NO LONGER RUN. It imports the
+Python analytics service at apps/backend/analytics (insights/, ml/, queries.py),
+which was deleted once the TypeScript port under apps/backend/api/src/analytics
+reached golden-file parity. The service and this script's full runtime
+dependencies (FastAPI, scipy, scikit-learn, numpy, psycopg) are preserved in git
+history. The file is kept, frozen, purely as documented provenance for the
+parity oracle golden.json next to it: it records exactly which library functions
+and fixtures produced each frozen value. golden.json is the source of truth the
+parity tests load; regenerating it would require restoring the deleted Python
+service from history first.
+
+These are the SAME library functions the Python analytics service used
 (scipy.stats.linregress, scipy.stats.t.cdf / t.ppf, sklearn LogisticRegression,
 and the Epley formula), so the emitted JSON is an exact parity oracle for the
 TypeScript port under apps/backend/api/src/analytics.
 
-Run:  python generate_golden.py   (writes golden.json next to this file)
+Historical run command (no longer functional):  python generate_golden.py
 """
 
 from __future__ import annotations

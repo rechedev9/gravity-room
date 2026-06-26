@@ -1,8 +1,8 @@
 # Architecture
 
-Gravity Room is a Bun-workspaces monorepo with three runnable services and a
-shared TypeScript package. The repo is organized so that the frontend/backend
-split is visible from the root tree.
+Gravity Room is a Bun-workspaces monorepo with three runnable services (web,
+mobile, API) and a shared TypeScript package. The repo is organized so that the
+frontend/backend split is visible from the root tree.
 
 ## Top-level layout
 
@@ -13,8 +13,8 @@ gravity-room/
 │   │   ├── web/             ← React 19 + Vite SPA (PWA)
 │   │   └── mobile/          ← Expo / React Native
 │   └── backend/             ← server-side services
-│       ├── api/             ← ElysiaJS on Bun (REST + Postgres + Redis)
-│       └── analytics/       ← Python / FastAPI microservice (insights, ML)
+│       └── api/             ← ElysiaJS on Bun (REST + Postgres + Redis;
+│                              analytics insight pipelines under src/analytics)
 ├── packages/
 │   └── domain/              ← @gzclp/domain — Zod schemas + GZCLP engine,
 │                              consumed by web, mobile and api as workspace:*
@@ -27,13 +27,18 @@ gravity-room/
 
 ## Tech stack per service
 
-| Service                  | Tier     | Runtime    | Stack                                                                                               |
-| ------------------------ | -------- | ---------- | --------------------------------------------------------------------------------------------------- |
-| `apps/frontend/web`      | frontend | Bun + Vite | React 19, TanStack Router, TanStack Query, Tailwind 4, Zod 4, react-hook-form, i18next, Sentry, PWA |
-| `apps/frontend/mobile`   | frontend | Bun + Expo | Expo 54, React Native 0.81, expo-sqlite (local), expo-auth-session, TanStack Query                  |
-| `apps/backend/api`       | backend  | Bun        | ElysiaJS 1.4, Drizzle ORM + Postgres, ioredis, prom-client, pino, Zod 4, Sentry/Bun                 |
-| `apps/backend/analytics` | backend  | Python     | FastAPI 0.115, psycopg 3, scikit-learn, scipy, APScheduler, pydantic 2, ruff                        |
-| `packages/domain`        | shared   | Bun        | Pure TS + Zod 4. Exports the GZCLP progression engine and 9 schema modules                          |
+| Service                | Tier     | Runtime    | Stack                                                                                               |
+| ---------------------- | -------- | ---------- | --------------------------------------------------------------------------------------------------- |
+| `apps/frontend/web`    | frontend | Bun + Vite | React 19, TanStack Router, TanStack Query, Tailwind 4, Zod 4, react-hook-form, i18next, Sentry, PWA |
+| `apps/frontend/mobile` | frontend | Bun + Expo | Expo 54, React Native 0.81, expo-sqlite (local), expo-auth-session, TanStack Query                  |
+| `apps/backend/api`     | backend  | Bun        | ElysiaJS 1.4, Drizzle ORM + Postgres, ioredis, prom-client, pino, Zod 4, Sentry/Bun                 |
+| `packages/domain`      | shared   | Bun        | Pure TS + Zod 4. Exports the GZCLP progression engine and 9 schema modules                          |
+
+Analytics is not a separate service: the insight pipelines (e1RM, frequency,
+summary, volume, forecast, plateau, recommendation) were ported to TypeScript
+and live inside the API at `apps/backend/api/src/analytics/`, with a small
+shared stats helper, an ISO-week helper, and a JS IRLS logistic regression
+replacing the former numpy/scipy/scikit-learn stack.
 
 ## Cross-cutting contracts
 
@@ -54,7 +59,11 @@ gravity-room/
 
 - The SPA is served separately from the API. `apps/backend/api/src/create-app.ts`
   is HTTP-API only and never serves static assets.
-- The analytics service is consumed internally by the API.
+- Analytics runs in-process inside the API. Insights are pre-computed by the
+  TypeScript pipelines under `apps/backend/api/src/analytics/` and persisted to
+  the `user_insights` table, then read back via `GET /api/insights`. A Vercel
+  Cron job drives a bounded per-user batch through
+  `POST /api/internal/analytics/compute` (guarded by `INTERNAL_SECRET`).
 
 ## Local development
 
@@ -69,16 +78,15 @@ Postgres and Redis must be available locally — point `DATABASE_URL` and
 
 ## Validation per service
 
-| Command                                | What it covers                                |
-| -------------------------------------- | --------------------------------------------- |
-| `bun run typecheck`                    | web + domain + mobile (TS-strict)             |
-| `bun run typecheck:api`                | apps/backend/api                              |
-| `bun run lint`                         | web (eslint v9 + typescript-eslint)           |
-| `bun run format:check`                 | repo-wide prettier 3                          |
-| `bun run test`                         | web + domain + mobile bun:test                |
-| `bun run test:api`                     | apps/backend/api bun:test (services + routes) |
-| `bun run --filter web e2e`             | playwright (chromium)                         |
-| `pytest` (in `apps/backend/analytics`) | analytics unit tests                          |
+| Command                    | What it covers                                                               |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `bun run typecheck`        | web + domain + mobile (TS-strict)                                            |
+| `bun run typecheck:api`    | apps/backend/api                                                             |
+| `bun run lint`             | web (eslint v9 + typescript-eslint)                                          |
+| `bun run format:check`     | repo-wide prettier 3                                                         |
+| `bun run test`             | web + domain + mobile bun:test                                               |
+| `bun run test:api`         | apps/backend/api bun:test (services + routes + analytics golden-file parity) |
+| `bun run --filter web e2e` | playwright (chromium)                                                        |
 
 ## Why this structure
 

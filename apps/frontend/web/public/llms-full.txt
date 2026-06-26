@@ -109,18 +109,18 @@ Gravity Room solves all four by implementing the progression rules of establishe
 - Sentry for error tracking
 - Swagger/OpenAPI spec at /swagger/json (non-production only)
 
-### Analytics microservice (apps/backend/analytics)
-- Python FastAPI with APScheduler
-- pandas, scikit-learn for data processing
+### Analytics (apps/backend/api/src/analytics)
+- TypeScript inside the API package (no separate service)
+- Computed via Vercel Cron at POST /api/internal/analytics/compute
 - Estimated 1RM (e1RM) computation using Epley formula
 - Plateau detection, volume analysis, training frequency insights
-- ML-based strength forecasting
+- Strength forecasting and a logistic-regression load recommendation
 
 ### Infrastructure
-- Docker Compose for local dev
-- nginx serving the SPA (gzip, immutable cache for hashed assets)
+- Vercel single same-origin project: static Vite SPA + Node serverless functions under /api
+- Neon serverless Postgres and Upstash Redis
+- Vercel Cron for scheduled jobs (token cleanup, user purge, analytics compute)
 - Plausible Analytics (privacy-first, no cookies)
-- OrbStack for local container management (macOS)
 
 ## Progression Science
 

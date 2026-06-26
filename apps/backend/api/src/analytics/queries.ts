@@ -18,6 +18,14 @@ export interface UserRow {
   readonly userId: string;
 }
 
+/**
+ * A Drizzle executor: either the pooled client or an open transaction handle.
+ * Mirrors the pattern used in services/results.ts so insight writes can run
+ * inside `withInsightTransaction` or standalone.
+ */
+type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
+type Executor = Tx | ReturnType<typeof getDb>;
+
 /** All user IDs with at least one active/completed program instance. */
 export async function fetchAllUsers(): Promise<UserRow[]> {
   const db = getDb();
@@ -29,6 +37,41 @@ export async function fetchAllUsers(): Promise<UserRow[]> {
     // ordering matches uuid ordering, so this preserves queries.py's sequence.
     .orderBy(sql`${programInstances.userId}::text`);
   return rows;
+}
+
+/**
+ * The least-recently-computed eligible users, capped at `limit`.
+ *
+ * Eligible users are those with an active/completed program instance (same set
+ * as `fetchAllUsers`). They are ordered by the most recent `computed_at` across
+ * their `user_insights` rows, ascending, with NULLS FIRST so users who have
+ * never been computed are processed before stale ones. The trailing user_id
+ * tie-breaker keeps the cursor deterministic across ticks. This drives the
+ * bounded cron batch so a single tick never runs unbounded work.
+ */
+export async function fetchLeastRecentlyComputedUsers(limit: number): Promise<UserRow[]> {
+  const db = getDb();
+  const rows = await db
+    .select({ userId: sql<string>`${programInstances.userId}::text` })
+    .from(programInstances)
+    .leftJoin(userInsights, eq(userInsights.userId, programInstances.userId))
+    .where(inArray(programInstances.status, ['active', 'completed']))
+    .groupBy(programInstances.userId)
+    .orderBy(
+      sql`max(${userInsights.computedAt}) asc nulls first`,
+      sql`${programInstances.userId}::text`
+    )
+    .limit(limit);
+  return rows;
+}
+
+/**
+ * Run `fn` inside a single database transaction, passing the transaction handle
+ * so every insight upsert for one user commits atomically. A crashed tick rolls
+ * back cleanly and is safe to replay because the upserts are idempotent.
+ */
+export async function withInsightTransaction<T>(fn: (tx: Executor) => Promise<T>): Promise<T> {
+  return getDb().transaction(async (tx) => fn(tx));
 }
 
 /**
@@ -86,10 +129,10 @@ export async function upsertInsight(
   userId: string,
   insightType: string,
   exerciseId: string | null,
-  payload: unknown
+  payload: unknown,
+  executor: Executor = getDb()
 ): Promise<void> {
-  const db = getDb();
-  await db
+  await executor
     .insert(userInsights)
     .values({ userId, insightType, exerciseId, payload, computedAt: sql`now()` })
     .onConflictDoUpdate({
