@@ -7,7 +7,7 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { MUSCLE_GROUP_MAP, isExpandedExerciseRaw } from './exercises-seed-expanded';
 
 // ---------------------------------------------------------------------------
@@ -16,9 +16,9 @@ import { MUSCLE_GROUP_MAP, isExpandedExerciseRaw } from './exercises-seed-expand
 
 function createMockDb(): unknown {
   return {
-    insert: mock(() => ({
-      values: mock(() => ({
-        onConflictDoNothing: mock(() => Promise.resolve([])),
+    insert: vi.fn(() => ({
+      values: vi.fn(() => ({
+        onConflictDoNothing: vi.fn(() => Promise.resolve([])),
       })),
     })),
   };
@@ -167,10 +167,18 @@ describe('isExpandedExerciseRaw', () => {
 // ---------------------------------------------------------------------------
 
 describe('seedExercisesExpanded — fail-fast on unmapped primaryMuscles[0]', () => {
+  afterEach(() => {
+    vi.doUnmock('./data/exercises-expanded.json');
+    vi.resetModules();
+  });
+
   it('throws with exercise ID when primaryMuscles[0] is not in MUSCLE_GROUP_MAP', async () => {
-    // Arrange — use a mock JSON with one bad entry injected via mock.module
+    // Arrange — use a mock JSON with one bad entry injected via vi.doMock.
+    // doMock is non-hoisted; resetModules forces the dynamic import below to
+    // re-evaluate the module against the freshly registered JSON mock.
     const badData = [validEntry('bad_muscle_ex', 'unknown_group')];
-    mock.module('./data/exercises-expanded.json', () => ({ default: badData }));
+    vi.resetModules();
+    vi.doMock('./data/exercises-expanded.json', () => ({ default: badData }));
 
     const { seedExercisesExpanded } = await import('./exercises-seed-expanded');
     const db = createMockDb();
@@ -183,7 +191,8 @@ describe('seedExercisesExpanded — fail-fast on unmapped primaryMuscles[0]', ()
 
   it('throws with the unmapped muscle name in the error message', async () => {
     const badData = [validEntry('mystery_ex', 'mystery_muscle')];
-    mock.module('./data/exercises-expanded.json', () => ({ default: badData }));
+    vi.resetModules();
+    vi.doMock('./data/exercises-expanded.json', () => ({ default: badData }));
 
     const { seedExercisesExpanded } = await import('./exercises-seed-expanded');
     const db = createMockDb();

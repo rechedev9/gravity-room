@@ -9,14 +9,34 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect, beforeEach, afterAll } from 'bun:test';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mocks — declared before importing the route module
 // ---------------------------------------------------------------------------
 
-const mockCleanupExpiredTokens = mock<() => Promise<number>>(() => Promise.resolve(0));
-mock.module('../services/auth', () => ({
+const {
+  mockCleanupExpiredTokens,
+  mockPurgeDeletedUsers,
+  mockComputeUser,
+  mockFetchLeastRecentlyComputedUsers,
+} = vi.hoisted(() => {
+  const mockCleanupExpiredTokens = vi.fn<() => Promise<number>>(() => Promise.resolve(0));
+  const mockPurgeDeletedUsers = vi.fn<() => Promise<PurgeSummary>>(() =>
+    Promise.resolve({ purged: 0, cutoff: '1970-01-01T00:00:00.000Z' })
+  );
+  const mockComputeUser = vi.fn<(userId: string) => Promise<void>>(() => Promise.resolve());
+  const mockFetchLeastRecentlyComputedUsers = vi.fn<
+    (limit: number) => Promise<{ userId: string }[]>
+  >(() => Promise.resolve([]));
+  return {
+    mockCleanupExpiredTokens,
+    mockPurgeDeletedUsers,
+    mockComputeUser,
+    mockFetchLeastRecentlyComputedUsers,
+  };
+});
+vi.mock('../services/auth', () => ({
   cleanupExpiredTokens: mockCleanupExpiredTokens,
 }));
 
@@ -24,22 +44,15 @@ interface PurgeSummary {
   readonly purged: number;
   readonly cutoff: string;
 }
-const mockPurgeDeletedUsers = mock<() => Promise<PurgeSummary>>(() =>
-  Promise.resolve({ purged: 0, cutoff: '1970-01-01T00:00:00.000Z' })
-);
-mock.module('../services/purge', () => ({
+vi.mock('../services/purge', () => ({
   purgeDeletedUsers: mockPurgeDeletedUsers,
 }));
 
-const mockComputeUser = mock<(userId: string) => Promise<void>>(() => Promise.resolve());
-mock.module('../analytics/compute', () => ({
+vi.mock('../analytics/compute', () => ({
   computeUser: mockComputeUser,
 }));
 
-const mockFetchLeastRecentlyComputedUsers = mock<(limit: number) => Promise<{ userId: string }[]>>(
-  () => Promise.resolve([])
-);
-mock.module('../analytics/queries', () => ({
+vi.mock('../analytics/queries', () => ({
   fetchLeastRecentlyComputedUsers: mockFetchLeastRecentlyComputedUsers,
 }));
 

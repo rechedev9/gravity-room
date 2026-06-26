@@ -1222,7 +1222,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .post(
     '/signout',
-    async ({ cookie, set, reqLogger, ip }) => {
+    async ({ cookie, reqLogger, ip }) => {
       await rateLimit(ip, '/auth/signout');
 
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
@@ -1230,7 +1230,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
       if (refreshCookie) removeRefreshCookie(refreshCookie);
       reqLogger.info({ event: 'auth.signout' }, 'user signed out');
-      set.status = 204;
+      // Body-less 204: Node's undici rejects a non-null body with status 204
+      // (Bun tolerated it). The refresh-cookie clear above is still serialized
+      // onto this Response by Elysia.
+      return new Response(null, { status: 204 });
     },
     {
       detail: {
@@ -1247,13 +1250,17 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
   .post(
     '/mobile/signout',
-    async ({ body, set, reqLogger, ip }) => {
+    async ({ body, reqLogger, ip }) => {
       await rateLimit(ip, '/auth/mobile/signout');
 
       await signOutWithRefreshToken(body.refreshToken);
 
       reqLogger.info({ event: 'auth.mobile_signout' }, 'mobile user signed out');
-      set.status = 204;
+      // Return an explicit body-less 204. Node's undici Response constructor
+      // rejects a non-null body with status 204 (Bun tolerated it), and Elysia
+      // maps an empty handler return to an empty-string body — so we build the
+      // response directly to stay runtime-agnostic.
+      return new Response(null, { status: 204 });
     },
     {
       body: t.Object({ refreshToken: t.Optional(t.String({ maxLength: MAX_AUTH_TOKEN_CHARS })) }),
@@ -1367,7 +1374,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .delete(
     '/me',
-    async ({ userId, cookie, set, reqLogger, ip }) => {
+    async ({ userId, cookie, reqLogger, ip }) => {
       await rateLimit(ip, '/auth/me/delete', { maxRequests: 5 });
 
       await softDeleteUser(userId);
@@ -1377,7 +1384,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       if (refreshCookie) removeRefreshCookie(refreshCookie);
 
       reqLogger.info({ event: 'auth.account_deleted', userId }, 'account soft-deleted');
-      set.status = 204;
+      // Body-less 204 for Node/undici compatibility; the refresh-cookie clear
+      // above is still serialized onto this Response by Elysia.
+      return new Response(null, { status: 204 });
     },
     {
       detail: {

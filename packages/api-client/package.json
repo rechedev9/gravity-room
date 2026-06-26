@@ -7,7 +7,7 @@
     "@gzclp/domain": "workspace:*"
   },
   "devDependencies": {
-    "vitest": "^2"
+    "vitest": "^4"
   },
   "scripts": {
     "test": "vitest run",

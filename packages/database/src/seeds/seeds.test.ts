@@ -11,7 +11,7 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { afterAll, describe, it, expect } from 'bun:test';
+import { afterAll, describe, it, expect } from 'vitest';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '../schema';

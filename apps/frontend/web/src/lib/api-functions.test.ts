@@ -7,7 +7,7 @@
  * secondaryMuscles:null (s3), mixed-type secondaryMuscles array (s4),
  * paginated envelope parsing via Zod schema (REQ-EXPAG-005).
  */
-import { afterEach, describe, expect, it, mock } from 'bun:test';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod/v4';
 import { fetchAuthProviders, parseExerciseEntry } from './api-functions';
 
@@ -187,9 +187,7 @@ describe('parseExerciseEntry — 5 new metadata fields', () => {
 // fetchExercises — paginated envelope Zod validation (REQ-EXPAG-005)
 //
 // Testing the Zod schema that fetchExercises uses to validate the API response.
-// Direct testing of fetchExercises is not possible here because bun:test's
-// mock.module() from other test files (use-program.test.ts) replaces the
-// api-functions module. Instead we test the schema contract directly, which
+// We test the schema contract directly rather than fetchExercises itself, which
 // is the critical validation path.
 // ---------------------------------------------------------------------------
 
@@ -251,7 +249,7 @@ describe('fetchExercises — paginated envelope Zod validation', () => {
 
 describe('fetchAuthProviders', () => {
   it('parses the provider availability response from the auth endpoint', async () => {
-    const fetchMock = mock(() =>
+    const fetchMock = vi.fn(() =>
       Promise.resolve(
         new Response(
           JSON.stringify({
@@ -280,7 +278,7 @@ describe('fetchAuthProviders', () => {
   });
 
   it('rejects malformed provider availability payloads', async () => {
-    globalThis.fetch = mock(() =>
+    globalThis.fetch = vi.fn(() =>
       Promise.resolve(
         new Response(JSON.stringify({ emailPassword: true, google: true }), {
           status: 200,

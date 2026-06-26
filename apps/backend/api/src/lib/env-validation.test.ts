@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { REQUIRED_ENV, formatValidationError, validateEnv } from './env-validation';
 
 function fullProdEnv(): Record<string, string> {

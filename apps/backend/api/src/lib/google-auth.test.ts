@@ -17,7 +17,7 @@
 process.env['GOOGLE_CLIENT_ID'] = 'test-client-id';
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ApiError } from '../middleware/error-handler';
 
 // We import verifyGoogleToken after setting up env vars.
@@ -87,7 +87,7 @@ describe('verifyGoogleToken — JWKS fetch failure', () => {
     // Arrange: mock fetch to return 503 non-OK response
     // We pass a minimal 3-segment token so the function gets past format checks
     // and reaches the fetchGoogleCerts() call.
-    const mockFetch = mock(
+    const mockFetch = vi.fn(
       (): Promise<Response> => Promise.resolve(new Response(null, { status: 503 }))
     );
     globalThis.fetch = mockFetch as unknown as typeof fetch;
@@ -147,7 +147,7 @@ describe('verifyGoogleToken — expired token', () => {
     const jwksBody = await buildJwksResponse(SHARED_KID, keyPair.publicKey);
 
     // Mock fetch to return a valid JWKS
-    const mockFetch = mock(
+    const mockFetch = vi.fn(
       (): Promise<Response> =>
         Promise.resolve(
           new Response(JSON.stringify(jwksBody), {
@@ -193,7 +193,7 @@ describe('verifyGoogleToken — multiple audiences', () => {
     const keyPair = await sharedKeyPairPromise;
     const jwksBody = await buildJwksResponse(SHARED_KID, keyPair.publicKey);
 
-    const mockFetch = mock(
+    const mockFetch = vi.fn(
       (): Promise<Response> =>
         Promise.resolve(
           new Response(JSON.stringify(jwksBody), {
@@ -228,7 +228,7 @@ describe('verifyGoogleToken — multiple audiences', () => {
     const keyPair = await sharedKeyPairPromise;
     const jwksBody = await buildJwksResponse(SHARED_KID, keyPair.publicKey);
 
-    const mockFetch = mock(
+    const mockFetch = vi.fn(
       (): Promise<Response> =>
         Promise.resolve(
           new Response(JSON.stringify(jwksBody), {
@@ -272,7 +272,7 @@ describe('verifyGoogleToken — JWKS key rotation', () => {
 
     // The mock serves the OLD key set until Google "rotates" to the NEW set.
     let currentJwks = oldJwks;
-    const mockFetch = mock(
+    const mockFetch = vi.fn(
       (): Promise<Response> =>
         Promise.resolve(
           new Response(JSON.stringify(currentJwks), {
@@ -319,7 +319,7 @@ describe('verifyGoogleToken — JWKS key rotation', () => {
 
 describe('verifyGoogleToken — email verification', () => {
   function mockJwks(jwksBody: { keys: unknown[] }): void {
-    const mockFetch = mock(
+    const mockFetch = vi.fn(
       (): Promise<Response> =>
         Promise.resolve(
           new Response(JSON.stringify(jwksBody), {

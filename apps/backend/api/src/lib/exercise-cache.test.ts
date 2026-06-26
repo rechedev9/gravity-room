@@ -7,20 +7,20 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mock Redis client
 // ---------------------------------------------------------------------------
 
-const mockGet = mock(() => Promise.resolve(null as unknown));
-const mockSet = mock(() => Promise.resolve('OK'));
-const mockDel = mock(() => Promise.resolve(1));
-const mockScan = mock(() => Promise.resolve(['0', [] as string[]] as [string, string[]]));
+const mockGet = vi.fn(() => Promise.resolve(null as unknown));
+const mockSet = vi.fn(() => Promise.resolve('OK'));
+const mockDel = vi.fn(() => Promise.resolve(1));
+const mockScan = vi.fn(() => Promise.resolve(['0', [] as string[]] as [string, string[]]));
 
 let redisAvailable = true;
 
-mock.module('./redis', () => ({
+vi.mock('./redis', () => ({
   getRedis: (): unknown =>
     redisAvailable ? { get: mockGet, set: mockSet, del: mockDel, scan: mockScan } : undefined,
 }));

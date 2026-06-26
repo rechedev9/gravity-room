@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { INSIGHT_TYPES, parseInsightTypesQuery } from './insight-types';
 
 describe('parseInsightTypesQuery', () => {

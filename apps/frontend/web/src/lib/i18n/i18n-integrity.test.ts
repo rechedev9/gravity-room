@@ -1,12 +1,15 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import en from '@/lib/i18n/locales/en/translation.json';
 import es from '@/lib/i18n/locales/es/translation.json';
 
 type JsonObject = Record<string, unknown>;
 
-const SOURCE_ROOT = join(import.meta.dir, '..', '..');
+// import.meta.dir is a Bun-only convenience; derive the directory from the
+// module URL so this works under vitest/Node too.
+const SOURCE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const STRING_LITERAL_T_CALL = /\bt\(\s*(['"])([^'"\n]+)\1/g;
 
 function flattenKeys(obj: JsonObject, prefix = ''): string[] {

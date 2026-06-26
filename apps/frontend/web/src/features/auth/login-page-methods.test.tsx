@@ -3,7 +3,7 @@
  * form. Verifies the three provider buttons render and the email form expands
  * with a sign-in/sign-up toggle.
  */
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { createElement } from 'react';
 import type { FC, ReactNode } from 'react';
@@ -15,32 +15,39 @@ import {
   createMemoryHistory,
 } from '@tanstack/react-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { apiFunctionsStubs } from '../../../test/helpers/api-functions-mock';
 
-const mockRefreshAccessToken = mock<() => Promise<string | null>>(() => Promise.resolve(null));
-const mockFetchAuthProviders = mock(() =>
-  Promise.resolve({
-    emailPassword: true,
-    google: true,
-    apple: true,
-    github: true,
-    microsoft: true,
-  })
-);
+// vi.mock is hoisted above imports, so the fns referenced by the factories and
+// beforeEach are created via vi.hoisted; the shared stubs come from a dynamic
+// import inside the (async) factory.
+const { mockRefreshAccessToken, mockFetchAuthProviders } = vi.hoisted(() => ({
+  mockRefreshAccessToken: vi.fn<() => Promise<string | null>>(() => Promise.resolve(null)),
+  mockFetchAuthProviders: vi.fn(() =>
+    Promise.resolve({
+      emailPassword: true,
+      google: true,
+      apple: true,
+      github: true,
+      microsoft: true,
+    })
+  ),
+}));
 
-mock.module('@/lib/api', () => ({
+vi.mock('@/lib/api', () => ({
   refreshAccessToken: mockRefreshAccessToken,
-  setAccessToken: mock(() => {}),
-  getAccessToken: mock(() => null),
+  setAccessToken: vi.fn(() => {}),
+  getAccessToken: vi.fn(() => null),
 }));
 
-mock.module('@/lib/api-functions', () => ({
-  ...apiFunctionsStubs,
-  apiFetch: mock(() => Promise.reject(new Error('no auth'))),
-  fetchAuthProviders: mockFetchAuthProviders,
-}));
+vi.mock('@/lib/api-functions', async () => {
+  const { apiFunctionsStubs } = await import('../../../test/helpers/api-functions-mock');
+  return {
+    ...apiFunctionsStubs,
+    apiFetch: vi.fn(() => Promise.reject(new Error('no auth'))),
+    fetchAuthProviders: mockFetchAuthProviders,
+  };
+});
 
-mock.module('@react-oauth/google', () => ({
+vi.mock('@react-oauth/google', () => ({
   GoogleLogin: () => createElement('div', { 'data-testid': 'google-login' }, 'Google Sign-In'),
   GoogleOAuthProvider: ({ children }: { readonly children: ReactNode }) => children,
 }));

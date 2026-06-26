@@ -13,22 +13,32 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
-const mockRateLimit = mock((): Promise<void> => Promise.resolve());
-const mockFindUserById = mock(
-  (id: string): Promise<{ id: string } | undefined> => Promise.resolve({ id })
-);
+const { mockRateLimit, mockFindUserById, mockListExercises } = vi.hoisted(() => {
+  const mockRateLimit = vi.fn((): Promise<void> => Promise.resolve());
+  const mockFindUserById = vi.fn(
+    (id: string): Promise<{ id: string } | undefined> => Promise.resolve({ id })
+  );
+  const mockListExercises = vi.fn<() => Promise<PaginatedResult>>(() =>
+    Promise.resolve({ data: [], total: 0, offset: 0, limit: 100 })
+  );
+  return {
+    mockRateLimit,
+    mockFindUserById,
+    mockListExercises,
+  };
+});
 
-mock.module('../middleware/rate-limit', () => ({
+vi.mock('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
 }));
 
-mock.module('../services/auth', () => ({
+vi.mock('../services/auth', () => ({
   findUserById: mockFindUserById,
 }));
 
@@ -39,14 +49,10 @@ interface PaginatedResult {
   readonly limit: number;
 }
 
-const mockListExercises = mock<() => Promise<PaginatedResult>>(() =>
-  Promise.resolve({ data: [], total: 0, offset: 0, limit: 100 })
-);
-
-mock.module('../services/exercises', () => ({
+vi.mock('../services/exercises', () => ({
   listExercises: mockListExercises,
-  listMuscleGroups: mock(() => Promise.resolve([])),
-  createExercise: mock(() => Promise.resolve({ ok: true, value: { id: 'test_exercise' } })),
+  listMuscleGroups: vi.fn(() => Promise.resolve([])),
+  createExercise: vi.fn(() => Promise.resolve({ ok: true, value: { id: 'test_exercise' } })),
 }));
 
 import { Elysia } from 'elysia';

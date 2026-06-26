@@ -1,8 +1,8 @@
-import { describe, it, expect, afterEach, mock } from 'bun:test';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import i18n from 'i18next';
 import { createElement } from 'react';
 
-mock.module('@tanstack/react-router', () => ({
+vi.mock('@tanstack/react-router', () => ({
   Link: ({
     children,
     to,
@@ -38,7 +38,7 @@ describe('ProgramCard', () => {
   });
 
   it('renders preview link and start button when previewTo + onSelect are both provided', () => {
-    const onSelect = mock();
+    const onSelect = vi.fn();
     render(
       createElement(ProgramCard, {
         definition: FIXTURE,
@@ -59,7 +59,7 @@ describe('ProgramCard', () => {
   });
 
   it('renders only a single start button when only onSelect is provided', () => {
-    const onSelect = mock();
+    const onSelect = vi.fn();
     render(
       createElement(ProgramCard, {
         definition: FIXTURE,
@@ -89,7 +89,7 @@ describe('ProgramCard', () => {
     await act(async () => {
       await i18n.changeLanguage('en');
     });
-    const onSelect = mock();
+    const onSelect = vi.fn();
     render(
       createElement(ProgramCard, {
         definition: FIXTURE,

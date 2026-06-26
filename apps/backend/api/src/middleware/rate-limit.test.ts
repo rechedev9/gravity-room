@@ -8,7 +8,7 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before importing the SUT
@@ -16,7 +16,7 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test';
 
 let redisAvailable = true;
 
-mock.module('../lib/redis', () => ({
+vi.mock('../lib/redis', () => ({
   // Truthy stub; the mocked Ratelimit below ignores the client entirely.
   getRedis: (): unknown => (redisAvailable ? {} : undefined),
 }));
@@ -24,7 +24,7 @@ mock.module('../lib/redis', () => ({
 // Per-key hit counter shared across mocked Ratelimit instances.
 const counts = new Map<string, number>();
 
-mock.module('@upstash/ratelimit', () => {
+vi.mock('@upstash/ratelimit', () => {
   class Ratelimit {
     private readonly max: number;
     private readonly windowMs: number;

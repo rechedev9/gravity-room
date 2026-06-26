@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { WeightField } from './weight-field';
 
@@ -15,10 +15,10 @@ function buildProps(overrides?: Partial<Parameters<typeof WeightField>[0]>) {
     fieldError: null,
     step: 2.5,
     min: 20,
-    onChange: mock(),
-    onBlur: mock(),
-    onAdjust: mock(),
-    onSubmit: mock(),
+    onChange: vi.fn(),
+    onBlur: vi.fn(),
+    onAdjust: vi.fn(),
+    onSubmit: vi.fn(),
     ...overrides,
   };
 }

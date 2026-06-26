@@ -3,12 +3,12 @@ process.env['NODE_ENV'] = 'test';
 process.env['AUTH_DEV_ROUTE_ENABLED'] = 'true';
 process.env['AUTH_DEV_ROUTE_SECRET'] = 'test-dev-auth-secret';
 
-import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Elysia } from 'elysia';
 import { ApiError } from '../middleware/error-handler';
 
 afterAll(() => {
-  mock.restore();
+  vi.restoreAllMocks();
 });
 
 const PW_USER = {
@@ -24,63 +24,63 @@ const PW_USER = {
   updatedAt: new Date('2024-01-01'),
 };
 
-const mockRateLimit = mock<() => Promise<void>>(() => Promise.resolve());
-mock.module('../middleware/rate-limit', () => ({
+const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
+vi.mock('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
 }));
 
-const mockFindUserByEmail = mock<() => Promise<typeof PW_USER | undefined>>(() =>
+const mockFindUserByEmail = vi.fn<() => Promise<typeof PW_USER | undefined>>(() =>
   Promise.resolve(undefined)
 );
-const mockCreatePasswordUser = mock<() => Promise<typeof PW_USER>>(() =>
+const mockCreatePasswordUser = vi.fn<() => Promise<typeof PW_USER>>(() =>
   Promise.resolve({ ...PW_USER, emailVerified: false })
 );
-const mockSetUserPassword = mock(() => Promise.resolve());
-const mockMarkEmailVerified = mock<() => Promise<typeof PW_USER | undefined>>(() =>
+const mockSetUserPassword = vi.fn(() => Promise.resolve());
+const mockMarkEmailVerified = vi.fn<() => Promise<typeof PW_USER | undefined>>(() =>
   Promise.resolve({ ...PW_USER })
 );
-const mockHashPassword = mock(() => Promise.resolve('hashed-password'));
+const mockHashPassword = vi.fn(() => Promise.resolve('hashed-password'));
 
-mock.module('../services/auth', () => ({
-  hashToken: mock(() => Promise.resolve('a'.repeat(64))),
-  findUserById: mock(() => Promise.resolve({ ...PW_USER })),
-  findRefreshTokenByPreviousHash: mock(() => Promise.resolve(undefined)),
-  revokeRefreshToken: mock(() => Promise.resolve()),
-  revokeAllUserTokens: mock(() => Promise.resolve()),
-  createAndStoreRefreshToken: mock(() => Promise.resolve('mock-raw-refresh-token')),
-  rotateRefreshToken: mock(() =>
+vi.mock('../services/auth', () => ({
+  hashToken: vi.fn(() => Promise.resolve('a'.repeat(64))),
+  findUserById: vi.fn(() => Promise.resolve({ ...PW_USER })),
+  findRefreshTokenByPreviousHash: vi.fn(() => Promise.resolve(undefined)),
+  revokeRefreshToken: vi.fn(() => Promise.resolve()),
+  revokeAllUserTokens: vi.fn(() => Promise.resolve()),
+  createAndStoreRefreshToken: vi.fn(() => Promise.resolve('mock-raw-refresh-token')),
+  rotateRefreshToken: vi.fn(() =>
     Promise.resolve({ status: 'rotated', user: { ...PW_USER }, refreshToken: 'new-refresh' })
   ),
   findUserByEmail: mockFindUserByEmail,
-  updateUserProfile: mock(() => Promise.resolve({ ...PW_USER })),
-  softDeleteUser: mock(() => Promise.resolve()),
-  findOrCreateGoogleUser: mock(() => Promise.resolve({ user: { ...PW_USER }, isNewUser: false })),
-  findOrCreateUserByIdentity: mock(() =>
+  updateUserProfile: vi.fn(() => Promise.resolve({ ...PW_USER })),
+  softDeleteUser: vi.fn(() => Promise.resolve()),
+  findOrCreateGoogleUser: vi.fn(() => Promise.resolve({ user: { ...PW_USER }, isNewUser: false })),
+  findOrCreateUserByIdentity: vi.fn(() =>
     Promise.resolve({ user: { ...PW_USER }, isNewUser: false })
   ),
-  generateRefreshToken: mock(() => 'state-fixed-123'),
+  generateRefreshToken: vi.fn(() => 'state-fixed-123'),
   hashPassword: mockHashPassword,
-  authenticatePassword: mock(() => Promise.resolve(null)),
+  authenticatePassword: vi.fn(() => Promise.resolve(null)),
   createPasswordUser: mockCreatePasswordUser,
-  createEmailVerificationToken: mock(() => Promise.resolve('verify-token')),
-  consumeEmailVerificationToken: mock(() => Promise.resolve(null)),
+  createEmailVerificationToken: vi.fn(() => Promise.resolve('verify-token')),
+  consumeEmailVerificationToken: vi.fn(() => Promise.resolve(null)),
   markEmailVerified: mockMarkEmailVerified,
-  createPasswordResetToken: mock(() => Promise.resolve('reset-token')),
-  consumePasswordResetToken: mock(() => Promise.resolve(null)),
+  createPasswordResetToken: vi.fn(() => Promise.resolve('reset-token')),
+  consumePasswordResetToken: vi.fn(() => Promise.resolve(null)),
   setUserPassword: mockSetUserPassword,
   // Included so the process-global services/auth mock exposes every export the
   // routes batch consumes. internal.ts imports cleanupExpiredTokens, and this
   // file runs first (alphabetically) and materializes the module shape via its
   // `await import('./auth')`, freezing the export-name set; omitting this export
   // would break internal.ts's static named import at link time.
-  cleanupExpiredTokens: mock(() => Promise.resolve(0)),
+  cleanupExpiredTokens: vi.fn(() => Promise.resolve(0)),
   REFRESH_TOKEN_DAYS: 7,
 }));
 
-mock.module('../lib/email', () => ({
-  sendVerificationEmail: mock(() => Promise.resolve()),
-  sendPasswordResetEmail: mock(() => Promise.resolve()),
-  isEmailConfigured: mock(() => true),
+vi.mock('../lib/email', () => ({
+  sendVerificationEmail: vi.fn(() => Promise.resolve()),
+  sendPasswordResetEmail: vi.fn(() => Promise.resolve()),
+  isEmailConfigured: vi.fn(() => true),
 }));
 
 const { authRoutes } = await import('./auth');

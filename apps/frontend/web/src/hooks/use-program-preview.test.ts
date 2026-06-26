@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { buildDefaultConfig } from './use-program-preview';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 

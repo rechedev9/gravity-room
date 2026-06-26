@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { computeGenericProgram } from '@gzclp/domain/generic-engine';
 import type { GenericResults } from '@gzclp/domain/types/program';
 import { computeProfileData, compute1RMData, formatVolume } from './profile-stats';

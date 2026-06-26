@@ -2,11 +2,11 @@
  * Programs service unit tests — buildUndoHistory RPE serialization + composite cursor pagination.
  *
  * Part 1 (buildUndoHistory): self-contained, no DB connection required.
- * Part 2 (parseCursor / getInstances): uses mock.module() to mock getDb().
+ * Part 2 (parseCursor / getInstances): uses vi.mock() to mock getDb().
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ApiError } from '../middleware/error-handler';
 import type { ExportedProgram } from './programs';
 
@@ -136,15 +136,15 @@ let capturedWhere: unknown = undefined;
 
 function createChainable(rows: unknown[]): Record<string, unknown> {
   const obj: Record<string, unknown> = {};
-  obj['from'] = mock(function from() {
+  obj['from'] = vi.fn(function from() {
     return {
-      where: mock(function where(condition: unknown) {
+      where: vi.fn(function where(condition: unknown) {
         capturedWhere = condition;
         return {
-          orderBy: mock(function orderBy(...args: unknown[]) {
+          orderBy: vi.fn(function orderBy(...args: unknown[]) {
             capturedOrderBy = args;
             return {
-              limit: mock(function limit() {
+              limit: vi.fn(function limit() {
                 return {
                   then: (fn: (val: unknown[]) => unknown) => fn(rows),
                 };
@@ -160,7 +160,7 @@ function createChainable(rows: unknown[]): Record<string, unknown> {
 
 function createMockDb(): Record<string, unknown> {
   return {
-    select: mock(function select() {
+    select: vi.fn(function select() {
       return createChainable(selectRows);
     }),
   };
@@ -168,14 +168,14 @@ function createMockDb(): Record<string, unknown> {
 
 let mockDb = createMockDb();
 
-mock.module('../db', () => ({
+vi.mock('../db', () => ({
   getDb: () => mockDb,
 }));
 
 // Also mock the catalog service dependency (getProgramDefinition is imported by programs.ts)
-const mockGetProgramDefinition = mock(() => Promise.resolve({ status: 'not_found' }));
+const mockGetProgramDefinition = vi.fn(() => Promise.resolve({ status: 'not_found' }));
 
-mock.module('../services/catalog', () => ({
+vi.mock('../services/catalog', () => ({
   getProgramDefinition: mockGetProgramDefinition,
 }));
 
@@ -379,26 +379,26 @@ describe('updateInstanceMetadata', () => {
 
   it('throws 404 INSTANCE_NOT_FOUND when no row is updated', async () => {
     // Override mockDb to support the update chain and return empty result
-    (mockDb as Record<string, unknown>).update = mock(function update() {
+    (mockDb as Record<string, unknown>).update = vi.fn(function update() {
       return {
-        set: mock(function set() {
+        set: vi.fn(function set() {
           return {
-            where: mock(function where() {
+            where: vi.fn(function where() {
               return {
-                returning: mock(() => Promise.resolve([])),
+                returning: vi.fn(() => Promise.resolve([])),
               };
             }),
           };
         }),
       };
     });
-    (mockDb as Record<string, unknown>).select = mock(function select() {
+    (mockDb as Record<string, unknown>).select = vi.fn(function select() {
       return {
-        from: mock(function from() {
+        from: vi.fn(function from() {
           return {
-            where: mock(function where() {
+            where: vi.fn(function where() {
               return {
-                limit: mock(() => Promise.resolve([])),
+                limit: vi.fn(() => Promise.resolve([])),
               };
             }),
           };
@@ -419,26 +419,26 @@ describe('updateInstanceMetadata', () => {
   });
 
   it('throws 400 METADATA_TOO_LARGE when merged metadata would exceed 10KB', async () => {
-    (mockDb as Record<string, unknown>).update = mock(function update() {
+    (mockDb as Record<string, unknown>).update = vi.fn(function update() {
       return {
-        set: mock(function set() {
+        set: vi.fn(function set() {
           return {
-            where: mock(function where() {
+            where: vi.fn(function where() {
               return {
-                returning: mock(() => Promise.resolve([])),
+                returning: vi.fn(() => Promise.resolve([])),
               };
             }),
           };
         }),
       };
     });
-    (mockDb as Record<string, unknown>).select = mock(function select() {
+    (mockDb as Record<string, unknown>).select = vi.fn(function select() {
       return {
-        from: mock(function from() {
+        from: vi.fn(function from() {
           return {
-            where: mock(function where() {
+            where: vi.fn(function where() {
               return {
-                limit: mock(() => Promise.resolve([{ id: 'inst-1' }])),
+                limit: vi.fn(() => Promise.resolve([{ id: 'inst-1' }])),
               };
             }),
           };
@@ -472,13 +472,13 @@ describe('updateInstanceMetadata', () => {
     };
 
     // Mock: update returns the updated row
-    (mockDb as Record<string, unknown>).update = mock(function update() {
+    (mockDb as Record<string, unknown>).update = vi.fn(function update() {
       return {
-        set: mock(function set() {
+        set: vi.fn(function set() {
           return {
-            where: mock(function where() {
+            where: vi.fn(function where() {
               return {
-                returning: mock(() => Promise.resolve([instanceRow])),
+                returning: vi.fn(() => Promise.resolve([instanceRow])),
               };
             }),
           };
@@ -487,16 +487,16 @@ describe('updateInstanceMetadata', () => {
     });
     // fetchResultsAndUndo calls getDb().select() twice (results + undo)
     // Each chain: .select({...}).from(table).where(condition) must be thenable
-    (mockDb as Record<string, unknown>).select = mock(function select() {
+    (mockDb as Record<string, unknown>).select = vi.fn(function select() {
       return {
-        from: mock(function from() {
+        from: vi.fn(function from() {
           return {
-            where: mock(function where() {
+            where: vi.fn(function where() {
               // Thenable that resolves to empty array
               // Also supports .orderBy() for undo query
               return {
                 then: (fn: (val: unknown[]) => unknown) => Promise.resolve(fn([])),
-                orderBy: mock(function orderBy() {
+                orderBy: vi.fn(function orderBy() {
                   return {
                     then: (fn: (val: unknown[]) => unknown) => Promise.resolve(fn([])),
                   };
@@ -536,16 +536,16 @@ describe('getInstance', () => {
     // Mock: first select().from().where().limit(1) returns the instance
     // Then fetchResultsAndUndo calls select() twice more (results + undo)
     let callCount = 0;
-    (mockDb as Record<string, unknown>).select = mock(function select() {
+    (mockDb as Record<string, unknown>).select = vi.fn(function select() {
       callCount++;
       if (callCount === 1) {
         // getInstance query — returns instance row
         return {
-          from: mock(function from() {
+          from: vi.fn(function from() {
             return {
-              where: mock(function where() {
+              where: vi.fn(function where() {
                 return {
-                  limit: mock(() => Promise.resolve([instanceRow])),
+                  limit: vi.fn(() => Promise.resolve([instanceRow])),
                 };
               }),
             };
@@ -554,12 +554,12 @@ describe('getInstance', () => {
       }
       // fetchResultsAndUndo queries — thenable returning empty arrays
       return {
-        from: mock(function from() {
+        from: vi.fn(function from() {
           return {
-            where: mock(function where() {
+            where: vi.fn(function where() {
               return {
                 then: (fn: (val: unknown[]) => unknown) => Promise.resolve(fn([])),
-                orderBy: mock(function orderBy() {
+                orderBy: vi.fn(function orderBy() {
                   return {
                     then: (fn: (val: unknown[]) => unknown) => Promise.resolve(fn([])),
                   };
@@ -583,13 +583,13 @@ describe('getInstance', () => {
 
   it('throws 404 INSTANCE_NOT_FOUND when no instance matches', async () => {
     // Mock: select returns empty
-    (mockDb as Record<string, unknown>).select = mock(function select() {
+    (mockDb as Record<string, unknown>).select = vi.fn(function select() {
       return {
-        from: mock(function from() {
+        from: vi.fn(function from() {
           return {
-            where: mock(function where() {
+            where: vi.fn(function where() {
               return {
-                limit: mock(() => Promise.resolve([])),
+                limit: vi.fn(() => Promise.resolve([])),
               };
             }),
           };
@@ -647,7 +647,7 @@ function baseExportedProgram(overrides: Partial<ExportedProgram> = {}): Exported
 describe('importInstance — undoHistory validation', () => {
   it('rejects undo entries with negative workoutIndex before writing to the database', async () => {
     useImportableProgramDefinition();
-    const transaction = mock(() => {
+    const transaction = vi.fn(() => {
       throw new Error('transaction should not run');
     });
     mockDb = { transaction };
@@ -672,7 +672,7 @@ describe('importInstance — undoHistory validation', () => {
 
   it('rejects undo entries with unknown slotIds before writing to the database', async () => {
     useImportableProgramDefinition();
-    const transaction = mock(() => {
+    const transaction = vi.fn(() => {
       throw new Error('transaction should not run');
     });
     mockDb = { transaction };
@@ -697,7 +697,7 @@ describe('importInstance — undoHistory validation', () => {
 
   it('rejects undo entries with oversized previous AMRAP reps before writing to the database', async () => {
     useImportableProgramDefinition();
-    const transaction = mock(() => {
+    const transaction = vi.fn(() => {
       throw new Error('transaction should not run');
     });
     mockDb = { transaction };
@@ -722,7 +722,7 @@ describe('importInstance — undoHistory validation', () => {
 
   it('rejects imported result entries with oversized set-log arrays before writing to the database', async () => {
     useImportableProgramDefinition();
-    const transaction = mock(() => {
+    const transaction = vi.fn(() => {
       throw new Error('transaction should not run');
     });
     mockDb = { transaction };
@@ -754,7 +754,7 @@ describe('importInstance — undoHistory validation', () => {
 
   it('rejects undo entries with oversized previous set-log arrays before writing to the database', async () => {
     useImportableProgramDefinition();
-    const transaction = mock(() => {
+    const transaction = vi.fn(() => {
       throw new Error('transaction should not run');
     });
     mockDb = { transaction };
@@ -786,7 +786,7 @@ describe('importInstance — undoHistory validation', () => {
 
   it('rejects imported result entries with malformed set logs before writing to the database', async () => {
     useImportableProgramDefinition();
-    const transaction = mock(() => {
+    const transaction = vi.fn(() => {
       throw new Error('transaction should not run');
     });
     mockDb = { transaction };
@@ -818,7 +818,7 @@ describe('importInstance — undoHistory validation', () => {
 
   it('rejects imported result set-log weights above the service cap before writing to the database', async () => {
     useImportableProgramDefinition();
-    const transaction = mock(() => {
+    const transaction = vi.fn(() => {
       throw new Error('transaction should not run');
     });
     mockDb = { transaction };

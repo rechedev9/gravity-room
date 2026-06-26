@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { isAppleConfigured, buildAppleAuthorizeUrl, parseAppleUserName } from './apple-auth';
 
 const ORIGINAL = process.env['APPLE_CLIENT_ID'];

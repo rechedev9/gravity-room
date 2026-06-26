@@ -6,7 +6,7 @@
  * so correct rounding of the TRUE value diverges from a `Math.round(x*10**n)`
  * implementation. Values verified against CPython 3 `round(x, n)`.
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { pyRound } from './round';
 
 describe('pyRound', () => {

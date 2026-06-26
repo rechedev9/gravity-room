@@ -24,7 +24,7 @@
  * add a stub here too, otherwise tests will start failing with the same
  * SyntaxError.
  */
-import { mock } from 'bun:test';
+import { vi } from 'vitest';
 import { z } from 'zod/v4';
 import { ExerciseEntrySchema } from '@gzclp/domain/schemas/exercises';
 import { parseUserSafe as realParseUserSafe } from '@gzclp/domain/schemas/user';
@@ -39,49 +39,49 @@ const AuthProvidersResponseSchema = z.object({
 
 export const apiFunctionsStubs = {
   // Auth-aware fetch wrapper
-  apiFetch: mock(() => Promise.reject(new Error('apiFetch not configured in this test'))),
+  apiFetch: vi.fn(() => Promise.reject(new Error('apiFetch not configured in this test'))),
 
   // Program instances
-  fetchPrograms: mock(() => Promise.resolve([])),
-  createProgram: mock(() => Promise.resolve({})),
-  updateProgramConfig: mock(() => Promise.resolve()),
-  updateProgramMetadata: mock(() => Promise.resolve({})),
-  completeProgram: mock(() => Promise.resolve()),
-  deleteProgram: mock(() => Promise.resolve()),
-  undoLastResult: mock(() => Promise.resolve()),
-  exportProgram: mock(() => Promise.resolve({})),
-  importProgram: mock(() => Promise.resolve({})),
+  fetchPrograms: vi.fn(() => Promise.resolve([])),
+  createProgram: vi.fn(() => Promise.resolve({})),
+  updateProgramConfig: vi.fn(() => Promise.resolve()),
+  updateProgramMetadata: vi.fn(() => Promise.resolve({})),
+  completeProgram: vi.fn(() => Promise.resolve()),
+  deleteProgram: vi.fn(() => Promise.resolve()),
+  undoLastResult: vi.fn(() => Promise.resolve()),
+  exportProgram: vi.fn(() => Promise.resolve({})),
+  importProgram: vi.fn(() => Promise.resolve({})),
 
   // User profile
-  fetchMe: mock(() => Promise.resolve(null)),
-  updateProfile: mock(() => Promise.resolve({})),
-  deleteAccount: mock(() => Promise.resolve()),
+  fetchMe: vi.fn(() => Promise.resolve(null)),
+  updateProfile: vi.fn(() => Promise.resolve({})),
+  deleteAccount: vi.fn(() => Promise.resolve()),
   // Real implementation by default — pure Zod parser, safe to use across tests.
-  parseUserSafe: mock((data: unknown) => realParseUserSafe(data)),
+  parseUserSafe: vi.fn((data: unknown) => realParseUserSafe(data)),
 
   // Public stats
-  fetchAuthProviders: mock(async () => {
+  fetchAuthProviders: vi.fn(async () => {
     const res = await fetch('http://localhost:3001/api/auth/providers');
     return AuthProvidersResponseSchema.parse(await res.json());
   }),
-  fetchOnlineCount: mock(() => Promise.resolve(null)),
+  fetchOnlineCount: vi.fn(() => Promise.resolve(null)),
 
   // Generic (slot-keyed) program operations
-  fetchGenericProgramDetail: mock(() => Promise.resolve(null)),
-  recordGenericResult: mock(() => Promise.resolve()),
-  deleteGenericResult: mock(() => Promise.resolve()),
+  fetchGenericProgramDetail: vi.fn(() => Promise.resolve(null)),
+  recordGenericResult: vi.fn(() => Promise.resolve()),
+  deleteGenericResult: vi.fn(() => Promise.resolve()),
 
   // Catalog
-  fetchCatalogList: mock(() => Promise.resolve([])),
-  fetchCatalogDetail: mock(() => Promise.resolve(null)),
+  fetchCatalogList: vi.fn(() => Promise.resolve([])),
+  fetchCatalogDetail: vi.fn(() => Promise.resolve(null)),
 
   // Exercises — real Zod parser by default so tests that exercise the schema
   // directly (api-functions.test.ts) keep working even when another test in
   // the same process has already swapped this mock in.
-  parseExerciseEntry: mock((raw: unknown) => ExerciseEntrySchema.parse(raw)),
-  fetchExercises: mock(() => Promise.resolve({ data: [], total: 0, offset: 0, limit: 0 })),
-  fetchMuscleGroups: mock(() => Promise.resolve([])),
+  parseExerciseEntry: vi.fn((raw: unknown) => ExerciseEntrySchema.parse(raw)),
+  fetchExercises: vi.fn(() => Promise.resolve({ data: [], total: 0, offset: 0, limit: 0 })),
+  fetchMuscleGroups: vi.fn(() => Promise.resolve([])),
 
   // Insights
-  fetchInsights: mock(() => Promise.resolve([])),
+  fetchInsights: vi.fn(() => Promise.resolve([])),
 };

@@ -6,34 +6,34 @@ process.env['DATABASE_URL'] = 'postgres://test:test@localhost:5432/test';
 process.env['LOG_LEVEL'] = 'silent';
 process.env['JWT_SECRET'] = 'test-secret-must-be-at-least-32-chars-1234';
 
-import { mock, describe, it, expect } from 'bun:test';
+import { describe, it, expect, vi } from 'vitest';
 import { Elysia } from 'elysia';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before imports that trigger side-effects
 // ---------------------------------------------------------------------------
 
-mock.module('./lib/sentry', () => ({
-  captureException: mock(() => {}),
-  flushSentry: mock(() => Promise.resolve()),
+vi.mock('./lib/sentry', () => ({
+  captureException: vi.fn(() => {}),
+  flushSentry: vi.fn(() => Promise.resolve()),
 }));
 
-mock.module('./lib/redis', () => ({
-  getRedis: mock(() => undefined),
+vi.mock('./lib/redis', () => ({
+  getRedis: vi.fn(() => undefined),
 }));
 
-mock.module('./db', () => ({
-  getDb: mock(() => ({
-    execute: mock(() => Promise.resolve([{ '?column?': 1 }])),
+vi.mock('./db', () => ({
+  getDb: vi.fn(() => ({
+    execute: vi.fn(() => Promise.resolve([{ '?column?': 1 }])),
   })),
-  closeDb: mock(() => Promise.resolve()),
+  closeDb: vi.fn(() => Promise.resolve()),
 }));
 
-mock.module('./middleware/request-logger', () => ({
+vi.mock('./middleware/request-logger', () => ({
   requestLogger: new Elysia({ name: 'request-logger-mock' }),
 }));
 
-mock.module('./plugins/swagger', () => ({
+vi.mock('./plugins/swagger', () => ({
   swaggerPlugin: new Elysia({ name: 'swagger-plugin-mock' }),
 }));
 

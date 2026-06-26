@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useKeyboardShortcuts } from './use-keyboard-shortcuts';
 import type { UseKeyboardShortcutsOptions } from './use-keyboard-shortcuts';
@@ -12,11 +12,11 @@ function buildOptions(
 ): UseKeyboardShortcutsOptions {
   return {
     isActive: true,
-    onSuccess: mock(),
-    onFail: mock(),
-    onUndo: mock(),
-    onPrevDay: mock(),
-    onNextDay: mock(),
+    onSuccess: vi.fn(),
+    onFail: vi.fn(),
+    onUndo: vi.fn(),
+    onPrevDay: vi.fn(),
+    onNextDay: vi.fn(),
     ...overrides,
   };
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'vitest';
 import { ApiError, parseApiErrorBody } from './api-error.js';
 
 describe('ApiError', () => {

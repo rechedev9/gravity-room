@@ -3,7 +3,7 @@
  * Canvas drawing cannot be tested in happy-dom — tests verify DOM structure,
  * aria attributes, prop-driven state, and controlled collapse behavior.
  */
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import StatsPanel from './stats-panel';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';

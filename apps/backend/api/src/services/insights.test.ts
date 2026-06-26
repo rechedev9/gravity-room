@@ -3,7 +3,7 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach, afterAll } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mock DB
@@ -31,24 +31,16 @@ const INSIGHT_ROWS = [
 
 let selectResult: unknown[] = [];
 
-const mockOrderBy = mock(() => selectResult);
-const mockWhere = mock(() => ({ orderBy: mockOrderBy }));
-const mockFrom = mock(() => ({ where: mockWhere }));
-const mockSelect = mock(() => ({ from: mockFrom }));
+const mockOrderBy = vi.fn(() => selectResult);
+const mockWhere = vi.fn(() => ({ orderBy: mockOrderBy }));
+const mockFrom = vi.fn(() => ({ where: mockWhere }));
+const mockSelect = vi.fn(() => ({ from: mockFrom }));
 
-// bun's mock.module writes to a process-global registry, so a module mock left
-// in place would leak into any other test file run in the same invocation (and
-// mock.restore() does NOT undo module mocks). Capture the real export first, then
-// re-install it in afterAll so this file's `../db` mock is fully scoped to itself.
-const realDb = { ...(await import('../db')) };
-
-mock.module('../db', () => ({
+// vitest isolates the module registry per test file, so this `../db` mock is
+// scoped to this file automatically — no manual capture/restore is needed.
+vi.mock('../db', () => ({
   getDb: () => ({ select: mockSelect }),
 }));
-
-afterAll(() => {
-  mock.module('../db', () => realDb);
-});
 
 const { getInsights } = await import('./insights');
 

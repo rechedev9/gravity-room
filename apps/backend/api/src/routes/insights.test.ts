@@ -3,30 +3,31 @@
 // that would override the value AFTER auth-guard already captured it.
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect, beforeEach, afterAll } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
-// bun's mock.module writes to a process-global registry, so these mocks would
-// otherwise leak into other test files run in the same invocation (and
-// mock.restore() does NOT undo module mocks). Capture the real modules first, then
-// re-install them in afterAll so these mocks are fully scoped to this file. Without
-// this, the mocked services/auth (findUserById stub) leaks and 401s the sibling
-// exercises.test.ts + services/insights.test.ts when the suite runs together.
-const realRateLimit = { ...(await import('../middleware/rate-limit')) };
-const realAuth = { ...(await import('../services/auth')) };
-const realInsightsService = { ...(await import('../services/insights')) };
+// vitest isolates the module registry per test file, so these mocks are scoped
+// to this file automatically — no manual capture/restore is needed.
+const { mockRateLimit, mockGetInsights } = vi.hoisted(() => {
+  const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
+  const mockGetInsights = vi.fn<
+    (userId: string, types: readonly string[]) => Promise<InsightRow[]>
+  >(() => Promise.resolve([]));
+  return {
+    mockRateLimit,
+    mockGetInsights,
+  };
+});
 
-const mockRateLimit = mock<() => Promise<void>>(() => Promise.resolve());
-
-mock.module('../middleware/rate-limit', () => ({
+vi.mock('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
 }));
 
-mock.module('../services/auth', () => ({
-  findUserById: mock((id: string) => Promise.resolve({ id })),
+vi.mock('../services/auth', () => ({
+  findUserById: vi.fn((id: string) => Promise.resolve({ id })),
 }));
 
 interface InsightRow {
@@ -37,19 +38,9 @@ interface InsightRow {
   readonly validUntil: Date | null;
 }
 
-const mockGetInsights = mock<(userId: string, types: readonly string[]) => Promise<InsightRow[]>>(
-  () => Promise.resolve([])
-);
-
-mock.module('../services/insights', () => ({
+vi.mock('../services/insights', () => ({
   getInsights: mockGetInsights,
 }));
-
-afterAll(() => {
-  mock.module('../middleware/rate-limit', () => realRateLimit);
-  mock.module('../services/auth', () => realAuth);
-  mock.module('../services/insights', () => realInsightsService);
-});
 
 import { Elysia } from 'elysia';
 import { ApiError } from '../middleware/error-handler';

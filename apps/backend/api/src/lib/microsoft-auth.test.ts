@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { ApiError } from '../middleware/error-handler';
 import {
   buildMicrosoftAuthorizeUrl,
@@ -58,7 +58,7 @@ async function mintMicrosoftToken(payloadOverrides: Record<string, unknown> = {}
 function mockMicrosoftFetch(
   userInfo: unknown = { email: 'userinfo@example.com', name: 'User Info' }
 ): void {
-  globalThis.fetch = mock((input: unknown) => {
+  globalThis.fetch = vi.fn((input: unknown) => {
     const url = String(input);
     if (url.endsWith('/discovery/v2.0/keys')) {
       return Promise.resolve(jsonResponse({ keys: [jwk] }));
@@ -142,7 +142,7 @@ describe('buildMicrosoftAuthorizeUrl', () => {
 describe('exchangeMicrosoftCode', () => {
   it('posts an authorization-code form with the PKCE verifier', async () => {
     const calls: unknown[] = [];
-    globalThis.fetch = mock((input: unknown, init?: RequestInit) => {
+    globalThis.fetch = vi.fn((input: unknown, init?: RequestInit) => {
       calls.push({ input, init });
       return Promise.resolve(jsonResponse({ id_token: 'id-token', access_token: 'access-token' }));
     }) as unknown as typeof fetch;
@@ -160,7 +160,7 @@ describe('exchangeMicrosoftCode', () => {
   });
 
   it('throws when the token response is missing tokens', async () => {
-    globalThis.fetch = mock(() => Promise.resolve(jsonResponse({}))) as unknown as typeof fetch;
+    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse({}))) as unknown as typeof fetch;
     expect(exchangeMicrosoftCode('code-1', 'https://cb', 'verifier-1')).rejects.toThrow(ApiError);
   });
 });

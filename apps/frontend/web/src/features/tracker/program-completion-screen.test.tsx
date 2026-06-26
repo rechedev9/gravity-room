@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ProgramCompletionScreen } from './program-completion-screen';
 import type { CompletionStats, PersonalRecord, OneRMEstimate } from '@/lib/profile-stats';
@@ -43,8 +43,8 @@ function renderScreen(overrides?: {
       personalRecords={MOCK_PRS}
       oneRMEstimates={overrides?.oneRMEstimates ?? MOCK_ONE_RM}
       totalVolume={75264}
-      onViewProfile={overrides?.onViewProfile ?? mock()}
-      onBackToDashboard={overrides?.onDismiss ?? mock()}
+      onViewProfile={overrides?.onViewProfile ?? vi.fn()}
+      onBackToDashboard={overrides?.onDismiss ?? vi.fn()}
     />
   );
 }
@@ -76,7 +76,7 @@ describe('ProgramCompletionScreen', () => {
   });
 
   it('should call onBackToDashboard when "Volver al Inicio" button clicked', () => {
-    const onDismiss = mock();
+    const onDismiss = vi.fn();
     renderScreen({ onDismiss });
 
     fireEvent.click(screen.getByText('Volver al Inicio'));
@@ -85,7 +85,7 @@ describe('ProgramCompletionScreen', () => {
   });
 
   it('should call onViewProfile when "Ver Perfil de Entrenamiento" button clicked', () => {
-    const onViewProfile = mock();
+    const onViewProfile = vi.fn();
     renderScreen({ onViewProfile });
 
     fireEvent.click(screen.getByText('Ver Perfil de Entrenamiento'));

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { setSlotResult, removeSlotResult, patchSlotField } from './slot-result-helpers';
 import type { GenericResults } from '@gzclp/domain/types/program';
 

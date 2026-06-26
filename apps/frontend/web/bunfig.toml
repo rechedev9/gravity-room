@@ -1,3 +1,0 @@
-[test]
-root = "./src"
-preload = ["./test/register-dom.ts", "./test/setup.ts"]

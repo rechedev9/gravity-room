@@ -2,30 +2,34 @@
  * GuestBanner tests — REQ-GUI-002 scenarios.
  * Verifies banner rendering, CTA behavior, and absence for non-guests.
  */
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { createElement, useEffect, useRef } from 'react';
 import type { FC, ReactNode } from 'react';
-import { apiFunctionsStubs } from '../../test/helpers/api-functions-mock';
 
 // ---------------------------------------------------------------------------
 // Mock API layer (required by any provider that touches auth)
 // ---------------------------------------------------------------------------
 
-mock.module('@/lib/api', () => ({
-  refreshAccessToken: mock(() => Promise.resolve(null)),
-  setAccessToken: mock(() => {}),
-  getAccessToken: mock(() => null),
+vi.mock('@/lib/api', () => ({
+  refreshAccessToken: vi.fn(() => Promise.resolve(null)),
+  setAccessToken: vi.fn(() => {}),
+  getAccessToken: vi.fn(() => null),
 }));
 
-mock.module('@/lib/api-functions', () => ({
-  ...apiFunctionsStubs,
-  apiFetch: mock(() => Promise.reject(new Error('no auth'))),
-}));
+// vi.mock is hoisted above imports, so the shared stub set is pulled in via a
+// dynamic import inside the (async) factory rather than a top-level import.
+vi.mock('@/lib/api-functions', async () => {
+  const { apiFunctionsStubs } = await import('../../test/helpers/api-functions-mock');
+  return {
+    ...apiFunctionsStubs,
+    apiFetch: vi.fn(() => Promise.reject(new Error('no auth'))),
+  };
+});
 
 // Mock router navigation — tests don't exercise navigation
-mock.module('@tanstack/react-router', () => ({
-  useNavigate: () => mock(() => Promise.resolve()),
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => vi.fn(() => Promise.resolve()),
   Link: ({ children, ...rest }: { readonly children: ReactNode; readonly [k: string]: unknown }) =>
     createElement('a', rest, children),
 }));

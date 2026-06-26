@@ -4,40 +4,47 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { mock, describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
-const mockRateLimit = mock((): Promise<void> => Promise.resolve());
-const mockRecordResult = mock(() =>
-  Promise.resolve({
-    workoutIndex: 0,
-    slotId: 't1',
-    result: 'success',
-    amrapReps: null,
-    rpe: null,
-  })
-);
-const mockDeleteResult = mock(() => Promise.resolve());
+const { mockRateLimit, mockRecordResult, mockDeleteResult } = vi.hoisted(() => {
+  const mockRateLimit = vi.fn((): Promise<void> => Promise.resolve());
+  const mockRecordResult = vi.fn(() =>
+    Promise.resolve({
+      workoutIndex: 0,
+      slotId: 't1',
+      result: 'success',
+      amrapReps: null,
+      rpe: null,
+    })
+  );
+  const mockDeleteResult = vi.fn(() => Promise.resolve());
+  return {
+    mockRateLimit,
+    mockRecordResult,
+    mockDeleteResult,
+  };
+});
 
-mock.module('../middleware/rate-limit', () => ({
+vi.mock('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
 }));
 
-mock.module('../services/auth', () => ({
-  findUserById: mock((id: string) => Promise.resolve({ id })),
+vi.mock('../services/auth', () => ({
+  findUserById: vi.fn((id: string) => Promise.resolve({ id })),
 }));
 
-mock.module('../services/results', () => ({
+vi.mock('../services/results', () => ({
   recordResult: mockRecordResult,
   deleteResult: mockDeleteResult,
-  undoLast: mock(() => Promise.resolve(null)),
+  undoLast: vi.fn(() => Promise.resolve(null)),
 }));
 
-mock.module('../lib/program-cache', () => ({
-  invalidateCachedInstance: mock(() => Promise.resolve()),
+vi.mock('../lib/program-cache', () => ({
+  invalidateCachedInstance: vi.fn(() => Promise.resolve()),
 }));
 
 import { Elysia } from 'elysia';

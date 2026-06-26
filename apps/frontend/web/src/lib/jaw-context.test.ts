@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { deriveJawContext, type JawContext } from './jaw-context';
 
 describe('deriveJawContext', () => {

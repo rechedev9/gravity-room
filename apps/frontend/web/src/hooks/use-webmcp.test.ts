@@ -1,9 +1,9 @@
-import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useWebMcp } from './use-webmcp';
 import { computeGenericProgram } from '@gzclp/domain/generic-engine';
 import type { GenericResults } from '@gzclp/domain/types/program';
-import type { GenericWorkoutRow } from '@gzclp/domain/types';
+import type { GenericWorkoutRow, ResultValue } from '@gzclp/domain/types';
 import {
   DEFAULT_WEIGHTS,
   GZCLP_DEFINITION_FIXTURE,
@@ -51,10 +51,10 @@ function buildOptions(overrides?: {
   rows: readonly GenericWorkoutRow[];
   totalWorkouts: number;
   definition: typeof DEF;
-  generateProgram: ReturnType<typeof mock>;
-  markResult: ReturnType<typeof mock>;
-  setAmrapReps: ReturnType<typeof mock>;
-  undoLast: ReturnType<typeof mock>;
+  generateProgram: Mock<(config: Record<string, number | string>) => void>;
+  markResult: Mock<(index: number, slotId: string, value: ResultValue) => void>;
+  setAmrapReps: Mock<(index: number, slotId: string, reps: number | undefined) => void>;
+  undoLast: Mock<() => void>;
 } {
   const cfg = overrides?.config === undefined ? CONFIG : overrides.config;
   const results = overrides?.results ?? {};
@@ -64,30 +64,30 @@ function buildOptions(overrides?: {
     rows,
     totalWorkouts: DEF.totalWorkouts,
     definition: DEF,
-    generateProgram: mock(),
-    markResult: mock(),
-    setAmrapReps: mock(),
-    undoLast: mock(),
+    generateProgram: vi.fn<(config: Record<string, number | string>) => void>(),
+    markResult: vi.fn<(index: number, slotId: string, value: ResultValue) => void>(),
+    setAmrapReps: vi.fn<(index: number, slotId: string, reps: number | undefined) => void>(),
+    undoLast: vi.fn<() => void>(),
   };
 }
 
 let capturedTools: CapturedTool[] = [];
-let mockRegisterTool: ReturnType<typeof mock>;
-let mockUnregisterTool: ReturnType<typeof mock>;
+let mockRegisterTool: ReturnType<typeof vi.fn>;
+let mockUnregisterTool: ReturnType<typeof vi.fn>;
 let originalModelContext: unknown;
 
 function installMockModelContext(): void {
   capturedTools = [];
-  mockRegisterTool = mock((tool: CapturedTool) => {
+  mockRegisterTool = vi.fn((tool: CapturedTool) => {
     capturedTools.push(tool);
   });
-  mockUnregisterTool = mock();
+  mockUnregisterTool = vi.fn();
   Object.defineProperty(navigator, 'modelContext', {
     value: {
       registerTool: mockRegisterTool,
       unregisterTool: mockUnregisterTool,
-      provideContext: mock(),
-      clearContext: mock(),
+      provideContext: vi.fn(),
+      clearContext: vi.fn(),
     },
     writable: true,
     configurable: true,

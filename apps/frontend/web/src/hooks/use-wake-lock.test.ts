@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach, afterEach, spyOn } from 'bun:test';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useWakeLock } from './use-wake-lock';
 
@@ -21,17 +21,17 @@ function createSentinelStub(): {
       return released.value;
     },
     type: 'screen' as const,
-    release: mock(async () => {
+    release: vi.fn(async () => {
       released.value = true;
       listeners['release']?.forEach((fn) => fn());
     }),
-    addEventListener: mock((event: string, handler: () => void) => {
+    addEventListener: vi.fn((event: string, handler: () => void) => {
       listeners[event] = listeners[event] ?? [];
       listeners[event].push(handler);
     }),
-    removeEventListener: mock(),
+    removeEventListener: vi.fn(),
     onrelease: null,
-    dispatchEvent: mock(() => true),
+    dispatchEvent: vi.fn(() => true),
   } as unknown as WakeLockSentinel;
 
   return { sentinel, released };
@@ -59,7 +59,7 @@ afterEach(() => {
 
 function installWakeLock(requestFn: () => Promise<WakeLockSentinel>): void {
   Object.defineProperty(navigator, 'wakeLock', {
-    value: { request: mock(requestFn) },
+    value: { request: vi.fn(requestFn) },
     writable: true,
     configurable: true,
   });
@@ -82,7 +82,7 @@ function removeWakeLock(): void {
 describe('useWakeLock', () => {
   it('should call navigator.wakeLock.request("screen") when enabled=true and API supported', async () => {
     const { sentinel } = createSentinelStub();
-    const requestFn = mock(async () => sentinel);
+    const requestFn = vi.fn(async () => sentinel);
     installWakeLock(requestFn);
 
     renderHook(() => useWakeLock(true));
@@ -127,7 +127,7 @@ describe('useWakeLock', () => {
     const { sentinel: sentinel1 } = createSentinelStub();
     const { sentinel: sentinel2 } = createSentinelStub();
     let callCount = 0;
-    const requestFn = mock(async () => {
+    const requestFn = vi.fn(async () => {
       callCount++;
       return callCount === 1 ? sentinel1 : sentinel2;
     });
@@ -162,7 +162,7 @@ describe('useWakeLock', () => {
   });
 
   it('should swallow rejection and emit console.warn when request throws', async () => {
-    const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     installWakeLock(async () => {
       throw new Error('Low battery');
     });

@@ -1,4 +1,4 @@
-import { describe, expect, it, mock } from 'bun:test';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { createElement } from 'react';
 import type { ReactNode } from 'react';
@@ -10,7 +10,7 @@ import { EXERCISE_ARTICLES } from './content/registry';
 // stub for the whole run — a real RouterProvider would be clobbered depending
 // on file order. Mocking Link ourselves makes this test order-independent and
 // matches the convention used across the suite (see guest-banner.test.tsx).
-mock.module('@tanstack/react-router', () => ({
+vi.mock('@tanstack/react-router', () => ({
   Link: ({
     children,
     ...props
@@ -29,10 +29,10 @@ mock.module('@tanstack/react-router', () => ({
 // The page reads auth/guest to decide whether to show the back-to-app affordance.
 // Stub both as logged-out so the test renders the public view in isolation
 // (no AuthProvider/GuestProvider needed), matching the Link-mocking convention above.
-mock.module('@/contexts/auth-context', () => ({
+vi.mock('@/contexts/auth-context', () => ({
   useAuth: () => ({ user: null }),
 }));
-mock.module('@/contexts/guest-context', () => ({
+vi.mock('@/contexts/guest-context', () => ({
   useGuest: () => ({ isGuest: false }),
 }));
 

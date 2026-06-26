@@ -5,7 +5,7 @@
  * Covers create / returning / link / conflict / soft-delete and the Google
  * back-compat wrapper — the DB-backed paths the mocked unit suite can't reach.
  */
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'bun:test';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { users, userIdentities } from '@gzclp/database/schema';
 import { setupTestDb, teardownTestDb, truncateAllTables } from '../db-setup';

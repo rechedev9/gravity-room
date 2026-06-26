@@ -10,7 +10,7 @@
 process.env['DATABASE_URL'] = 'postgres://test:test@localhost:5432/test';
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 
 import {
   generateRefreshToken,
@@ -144,7 +144,7 @@ describe('isUniqueViolation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Password hashing (argon2id via Bun.password — no DB)
+// Password hashing (argon2id via @node-rs/argon2 — no DB)
 // ---------------------------------------------------------------------------
 
 describe('hashPassword / verifyPassword', () => {

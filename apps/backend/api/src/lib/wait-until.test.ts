@@ -8,7 +8,7 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Mock @vercel/functions — declared before importing the SUT
@@ -19,7 +19,7 @@ let waitUntilImpl: (p: Promise<unknown>) => void = (p) => {
   waitUntilCalls.push(p);
 };
 
-mock.module('@vercel/functions', () => ({
+vi.mock('@vercel/functions', () => ({
   waitUntil: (p: Promise<unknown>): void => waitUntilImpl(p),
 }));
 

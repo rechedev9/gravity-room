@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useCountUp } from './use-count-up';
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeAll } from 'bun:test';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ConfirmDialog } from './confirm-dialog';
 
@@ -22,8 +22,8 @@ describe('ConfirmDialog', () => {
     open: true,
     title: 'Test Title',
     message: 'Test message body',
-    onConfirm: mock(),
-    onCancel: mock(),
+    onConfirm: vi.fn(),
+    onCancel: vi.fn(),
   };
 
   describe('rendering', () => {
@@ -59,7 +59,7 @@ describe('ConfirmDialog', () => {
 
   describe('callbacks', () => {
     it('should call onConfirm when confirm button is clicked', () => {
-      const onConfirm = mock();
+      const onConfirm = vi.fn();
       render(<ConfirmDialog {...baseProps} onConfirm={onConfirm} />);
 
       fireEvent.click(screen.getByText('Confirmar'));
@@ -68,7 +68,7 @@ describe('ConfirmDialog', () => {
     });
 
     it('should call onCancel when cancel button is clicked', () => {
-      const onCancel = mock();
+      const onCancel = vi.fn();
       render(<ConfirmDialog {...baseProps} onCancel={onCancel} />);
 
       fireEvent.click(screen.getByText('Cancelar'));
@@ -77,7 +77,7 @@ describe('ConfirmDialog', () => {
     });
 
     it('should call onCancel when backdrop (dialog element) is clicked', () => {
-      const onCancel = mock();
+      const onCancel = vi.fn();
       render(<ConfirmDialog {...baseProps} onCancel={onCancel} />);
 
       const dialog = screen.getByRole('dialog');
@@ -87,7 +87,7 @@ describe('ConfirmDialog', () => {
     });
 
     it('should not call onCancel when dialog content is clicked', () => {
-      const onCancel = mock();
+      const onCancel = vi.fn();
       render(<ConfirmDialog {...baseProps} onCancel={onCancel} />);
 
       fireEvent.click(screen.getByText('Test message body'));
@@ -96,7 +96,7 @@ describe('ConfirmDialog', () => {
     });
 
     it('should call onCancel when native cancel event fires (Escape)', () => {
-      const onCancel = mock();
+      const onCancel = vi.fn();
       render(<ConfirmDialog {...baseProps} onCancel={onCancel} />);
 
       const dialog = screen.getByRole('dialog');
@@ -106,7 +106,7 @@ describe('ConfirmDialog', () => {
     });
 
     it('should not respond to cancel event when closed', () => {
-      const onCancel = mock();
+      const onCancel = vi.fn();
       render(<ConfirmDialog {...baseProps} open={false} onCancel={onCancel} />);
 
       const dialog = screen.getByRole('dialog', { hidden: true });

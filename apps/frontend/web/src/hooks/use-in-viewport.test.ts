@@ -2,7 +2,7 @@
  * useInViewport hook tests — verifies IntersectionObserver integration,
  * one-way latch behavior, and fallback when IO is unavailable.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useInViewport } from './use-in-viewport';
 
@@ -13,22 +13,21 @@ import { useInViewport } from './use-in-viewport';
 type IOCallback = (entries: IntersectionObserverEntry[]) => void;
 
 let ioCallback: IOCallback | null = null;
-let ioDisconnectMock: ReturnType<typeof import('bun:test').mock>;
-let ioUnobserveMock: ReturnType<typeof import('bun:test').mock>;
+let ioDisconnectMock: ReturnType<typeof vi.fn>;
+let ioUnobserveMock: ReturnType<typeof vi.fn>;
 
-// We need to import mock separately to use it
-import { mock } from 'bun:test';
+import { vi } from 'vitest';
 
 function setupIntersectionObserver(): void {
-  ioDisconnectMock = mock(() => undefined);
-  ioUnobserveMock = mock(() => undefined);
+  ioDisconnectMock = vi.fn(() => undefined);
+  ioUnobserveMock = vi.fn(() => undefined);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).IntersectionObserver = class MockIntersectionObserver {
     constructor(callback: IOCallback) {
       ioCallback = callback;
     }
-    observe = mock(() => undefined);
+    observe = vi.fn(() => undefined);
     unobserve = ioUnobserveMock;
     disconnect = ioDisconnectMock;
   };

@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { CalendarNavigator } from './calendar-navigator';
 import { loadNavMode, saveNavMode } from './program-navigation-preference';
@@ -27,10 +27,10 @@ function makeRows(count: number): GenericWorkoutRow[] {
 // ---------------------------------------------------------------------------
 
 describe('CalendarNavigator', () => {
-  let onSelectDay: ReturnType<typeof mock>;
+  let onSelectDay: Mock<(index: number) => void>;
 
   beforeEach(() => {
-    onSelectDay = mock();
+    onSelectDay = vi.fn<(index: number) => void>();
   });
 
   // ── Jump to workout ──────────────────────────────────────────────────────

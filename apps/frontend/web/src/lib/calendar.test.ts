@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { buildGoogleCalendarUrl } from './calendar';
 import { computeGenericProgram } from '@gzclp/domain/generic-engine';
 import { DEFAULT_WEIGHTS, GZCLP_DEFINITION_FIXTURE } from '../../test/helpers/fixtures';
@@ -12,9 +12,9 @@ describe('buildGoogleCalendarUrl', () => {
     it('returns a valid Google Calendar URL with correct base', () => {
       const result = buildGoogleCalendarUrl(rows[0], DEF, { date: '2026-03-01' });
 
-      expect(result.calendarUrl).toStartWith(
-        'https://calendar.google.com/calendar/render?action=TEMPLATE'
-      );
+      expect(
+        result.calendarUrl.startsWith('https://calendar.google.com/calendar/render?action=TEMPLATE')
+      ).toBe(true);
     });
 
     it('includes encoded text, dates, and details params', () => {

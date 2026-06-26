@@ -20,7 +20,7 @@
  *     confidence is asserted within 5e-3 (booleans/weights/method exact).
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import type { WorkoutRecord } from '../record';
 import { computeVolume } from './volume';
 import { computeFrequency } from './frequency';

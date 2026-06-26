@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import { detectGenericPersonalRecord } from './pr-detection';
 import type { GenericWorkoutRow, GenericSlotRow } from '@gzclp/domain/types';
 

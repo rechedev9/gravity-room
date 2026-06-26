@@ -15,7 +15,7 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { WorkoutRecord } from './record';
 
 interface UpsertCall {
@@ -57,7 +57,7 @@ function craftedRecords(): WorkoutRecord[] {
   return records;
 }
 
-mock.module('./queries', () => ({
+vi.mock('./queries', () => ({
   META_INSIGHT_TYPE: '_meta',
   fetchAllUsers: async () => [{ userId: 'u1' }],
   fetchWorkoutRecords: async () => recordsToReturn,

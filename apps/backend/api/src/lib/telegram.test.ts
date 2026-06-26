@@ -9,24 +9,24 @@
  */
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, mock, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // ---------------------------------------------------------------------------
 // Logger mock — capture warn calls
 // ---------------------------------------------------------------------------
 
-const mockWarn = mock((): void => undefined);
+const { mockWarn } = vi.hoisted(() => ({ mockWarn: vi.fn((): void => undefined) }));
 
-mock.module('./logger', () => ({
+vi.mock('./logger', () => ({
   logger: {
     warn: mockWarn,
-    info: mock(() => undefined),
-    error: mock(() => undefined),
-    debug: mock(() => undefined),
-    child: mock(() => ({
+    info: vi.fn(() => undefined),
+    error: vi.fn(() => undefined),
+    debug: vi.fn(() => undefined),
+    child: vi.fn(() => ({
       warn: mockWarn,
-      info: mock(() => undefined),
-      error: mock(() => undefined),
+      info: vi.fn(() => undefined),
+      error: vi.fn(() => undefined),
     })),
   },
 }));
@@ -35,7 +35,7 @@ mock.module('./logger', () => ({
 // fetch mock
 // ---------------------------------------------------------------------------
 
-const mockFetch = mock(
+const mockFetch = vi.fn(
   (): Promise<Response> =>
     Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }))
 );
