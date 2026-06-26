@@ -9,9 +9,14 @@ export default defineConfig(({ mode }) => {
   // false-alarm when VITE_API_URL is defined in .env but not in process.env yet.
   const env = loadEnv(mode, process.cwd(), '');
 
-  if (mode === 'production' && !env.VITE_API_URL) {
+  // Same-origin deploys (Vercel) set VITE_API_URL="" on purpose so the SPA
+  // talks to the catch-all function via relative "/api" requests. An empty
+  // string is therefore a valid, intentional value — only a truly *undefined*
+  // VITE_API_URL is a misconfiguration, because then the api layer falls back
+  // to the http://localhost:3001 dev default and bakes it into the bundle.
+  if (mode === 'production' && env.VITE_API_URL === undefined) {
     throw new Error(
-      'VITE_API_URL must be set for production builds — ' +
+      'VITE_API_URL must be set for production builds (use "" for same-origin) — ' +
         'without it the API URL is baked in as http://localhost:3001'
     );
   }

@@ -5,83 +5,335 @@ on:
     branches: [main]
   pull_request:
 
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  api-types-drift:
-    name: OpenAPI client drift detection
+  # ---------------------------------------------------------------------------
+  # Web SPA — typecheck, lint, unit tests, and a same-origin production build.
+  # The build bakes in VITE_API_URL="" so the static SPA issues relative /api
+  # requests against the same-origin Vercel catch-all function. The web build
+  # also runs a Playwright/Chromium prerender pass, so Chromium is installed
+  # before the build.
+  # ---------------------------------------------------------------------------
+  web:
+    name: Web
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: password
-          POSTGRES_DB: gzclp
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DATABASE_URL: postgresql://postgres:password@localhost:5432/gzclp
-      JWT_SECRET: ci-jwt-secret-at-least-64-chars-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-      GOOGLE_CLIENT_ID: placeholder-not-used-in-drift-check
-      GOOGLE_CLIENT_IDS: placeholder-not-used-in-drift-check
-      REDIS_URL: redis://localhost:6379
-      # Swagger is behind a positive feature flag (disabled by default); the
-      # codegen fetches /swagger/json, so it must be enabled for this job.
-      SWAGGER_ENABLED: 'true'
-      # Mirror validate.yml so the generated client matches the committed one:
-      # the dev-auth route is only registered (and thus in the OpenAPI surface)
-      # when these are set.
-      NODE_ENV: test
-      AUTH_DEV_ROUTE_ENABLED: 'true'
-      AUTH_DEV_ROUTE_SECRET: e2e-dev-secret-not-for-prod
-
     steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: .bun-version
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Start API server
-        working-directory: apps/backend/api
-        run: bun run dev &
+      - name: Typecheck
+        run: bun run --filter web typecheck
 
-      - name: Wait for API to be healthy
+      - name: Lint
+        run: bun run --filter web lint
+
+      - name: Test
+        run: bun run --filter web test
+
+      - name: Install Playwright Chromium (needed for prerender)
+        working-directory: apps/frontend/web
+        run: bunx playwright install --with-deps chromium
+
+      - name: Build (same-origin)
+        run: bun run --filter web build
+        env:
+          VITE_API_URL: ''
+
+  # ---------------------------------------------------------------------------
+  # API — typecheck, lint, and the full unit suite. The api test script runs the
+  # analytics suite under src/analytics, which includes the golden-file parity
+  # tests (pipelines/pipelines.parity.test.ts) that bound the TypeScript port
+  # against the snapshot of the deleted Python service.
+  # ---------------------------------------------------------------------------
+  api:
+    name: API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run --filter api typecheck
+
+      - name: Lint
+        run: bun run --filter api lint
+
+      - name: Test (includes analytics golden-file parity)
+        run: bun run --filter api test
+
+  # ---------------------------------------------------------------------------
+  # Shared domain package — the single source of truth for the progression
+  # engine and schemas consumed by web, mobile, and api.
+  # ---------------------------------------------------------------------------
+  domain:
+    name: Domain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck:domain
+
+      - name: Test
+        run: bun run test:domain
+
+  # ---------------------------------------------------------------------------
+  # Shared API client package — the typed fetch wrapper consumed by the clients.
+  # ---------------------------------------------------------------------------
+  api-client:
+    name: API client
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck:api-client
+
+      - name: Lint
+        run: bun run lint:api-client
+
+      - name: Test
+        run: bun run test:api-client
+
+  # ---------------------------------------------------------------------------
+  # Expo mobile client — typecheck and the Jest unit suite.
+  # ---------------------------------------------------------------------------
+  mobile:
+    name: Mobile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck:mobile
+
+      - name: Test
+        run: bun run test:mobile
+
+  # ---------------------------------------------------------------------------
+  # Repo-wide Prettier formatting gate.
+  # ---------------------------------------------------------------------------
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Format check
+        run: bun run format:check
+
+  # ---------------------------------------------------------------------------
+  # Production security-headers contract — asserts the static-config headers the
+  # SPA and API ship match the committed contract.
+  # ---------------------------------------------------------------------------
+  security-headers:
+    name: Security headers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Validate production security headers contract
+        run: bun run security:headers
+
+  # ---------------------------------------------------------------------------
+  # Exercise-wiki citation gate — resolves every wiki citation against
+  # Crossref/PubMed and fails closed when any reference cannot be verified. It
+  # ALSO fails while any article is still `reviewedBy: 'PENDING'`, which is
+  # intentional: it blocks merge of unreviewed content until a human signs off.
+  # Network access to api.crossref.org / eutils.ncbi.nlm.nih.gov is required.
+  # ---------------------------------------------------------------------------
+  citations:
+    name: Exercise-wiki citation gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Verify exercise-wiki citations
+        working-directory: apps/frontend/web
+        run: bun run verify:citations
+
+  # ---------------------------------------------------------------------------
+  # OpenAPI client drift — regenerates apps/frontend/web/src/lib/api/generated.ts
+  # from the live OpenAPI spec and fails if it drifted from the committed copy.
+  #
+  # Post-migration the API has no app.listen (it runs serverless via app.fetch),
+  # so the local dev server (src/dev-server.ts) boots the same createApp()
+  # factory on :3001 with Bun.serve. SWAGGER_ENABLED=true exposes /swagger/json,
+  # which is the codegen source. The dev-auth route is only registered (and thus
+  # in the OpenAPI surface) when AUTH_DEV_ROUTE_* are set, so they mirror the
+  # values the committed client was generated against. A Postgres service backs
+  # /health, which the readiness poll waits on.
+  # ---------------------------------------------------------------------------
+  api-types-drift:
+    name: OpenAPI client drift
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gravity_room_test
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/gravity_room_test
+      JWT_SECRET: ci-jwt-secret-at-least-64-chars-long-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+      GOOGLE_CLIENT_ID: placeholder-not-used-in-drift-check
+      GOOGLE_CLIENT_IDS: placeholder-not-used-in-drift-check
+      NODE_ENV: test
+      SWAGGER_ENABLED: 'true'
+      AUTH_DEV_ROUTE_ENABLED: 'true'
+      AUTH_DEV_ROUTE_SECRET: e2e-dev-secret-not-for-prod
+      PORT: '3001'
+      CORS_ORIGIN: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Apply migrations + seeds
+        run: bun run --filter api db:deploy
+
+      - name: Regenerate client and check for drift
         run: |
-          echo "Waiting for API at http://localhost:3001/health..."
+          set -euo pipefail
+          bun run --filter api start &
+          API_PID=$!
+          trap 'kill "$API_PID" 2>/dev/null || true' EXIT
+
+          echo "Waiting for the API at http://localhost:3001/health..."
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:3001/health > /dev/null; then
-              echo "API is healthy"
-              exit 0
+            if curl -fsS http://localhost:3001/health > /dev/null 2>&1; then
+              echo "API healthy after ${i} retries"
+              break
             fi
-            echo "  attempt $i/30 — retrying in 2s"
+            if [ "$i" -eq 30 ]; then
+              echo "::error::API did not become healthy within 60s"
+              exit 1
+            fi
             sleep 2
           done
-          echo "API did not become healthy after 60s"
-          exit 1
 
-      - name: Regenerate OpenAPI client
-        working-directory: apps/frontend/web
-        run: bun run api:types
+          bun run --filter web api:types
 
-      - name: Check for drift
-        run: git diff --exit-code apps/frontend/web/src/lib/api/generated.ts
+          if ! git diff --exit-code apps/frontend/web/src/lib/api/generated.ts; then
+            echo "::error::API types are out of sync. Run 'bun run --filter web api:types' locally with the API running and commit the regenerated client."
+            exit 1
+          fi

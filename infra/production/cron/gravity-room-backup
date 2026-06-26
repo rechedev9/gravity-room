@@ -1,5 +1,0 @@
-# Daily Postgres logical backup at 04:00 UTC
-# Install: copy to /etc/cron.d/gravity-room-backup (root-owned, mode 644).
-SHELL=/bin/bash
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-0 4 * * * deploy /opt/gravity-room/scripts/backup.sh

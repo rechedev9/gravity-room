@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [javascript-typescript, python]
+        language: [javascript-typescript]
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -112,7 +112,6 @@ jobs:
             semgrep scan \
             --config p/owasp-top-ten \
             --config p/typescript \
-            --config p/python \
             --error \
             --sarif \
             --output semgrep.sarif \
@@ -143,15 +142,6 @@ jobs:
 
       - name: Audit JS dependencies
         run: bun audit --audit-level=low --ignore=GHSA-h67p-54hq-rp68
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
-
-      - name: Audit Python analytics dependencies
-        run: |
-          uvx --no-env-file pip-audit \
-            -r apps/backend/analytics/requirements.txt \
-            -r apps/backend/analytics/requirements-dev.txt
 
   security-header-contract:
     name: Security header contract

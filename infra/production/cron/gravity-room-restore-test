@@ -1,6 +1,0 @@
-# Weekly backup restore-test, Sundays 05:00 UTC (after the 04:00 daily backup).
-# Install: copy to /etc/cron.d/gravity-room-restore-test (root-owned, mode 644).
-# Proves the latest dump actually restores; logs to journalctl -t gr-restore-test.
-SHELL=/bin/bash
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-0 5 * * 0 deploy /opt/gravity-room/scripts/restore-test.sh

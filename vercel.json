@@ -1,0 +1,32 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "bun install",
+  "buildCommand": "bash scripts/vercel-build.sh",
+  "outputDirectory": "apps/frontend/web/dist",
+  "functions": {
+    "api/[...path].ts": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/internal/cleanup-tokens",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/internal/purge-users",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/internal/analytics/compute",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

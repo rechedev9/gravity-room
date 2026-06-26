@@ -38,12 +38,12 @@ describe('validateEnv', () => {
 
   it('treats whitespace-only values as missing', () => {
     const env = fullProdEnv();
-    env['METRICS_TOKEN'] = '   ';
+    env['UPSTASH_REDIS_REST_URL'] = '   ';
     env['DATABASE_URL'] = '\t\n';
     const result = validateEnv(env, 'production');
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('unreachable');
-    expect(result.missing).toContain('METRICS_TOKEN');
+    expect(result.missing).toContain('UPSTASH_REDIS_REST_URL');
     expect(result.missing).toContain('DATABASE_URL');
   });
 
@@ -85,11 +85,11 @@ describe('formatValidationError', () => {
   it('includes missing var names and their descriptions', () => {
     const msg = formatValidationError({
       ok: false,
-      missing: ['METRICS_TOKEN'],
+      missing: ['CRON_SECRET'],
       errors: [],
     });
-    expect(msg).toContain('METRICS_TOKEN');
-    expect(msg).toContain('PR #67');
+    expect(msg).toContain('CRON_SECRET');
+    expect(msg).toContain('Vercel Cron');
   });
 
   it('includes constraint errors when present', () => {

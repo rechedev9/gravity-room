@@ -10,48 +10,76 @@
 
 ## What is Gravity Room
 
-A GZCLP linear-progression weightlifting tracker. Bun-workspaces monorepo with
-three runnable services and one shared TS package.
+A GZCLP linear-progression weightlifting tracker. Bun-workspaces monorepo that
+deploys as ONE same-origin Vercel project (static SPA + serverless ElysiaJS API)
+with three runnable clients/services and shared TS packages.
 
 ## Service map
 
-| Service         | Path                     | Tech                                                | Entry                               | Dev                         |
-| --------------- | ------------------------ | --------------------------------------------------- | ----------------------------------- | --------------------------- |
-| Web SPA         | `apps/frontend/web`      | Vite 7, React 19, TanStack Router/Query, Tailwind 4 | `src/main.tsx`                      | `bun run dev`               |
-| Mobile          | `apps/frontend/mobile`   | Expo 54, RN 0.81, expo-sqlite                       | `App.tsx`                           | (Expo CLI)                  |
-| API             | `apps/backend/api`       | ElysiaJS 1.4 + Drizzle + Postgres + Redis           | `src/index.ts` → `src/bootstrap.ts` | `bun run dev:api`           |
-| Analytics       | `apps/backend/analytics` | FastAPI + scikit-learn + APScheduler                | `main.py`                           | `uvicorn main:app --reload` |
-| Domain (shared) | `packages/domain`        | TS + Zod 4 (no runtime)                             | `src/index.ts`                      | `bun run typecheck:domain`  |
+| Service         | Path                   | Tech                                                                            | Entry                                                                 | Dev                        |
+| --------------- | ---------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------- |
+| Web SPA         | `apps/frontend/web`    | Vite 7, React 19, TanStack Router/Query, Tailwind 4                             | `src/main.tsx`                                                        | `bun run dev`              |
+| Mobile          | `apps/frontend/mobile` | Expo 54, RN 0.81, expo-sqlite                                                   | `App.tsx`                                                             | (Expo CLI)                 |
+| API             | `apps/backend/api`     | ElysiaJS 1.4 (serverless `app.fetch`) + Drizzle + Neon Postgres + Upstash Redis | `api/[...path].ts` → `src/create-app.ts` (local: `src/dev-server.ts`) | `bun run dev:api`          |
+| Domain (shared) | `packages/domain`      | TS + Zod 4 (no runtime)                                                         | `src/index.ts`                                                        | `bun run typecheck:domain` |
+
+Analytics is no longer a separate service. The insight math (e1RM, frequency,
+summary, volume, plateau, forecast, recommendation) was ported to TypeScript and
+now lives inside the API package at `apps/backend/api/src/analytics/`. It is
+computed by a Vercel Cron job hitting the internal route
+`POST /api/internal/analytics/compute` (see "Analytics → API integration"
+below). There is also a shared `packages/database` (Drizzle schema/seeds/
+migrations) and `packages/api-client` (typed fetch wrapper).
 
 ## Cross-cutting contracts
 
 - **GZCLP rules + Zod schemas live in `packages/domain`** (imported as `@gzclp/domain` via `workspace:*` by web, mobile, api). It is the single source of truth — never duplicate logic that belongs here.
-- **API contract**: ElysiaJS exposes `/swagger/json` (non-prod). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. CI gates drift in `.github/workflows/validate.yml` (the `validate` job boots the API against a Postgres service container and runs `git diff --exit-code` on the generated client) — Lefthook no longer runs this check pre-push because it requires a live API. **Mobile does NOT consume this generated client** — it hand-writes API calls. Unifying is on the roadmap (`packages/api-client`).
-- **Auth**: JWT access + refresh-token rotation. Google OAuth on all three clients. Server logic split: `apps/backend/api/src/routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` + `lib/google-auth.ts`.
-- **Migrations**: applied automatically on API startup (`apps/backend/api/src/bootstrap.ts`). Drizzle config at `packages/database/drizzle.config.ts`. Schema at `packages/database/src/schema.ts`. Generated SQL at `packages/database/migrations/`.
-- **Analytics → API integration**: insights are pre-computed by the Python service and stored in the `user_insights` table. `POST /compute` requires an internal secret.
+- **API contract**: ElysiaJS exposes `/swagger/json` (non-prod). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. CI gates drift in `.github/workflows/ci.yml` (the `OpenAPI client drift` job boots the API against a Postgres service container and runs `git diff --exit-code` on the generated client) — Lefthook no longer runs this check pre-push because it requires a live API. **Mobile does NOT consume this generated client** — it hand-writes API calls. Unifying is on the roadmap (`packages/api-client`).
+- **Auth**: JWT access + refresh-token rotation. Multi-method sign-in (Google, Apple, GitHub, Microsoft, email/password). Server logic split: `apps/backend/api/src/routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` + `lib/google-auth.ts`.
+- **Migrations**: applied by the standalone build-time deploy step `apps/backend/api/src/scripts/migrate-deploy.ts` (run via `bun run --filter api db:deploy`, gated to production in `scripts/vercel-build.sh`) against `DIRECT_DATABASE_URL` — NOT on API startup (the serverless entrypoint has no boot-time DDL). Drizzle config at `packages/database/drizzle.config.ts`. Schema at `packages/database/src/schema.ts`. Generated SQL at `packages/database/migrations/`.
+- **Analytics → API integration**: insights are pre-computed in TypeScript inside the API (`apps/backend/api/src/analytics/`) and stored in the `user_insights` table. A Vercel Cron job calls `POST /api/internal/analytics/compute`, which processes a bounded least-recently-computed batch per tick (idempotent upserts). That route, like the other `/api/internal/*` cron routes, accepts the `CRON_SECRET` Vercel injects or a manual `INTERNAL_SECRET` Bearer — and fails closed when neither is set. Parity with the old Python outputs is frozen by golden-file tests (`src/analytics/pipelines/pipelines.parity.test.ts`).
 - **Soft delete**: `users.deletedAt` triggers a 30-day grace period before `purge-deleted-users.ts` hard-deletes (CASCADE). The `/me` and token-refresh paths filter `WHERE deleted_at IS NULL` (so a soft-deleted user cannot fetch their profile or mint new tokens), and `softDeleteUser` revokes all refresh tokens. The resource-route guard (`resolveUserId`) validates JWTs statelessly and does **not** re-check `deleted_at`, so an access token issued before deletion keeps working until it expires (≤`JWT_ACCESS_EXPIRY`, default 15m).
 
 ## Config flags (from `.env.example`)
 
+The product is one same-origin Vercel project: the API runs as a Node serverless
+function (`api/[...path].ts`), so env vars are set per-environment in the Vercel
+dashboard (Production + Preview). The full go-live procedure with every value and
+source is in [`docs/VERCEL_CUTOVER.md`](./docs/VERCEL_CUTOVER.md). The canonical
+registry is `apps/backend/api/src/lib/env-validation.ts` (the cold-start fail-fast).
+
 **Required (api):**
 
-- `DATABASE_URL` — Postgres connection string.
+- `DATABASE_URL` — Neon **pooled** PgBouncer connection string (host contains `-pooler`). The serverless DB client uses pool `max=1`, `prepare:false`. Request-time.
 - `JWT_SECRET` — JWT signing secret (≥64 chars in prod).
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_IDS` — Google OAuth (web + Android/iOS/web client IDs, comma-separated for the mobile endpoints).
 
-**Network:** `CORS_ORIGIN`, `PORT` (default 3001), `TRUSTED_PROXY` (when behind reverse proxy — reads `X-Forwarded-For` for rate limiting).
+**Required in production:**
 
-**Optional (graceful fallback):**
+- `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — Upstash Redis over REST (presence, caches, rate limiting). Mandatory in prod: the API throws at cold start if either is missing while `NODE_ENV=production`. Unset locally degrades gracefully (no-op / cache miss).
+- `INTERNAL_SECRET` — Bearer secret guarding the manual ops path of `/api/internal/*` (cleanup-tokens, purge-users, analytics/compute). The guard fails closed: with neither `INTERNAL_SECRET` nor `CRON_SECRET` set, every internal request is 401.
+- `CRON_SECRET` — injected by Vercel Cron; when set on the project, Vercel sends `Authorization: Bearer <CRON_SECRET>` on every scheduled invocation, which the internal routes accept. Crons get 401 without it. Value is set only in Vercel.
 
-- `REDIS_URL` — when unset, rate-limiting and presence use in-memory stores (reset on restart).
-- `SENTRY_DSN`, `METRICS_TOKEN` (bearer for `/metrics`), `LOG_LEVEL` (debug | info | warn | error).
+**Build-time only:**
+
+- `DIRECT_DATABASE_URL` — Neon **direct** (non-pooled) connection string. Used only by `bun run --filter api db:deploy` (drizzle migrations + seeds). Falls back to `DATABASE_URL` locally; not consumed at request time.
+
+**Network (same-origin):** `CORS_ORIGIN` (leave **empty** for same-origin — no CORS needed; set only for split-origin local dev), `PORT` (local dev server only, default 3001), `TRUSTED_PROXY` (auto-trusted on Vercel; set `true` only for non-Vercel self-hosting behind a reverse proxy), `JWT_ACCESS_EXPIRY` (default `15m`).
+
+**Optional:**
+
+- `ANALYTICS_BATCH_SIZE` — users processed per analytics compute cron tick (default 50).
+- `SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE` (default 0.1), `LOG_LEVEL` (debug | info | warn | error). Pull-based metrics and `/metrics` were removed; observability is `@sentry/node` + pino JSON to Vercel log drains.
 - `ADMIN_USER_IDS` — comma-separated UUIDs of admins for program-definition approval.
+- `RESEND_API_KEY` + `EMAIL_FROM` — transactional email (verification, password reset).
+- `APPLE_CLIENT_ID`, `GITHUB_CLIENT_ID`/`_SECRET`, `MICROSOFT_CLIENT_ID`/`_SECRET`/`_TENANT_ID` — enable the matching social sign-in methods.
 - `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` — new-user alerts.
 
-**Web (Vite, build-time):** `VITE_API_URL`, `VITE_PLAUSIBLE_DOMAIN` (runtime-injected).
+**Removed (do not reintroduce):** `REDIS_URL` (→ Upstash REST), `METRICS_TOKEN` and `/metrics` (deleted), `DB_POOL_SIZE` (pool now defaults to `max=1`), `COMPUTE_INTERVAL_HOURS` (analytics scheduling is a Vercel Cron declaration).
 
-**Mobile (Expo):** `EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_GOOGLE_*` IDs.
+**Web (Vite, build-time):** `VITE_API_URL` — set to `""` (empty) for same-origin so the SPA issues relative `/api` requests (the Vercel build exports this for you); `VITE_GOOGLE_CLIENT_ID` (required for web Google sign-in); `VITE_PLAUSIBLE_DOMAIN`, `VITE_SENTRY_DSN`.
+
+**Mobile (Expo):** `EXPO_PUBLIC_API_URL` (point at the Vercel domain), `EXPO_PUBLIC_GOOGLE_*` IDs.
 
 ## Tooling
 
@@ -63,17 +91,18 @@ three runnable services and one shared TS package.
 
 ## Local development & E2E
 
-> Local dev runs **natively** with Bun + a local Postgres (Redis optional). There is no dev
-> `docker-compose`; the `apps/backend/*/Dockerfile` images are for production/CI only.
+> Local dev runs **natively** with Bun + a local Postgres (Upstash Redis optional).
+> There are no Docker images or `docker-compose`; production is serverless on Vercel
+> (`api/[...path].ts`) and the local API is `src/dev-server.ts` (`Bun.serve`).
 
 ### Prerequisites
 
-| Tool       | Version  | Notes                                            |
-| ---------- | -------- | ------------------------------------------------ |
-| Bun        | ≥ 1.3.10 | `curl -fsSL https://bun.sh/install \| bash`      |
-| PostgreSQL | ≥ 14     | Local instance or managed (Supabase, Neon, …)    |
-| Redis      | optional | Rate-limiting falls back to in-memory without it |
-| Node/npm   | not used | Bun handles everything                           |
+| Tool          | Version  | Notes                                                                         |
+| ------------- | -------- | ----------------------------------------------------------------------------- |
+| Bun           | ≥ 1.3.10 | `curl -fsSL https://bun.sh/install \| bash`                                   |
+| PostgreSQL    | ≥ 14     | Local instance or managed (Neon in production)                                |
+| Upstash Redis | optional | Set `UPSTASH_REDIS_REST_URL`/`_TOKEN` to enable; in-memory fallback otherwise |
+| Node/npm      | not used | Bun handles everything                                                        |
 
 ### Environment
 
@@ -87,10 +116,11 @@ Bun auto-loads `.env` from the workspace root and from each package dir.
   GOOGLE_CLIENT_ID=...apps.googleusercontent.com                     # optional; POST /api/auth/dev works without it
   GOOGLE_CLIENT_IDS=...web,...mobile                                 # optional
   CORS_ORIGIN=http://localhost:5173                                  # defaults to http://localhost:3000 in dev
-  # REDIS_URL=redis://localhost:6379                                 # optional → in-memory rate limiting
+  # UPSTASH_REDIS_REST_URL=...                                       # optional → in-memory rate limiting
+  # UPSTASH_REDIS_REST_TOKEN=...
   ```
 
-  Migrations + reference-data seeds run automatically on every startup — no manual `db:migrate`.
+  Migrations + reference-data seeds are NOT applied on boot. Run them once with `bun run --filter api db:deploy` (idempotent, safe to re-run).
 
 - **Web** — `apps/frontend/web/.env.local`. `VITE_API_URL` is optional in dev (defaults to
   `http://localhost:3001`) but **required** for production builds.
@@ -128,7 +158,7 @@ $env:PGPASSWORD = "postgres"
 
 If the cluster password is not `postgres`, set it once with
 `ALTER USER postgres WITH PASSWORD 'postgres';` and update `DATABASE_URL` accordingly.
-There is no Redis on Windows by default - leave `REDIS_URL` unset and the API falls back to in-memory
+Redis is optional in dev - leave `UPSTASH_REDIS_REST_URL`/`_TOKEN` unset and the API falls back to in-memory
 rate-limiting and presence (a startup `redis: disabled` in `/health` is expected, not an error).
 
 **Env files used by the local stack (create once, git-ignored):**
@@ -167,14 +197,17 @@ rate-limiting and presence (a startup `redis: disabled` in `/health` is expected
 
 ```bash
 bun install            # from repo root — installs all workspaces
-bun run dev:api        # API on :3001 (or: cd apps/backend/api && bun --watch src/index.ts)
+bun run --filter api db:deploy   # apply migrations + reference seeds (once; idempotent)
+bun run dev:api        # API on :3001 (or: cd apps/backend/api && bun --watch src/dev-server.ts)
 bun run dev:web        # web on :5173 (alias: bun run dev)
 curl http://localhost:3001/health   # → {"status":"ok"}
 ```
 
-Startup logs migrations → reference-data seeds → `API started` on port 3001. A wrong or unreachable
-`DATABASE_URL` exits the process immediately (`connect ECONNREFUSED`). The web app calls the API at
-`VITE_API_URL`; keep `CORS_ORIGIN=http://localhost:5173` in the API env so the browser isn't blocked.
+The dev server (`src/dev-server.ts`) serves the same `createApp()` factory the Vercel function mounts,
+via `Bun.serve`. Migrations/seeds are a separate `db:deploy` step (no boot-time DDL). A wrong or
+unreachable `DATABASE_URL` surfaces as `connect ECONNREFUSED` on the first DB-touching request. The web
+app calls the API at `VITE_API_URL`; keep `CORS_ORIGIN=http://localhost:5173` in the API env so the
+browser isn't blocked.
 
 **Smoke-test the running stack (no Google OAuth needed).**
 With the dev sign-in flags set above, this mints a real session and exercises the authed routes end to end:
@@ -278,15 +311,16 @@ bun run e2e:headed     # visible browser
 
 ```bash
 bun run db:generate    # generate migration SQL from schema changes
-bun run db:migrate     # apply manually (normally auto-applied on startup)
+bun run db:deploy      # apply migrations + reference seeds (the build-time deploy step; idempotent)
+bun run db:migrate     # apply migrations only, manually
 bun run db:studio      # Drizzle Studio at http://local.drizzle.studio
 ```
 
 ### Gotchas
 
 - **OpenAPI drift**: after changing API routes, regenerate the web client with the API running on
-  :3001 — `cd apps/frontend/web && bun run api:types`. Drift is gated by CI's `validate` job, **not**
-  by Lefthook pre-push (it needs a live API; see Cross-cutting contracts).
+  :3001 — `cd apps/frontend/web && bun run api:types`. Drift is gated by CI's `OpenAPI client drift`
+  job, **not** by Lefthook pre-push (it needs a live API; see Cross-cutting contracts).
 - **Service worker**: the PWA SW is disabled in dev (`devOptions.enabled: false` in `vite.config.ts`),
   so stale cache isn't a dev concern. After a prod build, unregister the SW + clear site data in
   DevTools, or hard-reload (Ctrl/Cmd+Shift+R).
@@ -299,100 +333,55 @@ bun run db:studio      # Drizzle Studio at http://local.drizzle.studio
 | `connect ECONNREFUSED 127.0.0.1:5432`            | Postgres not running       | Start Postgres                                            |
 | `CORS_ORIGIN contains invalid URL`               | Malformed CORS value       | Use a full URL: `http://localhost:5173`                   |
 | `VITE_API_URL must be set for production builds` | Missing var in prod build  | Set `VITE_API_URL` before `bun run build`                 |
-| CI `validate` job fails on API-types drift       | Generated client stale     | Run `bun run api:types` with API running, commit          |
+| CI `OpenAPI client drift` job fails              | Generated client stale     | Run `bun run api:types` with API running, commit          |
 | Playwright `net::ERR_CONNECTION_REFUSED`         | API not started before e2e | Set `DATABASE_URL`; Playwright starts API via `webServer` |
 
-## VPS deploy (production)
+## Vercel deploy (production)
 
-> Production runs on a single VPS. Deploys are **automatic on push to `main`**
-> via `.github/workflows/deploy.yml` (also `workflow_dispatch`). There is no
-> manual deploy step. Compose lives at `infra/production/docker-compose.yml`.
+> Production is ONE same-origin Vercel project: the Vite SPA ships as static
+> output and the ElysiaJS API runs as a Node serverless function at the root
+> catch-all `api/[...path].ts`. Pushes to `main` deploy automatically through
+> the Vercel Git integration — there is **no** GitHub deploy workflow. The full
+> one-time go-live procedure is in [`docs/VERCEL_CUTOVER.md`](./docs/VERCEL_CUTOVER.md).
 
-### Pipeline (`deploy.yml`)
+### Topology
 
-1. **`build-images`** (matrix: `api`, `analytics`) — builds each `Dockerfile`
-   with buildx and pushes to GHCR as `ghcr.io/<owner>/gravity-room-<svc>:latest`
-   and `:<sha>`. `fail-fast: true` — if one image fails, the deploy is skipped.
-2. **`build-web`** — `bun install` + `bun run --filter web build` (Vite +
-   Playwright prerender) on the runner, bundles the `/presentacion` deck, and
-   uploads the `dist/` as the `web-dist` artifact. The web app is **static**
-   (no web image) — it is rsynced, not containerised.
-3. **`deploy`** (needs both above) — over SSH to the VPS at
-   `/opt/gravity-room/`: rsync `docker-compose.yml` + `Caddyfile`, rsync
-   `web-dist/` → `data/web-dist/` (`--delete`), **validate the VPS `.env`**
-   against the new api image (`check-env.ts`), `docker compose pull` +
-   `up -d`, reload Caddy, health-check `/health`, assert the index, verify
-   prod security headers, then ping IndexNow.
+- **`vercel.json`** pins `framework: null`, `installCommand: bun install`,
+  `buildCommand: bash scripts/vercel-build.sh`, `outputDirectory:
+apps/frontend/web/dist`, the `api/[...path].ts` function (`maxDuration: 60`),
+  the SPA rewrite (everything except `/api/*` → `/index.html`), and the three
+  cron schedules.
+- **`scripts/vercel-build.sh`** runs `bun run --filter api db:deploy` against
+  `DIRECT_DATABASE_URL` **only** when `VERCEL_ENV=production` (skipped on
+  preview/local Neon branches), regenerates the sitemap, then builds the SPA with
+  `VITE_API_URL=""` via the Chromium-free `build:no-prerender` path (Vercel's
+  build sandbox has no browser for the Playwright prerender).
+- **Data**: Neon Postgres (pooled `DATABASE_URL` at request time, direct
+  `DIRECT_DATABASE_URL` for migrations) and Upstash Redis over REST.
+- **Cron**: Vercel Cron hits `/api/internal/{cleanup-tokens,purge-users,analytics/compute}`;
+  Vercel injects `Authorization: Bearer <CRON_SECRET>` which the internal guard accepts.
 
-VPS layout: `/opt/gravity-room/{docker-compose.yml, Caddyfile, .env, data/web-dist/}`.
-Secrets/vars used by the workflow: `VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER`,
-`VITE_GOOGLE_CLIENT_ID`.
+### Don't break the deploy — known footguns
 
-### Accessing the production VPS (SSH)
-
-Deploys are automatic on push to `main`, but managing or diagnosing them is done by SSH-ing into the box.
-The deploy server is a self-hosted Hetzner VPS, reached **directly over its public IP** (`178.105.107.25`),
-not over Tailscale - no VPN needs to be running. Access is key-only (no passwords); the private key is the
-secret, so the host/IP being written down here is harmless.
-
-```powershell
-ssh gr-prod                       # alias → root@178.105.107.25 (ed25519 key)
-ssh root@178.105.107.25           # same box, explicit
-scp ./file gr-prod:/opt/gravity-room/   # copy a file up
-```
-
-The `gr-prod` alias and key live in the operator's local `~/.ssh/` (`C:\Users\reche\.ssh\` on Windows):
-
-- `config` - `Host gr-prod` → `HostName 178.105.107.25`, `User root`, `IdentityFile ~/.ssh/gr_deploy_ed25519`.
-- `gr_deploy_ed25519` (+ `.pub`) - the deploy keypair (same key the CI `VPS_SSH_KEY` secret uses).
-- `known_hosts` - the VPS host keys are pre-trusted so the first connect does not prompt.
-- **Windows ACL gotcha:** the private key file must be locked to your user only
-  (`icacls gr_deploy_ed25519 /inheritance:r /grant:r "$($env:USERNAME):F"`) or Windows OpenSSH refuses it
-  as "permissions are too open" and falls back to a password prompt.
-
-Once on the box, deployments are plain Docker Compose under `/opt/gravity-room/`:
-
-```bash
-cd /opt/gravity-room
-docker compose ps                 # service status (api, postgres, analytics, caddy)
-docker compose logs -f api        # tail a service
-docker compose pull && docker compose up -d   # manual re-deploy (what deploy.yml does over SSH)
-docker compose restart api        # bounce one service
-nano .env && docker compose up -d # apply an env change (see the env-var footgun below)
-curl -fsS localhost/health        # health-check the running api
-```
-
-Prefer pushing to `main` and letting `deploy.yml` run; reach for manual `compose` only to diagnose or
-recover. To watch a deploy from your machine instead of the VPS, use `gh run watch` (see _Diagnosing a
-failed deploy_ below).
-
-### Don't break the deploy — known footguns (each now has a CI guard)
-
-- **New workspace package → update the api Dockerfile.** The api image runs
-  `bun install --frozen-lockfile`, which resolves the **whole** workspace, so
-  every member's `package.json` must be `COPY`d into the `deps` stage of
-  `apps/backend/api/Dockerfile` — even ones the api never imports (web, mobile,
-  `api-client`). A missing one fails with
-  `error: Workspace dependency "<name>" not found` (this is exactly how PR #72
-  broke prod by adding `@gzclp/api-client`). **Guard:** the `docker-build` job
-  in `validate.yml` builds both images on every PR, so this fails the PR
-  instead of the post-merge deploy. Local-only dev and the rest of CI do NOT
-  catch it because they install the full checkout, not the Docker context.
-- **New required-in-prod env var → update two places.** Add it to
-  `apps/backend/api/.env.production.example` (CI `validate` runs `check-env.ts`
-  against it) **and** to the VPS `/opt/gravity-room/.env`. The deploy validates
-  the VPS `.env` against the new image before `compose up`, so a missing var
-  fails the deploy step cleanly instead of entering a restart loop (the PR #67
-  scenario).
-- **The `deploy` job only runs if BOTH image builds AND the web build pass.**
-  A red `build-images` (api or analytics) skips the deploy entirely.
+- **New required-in-prod env var → update three places.** Add the spec to
+  `apps/backend/api/src/lib/env-validation.ts` (the cold-start fail-fast), the
+  `.env.example` template, and the Vercel project Environment Variables
+  (Production + Preview). A missing required var crashes the production function
+  at cold start with one consolidated error from `validateEnv`.
+- **Migrations are build-time, not boot-time.** Schema changes only reach
+  production through `db:deploy` in `scripts/vercel-build.sh`; never add
+  boot-time DDL to `create-app.ts` (the function is invoked per-request and would
+  race). Use the direct (non-pooled) endpoint for DDL.
+- **Same-origin assumptions.** Leave `CORS_ORIGIN` empty and `VITE_API_URL=""`
+  so the SPA issues relative `/api` requests; setting either re-introduces a
+  cross-origin split the catch-all does not need.
 
 ### Diagnosing a failed deploy
 
-`gh run list --workflow deploy.yml` → open the failed run →
-`gh run view <id> --log-failed`. Most failures are in `build-images` (Docker
-build) — look for the failing `RUN` step. `deploy`-job failures print
-`docker compose ps` + `logs` for the api/postgres containers.
+Open the deployment in the Vercel dashboard and read the Build Logs (db:deploy +
+Vite) and the Function Logs / Runtime Logs (cold-start `validateEnv` errors,
+per-request failures). `GET /api/health` returns the `db` block for a quick
+liveness check; Vercel Cron invocation results show under the project's Cron tab.
 
 ## Auto-generated: API surface
 
@@ -509,12 +498,13 @@ _10 tables. Source: `packages/database/src/schema.ts`._
 
 ## Recently removed (don't suggest reintroducing)
 
-The following remain removed from the repo today (some were originally swept out in `6876320 chore: remove VPS deployment (#61)`; the VPS path was later re-introduced via PR #62, so only the entries below are still gone):
+The following were removed in the Vercel migration and must not be reintroduced:
 
-- `apps/frontend/web/Dockerfile` and `docker-compose.dev.yml` (the web container and the dev compose file). The API and analytics still ship as Docker images — `apps/backend/api/Dockerfile` and `apps/backend/analytics/Dockerfile` are active and consumed by `.github/workflows/deploy.yml`. Production compose lives at `infra/production/docker-compose.yml`.
-- nginx configs (`apps/frontend/web/nginx*.conf`, `security-headers.conf`).
-- CI workflows: `_validate-api.yml`, `_validate-web.yml`, `_validate-analytics.yml`, `auto-format.yml`, `workflow-sanity.yml`. **Active workflows:** `claude.yml`, `claude-code-review.yml`, `deploy.yml`, `validate.yml`.
-- Dependabot config.
+- **The Python analytics service** (`apps/backend/analytics/`, FastAPI + scikit-learn + APScheduler). Ported to TypeScript in-process at `apps/backend/api/src/analytics/`, driven by Vercel Cron.
+- **All VPS/Docker deploy infra**: `infra/production/` (Docker Compose, `Caddyfile`, ops scripts, cron units), every `Dockerfile`, root `.dockerignore`, and the `.github/workflows/deploy.yml` continuous-deploy workflow. Production is serverless on Vercel.
+- **The `validate.yml` workflow** (folded into `ci.yml`) and its `docker-build` job. **Active workflows:** `ci.yml`, `security.yml`, `claude.yml`, `claude-code-review.yml`.
+- **`/metrics` + prom-client** (observability is `@sentry/node` + pino), and the `REDIS_URL`/`METRICS_TOKEN`/`DB_POOL_SIZE`/`COMPUTE_INTERVAL_HOURS` env vars.
+- Stale per-package `.env.example` / `.env.production.example` files; the single root `.env.example` is the template.
 
 If a task suggests bringing any of these back, confirm intent first.
 
