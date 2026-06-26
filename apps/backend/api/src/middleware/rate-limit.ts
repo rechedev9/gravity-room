@@ -1,79 +1,48 @@
 /**
- * Rate limiter — sliding-window, optionally Redis-backed.
+ * Rate limiter — sliding-window, backed by Upstash Redis over REST.
  *
- * When REDIS_URL is set the limiter uses a Redis sorted-set Lua script for
- * atomic distributed counting so all API instances share the same counters.
- * When REDIS_URL is absent it falls back to an in-memory sliding-window that
- * is accurate within a single instance (fine for single-instance deployments).
+ * Distributed counting via @upstash/ratelimit so every serverless invocation
+ * shares the same window. A Ratelimit instance is constructed and cached per
+ * distinct {windowMs, maxRequests} configuration. Keys are the caller-supplied
+ * client IP (derived upstream from x-forwarded-for) scoped by endpoint.
  *
- * NOTE: the in-memory store resets on server restart.
+ * In development without Upstash configured, getRedis() returns undefined and
+ * the limiter degrades to a permissive no-op (logged once) — it never crashes
+ * dev. Redis is mandatory in production (enforced at lib/redis.ts module init).
  */
+import { Ratelimit } from '@upstash/ratelimit';
 import { ApiError } from './error-handler';
 import { logger } from '../lib/logger';
-import { rateLimitHitsTotal } from '../lib/metrics';
+import { getRedis } from '../lib/redis';
 
 // ---------------------------------------------------------------------------
-// Interface
+// Limiter cache — one Ratelimit per distinct {windowMs, maxRequests}
 // ---------------------------------------------------------------------------
 
-export interface RateLimitStore {
-  check(key: string, windowMs: number, maxRequests: number): Promise<boolean>;
-}
+const limiters = new Map<string, Ratelimit>();
+let _warnedNoRedis = false;
 
-// ---------------------------------------------------------------------------
-// In-memory sliding-window implementation
-// ---------------------------------------------------------------------------
-
-const windows = new Map<string, number[]>();
-let callCount = 0;
-const CLEANUP_EVERY_N = 100;
-
-export class MemoryRateLimitStore implements RateLimitStore {
-  async check(key: string, windowMs: number, maxRequests: number): Promise<boolean> {
-    const now = Date.now();
-    const cutoff = now - windowMs;
-    const timestamps = (windows.get(key) ?? []).filter((t) => t > cutoff);
-
-    if (timestamps.length >= maxRequests) {
-      return false;
+function getLimiter(windowMs: number, maxRequests: number): Ratelimit | undefined {
+  const redis = getRedis();
+  if (!redis) {
+    if (!_warnedNoRedis) {
+      _warnedNoRedis = true;
+      logger.warn('Rate limiter: Upstash not configured, limiting is a no-op');
     }
-
-    timestamps.push(now);
-    windows.set(key, timestamps);
-
-    if (++callCount % CLEANUP_EVERY_N === 0) {
-      for (const [k, ts] of windows) {
-        if (ts.every((t) => t <= cutoff)) windows.delete(k);
-      }
-    }
-
-    return true;
+    return undefined;
   }
-}
 
-// ---------------------------------------------------------------------------
-// Store selection — initialised once on first request
-// ---------------------------------------------------------------------------
-
-let _storePromise: Promise<RateLimitStore> | undefined;
-
-async function initStore(): Promise<RateLimitStore> {
-  if (process.env['REDIS_URL']) {
-    try {
-      const { RedisRateLimitStore } = await import('./redis-rate-limit');
-      const store = new RedisRateLimitStore();
-      logger.info('Rate limiter: using Redis store');
-      return store;
-    } catch (e: unknown) {
-      logger.warn({ err: e }, 'Redis rate limiter init failed, falling back to in-memory');
-    }
+  const cacheKey = `${windowMs}:${maxRequests}`;
+  let limiter = limiters.get(cacheKey);
+  if (!limiter) {
+    limiter = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(maxRequests, `${windowMs} ms`),
+      prefix: 'rl',
+    });
+    limiters.set(cacheKey, limiter);
   }
-  return new MemoryRateLimitStore();
-}
-
-function getStore(): Promise<RateLimitStore> {
-  if (!_storePromise) _storePromise = initStore();
-  return _storePromise;
+  return limiter;
 }
 
 // ---------------------------------------------------------------------------
@@ -90,10 +59,12 @@ export async function rateLimit(
 ): Promise<void> {
   const windowMs = opts?.windowMs ?? DEFAULT_WINDOW_MS;
   const maxRequests = opts?.maxRequests ?? DEFAULT_MAX_REQUESTS;
-  const store = await getStore();
-  const allowed = await store.check(`rl:${endpoint}:${ip}`, windowMs, maxRequests);
-  if (!allowed) {
-    rateLimitHitsTotal.inc({ endpoint });
+
+  const limiter = getLimiter(windowMs, maxRequests);
+  if (!limiter) return; // dev no-op: permissive when Upstash is absent
+
+  const { success } = await limiter.limit(`${endpoint}:${ip}`);
+  if (!success) {
     throw new ApiError(429, 'Too many requests', 'RATE_LIMITED', {
       headers: { 'Retry-After': String(Math.ceil(windowMs / 1000)) },
     });

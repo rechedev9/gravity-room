@@ -130,9 +130,7 @@ async function runMigrations(): Promise<void> {
         const idx = parseInt(f.split('_')[0] ?? '', 10);
         return idx <= 31;
       });
-      // JSON.parse returns `any`; this file is the Drizzle-generated journal,
-      // shape is fixed by drizzle-kit, so we accept the unsafe assignment here.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      // The Drizzle-generated journal has a fixed shape (drizzle-kit owns it).
       const journalJson: { entries: Array<{ tag: string; when: number }> } = JSON.parse(
         await readFile(join(migrationsFolder, 'meta', '_journal.json'), 'utf-8')
       );

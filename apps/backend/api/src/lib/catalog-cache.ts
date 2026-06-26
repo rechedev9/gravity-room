@@ -22,10 +22,10 @@ export async function getCachedCatalogList(): Promise<unknown> {
   if (!redis) return undefined;
 
   try {
-    const raw = await redis.get(CATALOG_LIST_KEY);
-    if (!raw) return undefined;
+    // Upstash automatically deserializes JSON values on read.
+    const parsed = await redis.get<unknown>(CATALOG_LIST_KEY);
+    if (parsed === null || parsed === undefined) return undefined;
 
-    const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) {
       logger.warn('catalog-cache: corrupt list entry, evicting');
       await redis.del(CATALOG_LIST_KEY);
@@ -47,7 +47,7 @@ export async function setCachedCatalogList(
   if (!redis) return;
 
   try {
-    await redis.set(CATALOG_LIST_KEY, JSON.stringify(entries), 'EX', CACHE_TTL_SECONDS);
+    await redis.set(CATALOG_LIST_KEY, entries, { ex: CACHE_TTL_SECONDS });
   } catch (err: unknown) {
     logger.warn({ err }, 'catalog-cache: list set failed');
   }
@@ -74,10 +74,10 @@ export async function getCachedCatalogDetail(
   if (!redis) return undefined;
 
   try {
-    const raw = await redis.get(detailKey(programId));
-    if (!raw) return undefined;
+    // Upstash automatically deserializes JSON values on read.
+    const parsed = await redis.get<unknown>(detailKey(programId));
+    if (parsed === null || parsed === undefined) return undefined;
 
-    const parsed: unknown = JSON.parse(raw);
     if (!isProgramDefinition(parsed)) {
       logger.warn({ programId }, 'catalog-cache: corrupt detail entry, evicting');
       await redis.del(detailKey(programId));
@@ -128,7 +128,7 @@ export async function setCachedCatalogDetail(
   if (!redis) return;
 
   try {
-    await redis.set(detailKey(programId), JSON.stringify(definition), 'EX', CACHE_TTL_SECONDS);
+    await redis.set(detailKey(programId), definition, { ex: CACHE_TTL_SECONDS });
   } catch (err: unknown) {
     logger.warn({ err, programId }, 'catalog-cache: detail set failed');
   }

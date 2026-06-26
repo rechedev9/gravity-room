@@ -36,10 +36,6 @@ mock.module('./plugins/swagger', () => ({
   swaggerPlugin: new Elysia({ name: 'swagger-plugin-mock' }),
 }));
 
-mock.module('./plugins/metrics', () => ({
-  metricsPlugin: new Elysia({ name: 'metrics-plugin-mock' }),
-}));
-
 // ---------------------------------------------------------------------------
 // SUT
 // ---------------------------------------------------------------------------
@@ -75,12 +71,17 @@ describe('GET /health', () => {
     expect(res.status).toBe(200);
   });
 
-  it('response includes status, timestamp, uptime, and db fields', async () => {
+  it('response includes status, timestamp, and db fields', async () => {
     const res = await app.handle(new Request('http://localhost/health'));
     const body = (await res.json()) as Record<string, unknown>;
     expect('status' in body).toBe(true);
     expect('timestamp' in body).toBe(true);
-    expect('uptime' in body).toBe(true);
     expect('db' in body).toBe(true);
+  });
+
+  it('omits the stateless-incompatible uptime field', async () => {
+    const res = await app.handle(new Request('http://localhost/health'));
+    const body = (await res.json()) as Record<string, unknown>;
+    expect('uptime' in body).toBe(false);
   });
 });

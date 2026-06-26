@@ -5,8 +5,6 @@ import { sql } from 'drizzle-orm';
 import { ApiError } from './middleware/error-handler';
 import { requestLogger } from './middleware/request-logger';
 import { swaggerPlugin } from './plugins/swagger';
-import { metricsPlugin } from './plugins/metrics';
-import { registry } from './lib/metrics';
 import { authRoutes } from './routes/auth';
 import { programRoutes } from './routes/programs';
 import { catalogRoutes } from './routes/catalog';
@@ -43,7 +41,6 @@ export function createApp(options: CreateAppOptions) {
       })
     )
     .use(swaggerPlugin)
-    .use(metricsPlugin)
     .onAfterHandle(({ set }) => {
       set.headers['x-content-type-options'] = 'nosniff';
       set.headers['x-frame-options'] = 'DENY';
@@ -143,7 +140,6 @@ export function createApp(options: CreateAppOptions) {
         return {
           status: overall,
           timestamp: new Date().toISOString(),
-          uptime: Math.floor(process.uptime()),
           db: dbStatus,
           redis: redisStatus,
         };
@@ -153,25 +149,14 @@ export function createApp(options: CreateAppOptions) {
           tags: ['System'],
           summary: 'Health check',
           description:
-            'Returns server uptime and a live database probe. Returns 503 when the database is unreachable.',
+            'Stateless probe running a live database SELECT and an Upstash ping. Returns 503 only when the database is unreachable.',
           responses: {
             200: { description: 'Server and database are healthy' },
             503: { description: 'Database unreachable' },
           },
         },
       }
-    )
-    .get('/metrics', async ({ set, headers }) => {
-      const expectedToken = process.env['METRICS_TOKEN'];
-      if (expectedToken) {
-        const auth = headers['authorization'];
-        if (auth !== `Bearer ${expectedToken}`) {
-          throw new ApiError(401, 'Invalid metrics token', 'UNAUTHORIZED');
-        }
-      }
-      set.headers['content-type'] = registry.contentType;
-      return registry.metrics();
-    });
+    );
 
   return app;
 }

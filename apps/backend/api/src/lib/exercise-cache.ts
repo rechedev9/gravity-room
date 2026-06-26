@@ -93,10 +93,10 @@ export async function getCachedExercises(
   const key = userId ? userKey(userId, filterHash) : presetKey(filterHash);
 
   try {
-    const raw = await redis.get(key);
-    if (!raw) return undefined;
+    // Upstash automatically deserializes JSON values on read.
+    const parsed = await redis.get<unknown>(key);
+    if (parsed === null || parsed === undefined) return undefined;
 
-    const parsed: unknown = JSON.parse(raw);
     if (!isPaginatedExercises(parsed)) {
       logger.warn('exercise-cache: corrupt entry, evicting');
       await redis.del(key);
@@ -123,7 +123,8 @@ export async function setCachedExercises(
   const ttl = userId ? USER_TTL_SECONDS : PRESET_TTL_SECONDS;
 
   try {
-    await redis.set(key, JSON.stringify(result), 'EX', ttl);
+    // Upstash serializes the value to JSON; read paths deserialize it back.
+    await redis.set(key, result, { ex: ttl });
   } catch (err: unknown) {
     logger.warn({ err }, 'exercise-cache: set failed');
   }
@@ -143,8 +144,8 @@ export async function invalidateUserExercises(userId: string): Promise<void> {
     const pattern = `exercises:user:${userId}:*`;
     let cursor = '0';
     do {
-      const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', '100');
-      cursor = nextCursor;
+      const [nextCursor, keys] = await redis.scan(cursor, { match: pattern, count: 100 });
+      cursor = String(nextCursor);
       if (keys.length > 0) {
         await redis.del(...keys);
       }

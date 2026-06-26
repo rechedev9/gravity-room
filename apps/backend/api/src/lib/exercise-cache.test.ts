@@ -13,7 +13,7 @@ import { describe, it, expect, mock, beforeEach } from 'bun:test';
 // Mock Redis client
 // ---------------------------------------------------------------------------
 
-const mockGet = mock(() => Promise.resolve(null as string | null));
+const mockGet = mock(() => Promise.resolve(null as unknown));
 const mockSet = mock(() => Promise.resolve('OK'));
 const mockDel = mock(() => Promise.resolve(1));
 const mockScan = mock(() => Promise.resolve(['0', [] as string[]] as [string, string[]]));
@@ -182,8 +182,8 @@ describe('getCachedExercises', () => {
   });
 
   it('returns cached paginated result on hit', async () => {
-    // Arrange
-    mockGet.mockResolvedValueOnce(JSON.stringify(CACHED_EXERCISES));
+    // Arrange — Upstash auto-deserializes, so the client returns the object.
+    mockGet.mockResolvedValueOnce(CACHED_EXERCISES);
 
     // Act
     const result = await getCachedExercises(undefined, FILTER_HASH);
@@ -227,7 +227,7 @@ describe('getCachedExercises', () => {
 
   it('evicts and returns undefined on corrupt cache entry (non-array)', async () => {
     // Arrange
-    mockGet.mockResolvedValueOnce('"not an array"');
+    mockGet.mockResolvedValueOnce('not an array');
 
     // Act
     const result = await getCachedExercises(undefined, FILTER_HASH);
@@ -239,9 +239,7 @@ describe('getCachedExercises', () => {
 
   it('evicts and returns undefined on corrupt entry (missing id field in data)', async () => {
     // Arrange — envelope with corrupt data entries
-    mockGet.mockResolvedValueOnce(
-      JSON.stringify({ data: [{ name: 'no id' }], total: 1, offset: 0, limit: 100 })
-    );
+    mockGet.mockResolvedValueOnce({ data: [{ name: 'no id' }], total: 1, offset: 0, limit: 100 });
 
     // Act
     const result = await getCachedExercises(undefined, FILTER_HASH);
@@ -273,12 +271,9 @@ describe('setCachedExercises', () => {
     await setCachedExercises(undefined, FILTER_HASH, CACHED_EXERCISES);
 
     // Assert
-    expect(mockSet).toHaveBeenCalledWith(
-      `exercises:preset:${FILTER_HASH}`,
-      JSON.stringify(CACHED_EXERCISES),
-      'EX',
-      300
-    );
+    expect(mockSet).toHaveBeenCalledWith(`exercises:preset:${FILTER_HASH}`, CACHED_EXERCISES, {
+      ex: 300,
+    });
   });
 
   it('sets user key with EX 120 TTL when userId is provided', async () => {
@@ -288,9 +283,8 @@ describe('setCachedExercises', () => {
     // Assert
     expect(mockSet).toHaveBeenCalledWith(
       `exercises:user:${USER_ID}:${FILTER_HASH}`,
-      JSON.stringify(CACHED_EXERCISES),
-      'EX',
-      120
+      CACHED_EXERCISES,
+      { ex: 120 }
     );
   });
 
@@ -328,13 +322,10 @@ describe('invalidateUserExercises', () => {
     await invalidateUserExercises(USER_ID);
 
     // Assert
-    expect(mockScan).toHaveBeenCalledWith(
-      '0',
-      'MATCH',
-      `exercises:user:${USER_ID}:*`,
-      'COUNT',
-      '100'
-    );
+    expect(mockScan).toHaveBeenCalledWith('0', {
+      match: `exercises:user:${USER_ID}:*`,
+      count: 100,
+    });
   });
 
   it('DELetes found user keys', async () => {

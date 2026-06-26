@@ -3,7 +3,7 @@
  * Emits Drizzle table metadata as JSON on stdout.
  * Consumed by scripts/refresh-claude-context.ts in the repo root.
  */
-import { is, getTableColumns, getTableName, Table } from 'drizzle-orm';
+import { is, getTableColumns, getTableName, Table, type Column } from 'drizzle-orm';
 import * as schema from '../src/db/schema';
 
 type ColInfo = {
@@ -29,20 +29,13 @@ for (const [exportName, value] of Object.entries(schema)) {
   const cols = getTableColumns(value);
   const tableName = getTableName(value);
 
-  const columns: ColInfo[] = Object.values(cols).map((col) => {
-    const c = col as unknown as {
-      name: string;
-      columnType?: string;
-      notNull?: boolean;
-      primary?: boolean;
-      isUnique?: boolean;
-    };
+  const columns: ColInfo[] = Object.values(cols).map((col: Column) => {
     return {
-      name: c.name,
-      type: stripPgPrefix(c.columnType ?? 'unknown'),
-      notNull: !!c.notNull,
-      primary: !!c.primary,
-      unique: !!c.isUnique,
+      name: col.name,
+      type: stripPgPrefix(col.columnType ?? 'unknown'),
+      notNull: !!col.notNull,
+      primary: !!col.primary,
+      unique: !!col.isUnique,
     };
   });
 

@@ -16,10 +16,11 @@ import { createApp } from '../apps/backend/api/src/create-app';
 
 function parseCorsOrigins(raw: string | undefined): string | string[] {
   if (!raw) {
-    if (process.env['NODE_ENV'] === 'production') {
-      throw new Error('CORS_ORIGIN env var must be set in production');
-    }
-    return 'http://localhost:3000';
+    // The web SPA is now same-origin, so CORS is optional: same-origin requests
+    // are never subject to CORS and native mobile clients are not browsers. When
+    // CORS_ORIGIN is unset we therefore allow no cross-origin in production (an
+    // empty allow-list) and fall back to the local dev web origin in development.
+    return process.env['NODE_ENV'] === 'production' ? [] : 'http://localhost:3000';
   }
   const origins = raw
     .split(',')
