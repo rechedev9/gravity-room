@@ -1,1 +1,1 @@
-import './bootstrap';
+export { app } from './bootstrap';

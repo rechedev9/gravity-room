@@ -2,24 +2,8 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from './schema';
 import { logger } from '../lib/logger';
-import { dbQueriesTotal } from '../lib/metrics';
 
 type DbInstance = ReturnType<typeof drizzle<typeof schema>>;
-
-type QueryType = 'select' | 'insert' | 'update' | 'delete' | 'other';
-
-function deriveQueryType(sql: string): QueryType {
-  const keyword = sql.trimStart().split(/\s+/)[0]?.toLowerCase() ?? 'other';
-  if (
-    keyword === 'select' ||
-    keyword === 'insert' ||
-    keyword === 'update' ||
-    keyword === 'delete'
-  ) {
-    return keyword;
-  }
-  return 'other';
-}
 
 /** TCP keepalive interval in seconds to detect dead connections. */
 const KEEP_ALIVE_INTERVAL_SECONDS = 60;
@@ -35,11 +19,16 @@ const queryLogger = {
     if (process.env['NODE_ENV'] !== 'production') {
       logger.debug({ sql: query, params }, 'SQL');
     }
-    dbQueriesTotal.inc({ query_type: deriveQueryType(query) });
   },
 };
 
-/** Closes the database connection pool. Called during graceful shutdown. */
+/**
+ * Closes the database connection pool.
+ *
+ * NOT part of the serverless request lifecycle: on Vercel the pooled client is a
+ * module-scope singleton reused across warm invocations, so no handler or request
+ * path calls this. Retained for scripts and tests that need an explicit teardown.
+ */
 export async function closeDb(): Promise<void> {
   if (_client) {
     await _client.end();
@@ -54,7 +43,9 @@ export function getDb(): DbInstance {
     if (!url) {
       throw new Error('DATABASE_URL environment variable is required');
     }
-    const poolSize = Number(process.env['DB_POOL_SIZE']) || 50;
+    // Serverless default: one connection per instance against the pooled
+    // (PgBouncer) endpoint. DB_POOL_SIZE may override for non-serverless use.
+    const poolSize = Number(process.env['DB_POOL_SIZE']) || 1;
     _client = postgres(url, {
       max: poolSize,
       idle_timeout: 30,
