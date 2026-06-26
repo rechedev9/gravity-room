@@ -3,6 +3,8 @@
  * Framework-agnostic: no Elysia dependency. JWT signing handled in routes.
  */
 import { eq, lt, and, isNull } from 'drizzle-orm';
+import { hash as argon2Hash, verify as argon2Verify } from '@node-rs/argon2';
+import bcrypt from 'bcryptjs';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { getDb } from '../db';
 import {
@@ -279,15 +281,33 @@ export async function findOrCreateGoogleUser(
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-/** Hashes a plaintext password with argon2id (native to Bun — no dependency). */
+/**
+ * Hashes a plaintext password with argon2id via @node-rs/argon2.
+ *
+ * argon2id is @node-rs/argon2's default algorithm (the normative recommendation),
+ * so it is not passed explicitly: its `Algorithm` enum is an ambient `const enum`
+ * that cannot be referenced under `isolatedModules`. The emitted hash string
+ * encodes its own parameters, so verification never depends on this default.
+ */
 export async function hashPassword(password: string): Promise<string> {
-  return Bun.password.hash(password, { algorithm: 'argon2id' });
+  return argon2Hash(password);
 }
 
-/** Verifies a plaintext password against a stored argon2id/bcrypt hash. */
+/**
+ * Verifies a plaintext password against a stored hash, detecting the hash
+ * format so legacy bcrypt hashes and current argon2id hashes both verify:
+ *   - `$argon2…` → @node-rs/argon2 verify
+ *   - `$2…`      → bcryptjs compare (bcrypt: $2a/$2b/$2y)
+ */
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   try {
-    return await Bun.password.verify(password, hash);
+    if (hash.startsWith('$argon2')) {
+      return await argon2Verify(hash, password);
+    }
+    if (hash.startsWith('$2')) {
+      return await bcrypt.compare(password, hash);
+    }
+    return false;
   } catch {
     return false;
   }

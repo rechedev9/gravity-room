@@ -12,10 +12,11 @@
  *
  * It mirrors the env wiring of `api/[...path].ts` exactly (corsOrigins, csp,
  * permissionsPolicy) via the shared `app-config.ts` so the locally served app is
- * byte-for-byte the serverless app, then serves it with `Bun.serve({ fetch })`,
- * the Bun-idiomatic listen path.
+ * byte-for-byte the serverless app, then serves it with `@hono/node-server`'s
+ * `serve({ fetch })`, the Node listen path.
  */
 import './lib/sentry';
+import { serve } from '@hono/node-server';
 import { createApp } from './create-app';
 import { buildAppOptions } from './app-config';
 import { logger } from './lib/logger';
@@ -32,7 +33,7 @@ const app = createApp(buildAppOptions());
 
 const PORT = Number(process.env['PORT']) || 3001;
 
-Bun.serve({
+serve({
   port: PORT,
   fetch: (request) => app.fetch(request),
 });

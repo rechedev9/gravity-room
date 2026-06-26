@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "expo start",
     "android": "expo start --android",
-    "test": "bunx jest --runInBand",
+    "test": "pnpm exec jest --runInBand",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -3,19 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "bunx --bun vite",
-    "build": "bun run scripts/generate-sitemap.ts && vite build && bun run scripts/prerender.ts",
+    "dev": "pnpm exec vite",
+    "build": "tsx scripts/generate-sitemap.ts && vite build && tsx scripts/prerender.ts",
     "build:no-prerender": "vite build",
-    "sitemap": "bun run scripts/generate-sitemap.ts",
+    "sitemap": "tsx scripts/generate-sitemap.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint --max-warnings=0 .",
     "lint:fix": "eslint --fix .",
-    "test": "bun test --preload ./test/register-dom.ts --preload ./test/setup.ts ./src",
+    "test": "vitest run",
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:headed": "playwright test --headed",
-    "api:types": "bun run codegen/generate-api-types.ts",
-    "verify:citations": "bun run scripts/verify-citations.ts",
+    "api:types": "tsx codegen/generate-api-types.ts",
+    "verify:citations": "tsx scripts/verify-citations.ts",
     "preview": "vite preview --host 127.0.0.1 --port 5173 --strictPort"
   },
   "dependencies": {
@@ -62,6 +62,9 @@
     "@testing-library/react": "^16.3.2",
     "@playwright/test": "^1.58.2",
     "@sentry/vite-plugin": "^5.1.1",
-    "openapi-zod-client": "^1.18.3"
+    "openapi-zod-client": "^1.18.3",
+    "happy-dom": "^15",
+    "tsx": "^4",
+    "vitest": "^2"
   }
 }
