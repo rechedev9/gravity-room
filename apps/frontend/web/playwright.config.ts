@@ -26,8 +26,8 @@ export default defineConfig({
 
   webServer: [
     {
-      command: 'cd apps/backend/api && bun src/index.ts',
-      url: 'http://localhost:3001/health',
+      command: 'cd apps/backend/api && bun src/dev-server.ts',
+      url: 'http://localhost:3001/api/health',
       timeout: 180_000,
       reuseExistingServer: !process.env.CI,
       cwd: resolve(__dirname, '../../..'),
