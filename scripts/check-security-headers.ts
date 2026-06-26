@@ -1,16 +1,40 @@
 import { readFileSync } from 'node:fs';
 
-const caddyfile = readFileSync('infra/production/Caddyfile', 'utf8');
+// Source of truth for the static-SPA security headers moved from the VPS
+// Caddyfile (infra/production/Caddyfile, removed in the Vercel migration) to
+// vercel.json `headers`. Caddy applied these to the served SPA; on Vercel the
+// edge applies them via the headers config. The API function sets its own CSP
+// in apps/backend/api/src/app-config.ts, so the vercel.json block is scoped to
+// non-/api paths to avoid duplicate headers.
+
+interface VercelHeader {
+  key: string;
+  value: string;
+}
+interface VercelHeaderRule {
+  source: string;
+  headers: VercelHeader[];
+}
 
 function fail(message: string): never {
   console.error(`security header check failed: ${message}`);
   process.exit(1);
 }
 
-const cspMatch = caddyfile.match(/Content-Security-Policy\s+"([^"]+)"/);
-if (!cspMatch?.[1]) fail('Content-Security-Policy header is missing from Caddyfile');
+const vercel: { headers?: VercelHeaderRule[] } = JSON.parse(readFileSync('vercel.json', 'utf8'));
+const rules = vercel.headers ?? [];
 
-const csp = cspMatch[1];
+// Flatten every key -> value the SPA security-headers rules set.
+const headers = new Map<string, string>();
+for (const rule of rules) {
+  for (const header of rule.headers ?? []) {
+    headers.set(header.key, header.value);
+  }
+}
+
+const csp = headers.get('Content-Security-Policy');
+if (!csp) fail('Content-Security-Policy header is missing from vercel.json headers');
+
 const directives = new Map<string, string[]>();
 for (const rawDirective of csp.split(';')) {
   const parts = rawDirective.trim().split(/\s+/).filter(Boolean);
@@ -49,14 +73,14 @@ forbidDirectiveValue('script-src', "'unsafe-eval'");
 forbidDirectiveValue('script-src', 'http:');
 forbidDirectiveValue('connect-src', 'http:');
 
-const requiredHeaders = [
-  'Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"',
-  'X-Content-Type-Options "nosniff"',
-  'Referrer-Policy "strict-origin-when-cross-origin"',
-  'Cross-Origin-Opener-Policy "same-origin-allow-popups"',
-];
-for (const header of requiredHeaders) {
-  if (!caddyfile.includes(header)) fail(`required header is missing: ${header}`);
+const requiredHeaders: Record<string, string> = {
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+};
+for (const [key, value] of Object.entries(requiredHeaders)) {
+  if (headers.get(key) !== value) fail(`required header is missing or wrong: ${key} "${value}"`);
 }
 
 console.log('security headers OK');
