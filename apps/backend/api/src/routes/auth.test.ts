@@ -410,7 +410,9 @@ function patch(path: string, body: unknown, headers?: Record<string, string>): P
 }
 
 async function makeValidJwt(userId: string): Promise<string> {
-  const secret = process.env['JWT_SECRET'] ?? 'dev-secret-change-me';
+  // Must match the fallback auth-guard uses when JWT_SECRET is unset
+  // (TEST_SECRET), or the signature won't verify and the token 401s.
+  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({
@@ -1061,8 +1063,9 @@ describe('POST /auth/signout', () => {
  * the past — proves the JWT plugin enforces expiry (not just bad signatures).
  */
 async function makeExpiredJwt(userId: string): Promise<string> {
-  // Match the secret auth-guard captured at import time (before any test body overrides it)
-  const secret = process.env['JWT_SECRET'] ?? 'dev-secret-change-me';
+  // Match the secret auth-guard captured at import time (its TEST_SECRET fallback
+  // when JWT_SECRET is unset) so the token fails on expiry, not on a bad signature.
+  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({
@@ -1128,6 +1131,41 @@ describe('PATCH /auth/me', () => {
     expect(res.status).toBe(400);
     expect(mockRateLimit).not.toHaveBeenCalled();
     expect(mockUpdateUserProfile).not.toHaveBeenCalled();
+  });
+
+  it('rejects well-formed base64 that is not a real image of the declared type', async () => {
+    const token = await makeValidJwt('user-123');
+    // Valid base64 ("hello world") but no PNG signature.
+    const fakeImage = `data:image/png;base64,${Buffer.from('hello world').toString('base64')}`;
+
+    const res = await patch(
+      '/auth/me',
+      { avatarUrl: fakeImage },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockUpdateUserProfile).not.toHaveBeenCalled();
+  });
+
+  it('accepts a base64 data URL whose bytes carry the declared image signature', async () => {
+    const token = await makeValidJwt('user-123');
+    // 1x1 transparent PNG — real 89 50 4E 47 signature.
+    const pngBase64 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    const realPng = `data:image/png;base64,${pngBase64}`;
+
+    const res = await patch(
+      '/auth/me',
+      { avatarUrl: realPng },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockUpdateUserProfile).toHaveBeenCalledWith(
+      'user-123',
+      expect.objectContaining({ avatarUrl: realPng })
+    );
   });
 });
 

@@ -99,7 +99,12 @@ const DEV_AUTH_ENABLED =
   process.env['AUTH_DEV_ROUTE_ENABLED'] === 'true' &&
   !IS_PRODUCTION &&
   DEV_AUTH_SECRET.length >= 16;
-const DEV_AUTH_RATE_LIMIT = { maxRequests: 1_000, windowMs: 60_000 };
+// The dev route 404s in production, so this only ever applies to preview/staging
+// envs where it is deliberately enabled. Even there the secret is compared in
+// constant time and must be ≥16 chars, but a tight per-IP cap is cheap
+// defense-in-depth against anyone hammering the secret. 60/min stays well above
+// any legitimate scripted dev/QA usage.
+const DEV_AUTH_RATE_LIMIT = { maxRequests: 60, windowMs: 60_000 };
 const emailInputSchema = t.String({ format: 'email', maxLength: MAX_EMAIL_CHARS });
 
 /** Constant-time comparison of the dev-auth secret header against the configured value. */
@@ -114,6 +119,44 @@ function devAuthSecretMatches(provided: string | undefined): boolean {
 const MAX_AVATAR_BYTES = 200_000;
 const DATA_URL_IMAGE_RE =
   /^data:image\/(jpeg|png|webp);base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
+/**
+ * Confirm the decoded avatar bytes actually carry the magic-byte signature of
+ * the MIME type the data URL claims. The regex + base64 round-trip only proves
+ * the payload is well-formed base64 with an image-ish prefix; without this an
+ * attacker could store arbitrary non-image bytes (or a mislabelled format) under
+ * an `image/*` label. We reject anything whose leading bytes don't match the
+ * declared raster format.
+ */
+function avatarSignatureMatches(declaredType: string, buf: Buffer): boolean {
+  switch (declaredType) {
+    case 'jpeg':
+      // SOI marker: FF D8 FF
+      return buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+    case 'png':
+      // 89 50 4E 47 0D 0A 1A 0A
+      return (
+        buf.length >= 8 &&
+        buf[0] === 0x89 &&
+        buf[1] === 0x50 &&
+        buf[2] === 0x4e &&
+        buf[3] === 0x47 &&
+        buf[4] === 0x0d &&
+        buf[5] === 0x0a &&
+        buf[6] === 0x1a &&
+        buf[7] === 0x0a
+      );
+    case 'webp':
+      // RIFF....WEBP
+      return (
+        buf.length >= 12 &&
+        buf.toString('ascii', 0, 4) === 'RIFF' &&
+        buf.toString('ascii', 8, 12) === 'WEBP'
+      );
+    default:
+      return false;
+  }
+}
 
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true as const,
@@ -1316,13 +1359,15 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       await rateLimit(ip, '/auth/me/patch', { maxRequests: 20 });
 
       if (body.avatarUrl !== undefined && body.avatarUrl !== null) {
-        if (!DATA_URL_IMAGE_RE.test(body.avatarUrl)) {
+        const dataUrlMatch = DATA_URL_IMAGE_RE.exec(body.avatarUrl);
+        if (!dataUrlMatch) {
           throw new ApiError(
             400,
             'Avatar must be a base64 data URL (JPEG, PNG, or WebP)',
             'INVALID_AVATAR'
           );
         }
+        const declaredType = dataUrlMatch[1];
         if (body.avatarUrl.length > MAX_AVATAR_BYTES) {
           throw new ApiError(400, 'Avatar exceeds maximum size (200KB)', 'AVATAR_TOO_LARGE');
         }
@@ -1331,14 +1376,24 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         if (!b64Part || b64Part.length === 0) {
           throw new ApiError(400, 'Empty avatar data', 'INVALID_AVATAR');
         }
+        let decoded: Buffer;
         try {
-          const decoded = Buffer.from(b64Part, 'base64');
+          decoded = Buffer.from(b64Part, 'base64');
           if (decoded.toString('base64') !== b64Part) {
             throw new ApiError(400, 'Invalid base64 in avatar', 'INVALID_AVATAR');
           }
         } catch (e: unknown) {
           if (e instanceof ApiError) throw e;
           throw new ApiError(400, 'Invalid base64 in avatar', 'INVALID_AVATAR');
+        }
+        // Confirm the decoded bytes are actually an image of the declared type,
+        // not arbitrary data smuggled under an image/* label.
+        if (declaredType === undefined || !avatarSignatureMatches(declaredType, decoded)) {
+          throw new ApiError(
+            400,
+            'Avatar data is not a valid image of the declared type',
+            'INVALID_AVATAR'
+          );
         }
       }
 
