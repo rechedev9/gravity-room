@@ -20,6 +20,14 @@
  *   GET|POST /api/internal/cleanup-tokens
  *   GET|POST /api/internal/purge-users
  *   GET|POST /api/internal/analytics/compute
+ *   GET|POST /api/internal/maintenance        (cleanup-tokens + purge-users)
+ *
+ * Scheduling note: only `analytics/compute` and `maintenance` are wired to Vercel
+ * Cron (see `vercel.json`). The Vercel Hobby plan allows at most two cron jobs,
+ * each running once per day, so the two daily maintenance jobs (token cleanup and
+ * the soft-deleted-user purge) are folded into the single `maintenance` route to
+ * fit one slot, leaving the other for analytics. The standalone `cleanup-tokens`
+ * and `purge-users` routes are retained for manual operator invocation.
  */
 import { Elysia } from 'elysia';
 import { ApiError } from '../middleware/error-handler';
@@ -135,6 +143,22 @@ async function analyticsComputeHandler(): Promise<{
   return { processed, errors, batchSize };
 }
 
+/**
+ * Daily maintenance: runs the expired-token cleanup and the soft-deleted-user
+ * purge in one pass. Consolidated into a single endpoint so both jobs share one
+ * Vercel Cron slot (the Hobby plan allows only two daily crons; analytics/compute
+ * takes the other). Runs sequentially to keep within the function time budget.
+ */
+async function maintenanceHandler(): Promise<{
+  tokens: Awaited<ReturnType<typeof cleanupTokensHandler>>;
+  users: Awaited<ReturnType<typeof purgeUsersHandler>>;
+}> {
+  const tokens = await cleanupTokensHandler();
+  const users = await purgeUsersHandler();
+  logger.info({ tokens, users }, 'internal: daily maintenance done');
+  return { tokens, users };
+}
+
 export const internalRoutes = new Elysia({ prefix: '/internal' })
   .onBeforeHandle(({ request }) => {
     assertInternalSecret(request.headers);
@@ -145,4 +169,6 @@ export const internalRoutes = new Elysia({ prefix: '/internal' })
   .get('/purge-users', purgeUsersHandler)
   .post('/purge-users', purgeUsersHandler)
   .get('/analytics/compute', analyticsComputeHandler)
-  .post('/analytics/compute', analyticsComputeHandler);
+  .post('/analytics/compute', analyticsComputeHandler)
+  .get('/maintenance', maintenanceHandler)
+  .post('/maintenance', maintenanceHandler);

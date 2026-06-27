@@ -23,16 +23,37 @@ import { seedExercisesExpanded } from '@gzclp/database/seeds/exercises-seed-expa
 import { seedProgramTemplates } from '@gzclp/database/seeds/program-templates-seed';
 import { logger } from '../lib/logger';
 
+/**
+ * Resolve the direct (non-pooled) connection string for build-time DDL + seeds.
+ *
+ * Order: an explicit `DIRECT_DATABASE_URL`, then the Neon/Vercel integration's
+ * auto-provisioned `DATABASE_URL_UNPOOLED` (its unpooled endpoint), then
+ * `DATABASE_URL` for local dev where only one endpoint is configured. The
+ * pooled (PgBouncer) endpoint is the last resort because DDL should not run
+ * through transaction pooling.
+ */
+function resolveDirectDatabaseUrl(): string | undefined {
+  return (
+    process.env['DIRECT_DATABASE_URL'] ??
+    process.env['DATABASE_URL_UNPOOLED'] ??
+    process.env['DATABASE_URL']
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Database migrations — DDL must run serially against the direct endpoint
 // ---------------------------------------------------------------------------
 
 async function runMigrations(): Promise<void> {
-  // DDL runs against the direct (non-pooled) Neon endpoint. Falls back to
-  // DATABASE_URL for local dev where only one endpoint is configured.
-  const url = process.env['DIRECT_DATABASE_URL'] ?? process.env['DATABASE_URL'];
+  // DDL runs against the direct (non-pooled) endpoint. Prefers an explicit
+  // DIRECT_DATABASE_URL, then the Neon/Vercel integration's auto-provisioned
+  // DATABASE_URL_UNPOOLED (the unpooled endpoint), then DATABASE_URL for local
+  // dev where only one endpoint is configured.
+  const url = resolveDirectDatabaseUrl();
   if (!url) {
-    throw new Error('DIRECT_DATABASE_URL or DATABASE_URL environment variable is required');
+    throw new Error(
+      'DIRECT_DATABASE_URL, DATABASE_URL_UNPOOLED, or DATABASE_URL environment variable is required'
+    );
   }
 
   // Single-connection client for migrations (DDL must run serially). TLS mirrors
@@ -173,12 +194,12 @@ async function runMigrations(): Promise<void> {
 async function runSeeds(): Promise<void> {
   // Seeds run against the SAME direct (non-pooled) endpoint as the migrations, not
   // the pooled endpoint getDb() resolves from DATABASE_URL. This keeps the deploy
-  // script on its direct-endpoint contract and does not fail when only
-  // DIRECT_DATABASE_URL is provisioned at build time. Falls back to DATABASE_URL
-  // for local dev where only one endpoint is configured.
-  const url = process.env['DIRECT_DATABASE_URL'] ?? process.env['DATABASE_URL'];
+  // script on its direct-endpoint contract (see resolveDirectDatabaseUrl).
+  const url = resolveDirectDatabaseUrl();
   if (!url) {
-    throw new Error('DIRECT_DATABASE_URL or DATABASE_URL environment variable is required');
+    throw new Error(
+      'DIRECT_DATABASE_URL, DATABASE_URL_UNPOOLED, or DATABASE_URL environment variable is required'
+    );
   }
   // TLS mirrors getDb()/runMigrations(): require in production unless DB_SSL=false.
   const ssl =

@@ -47,6 +47,24 @@ describe('validateEnv', () => {
     expect(result.missing).toContain('DATABASE_URL');
   });
 
+  it('accepts the Vercel Upstash KV_* aliases in place of UPSTASH_REDIS_REST_*', () => {
+    const env = fullProdEnv();
+    delete env['UPSTASH_REDIS_REST_URL'];
+    delete env['UPSTASH_REDIS_REST_TOKEN'];
+    env['KV_REST_API_URL'] = 'https://example.upstash.io';
+    env['KV_REST_API_TOKEN'] = 'x'.repeat(40);
+    expect(validateEnv(env, 'production')).toEqual({ ok: true });
+  });
+
+  it('still flags UPSTASH_REDIS_REST_URL when neither it nor its KV_* alias is set', () => {
+    const env = fullProdEnv();
+    delete env['UPSTASH_REDIS_REST_URL'];
+    const result = validateEnv(env, 'production');
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('unreachable');
+    expect(result.missing).toContain('UPSTASH_REDIS_REST_URL');
+  });
+
   it('does not flag vars that are in REQUIRED_ENV but not required-in-prod', () => {
     const env = fullProdEnv();
     // Sanity: at least one optional var exists.

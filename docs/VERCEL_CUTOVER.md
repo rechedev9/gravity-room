@@ -63,7 +63,7 @@ Leave `CORS_ORIGIN` empty in both environments and leave `TRUSTED_PROXY` unset (
 
 Generate a long random value and set it as the `CRON_SECRET` environment variable on the Vercel project.
 When `CRON_SECRET` is present Vercel automatically attaches `Authorization: Bearer <CRON_SECRET>` to every cron request, and the internal routes accept it.
-Without `CRON_SECRET` the three scheduled crons (`/api/internal/cleanup-tokens`, `/api/internal/purge-users`, `/api/internal/analytics/compute`) will receive 401 and silently fail.
+Without `CRON_SECRET` the two scheduled daily crons (`/api/internal/analytics/compute` and `/api/internal/maintenance`, the latter running token cleanup plus the soft-deleted-user purge) will receive 401 and silently fail.
 The internal-route guard fails closed, so if neither `CRON_SECRET` nor `INTERNAL_SECRET` is set every internal request is rejected.
 
 ## (e) Run the first production deploy
@@ -97,7 +97,7 @@ Remove any stale required checks left over from the deleted Railway, VPS deploy 
 Confirm a full sign-in and token-refresh round-trip by signing in with Google on the web app, letting an access token expire (or forcing a 401), and confirming the first-party refresh cookie drives a silent `/api/auth/refresh` back to a working session.
 Confirm deep-link refresh by reloading the app on a deep route (for example a program detail URL) and confirming the SPA rewrite serves `index.html` and the session refreshes without a hard sign-out.
 Confirm an internal cron route is guarded by calling `GET /api/internal/cleanup-tokens` with no `Authorization` header and observing a 401, then calling it again with `Authorization: Bearer <INTERNAL_SECRET>` and observing a success body.
-Confirm the scheduled crons authenticate by checking the Vercel cron logs show 200 responses for `cleanup-tokens`, `purge-users`, and `analytics/compute` after their first scheduled runs.
+Confirm the scheduled crons authenticate by checking the Vercel cron logs show 200 responses for `analytics/compute` and `maintenance` after their first scheduled runs.
 Confirm the pull-based metrics endpoint is gone by requesting `GET /metrics` and observing a 404, since prom-client and the scrape endpoint were deleted in favor of Sentry plus pino logs.
 Confirm analytics compute works end to end by invoking `/api/internal/analytics/compute` with the secret and reading the upserted insights back via `GET /api/insights`.
 Confirm the body-size guard by sending a request body over 1MB to an API route and observing a 413 response.

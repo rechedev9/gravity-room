@@ -18,12 +18,24 @@ import { logger } from './logger';
  * e.g. when this module is imported before the env is wired in some tests or
  * runtimes - is still seen.
  */
+/**
+ * Resolve the Upstash REST credentials. Prefers the canonical
+ * UPSTASH_REDIS_REST_URL/TOKEN, falling back to KV_REST_API_URL/TOKEN — the
+ * names the Vercel Upstash integration injects — so the connection works out of
+ * the box on Vercel without manually duplicating the secrets.
+ */
+function resolveRedisCredentials(): { url: string | undefined; token: string | undefined } {
+  return {
+    url: process.env['UPSTASH_REDIS_REST_URL'] ?? process.env['KV_REST_API_URL'],
+    token: process.env['UPSTASH_REDIS_REST_TOKEN'] ?? process.env['KV_REST_API_TOKEN'],
+  };
+}
+
 export function assertRedisConfigured(): void {
-  const url = process.env['UPSTASH_REDIS_REST_URL'];
-  const token = process.env['UPSTASH_REDIS_REST_TOKEN'];
+  const { url, token } = resolveRedisCredentials();
   if (process.env['NODE_ENV'] === 'production' && (!url || !token)) {
     throw new Error(
-      'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required in production'
+      'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN (or KV_REST_API_URL/KV_REST_API_TOKEN) are required in production'
     );
   }
 }
@@ -44,8 +56,7 @@ let _warnedMissing = false;
 export function getRedis(): Redis | undefined {
   if (_redis) return _redis;
 
-  const url = process.env['UPSTASH_REDIS_REST_URL'];
-  const token = process.env['UPSTASH_REDIS_REST_TOKEN'];
+  const { url, token } = resolveRedisCredentials();
   if (!url || !token) {
     if (!_warnedMissing) {
       _warnedMissing = true;

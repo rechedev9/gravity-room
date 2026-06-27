@@ -20,6 +20,11 @@ export type EnvVarSpec = {
   requiredInProd: boolean;
   description: string;
   example?: string;
+  // Alternative env var names that satisfy this one when the canonical name is
+  // unset. Used for managed-integration vars whose injected names differ from
+  // what the code reads (e.g. the Vercel Upstash integration injects
+  // KV_REST_API_URL, which the code consumes as UPSTASH_REDIS_REST_URL).
+  aliases?: readonly string[];
 };
 
 export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
@@ -36,16 +41,18 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     name: 'UPSTASH_REDIS_REST_URL',
     service: 'api',
     requiredInProd: true,
+    aliases: ['KV_REST_API_URL'],
     description:
-      'Upstash Redis REST endpoint backing presence, caches, and rate limiting via the connectionless @upstash/redis client. Mandatory in production (cold-start crash if unset); degrades gracefully when unset in local dev.',
+      'Upstash Redis REST endpoint backing presence, caches, and rate limiting via the connectionless @upstash/redis client. Mandatory in production (cold-start crash if unset); satisfied by the Vercel Upstash integration variable KV_REST_API_URL. Degrades gracefully when unset in local dev.',
     example: 'https://YOUR-DB.upstash.io',
   },
   {
     name: 'UPSTASH_REDIS_REST_TOKEN',
     service: 'api',
     requiredInProd: true,
+    aliases: ['KV_REST_API_TOKEN'],
     description:
-      'Upstash Redis REST token, paired with UPSTASH_REDIS_REST_URL. Mandatory in production alongside the URL.',
+      'Upstash Redis REST token, paired with UPSTASH_REDIS_REST_URL. Mandatory in production; satisfied by the Vercel Upstash integration variable KV_REST_API_TOKEN.',
     example: '<upstash-rest-token>',
   },
   {
@@ -94,7 +101,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: false,
     description:
-      'Neon DIRECT (non-pooled) connection string. Used ONLY by the build-time deploy step `pnpm --filter api db:deploy` (drizzle migrations + idempotent seeds), which must run DDL serially against a direct connection, never PgBouncer. Falls back to DATABASE_URL when unset, so it is not consumed at request time.',
+      'Neon DIRECT (non-pooled) connection string. Used ONLY by the build-time deploy step `pnpm --filter api db:deploy` (drizzle migrations + idempotent seeds), which must run DDL serially against a direct connection, never PgBouncer. Falls back to the Vercel/Neon integration variable DATABASE_URL_UNPOOLED, then DATABASE_URL, when unset; not consumed at request time.',
     example: 'postgresql://USER:PASSWORD@HOST.neon.tech/gravity?sslmode=require',
   },
   {
@@ -292,18 +299,25 @@ function isPresent(value: string | undefined): value is string {
   return value !== undefined && value.trim().length > 0;
 }
 
-// Unique required-in-prod var names, in REQUIRED_ENV declaration order. The
+// Required-in-prod specs, deduped by name in REQUIRED_ENV declaration order. The
 // Set-based dedup is defensive: every entry is now a distinct api var.
-function requiredNames(): string[] {
+function requiredSpecs(): EnvVarSpec[] {
   const seen = new Set<string>();
-  const out: string[] = [];
+  const out: EnvVarSpec[] = [];
   for (const spec of REQUIRED_ENV) {
     if (!spec.requiredInProd) continue;
     if (seen.has(spec.name)) continue;
     seen.add(spec.name);
-    out.push(spec.name);
+    out.push(spec);
   }
   return out;
+}
+
+// A required spec is satisfied when its canonical name OR any of its aliases is
+// present (aliases cover managed-integration vars with non-canonical names).
+function isSpecSatisfied(spec: EnvVarSpec, env: EnvLike): boolean {
+  if (isPresent(env[spec.name])) return true;
+  return (spec.aliases ?? []).some((alias) => isPresent(env[alias]));
 }
 
 export function validateEnv(
@@ -318,8 +332,8 @@ export function validateEnv(
   const missing: string[] = [];
   const errors: string[] = [];
 
-  for (const name of requiredNames()) {
-    if (!isPresent(env[name])) missing.push(name);
+  for (const spec of requiredSpecs()) {
+    if (!isSpecSatisfied(spec, env)) missing.push(spec.name);
   }
 
   // Additional shape checks for vars that ARE present but fail their constraint.

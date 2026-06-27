@@ -48,16 +48,12 @@
   ],
   "crons": [
     {
-      "path": "/api/internal/cleanup-tokens",
-      "schedule": "0 */6 * * *"
-    },
-    {
-      "path": "/api/internal/purge-users",
-      "schedule": "0 3 * * *"
-    },
-    {
       "path": "/api/internal/analytics/compute",
-      "schedule": "0 * * * *"
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/internal/maintenance",
+      "schedule": "0 3 * * *"
     }
   ]
 }
