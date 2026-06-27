@@ -2,6 +2,7 @@
   "name": "gravity-room",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@11.9.0",
   "scripts": {
     "dev": "pnpm --filter web dev",
