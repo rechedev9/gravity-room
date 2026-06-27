@@ -34,6 +34,9 @@ else
   echo "[vercel-build] VERCEL_ENV=${VERCEL_ENV:-local} - skipping production db:deploy (preview/local use a Neon branch)"
 fi
 
+echo "[vercel-build] bundling the API serverless function (self-contained ESM)"
+node scripts/bundle-api-function.mjs
+
 echo "[vercel-build] regenerating sitemap.xml (Chromium-free)"
 pnpm --filter web sitemap
 

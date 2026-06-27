@@ -74,6 +74,7 @@ scripts/*
 !scripts/loadtest.js
 !scripts/refresh-claude-context.ts
 !scripts/vercel-build.sh
+!scripts/bundle-api-function.mjs
 issues.MD
 todo.md
 
