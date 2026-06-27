@@ -2,18 +2,21 @@
  * Vercel Node-runtime catch-all for the API.
  *
  * Vercel's Node runtime invokes the default export with Node's
- * (IncomingMessage, ServerResponse) — NOT a Web `Request` — so calling
- * `app.fetch(request)` directly fails (req.url is a bare path, req.headers has no
- * `.has()`). We bridge with `@hono/node-server`'s `getRequestListener`, which
- * builds a proper Web `Request` from the Node request, runs our Elysia
- * `app.fetch`, and streams the Web `Response` back to the Node response. This is
- * the same adapter the local dev server (src/dev-server.ts) uses, so the two
- * entrypoints share identical request/response semantics.
+ * (IncomingMessage, ServerResponse) — NOT a Web `Request`. We bridge to Elysia's
+ * Web-standard `app.fetch` with a MANUAL Node handler instead of
+ * `@hono/node-server`'s `getRequestListener`.
+ *
+ * Why manual: getRequestListener wraps the Node request body in a Web
+ * `ReadableStream` that, on the Vercel Node runtime, is never driven — so Elysia's
+ * body parsing blocks forever on any request that carries a body (POST/PUT/PATCH).
+ * GETs (no body) work, writes hang ~30s and return nothing. The fix is to read the
+ * ENTIRE body from the NATIVE Node stream into a single Buffer up front, then hand
+ * that materialized buffer to `app.fetch`.
  *
  * The full `/api/...` request URL is preserved end to end, so Elysia's `/api`
  * route prefix and the `/api/auth` refresh-cookie path keep working.
  */
-import { getRequestListener } from '@hono/node-server';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createApp } from '../apps/backend/api/src/create-app';
 import { buildAppOptions } from '../apps/backend/api/src/app-config';
 
@@ -28,38 +31,73 @@ const app = createApp(buildAppOptions());
 /** Maximum accepted request body size — replaces Elysia's maxRequestBodySize. */
 const MAX_BODY_BYTES = 1_048_576;
 
-/** Methods that may carry a request body and are therefore size-guarded. */
-const BODY_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+/** Read the entire Node request body from the native stream into one Buffer. */
+function readBody(req: IncomingMessage): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
 
 /**
- * Web-standard fetch handler: body-size guard, then the Elysia app. Receives a
- * real Web `Request` (built by getRequestListener) and returns a Web `Response`.
+ * Vercel Node-runtime handler. Materializes the request body from the native Node
+ * stream BEFORE calling `app.fetch`, which is what keeps body-bearing requests
+ * from hanging forever on the Vercel runtime.
  */
-async function handleFetch(request: Request): Promise<Response> {
-  // Body-size guard: reject a request only when it DECLARES a body over 1MB. We
-  // fail OPEN when content-length is absent or non-numeric, because legitimate
-  // body-LESS requests (POST /api/auth/refresh, signout, DELETE /api/auth/me,
-  // DELETE /programs/:id) often omit the header once a client or proxy drops it,
-  // and a fail-closed guard would 413 them and break silent token refresh and
-  // deletes. Vercel's ~4.5MB platform body cap is the backstop for header-less or
-  // chunked bodies that have no declared content-length.
-  if (BODY_METHODS.has(request.method)) {
-    const contentLength = request.headers.get('content-length');
-    const declared = contentLength === null ? NaN : Number(contentLength);
-    if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
-      return new Response(
-        JSON.stringify({ error: 'Payload too large', code: 'PAYLOAD_TOO_LARGE' }),
-        {
-          status: 413,
-          headers: { 'content-type': 'application/json' },
-        }
-      );
+export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const method = (req.method ?? 'GET').toUpperCase();
+  const hasBody = method !== 'GET' && method !== 'HEAD';
+
+  // Read the body off the native Node stream up front (the key fix). GET/HEAD
+  // carry no body, so we skip the read for them.
+  let body: Buffer | undefined;
+  if (hasBody) {
+    body = await readBody(req);
+
+    // Body-size guard — replaces Elysia's maxRequestBodySize.
+    if (body.length > MAX_BODY_BYTES) {
+      res.statusCode = 413;
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ error: 'Payload too large', code: 'PAYLOAD_TOO_LARGE' }));
+      return;
     }
   }
 
-  return app.fetch(request);
-}
+  // Build a Web `Request` from the Node request. req.url is a bare path, so we
+  // reconstruct the absolute URL from the host header.
+  const url = `https://${req.headers.host ?? 'localhost'}${req.url ?? '/'}`;
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) {
+      for (const v of value) headers.append(key, v);
+    } else {
+      headers.set(key, value);
+    }
+  }
 
-// Vercel calls this with Node's (req, res); getRequestListener does the Node<->Web
-// conversion around handleFetch.
-export default getRequestListener(handleFetch);
+  const request = new Request(url, {
+    method,
+    headers,
+    ...(hasBody ? { body } : {}),
+  });
+
+  const response = await app.fetch(request);
+
+  // Write the Web `Response` back to the Node response. Preserve MULTIPLE
+  // Set-Cookie headers (refresh-token rotation sets two cookies), which a plain
+  // forEach would otherwise collapse into one.
+  res.statusCode = response.status;
+  const cookies = response.headers.getSetCookie();
+  response.headers.forEach((value, key) => {
+    if (key.toLowerCase() === 'set-cookie') return;
+    res.setHeader(key, value);
+  });
+  if (cookies.length > 0) {
+    res.setHeader('set-cookie', cookies);
+  }
+
+  res.end(Buffer.from(await response.arrayBuffer()));
+}
