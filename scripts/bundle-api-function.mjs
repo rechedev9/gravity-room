@@ -14,12 +14,12 @@
  *
  * What it does
  * ------------
- * esbuild-bundles api/[...path].ts, inlining all first-party code — relative
+ * esbuild-bundles api/index.ts, inlining all first-party code — relative
  * imports AND the @gzclp/* workspace packages — while leaving every real
  * node_module (elysia, drizzle-orm, postgres, @upstash/*, pino, @node-rs/argon2,
  * node: builtins, ...) external. @vercel/node then traces those externals from
- * node_modules as usual. The bundle overwrites api/[...path].ts in place so the
- * Vercel function mapping (api/[...path].ts -> /api/*) is unchanged; only the
+ * node_modules as usual. The bundle overwrites api/index.ts in place so the
+ * Vercel function mapping (api/index.ts -> /api/*) is unchanged; only the
  * checked-out build copy is rewritten, never the committed source.
  */
 import { build } from 'esbuild';
@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-const entry = join(repoRoot, 'api', '[...path].ts');
+const entry = join(repoRoot, 'api', 'index.ts');
 const tmpOut = join(repoRoot, 'api-function.bundle.mjs');
 
 /**
@@ -66,4 +66,4 @@ await build({
 });
 
 await rename(tmpOut, entry);
-console.log('[bundle-api-function] wrote self-contained bundle to api/[...path].ts');
+console.log('[bundle-api-function] wrote self-contained bundle to api/index.ts');
