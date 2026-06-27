@@ -71,8 +71,12 @@ function devLogLink(kind: string, link: string): void {
   }
 }
 
-export async function sendVerificationEmail(to: string, token: string): Promise<void> {
-  const link = `${getWebBaseUrl()}/verify-email?token=${encodeURIComponent(token)}`;
+export async function sendVerificationEmail(
+  to: string,
+  token: string,
+  request?: Request
+): Promise<void> {
+  const link = `${getWebBaseUrl(request)}/verify-email?token=${encodeURIComponent(token)}`;
   devLogLink('verify-email', link);
   await sendEmail({
     to,
@@ -82,8 +86,12 @@ export async function sendVerificationEmail(to: string, token: string): Promise<
   });
 }
 
-export async function sendPasswordResetEmail(to: string, token: string): Promise<void> {
-  const link = `${getWebBaseUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+export async function sendPasswordResetEmail(
+  to: string,
+  token: string,
+  request?: Request
+): Promise<void> {
+  const link = `${getWebBaseUrl(request)}/reset-password?token=${encodeURIComponent(token)}`;
   devLogLink('reset-password', link);
   await sendEmail({
     to,

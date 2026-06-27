@@ -171,6 +171,7 @@ export function AuthProvider({
         const data = await apiFetch('/auth/login', {
           method: 'POST',
           body: JSON.stringify({ email, password }),
+          retryAuth: false,
         });
         const err = applySignInResponse(data, setSessionData, { trackSignup: false });
         return err ? { ok: false, message: err.message } : { ok: true };
@@ -187,6 +188,7 @@ export function AuthProvider({
         await apiFetch('/auth/signup', {
           method: 'POST',
           body: JSON.stringify({ email, password, ...(name ? { name } : {}) }),
+          retryAuth: false,
         });
         trackEvent('signup');
         return { ok: true };
@@ -203,6 +205,7 @@ export function AuthProvider({
         const data = await apiFetch('/auth/verify-email', {
           method: 'POST',
           body: JSON.stringify({ token }),
+          retryAuth: false,
         });
         const err = applySignInResponse(data, setSessionData, { trackSignup: false });
         return err ? { ok: false, message: err.message } : { ok: true };
@@ -218,6 +221,7 @@ export function AuthProvider({
       await apiFetch('/auth/forgot-password', {
         method: 'POST',
         body: JSON.stringify({ email }),
+        retryAuth: false,
       });
       return { ok: true };
     } catch (err: unknown) {
@@ -231,6 +235,7 @@ export function AuthProvider({
         await apiFetch('/auth/reset-password', {
           method: 'POST',
           body: JSON.stringify({ token, password }),
+          retryAuth: false,
         });
         return { ok: true };
       } catch (err: unknown) {

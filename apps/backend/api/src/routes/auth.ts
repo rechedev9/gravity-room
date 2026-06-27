@@ -436,8 +436,8 @@ function removeStateCookie(
 }
 
 /** Builds the SPA callback URL the browser is redirected to, with an optional error code. */
-function socialCallbackUrl(provider: string, error?: string): string {
-  const base = `${getWebBaseUrl()}/auth/callback`;
+function socialCallbackUrl(request: Request, provider: string, error?: string): string {
+  const base = `${getWebBaseUrl(request)}/auth/callback`;
   return error
     ? `${base}?provider=${provider}&error=${encodeURIComponent(error)}`
     : `${base}?provider=${provider}`;
@@ -595,7 +595,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const user = await createPasswordUser({ email: body.email, passwordHash, name: body.name });
 
       const token = await createEmailVerificationToken(user.id);
-      void sendVerificationEmail(user.email, token);
+      void sendVerificationEmail(user.email, token, request);
 
       const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
       void sendTelegramMessage(
@@ -709,14 +709,14 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .post(
     '/forgot-password',
-    async ({ body, set, reqLogger, ip }) => {
+    async ({ body, set, reqLogger, ip, request }) => {
       await rateLimit(ip, '/auth/forgot-password', { maxRequests: 5 });
       assertEmailConfiguredForProduction();
 
       const user = await findUserByEmail(body.email);
       if (user?.passwordHash) {
         const token = await createPasswordResetToken(user.id);
-        void sendPasswordResetEmail(user.email, token);
+        void sendPasswordResetEmail(user.email, token, request);
         reqLogger.info({ event: 'auth.forgot_password', userId: user.id }, 'reset email queued');
       }
 
@@ -783,17 +783,17 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .get(
     '/apple/start',
-    async ({ cookie, redirect, ip }) => {
+    async ({ cookie, redirect, ip, request }) => {
       await rateLimit(ip, '/auth/apple/start', { maxRequests: 30 });
       if (!isAppleConfigured()) {
-        return redirect(socialCallbackUrl('apple', 'provider_not_configured'));
+        return redirect(socialCallbackUrl(request, 'apple', 'provider_not_configured'));
       }
       const state = generateRefreshToken();
       const nonce = generateRefreshToken();
       cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('none') });
       cookie[OAUTH_NONCE_COOKIE]?.set({ value: nonce, ...stateCookieOptions('none') });
       return redirect(
-        buildAppleAuthorizeUrl(state, `${getApiBaseUrl()}/api/auth/apple/callback`, nonce)
+        buildAppleAuthorizeUrl(state, `${getApiBaseUrl(request)}/api/auth/apple/callback`, nonce)
       );
     },
     {
@@ -826,10 +826,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const providerError = typeof body.error === 'string' ? body.error : undefined;
 
       if (providerError || !idToken || !requestState) {
-        return redirect(socialCallbackUrl('apple', 'cancelled'));
+        return redirect(socialCallbackUrl(request, 'apple', 'cancelled'));
       }
       if (!expectedState || expectedState !== requestState || !expectedNonce) {
-        return redirect(socialCallbackUrl('apple', 'state_mismatch'));
+        return redirect(socialCallbackUrl(request, 'apple', 'state_mismatch'));
       }
 
       let claims;
@@ -837,11 +837,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         claims = await verifyAppleIdToken(idToken, expectedNonce);
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'apple: id_token verification failed');
-        return redirect(socialCallbackUrl('apple', 'invalid_token'));
+        return redirect(socialCallbackUrl(request, 'apple', 'invalid_token'));
       }
 
       if (!claims.email) {
-        return redirect(socialCallbackUrl('apple', 'email_required'));
+        return redirect(socialCallbackUrl(request, 'apple', 'email_required'));
       }
 
       try {
@@ -860,10 +860,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         }
         await issueTokens(jwt, cookie, user);
         reqLogger.info({ event: 'auth.apple', userId: user.id }, 'apple sign-in');
-        return redirect(socialCallbackUrl('apple'));
+        return redirect(socialCallbackUrl(request, 'apple'));
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'apple: sign-in failed');
-        return redirect(socialCallbackUrl('apple', identityErrorCode(e)));
+        return redirect(socialCallbackUrl(request, 'apple', identityErrorCode(e)));
       }
     },
     {
@@ -888,10 +888,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .get(
     '/github/start',
-    async ({ cookie, redirect, ip }) => {
+    async ({ cookie, redirect, ip, request }) => {
       await rateLimit(ip, '/auth/github/start', { maxRequests: 30 });
       if (!isGitHubConfigured()) {
-        return redirect(socialCallbackUrl('github', 'provider_not_configured'));
+        return redirect(socialCallbackUrl(request, 'github', 'provider_not_configured'));
       }
       const state = generateRefreshToken();
       const verifier = generatePkceVerifier();
@@ -899,7 +899,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('lax') });
       cookie[OAUTH_PKCE_COOKIE]?.set({ value: verifier, ...stateCookieOptions('lax') });
       return redirect(
-        buildGitHubAuthorizeUrl(state, `${getApiBaseUrl()}/api/auth/github/callback`, challenge)
+        buildGitHubAuthorizeUrl(
+          state,
+          `${getApiBaseUrl(request)}/api/auth/github/callback`,
+          challenge
+        )
       );
     },
     {
@@ -932,15 +936,15 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const providerError = typeof query.error === 'string' ? query.error : undefined;
 
       if (providerError || !code || !requestState) {
-        return redirect(socialCallbackUrl('github', 'cancelled'));
+        return redirect(socialCallbackUrl(request, 'github', 'cancelled'));
       }
       if (!expectedState || expectedState !== requestState || !codeVerifier) {
-        return redirect(socialCallbackUrl('github', 'state_mismatch'));
+        return redirect(socialCallbackUrl(request, 'github', 'state_mismatch'));
       }
 
       let identity;
       try {
-        const redirectUri = `${getApiBaseUrl()}/api/auth/github/callback`;
+        const redirectUri = `${getApiBaseUrl(request)}/api/auth/github/callback`;
         const accessToken = await exchangeGitHubCode(code, redirectUri, codeVerifier);
         identity = await fetchGitHubIdentity(accessToken);
       } catch (e: unknown) {
@@ -949,7 +953,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           e instanceof ApiError && e.code === 'AUTH_EMAIL_UNVERIFIED'
             ? 'email_required'
             : 'provider_error';
-        return redirect(socialCallbackUrl('github', code));
+        return redirect(socialCallbackUrl(request, 'github', code));
       }
 
       try {
@@ -968,10 +972,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         }
         await issueTokens(jwt, cookie, user);
         reqLogger.info({ event: 'auth.github', userId: user.id }, 'github sign-in');
-        return redirect(socialCallbackUrl('github'));
+        return redirect(socialCallbackUrl(request, 'github'));
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'github: sign-in failed');
-        return redirect(socialCallbackUrl('github', identityErrorCode(e)));
+        return redirect(socialCallbackUrl(request, 'github', identityErrorCode(e)));
       }
     },
     {
@@ -994,10 +998,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .get(
     '/microsoft/start',
-    async ({ cookie, redirect, ip }) => {
+    async ({ cookie, redirect, ip, request }) => {
       await rateLimit(ip, '/auth/microsoft/start', { maxRequests: 30 });
       if (!isMicrosoftConfigured()) {
-        return redirect(socialCallbackUrl('microsoft', 'provider_not_configured'));
+        return redirect(socialCallbackUrl(request, 'microsoft', 'provider_not_configured'));
       }
       const state = generateRefreshToken();
       const nonce = generateRefreshToken();
@@ -1009,7 +1013,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       return redirect(
         buildMicrosoftAuthorizeUrl(
           state,
-          `${getApiBaseUrl()}/api/auth/microsoft/callback`,
+          `${getApiBaseUrl(request)}/api/auth/microsoft/callback`,
           nonce,
           challenge
         )
@@ -1048,15 +1052,15 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const providerError = typeof query.error === 'string' ? query.error : undefined;
 
       if (providerError || !code || !requestState) {
-        return redirect(socialCallbackUrl('microsoft', 'cancelled'));
+        return redirect(socialCallbackUrl(request, 'microsoft', 'cancelled'));
       }
       if (!expectedState || expectedState !== requestState || !expectedNonce || !codeVerifier) {
-        return redirect(socialCallbackUrl('microsoft', 'state_mismatch'));
+        return redirect(socialCallbackUrl(request, 'microsoft', 'state_mismatch'));
       }
 
       let identity;
       try {
-        const redirectUri = `${getApiBaseUrl()}/api/auth/microsoft/callback`;
+        const redirectUri = `${getApiBaseUrl(request)}/api/auth/microsoft/callback`;
         const tokenSet = await exchangeMicrosoftCode(code, redirectUri, codeVerifier);
         identity = await fetchMicrosoftIdentity(
           tokenSet.idToken,
@@ -1069,7 +1073,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           e instanceof ApiError && e.code === 'AUTH_EMAIL_UNVERIFIED'
             ? 'email_required'
             : 'provider_error';
-        return redirect(socialCallbackUrl('microsoft', code));
+        return redirect(socialCallbackUrl(request, 'microsoft', code));
       }
 
       try {
@@ -1088,10 +1092,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         }
         await issueTokens(jwt, cookie, user);
         reqLogger.info({ event: 'auth.microsoft', userId: user.id }, 'microsoft sign-in');
-        return redirect(socialCallbackUrl('microsoft'));
+        return redirect(socialCallbackUrl(request, 'microsoft'));
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'microsoft: sign-in failed');
-        return redirect(socialCallbackUrl('microsoft', identityErrorCode(e)));
+        return redirect(socialCallbackUrl(request, 'microsoft', identityErrorCode(e)));
       }
     },
     {
