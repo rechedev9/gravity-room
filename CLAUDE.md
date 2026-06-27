@@ -81,6 +81,33 @@ registry is `apps/backend/api/src/lib/env-validation.ts` (the cold-start fail-fa
 
 **Mobile (Expo):** `EXPO_PUBLIC_API_URL` (point at the Vercel domain), `EXPO_PUBLIC_GOOGLE_*` IDs.
 
+## Code conventions
+
+**Type safety**
+
+- No `as any`, no `as <Type>` casts to silence the checker, no non-null `!`. Define interfaces and transform explicitly.
+- No re-exports — a module does not re-export what it does not define; when you move code, update the imports.
+- Validation: ElysiaJS route schemas use TypeBox (`t` from `elysia`); shared/business validation uses Zod in `@gzclp/domain` (the single source of truth for GZCLP rules). Never duplicate domain logic into a route.
+- The web API client is generated from the Elysia OpenAPI spec (`pnpm --filter web api:types`). Regenerate it after changing routes; a wrong generated type means the route/schema is wrong, not the client.
+
+**Backend (ElysiaJS + Drizzle)**
+
+- Signal errors with `throw new ApiError(status, message, code)`; the global `onError` maps it to the response. Do not set `set.status` directly in route handlers.
+- Transactions: use the `tx` handle inside `db.transaction(...)`, never the outer `db`.
+- Lock rows before mutating them: a SELECT followed by an UPDATE/DELETE of the same row inside a transaction must use `.for('update')`.
+- Use `Promise.all` for independent async ops; sequential `await` of independent work is a performance bug.
+- GZCLP / progression math lives in `@gzclp/domain` — use it; do not hardcode magic caps, clamp on top of it, or reimplement the math in the app. If asked for "+30%", do the arithmetic and write the resulting constant.
+
+**Frontend (Vite + React)**
+
+- Never hardcode user-visible strings: wrap them with i18next (`<Trans>` / `t(...)`). Keep every supported locale at 0 missing keys before finishing.
+- Loading buttons use the `isLoading` prop — do not swap the label or add spacing.
+- Avoid barrel imports for large libraries (e.g. `date-fns`); import specific paths so tree-shaking works.
+
+**Images**: default to WebP (lossless for icons/pixel-art, lossy q85-90 for photos; PNG/JPEG only for OG/social cards). Do not change the extension of an existing asset.
+
+**Docs**: keep this file and `docs/` current — if a change makes a reference stale, fix every dead reference in the same change.
+
 ## Tooling
 
 - **Lefthook** — pre-commit: typecheck, lint, format. Pre-push: test, build. Don't bypass with `--no-verify`.
