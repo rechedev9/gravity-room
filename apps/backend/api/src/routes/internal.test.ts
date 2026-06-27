@@ -123,6 +123,7 @@ describe('internal routes — secret guard', () => {
     '/internal/cleanup-tokens',
     '/internal/purge-users',
     '/internal/analytics/compute',
+    '/internal/maintenance',
   ];
 
   for (const path of guarded) {
@@ -251,6 +252,39 @@ describe('POST /internal/purge-users', () => {
     const body = (await res.json()) as PurgeSummary;
     expect(body.purged).toBe(3);
     expect(body.cutoff).toBe('2026-05-27T12:00:00.000Z');
+    expect(mockPurgeDeletedUsers).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// maintenance (cleanup-tokens + purge-users in one daily cron slot)
+// ---------------------------------------------------------------------------
+
+describe('POST /internal/maintenance', () => {
+  it('runs both token cleanup and the user purge, returning a combined summary', async () => {
+    mockCleanupExpiredTokens.mockImplementation(() => Promise.resolve(5));
+    mockPurgeDeletedUsers.mockImplementation(() =>
+      Promise.resolve({ purged: 2, cutoff: '2026-05-27T12:00:00.000Z' })
+    );
+    const res = await post('/internal/maintenance', { Authorization: `Bearer ${SECRET}` });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      tokens: { deleted: number };
+      users: PurgeSummary;
+    };
+    expect(body.tokens.deleted).toBe(5);
+    expect(body.users.purged).toBe(2);
+    expect(body.users.cutoff).toBe('2026-05-27T12:00:00.000Z');
+    expect(mockCleanupExpiredTokens).toHaveBeenCalledTimes(1);
+    expect(mockPurgeDeletedUsers).toHaveBeenCalledTimes(1);
+  });
+
+  it('authenticates a GET cron request via the auto-injected CRON_SECRET', async () => {
+    const CRON_SECRET = 'vercel-injected-cron-secret';
+    process.env['CRON_SECRET'] = CRON_SECRET;
+    const res = await get('/internal/maintenance', { Authorization: `Bearer ${CRON_SECRET}` });
+    expect(res.status).toBe(200);
+    expect(mockCleanupExpiredTokens).toHaveBeenCalledTimes(1);
     expect(mockPurgeDeletedUsers).toHaveBeenCalledTimes(1);
   });
 });

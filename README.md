@@ -40,9 +40,8 @@ Internet
 │   https://<dominio>/api/*       → función serverless api/[...path].ts           │
 │                                     └─► createApp() (ElysiaJS) vía app.fetch     │
 │                                                                                │
-│   Vercel Cron ─► /api/internal/cleanup-tokens   (cada 6 h)                      │
-│               ─► /api/internal/purge-users       (diario)                       │
-│               ─► /api/internal/analytics/compute (horario)                      │
+│   Vercel Cron ─► /api/internal/analytics/compute (diario)                       │
+│               ─► /api/internal/maintenance (diario: limpieza+purga)             │
 └────────────────────────────────────────────────────────────────────────────────┘
         │                                   │
         ▼                                   ▼
@@ -56,7 +55,8 @@ Todo vive en [`vercel.json`](vercel.json) (revisable en git, no en el dashboard)
 `framework: null`, `installCommand: pnpm install --frozen-lockfile`, `buildCommand: bash
 scripts/vercel-build.sh`, `outputDirectory: apps/frontend/web/dist`, la función
 `api/[...path].ts` (`maxDuration: 60`), el rewrite de SPA (todo salvo `/api/*` →
-`/index.html`) y las tres crons.
+`/index.html`) y las dos crons diarias (el plan Hobby de Vercel admite como
+máximo dos crons, una por día).
 
 **Por qué same-origin y no SPA + API separadas:** al compartir origen no hace
 falta CORS ni un dominio `api.` aparte, las cookies de refresh son first-party

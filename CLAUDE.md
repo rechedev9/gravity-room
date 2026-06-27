@@ -358,8 +358,11 @@ apps/frontend/web/dist`, the `api/[...path].ts` function (`maxDuration: 60`),
   build sandbox has no browser for the Playwright prerender).
 - **Data**: Neon Postgres (pooled `DATABASE_URL` at request time, direct
   `DIRECT_DATABASE_URL` for migrations) and Upstash Redis over REST.
-- **Cron**: Vercel Cron hits `/api/internal/{cleanup-tokens,purge-users,analytics/compute}`;
-  Vercel injects `Authorization: Bearer <CRON_SECRET>` which the internal guard accepts.
+- **Cron**: Vercel Cron hits two daily routes — `/api/internal/analytics/compute` and
+  `/api/internal/maintenance` (the latter folds `cleanup-tokens` + `purge-users` into one
+  call so both fit the Hobby plan's 2-crons/once-a-day limit; the standalone
+  `cleanup-tokens` and `purge-users` routes remain for manual ops). Vercel injects
+  `Authorization: Bearer <CRON_SECRET>` which the internal guard accepts.
 
 ### Don't break the deploy — known footguns
 
