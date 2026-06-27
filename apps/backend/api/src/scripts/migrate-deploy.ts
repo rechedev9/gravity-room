@@ -40,6 +40,27 @@ function resolveDirectDatabaseUrl(): string | undefined {
   );
 }
 
+/**
+ * Resolve the postgres-js TLS mode for the build-time deploy connection.
+ *
+ * Returns 'require' (force TLS) for any managed/remote endpoint and false only
+ * for a plainly-local connection or an explicit DB_SSL=false opt-out. NODE_ENV
+ * alone is unreliable here: the Vercel build step does not always run with
+ * NODE_ENV=production, so a NODE_ENV-only check left ssl=false and Neon rejected
+ * the connection ("connection is insecure (try using sslmode=require)"). Detect
+ * the Vercel build (VERCEL is set), a Neon host, or an sslmode=require
+ * connection string as well.
+ */
+function resolveSsl(url: string): 'require' | false {
+  if (process.env['DB_SSL'] === 'false') return false;
+  const requiresTls =
+    process.env['NODE_ENV'] === 'production' ||
+    process.env['VERCEL'] !== undefined ||
+    /[?&]sslmode=require/i.test(url) ||
+    /\.neon\.tech/i.test(url);
+  return requiresTls ? 'require' : false;
+}
+
 // ---------------------------------------------------------------------------
 // Database migrations — DDL must run serially against the direct endpoint
 // ---------------------------------------------------------------------------
@@ -56,15 +77,9 @@ async function runMigrations(): Promise<void> {
     );
   }
 
-  // Single-connection client for migrations (DDL must run serially). TLS mirrors
-  // getDb()'s policy: require in production unless DB_SSL=false, so the migration
-  // connection does not depend solely on sslmode in the connection string.
-  const ssl =
-    process.env['DB_SSL'] === 'false'
-      ? false
-      : process.env['NODE_ENV'] === 'production'
-        ? 'require'
-        : false;
+  // Single-connection client for migrations (DDL must run serially). TLS is
+  // forced for managed/remote endpoints (Neon/Vercel) regardless of NODE_ENV.
+  const ssl = resolveSsl(url);
   const migrationClient = postgres(url, { max: 1, ssl });
   const migrationDb = drizzle(migrationClient);
   const migrationsFolder = MIGRATIONS_DIR;
@@ -201,13 +216,8 @@ async function runSeeds(): Promise<void> {
       'DIRECT_DATABASE_URL, DATABASE_URL_UNPOOLED, or DATABASE_URL environment variable is required'
     );
   }
-  // TLS mirrors getDb()/runMigrations(): require in production unless DB_SSL=false.
-  const ssl =
-    process.env['DB_SSL'] === 'false'
-      ? false
-      : process.env['NODE_ENV'] === 'production'
-        ? 'require'
-        : false;
+  // TLS mirrors runMigrations(): forced for managed/remote endpoints (see resolveSsl).
+  const ssl = resolveSsl(url);
   const seedClient = postgres(url, { max: 1, ssl });
   const db = drizzle(seedClient, { schema });
 
