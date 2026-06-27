@@ -48,7 +48,10 @@ export const requestLogger = new Elysia({ name: 'request-logger' })
       const rawReqId = request.headers.get('x-request-id');
       const reqId = rawReqId && REQ_ID_RE.test(rawReqId) ? rawReqId : randomUUID();
       const method = request.method;
-      const url = new URL(request.url).pathname;
+      // Base required: the Vercel Node runtime passes a path-only request.url, and
+      // `new URL(path)` with no base throws. The base host is ignored for pathname
+      // (and when request.url is already absolute in local dev / tests).
+      const url = new URL(request.url, 'http://localhost').pathname;
       // Untrusted (no socket address in a serverless runtime): report 'unknown'
       // rather than a client-controlled value. When trusted on Vercel the real
       // client IP is the LEFTMOST x-forwarded-for entry; off-Vercel behind a

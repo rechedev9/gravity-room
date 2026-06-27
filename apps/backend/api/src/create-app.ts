@@ -30,7 +30,11 @@ export type CreateAppOptions = {
 };
 
 function shouldDisableHttpCache(request: Request): boolean {
-  const url = new URL(request.url);
+  // A base is required because the Vercel Node runtime hands the function a
+  // path-only request.url (e.g. "/api/health"), and `new URL(path)` with no base
+  // throws "Invalid URL". The base host is irrelevant — only the pathname is read
+  // — and is ignored when request.url is already absolute (local dev / tests).
+  const url = new URL(request.url, 'http://localhost');
   if (url.pathname.startsWith('/api/auth/')) return true;
   if (request.headers.has('authorization')) return true;
   return false;
