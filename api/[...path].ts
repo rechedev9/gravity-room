@@ -1,13 +1,19 @@
 /**
  * Vercel Node-runtime catch-all for the API.
  *
- * Mounts the pure Elysia `createApp()` factory once at module scope and drives it
- * via the Web-standard `app.fetch(request)` adapter. The full `/api/...` request
- * URL is forwarded unchanged, so Elysia's `/api` route prefix and the
- * `/api/auth` refresh-cookie path are preserved end to end.
+ * Vercel's Node runtime invokes the default export with Node's
+ * (IncomingMessage, ServerResponse) — NOT a Web `Request` — so calling
+ * `app.fetch(request)` directly fails (req.url is a bare path, req.headers has no
+ * `.has()`). We bridge with `@hono/node-server`'s `getRequestListener`, which
+ * builds a proper Web `Request` from the Node request, runs our Elysia
+ * `app.fetch`, and streams the Web `Response` back to the Node response. This is
+ * the same adapter the local dev server (src/dev-server.ts) uses, so the two
+ * entrypoints share identical request/response semantics.
  *
- * Runs on the Vercel Node runtime (the default for files under `/api`), NOT Edge.
+ * The full `/api/...` request URL is preserved end to end, so Elysia's `/api`
+ * route prefix and the `/api/auth` refresh-cookie path keep working.
  */
+import { getRequestListener } from '@hono/node-server';
 import { createApp } from '../apps/backend/api/src/create-app';
 import { buildAppOptions } from '../apps/backend/api/src/app-config';
 
@@ -25,7 +31,11 @@ const MAX_BODY_BYTES = 1_048_576;
 /** Methods that may carry a request body and are therefore size-guarded. */
 const BODY_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-export default async function handler(request: Request): Promise<Response> {
+/**
+ * Web-standard fetch handler: body-size guard, then the Elysia app. Receives a
+ * real Web `Request` (built by getRequestListener) and returns a Web `Response`.
+ */
+async function handleFetch(request: Request): Promise<Response> {
   // Body-size guard: reject a request only when it DECLARES a body over 1MB. We
   // fail OPEN when content-length is absent or non-numeric, because legitimate
   // body-LESS requests (POST /api/auth/refresh, signout, DELETE /api/auth/me,
@@ -47,7 +57,9 @@ export default async function handler(request: Request): Promise<Response> {
     }
   }
 
-  // Forward the full, unmodified request (including the `/api/...` path) so
-  // Elysia's route prefixes and cookie paths are preserved.
   return app.fetch(request);
 }
+
+// Vercel calls this with Node's (req, res); getRequestListener does the Node<->Web
+// conversion around handleFetch.
+export default getRequestListener(handleFetch);
