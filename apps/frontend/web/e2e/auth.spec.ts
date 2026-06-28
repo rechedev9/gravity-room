@@ -47,12 +47,13 @@ test.describe('Auth flow', () => {
       ['microsoft', /Continuar con Outlook/i],
     ] as const) {
       const button = page.getByRole('button', { name: label });
-      await expect(button).toBeVisible();
       if (providers[provider]) {
+        await expect(button).toBeVisible();
         await expect(button).toBeEnabled();
       } else {
-        await expect(button).toBeDisabled();
-        await expect(button).toContainText(/Pronto/i);
+        // Unavailable providers are not rendered at all — no disabled "coming
+        // soon" placeholder.
+        await expect(button).toHaveCount(0);
       }
     }
   });

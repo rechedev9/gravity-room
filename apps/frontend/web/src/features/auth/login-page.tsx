@@ -151,6 +151,11 @@ function LoginPageInner(): React.ReactNode {
     }
   };
 
+  // Only render sign-in methods this deployment actually offers (per
+  // /auth/providers); we never show disabled "coming soon" placeholders.
+  const hasSocialProvider =
+    authProviders.google || authProviders.apple || authProviders.github || authProviders.microsoft;
+
   return (
     <div className="grain-overlay min-h-dvh bg-body lg:grid lg:grid-cols-[46%_54%]">
       {/* Left — statement panel */}
@@ -202,74 +207,65 @@ function LoginPageInner(): React.ReactNode {
             Gravity Room
           </h1>
 
-          {/* Social providers — deployment availability comes from /auth/providers. */}
-          <div className="mt-7 flex flex-col gap-2.5">
-            {authProviders.google ? (
-              <div className="flex justify-center border border-rule bg-header py-3">
-                <GoogleLogin
-                  onSuccess={({ credential }) => {
-                    if (credential) void handleGoogleSuccess(credential);
-                  }}
-                  onError={() => {
-                    setError(t('login.errors.google_auth_error'));
-                  }}
-                  theme="filled_black"
-                  size="large"
-                  width="320"
+          {/* Sign-in providers — only the methods this deployment offers
+              (per /auth/providers) are rendered; no disabled placeholders. */}
+          {hasSocialProvider && (
+            <div className="mt-7 flex flex-col gap-2.5">
+              {authProviders.google && (
+                <div className="flex justify-center border border-rule bg-header py-3">
+                  <GoogleLogin
+                    onSuccess={({ credential }) => {
+                      if (credential) void handleGoogleSuccess(credential);
+                    }}
+                    onError={() => {
+                      setError(t('login.errors.google_auth_error'));
+                    }}
+                    theme="filled_black"
+                    size="large"
+                    width="320"
+                  />
+                </div>
+              )}
+              {authProviders.apple && (
+                <SocialButton
+                  label={t('login.social.apple')}
+                  onClick={() => handleSocialRedirect('apple')}
                 />
-              </div>
-            ) : (
-              <SocialButton
-                label={t('login.social.google')}
-                enabled={false}
-                comingSoonLabel={t('login.social.coming_soon')}
-                onClick={() => undefined}
-              />
-            )}
+              )}
+              {authProviders.github && (
+                <SocialButton
+                  label={t('login.social.github')}
+                  onClick={() => handleSocialRedirect('github')}
+                />
+              )}
+              {authProviders.microsoft && (
+                <SocialButton
+                  label={t('login.social.microsoft')}
+                  onClick={() => handleSocialRedirect('microsoft')}
+                />
+              )}
+            </div>
+          )}
 
-            <SocialButton
-              label={t('login.social.apple')}
-              enabled={authProviders.apple}
-              comingSoonLabel={t('login.social.coming_soon')}
-              onClick={() => handleSocialRedirect('apple')}
-            />
-            <SocialButton
-              label={t('login.social.github')}
-              enabled={authProviders.github}
-              comingSoonLabel={t('login.social.coming_soon')}
-              onClick={() => handleSocialRedirect('github')}
-            />
-            <SocialButton
-              label={t('login.social.microsoft')}
-              enabled={authProviders.microsoft}
-              comingSoonLabel={t('login.social.coming_soon')}
-              onClick={() => handleSocialRedirect('microsoft')}
-            />
-          </div>
-
-          {/* Divider */}
-          <div className="my-5 flex items-center gap-3" aria-hidden="true">
-            <span className="h-px flex-1 bg-rule" />
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-label">
-              {t('login.divider')}
-            </span>
-            <span className="h-px flex-1 bg-rule" />
-          </div>
+          {/* Divider — only when a social method sits above the email form. */}
+          {hasSocialProvider && (
+            <div className="my-5 flex items-center gap-3" aria-hidden="true">
+              <span className="h-px flex-1 bg-rule" />
+              <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-label">
+                {t('login.divider')}
+              </span>
+              <span className="h-px flex-1 bg-rule" />
+            </div>
+          )}
 
           {/* Email — progressive disclosure */}
           {!showEmail ? (
             <button
               type="button"
-              disabled={!authProviders.emailPassword}
               onClick={() => setShowEmail(true)}
-              className="w-full cursor-pointer border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light disabled:cursor-not-allowed disabled:opacity-50"
+              className="w-full cursor-pointer border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light"
             >
               ▸ {t('login.email.toggle')}
-              {!authProviders.emailPassword && (
-                <span className="ml-2 font-mono text-[9px] tracking-[0.1em] text-label">
-                  [{t('login.social.coming_soon')}]
-                </span>
-              )}
             </button>
           ) : (
             <form onSubmit={(e) => void handleEmailSubmit(e)} className="flex flex-col gap-3">
@@ -410,28 +406,18 @@ function LoginPageInner(): React.ReactNode {
 
 function SocialButton({
   label,
-  enabled,
-  comingSoonLabel,
   onClick,
 }: {
   readonly label: string;
-  readonly enabled: boolean;
-  readonly comingSoonLabel: string;
   readonly onClick: () => void;
 }): React.ReactNode {
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={!enabled}
-      className="flex w-full items-center justify-center gap-2 border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex w-full items-center justify-center gap-2 border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light"
     >
       <span>{label}</span>
-      {!enabled && (
-        <span className="font-mono text-[9px] tracking-[0.1em] text-label">
-          [{comingSoonLabel}]
-        </span>
-      )}
     </button>
   );
 }
