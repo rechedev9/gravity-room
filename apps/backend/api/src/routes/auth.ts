@@ -43,6 +43,7 @@ import {
 import { sendTelegramMessage } from '../lib/telegram';
 import { isEmailConfigured, sendVerificationEmail, sendPasswordResetEmail } from '../lib/email';
 import { getApiBaseUrl, getWebBaseUrl } from '../lib/app-url';
+import { keepAlive } from '../lib/wait-until';
 import {
   isAppleConfigured,
   buildAppleAuthorizeUrl,
@@ -391,7 +392,7 @@ async function processGoogleSignIn(
     const deviceType = classifyDevice(userAgent ?? undefined);
     const timestamp = new Date().toISOString();
     const text = `New user: ${user.email} | ${deviceType} | ${timestamp}`;
-    void sendTelegramMessage(text);
+    keepAlive(sendTelegramMessage(text));
   }
 
   return { user, isNewUser };
@@ -595,11 +596,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const user = await createPasswordUser({ email: body.email, passwordHash, name: body.name });
 
       const token = await createEmailVerificationToken(user.id);
-      void sendVerificationEmail(user.email, token, request);
+      keepAlive(sendVerificationEmail(user.email, token, request));
 
       const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
-      void sendTelegramMessage(
-        `New user: ${user.email} | ${deviceType} | ${new Date().toISOString()}`
+      keepAlive(
+        sendTelegramMessage(`New user: ${user.email} | ${deviceType} | ${new Date().toISOString()}`)
       );
 
       reqLogger.info({ event: 'auth.signup', userId: user.id }, 'email signup');
@@ -716,7 +717,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const user = await findUserByEmail(body.email);
       if (user?.passwordHash) {
         const token = await createPasswordResetToken(user.id);
-        void sendPasswordResetEmail(user.email, token, request);
+        keepAlive(sendPasswordResetEmail(user.email, token, request));
         reqLogger.info({ event: 'auth.forgot_password', userId: user.id }, 'reset email queued');
       }
 
@@ -854,8 +855,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         });
         if (isNewUser) {
           const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
-          void sendTelegramMessage(
-            `New user: ${user.email} | apple/${deviceType} | ${new Date().toISOString()}`
+          keepAlive(
+            sendTelegramMessage(
+              `New user: ${user.email} | apple/${deviceType} | ${new Date().toISOString()}`
+            )
           );
         }
         await issueTokens(jwt, cookie, user);
@@ -966,8 +969,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         });
         if (isNewUser) {
           const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
-          void sendTelegramMessage(
-            `New user: ${user.email} | github/${deviceType} | ${new Date().toISOString()}`
+          keepAlive(
+            sendTelegramMessage(
+              `New user: ${user.email} | github/${deviceType} | ${new Date().toISOString()}`
+            )
           );
         }
         await issueTokens(jwt, cookie, user);
@@ -1086,8 +1091,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         });
         if (isNewUser) {
           const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
-          void sendTelegramMessage(
-            `New user: ${user.email} | microsoft/${deviceType} | ${new Date().toISOString()}`
+          keepAlive(
+            sendTelegramMessage(
+              `New user: ${user.email} | microsoft/${deviceType} | ${new Date().toISOString()}`
+            )
           );
         }
         await issueTokens(jwt, cookie, user);

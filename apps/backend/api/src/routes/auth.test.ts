@@ -201,7 +201,7 @@ const {
     Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
   );
   const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
-  const mockSendTelegramMessage = vi.fn((): void => undefined);
+  const mockSendTelegramMessage = vi.fn((): Promise<void> => Promise.resolve());
   return {
     mockHashToken,
     mockFindUserById,
@@ -1229,14 +1229,14 @@ describe('POST /auth/google — fire-and-forget timing (REQ-AUTH-004)', () => {
   });
 
   it('returns the auth response before the Telegram notification completes', async () => {
-    // Arrange: mock sendTelegramMessage to delay 5 seconds (but returns void, so this is synchronous from caller perspective)
+    // Arrange: mock sendTelegramMessage to return a slow promise. Off Vercel,
+    // keepAlive does not await it, so the route still responds immediately.
     mockFindOrCreateGoogleUser.mockImplementation(() =>
       Promise.resolve({ user: { ...TEST_USER }, isNewUser: true })
     );
-    mockSendTelegramMessage.mockImplementation((): void => {
-      // Simulate a slow async operation started inside — the route should not await this
-      void new Promise<void>((resolve) => setTimeout(resolve, 5_000));
-    });
+    mockSendTelegramMessage.mockImplementation(
+      (): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, 5_000))
+    );
 
     // Act
     const start = Date.now();

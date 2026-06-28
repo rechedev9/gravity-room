@@ -1,8 +1,9 @@
 /**
  * telegram.ts unit tests — verifies send behavior, no-op paths, and error isolation.
  *
- * sendTelegramMessage is fire-and-forget (returns void). To test async behavior we
- * let the IIFE settle by awaiting a microtask flush via Promise.resolve().
+ * sendTelegramMessage returns a never-rejecting promise (callers keepAlive it so
+ * the send survives serverless freeze-on-response). To test async behavior we let
+ * the internal work settle by awaiting a microtask flush via Promise.resolve().
  *
  * fetch is mocked on globalThis so it is intercepted by the module's internal
  * async IIFE without any import-time hooking.
@@ -119,15 +120,17 @@ describe('sendTelegramMessage', () => {
   });
 
   // -------------------------------------------------------------------------
-  // Task 4.2 — fire-and-forget (returns void)
+  // Task 4.2 — returns a never-rejecting promise (keepAlive'd by callers)
   // -------------------------------------------------------------------------
 
-  it('returns void (not a Promise) so it can be called without await', () => {
+  it('returns a promise that resolves and never rejects so callers can keepAlive it', async () => {
     // Arrange & Act
     const result = sendTelegramMessage('hello');
 
-    // Assert — void means the return value is undefined
-    expect(result).toBeUndefined();
+    // Assert — now returns a promise (extended past the response via keepAlive on
+    // Vercel); it settles without throwing.
+    expect(result).toBeInstanceOf(Promise);
+    await expect(result).resolves.toBeUndefined();
   });
 
   // -------------------------------------------------------------------------
