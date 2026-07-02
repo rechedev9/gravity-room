@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
 import { GuestProvider, useGuest } from './guest-context';
+import { GUEST_STORAGE_KEY } from '@/lib/guest-storage';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -10,6 +11,10 @@ import { GuestProvider, useGuest } from './guest-context';
 function wrapper({ children }: { readonly children: React.ReactNode }): React.ReactNode {
   return <GuestProvider>{children}</GuestProvider>;
 }
+
+beforeEach(() => {
+  localStorage.clear();
+});
 
 // ---------------------------------------------------------------------------
 // Tests — REQ-GCTX-001: GuestProvider context availability
@@ -98,6 +103,63 @@ describe('GuestProvider', () => {
       });
 
       expect(result.current.isGuest).toBe(false);
+    });
+
+    it('should clear any persisted guest program data', () => {
+      localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify({ version: 1 }));
+      const { result } = renderHook(() => useGuest(), { wrapper });
+
+      act(() => {
+        result.current.enterGuestMode();
+      });
+
+      act(() => {
+        result.current.exitGuestMode();
+      });
+
+      expect(localStorage.getItem(GUEST_STORAGE_KEY)).toBeNull();
+    });
+  });
+
+  // REQ-GCTX-004: persistence across remounts (simulates a page reload)
+  describe('persistence across reload', () => {
+    it('keeps isGuest === true after the provider remounts', () => {
+      const { result, unmount } = renderHook(() => useGuest(), { wrapper });
+
+      act(() => {
+        result.current.enterGuestMode();
+      });
+      expect(result.current.isGuest).toBe(true);
+
+      unmount();
+
+      const remounted = renderHook(() => useGuest(), { wrapper });
+      expect(remounted.result.current.isGuest).toBe(true);
+    });
+
+    it('keeps isGuest === false after remount when never entered', () => {
+      const { result, unmount } = renderHook(() => useGuest(), { wrapper });
+      expect(result.current.isGuest).toBe(false);
+
+      unmount();
+
+      const remounted = renderHook(() => useGuest(), { wrapper });
+      expect(remounted.result.current.isGuest).toBe(false);
+    });
+
+    it('resets to false after remount once exitGuestMode has run', () => {
+      const { result, unmount } = renderHook(() => useGuest(), { wrapper });
+
+      act(() => {
+        result.current.enterGuestMode();
+      });
+      act(() => {
+        result.current.exitGuestMode();
+      });
+      unmount();
+
+      const remounted = renderHook(() => useGuest(), { wrapper });
+      expect(remounted.result.current.isGuest).toBe(false);
     });
   });
 });

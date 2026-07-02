@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { setSlotResult, removeSlotResult, patchSlotField } from './slot-result-helpers';
+import {
+  setSlotResult,
+  removeSlotResult,
+  patchSlotField,
+  applyUndoEntry,
+} from './slot-result-helpers';
 import type { GenericResults } from '@gzclp/domain/types/program';
 
 // ---------------------------------------------------------------------------
@@ -125,6 +130,66 @@ describe('patchSlotField', () => {
     const initial: GenericResults = { '0': { 'slot-a': { result: 'success' } } };
     const frozen = JSON.stringify(initial);
     patchSlotField(initial, 0, 'slot-a', 'amrapReps', 5);
+    expect(JSON.stringify(initial)).toBe(frozen);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyUndoEntry
+// ---------------------------------------------------------------------------
+
+describe('applyUndoEntry', () => {
+  it('deletes the slot when the entry has no prev snapshot (first-time result)', () => {
+    const initial: GenericResults = { '0': { 'slot-a': { result: 'success' } } };
+    const result = applyUndoEntry(initial, { i: 0, slotId: 'slot-a' });
+    expect(result).not.toHaveProperty('0');
+  });
+
+  it('restores the previous result when overwriting an existing one', () => {
+    const initial: GenericResults = { '0': { 'slot-a': { result: 'success' } } };
+    const result = applyUndoEntry(initial, { i: 0, slotId: 'slot-a', prev: 'fail' });
+    expect(result['0']?.['slot-a']).toEqual({ result: 'fail' });
+  });
+
+  it('restores prevAmrapReps and prevSetLogs alongside prev', () => {
+    const initial: GenericResults = { '0': { 'slot-a': { result: 'success', amrapReps: 10 } } };
+    const result = applyUndoEntry(initial, {
+      i: 0,
+      slotId: 'slot-a',
+      prev: 'success',
+      prevAmrapReps: 6,
+      prevSetLogs: [{ reps: 5, weight: 80 }],
+    });
+    expect(result['0']?.['slot-a']).toEqual({
+      result: 'success',
+      amrapReps: 6,
+      setLogs: [{ reps: 5, weight: 80 }],
+    });
+  });
+
+  it('restores prevRpe', () => {
+    const initial: GenericResults = { '0': { 'slot-a': { result: 'success', rpe: 9 } } };
+    const result = applyUndoEntry(initial, {
+      i: 0,
+      slotId: 'slot-a',
+      prev: 'success',
+      prevRpe: 7,
+    });
+    expect(result['0']?.['slot-a']?.rpe).toBe(7);
+  });
+
+  it('clears stale fields from the overwritten action that are not part of the snapshot', () => {
+    const initial: GenericResults = {
+      '0': { 'slot-a': { result: 'success', amrapReps: 10, rpe: 9 } },
+    };
+    const result = applyUndoEntry(initial, { i: 0, slotId: 'slot-a', prev: 'fail' });
+    expect(result['0']?.['slot-a']).toEqual({ result: 'fail' });
+  });
+
+  it('does not mutate the original state', () => {
+    const initial: GenericResults = { '0': { 'slot-a': { result: 'success' } } };
+    const frozen = JSON.stringify(initial);
+    applyUndoEntry(initial, { i: 0, slotId: 'slot-a', prev: 'fail' });
     expect(JSON.stringify(initial)).toBe(frozen);
   });
 });
