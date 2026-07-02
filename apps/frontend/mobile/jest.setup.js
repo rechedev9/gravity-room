@@ -25,11 +25,17 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 jest.mock('expo-sqlite', () => ({
-  openDatabaseSync: jest.fn(() => ({
-    execAsync: jest.fn(async () => undefined),
-    runAsync: jest.fn(async () => ({ changes: 1, lastInsertRowId: 0 })),
-    getAllAsync: jest.fn(async () => []),
-  })),
+  openDatabaseSync: jest.fn(() => {
+    const db = {
+      execAsync: jest.fn(async () => undefined),
+      runAsync: jest.fn(async () => ({ changes: 1, lastInsertRowId: 0 })),
+      getAllAsync: jest.fn(async () => []),
+      withExclusiveTransactionAsync: jest.fn(async (task) => {
+        await task(db);
+      }),
+    };
+    return db;
+  }),
 }));
 
 jest.mock('react-native/Libraries/Lists/FlatList', () => {
