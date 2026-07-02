@@ -31,68 +31,79 @@ const dir = dirname(fileURLToPath(import.meta.url));
 const specUrl = process.env.API_SPEC_URL ?? 'http://localhost:3001/swagger/json';
 const outputPath = resolve(dir, '../src/lib/api/generated.ts');
 
-// Stage the fetched spec and the raw codegen output in a freshly-created,
-// per-run temp directory (unpredictable name) rather than fixed paths under the
-// shared OS temp dir. This is cross-platform (os.tmpdir() vs hardcoded /tmp) and
-// avoids the symlink/pre-creation races a predictable world-writable path invites.
-const tmpDirRoot = await mkdtemp(join(tmpdir(), 'gravity-room-apigen-'));
-const tmpSpecPath = join(tmpDirRoot, 'openapi.json');
-const tmpPath = join(tmpDirRoot, 'generated-raw.ts');
+// The web package is CJS (no `"type": "module"`), so tsx transforms this file
+// to a format without top-level await — everything lives inside main().
+async function main(): Promise<void> {
+  // Stage the fetched spec and the raw codegen output in a freshly-created,
+  // per-run temp directory (unpredictable name) rather than fixed paths under the
+  // shared OS temp dir. This is cross-platform (os.tmpdir() vs hardcoded /tmp) and
+  // avoids the symlink/pre-creation races a predictable world-writable path invites.
+  const tmpDirRoot = await mkdtemp(join(tmpdir(), 'gravity-room-apigen-'));
+  const tmpSpecPath = join(tmpDirRoot, 'openapi.json');
+  const tmpPath = join(tmpDirRoot, 'generated-raw.ts');
 
-// Fetch the OpenAPI spec from the running API
-const res = await fetch(specUrl);
-if (!res.ok) {
+  // Fetch the OpenAPI spec from the running API
+  const res = await fetch(specUrl);
+  if (!res.ok) {
+    process.stderr.write(
+      `Failed to fetch OpenAPI spec from ${specUrl} (${res.status}). Is the API running?\n`
+    );
+    process.exit(1);
+  }
+  await writeFile(tmpSpecPath, await res.text(), 'utf8');
+
+  // Run openapi-zod-client
+  await exec(
+    'pnpm',
+    [
+      'exec',
+      'openapi-zod-client',
+      tmpSpecPath,
+      '--output',
+      tmpPath,
+      '--export-schemas',
+      '--all-readonly',
+    ],
+    { shell: runViaShell }
+  );
+
+  const rawContent = await readFile(tmpPath, 'utf8');
+  const content = buildGeneratedArtifact(rawContent);
+
+  // Add header comment
+  const header = [
+    '/**',
+    ' * AUTO-GENERATED — do not edit by hand.',
+    ' * Source: ElysiaJS API /swagger/json endpoint',
+    ' * Regenerate: pnpm run api:types (from apps/frontend/web/)',
+    ' *',
+    ' * This file is committed to enable CI drift detection:',
+    ' *   pnpm run api:types && git diff --exit-code src/lib/api/generated.ts',
+    ' *',
+    ' * DO NOT import from this file in application code.',
+    ' * Use the hand-written schemas in @gzclp/domain/schemas/* instead.',
+    ' */',
+    '',
+  ].join('\n');
+
+  await writeFile(outputPath, header + content, 'utf8');
+
+  // Normalize formatting so local + CI regenerations produce byte-identical
+  // output (drift check would otherwise false-positive on whitespace).
+  await exec('pnpm', ['exec', 'prettier', '--write', '--log-level=warn', outputPath], {
+    shell: runViaShell,
+  });
+
+  // Remove the per-run staging directory; the only artifact we keep is the
+  // committed generated.ts at outputPath.
+  await rm(tmpDirRoot, { recursive: true, force: true });
+
+  process.stdout.write(`Generated: ${outputPath}\n`);
+}
+
+main().catch((error: unknown) => {
   process.stderr.write(
-    `Failed to fetch OpenAPI spec from ${specUrl} (${res.status}). Is the API running?\n`
+    `${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`
   );
   process.exit(1);
-}
-await writeFile(tmpSpecPath, await res.text(), 'utf8');
-
-// Run openapi-zod-client
-await exec(
-  'pnpm',
-  [
-    'exec',
-    'openapi-zod-client',
-    tmpSpecPath,
-    '--output',
-    tmpPath,
-    '--export-schemas',
-    '--all-readonly',
-  ],
-  { shell: runViaShell }
-);
-
-const rawContent = await readFile(tmpPath, 'utf8');
-const content = buildGeneratedArtifact(rawContent);
-
-// Add header comment
-const header = [
-  '/**',
-  ' * AUTO-GENERATED — do not edit by hand.',
-  ' * Source: ElysiaJS API /swagger/json endpoint',
-  ' * Regenerate: pnpm run api:types (from apps/frontend/web/)',
-  ' *',
-  ' * This file is committed to enable CI drift detection:',
-  ' *   pnpm run api:types && git diff --exit-code src/lib/api/generated.ts',
-  ' *',
-  ' * DO NOT import from this file in application code.',
-  ' * Use the hand-written schemas in @gzclp/domain/schemas/* instead.',
-  ' */',
-  '',
-].join('\n');
-
-await writeFile(outputPath, header + content, 'utf8');
-
-// Normalize formatting so local + CI regenerations produce byte-identical
-// output (drift check would otherwise false-positive on whitespace).
-await exec('pnpm', ['exec', 'prettier', '--write', '--log-level=warn', outputPath], {
-  shell: runViaShell,
 });
-
-// Remove the per-run staging directory; the only artifact we keep is the
-// committed generated.ts at outputPath.
-await rm(tmpDirRoot, { recursive: true, force: true });
-
-process.stdout.write(`Generated: ${outputPath}\n`);

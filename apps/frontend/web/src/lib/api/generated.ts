@@ -17,12 +17,15 @@ const postApiAuthSignup_Body = z
     password: z.string().min(8).max(200),
     name: z.string().min(1).max(100).optional(),
   })
+  .passthrough()
   .readonly();
 const postApiAuthLogin_Body = z
   .object({ email: z.string().max(254).email(), password: z.string().min(1).max(200) })
+  .passthrough()
   .readonly();
 const postApiAuthReset_password_Body = z
   .object({ token: z.string().min(1).max(256), password: z.string().min(8).max(200) })
+  .passthrough()
   .readonly();
 const postApiAuthAppleCallback_Body = z
   .object({
@@ -33,14 +36,6 @@ const postApiAuthAppleCallback_Body = z
     error: z.string().max(512),
   })
   .partial()
-  .passthrough()
-  .readonly();
-const postApiAuthDevPassword_user_Body = z
-  .object({
-    email: z.string().max(254).email(),
-    password: z.string().min(8).max(200),
-    name: z.string().min(1).max(100).optional(),
-  })
   .passthrough()
   .readonly();
 const patchApiAuthMe_Body = z
@@ -143,7 +138,6 @@ export const schemas = {
   postApiAuthLogin_Body,
   postApiAuthReset_password_Body,
   postApiAuthAppleCallback_Body,
-  postApiAuthDevPassword_user_Body,
   patchApiAuthMe_Body,
   limit,
   postApiPrograms_Body,
@@ -184,7 +178,10 @@ export const endpoints = [
       {
         name: 'body',
         type: 'Body',
-        schema: z.object({ email: z.string().max(254).email() }).readonly(),
+        schema: z
+          .object({ email: z.string().max(254).email() })
+          .passthrough()
+          .readonly(),
       },
     ],
     response: z.void(),
@@ -197,7 +194,7 @@ export const endpoints = [
       {
         name: 'body',
         type: 'Body',
-        schema: postApiAuthDevPassword_user_Body,
+        schema: postApiAuthSignup_Body,
       },
     ],
     response: z.void(),
@@ -211,7 +208,10 @@ export const endpoints = [
       {
         name: 'body',
         type: 'Body',
-        schema: z.object({ email: z.string().max(254).email() }).readonly(),
+        schema: z
+          .object({ email: z.string().max(254).email() })
+          .passthrough()
+          .readonly(),
       },
     ],
     response: z.void(),
@@ -643,7 +643,10 @@ export const endpoints = [
       {
         name: 'body',
         type: 'Body',
-        schema: z.object({ token: z.string().min(1).max(256) }).readonly(),
+        schema: z
+          .object({ token: z.string().min(1).max(256) })
+          .passthrough()
+          .readonly(),
       },
     ],
     response: z.void(),
@@ -831,6 +834,20 @@ export const endpoints = [
   },
   {
     method: 'get',
+    path: '/api/health',
+    description: `Stateless probe running a live database SELECT and an Upstash ping. Returns 503 only when the database is unreachable.`,
+    requestFormat: 'json',
+    response: z.void(),
+    errors: [
+      {
+        status: 503,
+        description: `Database unreachable`,
+        schema: z.void(),
+      },
+    ],
+  },
+  {
+    method: 'get',
     path: '/api/insights/',
     description: `Returns pre-computed analytics insights for the authenticated user. Optionally filter by comma-separated insight types. Valid values: volume_trend, frequency, plateau_detection, load_recommendation. Unknown types return 400 with { code: &quot;INVALID_INSIGHT_TYPE&quot;, invalidValues, validValues }.`,
     requestFormat: 'json',
@@ -841,6 +858,54 @@ export const endpoints = [
         schema: z.string().max(256).optional(),
       },
     ],
+    response: z.void(),
+  },
+  {
+    method: 'get',
+    path: '/api/internal/analytics/compute',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'post',
+    path: '/api/internal/analytics/compute',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'get',
+    path: '/api/internal/cleanup-tokens',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'post',
+    path: '/api/internal/cleanup-tokens',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'get',
+    path: '/api/internal/maintenance',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'post',
+    path: '/api/internal/maintenance',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'get',
+    path: '/api/internal/purge-users',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'post',
+    path: '/api/internal/purge-users',
+    requestFormat: 'json',
     response: z.void(),
   },
   {
@@ -1208,26 +1273,6 @@ export const endpoints = [
     method: 'get',
     path: '/api/stats/online',
     description: `Returns the approximate number of users active in the last 60 seconds. Returns null when Redis is unavailable.`,
-    requestFormat: 'json',
-    response: z.void(),
-  },
-  {
-    method: 'get',
-    path: '/health',
-    description: `Returns server uptime and a live database probe. Returns 503 when the database is unreachable.`,
-    requestFormat: 'json',
-    response: z.void(),
-    errors: [
-      {
-        status: 503,
-        description: `Database unreachable`,
-        schema: z.void(),
-      },
-    ],
-  },
-  {
-    method: 'get',
-    path: '/metrics',
     requestFormat: 'json',
     response: z.void(),
   },
