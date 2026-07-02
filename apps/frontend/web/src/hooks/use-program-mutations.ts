@@ -66,6 +66,33 @@ interface OptimisticContext {
   readonly previousDetail: GenericProgramDetail | undefined;
 }
 
+/**
+ * Roll a single result field back to `previousValue`, but only if the field
+ * still holds the value this (failed) mutation optimistically wrote. If it
+ * doesn't, a newer edit already landed on top of it while this request was
+ * in flight — that edit (and its own mutation) now owns the field, so a
+ * stale rollback here would clobber it. This is what makes the AMRAP/RPE
+ * rollback safe without onSettled invalidation (see the mutations below).
+ */
+function rollbackFieldIfUnchanged(
+  queryClient: QueryClient,
+  detailKey: QueryKey,
+  index: number,
+  slotId: string,
+  field: 'amrapReps' | 'rpe',
+  attemptedValue: number | undefined,
+  previousValue: number | undefined
+): void {
+  const current = queryClient.getQueryData<GenericProgramDetail>(detailKey);
+  if (!current) return;
+  const currentValue = current.results[String(index)]?.[slotId]?.[field];
+  if (currentValue !== attemptedValue) return;
+  queryClient.setQueryData<GenericProgramDetail>(detailKey, {
+    ...current,
+    results: patchSlotField(current.results, index, slotId, field, previousValue),
+  });
+}
+
 const RESULT_RECONCILIATION_DELAY_MS = 2000;
 const reconciliationTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -194,6 +221,7 @@ export function useProgramMutations({
       index: number;
       slotId: string;
       reps: number | undefined;
+      previousReps: number | undefined;
     }) => {
       if (!activeInstanceId) throw new Error('No active program');
       // Read current results fresh from the cache to avoid stale closure
@@ -205,23 +233,25 @@ export function useProgramMutations({
       if (!currentResult) return;
       await recordGenericResult(activeInstanceId, index, slotId, currentResult, reps);
     },
-    onMutate: ({ index, slotId, reps }) =>
-      snapshotAndUpdate((prev) => {
-        const key = String(index);
-        const updatedResults = { ...prev.results };
-        const workoutEntry = { ...updatedResults[key] };
-        const slotEntry = { ...workoutEntry[slotId] };
-        if (reps === undefined) {
-          delete slotEntry.amrapReps;
-        } else {
-          slotEntry.amrapReps = reps;
-        }
-        workoutEntry[slotId] = slotEntry;
-        updatedResults[key] = workoutEntry;
-        return { ...prev, results: updatedResults };
-      }),
-    onError: (err, vars, ctx) => {
-      detailOnError(err, vars, ctx);
+    // No onMutate optimistic write here: setAmrapRepsCb already patched the cache
+    // synchronously (before the debounce), and it captured the true pre-session
+    // value as `previousReps` — that's what onError below restores to. We only
+    // need to stop an in-flight GET from clobbering that optimistic value.
+    onMutate: async () => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.programs.detail(activeInstanceId ?? ''),
+      });
+    },
+    onError: (_err, vars) => {
+      rollbackFieldIfUnchanged(
+        queryClient,
+        queryKeys.programs.detail(activeInstanceId ?? ''),
+        vars.index,
+        vars.slotId,
+        'amrapReps',
+        vars.reps,
+        vars.previousReps
+      );
       toast({ message: t('tracker.errors.amrap_save_failed') });
     },
     // onSettled omitted — setAmrapRepsCb updates the cache directly (immediate setQueryData +
@@ -237,6 +267,7 @@ export function useProgramMutations({
       index: number;
       slotId: string;
       rpe: number | undefined;
+      previousRpe: number | undefined;
     }) => {
       if (!activeInstanceId) throw new Error('No active program');
       // Read current results fresh from the cache to avoid stale closure
@@ -249,23 +280,23 @@ export function useProgramMutations({
       const amrapReps = results[String(index)]?.[slotId]?.amrapReps;
       await recordGenericResult(activeInstanceId, index, slotId, currentResult, amrapReps, rpe);
     },
-    onMutate: ({ index, slotId, rpe }) =>
-      snapshotAndUpdate((prev) => {
-        const key = String(index);
-        const updatedResults = { ...prev.results };
-        const workoutEntry = { ...updatedResults[key] };
-        const slotEntry = { ...workoutEntry[slotId] };
-        if (rpe === undefined) {
-          delete slotEntry.rpe;
-        } else {
-          slotEntry.rpe = rpe;
-        }
-        workoutEntry[slotId] = slotEntry;
-        updatedResults[key] = workoutEntry;
-        return { ...prev, results: updatedResults };
-      }),
-    onError: (err, vars, ctx) => {
-      detailOnError(err, vars, ctx);
+    // Same rationale as setAmrapMutation above: the cache is already patched
+    // synchronously by setRpeCb; only cancel in-flight GETs here.
+    onMutate: async () => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.programs.detail(activeInstanceId ?? ''),
+      });
+    },
+    onError: (_err, vars) => {
+      rollbackFieldIfUnchanged(
+        queryClient,
+        queryKeys.programs.detail(activeInstanceId ?? ''),
+        vars.index,
+        vars.slotId,
+        'rpe',
+        vars.rpe,
+        vars.previousRpe
+      );
       toast({ message: t('tracker.errors.rpe_save_failed') });
     },
     // onSettled omitted — setRpeCb updates the cache directly (immediate setQueryData +

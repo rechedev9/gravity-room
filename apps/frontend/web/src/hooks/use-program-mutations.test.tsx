@@ -86,4 +86,48 @@ describe('useProgramMutations', () => {
     expect(queryClient.getQueryState(DETAIL_KEY)?.isInvalidated).toBe(false);
     expect(mockRecordGenericResult).toHaveBeenCalledTimes(1);
   });
+
+  it('rolls back a failed AMRAP save to the pre-edit server value, not the failed optimistic one', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    // Server-confirmed state before the user touches AMRAP: result recorded, no reps yet.
+    const serverConfirmed: GenericProgramDetail = {
+      ...DETAIL,
+      results: { '0': { 'squat-t1': { result: 'success' } } },
+    };
+    queryClient.setQueryData(DETAIL_KEY, serverConfirmed);
+
+    mockRecordGenericResult.mockRejectedValueOnce(new Error('network error'));
+
+    const { result } = renderProgramMutations(queryClient);
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+    });
+
+    // Mirrors what use-program.ts's patchSlotField does synchronously before the
+    // debounced mutate: apply the optimistic value to the cache immediately, then
+    // fire the mutation with the true pre-edit value (8, i.e. `undefined` here)
+    // threaded through as `previousReps`.
+    queryClient.setQueryData<GenericProgramDetail>(DETAIL_KEY, (prev) =>
+      prev
+        ? { ...prev, results: { '0': { 'squat-t1': { result: 'success', amrapReps: 8 } } } }
+        : prev
+    );
+
+    await expect(
+      result.current.setAmrapMutation.mutateAsync({
+        index: 0,
+        slotId: 'squat-t1',
+        reps: 8,
+        previousReps: undefined,
+      })
+    ).rejects.toThrow();
+
+    // The failed save must not leave the never-persisted "8" reps behind — it
+    // must restore the last server-confirmed value (no amrapReps field at all).
+    expect(
+      queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY)?.results['0']?.['squat-t1']
+    ).toEqual({ result: 'success' });
+  });
 });

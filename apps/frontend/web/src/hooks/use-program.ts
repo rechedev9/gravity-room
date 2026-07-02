@@ -75,6 +75,15 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   const amrapTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const rpeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
+  // Rollback baseline per key: the field value that was in the cache before the
+  // current edit *session* started (a session = one or more keystrokes coalesced
+  // by the debounce below). Set once when a session opens and left untouched by
+  // subsequent keystrokes in the same session, so the eventual mutate() carries
+  // the true pre-session value for onError to restore to — not the
+  // already-optimistic value the previous keystroke just wrote.
+  const amrapBaselines = useRef<Map<string, number | undefined>>(new Map());
+  const rpeBaselines = useRef<Map<string, number | undefined>>(new Map());
+
   // Clear all pending debounce timers on unmount to prevent mutations firing
   // after the component has been destroyed.
   useEffect(() => {
@@ -173,48 +182,68 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     markResultMutation.mutate({ index, slotId, value, setLogs });
   };
 
-  /** Patch a single field on a slot entry in the cached program detail. */
+  /**
+   * Patch a single field on a slot entry in the cached program detail.
+   * Returns the field's value immediately before this patch, so callers can
+   * capture a true pre-edit snapshot for rollback purposes.
+   */
   const patchSlotField = (
     index: number,
     slotId: string,
     field: 'amrapReps' | 'rpe',
     value: number | undefined
-  ): void => {
+  ): number | undefined => {
     const detailKey = queryKeys.programs.detail(activeInstanceId ?? '');
+    let previousValue: number | undefined;
     queryClient.setQueryData<GenericProgramDetail>(detailKey, (prev) => {
       if (!prev) return prev;
+      previousValue = prev.results[String(index)]?.[slotId]?.[field];
       return { ...prev, results: patchSlotFieldPure(prev.results, index, slotId, field, value) };
     });
+    return previousValue;
   };
 
   const setAmrapRepsCb = (index: number, slotId: string, reps: number | undefined): void => {
-    patchSlotField(index, slotId, 'amrapReps', reps);
+    const timerKey = `${index}-${slotId}`;
+    const previousValue = patchSlotField(index, slotId, 'amrapReps', reps);
+    // Only stamp the baseline when no session is already open — mid-session
+    // keystrokes must not overwrite the true pre-session value with their own
+    // (already optimistic) previous value.
+    if (!amrapBaselines.current.has(timerKey)) {
+      amrapBaselines.current.set(timerKey, previousValue);
+    }
 
     // Debounce the API call: rapid clicks on +/- coalesce into a single POST.
-    const timerKey = `${index}-${slotId}`;
     const existing = amrapTimers.current.get(timerKey);
     if (existing !== undefined) clearTimeout(existing);
     amrapTimers.current.set(
       timerKey,
       setTimeout(() => {
         amrapTimers.current.delete(timerKey);
-        setAmrapMutation.mutate({ index, slotId, reps });
+        const previousReps = amrapBaselines.current.get(timerKey);
+        amrapBaselines.current.delete(timerKey);
+        setAmrapMutation.mutate({ index, slotId, reps, previousReps });
       }, 400)
     );
   };
 
   const setRpeCb = (index: number, slotId: string, rpe: number | undefined): void => {
-    patchSlotField(index, slotId, 'rpe', rpe);
+    const timerKey = `${index}-${slotId}-rpe`;
+    const previousValue = patchSlotField(index, slotId, 'rpe', rpe);
+    if (!rpeBaselines.current.has(timerKey)) {
+      rpeBaselines.current.set(timerKey, previousValue);
+    }
 
     // Debounce: switching RPE values rapidly fires one POST after 300ms.
-    const timerKey = `${index}-${slotId}-rpe`;
     const existing = rpeTimers.current.get(timerKey);
     if (existing !== undefined) clearTimeout(existing);
     rpeTimers.current.set(
       timerKey,
       setTimeout(() => {
         rpeTimers.current.delete(timerKey);
-        setRpeMutation.mutate({ index, slotId, rpe });
+        const previousRpe = rpeBaselines.current.get(timerKey);
+        rpeBaselines.current.delete(timerKey);
+        setRpeMutation.mutate({ index, slotId, rpe, previousRpe });
       }, 300)
     );
   };
