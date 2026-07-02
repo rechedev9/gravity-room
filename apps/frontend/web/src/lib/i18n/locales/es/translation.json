@@ -528,6 +528,9 @@
     "no_programs_message": "Elige un programa para ver tus métricas aquí.",
     "view_programs": "Ver Programas",
     "load_recommendation_section": "Recomendación de Carga",
+    "kpi_card": {
+      "loading_label": "Cargando KPI"
+    },
     "kpi_strip": {
       "streak": "RACHA",
       "day_one": "día",
@@ -839,6 +842,7 @@
       "description_propagation": "Registra tu máximo. Este peso se usará como Training Max del siguiente bloque.",
       "description_final": "Registra tu máximo. Este es tu resultado final del protocolo JAW.",
       "weight_label": "¿Cuánto levantaste? (kg)",
+      "range_error": "Introduce un peso entre {{min}} y {{max}} kg.",
       "cancel_button": "Cancelar",
       "saving_loading": "Guardando...",
       "confirm_button": "Confirmar"
@@ -909,7 +913,11 @@
     },
     "amrap_input": {
       "label": "Reps AMRAP",
-      "placeholder": "Reps extra"
+      "placeholder": "Reps extra",
+      "group_label": "Reps AMRAP",
+      "decrement_label": "Disminuir reps",
+      "increment_label": "Aumentar reps",
+      "estimated_1rm_prefix": "1RM est.:"
     },
     "rpe_select": {
       "label": "RPE",

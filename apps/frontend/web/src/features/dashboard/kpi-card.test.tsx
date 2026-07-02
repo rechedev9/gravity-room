@@ -30,7 +30,9 @@ describe('KpiCard', () => {
   });
 
   it('renders skeleton when loading=true', () => {
-    render(<KpiCard label="" value="" loading />);
-    expect(screen.getByLabelText(/loading/i)).toBeInTheDocument();
+    const { container } = render(<KpiCard label="" value="" loading />);
+    const skeleton = container.querySelector('[aria-busy="true"]');
+    expect(skeleton).not.toBeNull();
+    expect(skeleton).toHaveAttribute('aria-label');
   });
 });

@@ -138,7 +138,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
           <motion.ul
             variants={fadeUpVariants}
             className="flex flex-wrap gap-3"
-            aria-label="Key benefits"
+            aria-label={content.proofListAriaLabel}
           >
             {content.proofItems.map((item) => (
               <li

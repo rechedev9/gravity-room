@@ -44,6 +44,8 @@ export interface HeroContent {
   readonly microcopy: string;
   /** Social-proof pills rendered beneath the hero copy */
   readonly proofItems: readonly ProofItem[];
+  /** Accessible label for the proof-pills list region */
+  readonly proofListAriaLabel: string;
   /** Alt text for the product preview screenshot */
   readonly previewAlt: string;
   /** Accessible caption label for the preview image region */
@@ -324,6 +326,7 @@ export const ES_CONTENT: LandingContent = {
       { value: '✓', label: 'Progresión automática' },
       { value: '0 €', label: 'Sin tarjeta' },
     ],
+    proofListAriaLabel: 'Beneficios clave',
     previewAlt: 'Captura de pantalla de Gravity Room mostrando un entrenamiento activo',
     previewCaption: 'Vista previa de la aplicación',
   },
@@ -630,6 +633,7 @@ export const EN_CONTENT: LandingContent = {
       { value: '✓', label: 'Auto progression' },
       { value: '$0', label: 'No card needed' },
     ],
+    proofListAriaLabel: 'Key benefits',
     previewAlt: 'Gravity Room screenshot showing an active workout session',
     previewCaption: 'App preview',
   },

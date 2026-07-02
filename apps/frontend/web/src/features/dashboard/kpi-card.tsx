@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/cn';
 import { useCountUp } from './use-count-up';
 
@@ -24,6 +25,7 @@ export function KpiCard({
   trend = null,
   trendLabel,
 }: KpiCardProps): React.ReactNode {
+  const { t } = useTranslation();
   const display = useCountUp(value);
 
   if (loading) {
@@ -31,7 +33,7 @@ export function KpiCard({
       <div
         className="bg-card border border-rule p-4 sm:p-5 animate-pulse rounded-[var(--radius-base)]"
         aria-busy="true"
-        aria-label="loading kpi"
+        aria-label={t('dashboard.kpi_card.loading_label')}
       >
         <div className="h-2.5 w-20 bg-rule rounded mb-3" />
         <div className="h-7 w-16 bg-rule rounded" />
