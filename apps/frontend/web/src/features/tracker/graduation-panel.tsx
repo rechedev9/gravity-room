@@ -1,6 +1,7 @@
 import type { GraduationTarget, GraduationState } from '@gzclp/domain/graduation';
 import { useTranslation } from 'react-i18next';
 import { computeEpley1RM } from '@gzclp/domain/graduation';
+import { roundToNearest } from '@gzclp/domain/generic-engine';
 
 interface GraduationPanelProps {
   readonly targets: readonly GraduationTarget[];
@@ -21,11 +22,6 @@ const REP_CRITERIA: Readonly<Record<string, string>> = {
   bench: 'tracker.graduation.criteria_bench',
   deadlift: 'tracker.graduation.criteria_deadlift',
 };
-
-function roundToNearest(value: number, rounding: number): number {
-  if (rounding <= 0) return value;
-  return Math.round(value / rounding) * rounding;
-}
 
 export function GraduationPanel({
   targets,
