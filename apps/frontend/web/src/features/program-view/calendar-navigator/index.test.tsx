@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { CalendarNavigator } from './calendar-navigator';
-import { loadNavMode, saveNavMode } from './program-navigation-preference';
+import { CalendarNavigator } from './index';
+import { loadNavMode, saveNavMode } from '../program-navigation-preference';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 
 // ---------------------------------------------------------------------------
