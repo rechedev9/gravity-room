@@ -44,6 +44,7 @@ interface AuthActions {
     name?: string
   ) => Promise<ActionResult>;
   readonly verifyEmail: (token: string) => Promise<ActionResult>;
+  readonly resendVerification: (email: string) => Promise<ActionResult>;
   readonly requestPasswordReset: (email: string) => Promise<ActionResult>;
   readonly resetPassword: (token: string, password: string) => Promise<ActionResult>;
   // DEV-only — undefined in production builds (esbuild dead-code-eliminates the branch).
@@ -216,6 +217,19 @@ export function AuthProvider({
     [setSessionData]
   );
 
+  const resendVerification = useCallback(async (email: string): Promise<ActionResult> => {
+    try {
+      await apiFetch('/auth/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+        retryAuth: false,
+      });
+      return { ok: true };
+    } catch (err: unknown) {
+      return errorResult(err);
+    }
+  }, []);
+
   const requestPasswordReset = useCallback(async (email: string): Promise<ActionResult> => {
     try {
       await apiFetch('/auth/forgot-password', {
@@ -303,6 +317,7 @@ export function AuthProvider({
       signInWithEmail,
       signUpWithEmail,
       verifyEmail,
+      resendVerification,
       requestPasswordReset,
       resetPassword,
       signInWithDev,
@@ -317,6 +332,7 @@ export function AuthProvider({
       signInWithEmail,
       signUpWithEmail,
       verifyEmail,
+      resendVerification,
       requestPasswordReset,
       resetPassword,
       signInWithDev,

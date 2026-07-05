@@ -1163,7 +1163,10 @@
       "submit_signup": "Create account",
       "to_signup": "Need an account? Sign up",
       "to_signin": "Already have an account? Sign in",
-      "forgot": "Forgot your password?"
+      "forgot": "Forgot your password?",
+      "resend": "Resend verification email",
+      "resend_sent": "If your account still needs verification, a new link is on its way. Check your inbox.",
+      "resend_error": "Couldn't resend the email. Please try again in a moment."
     },
     "signup_success": "Account created. Check your email to verify your address before signing in.",
     "errors": {
