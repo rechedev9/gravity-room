@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
+// Side-effect import: initializes i18next (device-locale detection + catalogs)
+// before any screen calls useTranslation.
+import '../lib/i18n';
 import { LoginScreen } from '../features/auth/login-screen';
 import { ProfileScreen } from '../features/profile/profile-screen';
 import { ProgramsScreen } from '../features/programs/programs-screen';
@@ -11,6 +15,7 @@ import { AppProviders } from './providers';
 type MobileTab = 'programs' | 'profile';
 
 function AppShell() {
+  const { t } = useTranslation();
   const { loading, signOut, user } = useAuth();
   const [activeTab, setActiveTab] = useState<MobileTab>('programs');
 
@@ -41,23 +46,23 @@ function AppShell() {
         </View>
         <View style={styles.bottomNav}>
           <Pressable
-            accessibilityLabel="Open programs tab"
+            accessibilityLabel={t('nav.open_programs')}
             accessibilityRole="button"
             onPress={() => setActiveTab('programs')}
             style={[styles.navItem, activeTab === 'programs' ? styles.navItemActive : null]}
           >
             <Text style={[styles.navText, activeTab === 'programs' ? styles.navTextActive : null]}>
-              Programs
+              {t('nav.programs')}
             </Text>
           </Pressable>
           <Pressable
-            accessibilityLabel="Open profile tab"
+            accessibilityLabel={t('nav.open_profile')}
             accessibilityRole="button"
             onPress={() => setActiveTab('profile')}
             style={[styles.navItem, activeTab === 'profile' ? styles.navItemActive : null]}
           >
             <Text style={[styles.navText, activeTab === 'profile' ? styles.navTextActive : null]}>
-              Profile
+              {t('nav.profile')}
             </Text>
           </Pressable>
         </View>

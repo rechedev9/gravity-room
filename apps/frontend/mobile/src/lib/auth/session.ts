@@ -1,6 +1,11 @@
 import { createSingleFlight } from '@gzclp/api-client/single-flight';
 import { isRecord } from '@gzclp/domain/type-guards';
-import { secureRefreshTokenStorage, type RefreshTokenStorage } from './secure-storage';
+import {
+  secureRefreshTokenStorage,
+  secureSessionKindStorage,
+  type RefreshTokenStorage,
+  type SessionKindStorage,
+} from './secure-storage';
 
 export interface AuthUser {
   readonly id: string;
@@ -25,13 +30,39 @@ interface AuthorizedFetchDependencies {
 
 interface SignInDependencies {
   readonly storage?: RefreshTokenStorage;
+  readonly sessionKindStorage?: SessionKindStorage;
   readonly authenticateWithGoogleIdToken?: (credential: string) => Promise<RefreshResponse>;
 }
 
 interface SignOutDependencies {
   readonly storage?: RefreshTokenStorage;
+  readonly sessionKindStorage?: SessionKindStorage;
   readonly revokeRemoteSession?: (refreshToken: string) => Promise<void>;
+  readonly revokeCookieSession?: () => Promise<void>;
 }
+
+interface EmailSignInDependencies {
+  readonly sessionKindStorage?: SessionKindStorage;
+  readonly login?: (email: string, password: string) => Promise<Response>;
+}
+
+interface EmailSignUpDependencies {
+  readonly signup?: (email: string, password: string, name?: string) => Promise<Response>;
+}
+
+/**
+ * Outcome of an email/password sign-in. `code` on failure is the API error code
+ * (or a status-derived fallback) so the UI can localize the message.
+ */
+export type EmailSignInResult =
+  | { readonly ok: true; readonly session: SessionState }
+  | { readonly ok: false; readonly code: string };
+
+/**
+ * Outcome of an email/password sign-up. Sign-up never mints a session: the
+ * account starts unverified and must confirm its email before signing in.
+ */
+export type EmailSignUpResult = { readonly ok: true } | { readonly ok: false; readonly code: string };
 
 export class InvalidRefreshTokenError extends Error {
   constructor(message = 'Invalid refresh token') {
@@ -42,7 +73,9 @@ export class InvalidRefreshTokenError extends Error {
 
 interface RestoreSessionDependencies {
   readonly storage?: RefreshTokenStorage;
+  readonly sessionKindStorage?: SessionKindStorage;
   readonly refreshSession?: (refreshToken: string) => Promise<RefreshResponse>;
+  readonly restoreCookieSession?: () => Promise<SessionState | null>;
 }
 
 let accessToken: string | null = null;
@@ -50,11 +83,22 @@ let pendingRestoreDeps: RestoreSessionDependencies = {};
 
 const singleFlightRestore = createSingleFlight(async (): Promise<SessionState | null> => {
   const storage = pendingRestoreDeps.storage ?? secureRefreshTokenStorage;
+  const kindStorage = pendingRestoreDeps.sessionKindStorage ?? secureSessionKindStorage;
   const refreshSession = pendingRestoreDeps.refreshSession ?? refreshMobileSession;
+  const restoreCookie = pendingRestoreDeps.restoreCookieSession ?? restoreCookieSession;
 
   const refreshToken = await storage.getRefreshToken();
   if (!refreshToken) {
     accessToken = null;
+    // No device-stored refresh token means this is not a Google (body-token)
+    // session. Only fall back to the cookie-based refresh route when an email
+    // session was actually established on this device (the marker). This keeps
+    // signed-out and Google users off a guaranteed network round-trip at launch,
+    // and stops a stale cookie from silently resurrecting a signed-out session.
+    const kind = await kindStorage.getSessionKind();
+    if (kind === 'email') {
+      return restoreCookie();
+    }
     return null;
   }
 
@@ -121,6 +165,30 @@ function readRefreshResponse(value: unknown): RefreshResponse {
   return {
     accessToken: nextAccessToken,
     refreshToken,
+    user,
+  };
+}
+
+/**
+ * Reads a body-token-free session response (`{ accessToken, user }`), as
+ * returned by the cookie-based `/auth/login` and `/auth/refresh` routes. The
+ * refresh token for these sessions is delivered in an httpOnly cookie, not the
+ * body, so it never appears here.
+ */
+function readSessionResponse(value: unknown): SessionState {
+  if (!isRecord(value)) {
+    throw new Error('Invalid mobile auth response');
+  }
+
+  const nextAccessToken = value.accessToken;
+  const user = readAuthUser(value.user);
+
+  if (typeof nextAccessToken !== 'string') {
+    throw new Error('Invalid mobile auth response');
+  }
+
+  return {
+    accessToken: nextAccessToken,
     user,
   };
 }
@@ -232,6 +300,96 @@ async function revokeMobileSession(refreshToken: string): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Email / password — reuses the cookie-based web auth routes. There is no
+// mobile-specific email endpoint yet. `/auth/login` returns the access token in
+// the body and the refresh token in an httpOnly cookie (captured by the native
+// cookie jar); `/auth/refresh` reads that cookie back, so mobile never handles
+// the refresh-token value directly for these sessions. `credentials: 'include'`
+// (on the routes that touch the cookie) sends/stores it on native and web
+// alike. `/auth/signup` only creates an unverified account (201 message, no
+// cookie), so it needs no credentials.
+// ---------------------------------------------------------------------------
+
+async function postEmailLogin(email: string, password: string): Promise<Response> {
+  return fetch(buildApiUrl('/auth/login'), {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+async function postEmailSignup(email: string, password: string, name?: string): Promise<Response> {
+  return fetch(buildApiUrl('/auth/signup'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email, password, ...(name ? { name } : {}) }),
+  });
+}
+
+async function restoreCookieSession(): Promise<SessionState | null> {
+  try {
+    const response = await fetch(buildApiUrl('/auth/refresh'), {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      accessToken = null;
+      return null;
+    }
+
+    const session = readSessionResponse(await response.json());
+    accessToken = session.accessToken;
+    return session;
+  } catch {
+    accessToken = null;
+    return null;
+  }
+}
+
+async function revokeCookieSession(): Promise<void> {
+  const response = await fetch(buildApiUrl('/auth/signout'), {
+    method: 'POST',
+    credentials: 'include',
+  });
+
+  if (!response.ok && response.status !== 401) {
+    throw new Error(`Cookie sign-out failed with status ${response.status}`);
+  }
+}
+
+/** Reads the machine-readable error `code` from an API error body, if present. */
+async function readResponseErrorCode(response: Response): Promise<string | undefined> {
+  try {
+    const body = await response.json();
+    if (isRecord(body) && typeof body.code === 'string') {
+      return body.code;
+    }
+  } catch {
+    // A non-JSON error body just means we fall back to the status-derived code.
+  }
+
+  return undefined;
+}
+
+/** Maps an auth failure to a stable code the UI localizes (`login.errors.*`). */
+function mapAuthErrorCode(status: number, bodyCode: string | undefined): string {
+  if (bodyCode) {
+    return bodyCode;
+  }
+  if (status === 429) return 'RATE_LIMITED';
+  if (status === 401) return 'INVALID_CREDENTIALS';
+  if (status === 403) return 'EMAIL_NOT_VERIFIED';
+  if (status === 409) return 'EMAIL_TAKEN';
+  return 'generic';
+}
+
 export function getAccessToken(): string | null {
   return accessToken;
 }
@@ -286,12 +444,14 @@ export async function signInWithGoogleIdToken(
   dependencies: SignInDependencies = {}
 ): Promise<SessionState> {
   const storage = dependencies.storage ?? secureRefreshTokenStorage;
+  const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
   const authenticateWithGoogleIdToken =
     dependencies.authenticateWithGoogleIdToken ?? authenticateMobileGoogleIdToken;
 
   const authenticated = await authenticateWithGoogleIdToken(credential);
   accessToken = authenticated.accessToken;
   await storage.setRefreshToken(authenticated.refreshToken);
+  await kindStorage.setSessionKind('google');
 
   return {
     accessToken: authenticated.accessToken,
@@ -299,22 +459,71 @@ export async function signInWithGoogleIdToken(
   };
 }
 
+export async function signInWithEmailPassword(
+  email: string,
+  password: string,
+  dependencies: EmailSignInDependencies = {}
+): Promise<EmailSignInResult> {
+  const login = dependencies.login ?? postEmailLogin;
+  const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
+
+  const response = await login(email, password);
+  if (!response.ok) {
+    const bodyCode = await readResponseErrorCode(response);
+    return { ok: false, code: mapAuthErrorCode(response.status, bodyCode) };
+  }
+
+  const session = readSessionResponse(await response.json());
+  accessToken = session.accessToken;
+  // Mark this as a cookie-backed session so restore knows to use the cookie
+  // route and sign-out knows to revoke the cookie.
+  await kindStorage.setSessionKind('email');
+  return { ok: true, session };
+}
+
+export async function signUpWithEmailPassword(
+  email: string,
+  password: string,
+  name?: string,
+  dependencies: EmailSignUpDependencies = {}
+): Promise<EmailSignUpResult> {
+  const signup = dependencies.signup ?? postEmailSignup;
+
+  const response = await signup(email, password, name);
+  if (!response.ok) {
+    const bodyCode = await readResponseErrorCode(response);
+    return { ok: false, code: mapAuthErrorCode(response.status, bodyCode) };
+  }
+
+  return { ok: true };
+}
+
 export async function signOutSession(dependencies: SignOutDependencies = {}): Promise<void> {
   const storage = dependencies.storage ?? secureRefreshTokenStorage;
+  const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
   const revokeRemoteSession = dependencies.revokeRemoteSession ?? revokeMobileSession;
+  const revokeCookie = dependencies.revokeCookieSession ?? revokeCookieSession;
   const refreshToken = await storage.getRefreshToken();
 
   accessToken = null;
 
   try {
     if (refreshToken) {
+      // Google (body-token) session: revoke by refresh-token value.
       await revokeRemoteSession(refreshToken);
+    } else {
+      // Email/password (cookie) session: revoke the httpOnly refresh cookie.
+      await revokeCookie();
     }
   } catch {
     // Local sign-out must still complete when remote revocation fails.
   }
 
+  // Destroy every local credential unconditionally so sign-out is authoritative
+  // even when the network is down: clearing the marker stops the next launch
+  // from resurrecting a still-valid cookie session (see restore fallback above).
   await storage.clearRefreshToken();
+  await kindStorage.clearSessionKind();
 }
 
 export async function restoreSession(

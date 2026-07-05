@@ -1,0 +1,76 @@
+{
+  "common": {
+    "retry": "Retry"
+  },
+  "nav": {
+    "programs": "Programs",
+    "profile": "Profile",
+    "open_programs": "Open programs tab",
+    "open_profile": "Open profile tab"
+  },
+  "login": {
+    "eyebrow": "Gravity Room",
+    "title": "Train with intent.",
+    "google_body": "Pick your Google account to restore your training state.",
+    "divider": "or",
+    "social": {
+      "google": "Continue with Google"
+    },
+    "email": {
+      "toggle": "Continue with email",
+      "email_label": "Email",
+      "email_placeholder": "you@example.com",
+      "password_label": "Password",
+      "password_placeholder": "Your password",
+      "name_label": "Name",
+      "name_placeholder": "Your name (optional)",
+      "submit_signin": "Sign in",
+      "submit_signup": "Create account",
+      "submitting": "Please wait…",
+      "password_min": "Password must be at least 8 characters.",
+      "to_signup": "Need an account? Sign up",
+      "to_signin": "Already have an account? Sign in"
+    },
+    "signup_success": "Account created. Check your email to verify your address before signing in.",
+    "errors": {
+      "google_auth_error": "Error signing in with Google. Please try again.",
+      "INVALID_CREDENTIALS": "Invalid email or password.",
+      "EMAIL_NOT_VERIFIED": "Verify your email before signing in. Check your inbox.",
+      "EMAIL_TAKEN": "An account with this email already exists.",
+      "RATE_LIMITED": "Too many attempts. Please try again later.",
+      "VALIDATION_ERROR": "Please check your details and try again.",
+      "generic": "Something went wrong. Please try again."
+    }
+  },
+  "programs": {
+    "eyebrow": "Programs",
+    "title": "Cached training blocks",
+    "body": "Your active blocks stay available offline. Start a preset to cache it on this device.",
+    "sync_notice": "Showing cached programs. Sync will retry when you refresh.",
+    "card_updated": "Updated {{date}}",
+    "catalog_title": "Start a program",
+    "catalog_meta": "{{level}} · {{total}} workouts · {{perWeek}}/week",
+    "start": "Start",
+    "starting": "Starting...",
+    "start_accessibility": "Start {{name}}",
+    "first_run": {
+      "title": "No active program",
+      "body": "Pick a program below to start logging your training."
+    },
+    "errors": {
+      "load": "Unable to load cached programs.",
+      "sync": "Unable to sync programs right now.",
+      "catalog": "Unable to load the program catalog right now.",
+      "start": "Unable to start that program right now."
+    }
+  },
+  "profile": {
+    "eyebrow": "Account",
+    "title": "Profile",
+    "default_name": "Gravity Room athlete",
+    "session_note": "Your mobile session is stored securely on this device.",
+    "sign_out": "Sign out",
+    "signing_out": "Signing out...",
+    "sign_out_accessibility": "Sign out of Gravity Room"
+  }
+}

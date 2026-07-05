@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import { colors, radii, spacing } from '../../app/design';
 import type { AuthUser } from '../../lib/auth/session';
@@ -11,6 +12,7 @@ type ProfileScreenProps = {
 };
 
 export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
+  const { t } = useTranslation();
   const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut(): Promise<void> {
@@ -29,15 +31,15 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.content}>
-        <Text style={styles.eyebrow}>Account</Text>
-        <Text style={styles.title}>Profile</Text>
+        <Text style={styles.eyebrow}>{t('profile.eyebrow')}</Text>
+        <Text style={styles.title}>{t('profile.title')}</Text>
         <View style={styles.card}>
-          <Text style={styles.name}>{user.name ?? 'Gravity Room athlete'}</Text>
+          <Text style={styles.name}>{user.name ?? t('profile.default_name')}</Text>
           <Text style={styles.body}>{user.email}</Text>
-          <Text style={styles.caption}>Your mobile session is stored securely on this device.</Text>
+          <Text style={styles.caption}>{t('profile.session_note')}</Text>
         </View>
         <Pressable
-          accessibilityLabel="Sign out of Gravity Room"
+          accessibilityLabel={t('profile.sign_out_accessibility')}
           accessibilityRole="button"
           disabled={signingOut}
           onPress={() => {
@@ -45,7 +47,9 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
           }}
           style={[styles.signOutButton, signingOut ? styles.disabledButton : null]}
         >
-          <Text style={styles.signOutLabel}>{signingOut ? 'Signing out...' : 'Sign out'}</Text>
+          <Text style={styles.signOutLabel}>
+            {signingOut ? t('profile.signing_out') : t('profile.sign_out')}
+          </Text>
         </Pressable>
       </View>
     </SafeAreaView>
