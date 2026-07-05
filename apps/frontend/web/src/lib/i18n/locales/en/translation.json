@@ -1401,40 +1401,6 @@
       "title": "Your first session is waiting",
       "body": "Open the tracker and log your first workout. Your streak and sessions start counting from there."
     },
-    "mentor": {
-      "widget_title": "Gravity Sensei",
-      "prompt": "Welcome, want a quick tour?",
-      "cta_start": "Start mini tour",
-      "cta_dismiss": "Not now",
-      "intro_title": "Quick tour — 4 steps",
-      "intro_body": "We'll walk you through the main sections of Gravity Room.",
-      "start": "Start",
-      "cancel": "Cancel",
-      "next": "Next",
-      "finish": "Finish",
-      "exit": "Exit tour",
-      "repeat": "Repeat tour",
-      "completed_hint": "Tour completed.",
-      "all_done": "🎉 You're all set! Enjoy Gravity Room.",
-      "steps": {
-        "step_home": {
-          "title": "Home",
-          "body": "Your active program lives here. At a glance you see your streak, weekly sessions, and consistency."
-        },
-        "step_programs": {
-          "title": "Programs",
-          "body": "Open Programs to choose a routine, customize a program, or manage the ones you already have."
-        },
-        "step_tracker": {
-          "title": "Tracker",
-          "body": "In the Tracker you can log success, fail, AMRAP, and RPE for every set of your workout."
-        },
-        "step_profile": {
-          "title": "Profile",
-          "body": "Check your stats, achievements, and program history in the Profile section."
-        }
-      }
-    },
     "mentor_tips": [
       "If you fail, you drop a stage, not the bar. Get back under it.",
       "Progress is not linear. Consistency is.",

@@ -1401,40 +1401,6 @@
       "title": "Tu primera sesión te espera",
       "body": "Abre el tracker y registra tu primer entrenamiento. Tu racha y tus sesiones empezarán a contar desde ahí."
     },
-    "mentor": {
-      "widget_title": "Sensei de la Sala",
-      "prompt": "Bienvenido, ¿quieres un pequeño tutorial?",
-      "cta_start": "Empezar mini tutorial",
-      "cta_dismiss": "Ahora no",
-      "intro_title": "Tour rápido — 4 pasos",
-      "intro_body": "Te guiaremos por las secciones principales de Gravity Room.",
-      "start": "Empezar",
-      "cancel": "Cancelar",
-      "next": "Siguiente",
-      "finish": "Finalizar",
-      "exit": "Salir del tutorial",
-      "repeat": "Repetir tutorial",
-      "completed_hint": "Tutorial completado.",
-      "all_done": "🎉 ¡Todo listo! Disfruta Gravity Room.",
-      "steps": {
-        "step_home": {
-          "title": "Inicio",
-          "body": "Tu programa activo vive aquí. De un vistazo ves racha, sesiones semanales y consistencia."
-        },
-        "step_programs": {
-          "title": "Programas",
-          "body": "Abre Programas para elegir rutina, personalizar un programa o gestionar los que ya tienes."
-        },
-        "step_tracker": {
-          "title": "Tracker",
-          "body": "En el tracker puedes registrar éxito, fallo, AMRAP y RPE en cada serie de tu entrenamiento."
-        },
-        "step_profile": {
-          "title": "Perfil",
-          "body": "Revisa estadísticas, logros y tu historial de programas en la sección Perfil."
-        }
-      }
-    },
     "mentor_tips": [
       "Si fallas, bajas de etapa pero no paras. Vuelves a la barra.",
       "La progresión no es lineal. La constancia sí.",
