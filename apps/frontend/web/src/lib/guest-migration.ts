@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { ProgramInstance } from '@gzclp/domain/types/program';
 import { createProgram, recordGenericResult } from '@/lib/api-functions';
+import type { ProgramSummary } from '@/lib/api-functions';
 import { queryKeys } from '@/lib/query-keys';
 import { readGuestData, clearGuestData } from '@/lib/guest-storage';
 
@@ -51,7 +52,7 @@ export async function migrateGuestDataToAccount(
   const instance = activeGuestInstance();
   if (!instance) return null;
 
-  let created;
+  let created: ProgramSummary;
   try {
     created = await createProgram(instance.programId, instance.name, instance.config);
   } catch (err: unknown) {

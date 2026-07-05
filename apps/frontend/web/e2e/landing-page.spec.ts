@@ -27,6 +27,19 @@ test.describe('Landing page', () => {
       .click();
     await expect(page).toHaveURL(/\/login/);
   });
+
+  test('guest CTA enters guest mode and lands on /app/programs', async ({ page }) => {
+    await page
+      .getByRole('button', { name: /Pruébalo ahora, sin cuenta/i })
+      .first()
+      .click();
+
+    await expect(page).toHaveURL(/\/app\/programs/);
+    // We are in guest mode: the guest banner is shown.
+    await expect(page.getByRole('status').filter({ hasText: 'Modo invitado' })).toBeVisible({
+      timeout: 10_000,
+    });
+  });
 });
 
 test.describe('security.txt', () => {

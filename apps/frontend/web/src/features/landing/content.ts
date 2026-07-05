@@ -40,6 +40,8 @@ export interface HeroContent {
   readonly subtitle: string;
   readonly primaryCta: string;
   readonly secondaryCta: string;
+  /** Tertiary CTA that enters guest mode directly (no account) */
+  readonly guestCta: string;
   /** Small reassurance text below the primary CTA button */
   readonly microcopy: string;
   /** Social-proof pills rendered beneath the hero copy */
@@ -320,6 +322,7 @@ export const ES_CONTENT: LandingContent = {
       'Sigue programas probados de fuerza e hipertrofia sin hojas de cálculo ni adivinanzas. La app calcula el peso, las series y las repeticiones — tú solo entrenas.',
     primaryCta: 'Crear mi plan gratis →',
     secondaryCta: 'Cómo Funciona',
+    guestCta: 'Pruébalo ahora, sin cuenta',
     microcopy: 'Sin tarjeta. Sin suscripción. Sin anuncios.',
     proofItems: [
       { value: '✓', label: 'Programas probados' },
@@ -627,6 +630,7 @@ export const EN_CONTENT: LandingContent = {
       'Follow proven strength and hypertrophy programs without spreadsheets or guesswork. The app calculates weight, sets, and reps — you just train.',
     primaryCta: 'Create my free plan →',
     secondaryCta: 'How It Works',
+    guestCta: 'Try it now, no account',
     microcopy: 'No card. No subscription. No ads.',
     proofItems: [
       { value: '✓', label: 'Proven programs' },
