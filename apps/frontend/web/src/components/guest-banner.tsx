@@ -8,11 +8,12 @@ interface GuestBannerProps {
 
 export function GuestBanner({ className }: GuestBannerProps): React.ReactNode {
   const { t } = useTranslation();
-  const { exitGuestMode } = useGuest();
+  const { exitGuestModeKeepingData } = useGuest();
   const navigate = useNavigate();
 
   const handleCreateAccount = (): void => {
-    exitGuestMode();
+    // Keep the guest data — it is migrated to the account after sign-in.
+    exitGuestModeKeepingData();
     void navigate({ to: '/login' });
   };
 

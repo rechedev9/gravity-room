@@ -8,7 +8,14 @@ import { clearGuestData } from '@/lib/guest-storage';
 interface GuestContextValue {
   readonly isGuest: boolean;
   readonly enterGuestMode: () => void;
+  /** Leaves guest mode AND discards any on-device guest program data. */
   readonly exitGuestMode: () => void;
+  /**
+   * Leaves guest mode but PRESERVES the on-device guest program data. Used by
+   * the "Create Account" flow: the data must survive the trip to /login so it
+   * can be migrated to the account after sign-in (see lib/guest-migration.ts).
+   */
+  readonly exitGuestModeKeepingData: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,21 +61,32 @@ export function GuestProvider({
     }
   }, []);
 
-  const exitGuestMode = useCallback((): void => {
+  const clearGuestModeFlag = useCallback((): void => {
     setIsGuest(false);
     try {
       localStorage.removeItem(GUEST_MODE_STORAGE_KEY);
     } catch {
       // ignore storage errors
     }
+  }, []);
+
+  const exitGuestMode = useCallback((): void => {
+    clearGuestModeFlag();
     // Guest data must not leak into a later real (or new guest) session.
     clearGuestData();
-  }, []);
+  }, [clearGuestModeFlag]);
+
+  const exitGuestModeKeepingData = useCallback((): void => {
+    // Deliberately does NOT clear guest data — the "Create Account" flow relies
+    // on it surviving to be migrated after sign-in (see lib/guest-migration.ts).
+    clearGuestModeFlag();
+  }, [clearGuestModeFlag]);
 
   const value: GuestContextValue = {
     isGuest,
     enterGuestMode,
     exitGuestMode,
+    exitGuestModeKeepingData,
   };
 
   return <GuestContext value={value}>{children}</GuestContext>;

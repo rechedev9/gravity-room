@@ -1222,6 +1222,9 @@
     "create_account": "Crear Cuenta",
     "create_account_aria": "Crear cuenta para guardar tu progreso"
   },
+  "guest_migration": {
+    "success": "Tu programa {{program}} se ha guardado en tu cuenta."
+  },
   "legal": {
     "back": "← Volver",
     "privacy": {

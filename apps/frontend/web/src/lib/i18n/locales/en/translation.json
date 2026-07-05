@@ -1222,6 +1222,9 @@
     "create_account": "Create Account",
     "create_account_aria": "Create account to save your progress"
   },
+  "guest_migration": {
+    "success": "Your {{program}} program has been saved to your account."
+  },
   "legal": {
     "back": "← Back",
     "privacy": {

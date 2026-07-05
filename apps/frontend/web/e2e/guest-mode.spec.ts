@@ -4,7 +4,12 @@ import {
   navigateToPrograms,
   programCard,
   dismissCookieBannerIfPresent,
+  authenticateOnly,
+  readStorage,
 } from './helpers/seed';
+
+// localStorage key the guest program data lives under (see lib/guest-storage.ts).
+const GUEST_STORAGE_KEY = 'gzclp_guest_v1';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -101,8 +106,9 @@ test.describe('Guest sidebar CTA (REQ-GUI-003, REQ-GUI-008)', () => {
     await expect(nav.getByRole('button', { name: /crear cuenta/i })).toBeVisible();
   });
 
-  test('clicking sidebar "Crear Cuenta" exits guest mode and goes to /login', async ({ page }) => {
-    await enterGuestMode(page);
+  test('clicking sidebar "Crear Cuenta" goes to /login and KEEPS guest data', async ({ page }) => {
+    // Seed an in-progress guest program so there is data to preserve.
+    await generateGuestProgram(page);
     await dismissCookieBannerIfPresent(page);
 
     const nav = page.getByRole('navigation').first();
@@ -110,16 +116,46 @@ test.describe('Guest sidebar CTA (REQ-GUI-003, REQ-GUI-008)', () => {
 
     await page.waitForURL('**/login**', { timeout: 10_000 });
     expect(page.url()).toContain('/login');
+
+    // New semantics: the guest program survives to /login so it can be migrated
+    // to the account after sign-in (REQ-GUI-008).
+    expect(await readStorage(page, GUEST_STORAGE_KEY)).not.toBeNull();
   });
 
-  test('clicking banner "Crear Cuenta" exits guest mode and goes to /login', async ({ page }) => {
-    await enterGuestMode(page);
+  test('clicking banner "Crear Cuenta" goes to /login and KEEPS guest data', async ({ page }) => {
+    await generateGuestProgram(page);
 
     const banner = page.getByRole('status').filter({ hasText: 'Modo invitado' });
     await banner.getByRole('button', { name: /crear cuenta/i }).click();
 
     await page.waitForURL('**/login**', { timeout: 10_000 });
     expect(page.url()).toContain('/login');
+
+    expect(await readStorage(page, GUEST_STORAGE_KEY)).not.toBeNull();
+  });
+
+  test('guest program is migrated to the account after signing in', async ({ page }) => {
+    // 1. Guest starts a program (persisted in localStorage).
+    await generateGuestProgram(page);
+
+    // 2. "Create Account" leaves guest mode but keeps the data, landing on /login.
+    const banner = page.getByRole('status').filter({ hasText: 'Modo invitado' });
+    await banner.getByRole('button', { name: /crear cuenta/i }).click();
+    await page.waitForURL('**/login**', { timeout: 10_000 });
+
+    // 3. Authenticate (mints a session cookie shared with the browser context).
+    await authenticateOnly(page);
+
+    // 4. Landing in the app as an authenticated user triggers the migration.
+    await page.goto('/app');
+
+    // Success toast confirms the program was saved to the account.
+    await expect(page.getByText(/se ha guardado en tu cuenta/i)).toBeVisible({ timeout: 15_000 });
+
+    // Guest storage is cleared once migration completes.
+    await expect
+      .poll(async () => readStorage(page, GUEST_STORAGE_KEY), { timeout: 15_000 })
+      .toBeNull();
   });
 
   test('sidebar shows "Iniciar Sesión" for non-guest unauthenticated', async ({ page }) => {
