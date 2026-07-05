@@ -19,14 +19,12 @@ import { KpiStripBrutalist } from '@/features/dashboard/kpi-strip-brutalist';
 import { WeekHeatmap } from '@/features/dashboard/week-heatmap';
 import { PrRoadCard } from '@/features/dashboard/pr-road-card';
 import { usePrRoad } from '@/features/dashboard/use-pr-road';
-import type { LiftHistoryRow } from '@/features/dashboard/use-pr-road';
 import { MentorPill } from '@/features/dashboard/mentor-pill';
 import { RecentSessionsList } from '@/features/dashboard/recent-sessions-list';
+import { useDashboardData } from '@/features/dashboard/use-dashboard-data';
 import { HomeEmptyState } from './home-empty-state';
 
 const HOME_INSIGHT_TYPES = ['frequency', 'volume_trend'] as const;
-
-const EMPTY_LIFT_HISTORY: readonly LiftHistoryRow[] = [];
 
 function getMentorTips(t: TFunction): readonly string[] {
   const tips = t('home.mentor_tips', { returnObjects: true });
@@ -77,6 +75,10 @@ export function HomePage(): React.ReactNode {
   const activeProgram = programsQuery.data?.find((p) => p.status === 'active') ?? null;
   const mentorTips = getMentorTips(t);
 
+  // Real training data for the active program (hero next-set, recent sessions,
+  // PR road). Queries are disabled when there is no active program.
+  const dashboard = useDashboardData(activeProgram);
+
   const freqPayload = useMemo((): FrequencyPayload | null => {
     const item = insightsQuery.data?.find((i) => i.insightType === 'frequency');
     if (!item || !isFrequencyPayload(item.payload)) return null;
@@ -97,8 +99,9 @@ export function HomePage(): React.ReactNode {
   // prompt instead of a strip of literal zeros (the hero already owns the gold CTA).
   const isPristine = totalSessions === 0 && streakDays === 0;
 
-  // PR road: no server-side lift history available yet — renders empty state
-  const prRoad = usePrRoad(EMPTY_LIFT_HISTORY);
+  // PR road: derived from the active program's logged sets (empty until there's
+  // a lift climbing toward a new PR).
+  const prRoad = usePrRoad(dashboard.liftHistory);
 
   if (isGuest) {
     return (
@@ -111,7 +114,7 @@ export function HomePage(): React.ReactNode {
     );
   }
 
-  if (programsQuery.isLoading || insightsQuery.isLoading) {
+  if (programsQuery.isLoading || insightsQuery.isLoading || dashboard.isLoading) {
     return (
       <div className="min-h-dvh bg-body">
         <DashboardSkeleton />
@@ -129,14 +132,16 @@ export function HomePage(): React.ReactNode {
     );
   }
 
-  // Adapt ProgramSummary → ProgramInstance shape for NextSetHero.
-  // nextSet / nextWorkout / lastSet deferred to a follow-up: hero falls through to DayOneHero.
+  // Adapt ProgramSummary → ProgramInstance shape for NextSetHero. The hero
+  // extras (nextSet / nextWorkout / lastSet / results) come from the active
+  // program's logged sets; when none exist they are absent and the hero renders
+  // its day-one state.
   const programInstance: ProgramInstance = {
     id: activeProgram.id,
     programId: activeProgram.programId,
     name: activeProgram.name,
     status: activeProgram.status,
-    // results omitted — NextSetHero treats missing results as DayOneHero
+    ...dashboard.hero,
   };
 
   return (
@@ -171,7 +176,7 @@ export function HomePage(): React.ReactNode {
             <MentorPill tips={mentorTips} />
           </div>
         }
-        recent={<RecentSessionsList sessions={[]} />}
+        recent={<RecentSessionsList sessions={dashboard.recentSessions} />}
       />
       {!isGuest && (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-8">
