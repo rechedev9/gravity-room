@@ -5,7 +5,7 @@ const BASE_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
 
 test.describe('security hardening', () => {
   test('API responses include strict baseline security headers', async ({ page }) => {
-    const res = await page.request.get(`${BASE_URL}/health`);
+    const res = await page.request.get(`${BASE_URL}/api/health`);
     expect(res.status()).toBe(200);
 
     const headers = res.headers();
@@ -80,6 +80,6 @@ test.describe('security hardening', () => {
       },
     });
     expect(badWorkout.status()).toBe(400);
-    await expect(badWorkout.json()).resolves.toMatchObject({ code: 'INVALID_DATA' });
+    await expect(badWorkout.json()).resolves.toMatchObject({ code: 'VALIDATION_ERROR' });
   });
 });

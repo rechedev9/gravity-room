@@ -149,13 +149,16 @@ test.describe('Guest sidebar CTA (REQ-GUI-003, REQ-GUI-008)', () => {
     // 4. Landing in the app as an authenticated user triggers the migration.
     await page.goto('/app');
 
-    // Success toast confirms the program was saved to the account.
-    await expect(page.getByText(/se ha guardado en tu cuenta/i)).toBeVisible({ timeout: 15_000 });
-
-    // Guest storage is cleared once migration completes.
+    // Assert the durable outcome, not the ephemeral success toast: it
+    // auto-dismisses after 3s and can be gone before goto() resolves on slow
+    // machines (the toast itself is covered by the use-guest-migration unit
+    // tests). Migration done = guest storage cleared + program on the account.
     await expect
       .poll(async () => readStorage(page, GUEST_STORAGE_KEY), { timeout: 15_000 })
       .toBeNull();
+
+    // The migrated program is the account's active program on the dashboard.
+    await expect(page.getByText('GZCLP').first()).toBeVisible({ timeout: 10_000 });
   });
 
   test('sidebar shows "Iniciar Sesión" for non-guest unauthenticated', async ({ page }) => {

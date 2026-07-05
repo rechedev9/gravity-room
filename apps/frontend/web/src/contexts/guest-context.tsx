@@ -27,7 +27,14 @@ interface GuestContextValue {
 // and redirects to /login, discarding any in-progress guest workout.
 const GUEST_MODE_STORAGE_KEY = 'gravity-room:guest-mode';
 
-function readStoredIsGuest(): boolean {
+/**
+ * Reads the persisted guest-mode flag directly from localStorage. Router
+ * guards use this instead of (only) the React context value: enterGuestMode /
+ * exitGuestModeKeepingData write the flag synchronously, while the context
+ * value reaches the router one render later — reading the flag here keeps a
+ * same-tick navigate() from being bounced by a stale guard.
+ */
+export function readStoredIsGuest(): boolean {
   try {
     return localStorage.getItem(GUEST_MODE_STORAGE_KEY) === 'true';
   } catch {

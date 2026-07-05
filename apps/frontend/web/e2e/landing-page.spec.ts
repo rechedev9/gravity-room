@@ -35,8 +35,9 @@ test.describe('Landing page', () => {
       .click();
 
     await expect(page).toHaveURL(/\/app\/programs/);
-    // We are in guest mode: the guest banner is shown.
-    await expect(page.getByRole('status').filter({ hasText: 'Modo invitado' })).toBeVisible({
+    // We are in guest mode: the catalog page has no guest banner (it only
+    // renders on home/tracker), so assert the sidebar's guest-only CTA instead.
+    await expect(page.getByRole('button', { name: /crear cuenta/i })).toBeVisible({
       timeout: 10_000,
     });
   });

@@ -34,6 +34,12 @@ export default defineConfig({
       env: {
         AUTH_DEV_ROUTE_ENABLED: 'true',
         AUTH_DEV_ROUTE_SECRET: 'e2e-dev-secret-not-for-prod',
+        // The suite runs the web preview on :5173; without this the browser's
+        // API calls are CORS-blocked and every data-driven test fails.
+        CORS_ORIGIN: 'http://localhost:5173',
+        // Placeholder is enough to flip /auth/providers google:true so the
+        // login page renders the button (auth.spec asserts its presence).
+        GOOGLE_CLIENT_ID: 'e2e-placeholder.apps.googleusercontent.com',
       },
     },
     {
