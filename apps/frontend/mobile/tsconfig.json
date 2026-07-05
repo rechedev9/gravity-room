@@ -5,6 +5,10 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // Needed to import the i18n locale catalogs as typed JSON modules. Safe to
+    // set here: it does not touch the Metro-critical moduleResolution/module.
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
     "types": ["jest", "react", "react-native"],
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
