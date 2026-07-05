@@ -25,6 +25,8 @@ import { MentorPill } from '@/features/dashboard/mentor-pill';
 import { RecentSessionsList } from '@/features/dashboard/recent-sessions-list';
 import { HomeEmptyState } from './home-empty-state';
 import { HomeGuestResume } from './home-guest-resume';
+import { HomeMentorWidget } from './home-mentor-widget';
+import { ZoneHint } from './zone-hint';
 
 const HOME_INSIGHT_TYPES = ['frequency', 'volume_trend'] as const;
 
@@ -157,6 +159,12 @@ export function HomePage(): React.ReactNode {
   return (
     <div className="min-h-dvh bg-body">
       <DashboardShell
+        mentor={
+          <>
+            <HomeMentorWidget />
+            <ZoneHint zone="home" />
+          </>
+        }
         hero={<NextSetHero programInstance={programInstance} />}
         kpi={
           isPristine ? (
