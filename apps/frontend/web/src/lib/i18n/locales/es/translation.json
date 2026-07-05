@@ -1393,6 +1393,11 @@
       "no_program_body": "Elige un programa para empezar a registrar tu entrenamiento.",
       "no_program_cta": "Ver Programas"
     },
+    "guest_resume": {
+      "stamp": "EN PROGRESO",
+      "body": "Retoma tu entrenamiento donde lo dejaste.",
+      "cta": "Continuar entrenamiento"
+    },
     "footer": {
       "quick_links": "Accesos rápidos",
       "view_stats": "Estadísticas y logros",

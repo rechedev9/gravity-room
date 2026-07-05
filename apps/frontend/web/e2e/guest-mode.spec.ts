@@ -282,11 +282,11 @@ test.describe('Guest stats blocking (REQ-GROUT-005)', () => {
 });
 
 // ===========================================================================
-// REQ-GCTX-004: Ephemeral state
+// REQ-GCTX-004: Guest persistence across reload
 // ===========================================================================
 
-test.describe('Guest ephemeral state (REQ-GCTX-004)', () => {
-  test('refreshing the page clears guest mode', async ({ page }) => {
+test.describe('Guest persistence across reload (REQ-GCTX-004)', () => {
+  test('reloading keeps guest mode active', async ({ page }) => {
     await enterGuestMode(page);
 
     // Confirm we're in guest mode — banner visible
@@ -295,15 +295,33 @@ test.describe('Guest ephemeral state (REQ-GCTX-004)', () => {
     // Sidebar shows "Crear Cuenta"
     await expect(nav.getByRole('button', { name: /crear cuenta/i })).toBeVisible();
 
-    // Reload the page — guest state is ephemeral (React useState, no persistence)
+    // Reload the page — guest mode is persisted in localStorage, so it must
+    // survive a reload (otherwise the router guard would bounce the guest to
+    // /login and drop any in-progress workout).
     await page.reload();
-    await expect(page.getByRole('heading', { name: /sin programa activo/i })).toBeVisible({
+
+    // Guest banner is still present, and the guest "Crear Cuenta" CTA remains.
+    await expect(page.getByRole('status').filter({ hasText: 'Modo invitado' })).toBeVisible({
       timeout: 10_000,
     });
+    await expect(nav.getByRole('button', { name: /crear cuenta/i })).toBeVisible();
+    // The "Iniciar Sesión" link (shown only to non-guests) must NOT appear.
+    await expect(nav.getByRole('link', { name: /iniciar sesión/i })).not.toBeVisible();
+  });
 
-    // Guest banner should be gone
-    await expect(page.getByRole('status').filter({ hasText: 'Modo invitado' })).not.toBeVisible();
-    // Sidebar should show "Iniciar Sesión" instead of "Crear Cuenta"
-    await expect(nav.getByRole('link', { name: /iniciar sesión/i })).toBeVisible();
+  test('reloading resumes the in-progress guest program', async ({ page }) => {
+    await generateGuestProgram(page);
+
+    // Return to the dashboard and reload to simulate a returning guest.
+    await page.goto('/app');
+    await page.reload();
+
+    // The home page offers a "continue" hero back into the tracker.
+    const resume = page.getByText('Continuar entrenamiento');
+    await expect(resume).toBeVisible({ timeout: 10_000 });
+    await resume.click();
+
+    // Tracker reopens the persisted program (Día 1 row visible again).
+    await expect(page.getByText('Día 1', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
   });
 });

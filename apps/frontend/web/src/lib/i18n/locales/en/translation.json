@@ -1393,6 +1393,11 @@
       "no_program_body": "Pick a program to start logging your training.",
       "no_program_cta": "View Programs"
     },
+    "guest_resume": {
+      "stamp": "IN PROGRESS",
+      "body": "Pick up your training right where you left off.",
+      "cta": "Continue training"
+    },
     "footer": {
       "quick_links": "Quick links",
       "view_stats": "Stats and achievements",

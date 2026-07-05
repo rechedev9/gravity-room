@@ -11,6 +11,7 @@ import { useGuest } from '@/contexts/guest-context';
 import { isFrequencyPayload } from '@/lib/insight-payloads';
 import type { FrequencyPayload } from '@/lib/insight-payloads';
 import { GuestBanner } from '@/components/guest-banner';
+import { readGuestData } from '@/lib/guest-storage';
 import { Kicker } from '@/components/kicker';
 import { DashboardShell } from '@/features/dashboard/dashboard-shell';
 import { NextSetHero } from '@/features/dashboard/next-set-hero';
@@ -23,6 +24,7 @@ import type { LiftHistoryRow } from '@/features/dashboard/use-pr-road';
 import { MentorPill } from '@/features/dashboard/mentor-pill';
 import { RecentSessionsList } from '@/features/dashboard/recent-sessions-list';
 import { HomeEmptyState } from './home-empty-state';
+import { HomeGuestResume } from './home-guest-resume';
 
 const HOME_INSIGHT_TYPES = ['frequency', 'volume_trend'] as const;
 
@@ -101,11 +103,24 @@ export function HomePage(): React.ReactNode {
   const prRoad = usePrRoad(EMPTY_LIFT_HISTORY);
 
   if (isGuest) {
+    // Guests persist a single in-progress program in localStorage (see
+    // lib/guest-storage.ts). If one exists, offer a direct "continue" hero back
+    // into the tracker instead of the generic guest empty state.
+    const guestData = readGuestData();
+    const guestInstance =
+      guestData?.activeProgramId != null ? guestData.instances[guestData.activeProgramId] : null;
     return (
       <div className="min-h-dvh bg-body">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <GuestBanner className="mb-6" />
-          <HomeEmptyState variant="guest" />
+          {guestInstance ? (
+            <HomeGuestResume
+              programId={guestInstance.programId}
+              programName={guestInstance.name}
+            />
+          ) : (
+            <HomeEmptyState variant="guest" />
+          )}
         </div>
       </div>
     );
