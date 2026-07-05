@@ -93,9 +93,7 @@ describe('LoginScreen', () => {
     await waitFor(() => {
       expect(mockSignInWithGoogle).toHaveBeenCalledWith('google-id-token');
     });
-    expect(
-      await screen.findByText('Error signing in with Google. Please try again.')
-    ).toBeTruthy();
+    expect(await screen.findByText('Error signing in with Google. Please try again.')).toBeTruthy();
   });
 
   it('signs in with email and password after revealing the email form', async () => {

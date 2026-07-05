@@ -120,6 +120,27 @@ function LoginPageInner(): React.ReactNode {
     window.location.href = `${API_BASE}/api/auth/${provider}/start`;
   };
 
+  const submitSignIn = async (): Promise<void> => {
+    const result = await signInWithEmail(email.trim(), password);
+    if (result.ok) {
+      void navigate({ to: '/app' });
+      return;
+    }
+    // Unverified accounts can't sign in yet - surface the "check your inbox"
+    // message plus a resend affordance instead of a dead-end error.
+    if (result.code === 'EMAIL_NOT_VERIFIED') setShowResend(true);
+    setFormMessage({ kind: 'error', text: codeMessage(result.code) });
+  };
+
+  const submitSignUp = async (): Promise<void> => {
+    const result = await signUpWithEmail(email.trim(), password, name.trim() || undefined);
+    if (result.ok) {
+      setFormMessage({ kind: 'success', text: t('login.signup_success') });
+    } else {
+      setFormMessage({ kind: 'error', text: codeMessage(result.code) });
+    }
+  };
+
   const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (submitting) return;
@@ -129,24 +150,7 @@ function LoginPageInner(): React.ReactNode {
     setResendStatus('idle');
     setSubmitting(true);
     try {
-      if (emailMode === 'signin') {
-        const result = await signInWithEmail(email.trim(), password);
-        if (result.ok) {
-          void navigate({ to: '/app' });
-        } else {
-          // Unverified accounts can't sign in yet - surface the "check your inbox"
-          // message plus a resend affordance instead of a dead-end error.
-          if (result.code === 'EMAIL_NOT_VERIFIED') setShowResend(true);
-          setFormMessage({ kind: 'error', text: codeMessage(result.code) });
-        }
-      } else {
-        const result = await signUpWithEmail(email.trim(), password, name.trim() || undefined);
-        if (result.ok) {
-          setFormMessage({ kind: 'success', text: t('login.signup_success') });
-        } else {
-          setFormMessage({ kind: 'error', text: codeMessage(result.code) });
-        }
-      }
+      await (emailMode === 'signin' ? submitSignIn() : submitSignUp());
     } finally {
       setSubmitting(false);
     }

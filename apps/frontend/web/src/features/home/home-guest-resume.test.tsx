@@ -5,11 +5,13 @@ import { createElement } from 'react';
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     children,
-    ...rest
+    to,
+    params,
   }: {
     readonly children: React.ReactNode;
-    readonly [k: string]: unknown;
-  }) => createElement('a', rest as Record<string, unknown>, children),
+    readonly to: string;
+    readonly params?: Record<string, string>;
+  }) => createElement('a', { href: to, 'data-params': JSON.stringify(params ?? {}) }, children),
 }));
 
 import { render, screen, act, cleanup } from '@testing-library/react';
@@ -42,7 +44,8 @@ describe('HomeGuestResume', () => {
   it('links to the tracker route for the given program', () => {
     render(createElement(HomeGuestResume, { programId: 'gzclp', programName: 'GZCLP' }));
     const link = screen.getByRole('link');
-    // The mocked Link forwards `to`/`params` as attributes.
-    expect(link.getAttribute('to')).toBe('/app/tracker/$programId');
+    // The mocked Link exposes `to` as href and serializes `params`.
+    expect(link.getAttribute('href')).toBe('/app/tracker/$programId');
+    expect(link.getAttribute('data-params')).toBe(JSON.stringify({ programId: 'gzclp' }));
   });
 });

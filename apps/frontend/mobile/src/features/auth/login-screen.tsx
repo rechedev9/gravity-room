@@ -214,9 +214,7 @@ export function LoginScreen() {
               }}
             >
               <Text style={styles.modeToggle}>
-                {emailMode === 'signin'
-                  ? t('login.email.to_signup')
-                  : t('login.email.to_signin')}
+                {emailMode === 'signin' ? t('login.email.to_signup') : t('login.email.to_signin')}
               </Text>
             </Pressable>
 

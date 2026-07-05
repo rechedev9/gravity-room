@@ -62,7 +62,9 @@ export type EmailSignInResult =
  * Outcome of an email/password sign-up. Sign-up never mints a session: the
  * account starts unverified and must confirm its email before signing in.
  */
-export type EmailSignUpResult = { readonly ok: true } | { readonly ok: false; readonly code: string };
+export type EmailSignUpResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly code: string };
 
 export class InvalidRefreshTokenError extends Error {
   constructor(message = 'Invalid refresh token') {

@@ -555,7 +555,10 @@ describe('signUpWithEmailPassword', () => {
     const signup = jest
       .fn<Promise<Response>, [string, string, string | undefined]>()
       .mockResolvedValue(
-        jsonResponse({ error: 'An account with this email already exists', code: 'EMAIL_TAKEN' }, 409)
+        jsonResponse(
+          { error: 'An account with this email already exists', code: 'EMAIL_TAKEN' },
+          409
+        )
       );
 
     await expect(

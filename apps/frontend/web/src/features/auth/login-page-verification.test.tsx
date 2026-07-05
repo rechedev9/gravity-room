@@ -177,7 +177,9 @@ describe('LoginPage - resend verification affordance', () => {
   it('does not show the resend button for ordinary invalid-credential failures', async () => {
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/auth/login') {
-        return Promise.reject(new ApiError('Invalid email or password', 401, 'INVALID_CREDENTIALS'));
+        return Promise.reject(
+          new ApiError('Invalid email or password', 401, 'INVALID_CREDENTIALS')
+        );
       }
       return Promise.reject(new Error(`unexpected path ${path}`));
     });
@@ -188,8 +190,6 @@ describe('LoginPage - resend verification affordance', () => {
     await waitFor(() => {
       expect(screen.getByText(/Correo o contraseña incorrectos/i)).toBeDefined();
     });
-    expect(
-      screen.queryByRole('button', { name: /Reenviar correo de verificación/i })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: /Reenviar correo de verificación/i })).toBeNull();
   });
 });

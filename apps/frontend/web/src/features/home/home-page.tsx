@@ -119,10 +119,7 @@ export function HomePage(): React.ReactNode {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <GuestBanner className="mb-6" />
           {guestInstance ? (
-            <HomeGuestResume
-              programId={guestInstance.programId}
-              programName={guestInstance.name}
-            />
+            <HomeGuestResume programId={guestInstance.programId} programName={guestInstance.name} />
           ) : (
             <HomeEmptyState variant="guest" />
           )}

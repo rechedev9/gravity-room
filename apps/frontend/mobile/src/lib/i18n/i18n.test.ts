@@ -24,9 +24,7 @@ describe('detectDeviceLanguage', () => {
   });
 
   it('picks the first supported language when several locales are present', () => {
-    expect(
-      detectDeviceLanguage(() => [{ languageCode: 'fr' }, { languageCode: 'es' }])
-    ).toBe('es');
+    expect(detectDeviceLanguage(() => [{ languageCode: 'fr' }, { languageCode: 'es' }])).toBe('es');
   });
 
   it('falls back to English when locale lookup throws', () => {
