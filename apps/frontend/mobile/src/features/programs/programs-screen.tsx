@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@gzclp/domain';
 
 import { TrackerScreen } from '../tracker/tracker-screen';
@@ -30,6 +31,7 @@ function mergeProgramSummary(
 }
 
 export function ProgramsScreen() {
+  const { t } = useTranslation();
   const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
   const [catalog, setCatalog] = useState<readonly CatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,15 +74,15 @@ export function ProgramsScreen() {
         }
 
         if (cachedPrograms.length === 0) {
-          setError('Unable to sync programs right now.');
+          setError(t('programs.errors.sync'));
         } else {
-          setSyncNotice('Showing cached programs. Sync will retry when you refresh.');
+          setSyncNotice(t('programs.sync_notice'));
         }
       }
     } catch {
       if (signal.active) {
         setPrograms([]);
-        setError('Unable to load cached programs.');
+        setError(t('programs.errors.load'));
         setSyncNotice(null);
       }
     } finally {
@@ -102,7 +104,7 @@ export function ProgramsScreen() {
     } catch {
       if (signal.active) {
         setCatalog([]);
-        setCatalogError('Unable to load the program catalog right now.');
+        setCatalogError(t('programs.errors.catalog'));
       }
     } finally {
       if (signal.active) {
@@ -164,7 +166,7 @@ export function ProgramsScreen() {
       setError(null);
       setSelectedProgramId(detail.id);
     } catch {
-      setCatalogError('Unable to start that program right now.');
+      setCatalogError(t('programs.errors.start'));
     } finally {
       setCreatingProgramId(null);
     }
@@ -182,20 +184,18 @@ export function ProgramsScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.content}>
-        <Text style={styles.eyebrow}>Programs</Text>
-        <Text style={styles.title}>Cached training blocks</Text>
-        <Text style={styles.body}>
-          Your active blocks stay available offline. Start a preset to cache it on this device.
-        </Text>
+        <Text style={styles.eyebrow}>{t('programs.eyebrow')}</Text>
+        <Text style={styles.title}>{t('programs.title')}</Text>
+        <Text style={styles.body}>{t('programs.body')}</Text>
         {loading ? (
           <View style={styles.stateBlock}>
-            <ActivityIndicator color="#F8FAFC" />
+            <ActivityIndicator color={colors.textPrimary} />
           </View>
         ) : error ? (
           <View style={styles.stateBlock}>
             <Text style={styles.error}>{error}</Text>
             <Pressable accessibilityRole="button" onPress={handleRetry} style={styles.retryButton}>
-              <Text style={styles.retryLabel}>Retry</Text>
+              <Text style={styles.retryLabel}>{t('common.retry')}</Text>
             </Pressable>
           </View>
         ) : (
@@ -208,7 +208,7 @@ export function ProgramsScreen() {
                   onPress={handleRetry}
                   style={styles.retryButton}
                 >
-                  <Text style={styles.retryLabel}>Retry</Text>
+                  <Text style={styles.retryLabel}>{t('common.retry')}</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -216,7 +216,12 @@ export function ProgramsScreen() {
               data={programs}
               keyExtractor={(item) => item.id}
               contentContainerStyle={styles.listContent}
-              ListEmptyComponent={<Text style={styles.empty}>No cached programs yet.</Text>}
+              ListEmptyComponent={
+                <View style={styles.firstRun}>
+                  <Text style={styles.firstRunTitle}>{t('programs.first_run.title')}</Text>
+                  <Text style={styles.firstRunBody}>{t('programs.first_run.body')}</Text>
+                </View>
+              }
               renderItem={({ item }) => (
                 <Pressable
                   accessibilityRole="button"
@@ -224,12 +229,14 @@ export function ProgramsScreen() {
                   style={styles.card}
                 >
                   <Text style={styles.cardTitle}>{item.title}</Text>
-                  <Text style={styles.cardMeta}>Updated {item.updatedAt.slice(0, 10)}</Text>
+                  <Text style={styles.cardMeta}>
+                    {t('programs.card_updated', { date: item.updatedAt.slice(0, 10) })}
+                  </Text>
                 </Pressable>
               )}
             />
             <View style={styles.catalogSection}>
-              <Text style={styles.sectionTitle}>Start a program</Text>
+              <Text style={styles.sectionTitle}>{t('programs.catalog_title')}</Text>
               {catalogLoading ? (
                 <View style={styles.catalogStateBlock}>
                   <ActivityIndicator color={colors.textPrimary} />
@@ -242,7 +249,7 @@ export function ProgramsScreen() {
                     onPress={handleRetry}
                     style={styles.retryButton}
                   >
-                    <Text style={styles.retryLabel}>Retry</Text>
+                    <Text style={styles.retryLabel}>{t('common.retry')}</Text>
                   </Pressable>
                 </View>
               ) : (
@@ -255,12 +262,17 @@ export function ProgramsScreen() {
                           <Text style={styles.cardTitle}>{entry.name}</Text>
                           <Text style={styles.cardMeta}>{entry.description}</Text>
                           <Text style={styles.catalogMeta}>
-                            {entry.level} · {entry.totalWorkouts} workouts · {entry.workoutsPerWeek}
-                            /week
+                            {t('programs.catalog_meta', {
+                              level: entry.level,
+                              total: entry.totalWorkouts,
+                              perWeek: entry.workoutsPerWeek,
+                            })}
                           </Text>
                         </View>
                         <Pressable
-                          accessibilityLabel={`Start ${entry.name}`}
+                          accessibilityLabel={t('programs.start_accessibility', {
+                            name: entry.name,
+                          })}
                           accessibilityRole="button"
                           disabled={creatingProgramId !== null}
                           onPress={() => {
@@ -272,7 +284,7 @@ export function ProgramsScreen() {
                           ]}
                         >
                           <Text style={styles.startLabel}>
-                            {isCreating ? 'Starting...' : 'Start'}
+                            {isCreating ? t('programs.starting') : t('programs.start')}
                           </Text>
                         </Pressable>
                       </View>
@@ -325,9 +337,23 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 8,
   },
-  empty: {
+  firstRun: {
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    backgroundColor: colors.card,
+    padding: spacing.card,
+    gap: 8,
+  },
+  firstRunTitle: {
+    color: colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  firstRunBody: {
     color: colors.textSecondary,
-    fontSize: 16,
+    fontSize: 15,
+    lineHeight: 22,
   },
   error: {
     color: colors.textError,
