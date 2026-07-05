@@ -11,6 +11,7 @@ import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'motion/react';
 import { dismissZoneHint, shouldShowZoneHint, type TourZone } from './mentor-tour-storage';
+import { trackEvent } from '@/lib/analytics';
 
 interface ZoneHintProps {
   readonly zone: TourZone;
@@ -26,6 +27,7 @@ export function ZoneHint({ zone, className = '' }: ZoneHintProps): React.ReactNo
 
   const handleDismiss = useCallback(() => {
     dismissZoneHint(zone);
+    trackEvent('mentor_tour_zone_visit', { zone });
     setVisible(false);
   }, [zone]);
 
