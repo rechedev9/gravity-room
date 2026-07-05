@@ -1384,9 +1384,11 @@
       "consistency_sub_total": "{{count}} total"
     },
     "empty": {
+      "guest_stamp": "INVITADO",
       "guest_title": "Modo invitado",
       "guest_body": "Crea tu cuenta gratis para guardar tu progreso y seguir tu programa.",
       "guest_cta": "Crear Cuenta",
+      "no_program_stamp": "SIN PROGRAMA",
       "no_program_title": "Sin programa activo",
       "no_program_body": "Elige un programa para empezar a registrar tu entrenamiento.",
       "no_program_cta": "Ver Programas"

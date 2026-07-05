@@ -13,7 +13,7 @@ export function HomeEmptyState({ variant }: HomeEmptyStateProps): React.ReactNod
     <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-elevated)] p-8 sm:p-12 text-center">
       {variant === 'guest' ? (
         <>
-          <p className="chalk-stamp text-label">INVITADO</p>
+          <p className="chalk-stamp text-label">{t('home.empty.guest_stamp')}</p>
           <h1 className="font-display text-4xl sm:text-6xl text-main my-4">
             {t('home.empty.guest_title')}
           </h1>
@@ -26,7 +26,7 @@ export function HomeEmptyState({ variant }: HomeEmptyStateProps): React.ReactNod
         </>
       ) : (
         <>
-          <p className="chalk-stamp text-label">SIN PROGRAMA</p>
+          <p className="chalk-stamp text-label">{t('home.empty.no_program_stamp')}</p>
           <h1 className="font-display text-4xl sm:text-6xl text-main my-4">
             {t('home.empty.no_program_title')}
           </h1>

@@ -1384,9 +1384,11 @@
       "consistency_sub_total": "{{count}} total"
     },
     "empty": {
+      "guest_stamp": "GUEST",
       "guest_title": "Guest mode",
       "guest_body": "Create a free account to save your progress and stick with your plan.",
       "guest_cta": "Create Account",
+      "no_program_stamp": "NO PROGRAM",
       "no_program_title": "No active program",
       "no_program_body": "Pick a program to start logging your training.",
       "no_program_cta": "View Programs"
