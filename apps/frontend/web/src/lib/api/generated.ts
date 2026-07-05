@@ -570,6 +570,30 @@ export const endpoints = [
   },
   {
     method: 'post',
+    path: '/api/auth/resend-verification',
+    description: `Re-sends the verification email when an unverified password account exists, replacing any earlier link. Always returns 200 to avoid account enumeration.`,
+    requestFormat: 'json',
+    parameters: [
+      {
+        name: 'body',
+        type: 'Body',
+        schema: z
+          .object({ email: z.string().max(254).email() })
+          .passthrough()
+          .readonly(),
+      },
+    ],
+    response: z.void(),
+    errors: [
+      {
+        status: 429,
+        description: `Rate limited`,
+        schema: z.void(),
+      },
+    ],
+  },
+  {
+    method: 'post',
     path: '/api/auth/reset-password',
     description: `Consumes a reset token, sets a new password, and revokes all sessions.`,
     requestFormat: 'json',

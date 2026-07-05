@@ -401,6 +401,24 @@ export async function createEmailVerificationToken(userId: string): Promise<stri
   return token;
 }
 
+/**
+ * Replaces every existing email-verification token for a user with a single fresh
+ * token, returning the raw token. Deleting the user's prior tokens first (in the
+ * same transaction as the insert) guarantees that only the most recently sent
+ * verification link is valid - a resend invalidates any earlier link, matching the
+ * single-use token model of {@link consumeEmailVerificationToken}.
+ */
+export async function replaceEmailVerificationToken(userId: string): Promise<string> {
+  const token = generateRefreshToken();
+  const tokenHash = await hashToken(token);
+  const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
+  await getDb().transaction(async (tx) => {
+    await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
+    await tx.insert(emailVerificationTokens).values({ userId, tokenHash, expiresAt });
+  });
+  return token;
+}
+
 /** Consumes a verification token; returns its userId if valid & unexpired, else null. */
 export async function consumeEmailVerificationToken(token: string): Promise<string | null> {
   const tokenHash = await hashToken(token);

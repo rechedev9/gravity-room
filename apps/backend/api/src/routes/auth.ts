@@ -28,6 +28,7 @@ import {
   authenticatePassword,
   createPasswordUser,
   createEmailVerificationToken,
+  replaceEmailVerificationToken,
   consumeEmailVerificationToken,
   markEmailVerified,
   createPasswordResetToken,
@@ -699,6 +700,52 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         responses: {
           200: { description: 'Email verified; tokens issued' },
           400: { description: 'Invalid or expired token' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
+  // POST /auth/resend-verification - re-send the verification email (generic 200)
+  // -----------------------------------------------------------------------
+  .post(
+    '/resend-verification',
+    async ({ body, set, reqLogger, ip, request }) => {
+      await rateLimit(ip, '/auth/resend-verification', { maxRequests: 5 });
+      assertEmailConfiguredForProduction();
+
+      const user = await findUserByEmail(body.email);
+      // Only re-send for an existing, still-unverified password account. Already
+      // verified accounts, OAuth-only accounts (no password hash), and unknown
+      // emails are all silently ignored so the response never reveals whether -
+      // or in what state - an account exists. Replacing the token invalidates any
+      // earlier verification link the user may still be holding.
+      if (user?.passwordHash && !user.emailVerified) {
+        const token = await replaceEmailVerificationToken(user.id);
+        keepAlive(sendVerificationEmail(user.email, token, request));
+        reqLogger.info(
+          { event: 'auth.resend_verification', userId: user.id },
+          'verification email re-queued'
+        );
+      }
+
+      // Always generic - never reveal whether the account exists or its state.
+      set.status = 200;
+      return {
+        message:
+          'If an account exists for that email and still needs verification, a new link has been sent.',
+      };
+    },
+    {
+      body: t.Object({ email: emailInputSchema }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Resend the email verification link',
+        description:
+          'Re-sends the verification email when an unverified password account exists, replacing any earlier link. Always returns 200 to avoid account enumeration.',
+        responses: {
+          200: { description: 'Generic acknowledgement' },
           429: { description: 'Rate limited' },
         },
       },

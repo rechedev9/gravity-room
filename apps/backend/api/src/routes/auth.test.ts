@@ -62,6 +62,7 @@ const {
   mockAuthenticatePassword,
   mockCreatePasswordUser,
   mockCreateEmailVerificationToken,
+  mockReplaceEmailVerificationToken,
   mockConsumeEmailVerificationToken,
   mockMarkEmailVerified,
   mockCreatePasswordResetToken,
@@ -124,6 +125,7 @@ const {
     Promise.resolve({ ...PW_USER })
   );
   const mockCreateEmailVerificationToken = vi.fn(() => Promise.resolve('verify-token'));
+  const mockReplaceEmailVerificationToken = vi.fn(() => Promise.resolve('resend-verify-token'));
   const mockConsumeEmailVerificationToken = vi.fn<() => Promise<string | null>>(() =>
     Promise.resolve(null)
   );
@@ -216,6 +218,7 @@ const {
     mockAuthenticatePassword,
     mockCreatePasswordUser,
     mockCreateEmailVerificationToken,
+    mockReplaceEmailVerificationToken,
     mockConsumeEmailVerificationToken,
     mockMarkEmailVerified,
     mockCreatePasswordResetToken,
@@ -302,6 +305,7 @@ vi.mock('../services/auth', async () => ({
   authenticatePassword: mockAuthenticatePassword,
   createPasswordUser: mockCreatePasswordUser,
   createEmailVerificationToken: mockCreateEmailVerificationToken,
+  replaceEmailVerificationToken: mockReplaceEmailVerificationToken,
   consumeEmailVerificationToken: mockConsumeEmailVerificationToken,
   markEmailVerified: mockMarkEmailVerified,
   createPasswordResetToken: mockCreatePasswordResetToken,
@@ -1486,6 +1490,123 @@ describe('POST /auth/verify-email', () => {
     const body = (await res.json()) as { accessToken: string };
     expect(res.status).toBe(200);
     expect(typeof body.accessToken).toBe('string');
+  });
+});
+
+describe('POST /auth/resend-verification', () => {
+  const GENERIC_MESSAGE =
+    'If an account exists for that email and still needs verification, a new link has been sent.';
+
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockRateLimit.mockClear();
+    mockFindUserByEmail.mockClear();
+    mockReplaceEmailVerificationToken.mockClear();
+    mockReplaceEmailVerificationToken.mockImplementation(() =>
+      Promise.resolve('resend-verify-token')
+    );
+    mockSendVerificationEmail.mockClear();
+    mockIsEmailConfigured.mockImplementation(() => true);
+  });
+
+  it('returns a generic 200 and sends nothing when no account exists', async () => {
+    mockFindUserByEmail.mockImplementation(() => Promise.resolve(undefined));
+
+    const res = await post('/auth/resend-verification', { email: 'nobody@example.com' });
+    const body = (await res.json()) as { message: string };
+
+    expect(res.status).toBe(200);
+    expect(body.message).toBe(GENERIC_MESSAGE);
+    expect(mockReplaceEmailVerificationToken).not.toHaveBeenCalled();
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it('returns the same generic 200 and sends nothing when the account is already verified', async () => {
+    mockFindUserByEmail.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, emailVerified: true })
+    );
+
+    const res = await post('/auth/resend-verification', { email: PW_USER.email });
+    const body = (await res.json()) as { message: string };
+
+    expect(res.status).toBe(200);
+    expect(body.message).toBe(GENERIC_MESSAGE);
+    expect(mockReplaceEmailVerificationToken).not.toHaveBeenCalled();
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it('sends nothing for an OAuth-only account (no password hash)', async () => {
+    mockFindUserByEmail.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, passwordHash: null, emailVerified: false })
+    );
+
+    const res = await post('/auth/resend-verification', { email: PW_USER.email });
+    const body = (await res.json()) as { message: string };
+
+    expect(res.status).toBe(200);
+    expect(body.message).toBe(GENERIC_MESSAGE);
+    expect(mockReplaceEmailVerificationToken).not.toHaveBeenCalled();
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it('re-sends the verification email for an unverified password account, still generic 200', async () => {
+    mockFindUserByEmail.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, passwordHash: 'argon2-hash', emailVerified: false })
+    );
+
+    const res = await post('/auth/resend-verification', { email: PW_USER.email });
+    const body = (await res.json()) as { message: string };
+
+    expect(res.status).toBe(200);
+    expect(body.message).toBe(GENERIC_MESSAGE);
+    expect(mockReplaceEmailVerificationToken).toHaveBeenCalledWith(PW_USER.id);
+    expect(mockSendVerificationEmail).toHaveBeenCalledTimes(1);
+    const [to, token] = mockSendVerificationEmail.mock.calls[0] as unknown as [string, string];
+    expect(to).toBe(PW_USER.email);
+    expect(token).toBe('resend-verify-token');
+  });
+
+  it('rejects oversized email addresses before looking up accounts', async () => {
+    const res = await post('/auth/resend-verification', { email: OVERSIZED_EMAIL });
+
+    expect(res.status).toBe(400);
+    expect(mockFindUserByEmail).not.toHaveBeenCalled();
+    expect(mockReplaceEmailVerificationToken).not.toHaveBeenCalled();
+  });
+
+  it('returns 429 RATE_LIMITED before touching the account lookup', async () => {
+    mockRateLimit.mockImplementation(() =>
+      Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
+    );
+
+    const res = await post('/auth/resend-verification', { email: PW_USER.email });
+    const body = (await res.json()) as { code: string; error: string };
+
+    expect(res.status).toBe(429);
+    expect(body.code).toBe('RATE_LIMITED');
+    expect(mockFindUserByEmail).not.toHaveBeenCalled();
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it('fails closed in production when transactional email is not configured', async () => {
+    const previousNodeEnv = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = 'production';
+    mockIsEmailConfigured.mockImplementation(() => false);
+
+    try {
+      const res = await post('/auth/resend-verification', { email: PW_USER.email });
+      const body = (await res.json()) as { code: string };
+      expect(res.status).toBe(503);
+      expect(body.code).toBe('EMAIL_NOT_CONFIGURED');
+      expect(mockFindUserByEmail).not.toHaveBeenCalled();
+      expect(mockReplaceEmailVerificationToken).not.toHaveBeenCalled();
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete process.env['NODE_ENV'];
+      } else {
+        process.env['NODE_ENV'] = previousNodeEnv;
+      }
+    }
   });
 });
 

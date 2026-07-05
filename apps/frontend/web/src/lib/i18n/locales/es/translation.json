@@ -1163,7 +1163,10 @@
       "submit_signup": "Crear cuenta",
       "to_signup": "¿No tienes cuenta? Crear una",
       "to_signin": "¿Ya tienes cuenta? Entrar",
-      "forgot": "¿Olvidaste tu contraseña?"
+      "forgot": "¿Olvidaste tu contraseña?",
+      "resend": "Reenviar correo de verificación",
+      "resend_sent": "Si tu cuenta aún necesita verificación, te enviamos un nuevo enlace. Revisa tu bandeja de entrada.",
+      "resend_error": "No se pudo reenviar el correo. Inténtalo de nuevo en un momento."
     },
     "signup_success": "Cuenta creada. Revisa tu correo para verificar tu dirección antes de entrar.",
     "errors": {
