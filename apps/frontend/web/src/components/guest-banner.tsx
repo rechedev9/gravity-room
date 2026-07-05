@@ -12,7 +12,7 @@ export function GuestBanner({ className }: GuestBannerProps): React.ReactNode {
   const navigate = useNavigate();
 
   const handleCreateAccount = (): void => {
-    // Keep the guest data — it is migrated to the account after sign-in.
+    // Keep the guest data - it is migrated to the account after sign-in.
     exitGuestModeKeepingData();
     void navigate({ to: '/login' });
   };

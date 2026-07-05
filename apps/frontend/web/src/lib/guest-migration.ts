@@ -1,25 +1,30 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { ProgramInstance } from '@gzclp/domain/types/program';
-import { createProgram, recordGenericResult } from '@/lib/api-functions';
-import type { ProgramSummary } from '@/lib/api-functions';
+import { fetchPrograms, importProgram } from '@/lib/api-functions';
 import { queryKeys } from '@/lib/query-keys';
 import { readGuestData, clearGuestData } from '@/lib/guest-storage';
 
 /**
- * Guest → account migration.
+ * Guest -> account migration.
  *
  * Guests keep a single in-progress program in localStorage (see
  * lib/guest-storage.ts). When such a guest creates an account and authenticates
  * for the first time, that on-device program should follow them to the server
- * instead of being thrown away. This module performs that one-shot migration
- * with the existing program mutations (create + record-result), then clears the
- * local copy.
+ * instead of being thrown away.
  *
- * Failure is non-fatal by design: it must never block login. If creating the
- * program on the server fails the guest data is left untouched so a later
- * attempt can retry; individual result failures are logged and skipped (the
- * program itself is the essential part) and the local copy is still cleared to
- * avoid creating a duplicate on the next sign-in.
+ * The migration is a single atomic `POST /programs/import` request: the server
+ * validates every result against the program definition and writes program +
+ * results in one transaction. A per-result replay was rejected on purpose - it
+ * hits the record-result rate limit for long-running guests and a mid-replay
+ * failure would leave a half-migrated program.
+ *
+ * Two safety rules:
+ * - If the account already has an ACTIVE program, the migration is skipped and
+ *   the guest data kept: creating a new instance would silently auto-complete
+ *   the account's real in-flight program (see services/programs.ts). The guest
+ *   copy migrates on a later sign-in once no active program remains.
+ * - If the import fails, the guest data is kept so a later sign-in can retry.
+ *   Failure is non-fatal by design and must never block login.
  */
 
 export interface GuestMigrationResult {
@@ -27,10 +32,6 @@ export interface GuestMigrationResult {
   readonly programId: string;
   /** Stored program name (fallback for localization). */
   readonly programName: string;
-  /** Number of workout results successfully migrated. */
-  readonly migratedResults: number;
-  /** Number of workout results that failed to migrate (logged, non-fatal). */
-  readonly failedResults: number;
 }
 
 /** Picks the guest's active instance, if any. */
@@ -40,11 +41,40 @@ function activeGuestInstance(): ProgramInstance | null {
   return guestData.instances[guestData.activeProgramId] ?? null;
 }
 
+/** Builds the `POST /programs/import` payload from a guest instance. */
+function buildImportPayload(instance: ProgramInstance): Record<string, unknown> {
+  // The import schema accepts result/amrapReps/rpe per slot; setLogs is a
+  // client-side detail the endpoint does not take, so it is stripped here.
+  const results: Record<string, Record<string, unknown>> = {};
+  for (const [workoutIndex, workout] of Object.entries(instance.results)) {
+    const slots: Record<string, unknown> = {};
+    for (const [slotId, slot] of Object.entries(workout)) {
+      if (!slot.result) continue; // only slots with a recorded pass/fail
+      slots[slotId] = {
+        result: slot.result,
+        ...(slot.amrapReps !== undefined ? { amrapReps: slot.amrapReps } : {}),
+        ...(slot.rpe !== undefined ? { rpe: slot.rpe } : {}),
+      };
+    }
+    if (Object.keys(slots).length > 0) results[workoutIndex] = slots;
+  }
+
+  return {
+    version: 1,
+    exportDate: new Date().toISOString(),
+    programId: instance.programId,
+    name: instance.name,
+    config: instance.config,
+    results,
+    undoHistory: [],
+  };
+}
+
 /**
  * Migrates the guest's in-progress program to the authenticated account.
- * Returns a summary on success, or `null` when there was nothing to migrate or
- * the program could not be created on the server (guest data is kept in the
- * latter case).
+ * Returns a summary on success, or `null` when there was nothing to migrate,
+ * the account already has an active program, or the import failed (guest data
+ * is kept in the last two cases).
  */
 export async function migrateGuestDataToAccount(
   queryClient: QueryClient
@@ -52,54 +82,38 @@ export async function migrateGuestDataToAccount(
   const instance = activeGuestInstance();
   if (!instance) return null;
 
-  let created: ProgramSummary;
+  // Never displace an account's real program: creating/importing while one is
+  // active would auto-complete it server-side. Keep the guest data and retry
+  // on a later sign-in.
   try {
-    created = await createProgram(instance.programId, instance.name, instance.config);
+    const programs = await queryClient.fetchQuery({
+      queryKey: queryKeys.programs.all,
+      queryFn: fetchPrograms,
+    });
+    if (programs.some((p) => p.status === 'active')) {
+      console.warn('[guest-migration] Account already has an active program; skipping migration.');
+      return null;
+    }
   } catch (err: unknown) {
-    // Keep the guest data so the migration can be retried on a later sign-in.
     console.warn(
-      '[guest-migration] Failed to create program on server; keeping guest data:',
+      '[guest-migration] Could not check existing programs; keeping guest data:',
       err instanceof Error ? err.message : 'Unknown error'
     );
     return null;
   }
 
-  // Replay every recorded result onto the new server instance. Ascending workout
-  // order is the natural progression order; individual failures are tolerated.
-  let migratedResults = 0;
-  let failedResults = 0;
-  const workoutIndexes = Object.keys(instance.results)
-    .map((k) => Number(k))
-    .filter((n) => Number.isInteger(n))
-    .sort((a, b) => a - b);
-
-  for (const index of workoutIndexes) {
-    const workout = instance.results[String(index)];
-    if (!workout) continue;
-    for (const [slotId, slot] of Object.entries(workout)) {
-      if (!slot.result) continue; // only slots with a recorded pass/fail
-      try {
-        await recordGenericResult(
-          created.id,
-          index,
-          slotId,
-          slot.result,
-          slot.amrapReps,
-          slot.rpe,
-          slot.setLogs
-        );
-        migratedResults += 1;
-      } catch (err: unknown) {
-        failedResults += 1;
-        console.warn(
-          `[guest-migration] Failed to migrate result (workout ${String(index)}, slot ${slotId}):`,
-          err instanceof Error ? err.message : 'Unknown error'
-        );
-      }
-    }
+  try {
+    await importProgram(buildImportPayload(instance));
+  } catch (err: unknown) {
+    // Keep the guest data so the migration can be retried on a later sign-in.
+    console.warn(
+      '[guest-migration] Import failed; keeping guest data:',
+      err instanceof Error ? err.message : 'Unknown error'
+    );
+    return null;
   }
 
-  // The program now lives on the server — drop the local copy and refresh the
+  // The program now lives on the server - drop the local copy and refresh the
   // program list so the dashboard reflects the migrated program immediately.
   clearGuestData();
   await queryClient.invalidateQueries({ queryKey: queryKeys.programs.all, exact: true });
@@ -107,7 +121,5 @@ export async function migrateGuestDataToAccount(
   return {
     programId: instance.programId,
     programName: instance.name,
-    migratedResults,
-    failedResults,
   };
 }

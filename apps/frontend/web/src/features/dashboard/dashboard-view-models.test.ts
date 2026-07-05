@@ -105,7 +105,7 @@ describe('buildHeroExtras', () => {
 
   it('reports the most recent successful set with gain since start', () => {
     const hero = buildHeroExtras(rows, DEFINITION.totalWorkouts);
-    // Most recent success is bench @ 60kg, its program-start weight — zero gain.
+    // Most recent success is bench @ 60kg, its program-start weight - zero gain.
     expect(hero.lastSet).toEqual({ weight: 60, reps: 5, deltaFromStart: 0 });
   });
 });

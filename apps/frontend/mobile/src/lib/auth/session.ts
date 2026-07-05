@@ -42,6 +42,7 @@ interface SignOutDependencies {
 }
 
 interface EmailSignInDependencies {
+  readonly storage?: RefreshTokenStorage;
   readonly sessionKindStorage?: SessionKindStorage;
   readonly login?: (email: string, password: string) => Promise<Response>;
 }
@@ -303,7 +304,7 @@ async function revokeMobileSession(refreshToken: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Email / password — reuses the cookie-based web auth routes. There is no
+// Email / password - reuses the cookie-based web auth routes. There is no
 // mobile-specific email endpoint yet. `/auth/login` returns the access token in
 // the body and the refresh token in an httpOnly cookie (captured by the native
 // cookie jar); `/auth/refresh` reads that cookie back, so mobile never handles
@@ -467,6 +468,7 @@ export async function signInWithEmailPassword(
   dependencies: EmailSignInDependencies = {}
 ): Promise<EmailSignInResult> {
   const login = dependencies.login ?? postEmailLogin;
+  const storage = dependencies.storage ?? secureRefreshTokenStorage;
   const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
 
   const response = await login(email, password);
@@ -477,6 +479,10 @@ export async function signInWithEmailPassword(
 
   const session = readSessionResponse(await response.json());
   accessToken = session.accessToken;
+  // Credentials are mutually exclusive: drop any leftover Google refresh token
+  // so a later 401 retry or app relaunch cannot silently resurrect the
+  // previous account's session over this one.
+  await storage.clearRefreshToken();
   // Mark this as a cookie-backed session so restore knows to use the cookie
   // route and sign-out knows to revoke the cookie.
   await kindStorage.setSessionKind('email');

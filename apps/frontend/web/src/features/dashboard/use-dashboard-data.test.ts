@@ -1,5 +1,5 @@
 /**
- * use-dashboard-data.test.ts — verifies the hook fetches the active program's
+ * use-dashboard-data.test.ts - verifies the hook fetches the active program's
  * detail + definition (mocked queries) and derives the dashboard view models.
  */
 import { vi, describe, it, expect } from 'vitest';
@@ -9,7 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type { ProgramSummary } from '@/lib/api-functions';
 
-// Fixtures the vi.mock factory reads must be created via vi.hoisted — vi.mock is
+// Fixtures the vi.mock factory reads must be created via vi.hoisted - vi.mock is
 // hoisted above the imports, so plain module-scope consts would be in their TDZ
 // when the factory runs (see use-program.test.ts for the same pattern).
 const h = vi.hoisted(() => {

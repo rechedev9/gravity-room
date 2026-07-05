@@ -1,6 +1,7 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
 import { useGuest } from '@/contexts/guest-context';
+import { useAuth } from '@/contexts/auth-context';
 import { EASE_OUT_EXPO, fadeUpVariants } from '@/lib/motion-primitives';
 import { trackEvent } from '@/lib/analytics';
 import type { HeroContent, ProductPreviewContent } from './content';
@@ -17,11 +18,17 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
   const { scrollY } = useScroll();
   const previewY = useTransform(scrollY, [0, 600], [0, -40]);
   const { enterGuestMode } = useGuest();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const handleGuestStart = (): void => {
-    // Both funnels: it's a landing CTA click and a guest-mode start.
     trackEvent('landing_cta_click', { location: 'hero_guest' });
+    // An authenticated user must never be dropped into guest mode on top of a
+    // live session - just take them to their app.
+    if (user !== null) {
+      void navigate({ to: '/app' });
+      return;
+    }
     trackEvent('guest_start');
     enterGuestMode();
     void navigate({ to: '/app/programs' });
@@ -137,7 +144,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
             </a>
           </motion.div>
 
-          {/* Guest CTA — enter guest mode directly, no account needed */}
+          {/* Guest CTA - enter guest mode directly, no account needed */}
           <motion.button
             variants={fadeUpVariants}
             type="button"

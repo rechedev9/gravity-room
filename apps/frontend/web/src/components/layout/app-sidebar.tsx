@@ -117,7 +117,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
 
   const handleGuestExit = useCallback(
     (onItemClick: () => void): void => {
-      // Keep the guest data — it is migrated to the account after sign-in.
+      // Keep the guest data - it is migrated to the account after sign-in.
       exitGuestModeKeepingData();
       onItemClick();
       void navigate({ to: '/login' });

@@ -31,7 +31,7 @@ const GUEST_MODE_STORAGE_KEY = 'gravity-room:guest-mode';
  * Reads the persisted guest-mode flag directly from localStorage. Router
  * guards use this instead of (only) the React context value: enterGuestMode /
  * exitGuestModeKeepingData write the flag synchronously, while the context
- * value reaches the router one render later — reading the flag here keeps a
+ * value reaches the router one render later - reading the flag here keeps a
  * same-tick navigate() from being bounced by a stale guard.
  */
 export function readStoredIsGuest(): boolean {
@@ -84,7 +84,7 @@ export function GuestProvider({
   }, [clearGuestModeFlag]);
 
   const exitGuestModeKeepingData = useCallback((): void => {
-    // Deliberately does NOT clear guest data — the "Create Account" flow relies
+    // Deliberately does NOT clear guest data - the "Create Account" flow relies
     // on it surviving to be migrated after sign-in (see lib/guest-migration.ts).
     clearGuestModeFlag();
   }, [clearGuestModeFlag]);

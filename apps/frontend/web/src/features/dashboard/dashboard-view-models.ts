@@ -178,7 +178,7 @@ export function buildRecentSessions(
  * Build the "road to PR" history: one entry per primary lift that has at least
  * one successful set, pairing its standing best (`weight`) with the weight of
  * its next scheduled attempt (`prTarget`). computePrRoad then surfaces the lift
- * whose next attempt is the smallest step above its current best — i.e. the one
+ * whose next attempt is the smallest step above its current best - i.e. the one
  * closest to setting a new personal record. Lifts with no pending attempt above
  * their best (steady peak, or a post-fail deload below it) fall out via the
  * `isPr` flag / non-positive delta and show the empty state instead.

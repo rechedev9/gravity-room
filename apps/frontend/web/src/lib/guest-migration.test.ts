@@ -1,19 +1,19 @@
 /**
- * guest-migration.test.ts — unit tests for migrateGuestDataToAccount.
+ * guest-migration.test.ts - unit tests for migrateGuestDataToAccount.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-const { mockCreateProgram, mockRecordGenericResult } = vi.hoisted(() => ({
-  mockCreateProgram: vi.fn(),
-  mockRecordGenericResult: vi.fn(),
+const { mockImportProgram, mockFetchPrograms } = vi.hoisted(() => ({
+  mockImportProgram: vi.fn(),
+  mockFetchPrograms: vi.fn(),
 }));
 
 vi.mock('@/lib/api-functions', async () => {
   const { apiFunctionsStubs } = await import('../../test/helpers/api-functions-mock');
   return {
     ...apiFunctionsStubs,
-    createProgram: mockCreateProgram,
-    recordGenericResult: mockRecordGenericResult,
+    importProgram: mockImportProgram,
+    fetchPrograms: mockFetchPrograms,
   };
 });
 
@@ -38,8 +38,9 @@ function guestMapWithProgram(): ProgramInstanceMap {
         config: { squat: 60, bench: 40 },
         results: {
           '0': {
-            'squat-t1': { result: 'success', amrapReps: 5 },
+            'squat-t1': { result: 'success', amrapReps: 5, setLogs: [{ reps: 5 }] },
             'bench-t1': { result: 'fail' },
+            'lat-t3': {}, // no recorded pass/fail — must be excluded from the payload
           },
           '1': {
             'dead-t1': { result: 'success', rpe: 8 },
@@ -58,11 +59,16 @@ function seedGuest(map: ProgramInstanceMap): void {
   localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(map));
 }
 
+function freshQueryClient(): QueryClient {
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } });
+}
+
 beforeEach(() => {
   localStorage.clear();
-  mockCreateProgram.mockReset();
-  mockRecordGenericResult.mockReset();
-  mockCreateProgram.mockResolvedValue({
+  mockImportProgram.mockReset();
+  mockFetchPrograms.mockReset();
+  mockFetchPrograms.mockResolvedValue([]);
+  mockImportProgram.mockResolvedValue({
     id: 'server-instance-1',
     programId: 'gzclp',
     name: 'GZCLP',
@@ -71,7 +77,6 @@ beforeEach(() => {
     createdAt: '',
     updatedAt: '',
   });
-  mockRecordGenericResult.mockResolvedValue(undefined);
 });
 
 // ---------------------------------------------------------------------------
@@ -80,106 +85,104 @@ beforeEach(() => {
 
 describe('migrateGuestDataToAccount', () => {
   it('returns null and does nothing when there is no guest data', async () => {
-    const result = await migrateGuestDataToAccount(new QueryClient());
+    const result = await migrateGuestDataToAccount(freshQueryClient());
 
     expect(result).toBeNull();
-    expect(mockCreateProgram).not.toHaveBeenCalled();
+    expect(mockImportProgram).not.toHaveBeenCalled();
   });
 
   it('returns null when there is no active guest instance', async () => {
     seedGuest({ version: 1, activeProgramId: null, instances: {} });
 
-    const result = await migrateGuestDataToAccount(new QueryClient());
+    const result = await migrateGuestDataToAccount(freshQueryClient());
 
     expect(result).toBeNull();
-    expect(mockCreateProgram).not.toHaveBeenCalled();
+    expect(mockImportProgram).not.toHaveBeenCalled();
   });
 
-  it('creates the program with the guest name and config', async () => {
+  it('imports the guest program atomically with only recorded results', async () => {
     seedGuest(guestMapWithProgram());
 
-    await migrateGuestDataToAccount(new QueryClient());
+    const result = await migrateGuestDataToAccount(freshQueryClient());
 
-    expect(mockCreateProgram).toHaveBeenCalledTimes(1);
-    expect(mockCreateProgram).toHaveBeenCalledWith('gzclp', 'GZCLP', { squat: 60, bench: 40 });
-  });
-
-  it('replays every recorded result against the new server instance', async () => {
-    seedGuest(guestMapWithProgram());
-
-    const result = await migrateGuestDataToAccount(new QueryClient());
-
-    expect(mockRecordGenericResult).toHaveBeenCalledTimes(3);
-    expect(mockRecordGenericResult).toHaveBeenCalledWith(
-      'server-instance-1',
-      0,
-      'squat-t1',
-      'success',
-      5,
-      undefined,
-      undefined
-    );
-    expect(mockRecordGenericResult).toHaveBeenCalledWith(
-      'server-instance-1',
-      0,
-      'bench-t1',
-      'fail',
-      undefined,
-      undefined,
-      undefined
-    );
-    expect(mockRecordGenericResult).toHaveBeenCalledWith(
-      'server-instance-1',
-      1,
-      'dead-t1',
-      'success',
-      undefined,
-      8,
-      undefined
-    );
-    expect(result).toEqual({
+    expect(mockImportProgram).toHaveBeenCalledTimes(1);
+    const payload = mockImportProgram.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload).toMatchObject({
+      version: 1,
       programId: 'gzclp',
-      programName: 'GZCLP',
-      migratedResults: 3,
-      failedResults: 0,
+      name: 'GZCLP',
+      config: { squat: 60, bench: 40 },
+      results: {
+        '0': {
+          // setLogs is client-side only and must be stripped from the payload.
+          'squat-t1': { result: 'success', amrapReps: 5 },
+          'bench-t1': { result: 'fail' },
+        },
+        '1': {
+          'dead-t1': { result: 'success', rpe: 8 },
+        },
+      },
+      undoHistory: [],
     });
+    const workout0 = (payload.results as Record<string, Record<string, unknown>>)['0'];
+    expect(workout0 && 'lat-t3' in workout0).toBe(false);
+    expect(workout0 && 'setLogs' in (workout0['squat-t1'] as Record<string, unknown>)).toBe(false);
+    expect(typeof payload.exportDate).toBe('string');
+    expect(result).toEqual({ programId: 'gzclp', programName: 'GZCLP' });
   });
 
   it('clears guest storage after a successful migration', async () => {
     seedGuest(guestMapWithProgram());
 
-    await migrateGuestDataToAccount(new QueryClient());
+    await migrateGuestDataToAccount(freshQueryClient());
 
     expect(localStorage.getItem(GUEST_STORAGE_KEY)).toBeNull();
   });
 
-  it('keeps guest data and returns null when program creation fails', async () => {
+  it('skips migration and keeps guest data when the account already has an active program', async () => {
     seedGuest(guestMapWithProgram());
-    mockCreateProgram.mockRejectedValueOnce(new Error('network'));
+    mockFetchPrograms.mockResolvedValue([
+      { id: 'p1', programId: 'gzclp', name: 'Mine', config: {}, status: 'active' },
+    ]);
 
-    const result = await migrateGuestDataToAccount(new QueryClient());
+    const result = await migrateGuestDataToAccount(freshQueryClient());
 
     expect(result).toBeNull();
-    expect(mockRecordGenericResult).not.toHaveBeenCalled();
-    // Guest data survives so migration can be retried on a later sign-in.
+    expect(mockImportProgram).not.toHaveBeenCalled();
     expect(localStorage.getItem(GUEST_STORAGE_KEY)).not.toBeNull();
   });
 
-  it('tolerates individual result failures and still clears guest data', async () => {
+  it('migrates when the account only has non-active programs', async () => {
     seedGuest(guestMapWithProgram());
-    mockRecordGenericResult
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error('one failed'))
-      .mockResolvedValueOnce(undefined);
+    mockFetchPrograms.mockResolvedValue([
+      { id: 'p1', programId: 'gzclp', name: 'Old', config: {}, status: 'completed' },
+    ]);
 
-    const result = await migrateGuestDataToAccount(new QueryClient());
+    const result = await migrateGuestDataToAccount(freshQueryClient());
 
-    expect(result).toEqual({
-      programId: 'gzclp',
-      programName: 'GZCLP',
-      migratedResults: 2,
-      failedResults: 1,
-    });
-    expect(localStorage.getItem(GUEST_STORAGE_KEY)).toBeNull();
+    expect(result).not.toBeNull();
+    expect(mockImportProgram).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps guest data and returns null when the program list cannot be fetched', async () => {
+    seedGuest(guestMapWithProgram());
+    mockFetchPrograms.mockRejectedValue(new Error('network'));
+
+    const result = await migrateGuestDataToAccount(freshQueryClient());
+
+    expect(result).toBeNull();
+    expect(mockImportProgram).not.toHaveBeenCalled();
+    expect(localStorage.getItem(GUEST_STORAGE_KEY)).not.toBeNull();
+  });
+
+  it('keeps guest data and returns null when the import fails', async () => {
+    seedGuest(guestMapWithProgram());
+    mockImportProgram.mockRejectedValueOnce(new Error('network'));
+
+    const result = await migrateGuestDataToAccount(freshQueryClient());
+
+    expect(result).toBeNull();
+    // Guest data survives so migration can be retried on a later sign-in.
+    expect(localStorage.getItem(GUEST_STORAGE_KEY)).not.toBeNull();
   });
 });

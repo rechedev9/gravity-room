@@ -149,7 +149,7 @@ export function useGuestProgram(programId: string): UseProgramReturn {
     setCreatedAt(new Date().toISOString());
     setIsGenerating(false);
     // Mirror the authenticated path (use-program-mutations generateProgramMutation),
-    // which fires program_start on success — guests were previously untracked.
+    // which fires program_start on success - guests were previously untracked.
     trackEvent('program_start', { program: programId });
   };
 

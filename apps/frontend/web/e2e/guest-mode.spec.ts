@@ -334,7 +334,7 @@ test.describe('Guest persistence across reload (REQ-GCTX-004)', () => {
     // Sidebar shows "Crear Cuenta"
     await expect(nav.getByRole('button', { name: /crear cuenta/i })).toBeVisible();
 
-    // Reload the page — guest mode is persisted in localStorage, so it must
+    // Reload the page - guest mode is persisted in localStorage, so it must
     // survive a reload (otherwise the router guard would bounce the guest to
     // /login and drop any in-progress workout).
     await page.reload();

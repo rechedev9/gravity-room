@@ -2,7 +2,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { getLocales } from 'expo-localization';
 
-// Both locales ship statically — the JSON catalogs are small, and inlining them
+// Both locales ship statically - the JSON catalogs are small, and inlining them
 // keeps init synchronous (no async backend), so `useTranslation` is ready on the
 // very first render and in tests without a Suspense boundary.
 import en from './locales/en/translation.json';

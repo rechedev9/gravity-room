@@ -6,7 +6,7 @@ import { localizedProgramName } from '@/lib/catalog-display';
 interface HomeGuestResumeProps {
   /** Catalog program id, used both for the localized name and the tracker link. */
   readonly programId: string;
-  /** Stored (un-localized) program name — fallback when no catalog translation exists. */
+  /** Stored (un-localized) program name - fallback when no catalog translation exists. */
   readonly programName: string;
 }
 
