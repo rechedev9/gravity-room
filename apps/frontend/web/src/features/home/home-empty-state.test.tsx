@@ -27,6 +27,7 @@ describe('HomeEmptyState i18n', () => {
 
   it('guest variant renders Spanish copy', () => {
     render(createElement(HomeEmptyState, { variant: 'guest' }));
+    expect(screen.getByText('INVITADO')).toBeInTheDocument();
     expect(screen.getByText('Modo invitado')).toBeInTheDocument();
     expect(screen.getByText('Crear Cuenta')).toBeInTheDocument();
   });
@@ -34,12 +35,14 @@ describe('HomeEmptyState i18n', () => {
   it('guest variant renders English copy', async () => {
     await i18n.changeLanguage('en');
     render(createElement(HomeEmptyState, { variant: 'guest' }));
+    expect(screen.getByText('GUEST')).toBeInTheDocument();
     expect(screen.getByText('Guest mode')).toBeInTheDocument();
     expect(screen.getByText('Create Account')).toBeInTheDocument();
   });
 
   it('no-program variant renders Spanish copy', () => {
     render(createElement(HomeEmptyState, { variant: 'no-program' }));
+    expect(screen.getByText('SIN PROGRAMA')).toBeInTheDocument();
     expect(screen.getByText('Sin programa activo')).toBeInTheDocument();
     expect(screen.getByText('Ver Programas')).toBeInTheDocument();
   });
@@ -47,6 +50,7 @@ describe('HomeEmptyState i18n', () => {
   it('no-program variant renders English copy', async () => {
     await i18n.changeLanguage('en');
     render(createElement(HomeEmptyState, { variant: 'no-program' }));
+    expect(screen.getByText('NO PROGRAM')).toBeInTheDocument();
     expect(screen.getByText('No active program')).toBeInTheDocument();
     expect(screen.getByText('View Programs')).toBeInTheDocument();
   });

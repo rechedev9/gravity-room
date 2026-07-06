@@ -438,7 +438,7 @@ curl -s https://gravityroom.app/api/health                 # liveness (db + redi
 
 <!-- AUTO:API-START -->
 
-_51 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
+_52 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
 
 ### Auth
 
@@ -448,6 +448,7 @@ _51 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
 - `POST /api/auth/signup` — Sign up with email and password
 - `POST /api/auth/login` — Log in with email and password
 - `POST /api/auth/verify-email` — Verify email address
+- `POST /api/auth/resend-verification` — Resend the email verification link
 - `POST /api/auth/forgot-password` — Request a password reset
 - `POST /api/auth/reset-password` — Reset password
 - `GET /api/auth/apple/start` — Start Sign in with Apple

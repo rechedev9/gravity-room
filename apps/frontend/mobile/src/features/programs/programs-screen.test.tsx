@@ -149,7 +149,7 @@ describe('ProgramsScreen', () => {
     // Assert — no program title shown while loading
     // ActivityIndicator has no accessible text; verify the programs list is absent
     expect(screen.queryByText(PROGRAM_A.title)).toBeNull();
-    expect(screen.queryByText('No cached programs yet.')).toBeNull();
+    expect(screen.queryByText('No active program')).toBeNull();
     expect(screen.queryByText('Unable to load cached programs.')).toBeNull();
     // The loading container is present (stateBlock wraps the ActivityIndicator)
     expect(screen.queryByText('Retry')).toBeNull();
@@ -191,7 +191,7 @@ describe('ProgramsScreen', () => {
     render(<ProgramsScreen />);
 
     // Assert
-    expect(await screen.findByText('No cached programs yet.')).toBeTruthy();
+    expect(await screen.findByText('No active program')).toBeTruthy();
   });
 
   it('renders error message when cache read throws and remote also fails', async () => {

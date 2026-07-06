@@ -90,7 +90,7 @@ function SidebarNavLink({ item, onItemClick }: SidebarNavLinkProps): React.React
 export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNode {
   const { t } = useTranslation();
   const { user, signOut } = useAuth();
-  const { isGuest, exitGuestMode } = useGuest();
+  const { isGuest, exitGuestModeKeepingData } = useGuest();
   const navigate = useNavigate();
   const reduced = useReducedMotion();
   const drawerDuration = reduced ? 0 : 0.22;
@@ -117,11 +117,12 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
 
   const handleGuestExit = useCallback(
     (onItemClick: () => void): void => {
-      exitGuestMode();
+      // Keep the guest data - it is migrated to the account after sign-in.
+      exitGuestModeKeepingData();
       onItemClick();
       void navigate({ to: '/login' });
     },
-    [exitGuestMode, navigate]
+    [exitGuestModeKeepingData, navigate]
   );
 
   function renderNavItems(onItemClick: () => void): React.ReactNode {

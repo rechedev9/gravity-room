@@ -15,6 +15,7 @@ import { ProfileSkeleton } from '@/features/profile/profile-skeleton';
 import { RootLayout } from '@/components/root-layout';
 import { RouteErrorFallback } from '@/components/route-error-fallback';
 import { useAuth } from '@/contexts/auth-context';
+import { readStoredIsGuest } from '@/contexts/guest-context';
 import type { UserInfo } from '@/contexts/auth-context';
 
 // ---------------------------------------------------------------------------
@@ -150,7 +151,10 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
   beforeLoad: ({ context }) => {
-    if (!context.auth.loading && (context.auth.user !== null || context.auth.isGuest)) {
+    // Guest mode is read from the synchronously-written localStorage flag, not
+    // the React context value: "Create Account" clears the flag and navigates
+    // here in the same tick, before the context has re-rendered.
+    if (!context.auth.loading && (context.auth.user !== null || readStoredIsGuest())) {
       throw redirect({ to: '/app', replace: true });
     }
   },
@@ -245,7 +249,14 @@ const appLayoutRoute = createRoute({
   id: 'app-layout',
   component: AppLayoutWithTracker,
   beforeLoad: ({ context }) => {
-    if (!context.auth.loading && context.auth.user === null && !context.auth.isGuest) {
+    // readStoredIsGuest() covers the same-tick race: the landing guest CTA
+    // writes the flag and navigates here before the router context updates.
+    if (
+      !context.auth.loading &&
+      context.auth.user === null &&
+      !context.auth.isGuest &&
+      !readStoredIsGuest()
+    ) {
       throw redirect({ to: '/login', replace: true });
     }
   },

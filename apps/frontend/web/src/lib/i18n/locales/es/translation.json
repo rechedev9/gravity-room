@@ -1163,7 +1163,10 @@
       "submit_signup": "Crear cuenta",
       "to_signup": "¿No tienes cuenta? Crear una",
       "to_signin": "¿Ya tienes cuenta? Entrar",
-      "forgot": "¿Olvidaste tu contraseña?"
+      "forgot": "¿Olvidaste tu contraseña?",
+      "resend": "Reenviar correo de verificación",
+      "resend_sent": "Si tu cuenta aún necesita verificación, te enviamos un nuevo enlace. Revisa tu bandeja de entrada.",
+      "resend_error": "No se pudo reenviar el correo. Inténtalo de nuevo en un momento."
     },
     "signup_success": "Cuenta creada. Revisa tu correo para verificar tu dirección antes de entrar.",
     "errors": {
@@ -1221,6 +1224,9 @@
     "prompt": "Crea una cuenta para guardar tu progreso",
     "create_account": "Crear Cuenta",
     "create_account_aria": "Crear cuenta para guardar tu progreso"
+  },
+  "guest_migration": {
+    "success": "Tu programa {{program}} se ha guardado en tu cuenta."
   },
   "legal": {
     "back": "← Volver",
@@ -1384,12 +1390,19 @@
       "consistency_sub_total": "{{count}} total"
     },
     "empty": {
+      "guest_stamp": "INVITADO",
       "guest_title": "Modo invitado",
       "guest_body": "Crea tu cuenta gratis para guardar tu progreso y seguir tu programa.",
       "guest_cta": "Crear Cuenta",
+      "no_program_stamp": "SIN PROGRAMA",
       "no_program_title": "Sin programa activo",
       "no_program_body": "Elige un programa para empezar a registrar tu entrenamiento.",
       "no_program_cta": "Ver Programas"
+    },
+    "guest_resume": {
+      "stamp": "EN PROGRESO",
+      "body": "Retoma tu entrenamiento donde lo dejaste.",
+      "cta": "Continuar entrenamiento"
     },
     "footer": {
       "quick_links": "Accesos rápidos",
@@ -1401,47 +1414,14 @@
       "title": "Tu primera sesión te espera",
       "body": "Abre el tracker y registra tu primer entrenamiento. Tu racha y tus sesiones empezarán a contar desde ahí."
     },
-    "mentor": {
-      "widget_title": "Sensei de la Sala",
-      "prompt": "Bienvenido, ¿quieres un pequeño tutorial?",
-      "cta_start": "Empezar mini tutorial",
-      "cta_dismiss": "Ahora no",
-      "intro_title": "Tour rápido — 4 pasos",
-      "intro_body": "Te guiaremos por las secciones principales de Gravity Room.",
-      "start": "Empezar",
-      "cancel": "Cancelar",
-      "next": "Siguiente",
-      "finish": "Finalizar",
-      "exit": "Salir del tutorial",
-      "repeat": "Repetir tutorial",
-      "completed_hint": "Tutorial completado.",
-      "all_done": "🎉 ¡Todo listo! Disfruta Gravity Room.",
-      "steps": {
-        "step_home": {
-          "title": "Inicio",
-          "body": "Tu programa activo vive aquí. De un vistazo ves racha, sesiones semanales y consistencia."
-        },
-        "step_programs": {
-          "title": "Programas",
-          "body": "Abre Programas para elegir rutina, personalizar un programa o gestionar los que ya tienes."
-        },
-        "step_tracker": {
-          "title": "Tracker",
-          "body": "En el tracker puedes registrar éxito, fallo, AMRAP y RPE en cada serie de tu entrenamiento."
-        },
-        "step_profile": {
-          "title": "Perfil",
-          "body": "Revisa estadísticas, logros y tu historial de programas en la sección Perfil."
-        }
-      }
-    },
     "mentor_tips": [
       "Si fallas, bajas de etapa pero no paras. Vuelves a la barra.",
       "La progresión no es lineal. La constancia sí.",
       "El peso no se levanta solo.",
       "Cada entrenamiento es una deuda que el cuerpo agradece.",
       "Más vale peso controlado que ego en el suelo."
-    ]
+    ],
+    "load_error": "No se pudo cargar tu panel de entrenamiento."
   },
   "mentor_tour": {
     "prompt": {

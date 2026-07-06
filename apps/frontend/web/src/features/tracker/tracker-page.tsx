@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { localizedProgramName } from '@/lib/catalog-display';
+import { readActiveGuestInstance } from '@/lib/guest-storage';
 import { ProgramApp } from '@/features/tracker/program-app';
 
 export function TrackerPage(): React.ReactNode {
@@ -28,9 +29,20 @@ export function TrackerPage(): React.ReactNode {
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fallback chain: URL param → context → active program from API
+  // Guests have no server programs query (it's disabled above); their sole
+  // persistence is localStorage. A reload wipes the in-memory TrackerContext,
+  // so without this fallback /app/tracker would redirect a guest with an
+  // in-progress program back to /app. Read the persisted guest instance's
+  // catalog programId as the last resort in the fallback chain.
+  const guestProgramId = useMemo(
+    (): string | undefined => (isGuest ? readActiveGuestInstance()?.programId : undefined),
+    [isGuest]
+  );
+
+  // Fallback chain: URL param → context → guest storage → active program from API
   const activeProgram = programsQuery.data?.find((p) => p.status === 'active');
-  const effectiveProgramId = programIdParam ?? ctxProgramId ?? activeProgram?.programId;
+  const effectiveProgramId =
+    programIdParam ?? ctxProgramId ?? guestProgramId ?? activeProgram?.programId;
 
   const storedName =
     programsQuery.data?.find((p) => p.id === instanceId)?.name ?? activeProgram?.name ?? null;

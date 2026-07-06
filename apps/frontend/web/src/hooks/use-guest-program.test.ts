@@ -78,8 +78,9 @@ const TEST_CONFIG: Record<string, number> = { squat: 60, bench: 40 };
 
 // vi.mock is hoisted above imports, so the fn the factory/tests reference is
 // created via vi.hoisted and the shared stubs come from a dynamic import.
-const { mockFetchCatalogDetail } = vi.hoisted(() => ({
+const { mockFetchCatalogDetail, mockTrackEvent } = vi.hoisted(() => ({
   mockFetchCatalogDetail: vi.fn<(id: string) => Promise<ProgramDefinition>>(),
+  mockTrackEvent: vi.fn(),
 }));
 
 vi.mock('@/lib/api-functions', async () => {
@@ -89,6 +90,10 @@ vi.mock('@/lib/api-functions', async () => {
     fetchCatalogDetail: mockFetchCatalogDetail,
   };
 });
+
+vi.mock('@/lib/analytics', () => ({
+  trackEvent: mockTrackEvent,
+}));
 
 // Import after mocks
 import { useGuestProgram } from '@/hooks/use-guest-program';
@@ -116,6 +121,7 @@ describe('useGuestProgram', () => {
   beforeEach(() => {
     mockFetchCatalogDetail.mockReset();
     mockFetchCatalogDetail.mockImplementation(() => Promise.resolve(MINIMAL_DEFINITION));
+    mockTrackEvent.mockReset();
   });
 
   describe('initial state and loading', () => {
@@ -203,6 +209,21 @@ describe('useGuestProgram', () => {
       });
 
       expect(result.current.config).toEqual(TEST_CONFIG);
+    });
+
+    it('fires the program_start analytics event with the program id', async () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useGuestProgram('test-prog'), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.generateProgram(TEST_CONFIG);
+      });
+
+      expect(mockTrackEvent).toHaveBeenCalledWith('program_start', { program: 'test-prog' });
     });
 
     it('should populate rows after generateProgram is called', async () => {

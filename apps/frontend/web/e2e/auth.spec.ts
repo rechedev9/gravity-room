@@ -9,8 +9,11 @@ test.describe('Auth flow', () => {
 
     await expect(page.getByRole('heading', { name: 'Gravity Room' })).toBeVisible();
     await expect(page.getByText('Autenticar')).toBeVisible();
+    // The accessible role=button comes from the GIS iframe, which only renders
+    // with a real Google client ID (see CLAUDE.md: not locally testable). The
+    // visible button skin is what the app controls, so assert that instead.
     await expect(
-      page.getByRole('button', { name: /iniciar sesión con google|sign in with google/i })
+      page.getByText(/continuar con google|continue with google/i).first()
     ).toBeVisible();
   });
 

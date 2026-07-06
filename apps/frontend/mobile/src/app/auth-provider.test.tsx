@@ -9,6 +9,8 @@ import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation
 jest.mock('../lib/auth/session', () => ({
   restoreSession: jest.fn(),
   signInWithGoogleIdToken: jest.fn(),
+  signInWithEmailPassword: jest.fn(),
+  signUpWithEmailPassword: jest.fn(),
   signOutSession: jest.fn(async () => undefined),
 }));
 

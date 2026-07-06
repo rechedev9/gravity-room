@@ -11,7 +11,9 @@ import { useGuest } from '@/contexts/guest-context';
 import { isFrequencyPayload } from '@/lib/insight-payloads';
 import type { FrequencyPayload } from '@/lib/insight-payloads';
 import { GuestBanner } from '@/components/guest-banner';
+import { readActiveGuestInstance } from '@/lib/guest-storage';
 import { Kicker } from '@/components/kicker';
+import { Button } from '@/components/button';
 import { DashboardShell } from '@/features/dashboard/dashboard-shell';
 import { NextSetHero } from '@/features/dashboard/next-set-hero';
 import type { ProgramInstance } from '@/features/dashboard/next-set-hero';
@@ -19,14 +21,15 @@ import { KpiStripBrutalist } from '@/features/dashboard/kpi-strip-brutalist';
 import { WeekHeatmap } from '@/features/dashboard/week-heatmap';
 import { PrRoadCard } from '@/features/dashboard/pr-road-card';
 import { usePrRoad } from '@/features/dashboard/use-pr-road';
-import type { LiftHistoryRow } from '@/features/dashboard/use-pr-road';
 import { MentorPill } from '@/features/dashboard/mentor-pill';
 import { RecentSessionsList } from '@/features/dashboard/recent-sessions-list';
+import { useDashboardData } from '@/features/dashboard/use-dashboard-data';
 import { HomeEmptyState } from './home-empty-state';
+import { HomeGuestResume } from './home-guest-resume';
+import { HomeMentorWidget } from './home-mentor-widget';
+import { ZoneHint } from './zone-hint';
 
 const HOME_INSIGHT_TYPES = ['frequency', 'volume_trend'] as const;
-
-const EMPTY_LIFT_HISTORY: readonly LiftHistoryRow[] = [];
 
 function getMentorTips(t: TFunction): readonly string[] {
   const tips = t('home.mentor_tips', { returnObjects: true });
@@ -77,6 +80,10 @@ export function HomePage(): React.ReactNode {
   const activeProgram = programsQuery.data?.find((p) => p.status === 'active') ?? null;
   const mentorTips = getMentorTips(t);
 
+  // Real training data for the active program (hero next-set, recent sessions,
+  // PR road). Queries are disabled when there is no active program.
+  const dashboard = useDashboardData(activeProgram);
+
   const freqPayload = useMemo((): FrequencyPayload | null => {
     const item = insightsQuery.data?.find((i) => i.insightType === 'frequency');
     if (!item || !isFrequencyPayload(item.payload)) return null;
@@ -97,24 +104,58 @@ export function HomePage(): React.ReactNode {
   // prompt instead of a strip of literal zeros (the hero already owns the gold CTA).
   const isPristine = totalSessions === 0 && streakDays === 0;
 
-  // PR road: no server-side lift history available yet — renders empty state
-  const prRoad = usePrRoad(EMPTY_LIFT_HISTORY);
+  // PR road: derived from the active program's logged sets (empty until there's
+  // a lift climbing toward a new PR).
+  const prRoad = usePrRoad(dashboard.liftHistory);
+
+  // Guests persist a single in-progress program in localStorage (see
+  // lib/guest-storage.ts). If one exists, offer a direct "continue" hero back
+  // into the tracker instead of the generic guest empty state. Memoized:
+  // localStorage + JSON.parse must not run on every render.
+  const guestInstance = useMemo(() => (isGuest ? readActiveGuestInstance() : null), [isGuest]);
 
   if (isGuest) {
     return (
       <div className="min-h-dvh bg-body">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <GuestBanner className="mb-6" />
-          <HomeEmptyState variant="guest" />
+          {guestInstance ? (
+            <HomeGuestResume programId={guestInstance.programId} programName={guestInstance.name} />
+          ) : (
+            <HomeEmptyState variant="guest" />
+          )}
         </div>
       </div>
     );
   }
 
-  if (programsQuery.isLoading || insightsQuery.isLoading) {
+  if (programsQuery.isLoading || insightsQuery.isLoading || dashboard.isLoading) {
     return (
       <div className="min-h-dvh bg-body">
         <DashboardSkeleton />
+      </div>
+    );
+  }
+
+  // A failed fetch must never masquerade as an empty/day-one dashboard: for a
+  // user with real history that is indistinguishable from data loss. Matches
+  // the error-with-retry convention of programs-page.tsx.
+  if (programsQuery.isError || dashboard.isError) {
+    return (
+      <div className="min-h-dvh bg-body">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+          <div className="bg-card border border-rule p-6 text-center">
+            <p className="text-sm text-muted mb-3">{t('home.load_error')}</p>
+            <Button
+              onClick={() => {
+                void programsQuery.refetch();
+                dashboard.refetch();
+              }}
+            >
+              {t('programs.retry')}
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -129,19 +170,27 @@ export function HomePage(): React.ReactNode {
     );
   }
 
-  // Adapt ProgramSummary → ProgramInstance shape for NextSetHero.
-  // nextSet / nextWorkout / lastSet deferred to a follow-up: hero falls through to DayOneHero.
+  // Adapt ProgramSummary → ProgramInstance shape for NextSetHero. The hero
+  // extras (nextSet / nextWorkout / lastSet / results) come from the active
+  // program's logged sets; when none exist they are absent and the hero renders
+  // its day-one state.
   const programInstance: ProgramInstance = {
     id: activeProgram.id,
     programId: activeProgram.programId,
     name: activeProgram.name,
     status: activeProgram.status,
-    // results omitted — NextSetHero treats missing results as DayOneHero
+    ...dashboard.hero,
   };
 
   return (
     <div className="min-h-dvh bg-body">
       <DashboardShell
+        mentor={
+          <>
+            <HomeMentorWidget />
+            <ZoneHint zone="home" />
+          </>
+        }
         hero={<NextSetHero programInstance={programInstance} />}
         kpi={
           isPristine ? (
@@ -171,7 +220,7 @@ export function HomePage(): React.ReactNode {
             <MentorPill tips={mentorTips} />
           </div>
         }
-        recent={<RecentSessionsList sessions={[]} />}
+        recent={<RecentSessionsList sessions={dashboard.recentSessions} />}
       />
       {!isGuest && (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-8">

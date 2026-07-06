@@ -48,6 +48,12 @@ describe('GuestProvider', () => {
 
       expect(typeof result.current.exitGuestMode).toBe('function');
     });
+
+    it('should expose exitGuestModeKeepingData as a function', () => {
+      const { result } = renderHook(() => useGuest(), { wrapper });
+
+      expect(typeof result.current.exitGuestModeKeepingData).toBe('function');
+    });
   });
 
   // REQ-GCTX-002: Enter guest mode
@@ -118,6 +124,58 @@ describe('GuestProvider', () => {
       });
 
       expect(localStorage.getItem(GUEST_STORAGE_KEY)).toBeNull();
+    });
+  });
+
+  // REQ-GUI-008 (new semantics): "Create Account" leaves guest mode but KEEPS
+  // the guest program data so it can be migrated after sign-in.
+  describe('exitGuestModeKeepingData', () => {
+    it('should set isGuest to false', () => {
+      const { result } = renderHook(() => useGuest(), { wrapper });
+
+      act(() => {
+        result.current.enterGuestMode();
+      });
+      expect(result.current.isGuest).toBe(true);
+
+      act(() => {
+        result.current.exitGuestModeKeepingData();
+      });
+
+      expect(result.current.isGuest).toBe(false);
+    });
+
+    it('should preserve persisted guest program data', () => {
+      const stored = JSON.stringify({ version: 1 });
+      localStorage.setItem(GUEST_STORAGE_KEY, stored);
+      const { result } = renderHook(() => useGuest(), { wrapper });
+
+      act(() => {
+        result.current.enterGuestMode();
+      });
+
+      act(() => {
+        result.current.exitGuestModeKeepingData();
+      });
+
+      // Guest mode flag is gone but the program data survives for migration.
+      expect(result.current.isGuest).toBe(false);
+      expect(localStorage.getItem(GUEST_STORAGE_KEY)).toBe(stored);
+    });
+
+    it('does not restore guest mode after remount (flag cleared)', () => {
+      const { result, unmount } = renderHook(() => useGuest(), { wrapper });
+
+      act(() => {
+        result.current.enterGuestMode();
+      });
+      act(() => {
+        result.current.exitGuestModeKeepingData();
+      });
+      unmount();
+
+      const remounted = renderHook(() => useGuest(), { wrapper });
+      expect(remounted.result.current.isGuest).toBe(false);
     });
   });
 

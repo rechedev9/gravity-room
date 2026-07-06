@@ -32,11 +32,20 @@ export function LoginPage(): React.ReactNode {
 
 type EmailMode = 'signin' | 'signup';
 type FormMessage = { readonly kind: 'error' | 'success'; readonly text: string };
+/** Client-side state of the "resend verification" affordance shown after an EMAIL_NOT_VERIFIED sign-in. */
+type ResendStatus = 'idle' | 'sending' | 'sent' | 'error';
 
 function LoginPageInner(): React.ReactNode {
   const { t } = useTranslation();
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, signInWithDev, user, loading } =
-    useAuth();
+  const {
+    signInWithGoogle,
+    signInWithEmail,
+    signUpWithEmail,
+    resendVerification,
+    signInWithDev,
+    user,
+    loading,
+  } = useAuth();
   const { enterGuestMode, isGuest } = useGuest();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +58,11 @@ function LoginPageInner(): React.ReactNode {
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formMessage, setFormMessage] = useState<FormMessage | null>(null);
+  // Resend-verification affordance: set to the address whose sign-in failed
+  // with EMAIL_NOT_VERIFIED. Captured at failure time so a later edit of the
+  // email field cannot silently redirect the resend to a different address.
+  const [resendEmail, setResendEmail] = useState<string | null>(null);
+  const [resendStatus, setResendStatus] = useState<ResendStatus>('idle');
   const [authProviders, setAuthProviders] = useState<AuthProviders>(DEFAULT_AUTH_PROVIDERS);
 
   // /login is disallowed in robots.txt and behind auth — keep it out of the
@@ -107,35 +121,52 @@ function LoginPageInner(): React.ReactNode {
     window.location.href = `${API_BASE}/api/auth/${provider}/start`;
   };
 
+  const submitSignIn = async (): Promise<void> => {
+    const attemptedEmail = email.trim();
+    const result = await signInWithEmail(attemptedEmail, password);
+    if (result.ok) {
+      void navigate({ to: '/app' });
+      return;
+    }
+    // Unverified accounts can't sign in yet - surface the "check your inbox"
+    // message plus a resend affordance instead of a dead-end error.
+    if (result.code === 'EMAIL_NOT_VERIFIED') setResendEmail(attemptedEmail);
+    setFormMessage({ kind: 'error', text: codeMessage(result.code) });
+  };
+
+  const submitSignUp = async (): Promise<void> => {
+    const result = await signUpWithEmail(email.trim(), password, name.trim() || undefined);
+    if (result.ok) {
+      setFormMessage({ kind: 'success', text: t('login.signup_success') });
+    } else {
+      setFormMessage({ kind: 'error', text: codeMessage(result.code) });
+    }
+  };
+
   const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (submitting) return;
     setError(null);
     setFormMessage(null);
+    setResendEmail(null);
+    setResendStatus('idle');
     setSubmitting(true);
     try {
-      if (emailMode === 'signin') {
-        const result = await signInWithEmail(email.trim(), password);
-        if (result.ok) {
-          void navigate({ to: '/app' });
-        } else {
-          setFormMessage({ kind: 'error', text: codeMessage(result.code) });
-        }
-      } else {
-        const result = await signUpWithEmail(email.trim(), password, name.trim() || undefined);
-        if (result.ok) {
-          setFormMessage({ kind: 'success', text: t('login.signup_success') });
-        } else {
-          setFormMessage({ kind: 'error', text: codeMessage(result.code) });
-        }
-      }
+      await (emailMode === 'signin' ? submitSignIn() : submitSignUp());
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleResend = async (): Promise<void> => {
+    // Basic client-side throttle: block while a send is in flight or already sent.
+    if (resendEmail === null || resendStatus === 'sending' || resendStatus === 'sent') return;
+    setResendStatus('sending');
+    const result = await resendVerification(resendEmail);
+    setResendStatus(result.ok ? 'sent' : 'error');
+  };
+
   const handleGuestEntry = (): void => {
-    trackEvent('guest_start');
     enterGuestMode();
     void navigate({ to: '/app' });
   };
@@ -324,6 +355,8 @@ function LoginPageInner(): React.ReactNode {
                   onClick={() => {
                     setEmailMode((m) => (m === 'signin' ? 'signup' : 'signin'));
                     setFormMessage(null);
+                    setResendEmail(null);
+                    setResendStatus('idle');
                   }}
                   className="cursor-pointer text-muted transition-colors hover:text-main"
                 >
@@ -350,6 +383,30 @@ function LoginPageInner(): React.ReactNode {
                   }
                 >
                   {formMessage.text}
+                </div>
+              )}
+
+              {/* Resend verification - only after an EMAIL_NOT_VERIFIED sign-in. */}
+              {resendEmail !== null && emailMode === 'signin' && (
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleResend()}
+                    disabled={resendStatus === 'sending' || resendStatus === 'sent'}
+                    className="w-full cursor-pointer border border-rule bg-header py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {t('login.email.resend')}
+                  </button>
+                  {resendStatus === 'sent' && (
+                    <p role="status" className="font-mono text-[10px] tracking-[0.04em] text-muted">
+                      {t('login.email.resend_sent')}
+                    </p>
+                  )}
+                  {resendStatus === 'error' && (
+                    <p role="alert" className="font-mono text-[10px] tracking-[0.04em] text-error">
+                      {t('login.email.resend_error')}
+                    </p>
+                  )}
                 </div>
               )}
             </form>
