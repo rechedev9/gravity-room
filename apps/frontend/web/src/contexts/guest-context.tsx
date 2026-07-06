@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useState } from 'react';
-import { clearGuestData } from '@/lib/guest-storage';
+import { clearGuestData, setGuestMigrationMarker } from '@/lib/guest-storage';
+import { trackEvent } from '@/lib/analytics';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,6 +61,9 @@ export function GuestProvider({
   const [isGuest, setIsGuest] = useState<boolean>(readStoredIsGuest);
 
   const enterGuestMode = useCallback((): void => {
+    // The analytics event lives here so every entry point (login page, landing
+    // CTA, future surfaces) counts guest starts without remembering to track.
+    trackEvent('guest_start');
     setIsGuest(true);
     try {
       localStorage.setItem(GUEST_MODE_STORAGE_KEY, 'true');
@@ -86,6 +90,10 @@ export function GuestProvider({
   const exitGuestModeKeepingData = useCallback((): void => {
     // Deliberately does NOT clear guest data - the "Create Account" flow relies
     // on it surviving to be migrated after sign-in (see lib/guest-migration.ts).
+    // The marker scopes that migration to this intent: without a fresh marker,
+    // leftover guest data is purged rather than imported into whichever
+    // account signs in next on this browser.
+    setGuestMigrationMarker();
     clearGuestModeFlag();
   }, [clearGuestModeFlag]);
 

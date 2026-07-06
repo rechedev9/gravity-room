@@ -29,7 +29,6 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
       void navigate({ to: '/app' });
       return;
     }
-    trackEvent('guest_start');
     enterGuestMode();
     void navigate({ to: '/app/programs' });
   };

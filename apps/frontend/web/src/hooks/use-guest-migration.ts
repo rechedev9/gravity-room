@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
-import { readGuestData } from '@/lib/guest-storage';
+import { readActiveGuestInstance } from '@/lib/guest-storage';
 import { migrateGuestDataToAccount } from '@/lib/guest-migration';
 import { localizedProgramName } from '@/lib/catalog-display';
 
@@ -25,12 +25,7 @@ export function useGuestMigration(): void {
 
     // Only act when there is actually a persisted guest program to migrate, so
     // an ordinary returning user pays nothing.
-    const guestData = readGuestData();
-    const hasInstance =
-      guestData !== null &&
-      guestData.activeProgramId !== null &&
-      guestData.instances[guestData.activeProgramId] != null;
-    if (!hasInstance) return;
+    if (readActiveGuestInstance() === null) return;
 
     handledRef.current = true;
     void (async () => {

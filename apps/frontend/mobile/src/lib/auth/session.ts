@@ -32,6 +32,7 @@ interface SignInDependencies {
   readonly storage?: RefreshTokenStorage;
   readonly sessionKindStorage?: SessionKindStorage;
   readonly authenticateWithGoogleIdToken?: (credential: string) => Promise<RefreshResponse>;
+  readonly revokeCookieSession?: () => Promise<void>;
 }
 
 interface SignOutDependencies {
@@ -45,6 +46,7 @@ interface EmailSignInDependencies {
   readonly storage?: RefreshTokenStorage;
   readonly sessionKindStorage?: SessionKindStorage;
   readonly login?: (email: string, password: string) => Promise<Response>;
+  readonly revokeRemoteSession?: (refreshToken: string) => Promise<void>;
 }
 
 interface EmailSignUpDependencies {
@@ -450,6 +452,16 @@ export async function signInWithGoogleIdToken(
   const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
   const authenticateWithGoogleIdToken =
     dependencies.authenticateWithGoogleIdToken ?? authenticateMobileGoogleIdToken;
+  const revokeCookie = dependencies.revokeCookieSession ?? revokeCookieSession;
+
+  // Credentials are mutually exclusive: best-effort revoke a leftover email
+  // cookie session server-side before it becomes unreachable behind the new
+  // Google session (switching providers without signing out first).
+  try {
+    if ((await kindStorage.getSessionKind()) === 'email') await revokeCookie();
+  } catch {
+    // Revocation is best-effort; sign-in must not be blocked by it.
+  }
 
   const authenticated = await authenticateWithGoogleIdToken(credential);
   accessToken = authenticated.accessToken;
@@ -470,6 +482,7 @@ export async function signInWithEmailPassword(
   const login = dependencies.login ?? postEmailLogin;
   const storage = dependencies.storage ?? secureRefreshTokenStorage;
   const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
+  const revokeRemoteSession = dependencies.revokeRemoteSession ?? revokeMobileSession;
 
   const response = await login(email, password);
   if (!response.ok) {
@@ -479,9 +492,17 @@ export async function signInWithEmailPassword(
 
   const session = readSessionResponse(await response.json());
   accessToken = session.accessToken;
-  // Credentials are mutually exclusive: drop any leftover Google refresh token
-  // so a later 401 retry or app relaunch cannot silently resurrect the
+  // Credentials are mutually exclusive: revoke and drop any leftover Google
+  // refresh token. Without the server-side revocation the row would stay
+  // valid for its full TTL with no one left holding the value; without the
+  // local clear a later 401 retry or relaunch would silently resurrect the
   // previous account's session over this one.
+  try {
+    const leftover = await storage.getRefreshToken();
+    if (leftover) await revokeRemoteSession(leftover);
+  } catch {
+    // Revocation is best-effort; sign-in must not be blocked by it.
+  }
   await storage.clearRefreshToken();
   // Mark this as a cookie-backed session so restore knows to use the cookie
   // route and sign-out knows to revoke the cookie.

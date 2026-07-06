@@ -18,8 +18,13 @@ vi.mock('@/lib/api-functions', async () => {
 });
 
 import { QueryClient } from '@tanstack/react-query';
+import { ApiError } from '@gzclp/api-client/api-error';
 import type { ProgramInstanceMap } from '@gzclp/domain/types/program';
-import { GUEST_STORAGE_KEY } from '@/lib/guest-storage';
+import {
+  GUEST_STORAGE_KEY,
+  GUEST_MIGRATION_MARKER_KEY,
+  setGuestMigrationMarker,
+} from '@/lib/guest-storage';
 import { migrateGuestDataToAccount } from './guest-migration';
 
 // ---------------------------------------------------------------------------
@@ -40,7 +45,7 @@ function guestMapWithProgram(): ProgramInstanceMap {
           '0': {
             'squat-t1': { result: 'success', amrapReps: 5, setLogs: [{ reps: 5 }] },
             'bench-t1': { result: 'fail' },
-            'lat-t3': {}, // no recorded pass/fail — must be excluded from the payload
+            'lat-t3': {}, // no recorded pass/fail - must be excluded from the payload
           },
           '1': {
             'dead-t1': { result: 'success', rpe: 8 },
@@ -57,6 +62,9 @@ function guestMapWithProgram(): ProgramInstanceMap {
 
 function seedGuest(map: ProgramInstanceMap): void {
   localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(map));
+  // Most tests exercise the sanctioned Create Account flow, which stamps the
+  // migration marker; marker-specific tests overwrite or remove it.
+  setGuestMigrationMarker();
 }
 
 function freshQueryClient(): QueryClient {
@@ -183,6 +191,59 @@ describe('migrateGuestDataToAccount', () => {
 
     expect(result).toBeNull();
     // Guest data survives so migration can be retried on a later sign-in.
+    expect(localStorage.getItem(GUEST_STORAGE_KEY)).not.toBeNull();
+    // The marker survives too, so that retry is still sanctioned.
+    expect(localStorage.getItem(GUEST_MIGRATION_MARKER_KEY)).not.toBeNull();
+  });
+
+  it('purges guest data without importing when there is no migration marker', async () => {
+    seedGuest(guestMapWithProgram());
+    localStorage.removeItem(GUEST_MIGRATION_MARKER_KEY);
+
+    const result = await migrateGuestDataToAccount(freshQueryClient());
+
+    expect(result).toBeNull();
+    expect(mockImportProgram).not.toHaveBeenCalled();
+    expect(mockFetchPrograms).not.toHaveBeenCalled();
+    // Abandoned data must never leak into whichever account signs in next.
+    expect(localStorage.getItem(GUEST_STORAGE_KEY)).toBeNull();
+  });
+
+  it('purges guest data without importing when the marker has expired', async () => {
+    seedGuest(guestMapWithProgram());
+    const eightDaysAgo = Date.now() - 8 * 24 * 60 * 60 * 1000;
+    localStorage.setItem(GUEST_MIGRATION_MARKER_KEY, String(eightDaysAgo));
+
+    const result = await migrateGuestDataToAccount(freshQueryClient());
+
+    expect(result).toBeNull();
+    expect(mockImportProgram).not.toHaveBeenCalled();
+    expect(localStorage.getItem(GUEST_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(GUEST_MIGRATION_MARKER_KEY)).toBeNull();
+  });
+
+  it('discards guest data when the server permanently rejects the import', async () => {
+    seedGuest(guestMapWithProgram());
+    mockImportProgram.mockRejectedValueOnce(
+      new ApiError('Invalid export data', 400, 'INVALID_DATA')
+    );
+
+    const result = await migrateGuestDataToAccount(freshQueryClient());
+
+    expect(result).toBeNull();
+    // A 4xx will fail identically forever; the data is purged instead of
+    // re-failing the import on every future sign-in.
+    expect(localStorage.getItem(GUEST_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(GUEST_MIGRATION_MARKER_KEY)).toBeNull();
+  });
+
+  it('keeps guest data when the import is rate limited (transient 429)', async () => {
+    seedGuest(guestMapWithProgram());
+    mockImportProgram.mockRejectedValueOnce(new ApiError('Too many requests', 429, 'RATE_LIMITED'));
+
+    const result = await migrateGuestDataToAccount(freshQueryClient());
+
+    expect(result).toBeNull();
     expect(localStorage.getItem(GUEST_STORAGE_KEY)).not.toBeNull();
   });
 });

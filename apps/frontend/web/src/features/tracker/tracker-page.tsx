@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { localizedProgramName } from '@/lib/catalog-display';
-import { readGuestData } from '@/lib/guest-storage';
+import { readActiveGuestInstance } from '@/lib/guest-storage';
 import { ProgramApp } from '@/features/tracker/program-app';
 
 export function TrackerPage(): React.ReactNode {
@@ -34,12 +34,10 @@ export function TrackerPage(): React.ReactNode {
   // so without this fallback /app/tracker would redirect a guest with an
   // in-progress program back to /app. Read the persisted guest instance's
   // catalog programId as the last resort in the fallback chain.
-  const guestProgramId = useMemo((): string | undefined => {
-    if (!isGuest) return undefined;
-    const guestData = readGuestData();
-    if (guestData?.activeProgramId == null) return undefined;
-    return guestData.instances[guestData.activeProgramId]?.programId;
-  }, [isGuest]);
+  const guestProgramId = useMemo(
+    (): string | undefined => (isGuest ? readActiveGuestInstance()?.programId : undefined),
+    [isGuest]
+  );
 
   // Fallback chain: URL param → context → guest storage → active program from API
   const activeProgram = programsQuery.data?.find((p) => p.status === 'active');

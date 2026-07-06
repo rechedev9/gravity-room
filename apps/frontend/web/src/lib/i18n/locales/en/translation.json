@@ -1420,7 +1420,8 @@
       "The weight will not lift itself.",
       "Every workout is a debt your body will repay.",
       "Controlled weight beats ego on the floor."
-    ]
+    ],
+    "load_error": "Could not load your training dashboard."
   },
   "mentor_tour": {
     "prompt": {

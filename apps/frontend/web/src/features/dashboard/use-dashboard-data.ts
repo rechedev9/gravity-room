@@ -17,6 +17,9 @@ import type { LiftHistoryRow } from './use-pr-road';
 
 interface DashboardData {
   readonly isLoading: boolean;
+  /** True when either underlying fetch failed - consumers must surface it (never render a fake pristine state). */
+  readonly isError: boolean;
+  readonly refetch: () => void;
   readonly hero: HeroExtras;
   readonly recentSessions: readonly RecentSessionRow[];
   readonly liftHistory: readonly LiftHistoryRow[];
@@ -44,9 +47,9 @@ export function useDashboardData(activeProgram: ProgramSummary | null): Dashboar
     queryKey: queryKeys.programs.detail(instanceId),
     queryFn: () => fetchGenericProgramDetail(instanceId),
     enabled: activeProgram !== null,
-    // Returning to the dashboard after logging a session must reflect the new
-    // sets, so refetch on every mount rather than serving stale cache.
-    refetchOnMount: 'always',
+    // No forced refetch: every mutation that changes results invalidates or
+    // patches this cache key (see use-program-mutations.ts), so a cached mount
+    // is already fresh and a tracker<->home bounce costs zero requests.
   });
 
   const catalogQuery = useQuery({
@@ -90,6 +93,13 @@ export function useDashboardData(activeProgram: ProgramSummary | null): Dashboar
 
   const isLoading =
     activeProgram !== null && (detailQuery.isLoading || (!isCustom && catalogQuery.isLoading));
+  const isError =
+    activeProgram !== null && (detailQuery.isError || (!isCustom && catalogQuery.isError));
 
-  return { isLoading, hero, recentSessions, liftHistory };
+  const refetch = (): void => {
+    void detailQuery.refetch();
+    if (!isCustom) void catalogQuery.refetch();
+  };
+
+  return { isLoading, isError, refetch, hero, recentSessions, liftHistory };
 }

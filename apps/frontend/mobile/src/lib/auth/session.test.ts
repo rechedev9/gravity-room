@@ -535,6 +535,60 @@ describe('signInWithEmailPassword', () => {
       signInWithEmailPassword('athlete@example.com', 'correct-horse', { login })
     ).resolves.toEqual({ ok: false, code: 'RATE_LIMITED' });
   });
+
+  it('revokes and clears a leftover Google refresh token on successful email sign-in', async () => {
+    const login = jest
+      .fn<Promise<Response>, [string, string]>()
+      .mockResolvedValue(jsonResponse({ user: AUTH_USER, accessToken: 'email-access-token' }));
+    const storage = {
+      getRefreshToken: jest
+        .fn<Promise<string | null>, []>()
+        .mockResolvedValue('stale-google-token'),
+      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
+      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+    const revokeRemoteSession = jest.fn<Promise<void>, [string]>().mockResolvedValue();
+
+    await expect(
+      signInWithEmailPassword('athlete@example.com', 'correct-horse', {
+        login,
+        storage,
+        revokeRemoteSession,
+      })
+    ).resolves.toMatchObject({ ok: true });
+
+    // The stale token is revoked server-side BEFORE the local copy is dropped;
+    // otherwise the server row stays valid for its full TTL with nobody left
+    // holding the value.
+    expect(revokeRemoteSession).toHaveBeenCalledWith('stale-google-token');
+    expect(storage.clearRefreshToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('still signs in when revoking the leftover token fails', async () => {
+    const login = jest
+      .fn<Promise<Response>, [string, string]>()
+      .mockResolvedValue(jsonResponse({ user: AUTH_USER, accessToken: 'email-access-token' }));
+    const storage = {
+      getRefreshToken: jest
+        .fn<Promise<string | null>, []>()
+        .mockResolvedValue('stale-google-token'),
+      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
+      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+    const revokeRemoteSession = jest
+      .fn<Promise<void>, [string]>()
+      .mockRejectedValue(new Error('offline'));
+
+    await expect(
+      signInWithEmailPassword('athlete@example.com', 'correct-horse', {
+        login,
+        storage,
+        revokeRemoteSession,
+      })
+    ).resolves.toMatchObject({ ok: true });
+
+    expect(storage.clearRefreshToken).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('signUpWithEmailPassword', () => {

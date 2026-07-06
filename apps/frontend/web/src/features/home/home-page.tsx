@@ -11,8 +11,9 @@ import { useGuest } from '@/contexts/guest-context';
 import { isFrequencyPayload } from '@/lib/insight-payloads';
 import type { FrequencyPayload } from '@/lib/insight-payloads';
 import { GuestBanner } from '@/components/guest-banner';
-import { readGuestData } from '@/lib/guest-storage';
+import { readActiveGuestInstance } from '@/lib/guest-storage';
 import { Kicker } from '@/components/kicker';
+import { Button } from '@/components/button';
 import { DashboardShell } from '@/features/dashboard/dashboard-shell';
 import { NextSetHero } from '@/features/dashboard/next-set-hero';
 import type { ProgramInstance } from '@/features/dashboard/next-set-hero';
@@ -107,13 +108,13 @@ export function HomePage(): React.ReactNode {
   // a lift climbing toward a new PR).
   const prRoad = usePrRoad(dashboard.liftHistory);
 
+  // Guests persist a single in-progress program in localStorage (see
+  // lib/guest-storage.ts). If one exists, offer a direct "continue" hero back
+  // into the tracker instead of the generic guest empty state. Memoized:
+  // localStorage + JSON.parse must not run on every render.
+  const guestInstance = useMemo(() => (isGuest ? readActiveGuestInstance() : null), [isGuest]);
+
   if (isGuest) {
-    // Guests persist a single in-progress program in localStorage (see
-    // lib/guest-storage.ts). If one exists, offer a direct "continue" hero back
-    // into the tracker instead of the generic guest empty state.
-    const guestData = readGuestData();
-    const guestInstance =
-      guestData?.activeProgramId != null ? guestData.instances[guestData.activeProgramId] : null;
     return (
       <div className="min-h-dvh bg-body">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
@@ -132,6 +133,29 @@ export function HomePage(): React.ReactNode {
     return (
       <div className="min-h-dvh bg-body">
         <DashboardSkeleton />
+      </div>
+    );
+  }
+
+  // A failed fetch must never masquerade as an empty/day-one dashboard: for a
+  // user with real history that is indistinguishable from data loss. Matches
+  // the error-with-retry convention of programs-page.tsx.
+  if (programsQuery.isError || dashboard.isError) {
+    return (
+      <div className="min-h-dvh bg-body">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+          <div className="bg-card border border-rule p-6 text-center">
+            <p className="text-sm text-muted mb-3">{t('home.load_error')}</p>
+            <Button
+              onClick={() => {
+                void programsQuery.refetch();
+                dashboard.refetch();
+              }}
+            >
+              {t('programs.retry')}
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }

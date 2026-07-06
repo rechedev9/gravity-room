@@ -58,9 +58,10 @@ function LoginPageInner(): React.ReactNode {
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formMessage, setFormMessage] = useState<FormMessage | null>(null);
-  // Resend-verification affordance: shown only after a sign-in fails with
-  // EMAIL_NOT_VERIFIED, so the user can re-request the verification email.
-  const [showResend, setShowResend] = useState(false);
+  // Resend-verification affordance: set to the address whose sign-in failed
+  // with EMAIL_NOT_VERIFIED. Captured at failure time so a later edit of the
+  // email field cannot silently redirect the resend to a different address.
+  const [resendEmail, setResendEmail] = useState<string | null>(null);
   const [resendStatus, setResendStatus] = useState<ResendStatus>('idle');
   const [authProviders, setAuthProviders] = useState<AuthProviders>(DEFAULT_AUTH_PROVIDERS);
 
@@ -121,14 +122,15 @@ function LoginPageInner(): React.ReactNode {
   };
 
   const submitSignIn = async (): Promise<void> => {
-    const result = await signInWithEmail(email.trim(), password);
+    const attemptedEmail = email.trim();
+    const result = await signInWithEmail(attemptedEmail, password);
     if (result.ok) {
       void navigate({ to: '/app' });
       return;
     }
     // Unverified accounts can't sign in yet - surface the "check your inbox"
     // message plus a resend affordance instead of a dead-end error.
-    if (result.code === 'EMAIL_NOT_VERIFIED') setShowResend(true);
+    if (result.code === 'EMAIL_NOT_VERIFIED') setResendEmail(attemptedEmail);
     setFormMessage({ kind: 'error', text: codeMessage(result.code) });
   };
 
@@ -146,7 +148,7 @@ function LoginPageInner(): React.ReactNode {
     if (submitting) return;
     setError(null);
     setFormMessage(null);
-    setShowResend(false);
+    setResendEmail(null);
     setResendStatus('idle');
     setSubmitting(true);
     try {
@@ -158,14 +160,13 @@ function LoginPageInner(): React.ReactNode {
 
   const handleResend = async (): Promise<void> => {
     // Basic client-side throttle: block while a send is in flight or already sent.
-    if (resendStatus === 'sending' || resendStatus === 'sent') return;
+    if (resendEmail === null || resendStatus === 'sending' || resendStatus === 'sent') return;
     setResendStatus('sending');
-    const result = await resendVerification(email.trim());
+    const result = await resendVerification(resendEmail);
     setResendStatus(result.ok ? 'sent' : 'error');
   };
 
   const handleGuestEntry = (): void => {
-    trackEvent('guest_start');
     enterGuestMode();
     void navigate({ to: '/app' });
   };
@@ -354,7 +355,7 @@ function LoginPageInner(): React.ReactNode {
                   onClick={() => {
                     setEmailMode((m) => (m === 'signin' ? 'signup' : 'signin'));
                     setFormMessage(null);
-                    setShowResend(false);
+                    setResendEmail(null);
                     setResendStatus('idle');
                   }}
                   className="cursor-pointer text-muted transition-colors hover:text-main"
@@ -386,7 +387,7 @@ function LoginPageInner(): React.ReactNode {
               )}
 
               {/* Resend verification - only after an EMAIL_NOT_VERIFIED sign-in. */}
-              {showResend && emailMode === 'signin' && (
+              {resendEmail !== null && emailMode === 'signin' && (
                 <div className="flex flex-col gap-2">
                   <button
                     type="button"

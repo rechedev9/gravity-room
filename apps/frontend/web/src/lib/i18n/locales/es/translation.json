@@ -1420,7 +1420,8 @@
       "El peso no se levanta solo.",
       "Cada entrenamiento es una deuda que el cuerpo agradece.",
       "Más vale peso controlado que ego en el suelo."
-    ]
+    ],
+    "load_error": "No se pudo cargar tu panel de entrenamiento."
   },
   "mentor_tour": {
     "prompt": {
