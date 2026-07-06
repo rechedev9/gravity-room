@@ -88,9 +88,7 @@ describe('useWakeLock', () => {
     renderHook(() => useWakeLock(true));
 
     // Let the async acquire() settle
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 10));
-    });
+    await act(async () => {});
 
     expect(requestFn).toHaveBeenCalledWith('screen');
   });
@@ -100,9 +98,7 @@ describe('useWakeLock', () => {
 
     const { result } = renderHook(() => useWakeLock(true));
 
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 10));
-    });
+    await act(async () => {});
 
     expect(result.current.isSupported).toBe(false);
     expect(result.current.isActive).toBe(false);
@@ -114,9 +110,7 @@ describe('useWakeLock', () => {
 
     const { unmount } = renderHook(() => useWakeLock(true));
 
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 10));
-    });
+    await act(async () => {});
 
     unmount();
 
@@ -136,9 +130,7 @@ describe('useWakeLock', () => {
     renderHook(() => useWakeLock(true));
 
     // Let initial acquire settle
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 10));
-    });
+    await act(async () => {});
 
     expect(requestFn).toHaveBeenCalledTimes(1);
 
@@ -155,7 +147,6 @@ describe('useWakeLock', () => {
         configurable: true,
       });
       document.dispatchEvent(new Event('visibilitychange'));
-      await new Promise((r) => setTimeout(r, 10));
     });
 
     expect(requestFn).toHaveBeenCalledTimes(2);
@@ -169,9 +160,7 @@ describe('useWakeLock', () => {
 
     renderHook(() => useWakeLock(true));
 
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 10));
-    });
+    await act(async () => {});
 
     expect(warnSpy).toHaveBeenCalled();
     const callArg = warnSpy.mock.calls[0]?.[0] as string;

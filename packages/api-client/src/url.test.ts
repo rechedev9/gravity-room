@@ -29,4 +29,29 @@ describe('buildApiUrl', () => {
       'http://localhost:3001/exercises?q=squat'
     );
   });
+
+  it('returns a relative path for an empty base (same-origin production, VITE_API_URL="")', () => {
+    expect(buildApiUrl('', '/auth/me')).toBe('/auth/me');
+  });
+
+  it('adds the leading slash when the base is empty and the path has none', () => {
+    expect(buildApiUrl('', 'auth/me')).toBe('/auth/me');
+  });
+
+  it('strips a trailing slash from an https base', () => {
+    expect(buildApiUrl('https://gravityroom.app/', '/auth/me')).toBe(
+      'https://gravityroom.app/auth/me'
+    );
+  });
+
+  it('strips only ONE trailing slash from the base (current behavior)', () => {
+    // The regex /\/$/ is not global, so a base ending in multiple slashes keeps
+    // all but the last one and the joined URL contains a double slash.
+    expect(buildApiUrl('http://localhost:3001//', '/auth/me')).toBe(
+      'http://localhost:3001//auth/me'
+    );
+    expect(buildApiUrl('http://localhost:3001///', 'auth/me')).toBe(
+      'http://localhost:3001///auth/me'
+    );
+  });
 });

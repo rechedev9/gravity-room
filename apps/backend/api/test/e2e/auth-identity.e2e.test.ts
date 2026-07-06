@@ -1,6 +1,6 @@
 /**
  * Integration tests for the multi-provider identity resolver against a real
- * Postgres. Run with: DATABASE_URL_TEST=... bun run test:e2e
+ * Postgres. Run with: DATABASE_URL_TEST=... pnpm --filter api test:e2e
  *
  * Covers create / returning / link / conflict / soft-delete and the Google
  * back-compat wrapper — the DB-backed paths the mocked unit suite can't reach.

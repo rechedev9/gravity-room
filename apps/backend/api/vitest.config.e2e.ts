@@ -8,5 +8,13 @@ export default defineConfig({
     environment: 'node',
     globals: false,
     include: ['test/e2e/**/*.test.ts'],
+    // The e2e files share one Postgres database and truncate all tables
+    // between tests; running files in parallel makes them wipe each other's
+    // rows mid-test. Serialize the whole suite.
+    fileParallelism: false,
+    // Same rationale as vitest.config.ts: keep reporter output readable.
+    env: {
+      LOG_LEVEL: 'silent',
+    },
   },
 });

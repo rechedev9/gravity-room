@@ -87,6 +87,46 @@ jobs:
         run: pnpm --filter api run test
 
   # ---------------------------------------------------------------------------
+  # API integration (e2e) — the DB-backed suite under apps/backend/api/test/e2e.
+  # These are the only tests exercising the real Postgres paths of the identity
+  # resolver and password flow (account linking, anti-takeover, soft delete,
+  # argon2 round-trip); the unit suite mocks the DB away entirely.
+  # ---------------------------------------------------------------------------
+  api-e2e:
+    name: API integration (Postgres)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gravity_room_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test (DB-backed e2e; suite applies migrations itself)
+        run: pnpm --filter api run test:e2e
+        env:
+          DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/gravity_room_test
+
+  # ---------------------------------------------------------------------------
   # Shared domain package — the single source of truth for the progression
   # engine and schemas consumed by web, mobile, and api.
   # ---------------------------------------------------------------------------
@@ -139,6 +179,53 @@ jobs:
 
       - name: Test
         run: pnpm run test:api-client
+
+  # ---------------------------------------------------------------------------
+  # Shared database package — schema typecheck, the seed-definition validation
+  # suite, and the DB-backed seed idempotency tests (which skip without a live
+  # Postgres, so this job provisions one and applies migrations first).
+  # ---------------------------------------------------------------------------
+  database:
+    name: Database
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/gravity_room_test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gravity_room_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck:database
+
+      - name: Apply migrations
+        run: pnpm run db:migrate
+
+      - name: Test (includes seed idempotency against Postgres)
+        run: pnpm run test:database
+        env:
+          RUN_DB_SEED_INTEGRATION: 'true'
 
   # ---------------------------------------------------------------------------
   # Expo mobile client — typecheck and the Jest unit suite.
@@ -307,6 +394,18 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
-    needs: [web, api, domain, api-client, mobile, format, api-types-drift, secret-scan]
+    needs:
+      [
+        web,
+        api,
+        api-e2e,
+        domain,
+        api-client,
+        database,
+        mobile,
+        format,
+        api-types-drift,
+        secret-scan,
+      ]
     steps:
       - run: echo "All CI checks passed."

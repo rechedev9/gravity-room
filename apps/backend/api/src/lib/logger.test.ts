@@ -4,7 +4,7 @@
  *
  * Strategy: create a fresh pino instance with the same config as the exported
  * logger, but with a custom Writable destination to capture output in-process.
- * NODE_ENV is already 'test' in bun:test, so the transport block is skipped.
+ * NODE_ENV is already 'test' under vitest, so the transport block is skipped.
  */
 process.env['LOG_LEVEL'] = 'silent';
 
