@@ -9,16 +9,27 @@ import type {
   VolumeDataPoint,
 } from './types';
 
-const SAME_YEAR_FORMATTER = new Intl.DateTimeFormat('es-ES', {
-  month: 'short',
-  day: 'numeric',
-});
+// Kept as the default so existing callers keep their labels; pass the active
+// UI locale to get localized date labels.
+const DEFAULT_DATE_LABEL_LOCALE = 'es-ES';
 
-const PRIOR_YEAR_FORMATTER = new Intl.DateTimeFormat('es-ES', {
-  month: 'short',
-  day: 'numeric',
-  year: '2-digit',
-});
+interface DateLabelFormatters {
+  readonly sameYear: Intl.DateTimeFormat;
+  readonly priorYear: Intl.DateTimeFormat;
+}
+
+const formatterCache = new Map<string, DateLabelFormatters>();
+
+function getDateLabelFormatters(locale: string): DateLabelFormatters {
+  const cached = formatterCache.get(locale);
+  if (cached) return cached;
+  const created: DateLabelFormatters = {
+    sameYear: new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }),
+    priorYear: new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', year: '2-digit' }),
+  };
+  formatterCache.set(locale, created);
+  return created;
+}
 
 export interface AllGenericStats {
   readonly chartData: Record<string, ChartDataPoint[]>;
@@ -27,12 +38,13 @@ export interface AllGenericStats {
   readonly volumeData: VolumeDataPoint[];
 }
 
-function formatDateLabel(isoString: string): string | undefined {
+function formatDateLabel(isoString: string, locale: string): string | undefined {
   const parsed = new Date(isoString);
   if (Number.isNaN(parsed.getTime())) return undefined;
 
+  const formatters = getDateLabelFormatters(locale);
   const formatter =
-    parsed.getFullYear() < new Date().getFullYear() ? PRIOR_YEAR_FORMATTER : SAME_YEAR_FORMATTER;
+    parsed.getFullYear() < new Date().getFullYear() ? formatters.priorYear : formatters.sameYear;
 
   return formatter.format(parsed);
 }
@@ -47,7 +59,8 @@ function computeSlotVolume(slot: GenericSlotRow): number {
 export function extractAllGenericStats(
   definition: ProgramDefinition,
   rows: readonly GenericWorkoutRow[],
-  resultTimestamps?: Readonly<Record<string, string>>
+  resultTimestamps?: Readonly<Record<string, string>>,
+  locale: string = DEFAULT_DATE_LABEL_LOCALE
 ): AllGenericStats {
   const exerciseIds = Object.keys(definition.exercises);
 
@@ -65,13 +78,20 @@ export function extractAllGenericStats(
   for (const row of rows) {
     const workoutIndexStr = String(row.index);
     const timestamp = resultTimestamps?.[workoutIndexStr];
-    const date = timestamp !== undefined ? formatDateLabel(timestamp) : undefined;
+    const date = timestamp !== undefined ? formatDateLabel(timestamp, locale) : undefined;
     const workoutNum = row.index + 1;
 
     let volumeKg = 0;
 
     for (const slot of row.slots) {
-      chartData[slot.exerciseId]?.push({
+      // A slot whose exercise is not in the definition is orphaned data
+      // (e.g. a stale row after a definition edit) — ignore it everywhere,
+      // including volume, so the aggregate never counts lifts that no chart
+      // can display.
+      const chartBucket = chartData[slot.exerciseId];
+      if (chartBucket === undefined) continue;
+
+      chartBucket.push({
         workout: workoutNum,
         weight: slot.weight,
         stage: slot.stage + 1,
@@ -109,9 +129,10 @@ export function extractAllGenericStats(
 export function extractGenericChartData(
   definition: ProgramDefinition,
   rows: readonly GenericWorkoutRow[],
-  resultTimestamps?: Readonly<Record<string, string>>
+  resultTimestamps?: Readonly<Record<string, string>>,
+  locale: string = DEFAULT_DATE_LABEL_LOCALE
 ): Record<string, ChartDataPoint[]> {
-  return extractAllGenericStats(definition, rows, resultTimestamps).chartData;
+  return extractAllGenericStats(definition, rows, resultTimestamps, locale).chartData;
 }
 
 export function calculateStats(data: readonly ChartDataPoint[]): ExerciseStats {

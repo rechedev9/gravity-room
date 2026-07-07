@@ -646,7 +646,7 @@ describe('flushQueuedMutations', () => {
     expect(mockedAcknowledgeQueuedMutations).not.toHaveBeenCalled();
   });
 
-  it('rejects with the acknowledge failure when acking earlier successes fails during error handling', async () => {
+  it('keeps the original replay error when acking earlier successes fails during error handling', async () => {
     mockedListQueuedMutations.mockResolvedValue([
       {
         id: 95,
@@ -679,10 +679,11 @@ describe('flushQueuedMutations', () => {
       .mockResolvedValueOnce(new Response('{}', { status: 201 }))
       .mockResolvedValueOnce(new Response('nope', { status: 500 }));
 
-    // Current behavior: the acknowledge rejection thrown inside the catch block
-    // replaces the original replay error, and the flush rejects with it instead
-    // of crashing with an unhandled rejection.
-    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow('ack failed');
+    // The ack rejection inside the catch block is swallowed so the flush
+    // surfaces the actionable failure: the replay error itself.
+    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow(
+      'Queued mutation sync failed with status 500'
+    );
 
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledTimes(1);

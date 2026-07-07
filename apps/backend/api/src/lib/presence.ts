@@ -17,7 +17,16 @@ export function trackPresence(userId: string, redis: Redis): Promise<unknown> {
     return Promise.resolve(); // recent heartbeat already on record
   }
   lastTrackByUser.set(userId, now);
-  return redis.zadd(PRESENCE_SORTED_SET_KEY, { score: now, member: userId });
+  const write = redis.zadd(PRESENCE_SORTED_SET_KEY, { score: now, member: userId });
+  write.catch(() => {
+    // Roll back the debounce stamp on a failed write: otherwise the user is
+    // silently absent from presence for the whole window while every retry
+    // is suppressed. The rejection still propagates via the returned promise.
+    if (lastTrackByUser.get(userId) === now) {
+      lastTrackByUser.delete(userId);
+    }
+  });
+  return write;
 }
 
 /** Count active users in O(log N) using a heartbeat sorted set. */

@@ -131,6 +131,26 @@ describe('trackPresence', () => {
     });
   });
 
+  it('retries immediately after a failed write instead of debouncing the failure', async () => {
+    // Arrange
+    const presence = await loadPresence();
+    const redis = makeRedis();
+    mockZadd.mockImplementationOnce(() => Promise.reject(new Error('zadd failed')));
+
+    // Act — first write fails; the rejection still propagates to the caller
+    await expect(presence.trackPresence('user-1', redis)).rejects.toThrow('zadd failed');
+    // Next request inside what would have been the debounce window
+    vi.advanceTimersByTime(1_000);
+    await presence.trackPresence('user-1', redis);
+
+    // Assert — the failed write did not consume the debounce window
+    expect(mockZadd).toHaveBeenCalledTimes(2);
+    expect(mockZadd).toHaveBeenLastCalledWith(PRESENCE_KEY, {
+      score: NOW_MS + 1_000,
+      member: 'user-1',
+    });
+  });
+
   it('debounces per user — a different user writes immediately', async () => {
     // Arrange
     const presence = await loadPresence();

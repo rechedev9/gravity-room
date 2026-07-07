@@ -203,14 +203,15 @@ describe('extractAllGenericStats', () => {
     ]);
   });
 
-  it('silently drops slots whose exercise is not in the definition', () => {
+  it('ignores slots whose exercise is not in the definition everywhere, volume included', () => {
     const rows = [makeRow(0, [makeSlotRow({ exerciseId: 'unknown-exercise', result: 'success' })])];
 
     const stats = extractAllGenericStats(DEFINITION, rows);
 
     expect(stats.chartData['unknown-exercise']).toBeUndefined();
-    // Volume still accumulates: it is keyed by workout, not by exercise.
-    expect(stats.volumeData[0]?.volumeKg).toBe(1500);
+    // Orphaned slots must not leak into the aggregate volume either: no chart
+    // could ever display the lifts being counted.
+    expect(stats.volumeData).toEqual([]);
   });
 
   it('initializes an empty bucket for every exercise in the definition', () => {
@@ -246,6 +247,24 @@ describe('extractAllGenericStats', () => {
       expect(currentLabel).not.toContain(priorYearSuffix);
       expect(priorLabel).toBeDefined();
       expect(priorLabel).toContain(priorYearSuffix);
+    });
+
+    it('formats labels with the provided locale (es-ES remains the default)', () => {
+      const rows = [makeRow(0, [makeSlotRow({})])];
+      // January: a month whose short name differs across es/en locale data.
+      const timestamps = { '0': `${currentYear}-01-15T12:00:00.000Z` };
+
+      const defaultLabel = extractAllGenericStats(DEFINITION, rows, timestamps).chartData[
+        'squat'
+      ]?.[0]?.date;
+      const englishLabel = extractAllGenericStats(DEFINITION, rows, timestamps, 'en-US').chartData[
+        'squat'
+      ]?.[0]?.date;
+
+      expect(defaultLabel).toBeDefined();
+      expect(englishLabel).toBeDefined();
+      expect(englishLabel).not.toBe(defaultLabel);
+      expect(englishLabel).toContain('Jan');
     });
 
     it('leaves the date undefined for missing or unparseable timestamps', () => {

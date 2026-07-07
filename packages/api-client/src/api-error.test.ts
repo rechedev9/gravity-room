@@ -61,12 +61,15 @@ describe('parseApiErrorBody', () => {
     expect(result).toEqual({ message: 'oops' });
   });
 
-  it('drops a string code when there is no string error field (current behavior)', () => {
-    // A body like { code: 'X' } has no usable message; the code is discarded,
-    // not carried alongside the fallback message.
+  it('keeps a string code even when there is no string error field', () => {
+    // A body like { code: 'X' } has no usable message, but the machine-readable
+    // code is still valid — callers must be able to branch on it.
     const result = parseApiErrorBody({ code: 'X' });
-    expect(result).toEqual({ message: 'Unknown error' });
-    expect(result.code).toBeUndefined();
-    expect('code' in result).toBe(false);
+    expect(result).toEqual({ message: 'Unknown error', code: 'X' });
+  });
+
+  it('keeps a string code when error is present but not a string', () => {
+    const result = parseApiErrorBody({ error: 42, code: 'X' });
+    expect(result).toEqual({ message: 'Unknown error', code: 'X' });
   });
 });
