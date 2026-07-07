@@ -557,6 +557,139 @@ describe('flushQueuedMutations', () => {
     expectAuthorizationHeader(fetchSpy.mock.calls[1]?.[1], 'rotated-access-token');
   });
 
+  it('rejects a delete-result mutation with a non-number workoutIndex before any request is sent', async () => {
+    mockedListQueuedMutations.mockResolvedValue([
+      {
+        id: 81,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'delete-result',
+        payload: {
+          workoutIndex: 'not-a-number',
+          slotId: 'bench-t2',
+        },
+        createdAt: '2026-04-20T10:00:00.000Z',
+      },
+    ]);
+
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+
+    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow(
+      'Invalid delete-result mutation payload'
+    );
+
+    // The mutation is not replayed and not acknowledged, so it stays queued.
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(mockedAcknowledgeQueuedMutations).not.toHaveBeenCalled();
+  });
+
+  it('rejects a delete-result mutation with a non-string slotId but acknowledges earlier successes', async () => {
+    mockedListQueuedMutations.mockResolvedValue([
+      {
+        id: 82,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'record-result',
+        payload: {
+          workoutIndex: 0,
+          slotId: 'squat-t1',
+          result: 'success',
+        },
+        createdAt: '2026-04-20T10:00:00.000Z',
+      },
+      {
+        id: 83,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'delete-result',
+        payload: {
+          workoutIndex: 2,
+          slotId: 123,
+        },
+        createdAt: '2026-04-20T10:01:00.000Z',
+      },
+    ]);
+
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+    fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 201 }));
+
+    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow(
+      'Invalid delete-result mutation payload'
+    );
+
+    // Only the successful record-result was replayed; the invalid delete-result
+    // never reached the network and remains queued.
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledTimes(1);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([82]);
+  });
+
+  it('rejects an unsupported queued mutation operation and leaves it queued', async () => {
+    mockedListQueuedMutations.mockResolvedValue([
+      {
+        id: 91,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'archive-program',
+        payload: {},
+        createdAt: '2026-04-20T10:00:00.000Z',
+      },
+    ]);
+
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+
+    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow(
+      'Unsupported queued mutation operation: archive-program'
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(mockedAcknowledgeQueuedMutations).not.toHaveBeenCalled();
+  });
+
+  it('keeps the original replay error when acking earlier successes fails during error handling', async () => {
+    mockedListQueuedMutations.mockResolvedValue([
+      {
+        id: 95,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'record-result',
+        payload: {
+          workoutIndex: 0,
+          slotId: 'squat-t1',
+          result: 'success',
+        },
+        createdAt: '2026-04-20T10:00:00.000Z',
+      },
+      {
+        id: 96,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'delete-result',
+        payload: {
+          workoutIndex: 2,
+          slotId: 'bench-t2',
+        },
+        createdAt: '2026-04-20T10:01:00.000Z',
+      },
+    ]);
+    mockedAcknowledgeQueuedMutations.mockRejectedValue(new Error('ack failed'));
+
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+    fetchSpy
+      .mockResolvedValueOnce(new Response('{}', { status: 201 }))
+      .mockResolvedValueOnce(new Response('nope', { status: 500 }));
+
+    // The ack rejection inside the catch block is swallowed so the flush
+    // surfaces the actionable failure: the replay error itself.
+    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow(
+      'Queued mutation sync failed with status 500'
+    );
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledTimes(1);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([95]);
+  });
+
   it('skips ack work when there is nothing queued', async () => {
     mockedListQueuedMutations.mockResolvedValue([]);
     const fetchSpy = jest.spyOn(globalThis, 'fetch');

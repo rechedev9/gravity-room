@@ -181,11 +181,12 @@ function CollapsibleSection({
 // ---------------------------------------------------------------------------
 
 function StatsPanel({ definition, rows, resultTimestamps }: StatsPanelProps): ReactNode {
-  const { t } = useTranslation();
-  // Single-pass extraction — all 4 data structures computed in one iteration
+  const { t, i18n } = useTranslation();
+  // Single-pass extraction — all 4 data structures computed in one iteration.
+  // The active UI locale drives the chart date labels.
   const { chartData, rpeData, amrapData, volumeData } = useMemo(
-    () => extractAllGenericStats(definition, rows, resultTimestamps),
-    [definition, rows, resultTimestamps]
+    () => extractAllGenericStats(definition, rows, resultTimestamps, i18n.language),
+    [definition, rows, resultTimestamps, i18n.language]
   );
 
   const groups = groupExercises(definition);

@@ -52,7 +52,9 @@ export async function setupTestDb(): Promise<TestDb> {
   });
   await migrationClient.end();
 
-  _client = postgres(TEST_DB_URL, { max: 5 });
+  // onnotice: TRUNCATE ... CASCADE emits a NOTICE per cascaded table on every
+  // between-test cleanup; the default handler prints them all to the reporter.
+  _client = postgres(TEST_DB_URL, { max: 5, onnotice: () => {} });
   _db = drizzle(_client, { schema });
   return _db;
 }

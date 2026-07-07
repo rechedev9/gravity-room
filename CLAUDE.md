@@ -324,7 +324,8 @@ real web client ID.
 
 ```bash
 pnpm run test           # web + domain + database + api-client + mobile
-pnpm run test:api       # API only (needs DATABASE_URL)
+pnpm run test:api       # API only (unit suite; DB fully mocked)
+pnpm run test:api:e2e   # API DB-backed integration suite (needs DATABASE_URL_TEST → dedicated Postgres DB, wiped between tests)
 pnpm run test:domain    # domain only (no DB)
 pnpm run typecheck      # web + domain + database + api-client + mobile
 pnpm run typecheck:api  # API
@@ -586,7 +587,7 @@ The following were removed in the Vercel migration and must not be reintroduced:
 
 - **The Python analytics service** (`apps/backend/analytics/`, FastAPI + scikit-learn + APScheduler). Ported to TypeScript in-process at `apps/backend/api/src/analytics/`, driven by Vercel Cron.
 - **All VPS/Docker deploy infra**: `infra/production/` (Docker Compose, `Caddyfile`, ops scripts, cron units), every `Dockerfile`, root `.dockerignore`, and the `.github/workflows/deploy.yml` continuous-deploy workflow. Production is serverless on Vercel.
-- **The `validate.yml` and `security.yml` workflows** (folded into `ci.yml`; the `docker-build` job, CodeQL, Semgrep, and the dependency audits are gone). **Active workflows:** `ci.yml`, `claude.yml`, `claude-code-review.yml`. `ci.yml` runs typecheck/lint/test/format per workspace, the `OpenAPI client drift` check, the `Gitleaks secret scan` (config: `.gitleaks.toml`), and an aggregate `Validate` gate.
+- **The `validate.yml` and `security.yml` workflows** (folded into `ci.yml`; the `docker-build` job, CodeQL, Semgrep, and the dependency audits are gone). **Active workflows:** `ci.yml`, `claude.yml`, `claude-code-review.yml`. `ci.yml` runs typecheck/lint/test/format per workspace, two Postgres-backed jobs (`API integration (Postgres)` → `pnpm --filter api test:e2e`, and `Database` → migrations + `RUN_DB_SEED_INTEGRATION=true` seed-idempotency tests), the `OpenAPI client drift` check, the `Gitleaks secret scan` (config: `.gitleaks.toml`), and an aggregate `Validate` gate.
 - **`/metrics` + prom-client** (observability is `@sentry/node` + pino), and the `REDIS_URL`/`METRICS_TOKEN`/`DB_POOL_SIZE`/`COMPUTE_INTERVAL_HOURS` env vars.
 - Stale per-package `.env.example` / `.env.production.example` files; the single root `.env.example` is the template.
 

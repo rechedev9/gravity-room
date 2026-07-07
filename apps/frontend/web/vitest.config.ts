@@ -23,5 +23,17 @@ export default defineConfig({
     // asserts against a committed generated artifact and is run on demand).
     include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['./test/setup.ts'],
+    // Keep tests hermetic: happy-dom eagerly fetches iframe/src documents
+    // (e.g. the exercise-wiki YouTube embeds), which hits the real network
+    // and spams NetworkError noise. Nothing asserts on loaded subresources.
+    environmentOptions: {
+      happyDOM: {
+        settings: {
+          navigation: { disableChildFrameNavigation: true },
+          disableJavaScriptFileLoading: true,
+          disableCSSFileLoading: true,
+        },
+      },
+    },
   },
 });

@@ -24,6 +24,7 @@
     "format:fix": "prettier --write .",
     "test": "pnpm --filter web test && pnpm run test:domain && pnpm run test:database && pnpm run test:api-client && pnpm run test:mobile",
     "test:api": "pnpm --filter api test",
+    "test:api:e2e": "pnpm --filter api test:e2e",
     "test:domain": "pnpm --filter @gzclp/domain test",
     "test:api-client": "pnpm --filter @gzclp/api-client test",
     "test:mobile": "pnpm --filter mobile test",

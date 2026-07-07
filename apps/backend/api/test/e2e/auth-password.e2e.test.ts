@@ -1,6 +1,6 @@
 /**
  * Integration tests for the email/password method against a real Postgres.
- * Run with: DATABASE_URL_TEST=... bun run test:e2e
+ * Run with: DATABASE_URL_TEST=... pnpm --filter api test:e2e
  *
  * Covers the DB-backed flows the mocked unit suite can't reach: argon2 hashing
  * round-trips through the DB, single-use token create/consume, the EMAIL_TAKEN

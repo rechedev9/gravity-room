@@ -132,7 +132,14 @@ export async function flushQueuedMutations(
         acknowledgedIds.push(mutation.id);
       } catch (error) {
         if (acknowledgedIds.length > 0) {
-          await acknowledgeQueuedMutations(acknowledgedIds);
+          try {
+            await acknowledgeQueuedMutations(acknowledgedIds);
+          } catch {
+            // The replay error is the actionable failure — never mask it with
+            // an ack bookkeeping error. Un-acked successes stay queued and are
+            // re-replayed on the next flush (replays tolerate repeats: deletes
+            // treat 404 as applied).
+          }
         }
 
         throw error;

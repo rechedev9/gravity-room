@@ -19,6 +19,16 @@ describe('ApiError', () => {
     const err = new ApiError('Bad request', 400);
     expect(err.code).toBeUndefined();
   });
+
+  it('exposes message, status and code together on a fully-specified instance', () => {
+    const err = new ApiError('Too many requests', 429, 'RATE_LIMITED');
+    expect(err.message).toBe('Too many requests');
+    expect(err.status).toBe(429);
+    expect(err.code).toBe('RATE_LIMITED');
+    expect(err.name).toBe('ApiError');
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err).toBeInstanceOf(Error);
+  });
 });
 
 describe('parseApiErrorBody', () => {
@@ -49,5 +59,17 @@ describe('parseApiErrorBody', () => {
   it('ignores non-string code', () => {
     const result = parseApiErrorBody({ error: 'oops', code: 42 });
     expect(result).toEqual({ message: 'oops' });
+  });
+
+  it('keeps a string code even when there is no string error field', () => {
+    // A body like { code: 'X' } has no usable message, but the machine-readable
+    // code is still valid — callers must be able to branch on it.
+    const result = parseApiErrorBody({ code: 'X' });
+    expect(result).toEqual({ message: 'Unknown error', code: 'X' });
+  });
+
+  it('keeps a string code when error is present but not a string', () => {
+    const result = parseApiErrorBody({ error: 42, code: 'X' });
+    expect(result).toEqual({ message: 'Unknown error', code: 'X' });
   });
 });

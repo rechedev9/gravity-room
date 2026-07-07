@@ -1,19 +1,14 @@
 /**
  * Exhaustive stub set for `@/lib/api-functions` mocks.
  *
- * Why this exists: every test that calls `mock.module('@/lib/api-functions', ...)`
- * replaces the module with whatever object the factory returns. Bun runs the
- * whole `src/` test suite in a single process, so a partial mock from one file
- * leaks into the next. If a later test (or a component imported by a later
- * test) references an export the active mock omits, Bun fails with
- * `SyntaxError: Export named '<name>' not found in module '.../api-functions.ts'`.
- *
- * Spreading `apiFunctionsStubs` into every mock guarantees that all 24 runtime
- * exports are at least present, and lets tests override only the ones they
- * actually exercise:
+ * Every test that calls `vi.mock('@/lib/api-functions', ...)` replaces the
+ * module with whatever object the factory returns. A partial mock breaks any
+ * component in the same file that imports an export the factory omits.
+ * Spreading `apiFunctionsStubs` guarantees all runtime exports are present,
+ * and lets tests override only the ones they actually exercise:
  *
  * ```ts
- * mock.module('@/lib/api-functions', () => ({
+ * vi.mock('@/lib/api-functions', () => ({
  *   ...apiFunctionsStubs,
  *   fetchMe: mockFetchMe,
  * }));
@@ -21,21 +16,14 @@
  *
  * Keep this file in lockstep with the real module's runtime export list — if
  * you add a new exported function to `apps/frontend/web/src/lib/api-functions.ts`,
- * add a stub here too, otherwise tests will start failing with the same
- * SyntaxError.
+ * add a stub here too.
+ *
+ * Every stub must be hermetic: no stub may touch the real network, even as a
+ * "sensible default".
  */
 import { vi } from 'vitest';
-import { z } from 'zod/v4';
 import { ExerciseEntrySchema } from '@gzclp/domain/schemas/exercises';
 import { parseUserSafe as realParseUserSafe } from '@gzclp/domain/schemas/user';
-
-const AuthProvidersResponseSchema = z.object({
-  emailPassword: z.boolean(),
-  google: z.boolean(),
-  apple: z.boolean(),
-  github: z.boolean(),
-  microsoft: z.boolean(),
-});
 
 export const apiFunctionsStubs = {
   // Auth-aware fetch wrapper
@@ -59,11 +47,17 @@ export const apiFunctionsStubs = {
   // Real implementation by default — pure Zod parser, safe to use across tests.
   parseUserSafe: vi.fn((data: unknown) => realParseUserSafe(data)),
 
-  // Public stats
-  fetchAuthProviders: vi.fn(async () => {
-    const res = await fetch('http://localhost:3001/api/auth/providers');
-    return AuthProvidersResponseSchema.parse(await res.json());
-  }),
+  // Public stats — static shape, never touches the network: a default stub
+  // must stay hermetic even when a test forgets to override it.
+  fetchAuthProviders: vi.fn(() =>
+    Promise.resolve({
+      emailPassword: true,
+      google: false,
+      apple: false,
+      github: false,
+      microsoft: false,
+    })
+  ),
   fetchOnlineCount: vi.fn(() => Promise.resolve(null)),
 
   // Generic (slot-keyed) program operations
