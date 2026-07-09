@@ -28,6 +28,7 @@ import {
   authenticatePassword,
   createPasswordUser,
   createEmailVerificationToken,
+  replaceEmailVerificationToken,
   consumeEmailVerificationToken,
   markEmailVerified,
   createPasswordResetToken,
@@ -43,6 +44,7 @@ import {
 import { sendTelegramMessage } from '../lib/telegram';
 import { isEmailConfigured, sendVerificationEmail, sendPasswordResetEmail } from '../lib/email';
 import { getApiBaseUrl, getWebBaseUrl } from '../lib/app-url';
+import { keepAlive } from '../lib/wait-until';
 import {
   isAppleConfigured,
   buildAppleAuthorizeUrl,
@@ -99,7 +101,12 @@ const DEV_AUTH_ENABLED =
   process.env['AUTH_DEV_ROUTE_ENABLED'] === 'true' &&
   !IS_PRODUCTION &&
   DEV_AUTH_SECRET.length >= 16;
-const DEV_AUTH_RATE_LIMIT = { maxRequests: 1_000, windowMs: 60_000 };
+// The dev route 404s in production, so this only ever applies to preview/staging
+// envs where it is deliberately enabled. Even there the secret is compared in
+// constant time and must be ≥16 chars, but a tight per-IP cap is cheap
+// defense-in-depth against anyone hammering the secret. 60/min stays well above
+// any legitimate scripted dev/QA usage.
+const DEV_AUTH_RATE_LIMIT = { maxRequests: 60, windowMs: 60_000 };
 const emailInputSchema = t.String({ format: 'email', maxLength: MAX_EMAIL_CHARS });
 
 /** Constant-time comparison of the dev-auth secret header against the configured value. */
@@ -114,6 +121,44 @@ function devAuthSecretMatches(provided: string | undefined): boolean {
 const MAX_AVATAR_BYTES = 200_000;
 const DATA_URL_IMAGE_RE =
   /^data:image\/(jpeg|png|webp);base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
+/**
+ * Confirm the decoded avatar bytes actually carry the magic-byte signature of
+ * the MIME type the data URL claims. The regex + base64 round-trip only proves
+ * the payload is well-formed base64 with an image-ish prefix; without this an
+ * attacker could store arbitrary non-image bytes (or a mislabelled format) under
+ * an `image/*` label. We reject anything whose leading bytes don't match the
+ * declared raster format.
+ */
+function avatarSignatureMatches(declaredType: string, buf: Buffer): boolean {
+  switch (declaredType) {
+    case 'jpeg':
+      // SOI marker: FF D8 FF
+      return buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+    case 'png':
+      // 89 50 4E 47 0D 0A 1A 0A
+      return (
+        buf.length >= 8 &&
+        buf[0] === 0x89 &&
+        buf[1] === 0x50 &&
+        buf[2] === 0x4e &&
+        buf[3] === 0x47 &&
+        buf[4] === 0x0d &&
+        buf[5] === 0x0a &&
+        buf[6] === 0x1a &&
+        buf[7] === 0x0a
+      );
+    case 'webp':
+      // RIFF....WEBP
+      return (
+        buf.length >= 12 &&
+        buf.toString('ascii', 0, 4) === 'RIFF' &&
+        buf.toString('ascii', 8, 12) === 'WEBP'
+      );
+    default:
+      return false;
+  }
+}
 
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true as const,
@@ -266,6 +311,7 @@ async function refreshAuthToken(
       );
       await revokeAllUserTokens(successor.userId);
     }
+    onInvalidatedToken?.();
     throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
   }
 
@@ -303,6 +349,12 @@ async function signOutWithRefreshToken(refreshToken: unknown): Promise<void> {
 
   const tokenHash = await hashToken(refreshToken);
   await revokeRefreshToken(tokenHash);
+
+  // A concurrent refresh may already have consumed this token and created its
+  // successor. Revoke the whole family in that case so a delayed refresh
+  // response cannot reinstall a still-valid session after logout.
+  const successor = await findRefreshTokenByPreviousHash(tokenHash);
+  if (successor) await revokeAllUserTokens(successor.userId);
 }
 
 interface GoogleSignInResult {
@@ -348,7 +400,7 @@ async function processGoogleSignIn(
     const deviceType = classifyDevice(userAgent ?? undefined);
     const timestamp = new Date().toISOString();
     const text = `New user: ${user.email} | ${deviceType} | ${timestamp}`;
-    void sendTelegramMessage(text);
+    keepAlive(sendTelegramMessage(text));
   }
 
   return { user, isNewUser };
@@ -393,8 +445,8 @@ function removeStateCookie(
 }
 
 /** Builds the SPA callback URL the browser is redirected to, with an optional error code. */
-function socialCallbackUrl(provider: string, error?: string): string {
-  const base = `${getWebBaseUrl()}/auth/callback`;
+function socialCallbackUrl(request: Request, provider: string, error?: string): string {
+  const base = `${getWebBaseUrl(request)}/auth/callback`;
   return error
     ? `${base}?provider=${provider}&error=${encodeURIComponent(error)}`
     : `${base}?provider=${provider}`;
@@ -552,11 +604,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const user = await createPasswordUser({ email: body.email, passwordHash, name: body.name });
 
       const token = await createEmailVerificationToken(user.id);
-      void sendVerificationEmail(user.email, token);
+      keepAlive(sendVerificationEmail(user.email, token, request));
 
       const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
-      void sendTelegramMessage(
-        `New user: ${user.email} | ${deviceType} | ${new Date().toISOString()}`
+      keepAlive(
+        sendTelegramMessage(`New user: ${user.email} | ${deviceType} | ${new Date().toISOString()}`)
       );
 
       reqLogger.info({ event: 'auth.signup', userId: user.id }, 'email signup');
@@ -662,18 +714,64 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   )
 
   // -----------------------------------------------------------------------
+  // POST /auth/resend-verification - re-send the verification email (generic 200)
+  // -----------------------------------------------------------------------
+  .post(
+    '/resend-verification',
+    async ({ body, set, reqLogger, ip, request }) => {
+      await rateLimit(ip, '/auth/resend-verification', { maxRequests: 5 });
+      assertEmailConfiguredForProduction();
+
+      const user = await findUserByEmail(body.email);
+      // Only re-send for an existing, still-unverified password account. Already
+      // verified accounts, OAuth-only accounts (no password hash), and unknown
+      // emails are all silently ignored so the response never reveals whether -
+      // or in what state - an account exists. Replacing the token invalidates any
+      // earlier verification link the user may still be holding.
+      if (user?.passwordHash && !user.emailVerified) {
+        const token = await replaceEmailVerificationToken(user.id);
+        keepAlive(sendVerificationEmail(user.email, token, request));
+        reqLogger.info(
+          { event: 'auth.resend_verification', userId: user.id },
+          'verification email re-queued'
+        );
+      }
+
+      // Always generic - never reveal whether the account exists or its state.
+      set.status = 200;
+      return {
+        message:
+          'If an account exists for that email and still needs verification, a new link has been sent.',
+      };
+    },
+    {
+      body: t.Object({ email: emailInputSchema }),
+      detail: {
+        tags: ['Auth'],
+        summary: 'Resend the email verification link',
+        description:
+          'Re-sends the verification email when an unverified password account exists, replacing any earlier link. Always returns 200 to avoid account enumeration.',
+        responses: {
+          200: { description: 'Generic acknowledgement' },
+          429: { description: 'Rate limited' },
+        },
+      },
+    }
+  )
+
+  // -----------------------------------------------------------------------
   // POST /auth/forgot-password — request a reset link (always generic 200)
   // -----------------------------------------------------------------------
   .post(
     '/forgot-password',
-    async ({ body, set, reqLogger, ip }) => {
+    async ({ body, set, reqLogger, ip, request }) => {
       await rateLimit(ip, '/auth/forgot-password', { maxRequests: 5 });
       assertEmailConfiguredForProduction();
 
       const user = await findUserByEmail(body.email);
       if (user?.passwordHash) {
         const token = await createPasswordResetToken(user.id);
-        void sendPasswordResetEmail(user.email, token);
+        keepAlive(sendPasswordResetEmail(user.email, token, request));
         reqLogger.info({ event: 'auth.forgot_password', userId: user.id }, 'reset email queued');
       }
 
@@ -740,17 +838,17 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .get(
     '/apple/start',
-    async ({ cookie, redirect, ip }) => {
+    async ({ cookie, redirect, ip, request }) => {
       await rateLimit(ip, '/auth/apple/start', { maxRequests: 30 });
       if (!isAppleConfigured()) {
-        return redirect(socialCallbackUrl('apple', 'provider_not_configured'));
+        return redirect(socialCallbackUrl(request, 'apple', 'provider_not_configured'));
       }
       const state = generateRefreshToken();
       const nonce = generateRefreshToken();
       cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('none') });
       cookie[OAUTH_NONCE_COOKIE]?.set({ value: nonce, ...stateCookieOptions('none') });
       return redirect(
-        buildAppleAuthorizeUrl(state, `${getApiBaseUrl()}/api/auth/apple/callback`, nonce)
+        buildAppleAuthorizeUrl(state, `${getApiBaseUrl(request)}/api/auth/apple/callback`, nonce)
       );
     },
     {
@@ -783,10 +881,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const providerError = typeof body.error === 'string' ? body.error : undefined;
 
       if (providerError || !idToken || !requestState) {
-        return redirect(socialCallbackUrl('apple', 'cancelled'));
+        return redirect(socialCallbackUrl(request, 'apple', 'cancelled'));
       }
       if (!expectedState || expectedState !== requestState || !expectedNonce) {
-        return redirect(socialCallbackUrl('apple', 'state_mismatch'));
+        return redirect(socialCallbackUrl(request, 'apple', 'state_mismatch'));
       }
 
       let claims;
@@ -794,11 +892,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         claims = await verifyAppleIdToken(idToken, expectedNonce);
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'apple: id_token verification failed');
-        return redirect(socialCallbackUrl('apple', 'invalid_token'));
+        return redirect(socialCallbackUrl(request, 'apple', 'invalid_token'));
       }
 
       if (!claims.email) {
-        return redirect(socialCallbackUrl('apple', 'email_required'));
+        return redirect(socialCallbackUrl(request, 'apple', 'email_required'));
       }
 
       try {
@@ -811,16 +909,18 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         });
         if (isNewUser) {
           const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
-          void sendTelegramMessage(
-            `New user: ${user.email} | apple/${deviceType} | ${new Date().toISOString()}`
+          keepAlive(
+            sendTelegramMessage(
+              `New user: ${user.email} | apple/${deviceType} | ${new Date().toISOString()}`
+            )
           );
         }
         await issueTokens(jwt, cookie, user);
         reqLogger.info({ event: 'auth.apple', userId: user.id }, 'apple sign-in');
-        return redirect(socialCallbackUrl('apple'));
+        return redirect(socialCallbackUrl(request, 'apple'));
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'apple: sign-in failed');
-        return redirect(socialCallbackUrl('apple', identityErrorCode(e)));
+        return redirect(socialCallbackUrl(request, 'apple', identityErrorCode(e)));
       }
     },
     {
@@ -845,10 +945,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .get(
     '/github/start',
-    async ({ cookie, redirect, ip }) => {
+    async ({ cookie, redirect, ip, request }) => {
       await rateLimit(ip, '/auth/github/start', { maxRequests: 30 });
       if (!isGitHubConfigured()) {
-        return redirect(socialCallbackUrl('github', 'provider_not_configured'));
+        return redirect(socialCallbackUrl(request, 'github', 'provider_not_configured'));
       }
       const state = generateRefreshToken();
       const verifier = generatePkceVerifier();
@@ -856,7 +956,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('lax') });
       cookie[OAUTH_PKCE_COOKIE]?.set({ value: verifier, ...stateCookieOptions('lax') });
       return redirect(
-        buildGitHubAuthorizeUrl(state, `${getApiBaseUrl()}/api/auth/github/callback`, challenge)
+        buildGitHubAuthorizeUrl(
+          state,
+          `${getApiBaseUrl(request)}/api/auth/github/callback`,
+          challenge
+        )
       );
     },
     {
@@ -889,15 +993,15 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const providerError = typeof query.error === 'string' ? query.error : undefined;
 
       if (providerError || !code || !requestState) {
-        return redirect(socialCallbackUrl('github', 'cancelled'));
+        return redirect(socialCallbackUrl(request, 'github', 'cancelled'));
       }
       if (!expectedState || expectedState !== requestState || !codeVerifier) {
-        return redirect(socialCallbackUrl('github', 'state_mismatch'));
+        return redirect(socialCallbackUrl(request, 'github', 'state_mismatch'));
       }
 
       let identity;
       try {
-        const redirectUri = `${getApiBaseUrl()}/api/auth/github/callback`;
+        const redirectUri = `${getApiBaseUrl(request)}/api/auth/github/callback`;
         const accessToken = await exchangeGitHubCode(code, redirectUri, codeVerifier);
         identity = await fetchGitHubIdentity(accessToken);
       } catch (e: unknown) {
@@ -906,7 +1010,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           e instanceof ApiError && e.code === 'AUTH_EMAIL_UNVERIFIED'
             ? 'email_required'
             : 'provider_error';
-        return redirect(socialCallbackUrl('github', code));
+        return redirect(socialCallbackUrl(request, 'github', code));
       }
 
       try {
@@ -919,16 +1023,18 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         });
         if (isNewUser) {
           const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
-          void sendTelegramMessage(
-            `New user: ${user.email} | github/${deviceType} | ${new Date().toISOString()}`
+          keepAlive(
+            sendTelegramMessage(
+              `New user: ${user.email} | github/${deviceType} | ${new Date().toISOString()}`
+            )
           );
         }
         await issueTokens(jwt, cookie, user);
         reqLogger.info({ event: 'auth.github', userId: user.id }, 'github sign-in');
-        return redirect(socialCallbackUrl('github'));
+        return redirect(socialCallbackUrl(request, 'github'));
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'github: sign-in failed');
-        return redirect(socialCallbackUrl('github', identityErrorCode(e)));
+        return redirect(socialCallbackUrl(request, 'github', identityErrorCode(e)));
       }
     },
     {
@@ -951,10 +1057,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .get(
     '/microsoft/start',
-    async ({ cookie, redirect, ip }) => {
+    async ({ cookie, redirect, ip, request }) => {
       await rateLimit(ip, '/auth/microsoft/start', { maxRequests: 30 });
       if (!isMicrosoftConfigured()) {
-        return redirect(socialCallbackUrl('microsoft', 'provider_not_configured'));
+        return redirect(socialCallbackUrl(request, 'microsoft', 'provider_not_configured'));
       }
       const state = generateRefreshToken();
       const nonce = generateRefreshToken();
@@ -966,7 +1072,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       return redirect(
         buildMicrosoftAuthorizeUrl(
           state,
-          `${getApiBaseUrl()}/api/auth/microsoft/callback`,
+          `${getApiBaseUrl(request)}/api/auth/microsoft/callback`,
           nonce,
           challenge
         )
@@ -1005,15 +1111,15 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const providerError = typeof query.error === 'string' ? query.error : undefined;
 
       if (providerError || !code || !requestState) {
-        return redirect(socialCallbackUrl('microsoft', 'cancelled'));
+        return redirect(socialCallbackUrl(request, 'microsoft', 'cancelled'));
       }
       if (!expectedState || expectedState !== requestState || !expectedNonce || !codeVerifier) {
-        return redirect(socialCallbackUrl('microsoft', 'state_mismatch'));
+        return redirect(socialCallbackUrl(request, 'microsoft', 'state_mismatch'));
       }
 
       let identity;
       try {
-        const redirectUri = `${getApiBaseUrl()}/api/auth/microsoft/callback`;
+        const redirectUri = `${getApiBaseUrl(request)}/api/auth/microsoft/callback`;
         const tokenSet = await exchangeMicrosoftCode(code, redirectUri, codeVerifier);
         identity = await fetchMicrosoftIdentity(
           tokenSet.idToken,
@@ -1026,7 +1132,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           e instanceof ApiError && e.code === 'AUTH_EMAIL_UNVERIFIED'
             ? 'email_required'
             : 'provider_error';
-        return redirect(socialCallbackUrl('microsoft', code));
+        return redirect(socialCallbackUrl(request, 'microsoft', code));
       }
 
       try {
@@ -1039,16 +1145,18 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         });
         if (isNewUser) {
           const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
-          void sendTelegramMessage(
-            `New user: ${user.email} | microsoft/${deviceType} | ${new Date().toISOString()}`
+          keepAlive(
+            sendTelegramMessage(
+              `New user: ${user.email} | microsoft/${deviceType} | ${new Date().toISOString()}`
+            )
           );
         }
         await issueTokens(jwt, cookie, user);
         reqLogger.info({ event: 'auth.microsoft', userId: user.id }, 'microsoft sign-in');
-        return redirect(socialCallbackUrl('microsoft'));
+        return redirect(socialCallbackUrl(request, 'microsoft'));
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'microsoft: sign-in failed');
-        return redirect(socialCallbackUrl('microsoft', identityErrorCode(e)));
+        return redirect(socialCallbackUrl(request, 'microsoft', identityErrorCode(e)));
       }
     },
     {
@@ -1223,17 +1331,22 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/signout',
     async ({ cookie, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/signout');
-
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
-      await signOutWithRefreshToken(refreshCookie?.value);
+      try {
+        await rateLimit(ip, '/auth/signout');
+        await signOutWithRefreshToken(refreshCookie?.value);
 
-      if (refreshCookie) removeRefreshCookie(refreshCookie);
-      reqLogger.info({ event: 'auth.signout' }, 'user signed out');
-      // Body-less 204: Node's undici rejects a non-null body with status 204
-      // (Bun tolerated it). The refresh-cookie clear above is still serialized
-      // onto this Response by Elysia.
-      return new Response(null, { status: 204 });
+        reqLogger.info({ event: 'auth.signout' }, 'user signed out');
+        // Body-less 204: Node's undici rejects a non-null body with status 204
+        // (Bun tolerated it). The refresh-cookie clear below is still serialized
+        // onto this Response by Elysia.
+        return new Response(null, { status: 204 });
+      } finally {
+        // Expire the browser credential even when rate limiting or storage
+        // fails. The client still reports the error, but a reload cannot reuse
+        // a cookie that the server was able to answer for.
+        if (refreshCookie) removeRefreshCookie(refreshCookie);
+      }
     },
     {
       detail: {
@@ -1316,13 +1429,15 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       await rateLimit(ip, '/auth/me/patch', { maxRequests: 20 });
 
       if (body.avatarUrl !== undefined && body.avatarUrl !== null) {
-        if (!DATA_URL_IMAGE_RE.test(body.avatarUrl)) {
+        const dataUrlMatch = DATA_URL_IMAGE_RE.exec(body.avatarUrl);
+        if (!dataUrlMatch) {
           throw new ApiError(
             400,
             'Avatar must be a base64 data URL (JPEG, PNG, or WebP)',
             'INVALID_AVATAR'
           );
         }
+        const declaredType = dataUrlMatch[1];
         if (body.avatarUrl.length > MAX_AVATAR_BYTES) {
           throw new ApiError(400, 'Avatar exceeds maximum size (200KB)', 'AVATAR_TOO_LARGE');
         }
@@ -1331,14 +1446,24 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         if (!b64Part || b64Part.length === 0) {
           throw new ApiError(400, 'Empty avatar data', 'INVALID_AVATAR');
         }
+        let decoded: Buffer;
         try {
-          const decoded = Buffer.from(b64Part, 'base64');
+          decoded = Buffer.from(b64Part, 'base64');
           if (decoded.toString('base64') !== b64Part) {
             throw new ApiError(400, 'Invalid base64 in avatar', 'INVALID_AVATAR');
           }
         } catch (e: unknown) {
           if (e instanceof ApiError) throw e;
           throw new ApiError(400, 'Invalid base64 in avatar', 'INVALID_AVATAR');
+        }
+        // Confirm the decoded bytes are actually an image of the declared type,
+        // not arbitrary data smuggled under an image/* label.
+        if (declaredType === undefined || !avatarSignatureMatches(declaredType, decoded)) {
+          throw new ApiError(
+            400,
+            'Avatar data is not a valid image of the declared type',
+            'INVALID_AVATAR'
+          );
         }
       }
 

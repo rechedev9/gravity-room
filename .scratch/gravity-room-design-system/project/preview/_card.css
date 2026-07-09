@@ -1,6 +1,7 @@
 @import url('../colors_and_type.css');
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   background: var(--color-body);
@@ -14,8 +15,16 @@ html, body {
   padding: 20px;
   background: var(--color-body);
 }
-.row { display: flex; gap: 12px; align-items: stretch; }
-.col { display: flex; flex-direction: column; gap: 8px; }
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .swatch {
   flex: 1;
   min-width: 0;

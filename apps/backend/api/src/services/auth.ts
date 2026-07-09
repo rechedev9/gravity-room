@@ -393,11 +393,39 @@ export async function markEmailVerified(userId: string): Promise<UserRow | undef
 
 // Single-use tokens (SHA-256 hashed at rest, like refresh tokens) ------------
 
-export async function createEmailVerificationToken(userId: string): Promise<string> {
+/**
+ * Mints the raw token + hashed row for an email-verification link. Single
+ * source for generation, hashing, and TTL so the signup and resend paths can
+ * never drift apart on the token scheme.
+ */
+async function mintEmailVerificationToken(
+  userId: string
+): Promise<{ token: string; row: { userId: string; tokenHash: string; expiresAt: Date } }> {
   const token = generateRefreshToken();
   const tokenHash = await hashToken(token);
   const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
-  await getDb().insert(emailVerificationTokens).values({ userId, tokenHash, expiresAt });
+  return { token, row: { userId, tokenHash, expiresAt } };
+}
+
+export async function createEmailVerificationToken(userId: string): Promise<string> {
+  const { token, row } = await mintEmailVerificationToken(userId);
+  await getDb().insert(emailVerificationTokens).values(row);
+  return token;
+}
+
+/**
+ * Replaces every existing email-verification token for a user with a single fresh
+ * token, returning the raw token. Deleting the user's prior tokens first (in the
+ * same transaction as the insert) guarantees that only the most recently sent
+ * verification link is valid - a resend invalidates any earlier link, matching the
+ * single-use token model of {@link consumeEmailVerificationToken}.
+ */
+export async function replaceEmailVerificationToken(userId: string): Promise<string> {
+  const { token, row } = await mintEmailVerificationToken(userId);
+  await getDb().transaction(async (tx) => {
+    await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
+    await tx.insert(emailVerificationTokens).values(row);
+  });
   return token;
 }
 

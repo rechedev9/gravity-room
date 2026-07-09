@@ -34,7 +34,7 @@ migrations) and `packages/api-client` (typed fetch wrapper).
 ## Cross-cutting contracts
 
 - **GZCLP rules + Zod schemas live in `packages/domain`** (imported as `@gzclp/domain` via `workspace:*` by web, mobile, api). It is the single source of truth — never duplicate logic that belongs here.
-- **API contract**: ElysiaJS exposes `/swagger/json` (non-prod). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. CI gates drift in `.github/workflows/ci.yml` (the `OpenAPI client drift` job boots the API against a Postgres service container and runs `git diff --exit-code` on the generated client) — Lefthook no longer runs this check pre-push because it requires a live API. **Mobile does NOT consume this generated client** — it hand-writes API calls. Unifying is on the roadmap (`packages/api-client`).
+- **API contract**: ElysiaJS exposes `/swagger/json` (non-prod). Web codegen at `apps/frontend/web/codegen/generate-api-types.ts` regenerates `apps/frontend/web/src/lib/api/generated.ts`. CI gates drift in `.github/workflows/ci.yml` (the `OpenAPI client drift` job boots the API with a dummy `DATABASE_URL` — no Postgres needed, swagger serves from route schemas alone — and runs `git diff --exit-code` on the regenerated client). Lefthook does NOT run this check (it needs a live API), so after changing routes regenerate locally with `pnpm --filter web api:types` and commit. **Mobile does NOT consume this generated client** — it hand-writes API calls. Unifying is on the roadmap (`packages/api-client`).
 - **Auth**: JWT access + refresh-token rotation. Multi-method sign-in (Google, Apple, GitHub, Microsoft, email/password). Server logic split: `apps/backend/api/src/routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` + `lib/google-auth.ts`.
 - **Migrations**: applied by the standalone build-time deploy step `apps/backend/api/src/scripts/migrate-deploy.ts` (run via `pnpm --filter api db:deploy`, gated to production in `scripts/vercel-build.sh`) against `DIRECT_DATABASE_URL` — NOT on API startup (the serverless entrypoint has no boot-time DDL). Drizzle config at `packages/database/drizzle.config.ts`. Schema at `packages/database/src/schema.ts`. Generated SQL at `packages/database/migrations/`.
 - **Analytics → API integration**: insights are pre-computed in TypeScript inside the API (`apps/backend/api/src/analytics/`) and stored in the `user_insights` table. A Vercel Cron job calls `POST /api/internal/analytics/compute`, which processes a bounded least-recently-computed batch per tick (idempotent upserts). That route, like the other `/api/internal/*` cron routes, accepts the `CRON_SECRET` Vercel injects or a manual `INTERNAL_SECRET` Bearer — and fails closed when neither is set. Parity with the old Python outputs is frozen by golden-file tests (`src/analytics/pipelines/pipelines.parity.test.ts`).
@@ -323,10 +323,10 @@ real web client ID.
 ### Validate
 
 ```bash
-pnpm run test           # web + domain + mobile
+pnpm run test           # web + domain + database + api-client + mobile
 pnpm run test:api       # API only (needs DATABASE_URL)
 pnpm run test:domain    # domain only (no DB)
-pnpm run typecheck      # web + domain + mobile
+pnpm run typecheck      # web + domain + database + api-client + mobile
 pnpm run typecheck:api  # API
 pnpm run lint           # web + API
 pnpm run e2e            # Playwright/Chromium — webServer builds web + starts API; set DATABASE_URL first (it does NOT start Postgres)
@@ -347,7 +347,7 @@ pnpm run db:studio      # Drizzle Studio at http://local.drizzle.studio
 
 - **OpenAPI drift**: after changing API routes, regenerate the web client with the API running on
   :3001 — `cd apps/frontend/web && pnpm run api:types`. Drift is gated by CI's `OpenAPI client drift`
-  job, **not** by Lefthook pre-push (it needs a live API; see Cross-cutting contracts).
+  job in `ci.yml`, **not** by Lefthook pre-push (it needs a live API; see Cross-cutting contracts).
 - **Service worker**: the PWA SW is disabled in dev (`devOptions.enabled: false` in `vite.config.ts`),
   so stale cache isn't a dev concern. After a prod build, unregister the SW + clear site data in
   DevTools, or hard-reload (Ctrl/Cmd+Shift+R).
@@ -413,17 +413,52 @@ Vite) and the Function Logs / Runtime Logs (cold-start `validateEnv` errors,
 per-request failures). `GET /api/health` returns the `db` block for a quick
 liveness check; Vercel Cron invocation results show under the project's Cron tab.
 
+### Monitoring deploys from the CLI / terminal
+
+The **Vercel CLI** (`vercel`, v52+) is installed locally for watching deploys and
+pulling logs — `vercel ls`, `vercel inspect <url> --logs`, `vercel logs <url>`,
+`vercel link` (to `rechedevs-projects/gravity-room`). It needs auth first: run
+`vercel login` (interactive — type `! vercel login` so its output lands in the
+session) or export `VERCEL_TOKEN`. The repo is not linked by default.
+
+Without CLI auth, a push-triggered deploy is fully observable through GitHub,
+which is the fastest check after pushing to `main`:
+
+```bash
+# Vercel posts a commit status; its target_url links to the build:
+gh api repos/rechedev9/gravity-room/commits/<sha>/status \
+  --jq '.state, (.statuses[]|{context,state,target_url})'   # "Vercel" → success/failure
+# Production deployments (environment + sha):
+gh api "repos/rechedev9/gravity-room/deployments?per_page=3" \
+  --jq '.[]|{sha:.sha[0:7],environment,created_at}'
+curl -s https://gravityroom.app/api/health                 # liveness (db + redis blocks)
+```
+
 ## Auto-generated: API surface
 
 <!-- AUTO:API-START -->
 
-_31 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
+_52 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
 
 ### Auth
 
+- `GET /api/auth/providers` — List available sign-in providers
 - `POST /api/auth/google` — Sign in with Google
 - `POST /api/auth/mobile/google` — Sign in with Google for mobile clients
+- `POST /api/auth/signup` — Sign up with email and password
+- `POST /api/auth/login` — Log in with email and password
+- `POST /api/auth/verify-email` — Verify email address
+- `POST /api/auth/resend-verification` — Resend the email verification link
+- `POST /api/auth/forgot-password` — Request a password reset
+- `POST /api/auth/reset-password` — Reset password
+- `GET /api/auth/apple/start` — Start Sign in with Apple
+- `POST /api/auth/apple/callback` — Apple sign-in callback (form_post)
+- `GET /api/auth/github/start` — Start GitHub sign-in
+- `GET /api/auth/github/callback` — GitHub sign-in callback
+- `GET /api/auth/microsoft/start` — Start Microsoft sign-in
+- `GET /api/auth/microsoft/callback` — Microsoft sign-in callback
 - `POST /api/auth/dev` — Dev-only test sign-in (404 in production)
+- `POST /api/auth/dev/password-user` — Dev-only verified password-user seed (404 in production)
 - `POST /api/auth/refresh` — Refresh access token
 - `POST /api/auth/mobile/refresh` — Refresh mobile auth tokens
 - `POST /api/auth/signout` — Sign out
@@ -450,7 +485,14 @@ _31 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
 
 ### Other
 
-- `GET /metrics`
+- `GET /api/internal/cleanup-tokens`
+- `POST /api/internal/cleanup-tokens`
+- `GET /api/internal/purge-users`
+- `POST /api/internal/purge-users`
+- `GET /api/internal/analytics/compute`
+- `POST /api/internal/analytics/compute`
+- `GET /api/internal/maintenance`
+- `POST /api/internal/maintenance`
 
 ### Programs
 
@@ -475,14 +517,18 @@ _31 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
 
 ### System
 
-- `GET /health` — Health check
+- `GET /api/health` — Health check
 <!-- AUTO:API-END -->
 
 ## Auto-generated: Database schema
 
 <!-- AUTO:DB-START -->
 
-_10 tables. Source: `packages/database/src/schema.ts`._
+_13 tables. Source: `packages/database/src/schema.ts`._
+
+### `email_verification_tokens`
+
+`id` _(uuid, PK)_ · `user_id` _(uuid, NOT NULL)_ · `token_hash` _(varchar, unique, NOT NULL)_ · `expires_at` _(timestamp, NOT NULL)_ · `created_at` _(timestamp, NOT NULL)_
 
 ### `exercises`
 
@@ -491,6 +537,10 @@ _10 tables. Source: `packages/database/src/schema.ts`._
 ### `muscle_groups`
 
 `id` _(varchar, PK)_ · `name` _(varchar, NOT NULL)_ · `created_at` _(timestamp, NOT NULL)_
+
+### `password_reset_tokens`
+
+`id` _(uuid, PK)_ · `user_id` _(uuid, NOT NULL)_ · `token_hash` _(varchar, unique, NOT NULL)_ · `expires_at` _(timestamp, NOT NULL)_ · `created_at` _(timestamp, NOT NULL)_
 
 ### `program_definitions`
 
@@ -512,13 +562,17 @@ _10 tables. Source: `packages/database/src/schema.ts`._
 
 `id` _(bigserial, PK)_ · `instance_id` _(uuid, NOT NULL)_ · `workout_index` _(smallint, NOT NULL)_ · `slot_id` _(varchar, NOT NULL)_ · `previous_result` _(enum)_ · `previous_amrap_reps` _(smallint)_ · `previous_rpe` _(smallint)_ · `previous_set_logs` _(jsonb)_ · `created_at` _(timestamp, NOT NULL)_
 
+### `user_identities`
+
+`id` _(uuid, PK)_ · `user_id` _(uuid, NOT NULL)_ · `provider` _(varchar, NOT NULL)_ · `provider_account_id` _(varchar, NOT NULL)_ · `created_at` _(timestamp, NOT NULL)_
+
 ### `user_insights`
 
 `id` _(bigserial, PK)_ · `user_id` _(uuid, NOT NULL)_ · `insight_type` _(varchar, NOT NULL)_ · `exercise_id` _(varchar)_ · `payload` _(jsonb, NOT NULL)_ · `computed_at` _(timestamp, NOT NULL)_ · `valid_until` _(timestamp)_
 
 ### `users`
 
-`id` _(uuid, PK)_ · `email` _(varchar, unique, NOT NULL)_ · `google_id` _(varchar, unique, NOT NULL)_ · `name` _(varchar)_ · `avatar_url` _(text)_ · `deleted_at` _(timestamp)_ · `created_at` _(timestamp, NOT NULL)_ · `updated_at` _(timestamp, NOT NULL)_
+`id` _(uuid, PK)_ · `email` _(varchar, unique, NOT NULL)_ · `google_id` _(varchar, unique)_ · `password_hash` _(text)_ · `email_verified` _(boolean, NOT NULL)_ · `name` _(varchar)_ · `avatar_url` _(text)_ · `deleted_at` _(timestamp)_ · `created_at` _(timestamp, NOT NULL)_ · `updated_at` _(timestamp, NOT NULL)_
 
 ### `workout_results`
 
@@ -532,7 +586,7 @@ The following were removed in the Vercel migration and must not be reintroduced:
 
 - **The Python analytics service** (`apps/backend/analytics/`, FastAPI + scikit-learn + APScheduler). Ported to TypeScript in-process at `apps/backend/api/src/analytics/`, driven by Vercel Cron.
 - **All VPS/Docker deploy infra**: `infra/production/` (Docker Compose, `Caddyfile`, ops scripts, cron units), every `Dockerfile`, root `.dockerignore`, and the `.github/workflows/deploy.yml` continuous-deploy workflow. Production is serverless on Vercel.
-- **The `validate.yml` workflow** (folded into `ci.yml`) and its `docker-build` job. **Active workflows:** `ci.yml`, `security.yml`, `claude.yml`, `claude-code-review.yml`.
+- **The `validate.yml` and `security.yml` workflows** (folded into `ci.yml`; the `docker-build` job, CodeQL, Semgrep, and the dependency audits are gone). **Active workflows:** `ci.yml`, `claude.yml`, `claude-code-review.yml`. `ci.yml` runs typecheck/lint/test/format per workspace, the `OpenAPI client drift` check, the `Gitleaks secret scan` (config: `.gitleaks.toml`), and an aggregate `Validate` gate.
 - **`/metrics` + prom-client** (observability is `@sentry/node` + pino), and the `REDIS_URL`/`METRICS_TOKEN`/`DB_POOL_SIZE`/`COMPUTE_INTERVAL_HOURS` env vars.
 - Stale per-package `.env.example` / `.env.production.example` files; the single root `.env.example` is the template.
 

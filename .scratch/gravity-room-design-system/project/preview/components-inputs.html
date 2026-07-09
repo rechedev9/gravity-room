@@ -1,20 +1,75 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
-<style>
-  .lbl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#8a7a5a;margin-bottom:10px}
-  .field{margin-bottom:14px}
-  .l{display:block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:#a89870;margin-bottom:6px}
-  .input{width:100%;background:#130f09;border:1px solid #2a2218;color:#f0e8d8;font-family:'Barlow',sans-serif;font-size:14px;padding:10px 12px;box-sizing:border-box;outline:none}
-  .input:focus{border-color:#e8aa20}
-  .input.weight{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:0.02em;color:#f0c040;text-align:center;padding:6px 12px}
-  .row{display:flex;gap:12px}
-  .row .field{flex:1}
-</style></head>
-<body><div class="card">
-  <div class="lbl">Form fields · sharp corners · gold focus ring</div>
-  <div class="field"><label class="l">Email</label><input class="input" value="lifter@example.com"></div>
-  <div class="row">
-    <div class="field"><label class="l">Squat 1RM</label><input class="input weight" value="120 kg"></div>
-    <div class="field"><label class="l">Bench 1RM</label><input class="input weight" value="80 kg"></div>
-  </div>
-</div></body></html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="_card.css" />
+    <style>
+      .lbl {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 9px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #8a7a5a;
+        margin-bottom: 10px;
+      }
+      .field {
+        margin-bottom: 14px;
+      }
+      .l {
+        display: block;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #a89870;
+        margin-bottom: 6px;
+      }
+      .input {
+        width: 100%;
+        background: #130f09;
+        border: 1px solid #2a2218;
+        color: #f0e8d8;
+        font-family: 'Barlow', sans-serif;
+        font-size: 14px;
+        padding: 10px 12px;
+        box-sizing: border-box;
+        outline: none;
+      }
+      .input:focus {
+        border-color: #e8aa20;
+      }
+      .input.weight {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 32px;
+        letter-spacing: 0.02em;
+        color: #f0c040;
+        text-align: center;
+        padding: 6px 12px;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+      }
+      .row .field {
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="lbl">Form fields · sharp corners · gold focus ring</div>
+      <div class="field">
+        <label class="l">Email</label><input class="input" value="lifter@example.com" />
+      </div>
+      <div class="row">
+        <div class="field">
+          <label class="l">Squat 1RM</label><input class="input weight" value="120 kg" />
+        </div>
+        <div class="field">
+          <label class="l">Bench 1RM</label><input class="input weight" value="80 kg" />
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

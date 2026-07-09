@@ -21,6 +21,8 @@ import {
 jest.mock('../lib/auth/session', () => ({
   restoreSession: jest.fn(),
   signInWithGoogleIdToken: jest.fn(),
+  signInWithEmailPassword: jest.fn(),
+  signUpWithEmailPassword: jest.fn(),
   signOutSession: jest.fn(),
 }));
 
@@ -228,7 +230,7 @@ describe('App', () => {
     render(<App />);
 
     expect(await screen.findByText('Cached training blocks')).toBeTruthy();
-    expect(await screen.findByText('No cached programs yet.')).toBeTruthy();
+    expect(await screen.findByText('No active program')).toBeTruthy();
     expect(screen.queryByText('Continue with Google')).toBeNull();
   });
 
@@ -359,7 +361,7 @@ describe('App', () => {
       await screen.findByText('Showing cached programs. Sync will retry when you refresh.')
     ).toBeTruthy();
     expect(screen.getByText('Retry')).toBeTruthy();
-    expect(screen.queryByText('No cached programs yet.')).toBeNull();
+    expect(screen.queryByText('No active program')).toBeNull();
     expect(screen.queryByText('Unable to load cached programs.')).toBeNull();
   });
 
@@ -434,7 +436,7 @@ describe('App', () => {
 
     expect(await screen.findByText('Unable to sync programs right now.')).toBeTruthy();
     expect(screen.getByText('Retry')).toBeTruthy();
-    expect(screen.queryByText('No cached programs yet.')).toBeNull();
+    expect(screen.queryByText('No active program')).toBeNull();
   });
 
   it('renders a load error instead of the empty cache state when program loading fails', async () => {
@@ -454,7 +456,7 @@ describe('App', () => {
 
     expect(await screen.findByText('Unable to load cached programs.')).toBeTruthy();
     expect(screen.getByText('Retry')).toBeTruthy();
-    expect(screen.queryByText('No cached programs yet.')).toBeNull();
+    expect(screen.queryByText('No active program')).toBeNull();
   });
 
   it('falls back to the signed-out shell when session restore rejects', async () => {

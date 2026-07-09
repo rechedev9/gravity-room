@@ -27,6 +27,20 @@ test.describe('Landing page', () => {
       .click();
     await expect(page).toHaveURL(/\/login/);
   });
+
+  test('guest CTA enters guest mode and lands on /app/programs', async ({ page }) => {
+    await page
+      .getByRole('button', { name: /Pruébalo ahora, sin cuenta/i })
+      .first()
+      .click();
+
+    await expect(page).toHaveURL(/\/app\/programs/);
+    // We are in guest mode: the catalog page has no guest banner (it only
+    // renders on home/tracker), so assert the sidebar's guest-only CTA instead.
+    await expect(page.getByRole('button', { name: /crear cuenta/i })).toBeVisible({
+      timeout: 10_000,
+    });
+  });
 });
 
 test.describe('security.txt', () => {

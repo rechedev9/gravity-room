@@ -502,6 +502,7 @@
     "errors": {
       "google_failed": "Google sign-in failed. Please try again.",
       "session_expired": "Your session has expired. Please sign in again.",
+      "sign_out_failed": "We couldn't sign you out. Check your connection and try again.",
       "generic": "Something went wrong. Please try again."
     }
   },
@@ -528,6 +529,9 @@
     "no_programs_message": "Choose a program to see your metrics here.",
     "view_programs": "View Programs",
     "load_recommendation_section": "Load Recommendation",
+    "kpi_card": {
+      "loading_label": "Loading KPI"
+    },
     "kpi_strip": {
       "streak": "STREAK",
       "day_one": "day",
@@ -839,6 +843,7 @@
       "description_propagation": "Record your max. This weight will be used as Training Max for the next block.",
       "description_final": "Record your max. This is your final result of the JAW protocol.",
       "weight_label": "How much did you lift? (kg)",
+      "range_error": "Enter a weight between {{min}} and {{max}} kg.",
       "cancel_button": "Cancel",
       "saving_loading": "Saving...",
       "confirm_button": "Confirm"
@@ -909,7 +914,11 @@
     },
     "amrap_input": {
       "label": "AMRAP Reps",
-      "placeholder": "Extra reps"
+      "placeholder": "Extra reps",
+      "group_label": "AMRAP reps",
+      "decrement_label": "Decrease reps",
+      "increment_label": "Increase reps",
+      "estimated_1rm_prefix": "Est. 1RM:"
     },
     "rpe_select": {
       "label": "RPE",
@@ -1155,7 +1164,10 @@
       "submit_signup": "Create account",
       "to_signup": "Need an account? Sign up",
       "to_signin": "Already have an account? Sign in",
-      "forgot": "Forgot your password?"
+      "forgot": "Forgot your password?",
+      "resend": "Resend verification email",
+      "resend_sent": "If your account still needs verification, a new link is on its way. Check your inbox.",
+      "resend_error": "Couldn't resend the email. Please try again in a moment."
     },
     "signup_success": "Account created. Check your email to verify your address before signing in.",
     "errors": {
@@ -1215,6 +1227,9 @@
     "prompt": "Create an account to save your progress",
     "create_account": "Create Account",
     "create_account_aria": "Create account to save your progress"
+  },
+  "guest_migration": {
+    "success": "Your {{program}} program has been saved to your account."
   },
   "legal": {
     "back": "← Back",
@@ -1378,12 +1393,19 @@
       "consistency_sub_total": "{{count}} total"
     },
     "empty": {
+      "guest_stamp": "GUEST",
       "guest_title": "Guest mode",
       "guest_body": "Create a free account to save your progress and stick with your plan.",
       "guest_cta": "Create Account",
+      "no_program_stamp": "NO PROGRAM",
       "no_program_title": "No active program",
       "no_program_body": "Pick a program to start logging your training.",
       "no_program_cta": "View Programs"
+    },
+    "guest_resume": {
+      "stamp": "IN PROGRESS",
+      "body": "Pick up your training right where you left off.",
+      "cta": "Continue training"
     },
     "footer": {
       "quick_links": "Quick links",
@@ -1395,47 +1417,14 @@
       "title": "Your first session is waiting",
       "body": "Open the tracker and log your first workout. Your streak and sessions start counting from there."
     },
-    "mentor": {
-      "widget_title": "Gravity Sensei",
-      "prompt": "Welcome, want a quick tour?",
-      "cta_start": "Start mini tour",
-      "cta_dismiss": "Not now",
-      "intro_title": "Quick tour — 4 steps",
-      "intro_body": "We'll walk you through the main sections of Gravity Room.",
-      "start": "Start",
-      "cancel": "Cancel",
-      "next": "Next",
-      "finish": "Finish",
-      "exit": "Exit tour",
-      "repeat": "Repeat tour",
-      "completed_hint": "Tour completed.",
-      "all_done": "🎉 You're all set! Enjoy Gravity Room.",
-      "steps": {
-        "step_home": {
-          "title": "Home",
-          "body": "Your active program lives here. At a glance you see your streak, weekly sessions, and consistency."
-        },
-        "step_programs": {
-          "title": "Programs",
-          "body": "Open Programs to choose a routine, customize a program, or manage the ones you already have."
-        },
-        "step_tracker": {
-          "title": "Tracker",
-          "body": "In the Tracker you can log success, fail, AMRAP, and RPE for every set of your workout."
-        },
-        "step_profile": {
-          "title": "Profile",
-          "body": "Check your stats, achievements, and program history in the Profile section."
-        }
-      }
-    },
     "mentor_tips": [
       "If you fail, you drop a stage, not the bar. Get back under it.",
       "Progress is not linear. Consistency is.",
       "The weight will not lift itself.",
       "Every workout is a debt your body will repay.",
       "Controlled weight beats ego on the floor."
-    ]
+    ],
+    "load_error": "Could not load your training dashboard."
   },
   "mentor_tour": {
     "prompt": {

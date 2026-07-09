@@ -78,8 +78,9 @@ const TEST_CONFIG: Record<string, number> = { squat: 60, bench: 40 };
 
 // vi.mock is hoisted above imports, so the fn the factory/tests reference is
 // created via vi.hoisted and the shared stubs come from a dynamic import.
-const { mockFetchCatalogDetail } = vi.hoisted(() => ({
+const { mockFetchCatalogDetail, mockTrackEvent } = vi.hoisted(() => ({
   mockFetchCatalogDetail: vi.fn<(id: string) => Promise<ProgramDefinition>>(),
+  mockTrackEvent: vi.fn(),
 }));
 
 vi.mock('@/lib/api-functions', async () => {
@@ -90,8 +91,13 @@ vi.mock('@/lib/api-functions', async () => {
   };
 });
 
+vi.mock('@/lib/analytics', () => ({
+  trackEvent: mockTrackEvent,
+}));
+
 // Import after mocks
 import { useGuestProgram } from '@/hooks/use-guest-program';
+import { readGuestData } from '@/lib/guest-storage';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -115,6 +121,7 @@ describe('useGuestProgram', () => {
   beforeEach(() => {
     mockFetchCatalogDetail.mockReset();
     mockFetchCatalogDetail.mockImplementation(() => Promise.resolve(MINIMAL_DEFINITION));
+    mockTrackEvent.mockReset();
   });
 
   describe('initial state and loading', () => {
@@ -202,6 +209,21 @@ describe('useGuestProgram', () => {
       });
 
       expect(result.current.config).toEqual(TEST_CONFIG);
+    });
+
+    it('fires the program_start analytics event with the program id', async () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useGuestProgram('test-prog'), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.generateProgram(TEST_CONFIG);
+      });
+
+      expect(mockTrackEvent).toHaveBeenCalledWith('program_start', { program: 'test-prog' });
     });
 
     it('should populate rows after generateProgram is called', async () => {
@@ -575,6 +597,113 @@ describe('useGuestProgram', () => {
     });
   });
 
+  describe('undoLast — overwrite parity with authenticated undo', () => {
+    it('restores the previous result when undoing an overwrite instead of deleting it', async () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useGuestProgram('test-prog'), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.generateProgram(TEST_CONFIG);
+      });
+
+      act(() => {
+        result.current.markResult(0, 'squat-t1', 'success');
+      });
+
+      // Overwrite the same slot — the undo entry should now carry the
+      // pre-overwrite snapshot so undo restores rather than deletes.
+      act(() => {
+        result.current.markResult(0, 'squat-t1', 'fail');
+      });
+
+      expect(result.current.undoHistory[1]).toEqual({ i: 0, slotId: 'squat-t1', prev: 'success' });
+
+      act(() => {
+        result.current.undoLast();
+      });
+
+      const row = result.current.rows.find((r) => r.index === 0);
+      const slot = row?.slots.find((s) => s.slotId === 'squat-t1');
+
+      expect(slot?.result).toBe('success');
+    });
+
+    it('restores prevAmrapReps when undoing an overwrite', async () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useGuestProgram('test-prog'), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.generateProgram(TEST_CONFIG);
+      });
+
+      act(() => {
+        result.current.markResult(0, 'squat-t1', 'success');
+      });
+      act(() => {
+        result.current.setAmrapReps(0, 'squat-t1', 5);
+      });
+
+      act(() => {
+        result.current.markResult(0, 'squat-t1', 'fail');
+      });
+
+      const overwriteEntry = result.current.undoHistory[result.current.undoHistory.length - 1];
+      expect(overwriteEntry?.prevAmrapReps).toBe(5);
+
+      act(() => {
+        result.current.undoLast();
+      });
+
+      const row = result.current.rows.find((r) => r.index === 0);
+      const slot = row?.slots.find((s) => s.slotId === 'squat-t1');
+
+      expect(slot?.result).toBe('success');
+      expect(slot?.amrapReps).toBe(5);
+    });
+
+    it('restores prevSetLogs when undoing an overwrite', async () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useGuestProgram('test-prog'), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.generateProgram(TEST_CONFIG);
+      });
+
+      act(() => {
+        result.current.markResult(0, 'squat-t1', 'success', [{ reps: 3, weight: 60 }]);
+      });
+
+      act(() => {
+        result.current.markResult(0, 'squat-t1', 'fail');
+      });
+
+      const overwriteEntry = result.current.undoHistory[result.current.undoHistory.length - 1];
+      expect(overwriteEntry?.prevSetLogs).toEqual([{ reps: 3, weight: 60 }]);
+
+      act(() => {
+        result.current.undoLast();
+      });
+
+      const row = result.current.rows.find((r) => r.index === 0);
+      const slot = row?.slots.find((s) => s.slotId === 'squat-t1');
+
+      expect(slot?.result).toBe('success');
+      expect(slot?.setLogs).toEqual([{ reps: 3, weight: 60 }]);
+    });
+  });
+
   describe('undoSpecific', () => {
     it('should remove a specific slot result', async () => {
       const wrapper = createWrapper();
@@ -822,6 +951,127 @@ describe('useGuestProgram', () => {
       });
 
       expect(result.current.metadata).toEqual({ note: 'first', extra: 'second' });
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Persistence — guest program data round-trips through localStorage so a
+  // reload doesn't wipe an in-progress guest workout.
+  // ---------------------------------------------------------------------------
+
+  describe('localStorage persistence', () => {
+    it('writes the active program to guest storage after generateProgram', async () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useGuestProgram('test-prog'), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.generateProgram(TEST_CONFIG);
+      });
+
+      const stored = readGuestData();
+      expect(stored?.activeProgramId).not.toBeNull();
+      const instance = stored ? Object.values(stored.instances)[0] : undefined;
+      expect(instance?.programId).toBe('test-prog');
+      expect(instance?.config).toEqual(TEST_CONFIG);
+    });
+
+    it('persists markResult and undoHistory changes', async () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useGuestProgram('test-prog'), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.generateProgram(TEST_CONFIG);
+      });
+
+      act(() => {
+        result.current.markResult(0, 'squat-t1', 'success');
+      });
+
+      const instance = Object.values(readGuestData()?.instances ?? {})[0];
+      expect(instance?.results['0']?.['squat-t1']).toEqual({ result: 'success' });
+      expect(instance?.undoHistory).toEqual([{ i: 0, slotId: 'squat-t1' }]);
+    });
+
+    it('rehydrates config/results/undoHistory on remount (simulated reload)', async () => {
+      const wrapper = createWrapper();
+      const first = renderHook(() => useGuestProgram('test-prog'), { wrapper });
+
+      await waitFor(() => {
+        expect(first.result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await first.result.current.generateProgram(TEST_CONFIG);
+      });
+
+      act(() => {
+        first.result.current.markResult(0, 'squat-t1', 'success');
+      });
+
+      first.unmount();
+
+      const second = renderHook(() => useGuestProgram('test-prog'), { wrapper });
+
+      // Hydration is synchronous (lazy useState initializer), so state is
+      // correct immediately — no need to wait for the catalog query.
+      expect(second.result.current.config).toEqual(TEST_CONFIG);
+      expect(second.result.current.undoHistory).toEqual([{ i: 0, slotId: 'squat-t1' }]);
+
+      await waitFor(() => {
+        expect(second.result.current.isLoading).toBe(false);
+      });
+
+      const row = second.result.current.rows.find((r) => r.index === 0);
+      const slot = row?.slots.find((s) => s.slotId === 'squat-t1');
+      expect(slot?.result).toBe('success');
+    });
+
+    it('does not rehydrate data belonging to a different program', async () => {
+      const wrapper = createWrapper();
+      const first = renderHook(() => useGuestProgram('test-prog'), { wrapper });
+
+      await waitFor(() => {
+        expect(first.result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await first.result.current.generateProgram(TEST_CONFIG);
+      });
+
+      first.unmount();
+
+      const otherProgram = renderHook(() => useGuestProgram('other-prog'), { wrapper });
+
+      expect(otherProgram.result.current.config).toBeNull();
+    });
+
+    it('clears persisted guest data when finishProgram is called', async () => {
+      const wrapper = createWrapper();
+      const { result } = renderHook(() => useGuestProgram('test-prog'), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      await act(async () => {
+        await result.current.generateProgram(TEST_CONFIG);
+      });
+
+      expect(Object.keys(readGuestData()?.instances ?? {}).length).toBe(1);
+
+      await act(async () => {
+        await result.current.finishProgram();
+      });
+
+      expect(Object.keys(readGuestData()?.instances ?? {}).length).toBe(0);
     });
   });
 

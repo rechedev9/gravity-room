@@ -101,6 +101,58 @@ describe('TestWeightModal', () => {
     });
   });
 
+  describe('weight range validation message', () => {
+    it('should show a visible range error and mark the input invalid when below minimum', () => {
+      render(<TestWeightModal {...baseProps} />);
+
+      const input = screen.getByRole('spinbutton') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '5' } });
+
+      const alert = screen.getByRole('alert');
+
+      expect(alert).toHaveTextContent('20');
+      expect(alert).toHaveTextContent('500');
+      expect(input).toHaveAttribute('aria-invalid', 'true');
+      expect(input).toHaveAttribute('aria-describedby', alert.id);
+    });
+
+    it('should show a visible range error and mark the input invalid when above maximum', () => {
+      render(<TestWeightModal {...baseProps} />);
+
+      const input = screen.getByRole('spinbutton') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '600' } });
+
+      const alert = screen.getByRole('alert');
+
+      expect(alert).toHaveTextContent('20');
+      expect(alert).toHaveTextContent('500');
+      expect(input).toHaveAttribute('aria-invalid', 'true');
+    });
+
+    it('should not show the range error when the input is empty', () => {
+      render(<TestWeightModal {...baseProps} />);
+
+      const input = screen.getByRole('spinbutton') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '' } });
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(input).toHaveAttribute('aria-invalid', 'true');
+    });
+
+    it('should clear the range error and mark the input valid when the value is within range', () => {
+      render(<TestWeightModal {...baseProps} />);
+
+      const input = screen.getByRole('spinbutton') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '600' } });
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+
+      fireEvent.change(input, { target: { value: '140' } });
+
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(input).toHaveAttribute('aria-invalid', 'false');
+    });
+  });
+
   describe('cancel', () => {
     it('should call onCancel when Cancelar button is clicked', () => {
       const onCancel = vi.fn();

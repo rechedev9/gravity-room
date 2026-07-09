@@ -1,3 +1,4 @@
+import { computeEpley1RM, roundToNearest } from '@gzclp/domain';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 
@@ -283,7 +284,7 @@ const HALF_KG = 0.5;
 
 /** Round to the nearest 0.5 kg. */
 function roundToHalfKg(value: number): number {
-  return Math.round(value / HALF_KG) * HALF_KG;
+  return roundToNearest(value, HALF_KG);
 }
 
 /** Check whether a slot qualifies for 1RM estimation. */
@@ -312,7 +313,7 @@ function findBestEstimate(
     const slot = row.slots.find((s) => isQualifyingAmrap(s, exerciseId));
     if (!slot || slot.amrapReps === undefined) continue;
 
-    const estimated = slot.weight * (1 + slot.amrapReps / 30);
+    const estimated = computeEpley1RM(slot.weight, slot.amrapReps);
     if (estimated > bestEstimate) {
       bestEstimate = estimated;
       bestWeight = slot.weight;

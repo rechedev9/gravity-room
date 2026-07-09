@@ -1,160 +1,347 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=1280, initial-scale=1" />
-<title>Gravity Room — C · Live Set-Grid Hero</title>
-<link rel="icon" href="../../../assets/favicon.webp" />
-<link rel="stylesheet" href="../styles.css" />
-<link rel="stylesheet" href="extras.css" />
-<style>
-  .hero-c { padding: 100px 32px 60px; text-align: center; max-width: 1100px; margin: 0 auto; position: relative; }
-  .hero-c__title { font-family: var(--font-display); color: var(--color-title); font-size: clamp(64px, 10vw, 120px); line-height: 0.95; letter-spacing: 0.02em; margin: 24px 0; }
-  .hero-c__title span { display: block; }
-  .hero-c__sub { font-family: var(--font-body); color: var(--color-muted); font-size: 18px; max-width: 600px; margin: 0 auto 32px; line-height: 1.55; }
-  .hero-c__caption { margin-top: 28px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--color-muted); }
-  .hero-c__caption strong { color: var(--color-accent); }
-</style>
-</head>
-<body>
-<div id="root"></div>
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
-<script type="text/babel" src="../primitives.jsx"></script>
-<script>window.GR_LOGO = "../../../assets/logo.webp";</script>
-<script type="text/babel" src="../chrome.jsx"></script>
-<script type="text/babel">
-function useReveal() {
-  React.useEffect(() => {
-    const els = document.querySelectorAll('.reveal');
-    const io = new IntersectionObserver((entries) => entries.forEach(e => e.isIntersecting && e.target.classList.add('is-in')), { threshold: 0.15 });
-    els.forEach(el => io.observe(el));
-    return () => io.disconnect();
-  }, []);
-}
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1" />
+    <title>Gravity Room — C · Live Set-Grid Hero</title>
+    <link rel="icon" href="../../../assets/favicon.webp" />
+    <link rel="stylesheet" href="../styles.css" />
+    <link rel="stylesheet" href="extras.css" />
+    <style>
+      .hero-c {
+        padding: 100px 32px 60px;
+        text-align: center;
+        max-width: 1100px;
+        margin: 0 auto;
+        position: relative;
+      }
+      .hero-c__title {
+        font-family: var(--font-display);
+        color: var(--color-title);
+        font-size: clamp(64px, 10vw, 120px);
+        line-height: 0.95;
+        letter-spacing: 0.02em;
+        margin: 24px 0;
+      }
+      .hero-c__title span {
+        display: block;
+      }
+      .hero-c__sub {
+        font-family: var(--font-body);
+        color: var(--color-muted);
+        font-size: 18px;
+        max-width: 600px;
+        margin: 0 auto 32px;
+        line-height: 1.55;
+      }
+      .hero-c__caption {
+        margin-top: 28px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        color: var(--color-muted);
+      }
+      .hero-c__caption strong {
+        color: var(--color-accent);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script
+      src="https://unpkg.com/react@18.3.1/umd/react.development.js"
+      integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"
+      integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"
+      integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y"
+      crossorigin="anonymous"
+    ></script>
+    <script type="text/babel" src="../primitives.jsx"></script>
+    <script>
+      window.GR_LOGO = '../../../assets/logo.webp';
+    </script>
+    <script type="text/babel" src="../chrome.jsx"></script>
+    <script type="text/babel">
+      function useReveal() {
+        React.useEffect(() => {
+          const els = document.querySelectorAll('.reveal');
+          const io = new IntersectionObserver(
+            (entries) =>
+              entries.forEach((e) => e.isIntersecting && e.target.classList.add('is-in')),
+            { threshold: 0.15 }
+          );
+          els.forEach((el) => io.observe(el));
+          return () => io.disconnect();
+        }, []);
+      }
 
-function HeroSetGrid() {
-  const [done, setDone] = React.useState([false, false, false, false, false]);
-  const [current, setCurrent] = React.useState(0);
-  const tap = (i) => {
-    setDone(prev => { const n = [...prev]; n[i] = !n[i]; return n; });
-    setCurrent(Math.min(4, i + 1));
-  };
-  React.useEffect(() => {
-    let i = 0;
-    const t = setInterval(() => {
-      if (i >= 5) { i = 0; setDone([false,false,false,false,false]); setCurrent(0); return; }
-      setDone(prev => { const n = [...prev]; n[i] = true; return n; });
-      i++;
-      setCurrent(i);
-    }, 900);
-    return () => clearInterval(t);
-  }, []);
-  return (
-    <div className="hero-setgrid">
-      {done.map((d, i) => (
-        <div key={i}
-          className={(d ? 'is-done ' : '') + (i === current && !d ? 'is-current' : '')}
-          onClick={() => tap(i)}>
-          {d ? '✓' : '5×5'}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function App() {
-  useReveal();
-  return (
-    <>
-      <Nav onNav={() => {}} route="landing" />
-      <section className="hero-c">
-        <div className="hero__glow" style={{ top: '5%' }} />
-        <div className="hero__rules hero__rules--l" />
-        <div className="hero__rules hero__rules--r" />
-        <div className="reveal" style={{ position: 'relative' }}>
-          <Eyebrow color="var(--color-accent)">The set grid is the input</Eyebrow>
-          <h1 className="hero-c__title"><span>Tap. Train.</span><span>Repeat.</span></h1>
-          <p className="hero-c__sub">No menus. No swipes. No clutter. The set grid is the entire interface — and it's the only one you'll need.</p>
-          <HeroSetGrid />
-          <div className="hero-c__caption">Tap a cell — or watch it auto-play. <strong>That's the whole app.</strong></div>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 36 }}>
-            <Button size="lg">Start Training Today →</Button>
-            <Button variant="outline" size="lg">See Programs</Button>
+      function HeroSetGrid() {
+        const [done, setDone] = React.useState([false, false, false, false, false]);
+        const [current, setCurrent] = React.useState(0);
+        const tap = (i) => {
+          setDone((prev) => {
+            const n = [...prev];
+            n[i] = !n[i];
+            return n;
+          });
+          setCurrent(Math.min(4, i + 1));
+        };
+        React.useEffect(() => {
+          let i = 0;
+          const t = setInterval(() => {
+            if (i >= 5) {
+              i = 0;
+              setDone([false, false, false, false, false]);
+              setCurrent(0);
+              return;
+            }
+            setDone((prev) => {
+              const n = [...prev];
+              n[i] = true;
+              return n;
+            });
+            i++;
+            setCurrent(i);
+          }, 900);
+          return () => clearInterval(t);
+        }, []);
+        return (
+          <div className="hero-setgrid">
+            {done.map((d, i) => (
+              <div
+                key={i}
+                className={(d ? 'is-done ' : '') + (i === current && !d ? 'is-current' : '')}
+                onClick={() => tap(i)}
+              >
+                {d ? '✓' : '5×5'}
+              </div>
+            ))}
           </div>
-        </div>
-      </section>
+        );
+      }
 
-      <section className="lpx-section" id="compare">
-        <div className="lpx-section__head reveal">
-          <SectionLabel>Vs. The Other Apps</SectionLabel>
-          <h2 className="lpx-section__title">Less, On Purpose.</h2>
-          <p className="lpx-section__sub">Most lifting apps want to be a social network. We just want to add weight to the bar.</p>
-        </div>
-        <div className="reveal" style={{ border: '1px solid var(--color-rule)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-          <table className="comp">
-            <thead><tr><th></th><th className="us">Gravity Room</th><th>Strong</th><th>Hevy</th><th>Spreadsheet</th></tr></thead>
-            <tbody>
-              <tr><td className="lbl">Free, no paid tier</td><td className="us">✓ Always</td><td className="no">— $5/mo</td><td className="no">— $9/mo</td><td>✓</td></tr>
-              <tr><td className="lbl">Auto-progression</td><td className="us">✓ Per-tier</td><td>Manual</td><td>Manual</td><td className="no">— Manual</td></tr>
-              <tr><td className="lbl">Failure handling</td><td className="us">✓ Staged</td><td className="no">— None</td><td className="no">— None</td><td className="no">— None</td></tr>
-              <tr><td className="lbl">Open source</td><td className="us">✓ MIT</td><td className="no">—</td><td className="no">—</td><td>✓</td></tr>
-              <tr><td className="lbl">Offline-first PWA</td><td className="us">✓</td><td>iOS only</td><td>Yes</td><td>Yes</td></tr>
-              <tr><td className="lbl">Export your data</td><td className="us">✓ CSV + JSON</td><td>Premium</td><td>Premium</td><td>✓</td></tr>
-              <tr><td className="lbl">Social feed</td><td>None</td><td>✓</td><td>✓</td><td>—</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+      function App() {
+        useReveal();
+        return (
+          <>
+            <Nav onNav={() => {}} route="landing" />
+            <section className="hero-c">
+              <div className="hero__glow" style={{ top: '5%' }} />
+              <div className="hero__rules hero__rules--l" />
+              <div className="hero__rules hero__rules--r" />
+              <div className="reveal" style={{ position: 'relative' }}>
+                <Eyebrow color="var(--color-accent)">The set grid is the input</Eyebrow>
+                <h1 className="hero-c__title">
+                  <span>Tap. Train.</span>
+                  <span>Repeat.</span>
+                </h1>
+                <p className="hero-c__sub">
+                  No menus. No swipes. No clutter. The set grid is the entire interface — and it's
+                  the only one you'll need.
+                </p>
+                <HeroSetGrid />
+                <div className="hero-c__caption">
+                  Tap a cell — or watch it auto-play. <strong>That's the whole app.</strong>
+                </div>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 36 }}>
+                  <Button size="lg">Start Training Today →</Button>
+                  <Button variant="outline" size="lg">
+                    See Programs
+                  </Button>
+                </div>
+              </div>
+            </section>
 
-      <section className="lpx-section" id="testimonials">
-        <div className="lpx-section__head reveal">
-          <SectionLabel>From The Floor</SectionLabel>
-          <h2 className="lpx-section__title">Lifters Who Stopped Plateauing.</h2>
-        </div>
-        <div className="quotes reveal">
-          <div className="quote">
-            <p className="quote__text">"Spent two years stuck at a 140 squat. Three months on GZCLP through this and I'm at 165. The auto-deload after a missed set is the whole game."</p>
-            <div className="quote__attr"><div className="quote__avatar">MR</div><div><div className="quote__name">Marcus R.</div><div className="quote__lift">Squat 165 kg · Bench 110 · Dead 200</div></div></div>
-          </div>
-          <div className="quote">
-            <p className="quote__text">"I logged sets in a notebook for eight years. Switched because of the iOS app. Never going back — the set grid is the most honest input I've used."</p>
-            <div className="quote__attr"><div className="quote__avatar">SK</div><div><div className="quote__name">Sara K.</div><div className="quote__lift">Squat 92 kg · Bench 60 · Dead 130</div></div></div>
-          </div>
-          <div className="quote">
-            <p className="quote__text">"Open source mattered. Forked it for our team's powerlifting block, hosted on our own server. Try doing that with Strong."</p>
-            <div className="quote__attr"><div className="quote__avatar">DT</div><div><div className="quote__name">Diego T.</div><div className="quote__lift">Coach · Bogotá Strength Club</div></div></div>
-          </div>
-        </div>
-      </section>
+            <section className="lpx-section" id="compare">
+              <div className="lpx-section__head reveal">
+                <SectionLabel>Vs. The Other Apps</SectionLabel>
+                <h2 className="lpx-section__title">Less, On Purpose.</h2>
+                <p className="lpx-section__sub">
+                  Most lifting apps want to be a social network. We just want to add weight to the
+                  bar.
+                </p>
+              </div>
+              <div
+                className="reveal"
+                style={{
+                  border: '1px solid var(--color-rule)',
+                  borderRadius: 'var(--radius-sm)',
+                  overflow: 'hidden',
+                }}
+              >
+                <table className="comp">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th className="us">Gravity Room</th>
+                      <th>Strong</th>
+                      <th>Hevy</th>
+                      <th>Spreadsheet</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="lbl">Free, no paid tier</td>
+                      <td className="us">✓ Always</td>
+                      <td className="no">— $5/mo</td>
+                      <td className="no">— $9/mo</td>
+                      <td>✓</td>
+                    </tr>
+                    <tr>
+                      <td className="lbl">Auto-progression</td>
+                      <td className="us">✓ Per-tier</td>
+                      <td>Manual</td>
+                      <td>Manual</td>
+                      <td className="no">— Manual</td>
+                    </tr>
+                    <tr>
+                      <td className="lbl">Failure handling</td>
+                      <td className="us">✓ Staged</td>
+                      <td className="no">— None</td>
+                      <td className="no">— None</td>
+                      <td className="no">— None</td>
+                    </tr>
+                    <tr>
+                      <td className="lbl">Open source</td>
+                      <td className="us">✓ MIT</td>
+                      <td className="no">—</td>
+                      <td className="no">—</td>
+                      <td>✓</td>
+                    </tr>
+                    <tr>
+                      <td className="lbl">Offline-first PWA</td>
+                      <td className="us">✓</td>
+                      <td>iOS only</td>
+                      <td>Yes</td>
+                      <td>Yes</td>
+                    </tr>
+                    <tr>
+                      <td className="lbl">Export your data</td>
+                      <td className="us">✓ CSV + JSON</td>
+                      <td>Premium</td>
+                      <td>Premium</td>
+                      <td>✓</td>
+                    </tr>
+                    <tr>
+                      <td className="lbl">Social feed</td>
+                      <td>None</td>
+                      <td>✓</td>
+                      <td>✓</td>
+                      <td>—</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
 
-      <section className="lpx-section">
-        <div className="lpx-section__head reveal">
-          <SectionLabel>How It Works</SectionLabel>
-          <h2 className="lpx-section__title">Three Steps. That's It.</h2>
-        </div>
-        <div className="howit reveal">
-          <div className="howit__step"><div className="howit__num">01</div><img src="../../../assets/howit-choose.webp" /><h4>Choose Your Program</h4><p>Pick a battle-tested template. GZCLP, 5/3/1, Starting Strength — or roll your own.</p></div>
-          <div className="howit__step"><div className="howit__num">02</div><img src="../../../assets/howit-train.webp" /><h4>Train Without Thinking</h4><p>Open the app. Follow the prescribed sets. Tap each one done. The system handles the rest.</p></div>
-          <div className="howit__step"><div className="howit__num">03</div><img src="../../../assets/howit-progress.webp" /><h4>Watch The Numbers Climb</h4><p>The bar gets heavier. Every week. Every session. Every kilo is gravity you've conquered.</p></div>
-        </div>
-      </section>
+            <section className="lpx-section" id="testimonials">
+              <div className="lpx-section__head reveal">
+                <SectionLabel>From The Floor</SectionLabel>
+                <h2 className="lpx-section__title">Lifters Who Stopped Plateauing.</h2>
+              </div>
+              <div className="quotes reveal">
+                <div className="quote">
+                  <p className="quote__text">
+                    "Spent two years stuck at a 140 squat. Three months on GZCLP through this and
+                    I'm at 165. The auto-deload after a missed set is the whole game."
+                  </p>
+                  <div className="quote__attr">
+                    <div className="quote__avatar">MR</div>
+                    <div>
+                      <div className="quote__name">Marcus R.</div>
+                      <div className="quote__lift">Squat 165 kg · Bench 110 · Dead 200</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="quote">
+                  <p className="quote__text">
+                    "I logged sets in a notebook for eight years. Switched because of the iOS app.
+                    Never going back — the set grid is the most honest input I've used."
+                  </p>
+                  <div className="quote__attr">
+                    <div className="quote__avatar">SK</div>
+                    <div>
+                      <div className="quote__name">Sara K.</div>
+                      <div className="quote__lift">Squat 92 kg · Bench 60 · Dead 130</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="quote">
+                  <p className="quote__text">
+                    "Open source mattered. Forked it for our team's powerlifting block, hosted on
+                    our own server. Try doing that with Strong."
+                  </p>
+                  <div className="quote__attr">
+                    <div className="quote__avatar">DT</div>
+                    <div>
+                      <div className="quote__name">Diego T.</div>
+                      <div className="quote__lift">Coach · Bogotá Strength Club</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
 
-      <section className="lpx-section">
-        <div className="cta-block reveal">
-          <SectionLabel>The Gravity Room</SectionLabel>
-          <h2 className="lpx-section__title">Ready to raise the gravity?</h2>
-          <p className="lpx-section__sub" style={{ marginBottom: 32 }}>Enter the Gravity Room. Start training today.</p>
-          <Button size="lg">Get Started — It's Free →</Button>
-        </div>
-      </section>
+            <section className="lpx-section">
+              <div className="lpx-section__head reveal">
+                <SectionLabel>How It Works</SectionLabel>
+                <h2 className="lpx-section__title">Three Steps. That's It.</h2>
+              </div>
+              <div className="howit reveal">
+                <div className="howit__step">
+                  <div className="howit__num">01</div>
+                  <img src="../../../assets/howit-choose.webp" />
+                  <h4>Choose Your Program</h4>
+                  <p>
+                    Pick a battle-tested template. GZCLP, 5/3/1, Starting Strength — or roll your
+                    own.
+                  </p>
+                </div>
+                <div className="howit__step">
+                  <div className="howit__num">02</div>
+                  <img src="../../../assets/howit-train.webp" />
+                  <h4>Train Without Thinking</h4>
+                  <p>
+                    Open the app. Follow the prescribed sets. Tap each one done. The system handles
+                    the rest.
+                  </p>
+                </div>
+                <div className="howit__step">
+                  <div className="howit__num">03</div>
+                  <img src="../../../assets/howit-progress.webp" />
+                  <h4>Watch The Numbers Climb</h4>
+                  <p>
+                    The bar gets heavier. Every week. Every session. Every kilo is gravity you've
+                    conquered.
+                  </p>
+                </div>
+              </div>
+            </section>
 
-      <Footer />
-    </>
-  );
-}
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-</script>
-</body>
+            <section className="lpx-section">
+              <div className="cta-block reveal">
+                <SectionLabel>The Gravity Room</SectionLabel>
+                <h2 className="lpx-section__title">Ready to raise the gravity?</h2>
+                <p className="lpx-section__sub" style={{ marginBottom: 32 }}>
+                  Enter the Gravity Room. Start training today.
+                </p>
+                <Button size="lg">Get Started — It's Free →</Button>
+              </div>
+            </section>
+
+            <Footer />
+          </>
+        );
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
 </html>

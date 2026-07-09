@@ -62,6 +62,7 @@ const {
   mockAuthenticatePassword,
   mockCreatePasswordUser,
   mockCreateEmailVerificationToken,
+  mockReplaceEmailVerificationToken,
   mockConsumeEmailVerificationToken,
   mockMarkEmailVerified,
   mockCreatePasswordResetToken,
@@ -124,6 +125,7 @@ const {
     Promise.resolve({ ...PW_USER })
   );
   const mockCreateEmailVerificationToken = vi.fn(() => Promise.resolve('verify-token'));
+  const mockReplaceEmailVerificationToken = vi.fn(() => Promise.resolve('resend-verify-token'));
   const mockConsumeEmailVerificationToken = vi.fn<() => Promise<string | null>>(() =>
     Promise.resolve(null)
   );
@@ -201,7 +203,7 @@ const {
     Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
   );
   const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
-  const mockSendTelegramMessage = vi.fn((): void => undefined);
+  const mockSendTelegramMessage = vi.fn((): Promise<void> => Promise.resolve());
   return {
     mockHashToken,
     mockFindUserById,
@@ -216,6 +218,7 @@ const {
     mockAuthenticatePassword,
     mockCreatePasswordUser,
     mockCreateEmailVerificationToken,
+    mockReplaceEmailVerificationToken,
     mockConsumeEmailVerificationToken,
     mockMarkEmailVerified,
     mockCreatePasswordResetToken,
@@ -302,6 +305,7 @@ vi.mock('../services/auth', async () => ({
   authenticatePassword: mockAuthenticatePassword,
   createPasswordUser: mockCreatePasswordUser,
   createEmailVerificationToken: mockCreateEmailVerificationToken,
+  replaceEmailVerificationToken: mockReplaceEmailVerificationToken,
   consumeEmailVerificationToken: mockConsumeEmailVerificationToken,
   markEmailVerified: mockMarkEmailVerified,
   createPasswordResetToken: mockCreatePasswordResetToken,
@@ -410,7 +414,9 @@ function patch(path: string, body: unknown, headers?: Record<string, string>): P
 }
 
 async function makeValidJwt(userId: string): Promise<string> {
-  const secret = process.env['JWT_SECRET'] ?? 'dev-secret-change-me';
+  // Must match the fallback auth-guard uses when JWT_SECRET is unset
+  // (TEST_SECRET), or the signature won't verify and the token 401s.
+  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({
@@ -783,6 +789,8 @@ describe('POST /auth/refresh', () => {
 
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_INVALID_REFRESH');
+    expect(res.headers.get('set-cookie') ?? '').toContain('refresh_token=');
+    expect(res.headers.get('set-cookie')?.toLowerCase() ?? '').toMatch(/max-age=0|expires=/);
   });
 
   it('revokes all user sessions when a rotated-away token is reused (theft detection)', async () => {
@@ -967,6 +975,8 @@ describe('POST /auth/mobile/refresh', () => {
 describe('POST /auth/mobile/signout', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() => Promise.resolve(undefined));
+    mockRevokeAllUserTokens.mockClear();
   });
 
   it('accepts refreshToken in the request body and returns 204', async () => {
@@ -1034,6 +1044,11 @@ describe('POST /auth/mobile/signout', () => {
 describe('POST /auth/signout', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockRevokeRefreshToken.mockReset();
+    mockRevokeRefreshToken.mockImplementation(() => Promise.resolve());
+    mockFindRefreshTokenByPreviousHash.mockReset();
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() => Promise.resolve(undefined));
+    mockRevokeAllUserTokens.mockClear();
   });
 
   it('returns a body-less 204 and clears the refresh cookie at /api/auth', async () => {
@@ -1050,6 +1065,41 @@ describe('POST /auth/signout', () => {
     expect(setCookie).toContain('Path=/api/auth');
     expect(setCookie.toLowerCase()).toMatch(/max-age=0|expires=/);
   });
+
+  it('revokes the successor when refresh rotated the cookie concurrently', async () => {
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
+      Promise.resolve({ ...TEST_REFRESH_TOKEN })
+    );
+
+    const res = await post('/auth/signout', {}, { Cookie: 'refresh_token=rotated-old-token' });
+
+    expect(res.status).toBe(204);
+    expect(mockRevokeAllUserTokens).toHaveBeenCalledWith(TEST_REFRESH_TOKEN.userId);
+  });
+
+  it('clears the refresh cookie even when signout is rate limited', async () => {
+    mockRateLimit.mockImplementation(() =>
+      Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
+    );
+
+    const res = await post('/auth/signout', {}, { Cookie: 'refresh_token=some-token-value' });
+
+    expect(res.status).toBe(429);
+    const setCookie = res.headers.get('set-cookie') ?? '';
+    expect(setCookie).toContain('refresh_token=');
+    expect(setCookie.toLowerCase()).toMatch(/max-age=0|expires=/);
+  });
+
+  it('clears the refresh cookie even when token revocation fails', async () => {
+    mockRevokeRefreshToken.mockImplementation(() => Promise.reject(new Error('database offline')));
+
+    const res = await post('/auth/signout', {}, { Cookie: 'refresh_token=some-token-value' });
+
+    expect(res.status).toBe(500);
+    const setCookie = res.headers.get('set-cookie') ?? '';
+    expect(setCookie).toContain('refresh_token=');
+    expect(setCookie.toLowerCase()).toMatch(/max-age=0|expires=/);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1061,8 +1111,9 @@ describe('POST /auth/signout', () => {
  * the past — proves the JWT plugin enforces expiry (not just bad signatures).
  */
 async function makeExpiredJwt(userId: string): Promise<string> {
-  // Match the secret auth-guard captured at import time (before any test body overrides it)
-  const secret = process.env['JWT_SECRET'] ?? 'dev-secret-change-me';
+  // Match the secret auth-guard captured at import time (its TEST_SECRET fallback
+  // when JWT_SECRET is unset) so the token fails on expiry, not on a bad signature.
+  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({
@@ -1129,6 +1180,41 @@ describe('PATCH /auth/me', () => {
     expect(mockRateLimit).not.toHaveBeenCalled();
     expect(mockUpdateUserProfile).not.toHaveBeenCalled();
   });
+
+  it('rejects well-formed base64 that is not a real image of the declared type', async () => {
+    const token = await makeValidJwt('user-123');
+    // Valid base64 ("hello world") but no PNG signature.
+    const fakeImage = `data:image/png;base64,${Buffer.from('hello world').toString('base64')}`;
+
+    const res = await patch(
+      '/auth/me',
+      { avatarUrl: fakeImage },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockUpdateUserProfile).not.toHaveBeenCalled();
+  });
+
+  it('accepts a base64 data URL whose bytes carry the declared image signature', async () => {
+    const token = await makeValidJwt('user-123');
+    // 1x1 transparent PNG — real 89 50 4E 47 signature.
+    const pngBase64 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    const realPng = `data:image/png;base64,${pngBase64}`;
+
+    const res = await patch(
+      '/auth/me',
+      { avatarUrl: realPng },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockUpdateUserProfile).toHaveBeenCalledWith(
+      'user-123',
+      expect.objectContaining({ avatarUrl: realPng })
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1191,14 +1277,14 @@ describe('POST /auth/google — fire-and-forget timing (REQ-AUTH-004)', () => {
   });
 
   it('returns the auth response before the Telegram notification completes', async () => {
-    // Arrange: mock sendTelegramMessage to delay 5 seconds (but returns void, so this is synchronous from caller perspective)
+    // Arrange: mock sendTelegramMessage to return a slow promise. Off Vercel,
+    // keepAlive does not await it, so the route still responds immediately.
     mockFindOrCreateGoogleUser.mockImplementation(() =>
       Promise.resolve({ user: { ...TEST_USER }, isNewUser: true })
     );
-    mockSendTelegramMessage.mockImplementation((): void => {
-      // Simulate a slow async operation started inside — the route should not await this
-      void new Promise<void>((resolve) => setTimeout(resolve, 5_000));
-    });
+    mockSendTelegramMessage.mockImplementation(
+      (): Promise<void> => new Promise<void>((resolve) => setTimeout(resolve, 5_000))
+    );
 
     // Act
     const start = Date.now();
@@ -1448,6 +1534,123 @@ describe('POST /auth/verify-email', () => {
     const body = (await res.json()) as { accessToken: string };
     expect(res.status).toBe(200);
     expect(typeof body.accessToken).toBe('string');
+  });
+});
+
+describe('POST /auth/resend-verification', () => {
+  const GENERIC_MESSAGE =
+    'If an account exists for that email and still needs verification, a new link has been sent.';
+
+  beforeEach(() => {
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockRateLimit.mockClear();
+    mockFindUserByEmail.mockClear();
+    mockReplaceEmailVerificationToken.mockClear();
+    mockReplaceEmailVerificationToken.mockImplementation(() =>
+      Promise.resolve('resend-verify-token')
+    );
+    mockSendVerificationEmail.mockClear();
+    mockIsEmailConfigured.mockImplementation(() => true);
+  });
+
+  it('returns a generic 200 and sends nothing when no account exists', async () => {
+    mockFindUserByEmail.mockImplementation(() => Promise.resolve(undefined));
+
+    const res = await post('/auth/resend-verification', { email: 'nobody@example.com' });
+    const body = (await res.json()) as { message: string };
+
+    expect(res.status).toBe(200);
+    expect(body.message).toBe(GENERIC_MESSAGE);
+    expect(mockReplaceEmailVerificationToken).not.toHaveBeenCalled();
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it('returns the same generic 200 and sends nothing when the account is already verified', async () => {
+    mockFindUserByEmail.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, emailVerified: true })
+    );
+
+    const res = await post('/auth/resend-verification', { email: PW_USER.email });
+    const body = (await res.json()) as { message: string };
+
+    expect(res.status).toBe(200);
+    expect(body.message).toBe(GENERIC_MESSAGE);
+    expect(mockReplaceEmailVerificationToken).not.toHaveBeenCalled();
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it('sends nothing for an OAuth-only account (no password hash)', async () => {
+    mockFindUserByEmail.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, passwordHash: null, emailVerified: false })
+    );
+
+    const res = await post('/auth/resend-verification', { email: PW_USER.email });
+    const body = (await res.json()) as { message: string };
+
+    expect(res.status).toBe(200);
+    expect(body.message).toBe(GENERIC_MESSAGE);
+    expect(mockReplaceEmailVerificationToken).not.toHaveBeenCalled();
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it('re-sends the verification email for an unverified password account, still generic 200', async () => {
+    mockFindUserByEmail.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, passwordHash: 'argon2-hash', emailVerified: false })
+    );
+
+    const res = await post('/auth/resend-verification', { email: PW_USER.email });
+    const body = (await res.json()) as { message: string };
+
+    expect(res.status).toBe(200);
+    expect(body.message).toBe(GENERIC_MESSAGE);
+    expect(mockReplaceEmailVerificationToken).toHaveBeenCalledWith(PW_USER.id);
+    expect(mockSendVerificationEmail).toHaveBeenCalledTimes(1);
+    const [to, token] = mockSendVerificationEmail.mock.calls[0] as unknown as [string, string];
+    expect(to).toBe(PW_USER.email);
+    expect(token).toBe('resend-verify-token');
+  });
+
+  it('rejects oversized email addresses before looking up accounts', async () => {
+    const res = await post('/auth/resend-verification', { email: OVERSIZED_EMAIL });
+
+    expect(res.status).toBe(400);
+    expect(mockFindUserByEmail).not.toHaveBeenCalled();
+    expect(mockReplaceEmailVerificationToken).not.toHaveBeenCalled();
+  });
+
+  it('returns 429 RATE_LIMITED before touching the account lookup', async () => {
+    mockRateLimit.mockImplementation(() =>
+      Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
+    );
+
+    const res = await post('/auth/resend-verification', { email: PW_USER.email });
+    const body = (await res.json()) as { code: string; error: string };
+
+    expect(res.status).toBe(429);
+    expect(body.code).toBe('RATE_LIMITED');
+    expect(mockFindUserByEmail).not.toHaveBeenCalled();
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled();
+  });
+
+  it('fails closed in production when transactional email is not configured', async () => {
+    const previousNodeEnv = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = 'production';
+    mockIsEmailConfigured.mockImplementation(() => false);
+
+    try {
+      const res = await post('/auth/resend-verification', { email: PW_USER.email });
+      const body = (await res.json()) as { code: string };
+      expect(res.status).toBe(503);
+      expect(body.code).toBe('EMAIL_NOT_CONFIGURED');
+      expect(mockFindUserByEmail).not.toHaveBeenCalled();
+      expect(mockReplaceEmailVerificationToken).not.toHaveBeenCalled();
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete process.env['NODE_ENV'];
+      } else {
+        process.env['NODE_ENV'] = previousNodeEnv;
+      }
+    }
   });
 });
 

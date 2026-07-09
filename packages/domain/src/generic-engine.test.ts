@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeGenericProgram } from './generic-engine';
+import { computeGenericProgram, roundToNearest } from './generic-engine';
 import type { GenericResults } from './schemas/instance';
 import type { ProgramDefinition } from './schemas/program-definition';
 
@@ -133,5 +133,28 @@ describe('computeGenericProgram', () => {
     const rows = computeGenericProgram(definition, { squat: 100 }, {}, { maxRows: 100 });
 
     expect(rows).toHaveLength(3);
+  });
+});
+
+describe('roundToNearest', () => {
+  it('rounds to the nearest multiple of step', () => {
+    expect(roundToNearest(101.3, 2.5)).toBe(102.5);
+    expect(roundToNearest(102.6, 2.5)).toBe(102.5);
+    expect(roundToNearest(67.4999999, 2.5)).toBe(67.5);
+  });
+
+  it('rounds to the nearest 0.5 when step is 0.5', () => {
+    expect(roundToNearest(116.66666667, 0.5)).toBe(116.5);
+    expect(roundToNearest(62.3, 0.5)).toBe(62.5);
+    expect(roundToNearest(106.66666667, 0.5)).toBe(106.5);
+  });
+
+  it('falls back to nearest-half rounding for a non-positive or non-finite step', () => {
+    expect(roundToNearest(11.3, 0)).toBe(11.5);
+    expect(roundToNearest(11.3, -1)).toBe(11.5);
+  });
+
+  it('clamps negative results to 0', () => {
+    expect(roundToNearest(-5, 2.5)).toBe(0);
   });
 });

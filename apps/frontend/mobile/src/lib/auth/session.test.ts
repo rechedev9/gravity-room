@@ -5,9 +5,25 @@ import {
   InvalidRefreshTokenError,
   restoreSession,
   setAccessToken,
+  signInWithEmailPassword,
   signInWithGoogleIdToken,
   signOutSession,
+  signUpWithEmailPassword,
 } from './session';
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+const AUTH_USER = {
+  id: 'user-123',
+  email: 'athlete@example.com',
+  name: 'Test Athlete',
+  avatarUrl: null,
+} as const;
 
 const originalFetch = globalThis.fetch;
 const originalExpoPublicApiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -241,6 +257,51 @@ describe('restoreSession', () => {
     expect(getAccessToken()).toBeNull();
   });
 
+  it('falls back to the cookie-based session for an email session marker', async () => {
+    const storage = {
+      getRefreshToken: jest.fn<Promise<string | null>, []>().mockResolvedValue(null),
+      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
+      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+    const sessionKindStorage = {
+      getSessionKind: jest.fn<Promise<'google' | 'email' | null>, []>().mockResolvedValue('email'),
+      setSessionKind: jest.fn<Promise<void>, ['google' | 'email']>().mockResolvedValue(),
+      clearSessionKind: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+
+    const restoreCookieSession = jest
+      .fn<Promise<{ accessToken: string; user: typeof AUTH_USER } | null>, []>()
+      .mockResolvedValue({ accessToken: 'cookie-access-token', user: AUTH_USER });
+
+    await expect(
+      restoreSession({ storage, sessionKindStorage, restoreCookieSession })
+    ).resolves.toEqual({ accessToken: 'cookie-access-token', user: AUTH_USER });
+
+    expect(restoreCookieSession).toHaveBeenCalledTimes(1);
+    expect(storage.setRefreshToken).not.toHaveBeenCalled();
+  });
+
+  it('skips the cookie fallback and returns null when no session marker is present', async () => {
+    const storage = {
+      getRefreshToken: jest.fn<Promise<string | null>, []>().mockResolvedValue(null),
+      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
+      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+    const sessionKindStorage = {
+      getSessionKind: jest.fn<Promise<'google' | 'email' | null>, []>().mockResolvedValue(null),
+      setSessionKind: jest.fn<Promise<void>, ['google' | 'email']>().mockResolvedValue(),
+      clearSessionKind: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+
+    const restoreCookieSession = jest.fn<Promise<null>, []>().mockResolvedValue(null);
+
+    await expect(
+      restoreSession({ storage, sessionKindStorage, restoreCookieSession })
+    ).resolves.toBeNull();
+    // A signed-out or Google user must not incur a cookie round-trip at launch.
+    expect(restoreCookieSession).not.toHaveBeenCalled();
+  });
+
   it('refreshes the mobile session and retries unauthorized requests once', async () => {
     setAccessToken('expired-access-token');
 
@@ -376,5 +437,186 @@ describe('signOutSession', () => {
     expect(clearOrder).toBeDefined();
     expect(revokeOrder ?? 0).toBeLessThan(clearOrder ?? 0);
     expect(getAccessToken()).toBeNull();
+  });
+
+  it('revokes the cookie session when there is no stored refresh token', async () => {
+    const storage = {
+      getRefreshToken: jest.fn<Promise<string | null>, []>().mockResolvedValue(null),
+      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
+      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+
+    const revokeRemoteSession = jest.fn<Promise<void>, [string]>().mockResolvedValue();
+    const revokeCookieSession = jest.fn<Promise<void>, []>().mockResolvedValue();
+    setAccessToken('cookie-access-token');
+
+    await expect(
+      signOutSession({ storage, revokeRemoteSession, revokeCookieSession })
+    ).resolves.toBeUndefined();
+
+    expect(revokeCookieSession).toHaveBeenCalledTimes(1);
+    expect(revokeRemoteSession).not.toHaveBeenCalled();
+    expect(storage.clearRefreshToken).toHaveBeenCalledTimes(1);
+    expect(getAccessToken()).toBeNull();
+  });
+
+  it('clears the session marker even when cookie revocation fails offline', async () => {
+    const storage = {
+      getRefreshToken: jest.fn<Promise<string | null>, []>().mockResolvedValue(null),
+      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
+      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+    const sessionKindStorage = {
+      getSessionKind: jest.fn<Promise<'google' | 'email' | null>, []>().mockResolvedValue('email'),
+      setSessionKind: jest.fn<Promise<void>, ['google' | 'email']>().mockResolvedValue(),
+      clearSessionKind: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+    const revokeCookieSession = jest
+      .fn<Promise<void>, []>()
+      .mockRejectedValue(new Error('Network request failed'));
+
+    await expect(
+      signOutSession({ storage, sessionKindStorage, revokeCookieSession })
+    ).resolves.toBeUndefined();
+
+    // The failed remote revocation must not leave the marker behind, or the next
+    // launch would resurrect the still-valid cookie session.
+    expect(sessionKindStorage.clearSessionKind).toHaveBeenCalledTimes(1);
+    expect(storage.clearRefreshToken).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('signInWithEmailPassword', () => {
+  it('establishes an access-token session from the login response', async () => {
+    const login = jest
+      .fn<Promise<Response>, [string, string]>()
+      .mockResolvedValue(jsonResponse({ user: AUTH_USER, accessToken: 'email-access-token' }));
+
+    await expect(
+      signInWithEmailPassword('athlete@example.com', 'correct-horse', { login })
+    ).resolves.toEqual({
+      ok: true,
+      session: { accessToken: 'email-access-token', user: AUTH_USER },
+    });
+
+    expect(login).toHaveBeenCalledWith('athlete@example.com', 'correct-horse');
+    expect(getAccessToken()).toBe('email-access-token');
+  });
+
+  it('maps a 401 to INVALID_CREDENTIALS', async () => {
+    const login = jest
+      .fn<Promise<Response>, [string, string]>()
+      .mockResolvedValue(jsonResponse({ error: 'Invalid email or password' }, 401));
+
+    await expect(
+      signInWithEmailPassword('athlete@example.com', 'wrong', { login })
+    ).resolves.toEqual({ ok: false, code: 'INVALID_CREDENTIALS' });
+    expect(getAccessToken()).toBeNull();
+  });
+
+  it('surfaces the EMAIL_NOT_VERIFIED code from a 403 body', async () => {
+    const login = jest
+      .fn<Promise<Response>, [string, string]>()
+      .mockResolvedValue(
+        jsonResponse({ error: 'Email not verified', code: 'EMAIL_NOT_VERIFIED' }, 403)
+      );
+
+    await expect(
+      signInWithEmailPassword('athlete@example.com', 'unverified', { login })
+    ).resolves.toEqual({ ok: false, code: 'EMAIL_NOT_VERIFIED' });
+  });
+
+  it('maps a 429 to RATE_LIMITED when the body carries no code', async () => {
+    const login = jest
+      .fn<Promise<Response>, [string, string]>()
+      .mockResolvedValue(new Response('rate limited', { status: 429 }));
+
+    await expect(
+      signInWithEmailPassword('athlete@example.com', 'correct-horse', { login })
+    ).resolves.toEqual({ ok: false, code: 'RATE_LIMITED' });
+  });
+
+  it('revokes and clears a leftover Google refresh token on successful email sign-in', async () => {
+    const login = jest
+      .fn<Promise<Response>, [string, string]>()
+      .mockResolvedValue(jsonResponse({ user: AUTH_USER, accessToken: 'email-access-token' }));
+    const storage = {
+      getRefreshToken: jest
+        .fn<Promise<string | null>, []>()
+        .mockResolvedValue('stale-google-token'),
+      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
+      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+    const revokeRemoteSession = jest.fn<Promise<void>, [string]>().mockResolvedValue();
+
+    await expect(
+      signInWithEmailPassword('athlete@example.com', 'correct-horse', {
+        login,
+        storage,
+        revokeRemoteSession,
+      })
+    ).resolves.toMatchObject({ ok: true });
+
+    // The stale token is revoked server-side BEFORE the local copy is dropped;
+    // otherwise the server row stays valid for its full TTL with nobody left
+    // holding the value.
+    expect(revokeRemoteSession).toHaveBeenCalledWith('stale-google-token');
+    expect(storage.clearRefreshToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('still signs in when revoking the leftover token fails', async () => {
+    const login = jest
+      .fn<Promise<Response>, [string, string]>()
+      .mockResolvedValue(jsonResponse({ user: AUTH_USER, accessToken: 'email-access-token' }));
+    const storage = {
+      getRefreshToken: jest
+        .fn<Promise<string | null>, []>()
+        .mockResolvedValue('stale-google-token'),
+      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
+      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+    const revokeRemoteSession = jest
+      .fn<Promise<void>, [string]>()
+      .mockRejectedValue(new Error('offline'));
+
+    await expect(
+      signInWithEmailPassword('athlete@example.com', 'correct-horse', {
+        login,
+        storage,
+        revokeRemoteSession,
+      })
+    ).resolves.toMatchObject({ ok: true });
+
+    expect(storage.clearRefreshToken).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('signUpWithEmailPassword', () => {
+  it('reports success without minting a session', async () => {
+    const signup = jest
+      .fn<Promise<Response>, [string, string, string | undefined]>()
+      .mockResolvedValue(jsonResponse({ message: 'Account created.' }, 201));
+
+    await expect(
+      signUpWithEmailPassword('new@example.com', 'brand-new-pass', 'New Athlete', { signup })
+    ).resolves.toEqual({ ok: true });
+
+    expect(signup).toHaveBeenCalledWith('new@example.com', 'brand-new-pass', 'New Athlete');
+    expect(getAccessToken()).toBeNull();
+  });
+
+  it('surfaces the EMAIL_TAKEN code from a 409 conflict', async () => {
+    const signup = jest
+      .fn<Promise<Response>, [string, string, string | undefined]>()
+      .mockResolvedValue(
+        jsonResponse(
+          { error: 'An account with this email already exists', code: 'EMAIL_TAKEN' },
+          409
+        )
+      );
+
+    await expect(
+      signUpWithEmailPassword('taken@example.com', 'another-pass', undefined, { signup })
+    ).resolves.toEqual({ ok: false, code: 'EMAIL_TAKEN' });
   });
 });

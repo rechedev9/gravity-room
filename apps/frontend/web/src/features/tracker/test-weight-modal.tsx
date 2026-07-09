@@ -40,6 +40,7 @@ export function TestWeightModal({
   const { t } = useTranslation();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const rangeErrorId = useId();
 
   const { register, watch, reset } = useForm<TestWeightFormValues>({
     defaultValues: { weight: String(defaultWeight) },
@@ -52,6 +53,7 @@ export function TestWeightModal({
   const parsedWeight = parseFloat(watchedWeight);
   const isWeightValid =
     Number.isFinite(parsedWeight) && parsedWeight >= MIN_WEIGHT && parsedWeight <= MAX_WEIGHT;
+  const showRangeError = watchedWeight.trim() !== '' && !isWeightValid;
 
   // Sync dialog open/close with native dialog API and reset form when opening.
   // These are legitimate DOM imperative calls, not state synchronization.
@@ -113,9 +115,20 @@ export function TestWeightModal({
           min={MIN_WEIGHT}
           max={MAX_WEIGHT}
           step={WEIGHT_STEP}
-          className="w-full border border-rule bg-body text-main text-sm px-3 py-2.5 rounded focus:outline-none focus:ring-2 focus:ring-accent mb-4"
+          aria-invalid={!isWeightValid}
+          aria-describedby={showRangeError ? rangeErrorId : undefined}
+          className="w-full border border-rule bg-body text-main text-sm px-3 py-2.5 rounded focus:outline-none focus:ring-2 focus:ring-accent mb-1"
           autoFocus
         />
+        <p
+          id={rangeErrorId}
+          role={showRangeError ? 'alert' : undefined}
+          className={`text-xs text-error mb-4 min-h-[1rem] ${showRangeError ? '' : 'invisible'}`}
+        >
+          {showRangeError
+            ? t('tracker.test_weight.range_error', { min: MIN_WEIGHT, max: MAX_WEIGHT })
+            : ''}
+        </p>
 
         <div className="border-t border-rule pt-4 flex justify-end gap-3">
           <Button type="button" variant="ghost" onClick={onCancel} disabled={loading}>

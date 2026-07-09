@@ -272,11 +272,26 @@ kbd {
   font-family: var(--font-mono);
 }
 
-.font-display { font-family: var(--font-display); letter-spacing: 0.04em; }
-.font-mono { font-family: var(--font-mono); }
-.font-body { font-family: var(--font-body); }
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
+.font-mono {
+  font-family: var(--font-mono);
+}
+.font-body {
+  font-family: var(--font-body);
+}
 
 /* Convenience surface classes */
-.gr-surface-body { background: var(--color-body); color: var(--color-main); }
-.gr-surface-card { background: var(--color-card); border: 1px solid var(--color-rule); }
-.gr-surface-header { background: var(--color-header); }
+.gr-surface-body {
+  background: var(--color-body);
+  color: var(--color-main);
+}
+.gr-surface-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-rule);
+}
+.gr-surface-header {
+  background: var(--color-header);
+}

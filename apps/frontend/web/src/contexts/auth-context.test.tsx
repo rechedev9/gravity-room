@@ -9,22 +9,31 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // is created via vi.hoisted (and destructured for unchanged usage below).
 // ---------------------------------------------------------------------------
 
-const { mockRefreshAccessToken, mockSetAccessToken, mockApiFetch, mockFetchMe } = vi.hoisted(
-  () => ({
-    mockRefreshAccessToken: vi.fn<() => Promise<{ accessToken: string; user: unknown } | null>>(
-      () => Promise.resolve(null)
-    ),
-    mockSetAccessToken: vi.fn<(token: string | null) => void>(() => {}),
-    mockApiFetch: vi.fn<(path: string, options?: RequestInit) => Promise<unknown>>(() =>
-      Promise.reject(new Error('Unauthorized'))
-    ),
-    mockFetchMe: vi.fn<
-      () => Promise<{ id: string; email: string; name?: string; avatarUrl?: string } | null>
-    >(() => Promise.resolve(null)),
-  })
-);
+const {
+  mockBlockAuthRefresh,
+  mockResumeAuthRefresh,
+  mockRefreshAccessToken,
+  mockSetAccessToken,
+  mockApiFetch,
+  mockFetchMe,
+} = vi.hoisted(() => ({
+  mockBlockAuthRefresh: vi.fn<() => void>(() => {}),
+  mockResumeAuthRefresh: vi.fn<() => void>(() => {}),
+  mockRefreshAccessToken: vi.fn<() => Promise<{ accessToken: string; user: unknown } | null>>(() =>
+    Promise.resolve(null)
+  ),
+  mockSetAccessToken: vi.fn<(token: string | null) => void>(() => {}),
+  mockApiFetch: vi.fn<(path: string, options?: RequestInit) => Promise<unknown>>(() =>
+    Promise.reject(new Error('Unauthorized'))
+  ),
+  mockFetchMe: vi.fn<
+    () => Promise<{ id: string; email: string; name?: string; avatarUrl?: string } | null>
+  >(() => Promise.resolve(null)),
+}));
 
 vi.mock('@/lib/api', () => ({
+  blockAuthRefresh: mockBlockAuthRefresh,
+  resumeAuthRefresh: mockResumeAuthRefresh,
   refreshAccessToken: mockRefreshAccessToken,
   setAccessToken: mockSetAccessToken,
   getAccessToken: vi.fn(() => null),
@@ -77,6 +86,8 @@ function wrapper({ children }: { readonly children: React.ReactNode }): React.Re
 }
 
 function resetAllMocks(): void {
+  mockBlockAuthRefresh.mockClear();
+  mockResumeAuthRefresh.mockClear();
   mockRefreshAccessToken.mockReset();
   mockRefreshAccessToken.mockImplementation(() => Promise.resolve(null));
   mockSetAccessToken.mockReset();
@@ -320,14 +331,50 @@ describe('AuthProvider', () => {
         expect(result.current.user).not.toBeNull();
       });
 
+      let signOutResult: unknown;
       await act(async () => {
-        await result.current.signOut();
+        signOutResult = await result.current.signOut();
       });
 
+      expect(signOutResult).toEqual({ ok: true });
+      expect(mockBlockAuthRefresh).toHaveBeenCalledTimes(1);
+      expect(mockResumeAuthRefresh).not.toHaveBeenCalled();
       expect(mockSetAccessToken).toHaveBeenCalledWith(null);
       await waitFor(() => {
         expect(result.current.user).toBeNull();
       });
+    });
+
+    it('keeps the current session and resumes refresh when the API call fails', async () => {
+      const token = fakeJwt({ sub: 'user-1', email: 'a@b.com' });
+      mockRefreshAccessToken.mockImplementation(() =>
+        Promise.resolve({ accessToken: token, user: { id: 'user-1', email: 'a@b.com' } })
+      );
+      mockApiFetch.mockImplementation((path: string) => {
+        if (path === '/auth/signout') return Promise.reject(new TypeError('Failed to fetch'));
+        return Promise.reject(new Error('Unauthorized'));
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.user).not.toBeNull();
+      });
+      mockSetAccessToken.mockClear();
+
+      let signOutResult: unknown;
+      await act(async () => {
+        signOutResult = await result.current.signOut();
+      });
+
+      expect(signOutResult).toEqual({
+        ok: false,
+        code: 'NETWORK_ERROR',
+        message: 'Failed to fetch',
+      });
+      expect(mockBlockAuthRefresh).toHaveBeenCalledTimes(1);
+      expect(mockResumeAuthRefresh).toHaveBeenCalledTimes(1);
+      expect(mockSetAccessToken).not.toHaveBeenCalledWith(null);
+      expect(result.current.user?.email).toBe('a@b.com');
     });
   });
 });

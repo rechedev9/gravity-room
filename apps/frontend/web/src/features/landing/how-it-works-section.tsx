@@ -56,6 +56,8 @@ export function HowItWorksSection({ content }: HowItWorksSectionProps): React.Re
                 src={s.image}
                 alt=""
                 aria-hidden="true"
+                width={80}
+                height={80}
                 className="w-20 h-20 mx-auto mb-4 object-contain opacity-85"
                 loading="lazy"
               />

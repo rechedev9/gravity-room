@@ -188,6 +188,117 @@ jobs:
         run: pnpm run format:check
 
   # ---------------------------------------------------------------------------
+  # OpenAPI client drift — catches divergence between the live ElysiaJS OpenAPI
+  # surface and the committed client at apps/frontend/web/src/lib/api/generated.ts.
+  # No Postgres needed: the serverless entrypoint has no boot-time DDL, so
+  # /swagger/json serves from route schemas alone (DATABASE_URL just has to be
+  # set — it is only dialed on the first DB-touching request). The dev auth
+  # routes must be enabled because the committed client includes them.
+  # ---------------------------------------------------------------------------
+  api-types-drift:
+    name: OpenAPI client drift
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/unused_swagger_only
+      JWT_SECRET: ci-drift-check-secret-not-a-real-secret-just-32-plus-chars
+      SWAGGER_ENABLED: 'true'
+      AUTH_DEV_ROUTE_ENABLED: 'true'
+      AUTH_DEV_ROUTE_SECRET: e2e-dev-secret-not-for-prod
+      PORT: '3001'
+      CORS_ORIGIN: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Regenerate client and diff
+        run: |
+          set -euo pipefail
+          pnpm --filter api run start &
+          API_PID=$!
+          trap 'kill $API_PID 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:3001/swagger/json > /dev/null 2>&1; then
+              echo "Swagger up after ${i} attempts"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "::error::/swagger/json did not come up within 60s"
+              exit 1
+            fi
+            sleep 2
+          done
+
+          pnpm --filter web run api:types
+
+          if ! git diff --exit-code apps/frontend/web/src/lib/api/generated.ts; then
+            echo "::error::API client is out of sync. Run 'pnpm --filter web run api:types' with the API running and commit the regenerated apps/frontend/web/src/lib/api/generated.ts."
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Gitleaks secret scan — scans git history (not just the working tree) so
+  # removed-but-recoverable secrets are caught. On pull_request, scoped to the
+  # PR's commit range so pre-existing historical commits aren't re-flagged; on
+  # push it scans the full history.
+  # ---------------------------------------------------------------------------
+  secret-scan:
+    name: Gitleaks secret scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v5
+        with:
+          # Gitleaks git mode reads the commit graph; full history is required
+          # to detect secrets that were committed and later removed.
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          LOG_OPTS=""
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            LOG_OPTS="--log-opts=${PR_BASE_SHA}..${PR_HEAD_SHA}"
+          fi
+          # --config is REQUIRED: gitleaks runs with the container CWD at `/`,
+          # not the mounted `/repo`, so it cannot auto-discover the repo's
+          # .gitleaks.toml. Without this, the project allowlist is ignored and
+          # the scan re-flags long-lived false positives (the public IndexNow
+          # key, fake-JWT test fixtures), failing every push to main.
+          docker run --rm \
+            -v "$PWD:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.30.0 git /repo \
+            --config=/repo/.gitleaks.toml \
+            $LOG_OPTS \
+            --redact \
+            --no-banner \
+            --exit-code=1 \
+            --report-format=sarif \
+            --report-path=/repo/gitleaks.sarif
+
+      - name: Upload Gitleaks SARIF
+        if: always() && hashFiles('gitleaks.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks
+
+  # ---------------------------------------------------------------------------
   # Aggregate gate. Branch protection requires a single status check named
   # "Validate"; this job reports it and succeeds only when every job above
   # passed (a failed dependency leaves it skipped, which does not satisfy the
@@ -196,6 +307,6 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
-    needs: [web, api, domain, api-client, mobile, format]
+    needs: [web, api, domain, api-client, mobile, format, api-types-drift, secret-scan]
     steps:
       - run: echo "All CI checks passed."

@@ -1,28 +1,93 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
-<style>
-  .lbl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#8a7a5a;margin-bottom:10px}
-  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  .badge{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;padding:5px 10px;border:1px solid}
-  .ok{background:#0f2010;border-color:#3a6828;color:#6aaa3a}
-  .fail{background:#240e0e;border-color:#7a2828;color:#c05050}
-  .neutral{background:#130f09;border-color:#3a3025;color:#8a7a5a}
-  .strength{background:transparent;border-color:rgba(74,144,217,0.4);color:#4a90d9}
-  .hyper{background:transparent;border-color:rgba(155,89,182,0.4);color:#9b59b6}
-  .power{background:transparent;border-color:rgba(224,80,80,0.4);color:#e05050}
-  .with-dot{display:inline-flex;align-items:center;gap:8px}
-  .dot{width:6px;height:6px;border-radius:9999px;background:#e8aa20;animation:pulse 1.6s infinite}
-  @keyframes pulse{50%{opacity:.4}}
-</style></head>
-<body><div class="card">
-  <div class="lbl">Badges · ring + bg + text · never solid fill</div>
-  <div class="row">
-    <span class="badge ok">✓ Activo</span>
-    <span class="badge fail">Failed</span>
-    <span class="badge neutral">3 days/week</span>
-    <span class="badge neutral with-dot"><span class="dot"></span>Live</span>
-    <span class="badge strength">Strength</span>
-    <span class="badge hyper">Hypertrophy</span>
-    <span class="badge power">Powerlifting</span>
-  </div>
-</div></body></html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="_card.css" />
+    <style>
+      .lbl {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 9px;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #8a7a5a;
+        margin-bottom: 10px;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .badge {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        padding: 5px 10px;
+        border: 1px solid;
+      }
+      .ok {
+        background: #0f2010;
+        border-color: #3a6828;
+        color: #6aaa3a;
+      }
+      .fail {
+        background: #240e0e;
+        border-color: #7a2828;
+        color: #c05050;
+      }
+      .neutral {
+        background: #130f09;
+        border-color: #3a3025;
+        color: #8a7a5a;
+      }
+      .strength {
+        background: transparent;
+        border-color: rgba(74, 144, 217, 0.4);
+        color: #4a90d9;
+      }
+      .hyper {
+        background: transparent;
+        border-color: rgba(155, 89, 182, 0.4);
+        color: #9b59b6;
+      }
+      .power {
+        background: transparent;
+        border-color: rgba(224, 80, 80, 0.4);
+        color: #e05050;
+      }
+      .with-dot {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 9999px;
+        background: #e8aa20;
+        animation: pulse 1.6s infinite;
+      }
+      @keyframes pulse {
+        50% {
+          opacity: 0.4;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="lbl">Badges · ring + bg + text · never solid fill</div>
+      <div class="row">
+        <span class="badge ok">✓ Activo</span>
+        <span class="badge fail">Failed</span>
+        <span class="badge neutral">3 days/week</span>
+        <span class="badge neutral with-dot"><span class="dot"></span>Live</span>
+        <span class="badge strength">Strength</span>
+        <span class="badge hyper">Hypertrophy</span>
+        <span class="badge power">Powerlifting</span>
+      </div>
+    </div>
+  </body>
+</html>

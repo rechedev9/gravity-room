@@ -1,6 +1,12 @@
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { clearApiResponseCache, setAccessToken, refreshAccessToken } from '@/lib/api';
+import {
+  blockAuthRefresh,
+  clearApiResponseCache,
+  refreshAccessToken,
+  resumeAuthRefresh,
+  setAccessToken,
+} from '@/lib/api';
 import { apiFetch, fetchMe } from '@/lib/api-functions';
 import { ApiError } from '@gzclp/api-client/api-error';
 import { isRecord } from '@gzclp/domain/type-guards';
@@ -39,11 +45,12 @@ interface AuthActions {
     name?: string
   ) => Promise<ActionResult>;
   readonly verifyEmail: (token: string) => Promise<ActionResult>;
+  readonly resendVerification: (email: string) => Promise<ActionResult>;
   readonly requestPasswordReset: (email: string) => Promise<ActionResult>;
   readonly resetPassword: (token: string, password: string) => Promise<ActionResult>;
   // DEV-only — undefined in production builds (esbuild dead-code-eliminates the branch).
   readonly signInWithDev?: () => Promise<AuthResult | null>;
-  readonly signOut: () => Promise<void>;
+  readonly signOut: () => Promise<ActionResult>;
   readonly updateUser: (info: Partial<Pick<UserInfo, 'name' | 'avatarUrl'>>) => void;
   readonly deleteAccount: () => Promise<void>;
 }
@@ -179,6 +186,7 @@ export function AuthProvider({
         const data = await apiFetch('/auth/login', {
           method: 'POST',
           body: JSON.stringify({ email, password }),
+          retryAuth: false,
         });
         const err = applySignInResponse(data, setSessionData, { trackSignup: false });
         return err ? { ok: false, message: err.message } : { ok: true };
@@ -195,6 +203,7 @@ export function AuthProvider({
         await apiFetch('/auth/signup', {
           method: 'POST',
           body: JSON.stringify({ email, password, ...(name ? { name } : {}) }),
+          retryAuth: false,
         });
         trackEvent('signup');
         return { ok: true };
@@ -211,6 +220,7 @@ export function AuthProvider({
         const data = await apiFetch('/auth/verify-email', {
           method: 'POST',
           body: JSON.stringify({ token }),
+          retryAuth: false,
         });
         const err = applySignInResponse(data, setSessionData, { trackSignup: false });
         return err ? { ok: false, message: err.message } : { ok: true };
@@ -221,11 +231,25 @@ export function AuthProvider({
     [setSessionData]
   );
 
+  const resendVerification = useCallback(async (email: string): Promise<ActionResult> => {
+    try {
+      await apiFetch('/auth/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+        retryAuth: false,
+      });
+      return { ok: true };
+    } catch (err: unknown) {
+      return errorResult(err);
+    }
+  }, []);
+
   const requestPasswordReset = useCallback(async (email: string): Promise<ActionResult> => {
     try {
       await apiFetch('/auth/forgot-password', {
         method: 'POST',
         body: JSON.stringify({ email }),
+        retryAuth: false,
       });
       return { ok: true };
     } catch (err: unknown) {
@@ -239,6 +263,7 @@ export function AuthProvider({
         await apiFetch('/auth/reset-password', {
           method: 'POST',
           body: JSON.stringify({ token, password }),
+          retryAuth: false,
         });
         return { ok: true };
       } catch (err: unknown) {
@@ -282,20 +307,21 @@ export function AuthProvider({
     sentrySetUser(null);
   }, [queryClient]);
 
-  const signOut = useCallback(async (): Promise<void> => {
+  const signOut = useCallback(async (): Promise<ActionResult> => {
+    blockAuthRefresh();
     try {
-      await apiFetch('/auth/signout', { method: 'POST' });
+      await apiFetch('/auth/signout', { method: 'POST', retryAuth: false });
     } catch (err: unknown) {
-      // Ignore signout errors — always clear local state
-      console.warn(
-        '[auth] Signout request failed (ignored):',
-        err instanceof Error ? err.message : 'Unknown error'
-      );
+      // Keep the authenticated UI intact so the user can retry. In particular,
+      // do not reload while an HttpOnly refresh cookie may still be valid.
+      resumeAuthRefresh();
+      return errorResult(err);
     }
     setAccessToken(null);
     await clearApiResponseCache();
     queryClient.setQueryData(SESSION_QUERY_KEY, null);
     sentrySetUser(null);
+    return { ok: true };
   }, [queryClient]);
 
   const value = useMemo(
@@ -306,6 +332,7 @@ export function AuthProvider({
       signInWithEmail,
       signUpWithEmail,
       verifyEmail,
+      resendVerification,
       requestPasswordReset,
       resetPassword,
       signInWithDev,
@@ -320,6 +347,7 @@ export function AuthProvider({
       signInWithEmail,
       signUpWithEmail,
       verifyEmail,
+      resendVerification,
       requestPasswordReset,
       resetPassword,
       signInWithDev,

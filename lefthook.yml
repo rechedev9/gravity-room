@@ -46,6 +46,7 @@ pre-push:
 # http://localhost:3001/swagger/json that nobody has running locally before
 # pushing — every push without the dev stack up was rejected.
 #
-# The check now lives in .github/workflows/validate.yml as a step inside the
-# `validate` job, booting the API against a Postgres service container and
-# diffing apps/frontend/web/src/lib/api/generated.ts via `git diff --exit-code`.
+# The check lives in .github/workflows/ci.yml as the `api-types-drift` job:
+# it boots the API with a dummy DATABASE_URL (swagger serves without a DB),
+# regenerates the client, and diffs
+# apps/frontend/web/src/lib/api/generated.ts via `git diff --exit-code`.

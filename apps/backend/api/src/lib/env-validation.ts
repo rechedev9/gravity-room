@@ -109,7 +109,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: false,
     description:
-      'Allowed CORS origin (or comma-separated list). LEAVE EMPTY for the same-origin Vercel deployment (the SPA and API share an origin, so no cross-origin is allowed). Set a value only for split-origin local dev.',
+      'Allowed CORS origin (or comma-separated list); also the SPA base for post-login redirects and email action links. LEAVE EMPTY for the same-origin Vercel deployment (the SPA and API share an origin, so no cross-origin is allowed and the web base URL is derived from the request host). Set a value only for split-origin local dev, where it points action links back at the separate web origin.',
     example: '',
   },
   {
@@ -224,7 +224,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: false,
     description:
-      'Public base URL of this API, used to build OAuth/OIDC redirect URIs (Apple/GitHub). Falls back to http://localhost:3001 when unset.',
+      'Public base URL of this API, used to build OAuth/OIDC redirect URIs (Apple/GitHub/Microsoft). Optional: when unset the URL is derived from the request host (x-forwarded-proto/host), which on the same-origin Vercel deployment is the public domain. Set it only to pin an exact value the provider console expects, or for split-origin local dev. Falls back to http://localhost:3001 when neither is available.',
     example: 'https://gravityroom.app',
   },
   {

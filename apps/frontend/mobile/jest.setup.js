@@ -2,6 +2,12 @@ import mockSafeAreaContext from 'react-native-safe-area-context/jest/mock';
 
 jest.mock('react-native-safe-area-context', () => mockSafeAreaContext);
 
+// Pin the device locale to English so i18n resolves the English catalog under
+// test (the source language of the app's copy).
+jest.mock('expo-localization', () => ({
+  getLocales: () => [{ languageCode: 'en' }],
+}));
+
 jest.mock('expo-auth-session/providers/google', () => ({
   useIdTokenAuthRequest: jest.fn(() => [
     {
@@ -25,11 +31,17 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 jest.mock('expo-sqlite', () => ({
-  openDatabaseSync: jest.fn(() => ({
-    execAsync: jest.fn(async () => undefined),
-    runAsync: jest.fn(async () => ({ changes: 1, lastInsertRowId: 0 })),
-    getAllAsync: jest.fn(async () => []),
-  })),
+  openDatabaseSync: jest.fn(() => {
+    const db = {
+      execAsync: jest.fn(async () => undefined),
+      runAsync: jest.fn(async () => ({ changes: 1, lastInsertRowId: 0 })),
+      getAllAsync: jest.fn(async () => []),
+      withExclusiveTransactionAsync: jest.fn(async (task) => {
+        await task(db);
+      }),
+    };
+    return db;
+  }),
 }));
 
 jest.mock('react-native/Libraries/Lists/FlatList', () => {
@@ -77,3 +89,7 @@ jest.mock('react-native/Libraries/Lists/FlatList', () => {
     default: FlatList,
   };
 });
+
+// Initialize i18next once per test file so components that call useTranslation
+// resolve the catalogs even when rendered in isolation (not via the app entry).
+require('./src/lib/i18n');

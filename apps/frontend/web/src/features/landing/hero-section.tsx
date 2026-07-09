@@ -1,5 +1,7 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { motion, useReducedMotion, useScroll, useTransform } from 'motion/react';
+import { useGuest } from '@/contexts/guest-context';
+import { useAuth } from '@/contexts/auth-context';
 import { EASE_OUT_EXPO, fadeUpVariants } from '@/lib/motion-primitives';
 import { trackEvent } from '@/lib/analytics';
 import type { HeroContent, ProductPreviewContent } from './content';
@@ -15,6 +17,21 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
   const init = reduced ? 'visible' : 'hidden';
   const { scrollY } = useScroll();
   const previewY = useTransform(scrollY, [0, 600], [0, -40]);
+  const { enterGuestMode } = useGuest();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleGuestStart = (): void => {
+    trackEvent('landing_cta_click', { location: 'hero_guest' });
+    // An authenticated user must never be dropped into guest mode on top of a
+    // live session - just take them to their app.
+    if (user !== null) {
+      void navigate({ to: '/app' });
+      return;
+    }
+    enterGuestMode();
+    void navigate({ to: '/app/programs' });
+  };
 
   return (
     <section
@@ -126,6 +143,16 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
             </a>
           </motion.div>
 
+          {/* Guest CTA - enter guest mode directly, no account needed */}
+          <motion.button
+            variants={fadeUpVariants}
+            type="button"
+            onClick={handleGuestStart}
+            className="font-mono text-[11px] tracking-[0.14em] uppercase text-muted underline underline-offset-4 decoration-rule-light hover:text-title hover:decoration-accent transition-colors mb-4 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-body"
+          >
+            {content.guestCta}
+          </motion.button>
+
           {/* Microcopy — reassurance below CTA */}
           <motion.p
             variants={fadeUpVariants}
@@ -138,7 +165,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
           <motion.ul
             variants={fadeUpVariants}
             className="flex flex-wrap gap-3"
-            aria-label="Key benefits"
+            aria-label={content.proofListAriaLabel}
           >
             {content.proofItems.map((item) => (
               <li

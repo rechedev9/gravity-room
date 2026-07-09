@@ -10,8 +10,8 @@ export const queryKeys = {
     detail: (id: string): readonly ['programs', string] => ['programs', id] as const,
   },
   insights: {
-    list: (types?: readonly string[]): readonly unknown[] =>
-      types?.length ? (['insights', ...types] as const) : (['insights'] as const),
+    list: (types?: readonly string[]): readonly ['insights', ...string[]] =>
+      types?.length ? ['insights', ...[...types].sort()] : ['insights'],
   },
   catalog: {
     list: (): readonly ['catalog', 'list'] => ['catalog', 'list'] as const,

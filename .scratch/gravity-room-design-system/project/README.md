@@ -32,15 +32,15 @@ separately.
 
 ## Index
 
-| File / Folder | Purpose |
-| --- | --- |
-| `README.md` | You are here. Brand context, content + visual foundations, iconography. |
-| `SKILL.md` | Agent skill manifest — how to use this kit when generating new artifacts. |
-| `colors_and_type.css` | Color + type tokens + `@font-face` imports. Drop into any HTML. |
-| `fonts/` | Self-hosted woff2: Bebas Neue, Barlow (400/500/600/700), JetBrains Mono variable. |
-| `assets/` | Logos, hero/feature webp imagery, pattern texture. Copied verbatim from the web `public/`. |
-| `preview/` | Per-token HTML cards rendered in the Design System tab. |
-| `ui_kits/web/` | High-fidelity click-thru recreation of the Gravity Room web product. |
+| File / Folder         | Purpose                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `README.md`           | You are here. Brand context, content + visual foundations, iconography.                    |
+| `SKILL.md`            | Agent skill manifest — how to use this kit when generating new artifacts.                  |
+| `colors_and_type.css` | Color + type tokens + `@font-face` imports. Drop into any HTML.                            |
+| `fonts/`              | Self-hosted woff2: Bebas Neue, Barlow (400/500/600/700), JetBrains Mono variable.          |
+| `assets/`             | Logos, hero/feature webp imagery, pattern texture. Copied verbatim from the web `public/`. |
+| `preview/`            | Per-token HTML cards rendered in the Design System tab.                                    |
+| `ui_kits/web/`        | High-fidelity click-thru recreation of the Gravity Room web product.                       |
 
 ### What's in `ui_kits/web/`
 
@@ -64,50 +64,53 @@ explaining why your spreadsheet routine isn't working. Short imperative
 sentences are the default.
 
 **Casing.**
+
 - Display headings (Bebas Neue) are written **mixed-case** but rendered in
   small-caps-like uniformity by the typeface itself — `"Train Smarter."`,
   `"Three Steps. That's It."`. Never SHOUTY all-caps in source; let the font
   do that.
 - Eyebrows / labels / section markers are **UPPERCASE** with `letter-spacing:
-  0.2em–0.3em`, set in JetBrains Mono at 10–11px. Examples: `FEATURES`,
+0.2em–0.3em`, set in JetBrains Mono at 10–11px. Examples: `FEATURES`,
   `100% FREE · SYNCS ACROSS DEVICES`, `KPI · STREAK`.
 - Body copy is normal sentence case.
 - Buttons are **UPPERCASE** mono with wide tracking: `GET STARTED →`.
 
 **Pronouns.** "**You**" exclusively. Never "we." Never "I." The product
-is the second voice in a coach/athlete dialog: *"You just show up and train.
-The app decides when to add weight."*
+is the second voice in a coach/athlete dialog: _"You just show up and train.
+The app decides when to add weight."_
 
 **Punctuation tics.**
+
 - The em-dash `—` separates two clauses where a period would be too hard.
-  *"Real data — not guesses."*
+  _"Real data — not guesses."_
 - The bullet `·` separates short metadata phrases.
-  *"100% Free · Syncs Across Devices."*
+  _"100% Free · Syncs Across Devices."_
 - The arrow `→` lives in every CTA. `Get Started →`, `Sign In →`,
   `See all 7 programs →`.
-- The period after a fragment is intentional: *"That's It."*
+- The period after a fragment is intentional: _"That's It."_
 
 **Vibe.** Brutalist-fitness meets indie-PWA. Confident, slightly poetic
 ("every extra kilo on the bar is gravity you've conquered"). No corporate
 softeners — never "we're excited to," never "love," never "❤️."
 
 **Bilingual.** The product ships Spanish-first (`/`) and English (`/en`).
-Spanish copy is equally direct: *"Deja de adivinar en el gimnasio."* — *"Stop
-guessing at the gym."* Translations are 1:1 in tone, not literal.
+Spanish copy is equally direct: _"Deja de adivinar en el gimnasio."_ — _"Stop
+guessing at the gym."_ Translations are 1:1 in tone, not literal.
 
 **No emoji.** None. The brand uses iconography (custom webp glyphs) where
 other apps would reach for an emoji. The single ornamental character allowed
 is the arrow `→`.
 
 **Sample copy (lifted verbatim):**
+
 - Hero: `Train Smarter. / Progress Faster.`
 - Hero subtitle: `Stop guessing at the gym. Follow proven programs that
-  automatically adjust weight, sets, and reps — so every session moves you
-  forward.`
+automatically adjust weight, sets, and reps — so every session moves you
+forward.`
 - Feature title + body: `Smart Progression — The app decides when to add
-  weight and how to handle failure. You just show up and train.`
+weight and how to handle failure. You just show up and train.`
 - Final CTA: `Ready to raise the gravity? / Enter the Gravity Room. / Start
-  Training Today.`
+Training Today.`
 - Footer tagline: `For athletes who refuse to plateau.`
 
 ---
@@ -122,8 +125,9 @@ is gold `#e8aa20` — used for the brand wordmark, primary buttons, the
 title-text fill, progress-bar glow edges, and the gold ring on hover.
 
 **Semantic pairs.**
+
 - Surfaces: `body` / `card` / `header` / `th` get progressively warmer as you
-  go up the elevation stack. Cards sit *darker* than the body in only one
+  go up the elevation stack. Cards sit _darker_ than the body in only one
   case (the `header` band); usually the card is one shade lighter.
 - Text: `--color-main` `#f0e8d8` (warm cream) for body, `--color-title`
   `#f0c040` (gold) for headings, `--color-muted` `#8a7a5a` (sand) for hints,
@@ -132,7 +136,7 @@ title-text fill, progress-bar glow edges, and the gold ring on hover.
   `#c05050`. Both have matching `-bg` and `-ring` tokens — every status badge
   is `bg + 1px ring + bold text`, never solid-fill.
 - Stages (lift tiers): `--color-stage-1 #f0e8d8` cream, `--color-stage-2
-  #f07000` orange, `--color-stage-3 #d02020` red. T1 → T3 in the GZCLP
+#f07000` orange, `--color-stage-3 #d02020` red. T1 → T3 in the GZCLP
   program.
 - Catalog categories: strength `#4a90d9`, hypertrophy `#9b59b6`, powerlifting
   `#e05050`. Used as 8% gradient washes at the top of program cards plus the
@@ -160,7 +164,7 @@ title-text fill, progress-bar glow edges, and the gold ring on hover.
 - Max content width is `5xl` (1024) for marketing, `4xl` (896) for the
   centered-hero variant.
 - Multi-column grids use `gap-px` over `bg-rule` — i.e. cards live on a
-  1px-wide grid line that *is* the border. No outer card border + no inner
+  1px-wide grid line that _is_ the border. No outer card border + no inner
   padding on the grid.
 
 ### Backgrounds
@@ -171,17 +175,17 @@ title-text fill, progress-bar glow edges, and the gold ring on hover.
 - **Grain overlay** — fixed-position SVG fractal noise at `opacity: 0.028`
   applied over the whole page. Adds the analog/film feel.
 - **Radial gold glow** — `radial-gradient(ellipse, rgba(232,170,32,0.08–0.12),
-  transparent 65%)` placed under hero text and behind imagery. Never a
+transparent 65%)` placed under hero text and behind imagery. Never a
   linear gradient; always radial, low alpha.
 - **Edge-glow top rule** — `linear-gradient(90deg, transparent, rgba(232,170,
-  32, 0.5), transparent)` 1px tall, animates in on card hover.
+32, 0.5), transparent)` 1px tall, animates in on card hover.
 - **Hero imagery** is photo-real, warm-toned, slightly desaturated. Webp.
 
 ### Animation
 
 - **Easings.** `--ease-out-expo (0.16, 1, 0.3, 1)` for everything entering;
   `--ease-standard (0.4, 0, 0.2, 1)` for state changes; `--ease-emphasized
-  (0.2, 0, 0, 1)` for emphasis. No bounce.
+(0.2, 0, 0, 1)` for emphasis. No bounce.
 - **Durations.** `instant 120ms`, `fast 180ms`, `base 240ms`, `slow 320ms`.
   Most UI uses `fast`; entrances use `slow`.
 - **Patterns.** `fadeSlideUp` (8px translateY + opacity) is the canonical
@@ -195,7 +199,7 @@ title-text fill, progress-bar glow edges, and the gold ring on hover.
   to `--shadow-card-hover` (which adds a faint gold inset ring), interactive
   cards translateY(-1 to -4px). The `landing-card-glow` adds a 1px gold
   edge-glow line at the top.
-- **Buttons.** Default outline button: hover *fills* with gold and inverts to
+- **Buttons.** Default outline button: hover _fills_ with gold and inverts to
   black text — the gold is so saturated this reads as press feedback. Active
   state is `scale(0.97)`. Primary (already gold) hover is `opacity: 0.9`.
 - **Nav links.** Underline slides in via `transform: scaleX(0 → 1)` from
@@ -213,7 +217,7 @@ title-text fill, progress-bar glow edges, and the gold ring on hover.
   `--shadow-dialog` (32+60px + gold ring). The "glow" shadows
   (`--shadow-glow-gold`, `-success`, `-fail`) are 12–20px halos at low alpha.
 - **Inset shadow.** `--shadow-inset-subtle` `inset 0 1px 0 rgba(255,255,255,
-  0.02)` adds a 1px sheen on top of every card — a chrome-on-metal trick.
+0.02)` adds a 1px sheen on top of every card — a chrome-on-metal trick.
 
 ### Transparency & blur
 
@@ -260,7 +264,7 @@ Material). The brand makes a deliberate choice:
    the universal CTA tail. `↑ ↓ →` mark trends in KPI cards. `✓` marks
    completed sets in the tracker grid.
 4. **Numerals as iconography.** Step indicators are giant Bebas Neue
-   numbers (`01 / 02 / 03`) in gold — the type *is* the icon.
+   numbers (`01 / 02 / 03`) in gold — the type _is_ the icon.
 
 **Emoji are explicitly never used.** Even in casual surfaces.
 

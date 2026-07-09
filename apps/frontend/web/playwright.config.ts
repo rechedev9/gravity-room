@@ -34,7 +34,12 @@ export default defineConfig({
       env: {
         AUTH_DEV_ROUTE_ENABLED: 'true',
         AUTH_DEV_ROUTE_SECRET: 'e2e-dev-secret-not-for-prod',
+        // The suite runs the web preview on :5173; without this the browser's
+        // API calls are CORS-blocked and every data-driven test fails.
         CORS_ORIGIN: 'http://localhost:5173',
+        // Real GIS buttons require a client ID registered for localhost. Keep
+        // Google disabled here and cover the enabled branch with the controlled
+        // component in login-page-methods.test.tsx.
         GOOGLE_CLIENT_ID: '',
         GOOGLE_CLIENT_IDS: '',
       },

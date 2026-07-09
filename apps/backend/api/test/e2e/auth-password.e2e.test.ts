@@ -22,6 +22,7 @@ import {
   setUserPassword,
   markEmailVerified,
   createEmailVerificationToken,
+  replaceEmailVerificationToken,
   consumeEmailVerificationToken,
   createPasswordResetToken,
   consumePasswordResetToken,
@@ -120,6 +121,30 @@ describe('email/password (integration)', () => {
       .from(emailVerificationTokens)
       .where(eq(emailVerificationTokens.userId, user.id));
     expect(rows).toHaveLength(0);
+  });
+
+  it('replaceEmailVerificationToken invalidates every earlier verification link', async () => {
+    const user = await createPasswordUser({
+      email: 'resend@example.com',
+      passwordHash: await hashPassword('pw-resend-1'),
+    });
+
+    // First link (as sent by signup), then a resend that must supersede it.
+    const firstToken = await createEmailVerificationToken(user.id);
+    const secondToken = await replaceEmailVerificationToken(user.id);
+
+    expect(secondToken).not.toBe(firstToken);
+
+    // Exactly one token row survives - the replacement deleted the prior one.
+    const rows = await getDb()
+      .select()
+      .from(emailVerificationTokens)
+      .where(eq(emailVerificationTokens.userId, user.id));
+    expect(rows).toHaveLength(1);
+
+    // The old link no longer verifies; only the latest one does.
+    expect(await consumeEmailVerificationToken(firstToken)).toBeNull();
+    expect(await consumeEmailVerificationToken(secondToken)).toBe(user.id);
   });
 
   it('resets the password via a single-use token, invalidating the old password', async () => {

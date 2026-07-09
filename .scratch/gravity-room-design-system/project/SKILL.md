@@ -22,7 +22,7 @@ fastest path to a Gravity-Room-correct artifact is:
    Barlow for body, JetBrains Mono for **all** eyebrows / labels / badges /
    buttons (10–11px, tracking 0.2em–0.3em, UPPERCASE).
 4. Square corners. Borders, not pills. No rounded buttons or rounded cards
-   — `--radius-sm` (2px) is the default; `--radius-pill` exists *only* for
+   — `--radius-sm` (2px) is the default; `--radius-pill` exists _only_ for
    the brand logo and dot indicators.
 5. Use the brand assets in `assets/` (logos, hero, feature webp glyphs, the
    `howit-*.webp` imagery). Never invent SVG icons; use Lucide for any new
@@ -41,22 +41,23 @@ are simplified-cosmetic versions of the real components in
 `gravity-room/apps/frontend/web/src/`.
 
 If the user invokes this skill without any other guidance, ask them:
+
 1. What surface? (marketing page, in-app screen, slide, social card, app icon, etc.)
 2. Production or throwaway?
 3. Any specific copy they want carried through, or write it in-voice?
 4. Any particular brand element to lean on (the gold gravity well, the GZCLP
    tier ladder, the set-grid as iconography)?
 
-Then act as an expert designer who outputs HTML artifacts *or* production
+Then act as an expert designer who outputs HTML artifacts _or_ production
 code, depending on the need.
 
 ## File map
 
-| Path | What's there |
-| --- | --- |
-| `README.md` | Full brand brief — content fundamentals, visual foundations, iconography. **Start here.** |
-| `colors_and_type.css` | Drop-in CSS — `@font-face`, color/type/spacing/shadow tokens, semantic typography classes. |
-| `fonts/` | Self-hosted woff2 files (Bebas Neue, Barlow 400/500/600/700, JetBrains Mono variable). |
-| `assets/` | Logos, hero/feature/howit imagery, splash, og, pattern texture. Verbatim from `gravity-room` web `public/`. |
-| `preview/` | Per-token HTML cards. Useful as quick visual references when answering "what does X look like?". |
-| `ui_kits/web/` | Click-thru web kit. `index.html` is the entry; small JSX components and a single `styles.css`. |
+| Path                  | What's there                                                                                                |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `README.md`           | Full brand brief — content fundamentals, visual foundations, iconography. **Start here.**                   |
+| `colors_and_type.css` | Drop-in CSS — `@font-face`, color/type/spacing/shadow tokens, semantic typography classes.                  |
+| `fonts/`              | Self-hosted woff2 files (Bebas Neue, Barlow 400/500/600/700, JetBrains Mono variable).                      |
+| `assets/`             | Logos, hero/feature/howit imagery, splash, og, pattern texture. Verbatim from `gravity-room` web `public/`. |
+| `preview/`            | Per-token HTML cards. Useful as quick visual references when answering "what does X look like?".            |
+| `ui_kits/web/`        | Click-thru web kit. `index.html` is the entry; small JSX components and a single `styles.css`.              |

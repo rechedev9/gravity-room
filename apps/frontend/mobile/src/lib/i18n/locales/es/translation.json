@@ -1,0 +1,76 @@
+{
+  "common": {
+    "retry": "Reintentar"
+  },
+  "nav": {
+    "programs": "Programas",
+    "profile": "Perfil",
+    "open_programs": "Abrir pestaña de programas",
+    "open_profile": "Abrir pestaña de perfil"
+  },
+  "login": {
+    "eyebrow": "Gravity Room",
+    "title": "Entrena con intención.",
+    "google_body": "Elige tu cuenta de Google para restaurar tu progreso de entrenamiento.",
+    "divider": "o",
+    "social": {
+      "google": "Continuar con Google"
+    },
+    "email": {
+      "toggle": "Continuar con email",
+      "email_label": "Correo",
+      "email_placeholder": "tu@ejemplo.com",
+      "password_label": "Contraseña",
+      "password_placeholder": "Tu contraseña",
+      "name_label": "Nombre",
+      "name_placeholder": "Tu nombre (opcional)",
+      "submit_signin": "Entrar",
+      "submit_signup": "Crear cuenta",
+      "submitting": "Espera…",
+      "password_min": "La contraseña debe tener al menos 8 caracteres.",
+      "to_signup": "¿No tienes cuenta? Crear una",
+      "to_signin": "¿Ya tienes cuenta? Entrar"
+    },
+    "signup_success": "Cuenta creada. Revisa tu correo para verificar tu dirección antes de entrar.",
+    "errors": {
+      "google_auth_error": "Error al iniciar sesión con Google. Inténtalo de nuevo.",
+      "INVALID_CREDENTIALS": "Correo o contraseña incorrectos.",
+      "EMAIL_NOT_VERIFIED": "Verifica tu correo antes de entrar. Revisa tu bandeja de entrada.",
+      "EMAIL_TAKEN": "Ya existe una cuenta con este correo.",
+      "RATE_LIMITED": "Demasiados intentos. Inténtalo de nuevo más tarde.",
+      "VALIDATION_ERROR": "Revisa tus datos e inténtalo de nuevo.",
+      "generic": "Algo salió mal. Inténtalo de nuevo."
+    }
+  },
+  "programs": {
+    "eyebrow": "Programas",
+    "title": "Bloques de entrenamiento en caché",
+    "body": "Tus bloques activos siguen disponibles sin conexión. Empieza un preset para guardarlo en este dispositivo.",
+    "sync_notice": "Mostrando programas en caché. La sincronización se reintentará al actualizar.",
+    "card_updated": "Actualizado {{date}}",
+    "catalog_title": "Empezar un programa",
+    "catalog_meta": "{{level}} · {{total}} entrenamientos · {{perWeek}}/semana",
+    "start": "Empezar",
+    "starting": "Empezando...",
+    "start_accessibility": "Empezar {{name}}",
+    "first_run": {
+      "title": "Sin programa activo",
+      "body": "Elige un programa abajo para empezar a registrar tu entrenamiento."
+    },
+    "errors": {
+      "load": "No se pudieron cargar los programas en caché.",
+      "sync": "No se pueden sincronizar los programas ahora mismo.",
+      "catalog": "No se pudo cargar el catálogo de programas ahora mismo.",
+      "start": "No se pudo empezar ese programa ahora mismo."
+    }
+  },
+  "profile": {
+    "eyebrow": "Cuenta",
+    "title": "Perfil",
+    "default_name": "Atleta de Gravity Room",
+    "session_note": "Tu sesión móvil se guarda de forma segura en este dispositivo.",
+    "sign_out": "Cerrar sesión",
+    "signing_out": "Cerrando sesión...",
+    "sign_out_accessibility": "Cerrar sesión de Gravity Room"
+  }
+}

@@ -130,7 +130,9 @@ export function VerifyEmailPage(): React.ReactNode {
         <p className="text-sm text-muted">{t('login.verify_email.verifying')}</p>
       )}
       {status === 'success' && (
-        <p className="text-sm text-main">{t('login.verify_email.success')}</p>
+        <p className="text-sm text-main" role="alert" aria-live="polite">
+          {t('login.verify_email.success')}
+        </p>
       )}
       {status === 'error' && (
         <p className="text-sm text-error" role="alert">
@@ -241,7 +243,9 @@ function ResetForm({ token }: { readonly token: string }): React.ReactNode {
   return (
     <AuthShell title={t('login.reset_password.title')}>
       {status === 'success' ? (
-        <p className="text-sm text-main">{t('login.reset_password.success')}</p>
+        <p className="text-sm text-main" role="alert" aria-live="polite">
+          {t('login.reset_password.success')}
+        </p>
       ) : (
         <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-3">
           <label className="flex flex-col gap-1">

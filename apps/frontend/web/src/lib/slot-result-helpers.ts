@@ -1,4 +1,4 @@
-import type { GenericResults } from '@gzclp/domain/types/program';
+import type { GenericResults, GenericUndoHistory } from '@gzclp/domain/types/program';
 import type { ResultValue, SetLogEntry } from '@gzclp/domain/types';
 
 /**
@@ -68,4 +68,35 @@ export function patchSlotField(
   workoutEntry[slotId] = slotEntry;
   updatedResults[key] = workoutEntry;
   return updatedResults;
+}
+
+/**
+ * Restores the result state to what it was before a single undo-history entry
+ * was recorded. Mirrors the server's `undoLast` (results.ts) and the web
+ * optimistic reconstruction in use-program-mutations.ts: when the entry has no
+ * `prev` snapshot, the slot had no result before the action being undone, so
+ * it's deleted; otherwise the previous result/amrapReps/setLogs/rpe are
+ * written back verbatim, clearing the current slot first so nothing from the
+ * undone action lingers.
+ */
+export function applyUndoEntry(
+  results: GenericResults,
+  entry: GenericUndoHistory[number]
+): GenericResults {
+  if (entry.prev === undefined) {
+    return removeSlotResult(results, entry.i, entry.slotId);
+  }
+  const cleared = removeSlotResult(results, entry.i, entry.slotId);
+  let restored = setSlotResult(
+    cleared,
+    entry.i,
+    entry.slotId,
+    entry.prev,
+    entry.prevAmrapReps,
+    entry.prevSetLogs
+  );
+  if (entry.prevRpe !== undefined) {
+    restored = patchSlotField(restored, entry.i, entry.slotId, 'rpe', entry.prevRpe);
+  }
+  return restored;
 }

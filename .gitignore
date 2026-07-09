@@ -52,6 +52,7 @@ skills-lock.json
 
 # temporary files (PDF extracts, screenshots, scripts)
 .tmp/
+*.tmp
 .playwright-mcp/
 .railwayignore
 

@@ -1,13 +1,6 @@
 import { openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
 
-import {
-  PROGRAM_DEFINITIONS_TABLE_SQL,
-  PROGRAM_DETAILS_TABLE_SQL,
-  PROGRAM_SUMMARIES_TABLE_SQL,
-  QUEUED_MUTATIONS_TABLE_SQL,
-} from './schema';
-
-const BOOTSTRAP_SQL = `${PROGRAM_SUMMARIES_TABLE_SQL}\n${QUEUED_MUTATIONS_TABLE_SQL}\n${PROGRAM_DETAILS_TABLE_SQL}\n${PROGRAM_DEFINITIONS_TABLE_SQL}`;
+import { MIGRATIONS, type MigrationStep } from './migrations';
 
 export interface DatabaseClient {
   execAsync(source: string): Promise<void>;
@@ -31,14 +24,41 @@ export function getDatabase(): DatabaseClient {
   return asDatabaseClient(database);
 }
 
-export async function bootstrapDatabase(client: DatabaseClient = getDatabase()): Promise<void> {
+async function getUserVersion(client: DatabaseClient): Promise<number> {
+  const rows = await client.getAllAsync<{ user_version: number }>('PRAGMA user_version');
+  return rows[0]?.user_version ?? 0;
+}
+
+async function applyMigrations(
+  client: DatabaseClient,
+  migrations: readonly MigrationStep[]
+): Promise<void> {
+  const pending = [...migrations].sort((a, b) => a.version - b.version);
+  const currentVersion = await getUserVersion(client);
+
+  for (const migration of pending) {
+    if (migration.version <= currentVersion) {
+      continue;
+    }
+
+    await client.withExclusiveTransactionAsync(async (transaction) => {
+      await transaction.execAsync(migration.sql);
+      await transaction.execAsync(`PRAGMA user_version = ${migration.version}`);
+    });
+  }
+}
+
+export async function bootstrapDatabase(
+  client: DatabaseClient = getDatabase(),
+  migrations: readonly MigrationStep[] = MIGRATIONS
+): Promise<void> {
   if (client !== database) {
-    await client.execAsync(BOOTSTRAP_SQL);
+    await applyMigrations(client, migrations);
     return;
   }
 
   if (!bootstrapPromise) {
-    bootstrapPromise = client.execAsync(BOOTSTRAP_SQL).catch((error) => {
+    bootstrapPromise = applyMigrations(client, migrations).catch((error) => {
       bootstrapPromise = null;
       throw error;
     });

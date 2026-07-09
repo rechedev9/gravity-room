@@ -139,6 +139,7 @@ export function SetupForm({
   }, [fields, initialConfig]);
 
   const {
+    register,
     handleSubmit: rhfHandleSubmit,
     setValue,
     getValues,
@@ -151,6 +152,14 @@ export function SetupForm({
     // In edit mode mark all fields touched so errors show immediately
     mode: isEditMode ? 'onChange' : 'onTouched',
   });
+
+  // The inputs are controlled manually (setValue/watch), so each config key must
+  // still be registered as a virtual field: react-hook-form only applies
+  // resolver errors to registered names, and with none registered both
+  // trigger() and handleSubmit() silently discard every validation issue.
+  useEffect(() => {
+    for (const f of fields) register(f.key);
+  }, [fields, register]);
 
   // Subscribe to all field values so displayed weights are reactive to setValue calls.
   // Without this, getValues() in render returns a stale snapshot that doesn't update.
@@ -227,8 +236,17 @@ export function SetupForm({
     }
   };
 
+  const onInvalid = (): void => {
+    // Reveal every field-level error (display is gated on touched) and the
+    // form-level summary so an invalid submit is never silent.
+    for (const f of fields) {
+      setValue(f.key, getValues(f.key), { shouldTouch: true });
+    }
+    setError(t('tracker.setup_form.error_header'));
+  };
+
   const handleSubmit = (): void => {
-    void rhfHandleSubmit(onValid)();
+    void rhfHandleSubmit(onValid, onInvalid)();
   };
 
   const handleConfirmUpdate = (): void => {
@@ -254,21 +272,15 @@ export function SetupForm({
     [fields]
   );
 
-  const fieldErrorsForDisplay = useMemo((): Record<string, string | null> => {
-    const map: Record<string, string | null> = {};
-    for (const f of fields) {
-      map[f.key] = errors[f.key]?.message ?? null;
-    }
-    return map;
-  }, [fields, errors]);
-
-  const touchedForDisplay = useMemo((): Record<string, boolean> => {
-    const map: Record<string, boolean> = {};
-    for (const f of fields) {
-      map[f.key] = !!touchedFields[f.key];
-    }
-    return map;
-  }, [fields, touchedFields]);
+  // NOT memoized: react-hook-form mutates formState.errors/touchedFields in
+  // place (stable references), so a useMemo keyed on them never recomputes and
+  // validation feedback silently stops rendering. The loops are trivially cheap.
+  const fieldErrorsForDisplay: Record<string, string | null> = {};
+  const touchedForDisplay: Record<string, boolean> = {};
+  for (const f of fields) {
+    fieldErrorsForDisplay[f.key] = errors[f.key]?.message ?? null;
+    touchedForDisplay[f.key] = !!touchedFields[f.key];
+  }
 
   const localizedName = localizedProgramName(t, definition.id, definition.name);
   const formContent = (

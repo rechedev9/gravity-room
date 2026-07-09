@@ -60,7 +60,18 @@ async function extractApiError(res: Response, fallback: string): Promise<ApiErro
   return new ApiError(msg, res.status, code);
 }
 
-export async function apiFetch(path: string, options: RequestInit = {}): Promise<unknown> {
+interface ApiFetchOptions extends RequestInit {
+  /**
+   * When false, a 401 is thrown directly instead of attempting a token refresh
+   * and retry. Set it for unauthenticated endpoints (login, signup, password
+   * reset) where there is no session to refresh, so an invalid-credentials 401
+   * does not waste a refresh round-trip and log a misleading auth error.
+   */
+  readonly retryAuth?: boolean;
+}
+
+export async function apiFetch(path: string, options: ApiFetchOptions = {}): Promise<unknown> {
+  const { retryAuth = true, ...init } = options;
   const token = getAccessToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -69,27 +80,25 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 
   const doFetch = (): Promise<Response> =>
     fetch(`${API_URL}/api${path}`, {
-      ...options,
-      headers: mergeHeaders(headers, options.headers),
+      ...init,
+      headers: mergeHeaders(headers, init.headers),
       credentials: 'include',
-      signal: options.signal
-        ? AbortSignal.any([options.signal, AbortSignal.timeout(30_000)])
+      signal: init.signal
+        ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)])
         : AbortSignal.timeout(30_000),
     });
 
   const res = await doFetch();
 
   if (res.status === 401) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      headers['Authorization'] = `Bearer ${refreshed.accessToken}`;
-      const retry = await doFetch();
-      if (!retry.ok) throw await extractApiError(retry, `API error: ${retry.status}`);
-      if (retry.status === 204) return null;
-      return retry.json();
-    }
+    const refreshed = retryAuth ? await refreshAccessToken() : null;
+    if (!refreshed) throw await extractApiError(res, 'Authentication failed');
 
-    throw await extractApiError(res, 'Authentication failed');
+    headers['Authorization'] = `Bearer ${refreshed.accessToken}`;
+    const retry = await doFetch();
+    if (!retry.ok) throw await extractApiError(retry, `API error: ${retry.status}`);
+    if (retry.status === 204) return null;
+    return retry.json();
   }
 
   if (!res.ok) throw await extractApiError(res, `API error: ${res.status}`);
@@ -229,10 +238,14 @@ const AuthProvidersResponseSchema = z.object({
 
 export type AuthProviders = z.infer<typeof AuthProvidersResponseSchema>;
 
-/** Fetch public auth provider availability for the current deployment. */
+/** Fetch public auth provider availability for the current deployment. Public
+ * endpoint — a direct fetch (no auth header, no 401 refresh round-trip). */
 export async function fetchAuthProviders(): Promise<AuthProviders> {
-  const data = await apiFetch('/auth/providers');
-  return AuthProvidersResponseSchema.parse(data);
+  const res = await fetch(`${API_URL}/api/auth/providers`, {
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw await extractApiError(res, `API error: ${res.status}`);
+  return AuthProvidersResponseSchema.parse(await res.json());
 }
 
 /** Fetch the count of users active in the last 60 seconds. Public endpoint — no auth required. */

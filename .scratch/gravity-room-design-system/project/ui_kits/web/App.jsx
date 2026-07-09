@@ -16,17 +16,29 @@ function App() {
     return () => window.removeEventListener('hashchange', sync);
   }, []);
   const onNav = (key) => {
-    if (!ROUTES.includes(key)) { setRoute('dashboard'); window.location.hash = 'dashboard'; window.scrollTo(0, 0); return; }
-    setRoute(key); window.location.hash = key; window.scrollTo(0, 0);
+    if (!ROUTES.includes(key)) {
+      setRoute('dashboard');
+      window.location.hash = 'dashboard';
+      window.scrollTo(0, 0);
+      return;
+    }
+    setRoute(key);
+    window.location.hash = key;
+    window.scrollTo(0, 0);
   };
 
   switch (route) {
-    case 'signin': return <SignIn onNav={onNav} />;
-    case 'dashboard': return <Dashboard onNav={onNav} />;
-    case 'programs': return <Programs onNav={onNav} />;
-    case 'tracker': return <Tracker onNav={onNav} />;
+    case 'signin':
+      return <SignIn onNav={onNav} />;
+    case 'dashboard':
+      return <Dashboard onNav={onNav} />;
+    case 'programs':
+      return <Programs onNav={onNav} />;
+    case 'tracker':
+      return <Tracker onNav={onNav} />;
     case 'landing':
-    default: return <Landing onNav={onNav} />;
+    default:
+      return <Landing onNav={onNav} />;
   }
 }
 
