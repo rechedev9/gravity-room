@@ -23,6 +23,7 @@ function tierToSlotId(workoutIndex: number, tier: string): string | null {
 export async function skipFirstRunOverlays(page: Page): Promise<void> {
   await page.addInitScript(() => {
     window.localStorage.setItem('gr-shortcuts-seen-v1', '1');
+    window.localStorage.setItem('cookie-banner-dismissed', '1');
   });
 }
 

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1280, initial-scale=1" />
+<title>Gravity Room — A · App Preview Hero</title>
+<link rel="icon" href="../../../assets/favicon.webp" />
+<link rel="stylesheet" href="../styles.css" />
+<link rel="stylesheet" href="extras.css" />
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="../primitives.jsx"></script>
+<script>window.GR_LOGO = "../../../assets/logo.webp";</script>
+<script type="text/babel" src="../chrome.jsx"></script>
+<script type="text/babel">
+function useReveal() {
+  React.useEffect(() => {
+    const els = document.querySelectorAll('.reveal');
+    const io = new IntersectionObserver((entries) => entries.forEach(e => e.isIntersecting && e.target.classList.add('is-in')), { threshold: 0.15 });
+    els.forEach(el => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+}
+
+function TrackerMock() {
+  const [done, setDone] = React.useState([true, true, true, false, false]);
+  React.useEffect(() => {
+    let i = 3;
+    const t = setInterval(() => {
+      setDone((prev) => {
+        if (i >= 5) { i = 3; return [true, true, true, false, false]; }
+        const n = [...prev]; n[i] = true; i++; return n;
+      });
+    }, 1100);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <div className="tracker-mock">
+      <div className="tracker-mock__chrome"><span /><span /><span /></div>
+      <div className="tracker-mock__head">
+        <div>
+          <h3 className="tracker-mock__name">Squat</h3>
+          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}><Badge>T1</Badge><Badge>5 × 5</Badge></div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div className="exercise__target" style={{ fontSize: 10 }}>Working</div>
+          <div className="tracker-mock__weight">120 kg</div>
+        </div>
+      </div>
+      <div className="set-grid">
+        {done.map((d, i) => (
+          <div key={i} className={'set-cell ' + (d ? 'set-cell--done' : (i === done.findIndex(x=>!x) ? 'set-cell--current' : ''))}>
+            {d ? '✓' : '5×5'}
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 16 }}>
+        <div className="progress"><div className="progress__fill" style={{ width: (done.filter(Boolean).length / 5) * 100 + '%' }} /></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>
+          <span>Set {done.filter(Boolean).length} / 5</span><span>{Math.round(done.filter(Boolean).length / 5 * 100)}%</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function App() {
+  useReveal();
+  return (
+    <>
+      <Nav onNav={() => {}} route="landing" />
+      <section className="hero-split">
+        <div className="hero__glow" style={{ top: '20%' }} />
+        <div className="hero__rules hero__rules--inset-l" />
+        <div className="hero__rules hero__rules--inset-r" />
+        <div className="hero-split__left reveal">
+          <Eyebrow color="var(--color-accent)">100% Free · Open Source</Eyebrow>
+          <h1 className="hero-split__title"><span>Train Smarter.</span><span>Progress Faster.</span></h1>
+          <p className="hero-split__sub">Stop guessing at the gym. Follow proven programs that automatically adjust weight, sets, and reps — so every session moves you forward.</p>
+          <div className="hero-split__cta"><Button size="lg">Start Training Today →</Button><Button variant="outline" size="lg">See Programs</Button></div>
+          <div style={{ marginTop: 36, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>Web · iOS · Android · Syncs Across</div>
+        </div>
+        <div className="reveal"><TrackerMock /></div>
+      </section>
+
+      <div className="stat-strip reveal">
+        <div className="stat-strip__cell"><div className="stat-strip__num">12,400</div><div className="stat-strip__lbl">Active Lifters</div></div>
+        <div className="stat-strip__cell"><div className="stat-strip__num">2.1M</div><div className="stat-strip__lbl">Sets Logged · 30d</div></div>
+        <div className="stat-strip__cell"><div className="stat-strip__num">87%</div><div className="stat-strip__lbl">Success Rate</div></div>
+        <div className="stat-strip__cell"><div className="stat-strip__num">$0</div><div className="stat-strip__lbl">Forever</div></div>
+      </div>
+
+      <section className="lpx-section" id="features">
+        <div className="lpx-section__head reveal">
+          <SectionLabel>Features</SectionLabel>
+          <h2 className="lpx-section__title">Built For The Bar.</h2>
+          <p className="lpx-section__sub">Real data — not guesses. Every feature is tuned for one thing: the next kilo.</p>
+        </div>
+        <div className="features-grid reveal">
+          <div className="feature"><img src="../../../assets/feature-progression.webp" /><h3 className="feature__title">Smart Progression</h3><p className="feature__body">The app decides when to add weight and how to handle failure. You just show up and train.</p></div>
+          <div className="feature"><img src="../../../assets/feature-tracking.webp" /><h3 className="feature__title">Frictionless Tracking</h3><p className="feature__body">Tap one cell. Done. The set grid is the input — no menus, no swipes, no clutter.</p></div>
+          <div className="feature"><img src="../../../assets/feature-stats.webp" /><h3 className="feature__title">Honest Stats</h3><p className="feature__body">Charts that show what's actually happening on the bar. PRs, volume, and the trend lines that matter.</p></div>
+          <div className="feature"><img src="../../../assets/feature-sync.webp" /><h3 className="feature__title">Sync Across Devices</h3><p className="feature__body">Plan from your laptop. Track on your phone. Same session, same data, no friction.</p></div>
+        </div>
+      </section>
+
+      <section className="lpx-section" id="programs">
+        <div className="lpx-section__head reveal">
+          <SectionLabel>Programs</SectionLabel>
+          <h2 className="lpx-section__title">Pick Your Program.</h2>
+          <p className="lpx-section__sub">Battle-tested templates with built-in progression. Start a session in two taps.</p>
+        </div>
+        <div className="programs-preview reveal">
+          <ProgramCard category="strength" name="GZCLP" by="Cody Lefever" description="Linear progression with tier-based exercises and smart staged failure handling." schedule="3 days/week" length="12 weeks" />
+          <ProgramCard category="power" name="5/3/1" by="Jim Wendler" description="Four-week wave loading on the big four. Conservative, sustainable, a classic." schedule="4 days/week" length="4-week cycles" />
+          <ProgramCard category="hyper" name="PHUL" by="Brandon Campbell" description="Two power days plus two hypertrophy days. Strength and size on the same calendar." schedule="4 days/week" length="8 weeks" />
+        </div>
+        <div style={{ textAlign: 'center', marginTop: 32 }}><Button variant="outline">See all 7 programs →</Button></div>
+      </section>
+
+      <section className="lpx-section">
+        <div className="cta-block reveal">
+          <SectionLabel>The Gravity Room</SectionLabel>
+          <h2 className="lpx-section__title">Ready to raise the gravity?</h2>
+          <p className="lpx-section__sub" style={{ marginBottom: 32 }}>Enter the Gravity Room. Start training today.</p>
+          <Button size="lg">Get Started — It's Free →</Button>
+        </div>
+      </section>
+
+      <Footer />
+    </>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

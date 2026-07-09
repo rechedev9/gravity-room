@@ -177,6 +177,23 @@ describe('AuthProvider', () => {
       expect(result.current.user?.id).toBe('user-123');
       expect(mockFetchMe).toHaveBeenCalledTimes(1);
     });
+
+    it('clears the access token when the restored session has no valid user', async () => {
+      const token = fakeJwt({ sub: 'user-123', email: 'test@example.com' });
+      mockRefreshAccessToken.mockImplementation(() =>
+        Promise.resolve({ accessToken: token, user: { id: 123 } })
+      );
+      mockFetchMe.mockImplementation(() => Promise.reject(new Error('Invalid user payload')));
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      expect(result.current.user).toBeNull();
+      expect(mockSetAccessToken).toHaveBeenCalledWith(null);
+    });
   });
 
   describe('signInWithGoogle', () => {
@@ -229,6 +246,57 @@ describe('AuthProvider', () => {
       });
 
       expect(authResult).toEqual({ message: 'Invalid Google credential' });
+    });
+
+    it('rejects a token response that does not include a valid user', async () => {
+      mockApiFetch.mockImplementation((path: string) => {
+        if (path === '/auth/google') {
+          return Promise.resolve({
+            accessToken: fakeJwt({ sub: 'user-1' }),
+            user: { id: 123 },
+          });
+        }
+        return Promise.reject(new Error('Unauthorized'));
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      let authResult: unknown = null;
+      await act(async () => {
+        authResult = await result.current.signInWithGoogle('google-id-token');
+      });
+
+      expect(authResult).toEqual({ message: 'Unexpected response from server' });
+      expect(result.current.user).toBeNull();
+      expect(mockSetAccessToken).toHaveBeenCalledWith(null);
+    });
+  });
+
+  describe('signInWithEmail', () => {
+    it('classifies fetch failures as network errors', async () => {
+      mockApiFetch.mockImplementation((path: string) => {
+        if (path === '/auth/login') return Promise.reject(new TypeError('Failed to fetch'));
+        return Promise.reject(new Error('Unauthorized'));
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      let signInResult: unknown = null;
+      await act(async () => {
+        signInResult = await result.current.signInWithEmail('test@example.com', 'password');
+      });
+
+      expect(signInResult).toEqual({
+        ok: false,
+        code: 'NETWORK_ERROR',
+        message: 'Failed to fetch',
+      });
     });
   });
 

@@ -10,7 +10,7 @@ import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import { useProgram } from '@/hooks/use-program';
 import { useInViewport } from '@/hooks/use-in-viewport';
 import { useAuth } from '@/contexts/auth-context';
-import type { UserInfo } from '@/contexts/auth-context';
+import type { UserInfo } from '@gzclp/domain/schemas/user';
 import { useToast } from '@/contexts/toast-context';
 import { computeProfileData, computeVolume } from '@/lib/profile-stats';
 import {

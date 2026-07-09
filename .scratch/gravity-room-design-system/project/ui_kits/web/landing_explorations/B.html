@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1280, initial-scale=1" />
+<title>Gravity Room — B · Numbers Wall</title>
+<link rel="icon" href="../../../assets/favicon.webp" />
+<link rel="stylesheet" href="../styles.css" />
+<link rel="stylesheet" href="extras.css" />
+<style>
+  /* Variant B-specific: a giant centered hero number, then a wall */
+  .hero-b { padding: 96px 32px 0; max-width: 1280px; margin: 0 auto; text-align: center; position: relative; }
+  .hero-b__big { font-family: var(--font-display); color: var(--color-title); font-size: clamp(120px, 22vw, 320px); line-height: 0.85; letter-spacing: 0.02em; margin: 12px 0 8px; position: relative; }
+  .hero-b__big small { font-family: var(--font-mono); display: block; font-size: 12px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--color-muted); margin-top: 12px; }
+  .hero-b__title { font-family: var(--font-display); color: var(--color-main); font-size: clamp(40px, 5vw, 64px); letter-spacing: 0.02em; line-height: 1.05; margin: 24px 0; }
+  .hero-b__sub { font-family: var(--font-body); font-size: 17px; color: var(--color-muted); max-width: 600px; margin: 0 auto 32px; line-height: 1.55; }
+  .hero-b__cta { display: flex; gap: 14px; justify-content: center; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="../primitives.jsx"></script>
+<script>window.GR_LOGO = "../../../assets/logo.webp";</script>
+<script type="text/babel" src="../chrome.jsx"></script>
+<script type="text/babel">
+function useReveal() {
+  React.useEffect(() => {
+    const els = document.querySelectorAll('.reveal');
+    const io = new IntersectionObserver((entries) => entries.forEach(e => e.isIntersecting && e.target.classList.add('is-in')), { threshold: 0.15 });
+    els.forEach(el => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+}
+
+function CountUp({ to, suffix = '', duration = 1400 }) {
+  const [v, setV] = React.useState(0);
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const io = new IntersectionObserver((entries) => entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const start = performance.now();
+      const tick = (now) => {
+        const t = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - t, 3);
+        setV(Math.round(to * eased));
+        if (t < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      io.disconnect();
+    }), { threshold: 0.4 });
+    if (ref.current) io.observe(ref.current);
+    return () => io.disconnect();
+  }, [to, duration]);
+  return <span ref={ref}>{v.toLocaleString()}{suffix}</span>;
+}
+
+function App() {
+  useReveal();
+  return (
+    <>
+      <Nav onNav={() => {}} route="landing" />
+
+      <section className="hero-b">
+        <div className="hero__glow" style={{ top: '0%' }} />
+        <div className="hero__rules hero__rules--l" />
+        <div className="hero__rules hero__rules--r" />
+        <div className="reveal" style={{ position: 'relative' }}>
+          <Eyebrow color="var(--color-accent)">Total kilos lifted by Gravity Room athletes</Eyebrow>
+          <div className="hero-b__big"><CountUp to={2147683} /><small>Kilograms · And Counting</small></div>
+          <h1 className="hero-b__title">Every kilo on the bar is gravity you've conquered.</h1>
+          <p className="hero-b__sub">Free, open-source, and built around proven programs. Pick GZCLP, 5/3/1, or roll your own — the app handles the math.</p>
+          <div className="hero-b__cta"><Button size="lg">Start Training →</Button><Button variant="outline" size="lg">How It Works</Button></div>
+          <div style={{ marginTop: 48, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>Web · iOS · Android · Syncs Across Devices</div>
+        </div>
+
+        <div className="numbers-wall reveal" style={{ marginTop: 96 }}>
+          <div className="numbers-wall__cell"><div className="numbers-wall__num"><CountUp to={12400} /></div><div className="numbers-wall__lbl">Active Lifters</div><div className="numbers-wall__sub">In 47 countries this week</div></div>
+          <div className="numbers-wall__cell"><div className="numbers-wall__num numbers-wall__num--cream"><CountUp to={2100000} suffix="" />+</div><div className="numbers-wall__lbl">Sets Logged · 30d</div><div className="numbers-wall__sub">~70k per day, holding steady</div></div>
+          <div className="numbers-wall__cell"><div className="numbers-wall__num numbers-wall__num--cream"><CountUp to={87} suffix="%" /></div><div className="numbers-wall__lbl">Success Rate</div><div className="numbers-wall__sub">First 5/5 sets cleared</div></div>
+          <div className="numbers-wall__cell"><div className="numbers-wall__num"><CountUp to={4830} /></div><div className="numbers-wall__lbl">PRs This Week</div><div className="numbers-wall__sub">An average of 14% over last week</div></div>
+        </div>
+      </section>
+
+      <section className="lpx-section" id="features">
+        <div className="lpx-section__head reveal">
+          <SectionLabel>Features</SectionLabel>
+          <h2 className="lpx-section__title">Built For The Bar.</h2>
+        </div>
+        <div className="features-grid reveal">
+          <div className="feature"><img src="../../../assets/feature-progression.webp" /><h3 className="feature__title">Smart Progression</h3><p className="feature__body">The app decides when to add weight and how to handle failure. You just show up and train.</p></div>
+          <div className="feature"><img src="../../../assets/feature-tracking.webp" /><h3 className="feature__title">Frictionless Tracking</h3><p className="feature__body">Tap one cell. Done. The set grid is the input — no menus, no swipes, no clutter.</p></div>
+          <div className="feature"><img src="../../../assets/feature-stats.webp" /><h3 className="feature__title">Honest Stats</h3><p className="feature__body">Charts that show what's actually happening on the bar. PRs, volume, and the trend lines that matter.</p></div>
+          <div className="feature"><img src="../../../assets/feature-sync.webp" /><h3 className="feature__title">Sync Across Devices</h3><p className="feature__body">Plan from your laptop. Track on your phone. Same session, same data, no friction.</p></div>
+        </div>
+      </section>
+
+      <section className="lpx-section" id="ladder">
+        <div className="lpx-section__head reveal">
+          <SectionLabel>The GZCLP Ladder</SectionLabel>
+          <h2 className="lpx-section__title">Three Tiers. One Ladder.</h2>
+          <p className="lpx-section__sub">Built around the GZCLP linear-progression program — every lift gets a tier, and every tier knows what to do when you fail.</p>
+        </div>
+        <div className="ladder reveal">
+          <div className="rung rung--t1">
+            <div className="rung__tier">T1</div>
+            <div className="rung__rep">5 × 3 reps · Heavy</div>
+            <h3 className="rung__title">The Main Lift</h3>
+            <p className="rung__body">The set that defines the session. Add 2.5 kg every time you clear all 15. Miss a set, the app drops you to staged failure protocol — automatically.</p>
+          </div>
+          <div className="rung rung--t2">
+            <div className="rung__tier">T2</div>
+            <div className="rung__rep">3 × 10 reps · Moderate</div>
+            <h3 className="rung__title">The Volume Driver</h3>
+            <p className="rung__body">Same lift, lighter weight, more reps. This is where size lives. The app keeps T2 working at 65–75% of your T1.</p>
+          </div>
+          <div className="rung rung--t3">
+            <div className="rung__tier">T3</div>
+            <div className="rung__rep">3 × 15+ reps · AMRAP</div>
+            <h3 className="rung__title">The Accessory</h3>
+            <p className="rung__body">Pull, row, lat, dip — the rep-out finisher. As many as possible on the last set, until you've earned the next session's bump.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="lpx-section lpx-section--narrow" id="faq">
+        <div className="lpx-section__head reveal">
+          <SectionLabel>Questions Lifters Ask</SectionLabel>
+          <h2 className="lpx-section__title">Right Up Front.</h2>
+        </div>
+        <div className="faq reveal">
+          <div className="faq__item"><h4 className="faq__q">Is it really free?</h4><p className="faq__a">Yes. Forever. No paid tier, no premium features, no ads. The whole codebase is open source on GitHub.</p></div>
+          <div className="faq__item"><h4 className="faq__q">Why open source?</h4><p className="faq__a">Because lock-in is for SaaS dashboards, not your training data. Export it, fork it, host your own — your call.</p></div>
+          <div className="faq__item"><h4 className="faq__q">What programs are supported?</h4><p className="faq__a">GZCLP, 5/3/1, Starting Strength, PHUL, PPL, Texas Method — and a custom builder if your favorite isn't on the list.</p></div>
+          <div className="faq__item"><h4 className="faq__q">Does it work offline?</h4><p className="faq__a">It's a PWA. Installable, offline-first, syncs the moment you reconnect. No data is ever lost between sets.</p></div>
+          <div className="faq__item"><h4 className="faq__q">Can I import my history?</h4><p className="faq__a">CSV import from Strong, Hevy, and FitNotes is supported. Spreadsheet warriors welcome — bring your data with you.</p></div>
+          <div className="faq__item"><h4 className="faq__q">Is there a community?</h4><p className="faq__a">Discord server with 4,800+ lifters and the team. Drop in for form checks, program advice, or to brag about a new PR.</p></div>
+        </div>
+      </section>
+
+      <section className="lpx-section lpx-section--narrow" id="oss">
+        <div className="gh-callout reveal">
+          <span className="gh-callout__icon"><GithubSvg /></span>
+          <div className="gh-callout__text">
+            <h4>Open source. Read the code.</h4>
+            <p>Bun monorepo · React 19 · Tailwind 4 · ElysiaJS API · Python analytics. Star us, file an issue, send a PR.</p>
+          </div>
+          <div className="gh-callout__stat">
+            <span><strong>3.2k</strong> Stars</span>
+            <span><strong>184</strong> Forks</span>
+            <span><strong>27</strong> Contributors</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="lpx-section">
+        <div className="cta-block reveal">
+          <SectionLabel>The Gravity Room</SectionLabel>
+          <h2 className="lpx-section__title">Ready to raise the gravity?</h2>
+          <p className="lpx-section__sub" style={{ marginBottom: 32 }}>Enter the Gravity Room. Start training today.</p>
+          <Button size="lg">Get Started — It's Free →</Button>
+        </div>
+      </section>
+
+      <Footer />
+    </>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

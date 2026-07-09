@@ -4,14 +4,11 @@ import { createAndAuthUser, createVerifiedPasswordUser } from './helpers/api';
 const BASE_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
 
 test.describe('Auth flow', () => {
-  test('navigates to /login and shows Google sign-in button', async ({ page }) => {
+  test('navigates to /login and shows the sign-in screen', async ({ page }) => {
     await page.goto('/login');
 
     await expect(page.getByRole('heading', { name: 'Gravity Room' })).toBeVisible();
     await expect(page.getByText('Autenticar')).toBeVisible();
-    await expect(
-      page.getByRole('button', { name: /iniciar sesión con google|sign in with google/i })
-    ).toBeVisible();
   });
 
   test('provider availability endpoint exposes every supported login method', async ({ page }) => {
@@ -24,16 +21,16 @@ test.describe('Auth flow', () => {
     }
   });
 
-  test('login page mirrors provider availability for email, Apple, GitHub, and Outlook', async ({
-    page,
-  }) => {
+  test('login page mirrors provider availability for every login method', async ({ page }) => {
     const res = await page.request.get(`${BASE_URL}/api/auth/providers`);
     expect(res.ok()).toBe(true);
     const providers = (await res.json()) as Record<string, boolean>;
 
     await page.goto('/login');
 
-    const emailButton = page.getByRole('button', { name: /correo|email/i }).first();
+    const emailButton = page.getByRole('button', {
+      name: /continuar con email|continue with email/i,
+    });
     await expect(emailButton).toBeVisible();
     if (providers.emailPassword) {
       await expect(emailButton).toBeEnabled();
@@ -42,6 +39,7 @@ test.describe('Auth flow', () => {
     }
 
     for (const [provider, label] of [
+      ['google', /Continuar con Google/i],
       ['apple', /Continuar con Apple/i],
       ['github', /Continuar con GitHub/i],
       ['microsoft', /Continuar con Outlook/i],
@@ -67,6 +65,17 @@ test.describe('Auth flow', () => {
     // Should be redirected to /app because the user is already signed in
     await page.waitForURL('**/app**', { timeout: 10_000 });
     expect(page.url()).toContain('/app');
+  });
+
+  test('signing out clears the session and returns to /login', async ({ page }) => {
+    await createAndAuthUser(page);
+    await page.goto('/app');
+
+    await page.getByRole('button', { name: /menú de usuario|user menu/i }).click();
+    await page.getByRole('menuitem', { name: /cerrar sesión|sign out/i }).click();
+
+    await page.waitForURL('**/login', { timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: 'Gravity Room' })).toBeVisible();
   });
 
   test('verified email/password user can sign in from the login form', async ({ page }) => {

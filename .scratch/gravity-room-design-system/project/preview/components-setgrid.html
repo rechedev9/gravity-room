@@ -1,0 +1,20 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .lbl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#8a7a5a;margin-bottom:10px}
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .set{height:42px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.1em;border:1px solid}
+  .done{background:#0f2010;border-color:#3a6828;color:#6aaa3a}
+  .todo{background:#130f09;border-color:#2a2218;color:#8a7a5a}
+  .fail{background:#240e0e;border-color:#7a2828;color:#c05050}
+</style></head>
+<body><div class="card">
+  <div class="lbl">Set grid · tracker primary input · 5 slots</div>
+  <div class="grid">
+    <div class="set done">✓</div>
+    <div class="set done">✓</div>
+    <div class="set done">✓</div>
+    <div class="set fail">3/5</div>
+    <div class="set todo">5×1</div>
+  </div>
+</div></body></html>

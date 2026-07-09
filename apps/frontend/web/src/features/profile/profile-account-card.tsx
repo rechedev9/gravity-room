@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod/v4';
-import type { UserInfo } from '@/contexts/auth-context';
+import type { UserInfo } from '@gzclp/domain/schemas/user';
 import type { WeightUnit } from '@/hooks/use-unit-preference';
 import { DashboardCard } from '@/components/dashboard-card';
 import { LanguageSelector } from '@/components/language-selector';

@@ -120,6 +120,8 @@ function createWrapper(): FC<{ readonly children: ReactNode }> {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
+  vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test-web-client-id');
   mockRefreshAccessToken.mockClear();
   mockRefreshAccessToken.mockImplementation(() => Promise.resolve(null));
   mockFetchAuthProviders.mockClear();

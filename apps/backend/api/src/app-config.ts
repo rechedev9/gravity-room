@@ -26,7 +26,7 @@ import type { CreateAppOptions } from './create-app';
  */
 export function parseCorsOrigins(raw: string | undefined): string | string[] {
   if (!raw) {
-    return process.env['NODE_ENV'] === 'production' ? [] : 'http://localhost:3000';
+    return process.env['NODE_ENV'] === 'production' ? [] : 'http://localhost:5173';
   }
   const origins = raw
     .split(',')

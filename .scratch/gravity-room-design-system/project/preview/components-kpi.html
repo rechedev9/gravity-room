@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .lbl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#8a7a5a;margin-bottom:10px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#2a2218}
+  .kpi{background:#130f09;padding:18px;border-left:3px solid transparent}
+  .kpi.accent{border-left-color:#e8aa20}
+  .lbl-k{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#8a7a5a;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px}
+  .v{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:0.02em;line-height:1;color:#f0e8d8}
+  .v.gold{color:#f0c040}
+  .sub{font-family:'Barlow',sans-serif;font-size:11px;color:#8a7a5a;margin-top:6px}
+  .trend-up{color:#6aaa3a;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700}
+</style></head>
+<body><div class="card">
+  <div class="lbl">KPI Cards · accent-left-gold optional</div>
+  <div class="grid">
+    <div class="kpi accent"><div class="lbl-k">Streak</div><div class="v gold">14</div><div class="sub">days <span class="trend-up">↑ +3</span></div></div>
+    <div class="kpi"><div class="lbl-k">Success Rate</div><div class="v">87%</div><div class="sub">last 30 days</div></div>
+    <div class="kpi"><div class="lbl-k">Total Volume</div><div class="v">42.3K kg</div><div class="sub">all time</div></div>
+  </div>
+</div></body></html>

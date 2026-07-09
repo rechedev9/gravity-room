@@ -97,6 +97,7 @@ export function VerifyEmailPage(): React.ReactNode {
   const { verifyEmail } = useAuth();
   const navigate = useNavigate();
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const ran = useRef(false);
 
   useHead({ title: t('login.verify_email.title'), robots: 'noindex, nofollow' });
@@ -106,6 +107,7 @@ export function VerifyEmailPage(): React.ReactNode {
     ran.current = true;
     const token = queryParam('token');
     if (!token) {
+      setErrorMessage(t('login.verify_email.error'));
       setStatus('error');
       return;
     }
@@ -114,10 +116,13 @@ export function VerifyEmailPage(): React.ReactNode {
         setStatus('success');
         window.setTimeout(() => void navigate({ to: '/app', replace: true }), 1200);
       } else {
+        setErrorMessage(
+          t([`login.errors.${result.code ?? 'generic'}`, 'login.verify_email.error'])
+        );
         setStatus('error');
       }
     });
-  }, [verifyEmail, navigate]);
+  }, [verifyEmail, navigate, t]);
 
   return (
     <AuthShell title={t('login.verify_email.title')}>
@@ -127,7 +132,11 @@ export function VerifyEmailPage(): React.ReactNode {
       {status === 'success' && (
         <p className="text-sm text-main">{t('login.verify_email.success')}</p>
       )}
-      {status === 'error' && <p className="text-sm text-error">{t('login.verify_email.error')}</p>}
+      {status === 'error' && (
+        <p className="text-sm text-error" role="alert">
+          {errorMessage ?? t('login.verify_email.error')}
+        </p>
+      )}
     </AuthShell>
   );
 }
@@ -147,16 +156,22 @@ function RequestForm(): React.ReactNode {
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useHead({ title: t('login.reset_password.title'), robots: 'noindex, nofollow' });
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (submitting) return;
+    setErrorMessage(null);
     setSubmitting(true);
     try {
-      await requestPasswordReset(email.trim());
-      setSent(true);
+      const result = await requestPasswordReset(email.trim());
+      if (result.ok) {
+        setSent(true);
+      } else {
+        setErrorMessage(t([`login.errors.${result.code ?? 'generic'}`, 'login.errors.generic']));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -181,6 +196,11 @@ function RequestForm(): React.ReactNode {
           <button type="submit" disabled={submitting} className={submitClass}>
             {t('login.reset_password.request_submit')}
           </button>
+          {errorMessage && (
+            <p className="text-sm text-error" role="alert">
+              {errorMessage}
+            </p>
+          )}
         </form>
       )}
     </AuthShell>
@@ -193,13 +213,15 @@ function ResetForm({ token }: { readonly token: string }): React.ReactNode {
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'success'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useHead({ title: t('login.reset_password.title'), robots: 'noindex, nofollow' });
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     if (submitting) return;
+    setErrorMessage(null);
     setSubmitting(true);
     try {
       const result = await resetPassword(token, password);
@@ -207,7 +229,9 @@ function ResetForm({ token }: { readonly token: string }): React.ReactNode {
         setStatus('success');
         window.setTimeout(() => void navigate({ to: '/login', replace: true }), 1500);
       } else {
-        setStatus('error');
+        setErrorMessage(
+          t([`login.errors.${result.code ?? 'generic'}`, 'login.reset_password.error'])
+        );
       }
     } finally {
       setSubmitting(false);
@@ -238,8 +262,10 @@ function ResetForm({ token }: { readonly token: string }): React.ReactNode {
           <button type="submit" disabled={submitting} className={submitClass}>
             {t('login.reset_password.submit')}
           </button>
-          {status === 'error' && (
-            <p className="text-sm text-error">{t('login.reset_password.error')}</p>
+          {errorMessage && (
+            <p className="text-sm text-error" role="alert">
+              {errorMessage}
+            </p>
           )}
         </form>
       )}

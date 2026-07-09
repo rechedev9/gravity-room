@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=1280, initial-scale=1" />
+<title>Gravity Room — A v2 · Polished</title>
+<link rel="icon" href="../../../assets/favicon.webp" />
+<link rel="stylesheet" href="../styles.css" />
+<link rel="stylesheet" href="extras.css" />
+<link rel="stylesheet" href="extras-v2.css" />
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="../primitives.jsx"></script>
+<script>window.GR_LOGO = "../../../assets/logo.webp";</script>
+<script type="text/babel" src="../chrome.jsx"></script>
+<script type="text/babel">
+function useReveal() {
+  React.useEffect(() => {
+    const els = document.querySelectorAll('.reveal');
+    const io = new IntersectionObserver((entries) => entries.forEach(e => e.isIntersecting && e.target.classList.add('is-in')), { threshold: 0.12 });
+    els.forEach(el => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+}
+
+/* ─────────────────────────────────────────────────────────
+   Hero — Browser-frame desktop session preview
+   Squat (done), Bench (mid-set), Deadlift (queued)
+   ───────────────────────────────────────────────────────── */
+function DesktopSessionPreview() {
+  const [bench, setBench] = React.useState(['done','done','done','todo','todo']);
+  React.useEffect(() => {
+    let i = 3;
+    const t = setInterval(() => {
+      setBench((prev) => {
+        if (i >= 5) { i = 3; return ['done','done','done','todo','todo']; }
+        const n = [...prev]; n[i] = 'done'; i++; return n;
+      });
+    }, 1300);
+    return () => clearInterval(t);
+  }, []);
+  const benchDone = bench.filter((s) => s === 'done').length;
+  const totalDone = 5 + benchDone;
+
+  return (
+    <div className="bframe">
+      <div className="bframe__chrome">
+        <span className="bframe__dot bframe__dot--r" />
+        <span className="bframe__dot bframe__dot--y" />
+        <span className="bframe__dot bframe__dot--g" />
+        <span className="bframe__url">app.gravity.room/train</span>
+        <span className="bframe__rec">Live Session · 00:32:14</span>
+      </div>
+      <div className="bframe__body">
+        <div className="bframe__sessionhead">
+          <div>
+            <div className="bframe__crumb">GZCLP · Session A1 · Week 4 / 12</div>
+            <h3>Heavy Day.</h3>
+          </div>
+          <div className="bframe__progress">
+            <ProgressBar value={(totalDone / 15) * 100} left={`Set ${totalDone} / 15`} right={`${Math.round((totalDone / 15) * 100)}%`} />
+          </div>
+        </div>
+
+        {/* Squat — fully done */}
+        <div className="bframe__lift bframe__lift--done">
+          <div>
+            <h4 className="bframe__lift-name">Squat</h4>
+            <div className="bframe__lift-meta"><Badge>T1</Badge><Badge>5 × 5</Badge><Badge tone="ok">+2.5 kg</Badge></div>
+            <div className="bframe__lift-weight">120 kg</div>
+          </div>
+          <div className="bframe__sets">
+            {['done','done','done','done','done'].map((s, i) => <SetCell key={i} state={s} target={5} reps={5} />)}
+          </div>
+        </div>
+
+        {/* Bench — mid-rep, animating */}
+        <div className="bframe__lift">
+          <div>
+            <h4 className="bframe__lift-name">Bench Press</h4>
+            <div className="bframe__lift-meta"><Badge>T2</Badge><Badge>3 × 10</Badge><Badge dot>RPE 7.5</Badge></div>
+            <div className="bframe__lift-weight">72.5 kg</div>
+          </div>
+          <div className="bframe__sets">
+            {bench.map((s, i) => (
+              <SetCell key={i} state={s} target={10} reps={10} current={s === 'todo' && i === bench.findIndex((x) => x === 'todo')} />
+            ))}
+          </div>
+        </div>
+
+        {/* Deadlift — queued */}
+        <div className="bframe__lift bframe__lift--ghost">
+          <div>
+            <h4 className="bframe__lift-name">Deadlift</h4>
+            <div className="bframe__lift-meta"><Badge>T1</Badge><Badge>1 × 5</Badge></div>
+            <div className="bframe__lift-weight">155 kg</div>
+          </div>
+          <div className="bframe__sets">
+            {['todo','todo','todo','todo','todo'].map((s, i) => <SetCell key={i} state={s} target={5} reps={0} />)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   Live-ticking stats — sets logged ticks visibly
+   ───────────────────────────────────────────────────────── */
+function LiveStrip() {
+  const [setsLogged, setSetsLogged] = React.useState(2143829);
+  const [activeNow, setActiveNow] = React.useState(347);
+  React.useEffect(() => {
+    const a = setInterval(() => setSetsLogged((n) => n + Math.floor(1 + Math.random() * 4)), 800);
+    const b = setInterval(() => setActiveNow((n) => Math.max(280, Math.min(420, n + (Math.random() < 0.5 ? -1 : 1) * Math.floor(Math.random() * 4)))), 1700);
+    return () => { clearInterval(a); clearInterval(b); };
+  }, []);
+  return (
+    <div className="livestrip reveal">
+      <div className="livestrip__cell">
+        <div className="livestrip__num livestrip__num--accent">{activeNow}</div>
+        <div className="livestrip__lbl">Lifting Right Now</div>
+        <div className="livestrip__delta">live · 47 countries</div>
+      </div>
+      <div className="livestrip__cell">
+        <div className="livestrip__num">{setsLogged.toLocaleString()}</div>
+        <div className="livestrip__lbl">Sets Logged · 30d</div>
+        <div className="livestrip__delta">+2.4 / sec</div>
+      </div>
+      <div className="livestrip__cell">
+        <div className="livestrip__num">86.4<span style={{fontSize: '60%', color: 'var(--color-muted)'}}>%</span></div>
+        <div className="livestrip__lbl">First-Set Success</div>
+        <div className="livestrip__delta">↑ 1.2pp vs last week</div>
+      </div>
+      <div className="livestrip__cell">
+        <div className="livestrip__num">$0</div>
+        <div className="livestrip__lbl">Cost · Forever</div>
+        <div className="livestrip__delta">no paid tier</div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   PR ticker — scrolling band of recent PRs
+   ───────────────────────────────────────────────────────── */
+function PRTicker() {
+  const items = [
+    { who: 'Marcus R.', lift: 'Squat', amt: '167.5 kg', tag: '+2.5 kg PR' },
+    { who: 'Sara K.', lift: 'Deadlift', amt: '142.5 kg', tag: '+5 kg PR' },
+    { who: 'Diego T.', lift: 'Bench', amt: '127.5 kg', tag: '+2.5 kg PR' },
+    { who: 'Ana M.', lift: 'OHP', amt: '52.5 kg', tag: '+1 kg PR' },
+    { who: 'Kenji S.', lift: 'Front Squat', amt: '110 kg', tag: '+2.5 kg PR' },
+    { who: 'Lena P.', lift: 'Squat', amt: '135 kg', tag: 'rep PR' },
+    { who: 'Yuki H.', lift: 'Deadlift', amt: '180 kg', tag: '+2.5 kg PR' },
+    { who: 'Tomás G.', lift: 'Bench', amt: '102.5 kg', tag: '+2.5 kg PR' },
+    { who: 'Rhea B.', lift: 'Pendlay Row', amt: '70 kg', tag: '+2.5 kg PR' },
+    { who: 'Ola N.', lift: 'OHP', amt: '67.5 kg', tag: '+1 kg PR' },
+  ];
+  // Duplicate for seamless infinite scroll
+  const stream = [...items, ...items];
+  return (
+    <div className="prticker">
+      <div className="prticker__label">PR Feed · Last hour: 47</div>
+      <div className="prticker__track">
+        {stream.map((it, i) => (
+          <span key={i} className="prticker__item">
+            <strong>{it.who}</strong> — {it.lift} <strong style={{color:'var(--color-title)'}}>{it.amt}</strong> <em>{it.tag}</em>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   Plate Math — the big typographic moment
+   ───────────────────────────────────────────────────────── */
+function PlateMath() {
+  return (
+    <section className="platemath">
+      <div className="lpx-section__head reveal">
+        <SectionLabel>The Math</SectionLabel>
+        <h2 className="lpx-section__title">2.5 kilos at a time.</h2>
+        <p className="lpx-section__sub">Linear progression isn't glamorous. It's a feature. The smallest plate on the bar — multiplied across a mesocycle — is what separates lifters who plateau from lifters who don't.</p>
+      </div>
+
+      <div className="plate-stack reveal">
+        <span className="plate-stack__bar" />
+        <span className="plate plate--25">25</span>
+        <span className="plate plate--20">20</span>
+        <span className="plate plate--10">10</span>
+        <span className="plate plate--5">5</span>
+        <span className="plate plate--2">2.5</span>
+        <span style={{width:24}} />
+        <span className="plate plate--2">2.5</span>
+        <span className="plate plate--5">5</span>
+        <span className="plate plate--10">10</span>
+        <span className="plate plate--20">20</span>
+        <span className="plate plate--25">25</span>
+        <span className="plate-stack__bar" />
+      </div>
+
+      <div className="platemath__eq reveal">
+        <div>
+          <div className="platemath__num">2.5</div>
+          <div className="platemath__lbl">kg / session</div>
+        </div>
+        <div className="platemath__op">×</div>
+        <div>
+          <div className="platemath__num">3</div>
+          <div className="platemath__lbl">sessions / wk</div>
+        </div>
+        <div className="platemath__op">×</div>
+        <div>
+          <div className="platemath__num">12</div>
+          <div className="platemath__lbl">weeks</div>
+        </div>
+        <div className="platemath__op">=</div>
+        <div>
+          <div className="platemath__num platemath__num--total">90</div>
+          <div className="platemath__lbl platemath__lbl--total">kilos added</div>
+        </div>
+      </div>
+
+      <div className="platemath__rule" />
+
+      <p className="platemath__quote reveal">"The bar doesn't care about your motivation. It only cares about whether you showed up and added the smallest plate."</p>
+      <div className="platemath__attr reveal">— The Gravity Room Operating Manual</div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   Pricing receipt
+   ───────────────────────────────────────────────────────── */
+function PricingReceipt() {
+  return (
+    <section className="lpx-section">
+      <div className="lpx-section__head reveal">
+        <SectionLabel>Receipt</SectionLabel>
+        <h2 className="lpx-section__title">$0 forever.<br/>Here's the math.</h2>
+        <p className="lpx-section__sub">No "free tier." No upsell pressure. Every line item that runs Gravity Room — printed below, in full.</p>
+      </div>
+      <div className="receipt reveal">
+        <div className="receipt__head">
+          <div className="receipt__brand">GRAVITY ROOM</div>
+          <div className="receipt__sub">Cost-to-Serve · Per active user · monthly avg</div>
+        </div>
+        <div className="receipt__row">
+          <span>Hosting</span>
+          <span className="desc">Cloudflare Workers</span>
+          <span className="amt">$0.0008</span>
+        </div>
+        <div className="receipt__row">
+          <span>Database</span>
+          <span className="desc">Cloudflare D1</span>
+          <span className="amt">$0.0011</span>
+        </div>
+        <div className="receipt__row">
+          <span>Auth</span>
+          <span className="desc">Self-hosted · WebAuthn</span>
+          <span className="amt">$0.0000</span>
+        </div>
+        <div className="receipt__row">
+          <span>Storage</span>
+          <span className="desc">R2 · Avg 18 KB / user</span>
+          <span className="amt">$0.0004</span>
+        </div>
+        <div className="receipt__row">
+          <span>Email · transactional</span>
+          <span className="desc">Postmark · 0.6 / mo</span>
+          <span className="amt">$0.0007</span>
+        </div>
+        <div className="receipt__row">
+          <span>Domain · TLS · CDN</span>
+          <span className="desc">Amortized over 14k users</span>
+          <span className="amt">$0.0002</span>
+        </div>
+        <div className="receipt__row receipt__row--total">
+          <span>You Pay</span>
+          <span></span>
+          <span className="amt">$0.00</span>
+        </div>
+        <div className="receipt__foot">
+          Total cost to run · <strong>$0.0032 / user / mo</strong><br/>
+          Funded by 312 patrons on Open Collective<br/>
+          MIT licensed · self-hostable · auditable
+        </div>
+        <div className="receipt__barcode" />
+        <div className="receipt__barlbl">RECEIPT · OPEN-SOURCE · NO PAID TIER</div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   Deep program cards
+   ───────────────────────────────────────────────────────── */
+function DeepProgramCard({ category, name, by, year, description, week, rules, bestfor }) {
+  return (
+    <div className={'deep deep--' + category}>
+      <div className="deep__head">
+        <div>
+          <h3 className="deep__name">{name}</h3>
+          <p className="deep__by">by {by} · {year}</p>
+        </div>
+        <Badge tone={category}>{category}</Badge>
+      </div>
+      <p className="deep__desc">{description}</p>
+      <div className="deep__week">
+        {week.map((d, i) => (
+          <div key={i} className={'deep__day ' + (d.label === '—' ? 'deep__day--off' : 'deep__day--on')}>
+            {['M','T','W','T','F','S','S'][i]}
+            <strong>{d.label}</strong>
+          </div>
+        ))}
+      </div>
+      <div className="deep__rules">
+        {rules.map((r, i) => (
+          <div key={i} className="deep__rule">
+            <i>{r.glyph}</i>
+            <div><strong>{r.title}</strong> — {r.body}{r.code && <code>{r.code}</code>}</div>
+          </div>
+        ))}
+      </div>
+      <div className="deep__bestfor">
+        <strong>Best For</strong>
+        {bestfor}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   Science citations
+   ───────────────────────────────────────────────────────── */
+function CitationCard({ n, paper, authors, year, journal, takeaway, applied }) {
+  return (
+    <div className="cite">
+      <div className="cite__num">[{n}]</div>
+      <h4 className="cite__paper">{paper}</h4>
+      <div className="cite__authors">{authors} · {year} · {journal}</div>
+      <p className="cite__takeaway">{takeaway}</p>
+      <div className="cite__applied">In Gravity Room <span>→ {applied}</span></div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   App
+   ───────────────────────────────────────────────────────── */
+function App() {
+  useReveal();
+  return (
+    <>
+      <Nav onNav={() => {}} route="landing" />
+
+      <section className="hero-desk">
+        <div className="hero__glow" style={{ top: '15%' }} />
+        <div className="hero__rules hero__rules--inset-l" />
+        <div className="hero__rules hero__rules--inset-r" />
+        <div className="hero-desk__left reveal">
+          <Eyebrow color="var(--color-accent)">v4.2 · MIT · Built On Hard Numbers</Eyebrow>
+          <h1 className="hero-desk__title">
+            <span>Train smarter.</span>
+            <span>Progress <em>by the kilo.</em></span>
+          </h1>
+          <p className="hero-desk__sub">An open-source training log for lifters who treat their mesocycle like a spec sheet. Auto-progression, RPE-aware deloads, and a set grid that disappears when you're under the bar.</p>
+          <div className="hero-desk__cta">
+            <Button size="lg">Start Training Free →</Button>
+            <Button variant="outline" size="lg">View on GitHub</Button>
+          </div>
+          <div className="hero-desk__specs">
+            <div className="hero-desk__spec">Web · iOS · Android <strong>One sync engine</strong></div>
+            <div className="hero-desk__spec">Programs supported <strong>7 + custom</strong></div>
+            <div className="hero-desk__spec">Median session log time <strong>47 minutes</strong></div>
+            <div className="hero-desk__spec">Lines of code · MIT <strong>23,418</strong></div>
+          </div>
+        </div>
+        <div className="reveal"><DesktopSessionPreview /></div>
+      </section>
+
+      <PRTicker />
+      <LiveStrip />
+
+      <PlateMath />
+
+      <section className="lpx-section" id="features">
+        <div className="lpx-section__head reveal">
+          <SectionLabel>Features</SectionLabel>
+          <h2 className="lpx-section__title">Built For The Bar.</h2>
+          <p className="lpx-section__sub">Tuned to the literature. Stripped of everything that isn't load on the bar.</p>
+        </div>
+        <div className="features-grid reveal">
+          <div className="feature">
+            <img src="../../../assets/feature-progression.webp" alt="" />
+            <h3 className="feature__title">Auto-Progression</h3>
+            <p className="feature__body">Linear progression with tier-aware deloads. Miss a rep, the algorithm decides — drop weight, repeat, or extend volume — without you opening a spreadsheet.</p>
+            <div className="feature__spec">Adapted from <span>Helms et al. · 2018</span></div>
+          </div>
+          <div className="feature">
+            <img src="../../../assets/feature-tracking.webp" alt="" />
+            <h3 className="feature__title">Frictionless Set Grid</h3>
+            <p className="feature__body">Tap one cell, set logged. RPE optional. The set grid is the whole input surface — no sub-screens, no drawers, no autocomplete on the way to a deadlift.</p>
+            <div className="feature__spec">Median tap latency <span>· 84 ms</span></div>
+          </div>
+          <div className="feature">
+            <img src="../../../assets/feature-stats.webp" alt="" />
+            <h3 className="feature__title">Honest Volume Charts</h3>
+            <p className="feature__body">Tonnage by mesocycle. Estimated 1RM via Epley + Brzycki blend. Volume landmarks (MEV / MAV / MRV) per muscle group, plotted not implied.</p>
+            <div className="feature__spec">Schoenfeld <span>· 2017 volume model</span></div>
+          </div>
+          <div className="feature">
+            <img src="../../../assets/feature-sync.webp" alt="" />
+            <h3 className="feature__title">Offline-First Sync</h3>
+            <p className="feature__body">Log a set in a basement gym with no signal — it syncs the moment you reconnect. Conflict-free replicated data types. Your set log survives a refresh, your phone, your platform.</p>
+            <div className="feature__spec">CRDT engine <span>· 23 KB · open spec</span></div>
+          </div>
+        </div>
+      </section>
+
+      <PricingReceipt />
+
+      <section className="lpx-section" id="programs">
+        <div className="lpx-section__head reveal">
+          <SectionLabel>Programs</SectionLabel>
+          <h2 className="lpx-section__title">Two programs, fully diagrammed.</h2>
+          <p className="lpx-section__sub">Every program ships with sample weeks, progression rules in plain English, and the failure-handling logic baked into the auto-progress engine.</p>
+        </div>
+        <div className="deepgrid reveal">
+          <DeepProgramCard
+            category="strength"
+            name="GZCLP"
+            by="Cody Lefever"
+            year="2016"
+            description="Linear progression with three tiers per session. Heavy compound, moderate accessory, high-rep finisher. Built around a staged-failure system: miss your reps, drop a tier, keep moving forward."
+            week={[
+              {label:'A1'}, {label:'—'}, {label:'B1'}, {label:'—'}, {label:'A2'}, {label:'—'}, {label:'—'}
+            ]}
+            rules={[
+              { glyph:'T1', title:'Heavy 5×3', body:'2.5 kg per session. On miss, switch to 6×2.', code:'STAGE → 6×2 → 10×1 → DELOAD' },
+              { glyph:'T2', title:'Volume 3×10', body:'2.5 kg per session. Miss = drop to 3×8 → 3×6.', code:'STAGE → 3×8 → 3×6 → REROLL' },
+              { glyph:'T3', title:'Pump 3×15+', body:'AMRAP last set. PR rep counts unlock load jumps.', code:'AUTOLOAD ON +5 REP PR' },
+            ]}
+            bestfor="Beginners through intermediate. 12-week mesocycle. Squat under 1.5× bodyweight."
+          />
+          <DeepProgramCard
+            category="power"
+            name="5/3/1"
+            by="Jim Wendler"
+            year="2008"
+            description="Four-week wave loading on the big four. Conservative TM (90% of true 1RM). AMRAP set per week dictates the next cycle's progression. Slow, sustainable, brutally consistent."
+            week={[
+              {label:'OHP'}, {label:'—'}, {label:'DL'}, {label:'—'}, {label:'BP'}, {label:'SQ'}, {label:'—'}
+            ]}
+            rules={[
+              { glyph:'W1', title:'5 / 5 / 5+', body:'65 / 75 / 85% TM. Last set AMRAP for rep PR.', code:'TM = 0.9 × 1RM' },
+              { glyph:'W2', title:'3 / 3 / 3+', body:'70 / 80 / 90% TM. AMRAP again, log all reps.', code:'PR TARGET: PREV WEEK + 1' },
+              { glyph:'W3', title:'5 / 3 / 1+', body:'75 / 85 / 95% TM. Heaviest single, most weeks.', code:'AMRAP DRIVES NEXT TM' },
+              { glyph:'W4', title:'Deload', body:'40 / 50 / 60% TM. Walk in, walk out.', code:'+2.5 / +5 KG TO TM' },
+            ]}
+            bestfor="Intermediates and advanced. 16-week+ horizons. Lifters who plateau on linear."
+          />
+        </div>
+        <div style={{ textAlign: 'center', marginTop: 32 }}>
+          <Button variant="outline">5 more programs · PHUL · PPL · Texas Method →</Button>
+        </div>
+      </section>
+
+      <section className="lpx-section">
+        <div className="lpx-section__head reveal">
+          <SectionLabel>The Science Behind It</SectionLabel>
+          <h2 className="lpx-section__title">Built on the literature.</h2>
+          <p className="lpx-section__sub">We don't make up training principles. Every algorithmic decision in the auto-progression engine maps to a peer-reviewed paper.</p>
+        </div>
+        <div className="cites reveal">
+          <CitationCard
+            n="01"
+            paper="Dose-response relationship between weekly resistance training volume and increases in muscle mass."
+            authors="Schoenfeld, B. · Ogborn, D. · Krieger, J."
+            year="2017"
+            journal="J Sports Sci"
+            takeaway="10–20 hard sets per muscle group per week is the sweet spot. Diminishing returns kick in past 22 sets."
+            applied="Volume landmarks, MAV warnings"
+          />
+          <CitationCard
+            n="02"
+            paper="Application of the repetitions in reserve-based RPE scale for resistance training."
+            authors="Helms, E. · Cronin, J. · Storey, A."
+            year="2016"
+            journal="Strength Cond J"
+            takeaway="RIR-based RPE produces more reliable load auto-regulation than 1RM percentages alone."
+            applied="RPE prompts on T2 sets"
+          />
+          <CitationCard
+            n="03"
+            paper="Periodized vs. non-periodized training: short-term comparison in trained men."
+            authors="Williams, T. · Tolusso, D. · Fedewa, M. · Esco, M."
+            year="2017"
+            journal="Sports Med"
+            takeaway="Periodized programs (mesocycle waves) outperform non-periodized over 8+ weeks for trained lifters."
+            applied="5/3/1 wave loading default"
+          />
+          <CitationCard
+            n="04"
+            paper="Effects of velocity loss thresholds on neuromuscular adaptations."
+            authors="Pareja-Blanco, F. et al."
+            year="2017"
+            journal="Scand J Med Sci Sports"
+            takeaway="Stopping a set 2–4 reps shy of failure preserves bar speed and reduces fatigue without sacrificing strength."
+            applied="Default RIR ≥ 2 on T1"
+          />
+          <CitationCard
+            n="05"
+            paper="Resistance training frequency and volume-equated outcomes."
+            authors="Grgic, J. · Schoenfeld, B. · Davies, T."
+            year="2018"
+            journal="Sports Med"
+            takeaway="Frequency matters less than total weekly volume — for hypertrophy. For strength, 2–3× per lift wins."
+            applied="GZCLP A/B alternation logic"
+          />
+          <CitationCard
+            n="06"
+            paper="Effects of different inter-set rest intervals on muscle hypertrophy."
+            authors="Schoenfeld, B. · Pope, Z. et al."
+            year="2016"
+            journal="J Strength Cond Res"
+            takeaway="3-min rests outperform 1-min for both strength and hypertrophy in compound lifts."
+            applied="Default rest timer · 180 s on T1"
+          />
+        </div>
+      </section>
+
+      <section className="lpx-section">
+        <div className="cta-block reveal">
+          <SectionLabel>The Gravity Room</SectionLabel>
+          <h2 className="lpx-section__title">Add the smallest plate.</h2>
+          <p className="lpx-section__sub" style={{ marginBottom: 32 }}>Free, forever. Open-source. Bring your spreadsheet — we'll import it on the way in.</p>
+          <Button size="lg">Get Started — It's Free →</Button>
+        </div>
+      </section>
+
+      <Footer />
+    </>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -93,3 +93,5 @@ __pycache__/
 # Python local envs and test caches
 .venv/
 .pytest_cache/
+
+.vercel

@@ -1165,6 +1165,8 @@
       "EMAIL_TAKEN": "Ya existe una cuenta con este correo.",
       "INVALID_TOKEN": "Este enlace no es válido o ha caducado.",
       "RATE_LIMITED": "Demasiados intentos. Inténtalo de nuevo más tarde.",
+      "NETWORK_ERROR": "No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.",
+      "EMAIL_NOT_CONFIGURED": "El inicio de sesión por correo no está disponible ahora mismo.",
       "generic": "Algo salió mal. Inténtalo de nuevo."
     },
     "dev": {

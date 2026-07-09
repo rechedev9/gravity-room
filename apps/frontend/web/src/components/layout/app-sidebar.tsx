@@ -124,6 +124,19 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
     [exitGuestMode, navigate]
   );
 
+  const handleSignOut = useCallback(
+    async (onItemClick: () => void): Promise<void> => {
+      onItemClick();
+      await signOut();
+      // A full replacement guarantees the protected tree is torn down and the
+      // next boot re-checks the now-cleared refresh cookie. A same-tick SPA
+      // navigation can still see the router's previous auth context and bounce
+      // straight back to /app.
+      window.location.replace('/login');
+    },
+    [signOut]
+  );
+
   function renderNavItems(onItemClick: () => void): React.ReactNode {
     return NAV_ITEMS.map((item) => {
       if (item.guestHidden && isGuest) return null;
@@ -204,14 +217,14 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
               <AvatarDropdown
                 user={user}
                 syncStatus="idle"
-                onSignOut={() => void signOut()}
+                onSignOut={() => void handleSignOut(onItemClick)}
                 dropdownPlacement="top"
               />
             ) : (
               <AvatarDropdown
                 user={null}
                 syncStatus="idle"
-                onSignOut={() => void signOut()}
+                onSignOut={() => void handleSignOut(onItemClick)}
                 dropdownPlacement="top"
               />
             )}

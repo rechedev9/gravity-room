@@ -16,24 +16,27 @@ const EST_LINE = 'EST. 2025 · OPEN SOURCE · AGPL-3.0';
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 const DEFAULT_AUTH_PROVIDERS: AuthProviders = {
   emailPassword: true,
-  google: true,
+  google: false,
   apple: false,
   github: false,
   microsoft: false,
 };
 
 export function LoginPage(): React.ReactNode {
-  return (
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''}>
-      <LoginPageInner />
-    </GoogleOAuthProvider>
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? '';
+  const page = <LoginPageInner googleClientId={googleClientId} />;
+
+  return googleClientId ? (
+    <GoogleOAuthProvider clientId={googleClientId}>{page}</GoogleOAuthProvider>
+  ) : (
+    page
   );
 }
 
 type EmailMode = 'signin' | 'signup';
 type FormMessage = { readonly kind: 'error' | 'success'; readonly text: string };
 
-function LoginPageInner(): React.ReactNode {
+function LoginPageInner({ googleClientId }: { readonly googleClientId: string }): React.ReactNode {
   const { t } = useTranslation();
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, signInWithDev, user, loading } =
     useAuth();
@@ -50,6 +53,7 @@ function LoginPageInner(): React.ReactNode {
   const [submitting, setSubmitting] = useState(false);
   const [formMessage, setFormMessage] = useState<FormMessage | null>(null);
   const [authProviders, setAuthProviders] = useState<AuthProviders>(DEFAULT_AUTH_PROVIDERS);
+  const googleEnabled = authProviders.google && googleClientId.length > 0;
 
   // /login is disallowed in robots.txt and behind auth — keep it out of the
   // index explicitly and give it a self-canonical instead of the landing's.
@@ -204,7 +208,7 @@ function LoginPageInner(): React.ReactNode {
 
           {/* Social providers — deployment availability comes from /auth/providers. */}
           <div className="mt-7 flex flex-col gap-2.5">
-            {authProviders.google ? (
+            {googleEnabled ? (
               <div className="flex justify-center border border-rule bg-header py-3">
                 <GoogleLogin
                   onSuccess={({ credential }) => {

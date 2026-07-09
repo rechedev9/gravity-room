@@ -34,6 +34,9 @@ export default defineConfig({
       env: {
         AUTH_DEV_ROUTE_ENABLED: 'true',
         AUTH_DEV_ROUTE_SECRET: 'e2e-dev-secret-not-for-prod',
+        CORS_ORIGIN: 'http://localhost:5173',
+        GOOGLE_CLIENT_ID: '',
+        GOOGLE_CLIENT_IDS: '',
       },
     },
     {
@@ -46,6 +49,7 @@ export default defineConfig({
       cwd: resolve(__dirname, '../../..'),
       env: {
         VITE_API_URL: 'http://localhost:3001',
+        VITE_GOOGLE_CLIENT_ID: '',
       },
     },
   ],

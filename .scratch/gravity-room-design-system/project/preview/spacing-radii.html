@@ -1,0 +1,18 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css">
+<style>
+  .lbl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#8a7a5a;margin-bottom:8px}
+  .row3{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .item{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+  .box{width:80px;height:60px;background:#130f09;border:1px solid #3a3025}
+  .v{font-family:'JetBrains Mono',monospace;font-size:9px;color:#a89870;letter-spacing:0.15em;text-transform:uppercase}
+</style></head>
+<body><div class="card">
+  <div class="lbl">Border Radius — Brand is square</div>
+  <div class="row3">
+    <div class="item"><div class="box" style="border-radius:0"></div><div class="v">none · 0</div></div>
+    <div class="item"><div class="box" style="border-radius:2px"></div><div class="v">sm · 2px</div></div>
+    <div class="item"><div class="box" style="border-radius:4px"></div><div class="v">md · 4px</div></div>
+    <div class="item"><div class="box" style="border-radius:9999px;width:60px"></div><div class="v">pill · logo only</div></div>
+  </div>
+</div></body></html>
