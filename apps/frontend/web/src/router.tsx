@@ -16,7 +16,7 @@ import { RootLayout } from '@/components/root-layout';
 import { RouteErrorFallback } from '@/components/route-error-fallback';
 import { useAuth } from '@/contexts/auth-context';
 import { readStoredIsGuest } from '@/contexts/guest-context';
-import type { UserInfo } from '@/contexts/auth-context';
+import type { UserInfo } from '@gzclp/domain/schemas/user';
 
 // ---------------------------------------------------------------------------
 // Router context type

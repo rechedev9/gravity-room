@@ -16,17 +16,20 @@ const EST_LINE = 'EST. 2025 · OPEN SOURCE · AGPL-3.0';
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 const DEFAULT_AUTH_PROVIDERS: AuthProviders = {
   emailPassword: true,
-  google: true,
+  google: false,
   apple: false,
   github: false,
   microsoft: false,
 };
 
 export function LoginPage(): React.ReactNode {
-  return (
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''}>
-      <LoginPageInner />
-    </GoogleOAuthProvider>
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? '';
+  const page = <LoginPageInner googleClientId={googleClientId} />;
+
+  return googleClientId ? (
+    <GoogleOAuthProvider clientId={googleClientId}>{page}</GoogleOAuthProvider>
+  ) : (
+    page
   );
 }
 
@@ -35,7 +38,7 @@ type FormMessage = { readonly kind: 'error' | 'success'; readonly text: string }
 /** Client-side state of the "resend verification" affordance shown after an EMAIL_NOT_VERIFIED sign-in. */
 type ResendStatus = 'idle' | 'sending' | 'sent' | 'error';
 
-function LoginPageInner(): React.ReactNode {
+function LoginPageInner({ googleClientId }: { readonly googleClientId: string }): React.ReactNode {
   const { t } = useTranslation();
   const {
     signInWithGoogle,
@@ -64,6 +67,7 @@ function LoginPageInner(): React.ReactNode {
   const [resendEmail, setResendEmail] = useState<string | null>(null);
   const [resendStatus, setResendStatus] = useState<ResendStatus>('idle');
   const [authProviders, setAuthProviders] = useState<AuthProviders>(DEFAULT_AUTH_PROVIDERS);
+  const googleEnabled = authProviders.google && googleClientId.length > 0;
 
   // /login is disallowed in robots.txt and behind auth — keep it out of the
   // index explicitly and give it a self-canonical instead of the landing's.
@@ -185,7 +189,7 @@ function LoginPageInner(): React.ReactNode {
   // Only render sign-in methods this deployment actually offers (per
   // /auth/providers); we never show disabled "coming soon" placeholders.
   const hasSocialProvider =
-    authProviders.google || authProviders.apple || authProviders.github || authProviders.microsoft;
+    googleEnabled || authProviders.apple || authProviders.github || authProviders.microsoft;
 
   return (
     <div className="grain-overlay min-h-dvh bg-body lg:grid lg:grid-cols-[46%_54%]">
@@ -242,7 +246,7 @@ function LoginPageInner(): React.ReactNode {
               (per /auth/providers) are rendered; no disabled placeholders. */}
           {hasSocialProvider && (
             <div className="mt-7 flex flex-col gap-2.5">
-              {authProviders.google && (
+              {googleEnabled && (
                 <GoogleSignInButton
                   label={t('login.social.google')}
                   onCredential={(credential) => void handleGoogleSuccess(credential)}

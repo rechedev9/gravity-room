@@ -1176,6 +1176,8 @@
       "EMAIL_TAKEN": "An account with this email already exists.",
       "INVALID_TOKEN": "This link is invalid or has expired.",
       "RATE_LIMITED": "Too many attempts. Please try again later.",
+      "NETWORK_ERROR": "We couldn't reach the server. Check your connection and try again.",
+      "EMAIL_NOT_CONFIGURED": "Email sign-in is not available right now.",
       "generic": "Something went wrong. Please try again."
     },
     "dev": {
