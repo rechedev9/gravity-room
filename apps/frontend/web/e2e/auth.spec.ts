@@ -21,7 +21,7 @@ test.describe('Auth flow', () => {
     }
   });
 
-  test('login page mirrors provider availability for every login method', async ({ page }) => {
+  test('login page mirrors configured provider availability', async ({ page }) => {
     const res = await page.request.get(`${BASE_URL}/api/auth/providers`);
     expect(res.ok()).toBe(true);
     const providers = (await res.json()) as Record<string, boolean>;
@@ -31,15 +31,14 @@ test.describe('Auth flow', () => {
     const emailButton = page.getByRole('button', {
       name: /continuar con email|continue with email/i,
     });
-    await expect(emailButton).toBeVisible();
     if (providers.emailPassword) {
+      await expect(emailButton).toBeVisible();
       await expect(emailButton).toBeEnabled();
     } else {
-      await expect(emailButton).toBeDisabled();
+      await expect(emailButton).toHaveCount(0);
     }
 
     for (const [provider, label] of [
-      ['google', /Continuar con Google/i],
       ['apple', /Continuar con Apple/i],
       ['github', /Continuar con GitHub/i],
       ['microsoft', /Continuar con Outlook/i],
@@ -54,6 +53,12 @@ test.describe('Auth flow', () => {
         await expect(button).toHaveCount(0);
       }
     }
+
+    // Google Identity Services needs a client ID registered for this exact
+    // origin. This E2E environment intentionally leaves both IDs empty; the
+    // enabled branch is covered with a controlled Google component in the
+    // login-page-methods unit suite.
+    await expect(page.getByText(/Continuar con Google/i)).toHaveCount(0);
   });
 
   test('signed-in user is redirected away from /login', async ({ page }) => {
@@ -77,6 +82,31 @@ test.describe('Auth flow', () => {
 
     await page.waitForURL('**/login', { timeout: 10_000 });
     await expect(page.getByRole('heading', { name: 'Gravity Room' })).toBeVisible();
+  });
+
+  test('failed signout keeps the active session and allows retry', async ({ page }) => {
+    await createAndAuthUser(page);
+    await page.route('**/api/auth/signout', async (route) => {
+      await route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Temporary failure', code: 'INTERNAL_ERROR' }),
+      });
+    });
+    await page.goto('/app');
+
+    await page.getByRole('button', { name: /menú de usuario|user menu/i }).click();
+    await page.getByRole('menuitem', { name: /cerrar sesión|sign out/i }).click();
+
+    await expect(page).toHaveURL(/\/app/);
+    await expect(page.getByRole('alert')).toContainText(
+      /no se pudo cerrar la sesión|couldn't sign you out/i
+    );
+
+    await page.unroute('**/api/auth/signout');
+    await page.getByRole('button', { name: /menú de usuario|user menu/i }).click();
+    await page.getByRole('menuitem', { name: /cerrar sesión|sign out/i }).click();
+    await page.waitForURL('**/login', { timeout: 10_000 });
   });
 
   test('verified email/password user can sign in from the login form', async ({ page }) => {

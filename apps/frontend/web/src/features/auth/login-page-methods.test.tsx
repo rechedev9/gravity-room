@@ -151,4 +151,32 @@ describe('LoginPage — Mockup B (social-first + email)', () => {
     expect(screen.queryByRole('button', { name: /Continuar con Google/i })).toBeNull();
     expect(screen.queryByTestId('google-login')).toBeNull();
   });
+
+  it('hides the email flow when the API reports it unavailable', async () => {
+    mockFetchAuthProviders.mockImplementation(() =>
+      Promise.resolve({
+        emailPassword: false,
+        google: false,
+        apple: true,
+        github: false,
+        microsoft: false,
+      })
+    );
+
+    render(createElement(createWrapper(), null, createElement(LoginPage)));
+
+    await screen.findByRole('button', { name: /Continuar con Apple/i });
+    expect(screen.queryByRole('button', { name: /Continuar con email/i })).toBeNull();
+  });
+
+  it('exposes a visible focus treatment around the real Google control', async () => {
+    render(createElement(createWrapper(), null, createElement(LoginPage)));
+
+    const googleControl = await screen.findByTestId('google-login');
+    const overlay = googleControl.parentElement;
+    const skin = overlay?.previousElementSibling;
+
+    expect(skin?.className).toContain('group-focus-within:ring-2');
+    expect(skin?.getAttribute('aria-hidden')).toBe('true');
+  });
 });

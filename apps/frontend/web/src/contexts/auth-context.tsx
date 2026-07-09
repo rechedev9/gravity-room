@@ -1,6 +1,12 @@
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { clearApiResponseCache, setAccessToken, refreshAccessToken } from '@/lib/api';
+import {
+  blockAuthRefresh,
+  clearApiResponseCache,
+  refreshAccessToken,
+  resumeAuthRefresh,
+  setAccessToken,
+} from '@/lib/api';
 import { apiFetch, fetchMe } from '@/lib/api-functions';
 import { ApiError } from '@gzclp/api-client/api-error';
 import { isRecord } from '@gzclp/domain/type-guards';
@@ -44,7 +50,7 @@ interface AuthActions {
   readonly resetPassword: (token: string, password: string) => Promise<ActionResult>;
   // DEV-only — undefined in production builds (esbuild dead-code-eliminates the branch).
   readonly signInWithDev?: () => Promise<AuthResult | null>;
-  readonly signOut: () => Promise<void>;
+  readonly signOut: () => Promise<ActionResult>;
   readonly updateUser: (info: Partial<Pick<UserInfo, 'name' | 'avatarUrl'>>) => void;
   readonly deleteAccount: () => Promise<void>;
 }
@@ -301,20 +307,21 @@ export function AuthProvider({
     sentrySetUser(null);
   }, [queryClient]);
 
-  const signOut = useCallback(async (): Promise<void> => {
+  const signOut = useCallback(async (): Promise<ActionResult> => {
+    blockAuthRefresh();
     try {
-      await apiFetch('/auth/signout', { method: 'POST' });
+      await apiFetch('/auth/signout', { method: 'POST', retryAuth: false });
     } catch (err: unknown) {
-      // Ignore signout errors — always clear local state
-      console.warn(
-        '[auth] Signout request failed (ignored):',
-        err instanceof Error ? err.message : 'Unknown error'
-      );
+      // Keep the authenticated UI intact so the user can retry. In particular,
+      // do not reload while an HttpOnly refresh cookie may still be valid.
+      resumeAuthRefresh();
+      return errorResult(err);
     }
     setAccessToken(null);
     await clearApiResponseCache();
     queryClient.setQueryData(SESSION_QUERY_KEY, null);
     sentrySetUser(null);
+    return { ok: true };
   }, [queryClient]);
 
   const value = useMemo(

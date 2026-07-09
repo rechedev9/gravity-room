@@ -502,6 +502,7 @@
     "errors": {
       "google_failed": "Google sign-in failed. Please try again.",
       "session_expired": "Your session has expired. Please sign in again.",
+      "sign_out_failed": "We couldn't sign you out. Check your connection and try again.",
       "generic": "Something went wrong. Please try again."
     }
   },

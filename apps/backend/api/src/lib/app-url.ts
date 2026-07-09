@@ -11,6 +11,8 @@
  * redirects and email links at localhost.
  */
 
+export const DEFAULT_DEV_WEB_ORIGIN = 'http://localhost:5173';
+
 /** scheme://host from the incoming request (Vercel sets x-forwarded-proto/host). */
 function originFromRequest(request: Request | undefined): string | undefined {
   if (!request) return undefined;
@@ -31,8 +33,15 @@ export function getWebBaseUrl(request?: Request): string {
   const configured = process.env['CORS_ORIGIN']?.split(',')[0]?.trim();
   if (configured && configured.length > 0) return configured.replace(/\/$/, '');
   const fromRequest = originFromRequest(request);
-  if (fromRequest) return fromRequest;
-  return 'http://localhost:5173';
+  if (fromRequest) {
+    const url = new URL(fromRequest);
+    const isLocalApi =
+      process.env['NODE_ENV'] !== 'production' &&
+      (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]') &&
+      url.port === '3001';
+    return isLocalApi ? DEFAULT_DEV_WEB_ORIGIN : fromRequest;
+  }
+  return DEFAULT_DEV_WEB_ORIGIN;
 }
 
 /**

@@ -789,6 +789,8 @@ describe('POST /auth/refresh', () => {
 
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_INVALID_REFRESH');
+    expect(res.headers.get('set-cookie') ?? '').toContain('refresh_token=');
+    expect(res.headers.get('set-cookie')?.toLowerCase() ?? '').toMatch(/max-age=0|expires=/);
   });
 
   it('revokes all user sessions when a rotated-away token is reused (theft detection)', async () => {
@@ -973,6 +975,8 @@ describe('POST /auth/mobile/refresh', () => {
 describe('POST /auth/mobile/signout', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() => Promise.resolve(undefined));
+    mockRevokeAllUserTokens.mockClear();
   });
 
   it('accepts refreshToken in the request body and returns 204', async () => {
@@ -1040,6 +1044,11 @@ describe('POST /auth/mobile/signout', () => {
 describe('POST /auth/signout', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockRevokeRefreshToken.mockReset();
+    mockRevokeRefreshToken.mockImplementation(() => Promise.resolve());
+    mockFindRefreshTokenByPreviousHash.mockReset();
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() => Promise.resolve(undefined));
+    mockRevokeAllUserTokens.mockClear();
   });
 
   it('returns a body-less 204 and clears the refresh cookie at /api/auth', async () => {
@@ -1054,6 +1063,41 @@ describe('POST /auth/signout', () => {
     const setCookie = res.headers.get('set-cookie') ?? '';
     expect(setCookie).toContain('refresh_token=');
     expect(setCookie).toContain('Path=/api/auth');
+    expect(setCookie.toLowerCase()).toMatch(/max-age=0|expires=/);
+  });
+
+  it('revokes the successor when refresh rotated the cookie concurrently', async () => {
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
+      Promise.resolve({ ...TEST_REFRESH_TOKEN })
+    );
+
+    const res = await post('/auth/signout', {}, { Cookie: 'refresh_token=rotated-old-token' });
+
+    expect(res.status).toBe(204);
+    expect(mockRevokeAllUserTokens).toHaveBeenCalledWith(TEST_REFRESH_TOKEN.userId);
+  });
+
+  it('clears the refresh cookie even when signout is rate limited', async () => {
+    mockRateLimit.mockImplementation(() =>
+      Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
+    );
+
+    const res = await post('/auth/signout', {}, { Cookie: 'refresh_token=some-token-value' });
+
+    expect(res.status).toBe(429);
+    const setCookie = res.headers.get('set-cookie') ?? '';
+    expect(setCookie).toContain('refresh_token=');
+    expect(setCookie.toLowerCase()).toMatch(/max-age=0|expires=/);
+  });
+
+  it('clears the refresh cookie even when token revocation fails', async () => {
+    mockRevokeRefreshToken.mockImplementation(() => Promise.reject(new Error('database offline')));
+
+    const res = await post('/auth/signout', {}, { Cookie: 'refresh_token=some-token-value' });
+
+    expect(res.status).toBe(500);
+    const setCookie = res.headers.get('set-cookie') ?? '';
+    expect(setCookie).toContain('refresh_token=');
     expect(setCookie.toLowerCase()).toMatch(/max-age=0|expires=/);
   });
 });
