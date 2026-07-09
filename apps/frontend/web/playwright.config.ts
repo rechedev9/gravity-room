@@ -37,9 +37,11 @@ export default defineConfig({
         // The suite runs the web preview on :5173; without this the browser's
         // API calls are CORS-blocked and every data-driven test fails.
         CORS_ORIGIN: 'http://localhost:5173',
-        // Placeholder is enough to flip /auth/providers google:true so the
-        // login page renders the button (auth.spec asserts its presence).
-        GOOGLE_CLIENT_ID: 'e2e-placeholder.apps.googleusercontent.com',
+        // Real GIS buttons require a client ID registered for localhost. Keep
+        // Google disabled here and cover the enabled branch with the controlled
+        // component in login-page-methods.test.tsx.
+        GOOGLE_CLIENT_ID: '',
+        GOOGLE_CLIENT_IDS: '',
       },
     },
     {
@@ -52,6 +54,7 @@ export default defineConfig({
       cwd: resolve(__dirname, '../../..'),
       env: {
         VITE_API_URL: 'http://localhost:3001',
+        VITE_GOOGLE_CLIENT_ID: '',
       },
     },
   ],

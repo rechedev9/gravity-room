@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
-import type { UserInfo } from '@/contexts/auth-context';
+import type { UserInfo } from '@gzclp/domain/schemas/user';
 import { useGuest } from '@/contexts/guest-context';
 import type { SyncStatus } from '@/types/sync-status';
 import { SYNC_COLORS } from '@/types/sync-status';

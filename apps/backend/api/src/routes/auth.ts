@@ -311,6 +311,7 @@ async function refreshAuthToken(
       );
       await revokeAllUserTokens(successor.userId);
     }
+    onInvalidatedToken?.();
     throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
   }
 
@@ -348,6 +349,12 @@ async function signOutWithRefreshToken(refreshToken: unknown): Promise<void> {
 
   const tokenHash = await hashToken(refreshToken);
   await revokeRefreshToken(tokenHash);
+
+  // A concurrent refresh may already have consumed this token and created its
+  // successor. Revoke the whole family in that case so a delayed refresh
+  // response cannot reinstall a still-valid session after logout.
+  const successor = await findRefreshTokenByPreviousHash(tokenHash);
+  if (successor) await revokeAllUserTokens(successor.userId);
 }
 
 interface GoogleSignInResult {
@@ -1324,17 +1331,22 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/signout',
     async ({ cookie, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/signout');
-
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
-      await signOutWithRefreshToken(refreshCookie?.value);
+      try {
+        await rateLimit(ip, '/auth/signout');
+        await signOutWithRefreshToken(refreshCookie?.value);
 
-      if (refreshCookie) removeRefreshCookie(refreshCookie);
-      reqLogger.info({ event: 'auth.signout' }, 'user signed out');
-      // Body-less 204: Node's undici rejects a non-null body with status 204
-      // (Bun tolerated it). The refresh-cookie clear above is still serialized
-      // onto this Response by Elysia.
-      return new Response(null, { status: 204 });
+        reqLogger.info({ event: 'auth.signout' }, 'user signed out');
+        // Body-less 204: Node's undici rejects a non-null body with status 204
+        // (Bun tolerated it). The refresh-cookie clear below is still serialized
+        // onto this Response by Elysia.
+        return new Response(null, { status: 204 });
+      } finally {
+        // Expire the browser credential even when rate limiting or storage
+        // fails. The client still reports the error, but a reload cannot reuse
+        // a cookie that the server was able to answer for.
+        if (refreshCookie) removeRefreshCookie(refreshCookie);
+      }
     },
     {
       detail: {

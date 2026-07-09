@@ -3,6 +3,7 @@ import { getWebBaseUrl, getApiBaseUrl } from './app-url';
 
 const ORIGINAL_CORS = process.env['CORS_ORIGIN'];
 const ORIGINAL_API = process.env['API_PUBLIC_URL'];
+const ORIGINAL_NODE_ENV = process.env['NODE_ENV'];
 
 function restore(name: string, value: string | undefined): void {
   if (value === undefined) delete process.env[name];
@@ -12,6 +13,7 @@ function restore(name: string, value: string | undefined): void {
 afterEach(() => {
   restore('CORS_ORIGIN', ORIGINAL_CORS);
   restore('API_PUBLIC_URL', ORIGINAL_API);
+  restore('NODE_ENV', ORIGINAL_NODE_ENV);
 });
 
 /** Minimal Request stand-in carrying only the headers the helpers read. */
@@ -29,6 +31,15 @@ describe('getWebBaseUrl', () => {
     delete process.env['CORS_ORIGIN'];
     expect(getWebBaseUrl(reqWith({ host: 'gravityroom.app', 'x-forwarded-proto': 'https' }))).toBe(
       'https://gravityroom.app'
+    );
+  });
+
+  it('uses the Vite origin for requests received by the local API', () => {
+    delete process.env['CORS_ORIGIN'];
+    process.env['NODE_ENV'] = 'development';
+
+    expect(getWebBaseUrl(reqWith({ host: 'localhost:3001', 'x-forwarded-proto': 'http' }))).toBe(
+      'http://localhost:5173'
     );
   });
 

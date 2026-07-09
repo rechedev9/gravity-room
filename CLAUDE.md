@@ -142,7 +142,7 @@ Env vars live in `.env` at the workspace root and per-package dirs (loaded into 
   JWT_SECRET=change-me-dev-secret-at-least-32-chars-long             # ≥32 chars dev, ≥64 prod
   GOOGLE_CLIENT_ID=...apps.googleusercontent.com                     # optional; POST /api/auth/dev works without it
   GOOGLE_CLIENT_IDS=...web,...mobile                                 # optional
-  CORS_ORIGIN=http://localhost:5173                                  # defaults to http://localhost:3000 in dev
+  CORS_ORIGIN=http://localhost:5173                                  # defaults to this Vite origin in dev
   # UPSTASH_REDIS_REST_URL=...                                       # optional → in-memory rate limiting
   # UPSTASH_REDIS_REST_TOKEN=...
   ```

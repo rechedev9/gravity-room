@@ -89,6 +89,8 @@ function createWrapper(): FC<{ readonly children: ReactNode }> {
 }
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
+  vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test-web-client-id');
   mockRefreshAccessToken.mockClear();
   mockRefreshAccessToken.mockImplementation(() => Promise.resolve(null));
   mockFetchAuthProviders.mockClear();
@@ -136,5 +138,45 @@ describe('LoginPage — Mockup B (social-first + email)', () => {
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Tu nombre (opcional)')).toBeDefined();
     });
+  });
+
+  it('does not initialize Google sign-in without a frontend client ID', async () => {
+    vi.stubEnv('VITE_GOOGLE_CLIENT_ID', '');
+
+    render(createElement(createWrapper(), null, createElement(LoginPage)));
+
+    await waitFor(() => {
+      expect(mockFetchAuthProviders).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.queryByRole('button', { name: /Continuar con Google/i })).toBeNull();
+    expect(screen.queryByTestId('google-login')).toBeNull();
+  });
+
+  it('hides the email flow when the API reports it unavailable', async () => {
+    mockFetchAuthProviders.mockImplementation(() =>
+      Promise.resolve({
+        emailPassword: false,
+        google: false,
+        apple: true,
+        github: false,
+        microsoft: false,
+      })
+    );
+
+    render(createElement(createWrapper(), null, createElement(LoginPage)));
+
+    await screen.findByRole('button', { name: /Continuar con Apple/i });
+    expect(screen.queryByRole('button', { name: /Continuar con email/i })).toBeNull();
+  });
+
+  it('exposes a visible focus treatment around the real Google control', async () => {
+    render(createElement(createWrapper(), null, createElement(LoginPage)));
+
+    const googleControl = await screen.findByTestId('google-login');
+    const overlay = googleControl.parentElement;
+    const skin = overlay?.previousElementSibling;
+
+    expect(skin?.className).toContain('group-focus-within:ring-2');
+    expect(skin?.getAttribute('aria-hidden')).toBe('true');
   });
 });

@@ -502,6 +502,7 @@
     "errors": {
       "google_failed": "Error al iniciar sesión con Google. Inténtalo de nuevo.",
       "session_expired": "Tu sesión ha expirado. Por favor, inicia sesión de nuevo.",
+      "sign_out_failed": "No se pudo cerrar la sesión. Comprueba tu conexión e inténtalo de nuevo.",
       "generic": "Algo salió mal. Por favor, inténtalo de nuevo."
     }
   },
@@ -1176,6 +1177,8 @@
       "EMAIL_TAKEN": "Ya existe una cuenta con este correo.",
       "INVALID_TOKEN": "Este enlace no es válido o ha caducado.",
       "RATE_LIMITED": "Demasiados intentos. Inténtalo de nuevo más tarde.",
+      "NETWORK_ERROR": "No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.",
+      "EMAIL_NOT_CONFIGURED": "El inicio de sesión por correo no está disponible ahora mismo.",
       "generic": "Algo salió mal. Inténtalo de nuevo."
     },
     "dev": {

@@ -15,18 +15,21 @@ const EST_LINE = 'EST. 2025 · OPEN SOURCE · AGPL-3.0';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 const DEFAULT_AUTH_PROVIDERS: AuthProviders = {
-  emailPassword: true,
-  google: true,
+  emailPassword: false,
+  google: false,
   apple: false,
   github: false,
   microsoft: false,
 };
 
 export function LoginPage(): React.ReactNode {
-  return (
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''}>
-      <LoginPageInner />
-    </GoogleOAuthProvider>
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? '';
+  const page = <LoginPageInner googleClientId={googleClientId} />;
+
+  return googleClientId ? (
+    <GoogleOAuthProvider clientId={googleClientId}>{page}</GoogleOAuthProvider>
+  ) : (
+    page
   );
 }
 
@@ -35,7 +38,7 @@ type FormMessage = { readonly kind: 'error' | 'success'; readonly text: string }
 /** Client-side state of the "resend verification" affordance shown after an EMAIL_NOT_VERIFIED sign-in. */
 type ResendStatus = 'idle' | 'sending' | 'sent' | 'error';
 
-function LoginPageInner(): React.ReactNode {
+function LoginPageInner({ googleClientId }: { readonly googleClientId: string }): React.ReactNode {
   const { t } = useTranslation();
   const {
     signInWithGoogle,
@@ -64,6 +67,8 @@ function LoginPageInner(): React.ReactNode {
   const [resendEmail, setResendEmail] = useState<string | null>(null);
   const [resendStatus, setResendStatus] = useState<ResendStatus>('idle');
   const [authProviders, setAuthProviders] = useState<AuthProviders>(DEFAULT_AUTH_PROVIDERS);
+  const emailEnabled = authProviders.emailPassword;
+  const googleEnabled = authProviders.google && googleClientId.length > 0;
 
   // /login is disallowed in robots.txt and behind auth — keep it out of the
   // index explicitly and give it a self-canonical instead of the landing's.
@@ -185,7 +190,7 @@ function LoginPageInner(): React.ReactNode {
   // Only render sign-in methods this deployment actually offers (per
   // /auth/providers); we never show disabled "coming soon" placeholders.
   const hasSocialProvider =
-    authProviders.google || authProviders.apple || authProviders.github || authProviders.microsoft;
+    googleEnabled || authProviders.apple || authProviders.github || authProviders.microsoft;
 
   return (
     <div className="grain-overlay min-h-dvh bg-body lg:grid lg:grid-cols-[46%_54%]">
@@ -242,7 +247,7 @@ function LoginPageInner(): React.ReactNode {
               (per /auth/providers) are rendered; no disabled placeholders. */}
           {hasSocialProvider && (
             <div className="mt-7 flex flex-col gap-2.5">
-              {authProviders.google && (
+              {googleEnabled && (
                 <GoogleSignInButton
                   label={t('login.social.google')}
                   onCredential={(credential) => void handleGoogleSuccess(credential)}
@@ -271,7 +276,7 @@ function LoginPageInner(): React.ReactNode {
           )}
 
           {/* Divider — only when a social method sits above the email form. */}
-          {hasSocialProvider && (
+          {hasSocialProvider && emailEnabled && (
             <div className="my-5 flex items-center gap-3" aria-hidden="true">
               <span className="h-px flex-1 bg-rule" />
               <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-label">
@@ -282,135 +287,144 @@ function LoginPageInner(): React.ReactNode {
           )}
 
           {/* Email — progressive disclosure */}
-          {!showEmail ? (
-            <button
-              type="button"
-              onClick={() => setShowEmail(true)}
-              className="w-full cursor-pointer border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light"
-            >
-              ▸ {t('login.email.toggle')}
-            </button>
-          ) : (
-            <form onSubmit={(e) => void handleEmailSubmit(e)} className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-label">
-                  {t('login.email.email_label')}
-                </span>
-                <input
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={t('login.email.email_placeholder')}
-                  className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
-                />
-              </label>
-
-              {emailMode === 'signup' && (
+          {emailEnabled &&
+            (!showEmail ? (
+              <button
+                type="button"
+                onClick={() => setShowEmail(true)}
+                className="w-full cursor-pointer border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light"
+              >
+                ▸ {t('login.email.toggle')}
+              </button>
+            ) : (
+              <form onSubmit={(e) => void handleEmailSubmit(e)} className="flex flex-col gap-3">
                 <label className="flex flex-col gap-1">
                   <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-label">
-                    {t('login.email.name_label')}
+                    {t('login.email.email_label')}
                   </span>
                   <input
-                    type="text"
-                    autoComplete="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder={t('login.email.name_placeholder')}
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder={t('login.email.email_placeholder')}
                     className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
                   />
                 </label>
-              )}
 
-              <label className="flex flex-col gap-1">
-                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-label">
-                  {t('login.email.password_label')}
-                </span>
-                <input
-                  type="password"
-                  required
-                  minLength={emailMode === 'signup' ? 8 : undefined}
-                  autoComplete={emailMode === 'signup' ? 'new-password' : 'current-password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={t('login.email.password_placeholder')}
-                  className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
-                />
-              </label>
+                {emailMode === 'signup' && (
+                  <label className="flex flex-col gap-1">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-label">
+                      {t('login.email.name_label')}
+                    </span>
+                    <input
+                      type="text"
+                      autoComplete="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder={t('login.email.name_placeholder')}
+                      className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
+                    />
+                  </label>
+                )}
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full cursor-pointer border border-accent-dim bg-accent-deep/10 py-2.5 font-mono text-[11px] uppercase tracking-[0.16em] text-accent transition-colors hover:bg-accent-deep/20 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {emailMode === 'signin'
-                  ? t('login.email.submit_signin')
-                  : t('login.email.submit_signup')}
-              </button>
+                <label className="flex flex-col gap-1">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-label">
+                    {t('login.email.password_label')}
+                  </span>
+                  <input
+                    type="password"
+                    required
+                    minLength={emailMode === 'signup' ? 8 : undefined}
+                    autoComplete={emailMode === 'signup' ? 'new-password' : 'current-password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={t('login.email.password_placeholder')}
+                    className="border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent"
+                  />
+                </label>
 
-              <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.12em]">
                 <button
-                  type="button"
-                  onClick={() => {
-                    setEmailMode((m) => (m === 'signin' ? 'signup' : 'signin'));
-                    setFormMessage(null);
-                    setResendEmail(null);
-                    setResendStatus('idle');
-                  }}
-                  className="cursor-pointer text-muted transition-colors hover:text-main"
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full cursor-pointer border border-accent-dim bg-accent-deep/10 py-2.5 font-mono text-[11px] uppercase tracking-[0.16em] text-accent transition-colors hover:bg-accent-deep/20 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {emailMode === 'signin' ? t('login.email.to_signup') : t('login.email.to_signin')}
+                  {emailMode === 'signin'
+                    ? t('login.email.submit_signin')
+                    : t('login.email.submit_signup')}
                 </button>
-                {emailMode === 'signin' && (
+
+                <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.12em]">
                   <button
                     type="button"
-                    onClick={() => void navigate({ to: '/reset-password' })}
+                    onClick={() => {
+                      setEmailMode((m) => (m === 'signin' ? 'signup' : 'signin'));
+                      setFormMessage(null);
+                      setResendEmail(null);
+                      setResendStatus('idle');
+                    }}
                     className="cursor-pointer text-muted transition-colors hover:text-main"
                   >
-                    {t('login.email.forgot')}
+                    {emailMode === 'signin'
+                      ? t('login.email.to_signup')
+                      : t('login.email.to_signin')}
                   </button>
-                )}
-              </div>
-
-              {formMessage && (
-                <div
-                  role="alert"
-                  className={
-                    formMessage.kind === 'error'
-                      ? 'border border-error-line bg-error-bg px-3 py-2 text-xs text-error'
-                      : 'border border-rule bg-header px-3 py-2 text-xs text-main'
-                  }
-                >
-                  {formMessage.text}
+                  {emailMode === 'signin' && (
+                    <button
+                      type="button"
+                      onClick={() => void navigate({ to: '/reset-password' })}
+                      className="cursor-pointer text-muted transition-colors hover:text-main"
+                    >
+                      {t('login.email.forgot')}
+                    </button>
+                  )}
                 </div>
-              )}
 
-              {/* Resend verification - only after an EMAIL_NOT_VERIFIED sign-in. */}
-              {resendEmail !== null && emailMode === 'signin' && (
-                <div className="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void handleResend()}
-                    disabled={resendStatus === 'sending' || resendStatus === 'sent'}
-                    className="w-full cursor-pointer border border-rule bg-header py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light disabled:cursor-not-allowed disabled:opacity-50"
+                {formMessage && (
+                  <div
+                    role="alert"
+                    className={
+                      formMessage.kind === 'error'
+                        ? 'border border-error-line bg-error-bg px-3 py-2 text-xs text-error'
+                        : 'border border-rule bg-header px-3 py-2 text-xs text-main'
+                    }
                   >
-                    {t('login.email.resend')}
-                  </button>
-                  {resendStatus === 'sent' && (
-                    <p role="status" className="font-mono text-[10px] tracking-[0.04em] text-muted">
-                      {t('login.email.resend_sent')}
-                    </p>
-                  )}
-                  {resendStatus === 'error' && (
-                    <p role="alert" className="font-mono text-[10px] tracking-[0.04em] text-error">
-                      {t('login.email.resend_error')}
-                    </p>
-                  )}
-                </div>
-              )}
-            </form>
-          )}
+                    {formMessage.text}
+                  </div>
+                )}
+
+                {/* Resend verification - only after an EMAIL_NOT_VERIFIED sign-in. */}
+                {resendEmail !== null && emailMode === 'signin' && (
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleResend()}
+                      disabled={resendStatus === 'sending' || resendStatus === 'sent'}
+                      className="w-full cursor-pointer border border-rule bg-header py-2 font-mono text-[10px] uppercase tracking-[0.16em] text-main transition-colors hover:border-rule-light disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {t('login.email.resend')}
+                    </button>
+                    {resendStatus === 'sent' && (
+                      <p
+                        role="status"
+                        className="font-mono text-[10px] tracking-[0.04em] text-muted"
+                      >
+                        {t('login.email.resend_sent')}
+                      </p>
+                    )}
+                    {resendStatus === 'error' && (
+                      <p
+                        role="alert"
+                        className="font-mono text-[10px] tracking-[0.04em] text-error"
+                      >
+                        {t('login.email.resend_error')}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </form>
+            ))}
 
           {/* Dev-only bypass — stripped from production builds */}
           {import.meta.env.DEV && (
@@ -510,7 +524,10 @@ function GoogleSignInButton({
   return (
     <div ref={containerRef} className="group relative">
       {/* Visible skin — identical to the email/social buttons. */}
-      <div className="flex w-full items-center justify-center gap-2.5 border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-main transition-colors group-hover:border-rule-light">
+      <div
+        aria-hidden="true"
+        className="flex w-full items-center justify-center gap-2.5 border border-rule bg-header py-3 font-mono text-[11px] uppercase tracking-[0.16em] text-main transition-colors group-hover:border-rule-light group-focus-within:border-accent group-focus-within:ring-2 group-focus-within:ring-accent group-focus-within:ring-offset-2 group-focus-within:ring-offset-card"
+      >
         <GoogleGlyph />
         <span>{label}</span>
       </div>

@@ -17,6 +17,8 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 // ---------------------------------------------------------------------------
 
 let accessToken: string | null = null;
+let refreshBlocked = false;
+let activeRefreshController: AbortController | null = null;
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
@@ -46,10 +48,25 @@ export interface RefreshResult {
 }
 
 const refreshAccessToken = createSingleFlight(async (): Promise<RefreshResult | null> => {
-  const res = await fetch(`${API_URL}/api/auth/refresh`, {
-    method: 'POST',
-    credentials: 'include',
-  });
+  if (refreshBlocked) return null;
+
+  const controller = new AbortController();
+  activeRefreshController = controller;
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]),
+    });
+  } catch (err: unknown) {
+    if (refreshBlocked && controller.signal.aborted) return null;
+    throw err;
+  } finally {
+    if (activeRefreshController === controller) activeRefreshController = null;
+  }
+
+  if (refreshBlocked) return null;
 
   if (!res.ok) {
     setAccessToken(null);
@@ -67,5 +84,20 @@ const refreshAccessToken = createSingleFlight(async (): Promise<RefreshResult | 
   await clearApiResponseCache();
   return null;
 });
+
+/**
+ * Prevent refresh-token rotation while logout is in progress. Any active
+ * request is aborted and later refresh attempts stay blocked until the caller
+ * explicitly resumes them (only needed when logout fails).
+ */
+export function blockAuthRefresh(): void {
+  refreshBlocked = true;
+  activeRefreshController?.abort();
+  activeRefreshController = null;
+}
+
+export function resumeAuthRefresh(): void {
+  refreshBlocked = false;
+}
 
 export { refreshAccessToken };

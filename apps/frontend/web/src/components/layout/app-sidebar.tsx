@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -94,6 +94,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
   const navigate = useNavigate();
   const reduced = useReducedMotion();
   const drawerDuration = reduced ? 0 : 0.22;
+  const [signOutError, setSignOutError] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -123,6 +124,24 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
       void navigate({ to: '/login' });
     },
     [exitGuestModeKeepingData, navigate]
+  );
+
+  const handleSignOut = useCallback(
+    async (onItemClick: () => void): Promise<void> => {
+      setSignOutError(false);
+      const result = await signOut();
+      if (!result.ok) {
+        setSignOutError(true);
+        return;
+      }
+      onItemClick();
+      // A full replacement guarantees the protected tree is torn down and the
+      // next boot re-checks the now-cleared refresh cookie. A same-tick SPA
+      // navigation can still see the router's previous auth context and bounce
+      // straight back to /app.
+      window.location.replace('/login');
+    },
+    [signOut]
   );
 
   function renderNavItems(onItemClick: () => void): React.ReactNode {
@@ -202,17 +221,24 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                 {t('auth.create_account')}
               </button>
             ) : user ? (
-              <AvatarDropdown
-                user={user}
-                syncStatus="idle"
-                onSignOut={() => void signOut()}
-                dropdownPlacement="top"
-              />
+              <div className="space-y-2">
+                <AvatarDropdown
+                  user={user}
+                  syncStatus="idle"
+                  onSignOut={() => void handleSignOut(onItemClick)}
+                  dropdownPlacement="top"
+                />
+                {signOutError && (
+                  <p role="alert" className="text-xs text-error">
+                    {t('auth.errors.sign_out_failed')}
+                  </p>
+                )}
+              </div>
             ) : (
               <AvatarDropdown
                 user={null}
                 syncStatus="idle"
-                onSignOut={() => void signOut()}
+                onSignOut={() => void handleSignOut(onItemClick)}
                 dropdownPlacement="top"
               />
             )}

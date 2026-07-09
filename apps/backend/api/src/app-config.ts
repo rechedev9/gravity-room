@@ -9,6 +9,7 @@
  * app, with no duplicated wiring to drift apart.
  */
 import type { CreateAppOptions } from './create-app';
+import { DEFAULT_DEV_WEB_ORIGIN } from './lib/app-url';
 
 // ---------------------------------------------------------------------------
 // CORS
@@ -26,7 +27,7 @@ import type { CreateAppOptions } from './create-app';
  */
 export function parseCorsOrigins(raw: string | undefined): string | string[] {
   if (!raw) {
-    return process.env['NODE_ENV'] === 'production' ? [] : 'http://localhost:3000';
+    return process.env['NODE_ENV'] === 'production' ? [] : DEFAULT_DEV_WEB_ORIGIN;
   }
   const origins = raw
     .split(',')
