@@ -102,7 +102,7 @@ export function FreeTrustSection({ content }: FreeTrustSectionProps): React.Reac
         >
           {content.title}
         </h2>
-        <p className="text-sm leading-relaxed text-muted max-w-xl mx-auto">{content.body}</p>
+        <p className="text-base leading-relaxed text-muted max-w-xl mx-auto">{content.body}</p>
       </FadeUp>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-14 items-start">
@@ -159,10 +159,10 @@ export function FreeTrustSection({ content }: FreeTrustSectionProps): React.Reac
                 {TRUST_ICONS[idx]}
               </div>
               <div>
-                <div className="text-sm font-bold mb-1 uppercase tracking-wider text-main">
+                <div className="text-base font-bold mb-1 uppercase tracking-wider text-main">
                   {item.title}
                 </div>
-                <p className="text-sm leading-relaxed text-muted">{item.desc}</p>
+                <p className="text-base leading-relaxed text-muted">{item.desc}</p>
               </div>
             </StaggerItem>
           ))}

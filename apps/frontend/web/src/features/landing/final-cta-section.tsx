@@ -83,7 +83,7 @@ export function FinalCtaSection({ content }: FinalCtaSectionProps): React.ReactN
         </motion.h2>
         <motion.p
           variants={fadeInVariants}
-          className="flex items-center justify-center gap-2 mb-8 text-sm text-muted"
+          className="flex items-center justify-center gap-2 mb-8 text-base text-muted"
         >
           <DiscordIcon className="w-4 h-4" />
           <span>

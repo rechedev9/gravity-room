@@ -48,10 +48,10 @@ export interface HeroContent {
   readonly proofItems: readonly ProofItem[];
   /** Accessible label for the proof-pills list region */
   readonly proofListAriaLabel: string;
-  /** Alt text for the product preview screenshot */
-  readonly previewAlt: string;
-  /** Accessible caption label for the preview image region */
-  readonly previewCaption: string;
+  /** Alt text for the hero transformation artwork */
+  readonly transformationAlt: string;
+  /** Visible caption under the hero artwork */
+  readonly transformationCaption: string;
 }
 
 export interface MetricsContent {
@@ -76,6 +76,10 @@ export interface FeaturesContent {
   readonly title: string;
   readonly subtitle: string;
   readonly items: readonly FeatureItem[];
+  /** Alt text for the features artwork */
+  readonly artworkAlt: string;
+  /** Visible caption for the features artwork */
+  readonly artworkCaption: string;
 }
 
 export interface StepItem {
@@ -229,34 +233,6 @@ export interface FaqContent {
   readonly items: readonly FaqItem[];
 }
 
-/* ── Product preview UI labels ───────────────────────────────────────────── */
-export interface ProductPreviewContent {
-  /** Label for the workout/program name area, e.g. "Workout" */
-  readonly programLabel: string;
-  /** Label for the day counter, e.g. "Day 1" */
-  readonly dayLabel: string;
-  /** Label for the week counter, e.g. "Week 4" */
-  readonly weekLabel: string;
-  /** Status badge text, e.g. "Active" */
-  readonly statusLabel: string;
-  /** Name of the exercise shown in the preview card, e.g. "Main Lift" */
-  readonly exerciseLabel: string;
-  /** Weight display, e.g. "80 kg" */
-  readonly weightLabel: string;
-  /** Aria label for the set grid, e.g. "Sets: 3 completed, 2 remaining" */
-  readonly setsAriaLabel: string;
-  /** Aria label for a completed set, receives set number, e.g. "Set 1 complete" */
-  readonly setCompletedAriaFn: (n: number) => string;
-  /** Aria label for a pending set, receives set number, e.g. "Set 2 pending" */
-  readonly setPendingAriaFn: (n: number) => string;
-  /** Aria label for the progress bar, e.g. "Strength progress" */
-  readonly progressAriaLabel: string;
-  /** Progress note shown next to the bar, e.g. "+10 kg since start" */
-  readonly progressNote: string;
-  /** Feature icon alt texts (4 items, matching feature order) */
-  readonly featureIconAlts: readonly [string, string, string, string];
-}
-
 export interface FinalCtaContent {
   readonly eyebrow: string;
   readonly line1: string;
@@ -292,7 +268,6 @@ export interface LandingContent {
   readonly faq: FaqContent;
   readonly finalCta: FinalCtaContent;
   readonly footer: FooterContent;
-  readonly productPreview: ProductPreviewContent;
   readonly skipLabel: string;
   readonly langSwitch: { readonly label: string; readonly href: string };
 }
@@ -319,7 +294,7 @@ export const ES_CONTENT: LandingContent = {
     line1: 'Tu plan de fuerza con',
     line2: 'progresión automática, gratis.',
     subtitle:
-      'Sigue programas probados de fuerza e hipertrofia sin hojas de cálculo ni adivinanzas. La app calcula el peso, las series y las repeticiones — tú solo entrenas.',
+      'Programas probados. La app calcula el peso, las series y las reps. Tú solo entrenas.',
     primaryCta: 'Crear mi plan gratis →',
     secondaryCta: 'Cómo Funciona',
     guestCta: 'Pruébalo ahora, sin cuenta',
@@ -330,14 +305,15 @@ export const ES_CONTENT: LandingContent = {
       { value: '0 €', label: 'Sin tarjeta' },
     ],
     proofListAriaLabel: 'Beneficios clave',
-    previewAlt: 'Captura de pantalla de Gravity Room mostrando un entrenamiento activo',
-    previewCaption: 'Vista previa de la aplicación',
+    transformationAlt:
+      'El mismo atleta entra delgado en la Gravity Room y sale fuerte y musculoso, envuelto en un aura dorada',
+    transformationCaption: 'Entra. Entrena. Sal más fuerte.',
   },
   metrics: {
     ariaLabel: 'Prueba del catálogo',
     programs: {
       label: 'Programas en el Catálogo',
-      sub: 'Fuerza e hipertrofia, todos con progresión automática',
+      sub: 'Todos con progresión automática',
     },
     free: {
       label: 'Gratis',
@@ -346,38 +322,37 @@ export const ES_CONTENT: LandingContent = {
     days: {
       prefix: 'Desde',
       label: 'Días por Semana',
-      sub: 'Horarios flexibles para cualquier estilo de vida',
+      sub: 'Horarios que se adaptan a ti',
     },
     workouts: {
       label: 'Entrenamientos en el Catálogo',
-      sub: 'Cobertura completa de sesiones estructuradas',
+      sub: 'Sesiones listas para ejecutar',
     },
   },
   problem: {
     sectionLabel: 'El Problema',
     eyebrow: '¿Te suena familiar?',
     title: 'Entrenar sin un plan es perder el tiempo.',
-    body: 'La mayoría de las personas que van al gimnasio no progresan porque improvisan. Sin estructura, sin progresión, sin resultados.',
+    body: 'La mayoría improvisa. Por eso no progresa.',
     items: [
       {
         label: 'Hojas de cálculo imposibles',
-        desc: 'Calcular pesos y progresiones a mano es tedioso y propenso a errores.',
+        desc: 'Calcular a mano es lento y falla.',
       },
       {
         label: 'Programas en PDF que no se adaptan',
-        desc: 'Un PDF no sabe si fallaste las repeticiones ni ajusta el peso por ti.',
+        desc: 'Un PDF no se entera si fallas.',
       },
       {
         label: 'Apps genéricas sin progresión real',
-        desc: 'Registrar pesos está bien, pero sin reglas de progresión integradas no avanzas.',
+        desc: 'Registrar no es progresar.',
       },
       {
         label: 'Motivación que se agota',
-        desc: 'Sin ver progreso claro, es fácil perder el rumbo y abandonar.',
+        desc: 'Sin progreso visible, abandonas.',
       },
     ],
-    resolution:
-      'Gravity Room automatiza todo eso. Elige un programa, registra tus entrenamientos y deja que la app gestione la progresión.',
+    resolution: 'Gravity Room lo automatiza todo: elige programa, registra y progresa.',
     beforeLabel: 'Improvisar',
     afterLabel: 'Programa calculado',
     solutionLabel: 'Con Gravity Room',
@@ -391,36 +366,38 @@ export const ES_CONTENT: LandingContent = {
   features: {
     sectionLabel: 'Características',
     title: 'Entrena más. Piensa menos.',
-    subtitle: 'Cada función existe para quitarte trabajo — no para añadirte pasos.',
+    subtitle: 'Cada función te quita trabajo.',
     items: [
       {
         title: 'Nunca calcules el peso otra vez',
-        desc: 'La app sube el peso cuando completas las series y lo reduce si fallas. Tú solo registras el resultado.',
+        desc: 'La app sube el peso si completas y lo baja si fallas.',
       },
       {
         title: 'Empieza a entrenar en 2 minutos',
-        desc: 'Elige un programa del catálogo, introduce tus pesos de partida y tu plan completo está listo al instante.',
+        desc: 'Elige programa, pon tus pesos y listo.',
       },
       {
         title: 'Ve exactamente cuánto has mejorado',
-        desc: 'Cada sesión queda registrada. La gráfica de fuerza muestra tu progreso real semana a semana.',
+        desc: 'Tu gráfica de fuerza, semana a semana.',
       },
       {
         title: 'Tu historial te sigue a todas partes',
-        desc: 'Abre la app en el móvil o en el ordenador — tus datos y tu progresión están siempre sincronizados.',
+        desc: 'Móvil u ordenador, siempre sincronizado.',
       },
     ],
+    artworkAlt:
+      'El atleta entrena a máximo esfuerzo con la barra dentro de la cámara de gravedad, envuelto en luz dorada',
+    artworkCaption: 'Tú solo entrenas.',
   },
   howItWorks: {
     sectionLabel: 'Cómo Funciona',
     title: 'De cero a entrenando en tres pasos.',
-    subtitle:
-      'Elige un programa, introduce tus pesos de partida y registra cada sesión. La app calcula lo que toca la próxima vez.',
+    subtitle: 'Tú registras. La app calcula lo siguiente.',
     steps: [
       {
         num: '01',
         title: 'Elige tu programa e introduce tus pesos',
-        desc: 'Selecciona el programa que encaje con tus objetivos y escribe los pesos con los que empiezas. La app genera tu plan completo al instante — sin hojas de cálculo.',
+        desc: 'Elige el programa que encaje contigo y escribe tus pesos de partida. Tu plan aparece al instante.',
         quote: 'Gravity Room construye el plan; tú solo apareces.',
         source: '\u2014 Gravity Room',
         image: '/howit-choose.webp',
@@ -428,7 +405,7 @@ export const ES_CONTENT: LandingContent = {
       {
         num: '02',
         title: 'Sigue las instrucciones de cada sesión',
-        desc: 'Cada entrenamiento te indica el ejercicio, las series, las repeticiones y el peso exacto. Registra el resultado — completado, fallado o AMRAP — en segundos.',
+        desc: 'Cada sesión te dice ejercicio, series, reps y peso. Registra el resultado en segundos.',
         quote: 'Sin adivinar. Sin calcular. Solo entrenar.',
         source: '\u2014 Gravity Room',
         image: '/howit-train.webp',
@@ -436,7 +413,7 @@ export const ES_CONTENT: LandingContent = {
       {
         num: '03',
         title: 'La app ajusta la siguiente sesión',
-        desc: 'Completaste las reps → el peso sube. Fallaste → la carga se reduce automáticamente. El programa siempre sabe qué toca después.',
+        desc: '¿Completaste? El peso sube. ¿Fallaste? Se ajusta. El programa siempre sabe qué toca.',
         quote: 'Progresión real, sin intervención manual.',
         source: '\u2014 Gravity Room',
         image: '/howit-progress.webp',
@@ -446,34 +423,33 @@ export const ES_CONTENT: LandingContent = {
   science: {
     sectionLabel: 'Por Qué Funciona',
     title: 'El método detrás de los programas.',
-    body: 'Los programas del catálogo están construidos sobre tres principios que llevan décadas funcionando en el entrenamiento de fuerza. No son teoría — son las reglas que la app aplica automáticamente en cada sesión.',
+    body: 'Tres principios con décadas de resultados. La app los aplica por ti en cada sesión.',
     cards: [
       {
         title: 'Sobrecarga Progresiva',
-        desc: 'El peso sube solo cuando completas las series. Sin saltar pasos, sin estancarte por subir demasiado rápido.',
+        desc: 'El peso sube solo cuando completas. Sin atajos, sin estancarte.',
       },
       {
         title: 'Manejo del Fallo',
-        desc: 'Si no completas las repeticiones, el programa reduce la carga y retoma la progresión desde ahí. No pierdes el hilo — el programa lo gestiona.',
+        desc: '¿Fallas? La carga baja y la progresión continúa desde ahí.',
       },
       {
         title: 'Sin Fatiga de Decisión',
-        desc: 'Cada sesión ya tiene el ejercicio, el peso y las repeticiones calculados. Entras al gimnasio y ejecutas — sin improvisar ni calcular.',
+        desc: 'Ejercicio, peso y reps ya calculados. Entra y ejecuta.',
       },
     ],
   },
   midPageCta: {
     eyebrow: 'Empieza hoy',
     title: 'Tu primera semana puede estar lista en 2 minutos.',
-    body: 'Elige un programa, introduce tus pesos de partida y la app genera tu plan completo al instante — gratis, sin tarjeta.',
+    body: 'Elige programa, pon tus pesos y entrena. Gratis, sin tarjeta.',
     cta: 'Crear mi plan gratis →',
     microcopy: 'Sin tarjeta · Sin suscripción',
   },
   programs: {
     sectionLabel: 'Catálogo de Programas',
     title: 'Programas probados, listos para empezar.',
-    subtitle:
-      'Cada programa del catálogo incluye reglas de progresión integradas. Elige el que encaje con tu nivel y frecuencia — la app hace el resto.',
+    subtitle: 'Elige el que encaje con tu nivel. La app hace el resto.',
     by: 'por',
     levelLabels: { beginner: 'Principiante', intermediate: 'Intermedio', advanced: 'Avanzado' },
     daysPerWeek: 'días/semana',
@@ -485,7 +461,7 @@ export const ES_CONTENT: LandingContent = {
     sectionLabel: 'Por Qué Confiar',
     eyebrow: 'Sin letra pequeña',
     title: 'Gratis de verdad. Sin trampa.',
-    body: 'Gravity Room no vende tus datos y no tiene anuncios. Es una herramienta construida por y para atletas.',
+    body: 'Sin anuncios y sin vender tus datos. Hecha por y para atletas.',
     highlights: [
       { label: 'Precio', value: '0 €' },
       { label: 'Tarjeta de crédito', value: 'No' },
@@ -497,19 +473,19 @@ export const ES_CONTENT: LandingContent = {
     items: [
       {
         title: 'Gratis de verdad',
-        desc: 'Sin tarjeta de crédito. Sin suscripción para empezar. Accede a todos los programas disponibles.',
+        desc: 'Todos los programas, sin tarjeta ni suscripción.',
       },
       {
         title: 'Sin anuncios',
-        desc: 'La app no tiene publicidad. Tu experiencia de entrenamiento no se interrumpe.',
+        desc: 'Nada interrumpe tu entrenamiento.',
       },
       {
         title: 'Tus datos son tuyos',
-        desc: 'No vendemos ni compartimos tu información. Puedes exportar o eliminar tu cuenta en cualquier momento.',
+        desc: 'Exporta o borra tu cuenta cuando quieras.',
       },
       {
         title: 'Código abierto',
-        desc: 'El código es público. Puedes auditarlo, contribuir o hacer un fork si quieres.',
+        desc: 'Código público: audítalo o haz un fork.',
       },
     ],
   },
@@ -517,7 +493,7 @@ export const ES_CONTENT: LandingContent = {
     sectionLabel: 'Comparativa',
     eyebrow: 'Gravity Room vs. el resto',
     title: '¿Por qué no usar una hoja de cálculo?',
-    body: 'Notas, hojas de cálculo y trackers genéricos no se adaptan a tu rendimiento. Gravity Room sí.',
+    body: 'Notas, hojas y trackers no se adaptan a ti. Gravity Room sí.',
     colGravityRoom: 'Gravity Room',
     featureColLabel: 'Característica',
     yesLabel: 'Sí',
@@ -582,25 +558,6 @@ export const ES_CONTENT: LandingContent = {
       { label: 'FAQ', href: '#faq' },
     ],
   },
-  productPreview: {
-    programLabel: 'Entrenamiento · 5×5+',
-    dayLabel: 'Día 1',
-    weekLabel: 'Semana 4',
-    statusLabel: 'Activo',
-    exerciseLabel: 'Ejercicio Principal',
-    weightLabel: '80 kg',
-    setsAriaLabel: 'Series: 3 completadas, 2 pendientes',
-    setCompletedAriaFn: (n) => `Serie ${n} completada`,
-    setPendingAriaFn: (n) => `Serie ${n} pendiente`,
-    progressAriaLabel: 'Progreso de fuerza',
-    progressNote: '+10 kg desde el inicio',
-    featureIconAlts: [
-      'Icono de progresión automática',
-      'Icono de seguimiento de ejercicios',
-      'Icono de estadísticas',
-      'Icono de sincronización',
-    ],
-  },
   skipLabel: 'Ir al contenido',
   langSwitch: { label: 'English version →', href: '/en' },
 };
@@ -626,8 +583,7 @@ export const EN_CONTENT: LandingContent = {
     kicker: 'Strength & hypertrophy tracker',
     line1: 'Your strength plan with',
     line2: 'automatic progression, free.',
-    subtitle:
-      'Follow proven strength and hypertrophy programs without spreadsheets or guesswork. The app calculates weight, sets, and reps — you just train.',
+    subtitle: 'Proven programs. The app calculates weight, sets, and reps. You just train.',
     primaryCta: 'Create my free plan →',
     secondaryCta: 'How It Works',
     guestCta: 'Try it now, no account',
@@ -638,14 +594,15 @@ export const EN_CONTENT: LandingContent = {
       { value: '$0', label: 'No card needed' },
     ],
     proofListAriaLabel: 'Key benefits',
-    previewAlt: 'Gravity Room screenshot showing an active workout session',
-    previewCaption: 'App preview',
+    transformationAlt:
+      'The same athlete walks into the Gravity Room skinny and walks out strong and muscular, surrounded by a golden aura',
+    transformationCaption: 'Walk in. Train. Walk out stronger.',
   },
   metrics: {
     ariaLabel: 'Catalog proof',
     programs: {
       label: 'Programs in Catalog',
-      sub: 'Strength & hypertrophy, all with automatic progression',
+      sub: 'All with automatic progression',
     },
     free: {
       label: 'Free',
@@ -654,38 +611,37 @@ export const EN_CONTENT: LandingContent = {
     days: {
       prefix: 'From',
       label: 'Days Per Week',
-      sub: 'Flexible schedules for any lifestyle',
+      sub: 'Schedules that fit your life',
     },
     workouts: {
       label: 'Workouts in Catalog',
-      sub: 'Full coverage of structured sessions',
+      sub: 'Sessions ready to run',
     },
   },
   problem: {
     sectionLabel: 'The Problem',
     eyebrow: 'Sound familiar?',
     title: 'Training without a plan is wasted effort.',
-    body: "Most people who go to the gym don't make progress because they improvise. No structure, no progression, no results.",
+    body: "Most people improvise. That's why they don't progress.",
     items: [
       {
         label: 'Impossible spreadsheets',
-        desc: 'Calculating weights and progressions by hand is tedious and error-prone.',
+        desc: 'Calculating by hand is slow and error-prone.',
       },
       {
         label: "PDF programs that don't adapt",
-        desc: "A PDF doesn't know if you missed reps or adjust the weight for you.",
+        desc: "A PDF doesn't know when you fail.",
       },
       {
         label: 'Generic apps with no real progression',
-        desc: "Logging weights is fine, but without built-in progression rules you don't advance.",
+        desc: "Logging isn't progressing.",
       },
       {
         label: 'Motivation that runs out',
-        desc: "Without seeing clear progress, it's easy to lose direction and quit.",
+        desc: 'Without visible progress, you quit.',
       },
     ],
-    resolution:
-      'Gravity Room automates all of that. Pick a program, log your workouts, and let the app handle progression.',
+    resolution: 'Gravity Room automates all of it: pick a program, log, progress.',
     beforeLabel: 'Improvising',
     afterLabel: 'Calculated program',
     solutionLabel: 'With Gravity Room',
@@ -699,36 +655,38 @@ export const EN_CONTENT: LandingContent = {
   features: {
     sectionLabel: 'Features',
     title: 'Train more. Think less.',
-    subtitle: 'Every feature exists to remove work from your plate — not add steps.',
+    subtitle: 'Every feature removes work.',
     items: [
       {
         title: 'Never calculate a weight again',
-        desc: 'The app adds weight when you hit your sets and drops it when you miss. You just log the result.',
+        desc: 'The app adds weight when you hit and drops it when you miss.',
       },
       {
         title: 'Go from zero to training in 2 minutes',
-        desc: 'Pick a program from the catalog, enter your starting weights, and your full plan is ready instantly.',
+        desc: 'Pick a program, enter your weights, done.',
       },
       {
         title: "See exactly how much stronger you've gotten",
-        desc: 'Every session is logged. Your strength chart shows real progress week by week — no guessing.',
+        desc: 'Your strength chart, week by week.',
       },
       {
         title: 'Your history follows you everywhere',
-        desc: 'Open the app on your phone or laptop — your data and progression are always in sync.',
+        desc: 'Phone or laptop, always in sync.',
       },
     ],
+    artworkAlt:
+      'The athlete trains at maximum effort with a barbell inside the gravity chamber, bathed in golden light',
+    artworkCaption: 'You just train.',
   },
   howItWorks: {
     sectionLabel: 'How It Works',
     title: 'From zero to training in three steps.',
-    subtitle:
-      'Pick a program, enter your starting weights, and log each session. The app calculates what comes next.',
+    subtitle: "You log. The app calculates what's next.",
     steps: [
       {
         num: '01',
         title: 'Pick your program and enter starting weights',
-        desc: "Choose the program that fits your goals and type in the weights you're starting with. The app builds your full plan instantly — no spreadsheet needed.",
+        desc: 'Choose the program that fits you and enter your starting weights. Your plan appears instantly.',
         quote: 'Gravity Room builds the plan; you just show up.',
         source: '\u2014 Gravity Room',
         image: '/howit-choose.webp',
@@ -736,7 +694,7 @@ export const EN_CONTENT: LandingContent = {
       {
         num: '02',
         title: "Follow each session's instructions",
-        desc: 'Every workout shows you the exercise, sets, reps, and exact weight. Log the result — completed, failed, or AMRAP — in seconds.',
+        desc: 'Each session shows exercise, sets, reps, and weight. Log the result in seconds.',
         quote: 'No guessing. No calculating. Just training.',
         source: '\u2014 Gravity Room',
         image: '/howit-train.webp',
@@ -744,7 +702,7 @@ export const EN_CONTENT: LandingContent = {
       {
         num: '03',
         title: 'The app adjusts your next session',
-        desc: 'Hit your reps → weight goes up. Miss them → load drops automatically. The program always knows what comes next.',
+        desc: "Hit your reps? Weight goes up. Miss? It adjusts. The program always knows what's next.",
         quote: 'Real progression, zero manual intervention.',
         source: '\u2014 Gravity Room',
         image: '/howit-progress.webp',
@@ -754,34 +712,33 @@ export const EN_CONTENT: LandingContent = {
   science: {
     sectionLabel: 'Why It Works',
     title: 'The method behind the programs.',
-    body: 'The programs in the catalog are built on three principles that have worked in strength training for decades. Not theory — these are the rules the app applies automatically every session.',
+    body: 'Three principles with decades of results. The app applies them for you every session.',
     cards: [
       {
         title: 'Progressive Overload',
-        desc: 'Weight goes up only when you complete your sets. No skipping steps, no stalling from jumping too fast.',
+        desc: 'Weight goes up only when you complete. No shortcuts, no stalling.',
       },
       {
         title: 'Failure Handling',
-        desc: "Miss your reps? The program drops the load and resumes progression from there. You don't lose your place — the program manages it.",
+        desc: 'Miss? The load drops and progression continues from there.',
       },
       {
         title: 'No Decision Fatigue',
-        desc: 'Every session already has the exercise, weight, and reps calculated. Walk in and execute — no improvising, no calculating.',
+        desc: 'Exercise, weight, and reps already calculated. Walk in and execute.',
       },
     ],
   },
   midPageCta: {
     eyebrow: 'Start today',
     title: 'Your first week can be ready in 2 minutes.',
-    body: 'Pick a program, enter your starting weights, and the app builds your full plan instantly — free, no card needed.',
+    body: 'Pick a program, enter your weights, train. Free, no card.',
     cta: 'Create my free plan →',
     microcopy: 'No card · No subscription',
   },
   programs: {
     sectionLabel: 'Program Catalog',
     title: 'Proven programs, ready to start.',
-    subtitle:
-      'Every program in the catalog has built-in progression rules. Pick the one that fits your level and schedule — the app handles the rest.',
+    subtitle: 'Pick the one that fits your level. The app does the rest.',
     by: 'by',
     levelLabels: { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' },
     daysPerWeek: 'days/week',
@@ -793,7 +750,7 @@ export const EN_CONTENT: LandingContent = {
     sectionLabel: 'Why Trust Us',
     eyebrow: 'No fine print',
     title: 'Actually free. No catch.',
-    body: "Gravity Room doesn't sell your data and has no ads. It's a tool built by and for athletes.",
+    body: "No ads, and we don't sell your data. Built by and for athletes.",
     highlights: [
       { label: 'Price', value: '$0' },
       { label: 'Credit card', value: 'No' },
@@ -805,19 +762,19 @@ export const EN_CONTENT: LandingContent = {
     items: [
       {
         title: 'Actually free',
-        desc: 'No credit card. No subscription to get started. Access all available programs.',
+        desc: 'Every program, no card or subscription.',
       },
       {
         title: 'No ads',
-        desc: 'The app has no advertising. Your training experience is never interrupted.',
+        desc: 'Nothing interrupts your training.',
       },
       {
         title: 'Your data is yours',
-        desc: "We don't sell or share your information. You can export or delete your account at any time.",
+        desc: 'Export or delete your account anytime.',
       },
       {
         title: 'Open source',
-        desc: 'The code is public. You can audit it, contribute, or fork it if you want.',
+        desc: 'Public code: audit it or fork it.',
       },
     ],
   },
@@ -825,7 +782,7 @@ export const EN_CONTENT: LandingContent = {
     sectionLabel: 'Comparison',
     eyebrow: 'Gravity Room vs. the rest',
     title: 'Why not just use a spreadsheet?',
-    body: "Notes, spreadsheets, and generic trackers don't adapt to your performance. Gravity Room does.",
+    body: "Notes, sheets, and trackers don't adapt to you. Gravity Room does.",
     colGravityRoom: 'Gravity Room',
     featureColLabel: 'Feature',
     yesLabel: 'Yes',
@@ -888,25 +845,6 @@ export const EN_CONTENT: LandingContent = {
       { label: 'Programs', href: '#programs' },
       { label: "It's Free", href: '#free-trust' },
       { label: 'FAQ', href: '#faq' },
-    ],
-  },
-  productPreview: {
-    programLabel: 'Workout · 5×5+',
-    dayLabel: 'Day 1',
-    weekLabel: 'Week 4',
-    statusLabel: 'Active',
-    exerciseLabel: 'Main Lift',
-    weightLabel: '80 kg',
-    setsAriaLabel: 'Sets: 3 completed, 2 remaining',
-    setCompletedAriaFn: (n) => `Set ${n} complete`,
-    setPendingAriaFn: (n) => `Set ${n} pending`,
-    progressAriaLabel: 'Strength progress',
-    progressNote: '+10 kg since start',
-    featureIconAlts: [
-      'Automatic progression icon',
-      'Exercise tracking icon',
-      'Statistics icon',
-      'Synchronization icon',
     ],
   },
   skipLabel: 'Skip to content',

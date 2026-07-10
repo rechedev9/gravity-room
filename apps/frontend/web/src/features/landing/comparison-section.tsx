@@ -97,7 +97,7 @@ export function ComparisonSection({ content }: ComparisonSectionProps): React.Re
         >
           {content.title}
         </h2>
-        <p className="text-sm leading-relaxed text-muted max-w-xl mx-auto">{content.body}</p>
+        <p className="text-base leading-relaxed text-muted max-w-xl mx-auto">{content.body}</p>
       </FadeUp>
 
       {/* ── Desktop table (md+) ─────────────────────────────────────────── */}
@@ -148,7 +148,7 @@ export function ComparisonSection({ content }: ComparisonSectionProps): React.Re
           <tbody>
             {rows.map((row, i) => (
               <tr key={row.feature} className={i % 2 === 0 ? 'bg-white/[0.015]' : ''}>
-                <td className="py-3.5 px-4 text-sm text-main border-b border-rule/50">
+                <td className="py-3.5 px-4 text-base text-main border-b border-rule/50">
                   {row.feature}
                 </td>
 
@@ -190,7 +190,7 @@ export function ComparisonSection({ content }: ComparisonSectionProps): React.Re
           <ul className="divide-y divide-rule/50" role="list">
             {rows.map((row) => (
               <li key={row.feature} className="flex items-center justify-between px-5 py-3 gap-3">
-                <span className="text-sm text-main">{row.feature}</span>
+                <span className="text-base text-main">{row.feature}</span>
                 <Cell value={row.gravityRoom} yesLabel={yesLabel} noLabel={noLabel} />
               </li>
             ))}
@@ -216,7 +216,7 @@ export function ComparisonSection({ content }: ComparisonSectionProps): React.Re
             <ul className="divide-y divide-rule/50" role="list">
               {rows.map((row) => (
                 <li key={row.feature} className="flex items-center justify-between px-5 py-3 gap-3">
-                  <span className="text-sm text-muted">{row.feature}</span>
+                  <span className="text-base text-muted">{row.feature}</span>
                   <Cell
                     value={row.alternatives[altIdx] ?? false}
                     yesLabel={yesLabel}

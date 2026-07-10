@@ -65,9 +65,9 @@ export function HowItWorksSection({ content }: HowItWorksSectionProps): React.Re
               <h3 className="text-base font-bold mb-3 uppercase tracking-wide text-main">
                 {s.title}
               </h3>
-              <p className="text-sm leading-relaxed mb-5 text-muted">{s.desc}</p>
+              <p className="text-base leading-relaxed mb-5 text-muted">{s.desc}</p>
 
-              <p className="landing-quote-glow p-3 text-sm font-medium text-accent text-left">
+              <p className="landing-quote-glow p-3 text-base font-medium text-accent text-left">
                 {s.quote}
               </p>
             </StaggerItem>

@@ -103,7 +103,7 @@ export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps)
                           {content.by} {program.author}
                         </p>
 
-                        <p className="text-sm text-center leading-relaxed mb-6 line-clamp-2 text-muted">
+                        <p className="text-base text-center leading-relaxed mb-6 line-clamp-2 text-muted">
                           {localizedProgramDescription(t, program.id, program.description)}
                         </p>
 
@@ -156,7 +156,7 @@ export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps)
         )}
 
         {catalogQuery.isError && (
-          <p className="text-sm text-center text-muted">{content.errorText}</p>
+          <p className="text-base text-center text-muted">{content.errorText}</p>
         )}
       </div>
     </section>

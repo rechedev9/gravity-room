@@ -48,7 +48,10 @@ export function MidPageCtaSection({ content }: MidPageCtaSectionProps): React.Re
         </motion.h2>
 
         {/* Supporting body */}
-        <motion.p variants={fadeInVariants} className="text-sm text-muted max-w-md leading-relaxed">
+        <motion.p
+          variants={fadeInVariants}
+          className="text-base text-muted max-w-md leading-relaxed"
+        >
           {content.body}
         </motion.p>
 

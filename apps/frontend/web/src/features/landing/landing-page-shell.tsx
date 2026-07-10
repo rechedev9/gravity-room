@@ -84,7 +84,7 @@ export function LandingPageShell({ content, head, lang }: LandingPageShellProps)
       <NavBar activeSection={activeSection} content={content.nav} />
 
       <main id="main-content">
-        <HeroSection content={content.hero} productPreview={content.productPreview} />
+        <HeroSection content={content.hero} />
         <GradientDivider />
         <ProblemSection content={content.problem} />
         <GradientDivider />

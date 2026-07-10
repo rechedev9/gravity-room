@@ -65,7 +65,7 @@ export function SectionHeader({
       </h2>
       <p
         className={`text-center mb-16 ${subtitleWidth === 'md' ? 'max-w-md' : 'max-w-lg'} mx-auto text-muted`}
-        style={{ fontSize: '15px', lineHeight: 1.7 }}
+        style={{ fontSize: '17px', lineHeight: 1.7 }}
       >
         {subtitle}
       </p>

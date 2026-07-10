@@ -69,7 +69,7 @@ export function ScienceSection({ content }: ScienceSectionProps): React.ReactNod
           >
             {content.title}
           </h2>
-          <p className="text-sm leading-relaxed text-muted sm:text-base sm:leading-relaxed">
+          <p className="text-base leading-relaxed text-muted sm:text-lg sm:leading-relaxed">
             {content.body}
           </p>
         </FadeUp>
@@ -86,10 +86,10 @@ export function ScienceSection({ content }: ScienceSectionProps): React.ReactNod
                 {SCIENCE_ICONS[idx]}
               </div>
               <div>
-                <div className="text-sm font-bold mb-1 uppercase tracking-wider text-main">
+                <div className="text-base font-bold mb-1 uppercase tracking-wider text-main">
                   {card.title}
                 </div>
-                <p className="text-sm leading-relaxed text-muted">{card.desc}</p>
+                <p className="text-base leading-relaxed text-muted">{card.desc}</p>
               </div>
             </StaggerItem>
           ))}

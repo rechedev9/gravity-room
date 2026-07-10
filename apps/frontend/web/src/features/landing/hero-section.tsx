@@ -4,15 +4,14 @@ import { useGuest } from '@/contexts/guest-context';
 import { useAuth } from '@/contexts/auth-context';
 import { EASE_OUT_EXPO, fadeUpVariants } from '@/lib/motion-primitives';
 import { trackEvent } from '@/lib/analytics';
-import type { HeroContent, ProductPreviewContent } from './content';
-import { ProductPreview } from './product-preview';
+import type { HeroContent } from './content';
+import { LandingArtwork } from './landing-artwork';
 
 interface HeroSectionProps {
   readonly content: HeroContent;
-  readonly productPreview: ProductPreviewContent;
 }
 
-export function HeroSection({ content, productPreview }: HeroSectionProps): React.ReactNode {
+export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
   const reduced = useReducedMotion();
   const init = reduced ? 'visible' : 'hidden';
   const { scrollY } = useScroll();
@@ -116,7 +115,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
           {/* Subtitle */}
           <motion.p
             variants={fadeUpVariants}
-            className="text-base sm:text-lg max-w-lg mb-8 leading-relaxed text-main"
+            className="text-lg sm:text-xl max-w-lg mb-8 leading-relaxed text-main"
             style={{ opacity: 0.82 }}
           >
             {content.subtitle}
@@ -181,7 +180,7 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
           </motion.ul>
         </motion.div>
 
-        {/* ── Right column: product preview ── */}
+        {/* ── Right column: transformation artwork ── */}
         <motion.div
           initial={reduced ? 'visible' : { opacity: 0, scale: 0.97 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -189,10 +188,13 @@ export function HeroSection({ content, productPreview }: HeroSectionProps): Reac
           style={reduced ? undefined : { y: previewY }}
           className="relative w-full flex justify-center lg:justify-end"
         >
-          <ProductPreview
-            alt={content.previewAlt}
-            caption={content.previewCaption}
-            labels={productPreview}
+          <LandingArtwork
+            src="/landing-hero-transformation.webp"
+            width={896}
+            height={1120}
+            eager
+            alt={content.transformationAlt}
+            caption={content.transformationCaption}
           />
         </motion.div>
       </div>

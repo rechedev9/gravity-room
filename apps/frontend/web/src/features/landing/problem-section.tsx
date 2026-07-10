@@ -88,7 +88,7 @@ export function ProblemSection({ content }: ProblemSectionProps): React.ReactNod
             >
               {content.title}
             </h2>
-            <p className="text-muted leading-relaxed mb-8" style={{ fontSize: '15px' }}>
+            <p className="text-muted leading-relaxed mb-8" style={{ fontSize: '17px' }}>
               {content.body}
             </p>
 
@@ -99,10 +99,10 @@ export function ProblemSection({ content }: ProblemSectionProps): React.ReactNod
                     <PainIcon />
                   </span>
                   <div>
-                    <span className="text-sm font-semibold text-main block mb-0.5">
+                    <span className="text-base font-semibold text-main block mb-0.5">
                       {item.label}
                     </span>
-                    <span className="text-sm leading-relaxed">{item.desc}</span>
+                    <span className="text-base leading-relaxed">{item.desc}</span>
                   </div>
                 </StaggerItem>
               ))}
@@ -133,7 +133,7 @@ export function ProblemSection({ content }: ProblemSectionProps): React.ReactNod
                 {solutionItems.map((item) => (
                   <li key={item} className="flex items-start gap-3">
                     <CheckIcon />
-                    <span className="text-sm leading-relaxed text-main">{item}</span>
+                    <span className="text-base leading-relaxed text-main">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -141,7 +141,7 @@ export function ProblemSection({ content }: ProblemSectionProps): React.ReactNod
 
             {/* Resolution statement */}
             <div className="pt-4 border-t border-rule">
-              <p className="text-sm leading-relaxed text-muted italic">{content.resolution}</p>
+              <p className="text-base leading-relaxed text-muted italic">{content.resolution}</p>
             </div>
 
             {/* Problem/solution visual — decorative, placed below text */}
@@ -151,8 +151,8 @@ export function ProblemSection({ content }: ProblemSectionProps): React.ReactNod
                 alt=""
                 aria-hidden="true"
                 width={900}
-                height={507}
-                className="w-full h-auto object-cover opacity-70"
+                height={506}
+                className="w-full h-auto object-cover"
                 loading="lazy"
                 decoding="async"
               />
