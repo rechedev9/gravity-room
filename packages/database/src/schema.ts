@@ -11,6 +11,7 @@ import {
   index,
   unique,
   boolean,
+  integer,
 } from 'drizzle-orm/pg-core';
 import { relations, desc, sql } from 'drizzle-orm';
 
@@ -48,6 +49,8 @@ export const users = pgTable(
     passwordHash: text('password_hash'),
     /** True once the email is provider-verified (OAuth) or confirmed via link. */
     emailVerified: boolean('email_verified').notNull().default(false),
+    /** Incremented whenever every session must be invalidated. Embedded in access JWTs. */
+    authVersion: integer('auth_version').notNull().default(0),
     name: varchar({ length: 100 }),
     avatarUrl: text('avatar_url'),
     /**
@@ -55,11 +58,10 @@ export const users = pgTable(
      * before `purge-deleted-users.ts` hard-deletes (CASCADE) the row and all
      * related data. The `/me` and token-refresh paths filter
      * `WHERE deleted_at IS NULL` (via `findUserById()` and token rotation), so a
-     * soft-deleted user cannot fetch their profile or obtain NEW tokens. The
-     * resource-route guard (`resolveUserId`) validates the JWT statelessly and
-     * does not check `deleted_at`, so an access token issued before deletion
-     * keeps working until it expires (~15 min) — `softDeleteUser` revokes the
-     * refresh tokens, so no further tokens can be minted after that window.
+     * soft-deleted user cannot fetch their profile or obtain new tokens. The
+     * resource-route guard also reloads the active user and compares
+     * `auth_version`, so deletion or explicit all-session revocation rejects
+     * existing access tokens immediately.
      */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

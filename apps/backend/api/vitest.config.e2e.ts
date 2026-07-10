@@ -8,5 +8,10 @@ export default defineConfig({
     environment: 'node',
     globals: false,
     include: ['test/e2e/**/*.test.ts'],
+    // Every file recreates the same dedicated test schema. Serial execution
+    // prevents concurrent CREATE SCHEMA/migration races from hiding real auth
+    // integration failures behind pg_namespace uniqueness errors.
+    fileParallelism: false,
+    maxWorkers: 1,
   },
 });

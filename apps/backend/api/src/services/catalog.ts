@@ -246,9 +246,8 @@ export function previewDefinition(
     );
     return allRows.slice(0, MAX_PREVIEW_ROWS);
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : 'Unknown engine error';
     logger.error({ event: 'catalog.preview.engine_error', error: e }, 'preview engine error');
-    throw new ApiError(500, `Preview computation failed: ${message}`, 'INTERNAL_ERROR');
+    throw new ApiError(500, 'Preview computation failed', 'INTERNAL_ERROR');
   }
 }
 

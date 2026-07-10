@@ -109,6 +109,15 @@ const DEV_AUTH_ENABLED =
 const DEV_AUTH_RATE_LIMIT = { maxRequests: 60, windowMs: 60_000 };
 const emailInputSchema = t.String({ format: 'email', maxLength: MAX_EMAIL_CHARS });
 
+/** Credential-accepting routes must not lose brute-force protection on Redis errors. */
+function authRateLimit(
+  key: string,
+  endpoint: string,
+  opts?: { windowMs?: number; maxRequests?: number }
+): Promise<void> {
+  return rateLimit(key, endpoint, { ...opts, failClosed: true });
+}
+
 /** Constant-time comparison of the dev-auth secret header against the configured value. */
 function devAuthSecretMatches(provided: string | undefined): boolean {
   if (!provided) return false;
@@ -252,14 +261,17 @@ function userResponse(user: UserProfile & { avatarUrl?: string | null }): UserPr
 
 /** Signs a JWT, creates a refresh token, and sets the cookie in one step. */
 async function issueTokens(
-  jwt: { sign: (payload: { sub: string; email?: string; exp: string }) => Promise<string> },
+  jwt: {
+    sign: (payload: { sub: string; email?: string; av: number; exp: string }) => Promise<string>;
+  },
   cookie: Record<string, { set: (opts: Record<string, unknown>) => void }>,
-  user: { id: string; email?: string }
+  user: { id: string; email?: string; authVersion?: number }
 ): Promise<{ accessToken: string }> {
   const [accessToken, refreshToken] = await Promise.all([
     jwt.sign({
       sub: user.id,
       ...(user.email ? { email: user.email } : {}),
+      av: user.authVersion ?? 0,
       exp: ACCESS_TOKEN_EXPIRY,
     }),
     createAndStoreRefreshToken(user.id),
@@ -270,13 +282,16 @@ async function issueTokens(
 }
 
 async function issueMobileTokens(
-  jwt: { sign: (payload: { sub: string; email?: string; exp: string }) => Promise<string> },
-  user: { id: string; email?: string }
+  jwt: {
+    sign: (payload: { sub: string; email?: string; av: number; exp: string }) => Promise<string>;
+  },
+  user: { id: string; email?: string; authVersion?: number }
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const [accessToken, refreshToken] = await Promise.all([
     jwt.sign({
       sub: user.id,
       ...(user.email ? { email: user.email } : {}),
+      av: user.authVersion ?? 0,
       exp: ACCESS_TOKEN_EXPIRY,
     }),
     createAndStoreRefreshToken(user.id),
@@ -286,7 +301,9 @@ async function issueMobileTokens(
 }
 
 async function refreshAuthToken(
-  jwt: { sign: (payload: { sub: string; email?: string; exp: string }) => Promise<string> },
+  jwt: {
+    sign: (payload: { sub: string; email?: string; av: number; exp: string }) => Promise<string>;
+  },
   reqLogger: {
     warn: (context: Record<string, unknown>, message: string) => void;
     info: (context: Record<string, unknown>, message: string) => void;
@@ -327,6 +344,7 @@ async function refreshAuthToken(
 
   const accessToken = await jwt.sign({
     sub: rotation.user.id,
+    av: rotation.user.authVersion,
     exp: ACCESS_TOKEN_EXPIRY,
   });
 
@@ -506,7 +524,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/google',
     async ({ jwt, body, cookie, set, reqLogger, ip, request }) => {
-      await rateLimit(ip, '/auth/google', { maxRequests: 10 });
+      await authRateLimit(ip, '/auth/google', { maxRequests: 10 });
       const webClientId = getWebGoogleClientId();
 
       const { user, isNewUser } = await processGoogleSignIn(
@@ -543,7 +561,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/mobile/google',
     async ({ jwt, body, set, reqLogger, ip, request }) => {
-      await rateLimit(ip, '/auth/mobile/google', { maxRequests: 10 });
+      await authRateLimit(ip, '/auth/mobile/google', { maxRequests: 10 });
 
       const { user, isNewUser } = await processGoogleSignIn(
         body.credential,
@@ -597,7 +615,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/signup',
     async ({ body, set, reqLogger, ip, request }) => {
-      await rateLimit(ip, '/auth/signup', { maxRequests: 10 });
+      await authRateLimit(ip, '/auth/signup', { maxRequests: 10 });
       assertEmailConfiguredForProduction();
 
       const passwordHash = await hashPassword(body.password);
@@ -641,7 +659,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/login',
     async ({ jwt, body, cookie, set, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/login', { maxRequests: 10 });
+      await authRateLimit(ip, '/auth/login', { maxRequests: 10 });
 
       const user = await authenticatePassword(body.email, body.password);
       if (!user) {
@@ -682,7 +700,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/verify-email',
     async ({ jwt, body, cookie, set, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/verify-email', { maxRequests: 20 });
+      await authRateLimit(ip, '/auth/verify-email', { maxRequests: 20 });
 
       const userId = await consumeEmailVerificationToken(body.token);
       if (!userId) {
@@ -719,7 +737,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/resend-verification',
     async ({ body, set, reqLogger, ip, request }) => {
-      await rateLimit(ip, '/auth/resend-verification', { maxRequests: 5 });
+      await authRateLimit(ip, '/auth/resend-verification', { maxRequests: 5 });
       assertEmailConfiguredForProduction();
 
       const user = await findUserByEmail(body.email);
@@ -765,7 +783,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/forgot-password',
     async ({ body, set, reqLogger, ip, request }) => {
-      await rateLimit(ip, '/auth/forgot-password', { maxRequests: 5 });
+      await authRateLimit(ip, '/auth/forgot-password', { maxRequests: 5 });
       assertEmailConfiguredForProduction();
 
       const user = await findUserByEmail(body.email);
@@ -800,7 +818,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/reset-password',
     async ({ body, set, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/reset-password', { maxRequests: 10 });
+      await authRateLimit(ip, '/auth/reset-password', { maxRequests: 10 });
 
       const userId = await consumePasswordResetToken(body.token);
       if (!userId) {
@@ -808,8 +826,6 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       }
       const passwordHash = await hashPassword(body.password);
       await setUserPassword(userId, passwordHash);
-      // A reset invalidates every existing session (defense against a compromise).
-      await revokeAllUserTokens(userId);
 
       reqLogger.info({ event: 'auth.password_reset', userId }, 'password reset');
       set.status = 200;
@@ -839,7 +855,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .get(
     '/apple/start',
     async ({ cookie, redirect, ip, request }) => {
-      await rateLimit(ip, '/auth/apple/start', { maxRequests: 30 });
+      await authRateLimit(ip, '/auth/apple/start', { maxRequests: 30 });
       if (!isAppleConfigured()) {
         return redirect(socialCallbackUrl(request, 'apple', 'provider_not_configured'));
       }
@@ -867,7 +883,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/apple/callback',
     async ({ jwt, body, cookie, redirect, request, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/apple/callback', { maxRequests: 30 });
+      await authRateLimit(ip, '/auth/apple/callback', { maxRequests: 30 });
 
       const stateCookie = cookie[OAUTH_STATE_COOKIE];
       const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
@@ -946,7 +962,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .get(
     '/github/start',
     async ({ cookie, redirect, ip, request }) => {
-      await rateLimit(ip, '/auth/github/start', { maxRequests: 30 });
+      await authRateLimit(ip, '/auth/github/start', { maxRequests: 30 });
       if (!isGitHubConfigured()) {
         return redirect(socialCallbackUrl(request, 'github', 'provider_not_configured'));
       }
@@ -979,7 +995,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .get(
     '/github/callback',
     async ({ jwt, query, cookie, redirect, request, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/github/callback', { maxRequests: 30 });
+      await authRateLimit(ip, '/auth/github/callback', { maxRequests: 30 });
 
       const stateCookie = cookie[OAUTH_STATE_COOKIE];
       const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
@@ -1058,7 +1074,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .get(
     '/microsoft/start',
     async ({ cookie, redirect, ip, request }) => {
-      await rateLimit(ip, '/auth/microsoft/start', { maxRequests: 30 });
+      await authRateLimit(ip, '/auth/microsoft/start', { maxRequests: 30 });
       if (!isMicrosoftConfigured()) {
         return redirect(socialCallbackUrl(request, 'microsoft', 'provider_not_configured'));
       }
@@ -1094,7 +1110,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .get(
     '/microsoft/callback',
     async ({ jwt, query, cookie, redirect, request, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/microsoft/callback', { maxRequests: 30 });
+      await authRateLimit(ip, '/auth/microsoft/callback', { maxRequests: 30 });
 
       const stateCookie = cookie[OAUTH_STATE_COOKIE];
       const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
@@ -1184,7 +1200,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           .post(
             '/dev',
             async ({ jwt, body, cookie, set, ip, headers }) => {
-              await rateLimit(ip, 'POST /auth/dev', DEV_AUTH_RATE_LIMIT);
+              await authRateLimit(ip, 'POST /auth/dev', DEV_AUTH_RATE_LIMIT);
               if (!devAuthSecretMatches(headers['x-dev-auth-secret'])) {
                 throw new ApiError(401, 'Invalid dev auth secret', 'UNAUTHORIZED');
               }
@@ -1214,7 +1230,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           .post(
             '/dev/password-user',
             async ({ body, set, ip, headers }) => {
-              await rateLimit(ip, 'POST /auth/dev/password-user', DEV_AUTH_RATE_LIMIT);
+              await authRateLimit(ip, 'POST /auth/dev/password-user', DEV_AUTH_RATE_LIMIT);
               if (!devAuthSecretMatches(headers['x-dev-auth-secret'])) {
                 throw new ApiError(401, 'Invalid dev auth secret', 'UNAUTHORIZED');
               }
@@ -1261,7 +1277,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     async ({ jwt, cookie, reqLogger, ip }) => {
       // In non-production environments (dev, E2E) use a higher limit so
       // parallel test workers don't exhaust the 20/min default.
-      await rateLimit(ip, '/auth/refresh', IS_PRODUCTION ? undefined : { maxRequests: 500 });
+      await authRateLimit(ip, '/auth/refresh', IS_PRODUCTION ? undefined : { maxRequests: 500 });
 
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
       const tokenValue = refreshCookie?.value;
@@ -1297,7 +1313,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/mobile/refresh',
     async ({ jwt, body, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/mobile/refresh', IS_PRODUCTION ? undefined : { maxRequests: 500 });
+      await authRateLimit(
+        ip,
+        '/auth/mobile/refresh',
+        IS_PRODUCTION ? undefined : { maxRequests: 500 }
+      );
 
       if (!body.refreshToken || body.refreshToken.length === 0) {
         throw new ApiError(401, 'No refresh token', 'AUTH_NO_REFRESH_TOKEN');

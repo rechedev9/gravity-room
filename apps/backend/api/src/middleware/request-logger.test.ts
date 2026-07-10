@@ -1,5 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { clientIpFromXff } from './request-logger';
+import { clientIpFromVercelXff, clientIpFromXff, isVercelEnvironment } from './request-logger';
+
+describe('isVercelEnvironment', () => {
+  it('trusts only the platform literal VERCEL=1', () => {
+    expect(isVercelEnvironment('1')).toBe(true);
+    expect(isVercelEnvironment('true')).toBe(false);
+    expect(isVercelEnvironment('false')).toBe(false);
+    expect(isVercelEnvironment(undefined)).toBe(false);
+  });
+});
 
 describe('clientIpFromXff', () => {
   it('returns the rightmost entry (the address the trusted proxy observed)', () => {
@@ -21,5 +30,19 @@ describe('clientIpFromXff', () => {
   it('returns undefined when no usable entry is present', () => {
     expect(clientIpFromXff('')).toBeUndefined();
     expect(clientIpFromXff('  ,  ')).toBeUndefined();
+  });
+
+  it('rejects arbitrary non-IP bucket identifiers', () => {
+    expect(clientIpFromXff('attacker-controlled-bucket')).toBeUndefined();
+  });
+});
+
+describe('clientIpFromVercelXff', () => {
+  it('returns the first valid platform client IP', () => {
+    expect(clientIpFromVercelXff('203.0.113.10, 10.0.0.1')).toBe('203.0.113.10');
+  });
+
+  it('skips malformed values and supports IPv6', () => {
+    expect(clientIpFromVercelXff('not-an-ip, 2001:db8::1')).toBe('2001:db8::1');
   });
 });

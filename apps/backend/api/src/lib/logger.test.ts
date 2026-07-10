@@ -11,6 +11,7 @@ process.env['LOG_LEVEL'] = 'silent';
 import { describe, it, expect } from 'vitest';
 import pino from 'pino';
 import { Writable } from 'stream';
+import { secureErrorSerializer } from './logger';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -36,7 +37,7 @@ function createTestLogger(): { log: pino.Logger; getOutput: () => string } {
   const log = pino(
     {
       level: 'trace',
-      serializers: pino.stdSerializers,
+      serializers: { ...pino.stdSerializers, err: secureErrorSerializer },
       redact: {
         paths: [
           'req.headers.authorization',
@@ -104,6 +105,15 @@ describe('logger — header redaction', () => {
     const parsed = JSON.parse(output) as Record<string, unknown>;
     const err = parsed['err'] as Record<string, unknown>;
     expect(err['message']).toBe('Invalid audience');
+  });
+
+  it('redacts credentials embedded in error messages and stacks', () => {
+    const { log, getOutput } = createTestLogger();
+    log.error({ err: new Error('connect postgres://admin:secret@db/app') }, 'failed');
+
+    const output = getOutput();
+    expect(output).not.toContain('admin:secret');
+    expect(output).toContain('[Redacted]');
   });
 
   it('4.7: transport is plain JSON in test env — output is valid JSON with no ANSI codes', () => {

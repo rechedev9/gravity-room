@@ -1,5 +1,6 @@
 import { Elysia } from 'elysia';
 import { randomUUID } from 'crypto';
+import { isIP } from 'node:net';
 import type { Logger } from 'pino';
 import { logger } from '../lib/logger';
 
@@ -18,7 +19,11 @@ import { logger } from '../lib/logger';
  * string "false" (and any other non-empty value) as truthy, silently enabling
  * proxy trust when an operator meant to disable it.
  */
-const ON_VERCEL = !!process.env['VERCEL'];
+export function isVercelEnvironment(value: string | undefined): boolean {
+  return value === '1';
+}
+
+const ON_VERCEL = isVercelEnvironment(process.env['VERCEL']);
 const TRUSTED_PROXY = process.env['TRUSTED_PROXY'] === 'true' || ON_VERCEL;
 
 /**
@@ -33,7 +38,16 @@ export function clientIpFromXff(xff: string): string | undefined {
   const parts = xff.split(',');
   for (let i = parts.length - 1; i >= 0; i--) {
     const candidate = parts[i]?.trim();
-    if (candidate) return candidate;
+    if (candidate && isIP(candidate) !== 0) return candidate;
+  }
+  return undefined;
+}
+
+/** Vercel supplies the real client as the first valid XFF entry. */
+export function clientIpFromVercelXff(xff: string): string | undefined {
+  for (const raw of xff.split(',')) {
+    const candidate = raw.trim();
+    if (candidate && isIP(candidate) !== 0) return candidate;
   }
   return undefined;
 }
@@ -61,7 +75,7 @@ export const requestLogger = new Elysia({ name: 'request-logger' })
         const xff = request.headers.get('x-forwarded-for');
         if (xff) {
           ip = ON_VERCEL
-            ? (xff.split(',')[0]?.trim() ?? 'unknown')
+            ? (clientIpFromVercelXff(xff) ?? 'unknown')
             : (clientIpFromXff(xff) ?? 'unknown');
         }
       }

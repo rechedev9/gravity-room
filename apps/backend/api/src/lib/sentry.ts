@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/node';
+import { sanitizedError } from './redact-sensitive';
 
 const dsn = process.env['SENTRY_DSN'];
 
@@ -19,7 +20,7 @@ if (dsn) {
 /** Capture an exception in Sentry. No-op when SENTRY_DSN is not set. */
 export function captureException(error: unknown): void {
   if (!dsn) return;
-  Sentry.captureException(error);
+  Sentry.captureException(sanitizedError(error));
 }
 
 /**

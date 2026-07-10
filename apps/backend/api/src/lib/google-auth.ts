@@ -4,6 +4,7 @@
  */
 import { isRecord } from '@gzclp/domain/type-guards';
 import { ApiError } from '../middleware/error-handler';
+import { MAX_PROVIDER_JSON_BYTES, readBoundedJson } from './bounded-json';
 
 const JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
@@ -109,6 +110,7 @@ interface IdTokenPayload {
   readonly email_verified?: boolean | string;
   readonly name?: string;
   readonly aud: string | string[];
+  readonly azp?: string;
   readonly iss: string;
   readonly exp: number;
   readonly nbf?: number;
@@ -125,6 +127,7 @@ function isIdTokenPayload(value: unknown): value is IdTokenPayload {
     return false;
   if (value['nbf'] !== undefined && typeof value['nbf'] !== 'number') return false;
   if (value['iat'] !== undefined && typeof value['iat'] !== 'number') return false;
+  if (value['azp'] !== undefined && typeof value['azp'] !== 'string') return false;
   return (
     typeof value['sub'] === 'string' &&
     typeof value['email'] === 'string' &&
@@ -179,7 +182,11 @@ async function fetchGoogleCerts(options?: {
   const res = await fetch(JWKS_URL, { signal: AbortSignal.timeout(5_000) });
   if (!res.ok) throw new ApiError(503, 'Google JWKS endpoint unavailable', 'AUTH_JWKS_UNAVAILABLE');
 
-  const rawData: unknown = await res.json();
+  const rawData = await readBoundedJson(
+    res,
+    MAX_PROVIDER_JSON_BYTES,
+    () => new ApiError(503, 'Invalid Google JWKS response', 'AUTH_JWKS_UNAVAILABLE')
+  );
   if (!isJwksResponse(rawData))
     throw new ApiError(503, 'Invalid JWKS response format', 'AUTH_JWKS_UNAVAILABLE');
 
@@ -270,6 +277,12 @@ export async function verifyGoogleToken(
   const audiences = Array.isArray(rawPayload.aud) ? rawPayload.aud : [rawPayload.aud];
   if (!audiences.some((audience) => allowedClientIds.includes(audience))) {
     throw new ApiError(401, 'Invalid audience', 'AUTH_INVALID');
+  }
+  if (
+    (audiences.length > 1 && rawPayload.azp === undefined) ||
+    (rawPayload.azp !== undefined && !allowedClientIds.includes(rawPayload.azp))
+  ) {
+    throw new ApiError(401, 'Invalid authorized party', 'AUTH_INVALID');
   }
 
   // Account identity is derived from the Google email, so it must be verified.

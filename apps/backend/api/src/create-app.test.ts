@@ -42,6 +42,7 @@ vi.mock('./plugins/swagger', () => ({
 // ---------------------------------------------------------------------------
 
 import { createApp } from './create-app';
+import { ApiError } from './middleware/error-handler';
 
 const app = createApp({
   corsOrigins: '*',
@@ -101,5 +102,26 @@ describe('security headers', () => {
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
     expect(res.headers.get('x-frame-options')).toBe('DENY');
     expect(res.headers.get('content-security-policy')).toBe("default-src 'self'");
+  });
+});
+
+describe('server error disclosure', () => {
+  it('redacts 5xx ApiError messages and details while preserving the machine code', async () => {
+    const errorApp = createApp({
+      corsOrigins: '*',
+      csp: "default-src 'self'",
+      permissionsPolicy: '',
+    }).get('/security-test/internal-error', () => {
+      throw new ApiError(500, 'postgres://secret@internal/db', 'DB_WRITE_ERROR', {
+        details: { query: 'SELECT secret_column' },
+      });
+    });
+
+    const res = await errorApp.handle(new Request('http://localhost/security-test/internal-error'));
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(res.status).toBe(500);
+    expect(body).toEqual({ error: 'Internal server error', code: 'DB_WRITE_ERROR' });
+    expect(JSON.stringify(body)).not.toContain('secret');
   });
 });

@@ -3,12 +3,10 @@
  * and social-auth flows.
  *
  * On the same-origin Vercel deployment the SPA and API share one origin, so the
- * request's forwarded host IS the public domain for both. We therefore prefer an
- * explicit env override (set it and it wins) and otherwise derive the origin from
- * the request, falling back to localhost only when neither is available. This
- * keeps split-origin local dev (CORS_ORIGIN / API_PUBLIC_URL set) working while
- * removing the production footgun where an unset var silently pointed OAuth
- * redirects and email links at localhost.
+ * Never derive security-sensitive production links from Host/X-Forwarded-Host:
+ * those headers can be attacker-controlled outside a correctly configured proxy
+ * and would allow verification/reset tokens to be sent to an attacker domain.
+ * Production therefore uses explicit configuration or Vercel system env only.
  */
 
 export const DEFAULT_DEV_WEB_ORIGIN = 'http://localhost:5173';
@@ -24,14 +22,58 @@ function originFromRequest(request: Request | undefined): string | undefined {
   return `${proto}://${host}`;
 }
 
+function configuredOrigin(raw: string | undefined, name: string): string | undefined {
+  const value = raw?.trim();
+  if (!value) return undefined;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${name} must be an absolute http(s) origin`);
+  }
+  if (
+    (url.protocol !== 'https:' && url.protocol !== 'http:') ||
+    url.username !== '' ||
+    url.password !== '' ||
+    url.pathname !== '/' ||
+    url.search !== '' ||
+    url.hash !== ''
+  ) {
+    throw new Error(`${name} must be an absolute http(s) origin without credentials or a path`);
+  }
+  return url.origin;
+}
+
+/** Origin supplied by Vercel itself, not by request headers. */
+function trustedVercelOrigin(): string | undefined {
+  if (process.env['VERCEL'] !== '1') return undefined;
+  const host =
+    process.env['VERCEL_ENV'] === 'production'
+      ? (process.env['VERCEL_PROJECT_PRODUCTION_URL'] ?? process.env['VERCEL_URL'])
+      : (process.env['VERCEL_URL'] ?? process.env['VERCEL_PROJECT_PRODUCTION_URL']);
+  if (!host) return undefined;
+  return configuredOrigin(`https://${host}`, 'Vercel public URL');
+}
+
+function productionOriginError(): never {
+  throw new Error(
+    'A trusted public origin is required in production; set API_PUBLIC_URL or use Vercel system environment variables'
+  );
+}
+
 /**
  * Public base URL of the web SPA (action links + post-login redirects). Prefers
  * CORS_ORIGIN (set only for split-origin local dev); on the same-origin prod
  * deployment CORS_ORIGIN is empty, so it derives the origin from the request.
  */
 export function getWebBaseUrl(request?: Request): string {
-  const configured = process.env['CORS_ORIGIN']?.split(',')[0]?.trim();
-  if (configured && configured.length > 0) return configured.replace(/\/$/, '');
+  const configuredWeb = configuredOrigin(process.env['CORS_ORIGIN']?.split(',')[0], 'CORS_ORIGIN');
+  if (configuredWeb) return configuredWeb;
+  const configuredApi = configuredOrigin(process.env['API_PUBLIC_URL'], 'API_PUBLIC_URL');
+  if (configuredApi) return configuredApi;
+  const vercel = trustedVercelOrigin();
+  if (vercel) return vercel;
+  if (process.env['NODE_ENV'] === 'production') return productionOriginError();
   const fromRequest = originFromRequest(request);
   if (fromRequest) {
     const url = new URL(fromRequest);
@@ -51,8 +93,11 @@ export function getWebBaseUrl(request?: Request): string {
  * request host, which on Vercel is the public domain.
  */
 export function getApiBaseUrl(request?: Request): string {
-  const url = process.env['API_PUBLIC_URL']?.trim();
-  if (url && url.length > 0) return url.replace(/\/$/, '');
+  const configured = configuredOrigin(process.env['API_PUBLIC_URL'], 'API_PUBLIC_URL');
+  if (configured) return configured;
+  const vercel = trustedVercelOrigin();
+  if (vercel) return vercel;
+  if (process.env['NODE_ENV'] === 'production') return productionOriginError();
   const fromRequest = originFromRequest(request);
   if (fromRequest) return fromRequest;
   return 'http://localhost:3001';

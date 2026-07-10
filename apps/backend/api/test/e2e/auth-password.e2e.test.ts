@@ -13,6 +13,7 @@ import {
   userIdentities,
   emailVerificationTokens,
   passwordResetTokens,
+  refreshTokens,
 } from '@gzclp/database/schema';
 import { setupTestDb, teardownTestDb, truncateAllTables } from '../db-setup';
 import {
@@ -26,6 +27,7 @@ import {
   consumeEmailVerificationToken,
   createPasswordResetToken,
   consumePasswordResetToken,
+  createAndStoreRefreshToken,
 } from '../../src/services/auth';
 import { getDb } from '../../src/db';
 import { ApiError } from '../../src/middleware/error-handler';
@@ -157,6 +159,7 @@ describe('email/password (integration)', () => {
     expect(await consumePasswordResetToken(token)).toBe(user.id);
     expect(await consumePasswordResetToken(token)).toBeNull(); // single-use
 
+    await createAndStoreRefreshToken(user.id);
     await setUserPassword(user.id, await hashPassword('new-password-2'));
 
     expect(await authenticatePassword('reset@example.com', 'old-password-1')).toBeNull();
@@ -167,5 +170,40 @@ describe('email/password (integration)', () => {
       .from(passwordResetTokens)
       .where(eq(passwordResetTokens.userId, user.id));
     expect(rows).toHaveLength(0);
+
+    const updatedUsers = await getDb().select().from(users).where(eq(users.id, user.id));
+    expect(updatedUsers[0]?.authVersion).toBe(user.authVersion + 1);
+
+    const sessions = await getDb()
+      .select()
+      .from(refreshTokens)
+      .where(eq(refreshTokens.userId, user.id));
+    expect(sessions).toHaveLength(0);
+  });
+
+  it('serializes concurrent reset requests so exactly one link remains valid', async () => {
+    const user = await createPasswordUser({
+      email: 'concurrent-reset@example.com',
+      passwordHash: await hashPassword('old-password-1'),
+    });
+
+    const [firstToken, secondToken] = await Promise.all([
+      createPasswordResetToken(user.id),
+      createPasswordResetToken(user.id),
+    ]);
+    expect(firstToken).not.toBe(secondToken);
+
+    const rows = await getDb()
+      .select()
+      .from(passwordResetTokens)
+      .where(eq(passwordResetTokens.userId, user.id));
+    expect(rows).toHaveLength(1);
+
+    const consumeResults = await Promise.all([
+      consumePasswordResetToken(firstToken),
+      consumePasswordResetToken(secondToken),
+    ]);
+    expect(consumeResults.filter((result) => result === user.id)).toHaveLength(1);
+    expect(consumeResults.filter((result) => result === null)).toHaveLength(1);
   });
 });

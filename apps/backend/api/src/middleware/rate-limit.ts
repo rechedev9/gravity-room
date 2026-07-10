@@ -56,7 +56,7 @@ const DEFAULT_MAX_REQUESTS = 20;
 export async function rateLimit(
   ip: string,
   endpoint: string,
-  opts?: { windowMs?: number; maxRequests?: number }
+  opts?: { windowMs?: number; maxRequests?: number; failClosed?: boolean }
 ): Promise<void> {
   const windowMs = opts?.windowMs ?? DEFAULT_WINDOW_MS;
   const maxRequests = opts?.maxRequests ?? DEFAULT_MAX_REQUESTS;
@@ -68,9 +68,15 @@ export async function rateLimit(
   try {
     result = await limiter.limit(`${endpoint}:${ip}`);
   } catch (err) {
-    // A transient Upstash REST failure must not turn every rate-limited request
-    // into a 500 (regression vs the old in-memory fallback). Fail OPEN: log and
-    // allow the request through. Only an actual over-limit throws below.
+    if (opts?.failClosed) {
+      logger.error({ err, endpoint }, 'Rate limiter unavailable on fail-closed endpoint');
+      throw new ApiError(503, 'Authentication temporarily unavailable', 'RATE_LIMIT_UNAVAILABLE', {
+        headers: { 'Retry-After': '5' },
+      });
+    }
+    // Read-only and authenticated resource endpoints remain fail-open for
+    // availability. Credential-accepting routes opt into failClosed above so a
+    // Redis outage cannot disable brute-force protection.
     logger.warn({ err }, 'Rate limiter: Upstash request failed, allowing request (fail-open)');
     return;
   }

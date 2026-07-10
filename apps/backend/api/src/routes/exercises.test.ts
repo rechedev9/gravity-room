@@ -22,7 +22,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const { mockRateLimit, mockFindUserById, mockListExercises } = vi.hoisted(() => {
   const mockRateLimit = vi.fn((): Promise<void> => Promise.resolve());
   const mockFindUserById = vi.fn(
-    (id: string): Promise<{ id: string } | undefined> => Promise.resolve({ id })
+    (id: string): Promise<{ id: string; authVersion: number } | undefined> =>
+      Promise.resolve({ id, authVersion: 0 })
   );
   const mockListExercises = vi.fn<() => Promise<PaginatedResult>>(() =>
     Promise.resolve({ data: [], total: 0, offset: 0, limit: 100 })
@@ -119,6 +120,24 @@ describe('GET /exercises', () => {
     expect(body.code).toBe('TOKEN_USER_INACTIVE');
     expect(mockListExercises).not.toHaveBeenCalled();
   });
+
+  it('returns 401 instead of silently downgrading an invalid Bearer token to anonymous', async () => {
+    const res = await get('/exercises', { Authorization: 'Bearer not-a-valid-jwt' });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('TOKEN_INVALID');
+    expect(mockListExercises).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 for a malformed authorization scheme', async () => {
+    const res = await get('/exercises', { Authorization: 'Basic credentials' });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('UNAUTHORIZED');
+    expect(mockListExercises).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -166,6 +185,7 @@ async function makeValidJwt(userId: string): Promise<string> {
       sub: userId,
       iss: 'gravity-room-api',
       aud: 'gravity-room-clients',
+      av: 0,
       exp: Math.floor(Date.now() / 1000) + 3600,
     })
   ).toString('base64url');
@@ -258,7 +278,7 @@ describe('GET /exercises — filter query validation', () => {
 beforeEach(() => {
   mockRateLimit.mockClear();
   mockFindUserById.mockClear();
-  mockFindUserById.mockImplementation((id: string) => Promise.resolve({ id }));
+  mockFindUserById.mockImplementation((id: string) => Promise.resolve({ id, authVersion: 0 }));
   mockListExercises.mockClear();
   // Restore default paginated response
   mockListExercises.mockImplementation(

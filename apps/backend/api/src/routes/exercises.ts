@@ -5,7 +5,7 @@
  * POST /exercises — auth required (creates a user-scoped exercise)
  */
 import { Elysia, t } from 'elysia';
-import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
+import { JWT_AUDIENCE, JWT_ISSUER, jwtPlugin, resolveUserId } from '../middleware/auth-guard';
 import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
 import {
@@ -69,28 +69,46 @@ async function resolveOptionalUserId({
   headers: Record<string, string | undefined>;
 }): Promise<{ userId: string | undefined }> {
   const authorization = headers['authorization'];
-  if (!authorization?.startsWith(BEARER_PREFIX)) {
+  if (!authorization) {
     return { userId: undefined };
+  }
+
+  if (!authorization.startsWith(BEARER_PREFIX)) {
+    throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
   }
 
   const token = authorization.slice(BEARER_PREFIX.length);
   if (!token) {
-    return { userId: undefined };
+    throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
   }
 
   const payload = await jwtCtx.verify(token);
   if (!payload) {
-    return { userId: undefined };
+    throw new ApiError(401, 'Invalid or expired token', 'TOKEN_INVALID');
+  }
+
+  if (payload['iss'] !== JWT_ISSUER) {
+    throw new ApiError(401, 'Invalid token issuer', 'TOKEN_INVALID');
+  }
+
+  const aud = payload['aud'];
+  const audMatches = Array.isArray(aud) ? aud.includes(JWT_AUDIENCE) : aud === JWT_AUDIENCE;
+  if (!audMatches) {
+    throw new ApiError(401, 'Invalid token audience', 'TOKEN_INVALID');
   }
 
   const userId = payload['sub'];
   if (typeof userId !== 'string') {
-    return { userId: undefined };
+    throw new ApiError(401, 'Invalid token payload', 'TOKEN_INVALID');
   }
 
   const user = await findUserById(userId);
   if (!user || user.deletedAt) {
     throw new ApiError(401, 'User account is inactive', 'TOKEN_USER_INACTIVE');
+  }
+  const authVersion = payload['av'];
+  if (!Number.isInteger(authVersion) || authVersion !== user.authVersion) {
+    throw new ApiError(401, 'Token session has been revoked', 'TOKEN_REVOKED');
   }
 
   return { userId };

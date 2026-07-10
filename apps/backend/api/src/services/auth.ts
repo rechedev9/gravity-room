@@ -2,7 +2,7 @@
  * Auth service — refresh token management, user CRUD.
  * Framework-agnostic: no Elysia dependency. JWT signing handled in routes.
  */
-import { eq, lt, and, isNull } from 'drizzle-orm';
+import { eq, lt, and, isNull, sql } from 'drizzle-orm';
 import { hash as argon2Hash, verify as argon2Verify } from '@node-rs/argon2';
 import bcrypt from 'bcryptjs';
 import { isRecord } from '@gzclp/domain/type-guards';
@@ -373,12 +373,21 @@ export async function createPasswordUser(input: {
 
 /** Sets or replaces a user's password hash. */
 export async function setUserPassword(userId: string, passwordHash: string): Promise<void> {
-  const [updated] = await getDb()
-    .update(users)
-    .set({ passwordHash, updatedAt: new Date() })
-    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
-    .returning({ id: users.id });
-  if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+  await getDb().transaction(async (tx) => {
+    const [updated] = await tx
+      .update(users)
+      .set({
+        passwordHash,
+        authVersion: sql`${users.authVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .returning({ id: users.id });
+    if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+    // Same transaction as the version bump: no refresh can race between the
+    // password update and session revocation and mint a newly-valid access JWT.
+    await tx.delete(refreshTokens).where(eq(refreshTokens.userId, userId));
+  });
 }
 
 /** Marks a user's email as verified. Returns the updated row, or undefined if absent. */
@@ -423,6 +432,9 @@ export async function createEmailVerificationToken(userId: string): Promise<stri
 export async function replaceEmailVerificationToken(userId: string): Promise<string> {
   const { token, row } = await mintEmailVerificationToken(userId);
   await getDb().transaction(async (tx) => {
+    // Serialize concurrent resend requests for this user. Without the row lock,
+    // two transactions can both delete first and then each insert a valid token.
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for('update');
     await tx.delete(emailVerificationTokens).where(eq(emailVerificationTokens.userId, userId));
     await tx.insert(emailVerificationTokens).values(row);
   });
@@ -444,7 +456,14 @@ export async function createPasswordResetToken(userId: string): Promise<string> 
   const token = generateRefreshToken();
   const tokenHash = await hashToken(token);
   const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
-  await getDb().insert(passwordResetTokens).values({ userId, tokenHash, expiresAt });
+  await getDb().transaction(async (tx) => {
+    // One active reset link per account. Locking the user serializes concurrent
+    // forgot-password requests so the last request deterministically invalidates
+    // every earlier token instead of allowing parallel links to remain valid.
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for('update');
+    await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, userId));
+    await tx.insert(passwordResetTokens).values({ userId, tokenHash, expiresAt });
+  });
   return token;
 }
 
@@ -547,7 +566,13 @@ export async function revokeRefreshToken(tokenHash: string): Promise<void> {
 }
 
 export async function revokeAllUserTokens(userId: string): Promise<void> {
-  await getDb().delete(refreshTokens).where(eq(refreshTokens.userId, userId));
+  await getDb().transaction(async (tx) => {
+    await tx
+      .update(users)
+      .set({ authVersion: sql`${users.authVersion} + 1` })
+      .where(eq(users.id, userId));
+    await tx.delete(refreshTokens).where(eq(refreshTokens.userId, userId));
+  });
 }
 
 /**

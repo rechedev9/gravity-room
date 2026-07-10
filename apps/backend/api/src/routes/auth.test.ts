@@ -20,6 +20,7 @@ const TEST_USER = {
   id: 'user-123',
   email: 'test@example.com',
   googleId: 'google-uid-123',
+  authVersion: 0,
   name: null,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
@@ -423,6 +424,7 @@ async function makeValidJwt(userId: string): Promise<string> {
       sub: userId,
       iss: 'gravity-room-api',
       aud: 'gravity-room-clients',
+      av: 0,
       exp: Math.floor(Date.now() / 1000) + 3600,
     })
   ).toString('base64url');
@@ -1120,6 +1122,7 @@ async function makeExpiredJwt(userId: string): Promise<string> {
       sub: userId,
       iss: 'gravity-room-api',
       aud: 'gravity-room-clients',
+      av: 0,
       exp: Math.floor(Date.now() / 1000) - 3600,
     })
   ).toString('base64url');
@@ -1755,7 +1758,7 @@ describe('POST /auth/reset-password', () => {
     });
     expect(res.status).toBe(200);
     expect(mockSetUserPassword).toHaveBeenCalledTimes(1);
-    expect(mockRevokeAllUserTokens).toHaveBeenCalledTimes(1);
+    expect(mockRevokeAllUserTokens).not.toHaveBeenCalled();
   });
 });
 

@@ -7,6 +7,7 @@
  */
 import { isRecord } from '@gzclp/domain/type-guards';
 import { ApiError } from '../middleware/error-handler';
+import { MAX_PROVIDER_JSON_BYTES, readBoundedJson } from './bounded-json';
 
 const JWKS_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const CLOCK_SKEW_S = 60;
@@ -49,6 +50,7 @@ interface OidcTokenPayload {
   readonly nonce?: string;
   readonly tid?: string;
   readonly aud: string | string[];
+  readonly azp?: string;
   readonly iss: string;
   readonly exp: number;
   readonly nbf?: number;
@@ -61,6 +63,7 @@ function isOidcTokenPayload(value: unknown): value is OidcTokenPayload {
   if (value['iat'] !== undefined && typeof value['iat'] !== 'number') return false;
   if (value['nonce'] !== undefined && typeof value['nonce'] !== 'string') return false;
   if (value['tid'] !== undefined && typeof value['tid'] !== 'string') return false;
+  if (value['azp'] !== undefined && typeof value['azp'] !== 'string') return false;
   return (
     typeof value['sub'] === 'string' &&
     typeof value['iss'] === 'string' &&
@@ -103,7 +106,11 @@ async function fetchJwks(jwksUrl: string): Promise<Jwk[]> {
   if (!res.ok)
     throw new ApiError(503, 'Provider JWKS endpoint unavailable', 'AUTH_JWKS_UNAVAILABLE');
 
-  const rawData: unknown = await res.json();
+  const rawData = await readBoundedJson(
+    res,
+    MAX_PROVIDER_JSON_BYTES,
+    () => new ApiError(503, 'Invalid provider JWKS response', 'AUTH_JWKS_UNAVAILABLE')
+  );
   if (!isJwksResponse(rawData))
     throw new ApiError(503, 'Invalid JWKS response format', 'AUTH_JWKS_UNAVAILABLE');
 
@@ -190,6 +197,11 @@ export async function verifyOidcIdToken(opts: VerifyOidcOptions): Promise<OidcCl
   const audiences = Array.isArray(rawPayload.aud) ? rawPayload.aud : [rawPayload.aud];
   if (!audiences.some((audience) => opts.audiences.includes(audience)))
     throw new ApiError(401, 'Invalid audience', 'AUTH_INVALID');
+  if (
+    (audiences.length > 1 && rawPayload.azp === undefined) ||
+    (rawPayload.azp !== undefined && !opts.audiences.includes(rawPayload.azp))
+  )
+    throw new ApiError(401, 'Invalid authorized party', 'AUTH_INVALID');
 
   if (opts.expectedNonce !== undefined && rawPayload.nonce !== opts.expectedNonce)
     throw new ApiError(401, 'Invalid token nonce', 'AUTH_INVALID');

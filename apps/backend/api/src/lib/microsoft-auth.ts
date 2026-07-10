@@ -9,6 +9,7 @@
 import { isRecord } from '@gzclp/domain/type-guards';
 import { ApiError } from '../middleware/error-handler';
 import { verifyOidcIdToken } from './oidc';
+import { MAX_PROVIDER_JSON_BYTES, readBoundedJson } from './bounded-json';
 
 const MICROSOFT_LOGIN_BASE = 'https://login.microsoftonline.com';
 const MICROSOFT_CONSUMERS_TENANT_ID = '9188040d-6c67-4c5b-b112-36a304b66dad';
@@ -138,7 +139,11 @@ export async function exchangeMicrosoftCode(
   });
   if (!res.ok) throw new ApiError(502, 'Microsoft token exchange failed', 'AUTH_PROVIDER_ERROR');
 
-  const data: unknown = await res.json();
+  const data = await readBoundedJson(
+    res,
+    MAX_PROVIDER_JSON_BYTES,
+    () => new ApiError(502, 'Microsoft token response invalid', 'AUTH_PROVIDER_ERROR')
+  );
   if (
     !isRecord(data) ||
     typeof data['id_token'] !== 'string' ||
@@ -156,7 +161,11 @@ async function fetchMicrosoftUserInfo(accessToken: string): Promise<MicrosoftUse
   });
   if (!res.ok) throw new ApiError(502, 'Microsoft user lookup failed', 'AUTH_PROVIDER_ERROR');
 
-  const data: unknown = await res.json();
+  const data = await readBoundedJson(
+    res,
+    MAX_PROVIDER_JSON_BYTES,
+    () => new ApiError(502, 'Microsoft user response invalid', 'AUTH_PROVIDER_ERROR')
+  );
   if (!isRecord(data))
     throw new ApiError(502, 'Microsoft user response invalid', 'AUTH_PROVIDER_ERROR');
 

@@ -28,4 +28,14 @@ describe('parseCorsOrigins', () => {
   it('rejects malformed origins', () => {
     expect(() => parseCorsOrigins('not a url')).toThrow('CORS_ORIGIN contains invalid URL');
   });
+
+  it.each([
+    'javascript://example.com',
+    'https://user:password@example.com',
+    'https://example.com/path',
+    'https://example.com?redirect=evil',
+    'https://example.com/#fragment',
+  ])('rejects values that are URLs but not HTTP origins: %s', (value) => {
+    expect(() => parseCorsOrigins(value)).toThrow('CORS_ORIGIN must contain http(s) origins only');
+  });
 });

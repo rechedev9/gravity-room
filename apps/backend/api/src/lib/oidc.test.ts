@@ -111,6 +111,21 @@ describe('verifyOidcIdToken', () => {
     expect(verify(token)).rejects.toThrow(ApiError);
   });
 
+  it('rejects multiple audiences when azp is missing', async () => {
+    const token = await mintToken({ aud: [AUDIENCE, 'other-client'] });
+    expect(verify(token)).rejects.toThrow(ApiError);
+  });
+
+  it('rejects a token whose authorized party is another client', async () => {
+    const token = await mintToken({ aud: [AUDIENCE, 'other-client'], azp: 'other-client' });
+    expect(verify(token)).rejects.toThrow(ApiError);
+  });
+
+  it('accepts multiple audiences when azp identifies this client', async () => {
+    const token = await mintToken({ aud: [AUDIENCE, 'other-client'], azp: AUDIENCE });
+    await expect(verify(token)).resolves.toMatchObject({ sub: 'user-sub-1' });
+  });
+
   it('rejects a wrong issuer', async () => {
     const token = await mintToken({ iss: 'https://evil.issuer' });
     expect(verify(token)).rejects.toThrow(ApiError);

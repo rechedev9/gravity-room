@@ -15,6 +15,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // ---------------------------------------------------------------------------
 
 let redisAvailable = true;
+let limiterFailure: Error | undefined;
 
 vi.mock('../lib/redis', () => ({
   // Truthy stub; the mocked Ratelimit below ignores the client entirely.
@@ -36,6 +37,7 @@ vi.mock('@upstash/ratelimit', () => {
       return { max, windowMs: Number(window.replace(/\s*ms$/, '')) };
     }
     limit(key: string): Promise<{ success: boolean; reset: number; pending: Promise<unknown> }> {
+      if (limiterFailure) return Promise.reject(limiterFailure);
       const n = (counts.get(key) ?? 0) + 1;
       counts.set(key, n);
       // Mirror the real client: `reset` is the absolute ms timestamp at which the
@@ -59,6 +61,7 @@ import { ApiError } from './error-handler';
 beforeEach(() => {
   counts.clear();
   redisAvailable = true;
+  limiterFailure = undefined;
 });
 
 // ---------------------------------------------------------------------------
@@ -155,5 +158,26 @@ describe('rateLimit without Upstash (dev no-op)', () => {
     redisAvailable = false;
     await rateLimit('ip-noop', 'TEST /noop', { maxRequests: 1 });
     await expect(rateLimit('ip-noop', 'TEST /noop', { maxRequests: 1 })).resolves.toBeUndefined();
+  });
+});
+
+describe('rateLimit backend failures', () => {
+  it('remains fail-open by default for ordinary API availability', async () => {
+    limiterFailure = new Error('Upstash unavailable');
+    await expect(rateLimit('ip-open', 'GET /catalog')).resolves.toBeUndefined();
+  });
+
+  it('fails closed with 503 for credential-accepting endpoints', async () => {
+    limiterFailure = new Error('Upstash unavailable');
+
+    try {
+      await rateLimit('ip-closed', 'POST /auth/login', { failClosed: true });
+      expect.unreachable('expected fail-closed rate limiter to reject');
+    } catch (error: unknown) {
+      expect(error).toBeInstanceOf(ApiError);
+      expect((error as ApiError).statusCode).toBe(503);
+      expect((error as ApiError).code).toBe('RATE_LIMIT_UNAVAILABLE');
+      expect((error as ApiError).headers?.['Retry-After']).toBe('5');
+    }
   });
 });

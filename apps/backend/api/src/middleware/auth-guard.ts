@@ -102,6 +102,10 @@ export async function resolveUserId({
   if (!user) {
     throw new ApiError(401, 'Token user is no longer active', 'TOKEN_USER_INACTIVE');
   }
+  const authVersion = payload['av'];
+  if (!Number.isInteger(authVersion) || authVersion !== user.authVersion) {
+    throw new ApiError(401, 'Token session has been revoked', 'TOKEN_REVOKED');
+  }
 
   const redis = getRedis();
   if (redis) {

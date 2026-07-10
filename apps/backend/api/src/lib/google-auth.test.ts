@@ -255,6 +255,32 @@ describe('verifyGoogleToken — multiple audiences', () => {
       name: 'Web User',
     });
   });
+
+  it('rejects a multi-audience token authorized to a different client', async () => {
+    process.env['GOOGLE_CLIENT_ID'] = 'web-client-id';
+    process.env['GOOGLE_CLIENT_IDS'] = 'web-client-id,mobile-client-id';
+
+    const keyPair = await sharedKeyPairPromise;
+    const jwksBody = await buildJwksResponse(SHARED_KID, keyPair.publicKey);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(jwksBody), { status: 200 })
+    );
+
+    const token = await signJwt(SHARED_KID, keyPair.privateKey, {
+      sub: 'user-confused',
+      email: 'confused@example.com',
+      email_verified: true,
+      aud: ['web-client-id', 'attacker-client-id'],
+      azp: 'attacker-client-id',
+      iss: 'accounts.google.com',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    await expect(verifyGoogleToken(token)).rejects.toMatchObject({
+      statusCode: 401,
+      code: 'AUTH_INVALID',
+    });
+  });
 });
 
 describe('verifyGoogleToken — JWKS key rotation', () => {

@@ -109,7 +109,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: false,
     description:
-      'Allowed CORS origin (or comma-separated list); also the SPA base for post-login redirects and email action links. LEAVE EMPTY for the same-origin Vercel deployment (the SPA and API share an origin, so no cross-origin is allowed and the web base URL is derived from the request host). Set a value only for split-origin local dev, where it points action links back at the separate web origin.',
+      'Allowed CORS origin (or comma-separated list); also the SPA base for post-login redirects and email action links. LEAVE EMPTY for the same-origin Vercel deployment, where trusted Vercel system env supplies the origin. Set a value only for split-origin local dev.',
     example: '',
   },
   {
@@ -163,7 +163,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: false,
     description:
-      'Truthy when behind a reverse proxy (reads X-Forwarded-For for rate limiting). Any non-empty string is truthy, including "false".',
+      'Set to the literal string "true" only when self-hosting behind a trusted reverse proxy. Other values, including "false", do not enable X-Forwarded-For trust. Vercel is enabled separately by VERCEL=1.',
     example: 'true',
   },
   {
@@ -224,7 +224,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: false,
     description:
-      'Public base URL of this API, used to build OAuth/OIDC redirect URIs (Apple/GitHub/Microsoft). Optional: when unset the URL is derived from the request host (x-forwarded-proto/host), which on the same-origin Vercel deployment is the public domain. Set it only to pin an exact value the provider console expects, or for split-origin local dev. Falls back to http://localhost:3001 when neither is available.',
+      'Trusted public origin used for OAuth/OIDC redirect URIs and, in same-origin deployments, email action links. Optional on Vercel because trusted VERCEL_* system env supplies the origin. Production never derives it from request Host headers. Set it to pin the canonical/custom domain; local dev falls back to the request origin or localhost.',
     example: 'https://gravityroom.app',
   },
   {

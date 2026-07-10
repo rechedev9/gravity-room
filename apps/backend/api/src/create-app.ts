@@ -66,6 +66,12 @@ function applySecurityHeaders(
   }
 }
 
+function publicServerErrorMessage(statusCode: number): string {
+  if (statusCode === 502) return 'Upstream service error';
+  if (statusCode === 503) return 'Service unavailable';
+  return 'Internal server error';
+}
+
 // ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
@@ -114,12 +120,19 @@ export function createApp(options: CreateAppOptions) {
           }
         }
         const level = error.statusCode >= 500 ? 'error' : 'warn';
-        log[level]({ status: error.statusCode, code: error.code, latencyMs }, error.message);
+        log[level](
+          { status: error.statusCode, code: error.code, latencyMs },
+          error.statusCode >= 500 ? 'API request failed' : error.message
+        );
         if (error.statusCode >= 500) {
           captureException(error);
           // Flush the queued event past the Response so a serverless freeze does
           // not drop it. keepAlive uses waitUntil on Vercel, run-to-completion off.
           keepAlive(flushSentry());
+          // 5xx ApiErrors often wrap database/provider/configuration failures.
+          // Preserve the stable machine code but never expose the internal
+          // message or structured details to an unauthenticated caller.
+          return { error: publicServerErrorMessage(error.statusCode), code: error.code };
         }
         return { error: error.message, code: error.code, ...(error.details ?? {}) };
       }

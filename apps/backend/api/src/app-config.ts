@@ -34,10 +34,22 @@ export function parseCorsOrigins(raw: string | undefined): string | string[] {
     .map((s) => s.trim())
     .filter(Boolean);
   for (const origin of origins) {
+    let url: URL;
     try {
-      new URL(origin);
+      url = new URL(origin);
     } catch {
       throw new Error(`CORS_ORIGIN contains invalid URL: "${origin}"`);
+    }
+    if (
+      (url.protocol !== 'https:' && url.protocol !== 'http:') ||
+      url.username !== '' ||
+      url.password !== '' ||
+      url.pathname !== '/' ||
+      url.search !== '' ||
+      url.hash !== '' ||
+      (url.origin !== origin && `${url.origin}/` !== origin)
+    ) {
+      throw new Error(`CORS_ORIGIN must contain http(s) origins only: "${origin}"`);
     }
   }
   const first = origins[0];

@@ -4,6 +4,10 @@ import { getWebBaseUrl, getApiBaseUrl } from './app-url';
 const ORIGINAL_CORS = process.env['CORS_ORIGIN'];
 const ORIGINAL_API = process.env['API_PUBLIC_URL'];
 const ORIGINAL_NODE_ENV = process.env['NODE_ENV'];
+const ORIGINAL_VERCEL = process.env['VERCEL'];
+const ORIGINAL_VERCEL_ENV = process.env['VERCEL_ENV'];
+const ORIGINAL_VERCEL_URL = process.env['VERCEL_URL'];
+const ORIGINAL_VERCEL_PRODUCTION_URL = process.env['VERCEL_PROJECT_PRODUCTION_URL'];
 
 function restore(name: string, value: string | undefined): void {
   if (value === undefined) delete process.env[name];
@@ -14,6 +18,10 @@ afterEach(() => {
   restore('CORS_ORIGIN', ORIGINAL_CORS);
   restore('API_PUBLIC_URL', ORIGINAL_API);
   restore('NODE_ENV', ORIGINAL_NODE_ENV);
+  restore('VERCEL', ORIGINAL_VERCEL);
+  restore('VERCEL_ENV', ORIGINAL_VERCEL_ENV);
+  restore('VERCEL_URL', ORIGINAL_VERCEL_URL);
+  restore('VERCEL_PROJECT_PRODUCTION_URL', ORIGINAL_VERCEL_PRODUCTION_URL);
 });
 
 /** Minimal Request stand-in carrying only the headers the helpers read. */
@@ -59,6 +67,28 @@ describe('getWebBaseUrl', () => {
     delete process.env['CORS_ORIGIN'];
     expect(getWebBaseUrl()).toBe('http://localhost:5173');
   });
+
+  it('does not trust request host headers in production', () => {
+    delete process.env['CORS_ORIGIN'];
+    delete process.env['API_PUBLIC_URL'];
+    delete process.env['VERCEL'];
+    process.env['NODE_ENV'] = 'production';
+
+    expect(() =>
+      getWebBaseUrl(reqWith({ host: 'attacker.example', 'x-forwarded-host': 'attacker.example' }))
+    ).toThrow(/trusted public origin/);
+  });
+
+  it('uses the trusted Vercel production URL instead of request headers', () => {
+    delete process.env['CORS_ORIGIN'];
+    delete process.env['API_PUBLIC_URL'];
+    process.env['NODE_ENV'] = 'production';
+    process.env['VERCEL'] = '1';
+    process.env['VERCEL_ENV'] = 'production';
+    process.env['VERCEL_PROJECT_PRODUCTION_URL'] = 'gravityroom.app';
+
+    expect(getWebBaseUrl(reqWith({ host: 'attacker.example' }))).toBe('https://gravityroom.app');
+  });
 });
 
 describe('getApiBaseUrl', () => {
@@ -77,5 +107,20 @@ describe('getApiBaseUrl', () => {
   it('falls back to localhost:3001 when neither env nor request is available', () => {
     delete process.env['API_PUBLIC_URL'];
     expect(getApiBaseUrl()).toBe('http://localhost:3001');
+  });
+
+  it('rejects request-derived API origins in production', () => {
+    delete process.env['API_PUBLIC_URL'];
+    delete process.env['VERCEL'];
+    process.env['NODE_ENV'] = 'production';
+
+    expect(() => getApiBaseUrl(reqWith({ host: 'attacker.example' }))).toThrow(
+      /trusted public origin/
+    );
+  });
+
+  it('rejects configured URLs containing credentials or paths', () => {
+    process.env['API_PUBLIC_URL'] = 'https://user:pass@example.com/api';
+    expect(() => getApiBaseUrl()).toThrow(/without credentials or a path/);
   });
 });

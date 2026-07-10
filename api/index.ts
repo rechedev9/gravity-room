@@ -19,6 +19,11 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { createApp } from '../apps/backend/api/src/create-app';
 import { buildAppOptions } from '../apps/backend/api/src/app-config';
+import {
+  PayloadTooLargeError,
+  declaredBodyTooLarge,
+  readLimitedBody,
+} from '../apps/backend/api/src/lib/node-request-body';
 
 // ---------------------------------------------------------------------------
 // Elysia app — built once per warm instance (module-scope singleton).
@@ -31,14 +36,10 @@ const app = createApp(buildAppOptions());
 /** Maximum accepted request body size — replaces Elysia's maxRequestBodySize. */
 const MAX_BODY_BYTES = 1_048_576;
 
-/** Read the entire Node request body from the native stream into one Buffer. */
-function readBody(req: IncomingMessage): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (chunk: Buffer) => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
+function sendPayloadTooLarge(res: ServerResponse): void {
+  res.statusCode = 413;
+  res.setHeader('content-type', 'application/json');
+  res.end(JSON.stringify({ error: 'Payload too large', code: 'PAYLOAD_TOO_LARGE' }));
 }
 
 /**
@@ -54,14 +55,21 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   // carry no body, so we skip the read for them.
   let body: Buffer | undefined;
   if (hasBody) {
-    body = await readBody(req);
-
-    // Body-size guard — replaces Elysia's maxRequestBodySize.
-    if (body.length > MAX_BODY_BYTES) {
-      res.statusCode = 413;
-      res.setHeader('content-type', 'application/json');
-      res.end(JSON.stringify({ error: 'Payload too large', code: 'PAYLOAD_TOO_LARGE' }));
+    const contentLength = Array.isArray(req.headers['content-length'])
+      ? req.headers['content-length'][0]
+      : req.headers['content-length'];
+    if (declaredBodyTooLarge(contentLength, MAX_BODY_BYTES)) {
+      sendPayloadTooLarge(res);
       return;
+    }
+    try {
+      body = await readLimitedBody(req, MAX_BODY_BYTES);
+    } catch (error: unknown) {
+      if (error instanceof PayloadTooLargeError) {
+        sendPayloadTooLarge(res);
+        return;
+      }
+      throw error;
     }
   }
 

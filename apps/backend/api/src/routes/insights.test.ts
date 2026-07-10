@@ -27,7 +27,7 @@ vi.mock('../middleware/rate-limit', () => ({
 }));
 
 vi.mock('../services/auth', () => ({
-  findUserById: vi.fn((id: string) => Promise.resolve({ id })),
+  findUserById: vi.fn((id: string) => Promise.resolve({ id, authVersion: 0 })),
 }));
 
 interface InsightRow {
@@ -76,6 +76,7 @@ async function makeValidJwt(userId: string): Promise<string> {
       sub: userId,
       iss: 'gravity-room-api',
       aud: 'gravity-room-clients',
+      av: 0,
       exp: Math.floor(Date.now() / 1000) + 3600,
     })
   ).toString('base64url');

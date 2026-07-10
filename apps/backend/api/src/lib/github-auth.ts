@@ -7,6 +7,7 @@
  */
 import { isRecord } from '@gzclp/domain/type-guards';
 import { ApiError } from '../middleware/error-handler';
+import { MAX_PROVIDER_JSON_BYTES, readBoundedJson } from './bounded-json';
 
 const GITHUB_AUTHORIZE_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_TOKEN_URL = 'https://github.com/login/oauth/access_token';
@@ -89,7 +90,11 @@ export async function exchangeGitHubCode(
   });
   if (!res.ok) throw new ApiError(502, 'GitHub token exchange failed', 'AUTH_PROVIDER_ERROR');
 
-  const data: unknown = await res.json();
+  const data = await readBoundedJson(
+    res,
+    MAX_PROVIDER_JSON_BYTES,
+    () => new ApiError(502, 'GitHub token response invalid', 'AUTH_PROVIDER_ERROR')
+  );
   if (!isRecord(data) || typeof data['access_token'] !== 'string') {
     throw new ApiError(502, 'GitHub token exchange returned no token', 'AUTH_PROVIDER_ERROR');
   }
@@ -133,12 +138,20 @@ export async function fetchGitHubIdentity(accessToken: string): Promise<GitHubId
   if (!userRes.ok || !emailsRes.ok)
     throw new ApiError(502, 'GitHub user lookup failed', 'AUTH_PROVIDER_ERROR');
 
-  const user: unknown = await userRes.json();
+  const user = await readBoundedJson(
+    userRes,
+    MAX_PROVIDER_JSON_BYTES,
+    () => new ApiError(502, 'GitHub user response invalid', 'AUTH_PROVIDER_ERROR')
+  );
   if (!isRecord(user) || (typeof user['id'] !== 'number' && typeof user['id'] !== 'string')) {
     throw new ApiError(502, 'GitHub user response invalid', 'AUTH_PROVIDER_ERROR');
   }
 
-  const emailsRaw: unknown = await emailsRes.json();
+  const emailsRaw = await readBoundedJson(
+    emailsRes,
+    MAX_PROVIDER_JSON_BYTES,
+    () => new ApiError(502, 'GitHub email response invalid', 'AUTH_PROVIDER_ERROR')
+  );
   const emails = Array.isArray(emailsRaw) ? emailsRaw.filter(isGitHubEmail) : [];
   const primary = emails.find((e) => e.primary && e.verified) ?? emails.find((e) => e.verified);
   if (!primary)
