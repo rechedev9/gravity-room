@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { getAllArticles } from './content/registry';
 import { appendHreflangAlternates } from './hreflang';
-import { MuscleGroupIcon } from './muscle-group-icon';
+import { BodyDiagram, pickBestView } from './body-diagram';
 
 const COPY = {
   es: {
@@ -69,9 +69,13 @@ export function ExerciseWikiIndexPage({ lang }: { readonly lang: ArticleLang }):
               params={{ slug: a.slug[lang] }}
               className="flex h-full items-start gap-3 border border-rule rounded-sm px-4 py-3 hover:border-accent transition-colors"
             >
-              <MuscleGroupIcon
-                muscleGroupId={a.muscleGroupId}
-                className="mt-0.5 shrink-0 text-muted"
+              <BodyDiagram
+                primary={a.primaryMuscles}
+                secondary={a.secondaryMuscles}
+                lang={lang}
+                view={pickBestView(a.primaryMuscles)}
+                variant="card"
+                className="mt-0.5 w-9 shrink-0"
               />
               <span className="min-w-0">
                 <span className="font-display text-xl text-main">{a.content[lang].title}</span>

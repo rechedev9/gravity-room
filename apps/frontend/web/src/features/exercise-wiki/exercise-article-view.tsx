@@ -1,10 +1,12 @@
 // exercise-article-view.tsx
 import type { CSSProperties, ReactNode } from 'react';
 import type { ArticleLang, ExerciseArticle } from '@gzclp/domain/schemas/exercise-article';
+import { BodyDiagram } from './body-diagram';
 
 const LABELS = {
   es: {
     summary: 'Resumen',
+    muscles: 'Músculos implicados',
     technique: 'Técnica',
     evidence: 'Evidencia',
     mistakes: 'Errores comunes',
@@ -14,6 +16,7 @@ const LABELS = {
   },
   en: {
     summary: 'Summary',
+    muscles: 'Muscles worked',
     technique: 'Technique',
     evidence: 'Evidence',
     mistakes: 'Common mistakes',
@@ -31,6 +34,23 @@ const PROSE: CSSProperties = {
   hyphens: 'auto',
   WebkitHyphens: 'auto',
 };
+
+// Content strings carry minimal `**bold**` emphasis markers (see the technique
+// steps in the content files); render them as <strong> instead of leaking the
+// asterisks to the reader. Unbalanced markers fall back to the raw string.
+function renderEmphasis(text: string): ReactNode {
+  const parts = text.split('**');
+  if (parts.length < 3 || parts.length % 2 === 0) return text;
+  return parts.map((part, i) =>
+    i % 2 === 1 ? (
+      <strong key={i} className="font-semibold text-title">
+        {part}
+      </strong>
+    ) : (
+      part
+    )
+  );
+}
 
 function SectionHeader({
   index,
@@ -68,6 +88,7 @@ export function ExerciseArticleView({
   };
   const videoNum = article.video !== undefined ? nextNum() : null;
   const summaryNum = nextNum();
+  const musclesNum = nextNum();
   const techniqueNum = nextNum();
   const evidenceNum = nextNum();
   const mistakesNum = nextNum();
@@ -84,6 +105,7 @@ export function ExerciseArticleView({
   const headerDelay = nextDelay();
   const videoDelay = article.video !== undefined ? nextDelay() : null;
   const summaryDelay = nextDelay();
+  const musclesDelay = nextDelay();
   const techniqueDelay = nextDelay();
   const evidenceDelay = nextDelay();
   const mistakesDelay = nextDelay();
@@ -139,10 +161,25 @@ export function ExerciseArticleView({
               }
               style={PROSE}
             >
-              {p}
+              {renderEmphasis(p)}
             </p>
           ))}
         </div>
+      </section>
+
+      <section
+        className="anim-rise mb-12"
+        style={{ animationDelay: musclesDelay }}
+        aria-label={l.muscles}
+      >
+        <SectionHeader index={musclesNum} label={l.muscles} />
+        <BodyDiagram
+          primary={article.primaryMuscles}
+          secondary={article.secondaryMuscles}
+          lang={lang}
+          view="both"
+          showLegend
+        />
       </section>
 
       <section
@@ -158,7 +195,7 @@ export function ExerciseArticleView({
               <span className="mt-0.5 w-5 shrink-0 font-mono text-xs text-accent select-none">
                 {String(i + 1).padStart(2, '0')}
               </span>
-              <span className="text-base leading-relaxed text-main">{p}</span>
+              <span className="text-base leading-relaxed text-main">{renderEmphasis(p)}</span>
             </li>
           ))}
         </ol>
@@ -209,7 +246,7 @@ export function ExerciseArticleView({
                 ×
               </span>
               <span className="text-base leading-relaxed text-main" style={PROSE}>
-                {p}
+                {renderEmphasis(p)}
               </span>
             </li>
           ))}
@@ -231,7 +268,7 @@ export function ExerciseArticleView({
               >
                 <p className="mb-1 font-display text-lg uppercase text-title">{v.name}</p>
                 <p className="text-sm leading-relaxed text-muted" style={PROSE}>
-                  {v.detail}
+                  {renderEmphasis(v.detail)}
                 </p>
               </li>
             ))}
