@@ -65,11 +65,14 @@ const USER_EXERCISE: ExerciseRow = {
 
 /**
  * Queue-based mock: each call to select().from() pops the next result
- * from selectQueue. insert().values().onConflictDoNothing().returning()
- * returns insertResult.
+ * from selectQueue. insert().values(vals).onConflictDoNothing().returning()
+ * returns insertHandler(vals) when an insertHandler is set (so tests can vary
+ * the outcome by the inserted id, e.g. to simulate a slug collision), otherwise
+ * the static insertResult.
  */
 let selectQueue: unknown[][] = [];
 let insertResult: unknown[] = [];
+let insertHandler: ((values: Record<string, unknown>) => unknown[]) | undefined = undefined;
 
 function chainable(result: unknown[]): Record<string, unknown> {
   const obj: Record<string, unknown> = {};
@@ -101,14 +104,15 @@ function createMockDb(): unknown {
     }),
     insert: vi.fn(function insert() {
       return {
-        values: vi.fn(function values() {
+        values: vi.fn(function values(vals: Record<string, unknown>) {
+          const compute = (): unknown[] => (insertHandler ? insertHandler(vals) : insertResult);
           return {
             onConflictDoNothing: vi.fn(function onConflictDoNothing() {
               return {
-                returning: vi.fn(() => Promise.resolve(insertResult)),
+                returning: vi.fn(() => Promise.resolve(compute())),
               };
             }),
-            returning: vi.fn(() => Promise.resolve(insertResult)),
+            returning: vi.fn(() => Promise.resolve(compute())),
           };
         }),
       };
@@ -170,6 +174,7 @@ const { ApiError } = await import('../middleware/error-handler');
 beforeEach(() => {
   selectQueue = [];
   insertResult = [];
+  insertHandler = undefined;
   mockDb = createMockDb();
   cachedExercisesResult = undefined;
   cachedMuscleGroupsResult = undefined;
@@ -341,6 +346,35 @@ describe('listMuscleGroups', () => {
   });
 });
 
+/**
+ * Build a full DB row from the values passed to insert(), so an insertHandler
+ * can echo back a realistic row for whatever id the service actually inserts
+ * (base slug or disambiguated). Narrows without casts to satisfy type safety.
+ */
+function buildInsertedRow(vals: Record<string, unknown>): ExerciseRow {
+  const id = typeof vals['id'] === 'string' ? vals['id'] : '';
+  const name = typeof vals['name'] === 'string' ? vals['name'] : '';
+  const muscleGroupId = typeof vals['muscleGroupId'] === 'string' ? vals['muscleGroupId'] : '';
+  const equipment = typeof vals['equipment'] === 'string' ? vals['equipment'] : null;
+  const createdByUserId =
+    typeof vals['createdByUserId'] === 'string' ? vals['createdByUserId'] : null;
+  return {
+    id,
+    name,
+    muscleGroupId,
+    equipment,
+    isCompound: vals['isCompound'] === true,
+    isSystem: false,
+    createdByUserId,
+    createdAt: NOW,
+    forceType: null,
+    level: null,
+    movementMechanic: null,
+    category: null,
+    secondaryMuscles: null,
+  };
+}
+
 describe('createExercise', () => {
   it('should return Ok with created exercise on success', async () => {
     const createdRow: ExerciseRow = {
@@ -413,19 +447,87 @@ describe('createExercise', () => {
     expect(mockInvalidateUserExercises).not.toHaveBeenCalled();
   });
 
-  it('should return Err(EXERCISE_ID_CONFLICT) when ID already exists', async () => {
-    selectQueue = [[{ id: 'legs' }]]; // muscle group exists
-    insertResult = []; // onConflictDoNothing returns empty when conflict
+  it('returns EXERCISE_ID_CONFLICT only when the SAME user already owns that base id', async () => {
+    // Muscle group exists; base-slug insert conflicts; the existing owner is
+    // this same user with a custom (non-system) row → a genuine duplicate.
+    selectQueue = [
+      [{ id: 'legs' }], // muscle group validation
+      [{ createdByUserId: 'user-1', isSystem: false }], // existing owner of base id
+    ];
+    insertHandler = () => []; // base-id insert conflicts
 
     const result = await createExercise('user-1', {
-      id: 'squat',
-      name: 'Duplicate Squat',
+      id: 'my_curl',
+      name: 'My Custom Curl',
       muscleGroupId: 'legs',
     });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error.code).toBe('EXERCISE_ID_CONFLICT');
+    // Did not fall through to the disambiguation retries.
+    expect(mockInvalidateUserExercises).not.toHaveBeenCalled();
+  });
+
+  it('disambiguates instead of 409 when the base slug is a system preset', async () => {
+    // A preset owns the slug; the user must NOT be blocked nor able to probe
+    // its existence via a 409 — they get a distinct, disambiguated id.
+    selectQueue = [
+      [{ id: 'legs' }], // muscle group validation
+      [{ createdByUserId: null, isSystem: true }], // base id is a system preset
+    ];
+    insertHandler = (vals) => (vals['id'] === 'squat' ? [] : [buildInsertedRow(vals)]);
+
+    const result = await createExercise('user-1', {
+      id: 'squat',
+      name: 'Squat',
+      muscleGroupId: 'legs',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.id).not.toBe('squat');
+    expect(result.value.id).toMatch(/^squat-[0-9a-f]{8}$/);
+    expect(result.value.createdBy).toBe('user-1');
+    expect(mockInvalidateUserExercises).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets two different users create identically-named exercises with distinct ids', async () => {
+    // --- User A is first: takes the base slug verbatim ---
+    selectQueue = [[{ id: 'chest' }]]; // muscle group validation only
+    insertHandler = (vals) => [buildInsertedRow(vals)]; // base slug is free
+
+    const a = await createExercise('user-a', {
+      id: 'bench_press',
+      name: 'Bench Press',
+      muscleGroupId: 'chest',
+    });
+
+    expect(a.ok).toBe(true);
+    if (!a.ok) return;
+    expect(a.value.id).toBe('bench_press');
+    expect(a.value.createdBy).toBe('user-a');
+
+    // --- User B: same name; base slug now owned by A, not B ---
+    selectQueue = [
+      [{ id: 'chest' }], // muscle group validation
+      [{ createdByUserId: 'user-a', isSystem: false }], // base id owned by A
+    ];
+    insertHandler = (vals) => (vals['id'] === 'bench_press' ? [] : [buildInsertedRow(vals)]);
+
+    const b = await createExercise('user-b', {
+      id: 'bench_press',
+      name: 'Bench Press',
+      muscleGroupId: 'chest',
+    });
+
+    expect(b.ok).toBe(true);
+    if (!b.ok) return;
+    // Distinct id, disambiguated, owned by B — each user's row is independent
+    // and listExercises filters by createdByUserId, so each sees only their own.
+    expect(b.value.id).toMatch(/^bench_press-[0-9a-f]{8}$/);
+    expect(b.value.id).not.toBe(a.value.id);
+    expect(b.value.createdBy).toBe('user-b');
   });
 });
 

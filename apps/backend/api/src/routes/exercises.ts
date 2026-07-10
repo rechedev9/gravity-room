@@ -5,7 +5,12 @@
  * POST /exercises — auth required (creates a user-scoped exercise)
  */
 import { Elysia, t } from 'elysia';
-import { JWT_AUDIENCE, JWT_ISSUER, jwtPlugin, resolveUserId } from '../middleware/auth-guard';
+import {
+  jwtPlugin,
+  resolveUserId,
+  verifyAccessToken,
+  type JwtVerifier,
+} from '../middleware/auth-guard';
 import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
 import {
@@ -14,7 +19,6 @@ import {
   createExercise,
   type ExerciseFilter,
 } from '../services/exercises';
-import { findUserById } from '../services/auth';
 import { ApiError } from '../middleware/error-handler';
 
 const security = [{ bearerAuth: [] }];
@@ -65,7 +69,7 @@ async function resolveOptionalUserId({
   jwt: jwtCtx,
   headers,
 }: {
-  jwt: { verify: (token?: string) => Promise<Record<string, unknown> | false> };
+  jwt: JwtVerifier;
   headers: Record<string, string | undefined>;
 }): Promise<{ userId: string | undefined }> {
   const authorization = headers['authorization'];
@@ -82,36 +86,10 @@ async function resolveOptionalUserId({
     throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
   }
 
-  const payload = await jwtCtx.verify(token);
-  if (!payload) {
-    throw new ApiError(401, 'Invalid or expired token', 'TOKEN_INVALID');
-  }
-
-  if (payload['iss'] !== JWT_ISSUER) {
-    throw new ApiError(401, 'Invalid token issuer', 'TOKEN_INVALID');
-  }
-
-  const aud = payload['aud'];
-  const audMatches = Array.isArray(aud) ? aud.includes(JWT_AUDIENCE) : aud === JWT_AUDIENCE;
-  if (!audMatches) {
-    throw new ApiError(401, 'Invalid token audience', 'TOKEN_INVALID');
-  }
-
-  const userId = payload['sub'];
-  if (typeof userId !== 'string') {
-    throw new ApiError(401, 'Invalid token payload', 'TOKEN_INVALID');
-  }
-
-  const user = await findUserById(userId);
-  if (!user || user.deletedAt) {
-    throw new ApiError(401, 'User account is inactive', 'TOKEN_USER_INACTIVE');
-  }
-  const authVersion = payload['av'];
-  if (!Number.isInteger(authVersion) || authVersion !== user.authVersion) {
-    throw new ApiError(401, 'Token session has been revoked', 'TOKEN_REVOKED');
-  }
-
-  return { userId };
+  // Delegates to the same trust pipeline the required-auth resolver uses, so the
+  // two paths can never drift. They differ only in the missing-header branch above
+  // (required → 401, optional → anonymous).
+  return verifyAccessToken(jwtCtx, token);
 }
 
 // ---------------------------------------------------------------------------

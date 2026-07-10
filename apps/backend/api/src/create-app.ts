@@ -58,7 +58,9 @@ function applySecurityHeaders(
   set.headers['referrer-policy'] = 'strict-origin-when-cross-origin';
   set.headers['content-security-policy'] = csp;
   if (process.env['NODE_ENV'] === 'production') {
-    set.headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains';
+    // preload is safe: max-age is 1 year and includeSubDomains is set, the two
+    // preconditions hstspreload.org enforces. Matches the SPA HSTS in vercel.json.
+    set.headers['strict-transport-security'] = 'max-age=31536000; includeSubDomains; preload';
   }
   set.headers['permissions-policy'] = permissionsPolicy;
   if (shouldDisableHttpCache(request)) {

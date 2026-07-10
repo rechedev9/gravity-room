@@ -16,12 +16,12 @@ with three runnable clients/services and shared TS packages.
 
 ## Service map
 
-| Service         | Path                   | Tech                                                                            | Entry                                                                 | Dev                         |
-| --------------- | ---------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------- |
-| Web SPA         | `apps/frontend/web`    | Vite 7, React 19, TanStack Router/Query, Tailwind 4                             | `src/main.tsx`                                                        | `pnpm run dev`              |
-| Mobile          | `apps/frontend/mobile` | Expo 54, RN 0.81, expo-sqlite                                                   | `App.tsx`                                                             | (Expo CLI)                  |
-| API             | `apps/backend/api`     | ElysiaJS 1.4 (serverless `app.fetch`) + Drizzle + Neon Postgres + Upstash Redis | `api/[...path].ts` → `src/create-app.ts` (local: `src/dev-server.ts`) | `pnpm run dev:api`          |
-| Domain (shared) | `packages/domain`      | TS + Zod 4 (no runtime)                                                         | `src/index.ts`                                                        | `pnpm run typecheck:domain` |
+| Service         | Path                   | Tech                                                                            | Entry                                                             | Dev                         |
+| --------------- | ---------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------- |
+| Web SPA         | `apps/frontend/web`    | Vite 7, React 19, TanStack Router/Query, Tailwind 4                             | `src/main.tsx`                                                    | `pnpm run dev`              |
+| Mobile          | `apps/frontend/mobile` | Expo 54, RN 0.81, expo-sqlite                                                   | `App.tsx`                                                         | (Expo CLI)                  |
+| API             | `apps/backend/api`     | ElysiaJS 1.4 (serverless `app.fetch`) + Drizzle + Neon Postgres + Upstash Redis | `api/index.ts` → `src/create-app.ts` (local: `src/dev-server.ts`) | `pnpm run dev:api`          |
+| Domain (shared) | `packages/domain`      | TS + Zod 4 (no runtime)                                                         | `src/index.ts`                                                    | `pnpm run typecheck:domain` |
 
 Analytics is no longer a separate service. The insight math (e1RM, frequency,
 summary, volume, plateau, forecast, recommendation) was ported to TypeScript and
@@ -43,7 +43,7 @@ migrations) and `packages/api-client` (typed fetch wrapper).
 ## Config flags (from `.env.example`)
 
 The product is one same-origin Vercel project: the API runs as a Node serverless
-function (`api/[...path].ts`), so env vars are set per-environment in the Vercel
+function (`api/index.ts`), so env vars are set per-environment in the Vercel
 dashboard (Production + Preview). The full go-live procedure with every value and
 source is in [`docs/VERCEL_CUTOVER.md`](./docs/VERCEL_CUTOVER.md). The canonical
 registry is `apps/backend/api/src/lib/env-validation.ts` (the cold-start fail-fast).
@@ -120,7 +120,7 @@ registry is `apps/backend/api/src/lib/env-validation.ts` (the cold-start fail-fa
 
 > Local dev runs **natively** with Node + pnpm + a local Postgres (Upstash Redis optional).
 > There are no Docker images or `docker-compose`; production is serverless on Vercel
-> (`api/[...path].ts`) and the local API is `src/dev-server.ts` (`@hono/node-server`).
+> (`api/index.ts`) and the local API is `src/dev-server.ts` (`@hono/node-server`).
 
 ### Prerequisites
 
@@ -367,7 +367,7 @@ pnpm run db:studio      # Drizzle Studio at http://local.drizzle.studio
 
 > Production is ONE same-origin Vercel project: the Vite SPA ships as static
 > output and the ElysiaJS API runs as a Node serverless function at the root
-> catch-all `api/[...path].ts`. Pushes to `main` deploy automatically through
+> catch-all `api/index.ts`. Pushes to `main` deploy automatically through
 > the Vercel Git integration — there is **no** GitHub deploy workflow. The full
 > one-time go-live procedure is in [`docs/VERCEL_CUTOVER.md`](./docs/VERCEL_CUTOVER.md).
 
@@ -375,7 +375,7 @@ pnpm run db:studio      # Drizzle Studio at http://local.drizzle.studio
 
 - **`vercel.json`** pins `framework: null`, `installCommand: pnpm install`,
   `buildCommand: bash scripts/vercel-build.sh`, `outputDirectory:
-apps/frontend/web/dist`, the `api/[...path].ts` function (`maxDuration: 60`),
+apps/frontend/web/dist`, the `api/index.ts` function (`maxDuration: 60`),
   the SPA rewrite (everything except `/api/*` → `/index.html`), and the three
   cron schedules.
 - **`scripts/vercel-build.sh`** runs `pnpm --filter api db:deploy` against

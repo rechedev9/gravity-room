@@ -28,6 +28,12 @@ pre-commit:
       root: apps/backend/api
       glob: '*.{ts}'
       run: pnpm run typecheck
+    security-headers:
+      # Assert vercel.json's SPA security headers still match the hardened
+      # policy. Only runs when the config or the check itself is staged; it
+      # reads vercel.json alone (no server/DB), so it is cheap and offline.
+      glob: '{vercel.json,scripts/check-security-headers.ts}'
+      run: pnpm run security:headers
 
 pre-push:
   parallel: true

@@ -1,9 +1,14 @@
 /**
  * Auth guard — JWT verification for protected routes.
  *
- * Two exports:
- * - `jwtPlugin` — Elysia plugin that adds `jwt.sign()` and `jwt.verify()` to context
- * - `resolveUserId()` — Standalone function that extracts userId from JWT in auth header
+ * Exports:
+ * - `jwtPlugin` - Elysia plugin that adds `jwt.sign()` and `jwt.verify()` to context
+ * - `verifyAccessToken()` - Shared trust pipeline (signature verify with the algorithm
+ *   pinned to HS256, then issuer/audience/subject, active-user reload, and session-version
+ *   checks) for an already-extracted Bearer token
+ * - `resolveUserId()` - Required-auth resolver: extracts the Bearer token then runs
+ *   `verifyAccessToken`. Optional-auth callers (e.g. the exercise routes) reuse
+ *   `verifyAccessToken` directly so both paths share one validation sequence.
  *
  * Routes that need auth should: `.use(jwtPlugin).resolve(resolveUserId)`
  * This pattern ensures TypeScript correctly infers `userId` in the handler context.
@@ -66,18 +71,42 @@ export function extractBearerToken(headers: Record<string, string | undefined>):
 }
 
 /**
- * Resolve function for protected routes.
- * Verifies the Bearer token and returns `{ userId }` to be merged into context.
+ * The only JWS algorithm this API issues (`jwtPlugin` signs with `alg: 'HS256'`).
+ * Passing it to `verify` pins jose to HS256: the symmetric secret already restricts
+ * jose to HS* today, but stating the allow-list explicitly rejects `alg: none` and
+ * asymmetric-algorithm downgrade tokens even if the key type ever changes.
  */
-export async function resolveUserId({
-  jwt: jwtCtx,
-  headers,
-}: {
-  jwt: { verify: (token?: string) => Promise<Record<string, unknown> | false> };
-  headers: Record<string, string | undefined>;
-}): Promise<{ userId: string }> {
-  const token = extractBearerToken(headers);
-  const payload = await jwtCtx.verify(token);
+const ACCEPTED_JWT_ALGORITHMS: string[] = ['HS256'];
+
+/**
+ * Minimal shape of the JWT verifier this module depends on. It mirrors the `verify`
+ * decorator that `@elysiajs/jwt` adds to the Elysia context, whose second argument is
+ * forwarded straight to jose's `jwtVerify`, which is how we pin the accepted
+ * algorithm(s).
+ */
+export interface JwtVerifier {
+  verify: (
+    token?: string,
+    options?: { algorithms?: string[] }
+  ) => Promise<Record<string, unknown> | false>;
+}
+
+/**
+ * Single trust pipeline shared by required auth (`resolveUserId`) and optional auth
+ * (`resolveOptionalUserId` in the exercise routes). Given an already-extracted Bearer
+ * token it: verifies the signature with the algorithm pinned to HS256, then checks
+ * issuer, audience, and subject type, reloads the still-active user (soft-deleted users
+ * are filtered out by `findUserById`), and confirms the token's embedded session version
+ * still matches. Callers own the missing-Authorization-header policy (required → 401,
+ * optional → anonymous) before calling this.
+ *
+ * @throws {ApiError} 401 on any verification or authorization failure.
+ */
+export async function verifyAccessToken(
+  jwtCtx: JwtVerifier,
+  token: string
+): Promise<{ userId: string }> {
+  const payload = await jwtCtx.verify(token, { algorithms: ACCEPTED_JWT_ALGORITHMS });
 
   if (!payload) {
     throw new ApiError(401, 'Invalid or expired token', 'TOKEN_INVALID');
@@ -99,13 +128,30 @@ export async function resolveUserId({
   }
 
   const user = await findUserById(userId);
-  if (!user) {
+  if (!user || user.deletedAt) {
     throw new ApiError(401, 'Token user is no longer active', 'TOKEN_USER_INACTIVE');
   }
   const authVersion = payload['av'];
   if (!Number.isInteger(authVersion) || authVersion !== user.authVersion) {
     throw new ApiError(401, 'Token session has been revoked', 'TOKEN_REVOKED');
   }
+
+  return { userId };
+}
+
+/**
+ * Resolve function for protected routes.
+ * Verifies the Bearer token and returns `{ userId }` to be merged into context.
+ */
+export async function resolveUserId({
+  jwt: jwtCtx,
+  headers,
+}: {
+  jwt: JwtVerifier;
+  headers: Record<string, string | undefined>;
+}): Promise<{ userId: string }> {
+  const token = extractBearerToken(headers);
+  const { userId } = await verifyAccessToken(jwtCtx, token);
 
   const redis = getRedis();
   if (redis) {

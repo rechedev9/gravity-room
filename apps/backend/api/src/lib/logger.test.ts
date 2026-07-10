@@ -11,7 +11,7 @@ process.env['LOG_LEVEL'] = 'silent';
 import { describe, it, expect } from 'vitest';
 import pino from 'pino';
 import { Writable } from 'stream';
-import { secureErrorSerializer } from './logger';
+import { secureErrorSerializer, loggerRedactPaths } from './logger';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -39,12 +39,7 @@ function createTestLogger(): { log: pino.Logger; getOutput: () => string } {
       level: 'trace',
       serializers: { ...pino.stdSerializers, err: secureErrorSerializer },
       redact: {
-        paths: [
-          'req.headers.authorization',
-          'req.headers.cookie',
-          '*.headers.authorization',
-          '*.headers.cookie',
-        ],
+        paths: loggerRedactPaths,
         censor: '[Redacted]',
       },
       ...(!isProduction && !isTest
@@ -113,6 +108,33 @@ describe('logger — header redaction', () => {
 
     const output = getOutput();
     expect(output).not.toContain('admin:secret');
+    expect(output).toContain('[Redacted]');
+  });
+
+  it('redacts common sensitive field names at the top level and one object deep', () => {
+    // Arrange
+    const { log, getOutput } = createTestLogger();
+
+    // Act — mix of top-level and nested (`*.`) sensitive keys
+    log.info(
+      {
+        password: 'PW_SENTINEL',
+        accessToken: 'ACCESS_SENTINEL',
+        refreshToken: 'REFRESH_SENTINEL',
+        secret: 'SECRET_SENTINEL',
+        user: { token: 'TOKEN_SENTINEL', token_hash: 'HASH_SENTINEL' },
+      },
+      'sensitive fields'
+    );
+
+    // Assert — none of the raw values survive, and the censor is present
+    const output = getOutput();
+    expect(output).not.toContain('PW_SENTINEL');
+    expect(output).not.toContain('ACCESS_SENTINEL');
+    expect(output).not.toContain('REFRESH_SENTINEL');
+    expect(output).not.toContain('SECRET_SENTINEL');
+    expect(output).not.toContain('TOKEN_SENTINEL');
+    expect(output).not.toContain('HASH_SENTINEL');
     expect(output).toContain('[Redacted]');
   });
 

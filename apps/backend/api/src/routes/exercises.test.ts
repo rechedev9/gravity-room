@@ -444,3 +444,75 @@ describe('GET /exercises — filter cap', () => {
     expect(mockListExercises).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// GET /exercises — JWT algorithm pinning (defense against alg-confusion)
+// ---------------------------------------------------------------------------
+//
+// These go through the real @elysiajs/jwt verifier (jose under the hood). The
+// optional-auth path must reject a token whose header advertises an algorithm
+// other than HS256 (an `alg: none` unsecured token or an asymmetric RS256 token)
+// instead of trusting the unverified claims inside it.
+
+function base64urlJson(value: unknown): string {
+  return Buffer.from(JSON.stringify(value)).toString('base64url');
+}
+
+const downgradeClaims = {
+  sub: 'user-1',
+  iss: 'gravity-room-api',
+  aud: 'gravity-room-clients',
+  av: 0,
+  exp: Math.floor(Date.now() / 1000) + 3600,
+};
+
+/** An unsecured (`alg: none`) JWT with an empty signature segment. */
+function makeNoneAlgJwt(): string {
+  const header = base64urlJson({ alg: 'none', typ: 'JWT' });
+  const payload = base64urlJson(downgradeClaims);
+  return `${header}.${payload}.`;
+}
+
+/** A well-formed RS256 token signed with a freshly generated RSA private key. */
+async function makeRs256Jwt(): Promise<string> {
+  const header = base64urlJson({ alg: 'RS256', typ: 'JWT' });
+  const payload = base64urlJson(downgradeClaims);
+  const signingInput = `${header}.${payload}`;
+  const { privateKey } = await crypto.subtle.generateKey(
+    {
+      name: 'RSASSA-PKCS1-v1_5',
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: 'SHA-256',
+    },
+    false,
+    ['sign', 'verify']
+  );
+  const sig = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    privateKey,
+    new TextEncoder().encode(signingInput)
+  );
+  return `${signingInput}.${Buffer.from(sig).toString('base64url')}`;
+}
+
+describe('GET /exercises — JWT algorithm pinning', () => {
+  it('rejects an alg:none (unsecured) token instead of downgrading it to anonymous', async () => {
+    const res = await get('/exercises', { Authorization: `Bearer ${makeNoneAlgJwt()}` });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('TOKEN_INVALID');
+    expect(mockListExercises).not.toHaveBeenCalled();
+  });
+
+  it('rejects an RS256 (asymmetric) token signed with an attacker key', async () => {
+    const token = await makeRs256Jwt();
+    const res = await get('/exercises', { Authorization: `Bearer ${token}` });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('TOKEN_INVALID');
+    expect(mockListExercises).not.toHaveBeenCalled();
+  });
+});

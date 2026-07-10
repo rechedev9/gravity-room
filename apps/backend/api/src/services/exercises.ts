@@ -33,6 +33,15 @@ const MAX_CREATE_EXERCISE_ID_LENGTH = 50;
 const MAX_CREATE_EXERCISE_NAME_LENGTH = 100;
 const MAX_CREATE_EXERCISE_MUSCLE_GROUP_ID_LENGTH = 50;
 const MAX_CREATE_EXERCISE_EQUIPMENT_LENGTH = 50;
+/**
+ * When a user's base slug id collides with a row they do NOT own (a system
+ * preset or another user's custom exercise), we retry the insert with a short
+ * random disambiguator appended. Bounded so a pathological run of UUID
+ * collisions can never loop forever.
+ */
+const MAX_DISAMBIGUATION_ATTEMPTS = 5;
+/** Length of the random suffix appended to disambiguate a squatted slug. */
+const DISAMBIGUATOR_LENGTH = 8;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -306,7 +315,17 @@ export async function listMuscleGroups(): Promise<readonly MuscleGroupEntry[]> {
   });
 }
 
-/** Create a user-scoped exercise. Returns a typed error on conflict or invalid muscle group. */
+/**
+ * Create a user-scoped exercise.
+ *
+ * The primary key is the name-derived slug, which is GLOBAL. To keep one user
+ * from squatting a name (and to stop existence-probing via a 409), a collision
+ * with a row this user does NOT own — a system preset or another user's custom
+ * exercise — transparently retries under a disambiguated id rather than failing.
+ * `EXERCISE_ID_CONFLICT` is returned only when the SAME user already owns an
+ * exercise with that exact base id (a genuine duplicate for them). The returned
+ * entry always carries the id that was actually inserted.
+ */
 export async function createExercise(
   userId: string,
   input: CreateExerciseInput
@@ -326,27 +345,65 @@ export async function createExercise(
     return err({ code: 'INVALID_MUSCLE_GROUP' });
   }
 
-  // Attempt insert — ON CONFLICT means the ID is taken
-  const [inserted] = await getDb()
-    .insert(exercises)
-    .values({
-      id: input.id,
-      name: input.name,
-      muscleGroupId: input.muscleGroupId,
-      equipment: input.equipment ?? null,
-      isCompound: input.isCompound ?? false,
-      isSystem: false,
-      createdByUserId: userId,
-    })
-    .onConflictDoNothing()
-    .returning();
+  // Insert the row under a specific id. `onConflictDoNothing` returns the
+  // inserted row, or nothing when a row with that id already exists.
+  async function insertWithId(id: string): Promise<typeof exercises.$inferSelect | undefined> {
+    const [row] = await getDb()
+      .insert(exercises)
+      .values({
+        id,
+        name: input.name,
+        muscleGroupId: input.muscleGroupId,
+        equipment: input.equipment ?? null,
+        isCompound: input.isCompound ?? false,
+        isSystem: false,
+        createdByUserId: userId,
+      })
+      .onConflictDoNothing()
+      .returning();
+    return row;
+  }
 
-  if (!inserted) {
+  // Fast path: the base slug is free — take it verbatim.
+  const inserted = await insertWithId(input.id);
+  if (inserted) {
+    // Invalidate user-specific exercise cache (fire-and-forget)
+    void invalidateUserExercises(userId);
+    return ok(toExerciseEntry(inserted));
+  }
+
+  // The base slug id is a GLOBAL primary key that is already taken. The id is
+  // name-derived, so this collision is expected across users. Look up who owns
+  // the existing row to decide whether this is a genuine duplicate for THIS
+  // user or a foreign owner squatting the slug.
+  const [existing] = await getDb()
+    .select({ createdByUserId: exercises.createdByUserId, isSystem: exercises.isSystem })
+    .from(exercises)
+    .where(eq(exercises.id, input.id))
+    .limit(1);
+
+  // Same user already owns a custom exercise with this exact base id — a real
+  // duplicate for them. (A row can vanish between the insert and this read; if
+  // so, `existing` is undefined and we fall through to the retry path, which
+  // will simply succeed on the base id.)
+  if (existing && !existing.isSystem && existing.createdByUserId === userId) {
     return err({ code: 'EXERCISE_ID_CONFLICT' });
   }
 
-  // Invalidate user-specific exercise cache (fire-and-forget)
-  void invalidateUserExercises(userId);
+  // A system preset or another user owns the base slug. Neither should block
+  // this user or let them probe existence via a 409 — mint a unique id by
+  // appending a short random disambiguator and retry (bounded).
+  for (let attempt = 0; attempt < MAX_DISAMBIGUATION_ATTEMPTS; attempt++) {
+    const candidateId = `${input.id}-${crypto.randomUUID().slice(0, DISAMBIGUATOR_LENGTH)}`;
+    const disambiguated = await insertWithId(candidateId);
+    if (disambiguated) {
+      // Invalidate user-specific exercise cache (fire-and-forget)
+      void invalidateUserExercises(userId);
+      return ok(toExerciseEntry(disambiguated));
+    }
+  }
 
-  return ok(toExerciseEntry(inserted));
+  // Exhausted all disambiguation attempts (astronomically unlikely). Surface a
+  // conflict rather than looping forever.
+  return err({ code: 'EXERCISE_ID_CONFLICT' });
 }

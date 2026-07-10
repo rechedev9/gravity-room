@@ -188,6 +188,31 @@ jobs:
         run: pnpm run format:check
 
   # ---------------------------------------------------------------------------
+  # Security headers — asserts the static-SPA response headers in vercel.json
+  # (CSP directives, HSTS, Permissions-Policy, X-Content-Type-Options, etc.)
+  # still match the hardened policy, so a headers regression fails CI. The check
+  # reads only vercel.json — no server, DB, or build needed.
+  # ---------------------------------------------------------------------------
+  security-headers:
+    name: Security headers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check security headers
+        run: pnpm run security:headers
+
+  # ---------------------------------------------------------------------------
   # OpenAPI client drift — catches divergence between the live ElysiaJS OpenAPI
   # surface and the committed client at apps/frontend/web/src/lib/api/generated.ts.
   # No Postgres needed: the serverless entrypoint has no boot-time DDL, so
@@ -307,6 +332,7 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
-    needs: [web, api, domain, api-client, mobile, format, api-types-drift, secret-scan]
+    needs:
+      [web, api, domain, api-client, mobile, format, security-headers, api-types-drift, secret-scan]
     steps:
       - run: echo "All CI checks passed."

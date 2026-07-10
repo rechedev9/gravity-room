@@ -85,6 +85,14 @@ function classifyDevice(userAgent: string | undefined): DeviceType {
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
+// Grace window for concurrent/double refreshes. When a presented refresh token
+// is gone but its successor was minted within this window, it is a benign race
+// (two tabs sharing one cookie jar refresh in parallel; request 1 rotates A→B,
+// request 2 still presents A), NOT theft. A successor OLDER than this can only
+// be a replay of a token that was legitimately rotated away long ago, which is
+// treated as theft. Sized to comfortably cover client retry/latency without
+// giving a real stolen token a meaningful reuse window.
+const REFRESH_REUSE_GRACE_MS = 10_000;
 const MAX_AUTH_TOKEN_CHARS = 256;
 const MAX_EMAIL_CHARS = 254;
 const MAX_OAUTH_CODE_CHARS = 4096;
@@ -322,6 +330,24 @@ async function refreshAuthToken(
   if (rotation.status === 'not_found') {
     const successor = await findRefreshTokenByPreviousHash(tokenHash);
     if (successor) {
+      const successorAgeMs = Date.now() - successor.createdAt.getTime();
+      if (successorAgeMs <= REFRESH_REUSE_GRACE_MS) {
+        // Benign concurrent/double refresh: the presented token was rotated away
+        // only moments ago by a sibling request (tabs share one cookie jar, so
+        // both can carry the same still-valid cookie). Do NOT revoke sessions,
+        // bump authVersion, or touch the cookie — clearing it here would strand
+        // the sibling tab whose refresh already installed the successor. Answer
+        // 401 so the client retries; its next attempt presents the rotated
+        // successor cookie and succeeds.
+        reqLogger.info(
+          { event: 'auth.concurrent_refresh', userId: successor.userId },
+          'concurrent refresh within grace window — not revoking'
+        );
+        throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
+      }
+      // Successor is older than the grace window: the presented token was
+      // legitimately rotated away long ago, so re-presenting it is a genuine
+      // replay of a stale token — treat as theft and revoke the whole family.
       reqLogger.warn(
         { event: 'auth.token_reuse_detected', userId: successor.userId },
         'refresh token reuse detected — revoking all user sessions'

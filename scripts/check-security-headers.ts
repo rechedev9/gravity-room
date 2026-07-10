@@ -83,4 +83,40 @@ for (const [key, value] of Object.entries(requiredHeaders)) {
   if (headers.get(key) !== value) fail(`required header is missing or wrong: ${key} "${value}"`);
 }
 
+// Permissions-Policy: assert every powerful feature is denied with an empty
+// allowlist. camera/microphone/geolocation/payment/interest-cohort mirror the
+// API policy in apps/backend/api/src/app-config.ts (PERMISSIONS_POLICY), plus
+// browsing-topics which is SPA-only. Parsed directive-by-directive (not exact
+// string match) so directive order can vary, but each MUST resolve to `()`.
+const permissionsPolicy = headers.get('Permissions-Policy');
+if (!permissionsPolicy) fail('Permissions-Policy header is missing from vercel.json headers');
+
+const permissionsAllowlists = new Map<string, string>();
+for (const rawDirective of permissionsPolicy.split(',')) {
+  const trimmed = rawDirective.trim();
+  if (!trimmed) continue;
+  const eq = trimmed.indexOf('=');
+  if (eq === -1) fail(`Permissions-Policy directive is malformed (no '='): "${trimmed}"`);
+  permissionsAllowlists.set(trimmed.slice(0, eq).trim(), trimmed.slice(eq + 1).trim());
+}
+
+function requirePermissionDenied(feature: string): void {
+  const allowlist = permissionsAllowlists.get(feature);
+  if (allowlist === undefined) fail(`Permissions-Policy must deny '${feature}'`);
+  if (allowlist !== '()') {
+    fail(`Permissions-Policy '${feature}' must have an empty allowlist () but was "${allowlist}"`);
+  }
+}
+
+for (const feature of [
+  'camera',
+  'microphone',
+  'geolocation',
+  'payment',
+  'interest-cohort',
+  'browsing-topics',
+]) {
+  requirePermissionDenied(feature);
+}
+
 console.log('security headers OK');

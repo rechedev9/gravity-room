@@ -46,6 +46,10 @@ interface OidcTokenPayload {
   readonly sub: string;
   readonly email?: string;
   readonly email_verified?: boolean | string;
+  // Microsoft-specific: "email domain owner verified". `true` proves the tenant
+  // owns the email's domain, so the `email` claim cannot be spoofed by a tenant
+  // admin. Surfaced generically here; only Microsoft populates it.
+  readonly xms_edov?: boolean | string;
   readonly name?: string;
   readonly nonce?: string;
   readonly tid?: string;
@@ -72,8 +76,9 @@ function isOidcTokenPayload(value: unknown): value is OidcTokenPayload {
   );
 }
 
-// Apple emits `email_verified` as the boolean true or the string "true".
-function normalizeEmailVerified(value: boolean | string | undefined): boolean {
+// Providers emit boolean verification claims (`email_verified`, `xms_edov`) as
+// either the boolean true or the string "true" (Apple/Azure quirk).
+function normalizeVerifiedClaim(value: boolean | string | undefined): boolean {
   return value === true || value === 'true';
 }
 
@@ -122,6 +127,11 @@ export interface OidcClaims {
   readonly sub: string;
   readonly email: string | undefined;
   readonly emailVerified: boolean;
+  // From Microsoft's `xms_edov`: the token issuer proved it owns the email's
+  // domain. Distinct from `emailVerified` (standard `email_verified`) so the
+  // Microsoft caller can trust the domain-owner signal without loosening the
+  // meaning of `emailVerified` for other providers. Always false when absent.
+  readonly emailDomainOwnerVerified: boolean;
   readonly name: string | undefined;
 }
 
@@ -209,7 +219,8 @@ export async function verifyOidcIdToken(opts: VerifyOidcOptions): Promise<OidcCl
   return {
     sub: rawPayload.sub,
     email: rawPayload.email,
-    emailVerified: normalizeEmailVerified(rawPayload.email_verified),
+    emailVerified: normalizeVerifiedClaim(rawPayload.email_verified),
+    emailDomainOwnerVerified: normalizeVerifiedClaim(rawPayload.xms_edov),
     name: rawPayload.name,
   };
 }

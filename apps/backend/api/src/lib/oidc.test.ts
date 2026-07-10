@@ -106,6 +106,18 @@ describe('verifyOidcIdToken', () => {
     expect(claims.emailVerified).toBe(false);
   });
 
+  it('surfaces Microsoft xms_edov as emailDomainOwnerVerified (default false)', async () => {
+    const absent = await verify(await mintToken());
+    expect(absent.emailDomainOwnerVerified).toBe(false);
+
+    const proven = await verify(await mintToken({ xms_edov: true }));
+    expect(proven.emailDomainOwnerVerified).toBe(true);
+
+    // Accept Azure's string quirk, same as email_verified.
+    const stringProven = await verify(await mintToken({ xms_edov: 'true' }));
+    expect(stringProven.emailDomainOwnerVerified).toBe(true);
+  });
+
   it('rejects a wrong audience', async () => {
     const token = await mintToken({ aud: 'someone-else' });
     expect(verify(token)).rejects.toThrow(ApiError);

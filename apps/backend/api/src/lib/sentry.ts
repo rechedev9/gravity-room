@@ -14,6 +14,20 @@ if (dsn) {
     environment: process.env['NODE_ENV'] ?? 'development',
     // Performance tracing: push-based traces replace the deleted pull metrics.
     tracesSampleRate: Number.isFinite(parsedRate) ? parsedRate : 0.1,
+    // Never attach PII (client IP, cookies, request headers/bodies) to events.
+    sendDefaultPii: false,
+    // Belt-and-suspenders: strip request headers/cookies/body from any event an
+    // integration may have populated before it leaves the process. sendDefaultPii
+    // already withholds most of this, but this guarantees credentials in an
+    // Authorization header, session cookie, or JSON body never reach Sentry.
+    beforeSend(event) {
+      if (event.request) {
+        delete event.request.headers;
+        delete event.request.cookies;
+        delete event.request.data;
+      }
+      return event;
+    },
   });
 }
 

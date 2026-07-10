@@ -30,6 +30,7 @@
  * and `purge-users` routes are retained for manual operator invocation.
  */
 import { Elysia } from 'elysia';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { ApiError } from '../middleware/error-handler';
 import { logger } from '../lib/logger';
 import { cleanupExpiredTokens } from '../services/auth';
@@ -40,14 +41,19 @@ import { fetchLeastRecentlyComputedUsers } from '../analytics/queries';
 /** Default cron batch size when ANALYTICS_BATCH_SIZE is unset/invalid. */
 const DEFAULT_ANALYTICS_BATCH_SIZE = 50;
 
-/** Constant-time string comparison to avoid leaking the secret via timing. */
+/**
+ * Constant-time string comparison that avoids leaking the secret via timing.
+ *
+ * Both inputs are first hashed with SHA-256, yielding two fixed-length (32-byte)
+ * digests. `timingSafeEqual` therefore always compares equal-length buffers and
+ * runs in constant time regardless of the inputs' lengths, closing the length
+ * side-channel a raw byte-by-byte compare leaks when it must bail out early on a
+ * length mismatch.
+ */
 function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < a.length; i++) {
-    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return mismatch === 0;
+  const aDigest = createHash('sha256').update(a, 'utf8').digest();
+  const bDigest = createHash('sha256').update(b, 'utf8').digest();
+  return timingSafeEqual(aDigest, bDigest);
 }
 
 /** Extract the presented secret from the Authorization or x-internal-secret header. */

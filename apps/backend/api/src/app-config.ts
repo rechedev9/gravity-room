@@ -3,7 +3,7 @@
  *
  * Single source of truth for the env-derived options passed to `createApp()`:
  * the CORS origin policy, the Content-Security-Policy string, and the
- * Permissions-Policy string. Both the serverless catch-all (`api/[...path].ts`)
+ * Permissions-Policy string. Both the serverless catch-all (`api/index.ts`)
  * and the local dev server (`src/dev-server.ts`) build their app through
  * `buildAppOptions()` so the locally served app is byte-for-byte the serverless
  * app, with no duplicated wiring to drift apart.

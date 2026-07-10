@@ -174,6 +174,60 @@ describe('internal routes — secret guard', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Constant-time secret comparison — no length side-channel
+// ---------------------------------------------------------------------------
+//
+// The comparison hashes both the presented and expected secrets to fixed-length
+// SHA-256 digests before a `timingSafeEqual`, so it never short-circuits on a
+// length mismatch. These cases lock in that the accept/reject behaviour is
+// preserved for correct, wrong-same-length, wrong-different-length, and unset
+// secrets. In particular the different-length cases must still cleanly return
+// 401 (not throw): a naive constant-time rewrite that fed raw, unequal-length
+// buffers straight to `timingSafeEqual` would raise a RangeError and surface as
+// a 500 instead.
+
+describe('internal routes — constant-time secret comparison', () => {
+  it('accepts the correct secret', async () => {
+    const res = await post('/internal/cleanup-tokens', { Authorization: `Bearer ${SECRET}` });
+    expect(res.status).toBe(200);
+    expect(mockCleanupExpiredTokens).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a wrong secret of the SAME length', async () => {
+    const sameLength = 'x'.repeat(SECRET.length);
+    expect(sameLength.length).toBe(SECRET.length);
+    expect(sameLength).not.toBe(SECRET);
+    const res = await post('/internal/cleanup-tokens', { Authorization: `Bearer ${sameLength}` });
+    expect(res.status).toBe(401);
+    expect(mockCleanupExpiredTokens).not.toHaveBeenCalled();
+  });
+
+  it('rejects a wrong secret that is SHORTER than the configured secret', async () => {
+    const shorter = SECRET.slice(0, 3);
+    expect(shorter.length).toBeLessThan(SECRET.length);
+    const res = await post('/internal/cleanup-tokens', { Authorization: `Bearer ${shorter}` });
+    expect(res.status).toBe(401);
+    expect(mockCleanupExpiredTokens).not.toHaveBeenCalled();
+  });
+
+  it('rejects a wrong secret that is LONGER than the configured secret', async () => {
+    const longer = `${SECRET}-plus-a-much-longer-tail-of-extra-bytes`;
+    expect(longer.length).toBeGreaterThan(SECRET.length);
+    const res = await post('/internal/cleanup-tokens', { Authorization: `Bearer ${longer}` });
+    expect(res.status).toBe(401);
+    expect(mockCleanupExpiredTokens).not.toHaveBeenCalled();
+  });
+
+  it('fails closed (401) when neither secret is configured, even with a bearer token', async () => {
+    delete process.env['INTERNAL_SECRET'];
+    delete process.env['CRON_SECRET'];
+    const res = await post('/internal/cleanup-tokens', { Authorization: `Bearer ${SECRET}` });
+    expect(res.status).toBe(401);
+    expect(mockCleanupExpiredTokens).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Vercel Cron: GET requests authenticated by the auto-injected CRON_SECRET
 // ---------------------------------------------------------------------------
 

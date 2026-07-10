@@ -18,6 +18,19 @@ describe('redactSensitiveText', () => {
     expect(value).toContain('Bearer [Redacted]');
   });
 
+  it('redacts a Telegram bot token embedded in an API URL path', () => {
+    const value = redactSensitiveText(
+      'telegram: sendMessage failed POST https://api.telegram.org/bot123456789:AA-Hn_secretTokenXyz/sendMessage timed out'
+    );
+    expect(value).not.toContain('AA-Hn_secretTokenXyz');
+    expect(value).not.toContain('123456789:AA-Hn_secretTokenXyz');
+    expect(value).toContain('/bot[Redacted]/sendMessage');
+  });
+
+  it('does not mistake a non-token path segment for a Telegram bot token', () => {
+    expect(redactSensitiveText('GET /robot-status/health')).toBe('GET /robot-status/health');
+  });
+
   it('preserves ordinary diagnostic text', () => {
     expect(redactSensitiveText('Invalid audience')).toBe('Invalid audience');
   });

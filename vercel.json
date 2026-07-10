@@ -37,7 +37,7 @@
         },
         {
           "key": "Permissions-Policy",
-          "value": "interest-cohort=(), browsing-topics=()"
+          "value": "camera=(), microphone=(), geolocation=(), payment=(), interest-cohort=(), browsing-topics=()"
         },
         {
           "key": "Cross-Origin-Opener-Policy",

@@ -191,5 +191,38 @@ describe('fetchMicrosoftIdentity', () => {
 
     expect(identity.email).toBe('userinfo@example.com');
     expect(identity.name).toBe('User Info');
+    // A UserInfo-sourced email carries no verification signal and must never be
+    // trusted as verified (otherwise it could auto-link a victim's account).
+    expect(identity.emailVerified).toBe(false);
+  });
+
+  it('marks the email UNVERIFIED when the token proves no verification (anti-takeover)', async () => {
+    // A tenant admin can set an arbitrary `email` claim; without xms_edov or
+    // email_verified the incoming identity must not be auto-linkable.
+    mockMicrosoftFetch();
+    const identity = await fetchMicrosoftIdentity(
+      await mintMicrosoftToken({ email: 'victim@example.com', email_verified: undefined }),
+      'access-token',
+      'nonce-1'
+    );
+
+    expect(identity.email).toBe('victim@example.com');
+    expect(identity.emailVerified).toBe(false);
+  });
+
+  it('trusts the email as verified when xms_edov proves domain ownership', async () => {
+    mockMicrosoftFetch();
+    const identity = await fetchMicrosoftIdentity(
+      await mintMicrosoftToken({
+        email: 'owned@contoso.com',
+        email_verified: undefined,
+        xms_edov: true,
+      }),
+      'access-token',
+      'nonce-1'
+    );
+
+    expect(identity.email).toBe('owned@contoso.com');
+    expect(identity.emailVerified).toBe(true);
   });
 });

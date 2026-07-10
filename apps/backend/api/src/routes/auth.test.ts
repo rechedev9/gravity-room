@@ -795,11 +795,13 @@ describe('POST /auth/refresh', () => {
     expect(res.headers.get('set-cookie')?.toLowerCase() ?? '').toMatch(/max-age=0|expires=/);
   });
 
-  it('revokes all user sessions when a rotated-away token is reused (theft detection)', async () => {
+  it('revokes all user sessions when a token whose successor is older than the grace window is replayed (theft detection)', async () => {
     mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
-    // Successor token exists → the presented token was already rotated
+    // Successor exists and was minted well before the grace window → the
+    // presented token was legitimately rotated away long ago, so re-presenting
+    // it is a genuine stale-token replay, not a concurrent double refresh.
     mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
-      Promise.resolve({ ...TEST_REFRESH_TOKEN })
+      Promise.resolve({ ...TEST_REFRESH_TOKEN, createdAt: new Date(Date.now() - 60_000) })
     );
 
     const res = await post('/auth/refresh', {}, { Cookie: 'refresh_token=stolen-old-token' });
@@ -808,6 +810,29 @@ describe('POST /auth/refresh', () => {
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_INVALID_REFRESH');
     expect(mockRevokeAllUserTokens).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not revoke sessions on a concurrent double-refresh whose successor is within the grace window', async () => {
+    // Two tabs share one cookie jar and refresh in parallel: request 1 rotates
+    // A→B, request 2 still presents A (already deleted). rotate() returns
+    // not_found, but the successor B was just minted (createdAt ≈ now), so this
+    // is a benign race, not theft. The whole session (including the sibling
+    // tab's fresh B cookie) must survive.
+    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
+      Promise.resolve({ ...TEST_REFRESH_TOKEN, createdAt: new Date() })
+    );
+
+    const res = await post('/auth/refresh', {}, { Cookie: 'refresh_token=raced-old-token' });
+    const body = (await res.json()) as { code: string };
+
+    // 401 so the client retries (its next attempt presents the rotated successor).
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_INVALID_REFRESH');
+    // No session revocation: the other tab stays logged in.
+    expect(mockRevokeAllUserTokens).not.toHaveBeenCalled();
+    // And the shared cookie must NOT be cleared, or the sibling tab is stranded.
+    expect(res.headers.get('set-cookie')).toBeNull();
   });
 
   it('returns 200 with a new accessToken when a valid refresh token is provided', async () => {
@@ -922,10 +947,11 @@ describe('POST /auth/mobile/refresh', () => {
     expect(body.code).toBe('AUTH_INVALID_REFRESH');
   });
 
-  it('revokes all user sessions when a rotated-away token is reused', async () => {
+  it('revokes all user sessions when a token whose successor is older than the grace window is replayed', async () => {
     mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
+    // Successor minted well before the grace window → genuine stale-token replay.
     mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
-      Promise.resolve({ ...TEST_REFRESH_TOKEN })
+      Promise.resolve({ ...TEST_REFRESH_TOKEN, createdAt: new Date(Date.now() - 60_000) })
     );
 
     const res = await post('/auth/mobile/refresh', { refreshToken: 'stolen-mobile-token' });
@@ -934,6 +960,21 @@ describe('POST /auth/mobile/refresh', () => {
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_INVALID_REFRESH');
     expect(mockRevokeAllUserTokens).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not revoke sessions on a concurrent double-refresh whose successor is within the grace window', async () => {
+    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
+    // Successor just minted (createdAt ≈ now) → benign concurrent refresh.
+    mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
+      Promise.resolve({ ...TEST_REFRESH_TOKEN, createdAt: new Date() })
+    );
+
+    const res = await post('/auth/mobile/refresh', { refreshToken: 'raced-mobile-token' });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_INVALID_REFRESH');
+    expect(mockRevokeAllUserTokens).not.toHaveBeenCalled();
   });
 
   it('returns 401 with AUTH_REFRESH_EXPIRED when the refresh token is expired', async () => {

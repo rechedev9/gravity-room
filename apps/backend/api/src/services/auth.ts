@@ -27,12 +27,17 @@ type UserRow = typeof users.$inferSelect;
  * Explicit projection keeps the SELECT narrow and decouples callers from
  * future column additions (e.g. user-agent fingerprints) that have no
  * business being shipped on every auth round-trip.
+ *
+ * `createdAt` is included because refresh routes age a rotated token's
+ * successor to tell a benign concurrent double-refresh (successor just minted)
+ * apart from a genuine replay of a long-since-rotated token.
  */
 export interface RefreshTokenRow {
   readonly userId: string;
   readonly expiresAt: Date;
   readonly tokenHash: string;
   readonly previousTokenHash: string | null;
+  readonly createdAt: Date;
 }
 
 export type RotateRefreshTokenResult =
@@ -510,9 +515,13 @@ export async function softDeleteUser(userId: string): Promise<void> {
 
   if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
 
-  // Revoke all refresh tokens so no new access tokens can be minted. Any access
-  // token already issued stays valid until it expires (~15 min) — the
-  // resource-route guard validates JWTs statelessly and does not check deletedAt.
+  // Revocation is immediate, not deferred to access-token expiry.
+  // revokeAllUserTokens bumps users.authVersion and deletes every refresh token
+  // in one transaction. The resource-route guard (resolveUserId) reloads the
+  // user on every request and rejects it two ways at once: findUserById filters
+  // out soft-deleted rows (deletedAt), and the embedded authVersion no longer
+  // matches the bumped value — so already-issued access tokens stop working on
+  // their next request rather than lingering ~15 min until they expire.
   await revokeAllUserTokens(userId);
 }
 
@@ -539,6 +548,7 @@ const REFRESH_TOKEN_COLUMNS = {
   expiresAt: refreshTokens.expiresAt,
   tokenHash: refreshTokens.tokenHash,
   previousTokenHash: refreshTokens.previousTokenHash,
+  createdAt: refreshTokens.createdAt,
 } as const;
 
 export async function findRefreshTokenByPreviousHash(

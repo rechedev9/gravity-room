@@ -191,14 +191,24 @@ export async function fetchMicrosoftIdentity(
     expectedNonce,
   });
 
-  const userInfo = claims.email ? undefined : await fetchMicrosoftUserInfo(accessToken);
-  const email = claims.email ?? userInfo?.email;
+  const idTokenEmail = claims.email;
+  const userInfo = idTokenEmail ? undefined : await fetchMicrosoftUserInfo(accessToken);
+  const email = idTokenEmail ?? userInfo?.email;
   if (!email) throw new ApiError(401, 'No email on the Microsoft account', 'AUTH_EMAIL_UNVERIFIED');
+
+  // Trust an email as verified only when the signed ID token proves it: either
+  // Microsoft's `xms_edov` (email domain owner verified) or a standard
+  // `email_verified === true`. A tenant admin can set an arbitrary `email`
+  // claim, so treating it as verified unconditionally would let a forged claim
+  // auto-link to (take over) a victim's existing account downstream. The Graph
+  // userInfo fallback email carries no verification signal and is never trusted.
+  const emailVerified =
+    idTokenEmail !== undefined && (claims.emailDomainOwnerVerified || claims.emailVerified);
 
   return {
     id: claims.sub,
     email,
-    emailVerified: true,
+    emailVerified,
     name: claims.name ?? userInfo?.name,
   };
 }

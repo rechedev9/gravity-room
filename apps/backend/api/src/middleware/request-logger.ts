@@ -5,15 +5,17 @@ import type { Logger } from 'pino';
 import { logger } from '../lib/logger';
 
 /**
- * Whether to trust the X-Forwarded-For header for rate-limit keying.
+ * Whether to trust a forwarded-client header for rate-limit keying.
  *
  * On Vercel the platform terminates the connection and injects the real client
- * IP as the LEFTMOST X-Forwarded-For entry, so we trust it whenever `VERCEL` is
- * set (Vercel sets `VERCEL=1`). Off-Vercel the header is only trusted when
- * `TRUSTED_PROXY=true` is explicitly set, and there the proxy appends the real
- * peer address, so the RIGHTMOST entry is the trustworthy one (anti-spoof).
- * When untrusted there is no socket address in a serverless runtime, so the IP
- * is reported as 'unknown' rather than a client-controlled value.
+ * IP into the `x-vercel-forwarded-for` header, which Vercel sets and overwrites
+ * on every request — the client cannot influence it. We use that header (not the
+ * leftmost `x-forwarded-for` entry, which a client can prepend to spoof) whenever
+ * `VERCEL` is set (Vercel sets `VERCEL=1`). Off-Vercel the header is only trusted
+ * when `TRUSTED_PROXY=true` is explicitly set, and there the proxy appends the
+ * real peer address, so the RIGHTMOST `x-forwarded-for` entry is the trustworthy
+ * one (anti-spoof). When untrusted there is no socket address in a serverless
+ * runtime, so the IP is reported as 'unknown' rather than a client-controlled value.
  *
  * The `=== 'true'` comparison is strict — `!!process.env['…']` would treat the
  * string "false" (and any other non-empty value) as truthy, silently enabling
@@ -43,13 +45,46 @@ export function clientIpFromXff(xff: string): string | undefined {
   return undefined;
 }
 
-/** Vercel supplies the real client as the first valid XFF entry. */
+/**
+ * Extracts the client IP from a Vercel-controlled forwarded header
+ * (`x-vercel-forwarded-for`). Vercel sets and overwrites that header with the
+ * real client address, so its first valid entry is the trustworthy client IP.
+ */
 export function clientIpFromVercelXff(xff: string): string | undefined {
   for (const raw of xff.split(',')) {
     const candidate = raw.trim();
     if (candidate && isIP(candidate) !== 0) return candidate;
   }
   return undefined;
+}
+
+/**
+ * Derives the trustworthy client IP for rate-limit keying from request headers.
+ *
+ * On Vercel we read `x-vercel-forwarded-for` — a header Vercel sets and overwrites
+ * on every request, so the client cannot influence it. We deliberately do NOT fall
+ * back to `x-forwarded-for` here: a client can prepend a spoofed leftmost entry to
+ * that header to mint a fresh rate-limit bucket per request and bypass brute-force
+ * and email-bomb defenses. Off-Vercel we only trust `x-forwarded-for` when a proxy
+ * is explicitly configured (`trustedProxy`), and there the proxy appends the real
+ * peer, so the RIGHTMOST entry is the anti-spoof one. In every other case there is
+ * no trustworthy socket address, so we report 'unknown' rather than a
+ * client-controlled value.
+ */
+export function deriveClientIp(
+  headers: Headers,
+  env: { onVercel: boolean; trustedProxy: boolean }
+): string {
+  if (env.onVercel) {
+    const vercelXff = headers.get('x-vercel-forwarded-for');
+    if (vercelXff) return clientIpFromVercelXff(vercelXff) ?? 'unknown';
+    return 'unknown';
+  }
+  if (env.trustedProxy) {
+    const xff = headers.get('x-forwarded-for');
+    if (xff) return clientIpFromXff(xff) ?? 'unknown';
+  }
+  return 'unknown';
 }
 
 /** Regex for validating a client-supplied x-request-id before trusting it. */
@@ -67,18 +102,14 @@ export const requestLogger = new Elysia({ name: 'request-logger' })
       // (and when request.url is already absolute in local dev / tests).
       const url = new URL(request.url, 'http://localhost').pathname;
       // Untrusted (no socket address in a serverless runtime): report 'unknown'
-      // rather than a client-controlled value. When trusted on Vercel the real
-      // client IP is the LEFTMOST x-forwarded-for entry; off-Vercel behind a
-      // single proxy the RIGHTMOST entry is the trustworthy, anti-spoof one.
-      let ip = 'unknown';
-      if (TRUSTED_PROXY) {
-        const xff = request.headers.get('x-forwarded-for');
-        if (xff) {
-          ip = ON_VERCEL
-            ? (clientIpFromVercelXff(xff) ?? 'unknown')
-            : (clientIpFromXff(xff) ?? 'unknown');
-        }
-      }
+      // rather than a client-controlled value. On Vercel the real client IP comes
+      // from the platform-controlled `x-vercel-forwarded-for` header (not the
+      // spoofable leftmost x-forwarded-for entry); off-Vercel behind a single
+      // configured proxy the RIGHTMOST x-forwarded-for entry is the anti-spoof one.
+      const ip = deriveClientIp(request.headers, {
+        onVercel: ON_VERCEL,
+        trustedProxy: TRUSTED_PROXY,
+      });
       const startMs = Date.now();
       const reqLogger = logger.child({ reqId, method, url, ip });
       reqLogger.info('incoming request');
