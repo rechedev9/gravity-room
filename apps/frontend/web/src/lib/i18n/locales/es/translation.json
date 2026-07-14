@@ -1,4 +1,76 @@
 {
+  "programGuide": {
+    "navigation": "Navegación de programas",
+    "index": {
+      "navLabel": "Programas",
+      "seoTitle": "Programas de fuerza gratis: GZCLP, 5x5 y más | Gravity Room",
+      "seoDescription": "Compara programas de fuerza e hipertrofia y abre su calendario completo antes de empezar. Tracker gratis con progresión automática.",
+      "heading": "Programas de entrenamiento",
+      "intro": "Explora programas de fuerza e hipertrofia por nivel. Cada ficha muestra el calendario completo y las reglas del programa para que puedas elegir con información antes de registrar tu primer entrenamiento.",
+      "viewProgram": "Ver calendario y reglas",
+      "chooseHeading": "¿GZCLP o StrongLifts 5x5?",
+      "chooseBody": "Ambos son programas de progresión lineal para principiantes, pero organizan el volumen, la frecuencia y la respuesta al fallo de forma distinta.",
+      "compareCta": "Comparar GZCLP y StrongLifts 5x5"
+    },
+    "comparison": {
+      "navLabel": "GZCLP vs 5x5",
+      "seoTitle": "GZCLP vs StrongLifts 5x5: diferencias y elección | Gravity Room",
+      "seoDescription": "Comparativa directa entre GZCLP y StrongLifts 5x5: frecuencia, estructura, progresión y respuesta al fallo para elegir un programa principiante.",
+      "heading": "GZCLP vs StrongLifts 5x5",
+      "answer": "StrongLifts 5x5 prioriza la simplicidad: tres días semanales, dos sesiones alternas y cinco series de cinco en los movimientos principales. GZCLP usa niveles T1, T2 y T3, una rotación de cuatro sesiones y cambios de esquema cuando fallas. Elige StrongLifts si quieres menos decisiones; elige GZCLP si prefieres repartir fuerza y volumen con más detalle.",
+      "sections": [
+        {
+          "heading": "Frecuencia y estructura",
+          "body": "StrongLifts alterna dos entrenamientos A/B durante tres días no consecutivos por semana y programa sentadilla en cada sesión. GZCLP rota cuatro entrenamientos; cada uno combina trabajo principal T1, secundario T2 y accesorios T3."
+        },
+        {
+          "heading": "Cómo progresa el peso",
+          "body": "Los dos programas añaden carga mientras completas el trabajo prescrito. En el catálogo de Gravity Room, StrongLifts suma 2,5 kg por sesión y 5 kg en peso muerto. GZCLP aplica progresión lineal a sus niveles y cambia el esquema de series y repeticiones tras un fallo."
+        },
+        {
+          "heading": "Qué ocurre cuando fallas",
+          "body": "StrongLifts aplica una descarga del 10 % después de tres fallos consecutivos en un ejercicio. GZCLP pasa el T1 de 5x3 a 6x2 y después reinicia tras la siguiente etapa. El calendario de cada ficha permite revisar estas reglas antes de empezar."
+        },
+        {
+          "heading": "Cuál elegir",
+          "body": "StrongLifts encaja mejor si valoras un patrón semanal muy repetible. GZCLP ofrece más variedad de repeticiones y separa claramente el trabajo principal, secundario y accesorio. La mejor elección es la que puedas sostener con tu disponibilidad y equipamiento."
+        }
+      ],
+      "ctaHeading": "Revisa ambos calendarios",
+      "ctaBody": "Abre las fichas interactivas para ver todos los días y empezar a registrar el programa elegido gratis."
+    },
+    "progression": {
+      "navLabel": "Progresión automática",
+      "seoTitle": "Progresión automática en fuerza: cómo funciona | Gravity Room",
+      "seoDescription": "Guía práctica de sobrecarga progresiva: cuándo subir peso, qué hacer al fallar y cómo un tracker aplica las reglas de cada programa.",
+      "heading": "Progresión automática y sobrecarga progresiva",
+      "answer": "La sobrecarga progresiva consiste en aumentar gradualmente una variable del entrenamiento, como la carga o las repeticiones. En un programa definido, la progresión automática aplica sus reglas después de registrar el resultado: sube la carga al completar el objetivo o activa la etapa de fallo y descarga que corresponda.",
+      "sections": [
+        {
+          "heading": "Completa primero la prescripción",
+          "body": "No necesitas subir peso en cada serie. Registra las series, repeticiones y resultado que prescribe el programa. El siguiente entrenamiento se calcula a partir de ese resultado y de las reglas específicas del movimiento."
+        },
+        {
+          "heading": "Progresión lineal",
+          "body": "En una progresión lineal, la carga aumenta una cantidad definida después de completar una sesión. StrongLifts y GZCLP usan este principio, aunque difieren en frecuencia, incrementos, volumen y protocolo de fallo."
+        },
+        {
+          "heading": "Doble progresión",
+          "body": "En accesorios, algunos programas aumentan primero las repeticiones dentro de un intervalo y solo después incrementan el peso. Este método evita forzar saltos de carga cuando el equipamiento no permite incrementos pequeños."
+        },
+        {
+          "heading": "Fallos y descargas",
+          "body": "Fallar una prescripción no significa improvisar. Un programa puede mantener la carga, cambiar las series y repeticiones o reducir el peso. Gravity Room conserva esa regla en la definición del programa y la aplica al registrar el resultado."
+        },
+        {
+          "heading": "Qué automatiza el tracker",
+          "body": "El tracker calcula el próximo entrenamiento según la definición seleccionada, muestra el calendario y conserva el historial. La automatización ejecuta las reglas del programa; no sustituye la elección de una carga inicial razonable ni la técnica correcta."
+        }
+      ],
+      "ctaHeading": "Prueba una progresión definida",
+      "ctaBody": "Consulta GZCLP y StrongLifts 5x5 para comparar dos formas concretas de aplicar progresión lineal."
+    }
+  },
   "common": {
     "loading": "Cargando...",
     "error": "Error",
@@ -93,6 +165,10 @@
     "program_preview": {
       "about": "Acerca de {{name}}",
       "faq_title": "Preguntas frecuentes",
+      "learn_more": "Aprende antes de empezar",
+      "all_programs": "Comparar todos los programas",
+      "compare_gzclp": "GZCLP vs StrongLifts 5x5",
+      "progression_guide": "Guía de progresión automática",
       "by_author": "Por {{author}}",
       "back_label": "← Inicio",
       "back_aria": "Volver al inicio",

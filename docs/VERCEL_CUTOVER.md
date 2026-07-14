@@ -69,7 +69,7 @@ The internal-route guard fails closed, so if neither `CRON_SECRET` nor `INTERNAL
 ## (e) Run the first production deploy
 
 Trigger a Production deploy from the Vercel dashboard or run `vercel --prod` from the repo root.
-The build runs `scripts/vercel-build.sh`, which on `VERCEL_ENV=production` runs `pnpm --filter api db:deploy` to apply the Drizzle migrations and the idempotent reference-data seeds against `DIRECT_DATABASE_URL`, then regenerates the sitemap and builds the SPA with `VITE_API_URL=""` (the Chromium-free `build:no-prerender` path, since Vercel's build sandbox has no browser for the Playwright prerender).
+The build runs `scripts/vercel-build.sh`, which on `VERCEL_ENV=production` runs `pnpm --filter api db:deploy` to apply the Drizzle migrations and the idempotent reference-data seeds against `DIRECT_DATABASE_URL`, then regenerates the sitemap and builds the SPA with `VITE_API_URL=""`. Vercel does not need a preinstalled browser: the build installs the exact Chromium revision pinned by Playwright and runs the real-browser prerender. Every sitemap route is shipped both as a clean-URL `.html` file and a directory index, including the mounted body and route-owned JSON-LD. A prerender failure fails the deployment instead of silently publishing the generic SPA shell.
 The deploy step is idempotent and safe to re-run, and it is skipped on Preview and local builds (which point at the Neon branch).
 After the deploy finishes, confirm the function and static output are live and that `GET /api/health` returns `status: ok` with a healthy `db` block.
 

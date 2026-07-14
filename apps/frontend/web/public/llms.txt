@@ -2,6 +2,9 @@
 
 > Free web app for structured weightlifting with automatic progression. No spreadsheets, no guessing.
 
+Canonical URL: https://gravityroom.app/llms.txt
+Last updated: 2026-07-11
+
 ## What it does
 
 Gravity Room tracks weightlifting programs and automates progression. When you complete all prescribed reps, the app increases the weight for next session. When you fail, the program adapts — adjusting the set/rep scheme before deloading — so you keep making progress longer.
@@ -11,7 +14,7 @@ Gravity Room tracks weightlifting programs and automates progression. When you c
 - **Automatic progression**: weight adjusts based on your performance, not arbitrary schedules
 - **Multiple programs**: GZCLP, StrongLifts 5x5, Phrak's Greyskull LP, 5/3/1 BBB, 5/3/1 for Beginners, PHUL, Hexan PPL, and more in strength, hypertrophy, and powerlifting
 - **Strength statistics**: see your estimated 1RM curve and volume over time
-- **Cloud sync**: data syncs across devices via Google OAuth
+- **Cloud sync**: signed-in users can sync data across devices
 - **100% free**: no premium tier, no ads, no feature gates
 - **PWA**: works offline and installable on mobile
 
@@ -43,12 +46,24 @@ Gravity Room tracks weightlifting programs and automates progression. When you c
 
 Structured programs with built-in progression rules produce consistent strength gains because they apply progressive overload systematically. Gravity Room eliminates the mental overhead of managing this manually.
 
+## Evidence-based exercise guides
+
+- **Barbell squat** — https://gravityroom.app/en/exercises/squat
+- **Bench press** — https://gravityroom.app/en/exercises/bench-press
+- **Deadlift** — https://gravityroom.app/en/exercises/deadlift
+- **Sentadilla con barra** — https://gravityroom.app/ejercicios/sentadilla
+- **Press de banca** — https://gravityroom.app/ejercicios/press-banca
+- **Peso muerto** — https://gravityroom.app/ejercicios/peso-muerto
+
+Each guide identifies its editorial responsibility, technical reviewer, review date, methodology, and primary references. The guides are general educational material, not individualized medical advice.
+
 ## Technical Architecture
 
 - **Frontend**: React 19, Vite, TanStack Router, TanStack Query, Tailwind v4, TypeScript strict
-- **Backend**: ElysiaJS (Bun), PostgreSQL, Redis
-- **Analytics**: Python FastAPI with scikit-learn for plateau detection and 1RM forecasting
-- **Auth**: Google OAuth 2.0
+- **Backend**: ElysiaJS serverless API on Vercel with Drizzle ORM
+- **Data**: Neon PostgreSQL and Upstash Redis REST
+- **Analytics**: TypeScript insight pipelines in the API, computed by a protected Vercel Cron job
+- **Auth**: rotating JWT sessions; email/password and configurable Google, Apple, GitHub, and Microsoft sign-in
 - **Source**: https://github.com/rechedev9/gravity-room
 
 ## Links
@@ -56,6 +71,8 @@ Structured programs with built-in progression rules produce consistent strength 
 - Home (English): https://gravityroom.app/en
 - Home (Spanish): https://gravityroom.app/
 - Privacy Policy: https://gravityroom.app/privacy
+- Exercise guides (English): https://gravityroom.app/en/exercises
+- Guías de ejercicios (español): https://gravityroom.app/ejercicios
 - Extended LLM context: https://gravityroom.app/llms-full.txt
 - GitHub: https://github.com/rechedev9/gravity-room
 - Community: https://discord.gg/FXNBrgYf7U
@@ -71,7 +88,7 @@ Structured programs with built-in progression rules produce consistent strength 
 - Progresión automática de peso según rendimiento
 - Múltiples programas: GZCLP, StrongLifts 5x5, 5/3/1, PHUL y más
 - Estadísticas: curva de 1RM estimado y volumen en el tiempo
-- Sincronización en la nube vía Google OAuth
+- Sincronización en la nube para usuarios registrados
 - 100% gratis, sin anuncios ni nivel premium
 - PWA — funciona offline y se puede instalar en móvil
 
@@ -83,4 +100,4 @@ Structured programs with built-in progression rules produce consistent strength 
 
 ### Por qué la progresión automática importa
 
-Entrenar aleatoriamente es la razón principal por la que la mayoría se estanca. Los programas estructurados con reglas de progresión integradas producen ganancias de fuerza consistentes porque aplican sobrecarga progresiva de forma sistemática.
+Los programas estructurados permiten aplicar la sobrecarga progresiva de forma consistente y registrar cómo responde cada usuario. Los resultados dependen del entrenamiento, la recuperación y las circunstancias individuales.

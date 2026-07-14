@@ -34,6 +34,12 @@ const STATIC_ENTRIES: readonly SitemapEntry[] = [
   { path: '/en', priority: '1.0', changefreq: 'weekly' },
   { path: '/privacy', priority: '0.3', changefreq: 'monthly' },
   { path: '/cookies', priority: '0.3', changefreq: 'monthly' },
+  { path: '/programas', priority: '0.9', changefreq: 'weekly' },
+  { path: '/en/programs', priority: '0.9', changefreq: 'weekly' },
+  { path: '/programas/gzclp-vs-stronglifts', priority: '0.8', changefreq: 'monthly' },
+  { path: '/en/programs/gzclp-vs-stronglifts', priority: '0.8', changefreq: 'monthly' },
+  { path: '/programas/progresion-automatica', priority: '0.8', changefreq: 'monthly' },
+  { path: '/en/programs/automatic-progression', priority: '0.8', changefreq: 'monthly' },
 ];
 
 // Exercise-wiki index pages (es + en). Article detail URLs are derived from the

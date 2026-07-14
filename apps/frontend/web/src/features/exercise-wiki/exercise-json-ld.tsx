@@ -23,8 +23,32 @@ export function ExerciseJsonLd({
     '@type': 'Article',
     headline: c.title,
     description: c.description,
+    image: `${ORIGIN}/og-image.webp`,
     url,
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': url,
+    },
     inLanguage: lang,
+    author: {
+      '@type': 'Organization',
+      name: 'Gravity Room',
+      url: ORIGIN,
+    },
+    reviewedBy: {
+      '@type': 'Person',
+      name: article.reviewedBy,
+    },
+    dateModified: article.reviewedAt,
+    publisher: {
+      '@type': 'Organization',
+      name: 'Gravity Room',
+      url: ORIGIN,
+      logo: {
+        '@type': 'ImageObject',
+        url: `${ORIGIN}/logo-192.webp`,
+      },
+    },
     citation: article.references.map((r) => ({
       '@type': 'CreativeWork',
       name: r.title,

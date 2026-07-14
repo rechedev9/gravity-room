@@ -63,6 +63,36 @@ const ProgramPreviewPage = lazyWithRetry(() =>
     default: m.ProgramPreviewPage,
   }))
 );
+const ProgramIndexPageEs = lazyWithRetry(() =>
+  import('@/features/program-guide/program-guide-page').then((m) => ({
+    default: () => m.ProgramIndexPage({ lang: 'es' }),
+  }))
+);
+const ProgramIndexPageEn = lazyWithRetry(() =>
+  import('@/features/program-guide/program-guide-page').then((m) => ({
+    default: () => m.ProgramIndexPage({ lang: 'en' }),
+  }))
+);
+const ProgramComparisonPageEs = lazyWithRetry(() =>
+  import('@/features/program-guide/program-guide-page').then((m) => ({
+    default: () => m.ProgramGuidePage({ lang: 'es', kind: 'comparison' }),
+  }))
+);
+const ProgramComparisonPageEn = lazyWithRetry(() =>
+  import('@/features/program-guide/program-guide-page').then((m) => ({
+    default: () => m.ProgramGuidePage({ lang: 'en', kind: 'comparison' }),
+  }))
+);
+const ProgramProgressionPageEs = lazyWithRetry(() =>
+  import('@/features/program-guide/program-guide-page').then((m) => ({
+    default: () => m.ProgramGuidePage({ lang: 'es', kind: 'progression' }),
+  }))
+);
+const ProgramProgressionPageEn = lazyWithRetry(() =>
+  import('@/features/program-guide/program-guide-page').then((m) => ({
+    default: () => m.ProgramGuidePage({ lang: 'en', kind: 'progression' }),
+  }))
+);
 const NotFound = lazyWithRetry(() =>
   import('@/features/not-found/not-found').then((m) => ({ default: m.NotFound }))
 );
@@ -204,6 +234,48 @@ const programPreviewRoute = createRoute({
   component: ProgramPreviewPage,
 });
 
+const programIndexEsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/programas',
+  pendingComponent: ContentPageSkeleton,
+  component: ProgramIndexPageEs,
+});
+
+const programIndexEnRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/en/programs',
+  pendingComponent: ContentPageSkeleton,
+  component: ProgramIndexPageEn,
+});
+
+const programComparisonEsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/programas/gzclp-vs-stronglifts',
+  pendingComponent: ContentPageSkeleton,
+  component: ProgramComparisonPageEs,
+});
+
+const programComparisonEnRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/en/programs/gzclp-vs-stronglifts',
+  pendingComponent: ContentPageSkeleton,
+  component: ProgramComparisonPageEn,
+});
+
+const programProgressionEsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/programas/progresion-automatica',
+  pendingComponent: ContentPageSkeleton,
+  component: ProgramProgressionPageEs,
+});
+
+const programProgressionEnRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/en/programs/automatic-progression',
+  pendingComponent: ContentPageSkeleton,
+  component: ProgramProgressionPageEn,
+});
+
 const ejerciciosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/ejercicios',
@@ -326,6 +398,12 @@ const routeTree = rootRoute.addChildren([
   privacyRoute,
   cookiesRoute,
   programPreviewRoute,
+  programIndexEsRoute,
+  programIndexEnRoute,
+  programComparisonEsRoute,
+  programComparisonEnRoute,
+  programProgressionEsRoute,
+  programProgressionEnRoute,
   ejerciciosRoute,
   ejerciciosArticleRoute,
   exercisesEnRoute,

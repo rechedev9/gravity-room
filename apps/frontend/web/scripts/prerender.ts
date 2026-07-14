@@ -289,6 +289,14 @@ async function prerenderRoute(
   // resolution comfortably finish inside that window.
   await page.waitForTimeout(600);
 
+  // The source shell carries a generic bilingual <noscript> fallback. Once a
+  // route has been fully rendered it becomes duplicate, off-topic content
+  // (including a second H1) on every snapshot. The mounted route is the
+  // authoritative no-JS representation, so omit the fallback from prerenders.
+  await page.locator('noscript').evaluateAll((nodes) => {
+    for (const node of nodes) node.remove();
+  });
+
   // Vite/React inject <link rel="modulepreload"> for route chunks at runtime,
   // resolved against the live preview origin (http://127.0.0.1:<port>), and
   // page.content() captures them absolute. Strip the origin so the shipped
@@ -308,7 +316,23 @@ async function writeRouteHtml(path: string, html: string): Promise<void> {
   const trimmed = path === '/' ? '' : path.replace(/^\/+/, '').replace(/\/+$/, '');
   const outDir = trimmed === '' ? DIST_DIR : resolve(DIST_DIR, trimmed);
   await mkdir(outDir, { recursive: true });
-  await writeFile(resolve(outDir, 'index.html'), html, 'utf8');
+  const directoryIndex = resolve(outDir, 'index.html');
+  if (trimmed === '') {
+    await writeFile(directoryIndex, html, 'utf8');
+    return;
+  }
+
+  // Vercel's cleanUrls filesystem lookup maps `/programs/gzclp` to
+  // `dist/programs/gzclp.html`. Keep the directory-index copy as well for
+  // conventional static servers (`vite preview`, Caddy, object storage).
+  // Without the clean-URL copy, the catch-all SPA rewrite can hide a perfectly
+  // good prerendered directory and serve the root index instead.
+  const cleanUrlFile = resolve(DIST_DIR, `${trimmed}.html`);
+  await mkdir(dirname(cleanUrlFile), { recursive: true });
+  await Promise.all([
+    writeFile(directoryIndex, html, 'utf8'),
+    writeFile(cleanUrlFile, html, 'utf8'),
+  ]);
 }
 
 async function writeNotFoundFallback(): Promise<void> {

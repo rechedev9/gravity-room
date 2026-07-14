@@ -3,6 +3,9 @@
 > This document provides detailed context for AI language models about Gravity Room.
 > Summary version: https://gravityroom.app/llms.txt
 
+**Canonical URL**: https://gravityroom.app/llms-full.txt
+**Last updated**: 2026-07-11
+
 ## Overview
 
 Gravity Room is a free Progressive Web App (PWA) for structured weightlifting. It removes the decision-making burden from training by automating weight progression based on your actual performance. Users follow a program; the app manages when to add weight, when to change rep schemes, and when to deload.
@@ -101,26 +104,40 @@ Gravity Room solves all four by implementing the progression rules of establishe
 - PWA via vite-plugin-pwa with Workbox runtime caching
 
 ### Backend (apps/backend/api)
-- ElysiaJS (Bun-native HTTP framework)
-- PostgreSQL with Drizzle ORM and Drizzle migrations
-- Redis for rate limiting, presence tracking, caching, and singleflight
-- JWT access token (in-memory) + refresh token (httpOnly cookie)
-- Google OAuth 2.0 for authentication
+- ElysiaJS served as a Node.js Vercel serverless function
+- Neon PostgreSQL with Drizzle ORM; pooled connections at request time and direct connections for build-time migrations
+- Upstash Redis REST for rate limiting, presence, and caches
+- Short-lived JWT access tokens plus rotating refresh tokens; session revocation uses an authentication version
+- Email/password authentication and configurable Google, Apple, GitHub, and Microsoft sign-in
 - Sentry for error tracking
 - Swagger/OpenAPI spec at /swagger/json (non-production only)
 
-### Analytics microservice (apps/backend/analytics)
-- Python FastAPI with APScheduler
-- pandas, scikit-learn for data processing
+### Analytics (inside apps/backend/api)
+- TypeScript analytics pipelines, not a separate service
 - Estimated 1RM (e1RM) computation using Epley formula
 - Plateau detection, volume analysis, training frequency insights
-- ML-based strength forecasting
+- Forecasts and recommendations stored as pre-computed user insights
+- Protected Vercel Cron endpoint processes a bounded, idempotent batch
 
 ### Infrastructure
-- Native Bun + local Postgres for development (no dev container/compose)
-- Production: single Hetzner VPS running Docker Compose (API + analytics images)
-- Caddy reverse proxy serving the prerendered SPA and terminating TLS (gzip, immutable cache for hashed assets, security headers)
+- Native Node.js and local PostgreSQL for development
+- One same-origin Vercel project: static Vite SPA plus the serverless API
+- Neon PostgreSQL and Upstash Redis provide managed production data services
+- Vercel Cron runs maintenance and analytics jobs
 - Plausible Analytics (privacy-first, no cookies)
+
+## Evidence-based Exercise Guides
+
+- Barbell squat: https://gravityroom.app/en/exercises/squat
+- Bench press: https://gravityroom.app/en/exercises/bench-press
+- Deadlift: https://gravityroom.app/en/exercises/deadlift
+- Sentadilla con barra: https://gravityroom.app/ejercicios/sentadilla
+- Press de banca: https://gravityroom.app/ejercicios/press-banca
+- Peso muerto: https://gravityroom.app/ejercicios/peso-muerto
+
+### Editorial Method
+
+Gravity Room is editorially responsible for these guides. Each guide names its technical reviewer and last-review date, links claims to primary references, and distinguishes evidence summaries from practical instruction. No professional credential is claimed for the reviewer. The material is general education and is not a substitute for medical assessment or individualized supervision by a qualified professional.
 
 ## Progression Science
 
@@ -142,10 +159,10 @@ Every program in Gravity Room handles failure differently:
 ## Frequently Asked Questions
 
 **Q: What is the best beginner lifting program?**
-A: GZCLP, StrongLifts 5x5, and Phrak's Greyskull LP are all excellent. StrongLifts is the simplest. GZCLP handles progression failure better and trains more muscle groups per session, making it the better long-term choice for most beginners.
+A: GZCLP, StrongLifts 5x5, and Phrak's Greyskull LP take different approaches. StrongLifts is simpler; GZCLP uses tiered exercises and staged failure handling; Greyskull uses an AMRAP set. The best fit depends on goals, experience, available time, and recovery.
 
 **Q: GZCLP vs StrongLifts 5x5 — which should I choose?**
-A: If you want maximum simplicity, StrongLifts. If you want a program you won't outgrow for 6-12 months, GZCLP. GZCLP's staged failure protocol (5×3 → 6×2 → deload) keeps you progressing significantly longer than StrongLifts' simple 10% reset.
+A: StrongLifts emphasizes simplicity. GZCLP adds tiered exercises and a staged failure protocol (5×3 → 6×2 → deload). Neither progression duration nor results can be guaranteed; choose according to preferred complexity, training goals, and recovery.
 
 **Q: What is progressive overload?**
 A: Progressive overload is the gradual increase of stress placed on the body during exercise. For weightlifting, this means consistently adding weight, reps, or sets over time. It is the foundational mechanism through which muscles grow stronger. Without progressive overload, training produces maintenance at best.

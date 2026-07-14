@@ -86,9 +86,8 @@ export function ProgramJsonLd({
     step: buildSteps(days),
   };
 
-  // Home › <program>. Enables breadcrumb rich results and tells crawlers the
-  // page's place in the site hierarchy. Two levels: there is no standalone
-  // /programs index route to sit in between.
+  // Home › Programs › <program>. The public program index is the stable hub
+  // linking every catalog page, so crawlers can understand the hierarchy.
   const breadcrumb = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -102,6 +101,12 @@ export function ProgramJsonLd({
       {
         '@type': 'ListItem',
         position: 2,
+        name: 'Programs',
+        item: 'https://gravityroom.app/en/programs',
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
         name,
         item: programUrl,
       },

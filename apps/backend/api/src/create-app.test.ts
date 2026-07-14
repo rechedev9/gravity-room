@@ -86,6 +86,30 @@ describe('GET /api/health', () => {
     const body = (await res.json()) as Record<string, unknown>;
     expect('uptime' in body).toBe(false);
   });
+
+  it('is never cached by browsers or intermediary proxies', async () => {
+    const res = await app.handle(new Request('http://localhost/api/health'));
+    expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+});
+
+describe('request body limit', () => {
+  it('rejects oversized bodies before route parsing', async () => {
+    const res = await app.handle(
+      new Request('http://localhost/api/auth/google', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'content-length': String(2 * 1024 * 1024 + 1),
+        },
+        body: '{}',
+      })
+    );
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(res.status).toBe(413);
+    expect(body).toEqual({ error: 'Request body too large', code: 'PAYLOAD_TOO_LARGE' });
+  });
 });
 
 describe('security headers', () => {

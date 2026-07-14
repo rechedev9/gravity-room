@@ -20,6 +20,23 @@ describe('ExerciseArticleView', () => {
     expect(iframe).not.toBeNull();
     expect(iframe?.src).toContain('t2b8UdqmlFs');
   });
+  it('shows transparent review, methodology, and safety information in both languages', () => {
+    const { rerender } = render(<ExerciseArticleView article={squatArticle} lang="en" />);
+    expect(
+      screen.getByText(`Technical review: ${squatArticle.reviewedBy}`, { exact: false })
+    ).toBeTruthy();
+    expect(screen.getByText('Methodology:', { exact: false })).toBeTruthy();
+    expect(
+      screen.getByText('not a substitute for medical assessment', { exact: false })
+    ).toBeTruthy();
+
+    rerender(<ExerciseArticleView article={squatArticle} lang="es" />);
+    expect(
+      screen.getByText(`Revisión técnica: ${squatArticle.reviewedBy}`, { exact: false })
+    ).toBeTruthy();
+    expect(screen.getByText('Metodología:', { exact: false })).toBeTruthy();
+    expect(screen.getByText('no sustituye una valoración médica', { exact: false })).toBeTruthy();
+  });
   it('renders a variations section with the variation name when provided', () => {
     const articleWithVariations = {
       ...squatArticle,

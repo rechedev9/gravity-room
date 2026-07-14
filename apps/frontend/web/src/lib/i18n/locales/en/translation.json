@@ -1,4 +1,76 @@
 {
+  "programGuide": {
+    "navigation": "Program navigation",
+    "index": {
+      "navLabel": "Programs",
+      "seoTitle": "Free strength programs: GZCLP, 5x5 and more | Gravity Room",
+      "seoDescription": "Compare strength and hypertrophy programs and inspect the full schedule before starting. Free tracker with automatic progression.",
+      "heading": "Workout programs",
+      "intro": "Explore strength and hypertrophy programs by experience level. Every page shows the full schedule and program rules, so you can make an informed choice before logging your first workout.",
+      "viewProgram": "View schedule and rules",
+      "chooseHeading": "GZCLP or StrongLifts 5x5?",
+      "chooseBody": "Both are linear progression programs for beginners, but they organize volume, frequency and failure response differently.",
+      "compareCta": "Compare GZCLP and StrongLifts 5x5"
+    },
+    "comparison": {
+      "navLabel": "GZCLP vs 5x5",
+      "seoTitle": "GZCLP vs StrongLifts 5x5: differences and choice | Gravity Room",
+      "seoDescription": "A direct GZCLP and StrongLifts 5x5 comparison covering frequency, structure, progression and failure rules for beginners.",
+      "heading": "GZCLP vs StrongLifts 5x5",
+      "answer": "StrongLifts 5x5 prioritizes simplicity: three weekly sessions, two alternating workouts and five sets of five for the main lifts. GZCLP uses T1, T2 and T3 tiers, a four-workout rotation and rep-scheme changes after failure. Choose StrongLifts for fewer decisions; choose GZCLP for a more detailed balance of strength and volume.",
+      "sections": [
+        {
+          "heading": "Frequency and structure",
+          "body": "StrongLifts alternates two A/B workouts on three non-consecutive days each week and includes squats in every session. GZCLP rotates four workouts, each combining a T1 main lift, T2 secondary work and T3 accessories."
+        },
+        {
+          "heading": "How load progresses",
+          "body": "Both programs add load while you complete the prescribed work. In Gravity Room's catalog, StrongLifts adds 2.5 kg per session and 5 kg for deadlifts. GZCLP applies linear progression across its tiers and changes sets and reps after failure."
+        },
+        {
+          "heading": "What happens after failure",
+          "body": "StrongLifts applies a 10% deload after three consecutive failures on a lift. GZCLP moves T1 from 5x3 to 6x2 and later resets after the next stage. Each program page exposes these rules before you start."
+        },
+        {
+          "heading": "Which one should you choose?",
+          "body": "StrongLifts fits lifters who value a highly repeatable weekly pattern. GZCLP offers more rep variety and a clear split between main, secondary and accessory work. The better choice is the one compatible with your schedule and equipment."
+        }
+      ],
+      "ctaHeading": "Inspect both schedules",
+      "ctaBody": "Open the interactive program pages to see every workout and start tracking your chosen program for free."
+    },
+    "progression": {
+      "navLabel": "Automatic progression",
+      "seoTitle": "Automatic strength progression: how it works | Gravity Room",
+      "seoDescription": "A practical progressive overload guide: when to add weight, what to do after failure and how a tracker applies each program's rules.",
+      "heading": "Automatic progression and progressive overload",
+      "answer": "Progressive overload means gradually increasing a training variable such as load or repetitions. Within a defined program, automatic progression applies its rules after you log the result: it raises the load after success or activates the appropriate failure and deload stage.",
+      "sections": [
+        {
+          "heading": "Complete the prescription first",
+          "body": "You do not need to add weight to every set. Log the sets, repetitions and outcome prescribed by the program. The next workout is calculated from that outcome and the movement's specific rules."
+        },
+        {
+          "heading": "Linear progression",
+          "body": "In linear progression, load increases by a defined amount after a completed session. StrongLifts and GZCLP use this principle, although their frequency, increments, volume and failure protocols differ."
+        },
+        {
+          "heading": "Double progression",
+          "body": "For accessory work, some programs increase repetitions within a range before adding weight. This avoids forcing a load jump when available equipment does not offer small increments."
+        },
+        {
+          "heading": "Failures and deloads",
+          "body": "Missing a prescription does not require improvisation. A program may hold the load, change sets and reps or reduce weight. Gravity Room stores that rule in the program definition and applies it when you log the result."
+        },
+        {
+          "heading": "What the tracker automates",
+          "body": "The tracker calculates the next workout from the selected definition, displays the schedule and retains history. Automation executes program rules; it does not replace choosing a reasonable starting load or using sound technique."
+        }
+      ],
+      "ctaHeading": "Try a defined progression",
+      "ctaBody": "Inspect GZCLP and StrongLifts 5x5 to compare two concrete applications of linear progression."
+    }
+  },
   "common": {
     "loading": "Loading...",
     "error": "Error",
@@ -93,6 +165,10 @@
     "program_preview": {
       "about": "About {{name}}",
       "faq_title": "Frequently asked questions",
+      "learn_more": "Learn before you start",
+      "all_programs": "Compare all programs",
+      "compare_gzclp": "GZCLP vs StrongLifts 5x5",
+      "progression_guide": "Automatic progression guide",
       "by_author": "By {{author}}",
       "back_label": "← Home",
       "back_aria": "Back to home",

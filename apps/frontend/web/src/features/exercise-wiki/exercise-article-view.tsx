@@ -13,6 +13,13 @@ const LABELS = {
     variations: 'Variantes y progresiones',
     references: 'Referencias',
     videoGuide: 'Guía en vídeo',
+    editorialResponsibility: 'Responsabilidad editorial: Gravity Room',
+    technicalReview: 'Revisión técnica',
+    lastReviewed: 'Última revisión',
+    methodology:
+      'Metodología: síntesis editorial de las fuentes primarias citadas, contrastada con principios de biomecánica y entrenamiento de fuerza.',
+    disclaimer:
+      'Contenido educativo general; no sustituye una valoración médica ni la supervisión individual de un profesional cualificado.',
   },
   en: {
     summary: 'Summary',
@@ -23,6 +30,13 @@ const LABELS = {
     variations: 'Variations & progressions',
     references: 'References',
     videoGuide: 'Video guide',
+    editorialResponsibility: 'Editorial responsibility: Gravity Room',
+    technicalReview: 'Technical review',
+    lastReviewed: 'Last reviewed',
+    methodology:
+      'Methodology: an editorial synthesis of the cited primary sources, checked against strength-training and biomechanics principles.',
+    disclaimer:
+      'General educational content; it is not a substitute for medical assessment or individual supervision by a qualified professional.',
   },
 } as const;
 
@@ -121,6 +135,15 @@ export function ExerciseArticleView({
         <p className="text-base leading-relaxed text-muted" style={PROSE}>
           {c.description}
         </p>
+        <aside className="mt-6 border-l-2 border-accent-dim pl-4 text-xs leading-relaxed text-muted">
+          <p>{l.editorialResponsibility}</p>
+          <p>
+            {l.technicalReview}: {article.reviewedBy} · {l.lastReviewed}:{' '}
+            <time dateTime={article.reviewedAt}>{article.reviewedAt}</time>
+          </p>
+          <p className="mt-2">{l.methodology}</p>
+          <p className="mt-1">{l.disclaimer}</p>
+        </aside>
       </header>
 
       {article.video !== undefined && videoNum !== null && (

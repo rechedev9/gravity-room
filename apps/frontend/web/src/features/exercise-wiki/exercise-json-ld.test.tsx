@@ -33,6 +33,22 @@ describe('ExerciseJsonLd', () => {
     const ld = parseLd(html);
     expect(ld.url).toBe('https://gravityroom.app/en/exercises/squat');
   });
+  it('declares transparent editorial and review metadata', () => {
+    const html = renderToStaticMarkup(<ExerciseJsonLd article={squatArticle} lang="en" />);
+    const ld = parseLd(html);
+    expect(ld.author).toEqual({
+      '@type': 'Organization',
+      name: 'Gravity Room',
+      url: 'https://gravityroom.app',
+    });
+    expect(ld.reviewedBy).toEqual({ '@type': 'Person', name: squatArticle.reviewedBy });
+    expect(ld.dateModified).toBe(squatArticle.reviewedAt);
+    expect(ld.image).toBe('https://gravityroom.app/og-image.webp');
+    expect(ld.mainEntityOfPage).toEqual({
+      '@type': 'WebPage',
+      '@id': 'https://gravityroom.app/en/exercises/squat',
+    });
+  });
   it('uses the es localized canonical url', () => {
     const html = renderToStaticMarkup(<ExerciseJsonLd article={squatArticle} lang="es" />);
     const ld = parseLd(html);

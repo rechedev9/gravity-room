@@ -4,6 +4,7 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "bash scripts/vercel-build.sh",
   "outputDirectory": "apps/frontend/web/dist",
+  "cleanUrls": true,
   "functions": {
     "api/index.ts": {
       "maxDuration": 60

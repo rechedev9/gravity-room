@@ -19,6 +19,8 @@ import { getRedis } from './lib/redis';
 import { logger } from './lib/logger';
 import { formatValidationError, validateEnv } from './lib/env-validation';
 
+const MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024;
+
 // ---------------------------------------------------------------------------
 // Options
 // ---------------------------------------------------------------------------
@@ -91,6 +93,17 @@ export function createApp(options: CreateAppOptions) {
   }
 
   const app = new Elysia()
+    .onRequest(({ request }) => {
+      // Reject obviously oversized payloads before Elysia parses JSON. Vercel
+      // enforces its own platform limit, but this also protects local and
+      // self-hosted deployments from spending CPU/memory on abusive bodies.
+      const contentLength = request.headers.get('content-length');
+      if (contentLength === null) return;
+      const bytes = Number(contentLength);
+      if (Number.isFinite(bytes) && bytes > MAX_REQUEST_BODY_BYTES) {
+        throw new ApiError(413, 'Request body too large', 'PAYLOAD_TOO_LARGE');
+      }
+    })
     .use(
       cors({
         origin: corsOrigins,
@@ -182,38 +195,44 @@ export function createApp(options: CreateAppOptions) {
         .get(
           '/health',
           async ({ set }) => {
-            const start = Date.now();
-            let dbStatus: { status: 'ok'; latencyMs: number } | { status: 'error'; error: string };
-            try {
-              await getDb().execute(sql`SELECT 1`);
-              dbStatus = { status: 'ok', latencyMs: Date.now() - start };
-            } catch (e) {
-              logger.error({ err: e }, 'Database health check failed');
-              dbStatus = { status: 'error', error: 'Unavailable' };
-            }
-
             type RedisStatus =
               | { status: 'ok'; latencyMs: number }
               | { status: 'disabled' }
               | { status: 'error'; error: string };
 
-            let redisStatus: RedisStatus;
-            const redis = getRedis();
-            if (!redis) {
-              redisStatus = { status: 'disabled' };
-            } else {
-              const redisStart = Date.now();
+            const checkDatabase = async (): Promise<
+              { status: 'ok'; latencyMs: number } | { status: 'error'; error: string }
+            > => {
+              const start = Date.now();
+              try {
+                await getDb().execute(sql`SELECT 1`);
+                return { status: 'ok', latencyMs: Date.now() - start };
+              } catch (e) {
+                logger.error({ err: e }, 'Database health check failed');
+                return { status: 'error', error: 'Unavailable' };
+              }
+            };
+
+            const checkRedis = async (): Promise<RedisStatus> => {
+              const redis = getRedis();
+              if (!redis) return { status: 'disabled' };
+              const start = Date.now();
               try {
                 await redis.ping();
-                redisStatus = { status: 'ok', latencyMs: Date.now() - redisStart };
+                return { status: 'ok', latencyMs: Date.now() - start };
               } catch (e) {
                 logger.error({ err: e }, 'Redis health check failed');
-                redisStatus = { status: 'error', error: 'Unavailable' };
+                return { status: 'error', error: 'Unavailable' };
               }
-            }
+            };
+
+            // The probes are independent; total latency should be the slower
+            // dependency, not the sum of both network round trips.
+            const [dbStatus, redisStatus] = await Promise.all([checkDatabase(), checkRedis()]);
 
             const overall = dbStatus.status === 'ok' ? 'ok' : 'degraded';
             if (overall === 'degraded') set.status = 503;
+            set.headers['cache-control'] = 'no-store';
             return {
               status: overall,
               timestamp: new Date().toISOString(),

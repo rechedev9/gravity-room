@@ -416,6 +416,47 @@ export function ProgramPreviewPage(): ReactNode {
         {/* Per-program FAQ — visible Q&A + FAQPage JSON-LD for AI/search extraction */}
         <ProgramFaq items={faqItems} />
 
+        {/* Editorial hub links keep program pages connected to the public
+            comparison/progression cluster instead of acting as orphan previews. */}
+        <aside className="mt-8 border-t border-rule pt-6" aria-labelledby="program-learn-heading">
+          <h2
+            id="program-learn-heading"
+            className="font-display text-lg uppercase tracking-wide text-title mb-3"
+          >
+            {t('catalog.program_preview.learn_more')}
+          </h2>
+          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            <Link
+              to={i18n.language.startsWith('en') ? '/en/programs' : '/programas'}
+              className="font-bold text-accent hover:underline"
+            >
+              {t('catalog.program_preview.all_programs')}
+            </Link>
+            {(programId === 'gzclp' || programId === 'stronglifts-5x5') && (
+              <Link
+                to={
+                  i18n.language.startsWith('en')
+                    ? '/en/programs/gzclp-vs-stronglifts'
+                    : '/programas/gzclp-vs-stronglifts'
+                }
+                className="font-bold text-accent hover:underline"
+              >
+                {t('catalog.program_preview.compare_gzclp')}
+              </Link>
+            )}
+            <Link
+              to={
+                i18n.language.startsWith('en')
+                  ? '/en/programs/automatic-progression'
+                  : '/programas/progresion-automatica'
+              }
+              className="font-bold text-accent hover:underline"
+            >
+              {t('catalog.program_preview.progression_guide')}
+            </Link>
+          </div>
+        </aside>
+
         {/* Auth-aware CTA section */}
         {!authLoading &&
           (user === null || programsQueryFailed ? (

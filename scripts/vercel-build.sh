@@ -16,13 +16,10 @@
 #      relative "/api" requests so the static SPA talks to the catch-all function
 #      (api/[...path].ts) on the same Vercel domain.
 #
-#      The web "build" script also runs a Playwright/Chromium prerender pass
-#      (scripts/prerender.ts) for SEO snapshots. That step needs a real browser,
-#      which is NOT guaranteed in Vercel's build sandbox, so here we run the
-#      Chromium-free path instead: regenerate the sitemap (pure data, no browser)
-#      and then "build:no-prerender" (vite build only). The full Chromium HTML
-#      prerender ("pnpm --filter web build") still runs in CI, where Playwright
-#      Chromium is installed, so SEO snapshots are covered before merge.
+#      Vercel does not guarantee a preinstalled browser. Install the exact
+#      Chromium revision pinned by the lockfile, then run the same real-browser
+#      prerender used in CI. The deployed files therefore include the mounted
+#      route body and its route-owned JSON-LD, not merely injected head tags.
 #
 # Fail fast on any error, unset variable, or failed pipe stage.
 set -euo pipefail
@@ -40,5 +37,11 @@ node scripts/bundle-api-function.mjs
 echo "[vercel-build] regenerating sitemap.xml (Chromium-free)"
 pnpm --filter web sitemap
 
-echo "[vercel-build] building web SPA (same-origin: VITE_API_URL=\"\", prerender skipped)"
+echo "[vercel-build] building web SPA (same-origin: VITE_API_URL=\"\")"
 VITE_API_URL="" pnpm --filter web build:no-prerender
+
+echo "[vercel-build] installing lockfile-pinned Playwright Chromium"
+pnpm --filter web exec playwright install chromium
+
+echo "[vercel-build] prerendering complete public routes with Chromium"
+pnpm --filter web exec tsx scripts/prerender.ts

@@ -75,8 +75,9 @@ No hay workflow de GitHub: la integración Git de Vercel despliega en cada push 
    Neon desechable).
 2. **Sitemap.** Regenera `sitemap.xml` (datos puros, sin navegador).
 3. **Build del SPA** con `VITE_API_URL=""` (same-origin) por la ruta
-   `build:no-prerender`: el sandbox de build de Vercel no trae Chromium para el
-   prerender de Playwright.
+   `build:no-prerender`, instala la revisión de Chromium fijada por Playwright y
+   ejecuta el prerender completo. El despliegue incluye cuerpo, metadatos y
+   JSON-LD específicos para cada URL pública.
 
 ### Datos y estado
 
