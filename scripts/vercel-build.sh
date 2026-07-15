@@ -38,7 +38,10 @@ echo "[vercel-build] regenerating sitemap.xml (Chromium-free)"
 pnpm --filter web sitemap
 
 echo "[vercel-build] building web SPA (same-origin: VITE_API_URL=\"\")"
-VITE_API_URL="" pnpm --filter web build:no-prerender
+# Keep the explicit empty value in the environment for both `vite build` and
+# the later `vite preview` process started by the prerender script.
+export VITE_API_URL=""
+pnpm --filter web build:no-prerender
 
 echo "[vercel-build] installing lockfile-pinned Playwright Chromium"
 pnpm --filter web exec playwright install chromium
