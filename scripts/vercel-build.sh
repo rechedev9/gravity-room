@@ -16,10 +16,11 @@
 #      relative "/api" requests so the static SPA talks to the catch-all function
 #      (api/[...path].ts) on the same Vercel domain.
 #
-#      Vercel does not guarantee a preinstalled browser. Install the exact
-#      Chromium revision pinned by the lockfile, then run the same real-browser
-#      prerender used in CI. The deployed files therefore include the mounted
-#      route body and its route-owned JSON-LD, not merely injected head tags.
+#      Vercel does not provide Chromium's Linux system libraries or apt-get, so
+#      the prerender uses the serverless-compatible @sparticuz/chromium binary.
+#      Local/CI builds retain Playwright's normal lockfile-pinned browser. The
+#      deployed files therefore include the mounted route body and its
+#      route-owned JSON-LD, not merely injected head tags.
 #
 # Fail fast on any error, unset variable, or failed pipe stage.
 set -euo pipefail
@@ -43,8 +44,12 @@ echo "[vercel-build] building web SPA (same-origin: VITE_API_URL=\"\")"
 export VITE_API_URL=""
 pnpm --filter web build:no-prerender
 
-echo "[vercel-build] installing lockfile-pinned Playwright Chromium and Linux dependencies"
-pnpm --filter web exec playwright install --with-deps chromium
+if [ "${VERCEL:-}" = "1" ]; then
+  echo "[vercel-build] using @sparticuz/chromium for the Vercel prerender"
+else
+  echo "[vercel-build] installing lockfile-pinned Playwright Chromium"
+  pnpm --filter web exec playwright install chromium
+fi
 
 echo "[vercel-build] prerendering complete public routes with Chromium"
 pnpm --filter web exec tsx scripts/prerender.ts

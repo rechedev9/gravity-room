@@ -30,6 +30,7 @@ import { connect, createServer } from 'node:net';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, type Browser, type BrowserContext } from '@playwright/test';
+import serverlessChromium from '@sparticuz/chromium';
 
 import { PROGRAM_CATALOG } from '@gzclp/domain/catalog';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
@@ -363,10 +364,18 @@ async function writeNotFoundFallback(): Promise<void> {
  * far cheaper than failing the whole build/deploy on a transient hiccup.
  */
 async function launchChromiumWithRetry(attempts = 3): Promise<Browser> {
+  const serverlessLaunchOptions =
+    process.env.VERCEL === '1'
+      ? {
+          args: serverlessChromium.args,
+          executablePath: await serverlessChromium.executablePath(),
+          headless: true,
+        }
+      : {};
   let lastErr: unknown;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      return await chromium.launch({ timeout: 60_000 });
+      return await chromium.launch({ timeout: 60_000, ...serverlessLaunchOptions });
     } catch (err) {
       lastErr = err;
       const msg = err instanceof Error ? err.message : String(err);
