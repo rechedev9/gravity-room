@@ -10,9 +10,9 @@ export const GITHUB_URL = 'https://github.com/rechedev9/gravity-room';
 
 export const SECTION_IDS = ['how-it-works', 'programs', 'free-trust', 'faq'] as const;
 
-export const MAX_LANDING_PROGRAMS = 6;
+export const MAX_LANDING_PROGRAMS = 3;
 export const CATALOG_STALE_TIME = 5 * 60 * 1000;
-export const SECTION_PAD = 'px-6 sm:px-10 py-14 sm:py-20';
+export const SECTION_PAD = 'px-6 sm:px-10 py-12 sm:py-16';
 
 /* ── Gradient Divider ─────────────────────────────── */
 
@@ -33,7 +33,7 @@ export function GradientDivider(): React.ReactNode {
 /* ── Section label ────────────────────────────────── */
 
 export function SectionLabel({ children }: { readonly children: string }): React.ReactNode {
-  return <div className="section-label mb-12">{children}</div>;
+  return <div className="section-label mb-8">{children}</div>;
 }
 
 /* ── Section header ───────────────────────────────── */
@@ -59,12 +59,12 @@ export function SectionHeader({
       <h2
         id={headingId}
         className="font-display text-center mb-4 leading-none text-title"
-        style={{ fontSize: 'clamp(40px, 6vw, 72px)', letterSpacing: '0.02em' }}
+        style={{ fontSize: 'clamp(36px, 5vw, 64px)', letterSpacing: '0.02em' }}
       >
         {title}
       </h2>
       <p
-        className={`text-center mb-16 ${subtitleWidth === 'md' ? 'max-w-md' : 'max-w-lg'} mx-auto text-muted`}
+        className={`text-center mb-10 ${subtitleWidth === 'md' ? 'max-w-md' : 'max-w-lg'} mx-auto text-muted`}
         style={{ fontSize: '17px', lineHeight: 1.7 }}
       >
         {subtitle}

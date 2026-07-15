@@ -16,15 +16,12 @@ import {
 } from './shared';
 import { NavBar } from './nav-bar';
 import { HeroSection } from './hero-section';
-import { MetricsSection } from './metrics-section';
 import { ProblemSection } from './problem-section';
-import { MidPageCtaSection } from './mid-page-cta-section';
 import { FreeTrustSection } from './free-trust-section';
-import { FinalCtaSection } from './final-cta-section';
 import type { HeadProps } from '@/hooks/use-head';
 
 // Below-the-fold sections — lazy-loaded so the initial landing payload only
-// carries the hero + first two sections. The Suspense fallback is `null`
+// carries the hero and compact problem/solution section. The Suspense fallback is `null`
 // because the sections animate in on scroll anyway.
 const FeaturesSection = lazy(() =>
   import('./features-section').then((m) => ({ default: m.FeaturesSection }))
@@ -32,14 +29,8 @@ const FeaturesSection = lazy(() =>
 const HowItWorksSection = lazy(() =>
   import('./how-it-works-section').then((m) => ({ default: m.HowItWorksSection }))
 );
-const ScienceSection = lazy(() =>
-  import('./science-section').then((m) => ({ default: m.ScienceSection }))
-);
 const ProgramsSection = lazy(() =>
   import('./programs-section').then((m) => ({ default: m.ProgramsSection }))
-);
-const ComparisonSection = lazy(() =>
-  import('./comparison-section').then((m) => ({ default: m.ComparisonSection }))
 );
 const FaqSection = lazy(() => import('./faq-section').then((m) => ({ default: m.FaqSection })));
 
@@ -88,35 +79,28 @@ export function LandingPageShell({ content, head, lang }: LandingPageShellProps)
         <GradientDivider />
         <ProblemSection content={content.problem} />
         <GradientDivider />
-        <MetricsSection
-          programCount={programCount}
-          minDaysPerWeek={minDaysPerWeek}
-          totalWorkouts={totalWorkouts}
-          content={content.metrics}
-        />
-        <GradientDivider />
         <Suspense fallback={null}>
           <HowItWorksSection content={content.howItWorks} />
         </Suspense>
-        <MidPageCtaSection content={content.midPageCta} />
         <GradientDivider />
         <Suspense fallback={null}>
           <FeaturesSection content={content.features} />
           <GradientDivider />
-          <ProgramsSection catalogQuery={catalogQuery} content={content.programs} />
-          <GradientDivider />
-          <ScienceSection content={content.science} />
+          <ProgramsSection
+            catalogQuery={catalogQuery}
+            content={content.programs}
+            metricsContent={content.metrics}
+            programCount={programCount}
+            minDaysPerWeek={minDaysPerWeek}
+            totalWorkouts={totalWorkouts}
+          />
         </Suspense>
         <GradientDivider />
         <FreeTrustSection content={content.freeTrust} />
         <GradientDivider />
         <Suspense fallback={null}>
-          <ComparisonSection content={content.comparison} />
-          <GradientDivider />
-          <FaqSection content={content.faq} />
+          <FaqSection content={content.faq} finalCta={content.finalCta} />
         </Suspense>
-        <GradientDivider />
-        <FinalCtaSection content={content.finalCta} />
       </main>
 
       <Footer content={content.footer} navLinks={content.nav.links} />

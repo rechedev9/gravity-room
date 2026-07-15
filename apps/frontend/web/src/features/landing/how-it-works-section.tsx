@@ -1,4 +1,4 @@
-import { FadeUp, StaggerContainer, StaggerItem, fadeUpVariants } from '@/lib/motion-primitives';
+import { FadeUp, StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
 import { SECTION_PAD, SectionHeader } from './shared';
 import type { HowItWorksContent } from './content';
 
@@ -13,7 +13,7 @@ export function HowItWorksSection({ content }: HowItWorksSectionProps): React.Re
       aria-labelledby="how-it-works-heading"
       className={`${SECTION_PAD} bg-header`}
     >
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         <FadeUp>
           <SectionHeader
             label={content.sectionLabel}
@@ -23,53 +23,16 @@ export function HowItWorksSection({ content }: HowItWorksSectionProps): React.Re
           />
         </FadeUp>
 
-        {/* Timeline connector (desktop only) */}
-        <div className="hidden sm:block relative mb-10">
-          <div
-            className="absolute top-4 left-[16.67%] right-[16.67%] h-px"
-            style={{
-              background:
-                'linear-gradient(90deg, transparent 0%, var(--color-accent) 20%, var(--color-accent) 80%, transparent 100%)',
-              opacity: 0.3,
-            }}
-          />
-          <div className="grid grid-cols-3">
-            {content.steps.map((s) => (
-              <div key={s.num} className="flex justify-center">
-                <div className="w-8 h-8 rounded-full border-2 border-accent bg-header flex items-center justify-center">
-                  <span className="font-mono text-[10px] font-bold text-accent">{s.num}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <StaggerContainer stagger={0.15} className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-6">
+        <StaggerContainer stagger={0.12} className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-rule">
           {content.steps.map((s) => (
-            <StaggerItem key={s.num} variants={fadeUpVariants} className="relative text-center">
-              {/* Mobile step number */}
-              <div className="sm:hidden font-display text-4xl font-bold mb-3 text-accent opacity-60">
+            <StaggerItem key={s.num} className="relative bg-card p-6 sm:p-7 text-left">
+              <div className="font-display text-4xl font-bold mb-6 text-accent opacity-70">
                 {s.num}
               </div>
-
-              <img
-                src={s.image}
-                alt=""
-                aria-hidden="true"
-                width={80}
-                height={80}
-                className="w-20 h-20 mx-auto mb-4 object-contain opacity-85"
-                loading="lazy"
-              />
-
-              <h3 className="text-base font-bold mb-3 uppercase tracking-wide text-main">
+              <h3 className="text-base font-bold mb-3 uppercase tracking-wide text-main min-h-12">
                 {s.title}
               </h3>
-              <p className="text-base leading-relaxed mb-5 text-muted">{s.desc}</p>
-
-              <p className="landing-quote-glow p-3 text-base font-medium text-accent text-left">
-                {s.quote}
-              </p>
+              <p className="text-sm leading-relaxed text-muted">{s.desc}</p>
             </StaggerItem>
           ))}
         </StaggerContainer>

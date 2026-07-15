@@ -16,14 +16,25 @@ import {
   estimatedWeeks,
   MAX_LANDING_PROGRAMS,
 } from './shared';
-import type { ProgramsContent } from './content';
+import type { MetricsContent, ProgramsContent } from './content';
 
 interface ProgramsSectionProps {
   readonly catalogQuery: UseQueryResult<readonly CatalogEntry[]>;
   readonly content: ProgramsContent;
+  readonly metricsContent: MetricsContent;
+  readonly programCount: number;
+  readonly minDaysPerWeek: number;
+  readonly totalWorkouts: number;
 }
 
-export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps): React.ReactNode {
+export function ProgramsSection({
+  catalogQuery,
+  content,
+  metricsContent,
+  programCount,
+  minDaysPerWeek,
+  totalWorkouts,
+}: ProgramsSectionProps): React.ReactNode {
   const { t } = useTranslation();
   const catalog = catalogQuery.data;
 
@@ -41,6 +52,28 @@ export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps)
             title={content.title}
             subtitle={content.subtitle}
           />
+        </FadeUp>
+
+        <FadeUp className="grid grid-cols-2 lg:grid-cols-4 border border-rule mb-8">
+          {[
+            { value: programCount || '—', label: metricsContent.programs.label },
+            { value: totalWorkouts || '—', label: metricsContent.workouts.label },
+            {
+              value: minDaysPerWeek ? `${metricsContent.days.prefix} ${minDaysPerWeek}` : '—',
+              label: metricsContent.days.label,
+            },
+            { value: '100%', label: metricsContent.free.label },
+          ].map((metric) => (
+            <div
+              key={metric.label}
+              className="border-rule px-4 py-4 text-center odd:border-r [&:nth-child(-n+2)]:border-b lg:border-r lg:border-b-0 lg:last:border-r-0"
+            >
+              <p className="font-display text-3xl text-title leading-none mb-1">{metric.value}</p>
+              <p className="font-mono text-[9px] tracking-[0.16em] uppercase text-muted">
+                {metric.label}
+              </p>
+            </div>
+          ))}
         </FadeUp>
 
         {catalogQuery.isLoading && (
@@ -73,7 +106,7 @@ export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps)
                     <Link
                       to="/programs/$programId"
                       params={{ programId: program.id }}
-                      className="relative block bg-card p-8 landing-card-glow program-card-lift group cursor-pointer no-underline text-inherit h-full"
+                      className="relative block bg-card p-6 landing-card-glow program-card-lift group cursor-pointer no-underline text-inherit h-full"
                     >
                       <div
                         className="absolute top-0 left-0 right-0 h-20 pointer-events-none"
@@ -95,7 +128,7 @@ export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps)
                       </div>
 
                       <div className="relative">
-                        <h3 className="font-display text-center text-3xl mb-1 tracking-wide text-title">
+                        <h3 className="font-display text-center text-2xl mb-1 tracking-wide text-title">
                           {localizedProgramName(t, program.id, program.name)}
                         </h3>
 
@@ -103,7 +136,7 @@ export function ProgramsSection({ catalogQuery, content }: ProgramsSectionProps)
                           {content.by} {program.author}
                         </p>
 
-                        <p className="text-base text-center leading-relaxed mb-6 line-clamp-2 text-muted">
+                        <p className="text-sm text-center leading-relaxed mb-5 line-clamp-2 text-muted">
                           {localizedProgramDescription(t, program.id, program.description)}
                         </p>
 

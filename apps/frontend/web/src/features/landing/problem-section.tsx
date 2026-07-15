@@ -74,7 +74,7 @@ export function ProblemSection({ content }: ProblemSectionProps): React.ReactNod
         <SectionLabel>{content.sectionLabel}</SectionLabel>
       </FadeUp>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[0.95fr_1.05fr] gap-8 lg:gap-12 items-stretch">
         {/* ── Left: pain points ── */}
         <FadeUp delay={0.05}>
           <div>
@@ -88,21 +88,24 @@ export function ProblemSection({ content }: ProblemSectionProps): React.ReactNod
             >
               {content.title}
             </h2>
-            <p className="text-muted leading-relaxed mb-8" style={{ fontSize: '17px' }}>
+            <p className="text-muted leading-relaxed mb-6" style={{ fontSize: '17px' }}>
               {content.body}
             </p>
 
-            <StaggerContainer stagger={0.07} className="space-y-4">
+            <StaggerContainer stagger={0.07} className="space-y-3">
               {content.items.map((item) => (
-                <StaggerItem key={item.label} className="flex items-start gap-3 text-muted">
+                <StaggerItem
+                  key={item.label}
+                  className="flex items-start gap-3 border-t border-rule pt-3 text-muted"
+                >
                   <span className="text-[var(--color-fail)]">
                     <PainIcon />
                   </span>
                   <div>
-                    <span className="text-base font-semibold text-main block mb-0.5">
+                    <span className="text-sm font-semibold text-main block mb-0.5">
                       {item.label}
                     </span>
-                    <span className="text-base leading-relaxed">{item.desc}</span>
+                    <span className="text-sm leading-relaxed">{item.desc}</span>
                   </div>
                 </StaggerItem>
               ))}
@@ -112,7 +115,7 @@ export function ProblemSection({ content }: ProblemSectionProps): React.ReactNod
 
         {/* ── Right: before → after solution card ── */}
         <FadeUp delay={0.18}>
-          <div className="bg-card border border-rule p-6 sm:p-8 space-y-6">
+          <div className="bg-card border border-rule p-6 sm:p-8 space-y-5 h-full">
             {/* Before → After transition pill */}
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center px-3 py-1 text-xs font-mono tracking-wider bg-fail-bg text-fail border border-fail-ring">
@@ -129,11 +132,11 @@ export function ProblemSection({ content }: ProblemSectionProps): React.ReactNod
               <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-muted mb-3">
                 {solutionLabel}
               </p>
-              <ul className="space-y-3">
+              <ul className="space-y-4">
                 {solutionItems.map((item) => (
                   <li key={item} className="flex items-start gap-3">
                     <CheckIcon />
-                    <span className="text-base leading-relaxed text-main">{item}</span>
+                    <span className="text-base font-medium leading-relaxed text-main">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -142,20 +145,6 @@ export function ProblemSection({ content }: ProblemSectionProps): React.ReactNod
             {/* Resolution statement */}
             <div className="pt-4 border-t border-rule">
               <p className="text-base leading-relaxed text-muted italic">{content.resolution}</p>
-            </div>
-
-            {/* Problem/solution visual — decorative, placed below text */}
-            <div className="overflow-hidden rounded-sm border border-rule mt-2" aria-hidden="true">
-              <img
-                src="/landing-problem-solution.webp"
-                alt=""
-                aria-hidden="true"
-                width={900}
-                height={506}
-                className="w-full h-auto object-cover"
-                loading="lazy"
-                decoding="async"
-              />
             </div>
           </div>
         </FadeUp>

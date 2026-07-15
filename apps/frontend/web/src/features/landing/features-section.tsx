@@ -1,7 +1,6 @@
 import { FadeUp, StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
 import { SECTION_PAD, SectionHeader } from './shared';
 import type { FeaturesContent } from './content';
-import { LandingArtwork } from './landing-artwork';
 
 interface FeaturesSectionProps {
   readonly content: FeaturesContent;
@@ -27,12 +26,6 @@ const FEATURE_ICONS: readonly { src: string; width: number; height: number; clas
       height: 64,
       className: 'w-full h-full object-contain',
     },
-    {
-      src: '/feature-cloud-sync.webp',
-      width: 64,
-      height: 64,
-      className: 'w-full h-full object-contain',
-    },
   ];
 
 export function FeaturesSection({ content }: FeaturesSectionProps): React.ReactNode {
@@ -51,57 +44,34 @@ export function FeaturesSection({ content }: FeaturesSectionProps): React.ReactN
           subtitleWidth="md"
         />
       </FadeUp>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-12 items-center">
-        <StaggerContainer
-          stagger={0.08}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-px bg-rule"
-        >
-          {content.items.map((f, idx) => {
-            const icon = FEATURE_ICONS[idx];
-            return (
-              <StaggerItem
-                key={f.title}
-                className="relative bg-card p-8 transition-all landing-card-glow group flex items-start gap-5"
-                style={{ borderTop: '2px solid transparent' }}
-                onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => {
-                  e.currentTarget.style.borderTopColor = 'var(--color-accent)';
-                }}
-                onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
-                  e.currentTarget.style.borderTopColor = 'transparent';
-                }}
-              >
-                <div className="shrink-0 w-16 h-16 group-hover:scale-110 transition-transform duration-300 text-accent">
-                  {icon && (
-                    <img
-                      src={icon.src}
-                      alt=""
-                      aria-hidden="true"
-                      width={icon.width}
-                      height={icon.height}
-                      className={icon.className}
-                    />
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-base font-bold mb-2 uppercase tracking-wider text-main">
-                    {f.title}
-                  </h3>
-                  <p className="text-base leading-relaxed text-muted">{f.desc}</p>
-                </div>
-              </StaggerItem>
-            );
-          })}
-        </StaggerContainer>
-        <FadeUp className="flex justify-center lg:justify-end">
-          <LandingArtwork
-            src="/landing-features-training.webp"
-            width={896}
-            height={1120}
-            alt={content.artworkAlt}
-            caption={content.artworkCaption}
-          />
-        </FadeUp>
-      </div>
+      <StaggerContainer stagger={0.08} className="grid grid-cols-1 md:grid-cols-3 gap-px bg-rule">
+        {content.items.map((f, idx) => {
+          const icon = FEATURE_ICONS[idx];
+          return (
+            <StaggerItem
+              key={f.title}
+              className="relative bg-card p-7 landing-card-glow group text-center"
+            >
+              <div className="w-14 h-14 mx-auto mb-5 group-hover:scale-110 transition-transform duration-300 text-accent">
+                {icon && (
+                  <img
+                    src={icon.src}
+                    alt=""
+                    aria-hidden="true"
+                    width={icon.width}
+                    height={icon.height}
+                    className={icon.className}
+                  />
+                )}
+              </div>
+              <h3 className="text-base font-bold mb-2 uppercase tracking-wider text-main">
+                {f.title}
+              </h3>
+              <p className="text-sm leading-relaxed text-muted">{f.desc}</p>
+            </StaggerItem>
+          );
+        })}
+      </StaggerContainer>
     </section>
   );
 }
