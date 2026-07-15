@@ -43,8 +43,8 @@ echo "[vercel-build] building web SPA (same-origin: VITE_API_URL=\"\")"
 export VITE_API_URL=""
 pnpm --filter web build:no-prerender
 
-echo "[vercel-build] installing lockfile-pinned Playwright Chromium"
-pnpm --filter web exec playwright install chromium
+echo "[vercel-build] installing lockfile-pinned Playwright Chromium and Linux dependencies"
+pnpm --filter web exec playwright install --with-deps chromium
 
 echo "[vercel-build] prerendering complete public routes with Chromium"
 pnpm --filter web exec tsx scripts/prerender.ts
