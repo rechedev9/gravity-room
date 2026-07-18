@@ -14,16 +14,12 @@ test.describe('Program preview — route and rendering', () => {
     await expect(page.getByRole('heading', { name: 'GZCLP' })).toBeVisible({ timeout: 10_000 });
   });
 
-  test('program info section is expanded by default', async ({ page }) => {
-    // Wait for definition to load
+  test('renders the program dossier and decision metadata', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'GZCLP' })).toBeVisible({ timeout: 10_000 });
 
-    // The <details open> element should have its content visible
-    const description = page.getByText('Acerca de GZCLP');
-    await expect(description).toBeVisible();
-
-    // Metadata inside the details section should also be visible
-    await expect(page.getByText('entrenamientos en total')).toBeVisible();
+    await expect(page.getByText('Dossier')).toBeVisible();
+    await expect(page.getByText('sesiones', { exact: true })).toBeVisible();
+    await expect(page.getByText('días / semana', { exact: true })).toBeVisible();
   });
 
   test('stats tab is not visible', async ({ page }) => {
@@ -65,32 +61,20 @@ test.describe('Program preview — interactivity', () => {
     await expect(page.getByText('Día 1').first()).toBeVisible();
   });
 
-  test('view toggle switches between detailed and compact', async ({ page }) => {
-    // Default view mode is detailed — toggle button shows "Vista compacta"
-    const toggleBtn = page.getByRole('button', { name: 'Cambiar a vista compacta' });
-    await expect(toggleBtn).toBeVisible();
+  test('cycle cards select their first workout', async ({ page }) => {
+    const secondWeek = page.getByRole('button', { name: /Semana 2/i });
+    await secondWeek.click();
 
-    // Switch to compact view
-    await toggleBtn.click();
-
-    // Now toggle should show "Cambiar a vista detallada"
-    const detailedToggle = page.getByRole('button', { name: 'Cambiar a vista detallada' });
-    await expect(detailedToggle).toBeVisible();
+    await expect(secondWeek).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('static CTA banner visible for unauthenticated users', async ({ page }) => {
-    // The preview page shows a static CTA banner at the bottom
-    await expect(page.getByText('Crea una cuenta para registrar tu progreso')).toBeVisible();
+  test('account CTA is visible for unauthenticated users', async ({ page }) => {
+    await expect(page.getByRole('link', { name: /crear cuenta/i }).first()).toBeVisible();
   });
 
-  test('pass/fail buttons are no-ops on preview (no state change)', async ({ page }) => {
-    const passBtn = page.getByRole('button', { name: /Marcar .+ éxito/ }).first();
-    await passBtn.click();
-
-    // No undo button should appear (preview is read-only)
-    await expect(page.getByRole('button', { name: 'Deshacer' })).not.toBeVisible({
-      timeout: 2_000,
-    });
+  test('preview does not expose fake result controls', async ({ page }) => {
+    await expect(page.getByRole('button', { name: /Marcar .+ éxito/ })).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /Marcar .+ fallo/ })).not.toBeVisible();
   });
 });
 
@@ -101,33 +85,37 @@ test.describe('Program preview — interactivity', () => {
 test.describe('Program preview — landing page links', () => {
   test('catalog cards have links to /programs/:id', async ({ page }) => {
     await page.goto('/');
+    await page.locator('#programs').scrollIntoViewIfNeeded();
 
     // Wait for catalog to load
-    await expect(page.getByText('GZCLP', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('5/3/1 for Beginners', { exact: true }).first()).toBeVisible({
+      timeout: 10_000,
+    });
 
-    // Find the GZCLP card link — it should point to /programs/gzclp
-    const gzclpLink = page
-      .locator('a[href="/programs/gzclp"]')
-      .filter({ has: page.getByText('GZCLP') })
+    const previewLink = page
+      .locator('a[href="/programs/531-for-beginners"]')
+      .filter({ has: page.getByText('5/3/1 for Beginners') })
       .first();
-    await expect(gzclpLink).toBeVisible();
+    await expect(previewLink).toBeVisible();
   });
 
   test('clicking a catalog card navigates to the preview page', async ({ page }) => {
     await page.goto('/');
+    await page.locator('#programs').scrollIntoViewIfNeeded();
 
     // Wait for catalog to load
-    await expect(page.getByText('GZCLP', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('5/3/1 for Beginners', { exact: true }).first()).toBeVisible({
+      timeout: 10_000,
+    });
 
-    // Click the GZCLP card link
-    const gzclpLink = page
-      .locator('a[href="/programs/gzclp"]')
-      .filter({ has: page.getByText('GZCLP') })
+    const previewLink = page
+      .locator('a[href="/programs/531-for-beginners"]')
+      .filter({ has: page.getByText('5/3/1 for Beginners') })
       .first();
-    await gzclpLink.click();
+    await previewLink.click();
 
     // Should navigate to the preview page
-    await expect(page).toHaveURL(/\/programs\/gzclp/);
+    await expect(page).toHaveURL(/\/programs\/531-for-beginners/);
 
     // Preview page should render the program
     await expect(page.getByText('Día 1').first()).toBeVisible({ timeout: 10_000 });

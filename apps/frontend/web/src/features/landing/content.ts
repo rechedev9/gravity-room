@@ -113,6 +113,13 @@ export interface ProblemItem {
   readonly desc: string;
 }
 
+export interface ProblemExercise {
+  readonly name: string;
+  readonly tier: string;
+  readonly prescription: string;
+  readonly weight: string;
+}
+
 export interface ProblemContent {
   readonly sectionLabel: string;
   readonly eyebrow: string;
@@ -120,16 +127,18 @@ export interface ProblemContent {
   readonly body: string;
   /** 3–4 pain-point bullets */
   readonly items: readonly ProblemItem[];
-  /** Transition / resolution statement at the bottom of the section */
-  readonly resolution: string;
   /** Label for the "before" pill in the before→after transition row */
   readonly beforeLabel: string;
   /** Label for the "after" pill in the before→after transition row */
   readonly afterLabel: string;
-  /** Heading above the solution bullet list */
-  readonly solutionLabel: string;
-  /** Solution bullet items (same length as items) */
-  readonly solutionItems: readonly string[];
+  readonly sessionKicker: string;
+  readonly sessionTitle: string;
+  readonly sessionCode: string;
+  readonly workoutAriaLabel: string;
+  readonly exercises: readonly ProblemExercise[];
+  readonly calculatedLabel: string;
+  readonly ctaLabel: string;
+  readonly closingLabel: string;
 }
 
 /* ── Free / trust reassurance section ───────────────────────────────────── */
@@ -265,15 +274,20 @@ export const ES_CONTENT: LandingContent = {
         desc: 'Registrar números no construye un plan.',
       },
     ],
-    resolution: 'Abre la app. Haz lo que toca. Sal sabiendo que avanzaste.',
     beforeLabel: '¿Qué hago hoy?',
     afterLabel: 'Tu sesión lista',
-    solutionLabel: 'La diferencia',
-    solutionItems: [
-      'Ejercicio, series, repeticiones y peso ya calculados',
-      'Si completas, sube. Si fallas, se adapta.',
-      'Tu progreso queda claro semana a semana',
+    sessionKicker: 'Hoy · Día A',
+    sessionTitle: 'Tu sesión',
+    sessionCode: 'GRV-01 · Fuerza base',
+    workoutAriaLabel: 'Entrenamiento prescrito para hoy',
+    exercises: [
+      { name: 'Sentadilla', tier: 'T1', prescription: '5 × 3', weight: '82,5 kg' },
+      { name: 'Press banca', tier: 'T2', prescription: '3 × 10', weight: '52,5 kg' },
+      { name: 'Jalón al pecho', tier: 'T3', prescription: '3 × 15', weight: '45 kg' },
     ],
+    calculatedLabel: 'Pesos calculados según tu progreso.',
+    ctaLabel: 'Empezar sesión',
+    closingLabel: 'Sin decisiones. Solo entrena.',
   },
   features: {
     sectionLabel: 'Lo importante',
@@ -454,15 +468,20 @@ export const EN_CONTENT: LandingContent = {
         desc: "Logging numbers doesn't build a plan.",
       },
     ],
-    resolution: 'Open the app. Do the work. Leave knowing you moved forward.',
     beforeLabel: 'What do I do today?',
     afterLabel: 'Your session is ready',
-    solutionLabel: 'The difference',
-    solutionItems: [
-      'Exercise, sets, reps, and weight already calculated',
-      'Hit your reps and it goes up. Miss and it adapts.',
-      'Your progress stays clear, week after week',
+    sessionKicker: 'Today · Day A',
+    sessionTitle: 'Your session',
+    sessionCode: 'GRV-01 · Base strength',
+    workoutAriaLabel: "Today's prescribed workout",
+    exercises: [
+      { name: 'Squat', tier: 'T1', prescription: '5 × 3', weight: '82.5 kg' },
+      { name: 'Bench press', tier: 'T2', prescription: '3 × 10', weight: '52.5 kg' },
+      { name: 'Lat pulldown', tier: 'T3', prescription: '3 × 15', weight: '45 kg' },
     ],
+    calculatedLabel: 'Weights calculated from your progress.',
+    ctaLabel: 'Start session',
+    closingLabel: 'No decisions. Just train.',
   },
   features: {
     sectionLabel: 'What matters',

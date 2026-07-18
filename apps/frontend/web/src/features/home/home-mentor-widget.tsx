@@ -269,14 +269,12 @@ export function HomeMentorWidget() {
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
-          className="flex items-center gap-3 px-3 py-2 bg-accent/5 border border-accent/20 rounded-lg text-xs"
+          className="flex min-h-[58px] items-center gap-3 border border-accent/25 bg-accent/5 px-4 py-2 text-xs"
         >
           <span className="text-accent font-bold shrink-0 select-none" aria-hidden="true">
             ✦
           </span>
-          <span className="flex-1 text-muted min-w-0 truncate">
-            {t('mentor_tour.prompt.title')}
-          </span>
+          <span className="min-w-0 flex-1 text-muted">{t('mentor_tour.prompt.title')}</span>
           <button
             type="button"
             onClick={handleStartTour}

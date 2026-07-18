@@ -19,8 +19,8 @@ const GUEST_STORAGE_KEY = 'gzclp_guest_v1';
 async function startGuestProgram(page: import('@playwright/test').Page): Promise<void> {
   await enterGuestMode(page);
   await navigateToPrograms(page);
-  // Guest cards have "Iniciar Programa" button (not "Ver Programa" link)
-  await programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar Programa' }).click();
+  // Guest cards keep a compact direct-start action alongside program exploration.
+  await programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar directamente' }).click();
   await expect(page.getByText('Pesos Iniciales (kg)')).toBeVisible({ timeout: 10_000 });
 }
 
@@ -289,11 +289,11 @@ test.describe('Guest catalog flow (REQ-GROUT-004)', () => {
     await expect(page.getByText(/continuar entrenamiento|entrar al hierro/i)).not.toBeVisible();
   });
 
-  test('guest sees "Iniciar Programa" buttons (not "Ver Programa" links)', async ({ page }) => {
+  test('guest can explore or start a program directly', async ({ page }) => {
     await enterGuestMode(page);
     await navigateToPrograms(page);
     const gzclpCard = programCard(page, 'GZCLP');
-    await expect(gzclpCard.getByRole('button', { name: 'Iniciar Programa' })).toBeVisible();
+    await expect(gzclpCard.getByRole('button', { name: 'Iniciar directamente' })).toBeVisible();
   });
 
   test('guest can select a program and reach setup form', async ({ page }) => {

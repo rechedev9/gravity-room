@@ -74,8 +74,8 @@ describe('landing content', () => {
     expect(ES_CONTENT.hero.proofItems).toHaveLength(EN_CONTENT.hero.proofItems.length);
     expect(ES_CONTENT.problem.items).toHaveLength(3);
     expect(EN_CONTENT.problem.items).toHaveLength(3);
-    expect(ES_CONTENT.problem.solutionItems).toHaveLength(3);
-    expect(EN_CONTENT.problem.solutionItems).toHaveLength(3);
+    expect(ES_CONTENT.problem.exercises).toHaveLength(3);
+    expect(EN_CONTENT.problem.exercises).toHaveLength(3);
     expect(ES_CONTENT.howItWorks.steps).toHaveLength(3);
     expect(EN_CONTENT.howItWorks.steps).toHaveLength(3);
     expect(ES_CONTENT.features.items).toHaveLength(3);

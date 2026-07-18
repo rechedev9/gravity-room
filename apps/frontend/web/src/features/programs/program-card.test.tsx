@@ -50,12 +50,28 @@ describe('ProgramCard', () => {
     const previewLink = screen.getByRole('link', { name: /ver programa gzclp/i });
     expect(previewLink).toBeInTheDocument();
     expect(previewLink.getAttribute('href')).toBe('/programs/gzclp');
-    expect(previewLink.textContent).toContain('Vista Previa');
+    expect(previewLink.textContent).toContain('Explorar programa');
 
-    const startBtn = screen.getByRole('button', { name: 'Iniciar Programa' });
+    const startBtn = screen.getByRole('button', { name: 'Iniciar directamente' });
     expect(startBtn).toBeInTheDocument();
     fireEvent.click(startBtn);
     expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses exploration as the only catalog action when only previewTo is provided', () => {
+    render(
+      createElement(ProgramCard, {
+        definition: FIXTURE,
+        previewTo: '/programs/gzclp',
+        ordinal: 1,
+      })
+    );
+
+    expect(screen.getByRole('link', { name: /ver programa gzclp/i })).toHaveTextContent(
+      'Explorar programa'
+    );
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByText('01')).toBeInTheDocument();
   });
 
   it('renders only a single start button when only onSelect is provided', () => {
@@ -99,7 +115,7 @@ describe('ProgramCard', () => {
     );
 
     expect(screen.getByRole('link', { name: /view gzclp/i })).toBeInTheDocument();
-    expect(screen.getByText('Preview')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start Program' })).toBeInTheDocument();
+    expect(screen.getByText(/Explore program/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start directly' })).toBeInTheDocument();
   });
 });

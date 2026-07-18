@@ -15,7 +15,7 @@ import {
 
 /** Start any program — uses "Generar Programa" button as a universal setup gate. */
 async function startProgram(page: Page, name: string): Promise<void> {
-  await programCard(page, name).getByRole('button', { name: 'Iniciar Programa' }).click();
+  await programCard(page, name).getByRole('button', { name: 'Iniciar directamente' }).click();
   await expect(page.getByRole('button', { name: 'Generar Programa' })).toBeVisible({
     timeout: 10_000,
   });
@@ -46,7 +46,7 @@ test.describe('Program Lifecycle — Guest Mode', () => {
     await backToCatalog(page);
 
     await expect(
-      programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar Programa' })
+      programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar directamente' })
     ).toBeVisible();
   });
 
@@ -78,7 +78,7 @@ test.describe('Program Lifecycle — Guest Mode', () => {
 
     await backToCatalog(page);
 
-    await programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar Programa' }).click();
+    await programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar directamente' }).click();
     await expect(page.getByRole('button', { name: 'Generar Programa' })).toBeVisible({
       timeout: 10_000,
     });

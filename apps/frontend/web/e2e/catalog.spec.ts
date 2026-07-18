@@ -23,8 +23,8 @@ test.describe('Catalog flow', () => {
     // Wait for catalog to render
     await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
 
-    // Scope to the GZCLP card and click its specific "Iniciar Programa" button
-    await programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar Programa' }).click();
+    // Scope to the GZCLP card and use its compact fast-start action.
+    await programCard(page, 'GZCLP').getByRole('button', { name: 'Iniciar directamente' }).click();
 
     // After clicking, should see the GZCLP setup form heading
     await expect(page.getByText('Pesos Iniciales (kg)')).toBeVisible({ timeout: 10_000 });
@@ -35,8 +35,10 @@ test.describe('Catalog flow', () => {
 
     await expect(page.getByText('GZCLP')).toBeVisible({ timeout: 10_000 });
 
-    // Check that workout count and author info are rendered
-    await expect(page.getByText('90 entrenamientos').first()).toBeVisible();
-    await expect(page.getByText('Cody Lefever', { exact: false })).toBeVisible();
+    // Check that the comparable session metric and author info are rendered.
+    const gzclpCard = programCard(page, 'GZCLP');
+    await expect(gzclpCard.getByText('90', { exact: true })).toBeVisible();
+    await expect(gzclpCard.getByText('sesiones', { exact: true })).toBeVisible();
+    await expect(gzclpCard.getByText('Gravity Room', { exact: false })).toBeVisible();
   });
 });

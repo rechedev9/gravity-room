@@ -1,35 +1,42 @@
 import { StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
 
 interface DashboardShellProps {
-  /**
-   * Optional onboarding row (mentor tour widget + home zone hint) pinned above
-   * the hero. Rendered as a bare flex child, so when its contents return null
-   * (the common, already-dismissed case) it collapses to nothing, no stray gap.
-   */
+  readonly header: React.ReactNode;
   readonly mentor?: React.ReactNode;
   readonly hero: React.ReactNode;
-  readonly kpi: React.ReactNode;
-  readonly heatmap: React.ReactNode;
-  readonly split: React.ReactNode;
-  readonly recent: React.ReactNode;
+  readonly program: React.ReactNode;
+  readonly kpi?: React.ReactNode;
+  readonly heatmap?: React.ReactNode;
+  readonly split?: React.ReactNode;
+  readonly recent?: React.ReactNode;
 }
 
 export function DashboardShell({
+  header,
   mentor,
   hero,
+  program,
   kpi,
   heatmap,
   split,
   recent,
 }: DashboardShellProps): React.ReactNode {
   return (
-    <StaggerContainer className="flex flex-col gap-6 max-w-5xl mx-auto px-4 sm:px-6 py-6">
-      {mentor}
-      <StaggerItem>{hero}</StaggerItem>
-      <StaggerItem>{kpi}</StaggerItem>
-      <StaggerItem>{heatmap}</StaggerItem>
-      <StaggerItem>{split}</StaggerItem>
-      <StaggerItem>{recent}</StaggerItem>
+    <StaggerContainer className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <StaggerItem>
+        <div className="grid items-end gap-4 lg:grid-cols-[minmax(260px,0.72fr)_minmax(420px,1.28fr)]">
+          {header}
+          {mentor}
+        </div>
+      </StaggerItem>
+      <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.9fr)]">
+        <StaggerItem>{hero}</StaggerItem>
+        <StaggerItem>{program}</StaggerItem>
+      </div>
+      {kpi && <StaggerItem>{kpi}</StaggerItem>}
+      {heatmap && <StaggerItem>{heatmap}</StaggerItem>}
+      {split && <StaggerItem>{split}</StaggerItem>}
+      {recent && <StaggerItem>{recent}</StaggerItem>}
     </StaggerContainer>
   );
 }

@@ -23,6 +23,8 @@ interface DashboardData {
   readonly hero: HeroExtras;
   readonly recentSessions: readonly RecentSessionRow[];
   readonly liftHistory: readonly LiftHistoryRow[];
+  readonly totalWorkouts: number;
+  readonly workoutsPerWeek: number;
 }
 
 const EMPTY_HERO: HeroExtras = {};
@@ -101,5 +103,14 @@ export function useDashboardData(activeProgram: ProgramSummary | null): Dashboar
     if (!isCustom) void catalogQuery.refetch();
   };
 
-  return { isLoading, isError, refetch, hero, recentSessions, liftHistory };
+  return {
+    isLoading,
+    isError,
+    refetch,
+    hero,
+    recentSessions,
+    liftHistory,
+    totalWorkouts: definition?.totalWorkouts ?? 0,
+    workoutsPerWeek: definition?.workoutsPerWeek ?? 0,
+  };
 }

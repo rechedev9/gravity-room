@@ -19,22 +19,20 @@ import { useAuth } from '@/contexts/auth-context';
 import { fetchPrograms } from '@/lib/api-functions';
 import { queryKeys } from '@/lib/query-keys';
 import { buildProgramSummary } from '@/lib/program-summary';
-import { getViewPreference, saveViewPreference } from '@/lib/view-preference';
-import type { ViewMode } from '@/lib/view-preference';
-import { ProgramOverview } from '@/features/program-view/program-overview';
-import { ProgramAboutSection } from '@/features/program-view/program-about-section';
-import { DayNavigator } from '@/features/program-view/day-navigator';
-import { CalendarNavigator } from '@/features/program-view/calendar-navigator';
-import { DayView } from '@/features/program-view/day-view';
-import { DetailedDayView } from '@/features/program-view/detailed-day-view';
 import { ToastContainer } from '@/components/toast';
 import { ZoneHint } from '@/features/home/zone-hint';
+import {
+  buildCycleGroups,
+  ProgramCycle,
+  ProgramEssentials,
+  ProgramPreviewHero,
+  SessionExample,
+} from '@/features/program-preview/program-preview-showcase';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const CURRENT_DAY_INDEX = 0;
 const STALE_TIME_MS = 5 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
@@ -85,42 +83,52 @@ function PreviewError({ onRetry }: { readonly onRetry: () => void }): ReactNode 
 // Auth-aware CTA components
 // ---------------------------------------------------------------------------
 
-function PreviewCtaUnauthenticated(): ReactNode {
+interface HeroPrimaryActionProps {
+  readonly user: { readonly id: string } | null;
+  readonly hasActiveProgram: boolean;
+  readonly programsQueryFailed: boolean;
+  readonly programId: string;
+}
+
+function HeroPrimaryAction({
+  user,
+  hasActiveProgram,
+  programsQueryFailed,
+  programId,
+}: HeroPrimaryActionProps): ReactNode {
   const { t } = useTranslation();
-  return (
-    <div className="bg-card border border-rule p-5 sm:p-6 mt-6 text-center">
-      <p className="text-xs text-muted mb-3">{t('catalog.program_preview.cta_signup_prompt')}</p>
-      <Link
-        to="/login"
-        className="inline-block px-6 py-2.5 text-xs font-bold border-2 border-btn-ring bg-btn text-btn-text hover:bg-btn-active hover:text-btn-active-text transition-all"
-      >
+  const className =
+    'inline-flex min-h-12 items-center justify-center bg-accent px-7 font-mono text-xs font-bold uppercase tracking-[0.18em] text-on-accent transition-colors hover:bg-btn-active';
+
+  if (user === null || programsQueryFailed) {
+    return (
+      <Link to="/login" className={className}>
         {t('auth.create_account')}
+        <span aria-hidden="true" className="ml-4 text-lg">
+          →
+        </span>
       </Link>
-    </div>
-  );
-}
+    );
+  }
 
-function PreviewCtaStartProgram({ programId }: { readonly programId: string }): ReactNode {
-  const { t } = useTranslation();
-  return (
-    <div className="bg-card border border-rule p-5 sm:p-6 mt-6 text-center">
-      <Link
-        to="/app/tracker/$programId"
-        params={{ programId }}
-        className="inline-block px-6 py-2.5 text-xs font-bold border-2 border-btn-ring bg-btn-active text-btn-active-text hover:opacity-90 transition-all"
-      >
-        {t('programs.card.start_program')}
+  if (hasActiveProgram) {
+    return (
+      <Link to="/app" className={className}>
+        {t('catalog.program_preview.cta_view_dashboard')}
+        <span aria-hidden="true" className="ml-4 text-lg">
+          →
+        </span>
       </Link>
-    </div>
-  );
-}
+    );
+  }
 
-function PreviewCtaActiveWarning(): ReactNode {
-  const { t } = useTranslation();
   return (
-    <div className="bg-card border border-amber-500/30 p-5 sm:p-6 mt-6 text-center" role="alert">
-      <p className="text-xs text-amber-400">{t('catalog.program_preview.cta_active_warning')}</p>
-    </div>
+    <Link to="/app/tracker/$programId" params={{ programId }} className={className}>
+      {t('programs.card.start_program')}
+      <span aria-hidden="true" className="ml-4 text-lg">
+        →
+      </span>
+    </Link>
   );
 }
 
@@ -191,7 +199,6 @@ export function ProgramPreviewPage(): ReactNode {
   const programsQueryFailed = programsQuery.isError;
 
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
-  const [viewMode, setViewMode] = useState<ViewMode>(() => getViewPreference());
 
   // Resolve head meta from translation keys as soon as the route params are known.
   // The catalog API may still be in flight (or be intercepted by prerender) — title
@@ -223,12 +230,6 @@ export function ProgramPreviewPage(): ReactNode {
   const summary = definition !== undefined ? buildProgramSummary(definition, t) : null;
 
   // ---------------------------------------------------------------------------
-  // Interaction stubs — preview is read-only, interactions prompt signup/login
-  // ---------------------------------------------------------------------------
-
-  const noopHandler = (): void => {};
-
-  // ---------------------------------------------------------------------------
   // Navigation handlers
   // ---------------------------------------------------------------------------
 
@@ -240,23 +241,13 @@ export function ProgramPreviewPage(): ReactNode {
     setSelectedDayIndex((prev) => Math.min(rows.length - 1, prev + 1));
   };
 
-  const handleGoToCurrent = (): void => {
-    setSelectedDayIndex(CURRENT_DAY_INDEX);
-  };
-
   const handleSelectDay = (index: number): void => {
     if (rows.length === 0) return;
     setSelectedDayIndex(Math.min(Math.max(0, index), rows.length - 1));
   };
 
-  // ---------------------------------------------------------------------------
-  // View toggle
-  // ---------------------------------------------------------------------------
-
-  const handleToggleView = (): void => {
-    const next: ViewMode = viewMode === 'detailed' ? 'compact' : 'detailed';
-    setViewMode(next);
-    saveViewPreference(next);
+  const handleShowExample = (): void => {
+    document.getElementById('session-example')?.scrollIntoView({ behavior: 'smooth' });
   };
 
   // ---------------------------------------------------------------------------
@@ -289,9 +280,18 @@ export function ProgramPreviewPage(): ReactNode {
 
   const selectedWorkout = rows[selectedDayIndex];
   const totalWorkouts = definition.totalWorkouts;
-  const isDayComplete = false;
   const name = localizedProgramName(t, definition.id, definition.name);
   const description = localizedProgramDescription(t, definition.id, definition.description);
+  const cycleGroups = buildCycleGroups(
+    rows,
+    definition.cycleLength,
+    definition.workoutsPerWeek,
+    (week) => t('catalog.program_preview.week_number', { number: week })
+  );
+  const cycleLabels = cycleGroups.map((group, index) => {
+    const match = /\(([^)]+)\)/.exec(group.label);
+    return match?.[1] ?? String(index + 1);
+  });
 
   return (
     <div className="grain-overlay min-h-dvh bg-body">
@@ -324,101 +324,65 @@ export function ProgramPreviewPage(): ReactNode {
       </header>
 
       {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
-        <h1 className="sr-only">{name}</h1>
+      <main className="mx-auto max-w-[1480px] px-4 sm:px-7 lg:px-10">
+        <ZoneHint zone="preview" className="mt-5" />
 
-        <ZoneHint zone="preview" className="mb-4" />
-
-        {/* Program info — expanded by default */}
-        <ProgramAboutSection
-          title={t('catalog.program_preview.about', { name })}
+        <ProgramPreviewHero
+          name={name}
           description={description}
-          authorLine={
-            definition.author
-              ? t('catalog.program_preview.by_author', { author: definition.author })
-              : undefined
-          }
+          author={definition.author}
           totalWorkouts={totalWorkouts}
           workoutsPerWeek={definition.workoutsPerWeek}
-          dayCount={definition.days.length}
-          defaultOpen
+          cycleLength={definition.cycleLength}
+          cycleLabels={cycleLabels}
+          primaryAction={
+            authLoading ? (
+              <span className="min-h-12 w-52 animate-pulse bg-rule" />
+            ) : (
+              <HeroPrimaryAction
+                user={user}
+                hasActiveProgram={hasActiveProgram}
+                programsQueryFailed={programsQueryFailed}
+                programId={programId}
+              />
+            )
+          }
+          actionNote={
+            !authLoading && hasActiveProgram
+              ? t('catalog.program_preview.cta_active_warning')
+              : undefined
+          }
+          onShowExample={handleShowExample}
         />
 
-        {/* Program overview — auto-generated explanatory section */}
-        {summary !== null && <ProgramOverview summary={summary} programName={name} />}
-
-        {/* Day navigator */}
-        <DayNavigator
+        <ProgramCycle
+          groups={cycleGroups}
           selectedDayIndex={selectedDayIndex}
-          totalDays={totalWorkouts}
-          currentDayIndex={CURRENT_DAY_INDEX}
-          dayName={selectedWorkout?.dayName ?? ''}
-          isDayComplete={isDayComplete}
-          onPrev={handlePrevDay}
-          onNext={handleNextDay}
-          onGoToCurrent={handleGoToCurrent}
+          workoutsPerWeek={definition.workoutsPerWeek}
+          onSelectDay={handleSelectDay}
         />
 
-        {/* Calendar navigator — program weeks, no real completion state */}
-        <div className="mt-4">
-          <CalendarNavigator
-            rows={rows}
+        {selectedWorkout !== undefined && (
+          <SessionExample
+            workout={selectedWorkout}
             selectedDayIndex={selectedDayIndex}
-            currentDayIndex={CURRENT_DAY_INDEX}
-            workoutsPerWeek={definition.workoutsPerWeek}
-            context="preview"
-            onSelectDay={handleSelectDay}
+            totalWorkouts={totalWorkouts}
+            onPrev={handlePrevDay}
+            onNext={handleNextDay}
           />
-        </div>
+        )}
 
-        {/* View mode toggle */}
-        <div className="flex justify-end mb-2">
-          <button
-            type="button"
-            onClick={handleToggleView}
-            aria-label={
-              viewMode === 'detailed'
-                ? t('tracker.tab_content.aria_compact_view')
-                : t('tracker.tab_content.aria_detailed_view')
-            }
-            className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors min-h-[44px] px-2 inline-flex items-center"
-          >
-            {viewMode === 'detailed'
-              ? t('tracker.tab_content.compact_view')
-              : t('tracker.tab_content.detailed_view')}
-          </button>
-        </div>
-
-        {/* Workout view */}
-        {selectedWorkout &&
-          (viewMode === 'detailed' ? (
-            <DetailedDayView
-              workout={selectedWorkout}
-              isCurrent={true}
-              onMark={noopHandler}
-              onUndo={noopHandler}
-              onSetAmrapReps={noopHandler}
-              onSetRpe={noopHandler}
-              onSetTap={noopHandler}
-            />
-          ) : (
-            <DayView
-              workout={selectedWorkout}
-              isCurrent={true}
-              onMark={noopHandler}
-              onUndo={noopHandler}
-              onSetAmrapReps={noopHandler}
-              onSetRpe={noopHandler}
-              onSetTap={noopHandler}
-            />
-          ))}
+        {summary !== null && <ProgramEssentials summary={summary} />}
 
         {/* Per-program FAQ — visible Q&A + FAQPage JSON-LD for AI/search extraction */}
         <ProgramFaq items={faqItems} />
 
         {/* Editorial hub links keep program pages connected to the public
             comparison/progression cluster instead of acting as orphan previews. */}
-        <aside className="mt-8 border-t border-rule pt-6" aria-labelledby="program-learn-heading">
+        <aside
+          className="border-b border-rule py-10 sm:py-14"
+          aria-labelledby="program-learn-heading"
+        >
           <h2
             id="program-learn-heading"
             className="font-display text-lg uppercase tracking-wide text-title mb-3"
@@ -456,17 +420,7 @@ export function ProgramPreviewPage(): ReactNode {
             </Link>
           </div>
         </aside>
-
-        {/* Auth-aware CTA section */}
-        {!authLoading &&
-          (user === null || programsQueryFailed ? (
-            <PreviewCtaUnauthenticated />
-          ) : hasActiveProgram ? (
-            <PreviewCtaActiveWarning />
-          ) : (
-            <PreviewCtaStartProgram programId={programId} />
-          ))}
-      </div>
+      </main>
 
       <ToastContainer />
     </div>

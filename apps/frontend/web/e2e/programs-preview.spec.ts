@@ -4,13 +4,13 @@ import { authenticateOnly, dismissCookieBannerIfPresent, programCard } from './h
 /**
  * Catalog → preview → tracker flow (SPEC.md acceptance criterion 8).
  *
- * Authenticated path: /app/programs shows two CTAs per card. "Vista Previa"
- * routes to the public preview at /programs/:id; the preview's bottom
+ * Authenticated path: /app/programs prioritizes exploration and keeps a compact
+ * direct-start action. Exploration routes to the public preview; the preview's
  * "Iniciar Programa" CTA routes to /app/tracker/:id.
  */
 
 test.describe('Programs catalog — preview action', () => {
-  test('catalog Vista Previa → preview page → start tracker', async ({ page }) => {
+  test('catalog exploration → preview page → start tracker', async ({ page }) => {
     await authenticateOnly(page);
     await page.goto('/app/programs');
 
@@ -32,7 +32,7 @@ test.describe('Programs catalog — preview action', () => {
     await expect(page).toHaveURL(/\/app\/tracker\/gzclp/);
   });
 
-  test('catalog Iniciar Programa fast-path still works alongside preview', async ({ page }) => {
+  test('catalog direct-start fast path still works alongside exploration', async ({ page }) => {
     await authenticateOnly(page);
     await page.goto('/app/programs');
 
@@ -42,9 +42,9 @@ test.describe('Programs catalog — preview action', () => {
 
     const card = programCard(page, 'GZCLP');
     await expect(card.getByRole('link', { name: /ver programa gzclp/i })).toBeVisible();
-    await expect(card.getByRole('button', { name: 'Iniciar Programa' })).toBeVisible();
+    await expect(card.getByRole('button', { name: 'Iniciar directamente' })).toBeVisible();
 
-    await card.getByRole('button', { name: 'Iniciar Programa' }).click();
+    await card.getByRole('button', { name: 'Iniciar directamente' }).click();
 
     await expect(page).toHaveURL(/\/app\/tracker\/gzclp/);
   });

@@ -89,12 +89,12 @@ describe('HomeMentorWidget', () => {
   describe('fresh state (empty localStorage) — initial prompt', () => {
     it('shows the welcome prompt title', () => {
       renderWidget();
-      expect(screen.getByText('Bienvenido, ¿quieres un pequeño tutorial?')).toBeInTheDocument();
+      expect(screen.getByText('¿Nuevo por aquí? Haz el mini tutorial')).toBeInTheDocument();
     });
 
-    it('shows "Empezar mini tutorial" CTA', () => {
+    it('shows "Empezar" CTA', () => {
       renderWidget();
-      expect(screen.getByText('Empezar mini tutorial')).toBeInTheDocument();
+      expect(screen.getByText('Empezar')).toBeInTheDocument();
     });
 
     it('shows dismiss (✕) button on prompt', () => {
@@ -112,21 +112,21 @@ describe('HomeMentorWidget', () => {
   // ── Prompt → Checklist transition ────────────────────────────────────────
 
   describe('start → checklist transition', () => {
-    it('clicking "Empezar mini tutorial" reveals the checklist pill', () => {
+    it('clicking "Empezar" reveals the checklist pill', () => {
       renderWidget();
-      fireEvent.click(screen.getByText('Empezar mini tutorial'));
+      fireEvent.click(screen.getByText('Empezar'));
       expect(screen.getByText('Sensei de la Sala')).toBeInTheDocument();
     });
 
-    it('clicking "Empezar mini tutorial" persists tourStarted to localStorage', () => {
+    it('clicking "Empezar" persists tourStarted to localStorage', () => {
       renderWidget();
-      fireEvent.click(screen.getByText('Empezar mini tutorial'));
+      fireEvent.click(screen.getByText('Empezar'));
       expect(loadTourState()?.tourStarted).toBe(true);
     });
 
     it('shows all 5 zone labels after starting and opening popover', () => {
       renderWidget();
-      fireEvent.click(screen.getByText('Empezar mini tutorial'));
+      fireEvent.click(screen.getByText('Empezar'));
       openPopover();
       expect(screen.getByText('Inicio')).toBeInTheDocument();
       expect(screen.getByText('Programas')).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe('HomeMentorWidget', () => {
 
     it('shows zone navigation links (→) for all zones after starting and opening popover', () => {
       renderWidget();
-      fireEvent.click(screen.getByText('Empezar mini tutorial'));
+      fireEvent.click(screen.getByText('Empezar'));
       openPopover();
       // Each undone zone renders a link ending in "→"
       const links = screen.getAllByText('→');
@@ -175,8 +175,8 @@ describe('HomeMentorWidget', () => {
         await i18n.changeLanguage('en');
       });
       renderWidget();
-      expect(screen.getByText('Welcome! Would you like a quick tutorial?')).toBeInTheDocument();
-      expect(screen.getByText('Start mini tutorial')).toBeInTheDocument();
+      expect(screen.getByText('New here? Take the mini tutorial')).toBeInTheDocument();
+      expect(screen.getByText('Start')).toBeInTheDocument();
     });
 
     it('renders English checklist pill title after starting', async () => {
@@ -184,7 +184,7 @@ describe('HomeMentorWidget', () => {
         await i18n.changeLanguage('en');
       });
       renderWidget();
-      fireEvent.click(screen.getByText('Start mini tutorial'));
+      fireEvent.click(screen.getByText('Start'));
       expect(screen.getByText('Gravity Sensei')).toBeInTheDocument();
     });
   });
@@ -242,7 +242,7 @@ describe('HomeMentorWidget', () => {
       saveTourState({ version: 2, tourStarted: true, dismissedZones: [...TOUR_ZONES] });
       renderWidget();
       fireEvent.click(screen.getByText('Reiniciar tour'));
-      expect(screen.getByText('Bienvenido, ¿quieres un pequeño tutorial?')).toBeInTheDocument();
+      expect(screen.getByText('¿Nuevo por aquí? Haz el mini tutorial')).toBeInTheDocument();
       expect(loadTourState()).toBeNull();
     });
   });
@@ -287,13 +287,13 @@ describe('HomeMentorWidget', () => {
     it('falls back to prompt when localStorage has corrupted JSON', () => {
       localStorage.setItem(MENTOR_TOUR_KEY, 'not-valid-json!!!');
       renderWidget();
-      expect(screen.getByText('Bienvenido, ¿quieres un pequeño tutorial?')).toBeInTheDocument();
+      expect(screen.getByText('¿Nuevo por aquí? Haz el mini tutorial')).toBeInTheDocument();
     });
 
     it('falls back to prompt when localStorage has wrong schema version', () => {
       localStorage.setItem(MENTOR_TOUR_KEY, JSON.stringify({ version: 1 }));
       renderWidget();
-      expect(screen.getByText('Bienvenido, ¿quieres un pequeño tutorial?')).toBeInTheDocument();
+      expect(screen.getByText('¿Nuevo por aquí? Haz el mini tutorial')).toBeInTheDocument();
     });
   });
 
@@ -315,10 +315,10 @@ describe('HomeMentorWidget', () => {
   // ── Aggregate analytics ───────────────────────────────────────────────────
 
   describe('aggregate analytics events', () => {
-    it('fires mentor_tutorial_start when "Empezar mini tutorial" is clicked', () => {
+    it('fires mentor_tutorial_start when "Empezar" is clicked', () => {
       const plausible = makePlausibleSpy();
       renderWidget();
-      fireEvent.click(screen.getByText('Empezar mini tutorial'));
+      fireEvent.click(screen.getByText('Empezar'));
       const startCalls = plausible.calls.filter(([e]) => e === 'mentor_tutorial_start');
       expect(startCalls.length).toBe(1);
       expect(startCalls[0][1]).toBeUndefined();

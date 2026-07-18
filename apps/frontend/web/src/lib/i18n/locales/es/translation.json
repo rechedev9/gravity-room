@@ -170,6 +170,24 @@
       "compare_gzclp": "GZCLP vs StrongLifts 5x5",
       "progression_guide": "Guía de progresión automática",
       "by_author": "Por {{author}}",
+      "by_gravity_room": "Por Gravity Room",
+      "strength_program": "Programa de fuerza",
+      "view_example": "Ver sesión de ejemplo",
+      "dossier": "Dossier",
+      "weeks": "semanas",
+      "days_per_week": "días / semana",
+      "sessions": "sesiones",
+      "rotation_days": "días de rotación",
+      "cycle_length_one": "Ciclo de {{count}} bloque",
+      "cycle_length_other": "Ciclo de {{count}} bloques",
+      "cycle_repeats": "El ciclo se repite durante todo el programa; el peso y la dificultad evolucionan contigo.",
+      "training_system": "Sistema de entrenamiento",
+      "how_you_train": "Así se entrena",
+      "week_number": "Semana {{number}}",
+      "day_number": "Día {{number}}",
+      "inside_workout": "Dentro del entrenamiento",
+      "example_session": "Sesión de ejemplo",
+      "program_day": "Día del programa",
       "back_label": "← Inicio",
       "back_aria": "Volver al inicio",
       "error_not_found": "Programa no encontrado",
@@ -635,6 +653,7 @@
       "choose_forge": "ELIGE TU FORJA",
       "empty_body": "El primer paso es elegir un programa.",
       "view_programs": "VER PROGRAMAS",
+      "workout_today": "ENTRENAMIENTO DE HOY",
       "day_one": "DÍA UNO",
       "day_one_body": "El peso no se levanta solo.",
       "enter": "ENTRAR AL HIERRO",
@@ -646,6 +665,8 @@
     "heatmap": {
       "title": "ÚLTIMAS {{weeks}} SEMANAS",
       "aria": "mapa semanal de entrenamientos",
+      "less": "Menos",
+      "more": "Más",
       "cell_title": "{{date}} — {{count}} entrenamiento",
       "cell_title_one": "{{date}} — {{count}} entrenamiento",
       "cell_title_other": "{{date}} — {{count}} entrenamientos"
@@ -661,6 +682,31 @@
     "page_title": "Programas — Gravity Room",
     "title": "Programas",
     "subtitle": "Catálogo de programas de entrenamiento por nivel",
+    "catalog_eyebrow": "Biblioteca de entrenamiento",
+    "catalog_heading": "Elige tu siguiente bloque",
+    "catalog_intro": "No necesitas más opciones: necesitas entender cuál encaja contigo. Compara objetivo, frecuencia y duración antes de entrar al programa.",
+    "current_program": "Tu programa actual",
+    "go_to_training": "Volver al entrenamiento",
+    "filters_aria": "Filtros del catálogo",
+    "stats": {
+      "programs": "programas",
+      "goals": "objetivos",
+      "days_from": "días desde"
+    },
+    "filters": {
+      "all_levels": "Todos los niveles",
+      "category_all": "Todos los objetivos",
+      "category_strength": "Fuerza",
+      "category_hypertrophy": "Hipertrofia",
+      "category_powerlifting": "Powerlifting",
+      "results_one": "{{count}} resultado",
+      "results_other": "{{count}} resultados"
+    },
+    "level_description": {
+      "beginner": "Progresión clara, pocos movimientos y margen para aprender mientras te haces más fuerte.",
+      "intermediate": "Más volumen y estructura para quien ya domina los básicos y necesita nuevos estímulos.",
+      "advanced": "Especialización, porcentajes y preparación precisa para objetivos de rendimiento exigentes."
+    },
     "retry": "Reintentar",
     "catalog_load_error": "No se pudo cargar el catálogo.",
     "other_programs": "Otros Programas",
@@ -673,9 +719,14 @@
       "coming_soon": "Próximamente",
       "workouts_count": "{{count}} entrenamientos",
       "frequency": "{{count}}x / semana",
+      "days_week": "días / semana",
+      "weeks": "semanas",
+      "sessions": "sesiones",
       "author": "Por {{author}}",
       "view_program": "Ver Programa",
       "preview": "Vista Previa",
+      "explore": "Explorar programa",
+      "start_directly": "Iniciar directamente",
       "continue_training": "Continuar Entrenamiento",
       "start_program": "Iniciar Programa",
       "customizing": "Personalizando...",
@@ -1451,14 +1502,28 @@
   "home": {
     "page_title": "Inicio — Gravity Room",
     "header": {
+      "command_center": "Centro de mando",
       "greeting_named": "Bienvenido, {{name}}",
       "greeting_generic": "Bienvenido a Gravity Room",
+      "next_ready": "Tu siguiente sesión ya está calculada.",
       "streak_inline": "Racha: {{count}}",
       "last_session_label": "Última sesión:",
       "last_today": "hoy",
       "last_yesterday": "ayer",
       "last_days_ago_one": "hace {{count}} día",
       "last_days_ago_other": "hace {{count}} días"
+    },
+    "program_card": {
+      "title": "Tu programa",
+      "day_progress": "Día {{current}} de {{total}}",
+      "progress_aria": "Día {{current}} de {{total}} del programa",
+      "week_sessions": "{{completed}} / {{target}} sesiones esta semana",
+      "current_streak": "Racha actual",
+      "days_one": "día",
+      "days_other": "días",
+      "weekdays": ["L", "M", "X", "J", "V", "S", "D"],
+      "week_aria": "Actividad de esta semana",
+      "view_program": "Ver programa"
     },
     "kpi": {
       "streak_label": "Racha",
@@ -1504,8 +1569,8 @@
   },
   "mentor_tour": {
     "prompt": {
-      "title": "Bienvenido, ¿quieres un pequeño tutorial?",
-      "start": "Empezar mini tutorial",
+      "title": "¿Nuevo por aquí? Haz el mini tutorial",
+      "start": "Empezar",
       "dismiss": "Ahora no"
     },
     "checklist": {

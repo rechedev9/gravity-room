@@ -21,42 +21,49 @@ export function WeekHeatmap({ workouts, weeks = 12 }: WeekHeatmapProps): React.R
   const todayKey = new Date().toDateString();
 
   return (
-    <section className="bg-card border border-rule rounded-[var(--radius-base)] p-4 sm:p-5">
+    <section className="border border-rule bg-card p-4 sm:p-5">
       <p className="chalk-stamp mb-3">{t('dashboard.heatmap.title', { weeks })}</p>
-      <div
-        className="flex gap-1 overflow-x-auto"
-        role="grid"
-        aria-label={t('dashboard.heatmap.aria')}
-      >
-        {grid.map((col, ci) => (
-          <motion.div
-            key={ci}
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: ci * 0.04, duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="flex flex-col gap-1"
-            role="row"
-          >
-            {col.map((cell, ri) => {
-              const isToday = cell.date.toDateString() === todayKey;
-              return (
-                <span
-                  key={ri}
-                  role="gridcell"
-                  className={cn(
-                    'block w-3.5 h-3.5 border rounded-[1px]',
-                    LEVEL_CLASS[cell.level],
-                    isToday && 'ring-1 ring-main'
-                  )}
-                  title={t('dashboard.heatmap.cell_title', {
-                    date: cell.date.toDateString(),
-                    count: cell.count,
-                  })}
-                />
-              );
-            })}
-          </motion.div>
-        ))}
+      <div className="overflow-x-auto">
+        <div
+          className="flex min-w-[520px] justify-between gap-3"
+          role="grid"
+          aria-label={t('dashboard.heatmap.aria')}
+        >
+          {grid.map((col, ci) => (
+            <motion.div
+              key={ci}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: ci * 0.04, duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-col gap-1"
+              role="row"
+            >
+              {col.map((cell, ri) => {
+                const isToday = cell.date.toDateString() === todayKey;
+                return (
+                  <span
+                    key={ri}
+                    role="gridcell"
+                    className={cn(
+                      'block w-3.5 h-3.5 border rounded-[1px]',
+                      LEVEL_CLASS[cell.level],
+                      isToday && 'ring-1 ring-main'
+                    )}
+                    title={t('dashboard.heatmap.cell_title', {
+                      date: cell.date.toDateString(),
+                      count: cell.count,
+                    })}
+                  />
+                );
+              })}
+            </motion.div>
+          ))}
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-3 font-mono text-[9px] tracking-wider text-label uppercase">
+        <span>{t('dashboard.heatmap.less')}</span>
+        <span className="h-px flex-1 border-t border-dashed border-rule" aria-hidden="true" />
+        <span>{t('dashboard.heatmap.more')}</span>
       </div>
     </section>
   );

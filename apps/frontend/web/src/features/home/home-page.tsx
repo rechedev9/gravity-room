@@ -27,7 +27,8 @@ import { useDashboardData } from '@/features/dashboard/use-dashboard-data';
 import { HomeEmptyState } from './home-empty-state';
 import { HomeGuestResume } from './home-guest-resume';
 import { HomeMentorWidget } from './home-mentor-widget';
-import { ZoneHint } from './zone-hint';
+import { HomeHeader } from './home-header';
+import { buildCurrentWeekActivity, ProgramStatusCard } from './program-status-card';
 
 const HOME_INSIGHT_TYPES = ['frequency', 'volume_trend'] as const;
 
@@ -39,14 +40,13 @@ function getMentorTips(t: TFunction): readonly string[] {
 
 function DashboardSkeleton(): React.ReactNode {
   return (
-    <div className="flex flex-col gap-6 max-w-5xl mx-auto px-4 sm:px-6 py-6 animate-pulse">
-      <div className="bg-card border border-rule rounded-[var(--radius-base)] p-8 h-48" />
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-card border border-rule rounded-[var(--radius-base)] h-24" />
-        <div className="bg-card border border-rule rounded-[var(--radius-base)] h-24" />
-        <div className="bg-card border border-rule rounded-[var(--radius-base)] h-24" />
+    <div className="mx-auto flex max-w-7xl animate-pulse flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <div className="h-16 w-72 border border-rule bg-card" />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.65fr)_minmax(300px,0.9fr)]">
+        <div className="h-[400px] border border-rule bg-card" />
+        <div className="h-[400px] border border-rule bg-card" />
       </div>
-      <div className="bg-card border border-rule rounded-[var(--radius-base)] h-20" />
+      <div className="h-28 border border-rule bg-card" />
     </div>
   );
 }
@@ -103,6 +103,10 @@ export function HomePage(): React.ReactNode {
   // Pristine = active program but no sessions logged yet. Show an encouraging
   // prompt instead of a strip of literal zeros (the hero already owns the gold CTA).
   const isPristine = totalSessions === 0 && streakDays === 0;
+  const currentWeekSessions = useMemo(
+    () => buildCurrentWeekActivity(workoutDates).filter(Boolean).length,
+    [workoutDates]
+  );
 
   // PR road: derived from the active program's logged sets (empty until there's
   // a lift climbing toward a new PR).
@@ -181,31 +185,40 @@ export function HomePage(): React.ReactNode {
     status: activeProgram.status,
     ...dashboard.hero,
   };
+  const trimmedName = user?.name?.trim();
+  const userName = trimmedName
+    ? (trimmedName.split(/\s+/)[0] ?? null)
+    : (user?.email.split('@')[0] ?? null);
+  const currentDay = dashboard.hero.nextWorkout ? dashboard.hero.nextWorkout.dayIndex + 1 : 1;
+  const totalWorkouts = Math.max(
+    dashboard.totalWorkouts,
+    dashboard.hero.nextWorkout?.totalDays ?? 0
+  );
+  const weeklyTarget = Math.max(
+    1,
+    dashboard.workoutsPerWeek || Math.round(freqPayload?.sessionsPerWeek ?? 0)
+  );
 
   return (
     <div className="min-h-dvh bg-body">
       <DashboardShell
-        mentor={
-          <>
-            <HomeMentorWidget />
-            <ZoneHint zone="home" />
-          </>
-        }
+        header={<HomeHeader userName={userName} />}
+        mentor={<HomeMentorWidget />}
         hero={<NextSetHero programInstance={programInstance} />}
+        program={
+          <ProgramStatusCard
+            programName={activeProgram.name}
+            currentDay={currentDay}
+            totalWorkouts={totalWorkouts}
+            weekSessions={currentWeekSessions}
+            weeklyTarget={weeklyTarget}
+            streakDays={streakDays}
+            workoutDates={workoutDates}
+            pristine={isPristine}
+          />
+        }
         kpi={
-          isPristine ? (
-            <section className="bg-card border border-rule rounded-[var(--radius-base)] p-6 sm:p-8">
-              <Kicker noRule className="mb-3">
-                {t('home.pristine.kicker')}
-              </Kicker>
-              <h2 className="font-display text-3xl sm:text-4xl text-main">
-                {t('home.pristine.title')}
-              </h2>
-              <p className="mt-2 max-w-md text-sm text-muted leading-relaxed">
-                {t('home.pristine.body')}
-              </p>
-            </section>
-          ) : (
+          isPristine ? undefined : (
             <KpiStripBrutalist
               streakDays={streakDays}
               totalSessions={totalSessions}
@@ -213,17 +226,19 @@ export function HomePage(): React.ReactNode {
             />
           )
         }
-        heatmap={<WeekHeatmap workouts={heatmapWorkouts} />}
+        heatmap={isPristine ? undefined : <WeekHeatmap workouts={heatmapWorkouts} />}
         split={
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <PrRoadCard road={prRoad} />
-            <MentorPill tips={mentorTips} />
-          </div>
+          isPristine ? undefined : (
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <PrRoadCard road={prRoad} />
+              <MentorPill tips={mentorTips} />
+            </div>
+          )
         }
-        recent={<RecentSessionsList sessions={dashboard.recentSessions} />}
+        recent={isPristine ? undefined : <RecentSessionsList sessions={dashboard.recentSessions} />}
       />
       {!isGuest && (
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-8">
+        <div className="mx-auto max-w-7xl px-4 pb-8 sm:px-6 lg:px-8">
           <Kicker className="mb-3">{t('home.footer.quick_links')}</Kicker>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Link
