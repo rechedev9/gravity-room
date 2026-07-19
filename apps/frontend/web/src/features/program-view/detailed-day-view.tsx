@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow } from '@gzclp/domain/types';
 import type { DayViewProps } from './day-view';
 import { SlotCardShell } from './slot-card-shell';
@@ -125,6 +126,7 @@ function SlotTable({
   getSetLogs,
   isSlotLogging,
 }: SlotTableProps): ReactNode {
+  const { t } = useTranslation();
   const isDone = slot.result !== undefined;
   const isGpp = slot.isGpp === true;
   const isBodyweight = slot.isBodyweight === true;
@@ -188,7 +190,7 @@ function SlotTable({
       <div className="overflow-x-auto mb-3">
         <table
           className="w-full lg:max-w-md border-collapse"
-          aria-label={`Series de ${slot.exerciseName}`}
+          aria-label={t('tracker.detailed_day_view.table_aria', { exercise: slot.exerciseName })}
         >
           <colgroup>
             <col className="w-12" />
@@ -199,10 +201,18 @@ function SlotTable({
           </colgroup>
           <thead>
             <tr className="border-b border-rule">
-              <th className="text-2xs font-bold text-muted uppercase text-left py-1 pr-2">Serie</th>
-              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-2">Kg</th>
-              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-2">Reps</th>
-              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-2">Obj.</th>
+              <th className="text-2xs font-bold text-muted uppercase text-left py-1 pr-2">
+                {t('tracker.detailed_day_view.col_set')}
+              </th>
+              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-2">
+                {t('tracker.detailed_day_view.col_weight')}
+              </th>
+              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-2">
+                {t('tracker.detailed_day_view.col_reps')}
+              </th>
+              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-2">
+                {t('tracker.detailed_day_view.col_target')}
+              </th>
               <th className="text-2xs font-bold text-muted uppercase text-center py-1 pl-2"> </th>
             </tr>
           </thead>
@@ -266,7 +276,9 @@ function SlotTable({
                         onKeyDown={(e) => handleKeyDown(e, row, rowIndex)}
                         disabled={!isNextToConfirm && !isConfirmed}
                         placeholder={isNextToConfirm ? String(row.plannedReps) : ''}
-                        aria-label={`Reps serie ${row.label}`}
+                        aria-label={t('tracker.detailed_day_view.reps_input_aria', {
+                          label: row.label,
+                        })}
                         className="w-14 text-right text-sm tabular-nums bg-transparent border-b-2 border-rule focus:border-accent focus:bg-accent/5 outline-none py-1 transition-colors duration-150 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-30 placeholder:text-muted/40"
                       />
                     )}
@@ -283,14 +295,22 @@ function SlotTable({
                     {isConfirmed ? (
                       <span
                         className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-sm animate-[pop-in_0.2s_cubic-bezier(0.16,1,0.3,1)] ${metTarget ? 'text-ok bg-ok-bg' : 'text-fail bg-fail-bg'}`}
-                        aria-label={metTarget ? 'Serie completada' : 'Serie fallada'}
+                        aria-label={t(
+                          metTarget
+                            ? 'tracker.detailed_day_view.set_completed_aria'
+                            : 'tracker.detailed_day_view.set_failed_aria'
+                        )}
                       >
                         {metTarget ? '\u2713' : '\u2717'}
                       </span>
                     ) : doneWithoutLogs ? (
                       <span
                         className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-sm ${slotSucceeded ? 'text-ok bg-ok-bg' : 'text-fail bg-fail-bg'}`}
-                        aria-label={slotSucceeded ? 'Serie completada' : 'Serie fallada'}
+                        aria-label={t(
+                          slotSucceeded
+                            ? 'tracker.detailed_day_view.set_completed_aria'
+                            : 'tracker.detailed_day_view.set_failed_aria'
+                        )}
                       >
                         {slotSucceeded ? '\u2713' : '\u2717'}
                       </span>
@@ -299,7 +319,9 @@ function SlotTable({
                         type="button"
                         onClick={() => handleConfirmSet(row, rowIndex)}
                         disabled={!isNextToConfirm}
-                        aria-label={`Confirmar serie ${row.label}`}
+                        aria-label={t('tracker.detailed_day_view.confirm_set_aria', {
+                          label: row.label,
+                        })}
                         className="w-8 h-8 text-sm font-bold text-ok border-2 border-ok-ring bg-transparent cursor-pointer rounded-sm transition-all duration-150 hover:bg-ok-bg active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none disabled:opacity-30 disabled:cursor-default"
                       >
                         &#10003;
@@ -342,8 +364,12 @@ export function DetailedDayView({
   getSetLogs,
   isSlotLogging,
 }: DayViewProps): ReactNode {
+  const { t } = useTranslation();
   return (
-    <div className="flex flex-col gap-3" aria-label={`Entrenamiento ${workout.index + 1}`}>
+    <div
+      className="flex flex-col gap-3"
+      aria-label={t('tracker.detailed_day_view.workout_aria', { number: workout.index + 1 })}
+    >
       {workout.slots.map((slot) => (
         <SlotTable
           key={slot.slotId}

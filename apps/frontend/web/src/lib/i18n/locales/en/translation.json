@@ -648,7 +648,10 @@
       "aria": "weekly workout heatmap",
       "cell_title": "{{date}} — {{count}} workout",
       "cell_title_one": "{{date}} — {{count}} workout",
-      "cell_title_other": "{{date}} — {{count}} workouts"
+      "cell_title_other": "{{date}} — {{count}} workouts",
+      "less": "less",
+      "more": "more",
+      "legend_aria": "intensity scale, from fewer to more workouts"
     },
     "recent_sessions": {
       "title": "RECENT ACTIVITY",
@@ -664,6 +667,10 @@
     "retry": "Retry",
     "catalog_load_error": "Could not load catalog.",
     "other_programs": "Other Programs",
+    "active_heading": "Active program",
+    "active_workout": "Workout {{completed}} of {{total}}",
+    "active_progress_aria": "Program progress",
+    "active_cta": "Continue training",
     "choose_program": "Choose a Program",
     "my_custom_programs": "My Custom Programs",
     "card": {
@@ -808,6 +815,12 @@
   },
   "tracker": {
     "page_title": "Tracker — Gravity Room",
+    "guest_empty": {
+      "stamp": "GUEST",
+      "title": "Pick a program",
+      "body": "Choose a program from the catalog to start logging your training. Create an account whenever you want to save it.",
+      "cta": "Explore programs"
+    },
     "program": "Program",
     "statistics": "Statistics",
     "retry": "Retry",
@@ -925,19 +938,26 @@
       "confirm_button": "Confirm"
     },
     "day_view": {
-      "workout_aria": "Workout",
+      "workout_aria": "Workout {{number}}",
       "deload_badge": "Deload"
     },
     "detailed_day_view": {
-      "workout_aria": "Workout",
+      "workout_aria": "Workout {{number}}",
       "col_set": "Set",
       "col_weight": "Kg",
       "col_reps": "Reps",
-      "deload_badge": "Deload",
-      "table_aria_prefix": "Sets of",
+      "col_target": "Tgt.",
+      "table_aria": "Sets of {{exercise}}",
+      "reps_input_aria": "Set {{label}} reps",
       "set_completed_aria": "Set completed",
       "set_failed_aria": "Set failed",
-      "confirm_set_aria_prefix": "Confirm set"
+      "confirm_set_aria": "Confirm set {{label}}"
+    },
+    "set_indicators": {
+      "sets_aria_one": "{{count}} set",
+      "sets_aria_other": "{{count}} sets",
+      "set_result_aria": "Set {{index}}: {{reps}} reps",
+      "register_set_aria": "Register set {{index}} of {{total}}"
     },
     "day_navigator": {
       "prev_aria": "Previous day",
@@ -975,10 +995,11 @@
     "result_cell": {
       "success": "Success",
       "fail": "Fail",
-      "aria_mark_success": "Mark {{tier}} success",
-      "aria_mark_fail": "Mark {{tier}} fail",
-      "aria_undo": "Undo {{tier}} {{result}}",
-      "aria_register_max": "Register Max {{tier}}"
+      "aria_mark_success": "Mark {{exercise}} ({{tier}}) as success",
+      "aria_mark_fail": "Mark {{exercise}} ({{tier}}) as fail",
+      "aria_undo": "Undo {{exercise}} ({{tier}}) {{result}}",
+      "aria_register_max": "Register max for {{exercise}} ({{tier}})",
+      "register_max_label": "Register max ({{tier}})"
     },
     "set_stepper": {
       "group_aria": "Set {{index}} of {{total}} reps",
@@ -1166,7 +1187,7 @@
       "section_charts": "Trends",
       "section_signals": "Signals",
       "empty_heading": "No insights yet",
-      "empty_description": "Log a few sessions and you'll see volume trends, load recommendations and plateau alerts here."
+      "empty_description": "Insights refresh once a day, so they may take a while to appear after you train. Log your sessions and you'll see volume trends, load recommendations and plateau alerts here."
     },
     "exercise_summary": {
       "default_exercise": "Exercise",
@@ -1470,9 +1491,10 @@
     },
     "empty": {
       "guest_stamp": "GUEST",
-      "guest_title": "Guest mode",
-      "guest_body": "Create a free account to save your progress and stick with your plan.",
-      "guest_cta": "Create Account",
+      "guest_title": "Try it without an account",
+      "guest_body": "Pick a program from the catalog and start logging your training instantly. Create an account whenever you want to save your progress.",
+      "guest_programs_cta": "Explore programs",
+      "guest_wiki_cta": "Exercise guide",
       "no_program_stamp": "NO PROGRAM",
       "no_program_title": "No active program",
       "no_program_body": "Pick a program to start logging your training.",

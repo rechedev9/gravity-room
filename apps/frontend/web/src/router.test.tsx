@@ -13,4 +13,12 @@ describe('router', () => {
     expect(paths).toContain('/en/exercises');
     expect(paths).toContain('/en/exercises/$slug');
   });
+
+  it('registers the in-app exercise-wiki routes under the app shell', () => {
+    const paths = Object.keys(router.routesById);
+    // Nested under the pathless `app-layout` parent so the sidebar/app chrome
+    // stays mounted when navigating to "Ejercicios" from inside the app.
+    expect(paths).toContain('/app-layout/app/exercises');
+    expect(paths).toContain('/app-layout/app/exercises/$slug');
+  });
 });

@@ -269,29 +269,34 @@ export function HomeMentorWidget() {
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
-          className="flex items-center gap-3 px-3 py-2 bg-accent/5 border border-accent/20 rounded-lg text-xs"
+          className="flex flex-col gap-2 px-3 py-2 bg-accent/5 border border-accent/20 rounded-lg text-xs sm:flex-row sm:items-center sm:gap-3"
         >
-          <span className="text-accent font-bold shrink-0 select-none" aria-hidden="true">
-            ✦
-          </span>
-          <span className="flex-1 text-muted min-w-0 truncate">
-            {t('mentor_tour.prompt.title')}
-          </span>
-          <button
-            type="button"
-            onClick={handleStartTour}
-            className="shrink-0 text-accent font-semibold hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:underline min-h-[36px] px-1"
-          >
-            {t('mentor_tour.prompt.start')}
-          </button>
-          <button
-            type="button"
-            onClick={handleDismissPrompt}
-            aria-label={t('mentor_tour.checklist.dismiss_aria')}
-            className="shrink-0 text-muted hover:text-main transition-colors focus-visible:outline-none min-h-[36px] min-w-[36px] flex items-center justify-center"
-          >
-            ✕
-          </button>
+          <div className="flex flex-1 items-start gap-2 min-w-0">
+            <span
+              className="text-accent font-bold shrink-0 select-none leading-5"
+              aria-hidden="true"
+            >
+              ✦
+            </span>
+            <span className="text-muted">{t('mentor_tour.prompt.title')}</span>
+          </div>
+          <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={handleStartTour}
+              className="shrink-0 text-accent font-semibold hover:opacity-80 transition-opacity focus-visible:outline-none focus-visible:underline min-h-[36px] px-1"
+            >
+              {t('mentor_tour.prompt.start')}
+            </button>
+            <button
+              type="button"
+              onClick={handleDismissPrompt}
+              aria-label={t('mentor_tour.checklist.dismiss_aria')}
+              className="shrink-0 text-muted hover:text-main transition-colors focus-visible:outline-none min-h-[36px] min-w-[36px] flex items-center justify-center"
+            >
+              ✕
+            </button>
+          </div>
         </motion.div>
       </AnimatePresence>
     );

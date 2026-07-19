@@ -5,11 +5,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { queryKeys } from '@/lib/query-keys';
-import { fetchPrograms, fetchInsights } from '@/lib/api-functions';
+import { fetchPrograms } from '@/lib/api-functions';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
-import { isFrequencyPayload } from '@/lib/insight-payloads';
-import type { FrequencyPayload } from '@/lib/insight-payloads';
 import { GuestBanner } from '@/components/guest-banner';
 import { readActiveGuestInstance } from '@/lib/guest-storage';
 import { Kicker } from '@/components/kicker';
@@ -28,8 +26,6 @@ import { HomeEmptyState } from './home-empty-state';
 import { HomeGuestResume } from './home-guest-resume';
 import { HomeMentorWidget } from './home-mentor-widget';
 import { ZoneHint } from './zone-hint';
-
-const HOME_INSIGHT_TYPES = ['frequency', 'volume_trend'] as const;
 
 function getMentorTips(t: TFunction): readonly string[] {
   const tips = t('home.mentor_tips', { returnObjects: true });
@@ -67,39 +63,25 @@ export function HomePage(): React.ReactNode {
     refetchOnMount: 'always',
   });
 
-  const insightsQuery = useQuery({
-    queryKey: queryKeys.insights.list([...HOME_INSIGHT_TYPES]),
-    queryFn: () => fetchInsights([...HOME_INSIGHT_TYPES]),
-    enabled: user !== null && !isGuest,
-    staleTime: 10 * 60 * 1000,
-    // Insights drive the KPI strip; refetch on mount so the dashboard isn't
-    // stuck on the pre-session zero-state after the user logs a workout.
-    refetchOnMount: 'always',
-  });
-
   const activeProgram = programsQuery.data?.find((p) => p.status === 'active') ?? null;
   const mentorTips = getMentorTips(t);
 
   // Real training data for the active program (hero next-set, recent sessions,
-  // PR road). Queries are disabled when there is no active program.
+  // PR road, streak/session KPIs, heatmap). Queries are disabled when there is
+  // no active program. All widgets share this one live source so the streak
+  // block, the heatmap and the recent-activity list can never disagree.
   const dashboard = useDashboardData(activeProgram);
 
-  const freqPayload = useMemo((): FrequencyPayload | null => {
-    const item = insightsQuery.data?.find((i) => i.insightType === 'frequency');
-    if (!item || !isFrequencyPayload(item.payload)) return null;
-    return item.payload;
-  }, [insightsQuery.data]);
-
-  // Workout dates from frequency insight → feed heatmap
-  const workoutDates = freqPayload?.workoutDates ?? [];
+  // Workout dates + KPIs come from the SAME live program data as recent
+  // activity (see use-dashboard-data), never from the cron-lagged frequency
+  // insight that used to leave a freshly-logged session invisible here.
   const heatmapWorkouts = useMemo(
-    () => workoutDates.map((d) => ({ completedAt: d })),
-    [workoutDates]
+    () => dashboard.workoutDates.map((d) => ({ completedAt: d })),
+    [dashboard.workoutDates]
   );
 
-  // KPI values from frequency insight
-  const streakDays = freqPayload?.currentStreak ?? 0;
-  const totalSessions = freqPayload?.totalSessions ?? 0;
+  const streakDays = dashboard.currentStreak;
+  const totalSessions = dashboard.totalSessions;
   // Pristine = active program but no sessions logged yet. Show an encouraging
   // prompt instead of a strip of literal zeros (the hero already owns the gold CTA).
   const isPristine = totalSessions === 0 && streakDays === 0;
@@ -129,7 +111,7 @@ export function HomePage(): React.ReactNode {
     );
   }
 
-  if (programsQuery.isLoading || insightsQuery.isLoading || dashboard.isLoading) {
+  if (programsQuery.isLoading || dashboard.isLoading) {
     return (
       <div className="min-h-dvh bg-body">
         <DashboardSkeleton />

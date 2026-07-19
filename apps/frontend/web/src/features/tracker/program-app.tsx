@@ -4,6 +4,7 @@ import type { ResultValue } from '@gzclp/domain/types';
 import { useProgram } from '@/hooks/use-program';
 import { useGuestProgram } from '@/hooks/use-guest-program';
 import { useSetLogging } from '@/hooks/use-set-logging';
+import { buildSetLogsStorageKey } from '@/lib/set-logs-storage';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { useToast } from '@/contexts/toast-context';
@@ -82,12 +83,19 @@ export function ProgramApp({
     resetAll,
     updateConfigAsync,
   } = programData;
+  const setLogsStorageKey = useMemo((): string | null => {
+    if (isGuest) return buildSetLogsStorageKey({ userId: null, programId, instanceId });
+    // Authenticated but not yet resolved — keep set logs in-memory only so we
+    // never persist under the shared 'guest' key or a wrong owner.
+    if (!user) return null;
+    return buildSetLogsStorageKey({ userId: user.id, programId, instanceId });
+  }, [isGuest, user, programId, instanceId]);
   const {
     logSet,
     clearSetLogs,
     getSetLogs,
     isLogging: isSlotLogging,
-  } = useSetLogging(markResult, rows, definition);
+  } = useSetLogging(markResult, rows, definition, setLogsStorageKey);
 
   useWebMcp({
     config,

@@ -144,4 +144,21 @@ describe('useDashboardData', () => {
       isPr: false,
     });
   });
+
+  it('derives live streak, session count and heatmap dates (parity with recent activity)', async () => {
+    const { result } = renderHook(() => useDashboardData(PROGRAM_SUMMARY), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.recentSessions.length).toBeGreaterThan(0);
+    });
+
+    // Two completed workouts → the streak KPI, the session count and the
+    // heatmap all agree, sourced from the same live program data.
+    expect(result.current.totalSessions).toBe(2);
+    expect(result.current.currentStreak).toBe(2);
+    expect(result.current.workoutDates).toEqual(['2025-01-01T00:00:00Z', '2025-01-02T00:00:00Z']);
+  });
 });

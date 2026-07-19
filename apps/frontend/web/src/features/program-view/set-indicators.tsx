@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import type { ResultValue, SetLogEntry } from '@gzclp/domain/types';
 
 // ---------------------------------------------------------------------------
@@ -143,6 +144,7 @@ export function SetIndicators({
   committedSetLogs,
   onSetTap,
 }: SetIndicatorsProps): ReactNode {
+  const { t } = useTranslation();
   const [activeSetIndex, setActiveSetIndex] = useState<number | null>(null);
 
   const handleSetTap = useCallback((setIndex: number): void => {
@@ -171,7 +173,7 @@ export function SetIndicators({
 
   // Legacy decorative mode: no onSetTap or result already set without setLogs
   if (!isInteractive && displayLogs === undefined) {
-    return renderDecorativeCircles(sets, result, isAmrap);
+    return renderDecorativeCircles(sets, result, isAmrap, t);
   }
 
   // Interactive or committed-with-logs mode
@@ -181,7 +183,10 @@ export function SetIndicators({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-1.5 flex-wrap" aria-label={`${sets} series`}>
+      <div
+        className="flex items-center gap-1.5 flex-wrap"
+        aria-label={t('tracker.set_indicators.sets_aria', { count: sets })}
+      >
         {Array.from({ length: sets }, (_, i) => {
           const isLast = i === sets - 1;
           const showAmrapMark = isAmrap && isLast;
@@ -196,7 +201,10 @@ export function SetIndicators({
               <span
                 key={i}
                 role="img"
-                aria-label={`Serie ${i + 1}: ${log.reps} repeticiones`}
+                aria-label={t('tracker.set_indicators.set_result_aria', {
+                  index: i + 1,
+                  reps: log.reps,
+                })}
                 className={`relative w-5 h-5 rounded-[2px] border-2 ${colorClass} flex items-center justify-center`}
               >
                 {showAmrapMark && (
@@ -214,7 +222,10 @@ export function SetIndicators({
                 key={i}
                 type="button"
                 onClick={() => handleSetTap(i)}
-                aria-label={`Registrar serie ${i + 1} de ${sets}`}
+                aria-label={t('tracker.set_indicators.register_set_aria', {
+                  index: i + 1,
+                  total: sets,
+                })}
                 className="relative w-7 h-7 rounded-[2px] border-2 border-accent bg-transparent cursor-pointer transition-all duration-150 hover:bg-accent/20 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none flex items-center justify-center"
               >
                 {showAmrapMark && (
@@ -264,7 +275,8 @@ export function SetIndicators({
 function renderDecorativeCircles(
   sets: number,
   result: ResultValue | undefined,
-  isAmrap: boolean
+  isAmrap: boolean,
+  t: TFunction
 ): ReactNode {
   const colorClass =
     result === undefined
@@ -274,7 +286,10 @@ function renderDecorativeCircles(
         : 'border-fail bg-fail';
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap" aria-label={`${sets} series`}>
+    <div
+      className="flex items-center gap-1.5 flex-wrap"
+      aria-label={t('tracker.set_indicators.sets_aria', { count: sets })}
+    >
       {Array.from({ length: sets }, (_, i) => {
         const isLast = i === sets - 1;
         const showAmrapMark = isAmrap && isLast;

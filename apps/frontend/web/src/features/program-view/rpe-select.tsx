@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const RPE_VALUES = [5, 6, 7, 8, 9, 10] as const;
 
@@ -16,6 +17,7 @@ interface RpeSelectProps {
  * rather than a raw browser widget.
  */
 export function RpeSelect({ value, onChange, workoutIndex, slotKey }: RpeSelectProps): ReactNode {
+  const { t } = useTranslation();
   const hasValue = value !== undefined;
   return (
     <span className="relative inline-flex items-center">
@@ -32,7 +34,7 @@ export function RpeSelect({ value, onChange, workoutIndex, slotKey }: RpeSelectP
           onChange(v ? Number(v) : undefined);
         }}
         data-rpe-input={`${workoutIndex}-${slotKey}`}
-        aria-label="RPE"
+        aria-label={t('tracker.rpe_select.label')}
         className={`appearance-none bg-card border border-rule text-xs font-bold pl-2.5 pr-6 py-1.5 min-h-[36px] min-w-[72px] cursor-pointer rounded-[var(--radius-base)] transition-colors hover:border-rule-light focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none ${
           hasValue ? 'text-main' : 'text-muted'
         }`}

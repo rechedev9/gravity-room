@@ -1,10 +1,11 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   deriveResultFromSetLogs,
   deriveResultFromSetLogsSimple,
 } from '@gzclp/domain/generic-engine';
 import type { GenericWorkoutRow, ResultValue, SetLogEntry } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import { restoreSetLogs, saveSetLogs } from '@/lib/set-logs-storage';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,10 +65,36 @@ function findSlotDef(
 export function useSetLogging(
   markResult: MarkResultFn,
   rows: readonly GenericWorkoutRow[],
-  definition: ProgramDefinition | undefined
+  definition: ProgramDefinition | undefined,
+  /**
+   * localStorage key scoping in-progress set logs to a user + program + instance.
+   * When provided, confirmations survive reloads and mid-workout tab eviction;
+   * pass `null` (e.g. while auth is still resolving) to keep state in-memory only.
+   */
+  storageKey: string | null = null
 ): UseSetLoggingReturn {
-  // Local state: partial set logs keyed by "workoutIndex:slotId"
-  const [logsMap, setLogsMap] = useState<ReadonlyMap<string, readonly SetLogEntry[]>>(new Map());
+  // Local state: partial set logs keyed by "workoutIndex:slotId". Seeded from
+  // any persisted map for the initial storage key so a reload mid-workout keeps
+  // the confirmed sets.
+  const [logsMap, setLogsMap] = useState<ReadonlyMap<string, readonly SetLogEntry[]>>(() =>
+    storageKey === null ? new Map() : restoreSetLogs(storageKey)
+  );
+
+  // When the scope changes (auth resolves, program/instance switch), re-seed the
+  // map from the new key's persisted state. Adjusting state during render is the
+  // documented React pattern for resetting on a prop change and guarantees the
+  // persist effect below sees the freshly restored map, never stale data.
+  const storageKeyRef = useRef(storageKey);
+  if (storageKeyRef.current !== storageKey) {
+    storageKeyRef.current = storageKey;
+    setLogsMap(storageKey === null ? new Map() : restoreSetLogs(storageKey));
+  }
+
+  // Persist on every change. An empty map removes the key (day complete / reset).
+  useEffect(() => {
+    if (storageKey === null) return;
+    saveSetLogs(storageKey, logsMap);
+  }, [storageKey, logsMap]);
 
   // Ref to avoid stale closure over markResult
   const markResultRef = useRef(markResult);

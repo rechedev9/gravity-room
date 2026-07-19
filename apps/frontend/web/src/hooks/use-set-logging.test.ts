@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSetLogging } from './use-set-logging';
+import { restoreSetLogs, saveSetLogs } from '@/lib/set-logs-storage';
 import type { GenericWorkoutRow, SetLogEntry } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import { GZCLP_DEFINITION_FIXTURE } from '../../test/helpers/fixtures';
@@ -191,5 +192,117 @@ describe('useSetLogging — extended logSet', () => {
 
     const [, , callResult] = markResult.mock.calls[0];
     expect(callResult).toBe('fail');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useSetLogging — persistence across reloads (storageKey)
+// ---------------------------------------------------------------------------
+
+describe('useSetLogging — persistence', () => {
+  const KEY = 'gravity-room:set-logs|user-1|gzclp|default';
+  let markResult: ReturnType<typeof vi.fn<MarkResultFn>>;
+
+  beforeEach(() => {
+    markResult = vi.fn<MarkResultFn>();
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('persists a confirmed set to localStorage under the storage key', () => {
+    const rows = buildRows({ sets: 3, reps: 5 });
+    const { result } = renderHook(() =>
+      useSetLogging(markResult, rows, GZCLP_DEFINITION_FIXTURE, KEY)
+    );
+
+    act(() => {
+      result.current.logSet(0, 'd1-t1', 0, 5, 60);
+    });
+
+    expect(restoreSetLogs(KEY).get('0:d1-t1')).toEqual([{ reps: 5, weight: 60 }]);
+  });
+
+  it('restores in-progress logs from localStorage on mount (survives reload)', () => {
+    saveSetLogs(KEY, new Map([['0:d1-t1', [{ reps: 5, weight: 60 }]]]));
+
+    const rows = buildRows({ sets: 3, reps: 5 });
+    const { result } = renderHook(() =>
+      useSetLogging(markResult, rows, GZCLP_DEFINITION_FIXTURE, KEY)
+    );
+
+    expect(result.current.getSetLogs(0, 'd1-t1')).toEqual([{ reps: 5, weight: 60 }]);
+    expect(result.current.isLogging(0, 'd1-t1')).toBe(true);
+  });
+
+  it('clears the persisted key once the slot completes and derives a result', async () => {
+    saveSetLogs(KEY, new Map([['0:d1-t1', [{ reps: 3, weight: 60 }]]]));
+
+    const rows = buildRows({ sets: 2, reps: 3 });
+    const { result } = renderHook(() =>
+      useSetLogging(markResult, rows, GZCLP_DEFINITION_FIXTURE, KEY)
+    );
+
+    act(() => {
+      result.current.logSet(0, 'd1-t1', 1, 3, 60);
+    });
+    await act(async () => {
+      await new Promise<void>((resolve) => queueMicrotask(resolve));
+    });
+
+    expect(markResult).toHaveBeenCalledTimes(1);
+    // Map emptied → persisted key removed so no stale progress resurrects.
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it('clears the persisted key when clearSetLogs empties the map', () => {
+    saveSetLogs(KEY, new Map([['0:d1-t1', [{ reps: 5, weight: 60 }]]]));
+
+    const rows = buildRows({ sets: 3, reps: 5 });
+    const { result } = renderHook(() =>
+      useSetLogging(markResult, rows, GZCLP_DEFINITION_FIXTURE, KEY)
+    );
+
+    act(() => {
+      result.current.clearSetLogs(0, 'd1-t1');
+    });
+
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it('does not persist when no storage key is provided (in-memory only)', () => {
+    const rows = buildRows({ sets: 3, reps: 5 });
+    const { result } = renderHook(() =>
+      useSetLogging(markResult, rows, GZCLP_DEFINITION_FIXTURE, null)
+    );
+
+    act(() => {
+      result.current.logSet(0, 'd1-t1', 0, 5, 60);
+    });
+
+    expect(localStorage.length).toBe(0);
+    // State still works locally.
+    expect(result.current.getSetLogs(0, 'd1-t1')).toEqual([{ reps: 5, weight: 60 }]);
+  });
+
+  it('re-seeds from a new key when the scope changes (e.g. auth resolves)', () => {
+    const guestKey = 'gravity-room:set-logs|guest|gzclp|default';
+    saveSetLogs(guestKey, new Map([['0:d1-t1', [{ reps: 9 }]]]));
+    saveSetLogs(KEY, new Map([['0:d1-t1', [{ reps: 5, weight: 60 }]]]));
+
+    const rows = buildRows({ sets: 3, reps: 5 });
+    const { result, rerender } = renderHook(
+      ({ storageKey }: { storageKey: string }) =>
+        useSetLogging(markResult, rows, GZCLP_DEFINITION_FIXTURE, storageKey),
+      { initialProps: { storageKey: guestKey } }
+    );
+
+    expect(result.current.getSetLogs(0, 'd1-t1')).toEqual([{ reps: 9 }]);
+
+    rerender({ storageKey: KEY });
+
+    expect(result.current.getSetLogs(0, 'd1-t1')).toEqual([{ reps: 5, weight: 60 }]);
   });
 });

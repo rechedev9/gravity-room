@@ -37,6 +37,8 @@ export function SlotResultFooter({
       <ResultCell
         index={workoutIndex}
         tier={slot.slotId}
+        exerciseName={slot.exerciseName}
+        tierLabel={slot.tier.toUpperCase()}
         result={slot.result}
         variant="card"
         isTestSlot={slot.isTestSlot === true}

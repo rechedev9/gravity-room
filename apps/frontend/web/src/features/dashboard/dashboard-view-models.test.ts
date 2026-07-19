@@ -6,6 +6,7 @@ import {
   buildHeroExtras,
   buildRecentSessions,
   buildLiftHistory,
+  buildWorkoutDates,
   findFirstPendingIndex,
 } from './dashboard-view-models';
 
@@ -120,6 +121,23 @@ describe('buildRecentSessions', () => {
 
   it('is empty when no workout is fully completed', () => {
     expect(buildRecentSessions(computeGenericProgram(DEFINITION, CONFIG, {}), {})).toHaveLength(0);
+  });
+});
+
+describe('buildWorkoutDates', () => {
+  it('returns the timestamp of each completed workout, in program order', () => {
+    const ts = { '0': '2026-06-24T09:00:00Z', '1': '2026-06-25T09:00:00Z' };
+    expect(buildWorkoutDates(rows, ts)).toEqual(['2026-06-24T09:00:00Z', '2026-06-25T09:00:00Z']);
+  });
+
+  it('skips completed workouts that have no recorded timestamp', () => {
+    expect(buildWorkoutDates(rows, { '0': '2026-06-24T09:00:00Z' })).toEqual([
+      '2026-06-24T09:00:00Z',
+    ]);
+  });
+
+  it('is empty when no workout is fully completed', () => {
+    expect(buildWorkoutDates(computeGenericProgram(DEFINITION, CONFIG, {}), {})).toHaveLength(0);
   });
 });
 

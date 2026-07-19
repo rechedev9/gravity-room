@@ -131,6 +131,16 @@ const ExerciseArticlePageEn = lazyWithRetry(() =>
     default: () => m.ExerciseArticlePage({ lang: 'en' }),
   }))
 );
+const AppExerciseWikiIndexPage = lazyWithRetry(() =>
+  import('@/features/exercise-wiki/exercise-wiki-index-page').then((m) => ({
+    default: m.AppExerciseWikiIndexPage,
+  }))
+);
+const AppExerciseArticlePage = lazyWithRetry(() =>
+  import('@/features/exercise-wiki/exercise-article-page').then((m) => ({
+    default: m.AppExerciseArticlePage,
+  }))
+);
 // Lazy so the app chrome's motion dependency (~32 KB gz) stays off the public/eager path.
 const AppShell = lazyWithRetry(() =>
   import('@/components/layout/app-shell').then((m) => ({ default: m.AppShell }))
@@ -384,6 +394,23 @@ const profileRoute = createRoute({
   component: ProfilePage,
 });
 
+// In-app exercise wiki — same curated content rendered inside the app shell so
+// navigating to "Ejercicios" from the sidebar keeps the sidebar + active state.
+// The public /ejercicios + /en/exercises routes remain for SEO/prerender.
+const appExercisesIndexRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/app/exercises',
+  pendingComponent: ContentPageSkeleton,
+  component: AppExerciseWikiIndexPage,
+});
+
+const appExercisesArticleRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/app/exercises/$slug',
+  pendingComponent: ContentPageSkeleton,
+  component: AppExerciseArticlePage,
+});
+
 // ---------------------------------------------------------------------------
 // Route tree assembly
 // ---------------------------------------------------------------------------
@@ -417,6 +444,8 @@ const routeTree = rootRoute.addChildren([
     trackerProgramRoute,
     insightsRoute,
     profileRoute,
+    appExercisesIndexRoute,
+    appExercisesArticleRoute,
   ]),
 ]);
 

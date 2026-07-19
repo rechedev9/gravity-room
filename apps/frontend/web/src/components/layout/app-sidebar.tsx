@@ -38,8 +38,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: '/app/insights', labelKey: 'navigation.insights', Icon: InsightsIcon, guestHidden: true },
   { to: '/app/programs', labelKey: 'navigation.programs', Icon: ProgramsIcon },
   {
-    to: '/ejercicios',
-    toEn: '/en/exercises',
+    to: '/app/exercises',
     labelKey: 'navigation.exercises',
     Icon: ExercisesIcon,
   },
@@ -216,7 +215,10 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
               <button
                 type="button"
                 onClick={() => handleGuestExit(onItemClick)}
-                className="w-full px-3 py-2 text-xs font-bold text-btn-active-text bg-btn-active border-2 border-btn-ring uppercase tracking-wide cursor-pointer hover:opacity-90 transition-opacity"
+                className={cn(
+                  'w-full px-3 py-2 text-left font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted hover:text-main transition-colors cursor-pointer rounded-[var(--radius-base)]',
+                  SIDEBAR_FOCUS_RING
+                )}
               >
                 {t('auth.create_account')}
               </button>

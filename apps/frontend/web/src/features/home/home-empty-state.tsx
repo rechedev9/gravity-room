@@ -20,9 +20,14 @@ export function HomeEmptyState({ variant }: HomeEmptyStateProps): React.ReactNod
           <p className="text-muted mb-6 max-w-sm mx-auto leading-relaxed">
             {t('home.empty.guest_body')}
           </p>
-          <Link to="/login">
-            <Button variant="primary">{t('home.empty.guest_cta')}</Button>
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link to="/app/programs">
+              <Button variant="primary">{t('home.empty.guest_programs_cta')}</Button>
+            </Link>
+            <Link to="/app/exercises">
+              <Button variant="default">{t('home.empty.guest_wiki_cta')}</Button>
+            </Link>
+          </div>
         </>
       ) : (
         <>

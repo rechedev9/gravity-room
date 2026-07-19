@@ -3,7 +3,12 @@ import { useTranslation } from 'react-i18next';
 
 interface ResultCellProps {
   readonly index: number;
+  /** Slot identifier passed through to the mark/undo callbacks (e.g. "d1-t1"). */
   readonly tier: string;
+  /** Human-readable exercise name for accessible labels (e.g. "Press Militar"). */
+  readonly exerciseName: string;
+  /** Human-readable tier label for accessible labels (e.g. "T1"). */
+  readonly tierLabel: string;
   readonly result?: ResultValue;
   readonly variant: 'table' | 'card';
   /** True for test slots — renders a single "Registrar Maximo" button instead of Pass/Fail. */
@@ -17,6 +22,8 @@ interface ResultCellProps {
 export function ResultCell({
   index,
   tier,
+  exerciseName,
+  tierLabel,
   result,
   variant,
   isTestSlot,
@@ -44,7 +51,11 @@ export function ResultCell({
       <button
         type="button"
         onClick={() => onUndo(index, tier)}
-        aria-label={t('tracker.result_cell.aria_undo', { tier, result: resultLabel })}
+        aria-label={t('tracker.result_cell.aria_undo', {
+          exercise: exerciseName,
+          tier: tierLabel,
+          result: resultLabel,
+        })}
         data-testid="result-cell-undo"
         className={`${padding} text-sm font-extrabold cursor-pointer border-3 rounded-sm animate-[pop-in_0.25s_cubic-bezier(0.16,1,0.3,1)] focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none active:scale-95 transition-transform ${badgeColor} ${tableStyles} ${isSuccess ? 'shadow-[0_0_10px_rgba(106,170,58,0.2)]' : 'shadow-[0_0_10px_rgba(192,80,80,0.2)]'}`}
       >
@@ -80,11 +91,14 @@ export function ResultCell({
       <button
         type="button"
         onClick={() => onMark(index, tier, 'success')}
-        aria-label={t('tracker.result_cell.aria_register_max', { tier })}
+        aria-label={t('tracker.result_cell.aria_register_max', {
+          exercise: exerciseName,
+          tier: tierLabel,
+        })}
         data-testid="result-cell-register-max"
         className={`${testSizeClasses} font-bold border-2 border-accent bg-transparent text-accent rounded-sm cursor-pointer transition-all duration-150 hover:bg-accent/10 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none whitespace-nowrap`}
       >
-        {t('tracker.result_cell.aria_register_max', { tier })}
+        {t('tracker.result_cell.register_max_label', { tier: tierLabel })}
       </button>
     );
   }
@@ -100,7 +114,10 @@ export function ResultCell({
       <button
         type="button"
         onClick={() => onMark(index, tier, 'success')}
-        aria-label={t('tracker.result_cell.aria_mark_success', { tier })}
+        aria-label={t('tracker.result_cell.aria_mark_success', {
+          exercise: exerciseName,
+          tier: tierLabel,
+        })}
         data-testid="result-cell-mark-success"
         className={`${sizeClasses} font-extrabold border-2 border-ok-ring bg-transparent text-ok rounded-sm cursor-pointer transition-all duration-150 hover:bg-ok-bg hover:shadow-glow-success active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none`}
       >
@@ -109,7 +126,10 @@ export function ResultCell({
       <button
         type="button"
         onClick={() => onMark(index, tier, 'fail')}
-        aria-label={t('tracker.result_cell.aria_mark_fail', { tier })}
+        aria-label={t('tracker.result_cell.aria_mark_fail', {
+          exercise: exerciseName,
+          tier: tierLabel,
+        })}
         data-testid="result-cell-mark-fail"
         className={`${sizeClasses} font-extrabold border-2 border-fail-ring bg-transparent text-fail rounded-sm cursor-pointer transition-all duration-150 hover:bg-fail-bg hover:shadow-glow-fail active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none`}
       >

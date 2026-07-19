@@ -70,6 +70,7 @@ vi.mock('@/lib/api-functions', async () => {
 });
 
 import { AuthProvider, useAuth } from './auth-context';
+import { markSessionHint } from '@/lib/session-hint';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -119,6 +120,11 @@ describe('useAuth', () => {
 describe('AuthProvider', () => {
   beforeEach(() => {
     resetAllMocks();
+    localStorage.clear();
+    // These suites model a RETURNING visitor (one who has a refresh cookie), so
+    // seed the best-effort session hint that gates the restore refresh. The
+    // "anonymous visitor" path (no hint → no refresh) is covered explicitly below.
+    markSessionHint();
     testQueryClient = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: 0 } },
     });
@@ -140,6 +146,21 @@ describe('AuthProvider', () => {
       const { result } = renderHook(() => useAuth(), { wrapper });
 
       expect(result.current.loading).toBe(true);
+    });
+
+    it('skips the refresh call entirely for an anonymous visitor (no session hint)', async () => {
+      // No prior sign-in → no hint. The app must NOT fire POST /auth/refresh
+      // (which would 401 and log a red console error on every first load).
+      localStorage.clear();
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      expect(result.current.user).toBeNull();
+      expect(mockRefreshAccessToken).not.toHaveBeenCalled();
     });
 
     it('should have null user when refresh fails', async () => {

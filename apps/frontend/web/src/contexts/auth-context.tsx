@@ -15,6 +15,7 @@ import type { UserInfo } from '@gzclp/domain/schemas/user';
 import { setUser as sentrySetUser } from '@/lib/sentry';
 import { trackEvent } from '@/lib/analytics';
 import { queryKeys } from '@/lib/query-keys';
+import { clearSessionHint, hasSessionHint, markSessionHint } from '@/lib/session-hint';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -87,19 +88,33 @@ const DEV_AUTH_SECRET = import.meta.env.VITE_DEV_AUTH_SECRET ?? 'e2e-dev-secret-
 // ---------------------------------------------------------------------------
 
 async function restoreSession(): Promise<UserInfo | null> {
+  // Skip the refresh entirely for visitors we have no hint ever signed in. The
+  // refresh cookie is HttpOnly (unreadable here), so this best-effort flag is
+  // the only client-side signal — and it avoids a guaranteed 401 (plus its red
+  // console error) on every anonymous / first-time page load. Fails open: a
+  // present-but-stale hint still attempts the refresh exactly as before.
+  if (!hasSessionHint()) return null;
+
   const refreshed = await refreshAccessToken();
-  if (!refreshed) return null;
+  if (!refreshed) {
+    // The hint was wrong (expired/revoked session): stop advertising a session
+    // so the next load skips the doomed refresh again.
+    clearSessionHint();
+    return null;
+  }
   try {
     // /auth/refresh returns the user alongside the token, so the common path
     // restores the session in one round-trip. Fall back to GET /auth/me only if
     // the payload is missing/unexpected (e.g. an older API without the field).
     const user = parseUserSafe(refreshed.user) ?? (await fetchMe());
+    markSessionHint();
     sentrySetUser({ id: user.id, email: user.email });
     return user;
   } catch (err: unknown) {
     // Never leave a valid-looking access token behind when its user payload
     // cannot be restored. Auth state and API credentials must move together.
     setAccessToken(null);
+    clearSessionHint();
     await clearApiResponseCache();
     console.warn(
       '[auth] Session restore failed:',
@@ -129,6 +144,7 @@ function applySignInResponse(
   }
 
   setAccessToken(data.accessToken);
+  markSessionHint();
   setQueryData(userInfo);
   sentrySetUser({ id: userInfo.id, email: userInfo.email });
   if (options.trackSignup) trackEvent('signup');
@@ -302,6 +318,7 @@ export function AuthProvider({
   const deleteAccount = useCallback(async (): Promise<void> => {
     await apiFetch('/auth/me', { method: 'DELETE' });
     setAccessToken(null);
+    clearSessionHint();
     await clearApiResponseCache();
     queryClient.setQueryData(SESSION_QUERY_KEY, null);
     sentrySetUser(null);
@@ -318,6 +335,7 @@ export function AuthProvider({
       return errorResult(err);
     }
     setAccessToken(null);
+    clearSessionHint();
     await clearApiResponseCache();
     queryClient.setQueryData(SESSION_QUERY_KEY, null);
     sentrySetUser(null);

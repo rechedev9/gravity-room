@@ -11,6 +11,7 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 import { localizedProgramName } from '@/lib/catalog-display';
 import { readActiveGuestInstance } from '@/lib/guest-storage';
 import { ProgramApp } from '@/features/tracker/program-app';
+import { TrackerGuestEmpty } from '@/features/tracker/tracker-guest-empty';
 
 export function TrackerPage(): React.ReactNode {
   const { t } = useTranslation();
@@ -55,15 +56,21 @@ export function TrackerPage(): React.ReactNode {
     displayName ? `${displayName} — ${t('tracker.page_title')}` : t('tracker.page_title')
   );
 
-  // Redirect to home when no program is available (after query settles)
-  const shouldRedirect = !effectiveProgramId && !programsQuery.isLoading;
+  // A guest with no in-progress program is NOT redirected to /app: bouncing
+  // them there both showed the generic guest wall and left the sidebar
+  // highlighting "Inicio" instead of "Tracker". Guests can track locally once
+  // they pick a program, so we keep them on /app/tracker and point them at the
+  // catalog. Authenticated users with no program still redirect home.
+  const shouldRedirect = !effectiveProgramId && !programsQuery.isLoading && !isGuest;
   useEffect(() => {
     if (shouldRedirect) {
       void navigate({ to: '/app', replace: true });
     }
   }, [shouldRedirect, navigate]);
 
-  if (!effectiveProgramId) return null;
+  if (!effectiveProgramId) {
+    return isGuest ? <TrackerGuestEmpty /> : null;
+  }
 
   const handleBack = (): void => {
     clearTracker();

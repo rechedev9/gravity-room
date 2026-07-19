@@ -12,6 +12,8 @@ describe('ResultCell', () => {
   const baseProps = {
     index: 0,
     tier: 'main',
+    exerciseName: 'Press Militar',
+    tierLabel: 'T1',
     onMark: vi.fn(),
     onUndo: vi.fn(),
   };
@@ -72,6 +74,21 @@ describe('ResultCell', () => {
       render(<ResultCell {...baseProps} variant="table" />);
 
       expect(screen.queryByTestId('result-cell-register-max')).not.toBeInTheDocument();
+    });
+
+    it('should expose the exercise name and tier in aria-labels, never the slot id', () => {
+      render(<ResultCell {...baseProps} tier="d1-t1" variant="table" />);
+
+      const success = screen.getByTestId('result-cell-mark-success');
+      const fail = screen.getByTestId('result-cell-mark-fail');
+
+      // Interpolated values are language-agnostic, so assert on them directly.
+      for (const btn of [success, fail]) {
+        const label = btn.getAttribute('aria-label') ?? '';
+        expect(label).toContain('Press Militar');
+        expect(label).toContain('T1');
+        expect(label).not.toContain('d1-t1');
+      }
     });
   });
 

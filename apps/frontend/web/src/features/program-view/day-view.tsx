@@ -1,5 +1,6 @@
 import { Fragment } from 'react';
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type {
   ResultValue,
   GenericWorkoutRow,
@@ -98,8 +99,12 @@ export function DayView({
   getSetLogs,
   isSlotLogging,
 }: DayViewProps): ReactNode {
+  const { t } = useTranslation();
   return (
-    <div className="flex flex-col gap-3" aria-label={`Entrenamiento ${workout.index + 1}`}>
+    <div
+      className="flex flex-col gap-3"
+      aria-label={t('tracker.day_view.workout_aria', { number: workout.index + 1 })}
+    >
       {workout.slots.map((slot) => {
         const isDone = slot.result !== undefined;
         const hasPrescriptions = slot.prescriptions !== undefined;

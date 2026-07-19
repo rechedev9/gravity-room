@@ -9,6 +9,8 @@ import { useGuest } from '@/contexts/guest-context';
 import { useTracker } from '@/contexts/tracker-context';
 import { useNavigate } from '@tanstack/react-router';
 import { ProgramCard } from './program-card';
+import { ActiveProgramBlock } from './active-program-block';
+import { useDashboardData } from '@/features/dashboard/use-dashboard-data';
 import { Button } from '@/components/button';
 import { PROGRAM_LEVELS } from '@gzclp/domain/catalog';
 import type { ProgramLevel } from '@gzclp/domain/catalog';
@@ -44,6 +46,11 @@ export function ProgramsPage(): React.ReactNode {
 
   const activeProgram = programsQuery.data?.find((p) => p.status === 'active') ?? null;
 
+  // Live progress for the active program (completed workouts + total), sharing
+  // the tracker/home query cache. Disabled internally when there is no active
+  // program, so calling it unconditionally is safe.
+  const dashboard = useDashboardData(activeProgram);
+
   const catalogGrouped = useMemo(() => {
     if (!catalogQuery.data) return null;
     const filtered = catalogQuery.data.filter((e) => e.id !== activeProgram?.programId);
@@ -73,6 +80,15 @@ export function ProgramsPage(): React.ReactNode {
         </header>
 
         <ZoneHint zone="programs" className="mb-6" />
+
+        {activeProgram && (
+          <ActiveProgramBlock
+            programId={activeProgram.programId}
+            name={activeProgram.name}
+            completed={dashboard.totalSessions}
+            total={dashboard.totalWorkouts}
+          />
+        )}
 
         {/* Catalog */}
         <section className="mb-10">

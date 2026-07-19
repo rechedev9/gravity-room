@@ -50,3 +50,43 @@ export function buildHeatmapGrid(
   }
   return columns;
 }
+
+/**
+ * One entry per week column: the localized short month name when that column is
+ * the first of a new month (GitHub-style), otherwise null. Anchored on the
+ * Monday of each column so a label sits above the week where the month starts.
+ */
+export function buildMonthLabels(grid: HeatmapCell[][], locale: string): (string | null)[] {
+  const fmt = new Intl.DateTimeFormat(locale, { month: 'short' });
+  const labels: (string | null)[] = [];
+  let prevMonth = -1;
+  for (const col of grid) {
+    const first = col[0];
+    if (!first) {
+      labels.push(null);
+      continue;
+    }
+    const month = first.date.getMonth();
+    if (month !== prevMonth) {
+      labels.push(fmt.format(first.date));
+      prevMonth = month;
+    } else {
+      labels.push(null);
+    }
+  }
+  return labels;
+}
+
+// A known Monday (2024-01-01) so weekday index 0 = Monday, matching the grid's
+// Monday-first rows regardless of the locale's own first-day-of-week.
+const REFERENCE_MONDAY = new Date(2024, 0, 1);
+
+/** Localized short weekday names, Monday→Sunday (index 0 = Monday). */
+export function buildWeekdayLabels(locale: string): string[] {
+  const fmt = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+  const labels: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    labels.push(fmt.format(new Date(REFERENCE_MONDAY.getTime() + i * DAY_MS)));
+  }
+  return labels;
+}

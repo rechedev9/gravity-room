@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
+import { useTranslation } from 'react-i18next';
 import type { ArticleLang } from '@gzclp/domain/schemas/exercise-article';
 import { useHead } from '@/hooks/use-head';
 import { useAuth } from '@/contexts/auth-context';
@@ -7,6 +8,9 @@ import { useGuest } from '@/contexts/guest-context';
 import { getAllArticles } from './content/registry';
 import { appendHreflangAlternates } from './hreflang';
 import { BodyDiagram, pickBestView } from './body-diagram';
+
+/** In-app path base for the exercise wiki rendered inside the app shell. */
+const APP_WIKI_BASE = '/app/exercises';
 
 const COPY = {
   es: {
@@ -23,19 +27,36 @@ const COPY = {
   },
 } as const;
 
-export function ExerciseWikiIndexPage({ lang }: { readonly lang: ArticleLang }): ReactNode {
+interface ExerciseWikiIndexPageProps {
+  readonly lang: ArticleLang;
+  /**
+   * When true the page is rendered inside the authenticated app shell
+   * (route `/app/exercises`): article links stay in-shell and the public
+   * "back to app" affordance is dropped since the sidebar already provides it.
+   */
+  readonly inApp?: boolean;
+}
+
+export function ExerciseWikiIndexPage({
+  lang,
+  inApp = false,
+}: ExerciseWikiIndexPageProps): ReactNode {
   const copy = COPY[lang];
-  const base = lang === 'es' ? '/ejercicios' : '/en/exercises';
+  // Canonical/hreflang always point at the public SEO URLs; only the in-shell
+  // link target changes so navigation from inside the app keeps the sidebar.
+  const publicBase = lang === 'es' ? '/ejercicios' : '/en/exercises';
+  const linkBase = inApp ? APP_WIKI_BASE : publicBase;
   const { user } = useAuth();
   const { isGuest } = useGuest();
-  // A back-to-app affordance for users who reached the wiki mid-session, so they
-  // don't lose their way out of the public marketing shell. Prerendered HTML
+  // A back-to-app affordance for users who reached the PUBLIC wiki mid-session,
+  // so they don't lose their way out of the marketing shell. In-app the sidebar
+  // already provides navigation, so it is omitted there. Prerendered HTML
   // (no session) renders without it, keeping the public/SEO view unchanged.
-  const inSession = user !== null || isGuest;
+  const inSession = !inApp && (user !== null || isGuest);
   useHead({
     title: copy.title,
     description: copy.intro,
-    canonical: `https://gravityroom.app${base}`,
+    canonical: `https://gravityroom.app${publicBase}`,
     lang,
   });
   useEffect(() => {
@@ -65,7 +86,7 @@ export function ExerciseWikiIndexPage({ lang }: { readonly lang: ArticleLang }):
           <li key={a.exerciseId}>
             <Link
               data-testid="exercise-card"
-              to={`${base}/$slug`}
+              to={`${linkBase}/$slug`}
               params={{ slug: a.slug[lang] }}
               className="flex h-full items-start gap-3 border border-rule rounded-sm px-4 py-3 hover:border-accent transition-colors"
             >
@@ -87,4 +108,15 @@ export function ExerciseWikiIndexPage({ lang }: { readonly lang: ArticleLang }):
       </ul>
     </div>
   );
+}
+
+/**
+ * In-app exercise wiki index (route `/app/exercises`). Renders the same wiki
+ * content inside the authenticated app shell, resolving the article language
+ * from the active UI locale so the list matches the rest of the app.
+ */
+export function AppExerciseWikiIndexPage(): ReactNode {
+  const { i18n } = useTranslation();
+  const lang: ArticleLang = i18n.language.startsWith('en') ? 'en' : 'es';
+  return <ExerciseWikiIndexPage lang={lang} inApp />;
 }

@@ -17,7 +17,7 @@ describe('i18n fallback when key missing in active language', () => {
 
     const result = isolated.t('home.empty.guest_title');
 
-    expect(result).toBe('Modo invitado');
+    expect(result).toBe('Pruébalo sin cuenta');
     expect(result).not.toBe('home.empty.guest_title');
   });
 });

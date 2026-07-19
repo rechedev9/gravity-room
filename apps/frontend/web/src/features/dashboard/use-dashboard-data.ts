@@ -6,10 +6,12 @@ import type { ProgramDefinition, GenericResults } from '@gzclp/domain/types/prog
 import { queryKeys } from '@/lib/query-keys';
 import { fetchGenericProgramDetail, fetchCatalogDetail } from '@/lib/api-functions';
 import type { ProgramSummary } from '@/lib/api-functions';
+import { computeProfileData } from '@/lib/profile-stats';
 import {
   buildHeroExtras,
   buildRecentSessions,
   buildLiftHistory,
+  buildWorkoutDates,
   type HeroExtras,
   type RecentSessionRow,
 } from './dashboard-view-models';
@@ -23,11 +25,20 @@ interface DashboardData {
   readonly hero: HeroExtras;
   readonly recentSessions: readonly RecentSessionRow[];
   readonly liftHistory: readonly LiftHistoryRow[];
+  /** ISO timestamps of completed workouts — feeds the 12-week heatmap. */
+  readonly workoutDates: readonly string[];
+  /** Current streak, computed live from the active program (parity with /app/profile). */
+  readonly currentStreak: number;
+  /** Completed-workout count, computed live (parity with /app/profile). */
+  readonly totalSessions: number;
+  /** Total workouts in the active program's definition (0 when none active). */
+  readonly totalWorkouts: number;
 }
 
 const EMPTY_HERO: HeroExtras = {};
 const EMPTY_SESSIONS: readonly RecentSessionRow[] = [];
 const EMPTY_HISTORY: readonly LiftHistoryRow[] = [];
+const EMPTY_DATES: readonly string[] = [];
 
 /**
  * Loads the active program's full detail (logged results) plus its definition
@@ -91,6 +102,26 @@ export function useDashboardData(activeProgram: ProgramSummary | null): Dashboar
     [rows]
   );
 
+  const workoutDates = useMemo(
+    () => (rows.length > 0 ? buildWorkoutDates(rows, resultTimestamps) : EMPTY_DATES),
+    [rows, resultTimestamps]
+  );
+
+  // Streak + completed-session count derived from the SAME live program data
+  // that drives recent activity and the /app/profile stats — never from the
+  // cron-computed frequency insight, which lags a freshly logged session and
+  // leaves the dashboard contradicting itself.
+  const profileData = useMemo(
+    () =>
+      definition && config && rows.length > 0
+        ? computeProfileData(rows, definition, config, resultTimestamps)
+        : null,
+    [rows, definition, config, resultTimestamps]
+  );
+  const currentStreak = profileData?.streak.current ?? 0;
+  const totalSessions = profileData?.completion.workoutsCompleted ?? 0;
+  const totalWorkouts = definition?.totalWorkouts ?? 0;
+
   const isLoading =
     activeProgram !== null && (detailQuery.isLoading || (!isCustom && catalogQuery.isLoading));
   const isError =
@@ -101,5 +132,16 @@ export function useDashboardData(activeProgram: ProgramSummary | null): Dashboar
     if (!isCustom) void catalogQuery.refetch();
   };
 
-  return { isLoading, isError, refetch, hero, recentSessions, liftHistory };
+  return {
+    isLoading,
+    isError,
+    refetch,
+    hero,
+    recentSessions,
+    liftHistory,
+    workoutDates,
+    currentStreak,
+    totalSessions,
+    totalWorkouts,
+  };
 }

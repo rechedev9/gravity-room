@@ -620,7 +620,7 @@
     "pr_road": {
       "title": "CAMINO AL PR",
       "empty": "Aún no hay datos para calcular PR.",
-      "lift": "Lift",
+      "lift": "Ejercicio",
       "current": "Actual",
       "remaining": "Falta",
       "aria": "progreso hacia PR de {{lift}}"
@@ -648,7 +648,10 @@
       "aria": "mapa semanal de entrenamientos",
       "cell_title": "{{date}} — {{count}} entrenamiento",
       "cell_title_one": "{{date}} — {{count}} entrenamiento",
-      "cell_title_other": "{{date}} — {{count}} entrenamientos"
+      "cell_title_other": "{{date}} — {{count}} entrenamientos",
+      "less": "menos",
+      "more": "más",
+      "legend_aria": "escala de intensidad, de menos a más entrenamientos"
     },
     "recent_sessions": {
       "title": "ACTIVIDAD RECIENTE",
@@ -664,6 +667,10 @@
     "retry": "Reintentar",
     "catalog_load_error": "No se pudo cargar el catálogo.",
     "other_programs": "Otros Programas",
+    "active_heading": "Programa activo",
+    "active_workout": "Entrenamiento {{completed}} de {{total}}",
+    "active_progress_aria": "Progreso del programa",
+    "active_cta": "Continuar entrenamiento",
     "choose_program": "Elegir un Programa",
     "my_custom_programs": "Mis Programas Personalizados",
     "card": {
@@ -808,6 +815,12 @@
   },
   "tracker": {
     "page_title": "Tracker — Gravity Room",
+    "guest_empty": {
+      "stamp": "INVITADO",
+      "title": "Elige un programa",
+      "body": "Selecciona un programa del catálogo para empezar a registrar tu entrenamiento. Crea una cuenta cuando quieras guardarlo.",
+      "cta": "Explorar programas"
+    },
     "program": "Programa",
     "statistics": "Estadísticas",
     "retry": "Reintentar",
@@ -925,19 +938,26 @@
       "confirm_button": "Confirmar"
     },
     "day_view": {
-      "workout_aria": "Entrenamiento",
+      "workout_aria": "Entrenamiento {{number}}",
       "deload_badge": "Deload"
     },
     "detailed_day_view": {
-      "workout_aria": "Entrenamiento",
+      "workout_aria": "Entrenamiento {{number}}",
       "col_set": "Serie",
       "col_weight": "Kg",
       "col_reps": "Reps",
-      "deload_badge": "Deload",
-      "table_aria_prefix": "Series de",
+      "col_target": "Obj.",
+      "table_aria": "Series de {{exercise}}",
+      "reps_input_aria": "Reps serie {{label}}",
       "set_completed_aria": "Serie completada",
       "set_failed_aria": "Serie fallada",
-      "confirm_set_aria_prefix": "Confirmar serie"
+      "confirm_set_aria": "Confirmar serie {{label}}"
+    },
+    "set_indicators": {
+      "sets_aria_one": "{{count}} serie",
+      "sets_aria_other": "{{count}} series",
+      "set_result_aria": "Serie {{index}}: {{reps}} repeticiones",
+      "register_set_aria": "Registrar serie {{index}} de {{total}}"
     },
     "day_navigator": {
       "prev_aria": "Día anterior",
@@ -975,10 +995,11 @@
     "result_cell": {
       "success": "Éxito",
       "fail": "Fallo",
-      "aria_mark_success": "Marcar {{tier}} éxito",
-      "aria_mark_fail": "Marcar {{tier}} fallo",
-      "aria_undo": "Deshacer {{tier}} {{result}}",
-      "aria_register_max": "Registrar Maximo {{tier}}"
+      "aria_mark_success": "Marcar {{exercise}} ({{tier}}) como éxito",
+      "aria_mark_fail": "Marcar {{exercise}} ({{tier}}) como fallo",
+      "aria_undo": "Deshacer {{exercise}} ({{tier}}) {{result}}",
+      "aria_register_max": "Registrar máximo de {{exercise}} ({{tier}})",
+      "register_max_label": "Registrar máximo ({{tier}})"
     },
     "set_stepper": {
       "group_aria": "Reps serie {{index}} de {{total}}",
@@ -1166,7 +1187,7 @@
       "section_charts": "Tendencias",
       "section_signals": "Señales",
       "empty_heading": "Sin análisis todavía",
-      "empty_description": "Registra unas cuantas sesiones y aquí verás tendencias de volumen, recomendaciones de carga y alertas de estancamiento."
+      "empty_description": "Los análisis se actualizan una vez al día, así que pueden tardar en aparecer tras entrenar. Registra tus sesiones y aquí verás tendencias de volumen, recomendaciones de carga y alertas de estancamiento."
     },
     "exercise_summary": {
       "default_exercise": "Ejercicio",
@@ -1470,9 +1491,10 @@
     },
     "empty": {
       "guest_stamp": "INVITADO",
-      "guest_title": "Modo invitado",
-      "guest_body": "Crea tu cuenta gratis para guardar tu progreso y seguir tu programa.",
-      "guest_cta": "Crear Cuenta",
+      "guest_title": "Pruébalo sin cuenta",
+      "guest_body": "Elige un programa del catálogo y registra tu entrenamiento al instante. Crea una cuenta cuando quieras guardar tu progreso.",
+      "guest_programs_cta": "Explorar programas",
+      "guest_wiki_cta": "Guía de ejercicios",
       "no_program_stamp": "SIN PROGRAMA",
       "no_program_title": "Sin programa activo",
       "no_program_body": "Elige un programa para empezar a registrar tu entrenamiento.",

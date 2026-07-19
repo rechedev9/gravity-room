@@ -45,6 +45,14 @@ describe('ExerciseWikiIndexPage', () => {
     expect(links).toHaveLength(EXERCISE_ARTICLES.length);
   });
 
+  it('renders the in-app variant with a link per article and no public back-to-app affordance', () => {
+    render(<ExerciseWikiIndexPage lang="es" inApp />);
+    expect(screen.getAllByTestId('exercise-card')).toHaveLength(EXERCISE_ARTICLES.length);
+    // In-app the sidebar provides navigation, so the marketing "back to app"
+    // link is dropped.
+    expect(screen.queryByText('Volver a la app')).not.toBeInTheDocument();
+  });
+
   it('adds hreflang alternates to <head>', () => {
     render(<ExerciseWikiIndexPage lang="es" />);
     const esLink = document.head.querySelector('link[rel="alternate"][hreflang="es"]');

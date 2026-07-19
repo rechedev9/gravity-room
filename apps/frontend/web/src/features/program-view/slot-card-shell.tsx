@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow } from '@gzclp/domain/types';
 import { StageTag } from './stage-tag';
 import { tierColorClass } from './tier-color';
@@ -16,6 +17,7 @@ export interface SlotCardShellProps {
  * (prescription/compact scheme vs per-set table) as `children`.
  */
 export function SlotCardShell({ slot, isCurrent, children }: SlotCardShellProps): ReactNode {
+  const { t } = useTranslation();
   const isDone = slot.result !== undefined;
   const needsAmrap = slot.result === 'success' && slot.isAmrap && slot.amrapReps === undefined;
   const fullyDone = isDone && !needsAmrap;
@@ -45,7 +47,7 @@ export function SlotCardShell({ slot, isCurrent, children }: SlotCardShellProps)
         {showStage && slot.stage > 0 && <StageTag stage={slot.stage} size="sm" />}
         {slot.isDeload && (
           <span className="text-2xs font-bold text-muted tracking-wider uppercase font-mono">
-            {'↓'} Deload
+            {'↓'} {t('tracker.day_view.deload_badge')}
           </span>
         )}
       </div>

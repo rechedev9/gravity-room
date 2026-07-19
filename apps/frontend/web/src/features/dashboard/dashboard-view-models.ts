@@ -175,6 +175,25 @@ export function buildRecentSessions(
 }
 
 /**
+ * ISO timestamps of every completed workout, in program order. Uses the same
+ * "all slots marked" completion rule and the same resultTimestamps source as
+ * buildRecentSessions, so the heatmap, the streak KPI and the recent-activity
+ * list all reflect one shared session history (never divergent data sources).
+ */
+export function buildWorkoutDates(
+  rows: readonly GenericWorkoutRow[],
+  resultTimestamps: Readonly<Record<string, string>>
+): readonly string[] {
+  const dates: string[] = [];
+  for (const row of rows) {
+    if (!isCompleted(row)) continue;
+    const ts = resultTimestamps[String(row.index)];
+    if (ts) dates.push(ts);
+  }
+  return dates;
+}
+
+/**
  * Build the "road to PR" history: one entry per primary lift that has at least
  * one successful set, pairing its standing best (`weight`) with the weight of
  * its next scheduled attempt (`prTarget`). computePrRoad then surfaces the lift

@@ -120,12 +120,12 @@ export function ProfileStatsGrid({
         </DashboardCard>
       )}
 
-      {/* Personal Records — hidden when no PRs exist */}
+      {/* Personal Records — hidden when no PRs exist. Flows as a single grid
+          cell so it packs beside the next card instead of forcing a new row
+          (which stranded the previous card on tablet and left a wide gap on
+          desktop). Mobile stays single-column. */}
       {hasRecords && (
-        <DashboardCard
-          title={t('profile.stats_grid.personal_records_title')}
-          className="sm:col-span-2 lg:col-span-1"
-        >
+        <DashboardCard title={t('profile.stats_grid.personal_records_title')}>
           <div className="grid grid-cols-2 gap-x-4">
             {profileData.personalRecords.map((pr) => {
               const delta = pr.weight - pr.startWeight;
