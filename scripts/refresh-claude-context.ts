@@ -1,8 +1,8 @@
 #!/usr/bin/env -S npx tsx
 /**
- * Refreshes the AUTO:* sections of CLAUDE.md with the live API surface
- * (from the running ElysiaJS swagger spec) and the live DB schema (from
- * the Drizzle table definitions).
+ * Refreshes the AUTO:* sections of docs/api-and-db.md with the live API
+ * surface (from the running ElysiaJS swagger spec) and the live DB schema
+ * (from the Drizzle table definitions).
  *
  * Usage:
  *   pnpm run dev:api          # in another terminal — required
@@ -10,7 +10,7 @@
  *
  * The script edits only the regions between sentinel comments
  * (<!-- AUTO:API-START --> ... <!-- AUTO:API-END --> and the DB pair).
- * Hand-written sections of CLAUDE.md are left untouched.
+ * Hand-written parts of the file are left untouched.
  */
 import { execFile } from 'node:child_process';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -24,7 +24,7 @@ const SHELL = process.platform === 'win32';
 
 const SWAGGER_URL = process.env['API_SPEC_URL'] ?? 'http://localhost:3001/swagger/json';
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const CLAUDE_MD = resolve(REPO_ROOT, 'CLAUDE.md');
+const TARGET_MD = resolve(REPO_ROOT, 'docs/api-and-db.md');
 
 type ColInfo = {
   name: string;
@@ -53,16 +53,16 @@ async function main() {
   const apiSection = await fetchAndFormatApi();
   const dbSection = await dumpAndFormatDb();
 
-  let md = await readFile(CLAUDE_MD, 'utf8');
+  let md = await readFile(TARGET_MD, 'utf8');
   md = splice(md, 'AUTO:API', apiSection);
   md = splice(md, 'AUTO:DB', dbSection);
-  await writeFile(CLAUDE_MD, md);
+  await writeFile(TARGET_MD, md);
 
   // Keep the file prettier-clean so the lefthook format check doesn't
   // bounce it after every refresh.
-  await exec('pnpm', ['exec', 'prettier', '--write', CLAUDE_MD], { cwd: REPO_ROOT, shell: SHELL });
+  await exec('pnpm', ['exec', 'prettier', '--write', TARGET_MD], { cwd: REPO_ROOT, shell: SHELL });
 
-  process.stdout.write(`Updated ${CLAUDE_MD}\n`);
+  process.stdout.write(`Updated ${TARGET_MD}\n`);
 }
 
 async function fetchAndFormatApi(): Promise<string> {
@@ -147,7 +147,7 @@ function splice(md: string, marker: string, content: string): string {
   const end = `<!-- ${marker}-END -->`;
   const re = new RegExp(`${escapeRegex(start)}[\\s\\S]*?${escapeRegex(end)}`);
   if (!re.test(md)) {
-    process.stderr.write(`Sentinel pair not found in CLAUDE.md: ${start} / ${end}\n`);
+    process.stderr.write(`Sentinel pair not found in docs/api-and-db.md: ${start} / ${end}\n`);
     process.exit(1);
   }
   return md.replace(re, `${start}\n${content}\n${end}`);
