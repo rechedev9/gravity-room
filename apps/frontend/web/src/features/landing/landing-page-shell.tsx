@@ -93,6 +93,7 @@ export function LandingPageShell({ content, head, lang }: LandingPageShellProps)
             programCount={programCount}
             minDaysPerWeek={minDaysPerWeek}
             totalWorkouts={totalWorkouts}
+            lang={lang}
           />
         </Suspense>
         <GradientDivider />

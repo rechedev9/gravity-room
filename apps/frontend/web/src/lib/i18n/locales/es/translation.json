@@ -1630,5 +1630,87 @@
       "undefined_result": "Resultado indefinido",
       "amrap_threshold": "Serie AMRAP >= {{reps}} reps"
     }
+  },
+  "exerciseCatalog": {
+    "heading": "Catálogo de ejercicios",
+    "subtitle": "Busca y filtra entre los más de 800 ejercicios del catálogo.",
+    "searchLabel": "Buscar ejercicios",
+    "searchPlaceholder": "Buscar ejercicios (p. ej. press)",
+    "filters": {
+      "muscleGroup": "Grupo muscular",
+      "equipment": "Equipo",
+      "level": "Nivel",
+      "category": "Categoría",
+      "all": "Todos",
+      "clear": "Limpiar filtros"
+    },
+    "showing": "Mostrando {{from}}–{{to}} de {{total}}",
+    "empty": {
+      "title": "Sin resultados",
+      "hint": "Prueba con otra búsqueda o ajusta los filtros."
+    },
+    "error": {
+      "title": "No se pudo cargar el catálogo.",
+      "retry": "Reintentar"
+    },
+    "pagination": {
+      "label": "Paginación del catálogo",
+      "prev": "Anterior",
+      "next": "Siguiente",
+      "page": "Página {{page}} de {{pageCount}}"
+    },
+    "readGuide": "Ver guía",
+    "detail": {
+      "category": "Categoría",
+      "force": "Fuerza",
+      "mechanic": "Mecánica",
+      "secondaryMuscles": "Músculos secundarios"
+    },
+    "attributes": {
+      "muscleGroup": {
+        "chest": "Pecho",
+        "back": "Espalda",
+        "shoulders": "Hombros",
+        "legs": "Piernas",
+        "arms": "Brazos",
+        "core": "Core",
+        "full_body": "Cuerpo completo",
+        "calves": "Gemelos"
+      },
+      "equipment": {
+        "barbell": "Barra",
+        "dumbbell": "Mancuerna",
+        "machine": "Máquina",
+        "cable": "Polea",
+        "kettlebells": "Kettlebells",
+        "bands": "Bandas",
+        "body_only": "Peso corporal",
+        "bodyweight": "Peso corporal",
+        "e_z_curl_bar": "Barra Z",
+        "exercise_ball": "Fitball",
+        "medicine_ball": "Balón medicinal",
+        "other": "Otro"
+      },
+      "level": {
+        "beginner": "Principiante",
+        "intermediate": "Intermedio",
+        "expert": "Avanzado"
+      },
+      "category": {
+        "strength": "Fuerza",
+        "powerlifting": "Powerlifting",
+        "olympic_weightlifting": "Halterofilia",
+        "strongman": "Strongman"
+      },
+      "force": {
+        "push": "Empuje",
+        "pull": "Tracción",
+        "static": "Estático"
+      },
+      "mechanic": {
+        "compound": "Compuesto",
+        "isolation": "Aislamiento"
+      }
+    }
   }
 }

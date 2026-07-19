@@ -25,6 +25,7 @@ interface ProgramsSectionProps {
   readonly programCount: number;
   readonly minDaysPerWeek: number;
   readonly totalWorkouts: number;
+  readonly lang: 'es' | 'en';
 }
 
 export function ProgramsSection({
@@ -34,8 +35,15 @@ export function ProgramsSection({
   programCount,
   minDaysPerWeek,
   totalWorkouts,
+  lang,
 }: ProgramsSectionProps): React.ReactNode {
-  const { t } = useTranslation();
+  // Bind the catalog card copy (program name/description/category) to the
+  // landing route's language, not the browser-detected global i18next language.
+  // The rest of the landing is already fully localized via the `content` props;
+  // without a fixed `t` here, an ES-browser visitor on /en (or vice versa) would
+  // see the static sections in one language and the program cards in the other.
+  const { i18n } = useTranslation();
+  const t = i18n.getFixedT(lang);
   const catalog = catalogQuery.data;
 
   return (

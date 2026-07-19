@@ -8,6 +8,7 @@ import { useGuest } from '@/contexts/guest-context';
 import { getAllArticles } from './content/registry';
 import { appendHreflangAlternates } from './hreflang';
 import { BodyDiagram, pickBestView } from './body-diagram';
+import { ExerciseCatalogBrowser } from './catalog/exercise-catalog-browser';
 
 /** In-app path base for the exercise wiki rendered inside the app shell. */
 const APP_WIKI_BASE = '/app/exercises';
@@ -18,12 +19,24 @@ const COPY = {
     heading: 'Wiki de ejercicios',
     intro: 'Guías basadas en evidencia para los ejercicios principales.',
     backToApp: 'Volver a la app',
+    guidesHeading: 'Guías destacadas',
+    catalogCta: {
+      title: 'Explora el catálogo completo',
+      body: 'Busca y filtra los más de 800 ejercicios del catálogo directamente en la app.',
+      button: 'Abrir el catálogo',
+    },
   },
   en: {
     title: 'Exercises — Gravity Room',
     heading: 'Exercise wiki',
     intro: 'Evidence-based guides for the main lifts.',
     backToApp: 'Back to app',
+    guidesHeading: 'Featured guides',
+    catalogCta: {
+      title: 'Explore the full catalog',
+      body: 'Search and filter the 800+ exercises in the catalog right inside the app.',
+      button: 'Open the catalog',
+    },
   },
 } as const;
 
@@ -81,6 +94,7 @@ export function ExerciseWikiIndexPage({
         <h1 className="font-display text-4xl text-title">{copy.heading}</h1>
         <p className="text-muted">{copy.intro}</p>
       </header>
+      {inApp && <h2 className="font-display text-2xl text-title">{copy.guidesHeading}</h2>}
       <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {getAllArticles().map((a) => (
           <li key={a.exerciseId}>
@@ -106,6 +120,29 @@ export function ExerciseWikiIndexPage({
           </li>
         ))}
       </ul>
+
+      {/* In-app: the full searchable catalog (needs the API at runtime). The
+          public/prerendered wiki instead links into the app so SEO snapshots
+          stay static. */}
+      {inApp ? (
+        <div className="pt-2 border-t border-rule">
+          <div className="pt-6">
+            <ExerciseCatalogBrowser lang={lang} />
+          </div>
+        </div>
+      ) : (
+        <Link
+          to="/app/exercises"
+          className="block border border-rule rounded-sm bg-card px-5 py-5 hover:border-accent transition-colors"
+        >
+          <span className="block font-display text-xl text-title">{copy.catalogCta.title}</span>
+          <span className="block text-sm text-muted mt-1">{copy.catalogCta.body}</span>
+          <span className="inline-flex items-center gap-1.5 mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-accent">
+            {copy.catalogCta.button}
+            <span aria-hidden="true">&rarr;</span>
+          </span>
+        </Link>
+      )}
     </div>
   );
 }

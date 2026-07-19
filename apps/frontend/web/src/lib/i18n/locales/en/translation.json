@@ -1629,5 +1629,87 @@
       "undefined_result": "Undefined result",
       "amrap_threshold": "AMRAP set >= {{reps}} reps"
     }
+  },
+  "exerciseCatalog": {
+    "heading": "Exercise catalog",
+    "subtitle": "Search and filter across the 800+ exercises in the catalog.",
+    "searchLabel": "Search exercises",
+    "searchPlaceholder": "Search exercises (e.g. press)",
+    "filters": {
+      "muscleGroup": "Muscle group",
+      "equipment": "Equipment",
+      "level": "Level",
+      "category": "Category",
+      "all": "All",
+      "clear": "Clear filters"
+    },
+    "showing": "Showing {{from}}–{{to}} of {{total}}",
+    "empty": {
+      "title": "No results",
+      "hint": "Try a different search or adjust the filters."
+    },
+    "error": {
+      "title": "Couldn't load the catalog.",
+      "retry": "Retry"
+    },
+    "pagination": {
+      "label": "Catalog pagination",
+      "prev": "Previous",
+      "next": "Next",
+      "page": "Page {{page}} of {{pageCount}}"
+    },
+    "readGuide": "Read guide",
+    "detail": {
+      "category": "Category",
+      "force": "Force",
+      "mechanic": "Mechanic",
+      "secondaryMuscles": "Secondary muscles"
+    },
+    "attributes": {
+      "muscleGroup": {
+        "chest": "Chest",
+        "back": "Back",
+        "shoulders": "Shoulders",
+        "legs": "Legs",
+        "arms": "Arms",
+        "core": "Core",
+        "full_body": "Full body",
+        "calves": "Calves"
+      },
+      "equipment": {
+        "barbell": "Barbell",
+        "dumbbell": "Dumbbell",
+        "machine": "Machine",
+        "cable": "Cable",
+        "kettlebells": "Kettlebells",
+        "bands": "Bands",
+        "body_only": "Bodyweight",
+        "bodyweight": "Bodyweight",
+        "e_z_curl_bar": "EZ curl bar",
+        "exercise_ball": "Exercise ball",
+        "medicine_ball": "Medicine ball",
+        "other": "Other"
+      },
+      "level": {
+        "beginner": "Beginner",
+        "intermediate": "Intermediate",
+        "expert": "Advanced"
+      },
+      "category": {
+        "strength": "Strength",
+        "powerlifting": "Powerlifting",
+        "olympic_weightlifting": "Olympic weightlifting",
+        "strongman": "Strongman"
+      },
+      "force": {
+        "push": "Push",
+        "pull": "Pull",
+        "static": "Static"
+      },
+      "mechanic": {
+        "compound": "Compound",
+        "isolation": "Isolation"
+      }
+    }
   }
 }
