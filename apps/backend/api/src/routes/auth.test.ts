@@ -1259,6 +1259,31 @@ describe('PATCH /auth/me', () => {
       expect.objectContaining({ avatarUrl: realPng })
     );
   });
+
+  it('trims a display name before updating the profile', async () => {
+    const token = await makeValidJwt('user-123');
+    const res = await patch(
+      '/auth/me',
+      { name: '  QA One  ' },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockUpdateUserProfile).toHaveBeenCalledWith(
+      'user-123',
+      expect.objectContaining({ name: 'QA One' })
+    );
+  });
+
+  it('rejects a whitespace-only profile name', async () => {
+    const token = await makeValidJwt('user-123');
+    const res = await patch('/auth/me', { name: '   ' }, { Authorization: `Bearer ${token}` });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(400);
+    expect(body.code).toBe('INVALID_NAME');
+    expect(mockUpdateUserProfile).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1443,6 +1468,32 @@ describe('POST /auth/signup', () => {
     expect(body.message).toContain('verify');
     expect(body.accessToken).toBeUndefined();
     expect(mockSendVerificationEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('trims a provided display name before persisting it', async () => {
+    const res = await post('/auth/signup', {
+      email: 'new@example.com',
+      password: 'password123',
+      name: '  Ada Lovelace  ',
+    });
+
+    expect(res.status).toBe(201);
+    expect(mockCreatePasswordUser).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Ada Lovelace' })
+    );
+  });
+
+  it('rejects a whitespace-only display name', async () => {
+    const res = await post('/auth/signup', {
+      email: 'new@example.com',
+      password: 'password123',
+      name: '   ',
+    });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(400);
+    expect(body.code).toBe('INVALID_NAME');
+    expect(mockCreatePasswordUser).not.toHaveBeenCalled();
   });
 
   it('rejects a password shorter than 8 chars before touching the service', async () => {
@@ -1793,13 +1844,27 @@ describe('POST /auth/reset-password', () => {
 
   it('sets the new password and revokes all sessions for a valid token', async () => {
     mockConsumePasswordResetToken.mockImplementation(() => Promise.resolve(PW_USER.id));
-    const res = await post('/auth/reset-password', {
-      token: 'good',
-      password: 'new-password-123',
-    });
+    const res = await post(
+      '/auth/reset-password',
+      {
+        token: 'good',
+        password: 'new-password-123',
+      },
+      { Cookie: 'refresh_token=old-browser-session' }
+    );
     expect(res.status).toBe(200);
     expect(mockSetUserPassword).toHaveBeenCalledTimes(1);
     expect(mockRevokeAllUserTokens).not.toHaveBeenCalled();
+    expect(
+      res.headers
+        .getSetCookie()
+        .some(
+          (cookie) =>
+            cookie.startsWith('refresh_token=') &&
+            cookie.includes('Max-Age=0') &&
+            cookie.includes('Path=/api/auth')
+        )
+    ).toBe(true);
   });
 });
 

@@ -117,6 +117,15 @@ const DEV_AUTH_ENABLED =
 const DEV_AUTH_RATE_LIMIT = { maxRequests: 60, windowMs: 60_000 };
 const emailInputSchema = t.String({ format: 'email', maxLength: MAX_EMAIL_CHARS });
 
+function normalizeDisplayName(name: string | undefined): string | undefined {
+  if (name === undefined) return undefined;
+  const normalized = name.trim();
+  if (normalized.length === 0) {
+    throw new ApiError(400, 'Name cannot be blank', 'INVALID_NAME');
+  }
+  return normalized;
+}
+
 /** Credential-accepting routes must not lose brute-force protection on Redis errors. */
 function authRateLimit(
   key: string,
@@ -644,8 +653,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       await authRateLimit(ip, '/auth/signup', { maxRequests: 10 });
       assertEmailConfiguredForProduction();
 
+      const name = normalizeDisplayName(body.name);
       const passwordHash = await hashPassword(body.password);
-      const user = await createPasswordUser({ email: body.email, passwordHash, name: body.name });
+      const user = await createPasswordUser({
+        email: body.email,
+        passwordHash,
+        name,
+      });
 
       const token = await createEmailVerificationToken(user.id);
       keepAlive(sendVerificationEmail(user.email, token, request));
@@ -843,7 +857,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .post(
     '/reset-password',
-    async ({ body, set, reqLogger, ip }) => {
+    async ({ body, cookie, set, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/reset-password', { maxRequests: 10 });
 
       const userId = await consumePasswordResetToken(body.token);
@@ -852,6 +866,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       }
       const passwordHash = await hashPassword(body.password);
       await setUserPassword(userId, passwordHash);
+      const refreshCookie = cookie[REFRESH_COOKIE_NAME];
+      if (refreshCookie) removeRefreshCookie(refreshCookie);
 
       reqLogger.info({ event: 'auth.password_reset', userId }, 'password reset');
       set.status = 200;
@@ -1514,7 +1530,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       }
 
       const updated = await updateUserProfile(userId, {
-        name: body.name,
+        name: normalizeDisplayName(body.name),
         avatarUrl: body.avatarUrl,
       });
 

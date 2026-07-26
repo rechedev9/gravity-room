@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   blockAuthRefresh,
   clearApiResponseCache,
@@ -93,7 +93,11 @@ async function restoreSession(): Promise<UserInfo | null> {
   // the only client-side signal — and it avoids a guaranteed 401 (plus its red
   // console error) on every anonymous / first-time page load. Fails open: a
   // present-but-stale hint still attempts the refresh exactly as before.
-  if (!hasSessionHint()) return null;
+  const isSuccessfulSocialCallback =
+    typeof window !== 'undefined' &&
+    window.location.pathname === '/auth/callback' &&
+    !new URLSearchParams(window.location.search).has('error');
+  if (!hasSessionHint() && !isSuccessfulSocialCallback) return null;
 
   const refreshed = await refreshAccessToken();
   if (!refreshed) {
@@ -156,6 +160,38 @@ function applySignInResponse(
 // ---------------------------------------------------------------------------
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * Clears every user-bound client credential and cache after the server session
+ * ends. React Query keys are intentionally not user-scoped, so retaining them
+ * across logout/account deletion/password reset can expose the previous
+ * account's programs or insights to the next account for up to staleTime.
+ */
+async function clearAuthenticatedClientState(queryClient: QueryClient): Promise<void> {
+  setAccessToken(null);
+  clearSessionHint();
+  try {
+    await queryClient.cancelQueries();
+  } catch (err: unknown) {
+    console.warn(
+      '[auth] Failed to cancel in-flight queries while clearing the session:',
+      err instanceof Error ? err.message : 'Unknown error'
+    );
+  }
+  queryClient.removeQueries({
+    predicate: (query) => query.queryKey[0] !== SESSION_QUERY_KEY[0],
+  });
+  queryClient.setQueryData(SESSION_QUERY_KEY, null);
+  sentrySetUser(null);
+  try {
+    await clearApiResponseCache();
+  } catch (err: unknown) {
+    console.warn(
+      '[auth] Failed to clear the browser API cache:',
+      err instanceof Error ? err.message : 'Unknown error'
+    );
+  }
+}
 
 export function AuthProvider({
   children,
@@ -281,12 +317,13 @@ export function AuthProvider({
           body: JSON.stringify({ token, password }),
           retryAuth: false,
         });
+        await clearAuthenticatedClientState(queryClient);
         return { ok: true };
       } catch (err: unknown) {
         return errorResult(err);
       }
     },
-    []
+    [queryClient]
   );
 
   const signInWithDevImpl = useCallback(async (): Promise<AuthResult | null> => {
@@ -317,11 +354,7 @@ export function AuthProvider({
 
   const deleteAccount = useCallback(async (): Promise<void> => {
     await apiFetch('/auth/me', { method: 'DELETE' });
-    setAccessToken(null);
-    clearSessionHint();
-    await clearApiResponseCache();
-    queryClient.setQueryData(SESSION_QUERY_KEY, null);
-    sentrySetUser(null);
+    await clearAuthenticatedClientState(queryClient);
   }, [queryClient]);
 
   const signOut = useCallback(async (): Promise<ActionResult> => {
@@ -334,11 +367,7 @@ export function AuthProvider({
       resumeAuthRefresh();
       return errorResult(err);
     }
-    setAccessToken(null);
-    clearSessionHint();
-    await clearApiResponseCache();
-    queryClient.setQueryData(SESSION_QUERY_KEY, null);
-    sentrySetUser(null);
+    await clearAuthenticatedClientState(queryClient);
     return { ok: true };
   }, [queryClient]);
 
