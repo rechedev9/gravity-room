@@ -22,13 +22,20 @@ export const EQUIPMENT_VALUES = [
   'cable',
   'kettlebells',
   'bands',
-  'body only',
   'bodyweight',
   'e-z curl bar',
   'exercise ball',
   'medicine ball',
   'other',
 ] as const;
+
+/**
+ * Imported exercise sources use both "body only" and "bodyweight" for the same
+ * category. One visible filter must query both source aliases.
+ */
+export function equipmentApiValues(value: string): readonly string[] {
+  return value === 'bodyweight' ? ['body only', 'bodyweight'] : [value];
+}
 
 export const LEVEL_VALUES = ['beginner', 'intermediate', 'expert'] as const;
 

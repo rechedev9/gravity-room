@@ -249,7 +249,18 @@ const VALID_DEFINITION_PAYLOAD = {
   totalWorkouts: 10,
   workoutsPerWeek: 3,
   exercises: { squat: { name: 'Squat' } },
-  configFields: [{ key: 'squat', label: 'Squat', type: 'weight', min: 0, step: 2.5 }],
+  configFields: [
+    { key: 'squat', label: 'Squat', type: 'weight', min: 0, step: 2.5 },
+    {
+      key: 'rounding',
+      label: 'Rounding',
+      type: 'select',
+      options: [
+        { label: '2.5 kg', value: '2.5' },
+        { label: '1.25 kg', value: '1.25' },
+      ],
+    },
+  ],
   weightIncrements: { squat: 5 },
   days: [
     {
@@ -338,5 +349,53 @@ describe('POST /catalog/preview', () => {
     expect(res.status).toBe(400);
     expect(mockRateLimit).not.toHaveBeenCalled();
     expect(mockPreviewDefinition).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown config keys instead of silently ignoring them', async () => {
+    const token = await makeValidJwt('user-1');
+    const res = await postPreview(
+      { definition: VALID_DEFINITION_PAYLOAD, config: { unknown: 10 } },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(422);
+    expect(mockPreviewDefinition).not.toHaveBeenCalled();
+  });
+
+  it('rejects string values for weight fields', async () => {
+    const token = await makeValidJwt('user-1');
+    const res = await postPreview(
+      { definition: VALID_DEFINITION_PAYLOAD, config: { squat: '100' } },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(422);
+    expect(mockPreviewDefinition).not.toHaveBeenCalled();
+  });
+
+  it('rejects values outside a select field declared options', async () => {
+    const token = await makeValidJwt('user-1');
+    const res = await postPreview(
+      { definition: VALID_DEFINITION_PAYLOAD, config: { rounding: '5' } },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(422);
+    expect(mockPreviewDefinition).not.toHaveBeenCalled();
+  });
+
+  it('previews a config whose values match the definition fields', async () => {
+    const token = await makeValidJwt('user-1');
+    const config = { squat: 100, rounding: '2.5' };
+    const res = await postPreview(
+      { definition: VALID_DEFINITION_PAYLOAD, config },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockPreviewDefinition).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'preview-test' }),
+      config
+    );
   });
 });

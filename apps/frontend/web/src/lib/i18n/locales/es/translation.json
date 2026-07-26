@@ -685,6 +685,8 @@
       "preview": "Vista Previa",
       "continue_training": "Continuar Entrenamiento",
       "start_program": "Iniciar Programa",
+      "start_program_aria": "Iniciar programa {{name}}",
+      "continue_training_aria": "Continuar entrenamiento de {{name}}",
       "customizing": "Personalizando...",
       "customize": "Personalizar"
     },

@@ -3,6 +3,7 @@ import type { ExerciseEntry } from '@/lib/api-functions';
 import {
   attributeSlug,
   computePageInfo,
+  equipmentApiValues,
   guideSlugForExercise,
   uniqueSecondaryMuscles,
   CATALOG_PAGE_SIZE,
@@ -35,6 +36,16 @@ describe('attributeSlug', () => {
   it('collapses punctuation runs and trims edges', () => {
     expect(attributeSlug('e-z curl bar')).toBe('e_z_curl_bar');
     expect(attributeSlug('  Push  ')).toBe('push');
+  });
+});
+
+describe('equipmentApiValues', () => {
+  it('groups both seeded bodyweight aliases behind one visible filter', () => {
+    expect(equipmentApiValues('bodyweight')).toEqual(['body only', 'bodyweight']);
+  });
+
+  it('passes through ordinary equipment values', () => {
+    expect(equipmentApiValues('barbell')).toEqual(['barbell']);
   });
 });
 

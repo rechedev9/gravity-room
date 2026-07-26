@@ -14,6 +14,7 @@ import {
 import {
   attributeSlug,
   computePageInfo,
+  equipmentApiValues,
   guideSlugForExercise,
   uniqueSecondaryMuscles,
   CATALOG_PAGE_SIZE,
@@ -65,7 +66,7 @@ export function ExerciseCatalogBrowser({ lang }: ExerciseCatalogBrowserProps): R
     () => ({
       q: debouncedSearch || undefined,
       muscleGroupId: filters.muscleGroupId ? [filters.muscleGroupId] : undefined,
-      equipment: filters.equipment ? [filters.equipment] : undefined,
+      equipment: filters.equipment ? equipmentApiValues(filters.equipment) : undefined,
       level: filters.level ? [filters.level] : undefined,
       category: filters.category ? [filters.category] : undefined,
       limit: CATALOG_PAGE_SIZE,

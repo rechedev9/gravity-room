@@ -43,6 +43,9 @@ export function ProgramCard({
   const name = localizedProgramName(t, definition.id, definition.name);
   const description = localizedProgramDescription(t, definition.id, definition.description);
   const resolvedDisabledLabel = disabledLabel ?? t('programs.card.coming_soon');
+  const actionAriaLabel = isActive
+    ? t('programs.card.continue_training_aria', { name })
+    : t('programs.card.start_program_aria', { name });
 
   const baseCtaClasses =
     'px-4 py-2.5 font-mono text-[11px] font-bold uppercase tracking-[0.14em] border rounded-[var(--radius-base)] cursor-pointer transition-colors text-center';
@@ -99,7 +102,7 @@ export function ProgramCard({
         {/* CTA */}
         {showDualActions ? (
           <div className="mt-auto flex flex-col gap-2">
-            <button onClick={onSelect} className={primaryCtaClass}>
+            <button onClick={onSelect} className={primaryCtaClass} aria-label={actionAriaLabel}>
               {isActive ? t('programs.card.continue_training') : t('programs.card.start_program')}
             </button>
             <Link
@@ -123,6 +126,7 @@ export function ProgramCard({
             <button
               onClick={onSelect}
               disabled={disabled}
+              aria-label={disabled ? undefined : actionAriaLabel}
               className={`${ctaClasses} disabled:opacity-30 disabled:cursor-not-allowed ${
                 !isActive ? 'disabled:hover:bg-btn disabled:hover:text-btn-text' : ''
               }`}
