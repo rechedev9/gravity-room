@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { VitePWA } from 'vite-plugin-pwa';
+import { PUBLIC_API_CACHE_PATTERN, PWA_REGISTER_TYPE } from './src/lib/pwa-config';
 
 export default defineConfig(({ mode }) => {
   // loadEnv reads .env / .env.[mode] files before the guard runs, so we don't
@@ -29,11 +30,9 @@ export default defineConfig(({ mode }) => {
         },
       }),
       VitePWA({
-        // autoUpdate: new SW activates via skipWaiting on install. The in-page
-        // SwUpdatePrompt still shows a reload banner so mid-workout users don't
-        // lose in-flight tracker state — the new SW is ready, but the reload
-        // only happens on user click.
-        registerType: 'autoUpdate',
+        // Keep the new worker waiting so SwUpdatePrompt can let a user decide
+        // when it is safe to reload without losing in-flight tracker state.
+        registerType: PWA_REGISTER_TYPE,
         // The manifest already lives in public/manifest.webmanifest and index.html
         // already has <link rel="manifest"> — let the plugin manage the SW only.
         manifest: false,
@@ -42,10 +41,15 @@ export default defineConfig(({ mode }) => {
           enabled: false,
         },
         workbox: {
+          // This script purges the legacy cache that could contain authenticated
+          // exercise responses during install, before a prompted worker could
+          // remain waiting behind the vulnerable version.
+          importScripts: ['pwa-cache-migrations.js'],
           // Precache built code/fonts/icons. WebPs are pulled out of the
           // precache to keep the SW install payload small — they hit the
           // CacheFirst rule below on first request instead.
           globPatterns: ['**/*.{js,css,html,svg,ico,woff2}'],
+          globIgnores: ['pwa-cache-migrations.js'],
           // For SPA: serve cached index.html for unrecognised navigation requests.
           // API calls are excluded so fetch errors surface normally. /presentacion
           // is a separate static deck served by Caddy (not an SPA route) — without
@@ -60,14 +64,13 @@ export default defineConfig(({ mode }) => {
               handler: 'NetworkOnly',
             },
             {
-              // Public, non-user-specific API calls may be cached for offline
-              // resilience. Authenticated API responses are intentionally
-              // excluded so workout/profile/insight data never lands in
-              // Cache Storage.
-              urlPattern: /\/api\/(?:catalog|exercises|muscle-groups|stats\/online)(?:\/|$|\?)/,
+              // Only endpoints whose responses are user-independent may be
+              // cached. In particular, authenticated /api/exercises responses
+              // contain custom exercises and must never enter shared Cache Storage.
+              urlPattern: PUBLIC_API_CACHE_PATTERN,
               handler: 'NetworkFirst',
               options: {
-                cacheName: 'api-cache',
+                cacheName: 'public-api-cache-v2',
                 networkTimeoutSeconds: 5,
                 expiration: {
                   maxEntries: 100,
