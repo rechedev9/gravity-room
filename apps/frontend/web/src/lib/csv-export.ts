@@ -4,7 +4,7 @@ function escapeCsvField(value: string): string {
   // Spreadsheet applications interpret these leading characters as formulas.
   // Prefix an apostrophe so user-controlled exercise/day names remain text
   // when the CSV is opened in Excel, Numbers, or LibreOffice.
-  const safeValue = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  const safeValue = /^[=+\-@\t\r\n＝＋－＠]/.test(value) ? `'${value}` : value;
   if (
     safeValue.includes(',') ||
     safeValue.includes('"') ||

@@ -238,6 +238,11 @@ describe('generateProgramCsv — CSV injection', () => {
     '+1+1+1',
     '-1+1+1',
     '@SUM(1+1)',
+    '\n=HYPERLINK("http://evil.com","Click")',
+    '＝HYPERLINK("http://evil.com","Click")',
+    '＋1+1+1',
+    '－1+1+1',
+    '＠SUM(1+1)',
     '=HYPERLINK("http://evil.com","Click")',
   ];
 
