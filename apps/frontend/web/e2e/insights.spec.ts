@@ -14,7 +14,9 @@ test.describe('Insights view', () => {
 
   test('navigating to /app/insights renders the page header', async ({ page }) => {
     await page.goto('/app/insights');
-    await expect(page.getByRole('heading', { name: 'Análisis' })).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole('heading', { name: 'Análisis', exact: true, level: 1 })
+    ).toBeVisible({ timeout: 10_000 });
   });
 
   test('shows the empty state when no insights are computed', async ({ page }) => {

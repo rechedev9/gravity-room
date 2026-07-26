@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 import { resolve } from 'path';
+import { resolvePlaywrightEndpoints } from './playwright-ports';
+
+const { apiPort, apiUrl, webPort, webUrl } = resolvePlaywrightEndpoints(process.env);
 
 export default defineConfig({
   testDir: './e2e',
@@ -11,7 +14,7 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'html',
 
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: webUrl,
     locale: 'es-ES',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
@@ -27,16 +30,17 @@ export default defineConfig({
   webServer: [
     {
       command: 'pnpm --filter api start',
-      url: 'http://localhost:3001/api/health',
+      url: `${apiUrl}/api/health`,
       timeout: 180_000,
       reuseExistingServer: !process.env.CI,
       cwd: resolve(__dirname, '../../..'),
       env: {
+        PORT: apiPort,
         AUTH_DEV_ROUTE_ENABLED: 'true',
         AUTH_DEV_ROUTE_SECRET: 'e2e-dev-secret-not-for-prod',
-        // The suite runs the web preview on :5173; without this the browser's
+        // The suite runs the web preview on a dedicated port; without this the browser's
         // API calls are CORS-blocked and every data-driven test fails.
-        CORS_ORIGIN: 'http://localhost:5173',
+        CORS_ORIGIN: webUrl,
         // Real GIS buttons require a client ID registered for localhost. Keep
         // Google disabled here and cover the enabled branch with the controlled
         // component in login-page-methods.test.tsx.
@@ -45,15 +49,15 @@ export default defineConfig({
       },
     },
     {
-      command: 'pnpm run build:web && pnpm --filter web preview',
-      url: 'http://localhost:5173',
-      // build:web does vite build + prerender of 24 routes (~50s in CI),
+      command: `pnpm run build:web && pnpm --filter web exec vite preview --host 127.0.0.1 --port ${webPort} --strictPort`,
+      url: webUrl,
+      // build:web does vite build + prerender of 38 routes (~50s in CI),
       // then the preview server boots. Default 60s is too tight for CI runners.
       timeout: 180_000,
       reuseExistingServer: !process.env.CI,
       cwd: resolve(__dirname, '../../..'),
       env: {
-        VITE_API_URL: 'http://localhost:3001',
+        VITE_API_URL: apiUrl,
         VITE_GOOGLE_CLIENT_ID: '',
       },
     },

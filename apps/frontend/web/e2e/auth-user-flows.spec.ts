@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { seedProgram, navigateToTracker, dismissRpeIfPresent } from './helpers/seed';
+import {
+  seedProgram,
+  navigateToTracker,
+  dismissRpeIfPresent,
+  tierOutcomeButton,
+} from './helpers/seed';
 
 /**
  * Authenticated user E2E tests — covers flows that require a real
@@ -39,7 +44,7 @@ test.describe('Authenticated tracker', () => {
   });
 
   test('can mark T1 success and see undo enabled', async ({ page }) => {
-    await page.getByRole('button', { name: 'Marcar d1-t1 éxito' }).click();
+    await tierOutcomeButton(page, 'T1', 'éxito').click();
     await dismissRpeIfPresent(page);
     await expect(page.getByRole('button', { name: 'Deshacer' }).first()).toBeEnabled();
   });

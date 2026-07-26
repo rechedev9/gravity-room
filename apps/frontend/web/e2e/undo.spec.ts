@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedProgram, navigateToTracker } from './helpers/seed';
+import { seedProgram, navigateToTracker, tierOutcomeButton, tierUndoButton } from './helpers/seed';
 
 test.describe('Undo', () => {
   test.beforeEach(async ({ page }) => {
@@ -16,32 +16,31 @@ test.describe('Undo', () => {
   test('record T1 then undo via toolbar', async ({ page }) => {
     const undoBtn = page.getByRole('button', { name: 'Deshacer', exact: true }).first();
 
-    // Record T1 success — GZCLP Day 1 T1 slot is d1-t1
-    await page.getByRole('button', { name: 'Marcar d1-t1 éxito' }).first().click();
-    await expect(page.getByRole('button', { name: 'Deshacer d1-t1 éxito' }).first()).toBeVisible();
+    await tierOutcomeButton(page, 'T1', 'éxito').click();
+    await expect(tierUndoButton(page, 'T1', 'éxito')).toBeVisible();
 
     // Undo via toolbar button
     await expect(undoBtn).toBeEnabled();
     await undoBtn.click();
 
     // Pass/fail buttons should reappear
-    await expect(page.getByRole('button', { name: 'Marcar d1-t1 éxito' }).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Marcar d1-t1 fallo' }).first()).toBeVisible();
+    await expect(tierOutcomeButton(page, 'T1', 'éxito')).toBeVisible();
+    await expect(tierOutcomeButton(page, 'T1', 'fallo')).toBeVisible();
     await expect(undoBtn).toBeDisabled();
   });
 
   test('record T1 then undo via badge click', async ({ page }) => {
     // Record T1 success
-    await page.getByRole('button', { name: 'Marcar d1-t1 éxito' }).first().click();
-    const badge = page.getByRole('button', { name: 'Deshacer d1-t1 éxito' }).first();
+    await tierOutcomeButton(page, 'T1', 'éxito').click();
+    const badge = tierUndoButton(page, 'T1', 'éxito');
     await expect(badge).toBeVisible();
 
     // Click badge to undo (badge is a button)
     await badge.click();
 
     // Pass/fail buttons should reappear
-    await expect(page.getByRole('button', { name: 'Marcar d1-t1 éxito' }).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Marcar d1-t1 fallo' }).first()).toBeVisible();
+    await expect(tierOutcomeButton(page, 'T1', 'éxito')).toBeVisible();
+    await expect(tierOutcomeButton(page, 'T1', 'fallo')).toBeVisible();
   });
 
   test('undo count text updates', async ({ page }) => {
@@ -49,7 +48,7 @@ test.describe('Undo', () => {
     await expect(page.getByText('1x')).not.toBeVisible();
 
     // Record T1 success
-    await page.getByRole('button', { name: 'Marcar d1-t1 éxito' }).first().click();
+    await tierOutcomeButton(page, 'T1', 'éxito').click();
     await expect(page.getByText('1x')).toBeVisible();
   });
 });

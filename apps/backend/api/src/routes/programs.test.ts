@@ -410,6 +410,20 @@ describe('GET /programs — pagination query params', () => {
     expect([400, 401]).toContain(res.status);
   });
 
+  it('normalizes a valid limit to a number before calling the service', async () => {
+    const token = await makeValidJwt('user-1');
+
+    const res = await get('/programs?limit=7', {
+      Authorization: `Bearer ${token}`,
+    });
+
+    expect(res.status).toBe(200);
+    expect(mockGetInstances).toHaveBeenCalledWith('user-1', {
+      limit: 7,
+      cursor: undefined,
+    });
+  });
+
   it('rejects oversized cursors before listing program instances', async () => {
     const token = await makeValidJwt('user-1');
 

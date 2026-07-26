@@ -6,8 +6,16 @@ test.describe('Landing page', () => {
   });
 
   test('renders hero section', async ({ page }) => {
-    await expect(page.getByText('Tu plan de fuerza con')).toBeVisible();
-    await expect(page.getByText('progresión automática, gratis.')).toBeVisible();
+    const hero = page.getByRole('region', {
+      name: /Entra\. Entrena\.\s*Sal más fuerte\./i,
+    });
+    await expect(hero).toBeVisible();
+    await expect(
+      hero.getByRole('heading', {
+        name: /Entra\. Entrena\.\s*Sal más fuerte\./i,
+        level: 1,
+      })
+    ).toBeVisible();
   });
 
   test('displays CTA links', async ({ page }) => {
@@ -29,10 +37,7 @@ test.describe('Landing page', () => {
   });
 
   test('guest CTA enters guest mode and lands on /app/programs', async ({ page }) => {
-    await page
-      .getByRole('button', { name: /Pruébalo ahora, sin cuenta/i })
-      .first()
-      .click();
+    await page.getByRole('button', { name: 'Probar sin cuenta', exact: true }).first().click();
 
     await expect(page).toHaveURL(/\/app\/programs/);
     // We are in guest mode: the catalog page has no guest banner (it only

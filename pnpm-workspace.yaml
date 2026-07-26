@@ -7,6 +7,10 @@ allowBuilds:
   esbuild: true
   lefthook: true
 overrides:
+  # Elysia 1.4 passes `TypeCompiler` to exact-mirror's 0.2 API. exact-mirror
+  # 1.x renamed that option to `Compile`, so peer auto-resolution to 1.x leaves
+  # t.Numeric query unions un-normalized and hands strings to number-typed handlers.
+  exact-mirror: 0.2.7
   axios: '>=1.15.1'
   vite: '>=8.0.16'
   rollup: '>=4.59.0'

@@ -4,6 +4,7 @@ import {
   dismissRpeIfPresent,
   expandDayControls,
   expectSelectedDay,
+  tierOutcomeButton,
 } from './helpers/seed';
 
 /**
@@ -13,13 +14,13 @@ import {
 
 /** Mark all 3 GZCLP day 1 tiers and dismiss any resulting dialogs. */
 async function completeDay1(page: import('@playwright/test').Page): Promise<void> {
-  await page.getByRole('button', { name: 'Marcar d1-t1 éxito' }).click();
+  await tierOutcomeButton(page, 'T1', 'éxito').click();
   await dismissRpeIfPresent(page);
 
-  await page.getByRole('button', { name: 'Marcar d1-t2 éxito' }).click();
+  await tierOutcomeButton(page, 'T2', 'éxito').click();
   await dismissRpeIfPresent(page);
 
-  await page.getByRole('button', { name: 'Marcar latpulldown-t3 éxito' }).click();
+  await tierOutcomeButton(page, 'T3', 'éxito').click();
   await dismissRpeIfPresent(page);
 }
 
@@ -42,11 +43,11 @@ test.describe('Full day completion', () => {
     await page.getByRole('button', { name: 'Siguiente día' }).click();
     await expectSelectedDay(page, 2);
 
-    await expect(page.getByRole('button', { name: 'Marcar d2-t1 éxito' })).toBeVisible();
+    await expect(tierOutcomeButton(page, 'T1', 'éxito')).toBeVisible();
   });
 
   test('marking T1 as failure enables undo', async ({ page }) => {
-    await page.getByRole('button', { name: 'Marcar d1-t1 fallo' }).click();
+    await tierOutcomeButton(page, 'T1', 'fallo').click();
     await expect(page.getByRole('button', { name: 'Deshacer' }).first()).toBeEnabled();
   });
 });
@@ -63,13 +64,13 @@ test.describe('Undo after marking', () => {
   });
 
   test('marking then undoing restores pass/fail buttons', async ({ page }) => {
-    await page.getByRole('button', { name: 'Marcar d1-t1 fallo' }).click();
+    await tierOutcomeButton(page, 'T1', 'fallo').click();
 
     const undoBtn = page.getByRole('button', { name: 'Deshacer' }).first();
     await expect(undoBtn).toBeEnabled();
     await undoBtn.click();
 
-    await expect(page.getByRole('button', { name: 'Marcar d1-t1 éxito' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Marcar d1-t1 fallo' })).toBeVisible();
+    await expect(tierOutcomeButton(page, 'T1', 'éxito')).toBeVisible();
+    await expect(tierOutcomeButton(page, 'T1', 'fallo')).toBeVisible();
   });
 });
