@@ -631,6 +631,27 @@ function useImportableProgramDefinition(): void {
   );
 }
 
+function useAlternatingProgramDefinition(): void {
+  mockGetProgramDefinition.mockImplementation(() =>
+    Promise.resolve({
+      status: 'found',
+      definition: {
+        totalWorkouts: 2,
+        days: [
+          {
+            name: 'Day 1',
+            slots: [{ id: 'squat' }],
+          },
+          {
+            name: 'Day 2',
+            slots: [{ id: 'bench' }],
+          },
+        ],
+      },
+    })
+  );
+}
+
 function baseExportedProgram(overrides: Partial<ExportedProgram> = {}): ExportedProgram {
   return {
     version: 1,
@@ -645,6 +666,192 @@ function baseExportedProgram(overrides: Partial<ExportedProgram> = {}): Exported
 }
 
 describe('importInstance — undoHistory validation', () => {
+  it('rejects a result slot that belongs to a different workout day', async () => {
+    useAlternatingProgramDefinition();
+    const transaction = vi.fn(() => {
+      throw new Error('transaction should not run');
+    });
+    mockDb = { transaction };
+
+    let thrown: unknown;
+    try {
+      await importInstance(
+        'user-1',
+        baseExportedProgram({
+          results: {
+            '0': {
+              bench: { result: 'success' },
+            },
+          },
+        })
+      );
+    } catch (error: unknown) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(400);
+    expect((thrown as ApiError).code).toBe('INVALID_DATA');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an undo slot that belongs to a different workout day', async () => {
+    useAlternatingProgramDefinition();
+    const transaction = vi.fn(() => {
+      throw new Error('transaction should not run');
+    });
+    mockDb = { transaction };
+
+    let thrown: unknown;
+    try {
+      await importInstance(
+        'user-1',
+        baseExportedProgram({
+          undoHistory: [{ i: 0, slotId: 'bench', prev: 'success' }],
+        })
+      );
+    } catch (error: unknown) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(400);
+    expect((thrown as ApiError).code).toBe('INVALID_DATA');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('atomically replaces the active program and marks complete imported workouts', async () => {
+    useImportableProgramDefinition();
+    const events: string[] = [];
+    let insertedResults: ReadonlyArray<{ readonly completedAt: Date | null }> = [];
+    let insertCall = 0;
+    const importedAt = new Date();
+    const instanceRow = {
+      id: 'imported-instance',
+      userId: 'user-1',
+      templateId: 'gzclp',
+      definitionId: null,
+      customDefinition: null,
+      name: 'Imported',
+      programConfig: {},
+      metadata: null,
+      status: 'active',
+      createdAt: importedAt,
+      updatedAt: importedAt,
+    };
+    const tx = {
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            for: vi.fn(() => ({
+              limit: vi.fn(() => Promise.resolve([{ id: 'user-1' }])),
+            })),
+          })),
+        })),
+      })),
+      update: vi.fn(() => ({
+        set: vi.fn(() => ({
+          where: vi.fn(() => {
+            events.push('complete-active');
+            return Promise.resolve();
+          }),
+        })),
+      })),
+      insert: vi.fn(() => ({
+        values: vi.fn((values: unknown) => {
+          insertCall += 1;
+          if (insertCall === 1) {
+            events.push('insert-instance');
+            return { returning: vi.fn(() => Promise.resolve([instanceRow])) };
+          }
+          if (insertCall === 2) {
+            if (Array.isArray(values)) {
+              insertedResults = values
+                .filter(
+                  (value): value is { readonly completedAt: Date | null } =>
+                    typeof value === 'object' &&
+                    value !== null &&
+                    'completedAt' in value &&
+                    (value.completedAt instanceof Date || value.completedAt === null)
+                )
+                .map((value) => ({ completedAt: value.completedAt }));
+            }
+          }
+          return Promise.resolve();
+        }),
+      })),
+    };
+    let selectCall = 0;
+    mockDb = {
+      transaction: vi.fn(async (callback: (transaction: typeof tx) => Promise<string>) =>
+        callback(tx)
+      ),
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => {
+            selectCall += 1;
+            if (selectCall === 1) {
+              return { limit: vi.fn(() => Promise.resolve([instanceRow])) };
+            }
+            if (selectCall === 2) {
+              return Promise.resolve([
+                {
+                  workoutIndex: 0,
+                  slotId: 'squat',
+                  result: 'success',
+                  amrapReps: null,
+                  rpe: null,
+                  setLogs: null,
+                  completedAt: insertedResults[0]?.completedAt ?? null,
+                  createdAt: importedAt,
+                },
+              ]);
+            }
+            return { orderBy: vi.fn(() => Promise.resolve([])) };
+          }),
+        })),
+      })),
+    };
+
+    const imported = await importInstance(
+      'user-1',
+      baseExportedProgram({
+        results: { '0': { squat: { result: 'success' } } },
+        completedDates: { '00': '2025-06-15T10:30:00.000Z' },
+      })
+    );
+
+    expect(events).toEqual(['complete-active', 'insert-instance']);
+    expect(insertedResults[0]?.completedAt).toBeInstanceOf(Date);
+    expect(insertedResults[0]?.completedAt?.toISOString()).toBe('2025-06-15T10:30:00.000Z');
+    expect(imported.completedDates['0']).toBeDefined();
+  });
+
+  it('rejects malformed imported completion dates before writing to the database', async () => {
+    useImportableProgramDefinition();
+    const transaction = vi.fn(() => {
+      throw new Error('transaction should not run');
+    });
+    mockDb = { transaction };
+
+    let thrown: unknown;
+    try {
+      await importInstance(
+        'user-1',
+        baseExportedProgram({
+          completedDates: { '0': 'not-a-date' },
+        })
+      );
+    } catch (error: unknown) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(ApiError);
+    expect((thrown as ApiError).statusCode).toBe(400);
+    expect((thrown as ApiError).code).toBe('INVALID_DATA');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('rejects undo entries with negative workoutIndex before writing to the database', async () => {
     useImportableProgramDefinition();
     const transaction = vi.fn(() => {

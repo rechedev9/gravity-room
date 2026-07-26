@@ -9,6 +9,7 @@ import {
   programTemplates,
   workoutResults,
   undoEntries,
+  users,
 } from '@gzclp/database/schema';
 import { getProgramDefinition } from '../services/catalog';
 import {
@@ -24,6 +25,7 @@ import { ApiError } from '../middleware/error-handler';
 // ---------------------------------------------------------------------------
 
 type InstanceRow = typeof programInstances.$inferSelect;
+type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
 
 /** Projected columns from workout_results — only what helpers actually use. */
 interface ResultProjection {
@@ -72,6 +74,19 @@ const MAX_AMRAP_REPS = 99;
 const MAX_SET_LOG_ITEMS = 20;
 const MAX_SET_LOG_WEIGHT = 10_000;
 const MAX_METADATA_BYTES = 10_000;
+
+async function lockUserForActiveProgramMutation(tx: Tx, userId: string): Promise<void> {
+  const [user] = await tx
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, userId))
+    .for('update')
+    .limit(1);
+
+  if (!user) {
+    throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+  }
+}
 
 /** Maps each workoutIndex to the earliest createdAt timestamp for that workout. */
 function buildResultTimestamps(rows: readonly ResultProjection[]): Record<string, string> {
@@ -222,25 +237,28 @@ export async function createInstance(
     throw new ApiError(400, `Unknown program: ${programId}`, 'INVALID_PROGRAM');
   }
 
-  // Auto-complete any existing active program before inserting a new one.
-  // This prevents multiple concurrent active programs and ensures graceful resolution
-  // of the "one active program per user" invariant. If a concurrent duplicate INSERT
-  // somehow bypasses this UPDATE, the application will handle the resulting conflict.
-  await getDb()
-    .update(programInstances)
-    .set({ status: 'completed' })
-    .where(and(eq(programInstances.userId, userId), eq(programInstances.status, 'active')));
+  const instance = await getDb().transaction(async (tx) => {
+    // Serialize active-program replacement per user. This makes completing the
+    // previous program and inserting its replacement one atomic operation.
+    await lockUserForActiveProgramMutation(tx, userId);
+    await tx
+      .update(programInstances)
+      .set({ status: 'completed' })
+      .where(and(eq(programInstances.userId, userId), eq(programInstances.status, 'active')));
 
-  const [instance] = await getDb()
-    .insert(programInstances)
-    .values({
-      userId,
-      templateId: programId,
-      name,
-      programConfig: config,
-      status: 'active',
-    })
-    .returning();
+    const [created] = await tx
+      .insert(programInstances)
+      .values({
+        userId,
+        templateId: programId,
+        name,
+        programConfig: config,
+        status: 'active',
+      })
+      .returning();
+
+    return created;
+  });
 
   if (!instance) {
     throw new ApiError(500, 'Failed to create program instance', 'CREATE_FAILED');
@@ -470,6 +488,7 @@ export interface ExportedProgram {
   readonly config: unknown;
   readonly results: GenericResults;
   readonly undoHistory: GenericUndoHistory;
+  readonly completedDates?: Readonly<Record<string, string>>;
 }
 
 function assertSetLogEntriesValid(
@@ -510,6 +529,7 @@ export async function exportInstance(userId: string, instanceId: string): Promis
     config: instance.config,
     results: instance.results,
     undoHistory: instance.undoHistory,
+    completedDates: instance.completedDates,
   };
 }
 
@@ -536,16 +556,37 @@ export async function importInstance(
 
   // Validate workoutIndex bounds and slotIds against the program definition
   const maxWorkoutIndex = definition.totalWorkouts - 1;
-  const validSlotIds = new Set(definition.days.flatMap((d) => d.slots.map((s) => s.id)));
+  const cycleLength = definition.days.length;
+  const completedDates = data.completedDates ?? {};
+  const completedDatesByWorkout = new Map<number, string>();
+  for (const [indexStr, completedDate] of Object.entries(completedDates)) {
+    const idx = Number(indexStr);
+    if (
+      !Number.isInteger(idx) ||
+      idx < 0 ||
+      idx > maxWorkoutIndex ||
+      !Number.isFinite(Date.parse(completedDate)) ||
+      completedDatesByWorkout.has(idx)
+    ) {
+      throw new ApiError(400, `Invalid completion date for workout ${indexStr}`, 'INVALID_DATA');
+    }
+    completedDatesByWorkout.set(idx, completedDate);
+  }
 
   for (const [indexStr, slots] of Object.entries(data.results)) {
     const idx = Number(indexStr);
     if (!Number.isInteger(idx) || idx < 0 || idx > maxWorkoutIndex) {
       throw new ApiError(400, `Invalid workoutIndex: ${indexStr}`, 'INVALID_DATA');
     }
+    const day = definition.days[idx % cycleLength];
+    const validSlotIds = new Set(day.slots.map((slot) => slot.id));
     for (const [slotId, slotData] of Object.entries(slots)) {
       if (!validSlotIds.has(slotId)) {
-        throw new ApiError(400, `Unknown slotId: ${slotId}`, 'INVALID_DATA');
+        throw new ApiError(
+          400,
+          `Unknown slotId for workout ${indexStr}: ${slotId}`,
+          'INVALID_DATA'
+        );
       }
       if (slotData.amrapReps !== undefined && slotData.amrapReps > MAX_AMRAP_REPS) {
         throw new ApiError(400, `amrapReps cannot exceed ${MAX_AMRAP_REPS}`, 'INVALID_DATA');
@@ -559,11 +600,17 @@ export async function importInstance(
     throw new ApiError(400, 'Invalid undoHistory format', 'INVALID_DATA');
   }
   for (const entry of undoHistoryResult.data) {
-    if (entry.i > maxWorkoutIndex) {
+    if (entry.i < 0 || entry.i > maxWorkoutIndex) {
       throw new ApiError(400, `Invalid undo workoutIndex: ${entry.i}`, 'INVALID_DATA');
     }
+    const day = definition.days[entry.i % cycleLength];
+    const validSlotIds = new Set(day.slots.map((slot) => slot.id));
     if (!validSlotIds.has(entry.slotId)) {
-      throw new ApiError(400, `Unknown undo slotId: ${entry.slotId}`, 'INVALID_DATA');
+      throw new ApiError(
+        400,
+        `Unknown undo slotId for workout ${entry.i}: ${entry.slotId}`,
+        'INVALID_DATA'
+      );
     }
     if (entry.prevAmrapReps !== undefined && entry.prevAmrapReps > MAX_AMRAP_REPS) {
       throw new ApiError(400, `prevAmrapReps cannot exceed ${MAX_AMRAP_REPS}`, 'INVALID_DATA');
@@ -573,6 +620,14 @@ export async function importInstance(
 
   // Wrap all inserts in a transaction — partial failure rolls back everything
   const instanceId = await getDb().transaction(async (tx) => {
+    // Import has the same "replace current active program" semantics as normal
+    // creation. Locking the user makes concurrent create/import requests safe.
+    await lockUserForActiveProgramMutation(tx, userId);
+    await tx
+      .update(programInstances)
+      .set({ status: 'completed' })
+      .where(and(eq(programInstances.userId, userId), eq(programInstances.status, 'active')));
+
     const [instance] = await tx
       .insert(programInstances)
       .values({
@@ -597,19 +652,26 @@ export async function importInstance(
       amrapReps: number | null;
       rpe: number | null;
       setLogs: unknown;
+      completedAt: Date | null;
     }[] = [];
 
     for (const [indexStr, slots] of Object.entries(data.results)) {
+      const workoutIndex = Number(indexStr);
+      const day = definition.days[workoutIndex % cycleLength];
+      const completedAt = day.slots.every((slot) => slots[slot.id]?.result !== undefined)
+        ? new Date(completedDatesByWorkout.get(workoutIndex) ?? data.exportDate)
+        : null;
       for (const [slotId, slotResult] of Object.entries(slots)) {
         if (slotResult.result) {
           resultValues.push({
             instanceId: instance.id,
-            workoutIndex: Number(indexStr),
+            workoutIndex,
             slotId,
             result: slotResult.result,
             amrapReps: slotResult.amrapReps ?? null,
             rpe: slotResult.rpe ?? null,
             setLogs: slotResult.setLogs ?? null,
+            completedAt,
           });
         }
       }

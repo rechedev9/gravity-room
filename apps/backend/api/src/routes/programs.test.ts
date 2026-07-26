@@ -38,6 +38,7 @@ vi.mock('../services/programs', () => ({
   createInstance: mockCreateInstance,
   getInstance: vi.fn(() => Promise.resolve({ id: 'inst-id' })),
   updateInstance: vi.fn(() => Promise.resolve({ id: 'inst-id' })),
+  updateInstanceMetadata: vi.fn(() => Promise.resolve({ id: 'inst-id' })),
   deleteInstance: vi.fn(() => Promise.resolve()),
   exportInstance: vi.fn(() => Promise.resolve({})),
   importInstance: mockImportInstance,
@@ -181,6 +182,37 @@ const VALID_IMPORT_PAYLOAD = {
 };
 
 describe('POST /programs/import — rpe validation', () => {
+  it('accepts per-set logs emitted by program export', async () => {
+    const token = await makeValidJwt('user-1');
+    const payload = {
+      ...VALID_IMPORT_PAYLOAD,
+      results: {
+        '0': {
+          t1: {
+            result: 'success',
+            setLogs: [{ reps: 5, weight: 100, rpe: 8 }],
+          },
+        },
+      },
+      undoHistory: [
+        {
+          i: 0,
+          slotId: 't1',
+          prev: 'fail',
+          prevSetLogs: [{ reps: 3, weight: 95, rpe: 9 }],
+        },
+      ],
+      completedDates: { '0': '2025-06-15T10:30:00.000Z' },
+    };
+
+    const res = await post('/programs/import', payload, {
+      Authorization: `Bearer ${token}`,
+    });
+
+    expect(res.status).toBe(201);
+    expect(mockImportInstance).toHaveBeenCalledWith('user-1', payload);
+  });
+
   it('accepts import payload with rpe: 5 in a result entry (401 = auth needed, not validation error)', async () => {
     const payload = {
       ...VALID_IMPORT_PAYLOAD,

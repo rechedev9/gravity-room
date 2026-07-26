@@ -32,6 +32,8 @@ const MAX_PROGRAM_ID_CHARS = 50;
 const MAX_SLOT_ID_CHARS = 50;
 const MAX_WORKOUT_INDEX_KEY_CHARS = 3;
 const MAX_AMRAP_REPS = 99;
+const MAX_SET_LOG_WEIGHT = 10_000;
+const MAX_SET_LOG_ITEMS = 20;
 const PROGRAM_ID_PATTERN = '^[a-z0-9-]+$';
 const WORKOUT_INDEX_KEY_PATTERN = '^\\d{1,3}$';
 const WORKOUT_INDEX_KEY_REGEX = /^\d{1,3}$/;
@@ -52,6 +54,14 @@ const workoutIndexKeySchema = t.String({
   maxLength: MAX_WORKOUT_INDEX_KEY_CHARS,
   pattern: WORKOUT_INDEX_KEY_PATTERN,
 });
+const setLogsSchema = t.Array(
+  t.Object({
+    reps: t.Integer({ minimum: 0, maximum: 999 }),
+    weight: t.Optional(t.Number({ minimum: 0, maximum: MAX_SET_LOG_WEIGHT })),
+    rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
+  }),
+  { maxItems: MAX_SET_LOG_ITEMS }
+);
 
 const security = [{ bearerAuth: [] }];
 
@@ -356,6 +366,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
               result: t.Optional(t.Union([t.Literal('success'), t.Literal('fail')])),
               amrapReps: t.Optional(t.Integer({ minimum: 0, maximum: MAX_AMRAP_REPS })),
               rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
+              setLogs: t.Optional(setLogsSchema),
             }),
             { maxProperties: 50 }
           ),
@@ -368,8 +379,14 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
             prev: t.Optional(t.Union([t.Literal('success'), t.Literal('fail')])),
             prevRpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
             prevAmrapReps: t.Optional(t.Integer({ minimum: 0, maximum: MAX_AMRAP_REPS })),
+            prevSetLogs: t.Optional(setLogsSchema),
           }),
           { maxItems: 500 }
+        ),
+        completedDates: t.Optional(
+          t.Record(workoutIndexKeySchema, t.String({ format: 'date-time' }), {
+            maxProperties: 1000,
+          })
         ),
       }),
       detail: {
