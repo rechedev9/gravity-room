@@ -7,12 +7,13 @@
  */
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { users, userIdentities } from '@gzclp/database/schema';
+import { refreshTokens, users, userIdentities } from '@gzclp/database/schema';
 import { setupTestDb, teardownTestDb, truncateAllTables } from '../db-setup';
 import {
   findOrCreateUserByIdentity,
   findOrCreateGoogleUser,
   softDeleteUser,
+  createAndStoreRefreshToken,
 } from '../../src/services/auth';
 import { getDb } from '../../src/db';
 import { ApiError } from '../../src/middleware/error-handler';
@@ -127,6 +128,7 @@ describe('findOrCreateUserByIdentity (integration)', () => {
 
   it('rejects sign-in for a soft-deleted account', async () => {
     const { user } = await findOrCreateGoogleUser('g-3', 'deleted@example.com', 'Gone');
+    await createAndStoreRefreshToken(user.id);
     await softDeleteUser(user.id);
 
     let thrown: unknown;
@@ -139,5 +141,12 @@ describe('findOrCreateUserByIdentity (integration)', () => {
     expect(thrown).toBeInstanceOf(ApiError);
     expect((thrown as ApiError).statusCode).toBe(403);
     expect((thrown as ApiError).code).toBe('ACCOUNT_DELETED');
+
+    const [deletedUser] = await getDb().select().from(users).where(eq(users.id, user.id));
+    expect(deletedUser?.deletedAt).toBeInstanceOf(Date);
+    expect(deletedUser?.authVersion).toBe(user.authVersion + 1);
+    expect(
+      await getDb().select().from(refreshTokens).where(eq(refreshTokens.userId, user.id))
+    ).toHaveLength(0);
   });
 });

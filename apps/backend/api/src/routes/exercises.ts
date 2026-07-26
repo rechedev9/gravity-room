@@ -7,6 +7,7 @@
 import { Elysia, t } from 'elysia';
 import {
   jwtPlugin,
+  extractBearerToken,
   resolveUserId,
   verifyAccessToken,
   type JwtVerifier,
@@ -95,8 +96,6 @@ function slugifyExerciseName(name: string): string {
 // Helper: optional auth — extracts userId from JWT if present, undefined otherwise
 // ---------------------------------------------------------------------------
 
-const BEARER_PREFIX = 'Bearer ';
-
 async function resolveOptionalUserId({
   jwt: jwtCtx,
   headers,
@@ -109,14 +108,7 @@ async function resolveOptionalUserId({
     return { userId: undefined };
   }
 
-  if (!authorization.startsWith(BEARER_PREFIX)) {
-    throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
-  }
-
-  const token = authorization.slice(BEARER_PREFIX.length);
-  if (!token) {
-    throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
-  }
+  const token = extractBearerToken(headers);
 
   // Delegates to the same trust pipeline the required-auth resolver uses, so the
   // two paths can never drift. They differ only in the missing-header branch above

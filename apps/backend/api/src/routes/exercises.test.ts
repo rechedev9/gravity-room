@@ -136,6 +136,18 @@ describe('GET /exercises', () => {
     expect(mockListExercises).not.toHaveBeenCalled();
   });
 
+  it('accepts a valid token with lowercase bearer scheme casing', async () => {
+    const token = await makeValidJwt('user-1');
+    const res = await get('/exercises', { Authorization: `bearer ${token}` });
+
+    expect(res.status).toBe(200);
+    expect(mockListExercises).toHaveBeenCalledWith(
+      'user-1',
+      expect.any(Object),
+      expect.any(Object)
+    );
+  });
+
   it('returns 401 for a malformed authorization scheme', async () => {
     const res = await get('/exercises', { Authorization: 'Basic credentials' });
     const body = (await res.json()) as { code: string };

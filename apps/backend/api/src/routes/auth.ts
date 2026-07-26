@@ -27,13 +27,13 @@ import {
   hashPassword,
   authenticatePassword,
   createPasswordUser,
-  createEmailVerificationToken,
+  createPasswordSignup,
   replaceEmailVerificationToken,
-  consumeEmailVerificationToken,
   markEmailVerified,
+  verifyEmailWithToken,
   createPasswordResetToken,
-  consumePasswordResetToken,
   setUserPassword,
+  resetPasswordWithToken,
   REFRESH_TOKEN_DAYS,
 } from '../services/auth';
 import {
@@ -463,9 +463,21 @@ async function processGoogleSignIn(
 // Social sign-in (Apple, GitHub) — server-side redirect flows
 // ---------------------------------------------------------------------------
 
-const OAUTH_STATE_COOKIE = 'oauth_state';
-const OAUTH_NONCE_COOKIE = 'oauth_nonce';
-const OAUTH_PKCE_COOKIE = 'oauth_pkce';
+const OAUTH_COOKIE_NAMES = {
+  apple: {
+    state: 'oauth_apple_state',
+    nonce: 'oauth_apple_nonce',
+  },
+  github: {
+    state: 'oauth_github_state',
+    pkce: 'oauth_github_pkce',
+  },
+  microsoft: {
+    state: 'oauth_microsoft_state',
+    nonce: 'oauth_microsoft_nonce',
+    pkce: 'oauth_microsoft_pkce',
+  },
+} as const;
 const OAUTH_STATE_TTL_S = 10 * 60; // 10 minutes
 
 /**
@@ -655,14 +667,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
       const name = normalizeDisplayName(body.name);
       const passwordHash = await hashPassword(body.password);
-      const user = await createPasswordUser({
+      const { user, verificationToken } = await createPasswordSignup({
         email: body.email,
         passwordHash,
         name,
       });
 
-      const token = await createEmailVerificationToken(user.id);
-      keepAlive(sendVerificationEmail(user.email, token, request));
+      keepAlive(sendVerificationEmail(user.email, verificationToken, request));
 
       const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
       keepAlive(
@@ -742,17 +753,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     async ({ jwt, body, cookie, set, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/verify-email', { maxRequests: 20 });
 
-      const userId = await consumeEmailVerificationToken(body.token);
-      if (!userId) {
-        throw new ApiError(400, 'Invalid or expired verification token', 'INVALID_TOKEN');
-      }
-      const user = await markEmailVerified(userId);
+      const user = await verifyEmailWithToken(body.token);
       if (!user) {
-        throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+        throw new ApiError(400, 'Invalid or expired verification token', 'INVALID_TOKEN');
       }
 
       const { accessToken } = await issueTokens(jwt, cookie, user);
-      reqLogger.info({ event: 'auth.email_verified', userId }, 'email verified');
+      reqLogger.info({ event: 'auth.email_verified', userId: user.id }, 'email verified');
       set.status = 200;
       return { user: userResponse(user), accessToken };
     },
@@ -860,12 +867,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     async ({ body, cookie, set, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/reset-password', { maxRequests: 10 });
 
-      const userId = await consumePasswordResetToken(body.token);
+      const passwordHash = await hashPassword(body.password);
+      const userId = await resetPasswordWithToken(body.token, passwordHash);
       if (!userId) {
         throw new ApiError(400, 'Invalid or expired reset token', 'INVALID_TOKEN');
       }
-      const passwordHash = await hashPassword(body.password);
-      await setUserPassword(userId, passwordHash);
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
       if (refreshCookie) removeRefreshCookie(refreshCookie);
 
@@ -903,8 +909,14 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       }
       const state = generateRefreshToken();
       const nonce = generateRefreshToken();
-      cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('none') });
-      cookie[OAUTH_NONCE_COOKIE]?.set({ value: nonce, ...stateCookieOptions('none') });
+      cookie[OAUTH_COOKIE_NAMES.apple.state]?.set({
+        value: state,
+        ...stateCookieOptions('none'),
+      });
+      cookie[OAUTH_COOKIE_NAMES.apple.nonce]?.set({
+        value: nonce,
+        ...stateCookieOptions('none'),
+      });
       return redirect(
         buildAppleAuthorizeUrl(state, `${getApiBaseUrl(request)}/api/auth/apple/callback`, nonce)
       );
@@ -927,10 +939,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     async ({ jwt, body, cookie, redirect, request, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/apple/callback', { maxRequests: 30 });
 
-      const stateCookie = cookie[OAUTH_STATE_COOKIE];
+      const stateCookie = cookie[OAUTH_COOKIE_NAMES.apple.state];
       const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
       removeStateCookie(stateCookie, 'none');
-      const nonceCookie = cookie[OAUTH_NONCE_COOKIE];
+      const nonceCookie = cookie[OAUTH_COOKIE_NAMES.apple.nonce];
       const expectedNonce = typeof nonceCookie?.value === 'string' ? nonceCookie.value : undefined;
       removeStateCookie(nonceCookie, 'none');
 
@@ -1011,8 +1023,14 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const state = generateRefreshToken();
       const verifier = generatePkceVerifier();
       const challenge = await pkceChallenge(verifier);
-      cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('lax') });
-      cookie[OAUTH_PKCE_COOKIE]?.set({ value: verifier, ...stateCookieOptions('lax') });
+      cookie[OAUTH_COOKIE_NAMES.github.state]?.set({
+        value: state,
+        ...stateCookieOptions('lax'),
+      });
+      cookie[OAUTH_COOKIE_NAMES.github.pkce]?.set({
+        value: verifier,
+        ...stateCookieOptions('lax'),
+      });
       return redirect(
         buildGitHubAuthorizeUrl(
           state,
@@ -1039,10 +1057,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     async ({ jwt, query, cookie, redirect, request, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/github/callback', { maxRequests: 30 });
 
-      const stateCookie = cookie[OAUTH_STATE_COOKIE];
+      const stateCookie = cookie[OAUTH_COOKIE_NAMES.github.state];
       const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
       removeStateCookie(stateCookie, 'lax');
-      const pkceCookie = cookie[OAUTH_PKCE_COOKIE];
+      const pkceCookie = cookie[OAUTH_COOKIE_NAMES.github.pkce];
       const codeVerifier = typeof pkceCookie?.value === 'string' ? pkceCookie.value : undefined;
       removeStateCookie(pkceCookie, 'lax');
 
@@ -1124,9 +1142,18 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const nonce = generateRefreshToken();
       const verifier = generatePkceVerifier();
       const challenge = await pkceChallenge(verifier);
-      cookie[OAUTH_STATE_COOKIE]?.set({ value: state, ...stateCookieOptions('lax') });
-      cookie[OAUTH_NONCE_COOKIE]?.set({ value: nonce, ...stateCookieOptions('lax') });
-      cookie[OAUTH_PKCE_COOKIE]?.set({ value: verifier, ...stateCookieOptions('lax') });
+      cookie[OAUTH_COOKIE_NAMES.microsoft.state]?.set({
+        value: state,
+        ...stateCookieOptions('lax'),
+      });
+      cookie[OAUTH_COOKIE_NAMES.microsoft.nonce]?.set({
+        value: nonce,
+        ...stateCookieOptions('lax'),
+      });
+      cookie[OAUTH_COOKIE_NAMES.microsoft.pkce]?.set({
+        value: verifier,
+        ...stateCookieOptions('lax'),
+      });
       return redirect(
         buildMicrosoftAuthorizeUrl(
           state,
@@ -1154,13 +1181,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     async ({ jwt, query, cookie, redirect, request, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/microsoft/callback', { maxRequests: 30 });
 
-      const stateCookie = cookie[OAUTH_STATE_COOKIE];
+      const stateCookie = cookie[OAUTH_COOKIE_NAMES.microsoft.state];
       const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
       removeStateCookie(stateCookie, 'lax');
-      const nonceCookie = cookie[OAUTH_NONCE_COOKIE];
+      const nonceCookie = cookie[OAUTH_COOKIE_NAMES.microsoft.nonce];
       const expectedNonce = typeof nonceCookie?.value === 'string' ? nonceCookie.value : undefined;
       removeStateCookie(nonceCookie, 'lax');
-      const pkceCookie = cookie[OAUTH_PKCE_COOKIE];
+      const pkceCookie = cookie[OAUTH_COOKIE_NAMES.microsoft.pkce];
       const codeVerifier = typeof pkceCookie?.value === 'string' ? pkceCookie.value : undefined;
       removeStateCookie(pkceCookie, 'lax');
 

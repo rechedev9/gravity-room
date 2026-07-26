@@ -62,13 +62,16 @@ const {
   mockFindUserByEmail,
   mockAuthenticatePassword,
   mockCreatePasswordUser,
+  mockCreatePasswordSignup,
   mockCreateEmailVerificationToken,
   mockReplaceEmailVerificationToken,
   mockConsumeEmailVerificationToken,
   mockMarkEmailVerified,
+  mockVerifyEmailWithToken,
   mockCreatePasswordResetToken,
   mockConsumePasswordResetToken,
   mockSetUserPassword,
+  mockResetPasswordWithToken,
   mockFindOrCreateUserByIdentity,
   mockGenerateRefreshToken,
   mockUpdateUserProfile,
@@ -125,6 +128,12 @@ const {
   const mockCreatePasswordUser = vi.fn<() => Promise<MockUserRow>>(() =>
     Promise.resolve({ ...PW_USER })
   );
+  const mockCreatePasswordSignup = vi.fn(() =>
+    Promise.resolve({
+      user: { ...PW_USER },
+      verificationToken: 'verify-token',
+    })
+  );
   const mockCreateEmailVerificationToken = vi.fn(() => Promise.resolve('verify-token'));
   const mockReplaceEmailVerificationToken = vi.fn(() => Promise.resolve('resend-verify-token'));
   const mockConsumeEmailVerificationToken = vi.fn<() => Promise<string | null>>(() =>
@@ -133,11 +142,17 @@ const {
   const mockMarkEmailVerified = vi.fn<() => Promise<MockUserRow | undefined>>(() =>
     Promise.resolve({ ...PW_USER })
   );
+  const mockVerifyEmailWithToken = vi.fn<() => Promise<MockUserRow | null>>(() =>
+    Promise.resolve(null)
+  );
   const mockCreatePasswordResetToken = vi.fn(() => Promise.resolve('reset-token'));
   const mockConsumePasswordResetToken = vi.fn<() => Promise<string | null>>(() =>
     Promise.resolve(null)
   );
   const mockSetUserPassword = vi.fn(() => Promise.resolve());
+  const mockResetPasswordWithToken = vi.fn<() => Promise<string | null>>(() =>
+    Promise.resolve(null)
+  );
   const mockFindOrCreateUserByIdentity = vi.fn<
     () => Promise<{ user: MockUserRow; isNewUser: boolean }>
   >(() => Promise.resolve({ user: { ...PW_USER }, isNewUser: false }));
@@ -218,13 +233,16 @@ const {
     mockFindUserByEmail,
     mockAuthenticatePassword,
     mockCreatePasswordUser,
+    mockCreatePasswordSignup,
     mockCreateEmailVerificationToken,
     mockReplaceEmailVerificationToken,
     mockConsumeEmailVerificationToken,
     mockMarkEmailVerified,
+    mockVerifyEmailWithToken,
     mockCreatePasswordResetToken,
     mockConsumePasswordResetToken,
     mockSetUserPassword,
+    mockResetPasswordWithToken,
     mockFindOrCreateUserByIdentity,
     mockGenerateRefreshToken,
     mockUpdateUserProfile,
@@ -305,13 +323,16 @@ vi.mock('../services/auth', async () => ({
   updateUserProfile: mockUpdateUserProfile,
   authenticatePassword: mockAuthenticatePassword,
   createPasswordUser: mockCreatePasswordUser,
+  createPasswordSignup: mockCreatePasswordSignup,
   createEmailVerificationToken: mockCreateEmailVerificationToken,
   replaceEmailVerificationToken: mockReplaceEmailVerificationToken,
   consumeEmailVerificationToken: mockConsumeEmailVerificationToken,
   markEmailVerified: mockMarkEmailVerified,
+  verifyEmailWithToken: mockVerifyEmailWithToken,
   createPasswordResetToken: mockCreatePasswordResetToken,
   consumePasswordResetToken: mockConsumePasswordResetToken,
   setUserPassword: mockSetUserPassword,
+  resetPasswordWithToken: mockResetPasswordWithToken,
   // Included so the process-global services/auth mock exposes every export the
   // routes batch consumes (internal.ts imports cleanupExpiredTokens). Keeps the
   // frozen export-name set complete regardless of sibling test ordering.
@@ -1454,9 +1475,10 @@ describe('POST /auth/google — notification message format (REQ-AUTH-005)', () 
 describe('POST /auth/signup', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
-    mockCreatePasswordUser.mockClear();
-    mockCreatePasswordUser.mockImplementation(() => Promise.resolve({ ...PW_USER }));
-    mockCreateEmailVerificationToken.mockImplementation(() => Promise.resolve('verify-token'));
+    mockCreatePasswordSignup.mockClear();
+    mockCreatePasswordSignup.mockImplementation(() =>
+      Promise.resolve({ user: { ...PW_USER }, verificationToken: 'verify-token' })
+    );
     mockSendVerificationEmail.mockClear();
     mockIsEmailConfigured.mockImplementation(() => true);
   });
@@ -1478,7 +1500,7 @@ describe('POST /auth/signup', () => {
     });
 
     expect(res.status).toBe(201);
-    expect(mockCreatePasswordUser).toHaveBeenCalledWith(
+    expect(mockCreatePasswordSignup).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Ada Lovelace' })
     );
   });
@@ -1493,14 +1515,14 @@ describe('POST /auth/signup', () => {
 
     expect(res.status).toBe(400);
     expect(body.code).toBe('INVALID_NAME');
-    expect(mockCreatePasswordUser).not.toHaveBeenCalled();
+    expect(mockCreatePasswordSignup).not.toHaveBeenCalled();
   });
 
   it('rejects a password shorter than 8 chars before touching the service', async () => {
     const res = await post('/auth/signup', { email: 'new@example.com', password: 'short' });
     expect(res.status).toBeGreaterThanOrEqual(400);
     expect(res.status).toBeLessThan(500);
-    expect(mockCreatePasswordUser).not.toHaveBeenCalled();
+    expect(mockCreatePasswordSignup).not.toHaveBeenCalled();
   });
 
   it('rejects oversized email addresses before creating a password user', async () => {
@@ -1510,11 +1532,11 @@ describe('POST /auth/signup', () => {
     });
 
     expect(res.status).toBe(400);
-    expect(mockCreatePasswordUser).not.toHaveBeenCalled();
+    expect(mockCreatePasswordSignup).not.toHaveBeenCalled();
   });
 
   it('returns 409 EMAIL_TAKEN when the email already exists', async () => {
-    mockCreatePasswordUser.mockImplementation(() =>
+    mockCreatePasswordSignup.mockImplementation(() =>
       Promise.reject(new ApiError(409, 'An account with this email already exists', 'EMAIL_TAKEN'))
     );
     const res = await post('/auth/signup', {
@@ -1539,7 +1561,7 @@ describe('POST /auth/signup', () => {
       const body = (await res.json()) as { code: string };
       expect(res.status).toBe(503);
       expect(body.code).toBe('EMAIL_NOT_CONFIGURED');
-      expect(mockCreatePasswordUser).not.toHaveBeenCalled();
+      expect(mockCreatePasswordSignup).not.toHaveBeenCalled();
     } finally {
       if (previousNodeEnv === undefined) {
         delete process.env['NODE_ENV'];
@@ -1601,10 +1623,11 @@ describe('POST /auth/verify-email', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
     mockCreateAndStoreRefreshToken.mockImplementation(() => Promise.resolve('refresh-token'));
+    mockVerifyEmailWithToken.mockClear();
+    mockVerifyEmailWithToken.mockImplementation(() => Promise.resolve(null));
   });
 
   it('returns 400 INVALID_TOKEN for an unknown token', async () => {
-    mockConsumeEmailVerificationToken.mockImplementation(() => Promise.resolve(null));
     const res = await post('/auth/verify-email', { token: 'bad-token' });
     const body = (await res.json()) as { code: string };
     expect(res.status).toBe(400);
@@ -1612,17 +1635,14 @@ describe('POST /auth/verify-email', () => {
   });
 
   it('rejects oversized verification tokens before consuming them', async () => {
-    mockConsumeEmailVerificationToken.mockClear();
-
     const res = await post('/auth/verify-email', { token: 'x'.repeat(257) });
 
     expect(res.status).toBe(400);
-    expect(mockConsumeEmailVerificationToken).not.toHaveBeenCalled();
+    expect(mockVerifyEmailWithToken).not.toHaveBeenCalled();
   });
 
   it('verifies and auto-logs-in for a valid token', async () => {
-    mockConsumeEmailVerificationToken.mockImplementation(() => Promise.resolve(PW_USER.id));
-    mockMarkEmailVerified.mockImplementation(() =>
+    mockVerifyEmailWithToken.mockImplementation(() =>
       Promise.resolve({ ...PW_USER, emailVerified: true })
     );
     const res = await post('/auth/verify-email', { token: 'good-token' });
@@ -1817,33 +1837,31 @@ describe('POST /auth/forgot-password', () => {
 describe('POST /auth/reset-password', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
-    mockSetUserPassword.mockClear();
+    mockResetPasswordWithToken.mockClear();
+    mockResetPasswordWithToken.mockImplementation(() => Promise.resolve(null));
     mockRevokeAllUserTokens.mockClear();
   });
 
   it('returns 400 INVALID_TOKEN for an unknown token', async () => {
-    mockConsumePasswordResetToken.mockImplementation(() => Promise.resolve(null));
     const res = await post('/auth/reset-password', { token: 'bad', password: 'password123' });
     const body = (await res.json()) as { code: string };
     expect(res.status).toBe(400);
     expect(body.code).toBe('INVALID_TOKEN');
-    expect(mockSetUserPassword).not.toHaveBeenCalled();
+    expect(mockResetPasswordWithToken).toHaveBeenCalledTimes(1);
   });
 
   it('rejects oversized reset tokens before consuming them', async () => {
-    mockConsumePasswordResetToken.mockClear();
-
     const res = await post('/auth/reset-password', {
       token: 'x'.repeat(257),
       password: 'new-password-123',
     });
 
     expect(res.status).toBe(400);
-    expect(mockConsumePasswordResetToken).not.toHaveBeenCalled();
+    expect(mockResetPasswordWithToken).not.toHaveBeenCalled();
   });
 
   it('sets the new password and revokes all sessions for a valid token', async () => {
-    mockConsumePasswordResetToken.mockImplementation(() => Promise.resolve(PW_USER.id));
+    mockResetPasswordWithToken.mockImplementation(() => Promise.resolve(PW_USER.id));
     const res = await post(
       '/auth/reset-password',
       {
@@ -1853,7 +1871,7 @@ describe('POST /auth/reset-password', () => {
       { Cookie: 'refresh_token=old-browser-session' }
     );
     expect(res.status).toBe(200);
-    expect(mockSetUserPassword).toHaveBeenCalledTimes(1);
+    expect(mockResetPasswordWithToken).toHaveBeenCalledTimes(1);
     expect(mockRevokeAllUserTokens).not.toHaveBeenCalled();
     expect(
       res.headers
@@ -1879,8 +1897,8 @@ describe('GET /auth/apple/start', () => {
     const res = await get('/auth/apple/start');
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('appleid.apple.com/auth/authorize');
-    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_state='))).toBe(true);
-    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_nonce='))).toBe(true);
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_apple_state='))).toBe(true);
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_apple_nonce='))).toBe(true);
     expect(mockBuildAppleAuthorizeUrl).toHaveBeenCalledWith(
       'state-fixed-123',
       'http://localhost:3001/api/auth/apple/callback',
@@ -1924,7 +1942,7 @@ describe('POST /auth/apple/callback', () => {
     const res = await post(
       '/auth/apple/callback',
       { id_token: 'tok', state: 'abc' },
-      { Cookie: 'oauth_state=abc; oauth_nonce=nonce-1' }
+      { Cookie: 'oauth_apple_state=abc; oauth_apple_nonce=nonce-1' }
     );
     const body = (await res.json()) as { code: string };
     expect(res.status).toBe(429);
@@ -1942,7 +1960,7 @@ describe('POST /auth/apple/callback', () => {
     const res = await post(
       '/auth/apple/callback',
       { error: 'user_cancelled_authorize' },
-      { Cookie: 'oauth_state=abc; oauth_nonce=nonce-1' }
+      { Cookie: 'oauth_apple_state=abc; oauth_apple_nonce=nonce-1' }
     );
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('error=cancelled');
@@ -1952,7 +1970,7 @@ describe('POST /auth/apple/callback', () => {
     const res = await post(
       '/auth/apple/callback',
       { id_token: 'tok', state: 'abc' },
-      { Cookie: 'oauth_state=abc' }
+      { Cookie: 'oauth_apple_state=abc' }
     );
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('error=state_mismatch');
@@ -1965,7 +1983,7 @@ describe('POST /auth/apple/callback', () => {
     const res = await post(
       '/auth/apple/callback',
       { id_token: 'x'.repeat(12_001), state: 'abc' },
-      { Cookie: 'oauth_state=abc; oauth_nonce=nonce-1' }
+      { Cookie: 'oauth_apple_state=abc; oauth_apple_nonce=nonce-1' }
     );
 
     expect(res.status).toBe(400);
@@ -1976,7 +1994,7 @@ describe('POST /auth/apple/callback', () => {
     const res = await post(
       '/auth/apple/callback',
       { id_token: 'tok', state: 'abc' },
-      { Cookie: 'oauth_state=abc; oauth_nonce=nonce-1' }
+      { Cookie: 'oauth_apple_state=abc; oauth_apple_nonce=nonce-1' }
     );
     expect(res.status).toBe(302);
     const loc = res.headers.get('location') ?? '';
@@ -2000,8 +2018,8 @@ describe('GET /auth/github/start', () => {
     const res = await get('/auth/github/start');
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('github.com/login/oauth/authorize');
-    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_state='))).toBe(true);
-    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_pkce='))).toBe(true);
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_github_state='))).toBe(true);
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_github_pkce='))).toBe(true);
     expect(mockBuildGitHubAuthorizeUrl).toHaveBeenCalledWith(
       'state-fixed-123',
       'http://localhost:3001/api/auth/github/callback',
@@ -2043,7 +2061,7 @@ describe('GET /auth/github/callback', () => {
     );
 
     const res = await get('/auth/github/callback?code=abc&state=xyz', {
-      Cookie: 'oauth_state=xyz; oauth_pkce=verifier-1',
+      Cookie: 'oauth_github_state=xyz; oauth_github_pkce=verifier-1',
     });
     const body = (await res.json()) as { code: string };
     expect(res.status).toBe(429);
@@ -2059,7 +2077,7 @@ describe('GET /auth/github/callback', () => {
 
   it('redirects with cancelled when GitHub returns an error', async () => {
     const res = await get('/auth/github/callback?error=access_denied', {
-      Cookie: 'oauth_state=xyz; oauth_pkce=verifier-1',
+      Cookie: 'oauth_github_state=xyz; oauth_github_pkce=verifier-1',
     });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('error=cancelled');
@@ -2067,7 +2085,7 @@ describe('GET /auth/github/callback', () => {
 
   it('redirects with state_mismatch when no PKCE verifier cookie is present', async () => {
     const res = await get('/auth/github/callback?code=abc&state=xyz', {
-      Cookie: 'oauth_state=xyz',
+      Cookie: 'oauth_github_state=xyz',
     });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('error=state_mismatch');
@@ -2079,7 +2097,7 @@ describe('GET /auth/github/callback', () => {
 
     const code = encodeURIComponent('x'.repeat(4097));
     const res = await get(`/auth/github/callback?code=${code}&state=xyz`, {
-      Cookie: 'oauth_state=xyz; oauth_pkce=verifier-1',
+      Cookie: 'oauth_github_state=xyz; oauth_github_pkce=verifier-1',
     });
 
     expect(res.status).toBe(400);
@@ -2088,7 +2106,7 @@ describe('GET /auth/github/callback', () => {
 
   it('exchanges the code, sets the refresh cookie, and redirects on success', async () => {
     const res = await get('/auth/github/callback?code=abc&state=xyz', {
-      Cookie: 'oauth_state=xyz; oauth_pkce=verifier-1',
+      Cookie: 'oauth_github_state=xyz; oauth_github_pkce=verifier-1',
     });
     expect(res.status).toBe(302);
     const loc = res.headers.get('location') ?? '';
@@ -2107,7 +2125,7 @@ describe('GET /auth/github/callback', () => {
       Promise.reject(new ApiError(401, 'No verified email', 'AUTH_EMAIL_UNVERIFIED'))
     );
     const res = await get('/auth/github/callback?code=abc&state=xyz', {
-      Cookie: 'oauth_state=xyz; oauth_pkce=verifier-1',
+      Cookie: 'oauth_github_state=xyz; oauth_github_pkce=verifier-1',
     });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('error=email_required');
@@ -2127,9 +2145,15 @@ describe('GET /auth/microsoft/start', () => {
     const res = await get('/auth/microsoft/start');
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('login.microsoftonline.com');
-    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_state='))).toBe(true);
-    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_nonce='))).toBe(true);
-    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_pkce='))).toBe(true);
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_microsoft_state='))).toBe(
+      true
+    );
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_microsoft_nonce='))).toBe(
+      true
+    );
+    expect(res.headers.getSetCookie().some((c) => c.startsWith('oauth_microsoft_pkce='))).toBe(
+      true
+    );
     expect(mockBuildMicrosoftAuthorizeUrl).toHaveBeenCalledWith(
       'state-fixed-123',
       'http://localhost:3001/api/auth/microsoft/callback',
@@ -2144,6 +2168,33 @@ describe('GET /auth/microsoft/start', () => {
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain(
       '/auth/callback?provider=microsoft&error=provider_not_configured'
+    );
+  });
+
+  it('does not overwrite an in-flight GitHub authorization attempt', async () => {
+    mockIsGitHubConfigured.mockImplementation(() => true);
+    mockGenerateRefreshToken.mockImplementationOnce(() => 'github-state');
+    mockGeneratePkceVerifier.mockImplementationOnce(() => 'github-verifier');
+    const github = await get('/auth/github/start');
+
+    mockGenerateRefreshToken
+      .mockImplementationOnce(() => 'microsoft-state')
+      .mockImplementationOnce(() => 'microsoft-nonce');
+    mockGeneratePkceVerifier.mockImplementationOnce(() => 'microsoft-verifier');
+    const microsoft = await get('/auth/microsoft/start');
+
+    const cookieNames = [...github.headers.getSetCookie(), ...microsoft.headers.getSetCookie()].map(
+      (cookie) => cookie.slice(0, cookie.indexOf('='))
+    );
+    expect(new Set(cookieNames).size).toBe(cookieNames.length);
+    expect(cookieNames).toEqual(
+      expect.arrayContaining([
+        'oauth_github_state',
+        'oauth_github_pkce',
+        'oauth_microsoft_state',
+        'oauth_microsoft_nonce',
+        'oauth_microsoft_pkce',
+      ])
     );
   });
 });
@@ -2176,7 +2227,8 @@ describe('GET /auth/microsoft/callback', () => {
     );
 
     const res = await get('/auth/microsoft/callback?code=abc&state=xyz', {
-      Cookie: 'oauth_state=xyz; oauth_nonce=nonce-1; oauth_pkce=verifier-1',
+      Cookie:
+        'oauth_microsoft_state=xyz; oauth_microsoft_nonce=nonce-1; oauth_microsoft_pkce=verifier-1',
     });
     const body = (await res.json()) as { code: string };
     expect(res.status).toBe(429);
@@ -2192,7 +2244,8 @@ describe('GET /auth/microsoft/callback', () => {
 
   it('redirects with cancelled when Microsoft returns an error', async () => {
     const res = await get('/auth/microsoft/callback?error=access_denied', {
-      Cookie: 'oauth_state=xyz; oauth_nonce=nonce-1; oauth_pkce=verifier-1',
+      Cookie:
+        'oauth_microsoft_state=xyz; oauth_microsoft_nonce=nonce-1; oauth_microsoft_pkce=verifier-1',
     });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('error=cancelled');
@@ -2200,7 +2253,7 @@ describe('GET /auth/microsoft/callback', () => {
 
   it('redirects with state_mismatch when nonce or PKCE cookies are missing', async () => {
     const res = await get('/auth/microsoft/callback?code=abc&state=xyz', {
-      Cookie: 'oauth_state=xyz',
+      Cookie: 'oauth_microsoft_state=xyz',
     });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('error=state_mismatch');
@@ -2212,7 +2265,8 @@ describe('GET /auth/microsoft/callback', () => {
 
     const code = encodeURIComponent('x'.repeat(4097));
     const res = await get(`/auth/microsoft/callback?code=${code}&state=xyz`, {
-      Cookie: 'oauth_state=xyz; oauth_nonce=nonce-1; oauth_pkce=verifier-1',
+      Cookie:
+        'oauth_microsoft_state=xyz; oauth_microsoft_nonce=nonce-1; oauth_microsoft_pkce=verifier-1',
     });
 
     expect(res.status).toBe(400);
@@ -2221,7 +2275,8 @@ describe('GET /auth/microsoft/callback', () => {
 
   it('exchanges the code, sets the refresh cookie, and redirects on success', async () => {
     const res = await get('/auth/microsoft/callback?code=abc&state=xyz', {
-      Cookie: 'oauth_state=xyz; oauth_nonce=nonce-1; oauth_pkce=verifier-1',
+      Cookie:
+        'oauth_microsoft_state=xyz; oauth_microsoft_nonce=nonce-1; oauth_microsoft_pkce=verifier-1',
     });
     expect(res.status).toBe(302);
     const loc = res.headers.get('location') ?? '';
@@ -2245,7 +2300,8 @@ describe('GET /auth/microsoft/callback', () => {
       Promise.reject(new ApiError(401, 'No email', 'AUTH_EMAIL_UNVERIFIED'))
     );
     const res = await get('/auth/microsoft/callback?code=abc&state=xyz', {
-      Cookie: 'oauth_state=xyz; oauth_nonce=nonce-1; oauth_pkce=verifier-1',
+      Cookie:
+        'oauth_microsoft_state=xyz; oauth_microsoft_nonce=nonce-1; oauth_microsoft_pkce=verifier-1',
     });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toContain('error=email_required');
