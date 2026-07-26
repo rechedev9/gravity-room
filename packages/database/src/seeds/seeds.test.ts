@@ -14,6 +14,7 @@ process.env['LOG_LEVEL'] = 'silent';
 import { afterAll, describe, it, expect } from 'vitest';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { eq } from 'drizzle-orm';
 import * as schema from '../schema';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import { SHEIKO_7_1_DEFINITION } from './programs/sheiko-7-1';
@@ -51,6 +52,10 @@ const hasDb =
   process.env['RUN_DB_SEED_INTEGRATION'] === 'true' &&
   typeof process.env['DATABASE_URL'] === 'string' &&
   process.env['DATABASE_URL'] !== '';
+const integrationDatabaseName = process.env['DATABASE_URL']
+  ? new URL(process.env['DATABASE_URL']).pathname.slice(1)
+  : '';
+const hasIsolatedDb = hasDb && integrationDatabaseName.startsWith('gravity_room_qa_');
 
 type SeedTestDb = ReturnType<typeof drizzle<typeof schema>>;
 let seedClient: postgres.Sql | undefined;
@@ -142,4 +147,107 @@ describe.skipIf(!hasDb)('seeds idempotency (integration)', () => {
     expect(exCount2?.count).toBe(exCount1?.count);
     expect(ptCount2?.count).toBe(ptCount1?.count);
   });
+
+  it('repairs stale canonical and expanded reference metadata on rerun', async () => {
+    const { seedMuscleGroups } = await import('./muscle-groups-seed');
+    const { seedExercises } = await import('./exercises-seed');
+    const { seedExercisesExpanded } = await import('./exercises-seed-expanded');
+    const { muscleGroups, exercises } = schema;
+    const db = getSeedTestDb();
+
+    await db.update(muscleGroups).set({ name: 'stale-label' }).where(eq(muscleGroups.id, 'chest'));
+    await db
+      .update(exercises)
+      .set({ name: 'stale-canonical', equipment: 'machine', isCompound: false })
+      .where(eq(exercises.id, 'squat'));
+    await db
+      .update(exercises)
+      .set({ name: 'stale-expanded', level: 'expert' })
+      .where(eq(exercises.id, '3_4_sit_up'));
+
+    await seedMuscleGroups(db);
+    await seedExercises(db);
+    await seedExercisesExpanded(db);
+
+    const [chest] = await db.select().from(muscleGroups).where(eq(muscleGroups.id, 'chest'));
+    const [squat] = await db.select().from(exercises).where(eq(exercises.id, 'squat'));
+    const [expanded] = await db.select().from(exercises).where(eq(exercises.id, '3_4_sit_up'));
+
+    expect(chest?.name).toBe('Pecho');
+    expect(squat).toMatchObject({
+      name: 'Sentadilla',
+      equipment: 'barbell',
+      isCompound: true,
+    });
+    expect(expanded).toMatchObject({
+      name: 'Abdominal 3/4',
+      level: 'beginner',
+    });
+  });
+
+  it('does not overwrite a custom exercise that collides with a reference ID', async () => {
+    const { seedExercisesExpanded } = await import('./exercises-seed-expanded');
+    const { exercises } = schema;
+    const db = getSeedTestDb();
+
+    await db
+      .update(exercises)
+      .set({ name: 'Personal collision', isSystem: false })
+      .where(eq(exercises.id, '3_4_sit_up'));
+    await seedExercisesExpanded(db);
+
+    const [custom] = await db.select().from(exercises).where(eq(exercises.id, '3_4_sit_up'));
+    expect(custom).toMatchObject({ name: 'Personal collision', isSystem: false });
+
+    // Restore the isolated fixture for repeatability.
+    await db.update(exercises).set({ isSystem: true }).where(eq(exercises.id, '3_4_sit_up'));
+    await seedExercisesExpanded(db);
+  });
+
+  it.skipIf(!hasIsolatedDb)(
+    'rolls back user-program changes when the catalog upsert fails',
+    async () => {
+      const { seedProgramTemplates } = await import('./program-templates-seed');
+      const { users, programInstances } = schema;
+      const db = getSeedTestDb();
+      const client = seedClient;
+      if (!client) throw new Error('Seed integration client was not initialized');
+
+      const [user] = await db
+        .insert(users)
+        .values({ email: `qa8-seed-rollback-${Date.now()}@example.test` })
+        .returning({ id: users.id });
+      if (!user) throw new Error('Failed to create seed rollback fixture');
+      await db.insert(programInstances).values({
+        userId: user.id,
+        templateId: '365-programmare-lipertrofia',
+        name: 'Seed rollback fixture',
+        programConfig: {},
+        status: 'active',
+      });
+
+      await client`CREATE OR REPLACE FUNCTION qa8_reject_template_seed()
+      RETURNS trigger AS $$
+      BEGIN
+        RAISE EXCEPTION 'qa8 forced seed failure';
+      END;
+      $$ LANGUAGE plpgsql`;
+      await client`CREATE TRIGGER qa8_reject_template_seed_trigger
+      BEFORE UPDATE ON program_templates
+      FOR EACH STATEMENT EXECUTE FUNCTION qa8_reject_template_seed()`;
+
+      try {
+        await expect(seedProgramTemplates(db)).rejects.toThrow();
+        const [instance] = await db
+          .select({ status: programInstances.status })
+          .from(programInstances)
+          .where(eq(programInstances.userId, user.id));
+        expect(instance?.status).toBe('active');
+      } finally {
+        await client`DROP TRIGGER IF EXISTS qa8_reject_template_seed_trigger ON program_templates`;
+        await client`DROP FUNCTION IF EXISTS qa8_reject_template_seed()`;
+        await db.delete(users).where(eq(users.id, user.id));
+      }
+    }
+  );
 });

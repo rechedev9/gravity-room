@@ -1,17 +1,19 @@
 /**
  * Idempotent seed for the expanded exercises dataset (675 exercises).
  * Imports a committed JSON asset and maps free-exercise-db muscle names
- * to the 8 existing muscle group IDs. Uses onConflictDoNothing() so the
- * 3 ID-clashing exercises (face_pull, triceps_pushdown, seated_leg_curl)
- * are silently skipped, preserving program-critical preset data.
+ * to the 8 existing muscle group IDs. The 3 program-critical ID collisions are
+ * excluded; all other rows use upserts so reference-data corrections propagate.
  */
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { eq, sql } from 'drizzle-orm';
 import { exercises } from '../schema';
 import type * as schema from '../schema';
 import { isRecord } from '@gzclp/domain/type-guards';
 import rawData from './data/exercises-expanded.json';
 
 type DbClient = PostgresJsDatabase<typeof schema>;
+
+const PROGRAM_CRITICAL_IDS = new Set(['face_pull', 'triceps_pushdown', 'seated_leg_curl']);
 
 // ---------------------------------------------------------------------------
 // Muscle group mapping (17 source names -> 8 existing IDs)
@@ -77,46 +79,66 @@ export async function seedExercisesExpanded(db: DbClient): Promise<void> {
     throw new Error('exercises-expanded.json must be an array');
   }
 
-  const rows = data.map((entry: unknown, idx: number) => {
-    if (!isExpandedExerciseRaw(entry)) {
-      throw new Error(`Invalid exercise entry at index ${idx}`);
-    }
+  const rows = data
+    .map((entry: unknown, idx: number) => {
+      if (!isExpandedExerciseRaw(entry)) {
+        throw new Error(`Invalid exercise entry at index ${idx}`);
+      }
 
-    const primaryMuscle = entry.primaryMuscles[0];
-    if (typeof primaryMuscle !== 'string') {
-      throw new Error(`Exercise "${entry.id}" has no primaryMuscles[0]`);
-    }
+      const primaryMuscle = entry.primaryMuscles[0];
+      if (typeof primaryMuscle !== 'string') {
+        throw new Error(`Exercise "${entry.id}" has no primaryMuscles[0]`);
+      }
 
-    const muscleGroupId = MUSCLE_GROUP_MAP[primaryMuscle];
-    if (!muscleGroupId) {
-      throw new Error(`Exercise "${entry.id}" has unmapped muscle group: "${primaryMuscle}"`);
-    }
+      const muscleGroupId = MUSCLE_GROUP_MAP[primaryMuscle];
+      if (!muscleGroupId) {
+        throw new Error(`Exercise "${entry.id}" has unmapped muscle group: "${primaryMuscle}"`);
+      }
 
-    const secondaryMuscles = entry.secondaryMuscles
-      .filter((m): m is string => typeof m === 'string' && m in MUSCLE_GROUP_MAP)
-      .map((m) => MUSCLE_GROUP_MAP[m])
-      .filter((id): id is string => typeof id === 'string');
+      const secondaryMuscles = entry.secondaryMuscles
+        .filter((m): m is string => typeof m === 'string' && m in MUSCLE_GROUP_MAP)
+        .map((m) => MUSCLE_GROUP_MAP[m])
+        .filter((id): id is string => typeof id === 'string');
 
-    return {
-      id: entry.id,
-      name: entry.nameEs,
-      muscleGroupId,
-      equipment: entry.equipment,
-      isCompound: entry.mechanic === 'compound',
-      isSystem: true,
-      createdByUserId: null,
-      forceType: entry.force,
-      level: entry.level,
-      movementMechanic: entry.mechanic,
-      category: entry.category,
-      secondaryMuscles: secondaryMuscles.length > 0 ? secondaryMuscles : null,
-    };
-  });
+      return {
+        id: entry.id,
+        name: entry.nameEs,
+        muscleGroupId,
+        equipment: entry.equipment,
+        isCompound: entry.mechanic === 'compound',
+        isSystem: true,
+        createdByUserId: null,
+        forceType: entry.force,
+        level: entry.level,
+        movementMechanic: entry.mechanic,
+        category: entry.category,
+        secondaryMuscles: secondaryMuscles.length > 0 ? secondaryMuscles : null,
+      };
+    })
+    .filter(({ id }) => !PROGRAM_CRITICAL_IDS.has(id));
 
   // Batch inserts to avoid exceeding query parameter limits (~8100 params at once).
   const BATCH_SIZE = 100;
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
-    await db.insert(exercises).values(batch).onConflictDoNothing();
+    await db
+      .insert(exercises)
+      .values(batch)
+      .onConflictDoUpdate({
+        target: exercises.id,
+        set: {
+          name: sql`excluded.name`,
+          muscleGroupId: sql`excluded.muscle_group_id`,
+          equipment: sql`excluded.equipment`,
+          isCompound: sql`excluded.is_compound`,
+          isSystem: sql`excluded.is_system`,
+          forceType: sql`excluded.force_type`,
+          level: sql`excluded.level`,
+          movementMechanic: sql`excluded.movement_mechanic`,
+          category: sql`excluded.category`,
+          secondaryMuscles: sql`excluded.secondary_muscles`,
+        },
+        setWhere: eq(exercises.isSystem, true),
+      });
   }
 }

@@ -12,6 +12,7 @@ import {
   unique,
   boolean,
   integer,
+  foreignKey,
 } from 'drizzle-orm/pg-core';
 import { relations, desc, sql } from 'drizzle-orm';
 
@@ -222,6 +223,11 @@ export const programInstances = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    foreignKey({
+      columns: [table.definitionId],
+      foreignColumns: [programDefinitions.id],
+      name: 'program_instances_definition_id_program_definitions_id_fk',
+    }).onDelete('set null'),
     index('program_instances_user_status_idx').on(table.userId, table.status),
     index('program_instances_user_created_id_idx').on(
       table.userId,

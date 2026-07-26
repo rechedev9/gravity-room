@@ -117,7 +117,7 @@ function resolveBatchSize(): number {
 
 async function cleanupTokensHandler(): Promise<{ deleted: number }> {
   const deleted = await cleanupExpiredTokens();
-  logger.info({ deleted }, 'internal: cleaned up expired refresh tokens');
+  logger.info({ deleted }, 'internal: cleaned up expired authentication tokens');
   return { deleted };
 }
 
@@ -153,14 +153,14 @@ async function analyticsComputeHandler(): Promise<{
  * Daily maintenance: runs the expired-token cleanup and the soft-deleted-user
  * purge in one pass. Consolidated into a single endpoint so both jobs share one
  * Vercel Cron slot (the Hobby plan allows only two daily crons; analytics/compute
- * takes the other). Runs sequentially to keep within the function time budget.
+ * takes the other). The jobs touch independent tables and start together so a
+ * slow cleanup cannot prevent the purge from running before the function timeout.
  */
 async function maintenanceHandler(): Promise<{
   tokens: Awaited<ReturnType<typeof cleanupTokensHandler>>;
   users: Awaited<ReturnType<typeof purgeUsersHandler>>;
 }> {
-  const tokens = await cleanupTokensHandler();
-  const users = await purgeUsersHandler();
+  const [tokens, users] = await Promise.all([cleanupTokensHandler(), purgeUsersHandler()]);
   logger.info({ tokens, users }, 'internal: daily maintenance done');
   return { tokens, users };
 }

@@ -1,9 +1,11 @@
 /**
  * Idempotent seed for the exercises table.
  * Source of truth for all canonical exercise IDs across all preset programs.
- * Uses onConflictDoNothing() to allow re-runs without error.
+ * Uses an upsert so corrections to canonical exercise metadata reach existing
+ * databases instead of being silently ignored.
  */
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { eq, sql } from 'drizzle-orm';
 import { exercises } from '../schema';
 import type * as schema from '../schema';
 
@@ -1058,5 +1060,15 @@ export async function seedExercises(db: DbClient): Promise<void> {
         createdByUserId: null,
       }))
     )
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: exercises.id,
+      set: {
+        name: sql`excluded.name`,
+        muscleGroupId: sql`excluded.muscle_group_id`,
+        equipment: sql`excluded.equipment`,
+        isCompound: sql`excluded.is_compound`,
+        isSystem: sql`excluded.is_system`,
+      },
+      setWhere: eq(exercises.isSystem, true),
+    });
 }

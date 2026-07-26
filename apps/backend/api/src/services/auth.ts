@@ -775,13 +775,26 @@ export async function createAndStoreRefreshToken(
 }
 
 /**
- * Deletes every refresh token whose `expires_at` is in the past and returns the
- * number removed. Consumed by the secret-guarded cleanup cron route.
+ * Deletes every expired authentication token and returns the aggregate number
+ * removed. Password-reset and email-verification tokens are persisted in their
+ * own tables, so omitting them here would retain dead credentials forever.
  */
 export async function cleanupExpiredTokens(): Promise<number> {
-  const deleted = await getDb()
-    .delete(refreshTokens)
-    .where(lt(refreshTokens.expiresAt, new Date()))
-    .returning({ id: refreshTokens.id });
-  return deleted.length;
+  const now = new Date();
+  const db = getDb();
+  const [refreshDeleted, resetDeleted, verificationDeleted] = await Promise.all([
+    db
+      .delete(refreshTokens)
+      .where(lt(refreshTokens.expiresAt, now))
+      .returning({ id: refreshTokens.id }),
+    db
+      .delete(passwordResetTokens)
+      .where(lt(passwordResetTokens.expiresAt, now))
+      .returning({ id: passwordResetTokens.id }),
+    db
+      .delete(emailVerificationTokens)
+      .where(lt(emailVerificationTokens.expiresAt, now))
+      .returning({ id: emailVerificationTokens.id }),
+  ]);
+  return refreshDeleted.length + resetDeleted.length + verificationDeleted.length;
 }
