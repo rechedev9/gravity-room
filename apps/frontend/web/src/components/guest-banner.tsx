@@ -29,7 +29,7 @@ export function GuestBanner({ className }: GuestBannerProps): React.ReactNode {
       <button
         type="button"
         onClick={handleCreateAccount}
-        className="font-bold text-[10px] tracking-widest uppercase px-3 py-1.5 border-2 border-btn-ring bg-btn-active text-btn-active-text cursor-pointer transition-all duration-150 hover:opacity-90 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+        className="min-h-11 font-bold text-[10px] tracking-widest uppercase px-3 py-1.5 border-2 border-btn-ring bg-btn-active text-btn-active-text cursor-pointer transition-all duration-150 hover:opacity-90 active:scale-95 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
         aria-label={t('guest_banner.create_account_aria')}
       >
         {t('guest_banner.create_account')}

@@ -23,6 +23,29 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
   lg: 'w-full px-8 py-3 min-h-[48px] text-xs',
 };
 
+interface ButtonClassNameOptions {
+  readonly variant?: ButtonVariant;
+  readonly size?: ButtonSize;
+  readonly className?: string;
+}
+
+export function buttonClassName({
+  variant = 'default',
+  size = 'md',
+  className,
+}: ButtonClassNameOptions = {}): string {
+  return cn(
+    'font-mono font-bold uppercase tracking-[0.14em] border rounded-[var(--radius-base)]',
+    'transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]',
+    'active:translate-y-px focus-visible:ring-2 ring-accent disabled:opacity-35',
+    'cursor-pointer whitespace-nowrap disabled:cursor-not-allowed focus-visible:outline-none',
+    'inline-flex items-center justify-center gap-2',
+    VARIANT_CLASSES[variant],
+    SIZE_CLASSES[size],
+    className
+  );
+}
+
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   readonly variant?: ButtonVariant;
   readonly size?: ButtonSize;
@@ -37,16 +60,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       type="button"
       {...rest}
-      className={cn(
-        'font-mono font-bold uppercase tracking-[0.14em] border rounded-[var(--radius-base)]',
-        'transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]',
-        'active:translate-y-px focus-visible:ring-2 ring-accent disabled:opacity-35',
-        'cursor-pointer whitespace-nowrap disabled:cursor-not-allowed focus-visible:outline-none',
-        'inline-flex items-center justify-center gap-2',
-        VARIANT_CLASSES[variant],
-        SIZE_CLASSES[size],
-        className
-      )}
+      className={buttonClassName({ variant, size, className })}
     >
       {children}
     </button>

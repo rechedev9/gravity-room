@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, type LinkProps } from '@tanstack/react-router';
-import { Button } from '@/components/button';
+import { Button, buttonClassName } from '@/components/button';
 import { Kicker } from '@/components/kicker';
 import { cn } from '@/lib/cn';
 
@@ -76,8 +76,8 @@ export function EmptyState({
       {action ? (
         <div className="mt-7">
           {action.to !== undefined ? (
-            <Link to={action.to}>
-              <Button variant="primary">{action.label}</Button>
+            <Link to={action.to} className={buttonClassName({ variant: 'primary' })}>
+              {action.label}
             </Link>
           ) : (
             <Button variant="primary" onClick={action.onClick}>

@@ -33,6 +33,7 @@ describe('HomeEmptyState i18n', () => {
     // not at /login.
     const programsLink = screen.getByText('Explorar programas').closest('a');
     expect(programsLink).toHaveAttribute('to', '/app/programs');
+    expect(programsLink?.querySelector('button')).toBeNull();
     expect(screen.getByText('Guía de ejercicios')).toBeInTheDocument();
     expect(screen.queryByText('Crear Cuenta')).not.toBeInTheDocument();
   });

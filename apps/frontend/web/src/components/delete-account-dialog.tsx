@@ -1,16 +1,16 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod/v4';
 import { Button } from './button';
 
-const DeleteAccountDialogSchema = (t: (key: string) => string) =>
+const DeleteAccountDialogSchema = (t: (key: string) => string, confirmWord: string) =>
   z.object({
     input: z
       .string()
       .refine(
-        (v) => v.trim().toUpperCase() === 'ELIMINAR',
+        (v) => v.trim().toUpperCase() === confirmWord.toUpperCase(),
         t('delete_account.validation.incorrect')
       ),
   });
@@ -33,11 +33,17 @@ export function DeleteAccountDialog({
   const { t } = useTranslation();
   const dialogDivRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  const inputId = useId();
+  const errorId = useId();
+  const confirmWord = t('delete_account.confirm_word');
 
-  const schema = DeleteAccountDialogSchema(t);
+  const schema = DeleteAccountDialogSchema(t, confirmWord);
   const {
     register,
-    formState: { isValid },
+    formState: { errors, isDirty, isValid },
     reset,
   } = useForm<DeleteAccountFormValues>({
     resolver: zodResolver(schema),
@@ -47,13 +53,21 @@ export function DeleteAccountDialog({
 
   // Reset and focus input when dialog opens (legitimate imperative DOM focus call)
   useEffect(() => {
-    if (open) {
-      reset({ input: '' });
-      requestAnimationFrame(() => {
-        const input = dialogDivRef.current?.querySelector<HTMLInputElement>('input');
-        input?.focus();
-      });
-    }
+    if (!open) return;
+
+    previouslyFocusedRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    reset({ input: '' });
+    const frameId = requestAnimationFrame(() => {
+      const input = dialogDivRef.current?.querySelector<HTMLInputElement>('input');
+      input?.focus();
+    });
+
+    return (): void => {
+      cancelAnimationFrame(frameId);
+      const previouslyFocused = previouslyFocusedRef.current;
+      if (previouslyFocused?.isConnected) previouslyFocused.focus();
+    };
   }, [open, reset]);
 
   // Escape key handling
@@ -89,6 +103,8 @@ export function DeleteAccountDialog({
 
   if (!open) return null;
 
+  const showError = isDirty && errors.input !== undefined;
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -98,31 +114,43 @@ export function DeleteAccountDialog({
         ref={dialogDivRef}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="delete-account-title"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
         className="modal-box bg-card border border-rule p-6 max-w-sm w-[calc(100%-2rem)] shadow-dialog"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleDialogKeyDown}
       >
-        <h3 id="delete-account-title" className="text-sm font-bold text-fail mb-2">
+        <h3 id={titleId} className="text-sm font-bold text-fail mb-2">
           {t('delete_account.title')}
         </h3>
 
-        <div className="text-xs text-muted mb-4 leading-relaxed">
+        <div id={descriptionId} className="text-xs text-muted mb-4 leading-relaxed">
           <p className="mb-2">{t('delete_account.description')}</p>
-          <p>
-            {t('delete_account.confirm_instruction', { word: t('delete_account.confirm_word') })}
-          </p>
+          <p>{t('delete_account.confirm_instruction', { word: confirmWord })}</p>
         </div>
 
+        <label htmlFor={inputId} className="sr-only">
+          {t('delete_account.input_label')}
+        </label>
         <input
           {...register('input')}
+          id={inputId}
           type="text"
-          placeholder={t('delete_account.confirm_word')}
-          className="w-full px-3 py-2 mb-4 text-xs bg-body border border-rule text-main placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
+          placeholder={confirmWord}
+          aria-invalid={showError}
+          aria-describedby={showError ? `${descriptionId} ${errorId}` : descriptionId}
+          className="w-full px-3 py-2 text-xs bg-body border border-rule text-main placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent"
           autoComplete="off"
           spellCheck={false}
           disabled={loading}
         />
+        <p
+          id={errorId}
+          role={showError ? 'alert' : undefined}
+          className="min-h-4 mt-1 mb-3 text-xs text-fail"
+        >
+          {showError ? errors.input?.message : ''}
+        </p>
 
         <div className="flex justify-end gap-3">
           <Button ref={cancelRef} variant="ghost" onClick={onCancel} disabled={loading}>

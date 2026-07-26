@@ -1166,6 +1166,7 @@
       "edit_name_tooltip": "Edit name",
       "remove_photo": "Remove photo",
       "weight_unit_label": "Weight unit",
+      "change_unit_aria": "Switch to {{unit}}",
       "language_label": "Language",
       "unit_lbs": "pounds",
       "unit_kg": "kilograms",
@@ -1437,6 +1438,7 @@
   },
   "delete_account": {
     "confirm_word": "DELETE",
+    "input_label": "Confirmation phrase",
     "validation": {
       "incorrect": "Incorrect"
     },

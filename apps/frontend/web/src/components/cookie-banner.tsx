@@ -37,7 +37,7 @@ export function CookieBanner(): React.ReactNode {
         <button
           type="button"
           onClick={dismiss}
-          className="shrink-0 px-5 py-2 text-sm font-bold rounded-md border border-btn-ring text-btn-text bg-btn hover:bg-btn-active hover:text-btn-active-text transition-colors cursor-pointer"
+          className="shrink-0 min-h-11 px-5 py-2 text-sm font-bold rounded-md border border-btn-ring text-btn-text bg-btn hover:bg-btn-active hover:text-btn-active-text transition-colors cursor-pointer"
         >
           {t('cookie_banner.accept')}
         </button>
