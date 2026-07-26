@@ -72,5 +72,47 @@
     "sign_out": "Sign out",
     "signing_out": "Signing out...",
     "sign_out_accessibility": "Sign out of Gravity Room"
+  },
+  "tracker": {
+    "loading": "Loading tracker...",
+    "unavailable": "Tracker unavailable",
+    "back": "Back",
+    "back_programs": "Back to programs",
+    "previous": "Prev",
+    "previous_accessibility": "Previous workout",
+    "undo": "Undo",
+    "undo_accessibility": "Undo latest tracker action",
+    "next": "Next",
+    "next_accessibility": "Next workout",
+    "weight": "{{weight}} kg",
+    "sets_reps": "{{sets}} x {{reps}}",
+    "status": {
+      "success": "Logged success",
+      "fail": "Logged fail",
+      "awaiting": "Awaiting result"
+    },
+    "metrics": {
+      "amrap": "AMRAP reps: {{value}}",
+      "rpe": "RPE: {{value}}"
+    },
+    "result": {
+      "success": "Success",
+      "fail": "Fail"
+    },
+    "actions": {
+      "clear": "Clear",
+      "decrease_amrap": "Decrease {{name}} AMRAP reps",
+      "increase_amrap": "Increase {{name}} AMRAP reps",
+      "clear_amrap": "Clear {{name}} AMRAP reps",
+      "decrease_rpe": "Decrease {{name}} RPE",
+      "increase_rpe": "Increase {{name}} RPE",
+      "clear_rpe": "Clear {{name}} RPE",
+      "mark_success": "Mark {{name}} success",
+      "mark_fail": "Mark {{name}} fail"
+    },
+    "notices": {
+      "cached": "Showing cached tracker data while sync catches up.",
+      "manual_retry": "Saved locally. This change won't sync automatically."
+    }
   }
 }

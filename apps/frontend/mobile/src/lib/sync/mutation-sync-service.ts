@@ -1,3 +1,5 @@
+import { isRecord } from '@gzclp/domain/type-guards';
+
 import { fetchWithAccessToken } from '../auth/session';
 import {
   acknowledgeQueuedMutations,
@@ -9,6 +11,8 @@ import {
 let inFlightFlush: Promise<{ readonly processedCount: number }> | null = null;
 let inFlightFlushAccessToken: string | null = null;
 let inFlightFlushController: AbortController | null = null;
+
+class DiscardQueuedMutationError extends Error {}
 
 export async function clearQueuedMutations(): Promise<void> {
   inFlightFlushController?.abort();
@@ -28,6 +32,10 @@ async function replayQueuedMutation(
   accessToken: string,
   signal: AbortSignal
 ): Promise<string> {
+  if (mutation.entityType !== 'program-instance' || mutation.payloadValid === false) {
+    throw new DiscardQueuedMutationError('Invalid queued mutation envelope');
+  }
+
   const requestPath = buildProgramRequestPath(mutation.entityId);
   const headers = {
     'Content-Type': 'application/json',
@@ -37,6 +45,20 @@ async function replayQueuedMutation(
 
   switch (mutation.operation) {
     case 'record-result': {
+      const workoutIndex = mutation.payload.workoutIndex;
+      const slotId = mutation.payload.slotId;
+      const result = mutation.payload.result;
+      if (
+        !Number.isInteger(workoutIndex) ||
+        typeof workoutIndex !== 'number' ||
+        workoutIndex < 0 ||
+        typeof slotId !== 'string' ||
+        slotId.length === 0 ||
+        (result !== 'success' && result !== 'fail')
+      ) {
+        throw new DiscardQueuedMutationError('Invalid record-result mutation payload');
+      }
+
       authorizedResponse = await fetchWithAccessToken(
         `${requestPath}/results`,
         {
@@ -50,6 +72,10 @@ async function replayQueuedMutation(
       break;
     }
     case 'update-metadata': {
+      if (!isRecord(mutation.payload.metadata)) {
+        throw new DiscardQueuedMutationError('Invalid update-metadata mutation payload');
+      }
+
       authorizedResponse = await fetchWithAccessToken(
         `${requestPath}/metadata`,
         {
@@ -65,8 +91,14 @@ async function replayQueuedMutation(
     case 'delete-result': {
       const workoutIndex = mutation.payload.workoutIndex;
       const slotId = mutation.payload.slotId;
-      if (typeof workoutIndex !== 'number' || typeof slotId !== 'string') {
-        throw new Error('Invalid delete-result mutation payload');
+      if (
+        !Number.isInteger(workoutIndex) ||
+        typeof workoutIndex !== 'number' ||
+        workoutIndex < 0 ||
+        typeof slotId !== 'string' ||
+        slotId.length === 0
+      ) {
+        throw new DiscardQueuedMutationError('Invalid delete-result mutation payload');
       }
 
       authorizedResponse = await fetchWithAccessToken(
@@ -81,7 +113,9 @@ async function replayQueuedMutation(
       break;
     }
     default:
-      throw new Error(`Unsupported queued mutation operation: ${mutation.operation}`);
+      throw new DiscardQueuedMutationError(
+        `Unsupported queued mutation operation: ${mutation.operation}`
+      );
   }
 
   const response = authorizedResponse.response;
@@ -131,6 +165,11 @@ export async function flushQueuedMutations(
         );
         acknowledgedIds.push(mutation.id);
       } catch (error) {
+        if (error instanceof DiscardQueuedMutationError) {
+          acknowledgedIds.push(mutation.id);
+          continue;
+        }
+
         if (acknowledgedIds.length > 0) {
           await acknowledgeQueuedMutations(acknowledgedIds);
         }

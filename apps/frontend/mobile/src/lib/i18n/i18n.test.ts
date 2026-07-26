@@ -57,6 +57,15 @@ describe('i18n catalog', () => {
     );
   });
 
+  it('localizes tracker controls and accessibility labels in Spanish', () => {
+    const t = i18n.getFixedT('es');
+    expect(t('tracker.status.awaiting')).toBe('Resultado pendiente');
+    expect(t('tracker.actions.mark_success', { name: 'Sentadilla' })).toBe(
+      'Marcar Sentadilla como éxito'
+    );
+    expect(t('tracker.undo_accessibility')).toBe('Deshacer la última acción del registro');
+  });
+
   it('keeps the English and Spanish catalogs at identical key coverage (0 missing keys)', () => {
     const enKeys = flattenKeys(en).sort();
     const esKeys = flattenKeys(es).sort();

@@ -194,6 +194,20 @@ describe('TrackerScreen', () => {
     expect(mockedUpsertProgramDetail).toHaveBeenCalledWith(TEST_DETAIL);
   });
 
+  it('repairs a corrupt local tracker cache from the remote response', async () => {
+    mockedGetProgramDetail.mockRejectedValue(new SyntaxError('corrupt detail_json'));
+    mockedUpsertProgramDefinition.mockResolvedValue();
+    mockedUpsertProgramDetail.mockResolvedValue();
+    mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    expect(await screen.findByText('Day A')).toBeTruthy();
+    expect(mockedFetchProgramDetail).toHaveBeenCalledWith('instance-1');
+    expect(mockedUpsertProgramDetail).toHaveBeenCalledWith(TEST_DETAIL);
+  });
+
   it('loads tracker data from an inline custom definition without fetching catalog detail', async () => {
     const customDefinition: ProgramDefinition = {
       ...TEST_DEFINITION,

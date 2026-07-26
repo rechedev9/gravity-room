@@ -8,6 +8,7 @@ export type EnqueueMutationInput = {
   readonly entityId: string;
   readonly operation: string;
   readonly payload: MutationPayload;
+  readonly dedupeKey?: string;
   readonly createdAt?: string;
 };
 
@@ -17,6 +18,7 @@ export type QueuedMutation = {
   readonly entityId: string;
   readonly operation: string;
   readonly payload: MutationPayload;
+  readonly payloadValid?: boolean;
   readonly createdAt: string;
 };
 
@@ -29,12 +31,17 @@ type QueuedMutationRow = {
   readonly created_at: string;
 };
 
-function parsePayload(payloadJson: string): MutationPayload {
+function parsePayload(payloadJson: string): {
+  readonly payload: MutationPayload;
+  readonly payloadValid: boolean;
+} {
   try {
     const value: unknown = JSON.parse(payloadJson);
-    return isRecord(value) ? value : {};
+    return isRecord(value)
+      ? { payload: value, payloadValid: true }
+      : { payload: {}, payloadValid: false };
   } catch {
-    return {};
+    return { payload: {}, payloadValid: false };
   }
 }
 
@@ -45,6 +52,27 @@ export async function enqueueMutation(input: EnqueueMutationInput): Promise<void
   const createdAt = input.createdAt ?? new Date().toISOString();
 
   await database.withExclusiveTransactionAsync(async (transaction) => {
+    if (input.dedupeKey) {
+      // Replace rather than UPDATE so an in-flight flush holding the old row id
+      // cannot acknowledge and accidentally delete the newer desired state.
+      await transaction.runAsync(
+        'DELETE FROM queued_mutations WHERE dedupe_key = ?',
+        input.dedupeKey
+      );
+      await transaction.runAsync(
+        `INSERT INTO queued_mutations
+           (entity_type, entity_id, operation, payload_json, created_at, dedupe_key)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        input.entityType,
+        input.entityId,
+        input.operation,
+        JSON.stringify(input.payload),
+        createdAt,
+        input.dedupeKey
+      );
+      return;
+    }
+
     await transaction.runAsync(
       `INSERT INTO queued_mutations (entity_type, entity_id, operation, payload_json, created_at)
        VALUES (?, ?, ?, ?, ?)`,
@@ -67,14 +95,18 @@ export async function listQueuedMutations(): Promise<QueuedMutation[]> {
      ORDER BY created_at ASC, id ASC`
   );
 
-  return rows.map((row) => ({
-    id: row.id,
-    entityType: row.entity_type,
-    entityId: row.entity_id,
-    operation: row.operation,
-    payload: parsePayload(row.payload_json),
-    createdAt: row.created_at,
-  }));
+  return rows.map((row) => {
+    const parsed = parsePayload(row.payload_json);
+    return {
+      id: row.id,
+      entityType: row.entity_type,
+      entityId: row.entity_id,
+      operation: row.operation,
+      payload: parsed.payload,
+      ...(parsed.payloadValid ? {} : { payloadValid: false }),
+      createdAt: row.created_at,
+    };
+  });
 }
 
 export async function acknowledgeQueuedMutations(ids: readonly number[]): Promise<void> {

@@ -1,12 +1,19 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { AppState, Text } from 'react-native';
 
 import { AuthProvider, useAuth } from './auth-provider';
-import { restoreSession, signInWithGoogleIdToken, signOutSession } from '../lib/auth/session';
+import {
+  getAccessToken,
+  restoreSession,
+  signInWithGoogleIdToken,
+  signOutSession,
+} from '../lib/auth/session';
+import { secureLocalDataOwnerStorage } from '../lib/auth/secure-storage';
 import { clearLocalAppData } from '../lib/db/client';
 import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation-sync-service';
 
 jest.mock('../lib/auth/session', () => ({
+  getAccessToken: jest.fn(),
   restoreSession: jest.fn(),
   signInWithGoogleIdToken: jest.fn(),
   signInWithEmailPassword: jest.fn(),
@@ -18,14 +25,24 @@ jest.mock('../lib/db/client', () => ({
   clearLocalAppData: jest.fn(),
 }));
 
+jest.mock('../lib/auth/secure-storage', () => ({
+  secureLocalDataOwnerStorage: {
+    getOwnerId: jest.fn(),
+    setOwnerId: jest.fn(),
+    clearOwnerId: jest.fn(),
+  },
+}));
+
 jest.mock('../lib/sync/mutation-sync-service', () => ({
   clearQueuedMutations: jest.fn(),
   flushQueuedMutations: jest.fn(),
 }));
 
 const mockedRestoreSession = jest.mocked(restoreSession);
+const mockedGetAccessToken = jest.mocked(getAccessToken);
 const mockedSignInWithGoogleIdToken = jest.mocked(signInWithGoogleIdToken);
 const mockedSignOutSession = jest.mocked(signOutSession);
+const mockedLocalDataOwnerStorage = jest.mocked(secureLocalDataOwnerStorage);
 const mockedClearLocalAppData = jest.mocked(clearLocalAppData);
 const mockedClearQueuedMutations = jest.mocked(clearQueuedMutations);
 const mockedFlushQueuedMutations = jest.mocked(flushQueuedMutations);
@@ -69,13 +86,25 @@ function SignInProbe() {
 }
 
 describe('AuthProvider', () => {
+  beforeEach(() => {
+    jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() });
+    mockedLocalDataOwnerStorage.getOwnerId.mockResolvedValue('user-123');
+    mockedLocalDataOwnerStorage.setOwnerId.mockResolvedValue();
+    mockedLocalDataOwnerStorage.clearOwnerId.mockResolvedValue();
+  });
+
   afterEach(() => {
+    jest.restoreAllMocks();
     mockedSignInWithGoogleIdToken.mockReset();
     mockedSignOutSession.mockReset();
     mockedClearLocalAppData.mockReset();
     mockedClearQueuedMutations.mockReset();
     mockedRestoreSession.mockReset();
     mockedFlushQueuedMutations.mockReset();
+    mockedGetAccessToken.mockReset();
+    mockedLocalDataOwnerStorage.getOwnerId.mockReset();
+    mockedLocalDataOwnerStorage.setOwnerId.mockReset();
+    mockedLocalDataOwnerStorage.clearOwnerId.mockReset();
   });
 
   it('flushes queued mutations after a successful session restore', async () => {
@@ -234,5 +263,42 @@ describe('AuthProvider', () => {
     expect(await screen.findByText('athlete@example.com')).toBeTruthy();
     expect(mockedSignInWithGoogleIdToken).toHaveBeenCalledWith('google-id-token');
     expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('fresh-access-token');
+  });
+
+  it('clears another account cache and outbox before exposing the signed-in user', async () => {
+    const accessToken = String(1);
+    mockedRestoreSession.mockResolvedValue(null);
+    mockedLocalDataOwnerStorage.getOwnerId.mockResolvedValue('previous-user');
+    mockedClearQueuedMutations.mockResolvedValue();
+    mockedClearLocalAppData.mockResolvedValue();
+    mockedLocalDataOwnerStorage.setOwnerId.mockResolvedValue();
+    mockedSignInWithGoogleIdToken.mockResolvedValue({
+      accessToken,
+      user: {
+        id: 'next-user',
+        email: 'next@example.com',
+        name: 'Next Athlete',
+        avatarUrl: null,
+      },
+    });
+    mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
+
+    render(
+      <AuthProvider>
+        <SignInProbe />
+      </AuthProvider>
+    );
+
+    fireEvent.press(await screen.findByRole('button', { name: 'sign-in' }));
+    expect(await screen.findByText('next@example.com')).toBeTruthy();
+
+    expect(mockedClearQueuedMutations).toHaveBeenCalledTimes(1);
+    expect(mockedClearLocalAppData).toHaveBeenCalledTimes(1);
+    expect(mockedLocalDataOwnerStorage.setOwnerId).toHaveBeenCalledWith('next-user');
+    const clearOrder = mockedClearLocalAppData.mock.invocationCallOrder[0] ?? 0;
+    const ownerOrder = mockedLocalDataOwnerStorage.setOwnerId.mock.invocationCallOrder[0] ?? 0;
+    const flushOrder = mockedFlushQueuedMutations.mock.invocationCallOrder[0] ?? 0;
+    expect(clearOrder).toBeLessThan(ownerOrder);
+    expect(ownerOrder).toBeLessThan(flushOrder);
   });
 });

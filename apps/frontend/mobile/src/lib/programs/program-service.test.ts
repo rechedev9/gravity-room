@@ -165,6 +165,43 @@ describe('fetchProgramSummaries', () => {
     expect(mockFetchWithAccessToken).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects malformed summary fields at the network boundary', async () => {
+    mockGetAccessToken.mockReturnValue('mobile-access-token');
+    mockFetchWithAccessToken.mockResolvedValueOnce({
+      accessToken: 'mobile-access-token',
+      response: new Response(
+        JSON.stringify({
+          data: [{ id: 'program-a', name: 42, updatedAt: { invalid: true } }],
+          nextCursor: null,
+        }),
+        { status: 200 }
+      ),
+    });
+
+    await expect(fetchProgramSummaries()).rejects.toThrow('Invalid program summary response');
+  });
+
+  it('stops when a paginated response repeats a cursor', async () => {
+    mockGetAccessToken.mockReturnValue('mobile-access-token');
+    const page = {
+      accessToken: 'mobile-access-token',
+      response: new Response(JSON.stringify({ data: [], nextCursor: 'same-cursor' }), {
+        status: 200,
+      }),
+    };
+    mockFetchWithAccessToken.mockResolvedValueOnce(page).mockResolvedValueOnce({
+      ...page,
+      response: new Response(JSON.stringify({ data: [], nextCursor: 'same-cursor' }), {
+        status: 200,
+      }),
+    });
+
+    await expect(fetchProgramSummaries()).rejects.toThrow(
+      'Program summary pagination repeated a cursor'
+    );
+    expect(mockFetchWithAccessToken).toHaveBeenCalledTimes(2);
+  });
+
   it('fetches catalog entries through the authorized API transport', async () => {
     mockGetAccessToken.mockReturnValue('mobile-access-token');
     mockFetchWithAccessToken.mockResolvedValueOnce({

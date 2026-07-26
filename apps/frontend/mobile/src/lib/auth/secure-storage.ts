@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 
 const REFRESH_TOKEN_KEY = 'auth.refresh-token';
 const SESSION_KIND_KEY = 'auth.session-kind';
+const LOCAL_DATA_OWNER_KEY = 'auth.local-data-owner';
 
 export interface RefreshTokenStorage {
   getRefreshToken(): Promise<string | null>;
@@ -24,6 +25,18 @@ export interface SessionKindStorage {
   getSessionKind(): Promise<SessionKind | null>;
   setSessionKind(kind: SessionKind): Promise<void>;
   clearSessionKind(): Promise<void>;
+}
+
+/**
+ * Identifies which authenticated account owns the shared SQLite cache. Mobile
+ * data is intentionally kept offline between transient auth failures, so the
+ * owner marker lets the next successful sign-in distinguish a returning user
+ * from an account switch before any cached data or outbox mutation is exposed.
+ */
+export interface LocalDataOwnerStorage {
+  getOwnerId(): Promise<string | null>;
+  setOwnerId(userId: string): Promise<void>;
+  clearOwnerId(): Promise<void>;
 }
 
 export const secureRefreshTokenStorage: RefreshTokenStorage = {
@@ -55,5 +68,19 @@ export const secureSessionKindStorage: SessionKindStorage = {
   },
   async clearSessionKind() {
     await SecureStore.deleteItemAsync(SESSION_KIND_KEY);
+  },
+};
+
+export const secureLocalDataOwnerStorage: LocalDataOwnerStorage = {
+  async getOwnerId() {
+    return SecureStore.getItemAsync(LOCAL_DATA_OWNER_KEY);
+  },
+  async setOwnerId(userId) {
+    await SecureStore.setItemAsync(LOCAL_DATA_OWNER_KEY, userId, {
+      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+    });
+  },
+  async clearOwnerId() {
+    await SecureStore.deleteItemAsync(LOCAL_DATA_OWNER_KEY);
   },
 };

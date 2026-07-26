@@ -39,12 +39,14 @@ async function enqueueTrackerMutation(input: {
   readonly instanceId: string;
   readonly operation: string;
   readonly payload: MutationPayload;
+  readonly dedupeKey: string;
 }): Promise<void> {
   await enqueueMutation({
     entityType: 'program-instance',
     entityId: input.instanceId,
     operation: input.operation,
     payload: input.payload,
+    dedupeKey: input.dedupeKey,
   });
 
   const accessToken = getAccessToken();
@@ -82,6 +84,7 @@ export async function queueRecordResultMutation(input: QueueRecordResultInput): 
     instanceId: input.instanceId,
     operation: 'record-result',
     payload,
+    dedupeKey: `program-instance:${input.instanceId}:result:${input.workoutIndex}:${input.slotId}`,
   });
 }
 
@@ -92,6 +95,7 @@ export async function queueUpdateMetadataMutation(input: QueueUpdateMetadataInpu
     payload: {
       metadata: input.metadata,
     },
+    dedupeKey: `program-instance:${input.instanceId}:metadata`,
   });
 }
 
@@ -124,5 +128,6 @@ export async function queueDeleteResultMutation(input: QueueDeleteResultInput): 
       workoutIndex: input.workoutIndex,
       slotId: input.slotId,
     },
+    dedupeKey: `program-instance:${input.instanceId}:result:${input.workoutIndex}:${input.slotId}`,
   });
 }

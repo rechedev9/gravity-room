@@ -247,6 +247,41 @@ describe('flushQueuedMutations', () => {
     expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([21]);
   });
 
+  it('discards corrupt outbox rows and continues with later valid mutations', async () => {
+    mockedListQueuedMutations.mockResolvedValue([
+      {
+        id: 24,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'record-result',
+        payload: {},
+        payloadValid: false,
+        createdAt: '2026-04-20T10:00:00.000Z',
+      },
+      {
+        id: 25,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'record-result',
+        payload: {
+          workoutIndex: 1,
+          slotId: 'bench-t1',
+          result: 'success',
+        },
+        createdAt: '2026-04-20T10:01:00.000Z',
+      },
+    ]);
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+    fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 201 }));
+
+    await expect(flushQueuedMutations('mobile-access-token')).resolves.toEqual({
+      processedCount: 2,
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([24, 25]);
+  });
+
   it('replays record-result mutations with optional amrapReps and rpe fields', async () => {
     mockedListQueuedMutations.mockResolvedValue([
       {

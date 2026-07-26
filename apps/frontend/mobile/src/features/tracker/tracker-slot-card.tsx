@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 type TrackerSlot = {
   readonly slotId: string;
@@ -37,31 +38,36 @@ export function TrackerSlotCard({
   onMetricChange,
   onClearMetric,
 }: TrackerSlotCardProps) {
+  const { t } = useTranslation();
   const showMetricEditors = slot.result === 'success';
 
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{slot.exerciseName}</Text>
-      <Text style={styles.cardMeta}>{slot.weight} kg</Text>
+      <Text style={styles.cardMeta}>{t('tracker.weight', { weight: slot.weight })}</Text>
       <Text style={styles.cardMeta}>
-        {slot.sets} x {slot.reps}
+        {t('tracker.sets_reps', { sets: slot.sets, reps: slot.reps })}
       </Text>
       <Text style={styles.cardStatus}>
         {slot.result === 'success'
-          ? 'Logged success'
+          ? t('tracker.status.success')
           : slot.result === 'fail'
-            ? 'Logged fail'
-            : 'Awaiting result'}
+            ? t('tracker.status.fail')
+            : t('tracker.status.awaiting')}
       </Text>
       {showMetricEditors ? (
         <View style={styles.metricsBlock}>
           {slot.isAmrap ? (
             <View style={styles.metricRow}>
-              <Text style={styles.metricLabel}>AMRAP reps: {slot.amrapReps ?? '-'}</Text>
+              <Text style={styles.metricLabel}>
+                {t('tracker.metrics.amrap', { value: slot.amrapReps ?? '-' })}
+              </Text>
               <View style={styles.metricActions}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Decrease ${slot.exerciseName} AMRAP reps`}
+                  accessibilityLabel={t('tracker.actions.decrease_amrap', {
+                    name: slot.exerciseName,
+                  })}
                   onPress={() => {
                     onMetricChange(workoutIndex, slot.slotId, 'amrapReps', slot.amrapReps, -1);
                   }}
@@ -71,7 +77,9 @@ export function TrackerSlotCard({
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Increase ${slot.exerciseName} AMRAP reps`}
+                  accessibilityLabel={t('tracker.actions.increase_amrap', {
+                    name: slot.exerciseName,
+                  })}
                   onPress={() => {
                     onMetricChange(workoutIndex, slot.slotId, 'amrapReps', slot.amrapReps, 1);
                   }}
@@ -82,13 +90,15 @@ export function TrackerSlotCard({
                 {slot.amrapReps !== undefined ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Clear ${slot.exerciseName} AMRAP reps`}
+                    accessibilityLabel={t('tracker.actions.clear_amrap', {
+                      name: slot.exerciseName,
+                    })}
                     onPress={() => {
                       onClearMetric(workoutIndex, slot.slotId, 'amrapReps');
                     }}
                     style={styles.metricClearButton}
                   >
-                    <Text style={styles.metricClearLabel}>Clear</Text>
+                    <Text style={styles.metricClearLabel}>{t('tracker.actions.clear')}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -96,11 +106,15 @@ export function TrackerSlotCard({
           ) : null}
 
           <View style={styles.metricRow}>
-            <Text style={styles.metricLabel}>RPE: {slot.rpe ?? '-'}</Text>
+            <Text style={styles.metricLabel}>
+              {t('tracker.metrics.rpe', { value: slot.rpe ?? '-' })}
+            </Text>
             <View style={styles.metricActions}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Decrease ${slot.exerciseName} RPE`}
+                accessibilityLabel={t('tracker.actions.decrease_rpe', {
+                  name: slot.exerciseName,
+                })}
                 onPress={() => {
                   onMetricChange(workoutIndex, slot.slotId, 'rpe', slot.rpe, -1);
                 }}
@@ -110,7 +124,9 @@ export function TrackerSlotCard({
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Increase ${slot.exerciseName} RPE`}
+                accessibilityLabel={t('tracker.actions.increase_rpe', {
+                  name: slot.exerciseName,
+                })}
                 onPress={() => {
                   onMetricChange(workoutIndex, slot.slotId, 'rpe', slot.rpe, 1);
                 }}
@@ -121,13 +137,15 @@ export function TrackerSlotCard({
               {slot.rpe !== undefined ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Clear ${slot.exerciseName} RPE`}
+                  accessibilityLabel={t('tracker.actions.clear_rpe', {
+                    name: slot.exerciseName,
+                  })}
                   onPress={() => {
                     onClearMetric(workoutIndex, slot.slotId, 'rpe');
                   }}
                   style={styles.metricClearButton}
                 >
-                  <Text style={styles.metricClearLabel}>Clear</Text>
+                  <Text style={styles.metricClearLabel}>{t('tracker.actions.clear')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -136,23 +154,25 @@ export function TrackerSlotCard({
       ) : null}
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Mark ${slot.exerciseName} success`}
+        accessibilityLabel={t('tracker.actions.mark_success', { name: slot.exerciseName })}
+        accessibilityState={{ selected: slot.result === 'success' }}
         onPress={() => {
           onMarkResult(workoutIndex, slot.slotId, 'success');
         }}
         style={styles.successButton}
       >
-        <Text style={styles.successLabel}>Success</Text>
+        <Text style={styles.successLabel}>{t('tracker.result.success')}</Text>
       </Pressable>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Mark ${slot.exerciseName} fail`}
+        accessibilityLabel={t('tracker.actions.mark_fail', { name: slot.exerciseName })}
+        accessibilityState={{ selected: slot.result === 'fail' }}
         onPress={() => {
           onMarkResult(workoutIndex, slot.slotId, 'fail');
         }}
         style={styles.failButton}
       >
-        <Text style={styles.failLabel}>Fail</Text>
+        <Text style={styles.failLabel}>{t('tracker.result.fail')}</Text>
       </Pressable>
     </View>
   );

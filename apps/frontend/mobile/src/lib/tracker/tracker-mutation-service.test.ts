@@ -47,6 +47,7 @@ describe('tracker mutation service', () => {
       entityType: 'program-instance',
       entityId: 'instance-1',
       operation: 'record-result',
+      dedupeKey: 'program-instance:instance-1:result:0:squat-t1',
       payload: {
         workoutIndex: 0,
         slotId: 'squat-t1',
@@ -74,6 +75,7 @@ describe('tracker mutation service', () => {
       entityType: 'program-instance',
       entityId: 'instance-1',
       operation: 'record-result',
+      dedupeKey: 'program-instance:instance-1:result:0:squat-t1',
       payload: {
         workoutIndex: 0,
         slotId: 'squat-t1',
@@ -102,6 +104,7 @@ describe('tracker mutation service', () => {
       entityType: 'program-instance',
       entityId: 'instance-1',
       operation: 'record-result',
+      dedupeKey: 'program-instance:instance-1:result:0:squat-t1',
       payload: {
         workoutIndex: 0,
         slotId: 'squat-t1',
@@ -125,6 +128,7 @@ describe('tracker mutation service', () => {
       entityType: 'program-instance',
       entityId: 'instance-1',
       operation: 'update-metadata',
+      dedupeKey: 'program-instance:instance-1:metadata',
       payload: {
         metadata: {
           graduationDismissed: true,
@@ -149,6 +153,7 @@ describe('tracker mutation service', () => {
       entityType: 'program-instance',
       entityId: 'instance-1',
       operation: 'delete-result',
+      dedupeKey: 'program-instance:instance-1:result:0:squat-t1',
       payload: {
         workoutIndex: 0,
         slotId: 'squat-t1',
@@ -181,6 +186,7 @@ describe('tracker mutation service', () => {
       entityType: 'program-instance',
       entityId: 'instance-1',
       operation: 'record-result',
+      dedupeKey: 'program-instance:instance-1:result:0:squat-t1',
       payload: {
         workoutIndex: 0,
         slotId: 'squat-t1',
@@ -215,6 +221,7 @@ describe('tracker mutation service', () => {
       entityType: 'program-instance',
       entityId: 'instance-1',
       operation: 'delete-result',
+      dedupeKey: 'program-instance:instance-1:result:0:squat-t1',
       payload: {
         workoutIndex: 0,
         slotId: 'squat-t1',
@@ -238,6 +245,7 @@ describe('tracker mutation service', () => {
       entityType: 'program-instance',
       entityId: 'instance-1',
       operation: 'delete-result',
+      dedupeKey: 'program-instance:instance-1:result:2:bench-t2',
       payload: {
         workoutIndex: 2,
         slotId: 'bench-t2',

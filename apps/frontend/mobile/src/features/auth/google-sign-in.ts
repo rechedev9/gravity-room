@@ -37,9 +37,13 @@ export function useGoogleIdTokenPrompt(): GoogleAuthResult {
   });
 
   useEffect(() => {
-    void WebBrowser.warmUpAsync();
+    void WebBrowser.warmUpAsync().catch(() => {
+      // Browser warm-up is an optimization; auth remains usable if it fails.
+    });
     return () => {
-      void WebBrowser.coolDownAsync();
+      void WebBrowser.coolDownAsync().catch(() => {
+        // Cleanup failure must not surface as an unhandled rejection.
+      });
     };
   }, []);
 

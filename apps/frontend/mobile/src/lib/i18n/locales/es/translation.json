@@ -72,5 +72,47 @@
     "sign_out": "Cerrar sesión",
     "signing_out": "Cerrando sesión...",
     "sign_out_accessibility": "Cerrar sesión de Gravity Room"
+  },
+  "tracker": {
+    "loading": "Cargando registro...",
+    "unavailable": "Registro no disponible",
+    "back": "Volver",
+    "back_programs": "Volver a programas",
+    "previous": "Anterior",
+    "previous_accessibility": "Entrenamiento anterior",
+    "undo": "Deshacer",
+    "undo_accessibility": "Deshacer la última acción del registro",
+    "next": "Siguiente",
+    "next_accessibility": "Siguiente entrenamiento",
+    "weight": "{{weight}} kg",
+    "sets_reps": "{{sets}} x {{reps}}",
+    "status": {
+      "success": "Éxito registrado",
+      "fail": "Fallo registrado",
+      "awaiting": "Resultado pendiente"
+    },
+    "metrics": {
+      "amrap": "Repeticiones AMRAP: {{value}}",
+      "rpe": "RPE: {{value}}"
+    },
+    "result": {
+      "success": "Éxito",
+      "fail": "Fallo"
+    },
+    "actions": {
+      "clear": "Borrar",
+      "decrease_amrap": "Reducir las repeticiones AMRAP de {{name}}",
+      "increase_amrap": "Aumentar las repeticiones AMRAP de {{name}}",
+      "clear_amrap": "Borrar las repeticiones AMRAP de {{name}}",
+      "decrease_rpe": "Reducir el RPE de {{name}}",
+      "increase_rpe": "Aumentar el RPE de {{name}}",
+      "clear_rpe": "Borrar el RPE de {{name}}",
+      "mark_success": "Marcar {{name}} como éxito",
+      "mark_fail": "Marcar {{name}} como fallo"
+    },
+    "notices": {
+      "cached": "Mostrando el registro en caché mientras se sincroniza.",
+      "manual_retry": "Guardado localmente. Este cambio no se sincronizará automáticamente."
+    }
   }
 }

@@ -5,6 +5,7 @@ interface QueuedMutationRow {
   readonly operation: string;
   readonly payload_json: string;
   readonly created_at: string;
+  readonly dedupe_key?: string;
 }
 
 const mockRows: QueuedMutationRow[] = [];
@@ -21,8 +22,18 @@ jest.mock('../db/client', () => ({
       ) => {
         await callback({
           runAsync: async (sql: string, ...params: unknown[]) => {
+            if (sql.includes('DELETE FROM queued_mutations WHERE dedupe_key')) {
+              const dedupeKey = String(params[0]);
+              for (let index = mockRows.length - 1; index >= 0; index -= 1) {
+                if (mockRows[index]?.dedupe_key === dedupeKey) {
+                  mockRows.splice(index, 1);
+                }
+              }
+              return { changes: 1, lastInsertRowId: 0 };
+            }
+
             if (sql.includes('INSERT INTO queued_mutations')) {
-              const [entityType, entityId, operation, payloadJson, createdAt] = params;
+              const [entityType, entityId, operation, payloadJson, createdAt, dedupeKey] = params;
               mockRows.push({
                 id: mockNextId,
                 entity_type: String(entityType),
@@ -30,6 +41,7 @@ jest.mock('../db/client', () => ({
                 operation: String(operation),
                 payload_json: String(payloadJson),
                 created_at: String(createdAt),
+                ...(dedupeKey === undefined ? {} : { dedupe_key: String(dedupeKey) }),
               });
               mockNextId += 1;
               return { changes: 1, lastInsertRowId: mockNextId - 1 };
@@ -218,5 +230,60 @@ describe('mutation queue repository', () => {
     await clearQueuedMutations();
 
     await expect(listQueuedMutations()).resolves.toEqual([]);
+  });
+
+  it('marks malformed persisted JSON so sync can discard the poison row', async () => {
+    mockRows.push({
+      id: mockNextId,
+      entity_type: 'program-instance',
+      entity_id: 'instance-1',
+      operation: 'record-result',
+      payload_json: '{"truncated":',
+      created_at: '2026-04-20T10:00:00.000Z',
+    });
+    mockNextId += 1;
+
+    await expect(listQueuedMutations()).resolves.toEqual([
+      {
+        id: 1,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'record-result',
+        payload: {},
+        payloadValid: false,
+        createdAt: '2026-04-20T10:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('coalesces pending desired state without reusing an in-flight row id', async () => {
+    const dedupeKey = 'program-instance:instance-1:result:0:squat-t1';
+    await enqueueMutation({
+      entityType: 'program-instance',
+      entityId: 'instance-1',
+      operation: 'record-result',
+      payload: { workoutIndex: 0, slotId: 'squat-t1', result: 'success' },
+      dedupeKey,
+      createdAt: '2026-04-20T10:00:00.000Z',
+    });
+    await enqueueMutation({
+      entityType: 'program-instance',
+      entityId: 'instance-1',
+      operation: 'delete-result',
+      payload: { workoutIndex: 0, slotId: 'squat-t1' },
+      dedupeKey,
+      createdAt: '2026-04-20T10:01:00.000Z',
+    });
+
+    await expect(listQueuedMutations()).resolves.toEqual([
+      {
+        id: 2,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'delete-result',
+        payload: { workoutIndex: 0, slotId: 'squat-t1' },
+        createdAt: '2026-04-20T10:01:00.000Z',
+      },
+    ]);
   });
 });

@@ -33,4 +33,12 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       PROGRAM_DEFINITIONS_TABLE_SQL,
     ].join('\n'),
   },
+  {
+    version: 2,
+    sql: `
+      ALTER TABLE queued_mutations ADD COLUMN dedupe_key TEXT;
+      CREATE INDEX queued_mutations_dedupe_key_idx
+        ON queued_mutations (dedupe_key);
+    `,
+  },
 ];

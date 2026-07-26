@@ -32,6 +32,7 @@ interface SignInDependencies {
   readonly storage?: RefreshTokenStorage;
   readonly sessionKindStorage?: SessionKindStorage;
   readonly authenticateWithGoogleIdToken?: (credential: string) => Promise<RefreshResponse>;
+  readonly revokeRemoteSession?: (refreshToken: string) => Promise<void>;
   readonly revokeCookieSession?: () => Promise<void>;
 }
 
@@ -452,21 +453,41 @@ export async function signInWithGoogleIdToken(
   const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
   const authenticateWithGoogleIdToken =
     dependencies.authenticateWithGoogleIdToken ?? authenticateMobileGoogleIdToken;
+  const revokeRemoteSession = dependencies.revokeRemoteSession ?? revokeMobileSession;
   const revokeCookie = dependencies.revokeCookieSession ?? revokeCookieSession;
 
-  // Credentials are mutually exclusive: best-effort revoke a leftover email
-  // cookie session server-side before it becomes unreachable behind the new
-  // Google session (switching providers without signing out first).
+  const authenticated = await authenticateWithGoogleIdToken(credential);
+  const previousKind = await kindStorage.getSessionKind().catch(() => null);
+
   try {
-    if ((await kindStorage.getSessionKind()) === 'email') await revokeCookie();
-  } catch {
-    // Revocation is best-effort; sign-in must not be blocked by it.
+    await storage.setRefreshToken(authenticated.refreshToken);
+  } catch (error) {
+    // The server already minted a refresh token. Revoke it when local secure
+    // persistence fails so a rejected sign-in does not leave an orphaned,
+    // remotely valid session behind.
+    try {
+      await revokeRemoteSession(authenticated.refreshToken);
+    } catch {
+      // Preserve the SecureStore failure as the actionable error.
+    }
+    throw error;
   }
 
-  const authenticated = await authenticateWithGoogleIdToken(credential);
+  // A stored Google refresh token is sufficient for restore; the kind marker
+  // only disambiguates cookie-backed email sessions when no token exists.
+  await kindStorage.setSessionKind('google').catch(() => undefined);
   accessToken = authenticated.accessToken;
-  await storage.setRefreshToken(authenticated.refreshToken);
-  await kindStorage.setSessionKind('google');
+
+  // Revoke the prior cookie session only after the replacement Google session
+  // is fully usable. A cancelled or failed Google exchange must not sign the
+  // athlete out of their existing email session.
+  if (previousKind === 'email') {
+    try {
+      await revokeCookie();
+    } catch {
+      // Revocation is best-effort; the new Google session is authoritative.
+    }
+  }
 
   return {
     accessToken: authenticated.accessToken,

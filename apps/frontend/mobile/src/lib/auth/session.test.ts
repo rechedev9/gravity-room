@@ -411,6 +411,56 @@ describe('signInWithGoogleIdToken', () => {
     expect(storage.setRefreshToken).toHaveBeenCalledWith('new-refresh-token');
     expect(getAccessToken()).toBe('new-access-token');
   });
+
+  it('keeps an existing email session when the Google exchange fails', async () => {
+    const sessionKindStorage = {
+      getSessionKind: jest.fn<Promise<'google' | 'email' | null>, []>().mockResolvedValue('email'),
+      setSessionKind: jest.fn<Promise<void>, ['google' | 'email']>().mockResolvedValue(),
+      clearSessionKind: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+    const revokeCookieSession = jest.fn<Promise<void>, []>().mockResolvedValue();
+    const authenticateWithGoogleIdToken = jest
+      .fn()
+      .mockRejectedValue(new Error('Google exchange failed'));
+
+    await expect(
+      signInWithGoogleIdToken('bad-google-token', {
+        sessionKindStorage,
+        authenticateWithGoogleIdToken,
+        revokeCookieSession,
+      })
+    ).rejects.toThrow('Google exchange failed');
+
+    expect(revokeCookieSession).not.toHaveBeenCalled();
+    expect(sessionKindStorage.setSessionKind).not.toHaveBeenCalled();
+  });
+
+  it('revokes the minted session when its refresh token cannot be stored securely', async () => {
+    const storage = {
+      getRefreshToken: jest.fn<Promise<string | null>, []>().mockResolvedValue(null),
+      setRefreshToken: jest
+        .fn<Promise<void>, [string]>()
+        .mockRejectedValue(new Error('SecureStore unavailable')),
+      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+    const authenticateWithGoogleIdToken = jest.fn().mockResolvedValue({
+      accessToken: 'new-access-token',
+      refreshToken: 'new-refresh-token',
+      user: AUTH_USER,
+    });
+    const revokeRemoteSession = jest.fn<Promise<void>, [string]>().mockResolvedValue();
+
+    await expect(
+      signInWithGoogleIdToken('google-id-token', {
+        storage,
+        authenticateWithGoogleIdToken,
+        revokeRemoteSession,
+      })
+    ).rejects.toThrow('SecureStore unavailable');
+
+    expect(revokeRemoteSession).toHaveBeenCalledWith('new-refresh-token');
+    expect(getAccessToken()).toBeNull();
+  });
 });
 
 describe('signOutSession', () => {
