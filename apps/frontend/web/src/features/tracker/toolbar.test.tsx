@@ -28,6 +28,9 @@ function buildToolbarProps(overrides?: Partial<Parameters<typeof Toolbar>[0]>) {
     onFinish: vi.fn(() => Promise.resolve()),
     onReset: vi.fn(),
     onExportCsv: vi.fn(),
+    canUseBackup: true,
+    onExportBackup: vi.fn(),
+    onImportBackup: vi.fn(() => Promise.resolve()),
     ...overrides,
   };
 }
@@ -97,6 +100,32 @@ describe('Toolbar', () => {
       // The ghost class string contains 'bg-card' but the default button
       // uses 'bg-btn'. Both contain 'bg-' so we check the ghost-specific text.
       expect(btn.className).not.toContain('text-muted');
+    });
+
+    it('exposes JSON backup download and upload actions for authenticated users', () => {
+      const onExportBackup = vi.fn();
+      const onImportBackup = vi.fn(() => Promise.resolve());
+      render(<Toolbar {...buildToolbarProps({ onExportBackup, onImportBackup })} />);
+
+      openOverflowMenu();
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Exportar copia JSON' }));
+      expect(onExportBackup).toHaveBeenCalledOnce();
+
+      openOverflowMenu();
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Importar copia JSON' }));
+      const input = screen.getByLabelText('Seleccionar archivo de copia JSON');
+      const file = new File(['{"version":1}'], 'backup.json', { type: 'application/json' });
+      fireEvent.change(input, { target: { files: [file] } });
+      expect(onImportBackup).toHaveBeenCalledWith(file);
+    });
+
+    it('does not expose account backup actions in guest mode', () => {
+      render(<Toolbar {...buildToolbarProps({ canUseBackup: false })} />);
+
+      openOverflowMenu();
+
+      expect(screen.queryByRole('menuitem', { name: 'Exportar copia JSON' })).toBeNull();
+      expect(screen.queryByRole('menuitem', { name: 'Importar copia JSON' })).toBeNull();
     });
   });
 

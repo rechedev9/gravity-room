@@ -5,16 +5,16 @@
  *   - workoutsPerWeek=0 → Math.floor(x/0)+1 = Infinity in Week column (BUG)
  *   - workoutsPerWeek<0 → week numbers become 0 or negative
  *   - escapeCsvField: comma, double-quote, newline, CR+LF, tab, embedded null
- *   - CSV formula injection: fields starting with =, +, -, @ pass through unquoted
+ *   - CSV formula injection: fields starting with =, +, -, @ remain inert text
  *   - Unicode: emoji, RTL markers, surrogate-adjacent code points, ZWJ sequences
  *   - Empty program: only header row
  *   - Row with zero slots: contributes no data lines
  *   - Very long exercise name
- *   - downloadCsv: URL.revokeObjectURL called before download can start (documented)
+ *   - downloadCsv: object URL remains alive until the click is consumed
  */
 
-import { describe, it, expect } from 'vitest';
-import { generateProgramCsv } from './csv-export';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { downloadCsv, generateProgramCsv } from './csv-export';
 import type { GenericWorkoutRow, ResultValue } from '@gzclp/domain/types';
 
 // ---------------------------------------------------------------------------
@@ -232,10 +232,7 @@ describe('generateProgramCsv — CSV field escaping', () => {
 // 4. CSV formula injection — fields starting with =, +, -, @
 // ---------------------------------------------------------------------------
 
-describe('generateProgramCsv — CSV injection (no sanitization)', () => {
-  // These tests document that the current implementation does NOT sanitize
-  // formula-injection characters. Spreadsheet apps like Excel may execute
-  // these as formulas if the CSV is opened directly.
+describe('generateProgramCsv — CSV injection', () => {
   const injectionNames = [
     '=CMD|"/C calc"!A0',
     '+1+1+1',
@@ -245,13 +242,37 @@ describe('generateProgramCsv — CSV injection (no sanitization)', () => {
   ];
 
   for (const name of injectionNames) {
-    it(`passes "${name.slice(0, 20)}..." through without sanitization`, () => {
+    it(`neutralizes "${name.slice(0, 20)}..." as spreadsheet text`, () => {
       const rows = [makeRow(0, 'Day A', [makeSlot({ exerciseName: name })])];
       const csv = generateProgramCsv(rows, 3);
-      // The name appears in the CSV (may be quoted if it contains comma/quote/newline)
-      expect(csv).toContain(name.replace(/"/g, '""'));
+      expect(csv).toContain(`'${name}`.replace(/"/g, '""'));
+      expect(csv).not.toContain(`,${name}`);
     });
   }
+});
+
+describe('downloadCsv', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('keeps the object URL alive until the browser has consumed the click', () => {
+    vi.useFakeTimers();
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    downloadCsv('a,b', 'workout.csv');
+
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(click).toHaveBeenCalledOnce();
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+    expect(document.querySelector('a[download="workout.csv"]')).toBeNull();
+
+    vi.runAllTimers();
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:test');
+  });
 });
 
 // ---------------------------------------------------------------------------

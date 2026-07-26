@@ -875,6 +875,9 @@
       "finishing_loading": "Finishing...",
       "finish_program": "Finish Program",
       "export_csv": "Export CSV",
+      "export_backup": "Export JSON backup",
+      "import_backup": "Import JSON backup",
+      "import_backup_file_aria": "Select JSON backup file",
       "reset_all": "Reset All",
       "finish_confirm_message": "Your progress and statistics will be saved. You can review them anytime from the dashboard.",
       "finish_confirm_label": "Finish",
@@ -1039,8 +1042,10 @@
       "program_reset_failed": "Could not reset the program. Please try again.",
       "program_export_failed": "Could not export the program.",
       "program_import_failed": "Could not import the program. Verify the file and try again.",
+      "program_import_too_large": "The backup file is too large (maximum 1 MB).",
       "next_block_revert_failed": "Could not revert the next block's configuration."
     },
+    "backup_imported": "Backup imported successfully.",
     "exercise_role": {
       "primary": "Primary",
       "secondary": "Secondary",

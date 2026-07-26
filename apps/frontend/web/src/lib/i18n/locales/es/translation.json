@@ -875,6 +875,9 @@
       "finishing_loading": "Finalizando...",
       "finish_program": "Finalizar Programa",
       "export_csv": "Exportar CSV",
+      "export_backup": "Exportar copia JSON",
+      "import_backup": "Importar copia JSON",
+      "import_backup_file_aria": "Seleccionar archivo de copia JSON",
       "reset_all": "Reiniciar Todo",
       "finish_confirm_message": "Tu progreso y estadísticas se guardarán. Podrás consultarlos en cualquier momento desde el dashboard.",
       "finish_confirm_label": "Finalizar",
@@ -1039,8 +1042,10 @@
       "program_reset_failed": "No se pudo reiniciar el programa. Inténtalo de nuevo.",
       "program_export_failed": "No se pudo exportar el programa.",
       "program_import_failed": "No se pudo importar el programa. Verifica el archivo e inténtalo de nuevo.",
+      "program_import_too_large": "El archivo de copia es demasiado grande (máximo 1 MB).",
       "next_block_revert_failed": "No se pudo revertir la configuración del siguiente bloque."
     },
+    "backup_imported": "Copia importada correctamente.",
     "exercise_role": {
       "primary": "Principal",
       "secondary": "Secundario",

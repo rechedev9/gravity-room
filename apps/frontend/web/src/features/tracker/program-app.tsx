@@ -36,6 +36,7 @@ import { lazyWithRetry } from '@/lib/lazy-with-retry';
 
 const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
 const preloadStatsPanel = (): void => void import('./stats-panel');
+const MAX_BACKUP_FILE_BYTES = 1_048_576;
 
 interface ProgramAppProps {
   readonly programId: string;
@@ -81,6 +82,8 @@ export function ProgramApp({
     finishProgram,
     isFinishing,
     resetAll,
+    exportData,
+    importData,
     updateConfigAsync,
   } = programData;
   const setLogsStorageKey = useMemo((): string | null => {
@@ -281,6 +284,19 @@ export function ProgramApp({
     downloadCsv(csv, `${filenameBase}-${date}.csv`);
   };
 
+  const handleImportBackup = async (file: File): Promise<void> => {
+    if (file.size > MAX_BACKUP_FILE_BYTES) {
+      toast({ message: t('tracker.errors.program_import_too_large') });
+      return;
+    }
+    try {
+      const imported = await importData(await file.text());
+      if (imported) toast({ message: t('tracker.backup_imported') });
+    } catch {
+      toast({ message: t('tracker.errors.program_import_failed') });
+    }
+  };
+
   if (!isGuest && (authLoading || user === null)) return null;
   if (isLoading && !definition) return <AppSkeleton />;
 
@@ -325,6 +341,9 @@ export function ProgramApp({
             onFinish={handleFinishProgram}
             onReset={handleResetAll}
             onExportCsv={handleExportCsv}
+            canUseBackup={!isGuest}
+            onExportBackup={exportData}
+            onImportBackup={handleImportBackup}
           />
         )}
       </div>

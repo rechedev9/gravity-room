@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   blockAuthRefresh,
@@ -7,6 +7,7 @@ import {
   resumeAuthRefresh,
   setAccessToken,
 } from '@/lib/api';
+import { SESSION_INVALIDATED_EVENT } from '@/lib/auth-events';
 import { apiFetch, fetchMe } from '@/lib/api-functions';
 import { ApiError } from '@gzclp/api-client/api-error';
 import { isRecord } from '@gzclp/domain/type-guards';
@@ -148,6 +149,10 @@ function applySignInResponse(
   }
 
   setAccessToken(data.accessToken);
+  // A successful sign-in starts a new refresh-token lifecycle. A previous
+  // successful sign-out deliberately blocked refresh rotation, so release
+  // that block before this account's access token can expire.
+  resumeAuthRefresh();
   markSessionHint();
   setQueryData(userInfo);
   sentrySetUser({ id: userInfo.id, email: userInfo.email });
@@ -209,6 +214,14 @@ export function AuthProvider({
 
   const user = session.data ?? null;
   const loading = session.isPending;
+
+  useEffect(() => {
+    const handleSessionInvalidated = (): void => {
+      void clearAuthenticatedClientState(queryClient);
+    };
+    window.addEventListener(SESSION_INVALIDATED_EVENT, handleSessionInvalidated);
+    return () => window.removeEventListener(SESSION_INVALIDATED_EVENT, handleSessionInvalidated);
+  }, [queryClient]);
 
   const setSessionData = useCallback(
     (userInfo: UserInfo): void => {

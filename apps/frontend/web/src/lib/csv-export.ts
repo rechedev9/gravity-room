@@ -1,10 +1,19 @@
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 
 function escapeCsvField(value: string): string {
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`;
+  // Spreadsheet applications interpret these leading characters as formulas.
+  // Prefix an apostrophe so user-controlled exercise/day names remain text
+  // when the CSV is opened in Excel, Numbers, or LibreOffice.
+  const safeValue = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  if (
+    safeValue.includes(',') ||
+    safeValue.includes('"') ||
+    safeValue.includes('\n') ||
+    safeValue.includes('\r')
+  ) {
+    return `"${safeValue.replace(/"/g, '""')}"`;
   }
-  return value;
+  return safeValue;
 }
 
 export function generateProgramCsv(
@@ -66,6 +75,10 @@ export function downloadCsv(csv: string, filename: string): void {
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  // Some browsers consume the object URL after the click handler unwinds.
+  // Revoking synchronously can therefore produce an empty/failed download.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }

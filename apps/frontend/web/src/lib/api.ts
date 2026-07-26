@@ -9,6 +9,7 @@
  */
 import { isRecord } from '@gzclp/domain/type-guards';
 import { createSingleFlight } from '@gzclp/api-client/single-flight';
+import { SESSION_INVALIDATED_EVENT } from './auth-events';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -71,6 +72,7 @@ const refreshAccessToken = createSingleFlight(async (): Promise<RefreshResult | 
   if (!res.ok) {
     setAccessToken(null);
     await clearApiResponseCache();
+    globalThis.dispatchEvent(new Event(SESSION_INVALIDATED_EVENT));
     return null;
   }
 
@@ -82,6 +84,7 @@ const refreshAccessToken = createSingleFlight(async (): Promise<RefreshResult | 
 
   setAccessToken(null);
   await clearApiResponseCache();
+  globalThis.dispatchEvent(new Event(SESSION_INVALIDATED_EVENT));
   return null;
 });
 

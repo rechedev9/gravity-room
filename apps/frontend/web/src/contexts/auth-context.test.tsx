@@ -72,6 +72,7 @@ vi.mock('@/lib/api-functions', async () => {
 });
 
 import { AuthProvider, useAuth } from './auth-context';
+import { SESSION_INVALIDATED_EVENT } from '@/lib/auth-events';
 import { markSessionHint } from '@/lib/session-hint';
 
 // ---------------------------------------------------------------------------
@@ -273,6 +274,7 @@ describe('AuthProvider', () => {
 
       expect(authResult).toBeNull();
       expect(mockSetAccessToken).toHaveBeenCalled();
+      expect(mockResumeAuthRefresh).toHaveBeenCalledOnce();
       await waitFor(() => {
         expect(result.current.user?.id).toBe('user-1');
       });
@@ -372,6 +374,11 @@ describe('AuthProvider', () => {
         expect(result.current.user).not.toBeNull();
       });
       testQueryClient.setQueryData(['programs'], [{ id: 'private-program' }]);
+      testQueryClient.setQueryData(['programs', 'private-program'], {
+        id: 'private-program',
+        results: {},
+      });
+      testQueryClient.setQueryData(['insights'], [{ type: 'private-insight' }]);
 
       let signOutResult: unknown;
       await act(async () => {
@@ -386,6 +393,8 @@ describe('AuthProvider', () => {
         expect(result.current.user).toBeNull();
       });
       expect(testQueryClient.getQueryData(['programs'])).toBeUndefined();
+      expect(testQueryClient.getQueryData(['programs', 'private-program'])).toBeUndefined();
+      expect(testQueryClient.getQueryData(['insights'])).toBeUndefined();
     });
 
     it('keeps the current session and resumes refresh when the API call fails', async () => {
@@ -453,6 +462,23 @@ describe('AuthProvider', () => {
       await waitFor(() => {
         expect(result.current.user).toBeNull();
       });
+    });
+  });
+
+  describe('refresh rejection', () => {
+    it('clears the session and private queries through the invalidation event', async () => {
+      mockRefreshAccessToken.mockResolvedValue({
+        accessToken: fakeJwt({ sub: 'user-1', email: 'a@b.com' }),
+        user: { id: 'user-1', email: 'a@b.com' },
+      });
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(result.current.user?.id).toBe('user-1'));
+      testQueryClient.setQueryData(['programs'], [{ id: 'private-program' }]);
+
+      act(() => window.dispatchEvent(new Event(SESSION_INVALIDATED_EVENT)));
+
+      await waitFor(() => expect(result.current.user).toBeNull());
+      expect(testQueryClient.getQueryData(['programs'])).toBeUndefined();
     });
   });
 });
