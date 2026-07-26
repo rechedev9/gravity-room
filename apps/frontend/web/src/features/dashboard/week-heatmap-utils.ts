@@ -10,8 +10,6 @@ export interface CompletedWorkout {
   readonly completedAt: string;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 export function cellLevel(count: number): CellLevel {
   if (count === 0) return 'empty';
   if (count === 1) return 'partial';
@@ -27,8 +25,10 @@ export function buildHeatmapGrid(
   end.setHours(0, 0, 0, 0);
   // Find Monday of today's week (locale-independent: getDay 0=Sun, so (dow+6)%7 → Mon=0)
   const dow = (end.getDay() + 6) % 7;
-  const mondayOfThisWeek = new Date(end.getTime() - dow * DAY_MS);
-  const start = new Date(mondayOfThisWeek.getTime() - (weeks - 1) * 7 * DAY_MS);
+  const mondayOfThisWeek = new Date(end);
+  mondayOfThisWeek.setDate(end.getDate() - dow);
+  const start = new Date(mondayOfThisWeek);
+  start.setDate(mondayOfThisWeek.getDate() - (weeks - 1) * 7);
 
   const counts = new Map<string, number>();
   for (const w of workouts) {
@@ -41,7 +41,10 @@ export function buildHeatmapGrid(
   for (let c = 0; c < weeks; c++) {
     const col: HeatmapCell[] = [];
     for (let r = 0; r < 7; r++) {
-      const date = new Date(start.getTime() + (c * 7 + r) * DAY_MS);
+      // Calendar arithmetic is required here. Adding fixed 24-hour durations
+      // duplicates or skips a local date across daylight-saving transitions.
+      const date = new Date(start);
+      date.setDate(start.getDate() + c * 7 + r);
       const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
       const count = counts.get(key) ?? 0;
       col.push({ date, count, level: cellLevel(count) });
@@ -86,7 +89,9 @@ export function buildWeekdayLabels(locale: string): string[] {
   const fmt = new Intl.DateTimeFormat(locale, { weekday: 'short' });
   const labels: string[] = [];
   for (let i = 0; i < 7; i++) {
-    labels.push(fmt.format(new Date(REFERENCE_MONDAY.getTime() + i * DAY_MS)));
+    const date = new Date(REFERENCE_MONDAY);
+    date.setDate(REFERENCE_MONDAY.getDate() + i);
+    labels.push(fmt.format(date));
   }
   return labels;
 }

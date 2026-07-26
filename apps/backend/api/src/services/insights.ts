@@ -1,6 +1,6 @@
 import { getDb } from '../db';
 import { userInsights } from '@gzclp/database/schema';
-import { eq, and, inArray, asc, ne } from 'drizzle-orm';
+import { eq, and, inArray, asc, ne, gt, isNull, or } from 'drizzle-orm';
 import { META_INSIGHT_TYPE } from '../analytics/queries';
 
 export type InsightRow = {
@@ -20,6 +20,10 @@ export async function getInsights(userId: string, types: readonly string[]): Pro
   const conditions = [
     eq(userInsights.userId, userId),
     ne(userInsights.insightType, META_INSIGHT_TYPE),
+    // A nullable expiry means "no expiry". Never return rows whose explicit
+    // validity window has elapsed, even if a delayed compute job has not yet
+    // replaced them.
+    or(isNull(userInsights.validUntil), gt(userInsights.validUntil, new Date())),
   ];
   if (types.length > 0) {
     conditions.push(inArray(userInsights.insightType, types));

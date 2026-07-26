@@ -8,15 +8,30 @@ export interface FrequencyPayload {
   readonly workoutDates?: readonly string[];
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function isFiniteNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every(isFiniteNumber);
+}
+
 export function isFrequencyPayload(v: unknown): v is FrequencyPayload {
   if (v === null || typeof v !== 'object') return false;
   return (
     'sessionsPerWeek' in v &&
-    typeof v.sessionsPerWeek === 'number' &&
+    isFiniteNumber(v.sessionsPerWeek) &&
     'currentStreak' in v &&
-    typeof v.currentStreak === 'number' &&
+    isFiniteNumber(v.currentStreak) &&
     'consistencyPct' in v &&
-    typeof v.consistencyPct === 'number'
+    isFiniteNumber(v.consistencyPct) &&
+    'totalSessions' in v &&
+    isFiniteNumber(v.totalSessions) &&
+    (!('workoutDates' in v) || v.workoutDates === undefined || isStringArray(v.workoutDates))
   );
 }
 
@@ -29,13 +44,14 @@ export interface VolumeTrendPayload {
 
 export function isVolumeTrendPayload(v: unknown): v is VolumeTrendPayload {
   if (v === null || typeof v !== 'object') return false;
+  if (!('weeks' in v) || !isStringArray(v.weeks)) return false;
+  if (!('volumes' in v) || !isFiniteNumberArray(v.volumes)) return false;
   return (
-    'weeks' in v &&
-    Array.isArray(v.weeks) &&
-    'volumes' in v &&
-    Array.isArray(v.volumes) &&
+    v.weeks.length === v.volumes.length &&
+    'slope' in v &&
+    isFiniteNumber(v.slope) &&
     'direction' in v &&
-    typeof v.direction === 'string'
+    (v.direction === 'up' || v.direction === 'down' || v.direction === 'flat')
   );
 }
 
@@ -53,11 +69,15 @@ export function isPlateauPayload(v: unknown): v is PlateauPayload {
     'isPlateauing' in v &&
     typeof v.isPlateauing === 'boolean' &&
     'confidence' in v &&
-    typeof v.confidence === 'number' &&
+    isFiniteNumber(v.confidence) &&
+    v.confidence >= 0 &&
+    v.confidence <= 1 &&
+    'slope' in v &&
+    isFiniteNumber(v.slope) &&
     'currentWeight' in v &&
-    typeof v.currentWeight === 'number' &&
+    isFiniteNumber(v.currentWeight) &&
     'weeksAnalyzed' in v &&
-    typeof v.weeksAnalyzed === 'number'
+    isFiniteNumber(v.weeksAnalyzed)
   );
 }
 
@@ -73,12 +93,16 @@ export function isRecommendationPayload(v: unknown): v is RecommendationPayload 
   if (v === null || typeof v !== 'object') return false;
   return (
     'currentWeight' in v &&
-    typeof v.currentWeight === 'number' &&
+    isFiniteNumber(v.currentWeight) &&
     'recommendedWeight' in v &&
-    typeof v.recommendedWeight === 'number' &&
+    isFiniteNumber(v.recommendedWeight) &&
     'shouldIncrement' in v &&
     typeof v.shouldIncrement === 'boolean' &&
     'confidence' in v &&
-    typeof v.confidence === 'number'
+    isFiniteNumber(v.confidence) &&
+    v.confidence >= 0 &&
+    v.confidence <= 1 &&
+    'method' in v &&
+    (v.method === 'logistic_regression' || v.method === 'consecutive_success')
   );
 }

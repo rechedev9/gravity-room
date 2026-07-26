@@ -4,6 +4,7 @@
 process.env['LOG_LEVEL'] = 'silent';
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { PgDialect } from 'drizzle-orm/pg-core';
 
 // ---------------------------------------------------------------------------
 // Mock DB
@@ -32,7 +33,9 @@ const INSIGHT_ROWS = [
 let selectResult: unknown[] = [];
 
 const mockOrderBy = vi.fn(() => selectResult);
-const mockWhere = vi.fn(() => ({ orderBy: mockOrderBy }));
+const mockWhere = vi.fn<(condition: unknown) => { orderBy: typeof mockOrderBy }>(() => ({
+  orderBy: mockOrderBy,
+}));
 const mockFrom = vi.fn(() => ({ where: mockWhere }));
 const mockSelect = vi.fn(() => ({ from: mockFrom }));
 
@@ -75,5 +78,22 @@ describe('getInsights', () => {
     selectResult = [];
     const result = await getInsights('user-1', []);
     expect(result).toHaveLength(0);
+  });
+
+  it('excludes explicitly expired rows at the database boundary', async () => {
+    await getInsights('user-1', []);
+
+    const condition: unknown = mockWhere.mock.calls[0]?.[0];
+    if (
+      condition === null ||
+      typeof condition !== 'object' ||
+      !('getSQL' in condition) ||
+      typeof condition.getSQL !== 'function'
+    ) {
+      throw new Error('expected a Drizzle SQL condition');
+    }
+    const query = new PgDialect().sqlToQuery(condition.getSQL());
+    expect(query.sql).toContain('"user_insights"."valid_until" is null');
+    expect(query.sql).toContain('"user_insights"."valid_until" >');
   });
 });

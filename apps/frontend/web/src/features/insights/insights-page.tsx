@@ -5,7 +5,12 @@ import { useDocumentTitle } from '@/hooks/use-document-title';
 import { useAuth } from '@/contexts/auth-context';
 import { fetchInsights } from '@/lib/api-functions';
 import { queryKeys } from '@/lib/query-keys';
-import { isVolumeTrendPayload, isFrequencyPayload } from '@/lib/insight-payloads';
+import {
+  isVolumeTrendPayload,
+  isFrequencyPayload,
+  isPlateauPayload,
+  isRecommendationPayload,
+} from '@/lib/insight-payloads';
 import { lazyWithRetry } from '@/lib/lazy-with-retry';
 import { Kicker } from '@/components/kicker';
 import { Tag } from '@/components/tag';
@@ -38,7 +43,7 @@ function ChartFallback(): React.ReactNode {
 }
 
 export function InsightsPage(): React.ReactNode {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   useDocumentTitle(t('insights.page.title'));
 
@@ -51,10 +56,17 @@ export function InsightsPage(): React.ReactNode {
 
   const insights = insightsQuery.data ?? [];
 
-  const volumeTrend = insights.find((i) => i.insightType === 'volume_trend') ?? null;
-  const frequency = insights.find((i) => i.insightType === 'frequency') ?? null;
-  const plateaus = insights.filter((i) => i.insightType === 'plateau_detection');
-  const recommendations = insights.filter((i) => i.insightType === 'load_recommendation');
+  const volumeTrend =
+    insights.find((i) => i.insightType === 'volume_trend' && isVolumeTrendPayload(i.payload)) ??
+    null;
+  const frequency =
+    insights.find((i) => i.insightType === 'frequency' && isFrequencyPayload(i.payload)) ?? null;
+  const plateaus = insights.filter(
+    (i) => i.insightType === 'plateau_detection' && isPlateauPayload(i.payload)
+  );
+  const recommendations = insights.filter(
+    (i) => i.insightType === 'load_recommendation' && isRecommendationPayload(i.payload)
+  );
 
   // Headline stats derived from the real payloads — no fabricated data.
   const stats = useMemo(() => {
@@ -72,6 +84,35 @@ export function InsightsPage(): React.ReactNode {
 
   const hasContent =
     volumeTrend !== null || frequency !== null || plateaus.length > 0 || recommendations.length > 0;
+
+  const displayedInsights = [
+    ...(volumeTrend ? [volumeTrend] : []),
+    ...(frequency ? [frequency] : []),
+    ...plateaus,
+    ...recommendations,
+  ];
+  let newestComputedAt: Date | null = null;
+  for (const insight of displayedInsights) {
+    const parsed = new Date(insight.computedAt);
+    if (Number.isNaN(parsed.getTime())) continue;
+    if (newestComputedAt === null || parsed > newestComputedAt) newestComputedAt = parsed;
+  }
+
+  let updatedLabel: string | null = null;
+  if (newestComputedAt !== null) {
+    const now = new Date();
+    const isToday =
+      newestComputedAt.getFullYear() === now.getFullYear() &&
+      newestComputedAt.getMonth() === now.getMonth() &&
+      newestComputedAt.getDate() === now.getDate();
+    updatedLabel = isToday
+      ? t('insights.page.updated_today')
+      : t('insights.page.updated_on', {
+          date: new Intl.DateTimeFormat(i18n.resolvedLanguage ?? i18n.language, {
+            dateStyle: 'medium',
+          }).format(newestComputedAt),
+        });
+  }
 
   const directionLabel =
     stats.direction === 'up'
@@ -93,10 +134,26 @@ export function InsightsPage(): React.ReactNode {
               {t('insights.page.title')}
             </h1>
           </div>
-          {hasContent && <Tag tone="gold">{t('insights.page.updated_today')}</Tag>}
+          {hasContent && updatedLabel && newestComputedAt && (
+            <Tag tone="gold">
+              <time dateTime={newestComputedAt.toISOString()}>{updatedLabel}</time>
+            </Tag>
+          )}
         </header>
 
-        {!hasContent && !insightsQuery.isLoading ? (
+        {insightsQuery.isError ? (
+          <div className="flex min-h-[50vh] flex-col" role="alert">
+            <EmptyState
+              kicker={t('insights.page.kicker')}
+              title={t('insights.page.error_heading')}
+              body={t('insights.page.error_description')}
+              action={{
+                label: t('common.retry'),
+                onClick: () => void insightsQuery.refetch(),
+              }}
+            />
+          </div>
+        ) : !hasContent && !insightsQuery.isLoading ? (
           // min-h gives the self-centering EmptyState panel room to sit
           // vertically centred in the space below the header.
           <div className="flex min-h-[50vh] flex-col">
@@ -136,9 +193,9 @@ export function InsightsPage(): React.ReactNode {
                   <Suspense fallback={<ChartFallback />}>
                     <VolumeTrendCard insight={volumeTrend} />
                   </Suspense>
-                ) : (
+                ) : insightsQuery.isLoading ? (
                   <ChartFallback />
-                )}
+                ) : null}
                 {frequency && <FrequencyCard insight={frequency} />}
               </div>
 

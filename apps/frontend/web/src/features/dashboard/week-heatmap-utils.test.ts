@@ -7,6 +7,18 @@ import {
 } from './week-heatmap-utils';
 
 describe('buildHeatmapGrid', () => {
+  it('keeps every local calendar date unique across the autumn DST transition', () => {
+    const grid = buildHeatmapGrid([], new Date(2026, 9, 28, 12), 2);
+    const dateKeys = grid
+      .flat()
+      .map((cell) => `${cell.date.getFullYear()}-${cell.date.getMonth()}-${cell.date.getDate()}`);
+
+    expect(dateKeys).toHaveLength(14);
+    expect(new Set(dateKeys)).toHaveProperty('size', 14);
+    expect(dateKeys[0]).toBe('2026-9-19');
+    expect(dateKeys[13]).toBe('2026-10-1');
+  });
+
   it('returns 12 columns × 7 rows', () => {
     const grid = buildHeatmapGrid([], new Date('2026-05-11'));
     expect(grid).toHaveLength(12);
