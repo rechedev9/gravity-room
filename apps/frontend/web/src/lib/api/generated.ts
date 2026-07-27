@@ -89,12 +89,27 @@ const postApiProgramsImport_Body = z
             prev: z.union([z.string(), z.string()]).optional(),
             prevRpe: z.union([z.string(), z.number()]).optional(),
             prevAmrapReps: z.union([z.string(), z.number()]).optional(),
+            prevSetLogs: z
+              .array(
+                z
+                  .object({
+                    reps: z.union([z.string(), z.number()]),
+                    weight: z.number().gte(0).lte(10000).optional(),
+                    rpe: z.union([z.string(), z.number()]).optional(),
+                  })
+                  .passthrough()
+                  .readonly()
+              )
+              .readonly()
+              .max(20)
+              .optional(),
           })
           .passthrough()
           .readonly()
       )
       .readonly()
       .max(500),
+    completedDates: z.object({}).partial().passthrough().readonly().optional(),
   })
   .passthrough()
   .readonly();
