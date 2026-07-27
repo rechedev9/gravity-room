@@ -9,6 +9,7 @@ interface QueuedMutationRow {
 
 const mockRows: QueuedMutationRow[] = [];
 let mockNextId = 1;
+let mockRowsOverride: unknown[] | null = null;
 
 jest.mock('../db/client', () => ({
   bootstrapDatabase: jest.fn(async () => undefined),
@@ -63,6 +64,10 @@ jest.mock('../db/client', () => ({
       return { changes: 0, lastInsertRowId: 0 };
     }),
     getAllAsync: jest.fn(async (sql: string) => {
+      if (mockRowsOverride) {
+        return mockRowsOverride;
+      }
+
       if (!sql.includes('SELECT id, entity_type, entity_id, operation, payload_json, created_at')) {
         return [];
       }
@@ -86,6 +91,7 @@ describe('mutation queue repository', () => {
   beforeEach(() => {
     mockRows.length = 0;
     mockNextId = 1;
+    mockRowsOverride = null;
   });
 
   it('stores tracker mutations and returns them in FIFO order', async () => {
@@ -218,5 +224,22 @@ describe('mutation queue repository', () => {
     await clearQueuedMutations();
 
     await expect(listQueuedMutations()).resolves.toEqual([]);
+  });
+
+  it('rejects malformed SQLite rows before exposing them to sync', async () => {
+    mockRowsOverride = [
+      {
+        id: 'not-an-integer',
+        entity_type: 'program-instance',
+        entity_id: 'instance-1',
+        operation: 'record-result',
+        payload_json: '{}',
+        created_at: '2026-04-20T10:00:00.000Z',
+      },
+    ];
+
+    await expect(listQueuedMutations()).rejects.toThrow(
+      'SQLite returned an invalid queued mutation row'
+    );
   });
 });

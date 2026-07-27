@@ -59,6 +59,16 @@ una conversión de presentación y no reescribe almacenamiento.
 `apps/frontend/mobile/src/lib/db/mobile-v2-schema-contract.ts`; M0 lo prueba con SQLite real, pero no
 lo registra todavía en las migraciones runtime.
 
+Todas las tablas v2 se crean como `STRICT`. Esto impide que la afinidad dinámica de SQLite acepte, por
+ejemplo, índices o repeticiones fraccionarias, texto en columnas enteras o texto no numérico como peso.
+Los `CHECK` siguen expresando rangos, enums, booleanos y lifecycle una vez validado el tipo.
+
+Las foreign keys se habilitan por defecto en cada conexión nativa con
+`SQLITE_DEFAULT_FOREIGN_KEYS=1` mediante el config plugin de Expo SQLite para Android e iOS. El adapter
+activa también `PRAGMA foreign_keys = ON` en la conexión principal y verifica de forma fail-closed el
+valor dentro de cada transacción exclusiva. Esto es necesario porque Expo SQLite 16 abre una conexión
+nueva para `withExclusiveTransactionAsync`.
+
 Una sesión `completed` materializa por slot el resultado compatible actual
 (`result/amrapReps/rpe/setLogs`) y deja que `computeGenericProgram` decida la progresión. Los logs no
 infieren nuevas reglas. Cancelar conserva la sesión y sus logs con estado `cancelled`; borrar requiere

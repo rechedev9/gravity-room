@@ -15,6 +15,8 @@ interface ProgramDefinitionRow {
 
 const mockProgramDetailRows: ProgramDetailRow[] = [];
 const mockProgramDefinitionRows: ProgramDefinitionRow[] = [];
+let mockProgramDetailRowsOverride: unknown[] | null = null;
+let mockProgramDefinitionRowsOverride: unknown[] | null = null;
 
 jest.mock('../db/client', () => ({
   bootstrapDatabase: jest.fn(async () => undefined),
@@ -70,11 +72,19 @@ jest.mock('../db/client', () => ({
     runAsync: jest.fn(async () => ({ changes: 0, lastInsertRowId: 0 })),
     getAllAsync: jest.fn(async (sql: string, ...params: unknown[]) => {
       if (sql.includes('SELECT id, program_id, detail_json, updated_at FROM program_details')) {
+        if (mockProgramDetailRowsOverride) {
+          return mockProgramDetailRowsOverride;
+        }
+
         const requestedId = String(params[0]);
         return mockProgramDetailRows.filter((row) => row.id === requestedId);
       }
 
       if (sql.includes('SELECT id, definition_json, updated_at FROM program_definitions')) {
+        if (mockProgramDefinitionRowsOverride) {
+          return mockProgramDefinitionRowsOverride;
+        }
+
         const requestedId = String(params[0]);
         return mockProgramDefinitionRows.filter((row) => row.id === requestedId);
       }
@@ -170,6 +180,8 @@ describe('program detail repository', () => {
   beforeEach(() => {
     mockProgramDetailRows.length = 0;
     mockProgramDefinitionRows.length = 0;
+    mockProgramDetailRowsOverride = null;
+    mockProgramDefinitionRowsOverride = null;
   });
 
   it('round-trips cached program detail and definition', async () => {
@@ -203,5 +215,32 @@ describe('program detail repository', () => {
       ...TEST_DEFINITION,
       name: 'Updated Definition',
     });
+  });
+
+  it('rejects malformed SQLite detail and definition rows', async () => {
+    mockProgramDetailRowsOverride = [
+      {
+        id: 'instance-1',
+        program_id: 'test-prog',
+        detail_json: 42,
+        updated_at: '2026-04-20T10:00:00.000Z',
+      },
+    ];
+
+    await expect(getProgramDetail('instance-1')).rejects.toThrow(
+      'SQLite returned an invalid program detail row'
+    );
+
+    mockProgramDefinitionRowsOverride = [
+      {
+        id: 'test-prog',
+        definition_json: {},
+        updated_at: '2026-04-20T10:00:00.000Z',
+      },
+    ];
+
+    await expect(getProgramDefinition('test-prog')).rejects.toThrow(
+      'SQLite returned an invalid program definition row'
+    );
   });
 });

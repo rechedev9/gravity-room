@@ -60,6 +60,11 @@ En TypeScript, `entity_type + operation` discrimina el payload. No se acepta `Re
 después de leer SQLite/red: un parser runtime produce la unión cerrada o marca la fila como error
 visible. `id` viaja como `Idempotency-Key` o como ID del recurso cuando el endpoint es `PUT`.
 
+El adapter SQLite devuelve filas como `unknown[]`, nunca mediante un genérico elegido por el caller.
+Cada repositorio valida nombres y tipos de columnas antes de construir su modelo; una fila corrupta se
+rechaza con error explícito. Los parámetros de bind se limitan al `SQLiteBindValue` exportado por
+Expo SQLite.
+
 Orden y concurrencia:
 
 1. FIFO estable por `created_at, id` dentro de una entidad.

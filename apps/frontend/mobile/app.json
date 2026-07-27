@@ -6,6 +6,15 @@
     "android": {
       "package": "com.gravityroom.mobile"
     },
-    "plugins": ["expo-sqlite", "expo-secure-store", "expo-web-browser"]
+    "plugins": [
+      [
+        "expo-sqlite",
+        {
+          "customBuildFlags": "-DSQLITE_DEFAULT_FOREIGN_KEYS=1"
+        }
+      ],
+      "expo-secure-store",
+      "expo-web-browser"
+    ]
   }
 }

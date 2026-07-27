@@ -29,6 +29,30 @@ type QueuedMutationRow = {
   readonly created_at: string;
 };
 
+function parseQueuedMutationRow(value: unknown): QueuedMutationRow {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== 'number' ||
+    !Number.isSafeInteger(value.id) ||
+    typeof value.entity_type !== 'string' ||
+    typeof value.entity_id !== 'string' ||
+    typeof value.operation !== 'string' ||
+    typeof value.payload_json !== 'string' ||
+    typeof value.created_at !== 'string'
+  ) {
+    throw new Error('SQLite returned an invalid queued mutation row');
+  }
+
+  return {
+    id: value.id,
+    entity_type: value.entity_type,
+    entity_id: value.entity_id,
+    operation: value.operation,
+    payload_json: value.payload_json,
+    created_at: value.created_at,
+  };
+}
+
 function parsePayload(payloadJson: string): MutationPayload {
   try {
     const value: unknown = JSON.parse(payloadJson);
@@ -61,13 +85,13 @@ export async function listQueuedMutations(): Promise<QueuedMutation[]> {
   const database = getDatabase();
   await bootstrapDatabase(database);
 
-  const rows = await database.getAllAsync<QueuedMutationRow>(
+  const rows = await database.getAllAsync(
     `SELECT id, entity_type, entity_id, operation, payload_json, created_at
      FROM queued_mutations
      ORDER BY created_at ASC, id ASC`
   );
 
-  return rows.map((row) => ({
+  return rows.map(parseQueuedMutationRow).map((row) => ({
     id: row.id,
     entityType: row.entity_type,
     entityId: row.entity_id,

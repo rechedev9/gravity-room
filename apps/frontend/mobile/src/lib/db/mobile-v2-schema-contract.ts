@@ -44,7 +44,7 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
         AND validated_at IS NOT NULL
       )
     )
-  );
+  ) STRICT;
 
   CREATE TABLE IF NOT EXISTS legacy_queued_mutations_quarantine (
     quarantine_key TEXT PRIMARY KEY NOT NULL,
@@ -80,7 +80,7 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
         AND validated_at IS NOT NULL
       )
     )
-  );
+  ) STRICT;
 
   INSERT OR IGNORE INTO legacy_user_cache_quarantine (
     quarantine_key,
@@ -167,7 +167,7 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
     title TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     PRIMARY KEY (owner_user_id, id)
-  );
+  ) STRICT;
 
   CREATE TABLE program_details (
     owner_user_id TEXT NOT NULL CHECK (length(owner_user_id) > 0),
@@ -178,7 +178,7 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
     ),
     updated_at TEXT NOT NULL,
     PRIMARY KEY (owner_user_id, id)
-  );
+  ) STRICT;
 
   CREATE TABLE program_definitions (
     owner_user_id TEXT NOT NULL CHECK (length(owner_user_id) > 0),
@@ -188,7 +188,7 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
     ),
     updated_at TEXT NOT NULL,
     PRIMARY KEY (owner_user_id, id)
-  );
+  ) STRICT;
 
   CREATE TABLE outbox_mutations (
     id TEXT PRIMARY KEY NOT NULL CHECK (length(id) = 36),
@@ -215,7 +215,7 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
       OR (entity_type = 'program_instance' AND operation IN ('update', 'archive', 'delete'))
       OR (entity_type = 'preference' AND operation = 'upsert')
     )
-  );
+  ) STRICT;
 
   CREATE TABLE workout_sessions (
     id TEXT PRIMARY KEY NOT NULL CHECK (length(id) = 36),
@@ -234,7 +234,7 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
       (status = 'in_progress' AND completed_at IS NULL)
       OR (status IN ('completed', 'cancelled') AND completed_at IS NOT NULL)
     )
-  );
+  ) STRICT;
 
   CREATE TABLE workout_set_logs (
     id TEXT PRIMARY KEY NOT NULL CHECK (length(id) = 36),
@@ -249,7 +249,7 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
     completed_at TEXT,
     deleted_at TEXT,
     updated_at TEXT NOT NULL
-  );
+  ) STRICT;
 
   CREATE UNIQUE INDEX one_in_progress_session_per_owner
     ON workout_sessions(owner_user_id)

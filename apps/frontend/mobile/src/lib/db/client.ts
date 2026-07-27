@@ -13,8 +13,20 @@ export function getDatabase(): DatabaseClient {
 }
 
 async function getUserVersion(client: DatabaseClient): Promise<number> {
-  const rows = await client.getAllAsync<{ user_version: number }>('PRAGMA user_version');
-  return rows[0]?.user_version ?? 0;
+  const row = (await client.getAllAsync('PRAGMA user_version'))[0];
+
+  if (
+    typeof row !== 'object' ||
+    row === null ||
+    !('user_version' in row) ||
+    typeof row.user_version !== 'number' ||
+    !Number.isInteger(row.user_version) ||
+    row.user_version < 0
+  ) {
+    throw new Error('SQLite returned an invalid user_version');
+  }
+
+  return row.user_version;
 }
 
 async function applyMigrations(

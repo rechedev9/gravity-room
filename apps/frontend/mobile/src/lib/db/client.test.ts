@@ -41,13 +41,9 @@ function createFakeDatabase(fixture: MobileDatabaseFixture): FakeDatabase {
     }
   });
 
-  async function getAllAsync<T>(source: string): Promise<T[]> {
+  async function getAllAsync(source: string): Promise<unknown[]> {
     if (source.trim() === 'PRAGMA user_version') {
-      // DatabaseClient is generic because expo-sqlite maps a caller-selected
-      // row shape. This fake only answers the one row contract used here.
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-      const row = { user_version: userVersion } as unknown as T;
-      return [row];
+      return [{ user_version: userVersion }];
     }
 
     return [];
@@ -172,6 +168,19 @@ describe('bootstrapDatabase', () => {
     expect(database.getVersion()).toBe(1);
     expect(database.getTableNames()).toEqual([...V1_DATABASE_FIXTURE.tables].sort());
     expect(database.appliedSql).toEqual([]);
+  });
+
+  it('rejects a malformed user_version row from the SQLite boundary', async () => {
+    const database: DatabaseClient = {
+      execAsync: jest.fn(async () => undefined),
+      runAsync: jest.fn(async () => undefined),
+      getAllAsync: jest.fn(async () => [{ user_version: '1' }]),
+      withExclusiveTransactionAsync: jest.fn(async () => undefined),
+    };
+
+    await expect(bootstrapDatabase(database)).rejects.toThrow(
+      'SQLite returned an invalid user_version'
+    );
   });
 
   it('skips migrations already applied when starting above version 0', async () => {

@@ -1,3 +1,5 @@
+import { isRecord } from '@gzclp/domain/type-guards';
+
 import { bootstrapDatabase, getDatabase } from '../db/client';
 
 export interface ProgramSummary {
@@ -10,6 +12,23 @@ interface ProgramSummaryRow {
   readonly id: string;
   readonly title: string;
   readonly updated_at: string;
+}
+
+function parseProgramSummaryRow(value: unknown): ProgramSummaryRow {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== 'string' ||
+    typeof value.title !== 'string' ||
+    typeof value.updated_at !== 'string'
+  ) {
+    throw new Error('SQLite returned an invalid program summary row');
+  }
+
+  return {
+    id: value.id,
+    title: value.title,
+    updated_at: value.updated_at,
+  };
 }
 
 export async function upsertProgramSummaries(programs: readonly ProgramSummary[]): Promise<void> {
@@ -47,12 +66,12 @@ export async function listProgramSummaries(): Promise<ProgramSummary[]> {
   const database = getDatabase();
   await bootstrapDatabase(database);
 
-  const rows = await database.getAllAsync<ProgramSummaryRow>(
+  const rows = await database.getAllAsync(
     `SELECT id, title, updated_at FROM program_summaries
      ORDER BY updated_at DESC, title ASC`
   );
 
-  return rows.map((row) => ({
+  return rows.map(parseProgramSummaryRow).map((row) => ({
     id: row.id,
     title: row.title,
     updatedAt: row.updated_at,

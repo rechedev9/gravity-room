@@ -6,6 +6,7 @@ interface ProgramSummaryRow {
 
 const rows: ProgramSummaryRow[] = [];
 let mockFailNextInsert = false;
+let mockRowsOverride: unknown[] | null = null;
 
 function mockRequireStringParameter(params: readonly unknown[], index: number): string {
   const value = params[index];
@@ -81,6 +82,10 @@ jest.mock('../db/client', () => ({
     ),
     runAsync: jest.fn(async () => ({ changes: 1, lastInsertRowId: 0 })),
     getAllAsync: jest.fn(async (sql: string) => {
+      if (mockRowsOverride) {
+        return mockRowsOverride;
+      }
+
       if (!sql.includes('SELECT id, title, updated_at FROM program_summaries')) {
         return [];
       }
@@ -100,6 +105,7 @@ describe('program repository', () => {
   beforeEach(() => {
     rows.length = 0;
     mockFailNextInsert = false;
+    mockRowsOverride = null;
   });
 
   it('reads persisted program summaries back in updated order', async () => {
@@ -213,5 +219,19 @@ describe('program repository', () => {
         updatedAt: '2026-04-18T10:00:00.000Z',
       },
     ]);
+  });
+
+  it('rejects malformed SQLite rows instead of trusting a caller-selected generic', async () => {
+    mockRowsOverride = [
+      {
+        id: 'program-a',
+        title: 'Strength Base',
+        updated_at: 42,
+      },
+    ];
+
+    await expect(listProgramSummaries()).rejects.toThrow(
+      'SQLite returned an invalid program summary row'
+    );
   });
 });

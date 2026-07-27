@@ -118,6 +118,25 @@ describe('Mobile v2 SQLite schema contract', () => {
       'workout_sessions_owner_program_updated',
       'workout_set_logs_session_position',
     ]);
+    expect(
+      readStrings(
+        database,
+        `SELECT name
+         FROM pragma_table_list
+         WHERE schema = 'main' AND strict = 1 AND name NOT LIKE 'sqlite_%'
+         ORDER BY name`,
+        'name'
+      )
+    ).toEqual([
+      'legacy_queued_mutations_quarantine',
+      'legacy_user_cache_quarantine',
+      'outbox_mutations',
+      'program_definitions',
+      'program_details',
+      'program_summaries',
+      'workout_sessions',
+      'workout_set_logs',
+    ]);
     expect(countRows(database, 'program_summaries')).toBe(0);
     expect(countRows(database, 'outbox_mutations')).toBe(0);
 
@@ -400,6 +419,120 @@ describe('Mobile v2 SQLite schema contract', () => {
         )
       `)
     ).toThrow();
+
+    database.close();
+  });
+
+  it('rejects values that dynamic SQLite would coerce into typed workout and outbox columns', () => {
+    const database = createV1Database(false);
+    applyContractMigration(database);
+
+    database.exec(`
+      INSERT INTO workout_sessions (
+        id, owner_user_id, program_instance_id, workout_index, status,
+        started_at, completed_at, updated_at
+      ) VALUES (
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'user-valid',
+        'program-valid',
+        0,
+        'in_progress',
+        '2026-07-27T12:00:00.000Z',
+        NULL,
+        '2026-07-27T12:00:00.000Z'
+      )
+    `);
+
+    expect(() =>
+      database.exec(`
+        INSERT INTO workout_sessions (
+          id, owner_user_id, program_instance_id, workout_index, status,
+          started_at, completed_at, updated_at
+        ) VALUES (
+          'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          'user-text-index',
+          'program-text-index',
+          'abc',
+          'in_progress',
+          '2026-07-27T12:00:00.000Z',
+          NULL,
+          '2026-07-27T12:00:00.000Z'
+        )
+      `)
+    ).toThrow();
+    expect(() =>
+      database.exec(`
+        INSERT INTO workout_sessions (
+          id, owner_user_id, program_instance_id, workout_index, status,
+          started_at, completed_at, updated_at
+        ) VALUES (
+          'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+          'user-fractional-index',
+          'program-fractional-index',
+          1.5,
+          'in_progress',
+          '2026-07-27T12:00:00.000Z',
+          NULL,
+          '2026-07-27T12:00:00.000Z'
+        )
+      `)
+    ).toThrow();
+    expect(() =>
+      database.exec(`
+        INSERT INTO outbox_mutations (
+          id, owner_user_id, entity_type, entity_id, operation, payload_json,
+          attempt_count, next_attempt_at, created_at, updated_at
+        ) VALUES (
+          'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+          'user-a',
+          'workout_set',
+          'set-a',
+          'upsert',
+          '{}',
+          'abc',
+          '2026-07-27T12:00:00.000Z',
+          '2026-07-27T12:00:00.000Z',
+          '2026-07-27T12:00:00.000Z'
+        )
+      `)
+    ).toThrow();
+    expect(() =>
+      database.exec(`
+        INSERT INTO workout_set_logs (
+          id, session_id, slot_id, position, kind, reps, is_amrap, updated_at
+        ) VALUES (
+          'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+          'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          'squat-t1',
+          0,
+          'working',
+          5.5,
+          0,
+          '2026-07-27T12:01:00.000Z'
+        )
+      `)
+    ).toThrow();
+    expect(() =>
+      database.exec(`
+        INSERT INTO workout_set_logs (
+          id, session_id, slot_id, position, kind, reps, weight_kg, is_amrap, updated_at
+        ) VALUES (
+          'ffffffff-ffff-4fff-8fff-ffffffffffff',
+          'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          'squat-t1',
+          0,
+          'working',
+          5,
+          'heavy',
+          0,
+          '2026-07-27T12:01:00.000Z'
+        )
+      `)
+    ).toThrow();
+
+    expect(countRows(database, 'workout_sessions')).toBe(1);
+    expect(countRows(database, 'workout_set_logs')).toBe(0);
+    expect(countRows(database, 'outbox_mutations')).toBe(0);
 
     database.close();
   });
