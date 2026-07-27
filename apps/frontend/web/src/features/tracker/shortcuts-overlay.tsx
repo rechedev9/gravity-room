@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/button';
 import { hasSeenShortcuts, markShortcutsSeen } from './shortcuts-storage';
@@ -16,6 +16,7 @@ export function ShortcutsOverlay({ enabled }: ShortcutsOverlayProps): React.Reac
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
 
   useEffect(() => {
     if (enabled && !hasSeenShortcuts()) setOpen(true);
@@ -37,9 +38,12 @@ export function ShortcutsOverlay({ enabled }: ShortcutsOverlayProps): React.Reac
     <dialog
       ref={dialogRef}
       onClose={dismiss}
+      aria-labelledby={titleId}
       className="modal-box fixed inset-0 m-auto h-fit max-w-md w-[calc(100%-2rem)] bg-card border-[1.5px] border-rule rounded-[var(--radius-base)] p-6 shadow-[var(--shadow-elevated)] backdrop:bg-black/72 backdrop:backdrop-blur-md"
     >
-      <p className="chalk-stamp mb-1">{t('tracker.shortcuts.title')}</p>
+      <h2 id={titleId} className="chalk-stamp mb-1">
+        {t('tracker.shortcuts.title')}
+      </h2>
       <hr className="border-rule mb-4" />
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
         <dt className="font-mono text-label">[S]</dt>

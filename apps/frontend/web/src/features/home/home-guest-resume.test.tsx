@@ -47,5 +47,6 @@ describe('HomeGuestResume', () => {
     // The mocked Link exposes `to` as href and serializes `params`.
     expect(link.getAttribute('href')).toBe('/app/tracker/$programId');
     expect(link.getAttribute('data-params')).toBe(JSON.stringify({ programId: 'gzclp' }));
+    expect(link.querySelector('button')).toBeNull();
   });
 });

@@ -167,8 +167,10 @@ export function ProfileAccountCard({
         <button
           type="button"
           onClick={onToggleUnit}
-          className="flex items-center gap-0.5 font-mono text-2xs border border-rule px-2 py-0.5 hover:border-accent hover:text-title transition-colors"
-          aria-label={`Cambiar a ${unit === 'kg' ? t('profile.account.unit_lbs') : t('profile.account.unit_kg')}`}
+          className="flex min-h-11 items-center gap-0.5 font-mono text-2xs border border-rule px-3 py-2 hover:border-accent hover:text-title transition-colors"
+          aria-label={t('profile.account.change_unit_aria', {
+            unit: unit === 'kg' ? t('profile.account.unit_lbs') : t('profile.account.unit_kg'),
+          })}
         >
           <span className={unit === 'kg' ? 'text-title font-bold' : 'text-muted'}>kg</span>
           <span className="text-muted mx-0.5">/</span>
@@ -187,7 +189,7 @@ export function ProfileAccountCard({
         <button
           type="button"
           onClick={() => setShowDangerZone((v) => !v)}
-          className="text-2xs text-muted hover:text-main transition-colors"
+          className="min-h-11 px-2 text-2xs text-muted hover:text-main transition-colors"
           aria-expanded={showDangerZone}
         >
           {t('profile.account.danger_zone')} {showDangerZone ? '\u25b2' : '\u25bc'}
@@ -197,7 +199,7 @@ export function ProfileAccountCard({
             <button
               type="button"
               onClick={onDeleteRequest}
-              className="text-2xs text-muted underline cursor-pointer hover:text-fail transition-colors"
+              className="min-h-11 px-2 text-2xs text-muted underline cursor-pointer hover:text-fail transition-colors"
             >
               {t('profile.account.delete_account')}
             </button>

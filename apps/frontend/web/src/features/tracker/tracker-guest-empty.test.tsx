@@ -30,6 +30,7 @@ describe('TrackerGuestEmpty', () => {
     expect(screen.getByText('Elige un programa')).toBeInTheDocument();
     const cta = screen.getByText('Explorar programas').closest('a');
     expect(cta).toHaveAttribute('to', '/app/programs');
+    expect(cta?.querySelector('button')).toBeNull();
   });
 
   it('renders English copy', async () => {

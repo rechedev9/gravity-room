@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
-import { Button } from '@/components/button';
+import { buttonClassName } from '@/components/button';
 
 /**
  * Shown when a guest lands on /app/tracker without an in-progress program.
@@ -22,8 +22,8 @@ export function TrackerGuestEmpty(): React.ReactNode {
           <p className="text-muted mb-6 max-w-sm mx-auto leading-relaxed">
             {t('tracker.guest_empty.body')}
           </p>
-          <Link to="/app/programs">
-            <Button variant="primary">{t('tracker.guest_empty.cta')}</Button>
+          <Link to="/app/programs" className={buttonClassName({ variant: 'primary' })}>
+            {t('tracker.guest_empty.cta')}
           </Link>
         </section>
       </div>

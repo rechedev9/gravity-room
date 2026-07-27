@@ -43,20 +43,35 @@ export function AppLayout(): React.ReactNode {
     setSidebarOpen(false);
   }, [pathname]);
 
+  // The modal drawer is mobile-only. Clear its state when the viewport crosses
+  // into the desktop layout so the hidden drawer cannot leave page content inert.
+  useEffect(() => {
+    const desktopMedia = window.matchMedia('(min-width: 1024px)');
+    const handleBreakpointChange = (event: MediaQueryListEvent): void => {
+      if (event.matches) setSidebarOpen(false);
+    };
+
+    if (desktopMedia.matches) setSidebarOpen(false);
+    desktopMedia.addEventListener('change', handleBreakpointChange);
+    return (): void => {
+      desktopMedia.removeEventListener('change', handleBreakpointChange);
+    };
+  }, []);
+
   const pageTitle = getPageTitle(pathname, t);
 
   return (
     <div className="flex min-h-dvh bg-body">
       <AppSidebar isOpen={sidebarOpen} onClose={closeSidebar} />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0" inert={sidebarOpen ? true : undefined}>
         {/* Top bar — mobile only trigger + page title */}
         <header className="flex items-center gap-3 px-4 py-3 bg-header border-b border-rule shadow-[0_1px_8px_rgba(0,0,0,0.4)] lg:hidden sticky top-0 z-40">
           <SidebarTrigger isOpen={sidebarOpen} onToggle={toggleSidebar} />
           <span className="text-sm font-bold text-title tracking-tight">{pageTitle}</span>
         </header>
 
-        <main className="flex-1">
+        <main className="flex-1" tabIndex={-1}>
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}

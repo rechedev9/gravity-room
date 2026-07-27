@@ -87,6 +87,7 @@ describe('GuestBanner', () => {
 
       const button = screen.getByRole('button', { name: /Crear cuenta/i });
       expect(button).toBeDefined();
+      expect(button).toHaveClass('min-h-11');
     });
 
     it('should apply the provided className', () => {

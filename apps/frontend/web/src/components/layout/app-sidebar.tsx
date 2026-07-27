@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
@@ -94,14 +94,30 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
   const reduced = useReducedMotion();
   const drawerDuration = reduced ? 0 : 0.22;
   const [signOutError, setSignOutError] = useState(false);
+  const mobileDrawerRef = useRef<HTMLElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
+    previouslyFocusedRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frameId = requestAnimationFrame(() => {
+      mobileDrawerRef.current?.querySelector<HTMLButtonElement>('[data-sidebar-close]')?.focus();
+    });
     const handler = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handler);
-    return (): void => document.removeEventListener('keydown', handler);
+    return (): void => {
+      cancelAnimationFrame(frameId);
+      document.removeEventListener('keydown', handler);
+      const previouslyFocused = previouslyFocusedRef.current;
+      if (previouslyFocused?.isConnected && previouslyFocused.getClientRects().length > 0) {
+        previouslyFocused.focus();
+      } else {
+        document.querySelector<HTMLElement>('main')?.focus();
+      }
+    };
   }, [isOpen, onClose]);
 
   // Lock body scroll while the mobile drawer is open so the page behind it
@@ -143,6 +159,29 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
     [signOut]
   );
 
+  const handleMobileDrawerKeyDown = (event: React.KeyboardEvent<HTMLElement>): void => {
+    if (event.key !== 'Tab') return;
+
+    const focusable = Array.from(
+      mobileDrawerRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ) ?? []
+    );
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (first === undefined || last === undefined) return;
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   function renderNavItems(onItemClick: () => void): React.ReactNode {
     return NAV_ITEMS.map((item) => {
       if (item.guestHidden && isGuest) return null;
@@ -178,6 +217,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
             {showClose && (
               <button
                 type="button"
+                data-sidebar-close
                 onClick={onClose}
                 aria-label={t('sidebar.close_menu')}
                 className={cn(
@@ -216,7 +256,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                 type="button"
                 onClick={() => handleGuestExit(onItemClick)}
                 className={cn(
-                  'w-full px-3 py-2 text-left font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted hover:text-main transition-colors cursor-pointer rounded-[var(--radius-base)]',
+                  'w-full min-h-11 px-3 py-2 text-left font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted hover:text-main transition-colors cursor-pointer rounded-[var(--radius-base)]',
                   SIDEBAR_FOCUS_RING
                 )}
               >
@@ -279,12 +319,17 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
               transition={{ duration: drawerDuration, ease: EASE_OUT_EXPO }}
             />
             <motion.aside
+              ref={mobileDrawerRef}
+              role="dialog"
+              aria-modal="true"
+              aria-label={t('navigation.main_nav_label')}
               className="relative z-10 bg-[var(--color-sidebar)] border-r border-[var(--color-sidebar-border)] h-full flex flex-col"
               style={{ width: 'var(--sidebar-width)', willChange: 'transform' }}
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: drawerDuration, ease: EASE_OUT_EXPO }}
+              onKeyDown={handleMobileDrawerKeyDown}
             >
               {renderContent(onClose, true)}
             </motion.aside>

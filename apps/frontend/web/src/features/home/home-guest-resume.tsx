@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
-import { Button } from '@/components/button';
+import { buttonClassName } from '@/components/button';
 import { localizedProgramName } from '@/lib/catalog-display';
 
 interface HomeGuestResumeProps {
@@ -27,8 +27,12 @@ export function HomeGuestResume({ programId, programName }: HomeGuestResumeProps
       <p className="text-muted mb-6 max-w-sm mx-auto leading-relaxed">
         {t('home.guest_resume.body')}
       </p>
-      <Link to="/app/tracker/$programId" params={{ programId }}>
-        <Button variant="primary">{t('home.guest_resume.cta')}</Button>
+      <Link
+        to="/app/tracker/$programId"
+        params={{ programId }}
+        className={buttonClassName({ variant: 'primary' })}
+      >
+        {t('home.guest_resume.cta')}
       </Link>
     </section>
   );
