@@ -77,17 +77,17 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
 
 ## Estado de slices
 
-| Slice                       | Estado       | Base       | Candidato | Corregido | Integrado |
-| --------------------------- | ------------ | ---------- | --------- | --------- | --------- |
-| M0 Contratos y baseline     | corrección 2 | `dcdec26f` | `0fcc4c6` | handoff   | pendiente |
-| M1 Shell y navegación       | pendiente    | pendiente  | pendiente | pendiente | pendiente |
-| M2 Programas                | pendiente    | pendiente  | pendiente | pendiente | pendiente |
-| M3 Tracker offline          | pendiente    | pendiente  | pendiente | pendiente | pendiente |
-| M4 Historial/temporizador   | pendiente    | pendiente  | pendiente | pendiente | pendiente |
-| M5 Perfil/datos             | pendiente    | pendiente  | pendiente | pendiente | pendiente |
-| M6 Programas personalizados | pendiente    | pendiente  | pendiente | pendiente | pendiente |
-| M7 Wiki contextual          | pendiente    | pendiente  | pendiente | pendiente | pendiente |
-| M8 Hardening/release/E2E    | pendiente    | pendiente  | pendiente | pendiente | pendiente |
+| Slice                       | Estado    | Base       | Candidato | Corregido | Integrado |
+| --------------------------- | --------- | ---------- | --------- | --------- | --------- |
+| M0 Contratos y baseline     | integrado | `dcdec26f` | `0fcc4c6` | `1b39abd` | `1b39abd` |
+| M1 Shell y navegación       | pendiente | pendiente  | pendiente | pendiente | pendiente |
+| M2 Programas                | pendiente | pendiente  | pendiente | pendiente | pendiente |
+| M3 Tracker offline          | pendiente | pendiente  | pendiente | pendiente | pendiente |
+| M4 Historial/temporizador   | pendiente | pendiente  | pendiente | pendiente | pendiente |
+| M5 Perfil/datos             | pendiente | pendiente  | pendiente | pendiente | pendiente |
+| M6 Programas personalizados | pendiente | pendiente  | pendiente | pendiente | pendiente |
+| M7 Wiki contextual          | pendiente | pendiente  | pendiente | pendiente | pendiente |
+| M8 Hardening/release/E2E    | pendiente | pendiente  | pendiente | pendiente | pendiente |
 
 ## M0 — Contratos y baseline
 
@@ -133,9 +133,10 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
 | Corrector 1             | `d8db3c0bf69c766c53c013ffd251c97e32984434` | Primera matriz N1-N6                            |
 | Reverificación A        | aprobada sobre `d8db3c0`                   | N1-N6 verificados                               |
 | Reverificación B        | `no-go` sobre `d8db3c0`                    | `M0-VB-001` P1, `M0-VB-002` P1, `M0-VB-003` P2  |
-| Corrector 2             | SHA en handoff                             | Nuevo commit normal; no amend                   |
-| Reverificación final    | pendiente                                  | No ejecutada                                    |
-| Decisión Main           | pendiente                                  | Integración/`go-no-go` no decidida              |
+| Corrector 2             | `1b39abd7dca75a0d57a1c8e056ff2f8e519260cc` | Segunda matriz VB-001 a VB-003                  |
+| Reverificación final A  | `go` sobre `1b39abd`                       | 6 suites focalizadas; 31/31 tests               |
+| Reverificación final B  | `go` sobre `1b39abd`                       | Probes de FK, STRICT, parsers y aislamiento     |
+| Decisión Main           | `go`                                       | Fast-forward a `codex/mobile-v2`                |
 
 ### Checks M0
 
@@ -163,6 +164,14 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
 | VB-001      | `M0-VB-001`            | P1        | fixed    | Flag nativo activa foreign keys en toda conexión; adapter activa la principal y verifica fail-closed cada conexión exclusiva.                   |
 | VB-002      | `M0-VB-002`            | P1        | fixed    | Ocho tablas `STRICT`; probes SQLite rechazan texto y fracciones en columnas numéricas de sesiones, sets y outbox.                               |
 | VB-003      | `M0-VB-003`            | P2        | fixed    | Boundary devuelve `unknown[]`; repositorios estrechan filas y no quedan casts ni disables para fingir tipos SQLite.                             |
+
+### Handoff Main
+
+- Código aprobado e integrado mediante fast-forward: `1b39abd7dca75a0d57a1c8e056ff2f8e519260cc`.
+- Los dos verificadores finales trabajaron en worktrees detached sobre ese SHA y devolvieron `go` sin
+  findings nuevos.
+- M1 parte del HEAD de integración posterior a este registro de orquestación.
+- E2E continúa sin ejecutarse y permanece reservado para M8.
 
 ### Deuda/riesgos conocidos
 
