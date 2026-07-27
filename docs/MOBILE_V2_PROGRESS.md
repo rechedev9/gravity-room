@@ -77,17 +77,17 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
 
 ## Estado de slices
 
-| Slice                       | Estado           | Base       | Candidato | Corregido      | Integrado |
-| --------------------------- | ---------------- | ---------- | --------- | -------------- | --------- |
-| M0 Contratos y baseline     | integrado        | `dcdec26f` | `0fcc4c6` | `1b39abd`      | `1b39abd` |
-| M1 Shell y navegación       | corrección lista | `3af51a0`  | `aa06f7c` | SHA en handoff | pendiente |
-| M2 Programas                | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
-| M3 Tracker offline          | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
-| M4 Historial/temporizador   | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
-| M5 Perfil/datos             | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
-| M6 Programas personalizados | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
-| M7 Wiki contextual          | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
-| M8 Hardening/release/E2E    | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
+| Slice                       | Estado           | Base       | Candidato | Corregido | Integrado |
+| --------------------------- | ---------------- | ---------- | --------- | --------- | --------- |
+| M0 Contratos y baseline     | integrado        | `dcdec26f` | `0fcc4c6` | `1b39abd` | `1b39abd` |
+| M1 Shell y navegación       | corrección lista | `3af51a0`  | `aa06f7c` | `2dd20f5` | pendiente |
+| M2 Programas                | pendiente        | pendiente  | pendiente | pendiente | pendiente |
+| M3 Tracker offline          | pendiente        | pendiente  | pendiente | pendiente | pendiente |
+| M4 Historial/temporizador   | pendiente        | pendiente  | pendiente | pendiente | pendiente |
+| M5 Perfil/datos             | pendiente        | pendiente  | pendiente | pendiente | pendiente |
+| M6 Programas personalizados | pendiente        | pendiente  | pendiente | pendiente | pendiente |
+| M7 Wiki contextual          | pendiente        | pendiente  | pendiente | pendiente | pendiente |
+| M8 Hardening/release/E2E    | pendiente        | pendiente  | pendiente | pendiente | pendiente |
 
 ## M0 — Contratos y baseline
 
@@ -213,7 +213,7 @@ Estado: corrección lista en `.worktrees/mobile-v2-fix`, pendiente de reverifica
 | Revisión A              | `no-go`: 7 findings                        | `M1-A-001` a `M1-A-007`                                |
 | Revisión B              | `no-go`: 4 findings                        | `M1-B-001` a `M1-B-004`                                |
 | Normalización Main      | N1-N8                                      | Todos aceptados para corrección                        |
-| Corrector               | corrección lista; SHA exacto en handoff    | Matriz N1-N8 y checks completos; pendiente de commit   |
+| Corrector               | `2dd20f56722ce2e3cd052ac7b0922b4e37cdf076` | Matriz N1-N8, checks completos y snapshot limpio       |
 | Decisión Main           | pendiente                                  | Requiere reverificación A/B; este registro no marca GO |
 
 ### Checks M1
