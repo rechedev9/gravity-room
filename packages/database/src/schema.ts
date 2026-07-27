@@ -9,6 +9,7 @@ import {
   smallint,
   bigserial,
   index,
+  uniqueIndex,
   unique,
   boolean,
   integer,
@@ -223,6 +224,9 @@ export const programInstances = pgTable(
   },
   (table) => [
     index('program_instances_user_status_idx').on(table.userId, table.status),
+    uniqueIndex('program_instances_one_active_per_user_idx')
+      .on(table.userId)
+      .where(sql`${table.status} = 'active'`),
     index('program_instances_user_created_id_idx').on(
       table.userId,
       desc(table.createdAt),

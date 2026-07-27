@@ -179,58 +179,68 @@ Inicio: 2026-07-27
 
 Base congelada: `78adf51dc98ad77b8302d0042c7ffae7538bfcea`
 
-Estado: implementación, checks y revisión manual completos; commit pendiente
+Estado: corrección completa tras dos revisiones `no-go` y puertas de cierre verdes; el SHA del
+corrector se identifica en el handoff. No es GO.
 
-### Alcance del candidato
+### Candidato y revisiones
 
-- Programa fijado y listas activa, completada y archivada.
-- Catálogo y ficha de preset con setup validado por `ProgramDefinition` del dominio.
-- Crear online-only; renombrar, archivar, reactivar, completar y eliminar instancias.
-- Caché local particionada por usuario y estados offline de lectura.
-- Confirmación de borrado y limpieza local relacionada únicamente después del éxito remoto.
-- Pruebas de estado, pin, validación, offline, mutaciones, rollback y coherencia.
+| Evento                  | SHA / estado                                 | Evidencia                           |
+| ----------------------- | -------------------------------------------- | ----------------------------------- |
+| Candidato implementador | `579531475a1c4c5c6ff73d5a2512c02530500033`   | M2 completo previo a revisión       |
+| Revisión A              | `no-go`: 8 findings                          | `M2-A-001` a `M2-A-008`             |
+| Revisión B              | `no-go`: 9 findings                          | `M2-B-001` a `M2-B-009`             |
+| Normalización Main      | N1-N13                                       | Todos aceptados para corrección     |
+| Corrector               | este commit; SHA en el handoff del corrector | Puertas completas; no constituye GO |
 
-### Checks M2
+### Origen → normalizado y corrección
 
-| Check                                                          | Resultado                            | Nota                                   |
-| -------------------------------------------------------------- | ------------------------------------ | -------------------------------------- |
-| `pnpm exec prettier --check ...`                               | verde                                | Fuentes, tests, dominio y diario M2    |
-| `pnpm --filter mobile routes:check`                            | verde                                | Manifiesto versionado sin drift        |
-| `pnpm --filter mobile lint`                                    | verde                                | TS/TSX móvil                           |
-| `pnpm --filter mobile typecheck`                               | verde                                | Incluye `routes:check`                 |
-| `pnpm run typecheck:domain`                                    | verde                                | Validación canónica de setup           |
-| `pnpm --filter mobile i18n:check`                              | verde: 1 suite, 8 tests              | 0 missing ES/EN                        |
-| `pnpm --filter mobile test`                                    | verde: 33 suites, 202 tests          | Incluye migraciones SQLite reales      |
-| `pnpm run test:domain`                                         | verde: 7 ficheros, 45 tests          | Reglas y validación de configuración   |
-| `pnpm --filter mobile exec expo install --check`               | verde                                | Dependencias compatibles               |
-| `pnpm --filter mobile exec expo config --type prebuild --json` | verde                                | Config prebuild resoluble              |
-| Export Expo Android                                            | verde: 1.241 módulos, Hermes 3,79 MB | 24 assets; artefacto temporal ignorado |
-| E2E                                                            | no ejecutado por política            | Reservado para M8                      |
+| Normalizado | Origen              | Sev.  | Estado | Corrección y evidencia principal                                                                                                                                                                                                                                                                                                                  |
+| ----------- | ------------------- | ----- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| N1          | A-001, B-004, B-005 | P1    | fixed  | Resultados `applied/reconciliation_required`; ACK/ID remoto conservado, outcome incierto no se presenta como fallo y el POST queda bloqueado incluso tras remount. Un marcador desconocido no se limpia por un GET temprano; un ID conocido exige aparecer en verdad remota. Delete 404 confirma ausencia. Pruebas post-ACK create/manage/delete. |
+| N2          | A-002, B-003        | P1    | fixed  | Borrado local exclusivo elimina en una transacción pin, resumen, detalle y `queued_mutations` por instancia. SQLite real conserva otra entidad y su cola.                                                                                                                                                                                         |
+| N3          | A-003               | P1    | fixed  | Adapter de ruta incrementa `refreshRevision` con `useFocusEffect`; la feature no importa router. Integración real vuelve de setup y Tracker y observa la nueva verdad local.                                                                                                                                                                      |
+| N4          | A-004               | P1    | fixed  | Contrato de contenido por IDs estables; catálogo canónico ES/EN, level/tier traducidos y ficha/setup no muestran description, días, ejercicios, labels/títulos canónicos crudos en EN. Tests de GZCLP real y cobertura de los 20 IDs.                                                                                                             |
+| N5          | A-005               | P1    | fixed  | Parser decimal locale-aware en frontera UI: coma ES, punto EN; rechaza separadores ajenos, agrupación, exponentes y formatos incompletos. Tests de parser y componente.                                                                                                                                                                           |
+| N6          | A-006               | P1    | fixed  | La revalidación remota mezcla defaults solo en campos pristine; un campo editado desde cache no se pisa al resolver el fetch diferido.                                                                                                                                                                                                            |
+| N7          | A-007               | P2    | fixed  | Catálogo fresh vacío usa `EmptyState`; indicadores y acciones busy tienen labels/live announcements; errores son alert/assertive. Tests a11y.                                                                                                                                                                                                     |
+| N8          | A-008, B-001        | P1/P2 | fixed  | Runtime v2 queda reservado a M2 paralelo; contrato completo pasa a v3. SQLite real prueba v1 con filas → v2 owner → v3, owner cache preservada, legacy en cuarentena sin claim y sesiones/outbox creadas sin saltos. ADR actualizado.                                                                                                             |
+| N9          | B-002               | P1    | fixed  | Manage actualiza summary y solo metadata de lifecycle del detalle mediante merge; conserva results/undo/config pendientes y `queued_mutations`. SQLite real.                                                                                                                                                                                      |
+| N10         | B-006               | P1    | fixed  | Si falla GET tras POST, la transacción completa summaries y metadata de detalle active anteriores, preserva su estado operativo y deja únicamente el nuevo active.                                                                                                                                                                                |
+| N11         | B-007               | P1    | fixed  | Create API usa una transacción y solo `tx`, bloquea la fila de usuario, completa+inserta atómicamente y se apoya en el índice parcial único ya migrado. Tests de rollback entre update/insert y concurrencia serializada; reactivación usa la misma regla y valida el target antes de completar el active actual.                                 |
+| N12         | B-008               | P2    | fixed  | Estado discriminado `cached/revalidating/fresh/offline`; cache durante fetch lento lleva copy/live region de revalidación y nunca se presenta fresca.                                                                                                                                                                                             |
+| N13         | B-009               | P2    | fixed  | `GenericProgramDetailSchema` de transporte es estricto; config/results/undo corruptos se rechazan tras ACK y nunca caen a vacíos. Tests dominio y mobile.                                                                                                                                                                                         |
 
-### Candidato y riesgos
+### Checks de la corrección
 
-- SHA candidato: pendiente hasta crear el commit normal.
-- Diff completo y efectos secundarios revisados manualmente. `autoreview --mode local` falló cerrado
-  antes de invocar al modelo porque el lado anterior del diff de un test contiene campos
-  `accessToken` que su escáner clasifica como contenido sensible; no existe dictamen estructurado.
-- El SQL contractual v2 completo continúa fuera de `MIGRATIONS`; M2 adapta solo la persistencia
-  necesaria y no implementa sesiones/outbox runtime.
-- Las filas legacy permanecen sin owner salvo prueba remota; M2 no atribuye datos por la sesión activa.
-- La creación de instancias permanece online-only porque la API actual no ofrece idempotencia.
-- M2 registra una migración parcial con tablas paralelas `mobile_v2_program_*`; conserva intactas las
-  tablas/caches/cola v1 sin owner. M3 deberá componer la migración final sin reutilizar el número 2.
-- M3, M4+, el editor personalizado y el API custom de M6 permanecen fuera de alcance.
+| Check                                               | Resultado                     | Nota                                                            |
+| --------------------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
+| Prettier + `git diff --check`                       | verde                         | Puerta final sobre el delta completo                            |
+| `pnpm --filter mobile routes:check`                 | verde                         | Manifiesto sin drift; también ejecutado por typecheck           |
+| `pnpm --filter mobile lint`                         | verde                         | TS/TSX y tests M2                                               |
+| `pnpm --filter mobile typecheck`                    | verde                         | Expo TS estricto                                                |
+| `pnpm --filter mobile i18n:check`                   | verde: 1 suite, 8 tests       | Cobertura ES/EN idéntica, 0 missing keys                        |
+| Focalizadas mobile de cierre                        | verde: 5 suites, 44 tests     | ACK/ID persistente, SQLite, locale y foco                       |
+| `pnpm --filter mobile test`                         | verde: 36 suites, 239 tests   | Suite completa; incluye SQLite real de migración y colas        |
+| `pnpm run typecheck:domain` / `test:domain`         | verde: 7 ficheros, 48 tests   | Parser estricto y límites de config preservados                 |
+| Database typecheck/tests                            | verde: 6 ficheros, 89 tests   | 5 tests de integración con DB externa saltados por entorno      |
+| API focal `src/services/programs.test.ts`           | verde: 30 tests               | Transacción, rollback, target ausente y concurrencia            |
+| `pnpm run typecheck:api` / `pnpm --filter api lint` | verde                         | API estricta                                                    |
+| `pnpm --filter api test`                            | verde: 46 ficheros, 700 tests | Suite completa, sin DB externa requerida                        |
+| Expo install/config/export Android                  | verde                         | Expo 54 compatible; 1.244 módulos, 24 assets, HBC 3.816.180 B   |
+| `autoreview --mode local`                           | bloqueado antes del modelo    | Fail-closed detecta el fixture `accessToken` opaco como secreto |
+| Revisión manual del diff y efectos secundarios      | verde                         | Incluyó lifecycle, carreras, owner, migración, i18n y a11y      |
+| E2E                                                 | no ejecutado por política     | Reservado para M8                                               |
 
-### Deuda/riesgos conocidos
+### Riesgos y fuera de alcance
 
-- Los modelos objetivo de sesión y outbox están decididos, pero se implementan en M3-M4.
-- La API de definiciones requiere cambios coordinados de DB/API/dominio/cliente en M6.
-- El SQL v2 está probado pero no desplegado: M2-M3 deben adaptar repositorios antes de registrarlo en
-  `MIGRATIONS`.
-- La configuración de foreign keys depende de regenerar los proyectos nativos con el config plugin
-  antes del siguiente build; las pruebas de M0 congelan tanto el flag como el guard runtime.
-- Las métricas nativas de rendimiento siguen sin medir por decisión Main. M8 debe crear el harness y
-  capturar baseline antes/después; M0 no afirma una medición inexistente.
+- La creación sigue online-only y no se reintenta automáticamente: la API aún no ofrece idempotency
+  key para este POST. Un outcome incierto se reconcilia mediante GET, nunca repitiendo el POST; si
+  no puede identificarse de forma inequívoca, el bloqueo persiste en vez de asumir que falló.
+- M3 registrará el contrato completo como migración 3 y adaptará sesiones/outbox runtime; M2 solo
+  demuestra la composición y no implementa el tracker set-a-set.
+- M4, M6 y la API/editor de definiciones personalizadas permanecen fuera de alcance.
+- Las filas v1 siguen sin owner y jamás se atribuyen a la sesión activa; v3 las pone en cuarentena.
+- E2E y métricas nativas continúan reservados para M8. Esta corrección no marca GO.
 
 ## M1 — Shell, navegación y sistema visual
 

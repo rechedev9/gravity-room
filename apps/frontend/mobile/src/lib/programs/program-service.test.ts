@@ -7,6 +7,7 @@ import {
   fetchCatalogDefinition,
   fetchCatalogEntries,
   fetchProgramSummaries,
+  RemoteMutationAcknowledgedError,
   updateProgramInstance,
 } from './program-service';
 
@@ -293,4 +294,38 @@ describe('program API service', () => {
       });
     }
   );
+
+  it.each([
+    ['config', { ...DETAIL, config: { squat: null } }],
+    ['results', { ...DETAIL, results: { '0': { squat: { result: 'corrupt' } } } }],
+    ['undo history', { ...DETAIL, undoHistory: [{ i: -1, slotId: 'squat' }] }],
+  ])(
+    'rejects acknowledged detail with corrupt %s instead of defaulting it',
+    async (_label, body) => {
+      mockFetchWithAccessToken.mockResolvedValue({
+        accessToken: MOCK_OPAQUE_VALUE,
+        response: jsonResponse(body, 201),
+      });
+
+      await expect(
+        createProgramInstance({
+          definition: DEFINITION,
+          name: 'GZCLP',
+          config: { squat: 20, variant: 'classic' },
+        })
+      ).rejects.toMatchObject({
+        name: RemoteMutationAcknowledgedError.name,
+        entityId: DETAIL.id,
+      });
+    }
+  );
+
+  it('treats a delete 404 as confirmed absence for safe local reconciliation', async () => {
+    mockFetchWithAccessToken.mockResolvedValue({
+      accessToken: MOCK_OPAQUE_VALUE,
+      response: jsonResponse({ code: 'INSTANCE_NOT_FOUND' }, 404),
+    });
+
+    await expect(deleteProgramInstance(DETAIL.id)).resolves.toBe('already_absent');
+  });
 });

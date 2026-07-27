@@ -71,6 +71,7 @@ export async function clearLocalAppData(client: DatabaseClient = getDatabase()):
   await bootstrapDatabase(client);
 
   await client.withExclusiveTransactionAsync(async (transaction) => {
+    await transaction.runAsync('DELETE FROM mobile_v2_program_reconciliations');
     await transaction.runAsync('DELETE FROM mobile_v2_program_preferences');
     await transaction.runAsync('DELETE FROM mobile_v2_program_catalog');
     await transaction.runAsync('DELETE FROM mobile_v2_program_details');

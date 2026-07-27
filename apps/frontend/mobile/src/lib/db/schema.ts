@@ -35,9 +35,9 @@ export const PROGRAM_DEFINITIONS_TABLE_SQL = `
 `;
 
 /**
- * M2 intentionally uses parallel, owner-scoped tables. The unowned v1 tables
- * remain untouched until the full v2 migration can quarantine them together
- * with the v1 queue after M3 adapts its runtime.
+ * Runtime migration 2 intentionally uses parallel, owner-scoped tables. The
+ * unowned v1 tables remain untouched until the complete version 3 migration
+ * can quarantine them with the v1 queue after M3 adapts its runtime.
  */
 export const MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL = `
   CREATE TABLE IF NOT EXISTS mobile_v2_program_summaries (
@@ -89,6 +89,16 @@ export const MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL = `
     CHECK (pinned_program_id IS NULL OR length(pinned_program_id) > 0)
   ) STRICT;
 
+  CREATE TABLE IF NOT EXISTS mobile_v2_program_reconciliations (
+    owner_user_id TEXT NOT NULL CHECK (length(owner_user_id) > 0),
+    operation TEXT NOT NULL CHECK (operation IN ('create', 'manage', 'delete')),
+    entity_id TEXT NOT NULL CHECK (length(entity_id) > 0),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (owner_user_id, operation, entity_id)
+  ) STRICT;
+
   CREATE INDEX IF NOT EXISTS mobile_v2_program_summaries_owner_status
     ON mobile_v2_program_summaries(owner_user_id, status, updated_at DESC, id);
+  CREATE INDEX IF NOT EXISTS mobile_v2_program_reconciliations_owner_created
+    ON mobile_v2_program_reconciliations(owner_user_id, created_at, entity_id);
 `;

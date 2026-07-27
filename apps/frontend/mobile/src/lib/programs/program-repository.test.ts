@@ -5,7 +5,7 @@ import type { CatalogEntry, GenericProgramDetail, ProgramDefinition } from '@gzc
 import type { SQLiteBindValue } from 'expo-sqlite';
 
 import type { DatabaseClient } from '../db/expo-sqlite-adapter';
-import { MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL } from '../db/schema';
+import { MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL, QUEUED_MUTATIONS_TABLE_SQL } from '../db/schema';
 
 let mockDatabaseClient: DatabaseClient;
 
@@ -20,6 +20,8 @@ import {
   deleteLocalProgramData,
   listCachedCatalog,
   listProgramSummaries,
+  readPendingCreateReconciliation,
+  recordProgramReconciliation,
   replaceCachedCatalog,
   replaceProgramSummaries,
 } from './program-repository';
@@ -33,6 +35,7 @@ interface MemoryDatabase {
 function createMemoryDatabase(): MemoryDatabase {
   const sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
+  sqlite.exec(QUEUED_MUTATIONS_TABLE_SQL);
   sqlite.exec(MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL);
   let failingProgramId: string | null = null;
 
@@ -264,8 +267,25 @@ describe('M2 program repository', () => {
     ).toBe(1);
   });
 
-  it('merges POST truth without deleting cached programs when the follow-up list fails', async () => {
-    await replaceProgramSummaries('user-a', [COMPLETED]);
+  it('applies known POST semantics when the follow-up list fails', async () => {
+    const oldSummary = {
+      ...COMPLETED,
+      id: 'old-active',
+      title: 'Old active',
+      status: 'active' as const,
+    };
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: {
+        ...DETAIL,
+        id: oldSummary.id,
+        name: oldSummary.title,
+        createdAt: oldSummary.createdAt,
+        updatedAt: oldSummary.updatedAt,
+      },
+      definition: DEFINITION,
+      serverPrograms: [oldSummary, ARCHIVED],
+    });
 
     await cacheCreatedProgram({
       ownerUserId: 'user-a',
@@ -274,7 +294,27 @@ describe('M2 program repository', () => {
       serverPrograms: null,
     });
 
-    await expect(listProgramSummaries('user-a')).resolves.toEqual([ACTIVE, COMPLETED]);
+    await expect(listProgramSummaries('user-a')).resolves.toEqual([
+      ACTIVE,
+      {
+        ...oldSummary,
+        status: 'completed',
+        updatedAt: ACTIVE.updatedAt,
+      },
+      ARCHIVED,
+    ]);
+    const oldDetailRow = memory.sqlite
+      .prepare(
+        `SELECT detail_json
+         FROM mobile_v2_program_details
+         WHERE owner_user_id = ? AND id = ?`
+      )
+      .get('user-a', oldSummary.id);
+    expect(JSON.parse(String(oldDetailRow?.detail_json))).toMatchObject({
+      id: oldSummary.id,
+      status: 'completed',
+      updatedAt: ACTIVE.updatedAt,
+    });
   });
 
   it('moves a managed instance between lists and clears an inactive pin atomically', async () => {
@@ -301,17 +341,76 @@ describe('M2 program repository', () => {
     ).toBe(1);
   });
 
-  it('deletes only instance-related local data and pin after remote success calls it', async () => {
+  it('preserves pending operational detail and queued mutation during management', async () => {
+    const pendingDetail = {
+      ...DETAIL,
+      results: { '0': { 'squat-t1': { result: 'success' as const } } },
+      undoHistory: [{ i: 0, slotId: 'squat-t1' }],
+    };
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: pendingDetail,
+      definition: DEFINITION,
+      serverPrograms: [ACTIVE],
+    });
+    memory.sqlite
+      .prepare(
+        `INSERT INTO queued_mutations (
+           entity_type, entity_id, operation, payload_json, created_at
+         ) VALUES (?, ?, ?, ?, ?)`
+      )
+      .run('program', ACTIVE.id, 'result', '{"pending":true}', '2026-07-27T12:05:00.000Z');
+
+    await cacheManagedProgram('user-a', {
+      ...DETAIL,
+      name: 'Renamed remotely',
+      status: 'archived',
+      results: {},
+      undoHistory: [],
+    });
+
+    const row = memory.sqlite
+      .prepare(
+        `SELECT detail_json
+         FROM mobile_v2_program_details
+         WHERE owner_user_id = ? AND id = ?`
+      )
+      .get('user-a', ACTIVE.id);
+    const parsed: unknown = JSON.parse(String(row?.detail_json));
+    expect(parsed).toMatchObject({
+      name: 'Renamed remotely',
+      status: 'archived',
+      results: pendingDetail.results,
+      undoHistory: pendingDetail.undoHistory,
+    });
+    expect(
+      readCount(
+        memory.sqlite,
+        'SELECT count(*) AS count FROM queued_mutations WHERE entity_id = ?',
+        ACTIVE.id
+      )
+    ).toBe(1);
+  });
+
+  it('deletes summary, detail, pin and pending queue atomically while preserving other entities', async () => {
     await cacheCreatedProgram({
       ownerUserId: 'user-a',
       detail: DETAIL,
       definition: DEFINITION,
       serverPrograms: [ACTIVE],
     });
+    await replaceProgramSummaries('user-a', [ACTIVE, ARCHIVED]);
+    memory.sqlite.exec(`
+      INSERT INTO queued_mutations (
+        entity_type, entity_id, operation, payload_json, created_at
+      ) VALUES
+        ('program', '${ACTIVE.id}', 'result', '{"pending":true}', '2026-07-27T12:00:00.000Z'),
+        ('program', '${ARCHIVED.id}', 'result', '{"pending":true}', '2026-07-27T12:00:01.000Z');
+    `);
 
     await deleteLocalProgramData('user-a', ACTIVE.id);
 
-    await expect(listProgramSummaries('user-a')).resolves.toEqual([]);
+    await expect(listProgramSummaries('user-a')).resolves.toEqual([ARCHIVED]);
     expect(
       readCount(
         memory.sqlite,
@@ -326,6 +425,86 @@ describe('M2 program repository', () => {
         'user-a'
       )
     ).toBe(1);
+    expect(
+      readCount(
+        memory.sqlite,
+        `SELECT count(*) AS count
+         FROM mobile_v2_program_preferences
+         WHERE owner_user_id = ? AND pinned_program_id IS NULL`,
+        'user-a'
+      )
+    ).toBe(1);
+    expect(
+      readCount(
+        memory.sqlite,
+        'SELECT count(*) AS count FROM queued_mutations WHERE entity_id = ?',
+        ACTIVE.id
+      )
+    ).toBe(0);
+    expect(
+      readCount(
+        memory.sqlite,
+        'SELECT count(*) AS count FROM queued_mutations WHERE entity_id = ?',
+        ARCHIVED.id
+      )
+    ).toBe(1);
+  });
+
+  it('confirms a pending delete from server absence and clears its local queue', async () => {
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: [ACTIVE],
+    });
+    memory.sqlite
+      .prepare(
+        `INSERT INTO queued_mutations (
+           entity_type, entity_id, operation, payload_json, created_at
+         ) VALUES (?, ?, ?, ?, ?)`
+      )
+      .run('program', ACTIVE.id, 'result', '{"pending":true}', '2026-07-27T12:05:00.000Z');
+    await recordProgramReconciliation('user-a', 'delete', ACTIVE.id);
+
+    await replaceProgramSummaries('user-a', []);
+
+    await expect(listProgramSummaries('user-a')).resolves.toEqual([]);
+    expect(
+      readCount(
+        memory.sqlite,
+        'SELECT count(*) AS count FROM queued_mutations WHERE entity_id = ?',
+        ACTIVE.id
+      )
+    ).toBe(0);
+    expect(
+      readCount(
+        memory.sqlite,
+        `SELECT count(*) AS count
+         FROM mobile_v2_program_reconciliations
+         WHERE owner_user_id = ? AND operation = 'delete' AND entity_id = ?`,
+        'user-a',
+        ACTIVE.id
+      )
+    ).toBe(0);
+  });
+
+  it('keeps an outcome-unknown create blocked until it can be identified safely', async () => {
+    await recordProgramReconciliation('user-a', 'create', 'unknown:gzclp');
+
+    await replaceProgramSummaries('user-a', []);
+
+    await expect(readPendingCreateReconciliation('user-a')).resolves.toEqual({
+      pending: true,
+      programInstanceId: null,
+    });
+  });
+
+  it('resolves a known create marker only when full server truth contains its ID', async () => {
+    await recordProgramReconciliation('user-a', 'create', ACTIVE.id);
+
+    await replaceProgramSummaries('user-a', [ACTIVE]);
+
+    await expect(readPendingCreateReconciliation('user-a')).resolves.toBeNull();
   });
 
   it('removes orphaned detail data when full server truth no longer contains the instance', async () => {

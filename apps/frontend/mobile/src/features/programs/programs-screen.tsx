@@ -21,6 +21,7 @@ import {
   type ProgramStatus,
   type ProgramSummary,
 } from '../../lib/programs/program-repository';
+import { localizeCatalogEntry } from '../../lib/programs/program-content';
 import { deleteProgram, manageProgram } from '../../lib/programs/program-use-cases';
 import {
   fetchCatalogEntries,
@@ -31,17 +32,23 @@ import {
   readTrackerProgramId,
   writeTrackerProgramId,
 } from '../../lib/tracker/tracker-selection-storage';
+import { EmptyState } from '../../ui/empty-state';
 import { colors, radii, spacing } from '../../ui/tokens';
 
 type ResourceState<T> =
   | { readonly status: 'loading' }
-  | { readonly status: 'ready'; readonly data: readonly T[]; readonly offline: boolean }
+  | {
+      readonly status: 'ready';
+      readonly data: readonly T[];
+      readonly freshness: 'cached' | 'revalidating' | 'fresh' | 'offline';
+    }
   | { readonly status: 'error' };
 
 interface ProgramsScreenProps {
   readonly ownerUserId: string;
   readonly onOpenPreset: (programId: string) => void;
   readonly onOpenProgram: (programInstanceId: string) => void;
+  readonly refreshRevision?: number;
 }
 
 interface ActionButtonProps {
@@ -173,7 +180,14 @@ function ProgramCard({
           <ActionButton destructive label={t('programs.actions.delete')} onPress={onDelete} />
         </View>
       )}
-      {busy ? <ActivityIndicator color={colors.textPrimary} /> : null}
+      {busy ? (
+        <ActivityIndicator
+          accessibilityLabel={t('programs.action_busy', { name: program.title })}
+          accessibilityLiveRegion="polite"
+          accessibilityRole="progressbar"
+          color={colors.textPrimary}
+        />
+      ) : null}
     </View>
   );
 }
@@ -227,7 +241,12 @@ function ProgramSection({
   );
 }
 
-export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: ProgramsScreenProps) {
+export function ProgramsScreen({
+  onOpenPreset,
+  onOpenProgram,
+  ownerUserId,
+  refreshRevision = 0,
+}: ProgramsScreenProps) {
   const { t } = useTranslation();
   const [library, setLibrary] = useState<ResourceState<ProgramSummary>>({
     status: 'loading',
@@ -238,7 +257,9 @@ export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: Pro
   const [pinnedProgramId, setPinnedProgramId] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [busyProgramId, setBusyProgramId] = useState<string | null>(null);
-  const [mutationError, setMutationError] = useState(false);
+  const [mutationNotice, setMutationNotice] = useState<
+    'remote_error' | 'reconciliation_required' | null
+  >(null);
   const operationInProgressRef = useRef(false);
 
   useEffect(() => {
@@ -256,7 +277,8 @@ export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: Pro
         ]);
         cacheAvailable = true;
         if (active && cached.length > 0) {
-          setLibrary({ status: 'ready', data: cached, offline: false });
+          setLibrary({ status: 'ready', data: cached, freshness: 'cached' });
+          setLibrary({ status: 'ready', data: cached, freshness: 'revalidating' });
         }
       } catch {
         cached = [];
@@ -270,13 +292,15 @@ export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: Pro
           readTrackerProgramId(ownerUserId),
         ]);
         if (active) {
-          setLibrary({ status: 'ready', data: refreshed, offline: false });
+          setLibrary({ status: 'ready', data: refreshed, freshness: 'fresh' });
           setPinnedProgramId(pinned);
         }
       } catch {
         if (!active) return;
         setLibrary(
-          cacheAvailable ? { status: 'ready', data: cached, offline: true } : { status: 'error' }
+          cacheAvailable
+            ? { status: 'ready', data: cached, freshness: 'offline' }
+            : { status: 'error' }
         );
       }
     }
@@ -288,7 +312,8 @@ export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: Pro
         cached = await listCachedCatalog(ownerUserId);
         cacheAvailable = true;
         if (active && cached.length > 0) {
-          setCatalog({ status: 'ready', data: cached, offline: false });
+          setCatalog({ status: 'ready', data: cached, freshness: 'cached' });
+          setCatalog({ status: 'ready', data: cached, freshness: 'revalidating' });
         }
       } catch {
         cached = [];
@@ -298,32 +323,33 @@ export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: Pro
         const remote = await fetchCatalogEntries();
         await replaceCachedCatalog(ownerUserId, remote);
         if (active) {
-          setCatalog({ status: 'ready', data: remote, offline: false });
+          setCatalog({ status: 'ready', data: remote, freshness: 'fresh' });
         }
       } catch {
         if (!active) return;
         setCatalog(
-          cacheAvailable ? { status: 'ready', data: cached, offline: true } : { status: 'error' }
+          cacheAvailable
+            ? { status: 'ready', data: cached, freshness: 'offline' }
+            : { status: 'error' }
         );
       }
     }
 
     setLibrary({ status: 'loading' });
     setCatalog({ status: 'loading' });
-    setMutationError(false);
     void Promise.all([loadLibrary(), loadCatalog()]);
 
     return () => {
       active = false;
     };
-  }, [ownerUserId, reloadToken]);
+  }, [ownerUserId, refreshRevision, reloadToken]);
 
   async function refreshLocalLibrary(): Promise<void> {
     const [programs, pinned] = await Promise.all([
       listProgramSummaries(ownerUserId),
       readTrackerProgramId(ownerUserId),
     ]);
-    setLibrary({ status: 'ready', data: programs, offline: false });
+    setLibrary({ status: 'ready', data: programs, freshness: 'fresh' });
     setPinnedProgramId(pinned);
   }
 
@@ -334,16 +360,21 @@ export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: Pro
     if (operationInProgressRef.current) return;
     operationInProgressRef.current = true;
     setBusyProgramId(program.id);
-    setMutationError(false);
+    setMutationNotice(null);
     try {
-      await manageProgram({
+      const result = await manageProgram({
         ownerUserId,
         programInstanceId: program.id,
         mutation,
       });
-      await refreshLocalLibrary();
+      if (result.status === 'reconciliation_required') {
+        setMutationNotice('reconciliation_required');
+        setReloadToken((current) => current + 1);
+      } else {
+        await refreshLocalLibrary();
+      }
     } catch {
-      setMutationError(true);
+      setMutationNotice('remote_error');
     } finally {
       operationInProgressRef.current = false;
       setBusyProgramId(null);
@@ -354,13 +385,13 @@ export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: Pro
     if (operationInProgressRef.current) return false;
     operationInProgressRef.current = true;
     setBusyProgramId(program.id);
-    setMutationError(false);
+    setMutationNotice(null);
     try {
       await writeTrackerProgramId(ownerUserId, program.id);
       setPinnedProgramId(program.id);
       return true;
     } catch {
-      setMutationError(true);
+      setMutationNotice('remote_error');
       return false;
     } finally {
       operationInProgressRef.current = false;
@@ -379,15 +410,20 @@ export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: Pro
     if (operationInProgressRef.current) return;
     operationInProgressRef.current = true;
     setBusyProgramId(program.id);
-    setMutationError(false);
+    setMutationNotice(null);
     try {
-      await deleteProgram({
+      const result = await deleteProgram({
         ownerUserId,
         programInstanceId: program.id,
       });
-      await refreshLocalLibrary();
+      if (result.status === 'reconciliation_required') {
+        setMutationNotice('reconciliation_required');
+        setReloadToken((current) => current + 1);
+      } else {
+        await refreshLocalLibrary();
+      }
     } catch {
-      setMutationError(true);
+      setMutationNotice('remote_error');
     } finally {
       operationInProgressRef.current = false;
       setBusyProgramId(null);
@@ -423,16 +459,33 @@ export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: Pro
         </Text>
         <Text style={styles.body}>{t('programs.body')}</Text>
 
-        {mutationError ? (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {t('programs.errors.mutation')}
+        {mutationNotice ? (
+          <Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>
+            {t(
+              mutationNotice === 'reconciliation_required'
+                ? 'programs.reconciliation_required'
+                : 'programs.errors.mutation'
+            )}
           </Text>
         ) : null}
 
-        {library.status === 'loading' ? <ActivityIndicator color={colors.textPrimary} /> : null}
+        {library.status === 'loading' ? (
+          <ActivityIndicator
+            accessibilityLabel={t('programs.loading_library')}
+            accessibilityLiveRegion="polite"
+            accessibilityRole="progressbar"
+            color={colors.textPrimary}
+          />
+        ) : null}
         {library.status === 'error' ? (
           <View style={styles.stateBlock}>
-            <Text style={styles.error}>{t('programs.errors.sync')}</Text>
+            <Text
+              accessibilityLiveRegion="assertive"
+              accessibilityRole="alert"
+              style={styles.error}
+            >
+              {t('programs.errors.sync')}
+            </Text>
             <ActionButton
               label={t('common.retry')}
               onPress={() => setReloadToken((current) => current + 1)}
@@ -441,9 +494,14 @@ export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: Pro
         ) : null}
         {library.status === 'ready' ? (
           <>
-            {library.offline ? (
+            {library.freshness === 'offline' ? (
               <View accessibilityRole="alert" style={styles.offlineBanner}>
                 <Text style={styles.offlineText}>{t('programs.offline_library')}</Text>
+              </View>
+            ) : null}
+            {library.freshness === 'cached' || library.freshness === 'revalidating' ? (
+              <View accessibilityLiveRegion="polite" style={styles.cachedBanner}>
+                <Text style={styles.cachedText}>{t('programs.sync_notice')}</Text>
               </View>
             ) : null}
             <View style={styles.section}>
@@ -491,10 +549,23 @@ export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: Pro
           <Text accessibilityRole="header" style={styles.sectionTitle}>
             {t('programs.catalog_title')}
           </Text>
-          {catalog.status === 'loading' ? <ActivityIndicator color={colors.textPrimary} /> : null}
+          {catalog.status === 'loading' ? (
+            <ActivityIndicator
+              accessibilityLabel={t('programs.loading_catalog')}
+              accessibilityLiveRegion="polite"
+              accessibilityRole="progressbar"
+              color={colors.textPrimary}
+            />
+          ) : null}
           {catalog.status === 'error' ? (
             <View style={styles.stateBlock}>
-              <Text style={styles.error}>{t('programs.errors.catalog')}</Text>
+              <Text
+                accessibilityLiveRegion="assertive"
+                accessibilityRole="alert"
+                style={styles.error}
+              >
+                {t('programs.errors.catalog')}
+              </Text>
               <ActionButton
                 label={t('common.retry')}
                 onPress={() => setReloadToken((current) => current + 1)}
@@ -503,33 +574,47 @@ export function ProgramsScreen({ onOpenPreset, onOpenProgram, ownerUserId }: Pro
           ) : null}
           {catalog.status === 'ready' ? (
             <>
-              {catalog.offline ? (
+              {catalog.freshness === 'offline' ? (
                 <View accessibilityRole="alert" style={styles.offlineBanner}>
                   <Text style={styles.offlineText}>{t('programs.offline_catalog')}</Text>
                 </View>
               ) : null}
-              {catalog.data.map((entry) => (
-                <Pressable
-                  accessibilityLabel={t('programs.catalog_open_accessibility', {
-                    name: entry.name,
-                  })}
-                  accessibilityRole="button"
-                  key={entry.id}
-                  onPress={() => onOpenPreset(entry.id)}
-                  style={styles.catalogCard}
-                >
-                  <Text style={styles.cardTitle}>{entry.name}</Text>
-                  <Text style={styles.cardMeta}>{entry.description}</Text>
-                  <Text style={styles.catalogMeta}>
-                    {t('programs.catalog_meta', {
-                      level: entry.level,
-                      total: entry.totalWorkouts,
-                      perWeek: entry.workoutsPerWeek,
+              {catalog.freshness === 'cached' || catalog.freshness === 'revalidating' ? (
+                <View accessibilityLiveRegion="polite" style={styles.cachedBanner}>
+                  <Text style={styles.cachedText}>{t('programs.catalog_revalidating')}</Text>
+                </View>
+              ) : null}
+              {catalog.data.length === 0 ? (
+                <EmptyState
+                  body={t('programs.catalog_empty_body')}
+                  title={t('programs.catalog_empty_title')}
+                />
+              ) : null}
+              {catalog.data.map((entry) => {
+                const localized = localizeCatalogEntry(entry, t);
+                return (
+                  <Pressable
+                    accessibilityLabel={t('programs.catalog_open_accessibility', {
+                      name: localized.name,
                     })}
-                  </Text>
-                  <Text style={styles.catalogAction}>{t('programs.catalog_open')}</Text>
-                </Pressable>
-              ))}
+                    accessibilityRole="button"
+                    key={entry.id}
+                    onPress={() => onOpenPreset(entry.id)}
+                    style={styles.catalogCard}
+                  >
+                    <Text style={styles.cardTitle}>{localized.name}</Text>
+                    <Text style={styles.cardMeta}>{localized.description}</Text>
+                    <Text style={styles.catalogMeta}>
+                      {t('programs.catalog_meta', {
+                        level: localized.level,
+                        total: entry.totalWorkouts,
+                        perWeek: entry.workoutsPerWeek,
+                      })}
+                    </Text>
+                    <Text style={styles.catalogAction}>{t('programs.catalog_open')}</Text>
+                  </Pressable>
+                );
+              })}
             </>
           ) : null}
         </View>
@@ -680,6 +765,17 @@ const styles = StyleSheet.create({
   },
   offlineText: {
     color: colors.accentWarning,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  cachedBanner: {
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    padding: spacing.card,
+  },
+  cachedText: {
+    color: colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },

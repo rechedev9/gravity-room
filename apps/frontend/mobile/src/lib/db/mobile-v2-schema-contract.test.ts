@@ -86,7 +86,7 @@ describe('Mobile v2 SQLite schema contract', () => {
     const database = createV1Database(false);
 
     expect(applyContractMigration(database)).toBe(true);
-    expect(readNumber(database, 'PRAGMA user_version', 'user_version')).toBe(2);
+    expect(readNumber(database, 'PRAGMA user_version', 'user_version')).toBe(3);
     expect(
       readStrings(
         database,
@@ -97,8 +97,11 @@ describe('Mobile v2 SQLite schema contract', () => {
       'legacy_queued_mutations_quarantine',
       'legacy_user_cache_quarantine',
       'outbox_mutations',
+      'program_catalog',
       'program_definitions',
       'program_details',
+      'program_preferences',
+      'program_reconciliations',
       'program_summaries',
       'sqlite_sequence',
       'workout_sessions',
@@ -115,6 +118,8 @@ describe('Mobile v2 SQLite schema contract', () => {
       'legacy_user_cache_claim_state',
       'one_in_progress_session_per_owner',
       'outbox_mutations_owner_schedule',
+      'program_reconciliations_owner_created',
+      'program_summaries_owner_status',
       'workout_sessions_owner_program_updated',
       'workout_set_logs_session_position',
     ]);
@@ -131,8 +136,11 @@ describe('Mobile v2 SQLite schema contract', () => {
       'legacy_queued_mutations_quarantine',
       'legacy_user_cache_quarantine',
       'outbox_mutations',
+      'program_catalog',
       'program_definitions',
       'program_details',
+      'program_preferences',
+      'program_reconciliations',
       'program_summaries',
       'workout_sessions',
       'workout_set_logs',
@@ -211,11 +219,16 @@ describe('Mobile v2 SQLite schema contract', () => {
     applyContractMigration(database);
 
     database.exec(`
-      INSERT INTO program_summaries (owner_user_id, id, title, updated_at)
+      INSERT INTO program_summaries (
+        owner_user_id, id, program_id, title, status, created_at, updated_at
+      )
       VALUES (
         'user-a',
         '11111111-1111-4111-8111-111111111111',
+        'gzclp',
         'A private program',
+        'active',
+        '2026-07-27T10:00:00.000Z',
         '2026-07-27T10:00:00.000Z'
       );
       INSERT INTO outbox_mutations (

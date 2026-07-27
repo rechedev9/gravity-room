@@ -82,9 +82,16 @@
     "eyebrow": "Programas",
     "title": "Tu biblioteca de entrenamiento",
     "body": "Fija el programa que entrenas ahora, gestiona cada estado o explora un preset.",
-    "sync_notice": "Mostrando programas en caché. La sincronización se reintentará al actualizar.",
+    "loading_library": "Cargando tu biblioteca de programas",
+    "loading_catalog": "Cargando el catálogo de presets",
+    "action_busy": "Actualizando {{name}}",
+    "sync_notice": "Mostrando programas en caché mientras se comprueban cambios en el servidor.",
+    "catalog_revalidating": "Mostrando el catálogo guardado mientras se comprueban cambios.",
     "offline_library": "Sin conexión: se muestra la última biblioteca de programas sincronizada.",
     "offline_catalog": "Sin conexión: se muestra el catálogo de presets guardado en este dispositivo.",
+    "catalog_empty_title": "No hay presets disponibles",
+    "catalog_empty_body": "El catálogo está vacío ahora mismo. Actualiza más tarde para comprobarlo de nuevo.",
+    "reconciliation_required": "Puede que el servidor ya haya aplicado este cambio. Gravity Room lo comprobará de forma segura; no repitas la acción.",
     "card_updated": "Actualizado {{date}}",
     "catalog_title": "Catálogo de presets",
     "catalog_meta": "{{level}} · {{total}} entrenamientos · {{perWeek}}/semana",
@@ -142,7 +149,10 @@
       "field_accessibility": "Valor inicial de {{label}}",
       "weight_hint": "Mínimo {{min}} kg · incrementos de {{step}} kg",
       "online_only": "Crear un programa requiere internet porque el servidor asigna su identidad y todavía no puede reintentar esta petición de forma segura.",
-      "create_error": "El programa no se creó. Comprueba la conexión y reinténtalo; no se añadió ningún programa local.",
+      "create_error": "El servidor rechazó la petición antes de confirmar la creación. Revisa la conexión antes de reintentar.",
+      "reconciliation_required": "Puede que el servidor ya haya creado el programa. Gravity Room comprobará el resultado de forma segura; no pulses Empezar otra vez.",
+      "open_acknowledged": "Abrir programa confirmado",
+      "open_acknowledged_accessibility": "Abrir el programa confirmado por el servidor",
       "start": "Empezar programa",
       "start_accessibility": "Empezar {{name}} con esta configuración",
       "validation": {
@@ -171,7 +181,121 @@
       "sync": "No se pueden sincronizar los programas ahora mismo.",
       "catalog": "No se pudo cargar el catálogo de programas ahora mismo.",
       "start": "No se pudo empezar ese programa ahora mismo.",
-      "mutation": "Ese cambio no se pudo completar online. Tu lista local anterior no ha cambiado."
+      "mutation": "El servidor rechazó ese cambio antes de confirmarlo. Tu lista local anterior no ha cambiado."
+    }
+  },
+  "program_content": {
+    "level": {
+      "beginner": "Principiante",
+      "intermediate": "Intermedio",
+      "advanced": "Avanzado"
+    },
+    "day": "Día {{number}}",
+    "option": "Opción {{number}}",
+    "tier": {
+      "t1": "Fuerza principal",
+      "t2": "Fuerza secundaria",
+      "t3": "Accesorio",
+      "primary": "Principal",
+      "secondary": "Secundario",
+      "accessory": "Accesorio",
+      "other": "Bloque de entrenamiento"
+    },
+    "exercises": {
+      "squat": "Sentadilla",
+      "bench": "Press banca",
+      "deadlift": "Peso muerto",
+      "ohp": "Press militar",
+      "latpulldown": "Jalón al pecho",
+      "dbrow": "Remo con mancuernas"
+    },
+    "fallback": {
+      "program_name": "Programa de fuerza",
+      "program_description": "Un preset de entrenamiento estructurado. Esta versión aún no tiene todo el contenido traducido.",
+      "exercise": "Ejercicio {{number}}",
+      "setup_field": "Valor inicial {{number}}"
+    },
+    "catalog": {
+      "gzclp": {
+        "name": "GZCLP",
+        "description": "Progresión lineal de cuatro días con trabajo T1, T2 y T3 y respuestas por etapas ante los fallos."
+      },
+      "hexan-ppl": {
+        "name": "HeXaN PPL",
+        "description": "Plan push, pull y legs de seis días que combina compuestos 5/3/1 con accesorios de doble progresión."
+      },
+      "stronglifts-5x5": {
+        "name": "StrongLifts 5x5",
+        "description": "Plan de fuerza para principiantes con dos sesiones alternas, carga lineal y descargas planificadas."
+      },
+      "phraks-greyskull-lp": {
+        "name": "Phrak's Greyskull LP",
+        "description": "Dos sesiones de cuerpo completo alternas con una última serie AMRAP y progresión lineal."
+      },
+      "531-boring-but-big": {
+        "name": "5/3/1 Boring But Big",
+        "description": "Ciclos 5/3/1 de cuatro semanas con trabajo suplementario de alto volumen 5×10."
+      },
+      "531-for-beginners": {
+        "name": "5/3/1 para principiantes",
+        "description": "Tres sesiones semanales de cuerpo completo con dos levantamientos principales y trabajo First Set Last."
+      },
+      "phul": {
+        "name": "PHUL",
+        "description": "Cuatro sesiones semanales divididas entre fuerza pesada e hipertrofia con más repeticiones."
+      },
+      "nivel-7": {
+        "name": "Nivel 7",
+        "description": "Plan de fuerza de doce semanas con periodización inversa alrededor de un récord objetivo."
+      },
+      "caparazon-de-tortuga": {
+        "name": "Caparazón de Tortuga",
+        "description": "Camino gradual de 200 sesiones desde las bases con peso corporal hasta la fuerza con barra."
+      },
+      "365-programmare-lipertrofia": {
+        "name": "365 Programmare l'Ipertrofia",
+        "description": "Plan anual de hipertrofia organizado en fases de técnica, carga, trabajo neural, intensificación y aislamiento."
+      },
+      "la-sala-del-tiempo": {
+        "name": "La Sala del Tiempo",
+        "description": "Ciclo avanzado de hipertrofia de 196 sesiones con cuatro fases de intensidad creciente."
+      },
+      "sala-del-tiempo-1": {
+        "name": "La Sala del Tiempo 1",
+        "description": "Seis semanas de práctica técnica con cargas ligeras, pausas, tempo y control del movimiento."
+      },
+      "sala-del-tiempo-2": {
+        "name": "La Sala del Tiempo 2",
+        "description": "Trece semanas de fuerza neural progresiva y ramping de cargas."
+      },
+      "sala-del-tiempo-3": {
+        "name": "La Sala del Tiempo 3",
+        "description": "Dieciocho semanas de intensificación en tres bloques, cada uno cerrado con un test de 1RM."
+      },
+      "tenkaichi-budokai-sentadilla": {
+        "name": "Tenkaichi Budokai — Sentadilla",
+        "description": "Preparación de powerlifting de dieciséis semanas con énfasis en sentadilla."
+      },
+      "tenkaichi-budokai-press-banca": {
+        "name": "Tenkaichi Budokai — Press banca",
+        "description": "Preparación de powerlifting de dieciséis semanas centrada en volumen y variantes de press banca."
+      },
+      "tenkaichi-budokai-peso-muerto": {
+        "name": "Tenkaichi Budokai — Peso muerto",
+        "description": "Preparación de powerlifting de dieciséis semanas con énfasis en variantes de peso muerto."
+      },
+      "tenkaichi-budokai-solo-banca": {
+        "name": "Tenkaichi Budokai — Solo banca",
+        "description": "Plan de competición de dieciocho semanas centrado exclusivamente en press banca."
+      },
+      "tenkaichi-budokai-veterano": {
+        "name": "Tenkaichi Budokai — Veterano",
+        "description": "Preparación estilo Sheiko en cuatro bloques para powerlifters con experiencia."
+      },
+      "furia-oscura": {
+        "name": "Furia Oscura",
+        "description": "Plan push, pull y legs alterno con doble progresión en tres sesiones semanales."
+      }
     }
   },
   "profile": {

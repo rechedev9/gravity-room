@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -16,6 +16,18 @@ import {
   type ProgramConfigIssue,
 } from '@gzclp/domain/program-config';
 
+import type { SupportedLanguage } from '../../lib/i18n';
+import { parseLocalizedWeight } from '../../lib/programs/localized-weight-input';
+import {
+  localizeDayName,
+  localizeDefinitionDescription,
+  localizeDefinitionName,
+  localizeExerciseName,
+  localizeFieldLabel,
+  localizeSelectOption,
+  localizeTier,
+} from '../../lib/programs/program-content';
+import { readPendingCreateReconciliation } from '../../lib/programs/program-repository';
 import { startPresetProgram } from '../../lib/programs/program-use-cases';
 import {
   buildDefaultProgramConfig,
@@ -52,7 +64,8 @@ function toInputValues(config: ProgramConfig): Record<string, string> {
 
 function buildConfigCandidate(
   definition: ProgramDefinition,
-  values: Readonly<Record<string, string>>
+  values: Readonly<Record<string, string>>,
+  language: SupportedLanguage
 ): Record<string, number | string> {
   const config: Record<string, number | string> = {};
 
@@ -67,8 +80,8 @@ function buildConfigCandidate(
       continue;
     }
 
-    const numericValue = Number(rawValue);
-    config[field.key] = Number.isFinite(numericValue) ? numericValue : rawValue;
+    const parsed = parseLocalizedWeight(rawValue, language);
+    config[field.key] = parsed.success ? parsed.value : rawValue;
   }
 
   return config;
@@ -101,24 +114,66 @@ export function PresetSetupScreen({
   ownerUserId,
   programId,
 }: PresetSetupScreenProps) {
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const [state, setState] = useState<PresetState>({ status: 'loading' });
   const [values, setValues] = useState<Record<string, string>>({});
   const [issues, setIssues] = useState<readonly ProgramConfigIssue[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState(false);
+  const [submitOutcome, setSubmitOutcome] = useState<
+    | { readonly status: 'remote_error' }
+    | { readonly status: 'reconciliation_required'; readonly programInstanceId: string | null }
+    | null
+  >(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const dirtyFieldsRef = useRef(new Set<string>());
+  const valuesInitializedRef = useRef(false);
+  const submittingRef = useRef(false);
+  const language: SupportedLanguage = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
 
   useEffect(() => {
     let active = true;
+    dirtyFieldsRef.current.clear();
+    valuesInitializedRef.current = false;
+
+    function applyDefinition(definition: ProgramDefinition): void {
+      const defaults = toInputValues(buildDefaultProgramConfig(definition));
+      setValues((current) => {
+        if (!valuesInitializedRef.current) {
+          valuesInitializedRef.current = true;
+          return defaults;
+        }
+        return Object.fromEntries(
+          Object.entries(defaults).map(([key, value]) => [
+            key,
+            dirtyFieldsRef.current.has(key) ? (current[key] ?? value) : value,
+          ])
+        );
+      });
+    }
 
     async function loadPreset(): Promise<void> {
+      let pendingCreate;
+      try {
+        pendingCreate = await readPendingCreateReconciliation(ownerUserId);
+      } catch {
+        if (active) {
+          setState({ status: 'error' });
+        }
+        return;
+      }
+      if (active && pendingCreate !== null) {
+        setSubmitOutcome({
+          status: 'reconciliation_required',
+          programInstanceId: pendingCreate.programInstanceId,
+        });
+      }
+
       let cachedDefinition: ProgramDefinition | null = null;
       try {
         cachedDefinition = await getProgramDefinition(ownerUserId, programId);
         if (cachedDefinition && active) {
           setState({ status: 'ready', definition: cachedDefinition, offline: false });
-          setValues(toInputValues(buildDefaultProgramConfig(cachedDefinition)));
+          applyDefinition(cachedDefinition);
         }
       } catch {
         cachedDefinition = null;
@@ -129,7 +184,7 @@ export function PresetSetupScreen({
         await upsertProgramDefinition(ownerUserId, definition);
         if (active) {
           setState({ status: 'ready', definition, offline: false });
-          setValues(toInputValues(buildDefaultProgramConfig(definition)));
+          applyDefinition(definition);
         }
       } catch {
         if (active && cachedDefinition === null) {
@@ -141,6 +196,7 @@ export function PresetSetupScreen({
     }
 
     setState({ status: 'loading' });
+    setSubmitOutcome(null);
     void loadPreset();
     return () => {
       active = false;
@@ -155,7 +211,12 @@ export function PresetSetupScreen({
   if (state.status === 'loading') {
     return (
       <Screen centered>
-        <ActivityIndicator color={colors.textPrimary} />
+        <ActivityIndicator
+          accessibilityLabel={t('programs.preset.loading')}
+          accessibilityLiveRegion="polite"
+          accessibilityRole="progressbar"
+          color={colors.textPrimary}
+        />
         <Text style={styles.body}>{t('programs.preset.loading')}</Text>
       </Screen>
     );
@@ -164,7 +225,9 @@ export function PresetSetupScreen({
   if (state.status === 'error') {
     return (
       <Screen centered>
-        <Text style={styles.title}>{t('programs.preset.load_error_title')}</Text>
+        <Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.title}>
+          {t('programs.preset.load_error_title')}
+        </Text>
         <Text style={styles.body}>{t('programs.preset.load_error_body')}</Text>
         <Button
           accessibilityLabel={t('programs.preset.retry_accessibility')}
@@ -181,32 +244,44 @@ export function PresetSetupScreen({
   }
 
   const { definition } = state;
+  const localizedName = localizeDefinitionName(definition, t);
+  const localizedDescription = localizeDefinitionDescription(definition, t);
   const estimatedWeeks = Math.ceil(definition.totalWorkouts / definition.workoutsPerWeek);
 
   async function handleStart(): Promise<void> {
-    if (submitting) return;
-    const config = buildConfigCandidate(definition, values);
+    if (submittingRef.current || submitOutcome?.status === 'reconciliation_required') return;
+    submittingRef.current = true;
+    const config = buildConfigCandidate(definition, values, language);
     const validation = validateProgramConfig(definition, config);
     if (!validation.success) {
       setIssues(validation.issues);
-      setSubmitError(false);
+      setSubmitOutcome(null);
+      submittingRef.current = false;
       return;
     }
 
     setIssues([]);
-    setSubmitError(false);
+    setSubmitOutcome(null);
     setSubmitting(true);
     try {
-      const detail = await startPresetProgram({
+      const result = await startPresetProgram({
         ownerUserId,
         definition,
-        name: definition.name,
+        name: localizedName,
         config: validation.config,
       });
-      onCreated(detail.id);
+      if (result.status === 'applied') {
+        onCreated(result.remote.id);
+      } else {
+        setSubmitOutcome({
+          status: 'reconciliation_required',
+          programInstanceId: result.remote?.id ?? result.remoteEntityId,
+        });
+      }
     } catch {
-      setSubmitError(true);
+      setSubmitOutcome({ status: 'remote_error' });
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
@@ -232,9 +307,9 @@ export function PresetSetupScreen({
         <View style={styles.heading}>
           <Text style={styles.eyebrow}>{t('programs.preset.eyebrow')}</Text>
           <Text accessibilityRole="header" style={styles.title}>
-            {definition.name}
+            {localizedName}
           </Text>
-          <Text style={styles.body}>{definition.description}</Text>
+          <Text style={styles.body}>{localizedDescription}</Text>
           <Text style={styles.meta}>
             {t('programs.preset.schedule', {
               total: definition.totalWorkouts,
@@ -246,12 +321,13 @@ export function PresetSetupScreen({
 
         <Card>
           <Text style={styles.sectionTitle}>{t('programs.preset.days_title')}</Text>
-          {definition.days.map((day) => (
+          {definition.days.map((day, dayIndex) => (
             <View key={day.name} style={styles.day}>
-              <Text style={styles.dayTitle}>{day.name}</Text>
-              {day.slots.map((slot) => (
+              <Text style={styles.dayTitle}>{localizeDayName(dayIndex, t)}</Text>
+              {day.slots.map((slot, slotIndex) => (
                 <Text key={slot.id} style={styles.body}>
-                  {definition.exercises[slot.exerciseId]?.name ?? slot.exerciseId} · {slot.tier}
+                  {localizeExerciseName(slot.exerciseId, slotIndex, t)} ·{' '}
+                  {localizeTier(slot.tier, t)}
                 </Text>
               ))}
             </View>
@@ -268,25 +344,25 @@ export function PresetSetupScreen({
         </Card>
 
         <Card>
-          <Text style={styles.sectionTitle}>
-            {definition.configTitle ?? t('programs.preset.setup_title')}
-          </Text>
-          <Text style={styles.body}>
-            {definition.configDescription ?? t('programs.preset.setup_body')}
-          </Text>
-          {definition.configFields.map((field) => {
+          <Text style={styles.sectionTitle}>{t('programs.preset.setup_title')}</Text>
+          <Text style={styles.body}>{t('programs.preset.setup_body')}</Text>
+          {definition.configFields.map((field, fieldIndex) => {
             const issue = findFieldIssue(issues, field.key);
+            const localizedLabel = localizeFieldLabel(field.key, fieldIndex, t);
             if (field.type === 'weight') {
               return (
                 <View key={field.key} style={styles.field}>
-                  <Text style={styles.label}>{field.label}</Text>
+                  <Text style={styles.label}>{localizedLabel}</Text>
                   <TextInput
                     accessibilityLabel={t('programs.preset.field_accessibility', {
-                      label: field.label,
+                      label: localizedLabel,
                     })}
                     keyboardType="decimal-pad"
                     onChangeText={(value) =>
-                      setValues((current) => ({ ...current, [field.key]: value }))
+                      setValues((current) => {
+                        dirtyFieldsRef.current.add(field.key);
+                        return { ...current, [field.key]: value };
+                      })
                     }
                     style={styles.input}
                     value={values[field.key] ?? ''}
@@ -308,9 +384,9 @@ export function PresetSetupScreen({
 
             return (
               <View key={field.key} style={styles.field}>
-                <Text style={styles.label}>{field.label}</Text>
+                <Text style={styles.label}>{localizedLabel}</Text>
                 <View style={styles.options}>
-                  {field.options.map((option) => {
+                  {field.options.map((option, optionIndex) => {
                     const selected = values[field.key] === option.value;
                     return (
                       <Pressable
@@ -318,14 +394,19 @@ export function PresetSetupScreen({
                         accessibilityState={{ selected }}
                         key={option.value}
                         onPress={() =>
-                          setValues((current) => ({
-                            ...current,
-                            [field.key]: option.value,
-                          }))
+                          setValues((current) => {
+                            dirtyFieldsRef.current.add(field.key);
+                            return {
+                              ...current,
+                              [field.key]: option.value,
+                            };
+                          })
                         }
                         style={[styles.option, selected ? styles.optionSelected : null]}
                       >
-                        <Text style={styles.optionLabel}>{option.label}</Text>
+                        <Text style={styles.optionLabel}>
+                          {localizeSelectOption(optionIndex, t)}
+                        </Text>
                       </Pressable>
                     );
                   })}
@@ -343,17 +424,35 @@ export function PresetSetupScreen({
         <View style={styles.onlineNote}>
           <Text style={styles.onlineText}>{t('programs.preset.online_only')}</Text>
         </View>
-        {submitError ? (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {t('programs.preset.create_error')}
+        {submitOutcome ? (
+          <Text accessibilityLiveRegion="assertive" accessibilityRole="alert" style={styles.error}>
+            {t(
+              submitOutcome.status === 'reconciliation_required'
+                ? 'programs.preset.reconciliation_required'
+                : 'programs.preset.create_error'
+            )}
           </Text>
+        ) : null}
+        {submitOutcome?.status === 'reconciliation_required' &&
+        submitOutcome.programInstanceId !== null ? (
+          <Button
+            accessibilityLabel={t('programs.preset.open_acknowledged_accessibility')}
+            label={t('programs.preset.open_acknowledged')}
+            onPress={() => {
+              const programInstanceId = submitOutcome.programInstanceId;
+              if (programInstanceId !== null) {
+                onCreated(programInstanceId);
+              }
+            }}
+          />
         ) : null}
         <Button
           accessibilityLabel={t('programs.preset.start_accessibility', {
-            name: definition.name,
+            name: localizedName,
           })}
           isLoading={submitting}
           label={t('programs.preset.start')}
+          disabled={submitOutcome?.status === 'reconciliation_required'}
           onPress={() => {
             void handleStart();
           }}

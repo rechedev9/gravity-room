@@ -105,22 +105,25 @@ describe('ProgramsScreen M2 library', () => {
     mockedReadTrackerProgramId.mockResolvedValue(ACTIVE.id);
     mockedWriteTrackerProgramId.mockResolvedValue();
     mockedManageProgram.mockResolvedValue({
-      id: ACTIVE.id,
-      programId: ACTIVE.programId,
-      name: ACTIVE.title,
-      config: {},
-      metadata: null,
-      results: {},
-      undoHistory: [],
-      resultTimestamps: {},
-      completedDates: {},
-      definitionId: null,
-      customDefinition: null,
-      status: 'active',
-      createdAt: ACTIVE.createdAt,
-      updatedAt: ACTIVE.updatedAt,
+      status: 'applied',
+      remote: {
+        id: ACTIVE.id,
+        programId: ACTIVE.programId,
+        name: ACTIVE.title,
+        config: {},
+        metadata: null,
+        results: {},
+        undoHistory: [],
+        resultTimestamps: {},
+        completedDates: {},
+        definitionId: null,
+        customDefinition: null,
+        status: 'active',
+        createdAt: ACTIVE.createdAt,
+        updatedAt: ACTIVE.updatedAt,
+      },
     });
-    mockedDeleteProgram.mockResolvedValue();
+    mockedDeleteProgram.mockResolvedValue({ status: 'applied', remote: 'deleted' });
   });
 
   afterEach(() => {
@@ -174,6 +177,52 @@ describe('ProgramsScreen M2 library', () => {
     expect(screen.queryByText('Unable to sync programs right now.')).toBeNull();
   });
 
+  it('renders an accessible EmptyState for a fresh empty catalog', async () => {
+    mockedListCachedCatalog.mockResolvedValue([]);
+    mockedFetchCatalogEntries.mockResolvedValue([]);
+
+    renderPrograms();
+
+    const title = await screen.findByText('No presets available');
+    expect(title).toBeTruthy();
+    expect(screen.UNSAFE_getByProps({ accessibilityRole: 'summary' })).toBeTruthy();
+  });
+
+  it('marks cached data as revalidating while a slow fetch is still pending', async () => {
+    mockedFetchProgramSummaries.mockImplementation(() => new Promise(() => undefined));
+    mockedFetchCatalogEntries.mockImplementation(() => new Promise(() => undefined));
+
+    renderPrograms();
+
+    expect(
+      await screen.findByText('Showing cached programs while checking the server for updates.')
+    ).toBeTruthy();
+    expect(screen.getByText('Showing the saved catalog while checking for updates.')).toBeTruthy();
+    expect(
+      screen.queryByText('Offline: showing your last synchronized program library.')
+    ).toBeNull();
+  });
+
+  it('labels loading indicators and exposes load failures as alerts', async () => {
+    mockedListProgramSummaries.mockImplementation(() => new Promise(() => undefined));
+    mockedListCachedCatalog.mockImplementation(() => new Promise(() => undefined));
+    mockedFetchProgramSummaries.mockImplementation(() => new Promise(() => undefined));
+    mockedFetchCatalogEntries.mockImplementation(() => new Promise(() => undefined));
+    const view = renderPrograms();
+
+    expect(screen.getByLabelText('Loading your program library')).toBeTruthy();
+    expect(screen.getByLabelText('Loading the preset catalog')).toBeTruthy();
+
+    view.unmount();
+    mockedListProgramSummaries.mockRejectedValue(new Error('cache broken'));
+    mockedListCachedCatalog.mockRejectedValue(new Error('cache broken'));
+    mockedFetchProgramSummaries.mockRejectedValue(new Error('server broken'));
+    mockedFetchCatalogEntries.mockRejectedValue(new Error('server broken'));
+    renderPrograms();
+
+    expect(await screen.findAllByRole('alert')).toHaveLength(2);
+  });
+
   it('pins an owned active program before making it the Tracker default', async () => {
     mockedReadTrackerProgramId.mockResolvedValue(null);
     renderPrograms();
@@ -207,6 +256,30 @@ describe('ProgramsScreen M2 library', () => {
       });
     });
     expect(mockedListProgramSummaries).toHaveBeenCalledTimes(3);
+  });
+
+  it('shows honest reconciliation copy after a remote ACK instead of reporting failure', async () => {
+    mockedManageProgram.mockResolvedValue({
+      status: 'reconciliation_required',
+      remote: null,
+      remoteEntityId: ACTIVE.id,
+      remoteState: 'acknowledged',
+      reconciliationScheduled: true,
+    });
+    renderPrograms();
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Complete' }));
+
+    expect(
+      await screen.findByText(
+        'The server may already have applied this change. Gravity Room will verify it safely; do not repeat the action.'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.queryByText(
+        'The server rejected that change before acknowledging it. Your previous local list is unchanged.'
+      )
+    ).toBeNull();
   });
 
   it('serializes management actions while a mutation is in flight', async () => {

@@ -180,8 +180,14 @@ vi.mock('../services/catalog', () => ({
 }));
 
 // Must import AFTER mock.module
-const { getInstances, getInstance, updateInstanceMetadata, importInstance } =
-  await import('./programs');
+const {
+  createInstance,
+  getInstances,
+  getInstance,
+  updateInstance,
+  updateInstanceMetadata,
+  importInstance,
+} = await import('./programs');
 
 // ---------------------------------------------------------------------------
 // Test fixtures
@@ -846,5 +852,196 @@ describe('importInstance — undoHistory validation', () => {
     expect((thrown as ApiError).statusCode).toBe(400);
     expect((thrown as ApiError).code).toBe('INVALID_DATA');
     expect(transaction).not.toHaveBeenCalled();
+  });
+});
+
+interface TransactionProgramRow {
+  readonly id: string;
+  readonly userId: string;
+  readonly templateId: string;
+  readonly name: string;
+  readonly programConfig: Record<string, number | string>;
+  status: 'active' | 'completed' | 'archived';
+  readonly definitionId: string | null;
+  readonly customDefinition: null;
+  readonly metadata: null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}
+
+function createProgramTransaction(
+  rows: TransactionProgramRow[],
+  options: { readonly failInsert?: boolean } = {}
+): Record<string, unknown> {
+  let selectCount = 0;
+  return {
+    select: vi.fn(() => {
+      selectCount += 1;
+      const selected = selectCount === 1 ? [{ id: 'user-1' }] : [{ id: 'gzclp' }];
+      const result = {
+        limit: vi.fn(async () => selected),
+        for: vi.fn(() => ({ limit: vi.fn(async () => selected) })),
+      };
+      return {
+        from: vi.fn(() => ({
+          where: vi.fn(() => result),
+        })),
+      };
+    }),
+    update: vi.fn(() => ({
+      set: vi.fn(() => ({
+        where: vi.fn(async () => {
+          for (const row of rows) {
+            if (row.userId === 'user-1' && row.status === 'active') {
+              row.status = 'completed';
+            }
+          }
+        }),
+      })),
+    })),
+    insert: vi.fn(() => ({
+      values: vi.fn((values: Record<string, unknown>) => ({
+        returning: vi.fn(async () => {
+          if (options.failInsert) {
+            throw new Error('insert failed');
+          }
+          const row: TransactionProgramRow = {
+            id: `created-${rows.length}`,
+            userId: String(values.userId),
+            templateId: String(values.templateId),
+            name: String(values.name),
+            programConfig:
+              typeof values.programConfig === 'object' && values.programConfig !== null
+                ? Object.fromEntries(
+                    Object.entries(values.programConfig).filter(
+                      (entry): entry is [string, string | number] =>
+                        typeof entry[1] === 'string' || typeof entry[1] === 'number'
+                    )
+                  )
+                : {},
+            status: 'active',
+            definitionId: null,
+            customDefinition: null,
+            metadata: null,
+            createdAt: NOW,
+            updatedAt: NOW,
+          };
+          rows.push(row);
+          return [row];
+        }),
+      })),
+    })),
+  };
+}
+
+describe('createInstance transaction and per-user serialization', () => {
+  it('rolls back the active-status update when insert fails', async () => {
+    const persisted: TransactionProgramRow[] = [
+      {
+        id: 'old-active',
+        userId: 'user-1',
+        templateId: 'gzclp',
+        name: 'Old',
+        programConfig: {},
+        status: 'active',
+        definitionId: null,
+        customDefinition: null,
+        metadata: null,
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+    ];
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) => {
+        const draft = persisted.map((row) => ({ ...row }));
+        try {
+          const result = await task(createProgramTransaction(draft, { failInsert: true }));
+          persisted.splice(0, persisted.length, ...draft);
+          return result;
+        } catch (error) {
+          throw error;
+        }
+      }),
+    };
+
+    await expect(createInstance('user-1', 'gzclp', 'New', { squat: 20 })).rejects.toThrow(
+      'insert failed'
+    );
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0]?.status).toBe('active');
+  });
+
+  it('serializes concurrent creates and leaves exactly one active instance', async () => {
+    const persisted: TransactionProgramRow[] = [];
+    let tail = Promise.resolve();
+    let inFlight = 0;
+    let maxInFlight = 0;
+    mockDb = {
+      transaction: vi.fn(
+        (task: (tx: Record<string, unknown>) => Promise<unknown>): Promise<unknown> => {
+          const run = tail.then(async () => {
+            inFlight += 1;
+            maxInFlight = Math.max(maxInFlight, inFlight);
+            const draft = persisted.map((row) => ({ ...row }));
+            try {
+              const result = await task(createProgramTransaction(draft));
+              persisted.splice(0, persisted.length, ...draft);
+              return result;
+            } finally {
+              inFlight -= 1;
+            }
+          });
+          tail = run.then(
+            () => undefined,
+            () => undefined
+          );
+          return run;
+        }
+      ),
+    };
+
+    await Promise.all([
+      createInstance('user-1', 'gzclp', 'First', { squat: 20 }),
+      createInstance('user-1', 'gzclp', 'Second', { squat: 25 }),
+    ]);
+
+    expect(maxInFlight).toBe(1);
+    expect(persisted.filter((row) => row.status === 'active')).toHaveLength(1);
+    expect(persisted.filter((row) => row.status === 'completed')).toHaveLength(1);
+  });
+});
+
+describe('updateInstance active serialization', () => {
+  it('does not complete the current active program when the reactivation target is absent', async () => {
+    const update = vi.fn();
+    const select = vi
+      .fn()
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            for: vi.fn(() => ({
+              limit: vi.fn(async () => [{ id: 'user-1' }]),
+            })),
+          })),
+        })),
+      })
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            limit: vi.fn(async () => []),
+          })),
+        })),
+      });
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task({ select, update })
+      ),
+    };
+
+    await expect(updateInstance('user-1', 'missing', { status: 'active' })).rejects.toMatchObject({
+      statusCode: 404,
+      code: 'INSTANCE_NOT_FOUND',
+    });
+    expect(update).not.toHaveBeenCalled();
   });
 });

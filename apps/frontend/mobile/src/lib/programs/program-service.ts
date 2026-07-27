@@ -22,8 +22,41 @@ export type ProgramManagementMutation =
   | { readonly type: 'rename'; readonly name: string }
   | { readonly type: 'set_status'; readonly status: ProgramStatus };
 
+export type DeleteRemoteResult = 'deleted' | 'already_absent';
+
+export class RemoteMutationOutcomeUnknownError extends Error {
+  readonly operation: 'create' | 'manage' | 'delete';
+  readonly entityId: string | null;
+
+  constructor(operation: 'create' | 'manage' | 'delete', entityId: string | null, cause: unknown) {
+    super(`The ${operation} request outcome is unknown`, { cause });
+    this.name = 'RemoteMutationOutcomeUnknownError';
+    this.operation = operation;
+    this.entityId = entityId;
+  }
+}
+
+export class RemoteMutationAcknowledgedError extends Error {
+  readonly operation: 'create' | 'manage';
+  readonly entityId: string | null;
+
+  constructor(operation: 'create' | 'manage', entityId: string | null, cause: unknown) {
+    super(`The ${operation} request was acknowledged but its response was invalid`, { cause });
+    this.name = 'RemoteMutationAcknowledgedError';
+    this.operation = operation;
+    this.entityId = entityId;
+  }
+}
+
 const DEFAULT_WEIGHT_FALLBACK = 20;
 const DEFAULT_WEIGHT_STEPS = 8;
+
+function readRemoteEntityId(payload: unknown): string | null {
+  if (typeof payload !== 'object' || payload === null || !('id' in payload)) {
+    return null;
+  }
+  return typeof payload.id === 'string' && payload.id.length > 0 ? payload.id : null;
+}
 
 function parseProgramStatus(value: unknown): ProgramStatus {
   return ProgramInstanceSchema.shape.status.parse(value);
@@ -186,23 +219,34 @@ export async function createProgramInstance(input: {
     throw new Error('Program creation requires valid setup');
   }
 
-  const { response } = await fetchWithAccessToken('/programs', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      programId: definition.id,
-      name: input.name,
-      config: validation.config,
-    }),
-  });
+  let response: Response;
+  try {
+    ({ response } = await fetchWithAccessToken('/programs', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        programId: definition.id,
+        name: input.name,
+        config: validation.config,
+      }),
+    }));
+  } catch (error) {
+    throw new RemoteMutationOutcomeUnknownError('create', null, error);
+  }
 
   if (!response.ok) {
     throw new Error(`Program creation failed with status ${response.status}`);
   }
 
-  return GenericProgramDetailSchema.parse(await response.json());
+  let payload: unknown = null;
+  try {
+    payload = await response.json();
+    return GenericProgramDetailSchema.parse(payload);
+  } catch (error) {
+    throw new RemoteMutationAcknowledgedError('create', readRemoteEntityId(payload), error);
+  }
 }
 
 export async function updateProgramInstance(
@@ -222,30 +266,50 @@ export async function updateProgramInstance(
     body = { status: mutation.status };
   }
 
-  const { response } = await fetchWithAccessToken(
-    `/programs/${encodeURIComponent(programInstanceId)}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    }
-  );
+  let response: Response;
+  try {
+    ({ response } = await fetchWithAccessToken(
+      `/programs/${encodeURIComponent(programInstanceId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      }
+    ));
+  } catch (error) {
+    throw new RemoteMutationOutcomeUnknownError('manage', programInstanceId, error);
+  }
   if (!response.ok) {
     throw new Error(`Program update failed with status ${response.status}`);
   }
 
-  return GenericProgramDetailSchema.parse(await response.json());
+  try {
+    return GenericProgramDetailSchema.parse(await response.json());
+  } catch (error) {
+    throw new RemoteMutationAcknowledgedError('manage', programInstanceId, error);
+  }
 }
 
-export async function deleteProgramInstance(programInstanceId: string): Promise<void> {
+export async function deleteProgramInstance(
+  programInstanceId: string
+): Promise<DeleteRemoteResult> {
   requireAccessToken('Program deletion requires an access token');
-  const { response } = await fetchWithAccessToken(
-    `/programs/${encodeURIComponent(programInstanceId)}`,
-    { method: 'DELETE' }
-  );
+  let response: Response;
+  try {
+    ({ response } = await fetchWithAccessToken(
+      `/programs/${encodeURIComponent(programInstanceId)}`,
+      { method: 'DELETE' }
+    ));
+  } catch (error) {
+    throw new RemoteMutationOutcomeUnknownError('delete', programInstanceId, error);
+  }
+  if (response.status === 404) {
+    return 'already_absent';
+  }
   if (!response.ok) {
     throw new Error(`Program deletion failed with status ${response.status}`);
   }
+  return 'deleted';
 }

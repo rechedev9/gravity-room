@@ -37,6 +37,13 @@ interface CatalogRow {
   readonly entry_json: string;
 }
 
+export type ProgramReconciliationOperation = 'create' | 'manage' | 'delete';
+
+export interface PendingCreateReconciliation {
+  readonly pending: true;
+  readonly programInstanceId: string | null;
+}
+
 function requireOwnerUserId(ownerUserId: string): void {
   if (ownerUserId.length === 0) {
     throw new Error('Program cache requires an authenticated owner');
@@ -199,6 +206,54 @@ async function replaceSummaries(
     ownerUserId,
     ownerUserId
   );
+
+  const pendingDeletes = await transaction.getAllAsync(
+    `SELECT entity_id
+     FROM mobile_v2_program_reconciliations
+     WHERE owner_user_id = ? AND operation = 'delete'`,
+    ownerUserId
+  );
+  for (const value of pendingDeletes) {
+    if (!isRecord(value) || typeof value.entity_id !== 'string') {
+      throw new Error('SQLite returned an invalid program reconciliation row');
+    }
+    if (!programs.some((program) => program.id === value.entity_id)) {
+      await deleteLocalProgramDataInTransaction(transaction, ownerUserId, value.entity_id);
+      await transaction.runAsync(
+        `DELETE FROM mobile_v2_program_reconciliations
+         WHERE owner_user_id = ? AND operation = 'delete' AND entity_id = ?`,
+        ownerUserId,
+        value.entity_id
+      );
+    }
+  }
+
+  await transaction.runAsync(
+    `DELETE FROM mobile_v2_program_reconciliations
+     WHERE owner_user_id = ?
+       AND (
+         (
+           operation = 'create'
+           AND entity_id NOT LIKE 'unknown:%'
+           AND EXISTS (
+             SELECT 1
+             FROM mobile_v2_program_summaries
+             WHERE owner_user_id = ? AND id = mobile_v2_program_reconciliations.entity_id
+           )
+         )
+         OR (
+           operation = 'manage'
+           AND EXISTS (
+             SELECT 1
+             FROM mobile_v2_program_summaries
+             WHERE owner_user_id = ? AND id = mobile_v2_program_reconciliations.entity_id
+           )
+         )
+       )`,
+    ownerUserId,
+    ownerUserId,
+    ownerUserId
+  );
 }
 
 async function upsertDetail(
@@ -349,6 +404,35 @@ export async function cacheCreatedProgram(input: {
 
   await database.withExclusiveTransactionAsync(async (transaction) => {
     if (input.serverPrograms === null) {
+      await transaction.runAsync(
+        `UPDATE mobile_v2_program_details
+         SET detail_json = json_set(
+               detail_json,
+               '$.status', 'completed',
+               '$.updatedAt', ?
+             ),
+             updated_at = ?
+         WHERE owner_user_id = ?
+           AND id <> ?
+           AND id IN (
+             SELECT id
+             FROM mobile_v2_program_summaries
+             WHERE owner_user_id = ? AND status = 'active'
+           )`,
+        detail.updatedAt,
+        detail.updatedAt,
+        input.ownerUserId,
+        createdSummary.id,
+        input.ownerUserId
+      );
+      await transaction.runAsync(
+        `UPDATE mobile_v2_program_summaries
+         SET status = 'completed', updated_at = ?
+         WHERE owner_user_id = ? AND status = 'active' AND id <> ?`,
+        detail.updatedAt,
+        input.ownerUserId,
+        createdSummary.id
+      );
       await upsertSummary(transaction, input.ownerUserId, createdSummary);
     } else {
       await replaceSummaries(transaction, input.ownerUserId, input.serverPrograms);
@@ -380,8 +464,67 @@ export async function cacheManagedProgram(
   await bootstrapDatabase(database);
 
   await database.withExclusiveTransactionAsync(async (transaction) => {
+    if (summary.status === 'active') {
+      await transaction.runAsync(
+        `UPDATE mobile_v2_program_details
+         SET detail_json = json_set(
+               detail_json,
+               '$.status', 'completed',
+               '$.updatedAt', ?
+             ),
+             updated_at = ?
+         WHERE owner_user_id = ?
+           AND id <> ?
+           AND id IN (
+             SELECT id
+             FROM mobile_v2_program_summaries
+             WHERE owner_user_id = ? AND status = 'active'
+           )`,
+        detail.updatedAt,
+        detail.updatedAt,
+        ownerUserId,
+        detail.id,
+        ownerUserId
+      );
+      await transaction.runAsync(
+        `UPDATE mobile_v2_program_summaries
+         SET status = 'completed', updated_at = ?
+         WHERE owner_user_id = ? AND status = 'active' AND id <> ?`,
+        detail.updatedAt,
+        ownerUserId,
+        detail.id
+      );
+    }
     await upsertSummary(transaction, ownerUserId, summary);
-    await upsertDetail(transaction, ownerUserId, detail);
+    await transaction.runAsync(
+      `INSERT OR IGNORE INTO mobile_v2_program_details (
+         owner_user_id, id, program_id, detail_json, updated_at
+       ) VALUES (?, ?, ?, ?, ?)`,
+      ownerUserId,
+      detail.id,
+      detail.programId,
+      JSON.stringify(detail),
+      detail.updatedAt
+    );
+    await transaction.runAsync(
+      `UPDATE mobile_v2_program_details
+       SET program_id = ?,
+           detail_json = json_set(
+             detail_json,
+             '$.name', ?,
+             '$.status', ?,
+             '$.updatedAt', ?
+           ),
+           updated_at = ?
+       WHERE owner_user_id = ? AND id = ?`,
+      detail.programId,
+      detail.name,
+      detail.status,
+      detail.updatedAt,
+      detail.updatedAt,
+      ownerUserId,
+      detail.id
+    );
     if (summary.status !== 'active') {
       await transaction.runAsync(
         `UPDATE mobile_v2_program_preferences
@@ -395,6 +538,34 @@ export async function cacheManagedProgram(
   });
 }
 
+async function deleteLocalProgramDataInTransaction(
+  transaction: DatabaseClient,
+  ownerUserId: string,
+  programInstanceId: string
+): Promise<void> {
+  await transaction.runAsync(
+    `UPDATE mobile_v2_program_preferences
+     SET pinned_program_id = NULL, updated_at = ?
+     WHERE owner_user_id = ? AND pinned_program_id = ?`,
+    new Date().toISOString(),
+    ownerUserId,
+    programInstanceId
+  );
+  await transaction.runAsync(
+    `DELETE FROM mobile_v2_program_details
+     WHERE owner_user_id = ? AND id = ?`,
+    ownerUserId,
+    programInstanceId
+  );
+  await transaction.runAsync(
+    `DELETE FROM mobile_v2_program_summaries
+     WHERE owner_user_id = ? AND id = ?`,
+    ownerUserId,
+    programInstanceId
+  );
+  await transaction.runAsync('DELETE FROM queued_mutations WHERE entity_id = ?', programInstanceId);
+}
+
 export async function deleteLocalProgramData(
   ownerUserId: string,
   programInstanceId: string
@@ -404,25 +575,59 @@ export async function deleteLocalProgramData(
   await bootstrapDatabase(database);
 
   await database.withExclusiveTransactionAsync(async (transaction) => {
-    await transaction.runAsync(
-      `UPDATE mobile_v2_program_preferences
-       SET pinned_program_id = NULL, updated_at = ?
-       WHERE owner_user_id = ? AND pinned_program_id = ?`,
-      new Date().toISOString(),
-      ownerUserId,
-      programInstanceId
-    );
-    await transaction.runAsync(
-      `DELETE FROM mobile_v2_program_details
-       WHERE owner_user_id = ? AND id = ?`,
-      ownerUserId,
-      programInstanceId
-    );
-    await transaction.runAsync(
-      `DELETE FROM mobile_v2_program_summaries
-       WHERE owner_user_id = ? AND id = ?`,
-      ownerUserId,
-      programInstanceId
-    );
+    await deleteLocalProgramDataInTransaction(transaction, ownerUserId, programInstanceId);
   });
+}
+
+export async function recordProgramReconciliation(
+  ownerUserId: string,
+  operation: ProgramReconciliationOperation,
+  entityId: string
+): Promise<void> {
+  requireOwnerUserId(ownerUserId);
+  if (entityId.length === 0) {
+    throw new Error('Program reconciliation requires an entity identifier');
+  }
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+
+  await database.runAsync(
+    `INSERT INTO mobile_v2_program_reconciliations (
+       owner_user_id, operation, entity_id, created_at
+     ) VALUES (?, ?, ?, ?)
+     ON CONFLICT(owner_user_id, operation, entity_id) DO UPDATE SET
+       created_at = excluded.created_at`,
+    ownerUserId,
+    operation,
+    entityId,
+    new Date().toISOString()
+  );
+}
+
+export async function readPendingCreateReconciliation(
+  ownerUserId: string
+): Promise<PendingCreateReconciliation | null> {
+  requireOwnerUserId(ownerUserId);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+
+  const rows = await database.getAllAsync(
+    `SELECT entity_id
+     FROM mobile_v2_program_reconciliations
+     WHERE owner_user_id = ? AND operation = 'create'
+     ORDER BY created_at DESC, entity_id
+     LIMIT 1`,
+    ownerUserId
+  );
+  const row = rows[0];
+  if (row === undefined) {
+    return null;
+  }
+  if (!isRecord(row) || typeof row.entity_id !== 'string') {
+    throw new Error('SQLite returned an invalid pending create reconciliation');
+  }
+  return {
+    pending: true,
+    programInstanceId: row.entity_id.startsWith('unknown:') ? null : row.entity_id,
+  };
 }

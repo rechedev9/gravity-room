@@ -71,21 +71,21 @@ export const ProgramInstanceMapSchema = z.strictObject({
 export type ProgramInstance = z.infer<typeof ProgramInstanceSchema>;
 export type ProgramInstanceMap = z.infer<typeof ProgramInstanceMapSchema>;
 
-export const GenericProgramDetailSchema = z.object({
-  id: z.string(),
-  programId: z.string(),
-  name: z.string(),
-  config: z.record(z.string(), z.union([z.number(), z.string()])).catch({}),
+export const GenericProgramDetailSchema = z.strictObject({
+  id: z.string().min(1),
+  programId: z.string().min(1),
+  name: z.string().min(1),
+  config: ProgramConfigSchema,
   metadata: z.unknown(),
-  results: GenericResultsSchema.catch({}),
-  undoHistory: GenericUndoHistorySchema.catch([]),
-  resultTimestamps: z.record(z.string(), z.string()).catch({}),
-  completedDates: z.record(z.string(), z.string()).catch({}),
-  definitionId: z.string().nullable().catch(null),
+  results: GenericResultsSchema,
+  undoHistory: GenericUndoHistorySchema,
+  resultTimestamps: z.record(z.string(), z.string()),
+  completedDates: z.record(z.string(), z.string()),
+  definitionId: z.string().nullable(),
   customDefinition: z.unknown(),
-  status: z.string(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  status: ProgramInstanceStatusSchema,
+  createdAt: z.string().min(1),
+  updatedAt: z.string().min(1),
 });
 
 export type GenericProgramDetail = z.infer<typeof GenericProgramDetailSchema>;

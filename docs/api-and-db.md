@@ -78,6 +78,13 @@ _52 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
 - `GET /api/programs/{id}/export` — Export program instance
 - `POST /api/programs/import` — Import program instance
 
+Creating a program instance is one PostgreSQL transaction. It locks the authenticated user's row,
+completes any previous active instance and inserts the new active instance using only the transaction
+handle. The partial unique index
+`program_instances_one_active_per_user_idx` (introduced safely by migration 0019 and represented in
+the Drizzle schema) is the final database guarantee under concurrent requests. Reactivation uses the
+same per-user serialization rule.
+
 ### Results
 
 - `POST /api/programs/{id}/results` — Record a workout result

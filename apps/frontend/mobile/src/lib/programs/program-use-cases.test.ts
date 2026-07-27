@@ -1,5 +1,10 @@
 import type { GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
 
+import {
+  RemoteMutationAcknowledgedError,
+  RemoteMutationOutcomeUnknownError,
+  type DeleteRemoteResult,
+} from './program-service';
 import { deleteProgram, manageProgram, startPresetProgram } from './program-use-cases';
 
 const DEFINITION = {
@@ -75,6 +80,7 @@ describe('program use cases', () => {
     const cacheCreated = jest.fn(async () => {
       calls.push('local:bundle');
     });
+    const scheduleReconciliation = jest.fn(async () => undefined);
 
     await expect(
       startPresetProgram(
@@ -84,9 +90,9 @@ describe('program use cases', () => {
           name: 'GZCLP',
           config: { squat: 20 },
         },
-        { createRemote, fetchRemotePrograms, cacheCreated }
+        { createRemote, fetchRemotePrograms, cacheCreated, scheduleReconciliation }
       )
-    ).resolves.toEqual(DETAIL);
+    ).resolves.toEqual({ status: 'applied', remote: DETAIL });
 
     expect(calls).toEqual(['remote:create', 'remote:list', 'local:bundle']);
     expect(cacheCreated).toHaveBeenCalledWith({
@@ -99,6 +105,7 @@ describe('program use cases', () => {
 
   it('does not mutate local state when online creation fails', async () => {
     const cacheCreated = jest.fn(async () => undefined);
+    const scheduleReconciliation = jest.fn(async () => undefined);
 
     await expect(
       startPresetProgram(
@@ -114,6 +121,7 @@ describe('program use cases', () => {
           }),
           fetchRemotePrograms: jest.fn(async () => [SUMMARY]),
           cacheCreated,
+          scheduleReconciliation,
         }
       )
     ).rejects.toThrow('offline');
@@ -124,6 +132,7 @@ describe('program use cases', () => {
   it('does not repeat a successful non-idempotent POST when the list refresh fails', async () => {
     const createRemote = jest.fn(async () => DETAIL);
     const cacheCreated = jest.fn(async () => undefined);
+    const scheduleReconciliation = jest.fn(async () => undefined);
 
     await expect(
       startPresetProgram(
@@ -139,9 +148,10 @@ describe('program use cases', () => {
             throw new Error('refresh failed after create');
           }),
           cacheCreated,
+          scheduleReconciliation,
         }
       )
-    ).resolves.toEqual(DETAIL);
+    ).resolves.toEqual({ status: 'applied', remote: DETAIL });
 
     expect(createRemote).toHaveBeenCalledTimes(1);
     expect(cacheCreated).toHaveBeenCalledWith({
@@ -152,11 +162,13 @@ describe('program use cases', () => {
     });
   });
 
-  it('keeps the previous coherent cache when a post-server local transaction rolls back', async () => {
-    const updateRemote = jest.fn(async () => ({ ...DETAIL, status: 'archived' }));
+  it('returns the remote manage ACK and schedules reconciliation after local rollback', async () => {
+    const archivedDetail: GenericProgramDetail = { ...DETAIL, status: 'archived' };
+    const updateRemote = jest.fn(async () => archivedDetail);
     const cacheManaged = jest.fn(async () => {
       throw new Error('transaction rolled back');
     });
+    const scheduleReconciliation = jest.fn(async () => undefined);
 
     await expect(
       manageProgram(
@@ -165,26 +177,36 @@ describe('program use cases', () => {
           programInstanceId: DETAIL.id,
           mutation: { type: 'set_status', status: 'archived' },
         },
-        { updateRemote, cacheManaged }
+        { updateRemote, cacheManaged, scheduleReconciliation }
       )
-    ).rejects.toThrow('transaction rolled back');
+    ).resolves.toEqual({
+      status: 'reconciliation_required',
+      remote: archivedDetail,
+      remoteEntityId: archivedDetail.id,
+      remoteState: 'acknowledged',
+      reconciliationScheduled: true,
+    });
 
     expect(updateRemote).toHaveBeenCalledTimes(1);
     expect(cacheManaged).toHaveBeenCalledTimes(1);
+    expect(scheduleReconciliation).toHaveBeenCalledWith('user-a', 'manage', DETAIL.id);
   });
 
   it('never cleans local program data before remote deletion succeeds', async () => {
     const order: string[] = [];
-    const deleteRemote = jest.fn(async () => {
+    const deleteRemote = jest.fn<Promise<DeleteRemoteResult>, []>(async () => {
       order.push('remote');
+      return 'deleted';
     });
     const deleteLocal = jest.fn(async () => {
       order.push('local');
     });
 
+    const scheduleReconciliation = jest.fn(async () => undefined);
+
     await deleteProgram(
       { ownerUserId: 'user-a', programInstanceId: DETAIL.id },
-      { deleteRemote, deleteLocal }
+      { deleteRemote, deleteLocal, scheduleReconciliation }
     );
     expect(order).toEqual(['remote', 'local']);
 
@@ -192,9 +214,128 @@ describe('program use cases', () => {
     await expect(
       deleteProgram(
         { ownerUserId: 'user-a', programInstanceId: DETAIL.id },
-        { deleteRemote, deleteLocal }
+        { deleteRemote, deleteLocal, scheduleReconciliation }
       )
     ).rejects.toThrow('server rejected');
     expect(deleteLocal).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves the create ACK and never repeats POST after local cache failure', async () => {
+    const createRemote = jest.fn(async () => DETAIL);
+    const scheduleReconciliation = jest.fn(async () => undefined);
+
+    const result = await startPresetProgram(
+      {
+        ownerUserId: 'user-a',
+        definition: DEFINITION,
+        name: 'GZCLP',
+        config: { squat: 20 },
+      },
+      {
+        createRemote,
+        fetchRemotePrograms: jest.fn(async () => [SUMMARY]),
+        cacheCreated: jest.fn(async () => {
+          throw new Error('disk full after ACK');
+        }),
+        scheduleReconciliation,
+      }
+    );
+
+    expect(result).toEqual({
+      status: 'reconciliation_required',
+      remote: DETAIL,
+      remoteEntityId: DETAIL.id,
+      remoteState: 'acknowledged',
+      reconciliationScheduled: true,
+    });
+    expect(createRemote).toHaveBeenCalledTimes(1);
+    expect(scheduleReconciliation).toHaveBeenCalledWith('user-a', 'create', DETAIL.id);
+  });
+
+  it('does not claim create failed when transport loses the response outcome', async () => {
+    const scheduleReconciliation = jest.fn(async () => undefined);
+
+    await expect(
+      startPresetProgram(
+        {
+          ownerUserId: 'user-a',
+          definition: DEFINITION,
+          name: 'GZCLP',
+          config: { squat: 20 },
+        },
+        {
+          createRemote: jest.fn(async () => {
+            throw new RemoteMutationOutcomeUnknownError('create', null, new Error('timeout'));
+          }),
+          fetchRemotePrograms: jest.fn(async () => [SUMMARY]),
+          cacheCreated: jest.fn(async () => undefined),
+          scheduleReconciliation,
+        }
+      )
+    ).resolves.toEqual({
+      status: 'reconciliation_required',
+      remote: null,
+      remoteEntityId: null,
+      remoteState: 'outcome_unknown',
+      reconciliationScheduled: true,
+    });
+  });
+
+  it('exposes a recoverable create ID when an acknowledged response body is corrupt', async () => {
+    const scheduleReconciliation = jest.fn(async () => undefined);
+
+    await expect(
+      startPresetProgram(
+        {
+          ownerUserId: 'user-a',
+          definition: DEFINITION,
+          name: 'GZCLP',
+          config: { squat: 20 },
+        },
+        {
+          createRemote: jest.fn(async () => {
+            throw new RemoteMutationAcknowledgedError(
+              'create',
+              DETAIL.id,
+              new Error('invalid detail')
+            );
+          }),
+          fetchRemotePrograms: jest.fn(async () => [SUMMARY]),
+          cacheCreated: jest.fn(async () => undefined),
+          scheduleReconciliation,
+        }
+      )
+    ).resolves.toEqual({
+      status: 'reconciliation_required',
+      remote: null,
+      remoteEntityId: DETAIL.id,
+      remoteState: 'acknowledged',
+      reconciliationScheduled: true,
+    });
+    expect(scheduleReconciliation).toHaveBeenCalledWith('user-a', 'create', DETAIL.id);
+  });
+
+  it('returns delete ACK and schedules safe cleanup after a local post-ACK failure', async () => {
+    const scheduleReconciliation = jest.fn(async () => undefined);
+
+    await expect(
+      deleteProgram(
+        { ownerUserId: 'user-a', programInstanceId: DETAIL.id },
+        {
+          deleteRemote: jest.fn(async () => 'already_absent'),
+          deleteLocal: jest.fn(async () => {
+            throw new Error('local transaction failed');
+          }),
+          scheduleReconciliation,
+        }
+      )
+    ).resolves.toEqual({
+      status: 'reconciliation_required',
+      remote: 'already_absent',
+      remoteEntityId: DETAIL.id,
+      remoteState: 'acknowledged',
+      reconciliationScheduled: true,
+    });
+    expect(scheduleReconciliation).toHaveBeenCalledWith('user-a', 'delete', DETAIL.id);
   });
 });

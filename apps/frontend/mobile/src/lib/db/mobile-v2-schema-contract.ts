@@ -1,14 +1,19 @@
+import { MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL } from './schema';
+
 /**
- * Contractual Mobile v2 schema migration.
+ * Contractual complete-schema migration reserved for M3.
  *
- * This step is intentionally NOT registered in `MIGRATIONS`: the v1
- * repositories still address the unscoped tables and would be incompatible
- * with this schema. M2-M3 must adapt those repositories before this exact SQL
- * can ship. M0 executes it only in the Node SQLite contract suite.
+ * Runtime migration 2 installs the owner-scoped M2 program library beside the
+ * still-operational v1 tracker queue. This version 3 step composes that shipped
+ * state into the complete schema: it quarantines unowned v1 rows, promotes only
+ * already-owned M2 rows, and creates sessions/outbox without claiming legacy
+ * data. M3 can register this exact step after adapting its runtime repositories.
  */
-export const MOBILE_V2_SCHEMA_CONTRACT_VERSION = 2;
+export const MOBILE_V2_SCHEMA_CONTRACT_VERSION = 3;
 
 export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
+  ${MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL}
+
   CREATE TABLE IF NOT EXISTS legacy_user_cache_quarantine (
     quarantine_key TEXT PRIMARY KEY NOT NULL,
     source_table TEXT NOT NULL CHECK (
@@ -164,7 +169,10 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
   CREATE TABLE program_summaries (
     owner_user_id TEXT NOT NULL CHECK (length(owner_user_id) > 0),
     id TEXT NOT NULL CHECK (length(id) > 0),
-    title TEXT NOT NULL,
+    program_id TEXT NOT NULL CHECK (length(program_id) > 0),
+    title TEXT NOT NULL CHECK (length(title) > 0),
+    status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'archived')),
+    created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     PRIMARY KEY (owner_user_id, id)
   ) STRICT;
@@ -189,6 +197,74 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
     updated_at TEXT NOT NULL,
     PRIMARY KEY (owner_user_id, id)
   ) STRICT;
+
+  CREATE TABLE program_catalog (
+    owner_user_id TEXT NOT NULL CHECK (length(owner_user_id) > 0),
+    id TEXT NOT NULL CHECK (length(id) > 0),
+    entry_json TEXT NOT NULL CHECK (
+      json_valid(entry_json) AND json_type(entry_json) = 'object'
+    ),
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (owner_user_id, id)
+  ) STRICT;
+
+  CREATE TABLE program_preferences (
+    owner_user_id TEXT PRIMARY KEY NOT NULL CHECK (length(owner_user_id) > 0),
+    pinned_program_id TEXT,
+    updated_at TEXT NOT NULL,
+    CHECK (pinned_program_id IS NULL OR length(pinned_program_id) > 0)
+  ) STRICT;
+
+  CREATE TABLE program_reconciliations (
+    owner_user_id TEXT NOT NULL CHECK (length(owner_user_id) > 0),
+    operation TEXT NOT NULL CHECK (operation IN ('create', 'manage', 'delete')),
+    entity_id TEXT NOT NULL CHECK (length(entity_id) > 0),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (owner_user_id, operation, entity_id)
+  ) STRICT;
+
+  INSERT INTO program_summaries (
+    owner_user_id, id, program_id, title, status, created_at, updated_at
+  )
+  SELECT owner_user_id, id, program_id, title, status, created_at, updated_at
+  FROM mobile_v2_program_summaries;
+
+  INSERT INTO program_details (
+    owner_user_id, id, program_id, detail_json, updated_at
+  )
+  SELECT owner_user_id, id, program_id, detail_json, updated_at
+  FROM mobile_v2_program_details;
+
+  INSERT INTO program_definitions (
+    owner_user_id, id, definition_json, updated_at
+  )
+  SELECT owner_user_id, id, definition_json, updated_at
+  FROM mobile_v2_program_definitions;
+
+  INSERT INTO program_catalog (
+    owner_user_id, id, entry_json, updated_at
+  )
+  SELECT owner_user_id, id, entry_json, updated_at
+  FROM mobile_v2_program_catalog;
+
+  INSERT INTO program_preferences (
+    owner_user_id, pinned_program_id, updated_at
+  )
+  SELECT owner_user_id, pinned_program_id, updated_at
+  FROM mobile_v2_program_preferences;
+
+  INSERT INTO program_reconciliations (
+    owner_user_id, operation, entity_id, created_at
+  )
+  SELECT owner_user_id, operation, entity_id, created_at
+  FROM mobile_v2_program_reconciliations;
+
+  DROP TABLE mobile_v2_program_reconciliations;
+  DROP TABLE mobile_v2_program_preferences;
+  DROP TABLE mobile_v2_program_catalog;
+  DROP TABLE mobile_v2_program_definitions;
+  DROP TABLE mobile_v2_program_details;
+  DROP TABLE mobile_v2_program_summaries;
 
   CREATE TABLE outbox_mutations (
     id TEXT PRIMARY KEY NOT NULL CHECK (length(id) = 36),
@@ -264,4 +340,8 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
     ON legacy_user_cache_quarantine(claim_state, quarantine_key);
   CREATE INDEX legacy_queue_claim_state
     ON legacy_queued_mutations_quarantine(claim_state, quarantine_key);
+  CREATE INDEX program_summaries_owner_status
+    ON program_summaries(owner_user_id, status, updated_at DESC, id);
+  CREATE INDEX program_reconciliations_owner_created
+    ON program_reconciliations(owner_user_id, created_at, entity_id);
 `;

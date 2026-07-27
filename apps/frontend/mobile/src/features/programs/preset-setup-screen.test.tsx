@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
 
 import { startPresetProgram } from '../../lib/programs/program-use-cases';
+import { readPendingCreateReconciliation } from '../../lib/programs/program-repository';
 import {
   buildDefaultProgramConfig,
   fetchCatalogDefinition,
@@ -11,9 +12,14 @@ import {
   upsertProgramDefinition,
 } from '../../lib/tracker/program-detail-repository';
 import { PresetSetupScreen } from './preset-setup-screen';
+import i18n from '../../lib/i18n';
 
 jest.mock('../../lib/programs/program-use-cases', () => ({
   startPresetProgram: jest.fn(),
+}));
+
+jest.mock('../../lib/programs/program-repository', () => ({
+  readPendingCreateReconciliation: jest.fn(),
 }));
 
 jest.mock('../../lib/programs/program-service', () => ({
@@ -27,6 +33,7 @@ jest.mock('../../lib/tracker/program-detail-repository', () => ({
 }));
 
 const mockedStartPresetProgram = jest.mocked(startPresetProgram);
+const mockedReadPendingCreateReconciliation = jest.mocked(readPendingCreateReconciliation);
 const mockedBuildDefaultProgramConfig = jest.mocked(buildDefaultProgramConfig);
 const mockedFetchCatalogDefinition = jest.mocked(fetchCatalogDefinition);
 const mockedGetProgramDefinition = jest.mocked(getProgramDefinition);
@@ -96,12 +103,14 @@ function renderSetup() {
 }
 
 describe('PresetSetupScreen', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage('en');
     mockedGetProgramDefinition.mockResolvedValue(null);
     mockedFetchCatalogDefinition.mockResolvedValue(DEFINITION);
     mockedUpsertProgramDefinition.mockResolvedValue();
     mockedBuildDefaultProgramConfig.mockReturnValue({ squat: 20 });
-    mockedStartPresetProgram.mockResolvedValue(DETAIL);
+    mockedStartPresetProgram.mockResolvedValue({ status: 'applied', remote: DETAIL });
+    mockedReadPendingCreateReconciliation.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -112,7 +121,7 @@ describe('PresetSetupScreen', () => {
     renderSetup();
 
     expect(await screen.findByText('Days and exercises')).toBeTruthy();
-    expect(screen.getByText('Squat · T1')).toBeTruthy();
+    expect(screen.getByText('Squat · Primary strength')).toBeTruthy();
     expect(screen.getByText('Add weight after success')).toBeTruthy();
     expect(screen.getByText('12 workouts · 3/week · about 4 weeks')).toBeTruthy();
   });
@@ -166,9 +175,91 @@ describe('PresetSetupScreen', () => {
 
     expect(
       await screen.findByText(
-        'The program was not created. Check your connection and try again; no local program was added.'
+        'The server rejected the request before confirming creation. Review your connection before trying again.'
       )
     ).toBeTruthy();
     expect(mockCreated).not.toHaveBeenCalled();
+  });
+
+  it('parses the Spanish decimal separator at the component boundary', async () => {
+    await act(async () => {
+      await i18n.changeLanguage('es');
+    });
+    renderSetup();
+    const input = await screen.findByLabelText('Valor inicial de Sentadilla');
+
+    fireEvent.changeText(input, '22,5');
+    fireEvent.press(screen.getByRole('button', { name: 'Empezar GZCLP con esta configuración' }));
+
+    await waitFor(() => {
+      expect(mockedStartPresetProgram).toHaveBeenCalledWith(
+        expect.objectContaining({ config: { squat: 22.5 } })
+      );
+    });
+  });
+
+  it('does not overwrite a dirty cached input when deferred revalidation resolves', async () => {
+    let resolveRemote: (definition: ProgramDefinition) => void = () => undefined;
+    mockedGetProgramDefinition.mockResolvedValue(DEFINITION);
+    mockedFetchCatalogDefinition.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRemote = resolve;
+        })
+    );
+    mockedBuildDefaultProgramConfig
+      .mockReturnValueOnce({ squat: 20 })
+      .mockReturnValueOnce({ squat: 40 });
+    renderSetup();
+    const input = await screen.findByLabelText('Squat starting value');
+
+    fireEvent.changeText(input, '22.5');
+    await act(async () => {
+      resolveRemote(DEFINITION);
+    });
+
+    await waitFor(() => {
+      expect(mockedUpsertProgramDefinition).toHaveBeenCalled();
+    });
+    expect(screen.getByLabelText('Squat starting value').props.value).toBe('22.5');
+  });
+
+  it('locks the non-idempotent start action after reconciliation becomes required', async () => {
+    mockedStartPresetProgram.mockResolvedValue({
+      status: 'reconciliation_required',
+      remote: DETAIL,
+      remoteEntityId: DETAIL.id,
+      remoteState: 'acknowledged',
+      reconciliationScheduled: true,
+    });
+    renderSetup();
+    const start = await screen.findByRole('button', { name: 'Start GZCLP with this setup' });
+
+    fireEvent.press(start);
+    expect(
+      await screen.findByText(
+        'The server may already have created the program. Gravity Room will verify the result safely; do not press Start again.'
+      )
+    ).toBeTruthy();
+    expect(start.props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(start);
+    expect(mockedStartPresetProgram).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps start locked after remount while create reconciliation is pending', async () => {
+    mockedReadPendingCreateReconciliation.mockResolvedValue({
+      pending: true,
+      programInstanceId: DETAIL.id,
+    });
+
+    renderSetup();
+    const start = await screen.findByRole('button', { name: 'Start GZCLP with this setup' });
+
+    expect(start.props.accessibilityState.disabled).toBe(true);
+    fireEvent.press(start);
+    expect(mockedStartPresetProgram).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('button', { name: 'Open the program acknowledged by the server' })
+    ).toBeTruthy();
   });
 });

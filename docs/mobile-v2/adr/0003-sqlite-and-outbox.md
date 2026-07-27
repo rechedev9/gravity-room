@@ -82,11 +82,16 @@ Los triggers de flush son restauración de sesión, foreground, conectividad rec
 de workout y reintento manual. Cerrar sesión detiene el flush antes de cambiar credenciales. Los datos
 se particionan por `owner_user_id`; nunca se reproducen filas de otro usuario.
 
-El SQL v2 exacto queda congelado en
-`apps/frontend/mobile/src/lib/db/mobile-v2-schema-contract.ts` con versión contractual 2. No forma
-parte todavía de `MIGRATIONS`: desplegarlo antes de adaptar los repositorios v1 rompería sus consultas.
-M0 lo ejecuta con `node:sqlite` sobre bases vacías y v1 con filas; M2-M3 deben adaptar repositorios,
-revalidar el contrato y entonces registrar una migración append-only.
+M2 registra la migración runtime 2 únicamente para la biblioteca de programas: crea tablas paralelas
+`mobile_v2_program_*`, owner-scoped, y conserva intactas las tablas v1 y `queued_mutations` que el
+tracker M1 todavía usa. Esta versión ya no se confunde con el contrato completo de M0.
+
+El SQL completo queda congelado en
+`apps/frontend/mobile/src/lib/db/mobile-v2-schema-contract.ts` como versión contractual 3. Compone de
+forma determinista v1 → v2(M2) → v3: pone caches/cola v1 sin owner en cuarentena, promueve solo filas
+M2 que ya tienen owner, crea `workout_sessions`, `workout_set_logs` y `outbox_mutations`, y no reclama
+ni reproduce mutaciones legacy. M3 debe adaptar sus repositorios y registrar ese paso exacto como
+migración 3; no puede reutilizar el número 2 ni saltar directamente a una versión posterior.
 
 ## Alternativas consideradas
 
@@ -99,7 +104,8 @@ revalidar el contrato y entonces registrar una migración append-only.
 ## Consecuencias
 
 - Toda lectura de `payload_json` tendrá pruebas de datos válidos, malformados y de versión anterior.
-- M3 necesita pruebas de caída entre escritura local y flush, taps rápidos, token expirado y cambio de
+- M3 registra la migración completa como versión 3 y necesita pruebas de caída entre escritura local
+  y flush, taps rápidos, token expirado y cambio de
   usuario.
 - Las altas sin endpoint idempotente seguirán online-only.
 - La UI de Perfil podrá derivar contadores por `state` y ejecutar reintento sin inspeccionar payloads.

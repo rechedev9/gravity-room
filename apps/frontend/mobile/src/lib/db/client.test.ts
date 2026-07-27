@@ -109,6 +109,7 @@ describe('bootstrapDatabase', () => {
         'mobile_v2_program_definitions',
         'mobile_v2_program_details',
         'mobile_v2_program_preferences',
+        'mobile_v2_program_reconciliations',
         'mobile_v2_program_summaries',
       ].sort()
     );

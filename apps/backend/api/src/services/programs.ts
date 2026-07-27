@@ -7,6 +7,7 @@ import { getDb } from '../db';
 import {
   programInstances,
   programTemplates,
+  users,
   workoutResults,
   undoEntries,
 } from '@gzclp/database/schema';
@@ -211,42 +212,51 @@ export async function createInstance(
   name: string,
   config: Record<string, number | string>
 ): Promise<ProgramInstanceResponse> {
-  // Validate program exists in the curated catalog (program_templates).
-  const [template] = await getDb()
-    .select({ id: programTemplates.id })
-    .from(programTemplates)
-    .where(and(eq(programTemplates.id, programId), eq(programTemplates.isActive, true)))
-    .limit(1);
+  return getDb().transaction(async (tx) => {
+    // The user row is the serialization point for every create by one owner.
+    // Together with the partial unique index on active instances, this makes
+    // concurrent requests deterministic without a process-local lock.
+    const [owner] = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for('update')
+      .limit(1);
+    if (!owner) {
+      throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+    }
 
-  if (!template) {
-    throw new ApiError(400, `Unknown program: ${programId}`, 'INVALID_PROGRAM');
-  }
+    const [template] = await tx
+      .select({ id: programTemplates.id })
+      .from(programTemplates)
+      .where(and(eq(programTemplates.id, programId), eq(programTemplates.isActive, true)))
+      .limit(1);
+    if (!template) {
+      throw new ApiError(400, `Unknown program: ${programId}`, 'INVALID_PROGRAM');
+    }
 
-  // Auto-complete any existing active program before inserting a new one.
-  // This prevents multiple concurrent active programs and ensures graceful resolution
-  // of the "one active program per user" invariant. If a concurrent duplicate INSERT
-  // somehow bypasses this UPDATE, the application will handle the resulting conflict.
-  await getDb()
-    .update(programInstances)
-    .set({ status: 'completed' })
-    .where(and(eq(programInstances.userId, userId), eq(programInstances.status, 'active')));
+    await tx
+      .update(programInstances)
+      .set({ status: 'completed' })
+      .where(and(eq(programInstances.userId, userId), eq(programInstances.status, 'active')));
 
-  const [instance] = await getDb()
-    .insert(programInstances)
-    .values({
-      userId,
-      templateId: programId,
-      name,
-      programConfig: config,
-      status: 'active',
-    })
-    .returning();
+    const [instance] = await tx
+      .insert(programInstances)
+      .values({
+        userId,
+        templateId: programId,
+        name,
+        programConfig: config,
+        status: 'active',
+      })
+      .returning();
 
-  if (!instance) {
-    throw new ApiError(500, 'Failed to create program instance', 'CREATE_FAILED');
-  }
+    if (!instance) {
+      throw new ApiError(500, 'Failed to create program instance', 'CREATE_FAILED');
+    }
 
-  return toResponse(instance, [], []);
+    return toResponse(instance, [], []);
+  });
 }
 
 interface ProgramInstanceListItem {
@@ -380,12 +390,45 @@ export async function updateInstance(
   if (updates.status !== undefined) updateValues.status = updates.status;
   if (updates.config !== undefined) updateValues.programConfig = updates.config;
 
-  // Single UPDATE WHERE userId AND id — one round-trip instead of SELECT+UPDATE
-  const [updated] = await getDb()
-    .update(programInstances)
-    .set(updateValues)
-    .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
-    .returning();
+  const [updated] =
+    updates.status === 'active'
+      ? await getDb().transaction(async (tx) => {
+          const [owner] = await tx
+            .select({ id: users.id })
+            .from(users)
+            .where(eq(users.id, userId))
+            .for('update')
+            .limit(1);
+          if (!owner) return [];
+          const [target] = await tx
+            .select({ id: programInstances.id })
+            .from(programInstances)
+            .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+            .limit(1);
+          if (!target) {
+            throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
+          }
+          await tx
+            .update(programInstances)
+            .set({ status: 'completed' })
+            .where(
+              and(
+                eq(programInstances.userId, userId),
+                eq(programInstances.status, 'active'),
+                sql`${programInstances.id} <> ${instanceId}`
+              )
+            );
+          return tx
+            .update(programInstances)
+            .set(updateValues)
+            .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+            .returning();
+        })
+      : await getDb()
+          .update(programInstances)
+          .set(updateValues)
+          .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+          .returning();
 
   if (!updated) {
     throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
