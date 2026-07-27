@@ -80,7 +80,7 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
 | Slice                       | Estado           | Base       | Candidato | Corregido | Integrado |
 | --------------------------- | ---------------- | ---------- | --------- | --------- | --------- |
 | M0 Contratos y baseline     | integrado        | `dcdec26f` | `0fcc4c6` | `1b39abd` | `1b39abd` |
-| M1 Shell y navegación       | corrección lista | `3af51a0`  | `aa06f7c` | `2dd20f5` | pendiente |
+| M1 Shell y navegación       | corrección lista | `3af51a0`  | `aa06f7c` | `6d6c0c7` | pendiente |
 | M2 Programas                | pendiente        | pendiente  | pendiente | pendiente | pendiente |
 | M3 Tracker offline          | pendiente        | pendiente  | pendiente | pendiente | pendiente |
 | M4 Historial/temporizador   | pendiente        | pendiente  | pendiente | pendiente | pendiente |
@@ -217,7 +217,7 @@ Estado: segunda corrección lista en `.worktrees/mobile-v2-fix`, pendiente de re
 | Reverificación final A  | `no-go`: 2 findings                        | `M1-VFA-001` P1 y `M1-VFA-002` P2                      |
 | Reverificación final B  | `no-go`: 2 findings                        | `M1-VFB-001` P1 y `M1-VFB-002` P2                      |
 | Normalización Main 2    | C1-C4                                      | Los cuatro aceptados para segunda corrección           |
-| Corrector 2             | segunda corrección pendiente de commit     | Matriz C1-C4 y checks completos                        |
+| Corrector 2             | `6d6c0c7acf1344852437501adae31167092d8a89` | Matriz C1-C4, checks completos y snapshot limpio       |
 | Decisión Main           | pendiente                                  | Requiere reverificación A/B; este registro no marca GO |
 
 ### Checks M1
