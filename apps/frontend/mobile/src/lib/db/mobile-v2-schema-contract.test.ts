@@ -57,10 +57,27 @@ function applyContractMigration(
   database: DatabaseSync,
   afterSql: () => void = () => undefined
 ): boolean {
-  const currentVersion = readNumber(database, 'PRAGMA user_version', 'user_version');
+  let currentVersion = readNumber(database, 'PRAGMA user_version', 'user_version');
 
   if (currentVersion >= MOBILE_V2_SCHEMA_CONTRACT_VERSION) {
     return false;
+  }
+
+  for (const migration of MIGRATIONS) {
+    if (migration.version <= currentVersion) {
+      continue;
+    }
+
+    database.exec('BEGIN IMMEDIATE');
+    try {
+      database.exec(migration.sql);
+      database.exec(`PRAGMA user_version = ${migration.version}`);
+      database.exec('COMMIT');
+      currentVersion = migration.version;
+    } catch (error) {
+      database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   database.exec('BEGIN IMMEDIATE');
@@ -86,7 +103,9 @@ describe('Mobile v2 SQLite schema contract', () => {
     const database = createV1Database(false);
 
     expect(applyContractMigration(database)).toBe(true);
-    expect(readNumber(database, 'PRAGMA user_version', 'user_version')).toBe(4);
+    expect(readNumber(database, 'PRAGMA user_version', 'user_version')).toBe(
+      MOBILE_V2_SCHEMA_CONTRACT_VERSION
+    );
     expect(
       readStrings(
         database,
@@ -561,7 +580,7 @@ describe('Mobile v2 SQLite schema contract', () => {
       })
     ).toThrow('simulated storage failure');
 
-    expect(readNumber(database, 'PRAGMA user_version', 'user_version')).toBe(1);
+    expect(readNumber(database, 'PRAGMA user_version', 'user_version')).toBe(4);
     expect(countRows(database, 'program_summaries')).toBe(1);
     expect(countRows(database, 'queued_mutations')).toBe(1);
     expect(

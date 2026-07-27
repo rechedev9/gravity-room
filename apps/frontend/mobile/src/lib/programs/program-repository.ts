@@ -1,6 +1,7 @@
 import {
   CatalogEntrySchema,
   GenericProgramDetailSchema,
+  ProgramConfigSchema,
   ProgramDefinitionSchema,
   ProgramInstanceSchema,
   type CatalogEntry,
@@ -48,6 +49,19 @@ export type ProgramSnapshot<T> =
     };
 
 export type ProgramReconciliationOperation = 'create' | 'manage' | 'delete';
+
+export type ProgramManageExpectation =
+  | { readonly type: 'rename'; readonly name: string }
+  | { readonly type: 'set_status'; readonly status: ProgramStatus }
+  | {
+      readonly type: 'set_config';
+      readonly config: Readonly<Record<string, number | string>>;
+    };
+
+export interface PendingManageReconciliation {
+  readonly programInstanceId: string;
+  readonly expectation: ProgramManageExpectation | null;
+}
 
 export interface PendingCreateReconciliation {
   readonly pending: true;
@@ -121,6 +135,114 @@ function parseCatalogEntryJson(source: string): CatalogEntry {
   }
 
   return entry;
+}
+
+function parseStoredManageExpectation(value: unknown): PendingManageReconciliation {
+  if (
+    !isRecord(value) ||
+    typeof value.entity_id !== 'string' ||
+    (value.expected_name !== null && typeof value.expected_name !== 'string') ||
+    (value.expected_status !== null && typeof value.expected_status !== 'string') ||
+    (value.expected_config_json !== null && typeof value.expected_config_json !== 'string')
+  ) {
+    throw new Error('SQLite returned an invalid manage reconciliation');
+  }
+
+  const populated = [
+    value.expected_name !== null,
+    value.expected_status !== null,
+    value.expected_config_json !== null,
+  ].filter(Boolean).length;
+  if (populated === 0) {
+    return { programInstanceId: value.entity_id, expectation: null };
+  }
+  if (populated !== 1) {
+    throw new Error('SQLite returned an ambiguous manage reconciliation');
+  }
+  if (typeof value.expected_name === 'string') {
+    return {
+      programInstanceId: value.entity_id,
+      expectation: { type: 'rename', name: value.expected_name },
+    };
+  }
+  const status = parseProgramStatus(value.expected_status);
+  if (status !== null) {
+    return {
+      programInstanceId: value.entity_id,
+      expectation: { type: 'set_status', status },
+    };
+  }
+  if (typeof value.expected_config_json === 'string') {
+    let configValue: unknown;
+    try {
+      configValue = JSON.parse(value.expected_config_json);
+    } catch {
+      throw new Error('SQLite returned malformed reconciliation config JSON');
+    }
+    return {
+      programInstanceId: value.entity_id,
+      expectation: {
+        type: 'set_config',
+        config: ProgramConfigSchema.parse(configValue),
+      },
+    };
+  }
+  throw new Error('SQLite returned an invalid manage reconciliation expectation');
+}
+
+function configsMatch(
+  expected: Readonly<Record<string, number | string>>,
+  actualValue: unknown
+): boolean {
+  const actualResult = ProgramConfigSchema.safeParse(actualValue);
+  if (!actualResult.success) {
+    return false;
+  }
+  const expectedKeys = Object.keys(expected).sort();
+  const actualKeys = Object.keys(actualResult.data).sort();
+  return (
+    expectedKeys.length === actualKeys.length &&
+    expectedKeys.every(
+      (key, index) => key === actualKeys[index] && expected[key] === actualResult.data[key]
+    )
+  );
+}
+
+function expectationMatchesDetail(
+  reconciliation: PendingManageReconciliation,
+  detail: GenericProgramDetail
+): boolean {
+  const expectation = reconciliation.expectation;
+  if (expectation === null) {
+    return false;
+  }
+  if (expectation.type === 'rename') {
+    return detail.name === expectation.name;
+  }
+  if (expectation.type === 'set_status') {
+    return detail.status === expectation.status;
+  }
+  return configsMatch(expectation.config, detail.config);
+}
+
+export function programManageExpectationsMatch(
+  first: ProgramManageExpectation,
+  second: ProgramManageExpectation
+): boolean {
+  if (first.type !== second.type) {
+    return false;
+  }
+  if (first.type === 'rename' && second.type === 'rename') {
+    return first.name.trim() === second.name.trim();
+  }
+  if (first.type === 'set_status' && second.type === 'set_status') {
+    return first.status === second.status;
+  }
+  return (
+    first.type === 'set_config' &&
+    second.type === 'set_config' &&
+    configsMatch(first.config, second.config)
+  );
 }
 
 function toSummary(detailValue: GenericProgramDetail): ProgramSummary {
@@ -242,26 +364,13 @@ async function replaceSummaries(
   await transaction.runAsync(
     `DELETE FROM mobile_v2_program_reconciliations
      WHERE owner_user_id = ?
-       AND (
-         (
-           operation = 'create'
-           AND entity_id NOT LIKE 'unknown:%'
-           AND EXISTS (
-             SELECT 1
-             FROM mobile_v2_program_summaries
-             WHERE owner_user_id = ? AND id = mobile_v2_program_reconciliations.entity_id
-           )
-         )
-         OR (
-           operation = 'manage'
-           AND EXISTS (
-             SELECT 1
-             FROM mobile_v2_program_summaries
-             WHERE owner_user_id = ? AND id = mobile_v2_program_reconciliations.entity_id
-           )
-         )
+       AND operation = 'create'
+       AND entity_id NOT LIKE 'unknown:%'
+       AND EXISTS (
+         SELECT 1
+         FROM mobile_v2_program_summaries
+         WHERE owner_user_id = ? AND id = mobile_v2_program_reconciliations.entity_id
        )`,
-    ownerUserId,
     ownerUserId,
     ownerUserId
   );
@@ -573,22 +682,40 @@ export async function cacheCreatedProgram(input: {
   });
 }
 
-export async function cacheManagedProgram(
+async function cacheManagedProgramInTransaction(
+  transaction: DatabaseClient,
   ownerUserId: string,
-  detailValue: GenericProgramDetail,
-  options: { readonly activationRequested: boolean }
+  detail: GenericProgramDetail,
+  options: {
+    readonly activationRequested: boolean;
+    readonly mutation: ProgramManageExpectation;
+  }
 ): Promise<void> {
-  requireOwnerUserId(ownerUserId);
-  const detail = GenericProgramDetailSchema.parse(detailValue);
+  const pendingRows = await transaction.getAllAsync(
+    `SELECT entity_id, expected_name, expected_status, expected_config_json
+     FROM mobile_v2_program_reconciliations
+     WHERE owner_user_id = ?
+       AND operation = 'manage'
+       AND entity_id = ?
+     LIMIT 1`,
+    ownerUserId,
+    detail.id
+  );
+  const pending =
+    pendingRows[0] === undefined ? null : parseStoredManageExpectation(pendingRows[0]);
+  const pendingExpectation = pending?.expectation ?? null;
+  const resolvesPending =
+    pending !== null && (pendingExpectation === null || expectationMatchesDetail(pending, detail));
   const summary = toSummary(detail);
-  const activating = options.activationRequested && summary.status === 'active';
-  const database = getDatabase();
-  await bootstrapDatabase(database);
+  const activating =
+    summary.status === 'active' &&
+    (options.activationRequested ||
+      (pendingExpectation?.type === 'set_status' && pendingExpectation.status === 'active') ||
+      (pending !== null && pendingExpectation === null));
 
-  await database.withExclusiveTransactionAsync(async (transaction) => {
-    if (activating) {
-      await transaction.runAsync(
-        `UPDATE mobile_v2_program_details
+  if (activating) {
+    await transaction.runAsync(
+      `UPDATE mobile_v2_program_details
          SET detail_json = json_set(
                detail_json,
                '$.status', 'completed',
@@ -597,78 +724,110 @@ export async function cacheManagedProgram(
              updated_at = ?
          WHERE owner_user_id = ?
            AND id <> ?
-           AND id IN (
-             SELECT id
-             FROM mobile_v2_program_summaries
-             WHERE owner_user_id = ? AND status = 'active'
-           )`,
-        detail.updatedAt,
-        detail.updatedAt,
-        ownerUserId,
-        detail.id,
-        ownerUserId
-      );
-      await transaction.runAsync(
-        `UPDATE mobile_v2_program_summaries
-         SET status = 'completed', updated_at = ?
-         WHERE owner_user_id = ? AND status = 'active' AND id <> ?`,
-        detail.updatedAt,
-        ownerUserId,
-        detail.id
-      );
-    }
-    await upsertSummary(transaction, ownerUserId, summary);
-    await transaction.runAsync(
-      `INSERT OR IGNORE INTO mobile_v2_program_details (
-         owner_user_id, id, program_id, detail_json, updated_at
-       ) VALUES (?, ?, ?, ?, ?)`,
-      ownerUserId,
-      detail.id,
-      detail.programId,
-      JSON.stringify(detail),
-      detail.updatedAt
-    );
-    await transaction.runAsync(
-      `UPDATE mobile_v2_program_details
-       SET program_id = ?,
-           detail_json = json_set(
-             detail_json,
-             '$.name', ?,
-             '$.status', ?,
-             '$.updatedAt', ?
-           ),
-           updated_at = ?
-       WHERE owner_user_id = ? AND id = ?`,
-      detail.programId,
-      detail.name,
-      detail.status,
+           AND json_extract(detail_json, '$.status') = 'active'`,
       detail.updatedAt,
       detail.updatedAt,
       ownerUserId,
       detail.id
     );
-    if (summary.status !== 'active') {
-      await transaction.runAsync(
-        `UPDATE mobile_v2_program_preferences
+    await transaction.runAsync(
+      `UPDATE mobile_v2_program_summaries
+         SET status = 'completed', updated_at = ?
+         WHERE owner_user_id = ? AND status = 'active' AND id <> ?`,
+      detail.updatedAt,
+      ownerUserId,
+      detail.id
+    );
+  }
+  await upsertSummary(transaction, ownerUserId, summary);
+  await transaction.runAsync(
+    `INSERT OR IGNORE INTO mobile_v2_program_details (
+       owner_user_id, id, program_id, detail_json, updated_at
+     ) VALUES (?, ?, ?, ?, ?)`,
+    ownerUserId,
+    detail.id,
+    detail.programId,
+    JSON.stringify(detail),
+    detail.updatedAt
+  );
+  await transaction.runAsync(
+    `UPDATE mobile_v2_program_details
+     SET program_id = ?,
+         detail_json = json_set(
+           detail_json,
+           '$.name', ?,
+           '$.status', ?,
+           '$.updatedAt', ?
+         ),
+         updated_at = ?
+     WHERE owner_user_id = ? AND id = ?`,
+    detail.programId,
+    detail.name,
+    detail.status,
+    detail.updatedAt,
+    detail.updatedAt,
+    ownerUserId,
+    detail.id
+  );
+  if (options.mutation.type === 'set_config' || pending !== null) {
+    await transaction.runAsync(
+      `UPDATE mobile_v2_program_details
+       SET detail_json = json_set(detail_json, '$.config', json(?)),
+           updated_at = ?
+       WHERE owner_user_id = ? AND id = ?`,
+      JSON.stringify(detail.config),
+      detail.updatedAt,
+      ownerUserId,
+      detail.id
+    );
+  }
+  if (summary.status !== 'active') {
+    await transaction.runAsync(
+      `UPDATE mobile_v2_program_preferences
          SET pinned_program_id = NULL, updated_at = ?
          WHERE owner_user_id = ? AND pinned_program_id = ?`,
-        new Date().toISOString(),
-        ownerUserId,
-        detail.id
-      );
-    } else if (activating) {
-      await transaction.runAsync(
-        `INSERT INTO mobile_v2_program_preferences (
-           owner_user_id, pinned_program_id, updated_at
-         ) VALUES (?, ?, ?)
-         ON CONFLICT(owner_user_id) DO UPDATE SET
-           pinned_program_id = excluded.pinned_program_id,
-           updated_at = excluded.updated_at`,
-        ownerUserId,
-        detail.id,
-        new Date().toISOString()
-      );
-    }
+      new Date().toISOString(),
+      ownerUserId,
+      detail.id
+    );
+  } else if (activating) {
+    await transaction.runAsync(
+      `INSERT INTO mobile_v2_program_preferences (
+         owner_user_id, pinned_program_id, updated_at
+       ) VALUES (?, ?, ?)
+       ON CONFLICT(owner_user_id) DO UPDATE SET
+         pinned_program_id = excluded.pinned_program_id,
+         updated_at = excluded.updated_at`,
+      ownerUserId,
+      detail.id,
+      new Date().toISOString()
+    );
+  }
+  if (resolvesPending) {
+    await transaction.runAsync(
+      `DELETE FROM mobile_v2_program_reconciliations
+       WHERE owner_user_id = ? AND operation = 'manage' AND entity_id = ?`,
+      ownerUserId,
+      detail.id
+    );
+  }
+}
+
+export async function cacheManagedProgram(
+  ownerUserId: string,
+  detailValue: GenericProgramDetail,
+  options: {
+    readonly activationRequested: boolean;
+    readonly mutation: ProgramManageExpectation;
+  }
+): Promise<void> {
+  requireOwnerUserId(ownerUserId);
+  const detail = GenericProgramDetailSchema.parse(detailValue);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    await cacheManagedProgramInTransaction(transaction, ownerUserId, detail, options);
   });
 }
 
@@ -716,26 +875,111 @@ export async function deleteLocalProgramData(
 export async function recordProgramReconciliation(
   ownerUserId: string,
   operation: ProgramReconciliationOperation,
-  entityId: string
+  entityId: string,
+  expectation: ProgramManageExpectation | null = null
 ): Promise<void> {
   requireOwnerUserId(ownerUserId);
   if (entityId.length === 0) {
     throw new Error('Program reconciliation requires an entity identifier');
   }
+  if ((operation === 'manage') !== (expectation !== null)) {
+    throw new Error('Manage reconciliation requires exactly one verifiable expectation');
+  }
+  const expectedName = expectation?.type === 'rename' ? expectation.name.trim() : null;
+  if (expectation?.type === 'rename' && expectedName?.length === 0) {
+    throw new Error('Rename reconciliation requires a non-empty expected name');
+  }
+  const expectedStatus = expectation?.type === 'set_status' ? expectation.status : null;
+  const expectedConfig =
+    expectation?.type === 'set_config'
+      ? JSON.stringify(ProgramConfigSchema.parse(expectation.config))
+      : null;
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   await database.runAsync(
     `INSERT INTO mobile_v2_program_reconciliations (
-       owner_user_id, operation, entity_id, created_at
-     ) VALUES (?, ?, ?, ?)
+       owner_user_id,
+       operation,
+       entity_id,
+       expected_name,
+       expected_status,
+       expected_config_json,
+       created_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(owner_user_id, operation, entity_id) DO UPDATE SET
-       created_at = excluded.created_at`,
+       expected_name = excluded.expected_name,
+       expected_status = excluded.expected_status,
+       expected_config_json = excluded.expected_config_json,
+       created_at = excluded.created_at
+     WHERE mobile_v2_program_reconciliations.operation <> 'manage'
+        OR (
+          mobile_v2_program_reconciliations.expected_name IS NULL
+          AND mobile_v2_program_reconciliations.expected_status IS NULL
+          AND mobile_v2_program_reconciliations.expected_config_json IS NULL
+        )`,
     ownerUserId,
     operation,
     entityId,
+    expectedName,
+    expectedStatus,
+    expectedConfig,
     new Date().toISOString()
   );
+}
+
+export async function readPendingManageReconciliations(
+  ownerUserId: string
+): Promise<readonly PendingManageReconciliation[]> {
+  requireOwnerUserId(ownerUserId);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  const rows = await database.getAllAsync(
+    `SELECT entity_id, expected_name, expected_status, expected_config_json
+     FROM mobile_v2_program_reconciliations
+     WHERE owner_user_id = ? AND operation = 'manage'
+     ORDER BY created_at, entity_id`,
+    ownerUserId
+  );
+  return rows.map(parseStoredManageExpectation);
+}
+
+export async function resolveProgramReconciliationWithRemoteDetail(
+  ownerUserId: string,
+  detailValue: GenericProgramDetail
+): Promise<boolean> {
+  requireOwnerUserId(ownerUserId);
+  const detail = GenericProgramDetailSchema.parse(detailValue);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  let resolved = false;
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    const rows = await transaction.getAllAsync(
+      `SELECT entity_id, expected_name, expected_status, expected_config_json
+       FROM mobile_v2_program_reconciliations
+       WHERE owner_user_id = ?
+         AND operation = 'manage'
+         AND entity_id = ?
+       LIMIT 1`,
+      ownerUserId,
+      detail.id
+    );
+    const row = rows[0];
+    if (row === undefined) {
+      return;
+    }
+    const reconciliation = parseStoredManageExpectation(row);
+    const expectation = reconciliation.expectation;
+    if (expectation === null || !expectationMatchesDetail(reconciliation, detail)) {
+      return;
+    }
+    await cacheManagedProgramInTransaction(transaction, ownerUserId, detail, {
+      activationRequested: expectation.type === 'set_status' && expectation.status === 'active',
+      mutation: expectation,
+    });
+    resolved = true;
+  });
+  return resolved;
 }
 
 export async function readPendingCreateReconciliation(

@@ -4,12 +4,17 @@ import {
   cacheCreatedProgram,
   cacheManagedProgram,
   deleteLocalProgramData,
+  programManageExpectationsMatch,
+  readPendingManageReconciliations,
   recordProgramReconciliation,
+  resolveProgramReconciliationWithRemoteDetail,
+  type ProgramManageExpectation,
   type ProgramSummary,
 } from './program-repository';
 import {
   createProgramInstance,
   deleteProgramInstance,
+  fetchProgramInstance,
   fetchProgramSummaries,
   RemoteMutationAcknowledgedError,
   RemoteMutationOutcomeUnknownError,
@@ -38,6 +43,7 @@ interface CreateProgramDependencies {
 interface ManageProgramDependencies {
   readonly updateRemote: typeof updateProgramInstance;
   readonly cacheManaged: typeof cacheManagedProgram;
+  readonly readPending: typeof readPendingManageReconciliations;
   readonly scheduleReconciliation: typeof recordProgramReconciliation;
 }
 
@@ -45,6 +51,12 @@ interface DeleteProgramDependencies {
   readonly deleteRemote: typeof deleteProgramInstance;
   readonly deleteLocal: typeof deleteLocalProgramData;
   readonly scheduleReconciliation: typeof recordProgramReconciliation;
+}
+
+interface ReconcileManageDependencies {
+  readonly readPending: typeof readPendingManageReconciliations;
+  readonly fetchRemote: typeof fetchProgramInstance;
+  readonly resolveWithDetail: typeof resolveProgramReconciliationWithRemoteDetail;
 }
 
 const CREATE_DEPENDENCIES: CreateProgramDependencies = {
@@ -57,6 +69,7 @@ const CREATE_DEPENDENCIES: CreateProgramDependencies = {
 const MANAGE_DEPENDENCIES: ManageProgramDependencies = {
   updateRemote: updateProgramInstance,
   cacheManaged: cacheManagedProgram,
+  readPending: readPendingManageReconciliations,
   scheduleReconciliation: recordProgramReconciliation,
 };
 
@@ -66,14 +79,25 @@ const DELETE_DEPENDENCIES: DeleteProgramDependencies = {
   scheduleReconciliation: recordProgramReconciliation,
 };
 
+const RECONCILE_MANAGE_DEPENDENCIES: ReconcileManageDependencies = {
+  readPending: readPendingManageReconciliations,
+  fetchRemote: fetchProgramInstance,
+  resolveWithDetail: resolveProgramReconciliationWithRemoteDetail,
+};
+
 async function scheduleReconciliation(
   ownerUserId: string,
   operation: 'create' | 'manage' | 'delete',
   entityId: string,
-  schedule: typeof recordProgramReconciliation
+  schedule: typeof recordProgramReconciliation,
+  expectation: ProgramManageExpectation | null = null
 ): Promise<boolean> {
   try {
-    await schedule(ownerUserId, operation, entityId);
+    if (operation === 'manage' && expectation !== null) {
+      await schedule(ownerUserId, operation, entityId, expectation);
+    } else {
+      await schedule(ownerUserId, operation, entityId);
+    }
     return true;
   } catch {
     return false;
@@ -156,7 +180,9 @@ export async function startPresetProgram(
   }
 }
 
-export async function manageProgram(
+const manageProgramTails = new Map<string, Promise<void>>();
+
+async function manageProgramSerialized(
   input: {
     readonly ownerUserId: string;
     readonly programInstanceId: string;
@@ -164,6 +190,23 @@ export async function manageProgram(
   },
   dependencies: ManageProgramDependencies = MANAGE_DEPENDENCIES
 ): Promise<ProgramMutationResult<GenericProgramDetail>> {
+  const pending = (await dependencies.readPending(input.ownerUserId)).find(
+    (reconciliation) => reconciliation.programInstanceId === input.programInstanceId
+  );
+  if (
+    pending?.expectation !== null &&
+    pending?.expectation !== undefined &&
+    !programManageExpectationsMatch(pending.expectation, input.mutation)
+  ) {
+    return {
+      status: 'reconciliation_required',
+      remote: null,
+      remoteEntityId: input.programInstanceId,
+      remoteState: 'outcome_unknown',
+      reconciliationScheduled: true,
+    };
+  }
+
   let detail: GenericProgramDetail;
   try {
     detail = await dependencies.updateRemote(input.programInstanceId, input.mutation);
@@ -176,7 +219,8 @@ export async function manageProgram(
         input.ownerUserId,
         'manage',
         input.programInstanceId,
-        dependencies.scheduleReconciliation
+        dependencies.scheduleReconciliation,
+        input.mutation
       );
       return {
         status: 'reconciliation_required',
@@ -193,6 +237,7 @@ export async function manageProgram(
     await dependencies.cacheManaged(input.ownerUserId, detail, {
       activationRequested:
         input.mutation.type === 'set_status' && input.mutation.status === 'active',
+      mutation: input.mutation,
     });
     return { status: 'applied', remote: detail };
   } catch {
@@ -200,7 +245,8 @@ export async function manageProgram(
       input.ownerUserId,
       'manage',
       input.programInstanceId,
-      dependencies.scheduleReconciliation
+      dependencies.scheduleReconciliation,
+      input.mutation
     );
     return {
       status: 'reconciliation_required',
@@ -209,6 +255,33 @@ export async function manageProgram(
       remoteState: 'acknowledged',
       reconciliationScheduled,
     };
+  }
+}
+
+export async function manageProgram(
+  input: {
+    readonly ownerUserId: string;
+    readonly programInstanceId: string;
+    readonly mutation: ProgramManagementMutation;
+  },
+  dependencies: ManageProgramDependencies = MANAGE_DEPENDENCIES
+): Promise<ProgramMutationResult<GenericProgramDetail>> {
+  const key = `${input.ownerUserId}\u0000${input.programInstanceId}`;
+  const previous = manageProgramTails.get(key) ?? Promise.resolve();
+  let release = (): void => undefined;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.then(() => current);
+  manageProgramTails.set(key, tail);
+  await previous;
+  try {
+    return await manageProgramSerialized(input, dependencies);
+  } finally {
+    release();
+    if (manageProgramTails.get(key) === tail) {
+      manageProgramTails.delete(key);
+    }
   }
 }
 
@@ -257,5 +330,26 @@ export async function deleteProgram(
       remoteState: 'acknowledged',
       reconciliationScheduled,
     };
+  }
+}
+
+export async function reconcilePendingProgramManagement(
+  ownerUserId: string,
+  remoteProgramInstanceIds: readonly string[],
+  dependencies: ReconcileManageDependencies = RECONCILE_MANAGE_DEPENDENCIES
+): Promise<void> {
+  const remoteIds = new Set(remoteProgramInstanceIds);
+  const pending = await dependencies.readPending(ownerUserId);
+  for (const reconciliation of pending) {
+    if (reconciliation.expectation === null || !remoteIds.has(reconciliation.programInstanceId)) {
+      continue;
+    }
+    try {
+      const remote = await dependencies.fetchRemote(reconciliation.programInstanceId);
+      await dependencies.resolveWithDetail(ownerUserId, remote);
+    } catch {
+      // Reconciliation is read-only. Any unavailable or still-old remote truth
+      // leaves the durable marker intact for a later GET.
+    }
   }
 }

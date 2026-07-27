@@ -190,7 +190,6 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       );
       await rateLimit(userId, 'PATCH /programs');
       const result = await updateInstance(userId, params.id, body);
-      await invalidateCachedInstance(userId, params.id);
       return result;
     },
     {
@@ -214,6 +213,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         security,
         responses: {
           200: { description: 'Updated program instance' },
+          400: { description: 'Config does not match the authoritative program definition' },
           401: { description: 'Missing or invalid token' },
           404: { description: 'Program not found or not owned by user' },
           429: { description: 'Rate limited' },

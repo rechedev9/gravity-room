@@ -36,6 +36,16 @@ describe('ProgramConfigSchema key bound', () => {
       false
     );
   });
+
+  it('keeps legacy persisted numeric values readable while new writes use definition validation', () => {
+    expect(
+      ProgramConfigSchema.safeParse({
+        tinyLegacyWeight: 1e-7,
+        hugeLegacyWeight: 1e21,
+        negativeLegacyWeight: -5,
+      }).success
+    ).toBe(true);
+  });
 });
 
 describe('GenericProgramDetailSchema transport boundary', () => {

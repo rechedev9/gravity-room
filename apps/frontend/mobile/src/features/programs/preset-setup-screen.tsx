@@ -61,6 +61,9 @@ interface PresetSetupScreenProps {
   readonly onCreated: (programInstanceId: string) => void;
 }
 
+const LARGE_PREVIEW_DAY_THRESHOLD = 12;
+const PREVIEW_PAGE_SIZE = 10;
+
 function toInputValues(config: ProgramConfig, language: SupportedLanguage): Record<string, string> {
   return Object.fromEntries(
     Object.entries(config).map(([key, value]) => [
@@ -133,8 +136,10 @@ export function PresetSetupScreen({
     | null
   >(null);
   const [reloadToken, setReloadToken] = useState(0);
+  const [previewDayLimit, setPreviewDayLimit] = useState(0);
   const dirtyFieldsRef = useRef(new Set<string>());
   const valuesInitializedRef = useRef(false);
+  const previewExpandedRef = useRef(false);
   const submittingRef = useRef(false);
   const language: SupportedLanguage = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
   const languageRef = useRef(language);
@@ -145,8 +150,19 @@ export function PresetSetupScreen({
     let active = true;
     dirtyFieldsRef.current.clear();
     valuesInitializedRef.current = false;
+    previewExpandedRef.current = false;
+    setPreviewDayLimit(0);
 
     function applyDefinition(definition: ProgramDefinition): void {
+      setPreviewDayLimit((current) => {
+        if (definition.days.length <= LARGE_PREVIEW_DAY_THRESHOLD) {
+          return definition.days.length;
+        }
+        if (!previewExpandedRef.current) {
+          return 0;
+        }
+        return Math.min(current || PREVIEW_PAGE_SIZE, definition.days.length);
+      });
       const defaults = toInputValues(buildDefaultProgramConfig(definition), languageRef.current);
       setValues((current) => {
         if (!valuesInitializedRef.current) {
@@ -208,6 +224,7 @@ export function PresetSetupScreen({
 
     setState({ status: 'loading' });
     setSubmitOutcome(null);
+    setPreviewDayLimit(0);
     void loadPreset();
     return () => {
       active = false;
@@ -295,6 +312,9 @@ export function PresetSetupScreen({
   const localizedName = localizeDefinitionName(definition, t);
   const localizedDescription = localizeDefinitionDescription(definition, t);
   const estimatedWeeks = Math.ceil(definition.totalWorkouts / definition.workoutsPerWeek);
+  const largePreview = definition.days.length > LARGE_PREVIEW_DAY_THRESHOLD;
+  const previewDays = definition.days.slice(0, previewDayLimit);
+  const remainingPreviewDays = definition.days.length - previewDays.length;
 
   async function handleStart(): Promise<void> {
     if (submittingRef.current || submitOutcome?.status === 'reconciliation_required') return;
@@ -368,40 +388,11 @@ export function PresetSetupScreen({
         </View>
 
         <Card>
-          <Text style={styles.sectionTitle}>{t('programs.preset.days_title')}</Text>
-          {definition.days.map((day, dayIndex) => (
-            <View key={`${definition.id}:${dayIndex}`} style={styles.day}>
-              <Text style={styles.dayTitle}>{localizeDayName(definition.id, day.name, t)}</Text>
-              {day.slots.map((slot) => (
-                <Text key={slot.id} style={styles.body}>
-                  {localizeExerciseName(
-                    definition.id,
-                    slot.exerciseId,
-                    definition.exercises[slot.exerciseId]?.name,
-                    t
-                  )}{' '}
-                  · {localizeTier(slot.tier, t)}
-                </Text>
-              ))}
-            </View>
-          ))}
-        </Card>
-
-        <Card>
-          <Text style={styles.sectionTitle}>{t('programs.preset.rules_title')}</Text>
-          {ruleTypes.map((ruleType) => (
-            <Text key={ruleType} style={styles.body}>
-              {t(`programs.preset.rules.${ruleType}`)}
-            </Text>
-          ))}
-        </Card>
-
-        <Card>
           <Text style={styles.sectionTitle}>{t('programs.preset.setup_title')}</Text>
           <Text style={styles.body}>{t('programs.preset.setup_body')}</Text>
           {definition.configFields.map((field) => {
             const issue = findFieldIssue(issues, field.key);
-            const localizedLabel = localizeFieldLabel(definition.id, field.key, field.label, t);
+            const localizedLabel = localizeFieldLabel(definition, field.key, field.label, t);
             if (field.type === 'weight') {
               return (
                 <View key={field.key} style={styles.field}>
@@ -459,7 +450,7 @@ export function PresetSetupScreen({
                       >
                         <Text style={styles.optionLabel}>
                           {localizeSelectOption(
-                            definition.id,
+                            definition,
                             field.key,
                             option.value,
                             option.label,
@@ -517,6 +508,82 @@ export function PresetSetupScreen({
             void handleStart();
           }}
         />
+
+        <Card>
+          <Text style={styles.sectionTitle}>{t('programs.preset.rules_title')}</Text>
+          {ruleTypes.map((ruleType) => (
+            <Text key={ruleType} style={styles.body}>
+              {t(`programs.preset.rules.${ruleType}`)}
+            </Text>
+          ))}
+        </Card>
+
+        <Card>
+          <Text style={styles.sectionTitle}>{t('programs.preset.days_title')}</Text>
+          {largePreview && previewDayLimit === 0 ? (
+            <>
+              <Text style={styles.body}>
+                {t('programs.preset.preview_collapsed', { count: definition.days.length })}
+              </Text>
+              <Button
+                accessibilityLabel={t('programs.preset.preview_show_accessibility')}
+                label={t('programs.preset.preview_show')}
+                onPress={() => {
+                  previewExpandedRef.current = true;
+                  setPreviewDayLimit(PREVIEW_PAGE_SIZE);
+                }}
+              />
+            </>
+          ) : null}
+          {previewDays.map((day, dayIndex) => (
+            <View
+              key={`${definition.id}:${dayIndex}`}
+              style={styles.day}
+              testID="program-preview-day"
+            >
+              <Text style={styles.dayTitle}>{localizeDayName(definition, day.name, t)}</Text>
+              {day.slots.map((slot) => (
+                <Text key={slot.id} style={styles.body} testID="program-preview-slot">
+                  {localizeExerciseName(
+                    definition,
+                    slot.exerciseId,
+                    definition.exercises[slot.exerciseId]?.name,
+                    t
+                  )}{' '}
+                  · {localizeTier(slot.tier, t)}
+                </Text>
+              ))}
+            </View>
+          ))}
+          {largePreview && previewDayLimit > 0 ? (
+            <View style={styles.previewActions}>
+              {remainingPreviewDays > 0 ? (
+                <Button
+                  accessibilityLabel={t('programs.preset.preview_more_accessibility', {
+                    count: Math.min(PREVIEW_PAGE_SIZE, remainingPreviewDays),
+                  })}
+                  label={t('programs.preset.preview_more', {
+                    count: Math.min(PREVIEW_PAGE_SIZE, remainingPreviewDays),
+                  })}
+                  onPress={() =>
+                    setPreviewDayLimit((current) => {
+                      previewExpandedRef.current = true;
+                      return Math.min(current + PREVIEW_PAGE_SIZE, definition.days.length);
+                    })
+                  }
+                />
+              ) : null}
+              <Button
+                accessibilityLabel={t('programs.preset.preview_hide_accessibility')}
+                label={t('programs.preset.preview_hide')}
+                onPress={() => {
+                  previewExpandedRef.current = false;
+                  setPreviewDayLimit(0);
+                }}
+              />
+            </View>
+          ) : null}
+        </Card>
       </ScrollView>
     </Screen>
   );
@@ -577,6 +644,9 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '700',
+  },
+  previewActions: {
+    gap: spacing.stack,
   },
   body: {
     color: colors.textSecondary,

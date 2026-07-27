@@ -1,5 +1,9 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import type { GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
+import {
+  ProgramDefinitionSchema,
+  type GenericProgramDetail,
+  type ProgramDefinition,
+} from '@gzclp/domain';
 
 import { startPresetProgram } from '../../lib/programs/program-use-cases';
 import { readPendingCreateReconciliation } from '../../lib/programs/program-repository';
@@ -100,6 +104,64 @@ function renderSetup() {
       programId="gzclp"
     />
   );
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function buildMutenroshiDefinition(): ProgramDefinition {
+  // Keep this tied to the production Caparazón seed without making the mobile
+  // compiler adopt the database package's looser test-only tsconfig.
+  const seedPath = ['../../../../../../packages/database/src/seeds/programs', 'mutenroshi'].join(
+    '/'
+  );
+  const seedModule: unknown = jest.requireActual(seedPath);
+  if (!isRecord(seedModule) || !isRecord(seedModule['MUTENROSHI_DEFINITION_JSONB'])) {
+    throw new Error('Caparazón seed definition is unavailable');
+  }
+
+  const seedDefinition = seedModule['MUTENROSHI_DEFINITION_JSONB'];
+  const days = seedDefinition['days'];
+  if (!Array.isArray(days)) {
+    throw new Error('Caparazón seed days are malformed');
+  }
+
+  const exerciseIds = new Set<string>();
+  for (const day of days) {
+    if (!isRecord(day) || !Array.isArray(day['slots'])) {
+      throw new Error('Caparazón seed slots are malformed');
+    }
+    for (const slot of day['slots']) {
+      if (!isRecord(slot) || typeof slot['exerciseId'] !== 'string') {
+        throw new Error('Caparazón seed exercise is malformed');
+      }
+      exerciseIds.add(slot['exerciseId']);
+    }
+  }
+
+  return ProgramDefinitionSchema.parse({
+    ...seedDefinition,
+    exercises: Object.fromEntries(
+      [...exerciseIds].map((exerciseId) => [exerciseId, { name: exerciseId }])
+    ),
+  });
+}
+
+function buildDefinitionDefaults(definition: ProgramDefinition): Record<string, number | string> {
+  const defaults: Record<string, number | string> = {};
+  for (const field of definition.configFields) {
+    if (field.type === 'weight') {
+      defaults[field.key] = field.min;
+      continue;
+    }
+    const firstOption = field.options[0];
+    if (firstOption === undefined) {
+      throw new Error(`Missing option fixture for ${field.key}`);
+    }
+    defaults[field.key] = firstOption.value;
+  }
+  return defaults;
 }
 
 describe('PresetSetupScreen', () => {
@@ -254,6 +316,36 @@ describe('PresetSetupScreen', () => {
     expect(screen.getByLabelText('Squat starting value').props.value).toBe('22.5');
   });
 
+  it('collapses and paginates when cache-first revalidation grows into a large preview', async () => {
+    const largeDefinition = buildMutenroshiDefinition();
+    let resolveRemote: (definition: ProgramDefinition) => void = () => undefined;
+    mockedGetProgramDefinition.mockResolvedValue(DEFINITION);
+    mockedFetchCatalogDefinition.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRemote = resolve;
+        })
+    );
+    mockedBuildDefaultProgramConfig
+      .mockReturnValueOnce({ squat: 20 })
+      .mockReturnValueOnce(buildDefinitionDefaults(largeDefinition));
+
+    renderSetup();
+    expect(await screen.findAllByTestId('program-preview-day')).toHaveLength(1);
+
+    await act(async () => {
+      resolveRemote(largeDefinition);
+    });
+
+    const showPreview = await screen.findByRole('button', {
+      name: 'Show the first training days',
+    });
+    expect(screen.queryAllByTestId('program-preview-day')).toHaveLength(0);
+
+    fireEvent.press(showPreview);
+    expect(await screen.findAllByTestId('program-preview-day')).toHaveLength(10);
+  });
+
   it('locks the non-idempotent start action after reconciliation becomes required', async () => {
     mockedStartPresetProgram.mockResolvedValue({
       status: 'reconciliation_required',
@@ -291,5 +383,57 @@ describe('PresetSetupScreen', () => {
     expect(
       screen.getByRole('button', { name: 'Open the program acknowledged by the server' })
     ).toBeTruthy();
+  });
+
+  it('keeps a real 200-day preset operable before a bounded, paginated preview', async () => {
+    const largeDefinition = buildMutenroshiDefinition();
+    const defaults = buildDefinitionDefaults(largeDefinition);
+    mockedFetchCatalogDefinition.mockResolvedValue(largeDefinition);
+    mockedBuildDefaultProgramConfig.mockReturnValue(defaults);
+    mockedStartPresetProgram.mockResolvedValue({
+      status: 'applied',
+      remote: { ...DETAIL, programId: largeDefinition.id },
+    });
+
+    render(
+      <PresetSetupScreen
+        onBack={mockBack}
+        onCreated={mockCreated}
+        ownerUserId="user-a"
+        programId={largeDefinition.id}
+      />
+    );
+
+    const start = await screen.findByRole('button', {
+      name: 'Start Turtle Shell with this setup',
+    });
+    const showPreview = screen.getByRole('button', {
+      name: 'Show the first training days',
+    });
+    const accessibleButtons = screen.getAllByRole('button');
+    expect(accessibleButtons.indexOf(start)).toBeLessThan(accessibleButtons.indexOf(showPreview));
+    expect(screen.queryAllByTestId('program-preview-day')).toHaveLength(0);
+    expect(screen.queryAllByTestId('program-preview-slot')).toHaveLength(0);
+
+    fireEvent.press(start);
+    await waitFor(() => {
+      expect(mockedStartPresetProgram).toHaveBeenCalledWith(
+        expect.objectContaining({
+          definition: largeDefinition,
+          config: defaults,
+        })
+      );
+    });
+
+    fireEvent.press(showPreview);
+    expect(await screen.findAllByTestId('program-preview-day')).toHaveLength(10);
+    expect(screen.getAllByTestId('program-preview-slot').length).toBeLessThan(100);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Show the next 10 training days' }));
+    expect(screen.getAllByTestId('program-preview-day')).toHaveLength(20);
+    expect(screen.getAllByTestId('program-preview-slot').length).toBeLessThan(200);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Collapse the training-day preview' }));
+    expect(screen.queryAllByTestId('program-preview-day')).toHaveLength(0);
   });
 });

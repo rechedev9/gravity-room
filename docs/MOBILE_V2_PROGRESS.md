@@ -179,10 +179,10 @@ Inicio: 2026-07-27
 
 Base congelada: `78adf51dc98ad77b8302d0042c7ffae7538bfcea`
 
-Estado: tercera corrección completa tras la reverificación independiente final 2. El revisor B dio
-`go`, pero el revisor A mantuvo `no-go` por el único P1 `M2-VF2A-001`; esta pasada corrige ese
-hallazgo y deja el hito pendiente de una nueva reverificación independiente. El SHA se identifica en
-el handoff. M2 no está integrado y no tiene GO final.
+Estado: corrección del ciclo final 3 completa. Los revisores final3 A y B dieron `no-go`; Main
+normalizó sus findings en D1-D8 y esta pasada los corrige con regresiones. El hito queda pendiente de
+una nueva reverificación independiente. El SHA se identifica en el handoff. M2 no está integrado y
+no tiene GO final.
 
 ### Candidato y revisiones
 
@@ -201,6 +201,10 @@ el handoff. M2 no está integrado y no tiene GO final.
 | Reverificación final 2 B | `go`                                         | C1-C5 y N1-N13 PASS; sin findings              |
 | Normalización Main 3     | `M2-VF2A-001`                                | Aceptado para tercera corrección               |
 | Corrector 3              | este commit; SHA en el handoff del corrector | Catálogo exhaustivo; no constituye GO          |
+| Reverificación final3 A  | `no-go`: 4 findings                          | `M2-VF3A-001` a `M2-VF3A-004`                  |
+| Reverificación final3 B  | `no-go`: 5 findings                          | `M2-VF3B-001` a `M2-VF3B-005`                  |
+| Normalización Main 4     | D1-D8                                        | Ocho defectos únicos aceptados                 |
+| Corrector final3         | este commit; SHA en el handoff del corrector | D1-D8 corregidos; no constituye GO             |
 
 ### Origen → normalizado y corrección
 
@@ -213,7 +217,7 @@ el handoff. M2 no está integrado y no tiene GO final.
 | N5          | A-005               | P1    | fixed  | Parser decimal locale-aware en frontera UI: coma ES, punto EN; rechaza separadores ajenos, agrupación, exponentes y formatos incompletos. Tests de parser y componente.                                                                                                                                                                           |
 | N6          | A-006               | P1    | fixed  | La revalidación remota mezcla defaults solo en campos pristine; un campo editado desde cache no se pisa al resolver el fetch diferido.                                                                                                                                                                                                            |
 | N7          | A-007               | P2    | fixed  | Catálogo fresh vacío usa `EmptyState`; indicadores y acciones busy tienen labels/live announcements; errores son alert/assertive. Tests a11y.                                                                                                                                                                                                     |
-| N8          | A-008, B-001        | P1/P2 | fixed  | Runtime v2 queda reservado a M2 paralelo; M2 añade el marcador transaccional v3 y el contrato completo pasa a v4. SQLite real prueba v1 con filas → v2 owner → v3 marker → v4, owner/cache preservados, legacy en cuarentena sin claim y sesiones/outbox creadas sin saltos. ADR actualizado.                                                     |
+| N8          | A-008, B-001        | P1/P2 | fixed  | Runtime v2 añade tablas owner-scoped, v3 snapshots y final3 añade expectativas de reconciliación en v4; el contrato completo pasa a v5. SQLite real prueba la cadena sin saltos, owner/cache preservados, legacy en cuarentena sin claim y sesiones/outbox creadas. ADR actualizado.                                                              |
 | N9          | B-002               | P1    | fixed  | Manage actualiza summary y solo metadata de lifecycle del detalle mediante merge; conserva results/undo/config pendientes y `queued_mutations`. SQLite real.                                                                                                                                                                                      |
 | N10         | B-006               | P1    | fixed  | Si falla GET tras POST, la transacción completa summaries y metadata de detalle active anteriores, preserva su estado operativo y deja únicamente el nuevo active.                                                                                                                                                                                |
 | N11         | B-007               | P1    | fixed  | Create API usa una transacción y solo `tx`, bloquea la fila de usuario, completa+inserta atómicamente y se apoya en el índice parcial único ya migrado. C1 extiende el mismo orden de locks a reactivación, lifecycle y delete, y valida el `UPDATE ... RETURNING` antes del commit.                                                              |
@@ -246,7 +250,7 @@ convierte por sí sola el hito en GO.
 | N5       | pass      | C3 conserva el parser estricto y añade formatter round-trip para defaults/hints.            |
 | N6       | pass      | La revalidación sigue sin pisar campos dirty del formulario.                                |
 | N7       | pass      | Empty/loading/error y announcements accesibles permanecen cubiertos.                        |
-| N8       | pass      | Cadena real v1→v2→v3 y composición futura v4 probadas con SQLite.                           |
+| N8       | pass      | Cadena real v1→v2→v3→v4 y composición futura v5 probadas con SQLite.                        |
 | N9       | pass      | Manage preserva config, results, undo y mutaciones pendientes.                              |
 | N10      | pass      | Fallo del GET posterior al POST mantiene un único active coherente.                         |
 | N11      | pass      | C1 refuerza la serialización con locks owner→target y rollback ante update 0.               |
@@ -307,15 +311,68 @@ Esta corrección queda pendiente de una nueva reverificación independiente y no
 | Dominio                                   | no ejecutado; no afectado   | No cambian `@gzclp/domain`, schemas, motor ni lógica GZCLP                                                                      |
 | E2E                                       | no ejecutado por política   | Reservado para M8                                                                                                               |
 
+### Corrección del ciclo final 3
+
+Los dos dictámenes independientes fueron `no-go`. A abrió cuatro findings
+(`M2-VF3A-001`–`004`) y B abrió cinco (`M2-VF3B-001`–`005`). Main eliminó el solapamiento entre
+validación de config y normalizó ocho defectos únicos:
+
+| Defecto | Origen                       | Sev. | Estado | Corrección y evidencia                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------- | ---------------------------- | ---- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1      | `M2-VF3B-001`                | P1   | fixed  | Migración SQLite append-only v4 añade expectativas owner-scoped para rename/status/config y conserva markers legacy. Un GET antiguo, mera existencia, ACK no coincidente o `ON CONFLICT` no limpia/sobrescribe un marker tipado. Mutaciones por instancia se serializan: una intención distinta queda bloqueada y solo el reintento explícito de la misma intención se permite. Un detalle coincidente aplica summary, detail, lifecycle y pin en la misma transacción que elimina el marker; nunca repite PATCH automáticamente. |
+| D2      | `M2-VF3B-002`                | P1   | fixed  | Create/reactivate recuperan con `RETURNING` todos los IDs desplazados y, solo tras commit, invalidan target y desplazados en una operación Redis fail-open y deduplicada. Rollback no invalida; activación repetida es idempotente.                                                                                                                                                                                                                                                                                               |
+| D3      | `M2-VF3A-001`, `M2-VF3B-003` | P1   | fixed  | POST hidrata el template autoritativo y PATCH respeta snapshot/definición owner-scoped de la instancia antes de caer al template, siempre dentro de la transacción. Missing/extra/min/step/select delegan a `validateProgramConfig`; definición corrupta y config inválida devuelven `ApiError` 400 estable antes de completar el activo.                                                                                                                                                                                         |
+| D4      | `M2-VF3A-002`                | P1   | fixed  | Oracle estático independiente cubre nombre/descripción de los 20 presets y todos los tiers ES/EN. Una mutación coordinada `Banana` en ambos locales falla contra el fixture revisado; expected no se deriva de i18n, seeds ni productor.                                                                                                                                                                                                                                                                                          |
+| D5      | `M2-VF3A-004`                | P1   | fixed  | Formulario y CTA preceden reglas/preview. Presets grandes nacen colapsados y paginan 10 días sin nodos ocultos, incluso al crecer de cache pequeño a refresh grande; el seed real de Caparazón (200 días) prueba orden accesible, cero nodos iniciales, límites por página, colapso y CTA operable.                                                                                                                                                                                                                               |
+| D6      | `M2-VF3B-004`                | P2   | fixed  | `source` viaja por catálogo, definición, día, ejercicio, campo y opción. Solo `source: preset` más ID conocido usa copy canónico; un custom/externo que colisiona con `gzclp` conserva todas sus etiquetas sin lanzar.                                                                                                                                                                                                                                                                                                            |
+| D7      | `M2-VF3B-005`                | P2   | fixed  | Rounding externo exige decimal canónico positivo: sin vacío, espacios, signo, exponente, hexadecimal, coma ni ceros ambiguos. `0.5` y otros decimales válidos siguen localizados; entradas inválidas conservan label humano.                                                                                                                                                                                                                                                                                                      |
+| D8      | `M2-VF3A-003`                | P2   | fixed  | Frontera común documentada en dominio: `0` o `[10⁻⁶, 10¹⁵]`. Definiciones, validador de nuevas escrituras, formatter y parser comparten el límite; todo valor nuevo admitido hace round-trip exacto ES/EN. El parser de persistencia conserva compatibilidad legacy.                                                                                                                                                                                                                                                              |
+
+El contrato futuro M3 sube de v4 a v5 para componer la nueva migración runtime v4 antes del rename
+final. OpenAPI documenta el 400 de PATCH config y el cliente web se regeneró con el flujo soportado,
+manteniendo las rutas dev condicionadas durante codegen.
+
+### Checks de la corrección final3
+
+| Check                                     | Resultado                      | Nota                                                                                                          |
+| ----------------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| Focales D1-D8                             | verde                          | SQLite legacy/owner/rollback, Redis post-commit, config autoritativa, oracle, seed 200 días, source y números |
+| `pnpm --filter mobile routes:check`       | verde                          | Manifiesto sin drift                                                                                          |
+| `pnpm --filter mobile i18n:check`         | verde: 1 suite, 8 tests        | ES/EN idénticos, 0 missing keys                                                                               |
+| `pnpm --filter mobile lint` / `typecheck` | verde                          | ESLint y Expo TS estricto                                                                                     |
+| `pnpm --filter mobile test`               | verde: 37 suites, 296 tests    | Suite completa; C1-C5 y N1-N13 reconfirmados                                                                  |
+| Domain typecheck/tests                    | verde: 7 ficheros, 51 tests    | Incluye frontera numérica, validación config y lectura legacy compatible                                      |
+| Database typecheck/tests                  | verde: 6 ficheros, 89 tests    | 5 integraciones DB externas saltadas por entorno                                                              |
+| API lint/typecheck/tests                  | verde: 46 ficheros, 716 tests  | Locks, rollback, definición por instancia, validación, caché y lifecycle                                      |
+| OpenAPI web `api:types`                   | verde                          | Cliente regenerado; PATCH config publica respuesta 400                                                        |
+| Expo export Android                       | verde: 1.244 módulos           | 24 assets; 26 ficheros, 3.898.206 B; bundle Hermes 3,87 MB                                                    |
+| Prettier + `git diff --check`             | verde                          | Todo el delta final y este progreso                                                                           |
+| `autoreview --mode local`                 | verde tras findings corregidos | Persistencia atómica, ausencia remota, handoff, supersesión y definición por instancia corregidos             |
+| E2E                                       | no ejecutado por política      | Reservado para M8                                                                                             |
+
+### Riesgos de la corrección final3
+
+- Un marker manage legacy no tiene expectativa verificable y se conserva sin PATCH/GET automático;
+  una instancia ausente del snapshot remoto tampoco se elimina porque ausencia no confirma la
+  mutación. Ambos casos evitan falsos ACK. Una operación explícita posterior confirmada puede
+  migrar solo el marker legacy aplicando nombre, estado, config y handoff autoritativos. Un marker
+  tipado bloquea intenciones distintas y solo admite reintento explícito de la misma intención.
+- La frontera `[10⁻⁶, 10¹⁵]` es intencionadamente más estricta que números JavaScript finitos:
+  previene exponentes y strings gigantes en nuevas escrituras de dominio, API y UI. El schema de
+  lectura sigue aceptando números legacy para no hacer inaccesibles instancias existentes.
+- Las cinco pruebas database que requieren infraestructura externa permanecieron saltadas por
+  entorno; migraciones SQLite runtime/contrato sí se ejecutaron con `node:sqlite`.
+- M2 sigue pendiente de nueva reverificación independiente. Esta corrección no declara GO.
+
 ### Riesgos y fuera de alcance
 
 - La creación sigue online-only y no se reintenta automáticamente: la API aún no ofrece idempotency
   key para este POST. Un outcome incierto se reconcilia mediante GET, nunca repitiendo el POST; si
   no puede identificarse de forma inequívoca, el bloqueo persiste en vez de asumir que falló.
-- M3 registrará el contrato completo como migración 4 y adaptará sesiones/outbox runtime; M2 solo
+- M3 registrará el contrato completo como migración 5 y adaptará sesiones/outbox runtime; M2 solo
   demuestra la composición y no implementa el tracker set-a-set.
 - M4, M6 y la API/editor de definiciones personalizadas permanecen fuera de alcance.
-- Las filas v1 siguen sin owner y jamás se atribuyen a la sesión activa; v4 las pone en cuarentena.
+- Las filas v1 siguen sin owner y jamás se atribuyen a la sesión activa; v5 las pone en cuarentena.
 - E2E y métricas nativas continúan reservados para M8. Esta corrección no marca GO.
 
 ## M1 — Shell, navegación y sistema visual

@@ -9,7 +9,11 @@ import {
   replaceCachedCatalog,
   replaceProgramSummaries,
 } from '../../lib/programs/program-repository';
-import { deleteProgram, manageProgram } from '../../lib/programs/program-use-cases';
+import {
+  deleteProgram,
+  manageProgram,
+  reconcilePendingProgramManagement,
+} from '../../lib/programs/program-use-cases';
 import { fetchCatalogEntries, fetchProgramSummaries } from '../../lib/programs/program-service';
 import {
   readTrackerProgramId,
@@ -28,6 +32,7 @@ jest.mock('../../lib/programs/program-repository', () => ({
 jest.mock('../../lib/programs/program-use-cases', () => ({
   deleteProgram: jest.fn(),
   manageProgram: jest.fn(),
+  reconcilePendingProgramManagement: jest.fn(),
 }));
 
 jest.mock('../../lib/programs/program-service', () => ({
@@ -47,6 +52,7 @@ const mockedReplaceCachedCatalog = jest.mocked(replaceCachedCatalog);
 const mockedReplaceProgramSummaries = jest.mocked(replaceProgramSummaries);
 const mockedDeleteProgram = jest.mocked(deleteProgram);
 const mockedManageProgram = jest.mocked(manageProgram);
+const mockedReconcilePendingProgramManagement = jest.mocked(reconcilePendingProgramManagement);
 const mockedFetchCatalogEntries = jest.mocked(fetchCatalogEntries);
 const mockedFetchProgramSummaries = jest.mocked(fetchProgramSummaries);
 const mockedReadTrackerProgramId = jest.mocked(readTrackerProgramId);
@@ -135,6 +141,7 @@ describe('ProgramsScreen M2 library', () => {
         updatedAt: ACTIVE.updatedAt,
       },
     });
+    mockedReconcilePendingProgramManagement.mockResolvedValue();
     mockedDeleteProgram.mockResolvedValue({ status: 'applied', remote: 'deleted' });
   });
 

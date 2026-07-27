@@ -4,8 +4,18 @@ import {
   RemoteMutationAcknowledgedError,
   RemoteMutationOutcomeUnknownError,
   type DeleteRemoteResult,
+  type ProgramManagementMutation,
 } from './program-service';
-import { deleteProgram, manageProgram, startPresetProgram } from './program-use-cases';
+import type {
+  ProgramManageExpectation,
+  ProgramReconciliationOperation,
+} from './program-repository';
+import {
+  deleteProgram,
+  manageProgram,
+  reconcilePendingProgramManagement,
+  startPresetProgram,
+} from './program-use-cases';
 
 const DEFINITION = {
   id: 'gzclp',
@@ -177,7 +187,12 @@ describe('program use cases', () => {
           programInstanceId: DETAIL.id,
           mutation: { type: 'set_status', status: 'archived' },
         },
-        { updateRemote, cacheManaged, scheduleReconciliation }
+        {
+          updateRemote,
+          cacheManaged,
+          readPending: jest.fn(async () => []),
+          scheduleReconciliation,
+        }
       )
     ).resolves.toEqual({
       status: 'reconciliation_required',
@@ -190,8 +205,12 @@ describe('program use cases', () => {
     expect(updateRemote).toHaveBeenCalledTimes(1);
     expect(cacheManaged).toHaveBeenCalledWith('user-a', archivedDetail, {
       activationRequested: false,
+      mutation: { type: 'set_status', status: 'archived' },
     });
-    expect(scheduleReconciliation).toHaveBeenCalledWith('user-a', 'manage', DETAIL.id);
+    expect(scheduleReconciliation).toHaveBeenCalledWith('user-a', 'manage', DETAIL.id, {
+      type: 'set_status',
+      status: 'archived',
+    });
   });
 
   it('marks only an explicit activation for the atomic Tracker handoff', async () => {
@@ -206,13 +225,138 @@ describe('program use cases', () => {
       {
         updateRemote: jest.fn(async () => DETAIL),
         cacheManaged,
+        readPending: jest.fn(async () => []),
         scheduleReconciliation: jest.fn(async () => undefined),
       }
     );
 
     expect(cacheManaged).toHaveBeenCalledWith('user-a', DETAIL, {
       activationRequested: true,
+      mutation: { type: 'set_status', status: 'active' },
     });
+  });
+
+  it('blocks a different management mutation while a verifiable outcome is pending', async () => {
+    const updateRemote = jest.fn(async () => ({ ...DETAIL, status: 'archived' as const }));
+
+    await expect(
+      manageProgram(
+        {
+          ownerUserId: 'user-a',
+          programInstanceId: DETAIL.id,
+          mutation: { type: 'set_status', status: 'archived' },
+        },
+        {
+          updateRemote,
+          cacheManaged: jest.fn(async () => undefined),
+          readPending: jest.fn(async () => [
+            {
+              programInstanceId: DETAIL.id,
+              expectation: { type: 'rename' as const, name: 'Expected name' },
+            },
+          ]),
+          scheduleReconciliation: jest.fn(async () => undefined),
+        }
+      )
+    ).resolves.toEqual({
+      status: 'reconciliation_required',
+      remote: null,
+      remoteEntityId: DETAIL.id,
+      remoteState: 'outcome_unknown',
+      reconciliationScheduled: true,
+    });
+    expect(updateRemote).not.toHaveBeenCalled();
+  });
+
+  it('serializes concurrent management and permits only an explicit retry of the same intent', async () => {
+    let releaseFirst = (): void => undefined;
+    let markFirstStarted = (): void => undefined;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const firstStarted = new Promise<void>((resolve) => {
+      markFirstStarted = resolve;
+    });
+    let pendingExpectation: {
+      readonly programInstanceId: string;
+      readonly expectation: { readonly type: 'rename'; readonly name: string };
+    } | null = null;
+    const updateRemote = jest.fn<
+      Promise<GenericProgramDetail>,
+      [string, ProgramManagementMutation]
+    >(async () => {
+      markFirstStarted();
+      await firstGate;
+      throw new RemoteMutationOutcomeUnknownError('manage', DETAIL.id, new Error('timeout'));
+    });
+    const readPending = jest.fn(async () =>
+      pendingExpectation === null ? [] : [pendingExpectation]
+    );
+    const scheduleReconciliation = jest.fn(
+      async (
+        _owner: string,
+        _operation: ProgramReconciliationOperation,
+        programInstanceId: string,
+        intent: ProgramManageExpectation | null = null
+      ) => {
+        if (intent?.type === 'rename') {
+          pendingExpectation = { programInstanceId, expectation: intent };
+        }
+      }
+    );
+    const dependencies = {
+      updateRemote,
+      cacheManaged: jest.fn(async () => undefined),
+      readPending,
+      scheduleReconciliation,
+    };
+
+    const first = manageProgram(
+      {
+        ownerUserId: 'user-a',
+        programInstanceId: DETAIL.id,
+        mutation: { type: 'rename', name: 'Expected name' },
+      },
+      dependencies
+    );
+    await firstStarted;
+    const second = manageProgram(
+      {
+        ownerUserId: 'user-a',
+        programInstanceId: DETAIL.id,
+        mutation: { type: 'set_status', status: 'archived' },
+      },
+      dependencies
+    );
+    releaseFirst();
+
+    await expect(first).resolves.toMatchObject({
+      status: 'reconciliation_required',
+      remoteState: 'outcome_unknown',
+      reconciliationScheduled: true,
+    });
+    await expect(second).resolves.toMatchObject({
+      status: 'reconciliation_required',
+      remoteState: 'outcome_unknown',
+      reconciliationScheduled: true,
+    });
+    expect(updateRemote).toHaveBeenCalledTimes(1);
+
+    updateRemote.mockResolvedValueOnce({ ...DETAIL, name: 'Expected name' });
+    await expect(
+      manageProgram(
+        {
+          ownerUserId: 'user-a',
+          programInstanceId: DETAIL.id,
+          mutation: { type: 'rename', name: 'Expected name' },
+        },
+        dependencies
+      )
+    ).resolves.toEqual({
+      status: 'applied',
+      remote: { ...DETAIL, name: 'Expected name' },
+    });
+    expect(updateRemote).toHaveBeenCalledTimes(2);
   });
 
   it('never cleans local program data before remote deletion succeeds', async () => {
@@ -360,5 +504,63 @@ describe('program use cases', () => {
       reconciliationScheduled: true,
     });
     expect(scheduleReconciliation).toHaveBeenCalledWith('user-a', 'delete', DETAIL.id);
+  });
+
+  it('reconciles manage through GET truth without repeating PATCH', async () => {
+    const fetchRemote = jest
+      .fn<Promise<GenericProgramDetail>, [string]>()
+      .mockResolvedValueOnce({ ...DETAIL, name: 'Old name' })
+      .mockResolvedValueOnce({ ...DETAIL, name: 'Expected name' });
+    const resolveWithDetail = jest
+      .fn<Promise<boolean>, [string, GenericProgramDetail]>()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    const readPending = jest.fn(async () => [
+      {
+        programInstanceId: DETAIL.id,
+        expectation: { type: 'rename' as const, name: 'Expected name' },
+      },
+    ]);
+
+    await reconcilePendingProgramManagement('user-a', [DETAIL.id], {
+      readPending,
+      fetchRemote,
+      resolveWithDetail,
+    });
+    await reconcilePendingProgramManagement('user-a', [DETAIL.id], {
+      readPending,
+      fetchRemote,
+      resolveWithDetail,
+    });
+
+    expect(fetchRemote).toHaveBeenCalledTimes(2);
+    expect(resolveWithDetail).toHaveBeenNthCalledWith(1, 'user-a', {
+      ...DETAIL,
+      name: 'Old name',
+    });
+    expect(resolveWithDetail).toHaveBeenNthCalledWith(2, 'user-a', {
+      ...DETAIL,
+      name: 'Expected name',
+    });
+  });
+
+  it('does not repeat GET for a marker whose instance is absent from full remote truth', async () => {
+    const fetchRemote = jest.fn<Promise<GenericProgramDetail>, [string]>();
+    const resolveWithDetail = jest.fn<Promise<boolean>, [string, GenericProgramDetail]>();
+    const readPending = jest.fn(async () => [
+      {
+        programInstanceId: DETAIL.id,
+        expectation: { type: 'set_status' as const, status: 'archived' as const },
+      },
+    ]);
+
+    await reconcilePendingProgramManagement('user-a', [], {
+      readPending,
+      fetchRemote,
+      resolveWithDetail,
+    });
+
+    expect(fetchRemote).not.toHaveBeenCalled();
+    expect(resolveWithDetail).not.toHaveBeenCalled();
   });
 });

@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   MAX_DAYS,
+  MAX_PROGRAM_WEIGHT,
   MAX_PRESCRIPTIONS_PER_SLOT,
   MAX_STAGES_PER_SLOT,
   MAX_SLOTS_PER_DAY,
   MAX_TOTAL_SLOTS,
   MAX_TOTAL_WORKOUTS,
+  MIN_POSITIVE_PROGRAM_WEIGHT,
   ProgramDefinitionSchema,
 } from './program-definition';
 
@@ -239,5 +241,39 @@ describe('ProgramDefinitionSchema bounds (DoS guard)', () => {
     }));
 
     expect(ProgramDefinitionSchema.safeParse({ ...BASE, days }).success).toBe(false);
+  });
+
+  it('keeps weight definitions inside the decimal UI round-trip boundary', () => {
+    expect(
+      ProgramDefinitionSchema.safeParse({
+        ...BASE,
+        configFields: [
+          {
+            key: 'squat',
+            label: 'Squat',
+            type: 'weight',
+            min: MIN_POSITIVE_PROGRAM_WEIGHT,
+            step: MAX_PROGRAM_WEIGHT,
+          },
+        ],
+      }).success
+    ).toBe(true);
+
+    for (const unsupported of [1e-7, 1e21]) {
+      expect(
+        ProgramDefinitionSchema.safeParse({
+          ...BASE,
+          configFields: [
+            {
+              key: 'squat',
+              label: 'Squat',
+              type: 'weight',
+              min: 0,
+              step: unsupported,
+            },
+          ],
+        }).success
+      ).toBe(false);
+    }
   });
 });

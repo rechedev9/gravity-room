@@ -7,13 +7,14 @@ import {
  * Contractual complete-schema migration reserved for M3.
  *
  * Runtime migration 2 installs the owner-scoped M2 program library beside the
- * still-operational v1 tracker queue. This version 4 step composes that shipped
- * state (including the corrective snapshot marker from migration 3) into the
+ * still-operational v1 tracker queue. This version 5 step composes that shipped
+ * state (including snapshot metadata from migration 3 and verifiable
+ * reconciliation expectations from migration 4) into the
  * complete schema: it quarantines unowned v1 rows, promotes only already-owned
  * M2 rows, and creates sessions/outbox without claiming legacy data. M3 can
  * register this exact step after adapting its runtime repositories.
  */
-export const MOBILE_V2_SCHEMA_CONTRACT_VERSION = 4;
+export const MOBILE_V2_SCHEMA_CONTRACT_VERSION = 5;
 
 export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
   ${MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL}
@@ -224,8 +225,43 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
     owner_user_id TEXT NOT NULL CHECK (length(owner_user_id) > 0),
     operation TEXT NOT NULL CHECK (operation IN ('create', 'manage', 'delete')),
     entity_id TEXT NOT NULL CHECK (length(entity_id) > 0),
+    expected_name TEXT CHECK (expected_name IS NULL OR length(expected_name) > 0),
+    expected_status TEXT CHECK (
+      expected_status IS NULL
+      OR expected_status IN ('active', 'completed', 'archived')
+    ),
+    expected_config_json TEXT CHECK (
+      expected_config_json IS NULL
+      OR (
+        json_valid(expected_config_json)
+        AND json_type(expected_config_json) = 'object'
+      )
+    ),
     created_at TEXT NOT NULL,
-    PRIMARY KEY (owner_user_id, operation, entity_id)
+    PRIMARY KEY (owner_user_id, operation, entity_id),
+    CHECK (
+      (
+        operation = 'manage'
+        AND (
+          (
+            expected_name IS NULL
+            AND expected_status IS NULL
+            AND expected_config_json IS NULL
+          )
+          OR (
+            (expected_name IS NOT NULL)
+            + (expected_status IS NOT NULL)
+            + (expected_config_json IS NOT NULL) = 1
+          )
+        )
+      )
+      OR (
+        operation IN ('create', 'delete')
+        AND expected_name IS NULL
+        AND expected_status IS NULL
+        AND expected_config_json IS NULL
+      )
+    )
   ) STRICT;
 
   CREATE TABLE program_snapshots (
@@ -266,9 +302,22 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
   FROM mobile_v2_program_preferences;
 
   INSERT INTO program_reconciliations (
-    owner_user_id, operation, entity_id, created_at
+    owner_user_id,
+    operation,
+    entity_id,
+    expected_name,
+    expected_status,
+    expected_config_json,
+    created_at
   )
-  SELECT owner_user_id, operation, entity_id, created_at
+  SELECT
+    owner_user_id,
+    operation,
+    entity_id,
+    expected_name,
+    expected_status,
+    expected_config_json,
+    created_at
   FROM mobile_v2_program_reconciliations;
 
   INSERT INTO program_snapshots (

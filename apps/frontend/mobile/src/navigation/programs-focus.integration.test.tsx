@@ -69,6 +69,7 @@ jest.mock('../lib/tracker/tracker-selection-storage', () => ({
 jest.mock('../lib/programs/program-use-cases', () => ({
   manageProgram: jest.fn(),
   deleteProgram: jest.fn(),
+  reconcilePendingProgramManagement: jest.fn(async () => undefined),
 }));
 
 const ORIGINAL: ProgramSummary = {

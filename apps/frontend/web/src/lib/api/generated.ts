@@ -1042,6 +1042,11 @@ export const endpoints = [
     response: z.void(),
     errors: [
       {
+        status: 400,
+        description: `Config does not match the authoritative program definition`,
+        schema: z.void(),
+      },
+      {
         status: 401,
         description: `Missing or invalid token`,
         schema: z.void(),

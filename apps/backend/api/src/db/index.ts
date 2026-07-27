@@ -3,7 +3,8 @@ import postgres from 'postgres';
 import * as schema from '@gzclp/database/schema';
 import { logger } from '../lib/logger';
 
-type DbInstance = ReturnType<typeof drizzle<typeof schema>>;
+export type DbInstance = ReturnType<typeof drizzle<typeof schema>>;
+export type DbTransaction = Parameters<Parameters<DbInstance['transaction']>[0]>[0];
 
 /** TCP keepalive interval in seconds to detect dead connections. */
 const KEEP_ALIVE_INTERVAL_SECONDS = 60;

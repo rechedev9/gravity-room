@@ -1,5 +1,9 @@
 import { ProgramConfigSchema } from './schemas/instance';
-import { ProgramDefinitionSchema, type ProgramDefinition } from './schemas/program-definition';
+import {
+  ProgramDefinitionSchema,
+  ProgramWeightValueSchema,
+  type ProgramDefinition,
+} from './schemas/program-definition';
 
 export type ProgramConfig = Readonly<Record<string, number | string>>;
 
@@ -79,7 +83,7 @@ export function validateProgramConfig(
     }
 
     if (field.type === 'weight') {
-      if (typeof value !== 'number' || !Number.isFinite(value)) {
+      if (typeof value !== 'number' || !ProgramWeightValueSchema.safeParse(value).success) {
         issues.push({ code: 'invalid_weight', fieldKey: field.key });
         continue;
       }

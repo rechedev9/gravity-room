@@ -24,7 +24,12 @@ vi.mock('./redis', () => ({
 }));
 
 // Must import AFTER mock.module
-import { getCachedInstance, setCachedInstance, invalidateCachedInstance } from './program-cache';
+import {
+  getCachedInstance,
+  setCachedInstance,
+  invalidateCachedInstance,
+  invalidateCachedInstances,
+} from './program-cache';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -191,5 +196,31 @@ describe('invalidateCachedInstance', () => {
 
     // Act / Assert — should not throw
     await invalidateCachedInstance(USER_ID, INSTANCE_ID);
+  });
+});
+
+describe('invalidateCachedInstances', () => {
+  it('evicts the target and every displaced instance with duplicate IDs collapsed', async () => {
+    await invalidateCachedInstances(USER_ID, [INSTANCE_ID, 'inst-2', INSTANCE_ID]);
+
+    expect(mockDel).toHaveBeenCalledOnce();
+    expect(mockDel).toHaveBeenCalledWith(
+      `program:${USER_ID}:${INSTANCE_ID}`,
+      `program:${USER_ID}:inst-2`
+    );
+  });
+
+  it('does not call Redis for an empty affected set', async () => {
+    await invalidateCachedInstances(USER_ID, []);
+
+    expect(mockDel).not.toHaveBeenCalled();
+  });
+
+  it('swallows a bulk eviction failure', async () => {
+    mockDel.mockRejectedValueOnce(new Error('bulk delete failed'));
+
+    await expect(
+      invalidateCachedInstances(USER_ID, [INSTANCE_ID, 'inst-2'])
+    ).resolves.toBeUndefined();
   });
 });

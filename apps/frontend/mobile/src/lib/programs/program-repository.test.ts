@@ -7,6 +7,7 @@ import type { SQLiteBindValue } from 'expo-sqlite';
 import type { DatabaseClient } from '../db/expo-sqlite-adapter';
 import {
   MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL,
+  MOBILE_V2_RECONCILIATION_EXPECTATIONS_SQL,
   MOBILE_V2_SNAPSHOT_METADATA_TABLE_SQL,
   QUEUED_MUTATIONS_TABLE_SQL,
 } from '../db/schema';
@@ -27,9 +28,11 @@ import {
   readProgramCatalogSnapshot,
   readProgramLibrarySnapshot,
   readPendingCreateReconciliation,
+  readPendingManageReconciliations,
   recordProgramReconciliation,
   replaceCachedCatalog,
   replaceProgramSummaries,
+  resolveProgramReconciliationWithRemoteDetail,
 } from './program-repository';
 import { readTrackerProgramId } from '../tracker/tracker-selection-storage';
 
@@ -46,6 +49,7 @@ function createMemoryDatabase(): MemoryDatabase {
   sqlite.exec(QUEUED_MUTATIONS_TABLE_SQL);
   sqlite.exec(MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL);
   sqlite.exec(MOBILE_V2_SNAPSHOT_METADATA_TABLE_SQL);
+  sqlite.exec(MOBILE_V2_RECONCILIATION_EXPECTATIONS_SQL);
   let failingProgramId: string | null = null;
   let transactionDepth = 0;
   let observedReadDepths: number[] = [];
@@ -410,7 +414,10 @@ describe('M2 program repository', () => {
     await cacheManagedProgram(
       'user-a',
       { ...DETAIL, status: 'archived' },
-      { activationRequested: false }
+      {
+        activationRequested: false,
+        mutation: { type: 'set_status', status: 'archived' },
+      }
     );
 
     await expect(listProgramSummaries('user-a')).resolves.toEqual([
@@ -427,12 +434,20 @@ describe('M2 program repository', () => {
     ).toBe(1);
   });
 
-  it('reactivates and pins the target atomically so Tracker resolves the new active program', async () => {
+  it('applies a pending activation handoff from a later authoritative management ACK', async () => {
     await cacheCreatedProgram({
       ownerUserId: 'user-a',
       detail: DETAIL,
       definition: DEFINITION,
       serverPrograms: [ACTIVE, COMPLETED],
+    });
+    await replaceProgramSummaries('user-a', [
+      { ...ACTIVE, status: 'completed', updatedAt: '2026-07-27T13:00:00.000Z' },
+      { ...COMPLETED, status: 'active', updatedAt: '2026-07-27T13:00:00.000Z' },
+    ]);
+    await recordProgramReconciliation('user-a', 'manage', COMPLETED.id, {
+      type: 'set_status',
+      status: 'active',
     });
 
     await cacheManagedProgram(
@@ -445,7 +460,10 @@ describe('M2 program repository', () => {
         createdAt: COMPLETED.createdAt,
         updatedAt: '2026-07-27T13:00:00.000Z',
       },
-      { activationRequested: true }
+      {
+        activationRequested: false,
+        mutation: { type: 'rename', name: COMPLETED.title },
+      }
     );
 
     await expect(listProgramSummaries('user-a')).resolves.toEqual([
@@ -461,6 +479,94 @@ describe('M2 program repository', () => {
       },
     ]);
     await expect(readTrackerProgramId('user-a')).resolves.toBe(COMPLETED.id);
+    expect(
+      memory.sqlite
+        .prepare(
+          `SELECT json_extract(detail_json, '$.status') AS status
+           FROM mobile_v2_program_details
+           WHERE owner_user_id = 'user-a' AND id = ?`
+        )
+        .get(ACTIVE.id)?.status
+    ).toBe('completed');
+    await expect(readPendingManageReconciliations('user-a')).resolves.toEqual([]);
+  });
+
+  it('resolves pending config when a later acknowledged detail confirms it', async () => {
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: [ACTIVE],
+    });
+    await recordProgramReconciliation('user-a', 'manage', ACTIVE.id, {
+      type: 'set_config',
+      config: { squat: 25 },
+    });
+
+    await cacheManagedProgram(
+      'user-a',
+      { ...DETAIL, name: 'Later acknowledged name', config: { squat: 25 } },
+      {
+        activationRequested: false,
+        mutation: { type: 'rename', name: 'Later acknowledged name' },
+      }
+    );
+
+    await expect(readPendingManageReconciliations('user-a')).resolves.toEqual([]);
+    expect(
+      memory.sqlite
+        .prepare(
+          `SELECT
+             json_extract(detail_json, '$.name') AS name,
+             json_extract(detail_json, '$.config.squat') AS squat
+           FROM mobile_v2_program_details
+           WHERE owner_user_id = 'user-a' AND id = ?`
+        )
+        .get(ACTIVE.id)
+    ).toEqual({ name: 'Later acknowledged name', squat: 25 });
+  });
+
+  it('preserves a typed marker across a conflicting record and an unmatched ACK', async () => {
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: [ACTIVE],
+    });
+    await recordProgramReconciliation('user-a', 'manage', ACTIVE.id, {
+      type: 'rename',
+      name: 'Expected name',
+    });
+    await recordProgramReconciliation('user-a', 'manage', ACTIVE.id, {
+      type: 'set_status',
+      status: 'archived',
+    });
+
+    await expect(readPendingManageReconciliations('user-a')).resolves.toEqual([
+      {
+        programInstanceId: ACTIVE.id,
+        expectation: { type: 'rename', name: 'Expected name' },
+      },
+    ]);
+
+    await cacheManagedProgram(
+      'user-a',
+      { ...DETAIL, status: 'archived' },
+      {
+        activationRequested: false,
+        mutation: { type: 'set_status', status: 'archived' },
+      }
+    );
+
+    await expect(readPendingManageReconciliations('user-a')).resolves.toEqual([
+      {
+        programInstanceId: ACTIVE.id,
+        expectation: { type: 'rename', name: 'Expected name' },
+      },
+    ]);
+    await expect(listProgramSummaries('user-a')).resolves.toEqual([
+      { ...ACTIVE, status: 'archived' },
+    ]);
   });
 
   it('preserves an absent Tracker pin when renaming an already-active program', async () => {
@@ -481,7 +587,10 @@ describe('M2 program repository', () => {
     await cacheManagedProgram(
       'user-a',
       { ...DETAIL, name: 'Renamed active program' },
-      { activationRequested: false }
+      {
+        activationRequested: false,
+        mutation: { type: 'rename', name: 'Renamed active program' },
+      }
     );
 
     await expect(readTrackerProgramId('user-a')).resolves.toBeNull();
@@ -519,7 +628,10 @@ describe('M2 program repository', () => {
         results: {},
         undoHistory: [],
       },
-      { activationRequested: false }
+      {
+        activationRequested: false,
+        mutation: { type: 'rename', name: 'Renamed remotely' },
+      }
     );
 
     const row = memory.sqlite
@@ -658,6 +770,160 @@ describe('M2 program repository', () => {
     await replaceProgramSummaries('user-a', [ACTIVE]);
 
     await expect(readPendingCreateReconciliation('user-a')).resolves.toBeNull();
+  });
+
+  it('keeps rename and status markers until owner-scoped remote truth matches', async () => {
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: [ACTIVE],
+    });
+    await recordProgramReconciliation('user-a', 'manage', ACTIVE.id, {
+      type: 'rename',
+      name: 'Remote rename',
+    });
+    await recordProgramReconciliation('user-b', 'manage', ACTIVE.id, {
+      type: 'rename',
+      name: 'Other owner rename',
+    });
+
+    await replaceProgramSummaries('user-a', [ACTIVE]);
+    await expect(readPendingManageReconciliations('user-a')).resolves.toHaveLength(1);
+
+    await replaceProgramSummaries('user-a', [{ ...ACTIVE, title: 'Remote rename' }]);
+    await expect(readPendingManageReconciliations('user-a')).resolves.toHaveLength(1);
+    await expect(
+      resolveProgramReconciliationWithRemoteDetail('user-a', {
+        ...DETAIL,
+        name: 'Remote rename',
+      })
+    ).resolves.toBe(true);
+    await expect(readPendingManageReconciliations('user-a')).resolves.toEqual([]);
+    await expect(readPendingManageReconciliations('user-b')).resolves.toHaveLength(1);
+    expect(
+      memory.sqlite
+        .prepare(
+          `SELECT json_extract(detail_json, '$.name') AS name
+           FROM mobile_v2_program_details
+           WHERE owner_user_id = 'user-a' AND id = ?`
+        )
+        .get(ACTIVE.id)?.name
+    ).toBe('Remote rename');
+
+    await recordProgramReconciliation('user-a', 'manage', ACTIVE.id, {
+      type: 'set_status',
+      status: 'archived',
+    });
+    await replaceProgramSummaries('user-a', [ACTIVE]);
+    await expect(readPendingManageReconciliations('user-a')).resolves.toHaveLength(1);
+    await replaceProgramSummaries('user-a', [{ ...ACTIVE, status: 'archived' }]);
+    await expect(readPendingManageReconciliations('user-a')).resolves.toHaveLength(1);
+    await expect(
+      resolveProgramReconciliationWithRemoteDetail('user-a', {
+        ...DETAIL,
+        name: 'Remote rename',
+        status: 'archived',
+      })
+    ).resolves.toBe(true);
+    await expect(readPendingManageReconciliations('user-a')).resolves.toEqual([]);
+    await expect(readTrackerProgramId('user-a')).resolves.toBeNull();
+  });
+
+  it('resolves config only from a verified remote detail and preserves legacy markers', async () => {
+    await recordProgramReconciliation('user-a', 'manage', ACTIVE.id, {
+      type: 'set_config',
+      config: { squat: 25 },
+    });
+
+    await replaceProgramSummaries('user-a', [ACTIVE]);
+    await expect(readPendingManageReconciliations('user-a')).resolves.toHaveLength(1);
+    await expect(
+      resolveProgramReconciliationWithRemoteDetail('user-a', {
+        ...DETAIL,
+        config: { squat: 20 },
+      })
+    ).resolves.toBe(false);
+    await expect(readPendingManageReconciliations('user-a')).resolves.toHaveLength(1);
+    await expect(
+      resolveProgramReconciliationWithRemoteDetail('user-a', {
+        ...DETAIL,
+        config: { squat: 25 },
+      })
+    ).resolves.toBe(true);
+    await expect(readPendingManageReconciliations('user-a')).resolves.toEqual([]);
+
+    memory.sqlite
+      .prepare(
+        `INSERT INTO mobile_v2_program_reconciliations (
+           owner_user_id, operation, entity_id, created_at
+         ) VALUES (?, 'manage', ?, ?)`
+      )
+      .run('user-a', ACTIVE.id, '2026-07-27T14:00:00.000Z');
+    await replaceProgramSummaries('user-a', [{ ...ACTIVE, title: 'Any remote name' }]);
+    await expect(readPendingManageReconciliations('user-a')).resolves.toEqual([
+      { programInstanceId: ACTIVE.id, expectation: null },
+    ]);
+
+    await cacheManagedProgram(
+      'user-a',
+      {
+        ...DETAIL,
+        name: 'Explicit legacy recovery',
+        config: { squat: 30 },
+      },
+      {
+        activationRequested: false,
+        mutation: { type: 'rename', name: 'Explicit legacy recovery' },
+      }
+    );
+
+    await expect(readPendingManageReconciliations('user-a')).resolves.toEqual([]);
+    await expect(readTrackerProgramId('user-a')).resolves.toBe(ACTIVE.id);
+    expect(
+      memory.sqlite
+        .prepare(
+          `SELECT
+             json_extract(detail_json, '$.name') AS name,
+             json_extract(detail_json, '$.config.squat') AS squat
+           FROM mobile_v2_program_details
+           WHERE owner_user_id = 'user-a' AND id = ?`
+        )
+        .get(ACTIVE.id)
+    ).toEqual({ name: 'Explicit legacy recovery', squat: 30 });
+  });
+
+  it('rolls back verified detail persistence and marker removal together', async () => {
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: [ACTIVE],
+    });
+    await recordProgramReconciliation('user-a', 'manage', ACTIVE.id, {
+      type: 'rename',
+      name: 'Verified rename',
+    });
+    memory.setFailingProgramId(ACTIVE.id);
+
+    await expect(
+      resolveProgramReconciliationWithRemoteDetail('user-a', {
+        ...DETAIL,
+        name: 'Verified rename',
+      })
+    ).rejects.toThrow('simulated write failure');
+
+    memory.setFailingProgramId(null);
+    await expect(readPendingManageReconciliations('user-a')).resolves.toHaveLength(1);
+    expect(
+      memory.sqlite
+        .prepare(
+          `SELECT json_extract(detail_json, '$.name') AS name
+           FROM mobile_v2_program_details
+           WHERE owner_user_id = 'user-a' AND id = ?`
+        )
+        .get(ACTIVE.id)?.name
+    ).toBe(DETAIL.name);
   });
 
   it('removes orphaned detail data when full server truth no longer contains the instance', async () => {

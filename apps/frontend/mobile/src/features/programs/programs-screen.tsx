@@ -23,7 +23,11 @@ import {
   type ProgramSummary,
 } from '../../lib/programs/program-repository';
 import { localizeCatalogEntry } from '../../lib/programs/program-content';
-import { deleteProgram, manageProgram } from '../../lib/programs/program-use-cases';
+import {
+  deleteProgram,
+  manageProgram,
+  reconcilePendingProgramManagement,
+} from '../../lib/programs/program-use-cases';
 import {
   fetchCatalogEntries,
   fetchProgramSummaries,
@@ -298,6 +302,10 @@ export function ProgramsScreen({
       try {
         const remote = await fetchProgramSummaries();
         await replaceProgramSummaries(ownerUserId, remote);
+        await reconcilePendingProgramManagement(
+          ownerUserId,
+          remote.map((program) => program.id)
+        ).catch(() => undefined);
         const [refreshed, pinned] = await Promise.all([
           listProgramSummaries(ownerUserId),
           readTrackerProgramId(ownerUserId),

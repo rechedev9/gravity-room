@@ -63,12 +63,26 @@ export async function setCachedInstance(
 
 /** Evicts cached entry. No-op if Redis unavailable or on error. */
 export async function invalidateCachedInstance(userId: string, instanceId: string): Promise<void> {
+  await invalidateCachedInstances(userId, [instanceId]);
+}
+
+/**
+ * Evicts every affected instance in one post-commit cache operation. Duplicate
+ * IDs are collapsed so idempotent active transitions remain cheap.
+ */
+export async function invalidateCachedInstances(
+  userId: string,
+  instanceIds: readonly string[]
+): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
 
+  const keys = [...new Set(instanceIds)].map((instanceId) => cacheKey(userId, instanceId));
+  if (keys.length === 0) return;
+
   try {
-    await redis.del(cacheKey(userId, instanceId));
+    await redis.del(...keys);
   } catch (err: unknown) {
-    logger.warn({ err, userId, instanceId }, 'program-cache: invalidate failed');
+    logger.warn({ err, userId, instanceIds }, 'program-cache: invalidate failed');
   }
 }

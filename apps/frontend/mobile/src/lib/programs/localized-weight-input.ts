@@ -1,4 +1,5 @@
 import type { SupportedLanguage } from '../i18n';
+import { ProgramWeightValueSchema } from '@gzclp/domain';
 
 export type LocalizedWeightParseResult =
   | { readonly success: true; readonly value: number }
@@ -8,8 +9,8 @@ const EN_WEIGHT_PATTERN = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 const ES_WEIGHT_PATTERN = /^(?:0|[1-9]\d*)(?:,\d+)?$/;
 
 export function formatLocalizedWeight(value: number, language: SupportedLanguage): string {
-  if (!Number.isFinite(value) || value < 0) {
-    throw new Error('Weight formatter requires a finite non-negative value');
+  if (!ProgramWeightValueSchema.safeParse(value).success) {
+    throw new Error('Weight formatter received a value outside the supported decimal range');
   }
   const canonical = String(value);
   return language === 'es' ? canonical.replace('.', ',') : canonical;
@@ -30,7 +31,7 @@ export function parseLocalizedWeight(
   }
 
   const numeric = Number(language === 'es' ? normalized.replace(',', '.') : normalized);
-  if (!Number.isFinite(numeric)) {
+  if (!ProgramWeightValueSchema.safeParse(numeric).success) {
     return { success: false };
   }
   return { success: true, value: numeric };

@@ -8,11 +8,20 @@ import en from '../i18n/locales/en/translation.json';
 import es from '../i18n/locales/es/translation.json';
 import i18n from '../i18n';
 import {
+  localizeCatalogEntry,
   localizeDayName,
   localizeExerciseName,
   localizeFieldLabel,
   localizeSelectOption,
+  localizeTier,
 } from './program-content';
+import { CATALOG_COPY_ORACLE, TIER_COPY_ORACLE } from './program-content-catalog.oracle';
+
+function presetOrigin(id) {
+  return { id, source: 'preset' };
+}
+
+const EXTERNAL_ORIGIN = { id: 'external-program', source: 'custom' };
 
 const RESOURCES_BY_LANGUAGE = {
   en: en.program_content,
@@ -231,6 +240,7 @@ describe('real canonical program-content coverage', () => {
       const seedIds = Object.keys(PROGRAM_DEFINITION_SEEDS).sort();
       expect(seedIds).toEqual(PROGRAM_CATALOG.map((program) => program.id).sort());
       expect(Object.keys(resources.fields.catalog).sort()).toEqual(seedIds);
+      expect(Object.keys(CATALOG_COPY_ORACLE[language]).sort()).toEqual(seedIds);
 
       const expectedExerciseIds = new Set();
       const localizedExerciseLabels = {};
@@ -243,6 +253,18 @@ describe('real canonical program-content coverage', () => {
             days: expect.any(Array),
           })
         );
+        expect(
+          localizeCatalogEntry(
+            {
+              ...program,
+              source: 'preset',
+              totalWorkouts: definition.totalWorkouts,
+              workoutsPerWeek: definition.workoutsPerWeek,
+              cycleLength: definition.cycleLength,
+            },
+            i18n.t
+          )
+        ).toMatchObject(CATALOG_COPY_ORACLE[language][program.id]);
 
         expect(Object.keys(resources.fields.catalog[program.id]).sort()).toEqual(
           definition.configFields.map((field) => field.key).sort()
@@ -252,7 +274,7 @@ describe('real canonical program-content coverage', () => {
         const localizedFields = {};
         const localizedOptions = {};
         for (const day of definition.days) {
-          const localizedDay = localizeDayName(program.id, day.name, i18n.t);
+          const localizedDay = localizeDayName(presetOrigin(program.id), day.name, i18n.t);
           expect(localizedDay).toBe(expectedDayName(language, day.name));
           expectLocalizedCopy(language, localizedDay);
 
@@ -263,7 +285,7 @@ describe('real canonical program-content coverage', () => {
               i18n.exists(`program_content.exercises.${slot.exerciseId}`, { lng: language })
             ).toBe(true);
             const localizedExercise = localizeExerciseName(
-              program.id,
+              presetOrigin(program.id),
               slot.exerciseId,
               undefined,
               i18n.t
@@ -280,7 +302,12 @@ describe('real canonical program-content coverage', () => {
               lng: language,
             })
           ).toBe(true);
-          const localizedField = localizeFieldLabel(program.id, field.key, field.label, i18n.t);
+          const localizedField = localizeFieldLabel(
+            presetOrigin(program.id),
+            field.key,
+            field.label,
+            i18n.t
+          );
           expect(localizedField).not.toBe(field.key);
           expectLocalizedCopy(language, localizedField);
           localizedFields[field.key] = localizedField;
@@ -289,7 +316,7 @@ describe('real canonical program-content coverage', () => {
             for (const option of field.options) {
               const optionKey = `${field.key}:${option.value}`;
               const localizedOption = localizeSelectOption(
-                program.id,
+                presetOrigin(program.id),
                 field.key,
                 option.value,
                 option.label,
@@ -316,43 +343,81 @@ describe('real canonical program-content coverage', () => {
         exerciseLabels: localizedExerciseLabels,
         seeds: localizedBySeed,
       }).toMatchSnapshot();
+
+      for (const [tier, expected] of Object.entries(TIER_COPY_ORACLE[language])) {
+        expect(localizeTier(tier, i18n.t)).toBe(expected);
+      }
     }
   );
 
+  it('rejects a coordinated Banana catalog mutation in both locales', async () => {
+    const program = PROGRAM_CATALOG.find((entry) => entry.id === 'gzclp');
+    const definition = PROGRAM_DEFINITION_SEEDS.gzclp;
+    if (program === undefined || definition === undefined) {
+      throw new Error('GZCLP oracle fixture is missing');
+    }
+
+    for (const language of ['en', 'es']) {
+      await i18n.changeLanguage(language);
+      const bananaTranslator = (key, options) =>
+        key === 'program_content.catalog.gzclp.name' ? 'Banana' : i18n.t(key, options);
+      const mutated = localizeCatalogEntry(
+        {
+          ...program,
+          source: 'preset',
+          totalWorkouts: definition.totalWorkouts,
+          workoutsPerWeek: definition.workoutsPerWeek,
+          cycleLength: definition.cycleLength,
+        },
+        bananaTranslator
+      );
+
+      expect(() => expect(mutated).toMatchObject(CATALOG_COPY_ORACLE[language].gzclp)).toThrow();
+    }
+  });
+
   it('pins reproduced semantic regressions and safe non-ordinal external fallbacks', async () => {
     await i18n.changeLanguage('en');
-    expect(localizeExerciseName('phul', 'apert', undefined, i18n.t)).toBe('Dumbbell fly');
-    expect(localizeExerciseName('phul', 'curl_fem', undefined, i18n.t)).toBe('Leg curl');
-    expect(localizeExerciseName('nivel-7', 'gemelo_pie', undefined, i18n.t)).toBe(
+    expect(localizeExerciseName(presetOrigin('phul'), 'apert', undefined, i18n.t)).toBe(
+      'Dumbbell fly'
+    );
+    expect(localizeExerciseName(presetOrigin('phul'), 'curl_fem', undefined, i18n.t)).toBe(
+      'Leg curl'
+    );
+    expect(localizeExerciseName(presetOrigin('nivel-7'), 'gemelo_pie', undefined, i18n.t)).toBe(
       'Standing calf raise'
     );
-    expect(localizeExerciseName('caparazon-de-tortuga', 'bench_pushups', undefined, i18n.t)).toBe(
-      'Bench-supported push-up'
-    );
+    expect(
+      localizeExerciseName(presetOrigin('caparazon-de-tortuga'), 'bench_pushups', undefined, i18n.t)
+    ).toBe('Bench-supported push-up');
     expect(
       localizeFieldLabel(
-        'sala-del-tiempo-1',
+        presetOrigin('sala-del-tiempo-1'),
         'acc_incline_db_press',
         'Press Inclinado Mancuernas',
         i18n.t
       )
     ).toBe('Incline dumbbell press');
-    expect(localizeDayName('nivel-7', 'Jue — Pecho/Bíceps', i18n.t)).toBe('Thu — Chest/Biceps');
-    expect(
-      localizeDayName('365-programmare-lipertrofia', 'FZ Sem. 1 — Dia 2 (Banca/Muerto)', i18n.t)
-    ).toBe('FZ · Week 1 — Day 2 (Bench press/Deadlift)');
-    expect(localizeDayName('external-program', '', i18n.t)).toBe('Unnamed training day');
-    expect(localizeDayName('external-program', 'private_day_id', i18n.t)).toBe(
-      'Unnamed training day'
+    expect(localizeDayName(presetOrigin('nivel-7'), 'Jue — Pecho/Bíceps', i18n.t)).toBe(
+      'Thu — Chest/Biceps'
     );
-    expect(localizeExerciseName('external-program', 'private_exercise_id', undefined, i18n.t)).toBe(
+    expect(
+      localizeDayName(
+        presetOrigin('365-programmare-lipertrofia'),
+        'FZ Sem. 1 — Dia 2 (Banca/Muerto)',
+        i18n.t
+      )
+    ).toBe('FZ · Week 1 — Day 2 (Bench press/Deadlift)');
+    expect(localizeDayName(EXTERNAL_ORIGIN, '', i18n.t)).toBe('Unnamed training day');
+    expect(localizeDayName(EXTERNAL_ORIGIN, 'private_day_id', i18n.t)).toBe('Unnamed training day');
+    expect(localizeExerciseName(EXTERNAL_ORIGIN, 'private_exercise_id', undefined, i18n.t)).toBe(
       'Unnamed custom exercise'
     );
-    expect(localizeFieldLabel('external-program', 'private_field_id', '', i18n.t)).toBe(
+    expect(localizeFieldLabel(EXTERNAL_ORIGIN, 'private_field_id', '', i18n.t)).toBe(
       'Unnamed setup field'
     );
     expect(
-      localizeSelectOption('external-program', 'external', 'private_option_id', '', i18n.t, 'en')
+      localizeSelectOption(EXTERNAL_ORIGIN, 'external', 'private_option_id', '', i18n.t, 'en')
     ).toBe('Unnamed option');
 
     const source = fs.readFileSync(path.join(__dirname, 'program-content.ts'), 'utf8');

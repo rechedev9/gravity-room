@@ -20,7 +20,8 @@ interface RemoteProgramsPage {
 
 export type ProgramManagementMutation =
   | { readonly type: 'rename'; readonly name: string }
-  | { readonly type: 'set_status'; readonly status: ProgramStatus };
+  | { readonly type: 'set_status'; readonly status: ProgramStatus }
+  | { readonly type: 'set_config'; readonly config: ProgramConfig };
 
 export type DeleteRemoteResult = 'deleted' | 'already_absent';
 
@@ -146,6 +147,19 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
   return programs;
 }
 
+export async function fetchProgramInstance(
+  programInstanceId: string
+): Promise<GenericProgramDetail> {
+  requireAccessToken('Program detail requires an access token');
+  const { response } = await fetchWithAccessToken(
+    `/programs/${encodeURIComponent(programInstanceId)}`
+  );
+  if (!response.ok) {
+    throw new Error(`Program detail fetch failed with status ${response.status}`);
+  }
+  return GenericProgramDetailSchema.parse(await response.json());
+}
+
 export async function fetchCatalogEntries(): Promise<CatalogEntry[]> {
   const { response } = await fetchWithAccessToken('/catalog');
   if (!response.ok) {
@@ -255,15 +269,20 @@ export async function updateProgramInstance(
 ): Promise<GenericProgramDetail> {
   requireAccessToken('Program management requires an access token');
 
-  let body: { readonly name: string } | { readonly status: ProgramStatus };
+  let body:
+    | { readonly name: string }
+    | { readonly status: ProgramStatus }
+    | { readonly config: ProgramConfig };
   if (mutation.type === 'rename') {
     const name = mutation.name.trim();
     if (name.length === 0) {
       throw new Error('Program name cannot be empty');
     }
     body = { name };
-  } else {
+  } else if (mutation.type === 'set_status') {
     body = { status: mutation.status };
+  } else {
+    body = { config: mutation.config };
   }
 
   let response: Response;

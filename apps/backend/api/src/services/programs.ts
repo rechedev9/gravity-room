@@ -2,9 +2,11 @@
  * Program service — CRUD for program instances, results reconstruction.
  * Framework-agnostic: no Elysia dependency.
  */
-import { eq, and, lt, desc, or, gt, asc, sql, type SQL } from 'drizzle-orm';
-import { getDb } from '../db';
+import { eq, and, lt, desc, or, gt, asc, sql, inArray, type SQL } from 'drizzle-orm';
+import { getDb, type DbTransaction } from '../db';
 import {
+  exercises,
+  programDefinitions,
   programInstances,
   programTemplates,
   users,
@@ -12,6 +14,14 @@ import {
   undoEntries,
 } from '@gzclp/database/schema';
 import { getProgramDefinition } from '../services/catalog';
+import { collectExerciseIds } from '../lib/definition-utils';
+import { hydrateProgramDefinition } from '../lib/hydrate-program';
+import { invalidateCachedInstances } from '../lib/program-cache';
+import { validateProgramConfig } from '@gzclp/domain/program-config';
+import {
+  ProgramDefinitionSchema,
+  type ProgramDefinition,
+} from '@gzclp/domain/schemas/program-definition';
 import {
   GenericUndoHistorySchema,
   ProgramInstanceSchema,
@@ -73,6 +83,103 @@ const MAX_AMRAP_REPS = 99;
 const MAX_SET_LOG_ITEMS = 20;
 const MAX_SET_LOG_WEIGHT = 10_000;
 const MAX_METADATA_BYTES = 10_000;
+
+async function loadAuthoritativeProgramDefinition(
+  tx: DbTransaction,
+  programId: string,
+  activeOnly: boolean
+) {
+  const [template] = await tx
+    .select()
+    .from(programTemplates)
+    .where(
+      activeOnly
+        ? and(eq(programTemplates.id, programId), eq(programTemplates.isActive, true))
+        : eq(programTemplates.id, programId)
+    )
+    .limit(1);
+
+  if (!template) {
+    throw new ApiError(400, `Unknown program: ${programId}`, 'INVALID_PROGRAM');
+  }
+
+  const exerciseIds = [...collectExerciseIds(template.definition)];
+  const exerciseRows =
+    exerciseIds.length > 0
+      ? await tx
+          .select({ id: exercises.id, name: exercises.name })
+          .from(exercises)
+          .where(inArray(exercises.id, exerciseIds))
+      : [];
+  const hydrated = hydrateProgramDefinition(
+    {
+      id: template.id,
+      name: template.name,
+      description: template.description,
+      author: template.author,
+      version: template.version,
+      category: template.category,
+      source: template.source,
+      definition: template.definition,
+    },
+    exerciseRows
+  );
+
+  if (!hydrated.ok) {
+    throw new ApiError(400, 'Program definition is invalid', 'INVALID_PROGRAM_DEFINITION');
+  }
+
+  return hydrated.value;
+}
+
+function parseAuthoritativeProgramDefinition(value: unknown): ProgramDefinition {
+  const parsed = ProgramDefinitionSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new ApiError(400, 'Program definition is invalid', 'INVALID_PROGRAM_DEFINITION');
+  }
+  return parsed.data;
+}
+
+async function loadInstanceAuthoritativeProgramDefinition(
+  tx: DbTransaction,
+  userId: string,
+  instance: {
+    readonly templateId: string;
+    readonly definitionId: string | null;
+    readonly customDefinition: unknown | null;
+  }
+): Promise<ProgramDefinition> {
+  if (instance.customDefinition !== null) {
+    return parseAuthoritativeProgramDefinition(instance.customDefinition);
+  }
+
+  if (instance.definitionId !== null) {
+    const [storedDefinition] = await tx
+      .select({ definition: programDefinitions.definition })
+      .from(programDefinitions)
+      .where(
+        and(eq(programDefinitions.id, instance.definitionId), eq(programDefinitions.userId, userId))
+      )
+      .limit(1);
+    if (!storedDefinition) {
+      throw new ApiError(400, 'Program definition is invalid', 'INVALID_PROGRAM_DEFINITION');
+    }
+    return parseAuthoritativeProgramDefinition(storedDefinition.definition);
+  }
+
+  return loadAuthoritativeProgramDefinition(tx, instance.templateId, false);
+}
+
+function validateAuthoritativeConfig(
+  definition: ProgramDefinition,
+  config: Record<string, number | string>
+): Record<string, number | string> {
+  const validated = validateProgramConfig(definition, config);
+  if (!validated.success) {
+    throw new ApiError(400, 'Program configuration is invalid', 'INVALID_PROGRAM_CONFIG');
+  }
+  return validated.config;
+}
 
 /** Maps each workoutIndex to the earliest createdAt timestamp for that workout. */
 function buildResultTimestamps(rows: readonly ResultProjection[]): Record<string, string> {
@@ -212,7 +319,7 @@ export async function createInstance(
   name: string,
   config: Record<string, number | string>
 ): Promise<ProgramInstanceResponse> {
-  return getDb().transaction(async (tx) => {
+  const committed = await getDb().transaction(async (tx) => {
     // The user row is the serialization point for every create by one owner.
     // Together with the partial unique index on active instances, this makes
     // concurrent requests deterministic without a process-local lock.
@@ -226,19 +333,14 @@ export async function createInstance(
       throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
     }
 
-    const [template] = await tx
-      .select({ id: programTemplates.id })
-      .from(programTemplates)
-      .where(and(eq(programTemplates.id, programId), eq(programTemplates.isActive, true)))
-      .limit(1);
-    if (!template) {
-      throw new ApiError(400, `Unknown program: ${programId}`, 'INVALID_PROGRAM');
-    }
+    const definition = await loadAuthoritativeProgramDefinition(tx, programId, true);
+    const validatedConfig = validateAuthoritativeConfig(definition, config);
 
-    await tx
+    const displaced = await tx
       .update(programInstances)
       .set({ status: 'completed' })
-      .where(and(eq(programInstances.userId, userId), eq(programInstances.status, 'active')));
+      .where(and(eq(programInstances.userId, userId), eq(programInstances.status, 'active')))
+      .returning({ id: programInstances.id });
 
     const [instance] = await tx
       .insert(programInstances)
@@ -246,7 +348,7 @@ export async function createInstance(
         userId,
         templateId: programId,
         name,
-        programConfig: config,
+        programConfig: validatedConfig,
         status: 'active',
       })
       .returning();
@@ -255,8 +357,14 @@ export async function createInstance(
       throw new ApiError(500, 'Failed to create program instance', 'CREATE_FAILED');
     }
 
-    return toResponse(instance, [], []);
+    return {
+      response: toResponse(instance, [], []),
+      invalidatedIds: [instance.id, ...displaced.map((row) => row.id)],
+    };
   });
+
+  await invalidateCachedInstances(userId, committed.invalidatedIds);
+  return committed.response;
 }
 
 interface ProgramInstanceListItem {
@@ -388,68 +496,88 @@ export async function updateInstance(
   } = { updatedAt: new Date() };
   if (updates.name !== undefined) updateValues.name = updates.name;
   if (updates.status !== undefined) updateValues.status = updates.status;
-  if (updates.config !== undefined) updateValues.programConfig = updates.config;
+  const transactionRequired = updates.status !== undefined || updates.config !== undefined;
 
-  const [updated] =
-    updates.status !== undefined
-      ? await getDb().transaction(async (tx) => {
-          // Every lifecycle mutation locks in the same owner -> instance order.
-          // Delete and create use this order too, so no competing operation can
-          // remove or change the target around an active-program handoff.
-          const [owner] = await tx
-            .select({ id: users.id })
-            .from(users)
-            .where(eq(users.id, userId))
-            .for('update')
-            .limit(1);
-          if (!owner) {
-            throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
-          }
+  const mutation = transactionRequired
+    ? await getDb().transaction(async (tx) => {
+        // Every lifecycle mutation locks in the same owner -> instance order.
+        // Delete and create use this order too, so no competing operation can
+        // remove or change the target around an active-program handoff.
+        const [owner] = await tx
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, userId))
+          .for('update')
+          .limit(1);
+        if (!owner) {
+          throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+        }
 
-          const [target] = await tx
-            .select({ id: programInstances.id, status: programInstances.status })
-            .from(programInstances)
-            .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
-            .for('update')
-            .limit(1);
-          if (!target) {
-            throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
-          }
-          if (updates.status === 'active') {
-            await tx
-              .update(programInstances)
-              .set({ status: 'completed' })
-              .where(
-                and(
-                  eq(programInstances.userId, userId),
-                  eq(programInstances.status, 'active'),
-                  sql`${programInstances.id} <> ${instanceId}`
-                )
-              );
-          }
+        const [target] = await tx
+          .select({
+            id: programInstances.id,
+            status: programInstances.status,
+            templateId: programInstances.templateId,
+            definitionId: programInstances.definitionId,
+            customDefinition: programInstances.customDefinition,
+          })
+          .from(programInstances)
+          .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+          .for('update')
+          .limit(1);
+        if (!target) {
+          throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
+        }
 
-          const changed = await tx
+        if (updates.config !== undefined) {
+          const definition = await loadInstanceAuthoritativeProgramDefinition(tx, userId, target);
+          updateValues.programConfig = validateAuthoritativeConfig(definition, updates.config);
+        }
+
+        let displacedIds: readonly string[] = [];
+        if (updates.status === 'active') {
+          const displaced = await tx
             .update(programInstances)
-            .set(updateValues)
-            .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
-            .returning();
-          if (!changed[0]) {
-            throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
-          }
-          return changed;
-        })
-      : await getDb()
+            .set({ status: 'completed' })
+            .where(
+              and(
+                eq(programInstances.userId, userId),
+                eq(programInstances.status, 'active'),
+                sql`${programInstances.id} <> ${instanceId}`
+              )
+            )
+            .returning({ id: programInstances.id });
+          displacedIds = displaced.map((row) => row.id);
+        }
+
+        const changed = await tx
           .update(programInstances)
           .set(updateValues)
           .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
           .returning();
+        if (!changed[0]) {
+          throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
+        }
+        return { updated: changed[0], invalidatedIds: [instanceId, ...displacedIds] };
+      })
+    : {
+        updated: (
+          await getDb()
+            .update(programInstances)
+            .set(updateValues)
+            .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+            .returning()
+        )[0],
+        invalidatedIds: [instanceId],
+      };
 
-  if (!updated) {
+  if (!mutation.updated) {
     throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
   }
 
+  await invalidateCachedInstances(userId, mutation.invalidatedIds);
   const [resultRows, undoRows] = await fetchResultsAndUndo(instanceId);
-  return toResponse(updated, resultRows, undoRows);
+  return toResponse(mutation.updated, resultRows, undoRows);
 }
 
 /**

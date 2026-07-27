@@ -179,6 +179,12 @@ vi.mock('../services/catalog', () => ({
   getProgramDefinition: mockGetProgramDefinition,
 }));
 
+const mockInvalidateCachedInstances = vi.fn(() => Promise.resolve());
+
+vi.mock('../lib/program-cache', () => ({
+  invalidateCachedInstances: mockInvalidateCachedInstances,
+}));
+
 // Must import AFTER mock.module
 const {
   createInstance,
@@ -225,6 +231,7 @@ beforeEach(() => {
   mockDb = createMockDb();
   mockGetProgramDefinition.mockClear();
   mockGetProgramDefinition.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
+  mockInvalidateCachedInstances.mockClear();
 });
 
 // ---------------------------------------------------------------------------
@@ -870,34 +877,83 @@ interface TransactionProgramRow {
   readonly updatedAt: Date;
 }
 
+const CONFIG_TEMPLATE = {
+  id: 'gzclp',
+  name: 'GZCLP',
+  description: 'Test program',
+  author: 'Test',
+  version: 1,
+  category: 'strength',
+  source: 'preset',
+  isActive: true,
+  definition: {
+    cycleLength: 1,
+    totalWorkouts: 1,
+    workoutsPerWeek: 1,
+    exercises: { squat: {} },
+    configFields: [{ key: 'squat', label: 'Squat', type: 'weight', min: 20, step: 5 }],
+    weightIncrements: { squat: 5 },
+    days: [
+      {
+        name: 'Day 1',
+        slots: [
+          {
+            id: 'squat',
+            exerciseId: 'squat',
+            tier: 't1',
+            stages: [{ sets: 3, reps: 5 }],
+            onSuccess: { type: 'add_weight' },
+            onMidStageFail: { type: 'no_change' },
+            onFinalStageFail: { type: 'no_change' },
+            startWeightKey: 'squat',
+          },
+        ],
+      },
+    ],
+  },
+};
+
 function createProgramTransaction(
   rows: TransactionProgramRow[],
-  options: { readonly failInsert?: boolean } = {}
+  options: {
+    readonly failInsert?: boolean;
+    readonly template?: Readonly<Record<string, unknown>>;
+  } = {}
 ): Record<string, unknown> {
   let selectCount = 0;
   return {
     select: vi.fn(() => {
       selectCount += 1;
-      const selected = selectCount === 1 ? [{ id: 'user-1' }] : [{ id: 'gzclp' }];
+      const selected =
+        selectCount === 1
+          ? [{ id: 'user-1' }]
+          : selectCount === 2
+            ? [options.template ?? CONFIG_TEMPLATE]
+            : [{ id: 'squat', name: 'Squat' }];
       const result = {
         limit: vi.fn(async () => selected),
         for: vi.fn(() => ({ limit: vi.fn(async () => selected) })),
       };
       return {
         from: vi.fn(() => ({
-          where: vi.fn(() => result),
+          where: vi.fn(() => (selectCount === 3 ? Promise.resolve(selected) : result)),
         })),
       };
     }),
     update: vi.fn(() => ({
       set: vi.fn(() => ({
-        where: vi.fn(async () => {
-          for (const row of rows) {
-            if (row.userId === 'user-1' && row.status === 'active') {
-              row.status = 'completed';
+        where: vi.fn(() => ({
+          returning: vi.fn(async () => {
+            const displaced: { id: string }[] = [];
+            for (const row of rows) {
+              if (row.userId === 'user-1' && row.status === 'active') {
+                row.status = 'completed';
+                displaced.push({ id: row.id });
+              }
             }
-          }
-        }),
+            return displaced;
+          }),
+        })),
       })),
     })),
     insert: vi.fn(() => ({
@@ -970,6 +1026,7 @@ describe('createInstance transaction and per-user serialization', () => {
     );
     expect(persisted).toHaveLength(1);
     expect(persisted[0]?.status).toBe('active');
+    expect(mockInvalidateCachedInstances).not.toHaveBeenCalled();
   });
 
   it('serializes concurrent creates and leaves exactly one active instance', async () => {
@@ -1009,6 +1066,270 @@ describe('createInstance transaction and per-user serialization', () => {
     expect(maxInFlight).toBe(1);
     expect(persisted.filter((row) => row.status === 'active')).toHaveLength(1);
     expect(persisted.filter((row) => row.status === 'completed')).toHaveLength(1);
+    expect(mockInvalidateCachedInstances).toHaveBeenNthCalledWith(1, 'user-1', ['created-0']);
+    expect(mockInvalidateCachedInstances).toHaveBeenNthCalledWith(2, 'user-1', [
+      'created-1',
+      'created-0',
+    ]);
+  });
+});
+
+describe('authoritative program configuration validation', () => {
+  const selectTemplate = {
+    ...CONFIG_TEMPLATE,
+    definition: {
+      ...CONFIG_TEMPLATE.definition,
+      configFields: [
+        ...CONFIG_TEMPLATE.definition.configFields,
+        {
+          key: 'variant',
+          label: 'Variant',
+          type: 'select',
+          options: [
+            { label: 'Classic', value: 'classic' },
+            { label: 'Paused', value: 'paused' },
+          ],
+        },
+      ],
+    },
+  };
+  const customDefinition = {
+    id: 'custom-program',
+    name: 'Custom program',
+    description: 'Instance-specific contract',
+    author: 'User',
+    version: 1,
+    category: 'custom',
+    source: 'custom',
+    ...CONFIG_TEMPLATE.definition,
+    exercises: { squat: { name: 'Squat' } },
+    configFields: [{ key: 'customLoad', label: 'Custom load', type: 'weight', min: 10, step: 2 }],
+  };
+
+  it.each([
+    ['missing field', {}],
+    ['unexpected field', { squat: 20, extra: 5 }],
+    ['weight below minimum', { squat: 15 }],
+    ['weight off step', { squat: 22 }],
+  ])('rejects create config with %s before completing the active instance', async (_, config) => {
+    const persisted: TransactionProgramRow[] = [
+      {
+        id: 'old-active',
+        userId: 'user-1',
+        templateId: 'gzclp',
+        name: 'Old',
+        programConfig: { squat: 20 },
+        status: 'active',
+        definitionId: null,
+        customDefinition: null,
+        metadata: null,
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+    ];
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) => {
+        const draft = persisted.map((row) => ({ ...row }));
+        const result = await task(createProgramTransaction(draft));
+        persisted.splice(0, persisted.length, ...draft);
+        return result;
+      }),
+    };
+
+    await expect(createInstance('user-1', 'gzclp', 'Invalid', config)).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'INVALID_PROGRAM_CONFIG',
+      message: 'Program configuration is invalid',
+    });
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0]?.status).toBe('active');
+    expect(mockInvalidateCachedInstances).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid select option from the authoritative definition', async () => {
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task(createProgramTransaction([], { template: selectTemplate }))
+      ),
+    };
+
+    await expect(
+      createInstance('user-1', 'gzclp', 'Invalid', { squat: 20, variant: 'unknown' })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'INVALID_PROGRAM_CONFIG',
+    });
+  });
+
+  it('rejects a corrupt authoritative definition before changing lifecycle state', async () => {
+    const persisted: TransactionProgramRow[] = [
+      {
+        id: 'old-active',
+        userId: 'user-1',
+        templateId: 'gzclp',
+        name: 'Old',
+        programConfig: { squat: 20 },
+        status: 'active',
+        definitionId: null,
+        customDefinition: null,
+        metadata: null,
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+    ];
+    const corruptTemplate = {
+      ...CONFIG_TEMPLATE,
+      definition: { ...CONFIG_TEMPLATE.definition, days: [] },
+    };
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) => {
+        const draft = persisted.map((row) => ({ ...row }));
+        return task(createProgramTransaction(draft, { template: corruptTemplate }));
+      }),
+    };
+
+    await expect(createInstance('user-1', 'gzclp', 'Invalid', { squat: 20 })).rejects.toMatchObject(
+      {
+        statusCode: 400,
+        code: 'INVALID_PROGRAM_DEFINITION',
+        message: 'Program definition is invalid',
+      }
+    );
+    expect(persisted[0]?.status).toBe('active');
+  });
+
+  it('applies the same definition-backed contract to PATCH config', async () => {
+    let selectCount = 0;
+    const update = vi.fn();
+    const select = vi.fn(() => {
+      selectCount += 1;
+      const selected =
+        selectCount === 1
+          ? [{ id: 'user-1' }]
+          : selectCount === 2
+            ? [
+                {
+                  id: 'target',
+                  status: 'active',
+                  templateId: 'gzclp',
+                  definitionId: null,
+                  customDefinition: null,
+                },
+              ]
+            : selectCount === 3
+              ? [selectTemplate]
+              : [{ id: 'squat', name: 'Squat' }];
+      const locked = {
+        limit: vi.fn(async () => selected),
+        for: vi.fn(() => ({ limit: vi.fn(async () => selected) })),
+      };
+      return {
+        from: vi.fn(() => ({
+          where: vi.fn(() => (selectCount === 4 ? Promise.resolve(selected) : locked)),
+        })),
+      };
+    });
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task({ select, update })
+      ),
+    };
+
+    await expect(
+      updateInstance('user-1', 'target', { config: { squat: 20, variant: 'unknown' } })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'INVALID_PROGRAM_CONFIG',
+    });
+    expect(update).not.toHaveBeenCalled();
+    expect(mockInvalidateCachedInstances).not.toHaveBeenCalled();
+  });
+
+  it('validates PATCH config against the instance custom snapshot instead of its base template', async () => {
+    const update = vi.fn();
+    let selectCount = 0;
+    const select = vi.fn(() => {
+      selectCount += 1;
+      const selected =
+        selectCount === 1
+          ? [{ id: 'user-1' }]
+          : [
+              {
+                id: 'target',
+                status: 'active',
+                templateId: 'gzclp',
+                definitionId: 'd0000000-0000-4000-8000-000000000001',
+                customDefinition,
+              },
+            ];
+      return {
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            for: vi.fn(() => ({ limit: vi.fn(async () => selected) })),
+          })),
+        })),
+      };
+    });
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task({ select, update })
+      ),
+    };
+
+    await expect(
+      updateInstance('user-1', 'target', { config: { squat: 20 } })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'INVALID_PROGRAM_CONFIG',
+    });
+    expect(select).toHaveBeenCalledTimes(2);
+    expect(update).not.toHaveBeenCalled();
+    expect(mockInvalidateCachedInstances).not.toHaveBeenCalled();
+  });
+
+  it('loads an owner-scoped linked definition when the instance snapshot is absent', async () => {
+    const update = vi.fn();
+    let selectCount = 0;
+    const select = vi.fn(() => {
+      selectCount += 1;
+      const selected =
+        selectCount === 1
+          ? [{ id: 'user-1' }]
+          : selectCount === 2
+            ? [
+                {
+                  id: 'target',
+                  status: 'active',
+                  templateId: 'gzclp',
+                  definitionId: 'd0000000-0000-4000-8000-000000000001',
+                  customDefinition: null,
+                },
+              ]
+            : [{ definition: customDefinition }];
+      return {
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            for: vi.fn(() => ({ limit: vi.fn(async () => selected) })),
+            limit: vi.fn(async () => selected),
+          })),
+        })),
+      };
+    });
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task({ select, update })
+      ),
+    };
+
+    await expect(
+      updateInstance('user-1', 'target', { config: { squat: 20 } })
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      code: 'INVALID_PROGRAM_CONFIG',
+    });
+    expect(select).toHaveBeenCalledTimes(3);
+    expect(update).not.toHaveBeenCalled();
+    expect(mockInvalidateCachedInstances).not.toHaveBeenCalled();
   });
 });
 
@@ -1086,7 +1407,9 @@ describe('updateInstance active serialization', () => {
       .fn()
       .mockReturnValueOnce({
         set: vi.fn(() => ({
-          where: vi.fn(async () => undefined),
+          where: vi.fn(() => ({
+            returning: vi.fn(async () => []),
+          })),
         })),
       })
       .mockReturnValueOnce({
@@ -1118,6 +1441,81 @@ describe('updateInstance active serialization', () => {
       status: 'active',
     });
     expect(update).toHaveBeenCalledTimes(2);
+    expect(mockInvalidateCachedInstances).toHaveBeenCalledWith('user-1', ['active-a']);
+  });
+
+  it('invalidates the reactivated target and the previously active instance after commit', async () => {
+    const target: TransactionProgramRow = {
+      id: 'completed-b',
+      userId: 'user-1',
+      templateId: 'gzclp',
+      name: 'B',
+      programConfig: { squat: 20 },
+      status: 'active',
+      definitionId: null,
+      customDefinition: null,
+      metadata: null,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const select = vi
+      .fn()
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            for: vi.fn(() => ({ limit: vi.fn(async () => [{ id: 'user-1' }]) })),
+          })),
+        })),
+      })
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            for: vi.fn(() => ({
+              limit: vi.fn(async () => [
+                { id: target.id, status: 'completed', templateId: 'gzclp' },
+              ]),
+            })),
+          })),
+        })),
+      });
+    const update = vi
+      .fn()
+      .mockReturnValueOnce({
+        set: vi.fn(() => ({
+          where: vi.fn(() => ({
+            returning: vi.fn(async () => [{ id: 'active-a' }]),
+          })),
+        })),
+      })
+      .mockReturnValueOnce({
+        set: vi.fn(() => ({
+          where: vi.fn(() => ({
+            returning: vi.fn(async () => [target]),
+          })),
+        })),
+      });
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task({ select, update })
+      ),
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            then: (resolve: (rows: unknown[]) => unknown) => Promise.resolve(resolve([])),
+            orderBy: vi.fn(async () => []),
+          })),
+        })),
+      })),
+    };
+
+    await expect(updateInstance('user-1', target.id, { status: 'active' })).resolves.toMatchObject({
+      id: target.id,
+      status: 'active',
+    });
+    expect(mockInvalidateCachedInstances).toHaveBeenCalledWith('user-1', [
+      'completed-b',
+      'active-a',
+    ]);
   });
 
   it('rolls back the previous active program when the locked target update returns no row', async () => {
@@ -1176,10 +1574,14 @@ describe('updateInstance active serialization', () => {
           .fn()
           .mockReturnValueOnce({
             set: vi.fn(() => ({
-              where: vi.fn(async () => {
-                const active = draft.find((row) => row.id === 'active-a');
-                if (active) active.status = 'completed';
-              }),
+              where: vi.fn(() => ({
+                returning: vi.fn(async () => {
+                  const active = draft.find((row) => row.id === 'active-a');
+                  if (!active) return [];
+                  active.status = 'completed';
+                  return [{ id: active.id }];
+                }),
+              })),
             })),
           })
           .mockReturnValueOnce({
@@ -1207,6 +1609,7 @@ describe('updateInstance active serialization', () => {
     expect(targetForUpdate).toHaveBeenCalledWith('update');
     expect(persisted.find((row) => row.id === 'active-a')?.status).toBe('active');
     expect(persisted.find((row) => row.id === 'completed-b')?.status).toBe('completed');
+    expect(mockInvalidateCachedInstances).not.toHaveBeenCalled();
   });
 
   it('uses the same owner-then-target lock order for deletion', async () => {

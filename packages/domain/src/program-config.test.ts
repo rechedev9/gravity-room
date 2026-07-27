@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { validateProgramConfig } from './program-config';
-import type { ProgramDefinition } from './schemas/program-definition';
+import {
+  MAX_PROGRAM_WEIGHT,
+  MIN_POSITIVE_PROGRAM_WEIGHT,
+  type ProgramDefinition,
+} from './schemas/program-definition';
 
 const DEFINITION = {
   id: 'test-program',
@@ -76,5 +80,42 @@ describe('validateProgramConfig', () => {
       success: false,
       issues: [{ code: 'invalid_definition', fieldKey: null }],
     });
+  });
+
+  it('accepts boundary weights and rejects values outside the shared UI range', () => {
+    const boundaryDefinition = {
+      ...DEFINITION,
+      configFields: [
+        {
+          key: 'squat',
+          label: 'Squat',
+          type: 'weight' as const,
+          min: MIN_POSITIVE_PROGRAM_WEIGHT,
+          step: MIN_POSITIVE_PROGRAM_WEIGHT,
+        },
+        {
+          key: 'variant',
+          label: 'Variant',
+          type: 'select' as const,
+          options: [
+            { label: 'Classic', value: 'classic' },
+            { label: 'Compact', value: 'compact' },
+          ],
+        },
+      ],
+    };
+
+    expect(
+      validateProgramConfig(boundaryDefinition, {
+        squat: MAX_PROGRAM_WEIGHT,
+        variant: 'classic',
+      }).success
+    ).toBe(true);
+    expect(
+      validateProgramConfig(boundaryDefinition, { squat: 1e-7, variant: 'classic' }).success
+    ).toBe(false);
+    expect(
+      validateProgramConfig(boundaryDefinition, { squat: 1e21, variant: 'classic' }).success
+    ).toBe(false);
   });
 });

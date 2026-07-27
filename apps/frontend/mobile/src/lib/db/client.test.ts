@@ -86,8 +86,8 @@ describe('bootstrapDatabase', () => {
     await expect(bootstrapDatabase()).rejects.toThrow('disk busy');
     await expect(bootstrapDatabase()).resolves.toBeUndefined();
 
-    expect(execAsync).toHaveBeenCalledTimes(7);
-    expect(database.getVersion()).toBe(3);
+    expect(execAsync).toHaveBeenCalledTimes(9);
+    expect(database.getVersion()).toBe(4);
   });
 
   it('returns the same database instance across calls', () => {
@@ -101,7 +101,7 @@ describe('bootstrapDatabase', () => {
 
     await bootstrapDatabase(database);
 
-    expect(database.getVersion()).toBe(3);
+    expect(database.getVersion()).toBe(4);
     expect(database.getTableNames()).toEqual(
       [
         ...V1_DATABASE_FIXTURE.tables,
@@ -138,6 +138,7 @@ describe('bootstrapDatabase', () => {
     expect(database.appliedSql).toContain('PRAGMA user_version = 1');
     expect(database.appliedSql).toContain('PRAGMA user_version = 2');
     expect(database.appliedSql).toContain('PRAGMA user_version = 3');
+    expect(database.appliedSql).toContain('PRAGMA user_version = 4');
   });
 
   it('migrates a pre-existing install stuck at version 0 without erroring', async () => {
@@ -146,7 +147,7 @@ describe('bootstrapDatabase', () => {
     const database = createFakeDatabase(LEGACY_UNVERSIONED_DATABASE_FIXTURE);
 
     await bootstrapDatabase(database);
-    expect(database.getVersion()).toBe(3);
+    expect(database.getVersion()).toBe(4);
     expect(database.getTableNames()).toContain('mobile_v2_program_summaries');
 
     // Running it again (e.g. next app launch) must be a no-op: the CREATE
@@ -183,7 +184,7 @@ describe('bootstrapDatabase', () => {
 
     await bootstrapDatabase(database);
 
-    expect(database.getVersion()).toBe(3);
+    expect(database.getVersion()).toBe(4);
     expect(database.getTableNames()).toContain('mobile_v2_program_summaries');
     expect(database.getTableNames()).toContain('mobile_v2_program_snapshots');
     expect(database.appliedSql).not.toContain(

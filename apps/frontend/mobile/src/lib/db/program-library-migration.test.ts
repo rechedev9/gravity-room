@@ -197,12 +197,114 @@ describe('M2 program-library migration', () => {
     database.close();
   });
 
+  it('adds owner-scoped manage expectations while preserving legacy markers', () => {
+    const database = new DatabaseSync(':memory:');
+    database.exec(requireMigration(1));
+    database.exec(requireMigration(2));
+    database.exec(requireMigration(3));
+    database.exec(`
+      INSERT INTO mobile_v2_program_reconciliations (
+        owner_user_id, operation, entity_id, created_at
+      ) VALUES (
+        'owner-a', 'manage', 'program-a', '2026-07-27T10:00:00.000Z'
+      )
+    `);
+
+    database.exec('BEGIN IMMEDIATE');
+    database.exec(requireMigration(4));
+    database.exec('PRAGMA user_version = 4');
+    database.exec('COMMIT');
+
+    expect(
+      database
+        .prepare(
+          `SELECT expected_name, expected_status, expected_config_json
+           FROM mobile_v2_program_reconciliations
+           WHERE owner_user_id = 'owner-a' AND entity_id = 'program-a'`
+        )
+        .get()
+    ).toEqual({
+      expected_name: null,
+      expected_status: null,
+      expected_config_json: null,
+    });
+    database.exec(`
+      INSERT INTO mobile_v2_program_reconciliations (
+        owner_user_id,
+        operation,
+        entity_id,
+        expected_name,
+        expected_status,
+        expected_config_json,
+        created_at
+      ) VALUES
+        (
+          'owner-a',
+          'manage',
+          'program-b',
+          'Renamed',
+          NULL,
+          NULL,
+          '2026-07-27T10:01:00.000Z'
+        ),
+        (
+          'owner-b',
+          'manage',
+          'program-a',
+          NULL,
+          'completed',
+          NULL,
+          '2026-07-27T10:02:00.000Z'
+        )
+    `);
+    expect(
+      database
+        .prepare(
+          `SELECT count(*) AS count
+           FROM mobile_v2_program_reconciliations
+           WHERE owner_user_id = 'owner-a'`
+        )
+        .get()?.count
+    ).toBe(2);
+    expect(
+      database
+        .prepare(
+          `SELECT expected_status
+           FROM mobile_v2_program_reconciliations
+           WHERE owner_user_id = 'owner-b' AND entity_id = 'program-a'`
+        )
+        .get()?.expected_status
+    ).toBe('completed');
+    expect(() =>
+      database.exec(`
+        INSERT INTO mobile_v2_program_reconciliations (
+          owner_user_id,
+          operation,
+          entity_id,
+          expected_name,
+          expected_status,
+          created_at
+        ) VALUES (
+          'owner-a',
+          'manage',
+          'program-invalid',
+          'Ambiguous',
+          'active',
+          '2026-07-27T10:03:00.000Z'
+        )
+      `)
+    ).toThrow();
+
+    database.close();
+  });
+
   it('composes v1 with rows through corrected M2 and the complete future M3 contract', () => {
     const database = new DatabaseSync(':memory:');
     database.exec(requireMigration(1));
     database.exec(V1_DATABASE_ROWS_FIXTURE_SQL);
     database.exec(requireMigration(2));
     database.exec(requireMigration(3));
+    database.exec(requireMigration(4));
     database.exec(`
       INSERT INTO mobile_v2_program_summaries (
         owner_user_id, id, program_id, title, status, created_at, updated_at
@@ -220,7 +322,7 @@ describe('M2 program-library migration', () => {
       ) VALUES (
         'owner-a', 'library', '2026-07-27T10:00:00.000Z'
       );
-      PRAGMA user_version = 3;
+      PRAGMA user_version = 4;
     `);
 
     database.exec('BEGIN IMMEDIATE');

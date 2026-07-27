@@ -1,9 +1,21 @@
 import { z } from 'zod/v4';
 
 export const MAX_PROGRAM_STRING_LENGTH = 1000;
+// Shared UI/domain contract: every admitted value formats as a bounded plain
+// decimal in JavaScript and round-trips through the locale-aware mobile parser.
+export const MIN_POSITIVE_PROGRAM_WEIGHT = 0.000001;
+export const MAX_PROGRAM_WEIGHT = 1_000_000_000_000_000;
 
 const ProgramStringSchema = z.string().max(MAX_PROGRAM_STRING_LENGTH);
 const RequiredProgramStringSchema = ProgramStringSchema.min(1);
+export const ProgramWeightValueSchema = z
+  .number()
+  .finite()
+  .nonnegative()
+  .max(MAX_PROGRAM_WEIGHT)
+  .refine((value) => value === 0 || value >= MIN_POSITIVE_PROGRAM_WEIGHT, {
+    message: `weight must be 0 or at least ${MIN_POSITIVE_PROGRAM_WEIGHT}`,
+  });
 
 const AddWeightRuleSchema = z.strictObject({
   type: z.literal('add_weight'),
@@ -141,8 +153,8 @@ const WeightConfigFieldSchema = z.strictObject({
   key: RequiredProgramStringSchema,
   label: RequiredProgramStringSchema,
   type: z.literal('weight'),
-  min: z.number(),
-  step: z.number().positive(),
+  min: ProgramWeightValueSchema,
+  step: z.number().finite().min(MIN_POSITIVE_PROGRAM_WEIGHT).max(MAX_PROGRAM_WEIGHT),
   group: RequiredProgramStringSchema.optional(),
   hint: RequiredProgramStringSchema.optional(),
   groupHint: RequiredProgramStringSchema.optional(),
@@ -186,7 +198,7 @@ export const ProgramDefinitionSchema = z
       }),
     configFields: z.array(ConfigFieldSchema).max(MAX_PROGRAM_CONFIG_FIELDS),
     weightIncrements: z
-      .record(ProgramStringSchema, z.number().nonnegative())
+      .record(ProgramStringSchema, ProgramWeightValueSchema)
       .refine((increments) => Object.keys(increments).length <= MAX_PROGRAM_WEIGHT_INCREMENTS, {
         message: `weightIncrements must have at most ${MAX_PROGRAM_WEIGHT_INCREMENTS} entries`,
       }),

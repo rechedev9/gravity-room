@@ -1,4 +1,4 @@
-import type { CatalogEntry, ProgramDefinition } from '@gzclp/domain';
+import { ProgramWeightValueSchema, type CatalogEntry, type ProgramDefinition } from '@gzclp/domain';
 import type { TFunction } from 'i18next';
 
 import type { SupportedLanguage } from '../i18n';
@@ -28,6 +28,13 @@ const PROGRAM_CONTENT_IDS = [
 ] as const;
 
 type ProgramContentId = (typeof PROGRAM_CONTENT_IDS)[number];
+
+export interface ProgramContentOrigin {
+  readonly id: string;
+  readonly source: string;
+}
+
+const CANONICAL_POSITIVE_DECIMAL_PATTERN = /^(?:0|[1-9]\d*)(?:\.\d+)?$/;
 
 const TIER_CONTENT_KEYS = {
   t1: 't1',
@@ -87,6 +94,10 @@ const DAY_FOCUS_CONTENT_KEYS = {
 
 function isProgramContentId(value: string): value is ProgramContentId {
   return PROGRAM_CONTENT_IDS.some((id) => id === value);
+}
+
+function canonicalContentId(origin: ProgramContentOrigin): ProgramContentId | null {
+  return origin.source === 'preset' && isProgramContentId(origin.id) ? origin.id : null;
 }
 
 function readKnownKey(keys: Readonly<Record<string, string>>, value: string): string | null {
@@ -247,7 +258,7 @@ export interface LocalizedCatalogEntry {
 }
 
 export function localizeCatalogEntry(entry: CatalogEntry, t: TFunction): LocalizedCatalogEntry {
-  const contentId = isProgramContentId(entry.id) ? entry.id : null;
+  const contentId = canonicalContentId(entry);
   return {
     name: contentId === null ? entry.name : t(`program_content.catalog.${contentId}.name`),
     description:
@@ -294,11 +305,15 @@ export function localizeDefinitionDescription(definition: ProgramDefinition, t: 
   ).description;
 }
 
-export function localizeDayName(programId: string, dayName: string, t: TFunction): string {
-  if (isProgramContentId(programId)) {
+export function localizeDayName(
+  origin: ProgramContentOrigin,
+  dayName: string,
+  t: TFunction
+): string {
+  if (canonicalContentId(origin) !== null) {
     const localized = localizeCanonicalDayName(dayName, t);
     if (localized === null) {
-      throw new Error(`Missing canonical day localization for ${programId}`);
+      throw new Error(`Missing canonical day localization for ${origin.id}`);
     }
     return localized;
   }
@@ -306,38 +321,39 @@ export function localizeDayName(programId: string, dayName: string, t: TFunction
 }
 
 export function localizeExerciseName(
-  programId: string,
+  origin: ProgramContentOrigin,
   exerciseId: string,
   canonicalName: string | undefined,
   t: TFunction
 ): string {
-  if (isProgramContentId(programId)) {
+  if (canonicalContentId(origin) !== null) {
     return readRequiredTranslation(t, `program_content.exercises.${exerciseId}`);
   }
   return readExternalLabel(canonicalName, 'program_content.external.unnamed_exercise', t);
 }
 
 export function localizeFieldLabel(
-  programId: string,
+  origin: ProgramContentOrigin,
   fieldKey: string,
   canonicalLabel: string,
   t: TFunction
 ): string {
-  if (isProgramContentId(programId)) {
-    return readRequiredTranslation(t, `program_content.fields.catalog.${programId}.${fieldKey}`);
+  const contentId = canonicalContentId(origin);
+  if (contentId !== null) {
+    return readRequiredTranslation(t, `program_content.fields.catalog.${contentId}.${fieldKey}`);
   }
   return readExternalLabel(canonicalLabel, 'program_content.external.unnamed_field', t);
 }
 
 export function localizeSelectOption(
-  programId: string,
+  origin: ProgramContentOrigin,
   fieldKey: string,
   value: string,
   canonicalLabel: string,
   t: TFunction,
   language: SupportedLanguage
 ): string {
-  if (isProgramContentId(programId)) {
+  if (canonicalContentId(origin) !== null) {
     if (fieldKey === 'gender' && (value === 'male' || value === 'female')) {
       return readRequiredTranslation(t, `program_content.options.gender.${value}`);
     }
@@ -349,11 +365,11 @@ export function localizeSelectOption(
         }`
       );
     }
-    throw new Error(`Missing canonical select-option localization for ${programId}`);
+    throw new Error(`Missing canonical select-option localization for ${origin.id}`);
   }
   if (fieldKey === 'rounding') {
-    const numeric = Number(value);
-    if (Number.isFinite(numeric) && numeric >= 0) {
+    const numeric = CANONICAL_POSITIVE_DECIMAL_PATTERN.test(value) ? Number(value) : null;
+    if (numeric !== null && numeric > 0 && ProgramWeightValueSchema.safeParse(numeric).success) {
       return t('program_content.options.rounding.other', {
         value: formatLocalizedWeight(numeric, language),
       });
