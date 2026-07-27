@@ -14,6 +14,17 @@ jest.mock('../features/tracker/tracker-home-screen', () => ({
   TrackerHomeScreen: jest.fn(() => null),
 }));
 
+jest.mock('../providers/auth-provider', () => ({
+  useAuth: () => ({
+    user: {
+      id: 'user-a',
+      email: 'athlete@example.com',
+      name: null,
+      avatarUrl: null,
+    },
+  }),
+}));
+
 const mockedTrackerHomeScreen = jest.mocked(TrackerHomeScreen);
 
 function ProgramsProbe() {
@@ -89,7 +100,10 @@ describe('primary tab integration', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'Open tracker tab' }));
     await waitFor(() => {
-      expect(mockedTrackerHomeScreen).toHaveBeenLastCalledWith({ refreshRevision: 1 }, undefined);
+      expect(mockedTrackerHomeScreen).toHaveBeenLastCalledWith(
+        { ownerUserId: 'user-a', refreshRevision: 1 },
+        undefined
+      );
     });
 
     fireEvent.press(screen.getByRole('button', { name: 'Open programs tab' }));
@@ -97,7 +111,10 @@ describe('primary tab integration', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'Open tracker tab' }));
     await waitFor(() => {
-      expect(mockedTrackerHomeScreen).toHaveBeenLastCalledWith({ refreshRevision: 2 }, undefined);
+      expect(mockedTrackerHomeScreen).toHaveBeenLastCalledWith(
+        { ownerUserId: 'user-a', refreshRevision: 2 },
+        undefined
+      );
     });
   });
 });

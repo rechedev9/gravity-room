@@ -21,6 +21,12 @@ type ProgramDefinitionRow = {
   readonly updated_at: string;
 };
 
+function requireOwnerUserId(ownerUserId: string): void {
+  if (ownerUserId.length === 0) {
+    throw new Error('Program detail cache requires an authenticated owner');
+  }
+}
+
 function parseProgramDetailRow(value: unknown): ProgramDetailRow {
   if (
     !isRecord(value) ||
@@ -57,18 +63,25 @@ function parseProgramDefinitionRow(value: unknown): ProgramDefinitionRow {
   };
 }
 
-export async function upsertProgramDetail(detail: GenericProgramDetail): Promise<void> {
+export async function upsertProgramDetail(
+  ownerUserId: string,
+  detail: GenericProgramDetail
+): Promise<void> {
+  requireOwnerUserId(ownerUserId);
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   await database.withExclusiveTransactionAsync(async (transaction) => {
     await transaction.runAsync(
-      `INSERT INTO program_details (id, program_id, detail_json, updated_at)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
+      `INSERT INTO mobile_v2_program_details (
+         owner_user_id, id, program_id, detail_json, updated_at
+       )
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(owner_user_id, id) DO UPDATE SET
          program_id = excluded.program_id,
          detail_json = excluded.detail_json,
          updated_at = excluded.updated_at`,
+      ownerUserId,
       detail.id,
       detail.programId,
       JSON.stringify(detail),
@@ -78,13 +91,18 @@ export async function upsertProgramDetail(detail: GenericProgramDetail): Promise
 }
 
 export async function getProgramDetail(
+  ownerUserId: string,
   programInstanceId: string
 ): Promise<GenericProgramDetail | null> {
+  requireOwnerUserId(ownerUserId);
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   const rows = await database.getAllAsync(
-    `SELECT id, program_id, detail_json, updated_at FROM program_details WHERE id = ?`,
+    `SELECT id, program_id, detail_json, updated_at
+     FROM mobile_v2_program_details
+     WHERE owner_user_id = ? AND id = ?`,
+    ownerUserId,
     programInstanceId
   );
   const value = rows[0];
@@ -97,17 +115,24 @@ export async function getProgramDetail(
   return GenericProgramDetailSchema.parse(detail);
 }
 
-export async function upsertProgramDefinition(definition: ProgramDefinition): Promise<void> {
+export async function upsertProgramDefinition(
+  ownerUserId: string,
+  definition: ProgramDefinition
+): Promise<void> {
+  requireOwnerUserId(ownerUserId);
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   await database.withExclusiveTransactionAsync(async (transaction) => {
     await transaction.runAsync(
-      `INSERT INTO program_definitions (id, definition_json, updated_at)
-       VALUES (?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
+      `INSERT INTO mobile_v2_program_definitions (
+         owner_user_id, id, definition_json, updated_at
+       )
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(owner_user_id, id) DO UPDATE SET
          definition_json = excluded.definition_json,
          updated_at = excluded.updated_at`,
+      ownerUserId,
       definition.id,
       JSON.stringify(definition),
       new Date().toISOString()
@@ -115,12 +140,19 @@ export async function upsertProgramDefinition(definition: ProgramDefinition): Pr
   });
 }
 
-export async function getProgramDefinition(programId: string): Promise<ProgramDefinition | null> {
+export async function getProgramDefinition(
+  ownerUserId: string,
+  programId: string
+): Promise<ProgramDefinition | null> {
+  requireOwnerUserId(ownerUserId);
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   const rows = await database.getAllAsync(
-    `SELECT id, definition_json, updated_at FROM program_definitions WHERE id = ?`,
+    `SELECT id, definition_json, updated_at
+     FROM mobile_v2_program_definitions
+     WHERE owner_user_id = ? AND id = ?`,
+    ownerUserId,
     programId
   );
   const value = rows[0];

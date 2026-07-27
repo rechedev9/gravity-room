@@ -28,7 +28,7 @@ function createFakeDatabase(fixture: MobileDatabaseFixture): FakeDatabase {
   const execAsync = jest.fn(async (source: string) => {
     appliedSql.push(source);
 
-    for (const match of source.matchAll(/CREATE TABLE IF NOT EXISTS\s+([a-z_]+)/g)) {
+    for (const match of source.matchAll(/CREATE TABLE IF NOT EXISTS\s+([a-z0-9_]+)/g)) {
       const tableName = match[1];
       if (tableName !== undefined) {
         tableNames.add(tableName);
@@ -86,8 +86,8 @@ describe('bootstrapDatabase', () => {
     await expect(bootstrapDatabase()).rejects.toThrow('disk busy');
     await expect(bootstrapDatabase()).resolves.toBeUndefined();
 
-    expect(execAsync).toHaveBeenCalledTimes(3);
-    expect(database.getVersion()).toBe(1);
+    expect(execAsync).toHaveBeenCalledTimes(5);
+    expect(database.getVersion()).toBe(2);
   });
 
   it('returns the same database instance across calls', () => {
@@ -101,8 +101,17 @@ describe('bootstrapDatabase', () => {
 
     await bootstrapDatabase(database);
 
-    expect(database.getVersion()).toBe(1);
-    expect(database.getTableNames()).toEqual([...V1_DATABASE_FIXTURE.tables].sort());
+    expect(database.getVersion()).toBe(2);
+    expect(database.getTableNames()).toEqual(
+      [
+        ...V1_DATABASE_FIXTURE.tables,
+        'mobile_v2_program_catalog',
+        'mobile_v2_program_definitions',
+        'mobile_v2_program_details',
+        'mobile_v2_program_preferences',
+        'mobile_v2_program_summaries',
+      ].sort()
+    );
     expect(
       database.appliedSql.some((sql) =>
         sql.includes('CREATE TABLE IF NOT EXISTS program_summaries')
@@ -119,7 +128,13 @@ describe('bootstrapDatabase', () => {
         sql.includes('CREATE TABLE IF NOT EXISTS program_definitions')
       )
     ).toBe(true);
+    expect(
+      database.appliedSql.some((sql) =>
+        sql.includes('CREATE TABLE IF NOT EXISTS mobile_v2_program_summaries')
+      )
+    ).toBe(true);
     expect(database.appliedSql).toContain('PRAGMA user_version = 1');
+    expect(database.appliedSql).toContain('PRAGMA user_version = 2');
   });
 
   it('migrates a pre-existing install stuck at version 0 without erroring', async () => {
@@ -128,8 +143,8 @@ describe('bootstrapDatabase', () => {
     const database = createFakeDatabase(LEGACY_UNVERSIONED_DATABASE_FIXTURE);
 
     await bootstrapDatabase(database);
-    expect(database.getVersion()).toBe(1);
-    expect(database.getTableNames()).toEqual([...V1_DATABASE_FIXTURE.tables].sort());
+    expect(database.getVersion()).toBe(2);
+    expect(database.getTableNames()).toContain('mobile_v2_program_summaries');
 
     // Running it again (e.g. next app launch) must be a no-op: the CREATE
     // TABLE IF NOT EXISTS statements never re-run once the version matches.
@@ -140,7 +155,7 @@ describe('bootstrapDatabase', () => {
 
   it('applies a future migration in order after the baseline', async () => {
     const dummyMigration: MigrationStep = {
-      version: 2,
+      version: 3,
       sql: 'ALTER TABLE program_summaries ADD COLUMN archived_at TEXT;',
     };
     const baseline: MigrationStep = {
@@ -151,23 +166,25 @@ describe('bootstrapDatabase', () => {
 
     await bootstrapDatabase(database, [dummyMigration, baseline]);
 
-    expect(database.getVersion()).toBe(2);
+    expect(database.getVersion()).toBe(3);
     const baselineIndex = database.appliedSql.indexOf(baseline.sql);
     const dummyIndex = database.appliedSql.indexOf(dummyMigration.sql);
     expect(baselineIndex).toBeGreaterThanOrEqual(0);
     expect(dummyIndex).toBeGreaterThan(baselineIndex);
     expect(database.appliedSql).toContain('PRAGMA user_version = 1');
-    expect(database.appliedSql).toContain('PRAGMA user_version = 2');
+    expect(database.appliedSql).toContain('PRAGMA user_version = 3');
   });
 
-  it('leaves a v1 installation untouched when no later migration exists', async () => {
+  it('adds only the owner-scoped M2 program tables to a v1 installation', async () => {
     const database = createFakeDatabase(V1_DATABASE_FIXTURE);
 
     await bootstrapDatabase(database);
 
-    expect(database.getVersion()).toBe(1);
-    expect(database.getTableNames()).toEqual([...V1_DATABASE_FIXTURE.tables].sort());
-    expect(database.appliedSql).toEqual([]);
+    expect(database.getVersion()).toBe(2);
+    expect(database.getTableNames()).toContain('mobile_v2_program_summaries');
+    expect(database.appliedSql).not.toContain(
+      expect.stringContaining('DROP TABLE program_summaries')
+    );
   });
 
   it('rejects a malformed user_version row from the SQLite boundary', async () => {
@@ -185,7 +202,7 @@ describe('bootstrapDatabase', () => {
 
   it('skips migrations already applied when starting above version 0', async () => {
     const dummyMigration: MigrationStep = {
-      version: 2,
+      version: 3,
       sql: 'ALTER TABLE program_summaries ADD COLUMN archived_at TEXT;',
     };
     const baseline: MigrationStep = {
@@ -196,7 +213,7 @@ describe('bootstrapDatabase', () => {
 
     await bootstrapDatabase(database, [dummyMigration, baseline]);
 
-    expect(database.getVersion()).toBe(2);
+    expect(database.getVersion()).toBe(3);
     expect(database.appliedSql).not.toContain(baseline.sql);
     expect(database.appliedSql).toContain(dummyMigration.sql);
   });

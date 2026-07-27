@@ -1,5 +1,6 @@
 import {
   AUTH_ROUTES,
+  createPresetSetupRoute,
   createProgramRoute,
   loadInitialRouteContext,
   parseProgramInstanceId,
@@ -67,6 +68,10 @@ describe('mobile navigation contract', () => {
     expect(parseProgramInstanceId(['program-123'])).toBeNull();
     expect(parseProgramInstanceId('../profile')).toBeNull();
     expect(parseProgramInstanceId('')).toBeNull();
+    expect(createPresetSetupRoute('gzclp')).toEqual({
+      pathname: '/program/new',
+      params: { programId: 'gzclp' },
+    });
   });
 
   it('returns safely from a cold program deep link with no navigation history', () => {

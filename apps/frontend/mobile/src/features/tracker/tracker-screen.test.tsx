@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { ComponentProps } from 'react';
 import type { GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
 
-import { TrackerScreen } from './tracker-screen';
+import { TrackerScreen as OwnedTrackerScreen } from './tracker-screen';
 import { getAccessToken } from '../../lib/auth/session';
 import {
   getProgramDefinition,
@@ -52,6 +53,10 @@ const mockedUpsertProgramDetail = jest.mocked(upsertProgramDetail);
 const mockedFetchProgramDetail = jest.mocked(fetchProgramDetail);
 const mockedFetchProgramDefinition = jest.mocked(fetchProgramDefinition);
 const mockedFlushQueuedMutations = jest.mocked(flushQueuedMutations);
+
+function TrackerScreen(props: Omit<ComponentProps<typeof OwnedTrackerScreen>, 'ownerUserId'>) {
+  return <OwnedTrackerScreen {...props} ownerUserId="user-a" />;
+}
 const mockedQueueRecordResultMutation = jest.mocked(queueRecordResultMutation);
 const mockedQueueUndoRestoreMutation = jest.mocked(queueUndoRestoreMutation);
 
@@ -190,8 +195,8 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Day A')).toBeTruthy();
     expect(screen.getByText('Squat')).toBeTruthy();
-    expect(mockedUpsertProgramDefinition).toHaveBeenCalledWith(TEST_DEFINITION);
-    expect(mockedUpsertProgramDetail).toHaveBeenCalledWith(TEST_DETAIL);
+    expect(mockedUpsertProgramDefinition).toHaveBeenCalledWith('user-a', TEST_DEFINITION);
+    expect(mockedUpsertProgramDetail).toHaveBeenCalledWith('user-a', TEST_DETAIL);
   });
 
   it('loads tracker data from an inline custom definition without fetching catalog detail', async () => {
@@ -306,6 +311,7 @@ describe('TrackerScreen', () => {
       result: 'success',
     });
     expect(mockedUpsertProgramDetail).toHaveBeenCalledWith(
+      'user-a',
       expect.objectContaining({
         results: {
           0: {
@@ -492,6 +498,7 @@ describe('TrackerScreen', () => {
       rpe: 8,
     });
     expect(mockedUpsertProgramDetail).toHaveBeenLastCalledWith(
+      'user-a',
       expect.objectContaining({
         results: {
           0: {
@@ -568,6 +575,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('RPE: 1')).toBeTruthy();
     expect(mockedUpsertProgramDetail).toHaveBeenLastCalledWith(
+      'user-a',
       expect.objectContaining({
         results: {
           0: {
@@ -624,6 +632,7 @@ describe('TrackerScreen', () => {
 
     await waitFor(() => {
       expect(mockedUpsertProgramDetail).toHaveBeenLastCalledWith(
+        'user-a',
         expect.objectContaining({
           results: {
             0: {
@@ -690,6 +699,7 @@ describe('TrackerScreen', () => {
       result: 'success',
     });
     expect(mockedUpsertProgramDetail).toHaveBeenLastCalledWith(
+      'user-a',
       expect.objectContaining({
         results: {
           0: {
@@ -919,7 +929,7 @@ describe('TrackerScreen', () => {
     expect(await screen.findByText('AMRAP reps: -')).toBeTruthy();
     expect(await screen.findByText('RPE: -')).toBeTruthy();
 
-    const persistedDetail = mockedUpsertProgramDetail.mock.calls.at(-1)?.[0];
+    const persistedDetail = mockedUpsertProgramDetail.mock.calls.at(-1)?.[1];
     expect(persistedDetail).toBeDefined();
     expect(persistedDetail?.results['0']?.['squat-t1']).toEqual({ result: 'success' });
     expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({

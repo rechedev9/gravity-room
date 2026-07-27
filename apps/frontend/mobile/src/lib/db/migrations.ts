@@ -3,6 +3,7 @@ import {
   PROGRAM_DETAILS_TABLE_SQL,
   PROGRAM_SUMMARIES_TABLE_SQL,
   QUEUED_MUTATIONS_TABLE_SQL,
+  MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL,
 } from './schema';
 
 export interface MigrationStep {
@@ -32,5 +33,9 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       PROGRAM_DETAILS_TABLE_SQL,
       PROGRAM_DEFINITIONS_TABLE_SQL,
     ].join('\n'),
+  },
+  {
+    version: 2,
+    sql: MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL,
   },
 ];

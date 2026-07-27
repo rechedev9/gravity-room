@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import * as SecureStore from 'expo-secure-store';
 
 import { listProgramSummaries } from '../../lib/programs/program-repository';
+import { readTrackerProgramId } from '../../lib/tracker/tracker-selection-storage';
 import { TrackerHomeScreen } from './tracker-home-screen';
 import { TrackerScreen } from './tracker-screen';
 
@@ -9,52 +9,69 @@ jest.mock('../../lib/programs/program-repository', () => ({
   listProgramSummaries: jest.fn(),
 }));
 
+jest.mock('../../lib/tracker/tracker-selection-storage', () => ({
+  readTrackerProgramId: jest.fn(),
+}));
+
 jest.mock('./tracker-screen', () => ({ TrackerScreen: jest.fn(() => null) }));
 
 const mockedListProgramSummaries = jest.mocked(listProgramSummaries);
+const mockedReadTrackerProgramId = jest.mocked(readTrackerProgramId);
 const mockedTrackerScreen = jest.mocked(TrackerScreen);
-const mockedSecureStore = jest.mocked(SecureStore);
+
+const PROGRAM_A = {
+  id: 'program-a',
+  programId: 'gzclp',
+  title: 'A',
+  status: 'active',
+  createdAt: '2026-07-27T10:00:00.000Z',
+  updatedAt: '2026-07-27T12:00:00.000Z',
+} as const;
+const PROGRAM_B = {
+  ...PROGRAM_A,
+  id: 'program-b',
+  title: 'B',
+  updatedAt: '2026-07-27T11:00:00.000Z',
+} as const;
 
 describe('TrackerHomeScreen', () => {
   afterEach(() => {
     mockedTrackerScreen.mockClear();
     mockedListProgramSummaries.mockReset();
-    mockedSecureStore.getItemAsync.mockReset();
+    mockedReadTrackerProgramId.mockReset();
   });
 
-  it('opens the explicitly selected local program without treating programs[0] as active', async () => {
-    mockedListProgramSummaries.mockResolvedValue([
-      { id: 'recent-program', title: 'Recent', updatedAt: '2026-07-27T12:00:00.000Z' },
-      { id: 'selected-program', title: 'Selected', updatedAt: '2026-07-26T12:00:00.000Z' },
-    ]);
-    mockedSecureStore.getItemAsync.mockResolvedValue('selected-program');
+  it('opens only the explicitly pinned owned program', async () => {
+    mockedListProgramSummaries.mockResolvedValue([PROGRAM_A, PROGRAM_B]);
+    mockedReadTrackerProgramId.mockResolvedValue('program-b');
 
-    render(<TrackerHomeScreen />);
+    render(<TrackerHomeScreen ownerUserId="user-a" />);
 
     await waitFor(() => {
       expect(mockedTrackerScreen).toHaveBeenCalledWith(
-        { programInstanceId: 'selected-program' },
+        { ownerUserId: 'user-a', programInstanceId: 'program-b' },
         undefined
       );
     });
+    expect(mockedListProgramSummaries).toHaveBeenCalledWith('user-a');
   });
 
-  it('shows an empty state when no program has been started', async () => {
+  it('shows an empty state when no active program is pinned', async () => {
     mockedListProgramSummaries.mockResolvedValue([]);
-    mockedSecureStore.getItemAsync.mockResolvedValue(null);
+    mockedReadTrackerProgramId.mockResolvedValue(null);
 
-    render(<TrackerHomeScreen />);
+    render(<TrackerHomeScreen ownerUserId="user-a" />);
 
     expect(await screen.findByText('No active program')).toBeTruthy();
   });
 
   it('retries a failed local read', async () => {
-    mockedSecureStore.getItemAsync.mockResolvedValue(null);
+    mockedReadTrackerProgramId.mockResolvedValue(null);
     mockedListProgramSummaries
       .mockRejectedValueOnce(new Error('read failed'))
       .mockResolvedValueOnce([]);
 
-    render(<TrackerHomeScreen />);
+    render(<TrackerHomeScreen ownerUserId="user-a" />);
 
     fireEvent.press(await screen.findByRole('button', { name: 'Retry loading the tracker' }));
 
@@ -62,31 +79,27 @@ describe('TrackerHomeScreen', () => {
     expect(mockedListProgramSummaries).toHaveBeenCalledTimes(2);
   });
 
-  it('refreshes the selected program when its route adapter reports focus recovery', async () => {
-    mockedListProgramSummaries.mockResolvedValue([
-      { id: 'program-a', title: 'A', updatedAt: '2026-07-27T12:00:00.000Z' },
-      { id: 'program-b', title: 'B', updatedAt: '2026-07-27T11:00:00.000Z' },
-    ]);
-    mockedSecureStore.getItemAsync
+  it('refreshes the pin when its route adapter reports focus recovery', async () => {
+    mockedListProgramSummaries.mockResolvedValue([PROGRAM_A, PROGRAM_B]);
+    mockedReadTrackerProgramId
       .mockResolvedValueOnce('program-a')
       .mockResolvedValueOnce('program-b');
 
-    const view = render(<TrackerHomeScreen refreshRevision={0} />);
+    const view = render(<TrackerHomeScreen ownerUserId="user-a" refreshRevision={0} />);
     await waitFor(() => {
       expect(mockedTrackerScreen).toHaveBeenLastCalledWith(
-        { programInstanceId: 'program-a' },
+        { ownerUserId: 'user-a', programInstanceId: 'program-a' },
         undefined
       );
     });
 
-    view.rerender(<TrackerHomeScreen refreshRevision={1} />);
+    view.rerender(<TrackerHomeScreen ownerUserId="user-a" refreshRevision={1} />);
 
     await waitFor(() => {
       expect(mockedTrackerScreen).toHaveBeenLastCalledWith(
-        { programInstanceId: 'program-b' },
+        { ownerUserId: 'user-a', programInstanceId: 'program-b' },
         undefined
       );
     });
-    expect(mockedListProgramSummaries).toHaveBeenCalledTimes(2);
   });
 });

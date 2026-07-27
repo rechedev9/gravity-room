@@ -1,6 +1,10 @@
 {
   "common": {
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "back": "Volver",
+    "back_accessibility": "Volver a Programas",
+    "save": "Guardar",
+    "cancel": "Cancelar"
   },
   "nav": {
     "programs": "Programas",
@@ -76,12 +80,16 @@
   },
   "programs": {
     "eyebrow": "Programas",
-    "title": "Bloques de entrenamiento en caché",
-    "body": "Tus bloques activos siguen disponibles sin conexión. Empieza un preset para guardarlo en este dispositivo.",
+    "title": "Tu biblioteca de entrenamiento",
+    "body": "Fija el programa que entrenas ahora, gestiona cada estado o explora un preset.",
     "sync_notice": "Mostrando programas en caché. La sincronización se reintentará al actualizar.",
+    "offline_library": "Sin conexión: se muestra la última biblioteca de programas sincronizada.",
+    "offline_catalog": "Sin conexión: se muestra el catálogo de presets guardado en este dispositivo.",
     "card_updated": "Actualizado {{date}}",
-    "catalog_title": "Empezar un programa",
+    "catalog_title": "Catálogo de presets",
     "catalog_meta": "{{level}} · {{total}} entrenamientos · {{perWeek}}/semana",
+    "catalog_open": "Ver preset",
+    "catalog_open_accessibility": "Ver preset {{name}}",
     "start": "Empezar",
     "starting": "Empezando...",
     "start_accessibility": "Empezar {{name}}",
@@ -89,11 +97,81 @@
       "title": "Sin programa activo",
       "body": "Elige un programa abajo para empezar a registrar tu entrenamiento."
     },
+    "pinned": {
+      "title": "Programa fijado",
+      "badge": "Fijado",
+      "body": "Abre el siguiente entrenamiento en Tracker",
+      "empty": "Fija un programa activo para usarlo por defecto en Tracker."
+    },
+    "sections": {
+      "active": "Activos ({{count}})",
+      "completed": "Completados ({{count}})",
+      "archived": "Archivados ({{count}})",
+      "active_empty": "No hay programas activos.",
+      "completed_empty": "No hay programas completados.",
+      "archived_empty": "No hay programas archivados."
+    },
+    "actions": {
+      "open": "Abrir",
+      "pin": "Fijar",
+      "rename": "Renombrar",
+      "rename_accessibility": "Nuevo nombre para {{name}}",
+      "archive": "Archivar",
+      "reactivate": "Reactivar",
+      "complete": "Completar",
+      "delete": "Eliminar"
+    },
+    "delete_confirm": {
+      "title": "¿Eliminar programa?",
+      "body": "{{name}} y sus datos de entrenamiento en caché se eliminarán solo después de que el servidor confirme el borrado."
+    },
+    "preset": {
+      "eyebrow": "Detalle del preset",
+      "loading": "Cargando preset…",
+      "load_error_title": "Preset no disponible",
+      "load_error_body": "Este preset no está en caché y no se puede descargar ahora mismo.",
+      "retry_accessibility": "Reintentar la carga del preset",
+      "invalid_title": "Enlace de preset no disponible",
+      "invalid_body": "Este enlace de preset no es válido o está incompleto.",
+      "offline_cached": "Sin conexión: se muestra el preset guardado. Empezarlo todavía requiere internet.",
+      "schedule": "{{total}} entrenamientos · {{perWeek}}/semana · unas {{weeks}} semanas",
+      "days_title": "Días y ejercicios",
+      "rules_title": "Reglas de progresión",
+      "setup_title": "Configuración inicial",
+      "setup_body": "Define los valores iniciales. Cada valor se valida contra este preset antes de empezar.",
+      "field_accessibility": "Valor inicial de {{label}}",
+      "weight_hint": "Mínimo {{min}} kg · incrementos de {{step}} kg",
+      "online_only": "Crear un programa requiere internet porque el servidor asigna su identidad y todavía no puede reintentar esta petición de forma segura.",
+      "create_error": "El programa no se creó. Comprueba la conexión y reinténtalo; no se añadió ningún programa local.",
+      "start": "Empezar programa",
+      "start_accessibility": "Empezar {{name}} con esta configuración",
+      "validation": {
+        "missing": "Introduce un valor.",
+        "unexpected": "Este campo no forma parte del preset.",
+        "invalid_weight": "Introduce un peso válido.",
+        "below_minimum": "El peso está por debajo del mínimo permitido.",
+        "invalid_step": "Usa uno de los incrementos de peso permitidos.",
+        "invalid_option": "Elige una de las opciones disponibles.",
+        "invalid_definition": "La definición del preset no es válida.",
+        "invalid_config": "La configuración no es válida."
+      },
+      "rules": {
+        "add_weight": "Añadir peso tras el éxito",
+        "deload_percent": "Descargar un porcentaje tras fallar la etapa final",
+        "advance_stage": "Avanzar a la siguiente etapa",
+        "add_weight_reset_stage": "Añadir peso y reiniciar la etapa",
+        "no_change": "Mantener la prescripción actual",
+        "advance_stage_add_weight": "Avanzar de etapa y añadir peso",
+        "update_tm": "Actualizar el máximo de entrenamiento",
+        "double_progression": "Usar doble progresión"
+      }
+    },
     "errors": {
       "load": "No se pudieron cargar los programas en caché.",
       "sync": "No se pueden sincronizar los programas ahora mismo.",
       "catalog": "No se pudo cargar el catálogo de programas ahora mismo.",
-      "start": "No se pudo empezar ese programa ahora mismo."
+      "start": "No se pudo empezar ese programa ahora mismo.",
+      "mutation": "Ese cambio no se pudo completar online. Tu lista local anterior no ha cambiado."
     }
   },
   "profile": {

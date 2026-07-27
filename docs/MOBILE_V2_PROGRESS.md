@@ -77,17 +77,17 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
 
 ## Estado de slices
 
-| Slice                       | Estado           | Base       | Candidato | Corregido | Integrado |
-| --------------------------- | ---------------- | ---------- | --------- | --------- | --------- |
-| M0 Contratos y baseline     | integrado        | `dcdec26f` | `0fcc4c6` | `1b39abd` | `1b39abd` |
-| M1 Shell y navegación       | corrección lista | `3af51a0`  | `aa06f7c` | `6d6c0c7` | pendiente |
-| M2 Programas                | pendiente        | pendiente  | pendiente | pendiente | pendiente |
-| M3 Tracker offline          | pendiente        | pendiente  | pendiente | pendiente | pendiente |
-| M4 Historial/temporizador   | pendiente        | pendiente  | pendiente | pendiente | pendiente |
-| M5 Perfil/datos             | pendiente        | pendiente  | pendiente | pendiente | pendiente |
-| M6 Programas personalizados | pendiente        | pendiente  | pendiente | pendiente | pendiente |
-| M7 Wiki contextual          | pendiente        | pendiente  | pendiente | pendiente | pendiente |
-| M8 Hardening/release/E2E    | pendiente        | pendiente  | pendiente | pendiente | pendiente |
+| Slice                       | Estado              | Base       | Candidato | Corregido | Integrado |
+| --------------------------- | ------------------- | ---------- | --------- | --------- | --------- |
+| M0 Contratos y baseline     | integrado           | `dcdec26f` | `0fcc4c6` | `1b39abd` | `1b39abd` |
+| M1 Shell y navegación       | integrado           | `3af51a0`  | `aa06f7c` | `6d6c0c7` | `78adf51` |
+| M2 Programas                | candidato pendiente | `78adf51`  | pendiente | pendiente | pendiente |
+| M3 Tracker offline          | pendiente           | pendiente  | pendiente | pendiente | pendiente |
+| M4 Historial/temporizador   | pendiente           | pendiente  | pendiente | pendiente | pendiente |
+| M5 Perfil/datos             | pendiente           | pendiente  | pendiente | pendiente | pendiente |
+| M6 Programas personalizados | pendiente           | pendiente  | pendiente | pendiente | pendiente |
+| M7 Wiki contextual          | pendiente           | pendiente  | pendiente | pendiente | pendiente |
+| M8 Hardening/release/E2E    | pendiente           | pendiente  | pendiente | pendiente | pendiente |
 
 ## M0 — Contratos y baseline
 
@@ -172,6 +172,54 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
   findings nuevos.
 - M1 parte del HEAD de integración posterior a este registro de orquestación.
 - E2E continúa sin ejecutarse y permanece reservado para M8.
+
+## M2 — Programas: biblioteca y gestión
+
+Inicio: 2026-07-27
+
+Base congelada: `78adf51dc98ad77b8302d0042c7ffae7538bfcea`
+
+Estado: implementación, checks y revisión manual completos; commit pendiente
+
+### Alcance del candidato
+
+- Programa fijado y listas activa, completada y archivada.
+- Catálogo y ficha de preset con setup validado por `ProgramDefinition` del dominio.
+- Crear online-only; renombrar, archivar, reactivar, completar y eliminar instancias.
+- Caché local particionada por usuario y estados offline de lectura.
+- Confirmación de borrado y limpieza local relacionada únicamente después del éxito remoto.
+- Pruebas de estado, pin, validación, offline, mutaciones, rollback y coherencia.
+
+### Checks M2
+
+| Check                                                          | Resultado                            | Nota                                   |
+| -------------------------------------------------------------- | ------------------------------------ | -------------------------------------- |
+| `pnpm exec prettier --check ...`                               | verde                                | Fuentes, tests, dominio y diario M2    |
+| `pnpm --filter mobile routes:check`                            | verde                                | Manifiesto versionado sin drift        |
+| `pnpm --filter mobile lint`                                    | verde                                | TS/TSX móvil                           |
+| `pnpm --filter mobile typecheck`                               | verde                                | Incluye `routes:check`                 |
+| `pnpm run typecheck:domain`                                    | verde                                | Validación canónica de setup           |
+| `pnpm --filter mobile i18n:check`                              | verde: 1 suite, 8 tests              | 0 missing ES/EN                        |
+| `pnpm --filter mobile test`                                    | verde: 33 suites, 202 tests          | Incluye migraciones SQLite reales      |
+| `pnpm run test:domain`                                         | verde: 7 ficheros, 45 tests          | Reglas y validación de configuración   |
+| `pnpm --filter mobile exec expo install --check`               | verde                                | Dependencias compatibles               |
+| `pnpm --filter mobile exec expo config --type prebuild --json` | verde                                | Config prebuild resoluble              |
+| Export Expo Android                                            | verde: 1.241 módulos, Hermes 3,79 MB | 24 assets; artefacto temporal ignorado |
+| E2E                                                            | no ejecutado por política            | Reservado para M8                      |
+
+### Candidato y riesgos
+
+- SHA candidato: pendiente hasta crear el commit normal.
+- Diff completo y efectos secundarios revisados manualmente. `autoreview --mode local` falló cerrado
+  antes de invocar al modelo porque el lado anterior del diff de un test contiene campos
+  `accessToken` que su escáner clasifica como contenido sensible; no existe dictamen estructurado.
+- El SQL contractual v2 completo continúa fuera de `MIGRATIONS`; M2 adapta solo la persistencia
+  necesaria y no implementa sesiones/outbox runtime.
+- Las filas legacy permanecen sin owner salvo prueba remota; M2 no atribuye datos por la sesión activa.
+- La creación de instancias permanece online-only porque la API actual no ofrece idempotencia.
+- M2 registra una migración parcial con tablas paralelas `mobile_v2_program_*`; conserva intactas las
+  tablas/caches/cola v1 sin owner. M3 deberá componer la migración final sin reutilizar el número 2.
+- M3, M4+, el editor personalizado y el API custom de M6 permanecen fuera de alcance.
 
 ### Deuda/riesgos conocidos
 

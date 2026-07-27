@@ -29,8 +29,8 @@ jest.mock('../db/client', () => ({
       ) => {
         await callback({
           runAsync: async (sql: string, ...params: unknown[]) => {
-            if (sql.includes('INSERT INTO program_details')) {
-              const [id, programId, detailJson, updatedAt] = params;
+            if (sql.includes('INSERT INTO mobile_v2_program_details')) {
+              const [, id, programId, detailJson, updatedAt] = params;
               const nextRow: ProgramDetailRow = {
                 id: String(id),
                 program_id: String(programId),
@@ -46,8 +46,8 @@ jest.mock('../db/client', () => ({
               return { changes: 1, lastInsertRowId: 0 };
             }
 
-            if (sql.includes('INSERT INTO program_definitions')) {
-              const [id, definitionJson, updatedAt] = params;
+            if (sql.includes('INSERT INTO mobile_v2_program_definitions')) {
+              const [, id, definitionJson, updatedAt] = params;
               const nextRow: ProgramDefinitionRow = {
                 id: String(id),
                 definition_json: String(definitionJson),
@@ -71,21 +71,21 @@ jest.mock('../db/client', () => ({
     ),
     runAsync: jest.fn(async () => ({ changes: 0, lastInsertRowId: 0 })),
     getAllAsync: jest.fn(async (sql: string, ...params: unknown[]) => {
-      if (sql.includes('SELECT id, program_id, detail_json, updated_at FROM program_details')) {
+      if (sql.includes('FROM mobile_v2_program_details')) {
         if (mockProgramDetailRowsOverride) {
           return mockProgramDetailRowsOverride;
         }
 
-        const requestedId = String(params[0]);
+        const requestedId = String(params[1]);
         return mockProgramDetailRows.filter((row) => row.id === requestedId);
       }
 
-      if (sql.includes('SELECT id, definition_json, updated_at FROM program_definitions')) {
+      if (sql.includes('FROM mobile_v2_program_definitions')) {
         if (mockProgramDefinitionRowsOverride) {
           return mockProgramDefinitionRowsOverride;
         }
 
-        const requestedId = String(params[0]);
+        const requestedId = String(params[1]);
         return mockProgramDefinitionRows.filter((row) => row.id === requestedId);
       }
 
@@ -96,11 +96,29 @@ jest.mock('../db/client', () => ({
 }));
 
 import {
-  getProgramDefinition,
-  getProgramDetail,
-  upsertProgramDefinition,
-  upsertProgramDetail,
+  getProgramDefinition as getOwnedProgramDefinition,
+  getProgramDetail as getOwnedProgramDetail,
+  upsertProgramDefinition as upsertOwnedProgramDefinition,
+  upsertProgramDetail as upsertOwnedProgramDetail,
 } from './program-detail-repository';
+
+const OWNER_USER_ID = 'user-a';
+
+function getProgramDefinition(programId: string) {
+  return getOwnedProgramDefinition(OWNER_USER_ID, programId);
+}
+
+function getProgramDetail(programInstanceId: string) {
+  return getOwnedProgramDetail(OWNER_USER_ID, programInstanceId);
+}
+
+function upsertProgramDefinition(definition: ProgramDefinition) {
+  return upsertOwnedProgramDefinition(OWNER_USER_ID, definition);
+}
+
+function upsertProgramDetail(detail: GenericProgramDetail) {
+  return upsertOwnedProgramDetail(OWNER_USER_ID, detail);
+}
 
 const TEST_DEFINITION: ProgramDefinition = {
   id: 'test-prog',

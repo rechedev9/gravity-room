@@ -29,6 +29,7 @@ import { applyUndoEntry, buildUndoEntry, patchSlotMetrics, slotStateEqual } from
 import { TrackerSlotCard } from './tracker-slot-card';
 
 type TrackerScreenProps = {
+  readonly ownerUserId: string;
   readonly programInstanceId: string;
   readonly onBack?: () => void;
 };
@@ -51,7 +52,7 @@ function resolveProgramDefinition(detail: GenericProgramDetail): ProgramDefiniti
   }
 }
 
-export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps) {
+export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: TrackerScreenProps) {
   const { t } = useTranslation();
   const [detail, setDetail] = useState<GenericProgramDetail | null>(null);
   const [definition, setDefinition] = useState<ProgramDefinition | null>(null);
@@ -90,11 +91,11 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
         inlineDefinition ?? (await fetchProgramDefinition(freshDetail.programId));
 
       if (inlineDefinition === null) {
-        await upsertProgramDefinition(freshDefinition);
+        await upsertProgramDefinition(ownerUserId, freshDefinition);
       }
 
       if (!hasCachedTracker || localStateVersionRef.current === refreshLocalStateVersion) {
-        await upsertProgramDetail(freshDetail);
+        await upsertProgramDetail(ownerUserId, freshDetail);
       }
 
       return {
@@ -106,10 +107,10 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
 
     async function loadTracker(): Promise<void> {
       try {
-        const cachedDetail = await getProgramDetail(programInstanceId);
+        const cachedDetail = await getProgramDetail(ownerUserId, programInstanceId);
         const cachedDefinition = cachedDetail
           ? (resolveProgramDefinition(cachedDetail) ??
-            (await getProgramDefinition(cachedDetail.programId)))
+            (await getProgramDefinition(ownerUserId, cachedDetail.programId)))
           : null;
         const hasCachedTracker = cachedDetail !== null && cachedDefinition !== null;
 
@@ -175,7 +176,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     return () => {
       active = false;
     };
-  }, [programInstanceId]);
+  }, [ownerUserId, programInstanceId]);
 
   const rows = useMemo(() => {
     if (!detail || !definition) {
@@ -219,7 +220,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     });
 
     try {
-      await upsertProgramDetail({
+      await upsertProgramDetail(ownerUserId, {
         ...nextDetail,
         undoHistory: [...currentDetail.undoHistory, nextUndoEntry],
       });
@@ -285,7 +286,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     setDetailState(nextDetailWithUndo);
 
     try {
-      await upsertProgramDetail(nextDetailWithUndo);
+      await upsertProgramDetail(ownerUserId, nextDetailWithUndo);
     } catch {
       if (localStateVersionRef.current !== writeVersion) {
         return;
@@ -366,7 +367,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     setDetailState(nextDetail);
 
     try {
-      await upsertProgramDetail(nextDetail);
+      await upsertProgramDetail(ownerUserId, nextDetail);
     } catch {
       if (localStateVersionRef.current !== writeVersion) {
         return;

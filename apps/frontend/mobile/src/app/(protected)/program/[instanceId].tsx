@@ -7,13 +7,19 @@ import {
   PRIMARY_TAB_ROUTES,
   returnFromProgramRoute,
 } from '../../../navigation/routes';
+import { useAuth } from '../../../providers/auth-provider';
 import { MessageState } from '../../../ui/message-state';
 
 export default function ProgramTrackerRoute() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const router = useRouter();
   const params = useLocalSearchParams<{ instanceId?: string | string[] }>();
   const programInstanceId = parseProgramInstanceId(params.instanceId);
+
+  if (user === null) {
+    return null;
+  }
 
   if (programInstanceId === null) {
     return (
@@ -29,6 +35,7 @@ export default function ProgramTrackerRoute() {
 
   return (
     <TrackerScreen
+      ownerUserId={user.id}
       programInstanceId={programInstanceId}
       onBack={() => returnFromProgramRoute(router)}
     />

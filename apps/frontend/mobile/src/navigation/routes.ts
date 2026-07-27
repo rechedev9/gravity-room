@@ -100,6 +100,14 @@ export function createProgramRoute(programInstanceId: string) {
   } as const;
 }
 
+export function createPresetSetupRoute(programId: string) {
+  const pathname = '/program/new' satisfies PublicRoutePath;
+  return {
+    pathname,
+    params: { programId },
+  } as const;
+}
+
 export function parseRouteIdentifier(value: unknown): string | null {
   if (
     typeof value !== 'string' ||
@@ -114,6 +122,10 @@ export function parseRouteIdentifier(value: unknown): string | null {
 }
 
 export function parseProgramInstanceId(value: unknown): string | null {
+  return parseRouteIdentifier(value);
+}
+
+export function parseProgramId(value: unknown): string | null {
   return parseRouteIdentifier(value);
 }
 

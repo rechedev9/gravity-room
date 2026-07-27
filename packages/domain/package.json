@@ -19,6 +19,7 @@
     "./generic-engine": "./src/generic-engine.ts",
     "./generic-stats": "./src/generic-stats.ts",
     "./graduation": "./src/graduation.ts",
+    "./program-config": "./src/program-config.ts",
     "./type-guards": "./src/type-guards.ts",
     "./schemas/catalog": "./src/schemas/catalog.ts",
     "./schemas/exercise-article": "./src/schemas/exercise-article.ts",

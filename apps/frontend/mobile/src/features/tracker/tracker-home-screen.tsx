@@ -13,10 +13,11 @@ type TrackerHomeState =
   | { readonly status: 'error' };
 
 interface TrackerHomeScreenProps {
+  readonly ownerUserId: string;
   readonly refreshRevision?: number;
 }
 
-export function TrackerHomeScreen({ refreshRevision = 0 }: TrackerHomeScreenProps) {
+export function TrackerHomeScreen({ ownerUserId, refreshRevision = 0 }: TrackerHomeScreenProps) {
   const { t } = useTranslation();
   const [state, setState] = useState<TrackerHomeState>({ status: 'loading' });
   const [reloadToken, setReloadToken] = useState(0);
@@ -27,8 +28,8 @@ export function TrackerHomeScreen({ refreshRevision = 0 }: TrackerHomeScreenProp
     async function loadActiveProgram(): Promise<void> {
       try {
         const [programs, trackerProgramId] = await Promise.all([
-          listProgramSummaries(),
-          readTrackerProgramId(),
+          listProgramSummaries(ownerUserId),
+          readTrackerProgramId(ownerUserId),
         ]);
         if (!active) {
           return;
@@ -53,7 +54,7 @@ export function TrackerHomeScreen({ refreshRevision = 0 }: TrackerHomeScreenProp
     return () => {
       active = false;
     };
-  }, [refreshRevision, reloadToken]);
+  }, [ownerUserId, refreshRevision, reloadToken]);
 
   const retry = useCallback(() => {
     setReloadToken((current) => current + 1);
@@ -79,5 +80,5 @@ export function TrackerHomeScreen({ refreshRevision = 0 }: TrackerHomeScreenProp
     );
   }
 
-  return <TrackerScreen programInstanceId={state.programInstanceId} />;
+  return <TrackerScreen ownerUserId={ownerUserId} programInstanceId={state.programInstanceId} />;
 }

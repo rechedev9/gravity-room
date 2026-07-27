@@ -1,19 +1,22 @@
 import { useRouter } from 'expo-router';
 
 import { ProgramsScreen } from '../../../../features/programs/programs-screen';
-import { writeTrackerProgramId } from '../../../../lib/tracker/tracker-selection-storage';
-import { createProgramRoute } from '../../../../navigation/routes';
+import { createPresetSetupRoute, createProgramRoute } from '../../../../navigation/routes';
+import { useAuth } from '../../../../providers/auth-provider';
 
 export default function ProgramsRoute() {
   const router = useRouter();
+  const { user } = useAuth();
+
+  if (user === null) {
+    return null;
+  }
 
   return (
     <ProgramsScreen
-      onOpenProgram={(programInstanceId) => {
-        void writeTrackerProgramId(programInstanceId)
-          .catch(() => undefined)
-          .finally(() => router.push(createProgramRoute(programInstanceId)));
-      }}
+      onOpenPreset={(programId) => router.push(createPresetSetupRoute(programId))}
+      onOpenProgram={(programInstanceId) => router.push(createProgramRoute(programInstanceId))}
+      ownerUserId={user.id}
     />
   );
 }

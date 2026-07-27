@@ -1,6 +1,10 @@
 {
   "common": {
-    "retry": "Retry"
+    "retry": "Retry",
+    "back": "Back",
+    "back_accessibility": "Return to Programs",
+    "save": "Save",
+    "cancel": "Cancel"
   },
   "nav": {
     "programs": "Programs",
@@ -76,12 +80,16 @@
   },
   "programs": {
     "eyebrow": "Programs",
-    "title": "Cached training blocks",
-    "body": "Your active blocks stay available offline. Start a preset to cache it on this device.",
+    "title": "Your training library",
+    "body": "Pin the program you are training now, manage every lifecycle, or explore a preset.",
     "sync_notice": "Showing cached programs. Sync will retry when you refresh.",
+    "offline_library": "Offline: showing your last synchronized program library.",
+    "offline_catalog": "Offline: showing the preset catalog saved on this device.",
     "card_updated": "Updated {{date}}",
-    "catalog_title": "Start a program",
+    "catalog_title": "Preset catalog",
     "catalog_meta": "{{level}} · {{total}} workouts · {{perWeek}}/week",
+    "catalog_open": "View preset",
+    "catalog_open_accessibility": "View {{name}} preset",
     "start": "Start",
     "starting": "Starting...",
     "start_accessibility": "Start {{name}}",
@@ -89,11 +97,81 @@
       "title": "No active program",
       "body": "Pick a program below to start logging your training."
     },
+    "pinned": {
+      "title": "Pinned program",
+      "badge": "Pinned",
+      "body": "Open the next workout in Tracker",
+      "empty": "Pin an active program to make it the Tracker default."
+    },
+    "sections": {
+      "active": "Active ({{count}})",
+      "completed": "Completed ({{count}})",
+      "archived": "Archived ({{count}})",
+      "active_empty": "No active programs.",
+      "completed_empty": "No completed programs.",
+      "archived_empty": "No archived programs."
+    },
+    "actions": {
+      "open": "Open",
+      "pin": "Pin",
+      "rename": "Rename",
+      "rename_accessibility": "New name for {{name}}",
+      "archive": "Archive",
+      "reactivate": "Reactivate",
+      "complete": "Complete",
+      "delete": "Delete"
+    },
+    "delete_confirm": {
+      "title": "Delete program?",
+      "body": "{{name}} and its locally cached workout data will be deleted only after the server confirms the deletion."
+    },
+    "preset": {
+      "eyebrow": "Preset details",
+      "loading": "Loading preset…",
+      "load_error_title": "Preset unavailable",
+      "load_error_body": "This preset is not cached and cannot be downloaded right now.",
+      "retry_accessibility": "Retry loading the preset",
+      "invalid_title": "Preset link unavailable",
+      "invalid_body": "This preset link is invalid or incomplete.",
+      "offline_cached": "Offline: showing the saved preset. Starting it still requires internet.",
+      "schedule": "{{total}} workouts · {{perWeek}}/week · about {{weeks}} weeks",
+      "days_title": "Days and exercises",
+      "rules_title": "Progression rules",
+      "setup_title": "Initial setup",
+      "setup_body": "Set your starting values. Every value is validated against this preset before it can start.",
+      "field_accessibility": "{{label}} starting value",
+      "weight_hint": "Minimum {{min}} kg · increments of {{step}} kg",
+      "online_only": "Creating a program requires internet because the server assigns its identity and cannot safely retry this request yet.",
+      "create_error": "The program was not created. Check your connection and try again; no local program was added.",
+      "start": "Start program",
+      "start_accessibility": "Start {{name}} with this setup",
+      "validation": {
+        "missing": "Enter a value.",
+        "unexpected": "This field is not part of the preset.",
+        "invalid_weight": "Enter a valid weight.",
+        "below_minimum": "The weight is below the allowed minimum.",
+        "invalid_step": "Use one of the allowed weight increments.",
+        "invalid_option": "Choose one of the available options.",
+        "invalid_definition": "The preset definition is invalid.",
+        "invalid_config": "The setup is invalid."
+      },
+      "rules": {
+        "add_weight": "Add weight after success",
+        "deload_percent": "Deload by a percentage after the final failure stage",
+        "advance_stage": "Advance to the next stage",
+        "add_weight_reset_stage": "Add weight and reset the stage",
+        "no_change": "Keep the current prescription",
+        "advance_stage_add_weight": "Advance the stage and add weight",
+        "update_tm": "Update the training max",
+        "double_progression": "Use double progression"
+      }
+    },
     "errors": {
       "load": "Unable to load cached programs.",
       "sync": "Unable to sync programs right now.",
       "catalog": "Unable to load the program catalog right now.",
-      "start": "Unable to start that program right now."
+      "start": "Unable to start that program right now.",
+      "mutation": "That change could not be completed online. Your previous local list is unchanged."
     }
   },
   "profile": {

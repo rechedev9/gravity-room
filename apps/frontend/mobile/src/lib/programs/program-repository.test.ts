@@ -1,237 +1,356 @@
-interface ProgramSummaryRow {
-  readonly id: string;
-  readonly title: string;
-  readonly updated_at: string;
-}
+/// <reference types="node" />
 
-const rows: ProgramSummaryRow[] = [];
-let mockFailNextInsert = false;
-let mockRowsOverride: unknown[] | null = null;
+import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
+import type { CatalogEntry, GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
+import type { SQLiteBindValue } from 'expo-sqlite';
 
-function mockRequireStringParameter(params: readonly unknown[], index: number): string {
-  const value = params[index];
+import type { DatabaseClient } from '../db/expo-sqlite-adapter';
+import { MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL } from '../db/schema';
 
-  if (typeof value !== 'string') {
-    throw new Error(`Expected string SQL parameter at index ${index}`);
-  }
-
-  return value;
-}
+let mockDatabaseClient: DatabaseClient;
 
 jest.mock('../db/client', () => ({
   bootstrapDatabase: jest.fn(async () => undefined),
-  getDatabase: jest.fn(() => ({
-    withExclusiveTransactionAsync: jest.fn(
-      async (
-        callback: (client: {
-          runAsync: (sql: string, ...params: unknown[]) => Promise<unknown>;
-        }) => Promise<void>
-      ) => {
-        const snapshot = rows.map((row) => ({ ...row }));
-        const transactionClient = {
-          runAsync: async (sql: string, ...params: unknown[]) => {
-            if (sql.includes('DELETE FROM program_summaries WHERE id NOT IN')) {
-              const ids = new Set(
-                params.map((_, index) => mockRequireStringParameter(params, index))
-              );
-
-              for (let index = rows.length - 1; index >= 0; index -= 1) {
-                const row = rows[index];
-
-                if (row && !ids.has(row.id)) {
-                  rows.splice(index, 1);
-                }
-              }
-            }
-
-            if (sql === 'DELETE FROM program_summaries') {
-              rows.length = 0;
-            }
-
-            if (sql.includes('INSERT INTO program_summaries')) {
-              if (mockFailNextInsert) {
-                mockFailNextInsert = false;
-                throw new Error('write failed');
-              }
-
-              const id = mockRequireStringParameter(params, 0);
-              const title = mockRequireStringParameter(params, 1);
-              const updatedAt = mockRequireStringParameter(params, 2);
-              const existingIndex = rows.findIndex((row) => row.id === id);
-              const nextRow = { id, title, updated_at: updatedAt };
-
-              if (existingIndex >= 0) {
-                rows[existingIndex] = nextRow;
-              } else {
-                rows.push(nextRow);
-              }
-            }
-
-            return { changes: 1, lastInsertRowId: 0 };
-          },
-        };
-
-        try {
-          await callback(transactionClient);
-        } catch (error) {
-          rows.length = 0;
-          rows.push(...snapshot);
-          throw error;
-        }
-      }
-    ),
-    runAsync: jest.fn(async () => ({ changes: 1, lastInsertRowId: 0 })),
-    getAllAsync: jest.fn(async (sql: string) => {
-      if (mockRowsOverride) {
-        return mockRowsOverride;
-      }
-
-      if (!sql.includes('SELECT id, title, updated_at FROM program_summaries')) {
-        return [];
-      }
-
-      return [...rows].sort(
-        (left, right) =>
-          right.updated_at.localeCompare(left.updated_at) || left.title.localeCompare(right.title)
-      );
-    }),
-    execAsync: jest.fn(async () => undefined),
-  })),
+  getDatabase: jest.fn(() => mockDatabaseClient),
 }));
 
-import { listProgramSummaries, upsertProgramSummaries } from './program-repository';
+import {
+  cacheCreatedProgram,
+  cacheManagedProgram,
+  deleteLocalProgramData,
+  listCachedCatalog,
+  listProgramSummaries,
+  replaceCachedCatalog,
+  replaceProgramSummaries,
+} from './program-repository';
 
-describe('program repository', () => {
-  beforeEach(() => {
-    rows.length = 0;
-    mockFailNextInsert = false;
-    mockRowsOverride = null;
-  });
+interface MemoryDatabase {
+  readonly client: DatabaseClient;
+  readonly sqlite: DatabaseSync;
+  readonly setFailingProgramId: (programId: string | null) => void;
+}
 
-  it('reads persisted program summaries back in updated order', async () => {
-    await upsertProgramSummaries([
-      {
-        id: 'program-a',
-        title: 'Strength Base',
-        updatedAt: '2026-04-18T10:00:00.000Z',
-      },
-      {
-        id: 'program-b',
-        title: 'Power Block',
-        updatedAt: '2026-04-20T08:00:00.000Z',
-      },
-      {
-        id: 'program-c',
-        title: 'Hypertrophy Cycle',
-        updatedAt: '2026-04-19T09:30:00.000Z',
-      },
-    ]);
+function createMemoryDatabase(): MemoryDatabase {
+  const sqlite = new DatabaseSync(':memory:');
+  sqlite.exec('PRAGMA foreign_keys = ON');
+  sqlite.exec(MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL);
+  let failingProgramId: string | null = null;
 
-    await expect(listProgramSummaries()).resolves.toEqual([
-      {
-        id: 'program-b',
-        title: 'Power Block',
-        updatedAt: '2026-04-20T08:00:00.000Z',
-      },
-      {
-        id: 'program-c',
-        title: 'Hypertrophy Cycle',
-        updatedAt: '2026-04-19T09:30:00.000Z',
-      },
-      {
-        id: 'program-a',
-        title: 'Strength Base',
-        updatedAt: '2026-04-18T10:00:00.000Z',
-      },
-    ]);
-  });
+  const client: DatabaseClient = {
+    execAsync: async (source) => {
+      sqlite.exec(source);
+    },
+    runAsync: async (source, ...params) => {
+      if (
+        failingProgramId !== null &&
+        source.includes('INSERT INTO mobile_v2_program_summaries') &&
+        params.includes(failingProgramId)
+      ) {
+        throw new Error('simulated write failure');
+      }
+      sqlite.prepare(source).run(...params.map(toNodeBindValue));
+    },
+    getAllAsync: async (source, ...params) =>
+      sqlite.prepare(source).all(...params.map(toNodeBindValue)),
+    withExclusiveTransactionAsync: async (task) => {
+      sqlite.exec('BEGIN IMMEDIATE');
+      try {
+        await task(client);
+        sqlite.exec('COMMIT');
+      } catch (error) {
+        sqlite.exec('ROLLBACK');
+        throw error;
+      }
+    },
+  };
 
-  it('replaces the cached snapshot when rows are removed or emptied', async () => {
-    await upsertProgramSummaries([
-      {
-        id: 'program-a',
-        title: 'Strength Base',
-        updatedAt: '2026-04-18T10:00:00.000Z',
-      },
-      {
-        id: 'program-b',
-        title: 'Power Block',
-        updatedAt: '2026-04-20T08:00:00.000Z',
-      },
-    ]);
+  return {
+    client,
+    sqlite,
+    setFailingProgramId: (programId) => {
+      failingProgramId = programId;
+    },
+  };
+}
 
-    await upsertProgramSummaries([
-      {
-        id: 'program-b',
-        title: 'Power Block',
-        updatedAt: '2026-04-20T08:00:00.000Z',
-      },
-    ]);
+function toNodeBindValue(value: SQLiteBindValue): SQLInputValue {
+  return typeof value === 'boolean' ? Number(value) : value;
+}
 
-    await expect(listProgramSummaries()).resolves.toEqual([
-      {
-        id: 'program-b',
-        title: 'Power Block',
-        updatedAt: '2026-04-20T08:00:00.000Z',
-      },
-    ]);
+const ACTIVE = {
+  id: 'program-active',
+  programId: 'gzclp',
+  title: 'Active program',
+  status: 'active',
+  createdAt: '2026-07-27T08:00:00.000Z',
+  updatedAt: '2026-07-27T12:00:00.000Z',
+} as const;
+const COMPLETED = {
+  ...ACTIVE,
+  id: 'program-completed',
+  title: 'Completed program',
+  status: 'completed',
+  updatedAt: '2026-07-27T11:00:00.000Z',
+} as const;
+const ARCHIVED = {
+  ...ACTIVE,
+  id: 'program-archived',
+  title: 'Archived program',
+  status: 'archived',
+  updatedAt: '2026-07-27T10:00:00.000Z',
+} as const;
 
-    await upsertProgramSummaries([]);
+const CATALOG_ENTRY = {
+  id: 'gzclp',
+  name: 'GZCLP',
+  description: 'Linear progression',
+  author: 'Gravity Room',
+  category: 'strength',
+  level: 'beginner',
+  source: 'preset',
+  totalWorkouts: 36,
+  workoutsPerWeek: 3,
+  cycleLength: 3,
+} satisfies CatalogEntry;
 
-    await expect(listProgramSummaries()).resolves.toEqual([]);
-  });
-
-  it('rolls back snapshot replacement when a write fails mid-transaction', async () => {
-    await upsertProgramSummaries([
-      {
-        id: 'program-a',
-        title: 'Strength Base',
-        updatedAt: '2026-04-18T10:00:00.000Z',
-      },
-      {
-        id: 'program-b',
-        title: 'Power Block',
-        updatedAt: '2026-04-20T08:00:00.000Z',
-      },
-    ]);
-
-    mockFailNextInsert = true;
-
-    await expect(
-      upsertProgramSummaries([
+const DEFINITION = {
+  id: 'gzclp',
+  name: 'GZCLP',
+  description: 'Linear progression',
+  author: 'Gravity Room',
+  version: 1,
+  category: 'strength',
+  source: 'preset',
+  days: [
+    {
+      name: 'Day 1',
+      slots: [
         {
-          id: 'program-b',
-          title: 'Power Block',
-          updatedAt: '2026-04-20T08:00:00.000Z',
+          id: 'squat-t1',
+          exerciseId: 'squat',
+          tier: 'T1',
+          stages: [{ sets: 5, reps: 3 }],
+          onSuccess: { type: 'add_weight' },
+          onMidStageFail: { type: 'advance_stage' },
+          onFinalStageFail: { type: 'deload_percent', percent: 10 },
+          startWeightKey: 'squat',
         },
-      ])
-    ).rejects.toThrow('write failed');
+      ],
+    },
+  ],
+  cycleLength: 1,
+  totalWorkouts: 12,
+  workoutsPerWeek: 3,
+  exercises: { squat: { name: 'Squat' } },
+  configFields: [{ key: 'squat', label: 'Squat', type: 'weight', min: 20, step: 2.5 }],
+  weightIncrements: { T1: 2.5 },
+} satisfies ProgramDefinition;
 
-    await expect(listProgramSummaries()).resolves.toEqual([
-      {
-        id: 'program-b',
-        title: 'Power Block',
-        updatedAt: '2026-04-20T08:00:00.000Z',
-      },
-      {
-        id: 'program-a',
-        title: 'Strength Base',
-        updatedAt: '2026-04-18T10:00:00.000Z',
-      },
+const DETAIL = {
+  id: ACTIVE.id,
+  programId: 'gzclp',
+  name: ACTIVE.title,
+  config: { squat: 20 },
+  metadata: null,
+  results: {},
+  undoHistory: [],
+  resultTimestamps: {},
+  completedDates: {},
+  definitionId: null,
+  customDefinition: null,
+  status: 'active',
+  createdAt: ACTIVE.createdAt,
+  updatedAt: ACTIVE.updatedAt,
+} satisfies GenericProgramDetail;
+
+function readCount(sqlite: DatabaseSync, source: string, ...params: SQLiteBindValue[]): number {
+  const row = sqlite.prepare(source).get(...params.map(toNodeBindValue));
+  const count = row?.count;
+  if (typeof count !== 'number') {
+    throw new Error('Expected a numeric count');
+  }
+  return count;
+}
+
+describe('M2 program repository', () => {
+  let memory: MemoryDatabase;
+
+  beforeEach(() => {
+    memory = createMemoryDatabase();
+    mockDatabaseClient = memory.client;
+  });
+
+  afterEach(() => {
+    memory.sqlite.close();
+  });
+
+  it('keeps active, completed and archived rows in one owner-scoped snapshot', async () => {
+    await replaceProgramSummaries('user-a', [ACTIVE, COMPLETED, ARCHIVED]);
+    await replaceProgramSummaries('user-b', [{ ...ACTIVE, title: 'B private' }]);
+
+    await expect(listProgramSummaries('user-a')).resolves.toEqual([ACTIVE, COMPLETED, ARCHIVED]);
+    await expect(listProgramSummaries('user-b')).resolves.toEqual([
+      { ...ACTIVE, title: 'B private' },
     ]);
   });
 
-  it('rejects malformed SQLite rows instead of trusting a caller-selected generic', async () => {
-    mockRowsOverride = [
-      {
-        id: 'program-a',
-        title: 'Strength Base',
-        updated_at: 42,
-      },
-    ];
+  it('rolls back the whole snapshot when one summary insert fails', async () => {
+    await replaceProgramSummaries('user-a', [ACTIVE, COMPLETED]);
+    memory.setFailingProgramId(ARCHIVED.id);
 
-    await expect(listProgramSummaries()).rejects.toThrow(
-      'SQLite returned an invalid program summary row'
+    await expect(replaceProgramSummaries('user-a', [ARCHIVED])).rejects.toThrow(
+      'simulated write failure'
     );
+    await expect(listProgramSummaries('user-a')).resolves.toEqual([ACTIVE, COMPLETED]);
+  });
+
+  it('caches and reads the catalog for offline use without crossing owners', async () => {
+    await replaceCachedCatalog('user-a', [CATALOG_ENTRY]);
+
+    await expect(listCachedCatalog('user-a')).resolves.toEqual([CATALOG_ENTRY]);
+    await expect(listCachedCatalog('user-b')).resolves.toEqual([]);
+  });
+
+  it('rejects a non-preset catalog entry at the SQLite boundary', async () => {
+    memory.sqlite
+      .prepare(
+        `INSERT INTO mobile_v2_program_catalog (
+           owner_user_id, id, entry_json, updated_at
+         ) VALUES (?, ?, ?, ?)`
+      )
+      .run(
+        'user-a',
+        'custom-program',
+        JSON.stringify({ ...CATALOG_ENTRY, id: 'custom-program', source: 'custom' }),
+        '2026-07-27T12:00:00.000Z'
+      );
+
+    await expect(listCachedCatalog('user-a')).rejects.toThrow(
+      'SQLite returned an invalid cached catalog entry'
+    );
+  });
+
+  it('commits created detail, definition, server list and pin in one transaction', async () => {
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: [ACTIVE],
+    });
+
+    expect(
+      readCount(
+        memory.sqlite,
+        'SELECT count(*) AS count FROM mobile_v2_program_details WHERE owner_user_id = ?',
+        'user-a'
+      )
+    ).toBe(1);
+    expect(
+      readCount(
+        memory.sqlite,
+        'SELECT count(*) AS count FROM mobile_v2_program_definitions WHERE owner_user_id = ?',
+        'user-a'
+      )
+    ).toBe(1);
+    expect(
+      readCount(
+        memory.sqlite,
+        `SELECT count(*) AS count
+         FROM mobile_v2_program_preferences
+         WHERE owner_user_id = ? AND pinned_program_id = ?`,
+        'user-a',
+        ACTIVE.id
+      )
+    ).toBe(1);
+  });
+
+  it('merges POST truth without deleting cached programs when the follow-up list fails', async () => {
+    await replaceProgramSummaries('user-a', [COMPLETED]);
+
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: null,
+    });
+
+    await expect(listProgramSummaries('user-a')).resolves.toEqual([ACTIVE, COMPLETED]);
+  });
+
+  it('moves a managed instance between lists and clears an inactive pin atomically', async () => {
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: [ACTIVE],
+    });
+
+    await cacheManagedProgram('user-a', { ...DETAIL, status: 'archived' });
+
+    await expect(listProgramSummaries('user-a')).resolves.toEqual([
+      { ...ACTIVE, status: 'archived' },
+    ]);
+    expect(
+      readCount(
+        memory.sqlite,
+        `SELECT count(*) AS count
+         FROM mobile_v2_program_preferences
+         WHERE owner_user_id = ? AND pinned_program_id IS NULL`,
+        'user-a'
+      )
+    ).toBe(1);
+  });
+
+  it('deletes only instance-related local data and pin after remote success calls it', async () => {
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: [ACTIVE],
+    });
+
+    await deleteLocalProgramData('user-a', ACTIVE.id);
+
+    await expect(listProgramSummaries('user-a')).resolves.toEqual([]);
+    expect(
+      readCount(
+        memory.sqlite,
+        'SELECT count(*) AS count FROM mobile_v2_program_details WHERE owner_user_id = ?',
+        'user-a'
+      )
+    ).toBe(0);
+    expect(
+      readCount(
+        memory.sqlite,
+        'SELECT count(*) AS count FROM mobile_v2_program_definitions WHERE owner_user_id = ?',
+        'user-a'
+      )
+    ).toBe(1);
+  });
+
+  it('removes orphaned detail data when full server truth no longer contains the instance', async () => {
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: [ACTIVE],
+    });
+
+    await replaceProgramSummaries('user-a', []);
+
+    expect(
+      readCount(
+        memory.sqlite,
+        'SELECT count(*) AS count FROM mobile_v2_program_details WHERE owner_user_id = ?',
+        'user-a'
+      )
+    ).toBe(0);
+    expect(
+      readCount(
+        memory.sqlite,
+        'SELECT count(*) AS count FROM mobile_v2_program_definitions WHERE owner_user_id = ?',
+        'user-a'
+      )
+    ).toBe(1);
   });
 });
