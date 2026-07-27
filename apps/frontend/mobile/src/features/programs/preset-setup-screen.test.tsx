@@ -51,7 +51,7 @@ const DEFINITION = {
   source: 'preset',
   days: [
     {
-      name: 'Day 1',
+      name: 'Día 1',
       slots: [
         {
           id: 'squat-t1',

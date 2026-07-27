@@ -179,23 +179,28 @@ Inicio: 2026-07-27
 
 Base congelada: `78adf51dc98ad77b8302d0042c7ffae7538bfcea`
 
-Estado: segunda corrección completa tras dos rondas de revisión `no-go`; las puertas de cierre están
-verdes, pero falta una nueva reverificación independiente. El SHA se identifica en el handoff. No es
-GO.
+Estado: tercera corrección completa tras la reverificación independiente final 2. El revisor B dio
+`go`, pero el revisor A mantuvo `no-go` por el único P1 `M2-VF2A-001`; esta pasada corrige ese
+hallazgo y deja el hito pendiente de una nueva reverificación independiente. El SHA se identifica en
+el handoff. M2 no está integrado y no tiene GO final.
 
 ### Candidato y revisiones
 
-| Evento                  | SHA / estado                                 | Evidencia                                      |
-| ----------------------- | -------------------------------------------- | ---------------------------------------------- |
-| Candidato implementador | `579531475a1c4c5c6ff73d5a2512c02530500033`   | M2 completo previo a revisión                  |
-| Revisión A              | `no-go`: 8 findings                          | `M2-A-001` a `M2-A-008`                        |
-| Revisión B              | `no-go`: 9 findings                          | `M2-B-001` a `M2-B-009`                        |
-| Normalización Main      | N1-N13                                       | Todos aceptados para primera corrección        |
-| Corrector 1             | `90a78bd1e63d08279fa0b4a141a3acd946390ddc`   | N1-N13 corregidos; no constituye GO            |
-| Reverificación final A  | `no-go`: 4 findings                          | `M2-VFA-001` a `M2-VFA-004`                    |
-| Reverificación final B  | `no-go`: 1 finding                           | `M2-VFB-001`                                   |
-| Normalización Main 2    | C1-C5                                        | Los cinco aceptados para segunda corrección    |
-| Corrector 2             | este commit; SHA en el handoff del corrector | Puertas completas; pendiente de reverificación |
+| Evento                   | SHA / estado                                 | Evidencia                                      |
+| ------------------------ | -------------------------------------------- | ---------------------------------------------- |
+| Candidato implementador  | `579531475a1c4c5c6ff73d5a2512c02530500033`   | M2 completo previo a revisión                  |
+| Revisión A               | `no-go`: 8 findings                          | `M2-A-001` a `M2-A-008`                        |
+| Revisión B               | `no-go`: 9 findings                          | `M2-B-001` a `M2-B-009`                        |
+| Normalización Main       | N1-N13                                       | Todos aceptados para primera corrección        |
+| Corrector 1              | `90a78bd1e63d08279fa0b4a141a3acd946390ddc`   | N1-N13 corregidos; no constituye GO            |
+| Reverificación final A   | `no-go`: 4 findings                          | `M2-VFA-001` a `M2-VFA-004`                    |
+| Reverificación final B   | `no-go`: 1 finding                           | `M2-VFB-001`                                   |
+| Normalización Main 2     | C1-C5                                        | Los cinco aceptados para segunda corrección    |
+| Corrector 2              | `ad0a0c64558dee7d3c5f34dbcf8b48542bf1b978`   | Puertas completas; pendiente de reverificación |
+| Reverificación final 2 A | `no-go`: 1 finding P1                        | `M2-VF2A-001`; todo lo demás PASS              |
+| Reverificación final 2 B | `go`                                         | C1-C5 y N1-N13 PASS; sin findings              |
+| Normalización Main 3     | `M2-VF2A-001`                                | Aceptado para tercera corrección               |
+| Corrector 3              | este commit; SHA en el handoff del corrector | Catálogo exhaustivo; no constituye GO          |
 
 ### Origen → normalizado y corrección
 
@@ -222,13 +227,13 @@ contenido, locale y snapshot (`M2-VFA-001` a `M2-VFA-004`), y B encontró la car
 reactivación (`M2-VFB-001`). Esta segunda pasada corrige C1-C5 y vuelve a ejecutar N1-N13, pero no
 convierte por sí sola el hito en GO.
 
-| Normalizado | Origen       | Sev. | Estado | Corrección y evidencia principal                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ----------- | ------------ | ---- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| C1          | `M2-VFB-001` | P1   | fixed  | Reactivate bloquea primero al owner y después al target con `FOR UPDATE`, valida ownership/status y comprueba el `UPDATE ... RETURNING` dentro del callback. Lifecycle/delete comparten el orden de locks. El repro de target desaparecido/update 0 fuerza rollback y deja A `active`; repetir una activación ya aplicada es idempotente y devuelve el target `active`.                                                                                                                                                                                                        |
-| C2          | `M2-VFA-001` | P1   | fixed  | Todo el catálogo canónico real de 20 presets se localiza por IDs/keys estables: campos, opciones, días y ejercicios. HeXaN PPL y Caparazón tienen cobertura explícita; hombre/mujer y redondeos 2,5/1,25 son inequívocos. Un test recorre los seeds reales ES/EN y falla ante cualquier fallback ordinal; IDs futuros usan un nombre humano derivado del identificador estable.                                                                                                                                                                                                |
-| C3          | `M2-VFA-002` | P2   | fixed  | Formatter y parser de pesos comparten frontera locale-aware. Defaults, hints y valores visibles usan coma en ES y punto en EN, y todo valor renderizado puede volver a parsearse. Un cambio de idioma conserva valores editados y relocaliza pesos válidos sin refetch. Tests UI cubren `2,5`, `22,5`, `1,25` y sus equivalentes EN.                                                                                                                                                                                                                                           |
-| C4          | `M2-VFA-003` | P2   | fixed  | La migración runtime v3 añade metadata de snapshot exitoso por owner y recurso, escrita en la misma transacción que biblioteca/catálogo. Solo backfillea catálogo v2 poblado, cuya escritura siempre fue reemplazo completo; filas de biblioteca sin marcador permanecen como datos confirmados parciales y se muestran con copy de primera sync, no como último snapshot. Una tabla vacía sigue en `no_snapshot` y un remoto vacío real queda como `snapshot_empty`. Los readers toman marcador+filas en una misma transacción SQLite; tests cubren atomicidad y aislamiento. |
-| C5          | `M2-VFA-004` | P2   | fixed  | Reactivar B completa A, guarda B `active` y auto-fija B en una única transacción SQLite. La intención de activación viaja explícita desde el use-case, por lo que renombrar/configurar un programa ya activo no cambia una selección Tracker existente o ausente. La prueba real parte de A active+pinned y B completed, confirma que Tracker resuelve B y cubre el rename sin repin.                                                                                                                                                                                          |
+| Normalizado | Origen       | Sev. | Estado     | Corrección y evidencia principal                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------- | ------------ | ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| C1          | `M2-VFB-001` | P1   | fixed      | Reactivate bloquea primero al owner y después al target con `FOR UPDATE`, valida ownership/status y comprueba el `UPDATE ... RETURNING` dentro del callback. Lifecycle/delete comparten el orden de locks. El repro de target desaparecido/update 0 fuerza rollback y deja A `active`; repetir una activación ya aplicada es idempotente y devuelve el target `active`.                                                                                                                                                                                                        |
+| C2          | `M2-VFA-001` | P1   | superseded | La segunda corrección amplió el recorrido a los 20 presets, pero todavía permitía `humanizeIdentifier`, sustituciones parciales y fallbacks ordinales. La reverificación final 2 A demostró que la prueba comprobaba presencia, no semántica exacta; `M2-VF2A-001` sustituye esta resolución incompleta.                                                                                                                                                                                                                                                                       |
+| C3          | `M2-VFA-002` | P2   | fixed      | Formatter y parser de pesos comparten frontera locale-aware. Defaults, hints y valores visibles usan coma en ES y punto en EN, y todo valor renderizado puede volver a parsearse. Un cambio de idioma conserva valores editados y relocaliza pesos válidos sin refetch. Tests UI cubren `2,5`, `22,5`, `1,25` y sus equivalentes EN.                                                                                                                                                                                                                                           |
+| C4          | `M2-VFA-003` | P2   | fixed      | La migración runtime v3 añade metadata de snapshot exitoso por owner y recurso, escrita en la misma transacción que biblioteca/catálogo. Solo backfillea catálogo v2 poblado, cuya escritura siempre fue reemplazo completo; filas de biblioteca sin marcador permanecen como datos confirmados parciales y se muestran con copy de primera sync, no como último snapshot. Una tabla vacía sigue en `no_snapshot` y un remoto vacío real queda como `snapshot_empty`. Los readers toman marcador+filas en una misma transacción SQLite; tests cubren atomicidad y aislamiento. |
+| C5          | `M2-VFA-004` | P2   | fixed      | Reactivar B completa A, guarda B `active` y auto-fija B en una única transacción SQLite. La intención de activación viaja explícita desde el use-case, por lo que renombrar/configurar un programa ya activo no cambia una selección Tracker existente o ausente. La prueba real parte de A active+pinned y B completed, confirma que Tracker resuelve B y cubre el rename sin repin.                                                                                                                                                                                          |
 
 ### Reconfirmación N1-N13
 
@@ -248,7 +253,25 @@ convierte por sí sola el hito en GO.
 | N12      | pass      | Revalidación/offline siguen discriminados; C4 añade primera sync frente a vacío conocido.   |
 | N13      | pass      | Schemas estrictos siguen rechazando detail/config/results/undo corruptos.                   |
 
-### Checks de la corrección
+### Tercera reverificación y corrección
+
+La reverificación final 2 fue divergente pero precisa: B dio `go`, confirmó C1-C5 y N1-N13 y no
+abrió findings; A devolvió `no-go` únicamente por `M2-VF2A-001` P1 y marcó PASS en todo lo demás.
+El defecto era de contrato, no una lista corta de traducciones ausentes: el catálogo canónico aún
+podía caer en humanización de identificadores, sustituciones parciales, copy mixto y ordinales, y el
+test aceptaba cualquier string no vacío. Esta tercera corrección no altera lógica GZCLP ni
+`@gzclp/domain`.
+
+| Finding       | Sev. | Estado | Corrección y evidencia principal                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------- | ---- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `M2-VF2A-001` | P1   | fixed  | Los 20 IDs canónicos exigen copy por claves estables. Los 1.165 días se reconstruyen mediante formatos semánticos completos, nunca sustituyendo fragmentos; los 139 IDs de ejercicio y las 210 apariciones de campos se igualan exactamente contra los seeds, y las cuatro opciones semánticas cubren hombre, mujer, 2,5 y 1,25. El test ES/EN compara la salida exacta, la paridad de conjuntos por seed, mezclas de idioma, claves internas y fallback genérico; fija además `apert`, `curl_fem`, `gemelo_pie`, `acc_incline_db_press`, `Jue — Pecho/Bíceps` y `Banca/Muerto`. El fallback externo queda separado, humano y no ordinal. |
+
+HeXaN PPL y Caparazón se recorren como seeds reales, no como fixtures parciales. No existen días
+vacíos en el catálogo actual; el recorrido fallaría ante uno canónico sin clave y el caso externo
+vacío devuelve copy “sin nombre”, nunca `Day N`, `Exercise N`, `Option N` ni `Initial value N`.
+Esta corrección queda pendiente de una nueva reverificación independiente y no constituye GO final.
+
+### Checks de la segunda corrección
 
 | Check                                          | Resultado                     | Nota                                                                                         |
 | ---------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------- |
@@ -268,6 +291,21 @@ convierte por sí sola el hito en GO.
 | `autoreview --mode local`                      | verde                         | 7 findings aceptados/corregidos en 5 pasadas; sexta limpia sin findings accionables          |
 | Revisión manual del diff y efectos secundarios | verde                         | Incluyó lifecycle, retry, carreras, owner, migración, i18n, locale, pin y a11y               |
 | E2E                                            | no ejecutado por política     | Reservado para M8                                                                            |
+
+### Checks de la tercera corrección
+
+| Check                                     | Resultado                   | Nota                                                                                                                            |
+| ----------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Pruebas focales de contenido + ficha real | verde: 3 suites, 16 tests   | Catálogo exhaustivo ES/EN, 2 oracles estáticos, copy externo seguro y render de setup                                           |
+| `pnpm --filter mobile test`               | verde: 37 suites, 262 tests | Reconfirma C1-C5 y N1-N13 en toda la suite mobile                                                                               |
+| `pnpm --filter mobile routes:check`       | verde                       | Manifiesto sin drift                                                                                                            |
+| `pnpm --filter mobile lint` / `typecheck` | verde                       | ESLint mobile y Expo TS estricto                                                                                                |
+| `pnpm --filter mobile i18n:check`         | verde: 1 suite, 8 tests     | Paridad exacta ES/EN, 0 missing keys                                                                                            |
+| Prettier focal + `git diff --check`       | verde                       | Copy, código, tests y progreso sin drift de formato ni whitespace                                                               |
+| Expo export Android                       | verde: 1.244 módulos        | 24 assets; bundle Hermes 3,86 MB                                                                                                |
+| `autoreview --mode local`                 | verde en sexta pasada       | Cinco findings reales aceptados: colisión externa, variante en banco, labels con guion, redondeo externo y oracle independiente |
+| Dominio                                   | no ejecutado; no afectado   | No cambian `@gzclp/domain`, schemas, motor ni lógica GZCLP                                                                      |
+| E2E                                       | no ejecutado por política   | Reservado para M8                                                                                                               |
 
 ### Riesgos y fuera de alcance
 

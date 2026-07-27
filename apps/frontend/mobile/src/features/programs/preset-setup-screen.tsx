@@ -371,16 +371,14 @@ export function PresetSetupScreen({
           <Text style={styles.sectionTitle}>{t('programs.preset.days_title')}</Text>
           {definition.days.map((day, dayIndex) => (
             <View key={`${definition.id}:${dayIndex}`} style={styles.day}>
-              <Text style={styles.dayTitle}>
-                {localizeDayName(definition.id, day.name, dayIndex, t, language)}
-              </Text>
+              <Text style={styles.dayTitle}>{localizeDayName(definition.id, day.name, t)}</Text>
               {day.slots.map((slot) => (
                 <Text key={slot.id} style={styles.body}>
                   {localizeExerciseName(
+                    definition.id,
                     slot.exerciseId,
                     definition.exercises[slot.exerciseId]?.name,
-                    t,
-                    language
+                    t
                   )}{' '}
                   · {localizeTier(slot.tier, t)}
                 </Text>
@@ -403,13 +401,7 @@ export function PresetSetupScreen({
           <Text style={styles.body}>{t('programs.preset.setup_body')}</Text>
           {definition.configFields.map((field) => {
             const issue = findFieldIssue(issues, field.key);
-            const localizedLabel = localizeFieldLabel(
-              definition.id,
-              field.key,
-              field.label,
-              t,
-              language
-            );
+            const localizedLabel = localizeFieldLabel(definition.id, field.key, field.label, t);
             if (field.type === 'weight') {
               return (
                 <View key={field.key} style={styles.field}>
@@ -466,7 +458,14 @@ export function PresetSetupScreen({
                         style={[styles.option, selected ? styles.optionSelected : null]}
                       >
                         <Text style={styles.optionLabel}>
-                          {localizeSelectOption(field.key, option.value, option.label, t, language)}
+                          {localizeSelectOption(
+                            definition.id,
+                            field.key,
+                            option.value,
+                            option.label,
+                            t,
+                            language
+                          )}
                         </Text>
                       </Pressable>
                     );
