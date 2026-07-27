@@ -13,15 +13,19 @@ export const PRIMARY_TAB_ROUTES = {
 } as const satisfies Record<string, PublicRoutePath>;
 
 export const PROTECTED_SECONDARY_ROUTE_FILE_IDS = [
-  'program/[instanceId]',
-  'program/new',
-  'program/editor/[definitionId]',
-  'workout/history',
-  'workout/[sessionId]',
-  'exercise/index',
-  'exercise/[exerciseId]',
-  'sync',
+  '(protected)/program/[instanceId]',
+  '(protected)/program/new',
+  '(protected)/program/editor/[definitionId]',
+  '(protected)/workout/history',
+  '(protected)/workout/[sessionId]',
+  '(protected)/exercise/index',
+  '(protected)/exercise/[exerciseId]',
+  '(protected)/sync',
 ] as const satisfies readonly RouteFileId[];
+
+export function toProtectedStackScreenName(routeFileId: RouteFileId): string {
+  return routeFileId.replace(/^\(protected\)\//, '');
+}
 
 export type PrimaryTab = keyof typeof PRIMARY_TAB_ROUTES;
 
@@ -120,6 +124,10 @@ export interface SafeBackRouter {
 }
 
 export function returnFromProgramRoute(router: SafeBackRouter): void {
+  returnFromSecondaryRoute(router);
+}
+
+export function returnFromSecondaryRoute(router: SafeBackRouter): void {
   if (router.canGoBack()) {
     router.back();
     return;

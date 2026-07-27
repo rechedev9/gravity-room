@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import '../lib/i18n';
 import { AppProviders } from '../providers/app-providers';
 import { useAuth } from '../providers/auth-provider';
-import { PROTECTED_SECONDARY_ROUTE_FILE_IDS } from '../navigation/routes';
 import { Screen } from '../ui/screen';
 import { colors } from '../ui/tokens';
 
@@ -16,20 +15,29 @@ export function RootNavigator() {
 
   return (
     <View style={styles.root}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Protected guard={!loading && user === null}>
-          <Stack.Screen name="(auth)" />
-        </Stack.Protected>
-        <Stack.Protected guard={loading || user !== null}>
-          <Stack.Screen name="(tabs)" />
-          {PROTECTED_SECONDARY_ROUTE_FILE_IDS.map((route) => (
-            <Stack.Screen key={route} name={route} />
-          ))}
-        </Stack.Protected>
-      </Stack>
+      <View
+        accessibilityElementsHidden={loading}
+        importantForAccessibility={loading ? 'no-hide-descendants' : 'auto'}
+        style={styles.root}
+        testID="auth-restore-content"
+      >
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Protected guard={!loading && user === null}>
+            <Stack.Screen name="(auth)" />
+          </Stack.Protected>
+          <Stack.Protected guard={loading || user !== null}>
+            <Stack.Screen name="(protected)" />
+          </Stack.Protected>
+        </Stack>
+      </View>
       {loading ? (
-        <View style={styles.overlay} testID="auth-restore-loading">
+        <View
+          accessibilityViewIsModal
+          importantForAccessibility="yes"
+          style={styles.overlay}
+          testID="auth-restore-loading"
+        >
           <Screen centered>
             <ActivityIndicator
               accessibilityLabel={t('startup.session_loading')}

@@ -22,6 +22,8 @@
   },
   "deferred_routes": {
     "available_later": "This destination is reserved by the Mobile v2 navigation contract. Its workflow arrives in a later milestone.",
+    "back": "Back",
+    "back_accessibility": "Leave this reserved screen",
     "invalid_title": "Link unavailable",
     "invalid_body": "This link is invalid or incomplete.",
     "program_new": "New program",

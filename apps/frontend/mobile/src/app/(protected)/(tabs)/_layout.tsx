@@ -1,8 +1,8 @@
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { writeLastPrimaryTab } from '../../navigation/navigation-storage';
-import { colors } from '../../ui/tokens';
+import { writeLastPrimaryTab } from '../../../navigation/navigation-storage';
+import { colors } from '../../../ui/tokens';
 
 export default function TabsLayout() {
   const { t } = useTranslation();

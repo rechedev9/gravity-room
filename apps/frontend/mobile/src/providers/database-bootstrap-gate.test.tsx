@@ -24,10 +24,24 @@ describe('DatabaseBootstrapGate', () => {
       </DatabaseBootstrapGate>
     );
 
-    expect(screen.getByText('Route tree')).toBeTruthy();
     expect(screen.getByTestId('database-bootstrap-loading')).toBeTruthy();
+    expect(
+      screen.getByTestId('database-bootstrap-content', { includeHiddenElements: true }).props
+    ).toMatchObject({
+      accessibilityElementsHidden: true,
+      importantForAccessibility: 'no-hide-descendants',
+    });
+    expect(screen.getByTestId('database-bootstrap-loading').props).toMatchObject({
+      accessibilityViewIsModal: true,
+      importantForAccessibility: 'yes',
+    });
     await waitFor(() => {
       expect(screen.queryByTestId('database-bootstrap-loading')).toBeNull();
+    });
+    expect(screen.getByText('Route tree')).toBeTruthy();
+    expect(screen.getByTestId('database-bootstrap-content').props).toMatchObject({
+      accessibilityElementsHidden: false,
+      importantForAccessibility: 'auto',
     });
   });
 
@@ -42,11 +56,21 @@ describe('DatabaseBootstrapGate', () => {
       </DatabaseBootstrapGate>
     );
 
-    fireEvent.press(
-      await screen.findByRole('button', { name: 'Retry opening local training data' })
-    );
+    const errorOverlay = await screen.findByTestId('database-bootstrap-error');
+    expect(errorOverlay.props).toMatchObject({
+      accessibilityViewIsModal: true,
+      importantForAccessibility: 'yes',
+    });
+    expect(
+      screen.getByTestId('database-bootstrap-content', { includeHiddenElements: true }).props
+    ).toMatchObject({
+      accessibilityElementsHidden: true,
+      importantForAccessibility: 'no-hide-descendants',
+    });
 
-    expect(screen.getByText('Route tree')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Retry opening local training data' }));
+
+    expect(screen.getByText('Route tree', { includeHiddenElements: true })).toBeTruthy();
     await waitFor(() => {
       expect(
         screen.queryByRole('button', { name: 'Retry opening local training data' })

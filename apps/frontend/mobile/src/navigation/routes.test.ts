@@ -6,6 +6,7 @@ import {
   PRIMARY_TAB_ROUTES,
   resolveInitialRoute,
   returnFromProgramRoute,
+  returnFromSecondaryRoute,
 } from './routes';
 
 describe('mobile navigation contract', () => {
@@ -92,5 +93,24 @@ describe('mobile navigation contract', () => {
 
     expect(router.back).toHaveBeenCalledTimes(1);
     expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('applies the same safe history contract to deferred secondary routes', () => {
+    const coldRouter = {
+      back: jest.fn(),
+      canGoBack: jest.fn(() => false),
+      replace: jest.fn(),
+    };
+    const stackedRouter = {
+      back: jest.fn(),
+      canGoBack: jest.fn(() => true),
+      replace: jest.fn(),
+    };
+
+    returnFromSecondaryRoute(coldRouter);
+    returnFromSecondaryRoute(stackedRouter);
+
+    expect(coldRouter.replace).toHaveBeenCalledWith(PRIMARY_TAB_ROUTES.programs);
+    expect(stackedRouter.back).toHaveBeenCalledTimes(1);
   });
 });

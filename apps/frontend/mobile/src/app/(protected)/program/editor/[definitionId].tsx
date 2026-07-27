@@ -1,13 +1,13 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { parseRouteIdentifier } from '../../../navigation/routes';
-import { DeferredRoute } from '../../../ui/deferred-route';
+import { DeferredRouteAdapter } from '../../../../navigation/deferred-route-adapter';
+import { parseRouteIdentifier } from '../../../../navigation/routes';
 
 export default function ProgramEditorRoute() {
   const params = useLocalSearchParams<{ definitionId?: string | string[] }>();
 
   return (
-    <DeferredRoute
+    <DeferredRouteAdapter
       route="program_editor"
       validIdentifier={parseRouteIdentifier(params.definitionId) !== null}
     />

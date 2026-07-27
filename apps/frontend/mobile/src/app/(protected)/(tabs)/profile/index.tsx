@@ -1,5 +1,5 @@
-import { ProfileScreen } from '../../../features/profile/profile-screen';
-import { useAuth } from '../../../providers/auth-provider';
+import { ProfileScreen } from '../../../../features/profile/profile-screen';
+import { useAuth } from '../../../../providers/auth-provider';
 
 export default function ProfileRoute() {
   const { signOut, user } = useAuth();

@@ -1,13 +1,13 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { parseRouteIdentifier } from '../../navigation/routes';
-import { DeferredRoute } from '../../ui/deferred-route';
+import { DeferredRouteAdapter } from '../../../navigation/deferred-route-adapter';
+import { parseRouteIdentifier } from '../../../navigation/routes';
 
 export default function WorkoutSessionRoute() {
   const params = useLocalSearchParams<{ sessionId?: string | string[] }>();
 
   return (
-    <DeferredRoute
+    <DeferredRouteAdapter
       route="workout_session"
       validIdentifier={parseRouteIdentifier(params.sessionId) !== null}
     />

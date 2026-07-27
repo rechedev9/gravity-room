@@ -1,13 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { TrackerScreen } from '../../features/tracker/tracker-screen';
+import { TrackerScreen } from '../../../features/tracker/tracker-screen';
 import {
   parseProgramInstanceId,
   PRIMARY_TAB_ROUTES,
   returnFromProgramRoute,
-} from '../../navigation/routes';
-import { MessageState } from '../../ui/message-state';
+} from '../../../navigation/routes';
+import { MessageState } from '../../../ui/message-state';
 
 export default function ProgramTrackerRoute() {
   const { t } = useTranslation();

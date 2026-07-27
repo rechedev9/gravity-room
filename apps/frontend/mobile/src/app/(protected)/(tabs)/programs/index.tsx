@@ -1,8 +1,8 @@
 import { useRouter } from 'expo-router';
 
-import { ProgramsScreen } from '../../../features/programs/programs-screen';
-import { writeTrackerProgramId } from '../../../lib/tracker/tracker-selection-storage';
-import { createProgramRoute } from '../../../navigation/routes';
+import { ProgramsScreen } from '../../../../features/programs/programs-screen';
+import { writeTrackerProgramId } from '../../../../lib/tracker/tracker-selection-storage';
+import { createProgramRoute } from '../../../../navigation/routes';
 
 export default function ProgramsRoute() {
   const router = useRouter();

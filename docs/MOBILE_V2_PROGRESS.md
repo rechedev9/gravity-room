@@ -190,7 +190,7 @@ Inicio: 2026-07-27
 
 Base congelada: `3af51a02f4bb6414b14543d7d36e52243b9305f2`
 
-Estado: corrección lista en `.worktrees/mobile-v2-fix`, pendiente de reverificación; no `go`
+Estado: segunda corrección lista en `.worktrees/mobile-v2-fix`, pendiente de reverificación; no `go`
 
 ### Alcance del candidato
 
@@ -214,21 +214,25 @@ Estado: corrección lista en `.worktrees/mobile-v2-fix`, pendiente de reverifica
 | Revisión B              | `no-go`: 4 findings                        | `M1-B-001` a `M1-B-004`                                |
 | Normalización Main      | N1-N8                                      | Todos aceptados para corrección                        |
 | Corrector               | `2dd20f56722ce2e3cd052ac7b0922b4e37cdf076` | Matriz N1-N8, checks completos y snapshot limpio       |
+| Reverificación final A  | `no-go`: 2 findings                        | `M1-VFA-001` P1 y `M1-VFA-002` P2                      |
+| Reverificación final B  | `no-go`: 2 findings                        | `M1-VFB-001` P1 y `M1-VFB-002` P2                      |
+| Normalización Main 2    | C1-C4                                      | Los cuatro aceptados para segunda corrección           |
+| Corrector 2             | segunda corrección pendiente de commit     | Matriz C1-C4 y checks completos                        |
 | Decisión Main           | pendiente                                  | Requiere reverificación A/B; este registro no marca GO |
 
 ### Checks M1
 
-| Check                                                          | Resultado                   | Nota                                                          |
-| -------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------- |
-| `pnpm exec prettier --check ...`                               | verde                       | Fuentes, tests, manifiesto y scripts M1 corregidos            |
-| `pnpm --filter mobile lint`                                    | verde                       | TS/TSX + rutas                                                |
-| `pnpm --filter mobile typecheck`                               | verde                       | Ejecuta antes `routes:check`; no depende de `.expo`           |
-| `pnpm --filter mobile i18n:check`                              | verde: 1 suite, 8 tests     | 0 missing keys ES/EN                                          |
-| `pnpm --filter mobile test`                                    | verde: 28 suites, 179 tests | Manifiesto real, tabs, cold links, restore y refresco Tracker |
-| `pnpm --filter mobile exec expo install --check`               | verde                       | Dependencias compatibles con Expo 54                          |
-| `pnpm --filter mobile exec expo config --type prebuild --json` | verde                       | Config plugins, scheme y entrypoint                           |
-| Export/bundle Expo Android                                     | verde: 1.236 módulos        | Hermes bundle 3,73 MB                                         |
-| E2E                                                            | no ejecutado por política   | Reservado para M8                                             |
+| Check                                                          | Resultado                   | Nota                                                |
+| -------------------------------------------------------------- | --------------------------- | --------------------------------------------------- |
+| `pnpm exec prettier --check ...`                               | verde                       | Fuentes, tests, manifiesto y scripts M1 corregidos  |
+| `pnpm --filter mobile lint`                                    | verde                       | TS/TSX + rutas                                      |
+| `pnpm --filter mobile typecheck`                               | verde                       | Ejecuta antes `routes:check`; no depende de `.expo` |
+| `pnpm --filter mobile i18n:check`                              | verde: 1 suite, 8 tests     | 0 missing keys ES/EN                                |
+| `pnpm --filter mobile test`                                    | verde: 30 suites, 183 tests | A11y, same-tree restore, placeholders y foco real   |
+| `pnpm --filter mobile exec expo install --check`               | verde                       | Dependencias compatibles con Expo 54                |
+| `pnpm --filter mobile exec expo config --type prebuild --json` | verde                       | Config plugins, scheme y entrypoint                 |
+| Export/bundle Expo Android                                     | verde: 1.238 módulos        | Hermes bundle 3,73 MB                               |
+| E2E                                                            | no ejecutado por política   | Reservado para M8                                   |
 
 ### Findings normalizados y corrección
 
@@ -243,6 +247,18 @@ Estado: corrección lista en `.worktrees/mobile-v2-fix`, pendiente de reverifica
 | N7          | `M1-A-006`             | P2        | fixed                             | Volver desde un cold program link usa `canGoBack()` y reemplaza a `/programs` cuando no existe historial; ambos caminos tienen pruebas.                                                                                                              |
 | N8          | `M1-A-007`, `M1-B-003` | P2        | fixed                             | Script Node determinista genera un manifiesto versionado desde `src/app`; `routes:check` precede a `tsc`, el tsconfig no incluye `.expo`, y tests prueban generación limpia y fallo por drift/ruta añadida.                                          |
 
+### Segunda reverificación y corrección
+
+Los dos verificadores frescos devolvieron `no-go` sobre la primera corrección. Esta segunda pasada
+resuelve C1-C4, pero continúa pendiente de nueva reverificación y no constituye una decisión `go`.
+
+| Normalizado | Origen       | Severidad | Estado | Resolución                                                                                                                                                                                                                                                                               |
+| ----------- | ------------ | --------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1          | `M1-VFA-001` | P1        | fixed  | Los wrappers subyacentes de auth y SQLite usan `accessibilityElementsHidden` y `importantForAccessibility="no-hide-descendants"` durante loading/error; los overlays son modales para accesibilidad. Tests comprueban estado oculto, modal y restauración.                               |
+| C2          | `M1-VFA-002` | P2        | fixed  | Los siete placeholders comparten un adapter de salida: `back()` con historial y `replace('/programs')` en cold link. Copy y labels son ES/EN; tests cubren ambos caminos y un parámetro dinámico inválido real.                                                                          |
+| C3          | `M1-VFB-001` | P1        | fixed  | Todo el árbol autenticado vive bajo el grupo URL-invisible `(protected)`. Root Stack conserva el cold link, mientras su layout no monta Stack/descendientes hasta auth y SQLite ready. Una transición en el mismo `renderRouter` prueba 0 efectos en loading, 1 tras auth y 0 para anon. |
+| C4          | `M1-VFB-002` | P2        | fixed  | La integración de tabs monta `TrackerRoute` real y observa `refreshRevision` 1→2 al navegar Tracker→Programas→Tracker; eliminar `useFocusEffect` hace fallar el contrato.                                                                                                                |
+
 ### Handoff del implementador
 
 - El root navigator se monta antes de terminar SQLite/auth y queda cubierto por overlays; una sesión
@@ -255,3 +271,5 @@ Estado: corrección lista en `.worktrees/mobile-v2-fix`, pendiente de reverifica
   política del plan y queda reservado a M8.
 - La consulta real de `workout_sessions.status = 'in_progress'` pertenece a M3. M1 deja un adapter
   explícito y probado, pero no registra el SQL v2 ni sustituye la señal con `programs[0]`.
+- El grupo `(protected)` no altera URLs públicas: solo cambia IDs internos del manifiesto. Ninguna
+  pantalla autenticada dispara efectos durante restore o bootstrap fallido.

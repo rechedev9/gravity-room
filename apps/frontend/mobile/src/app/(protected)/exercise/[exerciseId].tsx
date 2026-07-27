@@ -1,13 +1,13 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { parseRouteIdentifier } from '../../navigation/routes';
-import { DeferredRoute } from '../../ui/deferred-route';
+import { DeferredRouteAdapter } from '../../../navigation/deferred-route-adapter';
+import { parseRouteIdentifier } from '../../../navigation/routes';
 
 export default function ExerciseDetailRoute() {
   const params = useLocalSearchParams<{ exerciseId?: string | string[] }>();
 
   return (
-    <DeferredRoute
+    <DeferredRouteAdapter
       route="exercise_detail"
       validIdentifier={parseRouteIdentifier(params.exerciseId) !== null}
     />

@@ -22,6 +22,8 @@
   },
   "deferred_routes": {
     "available_later": "Este destino está reservado por el contrato de navegación de Mobile v2. Su flujo llegará en un hito posterior.",
+    "back": "Volver",
+    "back_accessibility": "Salir de esta pantalla reservada",
     "invalid_title": "Enlace no disponible",
     "invalid_body": "Este enlace no es válido o está incompleto.",
     "program_new": "Nuevo programa",
