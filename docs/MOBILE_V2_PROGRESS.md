@@ -190,7 +190,7 @@ Inicio: 2026-07-27
 
 Base congelada: `3af51a02f4bb6414b14543d7d36e52243b9305f2`
 
-Estado: segunda corrección aprobada; pendiente de fast-forward a `.worktrees/mobile-v2-impl`
+Estado: integrado en `.worktrees/mobile-v2-impl`; M1 cerrado
 
 ### Alcance del candidato
 
@@ -279,3 +279,13 @@ los cuatro roles: implementador, dos revisores frescos A/B, corrector y retorno 
   explícito y probado, pero no registra el SQL v2 ni sustituye la señal con `programs[0]`.
 - El grupo `(protected)` no altera URLs públicas: solo cambia IDs internos del manifiesto. Ninguna
   pantalla autenticada dispara efectos durante restore o bootstrap fallido.
+
+### Handoff Main
+
+- Fast-forward completado desde el corrector a `codex/mobile-v2` hasta
+  `6e2a82335b9938214273a8a4d836809aa9aa1cb5`.
+- M1 queda cerrado con los cuatro roles exigidos: implementador, revisores frescos A/B, corrector y
+  retorno a Main. Las dos rondas `no-go` y todos sus findings permanecen trazados arriba.
+- La reverificación final A dio `go`; Main verificó el delta exacto, el lifecycle protegido, a11y,
+  manifiesto y pruebas antes del fast-forward.
+- E2E continúa sin ejecutarse y permanece reservado para M8.
