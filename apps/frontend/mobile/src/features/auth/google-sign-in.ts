@@ -28,7 +28,7 @@ export function useGoogleIdTokenPrompt(): GoogleAuthResult {
     iosClientId !== undefined ||
     webClientId !== undefined;
 
-  const [request, _response, promptAsync] = Google.useIdTokenAuthRequest({
+  const [request, , promptAsync] = Google.useIdTokenAuthRequest({
     clientId: defaultClientId ?? 'missing-google-client-id',
     ...(androidClientId !== undefined ? { androidClientId } : {}),
     ...(iosClientId !== undefined ? { iosClientId } : {}),

@@ -16,7 +16,7 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 | `apps/frontend/web/src/lib/api/generated.ts`     | frontend | OpenAPI-generated Zod client (committed)                                                                  | openapi-zod-client                            | `pnpm --filter web api:types` regenerates it; CI checks for drift |
 | `apps/frontend/web/codegen/`                     | frontend | Codegen sources for `lib/api/generated.ts`                                                                | tsx TS scripts                                | `vitest run apps/frontend/web/codegen/generate-api-types.test.ts` |
 | `apps/frontend/web/e2e/`                         | frontend | Playwright specs (chromium)                                                                               | Playwright 1.58                               | `pnpm --filter web e2e`                                           |
-| `apps/frontend/mobile/`                          | frontend | Expo / RN client                                                                                          | Expo 54, RN 0.81, expo-sqlite                 | `pnpm --filter mobile typecheck` / Jest                           |
+| `apps/frontend/mobile/`                          | frontend | Expo / RN client                                                                                          | Expo 54, RN 0.81, expo-sqlite                 | `pnpm --filter mobile lint` / `typecheck` / `test`                |
 | `apps/backend/api/`                              | backend  | REST API                                                                                                  | ElysiaJS 1.4 on Node                          | `pnpm run dev:api` / `pnpm run test:api`                          |
 | `apps/backend/api/src/routes/`                   | backend  | HTTP route handlers (auth, programs, catalog, etc.)                                                       | Elysia                                        | `vitest run apps/backend/api/src/routes`                          |
 | `apps/backend/api/src/services/`                 | backend  | Business logic (1:1 with routes)                                                                          | TS                                            | `vitest run apps/backend/api/src/services`                        |
@@ -52,13 +52,16 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Docs
 
-| Path                     | Role                                             |
-| ------------------------ | ------------------------------------------------ |
-| `docs/ARCHITECTURE.md`   | architectural overview (this layout's rationale) |
-| `docs/VERCEL_CUTOVER.md` | Vercel same-origin go-live runbook               |
-| `docs/llm-map.md`        | this file                                        |
-| `CLAUDE.md`              | auto-loaded agent context (live API + DB schema) |
-| `README.md`              | top-level entry point                            |
+| Path                         | Role                                             |
+| ---------------------------- | ------------------------------------------------ |
+| `docs/ARCHITECTURE.md`       | architectural overview (this layout's rationale) |
+| `docs/MOBILE_V2_PLAN.md`     | scope, slices and four-worktree delivery graph   |
+| `docs/MOBILE_V2_PROGRESS.md` | live Mobile v2 candidates, reviews and checks    |
+| `docs/mobile-v2/adr/`        | accepted Mobile v2 architecture decisions        |
+| `docs/VERCEL_CUTOVER.md`     | Vercel same-origin go-live runbook               |
+| `docs/llm-map.md`            | this file                                        |
+| `CLAUDE.md`                  | auto-loaded agent context (live API + DB schema) |
+| `README.md`                  | top-level entry point                            |
 
 ## Quick "where do I look for…"
 

@@ -32,6 +32,12 @@ type TrackerScreenProps = {
   readonly onBack: () => void;
 };
 
+interface FreshTrackerState {
+  readonly detail: GenericProgramDetail;
+  readonly definition: ProgramDefinition;
+  readonly localStateVersion: number;
+}
+
 const LOCAL_SYNC_RETRY_NOTICE = 'Saved locally. Sync will retry.';
 const LOCAL_SYNC_MANUAL_RETRY_NOTICE = "Saved locally. This change won't sync automatically.";
 const MAX_RPE = 10;
@@ -61,6 +67,41 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
   useEffect(() => {
     let active = true;
 
+    async function refreshTracker(hasCachedTracker: boolean): Promise<FreshTrackerState | null> {
+      const refreshLocalStateVersion = localStateVersionRef.current;
+      const currentAccessToken = getAccessToken();
+      if (currentAccessToken) {
+        try {
+          await flushQueuedMutations(currentAccessToken);
+        } catch {
+          if (hasCachedTracker) {
+            setSyncNotice('Showing cached tracker data while sync catches up.');
+            setLoading(false);
+            return null;
+          }
+        }
+      }
+
+      const freshDetail = await fetchProgramDetail(programInstanceId);
+      const inlineDefinition = resolveProgramDefinition(freshDetail);
+      const freshDefinition =
+        inlineDefinition ?? (await fetchProgramDefinition(freshDetail.programId));
+
+      if (inlineDefinition === null) {
+        await upsertProgramDefinition(freshDefinition);
+      }
+
+      if (!hasCachedTracker || localStateVersionRef.current === refreshLocalStateVersion) {
+        await upsertProgramDetail(freshDetail);
+      }
+
+      return {
+        detail: freshDetail,
+        definition: freshDefinition,
+        localStateVersion: refreshLocalStateVersion,
+      };
+    }
+
     async function loadTracker(): Promise<void> {
       try {
         const cachedDetail = await getProgramDetail(programInstanceId);
@@ -83,46 +124,27 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
         }
 
         try {
-          const refreshLocalStateVersion = localStateVersionRef.current;
-          const currentAccessToken = getAccessToken();
-          if (currentAccessToken) {
-            try {
-              await flushQueuedMutations(currentAccessToken);
-            } catch {
-              if (hasCachedTracker) {
-                setSyncNotice('Showing cached tracker data while sync catches up.');
-                setLoading(false);
-                return;
-              }
-            }
-          }
-
-          const freshDetail = await fetchProgramDetail(programInstanceId);
-          const inlineDefinition = resolveProgramDefinition(freshDetail);
-          const freshDefinition =
-            inlineDefinition ?? (await fetchProgramDefinition(freshDetail.programId));
-
-          if (inlineDefinition === null) {
-            await upsertProgramDefinition(freshDefinition);
-          }
-
-          if (!hasCachedTracker || localStateVersionRef.current === refreshLocalStateVersion) {
-            await upsertProgramDetail(freshDetail);
+          const freshTracker = await refreshTracker(hasCachedTracker);
+          if (freshTracker === null) {
+            return;
           }
 
           if (!active) {
             return;
           }
 
-          setDefinition(freshDefinition);
+          setDefinition(freshTracker.definition);
           setLoading(false);
           setSyncNotice(null);
           if (!hasCachedTracker) {
             setSelectedWorkoutIndex(0);
           }
 
-          if (!hasCachedTracker || localStateVersionRef.current === refreshLocalStateVersion) {
-            setDetailState(freshDetail);
+          if (
+            !hasCachedTracker ||
+            localStateVersionRef.current === freshTracker.localStateVersion
+          ) {
+            setDetailState(freshTracker.detail);
           }
         } catch {
           if (!active) {

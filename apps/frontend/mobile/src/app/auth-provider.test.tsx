@@ -42,7 +42,7 @@ function createDeferred<T>() {
 }
 
 function AuthProbe() {
-  const { loading, signInWithGoogle, signOut, user } = useAuth();
+  const { loading, signOut, user } = useAuth();
   if (loading) return <Text>loading</Text>;
   if (!user) return <Text>signed-out</Text>;
 

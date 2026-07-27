@@ -2,20 +2,35 @@ import { openDatabaseSync } from 'expo-sqlite';
 
 import { bootstrapDatabase, getDatabase, type DatabaseClient } from './client';
 import type { MigrationStep } from './migrations';
+import {
+  EMPTY_DATABASE_FIXTURE,
+  LEGACY_UNVERSIONED_DATABASE_FIXTURE,
+  V1_DATABASE_FIXTURE,
+  type MobileDatabaseFixture,
+} from '../../testing/fixtures/mobile-v2-fixtures';
 
 const mockedOpenDatabaseSync = jest.mocked(openDatabaseSync);
 
 interface FakeDatabase extends DatabaseClient {
   readonly getVersion: () => number;
+  readonly getTableNames: () => readonly string[];
   readonly appliedSql: string[];
 }
 
-function createFakeDatabase(initialVersion: number): FakeDatabase {
-  let userVersion = initialVersion;
+function createFakeDatabase(fixture: MobileDatabaseFixture): FakeDatabase {
+  let userVersion = fixture.userVersion;
+  const tableNames = new Set(fixture.tables);
   const appliedSql: string[] = [];
 
   const execAsync = jest.fn(async (source: string) => {
     appliedSql.push(source);
+
+    for (const match of source.matchAll(/CREATE TABLE IF NOT EXISTS\s+([a-z_]+)/g)) {
+      const tableName = match[1];
+      if (tableName !== undefined) {
+        tableNames.add(tableName);
+      }
+    }
 
     const versionMatch = /PRAGMA user_version\s*=\s*(\d+)/.exec(source);
     if (versionMatch?.[1]) {
@@ -44,6 +59,7 @@ function createFakeDatabase(initialVersion: number): FakeDatabase {
       }
     ),
     getVersion: () => userVersion,
+    getTableNames: () => [...tableNames].sort(),
     appliedSql,
   };
 
@@ -56,7 +72,7 @@ describe('bootstrapDatabase', () => {
   });
 
   it('retries bootstrap after a previous failure', async () => {
-    const database = createFakeDatabase(0);
+    const database = createFakeDatabase(EMPTY_DATABASE_FIXTURE);
     const execAsync = jest
       .fn<Promise<void>, [string]>()
       .mockRejectedValueOnce(new Error('disk busy'))
@@ -73,17 +89,18 @@ describe('bootstrapDatabase', () => {
   });
 
   it('returns the same database instance across calls', () => {
-    mockedOpenDatabaseSync.mockReturnValue(createFakeDatabase(0) as never);
+    mockedOpenDatabaseSync.mockReturnValue(createFakeDatabase(EMPTY_DATABASE_FIXTURE) as never);
 
     expect(getDatabase()).toBe(getDatabase());
   });
 
   it('brings a fresh database to the latest version with all tables', async () => {
-    const database = createFakeDatabase(0);
+    const database = createFakeDatabase(EMPTY_DATABASE_FIXTURE);
 
     await bootstrapDatabase(database);
 
     expect(database.getVersion()).toBe(1);
+    expect(database.getTableNames()).toEqual([...V1_DATABASE_FIXTURE.tables].sort());
     expect(
       database.appliedSql.some((sql) =>
         sql.includes('CREATE TABLE IF NOT EXISTS program_summaries')
@@ -106,10 +123,11 @@ describe('bootstrapDatabase', () => {
   it('migrates a pre-existing install stuck at version 0 without erroring', async () => {
     // Simulates an install that already ran the old, non-versioned bootstrap:
     // the tables exist, but PRAGMA user_version was never set.
-    const database = createFakeDatabase(0);
+    const database = createFakeDatabase(LEGACY_UNVERSIONED_DATABASE_FIXTURE);
 
     await bootstrapDatabase(database);
     expect(database.getVersion()).toBe(1);
+    expect(database.getTableNames()).toEqual([...V1_DATABASE_FIXTURE.tables].sort());
 
     // Running it again (e.g. next app launch) must be a no-op: the CREATE
     // TABLE IF NOT EXISTS statements never re-run once the version matches.
@@ -127,7 +145,7 @@ describe('bootstrapDatabase', () => {
       version: 1,
       sql: 'CREATE TABLE IF NOT EXISTS program_summaries (id TEXT);',
     };
-    const database = createFakeDatabase(0);
+    const database = createFakeDatabase(EMPTY_DATABASE_FIXTURE);
 
     await bootstrapDatabase(database, [dummyMigration, baseline]);
 
@@ -140,6 +158,16 @@ describe('bootstrapDatabase', () => {
     expect(database.appliedSql).toContain('PRAGMA user_version = 2');
   });
 
+  it('leaves a v1 installation untouched when no later migration exists', async () => {
+    const database = createFakeDatabase(V1_DATABASE_FIXTURE);
+
+    await bootstrapDatabase(database);
+
+    expect(database.getVersion()).toBe(1);
+    expect(database.getTableNames()).toEqual([...V1_DATABASE_FIXTURE.tables].sort());
+    expect(database.appliedSql).toEqual([]);
+  });
+
   it('skips migrations already applied when starting above version 0', async () => {
     const dummyMigration: MigrationStep = {
       version: 2,
@@ -149,7 +177,7 @@ describe('bootstrapDatabase', () => {
       version: 1,
       sql: 'CREATE TABLE IF NOT EXISTS program_summaries (id TEXT);',
     };
-    const database = createFakeDatabase(1);
+    const database = createFakeDatabase(V1_DATABASE_FIXTURE);
 
     await bootstrapDatabase(database, [dummyMigration, baseline]);
 

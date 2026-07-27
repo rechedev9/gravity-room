@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "expo start",
     "android": "expo start --android",
+    "i18n:check": "pnpm exec jest src/lib/i18n/i18n.test.ts --runInBand",
+    "lint": "pnpm exec eslint App.tsx \"src/**/*.ts\" \"src/**/*.tsx\"",
+    "lint:fix": "pnpm exec eslint App.tsx \"src/**/*.ts\" \"src/**/*.tsx\" --fix",
     "test": "pnpm exec jest --runInBand",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
