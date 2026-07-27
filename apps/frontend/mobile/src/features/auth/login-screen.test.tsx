@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { LoginScreen } from './login-screen';
 import type { AuthActionResult } from '../../app/auth-provider';
@@ -53,6 +53,31 @@ describe('LoginScreen', () => {
 
     await waitFor(() => {
       expect(mockSignInWithGoogle).toHaveBeenCalledWith('google-id-token');
+    });
+  });
+
+  it('prevents duplicate Google exchanges while the first sign-in is pending', async () => {
+    let resolveSignIn: (() => void) | undefined;
+    mockPromptAsync.mockResolvedValue('google-id-token');
+    mockSignInWithGoogle.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSignIn = resolve;
+        })
+    );
+
+    render(<LoginScreen />);
+
+    const googleButton = screen.getByRole('button', { name: 'Continue with Google' });
+    fireEvent.press(googleButton);
+    await waitFor(() => expect(mockSignInWithGoogle).toHaveBeenCalledTimes(1));
+    fireEvent.press(googleButton);
+
+    expect(mockPromptAsync).toHaveBeenCalledTimes(1);
+    expect(mockSignInWithGoogle).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      resolveSignIn?.();
+      await Promise.resolve();
     });
   });
 

@@ -25,14 +25,32 @@ export function isChunkLoadError(error: unknown): boolean {
  * we already reloaded recently (preventing infinite loops).
  */
 export function handleChunkError(error: unknown): never {
-  const lastReload = sessionStorage.getItem(RELOAD_KEY);
+  // A missing chunk while offline is not evidence of a stale deployment.
+  // Reloading would discard the current React tree and cannot restore network
+  // access, so let the route error boundary preserve the rest of the session.
+  if (!navigator.onLine) {
+    throw error;
+  }
+
+  let lastReload: string | null;
+  try {
+    lastReload = sessionStorage.getItem(RELOAD_KEY);
+  } catch {
+    // Storage can be blocked by browser privacy settings. Without a durable
+    // cooldown marker, reloading here could create an infinite reload loop.
+    throw error;
+  }
   const now = Date.now();
 
   if (lastReload && now - Number(lastReload) < RELOAD_COOLDOWN_MS) {
     throw error;
   }
 
-  sessionStorage.setItem(RELOAD_KEY, String(now));
+  try {
+    sessionStorage.setItem(RELOAD_KEY, String(now));
+  } catch {
+    throw error;
+  }
   window.location.reload();
 
   // Unreachable in practice (reload navigates away), but satisfies the type

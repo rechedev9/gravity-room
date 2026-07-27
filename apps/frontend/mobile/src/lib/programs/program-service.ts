@@ -17,8 +17,8 @@ interface RemoteProgramSummary {
 }
 
 interface RemoteProgramsPage {
-  readonly data?: readonly RemoteProgramSummary[];
-  readonly nextCursor?: string | null;
+  readonly data: readonly RemoteProgramSummary[];
+  readonly nextCursor: string | null;
 }
 
 const DEFAULT_WEIGHT_FALLBACK = 20;
@@ -29,25 +29,32 @@ function isRemoteProgramSummary(value: unknown): value is RemoteProgramSummary {
     return false;
   }
 
-  return typeof value.id === 'string';
+  const name = value.name;
+  const updatedAt = value.updatedAt;
+  return (
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    (name === undefined || name === null || typeof name === 'string') &&
+    (updatedAt === undefined || updatedAt === null || typeof updatedAt === 'string')
+  );
 }
 
 function readRemoteProgramsPage(value: unknown): RemoteProgramsPage {
   if (!isRecord(value)) {
-    return {};
+    throw new Error('Invalid program summary response');
   }
 
   const rawData = value.data;
-  const data = Array.isArray(rawData) ? rawData.filter(isRemoteProgramSummary) : undefined;
-  const nextCursor =
-    typeof value.nextCursor === 'string' || value.nextCursor === null
-      ? value.nextCursor
-      : undefined;
+  if (!Array.isArray(rawData) || !rawData.every(isRemoteProgramSummary)) {
+    throw new Error('Invalid program summary response');
+  }
 
-  return {
-    ...(data ? { data } : {}),
-    ...(nextCursor !== undefined ? { nextCursor } : {}),
-  };
+  const rawNextCursor = value.nextCursor;
+  if (rawNextCursor !== null && typeof rawNextCursor !== 'string') {
+    throw new Error('Invalid program summary response');
+  }
+
+  return { data: rawData, nextCursor: rawNextCursor };
 }
 
 export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
@@ -57,6 +64,7 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
 
   const programs: ProgramSummary[] = [];
   let nextCursor: string | null | undefined;
+  const visitedCursors = new Set<string>();
 
   do {
     const requestUrl = new URL('http://localhost');
@@ -72,7 +80,7 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
     }
 
     const payload = readRemoteProgramsPage(await response.json());
-    for (const program of payload.data ?? []) {
+    for (const program of payload.data) {
       programs.push({
         id: program.id,
         title: program.name ?? 'Untitled Program',
@@ -81,6 +89,12 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
     }
 
     nextCursor = payload.nextCursor;
+    if (nextCursor) {
+      if (visitedCursors.has(nextCursor)) {
+        throw new Error('Program summary pagination repeated a cursor');
+      }
+      visitedCursors.add(nextCursor);
+    }
   } while (nextCursor);
 
   return programs;

@@ -64,6 +64,10 @@ describe('handleChunkError', () => {
     mockGetItem.mockClear();
     mockSetItem.mockClear();
     reloadMock.mockClear();
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      value: true,
+    });
   });
 
   it('reloads the page on first chunk error', () => {
@@ -91,5 +95,42 @@ describe('handleChunkError', () => {
     expect(() => handleChunkError(error)).toThrow();
 
     expect(reloadMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not reload when a chunk is unavailable because the browser is offline', () => {
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      value: false,
+    });
+    const error = new TypeError('Failed to fetch dynamically imported module');
+
+    expect(() => handleChunkError(error)).toThrow(error);
+
+    expect(mockGetItem).not.toHaveBeenCalled();
+    expect(mockSetItem).not.toHaveBeenCalled();
+    expect(reloadMock).not.toHaveBeenCalled();
+  });
+
+  it('preserves the chunk error without reloading when session storage cannot be read', () => {
+    const error = new TypeError('Failed to fetch dynamically imported module');
+    mockGetItem.mockImplementationOnce(() => {
+      throw new DOMException('Storage is disabled', 'SecurityError');
+    });
+
+    expect(() => handleChunkError(error)).toThrow(error);
+
+    expect(mockSetItem).not.toHaveBeenCalled();
+    expect(reloadMock).not.toHaveBeenCalled();
+  });
+
+  it('preserves the chunk error without reloading when the cooldown cannot be persisted', () => {
+    const error = new TypeError('Failed to fetch dynamically imported module');
+    mockSetItem.mockImplementationOnce(() => {
+      throw new DOMException('Storage quota exceeded', 'QuotaExceededError');
+    });
+
+    expect(() => handleChunkError(error)).toThrow(error);
+
+    expect(reloadMock).not.toHaveBeenCalled();
   });
 });

@@ -19,11 +19,20 @@ import {
 } from '../lib/tracker/program-detail-repository';
 
 jest.mock('../lib/auth/session', () => ({
+  getAccessToken: jest.fn(() => null),
   restoreSession: jest.fn(),
   signInWithGoogleIdToken: jest.fn(),
   signInWithEmailPassword: jest.fn(),
   signUpWithEmailPassword: jest.fn(),
   signOutSession: jest.fn(),
+}));
+
+jest.mock('../lib/auth/secure-storage', () => ({
+  secureLocalDataOwnerStorage: {
+    getOwnerId: jest.fn(async () => 'user-123'),
+    setOwnerId: jest.fn(async () => undefined),
+    clearOwnerId: jest.fn(async () => undefined),
+  },
 }));
 
 const mockPromptAsync = jest.fn<Promise<string | null>, []>();

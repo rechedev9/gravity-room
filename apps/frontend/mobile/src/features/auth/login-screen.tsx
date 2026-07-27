@@ -16,6 +16,7 @@ export function LoginScreen() {
   const { disabled, promptAsync } = useGoogleIdTokenPrompt();
 
   const [googleError, setGoogleError] = useState<string | null>(null);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
   // Email/password progressive-disclosure form state (mirrors the web login page).
   const [showEmail, setShowEmail] = useState(false);
@@ -30,22 +31,24 @@ export function LoginScreen() {
   const codeMessage = (code: string | undefined): string =>
     t([`login.errors.${code ?? 'generic'}`, 'login.errors.generic']);
 
-  function handleGooglePress(): void {
-    setGoogleError(null);
-    void promptAsync()
-      .then((credential) => {
-        if (!credential) {
-          return;
-        }
+  async function handleGooglePress(): Promise<void> {
+    if (googleSubmitting) {
+      return;
+    }
 
-        void signInWithGoogle(credential).catch(() => {
-          // Keep the screen interactive when the mobile auth exchange fails.
-          setGoogleError(t('login.errors.google_auth_error'));
-        });
-      })
-      .catch(() => {
-        // Ignore prompt failures so the user can retry the Google flow.
-      });
+    setGoogleError(null);
+    setGoogleSubmitting(true);
+    try {
+      const credential = await promptAsync();
+      if (credential) {
+        await signInWithGoogle(credential);
+      }
+    } catch {
+      // Keep the screen interactive when prompting or the token exchange fails.
+      setGoogleError(t('login.errors.google_auth_error'));
+    } finally {
+      setGoogleSubmitting(false);
+    }
   }
 
   const canSubmit = email.trim().length > 0 && password.length > 0 && !submitting;
@@ -102,12 +105,14 @@ export function LoginScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={googleLabel}
-          disabled={disabled}
-          onPress={handleGooglePress}
+          disabled={disabled || googleSubmitting}
+          onPress={() => {
+            void handleGooglePress();
+          }}
           style={({ pressed }) => [
             styles.button,
-            disabled ? styles.buttonDisabled : null,
-            pressed && !disabled ? styles.buttonPressed : null,
+            disabled || googleSubmitting ? styles.buttonDisabled : null,
+            pressed && !disabled && !googleSubmitting ? styles.buttonPressed : null,
           ]}
         >
           <Text style={styles.buttonLabel}>{googleLabel}</Text>

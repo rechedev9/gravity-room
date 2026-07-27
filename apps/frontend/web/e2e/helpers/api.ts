@@ -1,7 +1,8 @@
 import type { Page } from '@playwright/test';
+import { resolvePlaywrightApiUrl } from '../../playwright-ports';
 import { DEFAULT_WEIGHTS } from './fixtures';
 
-const BASE_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
+const BASE_URL = resolvePlaywrightApiUrl(process.env);
 
 // Shared secret for the dev-only /auth/dev endpoint. Must match the API's
 // AUTH_DEV_ROUTE_SECRET (set in playwright.config.ts and CI). Non-prod only.

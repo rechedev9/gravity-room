@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
+import { resolvePlaywrightApiUrl } from '../playwright-ports';
 import { createAndAuthUser, createTestProgram } from './helpers/api';
 
-const BASE_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
+const BASE_URL = resolvePlaywrightApiUrl(process.env);
 
 test.describe('security hardening', () => {
   test('API responses include strict baseline security headers', async ({ page }) => {

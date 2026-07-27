@@ -73,7 +73,6 @@ vi.mock('@/lib/api-functions', async () => {
 
 import { AuthProvider, useAuth } from './auth-context';
 import { SESSION_INVALIDATED_EVENT } from '@/lib/auth-events';
-import { markSessionHint } from '@/lib/session-hint';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -126,10 +125,6 @@ describe('AuthProvider', () => {
     resetAllMocks();
     localStorage.clear();
     window.history.replaceState({}, '', '/');
-    // These suites model a RETURNING visitor (one who has a refresh cookie), so
-    // seed the best-effort session hint that gates the restore refresh. The
-    // "anonymous visitor" path (no hint → no refresh) is covered explicitly below.
-    markSessionHint();
     testQueryClient = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: 0 } },
     });
@@ -153,22 +148,23 @@ describe('AuthProvider', () => {
       expect(result.current.loading).toBe(true);
     });
 
-    it('skips the refresh call entirely for an anonymous visitor (no session hint)', async () => {
-      // No prior sign-in → no hint. The app must NOT fire POST /auth/refresh
-      // (which would 401 and log a red console error on every first load).
+    it('restores a valid server session when local storage is empty', async () => {
       localStorage.clear();
+      mockRefreshAccessToken.mockResolvedValue({
+        accessToken: fakeJwt({ sub: 'cookie-user', email: 'cookie@example.com' }),
+        user: { id: 'cookie-user', email: 'cookie@example.com' },
+      });
 
       const { result } = renderHook(() => useAuth(), { wrapper });
 
       await waitFor(() => {
-        expect(result.current.loading).toBe(false);
+        expect(result.current.user?.id).toBe('cookie-user');
       });
 
-      expect(result.current.user).toBeNull();
-      expect(mockRefreshAccessToken).not.toHaveBeenCalled();
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1);
     });
 
-    it('restores a server-side social sign-in on the callback even without a session hint', async () => {
+    it('restores a server-side social sign-in on the callback', async () => {
       localStorage.clear();
       window.history.replaceState({}, '', '/auth/callback?provider=github');
       mockRefreshAccessToken.mockResolvedValue({

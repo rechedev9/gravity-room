@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-import { secureRefreshTokenStorage } from './secure-storage';
+import { secureLocalDataOwnerStorage, secureRefreshTokenStorage } from './secure-storage';
 
 const mockedSecureStore = jest.mocked(SecureStore);
 
@@ -28,5 +28,31 @@ describe('secureRefreshTokenStorage', () => {
       { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY }
     );
     expect(mockedSecureStore.deleteItemAsync).toHaveBeenCalledWith('auth.refresh-token');
+  });
+});
+
+describe('secureLocalDataOwnerStorage', () => {
+  afterEach(() => {
+    mockedSecureStore.getItemAsync.mockReset();
+    mockedSecureStore.setItemAsync.mockReset();
+    mockedSecureStore.deleteItemAsync.mockReset();
+  });
+
+  it('keeps the SQLite cache owner in non-migratable secure storage', async () => {
+    mockedSecureStore.getItemAsync.mockResolvedValue('user-123');
+    mockedSecureStore.setItemAsync.mockResolvedValue();
+    mockedSecureStore.deleteItemAsync.mockResolvedValue();
+
+    await expect(secureLocalDataOwnerStorage.getOwnerId()).resolves.toBe('user-123');
+    await secureLocalDataOwnerStorage.setOwnerId('user-456');
+    await secureLocalDataOwnerStorage.clearOwnerId();
+
+    expect(mockedSecureStore.getItemAsync).toHaveBeenCalledWith('auth.local-data-owner');
+    expect(mockedSecureStore.setItemAsync).toHaveBeenCalledWith(
+      'auth.local-data-owner',
+      'user-456',
+      { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY }
+    );
+    expect(mockedSecureStore.deleteItemAsync).toHaveBeenCalledWith('auth.local-data-owner');
   });
 });

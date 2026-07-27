@@ -20,7 +20,13 @@ vi.mock('../lib/redis', () => ({
   getRedis: vi.fn(() => null),
 }));
 
-import { JWT_AUDIENCE, JWT_ISSUER, resolveUserId, verifyAccessToken } from './auth-guard';
+import {
+  extractBearerToken,
+  JWT_AUDIENCE,
+  JWT_ISSUER,
+  resolveUserId,
+  verifyAccessToken,
+} from './auth-guard';
 
 function jwtFor(payload: Record<string, unknown>) {
   return {
@@ -53,6 +59,15 @@ describe('resolveUserId', () => {
 
     expect(result).toEqual({ userId: 'user-123' });
     expect(mockFindUserById).toHaveBeenCalledWith('user-123');
+  });
+
+  it('accepts the case-insensitive Bearer auth scheme defined by HTTP', async () => {
+    const result = await resolveUserId({
+      jwt: jwtFor({ sub: 'user-123', iss: JWT_ISSUER, aud: JWT_AUDIENCE, av: 0 }),
+      headers: { authorization: 'bearer token' },
+    });
+
+    expect(result).toEqual({ userId: 'user-123' });
   });
 
   it('rejects a valid token when the user no longer exists or is soft-deleted', async () => {
@@ -104,6 +119,19 @@ describe('resolveUserId', () => {
 
     expect(thrown).toBeInstanceOf(ApiError);
     expect((thrown as ApiError).code).toBe('TOKEN_REVOKED');
+  });
+});
+
+describe('extractBearerToken', () => {
+  it('accepts scheme casing, repeated horizontal whitespace, and trailing whitespace', () => {
+    expect(extractBearerToken({ authorization: 'bEaReR   token\t' })).toBe('token');
+  });
+
+  it('rejects missing tokens and credentials containing whitespace', () => {
+    expect(() => extractBearerToken({ authorization: 'Bearer ' })).toThrow(ApiError);
+    expect(() => extractBearerToken({ authorization: 'Bearer token with-spaces' })).toThrow(
+      ApiError
+    );
   });
 });
 

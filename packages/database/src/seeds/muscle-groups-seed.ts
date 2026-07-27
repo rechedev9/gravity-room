@@ -1,8 +1,9 @@
 /**
  * Idempotent seed for the muscle_groups table.
- * Uses onConflictDoNothing() to allow re-runs without error.
+ * Uses an upsert so corrected canonical labels reach existing databases.
  */
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { sql } from 'drizzle-orm';
 import { muscleGroups } from '../schema';
 import type * as schema from '../schema';
 
@@ -23,5 +24,8 @@ export async function seedMuscleGroups(db: DbClient): Promise<void> {
   await db
     .insert(muscleGroups)
     .values([...MUSCLE_GROUPS])
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: muscleGroups.id,
+      set: { name: sql`excluded.name` },
+    });
 }

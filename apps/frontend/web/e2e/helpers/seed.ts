@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { DEFAULT_WEIGHTS } from './fixtures';
 import {
   createAndAuthUser,
@@ -10,6 +10,27 @@ import {
 interface SeedOptions {
   readonly startWeights?: typeof DEFAULT_WEIGHTS;
   readonly results?: Record<string, Record<string, string>>;
+}
+
+type Tier = 'T1' | 'T2' | 'T3';
+type TierOutcome = 'éxito' | 'fallo';
+
+/** Locate a whole-tier outcome action by its user-visible exercise/tier label. */
+export function tierOutcomeButton(page: Page, tier: Tier, outcome: TierOutcome): Locator {
+  return page
+    .getByRole('button', {
+      name: new RegExp(`^Marcar .+ \\(${tier}\\) como ${outcome}$`, 'i'),
+    })
+    .first();
+}
+
+/** Locate the result badge that undoes a previously recorded tier outcome. */
+export function tierUndoButton(page: Page, tier: Tier, outcome: TierOutcome): Locator {
+  return page
+    .getByRole('button', {
+      name: new RegExp(`^Deshacer .+ \\(${tier}\\) ${outcome}$`, 'i'),
+    })
+    .first();
 }
 
 /**

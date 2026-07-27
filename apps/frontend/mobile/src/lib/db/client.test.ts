@@ -68,8 +68,8 @@ describe('bootstrapDatabase', () => {
     await expect(bootstrapDatabase()).rejects.toThrow('disk busy');
     await expect(bootstrapDatabase()).resolves.toBeUndefined();
 
-    expect(execAsync).toHaveBeenCalledTimes(3);
-    expect(database.getVersion()).toBe(1);
+    expect(execAsync).toHaveBeenCalledTimes(5);
+    expect(database.getVersion()).toBe(2);
   });
 
   it('returns the same database instance across calls', () => {
@@ -83,7 +83,7 @@ describe('bootstrapDatabase', () => {
 
     await bootstrapDatabase(database);
 
-    expect(database.getVersion()).toBe(1);
+    expect(database.getVersion()).toBe(2);
     expect(
       database.appliedSql.some((sql) =>
         sql.includes('CREATE TABLE IF NOT EXISTS program_summaries')
@@ -101,6 +101,10 @@ describe('bootstrapDatabase', () => {
       )
     ).toBe(true);
     expect(database.appliedSql).toContain('PRAGMA user_version = 1');
+    expect(
+      database.appliedSql.some((sql) => sql.includes('ALTER TABLE queued_mutations ADD COLUMN'))
+    ).toBe(true);
+    expect(database.appliedSql).toContain('PRAGMA user_version = 2');
   });
 
   it('migrates a pre-existing install stuck at version 0 without erroring', async () => {
@@ -109,7 +113,7 @@ describe('bootstrapDatabase', () => {
     const database = createFakeDatabase(0);
 
     await bootstrapDatabase(database);
-    expect(database.getVersion()).toBe(1);
+    expect(database.getVersion()).toBe(2);
 
     // Running it again (e.g. next app launch) must be a no-op: the CREATE
     // TABLE IF NOT EXISTS statements never re-run once the version matches.

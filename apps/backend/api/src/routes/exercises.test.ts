@@ -26,9 +26,13 @@ const { mockRateLimit, mockFindUserById, mockListExercises, mockCreateExercise }
       (id: string): Promise<{ id: string; authVersion: number } | undefined> =>
         Promise.resolve({ id, authVersion: 0 })
     );
-    const mockListExercises = vi.fn<() => Promise<PaginatedResult>>(() =>
-      Promise.resolve({ data: [], total: 0, offset: 0, limit: 100 })
-    );
+    const mockListExercises = vi.fn<
+      (
+        userId?: string,
+        filter?: Record<string, unknown>,
+        pagination?: { limit: number; offset: number }
+      ) => Promise<PaginatedResult>
+    >(() => Promise.resolve({ data: [], total: 0, offset: 0, limit: 100 }));
     const mockCreateExercise = vi.fn(() =>
       Promise.resolve({ ok: true as const, value: { id: 'test_exercise' } })
     );
@@ -134,6 +138,18 @@ describe('GET /exercises', () => {
     expect(res.status).toBe(401);
     expect(body.code).toBe('TOKEN_INVALID');
     expect(mockListExercises).not.toHaveBeenCalled();
+  });
+
+  it('accepts a valid token with lowercase bearer scheme casing', async () => {
+    const token = await makeValidJwt('user-1');
+    const res = await get('/exercises', { Authorization: `bearer ${token}` });
+
+    expect(res.status).toBe(200);
+    expect(mockListExercises).toHaveBeenCalledWith(
+      'user-1',
+      expect.any(Object),
+      expect.any(Object)
+    );
   });
 
   it('returns 401 for a malformed authorization scheme', async () => {
@@ -452,6 +468,7 @@ describe('GET /exercises — pagination', () => {
     expect(body['offset']).toBe(0);
     expect(body['limit']).toBe(50);
     expect(Array.isArray(body['data'])).toBe(true);
+    expect(mockListExercises.mock.calls[0]?.[2]).toEqual({ limit: 50, offset: 0 });
   });
 
   it('uses defaults limit=100 offset=0 when no pagination params provided', async () => {
@@ -459,12 +476,7 @@ describe('GET /exercises — pagination', () => {
     await get('/exercises');
 
     // Assert — listExercises called with pagination defaults
-    const call = mockListExercises.mock.calls[0] as unknown as [
-      string | undefined,
-      Record<string, unknown>,
-      { limit: number; offset: number },
-    ];
-    expect(call[2]).toEqual({ limit: 100, offset: 0 });
+    expect(mockListExercises.mock.calls[0]?.[2]).toEqual({ limit: 100, offset: 0 });
   });
 
   it('returns 400 VALIDATION_ERROR for limit=1001', async () => {

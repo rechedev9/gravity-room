@@ -6,15 +6,18 @@ import {
   useMemo,
   useState,
 } from 'react';
+import { AppState } from 'react-native';
 
 import type { AuthUser } from '../lib/auth/session';
 import {
+  getAccessToken,
   restoreSession,
   signInWithEmailPassword,
   signInWithGoogleIdToken,
   signOutSession,
   signUpWithEmailPassword,
 } from '../lib/auth/session';
+import { secureLocalDataOwnerStorage } from '../lib/auth/secure-storage';
 import { clearLocalAppData } from '../lib/db/client';
 import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation-sync-service';
 
@@ -46,6 +49,18 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+async function prepareLocalDataForUser(
+  userId: string,
+  preserveUnclaimedData: boolean
+): Promise<void> {
+  const ownerId = await secureLocalDataOwnerStorage.getOwnerId();
+  if (ownerId !== userId && !(ownerId === null && preserveUnclaimedData)) {
+    await clearQueuedMutations();
+    await clearLocalAppData();
+  }
+  await secureLocalDataOwnerStorage.setOwnerId(userId);
+}
+
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,12 +71,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
     void restoreSession()
       .then((session) => {
         if (!active) return;
-        setUser(session?.user ?? null);
-        if (session?.accessToken) {
+        if (!session) {
+          setUser(null);
+          return;
+        }
+
+        return prepareLocalDataForUser(session.user.id, true).then(() => {
+          if (!active) return;
+          setUser(session.user);
           void flushQueuedMutations(session.accessToken).catch(() => {
             // Leave queued mutations in place for a later retry.
           });
-        }
+        });
       })
       .catch(() => {
         if (!active) return;
@@ -77,6 +98,27 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') {
+        return;
+      }
+
+      const currentAccessToken = getAccessToken();
+      if (currentAccessToken) {
+        void flushQueuedMutations(currentAccessToken).catch(() => {
+          // Keep the outbox intact for a later foreground or explicit retry.
+        });
+      }
+    });
+
+    return () => subscription.remove();
+  }, [user]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -84,6 +126,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isGuest: false,
       signInWithGoogle: async (credential: string) => {
         const session = await signInWithGoogleIdToken(credential);
+        await prepareLocalDataForUser(session.user.id, false);
         setUser(session.user);
         void flushQueuedMutations(session.accessToken).catch(() => {
           // Leave queued mutations in place for a later retry.
@@ -94,6 +137,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (!result.ok) {
           return { ok: false, code: result.code };
         }
+        await prepareLocalDataForUser(result.session.user.id, false);
         setUser(result.session.user);
         void flushQueuedMutations(result.session.accessToken).catch(() => {
           // Leave queued mutations in place for a later retry.
@@ -116,6 +160,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         await signOutSession();
         await clearLocalAppData().catch(() => {
           // Best-effort cleanup only; local cache issues must not block sign-out.
+        });
+        await secureLocalDataOwnerStorage.clearOwnerId().catch(() => {
+          // Best-effort cleanup only; cache deletion above already prevents
+          // another account from observing this user's local data.
         });
         setUser(null);
       },

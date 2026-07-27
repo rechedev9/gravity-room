@@ -19,15 +19,21 @@ import { setupTestDb, teardownTestDb, truncateAllTables } from '../db-setup';
 import {
   hashPassword,
   createPasswordUser,
+  createPasswordSignup,
   authenticatePassword,
   setUserPassword,
   markEmailVerified,
   createEmailVerificationToken,
   replaceEmailVerificationToken,
   consumeEmailVerificationToken,
+  verifyEmailWithToken,
   createPasswordResetToken,
   consumePasswordResetToken,
+  resetPasswordWithToken,
   createAndStoreRefreshToken,
+  hashToken,
+  rotateRefreshToken,
+  revokeAllUserTokens,
 } from '../../src/services/auth';
 import { getDb } from '../../src/db';
 import { ApiError } from '../../src/middleware/error-handler';
@@ -45,6 +51,25 @@ afterAll(async () => {
 });
 
 describe('email/password (integration)', () => {
+  it('creates the user, password identity, and initial verification link together', async () => {
+    const { user, verificationToken } = await createPasswordSignup({
+      email: 'atomic-signup@example.com',
+      passwordHash: await hashPassword('pw-atomic-1'),
+    });
+
+    expect(user.email).toBe('atomic-signup@example.com');
+    expect(verificationToken).toMatch(/^[0-9a-f]{64}$/);
+    const [identities, tokenRows] = await Promise.all([
+      getDb().select().from(userIdentities).where(eq(userIdentities.userId, user.id)),
+      getDb()
+        .select()
+        .from(emailVerificationTokens)
+        .where(eq(emailVerificationTokens.userId, user.id)),
+    ]);
+    expect(identities).toHaveLength(1);
+    expect(tokenRows).toHaveLength(1);
+  });
+
   it('creates a password user (hashed, unverified, no google_id) plus a password identity', async () => {
     const user = await createPasswordUser({
       email: 'Morpheus@Example.com',
@@ -125,6 +150,19 @@ describe('email/password (integration)', () => {
     expect(rows).toHaveLength(0);
   });
 
+  it('atomically consumes a verification link and returns the verified user', async () => {
+    const user = await createPasswordUser({
+      email: 'atomic-verify@example.com',
+      passwordHash: await hashPassword('pw-verify-2'),
+    });
+    const token = await createEmailVerificationToken(user.id);
+
+    const verified = await verifyEmailWithToken(token);
+    expect(verified?.id).toBe(user.id);
+    expect(verified?.emailVerified).toBe(true);
+    expect(await verifyEmailWithToken(token)).toBeNull();
+  });
+
   it('replaceEmailVerificationToken invalidates every earlier verification link', async () => {
     const user = await createPasswordUser({
       email: 'resend@example.com',
@@ -179,6 +217,40 @@ describe('email/password (integration)', () => {
       .from(refreshTokens)
       .where(eq(refreshTokens.userId, user.id));
     expect(sessions).toHaveLength(0);
+  });
+
+  it('atomically resets the password and revokes the existing session family', async () => {
+    const user = await createPasswordUser({
+      email: 'atomic-reset@example.com',
+      passwordHash: await hashPassword('old-password-1'),
+    });
+    const token = await createPasswordResetToken(user.id);
+    await createAndStoreRefreshToken(user.id);
+
+    expect(await resetPasswordWithToken(token, await hashPassword('atomic-new-password-2'))).toBe(
+      user.id
+    );
+    expect(await resetPasswordWithToken(token, await hashPassword('unused-password-3'))).toBeNull();
+    expect(await authenticatePassword(user.email, 'old-password-1')).toBeNull();
+    expect((await authenticatePassword(user.email, 'atomic-new-password-2'))?.id).toBe(user.id);
+    expect(
+      await getDb().select().from(refreshTokens).where(eq(refreshTokens.userId, user.id))
+    ).toHaveLength(0);
+  });
+
+  it('cannot leave a rotated successor alive after all-session revocation wins the race', async () => {
+    const user = await createPasswordUser({
+      email: 'rotation-race@example.com',
+      passwordHash: await hashPassword('old-password-1'),
+    });
+    const rawToken = await createAndStoreRefreshToken(user.id);
+    const tokenHash = await hashToken(rawToken);
+
+    await Promise.all([rotateRefreshToken(tokenHash), revokeAllUserTokens(user.id)]);
+
+    expect(
+      await getDb().select().from(refreshTokens).where(eq(refreshTokens.userId, user.id))
+    ).toHaveLength(0);
   });
 
   it('serializes concurrent reset requests so exactly one link remains valid', async () => {

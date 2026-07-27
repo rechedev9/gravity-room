@@ -61,57 +61,59 @@ const DEFINITION_MAP: Record<string, unknown> = {
 };
 
 export async function seedProgramTemplates(db: DbClient): Promise<void> {
-  // Collect template IDs that are being deactivated
-  const deactivatingIds = PROGRAM_CATALOG.filter((meta) => !meta.isActive).map((meta) => meta.id);
+  await db.transaction(async (tx) => {
+    const deactivatingIds = PROGRAM_CATALOG.filter((meta) => !meta.isActive).map((meta) => meta.id);
 
-  // Auto-complete any active instances for templates being deactivated
-  if (deactivatingIds.length > 0) {
-    const completed = await db
-      .update(programInstances)
-      .set({ status: 'completed', updatedAt: new Date() })
-      .where(
-        and(
-          eq(programInstances.status, 'active'),
-          inArray(programInstances.templateId, deactivatingIds)
+    // A failed catalog upsert must not leave user programs completed against the
+    // old catalog state, so both mutations belong to one transaction.
+    if (deactivatingIds.length > 0) {
+      const completed = await tx
+        .update(programInstances)
+        .set({ status: 'completed', updatedAt: new Date() })
+        .where(
+          and(
+            eq(programInstances.status, 'active'),
+            inArray(programInstances.templateId, deactivatingIds)
+          )
         )
-      )
-      .returning({ id: programInstances.id, templateId: programInstances.templateId });
+        .returning({ id: programInstances.id, templateId: programInstances.templateId });
 
-    if (completed.length > 0) {
-      console.error(
-        `[seed] Auto-completed ${completed.length} active instance(s) for deactivated templates: ${completed.map((c) => `${c.id} (${c.templateId})`).join(', ')}`
-      );
+      if (completed.length > 0) {
+        console.error(
+          `[seed] Auto-completed ${completed.length} active instance(s) for deactivated templates: ${completed.map((c) => `${c.id} (${c.templateId})`).join(', ')}`
+        );
+      }
     }
-  }
 
-  await db
-    .insert(programTemplates)
-    .values(
-      PROGRAM_CATALOG.map((meta) => ({
-        id: meta.id,
-        name: meta.name,
-        description: meta.description,
-        author: meta.author,
-        version: 1,
-        category: meta.category,
-        level: meta.level,
-        source: 'preset',
-        definition: DEFINITION_MAP[meta.id],
-        isActive: meta.isActive,
-      }))
-    )
-    .onConflictDoUpdate({
-      target: programTemplates.id,
-      set: {
-        name: sql`excluded.name`,
-        description: sql`excluded.description`,
-        author: sql`excluded.author`,
-        version: sql`excluded.version`,
-        category: sql`excluded.category`,
-        level: sql`excluded.level`,
-        source: sql`excluded.source`,
-        definition: sql`excluded.definition`,
-        isActive: sql`excluded.is_active`,
-      },
-    });
+    await tx
+      .insert(programTemplates)
+      .values(
+        PROGRAM_CATALOG.map((meta) => ({
+          id: meta.id,
+          name: meta.name,
+          description: meta.description,
+          author: meta.author,
+          version: 1,
+          category: meta.category,
+          level: meta.level,
+          source: 'preset',
+          definition: DEFINITION_MAP[meta.id],
+          isActive: meta.isActive,
+        }))
+      )
+      .onConflictDoUpdate({
+        target: programTemplates.id,
+        set: {
+          name: sql`excluded.name`,
+          description: sql`excluded.description`,
+          author: sql`excluded.author`,
+          version: sql`excluded.version`,
+          category: sql`excluded.category`,
+          level: sql`excluded.level`,
+          source: sql`excluded.source`,
+          definition: sql`excluded.definition`,
+          isActive: sql`excluded.is_active`,
+        },
+      });
+  });
 }

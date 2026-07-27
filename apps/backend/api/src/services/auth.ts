@@ -21,6 +21,7 @@ import { ApiError } from '../middleware/error-handler';
 // ---------------------------------------------------------------------------
 
 type UserRow = typeof users.$inferSelect;
+type AuthTx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
 
 /**
  * Subset of refresh_tokens columns required by the auth flows.
@@ -54,6 +55,12 @@ export type RotateRefreshTokenResult =
 export interface FindOrCreateResult {
   readonly user: UserRow;
   readonly isNewUser: boolean;
+}
+
+/** Account + raw verification credential created by an atomic password signup. */
+export interface PasswordSignupResult {
+  readonly user: UserRow;
+  readonly verificationToken: string;
 }
 
 /** External auth providers, plus the local email/password method. */
@@ -353,20 +360,7 @@ export async function createPasswordUser(input: {
   const email = input.email.toLowerCase();
   try {
     return await getDb().transaction(async (tx) => {
-      const [user] = await tx
-        .insert(users)
-        .values({
-          email,
-          name: input.name ?? null,
-          passwordHash: input.passwordHash,
-          emailVerified: false,
-        })
-        .returning();
-      if (!user) throw new ApiError(500, 'Failed to create user', 'DB_WRITE_ERROR');
-      await tx
-        .insert(userIdentities)
-        .values({ userId: user.id, provider: 'password', providerAccountId: user.id });
-      return user;
+      return insertPasswordUser(tx, { ...input, email });
     });
   } catch (error: unknown) {
     if (isUniqueViolation(error)) {
@@ -374,6 +368,30 @@ export async function createPasswordUser(input: {
     }
     throw error;
   }
+}
+
+async function insertPasswordUser(
+  tx: AuthTx,
+  input: {
+    readonly email: string;
+    readonly passwordHash: string;
+    readonly name?: string | undefined;
+  }
+): Promise<UserRow> {
+  const [user] = await tx
+    .insert(users)
+    .values({
+      email: input.email,
+      name: input.name ?? null,
+      passwordHash: input.passwordHash,
+      emailVerified: false,
+    })
+    .returning();
+  if (!user) throw new ApiError(500, 'Failed to create user', 'DB_WRITE_ERROR');
+  await tx
+    .insert(userIdentities)
+    .values({ userId: user.id, provider: 'password', providerAccountId: user.id });
+  return user;
 }
 
 /** Sets or replaces a user's password hash. */
@@ -421,6 +439,44 @@ async function mintEmailVerificationToken(
   return { token, row: { userId, tokenHash, expiresAt } };
 }
 
+/**
+ * Creates the password user, identity, and first verification token atomically.
+ * A token-write failure therefore cannot strand an unverified account that
+ * blocks the user from retrying signup with the same email.
+ */
+export async function createPasswordSignup(input: {
+  readonly email: string;
+  readonly passwordHash: string;
+  readonly name?: string | undefined;
+}): Promise<PasswordSignupResult> {
+  const email = input.email.toLowerCase();
+  const { token, row } = await mintEmailVerificationTokenForNewUser();
+  try {
+    return await getDb().transaction(async (tx) => {
+      const user = await insertPasswordUser(tx, { ...input, email });
+      await tx.insert(emailVerificationTokens).values({ ...row, userId: user.id });
+      return { user, verificationToken: token };
+    });
+  } catch (error: unknown) {
+    if (isUniqueViolation(error)) {
+      throw new ApiError(409, 'An account with this email already exists', 'EMAIL_TAKEN');
+    }
+    throw error;
+  }
+}
+
+async function mintEmailVerificationTokenForNewUser(): Promise<{
+  token: string;
+  row: { tokenHash: string; expiresAt: Date };
+}> {
+  const token = generateRefreshToken();
+  const tokenHash = await hashToken(token);
+  return {
+    token,
+    row: { tokenHash, expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS) },
+  };
+}
+
 export async function createEmailVerificationToken(userId: string): Promise<string> {
   const { token, row } = await mintEmailVerificationToken(userId);
   await getDb().insert(emailVerificationTokens).values(row);
@@ -457,6 +513,29 @@ export async function consumeEmailVerificationToken(token: string): Promise<stri
   return row.userId;
 }
 
+/**
+ * Consumes a verification token and marks its active user verified in one
+ * transaction. Database failures roll both writes back, so a retry never sees
+ * a valid link destroyed while the account remains unverified.
+ */
+export async function verifyEmailWithToken(token: string): Promise<UserRow | null> {
+  const tokenHash = await hashToken(token);
+  return getDb().transaction(async (tx) => {
+    const [row] = await tx
+      .delete(emailVerificationTokens)
+      .where(eq(emailVerificationTokens.tokenHash, tokenHash))
+      .returning();
+    if (!row || row.expiresAt < new Date()) return null;
+
+    const [updated] = await tx
+      .update(users)
+      .set({ emailVerified: true, updatedAt: new Date() })
+      .where(and(eq(users.id, row.userId), isNull(users.deletedAt)))
+      .returning();
+    return updated ?? null;
+  });
+}
+
 export async function createPasswordResetToken(userId: string): Promise<string> {
   const token = generateRefreshToken();
   const tokenHash = await hashToken(token);
@@ -483,6 +562,38 @@ export async function consumePasswordResetToken(token: string): Promise<string |
   return row.userId;
 }
 
+/**
+ * Consumes a reset token, replaces the password, bumps the session version,
+ * and removes every refresh token atomically.
+ */
+export async function resetPasswordWithToken(
+  token: string,
+  passwordHash: string
+): Promise<string | null> {
+  const tokenHash = await hashToken(token);
+  return getDb().transaction(async (tx) => {
+    const [row] = await tx
+      .delete(passwordResetTokens)
+      .where(eq(passwordResetTokens.tokenHash, tokenHash))
+      .returning();
+    if (!row || row.expiresAt < new Date()) return null;
+
+    const [updated] = await tx
+      .update(users)
+      .set({
+        passwordHash,
+        authVersion: sql`${users.authVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(users.id, row.userId), isNull(users.deletedAt)))
+      .returning({ id: users.id });
+    if (!updated) return null;
+
+    await tx.delete(refreshTokens).where(eq(refreshTokens.userId, row.userId));
+    return row.userId;
+  });
+}
+
 /** Update user profile fields (name, avatarUrl). */
 export async function updateUserProfile(
   userId: string,
@@ -506,23 +617,20 @@ export async function updateUserProfile(
 
 /** Soft-delete a user by setting deleted_at and revoking all tokens. */
 export async function softDeleteUser(userId: string): Promise<void> {
-  const db = getDb();
-  const [updated] = await db
-    .update(users)
-    .set({ deletedAt: new Date() })
-    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
-    .returning();
+  await getDb().transaction(async (tx) => {
+    const [updated] = await tx
+      .update(users)
+      .set({
+        deletedAt: new Date(),
+        authVersion: sql`${users.authVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .returning({ id: users.id });
 
-  if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
-
-  // Revocation is immediate, not deferred to access-token expiry.
-  // revokeAllUserTokens bumps users.authVersion and deletes every refresh token
-  // in one transaction. The resource-route guard (resolveUserId) reloads the
-  // user on every request and rejects it two ways at once: findUserById filters
-  // out soft-deleted rows (deletedAt), and the embedded authVersion no longer
-  // matches the bumped value — so already-issued access tokens stop working on
-  // their next request rather than lingering ~15 min until they expire.
-  await revokeAllUserTokens(userId);
+    if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+    await tx.delete(refreshTokens).where(eq(refreshTokens.userId, userId));
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -597,24 +705,40 @@ export async function revokeAllUserTokens(userId: string): Promise<void> {
  */
 export async function rotateRefreshToken(tokenHash: string): Promise<RotateRefreshTokenResult> {
   return getDb().transaction(async (tx) => {
+    const [candidate] = await tx
+      .select(REFRESH_TOKEN_COLUMNS)
+      .from(refreshTokens)
+      .where(eq(refreshTokens.tokenHash, tokenHash))
+      .limit(1);
+
+    if (!candidate) return { status: 'not_found' };
+
+    if (candidate.expiresAt < new Date()) {
+      await tx.delete(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash));
+      return { status: 'expired' };
+    }
+
+    // Serialize rotation with every all-session revocation. The user row is
+    // always locked before the compare-and-swap delete, so a password reset,
+    // replay response, or account deletion cannot delete today's tokens and
+    // then have this transaction insert a surviving successor afterwards.
+    const [user] = await tx
+      .select()
+      .from(users)
+      .where(eq(users.id, candidate.userId))
+      .for('update')
+      .limit(1);
+
+    if (!user || user.deletedAt) {
+      await tx.delete(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash));
+      return { status: 'account_deleted' };
+    }
+
     const [stored] = await tx
       .delete(refreshTokens)
       .where(eq(refreshTokens.tokenHash, tokenHash))
       .returning(REFRESH_TOKEN_COLUMNS);
-
     if (!stored) return { status: 'not_found' };
-
-    if (stored.expiresAt < new Date()) {
-      return { status: 'expired' };
-    }
-
-    const [user] = await tx
-      .select()
-      .from(users)
-      .where(and(eq(users.id, stored.userId), isNull(users.deletedAt)))
-      .limit(1);
-
-    if (!user) return { status: 'account_deleted' };
 
     const refreshToken = generateRefreshToken();
     const newTokenHash = await hashToken(refreshToken);
@@ -651,13 +775,26 @@ export async function createAndStoreRefreshToken(
 }
 
 /**
- * Deletes every refresh token whose `expires_at` is in the past and returns the
- * number removed. Consumed by the secret-guarded cleanup cron route.
+ * Deletes every expired authentication token and returns the aggregate number
+ * removed. Password-reset and email-verification tokens are persisted in their
+ * own tables, so omitting them here would retain dead credentials forever.
  */
 export async function cleanupExpiredTokens(): Promise<number> {
-  const deleted = await getDb()
-    .delete(refreshTokens)
-    .where(lt(refreshTokens.expiresAt, new Date()))
-    .returning({ id: refreshTokens.id });
-  return deleted.length;
+  const now = new Date();
+  const db = getDb();
+  const [refreshDeleted, resetDeleted, verificationDeleted] = await Promise.all([
+    db
+      .delete(refreshTokens)
+      .where(lt(refreshTokens.expiresAt, now))
+      .returning({ id: refreshTokens.id }),
+    db
+      .delete(passwordResetTokens)
+      .where(lt(passwordResetTokens.expiresAt, now))
+      .returning({ id: passwordResetTokens.id }),
+    db
+      .delete(emailVerificationTokens)
+      .where(lt(emailVerificationTokens.expiresAt, now))
+      .returning({ id: emailVerificationTokens.id }),
+  ]);
+  return refreshDeleted.length + resetDeleted.length + verificationDeleted.length;
 }

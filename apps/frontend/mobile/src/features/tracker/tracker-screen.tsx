@@ -7,6 +7,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import {
   getProgramDefinition,
@@ -32,8 +33,6 @@ type TrackerScreenProps = {
   readonly onBack: () => void;
 };
 
-const LOCAL_SYNC_RETRY_NOTICE = 'Saved locally. Sync will retry.';
-const LOCAL_SYNC_MANUAL_RETRY_NOTICE = "Saved locally. This change won't sync automatically.";
 const MAX_RPE = 10;
 
 function resolveProgramDefinition(detail: GenericProgramDetail): ProgramDefinition | null {
@@ -45,6 +44,7 @@ function resolveProgramDefinition(detail: GenericProgramDetail): ProgramDefiniti
 }
 
 export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps) {
+  const { t } = useTranslation();
   const [detail, setDetail] = useState<GenericProgramDetail | null>(null);
   const [definition, setDefinition] = useState<ProgramDefinition | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,11 +63,21 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
 
     async function loadTracker(): Promise<void> {
       try {
-        const cachedDetail = await getProgramDetail(programInstanceId);
-        const cachedDefinition = cachedDetail
-          ? (resolveProgramDefinition(cachedDetail) ??
-            (await getProgramDefinition(cachedDetail.programId)))
-          : null;
+        let cachedDetail: GenericProgramDetail | null = null;
+        let cachedDefinition: ProgramDefinition | null = null;
+        try {
+          cachedDetail = await getProgramDetail(programInstanceId);
+          cachedDefinition = cachedDetail
+            ? (resolveProgramDefinition(cachedDetail) ??
+              (await getProgramDefinition(cachedDetail.programId)))
+            : null;
+        } catch {
+          // A partially written or legacy cache is not authoritative. Continue
+          // through the network bootstrap so a healthy server response repairs
+          // the row instead of leaving the tracker permanently unavailable.
+          cachedDetail = null;
+          cachedDefinition = null;
+        }
         const hasCachedTracker = cachedDetail !== null && cachedDefinition !== null;
 
         if (hasCachedTracker) {
@@ -90,7 +100,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
               await flushQueuedMutations(currentAccessToken);
             } catch {
               if (hasCachedTracker) {
-                setSyncNotice('Showing cached tracker data while sync catches up.');
+                setSyncNotice(t('tracker.notices.cached'));
                 setLoading(false);
                 return;
               }
@@ -130,7 +140,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
           }
 
           if (hasCachedTracker) {
-            setSyncNotice('Showing cached tracker data while sync catches up.');
+            setSyncNotice(t('tracker.notices.cached'));
             setLoading(false);
             return;
           }
@@ -216,9 +226,9 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
         slotId,
         result,
       });
-      setSyncNotice((current) => (current === LOCAL_SYNC_RETRY_NOTICE ? null : current));
+      setSyncNotice(null);
     } catch {
-      setSyncNotice(LOCAL_SYNC_MANUAL_RETRY_NOTICE);
+      setSyncNotice(t('tracker.notices.manual_retry'));
     }
   }
 
@@ -282,9 +292,9 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
         ...(nextSlot.rpe !== undefined ? { rpe: nextSlot.rpe } : {}),
         ...(nextSlot.setLogs !== undefined ? { setLogs: nextSlot.setLogs } : {}),
       });
-      setSyncNotice((current) => (current === LOCAL_SYNC_RETRY_NOTICE ? null : current));
+      setSyncNotice(null);
     } catch {
-      setSyncNotice(LOCAL_SYNC_MANUAL_RETRY_NOTICE);
+      setSyncNotice(t('tracker.notices.manual_retry'));
     }
   }
 
@@ -366,9 +376,9 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
         ...(restoredSlot?.rpe !== undefined ? { rpe: restoredSlot.rpe } : {}),
         ...(restoredSlot?.setLogs !== undefined ? { setLogs: restoredSlot.setLogs } : {}),
       });
-      setSyncNotice((current) => (current === LOCAL_SYNC_RETRY_NOTICE ? null : current));
+      setSyncNotice(null);
     } catch {
-      setSyncNotice(LOCAL_SYNC_MANUAL_RETRY_NOTICE);
+      setSyncNotice(t('tracker.notices.manual_retry'));
     }
   }
 
@@ -378,7 +388,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerBlock}>
-          <Text style={styles.body}>Loading tracker...</Text>
+          <Text style={styles.body}>{t('tracker.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -388,9 +398,9 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerBlock}>
-          <Text style={styles.title}>Tracker unavailable</Text>
+          <Text style={styles.title}>{t('tracker.unavailable')}</Text>
           <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
-            <Text style={styles.backLabel}>Back</Text>
+            <Text style={styles.backLabel}>{t('tracker.back')}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -401,32 +411,32 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
         <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backLabel}>Back to programs</Text>
+          <Text style={styles.backLabel}>{t('tracker.back_programs')}</Text>
         </Pressable>
         <View style={styles.toolbarRow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Previous workout"
+            accessibilityLabel={t('tracker.previous_accessibility')}
             disabled={selectedWorkoutIndex === 0}
             onPress={() => setSelectedWorkoutIndex((current) => Math.max(0, current - 1))}
             style={[styles.navButton, selectedWorkoutIndex === 0 ? styles.navButtonDisabled : null]}
           >
-            <Text style={styles.navLabel}>Prev</Text>
+            <Text style={styles.navLabel}>{t('tracker.previous')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Undo latest tracker action"
+            accessibilityLabel={t('tracker.undo_accessibility')}
             disabled={!canUndo}
             onPress={() => {
               void handleUndoLast();
             }}
             style={[styles.navButton, !canUndo ? styles.navButtonDisabled : null]}
           >
-            <Text style={styles.navLabel}>Undo</Text>
+            <Text style={styles.navLabel}>{t('tracker.undo')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Next workout"
+            accessibilityLabel={t('tracker.next_accessibility')}
             disabled={selectedWorkoutIndex >= rows.length - 1}
             onPress={() =>
               setSelectedWorkoutIndex((current) => Math.min(rows.length - 1, current + 1))
@@ -436,7 +446,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
               selectedWorkoutIndex >= rows.length - 1 ? styles.navButtonDisabled : null,
             ]}
           >
-            <Text style={styles.navLabel}>Next</Text>
+            <Text style={styles.navLabel}>{t('tracker.next')}</Text>
           </Pressable>
         </View>
         <Text style={styles.eyebrow}>{detail.name}</Text>

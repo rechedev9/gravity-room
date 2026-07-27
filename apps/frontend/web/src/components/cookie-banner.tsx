@@ -9,13 +9,25 @@ export function CookieBanner(): React.ReactNode {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!localStorage.getItem(COOKIE_BANNER_KEY)) {
+    let dismissed = false;
+    try {
+      dismissed = localStorage.getItem(COOKIE_BANNER_KEY) !== null;
+    } catch {
+      // Privacy modes may disable storage. The notice should still render
+      // instead of crashing the root layout.
+    }
+    if (!dismissed) {
       setVisible(true);
     }
   }, []);
 
   function dismiss(): void {
-    localStorage.setItem(COOKIE_BANNER_KEY, '1');
+    try {
+      localStorage.setItem(COOKIE_BANNER_KEY, '1');
+    } catch {
+      // Keep dismissal functional for the current page even when persistence
+      // is unavailable.
+    }
     setVisible(false);
   }
 

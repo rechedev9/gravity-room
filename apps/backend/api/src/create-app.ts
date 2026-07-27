@@ -21,6 +21,52 @@ import { formatValidationError, validateEnv } from './lib/env-validation';
 
 const MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024;
 
+async function bufferUndeclaredRequestBodyWithinLimit(
+  request: Request
+): Promise<Request | undefined> {
+  const contentLength = request.headers.get('content-length');
+  if (contentLength !== null) {
+    const bytes = Number(contentLength);
+    if (Number.isFinite(bytes) && bytes > MAX_REQUEST_BODY_BYTES) {
+      throw new ApiError(413, 'Request body too large', 'PAYLOAD_TOO_LARGE');
+    }
+    return;
+  }
+
+  // Transfer-Encoding: chunked has no declared length. Buffer at most the
+  // configured limit, then replace the consumed Request before Elysia parses
+  // it. Cloning/teeing the stream here can deadlock when the untouched branch's
+  // backpressure fills, so this intentionally owns and reconstructs the body.
+  const reader = request.body?.getReader();
+  if (!reader) return;
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    totalBytes += value.byteLength;
+    if (totalBytes > MAX_REQUEST_BODY_BYTES) {
+      throw new ApiError(413, 'Request body too large', 'PAYLOAD_TOO_LARGE');
+    }
+    chunks.push(value);
+  }
+
+  const body = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return new Request(request.url, {
+    method: request.method,
+    headers: request.headers,
+    body: body.buffer,
+    redirect: request.redirect,
+    signal: request.signal,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Options
 // ---------------------------------------------------------------------------
@@ -93,16 +139,12 @@ export function createApp(options: CreateAppOptions) {
   }
 
   const app = new Elysia()
-    .onRequest(({ request }) => {
-      // Reject obviously oversized payloads before Elysia parses JSON. Vercel
-      // enforces its own platform limit, but this also protects local and
-      // self-hosted deployments from spending CPU/memory on abusive bodies.
-      const contentLength = request.headers.get('content-length');
-      if (contentLength === null) return;
-      const bytes = Number(contentLength);
-      if (Number.isFinite(bytes) && bytes > MAX_REQUEST_BODY_BYTES) {
-        throw new ApiError(413, 'Request body too large', 'PAYLOAD_TOO_LARGE');
-      }
+    .onRequest(async (context) => {
+      // Reject oversized payloads before Elysia parses JSON. Vercel enforces its
+      // own platform limit, but this also protects local/self-hosted deployments
+      // and covers chunked bodies with no Content-Length.
+      const bufferedRequest = await bufferUndeclaredRequestBodyWithinLimit(context.request);
+      if (bufferedRequest) context.request = bufferedRequest;
     })
     .use(
       cors({

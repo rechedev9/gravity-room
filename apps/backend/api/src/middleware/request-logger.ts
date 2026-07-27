@@ -87,6 +87,44 @@ export function deriveClientIp(
   return 'unknown';
 }
 
+/**
+ * Resolve the status that will actually be sent to the client.
+ *
+ * Elysia leaves `set.status` at its default 200 when a handler returns a native
+ * Response (including `redirect()` and explicit body-less 204 responses). The
+ * returned Response is authoritative in that case; logging only `set.status`
+ * makes successful OAuth redirects and sign-outs look like ordinary 200s.
+ */
+export function resolveResponseStatus(
+  responseValue: unknown,
+  setStatus: number | string | undefined
+): number | string {
+  if (responseValue instanceof Response) return responseValue.status;
+
+  // The Node gateway and Elysia can construct standards objects in different
+  // JavaScript realms. `instanceof Response` is false across that boundary even
+  // though the object is a genuine Fetch Response, so use its stable interface
+  // as the fallback brand check.
+  if (typeof responseValue === 'object' && responseValue !== null) {
+    const status = Reflect.get(responseValue, 'status');
+    const headers = Reflect.get(responseValue, 'headers');
+    const clone = Reflect.get(responseValue, 'clone');
+    if (
+      typeof status === 'number' &&
+      Number.isInteger(status) &&
+      status >= 200 &&
+      status <= 599 &&
+      typeof headers === 'object' &&
+      headers !== null &&
+      typeof clone === 'function'
+    ) {
+      return status;
+    }
+  }
+
+  return setStatus ?? 200;
+}
+
 /** Regex for validating a client-supplied x-request-id before trusting it. */
 const REQ_ID_RE = /^[\w-]{8,64}$/;
 
@@ -116,8 +154,8 @@ export const requestLogger = new Elysia({ name: 'request-logger' })
       return { reqId, reqLogger, startMs, ip };
     }
   )
-  .onAfterHandle({ as: 'global' }, ({ reqId, reqLogger, startMs, set }): void => {
-    const status = typeof set.status === 'number' ? set.status : 200;
+  .mapResponse({ as: 'global' }, ({ reqId, reqLogger, startMs, set, responseValue }): void => {
+    const status = resolveResponseStatus(responseValue, set.status);
     set.headers['x-request-id'] = reqId;
     reqLogger.info({ status, latencyMs: Date.now() - startMs }, 'request completed');
   });

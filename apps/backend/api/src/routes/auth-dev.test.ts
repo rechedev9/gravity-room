@@ -62,12 +62,20 @@ vi.mock('../services/auth', () => ({
   hashPassword: mockHashPassword,
   authenticatePassword: vi.fn(() => Promise.resolve(null)),
   createPasswordUser: mockCreatePasswordUser,
+  createPasswordSignup: vi.fn(() =>
+    Promise.resolve({
+      user: { ...PW_USER, emailVerified: false },
+      verificationToken: 'verify-token',
+    })
+  ),
   createEmailVerificationToken: vi.fn(() => Promise.resolve('verify-token')),
   consumeEmailVerificationToken: vi.fn(() => Promise.resolve(null)),
   markEmailVerified: mockMarkEmailVerified,
+  verifyEmailWithToken: vi.fn(() => Promise.resolve(null)),
   createPasswordResetToken: vi.fn(() => Promise.resolve('reset-token')),
   consumePasswordResetToken: vi.fn(() => Promise.resolve(null)),
   setUserPassword: mockSetUserPassword,
+  resetPasswordWithToken: vi.fn(() => Promise.resolve(null)),
   // Included so the process-global services/auth mock exposes every export the
   // routes batch consumes. internal.ts imports cleanupExpiredTokens, and this
   // file runs first (alphabetically) and materializes the module shape via its

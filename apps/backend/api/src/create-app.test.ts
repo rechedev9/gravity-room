@@ -110,6 +110,35 @@ describe('request body limit', () => {
     expect(res.status).toBe(413);
     expect(body).toEqual({ error: 'Request body too large', code: 'PAYLOAD_TOO_LARGE' });
   });
+
+  it('rejects oversized chunked bodies without a content-length header', async () => {
+    const oversizedChunk = new TextEncoder().encode('x'.repeat(2 * 1024 * 1024 + 1));
+    const res = await app.handle(
+      new Request('http://localhost/api/auth/google', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: new Blob([oversizedChunk]),
+      })
+    );
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(res.status).toBe(413);
+    expect(body).toEqual({ error: 'Request body too large', code: 'PAYLOAD_TOO_LARGE' });
+  });
+
+  it('reconstructs an allowed chunked body for downstream parsing', async () => {
+    const res = await app.handle(
+      new Request('http://localhost/api/programs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: new Blob([JSON.stringify({ programId: 'gzclp', name: 'Test', config: {} })]),
+      })
+    );
+    const body = (await res.json()) as Record<string, unknown>;
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('UNAUTHORIZED');
+  });
 });
 
 describe('security headers', () => {

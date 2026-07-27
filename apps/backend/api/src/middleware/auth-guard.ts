@@ -56,13 +56,12 @@ export const jwtPlugin = new Elysia({ name: 'jwt-plugin' }).use(
   })
 );
 
+const BEARER_RE = new RegExp(`^${BEARER_PREFIX.trim()}[ \\t]+([^ \\t]+)[ \\t]*$`, 'i');
+
 export function extractBearerToken(headers: Record<string, string | undefined>): string {
   const authorization = headers['authorization'];
-  if (!authorization?.startsWith(BEARER_PREFIX)) {
-    throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
-  }
-
-  const token = authorization.slice(BEARER_PREFIX.length);
+  const match = authorization ? BEARER_RE.exec(authorization) : null;
+  const token = match?.[1];
   if (!token) {
     throw new ApiError(401, 'Missing or invalid authorization header', 'UNAUTHORIZED');
   }

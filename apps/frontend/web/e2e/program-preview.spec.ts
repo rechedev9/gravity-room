@@ -102,34 +102,35 @@ test.describe('Program preview — landing page links', () => {
   test('catalog cards have links to /programs/:id', async ({ page }) => {
     await page.goto('/');
 
-    // Wait for catalog to load
-    await expect(page.getByText('GZCLP', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
-
-    // Find the GZCLP card link — it should point to /programs/gzclp
-    const gzclpLink = page
-      .locator('a[href="/programs/gzclp"]')
-      .filter({ has: page.getByText('GZCLP') })
-      .first();
-    await expect(gzclpLink).toBeVisible();
+    const catalog = page.getByRole('region', {
+      name: 'Elige tu camino. Empieza hoy.',
+      exact: true,
+    });
+    const catalogCardLink = catalog.locator('a[href^="/programs/"]').first();
+    await expect(catalogCardLink).toBeVisible({ timeout: 10_000 });
+    await expect(catalogCardLink).toHaveAttribute('href', /^\/programs\/[^/]+$/);
   });
 
   test('clicking a catalog card navigates to the preview page', async ({ page }) => {
     await page.goto('/');
 
-    // Wait for catalog to load
-    await expect(page.getByText('GZCLP', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
-
-    // Click the GZCLP card link
-    const gzclpLink = page
-      .locator('a[href="/programs/gzclp"]')
-      .filter({ has: page.getByText('GZCLP') })
-      .first();
-    await gzclpLink.click();
+    const catalog = page.getByRole('region', {
+      name: 'Elige tu camino. Empieza hoy.',
+      exact: true,
+    });
+    const catalogCardLink = catalog.locator('a[href^="/programs/"]').first();
+    await expect(catalogCardLink).toBeVisible({ timeout: 10_000 });
+    const programName = (
+      await catalogCardLink.getByRole('heading', { level: 3 }).innerText()
+    ).trim();
+    await catalogCardLink.click();
 
     // Should navigate to the preview page
-    await expect(page).toHaveURL(/\/programs\/gzclp/);
+    await expect(page).toHaveURL(/\/programs\/[^/]+$/);
 
-    // Preview page should render the program
-    await expect(page.getByText('Día 1').first()).toBeVisible({ timeout: 10_000 });
+    // The preview must render the same program the landing card advertised.
+    await expect(
+      page.getByRole('heading', { name: programName, exact: true, level: 1 })
+    ).toBeVisible({ timeout: 10_000 });
   });
 });

@@ -343,6 +343,25 @@ describe('POST /internal/maintenance', () => {
   });
 });
 
+describe('maintenance scheduling', () => {
+  it('starts both independent jobs before either one finishes', async () => {
+    const cleanup = Promise.withResolvers<number>();
+    const purge = Promise.withResolvers<PurgeSummary>();
+    mockCleanupExpiredTokens.mockImplementation(() => cleanup.promise);
+    mockPurgeDeletedUsers.mockImplementation(() => purge.promise);
+
+    const response = post('/internal/maintenance', { Authorization: `Bearer ${SECRET}` });
+    await vi.waitFor(() => {
+      expect(mockCleanupExpiredTokens).toHaveBeenCalledTimes(1);
+      expect(mockPurgeDeletedUsers).toHaveBeenCalledTimes(1);
+    });
+
+    cleanup.resolve(4);
+    purge.resolve({ purged: 1, cutoff: '2026-05-27T12:00:00.000Z' });
+    await expect(response).resolves.toMatchObject({ status: 200 });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // analytics/compute
 // ---------------------------------------------------------------------------

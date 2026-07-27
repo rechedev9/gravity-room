@@ -4,6 +4,7 @@ import {
   clientIpFromXff,
   deriveClientIp,
   isVercelEnvironment,
+  resolveResponseStatus,
 } from './request-logger';
 
 describe('isVercelEnvironment', () => {
@@ -79,5 +80,29 @@ describe('deriveClientIp', () => {
   it('off-Vercel without a trusted proxy reports unknown', () => {
     const headers = new Headers({ 'x-forwarded-for': '1.2.3.4' });
     expect(deriveClientIp(headers, { onVercel: false, trustedProxy: false })).toBe('unknown');
+  });
+});
+
+describe('resolveResponseStatus', () => {
+  it('uses the native Response status for redirects and body-less responses', () => {
+    expect(resolveResponseStatus(Response.redirect('https://example.com'), 200)).toBe(302);
+    expect(resolveResponseStatus(new Response(null, { status: 204 }), 200)).toBe(204);
+  });
+
+  it('recognizes Fetch Response objects created in a different JavaScript realm', () => {
+    const crossRealmResponse = {
+      status: 307,
+      headers: new Headers({ location: 'https://example.com' }),
+      clone() {
+        return this;
+      },
+    };
+
+    expect(resolveResponseStatus(crossRealmResponse, 200)).toBe(307);
+  });
+
+  it('uses Elysia set.status for ordinary handler values', () => {
+    expect(resolveResponseStatus({ ok: true }, 201)).toBe(201);
+    expect(resolveResponseStatus({ ok: true }, undefined)).toBe(200);
   });
 });

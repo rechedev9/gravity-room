@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { resolvePlaywrightApiUrl } from '../playwright-ports';
 import { createAndAuthUser, createVerifiedPasswordUser } from './helpers/api';
 
-const BASE_URL = process.env['E2E_API_URL'] ?? 'http://localhost:3001';
+const BASE_URL = resolvePlaywrightApiUrl(process.env);
 
 test.describe('Auth flow', () => {
   test('navigates to /login and shows the sign-in screen', async ({ page }) => {
@@ -156,10 +157,11 @@ test.describe('Auth flow', () => {
   test('API responses include Permissions-Policy header', async ({ page }) => {
     const { accessToken } = await createAndAuthUser(page);
 
-    const res = await page.request.get(`${BASE_URL}/health`, {
+    const res = await page.request.get(`${BASE_URL}/api/health`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
 
+    expect(res.status()).toBe(200);
     const permissionsPolicy = res.headers()['permissions-policy'];
     expect(permissionsPolicy).toBeDefined();
     expect(permissionsPolicy).toContain('camera=()');
