@@ -14,8 +14,9 @@ import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@gzclp/domain';
 
 import {
-  listCachedCatalog,
   listProgramSummaries,
+  readProgramCatalogSnapshot,
+  readProgramLibrarySnapshot,
   replaceCachedCatalog,
   replaceProgramSummaries,
   type ProgramStatus,
@@ -40,9 +41,9 @@ type ResourceState<T> =
   | {
       readonly status: 'ready';
       readonly data: readonly T[];
-      readonly freshness: 'cached' | 'revalidating' | 'fresh' | 'offline';
+      readonly freshness: 'cached' | 'revalidating' | 'fresh' | 'offline' | 'partial';
     }
-  | { readonly status: 'error' };
+  | { readonly status: 'error'; readonly reason: 'cache_error' | 'no_snapshot' };
 
 interface ProgramsScreenProps {
   readonly ownerUserId: string;
@@ -268,20 +269,30 @@ export function ProgramsScreen({
     async function loadLibrary(): Promise<void> {
       let cached: ProgramSummary[] = [];
       let cacheAvailable = false;
+      let partialCacheAvailable = false;
+      let cacheReadFailed = false;
       try {
-        [cached] = await Promise.all([
-          listProgramSummaries(ownerUserId),
+        const [snapshot] = await Promise.all([
+          readProgramLibrarySnapshot(ownerUserId),
           readTrackerProgramId(ownerUserId).then((id) => {
             if (active) setPinnedProgramId(id);
           }),
         ]);
-        cacheAvailable = true;
-        if (active && cached.length > 0) {
+        cached = [...snapshot.data];
+        if (snapshot.status === 'no_snapshot') {
+          partialCacheAvailable = cached.length > 0;
+        } else {
+          cacheAvailable = true;
+        }
+        if (active && cacheAvailable) {
           setLibrary({ status: 'ready', data: cached, freshness: 'cached' });
           setLibrary({ status: 'ready', data: cached, freshness: 'revalidating' });
+        } else if (active && partialCacheAvailable) {
+          setLibrary({ status: 'ready', data: cached, freshness: 'partial' });
         }
       } catch {
         cached = [];
+        cacheReadFailed = true;
       }
 
       try {
@@ -300,7 +311,9 @@ export function ProgramsScreen({
         setLibrary(
           cacheAvailable
             ? { status: 'ready', data: cached, freshness: 'offline' }
-            : { status: 'error' }
+            : partialCacheAvailable
+              ? { status: 'ready', data: cached, freshness: 'partial' }
+              : { status: 'error', reason: cacheReadFailed ? 'cache_error' : 'no_snapshot' }
         );
       }
     }
@@ -308,15 +321,20 @@ export function ProgramsScreen({
     async function loadCatalog(): Promise<void> {
       let cached: CatalogEntry[] = [];
       let cacheAvailable = false;
+      let cacheReadFailed = false;
       try {
-        cached = await listCachedCatalog(ownerUserId);
-        cacheAvailable = true;
-        if (active && cached.length > 0) {
+        const snapshot = await readProgramCatalogSnapshot(ownerUserId);
+        if (snapshot.status !== 'no_snapshot') {
+          cached = [...snapshot.data];
+          cacheAvailable = true;
+        }
+        if (active && cacheAvailable) {
           setCatalog({ status: 'ready', data: cached, freshness: 'cached' });
           setCatalog({ status: 'ready', data: cached, freshness: 'revalidating' });
         }
       } catch {
         cached = [];
+        cacheReadFailed = true;
       }
 
       try {
@@ -330,7 +348,7 @@ export function ProgramsScreen({
         setCatalog(
           cacheAvailable
             ? { status: 'ready', data: cached, freshness: 'offline' }
-            : { status: 'error' }
+            : { status: 'error', reason: cacheReadFailed ? 'cache_error' : 'no_snapshot' }
         );
       }
     }
@@ -484,7 +502,11 @@ export function ProgramsScreen({
               accessibilityRole="alert"
               style={styles.error}
             >
-              {t('programs.errors.sync')}
+              {t(
+                library.reason === 'no_snapshot'
+                  ? 'programs.errors.first_library_sync'
+                  : 'programs.errors.sync'
+              )}
             </Text>
             <ActionButton
               label={t('common.retry')}
@@ -497,6 +519,11 @@ export function ProgramsScreen({
             {library.freshness === 'offline' ? (
               <View accessibilityRole="alert" style={styles.offlineBanner}>
                 <Text style={styles.offlineText}>{t('programs.offline_library')}</Text>
+              </View>
+            ) : null}
+            {library.freshness === 'partial' ? (
+              <View accessibilityRole="alert" style={styles.offlineBanner}>
+                <Text style={styles.offlineText}>{t('programs.partial_library')}</Text>
               </View>
             ) : null}
             {library.freshness === 'cached' || library.freshness === 'revalidating' ? (
@@ -564,7 +591,11 @@ export function ProgramsScreen({
                 accessibilityRole="alert"
                 style={styles.error}
               >
-                {t('programs.errors.catalog')}
+                {t(
+                  catalog.reason === 'no_snapshot'
+                    ? 'programs.errors.first_catalog_sync'
+                    : 'programs.errors.catalog'
+                )}
               </Text>
               <ActionButton
                 label={t('common.retry')}

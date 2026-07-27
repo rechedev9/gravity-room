@@ -127,9 +127,12 @@ describe('PresetSetupScreen', () => {
   });
 
   it('blocks creation until domain validation accepts the setup', async () => {
+    mockedBuildDefaultProgramConfig.mockReturnValue({ squat: 22.5 });
     renderSetup();
     const input = await screen.findByLabelText('Squat starting value');
 
+    expect(input.props.value).toBe('22.5');
+    expect(screen.getByText('Minimum 20 kg · increments of 2.5 kg')).toBeTruthy();
     fireEvent.changeText(input, '21');
     fireEvent.press(screen.getByRole('button', { name: 'Start GZCLP with this setup' }));
     expect(await screen.findByText('Use one of the allowed weight increments.')).toBeTruthy();
@@ -185,15 +188,42 @@ describe('PresetSetupScreen', () => {
     await act(async () => {
       await i18n.changeLanguage('es');
     });
+    mockedBuildDefaultProgramConfig.mockReturnValue({ squat: 22.5 });
     renderSetup();
     const input = await screen.findByLabelText('Valor inicial de Sentadilla');
 
+    expect(input.props.value).toBe('22,5');
+    expect(screen.getByText('Mínimo 20 kg · incrementos de 2,5 kg')).toBeTruthy();
     fireEvent.changeText(input, '22,5');
     fireEvent.press(screen.getByRole('button', { name: 'Empezar GZCLP con esta configuración' }));
 
     await waitFor(() => {
       expect(mockedStartPresetProgram).toHaveBeenCalledWith(
         expect.objectContaining({ config: { squat: 22.5 } })
+      );
+    });
+  });
+
+  it('preserves an edited weight when the locale changes and keeps it parseable', async () => {
+    mockedBuildDefaultProgramConfig.mockReturnValue({ squat: 22.5 });
+    renderSetup();
+    const input = await screen.findByLabelText('Squat starting value');
+    fireEvent.changeText(input, '27.5');
+
+    await act(async () => {
+      await i18n.changeLanguage('es');
+    });
+
+    const localizedInput = await screen.findByLabelText('Valor inicial de Sentadilla');
+    await waitFor(() => {
+      expect(localizedInput.props.value).toBe('27,5');
+    });
+    expect(mockedFetchCatalogDefinition).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Empezar GZCLP con esta configuración' }));
+    await waitFor(() => {
+      expect(mockedStartPresetProgram).toHaveBeenCalledWith(
+        expect.objectContaining({ config: { squat: 27.5 } })
       );
     });
   });

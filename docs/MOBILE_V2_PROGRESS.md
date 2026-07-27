@@ -179,18 +179,23 @@ Inicio: 2026-07-27
 
 Base congelada: `78adf51dc98ad77b8302d0042c7ffae7538bfcea`
 
-Estado: corrección completa tras dos revisiones `no-go` y puertas de cierre verdes; el SHA del
-corrector se identifica en el handoff. No es GO.
+Estado: segunda corrección completa tras dos rondas de revisión `no-go`; las puertas de cierre están
+verdes, pero falta una nueva reverificación independiente. El SHA se identifica en el handoff. No es
+GO.
 
 ### Candidato y revisiones
 
-| Evento                  | SHA / estado                                 | Evidencia                           |
-| ----------------------- | -------------------------------------------- | ----------------------------------- |
-| Candidato implementador | `579531475a1c4c5c6ff73d5a2512c02530500033`   | M2 completo previo a revisión       |
-| Revisión A              | `no-go`: 8 findings                          | `M2-A-001` a `M2-A-008`             |
-| Revisión B              | `no-go`: 9 findings                          | `M2-B-001` a `M2-B-009`             |
-| Normalización Main      | N1-N13                                       | Todos aceptados para corrección     |
-| Corrector               | este commit; SHA en el handoff del corrector | Puertas completas; no constituye GO |
+| Evento                  | SHA / estado                                 | Evidencia                                      |
+| ----------------------- | -------------------------------------------- | ---------------------------------------------- |
+| Candidato implementador | `579531475a1c4c5c6ff73d5a2512c02530500033`   | M2 completo previo a revisión                  |
+| Revisión A              | `no-go`: 8 findings                          | `M2-A-001` a `M2-A-008`                        |
+| Revisión B              | `no-go`: 9 findings                          | `M2-B-001` a `M2-B-009`                        |
+| Normalización Main      | N1-N13                                       | Todos aceptados para primera corrección        |
+| Corrector 1             | `90a78bd1e63d08279fa0b4a141a3acd946390ddc`   | N1-N13 corregidos; no constituye GO            |
+| Reverificación final A  | `no-go`: 4 findings                          | `M2-VFA-001` a `M2-VFA-004`                    |
+| Reverificación final B  | `no-go`: 1 finding                           | `M2-VFB-001`                                   |
+| Normalización Main 2    | C1-C5                                        | Los cinco aceptados para segunda corrección    |
+| Corrector 2             | este commit; SHA en el handoff del corrector | Puertas completas; pendiente de reverificación |
 
 ### Origen → normalizado y corrección
 
@@ -203,43 +208,76 @@ corrector se identifica en el handoff. No es GO.
 | N5          | A-005               | P1    | fixed  | Parser decimal locale-aware en frontera UI: coma ES, punto EN; rechaza separadores ajenos, agrupación, exponentes y formatos incompletos. Tests de parser y componente.                                                                                                                                                                           |
 | N6          | A-006               | P1    | fixed  | La revalidación remota mezcla defaults solo en campos pristine; un campo editado desde cache no se pisa al resolver el fetch diferido.                                                                                                                                                                                                            |
 | N7          | A-007               | P2    | fixed  | Catálogo fresh vacío usa `EmptyState`; indicadores y acciones busy tienen labels/live announcements; errores son alert/assertive. Tests a11y.                                                                                                                                                                                                     |
-| N8          | A-008, B-001        | P1/P2 | fixed  | Runtime v2 queda reservado a M2 paralelo; contrato completo pasa a v3. SQLite real prueba v1 con filas → v2 owner → v3, owner cache preservada, legacy en cuarentena sin claim y sesiones/outbox creadas sin saltos. ADR actualizado.                                                                                                             |
+| N8          | A-008, B-001        | P1/P2 | fixed  | Runtime v2 queda reservado a M2 paralelo; M2 añade el marcador transaccional v3 y el contrato completo pasa a v4. SQLite real prueba v1 con filas → v2 owner → v3 marker → v4, owner/cache preservados, legacy en cuarentena sin claim y sesiones/outbox creadas sin saltos. ADR actualizado.                                                     |
 | N9          | B-002               | P1    | fixed  | Manage actualiza summary y solo metadata de lifecycle del detalle mediante merge; conserva results/undo/config pendientes y `queued_mutations`. SQLite real.                                                                                                                                                                                      |
 | N10         | B-006               | P1    | fixed  | Si falla GET tras POST, la transacción completa summaries y metadata de detalle active anteriores, preserva su estado operativo y deja únicamente el nuevo active.                                                                                                                                                                                |
-| N11         | B-007               | P1    | fixed  | Create API usa una transacción y solo `tx`, bloquea la fila de usuario, completa+inserta atómicamente y se apoya en el índice parcial único ya migrado. Tests de rollback entre update/insert y concurrencia serializada; reactivación usa la misma regla y valida el target antes de completar el active actual.                                 |
-| N12         | B-008               | P2    | fixed  | Estado discriminado `cached/revalidating/fresh/offline`; cache durante fetch lento lleva copy/live region de revalidación y nunca se presenta fresca.                                                                                                                                                                                             |
+| N11         | B-007               | P1    | fixed  | Create API usa una transacción y solo `tx`, bloquea la fila de usuario, completa+inserta atómicamente y se apoya en el índice parcial único ya migrado. C1 extiende el mismo orden de locks a reactivación, lifecycle y delete, y valida el `UPDATE ... RETURNING` antes del commit.                                                              |
+| N12         | B-008               | P2    | fixed  | Estado discriminado `cached/revalidating/fresh/offline`; cache durante fetch lento lleva copy/live region de revalidación y nunca se presenta fresca. C4 distingue además `no_snapshot` con datos confirmados parciales, `snapshot_empty` y snapshot completo por owner/recurso.                                                                  |
 | N13         | B-009               | P2    | fixed  | `GenericProgramDetailSchema` de transporte es estricto; config/results/undo corruptos se rechazan tras ACK y nunca caen a vacíos. Tests dominio y mobile.                                                                                                                                                                                         |
+
+### Segunda reverificación y corrección
+
+Los dos informes finales sobre el primer corrector fueron `no-go`: A encontró cuatro defectos de
+contenido, locale y snapshot (`M2-VFA-001` a `M2-VFA-004`), y B encontró la carrera transaccional de
+reactivación (`M2-VFB-001`). Esta segunda pasada corrige C1-C5 y vuelve a ejecutar N1-N13, pero no
+convierte por sí sola el hito en GO.
+
+| Normalizado | Origen       | Sev. | Estado | Corrección y evidencia principal                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------- | ------------ | ---- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| C1          | `M2-VFB-001` | P1   | fixed  | Reactivate bloquea primero al owner y después al target con `FOR UPDATE`, valida ownership/status y comprueba el `UPDATE ... RETURNING` dentro del callback. Lifecycle/delete comparten el orden de locks. El repro de target desaparecido/update 0 fuerza rollback y deja A `active`; repetir una activación ya aplicada es idempotente y devuelve el target `active`.                                                                                                                                                                                                        |
+| C2          | `M2-VFA-001` | P1   | fixed  | Todo el catálogo canónico real de 20 presets se localiza por IDs/keys estables: campos, opciones, días y ejercicios. HeXaN PPL y Caparazón tienen cobertura explícita; hombre/mujer y redondeos 2,5/1,25 son inequívocos. Un test recorre los seeds reales ES/EN y falla ante cualquier fallback ordinal; IDs futuros usan un nombre humano derivado del identificador estable.                                                                                                                                                                                                |
+| C3          | `M2-VFA-002` | P2   | fixed  | Formatter y parser de pesos comparten frontera locale-aware. Defaults, hints y valores visibles usan coma en ES y punto en EN, y todo valor renderizado puede volver a parsearse. Un cambio de idioma conserva valores editados y relocaliza pesos válidos sin refetch. Tests UI cubren `2,5`, `22,5`, `1,25` y sus equivalentes EN.                                                                                                                                                                                                                                           |
+| C4          | `M2-VFA-003` | P2   | fixed  | La migración runtime v3 añade metadata de snapshot exitoso por owner y recurso, escrita en la misma transacción que biblioteca/catálogo. Solo backfillea catálogo v2 poblado, cuya escritura siempre fue reemplazo completo; filas de biblioteca sin marcador permanecen como datos confirmados parciales y se muestran con copy de primera sync, no como último snapshot. Una tabla vacía sigue en `no_snapshot` y un remoto vacío real queda como `snapshot_empty`. Los readers toman marcador+filas en una misma transacción SQLite; tests cubren atomicidad y aislamiento. |
+| C5          | `M2-VFA-004` | P2   | fixed  | Reactivar B completa A, guarda B `active` y auto-fija B en una única transacción SQLite. La intención de activación viaja explícita desde el use-case, por lo que renombrar/configurar un programa ya activo no cambia una selección Tracker existente o ausente. La prueba real parte de A active+pinned y B completed, confirma que Tracker resuelve B y cubre el rename sin repin.                                                                                                                                                                                          |
+
+### Reconfirmación N1-N13
+
+| Hallazgo | Resultado | Evidencia de no regresión                                                                   |
+| -------- | --------- | ------------------------------------------------------------------------------------------- |
+| N1       | pass      | ACK, reconciliación e identidad remota continúan cubiertos por use-cases y pantallas.       |
+| N2       | pass      | Borrado atómico conserva otra entidad/cola en SQLite real; C1 alinea además el lock remoto. |
+| N3       | pass      | La integración de foco vuelve a leer setup y selección de Tracker.                          |
+| N4       | pass      | C2 endurece el contrato previo con recorrido exhaustivo del catálogo real ES/EN.            |
+| N5       | pass      | C3 conserva el parser estricto y añade formatter round-trip para defaults/hints.            |
+| N6       | pass      | La revalidación sigue sin pisar campos dirty del formulario.                                |
+| N7       | pass      | Empty/loading/error y announcements accesibles permanecen cubiertos.                        |
+| N8       | pass      | Cadena real v1→v2→v3 y composición futura v4 probadas con SQLite.                           |
+| N9       | pass      | Manage preserva config, results, undo y mutaciones pendientes.                              |
+| N10      | pass      | Fallo del GET posterior al POST mantiene un único active coherente.                         |
+| N11      | pass      | C1 refuerza la serialización con locks owner→target y rollback ante update 0.               |
+| N12      | pass      | Revalidación/offline siguen discriminados; C4 añade primera sync frente a vacío conocido.   |
+| N13      | pass      | Schemas estrictos siguen rechazando detail/config/results/undo corruptos.                   |
 
 ### Checks de la corrección
 
-| Check                                               | Resultado                     | Nota                                                            |
-| --------------------------------------------------- | ----------------------------- | --------------------------------------------------------------- |
-| Prettier + `git diff --check`                       | verde                         | Puerta final sobre el delta completo                            |
-| `pnpm --filter mobile routes:check`                 | verde                         | Manifiesto sin drift; también ejecutado por typecheck           |
-| `pnpm --filter mobile lint`                         | verde                         | TS/TSX y tests M2                                               |
-| `pnpm --filter mobile typecheck`                    | verde                         | Expo TS estricto                                                |
-| `pnpm --filter mobile i18n:check`                   | verde: 1 suite, 8 tests       | Cobertura ES/EN idéntica, 0 missing keys                        |
-| Focalizadas mobile de cierre                        | verde: 5 suites, 44 tests     | ACK/ID persistente, SQLite, locale y foco                       |
-| `pnpm --filter mobile test`                         | verde: 36 suites, 239 tests   | Suite completa; incluye SQLite real de migración y colas        |
-| `pnpm run typecheck:domain` / `test:domain`         | verde: 7 ficheros, 48 tests   | Parser estricto y límites de config preservados                 |
-| Database typecheck/tests                            | verde: 6 ficheros, 89 tests   | 5 tests de integración con DB externa saltados por entorno      |
-| API focal `src/services/programs.test.ts`           | verde: 30 tests               | Transacción, rollback, target ausente y concurrencia            |
-| `pnpm run typecheck:api` / `pnpm --filter api lint` | verde                         | API estricta                                                    |
-| `pnpm --filter api test`                            | verde: 46 ficheros, 700 tests | Suite completa, sin DB externa requerida                        |
-| Expo install/config/export Android                  | verde                         | Expo 54 compatible; 1.244 módulos, 24 assets, HBC 3.816.180 B   |
-| `autoreview --mode local`                           | bloqueado antes del modelo    | Fail-closed detecta el fixture `accessToken` opaco como secreto |
-| Revisión manual del diff y efectos secundarios      | verde                         | Incluyó lifecycle, carreras, owner, migración, i18n y a11y      |
-| E2E                                                 | no ejecutado por política     | Reservado para M8                                               |
+| Check                                          | Resultado                     | Nota                                                                                         |
+| ---------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------- |
+| Prettier + `git diff --check`                  | verde                         | Puerta final sobre los 26 ficheros del delta                                                 |
+| `pnpm --filter mobile routes:check`            | verde                         | Manifiesto sin drift; también ejecutado por typecheck                                        |
+| `pnpm --filter mobile lint`                    | verde                         | TS/TSX y tests M2                                                                            |
+| `pnpm --filter mobile typecheck`               | verde                         | Expo TS estricto                                                                             |
+| `pnpm --filter mobile i18n:check`              | verde: 1 suite, 8 tests       | Cobertura ES/EN idéntica, 0 missing keys                                                     |
+| Focalizadas mobile de cierre                   | verde: 6 suites, 52 tests     | Catálogo real, locale, snapshot, pin y pantalla                                              |
+| `pnpm --filter mobile test`                    | verde: 37 suites, 261 tests   | Suite completa; incluye snapshot transaccional, SQLite real y Tracker sin repin lateral      |
+| `pnpm run typecheck:domain` / `test:domain`    | verde: 7 ficheros, 48 tests   | Parser estricto y límites de config preservados                                              |
+| Database typecheck/tests                       | verde: 6 ficheros, 89 tests   | 5 tests de integración con DB externa saltados por entorno                                   |
+| API focal `src/services/programs.test.ts`      | verde: 33 tests               | Locks, rollback por update 0, delete, concurrencia y retry idempotente                       |
+| API typecheck/lint                             | verde                         | API estricta                                                                                 |
+| `pnpm --filter api test`                       | verde: 46 ficheros, 703 tests | Suite completa, sin DB externa requerida                                                     |
+| Expo install/config/export Android             | verde                         | Dependencias compatibles, prebuild válido; 1.244 módulos, 24 assets, 26 ficheros/3.861.867 B |
+| `autoreview --mode local`                      | verde                         | 7 findings aceptados/corregidos en 5 pasadas; sexta limpia sin findings accionables          |
+| Revisión manual del diff y efectos secundarios | verde                         | Incluyó lifecycle, retry, carreras, owner, migración, i18n, locale, pin y a11y               |
+| E2E                                            | no ejecutado por política     | Reservado para M8                                                                            |
 
 ### Riesgos y fuera de alcance
 
 - La creación sigue online-only y no se reintenta automáticamente: la API aún no ofrece idempotency
   key para este POST. Un outcome incierto se reconcilia mediante GET, nunca repitiendo el POST; si
   no puede identificarse de forma inequívoca, el bloqueo persiste en vez de asumir que falló.
-- M3 registrará el contrato completo como migración 3 y adaptará sesiones/outbox runtime; M2 solo
+- M3 registrará el contrato completo como migración 4 y adaptará sesiones/outbox runtime; M2 solo
   demuestra la composición y no implementa el tracker set-a-set.
 - M4, M6 y la API/editor de definiciones personalizadas permanecen fuera de alcance.
-- Las filas v1 siguen sin owner y jamás se atribuyen a la sesión activa; v3 las pone en cuarentena.
+- Las filas v1 siguen sin owner y jamás se atribuyen a la sesión activa; v4 las pone en cuarentena.
 - E2E y métricas nativas continúan reservados para M8. Esta corrección no marca GO.
 
 ## M1 — Shell, navegación y sistema visual

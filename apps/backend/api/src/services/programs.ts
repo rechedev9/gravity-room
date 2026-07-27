@@ -391,38 +391,52 @@ export async function updateInstance(
   if (updates.config !== undefined) updateValues.programConfig = updates.config;
 
   const [updated] =
-    updates.status === 'active'
+    updates.status !== undefined
       ? await getDb().transaction(async (tx) => {
+          // Every lifecycle mutation locks in the same owner -> instance order.
+          // Delete and create use this order too, so no competing operation can
+          // remove or change the target around an active-program handoff.
           const [owner] = await tx
             .select({ id: users.id })
             .from(users)
             .where(eq(users.id, userId))
             .for('update')
             .limit(1);
-          if (!owner) return [];
+          if (!owner) {
+            throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+          }
+
           const [target] = await tx
-            .select({ id: programInstances.id })
+            .select({ id: programInstances.id, status: programInstances.status })
             .from(programInstances)
             .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+            .for('update')
             .limit(1);
           if (!target) {
             throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
           }
-          await tx
-            .update(programInstances)
-            .set({ status: 'completed' })
-            .where(
-              and(
-                eq(programInstances.userId, userId),
-                eq(programInstances.status, 'active'),
-                sql`${programInstances.id} <> ${instanceId}`
-              )
-            );
-          return tx
+          if (updates.status === 'active') {
+            await tx
+              .update(programInstances)
+              .set({ status: 'completed' })
+              .where(
+                and(
+                  eq(programInstances.userId, userId),
+                  eq(programInstances.status, 'active'),
+                  sql`${programInstances.id} <> ${instanceId}`
+                )
+              );
+          }
+
+          const changed = await tx
             .update(programInstances)
             .set(updateValues)
             .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
             .returning();
+          if (!changed[0]) {
+            throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
+          }
+          return changed;
         })
       : await getDb()
           .update(programInstances)
@@ -489,16 +503,36 @@ export async function updateInstanceMetadata(
 }
 
 export async function deleteInstance(userId: string, instanceId: string): Promise<void> {
-  // Single DELETE WHERE userId AND id — one round-trip instead of SELECT+DELETE
-  // CASCADE deletes workout_results and undo_entries
-  const deleted = await getDb()
-    .delete(programInstances)
-    .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
-    .returning({ id: programInstances.id });
+  await getDb().transaction(async (tx) => {
+    const [owner] = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for('update')
+      .limit(1);
+    if (!owner) {
+      throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+    }
 
-  if (deleted.length === 0) {
-    throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
-  }
+    const [target] = await tx
+      .select({ id: programInstances.id })
+      .from(programInstances)
+      .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+      .for('update')
+      .limit(1);
+    if (!target) {
+      throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
+    }
+
+    // CASCADE deletes workout_results and undo_entries.
+    const deleted = await tx
+      .delete(programInstances)
+      .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+      .returning({ id: programInstances.id });
+    if (!deleted[0]) {
+      throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------

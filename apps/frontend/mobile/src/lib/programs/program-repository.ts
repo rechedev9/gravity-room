@@ -37,6 +37,16 @@ interface CatalogRow {
   readonly entry_json: string;
 }
 
+type ProgramSnapshotResource = 'library' | 'catalog';
+
+export type ProgramSnapshot<T> =
+  | { readonly status: 'no_snapshot'; readonly data: readonly T[] }
+  | {
+      readonly status: 'snapshot_empty' | 'snapshot';
+      readonly data: readonly T[];
+      readonly syncedAt: string;
+    };
+
 export type ProgramReconciliationOperation = 'create' | 'manage' | 'delete';
 
 export interface PendingCreateReconciliation {
@@ -159,7 +169,8 @@ async function upsertSummary(
 async function replaceSummaries(
   transaction: DatabaseClient,
   ownerUserId: string,
-  programs: readonly ProgramSummary[]
+  programs: readonly ProgramSummary[],
+  snapshotSyncedAt: string | null
 ): Promise<void> {
   if (programs.length === 0) {
     await transaction.runAsync(
@@ -254,6 +265,51 @@ async function replaceSummaries(
     ownerUserId,
     ownerUserId
   );
+
+  if (snapshotSyncedAt !== null) {
+    await upsertSnapshotMetadata(transaction, ownerUserId, 'library', snapshotSyncedAt);
+  }
+}
+
+async function upsertSnapshotMetadata(
+  transaction: DatabaseClient,
+  ownerUserId: string,
+  resource: ProgramSnapshotResource,
+  syncedAt: string
+): Promise<void> {
+  await transaction.runAsync(
+    `INSERT INTO mobile_v2_program_snapshots (
+       owner_user_id, resource, synced_at
+     ) VALUES (?, ?, ?)
+     ON CONFLICT(owner_user_id, resource) DO UPDATE SET
+       synced_at = excluded.synced_at`,
+    ownerUserId,
+    resource,
+    syncedAt
+  );
+}
+
+async function readSnapshotMetadata(
+  database: DatabaseClient,
+  ownerUserId: string,
+  resource: ProgramSnapshotResource
+): Promise<string | null> {
+  const rows = await database.getAllAsync(
+    `SELECT synced_at
+     FROM mobile_v2_program_snapshots
+     WHERE owner_user_id = ? AND resource = ?
+     LIMIT 1`,
+    ownerUserId,
+    resource
+  );
+  const row = rows[0];
+  if (row === undefined) {
+    return null;
+  }
+  if (!isRecord(row) || typeof row.synced_at !== 'string') {
+    throw new Error('SQLite returned invalid program snapshot metadata');
+  }
+  return row.synced_at;
 }
 
 async function upsertDetail(
@@ -307,15 +363,14 @@ export async function replaceProgramSummaries(
   await bootstrapDatabase(database);
 
   await database.withExclusiveTransactionAsync((transaction) =>
-    replaceSummaries(transaction, ownerUserId, programs)
+    replaceSummaries(transaction, ownerUserId, programs, new Date().toISOString())
   );
 }
 
-export async function listProgramSummaries(ownerUserId: string): Promise<ProgramSummary[]> {
-  requireOwnerUserId(ownerUserId);
-  const database = getDatabase();
-  await bootstrapDatabase(database);
-
+async function listProgramSummariesFromDatabase(
+  database: DatabaseClient,
+  ownerUserId: string
+): Promise<ProgramSummary[]> {
   const rows = await database.getAllAsync(
     `SELECT id, program_id, title, status, created_at, updated_at
      FROM mobile_v2_program_summaries
@@ -332,6 +387,36 @@ export async function listProgramSummaries(ownerUserId: string): Promise<Program
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));
+}
+
+export async function listProgramSummaries(ownerUserId: string): Promise<ProgramSummary[]> {
+  requireOwnerUserId(ownerUserId);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  return listProgramSummariesFromDatabase(database, ownerUserId);
+}
+
+export async function readProgramLibrarySnapshot(
+  ownerUserId: string
+): Promise<ProgramSnapshot<ProgramSummary>> {
+  requireOwnerUserId(ownerUserId);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+
+  let syncedAt: string | null = null;
+  let data: readonly ProgramSummary[] = [];
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    syncedAt = await readSnapshotMetadata(transaction, ownerUserId, 'library');
+    data = await listProgramSummariesFromDatabase(transaction, ownerUserId);
+  });
+  if (syncedAt === null) {
+    return { status: 'no_snapshot', data };
+  }
+  return {
+    status: data.length === 0 ? 'snapshot_empty' : 'snapshot',
+    data,
+    syncedAt,
+  };
 }
 
 export async function replaceCachedCatalog(
@@ -359,14 +444,14 @@ export async function replaceCachedCatalog(
         new Date().toISOString()
       );
     }
+    await upsertSnapshotMetadata(transaction, ownerUserId, 'catalog', new Date().toISOString());
   });
 }
 
-export async function listCachedCatalog(ownerUserId: string): Promise<CatalogEntry[]> {
-  requireOwnerUserId(ownerUserId);
-  const database = getDatabase();
-  await bootstrapDatabase(database);
-
+async function listCachedCatalogFromDatabase(
+  database: DatabaseClient,
+  ownerUserId: string
+): Promise<CatalogEntry[]> {
   const rows = await database.getAllAsync(
     `SELECT entry_json
      FROM mobile_v2_program_catalog
@@ -376,6 +461,36 @@ export async function listCachedCatalog(ownerUserId: string): Promise<CatalogEnt
   );
 
   return rows.map(parseCatalogRow).map((row) => parseCatalogEntryJson(row.entry_json));
+}
+
+export async function listCachedCatalog(ownerUserId: string): Promise<CatalogEntry[]> {
+  requireOwnerUserId(ownerUserId);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  return listCachedCatalogFromDatabase(database, ownerUserId);
+}
+
+export async function readProgramCatalogSnapshot(
+  ownerUserId: string
+): Promise<ProgramSnapshot<CatalogEntry>> {
+  requireOwnerUserId(ownerUserId);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+
+  let syncedAt: string | null = null;
+  let data: readonly CatalogEntry[] = [];
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    syncedAt = await readSnapshotMetadata(transaction, ownerUserId, 'catalog');
+    data = await listCachedCatalogFromDatabase(transaction, ownerUserId);
+  });
+  if (syncedAt === null) {
+    return { status: 'no_snapshot', data };
+  }
+  return {
+    status: data.length === 0 ? 'snapshot_empty' : 'snapshot',
+    data,
+    syncedAt,
+  };
 }
 
 export async function cacheCreatedProgram(input: {
@@ -435,7 +550,12 @@ export async function cacheCreatedProgram(input: {
       );
       await upsertSummary(transaction, input.ownerUserId, createdSummary);
     } else {
-      await replaceSummaries(transaction, input.ownerUserId, input.serverPrograms);
+      await replaceSummaries(
+        transaction,
+        input.ownerUserId,
+        input.serverPrograms,
+        new Date().toISOString()
+      );
     }
     await upsertDetail(transaction, input.ownerUserId, detail);
     await upsertDefinition(transaction, input.ownerUserId, definition);
@@ -455,16 +575,18 @@ export async function cacheCreatedProgram(input: {
 
 export async function cacheManagedProgram(
   ownerUserId: string,
-  detailValue: GenericProgramDetail
+  detailValue: GenericProgramDetail,
+  options: { readonly activationRequested: boolean }
 ): Promise<void> {
   requireOwnerUserId(ownerUserId);
   const detail = GenericProgramDetailSchema.parse(detailValue);
   const summary = toSummary(detail);
+  const activating = options.activationRequested && summary.status === 'active';
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   await database.withExclusiveTransactionAsync(async (transaction) => {
-    if (summary.status === 'active') {
+    if (activating) {
       await transaction.runAsync(
         `UPDATE mobile_v2_program_details
          SET detail_json = json_set(
@@ -533,6 +655,18 @@ export async function cacheManagedProgram(
         new Date().toISOString(),
         ownerUserId,
         detail.id
+      );
+    } else if (activating) {
+      await transaction.runAsync(
+        `INSERT INTO mobile_v2_program_preferences (
+           owner_user_id, pinned_program_id, updated_at
+         ) VALUES (?, ?, ?)
+         ON CONFLICT(owner_user_id) DO UPDATE SET
+           pinned_program_id = excluded.pinned_program_id,
+           updated_at = excluded.updated_at`,
+        ownerUserId,
+        detail.id,
+        new Date().toISOString()
       );
     }
   });

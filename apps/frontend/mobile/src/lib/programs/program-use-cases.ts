@@ -190,7 +190,10 @@ export async function manageProgram(
     throw error;
   }
   try {
-    await dependencies.cacheManaged(input.ownerUserId, detail);
+    await dependencies.cacheManaged(input.ownerUserId, detail, {
+      activationRequested:
+        input.mutation.type === 'set_status' && input.mutation.status === 'active',
+    });
     return { status: 'applied', remote: detail };
   } catch {
     const reconciliationScheduled = await scheduleReconciliation(

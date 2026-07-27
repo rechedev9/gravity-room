@@ -37,7 +37,7 @@ import { PPL_AB_DEFINITION_JSONB } from './programs/ppl-ab';
 
 type DbClient = PostgresJsDatabase<typeof schema>;
 
-const DEFINITION_MAP: Record<string, unknown> = {
+export const PROGRAM_DEFINITION_SEEDS: Readonly<Record<string, unknown>> = {
   gzclp: GZCLP_DEFINITION_JSONB,
   'hexan-ppl': PPL531_DEFINITION_JSONB,
   'stronglifts-5x5': STRONGLIFTS_DEFINITION_JSONB,
@@ -96,7 +96,7 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
         category: meta.category,
         level: meta.level,
         source: 'preset',
-        definition: DEFINITION_MAP[meta.id],
+        definition: PROGRAM_DEFINITION_SEEDS[meta.id],
         isActive: meta.isActive,
       }))
     )

@@ -86,7 +86,7 @@ describe('Mobile v2 SQLite schema contract', () => {
     const database = createV1Database(false);
 
     expect(applyContractMigration(database)).toBe(true);
-    expect(readNumber(database, 'PRAGMA user_version', 'user_version')).toBe(3);
+    expect(readNumber(database, 'PRAGMA user_version', 'user_version')).toBe(4);
     expect(
       readStrings(
         database,
@@ -102,6 +102,7 @@ describe('Mobile v2 SQLite schema contract', () => {
       'program_details',
       'program_preferences',
       'program_reconciliations',
+      'program_snapshots',
       'program_summaries',
       'sqlite_sequence',
       'workout_sessions',
@@ -141,6 +142,7 @@ describe('Mobile v2 SQLite schema contract', () => {
       'program_details',
       'program_preferences',
       'program_reconciliations',
+      'program_snapshots',
       'program_summaries',
       'workout_sessions',
       'workout_set_logs',

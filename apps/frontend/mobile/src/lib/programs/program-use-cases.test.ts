@@ -188,8 +188,31 @@ describe('program use cases', () => {
     });
 
     expect(updateRemote).toHaveBeenCalledTimes(1);
-    expect(cacheManaged).toHaveBeenCalledTimes(1);
+    expect(cacheManaged).toHaveBeenCalledWith('user-a', archivedDetail, {
+      activationRequested: false,
+    });
     expect(scheduleReconciliation).toHaveBeenCalledWith('user-a', 'manage', DETAIL.id);
+  });
+
+  it('marks only an explicit activation for the atomic Tracker handoff', async () => {
+    const cacheManaged = jest.fn(async () => undefined);
+
+    await manageProgram(
+      {
+        ownerUserId: 'user-a',
+        programInstanceId: DETAIL.id,
+        mutation: { type: 'set_status', status: 'active' },
+      },
+      {
+        updateRemote: jest.fn(async () => DETAIL),
+        cacheManaged,
+        scheduleReconciliation: jest.fn(async () => undefined),
+      }
+    );
+
+    expect(cacheManaged).toHaveBeenCalledWith('user-a', DETAIL, {
+      activationRequested: true,
+    });
   });
 
   it('never cleans local program data before remote deletion succeeds', async () => {

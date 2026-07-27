@@ -47,6 +47,15 @@ describe('M2 program-library migration', () => {
     expect(countRows(database, 'mobile_v2_program_definitions')).toBe(0);
     expect(countRows(database, 'mobile_v2_program_catalog')).toBe(0);
     expect(countRows(database, 'mobile_v2_program_preferences')).toBe(0);
+    expect(
+      database
+        .prepare(
+          `SELECT count(*) AS count
+           FROM sqlite_master
+           WHERE type = 'table' AND name = 'mobile_v2_program_snapshots'`
+        )
+        .get()?.count
+    ).toBe(0);
 
     database.close();
   });
@@ -90,11 +99,110 @@ describe('M2 program-library migration', () => {
     database.close();
   });
 
-  it('composes v1 with rows through M2 and the complete future M3 contract', () => {
+  it('adds owner-scoped snapshot metadata without treating existing empty tables as synced', () => {
+    const database = new DatabaseSync(':memory:');
+    database.exec(requireMigration(1));
+    database.exec(requireMigration(2));
+    database.exec(requireMigration(3));
+
+    expect(countRows(database, 'mobile_v2_program_snapshots')).toBe(0);
+    database.exec(`
+      INSERT INTO mobile_v2_program_snapshots (owner_user_id, resource, synced_at)
+      VALUES ('owner-a', 'library', '2026-07-27T12:00:00.000Z')
+    `);
+    expect(
+      database
+        .prepare(
+          `SELECT count(*) AS count
+           FROM mobile_v2_program_snapshots
+           WHERE owner_user_id = 'owner-a' AND resource = 'library'`
+        )
+        .get()?.count
+    ).toBe(1);
+    expect(
+      database
+        .prepare(
+          `SELECT count(*) AS count
+           FROM mobile_v2_program_snapshots
+           WHERE owner_user_id = 'owner-b'`
+        )
+        .get()?.count
+    ).toBe(0);
+    expect(() =>
+      database.exec(`
+        INSERT INTO mobile_v2_program_snapshots (owner_user_id, resource, synced_at)
+        VALUES ('owner-a', 'unknown', '2026-07-27T12:00:00.000Z')
+      `)
+    ).toThrow();
+
+    database.close();
+  });
+
+  it('backfills proven catalog snapshots without promoting partial library rows', () => {
+    const database = new DatabaseSync(':memory:');
+    database.exec(requireMigration(1));
+    database.exec(requireMigration(2));
+    database.exec(`
+      INSERT INTO mobile_v2_program_summaries (
+        owner_user_id, id, program_id, title, status, created_at, updated_at
+      ) VALUES
+        (
+          'owner-library', 'program-a', 'gzclp', 'Program A', 'completed',
+          '2026-07-27T09:00:00.000Z', '2026-07-27T10:00:00.000Z'
+        ),
+        (
+          'owner-library', 'program-b', 'gzclp', 'Program B', 'active',
+          '2026-07-27T09:00:00.000Z', '2026-07-27T11:00:00.000Z'
+        );
+      INSERT INTO mobile_v2_program_catalog (
+        owner_user_id, id, entry_json, updated_at
+      ) VALUES (
+        'owner-catalog', 'gzclp', '{"id":"gzclp"}', '2026-07-27T12:00:00.000Z'
+      );
+    `);
+
+    database.exec(requireMigration(3));
+
+    expect(
+      database
+        .prepare(
+          `SELECT count(*) AS count
+           FROM mobile_v2_program_snapshots
+           WHERE owner_user_id = 'owner-library'`
+        )
+        .get()?.count
+    ).toBe(0);
+    expect(
+      database
+        .prepare(
+          `SELECT resource, synced_at
+           FROM mobile_v2_program_snapshots
+           WHERE owner_user_id = 'owner-catalog'`
+        )
+        .get()
+    ).toEqual({
+      resource: 'catalog',
+      synced_at: '2026-07-27T12:00:00.000Z',
+    });
+    expect(
+      database
+        .prepare(
+          `SELECT count(*) AS count
+           FROM mobile_v2_program_snapshots
+           WHERE owner_user_id = 'owner-library' AND resource = 'catalog'`
+        )
+        .get()?.count
+    ).toBe(0);
+
+    database.close();
+  });
+
+  it('composes v1 with rows through corrected M2 and the complete future M3 contract', () => {
     const database = new DatabaseSync(':memory:');
     database.exec(requireMigration(1));
     database.exec(V1_DATABASE_ROWS_FIXTURE_SQL);
     database.exec(requireMigration(2));
+    database.exec(requireMigration(3));
     database.exec(`
       INSERT INTO mobile_v2_program_summaries (
         owner_user_id, id, program_id, title, status, created_at, updated_at
@@ -107,7 +215,12 @@ describe('M2 program-library migration', () => {
       ) VALUES (
         'owner-a', 'owned-program', '2026-07-27T10:00:00.000Z'
       );
-      PRAGMA user_version = 2;
+      INSERT INTO mobile_v2_program_snapshots (
+        owner_user_id, resource, synced_at
+      ) VALUES (
+        'owner-a', 'library', '2026-07-27T10:00:00.000Z'
+      );
+      PRAGMA user_version = 3;
     `);
 
     database.exec('BEGIN IMMEDIATE');
@@ -138,6 +251,15 @@ describe('M2 program-library migration', () => {
     expect(countRows(database, 'outbox_mutations')).toBe(0);
     expect(countRows(database, 'workout_sessions')).toBe(0);
     expect(countRows(database, 'workout_set_logs')).toBe(0);
+    expect(
+      database
+        .prepare(
+          `SELECT synced_at
+           FROM program_snapshots
+           WHERE owner_user_id = 'owner-a' AND resource = 'library'`
+        )
+        .get()?.synced_at
+    ).toBe('2026-07-27T10:00:00.000Z');
     expect(database.prepare('PRAGMA user_version').get()?.user_version).toBe(
       MOBILE_V2_SCHEMA_CONTRACT_VERSION
     );

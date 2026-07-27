@@ -36,7 +36,7 @@ export const PROGRAM_DEFINITIONS_TABLE_SQL = `
 
 /**
  * Runtime migration 2 intentionally uses parallel, owner-scoped tables. The
- * unowned v1 tables remain untouched until the complete version 3 migration
+ * unowned v1 tables remain untouched until the complete version 4 migration
  * can quarantine them with the v1 queue after M3 adapts its runtime.
  */
 export const MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL = `
@@ -101,4 +101,18 @@ export const MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL = `
     ON mobile_v2_program_summaries(owner_user_id, status, updated_at DESC, id);
   CREATE INDEX IF NOT EXISTS mobile_v2_program_reconciliations_owner_created
     ON mobile_v2_program_reconciliations(owner_user_id, created_at, entity_id);
+`;
+
+export const MOBILE_V2_SNAPSHOT_METADATA_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS mobile_v2_program_snapshots (
+    owner_user_id TEXT NOT NULL CHECK (length(owner_user_id) > 0),
+    resource TEXT NOT NULL CHECK (resource IN ('library', 'catalog')),
+    synced_at TEXT NOT NULL,
+    PRIMARY KEY (owner_user_id, resource)
+  ) STRICT;
+
+  INSERT OR IGNORE INTO mobile_v2_program_snapshots (owner_user_id, resource, synced_at)
+  SELECT owner_user_id, 'catalog', MAX(updated_at)
+  FROM mobile_v2_program_catalog
+  GROUP BY owner_user_id;
 `;

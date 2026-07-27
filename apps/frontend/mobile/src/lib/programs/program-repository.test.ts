@@ -5,7 +5,11 @@ import type { CatalogEntry, GenericProgramDetail, ProgramDefinition } from '@gzc
 import type { SQLiteBindValue } from 'expo-sqlite';
 
 import type { DatabaseClient } from '../db/expo-sqlite-adapter';
-import { MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL, QUEUED_MUTATIONS_TABLE_SQL } from '../db/schema';
+import {
+  MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL,
+  MOBILE_V2_SNAPSHOT_METADATA_TABLE_SQL,
+  QUEUED_MUTATIONS_TABLE_SQL,
+} from '../db/schema';
 
 let mockDatabaseClient: DatabaseClient;
 
@@ -20,16 +24,20 @@ import {
   deleteLocalProgramData,
   listCachedCatalog,
   listProgramSummaries,
+  readProgramCatalogSnapshot,
+  readProgramLibrarySnapshot,
   readPendingCreateReconciliation,
   recordProgramReconciliation,
   replaceCachedCatalog,
   replaceProgramSummaries,
 } from './program-repository';
+import { readTrackerProgramId } from '../tracker/tracker-selection-storage';
 
 interface MemoryDatabase {
   readonly client: DatabaseClient;
   readonly sqlite: DatabaseSync;
   readonly setFailingProgramId: (programId: string | null) => void;
+  readonly takeObservedReadDepths: () => readonly number[];
 }
 
 function createMemoryDatabase(): MemoryDatabase {
@@ -37,7 +45,10 @@ function createMemoryDatabase(): MemoryDatabase {
   sqlite.exec('PRAGMA foreign_keys = ON');
   sqlite.exec(QUEUED_MUTATIONS_TABLE_SQL);
   sqlite.exec(MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL);
+  sqlite.exec(MOBILE_V2_SNAPSHOT_METADATA_TABLE_SQL);
   let failingProgramId: string | null = null;
+  let transactionDepth = 0;
+  let observedReadDepths: number[] = [];
 
   const client: DatabaseClient = {
     execAsync: async (source) => {
@@ -53,16 +64,21 @@ function createMemoryDatabase(): MemoryDatabase {
       }
       sqlite.prepare(source).run(...params.map(toNodeBindValue));
     },
-    getAllAsync: async (source, ...params) =>
-      sqlite.prepare(source).all(...params.map(toNodeBindValue)),
+    getAllAsync: async (source, ...params) => {
+      observedReadDepths.push(transactionDepth);
+      return sqlite.prepare(source).all(...params.map(toNodeBindValue));
+    },
     withExclusiveTransactionAsync: async (task) => {
       sqlite.exec('BEGIN IMMEDIATE');
+      transactionDepth += 1;
       try {
         await task(client);
         sqlite.exec('COMMIT');
       } catch (error) {
         sqlite.exec('ROLLBACK');
         throw error;
+      } finally {
+        transactionDepth -= 1;
       }
     },
   };
@@ -72,6 +88,11 @@ function createMemoryDatabase(): MemoryDatabase {
     sqlite,
     setFailingProgramId: (programId) => {
       failingProgramId = programId;
+    },
+    takeObservedReadDepths: () => {
+      const depths = observedReadDepths;
+      observedReadDepths = [];
+      return depths;
     },
   };
 }
@@ -195,6 +216,67 @@ describe('M2 program repository', () => {
     await expect(listProgramSummaries('user-b')).resolves.toEqual([
       { ...ACTIVE, title: 'B private' },
     ]);
+  });
+
+  it('distinguishes no snapshot from a successful empty snapshot per owner and resource', async () => {
+    await expect(readProgramLibrarySnapshot('user-a')).resolves.toEqual({
+      status: 'no_snapshot',
+      data: [],
+    });
+    await expect(readProgramCatalogSnapshot('user-a')).resolves.toEqual({
+      status: 'no_snapshot',
+      data: [],
+    });
+
+    await replaceProgramSummaries('user-a', []);
+    await replaceCachedCatalog('user-a', []);
+
+    await expect(readProgramLibrarySnapshot('user-a')).resolves.toMatchObject({
+      status: 'snapshot_empty',
+      data: [],
+    });
+    await expect(readProgramCatalogSnapshot('user-a')).resolves.toMatchObject({
+      status: 'snapshot_empty',
+      data: [],
+    });
+    await expect(readProgramLibrarySnapshot('user-b')).resolves.toEqual({
+      status: 'no_snapshot',
+      data: [],
+    });
+    await expect(readProgramCatalogSnapshot('user-b')).resolves.toEqual({
+      status: 'no_snapshot',
+      data: [],
+    });
+  });
+
+  it('returns an acknowledged create as partial data without claiming a full snapshot', async () => {
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: null,
+    });
+
+    await expect(readProgramLibrarySnapshot('user-a')).resolves.toEqual({
+      status: 'no_snapshot',
+      data: [ACTIVE],
+    });
+  });
+
+  it('reads each snapshot marker and its rows inside one SQLite transaction', async () => {
+    await replaceProgramSummaries('user-a', [ACTIVE]);
+    memory.takeObservedReadDepths();
+
+    await readProgramLibrarySnapshot('user-a');
+
+    expect(memory.takeObservedReadDepths()).toEqual([1, 1]);
+
+    await replaceCachedCatalog('user-a', [CATALOG_ENTRY]);
+    memory.takeObservedReadDepths();
+
+    await readProgramCatalogSnapshot('user-a');
+
+    expect(memory.takeObservedReadDepths()).toEqual([1, 1]);
   });
 
   it('rolls back the whole snapshot when one summary insert fails', async () => {
@@ -325,7 +407,11 @@ describe('M2 program repository', () => {
       serverPrograms: [ACTIVE],
     });
 
-    await cacheManagedProgram('user-a', { ...DETAIL, status: 'archived' });
+    await cacheManagedProgram(
+      'user-a',
+      { ...DETAIL, status: 'archived' },
+      { activationRequested: false }
+    );
 
     await expect(listProgramSummaries('user-a')).resolves.toEqual([
       { ...ACTIVE, status: 'archived' },
@@ -339,6 +425,69 @@ describe('M2 program repository', () => {
         'user-a'
       )
     ).toBe(1);
+  });
+
+  it('reactivates and pins the target atomically so Tracker resolves the new active program', async () => {
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: [ACTIVE, COMPLETED],
+    });
+
+    await cacheManagedProgram(
+      'user-a',
+      {
+        ...DETAIL,
+        id: COMPLETED.id,
+        name: COMPLETED.title,
+        status: 'active',
+        createdAt: COMPLETED.createdAt,
+        updatedAt: '2026-07-27T13:00:00.000Z',
+      },
+      { activationRequested: true }
+    );
+
+    await expect(listProgramSummaries('user-a')).resolves.toEqual([
+      {
+        ...ACTIVE,
+        status: 'completed',
+        updatedAt: '2026-07-27T13:00:00.000Z',
+      },
+      {
+        ...COMPLETED,
+        status: 'active',
+        updatedAt: '2026-07-27T13:00:00.000Z',
+      },
+    ]);
+    await expect(readTrackerProgramId('user-a')).resolves.toBe(COMPLETED.id);
+  });
+
+  it('preserves an absent Tracker pin when renaming an already-active program', async () => {
+    await cacheCreatedProgram({
+      ownerUserId: 'user-a',
+      detail: DETAIL,
+      definition: DEFINITION,
+      serverPrograms: [ACTIVE],
+    });
+    memory.sqlite
+      .prepare(
+        `UPDATE mobile_v2_program_preferences
+         SET pinned_program_id = NULL
+         WHERE owner_user_id = ?`
+      )
+      .run('user-a');
+
+    await cacheManagedProgram(
+      'user-a',
+      { ...DETAIL, name: 'Renamed active program' },
+      { activationRequested: false }
+    );
+
+    await expect(readTrackerProgramId('user-a')).resolves.toBeNull();
+    await expect(listProgramSummaries('user-a')).resolves.toEqual([
+      { ...ACTIVE, title: 'Renamed active program' },
+    ]);
   });
 
   it('preserves pending operational detail and queued mutation during management', async () => {
@@ -361,13 +510,17 @@ describe('M2 program repository', () => {
       )
       .run('program', ACTIVE.id, 'result', '{"pending":true}', '2026-07-27T12:05:00.000Z');
 
-    await cacheManagedProgram('user-a', {
-      ...DETAIL,
-      name: 'Renamed remotely',
-      status: 'archived',
-      results: {},
-      undoHistory: [],
-    });
+    await cacheManagedProgram(
+      'user-a',
+      {
+        ...DETAIL,
+        name: 'Renamed remotely',
+        status: 'archived',
+        results: {},
+        undoHistory: [],
+      },
+      { activationRequested: false }
+    );
 
     const row = memory.sqlite
       .prepare(

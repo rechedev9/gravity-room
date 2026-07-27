@@ -82,16 +82,23 @@ Los triggers de flush son restauración de sesión, foreground, conectividad rec
 de workout y reintento manual. Cerrar sesión detiene el flush antes de cambiar credenciales. Los datos
 se particionan por `owner_user_id`; nunca se reproducen filas de otro usuario.
 
-M2 registra la migración runtime 2 únicamente para la biblioteca de programas: crea tablas paralelas
+M2 registra la migración runtime 2 para la biblioteca de programas: crea tablas paralelas
 `mobile_v2_program_*`, owner-scoped, y conserva intactas las tablas v1 y `queued_mutations` que el
-tracker M1 todavía usa. Esta versión ya no se confunde con el contrato completo de M0.
+tracker M1 todavía usa. La corrección M2 añade la migración 3, limitada al marcador transaccional de
+snapshots remotos de biblioteca y catálogo; una tabla vacía sin ese marcador sigue siendo
+`no_snapshot`, mientras que un GET remoto vacío confirmado queda como `snapshot_empty`. El catálogo
+v2 poblado sí demuestra un reemplazo remoto completo y la migración conserva esa procedencia; las
+filas de biblioteca no, porque un create con ACK y sin GET posterior puede haber guardado solo una
+instancia. Esas filas se exponen como datos confirmados parciales con copy de primera sincronización,
+nunca como el último snapshot completo.
 
 El SQL completo queda congelado en
-`apps/frontend/mobile/src/lib/db/mobile-v2-schema-contract.ts` como versión contractual 3. Compone de
-forma determinista v1 → v2(M2) → v3: pone caches/cola v1 sin owner en cuarentena, promueve solo filas
-M2 que ya tienen owner, crea `workout_sessions`, `workout_set_logs` y `outbox_mutations`, y no reclama
-ni reproduce mutaciones legacy. M3 debe adaptar sus repositorios y registrar ese paso exacto como
-migración 3; no puede reutilizar el número 2 ni saltar directamente a una versión posterior.
+`apps/frontend/mobile/src/lib/db/mobile-v2-schema-contract.ts` como versión contractual 4. Compone de
+forma determinista v1 → v2(M2) → v3(snapshot metadata) → v4: pone caches/cola v1 sin owner en
+cuarentena, promueve solo filas M2 que ya tienen owner, conserva sus marcadores de snapshot, crea
+`workout_sessions`, `workout_set_logs` y `outbox_mutations`, y no reclama ni reproduce mutaciones
+legacy. M3 debe adaptar sus repositorios y registrar ese paso exacto como migración 4; no puede
+reutilizar los números 2/3 ni saltar directamente a una versión posterior.
 
 ## Alternativas consideradas
 
@@ -104,7 +111,7 @@ migración 3; no puede reutilizar el número 2 ni saltar directamente a una vers
 ## Consecuencias
 
 - Toda lectura de `payload_json` tendrá pruebas de datos válidos, malformados y de versión anterior.
-- M3 registra la migración completa como versión 3 y necesita pruebas de caída entre escritura local
+- M3 registra la migración completa como versión 4 y necesita pruebas de caída entre escritura local
   y flush, taps rápidos, token expirado y cambio de
   usuario.
 - Las altas sin endpoint idempotente seguirán online-only.

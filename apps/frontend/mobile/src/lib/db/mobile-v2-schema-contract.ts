@@ -1,18 +1,23 @@
-import { MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL } from './schema';
+import {
+  MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL,
+  MOBILE_V2_SNAPSHOT_METADATA_TABLE_SQL,
+} from './schema';
 
 /**
  * Contractual complete-schema migration reserved for M3.
  *
  * Runtime migration 2 installs the owner-scoped M2 program library beside the
- * still-operational v1 tracker queue. This version 3 step composes that shipped
- * state into the complete schema: it quarantines unowned v1 rows, promotes only
- * already-owned M2 rows, and creates sessions/outbox without claiming legacy
- * data. M3 can register this exact step after adapting its runtime repositories.
+ * still-operational v1 tracker queue. This version 4 step composes that shipped
+ * state (including the corrective snapshot marker from migration 3) into the
+ * complete schema: it quarantines unowned v1 rows, promotes only already-owned
+ * M2 rows, and creates sessions/outbox without claiming legacy data. M3 can
+ * register this exact step after adapting its runtime repositories.
  */
-export const MOBILE_V2_SCHEMA_CONTRACT_VERSION = 3;
+export const MOBILE_V2_SCHEMA_CONTRACT_VERSION = 4;
 
 export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
   ${MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL}
+  ${MOBILE_V2_SNAPSHOT_METADATA_TABLE_SQL}
 
   CREATE TABLE IF NOT EXISTS legacy_user_cache_quarantine (
     quarantine_key TEXT PRIMARY KEY NOT NULL,
@@ -223,6 +228,13 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
     PRIMARY KEY (owner_user_id, operation, entity_id)
   ) STRICT;
 
+  CREATE TABLE program_snapshots (
+    owner_user_id TEXT NOT NULL CHECK (length(owner_user_id) > 0),
+    resource TEXT NOT NULL CHECK (resource IN ('library', 'catalog')),
+    synced_at TEXT NOT NULL,
+    PRIMARY KEY (owner_user_id, resource)
+  ) STRICT;
+
   INSERT INTO program_summaries (
     owner_user_id, id, program_id, title, status, created_at, updated_at
   )
@@ -259,6 +271,13 @@ export const MOBILE_V2_SCHEMA_CONTRACT_SQL = `
   SELECT owner_user_id, operation, entity_id, created_at
   FROM mobile_v2_program_reconciliations;
 
+  INSERT INTO program_snapshots (
+    owner_user_id, resource, synced_at
+  )
+  SELECT owner_user_id, resource, synced_at
+  FROM mobile_v2_program_snapshots;
+
+  DROP TABLE mobile_v2_program_snapshots;
   DROP TABLE mobile_v2_program_reconciliations;
   DROP TABLE mobile_v2_program_preferences;
   DROP TABLE mobile_v2_program_catalog;

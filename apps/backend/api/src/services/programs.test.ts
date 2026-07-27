@@ -184,6 +184,7 @@ const {
   createInstance,
   getInstances,
   getInstance,
+  deleteInstance,
   updateInstance,
   updateInstanceMetadata,
   importInstance,
@@ -1028,7 +1029,9 @@ describe('updateInstance active serialization', () => {
       .mockReturnValueOnce({
         from: vi.fn(() => ({
           where: vi.fn(() => ({
-            limit: vi.fn(async () => []),
+            for: vi.fn(() => ({
+              limit: vi.fn(async () => []),
+            })),
           })),
         })),
       });
@@ -1043,5 +1046,204 @@ describe('updateInstance active serialization', () => {
       code: 'INSTANCE_NOT_FOUND',
     });
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it('treats a repeated activation of the locked active target as idempotent', async () => {
+    const activeRow: TransactionProgramRow = {
+      id: 'active-a',
+      userId: 'user-1',
+      templateId: 'gzclp',
+      name: 'A',
+      programConfig: {},
+      status: 'active',
+      definitionId: null,
+      customDefinition: null,
+      metadata: null,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    const select = vi
+      .fn()
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            for: vi.fn(() => ({
+              limit: vi.fn(async () => [{ id: 'user-1' }]),
+            })),
+          })),
+        })),
+      })
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            for: vi.fn(() => ({
+              limit: vi.fn(async () => [{ id: activeRow.id, status: 'active' }]),
+            })),
+          })),
+        })),
+      });
+    const update = vi
+      .fn()
+      .mockReturnValueOnce({
+        set: vi.fn(() => ({
+          where: vi.fn(async () => undefined),
+        })),
+      })
+      .mockReturnValueOnce({
+        set: vi.fn(() => ({
+          where: vi.fn(() => ({
+            returning: vi.fn(async () => [activeRow]),
+          })),
+        })),
+      });
+    const emptyProjectionSelect = vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          then: (resolve: (rows: unknown[]) => unknown) => Promise.resolve(resolve([])),
+          orderBy: vi.fn(async () => []),
+        })),
+      })),
+    }));
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task({ select, update })
+      ),
+      select: emptyProjectionSelect,
+    };
+
+    await expect(
+      updateInstance('user-1', activeRow.id, { status: 'active' })
+    ).resolves.toMatchObject({
+      id: activeRow.id,
+      status: 'active',
+    });
+    expect(update).toHaveBeenCalledTimes(2);
+  });
+
+  it('rolls back the previous active program when the locked target update returns no row', async () => {
+    const persisted: TransactionProgramRow[] = [
+      {
+        id: 'active-a',
+        userId: 'user-1',
+        templateId: 'gzclp',
+        name: 'A',
+        programConfig: {},
+        status: 'active',
+        definitionId: null,
+        customDefinition: null,
+        metadata: null,
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+      {
+        id: 'completed-b',
+        userId: 'user-1',
+        templateId: 'gzclp',
+        name: 'B',
+        programConfig: {},
+        status: 'completed',
+        definitionId: null,
+        customDefinition: null,
+        metadata: null,
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+    ];
+    const targetForUpdate = vi.fn(() => ({
+      limit: vi.fn(async () => [{ id: 'completed-b', status: 'completed' }]),
+    }));
+
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) => {
+        const draft = persisted.map((row) => ({ ...row }));
+        const select = vi
+          .fn()
+          .mockReturnValueOnce({
+            from: vi.fn(() => ({
+              where: vi.fn(() => ({
+                for: vi.fn(() => ({
+                  limit: vi.fn(async () => [{ id: 'user-1' }]),
+                })),
+              })),
+            })),
+          })
+          .mockReturnValueOnce({
+            from: vi.fn(() => ({
+              where: vi.fn(() => ({ for: targetForUpdate })),
+            })),
+          });
+        const update = vi
+          .fn()
+          .mockReturnValueOnce({
+            set: vi.fn(() => ({
+              where: vi.fn(async () => {
+                const active = draft.find((row) => row.id === 'active-a');
+                if (active) active.status = 'completed';
+              }),
+            })),
+          })
+          .mockReturnValueOnce({
+            set: vi.fn(() => ({
+              where: vi.fn(() => ({
+                // Reproduces a target removed by a competing implementation:
+                // the guarded UPDATE must fail inside the transaction.
+                returning: vi.fn(async () => []),
+              })),
+            })),
+          });
+
+        const result = await task({ select, update });
+        persisted.splice(0, persisted.length, ...draft);
+        return result;
+      }),
+    };
+
+    await expect(
+      updateInstance('user-1', 'completed-b', { status: 'active' })
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      code: 'INSTANCE_NOT_FOUND',
+    });
+    expect(targetForUpdate).toHaveBeenCalledWith('update');
+    expect(persisted.find((row) => row.id === 'active-a')?.status).toBe('active');
+    expect(persisted.find((row) => row.id === 'completed-b')?.status).toBe('completed');
+  });
+
+  it('uses the same owner-then-target lock order for deletion', async () => {
+    const ownerForUpdate = vi.fn(() => ({
+      limit: vi.fn(async () => [{ id: 'user-1' }]),
+    }));
+    const targetForUpdate = vi.fn(() => ({
+      limit: vi.fn(async () => [{ id: 'completed-b' }]),
+    }));
+    const select = vi
+      .fn()
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({ for: ownerForUpdate })),
+        })),
+      })
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({ for: targetForUpdate })),
+        })),
+      });
+    const returning = vi.fn(async () => [{ id: 'completed-b' }]);
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task({
+          select,
+          delete: vi.fn(() => ({
+            where: vi.fn(() => ({ returning })),
+          })),
+        })
+      ),
+    };
+
+    await deleteInstance('user-1', 'completed-b');
+
+    expect(ownerForUpdate).toHaveBeenCalledWith('update');
+    expect(targetForUpdate).toHaveBeenCalledWith('update');
+    expect(returning).toHaveBeenCalledOnce();
   });
 });

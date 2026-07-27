@@ -86,8 +86,8 @@ describe('bootstrapDatabase', () => {
     await expect(bootstrapDatabase()).rejects.toThrow('disk busy');
     await expect(bootstrapDatabase()).resolves.toBeUndefined();
 
-    expect(execAsync).toHaveBeenCalledTimes(5);
-    expect(database.getVersion()).toBe(2);
+    expect(execAsync).toHaveBeenCalledTimes(7);
+    expect(database.getVersion()).toBe(3);
   });
 
   it('returns the same database instance across calls', () => {
@@ -101,7 +101,7 @@ describe('bootstrapDatabase', () => {
 
     await bootstrapDatabase(database);
 
-    expect(database.getVersion()).toBe(2);
+    expect(database.getVersion()).toBe(3);
     expect(database.getTableNames()).toEqual(
       [
         ...V1_DATABASE_FIXTURE.tables,
@@ -110,6 +110,7 @@ describe('bootstrapDatabase', () => {
         'mobile_v2_program_details',
         'mobile_v2_program_preferences',
         'mobile_v2_program_reconciliations',
+        'mobile_v2_program_snapshots',
         'mobile_v2_program_summaries',
       ].sort()
     );
@@ -136,6 +137,7 @@ describe('bootstrapDatabase', () => {
     ).toBe(true);
     expect(database.appliedSql).toContain('PRAGMA user_version = 1');
     expect(database.appliedSql).toContain('PRAGMA user_version = 2');
+    expect(database.appliedSql).toContain('PRAGMA user_version = 3');
   });
 
   it('migrates a pre-existing install stuck at version 0 without erroring', async () => {
@@ -144,7 +146,7 @@ describe('bootstrapDatabase', () => {
     const database = createFakeDatabase(LEGACY_UNVERSIONED_DATABASE_FIXTURE);
 
     await bootstrapDatabase(database);
-    expect(database.getVersion()).toBe(2);
+    expect(database.getVersion()).toBe(3);
     expect(database.getTableNames()).toContain('mobile_v2_program_summaries');
 
     // Running it again (e.g. next app launch) must be a no-op: the CREATE
@@ -176,13 +178,14 @@ describe('bootstrapDatabase', () => {
     expect(database.appliedSql).toContain('PRAGMA user_version = 3');
   });
 
-  it('adds only the owner-scoped M2 program tables to a v1 installation', async () => {
+  it('adds only the owner-scoped M2 program tables and snapshot metadata to v1', async () => {
     const database = createFakeDatabase(V1_DATABASE_FIXTURE);
 
     await bootstrapDatabase(database);
 
-    expect(database.getVersion()).toBe(2);
+    expect(database.getVersion()).toBe(3);
     expect(database.getTableNames()).toContain('mobile_v2_program_summaries');
+    expect(database.getTableNames()).toContain('mobile_v2_program_snapshots');
     expect(database.appliedSql).not.toContain(
       expect.stringContaining('DROP TABLE program_summaries')
     );

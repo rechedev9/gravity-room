@@ -17,7 +17,10 @@ import {
 } from '@gzclp/domain/program-config';
 
 import type { SupportedLanguage } from '../../lib/i18n';
-import { parseLocalizedWeight } from '../../lib/programs/localized-weight-input';
+import {
+  formatLocalizedWeight,
+  parseLocalizedWeight,
+} from '../../lib/programs/localized-weight-input';
 import {
   localizeDayName,
   localizeDefinitionDescription,
@@ -58,8 +61,13 @@ interface PresetSetupScreenProps {
   readonly onCreated: (programInstanceId: string) => void;
 }
 
-function toInputValues(config: ProgramConfig): Record<string, string> {
-  return Object.fromEntries(Object.entries(config).map(([key, value]) => [key, String(value)]));
+function toInputValues(config: ProgramConfig, language: SupportedLanguage): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(config).map(([key, value]) => [
+      key,
+      typeof value === 'number' ? formatLocalizedWeight(value, language) : value,
+    ])
+  );
 }
 
 function buildConfigCandidate(
@@ -129,6 +137,9 @@ export function PresetSetupScreen({
   const valuesInitializedRef = useRef(false);
   const submittingRef = useRef(false);
   const language: SupportedLanguage = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
+  const languageRef = useRef(language);
+  const previousLanguageRef = useRef(language);
+  languageRef.current = language;
 
   useEffect(() => {
     let active = true;
@@ -136,7 +147,7 @@ export function PresetSetupScreen({
     valuesInitializedRef.current = false;
 
     function applyDefinition(definition: ProgramDefinition): void {
-      const defaults = toInputValues(buildDefaultProgramConfig(definition));
+      const defaults = toInputValues(buildDefaultProgramConfig(definition), languageRef.current);
       setValues((current) => {
         if (!valuesInitializedRef.current) {
           valuesInitializedRef.current = true;
@@ -202,6 +213,43 @@ export function PresetSetupScreen({
       active = false;
     };
   }, [ownerUserId, programId, reloadToken]);
+
+  useEffect(() => {
+    const previousLanguage = previousLanguageRef.current;
+    previousLanguageRef.current = language;
+    if (
+      previousLanguage === language ||
+      state.status !== 'ready' ||
+      !valuesInitializedRef.current
+    ) {
+      return;
+    }
+
+    const defaults = toInputValues(buildDefaultProgramConfig(state.definition), language);
+    const weightFieldKeys = new Set(
+      state.definition.configFields
+        .filter((field) => field.type === 'weight')
+        .map((field) => field.key)
+    );
+    setValues((current) =>
+      Object.fromEntries(
+        Object.entries(defaults).map(([key, defaultValue]) => {
+          if (!dirtyFieldsRef.current.has(key)) {
+            return [key, defaultValue];
+          }
+          const currentValue = current[key] ?? defaultValue;
+          if (!weightFieldKeys.has(key)) {
+            return [key, currentValue];
+          }
+          const parsed = parseLocalizedWeight(currentValue, previousLanguage);
+          return [
+            key,
+            parsed.success ? formatLocalizedWeight(parsed.value, language) : currentValue,
+          ];
+        })
+      )
+    );
+  }, [language, state]);
 
   const ruleTypes = useMemo(
     () => (state.status === 'ready' ? collectRuleTypes(state.definition) : []),
@@ -322,12 +370,19 @@ export function PresetSetupScreen({
         <Card>
           <Text style={styles.sectionTitle}>{t('programs.preset.days_title')}</Text>
           {definition.days.map((day, dayIndex) => (
-            <View key={day.name} style={styles.day}>
-              <Text style={styles.dayTitle}>{localizeDayName(dayIndex, t)}</Text>
-              {day.slots.map((slot, slotIndex) => (
+            <View key={`${definition.id}:${dayIndex}`} style={styles.day}>
+              <Text style={styles.dayTitle}>
+                {localizeDayName(definition.id, day.name, dayIndex, t, language)}
+              </Text>
+              {day.slots.map((slot) => (
                 <Text key={slot.id} style={styles.body}>
-                  {localizeExerciseName(slot.exerciseId, slotIndex, t)} ·{' '}
-                  {localizeTier(slot.tier, t)}
+                  {localizeExerciseName(
+                    slot.exerciseId,
+                    definition.exercises[slot.exerciseId]?.name,
+                    t,
+                    language
+                  )}{' '}
+                  · {localizeTier(slot.tier, t)}
                 </Text>
               ))}
             </View>
@@ -346,9 +401,15 @@ export function PresetSetupScreen({
         <Card>
           <Text style={styles.sectionTitle}>{t('programs.preset.setup_title')}</Text>
           <Text style={styles.body}>{t('programs.preset.setup_body')}</Text>
-          {definition.configFields.map((field, fieldIndex) => {
+          {definition.configFields.map((field) => {
             const issue = findFieldIssue(issues, field.key);
-            const localizedLabel = localizeFieldLabel(field.key, fieldIndex, t);
+            const localizedLabel = localizeFieldLabel(
+              definition.id,
+              field.key,
+              field.label,
+              t,
+              language
+            );
             if (field.type === 'weight') {
               return (
                 <View key={field.key} style={styles.field}>
@@ -369,8 +430,8 @@ export function PresetSetupScreen({
                   />
                   <Text style={styles.hint}>
                     {t('programs.preset.weight_hint', {
-                      min: field.min,
-                      step: field.step,
+                      min: formatLocalizedWeight(field.min, language),
+                      step: formatLocalizedWeight(field.step, language),
                     })}
                   </Text>
                   {issue ? (
@@ -386,7 +447,7 @@ export function PresetSetupScreen({
               <View key={field.key} style={styles.field}>
                 <Text style={styles.label}>{localizedLabel}</Text>
                 <View style={styles.options}>
-                  {field.options.map((option, optionIndex) => {
+                  {field.options.map((option) => {
                     const selected = values[field.key] === option.value;
                     return (
                       <Pressable
@@ -405,7 +466,7 @@ export function PresetSetupScreen({
                         style={[styles.option, selected ? styles.optionSelected : null]}
                       >
                         <Text style={styles.optionLabel}>
-                          {localizeSelectOption(optionIndex, t)}
+                          {localizeSelectOption(field.key, option.value, option.label, t, language)}
                         </Text>
                       </Pressable>
                     );

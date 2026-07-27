@@ -3,8 +3,9 @@ import { Alert } from 'react-native';
 import type { CatalogEntry } from '@gzclp/domain';
 
 import {
-  listCachedCatalog,
   listProgramSummaries,
+  readProgramCatalogSnapshot,
+  readProgramLibrarySnapshot,
   replaceCachedCatalog,
   replaceProgramSummaries,
 } from '../../lib/programs/program-repository';
@@ -17,8 +18,9 @@ import {
 import { ProgramsScreen } from './programs-screen';
 
 jest.mock('../../lib/programs/program-repository', () => ({
-  listCachedCatalog: jest.fn(),
   listProgramSummaries: jest.fn(),
+  readProgramCatalogSnapshot: jest.fn(),
+  readProgramLibrarySnapshot: jest.fn(),
   replaceCachedCatalog: jest.fn(),
   replaceProgramSummaries: jest.fn(),
 }));
@@ -38,8 +40,9 @@ jest.mock('../../lib/tracker/tracker-selection-storage', () => ({
   writeTrackerProgramId: jest.fn(),
 }));
 
-const mockedListCachedCatalog = jest.mocked(listCachedCatalog);
 const mockedListProgramSummaries = jest.mocked(listProgramSummaries);
+const mockedReadProgramCatalogSnapshot = jest.mocked(readProgramCatalogSnapshot);
+const mockedReadProgramLibrarySnapshot = jest.mocked(readProgramLibrarySnapshot);
 const mockedReplaceCachedCatalog = jest.mocked(replaceCachedCatalog);
 const mockedReplaceProgramSummaries = jest.mocked(replaceProgramSummaries);
 const mockedDeleteProgram = jest.mocked(deleteProgram);
@@ -99,7 +102,16 @@ describe('ProgramsScreen M2 library', () => {
     mockedListProgramSummaries.mockResolvedValue([ACTIVE, COMPLETED, ARCHIVED]);
     mockedFetchProgramSummaries.mockResolvedValue([ACTIVE, COMPLETED, ARCHIVED]);
     mockedReplaceProgramSummaries.mockResolvedValue();
-    mockedListCachedCatalog.mockResolvedValue([CATALOG_ENTRY]);
+    mockedReadProgramLibrarySnapshot.mockResolvedValue({
+      status: 'snapshot',
+      data: [ACTIVE, COMPLETED, ARCHIVED],
+      syncedAt: '2026-07-27T12:00:00.000Z',
+    });
+    mockedReadProgramCatalogSnapshot.mockResolvedValue({
+      status: 'snapshot',
+      data: [CATALOG_ENTRY],
+      syncedAt: '2026-07-27T12:00:00.000Z',
+    });
     mockedFetchCatalogEntries.mockResolvedValue([CATALOG_ENTRY]);
     mockedReplaceCachedCatalog.mockResolvedValue();
     mockedReadTrackerProgramId.mockResolvedValue(ACTIVE.id);
@@ -160,7 +172,16 @@ describe('ProgramsScreen M2 library', () => {
 
   it('treats an empty readable cache as a valid offline snapshot', async () => {
     mockedListProgramSummaries.mockResolvedValue([]);
-    mockedListCachedCatalog.mockResolvedValue([]);
+    mockedReadProgramLibrarySnapshot.mockResolvedValue({
+      status: 'snapshot_empty',
+      data: [],
+      syncedAt: '2026-07-27T12:00:00.000Z',
+    });
+    mockedReadProgramCatalogSnapshot.mockResolvedValue({
+      status: 'snapshot_empty',
+      data: [],
+      syncedAt: '2026-07-27T12:00:00.000Z',
+    });
     mockedReadTrackerProgramId.mockResolvedValue(null);
     mockedFetchProgramSummaries.mockRejectedValue(new Error('offline'));
     mockedFetchCatalogEntries.mockRejectedValue(new Error('offline'));
@@ -177,8 +198,52 @@ describe('ProgramsScreen M2 library', () => {
     expect(screen.queryByText('Unable to sync programs right now.')).toBeNull();
   });
 
+  it('reports first-sync unavailability when offline storage has no snapshot marker', async () => {
+    mockedReadProgramLibrarySnapshot.mockResolvedValue({ status: 'no_snapshot', data: [] });
+    mockedReadProgramCatalogSnapshot.mockResolvedValue({ status: 'no_snapshot', data: [] });
+    mockedReadTrackerProgramId.mockResolvedValue(null);
+    mockedFetchProgramSummaries.mockRejectedValue(new Error('offline'));
+    mockedFetchCatalogEntries.mockRejectedValue(new Error('offline'));
+
+    renderPrograms();
+
+    expect(
+      await screen.findByText(
+        'Your library has not been synchronized on this device yet. Connect to complete the first sync.'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'The catalog has not been synchronized on this device yet. Connect to complete the first sync.'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.queryByText('Offline: showing your last synchronized program library.')
+    ).toBeNull();
+  });
+
+  it('shows acknowledged partial programs without calling them a synchronized snapshot', async () => {
+    mockedReadProgramLibrarySnapshot.mockResolvedValue({
+      status: 'no_snapshot',
+      data: [ACTIVE],
+    });
+    mockedFetchProgramSummaries.mockRejectedValue(new Error('offline'));
+
+    renderPrograms();
+
+    expect(
+      await screen.findByText(
+        'Showing confirmed programs on this device. The full library remains unavailable until the first sync completes.'
+      )
+    ).toBeTruthy();
+    expect(screen.getAllByText(ACTIVE.title).length).toBeGreaterThan(0);
+    expect(
+      screen.queryByText('Offline: showing your last synchronized program library.')
+    ).toBeNull();
+  });
+
   it('renders an accessible EmptyState for a fresh empty catalog', async () => {
-    mockedListCachedCatalog.mockResolvedValue([]);
+    mockedReadProgramCatalogSnapshot.mockResolvedValue({ status: 'no_snapshot', data: [] });
     mockedFetchCatalogEntries.mockResolvedValue([]);
 
     renderPrograms();
@@ -204,8 +269,8 @@ describe('ProgramsScreen M2 library', () => {
   });
 
   it('labels loading indicators and exposes load failures as alerts', async () => {
-    mockedListProgramSummaries.mockImplementation(() => new Promise(() => undefined));
-    mockedListCachedCatalog.mockImplementation(() => new Promise(() => undefined));
+    mockedReadProgramLibrarySnapshot.mockImplementation(() => new Promise(() => undefined));
+    mockedReadProgramCatalogSnapshot.mockImplementation(() => new Promise(() => undefined));
     mockedFetchProgramSummaries.mockImplementation(() => new Promise(() => undefined));
     mockedFetchCatalogEntries.mockImplementation(() => new Promise(() => undefined));
     const view = renderPrograms();
@@ -214,8 +279,8 @@ describe('ProgramsScreen M2 library', () => {
     expect(screen.getByLabelText('Loading the preset catalog')).toBeTruthy();
 
     view.unmount();
-    mockedListProgramSummaries.mockRejectedValue(new Error('cache broken'));
-    mockedListCachedCatalog.mockRejectedValue(new Error('cache broken'));
+    mockedReadProgramLibrarySnapshot.mockRejectedValue(new Error('cache broken'));
+    mockedReadProgramCatalogSnapshot.mockRejectedValue(new Error('cache broken'));
     mockedFetchProgramSummaries.mockRejectedValue(new Error('server broken'));
     mockedFetchCatalogEntries.mockRejectedValue(new Error('server broken'));
     renderPrograms();
@@ -255,7 +320,58 @@ describe('ProgramsScreen M2 library', () => {
         mutation: { type: 'set_status', status: 'completed' },
       });
     });
-    expect(mockedListProgramSummaries).toHaveBeenCalledTimes(3);
+    expect(mockedListProgramSummaries).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows a reactivated program as active and auto-pinned for Tracker', async () => {
+    const reactivated = {
+      ...COMPLETED,
+      status: 'active' as const,
+      updatedAt: '2026-07-27T13:00:00.000Z',
+    };
+    const previousActive = {
+      ...ACTIVE,
+      status: 'completed' as const,
+      updatedAt: reactivated.updatedAt,
+    };
+    mockedListProgramSummaries
+      .mockResolvedValueOnce([ACTIVE, COMPLETED, ARCHIVED])
+      .mockResolvedValue([reactivated, previousActive, ARCHIVED]);
+    mockedReadTrackerProgramId
+      .mockResolvedValueOnce(ACTIVE.id)
+      .mockResolvedValueOnce(ACTIVE.id)
+      .mockResolvedValue(COMPLETED.id);
+    mockedManageProgram.mockResolvedValue({
+      status: 'applied',
+      remote: {
+        id: reactivated.id,
+        programId: reactivated.programId,
+        name: reactivated.title,
+        config: {},
+        metadata: null,
+        results: {},
+        undoHistory: [],
+        resultTimestamps: {},
+        completedDates: {},
+        definitionId: null,
+        customDefinition: null,
+        status: 'active',
+        createdAt: reactivated.createdAt,
+        updatedAt: reactivated.updatedAt,
+      },
+    });
+    renderPrograms();
+
+    const reactivate = (await screen.findAllByRole('button', { name: 'Reactivate' }))[0];
+    if (!reactivate) {
+      throw new Error('Expected a completed program reactivation action');
+    }
+    fireEvent.press(reactivate);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(COMPLETED.title)).toHaveLength(2);
+    });
+    expect(mockedWriteTrackerProgramId).not.toHaveBeenCalled();
   });
 
   it('shows honest reconciliation copy after a remote ACK instead of reporting failure', async () => {
