@@ -10,6 +10,7 @@ import { rateLimit } from '../middleware/rate-limit';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import { ApiError } from '../middleware/error-handler';
 import { isRecord } from '@gzclp/domain/type-guards';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 
 const HOUR_MS = 3_600_000;
 const MAX_PROGRAM_ID_CHARS = 50;
@@ -30,6 +31,40 @@ function parseMixedConfig(raw: unknown): Record<string, number | string> | undef
     else if (typeof v === 'string') out[k] = v;
   }
   return out;
+}
+
+function validatePreviewConfig(
+  definition: ProgramDefinition,
+  config: Readonly<Record<string, number | string>> | undefined
+): void {
+  if (config === undefined) return;
+
+  const fieldsByKey = new Map(definition.configFields.map((field) => [field.key, field]));
+  for (const [key, value] of Object.entries(config)) {
+    const field = fieldsByKey.get(key);
+    if (field === undefined) {
+      throw new ApiError(422, `Unknown preview config field: ${key}`, 'VALIDATION_ERROR');
+    }
+
+    if (field.type === 'weight') {
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < field.min) {
+        throw new ApiError(
+          422,
+          `Preview config field ${key} must be a number greater than or equal to ${field.min}`,
+          'VALIDATION_ERROR'
+        );
+      }
+      continue;
+    }
+
+    if (typeof value !== 'string' || !field.options.some((option) => option.value === value)) {
+      throw new ApiError(
+        422,
+        `Preview config field ${key} must use one of its declared options`,
+        'VALIDATION_ERROR'
+      );
+    }
+  }
 }
 
 export const catalogRoutes = new Elysia({ prefix: '/catalog' })
@@ -56,6 +91,7 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
             );
           }
           const config = parseMixedConfig(body.config);
+          validatePreviewConfig(parseResult.data, config);
           const rows = previewDefinition(parseResult.data, config);
           return rows;
         },

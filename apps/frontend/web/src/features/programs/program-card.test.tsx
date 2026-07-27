@@ -52,7 +52,7 @@ describe('ProgramCard', () => {
     expect(previewLink.getAttribute('href')).toBe('/programs/gzclp');
     expect(previewLink.textContent).toContain('Vista Previa');
 
-    const startBtn = screen.getByRole('button', { name: 'Iniciar Programa' });
+    const startBtn = screen.getByRole('button', { name: 'Iniciar programa GZCLP' });
     expect(startBtn).toBeInTheDocument();
     fireEvent.click(startBtn);
     expect(onSelect).toHaveBeenCalledTimes(1);
@@ -67,7 +67,7 @@ describe('ProgramCard', () => {
       })
     );
 
-    expect(screen.getByRole('button', { name: 'Iniciar Programa' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Iniciar programa GZCLP' })).toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
@@ -100,6 +100,6 @@ describe('ProgramCard', () => {
 
     expect(screen.getByRole('link', { name: /view gzclp/i })).toBeInTheDocument();
     expect(screen.getByText('Preview')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start Program' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start Program: GZCLP' })).toBeInTheDocument();
   });
 });

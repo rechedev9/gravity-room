@@ -274,7 +274,9 @@ export async function listExercises(
         .select()
         .from(exercises)
         .where(whereClause)
-        .orderBy(asc(exercises.name))
+        // Names are not unique in the imported catalog. The id tie-breaker is
+        // required for stable offset pagination across rows with equal names.
+        .orderBy(asc(exercises.name), asc(exercises.id))
         .limit(page.limit)
         .offset(page.offset),
       db.select({ value: count() }).from(exercises).where(whereClause),

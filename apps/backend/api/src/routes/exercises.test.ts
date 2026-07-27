@@ -19,21 +19,27 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
-const { mockRateLimit, mockFindUserById, mockListExercises } = vi.hoisted(() => {
-  const mockRateLimit = vi.fn((): Promise<void> => Promise.resolve());
-  const mockFindUserById = vi.fn(
-    (id: string): Promise<{ id: string; authVersion: number } | undefined> =>
-      Promise.resolve({ id, authVersion: 0 })
-  );
-  const mockListExercises = vi.fn<() => Promise<PaginatedResult>>(() =>
-    Promise.resolve({ data: [], total: 0, offset: 0, limit: 100 })
-  );
-  return {
-    mockRateLimit,
-    mockFindUserById,
-    mockListExercises,
-  };
-});
+const { mockRateLimit, mockFindUserById, mockListExercises, mockCreateExercise } = vi.hoisted(
+  () => {
+    const mockRateLimit = vi.fn((): Promise<void> => Promise.resolve());
+    const mockFindUserById = vi.fn(
+      (id: string): Promise<{ id: string; authVersion: number } | undefined> =>
+        Promise.resolve({ id, authVersion: 0 })
+    );
+    const mockListExercises = vi.fn<() => Promise<PaginatedResult>>(() =>
+      Promise.resolve({ data: [], total: 0, offset: 0, limit: 100 })
+    );
+    const mockCreateExercise = vi.fn(() =>
+      Promise.resolve({ ok: true as const, value: { id: 'test_exercise' } })
+    );
+    return {
+      mockRateLimit,
+      mockFindUserById,
+      mockListExercises,
+      mockCreateExercise,
+    };
+  }
+);
 
 vi.mock('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
@@ -53,7 +59,7 @@ interface PaginatedResult {
 vi.mock('../services/exercises', () => ({
   listExercises: mockListExercises,
   listMuscleGroups: vi.fn(() => Promise.resolve([])),
-  createExercise: vi.fn(() => Promise.resolve({ ok: true, value: { id: 'test_exercise' } })),
+  createExercise: mockCreateExercise,
 }));
 
 import { Elysia } from 'elysia';
@@ -207,7 +213,7 @@ async function makeValidJwt(userId: string): Promise<string> {
 // ---------------------------------------------------------------------------
 
 describe('POST /exercises — slug validation', () => {
-  it('returns 401 for non-ASCII name (auth checked before slug validation)', async () => {
+  it('returns 401 for a Unicode name when auth is missing', async () => {
     const res = await post('/exercises', {
       name: '\u00e7\u00e9\u00e0\u00fc',
       muscleGroupId: 'chest',
@@ -216,8 +222,7 @@ describe('POST /exercises — slug validation', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 422 with INVALID_SLUG when name produces an empty slug', async () => {
-    // Arrange — all non-ASCII chars produce empty slug after normalization
+  it('accepts a name made entirely of accented Latin characters', async () => {
     const token = await makeValidJwt('user-1');
     const res = await post(
       '/exercises',
@@ -227,14 +232,14 @@ describe('POST /exercises — slug validation', () => {
       }
     );
 
-    // Assert
-    expect(res.status).toBe(422);
-    const body: unknown = await res.json();
-    expect((body as Record<string, unknown>)['code']).toBe('INVALID_SLUG');
+    expect(res.status).toBe(201);
+    expect(mockCreateExercise).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ id: 'ceau' })
+    );
   });
 
-  it('proceeds normally with a mixed ASCII+non-ASCII name that yields a non-empty slug', async () => {
-    // Arrange — "abc\u00e9" → slug "abc"
+  it('folds accents instead of dropping accented letters from a mixed name', async () => {
     const token = await makeValidJwt('user-1');
     const res = await post(
       '/exercises',
@@ -244,8 +249,60 @@ describe('POST /exercises — slug validation', () => {
       }
     );
 
-    // Assert — slug "abc" is valid, service mock returns success
     expect(res.status).toBe(201);
+    expect(mockCreateExercise).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ id: 'abce' })
+    );
+  });
+
+  it('preserves letters from scripts without an ASCII transliteration', async () => {
+    const token = await makeValidJwt('user-1');
+    const res = await post(
+      '/exercises',
+      { name: '深蹲', muscleGroupId: 'legs' },
+      {
+        Authorization: `Bearer ${token}`,
+      }
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockCreateExercise).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ id: '深蹲' })
+    );
+  });
+
+  it('preserves meaningful combining marks in non-Latin scripts', async () => {
+    const token = await makeValidJwt('user-1');
+    const res = await post(
+      '/exercises',
+      { name: 'किताब', muscleGroupId: 'arms' },
+      {
+        Authorization: `Bearer ${token}`,
+      }
+    );
+
+    expect(res.status).toBe(201);
+    expect(mockCreateExercise).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({ id: 'किताब' })
+    );
+  });
+
+  it('still rejects names that contain no letters or numbers', async () => {
+    const token = await makeValidJwt('user-1');
+    const res = await post(
+      '/exercises',
+      { name: '---', muscleGroupId: 'chest' },
+      {
+        Authorization: `Bearer ${token}`,
+      }
+    );
+
+    expect(res.status).toBe(422);
+    const body: unknown = await res.json();
+    expect((body as Record<string, unknown>)['code']).toBe('INVALID_SLUG');
   });
 });
 
@@ -269,6 +326,16 @@ describe('GET /exercises — filter query validation', () => {
     expect(mockRateLimit).not.toHaveBeenCalled();
     expect(mockListExercises).not.toHaveBeenCalled();
   });
+
+  it.each(['TRUE', '1', 'yes', ''])(
+    'rejects unsupported boolean filter value %j instead of dropping it',
+    async (value) => {
+      const res = await get(`/exercises?isCompound=${encodeURIComponent(value)}`);
+
+      expect(res.status).toBe(400);
+      expect(mockListExercises).not.toHaveBeenCalled();
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -280,6 +347,10 @@ beforeEach(() => {
   mockFindUserById.mockClear();
   mockFindUserById.mockImplementation((id: string) => Promise.resolve({ id, authVersion: 0 }));
   mockListExercises.mockClear();
+  mockCreateExercise.mockClear();
+  mockCreateExercise.mockImplementation(() =>
+    Promise.resolve({ ok: true as const, value: { id: 'test_exercise' } })
+  );
   // Restore default paginated response
   mockListExercises.mockImplementation(
     (): Promise<PaginatedResult> => Promise.resolve({ data: [], total: 0, offset: 0, limit: 100 })

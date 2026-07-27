@@ -34,7 +34,9 @@ const MAX_FILTER_QUERY_LENGTH = MAX_FILTER_VALUES * MAX_FILTER_VALUE_LENGTH + MA
 const MAX_BOOLEAN_QUERY_LENGTH = 5;
 const MAX_SEARCH_QUERY_LENGTH = 100;
 const MAX_OFFSET = 10_000;
+const MAX_EXERCISE_ID_CHARS = 50;
 const filterQuerySchema = t.String({ maxLength: MAX_FILTER_QUERY_LENGTH });
+const graphemeSegmenter = new Intl.Segmenter('und', { granularity: 'grapheme' });
 
 /** Split a comma-separated string into a trimmed non-empty array, or undefined. */
 function parseCommaSeparated(value: string | undefined): readonly string[] | undefined {
@@ -54,9 +56,39 @@ function parseCommaSeparated(value: string | undefined): readonly string[] | und
 
 /** Parse "true"/"false" string to boolean, or undefined. */
 function parseBooleanString(value: string | undefined): boolean | undefined {
+  if (value === undefined) return undefined;
   if (value === 'true') return true;
   if (value === 'false') return false;
-  return undefined;
+  throw new ApiError(400, 'Boolean filters must be "true" or "false"', 'INVALID_FILTER');
+}
+
+/**
+ * Build a stable, Unicode-safe exercise id from a user-visible name.
+ * Diacritics are folded when possible (`Écarté` → `ecarte`) while scripts
+ * without an ASCII transliteration remain intact (`深蹲` → `深蹲`).
+ */
+function slugifyExerciseName(name: string): string {
+  const normalized = name
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    // Fold Latin diacritics, but preserve meaningful marks in scripts such as
+    // Devanagari where removing them would change the spelling and create ids
+    // that collide with distinct names.
+    .replace(/(\p{Script=Latin})\p{Mark}+/gu, '$1')
+    .normalize('NFC')
+    .replace(/\s+/gu, '_')
+    .replace(/[^\p{Letter}\p{Number}\p{Mark}_]/gu, '')
+    .replace(/^_+|_+$/gu, '');
+
+  if (!/[\p{Letter}\p{Number}]/u.test(normalized)) return '';
+
+  let truncated = '';
+  for (const { segment } of graphemeSegmenter.segment(normalized)) {
+    if (truncated.length + segment.length > MAX_EXERCISE_ID_CHARS) break;
+    truncated += segment;
+  }
+  return truncated;
 }
 
 // ---------------------------------------------------------------------------
@@ -195,11 +227,7 @@ const protectedExerciseRoutes = new Elysia()
       reqLogger.info({ event: 'exercise.create', userId }, 'creating exercise');
       await rateLimit(userId, 'POST /exercises');
 
-      const slug = body.name
-        .toLowerCase()
-        .replace(/\s+/g, '_')
-        .replace(/[^a-z0-9_]/g, '')
-        .slice(0, 50);
+      const slug = slugifyExerciseName(body.name);
 
       if (!slug) {
         throw new ApiError(
