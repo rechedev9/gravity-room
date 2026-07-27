@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BarChart,
@@ -30,13 +29,11 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
 
   const theme = getChartTheme();
 
-  const points = useMemo(() => {
-    const labelInterval = Math.max(1, Math.ceil(payload.weeks.length / MAX_LABELS));
-    return payload.weeks.map((week, i) => ({
-      x: i % labelInterval === 0 ? formatChartDate(week) || `#${i + 1}` : `_${i}`,
-      vol: payload.volumes[i] ?? 0,
-    }));
-  }, [payload.weeks, payload.volumes]);
+  const labelInterval = Math.max(1, Math.ceil(payload.weeks.length / MAX_LABELS));
+  const points = payload.weeks.map((week, i) => ({
+    x: i % labelInterval === 0 ? formatChartDate(week) || `#${i + 1}` : `_${i}`,
+    vol: payload.volumes[i],
+  }));
 
   const avg =
     payload.volumes.length >= 3
@@ -140,7 +137,7 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
                     strokeDasharray="6 4"
                     strokeWidth={1.5}
                     label={{
-                      value: `avg ${formatVolLabel(avg)} kg`,
+                      value: `${t('insights.volume_trend.avg_label')} ${formatVolLabel(avg)} kg`,
                       fill: theme.text,
                       fontSize: 9,
                       position: 'insideTopRight',

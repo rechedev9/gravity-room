@@ -12,6 +12,7 @@ import { logger } from '../lib/logger';
 import {
   fetchAllUsers,
   fetchWorkoutRecords,
+  deleteComputedInsights,
   upsertInsight,
   withInsightTransaction,
   META_INSIGHT_TYPE,
@@ -53,10 +54,16 @@ export async function computeUser(userId: string): Promise<void> {
   // GET /api/insights.
   await upsertInsight(userId, META_INSIGHT_TYPE, null, {});
 
-  // A record-less user has no insights to compute; the marker above is enough.
-  if (records.length === 0) return;
-
   await withInsightTransaction(async (tx) => {
+    // Replace the prior snapshot atomically. A pipeline can legitimately stop
+    // emitting after workout history is deleted or falls below its threshold;
+    // without clearing the old snapshot those stale insights live forever.
+    await deleteComputedInsights(userId, tx);
+
+    // A record-less user has no replacement insights, so the transaction only
+    // clears the previous snapshot.
+    if (records.length === 0) return;
+
     // Volume trend (aggregate, no exercise_id).
     const volume = computeVolume(records);
     if (volume !== null) await upsertInsight(userId, 'volume_trend', null, volume, tx);

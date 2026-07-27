@@ -9,9 +9,9 @@
  * exercise_id) DO UPDATE` semantics the Python service uses.
  */
 
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { getDb } from '../db';
-import { programInstances, userInsights, workoutResults } from '@gzclp/database/schema';
+import { programInstances, userInsights, users, workoutResults } from '@gzclp/database/schema';
 import type { WorkoutRecord } from './record';
 
 export interface UserRow {
@@ -44,7 +44,8 @@ export async function fetchAllUsers(): Promise<UserRow[]> {
   const rows = await db
     .selectDistinct({ userId: sql<string>`${programInstances.userId}::text` })
     .from(programInstances)
-    .where(inArray(programInstances.status, ['active', 'completed']))
+    .innerJoin(users, eq(users.id, programInstances.userId))
+    .where(and(inArray(programInstances.status, ['active', 'completed']), isNull(users.deletedAt)))
     // Order by the same text expression so DISTINCT + ORDER BY agree; uuid text
     // ordering matches uuid ordering, so this preserves queries.py's sequence.
     .orderBy(sql`${programInstances.userId}::text`);
@@ -71,8 +72,9 @@ export async function fetchLeastRecentlyComputedUsers(limit: number): Promise<Us
   const rows = await db
     .select({ userId: sql<string>`${programInstances.userId}::text` })
     .from(programInstances)
+    .innerJoin(users, eq(users.id, programInstances.userId))
     .leftJoin(userInsights, eq(userInsights.userId, programInstances.userId))
-    .where(inArray(programInstances.status, ['active', 'completed']))
+    .where(and(inArray(programInstances.status, ['active', 'completed']), isNull(users.deletedAt)))
     .groupBy(programInstances.userId)
     .orderBy(
       sql`max(${userInsights.computedAt}) asc nulls first`,
@@ -156,4 +158,17 @@ export async function upsertInsight(
       target: [userInsights.userId, userInsights.insightType, userInsights.exerciseId],
       set: { payload, computedAt: sql`now()` },
     });
+}
+
+/**
+ * Remove the previous user-facing snapshot before writing a freshly computed
+ * one. This must run inside the same transaction as the replacement upserts:
+ * pipelines legitimately stop emitting when history is removed or becomes
+ * insufficient, and retaining those old rows would expose recommendations and
+ * plateau alerts that are no longer supported by the user's data.
+ */
+export async function deleteComputedInsights(userId: string, executor: Executor): Promise<void> {
+  await executor
+    .delete(userInsights)
+    .where(and(eq(userInsights.userId, userId), ne(userInsights.insightType, META_INSIGHT_TYPE)));
 }

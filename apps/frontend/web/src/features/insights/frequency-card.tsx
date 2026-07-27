@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { InsightItem } from '@/lib/api-functions';
 import { isFrequencyPayload } from '@/lib/insight-payloads';
@@ -41,7 +40,7 @@ export function FrequencyCard({ insight }: FrequencyCardProps): React.ReactNode 
   const payload = insight.payload;
   if (!isFrequencyPayload(payload)) return null;
 
-  const grid = useMemo(() => buildHeatmap(payload.workoutDates ?? []), [payload.workoutDates]);
+  const grid = buildHeatmap(payload.workoutDates ?? []);
 
   const activeDays = grid.flat().filter(Boolean).length;
   // eslint-disable-next-line @typescript-eslint/consistent-type-assertions

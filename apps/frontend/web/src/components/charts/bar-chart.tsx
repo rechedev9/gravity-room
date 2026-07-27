@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   BarChart as RechartsBarChart,
   Bar,
@@ -27,6 +28,7 @@ interface BarChartProps {
 // ---------------------------------------------------------------------------
 
 export function BarChart({ data, label }: BarChartProps): React.ReactNode {
+  const { t } = useTranslation();
   const theme = getChartTheme();
 
   const points = useMemo(() => {
@@ -57,7 +59,9 @@ export function BarChart({ data, label }: BarChartProps): React.ReactNode {
         className="flex items-center justify-center h-[clamp(200px,25vw,300px)]"
         style={{ background: theme.bg }}
       >
-        <p className="font-mono text-xs text-[var(--color-chart-text)]">Sin datos de volumen</p>
+        <p className="font-mono text-xs text-[var(--color-chart-text)]">
+          {t('chart.no_volume_data')}
+        </p>
       </div>
     );
   }
@@ -132,7 +136,7 @@ export function BarChart({ data, label }: BarChartProps): React.ReactNode {
                 strokeDasharray="6 4"
                 strokeWidth={1.5}
                 label={{
-                  value: `avg ${formatVolLabel(avg)} kg`,
+                  value: `${t('chart.average_abbrev')} ${formatVolLabel(avg)} kg`,
                   fill: theme.text,
                   fontSize: 9,
                   position: 'insideTopRight',

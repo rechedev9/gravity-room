@@ -29,6 +29,7 @@ interface UpsertCall {
 }
 
 const upsertCalls: UpsertCall[] = [];
+const deleteCalls: { userId: string; executor: unknown }[] = [];
 let recordsToReturn: WorkoutRecord[] = [];
 
 const MS_PER_DAY = 86_400_000;
@@ -64,6 +65,9 @@ vi.mock('./queries', () => ({
   // The real version opens a DB transaction; the test runs the body directly
   // with a sentinel executor so no real connection is touched.
   withInsightTransaction: async (fn: (tx: unknown) => Promise<unknown>) => fn('tx'),
+  deleteComputedInsights: async (userId: string, executor: unknown) => {
+    deleteCalls.push({ userId, executor });
+  },
   upsertInsight: async (
     userId: string,
     insightType: string,
@@ -80,6 +84,7 @@ const { computeUser, runAll } = await import('./compute');
 describe('computeUser', () => {
   beforeEach(() => {
     upsertCalls.length = 0;
+    deleteCalls.length = 0;
     recordsToReturn = craftedRecords();
   });
 
@@ -106,6 +111,7 @@ describe('computeUser', () => {
       expect(byType.get(type)?.exerciseId).toBe('squat');
     }
     expect(upsertCalls.every((c) => c.userId === 'u1')).toBe(true);
+    expect(deleteCalls).toEqual([{ userId: 'u1', executor: 'tx' }]);
   });
 
   it('writes the _meta marker outside the transaction, before any insight', async () => {
@@ -132,21 +138,21 @@ describe('computeUser', () => {
   it('advances a zero-record user via the _meta marker so it is not re-picked forever', async () => {
     recordsToReturn = [];
     await computeUser('u1');
-    // A record-less active user still writes exactly the _meta cursor marker (and
-    // no real insights), in its own autocommit statement, so max(computed_at)
-    // advances and the user falls out of the NULLS-FIRST head — it can no longer
-    // starve users who have data.
+    // A record-less active user still writes exactly the _meta cursor marker,
+    // while atomically clearing any obsolete user-facing snapshot.
     expect(upsertCalls).toHaveLength(1);
     expect(upsertCalls[0]?.insightType).toBe('_meta');
     expect(upsertCalls[0]?.exerciseId).toBeNull();
     expect(upsertCalls[0]?.executor).toBeUndefined();
     expect(upsertCalls.some((c) => c.insightType !== '_meta')).toBe(false);
+    expect(deleteCalls).toEqual([{ userId: 'u1', executor: 'tx' }]);
   });
 });
 
 describe('runAll', () => {
   beforeEach(() => {
     upsertCalls.length = 0;
+    deleteCalls.length = 0;
     recordsToReturn = craftedRecords();
   });
 

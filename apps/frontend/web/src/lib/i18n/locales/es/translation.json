@@ -1191,8 +1191,11 @@
       "kicker": "Tu progreso",
       "meta": "ÚLTIMAS 12 SEMANAS",
       "updated_today": "ACTUALIZADO HOY",
+      "updated_on": "ACTUALIZADO {{date}}",
       "section_charts": "Tendencias",
       "section_signals": "Señales",
+      "error_heading": "Análisis no disponible",
+      "error_description": "No pudimos cargar tus análisis. Comprueba tu conexión e inténtalo de nuevo.",
       "empty_heading": "Sin análisis todavía",
       "empty_description": "Los análisis se actualizan una vez al día, así que pueden tardar en aparecer tras entrenar. Registra tus sesiones y aquí verás tendencias de volumen, recomendaciones de carga y alertas de estancamiento."
     },
@@ -1609,7 +1612,9 @@
     "weight_header": "Peso",
     "result_header": "Resultado",
     "legend_real": "Real",
-    "legend_projection": "Proyección"
+    "legend_projection": "Proyección",
+    "no_volume_data": "Sin datos de volumen",
+    "average_abbrev": "prom"
   },
   "tracker_extra": {},
   "sync_status": {
