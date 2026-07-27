@@ -190,7 +190,7 @@ Inicio: 2026-07-27
 
 Base congelada: `3af51a02f4bb6414b14543d7d36e52243b9305f2`
 
-Estado: segunda corrección lista en `.worktrees/mobile-v2-fix`, pendiente de reverificación; no `go`
+Estado: segunda corrección aprobada; pendiente de fast-forward a `.worktrees/mobile-v2-impl`
 
 ### Alcance del candidato
 
@@ -206,19 +206,22 @@ Estado: segunda corrección lista en `.worktrees/mobile-v2-fix`, pendiente de re
 
 ### Candidatos, revisiones y correcciones
 
-| Evento                  | SHA / estado                               | Evidencia                                              |
-| ----------------------- | ------------------------------------------ | ------------------------------------------------------ |
-| Base M1                 | `3af51a0`                                  | HEAD de integración al iniciar el slice                |
-| Candidato implementador | `aa06f7cc66785b40739ef4e58e0e4f5f743ea4c3` | Commit M1 revisado por ambos revisores                 |
-| Revisión A              | `no-go`: 7 findings                        | `M1-A-001` a `M1-A-007`                                |
-| Revisión B              | `no-go`: 4 findings                        | `M1-B-001` a `M1-B-004`                                |
-| Normalización Main      | N1-N8                                      | Todos aceptados para corrección                        |
-| Corrector               | `2dd20f56722ce2e3cd052ac7b0922b4e37cdf076` | Matriz N1-N8, checks completos y snapshot limpio       |
-| Reverificación final A  | `no-go`: 2 findings                        | `M1-VFA-001` P1 y `M1-VFA-002` P2                      |
-| Reverificación final B  | `no-go`: 2 findings                        | `M1-VFB-001` P1 y `M1-VFB-002` P2                      |
-| Normalización Main 2    | C1-C4                                      | Los cuatro aceptados para segunda corrección           |
-| Corrector 2             | `6d6c0c7acf1344852437501adae31167092d8a89` | Matriz C1-C4, checks completos y snapshot limpio       |
-| Decisión Main           | pendiente                                  | Requiere reverificación A/B; este registro no marca GO |
+| Evento                   | SHA / estado                               | Evidencia                                                  |
+| ------------------------ | ------------------------------------------ | ---------------------------------------------------------- |
+| Base M1                  | `3af51a0`                                  | HEAD de integración al iniciar el slice                    |
+| Candidato implementador  | `aa06f7cc66785b40739ef4e58e0e4f5f743ea4c3` | Commit M1 revisado por ambos revisores                     |
+| Revisión A               | `no-go`: 7 findings                        | `M1-A-001` a `M1-A-007`                                    |
+| Revisión B               | `no-go`: 4 findings                        | `M1-B-001` a `M1-B-004`                                    |
+| Normalización Main       | N1-N8                                      | Todos aceptados para corrección                            |
+| Corrector                | `2dd20f56722ce2e3cd052ac7b0922b4e37cdf076` | Matriz N1-N8, checks completos y snapshot limpio           |
+| Reverificación final A   | `no-go`: 2 findings                        | `M1-VFA-001` P1 y `M1-VFA-002` P2                          |
+| Reverificación final B   | `no-go`: 2 findings                        | `M1-VFB-001` P1 y `M1-VFB-002` P2                          |
+| Normalización Main 2     | C1-C4                                      | Los cuatro aceptados para segunda corrección               |
+| Corrector 2              | `6d6c0c7acf1344852437501adae31167092d8a89` | Matriz C1-C4, checks completos y snapshot limpio           |
+| Reverificación final 2 A | `go` sobre `9aef938`                       | C1-C4 y N1-N8 PASS; 30 suites/183 tests                    |
+| Reverificación final 2 B | no abierta                                 | Límite interno de hilos; no se fabricó un segundo dictamen |
+| Auditoría Main           | `go` sobre `9aef938`                       | Delta exacto, lifecycle, a11y, manifest y tests revisados  |
+| Decisión Main            | `go`                                       | Listo para fast-forward a `codex/mobile-v2`                |
 
 ### Checks M1
 
@@ -249,8 +252,11 @@ Estado: segunda corrección lista en `.worktrees/mobile-v2-fix`, pendiente de re
 
 ### Segunda reverificación y corrección
 
-Los dos verificadores frescos devolvieron `no-go` sobre la primera corrección. Esta segunda pasada
-resuelve C1-C4, pero continúa pendiente de nueva reverificación y no constituye una decisión `go`.
+Los dos verificadores frescos devolvieron `no-go` sobre la primera corrección. La segunda pasada
+resuelve C1-C4 y el verificador final A confirmó C1-C4 y N1-N8 sin findings nuevos. El runtime alcanzó
+su límite interno de hilos al intentar abrir otro turno para B; se registra la ausencia en vez de
+inventar un dictamen. Main auditó el delta exacto y autoriza la integración. El ciclo exigido conserva
+los cuatro roles: implementador, dos revisores frescos A/B, corrector y retorno a Main.
 
 | Normalizado | Origen       | Severidad | Estado | Resolución                                                                                                                                                                                                                                                                               |
 | ----------- | ------------ | --------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
