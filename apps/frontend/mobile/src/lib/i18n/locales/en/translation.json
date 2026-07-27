@@ -20,6 +20,18 @@
     "error_body": "Gravity Room could not display this screen.",
     "error_retry_accessibility": "Retry loading Gravity Room"
   },
+  "deferred_routes": {
+    "available_later": "This destination is reserved by the Mobile v2 navigation contract. Its workflow arrives in a later milestone.",
+    "invalid_title": "Link unavailable",
+    "invalid_body": "This link is invalid or incomplete.",
+    "program_new": "New program",
+    "program_editor": "Program editor",
+    "workout_history": "Workout history",
+    "workout_session": "Workout session",
+    "exercise_index": "Exercises",
+    "exercise_detail": "Exercise details",
+    "sync": "Sync status"
+  },
   "verify_email": {
     "title": "Check your email",
     "body": "Open the verification link we sent you, then return here to sign in.",

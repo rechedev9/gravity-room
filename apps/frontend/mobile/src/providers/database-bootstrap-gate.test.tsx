@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { Text } from 'react-native';
 
 import { bootstrapDatabase } from '../lib/db/client';
@@ -15,7 +15,7 @@ describe('DatabaseBootstrapGate', () => {
     mockedBootstrapDatabase.mockReset();
   });
 
-  it('does not mount the route tree until the local database is ready', async () => {
+  it('mounts the route tree immediately beneath a blocking bootstrap overlay', async () => {
     mockedBootstrapDatabase.mockResolvedValue(undefined);
 
     render(
@@ -24,8 +24,11 @@ describe('DatabaseBootstrapGate', () => {
       </DatabaseBootstrapGate>
     );
 
-    expect(screen.queryByText('Route tree')).toBeNull();
-    expect(await screen.findByText('Route tree')).toBeTruthy();
+    expect(screen.getByText('Route tree')).toBeTruthy();
+    expect(screen.getByTestId('database-bootstrap-loading')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByTestId('database-bootstrap-loading')).toBeNull();
+    });
   });
 
   it('offers a localized retry after bootstrap fails', async () => {
@@ -43,7 +46,12 @@ describe('DatabaseBootstrapGate', () => {
       await screen.findByRole('button', { name: 'Retry opening local training data' })
     );
 
-    expect(await screen.findByText('Route tree')).toBeTruthy();
+    expect(screen.getByText('Route tree')).toBeTruthy();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: 'Retry opening local training data' })
+      ).toBeNull();
+    });
     expect(mockedBootstrapDatabase).toHaveBeenCalledTimes(2);
   });
 });

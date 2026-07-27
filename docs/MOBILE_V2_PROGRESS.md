@@ -77,17 +77,17 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
 
 ## Estado de slices
 
-| Slice                       | Estado    | Base       | Candidato | Corregido | Integrado |
-| --------------------------- | --------- | ---------- | --------- | --------- | --------- |
-| M0 Contratos y baseline     | integrado | `dcdec26f` | `0fcc4c6` | `1b39abd` | `1b39abd` |
-| M1 Shell y navegación       | candidato | `3af51a0`  | pendiente | pendiente | pendiente |
-| M2 Programas                | pendiente | pendiente  | pendiente | pendiente | pendiente |
-| M3 Tracker offline          | pendiente | pendiente  | pendiente | pendiente | pendiente |
-| M4 Historial/temporizador   | pendiente | pendiente  | pendiente | pendiente | pendiente |
-| M5 Perfil/datos             | pendiente | pendiente  | pendiente | pendiente | pendiente |
-| M6 Programas personalizados | pendiente | pendiente  | pendiente | pendiente | pendiente |
-| M7 Wiki contextual          | pendiente | pendiente  | pendiente | pendiente | pendiente |
-| M8 Hardening/release/E2E    | pendiente | pendiente  | pendiente | pendiente | pendiente |
+| Slice                       | Estado           | Base       | Candidato | Corregido      | Integrado |
+| --------------------------- | ---------------- | ---------- | --------- | -------------- | --------- |
+| M0 Contratos y baseline     | integrado        | `dcdec26f` | `0fcc4c6` | `1b39abd`      | `1b39abd` |
+| M1 Shell y navegación       | corrección lista | `3af51a0`  | `aa06f7c` | SHA en handoff | pendiente |
+| M2 Programas                | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
+| M3 Tracker offline          | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
+| M4 Historial/temporizador   | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
+| M5 Perfil/datos             | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
+| M6 Programas personalizados | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
+| M7 Wiki contextual          | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
+| M8 Hardening/release/E2E    | pendiente        | pendiente  | pendiente | pendiente      | pendiente |
 
 ## M0 — Contratos y baseline
 
@@ -190,7 +190,7 @@ Inicio: 2026-07-27
 
 Base congelada: `3af51a02f4bb6414b14543d7d36e52243b9305f2`
 
-Estado: candidato listo en `.worktrees/mobile-v2-impl`
+Estado: corrección lista en `.worktrees/mobile-v2-fix`, pendiente de reverificación; no `go`
 
 ### Alcance del candidato
 
@@ -206,34 +206,52 @@ Estado: candidato listo en `.worktrees/mobile-v2-impl`
 
 ### Candidatos, revisiones y correcciones
 
-| Evento                  | SHA / estado | Evidencia                                  |
-| ----------------------- | ------------ | ------------------------------------------ |
-| Base M1                 | `3af51a0`    | HEAD de integración al iniciar el slice    |
-| Candidato implementador | pendiente    | Se completa en el handoff del commit M1    |
-| Revisión A              | pendiente    | Contexto fresco tras congelar el candidato |
-| Revisión B              | pendiente    | Contexto fresco tras congelar el candidato |
-| Corrector               | pendiente    | A la espera de findings normalizados       |
-| Decisión Main           | pendiente    | `go/no-go` pendiente                       |
+| Evento                  | SHA / estado                               | Evidencia                                              |
+| ----------------------- | ------------------------------------------ | ------------------------------------------------------ |
+| Base M1                 | `3af51a0`                                  | HEAD de integración al iniciar el slice                |
+| Candidato implementador | `aa06f7cc66785b40739ef4e58e0e4f5f743ea4c3` | Commit M1 revisado por ambos revisores                 |
+| Revisión A              | `no-go`: 7 findings                        | `M1-A-001` a `M1-A-007`                                |
+| Revisión B              | `no-go`: 4 findings                        | `M1-B-001` a `M1-B-004`                                |
+| Normalización Main      | N1-N8                                      | Todos aceptados para corrección                        |
+| Corrector               | corrección lista; SHA exacto en handoff    | Matriz N1-N8 y checks completos; pendiente de commit   |
+| Decisión Main           | pendiente                                  | Requiere reverificación A/B; este registro no marca GO |
 
 ### Checks M1
 
-| Check                                                          | Resultado                   | Nota                                |
-| -------------------------------------------------------------- | --------------------------- | ----------------------------------- |
-| `pnpm exec prettier --check ...`                               | verde                       | Scope M1                            |
-| `pnpm --filter mobile lint`                                    | verde                       | TS/TSX + rutas                      |
-| `pnpm --filter mobile typecheck`                               | verde                       | Rutas y boundaries                  |
-| `pnpm --filter mobile i18n:check`                              | verde: 1 suite, 8 tests     | 0 missing keys ES/EN                |
-| `pnpm --filter mobile test`                                    | verde: 24 suites, 165 tests | Unit/integración del shell          |
-| `pnpm --filter mobile exec expo config --type prebuild --json` | verde                       | Config plugins, scheme y entrypoint |
-| Export/bundle Expo Android                                     | verde: 1.223 módulos        | Hermes bundle 3,71 MB               |
-| E2E                                                            | no ejecutado por política   | Reservado para M8                   |
+| Check                                                          | Resultado                   | Nota                                                          |
+| -------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------- |
+| `pnpm exec prettier --check ...`                               | verde                       | Fuentes, tests, manifiesto y scripts M1 corregidos            |
+| `pnpm --filter mobile lint`                                    | verde                       | TS/TSX + rutas                                                |
+| `pnpm --filter mobile typecheck`                               | verde                       | Ejecuta antes `routes:check`; no depende de `.expo`           |
+| `pnpm --filter mobile i18n:check`                              | verde: 1 suite, 8 tests     | 0 missing keys ES/EN                                          |
+| `pnpm --filter mobile test`                                    | verde: 28 suites, 179 tests | Manifiesto real, tabs, cold links, restore y refresco Tracker |
+| `pnpm --filter mobile exec expo install --check`               | verde                       | Dependencias compatibles con Expo 54                          |
+| `pnpm --filter mobile exec expo config --type prebuild --json` | verde                       | Config plugins, scheme y entrypoint                           |
+| Export/bundle Expo Android                                     | verde: 1.236 módulos        | Hermes bundle 3,73 MB                                         |
+| E2E                                                            | no ejecutado por política   | Reservado para M8                                             |
+
+### Findings normalizados y corrección
+
+| Normalizado | Origen                 | Severidad | Estado                            | Resolución                                                                                                                                                                                                                                           |
+| ----------- | ---------------------- | --------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| N1          | `M1-A-001`             | P1        | fixed                             | Cada tab posee su Stack real (`programs`, `tracker`, `profile`); el test de integración usa los paths `index` del árbol generado y conserva estado al alternar tabs.                                                                                 |
+| N2          | `M1-A-002`             | P1        | fixed                             | El root protege el destino exacto `program/[instanceId]` y todas las rutas autenticadas; tests con `renderRouter` cubren cold link anónimo y autenticado.                                                                                            |
+| N3          | `M1-B-001`             | P1        | fixed                             | Root Stack y árbol de rutas se montan en el primer render. Bootstrap SQLite y restore de auth usan overlays bloqueantes, preservando el cold link durante la espera.                                                                                 |
+| N4          | `M1-A-003`, `M1-B-002` | P1        | fixed con integración M3 diferida | Resolver probado: workout activo → `/tracker`; si no, última tab válida persistida; fallback `/programs`. El adapter de workout devuelve `false` hasta que M3 implemente el repositorio; M1 no activa el esquema v2 ni afirma una query inexistente. |
+| N5          | `M1-A-004`             | P1        | fixed                             | El adapter de ruta incrementa una revisión con `useFocusEffect`; Tracker relee selección y programas al recuperar foco. La feature no importa Expo Router y una prueba cambia la selección entre focos.                                              |
+| N6          | `M1-A-005`, `M1-B-004` | P2        | fixed como contrato               | Se reservan placeholders protegidos, seguros y localizados para programa nuevo/editor, historial/sesión, índice/detalle de ejercicios y sync, sin presentar flujos M2+ como implementados.                                                           |
+| N7          | `M1-A-006`             | P2        | fixed                             | Volver desde un cold program link usa `canGoBack()` y reemplaza a `/programs` cuando no existe historial; ambos caminos tienen pruebas.                                                                                                              |
+| N8          | `M1-A-007`, `M1-B-003` | P2        | fixed                             | Script Node determinista genera un manifiesto versionado desde `src/app`; `routes:check` precede a `tsc`, el tsconfig no incluye `.expo`, y tests prueban generación limpia y fallo por drift/ruta añadida.                                          |
 
 ### Handoff del implementador
 
-- El arranque espera SQLite y restauración de sesión antes de montar navegación; una sesión anónima
-  aterriza en Login y una restaurada en Tracker.
+- El root navigator se monta antes de terminar SQLite/auth y queda cubierto por overlays; una sesión
+  anónima aterriza en Login. Una restaurada aplica workout activo, última tab válida y fallback
+  Programas, en ese orden.
 - La navegación primaria contiene exactamente Programas, Tracker y Perfil. Los enlaces a instancias
   pasan por una ruta tipada y validada; Programas/Tracker siguen sin depender de Expo Router.
 - Expo Router usa `src/app`, rutas tipadas y el scheme existente `gravity-room-mobile`.
 - No se cambiaron contratos de resultados, repositorios ni migraciones. E2E no se ejecutó por la
   política del plan y queda reservado a M8.
+- La consulta real de `workout_sessions.status = 'in_progress'` pertenece a M3. M1 deja un adapter
+  explícito y probado, pero no registra el SQL v2 ni sustituye la señal con `programs[0]`.

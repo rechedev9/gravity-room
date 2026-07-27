@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { listProgramSummaries } from '../../lib/programs/program-repository';
+import { readTrackerProgramId } from '../../lib/tracker/tracker-selection-storage';
 import { MessageState } from '../../ui/message-state';
 import { TrackerScreen } from './tracker-screen';
 
@@ -11,7 +12,11 @@ type TrackerHomeState =
   | { readonly status: 'ready'; readonly programInstanceId: string }
   | { readonly status: 'error' };
 
-export function TrackerHomeScreen() {
+interface TrackerHomeScreenProps {
+  readonly refreshRevision?: number;
+}
+
+export function TrackerHomeScreen({ refreshRevision = 0 }: TrackerHomeScreenProps) {
   const { t } = useTranslation();
   const [state, setState] = useState<TrackerHomeState>({ status: 'loading' });
   const [reloadToken, setReloadToken] = useState(0);
@@ -21,12 +26,15 @@ export function TrackerHomeScreen() {
 
     async function loadActiveProgram(): Promise<void> {
       try {
-        const programs = await listProgramSummaries();
+        const [programs, trackerProgramId] = await Promise.all([
+          listProgramSummaries(),
+          readTrackerProgramId(),
+        ]);
         if (!active) {
           return;
         }
 
-        const activeProgram = programs[0];
+        const activeProgram = programs.find((program) => program.id === trackerProgramId);
         setState(
           activeProgram
             ? { status: 'ready', programInstanceId: activeProgram.id }
@@ -45,7 +53,7 @@ export function TrackerHomeScreen() {
     return () => {
       active = false;
     };
-  }, [reloadToken]);
+  }, [refreshRevision, reloadToken]);
 
   const retry = useCallback(() => {
     setReloadToken((current) => current + 1);

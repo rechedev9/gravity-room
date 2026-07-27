@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
+import { writeLastPrimaryTab } from '../../navigation/navigation-storage';
 import { colors } from '../../ui/tokens';
 
 export default function TabsLayout() {
@@ -8,7 +9,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      initialRouteName="tracker"
+      initialRouteName="programs"
       backBehavior="history"
       screenOptions={{
         headerShown: false,
@@ -26,6 +27,11 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="programs"
+        listeners={{
+          tabPress: () => {
+            void writeLastPrimaryTab('programs').catch(() => undefined);
+          },
+        }}
         options={{
           title: t('nav.programs'),
           tabBarAccessibilityLabel: t('nav.open_programs'),
@@ -33,6 +39,11 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="tracker"
+        listeners={{
+          tabPress: () => {
+            void writeLastPrimaryTab('tracker').catch(() => undefined);
+          },
+        }}
         options={{
           title: t('nav.tracker'),
           tabBarAccessibilityLabel: t('nav.open_tracker'),
@@ -40,6 +51,11 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="profile"
+        listeners={{
+          tabPress: () => {
+            void writeLastPrimaryTab('profile').catch(() => undefined);
+          },
+        }}
         options={{
           title: t('nav.profile'),
           tabBarAccessibilityLabel: t('nav.open_profile'),

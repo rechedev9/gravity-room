@@ -9,8 +9,10 @@
     "i18n:check": "pnpm exec jest src/lib/i18n/i18n.test.ts --runInBand",
     "lint": "pnpm exec eslint \"src/**/*.ts\" \"src/**/*.tsx\"",
     "lint:fix": "pnpm exec eslint \"src/**/*.ts\" \"src/**/*.tsx\" --fix",
+    "routes:check": "node scripts/generate-route-manifest.mjs --check",
+    "routes:generate": "node scripts/generate-route-manifest.mjs",
     "test": "pnpm exec jest --runInBand",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "pnpm run routes:check && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@babel/runtime": "^7.28.4",

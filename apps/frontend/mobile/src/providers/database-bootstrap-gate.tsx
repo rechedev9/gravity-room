@@ -1,5 +1,5 @@
 import { type PropsWithChildren, useEffect, useState } from 'react';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { bootstrapDatabase } from '../lib/db/client';
@@ -40,28 +40,40 @@ export function DatabaseBootstrapGate({ children }: PropsWithChildren) {
     };
   }, [attempt]);
 
-  if (state.status === 'booting') {
-    return (
-      <Screen centered testID="database-bootstrap-loading">
-        <ActivityIndicator
-          accessibilityLabel={t('startup.database_loading')}
-          color={colors.textPrimary}
-        />
-      </Screen>
-    );
-  }
-
-  if (state.status === 'failed') {
-    return (
-      <MessageState
-        actionAccessibilityLabel={t('startup.database_retry_accessibility')}
-        actionLabel={t('common.retry')}
-        body={t('startup.database_error_body')}
-        onAction={() => setAttempt((current) => current + 1)}
-        title={t('startup.database_error_title')}
-      />
-    );
-  }
-
-  return children;
+  return (
+    <View style={styles.root}>
+      {children}
+      {state.status === 'booting' ? (
+        <View style={styles.overlay} testID="database-bootstrap-loading">
+          <Screen centered>
+            <ActivityIndicator
+              accessibilityLabel={t('startup.database_loading')}
+              color={colors.textPrimary}
+            />
+          </Screen>
+        </View>
+      ) : null}
+      {state.status === 'failed' ? (
+        <View style={styles.overlay}>
+          <MessageState
+            actionAccessibilityLabel={t('startup.database_retry_accessibility')}
+            actionLabel={t('common.retry')}
+            body={t('startup.database_error_body')}
+            onAction={() => setAttempt((current) => current + 1)}
+            title={t('startup.database_error_title')}
+          />
+        </View>
+      ) : null}
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.canvas,
+  },
+});

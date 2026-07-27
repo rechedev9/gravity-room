@@ -2,7 +2,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { TrackerScreen } from '../../features/tracker/tracker-screen';
-import { parseProgramInstanceId, PRIMARY_TAB_ROUTES } from '../../navigation/routes';
+import {
+  parseProgramInstanceId,
+  PRIMARY_TAB_ROUTES,
+  returnFromProgramRoute,
+} from '../../navigation/routes';
 import { MessageState } from '../../ui/message-state';
 
 export default function ProgramTrackerRoute() {
@@ -23,5 +27,10 @@ export default function ProgramTrackerRoute() {
     );
   }
 
-  return <TrackerScreen programInstanceId={programInstanceId} onBack={() => router.back()} />;
+  return (
+    <TrackerScreen
+      programInstanceId={programInstanceId}
+      onBack={() => returnFromProgramRoute(router)}
+    />
+  );
 }
