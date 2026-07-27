@@ -6,7 +6,7 @@ function flattenKeys(value: unknown, prefix = ''): string[] {
   if (value === null || typeof value !== 'object') {
     return [prefix];
   }
-  return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) =>
+  return Object.entries(value).flatMap(([key, child]) =>
     flattenKeys(child, prefix ? `${prefix}.${key}` : key)
   );
 }

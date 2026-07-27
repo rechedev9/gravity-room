@@ -1,27 +1,15 @@
-import { openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
-
+import { openMobileDatabase, type DatabaseClient } from './expo-sqlite-adapter';
 import { MIGRATIONS, type MigrationStep } from './migrations';
 
-export interface DatabaseClient {
-  execAsync(source: string): Promise<void>;
-  runAsync(source: string, ...params: unknown[]): Promise<unknown>;
-  getAllAsync<T>(source: string, ...params: unknown[]): Promise<T[]>;
-  withExclusiveTransactionAsync(task: (client: DatabaseClient) => Promise<void>): Promise<void>;
-}
-
 let bootstrapPromise: Promise<void> | null = null;
-let database: SQLiteDatabase | null = null;
-
-function asDatabaseClient(client: SQLiteDatabase): DatabaseClient {
-  return client;
-}
+let database: DatabaseClient | null = null;
 
 export function getDatabase(): DatabaseClient {
   if (!database) {
-    database = openDatabaseSync('gravity-room.db');
+    database = openMobileDatabase();
   }
 
-  return asDatabaseClient(database);
+  return database;
 }
 
 async function getUserVersion(client: DatabaseClient): Promise<number> {

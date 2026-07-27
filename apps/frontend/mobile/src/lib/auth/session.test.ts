@@ -28,6 +28,25 @@ const AUTH_USER = {
 const originalFetch = globalThis.fetch;
 const originalExpoPublicApiUrl = process.env.EXPO_PUBLIC_API_URL;
 
+function runAsProduction(task: () => void): void {
+  const previousDescriptor = Object.getOwnPropertyDescriptor(globalThis, '__DEV__');
+  Object.defineProperty(globalThis, '__DEV__', {
+    configurable: true,
+    value: false,
+    writable: true,
+  });
+
+  try {
+    task();
+  } finally {
+    if (previousDescriptor) {
+      Object.defineProperty(globalThis, '__DEV__', previousDescriptor);
+    } else {
+      Reflect.deleteProperty(globalThis, '__DEV__');
+    }
+  }
+}
+
 afterEach(() => {
   setAccessToken(null);
   globalThis.fetch = originalFetch;
@@ -51,25 +70,17 @@ describe('buildApiUrl', () => {
   });
 
   it('rejects a cleartext http:// API URL in production builds', () => {
-    const prevDev = (globalThis as { __DEV__?: boolean | undefined }).__DEV__;
-    (globalThis as { __DEV__?: boolean | undefined }).__DEV__ = false;
     process.env.EXPO_PUBLIC_API_URL = 'http://api.example.com';
-    try {
+    runAsProduction(() => {
       expect(() => buildApiUrl('/programs')).toThrow(/https/);
-    } finally {
-      (globalThis as { __DEV__?: boolean | undefined }).__DEV__ = prevDev;
-    }
+    });
   });
 
   it('allows https:// API URL in production builds', () => {
-    const prevDev = (globalThis as { __DEV__?: boolean | undefined }).__DEV__;
-    (globalThis as { __DEV__?: boolean | undefined }).__DEV__ = false;
     process.env.EXPO_PUBLIC_API_URL = 'https://api.example.com';
-    try {
+    runAsProduction(() => {
       expect(buildApiUrl('/programs')).toBe('https://api.example.com/api/programs');
-    } finally {
-      (globalThis as { __DEV__?: boolean | undefined }).__DEV__ = prevDev;
-    }
+    });
   });
 });
 

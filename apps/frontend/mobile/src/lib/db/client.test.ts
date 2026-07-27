@@ -1,6 +1,9 @@
-import { openDatabaseSync } from 'expo-sqlite';
+jest.mock('./expo-sqlite-adapter', () => ({
+  openMobileDatabase: jest.fn(),
+}));
 
-import { bootstrapDatabase, getDatabase, type DatabaseClient } from './client';
+import { bootstrapDatabase, getDatabase } from './client';
+import { openMobileDatabase, type DatabaseClient } from './expo-sqlite-adapter';
 import type { MigrationStep } from './migrations';
 import {
   EMPTY_DATABASE_FIXTURE,
@@ -9,7 +12,7 @@ import {
   type MobileDatabaseFixture,
 } from '../../testing/fixtures/mobile-v2-fixtures';
 
-const mockedOpenDatabaseSync = jest.mocked(openDatabaseSync);
+const mockedOpenMobileDatabase = jest.mocked(openMobileDatabase);
 
 interface FakeDatabase extends DatabaseClient {
   readonly getVersion: () => number;
@@ -40,6 +43,9 @@ function createFakeDatabase(fixture: MobileDatabaseFixture): FakeDatabase {
 
   async function getAllAsync<T>(source: string): Promise<T[]> {
     if (source.trim() === 'PRAGMA user_version') {
+      // DatabaseClient is generic because expo-sqlite maps a caller-selected
+      // row shape. This fake only answers the one row contract used here.
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
       const row = { user_version: userVersion } as unknown as T;
       return [row];
     }
@@ -68,7 +74,7 @@ function createFakeDatabase(fixture: MobileDatabaseFixture): FakeDatabase {
 
 describe('bootstrapDatabase', () => {
   afterEach(() => {
-    mockedOpenDatabaseSync.mockReset();
+    mockedOpenMobileDatabase.mockReset();
   });
 
   it('retries bootstrap after a previous failure', async () => {
@@ -79,7 +85,7 @@ describe('bootstrapDatabase', () => {
       .mockImplementation(database.execAsync);
     database.execAsync = execAsync;
 
-    mockedOpenDatabaseSync.mockReturnValue(database as never);
+    mockedOpenMobileDatabase.mockReturnValue(database);
 
     await expect(bootstrapDatabase()).rejects.toThrow('disk busy');
     await expect(bootstrapDatabase()).resolves.toBeUndefined();
@@ -89,7 +95,7 @@ describe('bootstrapDatabase', () => {
   });
 
   it('returns the same database instance across calls', () => {
-    mockedOpenDatabaseSync.mockReturnValue(createFakeDatabase(EMPTY_DATABASE_FIXTURE) as never);
+    mockedOpenMobileDatabase.mockReturnValue(createFakeDatabase(EMPTY_DATABASE_FIXTURE));
 
     expect(getDatabase()).toBe(getDatabase());
   });

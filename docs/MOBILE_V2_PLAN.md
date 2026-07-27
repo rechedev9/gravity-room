@@ -230,6 +230,11 @@ Evolucionar el esquema mediante migraciones append-only:
 La migración debe preservar instalaciones actuales. El borrado y recreación de la base solo se permite
 en pruebas o mediante una acción explícita del usuario.
 
+Las filas v1 carecen de propietario. La migración v2 no puede atribuirlas a la sesión activa: caches y
+cola legacy entran en cuarentena con claves estables y solo se reclaman tras validar ownership con el
+servidor. Las tablas operativas se particionan por `owner_user_id`; un cambio A → logout remoto fallido
+→ B no expone ni reproduce filas de A.
+
 ### Sincronización
 
 La outbox tendrá un contrato cerrado:
@@ -293,14 +298,19 @@ Alcance:
 - documentar rutas, modelo local y política de sync;
 - decidir forma exacta de `workout_sessions` y API de definiciones propias;
 - crear fixtures canónicos de programa, workout y outbox;
-- registrar métricas base de arranque, bundle y render del tracker.
+- congelar métricas estáticas reproducibles (LOC, suites, casos, catálogos y versión SQLite);
+- registrar como deuda que las métricas nativas requieren el harness de M8.
 
 Aceptación:
 
 - baseline reproducible;
 - cero strings faltantes ES/EN;
-- migración propuesta probada sobre base vacía y versión 1;
+- SQL contractual de migración probado en SQLite real sobre base vacía y v1 con filas, sin desplegarlo
+  hasta adaptar los repositorios;
 - ADRs de navegación, persistencia y sincronización aceptados.
+
+M0 no afirma tiempos de arranque, tamaño de bundle ni render medidos. Sin un build, dispositivo,
+escenario, repeticiones y percentiles controlados, una cifra del host no constituye evidencia.
 
 ### M1 — Shell, navegación y sistema visual
 
@@ -435,6 +445,8 @@ Aceptación:
 Alcance:
 
 - E2E nativo de los recorridos críticos;
+- harness nativo reproducible para arranque, bundle y render del tracker;
+- baseline antes/después capturada con dispositivo, build, escenario, repeticiones y percentiles;
 - accesibilidad, rendimiento, crash reporting y observabilidad;
 - iconos, splash, permisos, versionado y configuración de build;
 - prueba de upgrade desde la app actual;
@@ -443,6 +455,7 @@ Alcance:
 Aceptación:
 
 - recorridos críticos verdes en Android e iOS;
+- baseline nativa antes/después registrada antes de aceptar objetivos o regresiones de rendimiento;
 - cero pérdida de datos en matriz offline/foreground/reinicio;
 - export/bundle de ambas plataformas;
 - migración v1→v2 probada con fixtures reales anonimizados;

@@ -22,7 +22,7 @@ workout_sessions
   owner_user_id TEXT NOT NULL
   program_instance_id TEXT NOT NULL
   workout_index INTEGER NOT NULL CHECK(workout_index >= 0)
-  status TEXT NOT NULL                -- in_progress | completed | cancelled
+  status TEXT NOT NULL CHECK(status IN ('in_progress', 'completed', 'cancelled'))
   started_at TEXT NOT NULL            -- ISO-8601 UTC
   completed_at TEXT NULL
   notes TEXT NULL
@@ -30,17 +30,21 @@ workout_sessions
   focused_set_id TEXT NULL
   updated_at TEXT NOT NULL
   server_revision TEXT NULL
+  CHECK(
+    (status = 'in_progress' AND completed_at IS NULL)
+    OR (status IN ('completed', 'cancelled') AND completed_at IS NOT NULL)
+  )
 
 workout_set_logs
   id TEXT PRIMARY KEY                 -- UUID estable, no índice posicional
   session_id TEXT NOT NULL REFERENCES workout_sessions(id) ON DELETE CASCADE
   slot_id TEXT NOT NULL
   position INTEGER NOT NULL CHECK(position >= 0)
-  kind TEXT NOT NULL                  -- working | warmup
+  kind TEXT NOT NULL CHECK(kind IN ('working', 'warmup'))
   reps INTEGER NOT NULL CHECK(reps BETWEEN 0 AND 999)
   weight_kg REAL NULL CHECK(weight_kg >= 0)
   rpe INTEGER NULL CHECK(rpe BETWEEN 1 AND 10)
-  is_amrap INTEGER NOT NULL           -- SQLite boolean 0 | 1
+  is_amrap INTEGER NOT NULL CHECK(is_amrap IN (0, 1))
   completed_at TEXT NULL
   deleted_at TEXT NULL                -- tombstone sincronizable
   updated_at TEXT NOT NULL
@@ -49,6 +53,11 @@ workout_set_logs
 Habrá como máximo una sesión `in_progress` por `owner_user_id`, mediante índice único parcial. Cada
 set tiene identidad estable; `position` solo ordena. El valor canónico de peso es kg. Cambiar a lb es
 una conversión de presentación y no reescribe almacenamiento.
+
+`completed_at` representa el cierre del lifecycle: debe ser nulo mientras la sesión está
+`in_progress` y obligatorio al completar o cancelar. El SQL contractual completo y ejecutable vive en
+`apps/frontend/mobile/src/lib/db/mobile-v2-schema-contract.ts`; M0 lo prueba con SQLite real, pero no
+lo registra todavía en las migraciones runtime.
 
 Una sesión `completed` materializa por slot el resultado compatible actual
 (`result/amrapReps/rpe/setLogs`) y deja que `computeGenericProgram` decida la progresión. Los logs no

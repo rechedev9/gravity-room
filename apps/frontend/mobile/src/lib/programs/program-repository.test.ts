@@ -7,6 +7,16 @@ interface ProgramSummaryRow {
 const rows: ProgramSummaryRow[] = [];
 let mockFailNextInsert = false;
 
+function mockRequireStringParameter(params: readonly unknown[], index: number): string {
+  const value = params[index];
+
+  if (typeof value !== 'string') {
+    throw new Error(`Expected string SQL parameter at index ${index}`);
+  }
+
+  return value;
+}
+
 jest.mock('../db/client', () => ({
   bootstrapDatabase: jest.fn(async () => undefined),
   getDatabase: jest.fn(() => ({
@@ -20,7 +30,9 @@ jest.mock('../db/client', () => ({
         const transactionClient = {
           runAsync: async (sql: string, ...params: unknown[]) => {
             if (sql.includes('DELETE FROM program_summaries WHERE id NOT IN')) {
-              const ids = new Set(params as string[]);
+              const ids = new Set(
+                params.map((_, index) => mockRequireStringParameter(params, index))
+              );
 
               for (let index = rows.length - 1; index >= 0; index -= 1) {
                 const row = rows[index];
@@ -41,7 +53,9 @@ jest.mock('../db/client', () => ({
                 throw new Error('write failed');
               }
 
-              const [id, title, updatedAt] = params as [string, string, string];
+              const id = mockRequireStringParameter(params, 0);
+              const title = mockRequireStringParameter(params, 1);
+              const updatedAt = mockRequireStringParameter(params, 2);
               const existingIndex = rows.findIndex((row) => row.id === id);
               const nextRow = { id, title, updated_at: updatedAt };
 

@@ -20,8 +20,26 @@ Las migraciones siguen `PRAGMA user_version`, son incrementales y append-only. L
 congelada. Una migración publicada nunca se edita, reordena ni elimina; una corrección usa la siguiente
 versión. La aplicación nunca borra/recrea la DB como parte de un upgrade.
 
-`outbox_mutations` sustituirá a `queued_mutations` mediante una migración explícita que copie primero
-las filas v1:
+`outbox_mutations` sustituirá a `queued_mutations`, pero ninguna fila v1 se copiará directamente a la
+nueva outbox: v1 no guardaba propietario y atribuirla a la sesión activa mezclaría cuentas. La
+migración contractual mueve esas filas a `legacy_queued_mutations_quarantine` con una clave estable
+derivada de su ID (`v1-queue:%016x`). Las caches v1 (`program_summaries`, `program_details` y
+`program_definitions`) se mueven de igual forma a `legacy_user_cache_quarantine` con claves estables
+por tabla e ID.
+
+Ambas cuarentenas nacen con `claim_state = quarantined` y sin `owner_user_id`. Una fila solo puede
+pasar a `validated` cuando una consulta autenticada al servidor confirma que la entidad pertenece al
+usuario, dejando `validated_owner_user_id`, `server_ownership_proof` y `validated_at`. Un `CHECK`
+impide reclamar sin las tres evidencias. Rechazo o ausencia de conectividad mantiene la fila fuera de
+las caches y de la outbox operativas; reclamar tampoco encola automáticamente una mutación. La
+promoción explícita, con parser del payload y nueva UUID idempotente, se implementará junto con los
+repositorios v2.
+
+Las tablas operativas `program_*` se recrean con `PRIMARY KEY (owner_user_id, id)`. Por tanto, si A
+queda localmente tras un logout remoto fallido y B inicia sesión, las lecturas y el flush de B filtran
+por B y no ven ni reproducen filas de A. Cambiar credenciales nunca cambia el owner de una fila.
+
+La nueva outbox tiene este contrato:
 
 ```text
 id TEXT PRIMARY KEY                  -- idempotency_key UUID
@@ -59,6 +77,12 @@ Los triggers de flush son restauración de sesión, foreground, conectividad rec
 de workout y reintento manual. Cerrar sesión detiene el flush antes de cambiar credenciales. Los datos
 se particionan por `owner_user_id`; nunca se reproducen filas de otro usuario.
 
+El SQL v2 exacto queda congelado en
+`apps/frontend/mobile/src/lib/db/mobile-v2-schema-contract.ts` con versión contractual 2. No forma
+parte todavía de `MIGRATIONS`: desplegarlo antes de adaptar los repositorios v1 rompería sus consultas.
+M0 lo ejecuta con `node:sqlite` sobre bases vacías y v1 con filas; M2-M3 deben adaptar repositorios,
+revalidar el contrato y entonces registrar una migración append-only.
+
 ## Alternativas consideradas
 
 - Mutar servidor primero: hace cada tap dependiente de red.
@@ -74,4 +98,5 @@ se particionan por `owner_user_id`; nunca se reproducen filas de otro usuario.
   usuario.
 - Las altas sin endpoint idempotente seguirán online-only.
 - La UI de Perfil podrá derivar contadores por `state` y ejecutar reintento sin inspeccionar payloads.
-- M0 solo congela fixtures y la conducta v1; la sustitución física ocurre en un slice posterior.
+- M0 congela y ejecuta el SQL objetivo solo como contrato; la sustitución física ocurre en un slice
+  posterior, después de adaptar todos los repositorios.

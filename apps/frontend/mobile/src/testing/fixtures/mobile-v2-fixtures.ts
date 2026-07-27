@@ -29,6 +29,42 @@ export const V1_DATABASE_FIXTURE = {
   tables: V1_TABLES,
 } satisfies MobileDatabaseFixture;
 
+export const V1_DATABASE_ROWS_FIXTURE_SQL = `
+  INSERT INTO program_summaries (id, title, updated_at)
+  VALUES (
+    '11111111-1111-4111-8111-111111111111',
+    'Legacy program',
+    '2026-07-27T08:15:00.000Z'
+  );
+  INSERT INTO program_details (id, program_id, detail_json, updated_at)
+  VALUES (
+    '11111111-1111-4111-8111-111111111111',
+    'mobile-v2-baseline',
+    '{"id":"11111111-1111-4111-8111-111111111111"}',
+    '2026-07-27T08:15:00.000Z'
+  );
+  INSERT INTO program_definitions (id, definition_json, updated_at)
+  VALUES (
+    'mobile-v2-baseline',
+    '{"id":"mobile-v2-baseline","source":"preset"}',
+    '2026-07-27T08:15:00.000Z'
+  );
+  INSERT INTO queued_mutations (
+    entity_type,
+    entity_id,
+    operation,
+    payload_json,
+    created_at
+  )
+  VALUES (
+    'program-instance',
+    '11111111-1111-4111-8111-111111111111',
+    'record-result',
+    '{"workoutIndex":0,"slotId":"squat-t1","result":"success"}',
+    '2026-07-27T08:15:00.000Z'
+  );
+`;
+
 export const CANONICAL_PROGRAM_DEFINITION = {
   id: 'mobile-v2-baseline',
   name: 'Mobile v2 baseline',
@@ -90,7 +126,7 @@ export const CANONICAL_WORKOUT_RESULTS = {
 } satisfies GenericResults;
 
 export const CANONICAL_PROGRAM_DETAIL = {
-  id: 'mobile-instance-1',
+  id: '11111111-1111-4111-8111-111111111111',
   programId: CANONICAL_PROGRAM_DEFINITION.id,
   name: 'Mobile v2 baseline',
   config: {
@@ -105,11 +141,27 @@ export const CANONICAL_PROGRAM_DETAIL = {
   completedDates: {
     '0': '2026-07-27T08:15:00.000Z',
   },
-  definitionId: CANONICAL_PROGRAM_DEFINITION.id,
+  definitionId: null,
   customDefinition: null,
   status: 'active',
   createdAt: '2026-07-27T08:00:00.000Z',
   updatedAt: '2026-07-27T08:15:00.000Z',
+} satisfies GenericProgramDetail;
+
+export const CANONICAL_CUSTOM_PROGRAM_DEFINITION = {
+  ...CANONICAL_PROGRAM_DEFINITION,
+  id: '22222222-2222-4222-8222-222222222222',
+  name: 'Mobile v2 custom baseline',
+  source: 'custom',
+} satisfies ProgramDefinition;
+
+export const CANONICAL_CUSTOM_PROGRAM_DETAIL = {
+  ...CANONICAL_PROGRAM_DETAIL,
+  id: '33333333-3333-4333-8333-333333333333',
+  programId: CANONICAL_CUSTOM_PROGRAM_DEFINITION.id,
+  name: CANONICAL_CUSTOM_PROGRAM_DEFINITION.name,
+  definitionId: CANONICAL_CUSTOM_PROGRAM_DEFINITION.id,
+  customDefinition: CANONICAL_CUSTOM_PROGRAM_DEFINITION,
 } satisfies GenericProgramDetail;
 
 export const CANONICAL_QUEUED_MUTATION = {

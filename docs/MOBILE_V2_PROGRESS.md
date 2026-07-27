@@ -77,17 +77,17 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
 
 ## Estado de slices
 
-| Slice                       | Estado         | Base       | Candidato | Corregido | Integrado |
-| --------------------------- | -------------- | ---------- | --------- | --------- | --------- |
-| M0 Contratos y baseline     | implementación | `dcdec26f` | pendiente | pendiente | pendiente |
-| M1 Shell y navegación       | pendiente      | pendiente  | pendiente | pendiente | pendiente |
-| M2 Programas                | pendiente      | pendiente  | pendiente | pendiente | pendiente |
-| M3 Tracker offline          | pendiente      | pendiente  | pendiente | pendiente | pendiente |
-| M4 Historial/temporizador   | pendiente      | pendiente  | pendiente | pendiente | pendiente |
-| M5 Perfil/datos             | pendiente      | pendiente  | pendiente | pendiente | pendiente |
-| M6 Programas personalizados | pendiente      | pendiente  | pendiente | pendiente | pendiente |
-| M7 Wiki contextual          | pendiente      | pendiente  | pendiente | pendiente | pendiente |
-| M8 Hardening/release/E2E    | pendiente      | pendiente  | pendiente | pendiente | pendiente |
+| Slice                       | Estado     | Base       | Candidato | Corregido | Integrado |
+| --------------------------- | ---------- | ---------- | --------- | --------- | --------- |
+| M0 Contratos y baseline     | corrección | `dcdec26f` | `0fcc4c6` | handoff   | pendiente |
+| M1 Shell y navegación       | pendiente  | pendiente  | pendiente | pendiente | pendiente |
+| M2 Programas                | pendiente  | pendiente  | pendiente | pendiente | pendiente |
+| M3 Tracker offline          | pendiente  | pendiente  | pendiente | pendiente | pendiente |
+| M4 Historial/temporizador   | pendiente  | pendiente  | pendiente | pendiente | pendiente |
+| M5 Perfil/datos             | pendiente  | pendiente  | pendiente | pendiente | pendiente |
+| M6 Programas personalizados | pendiente  | pendiente  | pendiente | pendiente | pendiente |
+| M7 Wiki contextual          | pendiente  | pendiente  | pendiente | pendiente | pendiente |
+| M8 Hardening/release/E2E    | pendiente  | pendiente  | pendiente | pendiente | pendiente |
 
 ## M0 — Contratos y baseline
 
@@ -97,41 +97,62 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
 - ADRs de navegación, sesiones/set logs, SQLite/outbox y definiciones personalizadas.
 - ESLint 9 real para TS/TSX móvil y scripts package/root.
 - Fixtures tipados canónicos de programa, workout, outbox y snapshots SQLite.
-- Pruebas de DB vacía, instalación legacy sin versión, instalación v1 y evolución append-only.
+- Pruebas unitarias del bootstrap v1.
 - Check específico de paridad i18n ES/EN.
+
+### Corrección tras revisiones
+
+- SQL contractual v2 separado de `MIGRATIONS` y ejecutado con Node 24/SQLite 3.53.1 sobre una base v1
+  vacía y otra con filas.
+- Caches y cola v1 preservadas en cuarentena sin owner; tablas operativas nuevas particionadas por
+  usuario y outbox cerrada.
+- Constraints e índices de sesiones, set logs, outbox, lifecycle y ownership probados por SQLite.
+- Fixtures preset/custom separadas con UUIDs e invariantes cruzadas.
+- Reglas de assertions y non-null activas también en tests; solo dos factories Jest conservan una
+  excepción de `require` por fichero.
+- Métricas estáticas congeladas; harness y baseline nativa antes/después diferidos explícitamente a M8.
 
 ### Candidatos, revisiones y correcciones
 
-| Evento                  | SHA / estado | Evidencia                               |
-| ----------------------- | ------------ | --------------------------------------- |
-| Candidato implementador | pendiente    | Se completa en el handoff del commit M0 |
-| Revisión A              | pendiente    | Sin findings todavía                    |
-| Revisión B              | pendiente    | Sin findings todavía                    |
-| Normalización Main      | pendiente    | Sin matriz todavía                      |
-| Corrector               | pendiente    | Sin SHA corregido                       |
-| Reverificación A        | pendiente    | No ejecutada                            |
-| Reverificación B        | pendiente    | No ejecutada                            |
-| Decisión Main           | pendiente    | `go/no-go` pendiente                    |
+| Evento                  | SHA / estado                               | Evidencia                                       |
+| ----------------------- | ------------------------------------------ | ----------------------------------------------- |
+| Candidato implementador | `0fcc4c6629ef6c485fba68996de9e56709012d1f` | Commit M0 revisado por ambos revisores          |
+| Revisión A              | 6 findings: 3 P1, 3 P2                     | `M0-A-001` a `M0-A-006`                         |
+| Revisión B              | 5 findings: 3 P1, 2 P2                     | `M0-B-001` a `M0-B-005`                         |
+| Normalización Main      | N1-N6                                      | 5 aceptados; N5 diferido a M8 por decisión Main |
+| Corrector               | SHA en handoff                             | Commit normal desde el candidato                |
+| Reverificación A        | pendiente                                  | No ejecutada                                    |
+| Reverificación B        | pendiente                                  | No ejecutada                                    |
+| Decisión Main           | pendiente                                  | Integración/`go-no-go` no decidida              |
 
 ### Checks M0
 
-| Check                             | Resultado                   | Nota                         |
-| --------------------------------- | --------------------------- | ---------------------------- |
-| `pnpm exec prettier --check ...`  | verde                       | Scope M0 completo            |
-| `pnpm --filter mobile lint`       | verde                       | ESLint 9, TS/TSX             |
-| `pnpm --filter mobile typecheck`  | verde                       | Expo tsconfig                |
-| `pnpm --filter mobile i18n:check` | verde: 8/8                  | 0 missing keys ES/EN         |
-| `pnpm --filter mobile test`       | verde: 18 suites, 151 tests | Incluye migraciones/fixtures |
-| E2E                               | no ejecutado por política   | Se difiere hasta M8          |
+| Check                             | Resultado                   | Nota                                         |
+| --------------------------------- | --------------------------- | -------------------------------------------- |
+| `pnpm exec prettier --check ...`  | verde                       | Scope M0 corregido                           |
+| `pnpm --filter mobile lint`       | verde                       | Assertions/non-null activos en tests         |
+| `pnpm --filter mobile typecheck`  | verde                       | Expo tsconfig + contrato Node tipado         |
+| `pnpm --filter mobile i18n:check` | verde: 1 suite, 8 tests     | 0 missing keys ES/EN                         |
+| `pnpm --filter mobile test`       | verde: 19 suites, 159 tests | Incluye Node 24 / SQLite 3.53.1 real         |
+| Métricas nativas                  | no medidas                  | Harness + baseline antes/después van a M8    |
+| E2E                               | no ejecutado por política   | Se difiere hasta M8; no es un check M0 verde |
 
 ### Findings y resolución
 
-| ID  | Severidad | Estado    | Resolución / motivo                       |
-| --- | --------- | --------- | ----------------------------------------- |
-| —   | —         | pendiente | A la espera de las dos revisiones frescas |
+| Normalizado | Origen                 | Severidad | Estado   | Resolución                                                                                                                                      |
+| ----------- | ---------------------- | --------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| N1          | `M0-A-001`, `M0-B-002` | P1        | fixed    | SQL exacto ejecutado con `node:sqlite`; cubre fresh/v1 con filas, schema, rollback y segundo arranque.                                          |
+| N2          | `M0-A-002`, `M0-B-001` | P1        | fixed    | Legacy queda sin owner en cuarentena; claim exige prueba de servidor y las tablas/outbox se particionan por usuario.                            |
+| N3          | `M0-A-003`, `M0-B-003` | P1        | fixed    | Preset usa UUID de instancia, `definitionId = null`; fixture custom separada conserva UUID/source/snapshot coherentes.                          |
+| N4          | `M0-A-004`, `M0-B-005` | P2        | fixed    | Eliminados overrides globales de assertions/non-null; el fake implementa `DatabaseClient` tras un adapter y ya no se presenta como SQLite real. |
+| N5          | `M0-A-005`, `M0-B-004` | P2        | deferred | Main difiere métricas nativas a M8: primero se crea harness y baseline antes/después; M0 solo congela métricas estáticas.                       |
+| N6          | `M0-A-006`             | P2        | fixed    | SQL añade y prueba CHECKs de status/completed_at, enums, booleanos y rangos de workout/set logs.                                                |
 
 ### Deuda/riesgos conocidos
 
 - Los modelos objetivo de sesión y outbox están decididos, pero se implementan en M3-M4.
 - La API de definiciones requiere cambios coordinados de DB/API/dominio/cliente en M6.
-- Las métricas nativas de rendimiento siguen sin medir hasta disponer del harness de M8.
+- El SQL v2 está probado pero no desplegado: M2-M3 deben adaptar repositorios antes de registrarlo en
+  `MIGRATIONS`.
+- Las métricas nativas de rendimiento siguen sin medir por decisión Main. M8 debe crear el harness y
+  capturar baseline antes/después; M0 no afirma una medición inexistente.

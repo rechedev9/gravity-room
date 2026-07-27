@@ -5,6 +5,8 @@ import {
 } from '@gzclp/domain';
 
 import {
+  CANONICAL_CUSTOM_PROGRAM_DEFINITION,
+  CANONICAL_CUSTOM_PROGRAM_DETAIL,
   CANONICAL_PROGRAM_DEFINITION,
   CANONICAL_PROGRAM_DETAIL,
   CANONICAL_QUEUED_MUTATION,
@@ -24,6 +26,29 @@ describe('Mobile v2 canonical fixtures', () => {
     );
     expect(GenericProgramDetailSchema.parse(CANONICAL_PROGRAM_DETAIL)).toEqual(
       CANONICAL_PROGRAM_DETAIL
+    );
+    expect(CANONICAL_PROGRAM_DETAIL.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/
+    );
+    expect(CANONICAL_PROGRAM_DETAIL.programId).toBe(CANONICAL_PROGRAM_DEFINITION.id);
+    expect(CANONICAL_PROGRAM_DETAIL.definitionId).toBeNull();
+    expect(CANONICAL_PROGRAM_DETAIL.customDefinition).toBeNull();
+  });
+
+  it('keeps the custom instance linked to its UUID definition snapshot', () => {
+    expect(ProgramDefinitionSchema.parse(CANONICAL_CUSTOM_PROGRAM_DEFINITION)).toEqual(
+      CANONICAL_CUSTOM_PROGRAM_DEFINITION
+    );
+    expect(GenericProgramDetailSchema.parse(CANONICAL_CUSTOM_PROGRAM_DETAIL)).toEqual(
+      CANONICAL_CUSTOM_PROGRAM_DETAIL
+    );
+    expect(CANONICAL_CUSTOM_PROGRAM_DEFINITION.source).toBe('custom');
+    expect(CANONICAL_CUSTOM_PROGRAM_DETAIL.programId).toBe(CANONICAL_CUSTOM_PROGRAM_DEFINITION.id);
+    expect(CANONICAL_CUSTOM_PROGRAM_DETAIL.definitionId).toBe(
+      CANONICAL_CUSTOM_PROGRAM_DEFINITION.id
+    );
+    expect(CANONICAL_CUSTOM_PROGRAM_DETAIL.customDefinition).toBe(
+      CANONICAL_CUSTOM_PROGRAM_DEFINITION
     );
   });
 

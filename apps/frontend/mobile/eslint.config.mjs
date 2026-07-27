@@ -21,15 +21,18 @@ export default defineConfig([
   {
     files: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     rules: {
-      '@typescript-eslint/consistent-type-assertions': 'off',
-      '@typescript-eslint/no-non-null-assertion': 'off',
-      // Jest hoists module factories; lazy require is the supported way to
-      // obtain React Native values inside those factories.
-      '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/ban-ts-comment': [
         'error',
         { 'ts-ignore': true, 'ts-expect-error': false },
       ],
+    },
+  },
+  {
+    // These two Jest factories must load React Native after hoisting. Keep the
+    // framework escape scoped to the files that need it.
+    files: ['src/app/App.test.tsx', 'src/features/programs/programs-screen.test.tsx'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 ]);
