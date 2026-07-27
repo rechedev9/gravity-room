@@ -3,14 +3,18 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
-import { useAuth } from '../../app/auth-provider';
-import { colors, radii, spacing } from '../../app/design';
+import { useAuth } from '../../providers/auth-provider';
+import { colors, radii, spacing } from '../../ui/tokens';
 import { useGoogleIdTokenPrompt } from './google-sign-in';
 
 type EmailMode = 'signin' | 'signup';
 type FormMessage = { readonly kind: 'error' | 'success'; readonly text: string };
 
-export function LoginScreen() {
+interface LoginScreenProps {
+  readonly initialEmailMode?: EmailMode;
+}
+
+export function LoginScreen({ initialEmailMode }: LoginScreenProps) {
   const { t } = useTranslation();
   const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
   const { disabled, promptAsync } = useGoogleIdTokenPrompt();
@@ -18,8 +22,8 @@ export function LoginScreen() {
   const [googleError, setGoogleError] = useState<string | null>(null);
 
   // Email/password progressive-disclosure form state (mirrors the web login page).
-  const [showEmail, setShowEmail] = useState(false);
-  const [emailMode, setEmailMode] = useState<EmailMode>('signin');
+  const [showEmail, setShowEmail] = useState(initialEmailMode !== undefined);
+  const [emailMode, setEmailMode] = useState<EmailMode>(initialEmailMode ?? 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');

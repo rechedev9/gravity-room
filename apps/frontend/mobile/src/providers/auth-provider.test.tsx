@@ -68,7 +68,7 @@ function SignInProbe() {
   );
 }
 
-describe('AuthProvider', () => {
+describe('mobile AuthProvider', () => {
   afterEach(() => {
     mockedSignInWithGoogleIdToken.mockReset();
     mockedSignOutSession.mockReset();

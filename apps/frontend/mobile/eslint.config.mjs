@@ -5,7 +5,7 @@ export default defineConfig([
   ...tseslint.configs.recommended,
   globalIgnores(['node_modules/**', '.expo/**', 'dist/**', 'build/**']),
   {
-    files: ['App.tsx', 'src/**/*.ts', 'src/**/*.tsx'],
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/consistent-type-assertions': ['error', { assertionStyle: 'never' }],
@@ -25,14 +25,6 @@ export default defineConfig([
         'error',
         { 'ts-ignore': true, 'ts-expect-error': false },
       ],
-    },
-  },
-  {
-    // These two Jest factories must load React Native after hoisting. Keep the
-    // framework escape scoped to the files that need it.
-    files: ['src/app/App.test.tsx', 'src/features/programs/programs-screen.test.tsx'],
-    rules: {
-      '@typescript-eslint/no-require-imports': 'off',
     },
   },
 ]);

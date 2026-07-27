@@ -36,16 +36,6 @@ jest.mock('../../lib/tracker/program-detail-repository', () => ({
   upsertProgramDetail: jest.fn(),
 }));
 
-// TrackerScreen is lazy-required inside programs-screen on navigation;
-// it is not exercised by these tests so we stub the whole module.
-jest.mock('../tracker/tracker-screen', () => ({
-  TrackerScreen: ({ programInstanceId }: { readonly programInstanceId: string }) => {
-    const React = require('react');
-    const { Text } = require('react-native');
-    return React.createElement(Text, null, programInstanceId);
-  },
-}));
-
 const mockedListProgramSummaries = jest.mocked(listProgramSummaries);
 const mockedUpsertProgramSummaries = jest.mocked(upsertProgramSummaries);
 const mockedBuildDefaultProgramConfig = jest.mocked(buildDefaultProgramConfig);
@@ -55,6 +45,11 @@ const mockedFetchCatalogEntries = jest.mocked(fetchCatalogEntries);
 const mockedFetchProgramSummaries = jest.mocked(fetchProgramSummaries);
 const mockedUpsertProgramDefinition = jest.mocked(upsertProgramDefinition);
 const mockedUpsertProgramDetail = jest.mocked(upsertProgramDetail);
+const mockOpenProgram = jest.fn<void, [string]>();
+
+function renderPrograms() {
+  return render(<ProgramsScreen onOpenProgram={mockOpenProgram} />);
+}
 
 const PROGRAM_A = { id: 'prog-1', title: 'GZCLP A', updatedAt: '2026-01-15T00:00:00.000Z' };
 const PROGRAM_B = { id: 'prog-2', title: 'Stronglifts 5x5', updatedAt: '2026-02-20T00:00:00.000Z' };
@@ -137,6 +132,7 @@ describe('ProgramsScreen', () => {
     mockedFetchProgramSummaries.mockReset();
     mockedUpsertProgramDefinition.mockReset();
     mockedUpsertProgramDetail.mockReset();
+    mockOpenProgram.mockReset();
   });
 
   it('renders a loading indicator while the initial cache read is pending', async () => {
@@ -144,7 +140,7 @@ describe('ProgramsScreen', () => {
     mockedListProgramSummaries.mockImplementation(() => new Promise(() => undefined));
 
     // Act
-    render(<ProgramsScreen />);
+    renderPrograms();
 
     // Assert — no program title shown while loading
     // ActivityIndicator has no accessible text; verify the programs list is absent
@@ -162,7 +158,7 @@ describe('ProgramsScreen', () => {
     mockedUpsertProgramSummaries.mockResolvedValue();
 
     // Act
-    render(<ProgramsScreen />);
+    renderPrograms();
 
     // Assert
     expect(await screen.findByText(PROGRAM_A.title)).toBeTruthy();
@@ -175,7 +171,7 @@ describe('ProgramsScreen', () => {
     mockedFetchProgramSummaries.mockImplementation(() => new Promise(() => undefined));
 
     // Act
-    render(<ProgramsScreen />);
+    renderPrograms();
 
     // Assert — card shows "Updated YYYY-MM-DD"
     expect(await screen.findByText('Updated 2026-01-15')).toBeTruthy();
@@ -188,7 +184,7 @@ describe('ProgramsScreen', () => {
     mockedUpsertProgramSummaries.mockResolvedValue();
 
     // Act
-    render(<ProgramsScreen />);
+    renderPrograms();
 
     // Assert
     expect(await screen.findByText('No active program')).toBeTruthy();
@@ -199,7 +195,7 @@ describe('ProgramsScreen', () => {
     mockedListProgramSummaries.mockRejectedValue(new Error('SQLite unavailable'));
 
     // Act
-    render(<ProgramsScreen />);
+    renderPrograms();
 
     // Assert
     expect(await screen.findByText('Unable to load cached programs.')).toBeTruthy();
@@ -211,7 +207,7 @@ describe('ProgramsScreen', () => {
     mockedFetchProgramSummaries.mockRejectedValue(new Error('Network request failed'));
 
     // Act
-    render(<ProgramsScreen />);
+    renderPrograms();
 
     // Assert
     expect(await screen.findByText('Unable to sync programs right now.')).toBeTruthy();
@@ -223,7 +219,7 @@ describe('ProgramsScreen', () => {
     mockedFetchProgramSummaries.mockRejectedValue(new Error('Network request failed'));
 
     // Act
-    render(<ProgramsScreen />);
+    renderPrograms();
 
     // Assert — programs still shown, sync notice displayed
     expect(await screen.findByText(PROGRAM_A.title)).toBeTruthy();
@@ -248,7 +244,7 @@ describe('ProgramsScreen', () => {
     mockedUpsertProgramSummaries.mockResolvedValue();
 
     // Act
-    render(<ProgramsScreen />);
+    renderPrograms();
 
     // Assert — eventually shows fresh data
     expect(await screen.findByText(PROGRAM_A.title)).toBeTruthy();
@@ -267,7 +263,7 @@ describe('ProgramsScreen', () => {
     mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
     mockedCreateProgramInstance.mockResolvedValue(CREATED_DETAIL);
 
-    render(<ProgramsScreen />);
+    renderPrograms();
 
     fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
 
@@ -287,6 +283,6 @@ describe('ProgramsScreen', () => {
         updatedAt: '2026-06-21T10:00:00.000Z',
       },
     ]);
-    expect(await screen.findByText('created-program')).toBeTruthy();
+    expect(mockOpenProgram).toHaveBeenCalledWith('created-program');
   });
 });

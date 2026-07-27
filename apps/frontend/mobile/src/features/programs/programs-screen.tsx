@@ -4,8 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@gzclp/domain';
 
-import { TrackerScreen } from '../tracker/tracker-screen';
-import { colors, radii, spacing } from '../../app/design';
+import { colors, radii, spacing } from '../../ui/tokens';
 import {
   listProgramSummaries,
   type ProgramSummary,
@@ -30,7 +29,11 @@ function mergeProgramSummary(
   return [nextProgram, ...programs.filter((program) => program.id !== nextProgram.id)];
 }
 
-export function ProgramsScreen() {
+interface ProgramsScreenProps {
+  readonly onOpenProgram: (programInstanceId: string) => void;
+}
+
+export function ProgramsScreen({ onOpenProgram }: ProgramsScreenProps) {
   const { t } = useTranslation();
   const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
   const [catalog, setCatalog] = useState<readonly CatalogEntry[]>([]);
@@ -40,7 +43,6 @@ export function ProgramsScreen() {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [creatingProgramId, setCreatingProgramId] = useState<string | null>(null);
 
   async function loadPrograms(signal: { active: boolean }): Promise<void> {
@@ -164,21 +166,12 @@ export function ProgramsScreen() {
       setPrograms(nextPrograms);
       setSyncNotice(null);
       setError(null);
-      setSelectedProgramId(detail.id);
+      onOpenProgram(detail.id);
     } catch {
       setCatalogError(t('programs.errors.start'));
     } finally {
       setCreatingProgramId(null);
     }
-  }
-
-  if (selectedProgramId) {
-    return (
-      <TrackerScreen
-        programInstanceId={selectedProgramId}
-        onBack={() => setSelectedProgramId(null)}
-      />
-    );
   }
 
   return (
@@ -225,7 +218,7 @@ export function ProgramsScreen() {
               renderItem={({ item }) => (
                 <Pressable
                   accessibilityRole="button"
-                  onPress={() => setSelectedProgramId(item.id)}
+                  onPress={() => onOpenProgram(item.id)}
                   style={styles.card}
                 >
                   <Text style={styles.cardTitle}>{item.title}</Text>

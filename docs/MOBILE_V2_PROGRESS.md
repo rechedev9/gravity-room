@@ -80,7 +80,7 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
 | Slice                       | Estado    | Base       | Candidato | Corregido | Integrado |
 | --------------------------- | --------- | ---------- | --------- | --------- | --------- |
 | M0 Contratos y baseline     | integrado | `dcdec26f` | `0fcc4c6` | `1b39abd` | `1b39abd` |
-| M1 Shell y navegación       | pendiente | pendiente  | pendiente | pendiente | pendiente |
+| M1 Shell y navegación       | candidato | `3af51a0`  | pendiente | pendiente | pendiente |
 | M2 Programas                | pendiente | pendiente  | pendiente | pendiente | pendiente |
 | M3 Tracker offline          | pendiente | pendiente  | pendiente | pendiente | pendiente |
 | M4 Historial/temporizador   | pendiente | pendiente  | pendiente | pendiente | pendiente |
@@ -183,3 +183,57 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
   antes del siguiente build; las pruebas de M0 congelan tanto el flag como el guard runtime.
 - Las métricas nativas de rendimiento siguen sin medir por decisión Main. M8 debe crear el harness y
   capturar baseline antes/después; M0 no afirma una medición inexistente.
+
+## M1 — Shell, navegación y sistema visual
+
+Inicio: 2026-07-27
+
+Base congelada: `3af51a02f4bb6414b14543d7d36e52243b9305f2`
+
+Estado: candidato listo en `.worktrees/mobile-v2-impl`
+
+### Alcance del candidato
+
+- Expo Router y rutas tipadas/deep links.
+- Frontera autenticada con Login fuera de tabs.
+- Tabs exactas Programas, Tracker y Perfil, preservando sus stacks.
+- Providers raíz, error boundary y bootstrap SQLite.
+- Tokens/componentes base estrictamente necesarios para el shell.
+- Adaptadores finos de ruta; las features no importan el router.
+- Preservación de auth, programas y tracker v1 sin cambiar resultados.
+- Contratos unitarios de auth/deep links/bootstrap y prueba de integración real de tabs con
+  `expo-router/testing-library`, incluida la preservación de estado al cambiar de pestaña.
+
+### Candidatos, revisiones y correcciones
+
+| Evento                  | SHA / estado | Evidencia                                  |
+| ----------------------- | ------------ | ------------------------------------------ |
+| Base M1                 | `3af51a0`    | HEAD de integración al iniciar el slice    |
+| Candidato implementador | pendiente    | Se completa en el handoff del commit M1    |
+| Revisión A              | pendiente    | Contexto fresco tras congelar el candidato |
+| Revisión B              | pendiente    | Contexto fresco tras congelar el candidato |
+| Corrector               | pendiente    | A la espera de findings normalizados       |
+| Decisión Main           | pendiente    | `go/no-go` pendiente                       |
+
+### Checks M1
+
+| Check                                                          | Resultado                   | Nota                                |
+| -------------------------------------------------------------- | --------------------------- | ----------------------------------- |
+| `pnpm exec prettier --check ...`                               | verde                       | Scope M1                            |
+| `pnpm --filter mobile lint`                                    | verde                       | TS/TSX + rutas                      |
+| `pnpm --filter mobile typecheck`                               | verde                       | Rutas y boundaries                  |
+| `pnpm --filter mobile i18n:check`                              | verde: 1 suite, 8 tests     | 0 missing keys ES/EN                |
+| `pnpm --filter mobile test`                                    | verde: 24 suites, 165 tests | Unit/integración del shell          |
+| `pnpm --filter mobile exec expo config --type prebuild --json` | verde                       | Config plugins, scheme y entrypoint |
+| Export/bundle Expo Android                                     | verde: 1.223 módulos        | Hermes bundle 3,71 MB               |
+| E2E                                                            | no ejecutado por política   | Reservado para M8                   |
+
+### Handoff del implementador
+
+- El arranque espera SQLite y restauración de sesión antes de montar navegación; una sesión anónima
+  aterriza en Login y una restaurada en Tracker.
+- La navegación primaria contiene exactamente Programas, Tracker y Perfil. Los enlaces a instancias
+  pasan por una ruta tipada y validada; Programas/Tracker siguen sin depender de Expo Router.
+- Expo Router usa `src/app`, rutas tipadas y el scheme existente `gravity-room-mobile`.
+- No se cambiaron contratos de resultados, repositorios ni migraciones. E2E no se ejecutó por la
+  política del plan y queda reservado a M8.

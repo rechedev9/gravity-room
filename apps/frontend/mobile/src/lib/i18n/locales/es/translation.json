@@ -4,9 +4,27 @@
   },
   "nav": {
     "programs": "Programas",
+    "tracker": "Tracker",
     "profile": "Perfil",
     "open_programs": "Abrir pestaña de programas",
+    "open_tracker": "Abrir pestaña de tracker",
     "open_profile": "Abrir pestaña de perfil"
+  },
+  "startup": {
+    "session_loading": "Restaurando tu sesión…",
+    "database_loading": "Abriendo los datos locales de entrenamiento…",
+    "database_error_title": "Los datos de entrenamiento no están disponibles",
+    "database_error_body": "Gravity Room no pudo abrir la base de datos local de entrenamiento.",
+    "database_retry_accessibility": "Reintentar la apertura de los datos locales",
+    "error_title": "Algo salió mal",
+    "error_body": "Gravity Room no pudo mostrar esta pantalla.",
+    "error_retry_accessibility": "Reintentar la carga de Gravity Room"
+  },
+  "verify_email": {
+    "title": "Revisa tu correo",
+    "body": "Abre el enlace de verificación que te enviamos y vuelve para iniciar sesión.",
+    "back": "Volver a iniciar sesión",
+    "back_accessibility": "Volver al inicio de sesión"
   },
   "login": {
     "eyebrow": "Gravity Room",
@@ -72,5 +90,29 @@
     "sign_out": "Cerrar sesión",
     "signing_out": "Cerrando sesión...",
     "sign_out_accessibility": "Cerrar sesión de Gravity Room"
+  },
+  "tracker": {
+    "loading": "Cargando tracker…",
+    "unavailable_title": "Tracker no disponible",
+    "unavailable_body": "Abre Programas y elige un bloque de entrenamiento para continuar.",
+    "empty_title": "Sin programa activo",
+    "empty_body": "Empieza un programa y vuelve aquí para registrar tu entrenamiento.",
+    "load_error_title": "Tracker no disponible",
+    "load_error_body": "Gravity Room no pudo leer tus programas locales.",
+    "invalid_program_title": "Enlace de programa no disponible",
+    "invalid_program_body": "Este enlace de programa no es válido o está incompleto.",
+    "invalid_program_back_accessibility": "Volver a Programas",
+    "retry_accessibility": "Reintentar la carga del tracker",
+    "back": "Volver",
+    "back_to_programs": "Volver a programas",
+    "previous": "Anterior",
+    "previous_accessibility": "Entrenamiento anterior",
+    "undo": "Deshacer",
+    "undo_accessibility": "Deshacer la última acción del tracker",
+    "next": "Siguiente",
+    "next_accessibility": "Entrenamiento siguiente",
+    "sync_cached": "Mostrando el tracker en caché mientras se completa la sincronización.",
+    "sync_retry": "Guardado localmente. Se reintentará la sincronización.",
+    "sync_manual": "Guardado localmente. Este cambio no se sincronizará automáticamente."
   }
 }

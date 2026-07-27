@@ -7,6 +7,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import {
   getProgramDefinition,
@@ -29,7 +30,7 @@ import { TrackerSlotCard } from './tracker-slot-card';
 
 type TrackerScreenProps = {
   readonly programInstanceId: string;
-  readonly onBack: () => void;
+  readonly onBack?: () => void;
 };
 
 interface FreshTrackerState {
@@ -38,8 +39,8 @@ interface FreshTrackerState {
   readonly localStateVersion: number;
 }
 
-const LOCAL_SYNC_RETRY_NOTICE = 'Saved locally. Sync will retry.';
-const LOCAL_SYNC_MANUAL_RETRY_NOTICE = "Saved locally. This change won't sync automatically.";
+type SyncNotice = 'cached' | 'retry' | 'manual';
+
 const MAX_RPE = 10;
 
 function resolveProgramDefinition(detail: GenericProgramDetail): ProgramDefinition | null {
@@ -51,10 +52,11 @@ function resolveProgramDefinition(detail: GenericProgramDetail): ProgramDefiniti
 }
 
 export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps) {
+  const { t } = useTranslation();
   const [detail, setDetail] = useState<GenericProgramDetail | null>(null);
   const [definition, setDefinition] = useState<ProgramDefinition | null>(null);
   const [loading, setLoading] = useState(true);
-  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [syncNotice, setSyncNotice] = useState<SyncNotice | null>(null);
   const [selectedWorkoutIndex, setSelectedWorkoutIndex] = useState(0);
   const detailRef = useRef<GenericProgramDetail | null>(null);
   const localStateVersionRef = useRef(0);
@@ -75,7 +77,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
           await flushQueuedMutations(currentAccessToken);
         } catch {
           if (hasCachedTracker) {
-            setSyncNotice('Showing cached tracker data while sync catches up.');
+            setSyncNotice('cached');
             setLoading(false);
             return null;
           }
@@ -152,7 +154,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
           }
 
           if (hasCachedTracker) {
-            setSyncNotice('Showing cached tracker data while sync catches up.');
+            setSyncNotice('cached');
             setLoading(false);
             return;
           }
@@ -238,9 +240,9 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
         slotId,
         result,
       });
-      setSyncNotice((current) => (current === LOCAL_SYNC_RETRY_NOTICE ? null : current));
+      setSyncNotice((current) => (current === 'retry' ? null : current));
     } catch {
-      setSyncNotice(LOCAL_SYNC_MANUAL_RETRY_NOTICE);
+      setSyncNotice('manual');
     }
   }
 
@@ -304,9 +306,9 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
         ...(nextSlot.rpe !== undefined ? { rpe: nextSlot.rpe } : {}),
         ...(nextSlot.setLogs !== undefined ? { setLogs: nextSlot.setLogs } : {}),
       });
-      setSyncNotice((current) => (current === LOCAL_SYNC_RETRY_NOTICE ? null : current));
+      setSyncNotice((current) => (current === 'retry' ? null : current));
     } catch {
-      setSyncNotice(LOCAL_SYNC_MANUAL_RETRY_NOTICE);
+      setSyncNotice('manual');
     }
   }
 
@@ -388,9 +390,9 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
         ...(restoredSlot?.rpe !== undefined ? { rpe: restoredSlot.rpe } : {}),
         ...(restoredSlot?.setLogs !== undefined ? { setLogs: restoredSlot.setLogs } : {}),
       });
-      setSyncNotice((current) => (current === LOCAL_SYNC_RETRY_NOTICE ? null : current));
+      setSyncNotice((current) => (current === 'retry' ? null : current));
     } catch {
-      setSyncNotice(LOCAL_SYNC_MANUAL_RETRY_NOTICE);
+      setSyncNotice('manual');
     }
   }
 
@@ -400,7 +402,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerBlock}>
-          <Text style={styles.body}>Loading tracker...</Text>
+          <Text style={styles.body}>{t('tracker.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -410,10 +412,13 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerBlock}>
-          <Text style={styles.title}>Tracker unavailable</Text>
-          <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
-            <Text style={styles.backLabel}>Back</Text>
-          </Pressable>
+          <Text style={styles.title}>{t('tracker.unavailable_title')}</Text>
+          <Text style={styles.body}>{t('tracker.unavailable_body')}</Text>
+          {onBack ? (
+            <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
+              <Text style={styles.backLabel}>{t('tracker.back')}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </SafeAreaView>
     );
@@ -422,33 +427,35 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backLabel}>Back to programs</Text>
-        </Pressable>
+        {onBack ? (
+          <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
+            <Text style={styles.backLabel}>{t('tracker.back_to_programs')}</Text>
+          </Pressable>
+        ) : null}
         <View style={styles.toolbarRow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Previous workout"
+            accessibilityLabel={t('tracker.previous_accessibility')}
             disabled={selectedWorkoutIndex === 0}
             onPress={() => setSelectedWorkoutIndex((current) => Math.max(0, current - 1))}
             style={[styles.navButton, selectedWorkoutIndex === 0 ? styles.navButtonDisabled : null]}
           >
-            <Text style={styles.navLabel}>Prev</Text>
+            <Text style={styles.navLabel}>{t('tracker.previous')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Undo latest tracker action"
+            accessibilityLabel={t('tracker.undo_accessibility')}
             disabled={!canUndo}
             onPress={() => {
               void handleUndoLast();
             }}
             style={[styles.navButton, !canUndo ? styles.navButtonDisabled : null]}
           >
-            <Text style={styles.navLabel}>Undo</Text>
+            <Text style={styles.navLabel}>{t('tracker.undo')}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Next workout"
+            accessibilityLabel={t('tracker.next_accessibility')}
             disabled={selectedWorkoutIndex >= rows.length - 1}
             onPress={() =>
               setSelectedWorkoutIndex((current) => Math.min(rows.length - 1, current + 1))
@@ -458,12 +465,14 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
               selectedWorkoutIndex >= rows.length - 1 ? styles.navButtonDisabled : null,
             ]}
           >
-            <Text style={styles.navLabel}>Next</Text>
+            <Text style={styles.navLabel}>{t('tracker.next')}</Text>
           </Pressable>
         </View>
         <Text style={styles.eyebrow}>{detail.name}</Text>
         <Text style={styles.title}>{selectedRow.dayName}</Text>
-        {syncNotice ? <Text style={styles.syncNotice}>{syncNotice}</Text> : null}
+        {syncNotice ? (
+          <Text style={styles.syncNotice}>{t(`tracker.sync_${syncNotice}`)}</Text>
+        ) : null}
         {selectedRow.slots.map((slot) => (
           <TrackerSlotCard
             key={slot.slotId}

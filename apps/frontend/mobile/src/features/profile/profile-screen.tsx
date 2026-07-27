@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
-import { colors, radii, spacing } from '../../app/design';
+import { colors, radii, spacing } from '../../ui/tokens';
 import type { AuthUser } from '../../lib/auth/session';
 
 type ProfileScreenProps = {

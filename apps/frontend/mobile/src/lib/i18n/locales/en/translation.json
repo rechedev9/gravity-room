@@ -4,9 +4,27 @@
   },
   "nav": {
     "programs": "Programs",
+    "tracker": "Tracker",
     "profile": "Profile",
     "open_programs": "Open programs tab",
+    "open_tracker": "Open tracker tab",
     "open_profile": "Open profile tab"
+  },
+  "startup": {
+    "session_loading": "Restoring your session…",
+    "database_loading": "Opening local training data…",
+    "database_error_title": "Training data is unavailable",
+    "database_error_body": "Gravity Room could not open the local training database.",
+    "database_retry_accessibility": "Retry opening local training data",
+    "error_title": "Something went wrong",
+    "error_body": "Gravity Room could not display this screen.",
+    "error_retry_accessibility": "Retry loading Gravity Room"
+  },
+  "verify_email": {
+    "title": "Check your email",
+    "body": "Open the verification link we sent you, then return here to sign in.",
+    "back": "Back to sign in",
+    "back_accessibility": "Return to sign in"
   },
   "login": {
     "eyebrow": "Gravity Room",
@@ -72,5 +90,29 @@
     "sign_out": "Sign out",
     "signing_out": "Signing out...",
     "sign_out_accessibility": "Sign out of Gravity Room"
+  },
+  "tracker": {
+    "loading": "Loading tracker…",
+    "unavailable_title": "Tracker unavailable",
+    "unavailable_body": "Open Programs and choose a training block to continue.",
+    "empty_title": "No active program",
+    "empty_body": "Start a program first, then return here to log your workout.",
+    "load_error_title": "Tracker unavailable",
+    "load_error_body": "Gravity Room could not read your local programs.",
+    "invalid_program_title": "Program link unavailable",
+    "invalid_program_body": "This program link is invalid or incomplete.",
+    "invalid_program_back_accessibility": "Return to Programs",
+    "retry_accessibility": "Retry loading the tracker",
+    "back": "Back",
+    "back_to_programs": "Back to programs",
+    "previous": "Prev",
+    "previous_accessibility": "Previous workout",
+    "undo": "Undo",
+    "undo_accessibility": "Undo latest tracker action",
+    "next": "Next",
+    "next_accessibility": "Next workout",
+    "sync_cached": "Showing cached tracker data while sync catches up.",
+    "sync_retry": "Saved locally. Sync will retry.",
+    "sync_manual": "Saved locally. This change won't sync automatically."
   }
 }

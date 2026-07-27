@@ -10,11 +10,14 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "types": ["jest", "react", "react-native"],
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "useUnknownInCatchVariables": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
 }

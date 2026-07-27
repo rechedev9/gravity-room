@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { LoginScreen } from './login-screen';
-import type { AuthActionResult } from '../../app/auth-provider';
+import type { AuthActionResult } from '../../providers/auth-provider';
 
 const mockSignInWithGoogle = jest.fn<Promise<void>, [string]>();
 const mockSignInWithEmail = jest.fn<Promise<AuthActionResult>, [string, string]>();
@@ -15,7 +15,7 @@ const mockUseGoogleIdTokenPrompt = jest.fn<
   []
 >();
 
-jest.mock('../../app/auth-provider', () => ({
+jest.mock('../../providers/auth-provider', () => ({
   useAuth: () => ({
     signInWithGoogle: mockSignInWithGoogle,
     signInWithEmail: mockSignInWithEmail,
@@ -165,6 +165,13 @@ describe('LoginScreen', () => {
         'Account created. Check your email to verify your address before signing in.'
       )
     ).toBeTruthy();
+  });
+
+  it('opens directly in sign-up mode for the dedicated auth route', () => {
+    render(<LoginScreen initialEmailMode="signup" />);
+
+    expect(screen.getByRole('button', { name: 'Create account' })).toBeTruthy();
+    expect(screen.getByPlaceholderText('Your name (optional)')).toBeTruthy();
   });
 
   it('blocks sign-up with a short password before calling the API', async () => {

@@ -44,6 +44,7 @@ interface AuthContextValue {
   readonly signOut: () => Promise<void>;
 }
 
+// Navigation consumes this provider as the sole authentication boundary.
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: PropsWithChildren) {

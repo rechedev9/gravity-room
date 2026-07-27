@@ -3,6 +3,9 @@
     "name": "Gravity Room",
     "slug": "gravity-room-mobile",
     "scheme": "gravity-room-mobile",
+    "experiments": {
+      "typedRoutes": true
+    },
     "android": {
       "package": "com.gravityroom.mobile"
     },
@@ -14,7 +17,8 @@
         }
       ],
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-router"
     ]
   }
 }
