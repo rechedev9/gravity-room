@@ -21,30 +21,44 @@ export function useGuestMigration(): void {
   const handledRef = useRef(false);
 
   useEffect(() => {
-    if (user === null || handledRef.current) return;
+    if (user === null) {
+      // The provider survives sign-out/sign-in navigation. A later account
+      // conversion in the same SPA lifetime must get its own migration attempt.
+      handledRef.current = false;
+      return;
+    }
 
-    // Only act when there is actually a persisted guest program to migrate, so
-    // an ordinary returning user pays nothing.
-    if (readActiveGuestInstance() === null) return;
-
-    handledRef.current = true;
-    void (async () => {
-      try {
-        const result = await migrateGuestDataToAccount(queryClient);
-        if (result) {
-          toast({
-            message: t('guest_migration.success', {
-              program: localizedProgramName(t, result.programId, result.programName),
-            }),
-          });
+    const attemptMigration = (): void => {
+      if (handledRef.current || readActiveGuestInstance() === null) return;
+      handledRef.current = true;
+      void (async () => {
+        try {
+          const result = await migrateGuestDataToAccount(queryClient);
+          if (result) {
+            toast({
+              message: t('guest_migration.success', {
+                program: localizedProgramName(t, result.programId, result.programName),
+              }),
+            });
+          } else if (readActiveGuestInstance() !== null) {
+            // Transient failures and "account already active" skips intentionally
+            // retain the guest data. Allow a later online transition to retry
+            // without requiring a logout or full page reload.
+            handledRef.current = false;
+          }
+        } catch (err: unknown) {
+          handledRef.current = false;
+          // Migration must never break the app; log and move on.
+          console.warn(
+            '[guest-migration] Unexpected migration error:',
+            err instanceof Error ? err.message : 'Unknown error'
+          );
         }
-      } catch (err: unknown) {
-        // Migration must never break the app; log and move on.
-        console.warn(
-          '[guest-migration] Unexpected migration error:',
-          err instanceof Error ? err.message : 'Unknown error'
-        );
-      }
-    })();
+      })();
+    };
+
+    attemptMigration();
+    window.addEventListener('online', attemptMigration);
+    return () => window.removeEventListener('online', attemptMigration);
   }, [user, queryClient, toast, t]);
 }

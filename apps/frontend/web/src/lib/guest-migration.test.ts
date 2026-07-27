@@ -122,8 +122,7 @@ describe('migrateGuestDataToAccount', () => {
       config: { squat: 60, bench: 40 },
       results: {
         '0': {
-          // setLogs is client-side only and must be stripped from the payload.
-          'squat-t1': { result: 'success', amrapReps: 5 },
+          'squat-t1': { result: 'success', amrapReps: 5, setLogs: [{ reps: 5 }] },
           'bench-t1': { result: 'fail' },
         },
         '1': {
@@ -134,7 +133,6 @@ describe('migrateGuestDataToAccount', () => {
     });
     const workout0 = (payload.results as Record<string, Record<string, unknown>>)['0'];
     expect(workout0 && 'lat-t3' in workout0).toBe(false);
-    expect(workout0 && 'setLogs' in (workout0['squat-t1'] as Record<string, unknown>)).toBe(false);
     expect(typeof payload.exportDate).toBe('string');
     expect(result).toEqual({ programId: 'gzclp', programName: 'GZCLP' });
   });
@@ -245,5 +243,38 @@ describe('migrateGuestDataToAccount', () => {
 
     expect(result).toBeNull();
     expect(localStorage.getItem(GUEST_STORAGE_KEY)).not.toBeNull();
+  });
+
+  it('deduplicates concurrent migration attempts', async () => {
+    seedGuest(guestMapWithProgram());
+    let resolveImport: (() => void) | undefined;
+    mockImportProgram.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveImport = () =>
+            resolve({
+              id: 'server-instance-1',
+              programId: 'gzclp',
+              name: 'GZCLP',
+              config: {},
+              status: 'active',
+              createdAt: '',
+              updatedAt: '',
+            });
+        })
+    );
+    const queryClient = freshQueryClient();
+
+    const attempts = [
+      migrateGuestDataToAccount(queryClient),
+      migrateGuestDataToAccount(queryClient),
+      migrateGuestDataToAccount(queryClient),
+    ];
+    await vi.waitFor(() => expect(mockImportProgram).toHaveBeenCalledTimes(1));
+    resolveImport?.();
+    const results = await Promise.all(attempts);
+
+    expect(results.every((result) => result?.programId === 'gzclp')).toBe(true);
+    expect(mockImportProgram).toHaveBeenCalledTimes(1);
   });
 });

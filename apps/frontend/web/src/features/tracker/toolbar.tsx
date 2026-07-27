@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/button';
 import { ConfirmDialog } from '@/components/confirm-dialog';
@@ -14,6 +14,9 @@ export interface ToolbarProps {
   readonly onFinish: () => Promise<void>;
   readonly onReset: () => void;
   readonly onExportCsv: () => void;
+  readonly canUseBackup: boolean;
+  readonly onExportBackup: () => void;
+  readonly onImportBackup: (file: File) => Promise<void>;
 }
 
 export function Toolbar({
@@ -25,12 +28,21 @@ export function Toolbar({
   onFinish,
   onReset,
   onExportCsv,
+  canUseBackup,
+  onExportBackup,
+  onImportBackup,
 }: ToolbarProps) {
   const { t } = useTranslation();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const backupInputRef = useRef<HTMLInputElement>(null);
   const closeMenu = (): void => setMenuOpen(false);
+  const handleBackupFile = (event: ChangeEvent<HTMLInputElement>): void => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (file) void onImportBackup(file);
+  };
 
   return (
     <div className="bg-card border-b border-rule px-3 sm:px-5 py-2 sm:py-3 shadow-toolbar">
@@ -106,6 +118,26 @@ export function Toolbar({
               >
                 {t('tracker.toolbar.export_csv')}
               </DropdownItem>
+              {canUseBackup && (
+                <>
+                  <DropdownItem
+                    onClick={() => {
+                      closeMenu();
+                      onExportBackup();
+                    }}
+                  >
+                    {t('tracker.toolbar.export_backup')}
+                  </DropdownItem>
+                  <DropdownItem
+                    onClick={() => {
+                      closeMenu();
+                      backupInputRef.current?.click();
+                    }}
+                  >
+                    {t('tracker.toolbar.import_backup')}
+                  </DropdownItem>
+                </>
+              )}
               <DropdownItem
                 onClick={() => {
                   closeMenu();
@@ -127,6 +159,14 @@ export function Toolbar({
           </div>
         </div>
       </div>
+      <input
+        ref={backupInputRef}
+        type="file"
+        accept=".json,application/json"
+        aria-label={t('tracker.toolbar.import_backup_file_aria')}
+        className="sr-only"
+        onChange={handleBackupFile}
+      />
 
       <ConfirmDialog
         open={finishConfirmOpen}

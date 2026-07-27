@@ -6,6 +6,7 @@ import {
   resumeAuthRefresh,
   setAccessToken,
 } from './api';
+import { SESSION_INVALIDATED_EVENT } from './auth-events';
 
 type FetchCall = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -67,6 +68,20 @@ describe('auth refresh lifecycle', () => {
     blockAuthRefresh();
 
     await expect(pendingRefresh).resolves.toBeNull();
+    expect(getAccessToken()).toBeNull();
+  });
+
+  it('notifies the auth owner when a refresh token is rejected', async () => {
+    const onAuthFailure = vi.fn();
+    window.addEventListener(SESSION_INVALIDATED_EVENT, onAuthFailure, { once: true });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<FetchCall>(() => Promise.resolve(new Response(null, { status: 401 })))
+    );
+
+    await expect(refreshAccessToken()).resolves.toBeNull();
+
+    expect(onAuthFailure).toHaveBeenCalledOnce();
     expect(getAccessToken()).toBeNull();
   });
 });

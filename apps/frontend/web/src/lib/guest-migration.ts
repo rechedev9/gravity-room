@@ -71,8 +71,9 @@ export interface GuestMigrationResult {
 
 /** Builds the `POST /programs/import` payload from a guest instance. */
 function buildImportPayload(instance: ProgramInstance): Record<string, unknown> {
-  // The import schema accepts result/amrapReps/rpe per slot; setLogs is a
-  // client-side detail the endpoint does not take, so it is stripped here.
+  // Preserve every server-supported slot field. Set logs are part of the
+  // workout record, not disposable UI state: dropping them here would make a
+  // guest-to-account migration lose the lifter's per-set reps/weight/RPE.
   const results: Record<string, Record<string, unknown>> = {};
   for (const [workoutIndex, workout] of Object.entries(instance.results)) {
     const slots: Record<string, unknown> = {};
@@ -82,6 +83,7 @@ function buildImportPayload(instance: ProgramInstance): Record<string, unknown> 
         result: slot.result,
         ...(slot.amrapReps !== undefined ? { amrapReps: slot.amrapReps } : {}),
         ...(slot.rpe !== undefined ? { rpe: slot.rpe } : {}),
+        ...(slot.setLogs !== undefined ? { setLogs: slot.setLogs } : {}),
       };
     }
     if (Object.keys(slots).length > 0) results[workoutIndex] = slots;
@@ -104,9 +106,7 @@ function buildImportPayload(instance: ProgramInstance): Record<string, unknown> 
  * the account already has an active program, or the import failed (guest data
  * is kept in the last two cases).
  */
-export async function migrateGuestDataToAccount(
-  queryClient: QueryClient
-): Promise<GuestMigrationResult | null> {
+async function runGuestMigration(queryClient: QueryClient): Promise<GuestMigrationResult | null> {
   const instance = readActiveGuestInstance();
   if (!instance) return null;
 
@@ -170,4 +170,21 @@ export async function migrateGuestDataToAccount(
     programId: instance.programId,
     programName: instance.name,
   };
+}
+
+let activeMigration: Promise<GuestMigrationResult | null> | null = null;
+
+/**
+ * Coalesce React StrictMode remounts and other same-runtime callers. Without
+ * this guard, two effects can both read the guest copy before either clears it
+ * and create duplicate server instances.
+ */
+export function migrateGuestDataToAccount(
+  queryClient: QueryClient
+): Promise<GuestMigrationResult | null> {
+  if (activeMigration !== null) return activeMigration;
+  activeMigration = runGuestMigration(queryClient).finally(() => {
+    activeMigration = null;
+  });
+  return activeMigration;
 }

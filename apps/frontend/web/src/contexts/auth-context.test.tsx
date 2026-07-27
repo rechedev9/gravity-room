@@ -14,6 +14,7 @@ const {
   mockResumeAuthRefresh,
   mockRefreshAccessToken,
   mockSetAccessToken,
+  mockClearApiResponseCache,
   mockApiFetch,
   mockFetchMe,
 } = vi.hoisted(() => ({
@@ -23,6 +24,7 @@ const {
     Promise.resolve(null)
   ),
   mockSetAccessToken: vi.fn<(token: string | null) => void>(() => {}),
+  mockClearApiResponseCache: vi.fn<() => Promise<void>>(() => Promise.resolve()),
   mockApiFetch: vi.fn<(path: string, options?: RequestInit) => Promise<unknown>>(() =>
     Promise.reject(new Error('Unauthorized'))
   ),
@@ -37,7 +39,7 @@ vi.mock('@/lib/api', () => ({
   refreshAccessToken: mockRefreshAccessToken,
   setAccessToken: mockSetAccessToken,
   getAccessToken: vi.fn(() => null),
-  clearApiResponseCache: vi.fn(() => Promise.resolve()),
+  clearApiResponseCache: mockClearApiResponseCache,
 }));
 
 vi.mock('@/lib/api-functions', async () => {
@@ -70,6 +72,7 @@ vi.mock('@/lib/api-functions', async () => {
 });
 
 import { AuthProvider, useAuth } from './auth-context';
+import { SESSION_INVALIDATED_EVENT } from '@/lib/auth-events';
 import { markSessionHint } from '@/lib/session-hint';
 
 // ---------------------------------------------------------------------------
@@ -92,6 +95,7 @@ function resetAllMocks(): void {
   mockRefreshAccessToken.mockReset();
   mockRefreshAccessToken.mockImplementation(() => Promise.resolve(null));
   mockSetAccessToken.mockReset();
+  mockClearApiResponseCache.mockClear();
   mockApiFetch.mockReset();
   mockApiFetch.mockImplementation(() => Promise.reject(new Error('Unauthorized')));
   mockFetchMe.mockReset();
@@ -121,6 +125,7 @@ describe('AuthProvider', () => {
   beforeEach(() => {
     resetAllMocks();
     localStorage.clear();
+    window.history.replaceState({}, '', '/');
     // These suites model a RETURNING visitor (one who has a refresh cookie), so
     // seed the best-effort session hint that gates the restore refresh. The
     // "anonymous visitor" path (no hint → no refresh) is covered explicitly below.
@@ -161,6 +166,22 @@ describe('AuthProvider', () => {
 
       expect(result.current.user).toBeNull();
       expect(mockRefreshAccessToken).not.toHaveBeenCalled();
+    });
+
+    it('restores a server-side social sign-in on the callback even without a session hint', async () => {
+      localStorage.clear();
+      window.history.replaceState({}, '', '/auth/callback?provider=github');
+      mockRefreshAccessToken.mockResolvedValue({
+        accessToken: fakeJwt({ sub: 'social-user', email: 'social@example.com' }),
+        user: { id: 'social-user', email: 'social@example.com' },
+      });
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => {
+        expect(result.current.user?.id).toBe('social-user');
+      });
+      expect(mockRefreshAccessToken).toHaveBeenCalledTimes(1);
     });
 
     it('should have null user when refresh fails', async () => {
@@ -253,6 +274,7 @@ describe('AuthProvider', () => {
 
       expect(authResult).toBeNull();
       expect(mockSetAccessToken).toHaveBeenCalled();
+      expect(mockResumeAuthRefresh).toHaveBeenCalledOnce();
       await waitFor(() => {
         expect(result.current.user?.id).toBe('user-1');
       });
@@ -351,6 +373,12 @@ describe('AuthProvider', () => {
       await waitFor(() => {
         expect(result.current.user).not.toBeNull();
       });
+      testQueryClient.setQueryData(['programs'], [{ id: 'private-program' }]);
+      testQueryClient.setQueryData(['programs', 'private-program'], {
+        id: 'private-program',
+        results: {},
+      });
+      testQueryClient.setQueryData(['insights'], [{ type: 'private-insight' }]);
 
       let signOutResult: unknown;
       await act(async () => {
@@ -364,6 +392,9 @@ describe('AuthProvider', () => {
       await waitFor(() => {
         expect(result.current.user).toBeNull();
       });
+      expect(testQueryClient.getQueryData(['programs'])).toBeUndefined();
+      expect(testQueryClient.getQueryData(['programs', 'private-program'])).toBeUndefined();
+      expect(testQueryClient.getQueryData(['insights'])).toBeUndefined();
     });
 
     it('keeps the current session and resumes refresh when the API call fails', async () => {
@@ -396,6 +427,58 @@ describe('AuthProvider', () => {
       expect(mockResumeAuthRefresh).toHaveBeenCalledTimes(1);
       expect(mockSetAccessToken).not.toHaveBeenCalledWith(null);
       expect(result.current.user?.email).toBe('a@b.com');
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('clears a revoked local session and all private query data after success', async () => {
+      mockRefreshAccessToken.mockResolvedValue({
+        accessToken: fakeJwt({ sub: 'user-1', email: 'a@b.com' }),
+        user: { id: 'user-1', email: 'a@b.com' },
+      });
+      mockApiFetch.mockImplementation((path: string) =>
+        path === '/auth/reset-password'
+          ? Promise.resolve({ message: 'ok' })
+          : Promise.reject(new Error('Unauthorized'))
+      );
+
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.user?.id).toBe('user-1');
+      });
+      testQueryClient.setQueryData(['programs'], [{ id: 'private-program' }]);
+      testQueryClient.setQueryData(['insights'], [{ id: 'private-insight' }]);
+
+      let resetResult: unknown;
+      await act(async () => {
+        resetResult = await result.current.resetPassword('valid-token', 'new-password');
+      });
+
+      expect(resetResult).toEqual({ ok: true });
+      expect(mockSetAccessToken).toHaveBeenCalledWith(null);
+      expect(mockClearApiResponseCache).toHaveBeenCalledTimes(1);
+      expect(testQueryClient.getQueryData(['programs'])).toBeUndefined();
+      expect(testQueryClient.getQueryData(['insights'])).toBeUndefined();
+      await waitFor(() => {
+        expect(result.current.user).toBeNull();
+      });
+    });
+  });
+
+  describe('refresh rejection', () => {
+    it('clears the session and private queries through the invalidation event', async () => {
+      mockRefreshAccessToken.mockResolvedValue({
+        accessToken: fakeJwt({ sub: 'user-1', email: 'a@b.com' }),
+        user: { id: 'user-1', email: 'a@b.com' },
+      });
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(result.current.user?.id).toBe('user-1'));
+      testQueryClient.setQueryData(['programs'], [{ id: 'private-program' }]);
+
+      act(() => window.dispatchEvent(new Event(SESSION_INVALIDATED_EVENT)));
+
+      await waitFor(() => expect(result.current.user).toBeNull());
+      expect(testQueryClient.getQueryData(['programs'])).toBeUndefined();
     });
   });
 });

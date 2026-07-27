@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   blockAuthRefresh,
   clearApiResponseCache,
@@ -7,6 +7,7 @@ import {
   resumeAuthRefresh,
   setAccessToken,
 } from '@/lib/api';
+import { SESSION_INVALIDATED_EVENT } from '@/lib/auth-events';
 import { apiFetch, fetchMe } from '@/lib/api-functions';
 import { ApiError } from '@gzclp/api-client/api-error';
 import { isRecord } from '@gzclp/domain/type-guards';
@@ -93,7 +94,11 @@ async function restoreSession(): Promise<UserInfo | null> {
   // the only client-side signal — and it avoids a guaranteed 401 (plus its red
   // console error) on every anonymous / first-time page load. Fails open: a
   // present-but-stale hint still attempts the refresh exactly as before.
-  if (!hasSessionHint()) return null;
+  const isSuccessfulSocialCallback =
+    typeof window !== 'undefined' &&
+    window.location.pathname === '/auth/callback' &&
+    !new URLSearchParams(window.location.search).has('error');
+  if (!hasSessionHint() && !isSuccessfulSocialCallback) return null;
 
   const refreshed = await refreshAccessToken();
   if (!refreshed) {
@@ -144,6 +149,10 @@ function applySignInResponse(
   }
 
   setAccessToken(data.accessToken);
+  // A successful sign-in starts a new refresh-token lifecycle. A previous
+  // successful sign-out deliberately blocked refresh rotation, so release
+  // that block before this account's access token can expire.
+  resumeAuthRefresh();
   markSessionHint();
   setQueryData(userInfo);
   sentrySetUser({ id: userInfo.id, email: userInfo.email });
@@ -156,6 +165,38 @@ function applySignInResponse(
 // ---------------------------------------------------------------------------
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * Clears every user-bound client credential and cache after the server session
+ * ends. React Query keys are intentionally not user-scoped, so retaining them
+ * across logout/account deletion/password reset can expose the previous
+ * account's programs or insights to the next account for up to staleTime.
+ */
+async function clearAuthenticatedClientState(queryClient: QueryClient): Promise<void> {
+  setAccessToken(null);
+  clearSessionHint();
+  try {
+    await queryClient.cancelQueries();
+  } catch (err: unknown) {
+    console.warn(
+      '[auth] Failed to cancel in-flight queries while clearing the session:',
+      err instanceof Error ? err.message : 'Unknown error'
+    );
+  }
+  queryClient.removeQueries({
+    predicate: (query) => query.queryKey[0] !== SESSION_QUERY_KEY[0],
+  });
+  queryClient.setQueryData(SESSION_QUERY_KEY, null);
+  sentrySetUser(null);
+  try {
+    await clearApiResponseCache();
+  } catch (err: unknown) {
+    console.warn(
+      '[auth] Failed to clear the browser API cache:',
+      err instanceof Error ? err.message : 'Unknown error'
+    );
+  }
+}
 
 export function AuthProvider({
   children,
@@ -173,6 +214,14 @@ export function AuthProvider({
 
   const user = session.data ?? null;
   const loading = session.isPending;
+
+  useEffect(() => {
+    const handleSessionInvalidated = (): void => {
+      void clearAuthenticatedClientState(queryClient);
+    };
+    window.addEventListener(SESSION_INVALIDATED_EVENT, handleSessionInvalidated);
+    return () => window.removeEventListener(SESSION_INVALIDATED_EVENT, handleSessionInvalidated);
+  }, [queryClient]);
 
   const setSessionData = useCallback(
     (userInfo: UserInfo): void => {
@@ -281,12 +330,13 @@ export function AuthProvider({
           body: JSON.stringify({ token, password }),
           retryAuth: false,
         });
+        await clearAuthenticatedClientState(queryClient);
         return { ok: true };
       } catch (err: unknown) {
         return errorResult(err);
       }
     },
-    []
+    [queryClient]
   );
 
   const signInWithDevImpl = useCallback(async (): Promise<AuthResult | null> => {
@@ -317,11 +367,7 @@ export function AuthProvider({
 
   const deleteAccount = useCallback(async (): Promise<void> => {
     await apiFetch('/auth/me', { method: 'DELETE' });
-    setAccessToken(null);
-    clearSessionHint();
-    await clearApiResponseCache();
-    queryClient.setQueryData(SESSION_QUERY_KEY, null);
-    sentrySetUser(null);
+    await clearAuthenticatedClientState(queryClient);
   }, [queryClient]);
 
   const signOut = useCallback(async (): Promise<ActionResult> => {
@@ -334,11 +380,7 @@ export function AuthProvider({
       resumeAuthRefresh();
       return errorResult(err);
     }
-    setAccessToken(null);
-    clearSessionHint();
-    await clearApiResponseCache();
-    queryClient.setQueryData(SESSION_QUERY_KEY, null);
-    sentrySetUser(null);
+    await clearAuthenticatedClientState(queryClient);
     return { ok: true };
   }, [queryClient]);
 
