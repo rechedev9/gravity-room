@@ -1,4 +1,4 @@
-import { captureAuthorizedSession, getAuthorizedSessionAccessToken } from '../auth/session';
+import { captureAuthorizedSession } from '../auth/session';
 import { enqueueMutation, type MutationPayload } from '../sync/mutation-queue-repository';
 import { flushQueuedMutations } from '../sync/mutation-sync-service';
 
@@ -62,7 +62,7 @@ async function enqueueTrackerMutation(input: {
   }
 
   try {
-    await flushQueuedMutations(ownerUserId, getAuthorizedSessionAccessToken(session));
+    await flushQueuedMutations(session);
   } catch {
     // Leave the queued mutation in place for a later retry.
   }

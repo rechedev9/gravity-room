@@ -256,10 +256,17 @@ export function PresetSetupScreen({
         return;
       }
       if (active && pendingCreate !== null) {
-        setSubmitOutcome({
-          status: 'reconciliation_required',
-          programInstanceId: pendingCreate.programInstanceId,
-        });
+        if (pendingCreate.programInstanceId !== null) {
+          setSubmitOutcome({
+            status: 'reconciliation_required',
+            programInstanceId: pendingCreate.programInstanceId,
+          });
+        } else {
+          // A transport failure can leave only the persisted idempotency key.
+          // Starting again is safe: startPresetProgram reserves that exact intent
+          // and retries with the same key rather than creating another program.
+          setSubmitOutcome({ status: 'remote_error' });
+        }
       }
 
       let cachedDefinition: ProgramDefinition | null = null;
@@ -430,7 +437,8 @@ export function PresetSetupScreen({
   async function handleStart(): Promise<void> {
     if (
       submittingOperationRef.current !== null ||
-      submitOutcome?.status === 'reconciliation_required'
+      (submitOutcome?.status === 'reconciliation_required' &&
+        submitOutcome.programInstanceId !== null)
     )
       return;
     const operation = {};
@@ -634,7 +642,10 @@ export function PresetSetupScreen({
           })}
           isLoading={submitting}
           label={t('programs.preset.start')}
-          disabled={submitOutcome?.status === 'reconciliation_required'}
+          disabled={
+            submitOutcome?.status === 'reconciliation_required' &&
+            submitOutcome.programInstanceId !== null
+          }
           onPress={() => {
             void handleStart();
           }}

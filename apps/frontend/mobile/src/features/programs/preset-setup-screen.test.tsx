@@ -527,6 +527,33 @@ describe('PresetSetupScreen', () => {
     ).toBeTruthy();
   });
 
+  it('allows a safe exact-intent retry after remount when pending creation has no remote id', async () => {
+    mockedReadPendingCreateReconciliation.mockResolvedValue({
+      pending: true,
+      programInstanceId: null,
+      intentId: 'persisted-create-intent',
+      idempotencyKey: 'persisted-create-key',
+    });
+    mockedStartPresetProgram.mockResolvedValue({ status: 'applied', remote: DETAIL });
+
+    renderSetup();
+    const start = await screen.findByRole('button', { name: 'Start GZCLP with this setup' });
+
+    expect(start.props.accessibilityState.disabled).not.toBe(true);
+    fireEvent.press(start);
+
+    await waitFor(() => {
+      expect(mockedStartPresetProgram).toHaveBeenCalledTimes(1);
+    });
+    expect(mockedStartPresetProgram).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerUserId: 'user-a',
+        definition: DEFINITION,
+        config: { squat: 20 },
+      })
+    );
+  });
+
   it('keeps a real 200-day preset operable before a bounded, paginated preview', async () => {
     const largeDefinition = buildMutenroshiDefinition();
     const defaults = buildDefinitionDefaults(largeDefinition);

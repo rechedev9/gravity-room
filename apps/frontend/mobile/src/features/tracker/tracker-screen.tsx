@@ -18,7 +18,6 @@ import {
 } from '../../lib/tracker/program-detail-repository';
 import {
   captureAuthorizedSession,
-  getAuthorizedSessionAccessToken,
   isAuthorizedSessionCurrent,
   type AuthorizedSession,
 } from '../../lib/auth/session';
@@ -145,7 +144,7 @@ export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: Tracke
       let definitionLease: ProgramRefreshLease | null = null;
       return (async () => {
         try {
-          await flushQueuedMutations(ownerUserId, getAuthorizedSessionAccessToken(session));
+          await flushQueuedMutations(session);
         } catch {
           if (!active) {
             return null;

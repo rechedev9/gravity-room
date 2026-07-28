@@ -2,7 +2,12 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import { Text } from 'react-native';
 
 import { AuthProvider, useAuth } from './auth-provider';
-import { restoreSession, signInWithGoogleIdToken, signOutSession } from '../lib/auth/session';
+import {
+  captureAuthorizedSession,
+  restoreSession,
+  signInWithGoogleIdToken,
+  signOutSession,
+} from '../lib/auth/session';
 import { clearLocalAppData } from '../lib/db/client';
 import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation-sync-service';
 
@@ -11,6 +16,11 @@ jest.mock('../lib/auth/session', () => {
 
   return {
     ObsoleteAuthorizedSessionError,
+    captureAuthorizedSession: jest.fn((ownerUserId: string) => ({
+      ownerUserId,
+      accessToken: 'captured-access-token',
+      generation: 1,
+    })),
     restoreSession: jest.fn(),
     signInWithGoogleIdToken: jest.fn(),
     signInWithEmailPassword: jest.fn(),
@@ -29,6 +39,7 @@ jest.mock('../lib/sync/mutation-sync-service', () => ({
 }));
 
 const mockedRestoreSession = jest.mocked(restoreSession);
+const mockedCaptureAuthorizedSession = jest.mocked(captureAuthorizedSession);
 const mockedSignInWithGoogleIdToken = jest.mocked(signInWithGoogleIdToken);
 const mockedSignOutSession = jest.mocked(signOutSession);
 const mockedClearLocalAppData = jest.mocked(clearLocalAppData);
@@ -74,12 +85,21 @@ function SignInProbe() {
 }
 
 describe('mobile AuthProvider', () => {
+  beforeEach(() => {
+    mockedCaptureAuthorizedSession.mockImplementation((ownerUserId) => ({
+      ownerUserId,
+      accessToken: 'captured-access-token',
+      generation: 1,
+    }));
+  });
+
   afterEach(() => {
     mockedSignInWithGoogleIdToken.mockReset();
     mockedSignOutSession.mockReset();
     mockedClearLocalAppData.mockReset();
     mockedClearQueuedMutations.mockReset();
     mockedRestoreSession.mockReset();
+    mockedCaptureAuthorizedSession.mockReset();
     mockedFlushQueuedMutations.mockReset();
   });
 
@@ -103,7 +123,9 @@ describe('mobile AuthProvider', () => {
 
     expect(await screen.findByText('athlete@example.com')).toBeTruthy();
     await waitFor(() => {
-      expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('user-123', 'restored-access-token');
+      expect(mockedFlushQueuedMutations).toHaveBeenCalledWith(
+        expect.objectContaining({ ownerUserId: 'user-123' })
+      );
     });
   });
 
@@ -128,7 +150,9 @@ describe('mobile AuthProvider', () => {
     );
 
     expect(await screen.findByText('athlete@example.com')).toBeTruthy();
-    expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('user-123', 'restored-access-token');
+    expect(mockedFlushQueuedMutations).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerUserId: 'user-123' })
+    );
 
     slowFlush.resolve({ processedCount: 0 });
   });
@@ -238,6 +262,8 @@ describe('mobile AuthProvider', () => {
 
     expect(await screen.findByText('athlete@example.com')).toBeTruthy();
     expect(mockedSignInWithGoogleIdToken).toHaveBeenCalledWith('google-id-token');
-    expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('user-123', 'fresh-access-token');
+    expect(mockedFlushQueuedMutations).toHaveBeenCalledWith(
+      expect.objectContaining({ ownerUserId: 'user-123' })
+    );
   });
 });

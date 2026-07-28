@@ -3,6 +3,11 @@ import {
   clearQueuedMutations as clearQueuedMutationsFromRepository,
   listQueuedMutations,
 } from './mutation-queue-repository';
+import {
+  fetchWithAuthorizedSession,
+  ObsoleteAuthorizedSessionError,
+  type AuthorizedSession,
+} from '../auth/session';
 import { clearQueuedMutations, flushQueuedMutations } from './mutation-sync-service';
 
 jest.mock('./mutation-queue-repository', () => ({
@@ -11,9 +16,28 @@ jest.mock('./mutation-queue-repository', () => ({
   listQueuedMutations: jest.fn(),
 }));
 
+jest.mock('../auth/session', () => ({
+  fetchWithAuthorizedSession: jest.fn(),
+  ObsoleteAuthorizedSessionError: class ObsoleteAuthorizedSessionError extends Error {},
+}));
+
 const mockedListQueuedMutations = jest.mocked(listQueuedMutations);
 const mockedAcknowledgeQueuedMutations = jest.mocked(acknowledgeQueuedMutations);
 const mockedClearQueuedMutationsFromRepository = jest.mocked(clearQueuedMutationsFromRepository);
+const mockedFetchWithAuthorizedSession = jest.mocked(fetchWithAuthorizedSession);
+const defaultTestAccessToken = ['mobile', 'access', 'token'].join('-');
+const rotatedTestAccessToken = ['rotated', 'access', 'token'].join('-');
+
+function createSession(
+  accessToken = defaultTestAccessToken,
+  ownerUserId = 'user-a'
+): AuthorizedSession {
+  return {
+    ownerUserId,
+    accessToken,
+    generation: accessToken === rotatedTestAccessToken ? 2 : 1,
+  };
+}
 
 function createDeferred<T>() {
   let resolvePromise: ((value: T | PromiseLike<T>) => void) | null = null;
@@ -52,6 +76,15 @@ describe('flushQueuedMutations', () => {
   const originalFetch = globalThis.fetch;
   const originalExpoPublicApiUrl = process.env.EXPO_PUBLIC_API_URL;
 
+  beforeEach(() => {
+    mockedFetchWithAuthorizedSession.mockImplementation(async (session, path, init) => {
+      const headers = new Headers(init?.headers);
+      headers.set('Authorization', `Bearer ${session.accessToken}`);
+      const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3001/api';
+      return globalThis.fetch(`${apiUrl}${path}`, { ...init, headers });
+    });
+  });
+
   afterEach(() => {
     globalThis.fetch = originalFetch;
     if (originalExpoPublicApiUrl === undefined) {
@@ -62,6 +95,7 @@ describe('flushQueuedMutations', () => {
     mockedListQueuedMutations.mockReset();
     mockedAcknowledgeQueuedMutations.mockReset();
     mockedClearQueuedMutationsFromRepository.mockReset();
+    mockedFetchWithAuthorizedSession.mockReset();
   });
 
   it('clears all queued mutations through the repository', async () => {
@@ -101,7 +135,7 @@ describe('flushQueuedMutations', () => {
       });
     });
 
-    const flushPromise = flushQueuedMutations(ownerUserId, 'mobile-access-token');
+    const flushPromise = flushQueuedMutations(createSession());
     await Promise.resolve();
 
     await clearQueuedMutations(ownerUserId);
@@ -155,7 +189,7 @@ describe('flushQueuedMutations', () => {
       .mockResolvedValueOnce(new Response('{}', { status: 200 }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
 
-    await expect(flushQueuedMutations(ownerUserId, 'mobile-access-token')).resolves.toEqual({
+    await expect(flushQueuedMutations(createSession())).resolves.toEqual({
       processedCount: 3,
     });
 
@@ -171,7 +205,7 @@ describe('flushQueuedMutations', () => {
         }),
       })
     );
-    expectAuthorizationHeader(fetchSpy.mock.calls[0]?.[1], 'mobile-access-token');
+    expectAuthorizationHeader(fetchSpy.mock.calls[0]?.[1], defaultTestAccessToken);
     expect(fetchSpy).toHaveBeenNthCalledWith(
       2,
       'http://localhost:3001/api/programs/instance-1/metadata',
@@ -184,7 +218,7 @@ describe('flushQueuedMutations', () => {
         }),
       })
     );
-    expectAuthorizationHeader(fetchSpy.mock.calls[1]?.[1], 'mobile-access-token');
+    expectAuthorizationHeader(fetchSpy.mock.calls[1]?.[1], defaultTestAccessToken);
     expect(fetchSpy).toHaveBeenNthCalledWith(
       3,
       'http://localhost:3001/api/programs/instance-1/results/2/bench-t2',
@@ -192,7 +226,7 @@ describe('flushQueuedMutations', () => {
         method: 'DELETE',
       })
     );
-    expectAuthorizationHeader(fetchSpy.mock.calls[2]?.[1], 'mobile-access-token');
+    expectAuthorizationHeader(fetchSpy.mock.calls[2]?.[1], defaultTestAccessToken);
     expect(mockedListQueuedMutations).toHaveBeenCalledWith(ownerUserId);
     expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith(ownerUserId, [11, 12, 13]);
   });
@@ -241,12 +275,42 @@ describe('flushQueuedMutations', () => {
       .mockResolvedValueOnce(new Response('{}', { status: 201 }))
       .mockResolvedValueOnce(new Response('nope', { status: 500 }));
 
-    await expect(flushQueuedMutations(ownerUserId, 'mobile-access-token')).rejects.toThrow(
+    await expect(flushQueuedMutations(createSession())).rejects.toThrow(
       'Queued mutation sync failed with status 500'
     );
 
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith(ownerUserId, [21]);
+  });
+
+  it('does not acknowledge owner A when its authorized 401 retry becomes stale after owner B restores', async () => {
+    mockedListQueuedMutations.mockResolvedValue([
+      {
+        id: 24,
+        entityType: 'program-instance',
+        entityId: 'instance-a',
+        operation: 'record-result',
+        payload: {
+          workoutIndex: 0,
+          slotId: 'squat-t1',
+          result: 'success',
+        },
+        createdAt: '2026-04-20T10:03:00.000Z',
+      },
+    ]);
+    const sessionA = createSession('token-a');
+    mockedFetchWithAuthorizedSession.mockImplementationOnce(async (session) => {
+      expect(session).toBe(sessionA);
+      // fetchWithAuthorizedSession checks the captured generation after a 401
+      // refresh. A concurrent restore of B makes A obsolete before retry.
+      throw new ObsoleteAuthorizedSessionError(true);
+    });
+
+    await expect(flushQueuedMutations(sessionA)).rejects.toBeInstanceOf(
+      ObsoleteAuthorizedSessionError
+    );
+
+    expect(mockedAcknowledgeQueuedMutations).not.toHaveBeenCalled();
   });
 
   it('replays record-result mutations with optional amrapReps and rpe fields', async () => {
@@ -270,7 +334,7 @@ describe('flushQueuedMutations', () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
     fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 201 }));
 
-    await expect(flushQueuedMutations(ownerUserId, 'mobile-access-token')).resolves.toEqual({
+    await expect(flushQueuedMutations(createSession())).resolves.toEqual({
       processedCount: 1,
     });
 
@@ -319,7 +383,7 @@ describe('flushQueuedMutations', () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
     fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 201 }));
 
-    await expect(flushQueuedMutations(ownerUserId, 'mobile-access-token')).resolves.toEqual({
+    await expect(flushQueuedMutations(createSession())).resolves.toEqual({
       processedCount: 1,
     });
 
@@ -366,7 +430,7 @@ describe('flushQueuedMutations', () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
     fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 201 }));
 
-    await expect(flushQueuedMutations(ownerUserId, 'mobile-access-token')).resolves.toEqual({
+    await expect(flushQueuedMutations(createSession())).resolves.toEqual({
       processedCount: 1,
     });
 
@@ -396,7 +460,7 @@ describe('flushQueuedMutations', () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
     fetchSpy.mockResolvedValueOnce(new Response(null, { status: 204 }));
 
-    await expect(flushQueuedMutations(ownerUserId, 'mobile-access-token')).resolves.toEqual({
+    await expect(flushQueuedMutations(createSession())).resolves.toEqual({
       processedCount: 1,
     });
 
@@ -406,7 +470,7 @@ describe('flushQueuedMutations', () => {
         method: 'DELETE',
       })
     );
-    expectAuthorizationHeader(fetchSpy.mock.calls[0]?.[1], 'mobile-access-token');
+    expectAuthorizationHeader(fetchSpy.mock.calls[0]?.[1], defaultTestAccessToken);
     expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith(ownerUserId, [41]);
   });
 
@@ -428,7 +492,7 @@ describe('flushQueuedMutations', () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
     fetchSpy.mockResolvedValueOnce(new Response('missing', { status: 404 }));
 
-    await expect(flushQueuedMutations(ownerUserId, 'mobile-access-token')).resolves.toEqual({
+    await expect(flushQueuedMutations(createSession())).resolves.toEqual({
       processedCount: 1,
     });
 
@@ -461,7 +525,7 @@ describe('flushQueuedMutations', () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
     fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 201 }));
 
-    await flushQueuedMutations(ownerUserId, 'mobile-access-token');
+    await flushQueuedMutations(createSession());
 
     expect(fetchSpy).toHaveBeenCalledWith(
       'https://api.example.com/mobile-api/programs/instance-1/results',
@@ -491,9 +555,9 @@ describe('flushQueuedMutations', () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
     fetchSpy.mockImplementation(() => firstFetch.promise);
 
-    const firstFlush = flushQueuedMutations(ownerUserId, 'mobile-access-token');
+    const firstFlush = flushQueuedMutations(createSession());
     await Promise.resolve();
-    const secondFlush = flushQueuedMutations(ownerUserId, 'mobile-access-token');
+    const secondFlush = flushQueuedMutations(createSession());
 
     expect(mockedListQueuedMutations).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -536,10 +600,10 @@ describe('flushQueuedMutations', () => {
       })
       .mockResolvedValueOnce(new Response('{}', { status: 201 }));
 
-    const firstFlush = flushQueuedMutations(ownerUserId, 'mobile-access-token');
+    const firstFlush = flushQueuedMutations(createSession());
     await Promise.resolve();
 
-    const secondFlush = flushQueuedMutations(ownerUserId, 'rotated-access-token');
+    const secondFlush = flushQueuedMutations(createSession(rotatedTestAccessToken));
 
     await expect(firstFlush).rejects.toMatchObject({ name: 'AbortError' });
     await expect(secondFlush).resolves.toEqual({ processedCount: 1 });
@@ -550,20 +614,20 @@ describe('flushQueuedMutations', () => {
       'http://localhost:3001/api/programs/instance-1/results',
       expect.objectContaining({})
     );
-    expectAuthorizationHeader(fetchSpy.mock.calls[0]?.[1], 'mobile-access-token');
+    expectAuthorizationHeader(fetchSpy.mock.calls[0]?.[1], defaultTestAccessToken);
     expect(fetchSpy).toHaveBeenNthCalledWith(
       2,
       'http://localhost:3001/api/programs/instance-1/results',
       expect.objectContaining({})
     );
-    expectAuthorizationHeader(fetchSpy.mock.calls[1]?.[1], 'rotated-access-token');
+    expectAuthorizationHeader(fetchSpy.mock.calls[1]?.[1], rotatedTestAccessToken);
   });
 
   it('skips ack work when there is nothing queued', async () => {
     mockedListQueuedMutations.mockResolvedValue([]);
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
 
-    await expect(flushQueuedMutations(ownerUserId, 'mobile-access-token')).resolves.toEqual({
+    await expect(flushQueuedMutations(createSession())).resolves.toEqual({
       processedCount: 0,
     });
 

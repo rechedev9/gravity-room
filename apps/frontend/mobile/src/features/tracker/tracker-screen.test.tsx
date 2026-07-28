@@ -451,7 +451,7 @@ describe('TrackerScreen', () => {
     });
   });
 
-  it('flushes queued mutations with the current token after a same-owner refresh', async () => {
+  it('flushes queued mutations with the captured session after a same-owner refresh', async () => {
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
@@ -461,7 +461,9 @@ describe('TrackerScreen', () => {
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
 
     await waitFor(() => {
-      expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('user-a', 'rotated-auth-token');
+      expect(mockedFlushQueuedMutations).toHaveBeenCalledWith(
+        expect.objectContaining({ ownerUserId: 'user-a', generation: 1 })
+      );
     });
   });
 

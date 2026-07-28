@@ -1076,6 +1076,42 @@ intento con otra intención.
 
 Sigue siendo corrección del corrector, no una revisión independiente ni un GO.
 
+### Cierre post-revisión publicado
+
+Dos revisores frescos sobre `a72a646` detectaron el flush propietario tras una restauración de
+sesión y el bloqueo de un create pendiente sin ID remoto. El corrector los cubrió con regresiones:
+un `401` que restaura B aborta la cola de A sin ACK, y el preset pendiente permite reintentar el
+mismo intento con su clave persistida. Las focales de este cierre sumaron 83 casos verdes, además de
+typecheck, lint, Prettier y `git diff --check`; E2E sigue reservado para M8.
+
+La autoreview posterior se intentó dos veces, pero su escáner fail-closed rechazó el diff porque
+incluye líneas eliminadas del fixture heredado `mobile-access-token` al adaptar el test a la nueva
+firma de sesión. Es un literal sintético de prueba, no una credencial, y el helper no ofrece una
+allowlist por fichero o una exclusión de líneas eliminadas. No se registra como autoreview limpia ni
+como GO: el control compensatorio son los dos revisores independientes y las regresiones focales.
+
+### Corrección final de aislamiento de flush y create pendiente sin ID
+
+El reenvío de mutaciones ya no toma un token suelto que pueda ser sustituido durante un refresh.
+`flushQueuedMutations` recibe la `AuthorizedSession` que se capturó para el dueño de la cola y usa
+`fetchWithAuthorizedSession` para cada replay. Si un `401` provoca una restauración concurrente de
+otro usuario, la comprobación de dueño y generación hace obsoleta la sesión inicial, aborta el replay
+y no confirma ninguna mutación de la cola de A.
+
+Al volver a montar la configuración de un preset, una reconciliación de create sin identificador
+remoto ya no bloquea el botón Start de forma permanente. El usuario puede reintentar el mismo intent;
+la reserva persistida reutiliza su `Idempotency-Key` exacta, por lo que el reintento no crea otro
+programa. Solo se bloquea Start cuando existe un ID remoto concreto que se puede abrir de forma
+segura.
+
+| Check focal sin E2E                       | Resultado                                      |
+| ----------------------------------------- | ---------------------------------------------- |
+| Flush, preset, tracker y provider de auth | verde: 83 tests en 5 suites                    |
+| Mobile typecheck + lint                   | verde                                          |
+| E2E                                       | no ejecutado; reservado exclusivamente para M8 |
+
+Sigue siendo corrección del corrector, no una revisión independiente ni un GO.
+
 ### P2 de identidad canónica de create
 
 La identidad de creación vive ahora en una única función de dominio: recorta el nombre y serializa

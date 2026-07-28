@@ -1,4 +1,4 @@
-import { fetchWithAccessToken } from '../auth/session';
+import { fetchWithAuthorizedSession, type AuthorizedSession } from '../auth/session';
 import {
   acknowledgeQueuedMutations,
   clearQueuedMutations as clearQueuedMutationsFromRepository,
@@ -7,13 +7,13 @@ import {
 } from './mutation-queue-repository';
 
 let inFlightFlush: Promise<{ readonly processedCount: number }> | null = null;
-let inFlightFlushAccessToken: string | null = null;
+let inFlightFlushSession: AuthorizedSession | null = null;
 let inFlightFlushController: AbortController | null = null;
 
 export async function clearQueuedMutations(ownerUserId: string): Promise<void> {
   inFlightFlushController?.abort();
   inFlightFlush = null;
-  inFlightFlushAccessToken = null;
+  inFlightFlushSession = null;
   inFlightFlushController = null;
 
   await clearQueuedMutationsFromRepository(ownerUserId);
@@ -25,41 +25,33 @@ function buildProgramRequestPath(entityId: string): string {
 
 async function replayQueuedMutation(
   mutation: QueuedMutation,
-  accessToken: string,
+  session: AuthorizedSession,
   signal: AbortSignal
-): Promise<string> {
+): Promise<void> {
   const requestPath = buildProgramRequestPath(mutation.entityId);
   const headers = {
     'Content-Type': 'application/json',
   };
 
-  let authorizedResponse: { readonly accessToken: string; readonly response: Response };
+  let response: Response;
 
   switch (mutation.operation) {
     case 'record-result': {
-      authorizedResponse = await fetchWithAccessToken(
-        `${requestPath}/results`,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(mutation.payload),
-          signal,
-        },
-        { initialAccessToken: accessToken }
-      );
+      response = await fetchWithAuthorizedSession(session, `${requestPath}/results`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(mutation.payload),
+        signal,
+      });
       break;
     }
     case 'update-metadata': {
-      authorizedResponse = await fetchWithAccessToken(
-        `${requestPath}/metadata`,
-        {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify(mutation.payload),
-          signal,
-        },
-        { initialAccessToken: accessToken }
-      );
+      response = await fetchWithAuthorizedSession(session, `${requestPath}/metadata`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(mutation.payload),
+        signal,
+      });
       break;
     }
     case 'delete-result': {
@@ -69,14 +61,14 @@ async function replayQueuedMutation(
         throw new Error('Invalid delete-result mutation payload');
       }
 
-      authorizedResponse = await fetchWithAccessToken(
+      response = await fetchWithAuthorizedSession(
+        session,
         `${requestPath}/results/${workoutIndex}/${encodeURIComponent(slotId)}`,
         {
           method: 'DELETE',
           headers,
           signal,
-        },
-        { initialAccessToken: accessToken }
+        }
       );
       break;
     }
@@ -84,31 +76,30 @@ async function replayQueuedMutation(
       throw new Error(`Unsupported queued mutation operation: ${mutation.operation}`);
   }
 
-  const response = authorizedResponse.response;
-
   if (mutation.operation === 'delete-result' && response.status === 404) {
-    return authorizedResponse.accessToken;
+    return;
   }
 
   if (!response.ok) {
     throw new Error(`Queued mutation sync failed with status ${response.status}`);
   }
-
-  return authorizedResponse.accessToken;
 }
 
 export async function flushQueuedMutations(
-  ownerUserId: string,
-  accessToken: string
+  session: AuthorizedSession
 ): Promise<{ readonly processedCount: number }> {
+  const ownerUserId = session.ownerUserId;
   if (inFlightFlush) {
-    if (inFlightFlushAccessToken === accessToken) {
+    if (
+      inFlightFlushSession?.ownerUserId === session.ownerUserId &&
+      inFlightFlushSession.generation === session.generation
+    ) {
       return inFlightFlush;
     }
 
     inFlightFlushController?.abort();
     inFlightFlush = null;
-    inFlightFlushAccessToken = null;
+    inFlightFlushSession = null;
     inFlightFlushController = null;
   }
 
@@ -120,16 +111,11 @@ export async function flushQueuedMutations(
       return { processedCount: 0 };
     }
 
-    let nextAccessToken = accessToken;
     const acknowledgedIds: number[] = [];
 
     for (const mutation of queuedMutations) {
       try {
-        nextAccessToken = await replayQueuedMutation(
-          mutation,
-          nextAccessToken,
-          abortController.signal
-        );
+        await replayQueuedMutation(mutation, session, abortController.signal);
         acknowledgedIds.push(mutation.id);
       } catch (error) {
         if (acknowledgedIds.length > 0) {
@@ -148,7 +134,7 @@ export async function flushQueuedMutations(
   })();
 
   inFlightFlush = flushPromise;
-  inFlightFlushAccessToken = accessToken;
+  inFlightFlushSession = session;
   inFlightFlushController = abortController;
 
   try {
@@ -156,7 +142,7 @@ export async function flushQueuedMutations(
   } finally {
     if (inFlightFlush === flushPromise) {
       inFlightFlush = null;
-      inFlightFlushAccessToken = null;
+      inFlightFlushSession = null;
       inFlightFlushController = null;
     }
   }

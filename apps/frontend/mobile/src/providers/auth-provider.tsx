@@ -9,6 +9,7 @@ import {
 
 import {
   type AuthUser,
+  captureAuthorizedSession,
   ObsoleteAuthorizedSessionError,
   restoreSession,
   signInWithEmailPassword,
@@ -52,6 +53,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
+  function flushForOwner(ownerUserId: string): void {
+    try {
+      void flushQueuedMutations(captureAuthorizedSession(ownerUserId)).catch(() => {
+        // Leave queued mutations in place for a later retry.
+      });
+    } catch {
+      // A newer auth transition owns the session now; it will flush its own queue.
+    }
+  }
+
   useEffect(() => {
     let active = true;
 
@@ -60,9 +71,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (!active) return;
         setUser(session?.user ?? null);
         if (session?.accessToken) {
-          void flushQueuedMutations(session.user.id, session.accessToken).catch(() => {
-            // Leave queued mutations in place for a later retry.
-          });
+          flushForOwner(session.user.id);
         }
       })
       .catch((error: unknown) => {
@@ -87,9 +96,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signInWithGoogle: async (credential: string) => {
         const session = await signInWithGoogleIdToken(credential);
         setUser(session.user);
-        void flushQueuedMutations(session.user.id, session.accessToken).catch(() => {
-          // Leave queued mutations in place for a later retry.
-        });
+        flushForOwner(session.user.id);
       },
       signInWithEmail: async (email: string, password: string): Promise<AuthActionResult> => {
         const result = await signInWithEmailPassword(email, password);
@@ -97,9 +104,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return { ok: false, code: result.code };
         }
         setUser(result.session.user);
-        void flushQueuedMutations(result.session.user.id, result.session.accessToken).catch(() => {
-          // Leave queued mutations in place for a later retry.
-        });
+        flushForOwner(result.session.user.id);
         return { ok: true };
       },
       signUpWithEmail: async (
