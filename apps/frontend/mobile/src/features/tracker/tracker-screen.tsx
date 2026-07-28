@@ -145,7 +145,7 @@ export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: Tracke
       let definitionLease: ProgramRefreshLease | null = null;
       return (async () => {
         try {
-          await flushQueuedMutations(getAuthorizedSessionAccessToken(session));
+          await flushQueuedMutations(ownerUserId, getAuthorizedSessionAccessToken(session));
         } catch {
           if (!active) {
             return null;
@@ -407,6 +407,7 @@ export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: Tracke
 
     try {
       await queueRecordResultMutation({
+        ownerUserId,
         instanceId: currentDetail.id,
         workoutIndex,
         slotId,
@@ -470,6 +471,7 @@ export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: Tracke
 
     try {
       await queueRecordResultMutation({
+        ownerUserId,
         instanceId: currentDetail.id,
         workoutIndex,
         slotId,
@@ -554,6 +556,7 @@ export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: Tracke
         nextDetail.results[String(currentUndoEntry.i)]?.[currentUndoEntry.slotId];
 
       await queueUndoRestoreMutation({
+        ownerUserId,
         instanceId: currentDetail.id,
         workoutIndex: currentUndoEntry.i,
         slotId: currentUndoEntry.slotId,

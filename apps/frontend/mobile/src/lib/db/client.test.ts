@@ -28,7 +28,7 @@ function createFakeDatabase(fixture: MobileDatabaseFixture): FakeDatabase {
   const execAsync = jest.fn(async (source: string) => {
     appliedSql.push(source);
 
-    for (const match of source.matchAll(/CREATE TABLE IF NOT EXISTS\s+([a-z0-9_]+)/g)) {
+    for (const match of source.matchAll(/CREATE TABLE (?:IF NOT EXISTS )?([a-z0-9_]+)/g)) {
       const tableName = match[1];
       if (tableName !== undefined) {
         tableNames.add(tableName);
@@ -86,8 +86,8 @@ describe('bootstrapDatabase', () => {
     await expect(bootstrapDatabase()).rejects.toThrow('disk busy');
     await expect(bootstrapDatabase()).resolves.toBeUndefined();
 
-    expect(execAsync).toHaveBeenCalledTimes(9);
-    expect(database.getVersion()).toBe(4);
+    expect(execAsync).toHaveBeenCalledTimes(13);
+    expect(database.getVersion()).toBe(6);
   });
 
   it('returns the same database instance across calls', () => {
@@ -101,10 +101,11 @@ describe('bootstrapDatabase', () => {
 
     await bootstrapDatabase(database);
 
-    expect(database.getVersion()).toBe(4);
+    expect(database.getVersion()).toBe(6);
     expect(database.getTableNames()).toEqual(
       [
         ...V1_DATABASE_FIXTURE.tables,
+        'legacy_queued_mutations_quarantine',
         'mobile_v2_program_catalog',
         'mobile_v2_program_definitions',
         'mobile_v2_program_details',
@@ -139,6 +140,7 @@ describe('bootstrapDatabase', () => {
     expect(database.appliedSql).toContain('PRAGMA user_version = 2');
     expect(database.appliedSql).toContain('PRAGMA user_version = 3');
     expect(database.appliedSql).toContain('PRAGMA user_version = 4');
+    expect(database.appliedSql).toContain('PRAGMA user_version = 6');
   });
 
   it('migrates a pre-existing install stuck at version 0 without erroring', async () => {
@@ -147,7 +149,7 @@ describe('bootstrapDatabase', () => {
     const database = createFakeDatabase(LEGACY_UNVERSIONED_DATABASE_FIXTURE);
 
     await bootstrapDatabase(database);
-    expect(database.getVersion()).toBe(4);
+    expect(database.getVersion()).toBe(6);
     expect(database.getTableNames()).toContain('mobile_v2_program_summaries');
 
     // Running it again (e.g. next app launch) must be a no-op: the CREATE
@@ -184,7 +186,7 @@ describe('bootstrapDatabase', () => {
 
     await bootstrapDatabase(database);
 
-    expect(database.getVersion()).toBe(4);
+    expect(database.getVersion()).toBe(6);
     expect(database.getTableNames()).toContain('mobile_v2_program_summaries');
     expect(database.getTableNames()).toContain('mobile_v2_program_snapshots');
     expect(database.appliedSql).not.toContain(

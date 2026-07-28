@@ -11,6 +11,7 @@ import {
   MAX_PROGRAM_WEIGHT,
   MIN_POSITIVE_PROGRAM_WEIGHT,
 } from '@gzclp/domain/schemas/program-definition';
+import { canonicalProgramCreationIntent } from '@gzclp/domain/program-config';
 import { ApiError } from '../middleware/error-handler';
 import type { ExportedProgram } from './programs';
 
@@ -872,6 +873,8 @@ interface TransactionProgramRow {
   readonly userId: string;
   readonly templateId: string;
   readonly name: string;
+  readonly creationKey?: string;
+  readonly creationIntent?: string | null;
   readonly programConfig: Record<string, number | string>;
   status: 'active' | 'completed' | 'archived';
   readonly definitionId: string | null;
@@ -922,25 +925,51 @@ function createProgramTransaction(
   options: {
     readonly failInsert?: boolean;
     readonly template?: Readonly<Record<string, unknown>>;
+    readonly existing?: TransactionProgramRow;
+    readonly emptyExistingLookup?: boolean;
+    readonly resultRows?: readonly Record<string, unknown>[];
+    readonly undoRows?: readonly Record<string, unknown>[];
   } = {}
 ): Record<string, unknown> {
   let selectCount = 0;
   return {
     select: vi.fn(() => {
       selectCount += 1;
+      const exerciseSelectCount = options.emptyExistingLookup ? 4 : 3;
+      const resultRowsSelectCount = options.existing === undefined ? exerciseSelectCount + 1 : 3;
+      const undoRowsSelectCount = resultRowsSelectCount + 1;
       const selected =
         selectCount === 1
           ? [{ id: 'user-1' }]
-          : selectCount === 2
-            ? [options.template ?? CONFIG_TEMPLATE]
-            : [{ id: 'squat', name: 'Squat' }];
+          : options.existing !== undefined && selectCount === 2
+            ? [options.existing]
+            : options.emptyExistingLookup && selectCount === 2
+              ? []
+              : selectCount === (options.emptyExistingLookup ? 3 : 2)
+                ? [options.template ?? CONFIG_TEMPLATE]
+                : options.existing === undefined && selectCount === exerciseSelectCount
+                  ? [{ id: 'squat', name: 'Squat' }]
+                  : selectCount === resultRowsSelectCount
+                    ? (options.resultRows ?? [])
+                    : selectCount === undoRowsSelectCount
+                      ? (options.undoRows ?? [])
+                      : [];
       const result = {
         limit: vi.fn(async () => selected),
         for: vi.fn(() => ({ limit: vi.fn(async () => selected) })),
       };
+      const projectedRows = {
+        orderBy: vi.fn(async () => selected),
+        then: (onfulfilled: (rows: readonly unknown[]) => unknown) =>
+          Promise.resolve(selected).then(onfulfilled),
+      };
       return {
         from: vi.fn(() => ({
-          where: vi.fn(() => (selectCount === 3 ? Promise.resolve(selected) : result)),
+          where: vi.fn(() =>
+            selectCount >= (options.existing === undefined ? exerciseSelectCount : 3)
+              ? projectedRows
+              : result
+          ),
         })),
       };
     }),
@@ -971,6 +1000,10 @@ function createProgramTransaction(
             userId: String(values.userId),
             templateId: String(values.templateId),
             name: String(values.name),
+            ...(typeof values.creationKey === 'string' ? { creationKey: values.creationKey } : {}),
+            ...(typeof values.creationIntent === 'string'
+              ? { creationIntent: values.creationIntent }
+              : {}),
             programConfig:
               typeof values.programConfig === 'object' && values.programConfig !== null
                 ? Object.fromEntries(
@@ -996,6 +1029,194 @@ function createProgramTransaction(
 }
 
 describe('createInstance transaction and per-user serialization', () => {
+  it('persists the canonical creation intent with a new creation key', async () => {
+    const persisted: TransactionProgramRow[] = [];
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task(createProgramTransaction(persisted, { emptyExistingLookup: true }))
+      ),
+    };
+
+    await createInstance(
+      'user-1',
+      'gzclp',
+      '  First program  ',
+      { squat: 20 },
+      'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0'
+    );
+
+    expect(persisted[0]?.creationIntent).toBe(
+      canonicalProgramCreationIntent('gzclp', 'First program', { squat: 20 })
+    );
+  });
+
+  it('replays an existing creation key after a rename without consulting a changed catalog', async () => {
+    const existing: TransactionProgramRow = {
+      id: 'existing-program',
+      userId: 'user-1',
+      templateId: 'gzclp',
+      name: 'Renamed after creation',
+      creationKey: 'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0',
+      creationIntent: canonicalProgramCreationIntent('gzclp', 'First program', { squat: 20 }),
+      programConfig: { squat: 20 },
+      status: 'active',
+      definitionId: null,
+      customDefinition: null,
+      metadata: null,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task(
+          createProgramTransaction([existing], {
+            existing,
+            template: { id: 'mutated-catalog' },
+            resultRows: [
+              {
+                workoutIndex: 0,
+                slotId: 'squat-t1',
+                result: 'success',
+                amrapReps: null,
+                rpe: 8,
+                setLogs: [],
+                completedAt: null,
+                createdAt: NOW,
+              },
+            ],
+            undoRows: [
+              {
+                workoutIndex: 0,
+                slotId: 'squat-t1',
+                previousResult: 'fail',
+                previousAmrapReps: null,
+                previousRpe: null,
+                previousSetLogs: null,
+              },
+            ],
+          })
+        )
+      ),
+    };
+
+    await expect(
+      createInstance(
+        'user-1',
+        'gzclp',
+        '  First program  ',
+        { squat: 20 },
+        'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0'
+      )
+    ).resolves.toMatchObject({
+      id: existing.id,
+      name: existing.name,
+      config: existing.programConfig,
+      results: { '0': { 'squat-t1': { result: 'success', rpe: 8, setLogs: [] } } },
+      undoHistory: [{ i: 0, slotId: 'squat-t1', prev: 'fail' }],
+    });
+  });
+
+  it('rejects a legacy key without an immutable creation intent instead of rebuilding one', async () => {
+    const existing: TransactionProgramRow = {
+      id: 'existing-program',
+      userId: 'user-1',
+      templateId: 'gzclp',
+      name: 'First program',
+      creationKey: 'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0',
+      creationIntent: null,
+      programConfig: { squat: 20 },
+      status: 'active',
+      definitionId: null,
+      customDefinition: null,
+      metadata: null,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task(createProgramTransaction([existing], { existing }))
+      ),
+    };
+
+    await expect(
+      createInstance(
+        'user-1',
+        'gzclp',
+        'First program',
+        { squat: 20 },
+        'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0'
+      )
+    ).rejects.toMatchObject({ statusCode: 409, code: 'IDEMPOTENCY_KEY_CONFLICT' });
+  });
+
+  it('rejects a reused idempotency key for a different normalized create intent', async () => {
+    const existing: TransactionProgramRow = {
+      id: 'existing-program',
+      userId: 'user-1',
+      templateId: 'gzclp',
+      name: 'First program',
+      creationKey: 'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0',
+      creationIntent: canonicalProgramCreationIntent('gzclp', 'First program', { squat: 20 }),
+      programConfig: { squat: 20 },
+      status: 'active',
+      definitionId: null,
+      customDefinition: null,
+      metadata: null,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task(createProgramTransaction([existing], { existing }))
+      ),
+    };
+
+    await expect(
+      createInstance(
+        'user-1',
+        'gzclp',
+        'Different program',
+        { squat: 20 },
+        'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0'
+      )
+    ).rejects.toMatchObject({ statusCode: 409, code: 'IDEMPOTENCY_KEY_CONFLICT' });
+  });
+
+  it('returns a conflict before validating a changed catalog payload', async () => {
+    const existing: TransactionProgramRow = {
+      id: 'existing-program',
+      userId: 'user-1',
+      templateId: 'gzclp',
+      name: 'First program',
+      creationKey: 'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0',
+      creationIntent: canonicalProgramCreationIntent('gzclp', 'First program', { squat: 20 }),
+      programConfig: { squat: 20 },
+      status: 'active',
+      definitionId: null,
+      customDefinition: null,
+      metadata: null,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    mockDb = {
+      transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        task(
+          createProgramTransaction([existing], { existing, template: { id: 'mutated-catalog' } })
+        )
+      ),
+    };
+
+    await expect(
+      createInstance(
+        'user-1',
+        'gzclp',
+        'First program',
+        { squat: 17.5 },
+        'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0'
+      )
+    ).rejects.toMatchObject({ statusCode: 409, code: 'IDEMPOTENCY_KEY_CONFLICT' });
+  });
+
   it('rolls back the active-status update when insert fails', async () => {
     const persisted: TransactionProgramRow[] = [
       {

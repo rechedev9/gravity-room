@@ -198,3 +198,52 @@ export const MOBILE_V2_RECONCILIATION_EXPECTATIONS_SQL = `
     SELECT RAISE(ABORT, 'invalid program reconciliation expectation');
   END;
 `;
+
+/**
+ * The original tracker queue predated account switching and had no owner.
+ * Existing rows cannot be attributed safely, so preserve them for diagnostics
+ * without ever replaying them under the next authenticated account.
+ */
+export const MOBILE_V2_OWNER_SCOPED_QUEUE_SQL = `
+  CREATE TABLE IF NOT EXISTS legacy_queued_mutations_quarantine (
+    legacy_queue_id INTEGER PRIMARY KEY NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  ) STRICT;
+
+  INSERT OR IGNORE INTO legacy_queued_mutations_quarantine (
+    legacy_queue_id, entity_type, entity_id, operation, payload_json, created_at
+  )
+  SELECT id, entity_type, entity_id, operation, payload_json, created_at
+  FROM queued_mutations;
+
+  DROP TABLE queued_mutations;
+
+  CREATE TABLE queued_mutations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_user_id TEXT NOT NULL CHECK (length(owner_user_id) > 0),
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  ) STRICT;
+
+  CREATE INDEX queued_mutations_owner_schedule
+    ON queued_mutations(owner_user_id, created_at, id);
+`;
+
+export const MOBILE_V2_CREATE_RECONCILIATION_INTENT_SQL = `
+  ALTER TABLE mobile_v2_program_reconciliations
+    ADD COLUMN create_intent TEXT;
+
+  ALTER TABLE mobile_v2_program_reconciliations
+    ADD COLUMN create_idempotency_key TEXT;
+
+  CREATE UNIQUE INDEX mobile_v2_program_reconciliations_owner_create_intent
+    ON mobile_v2_program_reconciliations(owner_user_id, operation, create_intent)
+    WHERE operation = 'create' AND create_intent IS NOT NULL;
+`;

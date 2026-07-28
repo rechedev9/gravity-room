@@ -126,10 +126,27 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
   // POST /programs — create a new program instance from the catalog
   .post(
     '/',
-    async ({ userId, body, set, reqLogger }) => {
+    async ({ userId, body, set, reqLogger, headers }) => {
       reqLogger.info({ event: 'program.create', userId }, 'creating program instance');
       await rateLimit(userId, 'POST /programs');
-      const instance = await createInstance(userId, body.programId, body.name, body.config);
+      const creationKey = headers['idempotency-key'];
+      if (
+        creationKey !== undefined &&
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(creationKey)
+      ) {
+        throw new ApiError(400, 'Invalid idempotency key', 'INVALID_IDEMPOTENCY_KEY');
+      }
+      const normalizedName = body.name.trim();
+      if (normalizedName.length === 0) {
+        throw new ApiError(400, 'Program name is required', 'INVALID_PROGRAM_NAME');
+      }
+      const instance = await createInstance(
+        userId,
+        body.programId,
+        normalizedName,
+        body.config,
+        creationKey
+      );
       set.status = 201;
       return instance;
     },
@@ -148,6 +165,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         responses: {
           201: { description: 'Program instance created' },
           400: { description: 'Unknown programId or invalid config' },
+          409: { description: 'Idempotency key was used for a different create request' },
           401: { description: 'Missing or invalid token' },
           429: { description: 'Rate limited' },
         },

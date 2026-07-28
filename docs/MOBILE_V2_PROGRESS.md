@@ -987,3 +987,176 @@ con la aserción actual de revocación batch. El test focal siguió verde (127 c
 siguió limpio, pero una nueva ejecución de `autoreview --mode local` volvió a rechazar el mismo archivo
 antes de arrancar el modelo. Por ello no se registran ni una autoreview limpia ni una sustitución
 manual del control.
+
+### Segundo ciclo de corrección
+
+Se inició el aislamiento durable de la cola: la migración móvil v5 conserva las filas v1 sin
+propietario en cuarentena y crea `queued_mutations` con `owner_user_id`; los envíos y acuses nuevos
+se filtran por ese propietario. También se acotó a ocho el procesamiento de cookies refresh antes de
+hashing, consulta `IN` o revocación por lote. Para el POST de creación se introdujo una clave de
+idempotencia persistida localmente antes de despachar y única por usuario en el servidor, de modo que
+un reintento recupera la misma instancia.
+
+Se eliminaron las firmas legacy sin propietario de la cola: encolar, listar, reconocer, borrar y
+flush exigen `ownerUserId`; no se puede volver a introducir una fila nueva en una cohorte
+"legacy". Las regresiones cubren que una cola de A no se lista, reconoce ni bloquea el envío de B,
+y que un resultado incierto de create vuelve a usar la misma clave persistida hasta recibir un único
+ganador. La clave queda además ligada a la identidad exacta del intento (`programId`, nombre y
+configuración), por lo que un create diferente no puede recuperar el resultado del anterior. La
+migración v5 se prueba en SQLite real: conserva la fila v1 en cuarentena y rechaza un insert nuevo
+que omita el propietario.
+
+La siguiente autoreview aceptó tres regresiones reales y se corrigieron en el mismo ciclo. Un
+overflow de cookies ya no informa un sign-out parcial como exitoso: los nombres base y legacy se
+priorizan, refresh falla cerrado sin hashing y sign-out responde 400 mientras expira los nombres
+priorizados. El flush del tracker captura una sesión autorizada del mismo propietario después de
+persistir la mutación; una transición de A a B no puede enviar la cola de A con el token de B. Las
+regresiones focales cubren los tres casos.
+
+| Check adicional sin E2E                    | Resultado                                                        |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| `pnpm --filter mobile test -- --runInBand` | pendiente de repetición final tras las regresiones               |
+| Mobile typecheck                           | verde                                                            |
+| API typecheck + focal `auth.test.ts`       | verde; 127 tests                                                 |
+| Database test/typecheck                    | verde: 6 ficheros, 89 tests; 5 integraciones opt-in skip         |
+| Drizzle `db:generate`                      | verde con URL local ficticia; 0044 snapshot, sin migración nueva |
+| Prettier / `git diff --check`              | verde                                                            |
+| OpenAPI                                    | no reejecutado: este ciclo no cambió rutas ni schemas de Elysia  |
+| Autoreview                                 | 3 findings aceptados y corregidos; pendiente de repetición final |
+| E2E                                        | no ejecutado; reservado exclusivamente para M8                   |
+
+Este cierre de corrección no es una reverificación independiente ni declara GO. M2 continúa
+pendiente de dos revisores independientes frescos y E2E permanece reservado a M8.
+
+### Corrección de cierre de idempotencia create
+
+El último dictamen detectó una carrera entre dos POST concurrentes del mismo intento: después de
+que una respuesta ganadora limpiase la reserva local, una respuesta incierta tardía podía insertar
+un marcador genérico nuevo. La reserva ahora es la única fuente de transición: los resultados
+inciertos o ACK con caché pendiente solo actualizan condicionalmente la reserva exacta
+`(owner, intent, idempotency key, entity actual)`. Si el ganador ya la cerró, la transición afecta
+cero filas y no se vuelve a crear nada. El cierre terminal borra por la identidad de la reserva,
+así que también vence a un marcador incierto que hubiese llegado justo antes.
+
+Los marcadores se conservan únicamente mientras el resultado sea incierto o haya un ACK remoto sin
+reconciliación local. Un create aplicado limpia su reserva; un rechazo terminal también la limpia.
+En la API, la misma `Idempotency-Key` ya no equivale solo a "devolver lo primero": se compara contra
+la identidad normalizada de la petición (programa, nombre recortado y configuración validada) y un
+uso distinto devuelve `409 IDEMPOTENCY_KEY_CONFLICT`.
+
+| Check focal sin E2E               | Resultado                                      |
+| --------------------------------- | ---------------------------------------------- |
+| Repositorio/create use case móvil | verde: 98 tests en 2 suites                    |
+| Servicio de programas API         | verde: 49 tests                                |
+| Mobile + API typecheck            | verde                                          |
+| E2E                               | no ejecutado; reservado exclusivamente para M8 |
+
+Este registro documenta una corrección del corrector; no sustituye la reverificación fresca de los
+dos revisores ni declara GO.
+
+La autoreview local se inició sobre el árbol completo de M2 con `--mode local`, pero el proceso
+interactivo excedió el límite de 124 segundos del entorno antes de emitir un dictamen. No se le
+atribuye un resultado limpio ni findings; queda pendiente de continuación por Main sin modificar el
+árbol ni ejecutar E2E.
+
+### P1 final de compatibilidad React Native
+
+La generación de claves de idempotencia de create ya no depende de `globalThis.crypto`, que no es
+un contrato fiable de React Native. `program-use-cases` usa ahora `expo-crypto` y
+`Crypto.randomUUID()`, disponible en el runtime de Expo. La suite mockea explícitamente ese módulo,
+comprueba que se invoca el generador nativo y mantiene un UUID distinto para el caso de un segundo
+intento con otra intención.
+
+| Check focal sin E2E                     | Resultado                                      |
+| --------------------------------------- | ---------------------------------------------- |
+| Repositorio/create use case móvil       | verde: 98 tests en 2 suites                    |
+| Mobile typecheck + lint                 | verde                                          |
+| Prettier selectivo + `git diff --check` | verde                                          |
+| E2E                                     | no ejecutado; reservado exclusivamente para M8 |
+
+Sigue siendo corrección del corrector, no una revisión independiente ni un GO.
+
+### P2 de identidad canónica de create
+
+La identidad de creación vive ahora en una única función de dominio: recorta el nombre y serializa
+la configuración con claves JSON ordenadas recursivamente. Mobile reserva la misma clave para
+payloads semánticamente equivalentes aunque cambie el whitespace o el orden de propiedades, y envía
+el nombre normalizado al API. El servidor usa esa misma identidad para comparar una
+`Idempotency-Key` existente antes de consultar o validar el catálogo; por ello un reintento idéntico
+devuelve su instancia aun si el catálogo cambió, mientras que una identidad distinta devuelve
+`409 IDEMPOTENCY_KEY_CONFLICT` incluso si la configuración ya no sería válida para dicho catálogo.
+
+La revisión posterior sustituyó esa reconstrucción por una identidad inmutable persistida; el
+detalle y sus checks están registrados inmediatamente después de esta sección.
+
+| Check focal sin E2E               | Resultado                                      |
+| --------------------------------- | ---------------------------------------------- |
+| Repositorio/create use case móvil | verde: 99 tests en 2 suites                    |
+| Servicio de programas API         | verde: 51 tests                                |
+| Dominio `program-config`          | verde: 10 tests                                |
+| Typecheck mobile + API + domain   | verde                                          |
+| E2E                               | no ejecutado; reservado exclusivamente para M8 |
+
+Sigue siendo corrección del corrector, no una revisión independiente ni un GO.
+
+### P2 final: huella inmutable de idempotencia
+
+Una `Idempotency-Key` ya no se compara reconstruyendo el payload desde `name` ni ningún otro campo
+editable. `creation_intent` almacena al crear la serialización canónica junto a `creation_key`; la
+API compara exclusivamente esa huella. Así, el replay exacto tras renombrar el programa devuelve la
+instancia original, mientras que cualquier payload distinto conserva el `409
+IDEMPOTENCY_KEY_CONFLICT`. La migración Drizzle `0045_glorious_skrulls` añade la columna y actualiza
+su snapshot y journal, sin reescribir la migración 0044 ya existente.
+
+| Check focal sin E2E                                      | Resultado                                      |
+| -------------------------------------------------------- | ---------------------------------------------- |
+| API: creación, replay tras rename y conflicto de payload | verde: 53 tests focales                        |
+| Dominio: serialización canónica                          | verde: 10 tests focales                        |
+| DB: migración, journal y snapshot                        | verde: 95 tests (5 omitidos)                   |
+| Typecheck API + dominio + DB + mobile; lint API + mobile | verde                                          |
+| Prettier selectivo + `git diff --check`                  | verde                                          |
+| E2E                                                      | no ejecutado; reservado exclusivamente para M8 |
+
+Sigue siendo corrección del corrector, no una revisión independiente ni un GO.
+
+### Corrección final de reservas y replay de create
+
+Una reserva de create reutilizada que recibe un rechazo remoto antes del lookup de idempotencia (por
+ejemplo, `429`) no borra la clave
+que podría pertenecer a un create previamente despachado o de resultado incierto; un retry posterior
+conserva la misma clave. También el creador inicial conserva su reserva ante un rechazo pre-lookup:
+no hay una prueba local de que ningún hermano concurrente haya despachado la misma clave, así que solo
+el ACK aplicado y cacheado la cierra.
+
+El replay existente del API vuelve ahora a cargar resultados y undo history igual que la respuesta
+normal de detalle. La identidad canónica, por su parte, genera objetos mediante `Object.fromEntries`,
+de modo que `__proto__` se preserva como una clave JSON ordinaria y no altera el prototipo durante la
+serialización.
+
+| Check focal sin E2E                          | Resultado                                      |
+| -------------------------------------------- | ---------------------------------------------- |
+| Mobile: use cases y repositorio de programas | verde: 101 tests en 2 suites                   |
+| API: servicio de programas                   | verde: 53 tests focales                        |
+| Dominio: serialización canónica              | verde: 11 tests focales                        |
+| DB: migración, journal y snapshot            | verde: 95 tests (5 omitidos)                   |
+| E2E                                          | no ejecutado; reservado exclusivamente para M8 |
+
+Sigue siendo corrección del corrector, no una revisión independiente ni un GO.
+
+### Corrección final de atomicidad de migraciones SQLite
+
+El runner relee `PRAGMA user_version` después de adquirir la transacción exclusiva y mantiene cada
+SQL de migración junto con su version bump dentro de esa misma transacción. Así, la copia, drop,
+recreación e índice de v5, y los dos `ALTER TABLE` de v6, revierten completos si hay interrupción;
+el siguiente bootstrap ve la versión anterior y puede reintentar sin perder una fila de cola ni
+tropezar con una columna creada a medias. Las regresiones ejecutan ambos cortes con SQLite real y
+comprueban rollback y retry.
+
+| Check focal sin E2E                      | Resultado                                      |
+| ---------------------------------------- | ---------------------------------------------- |
+| Migraciones de biblioteca/cola SQLite    | verde: 118 tests en 4 suites                   |
+| Mobile: reserva create, typecheck y lint | verde                                          |
+| Prettier selectivo + `git diff --check`  | verde                                          |
+| E2E                                      | no ejecutado; reservado exclusivamente para M8 |
+
+Sigue siendo corrección del corrector, no una revisión independiente ni un GO.

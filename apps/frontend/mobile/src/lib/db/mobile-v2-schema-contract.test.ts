@@ -63,7 +63,9 @@ function applyContractMigration(
     return false;
   }
 
-  for (const migration of MIGRATIONS) {
+  // This future complete-schema contract starts from the shipped M2/M4
+  // layout. Runtime migration 5 independently upgrades the tracker queue.
+  for (const migration of MIGRATIONS.filter((migration) => migration.version < 5)) {
     if (migration.version <= currentVersion) {
       continue;
     }

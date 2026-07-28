@@ -855,6 +855,23 @@ describe('POST /auth/refresh', () => {
     expect(mockFindRefreshToken).not.toHaveBeenCalled();
   });
 
+  it('fails closed when refresh cookies exceed the bounded browser limit', async () => {
+    const cookieHeader = [
+      `refresh_token_${'f'.repeat(16)}=current`,
+      ...Array.from(
+        { length: 8 },
+        (_, index) => `refresh_token_${index.toString(16).padStart(16, '0')}=candidate-${index}`
+      ),
+    ].join('; ');
+
+    const res = await post('/auth/refresh', {}, { Cookie: cookieHeader });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_NO_REFRESH_TOKEN');
+    expect(mockHashToken).not.toHaveBeenCalled();
+  });
+
   it('rejects oversized refresh cookies before rotation lookup', async () => {
     mockRotateRefreshToken.mockClear();
 
@@ -1319,7 +1336,7 @@ describe('POST /auth/signout', () => {
     );
   });
 
-  it('batch-revokes overflow credentials without deleting a newer response cookie', async () => {
+  it('rejects overflow instead of reporting a partial browser signout as successful', async () => {
     const cookieHeader = [
       'refresh_token=current',
       'refresh_token_rotated=legacy',
@@ -1331,10 +1348,15 @@ describe('POST /auth/signout', () => {
 
     const res = await post('/auth/signout', {}, { Cookie: cookieHeader });
 
-    expect(res.status).toBe(204);
-    expect(mockRevokeBrowserSessions).toHaveBeenCalledOnce();
-    expect(mockRevokeBrowserSessions.mock.calls[0]?.[0]).toHaveLength(10);
+    expect(res.status).toBe(400);
+    expect(mockRevokeBrowserSessions).not.toHaveBeenCalled();
     expect(res.headers.getSetCookie()).toHaveLength(8);
+    expect(res.headers.getSetCookie()).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('refresh_token='),
+        expect.stringContaining('refresh_token_rotated='),
+      ])
+    );
     expect(res.headers.get('clear-site-data')).toBeNull();
   });
 

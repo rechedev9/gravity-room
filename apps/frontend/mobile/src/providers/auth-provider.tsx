@@ -60,7 +60,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (!active) return;
         setUser(session?.user ?? null);
         if (session?.accessToken) {
-          void flushQueuedMutations(session.accessToken).catch(() => {
+          void flushQueuedMutations(session.user.id, session.accessToken).catch(() => {
             // Leave queued mutations in place for a later retry.
           });
         }
@@ -87,7 +87,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       signInWithGoogle: async (credential: string) => {
         const session = await signInWithGoogleIdToken(credential);
         setUser(session.user);
-        void flushQueuedMutations(session.accessToken).catch(() => {
+        void flushQueuedMutations(session.user.id, session.accessToken).catch(() => {
           // Leave queued mutations in place for a later retry.
         });
       },
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return { ok: false, code: result.code };
         }
         setUser(result.session.user);
-        void flushQueuedMutations(result.session.accessToken).catch(() => {
+        void flushQueuedMutations(result.session.user.id, result.session.accessToken).catch(() => {
           // Leave queued mutations in place for a later retry.
         });
         return { ok: true };
@@ -112,9 +112,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return result.ok ? { ok: true } : { ok: false, code: result.code };
       },
       signOut: async () => {
-        await clearQueuedMutations().catch(() => {
-          // Best-effort cleanup only; local queue issues must not block sign-out.
-        });
+        if (user)
+          await clearQueuedMutations(user.id).catch(() => {
+            // Best-effort cleanup only; local queue issues must not block sign-out.
+          });
         await signOutSession();
         await clearLocalAppData().catch(() => {
           // Best-effort cleanup only; local cache issues must not block sign-out.

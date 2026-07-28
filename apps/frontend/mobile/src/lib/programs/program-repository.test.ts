@@ -10,6 +10,7 @@ import {
   MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL,
   MOBILE_V2_RECONCILIATION_EXPECTATIONS_SQL,
   MOBILE_V2_SNAPSHOT_METADATA_TABLE_SQL,
+  MOBILE_V2_CREATE_RECONCILIATION_INTENT_SQL,
   QUEUED_MUTATIONS_TABLE_SQL,
 } from '../db/schema';
 
@@ -51,6 +52,9 @@ import {
   readPendingDeleteReconciliations,
   readPendingManageReconciliations,
   recordProgramReconciliation,
+  reserveProgramCreateReconciliation,
+  markProgramCreateReconciliationPending,
+  clearProgramCreateReconciliation,
   replaceCachedCatalog,
   replaceProgramSummaries,
   resolveProgramReconciliationWithRemoteDetail,
@@ -89,6 +93,7 @@ function createMemoryDatabase(): MemoryDatabase {
   sqlite.exec(MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL);
   sqlite.exec(MOBILE_V2_SNAPSHOT_METADATA_TABLE_SQL);
   sqlite.exec(MOBILE_V2_RECONCILIATION_EXPECTATIONS_SQL);
+  sqlite.exec(MOBILE_V2_CREATE_RECONCILIATION_INTENT_SQL);
   let failingProgramId: string | null = null;
   let afterWrite: (() => void | Promise<void>) | null = null;
   let beforeCommit: (() => Promise<void>) | null = null;
@@ -1754,6 +1759,64 @@ describe('M2 program repository', () => {
 
     await replaceProgramSummaries('user-a', [ACTIVE]);
 
+    await expect(readPendingCreateReconciliation('user-a')).resolves.toBeNull();
+  });
+
+  it('does not recreate a closed create reservation from a late uncertain response', async () => {
+    const intentId = encodeURIComponent(
+      JSON.stringify({ programId: 'gzclp', name: 'GZCLP', config: { squat: 20 } })
+    );
+    const reservation = await reserveProgramCreateReconciliation(
+      'user-a',
+      intentId,
+      'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0'
+    );
+
+    await clearProgramCreateReconciliation('user-a', reservation);
+
+    await expect(markProgramCreateReconciliationPending('user-a', reservation, null)).resolves.toBe(
+      false
+    );
+    await expect(readPendingCreateReconciliation('user-a')).resolves.toBeNull();
+  });
+
+  it('closes the original reservation after a sibling response marks it uncertain', async () => {
+    const intentId = encodeURIComponent(
+      JSON.stringify({ programId: 'gzclp', name: 'GZCLP', config: { squat: 20 } })
+    );
+    const reservation = await reserveProgramCreateReconciliation(
+      'user-a',
+      intentId,
+      'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0'
+    );
+
+    await expect(markProgramCreateReconciliationPending('user-a', reservation, null)).resolves.toBe(
+      true
+    );
+    await clearProgramCreateReconciliation('user-a', reservation);
+
+    await expect(readPendingCreateReconciliation('user-a')).resolves.toBeNull();
+  });
+
+  it('keeps an acknowledged create reservation until its remote program is reconciled', async () => {
+    const intentId = encodeURIComponent(
+      JSON.stringify({ programId: 'gzclp', name: 'GZCLP', config: { squat: 20 } })
+    );
+    const reservation = await reserveProgramCreateReconciliation(
+      'user-a',
+      intentId,
+      'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0'
+    );
+
+    await expect(
+      markProgramCreateReconciliationPending('user-a', reservation, ACTIVE.id)
+    ).resolves.toBe(true);
+    await expect(readPendingCreateReconciliation('user-a')).resolves.toEqual({
+      pending: true,
+      programInstanceId: ACTIVE.id,
+    });
+
+    await replaceProgramSummaries('user-a', [ACTIVE]);
     await expect(readPendingCreateReconciliation('user-a')).resolves.toBeNull();
   });
 

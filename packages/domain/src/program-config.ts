@@ -1,4 +1,5 @@
 import { ProgramConfigSchema } from './schemas/instance';
+import { isRecord } from './type-guards';
 import {
   ProgramDefinitionSchema,
   ProgramWeightValueSchema,
@@ -27,6 +28,41 @@ export type ProgramConfigValidationResult =
   | { readonly success: false; readonly issues: readonly ProgramConfigIssue[] };
 
 const STEP_TOLERANCE = 1e-8;
+
+function canonicalizeJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(canonicalizeJsonValue);
+  }
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, canonicalizeJsonValue(value[key])])
+    );
+  }
+  return value;
+}
+
+/**
+ * Produces the stable identity used by mobile retries and API idempotency.
+ * Program names ignore surrounding whitespace and JSON object keys are sorted
+ * recursively, so equivalent setup payloads share one idempotency key.
+ */
+export function canonicalProgramCreationIntent(
+  programId: string,
+  name: string,
+  config: unknown
+): string {
+  const serialized = JSON.stringify({
+    programId,
+    name: name.trim(),
+    config: canonicalizeJsonValue(config),
+  });
+  if (serialized === undefined) {
+    throw new Error('Program creation intent could not be serialized');
+  }
+  return serialized;
+}
 
 function isAlignedToStep(value: number, minimum: number, step: number): boolean {
   const steps = (value - minimum) / step;

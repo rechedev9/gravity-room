@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { validateProgramConfig } from './program-config';
+import { canonicalProgramCreationIntent, validateProgramConfig } from './program-config';
 import {
   MAX_PROGRAM_WEIGHT,
   MIN_POSITIVE_PROGRAM_WEIGHT,
@@ -52,6 +52,28 @@ const DEFINITION = {
 } satisfies ProgramDefinition;
 
 describe('validateProgramConfig', () => {
+  it('canonicalizes program creation identity across whitespace and config key order', () => {
+    expect(
+      canonicalProgramCreationIntent('gzclp', '  GZCLP  ', {
+        variant: 'classic',
+        squat: 20,
+      })
+    ).toBe(
+      canonicalProgramCreationIntent('gzclp', 'GZCLP', {
+        squat: 20,
+        variant: 'classic',
+      })
+    );
+  });
+
+  it('preserves __proto__ as a normal JSON key in the canonical creation identity', () => {
+    const config = JSON.parse('{"squat":20,"__proto__":{"nested":true},"variant":"classic"}');
+
+    expect(canonicalProgramCreationIntent('gzclp', 'GZCLP', config)).toBe(
+      '{"programId":"gzclp","name":"GZCLP","config":{"__proto__":{"nested":true},"squat":20,"variant":"classic"}}'
+    );
+  });
+
   it('accepts a complete setup aligned with the definition', () => {
     expect(validateProgramConfig(DEFINITION, { squat: 27.5, variant: 'classic' })).toEqual({
       success: true,

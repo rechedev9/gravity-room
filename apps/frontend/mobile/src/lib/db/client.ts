@@ -34,7 +34,7 @@ async function applyMigrations(
   migrations: readonly MigrationStep[]
 ): Promise<void> {
   const pending = [...migrations].sort((a, b) => a.version - b.version);
-  const currentVersion = await getUserVersion(client);
+  let currentVersion = await getUserVersion(client);
 
   for (const migration of pending) {
     if (migration.version <= currentVersion) {
@@ -42,8 +42,18 @@ async function applyMigrations(
     }
 
     await client.withExclusiveTransactionAsync(async (transaction) => {
+      // Read the version again after obtaining the exclusive transaction. The
+      // migration SQL (including destructive table replacement and ALTERs)
+      // and its version marker are one SQLite transaction, so an interruption
+      // rolls all of them back and a later bootstrap can safely retry.
+      const lockedVersion = await getUserVersion(transaction);
+      if (migration.version <= lockedVersion) {
+        currentVersion = lockedVersion;
+        return;
+      }
       await transaction.execAsync(migration.sql);
       await transaction.execAsync(`PRAGMA user_version = ${migration.version}`);
+      currentVersion = migration.version;
     });
   }
 }

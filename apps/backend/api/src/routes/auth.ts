@@ -89,7 +89,10 @@ function classifyDevice(userAgent: string | undefined): DeviceType {
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const LEGACY_ROTATED_REFRESH_COOKIE_NAME = 'refresh_token_rotated';
 const VERSIONED_REFRESH_COOKIE_PATTERN = /^refresh_token_[a-f0-9]{16}$/;
-const MAX_BROWSER_REFRESH_COOKIE_EXPIRATIONS = 8;
+// This is a processing bound, not merely a Set-Cookie bound: it caps SHA-256
+// work, the DB IN list and the logout revocation batch for hostile Cookie
+// headers. One active browser session needs a single versioned cookie.
+const MAX_BROWSER_REFRESH_COOKIES = 8;
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
 // Grace window for concurrent/double refreshes. When a presented refresh token
 // is gone but its successor was minted within this window, it is a benign race
@@ -233,23 +236,50 @@ interface BrowserRefreshToken {
   readonly tokenHash?: string;
 }
 
+function isBrowserRefreshCookieName(name: string): boolean {
+  return (
+    name === REFRESH_COOKIE_NAME ||
+    name === LEGACY_ROTATED_REFRESH_COOKIE_NAME ||
+    VERSIONED_REFRESH_COOKIE_PATTERN.test(name)
+  );
+}
+
+function browserRefreshCookiePriority(name: string): number {
+  if (name === REFRESH_COOKIE_NAME) return 0;
+  if (name === LEGACY_ROTATED_REFRESH_COOKIE_NAME) return 1;
+  return 2;
+}
+
+function hasBrowserRefreshCookieOverflow(cookie: Record<string, { value?: unknown }>): boolean {
+  return (
+    Object.entries(cookie).filter(
+      ([name, storedCookie]) =>
+        isBrowserRefreshCookieName(name) &&
+        typeof storedCookie.value === 'string' &&
+        storedCookie.value.length > 0
+    ).length > MAX_BROWSER_REFRESH_COOKIES
+  );
+}
+
 function collectBrowserRefreshCookieValues(
   cookie: Record<string, { value?: unknown }>
 ): Array<{ readonly name: string; readonly value: string }> {
   const candidates = Object.entries(cookie)
-    .filter(
-      ([name]) =>
-        name === REFRESH_COOKIE_NAME ||
-        name === LEGACY_ROTATED_REFRESH_COOKIE_NAME ||
-        VERSIONED_REFRESH_COOKIE_PATTERN.test(name)
-    )
+    .filter(([name]) => isBrowserRefreshCookieName(name))
     .flatMap(([name, storedCookie]) =>
       typeof storedCookie.value === 'string' && storedCookie.value.length > 0
         ? [{ name, value: storedCookie.value }]
         : []
+    )
+    .sort(
+      (left, right) =>
+        browserRefreshCookiePriority(left.name) - browserRefreshCookiePriority(right.name) ||
+        left.name.localeCompare(right.name)
     );
 
-  return [...new Map(candidates.map((candidate) => [candidate.name, candidate] as const)).values()];
+  return [
+    ...new Map(candidates.map((candidate) => [candidate.name, candidate] as const)).values(),
+  ].slice(0, MAX_BROWSER_REFRESH_COOKIES);
 }
 
 async function readBrowserRefreshTokens(
@@ -278,6 +308,9 @@ async function readBrowserRefreshTokens(
 async function selectBrowserRefreshToken(
   cookie: Record<string, { value?: unknown }>
 ): Promise<BrowserRefreshToken | undefined> {
+  if (hasBrowserRefreshCookieOverflow(cookie)) {
+    throw new ApiError(401, 'Too many refresh cookies', 'AUTH_NO_REFRESH_TOKEN');
+  }
   const candidates = await readBrowserRefreshTokens(cookie);
   const active = candidates
     .filter(
@@ -308,7 +341,7 @@ function expirePresentedRefreshCookies(
   cookie: Record<string, { set: (opts: Record<string, unknown>) => void }>,
   presented: readonly { readonly name: string }[]
 ): void {
-  for (const { name } of presented.slice(0, MAX_BROWSER_REFRESH_COOKIE_EXPIRATIONS)) {
+  for (const { name } of presented) {
     expireRefreshCookie(cookie[name]);
   }
 }
@@ -316,6 +349,7 @@ function expirePresentedRefreshCookies(
 async function captureCookieSessionReplacement(
   cookie: Record<string, { value?: unknown }>
 ): Promise<CookieSessionReplacement | undefined> {
+  if (hasBrowserRefreshCookieOverflow(cookie)) return undefined;
   const selected = await selectBrowserRefreshToken(cookie);
   return selected?.stored && selected.tokenHash && selected.stored.supersededAt === null
     ? {
@@ -1504,6 +1538,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const presented = collectBrowserRefreshCookieValues(cookie);
       try {
         await rateLimit(ip, '/auth/signout');
+        if (hasBrowserRefreshCookieOverflow(cookie)) {
+          throw new ApiError(400, 'Too many refresh cookies', 'AUTH_TOO_MANY_REFRESH_COOKIES');
+        }
         const tokenHashes = await Promise.all(
           presented.flatMap(({ value }) =>
             value.length > MAX_AUTH_TOKEN_CHARS ? [] : [hashToken(value)]

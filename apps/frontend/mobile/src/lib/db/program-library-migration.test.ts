@@ -26,6 +26,36 @@ function countRows(database: DatabaseSync, table: string): number {
   return count;
 }
 
+function applyMigrationAtomically(
+  database: DatabaseSync,
+  version: number,
+  interruptBeforeVersionCommit = false
+): void {
+  database.exec('BEGIN IMMEDIATE');
+  try {
+    database.exec(requireMigration(version));
+    if (interruptBeforeVersionCommit) {
+      throw new Error(`simulated interruption before migration ${version} version commit`);
+    }
+    database.exec(`PRAGMA user_version = ${version}`);
+    database.exec('COMMIT');
+  } catch (error) {
+    database.exec('ROLLBACK');
+    throw error;
+  }
+}
+
+function createVersionFourDatabase(): DatabaseSync {
+  const database = new DatabaseSync(':memory:');
+  database.exec(requireMigration(1));
+  database.exec(V1_DATABASE_ROWS_FIXTURE_SQL);
+  database.exec(requireMigration(2));
+  database.exec(requireMigration(3));
+  database.exec(requireMigration(4));
+  database.exec('PRAGMA user_version = 4');
+  return database;
+}
+
 describe('M2 program-library migration', () => {
   it('creates only owner-scoped program tables while preserving every unowned v1 row', () => {
     const database = new DatabaseSync(':memory:');
@@ -56,6 +86,83 @@ describe('M2 program-library migration', () => {
         )
         .get()?.count
     ).toBe(0);
+
+    database.close();
+  });
+
+  it('quarantines v1 queued mutations before creating the owner-scoped runtime queue', () => {
+    const database = new DatabaseSync(':memory:');
+    database.exec(requireMigration(1));
+    database.exec(V1_DATABASE_ROWS_FIXTURE_SQL);
+    database.exec(requireMigration(2));
+    database.exec(requireMigration(3));
+    database.exec(requireMigration(4));
+
+    database.exec(requireMigration(5));
+
+    expect(countRows(database, 'legacy_queued_mutations_quarantine')).toBe(1);
+    expect(countRows(database, 'queued_mutations')).toBe(0);
+    expect(() =>
+      database.exec(`
+        INSERT INTO queued_mutations (entity_type, entity_id, operation, payload_json, created_at)
+        VALUES ('program-instance', 'program-a', 'record-result', '{}', '2026-07-27T10:00:00.000Z')
+      `)
+    ).toThrow();
+    expect(() =>
+      database.exec(`
+        INSERT INTO queued_mutations (
+          owner_user_id, entity_type, entity_id, operation, payload_json, created_at
+        ) VALUES (
+          'owner-a', 'program-a', 'program-a', 'record-result', '{}', '2026-07-27T10:00:00.000Z'
+        )
+      `)
+    ).not.toThrow();
+    expect(countRows(database, 'queued_mutations')).toBe(1);
+
+    database.close();
+  });
+
+  it('rolls back the v5 queue replacement and retries without losing a legacy row', () => {
+    const database = createVersionFourDatabase();
+
+    expect(() => applyMigrationAtomically(database, 5, true)).toThrow(
+      'simulated interruption before migration 5 version commit'
+    );
+    expect(database.prepare('PRAGMA user_version').get()?.user_version).toBe(4);
+    expect(countRows(database, 'queued_mutations')).toBe(1);
+    expect(() => countRows(database, 'legacy_queued_mutations_quarantine')).toThrow();
+
+    expect(() => applyMigrationAtomically(database, 5)).not.toThrow();
+    expect(database.prepare('PRAGMA user_version').get()?.user_version).toBe(5);
+    expect(countRows(database, 'legacy_queued_mutations_quarantine')).toBe(1);
+    expect(countRows(database, 'queued_mutations')).toBe(0);
+
+    database.close();
+  });
+
+  it('rolls back the v6 ALTERs before the version commit so retry can add both columns once', () => {
+    const database = createVersionFourDatabase();
+    applyMigrationAtomically(database, 5);
+
+    expect(() => applyMigrationAtomically(database, 6, true)).toThrow(
+      'simulated interruption before migration 6 version commit'
+    );
+    expect(database.prepare('PRAGMA user_version').get()?.user_version).toBe(5);
+    expect(
+      database
+        .prepare('SELECT name FROM pragma_table_info(?) ORDER BY cid')
+        .all('mobile_v2_program_reconciliations')
+        .map((row) => row.name)
+    ).not.toContain('create_intent');
+
+    expect(() => applyMigrationAtomically(database, 6)).not.toThrow();
+    expect(database.prepare('PRAGMA user_version').get()?.user_version).toBe(6);
+    expect(
+      database
+        .prepare('SELECT name FROM pragma_table_info(?) ORDER BY cid')
+        .all('mobile_v2_program_reconciliations')
+        .map((row) => row.name)
+    ).toEqual(expect.arrayContaining(['create_intent', 'create_idempotency_key']));
 
     database.close();
   });

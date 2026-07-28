@@ -4,6 +4,7 @@ import { bootstrapDatabase, getDatabase } from '../db/client';
 export type MutationPayload = Record<string, unknown>;
 
 export type EnqueueMutationInput = {
+  readonly ownerUserId: string;
   readonly entityType: string;
   readonly entityId: string;
   readonly operation: string;
@@ -63,6 +64,10 @@ function parsePayload(payloadJson: string): MutationPayload {
 }
 
 export async function enqueueMutation(input: EnqueueMutationInput): Promise<void> {
+  const ownerUserId = input.ownerUserId.trim();
+  if (!ownerUserId) {
+    throw new Error('Queued mutation owner is required');
+  }
   const database = getDatabase();
   await bootstrapDatabase(database);
 
@@ -70,8 +75,9 @@ export async function enqueueMutation(input: EnqueueMutationInput): Promise<void
 
   await database.withExclusiveTransactionAsync(async (transaction) => {
     await transaction.runAsync(
-      `INSERT INTO queued_mutations (entity_type, entity_id, operation, payload_json, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO queued_mutations (owner_user_id, entity_type, entity_id, operation, payload_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      ownerUserId,
       input.entityType,
       input.entityId,
       input.operation,
@@ -81,14 +87,15 @@ export async function enqueueMutation(input: EnqueueMutationInput): Promise<void
   });
 }
 
-export async function listQueuedMutations(): Promise<QueuedMutation[]> {
+export async function listQueuedMutations(ownerUserId: string): Promise<QueuedMutation[]> {
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   const rows = await database.getAllAsync(
     `SELECT id, entity_type, entity_id, operation, payload_json, created_at
-     FROM queued_mutations
-     ORDER BY created_at ASC, id ASC`
+     FROM queued_mutations WHERE owner_user_id = ?
+     ORDER BY created_at ASC, id ASC`,
+    ownerUserId
   );
 
   return rows.map(parseQueuedMutationRow).map((row) => ({
@@ -101,7 +108,10 @@ export async function listQueuedMutations(): Promise<QueuedMutation[]> {
   }));
 }
 
-export async function acknowledgeQueuedMutations(ids: readonly number[]): Promise<void> {
+export async function acknowledgeQueuedMutations(
+  ownerUserId: string,
+  ids: readonly number[]
+): Promise<void> {
   if (ids.length === 0) {
     return;
   }
@@ -110,12 +120,16 @@ export async function acknowledgeQueuedMutations(ids: readonly number[]): Promis
   await bootstrapDatabase(database);
 
   const placeholders = ids.map(() => '?').join(', ');
-  await database.runAsync(`DELETE FROM queued_mutations WHERE id IN (${placeholders})`, ...ids);
+  await database.runAsync(
+    `DELETE FROM queued_mutations WHERE owner_user_id = ? AND id IN (${placeholders})`,
+    ownerUserId,
+    ...ids
+  );
 }
 
-export async function clearQueuedMutations(): Promise<void> {
+export async function clearQueuedMutations(ownerUserId: string): Promise<void> {
   const database = getDatabase();
   await bootstrapDatabase(database);
 
-  await database.runAsync('DELETE FROM queued_mutations');
+  await database.runAsync('DELETE FROM queued_mutations WHERE owner_user_id = ?', ownerUserId);
 }

@@ -461,7 +461,7 @@ describe('TrackerScreen', () => {
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
 
     await waitFor(() => {
-      expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('rotated-auth-token');
+      expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('user-a', 'rotated-auth-token');
     });
   });
 
@@ -532,6 +532,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(mockedQueueRecordResultMutation).toHaveBeenCalledWith({
+      ownerUserId: 'user-a',
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -604,6 +605,7 @@ describe('TrackerScreen', () => {
 
     await waitFor(() => {
       expect(mockedQueueRecordResultMutation).toHaveBeenCalledWith({
+        ownerUserId: 'user-a',
         instanceId: 'instance-1',
         workoutIndex: 0,
         slotId: 'squat-t1',
@@ -648,6 +650,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Logged fail')).toBeTruthy();
     expect(mockedQueueRecordResultMutation).toHaveBeenCalledWith({
+      ownerUserId: 'user-a',
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -675,6 +678,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Awaiting result')).toBeTruthy();
     expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
+      ownerUserId: 'user-a',
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -717,6 +721,7 @@ describe('TrackerScreen', () => {
     expect(screen.getByText('AMRAP reps: 12')).toBeTruthy();
     expect(screen.getByText('RPE: 8')).toBeTruthy();
     expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
+      ownerUserId: 'user-a',
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -772,6 +777,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Awaiting result')).toBeTruthy();
     expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
+      ownerUserId: 'user-a',
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -816,6 +822,7 @@ describe('TrackerScreen', () => {
       })
     );
     expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+      ownerUserId: 'user-a',
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -879,6 +886,7 @@ describe('TrackerScreen', () => {
         })
       );
       expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+        ownerUserId: 'user-a',
         instanceId: 'instance-1',
         workoutIndex: 0,
         slotId: 'squat-t1',
@@ -920,6 +928,7 @@ describe('TrackerScreen', () => {
     expect(screen.getByText('AMRAP reps: -')).toBeTruthy();
     expect(screen.queryByText('Awaiting result')).toBeNull();
     expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
+      ownerUserId: 'user-a',
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -967,6 +976,7 @@ describe('TrackerScreen', () => {
     expect(await screen.findByText('RPE: 10')).toBeTruthy();
     expect(screen.queryByText('RPE: 11')).toBeNull();
     expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+      ownerUserId: 'user-a',
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1057,6 +1067,7 @@ describe('TrackerScreen', () => {
 
     await waitFor(() => {
       expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+        ownerUserId: 'user-a',
         instanceId: 'instance-1',
         workoutIndex: 0,
         slotId: 'squat-t1',
@@ -1122,6 +1133,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('RPE: -')).toBeTruthy();
     expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+      ownerUserId: 'user-a',
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1160,6 +1172,7 @@ describe('TrackerScreen', () => {
     expect(persistedDetail).toBeDefined();
     expect(persistedDetail?.results['0']?.['squat-t1']).toEqual({ result: 'success' });
     expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+      ownerUserId: 'user-a',
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1189,6 +1202,7 @@ describe('TrackerScreen', () => {
     expect(await screen.findByText('RPE: -')).toBeTruthy();
     expect(mockedQueueRecordResultMutation).toHaveBeenCalledTimes(1);
     expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+      ownerUserId: 'user-a',
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1355,6 +1369,7 @@ describe('TrackerScreen', () => {
       await screen.findByText("Saved locally. This change won't sync automatically.")
     ).toBeTruthy();
     expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
+      ownerUserId: 'user-a',
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',

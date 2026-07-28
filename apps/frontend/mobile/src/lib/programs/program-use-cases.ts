@@ -1,4 +1,6 @@
+import { canonicalProgramCreationIntent } from '@gzclp/domain/program-config';
 import type { GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
+import * as Crypto from 'expo-crypto';
 
 import {
   captureAuthorizedSession,
@@ -7,15 +9,19 @@ import {
 } from '../auth/session';
 import {
   cacheCreatedProgram,
+  clearProgramCreateReconciliation,
   cacheManagedProgram,
   clearProgramDeleteReconciliation,
   clearProgramManageReconciliationIfMatches,
   deleteLocalProgramData,
+  markProgramCreateReconciliationPending,
   persistProgramManageExpectation,
   programManageExpectationsMatch,
   readPendingDeleteReconciliations,
+  readPendingCreateReconciliation,
   readPendingManageReconciliations,
   recordProgramReconciliation,
+  reserveProgramCreateReconciliation,
   resolveProgramReconciliationWithRemoteDetail,
   type ProgramManageExpectation,
   type ProgramSummary,
@@ -53,10 +59,14 @@ interface CreateProgramDependencies {
   readonly createRemote: typeof createProgramInstance;
   readonly fetchRemotePrograms: (session: AuthorizedSession) => Promise<ProgramSummary[]>;
   readonly cacheCreated: typeof cacheCreatedProgram;
+  readonly reserveCreate?: typeof reserveProgramCreateReconciliation;
+  readonly readPendingCreate?: typeof readPendingCreateReconciliation;
   readonly scheduleReconciliation: typeof recordProgramReconciliation;
   readonly captureSession?: typeof captureAuthorizedSession;
   readonly captureLibraryLease?: typeof captureProgramRefreshLease;
   readonly abandonLibraryLease?: typeof abandonProgramRefreshLease;
+  readonly clearCreateReconciliation?: typeof clearProgramCreateReconciliation;
+  readonly markCreatePending?: typeof markProgramCreateReconciliationPending;
 }
 
 interface ManageProgramDependencies {
@@ -99,7 +109,10 @@ const CREATE_DEPENDENCIES: CreateProgramDependencies = {
   createRemote: createProgramInstance,
   fetchRemotePrograms: fetchProgramSummaries,
   cacheCreated: cacheCreatedProgram,
+  reserveCreate: reserveProgramCreateReconciliation,
   scheduleReconciliation: recordProgramReconciliation,
+  clearCreateReconciliation: clearProgramCreateReconciliation,
+  markCreatePending: markProgramCreateReconciliationPending,
 };
 
 const MANAGE_DEPENDENCIES: ManageProgramDependencies = {
@@ -161,6 +174,44 @@ export async function startPresetProgram(
   dependencies: CreateProgramDependencies = CREATE_DEPENDENCIES
 ): Promise<ProgramMutationResult<GenericProgramDetail>> {
   const session = (dependencies.captureSession ?? captureAuthorizedSession)(input.ownerUserId);
+  const normalizedName = input.name.trim();
+  const serializedIntent = canonicalProgramCreationIntent(
+    input.definition.id,
+    normalizedName,
+    input.config
+  );
+  const intentId = encodeURIComponent(serializedIntent);
+  const reserved = await (dependencies.reserveCreate
+    ? dependencies.reserveCreate(input.ownerUserId, intentId, Crypto.randomUUID())
+    : (async () => {
+        const pending = dependencies.readPendingCreate;
+        if (pending === undefined) {
+          const idempotencyKey = Crypto.randomUUID();
+          const reconciliationId = `pending-create:${intentId}:${idempotencyKey}`;
+          return scheduleReconciliation(
+            input.ownerUserId,
+            'create',
+            reconciliationId,
+            dependencies.scheduleReconciliation
+          ).then((persisted) => {
+            if (!persisted) throw new Error('Program creation intent could not be persisted');
+            return { reconciliationId, idempotencyKey, intentId };
+          });
+        }
+        return pending(input.ownerUserId).then((existing) => {
+          const idempotencyKey =
+            existing?.intentId === intentId && typeof existing.idempotencyKey === 'string'
+              ? existing.idempotencyKey
+              : Crypto.randomUUID();
+          return {
+            reconciliationId: `pending-create:${intentId}:${idempotencyKey}`,
+            idempotencyKey,
+            intentId,
+          };
+        });
+      })());
+  const idempotencyKey = reserved.idempotencyKey;
+  const reconciliationId = reserved.reconciliationId;
   await advanceProgramMutationGenerations(
     input.ownerUserId,
     `pending-create:${input.definition.id}`
@@ -171,20 +222,23 @@ export async function startPresetProgram(
       ownerUserId: input.ownerUserId,
       session,
       definition: input.definition,
-      name: input.name,
+      name: normalizedName,
       config: input.config,
+      idempotencyKey,
     });
   } catch (error) {
     if (
       error instanceof RemoteMutationOutcomeUnknownError ||
       error instanceof RemoteMutationAcknowledgedError
     ) {
-      const reconciliationScheduled = await scheduleReconciliation(
-        input.ownerUserId,
-        'create',
-        error.entityId ?? `unknown:${input.definition.id}`,
-        dependencies.scheduleReconciliation
-      );
+      const reconciliationScheduled = dependencies.markCreatePending
+        ? await dependencies.markCreatePending(input.ownerUserId, reserved, error.entityId ?? null)
+        : await scheduleReconciliation(
+            input.ownerUserId,
+            'create',
+            error.entityId ?? reconciliationId,
+            dependencies.scheduleReconciliation
+          );
       return {
         status: 'reconciliation_required',
         remote: null,
@@ -212,12 +266,14 @@ export async function startPresetProgram(
       reconciliationScheduled:
         error instanceof ObsoleteAuthorizedSessionError
           ? false
-          : await scheduleReconciliation(
-              input.ownerUserId,
-              'create',
-              detail.id,
-              dependencies.scheduleReconciliation
-            ),
+          : dependencies.markCreatePending
+            ? await dependencies.markCreatePending(input.ownerUserId, reserved, detail.id)
+            : await scheduleReconciliation(
+                input.ownerUserId,
+                'create',
+                detail.id,
+                dependencies.scheduleReconciliation
+              ),
     };
   }
   let serverPrograms: readonly ProgramSummary[] | null = null;
@@ -242,17 +298,20 @@ export async function startPresetProgram(
       definition: input.definition,
       serverPrograms,
     });
+    await dependencies.clearCreateReconciliation?.(input.ownerUserId, reserved);
     return { status: 'applied', remote: detail };
   } catch (error) {
     const reconciliationScheduled =
       error instanceof ObsoleteAuthorizedSessionError
         ? false
-        : await scheduleReconciliation(
-            input.ownerUserId,
-            'create',
-            detail.id,
-            dependencies.scheduleReconciliation
-          );
+        : dependencies.markCreatePending
+          ? await dependencies.markCreatePending(input.ownerUserId, reserved, detail.id)
+          : await scheduleReconciliation(
+              input.ownerUserId,
+              'create',
+              detail.id,
+              dependencies.scheduleReconciliation
+            );
     return {
       status: 'reconciliation_required',
       remote: detail,

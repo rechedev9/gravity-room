@@ -231,6 +231,9 @@ export const programInstances = pgTable(
     /** Inline snapshot of the forked definition (denormalised for offline / fast reads). */
     customDefinition: jsonb('custom_definition'),
     name: varchar({ length: 100 }).notNull(),
+    creationKey: varchar('creation_key', { length: 36 }),
+    /** Immutable canonical payload bound to creation_key for idempotent replays. */
+    creationIntent: text('creation_intent'),
     programConfig: jsonb('program_config').notNull(),
     metadata: jsonb('metadata'),
     status: instanceStatusEnum().notNull().default('active'),
@@ -242,6 +245,7 @@ export const programInstances = pgTable(
     uniqueIndex('program_instances_one_active_per_user_idx')
       .on(table.userId)
       .where(sql`${table.status} = 'active'`),
+    uniqueIndex('program_instances_user_creation_key_idx').on(table.userId, table.creationKey),
     index('program_instances_user_created_id_idx').on(
       table.userId,
       desc(table.createdAt),

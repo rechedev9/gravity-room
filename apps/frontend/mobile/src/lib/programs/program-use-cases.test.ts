@@ -1,4 +1,5 @@
 import type { GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
+import * as Crypto from 'expo-crypto';
 
 import {
   captureAuthorizedSession,
@@ -9,6 +10,7 @@ import {
   RemoteMutationAcknowledgedError,
   RemoteMutationOutcomeUnknownError,
   RemoteMutationRejectedError,
+  type createProgramInstance,
   type DeleteRemoteResult,
   type ProgramManagementMutation,
 } from './program-service';
@@ -23,6 +25,10 @@ import {
   startPresetProgram,
   verifyPendingProgramDelete,
 } from './program-use-cases';
+
+jest.mock('expo-crypto', () => ({
+  randomUUID: jest.fn(() => 'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0'),
+}));
 
 jest.mock('../auth/session', () => {
   const actual = jest.requireActual<typeof import('../auth/session')>('../auth/session');
@@ -98,6 +104,7 @@ const SUMMARY = {
 
 describe('program use cases', () => {
   beforeEach(() => {
+    jest.mocked(Crypto.randomUUID).mockClear();
     jest.mocked(captureAuthorizedSession).mockImplementation((ownerUserId) => ({
       ownerUserId,
       accessToken: 'a',
@@ -133,6 +140,7 @@ describe('program use cases', () => {
     ).resolves.toEqual({ status: 'applied', remote: DETAIL });
 
     expect(calls).toEqual(['remote:create', 'remote:list', 'local:bundle']);
+    expect(Crypto.randomUUID).toHaveBeenCalledTimes(1);
     expect(createRemote).toHaveBeenCalledWith({
       ownerUserId: 'user-a',
       session: {
@@ -143,7 +151,14 @@ describe('program use cases', () => {
       definition: DEFINITION,
       name: 'GZCLP',
       config: { squat: 20 },
+      idempotencyKey: expect.any(String),
     });
+    expect(scheduleReconciliation).toHaveBeenNthCalledWith(
+      1,
+      'user-a',
+      'create',
+      expect.stringMatching(/^pending-create:/)
+    );
     expect(fetchRemotePrograms).toHaveBeenCalledWith({
       ownerUserId: 'user-a',
       accessToken: 'a',
@@ -193,7 +208,10 @@ describe('program use cases', () => {
   });
 
   it('does not repeat a successful non-idempotent POST when the list refresh fails', async () => {
-    const createRemote = jest.fn(async () => DETAIL);
+    const createRemote = jest.fn<
+      Promise<GenericProgramDetail>,
+      [Parameters<typeof createProgramInstance>[0]]
+    >(async () => DETAIL);
     const cacheCreated = jest.fn(async () => undefined);
     const scheduleReconciliation = jest.fn(async () => undefined);
 
@@ -1028,7 +1046,12 @@ describe('program use cases', () => {
       remote: DETAIL,
       reconciliationScheduled: false,
     });
-    expect(scheduleReconciliation).not.toHaveBeenCalled();
+    expect(scheduleReconciliation).toHaveBeenCalledTimes(1);
+    expect(scheduleReconciliation).toHaveBeenCalledWith(
+      'user-a',
+      'create',
+      expect.stringMatching(/^pending-create:/)
+    );
   });
 
   it('does not write reconciliation after the session changes before create lease capture', async () => {
@@ -1057,7 +1080,12 @@ describe('program use cases', () => {
       remote: DETAIL,
       reconciliationScheduled: false,
     });
-    expect(scheduleReconciliation).not.toHaveBeenCalled();
+    expect(scheduleReconciliation).toHaveBeenCalledTimes(1);
+    expect(scheduleReconciliation).toHaveBeenCalledWith(
+      'user-a',
+      'create',
+      expect.stringMatching(/^pending-create:/)
+    );
   });
 
   it('reports the retained manage marker after a dispatched acknowledged session switch', async () => {
@@ -1123,6 +1151,308 @@ describe('program use cases', () => {
       remoteState: 'outcome_unknown',
       reconciliationScheduled: true,
     });
+  });
+
+  it('retries an uncertain create with its persisted key and clears the intent after one winner', async () => {
+    const idempotencyKey = 'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0';
+    const intentId = encodeURIComponent(
+      JSON.stringify({ programId: DEFINITION.id, name: 'GZCLP', config: { squat: 20 } })
+    );
+    const createRemote = jest
+      .fn()
+      .mockRejectedValueOnce(
+        new RemoteMutationOutcomeUnknownError('create', null, new Error('response lost'))
+      )
+      .mockResolvedValueOnce(DETAIL);
+    const clearCreateReconciliation = jest.fn(async () => undefined);
+    const dependencies = {
+      createRemote,
+      fetchRemotePrograms: jest.fn(async () => [SUMMARY]),
+      cacheCreated: jest.fn(async () => undefined),
+      scheduleReconciliation: jest.fn(async () => undefined),
+      readPendingCreate: jest.fn(async () => ({
+        pending: true as const,
+        programInstanceId: null,
+        idempotencyKey,
+        intentId,
+      })),
+      clearCreateReconciliation,
+    };
+    const input = {
+      ownerUserId: 'user-a',
+      definition: DEFINITION,
+      name: 'GZCLP',
+      config: { squat: 20 },
+    };
+
+    await expect(startPresetProgram(input, dependencies)).resolves.toMatchObject({
+      status: 'reconciliation_required',
+      remoteState: 'outcome_unknown',
+    });
+    await expect(startPresetProgram(input, dependencies)).resolves.toEqual({
+      status: 'applied',
+      remote: DETAIL,
+    });
+
+    expect(createRemote).toHaveBeenCalledTimes(2);
+    expect(createRemote.mock.calls.map(([call]) => call?.idempotencyKey)).toEqual([
+      idempotencyKey,
+      idempotencyKey,
+    ]);
+    expect(clearCreateReconciliation).toHaveBeenCalledWith(
+      'user-a',
+      expect.objectContaining({ idempotencyKey, intentId })
+    );
+  });
+
+  it('preserves an uncertain create reservation when a retry is rate-limited before lookup', async () => {
+    const idempotencyKey = 'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0';
+    const intentId = encodeURIComponent(
+      JSON.stringify({ programId: DEFINITION.id, name: 'GZCLP', config: { squat: 20 } })
+    );
+    const clearCreateReconciliation = jest.fn(async () => undefined);
+    const createRemote = jest
+      .fn()
+      .mockRejectedValueOnce(new RemoteMutationRejectedError('create', null, 429))
+      .mockResolvedValueOnce(DETAIL);
+    const dependencies = {
+      createRemote,
+      fetchRemotePrograms: jest.fn(async () => [SUMMARY]),
+      cacheCreated: jest.fn(async () => undefined),
+      scheduleReconciliation: jest.fn(async () => undefined),
+      readPendingCreate: jest.fn(async () => ({
+        pending: true as const,
+        programInstanceId: null,
+        idempotencyKey,
+        intentId,
+      })),
+      clearCreateReconciliation,
+    };
+    const input = {
+      ownerUserId: 'user-a',
+      definition: DEFINITION,
+      name: 'GZCLP',
+      config: { squat: 20 },
+    };
+
+    await expect(startPresetProgram(input, dependencies)).rejects.toMatchObject({ status: 429 });
+    await expect(startPresetProgram(input, dependencies)).resolves.toEqual({
+      status: 'applied',
+      remote: DETAIL,
+    });
+
+    expect(createRemote.mock.calls.map(([call]) => call?.idempotencyKey)).toEqual([
+      idempotencyKey,
+      idempotencyKey,
+    ]);
+    expect(clearCreateReconciliation).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not clear a newly created reservation when its first create request is rate-limited', async () => {
+    const idempotencyKey = 'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0';
+    const intentId = encodeURIComponent(
+      JSON.stringify({ programId: DEFINITION.id, name: 'GZCLP', config: { squat: 20 } })
+    );
+    const reservation = {
+      reconciliationId: `pending-create:${intentId}:${idempotencyKey}`,
+      idempotencyKey,
+      intentId,
+    };
+    const clearCreateReconciliation = jest.fn(async () => undefined);
+    const createRemote = jest
+      .fn()
+      .mockRejectedValueOnce(new RemoteMutationRejectedError('create', null, 429))
+      .mockResolvedValueOnce(DETAIL);
+    const dependencies = {
+      createRemote,
+      fetchRemotePrograms: jest.fn(async () => [SUMMARY]),
+      cacheCreated: jest.fn(async () => undefined),
+      reserveCreate: jest.fn(async () => reservation),
+      scheduleReconciliation: jest.fn(async () => undefined),
+      clearCreateReconciliation,
+    };
+    const input = {
+      ownerUserId: 'user-a',
+      definition: DEFINITION,
+      name: 'GZCLP',
+      config: { squat: 20 },
+    };
+
+    await expect(startPresetProgram(input, dependencies)).rejects.toMatchObject({ status: 429 });
+    expect(clearCreateReconciliation).not.toHaveBeenCalled();
+
+    await expect(startPresetProgram(input, dependencies)).resolves.toEqual({
+      status: 'applied',
+      remote: DETAIL,
+    });
+    expect(clearCreateReconciliation).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses a create reservation for equivalent whitespace and config key order', async () => {
+    const firstKey = 'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0';
+    const ignoredSecondKey = '2b714cc9-07b5-43e6-a2b1-79e83b97cfc1';
+    jest
+      .mocked(Crypto.randomUUID)
+      .mockReturnValueOnce(firstKey)
+      .mockReturnValueOnce(ignoredSecondKey);
+    const reservations = new Map<
+      string,
+      {
+        readonly reconciliationId: string;
+        readonly idempotencyKey: string;
+        readonly intentId: string;
+      }
+    >();
+    const reserveCreate = jest.fn(
+      async (_ownerUserId: string, intentId: string, generatedKey: string) => {
+        const existing = reservations.get(intentId);
+        if (existing !== undefined) {
+          return existing;
+        }
+        const reservation = {
+          reconciliationId: `pending-create:${intentId}:${generatedKey}`,
+          idempotencyKey: generatedKey,
+          intentId,
+        };
+        reservations.set(intentId, reservation);
+        return reservation;
+      }
+    );
+    const createRemote = jest.fn<
+      Promise<GenericProgramDetail>,
+      [Parameters<typeof createProgramInstance>[0]]
+    >(async () => DETAIL);
+    const dependencies = {
+      createRemote,
+      fetchRemotePrograms: jest.fn(async () => [SUMMARY]),
+      cacheCreated: jest.fn(async () => undefined),
+      reserveCreate,
+      scheduleReconciliation: jest.fn(async () => undefined),
+    };
+
+    await startPresetProgram(
+      {
+        ownerUserId: 'user-a',
+        definition: DEFINITION,
+        name: '  GZCLP  ',
+        config: { variant: 'classic', squat: 20 },
+      },
+      dependencies
+    );
+    await startPresetProgram(
+      {
+        ownerUserId: 'user-a',
+        definition: DEFINITION,
+        name: 'GZCLP',
+        config: { squat: 20, variant: 'classic' },
+      },
+      dependencies
+    );
+
+    expect(reserveCreate.mock.calls.map(([, intentId]) => intentId)).toEqual([
+      reserveCreate.mock.calls[0]?.[1],
+      reserveCreate.mock.calls[0]?.[1],
+    ]);
+    expect(createRemote.mock.calls.map(([input]) => input?.idempotencyKey)).toEqual([
+      firstKey,
+      firstKey,
+    ]);
+    expect(createRemote.mock.calls.map(([input]) => input?.name)).toEqual(['GZCLP', 'GZCLP']);
+  });
+
+  it('does not restore a closed reservation when a concurrent late response is uncertain', async () => {
+    const idempotencyKey = 'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0';
+    const intentId = encodeURIComponent(
+      JSON.stringify({ programId: DEFINITION.id, name: 'GZCLP', config: { squat: 20 } })
+    );
+    const reservation = {
+      reconciliationId: `pending-create:${intentId}:${idempotencyKey}`,
+      idempotencyKey,
+      intentId,
+    };
+    let reservationOpen = true;
+    let resolveWinner: (value: typeof DETAIL) => void = () => undefined;
+    let rejectLate: (reason: Error) => void = () => undefined;
+    const winner = new Promise<typeof DETAIL>((resolve) => {
+      resolveWinner = resolve;
+    });
+    const late = new Promise<typeof DETAIL>((_, reject) => {
+      rejectLate = reject;
+    });
+    let createCalls = 0;
+    const scheduleReconciliation = jest.fn(async () => undefined);
+    const dependencies = {
+      createRemote: jest.fn(() => {
+        createCalls += 1;
+        return createCalls === 1 ? winner : late;
+      }),
+      fetchRemotePrograms: jest.fn(async () => [SUMMARY]),
+      cacheCreated: jest.fn(async () => undefined),
+      reserveCreate: jest.fn(async () => reservation),
+      markCreatePending: jest.fn(async () => reservationOpen),
+      clearCreateReconciliation: jest.fn(async () => {
+        reservationOpen = false;
+      }),
+      scheduleReconciliation,
+    };
+    const input = {
+      ownerUserId: 'user-a',
+      definition: DEFINITION,
+      name: 'GZCLP',
+      config: { squat: 20 },
+    };
+
+    const first = startPresetProgram(input, dependencies);
+    const second = startPresetProgram(input, dependencies);
+    await Promise.resolve();
+    await Promise.resolve();
+    resolveWinner(DETAIL);
+    await expect(first).resolves.toEqual({ status: 'applied', remote: DETAIL });
+    rejectLate(new RemoteMutationOutcomeUnknownError('create', null, new Error('response lost')));
+
+    await expect(second).resolves.toMatchObject({
+      status: 'reconciliation_required',
+      remoteState: 'outcome_unknown',
+      reconciliationScheduled: false,
+    });
+    expect(scheduleReconciliation).not.toHaveBeenCalled();
+  });
+
+  it('does not reuse an uncertain create key for a different create intent', async () => {
+    const priorIdempotencyKey = 'c1f98b2b-a61c-4bbd-a9c6-4f0a23e8f7d0';
+    jest.mocked(Crypto.randomUUID).mockReturnValueOnce('2b714cc9-07b5-43e6-a2b1-79e83b97cfc1');
+    const priorIntentId = encodeURIComponent(
+      JSON.stringify({ programId: DEFINITION.id, name: 'GZCLP', config: { squat: 20 } })
+    );
+    const idempotencyKeys: string[] = [];
+    const createRemote = jest.fn(async (input: Parameters<typeof createProgramInstance>[0]) => {
+      if (input.idempotencyKey !== undefined) idempotencyKeys.push(input.idempotencyKey);
+      return DETAIL;
+    });
+
+    await startPresetProgram(
+      {
+        ownerUserId: 'user-a',
+        definition: DEFINITION,
+        name: 'Different GZCLP',
+        config: { squat: 20 },
+      },
+      {
+        createRemote,
+        fetchRemotePrograms: jest.fn(async () => [SUMMARY]),
+        cacheCreated: jest.fn(async () => undefined),
+        scheduleReconciliation: jest.fn(async () => undefined),
+        readPendingCreate: jest.fn(async () => ({
+          pending: true as const,
+          programInstanceId: null,
+          idempotencyKey: priorIdempotencyKey,
+          intentId: priorIntentId,
+        })),
+      }
+    );
+
+    expect(idempotencyKeys).toHaveLength(1);
+    expect(idempotencyKeys[0]).not.toBe(priorIdempotencyKey);
   });
 
   it('exposes a recoverable create ID when an acknowledged response body is corrupt', async () => {

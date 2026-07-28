@@ -103,7 +103,7 @@ describe('mobile AuthProvider', () => {
 
     expect(await screen.findByText('athlete@example.com')).toBeTruthy();
     await waitFor(() => {
-      expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('restored-access-token');
+      expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('user-123', 'restored-access-token');
     });
   });
 
@@ -128,7 +128,7 @@ describe('mobile AuthProvider', () => {
     );
 
     expect(await screen.findByText('athlete@example.com')).toBeTruthy();
-    expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('restored-access-token');
+    expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('user-123', 'restored-access-token');
 
     slowFlush.resolve({ processedCount: 0 });
   });
@@ -161,7 +161,7 @@ describe('mobile AuthProvider', () => {
     await waitFor(() => {
       expect(mockedSignOutSession).toHaveBeenCalledTimes(1);
       expect(mockedClearLocalAppData).toHaveBeenCalledTimes(1);
-      expect(mockedClearQueuedMutations).toHaveBeenCalledTimes(1);
+      expect(mockedClearQueuedMutations).toHaveBeenCalledWith('user-123');
     });
     const signOutOrder = mockedSignOutSession.mock.invocationCallOrder[0];
     const firstQueueClearOrder = mockedClearQueuedMutations.mock.invocationCallOrder[0];
@@ -201,7 +201,7 @@ describe('mobile AuthProvider', () => {
 
     await waitFor(() => {
       expect(mockedClearLocalAppData).toHaveBeenCalledTimes(1);
-      expect(mockedClearQueuedMutations).toHaveBeenCalledTimes(1);
+      expect(mockedClearQueuedMutations).toHaveBeenCalledWith('user-123');
       expect(mockedSignOutSession).toHaveBeenCalledTimes(1);
     });
     const signOutOrder = mockedSignOutSession.mock.invocationCallOrder[0];
@@ -238,6 +238,6 @@ describe('mobile AuthProvider', () => {
 
     expect(await screen.findByText('athlete@example.com')).toBeTruthy();
     expect(mockedSignInWithGoogleIdToken).toHaveBeenCalledWith('google-id-token');
-    expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('fresh-access-token');
+    expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('user-123', 'fresh-access-token');
   });
 });

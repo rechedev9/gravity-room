@@ -3,7 +3,7 @@
  * Framework-agnostic: no Elysia dependency.
  */
 import { eq, and, lt, desc, or, gt, asc, sql, inArray, type SQL } from 'drizzle-orm';
-import { getDb, type DbTransaction } from '../db';
+import { getDb, type DbInstance, type DbTransaction } from '../db';
 import {
   exercises,
   programDefinitions,
@@ -17,7 +17,10 @@ import { getProgramDefinition } from '../services/catalog';
 import { collectExerciseIds } from '../lib/definition-utils';
 import { hydrateProgramDefinition } from '../lib/hydrate-program';
 import { invalidateCachedInstances } from '../lib/program-cache';
-import { validateProgramConfig } from '@gzclp/domain/program-config';
+import {
+  canonicalProgramCreationIntent,
+  validateProgramConfig,
+} from '@gzclp/domain/program-config';
 import {
   ProgramDefinitionSchema,
   type ProgramDefinition,
@@ -278,10 +281,11 @@ function toResponse(
 
 /** Fetches results + undo rows in parallel with column projection (no SELECT *). */
 async function fetchResultsAndUndo(
-  instanceId: string
+  instanceId: string,
+  database: Pick<DbInstance, 'select'> | Pick<DbTransaction, 'select'> = getDb()
 ): Promise<readonly [readonly ResultProjection[], readonly UndoProjection[]]> {
   return Promise.all([
-    getDb()
+    database
       .select({
         workoutIndex: workoutResults.workoutIndex,
         slotId: workoutResults.slotId,
@@ -294,7 +298,7 @@ async function fetchResultsAndUndo(
       })
       .from(workoutResults)
       .where(eq(workoutResults.instanceId, instanceId)),
-    getDb()
+    database
       .select({
         workoutIndex: undoEntries.workoutIndex,
         slotId: undoEntries.slotId,
@@ -317,8 +321,13 @@ export async function createInstance(
   userId: string,
   programId: string,
   name: string,
-  config: Record<string, number | string>
+  config: Record<string, number | string>,
+  creationKey?: string
 ): Promise<ProgramInstanceResponse> {
+  const normalizedName = name.trim();
+  if (normalizedName.length === 0) {
+    throw new ApiError(400, 'Program name is required', 'INVALID_PROGRAM_NAME');
+  }
   const committed = await getDb().transaction(async (tx) => {
     // The user row is the serialization point for every create by one owner.
     // Together with the partial unique index on active instances, this makes
@@ -331,6 +340,29 @@ export async function createInstance(
       .limit(1);
     if (!owner) {
       throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+    }
+
+    const creationIntent = canonicalProgramCreationIntent(programId, normalizedName, config);
+
+    if (creationKey) {
+      const [existing] = await tx
+        .select()
+        .from(programInstances)
+        .where(
+          and(eq(programInstances.userId, userId), eq(programInstances.creationKey, creationKey))
+        )
+        .limit(1);
+      if (existing) {
+        if (existing.creationIntent !== creationIntent) {
+          throw new ApiError(
+            409,
+            'Idempotency key was used for a different create request',
+            'IDEMPOTENCY_KEY_CONFLICT'
+          );
+        }
+        const [resultRows, undoRows] = await fetchResultsAndUndo(existing.id, tx);
+        return { response: toResponse(existing, resultRows, undoRows), invalidatedIds: [] };
+      }
     }
 
     const definition = await loadAuthoritativeProgramDefinition(tx, programId, true);
@@ -347,7 +379,8 @@ export async function createInstance(
       .values({
         userId,
         templateId: programId,
-        name,
+        name: normalizedName,
+        ...(creationKey === undefined ? {} : { creationKey, creationIntent }),
         programConfig: validatedConfig,
         status: 'active',
       })
@@ -458,6 +491,8 @@ export async function getInstance(
       templateId: programInstances.templateId,
       definitionId: programInstances.definitionId,
       customDefinition: programInstances.customDefinition,
+      creationKey: programInstances.creationKey,
+      creationIntent: programInstances.creationIntent,
       name: programInstances.name,
       programConfig: programInstances.programConfig,
       metadata: programInstances.metadata,

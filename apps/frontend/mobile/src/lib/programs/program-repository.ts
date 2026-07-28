@@ -143,6 +143,14 @@ export interface PendingManageReconciliation {
 export interface PendingCreateReconciliation {
   readonly pending: true;
   readonly programInstanceId: string | null;
+  readonly idempotencyKey?: string | null;
+  readonly intentId?: string | null;
+}
+
+export interface ReservedCreateReconciliation {
+  readonly reconciliationId: string;
+  readonly idempotencyKey: string;
+  readonly intentId: string;
 }
 
 function requireOwnerUserId(ownerUserId: string): void {
@@ -1393,8 +1401,136 @@ export async function readPendingCreateReconciliation(
   if (!isRecord(row) || typeof row.entity_id !== 'string') {
     throw new Error('SQLite returned an invalid pending create reconciliation');
   }
+  const pendingParts = row.entity_id.startsWith('pending-create:')
+    ? row.entity_id.slice('pending-create:'.length).split(':')
+    : [];
+  const idempotencyKey = pendingParts.at(-1) ?? null;
+  const intentId = pendingParts.length >= 2 ? pendingParts.slice(0, -1).join(':') : null;
+
   return {
     pending: true,
-    programInstanceId: row.entity_id.startsWith('unknown:') ? null : row.entity_id,
+    programInstanceId:
+      row.entity_id.startsWith('unknown:') || row.entity_id.startsWith('pending-create:')
+        ? null
+        : row.entity_id,
+    ...(idempotencyKey === null ? {} : { idempotencyKey }),
+    ...(intentId === null ? {} : { intentId }),
   };
+}
+
+export async function reserveProgramCreateReconciliation(
+  ownerUserId: string,
+  intentId: string,
+  generatedIdempotencyKey: string
+): Promise<ReservedCreateReconciliation> {
+  requireOwnerUserId(ownerUserId);
+  if (intentId.length === 0 || generatedIdempotencyKey.length === 0) {
+    throw new Error(
+      'Program creation reconciliation requires a non-empty intent and idempotency key'
+    );
+  }
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+
+  let reserved: ReservedCreateReconciliation | null = null;
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    const reconciliationId = `pending-create:${intentId}:${generatedIdempotencyKey}`;
+    await transaction.runAsync(
+      `INSERT INTO mobile_v2_program_reconciliations (
+         owner_user_id, operation, entity_id, create_intent, create_idempotency_key, created_at
+       ) VALUES (?, 'create', ?, ?, ?, ?)
+        ON CONFLICT(owner_user_id, operation, create_intent)
+          WHERE operation = 'create' AND create_intent IS NOT NULL
+       DO NOTHING`,
+      ownerUserId,
+      reconciliationId,
+      intentId,
+      generatedIdempotencyKey,
+      new Date().toISOString()
+    );
+    const rows = await transaction.getAllAsync(
+      `SELECT entity_id, create_idempotency_key
+       FROM mobile_v2_program_reconciliations
+       WHERE owner_user_id = ? AND operation = 'create' AND create_intent = ?
+       LIMIT 1`,
+      ownerUserId,
+      intentId
+    );
+    const row = rows[0];
+    if (
+      !isRecord(row) ||
+      typeof row.entity_id !== 'string' ||
+      typeof row.create_idempotency_key !== 'string'
+    ) {
+      throw new Error('SQLite did not persist the program creation reconciliation');
+    }
+    reserved = {
+      reconciliationId: row.entity_id,
+      idempotencyKey: row.create_idempotency_key,
+      intentId,
+    };
+  });
+  if (reserved === null) {
+    throw new Error('SQLite did not reserve the program creation reconciliation');
+  }
+  return reserved;
+}
+
+/**
+ * Preserve a dispatched create only while its original reservation still
+ * exists. A late response must never recreate a reservation that a successful
+ * sibling request has already closed.
+ */
+export async function markProgramCreateReconciliationPending(
+  ownerUserId: string,
+  reservation: ReservedCreateReconciliation,
+  remoteProgramInstanceId: string | null
+): Promise<boolean> {
+  requireOwnerUserId(ownerUserId);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  let transitioned = false;
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    await transaction.runAsync(
+      `UPDATE mobile_v2_program_reconciliations
+     SET entity_id = ?, created_at = ?
+     WHERE owner_user_id = ?
+       AND operation = 'create'
+       AND entity_id = ?
+       AND create_intent = ?
+       AND create_idempotency_key = ?`,
+      remoteProgramInstanceId ?? reservation.reconciliationId,
+      new Date().toISOString(),
+      ownerUserId,
+      reservation.reconciliationId,
+      reservation.intentId,
+      reservation.idempotencyKey
+    );
+    const rows = await transaction.getAllAsync('SELECT changes() AS changes');
+    const row = rows[0];
+    if (!isRecord(row) || typeof row.changes !== 'number') {
+      throw new Error('SQLite did not report the create reconciliation transition');
+    }
+    transitioned = row.changes > 0;
+  });
+  return transitioned;
+}
+
+export async function clearProgramCreateReconciliation(
+  ownerUserId: string,
+  reservation: ReservedCreateReconciliation
+): Promise<void> {
+  requireOwnerUserId(ownerUserId);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  await database.runAsync(
+    `DELETE FROM mobile_v2_program_reconciliations
+     WHERE owner_user_id = ?
+       AND operation = 'create'
+       AND create_intent = ?
+       AND create_idempotency_key = ?`,
+    ownerUserId,
+    reservation.intentId,
+    reservation.idempotencyKey
+  );
 }

@@ -338,6 +338,7 @@ export async function createProgramInstance(input: {
   readonly definition: ProgramDefinition;
   readonly name: string;
   readonly config: unknown;
+  readonly idempotencyKey?: string;
 }): Promise<GenericProgramDetail> {
   const session =
     input.session ??
@@ -358,6 +359,9 @@ export async function createProgramInstance(input: {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(input.idempotencyKey === undefined
+            ? {}
+            : { 'Idempotency-Key': input.idempotencyKey }),
         },
         body: JSON.stringify({
           programId: definition.id,

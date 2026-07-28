@@ -6,6 +6,8 @@ import {
   MOBILE_V2_PROGRAM_LIBRARY_TABLES_SQL,
   MOBILE_V2_RECONCILIATION_EXPECTATIONS_SQL,
   MOBILE_V2_SNAPSHOT_METADATA_TABLE_SQL,
+  MOBILE_V2_OWNER_SCOPED_QUEUE_SQL,
+  MOBILE_V2_CREATE_RECONCILIATION_INTENT_SQL,
 } from './schema';
 
 export interface MigrationStep {
@@ -47,5 +49,13 @@ export const MIGRATIONS: readonly MigrationStep[] = [
   {
     version: 4,
     sql: MOBILE_V2_RECONCILIATION_EXPECTATIONS_SQL,
+  },
+  {
+    version: 5,
+    sql: MOBILE_V2_OWNER_SCOPED_QUEUE_SQL,
+  },
+  {
+    version: 6,
+    sql: MOBILE_V2_CREATE_RECONCILIATION_INTENT_SQL,
   },
 ];

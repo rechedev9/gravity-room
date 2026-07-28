@@ -10,13 +10,13 @@ let inFlightFlush: Promise<{ readonly processedCount: number }> | null = null;
 let inFlightFlushAccessToken: string | null = null;
 let inFlightFlushController: AbortController | null = null;
 
-export async function clearQueuedMutations(): Promise<void> {
+export async function clearQueuedMutations(ownerUserId: string): Promise<void> {
   inFlightFlushController?.abort();
   inFlightFlush = null;
   inFlightFlushAccessToken = null;
   inFlightFlushController = null;
 
-  await clearQueuedMutationsFromRepository();
+  await clearQueuedMutationsFromRepository(ownerUserId);
 }
 
 function buildProgramRequestPath(entityId: string): string {
@@ -98,6 +98,7 @@ async function replayQueuedMutation(
 }
 
 export async function flushQueuedMutations(
+  ownerUserId: string,
   accessToken: string
 ): Promise<{ readonly processedCount: number }> {
   if (inFlightFlush) {
@@ -114,7 +115,7 @@ export async function flushQueuedMutations(
   const abortController = new AbortController();
 
   const flushPromise = (async (): Promise<{ readonly processedCount: number }> => {
-    const queuedMutations = await listQueuedMutations();
+    const queuedMutations = await listQueuedMutations(ownerUserId);
     if (queuedMutations.length === 0) {
       return { processedCount: 0 };
     }
@@ -132,14 +133,14 @@ export async function flushQueuedMutations(
         acknowledgedIds.push(mutation.id);
       } catch (error) {
         if (acknowledgedIds.length > 0) {
-          await acknowledgeQueuedMutations(acknowledgedIds);
+          await acknowledgeQueuedMutations(ownerUserId, acknowledgedIds);
         }
 
         throw error;
       }
     }
 
-    await acknowledgeQueuedMutations(acknowledgedIds);
+    await acknowledgeQueuedMutations(ownerUserId, acknowledgedIds);
 
     return {
       processedCount: acknowledgedIds.length,
