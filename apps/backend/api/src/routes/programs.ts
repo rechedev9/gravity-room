@@ -17,6 +17,8 @@ import {
   type ExportedProgram,
 } from '../services/programs';
 import {
+  beginCachedInstanceFill,
+  completeCachedInstanceFill,
   getCachedInstance,
   setCachedInstance,
   invalidateCachedInstance,
@@ -24,6 +26,10 @@ import {
 import { SingleflightMap } from '../lib/singleflight';
 import { ApiError } from '../middleware/error-handler';
 import { MAX_PROGRAM_CONFIG_KEYS } from '@gzclp/domain/schemas/instance';
+import {
+  MAX_PROGRAM_WEIGHT,
+  MIN_POSITIVE_PROGRAM_WEIGHT,
+} from '@gzclp/domain/schemas/program-definition';
 
 // Singleflight: concurrent GETs for the same program instance share one DB fetch
 const instanceFlight = new SingleflightMap<unknown>();
@@ -36,9 +42,16 @@ const PROGRAM_ID_PATTERN = '^[a-z0-9-]+$';
 const WORKOUT_INDEX_KEY_PATTERN = '^\\d{1,3}$';
 const WORKOUT_INDEX_KEY_REGEX = /^\d{1,3}$/;
 
+const programWeightSchema = t.Union([
+  t.Literal(0),
+  t.Number({
+    minimum: MIN_POSITIVE_PROGRAM_WEIGHT,
+    maximum: MAX_PROGRAM_WEIGHT,
+  }),
+]);
 const programConfigSchema = t.Record(
   t.String({ maxLength: 30 }),
-  t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })]),
+  t.Union([programWeightSchema, t.String({ maxLength: 100 })]),
   { maxProperties: MAX_PROGRAM_CONFIG_KEYS }
 );
 const programIdSchema = t.String({
@@ -149,15 +162,23 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
       await rateLimit(userId, 'GET /programs/:id', { maxRequests: 100 });
       const cached = await getCachedInstance(userId, params.id);
       if (cached) return cached;
+      const fill = await beginCachedInstanceFill(userId);
 
       // Singleflight: concurrent GETs for the same instance share one DB fetch
-      return instanceFlight.run(`${userId}:${params.id}`, async () => {
-        const rechecked = await getCachedInstance(userId, params.id);
-        if (rechecked) return rechecked;
-        const fresh = await getInstance(userId, params.id);
-        await setCachedInstance(userId, params.id, fresh);
-        return fresh;
-      });
+      try {
+        return await instanceFlight.run(
+          `${userId}:${params.id}:${fill.flightGeneration}`,
+          async () => {
+            const rechecked = await getCachedInstance(userId, params.id);
+            if (rechecked) return rechecked;
+            const fresh = await getInstance(userId, params.id);
+            await setCachedInstance(userId, params.id, fresh, fill);
+            return fresh;
+          }
+        );
+      } finally {
+        completeCachedInstanceFill(userId, fill);
+      }
     },
     {
       params: t.Object({

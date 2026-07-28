@@ -11,8 +11,26 @@ import {
 } from '@gzclp/domain';
 import { isRecord } from '@gzclp/domain/type-guards';
 
+import {
+  assertAuthorizedSessionCurrent,
+  ObsoleteAuthorizedSessionError,
+  type AuthorizedSession,
+} from '../auth/session';
 import { bootstrapDatabase, getDatabase } from '../db/client';
 import type { DatabaseClient } from '../db/expo-sqlite-adapter';
+import {
+  abandonProgramRefreshLease,
+  assertProgramRefreshLeaseCanCommit,
+  getNewerProgramRefreshLeaseSettlement,
+  markProgramRefreshLeaseCommitted,
+  ObsoleteProgramRefreshLeaseError,
+  withProgramMutationGenerationBarriers,
+  withProgramRefreshCommitBarrier,
+  withProgramRefreshMutationBarrier,
+  withProgramRefreshMutationBarriers,
+  type ProgramRefreshLease,
+  type ProgramRefreshResource,
+} from './program-refresh-generation';
 
 export type ProgramStatus = ProgramInstance['status'];
 
@@ -23,6 +41,65 @@ export interface ProgramSummary {
   readonly status: ProgramStatus;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+function assertProgramWriteSessionCurrent(
+  ownerUserId: string,
+  session: AuthorizedSession | undefined
+): void {
+  if (session === undefined) {
+    return;
+  }
+  if (session.ownerUserId !== ownerUserId) {
+    throw new ObsoleteAuthorizedSessionError(true);
+  }
+  assertAuthorizedSessionCurrent(session, true);
+}
+
+async function commitRefreshTransaction(
+  database: DatabaseClient,
+  lease: ProgramRefreshLease,
+  write: (transaction: DatabaseClient) => Promise<void>,
+  protectWrite?: (writeTransaction: () => Promise<void>) => Promise<void>
+): Promise<boolean> {
+  try {
+    while (true) {
+      const outcome = await withProgramRefreshCommitBarrier(
+        lease.ownerUserId,
+        lease.resource,
+        async () => {
+          const newerSettlement = getNewerProgramRefreshLeaseSettlement(lease);
+          if (newerSettlement !== null) {
+            return { status: 'wait' as const, newerSettlement };
+          }
+          assertProgramRefreshLeaseCanCommit(lease);
+          const writeTransaction = () =>
+            database.withExclusiveTransactionAsync(async (transaction) => {
+              assertProgramRefreshLeaseCanCommit(lease);
+              await write(transaction);
+              assertProgramRefreshLeaseCanCommit(lease);
+            });
+          if (protectWrite === undefined) {
+            await writeTransaction();
+          } else {
+            await protectWrite(writeTransaction);
+          }
+          markProgramRefreshLeaseCommitted(lease);
+          return { status: 'committed' as const };
+        }
+      );
+      if (outcome.status === 'committed') {
+        return true;
+      }
+      await outcome.newerSettlement;
+    }
+  } catch (error) {
+    await abandonProgramRefreshLease(lease);
+    if (error instanceof ObsoleteProgramRefreshLeaseError) {
+      return false;
+    }
+    throw error;
+  }
 }
 
 interface ProgramSummaryRow {
@@ -380,6 +457,62 @@ async function replaceSummaries(
   }
 }
 
+function parseProgramIdRows(values: readonly unknown[]): string[] {
+  return values.map((value) => {
+    if (!isRecord(value) || typeof value.id !== 'string') {
+      throw new Error('SQLite returned an invalid program identifier row');
+    }
+    return value.id;
+  });
+}
+
+async function listCachedProgramIdsMissingFromSnapshot(
+  database: DatabaseClient,
+  ownerUserId: string,
+  programs: readonly ProgramSummary[]
+): Promise<string[]> {
+  const rows = await database.getAllAsync(
+    `SELECT id
+     FROM mobile_v2_program_summaries
+     WHERE owner_user_id = ?
+     UNION
+     SELECT id
+     FROM mobile_v2_program_details
+     WHERE owner_user_id = ?`,
+    ownerUserId,
+    ownerUserId
+  );
+  const snapshotIds = new Set(programs.map((program) => program.id));
+  return parseProgramIdRows(rows).filter((id) => !snapshotIds.has(id));
+}
+
+async function listOtherActiveProgramIds(
+  database: DatabaseClient,
+  ownerUserId: string,
+  programInstanceId: string
+): Promise<string[]> {
+  const rows = await database.getAllAsync(
+    `SELECT id
+     FROM mobile_v2_program_summaries
+     WHERE owner_user_id = ? AND id <> ? AND status = 'active'
+     UNION
+     SELECT id
+     FROM mobile_v2_program_details
+     WHERE owner_user_id = ?
+       AND id <> ?
+       AND json_extract(detail_json, '$.status') = 'active'`,
+    ownerUserId,
+    programInstanceId,
+    ownerUserId,
+    programInstanceId
+  );
+  return parseProgramIdRows(rows);
+}
+
+function detailResources(programIds: readonly string[]): ProgramRefreshResource[] {
+  return programIds.map((programId): ProgramRefreshResource => `detail:${programId}`);
+}
+
 async function upsertSnapshotMetadata(
   transaction: DatabaseClient,
   ownerUserId: string,
@@ -471,8 +604,49 @@ export async function replaceProgramSummaries(
   const database = getDatabase();
   await bootstrapDatabase(database);
 
-  await database.withExclusiveTransactionAsync((transaction) =>
-    replaceSummaries(transaction, ownerUserId, programs, new Date().toISOString())
+  await withProgramRefreshMutationBarrier(ownerUserId, 'library', async () => {
+    const removedProgramIds = await listCachedProgramIdsMissingFromSnapshot(
+      database,
+      ownerUserId,
+      programs
+    );
+    await withProgramRefreshMutationBarriers(ownerUserId, detailResources(removedProgramIds), () =>
+      database.withExclusiveTransactionAsync((transaction) =>
+        replaceSummaries(transaction, ownerUserId, programs, new Date().toISOString())
+      )
+    );
+  });
+}
+
+export async function commitProgramSummariesRefresh(
+  lease: ProgramRefreshLease,
+  programs: readonly ProgramSummary[]
+): Promise<boolean> {
+  requireOwnerUserId(lease.ownerUserId);
+  if (lease.resource !== 'library') {
+    return false;
+  }
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+
+  return commitRefreshTransaction(
+    database,
+    lease,
+    async (transaction) => {
+      await replaceSummaries(transaction, lease.ownerUserId, programs, new Date().toISOString());
+    },
+    async (writeTransaction) => {
+      const removedProgramIds = await listCachedProgramIdsMissingFromSnapshot(
+        database,
+        lease.ownerUserId,
+        programs
+      );
+      await withProgramRefreshMutationBarriers(
+        lease.ownerUserId,
+        detailResources(removedProgramIds),
+        writeTransaction
+      );
+    }
   );
 }
 
@@ -536,24 +710,62 @@ export async function replaceCachedCatalog(
   const database = getDatabase();
   await bootstrapDatabase(database);
 
-  await database.withExclusiveTransactionAsync(async (transaction) => {
+  await withProgramRefreshMutationBarrier(ownerUserId, 'catalog', () =>
+    database.withExclusiveTransactionAsync(async (transaction) => {
+      await transaction.runAsync(
+        'DELETE FROM mobile_v2_program_catalog WHERE owner_user_id = ?',
+        ownerUserId
+      );
+
+      for (const entry of entries) {
+        await transaction.runAsync(
+          `INSERT INTO mobile_v2_program_catalog (
+           owner_user_id, id, entry_json, updated_at
+         ) VALUES (?, ?, ?, ?)`,
+          ownerUserId,
+          entry.id,
+          JSON.stringify(entry),
+          new Date().toISOString()
+        );
+      }
+      await upsertSnapshotMetadata(transaction, ownerUserId, 'catalog', new Date().toISOString());
+    })
+  );
+}
+
+export async function commitProgramCatalogRefresh(
+  lease: ProgramRefreshLease,
+  entries: readonly CatalogEntry[]
+): Promise<boolean> {
+  requireOwnerUserId(lease.ownerUserId);
+  if (lease.resource !== 'catalog') {
+    return false;
+  }
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+
+  return commitRefreshTransaction(database, lease, async (transaction) => {
     await transaction.runAsync(
       'DELETE FROM mobile_v2_program_catalog WHERE owner_user_id = ?',
-      ownerUserId
+      lease.ownerUserId
     );
-
     for (const entry of entries) {
       await transaction.runAsync(
         `INSERT INTO mobile_v2_program_catalog (
            owner_user_id, id, entry_json, updated_at
          ) VALUES (?, ?, ?, ?)`,
-        ownerUserId,
+        lease.ownerUserId,
         entry.id,
         JSON.stringify(entry),
         new Date().toISOString()
       );
     }
-    await upsertSnapshotMetadata(transaction, ownerUserId, 'catalog', new Date().toISOString());
+    await upsertSnapshotMetadata(
+      transaction,
+      lease.ownerUserId,
+      'catalog',
+      new Date().toISOString()
+    );
   });
 }
 
@@ -604,6 +816,8 @@ export async function readProgramCatalogSnapshot(
 
 export async function cacheCreatedProgram(input: {
   readonly ownerUserId: string;
+  readonly session?: AuthorizedSession;
+  readonly libraryLease: ProgramRefreshLease;
   readonly detail: GenericProgramDetail;
   readonly definition: ProgramDefinition;
   readonly serverPrograms: readonly ProgramSummary[] | null;
@@ -625,61 +839,98 @@ export async function cacheCreatedProgram(input: {
   }
   const database = getDatabase();
   await bootstrapDatabase(database);
+  const lease = input.libraryLease;
+  if (lease.ownerUserId !== input.ownerUserId || lease.resource !== 'library') {
+    throw new Error('Created program cache requires its library producer lease');
+  }
+  const writeSession = input.session ?? lease.session;
 
-  await database.withExclusiveTransactionAsync(async (transaction) => {
-    if (input.serverPrograms === null) {
-      await transaction.runAsync(
-        `UPDATE mobile_v2_program_details
-         SET detail_json = json_set(
-               detail_json,
-               '$.status', 'completed',
-               '$.updatedAt', ?
-             ),
-             updated_at = ?
-         WHERE owner_user_id = ?
-           AND id <> ?
-           AND id IN (
-             SELECT id
-             FROM mobile_v2_program_summaries
-             WHERE owner_user_id = ? AND status = 'active'
-           )`,
-        detail.updatedAt,
-        detail.updatedAt,
+  try {
+    await withProgramRefreshCommitBarrier(input.ownerUserId, 'library', async () => {
+      assertProgramRefreshLeaseCanCommit(lease);
+      const affectedProgramIds =
+        input.serverPrograms === null
+          ? await listOtherActiveProgramIds(database, input.ownerUserId, detail.id)
+          : await listCachedProgramIdsMissingFromSnapshot(
+              database,
+              input.ownerUserId,
+              input.serverPrograms
+            );
+      await withProgramRefreshMutationBarriers(
         input.ownerUserId,
-        createdSummary.id,
-        input.ownerUserId
+        [
+          `definition:${definition.id}`,
+          `detail:${detail.id}`,
+          ...detailResources(affectedProgramIds),
+        ],
+        async () => {
+          assertProgramRefreshLeaseCanCommit(lease);
+          await database.withExclusiveTransactionAsync(async (transaction) => {
+            assertProgramWriteSessionCurrent(input.ownerUserId, writeSession);
+            assertProgramRefreshLeaseCanCommit(lease);
+            if (input.serverPrograms === null) {
+              await transaction.runAsync(
+                `UPDATE mobile_v2_program_details
+               SET detail_json = json_set(
+                     detail_json,
+                     '$.status', 'completed',
+                     '$.updatedAt', ?
+                   ),
+                   updated_at = ?
+               WHERE owner_user_id = ?
+                 AND id <> ?
+                 AND id IN (
+                   SELECT id
+                   FROM mobile_v2_program_summaries
+                   WHERE owner_user_id = ? AND status = 'active'
+                 )`,
+                detail.updatedAt,
+                detail.updatedAt,
+                input.ownerUserId,
+                createdSummary.id,
+                input.ownerUserId
+              );
+              await transaction.runAsync(
+                `UPDATE mobile_v2_program_summaries
+               SET status = 'completed', updated_at = ?
+               WHERE owner_user_id = ? AND status = 'active' AND id <> ?`,
+                detail.updatedAt,
+                input.ownerUserId,
+                createdSummary.id
+              );
+              await upsertSummary(transaction, input.ownerUserId, createdSummary);
+            } else {
+              await replaceSummaries(
+                transaction,
+                input.ownerUserId,
+                input.serverPrograms,
+                new Date().toISOString()
+              );
+            }
+            await upsertDetail(transaction, input.ownerUserId, detail);
+            await upsertDefinition(transaction, input.ownerUserId, definition);
+            await transaction.runAsync(
+              `INSERT INTO mobile_v2_program_preferences (
+               owner_user_id, pinned_program_id, updated_at
+             ) VALUES (?, ?, ?)
+             ON CONFLICT(owner_user_id) DO UPDATE SET
+               pinned_program_id = excluded.pinned_program_id,
+               updated_at = excluded.updated_at`,
+              input.ownerUserId,
+              detail.id,
+              new Date().toISOString()
+            );
+            assertProgramWriteSessionCurrent(input.ownerUserId, writeSession);
+            assertProgramRefreshLeaseCanCommit(lease);
+          });
+          markProgramRefreshLeaseCommitted(lease);
+        }
       );
-      await transaction.runAsync(
-        `UPDATE mobile_v2_program_summaries
-         SET status = 'completed', updated_at = ?
-         WHERE owner_user_id = ? AND status = 'active' AND id <> ?`,
-        detail.updatedAt,
-        input.ownerUserId,
-        createdSummary.id
-      );
-      await upsertSummary(transaction, input.ownerUserId, createdSummary);
-    } else {
-      await replaceSummaries(
-        transaction,
-        input.ownerUserId,
-        input.serverPrograms,
-        new Date().toISOString()
-      );
-    }
-    await upsertDetail(transaction, input.ownerUserId, detail);
-    await upsertDefinition(transaction, input.ownerUserId, definition);
-    await transaction.runAsync(
-      `INSERT INTO mobile_v2_program_preferences (
-         owner_user_id, pinned_program_id, updated_at
-       ) VALUES (?, ?, ?)
-       ON CONFLICT(owner_user_id) DO UPDATE SET
-         pinned_program_id = excluded.pinned_program_id,
-         updated_at = excluded.updated_at`,
-      input.ownerUserId,
-      detail.id,
-      new Date().toISOString()
-    );
-  });
+    });
+  } catch (error) {
+    await abandonProgramRefreshLease(lease);
+    throw error;
+  }
 }
 
 async function cacheManagedProgramInTransaction(
@@ -687,6 +938,7 @@ async function cacheManagedProgramInTransaction(
   ownerUserId: string,
   detail: GenericProgramDetail,
   options: {
+    readonly session?: AuthorizedSession;
     readonly activationRequested: boolean;
     readonly mutation: ProgramManageExpectation;
   }
@@ -705,13 +957,18 @@ async function cacheManagedProgramInTransaction(
     pendingRows[0] === undefined ? null : parseStoredManageExpectation(pendingRows[0]);
   const pendingExpectation = pending?.expectation ?? null;
   const resolvesPending =
-    pending !== null && (pendingExpectation === null || expectationMatchesDetail(pending, detail));
+    pending !== null &&
+    pendingExpectation !== null &&
+    programManageExpectationsMatch(pendingExpectation, options.mutation) &&
+    expectationMatchesDetail(pending, detail);
+  if (!resolvesPending) {
+    throw new Error('Management ACK does not match the durable expectation');
+  }
   const summary = toSummary(detail);
   const activating =
     summary.status === 'active' &&
     (options.activationRequested ||
-      (pendingExpectation?.type === 'set_status' && pendingExpectation.status === 'active') ||
-      (pending !== null && pendingExpectation === null));
+      (pendingExpectation.type === 'set_status' && pendingExpectation.status === 'active'));
 
   if (activating) {
     await transaction.runAsync(
@@ -769,7 +1026,7 @@ async function cacheManagedProgramInTransaction(
     ownerUserId,
     detail.id
   );
-  if (options.mutation.type === 'set_config' || pending !== null) {
+  if (options.mutation.type === 'set_config') {
     await transaction.runAsync(
       `UPDATE mobile_v2_program_details
        SET detail_json = json_set(detail_json, '$.config', json(?)),
@@ -803,20 +1060,19 @@ async function cacheManagedProgramInTransaction(
       new Date().toISOString()
     );
   }
-  if (resolvesPending) {
-    await transaction.runAsync(
-      `DELETE FROM mobile_v2_program_reconciliations
-       WHERE owner_user_id = ? AND operation = 'manage' AND entity_id = ?`,
-      ownerUserId,
-      detail.id
-    );
-  }
+  await transaction.runAsync(
+    `DELETE FROM mobile_v2_program_reconciliations
+     WHERE owner_user_id = ? AND operation = 'manage' AND entity_id = ?`,
+    ownerUserId,
+    detail.id
+  );
 }
 
 export async function cacheManagedProgram(
   ownerUserId: string,
   detailValue: GenericProgramDetail,
   options: {
+    readonly session?: AuthorizedSession;
     readonly activationRequested: boolean;
     readonly mutation: ProgramManageExpectation;
   }
@@ -826,8 +1082,24 @@ export async function cacheManagedProgram(
   const database = getDatabase();
   await bootstrapDatabase(database);
 
-  await database.withExclusiveTransactionAsync(async (transaction) => {
-    await cacheManagedProgramInTransaction(transaction, ownerUserId, detail, options);
+  await withProgramRefreshMutationBarrier(ownerUserId, 'library', async () => {
+    const activating =
+      detail.status === 'active' &&
+      (options.activationRequested ||
+        (options.mutation.type === 'set_status' && options.mutation.status === 'active'));
+    const affectedProgramIds = activating
+      ? await listOtherActiveProgramIds(database, ownerUserId, detail.id)
+      : [];
+    await withProgramRefreshMutationBarriers(
+      ownerUserId,
+      [`detail:${detail.id}`, ...detailResources(affectedProgramIds)],
+      () =>
+        database.withExclusiveTransactionAsync(async (transaction) => {
+          assertProgramWriteSessionCurrent(ownerUserId, options.session);
+          await cacheManagedProgramInTransaction(transaction, ownerUserId, detail, options);
+          assertProgramWriteSessionCurrent(ownerUserId, options.session);
+        })
+    );
   });
 }
 
@@ -857,19 +1129,30 @@ async function deleteLocalProgramDataInTransaction(
     programInstanceId
   );
   await transaction.runAsync('DELETE FROM queued_mutations WHERE entity_id = ?', programInstanceId);
+  await transaction.runAsync(
+    `DELETE FROM mobile_v2_program_reconciliations
+     WHERE owner_user_id = ? AND entity_id = ?`,
+    ownerUserId,
+    programInstanceId
+  );
 }
 
 export async function deleteLocalProgramData(
   ownerUserId: string,
-  programInstanceId: string
+  programInstanceId: string,
+  session?: AuthorizedSession
 ): Promise<void> {
   requireOwnerUserId(ownerUserId);
   const database = getDatabase();
   await bootstrapDatabase(database);
 
-  await database.withExclusiveTransactionAsync(async (transaction) => {
-    await deleteLocalProgramDataInTransaction(transaction, ownerUserId, programInstanceId);
-  });
+  await withProgramMutationGenerationBarriers(ownerUserId, programInstanceId, () =>
+    database.withExclusiveTransactionAsync(async (transaction) => {
+      assertProgramWriteSessionCurrent(ownerUserId, session);
+      await deleteLocalProgramDataInTransaction(transaction, ownerUserId, programInstanceId);
+      assertProgramWriteSessionCurrent(ownerUserId, session);
+    })
+  );
 }
 
 export async function recordProgramReconciliation(
@@ -897,8 +1180,9 @@ export async function recordProgramReconciliation(
   const database = getDatabase();
   await bootstrapDatabase(database);
 
-  await database.runAsync(
-    `INSERT INTO mobile_v2_program_reconciliations (
+  await withProgramMutationGenerationBarriers(ownerUserId, entityId, () =>
+    database.runAsync(
+      `INSERT INTO mobile_v2_program_reconciliations (
        owner_user_id,
        operation,
        entity_id,
@@ -918,13 +1202,14 @@ export async function recordProgramReconciliation(
           AND mobile_v2_program_reconciliations.expected_status IS NULL
           AND mobile_v2_program_reconciliations.expected_config_json IS NULL
         )`,
-    ownerUserId,
-    operation,
-    entityId,
-    expectedName,
-    expectedStatus,
-    expectedConfig,
-    new Date().toISOString()
+      ownerUserId,
+      operation,
+      entityId,
+      expectedName,
+      expectedStatus,
+      expectedConfig,
+      new Date().toISOString()
+    )
   );
 }
 
@@ -944,41 +1229,145 @@ export async function readPendingManageReconciliations(
   return rows.map(parseStoredManageExpectation);
 }
 
-export async function resolveProgramReconciliationWithRemoteDetail(
-  ownerUserId: string,
-  detailValue: GenericProgramDetail
-): Promise<boolean> {
+export async function readPendingDeleteReconciliations(
+  ownerUserId: string
+): Promise<readonly string[]> {
   requireOwnerUserId(ownerUserId);
-  const detail = GenericProgramDetailSchema.parse(detailValue);
   const database = getDatabase();
   await bootstrapDatabase(database);
-  let resolved = false;
-  await database.withExclusiveTransactionAsync(async (transaction) => {
-    const rows = await transaction.getAllAsync(
-      `SELECT entity_id, expected_name, expected_status, expected_config_json
+  const rows = await database.getAllAsync(
+    `SELECT entity_id
+     FROM mobile_v2_program_reconciliations
+     WHERE owner_user_id = ? AND operation = 'delete'
+     ORDER BY created_at, entity_id`,
+    ownerUserId
+  );
+  return rows.map((row) => {
+    if (!isRecord(row) || typeof row.entity_id !== 'string' || row.entity_id.length === 0) {
+      throw new Error('SQLite returned an invalid delete reconciliation');
+    }
+    return row.entity_id;
+  });
+}
+
+export async function clearProgramDeleteReconciliation(
+  ownerUserId: string,
+  programInstanceId: string
+): Promise<void> {
+  requireOwnerUserId(ownerUserId);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  await withProgramMutationGenerationBarriers(ownerUserId, programInstanceId, () =>
+    database.runAsync(
+      `DELETE FROM mobile_v2_program_reconciliations
+       WHERE owner_user_id = ? AND operation = 'delete' AND entity_id = ?`,
+      ownerUserId,
+      programInstanceId
+    )
+  );
+}
+
+export async function persistProgramManageExpectation(
+  ownerUserId: string,
+  programInstanceId: string,
+  expectation: ProgramManageExpectation
+): Promise<boolean> {
+  await recordProgramReconciliation(ownerUserId, 'manage', programInstanceId, expectation);
+  const stored = (await readPendingManageReconciliations(ownerUserId)).find(
+    (entry) => entry.programInstanceId === programInstanceId
+  );
+  return (
+    stored?.expectation !== null &&
+    stored?.expectation !== undefined &&
+    programManageExpectationsMatch(stored.expectation, expectation)
+  );
+}
+
+export async function clearProgramManageReconciliationIfMatches(
+  ownerUserId: string,
+  programInstanceId: string,
+  expectation: ProgramManageExpectation
+): Promise<boolean> {
+  requireOwnerUserId(ownerUserId);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  let cleared = false;
+  await withProgramMutationGenerationBarriers(ownerUserId, programInstanceId, () =>
+    database.withExclusiveTransactionAsync(async (transaction) => {
+      const rows = await transaction.getAllAsync(
+        `SELECT entity_id, expected_name, expected_status, expected_config_json
        FROM mobile_v2_program_reconciliations
        WHERE owner_user_id = ?
          AND operation = 'manage'
          AND entity_id = ?
        LIMIT 1`,
-      ownerUserId,
-      detail.id
-    );
-    const row = rows[0];
-    if (row === undefined) {
-      return;
-    }
-    const reconciliation = parseStoredManageExpectation(row);
-    const expectation = reconciliation.expectation;
-    if (expectation === null || !expectationMatchesDetail(reconciliation, detail)) {
-      return;
-    }
-    await cacheManagedProgramInTransaction(transaction, ownerUserId, detail, {
-      activationRequested: expectation.type === 'set_status' && expectation.status === 'active',
-      mutation: expectation,
-    });
-    resolved = true;
-  });
+        ownerUserId,
+        programInstanceId
+      );
+      const row = rows[0];
+      if (row === undefined) {
+        return;
+      }
+      const stored = parseStoredManageExpectation(row);
+      if (
+        stored.expectation === null ||
+        !programManageExpectationsMatch(stored.expectation, expectation)
+      ) {
+        return;
+      }
+      await transaction.runAsync(
+        `DELETE FROM mobile_v2_program_reconciliations
+       WHERE owner_user_id = ? AND operation = 'manage' AND entity_id = ?`,
+        ownerUserId,
+        programInstanceId
+      );
+      cleared = true;
+    })
+  );
+  return cleared;
+}
+
+export async function resolveProgramReconciliationWithRemoteDetail(
+  ownerUserId: string,
+  detailValue: GenericProgramDetail,
+  session: AuthorizedSession
+): Promise<boolean> {
+  requireOwnerUserId(ownerUserId);
+  assertProgramWriteSessionCurrent(ownerUserId, session);
+  const detail = GenericProgramDetailSchema.parse(detailValue);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  let resolved = false;
+  await withProgramMutationGenerationBarriers(ownerUserId, detail.id, () =>
+    database.withExclusiveTransactionAsync(async (transaction) => {
+      assertProgramWriteSessionCurrent(ownerUserId, session);
+      const rows = await transaction.getAllAsync(
+        `SELECT entity_id, expected_name, expected_status, expected_config_json
+       FROM mobile_v2_program_reconciliations
+       WHERE owner_user_id = ?
+         AND operation = 'manage'
+         AND entity_id = ?
+       LIMIT 1`,
+        ownerUserId,
+        detail.id
+      );
+      const row = rows[0];
+      if (row === undefined) {
+        return;
+      }
+      const reconciliation = parseStoredManageExpectation(row);
+      const expectation = reconciliation.expectation;
+      if (expectation === null || !expectationMatchesDetail(reconciliation, detail)) {
+        return;
+      }
+      await cacheManagedProgramInTransaction(transaction, ownerUserId, detail, {
+        activationRequested: expectation.type === 'set_status' && expectation.status === 'active',
+        mutation: expectation,
+      });
+      assertProgramWriteSessionCurrent(ownerUserId, session);
+      resolved = true;
+    })
+  );
   return resolved;
 }
 

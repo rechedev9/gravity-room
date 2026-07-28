@@ -621,7 +621,7 @@ export const endpoints = [
   {
     method: 'post',
     path: '/api/auth/signout',
-    description: `Revokes the current refresh token and clears the cookie.`,
+    description: `Revokes every browser refresh session currently presented.`,
     requestFormat: 'json',
     response: z.void(),
     errors: [

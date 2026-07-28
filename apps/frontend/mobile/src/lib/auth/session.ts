@@ -1,4 +1,3 @@
-import { createSingleFlight } from '@gzclp/api-client/single-flight';
 import { isRecord } from '@gzclp/domain/type-guards';
 import {
   secureRefreshTokenStorage,
@@ -19,6 +18,22 @@ export interface SessionState {
   readonly user: AuthUser;
 }
 
+export interface AuthorizedSession {
+  readonly ownerUserId: string;
+  readonly accessToken: string;
+  readonly generation: number;
+}
+
+export class ObsoleteAuthorizedSessionError extends Error {
+  readonly requestDispatched: boolean;
+
+  constructor(requestDispatched = false) {
+    super('The authenticated session changed while the request was in flight');
+    this.name = 'ObsoleteAuthorizedSessionError';
+    this.requestDispatched = requestDispatched;
+  }
+}
+
 export interface RefreshResponse extends SessionState {
   readonly refreshToken: string;
 }
@@ -32,6 +47,7 @@ interface SignInDependencies {
   readonly storage?: RefreshTokenStorage;
   readonly sessionKindStorage?: SessionKindStorage;
   readonly authenticateWithGoogleIdToken?: (credential: string) => Promise<RefreshResponse>;
+  readonly revokeRemoteSession?: (refreshToken: string) => Promise<void>;
   readonly revokeCookieSession?: () => Promise<void>;
 }
 
@@ -46,7 +62,13 @@ interface EmailSignInDependencies {
   readonly storage?: RefreshTokenStorage;
   readonly sessionKindStorage?: SessionKindStorage;
   readonly login?: (email: string, password: string) => Promise<Response>;
+  readonly loginWithSignal?: (
+    email: string,
+    password: string,
+    signal: AbortSignal
+  ) => Promise<Response>;
   readonly revokeRemoteSession?: (refreshToken: string) => Promise<void>;
+  readonly revokeCookieSession?: () => Promise<void>;
 }
 
 interface EmailSignUpDependencies {
@@ -84,13 +106,279 @@ interface RestoreSessionDependencies {
 }
 
 let accessToken: string | null = null;
-let pendingRestoreDeps: RestoreSessionDependencies = {};
+let authenticatedOwnerUserId: string | null = null;
+let authenticatedSessionGeneration = 0;
+let sessionTransitionIntentGeneration = 0;
+let sessionInvalidationIntentGeneration = 0;
+let latestCommittedSignInIntentGeneration = 0;
+let sessionRestorationBlocked = false;
+let sessionTransitionTail = Promise.resolve();
+let sessionCredentialWriteTail = Promise.resolve();
+let sessionRevocationTail = Promise.resolve();
+const activeCookieAuthControllers = new Set<AbortController>();
+let activeRestoreFlight:
+  | {
+      readonly authenticatedGeneration: number;
+      readonly initialAccessToken: string | null;
+      readonly invalidationIntentGeneration: number;
+      readonly transitionIntentGeneration: number;
+      readonly promise: Promise<SessionState | null>;
+    }
+  | undefined;
 
-const singleFlightRestore = createSingleFlight(async (): Promise<SessionState | null> => {
-  const storage = pendingRestoreDeps.storage ?? secureRefreshTokenStorage;
-  const kindStorage = pendingRestoreDeps.sessionKindStorage ?? secureSessionKindStorage;
-  const refreshSession = pendingRestoreDeps.refreshSession ?? refreshMobileSession;
-  const restoreCookie = pendingRestoreDeps.restoreCookieSession ?? restoreCookieSession;
+async function withSessionTransition<T>(task: () => Promise<T>): Promise<T> {
+  const previous = sessionTransitionTail;
+  let release = (): void => undefined;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.then(() => current);
+  sessionTransitionTail = tail;
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+    if (sessionTransitionTail === tail) {
+      sessionTransitionTail = Promise.resolve();
+    }
+  }
+}
+
+async function withSessionCredentialWrite<T>(task: () => Promise<T>): Promise<T> {
+  const previous = sessionCredentialWriteTail;
+  let release = (): void => undefined;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.then(() => current);
+  sessionCredentialWriteTail = tail;
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+    if (sessionCredentialWriteTail === tail) {
+      sessionCredentialWriteTail = Promise.resolve();
+    }
+  }
+}
+
+async function withSessionRevocation<T>(task: () => Promise<T>): Promise<T> {
+  const previous = sessionRevocationTail;
+  let release = (): void => undefined;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const tail = previous.then(() => current);
+  sessionRevocationTail = tail;
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+    if (sessionRevocationTail === tail) {
+      sessionRevocationTail = Promise.resolve();
+    }
+  }
+}
+
+function assertSessionInvalidationIntentCurrent(generation: number): void {
+  if (generation !== sessionInvalidationIntentGeneration) {
+    throw new ObsoleteAuthorizedSessionError();
+  }
+}
+
+function assertSignInAttemptCanCommit(
+  signInIntentGeneration: number,
+  invalidationIntentGeneration: number
+): void {
+  assertSessionInvalidationIntentCurrent(invalidationIntentGeneration);
+  if (signInIntentGeneration < latestCommittedSignInIntentGeneration) {
+    throw new ObsoleteAuthorizedSessionError();
+  }
+}
+
+function abortActiveCookieAuthRequests(): void {
+  for (const controller of activeCookieAuthControllers) {
+    controller.abort();
+  }
+}
+
+function installAuthenticatedSession(session: SessionState, forceNewGeneration = false): void {
+  if (forceNewGeneration || authenticatedOwnerUserId !== session.user.id) {
+    authenticatedSessionGeneration += 1;
+  }
+  ({ accessToken } = session);
+  authenticatedOwnerUserId = session.user.id;
+  sessionRestorationBlocked = false;
+}
+
+function invalidateAuthenticatedSession(): void {
+  authenticatedSessionGeneration += 1;
+  accessToken = null;
+  authenticatedOwnerUserId = null;
+}
+
+function assertRestoreAttemptCurrent(
+  generation: number,
+  initialAccessToken: string | null,
+  transitionIntentGeneration: number
+): void {
+  if (
+    generation !== authenticatedSessionGeneration ||
+    initialAccessToken !== getAccessToken() ||
+    transitionIntentGeneration !== sessionTransitionIntentGeneration
+  ) {
+    throw new ObsoleteAuthorizedSessionError();
+  }
+}
+
+function guardRefreshTokenStorage(
+  source: RefreshTokenStorage,
+  generation: number,
+  initialAccessToken: string | null,
+  transitionIntentGeneration: number
+): RefreshTokenStorage {
+  return {
+    async getRefreshToken() {
+      const value = await source.getRefreshToken();
+      assertRestoreAttemptCurrent(generation, initialAccessToken, transitionIntentGeneration);
+      return value;
+    },
+    async setRefreshToken(value: string) {
+      await withSessionCredentialWrite(async () => {
+        assertRestoreAttemptCurrent(generation, initialAccessToken, transitionIntentGeneration);
+        await source.setRefreshToken(value);
+        assertRestoreAttemptCurrent(generation, initialAccessToken, transitionIntentGeneration);
+      });
+    },
+    async clearRefreshToken() {
+      await withSessionCredentialWrite(async () => {
+        assertRestoreAttemptCurrent(generation, initialAccessToken, transitionIntentGeneration);
+        await source.clearRefreshToken();
+        assertRestoreAttemptCurrent(generation, initialAccessToken, transitionIntentGeneration);
+      });
+    },
+  };
+}
+
+function guardSignInRefreshTokenStorage(
+  source: RefreshTokenStorage,
+  invalidationIntentGeneration: number
+): RefreshTokenStorage {
+  return {
+    getRefreshToken: () => source.getRefreshToken(),
+    setRefreshToken: (value) =>
+      withSessionCredentialWrite(async () => {
+        assertSessionInvalidationIntentCurrent(invalidationIntentGeneration);
+        await source.setRefreshToken(value);
+        assertSessionInvalidationIntentCurrent(invalidationIntentGeneration);
+      }),
+    clearRefreshToken: () =>
+      withSessionCredentialWrite(async () => {
+        assertSessionInvalidationIntentCurrent(invalidationIntentGeneration);
+        await source.clearRefreshToken();
+        assertSessionInvalidationIntentCurrent(invalidationIntentGeneration);
+      }),
+  };
+}
+
+function guardSignInSessionKindStorage(
+  source: SessionKindStorage,
+  invalidationIntentGeneration: number
+): SessionKindStorage {
+  return {
+    getSessionKind: () => source.getSessionKind(),
+    setSessionKind: (value) =>
+      withSessionCredentialWrite(async () => {
+        assertSessionInvalidationIntentCurrent(invalidationIntentGeneration);
+        await source.setSessionKind(value);
+        assertSessionInvalidationIntentCurrent(invalidationIntentGeneration);
+      }),
+    clearSessionKind: () =>
+      withSessionCredentialWrite(async () => {
+        assertSessionInvalidationIntentCurrent(invalidationIntentGeneration);
+        await source.clearSessionKind();
+        assertSessionInvalidationIntentCurrent(invalidationIntentGeneration);
+      }),
+  };
+}
+
+async function clearFailedSignInCredentials(
+  storage: RefreshTokenStorage,
+  kindStorage: SessionKindStorage
+): Promise<void> {
+  sessionRestorationBlocked = true;
+  invalidateAuthenticatedSession();
+  await withSessionCredentialWrite(async () => {
+    const cleanupErrors: unknown[] = [];
+    try {
+      await storage.clearRefreshToken();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    try {
+      await kindStorage.clearSessionKind();
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError(cleanupErrors, 'Failed to clear credentials after sign-in failure');
+    }
+  });
+}
+
+function guardRestoreSessionKindStorage(
+  source: SessionKindStorage,
+  generation: number,
+  initialAccessToken: string | null,
+  transitionIntentGeneration: number
+): SessionKindStorage {
+  return {
+    async getSessionKind() {
+      const value = await source.getSessionKind();
+      assertRestoreAttemptCurrent(generation, initialAccessToken, transitionIntentGeneration);
+      return value;
+    },
+    setSessionKind: (value) =>
+      withSessionCredentialWrite(async () => {
+        assertRestoreAttemptCurrent(generation, initialAccessToken, transitionIntentGeneration);
+        await source.setSessionKind(value);
+        assertRestoreAttemptCurrent(generation, initialAccessToken, transitionIntentGeneration);
+      }),
+    clearSessionKind: () =>
+      withSessionCredentialWrite(async () => {
+        assertRestoreAttemptCurrent(generation, initialAccessToken, transitionIntentGeneration);
+        await source.clearSessionKind();
+        assertRestoreAttemptCurrent(generation, initialAccessToken, transitionIntentGeneration);
+      }),
+  };
+}
+
+async function restoreSessionOnce(
+  dependencies: RestoreSessionDependencies,
+  generation: number,
+  transitionIntentGeneration: number
+): Promise<SessionState | null> {
+  // Stage the legacy assignments in this function locally. The singleflight
+  // owner installs the returned session only after validating this generation.
+  let accessToken = getAccessToken();
+  const initialAccessToken = accessToken;
+  const storage = guardRefreshTokenStorage(
+    dependencies.storage ?? secureRefreshTokenStorage,
+    generation,
+    initialAccessToken,
+    transitionIntentGeneration
+  );
+  const kindStorage = guardRestoreSessionKindStorage(
+    dependencies.sessionKindStorage ?? secureSessionKindStorage,
+    generation,
+    initialAccessToken,
+    transitionIntentGeneration
+  );
+  const refreshSession = dependencies.refreshSession ?? refreshMobileSession;
+  const restoreCookie = dependencies.restoreCookieSession ?? restoreCookieSession;
 
   const refreshToken = await storage.getRefreshToken();
   if (!refreshToken) {
@@ -122,7 +410,7 @@ const singleFlightRestore = createSingleFlight(async (): Promise<SessionState | 
     }
     return null;
   }
-});
+}
 
 function readAuthUser(value: unknown): AuthUser {
   if (!isRecord(value)) {
@@ -316,10 +604,15 @@ async function revokeMobileSession(refreshToken: string): Promise<void> {
 // cookie), so it needs no credentials.
 // ---------------------------------------------------------------------------
 
-async function postEmailLogin(email: string, password: string): Promise<Response> {
+async function postEmailLogin(
+  email: string,
+  password: string,
+  signal?: AbortSignal
+): Promise<Response> {
   return fetch(buildApiUrl('/auth/login'), {
     method: 'POST',
     credentials: 'include',
+    ...(signal ? { signal } : {}),
     headers: {
       'Content-Type': 'application/json',
     },
@@ -338,11 +631,19 @@ async function postEmailSignup(email: string, password: string, name?: string): 
 }
 
 async function restoreCookieSession(): Promise<SessionState | null> {
+  let accessToken = getAccessToken();
+  const initialAccessToken = accessToken;
+  const controller = new AbortController();
+  activeCookieAuthControllers.add(controller);
   try {
     const response = await fetch(buildApiUrl('/auth/refresh'), {
       method: 'POST',
       credentials: 'include',
+      signal: controller.signal,
     });
+    if (initialAccessToken !== getAccessToken()) {
+      return null;
+    }
 
     if (!response.ok) {
       accessToken = null;
@@ -355,6 +656,8 @@ async function restoreCookieSession(): Promise<SessionState | null> {
   } catch {
     accessToken = null;
     return null;
+  } finally {
+    activeCookieAuthControllers.delete(controller);
   }
 }
 
@@ -400,7 +703,92 @@ export function getAccessToken(): string | null {
 }
 
 export function setAccessToken(token: string | null): void {
+  sessionTransitionIntentGeneration += 1;
+  sessionInvalidationIntentGeneration += 1;
+  authenticatedSessionGeneration += 1;
+  authenticatedOwnerUserId = null;
+  sessionRestorationBlocked = false;
   accessToken = token;
+}
+
+export function captureAuthorizedSession(ownerUserId: string): AuthorizedSession {
+  if (
+    ownerUserId.length === 0 ||
+    accessToken === null ||
+    authenticatedOwnerUserId !== ownerUserId
+  ) {
+    throw new ObsoleteAuthorizedSessionError();
+  }
+  return {
+    ownerUserId,
+    accessToken,
+    generation: authenticatedSessionGeneration,
+  };
+}
+
+export function isAuthorizedSessionCurrent(session: AuthorizedSession): boolean {
+  return (
+    authenticatedOwnerUserId === session.ownerUserId &&
+    authenticatedSessionGeneration === session.generation &&
+    accessToken !== null
+  );
+}
+
+export function assertAuthorizedSessionCurrent(
+  session: AuthorizedSession,
+  requestDispatched = false
+): void {
+  if (!isAuthorizedSessionCurrent(session)) {
+    throw new ObsoleteAuthorizedSessionError(requestDispatched);
+  }
+}
+
+export function getAuthorizedSessionAccessToken(session: AuthorizedSession): string {
+  assertAuthorizedSessionCurrent(session);
+  const currentAccessToken = getAccessToken();
+  if (currentAccessToken === null) {
+    throw new ObsoleteAuthorizedSessionError();
+  }
+  return currentAccessToken;
+}
+
+export async function fetchWithAuthorizedSession(
+  session: AuthorizedSession,
+  path: string,
+  init?: RequestInit,
+  dependencies: AuthorizedFetchDependencies = {}
+): Promise<Response> {
+  assertAuthorizedSessionCurrent(session);
+  const currentAccessToken = getAccessToken();
+  if (currentAccessToken === null) {
+    throw new ObsoleteAuthorizedSessionError();
+  }
+  let response = await fetchWithToken(path, currentAccessToken, init);
+  assertAuthorizedSessionCurrent(session, true);
+  if (response.status !== 401) {
+    return response;
+  }
+
+  const restoreAuthorizedSession = dependencies.restoreAuthorizedSession ?? restoreSession;
+  let restored: SessionState | null;
+  try {
+    restored = await restoreAuthorizedSession();
+  } catch {
+    assertAuthorizedSessionCurrent(session, true);
+    return response;
+  }
+  assertAuthorizedSessionCurrent(session, true);
+  if (restored === null || restored.user.id !== session.ownerUserId) {
+    return response;
+  }
+
+  const refreshedAccessToken = getAccessToken();
+  if (refreshedAccessToken === null) {
+    return response;
+  }
+  response = await fetchWithToken(path, refreshedAccessToken, init);
+  assertAuthorizedSessionCurrent(session, true);
+  return response;
 }
 
 export async function fetchWithAccessToken(
@@ -440,14 +828,22 @@ export async function fetchWithAccessToken(
 export async function clearSession(
   storage: RefreshTokenStorage = secureRefreshTokenStorage
 ): Promise<void> {
-  accessToken = null;
-  await storage.clearRefreshToken();
+  sessionRestorationBlocked = true;
+  sessionTransitionIntentGeneration += 1;
+  sessionInvalidationIntentGeneration += 1;
+  invalidateAuthenticatedSession();
+  await withSessionCredentialWrite(async () => {
+    await storage.clearRefreshToken();
+  });
+  invalidateAuthenticatedSession();
 }
 
-export async function signInWithGoogleIdToken(
+async function signInWithGoogleIdTokenOnce(
   credential: string,
   dependencies: SignInDependencies = {}
 ): Promise<SessionState> {
+  let accessToken = getAccessToken();
+  void accessToken;
   const storage = dependencies.storage ?? secureRefreshTokenStorage;
   const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
   const authenticateWithGoogleIdToken =
@@ -474,17 +870,103 @@ export async function signInWithGoogleIdToken(
   };
 }
 
-export async function signInWithEmailPassword(
+function withResolvedGoogleSession(
+  dependencies: SignInDependencies,
+  authenticated: RefreshResponse
+): SignInDependencies {
+  return {
+    ...dependencies,
+    async authenticateWithGoogleIdToken() {
+      return authenticated;
+    },
+  };
+}
+
+export async function signInWithGoogleIdToken(
+  credential: string,
+  dependencies: SignInDependencies = {}
+): Promise<SessionState> {
+  const signInIntentGeneration = (sessionTransitionIntentGeneration += 1);
+  abortActiveCookieAuthRequests();
+  const invalidationIntentGeneration = sessionInvalidationIntentGeneration;
+  const googleExchange =
+    dependencies.authenticateWithGoogleIdToken ?? authenticateMobileGoogleIdToken;
+  const revokeRemoteSession = dependencies.revokeRemoteSession ?? revokeMobileSession;
+  const authenticated = await googleExchange(credential);
+  try {
+    return await withSessionTransition(async () => {
+      await sessionRevocationTail;
+      assertSignInAttemptCanCommit(signInIntentGeneration, invalidationIntentGeneration);
+      const storage = dependencies.storage ?? secureRefreshTokenStorage;
+      const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
+      let credentialsMayHaveBeenWritten = false;
+      try {
+        credentialsMayHaveBeenWritten = true;
+        const session = await signInWithGoogleIdTokenOnce(credential, {
+          ...withResolvedGoogleSession(dependencies, authenticated),
+          storage: guardSignInRefreshTokenStorage(storage, invalidationIntentGeneration),
+          sessionKindStorage: guardSignInSessionKindStorage(
+            kindStorage,
+            invalidationIntentGeneration
+          ),
+        });
+        assertSignInAttemptCanCommit(signInIntentGeneration, invalidationIntentGeneration);
+        latestCommittedSignInIntentGeneration = signInIntentGeneration;
+        installAuthenticatedSession(session, true);
+        return session;
+      } catch (error) {
+        if (credentialsMayHaveBeenWritten) {
+          try {
+            await clearFailedSignInCredentials(storage, kindStorage);
+          } catch (cleanupError) {
+            throw new AggregateError(
+              [error, cleanupError],
+              'Google sign-in and local credential cleanup both failed'
+            );
+          }
+        }
+        throw error;
+      }
+    });
+  } catch (error) {
+    try {
+      await revokeRemoteSession(authenticated.refreshToken);
+    } catch {
+      // A superseded token is unusable locally even when best-effort server
+      // revocation is unavailable.
+    }
+    throw error;
+  }
+}
+
+async function signInWithEmailPasswordOnce(
   email: string,
   password: string,
-  dependencies: EmailSignInDependencies = {}
+  dependencies: EmailSignInDependencies = {},
+  onCookieSessionIssued: () => void = () => undefined
 ): Promise<EmailSignInResult> {
-  const login = dependencies.login ?? postEmailLogin;
+  let accessToken = getAccessToken();
+  const login = dependencies.login;
+  const loginWithSignal = dependencies.loginWithSignal;
   const storage = dependencies.storage ?? secureRefreshTokenStorage;
   const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
   const revokeRemoteSession = dependencies.revokeRemoteSession ?? revokeMobileSession;
 
-  const response = await login(email, password);
+  const controller = new AbortController();
+  activeCookieAuthControllers.add(controller);
+  let response: Response;
+  try {
+    response = loginWithSignal
+      ? await loginWithSignal(email, password, controller.signal)
+      : login
+        ? await login(email, password)
+        : await postEmailLogin(email, password, controller.signal);
+    if (response.ok) {
+      onCookieSessionIssued();
+    }
+  } finally {
+    activeCookieAuthControllers.delete(controller);
+  }
   if (!response.ok) {
     const bodyCode = await readResponseErrorCode(response);
     return { ok: false, code: mapAuthErrorCode(response.status, bodyCode) };
@@ -507,7 +989,73 @@ export async function signInWithEmailPassword(
   // Mark this as a cookie-backed session so restore knows to use the cookie
   // route and sign-out knows to revoke the cookie.
   await kindStorage.setSessionKind('email');
+  void accessToken;
   return { ok: true, session };
+}
+
+export async function signInWithEmailPassword(
+  email: string,
+  password: string,
+  dependencies: EmailSignInDependencies = {}
+): Promise<EmailSignInResult> {
+  const signInIntentGeneration = (sessionTransitionIntentGeneration += 1);
+  abortActiveCookieAuthRequests();
+  const invalidationIntentGeneration = sessionInvalidationIntentGeneration;
+  return withSessionTransition(async () => {
+    let cookieSessionIssued = false;
+    try {
+      await sessionRevocationTail;
+      assertSignInAttemptCanCommit(signInIntentGeneration, invalidationIntentGeneration);
+      const result = await signInWithEmailPasswordOnce(
+        email,
+        password,
+        {
+          ...dependencies,
+          storage: guardSignInRefreshTokenStorage(
+            dependencies.storage ?? secureRefreshTokenStorage,
+            invalidationIntentGeneration
+          ),
+          sessionKindStorage: guardSignInSessionKindStorage(
+            dependencies.sessionKindStorage ?? secureSessionKindStorage,
+            invalidationIntentGeneration
+          ),
+        },
+        () => {
+          cookieSessionIssued = true;
+        }
+      );
+      if (result.ok) {
+        assertSignInAttemptCanCommit(signInIntentGeneration, invalidationIntentGeneration);
+        latestCommittedSignInIntentGeneration = signInIntentGeneration;
+        installAuthenticatedSession(result.session, true);
+      }
+      return result;
+    } catch (error) {
+      if (cookieSessionIssued) {
+        const cleanupErrors: unknown[] = [];
+        try {
+          await clearFailedSignInCredentials(
+            dependencies.storage ?? secureRefreshTokenStorage,
+            dependencies.sessionKindStorage ?? secureSessionKindStorage
+          );
+        } catch (cleanupError) {
+          cleanupErrors.push(cleanupError);
+        }
+        try {
+          await (dependencies.revokeCookieSession ?? revokeCookieSession)();
+        } catch {
+          // Local credentials are already unusable. Remote cleanup is best-effort.
+        }
+        if (cleanupErrors.length > 0) {
+          throw new AggregateError(
+            [error, ...cleanupErrors],
+            'Email sign-in and local credential cleanup both failed'
+          );
+        }
+      }
+      throw error;
+    }
+  });
 }
 
 export async function signUpWithEmailPassword(
@@ -528,36 +1076,110 @@ export async function signUpWithEmailPassword(
 }
 
 export async function signOutSession(dependencies: SignOutDependencies = {}): Promise<void> {
+  sessionRestorationBlocked = true;
+  sessionTransitionIntentGeneration += 1;
+  sessionInvalidationIntentGeneration += 1;
+  invalidateAuthenticatedSession();
+  abortActiveCookieAuthRequests();
   const storage = dependencies.storage ?? secureRefreshTokenStorage;
   const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
   const revokeRemoteSession = dependencies.revokeRemoteSession ?? revokeMobileSession;
   const revokeCookie = dependencies.revokeCookieSession ?? revokeCookieSession;
-  const refreshToken = await storage.getRefreshToken();
-
-  accessToken = null;
-
-  try {
-    if (refreshToken) {
-      // Google (body-token) session: revoke by refresh-token value.
-      await revokeRemoteSession(refreshToken);
-    } else {
-      // Email/password (cookie) session: revoke the httpOnly refresh cookie.
-      await revokeCookie();
+  const durableClear = withSessionCredentialWrite(async () => {
+    let storedRefreshToken: string | null = null;
+    let cleanupError: unknown;
+    try {
+      storedRefreshToken = await storage.getRefreshToken();
+    } catch (error) {
+      cleanupError = error;
     }
-  } catch {
-    // Local sign-out must still complete when remote revocation fails.
-  }
+    try {
+      await storage.clearRefreshToken();
+    } catch (error) {
+      cleanupError ??= error;
+    }
+    try {
+      await kindStorage.clearSessionKind();
+    } catch (error) {
+      cleanupError ??= error;
+    }
+    return { storedRefreshToken, cleanupError };
+  });
+  await withSessionRevocation(async () => {
+    const { storedRefreshToken, cleanupError } = await durableClear;
+    invalidateAuthenticatedSession();
 
-  // Destroy every local credential unconditionally so sign-out is authoritative
-  // even when the network is down: clearing the marker stops the next launch
-  // from resurrecting a still-valid cookie session (see restore fallback above).
-  await storage.clearRefreshToken();
-  await kindStorage.clearSessionKind();
+    // Local credentials are already authoritatively gone, but the revocation
+    // attempt stays ordered before a later sign-in so an old cookie-logout
+    // response cannot clear a newly issued cookie.
+    try {
+      await (storedRefreshToken ? revokeRemoteSession(storedRefreshToken) : revokeCookie());
+    } catch {
+      // Local sign-out remains complete when remote revocation fails.
+    }
+    if (cleanupError !== undefined) {
+      throw cleanupError;
+    }
+  });
 }
 
 export async function restoreSession(
   dependencies: RestoreSessionDependencies = {}
 ): Promise<SessionState | null> {
-  pendingRestoreDeps = dependencies;
-  return singleFlightRestore();
+  if (sessionRestorationBlocked) {
+    return null;
+  }
+  const authenticatedGeneration = authenticatedSessionGeneration;
+  const initialAccessToken = getAccessToken();
+  const invalidationIntentGeneration = sessionInvalidationIntentGeneration;
+  const transitionIntentGeneration = sessionTransitionIntentGeneration;
+  const existingFlight = activeRestoreFlight;
+  if (
+    existingFlight?.authenticatedGeneration === authenticatedGeneration &&
+    existingFlight.initialAccessToken === initialAccessToken &&
+    existingFlight.invalidationIntentGeneration === invalidationIntentGeneration &&
+    existingFlight.transitionIntentGeneration === transitionIntentGeneration
+  ) {
+    return existingFlight.promise;
+  }
+
+  const promise = (async (): Promise<SessionState | null> => {
+    assertRestoreAttemptCurrent(
+      authenticatedGeneration,
+      initialAccessToken,
+      transitionIntentGeneration
+    );
+    const session = await restoreSessionOnce(
+      dependencies,
+      authenticatedGeneration,
+      transitionIntentGeneration
+    );
+    return withSessionTransition(async () => {
+      assertRestoreAttemptCurrent(
+        authenticatedGeneration,
+        initialAccessToken,
+        transitionIntentGeneration
+      );
+      if (session === null) {
+        invalidateAuthenticatedSession();
+      } else {
+        installAuthenticatedSession(session);
+      }
+      return session;
+    });
+  })();
+  activeRestoreFlight = {
+    authenticatedGeneration,
+    initialAccessToken,
+    invalidationIntentGeneration,
+    transitionIntentGeneration,
+    promise,
+  };
+  const clearFlight = (): void => {
+    if (activeRestoreFlight?.promise === promise) {
+      activeRestoreFlight = undefined;
+    }
+  };
+  void promise.then(clearFlight, clearFlight);
+  return promise;
 }

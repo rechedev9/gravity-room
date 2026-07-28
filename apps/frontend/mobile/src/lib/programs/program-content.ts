@@ -378,7 +378,10 @@ export function localizeSelectOption(
   return readExternalLabel(canonicalLabel, 'program_content.external.unnamed_option', t);
 }
 
-export function localizeTier(tier: string, t: TFunction): string {
+export function localizeTier(origin: ProgramContentOrigin, tier: string, t: TFunction): string {
+  if (canonicalContentId(origin) === null) {
+    return readExternalLabel(tier, 'program_content.tier.other', t);
+  }
   const key = readKnownKey(TIER_CONTENT_KEYS, tier.toLowerCase());
   return key === null ? t('program_content.tier.other') : t(`program_content.tier.${key}`);
 }

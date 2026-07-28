@@ -11,6 +11,18 @@ import type { ProgramSummary } from '../lib/programs/program-repository';
 
 const mockListProgramSummaries = jest.fn();
 const mockFetchProgramSummaries = jest.fn();
+const mockCatalogEntry = {
+  id: 'gzclp',
+  name: 'Contenido canónico sin localizar',
+  description: 'Descripción canónica sin localizar',
+  author: 'Gravity Room',
+  category: 'strength',
+  level: 'beginner',
+  source: 'preset',
+  totalWorkouts: 90,
+  workoutsPerWeek: 3,
+  cycleLength: 4,
+};
 
 jest.mock('../providers/auth-provider', () => ({
   useAuth: () => ({
@@ -24,41 +36,51 @@ jest.mock('../providers/auth-provider', () => ({
 }));
 
 jest.mock('../lib/programs/program-repository', () => ({
+  commitProgramCatalogRefresh: jest.fn(async () => true),
+  commitProgramSummariesRefresh: jest.fn(async () => true),
   listProgramSummaries: () => mockListProgramSummaries(),
-  replaceProgramSummaries: jest.fn(async () => undefined),
-  listCachedCatalog: jest.fn(async () => [
-    {
-      id: 'gzclp',
-      name: 'Contenido canónico sin localizar',
-      description: 'Descripción canónica sin localizar',
-      author: 'Gravity Room',
-      category: 'strength',
-      level: 'beginner',
-      source: 'preset',
-      totalWorkouts: 90,
-      workoutsPerWeek: 3,
-      cycleLength: 4,
-    },
-  ]),
-  replaceCachedCatalog: jest.fn(async () => undefined),
+  readPendingDeleteReconciliations: jest.fn(async () => []),
+  readPendingManageReconciliations: jest.fn(async () => []),
+  readProgramLibrarySnapshot: jest.fn(async () => ({
+    status: 'snapshot',
+    data: mockLocalPrograms,
+    syncedAt: '2026-07-27T12:00:00.000Z',
+  })),
+  readProgramCatalogSnapshot: jest.fn(async () => ({
+    status: 'snapshot',
+    data: [mockCatalogEntry],
+    syncedAt: '2026-07-27T12:00:00.000Z',
+  })),
 }));
 
 jest.mock('../lib/programs/program-service', () => ({
   fetchProgramSummaries: () => mockFetchProgramSummaries(),
-  fetchCatalogEntries: jest.fn(async () => [
-    {
-      id: 'gzclp',
-      name: 'Contenido canónico sin localizar',
-      description: 'Descripción canónica sin localizar',
-      author: 'Gravity Room',
-      category: 'strength',
-      level: 'beginner',
-      source: 'preset',
-      totalWorkouts: 90,
-      workoutsPerWeek: 3,
-      cycleLength: 4,
-    },
-  ]),
+  fetchCatalogEntries: jest.fn(async () => [mockCatalogEntry]),
+}));
+
+jest.mock('../lib/auth/session', () => ({
+  captureAuthorizedSession: jest.fn(() => ({
+    ownerUserId: 'user-a',
+    accessToken: 'token-a',
+    generation: 1,
+  })),
+  isAuthorizedSessionCurrent: jest.fn(() => true),
+}));
+
+jest.mock('../lib/programs/program-refresh-generation', () => ({
+  abandonProgramRefreshLease: jest.fn(),
+  captureProgramRefreshLease: jest.fn(
+    (ownerUserId: string, resource: string, session: unknown) => ({
+      ownerUserId,
+      resource,
+      generation: 0,
+      session,
+    })
+  ),
+  isProgramRefreshLeaseCurrent: jest.fn(() => true),
+  withProgramRefreshCommitBarrier: jest.fn(
+    (_ownerUserId: string, _resource: string, task: () => Promise<unknown>) => task()
+  ),
 }));
 
 jest.mock('../lib/tracker/tracker-selection-storage', () => ({
@@ -70,6 +92,7 @@ jest.mock('../lib/programs/program-use-cases', () => ({
   manageProgram: jest.fn(),
   deleteProgram: jest.fn(),
   reconcilePendingProgramManagement: jest.fn(async () => undefined),
+  verifyPendingProgramDelete: jest.fn(async () => 'still_pending'),
 }));
 
 const ORIGINAL: ProgramSummary = {
@@ -88,7 +111,7 @@ const CREATED: ProgramSummary = {
   updatedAt: '2026-07-27T11:00:00.000Z',
 };
 
-let localPrograms: ProgramSummary[] = [];
+let mockLocalPrograms: ProgramSummary[] = [];
 
 function SetupProbe() {
   const router = useRouter();
@@ -96,7 +119,7 @@ function SetupProbe() {
     <Pressable
       accessibilityRole="button"
       onPress={() => {
-        localPrograms = [CREATED, ...localPrograms];
+        mockLocalPrograms = [CREATED, ...mockLocalPrograms];
         router.back();
       }}
     >
@@ -111,7 +134,7 @@ function TrackerProbe() {
     <Pressable
       accessibilityRole="button"
       onPress={() => {
-        localPrograms = localPrograms.map((program) =>
+        mockLocalPrograms = mockLocalPrograms.map((program) =>
           program.id === ORIGINAL.id ? { ...program, title: 'Updated in Tracker' } : program
         );
         router.back();
@@ -128,9 +151,9 @@ function EmptyTabProbe() {
 
 describe('Programs focus refresh integration', () => {
   beforeEach(() => {
-    localPrograms = [ORIGINAL];
-    mockListProgramSummaries.mockImplementation(async () => localPrograms);
-    mockFetchProgramSummaries.mockImplementation(async () => localPrograms);
+    mockLocalPrograms = [ORIGINAL];
+    mockListProgramSummaries.mockImplementation(async () => mockLocalPrograms);
+    mockFetchProgramSummaries.mockImplementation(async () => mockLocalPrograms);
   });
 
   afterEach(() => {

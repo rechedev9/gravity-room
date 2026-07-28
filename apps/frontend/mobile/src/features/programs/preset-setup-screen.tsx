@@ -18,6 +18,11 @@ import {
 
 import type { SupportedLanguage } from '../../lib/i18n';
 import {
+  captureAuthorizedSession,
+  isAuthorizedSessionCurrent,
+  type AuthorizedSession,
+} from '../../lib/auth/session';
+import {
   formatLocalizedWeight,
   parseLocalizedWeight,
 } from '../../lib/programs/localized-weight-input';
@@ -31,19 +36,53 @@ import {
   localizeTier,
 } from '../../lib/programs/program-content';
 import { readPendingCreateReconciliation } from '../../lib/programs/program-repository';
+import {
+  abandonProgramRefreshLease,
+  captureProgramRefreshLease,
+  isProgramRefreshLeaseCurrent,
+  type ProgramRefreshLease,
+  withProgramRefreshCommitBarrier,
+} from '../../lib/programs/program-refresh-generation';
 import { startPresetProgram } from '../../lib/programs/program-use-cases';
 import {
   buildDefaultProgramConfig,
   fetchCatalogDefinition,
 } from '../../lib/programs/program-service';
 import {
+  commitProgramDefinitionRefresh,
   getProgramDefinition,
-  upsertProgramDefinition,
 } from '../../lib/tracker/program-detail-repository';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { Screen } from '../../ui/screen';
 import { colors, radii, spacing } from '../../ui/tokens';
+
+function observeRefreshLease(
+  promise: Promise<ProgramRefreshLease>
+): Promise<PromiseSettledResult<ProgramRefreshLease>> {
+  return Promise.resolve(promise).then(
+    (value) => ({ status: 'fulfilled', value }),
+    (reason: unknown) => ({ status: 'rejected', reason })
+  );
+}
+
+async function readObservedRefreshLease(
+  promise: Promise<PromiseSettledResult<ProgramRefreshLease>>
+): Promise<ProgramRefreshLease> {
+  const result = await promise;
+  if (result.status === 'rejected') throw result.reason;
+  return result.value;
+}
+
+function abandonObservedRefreshLease(
+  promise: Promise<PromiseSettledResult<ProgramRefreshLease>>
+): void {
+  void promise.then((result) => {
+    if (result.status === 'fulfilled') {
+      void abandonProgramRefreshLease(result.value);
+    }
+  });
+}
 
 type PresetState =
   | { readonly status: 'loading' }
@@ -126,7 +165,8 @@ export function PresetSetupScreen({
   programId,
 }: PresetSetupScreenProps) {
   const { i18n, t } = useTranslation();
-  const [state, setState] = useState<PresetState>({ status: 'loading' });
+  const presetResourceKey = `${ownerUserId}\u0000${programId}`;
+  const [rawState, setState] = useState<PresetState>({ status: 'loading' });
   const [values, setValues] = useState<Record<string, string>>({});
   const [issues, setIssues] = useState<readonly ProgramConfigIssue[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -140,14 +180,41 @@ export function PresetSetupScreen({
   const dirtyFieldsRef = useRef(new Set<string>());
   const valuesInitializedRef = useRef(false);
   const previewExpandedRef = useRef(false);
-  const submittingRef = useRef(false);
+  const submittingOperationRef = useRef<object | null>(null);
+  const currentResourceKeyRef = useRef(presetResourceKey);
+  const displayedResourceKeyRef = useRef(presetResourceKey);
   const language: SupportedLanguage = i18n.resolvedLanguage === 'es' ? 'es' : 'en';
   const languageRef = useRef(language);
   const previousLanguageRef = useRef(language);
   languageRef.current = language;
+  currentResourceKeyRef.current = presetResourceKey;
+  const state =
+    displayedResourceKeyRef.current === presetResourceKey
+      ? rawState
+      : ({ status: 'loading' } as const);
 
   useEffect(() => {
     let active = true;
+    displayedResourceKeyRef.current = presetResourceKey;
+    setState({ status: 'loading' });
+    setValues({});
+    setIssues([]);
+    submittingOperationRef.current = null;
+    setSubmitting(false);
+    setSubmitOutcome(null);
+    let session: AuthorizedSession;
+    let definitionLeasePromise: Promise<PromiseSettledResult<ProgramRefreshLease>>;
+    try {
+      session = captureAuthorizedSession(ownerUserId);
+      definitionLeasePromise = observeRefreshLease(
+        captureProgramRefreshLease(ownerUserId, `definition:${programId}`, session)
+      );
+    } catch {
+      setState({ status: 'error' });
+      return () => {
+        active = false;
+      };
+    }
     dirtyFieldsRef.current.clear();
     valuesInitializedRef.current = false;
     previewExpandedRef.current = false;
@@ -206,18 +273,61 @@ export function PresetSetupScreen({
         cachedDefinition = null;
       }
 
+      let definitionLease: ProgramRefreshLease | null = null;
       try {
-        const definition = await fetchCatalogDefinition(programId);
-        await upsertProgramDefinition(ownerUserId, definition);
-        if (active) {
-          setState({ status: 'ready', definition, offline: false });
-          applyDefinition(definition);
-        }
+        definitionLease = await readObservedRefreshLease(definitionLeasePromise);
+        const settledDefinitionLease = definitionLease;
+        const definition = await fetchCatalogDefinition(programId, session);
+        const committed = await commitProgramDefinitionRefresh(settledDefinitionLease, definition);
+        await withProgramRefreshCommitBarrier(ownerUserId, `definition:${programId}`, async () => {
+          const winningDefinition =
+            committed && isProgramRefreshLeaseCurrent(settledDefinitionLease)
+              ? definition
+              : await getProgramDefinition(ownerUserId, programId);
+          if (!active || !isAuthorizedSessionCurrent(session)) {
+            return;
+          }
+          if (winningDefinition !== null) {
+            setState({ status: 'ready', definition: winningDefinition, offline: false });
+            applyDefinition(winningDefinition);
+          } else {
+            setState({ status: 'error' });
+          }
+        });
       } catch {
-        if (active && cachedDefinition === null) {
-          setState({ status: 'error' });
-        } else if (active && cachedDefinition !== null) {
-          setState({ status: 'ready', definition: cachedDefinition, offline: true });
+        try {
+          await withProgramRefreshCommitBarrier(
+            ownerUserId,
+            `definition:${programId}`,
+            async () => {
+              if (!active || !isAuthorizedSessionCurrent(session)) {
+                return;
+              }
+              if (definitionLease !== null && !isProgramRefreshLeaseCurrent(definitionLease)) {
+                const winningDefinition = await getProgramDefinition(ownerUserId, programId);
+                if (winningDefinition === null) {
+                  setState({ status: 'error' });
+                  return;
+                }
+                setState({ status: 'ready', definition: winningDefinition, offline: false });
+                applyDefinition(winningDefinition);
+                return;
+              }
+              if (cachedDefinition === null) {
+                setState({ status: 'error' });
+              } else {
+                setState({ status: 'ready', definition: cachedDefinition, offline: true });
+              }
+            }
+          );
+        } catch {
+          if (active && isAuthorizedSessionCurrent(session)) {
+            setState({ status: 'error' });
+          }
+        }
+      } finally {
+        if (definitionLease !== null) {
+          await abandonProgramRefreshLease(definitionLease);
         }
       }
     }
@@ -228,8 +338,9 @@ export function PresetSetupScreen({
     void loadPreset();
     return () => {
       active = false;
+      abandonObservedRefreshLease(definitionLeasePromise);
     };
-  }, [ownerUserId, programId, reloadToken]);
+  }, [ownerUserId, presetResourceKey, programId, reloadToken]);
 
   useEffect(() => {
     const previousLanguage = previousLanguageRef.current;
@@ -317,14 +428,21 @@ export function PresetSetupScreen({
   const remainingPreviewDays = definition.days.length - previewDays.length;
 
   async function handleStart(): Promise<void> {
-    if (submittingRef.current || submitOutcome?.status === 'reconciliation_required') return;
-    submittingRef.current = true;
+    if (
+      submittingOperationRef.current !== null ||
+      submitOutcome?.status === 'reconciliation_required'
+    )
+      return;
+    const operation = {};
+    submittingOperationRef.current = operation;
     const config = buildConfigCandidate(definition, values, language);
     const validation = validateProgramConfig(definition, config);
     if (!validation.success) {
       setIssues(validation.issues);
       setSubmitOutcome(null);
-      submittingRef.current = false;
+      if (submittingOperationRef.current === operation) {
+        submittingOperationRef.current = null;
+      }
       return;
     }
 
@@ -338,6 +456,12 @@ export function PresetSetupScreen({
         name: localizedName,
         config: validation.config,
       });
+      if (
+        submittingOperationRef.current !== operation ||
+        currentResourceKeyRef.current !== presetResourceKey
+      ) {
+        return;
+      }
       if (result.status === 'applied') {
         onCreated(result.remote.id);
       } else {
@@ -347,10 +471,17 @@ export function PresetSetupScreen({
         });
       }
     } catch {
-      setSubmitOutcome({ status: 'remote_error' });
+      if (
+        submittingOperationRef.current === operation &&
+        currentResourceKeyRef.current === presetResourceKey
+      ) {
+        setSubmitOutcome({ status: 'remote_error' });
+      }
     } finally {
-      submittingRef.current = false;
-      setSubmitting(false);
+      if (submittingOperationRef.current === operation) {
+        submittingOperationRef.current = null;
+        setSubmitting(false);
+      }
     }
   }
 
@@ -550,7 +681,7 @@ export function PresetSetupScreen({
                     definition.exercises[slot.exerciseId]?.name,
                     t
                   )}{' '}
-                  · {localizeTier(slot.tier, t)}
+                  · {localizeTier(definition, slot.tier, t)}
                 </Text>
               ))}
             </View>

@@ -7,6 +7,7 @@ import {
   localizeExerciseName,
   localizeFieldLabel,
   localizeSelectOption,
+  localizeTier,
 } from './program-content';
 
 const HEXAN = { id: 'hexan-ppl', source: 'preset' };
@@ -157,6 +158,9 @@ describe('localized canonical program content', () => {
     expect(localizeSelectOption(collision, 'gender', 'male', 'My option', i18n.t, 'en')).toBe(
       'My option'
     );
+    expect(localizeTier(collision, 't1', i18n.t)).toBe('t1');
+    expect(localizeTier(collision, 'main', i18n.t)).toBe('main');
+    expect(localizeTier(collision, 'My private tier', i18n.t)).toBe('My private tier');
   });
 
   it.each([

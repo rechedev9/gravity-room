@@ -7,6 +7,7 @@ import {
   timestamp,
   jsonb,
   smallint,
+  bigint,
   bigserial,
   index,
   uniqueIndex,
@@ -96,6 +97,10 @@ export const refreshTokens = pgTable(
       .references(() => users.id, { onDelete: 'cascade' })
       .notNull(),
     tokenHash: varchar('token_hash', { length: 64 }).unique().notNull(),
+    familyId: uuid('family_id').defaultRandom().notNull(),
+    familyOrder: bigint('family_order', { mode: 'number' })
+      .default(sql`nextval('"refresh_token_family_order_seq"')`)
+      .notNull(),
     /**
      * Hash of the token that was rotated into this one.
      * When a refresh token is presented but not found (it was rotated away),
@@ -103,11 +108,21 @@ export const refreshTokens = pgTable(
      * If found, we revoke all sessions for the user.
      */
     previousTokenHash: varchar('previous_token_hash', { length: 64 }),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    /**
+     * Set on ancestors displaced by an explicit login. This distinguishes a
+     * delayed request from ordinary refresh-token replay without deleting the
+     * family history needed by logout and reuse detection.
+     */
+    supersededAt: timestamp('superseded_at', { withTimezone: true }),
+    familyLookupExpiresAt: timestamp('family_lookup_expires_at', { withTimezone: true }),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     index('refresh_tokens_user_id_idx').on(table.userId),
+    index('refresh_tokens_family_id_idx').on(table.familyId),
+    index('refresh_tokens_family_lookup_expires_at_idx').on(table.familyLookupExpiresAt),
     index('refresh_tokens_expires_at_idx').on(table.expiresAt),
     // Partial index: only ~half of refresh_tokens rows carry a previous-hash
     // (the other half are first-issue tokens). The partial keeps the index

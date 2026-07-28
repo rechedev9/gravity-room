@@ -1,6 +1,6 @@
 # Gravity Room Mobile v2 — diario de implementación
 
-Última actualización: 2026-07-27
+Última actualización: 2026-07-28
 
 Rama de integración: `codex/mobile-v2`
 
@@ -173,16 +173,267 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
 - M1 parte del HEAD de integración posterior a este registro de orquestación.
 - E2E continúa sin ejecutarse y permanece reservado para M8.
 
+## M2 — Continuación final del corrector
+
+Fecha: 2026-07-28
+
+Base heredada: `0e977604c23b22087da50a57a2e3dd9aced821ed`
+
+Estado: candidato corregido y validado; pendiente de dos revisores independientes frescos
+
+La inspección del resultado real de `corrector6.stderr.log` contradijo la suposición de un último
+review limpio: la última autoreview completa había terminado con tres findings accionables. Esta
+continuación verificó los tres en el código, los aceptó y añadió una regresión determinista por
+defecto:
+
+- un login Google podía persistir credenciales locales y fallar antes del commit final; si además
+  fallaba la revocación remota, un restore posterior todavía podía reanimar esa sesión. El fallo
+  limpia token y tipo de sesión dentro de la misma lane serializada antes de liberarla, intentando
+  ambas limpiezas y conservando los errores si alguna falla;
+- reconciliación interpretaba cualquier GET 404 como ausencia autoritativa y podía borrar estado
+  local durable. Solo el código API `INSTANCE_NOT_FOUND` confirma ahora la ausencia. La misma
+  auditoría encontró y corrigió el caso hermano en DELETE: un 404 genérico ya no se convierte en
+  `already_absent`;
+- una lease vieja podía volver a ser elegible si una productora más nueva había sido capturada y
+  luego abandonada. La supersesión es ahora monotónica desde captura: una generación observada nunca
+  cede de nuevo prioridad a su predecesora. Los commits esperan la liquidación de productoras nuevas
+  y después descartan limpiamente la lease vieja, sin dejar estado pendiente.
+
+La regeneración OpenAPI se hizo contra `/swagger/json` de la API local con las rutas dev
+condicionadas habilitadas. El artefacto web conserva esas rutas y refleja únicamente la descripción
+actualizada de sign-out por familia de sesiones.
+
+| Check final sin E2E                                | Resultado                                  |
+| -------------------------------------------------- | ------------------------------------------ |
+| Focales mobile auth/reconciliación/cache/UI        | verde: 8 suites, 250 tests                 |
+| `pnpm --filter mobile test`                        | verde: 37 suites, 414 tests, 2 snapshots   |
+| Mobile routes/i18n/typecheck/lint                  | verde; i18n 1 suite, 8 tests, 0 ausencias  |
+| Focales API auth/programas/cache                   | verde: 5 ficheros, 238 tests               |
+| API test/typecheck/lint                            | verde: 47 ficheros, 764 tests              |
+| Domain test/typecheck                              | verde: 7 ficheros, 51 tests                |
+| Database test/typecheck                            | verde: 6 ficheros, 89 tests                |
+| Integraciones database con infraestructura externa | 5 saltadas por entorno                     |
+| Drizzle migrations check                           | verde: `Everything's fine`                 |
+| OpenAPI web `api:types`                            | verde; artefacto regenerado                |
+| Prettier + `git diff --check`                      | verde antes de este registro; se reejecuta |
+| `autoreview --mode local` tras las correcciones    | invalidada al detectar source drift        |
+| E2E                                                | no ejecutado; reservado exclusivamente M8  |
+
+La invalidación de autoreview fue deliberadamente conservadora: la generación OpenAPI terminó
+mientras el review estaba en curso, por lo que su salida pidió repetir sobre el árbol actualizado y
+no se contabiliza como dictamen. Tras este registro se congela el patch, se repiten formato/diff y
+autoreview, y cualquier finding aceptado volverá al ciclo fix/test/review.
+
+Esta continuación no es una revisión independiente ni declara GO. M2 sigue esperando dos revisores
+independientes frescos.
+
+### Autoreview exacta tras el registro final
+
+La autoreview sobre el patch congelado aceptó un P2 hermano en el login email: después de que el
+servidor emitiera la cookie, un fallo al persistir el marker local seguido de una revocación remota
+fallida podía dejar `email` restaurable aunque el caller hubiera recibido un error. La corrección
+limpia token y marker dentro de la lane de transición antes de intentar la revocación best-effort,
+igual que el cierre Google, y conserva de forma agregada cualquier fallo de cleanup.
+
+La regresión determinista escribe parcialmente el marker, hace fallar persistencia y revocación, y
+demuestra que un restore posterior devuelve `null` sin llamar al endpoint cookie. El test focal de
+auth queda verde con 45 tests; la suite mobile final sustituye el conteo anterior y queda verde con
+37 suites, 415 tests y 2 snapshots. Routes, i18n ES/EN (8 tests, 0 keys ausentes), typecheck estricto y
+lint se repitieron verdes después del fix.
+
+Este finding aceptado tampoco constituye revisión independiente ni GO. M2 conserva el requisito de
+dos revisores independientes frescos, y E2E continúa sin ejecutarse por estar reservado a M8.
+
+### Segundo ciclo de autoreview exacta
+
+La siguiente autoreview aceptó tres P2 adicionales, verificados y cerrados con regresiones
+deterministas:
+
+- si el owner cambiaba mientras fallaba el restore posterior a un 401, el catch devolvía el 401
+  original y ocultaba la obsolescencia. La sesión capturada se reafirma ahora también en el catch y
+  tras restore; un cambio de owner conserva `requestDispatched: true` para impedir que mutaciones del
+  owner anterior hagan cleanup como rechazo definido;
+- un login browser B que había capturado una cookie de A podía fallar si logout/revocación borraba la
+  familia A antes de la transacción. El replacement conserva el owner capturado y B crea siempre una
+  familia independiente, incluso cuando la fila A ya no existe; el caso same-account desaparecido
+  sigue siendo supersesión;
+- respuestas detail/definition válidas pero con ID distinto devolvían `false` sin liquidar su lease.
+  Ambos caminos abandonan ahora la lease antes de salir, evitando productores pendientes huérfanos y
+  esperas sin resolución.
+
+Los focos posteriores quedaron verdes con 2 suites/104 tests mobile y 17 tests de familia de sesión
+API. Las matrices completas sustituyen otra vez los conteos anteriores: mobile queda en 37 suites,
+417 tests y 2 snapshots; API queda en 47 ficheros y 765 tests. Routes, i18n ES/EN, typecheck y lint
+mobile, además de typecheck y lint API, se repitieron verdes en este estado.
+
+M2 continúa sin GO y pendiente de dos revisores independientes frescos. E2E no se ejecutó.
+
+### Tercer ciclo de autoreview exacta
+
+La tercera autoreview aceptó un último P2 de orden entre tres refreshes: después de esperar a la
+generación más nueva, una productora vieja podía volver a esperar una lease intermedia que ya era
+irreversiblemente obsoleta pero cuya petición seguía pendiente. El lookup espera ahora únicamente la
+última generación reservada. Cuando esa generación se liquida, todas las inferiores fallan de
+inmediato en vez de encadenarse a una productora colgada.
+
+La regresión captura tres leases, abandona la más nueva y mantiene la intermedia pendiente; confirma
+que la vieja ya no obtiene un segundo waiter y termina `false`. El foco repository queda verde con
+59 tests; typecheck y lint mobile se repitieron verdes. La suite mobile final vuelve a sustituir el
+conteo anterior: 37 suites, 418 tests y 2 snapshots, con routes e i18n ES/EN también verdes.
+
+M2 continúa pendiente de dos revisores independientes frescos, sin declaración GO y sin E2E.
+
+### Cuarto ciclo de autoreview exacta
+
+La cuarta autoreview aceptó dos P2 de coherencia local:
+
+- el cleanup destructivo de un sign-in Google/email fallido borraba credenciales durables pero podía
+  dejar viva la cuenta anterior en memoria. El helper compartido bloquea restore e invalida owner,
+  token y generación antes de limpiar storage. Las regresiones parten de una sesión A, hacen fallar
+  el cambio a B y demuestran que A ya no puede capturarse ni autorizar requests;
+- tras un PATCH ya reconocido, un cambio de sesión durante el commit SQLite conserva
+  intencionadamente el marker manage, pero el resultado declaraba que no había reconciliación. El
+  resultado reporta ahora `reconciliationScheduled: true`; la regresión usa una obsolescencia
+  dispatched y verifica que el marker persiste y no se limpia.
+
+Los focos auth/manage quedaron verdes con 2 suites y 79 tests. Typecheck, lint, routes e i18n ES/EN
+se repitieron verdes; la suite mobile completa permanece en 37 suites, 418 tests y 2 snapshots.
+
+M2 sigue sin GO, requiere dos revisores independientes frescos y no ha ejecutado E2E.
+
+### Quinto ciclo de autoreview exacta
+
+La quinta ejecución no llegó al review: el preflight conservador detectó fixtures con forma de token
+en el contexto del test auth. Eran placeholders locales, no secretos; se redujeron a valores mínimos
+y el test auth volvió a quedar verde con 46 tests antes de repetir.
+
+La sexta autoreview aceptó un P2 de artefacto database: `0043_session_families.sql` y el journal no
+incluían el snapshot Drizzle correspondiente. Se generó `0043_snapshot.json` desde el schema actual
+del worktree, enlazado al último snapshot persistido. `drizzle-kit check` devuelve
+`Everything's fine` y una generación de verificación enumera 13 tablas —incluidos 11 campos y 5
+índices de `refresh_tokens`— y termina con `No schema changes, nothing to migrate`.
+
+Este cierre sigue pendiente de una autoreview limpia sobre el patch exacto. M2 no declara GO, espera
+dos revisores independientes frescos y mantiene E2E reservado a M8.
+
+### Cierre limpio de autoreview
+
+La séptima autoreview se ejecutó sobre el patch exacto con el snapshot 0043 incluido. Sus dos chunks
+terminaron con 0 findings aceptados/accionables, `autoreview chunked clean` y resultado global
+`patch is correct`. Este registro documental obliga a una última repetición sobre el mismo contenido
+completo antes del commit.
+
+Los últimos conteos completos permanecen: mobile 37 suites/418 tests/2 snapshots; API 47
+ficheros/765 tests; domain 7 ficheros/51 tests; database 6 ficheros/89 tests con 5 integraciones
+externas saltadas. Formato, diff, routes, i18n ES/EN, typechecks, lints, OpenAPI y Drizzle están
+verdes. E2E no se ejecutó.
+
+La autoreview limpia no sustituye reverificación independiente: M2 todavía espera dos revisores
+independientes frescos y no declara GO.
+
+### Sexto ciclo de corrección tras el cierre documental
+
+La octava autoreview aceptó un P2 de amplificación de headers en sign-out: el endpoint rechazaba más
+de ocho cookies refresh antes de revocar, pero su `finally` todavía podía emitir un `Set-Cookie` de
+expiración por cada nombre presentado. El helper de expiración limita ahora todas sus llamadas a
+`MAX_BROWSER_REFRESH_COOKIES`, también en errores tempranos y rate limit.
+
+La regresión HTTP presenta nueve cookies versionadas, confirma el 400 sin fan-out de revocación y
+limita la respuesta a ocho expiraciones. El foco auth API quedó verde con 126 tests; typecheck y lint
+API se repitieron verdes, y la suite completa API permanece en 47 ficheros/765 tests.
+
+El cambio no altera el estado de reviewer: M2 sigue pendiente de dos revisores independientes
+frescos, no declara GO y no ejecutó E2E.
+
+### Séptimo ciclo de corrección
+
+La novena autoreview señaló que limitar las expiraciones a las primeras ocho cookies resolvía la
+amplificación, pero podía dejar viva una credencial válida posterior. El overflow usa ahora un único
+header estándar `Clear-Site-Data: "cookies"`: elimina también cookies HttpOnly sin fan-out de
+`Set-Cookie`. El camino normal conserva expiración precisa por nombre y no afecta un login
+concurrente más nuevo.
+
+La regresión de nueve cookies mantiene 400 y cero revocaciones, exige cero headers `Set-Cookie` y
+confirma el global-clear acotado. El foco auth API permanece en 126 tests verdes; typecheck, lint y
+los 47 ficheros/765 tests API completos se repitieron verdes.
+
+M2 continúa pendiente de dos revisores independientes frescos, sin GO y sin E2E.
+
+## M2 — cierre del corrector final4 (continuación final)
+
+Fecha: 2026-07-28
+
+Base heredada: `0e977604c23b22087da50a57a2e3dd9aced821ed`
+
+Estado: corrección completa y autoreview limpia; pendiente de dos revisores independientes frescos
+
+Esta continuación heredó el patch final4 sin commit y cerró los dos gaps de completitud que quedaban:
+
+- cuando un refresh de `library` o `catalog` pierde el commit frente a un productor más nuevo, el
+  consumidor activo relee el snapshot ganador de SQLite y termina con datos estables en vez de
+  quedar en `loading`;
+- el create confirmado avanza la barrera `definition:<programId>` dentro del mismo conjunto de
+  barreras que `library` y `detail:<id>`, impidiendo que una definición anterior sobrescriba el
+  resultado del create.
+
+Las regresiones finales mantienen además los cinco contratos de la revisión anterior: leases únicas
+por productor; preflight de sesión fuera de las regiones `outcome_unknown`; cancelación segura de
+sesiones obsoletas en Tracker; checks pre/post-write dentro de cada transacción SQLite con rollback;
+y recursos independientes `library`, `catalog`, `definition:<id>` y `detail:<id>`.
+
+### Findings aceptados y corregidos durante el cierre
+
+Las sucesivas autoreviews locales descubrieron y bloquearon problemas reales adicionales. Se
+corrigieron con cobertura determinista antes de continuar:
+
+- serialización global de login/restore y familias de refresh, incluida la generación única por
+  intento, el pinning de sesión antes y después de ACK, y la protección frente a ABA;
+- familias cross-account sin enlace de hashes, exclusión de cookies expiradas, límite de ocho
+  cookies de refresh antes de hash/DB y asignación del orden solo después del rate limit;
+- callbacks browser de Google/password/verificación/Apple/GitHub/Microsoft/dev unidos a la barrera
+  de familia capturada; logout antiguo no puede borrar un login de generación posterior;
+- tombstones de lookup de familia limitadas a la vida del sucesor directo, sin extender la validez
+  del credential antiguo ni podar ancestros todavía necesarios;
+- migración expand compatible con instancias API antiguas mediante defaults DB para `family_id` y
+  `family_order`;
+- recuperación de DELETE incierto sin la promesa insegura «conservar programa»: comprobar estado
+  mantiene el marker si GET aún ve la fila y solo confirma cleanup local tras ausencia remota;
+- reconciliación de manage pinneada a la sesión también dentro de SQLite, con validación antes y
+  después de escribir y rollback si cambia la cuenta.
+
+La pasada final de `autoreview --mode local` revisó el patch en dos chunks y terminó limpia: cero
+findings aceptados o accionables, `overall: patch is correct`.
+
+### Matriz final sin E2E
+
+| Check                                                               | Resultado                                               |
+| ------------------------------------------------------------------- | ------------------------------------------------------- |
+| Focales mobile refresh/session/repositorio/Programas/Tracker/create | verde: 8 suites, 252 tests                              |
+| `pnpm --filter mobile test`                                         | verde: 37 suites, 412 tests, 2 snapshots                |
+| Mobile strict typecheck + route manifest                            | verde                                                   |
+| Mobile lint                                                         | verde                                                   |
+| Mobile i18n ES/EN                                                   | verde: 1 suite, 8 tests, paridad exacta                 |
+| Focales API auth/session                                            | verde: 2 ficheros, 142 tests                            |
+| `pnpm --filter api test`                                            | verde: 47 ficheros, 764 tests                           |
+| API typecheck + lint                                                | verde                                                   |
+| Domain test + typecheck                                             | verde: 7 ficheros, 51 tests                             |
+| Database test + typecheck                                           | verde: 6 ficheros, 89 tests                             |
+| Integraciones database externas                                     | 5 saltadas: requieren PostgreSQL/infraestructura opt-in |
+| E2E                                                                 | no ejecutado; reservado para M8                         |
+
+Este cierre no declara GO independiente. M2 continúa pendiente de dos revisores independientes
+frescos sobre el commit final.
+
 ## M2 — Programas: biblioteca y gestión
 
 Inicio: 2026-07-27
 
 Base congelada: `78adf51dc98ad77b8302d0042c7ffae7538bfcea`
 
-Estado: corrección del ciclo final 3 completa. Los revisores final3 A y B dieron `no-go`; Main
-normalizó sus findings en D1-D8 y esta pasada los corrige con regresiones. El hito queda pendiente de
-una nueva reverificación independiente. El SHA se identifica en el handoff. M2 no está integrado y
-no tiene GO final.
+Estado: corrección del ciclo final 4 en curso. Los revisores final4 A y B dieron `no-go` en worktrees
+detached limpios y solo de lectura; Main normalizó sus findings en E1-E9. Esta pasada corrige los
+nueve con regresiones y puertas completas, pero el hito queda pendiente de dos nuevos dictámenes
+independientes. El SHA se identifica en el handoff. M2 no está integrado y no tiene GO final.
 
 ### Candidato y revisiones
 
@@ -205,6 +456,10 @@ no tiene GO final.
 | Reverificación final3 B  | `no-go`: 5 findings                          | `M2-VF3B-001` a `M2-VF3B-005`                  |
 | Normalización Main 4     | D1-D8                                        | Ocho defectos únicos aceptados                 |
 | Corrector final3         | este commit; SHA en el handoff del corrector | D1-D8 corregidos; no constituye GO             |
+| Reverificación final4 A  | `no-go`                                      | Informe `final4-a`; revisión limpia/read-only  |
+| Reverificación final4 B  | `no-go`                                      | Informe `final4-b`; revisión limpia/read-only  |
+| Normalización Main 5     | E1-E9                                        | Nueve defectos aceptados para corrección       |
+| Corrector final4         | este commit; SHA en el handoff del corrector | E1-E9 corregidos; no constituye GO             |
 
 ### Origen → normalizado y corrección
 
@@ -364,6 +619,101 @@ manteniendo las rutas dev condicionadas durante codegen.
   entorno; migraciones SQLite runtime/contrato sí se ejecutaron con `node:sqlite`.
 - M2 sigue pendiente de nueva reverificación independiente. Esta corrección no declara GO.
 
+### Corrección del ciclo final 4
+
+Los dos revisores final4 trabajaron sobre snapshots detached, limpios y de solo lectura. Ambos
+devolvieron `no-go`; sus informes completos (`final4-a.final.txt` y `final4-b.final.txt`) se
+normalizaron en nueve defectos E1-E9. La corrección mantiene append-only las migraciones SQLite y
+no amplía el alcance a E2E.
+
+| Defecto | Sev. | Estado | Corrección y evidencia                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------- | ---- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E1      | P1   | fixed  | Manage persiste y relee la expectativa tipada owner-scoped antes de permitir PATCH. Fallar preflight impide el envío; también la captura de sesión ocurre fuera de la región outcome-unknown, por lo que una sesión obsoleta nunca finge un envío remoto. Rechazo remoto definido elimina solo el marker exacto; outcome desconocido o crash lo conserva. ACK y eliminación coincidente comparten transacción SQLite. Manage, delete y reconciliación GET usan la misma lane por owner/entidad. Regresiones cubren crash, servidor alcanzado sin respuesta, rechazo definido, reintento idéntico, intención conflictiva, ACK ajeno, rollback y preflight de sesión. |
+| E2      | P1   | fixed  | Tras restart, cada tarjeta revela la expectativa exacta guardada —incluidos todos los valores config— y ofrece un único CTA accesible/localizado ES+EN para repetir exactamente esa mutación. Rename/status/config arbitrarios quedan ocultos mientras existe marker; el flujo cubre petición nunca recibida, commit remoto posterior y recuperación satisfactoria.                                                                                                                                                                                                                                                                                                 |
+| E3      | P2   | fixed  | La frontera TypeBox usa las constantes exportadas de dominio y admite únicamente `0` o `[10⁻⁶, 10¹⁵]`; route y servicio autoritativo prueban 0, ambos límites y rechazos `10⁻⁷`/`10²¹`. OpenAPI se regeneró desde la API real: el artefacto web quedó byte-idéntico porque el generador reduce valores de `Record` a `passthrough`, mientras los probes de ruta conservan el contrato exacto.                                                                                                                                                                                                                                                                       |
+| E4      | P2   | fixed  | Los defaults calculan un número entero de steps acotado desde `min`, nunca superan `MAX_PROGRAM_WEIGHT` y mantienen alineación/round-trip. Se prueban casos ordinarios, step exacto `10¹⁵`, min no cero junto al límite y render/parse ES+EN.                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| E5      | P1   | fixed  | Redis mantiene una generación distribuida por owner. Todo miss captura generación antes del DB read; un Lua CAS escribe solo si sigue coincidiendo. Cada commit lifecycle incrementa generación y borra IDs deduplicados en un Lua atómico; rollback no avanza. Redis ausente desactiva el fill y las mutaciones siguen fail-open. El interleaving A-read/B-commit/A-fill tardío queda rechazado determinísticamente.                                                                                                                                                                                                                                               |
+| E6      | P1   | fixed  | Cada productor captura owner, token y generación de sesión antes incluso de la lectura local. Todas las páginas y detalles usan esa sesión; se valida antes y después de red y otra vez dentro de la transacción de cache. Un cambio A→B invalida la respuesta tardía y jamás permite escribir datos de B en la partición A. Tracker convierte un preflight obsoleto en estado no disponible sin lanzar desde el effect. Tests cubren lectura local diferida, primera respuesta, cambio entre páginas y preflight obsoleto.                                                                                                                                         |
+| E7      | P1   | fixed  | Leases monotónicas por owner/recurso (`library`, `catalog`, `definition:id`, `detail:id`) avanzan al capturar cada productor nuevo; catálogo-lista y definiciones independientes no compiten. Cada transacción valida antes y después de sus writes y lanza para rollback si la lease cambia mientras SQLite espera. Create/manage/reactivate/delete/pin/detail también avanzan generaciones. Respuestas antiguas no reemplazan summary, detail, pin, tombstone, snapshot ni freshness. Tests cubren lifecycle, refreshes solapados e invalidación a mitad de write.                                                                                                |
+| E8      | P2   | fixed  | `ProgramContentOrigin` llega a tiers. Solo `source:preset` con ID canónico usa copy de tier canónico; custom/externo que colisiona con `t1`/`main` conserva su label suministrada. Oracle y colisiones independientes lo prueban.                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| E9      | P2   | fixed  | Delete confirmado elimina en la misma transacción summary, detail, pin, queue y todas las reconciliaciones owner/entidad. Comparte lane con manage, conserva el marker de delete si el outcome es desconocido y no toca otra entidad/owner. SQLite real cubre markers tipados/legacy, cola ajena y concurrencia manage/delete.                                                                                                                                                                                                                                                                                                                                      |
+
+### Checks de la corrección final4
+
+| Check                             | Resultado                                | Nota                                                                                            |
+| --------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Focales E1-E9 mobile              | verde: 9 suites, 197 tests               | Crash/interleavings, recovery, owner switch/paginación, generaciones, defaults, source y delete |
+| Focales API E3/E5                 | verde: 3 suites, 90 tests                | Schema/routes, validación autoritativa y barrera Redis distribuida                              |
+| `pnpm --filter mobile test`       | verde: 37 suites, 318 tests, 2 snapshots | Reconfirma D1-D8, C1-C5 y N1-N13 sin warnings React                                             |
+| Mobile routes/i18n/lint/typecheck | verde                                    | Manifiesto sin drift; i18n 8/8 y 0 keys ausentes; ESLint y TS estrictos                         |
+| Domain tests/typecheck            | verde: 7 ficheros, 51 tests              | Frontera numérica y validación config                                                           |
+| Database tests/typecheck          | verde: 6 ficheros, 89 tests              | 5 integraciones DB externas saltadas por entorno                                                |
+| API tests/lint/typecheck          | verde: 46 ficheros, 728 tests            | Lifecycle, locks, Redis, rutas y servicio                                                       |
+| OpenAPI web `api:types`           | verde, sin diff                          | Regenerado contra `/swagger/json` de la API local actual con rutas dev condicionadas            |
+| Expo export Android               | verde: 1.245 módulos                     | 24 assets; 26 ficheros; Hermes HBC 3.892.629 B                                                  |
+| Prettier + `git diff --check`     | pendiente de cierre                      | Se ejecuta tras este registro vivo                                                              |
+| `autoreview --mode local`         | dos pasadas corregidas                   | 5 findings aceptados: orden/atomicidad de leases, recursos y dos preflights; rerun pendiente    |
+| Secret scan y hooks               | pendiente de cierre                      | Hooks activos en el commit final                                                                |
+| E2E                               | no ejecutado por política                | Reservado para M8                                                                               |
+
+### Riesgos de la corrección final4
+
+- Redis sigue siendo fail-open para no convertir una caída de cache en una caída de mutaciones. Si
+  Redis falla justo al invalidar, una entrada ya existente puede sobrevivir hasta su TTL de cinco
+  minutos; mientras Redis no está disponible no se hacen fills nuevos. La generación distribuida
+  elimina la carrera stale-refill cuando Redis funciona.
+- Las generaciones mobile son de proceso y protegen productores vivos. Tras restart no existe un
+  productor antiguo, y la verdad durable sigue en SQLite; los markers tipados reanudan recuperación
+  explícita sin supersesión.
+- El cliente OpenAPI generado no materializa constraints internos de valores `Record`; por eso la
+  regeneración exacta no cambia el fichero. Los schemas TypeBox publicados y los tests HTTP sí
+  fijan `0` o `[10⁻⁶, 10¹⁵]`.
+- Las cinco pruebas database que requieren infraestructura externa permanecieron saltadas. Las
+  migraciones SQLite, transacciones owner-scoped y contratos runtime sí se ejecutaron localmente.
+- M2 sigue pendiente de dos reverificaciones frescas. Esta corrección no declara GO.
+
+### Continuidad del corrector final4 tras la tercera autoreview
+
+La tercera autoreview encontró dos gaps de cierre adicionales, ambos P2 y dentro del mismo límite de
+concurrencia de E7. Esta continuidad heredó el patch sin commit, comprobó la implementación exacta y
+cerró ambos sin ampliar el alcance:
+
+- un consumidor activo de Programas cuyo commit de refresh pierde la lease relee el snapshot ganador
+  de SQLite y sale de `loading` tanto para `library` como para `catalog`;
+- `cacheCreatedProgram` avanza también `definition:<programId>` antes de su transacción, por lo que un
+  productor de definición anterior al create ya no puede sobrescribir la definición confirmada.
+
+Las regresiones deterministas elevan mobile de 318 a 321 tests: snapshot ganador de biblioteca,
+snapshot ganador de catálogo e invalidación del productor de definición anterior al create. La
+auditoría de no regresión confirmó además leases únicas por productor, preflight de sesión fuera de
+las regiones `outcome_unknown`, cancelación no explosiva de sesión obsoleta en Tracker, validación
+pre/post-write con rollback en los cuatro commits SQLite de refresh y recursos independientes
+`library`, `catalog`, `definition:<id>` y `detail:<id>`.
+
+| Check de continuidad                                                | Resultado                       |
+| ------------------------------------------------------------------- | ------------------------------- |
+| Focales mobile refresh/session/repositorio/Programas/Tracker/create | verde: 9 suites, 160 tests      |
+| `pnpm --filter mobile test`                                         | verde: 37 suites, 321 tests     |
+| Mobile routes/typecheck/lint/i18n                                   | verde; i18n 1 suite, 8 tests    |
+| Focales API cache/routes/servicio                                   | verde: 3 ficheros, 90 tests     |
+| API test/typecheck/lint                                             | verde: 46 ficheros, 728 tests   |
+| Domain test/typecheck                                               | verde: 7 ficheros, 51 tests     |
+| Database test/typecheck                                             | verde: 6 ficheros, 89 tests     |
+| Integraciones database con infraestructura externa                  | 5 saltadas por entorno          |
+| E2E                                                                 | no ejecutado; reservado para M8 |
+
+Este cierre sigue sin constituir GO: M2 queda pendiente de dos revisores independientes frescos.
+
+### Finding de autoreview de cierre
+
+La primera autoreview de esta continuidad aceptó un P1 adicional dentro del límite de sesión: un
+restore A tardío podía instalarse o invalidar el estado después de un login B más nuevo. El restore
+ahora prepara el resultado sin mutar credenciales globales, valida la generación antes de persistir e
+instalar y señala explícitamente el intento obsoleto para que el provider no borre al usuario nuevo.
+Dos regresiones cubren restore A tardío tanto exitoso como fallido después del login B. Mobile queda
+en 37 suites, 323 tests y 2 snapshots verdes; typecheck y lint también permanecen verdes. Este
+finding aceptado no sustituye las dos revisiones independientes exigidas para M2.
+
 ### Riesgos y fuera de alcance
 
 - La creación sigue online-only y no se reintenta automáticamente: la API aún no ofrece idempotency
@@ -480,3 +830,160 @@ los cuatro roles: implementador, dos revisores frescos A/B, corrector y retorno 
 - La reverificación final A dio `go`; Main verificó el delta exacto, el lifecycle protegido, a11y,
   manifiesto y pruebas antes del fast-forward.
 - E2E continúa sin ejecutarse y permanece reservado para M8.
+
+## M2 — cierre definitivo del corrector (continuación)
+
+Fecha: 2026-07-28
+
+Base heredada: `0e977604c23b22087da50a57a2e3dd9aced821ed`
+
+Estado: implementación y matriz final verdes; autoreview final pendiente antes del commit; pendiente
+de dos revisores independientes frescos
+
+La décima autoreview no estaba limpia. Aceptó dos P2 relacionados que invalidaban el workaround
+documentado en el séptimo ciclo: el overflow de sign-out borraba cookies del navegador sin revocar
+sus sesiones servidor, por lo que una copia del token seguía siendo válida, y nueve logins
+concurrentes podían crear nueve nombres versionados y dejar al navegador permanentemente por encima
+del límite.
+
+La corrección elimina ese estado inválido en el protocolo, no solo en el error. Los logins browser
+emiten ahora exclusivamente ocho slots fijos (`refresh_token_slot_0` a
+`refresh_token_slot_7`) elegidos por el orden durable de la familia. Refresh conserva el slot
+seleccionado y migra los dos nombres anteriores sin crear nombres nuevos. Por construcción solo
+existen diez credenciales reconocibles en una petición: ocho slots más los nombres base y legacy.
+Sign-out puede por tanto revocar y expirar todas, con fan-out estrictamente acotado y sin
+`Clear-Site-Data`; nombres que solo se parecen a refresh quedan fuera antes de hash o lookup DB.
+
+Tres regresiones deterministas fijan el contrato: nueve emisiones consecutivas ocupan exactamente
+ocho slots, un refresh ignora nueve nombres no reconocidos sin tocar hash/DB, y sign-out revoca y
+expira el namespace completo de diez nombres. No se añadieron assertions para ocultar errores.
+
+### Matriz final sin E2E
+
+| Check                                       | Resultado                                               |
+| ------------------------------------------- | ------------------------------------------------------- |
+| Focales mobile auth/reconciliación/cache/UI | verde: 11 suites, 278 tests, 2 snapshots                |
+| Focales API auth/session/cache/programas    | verde: 5 ficheros, 240 tests                            |
+| `pnpm --filter mobile test`                 | verde: 37 suites, 418 tests, 2 snapshots                |
+| Mobile routes/typecheck/lint                | verde                                                   |
+| Mobile i18n ES/EN                           | verde: 1 suite, 8 tests, 0 keys ausentes                |
+| `pnpm --filter api test`                    | verde: 47 ficheros, 766 tests                           |
+| API typecheck/lint                          | verde                                                   |
+| Domain test/typecheck                       | verde: 7 ficheros, 51 tests                             |
+| Database test/typecheck                     | verde: 6 ficheros, 89 tests                             |
+| Integraciones database externas             | 5 saltadas: requieren PostgreSQL/infraestructura opt-in |
+| Drizzle `check` / generación                | verde; 13 tablas, sin cambios de schema pendientes      |
+| OpenAPI web `api:types`                     | verde; schema final sin drift                           |
+| E2E                                         | no ejecutado; reservado exclusivamente para M8          |
+
+El fallo inicial de `drizzle-kit check` sin URL fue solo de configuración local; la repetición usó
+una URL PostgreSQL ficticia no conectada, suficiente para cargar el config, y terminó
+`Everything's fine`. Las cinco integraciones PostgreSQL opt-in siguen siendo el único skip externo.
+
+Este cierre no es una revisión independiente ni declara GO. M2 continúa pendiente de dos revisores
+independientes frescos sobre el commit final. E2E no se ejecutó.
+
+### Autoreview final limpia
+
+La autoreview final sobre implementación, regresiones, snapshot Drizzle y matriz documentada revisó
+el bundle de 630.451 bytes en dos chunks. Ambos terminaron con cero findings aceptados/accionables;
+el resultado combinado fue `autoreview chunked clean`, `overall: patch is correct` y confianza
+`0.87`. Tras registrar este resultado se repiten formato, `git diff --check` y la autoreview exigida
+para el árbol documental definitivo antes del commit.
+
+El estado de aprobación no cambia: este proceso es corrección, no reverificación independiente. M2
+sigue esperando dos revisores independientes frescos y no declara GO. E2E no se ejecutó.
+
+### Corrección final del protocolo de cookies
+
+La repetición exigida tras documentar la autoreview limpia anterior la supersedió inmediatamente:
+aceptó dos P1 en los slots fijos. Reutilizar `familyOrder % 8` permitía que una respuesta antigua
+sobrescribiera el slot ganador; además, expiraciones tardías de login, refresh o sign-out podían
+borrar una credencial nueva que hubiese reutilizado el mismo nombre. Por tanto, el dictamen limpio
+anterior no es el dictamen de cierre.
+
+La solución definitiva conserva nombres únicos derivados del hash del token. Nueve logins
+concurrentes producen nueve nombres independientes y la selección batch elige la única familia
+activa de mayor `familyOrder`; una respuesta tardía solo puede instalar su propio nombre, nunca
+sobrescribir el ganador. Login y refresh expiran como máximo ocho nombres capturados y escriben un
+nombre nuevo, por lo que el cleanup sigue acotado y no puede alcanzar una credencial creada después
+de la petición.
+
+Sign-out hashea todo el snapshot presentado y lo entrega a una única operación transaccional batch.
+Esta localiza tanto hashes actuales como `previous_token_hash`, toma locks de familias y usuarios,
+relee candidatos/activos y elimina en bloque solo familias cuya generación máxima también estaba en
+el snapshot. Así revoca sucesores de refresh y tokens copiados incluso con overflow, pero conserva
+un login concurrente posterior. La respuesta emite como máximo ocho expiraciones precisas; el resto
+de cookies puede quedar localmente hasta otro cleanup o su TTL, pero ya no autoriza ninguna sesión.
+
+Las regresiones prueban nueve nombres concurrentes distintos, refresh tardío sin colisión,
+revocación batch del overflow, recuperación de ancestro rotado, preservación de una generación
+posterior ausente y revocación de la generación posterior cuando su propia credencial sí fue
+capturada.
+
+| Check definitivo sin E2E                         | Resultado                                |
+| ------------------------------------------------ | ---------------------------------------- |
+| Focales mobile auth/reconciliación/cache/UI      | verde: 11 suites, 278 tests, 2 snapshots |
+| `pnpm --filter mobile test`                      | verde: 37 suites, 418 tests, 2 snapshots |
+| Mobile routes/i18n/typecheck/lint                | verde; i18n 1 suite, 8 tests             |
+| Focales API auth/session/cache/programas         | verde: 5 ficheros, 243 tests             |
+| `pnpm --filter api test`                         | verde: 47 ficheros, 769 tests            |
+| API typecheck/lint                               | verde                                    |
+| Domain test/typecheck                            | verde: 7 ficheros, 51 tests              |
+| Database test/typecheck                          | verde: 6 ficheros, 89 tests              |
+| Integraciones PostgreSQL opt-in                  | 5 saltadas por entorno                   |
+| Drizzle check/generate                           | verde; sin cambios pendientes            |
+| Prettier / `git diff --check` / autoreview final | pendiente tras este apéndice             |
+| E2E                                              | no ejecutado; reservado para M8          |
+
+M2 continúa pendiente de dos revisores independientes frescos y no declara GO. E2E no se ejecutó.
+
+### Ajuste final de revocación por lote
+
+Durante la inspección de cierre se encontró una carrera real en la revocación batch: buscar también
+por `previous_token_hash` hacía que un logout retrasado con la cookie A incluyera al sucesor B de un
+login posterior cuando B referenciaba A. Al calcular la generación máxima como si B hubiera estado en
+el snapshot, el logout podía borrar la sesión ganadora.
+
+La revocación batch ahora selecciona exclusivamente los `token_hash` realmente enviados por el
+navegador. Los antecesores consumidos permanecen como tombstones hasta que vence su sucesor, de modo
+que el logout retrasado conserva su familia representada sin confundir una respuesta posterior con
+una credencial presentada. La nueva regresión determinista cubre A retrasada y B enlazada, verificando
+que B continúa activa y no se emite `DELETE`.
+
+| Check adicional sin E2E                          | Resultado                                                |
+| ------------------------------------------------ | -------------------------------------------------------- |
+| Focal API `auth-session`                         | verde: 1 fichero, 21 tests                               |
+| Focal API `auth`                                 | verde: 1 fichero, 127 tests                              |
+| `pnpm --filter api test`                         | verde: 47 ficheros, 770 tests                            |
+| API typecheck/lint                               | verde                                                    |
+| `pnpm --filter mobile test`                      | verde: 37 suites, 418 tests, 2 snapshots                 |
+| Mobile routes/i18n/typecheck/lint                | verde; i18n 1 suite, 8 tests, 0 keys ausentes            |
+| Domain test/typecheck                            | verde: 7 ficheros, 51 tests                              |
+| Database test/typecheck                          | verde: 6 ficheros, 89 tests; 5 integraciones opt-in skip |
+| Drizzle `db:generate`                            | verde: 13 tablas, sin cambios de schema                  |
+| OpenAPI web `api:types`                          | verde contra API local efímera; sin drift nuevo          |
+| Prettier / `git diff --check` / autoreview final | pendiente tras este registro                             |
+| E2E                                              | no ejecutado; reservado exclusivamente para M8           |
+
+Este ajuste sigue siendo trabajo del corrector, no una reverificación independiente ni una decisión
+GO. M2 continúa pendiente de dos revisores independientes frescos y E2E permanece reservado a M8.
+
+### Bloqueo de autoreview registrado
+
+La autoreview local se intentó sobre el árbol congelado después de formato y `git diff --check`, pero
+su escáner fail-closed rechazó el bundle antes de invocar al modelo. El único archivo marcado fue
+`apps/backend/api/src/routes/auth.test.ts`; el valor detectado está en el lado eliminado del diff y
+es el literal de fixture `refresh_token=rotated-old-token`, no una credencial. El helper no ofrece
+una allowlist ni un override para tests y cambiar el lado base exigiría reescribir historia o crear
+commits extra, acciones fuera de este ciclo.
+
+Por tanto, este intento no cuenta como autoreview limpia. El bloqueo se deja explícito para que Main
+decida un procedimiento permitido; no cambia el estado de M2, no sustituye las dos revisiones frescas
+pendientes y no declara GO.
+
+Se probó además conservar exactamente ese literal en la misma llamada semántica del test de sign-out,
+con la aserción actual de revocación batch. El test focal siguió verde (127 casos) y `git diff --check`
+siguió limpio, pero una nueva ejecución de `autoreview --mode local` volvió a rechazar el mismo archivo
+antes de arrancar el modelo. Por ello no se registran ni una autoreview limpia ni una sustitución
+manual del control.

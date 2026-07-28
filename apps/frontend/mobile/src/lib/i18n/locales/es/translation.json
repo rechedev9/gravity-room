@@ -92,7 +92,21 @@
     "offline_catalog": "Sin conexión: se muestra el catálogo de presets guardado en este dispositivo.",
     "catalog_empty_title": "No hay presets disponibles",
     "catalog_empty_body": "El catálogo está vacío ahora mismo. Actualiza más tarde para comprobarlo de nuevo.",
-    "reconciliation_required": "Puede que el servidor ya haya aplicado este cambio. Gravity Room lo comprobará de forma segura; no repitas la acción.",
+    "reconciliation_required": "El resultado es incierto. Revisa el cambio exacto guardado en la tarjeta del programa y reintenta solo ese cambio cuando quieras.",
+    "recovery": {
+      "legacy": "Un cambio de una versión anterior de la app tiene un resultado desconocido. Los demás cambios están bloqueados; elimina el programa para resolverlo.",
+      "pending_delete": "La eliminación aún se está verificando. Los demás cambios están bloqueados; reintenta la eliminación o comprueba si ha terminado.",
+      "check_delete": "Comprobar estado de eliminación",
+      "metadata_unavailable": "No se pudo verificar la recuperación de cambios guardados. Las acciones del programa están desactivadas hasta que reintentes.",
+      "rename": "Cambio guardado pendiente: renombrar este programa a «{{name}}».",
+      "config": "Cambio guardado pendiente: aplicar esta configuración exacta: {{values}}.",
+      "retry": "Reintentar el cambio exacto",
+      "status": {
+        "active": "Cambio guardado pendiente: reactivar este programa.",
+        "completed": "Cambio guardado pendiente: completar este programa.",
+        "archived": "Cambio guardado pendiente: archivar este programa."
+      }
+    },
     "card_updated": "Actualizado {{date}}",
     "catalog_title": "Catálogo de presets",
     "catalog_meta": "{{level}} · {{total}} entrenamientos · {{perWeek}}/semana",

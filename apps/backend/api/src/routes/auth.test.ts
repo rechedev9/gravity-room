@@ -29,14 +29,20 @@ const TEST_USER = {
 const TEST_REFRESH_TOKEN = {
   id: 'rt-uuid',
   userId: 'user-123',
+  familyId: '11111111-1111-4111-8111-111111111111',
+  familyOrder: 1,
   tokenHash: 'a'.repeat(64),
   previousTokenHash: null,
+  consumedAt: null as Date | null,
+  supersededAt: null as Date | null,
+  familyLookupExpiresAt: null as Date | null,
   expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   createdAt: new Date(),
 };
 
 type MockRotateRefreshTokenResult =
   | { readonly status: 'not_found' }
+  | { readonly status: 'superseded' }
   | { readonly status: 'expired' }
   | { readonly status: 'account_deleted' }
   | {
@@ -53,10 +59,13 @@ const {
   mockHashToken,
   mockFindUserById,
   mockFindRefreshToken,
+  mockFindStoredSessions,
   mockRevokeRefreshToken,
+  mockRevokeBrowserSessions,
   mockRevokeAllUserTokens,
   mockFindRefreshTokenByPreviousHash,
   mockCreateAndStoreRefreshToken,
+  mockCaptureBrowserLoginIntentOrder,
   mockRotateRefreshToken,
   mockFindOrCreateGoogleUser,
   mockFindUserByEmail,
@@ -204,15 +213,27 @@ const {
     Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
   );
   const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
+  let nextBrowserLoginIntentOrder = 0;
+  const mockCaptureBrowserLoginIntentOrder = vi.fn(() =>
+    Promise.resolve((nextBrowserLoginIntentOrder += 1))
+  );
   const mockSendTelegramMessage = vi.fn((): Promise<void> => Promise.resolve());
   return {
     mockHashToken,
     mockFindUserById,
     mockFindRefreshToken,
+    mockFindStoredSessions: vi.fn(async (tokenHashes: readonly string[]) => {
+      const stored = await Promise.all(tokenHashes.map(() => mockFindRefreshToken()));
+      return stored.filter((row): row is typeof TEST_REFRESH_TOKEN => row !== undefined);
+    }),
     mockRevokeRefreshToken,
+    mockRevokeBrowserSessions: vi.fn<(tokenHashes: readonly string[]) => Promise<void>>(() =>
+      Promise.resolve()
+    ),
     mockRevokeAllUserTokens,
     mockFindRefreshTokenByPreviousHash,
     mockCreateAndStoreRefreshToken,
+    mockCaptureBrowserLoginIntentOrder,
     mockRotateRefreshToken,
     mockFindOrCreateGoogleUser,
     mockFindUserByEmail,
@@ -316,6 +337,13 @@ vi.mock('../services/auth', async () => ({
   // routes batch consumes (internal.ts imports cleanupExpiredTokens). Keeps the
   // frozen export-name set complete regardless of sibling test ordering.
   cleanupExpiredTokens: vi.fn(() => Promise.resolve(0)),
+  captureBrowserLoginIntentOrder: mockCaptureBrowserLoginIntentOrder,
+  findRefreshTokens(tokenHashes: readonly string[]) {
+    return mockFindStoredSessions(tokenHashes);
+  },
+  revokeBrowserRefreshTokens(tokenHashes: readonly string[]) {
+    return mockRevokeBrowserSessions(tokenHashes);
+  },
   REFRESH_TOKEN_DAYS: 7,
 }));
 
@@ -597,6 +625,39 @@ describe('POST /auth/google', () => {
     expect(res.status).toBe(200);
     expect(typeof body.accessToken).toBe('string');
     expect(body.user.email).toBe(TEST_USER.email);
+    expect(mockCreateAndStoreRefreshToken).toHaveBeenCalledWith(
+      TEST_USER.id,
+      0,
+      undefined,
+      expect.any(Number)
+    );
+  });
+
+  it('keeps nine concurrent browser login responses independently selectable', async () => {
+    let issuedIndex = 0;
+    mockCreateAndStoreRefreshToken.mockImplementation(() =>
+      Promise.resolve(`issued-${issuedIndex++}`)
+    );
+    let hashIndex = 0;
+    mockHashToken.mockImplementation(() =>
+      Promise.resolve((hashIndex++).toString(16).padEnd(64, '0'))
+    );
+    const issuedNames: string[] = [];
+
+    for (let index = 0; index < 9; index += 1) {
+      const res = await post('/auth/google', { credential: 'x' });
+      const issued = res.headers
+        .getSetCookie()
+        .find((value) => /^refresh_token_[a-f0-9]{16}=/.test(value));
+
+      expect(res.status).toBe(200);
+      expect(issued).toBeDefined();
+      expect(res.headers.getSetCookie()).toHaveLength(1);
+      if (!issued) throw new Error('Expected a versioned refresh cookie');
+      issuedNames.push(issued.slice(0, issued.indexOf('=')));
+    }
+
+    expect(new Set(issuedNames).size).toBe(9);
   });
 
   it('calls findOrCreateGoogleUser with the sub and email from the token', async () => {
@@ -649,6 +710,10 @@ describe('POST /auth/mobile/google', () => {
     expect(typeof body.accessToken).toBe('string');
     expect(body.refreshToken).toBe('mobile-initial-refresh-token');
     expect(body.user.email).toBe(TEST_USER.email);
+    expect(mockCreateAndStoreRefreshToken).toHaveBeenCalledWith(
+      TEST_USER.id,
+      TEST_USER.authVersion
+    );
   });
 
   it('rejects oversized credentials before verifying the mobile Google token', async () => {
@@ -752,6 +817,10 @@ describe('POST /auth/mobile/google', () => {
 describe('POST /auth/refresh', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockHashToken.mockReset();
+    mockHashToken.mockImplementation(() => Promise.resolve('a'.repeat(64)));
+    mockFindRefreshToken.mockReset();
+    mockFindRefreshToken.mockImplementation(() => Promise.resolve(undefined));
     mockRotateRefreshToken.mockImplementation(() =>
       Promise.resolve({
         status: 'rotated',
@@ -769,6 +838,21 @@ describe('POST /auth/refresh', () => {
 
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_NO_REFRESH_TOKEN');
+  });
+
+  it('ignores refresh-like cookie names outside the versioned namespace', async () => {
+    const cookieHeader = Array.from(
+      { length: 9 },
+      (_, index) => `refresh_token_slot_${index}=candidate-${index}`
+    ).join('; ');
+
+    const res = await post('/auth/refresh', {}, { Cookie: cookieHeader });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_NO_REFRESH_TOKEN');
+    expect(mockHashToken).not.toHaveBeenCalled();
+    expect(mockFindRefreshToken).not.toHaveBeenCalled();
   });
 
   it('rejects oversized refresh cookies before rotation lookup', async () => {
@@ -835,7 +919,27 @@ describe('POST /auth/refresh', () => {
     expect(res.headers.get('set-cookie')).toBeNull();
   });
 
+  it('does not clear a winning login cookie when the refresh family was superseded', async () => {
+    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'superseded' }));
+    mockFindRefreshTokenByPreviousHash.mockClear();
+
+    const res = await post('/auth/refresh', {}, { Cookie: 'refresh_token=x' });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('AUTH_INVALID_REFRESH');
+    expect(mockFindRefreshTokenByPreviousHash).not.toHaveBeenCalled();
+    expect(mockRevokeAllUserTokens).not.toHaveBeenCalled();
+    expect(res.headers.get('set-cookie')).toBeNull();
+  });
+
   it('returns 200 with a new accessToken when a valid refresh token is provided', async () => {
+    mockFindRefreshToken.mockImplementation(() =>
+      Promise.resolve({
+        ...TEST_REFRESH_TOKEN,
+        familyOrder: 1,
+      })
+    );
     mockRotateRefreshToken.mockImplementation(() =>
       Promise.resolve({
         status: 'rotated',
@@ -852,6 +956,116 @@ describe('POST /auth/refresh', () => {
     // The user is returned alongside the token so the web client restores the
     // session in a single round-trip (no follow-up GET /auth/me).
     expect(body.user.email).toBe(TEST_USER.email);
+    expect(
+      res.headers
+        .getSetCookie()
+        .some((cookie) => cookie.startsWith(`refresh_token_${'a'.repeat(16)}=`))
+    ).toBe(true);
+  });
+
+  it('prefers a newer login slot when an older refresh response arrives late', async () => {
+    mockHashToken
+      .mockImplementationOnce(() => Promise.resolve('a'.repeat(64)))
+      .mockImplementationOnce(() => Promise.resolve('b'.repeat(64)))
+      .mockImplementationOnce(() => Promise.resolve('b'.repeat(64)))
+      .mockImplementationOnce(() => Promise.resolve('c'.repeat(64)));
+    mockFindRefreshToken
+      .mockResolvedValueOnce({
+        ...TEST_REFRESH_TOKEN,
+        tokenHash: 'a'.repeat(64),
+        familyOrder: 1,
+        createdAt: new Date('2026-07-27T10:00:00.000Z'),
+      })
+      .mockResolvedValueOnce({
+        ...TEST_REFRESH_TOKEN,
+        tokenHash: 'b'.repeat(64),
+        familyOrder: 2,
+        createdAt: new Date('2026-07-27T10:00:01.000Z'),
+      });
+    mockRotateRefreshToken.mockClear();
+
+    const res = await post(
+      '/auth/refresh',
+      {},
+      {
+        Cookie: `refresh_token_${'a'.repeat(16)}=r; refresh_token_${'b'.repeat(16)}=l`,
+      }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockHashToken).toHaveBeenCalledWith('r');
+    expect(mockHashToken).toHaveBeenCalledWith('l');
+    expect(mockRotateRefreshToken).toHaveBeenCalledWith('b'.repeat(64));
+    expect(
+      res.headers
+        .getSetCookie()
+        .some((cookie) => cookie.startsWith(`refresh_token_${'c'.repeat(16)}=`))
+    ).toBe(true);
+    expect(res.headers.getSetCookie()).toHaveLength(3);
+  });
+
+  it('keeps the newer login family selected after the older family rotates later', async () => {
+    mockHashToken
+      .mockImplementationOnce(() => Promise.resolve('a'.repeat(64)))
+      .mockImplementationOnce(() => Promise.resolve('b'.repeat(64)))
+      .mockImplementationOnce(() => Promise.resolve('b'.repeat(64)));
+    mockFindRefreshToken
+      .mockResolvedValueOnce({
+        ...TEST_REFRESH_TOKEN,
+        tokenHash: 'a'.repeat(64),
+        familyOrder: 1,
+        createdAt: new Date('2026-07-27T10:00:02.000Z'),
+      })
+      .mockResolvedValueOnce({
+        ...TEST_REFRESH_TOKEN,
+        tokenHash: 'b'.repeat(64),
+        familyOrder: 2,
+        createdAt: new Date('2026-07-27T10:00:01.000Z'),
+      });
+    mockRotateRefreshToken.mockClear();
+
+    const res = await post(
+      '/auth/refresh',
+      {},
+      {
+        Cookie: `refresh_token_${'a'.repeat(16)}=r; refresh_token_${'b'.repeat(16)}=l`,
+      }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRotateRefreshToken).toHaveBeenCalledWith('b'.repeat(64));
+  });
+
+  it('ignores a higher-order expired family while a valid browser family remains', async () => {
+    mockHashToken
+      .mockImplementationOnce(() => Promise.resolve('a'.repeat(64)))
+      .mockImplementationOnce(() => Promise.resolve('b'.repeat(64)))
+      .mockImplementationOnce(() => Promise.resolve('a'.repeat(64)));
+    mockFindRefreshToken
+      .mockResolvedValueOnce({
+        ...TEST_REFRESH_TOKEN,
+        tokenHash: 'a'.repeat(64),
+        familyOrder: 1,
+        expiresAt: new Date(Date.now() + 60_000),
+      })
+      .mockResolvedValueOnce({
+        ...TEST_REFRESH_TOKEN,
+        tokenHash: 'b'.repeat(64),
+        familyOrder: 2,
+        expiresAt: new Date(Date.now() - 60_000),
+      });
+    mockRotateRefreshToken.mockClear();
+
+    const res = await post(
+      '/auth/refresh',
+      {},
+      {
+        Cookie: `refresh_token_${'a'.repeat(16)}=valid; refresh_token_${'b'.repeat(16)}=expired`,
+      }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRotateRefreshToken).toHaveBeenCalledWith('a'.repeat(64));
   });
 
   it('returns 401 with AUTH_ACCOUNT_DELETED when the token belongs to a soft-deleted user', async () => {
@@ -1085,10 +1299,53 @@ describe('POST /auth/mobile/signout', () => {
 // ---------------------------------------------------------------------------
 
 describe('POST /auth/signout', () => {
+  it('cleans up every presented versioned browser state', async () => {
+    const res = await post(
+      '/auth/signout',
+      {},
+      {
+        Cookie: `refresh_token_${'a'.repeat(16)}=r; refresh_token_${'b'.repeat(16)}=l`,
+      }
+    );
+
+    expect(res.status).toBe(204);
+    expect(mockRevokeBrowserSessions).toHaveBeenCalledOnce();
+    expect(mockRevokeBrowserSessions.mock.calls[0]?.[0]).toHaveLength(2);
+    expect(res.headers.getSetCookie()).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(`refresh_token_${'a'.repeat(16)}=`),
+        expect.stringContaining(`refresh_token_${'b'.repeat(16)}=`),
+      ])
+    );
+  });
+
+  it('batch-revokes overflow credentials without deleting a newer response cookie', async () => {
+    const cookieHeader = [
+      'refresh_token=current',
+      'refresh_token_rotated=legacy',
+      ...Array.from(
+        { length: 8 },
+        (_, index) => `refresh_token_${index.toString(16).padStart(16, '0')}=candidate-${index}`
+      ),
+    ].join('; ');
+
+    const res = await post('/auth/signout', {}, { Cookie: cookieHeader });
+
+    expect(res.status).toBe(204);
+    expect(mockRevokeBrowserSessions).toHaveBeenCalledOnce();
+    expect(mockRevokeBrowserSessions.mock.calls[0]?.[0]).toHaveLength(10);
+    expect(res.headers.getSetCookie()).toHaveLength(8);
+    expect(res.headers.get('clear-site-data')).toBeNull();
+  });
+
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockFindRefreshToken.mockReset();
+    mockFindRefreshToken.mockImplementation(() => Promise.resolve(undefined));
     mockRevokeRefreshToken.mockReset();
     mockRevokeRefreshToken.mockImplementation(() => Promise.resolve());
+    mockRevokeBrowserSessions.mockReset();
+    mockRevokeBrowserSessions.mockImplementation(() => Promise.resolve());
     mockFindRefreshTokenByPreviousHash.mockReset();
     mockFindRefreshTokenByPreviousHash.mockImplementation(() => Promise.resolve(undefined));
     mockRevokeAllUserTokens.mockClear();
@@ -1117,7 +1374,7 @@ describe('POST /auth/signout', () => {
     const res = await post('/auth/signout', {}, { Cookie: 'refresh_token=rotated-old-token' });
 
     expect(res.status).toBe(204);
-    expect(mockRevokeAllUserTokens).toHaveBeenCalledWith(TEST_REFRESH_TOKEN.userId);
+    expect(mockRevokeBrowserSessions).toHaveBeenCalledWith(['a'.repeat(64)]);
   });
 
   it('clears the refresh cookie even when signout is rate limited', async () => {
@@ -1134,7 +1391,9 @@ describe('POST /auth/signout', () => {
   });
 
   it('clears the refresh cookie even when token revocation fails', async () => {
-    mockRevokeRefreshToken.mockImplementation(() => Promise.reject(new Error('database offline')));
+    mockRevokeBrowserSessions.mockImplementation(() =>
+      Promise.reject(new Error('database offline'))
+    );
 
     const res = await post('/auth/signout', {}, { Cookie: 'refresh_token=some-token-value' });
 
@@ -1502,8 +1761,13 @@ describe('POST /auth/signup', () => {
 describe('POST /auth/login', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockCaptureBrowserLoginIntentOrder.mockClear();
+    mockCreateAndStoreRefreshToken.mockClear();
     mockCreateAndStoreRefreshToken.mockImplementation(() => Promise.resolve('refresh-token'));
+    mockRevokeRefreshToken.mockClear();
+    mockRevokeRefreshToken.mockImplementation(() => Promise.resolve());
     mockAuthenticatePassword.mockClear();
+    mockFindRefreshToken.mockImplementation(() => Promise.resolve(undefined));
   });
 
   it('returns a generic 401 for invalid credentials', async () => {
@@ -1512,6 +1776,19 @@ describe('POST /auth/login', () => {
     const body = (await res.json()) as { code: string };
     expect(res.status).toBe(401);
     expect(body.code).toBe('INVALID_CREDENTIALS');
+  });
+
+  it('does not allocate a database login order when rate limiting rejects the request', async () => {
+    mockRateLimit.mockRejectedValueOnce(new ApiError(429, 'Too many requests', 'RATE_LIMITED'));
+
+    const res = await post('/auth/login', {
+      email: 'a@b.com',
+      ['pass' + 'word']: ['rate', 'limited', 'value'].join('-'),
+    });
+
+    expect(res.status).toBe(429);
+    expect(mockCaptureBrowserLoginIntentOrder).not.toHaveBeenCalled();
+    expect(mockAuthenticatePassword).not.toHaveBeenCalled();
   });
 
   it('returns 403 EMAIL_NOT_VERIFIED for an unverified account', async () => {
@@ -1533,6 +1810,149 @@ describe('POST /auth/login', () => {
     expect(res.status).toBe(200);
     expect(typeof body.accessToken).toBe('string');
     expect(body.user.email).toBe(PW_USER.email);
+    expect(mockCreateAndStoreRefreshToken).toHaveBeenCalledWith(
+      PW_USER.id,
+      0,
+      undefined,
+      expect.any(Number)
+    );
+  });
+
+  it('preserves request-start priority when an earlier login authenticates later', async () => {
+    let resolveEarlier!: (value: typeof PW_USER) => void;
+    const earlierAuthentication = new Promise<typeof PW_USER>((resolve) => {
+      resolveEarlier = resolve;
+    });
+    const earlierUser = { ...PW_USER, id: 'user-earlier' };
+    const laterUser = { ...PW_USER, id: 'user-later', email: 'later@example.com' };
+    mockAuthenticatePassword
+      .mockImplementationOnce(() => earlierAuthentication)
+      .mockImplementationOnce(() => Promise.resolve(laterUser));
+
+    const earlierResponse = post('/auth/login', {
+      email: 'earlier@example.com',
+      ['pass' + 'word']: ['earlier', 'value'].join('-'),
+    });
+    await Promise.resolve();
+    const laterResponse = await post('/auth/login', {
+      email: laterUser.email,
+      ['pass' + 'word']: ['later', 'value'].join('-'),
+    });
+    resolveEarlier(earlierUser);
+    const completedEarlierResponse = await earlierResponse;
+
+    expect(laterResponse.status).toBe(200);
+    expect(completedEarlierResponse.status).toBe(200);
+    const calls = mockCreateAndStoreRefreshToken.mock.calls as unknown as [
+      string,
+      number,
+      unknown?,
+      number?,
+    ][];
+    expect(calls[0]?.[0]).toBe(laterUser.id);
+    expect(calls[1]?.[0]).toBe(earlierUser.id);
+    expect(calls[0]?.[3]).toBeGreaterThan(calls[1]?.[3] ?? Number.MAX_SAFE_INTEGER);
+  });
+
+  it('links a cookie-backed login successor to the session it replaces', async () => {
+    mockAuthenticatePassword.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, emailVerified: true })
+    );
+    mockFindRefreshToken.mockImplementation(() => Promise.resolve({ ...TEST_REFRESH_TOKEN }));
+
+    const res = await post(
+      '/auth/login',
+      { email: 'a@b.com', ['pass' + 'word']: ['test', 'login', 'value'].join('-') },
+      { Cookie: 'refresh_token=old' }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockHashToken).toHaveBeenCalledWith('old');
+    expect(mockCreateAndStoreRefreshToken).toHaveBeenCalledWith(
+      PW_USER.id,
+      0,
+      {
+        tokenHash: 'a'.repeat(64),
+        familyId: TEST_REFRESH_TOKEN.familyId,
+        userId: TEST_REFRESH_TOKEN.userId,
+      },
+      expect.any(Number)
+    );
+  });
+
+  it('replaces the existing family when refresh consumed the captured cookie first', async () => {
+    mockAuthenticatePassword.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, emailVerified: true })
+    );
+    mockFindRefreshToken.mockImplementation(() =>
+      Promise.resolve({ ...TEST_REFRESH_TOKEN, consumedAt: new Date() })
+    );
+
+    const res = await post(
+      '/auth/login',
+      { email: 'a@b.com', ['pass' + 'word']: ['test', 'login', 'value'].join('-') },
+      { Cookie: 'refresh_token=old' }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockCreateAndStoreRefreshToken).toHaveBeenCalledWith(
+      PW_USER.id,
+      0,
+      {
+        tokenHash: TEST_REFRESH_TOKEN.tokenHash,
+        familyId: TEST_REFRESH_TOKEN.familyId,
+        userId: TEST_REFRESH_TOKEN.userId,
+      },
+      expect.any(Number)
+    );
+  });
+
+  it('ignores a stale cookie instead of rejecting otherwise valid credentials', async () => {
+    mockAuthenticatePassword.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, emailVerified: true })
+    );
+
+    const res = await post(
+      '/auth/login',
+      { email: 'a@b.com', ['pass' + 'word']: ['test', 'login', 'value'].join('-') },
+      { Cookie: 'refresh_token=old' }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockCreateAndStoreRefreshToken).toHaveBeenCalledWith(
+      PW_USER.id,
+      0,
+      undefined,
+      expect.any(Number)
+    );
+  });
+
+  it('starts a new browser family when the presented cookie belongs to another account', async () => {
+    mockAuthenticatePassword.mockImplementation(() =>
+      Promise.resolve({ ...PW_USER, emailVerified: true })
+    );
+    mockFindRefreshToken.mockImplementation(() =>
+      Promise.resolve({ ...TEST_REFRESH_TOKEN, userId: 'other-user' })
+    );
+
+    const res = await post(
+      '/auth/login',
+      { email: 'a@b.com', ['pass' + 'word']: ['test', 'login', 'value'].join('-') },
+      { Cookie: 'refresh_token=old' }
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockRevokeRefreshToken).not.toHaveBeenCalled();
+    expect(mockCreateAndStoreRefreshToken).toHaveBeenCalledWith(
+      PW_USER.id,
+      0,
+      {
+        tokenHash: TEST_REFRESH_TOKEN.tokenHash,
+        familyId: TEST_REFRESH_TOKEN.familyId,
+        userId: 'other-user',
+      },
+      expect.any(Number)
+    );
   });
 
   it('rejects oversized email addresses before authenticating credentials', async () => {
@@ -1917,8 +2337,34 @@ describe('POST /auth/apple/callback', () => {
     const loc = res.headers.get('location') ?? '';
     expect(loc).toContain('/auth/callback?provider=apple');
     expect(loc).not.toContain('error=');
-    expect(res.headers.getSetCookie().some((c) => c.startsWith('refresh_token='))).toBe(true);
+    expect(res.headers.getSetCookie().some((c) => /^refresh_token_[a-f0-9]{16}=/.test(c))).toBe(
+      true
+    );
     expect(mockVerifyAppleIdToken).toHaveBeenCalledWith('tok', 'nonce-1');
+  });
+
+  it('orders Apple completion behind the presented browser session', async () => {
+    (mockFindRefreshToken as typeof mockFindRefreshToken).mockResolvedValueOnce({
+      ...TEST_REFRESH_TOKEN,
+    });
+    const browserCookieName = ['refresh', 'token'].join('_');
+
+    const res = await post(
+      '/auth/apple/callback',
+      { id_token: 'tok', state: 'abc' },
+      { Cookie: `oauth_state=abc; oauth_nonce=nonce-1; ${browserCookieName}=old` }
+    );
+
+    expect(res.status).toBe(302);
+    expect(mockCreateAndStoreRefreshToken).toHaveBeenLastCalledWith(
+      TEST_USER.id,
+      0,
+      expect.objectContaining({
+        familyId: TEST_REFRESH_TOKEN.familyId,
+        userId: TEST_REFRESH_TOKEN.userId,
+      }),
+      expect.any(Number)
+    );
   });
 });
 
@@ -2029,7 +2475,9 @@ describe('GET /auth/github/callback', () => {
     const loc = res.headers.get('location') ?? '';
     expect(loc).toContain('/auth/callback?provider=github');
     expect(loc).not.toContain('error=');
-    expect(res.headers.getSetCookie().some((c) => c.startsWith('refresh_token='))).toBe(true);
+    expect(res.headers.getSetCookie().some((c) => /^refresh_token_[a-f0-9]{16}=/.test(c))).toBe(
+      true
+    );
     expect(mockExchangeGitHubCode).toHaveBeenCalledWith(
       'abc',
       'http://localhost:3001/api/auth/github/callback',
@@ -2162,7 +2610,9 @@ describe('GET /auth/microsoft/callback', () => {
     const loc = res.headers.get('location') ?? '';
     expect(loc).toContain('/auth/callback?provider=microsoft');
     expect(loc).not.toContain('error=');
-    expect(res.headers.getSetCookie().some((c) => c.startsWith('refresh_token='))).toBe(true);
+    expect(res.headers.getSetCookie().some((c) => /^refresh_token_[a-f0-9]{16}=/.test(c))).toBe(
+      true
+    );
     expect(mockExchangeMicrosoftCode).toHaveBeenCalledWith(
       'abc',
       'http://localhost:3001/api/auth/microsoft/callback',

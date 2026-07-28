@@ -14,19 +14,35 @@ import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@gzclp/domain';
 
 import {
+  captureAuthorizedSession,
+  isAuthorizedSessionCurrent,
+  type AuthorizedSession,
+} from '../../lib/auth/session';
+import {
+  commitProgramCatalogRefresh,
+  commitProgramSummariesRefresh,
   listProgramSummaries,
+  readPendingDeleteReconciliations,
+  readPendingManageReconciliations,
   readProgramCatalogSnapshot,
   readProgramLibrarySnapshot,
-  replaceCachedCatalog,
-  replaceProgramSummaries,
+  type ProgramManageExpectation,
   type ProgramStatus,
   type ProgramSummary,
 } from '../../lib/programs/program-repository';
+import {
+  abandonProgramRefreshLease,
+  captureProgramRefreshLease,
+  isProgramRefreshLeaseCurrent,
+  type ProgramRefreshLease,
+  withProgramRefreshCommitBarrier,
+} from '../../lib/programs/program-refresh-generation';
 import { localizeCatalogEntry } from '../../lib/programs/program-content';
 import {
   deleteProgram,
   manageProgram,
   reconcilePendingProgramManagement,
+  verifyPendingProgramDelete,
 } from '../../lib/programs/program-use-cases';
 import {
   fetchCatalogEntries,
@@ -39,6 +55,33 @@ import {
 } from '../../lib/tracker/tracker-selection-storage';
 import { EmptyState } from '../../ui/empty-state';
 import { colors, radii, spacing } from '../../ui/tokens';
+
+function observeRefreshLease(
+  promise: Promise<ProgramRefreshLease>
+): Promise<PromiseSettledResult<ProgramRefreshLease>> {
+  return Promise.resolve(promise).then(
+    (value) => ({ status: 'fulfilled', value }),
+    (reason: unknown) => ({ status: 'rejected', reason })
+  );
+}
+
+async function readObservedRefreshLease(
+  promise: Promise<PromiseSettledResult<ProgramRefreshLease>>
+): Promise<ProgramRefreshLease> {
+  const result = await promise;
+  if (result.status === 'rejected') throw result.reason;
+  return result.value;
+}
+
+function abandonObservedRefreshLease(
+  promise: Promise<PromiseSettledResult<ProgramRefreshLease>>
+): void {
+  void promise.then((result) => {
+    if (result.status === 'fulfilled') {
+      void abandonProgramRefreshLease(result.value);
+    }
+  });
+}
 
 type ResourceState<T> =
   | { readonly status: 'loading' }
@@ -56,18 +99,35 @@ interface ProgramsScreenProps {
   readonly refreshRevision?: number;
 }
 
+interface ProgramOperation {
+  readonly ownerUserId: string;
+  readonly programInstanceId: string;
+}
+
 interface ActionButtonProps {
+  readonly disabled?: boolean;
   readonly label: string;
   readonly onPress: () => void;
   readonly destructive?: boolean;
 }
 
-function ActionButton({ destructive = false, label, onPress }: ActionButtonProps) {
+function ActionButton({
+  destructive = false,
+  disabled = false,
+  label,
+  onPress,
+}: ActionButtonProps) {
   return (
     <Pressable
+      accessibilityState={{ disabled }}
       accessibilityRole="button"
+      disabled={disabled}
       onPress={onPress}
-      style={[styles.actionButton, destructive ? styles.destructiveAction : null]}
+      style={[
+        styles.actionButton,
+        destructive ? styles.destructiveAction : null,
+        disabled ? styles.disabled : null,
+      ]}
     >
       <Text style={[styles.actionLabel, destructive ? styles.destructiveLabel : null]}>
         {label}
@@ -77,22 +137,32 @@ function ActionButton({ destructive = false, label, onPress }: ActionButtonProps
 }
 
 interface ProgramCardProps {
+  readonly actionsDisabled: boolean;
   readonly busy: boolean;
   readonly isPinned: boolean;
+  readonly legacyRecoveryBlocked: boolean;
+  readonly pendingDelete: boolean;
   readonly onDelete: () => void;
   readonly onManage: (mutation: ProgramManagementMutation) => void;
   readonly onOpen: () => void;
   readonly onPin: () => void;
+  readonly onVerifyPendingDelete: () => void;
   readonly program: ProgramSummary;
+  readonly pendingExpectation: ProgramManageExpectation | null;
 }
 
 function ProgramCard({
+  actionsDisabled,
   busy,
   isPinned,
+  legacyRecoveryBlocked,
+  pendingDelete,
   onDelete,
   onManage,
   onOpen,
   onPin,
+  onVerifyPendingDelete,
+  pendingExpectation,
   program,
 }: ProgramCardProps) {
   const { t } = useTranslation();
@@ -104,6 +174,18 @@ function ProgramCard({
     if (nextName.length === 0) return;
     onManage({ type: 'rename', name: nextName });
     setRenaming(false);
+  }
+
+  function pendingDescription(expectation: ProgramManageExpectation): string {
+    if (expectation.type === 'rename') {
+      return t('programs.recovery.rename', { name: expectation.name });
+    }
+    if (expectation.type === 'set_status') {
+      return t(`programs.recovery.status.${expectation.status}`);
+    }
+    return t('programs.recovery.config', {
+      values: JSON.stringify(expectation.config),
+    });
   }
 
   return (
@@ -142,48 +224,99 @@ function ProgramCard({
           </View>
         </View>
       ) : (
-        <View
-          accessibilityElementsHidden={busy}
-          importantForAccessibility={busy ? 'no-hide-descendants' : 'auto'}
-          style={[styles.actions, busy ? styles.disabled : null]}
-        >
-          {program.status === 'active' ? (
-            <>
-              <ActionButton label={t('programs.actions.open')} onPress={onOpen} />
-              {!isPinned ? (
-                <ActionButton label={t('programs.actions.pin')} onPress={onPin} />
+        <>
+          {pendingDelete || legacyRecoveryBlocked ? (
+            <View accessibilityRole="alert" style={styles.recoveryBlock}>
+              <Text style={styles.recoveryText}>
+                {t(pendingDelete ? 'programs.recovery.pending_delete' : 'programs.recovery.legacy')}
+              </Text>
+              <View style={styles.actions}>
+                <ActionButton
+                  destructive
+                  disabled={actionsDisabled}
+                  label={t('programs.actions.delete')}
+                  onPress={onDelete}
+                />
+                {pendingDelete ? (
+                  <ActionButton
+                    disabled={actionsDisabled}
+                    label={t('programs.recovery.check_delete')}
+                    onPress={onVerifyPendingDelete}
+                  />
+                ) : null}
+              </View>
+            </View>
+          ) : pendingExpectation ? (
+            <View accessibilityRole="alert" style={styles.recoveryBlock}>
+              <Text style={styles.recoveryText}>{pendingDescription(pendingExpectation)}</Text>
+              <View
+                accessibilityElementsHidden={actionsDisabled}
+                importantForAccessibility={actionsDisabled ? 'no-hide-descendants' : 'auto'}
+                pointerEvents={actionsDisabled ? 'none' : 'auto'}
+                style={[styles.actions, actionsDisabled ? styles.disabled : null]}
+              >
+                <ActionButton
+                  disabled={actionsDisabled}
+                  label={t('programs.recovery.retry')}
+                  onPress={() => onManage(pendingExpectation)}
+                />
+                <ActionButton
+                  destructive
+                  disabled={actionsDisabled}
+                  label={t('programs.actions.delete')}
+                  onPress={onDelete}
+                />
+              </View>
+            </View>
+          ) : (
+            <View
+              accessibilityElementsHidden={actionsDisabled}
+              importantForAccessibility={actionsDisabled ? 'no-hide-descendants' : 'auto'}
+              pointerEvents={actionsDisabled ? 'none' : 'auto'}
+              style={[styles.actions, actionsDisabled ? styles.disabled : null]}
+            >
+              {program.status === 'active' ? (
+                <>
+                  <ActionButton label={t('programs.actions.open')} onPress={onOpen} />
+                  {!isPinned ? (
+                    <ActionButton label={t('programs.actions.pin')} onPress={onPin} />
+                  ) : null}
+                  <ActionButton
+                    label={t('programs.actions.complete')}
+                    onPress={() => onManage({ type: 'set_status', status: 'completed' })}
+                  />
+                  <ActionButton
+                    label={t('programs.actions.archive')}
+                    onPress={() => onManage({ type: 'set_status', status: 'archived' })}
+                  />
+                </>
+              ) : null}
+              {program.status === 'completed' ? (
+                <>
+                  <ActionButton
+                    label={t('programs.actions.reactivate')}
+                    onPress={() => onManage({ type: 'set_status', status: 'active' })}
+                  />
+                  <ActionButton
+                    label={t('programs.actions.archive')}
+                    onPress={() => onManage({ type: 'set_status', status: 'archived' })}
+                  />
+                </>
+              ) : null}
+              {program.status === 'archived' ? (
+                <ActionButton
+                  label={t('programs.actions.reactivate')}
+                  onPress={() => onManage({ type: 'set_status', status: 'active' })}
+                />
               ) : null}
               <ActionButton
-                label={t('programs.actions.complete')}
-                onPress={() => onManage({ type: 'set_status', status: 'completed' })}
+                label={t('programs.actions.rename')}
+                onPress={() => setRenaming(true)}
               />
-              <ActionButton
-                label={t('programs.actions.archive')}
-                onPress={() => onManage({ type: 'set_status', status: 'archived' })}
-              />
-            </>
-          ) : null}
-          {program.status === 'completed' ? (
-            <>
-              <ActionButton
-                label={t('programs.actions.reactivate')}
-                onPress={() => onManage({ type: 'set_status', status: 'active' })}
-              />
-              <ActionButton
-                label={t('programs.actions.archive')}
-                onPress={() => onManage({ type: 'set_status', status: 'archived' })}
-              />
-            </>
-          ) : null}
-          {program.status === 'archived' ? (
-            <ActionButton
-              label={t('programs.actions.reactivate')}
-              onPress={() => onManage({ type: 'set_status', status: 'active' })}
-            />
-          ) : null}
-          <ActionButton label={t('programs.actions.rename')} onPress={() => setRenaming(true)} />
-          <ActionButton destructive label={t('programs.actions.delete')} onPress={onDelete} />
-        </View>
+              <ActionButton destructive label={t('programs.actions.delete')} onPress={onDelete} />
+            </View>
+          )}
+        </>
       )}
       {busy ? (
         <ActivityIndicator
@@ -199,22 +332,32 @@ function ProgramCard({
 
 interface ProgramSectionProps {
   readonly busyProgramId: string | null;
+  readonly legacyRecoveryProgramIds: ReadonlySet<string>;
+  readonly managementDisabled: boolean;
   readonly onDelete: (program: ProgramSummary) => void;
   readonly onManage: (program: ProgramSummary, mutation: ProgramManagementMutation) => void;
   readonly onOpen: (program: ProgramSummary) => void;
   readonly onPin: (program: ProgramSummary) => void;
+  readonly onVerifyPendingDelete: (program: ProgramSummary) => void;
+  readonly pendingDeleteProgramIds: ReadonlySet<string>;
   readonly pinnedProgramId: string | null;
   readonly programs: readonly ProgramSummary[];
+  readonly pendingExpectations: ReadonlyMap<string, ProgramManageExpectation>;
   readonly status: ProgramStatus;
 }
 
 function ProgramSection({
   busyProgramId,
+  legacyRecoveryProgramIds,
+  managementDisabled,
   onDelete,
   onManage,
   onOpen,
   onPin,
+  onVerifyPendingDelete,
+  pendingDeleteProgramIds,
   pinnedProgramId,
+  pendingExpectations,
   programs,
   status,
 }: ProgramSectionProps) {
@@ -231,13 +374,22 @@ function ProgramSection({
       ) : (
         matching.map((program) => (
           <ProgramCard
+            actionsDisabled={busyProgramId !== null || managementDisabled}
             busy={busyProgramId === program.id}
             isPinned={pinnedProgramId === program.id}
             key={program.id}
+            legacyRecoveryBlocked={legacyRecoveryProgramIds.has(program.id)}
             onDelete={() => onDelete(program)}
             onManage={(mutation) => onManage(program, mutation)}
             onOpen={() => onOpen(program)}
             onPin={() => onPin(program)}
+            onVerifyPendingDelete={() => onVerifyPendingDelete(program)}
+            pendingDelete={pendingDeleteProgramIds.has(program.id)}
+            pendingExpectation={
+              pendingDeleteProgramIds.has(program.id)
+                ? null
+                : (pendingExpectations.get(program.id) ?? null)
+            }
             program={program}
           />
         ))
@@ -253,22 +405,154 @@ export function ProgramsScreen({
   refreshRevision = 0,
 }: ProgramsScreenProps) {
   const { t } = useTranslation();
-  const [library, setLibrary] = useState<ResourceState<ProgramSummary>>({
+  const [libraryState, setLibraryState] = useState<{
+    readonly ownerUserId: string;
+    readonly value: ResourceState<ProgramSummary>;
+  }>({ ownerUserId, value: { status: 'loading' } });
+  const [catalogState, setCatalogState] = useState<{
+    readonly ownerUserId: string;
+    readonly value: ResourceState<CatalogEntry>;
+  }>({ ownerUserId, value: { status: 'loading' } });
+  const [pinnedState, setPinnedState] = useState<{
+    readonly ownerUserId: string;
+    readonly value: string | null;
+  }>({ ownerUserId, value: null });
+  const [pendingExpectationState, setPendingExpectationState] = useState<{
+    readonly ownerUserId: string;
+    readonly status: 'loading' | 'ready' | 'error';
+    readonly values: ReadonlyMap<string, ProgramManageExpectation>;
+    readonly legacyProgramIds: ReadonlySet<string>;
+    readonly deleteProgramIds: ReadonlySet<string>;
+  }>({
+    ownerUserId,
     status: 'loading',
+    values: new Map(),
+    legacyProgramIds: new Set(),
+    deleteProgramIds: new Set(),
   });
-  const [catalog, setCatalog] = useState<ResourceState<CatalogEntry>>({
-    status: 'loading',
-  });
-  const [pinnedProgramId, setPinnedProgramId] = useState<string | null>(null);
+  const library =
+    libraryState.ownerUserId === ownerUserId
+      ? libraryState.value
+      : ({ status: 'loading' } as const);
+  const catalog =
+    catalogState.ownerUserId === ownerUserId
+      ? catalogState.value
+      : ({ status: 'loading' } as const);
+  const pinnedProgramId = pinnedState.ownerUserId === ownerUserId ? pinnedState.value : null;
+  const recoveryMetadataReady =
+    pendingExpectationState.ownerUserId === ownerUserId &&
+    pendingExpectationState.status === 'ready';
+  const recoveryMetadataError =
+    pendingExpectationState.ownerUserId === ownerUserId &&
+    pendingExpectationState.status === 'error';
+  const pendingExpectations = recoveryMetadataReady
+    ? pendingExpectationState.values
+    : new Map<string, ProgramManageExpectation>();
+  const legacyRecoveryProgramIds = recoveryMetadataReady
+    ? pendingExpectationState.legacyProgramIds
+    : new Set<string>();
+  const pendingDeleteProgramIds = recoveryMetadataReady
+    ? pendingExpectationState.deleteProgramIds
+    : new Set<string>();
+  function setLibrary(value: ResourceState<ProgramSummary>): void {
+    setLibraryState({ ownerUserId, value });
+  }
+  function setCatalog(value: ResourceState<CatalogEntry>): void {
+    setCatalogState({ ownerUserId, value });
+  }
+  function setPinnedProgramId(value: string | null): void {
+    setPinnedState({ ownerUserId, value });
+  }
+  function setPendingReconciliations(
+    entries: Awaited<ReturnType<typeof readPendingManageReconciliations>>,
+    deleteProgramIds: Awaited<ReturnType<typeof readPendingDeleteReconciliations>>
+  ): void {
+    setPendingExpectationState({
+      ownerUserId,
+      status: 'ready',
+      values: new Map(
+        entries.flatMap((entry) =>
+          entry.expectation === null ? [] : [[entry.programInstanceId, entry.expectation] as const]
+        )
+      ),
+      legacyProgramIds: new Set(
+        entries.flatMap((entry) => (entry.expectation === null ? [entry.programInstanceId] : []))
+      ),
+      deleteProgramIds: new Set(deleteProgramIds),
+    });
+  }
+  function setPendingReconciliationError(): void {
+    setPendingExpectationState({
+      ownerUserId,
+      status: 'error',
+      values: new Map(),
+      legacyProgramIds: new Set(),
+      deleteProgramIds: new Set(),
+    });
+  }
+  async function readRecoveryMetadata(targetOwnerUserId = ownerUserId) {
+    try {
+      const [entries, deleteProgramIds] = await Promise.all([
+        readPendingManageReconciliations(targetOwnerUserId),
+        readPendingDeleteReconciliations(targetOwnerUserId),
+      ]);
+      return {
+        status: 'ready' as const,
+        entries,
+        deleteProgramIds,
+      };
+    } catch {
+      return { status: 'error' as const };
+    }
+  }
   const [reloadToken, setReloadToken] = useState(0);
-  const [busyProgramId, setBusyProgramId] = useState<string | null>(null);
-  const [mutationNotice, setMutationNotice] = useState<
-    'remote_error' | 'reconciliation_required' | null
-  >(null);
-  const operationInProgressRef = useRef(false);
+  const [busyOperation, setBusyOperation] = useState<ProgramOperation | null>(null);
+  const [mutationNoticeState, setMutationNoticeState] = useState<{
+    readonly ownerUserId: string;
+    readonly value: 'remote_error' | 'reconciliation_required';
+  } | null>(null);
+  const currentOwnerUserIdRef = useRef(ownerUserId);
+  currentOwnerUserIdRef.current = ownerUserId;
+  const operationInProgressRef = useRef<ProgramOperation | null>(null);
+  const operationOwnerUserIdRef = useRef(ownerUserId);
+  if (operationOwnerUserIdRef.current !== ownerUserId) {
+    operationOwnerUserIdRef.current = ownerUserId;
+    operationInProgressRef.current = null;
+  }
+  const busyProgramId =
+    busyOperation?.ownerUserId === ownerUserId && operationInProgressRef.current === busyOperation
+      ? busyOperation.programInstanceId
+      : null;
+  const mutationNotice =
+    mutationNoticeState?.ownerUserId === ownerUserId ? mutationNoticeState.value : null;
 
   useEffect(() => {
     let active = true;
+    setPendingExpectationState({
+      ownerUserId,
+      status: 'loading',
+      values: new Map(),
+      legacyProgramIds: new Set(),
+      deleteProgramIds: new Set(),
+    });
+    let session: AuthorizedSession;
+    let libraryLeasePromise: Promise<PromiseSettledResult<ProgramRefreshLease>>;
+    let catalogLeasePromise: Promise<PromiseSettledResult<ProgramRefreshLease>>;
+    try {
+      session = captureAuthorizedSession(ownerUserId);
+      libraryLeasePromise = observeRefreshLease(
+        captureProgramRefreshLease(ownerUserId, 'library', session)
+      );
+      catalogLeasePromise = observeRefreshLease(
+        captureProgramRefreshLease(ownerUserId, 'catalog', session)
+      );
+    } catch {
+      setLibrary({ status: 'error', reason: 'no_snapshot' });
+      setCatalog({ status: 'error', reason: 'no_snapshot' });
+      return () => {
+        active = false;
+      };
+    }
 
     async function loadLibrary(): Promise<void> {
       let cached: ProgramSummary[] = [];
@@ -276,12 +560,20 @@ export function ProgramsScreen({
       let partialCacheAvailable = false;
       let cacheReadFailed = false;
       try {
-        const [snapshot] = await Promise.all([
+        const [snapshot, pendingResult] = await Promise.all([
           readProgramLibrarySnapshot(ownerUserId),
+          readRecoveryMetadata(),
           readTrackerProgramId(ownerUserId).then((id) => {
             if (active) setPinnedProgramId(id);
           }),
         ]);
+        if (active) {
+          if (pendingResult.status === 'ready') {
+            setPendingReconciliations(pendingResult.entries, pendingResult.deleteProgramIds);
+          } else {
+            setPendingReconciliationError();
+          }
+        }
         cached = [...snapshot.data];
         if (snapshot.status === 'no_snapshot') {
           partialCacheAvailable = cached.length > 0;
@@ -299,30 +591,104 @@ export function ProgramsScreen({
         cacheReadFailed = true;
       }
 
+      let libraryLease: ProgramRefreshLease | null = null;
       try {
-        const remote = await fetchProgramSummaries();
-        await replaceProgramSummaries(ownerUserId, remote);
-        await reconcilePendingProgramManagement(
-          ownerUserId,
-          remote.map((program) => program.id)
-        ).catch(() => undefined);
-        const [refreshed, pinned] = await Promise.all([
-          listProgramSummaries(ownerUserId),
-          readTrackerProgramId(ownerUserId),
-        ]);
-        if (active) {
-          setLibrary({ status: 'ready', data: refreshed, freshness: 'fresh' });
-          setPinnedProgramId(pinned);
+        libraryLease = await readObservedRefreshLease(libraryLeasePromise);
+        const remote = await fetchProgramSummaries(session);
+        const committed = await commitProgramSummariesRefresh(libraryLease, remote);
+        if (!committed) {
+          await withProgramRefreshCommitBarrier(ownerUserId, 'library', async () => {
+            const [winningSnapshot, winningPinnedProgramId, pendingResult] = await Promise.all([
+              readProgramLibrarySnapshot(ownerUserId),
+              readTrackerProgramId(ownerUserId),
+              readRecoveryMetadata(),
+            ]);
+            if (active && isAuthorizedSessionCurrent(session)) {
+              setPinnedProgramId(winningPinnedProgramId);
+              if (pendingResult.status === 'ready') {
+                setPendingReconciliations(pendingResult.entries, pendingResult.deleteProgramIds);
+              } else {
+                setPendingReconciliationError();
+              }
+              if (winningSnapshot.status === 'no_snapshot') {
+                setLibrary(
+                  winningSnapshot.data.length > 0
+                    ? { status: 'ready', data: [...winningSnapshot.data], freshness: 'partial' }
+                    : { status: 'error', reason: 'no_snapshot' }
+                );
+              } else {
+                setLibrary({
+                  status: 'ready',
+                  data: [...winningSnapshot.data],
+                  freshness: 'cached',
+                });
+              }
+            }
+          });
+          return;
         }
-      } catch {
-        if (!active) return;
-        setLibrary(
-          cacheAvailable
-            ? { status: 'ready', data: cached, freshness: 'offline' }
-            : partialCacheAvailable
-              ? { status: 'ready', data: cached, freshness: 'partial' }
-              : { status: 'error', reason: cacheReadFailed ? 'cache_error' : 'no_snapshot' }
+        const remoteProgramInstanceIds = remote.map((program) => program.id);
+        await reconcilePendingProgramManagement(ownerUserId, remoteProgramInstanceIds).catch(
+          () => undefined
         );
+        await withProgramRefreshCommitBarrier(ownerUserId, 'library', async () => {
+          const [refreshed, pinned, pendingResult] = await Promise.all([
+            listProgramSummaries(ownerUserId),
+            readTrackerProgramId(ownerUserId),
+            readRecoveryMetadata(),
+          ]);
+          if (active && isAuthorizedSessionCurrent(session)) {
+            setLibrary({ status: 'ready', data: refreshed, freshness: 'fresh' });
+            setPinnedProgramId(pinned);
+            if (pendingResult.status === 'ready') {
+              setPendingReconciliations(pendingResult.entries, pendingResult.deleteProgramIds);
+            } else {
+              setPendingReconciliationError();
+            }
+          }
+        });
+      } catch {
+        if (!active || !isAuthorizedSessionCurrent(session)) return;
+        try {
+          await withProgramRefreshCommitBarrier(ownerUserId, 'library', async () => {
+            const [currentSnapshot, currentPinnedProgramId, pendingResult] = await Promise.all([
+              readProgramLibrarySnapshot(ownerUserId),
+              readTrackerProgramId(ownerUserId),
+              readRecoveryMetadata(),
+            ]);
+            if (!active || !isAuthorizedSessionCurrent(session)) return;
+            setPinnedProgramId(currentPinnedProgramId);
+            if (pendingResult.status === 'ready') {
+              setPendingReconciliations(pendingResult.entries, pendingResult.deleteProgramIds);
+            } else {
+              setPendingReconciliationError();
+            }
+            setLibrary(
+              currentSnapshot.status === 'no_snapshot'
+                ? currentSnapshot.data.length > 0
+                  ? { status: 'ready', data: [...currentSnapshot.data], freshness: 'partial' }
+                  : { status: 'error', reason: 'no_snapshot' }
+                : { status: 'ready', data: [...currentSnapshot.data], freshness: 'offline' }
+            );
+          });
+        } catch {
+          if (!active || !isAuthorizedSessionCurrent(session)) return;
+          if (libraryLease !== null && !isProgramRefreshLeaseCurrent(libraryLease)) {
+            setLibrary({ status: 'error', reason: 'cache_error' });
+            return;
+          }
+          setLibrary(
+            cacheAvailable
+              ? { status: 'ready', data: cached, freshness: 'offline' }
+              : partialCacheAvailable
+                ? { status: 'ready', data: cached, freshness: 'partial' }
+                : { status: 'error', reason: cacheReadFailed ? 'cache_error' : 'no_snapshot' }
+          );
+        }
+      } finally {
+        if (libraryLease !== null) {
+          await abandonProgramRefreshLease(libraryLease);
+        }
       }
     }
 
@@ -345,19 +711,79 @@ export function ProgramsScreen({
         cacheReadFailed = true;
       }
 
+      let catalogLease: ProgramRefreshLease | null = null;
       try {
-        const remote = await fetchCatalogEntries();
-        await replaceCachedCatalog(ownerUserId, remote);
-        if (active) {
-          setCatalog({ status: 'ready', data: remote, freshness: 'fresh' });
-        }
+        catalogLease = await readObservedRefreshLease(catalogLeasePromise);
+        const settledCatalogLease = catalogLease;
+        const remote = await fetchCatalogEntries(session);
+        const committed = await commitProgramCatalogRefresh(settledCatalogLease, remote);
+        await withProgramRefreshCommitBarrier(ownerUserId, 'catalog', async () => {
+          const leaseStillCurrent = committed && isProgramRefreshLeaseCurrent(settledCatalogLease);
+          const winningSnapshot = leaseStillCurrent
+            ? null
+            : await readProgramCatalogSnapshot(ownerUserId);
+          if (active && isAuthorizedSessionCurrent(session)) {
+            if (winningSnapshot === null) {
+              setCatalog({ status: 'ready', data: remote, freshness: 'fresh' });
+            } else if (winningSnapshot.status === 'no_snapshot') {
+              setCatalog(
+                winningSnapshot.data.length > 0
+                  ? {
+                      status: 'ready',
+                      data: [...winningSnapshot.data],
+                      freshness: 'partial',
+                    }
+                  : { status: 'error', reason: 'no_snapshot' }
+              );
+            } else {
+              setCatalog({
+                status: 'ready',
+                data: [...winningSnapshot.data],
+                freshness: 'cached',
+              });
+            }
+          }
+        });
       } catch {
-        if (!active) return;
-        setCatalog(
-          cacheAvailable
-            ? { status: 'ready', data: cached, freshness: 'offline' }
-            : { status: 'error', reason: cacheReadFailed ? 'cache_error' : 'no_snapshot' }
-        );
+        try {
+          await withProgramRefreshCommitBarrier(ownerUserId, 'catalog', async () => {
+            if (!active || !isAuthorizedSessionCurrent(session)) return;
+            if (catalogLease !== null && !isProgramRefreshLeaseCurrent(catalogLease)) {
+              const winningSnapshot = await readProgramCatalogSnapshot(ownerUserId);
+              if (winningSnapshot.status === 'no_snapshot') {
+                setCatalog(
+                  winningSnapshot.data.length > 0
+                    ? {
+                        status: 'ready',
+                        data: [...winningSnapshot.data],
+                        freshness: 'partial',
+                      }
+                    : { status: 'error', reason: 'no_snapshot' }
+                );
+              } else {
+                setCatalog({
+                  status: 'ready',
+                  data: [...winningSnapshot.data],
+                  freshness: 'cached',
+                });
+              }
+              return;
+            }
+            setCatalog(
+              cacheAvailable
+                ? { status: 'ready', data: cached, freshness: 'offline' }
+                : { status: 'error', reason: cacheReadFailed ? 'cache_error' : 'no_snapshot' }
+            );
+          });
+        } catch {
+          if (active && isAuthorizedSessionCurrent(session)) {
+            setCatalog({ status: 'error', reason: 'cache_error' });
+          }
+        }
+      } finally {
+        if (catalogLease !== null) {
+          await abandonProgramRefreshLease(catalogLease);
+        }
       }
     }
 
@@ -367,61 +793,106 @@ export function ProgramsScreen({
 
     return () => {
       active = false;
+      abandonObservedRefreshLease(libraryLeasePromise);
+      abandonObservedRefreshLease(catalogLeasePromise);
     };
   }, [ownerUserId, refreshRevision, reloadToken]);
 
-  async function refreshLocalLibrary(): Promise<void> {
-    const [programs, pinned] = await Promise.all([
-      listProgramSummaries(ownerUserId),
-      readTrackerProgramId(ownerUserId),
+  function isCurrentOperation(operation: ProgramOperation): boolean {
+    return (
+      operationInProgressRef.current === operation &&
+      currentOwnerUserIdRef.current === operation.ownerUserId
+    );
+  }
+
+  function beginOperation(programInstanceId: string): ProgramOperation | null {
+    if (operationInProgressRef.current?.ownerUserId === ownerUserId || !recoveryMetadataReady) {
+      return null;
+    }
+    const operation = { ownerUserId, programInstanceId };
+    operationInProgressRef.current = operation;
+    setBusyOperation(operation);
+    setMutationNoticeState(null);
+    return operation;
+  }
+
+  function finishOperation(operation: ProgramOperation): void {
+    if (operationInProgressRef.current !== operation) return;
+    operationInProgressRef.current = null;
+    setBusyOperation(null);
+  }
+
+  function setMutationNoticeForOperation(
+    operation: ProgramOperation,
+    value: 'remote_error' | 'reconciliation_required'
+  ): void {
+    if (!isCurrentOperation(operation)) return;
+    setMutationNoticeState({ ownerUserId: operation.ownerUserId, value });
+  }
+
+  async function refreshLocalLibrary(operation: ProgramOperation): Promise<void> {
+    const [programs, pinned, pendingResult] = await Promise.all([
+      listProgramSummaries(operation.ownerUserId),
+      readTrackerProgramId(operation.ownerUserId),
+      readRecoveryMetadata(operation.ownerUserId),
     ]);
+    if (!isCurrentOperation(operation)) return;
     setLibrary({ status: 'ready', data: programs, freshness: 'fresh' });
     setPinnedProgramId(pinned);
+    if (pendingResult.status === 'ready') {
+      setPendingReconciliations(pendingResult.entries, pendingResult.deleteProgramIds);
+    } else {
+      setPendingReconciliationError();
+    }
   }
 
   async function handleManage(
     program: ProgramSummary,
     mutation: ProgramManagementMutation
   ): Promise<void> {
-    if (operationInProgressRef.current) return;
-    operationInProgressRef.current = true;
-    setBusyProgramId(program.id);
-    setMutationNotice(null);
+    const operation = beginOperation(program.id);
+    if (operation === null) return;
     try {
       const result = await manageProgram({
-        ownerUserId,
+        ownerUserId: operation.ownerUserId,
         programInstanceId: program.id,
         mutation,
       });
+      if (!isCurrentOperation(operation)) return;
       if (result.status === 'reconciliation_required') {
-        setMutationNotice('reconciliation_required');
+        setMutationNoticeForOperation(operation, 'reconciliation_required');
         setReloadToken((current) => current + 1);
       } else {
-        await refreshLocalLibrary();
+        await refreshLocalLibrary(operation);
       }
     } catch {
-      setMutationNotice('remote_error');
+      const pendingResult = await readRecoveryMetadata(operation.ownerUserId);
+      if (isCurrentOperation(operation)) {
+        if (pendingResult.status === 'ready') {
+          setPendingReconciliations(pendingResult.entries, pendingResult.deleteProgramIds);
+        } else {
+          setPendingReconciliationError();
+        }
+      }
+      setMutationNoticeForOperation(operation, 'remote_error');
     } finally {
-      operationInProgressRef.current = false;
-      setBusyProgramId(null);
+      finishOperation(operation);
     }
   }
 
   async function handlePin(program: ProgramSummary): Promise<boolean> {
-    if (operationInProgressRef.current) return false;
-    operationInProgressRef.current = true;
-    setBusyProgramId(program.id);
-    setMutationNotice(null);
+    const operation = beginOperation(program.id);
+    if (operation === null) return false;
     try {
-      await writeTrackerProgramId(ownerUserId, program.id);
+      await writeTrackerProgramId(operation.ownerUserId, program.id);
+      if (!isCurrentOperation(operation)) return false;
       setPinnedProgramId(program.id);
       return true;
     } catch {
-      setMutationNotice('remote_error');
+      setMutationNoticeForOperation(operation, 'remote_error');
       return false;
     } finally {
-      operationInProgressRef.current = false;
-      setBusyProgramId(null);
+      finishOperation(operation);
     }
   }
 
@@ -433,26 +904,66 @@ export function ProgramsScreen({
   }
 
   async function performDelete(program: ProgramSummary): Promise<void> {
-    if (operationInProgressRef.current) return;
-    operationInProgressRef.current = true;
-    setBusyProgramId(program.id);
-    setMutationNotice(null);
+    const operation = beginOperation(program.id);
+    if (operation === null) return;
     try {
       const result = await deleteProgram({
-        ownerUserId,
+        ownerUserId: operation.ownerUserId,
         programInstanceId: program.id,
       });
+      if (!isCurrentOperation(operation)) return;
       if (result.status === 'reconciliation_required') {
-        setMutationNotice('reconciliation_required');
+        setMutationNoticeForOperation(operation, 'reconciliation_required');
         setReloadToken((current) => current + 1);
       } else {
-        await refreshLocalLibrary();
+        await refreshLocalLibrary(operation);
       }
     } catch {
-      setMutationNotice('remote_error');
+      const pendingResult = await readRecoveryMetadata(operation.ownerUserId);
+      if (isCurrentOperation(operation)) {
+        if (pendingResult.status === 'ready') {
+          setPendingReconciliations(pendingResult.entries, pendingResult.deleteProgramIds);
+        } else {
+          setPendingReconciliationError();
+        }
+      }
+      setMutationNoticeForOperation(operation, 'remote_error');
     } finally {
-      operationInProgressRef.current = false;
-      setBusyProgramId(null);
+      finishOperation(operation);
+    }
+  }
+
+  async function handleVerifyPendingDelete(program: ProgramSummary): Promise<void> {
+    const operation = beginOperation(program.id);
+    if (operation === null) return;
+    try {
+      const result = await verifyPendingProgramDelete({
+        ownerUserId: operation.ownerUserId,
+        programInstanceId: program.id,
+      });
+      if (result === 'resolved_absent') {
+        setPendingExpectationState((current) => {
+          if (current.ownerUserId !== operation.ownerUserId || current.status !== 'ready') {
+            return current;
+          }
+          const deleteProgramIds = new Set(current.deleteProgramIds);
+          deleteProgramIds.delete(program.id);
+          return { ...current, deleteProgramIds };
+        });
+        await refreshLocalLibrary(operation);
+      }
+    } catch {
+      const pendingResult = await readRecoveryMetadata(operation.ownerUserId);
+      if (isCurrentOperation(operation)) {
+        if (pendingResult.status === 'ready') {
+          setPendingReconciliations(pendingResult.entries, pendingResult.deleteProgramIds);
+        } else {
+          setPendingReconciliationError();
+        }
+      }
+      setMutationNoticeForOperation(operation, 'remote_error');
+    } finally {
+      finishOperation(operation);
     }
   }
 
@@ -539,6 +1050,17 @@ export function ProgramsScreen({
                 <Text style={styles.cachedText}>{t('programs.sync_notice')}</Text>
               </View>
             ) : null}
+            {recoveryMetadataError ? (
+              <View accessibilityRole="alert" style={styles.offlineBanner}>
+                <Text style={styles.offlineText}>
+                  {t('programs.recovery.metadata_unavailable')}
+                </Text>
+                <ActionButton
+                  label={t('common.retry')}
+                  onPress={() => setReloadToken((current) => current + 1)}
+                />
+              </View>
+            ) : null}
             <View style={styles.section}>
               <Text accessibilityRole="header" style={styles.sectionTitle}>
                 {t('programs.pinned.title')}
@@ -546,6 +1068,13 @@ export function ProgramsScreen({
               {pinnedProgram ? (
                 <Pressable
                   accessibilityRole="button"
+                  disabled={
+                    !recoveryMetadataReady ||
+                    busyProgramId !== null ||
+                    pendingExpectations.has(pinnedProgram.id) ||
+                    legacyRecoveryProgramIds.has(pinnedProgram.id) ||
+                    pendingDeleteProgramIds.has(pinnedProgram.id)
+                  }
                   onPress={() => {
                     void handleOpen(pinnedProgram);
                   }}
@@ -562,6 +1091,8 @@ export function ProgramsScreen({
               <ProgramSection
                 busyProgramId={busyProgramId}
                 key={status}
+                legacyRecoveryProgramIds={legacyRecoveryProgramIds}
+                managementDisabled={!recoveryMetadataReady}
                 onDelete={confirmDelete}
                 onManage={(program, mutation) => {
                   void handleManage(program, mutation);
@@ -572,6 +1103,11 @@ export function ProgramsScreen({
                 onPin={(program) => {
                   void handlePin(program);
                 }}
+                onVerifyPendingDelete={(program) => {
+                  void handleVerifyPendingDelete(program);
+                }}
+                pendingDeleteProgramIds={pendingDeleteProgramIds}
+                pendingExpectations={pendingExpectations}
                 pinnedProgramId={pinnedProgramId}
                 programs={programs}
                 status={status}
@@ -774,6 +1310,16 @@ const styles = StyleSheet.create({
   },
   renameBlock: {
     gap: 8,
+  },
+  recoveryBlock: {
+    backgroundColor: colors.card,
+    borderRadius: radii.card,
+    gap: spacing.stack,
+    padding: spacing.card,
+  },
+  recoveryText: {
+    color: colors.textPrimary,
+    fontSize: 14,
   },
   renameInput: {
     minHeight: 44,

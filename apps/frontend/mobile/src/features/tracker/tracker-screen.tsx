@@ -10,12 +10,25 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import {
+  commitProgramDefinitionRefresh,
+  commitProgramDetailRefresh,
   getProgramDefinition,
   getProgramDetail,
-  upsertProgramDefinition,
   upsertProgramDetail,
 } from '../../lib/tracker/program-detail-repository';
-import { getAccessToken } from '../../lib/auth/session';
+import {
+  captureAuthorizedSession,
+  getAuthorizedSessionAccessToken,
+  isAuthorizedSessionCurrent,
+  type AuthorizedSession,
+} from '../../lib/auth/session';
+import {
+  abandonProgramRefreshLease,
+  captureProgramRefreshLease,
+  isProgramRefreshLeaseCurrent,
+  type ProgramRefreshLease,
+  withProgramRefreshCommitBarrier,
+} from '../../lib/programs/program-refresh-generation';
 import {
   fetchProgramDefinition,
   fetchProgramDetail,
@@ -27,6 +40,33 @@ import {
 import { flushQueuedMutations } from '../../lib/sync/mutation-sync-service';
 import { applyUndoEntry, buildUndoEntry, patchSlotMetrics, slotStateEqual } from './tracker-state';
 import { TrackerSlotCard } from './tracker-slot-card';
+
+function observeRefreshLease(
+  promise: Promise<ProgramRefreshLease>
+): Promise<PromiseSettledResult<ProgramRefreshLease>> {
+  return Promise.resolve(promise).then(
+    (value) => ({ status: 'fulfilled', value }),
+    (reason: unknown) => ({ status: 'rejected', reason })
+  );
+}
+
+async function readObservedRefreshLease(
+  promise: Promise<PromiseSettledResult<ProgramRefreshLease>>
+): Promise<ProgramRefreshLease> {
+  const result = await promise;
+  if (result.status === 'rejected') throw result.reason;
+  return result.value;
+}
+
+function abandonObservedRefreshLease(
+  promise: Promise<PromiseSettledResult<ProgramRefreshLease>>
+): void {
+  void promise.then((result) => {
+    if (result.status === 'fulfilled') {
+      void abandonProgramRefreshLease(result.value);
+    }
+  });
+}
 
 type TrackerScreenProps = {
   readonly ownerUserId: string;
@@ -54,6 +94,7 @@ function resolveProgramDefinition(detail: GenericProgramDetail): ProgramDefiniti
 
 export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: TrackerScreenProps) {
   const { t } = useTranslation();
+  const trackerResourceKey = `${ownerUserId}\u0000${programInstanceId}`;
   const [detail, setDetail] = useState<GenericProgramDetail | null>(null);
   const [definition, setDefinition] = useState<ProgramDefinition | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +102,7 @@ export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: Tracke
   const [selectedWorkoutIndex, setSelectedWorkoutIndex] = useState(0);
   const detailRef = useRef<GenericProgramDetail | null>(null);
   const localStateVersionRef = useRef(0);
+  const displayedResourceKeyRef = useRef(trackerResourceKey);
 
   function setDetailState(nextDetail: GenericProgramDetail | null): void {
     detailRef.current = nextDetail;
@@ -69,40 +111,160 @@ export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: Tracke
 
   useEffect(() => {
     let active = true;
+    displayedResourceKeyRef.current = trackerResourceKey;
+    localStateVersionRef.current = 0;
+    setDetailState(null);
+    setDefinition(null);
+    setLoading(true);
+    setSyncNotice(null);
+    setSelectedWorkoutIndex(0);
+    let session: AuthorizedSession;
+    let detailLeasePromise: Promise<PromiseSettledResult<ProgramRefreshLease>>;
+    let definitionLeaseForCleanup: ProgramRefreshLease | null = null;
+    try {
+      session = captureAuthorizedSession(ownerUserId);
+      detailLeasePromise = observeRefreshLease(
+        captureProgramRefreshLease(ownerUserId, `detail:${programInstanceId}`, session)
+      );
+    } catch {
+      setLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    function settleSupersededRefresh(): void {
+      if (active) {
+        setLoading(false);
+      }
+    }
 
     async function refreshTracker(hasCachedTracker: boolean): Promise<FreshTrackerState | null> {
       const refreshLocalStateVersion = localStateVersionRef.current;
-      const currentAccessToken = getAccessToken();
-      if (currentAccessToken) {
+      const detailLease = await readObservedRefreshLease(detailLeasePromise);
+      let definitionLease: ProgramRefreshLease | null = null;
+      return (async () => {
         try {
-          await flushQueuedMutations(currentAccessToken);
+          await flushQueuedMutations(getAuthorizedSessionAccessToken(session));
         } catch {
+          if (!active) {
+            return null;
+          }
           if (hasCachedTracker) {
             setSyncNotice('cached');
             setLoading(false);
             return null;
           }
         }
-      }
 
-      const freshDetail = await fetchProgramDetail(programInstanceId);
-      const inlineDefinition = resolveProgramDefinition(freshDetail);
-      const freshDefinition =
-        inlineDefinition ?? (await fetchProgramDefinition(freshDetail.programId));
+        const freshDetail = await fetchProgramDetail(programInstanceId, session);
+        if (!active) {
+          return null;
+        }
+        const inlineDefinition = resolveProgramDefinition(freshDetail);
+        let freshDefinition: ProgramDefinition;
+        if (inlineDefinition === null) {
+          definitionLease = await captureProgramRefreshLease(
+            ownerUserId,
+            `definition:${freshDetail.programId}`,
+            session
+          );
+          definitionLeaseForCleanup = definitionLease;
+          if (!active) {
+            await abandonProgramRefreshLease(definitionLease);
+            return null;
+          }
+          freshDefinition = await fetchProgramDefinition(freshDetail.programId, session);
+          if (!active) {
+            return null;
+          }
+        } else {
+          freshDefinition = inlineDefinition;
+        }
 
-      if (inlineDefinition === null) {
-        await upsertProgramDefinition(ownerUserId, freshDefinition);
-      }
+        let definitionCommitted = true;
+        if (definitionLease !== null) {
+          if (!active) {
+            return null;
+          }
+          definitionCommitted = await commitProgramDefinitionRefresh(
+            definitionLease,
+            freshDefinition
+          );
+        }
 
-      if (!hasCachedTracker || localStateVersionRef.current === refreshLocalStateVersion) {
-        await upsertProgramDetail(ownerUserId, freshDetail);
-      }
+        if (!hasCachedTracker || localStateVersionRef.current === refreshLocalStateVersion) {
+          if (!active) {
+            return null;
+          }
+          const detailCommitted = await commitProgramDetailRefresh(detailLease, freshDetail);
+          return withProgramRefreshCommitBarrier(
+            ownerUserId,
+            `definition:${freshDetail.programId}`,
+            () =>
+              withProgramRefreshCommitBarrier(
+                ownerUserId,
+                `detail:${programInstanceId}`,
+                async () => {
+                  if (!active || !isAuthorizedSessionCurrent(session)) {
+                    return null;
+                  }
+                  const detailStillCurrent =
+                    detailCommitted && isProgramRefreshLeaseCurrent(detailLease);
+                  const winningDetail = detailStillCurrent
+                    ? freshDetail
+                    : await getProgramDetail(ownerUserId, programInstanceId);
+                  if (winningDetail === null) {
+                    return null;
+                  }
+                  const inlineWinningDefinition = resolveProgramDefinition(winningDetail);
+                  const definitionStillCurrent =
+                    definitionLease === null ||
+                    (definitionCommitted && isProgramRefreshLeaseCurrent(definitionLease));
+                  const winningDefinition =
+                    inlineWinningDefinition ??
+                    (definitionStillCurrent && winningDetail === freshDetail
+                      ? freshDefinition
+                      : await getProgramDefinition(ownerUserId, winningDetail.programId));
+                  if (winningDefinition === null) {
+                    return null;
+                  }
+                  return {
+                    detail: winningDetail,
+                    definition: winningDefinition,
+                    localStateVersion: refreshLocalStateVersion,
+                  };
+                }
+              )
+          );
+        }
 
-      return {
-        detail: freshDetail,
-        definition: freshDefinition,
-        localStateVersion: refreshLocalStateVersion,
-      };
+        if (definitionLease !== null) {
+          const settledDefinitionLease = definitionLease;
+          const winningDefinition = await withProgramRefreshCommitBarrier(
+            ownerUserId,
+            `definition:${freshDetail.programId}`,
+            async () =>
+              definitionCommitted && isProgramRefreshLeaseCurrent(settledDefinitionLease)
+                ? freshDefinition
+                : await getProgramDefinition(ownerUserId, freshDetail.programId)
+          );
+          if (winningDefinition === null || !isAuthorizedSessionCurrent(session)) {
+            return null;
+          }
+          freshDefinition = winningDefinition;
+        }
+        return {
+          detail: freshDetail,
+          definition: freshDefinition,
+          localStateVersion: refreshLocalStateVersion,
+        };
+      })().finally(async () => {
+        if (definitionLease !== null) {
+          await abandonProgramRefreshLease(definitionLease);
+        }
+        await abandonProgramRefreshLease(detailLease);
+      });
     }
 
     async function loadTracker(): Promise<void> {
@@ -129,6 +291,7 @@ export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: Tracke
         try {
           const freshTracker = await refreshTracker(hasCachedTracker);
           if (freshTracker === null) {
+            settleSupersededRefresh();
             return;
           }
 
@@ -175,16 +338,24 @@ export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: Tracke
 
     return () => {
       active = false;
+      abandonObservedRefreshLease(detailLeasePromise);
+      if (definitionLeaseForCleanup !== null) {
+        void abandonProgramRefreshLease(definitionLeaseForCleanup);
+      }
     };
-  }, [ownerUserId, programInstanceId]);
+  }, [ownerUserId, programInstanceId, trackerResourceKey]);
+
+  const stateMatchesResource = displayedResourceKeyRef.current === trackerResourceKey;
+  const visibleDetail = stateMatchesResource ? detail : null;
+  const visibleDefinition = stateMatchesResource ? definition : null;
 
   const rows = useMemo(() => {
-    if (!detail || !definition) {
+    if (!visibleDetail || !visibleDefinition) {
       return [];
     }
 
-    return computeGenericProgram(definition, detail.config, detail.results);
-  }, [definition, detail]);
+    return computeGenericProgram(visibleDefinition, visibleDetail.config, visibleDetail.results);
+  }, [visibleDefinition, visibleDetail]);
 
   const selectedRow = rows[selectedWorkoutIndex];
 
@@ -397,7 +568,7 @@ export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: Tracke
     }
   }
 
-  const canUndo = (detail?.undoHistory.length ?? 0) > 0;
+  const canUndo = (visibleDetail?.undoHistory.length ?? 0) > 0;
 
   if (loading) {
     return (
@@ -409,7 +580,7 @@ export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: Tracke
     );
   }
 
-  if (!detail || !definition || !selectedRow) {
+  if (!visibleDetail || !visibleDefinition || !selectedRow) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerBlock}>
@@ -469,7 +640,7 @@ export function TrackerScreen({ ownerUserId, programInstanceId, onBack }: Tracke
             <Text style={styles.navLabel}>{t('tracker.next')}</Text>
           </Pressable>
         </View>
-        <Text style={styles.eyebrow}>{detail.name}</Text>
+        <Text style={styles.eyebrow}>{visibleDetail.name}</Text>
         <Text style={styles.title}>{selectedRow.dayName}</Text>
         {syncNotice ? (
           <Text style={styles.syncNotice}>{t(`tracker.sync_${syncNotice}`)}</Text>

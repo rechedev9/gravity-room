@@ -12,9 +12,10 @@ import {
   fetchCatalogDefinition,
 } from '../../lib/programs/program-service';
 import {
+  commitProgramDefinitionRefresh,
   getProgramDefinition,
-  upsertProgramDefinition,
 } from '../../lib/tracker/program-detail-repository';
+import { isProgramRefreshLeaseCurrent } from '../../lib/programs/program-refresh-generation';
 import { PresetSetupScreen } from './preset-setup-screen';
 import i18n from '../../lib/i18n';
 
@@ -32,8 +33,33 @@ jest.mock('../../lib/programs/program-service', () => ({
 }));
 
 jest.mock('../../lib/tracker/program-detail-repository', () => ({
+  commitProgramDefinitionRefresh: jest.fn(),
   getProgramDefinition: jest.fn(),
-  upsertProgramDefinition: jest.fn(),
+}));
+
+jest.mock('../../lib/auth/session', () => ({
+  captureAuthorizedSession: jest.fn((ownerUserId: string) => ({
+    ownerUserId,
+    accessToken: 'token-a',
+    generation: 1,
+  })),
+  isAuthorizedSessionCurrent: jest.fn(() => true),
+}));
+
+jest.mock('../../lib/programs/program-refresh-generation', () => ({
+  abandonProgramRefreshLease: jest.fn(),
+  captureProgramRefreshLease: jest.fn(
+    (ownerUserId: string, resource: string, session: unknown) => ({
+      ownerUserId,
+      resource,
+      generation: 0,
+      session,
+    })
+  ),
+  isProgramRefreshLeaseCurrent: jest.fn(() => true),
+  withProgramRefreshCommitBarrier: jest.fn(
+    (_ownerUserId: string, _resource: string, task: () => Promise<unknown>) => task()
+  ),
 }));
 
 const mockedStartPresetProgram = jest.mocked(startPresetProgram);
@@ -41,7 +67,8 @@ const mockedReadPendingCreateReconciliation = jest.mocked(readPendingCreateRecon
 const mockedBuildDefaultProgramConfig = jest.mocked(buildDefaultProgramConfig);
 const mockedFetchCatalogDefinition = jest.mocked(fetchCatalogDefinition);
 const mockedGetProgramDefinition = jest.mocked(getProgramDefinition);
-const mockedUpsertProgramDefinition = jest.mocked(upsertProgramDefinition);
+const mockedCommitProgramDefinitionRefresh = jest.mocked(commitProgramDefinitionRefresh);
+const mockedIsProgramRefreshLeaseCurrent = jest.mocked(isProgramRefreshLeaseCurrent);
 const mockBack = jest.fn();
 const mockCreated = jest.fn<void, [string]>();
 
@@ -169,7 +196,8 @@ describe('PresetSetupScreen', () => {
     await i18n.changeLanguage('en');
     mockedGetProgramDefinition.mockResolvedValue(null);
     mockedFetchCatalogDefinition.mockResolvedValue(DEFINITION);
-    mockedUpsertProgramDefinition.mockResolvedValue();
+    mockedCommitProgramDefinitionRefresh.mockResolvedValue(true);
+    mockedIsProgramRefreshLeaseCurrent.mockReturnValue(true);
     mockedBuildDefaultProgramConfig.mockReturnValue({ squat: 20 });
     mockedStartPresetProgram.mockResolvedValue({ status: 'applied', remote: DETAIL });
     mockedReadPendingCreateReconciliation.mockResolvedValue(null);
@@ -186,6 +214,120 @@ describe('PresetSetupScreen', () => {
     expect(screen.getByText('Squat · Primary strength')).toBeTruthy();
     expect(screen.getByText('Add weight after success')).toBeTruthy();
     expect(screen.getByText('12 workouts · 3/week · about 4 weeks')).toBeTruthy();
+  });
+
+  it('hides the previous preset synchronously when owner and program change', async () => {
+    const view = renderSetup();
+    expect(await screen.findByRole('button', { name: 'Start GZCLP with this setup' })).toBeTruthy();
+
+    mockedGetProgramDefinition.mockImplementation(() => new Promise(() => undefined));
+    mockedFetchCatalogDefinition.mockImplementation(() => new Promise(() => undefined));
+    view.rerender(
+      <PresetSetupScreen
+        onBack={mockBack}
+        onCreated={mockCreated}
+        ownerUserId="user-b"
+        programId="another-preset"
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Start GZCLP with this setup' })).toBeNull();
+    expect(screen.getByText('Loading preset…')).toBeTruthy();
+  });
+
+  it('lets a new owner submit while ignoring a hung previous-owner completion', async () => {
+    let resolveOwnerA: (value: { status: 'applied'; remote: GenericProgramDetail }) => void = () =>
+      undefined;
+    const ownerAResult = new Promise<{ status: 'applied'; remote: GenericProgramDetail }>(
+      (resolve) => {
+        resolveOwnerA = resolve;
+      }
+    );
+    mockedStartPresetProgram
+      .mockImplementationOnce(() => ownerAResult)
+      .mockResolvedValueOnce({
+        status: 'applied',
+        remote: { ...DETAIL, id: 'owner-b-program' },
+      });
+    const view = renderSetup();
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP with this setup' }));
+    view.rerender(
+      <PresetSetupScreen
+        onBack={mockBack}
+        onCreated={mockCreated}
+        ownerUserId="user-b"
+        programId="gzclp"
+      />
+    );
+
+    const ownerBStart = await screen.findByRole('button', {
+      name: 'Start GZCLP with this setup',
+    });
+    expect(ownerBStart.props.accessibilityState.disabled).toBe(false);
+    fireEvent.press(ownerBStart);
+    await waitFor(() => {
+      expect(mockedStartPresetProgram).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ ownerUserId: 'user-b' })
+      );
+      expect(mockCreated).toHaveBeenCalledWith('owner-b-program');
+    });
+
+    await act(async () => {
+      resolveOwnerA({ status: 'applied', remote: DETAIL });
+    });
+    expect(mockCreated).not.toHaveBeenCalledWith(DETAIL.id);
+  });
+
+  it('settles to an error when a superseding definition refresh has not committed cache yet', async () => {
+    mockedCommitProgramDefinitionRefresh.mockResolvedValue(false);
+
+    renderSetup();
+
+    expect(await screen.findByText('Preset unavailable')).toBeTruthy();
+    expect(screen.queryByText('Loading preset…')).toBeNull();
+  });
+
+  it('settles a successful definition commit from a queued mutation winner', async () => {
+    const winningDefinition = {
+      ...DEFINITION,
+      name: 'Mutation-winning preset',
+      source: 'custom',
+    } satisfies ProgramDefinition;
+    mockedGetProgramDefinition.mockResolvedValueOnce(null).mockResolvedValueOnce(winningDefinition);
+    mockedIsProgramRefreshLeaseCurrent.mockReturnValue(false);
+
+    renderSetup();
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Start Mutation-winning preset with this setup',
+      })
+    ).toBeTruthy();
+    expect(screen.queryByText('Preset unavailable')).toBeNull();
+  });
+
+  it('settles a failed obsolete definition request from winning SQLite truth', async () => {
+    const winningDefinition = {
+      ...DEFINITION,
+      name: 'Offline mutation winner',
+      source: 'custom',
+    } satisfies ProgramDefinition;
+    mockedGetProgramDefinition
+      .mockResolvedValueOnce(DEFINITION)
+      .mockResolvedValueOnce(winningDefinition);
+    mockedFetchCatalogDefinition.mockRejectedValue(new Error('offline after mutation'));
+    mockedIsProgramRefreshLeaseCurrent.mockReturnValue(false);
+
+    renderSetup();
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Start Offline mutation winner with this setup',
+      })
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Start GZCLP with this setup' })).toBeNull();
   });
 
   it('blocks creation until domain validation accepts the setup', async () => {
@@ -311,7 +453,7 @@ describe('PresetSetupScreen', () => {
     });
 
     await waitFor(() => {
-      expect(mockedUpsertProgramDefinition).toHaveBeenCalled();
+      expect(mockedCommitProgramDefinitionRefresh).toHaveBeenCalled();
     });
     expect(screen.getByLabelText('Squat starting value').props.value).toBe('22.5');
   });

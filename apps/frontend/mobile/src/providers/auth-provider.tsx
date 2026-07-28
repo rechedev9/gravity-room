@@ -7,8 +7,9 @@ import {
   useState,
 } from 'react';
 
-import type { AuthUser } from '../lib/auth/session';
 import {
+  type AuthUser,
+  ObsoleteAuthorizedSessionError,
   restoreSession,
   signInWithEmailPassword,
   signInWithGoogleIdToken,
@@ -64,8 +65,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
           });
         }
       })
-      .catch(() => {
-        if (!active) return;
+      .catch((error: unknown) => {
+        if (!active || error instanceof ObsoleteAuthorizedSessionError) return;
         setUser(null);
       })
       .finally(() => {

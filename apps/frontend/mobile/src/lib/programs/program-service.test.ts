@@ -1,13 +1,17 @@
 import type { ProgramDefinition } from '@gzclp/domain';
 
+import { captureAuthorizedSession } from '../auth/session';
 import {
   buildDefaultProgramConfig,
   createProgramInstance,
   deleteProgramInstance,
   fetchCatalogDefinition,
   fetchCatalogEntries,
+  fetchProgramInstanceIfExists,
   fetchProgramSummaries,
   RemoteMutationAcknowledgedError,
+  RemoteMutationOutcomeUnknownError,
+  RemoteMutationRejectedError,
   updateProgramInstance,
 } from './program-service';
 
@@ -20,7 +24,10 @@ const MOCK_OPAQUE_VALUE = 'opaque-test-value';
 
 jest.mock('../auth/session', () => ({
   getAccessToken: () => mockGetAccessToken(),
+  captureAuthorizedSession: jest.fn(),
   fetchWithAccessToken: (path: string, init?: RequestInit) => mockFetchWithAccessToken(path, init),
+  fetchWithAuthorizedSession: (session: unknown, path: string, init?: RequestInit) =>
+    mockFetchWithAuthorizedSession(session, path, init),
 }));
 
 const DEFINITION = {
@@ -81,6 +88,14 @@ const DETAIL = {
   updatedAt: '2026-07-27T10:00:00.000Z',
 };
 
+const mockFetchWithAuthorizedSession = jest.fn();
+const mockCaptureAuthorizedSession = jest.mocked(captureAuthorizedSession);
+const OWNER_SESSION = {
+  ownerUserId: 'user-a',
+  accessToken: 'test-auth-token',
+  generation: 1,
+} as const;
+
 function jsonResponse(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
     status,
@@ -91,11 +106,18 @@ function jsonResponse(value: unknown, status = 200): Response {
 describe('program API service', () => {
   beforeEach(() => {
     mockGetAccessToken.mockReturnValue(MOCK_OPAQUE_VALUE);
+    mockCaptureAuthorizedSession.mockImplementation((ownerUserId) => ({
+      ownerUserId,
+      accessToken: 'test-auth-token',
+      generation: 1,
+    }));
   });
 
   afterEach(() => {
     mockGetAccessToken.mockReset();
     mockFetchWithAccessToken.mockReset();
+    mockFetchWithAuthorizedSession.mockReset();
+    mockCaptureAuthorizedSession.mockReset();
   });
 
   it('parses all paginated lifecycle summaries without permissive defaults', async () => {
@@ -215,6 +237,28 @@ describe('program API service', () => {
     });
   });
 
+  it.each([
+    {
+      label: 'an exact upper-bound step',
+      min: 0,
+      step: 1_000_000_000_000_000,
+      expected: 1_000_000_000_000_000,
+    },
+    {
+      label: 'a nonzero minimum near the cap',
+      min: 999_999_999_999_995,
+      step: 10,
+      expected: 999_999_999_999_995,
+    },
+  ])('keeps the default bounded and step-aligned for $label', ({ min, step, expected }) => {
+    const boundaryDefinition: ProgramDefinition = {
+      ...DEFINITION,
+      configFields: [{ key: 'squat', label: 'Squat', type: 'weight', min, step }],
+    };
+
+    expect(buildDefaultProgramConfig(boundaryDefinition)).toEqual({ squat: expected });
+  });
+
   it('blocks invalid setup before the online-only POST', async () => {
     await expect(
       createProgramInstance({
@@ -327,5 +371,182 @@ describe('program API service', () => {
     });
 
     await expect(deleteProgramInstance(DETAIL.id)).resolves.toBe('already_absent');
+  });
+
+  it('distinguishes verified remote absence from an unavailable delete recovery check', async () => {
+    mockFetchWithAuthorizedSession.mockResolvedValueOnce(
+      jsonResponse({ code: 'INSTANCE_NOT_FOUND' }, 404)
+    );
+    await expect(fetchProgramInstanceIfExists(DETAIL.id, OWNER_SESSION)).resolves.toBeNull();
+
+    mockFetchWithAuthorizedSession.mockResolvedValueOnce(
+      jsonResponse({ code: 'ROUTE_NOT_FOUND' }, 404)
+    );
+    await expect(fetchProgramInstanceIfExists(DETAIL.id, OWNER_SESSION)).rejects.toThrow(
+      'verification failed with status 404'
+    );
+
+    mockFetchWithAuthorizedSession.mockResolvedValueOnce(
+      jsonResponse({ code: 'SERVER_ERROR' }, 503)
+    );
+    await expect(fetchProgramInstanceIfExists(DETAIL.id, OWNER_SESSION)).rejects.toThrow(
+      'verification failed with status 503'
+    );
+  });
+
+  it('classifies server failures after dispatch as outcome unknown', async () => {
+    mockFetchWithAuthorizedSession.mockResolvedValue(jsonResponse({ code: 'SERVER_ERROR' }, 500));
+
+    const operations = [
+      () =>
+        createProgramInstance({
+          ownerUserId: 'user-a',
+          session: OWNER_SESSION,
+          definition: DEFINITION,
+          name: 'GZCLP',
+          config: { squat: 20, variant: 'classic' },
+        }),
+      () => updateProgramInstance(DETAIL.id, { type: 'rename', name: 'Renamed' }, OWNER_SESSION),
+      () => deleteProgramInstance(DETAIL.id, OWNER_SESSION),
+    ];
+
+    for (const operation of operations) {
+      await expect(operation()).rejects.toBeInstanceOf(RemoteMutationOutcomeUnknownError);
+    }
+  });
+
+  it('classifies an unretried 401 as a definite rejection', async () => {
+    mockFetchWithAuthorizedSession.mockResolvedValue(jsonResponse({ code: 'UNAUTHORIZED' }, 401));
+
+    const operations = [
+      () =>
+        createProgramInstance({
+          ownerUserId: 'user-a',
+          session: OWNER_SESSION,
+          definition: DEFINITION,
+          name: 'GZCLP',
+          config: { squat: 20, variant: 'classic' },
+        }),
+      () => updateProgramInstance(DETAIL.id, { type: 'rename', name: 'Renamed' }, OWNER_SESSION),
+      () => deleteProgramInstance(DETAIL.id, OWNER_SESSION),
+    ];
+
+    for (const operation of operations) {
+      await expect(operation()).rejects.toBeInstanceOf(RemoteMutationRejectedError);
+    }
+  });
+
+  it('uses one pinned owner session for every page and rejects an obsolete later page', async () => {
+    const session = {
+      ownerUserId: 'user-a',
+      accessToken: 'test-auth-token',
+      generation: 7,
+    };
+    mockFetchWithAuthorizedSession
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: [
+            {
+              id: 'program-a',
+              programId: 'gzclp',
+              name: 'Strength Base',
+              status: 'active',
+              createdAt: '2026-07-27T08:00:00.000Z',
+              updatedAt: '2026-07-27T10:00:00.000Z',
+            },
+          ],
+          nextCursor: 'cursor-2',
+        })
+      )
+      .mockRejectedValueOnce(new Error('session changed between pages'));
+
+    await expect(fetchProgramSummaries(session)).rejects.toThrow('session changed between pages');
+    expect(mockFetchWithAuthorizedSession).toHaveBeenNthCalledWith(
+      1,
+      session,
+      '/programs',
+      undefined
+    );
+    expect(mockFetchWithAuthorizedSession).toHaveBeenNthCalledWith(
+      2,
+      session,
+      '/programs?cursor=cursor-2',
+      undefined
+    );
+    expect(mockFetchWithAccessToken).not.toHaveBeenCalled();
+  });
+
+  it('does not classify pinned-session preflight failures as outcome-unknown mutations', async () => {
+    const preflightError = Object.assign(new Error('obsolete owner session'), {
+      name: 'ObsoleteAuthorizedSessionError',
+      requestDispatched: false,
+    });
+    mockFetchWithAuthorizedSession.mockRejectedValue(preflightError);
+    const operations = [
+      () =>
+        createProgramInstance({
+          ownerUserId: 'user-a',
+          session: OWNER_SESSION,
+          definition: DEFINITION,
+          name: 'GZCLP',
+          config: { squat: 20, variant: 'classic' },
+        }),
+      () => updateProgramInstance(DETAIL.id, { type: 'rename', name: 'Renamed' }, OWNER_SESSION),
+      () => deleteProgramInstance(DETAIL.id, OWNER_SESSION),
+    ];
+
+    for (const operation of operations) {
+      await expect(operation()).rejects.toBe(preflightError);
+    }
+    expect(mockFetchWithAuthorizedSession).toHaveBeenCalledTimes(3);
+    expect(mockFetchWithAccessToken).not.toHaveBeenCalled();
+  });
+
+  it('preserves fetch-helper preflight failures but wraps post-dispatch invalidation', async () => {
+    const preflightError = Object.assign(new Error('obsolete owner session'), {
+      name: 'ObsoleteAuthorizedSessionError',
+      requestDispatched: false,
+    });
+    mockFetchWithAuthorizedSession.mockRejectedValue(preflightError);
+    const operations = [
+      () =>
+        createProgramInstance({
+          ownerUserId: 'user-a',
+          session: OWNER_SESSION,
+          definition: DEFINITION,
+          name: 'GZCLP',
+          config: { squat: 20, variant: 'classic' },
+        }),
+      () => updateProgramInstance(DETAIL.id, { type: 'rename', name: 'Renamed' }, OWNER_SESSION),
+      () => deleteProgramInstance(DETAIL.id, OWNER_SESSION),
+    ];
+
+    for (const operation of operations) {
+      await expect(operation()).rejects.toBe(preflightError);
+    }
+
+    const postDispatchError = Object.assign(new Error('obsolete owner session'), {
+      name: 'ObsoleteAuthorizedSessionError',
+      requestDispatched: true,
+    });
+    mockFetchWithAuthorizedSession.mockRejectedValue(postDispatchError);
+
+    await expect(
+      updateProgramInstance(DETAIL.id, { type: 'rename', name: 'Renamed again' }, OWNER_SESSION)
+    ).rejects.toMatchObject({
+      name: 'RemoteMutationOutcomeUnknownError',
+      cause: postDispatchError,
+    });
+  });
+
+  it('preserves local data when DELETE receives a non-authoritative 404', async () => {
+    mockFetchWithAccessToken.mockResolvedValue({
+      accessToken: 'placeholder',
+      response: jsonResponse({ code: 'ROUTE_NOT_FOUND' }, 404),
+    });
+
+    await expect(deleteProgramInstance(DETAIL.id)).rejects.toBeInstanceOf(
+      RemoteMutationRejectedError
+    );
   });
 });

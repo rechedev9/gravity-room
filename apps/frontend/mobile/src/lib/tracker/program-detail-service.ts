@@ -5,14 +5,26 @@ import {
   type ProgramDefinition,
 } from '@gzclp/domain';
 
-import { buildApiUrl, fetchWithAccessToken, getAccessToken } from '../auth/session';
+import {
+  buildApiUrl,
+  fetchWithAccessToken,
+  fetchWithAuthorizedSession,
+  getAccessToken,
+  type AuthorizedSession,
+} from '../auth/session';
 
-export async function fetchProgramDetail(programInstanceId: string): Promise<GenericProgramDetail> {
-  if (!getAccessToken()) {
+export async function fetchProgramDetail(
+  programInstanceId: string,
+  session?: AuthorizedSession
+): Promise<GenericProgramDetail> {
+  if (!session && !getAccessToken()) {
     throw new Error('Program detail fetch requires an access token');
   }
 
-  const { response } = await fetchWithAccessToken(`/programs/${programInstanceId}`);
+  const path = `/programs/${programInstanceId}`;
+  const response = session
+    ? await fetchWithAuthorizedSession(session, path)
+    : (await fetchWithAccessToken(path)).response;
   if (!response.ok) {
     throw new Error(`Program detail fetch failed with status ${response.status}`);
   }
@@ -20,8 +32,14 @@ export async function fetchProgramDetail(programInstanceId: string): Promise<Gen
   return GenericProgramDetailSchema.parse(await response.json());
 }
 
-export async function fetchProgramDefinition(programId: string): Promise<ProgramDefinition> {
-  const response = await fetch(buildApiUrl(`/catalog/${programId}`));
+export async function fetchProgramDefinition(
+  programId: string,
+  session?: AuthorizedSession
+): Promise<ProgramDefinition> {
+  const path = `/catalog/${programId}`;
+  const response = session
+    ? await fetchWithAuthorizedSession(session, path)
+    : await fetch(buildApiUrl(path));
   if (!response.ok) {
     throw new Error(`Program definition fetch failed with status ${response.status}`);
   }

@@ -345,7 +345,7 @@ describe('real canonical program-content coverage', () => {
       }).toMatchSnapshot();
 
       for (const [tier, expected] of Object.entries(TIER_COPY_ORACLE[language])) {
-        expect(localizeTier(tier, i18n.t)).toBe(expected);
+        expect(localizeTier({ id: 'gzclp', source: 'preset' }, tier, i18n.t)).toBe(expected);
       }
     }
   );

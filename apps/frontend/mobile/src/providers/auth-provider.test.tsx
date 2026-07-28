@@ -6,13 +6,18 @@ import { restoreSession, signInWithGoogleIdToken, signOutSession } from '../lib/
 import { clearLocalAppData } from '../lib/db/client';
 import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation-sync-service';
 
-jest.mock('../lib/auth/session', () => ({
-  restoreSession: jest.fn(),
-  signInWithGoogleIdToken: jest.fn(),
-  signInWithEmailPassword: jest.fn(),
-  signUpWithEmailPassword: jest.fn(),
-  signOutSession: jest.fn(async () => undefined),
-}));
+jest.mock('../lib/auth/session', () => {
+  class ObsoleteAuthorizedSessionError extends Error {}
+
+  return {
+    ObsoleteAuthorizedSessionError,
+    restoreSession: jest.fn(),
+    signInWithGoogleIdToken: jest.fn(),
+    signInWithEmailPassword: jest.fn(),
+    signUpWithEmailPassword: jest.fn(),
+    signOutSession: jest.fn(async () => undefined),
+  };
+});
 
 jest.mock('../lib/db/client', () => ({
   clearLocalAppData: jest.fn(),

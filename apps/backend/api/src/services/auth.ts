@@ -2,7 +2,7 @@
  * Auth service — refresh token management, user CRUD.
  * Framework-agnostic: no Elysia dependency. JWT signing handled in routes.
  */
-import { eq, lt, and, isNull, sql } from 'drizzle-orm';
+import { eq, and, isNull, sql, inArray } from 'drizzle-orm';
 import { hash as argon2Hash, verify as argon2Verify } from '@node-rs/argon2';
 import bcrypt from 'bcryptjs';
 import { isRecord } from '@gzclp/domain/type-guards';
@@ -28,20 +28,32 @@ type UserRow = typeof users.$inferSelect;
  * future column additions (e.g. user-agent fingerprints) that have no
  * business being shipped on every auth round-trip.
  *
- * `createdAt` is included because refresh routes age a rotated token's
- * successor to tell a benign concurrent double-refresh (successor just minted)
- * apart from a genuine replay of a long-since-rotated token.
+ * `familyOrder` gives browser-cookie selection a database-serialized login
+ * epoch across rotations. `createdAt` lets refresh routes age a rotated successor to tell a
+ * benign concurrent double-refresh from replay of a long-since-rotated token.
  */
 export interface RefreshTokenRow {
   readonly userId: string;
+  readonly familyId: string;
+  readonly familyOrder: number;
   readonly expiresAt: Date;
   readonly tokenHash: string;
   readonly previousTokenHash: string | null;
+  readonly consumedAt: Date | null;
+  readonly supersededAt: Date | null;
+  readonly familyLookupExpiresAt: Date | null;
   readonly createdAt: Date;
+}
+
+export interface RefreshTokenReplacement {
+  readonly tokenHash: string;
+  readonly familyId: string;
+  readonly userId: string;
 }
 
 export type RotateRefreshTokenResult =
   | { readonly status: 'not_found' }
+  | { readonly status: 'superseded' }
   | { readonly status: 'expired' }
   | { readonly status: 'account_deleted' }
   | {
@@ -529,15 +541,6 @@ export async function softDeleteUser(userId: string): Promise<void> {
 // Refresh token storage
 // ---------------------------------------------------------------------------
 
-export async function storeRefreshToken(
-  userId: string,
-  tokenHash: string,
-  expiresAt: Date,
-  previousTokenHash?: string
-): Promise<void> {
-  await getDb().insert(refreshTokens).values({ userId, tokenHash, expiresAt, previousTokenHash });
-}
-
 /**
  * Looks up a refresh token by the hash of the token it replaced.
  * Used for token reuse detection: if an already-rotated token is presented,
@@ -545,9 +548,14 @@ export async function storeRefreshToken(
  */
 const REFRESH_TOKEN_COLUMNS = {
   userId: refreshTokens.userId,
+  familyId: refreshTokens.familyId,
+  familyOrder: refreshTokens.familyOrder,
   expiresAt: refreshTokens.expiresAt,
   tokenHash: refreshTokens.tokenHash,
   previousTokenHash: refreshTokens.previousTokenHash,
+  consumedAt: refreshTokens.consumedAt,
+  supersededAt: refreshTokens.supersededAt,
+  familyLookupExpiresAt: refreshTokens.familyLookupExpiresAt,
   createdAt: refreshTokens.createdAt,
 } as const;
 
@@ -571,12 +579,27 @@ export async function findRefreshToken(tokenHash: string): Promise<RefreshTokenR
   return token;
 }
 
-export async function revokeRefreshToken(tokenHash: string): Promise<void> {
-  await getDb().delete(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash));
+export async function findRefreshTokens(
+  tokenHashes: readonly string[]
+): Promise<RefreshTokenRow[]> {
+  if (tokenHashes.length === 0) return [];
+  return getDb()
+    .select(REFRESH_TOKEN_COLUMNS)
+    .from(refreshTokens)
+    .where(inArray(refreshTokens.tokenHash, [...tokenHashes]));
 }
 
 export async function revokeAllUserTokens(userId: string): Promise<void> {
   await getDb().transaction(async (tx) => {
+    const [user] = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for('update')
+      .limit(1);
+
+    if (!user) return;
+
     await tx
       .update(users)
       .set({ authVersion: sql`${users.authVersion} + 1` })
@@ -586,35 +609,216 @@ export async function revokeAllUserTokens(userId: string): Promise<void> {
 }
 
 /**
+ * Revokes the session family represented by either a current or consumed
+ * refresh token.
+ *
+ * A consumed token remains a lookup tombstone through the direct successor's
+ * lifetime, so a delayed logout can recover the stable family id without
+ * extending the old credential's own validity.
+ */
+export async function revokeRefreshToken(tokenHash: string): Promise<void> {
+  await getDb().transaction(async (tx) => {
+    const [candidate] = await tx
+      .select({
+        familyId: refreshTokens.familyId,
+        familyOrder: refreshTokens.familyOrder,
+        userId: refreshTokens.userId,
+      })
+      .from(refreshTokens)
+      .where(eq(refreshTokens.tokenHash, tokenHash))
+      .limit(1);
+
+    if (!candidate) return;
+
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${candidate.familyId}, 0))`);
+    const [user] = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, candidate.userId))
+      .for('update')
+      .limit(1);
+    if (!user) return;
+
+    const [active] = await tx
+      .select({ familyOrder: refreshTokens.familyOrder })
+      .from(refreshTokens)
+      .where(
+        and(
+          eq(refreshTokens.familyId, candidate.familyId),
+          isNull(refreshTokens.consumedAt),
+          isNull(refreshTokens.supersededAt)
+        )
+      )
+      .limit(1);
+    if (active && active.familyOrder > candidate.familyOrder) {
+      return;
+    }
+
+    await tx
+      .delete(refreshTokens)
+      .where(
+        and(
+          eq(refreshTokens.userId, candidate.userId),
+          eq(refreshTokens.familyId, candidate.familyId)
+        )
+      );
+  });
+}
+
+/**
+ * Revokes every session family represented by a browser cookie snapshot.
+ *
+ * Candidate and active rows are loaded in batches so a large (but
+ * header-size-bounded) cookie set does not create one database round-trip per
+ * credential. Family and user locks preserve the same ordering guarantees as
+ * single-token logout. Candidates deliberately match only token hashes that
+ * were present in the browser snapshot: matching a successor's
+ * `previousTokenHash` would mistake a delayed logout carrying its predecessor
+ * for a request to revoke a newer login response.
+ */
+export async function revokeBrowserRefreshTokens(tokenHashes: readonly string[]): Promise<void> {
+  if (tokenHashes.length === 0) return;
+  const uniqueHashes = [...new Set(tokenHashes)];
+  const candidateWhere = inArray(refreshTokens.tokenHash, uniqueHashes);
+
+  await getDb().transaction(async (tx) => {
+    const initialCandidates = await tx
+      .select({
+        familyId: refreshTokens.familyId,
+        userId: refreshTokens.userId,
+      })
+      .from(refreshTokens)
+      .where(candidateWhere);
+    if (initialCandidates.length === 0) return;
+
+    await tx.execute(sql`
+      SELECT pg_advisory_xact_lock(hashtextextended("family_id"::text, 0))
+      FROM (
+        SELECT DISTINCT ${refreshTokens.familyId} AS "family_id"
+        FROM ${refreshTokens}
+        WHERE ${candidateWhere}
+        ORDER BY "family_id"
+      ) AS "browser_refresh_families"
+    `);
+
+    const userIds = [...new Set(initialCandidates.map(({ userId }) => userId))].sort();
+    await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(inArray(users.id, userIds))
+      .orderBy(users.id)
+      .for('update');
+
+    const candidates = await tx
+      .select({
+        familyId: refreshTokens.familyId,
+        familyOrder: refreshTokens.familyOrder,
+      })
+      .from(refreshTokens)
+      .where(candidateWhere);
+    if (candidates.length === 0) return;
+
+    const currentFamilyIds = [...new Set(candidates.map(({ familyId }) => familyId))];
+    const activeRows = await tx
+      .select({
+        familyId: refreshTokens.familyId,
+        familyOrder: refreshTokens.familyOrder,
+      })
+      .from(refreshTokens)
+      .where(
+        and(
+          inArray(refreshTokens.familyId, currentFamilyIds),
+          isNull(refreshTokens.consumedAt),
+          isNull(refreshTokens.supersededAt)
+        )
+      );
+
+    const presentedOrderByFamily = new Map<string, number>();
+    for (const candidate of candidates) {
+      presentedOrderByFamily.set(
+        candidate.familyId,
+        Math.max(
+          presentedOrderByFamily.get(candidate.familyId) ?? Number.MIN_SAFE_INTEGER,
+          candidate.familyOrder
+        )
+      );
+    }
+
+    const activeOrderByFamily = new Map<string, number>();
+    for (const active of activeRows) {
+      activeOrderByFamily.set(
+        active.familyId,
+        Math.max(
+          activeOrderByFamily.get(active.familyId) ?? Number.MIN_SAFE_INTEGER,
+          active.familyOrder
+        )
+      );
+    }
+
+    const revocableFamilyIds = currentFamilyIds.filter((familyId) => {
+      const presentedOrder = presentedOrderByFamily.get(familyId);
+      const activeOrder = activeOrderByFamily.get(familyId);
+      return (
+        presentedOrder !== undefined && (activeOrder === undefined || activeOrder <= presentedOrder)
+      );
+    });
+    if (revocableFamilyIds.length === 0) return;
+
+    await tx.delete(refreshTokens).where(inArray(refreshTokens.familyId, revocableFamilyIds));
+  });
+}
+
+/**
  * Atomically consumes one refresh token and writes its successor.
  *
  * The old implementation selected the token, deleted it, then inserted the
  * replacement as separate operations. Two concurrent refresh requests could
- * both observe the old token before either delete happened and each mint a
- * valid successor. This transaction uses DELETE ... RETURNING as the compare-
- * and-swap boundary: only the request that actually deletes the current token
- * may create the next token in the family.
+ * both observe the old token before either write happened and each mint a
+ * valid successor. This transaction uses conditional UPDATE ... RETURNING as
+ * the compare-and-swap boundary: only the request that marks the current token
+ * consumed may create the next token in the family.
  */
 export async function rotateRefreshToken(tokenHash: string): Promise<RotateRefreshTokenResult> {
   return getDb().transaction(async (tx) => {
-    const [stored] = await tx
-      .delete(refreshTokens)
+    const [candidate] = await tx
+      .select(REFRESH_TOKEN_COLUMNS)
+      .from(refreshTokens)
       .where(eq(refreshTokens.tokenHash, tokenHash))
+      .limit(1);
+
+    if (!candidate) return { status: 'not_found' };
+
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${candidate.familyId}, 0))`);
+    const [user] = await tx
+      .select()
+      .from(users)
+      .where(and(eq(users.id, candidate.userId), isNull(users.deletedAt)))
+      .for('update')
+      .limit(1);
+
+    const [stored] = await tx
+      .update(refreshTokens)
+      .set({ consumedAt: new Date() })
+      .where(and(eq(refreshTokens.tokenHash, tokenHash), isNull(refreshTokens.consumedAt)))
       .returning(REFRESH_TOKEN_COLUMNS);
 
-    if (!stored) return { status: 'not_found' };
+    if (!stored) {
+      const [current] = await tx
+        .select({
+          consumedAt: refreshTokens.consumedAt,
+          supersededAt: refreshTokens.supersededAt,
+        })
+        .from(refreshTokens)
+        .where(eq(refreshTokens.tokenHash, tokenHash))
+        .limit(1);
+      return !current || current.supersededAt ? { status: 'superseded' } : { status: 'not_found' };
+    }
+
+    if (!user) return { status: 'account_deleted' };
 
     if (stored.expiresAt < new Date()) {
       return { status: 'expired' };
     }
-
-    const [user] = await tx
-      .select()
-      .from(users)
-      .where(and(eq(users.id, stored.userId), isNull(users.deletedAt)))
-      .limit(1);
-
-    if (!user) return { status: 'account_deleted' };
 
     const refreshToken = generateRefreshToken();
     const newTokenHash = await hashToken(refreshToken);
@@ -622,10 +826,16 @@ export async function rotateRefreshToken(tokenHash: string): Promise<RotateRefre
 
     await tx.insert(refreshTokens).values({
       userId: stored.userId,
+      familyId: stored.familyId,
+      familyOrder: stored.familyOrder,
       tokenHash: newTokenHash,
       expiresAt,
       previousTokenHash: tokenHash,
     });
+    await tx
+      .update(refreshTokens)
+      .set({ familyLookupExpiresAt: expiresAt })
+      .where(eq(refreshTokens.tokenHash, stored.tokenHash));
 
     return { status: 'rotated', user, refreshToken };
   });
@@ -637,27 +847,130 @@ export async function rotateRefreshToken(tokenHash: string): Promise<RotateRefre
 
 /**
  * Creates a new refresh token, hashes it, stores it, and returns the raw token.
- * Pass `previousHash` when rotating (refresh endpoint) to enable family tracking.
  */
 export async function createAndStoreRefreshToken(
   userId: string,
-  previousHash?: string
+  expectedAuthVersion: number,
+  replacement?: RefreshTokenReplacement,
+  familyOrder?: number
 ): Promise<string> {
+  const resolvedFamilyOrder = familyOrder ?? (await captureBrowserLoginIntentOrder());
   const refreshToken = generateRefreshToken();
   const tokenHash = await hashToken(refreshToken);
   const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MS);
-  await storeRefreshToken(userId, tokenHash, expiresAt, previousHash);
+
+  await getDb().transaction(async (tx) => {
+    if (replacement) {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(${replacement.familyId}, 0))`
+      );
+    }
+    const [user] = await tx
+      .select({ authVersion: users.authVersion })
+      .from(users)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .for('update')
+      .limit(1);
+
+    if (!user || user.authVersion !== expectedAuthVersion) {
+      throw new ApiError(401, 'Authentication attempt was superseded', 'AUTH_SESSION_SUPERSEDED');
+    }
+
+    const familyId = replacement?.familyId ?? crypto.randomUUID();
+    if (replacement) {
+      const [active] = await tx
+        .select({
+          userId: refreshTokens.userId,
+          tokenHash: refreshTokens.tokenHash,
+          familyOrder: refreshTokens.familyOrder,
+        })
+        .from(refreshTokens)
+        .where(
+          and(
+            eq(refreshTokens.familyId, replacement.familyId),
+            isNull(refreshTokens.consumedAt),
+            isNull(refreshTokens.supersededAt)
+          )
+        )
+        .limit(1);
+      if (replacement.userId !== userId) {
+        await tx.insert(refreshTokens).values({
+          userId,
+          familyId: crypto.randomUUID(),
+          familyOrder: resolvedFamilyOrder,
+          tokenHash,
+          expiresAt,
+        });
+        return;
+      }
+
+      if (!active || active.userId !== userId) {
+        throw new ApiError(401, 'Authentication attempt was superseded', 'AUTH_SESSION_SUPERSEDED');
+      }
+
+      if (active.familyOrder >= resolvedFamilyOrder) {
+        throw new ApiError(401, 'Authentication attempt was superseded', 'AUTH_SESSION_SUPERSEDED');
+      }
+
+      const transitionAt = new Date();
+      const [consumed] = await tx
+        .update(refreshTokens)
+        .set({ consumedAt: transitionAt, familyLookupExpiresAt: expiresAt })
+        .where(and(eq(refreshTokens.tokenHash, active.tokenHash), isNull(refreshTokens.consumedAt)))
+        .returning({ tokenHash: refreshTokens.tokenHash });
+      if (!consumed) {
+        throw new ApiError(401, 'Authentication attempt was superseded', 'AUTH_SESSION_SUPERSEDED');
+      }
+
+      await tx
+        .update(refreshTokens)
+        .set({ supersededAt: transitionAt })
+        .where(eq(refreshTokens.familyId, replacement.familyId));
+
+      await tx.insert(refreshTokens).values({
+        userId,
+        familyId,
+        familyOrder: resolvedFamilyOrder,
+        tokenHash,
+        expiresAt,
+        previousTokenHash: consumed.tokenHash,
+      });
+      return;
+    }
+
+    await tx.insert(refreshTokens).values({
+      userId,
+      familyId,
+      familyOrder: resolvedFamilyOrder,
+      tokenHash,
+      expiresAt,
+    });
+  });
+
   return refreshToken;
 }
 
+export async function captureBrowserLoginIntentOrder(): Promise<number> {
+  const rows = await getDb().execute<{ loginOrder: string }>(
+    sql`SELECT nextval('"refresh_token_family_order_seq"')::text AS "loginOrder"`
+  );
+  const value = Number(rows[0]?.loginOrder);
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error('Database returned an invalid browser login order');
+  }
+  return value;
+}
+
 /**
- * Deletes every refresh token whose `expires_at` is in the past and returns the
- * number removed. Consumed by the secret-guarded cleanup cron route.
+ * Deletes active credentials after their own expiry and consumed family lookup
+ * tombstones after the direct successor's expiry.
  */
 export async function cleanupExpiredTokens(): Promise<number> {
   const deleted = await getDb()
     .delete(refreshTokens)
-    .where(lt(refreshTokens.expiresAt, new Date()))
+    .where(
+      sql`COALESCE(${refreshTokens.familyLookupExpiresAt}, ${refreshTokens.expiresAt}) < ${new Date()}`
+    )
     .returning({ id: refreshTokens.id });
   return deleted.length;
 }

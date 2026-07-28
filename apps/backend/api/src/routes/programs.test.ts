@@ -10,20 +10,34 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
-const { mockRateLimit, mockGetInstances, mockCreateInstance, mockImportInstance } = vi.hoisted(
-  () => {
-    const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
-    const mockGetInstances = vi.fn(() => Promise.resolve({ data: [], nextCursor: null }));
-    const mockCreateInstance = vi.fn(() => Promise.resolve({ id: 'new-id' }));
-    const mockImportInstance = vi.fn(() => Promise.resolve({ id: 'imported-id' }));
-    return {
-      mockRateLimit,
-      mockGetInstances,
-      mockCreateInstance,
-      mockImportInstance,
-    };
-  }
-);
+const {
+  mockRateLimit,
+  mockGetInstances,
+  mockGetInstance,
+  mockCreateInstance,
+  mockUpdateInstance,
+  mockDeleteInstance,
+  mockImportInstance,
+} = vi.hoisted(() => {
+  const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
+  const mockGetInstances = vi.fn(() => Promise.resolve({ data: [], nextCursor: null }));
+  const mockGetInstance = vi.fn<
+    (userId: string, instanceId: string) => Promise<{ id: string; name?: string }>
+  >(() => Promise.resolve({ id: 'inst-id' }));
+  const mockCreateInstance = vi.fn(() => Promise.resolve({ id: 'new-id' }));
+  const mockUpdateInstance = vi.fn(() => Promise.resolve({ id: 'inst-id' }));
+  const mockDeleteInstance = vi.fn(() => Promise.resolve());
+  const mockImportInstance = vi.fn(() => Promise.resolve({ id: 'imported-id' }));
+  return {
+    mockRateLimit,
+    mockGetInstances,
+    mockGetInstance,
+    mockCreateInstance,
+    mockUpdateInstance,
+    mockDeleteInstance,
+    mockImportInstance,
+  };
+});
 
 vi.mock('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
@@ -36,9 +50,9 @@ vi.mock('../services/auth', () => ({
 vi.mock('../services/programs', () => ({
   getInstances: mockGetInstances,
   createInstance: mockCreateInstance,
-  getInstance: vi.fn(() => Promise.resolve({ id: 'inst-id' })),
-  updateInstance: vi.fn(() => Promise.resolve({ id: 'inst-id' })),
-  deleteInstance: vi.fn(() => Promise.resolve()),
+  getInstance: mockGetInstance,
+  updateInstance: mockUpdateInstance,
+  deleteInstance: mockDeleteInstance,
   exportInstance: vi.fn(() => Promise.resolve({})),
   importInstance: mockImportInstance,
 }));
@@ -105,6 +119,25 @@ function post(path: string, body: unknown, headers?: Record<string, string>): Pr
   );
 }
 
+function patch(path: string, body: unknown, headers?: Record<string, string>): Promise<Response> {
+  return testApp.handle(
+    new Request(`http://localhost${path}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    })
+  );
+}
+
+function remove(path: string, headers?: Record<string, string>): Promise<Response> {
+  return testApp.handle(
+    new Request(`http://localhost${path}`, {
+      method: 'DELETE',
+      headers,
+    })
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Auth guard tests
 // ---------------------------------------------------------------------------
@@ -164,6 +197,56 @@ describe('POST /programs — programId validation', () => {
     expect(mockRateLimit).not.toHaveBeenCalled();
     expect(mockCreateInstance).not.toHaveBeenCalled();
   });
+});
+
+describe('program config numeric transport boundary', () => {
+  it.each([0, 0.000001, 1_000_000_000_000_000])(
+    'accepts canonical weight %s on POST and PATCH',
+    async (weight) => {
+      const token = await makeValidJwt('user-1');
+      const authorization = { Authorization: `Bearer ${token}` };
+
+      const created = await post(
+        '/programs',
+        { programId: 'gzclp', name: 'Boundary', config: { squat: weight } },
+        authorization
+      );
+      const updated = await patch(
+        '/programs/11111111-1111-4111-8111-111111111111',
+        { config: { squat: weight } },
+        authorization
+      );
+
+      expect(created.status).toBe(201);
+      expect(updated.status).toBe(200);
+    }
+  );
+
+  it.each([0.0000001, 1_000_000_000_000_000_000_000])(
+    'rejects out-of-domain weight %s before the service',
+    async (weight) => {
+      mockCreateInstance.mockClear();
+      mockUpdateInstance.mockClear();
+      const token = await makeValidJwt('user-1');
+      const authorization = { Authorization: `Bearer ${token}` };
+
+      const created = await post(
+        '/programs',
+        { programId: 'gzclp', name: 'Boundary', config: { squat: weight } },
+        authorization
+      );
+      const updated = await patch(
+        '/programs/11111111-1111-4111-8111-111111111111',
+        { config: { squat: weight } },
+        authorization
+      );
+
+      expect(created.status).toBe(400);
+      expect(updated.status).toBe(400);
+      expect(mockCreateInstance).not.toHaveBeenCalled();
+      expect(mockUpdateInstance).not.toHaveBeenCalled();
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -354,6 +437,41 @@ describe('POST /programs/import — result key validation', () => {
     expect(res.status).toBe(400);
     expect(mockRateLimit).not.toHaveBeenCalled();
     expect(mockImportInstance).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /programs/:id — mutation-aware singleflight', () => {
+  it('does not join a pre-delete fill when the read starts after invalidation', async () => {
+    const programInstanceId = '11111111-1111-4111-8111-111111111111';
+    const token = await makeValidJwt('user-singleflight');
+    const authorization = { Authorization: `Bearer ${token}` };
+    mockDeleteInstance.mockClear();
+    let resolveOldRead: (value: { id: string; name: string }) => void = () => undefined;
+    let markOldReadStarted: () => void = () => undefined;
+    const oldReadStarted = new Promise<void>((resolve) => {
+      markOldReadStarted = resolve;
+    });
+    mockGetInstance
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            markOldReadStarted();
+            resolveOldRead = resolve;
+          })
+      )
+      .mockResolvedValueOnce({ id: programInstanceId, name: 'Post-delete read' });
+
+    const oldResponse = get(`/programs/${programInstanceId}`, authorization);
+    await oldReadStarted;
+    await remove(`/programs/${programInstanceId}`, authorization);
+    expect(mockDeleteInstance).toHaveBeenCalledWith('user-singleflight', programInstanceId);
+
+    const newResponse = await get(`/programs/${programInstanceId}`, authorization);
+    await expect(newResponse.json()).resolves.toMatchObject({ name: 'Post-delete read' });
+    expect(mockGetInstance).toHaveBeenCalledTimes(2);
+
+    resolveOldRead({ id: programInstanceId, name: 'Pre-delete read' });
+    await expect((await oldResponse).json()).resolves.toMatchObject({ name: 'Pre-delete read' });
   });
 });
 

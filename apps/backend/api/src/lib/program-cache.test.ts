@@ -12,19 +12,23 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // Mock Redis client
 // ---------------------------------------------------------------------------
 
-const mockGet = vi.fn(() => Promise.resolve(null as unknown));
-const mockSet = vi.fn(() => Promise.resolve('OK'));
+const mockGet = vi.fn<(key: string) => Promise<unknown>>(() => Promise.resolve(null));
 const mockDel = vi.fn(() => Promise.resolve(1));
+const mockEval = vi.fn<
+  (script: string, keys: string[], args: readonly string[]) => Promise<unknown>
+>(() => Promise.resolve(1));
 
 let redisAvailable = true;
 
 vi.mock('./redis', () => ({
   getRedis: (): unknown =>
-    redisAvailable ? { get: mockGet, set: mockSet, del: mockDel } : undefined,
+    redisAvailable ? { get: mockGet, del: mockDel, eval: mockEval } : undefined,
 }));
 
 // Must import AFTER mock.module
 import {
+  beginCachedInstanceFill,
+  completeCachedInstanceFill,
   getCachedInstance,
   setCachedInstance,
   invalidateCachedInstance,
@@ -60,9 +64,13 @@ const CACHED_RESPONSE = {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  mockGet.mockClear();
-  mockSet.mockClear();
+  mockGet.mockReset();
+  mockGet.mockResolvedValue(null);
   mockDel.mockClear();
+  mockEval.mockReset();
+  mockEval.mockImplementation(async (script, _keys, args) =>
+    script.includes('return ARGV[1]') ? (args[0] ?? '') : 1
+  );
   redisAvailable = true;
 });
 
@@ -139,33 +147,44 @@ describe('getCachedInstance', () => {
 
 describe('setCachedInstance', () => {
   it('calls redis.set with correct key and TTL', async () => {
+    const fill = await beginCachedInstanceFill(USER_ID);
+    mockEval.mockClear();
+
     // Act
-    await setCachedInstance(USER_ID, INSTANCE_ID, CACHED_RESPONSE as never);
+    await setCachedInstance(USER_ID, INSTANCE_ID, CACHED_RESPONSE as never, {
+      ...fill,
+      generation: '7',
+      redisAvailable: true,
+    });
 
     // Assert
-    expect(mockSet).toHaveBeenCalledTimes(1);
-    expect(mockSet).toHaveBeenCalledWith(`program:${USER_ID}:${INSTANCE_ID}`, CACHED_RESPONSE, {
-      ex: 300,
-    });
+    expect(mockEval).toHaveBeenCalledTimes(1);
+    expect(mockEval.mock.calls[0]?.[1]).toEqual([
+      `program-cache-generation:${USER_ID}`,
+      `program:${USER_ID}:${INSTANCE_ID}`,
+    ]);
+    expect(mockEval.mock.calls[0]?.[2]).toEqual(['7', JSON.stringify(CACHED_RESPONSE), '300']);
   });
 
   it('is a no-op when Redis is not available', async () => {
     // Arrange
     redisAvailable = false;
+    const fill = await beginCachedInstanceFill(USER_ID);
 
     // Act
-    await setCachedInstance(USER_ID, INSTANCE_ID, CACHED_RESPONSE as never);
+    await setCachedInstance(USER_ID, INSTANCE_ID, CACHED_RESPONSE as never, fill);
 
     // Assert
-    expect(mockSet).not.toHaveBeenCalled();
+    expect(mockEval).not.toHaveBeenCalled();
   });
 
   it('swallows errors from redis.set', async () => {
     // Arrange
-    mockSet.mockRejectedValueOnce(new Error('write failed'));
+    const fill = await beginCachedInstanceFill(USER_ID);
+    mockEval.mockRejectedValueOnce(new Error('write failed'));
 
     // Act / Assert — should not throw
-    await setCachedInstance(USER_ID, INSTANCE_ID, CACHED_RESPONSE as never);
+    await setCachedInstance(USER_ID, INSTANCE_ID, CACHED_RESPONSE as never, fill);
   });
 });
 
@@ -175,8 +194,15 @@ describe('invalidateCachedInstance', () => {
     await invalidateCachedInstance(USER_ID, INSTANCE_ID);
 
     // Assert
-    expect(mockDel).toHaveBeenCalledTimes(1);
-    expect(mockDel).toHaveBeenCalledWith(`program:${USER_ID}:${INSTANCE_ID}`);
+    expect(mockEval).toHaveBeenCalledTimes(1);
+    expect(mockEval.mock.calls[0]?.[1]).toEqual([
+      `program-cache-generation:${USER_ID}`,
+      `program:${USER_ID}:${INSTANCE_ID}`,
+    ]);
+    expect(mockEval.mock.calls[0]?.[0]).toContain(
+      "redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])"
+    );
+    expect(mockEval.mock.calls[0]?.[2]).toEqual([expect.any(String), '3600']);
   });
 
   it('is a no-op when Redis is not available', async () => {
@@ -187,12 +213,12 @@ describe('invalidateCachedInstance', () => {
     await invalidateCachedInstance(USER_ID, INSTANCE_ID);
 
     // Assert
-    expect(mockDel).not.toHaveBeenCalled();
+    expect(mockEval).not.toHaveBeenCalled();
   });
 
   it('swallows errors from redis.del', async () => {
     // Arrange
-    mockDel.mockRejectedValueOnce(new Error('delete failed'));
+    mockEval.mockRejectedValueOnce(new Error('delete failed'));
 
     // Act / Assert — should not throw
     await invalidateCachedInstance(USER_ID, INSTANCE_ID);
@@ -203,24 +229,197 @@ describe('invalidateCachedInstances', () => {
   it('evicts the target and every displaced instance with duplicate IDs collapsed', async () => {
     await invalidateCachedInstances(USER_ID, [INSTANCE_ID, 'inst-2', INSTANCE_ID]);
 
-    expect(mockDel).toHaveBeenCalledOnce();
-    expect(mockDel).toHaveBeenCalledWith(
+    expect(mockEval).toHaveBeenCalledOnce();
+    expect(mockEval.mock.calls[0]?.[1]).toEqual([
+      `program-cache-generation:${USER_ID}`,
       `program:${USER_ID}:${INSTANCE_ID}`,
-      `program:${USER_ID}:inst-2`
-    );
+      `program:${USER_ID}:inst-2`,
+    ]);
   });
 
   it('does not call Redis for an empty affected set', async () => {
     await invalidateCachedInstances(USER_ID, []);
 
-    expect(mockDel).not.toHaveBeenCalled();
+    expect(mockEval).not.toHaveBeenCalled();
   });
 
   it('swallows a bulk eviction failure', async () => {
-    mockDel.mockRejectedValueOnce(new Error('bulk delete failed'));
+    mockEval.mockRejectedValueOnce(new Error('bulk delete failed'));
 
     await expect(
       invalidateCachedInstances(USER_ID, [INSTANCE_ID, 'inst-2'])
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('distributed stale-fill barrier', () => {
+  it('advances the process-local flight generation even without Redis', async () => {
+    const ownerUserId = 'user-local-flight';
+    redisAvailable = false;
+    const before = await beginCachedInstanceFill(ownerUserId);
+
+    await invalidateCachedInstance(ownerUserId, INSTANCE_ID);
+    const after = await beginCachedInstanceFill(ownerUserId);
+
+    expect(after.flightGeneration).not.toBe(before.flightGeneration);
+    completeCachedInstanceFill(ownerUserId, before);
+    completeCachedInstanceFill(ownerUserId, after);
+    const afterIdle = await beginCachedInstanceFill(ownerUserId);
+    expect(afterIdle.localGeneration).toBe(0);
+    completeCachedInstanceFill(ownerUserId, afterIdle);
+  });
+
+  it('rejects a late fill after another process advances the distributed generation', async () => {
+    let generation: string | null = null;
+    let cached: unknown = null;
+    mockGet.mockImplementation(async (key: string) =>
+      key.startsWith('program-cache-generation:') ? generation : cached
+    );
+    mockEval.mockImplementation(async (script: string, keys: string[], args: readonly string[]) => {
+      if (keys.length === 1 && script.includes('return ARGV[1]')) {
+        generation ??= args[0] ?? null;
+        return generation;
+      }
+      if (script.includes("redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])")) {
+        generation = args[0] ?? null;
+        cached = null;
+        return keys.length - 1;
+      }
+      if (String(generation ?? '') !== args[0]) {
+        return 0;
+      }
+      cached = JSON.parse(args[1] ?? 'null');
+      return 1;
+    });
+
+    const fillA = await beginCachedInstanceFill(USER_ID);
+    generation = 'new-generation';
+    await setCachedInstance(USER_ID, INSTANCE_ID, CACHED_RESPONSE as never, fillA);
+
+    expect(fillA.generation).not.toBe(generation);
+    expect(fillA.redisAvailable).toBe(true);
+    expect(generation).toBe('new-generation');
+    expect(cached).toBeNull();
+  });
+
+  it('uses a fresh generation after expiry so an old fill cannot pass an ABA cycle', async () => {
+    let generation: string | null = null;
+    let cached: unknown = null;
+    mockGet.mockImplementation(async (key: string) =>
+      key.startsWith('program-cache-generation:') ? generation : cached
+    );
+    mockEval.mockImplementation(async (script: string, keys: string[], args: readonly string[]) => {
+      if (keys.length === 1 && script.includes('return ARGV[1]')) {
+        generation ??= args[0] ?? null;
+        return generation;
+      }
+      if (script.includes("redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])")) {
+        generation = args[0] ?? null;
+        cached = null;
+        return keys.length - 1;
+      }
+      if (String(generation ?? '') !== args[0]) return 0;
+      cached = JSON.parse(args[1] ?? 'null');
+      return 1;
+    });
+
+    const staleFill = await beginCachedInstanceFill(USER_ID);
+    await invalidateCachedInstance(USER_ID, INSTANCE_ID);
+    const invalidatedGeneration = generation;
+    generation = null;
+    const currentFill = await beginCachedInstanceFill(USER_ID);
+
+    expect(currentFill.generation).not.toBe(staleFill.generation);
+    expect(currentFill.generation).not.toBe(invalidatedGeneration);
+
+    await setCachedInstance(USER_ID, INSTANCE_ID, CACHED_RESPONSE as never, staleFill);
+    expect(cached).toBeNull();
+    completeCachedInstanceFill(USER_ID, currentFill);
+  });
+
+  it('rejects a late same-process fill when distributed invalidation fails', async () => {
+    const ownerUserId = 'user-failed-invalidation';
+    const fill = await beginCachedInstanceFill(ownerUserId);
+    mockEval.mockRejectedValueOnce(new Error('redis unavailable'));
+
+    await invalidateCachedInstance(ownerUserId, INSTANCE_ID);
+    mockEval.mockClear();
+    await setCachedInstance(ownerUserId, INSTANCE_ID, CACHED_RESPONSE as never, fill);
+
+    expect(mockEval).not.toHaveBeenCalled();
+  });
+
+  it('does not let an old fill cleanup delete a newer post-invalidation value', async () => {
+    const ownerUserId = 'user-overlapping-fill-cleanup';
+    const newerResponse = { ...CACHED_RESPONSE, name: 'Newer Program' };
+    let generation: string | null = null;
+    let cached: string | null = null;
+    let overlapTriggered = false;
+    mockGet.mockImplementation(async (key: string) =>
+      key.startsWith('program-cache-generation:') ? generation : cached
+    );
+    mockEval.mockImplementation(async (script: string, keys: string[], args: readonly string[]) => {
+      if (keys.length === 1 && script.includes('return ARGV[1]')) {
+        generation ??= args[0] ?? null;
+        return generation;
+      }
+      if (script.includes("redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])")) {
+        generation = args[0] ?? null;
+        cached = null;
+        return keys.length - 1;
+      }
+      if (args.length === 2) {
+        if (String(generation ?? '') === args[0] && cached === args[1]) {
+          cached = null;
+          return 1;
+        }
+        return 0;
+      }
+      if (String(generation ?? '') !== args[0]) {
+        return 0;
+      }
+      cached = args[1] ?? null;
+      if (!overlapTriggered) {
+        overlapTriggered = true;
+        await invalidateCachedInstance(ownerUserId, INSTANCE_ID);
+        const newerFill = await beginCachedInstanceFill(ownerUserId);
+        await setCachedInstance(ownerUserId, INSTANCE_ID, newerResponse as never, newerFill);
+      }
+      return 1;
+    });
+
+    const olderFill = await beginCachedInstanceFill(ownerUserId);
+    await setCachedInstance(ownerUserId, INSTANCE_ID, CACHED_RESPONSE as never, olderFill);
+
+    expect(JSON.parse(cached ?? 'null')).toEqual(newerResponse);
+  });
+
+  it('does not invalidate another owner process-local fill', async () => {
+    const ownerA = 'user-owner-a';
+    const ownerB = 'user-owner-b';
+    const fillA = await beginCachedInstanceFill(ownerA);
+
+    await invalidateCachedInstance(ownerB, 'owner-b-instance');
+    mockEval.mockClear();
+    await setCachedInstance(ownerA, INSTANCE_ID, CACHED_RESPONSE as never, fillA);
+
+    expect(mockEval).toHaveBeenCalledOnce();
+    expect(mockEval.mock.calls[0]?.[1]).toEqual([
+      `program-cache-generation:${ownerA}`,
+      `program:${ownerA}:${INSTANCE_ID}`,
+    ]);
+  });
+
+  it('skips fills when the generation read fails while mutations remain fail-open', async () => {
+    mockGet.mockRejectedValueOnce(new Error('redis unavailable'));
+    const fill = await beginCachedInstanceFill(USER_ID);
+
+    await expect(
+      setCachedInstance(USER_ID, INSTANCE_ID, CACHED_RESPONSE as never, fill)
+    ).resolves.toBeUndefined();
+    mockEval.mockRejectedValueOnce(new Error('redis unavailable'));
+    await expect(invalidateCachedInstances(USER_ID, [INSTANCE_ID])).resolves.toBeUndefined();
+
+    expect(fill.redisAvailable).toBe(false);
   });
 });

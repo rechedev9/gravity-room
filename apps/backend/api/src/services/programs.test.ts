@@ -7,6 +7,10 @@
 process.env['LOG_LEVEL'] = 'silent';
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import {
+  MAX_PROGRAM_WEIGHT,
+  MIN_POSITIVE_PROGRAM_WEIGHT,
+} from '@gzclp/domain/schemas/program-definition';
 import { ApiError } from '../middleware/error-handler';
 import type { ExportedProgram } from './programs';
 
@@ -1075,6 +1079,21 @@ describe('createInstance transaction and per-user serialization', () => {
 });
 
 describe('authoritative program configuration validation', () => {
+  const numericBoundaryTemplate = {
+    ...CONFIG_TEMPLATE,
+    definition: {
+      ...CONFIG_TEMPLATE.definition,
+      configFields: [
+        {
+          key: 'load',
+          label: 'Load',
+          type: 'weight',
+          min: 0,
+          step: MIN_POSITIVE_PROGRAM_WEIGHT,
+        },
+      ],
+    },
+  };
   const selectTemplate = {
     ...CONFIG_TEMPLATE,
     definition: {
@@ -1105,6 +1124,41 @@ describe('authoritative program configuration validation', () => {
     exercises: { squat: { name: 'Squat' } },
     configFields: [{ key: 'customLoad', label: 'Custom load', type: 'weight', min: 10, step: 2 }],
   };
+
+  it.each([0, MIN_POSITIVE_PROGRAM_WEIGHT, MAX_PROGRAM_WEIGHT])(
+    'accepts the shared numeric boundary value %s in authoritative create validation',
+    async (load) => {
+      const persisted: TransactionProgramRow[] = [];
+      mockDb = {
+        transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) => {
+          const result = await task(
+            createProgramTransaction(persisted, { template: numericBoundaryTemplate })
+          );
+          return result;
+        }),
+      };
+
+      await expect(createInstance('user-1', 'gzclp', 'Boundary', { load })).resolves.toMatchObject({
+        config: { load },
+      });
+    }
+  );
+
+  it.each([MIN_POSITIVE_PROGRAM_WEIGHT / 10, 1e21])(
+    'rejects the out-of-contract numeric value %s in authoritative create validation',
+    async (load) => {
+      mockDb = {
+        transaction: vi.fn(async (task: (tx: Record<string, unknown>) => Promise<unknown>) =>
+          task(createProgramTransaction([], { template: numericBoundaryTemplate }))
+        ),
+      };
+
+      await expect(createInstance('user-1', 'gzclp', 'Boundary', { load })).rejects.toMatchObject({
+        statusCode: 400,
+        code: 'INVALID_PROGRAM_CONFIG',
+      });
+    }
+  );
 
   it.each([
     ['missing field', {}],

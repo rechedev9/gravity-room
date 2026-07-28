@@ -12,10 +12,13 @@ import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
 import {
   hashToken,
+  findRefreshTokens,
   findRefreshTokenByPreviousHash,
   revokeRefreshToken,
+  revokeBrowserRefreshTokens,
   revokeAllUserTokens,
   createAndStoreRefreshToken,
+  captureBrowserLoginIntentOrder,
   rotateRefreshToken,
   findUserById,
   findOrCreateGoogleUser,
@@ -84,6 +87,9 @@ function classifyDevice(userAgent: string | undefined): DeviceType {
 }
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
+const LEGACY_ROTATED_REFRESH_COOKIE_NAME = 'refresh_token_rotated';
+const VERSIONED_REFRESH_COOKIE_PATTERN = /^refresh_token_[a-f0-9]{16}$/;
+const MAX_BROWSER_REFRESH_COOKIE_EXPIRATIONS = 8;
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
 // Grace window for concurrent/double refreshes. When a presented refresh token
 // is gone but its successor was minted within this window, it is a benign race
@@ -185,38 +191,13 @@ const REFRESH_COOKIE_OPTIONS = {
   path: '/api/auth',
 };
 
-/**
- * Expire (delete) a path-scoped cookie by re-setting it empty at the same Path it
- * was created with, plus maxAge 0 / expires epoch. Elysia's `cookie.remove()`
- * emits the deletion at the default path `/`, which would NOT match a cookie
- * scoped to `/api/auth`, leaving it stranded in the browser. Pinning the Path
- * guarantees the deletion matches regardless of which request URL triggered it.
- */
-function expireCookieAtPath(
-  cookie: { set: (opts: Record<string, unknown>) => void },
-  options: {
-    readonly path: string;
-    readonly httpOnly: boolean;
-    readonly secure: boolean;
-    readonly sameSite: 'strict' | 'lax' | 'none';
-  }
-): void {
+function expireRefreshCookie(cookie: { set: (opts: Record<string, unknown>) => void }): void {
   cookie.set({
     value: '',
-    path: options.path,
-    httpOnly: options.httpOnly,
-    secure: options.secure,
-    sameSite: options.sameSite,
+    ...REFRESH_COOKIE_OPTIONS,
     maxAge: 0,
     expires: new Date(0),
   });
-}
-
-/** Expire the refresh cookie, pinned to its `/api/auth` Path. */
-function removeRefreshCookie(refreshCookie: {
-  set: (opts: Record<string, unknown>) => void;
-}): void {
-  expireCookieAtPath(refreshCookie, REFRESH_COOKIE_OPTIONS);
 }
 
 function assertEmailConfiguredForProduction(): void {
@@ -237,6 +218,112 @@ interface UserProfile {
   readonly email: string;
   readonly name: string | null;
   readonly avatarUrl: string | null;
+}
+
+interface CookieSessionReplacement {
+  readonly tokenHash: string;
+  readonly familyId: string;
+  readonly userId: string;
+}
+
+interface BrowserRefreshToken {
+  readonly name: string;
+  readonly value: string;
+  readonly stored?: Awaited<ReturnType<typeof findRefreshTokens>>[number];
+  readonly tokenHash?: string;
+}
+
+function collectBrowserRefreshCookieValues(
+  cookie: Record<string, { value?: unknown }>
+): Array<{ readonly name: string; readonly value: string }> {
+  const candidates = Object.entries(cookie)
+    .filter(
+      ([name]) =>
+        name === REFRESH_COOKIE_NAME ||
+        name === LEGACY_ROTATED_REFRESH_COOKIE_NAME ||
+        VERSIONED_REFRESH_COOKIE_PATTERN.test(name)
+    )
+    .flatMap(([name, storedCookie]) =>
+      typeof storedCookie.value === 'string' && storedCookie.value.length > 0
+        ? [{ name, value: storedCookie.value }]
+        : []
+    );
+
+  return [...new Map(candidates.map((candidate) => [candidate.name, candidate] as const)).values()];
+}
+
+async function readBrowserRefreshTokens(
+  cookie: Record<string, { value?: unknown }>
+): Promise<BrowserRefreshToken[]> {
+  const hashed = await Promise.all(
+    collectBrowserRefreshCookieValues(cookie).map(async ({ name, value }) => {
+      if (value.length > MAX_AUTH_TOKEN_CHARS) return { name, value };
+      const tokenHash = await hashToken(value);
+      return { name, value, tokenHash };
+    })
+  );
+  const storedByHash = new Map(
+    (
+      await findRefreshTokens(
+        hashed.flatMap(({ tokenHash }) => (tokenHash === undefined ? [] : [tokenHash]))
+      )
+    ).map((stored) => [stored.tokenHash, stored] as const)
+  );
+  return hashed.map((candidate) => ({
+    ...candidate,
+    ...(candidate.tokenHash === undefined ? {} : { stored: storedByHash.get(candidate.tokenHash) }),
+  }));
+}
+
+async function selectBrowserRefreshToken(
+  cookie: Record<string, { value?: unknown }>
+): Promise<BrowserRefreshToken | undefined> {
+  const candidates = await readBrowserRefreshTokens(cookie);
+  const active = candidates
+    .filter(
+      (
+        candidate
+      ): candidate is BrowserRefreshToken & {
+        readonly stored: NonNullable<BrowserRefreshToken['stored']>;
+      } =>
+        candidate.stored !== undefined &&
+        candidate.stored.consumedAt === null &&
+        candidate.stored.supersededAt === null &&
+        candidate.stored.expiresAt.getTime() > Date.now()
+    )
+    .sort(
+      (left, right) =>
+        right.stored.familyOrder - left.stored.familyOrder ||
+        right.stored.familyId.localeCompare(left.stored.familyId)
+    );
+  return active[0] ?? candidates[0];
+}
+
+async function browserRefreshCookieName(refreshToken: string): Promise<string> {
+  const tokenHash = await hashToken(refreshToken);
+  return `refresh_token_${tokenHash.slice(0, 16)}`;
+}
+
+function expirePresentedRefreshCookies(
+  cookie: Record<string, { set: (opts: Record<string, unknown>) => void }>,
+  presented: readonly { readonly name: string }[]
+): void {
+  for (const { name } of presented.slice(0, MAX_BROWSER_REFRESH_COOKIE_EXPIRATIONS)) {
+    expireRefreshCookie(cookie[name]);
+  }
+}
+
+async function captureCookieSessionReplacement(
+  cookie: Record<string, { value?: unknown }>
+): Promise<CookieSessionReplacement | undefined> {
+  const selected = await selectBrowserRefreshToken(cookie);
+  return selected?.stored && selected.tokenHash && selected.stored.supersededAt === null
+    ? {
+        tokenHash: selected.tokenHash,
+        familyId: selected.stored.familyId,
+        userId: selected.stored.userId,
+      }
+    : undefined;
 }
 
 const userProfileResponseSchema = t.Object({
@@ -272,8 +359,10 @@ async function issueTokens(
   jwt: {
     sign: (payload: { sub: string; email?: string; av: number; exp: string }) => Promise<string>;
   },
-  cookie: Record<string, { set: (opts: Record<string, unknown>) => void }>,
-  user: { id: string; email?: string; authVersion?: number }
+  cookie: Record<string, { value?: unknown; set: (opts: Record<string, unknown>) => void }>,
+  user: { id: string; email?: string; authVersion?: number },
+  replacement: CookieSessionReplacement | undefined,
+  loginIntentOrder: number
 ): Promise<{ accessToken: string }> {
   const [accessToken, refreshToken] = await Promise.all([
     jwt.sign({
@@ -282,10 +371,14 @@ async function issueTokens(
       av: user.authVersion ?? 0,
       exp: ACCESS_TOKEN_EXPIRY,
     }),
-    createAndStoreRefreshToken(user.id),
+    createAndStoreRefreshToken(user.id, user.authVersion ?? 0, replacement, loginIntentOrder),
   ]);
 
-  cookie[REFRESH_COOKIE_NAME].set({ value: refreshToken, ...REFRESH_COOKIE_OPTIONS });
+  expirePresentedRefreshCookies(cookie, collectBrowserRefreshCookieValues(cookie));
+  cookie[await browserRefreshCookieName(refreshToken)].set({
+    value: refreshToken,
+    ...REFRESH_COOKIE_OPTIONS,
+  });
   return { accessToken };
 }
 
@@ -302,7 +395,7 @@ async function issueMobileTokens(
       av: user.authVersion ?? 0,
       exp: ACCESS_TOKEN_EXPIRY,
     }),
-    createAndStoreRefreshToken(user.id),
+    createAndStoreRefreshToken(user.id, user.authVersion ?? 0),
   ]);
 
   return { accessToken, refreshToken };
@@ -326,6 +419,17 @@ async function refreshAuthToken(
 
   const tokenHash = await hashToken(refreshToken);
   const rotation = await rotateRefreshToken(tokenHash);
+
+  if (rotation.status === 'superseded') {
+    // Login or logout consumed the family while refresh waited on the user
+    // lock. Do not clear the shared cookie: a winning login may already have
+    // installed its replacement, and this request must not erase it.
+    reqLogger.info(
+      { event: 'auth.refresh_superseded' },
+      'refresh superseded by a session transition'
+    );
+    throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
+  }
 
   if (rotation.status === 'not_found') {
     const successor = await findRefreshTokenByPreviousHash(tokenHash);
@@ -551,6 +655,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     '/google',
     async ({ jwt, body, cookie, set, reqLogger, ip, request }) => {
       await authRateLimit(ip, '/auth/google', { maxRequests: 10 });
+      const loginIntentOrder = await captureBrowserLoginIntentOrder();
+      const replacement = await captureCookieSessionReplacement(cookie);
       const webClientId = getWebGoogleClientId();
 
       const { user, isNewUser } = await processGoogleSignIn(
@@ -560,7 +666,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         request.headers.get('user-agent'),
         reqLogger
       );
-      const { accessToken } = await issueTokens(jwt, cookie, user);
+      const { accessToken } = await issueTokens(jwt, cookie, user, replacement, loginIntentOrder);
 
       reqLogger.info({ event: 'auth.google', userId: user.id, isNewUser }, 'google sign-in');
       set.status = 200;
@@ -686,6 +792,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     '/login',
     async ({ jwt, body, cookie, set, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/login', { maxRequests: 10 });
+      const loginIntentOrder = await captureBrowserLoginIntentOrder();
+      const replacement = await captureCookieSessionReplacement(cookie);
 
       const user = await authenticatePassword(body.email, body.password);
       if (!user) {
@@ -695,7 +803,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         throw new ApiError(403, 'Email not verified', 'EMAIL_NOT_VERIFIED');
       }
 
-      const { accessToken } = await issueTokens(jwt, cookie, user);
+      const { accessToken } = await issueTokens(jwt, cookie, user, replacement, loginIntentOrder);
       reqLogger.info({ event: 'auth.login', userId: user.id }, 'password login');
       set.status = 200;
       return { user: userResponse(user), accessToken };
@@ -727,6 +835,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     '/verify-email',
     async ({ jwt, body, cookie, set, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/verify-email', { maxRequests: 20 });
+      const loginIntentOrder = await captureBrowserLoginIntentOrder();
+      const replacement = await captureCookieSessionReplacement(cookie);
 
       const userId = await consumeEmailVerificationToken(body.token);
       if (!userId) {
@@ -737,7 +847,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
       }
 
-      const { accessToken } = await issueTokens(jwt, cookie, user);
+      const { accessToken } = await issueTokens(jwt, cookie, user, replacement, loginIntentOrder);
       reqLogger.info({ event: 'auth.email_verified', userId }, 'email verified');
       set.status = 200;
       return { user: userResponse(user), accessToken };
@@ -910,6 +1020,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     '/apple/callback',
     async ({ jwt, body, cookie, redirect, request, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/apple/callback', { maxRequests: 30 });
+      const loginIntentOrder = await captureBrowserLoginIntentOrder();
+      const replacement = await captureCookieSessionReplacement(cookie);
 
       const stateCookie = cookie[OAUTH_STATE_COOKIE];
       const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
@@ -957,7 +1069,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             )
           );
         }
-        await issueTokens(jwt, cookie, user);
+        await issueTokens(jwt, cookie, user, replacement, loginIntentOrder);
         reqLogger.info({ event: 'auth.apple', userId: user.id }, 'apple sign-in');
         return redirect(socialCallbackUrl(request, 'apple'));
       } catch (e: unknown) {
@@ -1022,6 +1134,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     '/github/callback',
     async ({ jwt, query, cookie, redirect, request, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/github/callback', { maxRequests: 30 });
+      const loginIntentOrder = await captureBrowserLoginIntentOrder();
+      const replacement = await captureCookieSessionReplacement(cookie);
 
       const stateCookie = cookie[OAUTH_STATE_COOKIE];
       const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
@@ -1071,7 +1185,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             )
           );
         }
-        await issueTokens(jwt, cookie, user);
+        await issueTokens(jwt, cookie, user, replacement, loginIntentOrder);
         reqLogger.info({ event: 'auth.github', userId: user.id }, 'github sign-in');
         return redirect(socialCallbackUrl(request, 'github'));
       } catch (e: unknown) {
@@ -1137,6 +1251,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     '/microsoft/callback',
     async ({ jwt, query, cookie, redirect, request, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/microsoft/callback', { maxRequests: 30 });
+      const loginIntentOrder = await captureBrowserLoginIntentOrder();
+      const replacement = await captureCookieSessionReplacement(cookie);
 
       const stateCookie = cookie[OAUTH_STATE_COOKIE];
       const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
@@ -1193,7 +1309,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             )
           );
         }
-        await issueTokens(jwt, cookie, user);
+        await issueTokens(jwt, cookie, user, replacement, loginIntentOrder);
         reqLogger.info({ event: 'auth.microsoft', userId: user.id }, 'microsoft sign-in');
         return redirect(socialCallbackUrl(request, 'microsoft'));
       } catch (e: unknown) {
@@ -1227,6 +1343,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             '/dev',
             async ({ jwt, body, cookie, set, ip, headers }) => {
               await authRateLimit(ip, 'POST /auth/dev', DEV_AUTH_RATE_LIMIT);
+              const loginIntentOrder = await captureBrowserLoginIntentOrder();
+              const replacement = await captureCookieSessionReplacement(cookie);
               if (!devAuthSecretMatches(headers['x-dev-auth-secret'])) {
                 throw new ApiError(401, 'Invalid dev auth secret', 'UNAUTHORIZED');
               }
@@ -1242,7 +1360,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
                       undefined
                     )
                   ).user;
-              const { accessToken } = await issueTokens(jwt, cookie, user);
+              const { accessToken } = await issueTokens(
+                jwt,
+                cookie,
+                user,
+                replacement,
+                loginIntentOrder
+              );
               set.status = 201;
               return { user: userResponse(user), accessToken };
             },
@@ -1305,17 +1429,17 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       // parallel test workers don't exhaust the 20/min default.
       await authRateLimit(ip, '/auth/refresh', IS_PRODUCTION ? undefined : { maxRequests: 500 });
 
-      const refreshCookie = cookie[REFRESH_COOKIE_NAME];
-      const tokenValue = refreshCookie?.value;
-
-      if (!tokenValue || typeof tokenValue !== 'string') {
+      const selected = await selectBrowserRefreshToken(cookie);
+      if (!selected) {
         throw new ApiError(401, 'No refresh token', 'AUTH_NO_REFRESH_TOKEN');
       }
 
-      const refreshed = await refreshAuthToken(jwt, reqLogger, tokenValue, () => {
-        removeRefreshCookie(refreshCookie);
+      const refreshed = await refreshAuthToken(jwt, reqLogger, selected.value, () => {
+        expireRefreshCookie(cookie[selected.name]);
       });
 
+      expirePresentedRefreshCookies(cookie, collectBrowserRefreshCookieValues(cookie));
+      const refreshCookie = cookie[await browserRefreshCookieName(refreshed.refreshToken)];
       refreshCookie.set({ value: refreshed.refreshToken, ...REFRESH_COOKIE_OPTIONS });
       // Include the user so the web client can restore the session in a single
       // round-trip (refresh → user) instead of chaining a follow-up GET /auth/me.
@@ -1377,28 +1501,27 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/signout',
     async ({ cookie, reqLogger, ip }) => {
-      const refreshCookie = cookie[REFRESH_COOKIE_NAME];
+      const presented = collectBrowserRefreshCookieValues(cookie);
       try {
         await rateLimit(ip, '/auth/signout');
-        await signOutWithRefreshToken(refreshCookie?.value);
+        const tokenHashes = await Promise.all(
+          presented.flatMap(({ value }) =>
+            value.length > MAX_AUTH_TOKEN_CHARS ? [] : [hashToken(value)]
+          )
+        );
+        await revokeBrowserRefreshTokens(tokenHashes);
 
         reqLogger.info({ event: 'auth.signout' }, 'user signed out');
-        // Body-less 204: Node's undici rejects a non-null body with status 204
-        // (Bun tolerated it). The refresh-cookie clear below is still serialized
-        // onto this Response by Elysia.
         return new Response(null, { status: 204 });
       } finally {
-        // Expire the browser credential even when rate limiting or storage
-        // fails. The client still reports the error, but a reload cannot reuse
-        // a cookie that the server was able to answer for.
-        if (refreshCookie) removeRefreshCookie(refreshCookie);
+        expirePresentedRefreshCookies(cookie, presented);
       }
     },
     {
       detail: {
         tags: ['Auth'],
         summary: 'Sign out',
-        description: 'Revokes the current refresh token and clears the cookie.',
+        description: 'Revokes every browser refresh session currently presented.',
         responses: {
           204: { description: 'Signed out successfully' },
           429: { description: 'Rate limited' },
@@ -1546,17 +1669,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .delete(
     '/me',
     async ({ userId, cookie, reqLogger, ip }) => {
+      const presented = collectBrowserRefreshCookieValues(cookie);
       await rateLimit(ip, '/auth/me/delete', { maxRequests: 5 });
 
       await softDeleteUser(userId);
-
-      // Clear the refresh cookie
-      const refreshCookie = cookie[REFRESH_COOKIE_NAME];
-      if (refreshCookie) removeRefreshCookie(refreshCookie);
+      expirePresentedRefreshCookies(cookie, presented);
 
       reqLogger.info({ event: 'auth.account_deleted', userId }, 'account soft-deleted');
-      // Body-less 204 for Node/undici compatibility; the refresh-cookie clear
-      // above is still serialized onto this Response by Elysia.
       return new Response(null, { status: 204 });
     },
     {

@@ -1,19 +1,24 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
 import type { GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
 
 import { TrackerScreen as OwnedTrackerScreen } from './tracker-screen';
-import { getAccessToken } from '../../lib/auth/session';
+import { captureAuthorizedSession, getAuthorizedSessionAccessToken } from '../../lib/auth/session';
 import {
+  commitProgramDefinitionRefresh,
+  commitProgramDetailRefresh,
   getProgramDefinition,
   getProgramDetail,
-  upsertProgramDefinition,
   upsertProgramDetail,
 } from '../../lib/tracker/program-detail-repository';
 import {
   fetchProgramDefinition,
   fetchProgramDetail,
 } from '../../lib/tracker/program-detail-service';
+import {
+  captureProgramRefreshLease,
+  isProgramRefreshLeaseCurrent,
+} from '../../lib/programs/program-refresh-generation';
 import { flushQueuedMutations } from '../../lib/sync/mutation-sync-service';
 import {
   queueRecordResultMutation,
@@ -21,14 +26,39 @@ import {
 } from '../../lib/tracker/tracker-mutation-service';
 
 jest.mock('../../lib/auth/session', () => ({
-  getAccessToken: jest.fn(),
+  captureAuthorizedSession: jest.fn((ownerUserId: string) => ({
+    ownerUserId,
+    accessToken: 'a',
+    generation: 1,
+  })),
+  getAuthorizedSessionAccessToken: jest.fn(
+    (session: { accessToken: string }) => session.accessToken
+  ),
+  isAuthorizedSessionCurrent: jest.fn(() => true),
+}));
+
+jest.mock('../../lib/programs/program-refresh-generation', () => ({
+  abandonProgramRefreshLease: jest.fn(),
+  captureProgramRefreshLease: jest.fn(
+    (ownerUserId: string, resource: string, session: unknown) => ({
+      ownerUserId,
+      resource,
+      generation: 0,
+      session,
+    })
+  ),
+  isProgramRefreshLeaseCurrent: jest.fn(() => true),
+  withProgramRefreshCommitBarrier: jest.fn(
+    (_ownerUserId: string, _resource: string, task: () => Promise<unknown>) => task()
+  ),
 }));
 
 jest.mock('../../lib/tracker/program-detail-repository', () => ({
+  commitProgramDefinitionRefresh: jest.fn(),
+  commitProgramDetailRefresh: jest.fn(),
   getProgramDetail: jest.fn(),
   getProgramDefinition: jest.fn(),
   upsertProgramDetail: jest.fn(),
-  upsertProgramDefinition: jest.fn(),
 }));
 
 jest.mock('../../lib/tracker/program-detail-service', () => ({
@@ -45,10 +75,14 @@ jest.mock('../../lib/tracker/tracker-mutation-service', () => ({
   queueUndoRestoreMutation: jest.fn(),
 }));
 
-const mockedGetAccessToken = jest.mocked(getAccessToken);
+const mockedCommitProgramDefinitionRefresh = jest.mocked(commitProgramDefinitionRefresh);
+const mockedCommitProgramDetailRefresh = jest.mocked(commitProgramDetailRefresh);
+const mockedCaptureProgramRefreshLease = jest.mocked(captureProgramRefreshLease);
+const mockedIsProgramRefreshLeaseCurrent = jest.mocked(isProgramRefreshLeaseCurrent);
+const mockedCaptureAuthorizedSession = jest.mocked(captureAuthorizedSession);
+const mockedGetAuthorizedSessionAccessToken = jest.mocked(getAuthorizedSessionAccessToken);
 const mockedGetProgramDetail = jest.mocked(getProgramDetail);
 const mockedGetProgramDefinition = jest.mocked(getProgramDefinition);
-const mockedUpsertProgramDefinition = jest.mocked(upsertProgramDefinition);
 const mockedUpsertProgramDetail = jest.mocked(upsertProgramDetail);
 const mockedFetchProgramDetail = jest.mocked(fetchProgramDetail);
 const mockedFetchProgramDefinition = jest.mocked(fetchProgramDefinition);
@@ -147,15 +181,26 @@ const TEST_DETAIL: GenericProgramDetail = {
 
 describe('TrackerScreen', () => {
   beforeEach(() => {
-    mockedGetAccessToken.mockReturnValue('restored-access-token');
+    mockedCaptureProgramRefreshLease.mockClear();
+    mockedCaptureAuthorizedSession.mockImplementation((ownerUserId) => ({
+      ownerUserId,
+      accessToken: 'test-auth-token',
+      generation: 1,
+    }));
+    mockedCommitProgramDefinitionRefresh.mockResolvedValue(true);
+    mockedCommitProgramDetailRefresh.mockResolvedValue(true);
+    mockedIsProgramRefreshLeaseCurrent.mockReturnValue(true);
+    mockedGetAuthorizedSessionAccessToken.mockImplementation((session) => session.accessToken);
     mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
   });
 
   afterEach(() => {
-    mockedGetAccessToken.mockReset();
+    mockedCaptureAuthorizedSession.mockReset();
+    mockedCommitProgramDefinitionRefresh.mockReset();
+    mockedCommitProgramDetailRefresh.mockReset();
+    mockedGetAuthorizedSessionAccessToken.mockReset();
     mockedGetProgramDetail.mockReset();
     mockedGetProgramDefinition.mockReset();
-    mockedUpsertProgramDefinition.mockReset();
     mockedUpsertProgramDetail.mockReset();
     mockedFetchProgramDetail.mockReset();
     mockedFetchProgramDefinition.mockReset();
@@ -164,10 +209,64 @@ describe('TrackerScreen', () => {
     mockedQueueUndoRestoreMutation.mockReset();
   });
 
+  it('renders the unavailable state when the initiating owner session is obsolete', async () => {
+    mockedCaptureAuthorizedSession.mockImplementation(() => {
+      throw new Error('obsolete owner session');
+    });
+
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    expect(await screen.findByText('Tracker unavailable')).toBeTruthy();
+    expect(mockedGetProgramDetail).not.toHaveBeenCalled();
+    expect(mockedFetchProgramDetail).not.toHaveBeenCalled();
+  });
+
+  it('does not render the previous owner tracker when the next owner session is obsolete', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockImplementation(() => new Promise(() => undefined));
+
+    const view = render(
+      <OwnedTrackerScreen ownerUserId="user-a" programInstanceId="instance-1" onBack={jest.fn()} />
+    );
+    expect(await screen.findByText('Day A')).toBeTruthy();
+
+    mockedCaptureAuthorizedSession.mockImplementation(() => {
+      throw new Error('obsolete owner session');
+    });
+    view.rerender(
+      <OwnedTrackerScreen ownerUserId="user-b" programInstanceId="instance-1" onBack={jest.fn()} />
+    );
+
+    expect(screen.queryByText('Day A')).toBeNull();
+    expect(await screen.findByText('Tracker unavailable')).toBeTruthy();
+  });
+
+  it('does not acquire a late definition lease after the tracker unmounts', async () => {
+    const delayedDetail = createDeferred<GenericProgramDetail>();
+    mockedGetProgramDetail.mockResolvedValue(null);
+    mockedGetProgramDefinition.mockResolvedValue(null);
+    mockedFetchProgramDetail.mockReturnValue(delayedDetail.promise);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+
+    const view = render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    await waitFor(() => {
+      expect(mockedFetchProgramDetail).toHaveBeenCalled();
+    });
+    view.unmount();
+
+    await act(async () => {
+      delayedDetail.resolve(TEST_DETAIL);
+      await delayedDetail.promise;
+    });
+
+    expect(mockedCaptureProgramRefreshLease).toHaveBeenCalledTimes(1);
+    expect(mockedFetchProgramDefinition).not.toHaveBeenCalled();
+  });
+
   it('renders cached workout data before the remote refresh completes', async () => {
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
-    mockedUpsertProgramDefinition.mockResolvedValue();
     mockedFetchProgramDetail.mockImplementation(() => new Promise(() => undefined));
     mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
 
@@ -186,7 +285,6 @@ describe('TrackerScreen', () => {
   it('loads tracker data from remote when no cached detail exists yet', async () => {
     mockedGetProgramDetail.mockResolvedValue(null);
     mockedGetProgramDefinition.mockResolvedValue(null);
-    mockedUpsertProgramDefinition.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
     mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
@@ -195,8 +293,94 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Day A')).toBeTruthy();
     expect(screen.getByText('Squat')).toBeTruthy();
-    expect(mockedUpsertProgramDefinition).toHaveBeenCalledWith('user-a', TEST_DEFINITION);
-    expect(mockedUpsertProgramDetail).toHaveBeenCalledWith('user-a', TEST_DETAIL);
+    expect(mockedCommitProgramDefinitionRefresh).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerUserId: 'user-a',
+        resource: `definition:${TEST_DETAIL.programId}`,
+      }),
+      TEST_DEFINITION
+    );
+    expect(mockedCommitProgramDetailRefresh).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ownerUserId: 'user-a',
+        resource: 'detail:instance-1',
+      }),
+      TEST_DETAIL
+    );
+  });
+
+  it('settles to unavailable when a newer definition refresh supersedes this screen', async () => {
+    mockedGetProgramDetail.mockResolvedValue(null);
+    mockedGetProgramDefinition.mockResolvedValue(null);
+    mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedCommitProgramDefinitionRefresh.mockResolvedValue(false);
+
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    expect(await screen.findByText('Tracker unavailable')).toBeTruthy();
+    expect(screen.queryByText('Loading tracker…')).toBeNull();
+  });
+
+  it('settles a rejected definition commit from the winning SQLite snapshot', async () => {
+    const firstDay = TEST_DEFINITION.days[0];
+    if (!firstDay) throw new Error('Expected the tracker fixture to include a day');
+    const winningDefinition = {
+      ...TEST_DEFINITION,
+      days: [{ ...firstDay, name: 'Winning Day' }],
+    } satisfies ProgramDefinition;
+    mockedGetProgramDetail.mockResolvedValue(null);
+    mockedGetProgramDefinition.mockResolvedValue(winningDefinition);
+    mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedCommitProgramDefinitionRefresh.mockResolvedValue(false);
+
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    expect(await screen.findByText('Winning Day')).toBeTruthy();
+    expect(screen.queryByText('Tracker unavailable')).toBeNull();
+    expect(mockedCommitProgramDetailRefresh).toHaveBeenCalled();
+  });
+
+  it('settles a rejected detail commit from the winning SQLite snapshot', async () => {
+    const winningDetail = {
+      ...TEST_DETAIL,
+      config: { ...TEST_DETAIL.config, squat: 75 },
+    };
+    mockedGetProgramDetail.mockResolvedValueOnce(null).mockResolvedValueOnce(winningDetail);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedCommitProgramDetailRefresh.mockResolvedValue(false);
+
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    expect(await screen.findByText('75 kg')).toBeTruthy();
+    expect(screen.queryByText('Tracker unavailable')).toBeNull();
+  });
+
+  it('settles successful commits from queued definition and detail mutation winners', async () => {
+    const firstDay = TEST_DEFINITION.days[0];
+    if (!firstDay) throw new Error('Expected the tracker fixture to include a day');
+    const winningDefinition = {
+      ...TEST_DEFINITION,
+      days: [{ ...firstDay, name: 'Mutation-winning Day' }],
+    } satisfies ProgramDefinition;
+    const winningDetail = {
+      ...TEST_DETAIL,
+      config: { ...TEST_DETAIL.config, squat: 77.5 },
+    };
+    mockedGetProgramDetail.mockResolvedValueOnce(null).mockResolvedValueOnce(winningDetail);
+    mockedGetProgramDefinition.mockResolvedValue(winningDefinition);
+    mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedIsProgramRefreshLeaseCurrent.mockReturnValue(false);
+
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    expect(await screen.findByText('Mutation-winning Day')).toBeTruthy();
+    expect(screen.getByText('77.5 kg')).toBeTruthy();
+    expect(screen.queryByText('Tracker unavailable')).toBeNull();
   });
 
   it('loads tracker data from an inline custom definition without fetching catalog detail', async () => {
@@ -238,7 +422,6 @@ describe('TrackerScreen', () => {
       },
     });
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
-    mockedUpsertProgramDefinition.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
     mockedFlushQueuedMutations.mockReturnValue(delayedFlush.promise);
     mockedFetchProgramDetail.mockResolvedValue({
@@ -261,7 +444,24 @@ describe('TrackerScreen', () => {
     delayedFlush.resolve({ processedCount: 1 });
 
     await waitFor(() => {
-      expect(mockedFetchProgramDetail).toHaveBeenCalledWith('instance-1');
+      expect(mockedFetchProgramDetail).toHaveBeenCalledWith(
+        'instance-1',
+        expect.objectContaining({ ownerUserId: 'user-a', generation: 1 })
+      );
+    });
+  });
+
+  it('flushes queued mutations with the current token after a same-owner refresh', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedGetAuthorizedSessionAccessToken.mockReturnValue('rotated-auth-token');
+
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    await waitFor(() => {
+      expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('rotated-auth-token');
     });
   });
 
@@ -287,6 +487,33 @@ describe('TrackerScreen', () => {
       await screen.findByText('Showing cached tracker data while sync catches up.')
     ).toBeTruthy();
     expect(mockedFetchProgramDetail).not.toHaveBeenCalled();
+  });
+
+  it('ignores a late cached-flush failure after the owner changes', async () => {
+    const delayedFlush = createDeferred<{ processedCount: number }>();
+    mockedGetProgramDetail
+      .mockResolvedValueOnce(TEST_DETAIL)
+      .mockImplementation(() => new Promise(() => undefined));
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFlushQueuedMutations.mockImplementation(() => delayedFlush.promise);
+    const view = render(
+      <OwnedTrackerScreen ownerUserId="user-a" programInstanceId="instance-1" onBack={jest.fn()} />
+    );
+    expect(await screen.findByText('Day A')).toBeTruthy();
+
+    view.rerender(
+      <OwnedTrackerScreen ownerUserId="user-b" programInstanceId="instance-1" onBack={jest.fn()} />
+    );
+    expect(screen.getByText('Loading tracker…')).toBeTruthy();
+
+    await act(async () => {
+      delayedFlush.reject(new Error('owner A flush failed'));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('Loading tracker…')).toBeTruthy();
+    expect(screen.queryByText('Showing cached tracker data while sync catches up.')).toBeNull();
+    expect(screen.queryByText('Tracker unavailable')).toBeNull();
   });
 
   it('marks a slot as success locally and queues the offline mutation', async () => {

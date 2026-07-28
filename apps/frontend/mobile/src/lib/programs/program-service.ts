@@ -1,6 +1,7 @@
 import {
   CatalogEntrySchema,
   GenericProgramDetailSchema,
+  MAX_PROGRAM_WEIGHT,
   ProgramDefinitionSchema,
   ProgramInstanceSchema,
   type CatalogEntry,
@@ -10,7 +11,13 @@ import {
 import { validateProgramConfig, type ProgramConfig } from '@gzclp/domain/program-config';
 import { isRecord } from '@gzclp/domain/type-guards';
 
-import { fetchWithAccessToken, getAccessToken } from '../auth/session';
+import {
+  captureAuthorizedSession,
+  fetchWithAccessToken,
+  fetchWithAuthorizedSession,
+  getAccessToken,
+  type AuthorizedSession,
+} from '../auth/session';
 import type { ProgramStatus, ProgramSummary } from './program-repository';
 
 interface RemoteProgramsPage {
@@ -49,6 +56,31 @@ export class RemoteMutationAcknowledgedError extends Error {
   }
 }
 
+export class RemoteMutationRejectedError extends Error {
+  readonly operation: 'create' | 'manage' | 'delete';
+  readonly entityId: string | null;
+  readonly status: number;
+
+  constructor(operation: 'create' | 'manage' | 'delete', entityId: string | null, status: number) {
+    super(`The ${operation} request was rejected with status ${status}`);
+    this.name = 'RemoteMutationRejectedError';
+    this.operation = operation;
+    this.entityId = entityId;
+    this.status = status;
+  }
+}
+
+function rethrowUnsentSessionPreflight(error: unknown): void {
+  if (
+    error instanceof Error &&
+    error.name === 'ObsoleteAuthorizedSessionError' &&
+    'requestDispatched' in error &&
+    error.requestDispatched === false
+  ) {
+    throw error;
+  }
+}
+
 const DEFAULT_WEIGHT_FALLBACK = 20;
 const DEFAULT_WEIGHT_STEPS = 8;
 
@@ -57,6 +89,15 @@ function readRemoteEntityId(payload: unknown): string | null {
     return null;
   }
   return typeof payload.id === 'string' && payload.id.length > 0 ? payload.id : null;
+}
+
+async function isAuthoritativeProgramAbsence(response: Response): Promise<boolean> {
+  try {
+    const payload: unknown = await response.json();
+    return isRecord(payload) && payload.code === 'INSTANCE_NOT_FOUND';
+  } catch {
+    return false;
+  }
 }
 
 function parseProgramStatus(value: unknown): ProgramStatus {
@@ -121,8 +162,35 @@ function requireAccessToken(message: string): void {
   }
 }
 
-export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
-  requireAccessToken('Program summaries require an access token');
+function captureOwnerSession(
+  ownerUserId: string | undefined,
+  tokenRequiredMessage: string
+): AuthorizedSession | undefined {
+  if (ownerUserId !== undefined) {
+    return captureAuthorizedSession(ownerUserId);
+  }
+  requireAccessToken(tokenRequiredMessage);
+  return undefined;
+}
+
+async function fetchProgramResource(
+  path: string,
+  init: RequestInit | undefined,
+  session: AuthorizedSession | undefined
+): Promise<Response> {
+  if (session) {
+    return fetchWithAuthorizedSession(session, path, init);
+  }
+  const { response } = await fetchWithAccessToken(path, init);
+  return response;
+}
+
+export async function fetchProgramSummaries(
+  session?: AuthorizedSession
+): Promise<ProgramSummary[]> {
+  if (!session) {
+    requireAccessToken('Program summaries require an access token');
+  }
 
   const programs: ProgramSummary[] = [];
   let nextCursor: string | null = null;
@@ -134,7 +202,11 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
       requestUrl.searchParams.set('cursor', nextCursor);
     }
 
-    const { response } = await fetchWithAccessToken(`${requestUrl.pathname}${requestUrl.search}`);
+    const response = await fetchProgramResource(
+      `${requestUrl.pathname}${requestUrl.search}`,
+      undefined,
+      session
+    );
     if (!response.ok) {
       throw new Error(`Program summary fetch failed with status ${response.status}`);
     }
@@ -148,11 +220,16 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
 }
 
 export async function fetchProgramInstance(
-  programInstanceId: string
+  programInstanceId: string,
+  session?: AuthorizedSession
 ): Promise<GenericProgramDetail> {
-  requireAccessToken('Program detail requires an access token');
-  const { response } = await fetchWithAccessToken(
-    `/programs/${encodeURIComponent(programInstanceId)}`
+  if (!session) {
+    requireAccessToken('Program detail requires an access token');
+  }
+  const response = await fetchProgramResource(
+    `/programs/${encodeURIComponent(programInstanceId)}`,
+    undefined,
+    session
   );
   if (!response.ok) {
     throw new Error(`Program detail fetch failed with status ${response.status}`);
@@ -160,8 +237,29 @@ export async function fetchProgramInstance(
   return GenericProgramDetailSchema.parse(await response.json());
 }
 
-export async function fetchCatalogEntries(): Promise<CatalogEntry[]> {
-  const { response } = await fetchWithAccessToken('/catalog');
+export async function fetchProgramInstanceIfExists(
+  programInstanceId: string,
+  session: AuthorizedSession
+): Promise<GenericProgramDetail | null> {
+  const response = await fetchProgramResource(
+    `/programs/${encodeURIComponent(programInstanceId)}`,
+    undefined,
+    session
+  );
+  if (response.status === 404) {
+    if (await isAuthoritativeProgramAbsence(response)) {
+      return null;
+    }
+    throw new Error('Program detail verification failed with status 404');
+  }
+  if (!response.ok) {
+    throw new Error(`Program detail verification failed with status ${response.status}`);
+  }
+  return GenericProgramDetailSchema.parse(await response.json());
+}
+
+export async function fetchCatalogEntries(session?: AuthorizedSession): Promise<CatalogEntry[]> {
+  const response = await fetchProgramResource('/catalog', undefined, session);
   if (!response.ok) {
     throw new Error(`Catalog fetch failed with status ${response.status}`);
   }
@@ -174,8 +272,15 @@ export async function fetchCatalogEntries(): Promise<CatalogEntry[]> {
   return payload.map(parseCatalogEntry);
 }
 
-export async function fetchCatalogDefinition(programId: string): Promise<ProgramDefinition> {
-  const { response } = await fetchWithAccessToken(`/catalog/${encodeURIComponent(programId)}`);
+export async function fetchCatalogDefinition(
+  programId: string,
+  session?: AuthorizedSession
+): Promise<ProgramDefinition> {
+  const response = await fetchProgramResource(
+    `/catalog/${encodeURIComponent(programId)}`,
+    undefined,
+    session
+  );
   if (!response.ok) {
     throw new Error(`Catalog definition fetch failed with status ${response.status}`);
   }
@@ -198,8 +303,17 @@ export function buildDefaultProgramConfig(definitionValue: unknown): ProgramConf
         DEFAULT_WEIGHT_FALLBACK,
         field.step * DEFAULT_WEIGHT_STEPS
       );
-      const stepsFromMinimum = Math.ceil((target - field.min) / field.step);
-      config[field.key] = field.min + stepsFromMinimum * field.step;
+      const maximumSteps = Math.max(0, Math.floor((MAX_PROGRAM_WEIGHT - field.min) / field.step));
+      let stepsFromMinimum = Math.min(
+        maximumSteps,
+        Math.max(0, Math.ceil((target - field.min) / field.step))
+      );
+      let value = field.min + stepsFromMinimum * field.step;
+      while (value > MAX_PROGRAM_WEIGHT && stepsFromMinimum > 0) {
+        stepsFromMinimum -= 1;
+        value = field.min + stepsFromMinimum * field.step;
+      }
+      config[field.key] = value;
       continue;
     }
 
@@ -219,11 +333,15 @@ export function buildDefaultProgramConfig(definitionValue: unknown): ProgramConf
 }
 
 export async function createProgramInstance(input: {
+  readonly ownerUserId?: string;
+  readonly session?: AuthorizedSession;
   readonly definition: ProgramDefinition;
   readonly name: string;
   readonly config: unknown;
 }): Promise<GenericProgramDetail> {
-  requireAccessToken('Program creation requires an access token');
+  const session =
+    input.session ??
+    captureOwnerSession(input.ownerUserId, 'Program creation requires an access token');
   const definition = ProgramDefinitionSchema.parse(input.definition);
   if (definition.source !== 'preset') {
     throw new Error('Program creation requires a preset definition');
@@ -232,26 +350,37 @@ export async function createProgramInstance(input: {
   if (!validation.success) {
     throw new Error('Program creation requires valid setup');
   }
-
   let response: Response;
   try {
-    ({ response } = await fetchWithAccessToken('/programs', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    response = await fetchProgramResource(
+      '/programs',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          programId: definition.id,
+          name: input.name,
+          config: validation.config,
+        }),
       },
-      body: JSON.stringify({
-        programId: definition.id,
-        name: input.name,
-        config: validation.config,
-      }),
-    }));
+      session
+    );
   } catch (error) {
+    rethrowUnsentSessionPreflight(error);
     throw new RemoteMutationOutcomeUnknownError('create', null, error);
   }
 
   if (!response.ok) {
-    throw new Error(`Program creation failed with status ${response.status}`);
+    if (response.status >= 500) {
+      throw new RemoteMutationOutcomeUnknownError(
+        'create',
+        null,
+        new Error(`Program creation failed with status ${response.status}`)
+      );
+    }
+    throw new RemoteMutationRejectedError('create', null, response.status);
   }
 
   let payload: unknown = null;
@@ -265,10 +394,10 @@ export async function createProgramInstance(input: {
 
 export async function updateProgramInstance(
   programInstanceId: string,
-  mutation: ProgramManagementMutation
+  mutation: ProgramManagementMutation,
+  session?: AuthorizedSession
 ): Promise<GenericProgramDetail> {
-  requireAccessToken('Program management requires an access token');
-
+  if (!session) requireAccessToken('Program management requires an access token');
   let body:
     | { readonly name: string }
     | { readonly status: ProgramStatus }
@@ -284,10 +413,9 @@ export async function updateProgramInstance(
   } else {
     body = { config: mutation.config };
   }
-
   let response: Response;
   try {
-    ({ response } = await fetchWithAccessToken(
+    response = await fetchProgramResource(
       `/programs/${encodeURIComponent(programInstanceId)}`,
       {
         method: 'PATCH',
@@ -295,13 +423,22 @@ export async function updateProgramInstance(
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
-      }
-    ));
+      },
+      session
+    );
   } catch (error) {
+    rethrowUnsentSessionPreflight(error);
     throw new RemoteMutationOutcomeUnknownError('manage', programInstanceId, error);
   }
   if (!response.ok) {
-    throw new Error(`Program update failed with status ${response.status}`);
+    if (response.status >= 500) {
+      throw new RemoteMutationOutcomeUnknownError(
+        'manage',
+        programInstanceId,
+        new Error(`Program update failed with status ${response.status}`)
+      );
+    }
+    throw new RemoteMutationRejectedError('manage', programInstanceId, response.status);
   }
 
   try {
@@ -312,23 +449,36 @@ export async function updateProgramInstance(
 }
 
 export async function deleteProgramInstance(
-  programInstanceId: string
+  programInstanceId: string,
+  session?: AuthorizedSession
 ): Promise<DeleteRemoteResult> {
-  requireAccessToken('Program deletion requires an access token');
+  if (!session) requireAccessToken('Program deletion requires an access token');
   let response: Response;
   try {
-    ({ response } = await fetchWithAccessToken(
+    response = await fetchProgramResource(
       `/programs/${encodeURIComponent(programInstanceId)}`,
-      { method: 'DELETE' }
-    ));
+      { method: 'DELETE' },
+      session
+    );
   } catch (error) {
+    rethrowUnsentSessionPreflight(error);
     throw new RemoteMutationOutcomeUnknownError('delete', programInstanceId, error);
   }
   if (response.status === 404) {
-    return 'already_absent';
+    if (await isAuthoritativeProgramAbsence(response)) {
+      return 'already_absent';
+    }
+    throw new RemoteMutationRejectedError('delete', programInstanceId, response.status);
   }
   if (!response.ok) {
-    throw new Error(`Program deletion failed with status ${response.status}`);
+    if (response.status >= 500) {
+      throw new RemoteMutationOutcomeUnknownError(
+        'delete',
+        programInstanceId,
+        new Error(`Program deletion failed with status ${response.status}`)
+      );
+    }
+    throw new RemoteMutationRejectedError('delete', programInstanceId, response.status);
   }
   return 'deleted';
 }

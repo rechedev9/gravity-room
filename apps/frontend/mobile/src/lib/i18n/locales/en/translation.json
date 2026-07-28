@@ -92,7 +92,21 @@
     "offline_catalog": "Offline: showing the preset catalog saved on this device.",
     "catalog_empty_title": "No presets available",
     "catalog_empty_body": "The catalog is currently empty. Refresh later to check again.",
-    "reconciliation_required": "The server may already have applied this change. Gravity Room will verify it safely; do not repeat the action.",
+    "reconciliation_required": "The result is uncertain. Review the exact saved change on the program card and retry only that change when you are ready.",
+    "recovery": {
+      "legacy": "A change from an earlier app version has an unknown result. Other changes are blocked; delete the program to resolve it.",
+      "pending_delete": "Deletion is still being verified. Other changes are blocked; retry deletion or check whether it has finished.",
+      "check_delete": "Check deletion status",
+      "metadata_unavailable": "Saved change recovery could not be verified. Program actions are disabled until you retry.",
+      "rename": "Pending saved change: rename this program to “{{name}}”.",
+      "config": "Pending saved change: apply this exact setup: {{values}}.",
+      "retry": "Retry exact saved change",
+      "status": {
+        "active": "Pending saved change: reactivate this program.",
+        "completed": "Pending saved change: complete this program.",
+        "archived": "Pending saved change: archive this program."
+      }
+    },
     "card_updated": "Updated {{date}}",
     "catalog_title": "Preset catalog",
     "catalog_meta": "{{level}} · {{total}} workouts · {{perWeek}}/week",
