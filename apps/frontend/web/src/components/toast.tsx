@@ -11,8 +11,9 @@ export function ToastContainer(): React.ReactNode {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none"
-      style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom))' }}
+      // Sit above the mobile bottom nav (3.5rem + safe-area) on small screens;
+      // desktop keeps the original bottom-6 offset.
+      className="fixed left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 items-center pointer-events-none bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.75rem)] lg:bottom-6"
     >
       {toasts.map((toast) => {
         const animation = toast.exiting

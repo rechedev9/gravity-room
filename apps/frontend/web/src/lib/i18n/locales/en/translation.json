@@ -591,7 +591,8 @@
     "insights": "Insights",
     "profile": "Profile",
     "main_nav_label": "Main navigation",
-    "view_profile": "View profile"
+    "view_profile": "View profile",
+    "mobile_nav_label": "Mobile navigation"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1068,6 +1069,11 @@
       "next_set": "next set",
       "undo_last": "undo last",
       "understood": "GOT IT"
+    },
+    "rest_timer": {
+      "label": "REST",
+      "skip": "Skip",
+      "aria": "Rest {{time}}"
     }
   },
   "profile": {

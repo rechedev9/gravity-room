@@ -32,6 +32,8 @@ import { TestWeightModal } from './test-weight-modal';
 import { Toolbar } from './toolbar';
 import { ShortcutsOverlay } from './shortcuts-overlay';
 import { WeightsPill } from './weights-pill';
+import { RestTimer } from './rest-timer';
+import { plannedConfirmableSets, restSecondsForRole } from './rest-timer-policy';
 import { lazyWithRetry } from '@/lib/lazy-with-retry';
 
 const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
@@ -115,6 +117,8 @@ export function ProgramApp({
   const [activeTab, setActiveTab] = useState<'program' | 'stats'>('program');
   const [isPending, startTransition] = useTransition();
   const [editingWeights, setEditingWeights] = useState(false);
+  /** Active rest between sets — null when no countdown is running. `id` forces remount. */
+  const [rest, setRest] = useState<{ readonly seconds: number; readonly id: number } | null>(null);
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 4;
   const totalWorkouts = definition?.totalWorkouts ?? 0;
   const completedCount = rows.filter((r) => r.slots.every((s) => s.result !== undefined)).length;
@@ -241,7 +245,26 @@ export function ProgramApp({
     reps: number,
     weight?: number,
     rpe?: number
-  ): void => logSet(workoutIndex, slotId, setIndex, reps, weight, rpe);
+  ): void => {
+    const row = rows[workoutIndex];
+    const slot = row?.slots.find((s) => s.slotId === slotId);
+    // Capture pre-update length — logSet is async state, so post-call getSetLogs is stale.
+    const beforeCount = getSetLogs(workoutIndex, slotId)?.length ?? 0;
+    logSet(workoutIndex, slotId, setIndex, reps, weight, rpe);
+    const afterCount = Math.max(beforeCount, setIndex + 1);
+    // Match the detailed table row count (includes warm-ups on prescription ladders).
+    const totalSets = slot !== undefined ? plannedConfirmableSets(slot) : 0;
+    // Rest between sets only — the last set closes the lift (auto-marks result).
+    if (slot !== undefined && afterCount < totalSets) {
+      setRest({ seconds: restSecondsForRole(slot.role), id: Date.now() });
+    } else {
+      setRest(null);
+    }
+  };
+
+  const dismissRest = (): void => {
+    setRest(null);
+  };
 
   const firstPendingSlot = useMemo(() => {
     if (firstPendingIdx < 0) return null;
@@ -254,11 +277,14 @@ export function ProgramApp({
   useKeyboardShortcuts({
     isActive: isViewActive && activeTab === 'program' && config !== null,
     onSuccess: () => {
+      // Detailed / set-first mode: S/F would bypass per-set confirm — ignore.
+      if (dayNav.viewMode === 'detailed') return;
       if (firstPendingSlot !== null) {
         handleMarkResult(firstPendingIdx, firstPendingSlot.slotId, 'success');
       }
     },
     onFail: () => {
+      if (dayNav.viewMode === 'detailed') return;
       if (firstPendingSlot !== null) {
         handleMarkResult(firstPendingIdx, firstPendingSlot.slotId, 'fail');
       }
@@ -503,6 +529,15 @@ export function ProgramApp({
       />
 
       <ShortcutsOverlay enabled={Boolean(config) && rows.length > 0} />
+
+      {rest !== null ? (
+        <RestTimer
+          key={rest.id}
+          seconds={rest.seconds}
+          onSkip={dismissRest}
+          onComplete={dismissRest}
+        />
+      ) : null}
 
       <ToastContainer />
 

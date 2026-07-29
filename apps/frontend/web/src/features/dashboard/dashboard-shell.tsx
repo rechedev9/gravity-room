@@ -9,9 +9,12 @@ interface DashboardShellProps {
   readonly mentor?: React.ReactNode;
   readonly hero: React.ReactNode;
   readonly kpi: React.ReactNode;
-  readonly heatmap: React.ReactNode;
-  readonly split: React.ReactNode;
-  readonly recent: React.ReactNode;
+  /** Progressive: omit until enough sessions for a readable density signal. */
+  readonly heatmap?: React.ReactNode;
+  /** Progressive: PR road + mentor quote row. */
+  readonly split?: React.ReactNode;
+  /** Progressive: recent sessions list. */
+  readonly recent?: React.ReactNode;
 }
 
 export function DashboardShell({
@@ -27,9 +30,9 @@ export function DashboardShell({
       {mentor}
       <StaggerItem>{hero}</StaggerItem>
       <StaggerItem>{kpi}</StaggerItem>
-      <StaggerItem>{heatmap}</StaggerItem>
-      <StaggerItem>{split}</StaggerItem>
-      <StaggerItem>{recent}</StaggerItem>
+      {heatmap != null ? <StaggerItem>{heatmap}</StaggerItem> : null}
+      {split != null ? <StaggerItem>{split}</StaggerItem> : null}
+      {recent != null ? <StaggerItem>{recent}</StaggerItem> : null}
     </StaggerContainer>
   );
 }

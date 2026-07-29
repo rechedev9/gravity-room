@@ -335,11 +335,12 @@ function SlotTable({
         </table>
       </div>
 
-      {/* Footer: Result actions */}
+      {/* Footer: undo / AMRAP / RPE only — set-first mode hides slot pass/fail. */}
       <SlotResultFooter
         slot={slot}
         workoutIndex={workoutIndex}
         isLogging={logging}
+        setFirstMode
         onMark={onMark}
         onUndo={onUndo}
         onSetAmrapReps={onSetAmrapReps}

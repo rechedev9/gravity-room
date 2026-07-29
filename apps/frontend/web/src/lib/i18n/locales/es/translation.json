@@ -591,7 +591,8 @@
     "insights": "Análisis",
     "profile": "Perfil",
     "main_nav_label": "Navegación principal",
-    "view_profile": "Ver perfil"
+    "view_profile": "Ver perfil",
+    "mobile_nav_label": "Navegación móvil"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -1068,6 +1069,11 @@
       "next_set": "serie siguiente",
       "undo_last": "deshacer último",
       "understood": "ENTENDIDO"
+    },
+    "rest_timer": {
+      "label": "DESCANSO",
+      "skip": "Saltar",
+      "aria": "Descanso {{time}}"
     }
   },
   "profile": {

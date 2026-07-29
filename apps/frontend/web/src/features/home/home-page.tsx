@@ -26,6 +26,7 @@ import { HomeEmptyState } from './home-empty-state';
 import { HomeGuestResume } from './home-guest-resume';
 import { HomeMentorWidget } from './home-mentor-widget';
 import { ZoneHint } from './zone-hint';
+import { getHomeDashboardLayout } from './home-dashboard-layout';
 
 function getMentorTips(t: TFunction): readonly string[] {
   const tips = t('home.mentor_tips', { returnObjects: true });
@@ -164,6 +165,9 @@ export function HomePage(): React.ReactNode {
     ...dashboard.hero,
   };
 
+  // Progressive disclosure: sparse history hides empty heatmap / PR widgets.
+  const layout = getHomeDashboardLayout(totalSessions);
+
   return (
     <div className="min-h-dvh bg-body">
       <DashboardShell
@@ -195,16 +199,20 @@ export function HomePage(): React.ReactNode {
             />
           )
         }
-        heatmap={<WeekHeatmap workouts={heatmapWorkouts} />}
+        heatmap={layout.showHeatmap ? <WeekHeatmap workouts={heatmapWorkouts} /> : undefined}
         split={
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <PrRoadCard road={prRoad} />
-            <MentorPill tips={mentorTips} />
-          </div>
+          layout.showPrRoad || layout.showMentorPill ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {layout.showPrRoad ? <PrRoadCard road={prRoad} /> : null}
+              {layout.showMentorPill ? <MentorPill tips={mentorTips} /> : null}
+            </div>
+          ) : undefined
         }
-        recent={<RecentSessionsList sessions={dashboard.recentSessions} />}
+        recent={
+          layout.showRecent ? <RecentSessionsList sessions={dashboard.recentSessions} /> : undefined
+        }
       />
-      {!isGuest && (
+      {!isGuest && layout.showQuickLinks ? (
         <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-8">
           <Kicker className="mb-3">{t('home.footer.quick_links')}</Kicker>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -234,7 +242,7 @@ export function HomePage(): React.ReactNode {
             </Link>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

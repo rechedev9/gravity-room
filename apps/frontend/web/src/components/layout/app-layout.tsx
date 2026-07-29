@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppSidebar } from './app-sidebar';
 import { SidebarTrigger } from './sidebar-trigger';
+import { MobileBottomNav } from './mobile-bottom-nav';
 import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
 
 // Typed as Record<string, string | undefined> so the lookup result is string | undefined,
@@ -71,7 +72,11 @@ export function AppLayout(): React.ReactNode {
           <span className="text-sm font-bold text-title tracking-tight">{pageTitle}</span>
         </header>
 
-        <main className="flex-1" tabIndex={-1}>
+        {/* pb reserves space for MobileBottomNav on small screens */}
+        <main
+          className="flex-1 pb-[calc(3.5rem+env(safe-area-inset-bottom))] lg:pb-0"
+          tabIndex={-1}
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}
@@ -85,6 +90,8 @@ export function AppLayout(): React.ReactNode {
           </AnimatePresence>
         </main>
       </div>
+
+      <MobileBottomNav />
     </div>
   );
 }
