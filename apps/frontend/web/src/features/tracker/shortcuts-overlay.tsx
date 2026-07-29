@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/button';
 import { hasSeenShortcuts, markShortcutsSeen } from './shortcuts-storage';
+import { prefersCoarsePointer, shouldAutoShowKeyboardShortcuts } from './shortcuts-policy';
 
 interface ShortcutsOverlayProps {
   /**
@@ -19,7 +20,15 @@ export function ShortcutsOverlay({ enabled }: ShortcutsOverlayProps): React.Reac
   const titleId = useId();
 
   useEffect(() => {
-    if (enabled && !hasSeenShortcuts()) setOpen(true);
+    if (
+      shouldAutoShowKeyboardShortcuts({
+        enabled,
+        hasSeen: hasSeenShortcuts(),
+        prefersCoarsePointer: prefersCoarsePointer(),
+      })
+    ) {
+      setOpen(true);
+    }
   }, [enabled]);
 
   useEffect(() => {
@@ -39,6 +48,7 @@ export function ShortcutsOverlay({ enabled }: ShortcutsOverlayProps): React.Reac
       ref={dialogRef}
       onClose={dismiss}
       aria-labelledby={titleId}
+      data-testid="shortcuts-overlay"
       className="modal-box fixed inset-0 m-auto h-fit max-w-md w-[calc(100%-2rem)] bg-card border-[1.5px] border-rule rounded-[var(--radius-base)] p-6 shadow-[var(--shadow-elevated)] backdrop:bg-black/72 backdrop:backdrop-blur-md"
     >
       <h2 id={titleId} className="chalk-stamp mb-1">
@@ -57,11 +67,12 @@ export function ShortcutsOverlay({ enabled }: ShortcutsOverlayProps): React.Reac
         <dt className="font-mono text-label">[U]</dt>
         <dd className="text-main">{t('tracker.shortcuts.undo_last')}</dd>
       </dl>
-      <div className="mt-6 flex justify-end">
-        <Button variant="primary" onClick={dismiss}>
+      {/* Native method=dialog so dismiss works even if the React click path is blocked. */}
+      <form method="dialog" className="mt-6 flex justify-end" onSubmit={dismiss}>
+        <Button type="submit" variant="primary" data-testid="shortcuts-understood">
           {t('tracker.shortcuts.understood')}
         </Button>
-      </div>
+      </form>
     </dialog>
   );
 }
