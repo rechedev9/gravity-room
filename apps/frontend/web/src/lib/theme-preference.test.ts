@@ -2,11 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_THEME,
   THEME_CHANGE_EVENT,
+  THEME_COLOR_META,
   THEME_IDS,
   THEME_STORAGE_KEY,
+  __resetThemePreferenceForTests,
   applyThemeToDocument,
   bootstrapTheme,
   getThemePreference,
+  installCrossTabThemeSync,
   isThemeId,
   saveThemePreference,
   setThemePreference,
@@ -15,10 +18,10 @@ import {
 
 describe('theme-preference', () => {
   beforeEach(() => {
+    __resetThemePreferenceForTests();
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
     document.documentElement.style.colorScheme = '';
-    // Ensure a theme-color meta exists for apply assertions
     let meta = document.querySelector('meta[name="theme-color"]');
     if (!meta) {
       meta = document.createElement('meta');
@@ -31,6 +34,7 @@ describe('theme-preference', () => {
   afterEach(() => {
     localStorage.clear();
     document.documentElement.removeAttribute('data-theme');
+    __resetThemePreferenceForTests();
   });
 
   describe('isThemeId', () => {
@@ -87,13 +91,13 @@ describe('theme-preference', () => {
       expect(document.documentElement.style.colorScheme).toBe('dark');
     });
 
-    it('updates the theme-color meta to a theme-specific accent', () => {
+    it('updates the theme-color meta from THEME_COLOR_META', () => {
       applyThemeToDocument('classic-light');
       const meta = document.querySelector('meta[name="theme-color"]');
-      expect(meta?.getAttribute('content')).not.toBe('#c8a84e');
+      expect(meta?.getAttribute('content')).toBe(THEME_COLOR_META['classic-light']);
 
       applyThemeToDocument('gold');
-      expect(meta?.getAttribute('content')).toBe('#c8a84e');
+      expect(meta?.getAttribute('content')).toBe(THEME_COLOR_META.gold);
     });
 
     it('dispatches THEME_CHANGE_EVENT with the active theme', () => {
@@ -129,6 +133,47 @@ describe('theme-preference', () => {
     it('bootstraps gold when storage is empty', () => {
       const theme = bootstrapTheme();
       expect(theme).toBe('gold');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('gold');
+    });
+
+    it('does not re-dispatch when the root already matches storage (boot script path)', () => {
+      localStorage.setItem(THEME_STORAGE_KEY, 'classic-dark');
+      document.documentElement.setAttribute('data-theme', 'classic-dark');
+      const handler = vi.fn();
+      document.addEventListener(THEME_CHANGE_EVENT, handler);
+      bootstrapTheme();
+      expect(handler).not.toHaveBeenCalled();
+      document.removeEventListener(THEME_CHANGE_EVENT, handler);
+    });
+  });
+
+  describe('installCrossTabThemeSync', () => {
+    it('applies storage theme to the document when another tab changes the key', () => {
+      installCrossTabThemeSync();
+      localStorage.setItem(THEME_STORAGE_KEY, 'classic-light');
+      // Simulate the storage event browsers fire in other tabs (not the writer tab).
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: THEME_STORAGE_KEY,
+          newValue: 'classic-light',
+          oldValue: 'gold',
+          storageArea: localStorage,
+        })
+      );
+      expect(document.documentElement.getAttribute('data-theme')).toBe('classic-light');
+      expect(document.documentElement.style.colorScheme).toBe('light');
+    });
+
+    it('ignores storage events for unrelated keys', () => {
+      applyThemeToDocument('gold');
+      installCrossTabThemeSync();
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'unrelated-key',
+          newValue: 'x',
+          storageArea: localStorage,
+        })
+      );
       expect(document.documentElement.getAttribute('data-theme')).toBe('gold');
     });
   });

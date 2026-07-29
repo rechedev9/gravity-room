@@ -39,7 +39,7 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
       ? Math.round(payload.volumes.reduce((s, v) => s + v, 0) / payload.volumes.length)
       : null;
 
-  // Only the most recent week is gold ("hot"); the rest are idle steel bars.
+  // Only the most recent week uses the accent ("hot"); the rest are idle bars.
   const hotIdx = points.length - 1;
 
   const tickFormatter = (val: string): string => (val.startsWith('_') ? '' : val);

@@ -3,8 +3,9 @@ import {
   applyThemeToDocument,
   setThemePreference,
   THEME_STORAGE_KEY,
+  __resetThemePreferenceForTests,
 } from '@/lib/theme-preference';
-import { getChartTheme, invalidateChartTheme } from './chart-theme';
+import { __resetChartThemeForTests, getChartTheme, invalidateChartTheme } from './chart-theme';
 
 /**
  * Chart theme must re-sample CSS variables after a skin change so charts
@@ -13,7 +14,8 @@ import { getChartTheme, invalidateChartTheme } from './chart-theme';
 describe('chart-theme cache invalidation', () => {
   beforeEach(() => {
     localStorage.clear();
-    invalidateChartTheme();
+    __resetThemePreferenceForTests();
+    __resetChartThemeForTests();
     // Seed distinct CSS vars so we can observe re-reads without depending on
     // the full globals.css token set being loaded in jsdom.
     const root = document.documentElement;
@@ -32,6 +34,8 @@ describe('chart-theme cache invalidation', () => {
   afterEach(() => {
     localStorage.clear();
     invalidateChartTheme();
+    __resetChartThemeForTests();
+    __resetThemePreferenceForTests();
     document.documentElement.removeAttribute('data-theme');
     document.documentElement.removeAttribute('style');
   });

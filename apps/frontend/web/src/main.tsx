@@ -5,8 +5,13 @@ import { Providers } from '@/components/providers';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { initSentryDeferred } from '@/lib/sentry';
+import { bootstrapTheme } from '@/lib/theme-preference';
 import { router } from './router';
 import '@/styles/globals.css';
+
+// Paint theme + install cross-tab sync once (boot script already set data-theme;
+// bootstrapTheme is idempotent when the root already matches storage).
+bootstrapTheme();
 
 if (import.meta.env.VITE_PLAUSIBLE_DOMAIN) {
   const s = document.createElement('script');

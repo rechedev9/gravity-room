@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import {
   THEME_CHANGE_EVENT,
   type ThemeId,
@@ -8,11 +8,11 @@ import {
 } from '@/lib/theme-preference';
 
 function subscribe(onStoreChange: () => void): () => void {
+  // Cross-tab storage is handled in installCrossTabThemeSync → applyThemeToDocument
+  // → THEME_CHANGE_EVENT, so one event channel is enough for React re-renders.
   document.addEventListener(THEME_CHANGE_EVENT, onStoreChange);
-  window.addEventListener('storage', onStoreChange);
   return () => {
     document.removeEventListener(THEME_CHANGE_EVENT, onStoreChange);
-    window.removeEventListener('storage', onStoreChange);
   };
 }
 
@@ -30,19 +30,14 @@ export interface ThemePreference {
 }
 
 /**
- * Live theme preference. Subscribes to in-tab theme-change events and the
- * cross-tab `storage` event so multiple surfaces stay in sync.
+ * Live theme preference. Subscribes to theme-change events (including those
+ * fired after a cross-tab storage apply). Bootstrap is a module-level once
+ * (main.tsx + boot script); this effect is only a safety net for tests.
  */
 export function useThemePreference(): ThemePreference {
-  // Ensure the document root is painted on first client mount (boot script
-  // usually already did this; this is a safety net for tests / late hydration).
-  const [booted, setBooted] = useState(false);
   useEffect(() => {
-    if (!booted) {
-      bootstrapTheme();
-      setBooted(true);
-    }
-  }, [booted]);
+    bootstrapTheme();
+  }, []);
 
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 

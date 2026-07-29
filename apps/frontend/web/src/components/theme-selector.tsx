@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/cn';
-import { THEME_IDS, type ThemeId } from '@/lib/theme-preference';
+import type { ThemeId } from '@/lib/theme-preference';
 import { useThemePreference } from '@/hooks/use-theme-preference';
 
 const THEME_META: readonly {
@@ -46,13 +46,13 @@ export function ThemeSelector({ className, compact = false }: ThemeSelectorProps
     let nextIndex: number | undefined;
 
     if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-      nextIndex = (index + 1) % THEME_IDS.length;
+      nextIndex = (index + 1) % THEME_META.length;
     } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-      nextIndex = (index - 1 + THEME_IDS.length) % THEME_IDS.length;
+      nextIndex = (index - 1 + THEME_META.length) % THEME_META.length;
     } else if (event.key === 'Home') {
       nextIndex = 0;
     } else if (event.key === 'End') {
-      nextIndex = THEME_IDS.length - 1;
+      nextIndex = THEME_META.length - 1;
     }
 
     if (nextIndex === undefined) return;
@@ -102,10 +102,7 @@ export function ThemeSelector({ className, compact = false }: ThemeSelectorProps
           >
             <span
               aria-hidden
-              className={cn(
-                'block shrink-0 rounded-full border border-rule-light',
-                compact ? 'h-3.5 w-3.5' : 'h-3.5 w-3.5'
-              )}
+              className="block h-3.5 w-3.5 shrink-0 rounded-full border border-rule-light"
               style={{ background: item.swatch }}
             />
             {compact ? null : (

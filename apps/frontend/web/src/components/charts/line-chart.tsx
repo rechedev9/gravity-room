@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ComposedChart,
@@ -10,10 +10,10 @@ import {
   Tooltip,
   ReferenceLine,
   ResponsiveContainer,
-  type DotProps,
+  type DotItemDotProps,
 } from 'recharts';
 import type { ChartDataPoint } from '@gzclp/domain/types';
-import { useChartTheme, formatChartDate } from './chart-theme';
+import { useChartTheme, formatChartDate, type ChartTheme } from './chart-theme';
 
 const MAX_LABELS = 6;
 
@@ -75,11 +75,28 @@ function diamondPath(cx: number, cy: number, r: number): string {
   return `M ${cx} ${cy - r} L ${cx + r} ${cy} L ${cx} ${cy + r} L ${cx - r} ${cy} Z`;
 }
 
-function CustomDot(props: DotProps & { payload?: ChartPoint }): React.ReactElement | null {
-  const { cx, cy, payload } = props;
-  // Read theme before any early return so hooks order stays stable.
-  const theme = useChartTheme();
-  if (!payload || cx === undefined || cy === undefined) return null;
+function isChartPoint(value: unknown): value is ChartPoint {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'idx' in value &&
+    'result' in value &&
+    'weight' in value
+  );
+}
+
+function CustomDot({
+  cx,
+  cy,
+  payload,
+  theme,
+}: {
+  readonly cx?: number;
+  readonly cy?: number;
+  readonly payload?: unknown;
+  readonly theme: ChartTheme;
+}): React.ReactElement | null {
+  if (!isChartPoint(payload) || cx === undefined || cy === undefined) return null;
 
   if (payload.isProjected) return null;
 
@@ -190,6 +207,14 @@ export function LineChart({
   const { t } = useTranslation();
   const theme = useChartTheme();
   const effectiveShowPrs = showAllPrs ?? mode === 'weight';
+
+  // One theme read at the chart root — dots take it as a prop (no N hook subscribers).
+  const renderDot = useCallback(
+    (props: DotItemDotProps) => (
+      <CustomDot cx={props.cx} cy={props.cy} payload={props.payload} theme={theme} />
+    ),
+    [theme]
+  );
 
   // Find last marked index
   const lastMarkedIdx = useMemo(() => {
@@ -428,7 +453,7 @@ export function LineChart({
               strokeWidth={2}
               fill={theme.line}
               fillOpacity={0.07}
-              dot={<CustomDot />}
+              dot={renderDot}
               activeDot={false}
               connectNulls={false}
               isAnimationActive={false}

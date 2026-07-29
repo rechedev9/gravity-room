@@ -14,6 +14,17 @@ export const THEME_CHANGE_EVENT = 'gravity-room:theme-change';
 
 export const DEFAULT_THEME: ThemeId = 'gold';
 
+/** Theme-color meta values that match each skin's accent for mobile chrome. */
+export const THEME_COLOR_META: Record<ThemeId, string> = {
+  gold: '#c8a84e',
+  'classic-light': '#3b5bdb',
+  'classic-dark': '#748ffc',
+};
+
+let bootstrapped = false;
+let crossTabInstalled = false;
+let onStorage: ((event: StorageEvent) => void) | null = null;
+
 export function isThemeId(value: string | null | undefined): value is ThemeId {
   return value === 'gold' || value === 'classic-light' || value === 'classic-dark';
 }
@@ -35,13 +46,6 @@ export function saveThemePreference(theme: ThemeId): void {
   }
 }
 
-/** Theme-color meta values that match each skin's accent for mobile chrome. */
-const THEME_COLOR_META: Record<ThemeId, string> = {
-  gold: '#c8a84e',
-  'classic-light': '#3b5bdb',
-  'classic-dark': '#748ffc',
-};
-
 /**
  * Apply theme to the document root. Safe to call before React mounts
  * (boot script) and from the React provider on user change.
@@ -62,12 +66,34 @@ export function applyThemeToDocument(theme: ThemeId): void {
 }
 
 /**
- * Read storage and paint the root in one shot — used by the boot script
- * and as a no-flash entry for the provider.
+ * Cross-tab sync: when another document changes THEME_STORAGE_KEY, re-paint
+ * this document (storage alone never updates CSS vars).
+ */
+export function installCrossTabThemeSync(): void {
+  if (crossTabInstalled || typeof window === 'undefined') return;
+  crossTabInstalled = true;
+  onStorage = (event: StorageEvent): void => {
+    if (event.key !== null && event.key !== THEME_STORAGE_KEY) return;
+    applyThemeToDocument(getThemePreference());
+  };
+  window.addEventListener('storage', onStorage);
+}
+
+/**
+ * Read storage and paint the root. Idempotent: skips re-apply when the root
+ * already matches storage (boot script already painted). Always installs
+ * cross-tab sync.
  */
 export function bootstrapTheme(): ThemeId {
+  installCrossTabThemeSync();
   const theme = getThemePreference();
-  applyThemeToDocument(theme);
+  const alreadyPainted = document.documentElement.getAttribute('data-theme') === theme;
+  if (!alreadyPainted || !bootstrapped) {
+    if (!alreadyPainted) {
+      applyThemeToDocument(theme);
+    }
+    bootstrapped = true;
+  }
   return theme;
 }
 
@@ -77,5 +103,17 @@ export function bootstrapTheme(): ThemeId {
 export function setThemePreference(theme: ThemeId): ThemeId {
   saveThemePreference(theme);
   applyThemeToDocument(theme);
+  bootstrapped = true;
+  installCrossTabThemeSync();
   return theme;
+}
+
+/** Test-only: reset module install flags between cases. */
+export function __resetThemePreferenceForTests(): void {
+  bootstrapped = false;
+  crossTabInstalled = false;
+  if (onStorage && typeof window !== 'undefined') {
+    window.removeEventListener('storage', onStorage);
+  }
+  onStorage = null;
 }

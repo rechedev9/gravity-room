@@ -1,7 +1,7 @@
-/** CSS-var-based chart theme. Module-level cache busted on theme change. */
+/** CSS-var-based chart theme. Single listener busts cache + notifies React. */
 
 import { useSyncExternalStore } from 'react';
-import { THEME_CHANGE_EVENT, getThemePreference } from '@/lib/theme-preference';
+import { THEME_CHANGE_EVENT } from '@/lib/theme-preference';
 
 const DATE_FMT = new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' });
 
@@ -25,14 +25,27 @@ export type ChartTheme = {
 };
 
 let _theme: ChartTheme | null = null;
+/** Bumped on every palette invalidation so useSyncExternalStore re-renders. */
+let _version = 0;
 let _listening = false;
+const _subscribers = new Set<() => void>();
 
-function ensureThemeListener(): void {
+function notifySubscribers(): void {
+  for (const sub of _subscribers) {
+    sub();
+  }
+}
+
+function onThemeChange(): void {
+  _theme = null;
+  _version += 1;
+  notifySubscribers();
+}
+
+function installListener(): void {
   if (_listening || typeof document === 'undefined') return;
   _listening = true;
-  document.addEventListener(THEME_CHANGE_EVENT, () => {
-    _theme = null;
-  });
+  document.addEventListener(THEME_CHANGE_EVENT, onThemeChange);
 }
 
 function readTheme(): ChartTheme {
@@ -54,24 +67,44 @@ function readTheme(): ChartTheme {
 /** Drop the cached palette so the next read re-samples CSS variables. */
 export function invalidateChartTheme(): void {
   _theme = null;
+  _version += 1;
+  notifySubscribers();
 }
 
+/**
+ * Read the chart palette from CSS variables (cached until theme change).
+ * Installs the module listener on first use so THEME_CHANGE_EVENT busts cache.
+ */
 export function getChartTheme(): ChartTheme {
-  ensureThemeListener();
+  installListener();
   return (_theme ??= readTheme());
 }
 
-function subscribeTheme(onStoreChange: () => void): () => void {
-  document.addEventListener(THEME_CHANGE_EVENT, onStoreChange);
-  return () => document.removeEventListener(THEME_CHANGE_EVENT, onStoreChange);
+function subscribeVersion(onStoreChange: () => void): () => void {
+  installListener();
+  _subscribers.add(onStoreChange);
+  return () => {
+    _subscribers.delete(onStoreChange);
+  };
+}
+
+function getVersionSnapshot(): number {
+  return _version;
 }
 
 /**
  * React hook: re-renders chart consumers when the skin changes so SVG strokes
- * pick up the new CSS-variable palette (cache is already busted by the event).
+ * pick up the new CSS-variable palette.
  */
 export function useChartTheme(): ChartTheme {
-  // Subscribe to theme id so React re-renders; re-read vars each time.
-  useSyncExternalStore(subscribeTheme, getThemePreference, () => 'gold' as const);
+  useSyncExternalStore(subscribeVersion, getVersionSnapshot, () => 0);
   return getChartTheme();
+}
+
+/** Test-only: reset module listener state between cases. */
+export function __resetChartThemeForTests(): void {
+  _theme = null;
+  _version = 0;
+  _listening = false;
+  _subscribers.clear();
 }
