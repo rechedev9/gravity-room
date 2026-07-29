@@ -122,6 +122,34 @@
     -->
   </head>
   <body>
+    <!-- Apply stored theme before paint to avoid a gold flash on classic skins. -->
+    <script>
+      (function () {
+        try {
+          var key = 'gravity-room:theme-preference';
+          var stored = localStorage.getItem(key);
+          var theme =
+            stored === 'gold' || stored === 'classic-light' || stored === 'classic-dark'
+              ? stored
+              : 'gold';
+          document.documentElement.setAttribute('data-theme', theme);
+          document.documentElement.style.colorScheme = theme === 'classic-light' ? 'light' : 'dark';
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) {
+            meta.setAttribute(
+              'content',
+              theme === 'classic-light'
+                ? '#3b5bdb'
+                : theme === 'classic-dark'
+                  ? '#748ffc'
+                  : '#c8a84e'
+            );
+          }
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'gold');
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
 

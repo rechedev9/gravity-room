@@ -75,8 +75,8 @@ function SectionHeader({
 }): ReactNode {
   return (
     <div className="mb-5 flex items-baseline gap-3 border-b border-rule pb-2.5">
-      <span className="font-mono text-xs tracking-[0.2em] text-accent select-none">{index}</span>
-      <span className="font-mono text-xs tracking-[0.2em] text-label select-none">—</span>
+      <span className="font-mono text-xs tracking-[0.08em] text-accent select-none">{index}</span>
+      <span className="font-mono text-xs tracking-[0.08em] text-label select-none">—</span>
       <h2 className="font-display text-2xl uppercase text-title">{label}</h2>
     </div>
   );

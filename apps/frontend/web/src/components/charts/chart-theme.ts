@@ -1,4 +1,7 @@
-/** CSS-var-based chart theme. Module-level cache — vars are static at runtime. */
+/** CSS-var-based chart theme. Module-level cache busted on theme change. */
+
+import { useSyncExternalStore } from 'react';
+import { THEME_CHANGE_EVENT, getThemePreference } from '@/lib/theme-preference';
 
 const DATE_FMT = new Intl.DateTimeFormat('es-ES', { month: 'short', day: 'numeric' });
 
@@ -7,7 +10,7 @@ export function formatChartDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? '' : DATE_FMT.format(d);
 }
 
-type ChartTheme = {
+export type ChartTheme = {
   readonly grid: string;
   readonly text: string;
   readonly line: string;
@@ -22,6 +25,15 @@ type ChartTheme = {
 };
 
 let _theme: ChartTheme | null = null;
+let _listening = false;
+
+function ensureThemeListener(): void {
+  if (_listening || typeof document === 'undefined') return;
+  _listening = true;
+  document.addEventListener(THEME_CHANGE_EVENT, () => {
+    _theme = null;
+  });
+}
 
 function readTheme(): ChartTheme {
   const style = getComputedStyle(document.documentElement);
@@ -39,6 +51,27 @@ function readTheme(): ChartTheme {
   };
 }
 
+/** Drop the cached palette so the next read re-samples CSS variables. */
+export function invalidateChartTheme(): void {
+  _theme = null;
+}
+
 export function getChartTheme(): ChartTheme {
+  ensureThemeListener();
   return (_theme ??= readTheme());
+}
+
+function subscribeTheme(onStoreChange: () => void): () => void {
+  document.addEventListener(THEME_CHANGE_EVENT, onStoreChange);
+  return () => document.removeEventListener(THEME_CHANGE_EVENT, onStoreChange);
+}
+
+/**
+ * React hook: re-renders chart consumers when the skin changes so SVG strokes
+ * pick up the new CSS-variable palette (cache is already busted by the event).
+ */
+export function useChartTheme(): ChartTheme {
+  // Subscribe to theme id so React re-renders; re-read vars each time.
+  useSyncExternalStore(subscribeTheme, getThemePreference, () => 'gold' as const);
+  return getChartTheme();
 }

@@ -7,6 +7,7 @@ import { useGuest } from '@/contexts/guest-context';
 import { AvatarDropdown } from '@/components/layout/avatar-dropdown';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { OnlineIndicator } from '@/components/online-indicator';
+import { ThemeSelector } from '@/components/theme-selector';
 import { cn } from '@/lib/cn';
 import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
 import {
@@ -81,7 +82,7 @@ function SidebarNavLink({ item, onItemClick }: SidebarNavLinkProps): React.React
         />
       )}
       <item.Icon className={cn('shrink-0', isActive && 'text-accent')} />
-      <span className="font-mono text-[11px] font-bold tracking-[0.14em] uppercase">{label}</span>
+      <span className="font-mono text-[11px] font-bold tracking-[0.06em] uppercase">{label}</span>
     </Link>
   );
 }
@@ -256,7 +257,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                 type="button"
                 onClick={() => handleGuestExit(onItemClick)}
                 className={cn(
-                  'w-full min-h-11 px-3 py-2 text-left font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted hover:text-main transition-colors cursor-pointer rounded-[var(--radius-base)]',
+                  'w-full min-h-11 px-3 py-2 text-left font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-muted hover:text-main transition-colors cursor-pointer rounded-[var(--radius-base)]',
                   SIDEBAR_FOCUS_RING
                 )}
               >
@@ -284,7 +285,8 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                 dropdownPlacement="top"
               />
             )}
-            <div className="pt-3">
+            <div className="pt-3 flex items-center justify-between gap-2">
+              <ThemeSelector compact className="shrink-0" />
               <OnlineIndicator inline />
             </div>
           </div>

@@ -196,7 +196,7 @@ export function Footer({ content, navLinks }: FooterProps): React.ReactNode {
         </div>
 
         <div>
-          <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-muted mb-3">
+          <p className="font-mono text-[10px] tracking-[0.08em] uppercase text-muted mb-3">
             {content.navLabel}
           </p>
           <ul className="space-y-2">
@@ -214,7 +214,7 @@ export function Footer({ content, navLinks }: FooterProps): React.ReactNode {
         </div>
 
         <div>
-          <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-muted mb-3">
+          <p className="font-mono text-[10px] tracking-[0.08em] uppercase text-muted mb-3">
             {content.communityLabel}
           </p>
           <a

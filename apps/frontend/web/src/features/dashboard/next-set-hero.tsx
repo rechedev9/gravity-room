@@ -56,7 +56,7 @@ function EmptyHero(): React.ReactNode {
       <p className="text-muted mb-6">{t('dashboard.next_set.empty_body')}</p>
       <Link
         to="/app/programs"
-        className="inline-block bg-accent text-on-accent border border-accent-hover rounded-[var(--radius-base)] px-6 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.14em] hover:bg-accent-hover active:translate-y-px transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]"
+        className="inline-block bg-accent text-on-accent border border-accent-hover rounded-[var(--radius-base)] px-6 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-accent-hover active:translate-y-px transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]"
       >
         {t('dashboard.next_set.view_programs')}
       </Link>
@@ -77,7 +77,7 @@ function DayOneHero({ instance }: { readonly instance: ProgramInstance }): React
       <p className="text-muted mb-6">{t('dashboard.next_set.day_one_body')}</p>
       <Link
         to="/app/tracker"
-        className="inline-block bg-accent text-on-accent border border-accent-hover rounded-[var(--radius-base)] px-6 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.14em] hover:bg-accent-hover active:translate-y-px transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]"
+        className="inline-block bg-accent text-on-accent border border-accent-hover rounded-[var(--radius-base)] px-6 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-accent-hover active:translate-y-px transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]"
       >
         {t('dashboard.next_set.enter')}
       </Link>
@@ -114,7 +114,7 @@ function FullHero({ instance, nextWorkout: nw, nextSet: ns }: FullHeroProps): Re
       <div className="flex flex-wrap gap-3 mt-6">
         <Link
           to="/app/tracker"
-          className="bg-accent text-on-accent border border-accent-hover rounded-[var(--radius-base)] px-6 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.14em] hover:bg-accent-hover active:translate-y-px transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]"
+          className="bg-accent text-on-accent border border-accent-hover rounded-[var(--radius-base)] px-6 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-accent-hover active:translate-y-px transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]"
         >
           ▶ {t('dashboard.next_set.enter')}
         </Link>

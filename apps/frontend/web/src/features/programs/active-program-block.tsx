@@ -46,7 +46,7 @@ export function ActiveProgramBlock({
           </div>
           <Link
             to="/app/tracker"
-            className="shrink-0 px-4 py-2.5 text-center font-mono text-[11px] font-bold uppercase tracking-[0.14em] border rounded-[var(--radius-base)] cursor-pointer transition-colors bg-accent text-on-accent border-accent-hover hover:bg-accent-hover"
+            className="shrink-0 px-4 py-2.5 text-center font-mono text-[11px] font-bold uppercase tracking-[0.06em] border rounded-[var(--radius-base)] cursor-pointer transition-colors bg-accent text-on-accent border-accent-hover hover:bg-accent-hover"
           >
             {t('programs.active_cta')}
           </Link>

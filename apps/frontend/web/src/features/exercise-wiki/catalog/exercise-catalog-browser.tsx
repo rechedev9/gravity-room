@@ -312,7 +312,7 @@ function CatalogSelect({
     <div>
       <label
         htmlFor={id}
-        className="block font-mono text-[10px] tracking-[0.14em] uppercase text-label mb-1"
+        className="block font-mono text-[10px] tracking-[0.06em] uppercase text-label mb-1"
       >
         {label}
       </label>
@@ -412,7 +412,7 @@ function ExerciseRow({
 
           {secondary.length > 0 && (
             <div className="space-y-1">
-              <p className="font-mono text-[10px] tracking-[0.14em] uppercase text-label">
+              <p className="font-mono text-[10px] tracking-[0.06em] uppercase text-label">
                 {t('exerciseCatalog.detail.secondaryMuscles')}
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -448,7 +448,7 @@ function AttributeCell({
 }): ReactNode {
   return (
     <div>
-      <dt className="font-mono text-[10px] tracking-[0.14em] uppercase text-label">{label}</dt>
+      <dt className="font-mono text-[10px] tracking-[0.06em] uppercase text-label">{label}</dt>
       <dd className="text-sm text-main mt-0.5">{value ?? '—'}</dd>
     </div>
   );

@@ -77,7 +77,7 @@ export function ProgramsSection({
               className="border-rule px-4 py-4 text-center odd:border-r [&:nth-child(-n+2)]:border-b lg:border-r lg:border-b-0 lg:last:border-r-0"
             >
               <p className="font-display text-3xl text-title leading-none mb-1">{metric.value}</p>
-              <p className="font-mono text-[9px] tracking-[0.16em] uppercase text-muted">
+              <p className="font-mono text-[9px] tracking-[0.06em] uppercase text-muted">
                 {metric.label}
               </p>
             </div>
@@ -125,7 +125,7 @@ export function ProgramsSection({
 
                       <div className="relative flex justify-center mb-5">
                         <span
-                          className="font-mono text-[10px] tracking-[0.2em] uppercase px-3 py-1 border"
+                          className="font-mono text-[10px] tracking-[0.08em] uppercase px-3 py-1 border"
                           style={{
                             borderColor: `color-mix(in srgb, ${catColor.badge} 40%, transparent)`,
                             color: catColor.badge,

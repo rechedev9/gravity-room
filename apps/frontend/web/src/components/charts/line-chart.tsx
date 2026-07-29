@@ -13,7 +13,7 @@ import {
   type DotProps,
 } from 'recharts';
 import type { ChartDataPoint } from '@gzclp/domain/types';
-import { getChartTheme, formatChartDate } from './chart-theme';
+import { useChartTheme, formatChartDate } from './chart-theme';
 
 const MAX_LABELS = 6;
 
@@ -77,9 +77,9 @@ function diamondPath(cx: number, cy: number, r: number): string {
 
 function CustomDot(props: DotProps & { payload?: ChartPoint }): React.ReactElement | null {
   const { cx, cy, payload } = props;
+  // Read theme before any early return so hooks order stays stable.
+  const theme = useChartTheme();
   if (!payload || cx === undefined || cy === undefined) return null;
-
-  const theme = getChartTheme();
 
   if (payload.isProjected) return null;
 
@@ -188,7 +188,7 @@ export function LineChart({
   showAllPrs,
 }: LineChartProps): React.ReactNode {
   const { t } = useTranslation();
-  const theme = getChartTheme();
+  const theme = useChartTheme();
   const effectiveShowPrs = showAllPrs ?? mode === 'weight';
 
   // Find last marked index

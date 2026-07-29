@@ -40,7 +40,7 @@ export function MobileBottomNav(): React.ReactNode {
                 to={item.to}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-0.5 min-h-[52px] px-2 py-2 font-mono text-[10px] font-bold tracking-[0.12em] uppercase transition-colors',
+                  'flex flex-col items-center justify-center gap-0.5 min-h-[52px] px-2 py-2 font-mono text-[10px] font-bold tracking-[0.05em] uppercase transition-colors',
                   isActive ? 'text-accent' : 'text-muted hover:text-main'
                 )}
               >

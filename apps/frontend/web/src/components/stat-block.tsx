@@ -31,7 +31,7 @@ export function StatBlock({
         className
       )}
     >
-      <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-label">
+      <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-label">
         {label}
       </span>
       <span

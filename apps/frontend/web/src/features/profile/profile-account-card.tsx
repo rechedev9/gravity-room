@@ -7,6 +7,7 @@ import type { UserInfo } from '@gzclp/domain/schemas/user';
 import type { WeightUnit } from '@/hooks/use-unit-preference';
 import { DashboardCard } from '@/components/dashboard-card';
 import { LanguageSelector } from '@/components/language-selector';
+import { ThemeSelector } from '@/components/theme-selector';
 
 const NameSchema = z.object({
   name: z.string().trim().min(1, 'Name required').max(64),
@@ -182,6 +183,12 @@ export function ProfileAccountCard({
       <div className="mt-3 pt-3 border-t border-rule flex items-center justify-between">
         <span className="text-2xs text-muted">{t('profile.account.language_label')}</span>
         <LanguageSelector />
+      </div>
+
+      {/* Theme preference */}
+      <div className="mt-3 pt-3 border-t border-rule flex items-center justify-between gap-3">
+        <span className="text-2xs text-muted">{t('profile.account.theme_label')}</span>
+        <ThemeSelector />
       </div>
 
       {/* Zona peligrosa — collapsible to reduce prominence of destructive action */}

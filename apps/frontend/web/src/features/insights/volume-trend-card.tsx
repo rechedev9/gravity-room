@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import type { InsightItem } from '@/lib/api-functions';
 import { isVolumeTrendPayload } from '@/lib/insight-payloads';
-import { getChartTheme, formatChartDate } from '@/components/charts/chart-theme';
+import { useChartTheme, formatChartDate } from '@/components/charts/chart-theme';
 import { formatVolLabel, VolumeTooltip } from '@/components/charts/volume-tooltip';
 
 const MAX_LABELS = 8;
@@ -24,10 +24,9 @@ interface VolumeTrendCardProps {
 
 export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactNode {
   const { t } = useTranslation();
+  const theme = useChartTheme();
   const payload = insight.payload;
   if (!isVolumeTrendPayload(payload)) return null;
-
-  const theme = getChartTheme();
 
   const labelInterval = Math.max(1, Math.ceil(payload.weeks.length / MAX_LABELS));
   const points = payload.weeks.map((week, i) => ({

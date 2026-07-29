@@ -1174,6 +1174,7 @@
       "weight_unit_label": "Weight unit",
       "change_unit_aria": "Switch to {{unit}}",
       "language_label": "Language",
+      "theme_label": "Theme",
       "unit_lbs": "pounds",
       "unit_kg": "kilograms",
       "danger_zone": "Danger zone",
@@ -1587,6 +1588,13 @@
   },
   "language_selector": {
     "aria_label": "Language selector"
+  },
+  "theme_selector": {
+    "aria_label": "Theme",
+    "gold": "Gold",
+    "classic_light": "Light",
+    "classic_dark": "Dark",
+    "label": "Theme"
   },
   "program_overview": {
     "aria_label": "{{programName}} program summary",

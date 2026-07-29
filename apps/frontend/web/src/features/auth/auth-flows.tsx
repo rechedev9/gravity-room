@@ -39,7 +39,7 @@ function AuthShell({
       <button
         type="button"
         onClick={() => void navigate({ to: '/login' })}
-        className="mt-5 cursor-pointer px-4 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-muted transition-colors hover:text-main"
+        className="mt-5 cursor-pointer px-4 py-2 font-mono text-[11px] uppercase tracking-[0.06em] text-muted transition-colors hover:text-main"
       >
         {t('login.callback.back_to_login')}
       </button>
@@ -50,7 +50,7 @@ function AuthShell({
 const inputClass =
   'border border-rule bg-header px-3 py-2 text-sm text-main outline-none focus:border-accent';
 const submitClass =
-  'w-full cursor-pointer border border-accent-dim bg-accent-deep/10 py-2.5 font-mono text-[11px] uppercase tracking-[0.16em] text-accent transition-colors hover:bg-accent-deep/20 disabled:cursor-not-allowed disabled:opacity-50';
+  'w-full cursor-pointer border border-accent-dim bg-accent-deep/10 py-2.5 font-mono text-[11px] uppercase tracking-[0.06em] text-accent transition-colors hover:bg-accent-deep/20 disabled:cursor-not-allowed disabled:opacity-50';
 
 // ---------------------------------------------------------------------------
 // /auth/callback — social redirect landing
@@ -249,7 +249,7 @@ function ResetForm({ token }: { readonly token: string }): React.ReactNode {
       ) : (
         <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-3">
           <label className="flex flex-col gap-1">
-            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-label">
+            <span className="font-mono text-[10px] uppercase tracking-[0.06em] text-label">
               {t('login.reset_password.new_password_label')}
             </span>
             <input

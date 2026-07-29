@@ -116,10 +116,10 @@ export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
       >
         <span className="sr-only">{content.transformationControlLabel}</span>
         <span className="absolute right-5 bottom-5 flex max-w-[270px] flex-col items-end gap-2 text-right sm:right-8 sm:bottom-8 lg:right-10 lg:bottom-10">
-          <span className="border border-accent/40 bg-body/80 px-3 py-2 font-mono text-[9px] tracking-[0.2em] text-muted uppercase backdrop-blur-sm sm:text-[10px]">
+          <span className="border border-accent/40 bg-body/80 px-3 py-2 font-mono text-[9px] tracking-[0.08em] text-muted uppercase backdrop-blur-sm sm:text-[10px]">
             {content.transformationHint}
           </span>
-          <span className="flex items-center gap-2 font-mono text-[10px] tracking-[0.18em] uppercase">
+          <span className="flex items-center gap-2 font-mono text-[10px] tracking-[0.08em] uppercase">
             <span className={showTrained ? 'text-muted' : 'text-main'}>
               {content.transformationBefore}
             </span>
@@ -145,7 +145,7 @@ export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
             className="mb-6 inline-flex items-center gap-3 border border-rule-light bg-card/80 px-4 py-2 font-mono backdrop-blur-sm"
           >
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden="true" />
-            <span className="text-[10px] font-medium tracking-[0.3em] text-muted uppercase">
+            <span className="text-[10px] font-medium tracking-[0.08em] text-muted uppercase">
               {content.kicker}
             </span>
           </motion.div>
@@ -161,7 +161,9 @@ export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
             <span
               className="text-transparent"
               style={{
-                backgroundImage: 'linear-gradient(90deg, #f4b91f 0%, #fff0a8 58%, #d8920f 100%)',
+                // Token-driven — follows gold / classic-light / classic-dark accents.
+                backgroundImage:
+                  'linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 58%, var(--color-accent-deep) 100%)',
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
               }}

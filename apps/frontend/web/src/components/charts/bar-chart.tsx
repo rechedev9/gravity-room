@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { VolumeDataPoint } from '@gzclp/domain/types';
-import { getChartTheme, formatChartDate } from './chart-theme';
+import { useChartTheme, formatChartDate } from './chart-theme';
 import { formatVolLabel, VolumeTooltip } from './volume-tooltip';
 
 const MAX_LABELS = 8;
@@ -29,7 +29,7 @@ interface BarChartProps {
 
 export function BarChart({ data, label }: BarChartProps): React.ReactNode {
   const { t } = useTranslation();
-  const theme = getChartTheme();
+  const theme = useChartTheme();
 
   const points = useMemo(() => {
     const labelInterval = Math.max(1, Math.ceil(data.length / MAX_LABELS));

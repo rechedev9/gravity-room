@@ -7,7 +7,7 @@ describe('Kicker', () => {
     render(<Kicker>NEXT SET</Kicker>);
     const el = screen.getByText('NEXT SET').parentElement;
     expect(el?.className).toContain('font-mono');
-    expect(el?.className).toContain('tracking-[0.22em]');
+    expect(el?.className).toContain('tracking-[0.08em]');
   });
 
   it('renders an index marker in gold when provided', () => {

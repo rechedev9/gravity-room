@@ -84,7 +84,7 @@ export function ExerciseWikiIndexPage({
       {inSession && (
         <Link
           to="/app"
-          className="inline-flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-muted hover:text-main transition-colors"
+          className="inline-flex items-center gap-2 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-muted hover:text-main transition-colors"
         >
           <span aria-hidden="true">&larr;</span>
           {copy.backToApp}
@@ -137,7 +137,7 @@ export function ExerciseWikiIndexPage({
         >
           <span className="block font-display text-xl text-title">{copy.catalogCta.title}</span>
           <span className="block text-sm text-muted mt-1">{copy.catalogCta.body}</span>
-          <span className="inline-flex items-center gap-1.5 mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-accent">
+          <span className="inline-flex items-center gap-1.5 mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-accent">
             {copy.catalogCta.button}
             <span aria-hidden="true">&rarr;</span>
           </span>

@@ -24,7 +24,7 @@ export function Tag({ children, tone = 'default', className }: TagProps): ReactN
   return (
     <span
       className={cn(
-        'inline-block whitespace-nowrap rounded-[1px] border px-2 py-[3px] font-mono text-[9px] font-bold uppercase tracking-[0.16em]',
+        'inline-block whitespace-nowrap rounded-[1px] border px-2 py-[3px] font-mono text-[9px] font-bold uppercase tracking-[0.08em]',
         TONE_CLASSES[tone],
         className
       )}

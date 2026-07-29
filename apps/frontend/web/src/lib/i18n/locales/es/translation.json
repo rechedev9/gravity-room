@@ -1174,6 +1174,7 @@
       "weight_unit_label": "Unidad de peso",
       "change_unit_aria": "Cambiar a {{unit}}",
       "language_label": "Idioma",
+      "theme_label": "Tema",
       "unit_lbs": "libras",
       "unit_kg": "kilogramos",
       "danger_zone": "Zona peligrosa",
@@ -1587,6 +1588,13 @@
   },
   "language_selector": {
     "aria_label": "Selector de idioma"
+  },
+  "theme_selector": {
+    "aria_label": "Tema",
+    "gold": "Oro",
+    "classic_light": "Claro",
+    "classic_dark": "Oscuro",
+    "label": "Tema"
   },
   "program_overview": {
     "aria_label": "Resumen del programa {{programName}}",

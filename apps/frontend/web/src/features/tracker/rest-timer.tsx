@@ -62,7 +62,7 @@ export function RestTimer({ seconds, onSkip, onComplete }: RestTimerProps): Reac
       data-testid="rest-timer"
     >
       <div className="flex flex-col min-w-0">
-        <span className="font-mono text-2xs font-bold tracking-[0.14em] uppercase text-accent">
+        <span className="font-mono text-2xs font-bold tracking-[0.06em] uppercase text-accent">
           {t('tracker.rest_timer.label')}
         </span>
         <span className="font-mono text-2xl tabular-nums text-main leading-none" aria-hidden="true">
@@ -72,7 +72,7 @@ export function RestTimer({ seconds, onSkip, onComplete }: RestTimerProps): Reac
       <button
         type="button"
         onClick={onSkip}
-        className="shrink-0 min-h-[44px] px-3 font-mono text-2xs font-bold tracking-[0.12em] uppercase text-muted border border-rule hover:text-main hover:border-rule-light transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+        className="shrink-0 min-h-[44px] px-3 font-mono text-2xs font-bold tracking-[0.05em] uppercase text-muted border border-rule hover:text-main hover:border-rule-light transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
       >
         {t('tracker.rest_timer.skip')}
       </button>

@@ -77,7 +77,7 @@ export function FaqSection({ content, finalCta }: FaqSectionProps): React.ReactN
           }}
         />
         <div className="relative z-10 max-w-2xl mx-auto">
-          <p className="font-mono text-[10px] tracking-[0.28em] uppercase text-accent mb-4">
+          <p className="font-mono text-[10px] tracking-[0.08em] uppercase text-accent mb-4">
             {finalCta.eyebrow}
           </p>
           <h2

@@ -80,7 +80,7 @@ export function FreeTrustSection({ content }: FreeTrustSectionProps): React.Reac
       {/* Header */}
       <FadeUp className="text-center mb-8">
         <SectionLabel>{content.sectionLabel}</SectionLabel>
-        <p className="font-mono text-[11px] tracking-[0.3em] uppercase text-muted mb-3">
+        <p className="font-mono text-[11px] tracking-[0.08em] uppercase text-muted mb-3">
           {content.eyebrow}
         </p>
         <h2

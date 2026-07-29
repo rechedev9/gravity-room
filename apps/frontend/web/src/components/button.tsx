@@ -35,7 +35,7 @@ export function buttonClassName({
   className,
 }: ButtonClassNameOptions = {}): string {
   return cn(
-    'font-mono font-bold uppercase tracking-[0.14em] border rounded-[var(--radius-base)]',
+    'font-mono font-bold uppercase tracking-[0.06em] border rounded-[var(--radius-base)]',
     'transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]',
     'active:translate-y-px focus-visible:ring-2 ring-accent disabled:opacity-35',
     'cursor-pointer whitespace-nowrap disabled:cursor-not-allowed focus-visible:outline-none',

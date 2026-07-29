@@ -131,7 +131,7 @@ function Legend({ lang }: { readonly lang: ArticleLang }): ReactNode {
     background: color,
   });
   return (
-    <div className="mt-4 flex items-center justify-center gap-5 font-mono text-[11px] uppercase tracking-[0.14em] text-label select-none">
+    <div className="mt-4 flex items-center justify-center gap-5 font-mono text-[11px] uppercase tracking-[0.06em] text-label select-none">
       <span className="flex items-center gap-2">
         <span aria-hidden="true" style={dot('var(--color-accent)')} />
         {l.primary}
@@ -218,7 +218,7 @@ export function BodyDiagram({
               title={VIEW_LABEL[lang][v]}
               className="w-40 max-w-full sm:w-44"
             />
-            <figcaption className="mt-3 font-mono text-[11px] uppercase tracking-[0.14em] text-label select-none">
+            <figcaption className="mt-3 font-mono text-[11px] uppercase tracking-[0.06em] text-label select-none">
               {VIEW_LABEL[lang][v]}
             </figcaption>
           </figure>

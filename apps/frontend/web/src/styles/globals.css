@@ -193,6 +193,176 @@
   --press-translate-y: 1px;
 }
 
+/* ── Theme skins ────────────────────────────────────────────────────────────
+ * Gold (forged-iron) is the default from @theme above. Classic light/dark
+ * redeclare the same semantic tokens so utilities (bg-body, text-main, …)
+ * re-theme without component changes. Accents stay restrained — never neon.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/* Classic light — cool paper, charcoal type, restrained indigo accent */
+html[data-theme='classic-light'] {
+  color-scheme: light;
+
+  --color-body: oklch(0.97 0.004 250);
+  --color-card: oklch(1 0 0);
+  --color-surface-2: oklch(0.94 0.006 250);
+  --color-header: oklch(0.955 0.005 250);
+  --color-ink: oklch(0.22 0.02 255);
+  --color-th: oklch(0.94 0.006 250);
+  --color-hover-row: oklch(0.94 0.008 250);
+  --color-progress-track: oklch(0.9 0.008 250);
+  --color-changed: oklch(0.92 0.03 255);
+  --color-error-bg: oklch(0.95 0.03 25);
+  --color-tooltip-bg: oklch(0.22 0.02 255);
+
+  --color-main: oklch(0.22 0.02 255);
+  --color-title: oklch(0.18 0.025 255);
+  --color-heading: oklch(0.18 0.025 255);
+  --color-muted: oklch(0.45 0.02 255);
+  --color-label: oklch(0.48 0.018 255);
+  --color-info: oklch(0.48 0.018 255);
+  --color-error: oklch(0.52 0.18 25);
+  --color-tooltip-text: oklch(0.97 0.004 250);
+
+  --color-rule: oklch(0.88 0.01 250);
+  --color-rule-light: oklch(0.78 0.014 250);
+  --color-error-line: oklch(0.7 0.08 25);
+
+  --color-accent: oklch(0.48 0.16 265);
+  --color-accent-hover: oklch(0.42 0.17 265);
+  --color-accent-deep: oklch(0.4 0.14 265);
+  --color-accent-dim: oklch(0.78 0.06 265);
+  --color-on-accent: oklch(0.99 0.005 250);
+  --color-btn-ring: oklch(0.48 0.16 265);
+  --color-btn: oklch(1 0 0);
+  --color-btn-text: oklch(0.48 0.16 265);
+  --color-btn-active: oklch(0.48 0.16 265);
+  --color-btn-active-text: oklch(0.99 0.005 250);
+
+  --color-victory: oklch(0.48 0.16 265);
+  --color-victory-on: oklch(0.99 0.005 250);
+  --color-victory-glow: oklch(0.48 0.16 265 / 0);
+
+  --color-online: oklch(0.52 0.14 150);
+  --color-ok-bg: oklch(0.94 0.03 150);
+  --color-ok-ring: oklch(0.72 0.08 150);
+  --color-ok: oklch(0.48 0.13 150);
+  --color-fail-bg: oklch(0.95 0.03 25);
+  --color-fail-ring: oklch(0.72 0.1 25);
+  --color-fail: oklch(0.52 0.18 25);
+  --color-warn: oklch(0.62 0.14 70);
+
+  --color-stage-1: oklch(0.22 0.02 255);
+  --color-stage-2: oklch(0.55 0.14 50);
+  --color-stage-3: oklch(0.5 0.18 25);
+
+  --color-chart-grid: oklch(0.88 0.01 250);
+  --color-chart-text: oklch(0.48 0.018 255);
+  --color-chart-line: oklch(0.48 0.16 265);
+  --color-chart-ok: oklch(0.48 0.13 150);
+  --color-chart-fail: oklch(0.52 0.18 25);
+  --color-chart-pr: oklch(0.48 0.16 265);
+
+  --color-heat: oklch(0.72 0.08 265);
+
+  --color-sidebar: oklch(0.985 0.003 250);
+  --color-sidebar-active: oklch(0.94 0.012 265);
+  --color-sidebar-border: oklch(0.88 0.01 250);
+
+  --shadow-card: 0 1px 2px 0 oklch(0.3 0.02 255 / 0.08);
+  --shadow-elevated: 0 12px 32px 0 oklch(0.3 0.02 255 / 0.12);
+  --shadow-dialog: 0 8px 28px 0 oklch(0.3 0.02 255 / 0.14);
+  --shadow-inset-subtle: inset 0 0 0 1px oklch(0.3 0.02 255 / 0.04);
+  --shadow-card-hover: 0 4px 16px 0 oklch(0.3 0.02 255 / 0.1);
+  --shadow-toolbar: 0 1px 0 0 oklch(0.3 0.02 255 / 0.06);
+  --shadow-pressed-steel: inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -2px 0 oklch(0 0 0 / 0.12);
+}
+
+/* Classic dark — neutral charcoal (no warm iron tint), cool steel accent */
+html[data-theme='classic-dark'] {
+  color-scheme: dark;
+
+  --color-body: oklch(0.16 0.008 260);
+  --color-card: oklch(0.2 0.01 260);
+  --color-surface-2: oklch(0.24 0.012 260);
+  --color-header: oklch(0.13 0.008 260);
+  --color-ink: oklch(0.1 0.006 260);
+  --color-th: oklch(0.24 0.012 260);
+  --color-hover-row: oklch(0.24 0.012 260);
+  --color-progress-track: oklch(0.24 0.012 260);
+  --color-changed: oklch(0.28 0.04 265);
+  --color-error-bg: oklch(0.24 0.05 25);
+  --color-tooltip-bg: oklch(0.13 0.008 260);
+
+  --color-main: oklch(0.93 0.008 250);
+  --color-title: oklch(0.96 0.006 250);
+  --color-heading: oklch(0.96 0.006 250);
+  --color-muted: oklch(0.72 0.015 255);
+  --color-label: oklch(0.62 0.018 255);
+  --color-info: oklch(0.62 0.018 255);
+  --color-error: oklch(0.7 0.16 25);
+  --color-tooltip-text: oklch(0.93 0.008 250);
+
+  --color-rule: oklch(0.3 0.014 260);
+  --color-rule-light: oklch(0.4 0.018 260);
+  --color-error-line: oklch(0.42 0.08 25);
+
+  --color-accent: oklch(0.72 0.12 270);
+  --color-accent-hover: oklch(0.78 0.12 270);
+  --color-accent-deep: oklch(0.58 0.11 270);
+  --color-accent-dim: oklch(0.38 0.06 270);
+  --color-on-accent: oklch(0.14 0.02 270);
+  --color-btn-ring: oklch(0.72 0.12 270);
+  --color-btn: oklch(0.2 0.01 260);
+  --color-btn-text: oklch(0.72 0.12 270);
+  --color-btn-active: oklch(0.72 0.12 270);
+  --color-btn-active-text: oklch(0.14 0.02 270);
+
+  --color-victory: oklch(0.72 0.12 270);
+  --color-victory-on: oklch(0.14 0.02 270);
+  --color-victory-glow: oklch(0.72 0.12 270 / 0);
+
+  --color-online: oklch(0.72 0.12 155);
+  --color-ok-bg: oklch(0.24 0.04 155);
+  --color-ok-ring: oklch(0.38 0.06 155);
+  --color-ok: oklch(0.72 0.12 155);
+  --color-fail-bg: oklch(0.24 0.05 25);
+  --color-fail-ring: oklch(0.4 0.08 25);
+  --color-fail: oklch(0.7 0.16 25);
+  --color-warn: oklch(0.78 0.12 75);
+
+  --color-stage-1: oklch(0.93 0.008 250);
+  --color-stage-2: oklch(0.7 0.14 55);
+  --color-stage-3: oklch(0.62 0.18 25);
+
+  --color-chart-grid: oklch(0.3 0.014 260);
+  --color-chart-text: oklch(0.62 0.018 255);
+  --color-chart-line: oklch(0.72 0.12 270);
+  --color-chart-ok: oklch(0.72 0.12 155);
+  --color-chart-fail: oklch(0.7 0.16 25);
+  --color-chart-pr: oklch(0.72 0.12 270);
+
+  --color-heat: oklch(0.42 0.08 270);
+
+  --color-sidebar: oklch(0.13 0.008 260);
+  --color-sidebar-active: oklch(0.22 0.014 265);
+  --color-sidebar-border: oklch(0.3 0.014 260);
+
+  --shadow-card: 0 1px 2px 0 oklch(0 0 0 / 0.35);
+  --shadow-elevated: 0 8px 32px 0 oklch(0 0 0 / 0.55);
+  --shadow-dialog: 0 8px 24px 0 oklch(0 0 0 / 0.5);
+  --shadow-inset-subtle: inset 0 0 0 1px oklch(1 0 0 / 0.04);
+  --shadow-card-hover: 0 4px 20px 0 oklch(0 0 0 / 0.4);
+  --shadow-toolbar: 0 1px 0 0 oklch(0 0 0 / 0.4);
+  --shadow-pressed-steel: inset 0 1px 0 oklch(1 0 0 / 0.2), inset 0 -2px 0 oklch(0 0 0 / 0.2);
+}
+
+/* Gold keeps the warm forged-iron default; only pin color-scheme. */
+html[data-theme='gold'],
+html:not([data-theme]) {
+  color-scheme: dark;
+}
+
 /* ── Keyframes ─────────────────────────────────── */
 
 @keyframes fadeSlideUp {
@@ -411,7 +581,7 @@ dialog::backdrop {
 .hatch {
   background-image: repeating-linear-gradient(
     -45deg,
-    oklch(0.8 0.145 84 / 0.5) 0 1px,
+    color-mix(in oklch, var(--color-accent) 50%, transparent) 0 1px,
     transparent 1px 7px
   );
 }
@@ -419,7 +589,7 @@ dialog::backdrop {
 .hatch-dim {
   background-image: repeating-linear-gradient(
     -45deg,
-    oklch(0.34 0.016 76 / 0.7) 0 1px,
+    color-mix(in oklch, var(--color-rule-light) 70%, transparent) 0 1px,
     transparent 1px 7px
   );
 }
@@ -579,7 +749,7 @@ dialog::backdrop {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-label);
 }
@@ -683,7 +853,7 @@ dialog::backdrop {
 .week-badge {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.06em;
 }
 
 /* ── Base ───────────────────────────────────────── */
@@ -731,7 +901,7 @@ body {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-label);
 }

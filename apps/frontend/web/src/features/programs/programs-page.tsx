@@ -122,7 +122,7 @@ export function ProgramsPage(): React.ReactNode {
                 if (!entries?.length) return null;
                 return (
                   <div key={level}>
-                    <h3 className="flex items-center gap-2.5 font-mono text-[10px] font-semibold text-label uppercase tracking-[0.22em] mb-4">
+                    <h3 className="flex items-center gap-2.5 font-mono text-[10px] font-semibold text-label uppercase tracking-[0.08em] mb-4">
                       <span className="inline-block w-1.5 h-1.5 rounded-[1px] bg-accent" />
                       {t(LEVEL_LABEL_KEYS[level])}
                     </h3>

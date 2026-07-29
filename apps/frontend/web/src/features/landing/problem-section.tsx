@@ -78,7 +78,7 @@ export function ProblemSection({ content }: ProblemSectionProps): React.ReactNod
         {/* ── Left: pain points ── */}
         <FadeUp delay={0.05}>
           <div>
-            <p className="font-mono text-xs tracking-[0.18em] uppercase text-accent mb-3">
+            <p className="font-mono text-xs tracking-[0.08em] uppercase text-accent mb-3">
               {content.eyebrow}
             </p>
             <h2
@@ -129,7 +129,7 @@ export function ProblemSection({ content }: ProblemSectionProps): React.ReactNod
 
             {/* Solution label */}
             <div>
-              <p className="font-mono text-[10px] tracking-[0.2em] uppercase text-muted mb-3">
+              <p className="font-mono text-[10px] tracking-[0.08em] uppercase text-muted mb-3">
                 {solutionLabel}
               </p>
               <ul className="space-y-4">

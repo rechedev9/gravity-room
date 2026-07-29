@@ -34,7 +34,7 @@ describe('Button', () => {
     render(<Button>PRESS</Button>);
     const btn = screen.getByRole('button', { name: 'PRESS' });
     expect(btn.className).toContain('font-mono');
-    expect(btn.className).toContain('tracking-[0.14em]');
+    expect(btn.className).toContain('tracking-[0.06em]');
   });
 
   it('applies active:translate-y-px for press-down feedback', () => {
