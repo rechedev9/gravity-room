@@ -77,17 +77,17 @@ harness y capturar dispositivo, build, escenario, repeticiones y percentiles ant
 
 ## Estado de slices
 
-| Slice                       | Estado              | Base       | Candidato | Corregido | Integrado |
-| --------------------------- | ------------------- | ---------- | --------- | --------- | --------- |
-| M0 Contratos y baseline     | integrado           | `dcdec26f` | `0fcc4c6` | `1b39abd` | `1b39abd` |
-| M1 Shell y navegación       | integrado           | `3af51a0`  | `aa06f7c` | `6d6c0c7` | `78adf51` |
-| M2 Programas                | candidato pendiente | `78adf51`  | pendiente | pendiente | pendiente |
-| M3 Tracker offline          | pendiente           | pendiente  | pendiente | pendiente | pendiente |
-| M4 Historial/temporizador   | pendiente           | pendiente  | pendiente | pendiente | pendiente |
-| M5 Perfil/datos             | pendiente           | pendiente  | pendiente | pendiente | pendiente |
-| M6 Programas personalizados | pendiente           | pendiente  | pendiente | pendiente | pendiente |
-| M7 Wiki contextual          | pendiente           | pendiente  | pendiente | pendiente | pendiente |
-| M8 Hardening/release/E2E    | pendiente           | pendiente  | pendiente | pendiente | pendiente |
+| Slice                       | Estado    | Base       | Candidato | Corregido | Integrado |
+| --------------------------- | --------- | ---------- | --------- | --------- | --------- |
+| M0 Contratos y baseline     | integrado | `dcdec26f` | `0fcc4c6` | `1b39abd` | `1b39abd` |
+| M1 Shell y navegación       | integrado | `3af51a0`  | `aa06f7c` | `6d6c0c7` | `78adf51` |
+| M2 Programas                | integrado | `78adf51`  | `5795314` | `e1cd8e8` | `e1cd8e8` |
+| M3 Tracker offline          | diferido  | n/a        | n/a       | n/a       | n/a       |
+| M4 Historial/temporizador   | diferido  | n/a        | n/a       | n/a       | n/a       |
+| M5 Perfil/datos             | pendiente | pendiente  | pendiente | pendiente | pendiente |
+| M6 Programas personalizados | pendiente | pendiente  | pendiente | pendiente | pendiente |
+| M7 Wiki contextual          | pendiente | pendiente  | pendiente | pendiente | pendiente |
+| M8 Hardening/release/E2E    | pendiente | pendiente  | pendiente | pendiente | pendiente |
 
 ## M0 — Contratos y baseline
 
@@ -1075,6 +1075,13 @@ intento con otra intención.
 | E2E                                     | no ejecutado; reservado exclusivamente para M8 |
 
 Sigue siendo corrección del corrector, no una revisión independiente ni un GO.
+
+## Decisión de producto — 2026-07-29
+
+El tracker actual queda aceptado de momento. M3 (reescritura set-a-set) y M4
+(sesiones/historial/temporizador) se difieren y dejan de bloquear la primera versión móvil. El
+siguiente trabajo activo pasa a M5 Perfil/datos, seguido por programas personalizados, wiki
+contextual y el hardening/E2E final.
 
 ### Cierre post-revisión publicado
 

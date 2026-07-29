@@ -1,14 +1,15 @@
 # Gravity Room Mobile v2 — plan de producto, arquitectura y entrega
 
-Estado: propuesta inicial
+Estado: plan activo; tracker actual aceptado como baseline
 
-Fecha: 2026-07-27
+Fecha: 2026-07-29
 
 Ámbito: `apps/frontend/mobile` y los contratos compartidos/API estrictamente necesarios
 
 ## 1. Objetivo
 
-Rehacer la experiencia móvil como compañero de entrenamiento, inspirado en FitNotes:
+Rehacer la experiencia móvil como compañero de entrenamiento, inspirado en FitNotes en su foco y
+simplicidad, sin sustituir por ahora el tracker existente:
 
 - llegar al siguiente entrenamiento y empezar a registrar en pocos segundos;
 - gestionar programas y rutinas sin ruido de producto;
@@ -19,7 +20,8 @@ Rehacer la experiencia móvil como compañero de entrenamiento, inspirado en Fit
 
 La reescritura no implica borrar infraestructura que ya funciona. Se conservarán los contratos de
 dominio, la autenticación, SQLite y la cola offline cuando superen la auditoría de cada slice. Se
-reemplazarán el shell, la navegación y las pantallas actuales.
+reemplazarán el shell, la navegación y las pantallas de Programas/Perfil que lo necesiten. El tracker
+actual se conserva como producto aceptado hasta una decisión posterior explícita.
 
 ## 2. Resultado de la auditoría inicial
 
@@ -31,25 +33,24 @@ reemplazarán el shell, la navegación y las pantallas actuales.
 - SQLite con migraciones versionadas.
 - Persistencia local de resúmenes, detalles y definiciones de programa.
 - Cola de mutaciones y reintento de resultados.
+- Tracker actual, incluyendo su flujo de registro y progresión.
 - i18next con catálogos español/inglés.
 - 147 pruebas móviles actuales y `typecheck` verde como red de regresión.
 
 ### Partes que se deben sustituir o ampliar
 
 - El estado manual de dos pestañas no es una arquitectura de navegación.
-- El tracker está anidado dentro de Programas y no es un destino principal.
-- No hay historial de entrenamientos ni concepto explícito de sesión.
-- El registro es éxito/fallo con AMRAP/RPE; falta una UX set-a-set tipo FitNotes.
-- `setLogs` existe en dominio/API, pero la UI móvil no lo utiliza.
 - Programas mezcla listado, catálogo, alta y entrada al tracker en una sola pantalla.
 - Perfil solo muestra identidad y cierre de sesión.
 - La cola offline usa operaciones y payloads genéricos; le faltan estados de reintento observables,
   coalescencia y una política de conflictos explícita.
 - El cliente móvil sigue escribiendo llamadas HTTP a mano. `packages/api-client` aún contiene
   utilidades, no el contrato completo.
-- Hay textos visibles hardcodeados en el tracker.
 - No existe lint específico de mobile, navegación deep-linkable, E2E nativo ni pipeline de release
   definido.
+
+El rediseño set-a-set, las sesiones, el historial y el temporizador quedan como mejoras futuras; no
+son requisitos de esta primera versión móvil.
 
 ### Gaps del servidor que condicionan el producto
 
@@ -92,22 +93,10 @@ No incluye gráficos ni recomendaciones analíticas.
 
 ### Tracker
 
-Es el centro del producto:
-
-- abrir directamente el siguiente entrenamiento pendiente;
-- iniciar, reanudar y terminar una sesión;
-- registrar peso y repeticiones de cada serie;
-- copiar la serie anterior y añadir/eliminar series;
-- registrar RPE y AMRAP cuando el programa lo requiera;
-- marcar el resultado de cada slot sin perder los logs de las series;
-- mostrar progresión calculada exclusivamente por `@gzclp/domain`;
-- temporizador de descanso local, configurable y no bloqueante;
-- deshacer la última acción;
-- navegar a entrenamientos anteriores/siguientes sin confundirlos con la sesión activa;
-- mostrar guardado local, cola pendiente, error y sincronizado;
-- ofrecer historial de sesiones y detalle de una sesión.
-
-Regla de UX: ninguna interacción de registro puede depender de la red para confirmar visualmente.
+El tracker existente queda aceptado como baseline funcional. Esta versión mantiene su registro,
+progresión, navegación entre workouts y comportamiento offline actuales. Solo se corregirán fallos de
+integridad, sesión o sincronización que afecten a ese flujo; no se hará ahora una reescritura set-a-set
+ni se añadirán sesiones, historial o temporizador.
 
 ### Perfil
 
@@ -348,44 +337,15 @@ Aceptación:
 - gestionar una instancia actualiza local/servidor sin listas incoherentes;
 - borrar exige confirmación y limpia datos locales relacionados tras éxito.
 
-### M3 — Tracker set-a-set offline
+### M3 — Tracker set-a-set offline (diferido)
 
-Alcance:
+El tracker actual se mantiene. La reescritura set-a-set, las sesiones explícitas y cualquier cambio
+de UX del registro requieren una nueva decisión de producto y no bloquean Mobile v2.
 
-- resolver el siguiente workout incompleto;
-- iniciar/reanudar sesión;
-- editar peso/reps por serie;
-- añadir, duplicar y eliminar series;
-- AMRAP, RPE, éxito/fallo y deshacer;
-- transacción local + outbox;
-- estado de sync visible.
+### M4 — Finalización, historial y temporizador (diferido)
 
-Aceptación:
-
-- todos los cambios sobreviven cierre forzado sin red;
-- ninguna pulsación espera al servidor;
-- reiniciar recupera exactamente la sesión y el set enfocado;
-- `computeGenericProgram` determina prescripción/progresión;
-- logs de sets y resultado remoto convergen tras recuperar red;
-- carreras de escritura y taps rápidos tienen pruebas.
-
-### M4 — Finalización, historial y temporizador
-
-Alcance:
-
-- completar/cancelar sesión;
-- duración y notas;
-- temporizador de descanso persistente ante background;
-- historial agrupado por sesión/workout;
-- detalle y corrección de sesión anterior;
-- estados de programa completado.
-
-Aceptación:
-
-- el temporizador usa timestamps, no un contador que se desincronice;
-- completar requiere resolver slots pendientes o confirmarlos;
-- historial offline coincide con la reconstrucción del servidor;
-- editar el pasado no rompe el cálculo del workout siguiente.
+Historial por sesiones, duración, notas y temporizador quedan fuera de la primera versión. Si se
+retoman, tendrán su propio ciclo implementador/revisores/corrector y no se mezclarán con Perfil.
 
 ### M5 — Perfil y control de datos
 
