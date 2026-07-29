@@ -152,31 +152,16 @@ describe('ToastContainer', () => {
   });
 
   describe('safe-area inset (REQ-CCF-004)', () => {
-    it('should set paddingBottom containing env(safe-area-inset-bottom) on the container', () => {
-      // happy-dom strips unsupported CSS functions like env(), so we intercept
-      // the style.setProperty calls to capture what React tried to set.
-      const capturedStyles: Array<{ property: string; value: string }> = [];
-      const originalSetProperty = CSSStyleDeclaration.prototype.setProperty;
-      CSSStyleDeclaration.prototype.setProperty = function (
-        prop: string,
-        value: string,
-        priority?: string
-      ): void {
-        capturedStyles.push({ property: prop, value });
-        originalSetProperty.call(this, prop, value, priority ?? '');
-      };
+    it('anchors the container above the mobile dock with safe-area in the bottom offset', () => {
+      renderWithToast('Test message');
 
-      try {
-        renderWithToast('Test message');
-
-        const paddingSet = capturedStyles.find(
-          (s) => s.property === 'padding-bottom' && s.value.includes('env(safe-area-inset-bottom)')
-        );
-
-        expect(paddingSet).toBeDefined();
-      } finally {
-        CSSStyleDeclaration.prototype.setProperty = originalSetProperty;
-      }
+      const container = document.querySelector('[role="status"]');
+      expect(container).not.toBeNull();
+      // Tailwind class carries env(safe-area-inset-bottom) + nav clearance.
+      // happy-dom does not expand arbitrary class tokens into computed styles,
+      // so assert the class string rather than resolved CSS.
+      expect(container?.className).toContain('env(safe-area-inset-bottom)');
+      expect(container?.className).toContain('3.5rem');
     });
   });
 });
