@@ -1,6 +1,7 @@
 /**
  * Theme preference — three selectable skins sharing the same semantic token surface.
- * Gold (forged-iron) is the product default; classic light/dark are quiet neutrals.
+ * Gold (forged-iron) is the product default; classic light/dark keep the same
+ * warm-gold accent voice on light paper / neutral charcoal surfaces.
  */
 
 export const THEME_IDS = ['gold', 'classic-light', 'classic-dark'] as const;
@@ -17,8 +18,9 @@ export const DEFAULT_THEME: ThemeId = 'gold';
 /** Theme-color meta values that match each skin's accent for mobile chrome. */
 export const THEME_COLOR_META: Record<ThemeId, string> = {
   gold: '#c8a84e',
-  'classic-light': '#3b5bdb',
-  'classic-dark': '#748ffc',
+  // Deep gold for contrast on light paper (matches --color-accent on classic-light).
+  'classic-light': '#9a6b14',
+  'classic-dark': '#c8a84e',
 };
 
 let bootstrapped = false;

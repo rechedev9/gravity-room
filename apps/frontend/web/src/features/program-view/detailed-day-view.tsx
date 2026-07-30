@@ -185,35 +185,36 @@ function SlotTable({
 
   return (
     <SlotCardShell slot={slot} isCurrent={isCurrent}>
-      {/* Per-set table. On wide screens it is width-capped and left-aligned so the
-          Kg / Reps columns sit beside Serie instead of stretching edge-to-edge. */}
+      {/* Per-set table. Fixed layout + tight max-width so Kg/Reps/Tgt sit next to
+          Serie instead of stretching across the desktop content column. */}
       <div className="overflow-x-auto mb-3">
         <table
-          className="w-full lg:max-w-md border-collapse"
+          data-testid="slot-set-table"
+          className="w-full max-w-[20rem] table-fixed border-collapse"
           aria-label={t('tracker.detailed_day_view.table_aria', { exercise: slot.exerciseName })}
         >
           <colgroup>
-            <col className="w-12" />
-            <col />
-            <col />
-            <col />
-            <col className="w-12" />
+            <col className="w-[2.5rem]" />
+            <col className="w-[3.5rem]" />
+            <col className="w-[4.5rem]" />
+            <col className="w-[3rem]" />
+            <col className="w-[2.75rem]" />
           </colgroup>
           <thead>
             <tr className="border-b border-rule">
-              <th className="text-2xs font-bold text-muted uppercase text-left py-1 pr-2">
+              <th className="text-2xs font-bold text-muted uppercase text-left py-1 pr-1">
                 {t('tracker.detailed_day_view.col_set')}
               </th>
-              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-2">
+              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-1">
                 {t('tracker.detailed_day_view.col_weight')}
               </th>
-              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-2">
+              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-1">
                 {t('tracker.detailed_day_view.col_reps')}
               </th>
-              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-2">
+              <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-1">
                 {t('tracker.detailed_day_view.col_target')}
               </th>
-              <th className="text-2xs font-bold text-muted uppercase text-center py-1 pl-2"> </th>
+              <th className="text-2xs font-bold text-muted uppercase text-center py-1 pl-1"> </th>
             </tr>
           </thead>
           <tbody>
@@ -234,13 +235,13 @@ function SlotTable({
               return (
                 <tr key={row.setIndex} className={`border-b border-rule/50 ${rowClasses}`}>
                   {/* Set label */}
-                  <td className="text-sm tabular-nums py-1.5 pr-2">
+                  <td className="text-sm tabular-nums py-1.5 pr-1">
                     {row.label}
                     {row.isAmrap && <span className="text-accent font-bold ml-0.5">+</span>}
                   </td>
 
                   {/* Weight (read-only, from program) */}
-                  <td className="text-sm tabular-nums text-right py-1.5 px-2">
+                  <td className="text-sm tabular-nums text-right py-1.5 px-1">
                     {noWeight ? (
                       <span className="text-muted">{EM_DASH}</span>
                     ) : isConfirmed ? (
@@ -255,7 +256,7 @@ function SlotTable({
                   </td>
 
                   {/* Reps (input — only thing the user enters) */}
-                  <td className="text-sm tabular-nums text-right py-1.5 px-2">
+                  <td className="text-sm tabular-nums text-right py-1.5 px-1">
                     {isConfirmed && log ? (
                       <span className={metTarget ? 'text-ok' : 'text-fail'}>{log.reps}</span>
                     ) : isDone && log ? (
@@ -284,14 +285,14 @@ function SlotTable({
                     )}
                   </td>
 
-                  {/* Target reps \u2014 fills the previously empty horizontal space */}
-                  <td className="text-sm tabular-nums text-right py-1.5 px-2 text-muted">
+                  {/* Target reps */}
+                  <td className="text-sm tabular-nums text-right py-1.5 px-1 text-muted">
                     {row.plannedReps}
                     {row.isAmrap ? '+' : ''}
                   </td>
 
                   {/* Confirm button */}
-                  <td className="text-center py-1.5 pl-2">
+                  <td className="text-center py-1.5 pl-1">
                     {isConfirmed ? (
                       <span
                         className={`inline-flex items-center justify-center w-8 h-8 text-sm font-bold rounded-sm animate-[pop-in_0.2s_cubic-bezier(0.16,1,0.3,1)] ${metTarget ? 'text-ok bg-ok-bg' : 'text-fail bg-fail-bg'}`}

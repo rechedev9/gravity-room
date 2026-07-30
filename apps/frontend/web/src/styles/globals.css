@@ -199,49 +199,52 @@
  * re-theme without component changes. Accents stay restrained — never neon.
  * ─────────────────────────────────────────────────────────────────────────── */
 
-/* Classic light — cool paper, charcoal type, restrained indigo accent */
+/* Classic light — warm paper, charcoal type, forged-gold accent (brand-aligned).
+ * Surfaces stay light; the scarce accent voice is the same warm gold family as
+ * the default Gold theme (hue ~80), not a cool indigo. */
 html[data-theme='classic-light'] {
   color-scheme: light;
 
-  --color-body: oklch(0.97 0.004 250);
-  --color-card: oklch(1 0 0);
-  --color-surface-2: oklch(0.94 0.006 250);
-  --color-header: oklch(0.955 0.005 250);
-  --color-ink: oklch(0.22 0.02 255);
-  --color-th: oklch(0.94 0.006 250);
-  --color-hover-row: oklch(0.94 0.008 250);
-  --color-progress-track: oklch(0.9 0.008 250);
-  --color-changed: oklch(0.92 0.03 255);
+  --color-body: oklch(0.97 0.008 85);
+  --color-card: oklch(1 0.002 85);
+  --color-surface-2: oklch(0.94 0.012 85);
+  --color-header: oklch(0.955 0.01 85);
+  --color-ink: oklch(0.22 0.02 70);
+  --color-th: oklch(0.94 0.012 85);
+  --color-hover-row: oklch(0.94 0.014 85);
+  --color-progress-track: oklch(0.9 0.014 85);
+  --color-changed: oklch(0.94 0.04 85);
   --color-error-bg: oklch(0.95 0.03 25);
-  --color-tooltip-bg: oklch(0.22 0.02 255);
+  --color-tooltip-bg: oklch(0.22 0.02 70);
 
-  --color-main: oklch(0.22 0.02 255);
-  --color-title: oklch(0.18 0.025 255);
-  --color-heading: oklch(0.18 0.025 255);
-  --color-muted: oklch(0.45 0.02 255);
-  --color-label: oklch(0.48 0.018 255);
-  --color-info: oklch(0.48 0.018 255);
+  --color-main: oklch(0.22 0.02 70);
+  --color-title: oklch(0.18 0.025 70);
+  --color-heading: oklch(0.18 0.025 70);
+  --color-muted: oklch(0.45 0.02 75);
+  --color-label: oklch(0.48 0.02 75);
+  --color-info: oklch(0.48 0.02 75);
   --color-error: oklch(0.52 0.18 25);
-  --color-tooltip-text: oklch(0.97 0.004 250);
+  --color-tooltip-text: oklch(0.97 0.008 85);
 
-  --color-rule: oklch(0.88 0.01 250);
-  --color-rule-light: oklch(0.78 0.014 250);
+  --color-rule: oklch(0.88 0.014 80);
+  --color-rule-light: oklch(0.78 0.02 80);
   --color-error-line: oklch(0.7 0.08 25);
 
-  --color-accent: oklch(0.48 0.16 265);
-  --color-accent-hover: oklch(0.42 0.17 265);
-  --color-accent-deep: oklch(0.4 0.14 265);
-  --color-accent-dim: oklch(0.78 0.06 265);
-  --color-on-accent: oklch(0.99 0.005 250);
-  --color-btn-ring: oklch(0.48 0.16 265);
-  --color-btn: oklch(1 0 0);
-  --color-btn-text: oklch(0.48 0.16 265);
-  --color-btn-active: oklch(0.48 0.16 265);
-  --color-btn-active-text: oklch(0.99 0.005 250);
+  /* Deep gold for contrast on white paper (lighter gold fails AA on card). */
+  --color-accent: oklch(0.55 0.14 80);
+  --color-accent-hover: oklch(0.48 0.145 80);
+  --color-accent-deep: oklch(0.42 0.12 78);
+  --color-accent-dim: oklch(0.88 0.05 85);
+  --color-on-accent: oklch(0.99 0.005 85);
+  --color-btn-ring: oklch(0.55 0.14 80);
+  --color-btn: oklch(1 0.002 85);
+  --color-btn-text: oklch(0.55 0.14 80);
+  --color-btn-active: oklch(0.55 0.14 80);
+  --color-btn-active-text: oklch(0.99 0.005 85);
 
-  --color-victory: oklch(0.48 0.16 265);
-  --color-victory-on: oklch(0.99 0.005 250);
-  --color-victory-glow: oklch(0.48 0.16 265 / 0);
+  --color-victory: oklch(0.55 0.14 80);
+  --color-victory-on: oklch(0.99 0.005 85);
+  --color-victory-glow: oklch(0.55 0.14 80 / 0);
 
   --color-online: oklch(0.52 0.14 150);
   --color-ok-bg: oklch(0.94 0.03 150);
@@ -252,33 +255,33 @@ html[data-theme='classic-light'] {
   --color-fail: oklch(0.52 0.18 25);
   --color-warn: oklch(0.62 0.14 70);
 
-  --color-stage-1: oklch(0.22 0.02 255);
+  --color-stage-1: oklch(0.22 0.02 70);
   --color-stage-2: oklch(0.55 0.14 50);
   --color-stage-3: oklch(0.5 0.18 25);
 
-  --color-chart-grid: oklch(0.88 0.01 250);
-  --color-chart-text: oklch(0.48 0.018 255);
-  --color-chart-line: oklch(0.48 0.16 265);
+  --color-chart-grid: oklch(0.88 0.014 80);
+  --color-chart-text: oklch(0.48 0.02 75);
+  --color-chart-line: oklch(0.55 0.14 80);
   --color-chart-ok: oklch(0.48 0.13 150);
   --color-chart-fail: oklch(0.52 0.18 25);
-  --color-chart-pr: oklch(0.48 0.16 265);
+  --color-chart-pr: oklch(0.55 0.14 80);
 
-  --color-heat: oklch(0.72 0.08 265);
+  --color-heat: oklch(0.78 0.08 80);
 
-  --color-sidebar: oklch(0.985 0.003 250);
-  --color-sidebar-active: oklch(0.94 0.012 265);
-  --color-sidebar-border: oklch(0.88 0.01 250);
+  --color-sidebar: oklch(0.985 0.006 85);
+  --color-sidebar-active: oklch(0.94 0.02 85);
+  --color-sidebar-border: oklch(0.88 0.014 80);
 
-  --shadow-card: 0 1px 2px 0 oklch(0.3 0.02 255 / 0.08);
-  --shadow-elevated: 0 12px 32px 0 oklch(0.3 0.02 255 / 0.12);
-  --shadow-dialog: 0 8px 28px 0 oklch(0.3 0.02 255 / 0.14);
-  --shadow-inset-subtle: inset 0 0 0 1px oklch(0.3 0.02 255 / 0.04);
-  --shadow-card-hover: 0 4px 16px 0 oklch(0.3 0.02 255 / 0.1);
-  --shadow-toolbar: 0 1px 0 0 oklch(0.3 0.02 255 / 0.06);
+  --shadow-card: 0 1px 2px 0 oklch(0.3 0.02 70 / 0.08);
+  --shadow-elevated: 0 12px 32px 0 oklch(0.3 0.02 70 / 0.12);
+  --shadow-dialog: 0 8px 28px 0 oklch(0.3 0.02 70 / 0.14);
+  --shadow-inset-subtle: inset 0 0 0 1px oklch(0.3 0.02 70 / 0.04);
+  --shadow-card-hover: 0 4px 16px 0 oklch(0.3 0.02 70 / 0.1);
+  --shadow-toolbar: 0 1px 0 0 oklch(0.3 0.02 70 / 0.06);
   --shadow-pressed-steel: inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -2px 0 oklch(0 0 0 / 0.12);
 }
 
-/* Classic dark — neutral charcoal (no warm iron tint), cool steel accent */
+/* Classic dark — neutral charcoal surfaces, forged-gold accent (same voice as Gold). */
 html[data-theme='classic-dark'] {
   color-scheme: dark;
 
@@ -290,37 +293,37 @@ html[data-theme='classic-dark'] {
   --color-th: oklch(0.24 0.012 260);
   --color-hover-row: oklch(0.24 0.012 260);
   --color-progress-track: oklch(0.24 0.012 260);
-  --color-changed: oklch(0.28 0.04 265);
+  --color-changed: oklch(0.28 0.04 80);
   --color-error-bg: oklch(0.24 0.05 25);
   --color-tooltip-bg: oklch(0.13 0.008 260);
 
-  --color-main: oklch(0.93 0.008 250);
-  --color-title: oklch(0.96 0.006 250);
-  --color-heading: oklch(0.96 0.006 250);
-  --color-muted: oklch(0.72 0.015 255);
-  --color-label: oklch(0.62 0.018 255);
-  --color-info: oklch(0.62 0.018 255);
+  --color-main: oklch(0.93 0.008 85);
+  --color-title: oklch(0.96 0.006 85);
+  --color-heading: oklch(0.96 0.006 85);
+  --color-muted: oklch(0.72 0.015 80);
+  --color-label: oklch(0.62 0.018 80);
+  --color-info: oklch(0.62 0.018 80);
   --color-error: oklch(0.7 0.16 25);
-  --color-tooltip-text: oklch(0.93 0.008 250);
+  --color-tooltip-text: oklch(0.93 0.008 85);
 
   --color-rule: oklch(0.3 0.014 260);
   --color-rule-light: oklch(0.4 0.018 260);
   --color-error-line: oklch(0.42 0.08 25);
 
-  --color-accent: oklch(0.72 0.12 270);
-  --color-accent-hover: oklch(0.78 0.12 270);
-  --color-accent-deep: oklch(0.58 0.11 270);
-  --color-accent-dim: oklch(0.38 0.06 270);
-  --color-on-accent: oklch(0.14 0.02 270);
-  --color-btn-ring: oklch(0.72 0.12 270);
+  --color-accent: oklch(0.8 0.145 84);
+  --color-accent-hover: oklch(0.85 0.145 86);
+  --color-accent-deep: oklch(0.62 0.115 80);
+  --color-accent-dim: oklch(0.42 0.06 80);
+  --color-on-accent: oklch(0.13 0.01 70);
+  --color-btn-ring: oklch(0.8 0.145 84);
   --color-btn: oklch(0.2 0.01 260);
-  --color-btn-text: oklch(0.72 0.12 270);
-  --color-btn-active: oklch(0.72 0.12 270);
-  --color-btn-active-text: oklch(0.14 0.02 270);
+  --color-btn-text: oklch(0.8 0.145 84);
+  --color-btn-active: oklch(0.8 0.145 84);
+  --color-btn-active-text: oklch(0.13 0.01 70);
 
-  --color-victory: oklch(0.72 0.12 270);
-  --color-victory-on: oklch(0.14 0.02 270);
-  --color-victory-glow: oklch(0.72 0.12 270 / 0);
+  --color-victory: oklch(0.8 0.145 84);
+  --color-victory-on: oklch(0.13 0.01 70);
+  --color-victory-glow: oklch(0.8 0.145 84 / 0);
 
   --color-online: oklch(0.72 0.12 155);
   --color-ok-bg: oklch(0.24 0.04 155);
@@ -331,21 +334,21 @@ html[data-theme='classic-dark'] {
   --color-fail: oklch(0.7 0.16 25);
   --color-warn: oklch(0.78 0.12 75);
 
-  --color-stage-1: oklch(0.93 0.008 250);
+  --color-stage-1: oklch(0.93 0.008 85);
   --color-stage-2: oklch(0.7 0.14 55);
   --color-stage-3: oklch(0.62 0.18 25);
 
   --color-chart-grid: oklch(0.3 0.014 260);
-  --color-chart-text: oklch(0.62 0.018 255);
-  --color-chart-line: oklch(0.72 0.12 270);
+  --color-chart-text: oklch(0.62 0.018 80);
+  --color-chart-line: oklch(0.8 0.145 84);
   --color-chart-ok: oklch(0.72 0.12 155);
   --color-chart-fail: oklch(0.7 0.16 25);
-  --color-chart-pr: oklch(0.72 0.12 270);
+  --color-chart-pr: oklch(0.8 0.145 84);
 
-  --color-heat: oklch(0.42 0.08 270);
+  --color-heat: oklch(0.42 0.08 80);
 
   --color-sidebar: oklch(0.13 0.008 260);
-  --color-sidebar-active: oklch(0.22 0.014 265);
+  --color-sidebar-active: oklch(0.24 0.02 80);
   --color-sidebar-border: oklch(0.3 0.014 260);
 
   --shadow-card: 0 1px 2px 0 oklch(0 0 0 / 0.35);

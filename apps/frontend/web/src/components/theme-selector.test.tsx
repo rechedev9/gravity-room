@@ -6,7 +6,11 @@ import { ThemeSelector } from './theme-selector';
 
 describe('ThemeSelector', () => {
   beforeEach(async () => {
-    localStorage.clear();
+    try {
+      localStorage.clear();
+    } catch {
+      /* Node experimental localStorage may lack clear() */
+    }
     document.documentElement.removeAttribute('data-theme');
     await i18n.changeLanguage('en');
   });

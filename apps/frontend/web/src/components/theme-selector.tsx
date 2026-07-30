@@ -18,12 +18,14 @@ const THEME_META: readonly {
   {
     id: 'classic-light',
     labelKey: 'theme_selector.classic_light',
-    swatch: 'linear-gradient(135deg, oklch(0.97 0.004 250) 45%, oklch(0.48 0.16 265) 45%)',
+    // Warm paper + deep gold accent (brand-aligned).
+    swatch: 'linear-gradient(135deg, oklch(0.97 0.008 85) 45%, oklch(0.55 0.14 80) 45%)',
   },
   {
     id: 'classic-dark',
     labelKey: 'theme_selector.classic_dark',
-    swatch: 'linear-gradient(135deg, oklch(0.16 0.008 260) 45%, oklch(0.72 0.12 270) 45%)',
+    // Neutral charcoal + forged gold accent.
+    swatch: 'linear-gradient(135deg, oklch(0.16 0.008 260) 45%, oklch(0.8 0.145 84) 45%)',
   },
 ];
 

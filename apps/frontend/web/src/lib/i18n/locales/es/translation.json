@@ -1025,7 +1025,9 @@
     },
     "rpe_select": {
       "label": "RPE",
-      "placeholder": "Seleccionar"
+      "placeholder": "Seleccionar",
+      "none": "RPE -",
+      "value": "RPE {{n}}"
     },
     "stage_tag": {
       "title_template": "Etapa {{n}}: {{label}}",
