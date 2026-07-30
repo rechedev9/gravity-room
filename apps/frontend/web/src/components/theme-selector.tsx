@@ -7,23 +7,27 @@ import { useThemePreference } from '@/hooks/use-theme-preference';
 const THEME_META: readonly {
   readonly id: ThemeId;
   readonly labelKey: string;
+  readonly hintKey: string;
   readonly swatch: string;
 }[] = [
   {
     id: 'gold',
     labelKey: 'theme_selector.gold',
+    hintKey: 'theme_selector.gold_hint',
     // Warm iron + gold — matches the forged-iron signature.
     swatch: 'linear-gradient(135deg, oklch(0.14 0.01 70) 45%, oklch(0.8 0.145 84) 45%)',
   },
   {
     id: 'classic-light',
     labelKey: 'theme_selector.classic_light',
+    hintKey: 'theme_selector.classic_light_hint',
     // Warm paper + deep gold accent (brand-aligned).
     swatch: 'linear-gradient(135deg, oklch(0.97 0.008 85) 45%, oklch(0.55 0.14 80) 45%)',
   },
   {
     id: 'classic-dark',
     labelKey: 'theme_selector.classic_dark',
+    hintKey: 'theme_selector.classic_dark_hint',
     // Neutral charcoal + forged gold accent.
     swatch: 'linear-gradient(135deg, oklch(0.16 0.008 260) 45%, oklch(0.8 0.145 84) 45%)',
   },
@@ -79,6 +83,9 @@ export function ThemeSelector({ className, compact = false }: ThemeSelectorProps
       {THEME_META.map((item, index) => {
         const selected = theme === item.id;
         const label = t(item.labelKey);
+        const hint = t(item.hintKey);
+        // Compact sidebar still shows a short mono label so the three swatches
+        // are discoverable without hovering (aria-label alone is not enough).
         return (
           <button
             key={item.id}
@@ -88,15 +95,15 @@ export function ThemeSelector({ className, compact = false }: ThemeSelectorProps
             type="button"
             role="radio"
             aria-checked={selected}
-            aria-label={label}
-            title={label}
+            aria-label={`${label}. ${hint}`}
+            title={`${label} — ${hint}`}
             tabIndex={selected ? 0 : -1}
             data-theme-option={item.id}
             onClick={() => setTheme(item.id)}
             onKeyDown={(event) => handleKeyDown(event, index)}
             className={cn(
-              'flex items-center justify-center gap-1.5 min-h-11 min-w-11 rounded-sm transition-all cursor-pointer',
-              compact ? 'px-2' : 'px-2.5 py-1',
+              'flex items-center justify-center gap-1.5 min-h-11 rounded-sm transition-all cursor-pointer',
+              compact ? 'min-w-11 px-1.5 flex-col py-1' : 'min-w-11 px-2.5 py-1',
               selected
                 ? 'bg-accent text-on-accent ring-1 ring-accent'
                 : 'text-muted hover:text-main hover:bg-[var(--color-surface-2)]'
@@ -107,11 +114,14 @@ export function ThemeSelector({ className, compact = false }: ThemeSelectorProps
               className="block h-3.5 w-3.5 shrink-0 rounded-full border border-rule-light"
               style={{ background: item.swatch }}
             />
-            {compact ? null : (
-              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.05em]">
-                {label}
-              </span>
-            )}
+            <span
+              className={cn(
+                'font-mono font-bold uppercase tracking-[0.05em]',
+                compact ? 'text-[9px] leading-none' : 'text-[10px]'
+              )}
+            >
+              {label}
+            </span>
           </button>
         );
       })}

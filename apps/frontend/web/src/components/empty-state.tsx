@@ -27,6 +27,11 @@ interface EmptyStateProps {
   readonly body?: ReactNode;
   /** Optional single gold primary CTA — the conversion action out of the empty state. */
   readonly action?: EmptyStateAction;
+  /**
+   * Optional slot below the primary CTA for a secondary (non-gold) control.
+   * Keep gold scarce: never pass another primary/accent button here.
+   */
+  readonly children?: ReactNode;
   readonly className?: string;
 }
 
@@ -46,6 +51,7 @@ export function EmptyState({
   title,
   body,
   action,
+  children,
   className,
 }: EmptyStateProps): ReactNode {
   return (
@@ -86,6 +92,8 @@ export function EmptyState({
           )}
         </div>
       ) : null}
+
+      {children}
     </div>
   );
 }

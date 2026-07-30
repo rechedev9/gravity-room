@@ -1,5 +1,6 @@
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import { useTranslation } from 'react-i18next';
+import { localizedConfigFieldLabel } from '@/lib/catalog-display';
 
 interface WeightsPillProps {
   readonly definition: ProgramDefinition;
@@ -7,18 +8,20 @@ interface WeightsPillProps {
   readonly onEdit: () => void;
 }
 
-/** Build a compact summary string: "Sentadilla 80 · Press Banca 55 · +2 more" */
+/** Build a compact summary string: "Squat 80 · Bench 55 · +2 more" */
 export function buildWeightsSummary(
   config: Record<string, number | string>,
   fields: ProgramDefinition['configFields'],
-  overflowLabel: (n: number) => string
+  overflowLabel: (n: number) => string,
+  localizeLabel: (key: string, fallback: string) => string = (_k, f) => f
 ): string {
   const weightFields = fields.filter((f) => f.type === 'weight');
   const shown = weightFields.slice(0, 4);
   const overflow = weightFields.length - 4;
   const parts = shown.map((f) => {
+    const label = localizeLabel(f.key, f.label);
     const val = config[f.key];
-    return val !== undefined ? `${f.label} ${val}` : f.label;
+    return val !== undefined ? `${label} ${val}` : label;
   });
   if (overflow > 0) parts.push(overflowLabel(overflow));
   return parts.join(' · ');
@@ -26,8 +29,11 @@ export function buildWeightsSummary(
 
 export function WeightsPill({ definition, config, onEdit }: WeightsPillProps): React.ReactNode {
   const { t } = useTranslation();
-  const summary = buildWeightsSummary(config, definition.configFields, (n) =>
-    t('tracker.setup_form.overflow_indicator', { n })
+  const summary = buildWeightsSummary(
+    config,
+    definition.configFields,
+    (n) => t('tracker.setup_form.overflow_indicator', { n }),
+    (key, fallback) => localizedConfigFieldLabel(t, key, fallback)
   );
   return (
     <div

@@ -17,6 +17,27 @@ import { useChartTheme, formatChartDate, type ChartTheme } from './chart-theme';
 
 const MAX_LABELS = 6;
 
+/**
+ * With few real sessions the full program projection looks like fabricated
+ * history. Until this many real points exist, only a short horizon is drawn.
+ */
+export const PROJECTION_MIN_REAL_FOR_FULL = 3;
+/** How many projected points to show when the series is still sparse. */
+export const PROJECTION_HORIZON_WHEN_SPARSE = 6;
+/** Dimmer than the solid logged series so forecast never reads as data. */
+export const PROJECTION_STROKE_OPACITY = 0.18;
+
+/**
+ * Last data index that may carry projection weight (inclusive).
+ * `lastMarkedIdx` is the last real session; sparse series get a short horizon.
+ */
+export function maxProjectedIndex(lastMarkedIdx: number, dataLength: number): number {
+  if (dataLength <= 0 || lastMarkedIdx < 0) return -1;
+  const realCount = lastMarkedIdx + 1;
+  if (realCount >= PROJECTION_MIN_REAL_FOR_FULL) return dataLength - 1;
+  return Math.min(dataLength - 1, lastMarkedIdx + PROJECTION_HORIZON_WHEN_SPARSE);
+}
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -264,6 +285,12 @@ export function LineChart({
     return bands;
   }, [data, lastMarkedIdx, mode, resultTimestamps]);
 
+  // Cap how far the projection runs when the user has almost no real data.
+  const projCapIdx = useMemo(
+    () => maxProjectedIndex(lastMarkedIdx, data.length),
+    [lastMarkedIdx, data.length]
+  );
+
   // Build chart points array
   const points = useMemo<ChartPoint[]>(() => {
     const labelInterval = Math.max(1, Math.ceil(data.length / MAX_LABELS));
@@ -273,14 +300,17 @@ export function LineChart({
       // Split the weight into two series so the logged sessions (solid gold) and
       // the planned projection (dashed/dimmed) read as different things. The
       // junction point (lastMarkedIdx) belongs to both so the lines join cleanly.
+      // Beyond `projCapIdx` the forecast is suppressed (sparse early sessions).
       const realWeight = i <= lastMarkedIdx ? d.weight : null;
-      const projWeight = i >= lastMarkedIdx ? d.weight : null;
+      const withinHorizon = i <= projCapIdx;
+      const projWeight =
+        withinHorizon && i >= lastMarkedIdx && lastMarkedIdx >= 0 ? d.weight : null;
 
       // A tick is emitted on the interval (and always for the final point). Skip
       // the label when it duplicates the previously emitted one so adjacent ticks
       // (e.g. the logged point and the first projected point both at the origin)
       // don't overprint as "#1#1". `_${i}` is a sentinel the tickFormatter blanks.
-      const wantsLabel = i % labelInterval === 0 || i === data.length - 1;
+      const wantsLabel = i % labelInterval === 0 || i === data.length - 1 || i === projCapIdx;
       let x = `_${i}`;
       if (wantsLabel) {
         const candidate = buildLabel(d, i, resultTimestamps);
@@ -305,7 +335,7 @@ export function LineChart({
         isProjected,
       };
     });
-  }, [data, lastMarkedIdx, prInfo, resultTimestamps]);
+  }, [data, lastMarkedIdx, projCapIdx, prInfo, resultTimestamps]);
 
   if (lastMarkedIdx < 0) {
     return (
@@ -331,7 +361,7 @@ export function LineChart({
     );
   }
 
-  const hasProjection = lastMarkedIdx < data.length - 1;
+  const hasProjection = lastMarkedIdx >= 0 && projCapIdx > lastMarkedIdx;
 
   const tickFormatter = (val: string): string => (val.startsWith('_') ? '' : val);
 
@@ -436,7 +466,7 @@ export function LineChart({
                 stroke={theme.line}
                 strokeWidth={2}
                 strokeDasharray="6 4"
-                strokeOpacity={0.3}
+                strokeOpacity={PROJECTION_STROKE_OPACITY}
                 dot={false}
                 activeDot={false}
                 connectNulls={false}

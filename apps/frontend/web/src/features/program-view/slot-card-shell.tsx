@@ -4,6 +4,7 @@ import type { GenericSlotRow } from '@gzclp/domain/types';
 import { StageTag } from './stage-tag';
 import { tierColorClass } from './tier-color';
 import { CornerTicks } from '@/components/corner-ticks';
+import { localizedExerciseName } from '@/lib/catalog-display';
 
 export interface SlotCardShellProps {
   readonly slot: GenericSlotRow;
@@ -25,6 +26,7 @@ export function SlotCardShell({ slot, isCurrent, children }: SlotCardShellProps)
   const isGpp = slot.isGpp === true;
   const showStage = slot.stagesCount > 1 && !hasPrescriptions && !isGpp;
   const isCurrentSlot = isCurrent && !fullyDone;
+  const exerciseLabel = localizedExerciseName(t, slot.exerciseId, slot.exerciseName);
 
   return (
     <div
@@ -34,6 +36,7 @@ export function SlotCardShell({ slot, isCurrent, children }: SlotCardShellProps)
         slot.isChanged && !isDone ? 'bg-changed' : ''
       }`}
       style={{ animation: 'card-enter var(--duration-fast) var(--ease-standard)' }}
+      data-slot-result={slot.result ?? 'open'}
     >
       {isCurrentSlot && <CornerTicks />}
       {/* Row 1: Tier + Exercise + Stage */}
@@ -43,11 +46,19 @@ export function SlotCardShell({ slot, isCurrent, children }: SlotCardShellProps)
         >
           {slot.tier.toUpperCase()}
         </span>
-        <span className="font-bold text-sm text-main truncate">{slot.exerciseName}</span>
+        <span className="font-bold text-sm text-main truncate">{exerciseLabel}</span>
         {showStage && slot.stage > 0 && <StageTag stage={slot.stage} size="sm" />}
         {slot.isDeload && (
           <span className="text-2xs font-bold text-muted tracking-wider uppercase font-mono">
             {'↓'} {t('tracker.day_view.deload_badge')}
+          </span>
+        )}
+        {slot.result === 'fail' && (
+          <span
+            className="text-2xs font-bold text-fail tracking-wider uppercase font-mono"
+            data-testid="slot-fail-badge"
+          >
+            {t('tracker.day_view.fail_badge')}
           </span>
         )}
       </div>

@@ -154,6 +154,26 @@
       "hypertrophy": "Hipertrofia",
       "powerlifting": "Powerlifting"
     },
+    "exercises": {
+      "squat": "Sentadilla",
+      "bench": "Press Banca",
+      "deadlift": "Peso Muerto",
+      "ohp": "Press Militar",
+      "latpulldown": "Jalón al Pecho",
+      "lat_pulldown": "Jalón al Pecho",
+      "dbrow": "Remo con Mancuernas",
+      "pullup": "Dominadas",
+      "seated_row": "Remo Sentado",
+      "face_pull": "Face Pull",
+      "hammer_curl": "Curl Martillo",
+      "incline_curl": "Curl Inclinado",
+      "bent_over_row": "Remo con Barra",
+      "incline_row": "Remo Inclinado",
+      "incline_db_press": "Press Inclinado Mancuernas",
+      "triceps_pushdown": "Extensión Tríceps Polea",
+      "triceps_extension": "Extensión Tríceps",
+      "lateral_raise": "Elevaciones Laterales"
+    },
     "meta": {
       "total_workouts": "{{count}} entrenamientos en total",
       "per_week": "{{count}} por semana",
@@ -868,7 +888,9 @@
       "close_aria": "Cerrar",
       "confirm_title": "Actualizar Pesos Iniciales",
       "confirm_message": "Tu historial de éxitos/fallos se conservará, pero los pesos proyectados cambiarán. ¿Continuar?",
-      "confirm_label": "Actualizar"
+      "confirm_label": "Actualizar",
+      "recalc_callout_title": "Recálculo",
+      "recalc_callout_body": "El historial (éxito/fallo/AMRAP) se conserva. Los pesos planificados futuros se recalcularán a partir de las nuevas cargas iniciales."
     },
     "toolbar": {
       "progress_aria": "Progreso de entrenamiento",
@@ -929,6 +951,7 @@
       "pending_title": "Objetivos de Graduación",
       "completed_description": "Has alcanzado todos los objetivos. Estás listo para el Protocolo JAW.",
       "pending_description": "Completa estos objetivos para graduarte al siguiente programa.",
+      "how_to_unlock": "Cumple cada criterio bajo carga con buena técnica. El progreso se comprueba con los objetivos de abajo a medida que entrenas.",
       "estimated_1rm_header": "Tus 1RM estimados (Epley):",
       "start_jaw": "Empezar Protocolo JAW",
       "keep_training": "Seguir entrenando"
@@ -945,7 +968,8 @@
     },
     "day_view": {
       "workout_aria": "Entrenamiento {{number}}",
-      "deload_badge": "Deload"
+      "deload_badge": "Deload",
+      "fail_badge": "Fallo"
     },
     "detailed_day_view": {
       "workout_aria": "Entrenamiento {{number}}",
@@ -1341,7 +1365,8 @@
   },
   "guest_banner": {
     "mode": "Modo invitado",
-    "prompt": "Crea una cuenta para guardar tu progreso",
+    "prompt": "Crea una cuenta para guardar tu progreso.",
+    "preserve_hint": "Tu programa actual se transferirá tras iniciar sesión.",
     "create_account": "Crear Cuenta",
     "create_account_aria": "Crear cuenta para guardar tu progreso"
   },
@@ -1596,6 +1621,9 @@
     "gold": "Oro",
     "classic_light": "Claro",
     "classic_dark": "Oscuro",
+    "gold_hint": "Hierro forjado con acento oro",
+    "classic_light_hint": "Papel cálido con acento oro",
+    "classic_dark_hint": "Carbón neutro con acento oro",
     "label": "Tema"
   },
   "program_overview": {

@@ -166,9 +166,11 @@ export function ProgramTabContent({
           />
         ))}
 
-      {/* 4. Secondary content moved below exercises */}
+      {/* 4. Secondary content moved below exercises.
+          Hide the Sensei tip once the selected day is COMPLETE — post-session
+          noise next to finished sets. */}
       <div className="mt-8 sm:mt-12 space-y-4">
-        <ZoneHint zone="tracker" />
+        {!isDayComplete ? <ZoneHint zone="tracker" /> : null}
         <ProgramAboutSection
           title={`${t('tracker.tab_content.about_label')} ${name}`}
           description={description}

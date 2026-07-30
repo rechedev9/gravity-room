@@ -154,6 +154,26 @@
       "hypertrophy": "Hypertrophy",
       "powerlifting": "Powerlifting"
     },
+    "exercises": {
+      "squat": "Squat",
+      "bench": "Bench Press",
+      "deadlift": "Deadlift",
+      "ohp": "Overhead Press",
+      "latpulldown": "Lat Pulldown",
+      "lat_pulldown": "Lat Pulldown",
+      "dbrow": "Dumbbell Row",
+      "pullup": "Pull-up",
+      "seated_row": "Seated Row",
+      "face_pull": "Face Pull",
+      "hammer_curl": "Hammer Curl",
+      "incline_curl": "Incline Curl",
+      "bent_over_row": "Bent-over Row",
+      "incline_row": "Incline Row",
+      "incline_db_press": "Incline DB Press",
+      "triceps_pushdown": "Triceps Pushdown",
+      "triceps_extension": "Triceps Extension",
+      "lateral_raise": "Lateral Raise"
+    },
     "meta": {
       "total_workouts": "{{count}} total workouts",
       "per_week": "{{count}} per week",
@@ -868,7 +888,9 @@
       "close_aria": "Close",
       "confirm_title": "Update Starting Weights",
       "confirm_message": "Your success/fail history will be preserved, but projected weights will change. Continue?",
-      "confirm_label": "Update"
+      "confirm_label": "Update",
+      "recalc_callout_title": "Recalculation",
+      "recalc_callout_body": "History (success/fail/AMRAP) stays. Future planned weights will recompute from the new starting loads."
     },
     "toolbar": {
       "progress_aria": "Training progress",
@@ -929,6 +951,7 @@
       "pending_title": "Graduation Objectives",
       "completed_description": "You have achieved all objectives. You are ready for the JAW Protocol.",
       "pending_description": "Complete these objectives to graduate to the next program.",
+      "how_to_unlock": "Hit each criterion under load with solid technique. Progress is checked against the targets below as you train.",
       "estimated_1rm_header": "Your estimated 1RMs (Epley):",
       "start_jaw": "Start JAW Protocol",
       "keep_training": "Keep training"
@@ -945,7 +968,8 @@
     },
     "day_view": {
       "workout_aria": "Workout {{number}}",
-      "deload_badge": "Deload"
+      "deload_badge": "Deload",
+      "fail_badge": "Fail"
     },
     "detailed_day_view": {
       "workout_aria": "Workout {{number}}",
@@ -1341,7 +1365,8 @@
   },
   "guest_banner": {
     "mode": "Guest mode",
-    "prompt": "Create an account to save your progress",
+    "prompt": "Create an account to save your progress.",
+    "preserve_hint": "Your current program will be transferred after sign-in.",
     "create_account": "Create Account",
     "create_account_aria": "Create account to save your progress"
   },
@@ -1596,6 +1621,9 @@
     "gold": "Gold",
     "classic_light": "Light",
     "classic_dark": "Dark",
+    "gold_hint": "Forged iron with gold accent",
+    "classic_light_hint": "Warm paper with gold accent",
+    "classic_dark_hint": "Neutral charcoal with gold accent",
     "label": "Theme"
   },
   "program_overview": {

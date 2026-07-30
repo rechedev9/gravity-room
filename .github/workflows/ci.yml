@@ -324,6 +324,58 @@ jobs:
           category: gitleaks
 
   # ---------------------------------------------------------------------------
+  # Web e2e smoke — tracker visual polish + core interaction gates. Uses the
+  # Playwright config's webServer (API + SPA preview). Needs a throwaway
+  # Postgres so guest/auth-seeded flows can write programs.
+  # ---------------------------------------------------------------------------
+  e2e-smoke:
+    name: E2E smoke
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gravity_room
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/gravity_room
+      JWT_SECRET: ci-e2e-secret-not-a-real-secret-min-32-chars-long
+      AUTH_DEV_ROUTE_ENABLED: 'true'
+      AUTH_DEV_ROUTE_SECRET: e2e-dev-secret-not-for-prod
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations + seeds
+        run: pnpm --filter api db:deploy
+
+      - name: Install Playwright Chromium
+        working-directory: apps/frontend/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run e2e smoke
+        working-directory: apps/frontend/web
+        run: pnpm exec playwright test e2e/tracker-visual-polish.spec.ts e2e/tracker-interactions.spec.ts --reporter=github
+
+  # ---------------------------------------------------------------------------
   # Aggregate gate. Branch protection requires a single status check named
   # "Validate"; this job reports it and succeeds only when every job above
   # passed (a failed dependency leaves it skipped, which does not satisfy the
@@ -333,6 +385,17 @@ jobs:
     name: Validate
     runs-on: ubuntu-latest
     needs:
-      [web, api, domain, api-client, mobile, format, security-headers, api-types-drift, secret-scan]
+      [
+        web,
+        api,
+        domain,
+        api-client,
+        mobile,
+        format,
+        security-headers,
+        api-types-drift,
+        secret-scan,
+        e2e-smoke,
+      ]
     steps:
       - run: echo "All CI checks passed."

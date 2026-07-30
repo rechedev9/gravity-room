@@ -296,6 +296,18 @@ export function SetupForm({
           : (definition.configDescription ??
             t('tracker.setup_form.create_description_default', { name: localizedName }))}
       </p>
+      {isEditMode ? (
+        <div
+          role="note"
+          data-testid="setup-recalc-callout"
+          className="mb-5 px-3 py-2.5 border border-rule bg-surface-2 text-xs text-muted leading-relaxed rounded-[var(--radius-base)]"
+        >
+          <span className="font-bold uppercase tracking-widest text-2xs text-label block mb-1">
+            {t('tracker.setup_form.recalc_callout_title')}
+          </span>
+          {t('tracker.setup_form.recalc_callout_body')}
+        </div>
+      ) : null}
 
       <div className="mb-6 space-y-5">
         {groupedFields.map((group) => {

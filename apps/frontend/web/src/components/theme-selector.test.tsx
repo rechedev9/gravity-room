@@ -19,9 +19,9 @@ describe('ThemeSelector', () => {
     render(<ThemeSelector />);
 
     expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'Gold' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'Light' })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: 'Dark' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /^Gold\./i })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /^Light\./i })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /^Dark\./i })).toBeTruthy();
 
     await waitFor(() => {
       expect(document.documentElement.getAttribute('data-theme')).toBe('gold');
@@ -31,19 +31,22 @@ describe('ThemeSelector', () => {
   it('applies classic-light to the document root and persists it', async () => {
     render(<ThemeSelector />);
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Light' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^Light\./i }));
 
     await waitFor(() => {
       expect(document.documentElement.getAttribute('data-theme')).toBe('classic-light');
       expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('classic-light');
-      expect(screen.getByRole('radio', { name: 'Light' })).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getByRole('radio', { name: /^Light\./i })).toHaveAttribute(
+        'aria-checked',
+        'true'
+      );
     });
   });
 
   it('cycles gold → light → dark via arrow keys and marks the root each time', async () => {
     render(<ThemeSelector />);
 
-    const gold = screen.getByRole('radio', { name: 'Gold' });
+    const gold = screen.getByRole('radio', { name: /^Gold\./i });
     gold.focus();
     fireEvent.keyDown(gold, { key: 'ArrowRight' });
 
@@ -51,7 +54,7 @@ describe('ThemeSelector', () => {
       expect(document.documentElement.getAttribute('data-theme')).toBe('classic-light');
     });
 
-    const light = screen.getByRole('radio', { name: 'Light' });
+    const light = screen.getByRole('radio', { name: /^Light\./i });
     fireEvent.keyDown(light, { key: 'ArrowRight' });
 
     await waitFor(() => {
@@ -60,11 +63,15 @@ describe('ThemeSelector', () => {
     });
   });
 
-  it('compact mode hides text labels but keeps accessible names', () => {
+  it('compact mode keeps short visible labels and rich accessible names', () => {
     render(<ThemeSelector compact />);
 
-    expect(screen.getByRole('radio', { name: 'Gold' })).toBeTruthy();
-    // Visible label text is omitted in compact mode
-    expect(screen.queryByText('Gold')).toBeNull();
+    // Short mono labels stay visible so the three swatches are discoverable.
+    expect(screen.getByText('Gold')).toBeTruthy();
+    expect(screen.getByText('Light')).toBeTruthy();
+    expect(screen.getByText('Dark')).toBeTruthy();
+    expect(
+      screen.getByRole('radio', { name: /Gold\.\s+Forged iron with gold accent/i })
+    ).toBeTruthy();
   });
 });

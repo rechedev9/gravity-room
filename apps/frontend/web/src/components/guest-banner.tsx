@@ -24,7 +24,8 @@ export function GuestBanner({ className }: GuestBannerProps): React.ReactNode {
       className={`flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-xs bg-card border border-rule ${className ?? ''}`}
     >
       <span className="text-muted">
-        {t('guest_banner.mode')} &mdash; {t('guest_banner.prompt')}
+        {t('guest_banner.mode')} &mdash; {t('guest_banner.prompt')}{' '}
+        <span className="text-main/80">{t('guest_banner.preserve_hint')}</span>
       </span>
       <button
         type="button"

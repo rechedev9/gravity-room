@@ -42,4 +42,9 @@ describe('RestTimer', () => {
     fireEvent.click(screen.getByRole('button', { name: /saltar|skip/i }));
     expect(onSkip).toHaveBeenCalledTimes(1);
   });
+
+  it('focuses the skip control on mount for one-handed gym use', () => {
+    render(<RestTimer seconds={60} onSkip={vi.fn()} />);
+    expect(screen.getByTestId('rest-timer-skip')).toHaveFocus();
+  });
 });

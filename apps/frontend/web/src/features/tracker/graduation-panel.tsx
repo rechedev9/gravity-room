@@ -52,7 +52,11 @@ export function GraduationPanel({
   };
 
   return (
-    <div className="bg-card border border-rule p-4 sm:p-6 card">
+    <div
+      className="bg-card border border-rule p-4 sm:p-6 card"
+      data-testid="graduation-panel"
+      data-graduation={achieved.allPassed ? 'complete' : 'pending'}
+    >
       <h3 className="font-display text-xl text-title mb-1">
         {achieved.allPassed
           ? t('tracker.graduation.completed_title')
@@ -63,6 +67,11 @@ export function GraduationPanel({
           ? t('tracker.graduation.completed_description')
           : t('tracker.graduation.pending_description')}
       </p>
+      {!achieved.allPassed ? (
+        <p className="text-[12px] text-label mb-4 border-l-2 border-accent pl-3">
+          {t('tracker.graduation.how_to_unlock')}
+        </p>
+      ) : null}
 
       {/* Criteria checklist */}
       <div className="flex flex-col gap-3 mb-5">

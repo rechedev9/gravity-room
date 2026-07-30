@@ -16,6 +16,23 @@ export function localizedCategoryLabel(t: TFunction, category: string): string {
 }
 
 /**
+ * Resolves an exercise display name to the current UI language.
+ * Seeds keep a canonical Spanish `name`; when a translation key exists under
+ * `catalog.exercises.<id>` it wins, otherwise the seed fallback is shown.
+ */
+export function localizedExerciseName(t: TFunction, id: string, fallback: string): string {
+  return t(`catalog.exercises.${id}`, { defaultValue: fallback });
+}
+
+/**
+ * Resolves a weight-config field label (often an exercise name key like
+ * `squat`) for the current UI language. Falls back to the seed label.
+ */
+export function localizedConfigFieldLabel(t: TFunction, key: string, fallback: string): string {
+  return t(`catalog.exercises.${key}`, { defaultValue: fallback });
+}
+
+/**
  * SEO-optimised, keyword-led title for a program page (e.g. "GZCLP Linear
  * Progression…"). Returns undefined when no SEO override exists so the caller
  * falls back to the themed program name.

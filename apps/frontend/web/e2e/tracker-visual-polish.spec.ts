@@ -103,4 +103,32 @@ test.describe('Tracker visual polish', () => {
     expect(hue).toBeGreaterThanOrEqual(70);
     expect(hue).toBeLessThanOrEqual(95);
   });
+
+  test('theme selector shows short labels and edit weights surfaces recalc callout', async ({
+    page,
+  }) => {
+    // Compact selector still shows Oro / Claro / Oscuro text.
+    await expect(page.locator('[data-theme-option="gold"]')).toContainText(/oro/i);
+    await expect(page.locator('[data-theme-option="classic-light"]')).toContainText(/claro/i);
+
+    await page.getByTestId('weights-pill-edit').click();
+    await expect(page.getByTestId('setup-recalc-callout')).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId('setup-recalc-callout')).toContainText(/rec[aá]lculo/i);
+  });
+
+  test('Sensei tip is hidden once the day is complete', async ({ page }) => {
+    // Finish every confirmable set on day 1.
+    for (let i = 0; i < 20; i++) {
+      const next = page.locator('button[aria-label^="Confirmar serie"]:not([disabled])').first();
+      if ((await next.count()) === 0) break;
+      await next.click();
+      const skip = page.getByRole('button', { name: /saltar|omitir|continuar/i }).first();
+      if (await skip.isVisible({ timeout: 150 }).catch(() => false)) {
+        await skip.click().catch(() => {});
+      }
+    }
+    await expect(page.getByText(/COMPLETE|COMPLETO/i).first()).toBeVisible({ timeout: 10_000 });
+    // ZoneHint for tracker must not reappear under completed day content.
+    await expect(page.getByLabel('Consejo del Sensei')).toHaveCount(0);
+  });
 });
