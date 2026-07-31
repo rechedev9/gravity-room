@@ -1,8 +1,10 @@
+import { useEffect } from 'react';
 import { Link } from '@tanstack/react-router';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@/lib/api-functions';
-import { FadeUp, StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
+import { useInViewport } from '@/hooks/use-in-viewport';
+import { FadeUp, StaggerContainer, StaggerItem } from './landing-motion';
 import {
   localizedCategoryLabel,
   localizedProgramDescription,
@@ -44,10 +46,25 @@ export function ProgramsSection({
   // see the static sections in one language and the program cards in the other.
   const { i18n } = useTranslation();
   const t = i18n.getFixedT(lang);
-  const catalog = catalogQuery.data;
+  const { data: catalog, isFetching, isFetched, refetch } = catalogQuery;
+  const [sectionRef, isNearViewport] = useInViewport({ rootMargin: '600px' });
+
+  useEffect(() => {
+    if (catalog !== undefined || isFetching || isFetched) return;
+    if (isNearViewport) {
+      void refetch();
+      return;
+    }
+
+    // Keep the catalog available for direct link/preview flows without putting
+    // its request on the first viewport's critical path.
+    const timeoutId = window.setTimeout(() => void refetch(), 3000);
+    return () => window.clearTimeout(timeoutId);
+  }, [catalog, isFetched, isFetching, isNearViewport, refetch]);
 
   return (
     <section
+      ref={sectionRef}
       id="programs"
       aria-labelledby="programs-heading"
       className={`${SECTION_PAD} bg-header`}

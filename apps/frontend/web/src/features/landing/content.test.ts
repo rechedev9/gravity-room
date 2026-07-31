@@ -123,12 +123,12 @@ describe('landing content', () => {
         name: ES_CONTENT.hero.transformationControlLabel,
       })
     );
-    const trainedState = within(container).getByTestId('hero-trained-state');
 
     expect(control).toHaveAttribute('aria-pressed', 'false');
-    expect(trainedState).toHaveClass('opacity-0');
+    expect(within(container).queryByTestId('hero-trained-state')).not.toBeInTheDocument();
 
     fireEvent.pointerEnter(control, { pointerType: 'mouse' });
+    const trainedState = await waitFor(() => within(container).getByTestId('hero-trained-state'));
     expect(control).toHaveAttribute('aria-pressed', 'false');
     expect(trainedState).toHaveClass('opacity-100');
 

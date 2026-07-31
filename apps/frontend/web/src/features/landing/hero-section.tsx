@@ -1,9 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { motion, useReducedMotion } from 'motion/react';
 import { useGuest } from '@/contexts/guest-context';
 import { useAuth } from '@/contexts/auth-context';
-import { fadeUpVariants } from '@/lib/motion-primitives';
 import { trackEvent } from '@/lib/analytics';
 import type { HeroContent } from './content';
 
@@ -12,14 +10,23 @@ interface HeroSectionProps {
 }
 
 export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
-  const reduced = useReducedMotion();
-  const init = reduced ? 'visible' : 'hidden';
   const [isTransformationHovered, setTransformationHovered] = useState(false);
   const [isTransformationPinned, setTransformationPinned] = useState(false);
+  const [hasRequestedTrainedImage, setHasRequestedTrainedImage] = useState(false);
+  const [showAmbientImage, setShowAmbientImage] = useState(false);
   const showTrained = isTransformationHovered || isTransformationPinned;
   const { enterGuestMode } = useGuest();
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => setShowAmbientImage(true), 1200);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  const requestTrainedImage = (): void => {
+    setHasRequestedTrainedImage(true);
+  };
 
   const handleGuestStart = (): void => {
     trackEvent('landing_cta_click', { location: 'hero_guest' });
@@ -49,39 +56,45 @@ export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
           decoding="async"
           className="h-full w-full object-cover object-[82%_center] lg:origin-[75%_center] lg:scale-[1.08] lg:object-contain lg:object-right"
         />
-        <img
-          src="/landing-hero-trained.webp"
-          width={1672}
-          height={941}
-          alt=""
-          data-testid="hero-trained-state"
-          loading="eager"
-          decoding="async"
-          className={[
-            'absolute inset-0 h-full w-full object-cover object-[82%_center] lg:origin-[75%_center] lg:scale-[1.08] lg:object-contain lg:object-right',
-            reduced ? '' : 'transition-opacity duration-700 ease-out',
-            showTrained ? 'opacity-100' : 'opacity-0',
-          ].join(' ')}
-        />
+        {hasRequestedTrainedImage && (
+          <img
+            src="/landing-hero-trained.webp"
+            width={1672}
+            height={941}
+            alt=""
+            data-testid="hero-trained-state"
+            loading="eager"
+            fetchPriority="low"
+            decoding="async"
+            className={[
+              'absolute inset-0 h-full w-full object-cover object-[82%_center] lg:origin-[75%_center] lg:scale-[1.08] lg:object-contain lg:object-right',
+              'transition-opacity duration-700 ease-out',
+              showTrained ? 'opacity-100' : 'opacity-0',
+            ].join(' ')}
+          />
+        )}
       </div>
 
       <div
         className="pointer-events-none absolute inset-x-0 bottom-0 -z-[15] h-[42%] overflow-hidden lg:inset-0 lg:h-auto"
         aria-hidden="true"
       >
-        <img
-          src="/landing-gravity-chamber.webp"
-          width={1672}
-          height={941}
-          alt=""
-          loading="eager"
-          decoding="async"
-          className={[
-            'h-full w-full object-cover object-[75%_center] mix-blend-screen lg:object-center',
-            reduced ? '' : 'transition-[opacity,transform] duration-1000 ease-out',
-            showTrained ? 'scale-[1.015] opacity-25' : 'scale-100 opacity-[0.14]',
-          ].join(' ')}
-        />
+        {showAmbientImage && (
+          <img
+            src="/landing-gravity-chamber.webp"
+            width={1672}
+            height={941}
+            alt=""
+            loading="eager"
+            fetchPriority="low"
+            decoding="async"
+            className={[
+              'h-full w-full object-cover object-[75%_center] mix-blend-screen lg:object-center',
+              'transition-[opacity,transform] duration-1000 ease-out',
+              showTrained ? 'scale-[1.015] opacity-25' : 'scale-100 opacity-[0.14]',
+            ].join(' ')}
+          />
+        )}
       </div>
 
       <div
@@ -106,12 +119,16 @@ export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
         aria-label={content.transformationControlLabel}
         aria-pressed={isTransformationPinned}
         onPointerEnter={(event) => {
+          requestTrainedImage();
           if (event.pointerType !== 'touch') setTransformationHovered(true);
         }}
         onPointerLeave={(event) => {
           if (event.pointerType !== 'touch') setTransformationHovered(false);
         }}
-        onClick={() => setTransformationPinned((current) => !current)}
+        onClick={() => {
+          requestTrainedImage();
+          setTransformationPinned((current) => !current);
+        }}
         className="group absolute inset-x-0 bottom-0 z-10 h-[42%] cursor-crosshair focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent lg:inset-y-0 lg:right-0 lg:left-auto lg:h-full lg:w-[52%]"
       >
         <span className="sr-only">{content.transformationControlLabel}</span>
@@ -134,26 +151,17 @@ export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
       </button>
 
       <div className="pointer-events-none relative z-20 mx-auto flex min-h-[820px] max-w-7xl items-start px-6 pt-16 pb-[560px] sm:min-h-[850px] sm:px-10 sm:pt-20 sm:pb-[580px] lg:min-h-[calc(100svh-108px)] lg:items-center lg:px-12 lg:py-16">
-        <motion.div
-          initial={init}
-          animate="visible"
-          transition={{ staggerChildren: reduced ? 0 : 0.1 }}
-          className="pointer-events-auto flex w-full max-w-3xl flex-col items-start text-left lg:w-[56%] lg:max-w-none"
-        >
-          <motion.div
-            variants={fadeUpVariants}
-            className="mb-6 inline-flex items-center gap-3 border border-rule-light bg-card/80 px-4 py-2 font-mono backdrop-blur-sm"
-          >
+        <div className="landing-hero-copy pointer-events-auto flex w-full max-w-3xl flex-col items-start text-left lg:w-[56%] lg:max-w-none">
+          <div className="landing-hero-item mb-6 inline-flex items-center gap-3 border border-rule-light bg-card/80 px-4 py-2 font-mono">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden="true" />
             <span className="text-[10px] font-medium tracking-[0.08em] text-muted uppercase">
               {content.kicker}
             </span>
-          </motion.div>
+          </div>
 
-          <motion.h1
+          <h1
             id="hero-heading"
-            variants={fadeUpVariants}
-            className="hero-title-glow mb-6 font-display leading-[0.88] tracking-[0.01em] text-title uppercase"
+            className="landing-hero-item hero-title-glow mb-6 font-display leading-[0.88] tracking-[0.01em] text-title uppercase"
             style={{ fontSize: 'clamp(52px, 5.4vw, 92px)' }}
           >
             {content.line1}
@@ -170,19 +178,13 @@ export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
             >
               {content.line2}
             </span>
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            variants={fadeUpVariants}
-            className="mb-7 max-w-2xl text-base leading-relaxed text-main opacity-85 sm:text-xl"
-          >
+          <p className="landing-hero-item mb-7 max-w-2xl text-base leading-relaxed text-main opacity-85 sm:text-xl">
             {content.subtitle}
-          </motion.p>
+          </p>
 
-          <motion.div
-            variants={fadeUpVariants}
-            className="mb-4 flex flex-col items-start gap-3 sm:flex-row"
-          >
+          <div className="landing-hero-item mb-4 flex flex-col items-start gap-3 sm:flex-row">
             <Link
               to="/login"
               onClick={() => trackEvent('landing_cta_click', { location: 'hero_primary' })}
@@ -197,18 +199,14 @@ export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
             >
               {content.secondaryCta}
             </button>
-          </motion.div>
+          </div>
 
-          <motion.p
-            variants={fadeUpVariants}
-            className="mb-6 font-mono text-[11px] tracking-wider text-muted"
-          >
+          <p className="landing-hero-item mb-6 font-mono text-[11px] tracking-wider text-muted">
             {content.microcopy}
-          </motion.p>
+          </p>
 
-          <motion.ul
-            variants={fadeUpVariants}
-            className="flex flex-wrap gap-2 sm:gap-3"
+          <ul
+            className="landing-hero-item flex flex-wrap gap-2 sm:gap-3"
             aria-label={content.proofListAriaLabel}
           >
             {content.proofItems.map((item) => (
@@ -222,8 +220,8 @@ export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
                 {item.label}
               </li>
             ))}
-          </motion.ul>
-        </motion.div>
+          </ul>
+        </div>
       </div>
     </section>
   );

@@ -56,6 +56,8 @@ export function LandingPageShell({ content, head, lang }: LandingPageShellProps)
     queryKey: queryKeys.catalog.list(),
     queryFn: fetchCatalogList,
     staleTime: CATALOG_STALE_TIME,
+    enabled: false,
+    retry: false,
   });
   const catalog = catalogQuery.data;
   const programCount = catalog?.length ?? 0;

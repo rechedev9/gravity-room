@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { useScroll, useMotionValueEvent } from 'motion/react';
 import type { NavContent } from './content';
 import { DISCORD_URL, DiscordIcon } from './shared';
 
@@ -12,10 +11,24 @@ interface NavBarProps {
 export function NavBar({ activeSection, content }: NavBarProps): React.ReactNode {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { scrollY } = useScroll();
-  useMotionValueEvent(scrollY, 'change', (latest: number) => {
-    setScrolled(latest > 80);
-  });
+
+  useEffect(() => {
+    let frame = 0;
+    const onScroll = (): void => {
+      if (frame !== 0) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        setScrolled(window.scrollY > 80);
+      });
+    };
+
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (frame !== 0) window.cancelAnimationFrame(frame);
+    };
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;

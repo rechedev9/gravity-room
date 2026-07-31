@@ -1,4 +1,4 @@
-import { FadeUp, StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
+import { FadeUp, StaggerContainer, StaggerItem } from './landing-motion';
 import { SECTION_PAD, SectionHeader } from './shared';
 import type { HowItWorksContent } from './content';
 

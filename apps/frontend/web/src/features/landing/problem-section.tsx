@@ -1,4 +1,4 @@
-import { FadeUp, StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
+import { FadeUp, StaggerContainer, StaggerItem } from './landing-motion';
 import { SECTION_PAD, SectionLabel } from './shared';
 import type { ProblemContent } from './content';
 

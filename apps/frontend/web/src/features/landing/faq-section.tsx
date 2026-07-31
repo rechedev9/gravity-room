@@ -1,9 +1,10 @@
 import { Link } from '@tanstack/react-router';
-import { FadeUp } from '@/lib/motion-primitives';
+import { FadeUp } from './landing-motion';
 import { SECTION_PAD, SectionLabel } from './shared';
 import type { FaqContent, FinalCtaContent } from './content';
 import { buildFaqJsonLd } from './faq-content';
 import { trackEvent } from '@/lib/analytics';
+import { useInViewport } from '@/hooks/use-in-viewport';
 
 interface FaqSectionProps {
   readonly content: FaqContent;
@@ -13,6 +14,7 @@ interface FaqSectionProps {
 export function FaqSection({ content, finalCta }: FaqSectionProps): React.ReactNode {
   const jsonLd = buildFaqJsonLd(content.items);
   const jsonLdText = JSON.stringify(jsonLd).replace(/</g, '\\u003c');
+  const [ctaBackgroundRef, ctaBackgroundVisible] = useInViewport({ rootMargin: '300px' });
   return (
     <section id="faq" aria-labelledby="faq-heading" className={`${SECTION_PAD} max-w-5xl mx-auto`}>
       <script type="application/ld+json">{jsonLdText}</script>
@@ -68,13 +70,18 @@ export function FaqSection({ content, finalCta }: FaqSectionProps): React.ReactN
 
       <FadeUp className="relative mt-10 overflow-hidden border border-accent/30 bg-card px-6 py-10 sm:px-10 text-center">
         <div
+          ref={ctaBackgroundRef}
           className="absolute inset-0 opacity-10 pointer-events-none"
           aria-hidden="true"
-          style={{
-            backgroundImage: 'url(/landing-final-cta-bg.webp)',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
+          style={
+            ctaBackgroundVisible
+              ? {
+                  backgroundImage: 'url(/landing-final-cta-bg.webp)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }
+              : undefined
+          }
         />
         <div className="relative z-10 max-w-2xl mx-auto">
           <p className="font-mono text-[10px] tracking-[0.08em] uppercase text-accent mb-4">

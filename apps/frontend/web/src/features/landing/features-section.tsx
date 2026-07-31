@@ -1,4 +1,4 @@
-import { FadeUp, StaggerContainer, StaggerItem } from '@/lib/motion-primitives';
+import { FadeUp, StaggerContainer, StaggerItem } from './landing-motion';
 import { SECTION_PAD, SectionHeader } from './shared';
 import type { FeaturesContent } from './content';
 
@@ -60,6 +60,8 @@ export function FeaturesSection({ content }: FeaturesSectionProps): React.ReactN
                     aria-hidden="true"
                     width={icon.width}
                     height={icon.height}
+                    loading="lazy"
+                    fetchPriority="low"
                     className={icon.className}
                   />
                 )}

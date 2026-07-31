@@ -1,6 +1,4 @@
 import { Link } from '@tanstack/react-router';
-import { motion, useReducedMotion } from 'motion/react';
-import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
 import type { FooterContent, NavLink } from './content';
 
 /* ── Constants ────────────────────────────────────── */
@@ -17,17 +15,7 @@ export const SECTION_PAD = 'px-6 sm:px-10 py-12 sm:py-16';
 /* ── Gradient Divider ─────────────────────────────── */
 
 export function GradientDivider(): React.ReactNode {
-  const reduced = useReducedMotion();
-  return (
-    <motion.div
-      className="landing-gradient-divider"
-      initial={reduced ? undefined : { scaleX: 0 }}
-      whileInView={reduced ? undefined : { scaleX: 1 }}
-      viewport={{ once: true, margin: '0px 0px -10px 0px' }}
-      transition={{ duration: 0.9, ease: EASE_OUT_EXPO }}
-      style={{ transformOrigin: 'center' }}
-    />
-  );
+  return <div className="landing-gradient-divider" aria-hidden="true" />;
 }
 
 /* ── Section label ────────────────────────────────── */
