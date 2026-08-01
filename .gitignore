@@ -21,6 +21,11 @@ dist
 .DS_Store
 *.pem
 
+# Expo local cache / generated native projects
+.expo/
+apps/frontend/mobile/.expo/
+
+
 # local audit artifacts (agent-generated reports, not part of source)
 audit/
 

@@ -9,6 +9,7 @@ const mockSignUpWithEmail = jest.fn<
   Promise<AuthActionResult>,
   [string, string, string | undefined]
 >();
+const mockSignInWithDev = jest.fn<Promise<AuthActionResult>, []>();
 const mockPromptAsync = jest.fn<Promise<string | null>, []>();
 const mockUseGoogleIdTokenPrompt = jest.fn<
   { readonly disabled: boolean; readonly promptAsync: () => Promise<string | null> },
@@ -20,6 +21,7 @@ jest.mock('../../app/auth-provider', () => ({
     signInWithGoogle: mockSignInWithGoogle,
     signInWithEmail: mockSignInWithEmail,
     signUpWithEmail: mockSignUpWithEmail,
+    signInWithDev: mockSignInWithDev,
   }),
 }));
 
@@ -40,7 +42,20 @@ describe('LoginScreen', () => {
     mockSignInWithGoogle.mockReset();
     mockSignInWithEmail.mockReset();
     mockSignUpWithEmail.mockReset();
+    mockSignInWithDev.mockReset();
     mockUseGoogleIdTokenPrompt.mockReset();
+  });
+
+  it('calls signInWithDev when the Dev Login button is pressed', async () => {
+    mockSignInWithDev.mockResolvedValue({ ok: true });
+
+    render(<LoginScreen />);
+
+    fireEvent.press(screen.getByTestId('dev-login-button'));
+
+    await waitFor(() => {
+      expect(mockSignInWithDev).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('exchanges the prompted Google credential when the CTA is pressed', async () => {

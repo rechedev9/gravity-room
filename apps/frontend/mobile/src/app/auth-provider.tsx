@@ -12,6 +12,7 @@ import type { AuthUser } from '../lib/auth/session';
 import {
   getAccessToken,
   restoreSession,
+  signInWithDev,
   signInWithEmailPassword,
   signInWithGoogleIdToken,
   signOutSession,
@@ -44,6 +45,11 @@ interface AuthContextValue {
     password: string,
     name?: string
   ) => Promise<AuthActionResult>;
+  /**
+   * DEV-only cookie session via POST /auth/dev. Undefined outside __DEV__ so
+   * production UI never surfaces the control.
+   */
+  readonly signInWithDev?: () => Promise<AuthActionResult>;
   readonly signOut: () => Promise<void>;
 }
 
@@ -53,12 +59,18 @@ async function prepareLocalDataForUser(
   userId: string,
   preserveUnclaimedData: boolean
 ): Promise<void> {
-  const ownerId = await secureLocalDataOwnerStorage.getOwnerId();
-  if (ownerId !== userId && !(ownerId === null && preserveUnclaimedData)) {
-    await clearQueuedMutations();
-    await clearLocalAppData();
+  // Best-effort: SecureStore/SQLite can be unavailable on Expo web. Auth must
+  // still complete so Dev Login and cookie sessions work in Chrome previews.
+  try {
+    const ownerId = await secureLocalDataOwnerStorage.getOwnerId();
+    if (ownerId !== userId && !(ownerId === null && preserveUnclaimedData)) {
+      await clearQueuedMutations().catch(() => undefined);
+      await clearLocalAppData().catch(() => undefined);
+    }
+    await secureLocalDataOwnerStorage.setOwnerId(userId);
+  } catch {
+    // Leave local cache as-is; access token is already minted.
   }
-  await secureLocalDataOwnerStorage.setOwnerId(userId);
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -153,6 +165,22 @@ export function AuthProvider({ children }: PropsWithChildren) {
         // Sign-up never authenticates: the account must verify its email first.
         return result.ok ? { ok: true } : { ok: false, code: result.code };
       },
+      ...(typeof __DEV__ !== 'undefined' && __DEV__
+        ? {
+            signInWithDev: async (): Promise<AuthActionResult> => {
+              const result = await signInWithDev();
+              if (!result.ok) {
+                return { ok: false, code: result.code };
+              }
+              await prepareLocalDataForUser(result.session.user.id, false);
+              setUser(result.session.user);
+              void flushQueuedMutations(result.session.accessToken).catch(() => {
+                // Leave queued mutations in place for a later retry.
+              });
+              return { ok: true };
+            },
+          }
+        : {}),
       signOut: async () => {
         await clearQueuedMutations().catch(() => {
           // Best-effort cleanup only; local queue issues must not block sign-out.

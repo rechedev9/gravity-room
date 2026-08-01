@@ -1,10 +1,13 @@
 import {
   buildApiUrl,
+  DEFAULT_DEV_AUTH_EMAIL,
+  DEFAULT_DEV_AUTH_SECRET,
   fetchWithAccessToken,
   getAccessToken,
   InvalidRefreshTokenError,
   restoreSession,
   setAccessToken,
+  signInWithDev,
   signInWithEmailPassword,
   signInWithGoogleIdToken,
   signOutSession,
@@ -668,5 +671,44 @@ describe('signUpWithEmailPassword', () => {
     await expect(
       signUpWithEmailPassword('taken@example.com', 'another-pass', undefined, { signup })
     ).resolves.toEqual({ ok: false, code: 'EMAIL_TAKEN' });
+  });
+});
+
+describe('signInWithDev', () => {
+  it('mints a cookie session and marks session kind as email', async () => {
+    const authenticate = jest
+      .fn<Promise<Response>, [string, string]>()
+      .mockResolvedValue(jsonResponse({ accessToken: 'dev-access', user: AUTH_USER }, 201));
+    const storage = {
+      getRefreshToken: jest.fn<Promise<string | null>, []>().mockResolvedValue(null),
+      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
+      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+    const sessionKindStorage = {
+      getSessionKind: jest.fn<Promise<'google' | 'email' | null>, []>().mockResolvedValue(null),
+      setSessionKind: jest.fn<Promise<void>, ['google' | 'email']>().mockResolvedValue(),
+      clearSessionKind: jest.fn<Promise<void>, []>().mockResolvedValue(),
+    };
+
+    const result = await signInWithDev({ authenticate, storage, sessionKindStorage });
+
+    expect(result).toEqual({
+      ok: true,
+      session: { accessToken: 'dev-access', user: AUTH_USER },
+    });
+    expect(authenticate).toHaveBeenCalledWith(DEFAULT_DEV_AUTH_EMAIL, DEFAULT_DEV_AUTH_SECRET);
+    expect(sessionKindStorage.setSessionKind).toHaveBeenCalledWith('email');
+    expect(getAccessToken()).toBe('dev-access');
+  });
+
+  it('maps 401 to UNAUTHORIZED/INVALID_CREDENTIALS path via status', async () => {
+    const authenticate = jest
+      .fn<Promise<Response>, [string, string]>()
+      .mockResolvedValue(jsonResponse({ error: 'nope', code: 'UNAUTHORIZED' }, 401));
+
+    await expect(signInWithDev({ authenticate })).resolves.toEqual({
+      ok: false,
+      code: 'UNAUTHORIZED',
+    });
   });
 });

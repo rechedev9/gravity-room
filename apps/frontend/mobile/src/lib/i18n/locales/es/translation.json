@@ -16,6 +16,10 @@
     "social": {
       "google": "Continuar con Google"
     },
+    "dev": {
+      "button": "⚗ Dev Login",
+      "submitting": "Entrando…"
+    },
     "email": {
       "toggle": "Continuar con email",
       "email_label": "Correo",

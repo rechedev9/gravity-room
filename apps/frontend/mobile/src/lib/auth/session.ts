@@ -548,6 +548,79 @@ export async function signUpWithEmailPassword(
   return { ok: true };
 }
 
+// ---------------------------------------------------------------------------
+// Dev-only sign-in (POST /auth/dev). Cookie session like email/password so it
+// works in Expo web and native without a body refresh token. The route is
+// 404 in production; callers should also gate on __DEV__.
+// ---------------------------------------------------------------------------
+
+/** Canonical e2e / local secret — must match API AUTH_DEV_ROUTE_SECRET. */
+export const DEFAULT_DEV_AUTH_SECRET = 'e2e-dev-secret-not-for-prod';
+export const DEFAULT_DEV_AUTH_EMAIL = 'dev@localhost.dev';
+
+interface DevSignInDependencies {
+  readonly storage?: RefreshTokenStorage;
+  readonly sessionKindStorage?: SessionKindStorage;
+  readonly authenticate?: (email: string, secret: string) => Promise<Response>;
+  readonly revokeRemoteSession?: (refreshToken: string) => Promise<void>;
+  readonly secret?: string;
+  readonly email?: string;
+}
+
+async function postDevSignIn(email: string, secret: string): Promise<Response> {
+  return fetch(buildApiUrl('/auth/dev'), {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-dev-auth-secret': secret,
+    },
+    body: JSON.stringify({ email }),
+  });
+}
+
+/**
+ * Dev-only cookie session via POST /auth/dev. Same shape as email login
+ * (accessToken + Set-Cookie refresh). Not available outside __DEV__ builds.
+ */
+export async function signInWithDev(
+  dependencies: DevSignInDependencies = {}
+): Promise<EmailSignInResult> {
+  if (!__DEV__) {
+    return { ok: false, code: 'generic' };
+  }
+
+  const authenticate = dependencies.authenticate ?? postDevSignIn;
+  const storage = dependencies.storage ?? secureRefreshTokenStorage;
+  const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
+  const revokeRemoteSession = dependencies.revokeRemoteSession ?? revokeMobileSession;
+  const secret =
+    dependencies.secret ??
+    (typeof process.env.EXPO_PUBLIC_DEV_AUTH_SECRET === 'string' &&
+    process.env.EXPO_PUBLIC_DEV_AUTH_SECRET.length > 0
+      ? process.env.EXPO_PUBLIC_DEV_AUTH_SECRET
+      : DEFAULT_DEV_AUTH_SECRET);
+  const email = dependencies.email ?? DEFAULT_DEV_AUTH_EMAIL;
+
+  const response = await authenticate(email, secret);
+  if (!response.ok) {
+    const bodyCode = await readResponseErrorCode(response);
+    return { ok: false, code: mapAuthErrorCode(response.status, bodyCode) };
+  }
+
+  const session = readSessionResponse(await response.json());
+  accessToken = session.accessToken;
+  try {
+    const leftover = await storage.getRefreshToken();
+    if (leftover) await revokeRemoteSession(leftover);
+  } catch {
+    // Best-effort; cookie session is authoritative.
+  }
+  await storage.clearRefreshToken();
+  await kindStorage.setSessionKind('email');
+  return { ok: true, session };
+}
+
 export async function signOutSession(dependencies: SignOutDependencies = {}): Promise<void> {
   const storage = dependencies.storage ?? secureRefreshTokenStorage;
   const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;

@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 const REFRESH_TOKEN_KEY = 'auth.refresh-token';
@@ -39,48 +40,83 @@ export interface LocalDataOwnerStorage {
   clearOwnerId(): Promise<void>;
 }
 
+/**
+ * SecureStore is native-only. On web (Expo web preview) fall back to
+ * localStorage so dev login / cookie sessions still work in Chrome.
+ */
+async function storageGet(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    try {
+      return globalThis.localStorage?.getItem(key) ?? null;
+    } catch {
+      return null;
+    }
+  }
+  return SecureStore.getItemAsync(key);
+}
+
+async function storageSet(key: string, value: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    try {
+      globalThis.localStorage?.setItem(key, value);
+    } catch {
+      // Quota / private mode — session still works for the current tab via memory.
+    }
+    return;
+  }
+  // WHEN_UNLOCKED_THIS_DEVICE_ONLY makes the value non-migratable and excluded
+  // from device backups, so a token lifted from a backup can't be replayed on
+  // another device.
+  await SecureStore.setItemAsync(key, value, {
+    keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+  });
+}
+
+async function storageDelete(key: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    try {
+      globalThis.localStorage?.removeItem(key);
+    } catch {
+      // ignore
+    }
+    return;
+  }
+  await SecureStore.deleteItemAsync(key);
+}
+
 export const secureRefreshTokenStorage: RefreshTokenStorage = {
   async getRefreshToken() {
-    return SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+    return storageGet(REFRESH_TOKEN_KEY);
   },
   async setRefreshToken(token) {
-    // WHEN_UNLOCKED_THIS_DEVICE_ONLY makes the refresh token non-migratable and
-    // excluded from device backups, so a token lifted from a backup/restored
-    // keychain can't be replayed against /auth/mobile/refresh on another device.
-    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token, {
-      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-    });
+    await storageSet(REFRESH_TOKEN_KEY, token);
   },
   async clearRefreshToken() {
-    await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+    await storageDelete(REFRESH_TOKEN_KEY);
   },
 };
 
 export const secureSessionKindStorage: SessionKindStorage = {
   async getSessionKind() {
-    const value = await SecureStore.getItemAsync(SESSION_KIND_KEY);
+    const value = await storageGet(SESSION_KIND_KEY);
     return value === 'google' || value === 'email' ? value : null;
   },
   async setSessionKind(kind) {
-    await SecureStore.setItemAsync(SESSION_KIND_KEY, kind, {
-      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-    });
+    await storageSet(SESSION_KIND_KEY, kind);
   },
   async clearSessionKind() {
-    await SecureStore.deleteItemAsync(SESSION_KIND_KEY);
+    await storageDelete(SESSION_KIND_KEY);
   },
 };
 
 export const secureLocalDataOwnerStorage: LocalDataOwnerStorage = {
   async getOwnerId() {
-    return SecureStore.getItemAsync(LOCAL_DATA_OWNER_KEY);
+    return storageGet(LOCAL_DATA_OWNER_KEY);
   },
   async setOwnerId(userId) {
-    await SecureStore.setItemAsync(LOCAL_DATA_OWNER_KEY, userId, {
-      keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-    });
+    await storageSet(LOCAL_DATA_OWNER_KEY, userId);
   },
   async clearOwnerId() {
-    await SecureStore.deleteItemAsync(LOCAL_DATA_OWNER_KEY);
+    await storageDelete(LOCAL_DATA_OWNER_KEY);
   },
 };

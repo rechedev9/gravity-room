@@ -6,10 +6,12 @@
     "dev": "expo start",
     "android": "expo start --android",
     "test": "pnpm exec jest --runInBand",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "web": "expo start --web"
   },
   "dependencies": {
     "@babel/runtime": "^7.28.4",
+    "@expo/metro-runtime": "~6.1.2",
     "@gzclp/api-client": "workspace:*",
     "@gzclp/domain": "workspace:*",
     "@tanstack/react-query": "^5.90.21",
@@ -17,14 +19,17 @@
     "expo-auth-session": "~7.0.10",
     "expo-crypto": "~15.0.8",
     "expo-localization": "~17.0.8",
+    "expo-modules-core": "~3.0.30",
     "expo-secure-store": "~15.0.8",
     "expo-sqlite": "~16.0.8",
     "expo-web-browser": "~15.0.10",
     "i18next": "^26.0.4",
     "react": "19.1.0",
+    "react-dom": "19.1.0",
     "react-i18next": "^17.0.2",
     "react-native": "0.81.5",
-    "react-native-safe-area-context": "~5.6.0"
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-web": "^0.21.2"
   },
   "devDependencies": {
     "@testing-library/react-native": "^13.3.3",
@@ -44,5 +49,6 @@
       "/node_modules/(?!(.pnpm|.bun|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base))",
       "/node_modules/react-native-reanimated/plugin/"
     ]
-  }
+  },
+  "main": "index.js"
 }

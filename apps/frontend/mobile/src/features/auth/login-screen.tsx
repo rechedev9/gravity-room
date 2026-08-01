@@ -12,11 +12,12 @@ type FormMessage = { readonly kind: 'error' | 'success'; readonly text: string }
 
 export function LoginScreen() {
   const { t } = useTranslation();
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, signInWithDev } = useAuth();
   const { disabled, promptAsync } = useGoogleIdTokenPrompt();
 
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [devSubmitting, setDevSubmitting] = useState(false);
 
   // Email/password progressive-disclosure form state (mirrors the web login page).
   const [showEmail, setShowEmail] = useState(false);
@@ -95,12 +96,52 @@ export function LoginScreen() {
 
   const googleLabel = t('login.social.google');
 
+  async function handleDevLogin(): Promise<void> {
+    if (!signInWithDev || devSubmitting) {
+      return;
+    }
+    setGoogleError(null);
+    setFormMessage(null);
+    setDevSubmitting(true);
+    try {
+      const result = await signInWithDev();
+      if (!result.ok) {
+        setFormMessage({ kind: 'error', text: codeMessage(result.code) });
+      }
+    } catch {
+      setFormMessage({ kind: 'error', text: codeMessage(undefined) });
+    } finally {
+      setDevSubmitting(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.content}>
         <Text style={styles.eyebrow}>{t('login.eyebrow')}</Text>
         <Text style={styles.title}>{t('login.title')}</Text>
         <Text style={styles.body}>{t('login.google_body')}</Text>
+
+        {signInWithDev ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('login.dev.button')}
+            testID="dev-login-button"
+            disabled={devSubmitting}
+            onPress={() => {
+              void handleDevLogin();
+            }}
+            style={({ pressed }) => [
+              styles.devButton,
+              devSubmitting ? styles.buttonDisabled : null,
+              pressed && !devSubmitting ? styles.buttonPressed : null,
+            ]}
+          >
+            <Text style={styles.devButtonLabel}>
+              {devSubmitting ? t('login.dev.submitting') : t('login.dev.button')}
+            </Text>
+          </Pressable>
+        ) : null}
 
         <Pressable
           accessibilityRole="button"
@@ -222,30 +263,29 @@ export function LoginScreen() {
                 {emailMode === 'signin' ? t('login.email.to_signup') : t('login.email.to_signin')}
               </Text>
             </Pressable>
-
-            {formMessage ? (
-              <View
-                accessibilityRole="alert"
-                style={[
-                  styles.formMessage,
-                  formMessage.kind === 'error'
-                    ? styles.formMessageError
-                    : styles.formMessageSuccess,
-                ]}
-              >
-                <Text
-                  style={
-                    formMessage.kind === 'error'
-                      ? styles.formMessageErrorText
-                      : styles.formMessageSuccessText
-                  }
-                >
-                  {formMessage.text}
-                </Text>
-              </View>
-            ) : null}
           </View>
         )}
+
+        {formMessage ? (
+          <View
+            accessibilityRole="alert"
+            testID="login-form-message"
+            style={[
+              styles.formMessage,
+              formMessage.kind === 'error' ? styles.formMessageError : styles.formMessageSuccess,
+            ]}
+          >
+            <Text
+              style={
+                formMessage.kind === 'error'
+                  ? styles.formMessageErrorText
+                  : styles.formMessageSuccessText
+              }
+            >
+              {formMessage.text}
+            </Text>
+          </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -297,6 +337,22 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontSize: 16,
     fontWeight: '600',
+  },
+  devButton: {
+    marginTop: 4,
+    alignItems: 'center',
+    borderRadius: radii.pill,
+    borderWidth: 1.5,
+    borderColor: colors.accentPrimary,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  devButtonLabel: {
+    color: colors.accentPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   dividerRow: {
     flexDirection: 'row',
