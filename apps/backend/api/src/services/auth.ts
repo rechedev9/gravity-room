@@ -2,7 +2,7 @@
  * Auth service — refresh token management, user CRUD.
  * Framework-agnostic: no Elysia dependency. JWT signing handled in routes.
  */
-import { eq, lt, and, isNull, sql } from 'drizzle-orm';
+import { eq, lt, gte, and, isNull, sql } from 'drizzle-orm';
 import { hash as argon2Hash, verify as argon2Verify } from '@node-rs/argon2';
 import bcrypt from 'bcryptjs';
 import { isRecord } from '@gzclp/domain/type-guards';
@@ -35,20 +35,30 @@ type AuthTx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>
  */
 export interface RefreshTokenRow {
   readonly userId: string;
+  readonly familyId: string;
   readonly expiresAt: Date;
   readonly tokenHash: string;
   readonly previousTokenHash: string | null;
+  readonly consumedAt: Date | null;
   readonly createdAt: Date;
+}
+
+export interface AuthSession {
+  readonly refreshToken: string;
+  readonly sessionId: string;
 }
 
 export type RotateRefreshTokenResult =
   | { readonly status: 'not_found' }
   | { readonly status: 'expired' }
   | { readonly status: 'account_deleted' }
+  | { readonly status: 'concurrent'; readonly userId: string }
+  | { readonly status: 'reused'; readonly userId: string }
   | {
       readonly status: 'rotated';
       readonly user: UserRow;
       readonly refreshToken: string;
+      readonly sessionId: string;
     };
 
 /** Result of findOrCreateUserByIdentity — includes new-user detection flag. */
@@ -551,6 +561,26 @@ export async function createPasswordResetToken(userId: string): Promise<string> 
   return token;
 }
 
+/**
+ * Cheap preflight for password reset. This deliberately does not consume the
+ * credential: the final reset transaction still uses DELETE ... RETURNING as
+ * the single-use boundary after the expensive password hash is computed.
+ */
+export async function isPasswordResetTokenValid(token: string): Promise<boolean> {
+  const tokenHash = await hashToken(token);
+  const [row] = await getDb()
+    .select({ id: passwordResetTokens.id })
+    .from(passwordResetTokens)
+    .where(
+      and(
+        eq(passwordResetTokens.tokenHash, tokenHash),
+        gte(passwordResetTokens.expiresAt, new Date())
+      )
+    )
+    .limit(1);
+  return row !== undefined;
+}
+
 /** Consumes a reset token; returns its userId if valid & unexpired, else null. */
 export async function consumePasswordResetToken(token: string): Promise<string | null> {
   const tokenHash = await hashToken(token);
@@ -637,25 +667,27 @@ export async function softDeleteUser(userId: string): Promise<void> {
 // Refresh token storage
 // ---------------------------------------------------------------------------
 
+const REFRESH_REUSE_GRACE_MS = 10_000;
+
 export async function storeRefreshToken(
   userId: string,
   tokenHash: string,
   expiresAt: Date,
+  familyId: string = crypto.randomUUID(),
   previousTokenHash?: string
 ): Promise<void> {
-  await getDb().insert(refreshTokens).values({ userId, tokenHash, expiresAt, previousTokenHash });
+  await getDb()
+    .insert(refreshTokens)
+    .values({ userId, tokenHash, familyId, expiresAt, previousTokenHash });
 }
 
-/**
- * Looks up a refresh token by the hash of the token it replaced.
- * Used for token reuse detection: if an already-rotated token is presented,
- * this finds its successor, revealing the affected userId.
- */
 const REFRESH_TOKEN_COLUMNS = {
   userId: refreshTokens.userId,
+  familyId: refreshTokens.familyId,
   expiresAt: refreshTokens.expiresAt,
   tokenHash: refreshTokens.tokenHash,
   previousTokenHash: refreshTokens.previousTokenHash,
+  consumedAt: refreshTokens.consumedAt,
   createdAt: refreshTokens.createdAt,
 } as const;
 
@@ -679,6 +711,45 @@ export async function findRefreshToken(tokenHash: string): Promise<RefreshTokenR
   return token;
 }
 
+/** True only while the session family still has an unconsumed, unexpired tip. */
+export async function isRefreshSessionActive(userId: string, sessionId: string): Promise<boolean> {
+  const [active] = await getDb()
+    .select({ id: refreshTokens.id })
+    .from(refreshTokens)
+    .where(
+      and(
+        eq(refreshTokens.userId, userId),
+        eq(refreshTokens.familyId, sessionId),
+        isNull(refreshTokens.consumedAt),
+        gte(refreshTokens.expiresAt, new Date())
+      )
+    )
+    .limit(1);
+  return active !== undefined;
+}
+
+/** Revokes exactly the session family containing the presented token. */
+export async function revokeSessionByToken(tokenHash: string): Promise<void> {
+  await getDb().transaction(async (tx) => {
+    const [initial] = await tx
+      .select({ userId: refreshTokens.userId })
+      .from(refreshTokens)
+      .where(eq(refreshTokens.tokenHash, tokenHash))
+      .limit(1);
+    if (!initial) return;
+
+    await tx.select({ id: users.id }).from(users).where(eq(users.id, initial.userId)).for('update');
+    const [token] = await tx
+      .select({ familyId: refreshTokens.familyId })
+      .from(refreshTokens)
+      .where(eq(refreshTokens.tokenHash, tokenHash))
+      .limit(1);
+    if (!token) return;
+    await tx.delete(refreshTokens).where(eq(refreshTokens.familyId, token.familyId));
+  });
+}
+
+/** Legacy single-token helper retained for callers that intentionally revoke one row. */
 export async function revokeRefreshToken(tokenHash: string): Promise<void> {
   await getDb().delete(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash));
 }
@@ -694,64 +765,129 @@ export async function revokeAllUserTokens(userId: string): Promise<void> {
 }
 
 /**
- * Atomically consumes one refresh token and writes its successor.
- *
- * The old implementation selected the token, deleted it, then inserted the
- * replacement as separate operations. Two concurrent refresh requests could
- * both observe the old token before either delete happened and each mint a
- * valid successor. This transaction uses DELETE ... RETURNING as the compare-
- * and-swap boundary: only the request that actually deletes the current token
- * may create the next token in the family.
+ * Creates a session while holding the user row lock. The expected auth version
+ * binds issuance to the credential check that preceded it: password reset,
+ * account deletion, or all-session revocation either removes this token after
+ * insertion or wins the lock first and makes issuance fail.
+ */
+export async function createAuthSession(
+  userId: string,
+  expectedAuthVersion: number
+): Promise<AuthSession> {
+  const refreshToken = generateRefreshToken();
+  const tokenHash = await hashToken(refreshToken);
+  const sessionId = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MS);
+
+  await getDb().transaction(async (tx) => {
+    const [user] = await tx
+      .select({ authVersion: users.authVersion, deletedAt: users.deletedAt })
+      .from(users)
+      .where(eq(users.id, userId))
+      .for('update')
+      .limit(1);
+    if (!user || user.deletedAt || user.authVersion !== expectedAuthVersion) {
+      throw new ApiError(401, 'Session state changed; authenticate again', 'AUTH_SESSION_CHANGED');
+    }
+    await tx.insert(refreshTokens).values({ userId, tokenHash, familyId: sessionId, expiresAt });
+  });
+
+  return { refreshToken, sessionId };
+}
+
+/**
+ * Atomically consumes one family tip and writes its successor while retaining
+ * the consumed row as a replay-detection tombstone. Tombstone expiries advance
+ * with the active tip so every ancestor remains detectable for the full family
+ * lifetime.
  */
 export async function rotateRefreshToken(tokenHash: string): Promise<RotateRefreshTokenResult> {
   return getDb().transaction(async (tx) => {
+    const [initial] = await tx
+      .select({ userId: refreshTokens.userId })
+      .from(refreshTokens)
+      .where(eq(refreshTokens.tokenHash, tokenHash))
+      .limit(1);
+    if (!initial) return { status: 'not_found' };
+
+    // User-row-first locking is shared by issuance, reset, logout, and replay
+    // response, preventing a successor from appearing after revocation commits.
+    const [user] = await tx
+      .select()
+      .from(users)
+      .where(eq(users.id, initial.userId))
+      .for('update')
+      .limit(1);
+
     const [candidate] = await tx
       .select(REFRESH_TOKEN_COLUMNS)
       .from(refreshTokens)
       .where(eq(refreshTokens.tokenHash, tokenHash))
-      .limit(1);
-
-    if (!candidate) return { status: 'not_found' };
-
-    if (candidate.expiresAt < new Date()) {
-      await tx.delete(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash));
-      return { status: 'expired' };
-    }
-
-    // Serialize rotation with every all-session revocation. The user row is
-    // always locked before the compare-and-swap delete, so a password reset,
-    // replay response, or account deletion cannot delete today's tokens and
-    // then have this transaction insert a surviving successor afterwards.
-    const [user] = await tx
-      .select()
-      .from(users)
-      .where(eq(users.id, candidate.userId))
       .for('update')
       .limit(1);
+    if (!candidate) return { status: 'not_found' };
 
     if (!user || user.deletedAt) {
-      await tx.delete(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash));
+      await tx.delete(refreshTokens).where(eq(refreshTokens.familyId, candidate.familyId));
       return { status: 'account_deleted' };
     }
 
-    const [stored] = await tx
-      .delete(refreshTokens)
-      .where(eq(refreshTokens.tokenHash, tokenHash))
+    if (candidate.expiresAt < new Date()) {
+      await tx.delete(refreshTokens).where(eq(refreshTokens.familyId, candidate.familyId));
+      return { status: 'expired' };
+    }
+
+    if (candidate.consumedAt) {
+      const [successor] = await tx
+        .select({ consumedAt: refreshTokens.consumedAt })
+        .from(refreshTokens)
+        .where(eq(refreshTokens.previousTokenHash, candidate.tokenHash))
+        .limit(1);
+      const isBenignConcurrentRetry =
+        successor?.consumedAt === null &&
+        Date.now() - candidate.consumedAt.getTime() <= REFRESH_REUSE_GRACE_MS;
+      if (isBenignConcurrentRetry) {
+        return { status: 'concurrent', userId: candidate.userId };
+      }
+
+      await tx
+        .update(users)
+        .set({ authVersion: sql`${users.authVersion} + 1` })
+        .where(eq(users.id, candidate.userId));
+      await tx.delete(refreshTokens).where(eq(refreshTokens.userId, candidate.userId));
+      return { status: 'reused', userId: candidate.userId };
+    }
+
+    const consumedAt = new Date();
+    const [consumed] = await tx
+      .update(refreshTokens)
+      .set({ consumedAt })
+      .where(and(eq(refreshTokens.tokenHash, tokenHash), isNull(refreshTokens.consumedAt)))
       .returning(REFRESH_TOKEN_COLUMNS);
-    if (!stored) return { status: 'not_found' };
+    if (!consumed) return { status: 'not_found' };
 
     const refreshToken = generateRefreshToken();
     const newTokenHash = await hashToken(refreshToken);
     const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MS);
 
+    await tx
+      .update(refreshTokens)
+      .set({ expiresAt })
+      .where(eq(refreshTokens.familyId, consumed.familyId));
     await tx.insert(refreshTokens).values({
-      userId: stored.userId,
+      userId: consumed.userId,
+      familyId: consumed.familyId,
       tokenHash: newTokenHash,
       expiresAt,
       previousTokenHash: tokenHash,
     });
 
-    return { status: 'rotated', user, refreshToken };
+    return {
+      status: 'rotated',
+      user,
+      refreshToken,
+      sessionId: consumed.familyId,
+    };
   });
 }
 
@@ -759,19 +895,15 @@ export async function rotateRefreshToken(tokenHash: string): Promise<RotateRefre
 // Refresh token lifecycle
 // ---------------------------------------------------------------------------
 
-/**
- * Creates a new refresh token, hashes it, stores it, and returns the raw token.
- * Pass `previousHash` when rotating (refresh endpoint) to enable family tracking.
- */
+/** Convenience helper for tests and non-route callers that need a fresh family. */
 export async function createAndStoreRefreshToken(
   userId: string,
-  previousHash?: string
+  expectedAuthVersion?: number
 ): Promise<string> {
-  const refreshToken = generateRefreshToken();
-  const tokenHash = await hashToken(refreshToken);
-  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_MS);
-  await storeRefreshToken(userId, tokenHash, expiresAt, previousHash);
-  return refreshToken;
+  const user = expectedAuthVersion === undefined ? await findUserById(userId) : undefined;
+  const version = expectedAuthVersion ?? user?.authVersion;
+  if (version === undefined) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+  return (await createAuthSession(userId, version)).refreshToken;
 }
 
 /**

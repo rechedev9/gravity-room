@@ -908,7 +908,12 @@
       "finish_confirm_label": "Finalizar",
       "reset_confirm_title": "Reiniciar Todo el Progreso",
       "reset_confirm_message": "¿Estás seguro de que quieres reiniciar TODO el progreso? Esto no se puede deshacer.",
-      "reset_confirm_label": "Reiniciar Todo"
+      "reset_confirm_label": "Reiniciar Todo",
+      "webmcp_enable": "Activar asistente de IA",
+      "webmcp_disable": "Desactivar asistente de IA",
+      "webmcp_confirm_title": "¿Permitir acceso de IA durante esta sesión?",
+      "webmcp_confirm_message": "Hasta que salgas o recargues este registro, el agente de IA de tu navegador podrá solicitar ejercicios, pesos, resultados y estadísticas, y podrá pedir cambios en el progreso. Cada lectura sensible y escritura requiere una interacción mediada por el navegador. Actívalo solo en un dispositivo y con un agente de IA de confianza.",
+      "webmcp_confirm_label": "Activar durante esta sesión"
     },
     "stats_panel": {
       "other_group": "Otros",
@@ -1371,7 +1376,14 @@
     "create_account_aria": "Crear cuenta para guardar tu progreso"
   },
   "guest_migration": {
-    "success": "Tu programa {{program}} se ha guardado en tu cuenta."
+    "title": "¿Importar datos de entrenamiento de invitado?",
+    "message": "Este navegador contiene un programa de invitado sin terminar con ejercicios, pesos, series, repeticiones y resultados. Al importarlo, esos datos se subirán a la cuenta conectada.",
+    "account": "Cuenta conectada: {{email}}",
+    "warning": "Impórtalo solo si tú creaste este programa de invitado. Si eliges ahora no, la copia local permanece en este dispositivo y no se sube.",
+    "confirm": "Importar en esta cuenta",
+    "keep_local": "Ahora no",
+    "success": "Tu programa {{program}} se ha guardado en tu cuenta.",
+    "not_imported": "No se pudo importar el programa de invitado. Revisa la cuenta e inténtalo de nuevo, o descarta la copia local."
   },
   "legal": {
     "back": "← Volver",
@@ -1393,9 +1405,19 @@
       },
       "cookies": {
         "title": "Cookies, Analíticas y Seguimiento",
-        "body_prefix": "Utilizamos únicamente una cookie técnica necesaria para mantener la sesión de los usuarios autenticados. No utilizamos cookies de analítica, seguimiento ni publicidad. No se comparte ningún dato con anunciantes ni terceros. Consulta nuestra",
+        "body_prefix": "Utilizamos una cookie técnica necesaria para mantener las sesiones autenticadas y analítica sin cookies. No utilizamos cookies publicitarias ni de seguimiento entre sitios. Los proveedores limitados del servicio se detallan a continuación. Consulta nuestra",
         "link": "Política de Cookies",
         "body_suffix": "para más información."
+      },
+      "service_providers": {
+        "title": "Proveedores del Servicio y Transferencias de Datos",
+        "intro": "Según la configuración del despliegue, Gravity Room utiliza los siguientes encargados únicamente para operar, proteger y mejorar el servicio:",
+        "plausible": "Plausible Analytics recibe estadísticas de página, país y dispositivo sin cookies. Gravity Room no envía identificadores de cuenta en los eventos de analítica.",
+        "sentry": "Sentry recibe errores de aplicación saneados, información técnica del dispositivo, rutas sin parámetros de consulta y un identificador de cuenta seudónimo cuando los informes de errores están activados. Las contraseñas, tokens de autenticación, cuerpos de solicitudes, direcciones de correo y consultas completas se eliminan en el cliente.",
+        "telegram": "Telegram puede recibir una alerta operativa de nueva cuenta con el correo de registro, método de acceso, categoría del dispositivo y fecha y hora cuando las notificaciones al propietario están activadas.",
+        "providers": "Google, Apple, GitHub o Microsoft procesan información cuando eliges su método de inicio de sesión, conforme a sus propias condiciones de privacidad.",
+        "browser_ai": "Si activas explícitamente el acceso del asistente de IA durante una sesión del registro, el agente de IA del navegador puede recibir ejercicios, pesos, resultados y estadísticas, y solicitar cambios. Gravity Room exige una interacción mediada por el navegador para cada lectura sensible o escritura; el agente y su proveedor se rigen por las condiciones de privacidad del navegador o proveedor.",
+        "no_sale": "No vendemos datos personales ni los compartimos con anunciantes. El acceso a los sistemas operativos debe limitarse al mantenedor y estar sujeto a los controles de acceso y retención de cada proveedor."
       },
       "delete_data": {
         "title": "Eliminar tus Datos",
@@ -1462,7 +1484,7 @@
         "title": "Contacto",
         "body": "Para preguntas sobre el uso de cookies, abre un issue en el repositorio del proyecto o contacta al mantenedor."
       },
-      "last_updated": "Última actualización: marzo de 2026."
+      "last_updated": "Última actualización: agosto de 2026."
     }
   },
   "avatar_dropdown": {

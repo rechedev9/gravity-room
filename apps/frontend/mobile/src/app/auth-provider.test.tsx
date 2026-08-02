@@ -5,16 +5,22 @@ import { AuthProvider, useAuth } from './auth-provider';
 import {
   getAccessToken,
   restoreSession,
+  setAccessToken,
   signInWithGoogleIdToken,
   signOutSession,
 } from '../lib/auth/session';
 import { secureLocalDataOwnerStorage } from '../lib/auth/secure-storage';
-import { clearLocalAppData } from '../lib/db/client';
+import {
+  activateLocalDataOwner,
+  clearLocalAppData,
+  deactivateLocalDataOwner,
+} from '../lib/db/client';
 import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation-sync-service';
 
 jest.mock('../lib/auth/session', () => ({
   getAccessToken: jest.fn(),
   restoreSession: jest.fn(),
+  setAccessToken: jest.fn(),
   signInWithGoogleIdToken: jest.fn(),
   signInWithEmailPassword: jest.fn(),
   signUpWithEmailPassword: jest.fn(),
@@ -22,7 +28,9 @@ jest.mock('../lib/auth/session', () => ({
 }));
 
 jest.mock('../lib/db/client', () => ({
+  activateLocalDataOwner: jest.fn(),
   clearLocalAppData: jest.fn(),
+  deactivateLocalDataOwner: jest.fn(),
 }));
 
 jest.mock('../lib/auth/secure-storage', () => ({
@@ -40,10 +48,13 @@ jest.mock('../lib/sync/mutation-sync-service', () => ({
 
 const mockedRestoreSession = jest.mocked(restoreSession);
 const mockedGetAccessToken = jest.mocked(getAccessToken);
+const mockedSetAccessToken = jest.mocked(setAccessToken);
 const mockedSignInWithGoogleIdToken = jest.mocked(signInWithGoogleIdToken);
 const mockedSignOutSession = jest.mocked(signOutSession);
 const mockedLocalDataOwnerStorage = jest.mocked(secureLocalDataOwnerStorage);
+const mockedActivateLocalDataOwner = jest.mocked(activateLocalDataOwner);
 const mockedClearLocalAppData = jest.mocked(clearLocalAppData);
+const mockedDeactivateLocalDataOwner = jest.mocked(deactivateLocalDataOwner);
 const mockedClearQueuedMutations = jest.mocked(clearQueuedMutations);
 const mockedFlushQueuedMutations = jest.mocked(flushQueuedMutations);
 
@@ -66,7 +77,12 @@ function AuthProbe() {
   return (
     <>
       <Text>{user.email}</Text>
-      <Text accessibilityRole="button" onPress={() => void signOut()}>
+      <Text
+        accessibilityRole="button"
+        onPress={() => {
+          void signOut().catch(() => undefined);
+        }}
+      >
         sign-out
       </Text>
     </>
@@ -79,7 +95,12 @@ function SignInProbe() {
   if (user) return <Text>{user.email}</Text>;
 
   return (
-    <Text accessibilityRole="button" onPress={() => void signInWithGoogle('google-id-token')}>
+    <Text
+      accessibilityRole="button"
+      onPress={() => {
+        void signInWithGoogle('google-id-token').catch(() => undefined);
+      }}
+    >
       sign-in
     </Text>
   );
@@ -91,17 +112,21 @@ describe('AuthProvider', () => {
     mockedLocalDataOwnerStorage.getOwnerId.mockResolvedValue('user-123');
     mockedLocalDataOwnerStorage.setOwnerId.mockResolvedValue();
     mockedLocalDataOwnerStorage.clearOwnerId.mockResolvedValue();
+    mockedActivateLocalDataOwner.mockResolvedValue();
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
     mockedSignInWithGoogleIdToken.mockReset();
     mockedSignOutSession.mockReset();
+    mockedActivateLocalDataOwner.mockReset();
     mockedClearLocalAppData.mockReset();
+    mockedDeactivateLocalDataOwner.mockReset();
     mockedClearQueuedMutations.mockReset();
     mockedRestoreSession.mockReset();
     mockedFlushQueuedMutations.mockReset();
     mockedGetAccessToken.mockReset();
+    mockedSetAccessToken.mockReset();
     mockedLocalDataOwnerStorage.getOwnerId.mockReset();
     mockedLocalDataOwnerStorage.setOwnerId.mockReset();
     mockedLocalDataOwnerStorage.clearOwnerId.mockReset();
@@ -127,6 +152,8 @@ describe('AuthProvider', () => {
 
     expect(await screen.findByText('athlete@example.com')).toBeTruthy();
     await waitFor(() => {
+      expect(mockedActivateLocalDataOwner).toHaveBeenCalledWith('user-123');
+      expect(mockedSetAccessToken).toHaveBeenCalledWith('restored-access-token');
       expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('restored-access-token');
     });
   });
@@ -193,8 +220,8 @@ describe('AuthProvider', () => {
     expect(signOutOrder).toBeDefined();
     expect(firstQueueClearOrder).toBeDefined();
     expect(firstLocalClearOrder).toBeDefined();
-    expect(firstQueueClearOrder ?? 0).toBeLessThan(signOutOrder ?? 0);
-    expect(signOutOrder ?? 0).toBeLessThan(firstLocalClearOrder ?? 0);
+    expect(signOutOrder ?? 0).toBeLessThan(firstQueueClearOrder ?? 0);
+    expect(firstQueueClearOrder ?? 0).toBeLessThan(firstLocalClearOrder ?? 0);
     expect(await screen.findByText('signed-out')).toBeTruthy();
   });
 
@@ -234,9 +261,55 @@ describe('AuthProvider', () => {
     expect(signOutOrder).toBeDefined();
     expect(firstQueueClearOrder).toBeDefined();
     expect(firstLocalClearOrder).toBeDefined();
-    expect(firstQueueClearOrder ?? 0).toBeLessThan(signOutOrder ?? 0);
-    expect(signOutOrder ?? 0).toBeLessThan(firstLocalClearOrder ?? 0);
+    expect(signOutOrder ?? 0).toBeLessThan(firstQueueClearOrder ?? 0);
+    expect(firstQueueClearOrder ?? 0).toBeLessThan(firstLocalClearOrder ?? 0);
+    expect(mockedLocalDataOwnerStorage.clearOwnerId).not.toHaveBeenCalled();
+    expect(mockedDeactivateLocalDataOwner).toHaveBeenCalled();
+    expect(mockedSetAccessToken).toHaveBeenCalledWith(null);
     expect(await screen.findByText('signed-out')).toBeTruthy();
+  });
+
+  it('retains authenticated UI and local state when durable sign-out deletion fails', async () => {
+    mockedRestoreSession.mockResolvedValue({
+      accessToken: 'restored-access-token',
+      user: {
+        id: 'user-123',
+        email: 'athlete@example.com',
+        name: 'Test Athlete',
+        avatarUrl: null,
+      },
+    });
+    mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
+    mockedSignOutSession
+      .mockRejectedValueOnce(new Error('SecureStore deletion failed'))
+      .mockResolvedValueOnce();
+    mockedClearLocalAppData.mockResolvedValue();
+    mockedClearQueuedMutations.mockResolvedValue();
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    expect(await screen.findByText('athlete@example.com')).toBeTruthy();
+    mockedDeactivateLocalDataOwner.mockClear();
+    mockedSetAccessToken.mockClear();
+    mockedClearQueuedMutations.mockClear();
+    mockedClearLocalAppData.mockClear();
+
+    fireEvent.press(screen.getByRole('button', { name: 'sign-out' }));
+
+    await waitFor(() => expect(mockedSignOutSession).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('athlete@example.com')).toBeTruthy();
+    expect(mockedDeactivateLocalDataOwner).not.toHaveBeenCalled();
+    expect(mockedSetAccessToken).not.toHaveBeenCalledWith(null);
+    expect(mockedClearQueuedMutations).not.toHaveBeenCalled();
+    expect(mockedClearLocalAppData).not.toHaveBeenCalled();
+
+    fireEvent.press(screen.getByRole('button', { name: 'sign-out' }));
+    expect(await screen.findByText('signed-out')).toBeTruthy();
+    expect(mockedSignOutSession).toHaveBeenCalledTimes(2);
   });
 
   it('hydrates auth state after exchanging a Google credential', async () => {
@@ -295,10 +368,82 @@ describe('AuthProvider', () => {
     expect(mockedClearQueuedMutations).toHaveBeenCalledTimes(1);
     expect(mockedClearLocalAppData).toHaveBeenCalledTimes(1);
     expect(mockedLocalDataOwnerStorage.setOwnerId).toHaveBeenCalledWith('next-user');
+    expect(mockedActivateLocalDataOwner).toHaveBeenCalledWith('next-user');
+    expect(mockedSetAccessToken).toHaveBeenCalledWith(accessToken);
     const clearOrder = mockedClearLocalAppData.mock.invocationCallOrder[0] ?? 0;
     const ownerOrder = mockedLocalDataOwnerStorage.setOwnerId.mock.invocationCallOrder[0] ?? 0;
+    const activateOrder = mockedActivateLocalDataOwner.mock.invocationCallOrder[0] ?? 0;
+    const publishOrder = mockedSetAccessToken.mock.invocationCallOrder[0] ?? 0;
     const flushOrder = mockedFlushQueuedMutations.mock.invocationCallOrder[0] ?? 0;
     expect(clearOrder).toBeLessThan(ownerOrder);
-    expect(ownerOrder).toBeLessThan(flushOrder);
+    expect(ownerOrder).toBeLessThan(activateOrder);
+    expect(activateOrder).toBeLessThan(publishOrder);
+    expect(publishOrder).toBeLessThan(flushOrder);
+  });
+
+  it.each([
+    {
+      name: 'owner marker read',
+      configure: () =>
+        mockedLocalDataOwnerStorage.getOwnerId.mockRejectedValue(
+          new Error('SecureStore read failed')
+        ),
+    },
+    {
+      name: 'outbox cleanup',
+      configure: () => {
+        mockedLocalDataOwnerStorage.getOwnerId.mockResolvedValue('previous-user');
+        mockedClearQueuedMutations.mockRejectedValue(new Error('outbox cleanup failed'));
+      },
+    },
+    {
+      name: 'SQLite cleanup',
+      configure: () => {
+        mockedLocalDataOwnerStorage.getOwnerId.mockResolvedValue('previous-user');
+        mockedClearLocalAppData.mockRejectedValue(new Error('SQLite cleanup failed'));
+      },
+    },
+    {
+      name: 'owner marker write',
+      configure: () => {
+        mockedLocalDataOwnerStorage.getOwnerId.mockResolvedValue('previous-user');
+        mockedLocalDataOwnerStorage.setOwnerId.mockRejectedValue(
+          new Error('SecureStore write failed')
+        );
+      },
+    },
+    {
+      name: 'SQLite owner activation',
+      configure: () =>
+        mockedActivateLocalDataOwner.mockRejectedValue(new Error('SQLite validation failed')),
+    },
+  ])('fails closed when $name fails during account switch', async ({ configure }) => {
+    mockedRestoreSession.mockResolvedValue(null);
+    mockedLocalDataOwnerStorage.getOwnerId.mockResolvedValue('next-user');
+    mockedSignInWithGoogleIdToken.mockResolvedValue({
+      accessToken: 'new-account-token',
+      user: {
+        id: 'next-user',
+        email: 'next@example.com',
+        name: 'Next Athlete',
+        avatarUrl: null,
+      },
+    });
+    configure();
+
+    render(
+      <AuthProvider>
+        <SignInProbe />
+      </AuthProvider>
+    );
+
+    fireEvent.press(await screen.findByRole('button', { name: 'sign-in' }));
+
+    await waitFor(() => {
+      expect(mockedSignInWithGoogleIdToken).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText('next@example.com')).toBeNull();
+    });
+    expect(mockedSetAccessToken).not.toHaveBeenCalledWith('new-account-token');
+    expect(mockedFlushQueuedMutations).not.toHaveBeenCalled();
   });
 });

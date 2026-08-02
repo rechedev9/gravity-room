@@ -42,15 +42,15 @@ export function computeForecastPerExercise(
   const bySlot = new Map<string, WorkoutRecord[]>();
   for (const r of records) {
     if (r.result !== 'success') continue;
-    const slot = bySlot.get(r.slotId) ?? [];
+    const slot = bySlot.get(r.exerciseId) ?? [];
     slot.push(r);
-    bySlot.set(r.slotId, slot);
+    bySlot.set(r.exerciseId, slot);
   }
 
   const result = new Map<string, E1rmForecastPayload>();
-  for (const [slotId, slotRecords] of bySlot) {
-    const payload = forecastSlot(slotRecords);
-    if (payload !== null) result.set(slotId, payload);
+  for (const [exerciseId, exerciseRecords] of bySlot) {
+    const payload = forecastSlot(exerciseRecords);
+    if (payload !== null) result.set(exerciseId, payload);
   }
   return result;
 }

@@ -20,7 +20,7 @@ import { logger } from '../lib/logger';
 import { getRedis } from '../lib/redis';
 import { trackPresence } from '../lib/presence';
 import { keepAlive } from '../lib/wait-until';
-import { findUserById } from '../services/auth';
+import * as authService from '../services/auth';
 
 const BEARER_PREFIX = 'Bearer ';
 const TEST_SECRET = 'test-secret-do-not-use-outside-tests';
@@ -126,13 +126,26 @@ export async function verifyAccessToken(
     throw new ApiError(401, 'Invalid token payload', 'TOKEN_INVALID');
   }
 
-  const user = await findUserById(userId);
+  const user = await authService.findUserById(userId);
   if (!user || user.deletedAt) {
     throw new ApiError(401, 'Token user is no longer active', 'TOKEN_USER_INACTIVE');
   }
   const authVersion = payload['av'];
   if (!Number.isInteger(authVersion) || authVersion !== user.authVersion) {
     throw new ApiError(401, 'Token session has been revoked', 'TOKEN_REVOKED');
+  }
+
+  // Session-aware tokens are tied to their refresh family. Tokens issued before
+  // this field was deployed remain valid only for their already-short JWT TTL;
+  // every newly issued token carries `sid` and is rejected immediately on logout.
+  const sessionId = payload['sid'];
+  if (sessionId !== undefined) {
+    if (
+      typeof sessionId !== 'string' ||
+      !(await authService.isRefreshSessionActive(userId, sessionId))
+    ) {
+      throw new ApiError(401, 'Token session has been revoked', 'TOKEN_REVOKED');
+    }
   }
 
   return { userId };

@@ -9,14 +9,21 @@ const { mocks } = vi.hoisted(() => ({
       readonly id: string;
       readonly email: string;
     } | null,
+    accessToken: 'session-token' as string | null,
     migrate: vi.fn(),
     readActive: vi.fn(),
+    hasFreshIntent: vi.fn(),
+    discard: vi.fn(),
     toast: vi.fn(),
   },
 }));
 
 vi.mock('@/contexts/auth-context', () => ({
   useAuth: () => ({ user: mocks.user }),
+  getAuthSessionIdentity: () =>
+    mocks.user !== null && mocks.accessToken !== null
+      ? { userId: mocks.user.id, sessionId: mocks.accessToken }
+      : null,
 }));
 vi.mock('@/contexts/toast-context', () => ({
   useToast: () => ({ toast: mocks.toast }),
@@ -26,6 +33,8 @@ vi.mock('@/lib/guest-storage', () => ({
 }));
 vi.mock('@/lib/guest-migration', () => ({
   migrateGuestDataToAccount: mocks.migrate,
+  hasFreshGuestMigrationIntent: mocks.hasFreshIntent,
+  discardGuestMigrationData: mocks.discard,
 }));
 vi.mock('@/lib/catalog-display', () => ({
   localizedProgramName: (_t: unknown, _id: string, fallback: string) => fallback,
@@ -45,37 +54,95 @@ function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
 beforeEach(() => {
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   mocks.user = { id: 'qa5-user', email: 'qa5@example.com' };
+  mocks.accessToken = 'session-token';
   mocks.migrate.mockReset();
   mocks.readActive.mockReset();
+  mocks.hasFreshIntent.mockReset();
+  mocks.discard.mockReset();
   mocks.toast.mockReset();
   mocks.readActive.mockReturnValue({ id: 'guest-program' });
+  mocks.hasFreshIntent.mockReturnValue(true);
+  mocks.migrate.mockResolvedValue({ programId: 'gzclp', programName: 'GZCLP' });
 });
 
 describe('useGuestMigration', () => {
-  it('retries retained guest data on the next online transition', async () => {
-    mocks.migrate
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ programId: 'gzclp', programName: 'GZCLP' });
+  it('requires explicit confirmation before importing guest data', async () => {
+    const { result } = renderHook(() => useGuestMigration(), { wrapper: Wrapper });
 
-    renderHook(() => useGuestMigration(), { wrapper: Wrapper });
-    await waitFor(() => expect(mocks.migrate).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.pending).toBe(true));
+    expect(result.current.userEmail).toBe('qa5@example.com');
+    expect(mocks.migrate).not.toHaveBeenCalled();
 
-    act(() => window.dispatchEvent(new Event('online')));
+    await act(() => result.current.confirmMigration());
 
-    await waitFor(() => expect(mocks.migrate).toHaveBeenCalledTimes(2));
-    expect(mocks.toast).toHaveBeenCalledOnce();
+    expect(mocks.migrate).toHaveBeenCalledTimes(1);
+    expect(mocks.migrate).toHaveBeenCalledWith(
+      queryClient,
+      { userId: 'qa5-user', sessionId: 'session-token' },
+      expect.any(Function)
+    );
+    expect(mocks.toast).toHaveBeenCalledWith({ message: 'guest_migration.success' });
+    expect(result.current.pending).toBe(false);
   });
 
-  it('allows a new authenticated session to run its own migration', async () => {
-    mocks.migrate.mockResolvedValue(null);
-    const { rerender } = renderHook(() => useGuestMigration(), { wrapper: Wrapper });
-    await waitFor(() => expect(mocks.migrate).toHaveBeenCalledTimes(1));
+  it('dismisses without importing or deleting the local copy', async () => {
+    const { result } = renderHook(() => useGuestMigration(), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.pending).toBe(true));
+
+    act(() => result.current.dismissMigration());
+
+    expect(mocks.discard).not.toHaveBeenCalled();
+    expect(mocks.migrate).not.toHaveBeenCalled();
+    expect(result.current.pending).toBe(false);
+  });
+
+  it('purges guest data with no fresh migration intent instead of prompting', async () => {
+    mocks.hasFreshIntent.mockReturnValue(false);
+    const { result } = renderHook(() => useGuestMigration(), { wrapper: Wrapper });
+
+    await waitFor(() => expect(mocks.discard).toHaveBeenCalledOnce());
+    expect(result.current.pending).toBe(false);
+    expect(mocks.migrate).not.toHaveBeenCalled();
+  });
+
+  it('requires a fresh confirmation after the authenticated account changes', async () => {
+    const { result, rerender } = renderHook(() => useGuestMigration(), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.pending).toBe(true));
 
     mocks.user = null;
     rerender();
+    await waitFor(() => expect(result.current.pending).toBe(false));
+
     mocks.user = { id: 'qa5-user-2', email: 'qa5-2@example.com' };
+    mocks.accessToken = 'session-token-2';
     rerender();
 
-    await waitFor(() => expect(mocks.migrate).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.userEmail).toBe('qa5-2@example.com'));
+    expect(mocks.migrate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      change: 'session',
+      update: () => {
+        mocks.accessToken = 'replacement-session-token';
+      },
+    },
+    {
+      change: 'sign-out',
+      update: () => {
+        mocks.user = null;
+        mocks.accessToken = null;
+      },
+    },
+  ])('aborts stale confirmation after an auth $change', async ({ update }) => {
+    const { result } = renderHook(() => useGuestMigration(), { wrapper: Wrapper });
+    await waitFor(() => expect(result.current.pending).toBe(true));
+
+    update();
+    await act(() => result.current.confirmMigration());
+
+    expect(mocks.migrate).not.toHaveBeenCalled();
+    expect(result.current.pending).toBe(false);
   });
 });

@@ -6,8 +6,13 @@ import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { initSentryDeferred } from '@/lib/sentry';
 import { bootstrapTheme } from '@/lib/theme-preference';
+import { stripActionTokenFromCurrentUrl } from '@/lib/action-url';
 import { router } from './router';
 import '@/styles/globals.css';
+
+// Recovery links carry one-time credentials in the query string. Capture and
+// remove them before Plausible, Sentry, rendering, or any asynchronous work.
+stripActionTokenFromCurrentUrl();
 
 // Paint theme + install cross-tab sync once (boot script already set data-theme;
 // bootstrapTheme is idempotent when the root already matches storage).

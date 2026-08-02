@@ -90,9 +90,8 @@ export function GuestProvider({
   const exitGuestModeKeepingData = useCallback((): void => {
     // Deliberately does NOT clear guest data - the "Create Account" flow relies
     // on it surviving to be migrated after sign-in (see lib/guest-migration.ts).
-    // The marker scopes that migration to this intent: without a fresh marker,
-    // leftover guest data is purged rather than imported into whichever
-    // account signs in next on this browser.
+    // The marker allows an informed import/discard prompt after sign-in.
+    // It never authorizes an automatic import into whichever account signs in.
     setGuestMigrationMarker();
     clearGuestModeFlag();
   }, [clearGuestModeFlag]);

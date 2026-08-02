@@ -12,6 +12,7 @@ import { useHead } from '@/hooks/use-head';
 import { useAuth } from '@/contexts/auth-context';
 import { Kicker } from '@/components/kicker';
 import { CornerTicks } from '@/components/corner-ticks';
+import { clearActionToken, getActionToken } from '@/lib/action-url';
 
 function queryParam(name: string): string | null {
   if (typeof window === 'undefined') return null;
@@ -99,13 +100,15 @@ export function VerifyEmailPage(): React.ReactNode {
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const ran = useRef(false);
+  // This call also strips ?token synchronously when the page is rendered
+  // directly in tests or outside the normal main.tsx bootstrap.
+  const token = getActionToken('/verify-email');
 
   useHead({ title: t('login.verify_email.title'), robots: 'noindex, nofollow' });
 
   useEffect(() => {
     if (ran.current) return;
     ran.current = true;
-    const token = queryParam('token');
     if (!token) {
       setErrorMessage(t('login.verify_email.error'));
       setStatus('error');
@@ -113,16 +116,21 @@ export function VerifyEmailPage(): React.ReactNode {
     }
     void verifyEmail(token).then((result) => {
       if (result.ok) {
+        clearActionToken('/verify-email');
         setStatus('success');
         window.setTimeout(() => void navigate({ to: '/app', replace: true }), 1200);
       } else {
+        // INVALID_TOKEN is the API's definitive invalid/expired response. Keep
+        // the hidden history-state token for network, rate-limit, and server
+        // failures so a reload or retry can submit the same one-time action.
+        if (result.code === 'INVALID_TOKEN') clearActionToken('/verify-email');
         setErrorMessage(
           t([`login.errors.${result.code ?? 'generic'}`, 'login.verify_email.error'])
         );
         setStatus('error');
       }
     });
-  }, [verifyEmail, navigate, t]);
+  }, [token, verifyEmail, navigate, t]);
 
   return (
     <AuthShell title={t('login.verify_email.title')}>
@@ -148,7 +156,9 @@ export function VerifyEmailPage(): React.ReactNode {
 // ---------------------------------------------------------------------------
 
 export function ResetPasswordPage(): React.ReactNode {
-  const token = queryParam('token');
+  // This call also strips ?token synchronously when the page is rendered
+  // directly in tests or outside the normal main.tsx bootstrap.
+  const token = getActionToken('/reset-password');
   return token ? <ResetForm token={token} /> : <RequestForm />;
 }
 
@@ -228,9 +238,11 @@ function ResetForm({ token }: { readonly token: string }): React.ReactNode {
     try {
       const result = await resetPassword(token, password);
       if (result.ok) {
+        clearActionToken('/reset-password');
         setStatus('success');
         window.setTimeout(() => void navigate({ to: '/login', replace: true }), 1500);
       } else {
+        if (result.code === 'INVALID_TOKEN') clearActionToken('/reset-password');
         setErrorMessage(
           t([`login.errors.${result.code ?? 'generic'}`, 'login.reset_password.error'])
         );

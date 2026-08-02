@@ -908,7 +908,12 @@
       "finish_confirm_label": "Finish",
       "reset_confirm_title": "Reset All Progress",
       "reset_confirm_message": "Are you sure you want to reset ALL progress? This cannot be undone.",
-      "reset_confirm_label": "Reset All"
+      "reset_confirm_label": "Reset All",
+      "webmcp_enable": "Enable AI assistant",
+      "webmcp_disable": "Disable AI assistant",
+      "webmcp_confirm_title": "Allow AI access for this session?",
+      "webmcp_confirm_message": "Until you leave or reload this tracker, your browser's AI agent may request exercises, weights, results, and statistics, and may ask to change progress. Every sensitive read and write requires a browser-mediated interaction. Enable this only on a device and with an AI agent you trust.",
+      "webmcp_confirm_label": "Enable for this session"
     },
     "stats_panel": {
       "other_group": "Other",
@@ -1371,7 +1376,14 @@
     "create_account_aria": "Create account to save your progress"
   },
   "guest_migration": {
-    "success": "Your {{program}} program has been saved to your account."
+    "title": "Import guest training data?",
+    "message": "This browser contains an unfinished guest program with exercises, weights, sets, repetitions, and results. Importing uploads that data to the signed-in account.",
+    "account": "Signed-in account: {{email}}",
+    "warning": "Only import it if you created this guest program. Choosing not now keeps the local copy on this device and does not upload it.",
+    "confirm": "Import into this account",
+    "keep_local": "Not now",
+    "success": "Your {{program}} program has been saved to your account.",
+    "not_imported": "The guest program could not be imported. Review the account and try again, or discard the local copy."
   },
   "legal": {
     "back": "← Back",
@@ -1393,9 +1405,19 @@
       },
       "cookies": {
         "title": "Cookies, Analytics, and Tracking",
-        "body_prefix": "We only use a technical cookie necessary to maintain authenticated user sessions. We do not use analytics, tracking, or advertising cookies. No data is shared with advertisers or third parties. See our",
+        "body_prefix": "We use a technical cookie necessary to maintain authenticated sessions and cookie-free analytics. We do not use advertising or cross-site tracking cookies. Our limited service providers are disclosed below. See our",
         "link": "Cookie Policy",
         "body_suffix": "for more information."
+      },
+      "service_providers": {
+        "title": "Service Providers and Data Transfers",
+        "intro": "Depending on deployment configuration, Gravity Room uses the following processors only to operate, secure, and improve the service:",
+        "plausible": "Plausible Analytics receives cookie-free page, country, and device statistics. Gravity Room does not send account identifiers in analytics events.",
+        "sentry": "Sentry receives sanitized application errors, technical device information, page paths without query parameters, and a pseudonymous account ID when error reporting is enabled. Passwords, authentication tokens, request bodies, email addresses, and full query strings are removed client-side.",
+        "telegram": "Telegram may receive a new-account operational alert containing the signup email address, sign-in method, device category, and timestamp when owner notifications are enabled.",
+        "providers": "Google, Apple, GitHub, or Microsoft process information when you choose their sign-in method under their own privacy terms.",
+        "browser_ai": "If you explicitly enable AI assistant access for a tracker session, the browser's AI agent may receive workout exercises, weights, results, and statistics and may request changes. Gravity Room requires browser-mediated interaction for each sensitive read or write; the agent and its provider remain subject to the browser/provider privacy terms.",
+        "no_sale": "We do not sell personal data or share it with advertisers. Access to operational systems should be limited to the maintainer and subject to provider retention and access controls."
       },
       "delete_data": {
         "title": "Delete Your Data",
@@ -1462,7 +1484,7 @@
         "title": "Contact",
         "body": "For questions about cookie usage, open an issue on the project repository or contact the maintainer."
       },
-      "last_updated": "Last updated: March 2026."
+      "last_updated": "Last updated: August 2026."
     }
   },
   "avatar_dropdown": {

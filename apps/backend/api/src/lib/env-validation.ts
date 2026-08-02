@@ -14,6 +14,10 @@
 // run in-process under src/analytics, driven by Vercel Cron — there is no longer
 // a separate analytics service, so every var below is consumed by the api.
 
+export const MIN_INTERNAL_SECRET_LENGTH = 32;
+export const DEFAULT_ANALYTICS_BATCH_SIZE = 50;
+export const MAX_ANALYTICS_BATCH_SIZE = 100;
+
 export type EnvVarSpec = {
   name: string;
   service: 'api';
@@ -60,7 +64,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: true,
     description:
-      'Bearer secret guarding the manual ops path of /api/internal/* (cleanup-tokens, purge-users, analytics/compute). The internal guard fails closed: if neither INTERNAL_SECRET nor CRON_SECRET is set, every internal request is rejected 401.',
+      'Bearer secret guarding manual /api/internal/* operations. Must contain at least 32 characters of cryptographically random material and differ from CRON_SECRET.',
     example: '<random-32-byte-hex>',
   },
   {
@@ -68,7 +72,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: true,
     description:
-      'Required in production. Vercel Cron injects it as `Authorization: Bearer <CRON_SECRET>` on every scheduled invocation of the /api/internal/* cron routes; without it every scheduled cron run is rejected 401 and cleanup/purge/analytics silently stop. Set the value in the Vercel project; not needed for local dev.',
+      'Required in production. Vercel Cron injects it as Authorization Bearer credentials. Must contain at least 32 characters of cryptographically random material and differ from INTERNAL_SECRET.',
     example: '<vercel-cron-bearer-secret>',
   },
   {
@@ -139,8 +143,16 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: false,
     description:
-      'Bounded number of least-recently-computed users processed per /api/internal/analytics/compute cron tick. Default 50.',
+      'Bounded number of least-recently-computed users processed per /api/internal/analytics/compute cron tick. Integer from 1 to 100; default 50.',
     example: '50',
+  },
+  {
+    name: 'LOG_AUTH_ACTION_LINKS',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Explicit local-development-only opt-in for logging full verification/reset action links. Rejected in production and ignored on Vercel.',
+    example: 'false',
   },
   {
     name: 'SENTRY_DSN',
@@ -340,6 +352,40 @@ export function validateEnv(
   const jwt = env['JWT_SECRET'];
   if (isPresent(jwt) && jwt.length < 64) {
     errors.push(`JWT_SECRET must be at least 64 characters in production (got ${jwt.length})`);
+  }
+
+  const internalSecret = env['INTERNAL_SECRET']?.trim();
+  const cronSecret = env['CRON_SECRET']?.trim();
+  if (internalSecret && internalSecret.length < MIN_INTERNAL_SECRET_LENGTH) {
+    errors.push(
+      `INTERNAL_SECRET must be at least ${MIN_INTERNAL_SECRET_LENGTH} characters in production (got ${internalSecret.length})`
+    );
+  }
+  if (cronSecret && cronSecret.length < MIN_INTERNAL_SECRET_LENGTH) {
+    errors.push(
+      `CRON_SECRET must be at least ${MIN_INTERNAL_SECRET_LENGTH} characters in production (got ${cronSecret.length})`
+    );
+  }
+  if (internalSecret && cronSecret && internalSecret === cronSecret) {
+    errors.push('INTERNAL_SECRET and CRON_SECRET must be different values in production');
+  }
+
+  if (env['LOG_AUTH_ACTION_LINKS'] === 'true') {
+    errors.push('LOG_AUTH_ACTION_LINKS must not be enabled in production');
+  }
+
+  const analyticsBatchSize = env['ANALYTICS_BATCH_SIZE'];
+  if (isPresent(analyticsBatchSize)) {
+    const parsedBatchSize = Number(analyticsBatchSize);
+    if (
+      !Number.isInteger(parsedBatchSize) ||
+      parsedBatchSize < 1 ||
+      parsedBatchSize > MAX_ANALYTICS_BATCH_SIZE
+    ) {
+      errors.push(
+        `ANALYTICS_BATCH_SIZE must be an integer between 1 and ${MAX_ANALYTICS_BATCH_SIZE} (got "${analyticsBatchSize}")`
+      );
+    }
   }
 
   const port = env['PORT'];

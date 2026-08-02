@@ -81,6 +81,7 @@ export const catalogRoutes = new Elysia({ prefix: '/catalog' })
           await rateLimit(userId, 'POST /catalog/preview', {
             windowMs: HOUR_MS,
             maxRequests: 30,
+            failClosed: true,
           });
           const parseResult = ProgramDefinitionSchema.safeParse(body.definition);
           if (!parseResult.success) {

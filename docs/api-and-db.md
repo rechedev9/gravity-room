@@ -11,7 +11,7 @@
 
 <!-- AUTO:API-START -->
 
-_52 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
+_53 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
 
 ### Auth
 
@@ -58,6 +58,7 @@ _52 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
 
 ### Other
 
+- `GET /api/internal/readiness`
 - `GET /api/internal/cleanup-tokens`
 - `POST /api/internal/cleanup-tokens`
 - `GET /api/internal/purge-users`
@@ -90,7 +91,7 @@ _52 endpoints across 9 tags. Source: http://localhost:3001/swagger/json._
 
 ### System
 
-- `GET /api/health` — Health check
+- `GET /api/health` — Public liveness check
 <!-- AUTO:API-END -->
 
 ## Auto-generated: Database schema
@@ -129,11 +130,11 @@ _13 tables. Source: `packages/database/src/schema.ts`._
 
 ### `refresh_tokens`
 
-`id` _(uuid, PK)_ · `user_id` _(uuid, NOT NULL)_ · `token_hash` _(varchar, unique, NOT NULL)_ · `previous_token_hash` _(varchar)_ · `expires_at` _(timestamp, NOT NULL)_ · `created_at` _(timestamp, NOT NULL)_
+`id` _(uuid, PK)_ · `user_id` _(uuid, NOT NULL)_ · `token_hash` _(varchar, unique, NOT NULL)_ · `family_id` _(uuid, transitional nullable with default)_ · `previous_token_hash` _(varchar)_ · `consumed_at` _(timestamp)_ · `expires_at` _(timestamp, NOT NULL)_ · `created_at` _(timestamp, NOT NULL)_
 
 ### `undo_entries`
 
-`id` _(bigserial, PK)_ · `instance_id` _(uuid, NOT NULL)_ · `workout_index` _(smallint, NOT NULL)_ · `slot_id` _(varchar, NOT NULL)_ · `previous_result` _(enum)_ · `previous_amrap_reps` _(smallint)_ · `previous_rpe` _(smallint)_ · `previous_set_logs` _(jsonb)_ · `created_at` _(timestamp, NOT NULL)_
+`id` _(bigserial, PK)_ · `instance_id` _(uuid, NOT NULL)_ · `workout_index` _(smallint, NOT NULL)_ · `slot_id` _(varchar, NOT NULL)_ · `previous_result` _(enum)_ · `previous_amrap_reps` _(smallint)_ · `previous_rpe` _(smallint)_ · `previous_set_logs` _(jsonb)_ · `previous_exercise_id` _(varchar)_ · `previous_definition_version` _(smallint)_ · `created_at` _(timestamp, NOT NULL)_
 
 ### `user_identities`
 
@@ -149,6 +150,11 @@ _13 tables. Source: `packages/database/src/schema.ts`._
 
 ### `workout_results`
 
-`id` _(bigserial, PK)_ · `instance_id` _(uuid, NOT NULL)_ · `workout_index` _(smallint, NOT NULL)_ · `slot_id` _(varchar, NOT NULL)_ · `result` _(enum, NOT NULL)_ · `amrap_reps` _(smallint)_ · `rpe` _(smallint)_ · `set_logs` _(jsonb)_ · `completed_at` _(timestamp)_ · `created_at` _(timestamp, NOT NULL)_ · `updated_at` _(timestamp, NOT NULL)_
+`id` _(bigserial, PK)_ · `instance_id` _(uuid, NOT NULL)_ · `workout_index` _(smallint, NOT NULL)_ · `slot_id` _(varchar, NOT NULL)_ · `exercise_id` _(varchar)_ · `definition_version` _(smallint)_ · `result` _(enum, NOT NULL)_ · `amrap_reps` _(smallint)_ · `rpe` _(smallint)_ · `set_logs` _(jsonb)_ · `completed_at` _(timestamp)_ · `created_at` _(timestamp, NOT NULL)_ · `updated_at` _(timestamp, NOT NULL)_
 
 <!-- AUTO:DB-END -->
+
+Deployment contracts and the accepted residual RLS risk are documented in
+[`DATABASE_SECURITY_ROLLOUT.md`](./DATABASE_SECURITY_ROLLOUT.md). In particular,
+`refresh_tokens.family_id` remains physically nullable during the 0044 expand
+phase even though supported runtime writers maintain a non-null invariant.

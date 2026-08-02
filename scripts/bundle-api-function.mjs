@@ -1,62 +1,48 @@
 /**
- * Pre-bundle the Vercel serverless API function into a single self-contained
- * ESM module, run by scripts/vercel-build.sh at build time.
+ * Generate the committed Vercel API bundle from an independent source entry.
  *
- * Why this exists
- * ----------------
- * The API is an ESM workspace (apps/backend/api is "type":"module") written with
- * extensionless relative imports (the standard TypeScript style). @vercel/node
- * does NOT bundle the function: it transpiles each .ts to .js and ships them, so
- * at runtime Node's ESM loader sees extensionless relative imports
- * (`./create-app`, `../analytics/...`) and rejects them with
- * ERR_MODULE_NOT_FOUND (and, before the root became "type":"module",
- * ERR_REQUIRE_ESM). Bundling resolves every first-party import at build time.
- *
- * What it does
- * ------------
- * esbuild-bundles api/index.ts, inlining all first-party code — relative
- * imports AND the @gzclp/* workspace packages — while leaving every real
- * node_module (elysia, drizzle-orm, postgres, @upstash/*, pino, @node-rs/argon2,
- * node: builtins, ...) external. @vercel/node then traces those externals from
- * node_modules as usual. The bundle overwrites api/index.ts in place so the
- * Vercel function mapping (api/index.ts -> /api/*) is unchanged; only the
- * checked-out build copy is rewritten, never the committed source.
+ * Vercel's Node runtime does not bundle extensionless ESM workspace imports, so
+ * esbuild inlines first-party code while leaving real node_modules external for
+ * Vercel's dependency tracer. `api/index.ts` is output only; using it as input
+ * would silently preserve stale gateway code on subsequent builds.
  */
-import { build } from 'esbuild';
-import { rename } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { build } from 'esbuild';
+import { format, resolveConfig } from 'prettier';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
-const entry = join(repoRoot, 'api', 'index.ts');
-const tmpOut = join(repoRoot, 'api-function.bundle.mjs');
+const entry = join(repoRoot, 'apps', 'backend', 'api', 'src', 'vercel-handler.ts');
+const output = join(repoRoot, 'api', 'index.ts');
+const checkOnly = process.argv.includes('--check');
 
 /**
  * Externalize every bare specifier (real node_modules + node: builtins) so only
- * first-party code (relative paths + the @gzclp/* workspace packages) is bundled.
- * Driving this off the import kind/shape — rather than a hardcoded deps list —
- * keeps transitive node_modules external without enumerating them.
+ * first-party code (relative paths + @gzclp workspace packages) is bundled.
  */
 const externalizeNodeModules = {
   name: 'externalize-node-modules',
   setup(builder) {
     builder.onResolve({ filter: /.*/ }, (args) => {
       if (args.kind === 'entry-point') return undefined;
-      const p = args.path;
-      const isRelative = p.startsWith('.') || p.startsWith('/') || p.startsWith('\\');
-      const isFirstPartyPkg = p.startsWith('@gzclp/');
-      if (!isRelative && !isFirstPartyPkg) {
-        return { path: p, external: true };
+      const specifier = args.path;
+      const isRelative =
+        specifier.startsWith('.') || specifier.startsWith('/') || specifier.startsWith('\\');
+      const isFirstPartyPackage = specifier.startsWith('@gzclp/');
+      if (!isRelative && !isFirstPartyPackage) {
+        return { path: specifier, external: true };
       }
       return undefined;
     });
   },
 };
 
-await build({
+const result = await build({
   entryPoints: [entry],
-  outfile: tmpOut,
+  outfile: output,
   bundle: true,
+  write: false,
   platform: 'node',
   format: 'esm',
   target: 'node22',
@@ -65,5 +51,31 @@ await build({
   logLevel: 'info',
 });
 
-await rename(tmpOut, entry);
-console.log('[bundle-api-function] wrote self-contained bundle to api/index.ts');
+const generated = result.outputFiles?.[0]?.text;
+if (generated === undefined) {
+  throw new Error('esbuild did not produce the Vercel API bundle');
+}
+const prettierConfig = (await resolveConfig(output)) ?? {};
+const formatted = await format(generated, {
+  ...prettierConfig,
+  filepath: output,
+  parser: 'typescript',
+});
+
+if (checkOnly) {
+  let committed;
+  try {
+    committed = await readFile(output, 'utf8');
+  } catch (error) {
+    throw new Error(`Cannot read committed API bundle at ${output}`, { cause: error });
+  }
+  if (committed !== formatted) {
+    throw new Error(
+      'api/index.ts is stale. Run `pnpm run bundle:api` and commit the generated bundle.'
+    );
+  }
+  console.log('[bundle-api-function] committed api/index.ts matches its source entry');
+} else {
+  await writeFile(output, formatted);
+  console.log('[bundle-api-function] generated api/index.ts from vercel-handler.ts');
+}

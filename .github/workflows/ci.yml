@@ -25,11 +25,11 @@ jobs:
     name: Web
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: pnpm
@@ -56,26 +56,44 @@ jobs:
           VITE_API_URL: ''
 
   # ---------------------------------------------------------------------------
-  # API — typecheck, lint, and the full unit suite. The api test script runs the
-  # analytics suite under src/analytics, which includes the golden-file parity
-  # tests (pipelines/pipelines.parity.test.ts) that bound the TypeScript port
-  # against the snapshot of the deleted Python service.
+  # API — typecheck, lint, unit tests, and DB-backed auth/security tests. The
+  # unit suite includes analytics golden-file parity; the separate e2e suite
+  # exercises real Postgres constraints, token rotation, and locking behavior.
   # ---------------------------------------------------------------------------
   api:
     name: API
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: gravity_room_security_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL_TEST: postgres://postgres:postgres@localhost:5432/gravity_room_security_test
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Verify deployable API bundle
+        run: pnpm run bundle:api:check
 
       - name: Typecheck
         run: pnpm --filter api run typecheck
@@ -86,6 +104,9 @@ jobs:
       - name: Test (includes analytics golden-file parity)
         run: pnpm --filter api run test
 
+      - name: Test DB-backed auth and security flows
+        run: pnpm --filter api run test:e2e
+
   # ---------------------------------------------------------------------------
   # Shared domain package — the single source of truth for the progression
   # engine and schemas consumed by web, mobile, and api.
@@ -94,11 +115,11 @@ jobs:
     name: Domain
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: pnpm
@@ -119,11 +140,11 @@ jobs:
     name: API client
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: pnpm
@@ -147,11 +168,11 @@ jobs:
     name: Mobile
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: pnpm
@@ -172,11 +193,11 @@ jobs:
     name: Format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: pnpm
@@ -188,20 +209,19 @@ jobs:
         run: pnpm run format:check
 
   # ---------------------------------------------------------------------------
-  # Security headers — asserts the static-SPA response headers in vercel.json
-  # (CSP directives, HSTS, Permissions-Policy, X-Content-Type-Options, etc.)
-  # still match the hardened policy, so a headers regression fails CI. The check
-  # reads only vercel.json — no server, DB, or build needed.
+  # Security/deployment config — asserts static headers, action-route referrer
+  # overrides, and the cleanUrls-compatible SPA rewrite. These checks read only
+  # vercel.json, so malformed deep-link routing fails before deployment.
   # ---------------------------------------------------------------------------
   security-headers:
-    name: Security headers
+    name: Security headers and deployment config
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: pnpm
@@ -211,6 +231,12 @@ jobs:
 
       - name: Check security headers
         run: pnpm run security:headers
+
+      - name: Check Vercel rewrites and action routes
+        run: pnpm run security:deployment
+
+      - name: Check immutable workflow inputs
+        run: pnpm run security:ci-pins
 
   # ---------------------------------------------------------------------------
   # OpenAPI client drift — catches divergence between the live ElysiaJS OpenAPI
@@ -232,11 +258,11 @@ jobs:
       PORT: '3001'
       CORS_ORIGIN: http://localhost:3000
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: pnpm
@@ -271,10 +297,36 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------------
-  # Gitleaks secret scan — scans git history (not just the working tree) so
-  # removed-but-recoverable secrets are caught. On pull_request, scoped to the
-  # PR's commit range so pre-existing historical commits aren't re-flagged; on
-  # push it scans the full history.
+  # Full build dependency policy — high/critical advisories fail closed across
+  # runtime, development, test, and release-tool dependencies. Exceptions must
+  # be advisory-specific, justified, and time-bounded in the reviewed policy.
+  # ---------------------------------------------------------------------------
+  dependency-audit:
+    name: Full build dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test fail-closed audit parsing
+        run: pnpm run security:dependencies:test
+
+      - name: Enforce dependency advisory policy
+        run: pnpm run security:dependencies
+
+  # ---------------------------------------------------------------------------
+  # Gitleaks secret scan — scans Git history, but only history relevant to the
+  # event: all commits reachable from the pushed HEAD, or the PR base..head
+  # range. Unrelated remote branches cannot poison the main security gate.
   # ---------------------------------------------------------------------------
   secret-scan:
     name: Gitleaks secret scan
@@ -284,7 +336,7 @@ jobs:
       security-events: write
     steps:
       - name: Checkout full history
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           # Gitleaks git mode reads the commit graph; full history is required
           # to detect secrets that were committed and later removed.
@@ -295,19 +347,22 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_HEAD_SHA: ${{ github.sha }}
         run: |
-          LOG_OPTS=""
           if [ "$EVENT_NAME" = "pull_request" ]; then
             LOG_OPTS="--log-opts=${PR_BASE_SHA}..${PR_HEAD_SHA}"
+          else
+            LOG_OPTS="--log-opts=${PUSH_HEAD_SHA}"
           fi
           # --config is REQUIRED: gitleaks runs with the container CWD at `/`,
           # not the mounted `/repo`, so it cannot auto-discover the repo's
           # .gitleaks.toml. Without this, the project allowlist is ignored and
           # the scan re-flags long-lived false positives (the public IndexNow
           # key, fake-JWT test fixtures), failing every push to main.
+          # v8.30.0, pinned to its immutable multi-platform image digest.
           docker run --rm \
             -v "$PWD:/repo" \
-            ghcr.io/gitleaks/gitleaks:v8.30.0 git /repo \
+            ghcr.io/gitleaks/gitleaks@sha256:691af3c7c5a48b16f187ce3446d5f194838f91238f27270ed36eef6359a574d9 git /repo \
             --config=/repo/.gitleaks.toml \
             $LOG_OPTS \
             --redact \
@@ -318,7 +373,7 @@ jobs:
 
       - name: Upload Gitleaks SARIF
         if: always() && hashFiles('gitleaks.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@bce182f857edf1feab116e9795a3393d21977282 # v4
         with:
           sarif_file: gitleaks.sarif
           category: gitleaks
@@ -333,7 +388,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:16@sha256:33f923b05f64ca54ac4401c01126a6b92afe839a0aa0a52bc5aeb5cc958e5f20
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -352,11 +407,11 @@ jobs:
       AUTH_DEV_ROUTE_SECRET: e2e-dev-secret-not-for-prod
       CI: 'true'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: pnpm
@@ -394,6 +449,7 @@ jobs:
         format,
         security-headers,
         api-types-drift,
+        dependency-audit,
         secret-scan,
         e2e-smoke,
       ]

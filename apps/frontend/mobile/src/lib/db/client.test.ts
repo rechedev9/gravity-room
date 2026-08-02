@@ -1,6 +1,14 @@
 import { openDatabaseSync } from 'expo-sqlite';
 
-import { bootstrapDatabase, getDatabase, type DatabaseClient } from './client';
+import {
+  activateLocalDataOwner,
+  bootstrapDatabase,
+  deactivateLocalDataOwner,
+  getActiveLocalDataOwner,
+  getDatabase,
+  requireActiveLocalDataOwner,
+  type DatabaseClient,
+} from './client';
 import type { MigrationStep } from './migrations';
 
 const mockedOpenDatabaseSync = jest.mocked(openDatabaseSync);
@@ -68,8 +76,8 @@ describe('bootstrapDatabase', () => {
     await expect(bootstrapDatabase()).rejects.toThrow('disk busy');
     await expect(bootstrapDatabase()).resolves.toBeUndefined();
 
-    expect(execAsync).toHaveBeenCalledTimes(5);
-    expect(database.getVersion()).toBe(2);
+    expect(execAsync).toHaveBeenCalledTimes(7);
+    expect(database.getVersion()).toBe(3);
   });
 
   it('returns the same database instance across calls', () => {
@@ -83,7 +91,7 @@ describe('bootstrapDatabase', () => {
 
     await bootstrapDatabase(database);
 
-    expect(database.getVersion()).toBe(2);
+    expect(database.getVersion()).toBe(3);
     expect(
       database.appliedSql.some((sql) =>
         sql.includes('CREATE TABLE IF NOT EXISTS program_summaries')
@@ -105,6 +113,12 @@ describe('bootstrapDatabase', () => {
       database.appliedSql.some((sql) => sql.includes('ALTER TABLE queued_mutations ADD COLUMN'))
     ).toBe(true);
     expect(database.appliedSql).toContain('PRAGMA user_version = 2');
+    expect(
+      database.appliedSql.some(
+        (sql) => sql.includes('owner_user_id TEXT NOT NULL') && sql.includes('DROP TABLE IF EXISTS')
+      )
+    ).toBe(true);
+    expect(database.appliedSql).toContain('PRAGMA user_version = 3');
   });
 
   it('migrates a pre-existing install stuck at version 0 without erroring', async () => {
@@ -113,7 +127,7 @@ describe('bootstrapDatabase', () => {
     const database = createFakeDatabase(0);
 
     await bootstrapDatabase(database);
-    expect(database.getVersion()).toBe(2);
+    expect(database.getVersion()).toBe(3);
 
     // Running it again (e.g. next app launch) must be a no-op: the CREATE
     // TABLE IF NOT EXISTS statements never re-run once the version matches.
@@ -160,5 +174,34 @@ describe('bootstrapDatabase', () => {
     expect(database.getVersion()).toBe(2);
     expect(database.appliedSql).not.toContain(baseline.sql);
     expect(database.appliedSql).toContain(dummyMigration.sql);
+  });
+});
+
+describe('local data owner binding', () => {
+  beforeEach(() => {
+    deactivateLocalDataOwner();
+  });
+
+  it.each(['', '   '])('rejects invalid owner id %j', async (ownerId) => {
+    await expect(activateLocalDataOwner(ownerId, createFakeDatabase(3))).rejects.toThrow(
+      /non-empty/
+    );
+    expect(getActiveLocalDataOwner()).toBeNull();
+    expect(() => requireActiveLocalDataOwner()).toThrow(/not been validated/);
+  });
+
+  it('publishes an owner only after SQLite validation succeeds', async () => {
+    const failingDatabase = createFakeDatabase(0);
+    failingDatabase.getAllAsync = jest.fn(async () => {
+      throw new Error('SQLite unavailable');
+    });
+
+    await expect(activateLocalDataOwner('user-123', failingDatabase)).rejects.toThrow(
+      'SQLite unavailable'
+    );
+    expect(getActiveLocalDataOwner()).toBeNull();
+
+    await activateLocalDataOwner('user-123', createFakeDatabase(3));
+    expect(requireActiveLocalDataOwner()).toBe('user-123');
   });
 });

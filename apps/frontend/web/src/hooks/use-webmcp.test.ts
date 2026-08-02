@@ -47,6 +47,7 @@ function buildOptions(overrides?: {
   results?: GenericResults;
   rows?: readonly GenericWorkoutRow[];
 }): {
+  enabled: boolean;
   config: Record<string, number | string> | null;
   rows: readonly GenericWorkoutRow[];
   totalWorkouts: number;
@@ -60,6 +61,7 @@ function buildOptions(overrides?: {
   const results = overrides?.results ?? {};
   const rows = overrides?.rows ?? (cfg ? computeGenericProgram(DEF, cfg, results) : []);
   return {
+    enabled: true,
     config: cfg,
     rows,
     totalWorkouts: DEF.totalWorkouts,
@@ -74,12 +76,20 @@ function buildOptions(overrides?: {
 let capturedTools: CapturedTool[] = [];
 let mockRegisterTool: ReturnType<typeof vi.fn>;
 let mockUnregisterTool: ReturnType<typeof vi.fn>;
+let mockRequestUserInteraction: ReturnType<typeof vi.fn>;
 let originalModelContext: unknown;
 
 function installMockModelContext(): void {
   capturedTools = [];
+  mockRequestUserInteraction = vi.fn(
+    async (callback: () => Promise<unknown>): Promise<unknown> => callback()
+  );
   mockRegisterTool = vi.fn((tool: CapturedTool) => {
-    capturedTools.push(tool);
+    capturedTools.push({
+      ...tool,
+      execute: (input: unknown) =>
+        tool.execute(input, { requestUserInteraction: mockRequestUserInteraction }),
+    });
   });
   mockUnregisterTool = vi.fn();
   Object.defineProperty(navigator, 'modelContext', {
@@ -133,7 +143,16 @@ describe('useWebMcp', () => {
   });
 
   describe('tool registration', () => {
-    it('should register all 8 tools via registerTool', () => {
+    it('should register no tools until the user opts in for the session', () => {
+      installMockModelContext();
+      const opts = { ...buildOptions(), enabled: false };
+
+      renderHook(() => useWebMcp(opts));
+
+      expect(mockRegisterTool).not.toHaveBeenCalled();
+    });
+
+    it('should register all 8 tools via registerTool after opt-in', () => {
       installMockModelContext();
       const opts = buildOptions();
       renderHook(() => useWebMcp(opts));
@@ -148,6 +167,27 @@ describe('useWebMcp', () => {
       expect(names).toContain('undoLastResult');
       expect(names).toContain('initializeProgram');
       expect(names).toContain('scheduleNextWorkout');
+    });
+
+    it('registers after an in-memory opt-in and blocks retained tools when disabled', async () => {
+      installMockModelContext();
+      const opts = buildOptions();
+      const { rerender } = renderHook(
+        ({ enabled }: { readonly enabled: boolean }) => useWebMcp({ ...opts, enabled }),
+        { initialProps: { enabled: false } }
+      );
+
+      expect(mockRegisterTool).not.toHaveBeenCalled();
+      rerender({ enabled: true });
+      expect(mockRegisterTool).toHaveBeenCalledTimes(8);
+      const retainedTool = findTool('getProgress');
+
+      rerender({ enabled: false });
+
+      expect(mockUnregisterTool).toHaveBeenCalledTimes(8);
+      const { parsed } = parseResponse(await retainedTool.execute({}, {}));
+      expect(isErrorResponse(parsed)).toBe(true);
+      expect(mockRequestUserInteraction).not.toHaveBeenCalled();
     });
 
     it('should unregister all tools by name on unmount', () => {
@@ -210,6 +250,7 @@ describe('useWebMcp', () => {
       expect(resp.content).toHaveLength(1);
       expect(resp.content[0].type).toBe('text');
       expect(typeof resp.content[0].text).toBe('string');
+      expect(mockRequestUserInteraction).toHaveBeenCalledOnce();
     });
   });
 
@@ -519,6 +560,9 @@ describe('useWebMcp', () => {
       if (isErrorResponse(parsed)) {
         expect(parsed.error).toContain('amrapReps');
       }
+      expect(opts.markResult).not.toHaveBeenCalled();
+      expect(opts.setAmrapReps).not.toHaveBeenCalled();
+      expect(mockRequestUserInteraction).not.toHaveBeenCalled();
     });
 
     it('should return error for amrapReps on non-AMRAP slot', async () => {
@@ -536,6 +580,22 @@ describe('useWebMcp', () => {
       if (isErrorResponse(parsed)) {
         expect(parsed.error).toContain('not an AMRAP slot');
       }
+    });
+
+    it('does not mutate when the browser interaction is declined', async () => {
+      installMockModelContext();
+      const opts = buildOptions();
+      renderHook(() => useWebMcp(opts));
+      mockRequestUserInteraction.mockRejectedValueOnce(new Error('declined'));
+
+      const resp = await findTool('logResult').execute(
+        { index: 0, slotId: 'd1-t1', result: 'success' },
+        {}
+      );
+      const { parsed } = parseResponse(resp);
+
+      expect(isErrorResponse(parsed)).toBe(true);
+      expect(opts.markResult).not.toHaveBeenCalled();
     });
   });
 

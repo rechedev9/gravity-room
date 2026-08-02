@@ -9,7 +9,6 @@ import {
   programTemplates,
   workoutResults,
   undoEntries,
-  users,
 } from '@gzclp/database/schema';
 import { getProgramDefinition } from '../services/catalog';
 import {
@@ -19,6 +18,12 @@ import {
 } from '@gzclp/domain/schemas/instance';
 import type { GenericResults, GenericUndoHistory } from '@gzclp/domain/types/program';
 import { ApiError } from '../middleware/error-handler';
+import {
+  MAX_IMPORT_JSON_BYTES,
+  MAX_IMPORT_ROWS,
+  MAX_IMPORT_UNDO_ENTRIES,
+} from '../lib/data-limits';
+import { assertUserDataQuotas, lockUserForDataMutation } from './data-quotas';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,16 +81,7 @@ const MAX_SET_LOG_WEIGHT = 10_000;
 const MAX_METADATA_BYTES = 10_000;
 
 async function lockUserForActiveProgramMutation(tx: Tx, userId: string): Promise<void> {
-  const [user] = await tx
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.id, userId))
-    .for('update')
-    .limit(1);
-
-  if (!user) {
-    throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
-  }
+  await lockUserForDataMutation(tx, userId);
 }
 
 /** Maps each workoutIndex to the earliest createdAt timestamp for that workout. */
@@ -257,6 +253,7 @@ export async function createInstance(
       })
       .returning();
 
+    await assertUserDataQuotas(tx, userId);
     return created;
   });
 
@@ -398,16 +395,17 @@ export async function updateInstance(
   if (updates.status !== undefined) updateValues.status = updates.status;
   if (updates.config !== undefined) updateValues.programConfig = updates.config;
 
-  // Single UPDATE WHERE userId AND id — one round-trip instead of SELECT+UPDATE
-  const [updated] = await getDb()
-    .update(programInstances)
-    .set(updateValues)
-    .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
-    .returning();
-
-  if (!updated) {
-    throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
-  }
+  const updated = await getDb().transaction(async (tx) => {
+    await lockUserForDataMutation(tx, userId);
+    const [row] = await tx
+      .update(programInstances)
+      .set(updateValues)
+      .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+      .returning();
+    if (!row) throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
+    await assertUserDataQuotas(tx, userId);
+    return row;
+  });
 
   const [resultRows, undoRows] = await fetchResultsAndUndo(instanceId);
   return toResponse(updated, resultRows, undoRows);
@@ -431,49 +429,48 @@ export async function updateInstanceMetadata(
 
   const mergedMetadata = sql`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${metadata}::jsonb`;
 
-  // Single UPDATE with JSONB merge and final-size guard — no preceding SELECT needed
-  const [updated] = await getDb()
-    .update(programInstances)
-    .set({
-      metadata: mergedMetadata,
-      updatedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(programInstances.id, instanceId),
-        eq(programInstances.userId, userId),
-        sql`length((${mergedMetadata})::text) <= ${MAX_METADATA_BYTES}`
+  const updated = await getDb().transaction(async (tx) => {
+    await lockUserForDataMutation(tx, userId);
+    const [row] = await tx
+      .update(programInstances)
+      .set({ metadata: mergedMetadata, updatedAt: new Date() })
+      .where(
+        and(
+          eq(programInstances.id, instanceId),
+          eq(programInstances.userId, userId),
+          sql`length((${mergedMetadata})::text) <= ${MAX_METADATA_BYTES}`
+        )
       )
-    )
-    .returning();
+      .returning();
 
-  if (!updated) {
-    const [existing] = await getDb()
-      .select({ id: programInstances.id })
-      .from(programInstances)
-      .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
-      .limit(1);
-    if (existing) {
-      throw new ApiError(400, 'Metadata exceeds 10KB limit', 'METADATA_TOO_LARGE');
+    if (!row) {
+      const [existing] = await tx
+        .select({ id: programInstances.id })
+        .from(programInstances)
+        .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+        .limit(1);
+      if (existing) throw new ApiError(400, 'Metadata exceeds 10KB limit', 'METADATA_TOO_LARGE');
+      throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
     }
-    throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
-  }
+    await assertUserDataQuotas(tx, userId);
+    return row;
+  });
 
   const [resultRows, undoRows] = await fetchResultsAndUndo(instanceId);
   return toResponse(updated, resultRows, undoRows);
 }
 
 export async function deleteInstance(userId: string, instanceId: string): Promise<void> {
-  // Single DELETE WHERE userId AND id — one round-trip instead of SELECT+DELETE
-  // CASCADE deletes workout_results and undo_entries
-  const deleted = await getDb()
-    .delete(programInstances)
-    .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
-    .returning({ id: programInstances.id });
-
-  if (deleted.length === 0) {
-    throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
-  }
+  await getDb().transaction(async (tx) => {
+    await lockUserForDataMutation(tx, userId);
+    const deleted = await tx
+      .delete(programInstances)
+      .where(and(eq(programInstances.id, instanceId), eq(programInstances.userId, userId)))
+      .returning({ id: programInstances.id });
+    if (deleted.length === 0) {
+      throw new ApiError(404, 'Program instance not found', 'INSTANCE_NOT_FOUND');
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -533,10 +530,30 @@ export async function exportInstance(userId: string, instanceId: string): Promis
   };
 }
 
+function assertImportAggregateLimits(data: ExportedProgram): void {
+  let resultRows = 0;
+  for (const slots of Object.values(data.results)) {
+    for (const result of Object.values(slots)) {
+      if (result.result !== undefined) resultRows += 1;
+    }
+  }
+  const totalRows = resultRows + data.undoHistory.length;
+  if (data.undoHistory.length > MAX_IMPORT_UNDO_ENTRIES || totalRows > MAX_IMPORT_ROWS) {
+    throw new ApiError(413, 'Import contains too many rows', 'IMPORT_TOO_LARGE');
+  }
+  const jsonBytes = new TextEncoder().encode(JSON.stringify(data)).byteLength;
+  if (jsonBytes > MAX_IMPORT_JSON_BYTES) {
+    throw new ApiError(413, 'Import payload is too large', 'IMPORT_TOO_LARGE');
+  }
+}
+
 export async function importInstance(
   userId: string,
   data: ExportedProgram
 ): Promise<ProgramInstanceResponse> {
+  // Reject amplified shapes before catalog hydration or transaction allocation.
+  assertImportAggregateLimits(data);
+
   // Validate program exists in DB and get its hydrated definition for validation
   const defResult = await getProgramDefinition(data.programId);
   if (defResult.status === 'not_found') {
@@ -653,6 +670,8 @@ export async function importInstance(
       rpe: number | null;
       setLogs: unknown;
       completedAt: Date | null;
+      exerciseId: string;
+      definitionVersion: number;
     }[] = [];
 
     for (const [indexStr, slots] of Object.entries(data.results)) {
@@ -662,18 +681,23 @@ export async function importInstance(
         ? new Date(completedDatesByWorkout.get(workoutIndex) ?? data.exportDate)
         : null;
       for (const [slotId, slotResult] of Object.entries(slots)) {
-        if (slotResult.result) {
-          resultValues.push({
-            instanceId: instance.id,
-            workoutIndex,
-            slotId,
-            result: slotResult.result,
-            amrapReps: slotResult.amrapReps ?? null,
-            rpe: slotResult.rpe ?? null,
-            setLogs: slotResult.setLogs ?? null,
-            completedAt,
-          });
+        if (!slotResult.result) continue;
+        const slotDefinition = day.slots.find((slot) => slot.id === slotId);
+        if (!slotDefinition) {
+          throw new ApiError(400, `Unknown slotId: ${slotId}`, 'INVALID_DATA');
         }
+        resultValues.push({
+          instanceId: instance.id,
+          workoutIndex,
+          slotId,
+          result: slotResult.result,
+          amrapReps: slotResult.amrapReps ?? null,
+          rpe: slotResult.rpe ?? null,
+          setLogs: slotResult.setLogs ?? null,
+          completedAt,
+          exerciseId: slotDefinition.exerciseId,
+          definitionVersion: definition.version,
+        });
       }
     }
 
@@ -691,10 +715,15 @@ export async function importInstance(
         previousRpe: entry.prevRpe ?? null,
         previousAmrapReps: entry.prevAmrapReps ?? null,
         previousSetLogs: entry.prevSetLogs ?? null,
+        previousExerciseId:
+          definition.days[entry.i % cycleLength]?.slots.find((slot) => slot.id === entry.slotId)
+            ?.exerciseId ?? null,
+        previousDefinitionVersion: definition.version,
       }));
       await tx.insert(undoEntries).values(undoValues);
     }
 
+    await assertUserDataQuotas(tx, userId);
     return instance.id;
   });
 

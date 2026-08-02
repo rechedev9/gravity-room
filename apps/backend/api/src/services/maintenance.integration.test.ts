@@ -59,8 +59,18 @@ describe.skipIf(!hasIsolatedDb)('database maintenance lifecycle (integration)', 
       getDb()
         .insert(refreshTokens)
         .values([
-          { userId: user.id, tokenHash: tokenHash('expired-refresh'), expiresAt: expired },
-          { userId: user.id, tokenHash: tokenHash('future-refresh'), expiresAt: future },
+          {
+            userId: user.id,
+            familyId: '00000000-0000-4000-8000-000000000001',
+            tokenHash: tokenHash('expired-refresh'),
+            expiresAt: expired,
+          },
+          {
+            userId: user.id,
+            familyId: '00000000-0000-4000-8000-000000000002',
+            tokenHash: tokenHash('future-refresh'),
+            expiresAt: future,
+          },
         ]),
       getDb()
         .insert(passwordResetTokens)

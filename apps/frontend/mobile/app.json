@@ -4,7 +4,16 @@
     "slug": "gravity-room-mobile",
     "scheme": "gravity-room-mobile",
     "android": {
-      "package": "com.gravityroom.mobile"
+      "package": "com.gravityroom.mobile",
+      "usesCleartextTraffic": false
+    },
+    "ios": {
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSAllowsLocalNetworking": false
+        }
+      }
     },
     "plugins": ["expo-sqlite", "expo-secure-store", "expo-web-browser"],
     "web": {

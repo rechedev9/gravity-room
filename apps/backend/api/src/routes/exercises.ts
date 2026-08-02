@@ -217,7 +217,7 @@ const protectedExerciseRoutes = new Elysia()
     '/exercises',
     async ({ userId, body, set, reqLogger }) => {
       reqLogger.info({ event: 'exercise.create', userId }, 'creating exercise');
-      await rateLimit(userId, 'POST /exercises');
+      await rateLimit(userId, 'POST /exercises', { failClosed: true });
 
       const slug = slugifyExerciseName(body.name);
 

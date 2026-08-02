@@ -12,11 +12,9 @@ import type { ProgramInstance, ProgramInstanceMap } from '@gzclp/domain/types/pr
 export const GUEST_STORAGE_KEY = 'gzclp_guest_v1' as const;
 
 /**
- * Timestamp (ms) stamped when a guest clicks "Create Account", marking their
- * data as intended for migration into the account they are about to create.
- * The migration hook only imports guest data while this marker is fresh, so
- * data abandoned on a shared browser cannot leak into an unrelated account
- * that signs in later.
+ * Timestamp (ms) stamped when a guest clicks "Create Account". A fresh marker
+ * allows the signed-in user to see an informed import/discard prompt; it never
+ * authorizes an automatic import.
  */
 export const GUEST_MIGRATION_MARKER_KEY = 'gzclp_guest_migration_pending_v1' as const;
 

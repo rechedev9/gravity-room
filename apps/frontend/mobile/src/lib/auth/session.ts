@@ -1,11 +1,14 @@
 import { createSingleFlight } from '@gzclp/api-client/single-flight';
 import { isRecord } from '@gzclp/domain/type-guards';
+import { Platform } from 'react-native';
 import {
+  canPersistRefreshToken,
   secureRefreshTokenStorage,
   secureSessionKindStorage,
   type RefreshTokenStorage,
   type SessionKindStorage,
 } from './secure-storage';
+import { getActiveLocalDataOwner } from '../db/client';
 
 export interface AuthUser {
   readonly id: string;
@@ -77,6 +80,17 @@ export class InvalidRefreshTokenError extends Error {
   }
 }
 
+/** Sign-out is incomplete while any durable credential marker may remain. */
+export class SignOutCredentialDeletionError extends Error {
+  readonly failedCredentials: readonly ('refreshToken' | 'sessionKind')[];
+
+  constructor(failedCredentials: readonly ('refreshToken' | 'sessionKind')[]) {
+    super(`Failed to delete durable sign-out state: ${failedCredentials.join(', ')}`);
+    this.name = 'SignOutCredentialDeletionError';
+    this.failedCredentials = failedCredentials;
+  }
+}
+
 interface RestoreSessionDependencies {
   readonly storage?: RefreshTokenStorage;
   readonly sessionKindStorage?: SessionKindStorage;
@@ -110,7 +124,6 @@ const singleFlightRestore = createSingleFlight(async (): Promise<SessionState | 
 
   try {
     const refreshed = await refreshSession(refreshToken);
-    accessToken = refreshed.accessToken;
     await storage.setRefreshToken(refreshed.refreshToken);
     return {
       accessToken: refreshed.accessToken,
@@ -199,19 +212,48 @@ function readSessionResponse(value: unknown): SessionState {
   };
 }
 
-function getApiBaseUrl(): string {
-  const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (typeof configuredApiUrl === 'string' && configuredApiUrl.length > 0) {
-    // In production builds refuse cleartext: a misconfigured http:// URL would
-    // send the bearer access token and refresh token unencrypted. Plain http is
-    // only allowed in dev (e.g. http://localhost:3001 against a local API).
-    if (!__DEV__ && !configuredApiUrl.startsWith('https://')) {
-      throw new Error('EXPO_PUBLIC_API_URL must use https:// in production builds');
+const DEVELOPMENT_CLEARTEXT_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '10.0.2.2']);
+
+export function resolveApiBaseUrl(
+  configuredApiUrl: string | undefined,
+  isDevelopment: boolean
+): string {
+  const configured = configuredApiUrl?.trim();
+  if (!configured) {
+    if (!isDevelopment) {
+      throw new Error('EXPO_PUBLIC_API_URL is required in production builds');
     }
-    return configuredApiUrl;
+    return 'http://localhost:3001';
   }
 
-  return 'http://localhost:3001';
+  let url: URL;
+  try {
+    url = new URL(configured);
+  } catch {
+    throw new Error('EXPO_PUBLIC_API_URL must be a valid absolute URL');
+  }
+
+  if (url.username || url.password || url.search || url.hash) {
+    throw new Error('EXPO_PUBLIC_API_URL must not contain credentials, query, or fragment');
+  }
+
+  if (url.protocol === 'https:') {
+    return configured;
+  }
+
+  if (isDevelopment && url.protocol === 'http:' && DEVELOPMENT_CLEARTEXT_HOSTS.has(url.hostname)) {
+    return configured;
+  }
+
+  throw new Error(
+    isDevelopment
+      ? 'Cleartext EXPO_PUBLIC_API_URL is allowed only for local development hosts'
+      : 'EXPO_PUBLIC_API_URL must use https:// in production builds'
+  );
+}
+
+function getApiBaseUrl(): string {
+  return resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL, __DEV__);
 }
 
 function readApiPrefix(requestUrl: URL): string {
@@ -350,9 +392,7 @@ async function restoreCookieSession(): Promise<SessionState | null> {
       return null;
     }
 
-    const session = readSessionResponse(await response.json());
-    accessToken = session.accessToken;
-    return session;
+    return readSessionResponse(await response.json());
   } catch {
     accessToken = null;
     return null;
@@ -404,12 +444,28 @@ export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
 
+async function restoreAuthorizedSessionForActiveOwner(): Promise<SessionState | null> {
+  const session = await restoreSession();
+  if (!session) return null;
+
+  // A refresh credential for another account must never become usable while
+  // SQLite/outbox ownership is still bound to the current account.
+  if (getActiveLocalDataOwner() !== session.user.id) {
+    accessToken = null;
+    return null;
+  }
+
+  accessToken = session.accessToken;
+  return session;
+}
+
 export async function fetchWithAccessToken(
   path: string,
   init?: RequestInit,
   dependencies: AuthorizedFetchDependencies = {}
 ): Promise<{ readonly accessToken: string; readonly response: Response }> {
-  const restoreAuthorizedSession = dependencies.restoreAuthorizedSession ?? restoreSession;
+  const restoreAuthorizedSession =
+    dependencies.restoreAuthorizedSession ?? restoreAuthorizedSessionForActiveOwner;
   const currentAccessToken = dependencies.initialAccessToken ?? getAccessToken();
   if (!currentAccessToken) {
     throw new Error('Authorized request requires an access token');
@@ -456,6 +512,13 @@ export async function signInWithGoogleIdToken(
   const revokeRemoteSession = dependencies.revokeRemoteSession ?? revokeMobileSession;
   const revokeCookie = dependencies.revokeCookieSession ?? revokeCookieSession;
 
+  // The mobile endpoint returns a refresh token in the response body. Reject
+  // production Expo Web before contacting it: that platform cannot persist the
+  // credential securely and must use the cookie-backed web client instead.
+  if (!canPersistRefreshToken(Platform.OS, __DEV__)) {
+    throw new Error('Google sign-in is unavailable in production Expo Web');
+  }
+
   const authenticated = await authenticateWithGoogleIdToken(credential);
   const previousKind = await kindStorage.getSessionKind().catch(() => null);
 
@@ -476,7 +539,6 @@ export async function signInWithGoogleIdToken(
   // A stored Google refresh token is sufficient for restore; the kind marker
   // only disambiguates cookie-backed email sessions when no token exists.
   await kindStorage.setSessionKind('google').catch(() => undefined);
-  accessToken = authenticated.accessToken;
 
   // Revoke the prior cookie session only after the replacement Google session
   // is fully usable. A cancelled or failed Google exchange must not sign the
@@ -512,7 +574,6 @@ export async function signInWithEmailPassword(
   }
 
   const session = readSessionResponse(await response.json());
-  accessToken = session.accessToken;
   // Credentials are mutually exclusive: revoke and drop any leftover Google
   // refresh token. Without the server-side revocation the row would stay
   // valid for its full TTL with no one left holding the value; without the
@@ -609,7 +670,6 @@ export async function signInWithDev(
   }
 
   const session = readSessionResponse(await response.json());
-  accessToken = session.accessToken;
   try {
     const leftover = await storage.getRefreshToken();
     if (leftover) await revokeRemoteSession(leftover);
@@ -626,9 +686,7 @@ export async function signOutSession(dependencies: SignOutDependencies = {}): Pr
   const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
   const revokeRemoteSession = dependencies.revokeRemoteSession ?? revokeMobileSession;
   const revokeCookie = dependencies.revokeCookieSession ?? revokeCookieSession;
-  const refreshToken = await storage.getRefreshToken();
-
-  accessToken = null;
+  const refreshToken = await storage.getRefreshToken().catch(() => null);
 
   try {
     if (refreshToken) {
@@ -639,14 +697,24 @@ export async function signOutSession(dependencies: SignOutDependencies = {}): Pr
       await revokeCookie();
     }
   } catch {
-    // Local sign-out must still complete when remote revocation fails.
+    // Durable local deletion remains authoritative when revocation is offline.
   }
 
-  // Destroy every local credential unconditionally so sign-out is authoritative
-  // even when the network is down: clearing the marker stops the next launch
-  // from resurrecting a still-valid cookie session (see restore fallback above).
-  await storage.clearRefreshToken();
-  await kindStorage.clearSessionKind();
+  // Attempt both durable deletions even if either backend operation fails. UI
+  // and in-memory credentials remain intact until both are confirmed deleted,
+  // allowing the user to see the failure and retry without a false sign-out.
+  const [refreshDeletion, markerDeletion] = await Promise.allSettled([
+    storage.clearRefreshToken(),
+    kindStorage.clearSessionKind(),
+  ]);
+  const failedCredentials: Array<'refreshToken' | 'sessionKind'> = [];
+  if (refreshDeletion.status === 'rejected') failedCredentials.push('refreshToken');
+  if (markerDeletion.status === 'rejected') failedCredentials.push('sessionKind');
+  if (failedCredentials.length > 0) {
+    throw new SignOutCredentialDeletionError(failedCredentials);
+  }
+
+  accessToken = null;
 }
 
 export async function restoreSession(

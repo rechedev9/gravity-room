@@ -4,16 +4,18 @@ process.env['LOG_LEVEL'] = 'silent';
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { ApiError } from './error-handler';
 
-const { mockFindUserById } = vi.hoisted(() => ({
+const { mockFindUserById, mockIsRefreshSessionActive } = vi.hoisted(() => ({
   mockFindUserById: vi.fn<
     (
       id: string
     ) => Promise<{ id: string; authVersion: number; deletedAt?: Date | null } | undefined>
   >(() => Promise.resolve({ id: 'user-123', authVersion: 0 })),
+  mockIsRefreshSessionActive: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock('../services/auth', () => ({
   findUserById: mockFindUserById,
+  isRefreshSessionActive: mockIsRefreshSessionActive,
 }));
 
 vi.mock('../lib/redis', () => ({
@@ -48,6 +50,8 @@ async function expectApiError(promise: Promise<unknown>): Promise<ApiError> {
 describe('resolveUserId', () => {
   beforeEach(() => {
     mockFindUserById.mockClear();
+    mockIsRefreshSessionActive.mockClear();
+    mockIsRefreshSessionActive.mockImplementation(() => Promise.resolve(true));
     mockFindUserById.mockImplementation(() => Promise.resolve({ id: 'user-123', authVersion: 0 }));
   });
 
@@ -149,6 +153,8 @@ describe('verifyAccessToken — shared trust pipeline', () => {
 
   beforeEach(() => {
     mockFindUserById.mockClear();
+    mockIsRefreshSessionActive.mockClear();
+    mockIsRefreshSessionActive.mockImplementation(() => Promise.resolve(true));
     mockFindUserById.mockImplementation(() => Promise.resolve({ id: 'user-123', authVersion: 0 }));
   });
 
@@ -215,6 +221,27 @@ describe('verifyAccessToken — shared trust pipeline', () => {
     );
 
     expect(err.statusCode).toBe(401);
+    expect(err.code).toBe('TOKEN_REVOKED');
+  });
+
+  it('rejects a session-aware access token after its refresh family is revoked', async () => {
+    mockIsRefreshSessionActive.mockImplementation(() => Promise.resolve(false));
+    const err = await expectApiError(
+      verifyAccessToken(
+        {
+          verify: verifierReturning({
+            ...validPayload,
+            sid: '00000000-0000-4000-8000-000000000001',
+          }),
+        },
+        'token'
+      )
+    );
+
+    expect(mockIsRefreshSessionActive).toHaveBeenCalledWith(
+      'user-123',
+      '00000000-0000-4000-8000-000000000001'
+    );
     expect(err.code).toBe('TOKEN_REVOKED');
   });
 });

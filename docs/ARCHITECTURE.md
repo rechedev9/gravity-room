@@ -10,7 +10,7 @@ frontend/backend split is visible from the root tree.
 
 ```
 gravity-room/
-├── api/                     ← Vercel catch-all function: api/[...path].ts → app.fetch
+├── api/                     ← generated Vercel catch-all bundle: api/index.ts
 ├── apps/
 │   ├── frontend/            ← user-facing clients
 │   │   ├── web/             ← React 19 + Vite SPA (PWA)
@@ -91,13 +91,15 @@ pnpm run dev           # web on :5173 (vite dev)
 pnpm run dev:api       # api on :3001 (tsx watch src/dev-server.ts)
 ```
 
-On Vercel the API has no `app.listen`: the pure `createApp()` factory is mounted
-by the catch-all serverless function `api/[...path].ts` and driven via
-`app.fetch(request)`. Locally, `src/dev-server.ts` serves that same app on a port
+On Vercel the API has no `app.listen`: the independent source entry
+`apps/backend/api/src/vercel-handler.ts` mounts the pure `createApp()` factory,
+wraps `app.fetch(request)` with the bounded streaming Node gateway, and is bundled
+into the generated catch-all `api/index.ts`. CI runs `pnpm run bundle:api:check`
+to prevent source/artifact drift. Locally, `src/dev-server.ts` serves that same app on a port
 for tooling (e.g. OpenAPI codegen). Migrations and seeds are NOT boot-time DDL;
-they run in the build-time deploy step `src/scripts/migrate-deploy.ts` (via
-`pnpm --filter api db:deploy`, gated to production in `scripts/vercel-build.sh`)
-against the direct Neon endpoint (`DIRECT_DATABASE_URL`).
+after artifact build/prerender succeeds, `src/scripts/migrate-deploy.ts` requires
+the direct Neon endpoint (`DIRECT_DATABASE_URL`) in production and holds a
+PostgreSQL advisory lock across migration + seed execution.
 
 Postgres must be available locally — point `DATABASE_URL` at your own instance.
 Upstash Redis is optional in dev (set `UPSTASH_REDIS_REST_URL` and
@@ -106,15 +108,16 @@ them those features degrade gracefully). It is mandatory in production.
 
 ## Validation per service
 
-| Command                  | What it covers                                                             |
-| ------------------------ | -------------------------------------------------------------------------- |
-| `pnpm run typecheck`     | web + domain + database + api-client + mobile (TS-strict)                  |
-| `pnpm run typecheck:api` | apps/backend/api                                                           |
-| `pnpm run lint`          | web + api + api-client (eslint v9 + typescript-eslint)                     |
-| `pnpm run format:check`  | repo-wide prettier 3                                                       |
-| `pnpm run test`          | web + domain + database + api-client + mobile vitest                       |
-| `pnpm run test:api`      | apps/backend/api vitest (services + routes + analytics golden-file parity) |
-| `pnpm --filter web e2e`  | playwright (chromium)                                                      |
+| Command                     | What it covers                                                             |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `pnpm run typecheck`        | web + domain + database + api-client + mobile (TS-strict)                  |
+| `pnpm run typecheck:api`    | apps/backend/api                                                           |
+| `pnpm run bundle:api:check` | generated Vercel function matches its independent source entry             |
+| `pnpm run lint`             | web + api + api-client (eslint v9 + typescript-eslint)                     |
+| `pnpm run format:check`     | repo-wide prettier 3                                                       |
+| `pnpm run test`             | web + domain + database + api-client + mobile vitest                       |
+| `pnpm run test:api`         | apps/backend/api vitest (services + routes + analytics golden-file parity) |
+| `pnpm --filter web e2e`     | playwright (chromium)                                                      |
 
 ## Why this structure
 

@@ -1,36 +1,29 @@
 #!/usr/bin/env bash
 #
-# Vercel build pipeline for the gravity-room same-origin project.
+# Vercel build pipeline for the Gravity Room same-origin project.
 #
-# Invoked by the "buildCommand" in vercel.json. Runs two phases:
+# The pipeline validates configuration and builds every deployable artifact
+# before production DDL. Vercel has no post-build/pre-promotion hook, so the
+# migration remains inside buildCommand; a platform upload/promotion failure
+# after db:deploy can still leave an expanded schema ahead of the live app.
+# Production migrations must therefore remain backward-compatible
+# (expand/contract), and production promotion must be gated externally on CI.
 #
-#   1. PRODUCTION-ONLY database deploy. When VERCEL_ENV is "production" this applies
-#      the Drizzle migrations and the idempotent reference-data seeds against
-#      DIRECT_DATABASE_URL, exactly once per production deploy. It is skipped on
-#      preview and local builds, which point at a throwaway Neon branch and must
-#      never touch the production database. VERCEL_ENV is the only correct gate
-#      here: Vercel sets NODE_ENV=production on preview builds too, so NODE_ENV
-#      cannot distinguish preview from production.
-#
-#   2. Build the web SPA with Vite in same-origin mode. VITE_API_URL="" bakes in
-#      relative "/api" requests so the static SPA talks to the catch-all function
-#      (api/[...path].ts) on the same Vercel domain.
-#
-#      Vercel does not provide Chromium's Linux system libraries or apt-get, so
-#      the prerender uses the serverless-compatible @sparticuz/chromium binary.
-#      Local/CI builds retain Playwright's normal lockfile-pinned browser. The
-#      deployed files therefore include the mounted route body and its
-#      route-owned JSON-LD, not merely injected head tags.
-#
-# Fail fast on any error, unset variable, or failed pipe stage.
+# VERCEL_ENV is the production gate. Vercel also sets NODE_ENV=production on
+# previews, so NODE_ENV cannot distinguish preview from production.
 set -euo pipefail
 
+IS_PRODUCTION=false
 if [ "${VERCEL_ENV:-}" = "production" ]; then
-  echo "[vercel-build] VERCEL_ENV=production - running db:deploy (migrations + seeds) against DIRECT_DATABASE_URL"
-  pnpm --filter api db:deploy
-else
-  echo "[vercel-build] VERCEL_ENV=${VERCEL_ENV:-local} - skipping production db:deploy (preview/local use a Neon branch)"
+  IS_PRODUCTION=true
+  : "${DIRECT_DATABASE_URL:?DIRECT_DATABASE_URL is required for production migrations}"
+
+  echo "[vercel-build] validating production environment before build or DDL"
+  pnpm exec tsx apps/backend/api/scripts/check-env.ts --node-env production
 fi
+
+echo "[vercel-build] validating Vercel rewrites and action-route headers"
+pnpm run security:deployment
 
 echo "[vercel-build] bundling the API serverless function (self-contained ESM)"
 node scripts/bundle-api-function.mjs
@@ -53,3 +46,10 @@ fi
 
 echo "[vercel-build] prerendering complete public routes with Chromium"
 pnpm --filter web exec tsx scripts/prerender.ts
+
+if [ "$IS_PRODUCTION" = true ]; then
+  echo "[vercel-build] artifacts validated - applying serialized production migrations + seeds"
+  pnpm --filter api db:deploy
+else
+  echo "[vercel-build] VERCEL_ENV=${VERCEL_ENV:-local} - skipping production db:deploy"
+fi

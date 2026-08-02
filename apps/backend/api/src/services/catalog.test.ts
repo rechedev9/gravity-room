@@ -156,7 +156,8 @@ vi.mock('../db', () => ({
 }));
 
 // Must import AFTER mock.module
-const { listPrograms, getProgramDefinition } = await import('./catalog');
+const { listPrograms, getProgramDefinition, getHistoricalProgramDefinition } =
+  await import('./catalog');
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -319,6 +320,17 @@ describe('getProgramDefinition', () => {
     const result = await getProgramDefinition('nonexistent');
 
     expect(result.status).toBe('not_found');
+  });
+
+  it('resolves an inactive template for historical validation', async () => {
+    templateRows = [{ ...ACTIVE_TEMPLATE, isActive: false }];
+    exerciseSelectRows = EXERCISE_ROWS;
+
+    const result = await getHistoricalProgramDefinition('gzclp');
+
+    // The mock hydration may lack a complete exercise projection, but an
+    // inactive row must still be selected rather than hidden as not_found.
+    expect(result.status).not.toBe('not_found');
   });
 
   it('should return hydrated ProgramDefinition for active program', async () => {

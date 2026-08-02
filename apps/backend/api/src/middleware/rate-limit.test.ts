@@ -36,9 +36,12 @@ vi.mock('@upstash/ratelimit', () => {
     static slidingWindow(max: number, window: string): { max: number; windowMs: number } {
       return { max, windowMs: Number(window.replace(/\s*ms$/, '')) };
     }
-    limit(key: string): Promise<{ success: boolean; reset: number; pending: Promise<unknown> }> {
+    limit(
+      key: string,
+      options?: { rate?: number }
+    ): Promise<{ success: boolean; reset: number; pending: Promise<unknown> }> {
       if (limiterFailure) return Promise.reject(limiterFailure);
-      const n = (counts.get(key) ?? 0) + 1;
+      const n = (counts.get(key) ?? 0) + (options?.rate ?? 1);
       counts.set(key, n);
       // Mirror the real client: `reset` is the absolute ms timestamp at which the
       // current window clears, so rate-limit.ts can derive Retry-After from it.
@@ -147,6 +150,30 @@ describe('rateLimit function', () => {
     await rateLimit('user-a', 'GET /programs', { maxRequests: 1 });
     await expect(rateLimit('user-b', 'GET /programs', { maxRequests: 1 })).resolves.toBeUndefined();
   });
+
+  it('charges weighted operations by their declared cost', async () => {
+    await rateLimit('user-weighted', 'POST /programs/import:rows', {
+      maxRequests: 10,
+      cost: 6,
+      failClosed: true,
+    });
+    await expect(
+      rateLimit('user-weighted', 'POST /programs/import:rows', {
+        maxRequests: 10,
+        cost: 5,
+        failClosed: true,
+      })
+    ).rejects.toMatchObject({ statusCode: 429, code: 'RATE_LIMITED' });
+  });
+
+  it.each([0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects invalid weighted cost %s',
+    async (cost) => {
+      await expect(rateLimit('user-invalid-cost', 'POST /weighted', { cost })).rejects.toThrow(
+        'Rate-limit cost must be a positive safe integer'
+      );
+    }
+  );
 });
 
 // ---------------------------------------------------------------------------

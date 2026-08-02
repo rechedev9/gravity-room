@@ -185,6 +185,25 @@ describe('POST /exercises without auth', () => {
     });
     expect(res.status).toBe(401);
   });
+
+  it('returns 503 before creating a custom exercise when Redis fails', async () => {
+    mockRateLimit.mockRejectedValueOnce(
+      new ApiError(503, 'Rate limiter unavailable', 'RATE_LIMIT_UNAVAILABLE')
+    );
+    const token = await makeValidJwt('user-1');
+
+    const res = await post(
+      '/exercises',
+      { name: 'Rate Limited Lift', muscleGroupId: 'chest' },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(503);
+    expect(mockRateLimit).toHaveBeenCalledWith('user-1', 'POST /exercises', {
+      failClosed: true,
+    });
+    expect(mockCreateExercise).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -359,7 +378,8 @@ describe('GET /exercises — filter query validation', () => {
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
-  mockRateLimit.mockClear();
+  mockRateLimit.mockReset();
+  mockRateLimit.mockImplementation(() => Promise.resolve());
   mockFindUserById.mockClear();
   mockFindUserById.mockImplementation((id: string) => Promise.resolve({ id, authVersion: 0 }));
   mockListExercises.mockClear();

@@ -10,6 +10,7 @@ import {
   bigserial,
   index,
   unique,
+  uniqueIndex,
   boolean,
   integer,
   foreignKey,
@@ -97,21 +98,36 @@ export const refreshTokens = pgTable(
       .notNull(),
     tokenHash: varchar('token_hash', { length: 64 }).unique().notNull(),
     /**
-     * Hash of the token that was rotated into this one.
-     * When a refresh token is presented but not found (it was rotated away),
-     * we search by previousTokenHash to detect token reuse — a sign of theft.
-     * If found, we revoke all sessions for the user.
+     * Stable browser/native session family shared by every token rotation.
+     *
+     * Migration 0044 intentionally leaves the physical column nullable during
+     * expand/contract rollout so the previous artifact can remain live. Its
+     * database default covers inserts from that old artifact, and the migration
+     * repairs existing rows. Runtime code therefore keeps the stronger non-null
+     * invariant; the physical NOT NULL contract is a future migration after old
+     * writers have been retired (docs/DATABASE_SECURITY_ROLLOUT.md).
+     */
+    familyId: uuid('family_id').defaultRandom().notNull(),
+    /**
+     * Hash of the immediate predecessor. Consumed rows are retained as
+     * tombstones, so this link remains available for benign double-refresh
+     * detection and full-family replay response.
      */
     previousTokenHash: varchar('previous_token_hash', { length: 64 }),
+    /** Set atomically when this token is rotated. NULL means it is the active family tip. */
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
     index('refresh_tokens_user_id_idx').on(table.userId),
+    index('refresh_tokens_family_id_idx').on(table.familyId),
     index('refresh_tokens_expires_at_idx').on(table.expiresAt),
-    // Partial index: only ~half of refresh_tokens rows carry a previous-hash
-    // (the other half are first-issue tokens). The partial keeps the index
-    // tighter and skips index entries for the common NULL case.
+    // A family has exactly one unconsumed tip. The unique partial index is a
+    // database backstop in addition to the row lock used during rotation.
+    uniqueIndex('refresh_tokens_one_active_per_family_uq')
+      .on(table.familyId)
+      .where(sql`${table.consumedAt} IS NULL`),
     index('refresh_tokens_previous_token_hash_partial_idx')
       .on(table.previousTokenHash)
       .where(sql`${table.previousTokenHash} IS NOT NULL`),
@@ -264,6 +280,10 @@ export const workoutResults = pgTable(
       .notNull(),
     workoutIndex: smallint('workout_index').notNull(),
     slotId: varchar('slot_id', { length: 50 }).notNull(),
+    /** Stable exercise identity captured from the exact definition used for validation. */
+    exerciseId: varchar('exercise_id', { length: 100 }),
+    /** Program-definition version that supplied exerciseId. Nullable only for unresolved legacy rows. */
+    definitionVersion: smallint('definition_version'),
     result: resultTypeEnum().notNull(),
     amrapReps: smallint('amrap_reps'),
     rpe: smallint('rpe'),
@@ -307,6 +327,8 @@ export const undoEntries = pgTable(
     previousAmrapReps: smallint('previous_amrap_reps'),
     previousRpe: smallint('previous_rpe'),
     previousSetLogs: jsonb('previous_set_logs'),
+    previousExerciseId: varchar('previous_exercise_id', { length: 100 }),
+    previousDefinitionVersion: smallint('previous_definition_version'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [

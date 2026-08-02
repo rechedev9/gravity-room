@@ -34,7 +34,10 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
         },
         'recording result'
       );
-      await rateLimit(userId, 'POST /programs/results', { maxRequests: 60 });
+      await rateLimit(userId, 'POST /programs/results', {
+        maxRequests: 60,
+        failClosed: true,
+      });
       const result = await recordResult(userId, params.id, body);
       await invalidateCachedInstance(userId, params.id);
       set.status = 201;
@@ -101,7 +104,11 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
         },
         'deleting result'
       );
-      await rateLimit(userId, 'DELETE /programs/results', { maxRequests: 60, windowMs: 60_000 });
+      await rateLimit(userId, 'DELETE /programs/results', {
+        maxRequests: 60,
+        windowMs: 60_000,
+        failClosed: true,
+      });
       await deleteResult(userId, params.id, params.workoutIndex, params.slotId);
       await invalidateCachedInstance(userId, params.id);
       set.status = 204;
@@ -137,7 +144,7 @@ export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
         { event: 'result.undo', userId, instanceId: params.id },
         'undoing last result action'
       );
-      await rateLimit(userId, 'POST /programs/undo');
+      await rateLimit(userId, 'POST /programs/undo', { failClosed: true });
       const entry = await undoLast(userId, params.id);
       await invalidateCachedInstance(userId, params.id);
       if (!entry) {

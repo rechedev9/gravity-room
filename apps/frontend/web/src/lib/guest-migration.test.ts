@@ -25,7 +25,10 @@ import {
   GUEST_MIGRATION_MARKER_KEY,
   setGuestMigrationMarker,
 } from '@/lib/guest-storage';
-import { migrateGuestDataToAccount } from './guest-migration';
+import {
+  migrateGuestDataToAccount as runGuestMigration,
+  type GuestMigrationIdentity,
+} from './guest-migration';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -71,8 +74,22 @@ function freshQueryClient(): QueryClient {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
+const EXPECTED_IDENTITY: GuestMigrationIdentity = {
+  userId: 'user-123',
+  sessionId: 'session-123',
+};
+let currentIdentity: GuestMigrationIdentity | null = EXPECTED_IDENTITY;
+
+function migrateGuestDataToAccount(
+  queryClient: QueryClient,
+  expectedIdentity: GuestMigrationIdentity = EXPECTED_IDENTITY
+): ReturnType<typeof runGuestMigration> {
+  return runGuestMigration(queryClient, expectedIdentity, () => currentIdentity);
+}
+
 beforeEach(() => {
   localStorage.clear();
+  currentIdentity = EXPECTED_IDENTITY;
   mockImportProgram.mockReset();
   mockFetchPrograms.mockReset();
   mockFetchPrograms.mockResolvedValue([]);
@@ -245,7 +262,44 @@ describe('migrateGuestDataToAccount', () => {
     expect(localStorage.getItem(GUEST_STORAGE_KEY)).not.toBeNull();
   });
 
-  it('deduplicates concurrent migration attempts', async () => {
+  it.each([
+    {
+      change: 'authenticated user',
+      nextIdentity: { userId: 'other-user', sessionId: 'session-123' },
+    },
+    {
+      change: 'auth session',
+      nextIdentity: { userId: 'user-123', sessionId: 'replacement-session' },
+    },
+    { change: 'signed-out state', nextIdentity: null },
+  ] as const)(
+    'aborts immediately before import when the $change changes',
+    async ({ nextIdentity }) => {
+      seedGuest(guestMapWithProgram());
+      mockFetchPrograms.mockImplementationOnce(async () => {
+        currentIdentity = nextIdentity;
+        return [];
+      });
+
+      const result = await migrateGuestDataToAccount(freshQueryClient());
+
+      expect(result).toBeNull();
+      expect(mockImportProgram).not.toHaveBeenCalled();
+      expect(localStorage.getItem(GUEST_STORAGE_KEY)).not.toBeNull();
+    }
+  );
+
+  it('rejects an already-stale consent identity before reading account data', async () => {
+    seedGuest(guestMapWithProgram());
+    currentIdentity = { userId: 'other-user', sessionId: 'other-session' };
+
+    await expect(migrateGuestDataToAccount(freshQueryClient())).resolves.toBeNull();
+
+    expect(mockFetchPrograms).not.toHaveBeenCalled();
+    expect(mockImportProgram).not.toHaveBeenCalled();
+  });
+
+  it('deduplicates concurrent migration attempts for the same immutable identity', async () => {
     seedGuest(guestMapWithProgram());
     let resolveImport: (() => void) | undefined;
     mockImportProgram.mockImplementationOnce(

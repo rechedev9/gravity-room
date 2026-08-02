@@ -5,17 +5,15 @@
  * Refresh tokens: opaque UUID in httpOnly cookie, SHA-256 hashed in DB.
  */
 import { Elysia, t } from 'elysia';
-import { timingSafeEqual } from 'node:crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
 import { ApiError } from '../middleware/error-handler';
 import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
 import {
   hashToken,
-  findRefreshTokenByPreviousHash,
-  revokeRefreshToken,
-  revokeAllUserTokens,
-  createAndStoreRefreshToken,
+  createAuthSession,
+  revokeSessionByToken,
   rotateRefreshToken,
   findUserById,
   findOrCreateGoogleUser,
@@ -32,6 +30,7 @@ import {
   markEmailVerified,
   verifyEmailWithToken,
   createPasswordResetToken,
+  isPasswordResetTokenValid,
   setUserPassword,
   resetPasswordWithToken,
   REFRESH_TOKEN_DAYS,
@@ -85,14 +84,6 @@ function classifyDevice(userAgent: string | undefined): DeviceType {
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
-// Grace window for concurrent/double refreshes. When a presented refresh token
-// is gone but its successor was minted within this window, it is a benign race
-// (two tabs sharing one cookie jar refresh in parallel; request 1 rotates A→B,
-// request 2 still presents A), NOT theft. A successor OLDER than this can only
-// be a replay of a token that was legitimately rotated away long ago, which is
-// treated as theft. Sized to comfortably cover client retry/latency without
-// giving a real stolen token a meaningful reuse window.
-const REFRESH_REUSE_GRACE_MS = 10_000;
 const MAX_AUTH_TOKEN_CHARS = 256;
 const MAX_EMAIL_CHARS = 254;
 const MAX_OAUTH_CODE_CHARS = 4096;
@@ -116,6 +107,11 @@ const DEV_AUTH_ENABLED =
 // any legitimate scripted dev/QA usage.
 const DEV_AUTH_RATE_LIMIT = { maxRequests: 60, windowMs: 60_000 };
 const emailInputSchema = t.String({ format: 'email', maxLength: MAX_EMAIL_CHARS });
+const AUTH_ACCOUNT_KEY_SECRET =
+  process.env['JWT_SECRET'] ?? 'test-only-auth-account-rate-limit-key';
+const AUTH_GLOBAL_RATE_LIMIT = { maxRequests: 1_000, windowMs: 60_000 };
+const RECIPIENT_DAILY_RATE_LIMIT = { maxRequests: 5, windowMs: 24 * 60 * 60 * 1000 };
+const RECIPIENT_COOLDOWN_RATE_LIMIT = { maxRequests: 1, windowMs: 60_000 };
 
 function normalizeDisplayName(name: string | undefined): string | undefined {
   if (name === undefined) return undefined;
@@ -133,6 +129,83 @@ function authRateLimit(
   opts?: { windowMs?: number; maxRequests?: number }
 ): Promise<void> {
   return rateLimit(key, endpoint, { ...opts, failClosed: true });
+}
+
+function accountRateLimitKey(email: string): string {
+  return `account:${createHmac('sha256', AUTH_ACCOUNT_KEY_SECRET)
+    .update(email.trim().toLowerCase())
+    .digest('hex')}`;
+}
+
+async function applyCredentialAbuseLimits(
+  ip: string,
+  email: string,
+  endpoint: string,
+  ipMaxRequests: number,
+  accountMaxRequests: number
+): Promise<void> {
+  await Promise.all([
+    authRateLimit(ip, endpoint, { maxRequests: ipMaxRequests }),
+    authRateLimit(accountRateLimitKey(email), `${endpoint}:account`, {
+      maxRequests: accountMaxRequests,
+    }),
+    authRateLimit('global', `${endpoint}:global`, AUTH_GLOBAL_RATE_LIMIT),
+  ]);
+}
+
+/**
+ * Recipient controls intentionally collapse rate-limit denial into the route's
+ * generic acknowledgement. Unknown and real addresses therefore remain
+ * indistinguishable while repeated requests stop replacing live credentials.
+ */
+async function recipientActionAllowed(email: string, endpoint: string): Promise<boolean> {
+  const key = accountRateLimitKey(email);
+  try {
+    await authRateLimit(key, `${endpoint}:recipient-cooldown`, RECIPIENT_COOLDOWN_RATE_LIMIT);
+    await authRateLimit(key, `${endpoint}:recipient-daily`, RECIPIENT_DAILY_RATE_LIMIT);
+    return true;
+  } catch (error: unknown) {
+    if (error instanceof ApiError && error.code === 'RATE_LIMITED') return false;
+    throw error;
+  }
+}
+
+/**
+ * Browser credential endpoints are JSON-only and reject hostile browser
+ * origins/fetch metadata. Native clients send JSON without Origin or
+ * Sec-Fetch-Site and remain supported.
+ */
+function assertTrustedCredentialRequest(request: Request): void {
+  const contentType = request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase();
+  if (contentType !== 'application/json') {
+    throw new ApiError(415, 'Content-Type must be application/json', 'UNSUPPORTED_MEDIA_TYPE');
+  }
+
+  const fetchSite = request.headers.get('sec-fetch-site')?.toLowerCase();
+  if (fetchSite === 'cross-site') {
+    throw new ApiError(403, 'Cross-site authentication request rejected', 'CSRF_REJECTED');
+  }
+
+  const origin = request.headers.get('origin');
+  if (!origin) return;
+  const allowedOrigins = new Set([
+    new URL(request.url).origin,
+    getApiBaseUrl(request),
+    getWebBaseUrl(request),
+  ]);
+  for (const configured of process.env['CORS_ORIGIN']?.split(',') ?? []) {
+    const value = configured.trim();
+    if (value) allowedOrigins.add(new URL(value).origin);
+  }
+  let requestOrigin: string;
+  try {
+    requestOrigin = new URL(origin).origin;
+  } catch {
+    throw new ApiError(403, 'Cross-origin authentication request rejected', 'CSRF_REJECTED');
+  }
+  if (!allowedOrigins.has(requestOrigin)) {
+    throw new ApiError(403, 'Cross-origin authentication request rejected', 'CSRF_REJECTED');
+  }
 }
 
 /** Constant-time comparison of the dev-auth secret header against the configured value. */
@@ -276,50 +349,77 @@ function userResponse(user: UserProfile & { avatarUrl?: string | null }): UserPr
   };
 }
 
-/** Signs a JWT, creates a refresh token, and sets the cookie in one step. */
-async function issueTokens(
+/** Creates a version-bound refresh family, then signs its session-aware JWT. */
+async function issueSessionTokens(
   jwt: {
-    sign: (payload: { sub: string; email?: string; av: number; exp: string }) => Promise<string>;
+    sign: (payload: {
+      sub: string;
+      email?: string;
+      av: number;
+      sid: string;
+      exp: string;
+    }) => Promise<string>;
   },
-  cookie: Record<string, { set: (opts: Record<string, unknown>) => void }>,
-  user: { id: string; email?: string; authVersion?: number }
-): Promise<{ accessToken: string }> {
-  const [accessToken, refreshToken] = await Promise.all([
-    jwt.sign({
+  user: { id: string; email?: string; authVersion: number }
+): Promise<{ accessToken: string; refreshToken: string }> {
+  const session = await createAuthSession(user.id, user.authVersion);
+  try {
+    const accessToken = await jwt.sign({
       sub: user.id,
       ...(user.email ? { email: user.email } : {}),
-      av: user.authVersion ?? 0,
+      av: user.authVersion,
+      sid: session.sessionId,
       exp: ACCESS_TOKEN_EXPIRY,
-    }),
-    createAndStoreRefreshToken(user.id),
-  ]);
+    });
+    return { accessToken, refreshToken: session.refreshToken };
+  } catch (error: unknown) {
+    await revokeSessionByToken(await hashToken(session.refreshToken));
+    throw error;
+  }
+}
 
-  cookie[REFRESH_COOKIE_NAME].set({ value: refreshToken, ...REFRESH_COOKIE_OPTIONS });
-  return { accessToken };
+async function issueTokens(
+  jwt: {
+    sign: (payload: {
+      sub: string;
+      email?: string;
+      av: number;
+      sid: string;
+      exp: string;
+    }) => Promise<string>;
+  },
+  cookie: Record<string, { set: (opts: Record<string, unknown>) => void }>,
+  user: { id: string; email?: string; authVersion: number }
+): Promise<{ accessToken: string }> {
+  const tokens = await issueSessionTokens(jwt, user);
+  cookie[REFRESH_COOKIE_NAME].set({ value: tokens.refreshToken, ...REFRESH_COOKIE_OPTIONS });
+  return { accessToken: tokens.accessToken };
 }
 
 async function issueMobileTokens(
   jwt: {
-    sign: (payload: { sub: string; email?: string; av: number; exp: string }) => Promise<string>;
+    sign: (payload: {
+      sub: string;
+      email?: string;
+      av: number;
+      sid: string;
+      exp: string;
+    }) => Promise<string>;
   },
-  user: { id: string; email?: string; authVersion?: number }
+  user: { id: string; email?: string; authVersion: number }
 ): Promise<{ accessToken: string; refreshToken: string }> {
-  const [accessToken, refreshToken] = await Promise.all([
-    jwt.sign({
-      sub: user.id,
-      ...(user.email ? { email: user.email } : {}),
-      av: user.authVersion ?? 0,
-      exp: ACCESS_TOKEN_EXPIRY,
-    }),
-    createAndStoreRefreshToken(user.id),
-  ]);
-
-  return { accessToken, refreshToken };
+  return issueSessionTokens(jwt, user);
 }
 
 async function refreshAuthToken(
   jwt: {
-    sign: (payload: { sub: string; email?: string; av: number; exp: string }) => Promise<string>;
+    sign: (payload: {
+      sub: string;
+      email?: string;
+      av: number;
+      sid: string;
+      exp: string;
+    }) => Promise<string>;
   },
   reqLogger: {
     warn: (context: Record<string, unknown>, message: string) => void;
@@ -337,32 +437,23 @@ async function refreshAuthToken(
   const rotation = await rotateRefreshToken(tokenHash);
 
   if (rotation.status === 'not_found') {
-    const successor = await findRefreshTokenByPreviousHash(tokenHash);
-    if (successor) {
-      const successorAgeMs = Date.now() - successor.createdAt.getTime();
-      if (successorAgeMs <= REFRESH_REUSE_GRACE_MS) {
-        // Benign concurrent/double refresh: the presented token was rotated away
-        // only moments ago by a sibling request (tabs share one cookie jar, so
-        // both can carry the same still-valid cookie). Do NOT revoke sessions,
-        // bump authVersion, or touch the cookie — clearing it here would strand
-        // the sibling tab whose refresh already installed the successor. Answer
-        // 401 so the client retries; its next attempt presents the rotated
-        // successor cookie and succeeds.
-        reqLogger.info(
-          { event: 'auth.concurrent_refresh', userId: successor.userId },
-          'concurrent refresh within grace window — not revoking'
-        );
-        throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
-      }
-      // Successor is older than the grace window: the presented token was
-      // legitimately rotated away long ago, so re-presenting it is a genuine
-      // replay of a stale token — treat as theft and revoke the whole family.
-      reqLogger.warn(
-        { event: 'auth.token_reuse_detected', userId: successor.userId },
-        'refresh token reuse detected — revoking all user sessions'
-      );
-      await revokeAllUserTokens(successor.userId);
-    }
+    onInvalidatedToken?.();
+    throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
+  }
+
+  if (rotation.status === 'concurrent') {
+    reqLogger.info(
+      { event: 'auth.concurrent_refresh', userId: rotation.userId },
+      'concurrent refresh within grace window — not revoking'
+    );
+    throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
+  }
+
+  if (rotation.status === 'reused') {
+    reqLogger.warn(
+      { event: 'auth.token_reuse_detected', userId: rotation.userId },
+      'refresh token reuse detected — revoking all user sessions'
+    );
     onInvalidatedToken?.();
     throw new ApiError(401, 'Invalid refresh token', 'AUTH_INVALID_REFRESH');
   }
@@ -380,6 +471,7 @@ async function refreshAuthToken(
   const accessToken = await jwt.sign({
     sub: rotation.user.id,
     av: rotation.user.authVersion,
+    sid: rotation.sessionId,
     exp: ACCESS_TOKEN_EXPIRY,
   });
 
@@ -401,17 +493,17 @@ async function signOutWithRefreshToken(refreshToken: unknown): Promise<void> {
   }
 
   const tokenHash = await hashToken(refreshToken);
-  await revokeRefreshToken(tokenHash);
-
-  // A concurrent refresh may already have consumed this token and created its
-  // successor. Revoke the whole family in that case so a delayed refresh
-  // response cannot reinstall a still-valid session after logout.
-  const successor = await findRefreshTokenByPreviousHash(tokenHash);
-  if (successor) await revokeAllUserTokens(successor.userId);
+  await revokeSessionByToken(tokenHash);
 }
 
 interface GoogleSignInResult {
-  readonly user: { id: string; email: string; name: string | null; avatarUrl: string | null };
+  readonly user: {
+    id: string;
+    email: string;
+    name: string | null;
+    avatarUrl: string | null;
+    authVersion: number;
+  };
   readonly isNewUser: boolean;
 }
 
@@ -571,6 +663,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/google',
     async ({ jwt, body, cookie, set, reqLogger, ip, request }) => {
+      assertTrustedCredentialRequest(request);
       await authRateLimit(ip, '/auth/google', { maxRequests: 10 });
       const webClientId = getWebGoogleClientId();
 
@@ -608,6 +701,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/mobile/google',
     async ({ jwt, body, set, reqLogger, ip, request }) => {
+      assertTrustedCredentialRequest(request);
       await authRateLimit(ip, '/auth/mobile/google', { maxRequests: 10 });
 
       const { user, isNewUser } = await processGoogleSignIn(
@@ -667,22 +761,31 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
       const name = normalizeDisplayName(body.name);
       const passwordHash = await hashPassword(body.password);
-      const { user, verificationToken } = await createPasswordSignup({
-        email: body.email,
-        passwordHash,
-        name,
-      });
+      try {
+        const { user, verificationToken } = await createPasswordSignup({
+          email: body.email,
+          passwordHash,
+          name,
+        });
 
-      keepAlive(sendVerificationEmail(user.email, verificationToken, request));
+        keepAlive(sendVerificationEmail(user.email, verificationToken, request));
+        const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
+        keepAlive(
+          sendTelegramMessage(
+            `New user: ${user.email} | ${deviceType} | ${new Date().toISOString()}`
+          )
+        );
+        reqLogger.info({ event: 'auth.signup', userId: user.id }, 'email signup');
+      } catch (error: unknown) {
+        // Existing and soft-deleted addresses receive the same status/body as a
+        // new signup. Do not create or replace any verification credential here:
+        // an unauthenticated caller must not invalidate the owner's live link.
+        if (!(error instanceof ApiError && error.code === 'EMAIL_TAKEN')) throw error;
+        reqLogger.info({ event: 'auth.signup_existing' }, 'generic signup acknowledgement');
+      }
 
-      const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
-      keepAlive(
-        sendTelegramMessage(`New user: ${user.email} | ${deviceType} | ${new Date().toISOString()}`)
-      );
-
-      reqLogger.info({ event: 'auth.signup', userId: user.id }, 'email signup');
       set.status = 201;
-      return { message: 'Account created. Check your email to verify your address.' };
+      return { message: 'If eligible, check your email to continue registration.' };
     },
     {
       body: t.Object({
@@ -694,10 +797,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         tags: ['Auth'],
         summary: 'Sign up with email and password',
         description:
-          'Creates an unverified email/password account and sends a verification email. The user must verify before logging in.',
+          'Creates an unverified email/password account when eligible and sends a verification email. Always returns the same 201 acknowledgement for existing addresses to prevent enumeration.',
         responses: {
-          201: { description: 'Account created; verification email sent' },
-          409: { description: 'Email already registered' },
+          201: { description: 'Generic registration acknowledgement' },
           429: { description: 'Rate limited' },
         },
       },
@@ -709,8 +811,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .post(
     '/login',
-    async ({ jwt, body, cookie, set, reqLogger, ip }) => {
-      await authRateLimit(ip, '/auth/login', { maxRequests: 10 });
+    async ({ jwt, body, cookie, set, reqLogger, ip, request }) => {
+      assertTrustedCredentialRequest(request);
+      await applyCredentialAbuseLimits(ip, body.email, '/auth/login', 10, 5);
 
       const user = await authenticatePassword(body.email, body.password);
       if (!user) {
@@ -750,7 +853,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   // -----------------------------------------------------------------------
   .post(
     '/verify-email',
-    async ({ jwt, body, cookie, set, reqLogger, ip }) => {
+    async ({ jwt, body, cookie, set, reqLogger, ip, request }) => {
+      assertTrustedCredentialRequest(request);
       await authRateLimit(ip, '/auth/verify-email', { maxRequests: 20 });
 
       const user = await verifyEmailWithToken(body.token);
@@ -784,10 +888,14 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/resend-verification',
     async ({ body, set, reqLogger, ip, request }) => {
-      await authRateLimit(ip, '/auth/resend-verification', { maxRequests: 5 });
+      await Promise.all([
+        authRateLimit(ip, '/auth/resend-verification', { maxRequests: 5 }),
+        authRateLimit('global', '/auth/resend-verification:global', AUTH_GLOBAL_RATE_LIMIT),
+      ]);
       assertEmailConfiguredForProduction();
 
-      const user = await findUserByEmail(body.email);
+      const allowed = await recipientActionAllowed(body.email, '/auth/resend-verification');
+      const user = allowed ? await findUserByEmail(body.email) : undefined;
       // Only re-send for an existing, still-unverified password account. Already
       // verified accounts, OAuth-only accounts (no password hash), and unknown
       // emails are all silently ignored so the response never reveals whether -
@@ -830,10 +938,14 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/forgot-password',
     async ({ body, set, reqLogger, ip, request }) => {
-      await authRateLimit(ip, '/auth/forgot-password', { maxRequests: 5 });
+      await Promise.all([
+        authRateLimit(ip, '/auth/forgot-password', { maxRequests: 5 }),
+        authRateLimit('global', '/auth/forgot-password:global', AUTH_GLOBAL_RATE_LIMIT),
+      ]);
       assertEmailConfiguredForProduction();
 
-      const user = await findUserByEmail(body.email);
+      const allowed = await recipientActionAllowed(body.email, '/auth/forgot-password');
+      const user = allowed ? await findUserByEmail(body.email) : undefined;
       if (user?.passwordHash) {
         const token = await createPasswordResetToken(user.id);
         keepAlive(sendPasswordResetEmail(user.email, token, request));
@@ -865,8 +977,16 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/reset-password',
     async ({ body, cookie, set, reqLogger, ip }) => {
-      await authRateLimit(ip, '/auth/reset-password', { maxRequests: 10 });
+      await Promise.all([
+        authRateLimit(ip, '/auth/reset-password', { maxRequests: 10 }),
+        authRateLimit('global', '/auth/reset-password:global', AUTH_GLOBAL_RATE_LIMIT),
+      ]);
 
+      // Reject random credentials before paying the Argon2 CPU/memory cost. The
+      // final transaction below still owns single-use via DELETE ... RETURNING.
+      if (!(await isPasswordResetTokenValid(body.token))) {
+        throw new ApiError(400, 'Invalid or expired reset token', 'INVALID_TOKEN');
+      }
       const passwordHash = await hashPassword(body.password);
       const userId = await resetPasswordWithToken(body.token, passwordHash);
       if (!userId) {
@@ -1268,7 +1388,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       ? app
           .post(
             '/dev',
-            async ({ jwt, body, cookie, set, ip, headers }) => {
+            async ({ jwt, body, cookie, set, ip, headers, request }) => {
+              assertTrustedCredentialRequest(request);
               await authRateLimit(ip, 'POST /auth/dev', DEV_AUTH_RATE_LIMIT);
               if (!devAuthSecretMatches(headers['x-dev-auth-secret'])) {
                 throw new ApiError(401, 'Invalid dev auth secret', 'UNAUTHORIZED');
@@ -1298,7 +1419,8 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           )
           .post(
             '/dev/password-user',
-            async ({ body, set, ip, headers }) => {
+            async ({ body, set, ip, headers, request }) => {
+              assertTrustedCredentialRequest(request);
               await authRateLimit(ip, 'POST /auth/dev/password-user', DEV_AUTH_RATE_LIMIT);
               if (!devAuthSecretMatches(headers['x-dev-auth-secret'])) {
                 throw new ApiError(401, 'Invalid dev auth secret', 'UNAUTHORIZED');
@@ -1515,7 +1637,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .patch(
     '/me',
     async ({ userId, body, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/me/patch', { maxRequests: 20 });
+      await rateLimit(ip, '/auth/me/patch', { maxRequests: 20, failClosed: true });
 
       if (body.avatarUrl !== undefined && body.avatarUrl !== null) {
         const dataUrlMatch = DATA_URL_IMAGE_RE.exec(body.avatarUrl);
@@ -1589,7 +1711,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .delete(
     '/me',
     async ({ userId, cookie, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/me/delete', { maxRequests: 5 });
+      await rateLimit(ip, '/auth/me/delete', { maxRequests: 5, failClosed: true });
 
       await softDeleteUser(userId);
 

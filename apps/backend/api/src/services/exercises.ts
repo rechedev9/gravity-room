@@ -15,6 +15,7 @@ import { getCachedMuscleGroups, setCachedMuscleGroups } from '../lib/muscle-grou
 import { SingleflightMap } from '../lib/singleflight';
 import { type Result, ok, err } from '../lib/result';
 import { ApiError } from '../middleware/error-handler';
+import { assertUserDataQuotas, lockUserForDataMutation } from './data-quotas';
 
 // Singleflight instances — one per return type for type safety
 const exerciseFlight = new SingleflightMap<PaginatedExercises>();
@@ -116,6 +117,8 @@ export type CreateExerciseError =
   | ExerciseConflictError
   | InvalidMuscleGroupError
   | InvalidExerciseInputError;
+
+type Tx = Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -336,76 +339,62 @@ export async function createExercise(
     return err({ code: 'INVALID_EXERCISE_INPUT' });
   }
 
-  // Validate muscle group exists
-  const [mg] = await getDb()
-    .select({ id: muscleGroups.id })
-    .from(muscleGroups)
-    .where(eq(muscleGroups.id, input.muscleGroupId))
-    .limit(1);
+  const result = await getDb().transaction(async (tx) => {
+    await lockUserForDataMutation(tx, userId);
 
-  if (!mg) {
-    return err({ code: 'INVALID_MUSCLE_GROUP' });
-  }
+    const [mg] = await tx
+      .select({ id: muscleGroups.id })
+      .from(muscleGroups)
+      .where(eq(muscleGroups.id, input.muscleGroupId))
+      .limit(1);
+    if (!mg) return err({ code: 'INVALID_MUSCLE_GROUP' } as const);
 
-  // Insert the row under a specific id. `onConflictDoNothing` returns the
-  // inserted row, or nothing when a row with that id already exists.
-  async function insertWithId(id: string): Promise<typeof exercises.$inferSelect | undefined> {
-    const [row] = await getDb()
-      .insert(exercises)
-      .values({
-        id,
-        name: input.name,
-        muscleGroupId: input.muscleGroupId,
-        equipment: input.equipment ?? null,
-        isCompound: input.isCompound ?? false,
-        isSystem: false,
-        createdByUserId: userId,
-      })
-      .onConflictDoNothing()
-      .returning();
-    return row;
-  }
-
-  // Fast path: the base slug is free — take it verbatim.
-  const inserted = await insertWithId(input.id);
-  if (inserted) {
-    // Invalidate user-specific exercise cache (fire-and-forget)
-    void invalidateUserExercises(userId);
-    return ok(toExerciseEntry(inserted));
-  }
-
-  // The base slug id is a GLOBAL primary key that is already taken. The id is
-  // name-derived, so this collision is expected across users. Look up who owns
-  // the existing row to decide whether this is a genuine duplicate for THIS
-  // user or a foreign owner squatting the slug.
-  const [existing] = await getDb()
-    .select({ createdByUserId: exercises.createdByUserId, isSystem: exercises.isSystem })
-    .from(exercises)
-    .where(eq(exercises.id, input.id))
-    .limit(1);
-
-  // Same user already owns a custom exercise with this exact base id — a real
-  // duplicate for them. (A row can vanish between the insert and this read; if
-  // so, `existing` is undefined and we fall through to the retry path, which
-  // will simply succeed on the base id.)
-  if (existing && !existing.isSystem && existing.createdByUserId === userId) {
-    return err({ code: 'EXERCISE_ID_CONFLICT' });
-  }
-
-  // A system preset or another user owns the base slug. Neither should block
-  // this user or let them probe existence via a 409 — mint a unique id by
-  // appending a short random disambiguator and retry (bounded).
-  for (let attempt = 0; attempt < MAX_DISAMBIGUATION_ATTEMPTS; attempt++) {
-    const candidateId = `${input.id}-${crypto.randomUUID().slice(0, DISAMBIGUATOR_LENGTH)}`;
-    const disambiguated = await insertWithId(candidateId);
-    if (disambiguated) {
-      // Invalidate user-specific exercise cache (fire-and-forget)
-      void invalidateUserExercises(userId);
-      return ok(toExerciseEntry(disambiguated));
+    async function insertWithId(
+      executor: Tx,
+      id: string
+    ): Promise<typeof exercises.$inferSelect | undefined> {
+      const [row] = await executor
+        .insert(exercises)
+        .values({
+          id,
+          name: input.name,
+          muscleGroupId: input.muscleGroupId,
+          equipment: input.equipment ?? null,
+          isCompound: input.isCompound ?? false,
+          isSystem: false,
+          createdByUserId: userId,
+        })
+        .onConflictDoNothing()
+        .returning();
+      return row;
     }
-  }
 
-  // Exhausted all disambiguation attempts (astronomically unlikely). Surface a
-  // conflict rather than looping forever.
-  return err({ code: 'EXERCISE_ID_CONFLICT' });
+    const inserted = await insertWithId(tx, input.id);
+    if (inserted) {
+      await assertUserDataQuotas(tx, userId);
+      return ok(toExerciseEntry(inserted));
+    }
+
+    const [existing] = await tx
+      .select({ createdByUserId: exercises.createdByUserId, isSystem: exercises.isSystem })
+      .from(exercises)
+      .where(eq(exercises.id, input.id))
+      .limit(1);
+    if (existing && !existing.isSystem && existing.createdByUserId === userId) {
+      return err({ code: 'EXERCISE_ID_CONFLICT' } as const);
+    }
+
+    for (let attempt = 0; attempt < MAX_DISAMBIGUATION_ATTEMPTS; attempt++) {
+      const candidateId = `${input.id}-${crypto.randomUUID().slice(0, DISAMBIGUATOR_LENGTH)}`;
+      const disambiguated = await insertWithId(tx, candidateId);
+      if (disambiguated) {
+        await assertUserDataQuotas(tx, userId);
+        return ok(toExerciseEntry(disambiguated));
+      }
+    }
+    return err({ code: 'EXERCISE_ID_CONFLICT' } as const);
+  });
+
+  if (result.ok) void invalidateUserExercises(userId);
+  return result;
 }

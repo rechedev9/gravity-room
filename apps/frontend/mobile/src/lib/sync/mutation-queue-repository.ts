@@ -1,5 +1,5 @@
 import { isRecord } from '@gzclp/domain/type-guards';
-import { bootstrapDatabase, getDatabase } from '../db/client';
+import { bootstrapDatabase, getDatabase, requireActiveLocalDataOwner } from '../db/client';
 
 export type MutationPayload = Record<string, unknown>;
 
@@ -46,6 +46,7 @@ function parsePayload(payloadJson: string): {
 }
 
 export async function enqueueMutation(input: EnqueueMutationInput): Promise<void> {
+  const ownerId = requireActiveLocalDataOwner();
   const database = getDatabase();
   await bootstrapDatabase(database);
 
@@ -56,13 +57,15 @@ export async function enqueueMutation(input: EnqueueMutationInput): Promise<void
       // Replace rather than UPDATE so an in-flight flush holding the old row id
       // cannot acknowledge and accidentally delete the newer desired state.
       await transaction.runAsync(
-        'DELETE FROM queued_mutations WHERE dedupe_key = ?',
+        'DELETE FROM queued_mutations WHERE owner_user_id = ? AND dedupe_key = ?',
+        ownerId,
         input.dedupeKey
       );
       await transaction.runAsync(
         `INSERT INTO queued_mutations
-           (entity_type, entity_id, operation, payload_json, created_at, dedupe_key)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+           (owner_user_id, entity_type, entity_id, operation, payload_json, created_at, dedupe_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ownerId,
         input.entityType,
         input.entityId,
         input.operation,
@@ -74,8 +77,10 @@ export async function enqueueMutation(input: EnqueueMutationInput): Promise<void
     }
 
     await transaction.runAsync(
-      `INSERT INTO queued_mutations (entity_type, entity_id, operation, payload_json, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO queued_mutations
+         (owner_user_id, entity_type, entity_id, operation, payload_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      ownerId,
       input.entityType,
       input.entityId,
       input.operation,
@@ -85,14 +90,18 @@ export async function enqueueMutation(input: EnqueueMutationInput): Promise<void
   });
 }
 
-export async function listQueuedMutations(): Promise<QueuedMutation[]> {
+export async function listQueuedMutations(
+  ownerId: string = requireActiveLocalDataOwner()
+): Promise<QueuedMutation[]> {
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   const rows = await database.getAllAsync<QueuedMutationRow>(
     `SELECT id, entity_type, entity_id, operation, payload_json, created_at
      FROM queued_mutations
-     ORDER BY created_at ASC, id ASC`
+     WHERE owner_user_id = ?
+     ORDER BY created_at ASC, id ASC`,
+    ownerId
   );
 
   return rows.map((row) => {
@@ -109,7 +118,10 @@ export async function listQueuedMutations(): Promise<QueuedMutation[]> {
   });
 }
 
-export async function acknowledgeQueuedMutations(ids: readonly number[]): Promise<void> {
+export async function acknowledgeQueuedMutations(
+  ids: readonly number[],
+  ownerId: string = requireActiveLocalDataOwner()
+): Promise<void> {
   if (ids.length === 0) {
     return;
   }
@@ -118,9 +130,15 @@ export async function acknowledgeQueuedMutations(ids: readonly number[]): Promis
   await bootstrapDatabase(database);
 
   const placeholders = ids.map(() => '?').join(', ');
-  await database.runAsync(`DELETE FROM queued_mutations WHERE id IN (${placeholders})`, ...ids);
+  await database.runAsync(
+    `DELETE FROM queued_mutations
+     WHERE owner_user_id = ? AND id IN (${placeholders})`,
+    ownerId,
+    ...ids
+  );
 }
 
+/** Account transitions clear every partition before reassigning ownership. */
 export async function clearQueuedMutations(): Promise<void> {
   const database = getDatabase();
   await bootstrapDatabase(database);

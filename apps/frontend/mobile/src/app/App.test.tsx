@@ -21,6 +21,7 @@ import {
 jest.mock('../lib/auth/session', () => ({
   getAccessToken: jest.fn(() => null),
   restoreSession: jest.fn(),
+  setAccessToken: jest.fn(),
   signInWithGoogleIdToken: jest.fn(),
   signInWithEmailPassword: jest.fn(),
   signUpWithEmailPassword: jest.fn(),
@@ -50,7 +51,9 @@ jest.mock('../lib/sync/mutation-sync-service', () => ({
 }));
 
 jest.mock('../lib/db/client', () => ({
+  activateLocalDataOwner: jest.fn(async () => undefined),
   clearLocalAppData: jest.fn(),
+  deactivateLocalDataOwner: jest.fn(),
 }));
 
 jest.mock('../lib/programs/program-repository', () => ({

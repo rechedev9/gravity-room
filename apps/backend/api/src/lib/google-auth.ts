@@ -5,10 +5,14 @@
 import { isRecord } from '@gzclp/domain/type-guards';
 import { ApiError } from '../middleware/error-handler';
 import { MAX_PROVIDER_JSON_BYTES, readBoundedJson } from './bounded-json';
+import { MAX_JWT_KID_CHARS, NegativeKidCache } from './negative-kid-cache';
 
 const JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const FORCE_REFRESH_COOLDOWN_MS = 5_000;
+const NEGATIVE_KID_TTL_MS = 60_000;
+const MAX_NEGATIVE_KIDS = 128;
 
 interface VerifyGoogleTokenOptions {
   readonly allowedClientIds?: readonly string[];
@@ -156,6 +160,9 @@ interface JwksCache {
 }
 
 let jwksCache: JwksCache | null = null;
+let jwksFetch: Promise<GoogleJwk[]> | null = null;
+let lastForcedRefreshAt = 0;
+const negativeKids = new NegativeKidCache(MAX_NEGATIVE_KIDS, NEGATIVE_KID_TTL_MS);
 
 /** Parse the max-age (in ms) from a Cache-Control header, if present and valid. */
 function parseCacheControlMaxAgeMs(cacheControl: string | null): number | null {
@@ -179,20 +186,31 @@ async function fetchGoogleCerts(options?: {
     return jwksCache.keys;
   }
 
-  const res = await fetch(JWKS_URL, { signal: AbortSignal.timeout(5_000) });
-  if (!res.ok) throw new ApiError(503, 'Google JWKS endpoint unavailable', 'AUTH_JWKS_UNAVAILABLE');
+  if (jwksFetch) return jwksFetch;
 
-  const rawData = await readBoundedJson(
-    res,
-    MAX_PROVIDER_JSON_BYTES,
-    () => new ApiError(503, 'Invalid Google JWKS response', 'AUTH_JWKS_UNAVAILABLE')
-  );
-  if (!isJwksResponse(rawData))
-    throw new ApiError(503, 'Invalid JWKS response format', 'AUTH_JWKS_UNAVAILABLE');
+  const pending = (async (): Promise<GoogleJwk[]> => {
+    const res = await fetch(JWKS_URL, { signal: AbortSignal.timeout(5_000) });
+    if (!res.ok)
+      throw new ApiError(503, 'Google JWKS endpoint unavailable', 'AUTH_JWKS_UNAVAILABLE');
 
-  const ttlMs = parseCacheControlMaxAgeMs(res.headers.get('cache-control')) ?? CACHE_TTL_MS;
-  jwksCache = { keys: rawData.keys, fetchedAt: Date.now(), ttlMs };
-  return rawData.keys;
+    const rawData = await readBoundedJson(
+      res,
+      MAX_PROVIDER_JSON_BYTES,
+      () => new ApiError(503, 'Invalid Google JWKS response', 'AUTH_JWKS_UNAVAILABLE')
+    );
+    if (!isJwksResponse(rawData))
+      throw new ApiError(503, 'Invalid JWKS response format', 'AUTH_JWKS_UNAVAILABLE');
+
+    const ttlMs = parseCacheControlMaxAgeMs(res.headers.get('cache-control')) ?? CACHE_TTL_MS;
+    jwksCache = { keys: rawData.keys, fetchedAt: Date.now(), ttlMs };
+    return rawData.keys;
+  })();
+  jwksFetch = pending;
+  try {
+    return await pending;
+  } finally {
+    if (jwksFetch === pending) jwksFetch = null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -221,15 +239,37 @@ export async function verifyGoogleToken(
 
   if (rawHeader.alg !== 'RS256')
     throw new ApiError(401, 'Unsupported token algorithm', 'AUTH_INVALID');
+  // `kid` is attacker-controlled. Reject oversized values before any network
+  // fetch or cache-key allocation.
+  if (rawHeader.kid.length === 0 || rawHeader.kid.length > MAX_JWT_KID_CHARS) {
+    throw new ApiError(401, 'Invalid token signing key id', 'AUTH_INVALID');
+  }
 
   let keys = await fetchGoogleCerts();
   let jwk = keys.find((k) => k.kid === rawHeader.kid);
   if (!jwk) {
-    // The kid may belong to a freshly rotated Google signing key that is not yet
-    // in our cached set. Force a single JWKS refetch (bypassing the TTL) and retry
-    // the lookup once before rejecting, to avoid spurious 401s during key rotation.
-    keys = await fetchGoogleCerts({ forceRefresh: true });
+    if (negativeKids.has(rawHeader.kid)) {
+      throw new ApiError(401, 'Unknown token signing key', 'AUTH_INVALID');
+    }
+
+    const now = Date.now();
+    let refreshed = false;
+    if (jwksFetch) {
+      keys = await jwksFetch;
+      refreshed = true;
+    } else if (now - lastForcedRefreshAt >= FORCE_REFRESH_COOLDOWN_MS) {
+      lastForcedRefreshAt = now;
+      keys = await fetchGoogleCerts({ forceRefresh: true });
+      refreshed = true;
+    }
     jwk = keys.find((k) => k.kid === rawHeader.kid);
+    if (jwk && refreshed) {
+      // A key actually published by Google is a real rotation, not attacker
+      // amplification; allow a subsequent genuine rotation immediately.
+      lastForcedRefreshAt = 0;
+    } else if (!jwk && refreshed) {
+      negativeKids.add(rawHeader.kid);
+    }
   }
   if (!jwk) throw new ApiError(401, 'Unknown token signing key', 'AUTH_INVALID');
 

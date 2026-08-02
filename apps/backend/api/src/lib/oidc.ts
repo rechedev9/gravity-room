@@ -8,8 +8,12 @@
 import { isRecord } from '@gzclp/domain/type-guards';
 import { ApiError } from '../middleware/error-handler';
 import { MAX_PROVIDER_JSON_BYTES, readBoundedJson } from './bounded-json';
+import { MAX_JWT_KID_CHARS, NegativeKidCache } from './negative-kid-cache';
 
 const JWKS_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const JWKS_FORCE_REFRESH_COOLDOWN_MS = 5_000;
+const JWKS_NEGATIVE_KID_TTL_MS = 60_000;
+const MAX_NEGATIVE_KIDS = 256;
 const CLOCK_SKEW_S = 60;
 
 interface Jwk {
@@ -100,27 +104,57 @@ interface JwksCacheEntry {
 }
 
 const jwksCaches = new Map<string, JwksCacheEntry>();
+const jwksFetches = new Map<string, Promise<Jwk[]>>();
+const lastForcedRefresh = new Map<string, number>();
+const negativeKids = new NegativeKidCache(MAX_NEGATIVE_KIDS, JWKS_NEGATIVE_KID_TTL_MS);
+
+async function fetchJwksNetwork(jwksUrl: string): Promise<Jwk[]> {
+  const inFlight = jwksFetches.get(jwksUrl);
+  if (inFlight) return inFlight;
+
+  const pending = (async (): Promise<Jwk[]> => {
+    const res = await fetch(jwksUrl, { signal: AbortSignal.timeout(5_000) });
+    if (!res.ok)
+      throw new ApiError(503, 'Provider JWKS endpoint unavailable', 'AUTH_JWKS_UNAVAILABLE');
+
+    const rawData = await readBoundedJson(
+      res,
+      MAX_PROVIDER_JSON_BYTES,
+      () => new ApiError(503, 'Invalid provider JWKS response', 'AUTH_JWKS_UNAVAILABLE')
+    );
+    if (!isJwksResponse(rawData))
+      throw new ApiError(503, 'Invalid JWKS response format', 'AUTH_JWKS_UNAVAILABLE');
+
+    jwksCaches.set(jwksUrl, { keys: rawData.keys, fetchedAt: Date.now() });
+    return rawData.keys;
+  })();
+  jwksFetches.set(jwksUrl, pending);
+  try {
+    return await pending;
+  } finally {
+    if (jwksFetches.get(jwksUrl) === pending) jwksFetches.delete(jwksUrl);
+  }
+}
 
 async function fetchJwks(jwksUrl: string): Promise<Jwk[]> {
   const cached = jwksCaches.get(jwksUrl);
-  if (cached && Date.now() - cached.fetchedAt < JWKS_CACHE_TTL_MS) {
-    return cached.keys;
+  if (cached && Date.now() - cached.fetchedAt < JWKS_CACHE_TTL_MS) return cached.keys;
+  return fetchJwksNetwork(jwksUrl);
+}
+
+async function refreshJwksForUnknownKid(
+  jwksUrl: string
+): Promise<{ readonly keys: Jwk[]; readonly refreshed: boolean }> {
+  const inFlight = jwksFetches.get(jwksUrl);
+  if (inFlight) return { keys: await inFlight, refreshed: true };
+
+  const now = Date.now();
+  const lastRefresh = lastForcedRefresh.get(jwksUrl) ?? 0;
+  if (now - lastRefresh < JWKS_FORCE_REFRESH_COOLDOWN_MS) {
+    return { keys: jwksCaches.get(jwksUrl)?.keys ?? [], refreshed: false };
   }
-
-  const res = await fetch(jwksUrl, { signal: AbortSignal.timeout(5_000) });
-  if (!res.ok)
-    throw new ApiError(503, 'Provider JWKS endpoint unavailable', 'AUTH_JWKS_UNAVAILABLE');
-
-  const rawData = await readBoundedJson(
-    res,
-    MAX_PROVIDER_JSON_BYTES,
-    () => new ApiError(503, 'Invalid provider JWKS response', 'AUTH_JWKS_UNAVAILABLE')
-  );
-  if (!isJwksResponse(rawData))
-    throw new ApiError(503, 'Invalid JWKS response format', 'AUTH_JWKS_UNAVAILABLE');
-
-  jwksCaches.set(jwksUrl, { keys: rawData.keys, fetchedAt: Date.now() });
-  return rawData.keys;
+  lastForcedRefresh.set(jwksUrl, now);
+  return { keys: await fetchJwksNetwork(jwksUrl), refreshed: true };
 }
 
 export interface OidcClaims {
@@ -166,9 +200,29 @@ export async function verifyOidcIdToken(opts: VerifyOidcOptions): Promise<OidcCl
   if (!isTokenHeader(rawHeader)) throw new ApiError(401, 'Invalid JWT header', 'AUTH_INVALID');
   if (rawHeader.alg !== 'RS256')
     throw new ApiError(401, 'Unsupported token algorithm', 'AUTH_INVALID');
+  // `kid` is attacker-controlled. Reject oversized values before constructing
+  // a provider-scoped cache key or performing a JWKS fetch.
+  if (rawHeader.kid.length === 0 || rawHeader.kid.length > MAX_JWT_KID_CHARS) {
+    throw new ApiError(401, 'Invalid token signing key id', 'AUTH_INVALID');
+  }
 
-  const keys = await fetchJwks(opts.jwksUrl);
-  const jwk = keys.find((k) => k.kid === rawHeader.kid);
+  let keys = await fetchJwks(opts.jwksUrl);
+  let jwk = keys.find((k) => k.kid === rawHeader.kid);
+  if (!jwk) {
+    const negativeKey = `${opts.jwksUrl}:${rawHeader.kid}`;
+    if (negativeKids.has(negativeKey)) {
+      throw new ApiError(401, 'Unknown token signing key', 'AUTH_INVALID');
+    }
+
+    const refreshed = await refreshJwksForUnknownKid(opts.jwksUrl);
+    keys = refreshed.keys;
+    jwk = keys.find((k) => k.kid === rawHeader.kid);
+    if (jwk && refreshed.refreshed) {
+      lastForcedRefresh.delete(opts.jwksUrl);
+    } else if (!jwk && refreshed.refreshed) {
+      negativeKids.add(negativeKey);
+    }
+  }
   if (!jwk) throw new ApiError(401, 'Unknown token signing key', 'AUTH_INVALID');
 
   const cryptoKey = await crypto.subtle.importKey(

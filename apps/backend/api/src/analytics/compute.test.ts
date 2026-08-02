@@ -46,7 +46,8 @@ function craftedRecords(): WorkoutRecord[] {
         instanceId: 'i1',
         programId: 'p1',
         workoutIndex: week * 2 + rep,
-        slotId: 'squat',
+        exerciseId: 'squat',
+        definitionVersion: 1,
         weight: 80 + 2.5 * (7 - week),
         result: 'success',
         rpe: null,
@@ -64,7 +65,8 @@ vi.mock('./queries', () => ({
   fetchWorkoutRecords: async () => recordsToReturn,
   // The real version opens a DB transaction; the test runs the body directly
   // with a sentinel executor so no real connection is touched.
-  withInsightTransaction: async (fn: (tx: unknown) => Promise<unknown>) => fn('tx'),
+  withInsightTransaction: async (_userId: string, fn: (tx: unknown) => Promise<unknown>) =>
+    fn('tx'),
   deleteComputedInsights: async (userId: string, executor: unknown) => {
     deleteCalls.push({ userId, executor });
   },
@@ -114,18 +116,11 @@ describe('computeUser', () => {
     expect(deleteCalls).toEqual([{ userId: 'u1', executor: 'tx' }]);
   });
 
-  it('writes the _meta marker outside the transaction, before any insight', async () => {
+  it('writes the _meta marker last in the same transaction', async () => {
     await computeUser('u1');
-    // The marker is committed in its own autocommit statement (no tx executor) and
-    // written first, so the user's computed_at advances even if the insight
-    // transaction below rolls back; it carries a null exercise_id.
-    expect(upsertCalls[0]?.insightType).toBe('_meta');
-    expect(upsertCalls[0]?.exerciseId).toBeNull();
-    expect(upsertCalls[0]?.executor).toBeUndefined();
-    // The seven real insights run INSIDE the transaction (the `tx` sentinel).
-    const realInsights = upsertCalls.filter((c) => c.insightType !== '_meta');
-    expect(realInsights.length).toBeGreaterThanOrEqual(7);
-    expect(realInsights.every((c) => c.executor === 'tx')).toBe(true);
+    expect(upsertCalls.at(-1)?.insightType).toBe('_meta');
+    expect(upsertCalls.at(-1)?.exerciseId).toBeNull();
+    expect(upsertCalls.every((c) => c.executor === 'tx')).toBe(true);
   });
 
   it('emits volume_trend and frequency before any per-exercise insight', async () => {
@@ -143,7 +138,7 @@ describe('computeUser', () => {
     expect(upsertCalls).toHaveLength(1);
     expect(upsertCalls[0]?.insightType).toBe('_meta');
     expect(upsertCalls[0]?.exerciseId).toBeNull();
-    expect(upsertCalls[0]?.executor).toBeUndefined();
+    expect(upsertCalls[0]?.executor).toBe('tx');
     expect(upsertCalls.some((c) => c.insightType !== '_meta')).toBe(false);
     expect(deleteCalls).toEqual([{ userId: 'u1', executor: 'tx' }]);
   });

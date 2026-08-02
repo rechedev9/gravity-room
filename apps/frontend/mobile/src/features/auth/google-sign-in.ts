@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import { canPersistRefreshToken } from '../../lib/auth/secure-storage';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -27,6 +29,10 @@ export function useGoogleIdTokenPrompt(): GoogleAuthResult {
     androidClientId !== undefined ||
     iosClientId !== undefined ||
     webClientId !== undefined;
+  // The mobile Google endpoint returns a body refresh token. Production Expo
+  // Web must use the cookie-backed web auth flow instead of exposing that token
+  // to JavaScript storage, so do not even start this exchange there.
+  const bodyRefreshTokenAllowed = canPersistRefreshToken(Platform.OS, __DEV__);
 
   const [request, _response, promptAsync] = Google.useIdTokenAuthRequest({
     clientId: defaultClientId ?? 'missing-google-client-id',
@@ -48,9 +54,9 @@ export function useGoogleIdTokenPrompt(): GoogleAuthResult {
   }, []);
 
   return {
-    disabled: request === null || !hasConfiguredClientId,
+    disabled: request === null || !hasConfiguredClientId || !bodyRefreshTokenAllowed,
     promptAsync: async () => {
-      if (!hasConfiguredClientId) {
+      if (!hasConfiguredClientId || !bodyRefreshTokenAllowed) {
         return null;
       }
 

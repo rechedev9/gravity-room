@@ -53,20 +53,32 @@ function getLimiter(windowMs: number, maxRequests: number): Ratelimit | undefine
 const DEFAULT_WINDOW_MS = 60_000;
 const DEFAULT_MAX_REQUESTS = 20;
 
+export interface RateLimitOptions {
+  readonly windowMs?: number;
+  readonly maxRequests?: number;
+  readonly failClosed?: boolean;
+  /** Number of budget tokens consumed by this operation (for weighted work). */
+  readonly cost?: number;
+}
+
 export async function rateLimit(
   ip: string,
   endpoint: string,
-  opts?: { windowMs?: number; maxRequests?: number; failClosed?: boolean }
+  opts?: RateLimitOptions
 ): Promise<void> {
   const windowMs = opts?.windowMs ?? DEFAULT_WINDOW_MS;
   const maxRequests = opts?.maxRequests ?? DEFAULT_MAX_REQUESTS;
+  const cost = opts?.cost ?? 1;
+  if (!Number.isSafeInteger(cost) || cost < 1) {
+    throw new Error('Rate-limit cost must be a positive safe integer');
+  }
 
   const limiter = getLimiter(windowMs, maxRequests);
   if (!limiter) return; // dev no-op: permissive when Upstash is absent
 
   let result: Awaited<ReturnType<typeof limiter.limit>>;
   try {
-    result = await limiter.limit(`${endpoint}:${ip}`);
+    result = await limiter.limit(`${endpoint}:${ip}`, { rate: cost });
   } catch (err) {
     if (opts?.failClosed) {
       logger.error({ err, endpoint }, 'Rate limiter unavailable on fail-closed endpoint');

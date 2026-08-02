@@ -34,6 +34,9 @@ describe('legal pages i18n', () => {
 
     expect(screen.getByRole('heading', { name: 'Privacy Policy' })).toBeDefined();
     expect(screen.getByText('Data We Store')).toBeDefined();
+    expect(screen.getByText('Service Providers and Data Transfers')).toBeDefined();
+    expect(screen.getByText(/Sentry receives sanitized application errors/)).toBeDefined();
+    expect(screen.getByText(/Telegram may receive a new-account operational alert/)).toBeDefined();
     expect(screen.queryByText('Política de Privacidad')).toBeNull();
   });
 });

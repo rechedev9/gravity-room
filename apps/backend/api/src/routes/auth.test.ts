@@ -26,23 +26,28 @@ const TEST_USER = {
   updatedAt: new Date('2024-01-01'),
 } as const;
 
-const TEST_REFRESH_TOKEN = {
-  id: 'rt-uuid',
-  userId: 'user-123',
-  tokenHash: 'a'.repeat(64),
-  previousTokenHash: null,
-  expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-  createdAt: new Date(),
-};
+interface TestRefreshToken {
+  readonly id: string;
+  readonly userId: string;
+  readonly tokenHash: string;
+  readonly familyId: string;
+  readonly previousTokenHash: string | null;
+  readonly consumedAt: Date | null;
+  readonly expiresAt: Date;
+  readonly createdAt: Date;
+}
 
 type MockRotateRefreshTokenResult =
   | { readonly status: 'not_found' }
   | { readonly status: 'expired' }
   | { readonly status: 'account_deleted' }
+  | { readonly status: 'concurrent'; readonly userId: string }
+  | { readonly status: 'reused'; readonly userId: string }
   | {
       readonly status: 'rotated';
       readonly user: typeof TEST_USER;
       readonly refreshToken: string;
+      readonly sessionId?: string;
     };
 
 // ---------------------------------------------------------------------------
@@ -70,11 +75,13 @@ const {
   mockVerifyEmailWithToken,
   mockCreatePasswordResetToken,
   mockConsumePasswordResetToken,
+  mockIsPasswordResetTokenValid,
   mockSetUserPassword,
   mockResetPasswordWithToken,
   mockFindOrCreateUserByIdentity,
   mockGenerateRefreshToken,
   mockUpdateUserProfile,
+  mockSoftDeleteUser,
   mockSendVerificationEmail,
   mockSendPasswordResetEmail,
   mockIsEmailConfigured,
@@ -100,20 +107,30 @@ const {
   const mockFindUserById = vi.fn<() => Promise<typeof TEST_USER | undefined>>(() =>
     Promise.resolve({ ...TEST_USER })
   );
-  const mockFindRefreshToken = vi.fn<() => Promise<typeof TEST_REFRESH_TOKEN | undefined>>(() =>
+  const mockFindRefreshToken = vi.fn<() => Promise<TestRefreshToken | undefined>>(() =>
     Promise.resolve(undefined)
   );
   const mockRevokeRefreshToken = vi.fn(() => Promise.resolve());
   const mockRevokeAllUserTokens = vi.fn(() => Promise.resolve());
-  const mockFindRefreshTokenByPreviousHash = vi.fn<
-    () => Promise<typeof TEST_REFRESH_TOKEN | undefined>
-  >(() => Promise.resolve(undefined));
-  const mockCreateAndStoreRefreshToken = vi.fn(() => Promise.resolve('mock-raw-refresh-token'));
-  const mockRotateRefreshToken = vi.fn<() => Promise<MockRotateRefreshTokenResult>>(() =>
+  const mockFindRefreshTokenByPreviousHash = vi.fn<() => Promise<TestRefreshToken | undefined>>(
+    () => Promise.resolve(undefined)
+  );
+  const mockCreateAndStoreRefreshToken = vi.fn<
+    () => Promise<string | { refreshToken: string; sessionId: string }>
+  >(() =>
+    Promise.resolve({
+      refreshToken: 'mock-raw-refresh-token',
+      sessionId: '00000000-0000-4000-8000-000000000001',
+    })
+  );
+  const mockRotateRefreshToken = vi.fn<
+    (tokenHash: string) => Promise<MockRotateRefreshTokenResult>
+  >(() =>
     Promise.resolve({
       status: 'rotated' as const,
       user: { ...TEST_USER },
       refreshToken: 'new-raw-refresh-token',
+      sessionId: '00000000-0000-4000-8000-000000000001',
     })
   );
   const mockFindOrCreateGoogleUser = vi.fn<
@@ -149,6 +166,7 @@ const {
   const mockConsumePasswordResetToken = vi.fn<() => Promise<string | null>>(() =>
     Promise.resolve(null)
   );
+  const mockIsPasswordResetTokenValid = vi.fn(() => Promise.resolve(true));
   const mockSetUserPassword = vi.fn(() => Promise.resolve());
   const mockResetPasswordWithToken = vi.fn<() => Promise<string | null>>(() =>
     Promise.resolve(null)
@@ -160,6 +178,7 @@ const {
   const mockUpdateUserProfile = vi.fn(() =>
     Promise.resolve({ ...PW_USER, name: 'Updated User', avatarUrl: null })
   );
+  const mockSoftDeleteUser = vi.fn(() => Promise.resolve());
   const mockSendVerificationEmail = vi.fn(() => Promise.resolve());
   const mockSendPasswordResetEmail = vi.fn(() => Promise.resolve());
   const mockIsEmailConfigured = vi.fn(() => true);
@@ -218,7 +237,9 @@ const {
   const mockVerifyGoogleToken = vi.fn(() =>
     Promise.resolve({ sub: 'google-uid-123', email: 'test@example.com', name: 'Test User' })
   );
-  const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
+  const mockRateLimit = vi.fn<
+    (key: string, endpoint: string, options?: Record<string, unknown>) => Promise<void>
+  >(() => Promise.resolve());
   const mockSendTelegramMessage = vi.fn((): Promise<void> => Promise.resolve());
   return {
     mockHashToken,
@@ -241,11 +262,13 @@ const {
     mockVerifyEmailWithToken,
     mockCreatePasswordResetToken,
     mockConsumePasswordResetToken,
+    mockIsPasswordResetTokenValid,
     mockSetUserPassword,
     mockResetPasswordWithToken,
     mockFindOrCreateUserByIdentity,
     mockGenerateRefreshToken,
     mockUpdateUserProfile,
+    mockSoftDeleteUser,
     mockSendVerificationEmail,
     mockSendPasswordResetEmail,
     mockIsEmailConfigured,
@@ -276,6 +299,7 @@ interface MockUserRow {
   googleId: string | null;
   passwordHash: string | null;
   emailVerified: boolean;
+  authVersion: number;
   name: string | null;
   avatarUrl: string | null;
   deletedAt: Date | null;
@@ -289,6 +313,7 @@ const PW_USER: MockUserRow = {
   googleId: null,
   passwordHash: 'argon2-hash',
   emailVerified: true,
+  authVersion: 0,
   name: null,
   avatarUrl: null,
   deletedAt: null,
@@ -313,14 +338,34 @@ vi.mock('../services/auth', async () => ({
   findUserByEmail: mockFindUserByEmail,
   findRefreshToken: mockFindRefreshToken,
   findRefreshTokenByPreviousHash: mockFindRefreshTokenByPreviousHash,
+  isRefreshSessionActive: vi.fn(() => Promise.resolve(true)),
   revokeRefreshToken: mockRevokeRefreshToken,
+  revokeSessionByToken: mockRevokeRefreshToken,
   revokeAllUserTokens: mockRevokeAllUserTokens,
-  createAndStoreRefreshToken: mockCreateAndStoreRefreshToken,
-  rotateRefreshToken: mockRotateRefreshToken,
+  createAuthSession: vi.fn(async () => {
+    const result = await mockCreateAndStoreRefreshToken();
+    return typeof result === 'string'
+      ? {
+          refreshToken: result,
+          sessionId: '00000000-0000-4000-8000-000000000001',
+        }
+      : result;
+  }),
+  createAndStoreRefreshToken: vi.fn(() => Promise.resolve('mock-raw-refresh-token')),
+  rotateRefreshToken: vi.fn(async (tokenHash: string) => {
+    const result = await mockRotateRefreshToken(tokenHash);
+    return result.status === 'rotated'
+      ? {
+          ...result,
+          sessionId: result.sessionId ?? '00000000-0000-4000-8000-000000000001',
+        }
+      : result;
+  }),
   findOrCreateGoogleUser: mockFindOrCreateGoogleUser,
   findOrCreateUserByIdentity: mockFindOrCreateUserByIdentity,
   generateRefreshToken: mockGenerateRefreshToken,
   updateUserProfile: mockUpdateUserProfile,
+  softDeleteUser: mockSoftDeleteUser,
   authenticatePassword: mockAuthenticatePassword,
   createPasswordUser: mockCreatePasswordUser,
   createPasswordSignup: mockCreatePasswordSignup,
@@ -331,6 +376,7 @@ vi.mock('../services/auth', async () => ({
   verifyEmailWithToken: mockVerifyEmailWithToken,
   createPasswordResetToken: mockCreatePasswordResetToken,
   consumePasswordResetToken: mockConsumePasswordResetToken,
+  isPasswordResetTokenValid: mockIsPasswordResetTokenValid,
   setUserPassword: mockSetUserPassword,
   resetPasswordWithToken: mockResetPasswordWithToken,
   // Included so the process-global services/auth mock exposes every export the
@@ -816,13 +862,9 @@ describe('POST /auth/refresh', () => {
     expect(res.headers.get('set-cookie')?.toLowerCase() ?? '').toMatch(/max-age=0|expires=/);
   });
 
-  it('revokes all user sessions when a token whose successor is older than the grace window is replayed (theft detection)', async () => {
-    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
-    // Successor exists and was minted well before the grace window → the
-    // presented token was legitimately rotated away long ago, so re-presenting
-    // it is a genuine stale-token replay, not a concurrent double refresh.
-    mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
-      Promise.resolve({ ...TEST_REFRESH_TOKEN, createdAt: new Date(Date.now() - 60_000) })
+  it('reports a consumed-family replay already revoked atomically by the service', async () => {
+    mockRotateRefreshToken.mockImplementation(() =>
+      Promise.resolve({ status: 'reused', userId: TEST_USER.id })
     );
 
     const res = await post('/auth/refresh', {}, { Cookie: 'refresh_token=stolen-old-token' });
@@ -830,7 +872,6 @@ describe('POST /auth/refresh', () => {
 
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_INVALID_REFRESH');
-    expect(mockRevokeAllUserTokens).toHaveBeenCalledTimes(1);
   });
 
   it('does not revoke sessions on a concurrent double-refresh whose successor is within the grace window', async () => {
@@ -839,9 +880,8 @@ describe('POST /auth/refresh', () => {
     // not_found, but the successor B was just minted (createdAt ≈ now), so this
     // is a benign race, not theft. The whole session (including the sibling
     // tab's fresh B cookie) must survive.
-    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
-    mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
-      Promise.resolve({ ...TEST_REFRESH_TOKEN, createdAt: new Date() })
+    mockRotateRefreshToken.mockImplementation(() =>
+      Promise.resolve({ status: 'concurrent', userId: TEST_USER.id })
     );
 
     const res = await post('/auth/refresh', {}, { Cookie: 'refresh_token=raced-old-token' });
@@ -968,11 +1008,9 @@ describe('POST /auth/mobile/refresh', () => {
     expect(body.code).toBe('AUTH_INVALID_REFRESH');
   });
 
-  it('revokes all user sessions when a token whose successor is older than the grace window is replayed', async () => {
-    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
-    // Successor minted well before the grace window → genuine stale-token replay.
-    mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
-      Promise.resolve({ ...TEST_REFRESH_TOKEN, createdAt: new Date(Date.now() - 60_000) })
+  it('reports a consumed-family replay already revoked atomically by the service', async () => {
+    mockRotateRefreshToken.mockImplementation(() =>
+      Promise.resolve({ status: 'reused', userId: TEST_USER.id })
     );
 
     const res = await post('/auth/mobile/refresh', { refreshToken: 'stolen-mobile-token' });
@@ -980,14 +1018,11 @@ describe('POST /auth/mobile/refresh', () => {
 
     expect(res.status).toBe(401);
     expect(body.code).toBe('AUTH_INVALID_REFRESH');
-    expect(mockRevokeAllUserTokens).toHaveBeenCalledTimes(1);
   });
 
   it('does not revoke sessions on a concurrent double-refresh whose successor is within the grace window', async () => {
-    mockRotateRefreshToken.mockImplementation(() => Promise.resolve({ status: 'not_found' }));
-    // Successor just minted (createdAt ≈ now) → benign concurrent refresh.
-    mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
-      Promise.resolve({ ...TEST_REFRESH_TOKEN, createdAt: new Date() })
+    mockRotateRefreshToken.mockImplementation(() =>
+      Promise.resolve({ status: 'concurrent', userId: TEST_USER.id })
     );
 
     const res = await post('/auth/mobile/refresh', { refreshToken: 'raced-mobile-token' });
@@ -1130,15 +1165,11 @@ describe('POST /auth/signout', () => {
     expect(setCookie.toLowerCase()).toMatch(/max-age=0|expires=/);
   });
 
-  it('revokes the successor when refresh rotated the cookie concurrently', async () => {
-    mockFindRefreshTokenByPreviousHash.mockImplementation(() =>
-      Promise.resolve({ ...TEST_REFRESH_TOKEN })
-    );
-
+  it('revokes the whole family even when the presented token is a consumed ancestor', async () => {
     const res = await post('/auth/signout', {}, { Cookie: 'refresh_token=rotated-old-token' });
 
     expect(res.status).toBe(204);
-    expect(mockRevokeAllUserTokens).toHaveBeenCalledWith(TEST_REFRESH_TOKEN.userId);
+    expect(mockRevokeRefreshToken).toHaveBeenCalledWith('a'.repeat(64));
   });
 
   it('clears the refresh cookie even when signout is rate limited', async () => {
@@ -1231,6 +1262,26 @@ describe('PATCH /auth/me', () => {
     mockFindUserById.mockImplementation(() => Promise.resolve({ ...TEST_USER }));
   });
 
+  it('returns 503 before updating the profile when Redis fails', async () => {
+    mockRateLimit.mockRejectedValueOnce(
+      new ApiError(503, 'Rate limiter unavailable', 'RATE_LIMIT_UNAVAILABLE')
+    );
+    const token = await makeValidJwt('user-123');
+
+    const res = await patch(
+      '/auth/me',
+      { name: 'Blocked update' },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(503);
+    expect(mockRateLimit).toHaveBeenCalledWith('unknown', '/auth/me/patch', {
+      maxRequests: 20,
+      failClosed: true,
+    });
+    expect(mockUpdateUserProfile).not.toHaveBeenCalled();
+  });
+
   it('rejects oversized avatar data URLs before rate limiting', async () => {
     const token = await makeValidJwt('user-123');
     const oversizedAvatar = `data:image/png;base64,${'A'.repeat(200_004)}`;
@@ -1304,6 +1355,36 @@ describe('PATCH /auth/me', () => {
     expect(res.status).toBe(400);
     expect(body.code).toBe('INVALID_NAME');
     expect(mockUpdateUserProfile).not.toHaveBeenCalled();
+  });
+});
+
+describe('DELETE /auth/me', () => {
+  beforeEach(() => {
+    mockRateLimit.mockReset();
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockSoftDeleteUser.mockClear();
+    mockFindUserById.mockImplementation(() => Promise.resolve({ ...TEST_USER }));
+  });
+
+  it('returns 503 before deleting the account when Redis fails', async () => {
+    mockRateLimit.mockRejectedValueOnce(
+      new ApiError(503, 'Rate limiter unavailable', 'RATE_LIMIT_UNAVAILABLE')
+    );
+    const token = await makeValidJwt('user-123');
+
+    const res = await testApp.handle(
+      new Request('http://localhost/auth/me', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+    );
+
+    expect(res.status).toBe(503);
+    expect(mockRateLimit).toHaveBeenCalledWith('unknown', '/auth/me/delete', {
+      maxRequests: 5,
+      failClosed: true,
+    });
+    expect(mockSoftDeleteUser).not.toHaveBeenCalled();
   });
 });
 
@@ -1487,7 +1568,7 @@ describe('POST /auth/signup', () => {
     const res = await post('/auth/signup', { email: 'new@example.com', password: 'password123' });
     const body = (await res.json()) as { message: string; accessToken?: string };
     expect(res.status).toBe(201);
-    expect(body.message).toContain('verify');
+    expect(body.message).toBe('If eligible, check your email to continue registration.');
     expect(body.accessToken).toBeUndefined();
     expect(mockSendVerificationEmail).toHaveBeenCalledTimes(1);
   });
@@ -1535,7 +1616,7 @@ describe('POST /auth/signup', () => {
     expect(mockCreatePasswordSignup).not.toHaveBeenCalled();
   });
 
-  it('returns 409 EMAIL_TAKEN when the email already exists', async () => {
+  it('returns the same generic 201 for an existing email without sending another link', async () => {
     mockCreatePasswordSignup.mockImplementation(() =>
       Promise.reject(new ApiError(409, 'An account with this email already exists', 'EMAIL_TAKEN'))
     );
@@ -1543,9 +1624,10 @@ describe('POST /auth/signup', () => {
       email: 'taken@example.com',
       password: 'password123',
     });
-    const body = (await res.json()) as { code: string };
-    expect(res.status).toBe(409);
-    expect(body.code).toBe('EMAIL_TAKEN');
+    const body = (await res.json()) as { message: string };
+    expect(res.status).toBe(201);
+    expect(body.message).toBe('If eligible, check your email to continue registration.');
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled();
   });
 
   it('fails closed in production when transactional email is not configured', async () => {
@@ -1574,9 +1656,54 @@ describe('POST /auth/signup', () => {
 
 describe('POST /auth/login', () => {
   beforeEach(() => {
+    mockRateLimit.mockClear();
     mockRateLimit.mockImplementation(() => Promise.resolve());
     mockCreateAndStoreRefreshToken.mockImplementation(() => Promise.resolve('refresh-token'));
     mockAuthenticatePassword.mockClear();
+  });
+
+  it('rejects cross-origin HTML form login before checking credentials', async () => {
+    const res = await testApp.handle(
+      new Request('http://localhost/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Origin: 'https://attacker.example',
+          'Sec-Fetch-Site': 'cross-site',
+        },
+        body: 'email=attacker%40example.com&password=password123',
+      })
+    );
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(415);
+    expect(body.code).toBe('UNSUPPORTED_MEDIA_TYPE');
+    expect(mockAuthenticatePassword).not.toHaveBeenCalled();
+  });
+
+  it('rejects cross-site JSON login while allowing native clients with no browser metadata', async () => {
+    const rejected = await post(
+      '/auth/login',
+      { email: 'a@b.com', password: 'password123' },
+      { Origin: 'https://attacker.example', 'Sec-Fetch-Site': 'cross-site' }
+    );
+    expect(rejected.status).toBe(403);
+    expect(mockAuthenticatePassword).not.toHaveBeenCalled();
+
+    mockAuthenticatePassword.mockImplementation(() => Promise.resolve(null));
+    const native = await post('/auth/login', { email: 'a@b.com', password: 'wrong-password' });
+    expect(native.status).toBe(401);
+    expect(mockAuthenticatePassword).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses account and global budgets without placing the raw email in limiter keys', async () => {
+    mockAuthenticatePassword.mockImplementation(() => Promise.resolve(null));
+    await post('/auth/login', { email: 'Target@Example.com', password: 'wrong-password' });
+
+    expect(mockRateLimit).toHaveBeenCalledTimes(3);
+    for (const [key] of mockRateLimit.mock.calls) {
+      expect(key).not.toContain('target@example.com');
+    }
   });
 
   it('returns a generic 401 for invalid credentials', async () => {
@@ -1733,6 +1860,23 @@ describe('POST /auth/resend-verification', () => {
     expect(mockReplaceEmailVerificationToken).not.toHaveBeenCalled();
   });
 
+  it('keeps the generic 200 when the recipient cooldown suppresses another email', async () => {
+    mockRateLimit.mockImplementation((_key, endpoint) =>
+      endpoint.endsWith(':recipient-cooldown')
+        ? Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
+        : Promise.resolve()
+    );
+
+    const res = await post('/auth/resend-verification', { email: PW_USER.email });
+    const body = (await res.json()) as { message: string };
+
+    expect(res.status).toBe(200);
+    expect(body.message).toBe(GENERIC_MESSAGE);
+    expect(mockFindUserByEmail).not.toHaveBeenCalled();
+    expect(mockReplaceEmailVerificationToken).not.toHaveBeenCalled();
+    expect(mockSendVerificationEmail).not.toHaveBeenCalled();
+  });
+
   it('returns 429 RATE_LIMITED before touching the account lookup', async () => {
     mockRateLimit.mockImplementation(() =>
       Promise.reject(new ApiError(429, 'Too many requests', 'RATE_LIMITED'))
@@ -1837,9 +1981,24 @@ describe('POST /auth/forgot-password', () => {
 describe('POST /auth/reset-password', () => {
   beforeEach(() => {
     mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockIsPasswordResetTokenValid.mockImplementation(() => Promise.resolve(true));
     mockResetPasswordWithToken.mockClear();
     mockResetPasswordWithToken.mockImplementation(() => Promise.resolve(null));
     mockRevokeAllUserTokens.mockClear();
+  });
+
+  it('rejects an invalid token in the cheap preflight before the reset transaction', async () => {
+    mockIsPasswordResetTokenValid.mockImplementationOnce(() => Promise.resolve(false));
+
+    const res = await post('/auth/reset-password', {
+      token: 'random-token',
+      password: 'new-password-123',
+    });
+    const body = (await res.json()) as { code: string };
+
+    expect(res.status).toBe(400);
+    expect(body.code).toBe('INVALID_TOKEN');
+    expect(mockResetPasswordWithToken).not.toHaveBeenCalled();
   });
 
   it('returns 400 INVALID_TOKEN for an unknown token', async () => {

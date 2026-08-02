@@ -6,12 +6,17 @@ process.env['DATABASE_URL'] = 'postgres://test:test@localhost:5432/test';
 process.env['LOG_LEVEL'] = 'silent';
 process.env['JWT_SECRET'] = 'test-secret-must-be-at-least-32-chars-1234';
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Elysia } from 'elysia';
 
 // ---------------------------------------------------------------------------
 // Mocks — must be declared before imports that trigger side-effects
 // ---------------------------------------------------------------------------
+
+const { mockDbExecute, mockRedisPing } = vi.hoisted(() => ({
+  mockDbExecute: vi.fn(() => Promise.resolve([{ '?column?': 1 }])),
+  mockRedisPing: vi.fn(() => Promise.resolve('PONG')),
+}));
 
 vi.mock('./lib/sentry', () => ({
   captureException: vi.fn(() => {}),
@@ -19,13 +24,11 @@ vi.mock('./lib/sentry', () => ({
 }));
 
 vi.mock('./lib/redis', () => ({
-  getRedis: vi.fn(() => undefined),
+  getRedis: vi.fn(() => ({ ping: mockRedisPing })),
 }));
 
 vi.mock('./db', () => ({
-  getDb: vi.fn(() => ({
-    execute: vi.fn(() => Promise.resolve([{ '?column?': 1 }])),
-  })),
+  getDb: vi.fn(() => ({ execute: mockDbExecute })),
   closeDb: vi.fn(() => Promise.resolve()),
 }));
 
@@ -54,42 +57,40 @@ const app = createApp({
 // Tests
 // ---------------------------------------------------------------------------
 
+beforeEach(() => {
+  mockDbExecute.mockClear();
+  mockRedisPing.mockClear();
+});
+
 describe('GET /api/health', () => {
-  it('response includes redis field', async () => {
-    const res = await app.handle(new Request('http://localhost/api/health'));
+  it('remains a stable public liveness response for Vercel monitoring', async () => {
+    const res = await app.fetch(new Request('http://localhost/api/health'));
     const body = (await res.json()) as Record<string, unknown>;
-    expect('redis' in body).toBe(true);
-  });
 
-  it('redis.status === "disabled" when REDIS_URL is not set', async () => {
-    const res = await app.handle(new Request('http://localhost/api/health'));
-    const body = (await res.json()) as Record<string, unknown>;
-    const redis = body.redis as Record<string, unknown>;
-    expect(redis.status).toBe('disabled');
-  });
-
-  it('returns 200 when db is healthy', async () => {
-    const res = await app.handle(new Request('http://localhost/api/health'));
     expect(res.status).toBe(200);
+    expect(body.status).toBe('ok');
+    expect(typeof body.timestamp).toBe('string');
   });
 
-  it('response includes status, timestamp, and db fields', async () => {
-    const res = await app.handle(new Request('http://localhost/api/health'));
-    const body = (await res.json()) as Record<string, unknown>;
-    expect('status' in body).toBe(true);
-    expect('timestamp' in body).toBe(true);
-    expect('db' in body).toBe(true);
+  it('does not call Postgres or Redis', async () => {
+    await app.fetch(new Request('http://localhost/api/health'));
+
+    expect(mockDbExecute).not.toHaveBeenCalled();
+    expect(mockRedisPing).not.toHaveBeenCalled();
   });
 
-  it('omits the stateless-incompatible uptime field', async () => {
-    const res = await app.handle(new Request('http://localhost/api/health'));
+  it('contains no dependency diagnostics or process uptime', async () => {
+    const res = await app.fetch(new Request('http://localhost/api/health'));
     const body = (await res.json()) as Record<string, unknown>;
+
+    expect('db' in body).toBe(false);
+    expect('redis' in body).toBe(false);
     expect('uptime' in body).toBe(false);
   });
 
-  it('is never cached by browsers or intermediary proxies', async () => {
-    const res = await app.handle(new Request('http://localhost/api/health'));
-    expect(res.headers.get('cache-control')).toBe('no-store');
+  it('allows a short shared-cache lifetime without browser freshness', async () => {
+    const res = await app.fetch(new Request('http://localhost/api/health'));
+    expect(res.headers.get('cache-control')).toBe('public, max-age=0, s-maxage=10');
   });
 });
 

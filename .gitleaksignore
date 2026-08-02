@@ -1,0 +1,5 @@
+# Historical localStorage key name (`gr-shortcuts-seen-v1`), not a secret.
+# Exact commit/path/rule/line fingerprints for the implementation and its plan;
+# no current file, directory, value pattern, or complete rule is exempted.
+cd7c3888d9eb8ce4bd14522ec50f60b857f69883:apps/frontend/web/src/features/tracker/shortcuts-storage.ts:generic-api-key:1
+cd7c3888d9eb8ce4bd14522ec50f60b857f69883:docs/superpowers/plans/2026-05-11-ui-revival-brutalist.md:generic-api-key:2506

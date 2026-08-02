@@ -1,0 +1,41 @@
+name: Production route smoke
+
+on:
+  deployment_status:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-route-smoke
+  cancel-in-progress: true
+
+jobs:
+  routes:
+    name: Production routes
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check promoted SPA deep links and action headers
+        env:
+          PRODUCTION_URL: https://gravityroom.app
+        run: pnpm run security:production-routes

@@ -153,64 +153,68 @@ export async function listPrograms(): Promise<readonly CatalogEntry[]> {
   });
 }
 
-/** Get a fully hydrated ProgramDefinition by ID. Distinguishes not-found from hydration failure. */
+async function hydrateStoredProgramDefinition(
+  programId: string,
+  includeInactive: boolean
+): Promise<GetProgramDefinitionResult> {
+  const visibility = includeInactive
+    ? eq(programTemplates.id, programId)
+    : and(eq(programTemplates.id, programId), eq(programTemplates.isActive, true));
+  const [template] = await getDb().select().from(programTemplates).where(visibility).limit(1);
+
+  if (!template) return { status: 'not_found' };
+
+  const exerciseIds = [...collectExerciseIds(template.definition)];
+  const exerciseRows =
+    exerciseIds.length > 0
+      ? await getDb()
+          .select({ id: exercises.id, name: exercises.name })
+          .from(exercises)
+          .where(inArray(exercises.id, exerciseIds))
+      : [];
+  const result = hydrateProgramDefinition(
+    {
+      id: template.id,
+      name: template.name,
+      description: template.description,
+      author: template.author,
+      version: template.version,
+      category: template.category,
+      source: template.source,
+      definition: template.definition,
+    },
+    exerciseRows
+  );
+  if (!result.ok) {
+    logger.error({ programId, error: result.error }, 'catalog: hydration failed');
+    return { status: 'hydration_failed', error: result.error };
+  }
+  return { status: 'found', definition: result.value };
+}
+
+/** Get an active, fully hydrated catalog definition. */
 export async function getProgramDefinition(programId: string): Promise<GetProgramDefinitionResult> {
-  // Check cache first — fast path avoids singleflight overhead
   const cached = await getCachedCatalogDetail(programId);
   if (cached) return { status: 'found', definition: cached };
 
-  // Singleflight: only one hydration runs per programId concurrently
   return detailFlight.run(programId, async () => {
-    // Re-check cache — another caller may have populated it while we waited
     const rechecked = await getCachedCatalogDetail(programId);
     if (rechecked) return { status: 'found' as const, definition: rechecked };
 
-    // Fetch template
-    const [template] = await getDb()
-      .select()
-      .from(programTemplates)
-      .where(and(eq(programTemplates.id, programId), eq(programTemplates.isActive, true)))
-      .limit(1);
-
-    if (!template) return { status: 'not_found' as const };
-
-    // Collect referenced exercise IDs from the definition
-    const exerciseIds = [...collectExerciseIds(template.definition)];
-
-    // Fetch exercise rows
-    const exerciseRows =
-      exerciseIds.length > 0
-        ? await getDb()
-            .select({ id: exercises.id, name: exercises.name })
-            .from(exercises)
-            .where(inArray(exercises.id, exerciseIds))
-        : [];
-
-    // Hydrate
-    const result = hydrateProgramDefinition(
-      {
-        id: template.id,
-        name: template.name,
-        description: template.description,
-        author: template.author,
-        version: template.version,
-        category: template.category,
-        source: template.source,
-        definition: template.definition,
-      },
-      exerciseRows
-    );
-
-    if (!result.ok) {
-      logger.error({ programId, error: result.error }, 'catalog: hydration failed');
-      return { status: 'hydration_failed' as const, error: result.error };
-    }
-
-    // Cache the result (fire-and-forget)
-    void setCachedCatalogDetail(programId, result.value);
-
-    return { status: 'found' as const, definition: result.value };
+    const result = await hydrateStoredProgramDefinition(programId, false);
+    if (result.status === 'found') void setCachedCatalogDetail(programId, result.definition);
+    return result;
   });
+}
+
+/**
+ * Resolve an existing instance's definition independently of catalog visibility.
+ * Historical result validation must continue after a template is retired.
+ */
+export function getHistoricalProgramDefinition(
+  programId: string
+): Promise<GetProgramDefinitionResult> {
+  return hydrateStoredProgramDefinition(programId, true);
 }
 
 // ---------------------------------------------------------------------------

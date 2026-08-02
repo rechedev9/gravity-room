@@ -17,7 +17,7 @@
 process.env['GOOGLE_CLIENT_ID'] = 'test-client-id';
 process.env['LOG_LEVEL'] = 'silent';
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { ApiError } from '../middleware/error-handler';
 
 // We import verifyGoogleToken after setting up env vars.
@@ -343,7 +343,66 @@ describe('verifyGoogleToken — JWKS key rotation', () => {
   });
 });
 
+describe('verifyGoogleToken — unknown-kid amplification controls', () => {
+  it.each([257, 1_024, 16_384])(
+    'rejects a %i-character kid before JWKS fetch or cache storage',
+    async (kidLength) => {
+      const mockFetch = vi.fn();
+      globalThis.fetch = mockFetch as unknown as typeof fetch;
+      const header = Buffer.from(
+        JSON.stringify({ alg: 'RS256', kid: 'x'.repeat(kidLength) })
+      ).toString('base64url');
+
+      await expect(verifyGoogleToken(`${header}.e30.signature`)).rejects.toMatchObject({
+        statusCode: 401,
+        code: 'AUTH_INVALID',
+      });
+      expect(mockFetch).not.toHaveBeenCalled();
+    }
+  );
+
+  it('singleflights/negative-caches repeated unknown kid lookups after one refresh', async () => {
+    process.env['GOOGLE_CLIENT_ID'] = 'test-client-id';
+    delete process.env['GOOGLE_CLIENT_IDS'];
+
+    const keyPair = await generateRsaKeyPair();
+    const knownKid = 'negative-cache-known-key';
+    const jwksBody = await buildJwksResponse(knownKid, keyPair.publicKey);
+    const mockFetch = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify(jwksBody), { status: 200 }))
+    );
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+
+    const payload = {
+      sub: 'user-known',
+      email: 'known@example.com',
+      email_verified: true,
+      aud: 'test-client-id',
+      iss: 'accounts.google.com',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    };
+    await expect(
+      verifyGoogleToken(await signJwt(knownKid, keyPair.privateKey, payload))
+    ).resolves.toMatchObject({
+      sub: 'user-known',
+    });
+    const baseline = mockFetch.mock.calls.length;
+
+    const unknown = await signJwt('attacker-kid', keyPair.privateKey, payload);
+    await expect(verifyGoogleToken(unknown)).rejects.toMatchObject({ code: 'AUTH_INVALID' });
+    await expect(verifyGoogleToken(unknown)).rejects.toMatchObject({ code: 'AUTH_INVALID' });
+    expect(mockFetch.mock.calls.length).toBe(baseline + 1);
+  });
+});
+
 describe('verifyGoogleToken — email verification', () => {
+  beforeAll(() => {
+    // Advance beyond the unknown-kid refresh cooldown left by the preceding
+    // amplification test so these cases exercise the email claim itself.
+    const advancedNow = Date.now() + 10_000;
+    vi.spyOn(Date, 'now').mockReturnValue(advancedNow);
+  });
+
   function mockJwks(jwksBody: { keys: unknown[] }): void {
     const mockFetch = vi.fn(
       (): Promise<Response> =>

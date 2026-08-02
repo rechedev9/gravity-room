@@ -1,5 +1,6 @@
 interface QueuedMutationRow {
   readonly id: number;
+  readonly owner_user_id: string;
   readonly entity_type: string;
   readonly entity_id: string;
   readonly operation: string;
@@ -10,9 +11,11 @@ interface QueuedMutationRow {
 
 const mockRows: QueuedMutationRow[] = [];
 let mockNextId = 1;
+let mockActiveOwnerId = 'user-a';
 
 jest.mock('../db/client', () => ({
   bootstrapDatabase: jest.fn(async () => undefined),
+  requireActiveLocalDataOwner: jest.fn(() => mockActiveOwnerId),
   getDatabase: jest.fn(() => ({
     withExclusiveTransactionAsync: jest.fn(
       async (
@@ -22,10 +25,14 @@ jest.mock('../db/client', () => ({
       ) => {
         await callback({
           runAsync: async (sql: string, ...params: unknown[]) => {
-            if (sql.includes('DELETE FROM queued_mutations WHERE dedupe_key')) {
-              const dedupeKey = String(params[0]);
+            if (sql.includes('DELETE FROM queued_mutations WHERE owner_user_id')) {
+              const ownerId = String(params[0]);
+              const dedupeKey = String(params[1]);
               for (let index = mockRows.length - 1; index >= 0; index -= 1) {
-                if (mockRows[index]?.dedupe_key === dedupeKey) {
+                if (
+                  mockRows[index]?.owner_user_id === ownerId &&
+                  mockRows[index]?.dedupe_key === dedupeKey
+                ) {
                   mockRows.splice(index, 1);
                 }
               }
@@ -33,9 +40,11 @@ jest.mock('../db/client', () => ({
             }
 
             if (sql.includes('INSERT INTO queued_mutations')) {
-              const [entityType, entityId, operation, payloadJson, createdAt, dedupeKey] = params;
+              const [ownerId, entityType, entityId, operation, payloadJson, createdAt, dedupeKey] =
+                params;
               mockRows.push({
                 id: mockNextId,
+                owner_user_id: String(ownerId),
                 entity_type: String(entityType),
                 entity_id: String(entityId),
                 operation: String(operation),
@@ -59,12 +68,13 @@ jest.mock('../db/client', () => ({
         return { changes: clearedCount, lastInsertRowId: 0 };
       }
 
-      if (sql.includes('DELETE FROM queued_mutations WHERE id IN')) {
-        const ids = new Set(params.map((value) => Number(value)));
+      if (sql.includes('id IN')) {
+        const ownerId = String(params[0]);
+        const ids = new Set(params.slice(1).map((value) => Number(value)));
 
         for (let index = mockRows.length - 1; index >= 0; index -= 1) {
           const row = mockRows[index];
-          if (row && ids.has(row.id)) {
+          if (row && row.owner_user_id === ownerId && ids.has(row.id)) {
             mockRows.splice(index, 1);
           }
         }
@@ -74,14 +84,17 @@ jest.mock('../db/client', () => ({
 
       return { changes: 0, lastInsertRowId: 0 };
     }),
-    getAllAsync: jest.fn(async (sql: string) => {
+    getAllAsync: jest.fn(async (sql: string, ...params: unknown[]) => {
       if (!sql.includes('SELECT id, entity_type, entity_id, operation, payload_json, created_at')) {
         return [];
       }
 
-      return [...mockRows].sort(
-        (left, right) => left.created_at.localeCompare(right.created_at) || left.id - right.id
-      );
+      const ownerId = String(params[0]);
+      return mockRows
+        .filter((row) => row.owner_user_id === ownerId)
+        .sort(
+          (left, right) => left.created_at.localeCompare(right.created_at) || left.id - right.id
+        );
     }),
     execAsync: jest.fn(async () => undefined),
   })),
@@ -98,6 +111,38 @@ describe('mutation queue repository', () => {
   beforeEach(() => {
     mockRows.length = 0;
     mockNextId = 1;
+    mockActiveOwnerId = 'user-a';
+  });
+
+  it.each([
+    { ownerId: 'user-a', expectedEntityId: 'instance-a' },
+    { ownerId: 'user-b', expectedEntityId: 'instance-b' },
+  ])('lists only queued mutations owned by $ownerId', async ({ ownerId, expectedEntityId }) => {
+    mockRows.push(
+      {
+        id: 1,
+        owner_user_id: 'user-a',
+        entity_type: 'program-instance',
+        entity_id: 'instance-a',
+        operation: 'delete-result',
+        payload_json: '{"workoutIndex":0,"slotId":"slot-a"}',
+        created_at: '2026-04-20T10:00:00.000Z',
+      },
+      {
+        id: 2,
+        owner_user_id: 'user-b',
+        entity_type: 'program-instance',
+        entity_id: 'instance-b',
+        operation: 'delete-result',
+        payload_json: '{"workoutIndex":0,"slotId":"slot-b"}',
+        created_at: '2026-04-20T10:00:00.000Z',
+      }
+    );
+    mockActiveOwnerId = ownerId;
+
+    await expect(listQueuedMutations()).resolves.toEqual([
+      expect.objectContaining({ entityId: expectedEntityId }),
+    ]);
   });
 
   it('stores tracker mutations and returns them in FIFO order', async () => {
@@ -235,6 +280,7 @@ describe('mutation queue repository', () => {
   it('marks malformed persisted JSON so sync can discard the poison row', async () => {
     mockRows.push({
       id: mockNextId,
+      owner_user_id: mockActiveOwnerId,
       entity_type: 'program-instance',
       entity_id: 'instance-1',
       operation: 'record-result',

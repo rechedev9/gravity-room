@@ -204,11 +204,22 @@ export async function fetchMicrosoftIdentity(
   // userInfo fallback email carries no verification signal and is never trusted.
   const emailVerified =
     idTokenEmail !== undefined && (claims.emailDomainOwnerVerified || claims.emailVerified);
+  if (!emailVerified) {
+    // Gravity Room has no provisional provider-only account model. Creating an
+    // authenticated user here would reserve a globally unique address that the
+    // provider did not prove it controls, so fail closed until that architecture
+    // exists rather than silently claiming the address.
+    throw new ApiError(
+      401,
+      'Microsoft did not verify ownership of the account email',
+      'AUTH_EMAIL_UNVERIFIED'
+    );
+  }
 
   return {
     id: claims.sub,
     email,
-    emailVerified,
+    emailVerified: true,
     name: claims.name ?? userInfo?.name,
   };
 }
