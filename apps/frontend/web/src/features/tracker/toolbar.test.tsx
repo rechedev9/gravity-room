@@ -127,6 +127,46 @@ describe('Toolbar', () => {
       expect(screen.queryByRole('menuitem', { name: 'Exportar copia JSON' })).toBeNull();
       expect(screen.queryByRole('menuitem', { name: 'Importar copia JSON' })).toBeNull();
     });
+
+    it('requires informed confirmation before enabling WebMCP for the session', () => {
+      const onEnableWebMcp = vi.fn();
+      render(
+        <Toolbar
+          {...buildToolbarProps({
+            webMcpSupported: true,
+            webMcpEnabled: false,
+            onEnableWebMcp,
+          })}
+        />
+      );
+
+      openOverflowMenu();
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Activar asistente de IA' }));
+
+      expect(onEnableWebMcp).not.toHaveBeenCalled();
+      expect(screen.getByText('¿Permitir acceso de IA durante esta sesión?')).toBeVisible();
+      expect(screen.getByText(/ejercicios, pesos, resultados y estadísticas/i)).toBeVisible();
+      fireEvent.click(screen.getByRole('button', { name: 'Activar durante esta sesión' }));
+      expect(onEnableWebMcp).toHaveBeenCalledOnce();
+    });
+
+    it('disables WebMCP immediately from the overflow menu', () => {
+      const onDisableWebMcp = vi.fn();
+      render(
+        <Toolbar
+          {...buildToolbarProps({
+            webMcpSupported: true,
+            webMcpEnabled: true,
+            onDisableWebMcp,
+          })}
+        />
+      );
+
+      openOverflowMenu();
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Desactivar asistente de IA' }));
+
+      expect(onDisableWebMcp).toHaveBeenCalledOnce();
+    });
   });
 
   describe('reset flow', () => {

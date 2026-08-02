@@ -1,14 +1,55 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
-import { secureLocalDataOwnerStorage, secureRefreshTokenStorage } from './secure-storage';
+import {
+  canPersistRefreshToken,
+  secureLocalDataOwnerStorage,
+  secureRefreshTokenStorage,
+} from './secure-storage';
 
 const mockedSecureStore = jest.mocked(SecureStore);
+
+describe('refresh-token persistence policy', () => {
+  it.each([
+    { platform: 'ios', isDevelopment: false, expected: true },
+    { platform: 'android', isDevelopment: false, expected: true },
+    { platform: 'web', isDevelopment: true, expected: true },
+    { platform: 'web', isDevelopment: false, expected: false },
+  ])(
+    'returns $expected for $platform when development=$isDevelopment',
+    ({ platform, isDevelopment, expected }) => {
+      expect(canPersistRefreshToken(platform, isDevelopment)).toBe(expected);
+    }
+  );
+});
 
 describe('secureRefreshTokenStorage', () => {
   afterEach(() => {
     mockedSecureStore.getItemAsync.mockReset();
     mockedSecureStore.setItemAsync.mockReset();
     mockedSecureStore.deleteItemAsync.mockReset();
+  });
+
+  it('rejects JavaScript-readable refresh-token persistence on production Expo Web', async () => {
+    const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(Platform, 'OS');
+    const originalDev = (globalThis as { __DEV__?: boolean }).__DEV__;
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
+    (globalThis as { __DEV__?: boolean }).__DEV__ = false;
+
+    try {
+      await expect(secureRefreshTokenStorage.setRefreshToken('body-refresh-token')).rejects.toThrow(
+        /cookie-backed authentication/
+      );
+    } finally {
+      if (originalPlatformDescriptor) {
+        Object.defineProperty(Platform, 'OS', originalPlatformDescriptor);
+      }
+      if (originalDev === undefined) {
+        delete (globalThis as { __DEV__?: boolean }).__DEV__;
+      } else {
+        (globalThis as { __DEV__?: boolean }).__DEV__ = originalDev;
+      }
+    }
   });
 
   it('reads, writes, and clears refresh tokens through Expo SecureStore', async () => {

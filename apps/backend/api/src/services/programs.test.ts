@@ -159,11 +159,13 @@ function createChainable(rows: unknown[]): Record<string, unknown> {
 }
 
 function createMockDb(): Record<string, unknown> {
-  return {
+  const db: Record<string, unknown> = {
     select: vi.fn(function select() {
       return createChainable(selectRows);
     }),
   };
+  db['transaction'] = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(db));
+  return db;
 }
 
 let mockDb = createMockDb();
@@ -177,6 +179,11 @@ const mockGetProgramDefinition = vi.fn(() => Promise.resolve({ status: 'not_foun
 
 vi.mock('../services/catalog', () => ({
   getProgramDefinition: mockGetProgramDefinition,
+}));
+
+vi.mock('./data-quotas', () => ({
+  lockUserForDataMutation: async () => undefined,
+  assertUserDataQuotas: async () => undefined,
 }));
 
 // Must import AFTER mock.module
@@ -666,6 +673,19 @@ function baseExportedProgram(overrides: Partial<ExportedProgram> = {}): Exported
 }
 
 describe('importInstance — undoHistory validation', () => {
+  it('rejects aggregate import amplification before catalog or DB work', async () => {
+    const oversizedUndo = Array.from({ length: 51 }, () => ({
+      i: 0,
+      slotId: 'squat',
+      prev: 'success' as const,
+    }));
+
+    await expect(
+      importInstance('user-1', baseExportedProgram({ undoHistory: oversizedUndo }))
+    ).rejects.toMatchObject({ statusCode: 413, code: 'IMPORT_TOO_LARGE' });
+    expect(mockGetProgramDefinition).not.toHaveBeenCalled();
+  });
+
   it('rejects a result slot that belongs to a different workout day', async () => {
     useAlternatingProgramDefinition();
     const transaction = vi.fn(() => {

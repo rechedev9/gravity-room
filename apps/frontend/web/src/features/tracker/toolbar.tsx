@@ -17,6 +17,10 @@ export interface ToolbarProps {
   readonly canUseBackup: boolean;
   readonly onExportBackup: () => void;
   readonly onImportBackup: (file: File) => Promise<void>;
+  readonly webMcpSupported?: boolean;
+  readonly webMcpEnabled?: boolean;
+  readonly onEnableWebMcp?: () => void;
+  readonly onDisableWebMcp?: () => void;
 }
 
 export function Toolbar({
@@ -31,10 +35,15 @@ export function Toolbar({
   canUseBackup,
   onExportBackup,
   onImportBackup,
+  webMcpSupported = false,
+  webMcpEnabled = false,
+  onEnableWebMcp,
+  onDisableWebMcp,
 }: ToolbarProps) {
   const { t } = useTranslation();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
+  const [webMcpConfirmOpen, setWebMcpConfirmOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const backupInputRef = useRef<HTMLInputElement>(null);
   const closeMenu = (): void => setMenuOpen(false);
@@ -138,6 +147,22 @@ export function Toolbar({
                   </DropdownItem>
                 </>
               )}
+              {webMcpSupported && (
+                <DropdownItem
+                  onClick={() => {
+                    closeMenu();
+                    if (webMcpEnabled) {
+                      onDisableWebMcp?.();
+                    } else {
+                      setWebMcpConfirmOpen(true);
+                    }
+                  }}
+                >
+                  {webMcpEnabled
+                    ? t('tracker.toolbar.webmcp_disable')
+                    : t('tracker.toolbar.webmcp_enable')}
+                </DropdownItem>
+              )}
               <DropdownItem
                 onClick={() => {
                   closeMenu();
@@ -178,6 +203,18 @@ export function Toolbar({
           void onFinish().finally(() => setFinishConfirmOpen(false));
         }}
         onCancel={() => setFinishConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
+        open={webMcpConfirmOpen}
+        title={t('tracker.toolbar.webmcp_confirm_title')}
+        message={t('tracker.toolbar.webmcp_confirm_message')}
+        confirmLabel={t('tracker.toolbar.webmcp_confirm_label')}
+        onConfirm={() => {
+          onEnableWebMcp?.();
+          setWebMcpConfirmOpen(false);
+        }}
+        onCancel={() => setWebMcpConfirmOpen(false)}
       />
 
       <ConfirmDialog

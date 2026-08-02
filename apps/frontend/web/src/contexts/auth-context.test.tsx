@@ -71,7 +71,7 @@ vi.mock('@/lib/api-functions', async () => {
   };
 });
 
-import { AuthProvider, useAuth } from './auth-context';
+import { AuthProvider, getAuthSessionIdentity, useAuth } from './auth-context';
 import { SESSION_INVALIDATED_EVENT } from '@/lib/auth-events';
 
 // ---------------------------------------------------------------------------
@@ -274,6 +274,10 @@ describe('AuthProvider', () => {
       await waitFor(() => {
         expect(result.current.user?.id).toBe('user-1');
       });
+      expect(getAuthSessionIdentity()).toEqual({
+        userId: 'user-1',
+        sessionId: expect.stringMatching(/^auth-session-/),
+      });
     });
 
     it('should return error message on failure', async () => {
@@ -391,6 +395,7 @@ describe('AuthProvider', () => {
       expect(testQueryClient.getQueryData(['programs'])).toBeUndefined();
       expect(testQueryClient.getQueryData(['programs', 'private-program'])).toBeUndefined();
       expect(testQueryClient.getQueryData(['insights'])).toBeUndefined();
+      expect(getAuthSessionIdentity()).toBeNull();
     });
 
     it('keeps the current session and resumes refresh when the API call fails', async () => {
@@ -423,6 +428,7 @@ describe('AuthProvider', () => {
       expect(mockResumeAuthRefresh).toHaveBeenCalledTimes(1);
       expect(mockSetAccessToken).not.toHaveBeenCalledWith(null);
       expect(result.current.user?.email).toBe('a@b.com');
+      expect(getAuthSessionIdentity()?.userId).toBe('user-1');
     });
   });
 

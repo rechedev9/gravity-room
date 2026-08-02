@@ -1,54 +1,47 @@
 # Gitleaks configuration for Gravity Room.
 #
-# Extends the upstream default ruleset and adds a narrow allowlist for values
-# that look like secrets to the generic `generic-api-key` heuristic but are
-# either public by design or test fixtures. Without this, the Security workflow
-# fails on every push to `main` and on the weekly schedule, because those events
-# scan the FULL git history (not just a PR's commit range) and re-flag these
-# long-lived false positives.
-#
-# IMPORTANT: this file is only honoured when gitleaks is pointed at it. The
-# secret-scan job runs gitleaks in a container whose working directory is `/`,
-# not the mounted `/repo`, so gitleaks cannot auto-discover this file — the
-# workflow MUST pass `--config=/repo/.gitleaks.toml`. See the `secret-scan`
-# job in `.github/workflows/ci.yml`.
+# Extend the upstream rules and suppress only exact public constants or fixtures.
+# Every exception is restricted to a specific rule and literal value. There are
+# deliberately no path allowlists: every file remains scannable for unrelated
+# credentials. The workflow must pass --config=/repo/.gitleaks.toml because the
+# container working directory is not the mounted repository.
 [extend]
 useDefault = true
 
-[allowlist]
-description = "Project-wide false positives: the public IndexNow key and test/storage fixtures."
+# Public IndexNow ownership proof. It grants no API access and is intentionally
+# published from the site root. Only the exact value under the generic heuristic
+# is ignored; a different key-like value in the same files still fails scanning.
+[[allowlists]]
+description = "Public IndexNow ownership key"
+targetRules = ["generic-api-key"]
+regexes = ['''a3f8e1c97b6d452e8f0a1b2c3d4e5f60''']
 
-# The IndexNow verification key. Public by design: it is served at the site root
-# (apps/frontend/web/public/<key>.txt) so Bing/IndexNow can verify domain
-# ownership, and it is duplicated in the SEO scripts that submit URLs. It is not
-# a credential and grants no access. Allowlisted as a regex so it is permitted
-# in EVERY file and historical commit it appears in (the .txt key file, plus
-# scripts/seo-config.ts and scripts/indexnow-ping.ts).
-regexes = [
-  '''a3f8e1c97b6d452e8f0a1b2c3d4e5f60''',
-  # localStorage key NAMEs for guest data (not secret values). Allowlisted as
-  # regexes because the constants have lived at several paths across history
-  # (apps/web/src/lib/guest-storage.ts, apps/frontend/web/src/lib/guest-storage.ts).
-  '''gzclp_guest_v1''',
-  '''gzclp_guest_migration_pending_v1''',
-]
+# localStorage key names, not stored values. Keep separate literal exceptions so
+# no neighboring value or file receives an exemption.
+[[allowlists]]
+description = "Guest localStorage key name"
+targetRules = ["generic-api-key"]
+regexes = ['''gzclp_guest_v1''']
 
-# Paths whose contents are fixtures or non-secret constants, not credentials.
-paths = [
-  # The served IndexNow key file (kept for clarity even though the regex covers it).
-  '''apps/frontend/web/public/a3f8e1c97b6d452e8f0a1b2c3d4e5f60\.txt''',
-  # Auth tests embed fake, non-functional JWTs (header/payload/signature triples
-  # like `eyJ...`) as fixtures; the generic-api-key/JWT rules flag them. The
-  # `apps/api/` / `apps/web/` variants cover the pre-restructure monorepo layout,
-  # which full-history scans (push events) still walk through.
-  '''apps/backend/api/src/lib/google-auth\.test\.ts''',
-  '''apps/backend/api/src/routes/auth-dev\.test\.ts''',
-  '''apps/api/src/lib/google-auth\.test\.ts''',
-  # localStorage key NAMES (not secret values) that trip the high-entropy
-  # heuristic, e.g. SHORTCUTS_STORAGE_KEY / guest-storage keys.
-  '''apps/frontend/web/src/features/tracker/shortcuts-storage\.ts''',
-  '''apps/web/src/lib/guest-storage\.ts''',
-  # Planning/design docs in the agent superpowers archive contain illustrative
-  # token-shaped strings in prose and code blocks.
-  '''docs/superpowers/.*''',
-]
+[[allowlists]]
+description = "Guest migration localStorage marker name"
+targetRules = ["generic-api-key"]
+regexes = ['''gzclp_guest_migration_pending_v1''']
+
+# Non-functional compact-JWT fixture used by Google verifier tests. Suppress the
+# exact complete fixture for the jwt rule and its exact header/payload components
+# for the generic heuristic. Every other token-shaped value remains scannable.
+[[allowlists]]
+description = "Fake compact JWT fixture"
+targetRules = ["jwt"]
+regexes = ['''eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3QifQ\.eyJzdWIiOiJ1c2VyMSJ9\.c2ln''']
+
+[[allowlists]]
+description = "Fake JWT header fixture"
+targetRules = ["generic-api-key"]
+regexes = ['''eyJhbGciOiJSUzI1NiIsImtpZCI6InRlc3QifQ''']
+
+[[allowlists]]
+description = "Fake JWT payload fixture"
+targetRules = ["generic-api-key"]
+regexes = ['''eyJzdWIiOiJ1c2VyMSJ9''']

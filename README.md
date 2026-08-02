@@ -37,7 +37,7 @@ Internet
 ┌──────────────────────── Proyecto Vercel (same-origin) ─────────────────────────┐
 │                                                                                │
 │   https://<dominio>/            → SPA estática (apps/frontend/web/dist)          │
-│   https://<dominio>/api/*       → función serverless api/[...path].ts           │
+│   https://<dominio>/api/*       → función serverless api/index.ts               │
 │                                     └─► createApp() (ElysiaJS) vía app.fetch     │
 │                                                                                │
 │   Vercel Cron ─► /api/internal/analytics/compute (diario)                       │
@@ -54,8 +54,9 @@ Internet
 Todo vive en [`vercel.json`](vercel.json) (revisable en git, no en el dashboard):
 `framework: null`, `installCommand: pnpm install --frozen-lockfile`, `buildCommand: bash
 scripts/vercel-build.sh`, `outputDirectory: apps/frontend/web/dist`, la función
-`api/[...path].ts` (`maxDuration: 60`), el rewrite de SPA (todo salvo `/api/*` →
-`/index.html`) y las dos crons diarias (el plan Hobby de Vercel admite como
+`api/index.ts` (`maxDuration: 60`), el rewrite de SPA compatible con `cleanUrls`
+(todo salvo `/api/*` → `/`), headers `no-referrer` para enlaces de acción y las
+dos crons diarias (el plan Hobby de Vercel admite como
 máximo dos crons, una por día).
 
 **Por qué same-origin y no SPA + API separadas:** al compartir origen no hace
@@ -66,25 +67,29 @@ nunca sirve HTML; de eso se encarga el output estático de Vite.
 
 ### Pipeline de despliegue
 
-No hay workflow de GitHub: la integración Git de Vercel despliega en cada push a
-`main`. El build corre [`scripts/vercel-build.sh`](scripts/vercel-build.sh):
+No hay workflow de despliegue en GitHub: la integración Git de Vercel observa
+`main`. Por eso `main` debe estar protegido externamente con PR obligatorio,
+check `Validate` requerido y pushes directos/forzados bloqueados; el procedimiento
+está en [`docs/VERCEL_CUTOVER.md`](docs/VERCEL_CUTOVER.md). El build corre
+[`scripts/vercel-build.sh`](scripts/vercel-build.sh):
 
-1. **Migraciones (solo producción).** Si `VERCEL_ENV=production`, corre
-   `pnpm --filter api db:deploy` (migraciones Drizzle + seeds idempotentes)
-   contra `DIRECT_DATABASE_URL`. Se omite en preview/local (apuntan a una rama
-   Neon desechable).
-2. **Sitemap.** Regenera `sitemap.xml` (datos puros, sin navegador).
-3. **Build del SPA** con `VITE_API_URL=""` (same-origin) por la ruta
-   `build:no-prerender`, instala la revisión de Chromium fijada por Playwright y
-   ejecuta el prerender completo. El despliegue incluye cuerpo, metadatos y
-   JSON-LD específicos para cada URL pública.
+1. **Preflight.** Valida variables productivas, rewrites y headers antes de DDL.
+2. **Artefactos.** Genera el bundle API, sitemap y SPA con `VITE_API_URL=""`, e
+   instala la revisión Chromium fijada por Playwright para completar el prerender.
+3. **Migraciones al final (solo producción).** Tras validar los artefactos,
+   `pnpm --filter api db:deploy` exige `DIRECT_DATABASE_URL` y mantiene un advisory
+   lock PostgreSQL durante migraciones + seeds. Preview/local no toca producción.
+
+Vercel no ofrece una transacción entre DDL, upload y promoción: las migraciones
+productivas deben seguir expand/contract para que el artefacto live anterior siga
+siendo compatible si la plataforma falla después del DDL.
 
 ### Datos y estado
 
 - **Neon Postgres:** `DATABASE_URL` es el endpoint _pooled_ (PgBouncer, host con
   `-pooler`) que usa la función en cada request con pool `max=1`;
-  `DIRECT_DATABASE_URL` es el endpoint directo que usa solo `db:deploy` para el
-  DDL.
+  `DIRECT_DATABASE_URL` es el endpoint directo obligatorio en producción que usa
+  solo `db:deploy` para DDL serializado.
 - **Upstash Redis (REST):** rate limit, presencia y caché vía el cliente sin
   conexión `@upstash/redis`. Obligatorio en producción; en local, si no está,
   todo cae a stores en memoria con fallback gracioso.
@@ -109,9 +114,11 @@ Postgres + Upstash Redis + Zod 4.
 Es el corazón del producto. Sirve toda la superficie REST que consumen los
 dos frontends. Decisiones clave:
 
-- **Serverless con la factory pura `createApp()`.** En Vercel, la función
-  catch-all [`api/[...path].ts`](api/[...path].ts) monta la app y la maneja con
-  `app.fetch(request)`; no hay `app.listen`. En local,
+- **Serverless con la factory pura `createApp()`.** En Vercel, la entrada fuente
+  [`vercel-handler.ts`](apps/backend/api/src/vercel-handler.ts) monta la app y
+  conecta `app.fetch(request)` al gateway Node con streaming acotado; el build la
+  convierte en el bundle catch-all generado [`api/index.ts`](api/index.ts). CI
+  verifica su paridad con `pnpm run bundle:api:check`; no hay `app.listen`. En local,
   [`src/dev-server.ts`](apps/backend/api/src/dev-server.ts) sirve la misma app
   con `@hono/node-server`, así que dev y prod son byte-for-byte la misma app.
 - **Migraciones build-time, no boot-time.** Las migraciones Drizzle y los seeds
@@ -137,8 +144,8 @@ automáticamente):
 - `Exercises` / `Muscle groups` — catálogo y ejercicios custom
 - `Insights` — lectura de insights pre-computados por los pipelines de analytics
 - `Stats` — usuarios online en tiempo real (Upstash presence)
-- `Internal` — crons (`cleanup-tokens`, `purge-users`, `analytics/compute`)
-- `System` — `/health`
+- `Internal` — readiness profundo protegido + crons (`cleanup-tokens`, `purge-users`, `analytics/compute`)
+- `System` — `/health` público y barato (liveness en memoria)
 
 ### Analytics — `apps/backend/api/src/analytics`
 
@@ -150,8 +157,9 @@ el stack numpy/scipy/scikit-learn.
 - **Vercel Cron** llama a `POST /api/internal/analytics/compute`, que procesa un
   batch acotado de usuarios (los menos recientemente computados) por tick con
   upserts idempotentes en `user_insights`.
-- **El guard interno falla cerrado:** acepta el `CRON_SECRET` que Vercel inyecta
-  o un `INTERNAL_SECRET` Bearer manual; sin ninguno, todo `/api/internal/*` da 401.
+- **El guard interno falla cerrado y limita intentos:** acepta secretos aleatorios
+  distintos (`CRON_SECRET`/`INTERNAL_SECRET`, mínimo 32 caracteres); sin credenciales,
+  todo `/api/internal/*` da 401. La readiness de DB/Redis vive en `/api/internal/readiness`.
 - **Paridad con el viejo Python** congelada por golden-file tests
   ([`src/analytics/pipelines/pipelines.parity.test.ts`](apps/backend/api/src/analytics/pipelines/pipelines.parity.test.ts)).
 
@@ -355,11 +363,13 @@ arreglar antes de subir.
 
 ## 6. Documentación adicional
 
-| Archivo                                            | Propósito                                                   |
-| -------------------------------------------------- | ----------------------------------------------------------- |
-| [`CLAUDE.md`](CLAUDE.md)                           | Contexto autogenerado para agentes (API + DB en vivo)       |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)     | Split por tiers, stack detallado de cada servicio           |
-| [`docs/VERCEL_CUTOVER.md`](docs/VERCEL_CUTOVER.md) | Runbook de go-live en Vercel (Neon, Upstash, variables)     |
-| [`docs/llm-map.md`](docs/llm-map.md)               | Tabla path → propósito para navegación rápida               |
-| [`.env.example`](.env.example)                     | Referencia completa de variables de entorno                 |
-| [`vercel.json`](vercel.json)                       | Config del proyecto Vercel (build, función, rewrites, cron) |
+| Archivo                                                                  | Propósito                                                   |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| [`CLAUDE.md`](CLAUDE.md)                                                 | Contexto autogenerado para agentes (API + DB en vivo)       |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)                           | Split por tiers, stack detallado de cada servicio           |
+| [`docs/VERCEL_CUTOVER.md`](docs/VERCEL_CUTOVER.md)                       | Runbook de go-live en Vercel (Neon, Upstash, variables)     |
+| [`docs/SUPPLY_CHAIN_SECURITY.md`](docs/SUPPLY_CHAIN_SECURITY.md)         | Política de dependencias, pins CI y secretos                |
+| [`docs/DATABASE_SECURITY_ROLLOUT.md`](docs/DATABASE_SECURITY_ROLLOUT.md) | Contratos DB diferidos y aceptación de riesgo RLS           |
+| [`docs/llm-map.md`](docs/llm-map.md)                                     | Tabla path → propósito para navegación rápida               |
+| [`.env.example`](.env.example)                                           | Referencia completa de variables de entorno                 |
+| [`vercel.json`](vercel.json)                                             | Config del proyecto Vercel (build, función, rewrites, cron) |

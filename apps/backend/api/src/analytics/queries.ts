@@ -2,17 +2,17 @@
  * Drizzle data access for the analytics pipelines.
  *
  * Ports apps/backend/analytics/queries.py to the API package's shared Drizzle
- * client. The SQL is reproduced faithfully, including the
- * `set_logs -> 0 ->> 'weight'` JSON extraction, the `program_instances` join,
- * the status filter, and the deterministic ordering. `upsertInsight` writes the
+ * client. Result reads use the persisted stable exercise identity, a bounded
+ * newest-history window, and deterministic ordering. `upsertInsight` writes the
  * `user_insights` table with the same `ON CONFLICT (user_id, insight_type,
  * exercise_id) DO UPDATE` semantics the Python service uses.
  */
 
-import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import { getDb } from '../db';
 import { programInstances, userInsights, users, workoutResults } from '@gzclp/database/schema';
 import type { WorkoutRecord } from './record';
+import { MAX_ANALYTICS_RECORDS_PER_USER } from '../lib/data-limits';
 
 export interface UserRow {
   readonly userId: string;
@@ -84,28 +84,43 @@ export async function fetchLeastRecentlyComputedUsers(limit: number): Promise<Us
   return rows;
 }
 
-/**
- * Run `fn` inside a single database transaction, passing the transaction handle
- * so every insight upsert for one user commits atomically. A crashed tick rolls
- * back cleanly and is safe to replay because the upserts are idempotent.
- */
-export async function withInsightTransaction<T>(fn: (tx: Executor) => Promise<T>): Promise<T> {
-  return getDb().transaction(async (tx) => fn(tx));
+/** Run one user's bounded analytics under a transactional per-user lease. */
+export async function withInsightTransaction<T>(
+  userId: string,
+  fn: (tx: Executor) => Promise<T>
+): Promise<T> {
+  return getDb().transaction(async (tx) => {
+    // Same per-user row lock used by every quota-affecting data mutation. This
+    // is both the analytics lease and the freshness boundary: no result/import/
+    // delete can commit between the bounded history read and insight commit.
+    const [user] = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .for('update')
+      .limit(1);
+    if (!user) throw new Error('Analytics user is no longer active');
+    return fn(tx);
+  });
 }
 
 /**
- * All workout slot results for a user, oldest first, with the first set's
- * weight extracted from `set_logs`. Mirrors queries.py:fetch_workout_records.
+ * The newest bounded workout-result window for a user. Only rows with a stable
+ * versioned exercise identity participate; unresolved legacy rows are omitted
+ * rather than unsafely grouped by reusable slot IDs.
  */
-export async function fetchWorkoutRecords(userId: string): Promise<WorkoutRecord[]> {
-  const db = getDb();
-  const rows = await db
+export async function fetchWorkoutRecords(
+  userId: string,
+  executor: Executor = getDb()
+): Promise<WorkoutRecord[]> {
+  const rows = await executor
     .select({
       userId: sql<string>`${programInstances.userId}::text`,
       instanceId: sql<string>`${programInstances.id}::text`,
       programId: programInstances.templateId,
       workoutIndex: workoutResults.workoutIndex,
-      slotId: workoutResults.slotId,
+      exerciseId: sql<string>`${workoutResults.exerciseId}`,
+      definitionVersion: sql<number>`${workoutResults.definitionVersion}`,
       weight: sql<number>`(${workoutResults.setLogs} -> 0 ->> 'weight')::float`,
       result: sql<string>`${workoutResults.result}::text`,
       rpe: sql<number | null>`${workoutResults.rpe}::float`,
@@ -119,17 +134,26 @@ export async function fetchWorkoutRecords(userId: string): Promise<WorkoutRecord
     .where(
       and(
         eq(programInstances.userId, userId),
+        isNotNull(workoutResults.exerciseId),
+        isNotNull(workoutResults.definitionVersion),
         sql`(${workoutResults.setLogs} -> 0 ->> 'weight') is not null`
       )
     )
-    .orderBy(programInstances.createdAt, workoutResults.workoutIndex, workoutResults.slotId);
+    .orderBy(
+      desc(sql`coalesce(${workoutResults.completedAt}, ${workoutResults.createdAt})`),
+      desc(workoutResults.id)
+    )
+    .limit(MAX_ANALYTICS_RECORDS_PER_USER);
 
-  return rows.map((row) => ({
+  // The query takes the newest bounded window; restore chronological order for
+  // pipelines whose stable tie behavior relies on input order.
+  return rows.reverse().map((row) => ({
     userId: row.userId,
     instanceId: row.instanceId,
     programId: row.programId,
     workoutIndex: row.workoutIndex,
-    slotId: row.slotId,
+    exerciseId: row.exerciseId,
+    definitionVersion: Number(row.definitionVersion),
     weight: Number(row.weight),
     result: row.result,
     rpe: row.rpe === null ? null : Number(row.rpe),

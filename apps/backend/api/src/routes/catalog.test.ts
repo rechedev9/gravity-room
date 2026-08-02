@@ -13,7 +13,9 @@ import type { GenericWorkoutRow } from '@gzclp/domain/types';
 
 const { mockRateLimit, mockListPrograms, mockGetProgramDefinition, mockPreviewDefinition } =
   vi.hoisted(() => {
-    const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
+    const mockRateLimit = vi.fn<
+      (key: string, endpoint: string, options?: Record<string, unknown>) => Promise<void>
+    >(() => Promise.resolve());
     const mockListPrograms = vi.fn(() =>
       Promise.resolve([{ id: 'gzclp', name: 'GZCLP', description: 'Linear Progression' }])
     );
@@ -308,9 +310,30 @@ function postPreview(body: unknown, headers?: Record<string, string>): Promise<R
 
 describe('POST /catalog/preview', () => {
   beforeEach(() => {
-    mockRateLimit.mockClear();
+    mockRateLimit.mockReset();
+    mockRateLimit.mockImplementation(() => Promise.resolve());
     mockPreviewDefinition.mockClear();
     mockPreviewDefinition.mockImplementation(() => MOCK_PREVIEW_ROWS);
+  });
+
+  it('returns 503 before preview computation when Redis fails', async () => {
+    mockRateLimit.mockRejectedValueOnce(
+      new ApiError(503, 'Rate limiter unavailable', 'RATE_LIMIT_UNAVAILABLE')
+    );
+    const token = await makeValidJwt('user-1');
+
+    const res = await postPreview(
+      { definition: VALID_DEFINITION_PAYLOAD },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(503);
+    expect(mockRateLimit).toHaveBeenCalledWith('user-1', 'POST /catalog/preview', {
+      windowMs: 3_600_000,
+      maxRequests: 30,
+      failClosed: true,
+    });
+    expect(mockPreviewDefinition).not.toHaveBeenCalled();
   });
 
   it('returns 401 when no JWT is provided', async () => {

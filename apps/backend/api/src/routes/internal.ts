@@ -13,10 +13,12 @@
  * The guard fails closed: if neither secret is configured every request is
  * rejected with 401, so an un-provisioned deploy never exposes these endpoints.
  *
- * Each route answers BOTH GET and POST. Vercel Cron always issues a GET request,
- * while operators may POST manually; both methods run behind the same guard.
+ * Maintenance operations answer BOTH GET and POST. Vercel Cron always issues a
+ * GET request, while operators may POST manually. The deep readiness probe is
+ * GET-only. Every method runs behind the same guard and shared attempt budget.
  *
  * Mounted under the `/api` prefix in create-app.ts, giving:
+ *   GET      /api/internal/readiness
  *   GET|POST /api/internal/cleanup-tokens
  *   GET|POST /api/internal/purge-users
  *   GET|POST /api/internal/analytics/compute
@@ -33,13 +35,17 @@ import { Elysia } from 'elysia';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { ApiError } from '../middleware/error-handler';
 import { logger } from '../lib/logger';
+import { checkReadiness } from '../lib/readiness';
+import { rateLimit } from '../middleware/rate-limit';
+import { requestLogger } from '../middleware/request-logger';
+import { DEFAULT_ANALYTICS_BATCH_SIZE, MAX_ANALYTICS_BATCH_SIZE } from '../lib/env-validation';
 import { cleanupExpiredTokens } from '../services/auth';
 import { purgeDeletedUsers } from '../services/purge';
 import { computeUser } from '../analytics/compute';
 import { fetchLeastRecentlyComputedUsers } from '../analytics/queries';
 
-/** Default cron batch size when ANALYTICS_BATCH_SIZE is unset/invalid. */
-const DEFAULT_ANALYTICS_BATCH_SIZE = 50;
+/** One shared attempt budget protects every internal operation and its secret guard. */
+const INTERNAL_RATE_LIMIT = { windowMs: 60_000, maxRequests: 30, failClosed: true } as const;
 
 /**
  * Constant-time string comparison that avoids leaking the secret via timing.
@@ -104,16 +110,24 @@ function normalizeSecret(raw: string | undefined): string | undefined {
   return raw.trim().length > 0 ? raw : undefined;
 }
 
-/** Resolve the analytics batch size from the environment, clamped to >= 1. */
-function resolveBatchSize(): number {
+/** Resolve the analytics batch size defensively even outside production validation. */
+export function resolveBatchSize(): number {
   const raw = Number(process.env['ANALYTICS_BATCH_SIZE']);
-  if (!Number.isFinite(raw) || raw < 1) return DEFAULT_ANALYTICS_BATCH_SIZE;
-  return Math.floor(raw);
+  if (!Number.isInteger(raw) || raw < 1) return DEFAULT_ANALYTICS_BATCH_SIZE;
+  return Math.min(raw, MAX_ANALYTICS_BATCH_SIZE);
 }
 
 // ---------------------------------------------------------------------------
 // Handlers — shared by the GET (Vercel Cron) and POST (manual ops) registrations
 // ---------------------------------------------------------------------------
+
+async function readinessHandler(): Promise<Awaited<ReturnType<typeof checkReadiness>>> {
+  const result = await checkReadiness();
+  if (result.status !== 'ready') {
+    throw new ApiError(503, 'Service dependencies are unavailable', 'NOT_READY');
+  }
+  return result;
+}
 
 async function cleanupTokensHandler(): Promise<{ deleted: number }> {
   const deleted = await cleanupExpiredTokens();
@@ -166,10 +180,16 @@ async function maintenanceHandler(): Promise<{
 }
 
 export const internalRoutes = new Elysia({ prefix: '/internal' })
-  .onBeforeHandle(({ request }) => {
+  .use(requestLogger)
+  .onBeforeHandle(async ({ request, ip }) => {
+    // Throttle before comparing the secret so online guessing and log flooding
+    // are bounded. Internal operations fail closed when the distributed limiter
+    // is unavailable in production.
+    await rateLimit(ip, 'INTERNAL /api/internal/*', INTERNAL_RATE_LIMIT);
     assertInternalSecret(request.headers);
   })
   // Vercel Cron invokes these with GET; operators may also POST manually.
+  .get('/readiness', readinessHandler)
   .get('/cleanup-tokens', cleanupTokensHandler)
   .post('/cleanup-tokens', cleanupTokensHandler)
   .get('/purge-users', purgeUsersHandler)

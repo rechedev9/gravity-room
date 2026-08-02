@@ -5,6 +5,7 @@ import {
   deriveClientIp,
   isVercelEnvironment,
   resolveResponseStatus,
+  safeRequestPath,
 } from './request-logger';
 
 describe('isVercelEnvironment', () => {
@@ -80,6 +81,16 @@ describe('deriveClientIp', () => {
   it('off-Vercel without a trusted proxy reports unknown', () => {
     const headers = new Headers({ 'x-forwarded-for': '1.2.3.4' });
     expect(deriveClientIp(headers, { onVercel: false, trustedProxy: false })).toBe('unknown');
+  });
+});
+
+describe('safeRequestPath', () => {
+  it.each([
+    ['https://example.com/api/nope?token=secret', '/api/nope'],
+    ['/api/health', '/api/health'],
+    ['http://[invalid', '/<invalid-url>'],
+  ])('maps %s to %s without throwing', (rawUrl, expected) => {
+    expect(safeRequestPath(rawUrl)).toBe(expected);
   });
 });
 

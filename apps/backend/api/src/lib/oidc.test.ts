@@ -96,6 +96,46 @@ describe('verifyOidcIdToken', () => {
     expect(claims.emailVerified).toBe(true);
   });
 
+  it('refreshes JWKS once when a provider publishes a new kid', async () => {
+    const publicJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+    let publishedKid = KID;
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ keys: [{ ...publicJwk, kid: publishedKid }] }), {
+          status: 200,
+        })
+      )
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(verify(await mintToken())).resolves.toMatchObject({ sub: 'user-sub-1' });
+    publishedKid = 'rotated-key';
+    const rotated = await mintToken({}, { kid: publishedKid });
+    await expect(verify(rotated)).resolves.toMatchObject({ sub: 'user-sub-1' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([257, 1_024, 16_384])(
+    'rejects a %i-character kid before JWKS fetch or cache storage',
+    async (kidLength) => {
+      const fetchMock = vi.mocked(globalThis.fetch);
+      const token = await mintToken({}, { kid: 'x'.repeat(kidLength) });
+
+      await expect(verify(token)).rejects.toMatchObject({ statusCode: 401, code: 'AUTH_INVALID' });
+      expect(fetchMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it('negative-caches an unknown kid after one forced refresh', async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    await expect(verify(await mintToken())).resolves.toMatchObject({ sub: 'user-sub-1' });
+
+    const unknown = await mintToken({}, { kid: 'attacker-controlled-kid' });
+    await expect(verify(unknown)).rejects.toMatchObject({ code: 'AUTH_INVALID' });
+    await expect(verify(unknown)).rejects.toMatchObject({ code: 'AUTH_INVALID' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('normalizes a string "true" email_verified to boolean true (Apple quirk)', async () => {
     const claims = await verify(await mintToken({ email_verified: 'true' }));
     expect(claims.emailVerified).toBe(true);

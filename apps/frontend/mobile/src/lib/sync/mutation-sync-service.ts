@@ -1,6 +1,7 @@
 import { isRecord } from '@gzclp/domain/type-guards';
 
 import { fetchWithAccessToken } from '../auth/session';
+import { requireActiveLocalDataOwner } from '../db/client';
 import {
   acknowledgeQueuedMutations,
   clearQueuedMutations as clearQueuedMutationsFromRepository,
@@ -10,6 +11,7 @@ import {
 
 let inFlightFlush: Promise<{ readonly processedCount: number }> | null = null;
 let inFlightFlushAccessToken: string | null = null;
+let inFlightFlushOwnerId: string | null = null;
 let inFlightFlushController: AbortController | null = null;
 
 class DiscardQueuedMutationError extends Error {}
@@ -18,6 +20,7 @@ export async function clearQueuedMutations(): Promise<void> {
   inFlightFlushController?.abort();
   inFlightFlush = null;
   inFlightFlushAccessToken = null;
+  inFlightFlushOwnerId = null;
   inFlightFlushController = null;
 
   await clearQueuedMutationsFromRepository();
@@ -134,21 +137,27 @@ async function replayQueuedMutation(
 export async function flushQueuedMutations(
   accessToken: string
 ): Promise<{ readonly processedCount: number }> {
+  // Capture the validated owner once. A concurrent account transition can
+  // deactivate/change the global owner, but this flush remains bound to the
+  // original partition and token until it is aborted.
+  const ownerId = requireActiveLocalDataOwner();
+
   if (inFlightFlush) {
-    if (inFlightFlushAccessToken === accessToken) {
+    if (inFlightFlushAccessToken === accessToken && inFlightFlushOwnerId === ownerId) {
       return inFlightFlush;
     }
 
     inFlightFlushController?.abort();
     inFlightFlush = null;
     inFlightFlushAccessToken = null;
+    inFlightFlushOwnerId = null;
     inFlightFlushController = null;
   }
 
   const abortController = new AbortController();
 
   const flushPromise = (async (): Promise<{ readonly processedCount: number }> => {
-    const queuedMutations = await listQueuedMutations();
+    const queuedMutations = await listQueuedMutations(ownerId);
     if (queuedMutations.length === 0) {
       return { processedCount: 0 };
     }
@@ -171,14 +180,14 @@ export async function flushQueuedMutations(
         }
 
         if (acknowledgedIds.length > 0) {
-          await acknowledgeQueuedMutations(acknowledgedIds);
+          await acknowledgeQueuedMutations(acknowledgedIds, ownerId);
         }
 
         throw error;
       }
     }
 
-    await acknowledgeQueuedMutations(acknowledgedIds);
+    await acknowledgeQueuedMutations(acknowledgedIds, ownerId);
 
     return {
       processedCount: acknowledgedIds.length,
@@ -187,6 +196,7 @@ export async function flushQueuedMutations(
 
   inFlightFlush = flushPromise;
   inFlightFlushAccessToken = accessToken;
+  inFlightFlushOwnerId = ownerId;
   inFlightFlushController = abortController;
 
   try {
@@ -195,6 +205,7 @@ export async function flushQueuedMutations(
     if (inFlightFlush === flushPromise) {
       inFlightFlush = null;
       inFlightFlushAccessToken = null;
+      inFlightFlushOwnerId = null;
       inFlightFlushController = null;
     }
   }

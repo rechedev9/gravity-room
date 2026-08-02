@@ -181,33 +181,26 @@ describe('fetchMicrosoftIdentity', () => {
     });
   });
 
-  it('falls back to the UserInfo endpoint when the ID token omits email', async () => {
+  it('rejects a UserInfo fallback email because it has no ownership proof', async () => {
     mockMicrosoftFetch({ email: 'userinfo@example.com', name: 'User Info' });
-    const identity = await fetchMicrosoftIdentity(
-      await mintMicrosoftToken({ email: undefined, email_verified: undefined }),
-      'access-token',
-      'nonce-1'
-    );
-
-    expect(identity.email).toBe('userinfo@example.com');
-    expect(identity.name).toBe('User Info');
-    // A UserInfo-sourced email carries no verification signal and must never be
-    // trusted as verified (otherwise it could auto-link a victim's account).
-    expect(identity.emailVerified).toBe(false);
+    await expect(
+      fetchMicrosoftIdentity(
+        await mintMicrosoftToken({ email: undefined, email_verified: undefined }),
+        'access-token',
+        'nonce-1'
+      )
+    ).rejects.toMatchObject({ statusCode: 401, code: 'AUTH_EMAIL_UNVERIFIED' });
   });
 
-  it('marks the email UNVERIFIED when the token proves no verification (anti-takeover)', async () => {
-    // A tenant admin can set an arbitrary `email` claim; without xms_edov or
-    // email_verified the incoming identity must not be auto-linkable.
+  it('rejects an arbitrary unverified email claim from a tenant administrator', async () => {
     mockMicrosoftFetch();
-    const identity = await fetchMicrosoftIdentity(
-      await mintMicrosoftToken({ email: 'victim@example.com', email_verified: undefined }),
-      'access-token',
-      'nonce-1'
-    );
-
-    expect(identity.email).toBe('victim@example.com');
-    expect(identity.emailVerified).toBe(false);
+    await expect(
+      fetchMicrosoftIdentity(
+        await mintMicrosoftToken({ email: 'victim@example.com', email_verified: undefined }),
+        'access-token',
+        'nonce-1'
+      )
+    ).rejects.toMatchObject({ statusCode: 401, code: 'AUTH_EMAIL_UNVERIFIED' });
   });
 
   it('trusts the email as verified when xms_edov proves domain ownership', async () => {

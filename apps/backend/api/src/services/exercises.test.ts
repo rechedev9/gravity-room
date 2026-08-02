@@ -93,7 +93,7 @@ function chainable(result: unknown[]): Record<string, unknown> {
 }
 
 function createMockDb(): unknown {
-  return {
+  const db = {
     select: vi.fn(function select() {
       return {
         from: vi.fn(function from() {
@@ -117,13 +117,20 @@ function createMockDb(): unknown {
         }),
       };
     }),
+    transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(db)),
   };
+  return db;
 }
 
 let mockDb = createMockDb();
 
 vi.mock('../db', () => ({
   getDb: () => mockDb,
+}));
+
+vi.mock('./data-quotas', () => ({
+  lockUserForDataMutation: async () => undefined,
+  assertUserDataQuotas: async () => undefined,
 }));
 
 // ---------------------------------------------------------------------------

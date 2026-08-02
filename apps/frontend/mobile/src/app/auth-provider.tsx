@@ -12,6 +12,7 @@ import type { AuthUser } from '../lib/auth/session';
 import {
   getAccessToken,
   restoreSession,
+  setAccessToken,
   signInWithDev,
   signInWithEmailPassword,
   signInWithGoogleIdToken,
@@ -19,7 +20,11 @@ import {
   signUpWithEmailPassword,
 } from '../lib/auth/session';
 import { secureLocalDataOwnerStorage } from '../lib/auth/secure-storage';
-import { clearLocalAppData } from '../lib/db/client';
+import {
+  activateLocalDataOwner,
+  clearLocalAppData,
+  deactivateLocalDataOwner,
+} from '../lib/db/client';
 import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation-sync-service';
 
 /**
@@ -55,22 +60,28 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function prepareLocalDataForUser(
-  userId: string,
-  preserveUnclaimedData: boolean
-): Promise<void> {
-  // Best-effort: SecureStore/SQLite can be unavailable on Expo web. Auth must
-  // still complete so Dev Login and cookie sessions work in Chrome previews.
-  try {
-    const ownerId = await secureLocalDataOwnerStorage.getOwnerId();
-    if (ownerId !== userId && !(ownerId === null && preserveUnclaimedData)) {
-      await clearQueuedMutations().catch(() => undefined);
-      await clearLocalAppData().catch(() => undefined);
-    }
+async function prepareLocalDataForUser(userId: string): Promise<void> {
+  // Stop every repository/flush before reading the durable owner marker. Any
+  // SecureStore or SQLite failure below rejects the auth transition; callers do
+  // not publish the new access token or user until this function succeeds.
+  deactivateLocalDataOwner();
+
+  const ownerId = await secureLocalDataOwnerStorage.getOwnerId();
+  if (ownerId !== userId) {
+    // Unclaimed legacy rows are not safe to adopt: they may belong to a previous
+    // account whose marker was lost. Clear both the in-flight outbox and every
+    // owner partition before reassigning the durable marker.
+    await clearQueuedMutations();
+    await clearLocalAppData();
     await secureLocalDataOwnerStorage.setOwnerId(userId);
-  } catch {
-    // Leave local cache as-is; access token is already minted.
   }
+
+  // This bootstraps/migrates SQLite before enabling any owner-scoped query.
+  await activateLocalDataOwner(userId);
+}
+
+function publishPreparedSession(accessToken: string): void {
+  setAccessToken(accessToken);
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
@@ -88,8 +99,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return;
         }
 
-        return prepareLocalDataForUser(session.user.id, true).then(() => {
+        return prepareLocalDataForUser(session.user.id).then(() => {
           if (!active) return;
+          publishPreparedSession(session.accessToken);
           setUser(session.user);
           void flushQueuedMutations(session.accessToken).catch(() => {
             // Leave queued mutations in place for a later retry.
@@ -138,7 +150,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isGuest: false,
       signInWithGoogle: async (credential: string) => {
         const session = await signInWithGoogleIdToken(credential);
-        await prepareLocalDataForUser(session.user.id, false);
+        await prepareLocalDataForUser(session.user.id);
+        publishPreparedSession(session.accessToken);
         setUser(session.user);
         void flushQueuedMutations(session.accessToken).catch(() => {
           // Leave queued mutations in place for a later retry.
@@ -149,7 +162,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (!result.ok) {
           return { ok: false, code: result.code };
         }
-        await prepareLocalDataForUser(result.session.user.id, false);
+        await prepareLocalDataForUser(result.session.user.id);
+        publishPreparedSession(result.session.accessToken);
         setUser(result.session.user);
         void flushQueuedMutations(result.session.accessToken).catch(() => {
           // Leave queued mutations in place for a later retry.
@@ -172,7 +186,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
               if (!result.ok) {
                 return { ok: false, code: result.code };
               }
-              await prepareLocalDataForUser(result.session.user.id, false);
+              await prepareLocalDataForUser(result.session.user.id);
+              publishPreparedSession(result.session.accessToken);
               setUser(result.session.user);
               void flushQueuedMutations(result.session.accessToken).catch(() => {
                 // Leave queued mutations in place for a later retry.
@@ -182,17 +197,41 @@ export function AuthProvider({ children }: PropsWithChildren) {
           }
         : {}),
       signOut: async () => {
-        await clearQueuedMutations().catch(() => {
-          // Best-effort cleanup only; local queue issues must not block sign-out.
-        });
+        // Durable credential deletion is the sign-out boundary. If SecureStore
+        // cannot remove either credential, reject without changing user/access
+        // state so the profile can display an error and let the user retry.
         await signOutSession();
-        await clearLocalAppData().catch(() => {
-          // Best-effort cleanup only; local cache issues must not block sign-out.
-        });
-        await secureLocalDataOwnerStorage.clearOwnerId().catch(() => {
-          // Best-effort cleanup only; cache deletion above already prevents
-          // another account from observing this user's local data.
-        });
+
+        // Credentials are now durably gone. Stop owner-scoped work before
+        // clearing offline data; retain the owner marker when cleanup is partial
+        // so the next account must retry before any old rows become visible.
+        deactivateLocalDataOwner();
+        setAccessToken(null);
+
+        let outboxCleared = false;
+        let localDataCleared = false;
+        try {
+          await clearQueuedMutations();
+          outboxCleared = true;
+        } catch {
+          // Keep the owner marker so the next login must retry cleanup.
+        }
+
+        try {
+          await clearLocalAppData();
+          localDataCleared = true;
+        } catch {
+          // Keep the owner marker so the next login must retry cleanup.
+        }
+
+        if (outboxCleared && localDataCleared) {
+          try {
+            await secureLocalDataOwnerStorage.clearOwnerId();
+          } catch {
+            // A stale marker is safe: the next account will clear empty data
+            // again before replacing it.
+          }
+        }
         setUser(null);
       },
     }),

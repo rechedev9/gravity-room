@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 import {
   buildApiUrl,
   DEFAULT_DEV_AUTH_EMAIL,
@@ -5,7 +7,9 @@ import {
   fetchWithAccessToken,
   getAccessToken,
   InvalidRefreshTokenError,
+  resolveApiBaseUrl,
   restoreSession,
+  SignOutCredentialDeletionError,
   setAccessToken,
   signInWithDev,
   signInWithEmailPassword,
@@ -43,6 +47,28 @@ afterEach(() => {
 });
 
 describe('buildApiUrl', () => {
+  it.each([
+    { configured: undefined, expected: 'http://localhost:3001' },
+    { configured: '', expected: 'http://localhost:3001' },
+    { configured: 'http://127.0.0.1:3001', expected: 'http://127.0.0.1:3001' },
+    { configured: 'http://10.0.2.2:3001', expected: 'http://10.0.2.2:3001' },
+    { configured: 'https://api.example.com', expected: 'https://api.example.com' },
+  ])('resolves an allowed development base URL: $configured', ({ configured, expected }) => {
+    expect(resolveApiBaseUrl(configured, true)).toBe(expected);
+  });
+
+  it.each([
+    { configured: undefined, error: /required/ },
+    { configured: '', error: /required/ },
+    { configured: 'http://api.example.com', error: /https/ },
+    { configured: 'ftp://api.example.com', error: /https/ },
+    { configured: 'https://user:pass@api.example.com', error: /credentials/ },
+    { configured: 'https://api.example.com?token=x', error: /query/ },
+    { configured: 'not a url', error: /valid absolute URL/ },
+  ])('rejects an unsafe production base URL: $configured', ({ configured, error }) => {
+    expect(() => resolveApiBaseUrl(configured, false)).toThrow(error);
+  });
+
   it('defaults to the /api route prefix when no API path is configured', () => {
     expect(buildApiUrl('/programs')).toBe('http://localhost:3001/api/programs');
   });
@@ -412,7 +438,8 @@ describe('signInWithGoogleIdToken', () => {
       })
     );
     expect(storage.setRefreshToken).toHaveBeenCalledWith('new-refresh-token');
-    expect(getAccessToken()).toBe('new-access-token');
+    // AuthProvider publishes this only after SQLite/SecureStore ownership passes.
+    expect(getAccessToken()).toBeNull();
   });
 
   it('keeps an existing email session when the Google exchange fails', async () => {
@@ -436,6 +463,34 @@ describe('signInWithGoogleIdToken', () => {
 
     expect(revokeCookieSession).not.toHaveBeenCalled();
     expect(sessionKindStorage.setSessionKind).not.toHaveBeenCalled();
+  });
+
+  it('rejects production Expo Web before creating a server session', async () => {
+    const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(Platform, 'OS');
+    const originalDev = (globalThis as { __DEV__?: boolean }).__DEV__;
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
+    (globalThis as { __DEV__?: boolean }).__DEV__ = false;
+    const authenticateWithGoogleIdToken = jest.fn().mockResolvedValue({
+      accessToken: 'must-not-be-created',
+      refreshToken: 'must-not-be-created',
+      user: AUTH_USER,
+    });
+
+    try {
+      await expect(
+        signInWithGoogleIdToken('google-id-token', { authenticateWithGoogleIdToken })
+      ).rejects.toThrow(/unavailable in production Expo Web/);
+      expect(authenticateWithGoogleIdToken).not.toHaveBeenCalled();
+    } finally {
+      if (originalPlatformDescriptor) {
+        Object.defineProperty(Platform, 'OS', originalPlatformDescriptor);
+      }
+      if (originalDev === undefined) {
+        delete (globalThis as { __DEV__?: boolean }).__DEV__;
+      } else {
+        (globalThis as { __DEV__?: boolean }).__DEV__ = originalDev;
+      }
+    }
   });
 
   it('revokes the minted session when its refresh token cannot be stored securely', async () => {
@@ -467,63 +522,67 @@ describe('signInWithGoogleIdToken', () => {
 });
 
 describe('signOutSession', () => {
-  it('revokes the remote refresh token before clearing local session state', async () => {
-    const storage = {
-      getRefreshToken: jest
-        .fn<Promise<string | null>, []>()
-        .mockResolvedValue('stored-refresh-token'),
-      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
-      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+  function createSignOutStorage() {
+    return {
+      storage: {
+        getRefreshToken: jest
+          .fn<Promise<string | null>, []>()
+          .mockResolvedValue('stored-refresh-token'),
+        setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
+        clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
+      },
+      sessionKindStorage: {
+        getSessionKind: jest
+          .fn<Promise<'google' | 'email' | null>, []>()
+          .mockResolvedValue('google'),
+        setSessionKind: jest.fn<Promise<void>, ['google' | 'email']>().mockResolvedValue(),
+        clearSessionKind: jest.fn<Promise<void>, []>().mockResolvedValue(),
+      },
     };
+  }
 
+  it('revokes the remote refresh token before clearing durable and in-memory state', async () => {
+    const { storage, sessionKindStorage } = createSignOutStorage();
     const revokeRemoteSession = jest.fn<Promise<void>, [string]>().mockResolvedValue();
     setAccessToken('mobile-access-token');
 
-    await expect(signOutSession({ storage, revokeRemoteSession })).resolves.toBeUndefined();
+    await expect(
+      signOutSession({ storage, sessionKindStorage, revokeRemoteSession })
+    ).resolves.toBeUndefined();
 
     expect(revokeRemoteSession).toHaveBeenCalledWith('stored-refresh-token');
     expect(storage.clearRefreshToken).toHaveBeenCalledTimes(1);
-
-    const revokeOrder = revokeRemoteSession.mock.invocationCallOrder[0];
-    const clearOrder = storage.clearRefreshToken.mock.invocationCallOrder[0];
-    expect(revokeOrder).toBeDefined();
-    expect(clearOrder).toBeDefined();
-    expect(revokeOrder ?? 0).toBeLessThan(clearOrder ?? 0);
+    expect(sessionKindStorage.clearSessionKind).toHaveBeenCalledTimes(1);
+    expect(revokeRemoteSession.mock.invocationCallOrder[0] ?? 0).toBeLessThan(
+      storage.clearRefreshToken.mock.invocationCallOrder[0] ?? 0
+    );
     expect(getAccessToken()).toBeNull();
   });
 
   it('revokes the cookie session when there is no stored refresh token', async () => {
-    const storage = {
-      getRefreshToken: jest.fn<Promise<string | null>, []>().mockResolvedValue(null),
-      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
-      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
-    };
-
+    const { storage, sessionKindStorage } = createSignOutStorage();
+    storage.getRefreshToken.mockResolvedValue(null);
     const revokeRemoteSession = jest.fn<Promise<void>, [string]>().mockResolvedValue();
     const revokeCookieSession = jest.fn<Promise<void>, []>().mockResolvedValue();
     setAccessToken('cookie-access-token');
 
     await expect(
-      signOutSession({ storage, revokeRemoteSession, revokeCookieSession })
+      signOutSession({
+        storage,
+        sessionKindStorage,
+        revokeRemoteSession,
+        revokeCookieSession,
+      })
     ).resolves.toBeUndefined();
 
     expect(revokeCookieSession).toHaveBeenCalledTimes(1);
     expect(revokeRemoteSession).not.toHaveBeenCalled();
-    expect(storage.clearRefreshToken).toHaveBeenCalledTimes(1);
     expect(getAccessToken()).toBeNull();
   });
 
-  it('clears the session marker even when cookie revocation fails offline', async () => {
-    const storage = {
-      getRefreshToken: jest.fn<Promise<string | null>, []>().mockResolvedValue(null),
-      setRefreshToken: jest.fn<Promise<void>, [string]>().mockResolvedValue(),
-      clearRefreshToken: jest.fn<Promise<void>, []>().mockResolvedValue(),
-    };
-    const sessionKindStorage = {
-      getSessionKind: jest.fn<Promise<'google' | 'email' | null>, []>().mockResolvedValue('email'),
-      setSessionKind: jest.fn<Promise<void>, ['google' | 'email']>().mockResolvedValue(),
-      clearSessionKind: jest.fn<Promise<void>, []>().mockResolvedValue(),
-    };
+  it('clears durable credentials even when cookie revocation fails offline', async () => {
+    const { storage, sessionKindStorage } = createSignOutStorage();
+    storage.getRefreshToken.mockResolvedValue(null);
     const revokeCookieSession = jest
       .fn<Promise<void>, []>()
       .mockRejectedValue(new Error('Network request failed'));
@@ -532,11 +591,43 @@ describe('signOutSession', () => {
       signOutSession({ storage, sessionKindStorage, revokeCookieSession })
     ).resolves.toBeUndefined();
 
-    // The failed remote revocation must not leave the marker behind, or the next
-    // launch would resurrect the still-valid cookie session.
     expect(sessionKindStorage.clearSessionKind).toHaveBeenCalledTimes(1);
     expect(storage.clearRefreshToken).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    { failedCredential: 'refreshToken' as const },
+    { failedCredential: 'sessionKind' as const },
+  ])(
+    'retains in-memory state and attempts both deletions when $failedCredential deletion fails',
+    async ({ failedCredential }) => {
+      const { storage, sessionKindStorage } = createSignOutStorage();
+      if (failedCredential === 'refreshToken') {
+        storage.clearRefreshToken.mockRejectedValue(new Error('SecureStore token delete failed'));
+      } else {
+        sessionKindStorage.clearSessionKind.mockRejectedValue(
+          new Error('SecureStore marker delete failed')
+        );
+      }
+      setAccessToken('retryable-access-token');
+
+      const signOut = signOutSession({
+        storage,
+        sessionKindStorage,
+        revokeRemoteSession: jest.fn().mockResolvedValue(undefined),
+      });
+
+      await expect(signOut).rejects.toEqual(
+        expect.objectContaining<Partial<SignOutCredentialDeletionError>>({
+          name: 'SignOutCredentialDeletionError',
+          failedCredentials: [failedCredential],
+        })
+      );
+      expect(storage.clearRefreshToken).toHaveBeenCalledTimes(1);
+      expect(sessionKindStorage.clearSessionKind).toHaveBeenCalledTimes(1);
+      expect(getAccessToken()).toBe('retryable-access-token');
+    }
+  );
 });
 
 describe('signInWithEmailPassword', () => {
@@ -553,7 +644,8 @@ describe('signInWithEmailPassword', () => {
     });
 
     expect(login).toHaveBeenCalledWith('athlete@example.com', 'correct-horse');
-    expect(getAccessToken()).toBe('email-access-token');
+    // AuthProvider publishes this only after SQLite/SecureStore ownership passes.
+    expect(getAccessToken()).toBeNull();
   });
 
   it('maps a 401 to INVALID_CREDENTIALS', async () => {
@@ -698,7 +790,8 @@ describe('signInWithDev', () => {
     });
     expect(authenticate).toHaveBeenCalledWith(DEFAULT_DEV_AUTH_EMAIL, DEFAULT_DEV_AUTH_SECRET);
     expect(sessionKindStorage.setSessionKind).toHaveBeenCalledWith('email');
-    expect(getAccessToken()).toBe('dev-access');
+    // AuthProvider publishes this only after SQLite/SecureStore ownership passes.
+    expect(getAccessToken()).toBeNull();
   });
 
   it('maps 401 to UNAUTHORIZED/INVALID_CREDENTIALS path via status', async () => {

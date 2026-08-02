@@ -1,64 +1,123 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/auth-context';
+import { getAuthSessionIdentity, useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { readActiveGuestInstance } from '@/lib/guest-storage';
-import { migrateGuestDataToAccount } from '@/lib/guest-migration';
+import {
+  discardGuestMigrationData,
+  hasFreshGuestMigrationIntent,
+  migrateGuestDataToAccount,
+  type GuestMigrationIdentity,
+} from '@/lib/guest-migration';
 import { localizedProgramName } from '@/lib/catalog-display';
 
+interface PendingGuestMigration {
+  readonly identity: GuestMigrationIdentity;
+  readonly userEmail: string;
+}
+
+export interface GuestMigrationPromptState {
+  readonly pending: boolean;
+  readonly userEmail: string | null;
+  readonly isMigrating: boolean;
+  readonly confirmMigration: () => Promise<void>;
+  readonly dismissMigration: () => void;
+}
+
 /**
- * Post-login hook: once a session becomes authenticated, migrate any leftover
- * guest program from localStorage into the account (see lib/guest-migration.ts)
- * and surface a success toast. Runs at most once per authenticated session and
- * never blocks or throws into the render path.
+ * Offers leftover guest data to the signed-in user, but never imports it
+ * automatically. Confirmation is deliberately account-specific and in-memory:
+ * another account receives a fresh prompt rather than inheriting consent.
  */
-export function useGuestMigration(): void {
+export function useGuestMigration(): GuestMigrationPromptState {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { t } = useTranslation();
-  const handledRef = useRef(false);
+  const [pending, setPending] = useState<PendingGuestMigration | null>(null);
+  const [isMigrating, setIsMigrating] = useState(false);
+
+  const readCurrentIdentity = useCallback(
+    (): GuestMigrationIdentity | null => getAuthSessionIdentity(),
+    []
+  );
 
   useEffect(() => {
+    setIsMigrating(false);
     if (user === null) {
-      // The provider survives sign-out/sign-in navigation. A later account
-      // conversion in the same SPA lifetime must get its own migration attempt.
-      handledRef.current = false;
+      setPending(null);
       return;
     }
 
-    const attemptMigration = (): void => {
-      if (handledRef.current || readActiveGuestInstance() === null) return;
-      handledRef.current = true;
-      void (async () => {
-        try {
-          const result = await migrateGuestDataToAccount(queryClient);
-          if (result) {
-            toast({
-              message: t('guest_migration.success', {
-                program: localizedProgramName(t, result.programId, result.programName),
-              }),
-            });
-          } else if (readActiveGuestInstance() !== null) {
-            // Transient failures and "account already active" skips intentionally
-            // retain the guest data. Allow a later online transition to retry
-            // without requiring a logout or full page reload.
-            handledRef.current = false;
-          }
-        } catch (err: unknown) {
-          handledRef.current = false;
-          // Migration must never break the app; log and move on.
-          console.warn(
-            '[guest-migration] Unexpected migration error:',
-            err instanceof Error ? err.message : 'Unknown error'
-          );
-        }
-      })();
-    };
+    if (readActiveGuestInstance() === null) {
+      setPending(null);
+      return;
+    }
 
-    attemptMigration();
-    window.addEventListener('online', attemptMigration);
-    return () => window.removeEventListener('online', attemptMigration);
-  }, [user, queryClient, toast, t]);
+    if (!hasFreshGuestMigrationIntent()) {
+      discardGuestMigrationData();
+      setPending(null);
+      return;
+    }
+
+    const identity = readCurrentIdentity();
+    if (identity === null || identity.userId !== user.id) {
+      setPending(null);
+      return;
+    }
+
+    setPending({ identity, userEmail: user.email });
+  }, [user, readCurrentIdentity]);
+
+  const dismissMigration = useCallback((): void => {
+    if (isMigrating) return;
+    // A dismissal is intentionally non-destructive. The local copy is never
+    // uploaded without confirmation and expires with the migration intent.
+    setPending(null);
+  }, [isMigrating]);
+
+  const confirmMigration = useCallback(async (): Promise<void> => {
+    if (pending === null || isMigrating) return;
+    const currentIdentity = readCurrentIdentity();
+    if (
+      currentIdentity?.userId !== pending.identity.userId ||
+      currentIdentity.sessionId !== pending.identity.sessionId
+    ) {
+      setPending(null);
+      return;
+    }
+
+    setIsMigrating(true);
+    try {
+      const result = await migrateGuestDataToAccount(
+        queryClient,
+        pending.identity,
+        readCurrentIdentity
+      );
+      if (result) {
+        setPending(null);
+        toast({
+          message: t('guest_migration.success', {
+            program: localizedProgramName(t, result.programId, result.programName),
+          }),
+        });
+      } else {
+        if (readActiveGuestInstance() === null) setPending(null);
+        toast({ message: t('guest_migration.not_imported') });
+      }
+    } catch {
+      toast({ message: t('guest_migration.not_imported') });
+    } finally {
+      setIsMigrating(false);
+    }
+  }, [pending, isMigrating, queryClient, readCurrentIdentity, toast, t]);
+
+  return {
+    pending: pending !== null,
+    userEmail: pending?.userEmail ?? null,
+    isMigrating,
+    confirmMigration,
+    dismissMigration,
+  };
 }

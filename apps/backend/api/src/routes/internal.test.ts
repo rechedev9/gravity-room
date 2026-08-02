@@ -11,6 +11,13 @@ process.env['LOG_LEVEL'] = 'silent';
 
 import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 
+type MockReadinessResult = {
+  status: 'ready' | 'degraded';
+  timestamp: string;
+  db: { status: 'ok'; latencyMs: number } | { status: 'disabled' } | { status: 'error' };
+  redis: { status: 'ok'; latencyMs: number } | { status: 'disabled' } | { status: 'error' };
+};
+
 // ---------------------------------------------------------------------------
 // Mocks — declared before importing the route module
 // ---------------------------------------------------------------------------
@@ -20,6 +27,8 @@ const {
   mockPurgeDeletedUsers,
   mockComputeUser,
   mockFetchLeastRecentlyComputedUsers,
+  mockCheckReadiness,
+  mockRateLimit,
 } = vi.hoisted(() => {
   const mockCleanupExpiredTokens = vi.fn<() => Promise<number>>(() => Promise.resolve(0));
   const mockPurgeDeletedUsers = vi.fn<() => Promise<PurgeSummary>>(() =>
@@ -29,11 +38,22 @@ const {
   const mockFetchLeastRecentlyComputedUsers = vi.fn<
     (limit: number) => Promise<{ userId: string }[]>
   >(() => Promise.resolve([]));
+  const mockCheckReadiness = vi.fn<() => Promise<MockReadinessResult>>(() =>
+    Promise.resolve({
+      status: 'ready' as const,
+      timestamp: '2026-08-02T00:00:00.000Z',
+      db: { status: 'ok' as const, latencyMs: 1 },
+      redis: { status: 'ok' as const, latencyMs: 1 },
+    })
+  );
+  const mockRateLimit = vi.fn(() => Promise.resolve());
   return {
     mockCleanupExpiredTokens,
     mockPurgeDeletedUsers,
     mockComputeUser,
     mockFetchLeastRecentlyComputedUsers,
+    mockCheckReadiness,
+    mockRateLimit,
   };
 });
 vi.mock('../services/auth', () => ({
@@ -54,6 +74,14 @@ vi.mock('../analytics/compute', () => ({
 
 vi.mock('../analytics/queries', () => ({
   fetchLeastRecentlyComputedUsers: mockFetchLeastRecentlyComputedUsers,
+}));
+
+vi.mock('../lib/readiness', () => ({
+  checkReadiness: mockCheckReadiness,
+}));
+
+vi.mock('../middleware/rate-limit', () => ({
+  rateLimit: mockRateLimit,
 }));
 
 import { Elysia } from 'elysia';
@@ -103,6 +131,17 @@ beforeEach(() => {
   mockComputeUser.mockImplementation(() => Promise.resolve());
   mockFetchLeastRecentlyComputedUsers.mockReset();
   mockFetchLeastRecentlyComputedUsers.mockImplementation(() => Promise.resolve([]));
+  mockCheckReadiness.mockReset();
+  mockCheckReadiness.mockImplementation(() =>
+    Promise.resolve({
+      status: 'ready' as const,
+      timestamp: '2026-08-02T00:00:00.000Z',
+      db: { status: 'ok' as const, latencyMs: 1 },
+      redis: { status: 'ok' as const, latencyMs: 1 },
+    })
+  );
+  mockRateLimit.mockReset();
+  mockRateLimit.mockImplementation(() => Promise.resolve());
 });
 
 afterAll(() => {
@@ -272,6 +311,71 @@ describe('internal routes — Vercel Cron (GET + CRON_SECRET)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// readiness + shared attempt throttle
+// ---------------------------------------------------------------------------
+
+describe('GET /internal/readiness', () => {
+  it('requires an internal secret before probing dependencies', async () => {
+    const res = await get('/internal/readiness');
+
+    expect(res.status).toBe(401);
+    expect(mockCheckReadiness).not.toHaveBeenCalled();
+  });
+
+  it('returns the deep dependency result to an authenticated operator', async () => {
+    const res = await get('/internal/readiness', { Authorization: `Bearer ${SECRET}` });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string; db: { status: string } };
+    expect(body.status).toBe('ready');
+    expect(body.db.status).toBe('ok');
+    expect(mockCheckReadiness).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns 503 when a dependency is not ready', async () => {
+    mockCheckReadiness.mockResolvedValueOnce({
+      status: 'degraded',
+      timestamp: '2026-08-02T00:00:00.000Z',
+      db: { status: 'error' },
+      redis: { status: 'ok', latencyMs: 1 },
+    });
+
+    const res = await get('/internal/readiness', { Authorization: `Bearer ${SECRET}` });
+
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { code: string };
+    expect(body.code).toBe('NOT_READY');
+  });
+});
+
+describe('internal routes — shared attempt throttle', () => {
+  it('checks the throttle before accepting a valid secret', async () => {
+    await get('/internal/cleanup-tokens', { Authorization: `Bearer ${SECRET}` });
+
+    expect(mockRateLimit).toHaveBeenCalledWith('unknown', 'INTERNAL /api/internal/*', {
+      windowMs: 60_000,
+      maxRequests: 30,
+      failClosed: true,
+    });
+  });
+
+  it('does not run an operation when the throttle rejects', async () => {
+    mockRateLimit.mockRejectedValueOnce(
+      new ApiError(429, 'Too many requests', 'RATE_LIMITED', {
+        headers: { 'Retry-After': '60' },
+      })
+    );
+
+    const res = await get('/internal/cleanup-tokens', {
+      Authorization: `Bearer ${SECRET}`,
+    });
+
+    expect(res.status).toBe(429);
+    expect(mockCleanupExpiredTokens).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // cleanup-tokens
 // ---------------------------------------------------------------------------
 
@@ -389,6 +493,28 @@ describe('POST /internal/analytics/compute', () => {
     const res = await post('/internal/analytics/compute', { Authorization: `Bearer ${SECRET}` });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { batchSize: number };
+    expect(body.batchSize).toBe(50);
+    expect(mockFetchLeastRecentlyComputedUsers).toHaveBeenCalledWith(50);
+  });
+
+  it('caps an oversized configured batch at 100 users', async () => {
+    process.env['ANALYTICS_BATCH_SIZE'] = '1000000';
+    mockFetchLeastRecentlyComputedUsers.mockImplementation(() => Promise.resolve([]));
+
+    const res = await post('/internal/analytics/compute', { Authorization: `Bearer ${SECRET}` });
+    const body = (await res.json()) as { batchSize: number };
+
+    expect(body.batchSize).toBe(100);
+    expect(mockFetchLeastRecentlyComputedUsers).toHaveBeenCalledWith(100);
+  });
+
+  it('uses the default for a non-integer batch value', async () => {
+    process.env['ANALYTICS_BATCH_SIZE'] = '2.5';
+    mockFetchLeastRecentlyComputedUsers.mockImplementation(() => Promise.resolve([]));
+
+    const res = await post('/internal/analytics/compute', { Authorization: `Bearer ${SECRET}` });
+    const body = (await res.json()) as { batchSize: number };
+
     expect(body.batchSize).toBe(50);
     expect(mockFetchLeastRecentlyComputedUsers).toHaveBeenCalledWith(50);
   });

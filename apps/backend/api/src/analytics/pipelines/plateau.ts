@@ -46,15 +46,15 @@ export function computePlateauPerExercise(
     if (r.result !== 'success' || r.recordedAt === null) continue;
     const instant = parseInstant(r.recordedAt);
     if (instant === null || instant.getTime() < cutoff) continue;
-    const slot = bySlot.get(r.slotId) ?? [];
+    const slot = bySlot.get(r.exerciseId) ?? [];
     slot.push(r);
-    bySlot.set(r.slotId, slot);
+    bySlot.set(r.exerciseId, slot);
   }
 
   const result = new Map<string, PlateauDetectionPayload>();
-  for (const [slotId, slotRecords] of bySlot) {
-    const payload = analyzeSlot(slotRecords);
-    if (payload !== null) result.set(slotId, payload);
+  for (const [exerciseId, exerciseRecords] of bySlot) {
+    const payload = analyzeSlot(exerciseRecords);
+    if (payload !== null) result.set(exerciseId, payload);
   }
   return result;
 }

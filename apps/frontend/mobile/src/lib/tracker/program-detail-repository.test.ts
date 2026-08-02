@@ -1,6 +1,7 @@
 import type { GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
 
 interface ProgramDetailRow {
+  readonly owner_user_id: string;
   readonly id: string;
   readonly program_id: string;
   readonly detail_json: string;
@@ -8,6 +9,7 @@ interface ProgramDetailRow {
 }
 
 interface ProgramDefinitionRow {
+  readonly owner_user_id: string;
   readonly id: string;
   readonly definition_json: string;
   readonly updated_at: string;
@@ -15,9 +17,11 @@ interface ProgramDefinitionRow {
 
 const mockProgramDetailRows: ProgramDetailRow[] = [];
 const mockProgramDefinitionRows: ProgramDefinitionRow[] = [];
+const activeOwnerId = 'user-123';
 
 jest.mock('../db/client', () => ({
   bootstrapDatabase: jest.fn(async () => undefined),
+  requireActiveLocalDataOwner: jest.fn(() => activeOwnerId),
   getDatabase: jest.fn(() => ({
     withExclusiveTransactionAsync: jest.fn(
       async (
@@ -28,14 +32,17 @@ jest.mock('../db/client', () => ({
         await callback({
           runAsync: async (sql: string, ...params: unknown[]) => {
             if (sql.includes('INSERT INTO program_details')) {
-              const [id, programId, detailJson, updatedAt] = params;
+              const [ownerId, id, programId, detailJson, updatedAt] = params;
               const nextRow: ProgramDetailRow = {
+                owner_user_id: String(ownerId),
                 id: String(id),
                 program_id: String(programId),
                 detail_json: String(detailJson),
                 updated_at: String(updatedAt),
               };
-              const existingIndex = mockProgramDetailRows.findIndex((row) => row.id === nextRow.id);
+              const existingIndex = mockProgramDetailRows.findIndex(
+                (row) => row.owner_user_id === nextRow.owner_user_id && row.id === nextRow.id
+              );
               if (existingIndex >= 0) {
                 mockProgramDetailRows[existingIndex] = nextRow;
               } else {
@@ -45,14 +52,15 @@ jest.mock('../db/client', () => ({
             }
 
             if (sql.includes('INSERT INTO program_definitions')) {
-              const [id, definitionJson, updatedAt] = params;
+              const [ownerId, id, definitionJson, updatedAt] = params;
               const nextRow: ProgramDefinitionRow = {
+                owner_user_id: String(ownerId),
                 id: String(id),
                 definition_json: String(definitionJson),
                 updated_at: String(updatedAt),
               };
               const existingIndex = mockProgramDefinitionRows.findIndex(
-                (row) => row.id === nextRow.id
+                (row) => row.owner_user_id === nextRow.owner_user_id && row.id === nextRow.id
               );
               if (existingIndex >= 0) {
                 mockProgramDefinitionRows[existingIndex] = nextRow;
@@ -70,13 +78,19 @@ jest.mock('../db/client', () => ({
     runAsync: jest.fn(async () => ({ changes: 0, lastInsertRowId: 0 })),
     getAllAsync: jest.fn(async (sql: string, ...params: unknown[]) => {
       if (sql.includes('SELECT id, program_id, detail_json, updated_at FROM program_details')) {
-        const requestedId = String(params[0]);
-        return mockProgramDetailRows.filter((row) => row.id === requestedId);
+        const ownerId = String(params[0]);
+        const requestedId = String(params[1]);
+        return mockProgramDetailRows.filter(
+          (row) => row.owner_user_id === ownerId && row.id === requestedId
+        );
       }
 
       if (sql.includes('SELECT id, definition_json, updated_at FROM program_definitions')) {
-        const requestedId = String(params[0]);
-        return mockProgramDefinitionRows.filter((row) => row.id === requestedId);
+        const ownerId = String(params[0]);
+        const requestedId = String(params[1]);
+        return mockProgramDefinitionRows.filter(
+          (row) => row.owner_user_id === ownerId && row.id === requestedId
+        );
       }
 
       return [];

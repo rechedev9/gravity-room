@@ -17,6 +17,7 @@ const PW_USER = {
   googleId: null,
   passwordHash: 'argon2-hash',
   emailVerified: true,
+  authVersion: 0,
   name: null,
   avatarUrl: null,
   deletedAt: null,
@@ -45,11 +46,24 @@ vi.mock('../services/auth', () => ({
   hashToken: vi.fn(() => Promise.resolve('a'.repeat(64))),
   findUserById: vi.fn(() => Promise.resolve({ ...PW_USER })),
   findRefreshTokenByPreviousHash: vi.fn(() => Promise.resolve(undefined)),
+  isRefreshSessionActive: vi.fn(() => Promise.resolve(true)),
   revokeRefreshToken: vi.fn(() => Promise.resolve()),
+  revokeSessionByToken: vi.fn(() => Promise.resolve()),
   revokeAllUserTokens: vi.fn(() => Promise.resolve()),
+  createAuthSession: vi.fn(() =>
+    Promise.resolve({
+      refreshToken: 'mock-raw-refresh-token',
+      sessionId: '00000000-0000-4000-8000-000000000001',
+    })
+  ),
   createAndStoreRefreshToken: vi.fn(() => Promise.resolve('mock-raw-refresh-token')),
   rotateRefreshToken: vi.fn(() =>
-    Promise.resolve({ status: 'rotated', user: { ...PW_USER }, refreshToken: 'new-refresh' })
+    Promise.resolve({
+      status: 'rotated',
+      user: { ...PW_USER },
+      refreshToken: 'new-refresh',
+      sessionId: '00000000-0000-4000-8000-000000000001',
+    })
   ),
   findUserByEmail: mockFindUserByEmail,
   updateUserProfile: vi.fn(() => Promise.resolve({ ...PW_USER })),
@@ -74,6 +88,7 @@ vi.mock('../services/auth', () => ({
   verifyEmailWithToken: vi.fn(() => Promise.resolve(null)),
   createPasswordResetToken: vi.fn(() => Promise.resolve('reset-token')),
   consumePasswordResetToken: vi.fn(() => Promise.resolve(null)),
+  isPasswordResetTokenValid: vi.fn(() => Promise.resolve(true)),
   setUserPassword: mockSetUserPassword,
   resetPasswordWithToken: vi.fn(() => Promise.resolve(null)),
   // Included so the process-global services/auth mock exposes every export the

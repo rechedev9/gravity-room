@@ -11,7 +11,10 @@ export interface WorkoutRecord {
   readonly instanceId: string;
   readonly programId: string;
   readonly workoutIndex: number;
-  readonly slotId: string;
+  /** Stable canonical exercise identity captured when the result was written. */
+  readonly exerciseId: string;
+  /** Definition version that established the slot -> exercise mapping. */
+  readonly definitionVersion: number;
   readonly weight: number;
   /** 'success' | 'fail'. */
   readonly result: string;

@@ -11,6 +11,12 @@ jest.mock('./mutation-queue-repository', () => ({
   listQueuedMutations: jest.fn(),
 }));
 
+let mockActiveOwnerId = 'user-123';
+
+jest.mock('../db/client', () => ({
+  requireActiveLocalDataOwner: jest.fn(() => mockActiveOwnerId),
+}));
+
 const mockedListQueuedMutations = jest.mocked(listQueuedMutations);
 const mockedAcknowledgeQueuedMutations = jest.mocked(acknowledgeQueuedMutations);
 const mockedClearQueuedMutationsFromRepository = jest.mocked(clearQueuedMutationsFromRepository);
@@ -61,6 +67,7 @@ describe('flushQueuedMutations', () => {
     mockedListQueuedMutations.mockReset();
     mockedAcknowledgeQueuedMutations.mockReset();
     mockedClearQueuedMutationsFromRepository.mockReset();
+    mockActiveOwnerId = 'user-123';
   });
 
   it('clears all queued mutations through the repository', async () => {
@@ -192,7 +199,7 @@ describe('flushQueuedMutations', () => {
       })
     );
     expectAuthorizationHeader(fetchSpy.mock.calls[2]?.[1], 'mobile-access-token');
-    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([11, 12, 13]);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([11, 12, 13], 'user-123');
   });
 
   it('stops at the first failed mutation and only acknowledges earlier successes', async () => {
@@ -244,7 +251,7 @@ describe('flushQueuedMutations', () => {
     );
 
     expect(fetchSpy).toHaveBeenCalledTimes(2);
-    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([21]);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([21], 'user-123');
   });
 
   it('discards corrupt outbox rows and continues with later valid mutations', async () => {
@@ -279,7 +286,7 @@ describe('flushQueuedMutations', () => {
     });
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([24, 25]);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([24, 25], 'user-123');
   });
 
   it('replays record-result mutations with optional amrapReps and rpe fields', async () => {
@@ -440,7 +447,7 @@ describe('flushQueuedMutations', () => {
       })
     );
     expectAuthorizationHeader(fetchSpy.mock.calls[0]?.[1], 'mobile-access-token');
-    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([41]);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([41], 'user-123');
   });
 
   it('treats replayed delete-result 404 responses as already applied and acknowledges them', async () => {
@@ -471,7 +478,7 @@ describe('flushQueuedMutations', () => {
         method: 'DELETE',
       })
     );
-    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([42]);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([42], 'user-123');
   });
 
   it('preserves an EXPO_PUBLIC_API_URL path prefix when replaying queued mutations', async () => {
@@ -536,7 +543,49 @@ describe('flushQueuedMutations', () => {
     await expect(firstFlush).resolves.toEqual({ processedCount: 1 });
     await expect(secondFlush).resolves.toEqual({ processedCount: 1 });
     expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledTimes(1);
-    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([61]);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([61], 'user-123');
+  });
+
+  it('aborts an old-owner flush instead of reusing it for a new owner', async () => {
+    mockedListQueuedMutations.mockResolvedValue([
+      {
+        id: 70,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'record-result',
+        payload: {
+          workoutIndex: 0,
+          slotId: 'squat-t1',
+          result: 'success',
+        },
+        createdAt: '2026-04-20T10:00:00.000Z',
+      },
+    ]);
+
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+    fetchSpy
+      .mockImplementationOnce((_input, init) => {
+        const signal = init?.signal;
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () => {
+            const error = new Error('Old-owner flush aborted');
+            error.name = 'AbortError';
+            reject(error);
+          });
+        });
+      })
+      .mockResolvedValueOnce(new Response('{}', { status: 201 }));
+
+    const oldOwnerFlush = flushQueuedMutations('shared-test-token');
+    await Promise.resolve();
+    mockActiveOwnerId = 'user-456';
+    const newOwnerFlush = flushQueuedMutations('shared-test-token');
+
+    await expect(oldOwnerFlush).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(newOwnerFlush).resolves.toEqual({ processedCount: 1 });
+    expect(mockedListQueuedMutations).toHaveBeenNthCalledWith(1, 'user-123');
+    expect(mockedListQueuedMutations).toHaveBeenNthCalledWith(2, 'user-456');
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([70], 'user-456');
   });
 
   it('starts a new flush when the access token changes', async () => {

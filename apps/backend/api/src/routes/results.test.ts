@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
-const { mockRateLimit, mockRecordResult, mockDeleteResult } = vi.hoisted(() => {
+const { mockRateLimit, mockRecordResult, mockDeleteResult, mockUndoLast } = vi.hoisted(() => {
   const mockRateLimit = vi.fn((): Promise<void> => Promise.resolve());
   const mockRecordResult = vi.fn(() =>
     Promise.resolve({
@@ -22,10 +22,12 @@ const { mockRateLimit, mockRecordResult, mockDeleteResult } = vi.hoisted(() => {
     })
   );
   const mockDeleteResult = vi.fn(() => Promise.resolve());
+  const mockUndoLast = vi.fn(() => Promise.resolve(null));
   return {
     mockRateLimit,
     mockRecordResult,
     mockDeleteResult,
+    mockUndoLast,
   };
 });
 
@@ -40,7 +42,7 @@ vi.mock('../services/auth', () => ({
 vi.mock('../services/results', () => ({
   recordResult: mockRecordResult,
   deleteResult: mockDeleteResult,
-  undoLast: vi.fn(() => Promise.resolve(null)),
+  undoLast: mockUndoLast,
 }));
 
 vi.mock('../lib/program-cache', () => ({
@@ -91,7 +93,7 @@ function del(path: string, headers?: Record<string, string>): Promise<Response> 
 }
 
 async function makeValidJwt(userId: string): Promise<string> {
-  const secret = process.env['JWT_SECRET'] ?? 'dev-secret-change-me';
+  const secret = process.env['JWT_SECRET'] ?? 'test-secret-do-not-use-outside-tests';
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payload = Buffer.from(
     JSON.stringify({
@@ -120,6 +122,48 @@ beforeEach(() => {
   mockRateLimit.mockClear();
   mockRecordResult.mockClear();
   mockDeleteResult.mockClear();
+  mockUndoLast.mockClear();
+  mockRateLimit.mockImplementation(() => Promise.resolve());
+});
+
+it.each([
+  {
+    name: 'record result',
+    endpoint: 'POST /programs/results',
+    request: (token: string) =>
+      post(
+        `/programs/${INSTANCE_ID}/results`,
+        { workoutIndex: 0, slotId: 't1', result: 'success' },
+        { Authorization: `Bearer ${token}` }
+      ),
+  },
+  {
+    name: 'delete result',
+    endpoint: 'DELETE /programs/results',
+    request: (token: string) =>
+      del(`/programs/${INSTANCE_ID}/results/0/t1`, { Authorization: `Bearer ${token}` }),
+  },
+  {
+    name: 'undo result',
+    endpoint: 'POST /programs/undo',
+    request: (token: string) =>
+      post(`/programs/${INSTANCE_ID}/undo`, {}, { Authorization: `Bearer ${token}` }),
+  },
+])('returns 503 before the $name transaction when Redis fails', async ({ endpoint, request }) => {
+  mockRateLimit.mockRejectedValueOnce(
+    new ApiError(503, 'Rate limiter unavailable', 'RATE_LIMIT_UNAVAILABLE')
+  );
+  const response = await request(await makeValidJwt('user-1'));
+
+  expect(response.status).toBe(503);
+  expect(mockRateLimit).toHaveBeenCalledWith(
+    'user-1',
+    endpoint,
+    expect.objectContaining({ failClosed: true })
+  );
+  expect(mockRecordResult).not.toHaveBeenCalled();
+  expect(mockDeleteResult).not.toHaveBeenCalled();
+  expect(mockUndoLast).not.toHaveBeenCalled();
 });
 
 // ---------------------------------------------------------------------------

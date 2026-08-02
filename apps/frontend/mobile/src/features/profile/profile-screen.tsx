@@ -14,6 +14,7 @@ type ProfileScreenProps = {
 export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
   const { t } = useTranslation();
   const [signingOut, setSigningOut] = useState(false);
+  const [signOutFailed, setSignOutFailed] = useState(false);
 
   async function handleSignOut(): Promise<void> {
     if (signingOut) {
@@ -21,9 +22,11 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
     }
 
     setSigningOut(true);
+    setSignOutFailed(false);
     try {
       await onSignOut();
     } catch {
+      setSignOutFailed(true);
       setSigningOut(false);
     }
   }
@@ -38,6 +41,11 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
           <Text style={styles.body}>{user.email}</Text>
           <Text style={styles.caption}>{t('profile.session_note')}</Text>
         </View>
+        {signOutFailed ? (
+          <Text accessibilityRole="alert" style={styles.errorText}>
+            {t('profile.sign_out_error')}
+          </Text>
+        ) : null}
         <Pressable
           accessibilityLabel={t('profile.sign_out_accessibility')}
           accessibilityRole="button"
@@ -48,7 +56,11 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
           style={[styles.signOutButton, signingOut ? styles.disabledButton : null]}
         >
           <Text style={styles.signOutLabel}>
-            {signingOut ? t('profile.signing_out') : t('profile.sign_out')}
+            {signingOut
+              ? t('profile.signing_out')
+              : signOutFailed
+                ? t('profile.retry_sign_out')
+                : t('profile.sign_out')}
           </Text>
         </Pressable>
       </View>
@@ -98,6 +110,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontSize: 16,
     lineHeight: 24,
+  },
+  errorText: {
+    color: colors.textError,
+    fontSize: 14,
+    lineHeight: 20,
   },
   signOutButton: {
     alignItems: 'center',

@@ -75,6 +75,8 @@
     "session_note": "Tu sesión móvil se guarda de forma segura en este dispositivo.",
     "sign_out": "Cerrar sesión",
     "signing_out": "Cerrando sesión...",
+    "retry_sign_out": "Reintentar cierre de sesión",
+    "sign_out_error": "No se pudo completar el cierre de sesión seguro. Tu sesión sigue visible para que puedas reintentarlo.",
     "sign_out_accessibility": "Cerrar sesión de Gravity Room"
   },
   "tracker": {

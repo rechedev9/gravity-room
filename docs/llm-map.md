@@ -23,9 +23,10 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 | `apps/backend/api/src/middleware/`               | backend  | auth-guard, error-handler, rate-limit, request-logger                                                     | Elysia plugins                                | unit tests in same folder                                         |
 | `apps/backend/api/src/lib/`                      | backend  | redis, logger, sentry, caches, telegram, google-auth                                                      | TS                                            | unit tests in same folder                                         |
 | `apps/backend/api/src/db/`                       | backend  | API-owned Postgres connection/pool + dev seed entrypoint                                                  | Drizzle ORM 0.45 + postgres                   | used by API services                                              |
-| `apps/backend/api/src/scripts/migrate-deploy.ts` | backend  | Build-time migrations + seeds (db:deploy) against DIRECT_DATABASE_URL                                     | drizzle-kit + Drizzle ORM                     | `pnpm --filter api db:deploy`                                     |
+| `apps/backend/api/src/scripts/migrate-deploy.ts` | backend  | Advisory-locked migrations + seeds against required production DIRECT_DATABASE_URL                        | drizzle-kit + Drizzle ORM                     | `pnpm --filter api db:deploy`                                     |
 | `apps/backend/api/src/analytics/`                | backend  | TS insight pipelines (e1RM, frequency, summary, volume, forecast, plateau, recommendation) + Cron compute | TypeScript                                    | `vitest run apps/backend/api/src/analytics`                       |
-| `api/[...path].ts`                               | backend  | Vercel serverless catch-all → createApp().fetch                                                           | Vercel Node runtime                           | covered by API e2e                                                |
+| `apps/backend/api/src/vercel-handler.ts`         | backend  | Independent Vercel source entry → bounded streaming Node gateway                                          | TypeScript + Vercel Node                      | `pnpm run bundle:api:check` + API tests                           |
+| `api/index.ts`                                   | backend  | Generated, committed Vercel serverless catch-all bundle                                                   | Vercel Node runtime                           | `pnpm run bundle:api:check`                                       |
 | `packages/database/`                             | database | Drizzle schema, migrations, reference seeds, schema dump tooling                                          | drizzle-kit + Drizzle ORM                     | `pnpm run test:database` / `pnpm run db:generate`                 |
 | `packages/database/migrations/`                  | database | Generated SQL migrations                                                                                  | drizzle-kit                                   | applied by `db:deploy` (build-time)                               |
 | `packages/api-client/`                           | shared   | `@gzclp/api-client` typed fetch wrapper                                                                   | TypeScript                                    | `pnpm run test:api-client`                                        |
@@ -42,23 +43,27 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Tooling
 
-| Path                              | Role                                                          |
-| --------------------------------- | ------------------------------------------------------------- |
-| `scripts/committer`               | bash helper to author Conventional Commit messages            |
-| `scripts/loadtest.js`             | k6 load test (smoke / load / stress)                          |
-| `lefthook.yml`                    | pre-commit (typecheck, lint, format) + pre-push (test, build) |
-| `tsconfig.base.json`              | shared TypeScript compiler options                            |
-| `.prettierrc` / `.prettierignore` | repo-wide formatting                                          |
+| Path                                     | Role                                                            |
+| ---------------------------------------- | --------------------------------------------------------------- |
+| `scripts/committer`                      | bash helper to author Conventional Commit messages              |
+| `scripts/bundle-api-function.mjs`        | generate/check `api/index.ts` from the independent source entry |
+| `scripts/loadtest.js`                    | k6 load test (smoke / load / stress)                            |
+| `.github/workflows/production-smoke.yml` | Post-deploy/daily production deep-link and action-header checks |
+| `lefthook.yml`                           | pre-commit (typecheck, lint, format) + pre-push (test, build)   |
+| `tsconfig.base.json`                     | shared TypeScript compiler options                              |
+| `.prettierrc` / `.prettierignore`        | repo-wide formatting                                            |
 
 ## Docs
 
-| Path                     | Role                                             |
-| ------------------------ | ------------------------------------------------ |
-| `docs/ARCHITECTURE.md`   | architectural overview (this layout's rationale) |
-| `docs/VERCEL_CUTOVER.md` | Vercel same-origin go-live runbook               |
-| `docs/llm-map.md`        | this file                                        |
-| `CLAUDE.md`              | auto-loaded agent context (live API + DB schema) |
-| `README.md`              | top-level entry point                            |
+| Path                                | Role                                                   |
+| ----------------------------------- | ------------------------------------------------------ |
+| `docs/ARCHITECTURE.md`              | architectural overview (this layout's rationale)       |
+| `docs/VERCEL_CUTOVER.md`            | Vercel same-origin go-live runbook                     |
+| `docs/SUPPLY_CHAIN_SECURITY.md`     | Dependency, immutable CI input, and secret-scan policy |
+| `docs/DATABASE_SECURITY_ROLLOUT.md` | Deferred DB contracts and accepted RLS risk            |
+| `docs/llm-map.md`                   | this file                                              |
+| `CLAUDE.md`                         | auto-loaded agent context (live API + DB schema)       |
+| `README.md`                         | top-level entry point                                  |
 
 ## Quick "where do I look for…"
 

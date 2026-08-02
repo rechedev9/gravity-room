@@ -24,14 +24,14 @@ export function computeSummaryPerExercise(
 ): Map<string, ExerciseSummaryPayload> {
   const bySlot = new Map<string, WorkoutRecord[]>();
   for (const r of records) {
-    const slot = bySlot.get(r.slotId) ?? [];
+    const slot = bySlot.get(r.exerciseId) ?? [];
     slot.push(r);
-    bySlot.set(r.slotId, slot);
+    bySlot.set(r.exerciseId, slot);
   }
 
   const result = new Map<string, ExerciseSummaryPayload>();
-  for (const [slotId, slotRecords] of bySlot) {
-    result.set(slotId, summarise(slotRecords));
+  for (const [exerciseId, exerciseRecords] of bySlot) {
+    result.set(exerciseId, summarise(exerciseRecords));
   }
   return result;
 }

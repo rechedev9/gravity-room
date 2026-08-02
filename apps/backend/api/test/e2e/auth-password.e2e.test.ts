@@ -30,6 +30,7 @@ import {
   createPasswordResetToken,
   consumePasswordResetToken,
   resetPasswordWithToken,
+  createAuthSession,
   createAndStoreRefreshToken,
   hashToken,
   rotateRefreshToken,
@@ -236,6 +237,68 @@ describe('email/password (integration)', () => {
     expect(
       await getDb().select().from(refreshTokens).where(eq(refreshTokens.userId, user.id))
     ).toHaveLength(0);
+  });
+
+  it('cannot issue an old-password session across a concurrent password reset', async () => {
+    const user = await createPasswordUser({
+      email: 'issuance-reset-race@example.com',
+      passwordHash: await hashPassword('old-password-1'),
+    });
+    const resetToken = await createPasswordResetToken(user.id);
+    const newPasswordHash = await hashPassword('new-password-2');
+
+    const [issuance, reset] = await Promise.allSettled([
+      createAuthSession(user.id, user.authVersion),
+      resetPasswordWithToken(resetToken, newPasswordHash),
+    ]);
+
+    expect(reset.status).toBe('fulfilled');
+    if (reset.status === 'fulfilled') expect(reset.value).toBe(user.id);
+    if (issuance.status === 'rejected') {
+      expect(issuance.reason).toMatchObject({ code: 'AUTH_SESSION_CHANGED' });
+    }
+    expect(
+      await getDb().select().from(refreshTokens).where(eq(refreshTokens.userId, user.id))
+    ).toHaveLength(0);
+  });
+
+  it('retains consumed ancestors and revokes on replay after multiple rotations', async () => {
+    const user = await createPasswordUser({
+      email: 'family-replay@example.com',
+      passwordHash: await hashPassword('old-password-1'),
+    });
+    const tokenA = await createAndStoreRefreshToken(user.id);
+    const rotationB = await rotateRefreshToken(await hashToken(tokenA));
+    expect(rotationB.status).toBe('rotated');
+    if (rotationB.status !== 'rotated') return;
+
+    const rotationC = await rotateRefreshToken(await hashToken(rotationB.refreshToken));
+    expect(rotationC.status).toBe('rotated');
+    if (rotationC.status !== 'rotated') return;
+
+    const replay = await rotateRefreshToken(await hashToken(tokenA));
+    expect(replay).toMatchObject({ status: 'reused', userId: user.id });
+    expect(
+      await getDb().select().from(refreshTokens).where(eq(refreshTokens.userId, user.id))
+    ).toHaveLength(0);
+    const [updated] = await getDb().select().from(users).where(eq(users.id, user.id));
+    expect(updated?.authVersion).toBe(user.authVersion + 1);
+  });
+
+  it('allows one benign concurrent retry while the immediate successor is active', async () => {
+    const user = await createPasswordUser({
+      email: 'family-concurrent@example.com',
+      passwordHash: await hashPassword('old-password-1'),
+    });
+    const tokenA = await createAndStoreRefreshToken(user.id);
+    expect((await rotateRefreshToken(await hashToken(tokenA))).status).toBe('rotated');
+    expect(await rotateRefreshToken(await hashToken(tokenA))).toMatchObject({
+      status: 'concurrent',
+      userId: user.id,
+    });
+    expect(
+      await getDb().select().from(refreshTokens).where(eq(refreshTokens.userId, user.id))
+    ).toHaveLength(2);
   });
 
   it('cannot leave a rotated successor alive after all-session revocation wins the race', async () => {

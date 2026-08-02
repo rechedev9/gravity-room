@@ -11,6 +11,7 @@ process.env['LOG_LEVEL'] = 'silent';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ApiError } from '../middleware/error-handler';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import { programInstances } from '@gzclp/database/schema';
 
 // ---------------------------------------------------------------------------
 // Types for test fixtures
@@ -21,6 +22,8 @@ interface WorkoutResultRow {
   readonly instanceId: string;
   readonly workoutIndex: number;
   readonly slotId: string;
+  readonly exerciseId: string | null;
+  readonly definitionVersion: number | null;
   readonly result: 'success' | 'fail';
   readonly amrapReps: number | null;
   readonly rpe: number | null;
@@ -39,6 +42,8 @@ interface UndoEntryRow {
   readonly previousAmrapReps: number | null;
   readonly previousRpe: number | null;
   readonly previousSetLogs: unknown;
+  readonly previousExerciseId: string | null;
+  readonly previousDefinitionVersion: number | null;
   readonly createdAt: Date;
 }
 
@@ -54,6 +59,8 @@ function makeResultRow(overrides: Partial<WorkoutResultRow> = {}): WorkoutResult
     instanceId: 'inst-1',
     workoutIndex: 0,
     slotId: 't1',
+    exerciseId: null,
+    definitionVersion: null,
     result: 'success',
     amrapReps: null,
     rpe: null,
@@ -75,6 +82,8 @@ function makeUndoRow(overrides: Partial<UndoEntryRow> = {}): UndoEntryRow {
     previousAmrapReps: null,
     previousRpe: null,
     previousSetLogs: null,
+    previousExerciseId: null,
+    previousDefinitionVersion: null,
     createdAt: NOW,
     ...overrides,
   };
@@ -92,6 +101,8 @@ function makeUndoRow(overrides: Partial<UndoEntryRow> = {}): UndoEntryRow {
 let selectQueue: unknown[][] = [];
 let insertReturningResult: unknown[] = [];
 let deletedIds: string[] = [];
+let insertCalls = 0;
+let parentLockCalls = 0;
 let programDefinitionResult:
   | { readonly status: 'not_found' }
   | {
@@ -104,6 +115,7 @@ function chainable(result: unknown[]): Record<string, unknown> {
   obj['where'] = vi.fn(() => chainable(result));
   obj['orderBy'] = vi.fn(() => chainable(result));
   obj['offset'] = vi.fn(() => chainable(result));
+  obj['for'] = vi.fn(() => chainable(result));
   obj['limit'] = vi.fn(() => Promise.resolve(result.slice(0, 1)));
   obj['then'] = (fn: (val: unknown[]) => unknown, reject?: (err: unknown) => unknown): unknown => {
     try {
@@ -120,13 +132,16 @@ function createMockTx(): Record<string, unknown> {
   return {
     select: vi.fn(function select() {
       return {
-        from: vi.fn(function from() {
-          const result = selectQueue.shift() ?? [];
+        from: vi.fn(function from(table: unknown) {
+          if (table === programInstances) parentLockCalls += 1;
+          const result =
+            table === programInstances ? [{ id: 'inst-1' }] : (selectQueue.shift() ?? []);
           return chainable(result);
         }),
       };
     }),
     insert: vi.fn(function insert() {
+      insertCalls += 1;
       return {
         values: vi.fn(function values() {
           return {
@@ -210,7 +225,12 @@ vi.mock('../db', () => ({
 // without touching the DB queue (template/exercise lookups are out of scope
 // for these unit tests; syncCompletedAt no-ops on undefined).
 vi.mock('../services/catalog', () => ({
-  getProgramDefinition: () => Promise.resolve(programDefinitionResult),
+  getHistoricalProgramDefinition: () => Promise.resolve(programDefinitionResult),
+}));
+
+vi.mock('./data-quotas', () => ({
+  lockUserForDataMutation: async () => undefined,
+  assertUserDataQuotas: async () => undefined,
 }));
 
 // Must import AFTER mock.module
@@ -224,7 +244,9 @@ beforeEach(() => {
   selectQueue = [];
   insertReturningResult = [];
   deletedIds = [];
-  programDefinitionResult = { status: 'not_found' };
+  insertCalls = 0;
+  parentLockCalls = 0;
+  programDefinitionResult = { status: 'found', definition: TEST_DEFINITION };
   mockDb = createMockDb();
 });
 
@@ -463,6 +485,25 @@ describe('recordResult', () => {
     expect(result.amrapReps).toBe(5);
   });
 
+  it('treats an exact replay as a no-op without another undo entry', async () => {
+    const existing = makeResultRow({
+      exerciseId: 'squat',
+      definitionVersion: 1,
+      setLogs: [{ reps: 5, weight: 80 }],
+    });
+    selectQueue = [[{ templateId: 'test-program' }], [existing]];
+
+    const result = await recordResult('user-1', 'inst-1', {
+      workoutIndex: 0,
+      slotId: 't1',
+      result: 'success',
+      setLogs: [{ reps: 5, weight: 80 }],
+    });
+
+    expect(result).toEqual(existing);
+    expect(insertCalls).toBe(0);
+  });
+
   it('should record a result with setLogs and return them', async () => {
     const setLogs = [{ reps: 5 }, { reps: 5 }, { reps: 8 }];
     const row = makeResultRow({ setLogs });
@@ -671,6 +712,7 @@ describe('recordResult — transaction scope', () => {
     expect(callOrder.indexOf('touchInstanceTimestamp-called')).toBeLessThan(
       callOrder.indexOf('transaction-committed')
     );
+    expect(parentLockCalls).toBe(1);
   });
 });
 
@@ -695,6 +737,7 @@ describe('deleteResult — transaction scope', () => {
     expect(callOrder.indexOf('touchInstanceTimestamp-called')).toBeLessThan(
       callOrder.indexOf('transaction-committed')
     );
+    expect(parentLockCalls).toBe(1);
   });
 });
 
@@ -721,59 +764,27 @@ describe('undoLast — transaction scope', () => {
     expect(callOrder.indexOf('touchInstanceTimestamp-called')).toBeLessThan(
       callOrder.indexOf('transaction-committed')
     );
+    expect(parentLockCalls).toBe(1);
   });
 });
 
-// ---------------------------------------------------------------------------
-// Task 4.3 — syncCompletedAt signature change (REQ-AWP-001)
-// ---------------------------------------------------------------------------
+describe('historical definition validation', () => {
+  it.each([
+    [
+      'record',
+      () => recordResult('user-1', 'inst-1', { workoutIndex: 0, slotId: 't1', result: 'success' }),
+    ],
+    ['delete', () => deleteResult('user-1', 'inst-1', 0, 't1')],
+    ['undo', () => undoLast('user-1', 'inst-1')],
+  ] as const)('fails closed before mutation when %s cannot hydrate', async (_name, execute) => {
+    programDefinitionResult = { status: 'not_found' };
+    selectQueue = [[{ templateId: 'retired-program' }]];
 
-describe('syncCompletedAt — new signature', () => {
-  it('syncCompletedAt skips gracefully when expectedSlots is undefined (definition not found)', async () => {
-    // verifyInstanceOwnership returns templateId=undefined (not in catalog)
-    // This makes getExpectedSlotCount return undefined, which is passed to syncCompletedAt
-    const row = makeResultRow();
-    selectQueue = [[{ id: 'inst-1' }], []];
-    insertReturningResult = [row];
-
-    // Should not throw — syncCompletedAt receives undefined and skips
-    const result = await recordResult('user-1', 'inst-1', {
-      workoutIndex: 0,
-      slotId: 't1',
-      result: 'success',
+    await expect(execute()).rejects.toMatchObject({
+      statusCode: 409,
+      code: 'PROGRAM_DEFINITION_UNAVAILABLE',
     });
-
-    expect(result).toEqual(row);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Task 4.4 — deleteResult and undoLast pass slot count correctly (REQ-AWP-001)
-// ---------------------------------------------------------------------------
-
-describe('deleteResult — passes expectedSlots to syncCompletedAt', () => {
-  it('completes successfully when definition is not found (expectedSlots = undefined)', async () => {
-    const existingRow = makeResultRow();
-    // Queue: 1) verifyInstanceOwnership (no templateId), 2) existing result
-    selectQueue = [[{ id: 'inst-1' }], [existingRow]];
-
-    // Should not throw — getExpectedSlotCount returns undefined, syncCompletedAt skips
-    await deleteResult('user-1', 'inst-1', 0, 't1');
-
-    expect(deletedIds.length).toBeGreaterThan(0);
-  });
-});
-
-describe('undoLast — passes expectedSlots to syncCompletedAt', () => {
-  it('completes successfully when definition is not found (expectedSlots = undefined)', async () => {
-    const undoRow = makeUndoRow({ previousResult: 'fail' });
-    // Queue: 1) ownership pre-tx, 2) pre-tx peek for workoutIndex, 3) in-tx pop
-    selectQueue = [[{ id: 'inst-1' }], [undoRow], [undoRow]];
-    insertReturningResult = [];
-
-    // Should not throw — getExpectedSlotCount returns undefined, syncCompletedAt skips
-    const result = await undoLast('user-1', 'inst-1');
-
-    expect(result).toEqual(undoRow);
+    expect(insertCalls).toBe(0);
+    expect(deletedIds).toHaveLength(0);
   });
 });

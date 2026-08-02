@@ -1,7 +1,7 @@
 # Vercel cutover runbook
 
 This document is the exact manual procedure to take Gravity Room live on Vercel as one same-origin project.
-The migrated architecture is one Vercel project where the Vite/React PWA ships as static output and the ElysiaJS API runs as a Node serverless function at the root catch-all `api/[...path].ts`.
+The migrated architecture is one Vercel project where the Vite/React PWA ships as static output and the ElysiaJS API runs as a Node serverless function at the root catch-all `api/index.ts`.
 Read [`../.env.example`](../.env.example) for the full env template and [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the topology.
 Every step below is a manual, out-of-repo action unless it says otherwise.
 
@@ -11,23 +11,23 @@ The table below is the canonical list pulled from the API code (`apps/backend/ap
 Set each variable in the Vercel project under Settings then Environment Variables, scoping it to Production and Preview as noted.
 
 - `DATABASE_URL` is the Neon POOLED PgBouncer connection string (host contains `-pooler`), set per-environment so Preview points at a Neon branch and Production points at the primary branch.
-- `DIRECT_DATABASE_URL` is the Neon DIRECT (non-pooled) connection string for the same branch, used only by the build-time `db:deploy` migration step. It falls back to `DATABASE_URL` when unset.
+- `DIRECT_DATABASE_URL` is the Neon DIRECT (non-pooled) connection string for the same branch, used only by the build-time `db:deploy` migration step. It is mandatory for Production; the deploy fails before building or changing the database when it is unset. Only local/CI runs may fall back to `DATABASE_URL`.
 - `JWT_SECRET` is a long random string of at least 64 characters, generated once per environment (Production and Preview should differ).
 - `GOOGLE_CLIENT_ID` is the web Google OAuth client ID.
 - `GOOGLE_CLIENT_IDS` is the comma-separated list of Android, iOS, and web Google OAuth client IDs accepted by the mobile auth endpoints.
 - `UPSTASH_REDIS_REST_URL` is the Upstash database REST URL, and it is mandatory in Production (the API throws at cold start without it).
 - `UPSTASH_REDIS_REST_TOKEN` is the Upstash database REST token, and it is mandatory in Production alongside the URL.
-- `INTERNAL_SECRET` is a long random secret you generate, required in production, used as the Bearer token for manual operator calls to `/api/internal/*`.
-- `CRON_SECRET` is a long random secret you generate and is REQUIRED in production, because Vercel automatically sends it as `Authorization: Bearer <CRON_SECRET>` on every scheduled cron invocation and without it every cron run is rejected with 401.
+- `INTERNAL_SECRET` is required in production for manual `/api/internal/*` calls. Generate at least 32 random bytes (for example, `openssl rand -hex 32`); it must differ from `CRON_SECRET`.
+- `CRON_SECRET` is REQUIRED in production and must be a different value with at least 32 random bytes. Vercel sends it as `Authorization: Bearer <CRON_SECRET>` on scheduled cron invocations.
 - `CORS_ORIGIN` is left EMPTY because the SPA and API share an origin, so no cross-origin is allowed in Production.
 - `TRUSTED_PROXY` is auto-trusted on Vercel (the request logger treats the platform `VERCEL` env as a trusted proxy), so you normally leave it unset; set it to `true` only for non-Vercel self-hosting behind a reverse proxy.
 - `SENTRY_DSN` is optional and, when set, enables `@sentry/node` error and performance tracing.
 - `SENTRY_TRACES_SAMPLE_RATE` is optional and defaults to `0.1` when unset.
 - `LOG_LEVEL` is optional and defaults to `info` (one of debug, info, warn, error).
-- `ANALYTICS_BATCH_SIZE` is optional and defaults to `50` users processed per analytics compute cron tick.
+- `ANALYTICS_BATCH_SIZE` is optional, must be an integer from `1` to `100`, and defaults to `50` users per analytics compute tick.
 - `JWT_ACCESS_EXPIRY` is optional and defaults to `15m`.
 - `ADMIN_USER_IDS` is optional and holds comma-separated admin user UUIDs for program-definition approval.
-- `RESEND_API_KEY` and `EMAIL_FROM` are optional and, when both set, enable transactional email (verification, password reset); email/password sign-in fails closed in production without them.
+- `RESEND_API_KEY` and `EMAIL_FROM` are optional and, when both set, enable transactional email (verification, password reset); email/password sign-in fails closed in production without them. Never set local-only `LOG_AUTH_ACTION_LINKS=true` in Vercel.
 - `APPLE_CLIENT_ID`, `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`, and `MICROSOFT_CLIENT_ID`/`MICROSOFT_CLIENT_SECRET`/`MICROSOFT_TENANT_ID` are optional and enable the corresponding social sign-in methods.
 - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are optional and enable new-user alerts.
 - `VITE_API_URL` is a build-time web variable that must be empty for same-origin, and the build script (`scripts/vercel-build.sh`) already exports `VITE_API_URL=""` so you do not need to set it in the dashboard.
@@ -61,17 +61,20 @@ Leave `CORS_ORIGIN` empty in both environments and leave `TRUSTED_PROXY` unset (
 
 ## (d) Set CRON_SECRET so Vercel cron auth works
 
-Generate a long random value and set it as the `CRON_SECRET` environment variable on the Vercel project.
+Generate at least 32 random bytes (`openssl rand -hex 32`) and set the result as `CRON_SECRET`; generate a separate value for `INTERNAL_SECRET`.
 When `CRON_SECRET` is present Vercel automatically attaches `Authorization: Bearer <CRON_SECRET>` to every cron request, and the internal routes accept it.
 Without `CRON_SECRET` the two scheduled daily crons (`/api/internal/analytics/compute` and `/api/internal/maintenance`, the latter running token cleanup plus the soft-deleted-user purge) will receive 401 and silently fail.
 The internal-route guard fails closed, so if neither `CRON_SECRET` nor `INTERNAL_SECRET` is set every internal request is rejected.
 
-## (e) Run the first production deploy
+## (e) Gate and run the first production deploy
 
-Trigger a Production deploy from the Vercel dashboard or run `vercel --prod` from the repo root.
-The build runs `scripts/vercel-build.sh`, which on `VERCEL_ENV=production` runs `pnpm --filter api db:deploy` to apply the Drizzle migrations and the idempotent reference-data seeds against `DIRECT_DATABASE_URL`, then regenerates the sitemap and builds the SPA with `VITE_API_URL=""`. Vercel does not need a preinstalled browser: the build installs the exact Chromium revision pinned by Playwright and runs the real-browser prerender. Every sitemap route is shipped both as a clean-URL `.html` file and a directory index, including the mounted body and route-owned JSON-LD. A prerender failure fails the deployment instead of silently publishing the generic SPA shell.
-The deploy step is idempotent and safe to re-run, and it is skipped on Preview and local builds (which point at the Neon branch).
-After the deploy finishes, confirm the function and static output are live and that `GET /api/health` returns `status: ok` with a healthy `db` block.
+Before enabling Vercel production deployment, complete the external controls in step (h). The repository cannot configure GitHub rulesets or Vercel project access settings: `main` must reject direct/force pushes and require the `Validate` check before merge. This is the promotion gate that prevents Vercel from seeing an unvalidated production commit.
+
+Trigger a Production deploy from the Vercel dashboard or let the protected merge to `main` trigger the Git integration. `scripts/vercel-build.sh` validates the production environment and Vercel routing, bundles the API, builds the SPA, and completes its Chromium prerender **before** applying production DDL. Only after those artifacts pass does it run `pnpm --filter api db:deploy` against the required `DIRECT_DATABASE_URL`. The deploy script holds a PostgreSQL advisory lock across migrations and idempotent reference seeds, so concurrent production builds serialize.
+
+Vercel does not expose a transactional hook spanning database migration, artifact upload, and production promotion. A platform failure after `db:deploy` can therefore leave the expanded schema ahead of the previous live app. Every production schema change must use expand/contract compatibility: deploy additive/backward-compatible DDL first, deploy code that can use both shapes, and remove old structures only in a later independently validated deploy. Review destructive generated SQL explicitly and take the provider-appropriate backup/restore precaution before approval.
+
+Preview and local builds skip the production database deploy. After production promotion, run `PRODUCTION_URL=https://gravityroom.app pnpm run security:production-routes`, then confirm cheap public liveness with `GET /api/health`. Probe dependencies separately with authenticated `GET /api/internal/readiness` and verify healthy `db` and `redis` blocks. `.github/workflows/production-smoke.yml` repeats the route/header check after successful Vercel Production deployment events, on demand, and daily.
 
 ## (f) Register the Vercel domain with Google OAuth
 
@@ -86,17 +89,24 @@ Edit the mobile env so `EXPO_PUBLIC_API_URL` is the real production Vercel domai
 Rebuild and resubmit the Expo app (for example with an EAS build) so the new API base URL is baked into the binary.
 Mobile already passes refresh tokens in the request body, so no cookie or CORS change is needed on the client.
 
-## (h) Update GitHub branch protection required checks
+## (h) Configure the external production promotion gate
 
-The CI workflow `.github/workflows/ci.yml` now exposes the job names `Web`, `API`, `Domain`, `API client`, `Mobile`, `Format`, `Security headers`, `Exercise-wiki citation gate`, and `OpenAPI client drift`.
-In the GitHub repository settings open Branches, edit the protection rule for `main`, and set the required status checks to those job names.
-Remove any stale required checks left over from the deleted Railway, VPS deploy (`deploy.yml`), and `validate.yml` workflows so a merge is not blocked on checks that no longer run.
+The CI workflow exposes one aggregate required check named `Validate`; it depends on build/type/lint/test jobs, DB-backed API security tests, immutable-action secret scanning, deployment-config checks, and the production dependency policy.
+
+This protection cannot be encoded in repository files. In GitHub Settings → Rules → Rulesets (or the branch-protection rule), protect `main` as follows:
+
+1. Require a pull request and require branches to be up to date before merging.
+2. Require the single `Validate` status check.
+3. Block direct pushes and force pushes, including for administrators unless using a documented break-glass procedure.
+4. Remove stale Railway/VPS/old-workflow checks.
+
+In Vercel Settings → Git, verify that only the protected `main` branch is the Production Branch and restrict manual production deployments to trusted maintainers. Do not configure an unprotected branch as production. After changing either GitHub or Vercel settings, merge a harmless PR and confirm Vercel does not begin a production build until the required PR check has passed.
 
 ## (i) Verification checklist
 
 Confirm a full sign-in and token-refresh round-trip by signing in with Google on the web app, letting an access token expire (or forcing a 401), and confirming the first-party refresh cookie drives a silent `/api/auth/refresh` back to a working session.
-Confirm deep-link refresh by reloading the app on a deep route (for example a program detail URL) and confirming the SPA rewrite serves `index.html` and the session refreshes without a hard sign-out.
-Confirm an internal cron route is guarded by calling `GET /api/internal/cleanup-tokens` with no `Authorization` header and observing a 401, then calling it again with `Authorization: Bearer <INTERNAL_SECRET>` and observing a success body.
+Run `PRODUCTION_URL=https://gravityroom.app pnpm run security:production-routes` (or dispatch `Production route smoke`). It requires HTTP 200 plus HTML for supported deep links and `Referrer-Policy: no-referrer` on `/reset-password` and `/verify-email`. Also reload an authenticated program detail URL and confirm the session refreshes without a hard sign-out.
+Confirm `GET /api/health` returns public liveness without dependency diagnostics. Confirm deep readiness is guarded by calling `GET /api/internal/readiness` without authorization and observing 401, then with `Authorization: Bearer <INTERNAL_SECRET>` and observing healthy `db`/`redis` blocks. Confirm another internal route such as `GET /api/internal/cleanup-tokens` is guarded the same way.
 Confirm the scheduled crons authenticate by checking the Vercel cron logs show 200 responses for `analytics/compute` and `maintenance` after their first scheduled runs.
 Confirm the pull-based metrics endpoint is gone by requesting `GET /metrics` and observing a 404, since prom-client and the scrape endpoint were deleted in favor of Sentry plus pino logs.
 Confirm analytics compute works end to end by invoking `/api/internal/analytics/compute` with the secret and reading the upserted insights back via `GET /api/insights`.

@@ -128,6 +128,36 @@ export function resolveResponseStatus(
 /** Regex for validating a client-supplied x-request-id before trusting it. */
 const REQ_ID_RE = /^[\w-]{8,64}$/;
 
+/** Parse a request pathname without letting malformed/early gateway URLs break logging. */
+export function safeRequestPath(rawUrl: string): string {
+  try {
+    return new URL(rawUrl, 'http://localhost').pathname;
+  } catch {
+    return '/<invalid-url>';
+  }
+}
+
+function validRequestId(value: unknown): value is string {
+  return typeof value === 'string' && REQ_ID_RE.test(value);
+}
+
+function earlyResponse(
+  responseValue: unknown,
+  status: number | string,
+  setHeaders: Readonly<Record<string, string | number>>
+): Response {
+  if (responseValue instanceof Response) return responseValue;
+
+  const headers = new Headers();
+  for (const [name, value] of Object.entries(setHeaders)) headers.set(name, String(value));
+  if (!headers.has('content-type')) headers.set('content-type', 'application/json; charset=utf-8');
+  const numericStatus = typeof status === 'number' ? status : Number(status);
+  return new Response(JSON.stringify(responseValue ?? null), {
+    status: Number.isInteger(numericStatus) ? numericStatus : 500,
+    headers,
+  });
+}
+
 export const requestLogger = new Elysia({ name: 'request-logger' })
   .derive(
     { as: 'global' },
@@ -135,10 +165,10 @@ export const requestLogger = new Elysia({ name: 'request-logger' })
       const rawReqId = request.headers.get('x-request-id');
       const reqId = rawReqId && REQ_ID_RE.test(rawReqId) ? rawReqId : randomUUID();
       const method = request.method;
-      // Base required: the Vercel Node runtime passes a path-only request.url, and
-      // `new URL(path)` with no base throws. The base host is ignored for pathname
-      // (and when request.url is already absolute in local dev / tests).
-      const url = new URL(request.url, 'http://localhost').pathname;
+      // Base required: the Vercel Node runtime passes a path-only request.url. The
+      // helper also fails closed to a stable placeholder if an early adapter hands
+      // us a malformed URL, because observability must never become the error source.
+      const url = safeRequestPath(request.url);
       // Untrusted (no socket address in a serverless runtime): report 'unknown'
       // rather than a client-controlled value. On Vercel the real client IP comes
       // from the platform-controlled `x-vercel-forwarded-for` header (not the
@@ -154,8 +184,31 @@ export const requestLogger = new Elysia({ name: 'request-logger' })
       return { reqId, reqLogger, startMs, ip };
     }
   )
-  .mapResponse({ as: 'global' }, ({ reqId, reqLogger, startMs, set, responseValue }): void => {
+  .mapResponse({ as: 'global' }, ({ reqId, reqLogger, startMs, set, responseValue, request }) => {
+    // Elysia can reach mapResponse for unmatched or very-early failures before
+    // derive() populated its context. Never assume those fields exist: the old
+    // unconditional reqLogger.info() turned otherwise harmless 404s into failed
+    // Vercel invocations.
+    const hasDerivedContext = validRequestId(reqId) && reqLogger !== undefined;
+    const responseReqId = validRequestId(reqId) ? reqId : randomUUID();
+    const responseLogger =
+      reqLogger ??
+      logger.child({
+        reqId: responseReqId,
+        method: request.method,
+        url: safeRequestPath(request.url),
+        ip: deriveClientIp(request.headers, {
+          onVercel: ON_VERCEL,
+          trustedProxy: TRUSTED_PROXY,
+        }),
+      });
     const status = resolveResponseStatus(responseValue, set.status);
-    set.headers['x-request-id'] = reqId;
-    reqLogger.info({ status, latencyMs: Date.now() - startMs }, 'request completed');
+    const latencyMs = typeof startMs === 'number' ? Date.now() - startMs : undefined;
+    set.headers['x-request-id'] = responseReqId;
+    responseLogger.info({ status, latencyMs }, 'request completed');
+
+    // On early/unmatched paths Elysia may interpret an empty mapResponse return
+    // as an empty replacement body. Materialize the response explicitly there;
+    // normal routed requests retain Elysia's original response pipeline.
+    if (!hasDerivedContext) return earlyResponse(responseValue, status, set.headers);
   });

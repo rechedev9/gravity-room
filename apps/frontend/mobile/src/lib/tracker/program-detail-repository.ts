@@ -5,7 +5,7 @@ import {
   type ProgramDefinition,
 } from '@gzclp/domain';
 
-import { bootstrapDatabase, getDatabase } from '../db/client';
+import { bootstrapDatabase, getDatabase, requireActiveLocalDataOwner } from '../db/client';
 
 type ProgramDetailRow = {
   readonly id: string;
@@ -21,17 +21,19 @@ type ProgramDefinitionRow = {
 };
 
 export async function upsertProgramDetail(detail: GenericProgramDetail): Promise<void> {
+  const ownerId = requireActiveLocalDataOwner();
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   await database.withExclusiveTransactionAsync(async (transaction) => {
     await transaction.runAsync(
-      `INSERT INTO program_details (id, program_id, detail_json, updated_at)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
+      `INSERT INTO program_details (owner_user_id, id, program_id, detail_json, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(owner_user_id, id) DO UPDATE SET
          program_id = excluded.program_id,
          detail_json = excluded.detail_json,
          updated_at = excluded.updated_at`,
+      ownerId,
       detail.id,
       detail.programId,
       JSON.stringify(detail),
@@ -43,11 +45,14 @@ export async function upsertProgramDetail(detail: GenericProgramDetail): Promise
 export async function getProgramDetail(
   programInstanceId: string
 ): Promise<GenericProgramDetail | null> {
+  const ownerId = requireActiveLocalDataOwner();
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   const rows = await database.getAllAsync<ProgramDetailRow>(
-    `SELECT id, program_id, detail_json, updated_at FROM program_details WHERE id = ?`,
+    `SELECT id, program_id, detail_json, updated_at FROM program_details
+     WHERE owner_user_id = ? AND id = ?`,
+    ownerId,
     programInstanceId
   );
   const row = rows[0];
@@ -59,16 +64,18 @@ export async function getProgramDetail(
 }
 
 export async function upsertProgramDefinition(definition: ProgramDefinition): Promise<void> {
+  const ownerId = requireActiveLocalDataOwner();
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   await database.withExclusiveTransactionAsync(async (transaction) => {
     await transaction.runAsync(
-      `INSERT INTO program_definitions (id, definition_json, updated_at)
-       VALUES (?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
+      `INSERT INTO program_definitions (owner_user_id, id, definition_json, updated_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(owner_user_id, id) DO UPDATE SET
          definition_json = excluded.definition_json,
          updated_at = excluded.updated_at`,
+      ownerId,
       definition.id,
       JSON.stringify(definition),
       new Date().toISOString()
@@ -77,11 +84,14 @@ export async function upsertProgramDefinition(definition: ProgramDefinition): Pr
 }
 
 export async function getProgramDefinition(programId: string): Promise<ProgramDefinition | null> {
+  const ownerId = requireActiveLocalDataOwner();
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   const rows = await database.getAllAsync<ProgramDefinitionRow>(
-    `SELECT id, definition_json, updated_at FROM program_definitions WHERE id = ?`,
+    `SELECT id, definition_json, updated_at FROM program_definitions
+     WHERE owner_user_id = ? AND id = ?`,
+    ownerId,
     programId
   );
   const row = rows[0];

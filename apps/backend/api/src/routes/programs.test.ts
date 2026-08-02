@@ -10,20 +10,34 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // Mocks — must be called BEFORE importing the tested module
 // ---------------------------------------------------------------------------
 
-const { mockRateLimit, mockGetInstances, mockCreateInstance, mockImportInstance } = vi.hoisted(
-  () => {
-    const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
-    const mockGetInstances = vi.fn(() => Promise.resolve({ data: [], nextCursor: null }));
-    const mockCreateInstance = vi.fn(() => Promise.resolve({ id: 'new-id' }));
-    const mockImportInstance = vi.fn(() => Promise.resolve({ id: 'imported-id' }));
-    return {
-      mockRateLimit,
-      mockGetInstances,
-      mockCreateInstance,
-      mockImportInstance,
-    };
-  }
-);
+const {
+  mockRateLimit,
+  mockGetInstances,
+  mockCreateInstance,
+  mockUpdateInstance,
+  mockUpdateInstanceMetadata,
+  mockDeleteInstance,
+  mockImportInstance,
+} = vi.hoisted(() => {
+  const mockRateLimit = vi.fn<
+    (key: string, endpoint: string, options?: Record<string, unknown>) => Promise<void>
+  >(() => Promise.resolve());
+  const mockGetInstances = vi.fn(() => Promise.resolve({ data: [], nextCursor: null }));
+  const mockCreateInstance = vi.fn(() => Promise.resolve({ id: 'new-id' }));
+  const mockUpdateInstance = vi.fn(() => Promise.resolve({ id: 'inst-id' }));
+  const mockUpdateInstanceMetadata = vi.fn(() => Promise.resolve({ id: 'inst-id' }));
+  const mockDeleteInstance = vi.fn(() => Promise.resolve());
+  const mockImportInstance = vi.fn(() => Promise.resolve({ id: 'imported-id' }));
+  return {
+    mockRateLimit,
+    mockGetInstances,
+    mockCreateInstance,
+    mockUpdateInstance,
+    mockUpdateInstanceMetadata,
+    mockDeleteInstance,
+    mockImportInstance,
+  };
+});
 
 vi.mock('../middleware/rate-limit', () => ({
   rateLimit: mockRateLimit,
@@ -37,9 +51,9 @@ vi.mock('../services/programs', () => ({
   getInstances: mockGetInstances,
   createInstance: mockCreateInstance,
   getInstance: vi.fn(() => Promise.resolve({ id: 'inst-id' })),
-  updateInstance: vi.fn(() => Promise.resolve({ id: 'inst-id' })),
-  updateInstanceMetadata: vi.fn(() => Promise.resolve({ id: 'inst-id' })),
-  deleteInstance: vi.fn(() => Promise.resolve()),
+  updateInstance: mockUpdateInstance,
+  updateInstanceMetadata: mockUpdateInstanceMetadata,
+  deleteInstance: mockDeleteInstance,
   exportInstance: vi.fn(() => Promise.resolve({})),
   importInstance: mockImportInstance,
 }));
@@ -96,6 +110,21 @@ async function makeValidJwt(userId: string): Promise<string> {
   return `${signingInput}.${Buffer.from(sig).toString('base64url')}`;
 }
 
+function mutate(
+  method: 'PATCH' | 'DELETE',
+  path: string,
+  body: unknown,
+  headers?: Record<string, string>
+): Promise<Response> {
+  return testApp.handle(
+    new Request(`http://localhost${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json', ...headers },
+      ...(method === 'PATCH' ? { body: JSON.stringify(body) } : {}),
+    })
+  );
+}
+
 function post(path: string, body: unknown, headers?: Record<string, string>): Promise<Response> {
   return testApp.handle(
     new Request(`http://localhost${path}`, {
@@ -105,6 +134,11 @@ function post(path: string, body: unknown, headers?: Record<string, string>): Pr
     })
   );
 }
+
+beforeEach(() => {
+  mockRateLimit.mockReset();
+  mockRateLimit.mockImplementation(() => Promise.resolve());
+});
 
 // ---------------------------------------------------------------------------
 // Auth guard tests
@@ -139,6 +173,126 @@ describe('POST /programs without auth', () => {
       { Authorization: 'Bearer not-a-real-jwt' }
     );
     expect(res.status).toBe(401);
+  });
+});
+
+describe('program mutation rate-limit availability', () => {
+  beforeEach(() => {
+    mockRateLimit.mockReset();
+    mockRateLimit.mockImplementation(() => Promise.resolve());
+    mockCreateInstance.mockClear();
+    mockUpdateInstance.mockClear();
+    mockUpdateInstanceMetadata.mockClear();
+    mockDeleteInstance.mockClear();
+    mockImportInstance.mockClear();
+  });
+
+  it('returns 503 before starting a create transaction when Redis fails', async () => {
+    mockRateLimit.mockRejectedValueOnce(
+      new ApiError(503, 'Rate limiter unavailable', 'RATE_LIMIT_UNAVAILABLE')
+    );
+    const token = await makeValidJwt('user-1');
+
+    const res = await post(
+      '/programs',
+      { programId: 'gzclp', name: 'Test', config: {} },
+      { Authorization: `Bearer ${token}` }
+    );
+
+    expect(res.status).toBe(503);
+    expect(mockCreateInstance).not.toHaveBeenCalled();
+    expect(mockRateLimit).toHaveBeenCalledWith('user-1', 'POST /programs', {
+      failClosed: true,
+    });
+  });
+
+  it.each([
+    {
+      name: 'program update',
+      endpoint: 'PATCH /programs',
+      request: (token: string) =>
+        mutate(
+          'PATCH',
+          '/programs/00000000-0000-4000-8000-000000000001',
+          { name: 'Updated' },
+          {
+            Authorization: `Bearer ${token}`,
+          }
+        ),
+    },
+    {
+      name: 'metadata update',
+      endpoint: 'PATCH /programs/metadata',
+      request: (token: string) =>
+        mutate(
+          'PATCH',
+          '/programs/00000000-0000-4000-8000-000000000001/metadata',
+          { metadata: { source: 'test' } },
+          { Authorization: `Bearer ${token}` }
+        ),
+    },
+    {
+      name: 'program deletion',
+      endpoint: 'DELETE /programs',
+      request: (token: string) =>
+        mutate('DELETE', '/programs/00000000-0000-4000-8000-000000000001', undefined, {
+          Authorization: `Bearer ${token}`,
+        }),
+    },
+  ])('returns 503 before $name service work when Redis fails', async ({ endpoint, request }) => {
+    mockRateLimit.mockRejectedValueOnce(
+      new ApiError(503, 'Rate limiter unavailable', 'RATE_LIMIT_UNAVAILABLE')
+    );
+
+    const res = await request(await makeValidJwt('user-1'));
+
+    expect(res.status).toBe(503);
+    expect(mockRateLimit).toHaveBeenCalledWith('user-1', endpoint, { failClosed: true });
+    expect(mockUpdateInstance).not.toHaveBeenCalled();
+    expect(mockUpdateInstanceMetadata).not.toHaveBeenCalled();
+    expect(mockDeleteInstance).not.toHaveBeenCalled();
+  });
+
+  it('applies request, hourly-row, and daily-byte fail-closed budgets before import', async () => {
+    const token = await makeValidJwt('user-1');
+    const payload = {
+      ...VALID_IMPORT_PAYLOAD,
+      results: { '0': { t1: { result: 'success' }, t2: { result: 'fail' } } },
+      undoHistory: [{ i: 0, slotId: 't1', prev: 'fail' as const }],
+    };
+
+    const res = await post('/programs/import', payload, {
+      Authorization: `Bearer ${token}`,
+    });
+
+    expect(res.status).toBe(201);
+    expect(mockRateLimit).toHaveBeenCalledTimes(3);
+    expect(mockRateLimit).toHaveBeenCalledWith(
+      'user-1',
+      'POST /programs/import:rows-hourly',
+      expect.objectContaining({ cost: 3, failClosed: true, windowMs: 3_600_000 })
+    );
+    expect(mockRateLimit).toHaveBeenCalledWith(
+      'user-1',
+      'POST /programs/import:bytes-daily',
+      expect.objectContaining({ cost: expect.any(Number), failClosed: true, windowMs: 86_400_000 })
+    );
+  });
+
+  it('returns 503 before starting an import transaction when any budget backend fails', async () => {
+    mockRateLimit.mockImplementation((_key, endpoint) =>
+      endpoint.endsWith(':rows-hourly')
+        ? Promise.reject(new ApiError(503, 'Rate limiter unavailable', 'RATE_LIMIT_UNAVAILABLE'))
+        : Promise.resolve()
+    );
+    const token = await makeValidJwt('user-1');
+
+    const res = await post('/programs/import', VALID_IMPORT_PAYLOAD, {
+      Authorization: `Bearer ${token}`,
+    });
+
+    expect(res.status).toBe(503);
+    expect(mockImportInstance).not.toHaveBeenCalled();
   });
 });
 

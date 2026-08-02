@@ -9,7 +9,8 @@
  *   2. Goose-to-Drizzle bridge + hotfix DDL for databases migrated from the Go API.
  *   3. Idempotent reference-data seeds.
  *
- * Every step is idempotent, so the whole script is safe to run twice.
+ * Every step is idempotent, and a session-level PostgreSQL advisory lock
+ * serializes the complete migration + seed sequence across concurrent deploys.
  */
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
@@ -26,17 +27,38 @@ import { logger } from '../lib/logger';
 /**
  * Resolve the direct (non-pooled) connection string for build-time DDL + seeds.
  *
- * Order: an explicit `DIRECT_DATABASE_URL`, then the Neon/Vercel integration's
- * auto-provisioned `DATABASE_URL_UNPOOLED` (its unpooled endpoint), then
- * `DATABASE_URL` for local dev where only one endpoint is configured. The
- * pooled (PgBouncer) endpoint is the last resort because DDL should not run
- * through transaction pooling.
+ * Production deliberately requires the explicitly managed
+ * `DIRECT_DATABASE_URL`; silently falling back to the request-time PgBouncer URL
+ * makes DDL behavior dependent on provider integration details. Local and CI
+ * environments may fall back to an unpooled integration URL or DATABASE_URL.
  */
 function resolveDirectDatabaseUrl(): string | undefined {
+  const directUrl = process.env['DIRECT_DATABASE_URL']?.trim();
+  if (process.env['VERCEL_ENV'] === 'production') {
+    if (!directUrl) {
+      throw new Error('DIRECT_DATABASE_URL is required for production database deploys');
+    }
+
+    let parsed: URL;
+    try {
+      parsed = new URL(directUrl);
+    } catch {
+      throw new Error('DIRECT_DATABASE_URL must be a valid PostgreSQL URL');
+    }
+    if (
+      parsed.hostname.toLowerCase().includes('-pooler') ||
+      parsed.searchParams.get('pgbouncer')?.toLowerCase() === 'true'
+    ) {
+      throw new Error('DIRECT_DATABASE_URL must not point at a pooled/PgBouncer endpoint');
+    }
+    return directUrl;
+  }
+
   return (
-    process.env['DIRECT_DATABASE_URL'] ??
-    process.env['DATABASE_URL_UNPOOLED'] ??
-    process.env['DATABASE_URL']
+    directUrl ||
+    process.env['DATABASE_URL_UNPOOLED']?.trim() ||
+    process.env['DATABASE_URL']?.trim() ||
+    undefined
   );
 }
 
@@ -65,22 +87,7 @@ function resolveSsl(url: string): 'require' | false {
 // Database migrations — DDL must run serially against the direct endpoint
 // ---------------------------------------------------------------------------
 
-async function runMigrations(): Promise<void> {
-  // DDL runs against the direct (non-pooled) endpoint. Prefers an explicit
-  // DIRECT_DATABASE_URL, then the Neon/Vercel integration's auto-provisioned
-  // DATABASE_URL_UNPOOLED (the unpooled endpoint), then DATABASE_URL for local
-  // dev where only one endpoint is configured.
-  const url = resolveDirectDatabaseUrl();
-  if (!url) {
-    throw new Error(
-      'DIRECT_DATABASE_URL, DATABASE_URL_UNPOOLED, or DATABASE_URL environment variable is required'
-    );
-  }
-
-  // Single-connection client for migrations (DDL must run serially). TLS is
-  // forced for managed/remote endpoints (Neon/Vercel) regardless of NODE_ENV.
-  const ssl = resolveSsl(url);
-  const migrationClient = postgres(url, { max: 1, ssl });
+async function runMigrations(migrationClient: postgres.Sql): Promise<void> {
   const migrationDb = drizzle(migrationClient);
   const migrationsFolder = MIGRATIONS_DIR;
 
@@ -198,7 +205,6 @@ async function runMigrations(): Promise<void> {
 
   logger.info({ migrationsFolder }, 'running database migrations');
   await migrate(migrationDb, { migrationsFolder });
-  await migrationClient.end();
   logger.info('database migrations complete');
 }
 
@@ -206,37 +212,54 @@ async function runMigrations(): Promise<void> {
 // Reference data seeds — idempotent, safe to run on every deploy
 // ---------------------------------------------------------------------------
 
-async function runSeeds(): Promise<void> {
-  // Seeds run against the SAME direct (non-pooled) endpoint as the migrations, not
-  // the pooled endpoint getDb() resolves from DATABASE_URL. This keeps the deploy
-  // script on its direct-endpoint contract (see resolveDirectDatabaseUrl).
+async function runSeeds(client: postgres.Sql): Promise<void> {
+  const db = drizzle(client, { schema });
+
+  logger.info('running reference data seeds');
+  await seedMuscleGroups(db);
+  await seedExercises(db);
+  await seedExercisesExpanded(db);
+  await seedProgramTemplates(db);
+  logger.info('reference data seeds complete');
+}
+
+// Two signed int32 keys form a project-specific advisory-lock namespace. The
+// lock is session-scoped, so PostgreSQL releases it automatically if a build is
+// interrupted and the direct connection closes.
+const MIGRATION_LOCK_NAMESPACE = 718_242;
+const MIGRATION_LOCK_KEY = 20_260_802;
+
+async function main(): Promise<void> {
   const url = resolveDirectDatabaseUrl();
   if (!url) {
     throw new Error(
       'DIRECT_DATABASE_URL, DATABASE_URL_UNPOOLED, or DATABASE_URL environment variable is required'
     );
   }
-  // TLS mirrors runMigrations(): forced for managed/remote endpoints (see resolveSsl).
-  const ssl = resolveSsl(url);
-  const seedClient = postgres(url, { max: 1, ssl });
-  const db = drizzle(seedClient, { schema });
 
+  const client = postgres(url, { max: 1, ssl: resolveSsl(url) });
+  let lockAcquired = false;
   try {
-    logger.info('running reference data seeds');
-    await seedMuscleGroups(db);
-    await seedExercises(db);
-    await seedExercisesExpanded(db);
-    await seedProgramTemplates(db);
+    logger.info('waiting for database deploy advisory lock');
+    await client`SELECT pg_advisory_lock(
+      ${MIGRATION_LOCK_NAMESPACE}::integer,
+      ${MIGRATION_LOCK_KEY}::integer
+    )`;
+    lockAcquired = true;
+    logger.info('database deploy advisory lock acquired');
 
-    logger.info('reference data seeds complete');
+    await runMigrations(client);
+    await runSeeds(client);
   } finally {
-    await seedClient.end();
+    if (lockAcquired) {
+      await client`SELECT pg_advisory_unlock(
+        ${MIGRATION_LOCK_NAMESPACE}::integer,
+        ${MIGRATION_LOCK_KEY}::integer
+      )`;
+      logger.info('database deploy advisory lock released');
+    }
+    await client.end();
   }
-}
-
-async function main(): Promise<void> {
-  await runMigrations();
-  await runSeeds();
 }
 
 main()

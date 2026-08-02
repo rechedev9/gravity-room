@@ -70,6 +70,24 @@ function errorResult(err: unknown): ActionResult {
 
 type AuthContextValue = AuthState & AuthActions;
 
+/** Stable for one authenticated lifecycle; access-token rotation does not change it. */
+export interface AuthSessionIdentity {
+  readonly userId: string;
+  readonly sessionId: string;
+}
+
+let activeAuthSessionIdentity: AuthSessionIdentity | null = null;
+let nextAuthSessionId = 0;
+
+function beginAuthSession(userId: string): void {
+  nextAuthSessionId += 1;
+  activeAuthSessionIdentity = { userId, sessionId: `auth-session-${nextAuthSessionId}` };
+}
+
+export function getAuthSessionIdentity(): AuthSessionIdentity | null {
+  return activeAuthSessionIdentity;
+}
+
 // ---------------------------------------------------------------------------
 // Session query key
 // ---------------------------------------------------------------------------
@@ -90,6 +108,7 @@ const DEV_AUTH_SECRET = import.meta.env.VITE_DEV_AUTH_SECRET ?? 'e2e-dev-secret-
 async function restoreSession(): Promise<UserInfo | null> {
   const refreshed = await refreshAccessToken();
   if (!refreshed) {
+    activeAuthSessionIdentity = null;
     return null;
   }
   try {
@@ -97,12 +116,14 @@ async function restoreSession(): Promise<UserInfo | null> {
     // restores the session in one round-trip. Fall back to GET /auth/me only if
     // the payload is missing/unexpected (e.g. an older API without the field).
     const user = parseUserSafe(refreshed.user) ?? (await fetchMe());
-    sentrySetUser({ id: user.id, email: user.email });
+    beginAuthSession(user.id);
+    sentrySetUser({ id: user.id });
     return user;
   } catch (err: unknown) {
     // Never leave a valid-looking access token behind when its user payload
     // cannot be restored. Auth state and API credentials must move together.
     setAccessToken(null);
+    activeAuthSessionIdentity = null;
     await clearApiResponseCache();
     console.warn(
       '[auth] Session restore failed:',
@@ -128,16 +149,18 @@ function applySignInResponse(
   const userInfo = parseUserSafe(data.user);
   if (!userInfo) {
     setAccessToken(null);
+    activeAuthSessionIdentity = null;
     return { message: 'Unexpected response from server' };
   }
 
   setAccessToken(data.accessToken);
+  beginAuthSession(userInfo.id);
   // A successful sign-in starts a new refresh-token lifecycle. A previous
   // successful sign-out deliberately blocked refresh rotation, so release
   // that block before this account's access token can expire.
   resumeAuthRefresh();
   setQueryData(userInfo);
-  sentrySetUser({ id: userInfo.id, email: userInfo.email });
+  sentrySetUser({ id: userInfo.id });
   if (options.trackSignup) trackEvent('signup');
   return null;
 }
@@ -156,6 +179,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
  */
 async function clearAuthenticatedClientState(queryClient: QueryClient): Promise<void> {
   setAccessToken(null);
+  activeAuthSessionIdentity = null;
   try {
     await queryClient.cancelQueries();
   } catch (err: unknown) {

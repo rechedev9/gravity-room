@@ -2,7 +2,6 @@ import { captureException, flushSentry } from './lib/sentry';
 import { keepAlive } from './lib/wait-until';
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
-import { sql } from 'drizzle-orm';
 import { ApiError } from './middleware/error-handler';
 import { requestLogger } from './middleware/request-logger';
 import { swaggerPlugin } from './plugins/swagger';
@@ -14,8 +13,6 @@ import { resultRoutes } from './routes/results';
 import { statsRoutes } from './routes/stats';
 import { insightsRoutes } from './routes/insights';
 import { internalRoutes } from './routes/internal';
-import { getDb } from './db';
-import { getRedis } from './lib/redis';
 import { logger } from './lib/logger';
 import { formatValidationError, validateEnv } from './lib/env-validation';
 
@@ -84,6 +81,7 @@ function shouldDisableHttpCache(request: Request): boolean {
   // — and is ignored when request.url is already absolute (local dev / tests).
   const url = new URL(request.url, 'http://localhost');
   if (url.pathname.startsWith('/api/auth/')) return true;
+  if (url.pathname.startsWith('/api/internal/')) return true;
   if (request.headers.has('authorization')) return true;
   return false;
 }
@@ -230,67 +228,24 @@ export function createApp(options: CreateAppOptions) {
         .use(statsRoutes)
         .use(insightsRoutes)
         .use(internalRoutes)
-        // Health lives UNDER /api (GET /api/health) so it is reachable on Vercel,
-        // where only /api/* hits the function and every other path rewrites to
-        // index.html. Stateless probe: a live DB SELECT plus an Upstash ping,
-        // returning 503 only when the database is unreachable.
+        // Public liveness stays deliberately cheap so Vercel monitoring can keep
+        // probing the established URL without amplifying unauthenticated traffic
+        // into Postgres and Redis. Operators use the secret-guarded
+        // GET /api/internal/readiness route for the deep dependency probe.
         .get(
           '/health',
-          async ({ set }) => {
-            type RedisStatus =
-              | { status: 'ok'; latencyMs: number }
-              | { status: 'disabled' }
-              | { status: 'error'; error: string };
-
-            const checkDatabase = async (): Promise<
-              { status: 'ok'; latencyMs: number } | { status: 'error'; error: string }
-            > => {
-              const start = Date.now();
-              try {
-                await getDb().execute(sql`SELECT 1`);
-                return { status: 'ok', latencyMs: Date.now() - start };
-              } catch (e) {
-                logger.error({ err: e }, 'Database health check failed');
-                return { status: 'error', error: 'Unavailable' };
-              }
-            };
-
-            const checkRedis = async (): Promise<RedisStatus> => {
-              const redis = getRedis();
-              if (!redis) return { status: 'disabled' };
-              const start = Date.now();
-              try {
-                await redis.ping();
-                return { status: 'ok', latencyMs: Date.now() - start };
-              } catch (e) {
-                logger.error({ err: e }, 'Redis health check failed');
-                return { status: 'error', error: 'Unavailable' };
-              }
-            };
-
-            // The probes are independent; total latency should be the slower
-            // dependency, not the sum of both network round trips.
-            const [dbStatus, redisStatus] = await Promise.all([checkDatabase(), checkRedis()]);
-
-            const overall = dbStatus.status === 'ok' ? 'ok' : 'degraded';
-            if (overall === 'degraded') set.status = 503;
-            set.headers['cache-control'] = 'no-store';
-            return {
-              status: overall,
-              timestamp: new Date().toISOString(),
-              db: dbStatus,
-              redis: redisStatus,
-            };
+          ({ set }) => {
+            set.headers['cache-control'] = 'public, max-age=0, s-maxage=10';
+            return { status: 'ok', timestamp: new Date().toISOString() };
           },
           {
             detail: {
               tags: ['System'],
-              summary: 'Health check',
+              summary: 'Public liveness check',
               description:
-                'Stateless probe running a live database SELECT and an Upstash ping. Returns 503 only when the database is unreachable.',
+                'Cheap in-memory liveness check. Use the protected internal readiness route to probe Postgres and Redis.',
               responses: {
-                200: { description: 'Server and database are healthy' },
-                503: { description: 'Database unreachable' },
+                200: { description: 'API process is alive' },
               },
             },
           }

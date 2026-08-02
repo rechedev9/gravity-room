@@ -24,12 +24,13 @@ function fail(message: string): never {
 const vercel: { headers?: VercelHeaderRule[] } = JSON.parse(readFileSync('vercel.json', 'utf8'));
 const rules = vercel.headers ?? [];
 
-// Flatten every key -> value the SPA security-headers rules set.
+// Validate the baseline SPA rule independently from route-specific overrides
+// such as the stricter no-referrer policy on account-action URLs.
+const spaRule = rules.find((rule) => rule.source === '/((?!api/).*)');
+if (!spaRule) fail('baseline non-API SPA header rule is missing');
 const headers = new Map<string, string>();
-for (const rule of rules) {
-  for (const header of rule.headers ?? []) {
-    headers.set(header.key, header.value);
-  }
+for (const header of spaRule.headers ?? []) {
+  headers.set(header.key, header.value);
 }
 
 const csp = headers.get('Content-Security-Policy');

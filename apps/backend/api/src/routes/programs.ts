@@ -17,13 +17,14 @@ import {
   type ExportedProgram,
 } from '../services/programs';
 import {
-  getCachedInstance,
+  getProgramCacheSnapshot,
   setCachedInstance,
   invalidateCachedInstance,
 } from '../lib/program-cache';
 import { SingleflightMap } from '../lib/singleflight';
 import { ApiError } from '../middleware/error-handler';
 import { MAX_PROGRAM_CONFIG_KEYS } from '@gzclp/domain/schemas/instance';
+import { MAX_IMPORT_UNDO_ENTRIES } from '../lib/data-limits';
 
 // Singleflight: concurrent GETs for the same program instance share one DB fetch
 const instanceFlight = new SingleflightMap<unknown>();
@@ -37,6 +38,10 @@ const MAX_SET_LOG_ITEMS = 20;
 const PROGRAM_ID_PATTERN = '^[a-z0-9-]+$';
 const WORKOUT_INDEX_KEY_PATTERN = '^\\d{1,3}$';
 const WORKOUT_INDEX_KEY_REGEX = /^\d{1,3}$/;
+const MUTATION_RATE_LIMIT = { failClosed: true } as const;
+const IMPORT_REQUEST_RATE_LIMIT = { maxRequests: 5, windowMs: 60_000, failClosed: true } as const;
+const IMPORT_HOURLY_ROW_BUDGET = 10_000;
+const IMPORT_DAILY_KIB_BUDGET = 10 * 1024;
 
 const programConfigSchema = t.Record(
   t.String({ maxLength: 30 }),
@@ -64,6 +69,41 @@ const setLogsSchema = t.Array(
 );
 
 const security = [{ bearerAuth: [] }];
+
+function getImportRateLimitCosts(data: Pick<ExportedProgram, 'results' | 'undoHistory'>): {
+  readonly rows: number;
+  readonly kib: number;
+} {
+  let rows = data.undoHistory.length;
+  for (const slots of Object.values(data.results)) {
+    for (const result of Object.values(slots)) {
+      if (result.result !== undefined) rows += 1;
+    }
+  }
+  return {
+    rows: Math.max(1, rows),
+    kib: Math.max(1, Math.ceil(new TextEncoder().encode(JSON.stringify(data)).byteLength / 1024)),
+  };
+}
+
+async function applyImportRateLimits(userId: string, body: ExportedProgram): Promise<void> {
+  const cost = getImportRateLimitCosts(body);
+  await Promise.all([
+    rateLimit(userId, 'POST /programs/import', IMPORT_REQUEST_RATE_LIMIT),
+    rateLimit(userId, 'POST /programs/import:rows-hourly', {
+      windowMs: 60 * 60_000,
+      maxRequests: IMPORT_HOURLY_ROW_BUDGET,
+      cost: cost.rows,
+      failClosed: true,
+    }),
+    rateLimit(userId, 'POST /programs/import:bytes-daily', {
+      windowMs: 24 * 60 * 60_000,
+      maxRequests: IMPORT_DAILY_KIB_BUDGET,
+      cost: cost.kib,
+      failClosed: true,
+    }),
+  ]);
+}
 
 function assertImportPayloadKeysInBounds(
   data: Pick<ExportedProgram, 'results' | 'undoHistory'>
@@ -125,7 +165,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
     '/',
     async ({ userId, body, set, reqLogger }) => {
       reqLogger.info({ event: 'program.create', userId }, 'creating program instance');
-      await rateLimit(userId, 'POST /programs');
+      await rateLimit(userId, 'POST /programs', MUTATION_RATE_LIMIT);
       const instance = await createInstance(userId, body.programId, body.name, body.config);
       set.status = 201;
       return instance;
@@ -157,15 +197,16 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
     '/:id',
     async ({ userId, params }) => {
       await rateLimit(userId, 'GET /programs/:id', { maxRequests: 100 });
-      const cached = await getCachedInstance(userId, params.id);
-      if (cached) return cached;
+      const snapshot = await getProgramCacheSnapshot(userId, params.id);
+      if (snapshot.value) return snapshot.value;
 
-      // Singleflight: concurrent GETs for the same instance share one DB fetch
-      return instanceFlight.run(`${userId}:${params.id}`, async () => {
-        const rechecked = await getCachedInstance(userId, params.id);
-        if (rechecked) return rechecked;
+      // A generation is part of the flight key: requests straddling a mutation
+      // never share a fetch or publish into the same readable cache generation.
+      return instanceFlight.run(`${userId}:${params.id}:g${snapshot.generation}`, async () => {
+        const rechecked = await getProgramCacheSnapshot(userId, params.id);
+        if (rechecked.value) return rechecked.value;
         const fresh = await getInstance(userId, params.id);
-        await setCachedInstance(userId, params.id, fresh);
+        await setCachedInstance(userId, params.id, fresh, rechecked.generation);
         return fresh;
       });
     },
@@ -198,7 +239,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         { event: 'program.update', userId, instanceId: params.id },
         'updating program instance'
       );
-      await rateLimit(userId, 'PATCH /programs');
+      await rateLimit(userId, 'PATCH /programs', MUTATION_RATE_LIMIT);
       const result = await updateInstance(userId, params.id, body);
       await invalidateCachedInstance(userId, params.id);
       return result;
@@ -240,7 +281,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         { event: 'program.updateMetadata', userId, instanceId: params.id },
         'updating program metadata'
       );
-      await rateLimit(userId, 'PATCH /programs/metadata');
+      await rateLimit(userId, 'PATCH /programs/metadata', MUTATION_RATE_LIMIT);
       const result = await updateInstanceMetadata(userId, params.id, body.metadata);
       await invalidateCachedInstance(userId, params.id);
       return result;
@@ -281,7 +322,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         { event: 'program.delete', userId, instanceId: params.id },
         'deleting program instance'
       );
-      await rateLimit(userId, 'DELETE /programs');
+      await rateLimit(userId, 'DELETE /programs', MUTATION_RATE_LIMIT);
       await deleteInstance(userId, params.id);
       await invalidateCachedInstance(userId, params.id);
       set.status = 204;
@@ -342,7 +383,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
     async ({ userId, body, set, reqLogger }) => {
       assertImportPayloadKeysInBounds(body);
       reqLogger.info({ event: 'program.import', userId }, 'importing program instance');
-      await rateLimit(userId, 'POST /programs/import');
+      await applyImportRateLimits(userId, body);
       const instance = await importInstance(userId, body);
       set.status = 201;
       return instance;
@@ -381,7 +422,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
             prevAmrapReps: t.Optional(t.Integer({ minimum: 0, maximum: MAX_AMRAP_REPS })),
             prevSetLogs: t.Optional(setLogsSchema),
           }),
-          { maxItems: 500 }
+          { maxItems: MAX_IMPORT_UNDO_ENTRIES }
         ),
         completedDates: t.Optional(
           t.Record(workoutIndexKeySchema, t.String({ format: 'date-time' }), {

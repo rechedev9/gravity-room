@@ -75,6 +75,8 @@
     "session_note": "Your mobile session is stored securely on this device.",
     "sign_out": "Sign out",
     "signing_out": "Signing out...",
+    "retry_sign_out": "Retry sign out",
+    "sign_out_error": "Secure sign-out could not be completed. Your session is still shown so you can retry.",
     "sign_out_accessibility": "Sign out of Gravity Room"
   },
   "tracker": {

@@ -7,6 +7,7 @@ import { isRecord } from '@gzclp/domain/type-guards';
 import { buildGoogleCalendarUrl } from '@/lib/calendar';
 
 interface UseWebMcpOptions {
+  readonly enabled: boolean;
   readonly config: Record<string, number | string> | null;
   readonly rows: readonly GenericWorkoutRow[];
   readonly definition?: ProgramDefinition;
@@ -43,6 +44,27 @@ function isValidIndex(value: unknown, totalWorkouts: number): value is number {
   );
 }
 
+function isToolResponse(value: unknown): value is ModelContextToolResponse {
+  if (!isRecord(value) || !Array.isArray(value.content)) return false;
+  return value.content.every(
+    (block) => isRecord(block) && block.type === 'text' && typeof block.text === 'string'
+  );
+}
+
+async function requireUserInteraction(
+  client: ModelContextClient,
+  action: () => Promise<ModelContextToolResponse>
+): Promise<ModelContextToolResponse> {
+  try {
+    const response = await client.requestUserInteraction(action);
+    return isToolResponse(response)
+      ? response
+      : errorResponse('The browser did not authorize this tool interaction.');
+  } catch {
+    return errorResponse('The user declined this tool interaction.');
+  }
+}
+
 /** Derive T1 exercise IDs from the definition. */
 function deriveT1Exercises(definition: ProgramDefinition): readonly string[] {
   const ids = new Set<string>();
@@ -55,6 +77,7 @@ function deriveT1Exercises(definition: ProgramDefinition): readonly string[] {
 }
 
 const NO_PROGRAM = 'No program initialized. Use initializeProgram first.';
+const ACCESS_DISABLED = 'AI assistant access is disabled for this session.';
 
 // ---------------------------------------------------------------------------
 // Tool name constants (used for registerTool / unregisterTool)
@@ -86,7 +109,7 @@ export function useWebMcp(options: UseWebMcpOptions): void {
   });
 
   useEffect(() => {
-    if (typeof navigator === 'undefined' || !navigator.modelContext) {
+    if (!options.enabled || typeof navigator === 'undefined' || !navigator.modelContext) {
       return;
     }
 
@@ -100,27 +123,33 @@ export function useWebMcp(options: UseWebMcpOptions): void {
         'Get the next incomplete workout. Returns the workout details including exercises, weights, sets, reps, and any partial results.',
       inputSchema: { type: 'object', properties: {} },
       annotations: { readOnlyHint: true },
-      execute: async (): Promise<ModelContextToolResponse> => {
-        const { rows, config } = stateRef.current;
-        if (!config) return errorResponse(NO_PROGRAM);
-        const current = findNextIncomplete(rows);
-        if (!current) {
-          return textResponse({ message: 'All workouts completed!', completed: true });
-        }
-        return textResponse({
-          index: current.index,
-          dayName: current.dayName,
-          slots: current.slots.map((s) => ({
-            slotId: s.slotId,
-            exercise: s.exerciseName,
-            tier: s.tier.toUpperCase(),
-            weight: s.weight,
-            sets: s.sets,
-            reps: s.reps,
-            stage: s.stage + 1,
-            isAmrap: s.isAmrap,
-            result: s.result ?? null,
-          })),
+      execute: async (
+        input: unknown,
+        client: ModelContextClient
+      ): Promise<ModelContextToolResponse> => {
+        if (!stateRef.current.enabled) return errorResponse(ACCESS_DISABLED);
+        if (!isRecord(input)) return errorResponse('Input must be an object.');
+        if (!stateRef.current.config) return errorResponse(NO_PROGRAM);
+        return requireUserInteraction(client, async () => {
+          const current = findNextIncomplete(stateRef.current.rows);
+          if (!current) {
+            return textResponse({ message: 'All workouts completed!', completed: true });
+          }
+          return textResponse({
+            index: current.index,
+            dayName: current.dayName,
+            slots: current.slots.map((s) => ({
+              slotId: s.slotId,
+              exercise: s.exerciseName,
+              tier: s.tier.toUpperCase(),
+              weight: s.weight,
+              sets: s.sets,
+              reps: s.reps,
+              stage: s.stage + 1,
+              isAmrap: s.isAmrap,
+              result: s.result ?? null,
+            })),
+          });
         });
       },
     });
@@ -137,41 +166,45 @@ export function useWebMcp(options: UseWebMcpOptions): void {
         },
       },
       annotations: { readOnlyHint: true },
-      execute: async (input: unknown): Promise<ModelContextToolResponse> => {
-        const { rows, config, totalWorkouts: tw } = stateRef.current;
+      execute: async (
+        input: unknown,
+        client: ModelContextClient
+      ): Promise<ModelContextToolResponse> => {
+        const { enabled, config, totalWorkouts: tw } = stateRef.current;
+        if (!enabled) return errorResponse(ACCESS_DISABLED);
         if (!config) return errorResponse(NO_PROGRAM);
+        if (!isRecord(input)) return errorResponse('Input must be an object.');
         let start = 0;
         let end = tw - 1;
-        if (isRecord(input)) {
-          if (input.startIndex !== undefined) {
-            if (!isValidIndex(input.startIndex, tw)) {
-              return errorResponse(`startIndex must be an integer between 0 and ${tw - 1}.`);
-            }
-            start = input.startIndex;
+        if (input.startIndex !== undefined) {
+          if (!isValidIndex(input.startIndex, tw)) {
+            return errorResponse(`startIndex must be an integer between 0 and ${tw - 1}.`);
           }
-          if (input.endIndex !== undefined) {
-            if (!isValidIndex(input.endIndex, tw)) {
-              return errorResponse(`endIndex must be an integer between 0 and ${tw - 1}.`);
-            }
-            end = input.endIndex;
+          start = input.startIndex;
+        }
+        if (input.endIndex !== undefined) {
+          if (!isValidIndex(input.endIndex, tw)) {
+            return errorResponse(`endIndex must be an integer between 0 and ${tw - 1}.`);
           }
+          end = input.endIndex;
         }
-        if (start > end) {
-          return errorResponse('startIndex must be <= endIndex.');
-        }
-        const slice = rows.slice(start, end + 1).map((r) => ({
-          index: r.index,
-          dayName: r.dayName,
-          slots: r.slots.map((s) => ({
-            slotId: s.slotId,
-            exercise: s.exerciseName,
-            tier: s.tier.toUpperCase(),
-            weight: s.weight,
-            stage: s.stage + 1,
-          })),
-          completed: r.slots.every((s) => s.result !== undefined),
-        }));
-        return textResponse(slice);
+        if (start > end) return errorResponse('startIndex must be <= endIndex.');
+
+        return requireUserInteraction(client, async () => {
+          const slice = stateRef.current.rows.slice(start, end + 1).map((r) => ({
+            index: r.index,
+            dayName: r.dayName,
+            slots: r.slots.map((s) => ({
+              slotId: s.slotId,
+              exercise: s.exerciseName,
+              tier: s.tier.toUpperCase(),
+              weight: s.weight,
+              stage: s.stage + 1,
+            })),
+            completed: r.slots.every((s) => s.result !== undefined),
+          }));
+          return textResponse(slice);
+        });
       },
     });
 
@@ -189,32 +222,41 @@ export function useWebMcp(options: UseWebMcpOptions): void {
         },
       },
       annotations: { readOnlyHint: true },
-      execute: async (input: unknown): Promise<ModelContextToolResponse> => {
-        const { config, definition: def, rows } = stateRef.current;
+      execute: async (
+        input: unknown,
+        client: ModelContextClient
+      ): Promise<ModelContextToolResponse> => {
+        const { enabled, config, definition: def } = stateRef.current;
+        if (!enabled) return errorResponse(ACCESS_DISABLED);
         if (!config) return errorResponse(NO_PROGRAM);
         if (!def) return errorResponse('Program definition not loaded yet.');
+        if (!isRecord(input)) return errorResponse('Input must be an object.');
         const t1Exercises = deriveT1Exercises(def);
-        const validExercises = new Set<string>(t1Exercises);
-        const chartData = extractGenericChartData(def, rows);
-        if (isRecord(input) && typeof input.exercise === 'string') {
-          const ex = input.exercise.toLowerCase();
-          if (!validExercises.has(ex)) {
+        let requestedExercise: string | undefined;
+        if (input.exercise !== undefined) {
+          if (typeof input.exercise !== 'string')
+            return errorResponse('exercise must be a string.');
+          requestedExercise = input.exercise.toLowerCase();
+          if (!new Set(t1Exercises).has(requestedExercise)) {
             return errorResponse(`Invalid exercise. Must be one of: ${t1Exercises.join(', ')}`);
           }
-          const points = chartData[ex];
-          if (!points) {
-            return errorResponse(`No data found for exercise: ${ex}`);
-          }
-          return textResponse({ [ex]: calculateStats(points) });
         }
-        const allStats: Record<string, ReturnType<typeof calculateStats>> = {};
-        for (const ex of t1Exercises) {
-          const points = chartData[ex];
-          if (points) {
-            allStats[ex] = calculateStats(points);
+
+        return requireUserInteraction(client, async () => {
+          const chartData = extractGenericChartData(def, stateRef.current.rows);
+          if (requestedExercise !== undefined) {
+            const points = chartData[requestedExercise];
+            return points
+              ? textResponse({ [requestedExercise]: calculateStats(points) })
+              : errorResponse(`No data found for exercise: ${requestedExercise}`);
           }
-        }
-        return textResponse(allStats);
+          const allStats: Record<string, ReturnType<typeof calculateStats>> = {};
+          for (const exercise of t1Exercises) {
+            const points = chartData[exercise];
+            if (points) allStats[exercise] = calculateStats(points);
+          }
+          return textResponse(allStats);
+        });
       },
     });
 
@@ -224,16 +266,23 @@ export function useWebMcp(options: UseWebMcpOptions): void {
         'Get overall program progress: total workouts, completed count, percentage, and next workout index.',
       inputSchema: { type: 'object', properties: {} },
       annotations: { readOnlyHint: true },
-      execute: async (): Promise<ModelContextToolResponse> => {
-        const { rows, config, totalWorkouts: tw } = stateRef.current;
-        if (!config) return errorResponse(NO_PROGRAM);
-        const completed = rows.filter((r) => r.slots.every((s) => s.result !== undefined)).length;
-        const next = findNextIncomplete(rows);
-        return textResponse({
-          total: tw,
-          completed,
-          percentage: tw > 0 ? Math.round((completed / tw) * 100) : 0,
-          nextWorkoutIndex: next ? next.index : null,
+      execute: async (
+        input: unknown,
+        client: ModelContextClient
+      ): Promise<ModelContextToolResponse> => {
+        if (!stateRef.current.enabled) return errorResponse(ACCESS_DISABLED);
+        if (!isRecord(input)) return errorResponse('Input must be an object.');
+        if (!stateRef.current.config) return errorResponse(NO_PROGRAM);
+        return requireUserInteraction(client, async () => {
+          const { rows, totalWorkouts: tw } = stateRef.current;
+          const completed = rows.filter((r) => r.slots.every((s) => s.result !== undefined)).length;
+          const next = findNextIncomplete(rows);
+          return textResponse({
+            total: tw,
+            completed,
+            percentage: tw > 0 ? Math.round((completed / tw) * 100) : 0,
+            nextWorkoutIndex: next ? next.index : null,
+          });
         });
       },
     });
@@ -257,7 +306,11 @@ export function useWebMcp(options: UseWebMcpOptions): void {
         },
         required: ['index', 'slotId', 'result'],
       },
-      execute: async (input: unknown): Promise<ModelContextToolResponse> => {
+      execute: async (
+        input: unknown,
+        client: ModelContextClient
+      ): Promise<ModelContextToolResponse> => {
+        if (!stateRef.current.enabled) return errorResponse(ACCESS_DISABLED);
         if (!stateRef.current.config) return errorResponse(NO_PROGRAM);
         if (!isRecord(input)) {
           return errorResponse('Input must be an object with index, slotId, and result.');
@@ -282,7 +335,6 @@ export function useWebMcp(options: UseWebMcpOptions): void {
         if (!isResultValue(result)) {
           return errorResponse('result must be "success" or "fail".');
         }
-        stateRef.current.markResult(index, slotId, result);
         if (amrapReps !== undefined) {
           if (
             typeof amrapReps !== 'number' ||
@@ -292,12 +344,16 @@ export function useWebMcp(options: UseWebMcpOptions): void {
           ) {
             return errorResponse('amrapReps must be an integer between 0 and 999.');
           }
-          if (!slot.isAmrap) {
-            return errorResponse(`Slot ${slotId} is not an AMRAP slot.`);
-          }
-          stateRef.current.setAmrapReps(index, slotId, amrapReps);
+          if (!slot.isAmrap) return errorResponse(`Slot ${slotId} is not an AMRAP slot.`);
         }
-        return textResponse({ logged: { index, slotId, result, amrapReps: amrapReps ?? null } });
+
+        return requireUserInteraction(client, async () => {
+          stateRef.current.markResult(index, slotId, result);
+          if (amrapReps !== undefined) {
+            stateRef.current.setAmrapReps(index, slotId, amrapReps);
+          }
+          return textResponse({ logged: { index, slotId, result, amrapReps: amrapReps ?? null } });
+        });
       },
     });
 
@@ -305,10 +361,17 @@ export function useWebMcp(options: UseWebMcpOptions): void {
       name: 'undoLastResult',
       description: 'Undo the most recent result change.',
       inputSchema: { type: 'object', properties: {} },
-      execute: async (): Promise<ModelContextToolResponse> => {
+      execute: async (
+        input: unknown,
+        client: ModelContextClient
+      ): Promise<ModelContextToolResponse> => {
+        if (!stateRef.current.enabled) return errorResponse(ACCESS_DISABLED);
+        if (!isRecord(input)) return errorResponse('Input must be an object.');
         if (!stateRef.current.config) return errorResponse(NO_PROGRAM);
-        stateRef.current.undoLast();
-        return textResponse({ undone: true });
+        return requireUserInteraction(client, async () => {
+          stateRef.current.undoLast();
+          return textResponse({ undone: true });
+        });
       },
     });
 
@@ -320,7 +383,11 @@ export function useWebMcp(options: UseWebMcpOptions): void {
         type: 'object',
         properties: {},
       },
-      execute: async (input: unknown): Promise<ModelContextToolResponse> => {
+      execute: async (
+        input: unknown,
+        client: ModelContextClient
+      ): Promise<ModelContextToolResponse> => {
+        if (!stateRef.current.enabled) return errorResponse(ACCESS_DISABLED);
         if (stateRef.current.config) {
           return errorResponse('Program already initialized. Cannot re-initialize.');
         }
@@ -337,20 +404,23 @@ export function useWebMcp(options: UseWebMcpOptions): void {
         for (const field of def.configFields) {
           const val = input[field.key];
           if (field.type === 'weight') {
-            if (typeof val !== 'number' || val < field.min) {
+            if (typeof val !== 'number' || !Number.isFinite(val) || val < field.min) {
               return errorResponse(`${field.key} must be a number >= ${field.min}.`);
             }
             validated[field.key] = val;
           } else {
-            // select field: accept string or number
-            if (typeof val !== 'string' && typeof val !== 'number') {
-              return errorResponse(`${field.key} must be a string or number.`);
+            if (typeof val !== 'string' || !field.options.some((option) => option.value === val)) {
+              return errorResponse(
+                `${field.key} must be one of: ${field.options.map((option) => option.value).join(', ')}.`
+              );
             }
-            validated[field.key] = typeof val === 'number' ? String(val) : val;
+            validated[field.key] = val;
           }
         }
-        stateRef.current.generateProgram(validated);
-        return textResponse({ initialized: true, weights: validated });
+        return requireUserInteraction(client, async () => {
+          stateRef.current.generateProgram(validated);
+          return textResponse({ initialized: true, weights: validated });
+        });
       },
     });
 
@@ -380,55 +450,58 @@ export function useWebMcp(options: UseWebMcpOptions): void {
         },
       },
       annotations: { readOnlyHint: true },
-      execute: async (input: unknown): Promise<ModelContextToolResponse> => {
-        const { rows, config, totalWorkouts: tw, definition: def } = stateRef.current;
+      execute: async (
+        input: unknown,
+        client: ModelContextClient
+      ): Promise<ModelContextToolResponse> => {
+        const { enabled, rows, config, totalWorkouts: tw, definition: def } = stateRef.current;
+        if (!enabled) return errorResponse(ACCESS_DISABLED);
         if (!config) return errorResponse(NO_PROGRAM);
         if (!def) return errorResponse('Program definition not loaded yet.');
+        if (!isRecord(input)) return errorResponse('Input must be an object.');
 
         let workoutIndex: number | undefined;
         let date: string | undefined;
         let startHour: number | undefined;
         let durationMinutes: number | undefined;
 
-        if (isRecord(input)) {
-          if (input.workoutIndex !== undefined) {
-            if (!isValidIndex(input.workoutIndex, tw)) {
-              return errorResponse(`workoutIndex must be an integer between 0 and ${tw - 1}.`);
-            }
-            workoutIndex = input.workoutIndex;
+        if (input.workoutIndex !== undefined) {
+          if (!isValidIndex(input.workoutIndex, tw)) {
+            return errorResponse(`workoutIndex must be an integer between 0 and ${tw - 1}.`);
           }
-          if (input.date !== undefined) {
-            if (typeof input.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
-              return errorResponse('date must be a valid ISO date string (YYYY-MM-DD).');
-            }
-            const parsed = new Date(input.date + 'T00:00:00');
-            if (Number.isNaN(parsed.getTime())) {
-              return errorResponse('date must be a valid ISO date string (YYYY-MM-DD).');
-            }
-            date = input.date;
+          workoutIndex = input.workoutIndex;
+        }
+        if (input.date !== undefined) {
+          if (typeof input.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.date)) {
+            return errorResponse('date must be a valid ISO date string (YYYY-MM-DD).');
           }
-          if (input.startHour !== undefined) {
-            if (
-              typeof input.startHour !== 'number' ||
-              !Number.isInteger(input.startHour) ||
-              input.startHour < 0 ||
-              input.startHour > 23
-            ) {
-              return errorResponse('startHour must be an integer between 0 and 23.');
-            }
-            startHour = input.startHour;
+          const parsed = new Date(`${input.date}T00:00:00Z`);
+          if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== input.date) {
+            return errorResponse('date must be a valid ISO date string (YYYY-MM-DD).');
           }
-          if (input.durationMinutes !== undefined) {
-            if (
-              typeof input.durationMinutes !== 'number' ||
-              !Number.isInteger(input.durationMinutes) ||
-              input.durationMinutes < 1 ||
-              input.durationMinutes > 480
-            ) {
-              return errorResponse('durationMinutes must be an integer between 1 and 480.');
-            }
-            durationMinutes = input.durationMinutes;
+          date = input.date;
+        }
+        if (input.startHour !== undefined) {
+          if (
+            typeof input.startHour !== 'number' ||
+            !Number.isInteger(input.startHour) ||
+            input.startHour < 0 ||
+            input.startHour > 23
+          ) {
+            return errorResponse('startHour must be an integer between 0 and 23.');
           }
+          startHour = input.startHour;
+        }
+        if (input.durationMinutes !== undefined) {
+          if (
+            typeof input.durationMinutes !== 'number' ||
+            !Number.isInteger(input.durationMinutes) ||
+            input.durationMinutes < 1 ||
+            input.durationMinutes > 480
+          ) {
+            return errorResponse('durationMinutes must be an integer between 1 and 480.');
+          }
+          durationMinutes = input.durationMinutes;
         }
 
         if (workoutIndex === undefined) {
@@ -444,23 +517,25 @@ export function useWebMcp(options: UseWebMcpOptions): void {
           return errorResponse(`workoutIndex must be an integer between 0 and ${tw - 1}.`);
         }
 
-        const event = buildGoogleCalendarUrl(row, def, { date, startHour, durationMinutes, t });
-
-        return textResponse({
-          calendarUrl: event.calendarUrl,
-          title: event.title,
-          workoutIndex,
-          date: event.date,
-          startTime: event.startTime,
-          endTime: event.endTime,
+        return requireUserInteraction(client, async () => {
+          const event = buildGoogleCalendarUrl(row, def, { date, startHour, durationMinutes, t });
+          return textResponse({
+            calendarUrl: event.calendarUrl,
+            title: event.title,
+            workoutIndex,
+            date: event.date,
+            startTime: event.startTime,
+            endTime: event.endTime,
+          });
         });
       },
     });
 
     return (): void => {
+      stateRef.current = { ...stateRef.current, enabled: false };
       for (const name of TOOL_NAMES) {
         mc.unregisterTool(name);
       }
     };
-  }, []);
+  }, [options.enabled, t]);
 }

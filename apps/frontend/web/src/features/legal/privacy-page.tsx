@@ -68,6 +68,21 @@ export function PrivacyPage(): React.ReactNode {
 
           <section>
             <h2 className="text-base font-bold text-main mb-2">
+              {t('legal.privacy.service_providers.title')}
+            </h2>
+            <p>{t('legal.privacy.service_providers.intro')}</p>
+            <ul className="mt-3 list-disc space-y-2 pl-5">
+              <li>{t('legal.privacy.service_providers.plausible')}</li>
+              <li>{t('legal.privacy.service_providers.sentry')}</li>
+              <li>{t('legal.privacy.service_providers.telegram')}</li>
+              <li>{t('legal.privacy.service_providers.providers')}</li>
+              <li>{t('legal.privacy.service_providers.browser_ai')}</li>
+            </ul>
+            <p className="mt-3">{t('legal.privacy.service_providers.no_sale')}</p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-bold text-main mb-2">
               {t('legal.privacy.delete_data.title')}
             </h2>
             <p>

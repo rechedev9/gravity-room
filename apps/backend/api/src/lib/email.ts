@@ -2,8 +2,8 @@
  * Transactional email via Resend (HTTP API — no SDK, no SMTP server).
  *
  * Graceful fallback: when RESEND_API_KEY / EMAIL_FROM are unset the send is a
- * no-op that logs the intent. In non-production it also logs the action link so
- * local auth flows are completable without a Resend account. Mirrors the
+ * no-op that logs the intent with a masked recipient. Full action links are
+ * logged only through an explicit local-development opt-in. Mirrors the
  * fail-soft Telegram module — auth flows never block on email delivery.
  */
 import { logger } from './logger';
@@ -23,6 +23,27 @@ export function isEmailConfigured(): boolean {
   return Boolean(process.env['RESEND_API_KEY'] && process.env['EMAIL_FROM']);
 }
 
+/** Mask an address before it enters operational logs. */
+export function maskEmailAddress(address: string): string {
+  const separator = address.lastIndexOf('@');
+  if (separator <= 0 || separator === address.length - 1) return '[masked-email]';
+  const local = address.slice(0, separator);
+  const domain = address.slice(separator + 1);
+  const domainDot = domain.lastIndexOf('.');
+  const domainName = domainDot > 0 ? domain.slice(0, domainDot) : domain;
+  const suffix = domainDot > 0 ? domain.slice(domainDot) : '';
+  return `${local.charAt(0)}***@${domainName.charAt(0)}***${suffix}`;
+}
+
+/** Full bearer action links may only be logged by an explicit local opt-in. */
+export function shouldLogAuthActionLinks(env: NodeJS.ProcessEnv = process.env): boolean {
+  return (
+    env['LOG_AUTH_ACTION_LINKS'] === 'true' &&
+    env['NODE_ENV'] === 'development' &&
+    env['VERCEL'] !== '1'
+  );
+}
+
 /**
  * Sends one transactional email. Returns true when accepted by Resend, false
  * when skipped (unconfigured) or failed. Never throws.
@@ -33,7 +54,7 @@ export async function sendEmail(input: SendEmailInput): Promise<boolean> {
 
   if (!isEmailConfigured()) {
     logger.warn(
-      { to: input.to, subject: input.subject },
+      { recipient: maskEmailAddress(input.to), subject: input.subject },
       'email: RESEND_API_KEY/EMAIL_FROM unset — skipping send (no-op)'
     );
     return false;
@@ -54,20 +75,23 @@ export async function sendEmail(input: SendEmailInput): Promise<boolean> {
     });
 
     if (!res.ok) {
-      logger.warn({ status: res.status, to: input.to }, 'email: Resend returned non-2xx');
+      logger.warn(
+        { status: res.status, recipient: maskEmailAddress(input.to) },
+        'email: Resend returned non-2xx'
+      );
       return false;
     }
     return true;
   } catch (err: unknown) {
-    logger.warn({ err, to: input.to }, 'email: send failed');
+    logger.warn({ err, recipient: maskEmailAddress(input.to) }, 'email: send failed');
     return false;
   }
 }
 
-/** Logs the action link in non-production so local flows work without Resend. */
+/** Log a bearer action link only when a developer explicitly opted in locally. */
 function devLogLink(kind: string, link: string): void {
-  if (process.env['NODE_ENV'] !== 'production') {
-    logger.info({ kind, link }, `email[dev]: ${kind} link`);
+  if (shouldLogAuthActionLinks()) {
+    logger.info({ kind, link }, `email[local]: ${kind} link`);
   }
 }
 

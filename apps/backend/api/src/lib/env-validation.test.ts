@@ -5,9 +5,11 @@ function fullProdEnv(): Record<string, string> {
   const env: Record<string, string> = { NODE_ENV: 'production' };
   for (const spec of REQUIRED_ENV) {
     if (!spec.requiredInProd) continue;
-    // Use a 64-char value to satisfy JWT_SECRET min-length too.
+    // Use a 64-char value to satisfy signing/internal minimum lengths.
     env[spec.name] = 'x'.repeat(64);
   }
+  env['INTERNAL_SECRET'] = `internal-${'a'.repeat(55)}`;
+  env['CRON_SECRET'] = `cron-${'b'.repeat(59)}`;
   return env;
 }
 
@@ -82,6 +84,53 @@ describe('validateEnv', () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error('unreachable');
     expect(result.errors.some((e) => e.includes('JWT_SECRET'))).toBe(true);
+  });
+
+  it.each(['INTERNAL_SECRET', 'CRON_SECRET'])('flags a weak %s in production', (secretName) => {
+    const env = fullProdEnv();
+    env[secretName] = 'too-short';
+    const result = validateEnv(env, 'production');
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('unreachable');
+    expect(result.errors.some((error) => error.includes(secretName))).toBe(true);
+  });
+
+  it('requires INTERNAL_SECRET and CRON_SECRET to differ', () => {
+    const env = fullProdEnv();
+    env['CRON_SECRET'] = env['INTERNAL_SECRET'];
+    const result = validateEnv(env, 'production');
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('unreachable');
+    expect(result.errors).toContain(
+      'INTERNAL_SECRET and CRON_SECRET must be different values in production'
+    );
+  });
+
+  it.each(['0', '2.5', '101', 'not-a-number'])(
+    'rejects invalid ANALYTICS_BATCH_SIZE=%s in production',
+    (value) => {
+      const env = fullProdEnv();
+      env['ANALYTICS_BATCH_SIZE'] = value;
+      const result = validateEnv(env, 'production');
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error('unreachable');
+      expect(result.errors.some((error) => error.includes('ANALYTICS_BATCH_SIZE'))).toBe(true);
+    }
+  );
+
+  it.each(['1', '50', '100'])('accepts bounded ANALYTICS_BATCH_SIZE=%s', (value) => {
+    const env = fullProdEnv();
+    env['ANALYTICS_BATCH_SIZE'] = value;
+    expect(validateEnv(env, 'production')).toEqual({ ok: true });
+  });
+
+  it('rejects local action-link logging in production', () => {
+    const env = fullProdEnv();
+    env['LOG_AUTH_ACTION_LINKS'] = 'true';
+    const result = validateEnv(env, 'production');
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('unreachable');
+    expect(result.errors).toContain('LOG_AUTH_ACTION_LINKS must not be enabled in production');
   });
 
   it('flags non-integer PORT in production', () => {

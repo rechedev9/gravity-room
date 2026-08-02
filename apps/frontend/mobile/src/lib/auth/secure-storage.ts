@@ -5,6 +5,15 @@ const REFRESH_TOKEN_KEY = 'auth.refresh-token';
 const SESSION_KIND_KEY = 'auth.session-kind';
 const LOCAL_DATA_OWNER_KEY = 'auth.local-data-owner';
 
+/** Production Expo Web must use cookie-backed auth, never a JS-readable refresh token. */
+export function canPersistRefreshToken(platform: string, isDevelopment: boolean): boolean {
+  return platform !== 'web' || isDevelopment;
+}
+
+function refreshTokenPersistenceAllowed(): boolean {
+  return canPersistRefreshToken(Platform.OS, __DEV__);
+}
+
 export interface RefreshTokenStorage {
   getRefreshToken(): Promise<string | null>;
   setRefreshToken(token: string): Promise<void>;
@@ -46,6 +55,15 @@ export interface LocalDataOwnerStorage {
  */
 async function storageGet(key: string): Promise<string | null> {
   if (Platform.OS === 'web') {
+    if (key === REFRESH_TOKEN_KEY && !refreshTokenPersistenceAllowed()) {
+      // Do not revive a token left by an earlier dev/preview build.
+      try {
+        globalThis.localStorage?.removeItem(key);
+      } catch {
+        // Returning no credential remains fail closed even if cleanup is blocked.
+      }
+      return null;
+    }
     try {
       return globalThis.localStorage?.getItem(key) ?? null;
     } catch {
@@ -57,10 +75,17 @@ async function storageGet(key: string): Promise<string | null> {
 
 async function storageSet(key: string, value: string): Promise<void> {
   if (Platform.OS === 'web') {
+    if (key === REFRESH_TOKEN_KEY && !refreshTokenPersistenceAllowed()) {
+      throw new Error(
+        'Production Expo Web cannot persist refresh tokens; use cookie-backed authentication'
+      );
+    }
     try {
       globalThis.localStorage?.setItem(key, value);
-    } catch {
-      // Quota / private mode — session still works for the current tab via memory.
+    } catch (error: unknown) {
+      // Credential/owner state must not be reported as persisted when storage
+      // rejected it. Callers fail closed instead of publishing an unsafe session.
+      throw error;
     }
     return;
   }
@@ -74,11 +99,11 @@ async function storageSet(key: string, value: string): Promise<void> {
 
 async function storageDelete(key: string): Promise<void> {
   if (Platform.OS === 'web') {
-    try {
-      globalThis.localStorage?.removeItem(key);
-    } catch {
-      // ignore
-    }
+    const storage = globalThis.localStorage;
+    if (!storage) throw new Error('Web storage is unavailable');
+    // Deletion is part of the sign-out durability boundary. Propagate failures
+    // so callers retain the authenticated UI and offer a retry.
+    storage.removeItem(key);
     return;
   }
   await SecureStore.deleteItemAsync(key);

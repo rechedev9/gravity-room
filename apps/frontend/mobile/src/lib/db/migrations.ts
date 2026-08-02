@@ -23,15 +23,55 @@ export interface MigrationStep {
  * Add future schema changes as new steps with an incrementing `version`.
  * Never edit a step that has already shipped — append a new one instead.
  */
+const LEGACY_BASELINE_SQL = `
+  CREATE TABLE IF NOT EXISTS program_summaries (
+    id TEXT PRIMARY KEY NOT NULL,
+    title TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS queued_mutations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    operation TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS program_details (
+    id TEXT PRIMARY KEY NOT NULL,
+    program_id TEXT NOT NULL,
+    detail_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS program_definitions (
+    id TEXT PRIMARY KEY NOT NULL,
+    definition_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+`;
+
+/**
+ * Version 3 intentionally discards the legacy, unowned cache/outbox. There is
+ * no trustworthy way to infer which account owned those rows. Preserving them
+ * under the next account would recreate the cross-account disclosure this
+ * migration fixes. Server-backed cache rows can be re-fetched; unowned queued
+ * mutations must not be replayed with a different account's credentials.
+ */
+const OWNER_PARTITION_MIGRATION_SQL = `
+  DROP TABLE IF EXISTS queued_mutations;
+  DROP TABLE IF EXISTS program_details;
+  DROP TABLE IF EXISTS program_definitions;
+  DROP TABLE IF EXISTS program_summaries;
+  ${PROGRAM_SUMMARIES_TABLE_SQL}
+  ${QUEUED_MUTATIONS_TABLE_SQL}
+  ${PROGRAM_DETAILS_TABLE_SQL}
+  ${PROGRAM_DEFINITIONS_TABLE_SQL}
+`;
+
 export const MIGRATIONS: readonly MigrationStep[] = [
   {
     version: 1,
-    sql: [
-      PROGRAM_SUMMARIES_TABLE_SQL,
-      QUEUED_MUTATIONS_TABLE_SQL,
-      PROGRAM_DETAILS_TABLE_SQL,
-      PROGRAM_DEFINITIONS_TABLE_SQL,
-    ].join('\n'),
+    sql: LEGACY_BASELINE_SQL,
   },
   {
     version: 2,
@@ -40,5 +80,9 @@ export const MIGRATIONS: readonly MigrationStep[] = [
       CREATE INDEX queued_mutations_dedupe_key_idx
         ON queued_mutations (dedupe_key);
     `,
+  },
+  {
+    version: 3,
+    sql: OWNER_PARTITION_MIGRATION_SQL,
   },
 ];

@@ -57,8 +57,8 @@ registry is `apps/backend/api/src/lib/env-validation.ts` (the cold-start fail-fa
 **Required in production:**
 
 - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — Upstash Redis over REST (presence, caches, rate limiting). Mandatory in prod: the API throws at cold start if either is missing while `NODE_ENV=production`. Unset locally degrades gracefully (no-op / cache miss).
-- `INTERNAL_SECRET` — Bearer secret guarding the manual ops path of `/api/internal/*` (cleanup-tokens, purge-users, analytics/compute). The guard fails closed: with neither `INTERNAL_SECRET` nor `CRON_SECRET` set, every internal request is 401.
-- `CRON_SECRET` — injected by Vercel Cron; when set on the project, Vercel sends `Authorization: Bearer <CRON_SECRET>` on every scheduled invocation, which the internal routes accept. Crons get 401 without it. Value is set only in Vercel.
+- `INTERNAL_SECRET` — Bearer secret guarding manual `/api/internal/*` operations and deep readiness. Production requires at least 32 random characters; it must differ from `CRON_SECRET`. Internal attempts are rate-limited and fail closed.
+- `CRON_SECRET` — injected by Vercel Cron; production requires at least 32 random characters distinct from `INTERNAL_SECRET`. Vercel sends it as `Authorization: Bearer <CRON_SECRET>` on scheduled invocations.
 
 **Build-time only:**
 
@@ -68,10 +68,10 @@ registry is `apps/backend/api/src/lib/env-validation.ts` (the cold-start fail-fa
 
 **Optional:**
 
-- `ANALYTICS_BATCH_SIZE` — users processed per analytics compute cron tick (default 50).
+- `ANALYTICS_BATCH_SIZE` — users processed per analytics compute cron tick (integer 1..100; default 50).
 - `SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE` (default 0.1), `LOG_LEVEL` (debug | info | warn | error). Pull-based metrics and `/metrics` were removed; observability is `@sentry/node` + pino JSON to Vercel log drains.
 - `ADMIN_USER_IDS` — comma-separated UUIDs of admins for program-definition approval.
-- `RESEND_API_KEY` + `EMAIL_FROM` — transactional email (verification, password reset).
+- `RESEND_API_KEY` + `EMAIL_FROM` — transactional email (verification, password reset). `LOG_AUTH_ACTION_LINKS=true` logs full action links only in explicit non-Vercel local development; never enable it in Preview/Production.
 - `APPLE_CLIENT_ID`, `GITHUB_CLIENT_ID`/`_SECRET`, `MICROSOFT_CLIENT_ID`/`_SECRET`/`_TENANT_ID` — enable the matching social sign-in methods.
 - `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` — new-user alerts.
 
@@ -135,13 +135,14 @@ Everything else — Postgres bootstrap (Windows/Linux), env files, the dev login
 - **`vercel.json`** pins `framework: null`, `installCommand: pnpm install`,
   `buildCommand: bash scripts/vercel-build.sh`, `outputDirectory:
 apps/frontend/web/dist`, the `api/index.ts` function (`maxDuration: 60`),
-  the SPA rewrite (everything except `/api/*` → `/index.html`), and the three
-  cron schedules.
-- **`scripts/vercel-build.sh`** runs `pnpm --filter api db:deploy` against
-  `DIRECT_DATABASE_URL` **only** when `VERCEL_ENV=production` (skipped on
-  preview/local Neon branches), regenerates the sitemap, then builds the SPA with
-  `VITE_API_URL=""` via the Chromium-free `build:no-prerender` path (Vercel's
-  build sandbox has no browser for the Playwright prerender).
+  cleanUrls-compatible SPA rewrite (everything except `/api/*` → `/`), and the
+  two cron schedules. Reset/verification routes override Referrer-Policy with
+  `no-referrer`.
+- **`scripts/vercel-build.sh`** validates config and builds/prerenders all artifacts
+  first. Only then, when `VERCEL_ENV=production`, it applies serialized migrations
+  and seeds against the required `DIRECT_DATABASE_URL`; preview/local skip DDL.
+  Production schema changes must remain expand/contract compatible because Vercel
+  has no transaction spanning DDL, artifact upload, and promotion.
 - **Data**: Neon Postgres (pooled `DATABASE_URL` at request time, direct
   `DIRECT_DATABASE_URL` for migrations) and Upstash Redis over REST.
 - **Cron**: Vercel Cron hits two daily routes — `/api/internal/analytics/compute` and
@@ -158,9 +159,11 @@ apps/frontend/web/dist`, the `api/index.ts` function (`maxDuration: 60`),
   (Production + Preview). A missing required var crashes the production function
   at cold start with one consolidated error from `validateEnv`.
 - **Migrations are build-time, not boot-time.** Schema changes only reach
-  production through `db:deploy` in `scripts/vercel-build.sh`; never add
-  boot-time DDL to `create-app.ts` (the function is invoked per-request and would
-  race). Use the direct (non-pooled) endpoint for DDL.
+  production through `db:deploy` at the end of `scripts/vercel-build.sh`; never
+  add boot-time DDL to `create-app.ts`. Production requires the direct endpoint,
+  and the deploy script holds a PostgreSQL advisory lock across migrations +
+  seeds. GitHub/Vercel promotion protection is an external setting documented in
+  `docs/VERCEL_CUTOVER.md`; repository code cannot enforce it.
 - **Same-origin assumptions.** Leave `CORS_ORIGIN` empty and `VITE_API_URL=""`
   so the SPA issues relative `/api` requests; setting either re-introduces a
   cross-origin split the catch-all does not need.
@@ -173,7 +176,7 @@ The following were removed in the Vercel migration and must not be reintroduced:
 
 - **The Python analytics service** (`apps/backend/analytics/`, FastAPI + scikit-learn + APScheduler). Ported to TypeScript in-process at `apps/backend/api/src/analytics/`, driven by Vercel Cron.
 - **All VPS/Docker deploy infra**: `infra/production/` (Docker Compose, `Caddyfile`, ops scripts, cron units), every `Dockerfile`, root `.dockerignore`, and the `.github/workflows/deploy.yml` continuous-deploy workflow. Production is serverless on Vercel.
-- **The `validate.yml` and `security.yml` workflows** (folded into `ci.yml`; the `docker-build` job, CodeQL, Semgrep, and the dependency audits are gone). **Active workflows:** `ci.yml`, `claude.yml`, `claude-code-review.yml`. `ci.yml` runs typecheck/lint/test/format per workspace, the `OpenAPI client drift` check, the `Gitleaks secret scan` (config: `.gitleaks.toml`), and an aggregate `Validate` gate.
+- **The `validate.yml` and `security.yml` workflows** (folded into `ci.yml`; the `docker-build` job, CodeQL, and Semgrep are gone). **Active workflows:** `ci.yml`, `production-smoke.yml`, `claude.yml`, `claude-code-review.yml`. `ci.yml` runs typecheck/lint/test/format, DB-backed API security tests, OpenAPI drift, deployment config checks, a policy-driven production dependency audit, scoped Gitleaks, and the aggregate `Validate` gate. `production-smoke.yml` checks promoted deep-link status/headers after successful Vercel production deployments and daily. Actions and service images are immutable-pinned.
 - **`/metrics` + prom-client** (observability is `@sentry/node` + pino), and the `REDIS_URL`/`METRICS_TOKEN`/`DB_POOL_SIZE`/`COMPUTE_INTERVAL_HOURS` env vars.
 - Stale per-package `.env.example` / `.env.production.example` files; the single root `.env.example` is the template.
 

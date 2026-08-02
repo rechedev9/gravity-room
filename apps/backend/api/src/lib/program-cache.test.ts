@@ -15,12 +15,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 const mockGet = vi.fn(() => Promise.resolve(null as unknown));
 const mockSet = vi.fn(() => Promise.resolve('OK'));
 const mockDel = vi.fn(() => Promise.resolve(1));
+const mockIncr = vi.fn(() => Promise.resolve(1));
 
 let redisAvailable = true;
 
 vi.mock('./redis', () => ({
   getRedis: (): unknown =>
-    redisAvailable ? { get: mockGet, set: mockSet, del: mockDel } : undefined,
+    redisAvailable ? { get: mockGet, set: mockSet, del: mockDel, incr: mockIncr } : undefined,
 }));
 
 // Must import AFTER mock.module
@@ -58,6 +59,8 @@ beforeEach(() => {
   mockGet.mockClear();
   mockSet.mockClear();
   mockDel.mockClear();
+  mockIncr.mockClear();
+  mockGet.mockResolvedValue(null);
   redisAvailable = true;
 });
 
@@ -87,7 +90,7 @@ describe('getCachedInstance', () => {
 
   it('returns parsed data on cache hit', async () => {
     // Arrange — Upstash auto-deserializes, so the client returns the object.
-    mockGet.mockResolvedValueOnce(CACHED_RESPONSE);
+    mockGet.mockResolvedValueOnce(0).mockResolvedValueOnce(CACHED_RESPONSE);
 
     // Act
     const result = await getCachedInstance(USER_ID, INSTANCE_ID);
@@ -98,7 +101,7 @@ describe('getCachedInstance', () => {
 
   it('evicts and returns undefined on corrupt data (not an object)', async () => {
     // Arrange
-    mockGet.mockResolvedValueOnce('just a string');
+    mockGet.mockResolvedValueOnce(0).mockResolvedValueOnce('just a string');
 
     // Act
     const result = await getCachedInstance(USER_ID, INSTANCE_ID);
@@ -110,7 +113,7 @@ describe('getCachedInstance', () => {
 
   it('evicts and returns undefined on corrupt data (missing id)', async () => {
     // Arrange
-    mockGet.mockResolvedValueOnce({ name: 'no id field' });
+    mockGet.mockResolvedValueOnce(0).mockResolvedValueOnce({ name: 'no id field' });
 
     // Act
     const result = await getCachedInstance(USER_ID, INSTANCE_ID);
@@ -118,6 +121,14 @@ describe('getCachedInstance', () => {
     // Assert
     expect(result).toBeUndefined();
     expect(mockDel).toHaveBeenCalledTimes(1);
+  });
+
+  it('never reads an older generation after invalidation', async () => {
+    mockGet.mockResolvedValueOnce(4).mockResolvedValueOnce(null);
+
+    await getCachedInstance(USER_ID, INSTANCE_ID);
+
+    expect(mockGet).toHaveBeenLastCalledWith(`program:${USER_ID}:${INSTANCE_ID}:g4`);
   });
 
   it('returns undefined when Redis.get throws', async () => {
@@ -139,7 +150,14 @@ describe('setCachedInstance', () => {
 
     // Assert
     expect(mockSet).toHaveBeenCalledTimes(1);
-    expect(mockSet).toHaveBeenCalledWith(`program:${USER_ID}:${INSTANCE_ID}`, CACHED_RESPONSE, {
+    expect(mockSet).toHaveBeenCalledWith(`program:${USER_ID}:${INSTANCE_ID}:g0`, CACHED_RESPONSE, {
+      ex: 300,
+    });
+  });
+
+  it('writes a captured old generation without making it visible to the new generation', async () => {
+    await setCachedInstance(USER_ID, INSTANCE_ID, CACHED_RESPONSE as never, 3);
+    expect(mockSet).toHaveBeenCalledWith(`program:${USER_ID}:${INSTANCE_ID}:g3`, CACHED_RESPONSE, {
       ex: 300,
     });
   });
@@ -165,13 +183,13 @@ describe('setCachedInstance', () => {
 });
 
 describe('invalidateCachedInstance', () => {
-  it('calls redis.del with correct key', async () => {
+  it('increments the generation key', async () => {
     // Act
     await invalidateCachedInstance(USER_ID, INSTANCE_ID);
 
     // Assert
-    expect(mockDel).toHaveBeenCalledTimes(1);
-    expect(mockDel).toHaveBeenCalledWith(`program:${USER_ID}:${INSTANCE_ID}`);
+    expect(mockIncr).toHaveBeenCalledTimes(1);
+    expect(mockIncr).toHaveBeenCalledWith(`program-generation:${USER_ID}:${INSTANCE_ID}`);
   });
 
   it('is a no-op when Redis is not available', async () => {
@@ -182,12 +200,12 @@ describe('invalidateCachedInstance', () => {
     await invalidateCachedInstance(USER_ID, INSTANCE_ID);
 
     // Assert
-    expect(mockDel).not.toHaveBeenCalled();
+    expect(mockIncr).not.toHaveBeenCalled();
   });
 
-  it('swallows errors from redis.del', async () => {
+  it('swallows errors from redis.incr', async () => {
     // Arrange
-    mockDel.mockRejectedValueOnce(new Error('delete failed'));
+    mockIncr.mockRejectedValueOnce(new Error('increment failed'));
 
     // Act / Assert — should not throw
     await invalidateCachedInstance(USER_ID, INSTANCE_ID);

@@ -81,6 +81,11 @@ scripts/*
 !scripts/refresh-claude-context.ts
 !scripts/vercel-build.sh
 !scripts/bundle-api-function.mjs
+!scripts/check-ci-pins.ts
+!scripts/check-dependency-audit.ts
+!scripts/check-dependency-audit.test.ts
+!scripts/check-production-routes.ts
+!scripts/check-vercel-deployment.ts
 issues.MD
 todo.md
 

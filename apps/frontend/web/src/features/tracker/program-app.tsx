@@ -101,8 +101,11 @@ export function ProgramApp({
     getSetLogs,
     isLogging: isSlotLogging,
   } = useSetLogging(markResult, rows, definition, setLogsStorageKey);
+  const [webMcpEnabled, setWebMcpEnabled] = useState(false);
+  const webMcpSupported = typeof navigator !== 'undefined' && navigator.modelContext !== undefined;
 
   useWebMcp({
+    enabled: webMcpEnabled,
     config,
     rows,
     definition,
@@ -370,6 +373,10 @@ export function ProgramApp({
             canUseBackup={!isGuest}
             onExportBackup={exportData}
             onImportBackup={handleImportBackup}
+            webMcpSupported={webMcpSupported}
+            webMcpEnabled={webMcpEnabled}
+            onEnableWebMcp={() => setWebMcpEnabled(true)}
+            onDisableWebMcp={() => setWebMcpEnabled(false)}
           />
         )}
       </div>
