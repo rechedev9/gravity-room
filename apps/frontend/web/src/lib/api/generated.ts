@@ -108,7 +108,7 @@ const postApiProgramsImport_Body = z
           .readonly()
       )
       .readonly()
-      .max(500),
+      .max(50),
     completedDates: z.object({}).partial().passthrough().readonly().optional(),
   })
   .passthrough()
@@ -650,7 +650,7 @@ export const endpoints = [
   {
     method: 'post',
     path: '/api/auth/signup',
-    description: `Creates an unverified email/password account and sends a verification email. The user must verify before logging in.`,
+    description: `Creates an unverified email/password account when eligible and sends a verification email. Always returns the same 201 acknowledgement for existing addresses to prevent enumeration.`,
     requestFormat: 'json',
     parameters: [
       {
@@ -661,11 +661,6 @@ export const endpoints = [
     ],
     response: z.void(),
     errors: [
-      {
-        status: 409,
-        description: `Email already registered`,
-        schema: z.void(),
-      },
       {
         status: 429,
         description: `Rate limited`,
@@ -874,16 +869,9 @@ export const endpoints = [
   {
     method: 'get',
     path: '/api/health',
-    description: `Stateless probe running a live database SELECT and an Upstash ping. Returns 503 only when the database is unreachable.`,
+    description: `Cheap in-memory liveness check. Use the protected internal readiness route to probe Postgres and Redis.`,
     requestFormat: 'json',
     response: z.void(),
-    errors: [
-      {
-        status: 503,
-        description: `Database unreachable`,
-        schema: z.void(),
-      },
-    ],
   },
   {
     method: 'get',
@@ -944,6 +932,12 @@ export const endpoints = [
   {
     method: 'post',
     path: '/api/internal/purge-users',
+    requestFormat: 'json',
+    response: z.void(),
+  },
+  {
+    method: 'get',
+    path: '/api/internal/readiness',
     requestFormat: 'json',
     response: z.void(),
   },
