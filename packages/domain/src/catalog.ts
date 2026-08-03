@@ -142,13 +142,13 @@ export const PROGRAM_CATALOG: readonly ProgramMeta[] = [
     id: '365-programmare-lipertrofia',
     name: "365 Programmare l'Ipertrofia",
     description:
-      'Programa anual de hipertrofia de Amerigo Brunetti estructurado en 5 fases y 212 sesiones. ' +
-      'Fase Zero (8 semanas): técnica con cargas mínimas. ' +
-      'Fase T1 (6 semanas): introducción de carga en los tres levantamientos fundamentales. ' +
-      'Fase PN (13 semanas): ramping progresivo con sobrecargas específicas. ' +
-      'Fase JAW (18 semanas): 3 bloques independientes de intensificación con TM propios y test de 1RM al final de cada bloque. ' +
-      'Fase IS (12 semanas): trabajo de aislamiento y consolidación, 12–30 repeticiones. ' +
-      '4 días por semana.',
+      'Programa anual de hipertrofia de Amerigo Brunetti (manual 2018) en 5 fases y 220 sesiones. ' +
+      'Fase Zero Incipit (8 sem × 3 dias): propedeutica y un fundamental por sesion. ' +
+      'T1 (6×4): Perfezionamento Tecnico con tablas del libro. ' +
+      'PN2 (13×4): Potenziamento Neurale. ' +
+      'JAW (18×4): escalera solo en squat/panca, 3 bloques con test de maximo. ' +
+      'IS (12×4): Ipertrofia Specifica Soluzione A, 2 sottofasi. ' +
+      'Hasta 4 dias por semana (FZ usa 3).',
     author: 'Amerigo Brunetti',
     category: 'hypertrophy',
     level: 'intermediate',

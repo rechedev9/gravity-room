@@ -706,6 +706,13 @@ const CANONICAL_EXERCISES: readonly ExerciseSeed[] = [
     equipment: 'barbell',
     isCompound: true,
   },
+  {
+    id: 'box_squat',
+    name: 'Box Squat',
+    muscleGroupId: 'legs',
+    equipment: 'barbell',
+    isCompound: true,
+  },
 
   // ── Sheiko exercises — Squat Variations ──
   {
