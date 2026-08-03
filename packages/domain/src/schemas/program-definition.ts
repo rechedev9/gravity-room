@@ -121,7 +121,7 @@ export const ExerciseSlotSchema = z
 
 // Upper bounds guard against malicious/oversized definitions driving the
 // O(totalWorkouts x slots) compute loop in the generic engine (DoS). They sit
-// well above the largest real preset (brunetti-365: 212 workouts/212 days;
+// well above the largest real preset (brunetti-365: 220 workouts/220 days;
 // max 9 slots/day) so every legitimate client-built program still validates.
 export const MAX_SLOTS_PER_DAY = 50;
 export const MAX_DAYS = 1000;

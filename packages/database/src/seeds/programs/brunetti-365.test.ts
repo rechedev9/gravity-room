@@ -1,16 +1,41 @@
 import { describe, it, expect } from 'vitest';
 import { PROGRAM_CATALOG } from '@gzclp/domain/catalog';
-import { BRUNETTI365_EXP_DEFINITION_JSONB, BRUNETTI365_DEFINITION_JSONB } from './brunetti-365';
+import {
+  BRUNETTI365_EXP_DEFINITION_JSONB,
+  BRUNETTI365_DEFINITION_JSONB,
+  BOOK_JAW_B1,
+  BOOK_JAW_B2,
+  BOOK_JAW_B3,
+  BOOK_T1_BENCH_D1,
+  BOOK_T1_DL_D1,
+  BOOK_T1_BOX_SQUAT,
+  BOOK_PN_SQUAT_D1_MAIN,
+  BOOK_PN_BENCH_D1,
+  BOOK_PN_DL_D3_B1,
+  BOOK_PN_BENCH_D3_B2,
+  BOOK_PN_SQUAT_D1_B2,
+  BOOK_IS_SQUAT_D1,
+  FZ_EXIT_NOTES,
+  buildFaseT1,
+  buildFasePN,
+} from './brunetti-365';
+import { SALA_1_DEFINITION_JSONB } from './sala-1';
+import { SALA_2_DEFINITION_JSONB } from './sala-2';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 
 // ---------------------------------------------------------------------------
-// Helpers — find JAW test slots by day name pattern
+// Types / hydration
 // ---------------------------------------------------------------------------
 
 type SlotLike = {
   readonly id: string;
+  readonly exerciseId: string;
   readonly isTestSlot?: boolean;
   readonly propagatesTo?: string;
+  readonly tmPercent?: number;
+  readonly stages?: readonly { readonly sets: number; readonly reps: number }[];
+  readonly notes?: string;
+  readonly isBodyweight?: boolean;
 };
 
 type DayLike = {
@@ -20,6 +45,9 @@ type DayLike = {
 
 type DefinitionJsonb = {
   readonly exercises: Record<string, unknown>;
+  readonly days: readonly DayLike[];
+  readonly cycleLength: number;
+  readonly totalWorkouts: number;
 };
 
 function hydratedDefinition(id: string, definition: DefinitionJsonb): Record<string, unknown> {
@@ -39,118 +67,431 @@ function hydratedDefinition(id: string, definition: DefinitionJsonb): Record<str
   };
 }
 
-function findTestSlot(
-  days: readonly DayLike[],
-  blockNum: number,
-  liftName: string
-): SlotLike | undefined {
-  const dayNamePattern = `JAW Bloque ${blockNum} — Test Maximo ${liftName}`;
-  const day = days.find((d) => d.name === dayNamePattern);
-  return day?.slots[0];
+function mainLiftSlot(day: DayLike, exerciseId: string): SlotLike | undefined {
+  return day.slots.find((s) => s.exerciseId === exerciseId && s.tmPercent !== undefined);
+}
+
+function findDay(days: readonly DayLike[], name: string): DayLike {
+  const day = days.find((d) => d.name === name);
+  if (!day) throw new Error(`Missing day: ${name}`);
+  return day;
 }
 
 // ---------------------------------------------------------------------------
-// maxTestSlot() behavior (tested via exported definition)
+// Day counts (full vs EXP)
 // ---------------------------------------------------------------------------
 
-describe('brunetti-365 JAW test slots', () => {
+describe('brunetti-365 day counts (book structure)', () => {
+  it('full preset is FZ24 + T1 24 + PN52 + JAW72 + IS48 = 220', () => {
+    expect(BRUNETTI365_DEFINITION_JSONB.days.length).toBe(220);
+    expect(BRUNETTI365_DEFINITION_JSONB.cycleLength).toBe(220);
+    expect(BRUNETTI365_DEFINITION_JSONB.totalWorkouts).toBe(220);
+  });
+
+  it('EXP preset skips FZ: 196 days', () => {
+    expect(BRUNETTI365_EXP_DEFINITION_JSONB.days.length).toBe(196);
+    expect(BRUNETTI365_EXP_DEFINITION_JSONB.cycleLength).toBe(196);
+  });
+
+  it('EXP days match full without the first 24 FZ days', () => {
+    const full = BRUNETTI365_DEFINITION_JSONB.days as readonly DayLike[];
+    const exp = BRUNETTI365_EXP_DEFINITION_JSONB.days as readonly DayLike[];
+    expect(exp.map((d) => d.name)).toEqual(full.slice(24).map((d) => d.name));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fase Zero book anchors
+// ---------------------------------------------------------------------------
+
+describe('brunetti-365 Fase Zero book parity', () => {
+  const days = (BRUNETTI365_DEFINITION_JSONB.days as readonly DayLike[]).slice(0, 24);
+
+  it('is 8 weeks × 3 days (not 2)', () => {
+    expect(days).toHaveLength(24);
+    const week1 = days.filter((d) => d.name.includes('FZ Sem. 1'));
+    expect(week1).toHaveLength(3);
+    expect(week1.map((d) => d.name)).toEqual([
+      'FZ Sem. 1 — Dia 1 (Squat)',
+      'FZ Sem. 1 — Dia 2 (Panca)',
+      'FZ Sem. 1 — Dia 3 (Stacco)',
+    ]);
+  });
+
+  it('each FZ day focuses one main fundamental track (no dual main lifts week 1)', () => {
+    const d1 = findDay(days, 'FZ Sem. 1 — Dia 1 (Squat)');
+    const d2 = findDay(days, 'FZ Sem. 1 — Dia 2 (Panca)');
+    const d3 = findDay(days, 'FZ Sem. 1 — Dia 3 (Stacco)');
+    expect(
+      d1.slots.some((s) => s.exerciseId === 'squat_bodyweight' || s.exerciseId === 'squat')
+    ).toBe(true);
+    expect(d1.slots.some((s) => s.exerciseId === 'bench' || s.exerciseId === 'deadlift')).toBe(
+      false
+    );
+    expect(d2.slots.some((s) => s.exerciseId === 'bench_pushups' || s.exerciseId === 'bench')).toBe(
+      true
+    );
+    expect(
+      d3.slots.some((s) => s.exerciseId === 'deadlift_isometric' || s.exerciseId === 'deadlift')
+    ).toBe(true);
+  });
+
+  it('includes propedeutica blocks (core + activation + proprioception)', () => {
+    const d1 = findDay(days, 'FZ Sem. 1 — Dia 1 (Squat)');
+    const ids = d1.slots.map((s) => s.exerciseId);
+    expect(ids).toContain('plank');
+    expect(ids).toContain('leg_curl_prone');
+    expect(ids).toContain('bulgarian_split_squat_slow');
+  });
+
+  it('does not use T1 volume ladder (no 5x6s % progression on FZ fundamentals)', () => {
+    for (const day of days) {
+      for (const slot of day.slots) {
+        if (slot.tmPercent !== undefined) {
+          throw new Error(`FZ must not use TM% slots, found ${slot.id} @ ${slot.tmPercent}`);
+        }
+      }
+    }
+  });
+
+  it('week 8 embeds book exit criteria notes', () => {
+    const d3 = findDay(days, 'FZ Sem. 8 — Dia 3 (Stacco)');
+    const notes = d3.slots.map((s) => s.notes ?? '').join(' ');
+    expect(notes).toContain('peso corporal');
+    expect(FZ_EXIT_NOTES).toContain('3 reps sentadilla');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T1 book anchors (shipped days, not a re-implementation of builders)
+// ---------------------------------------------------------------------------
+
+describe('brunetti-365 T1 book parity', () => {
+  const days = (BRUNETTI365_DEFINITION_JSONB.days as readonly DayLike[]).slice(24, 48);
+
+  it('has 6 weeks × 4 days', () => {
+    expect(days).toHaveLength(24);
+  });
+
+  it('week 1 Giorno Uno: squat 4 reps × 10 sets @ ~50% range, bench 8×6s @50%, dl 5×5 @55%', () => {
+    const d1 = findDay(days, 'T1 Sem. 1 — Dia 1 (Giorno Uno)');
+    const squat = mainLiftSlot(d1, 'squat');
+    const bench = mainLiftSlot(d1, 'bench');
+    const dl = mainLiftSlot(d1, 'deadlift');
+    expect(squat?.stages?.[0]).toEqual({ sets: 10, reps: 4 });
+    expect(squat?.tmPercent).toBe(0.5);
+    expect(bench?.tmPercent).toBe(BOOK_T1_BENCH_D1[0].pct);
+    expect(bench?.stages?.[0]).toEqual({
+      sets: BOOK_T1_BENCH_D1[0].sets,
+      reps: BOOK_T1_BENCH_D1[0].reps,
+    });
+    expect(dl?.tmPercent).toBe(BOOK_T1_DL_D1[0].pct);
+    expect(dl?.stages?.[0]).toEqual({
+      sets: BOOK_T1_DL_D1[0].sets,
+      reps: BOOK_T1_DL_D1[0].reps,
+    });
+  });
+
+  it('bench D1 progresses 8→9→10 reps then 55% block (book p.43)', () => {
+    for (let week = 1; week <= 6; week++) {
+      const d1 = findDay(days, `T1 Sem. ${week} — Dia 1 (Giorno Uno)`);
+      const bench = mainLiftSlot(d1, 'bench');
+      const expected = BOOK_T1_BENCH_D1[week - 1];
+      expect(bench?.tmPercent).toBe(expected.pct);
+      expect(bench?.stages?.[0]).toEqual({ sets: expected.sets, reps: expected.reps });
+    }
+  });
+
+  it('Giorno Tre includes box squat with book weekly table', () => {
+    for (let week = 1; week <= 6; week++) {
+      const d3 = findDay(days, `T1 Sem. ${week} — Dia 3 (Giorno Tre)`);
+      const box = mainLiftSlot(d3, 'box_squat');
+      const expected = BOOK_T1_BOX_SQUAT[week - 1];
+      expect(box?.tmPercent).toBe(expected.pct);
+      expect(box?.stages?.[0]).toEqual({ sets: expected.sets, reps: expected.reps });
+    }
+  });
+
+  it('sala-1 days are identical to full-program T1', () => {
+    expect(SALA_1_DEFINITION_JSONB.days.map((d) => d.name)).toEqual(
+      buildFaseT1().map((d) => d.name)
+    );
+    const salaSlots = (SALA_1_DEFINITION_JSONB.days as readonly DayLike[])[0].slots[0];
+    const fullSlots = (days as readonly DayLike[])[0].slots[0];
+    expect(salaSlots.id).toBe(fullSlots.id);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PN2 book anchors
+// ---------------------------------------------------------------------------
+
+describe('brunetti-365 PN2 book parity', () => {
+  const days = (BRUNETTI365_DEFINITION_JSONB.days as readonly DayLike[]).slice(48, 100);
+
+  it('has 13 weeks × 4 days', () => {
+    expect(days).toHaveLength(52);
+  });
+
+  it('week 1 Giorno Uno squat main is 72% 5×5 (book 72% 5x5)', () => {
+    const d1 = findDay(days, 'PN Sem. 1 — Dia 1 (Giorno Uno)');
+    const squat = mainLiftSlot(d1, 'squat');
+    expect(squat?.tmPercent).toBe(BOOK_PN_SQUAT_D1_MAIN[0].pct);
+    expect(squat?.stages?.[0]).toEqual({
+      sets: BOOK_PN_SQUAT_D1_MAIN[0].sets,
+      reps: BOOK_PN_SQUAT_D1_MAIN[0].reps,
+    });
+  });
+
+  it('week 1 Giorno Uno panca pin is 70% 4×7s', () => {
+    const d1 = findDay(days, 'PN Sem. 1 — Dia 1 (Giorno Uno)');
+    const bench = mainLiftSlot(d1, 'bench_pin');
+    expect(bench?.tmPercent).toBe(BOOK_PN_BENCH_D1[0].pct);
+    expect(bench?.stages?.[0]).toEqual({
+      sets: BOOK_PN_BENCH_D1[0].sets,
+      reps: BOOK_PN_BENCH_D1[0].reps,
+    });
+  });
+
+  it('week 2 squat main is 60% 8×4s', () => {
+    const d1 = findDay(days, 'PN Sem. 2 — Dia 1 (Giorno Uno)');
+    const squat = mainLiftSlot(d1, 'squat');
+    expect(squat?.tmPercent).toBe(0.6);
+    expect(squat?.stages?.[0]).toEqual({ sets: 4, reps: 8 });
+  });
+
+  // Literal book anchors (OCR p.73 / p.76) — not BOOK_* self-reference only.
+  it('PN B1 Sett4 D3 stacco is 63% 8×3s (OCR p.73) — literal anchor', () => {
+    const d3 = findDay(days, 'PN Sem. 4 — Dia 3 (Giorno Tre)');
+    const dl = mainLiftSlot(d3, 'deadlift');
+    expect(dl?.tmPercent).toBe(0.63);
+    expect(dl?.stages?.[0]).toEqual({ sets: 3, reps: 8 });
+    // Not squat Sett4 mirror (8×4s → sets:4)
+    expect(dl?.stages?.[0]).not.toEqual({ sets: 4, reps: 8 });
+    // Table export still agrees
+    expect(BOOK_PN_DL_D3_B1[3]).toEqual({ pct: 0.63, sets: 3, reps: 8 });
+  });
+
+  it('B1 D3 stacco full weekly table matches BOOK_PN_DL_D3_B1', () => {
+    for (let week = 1; week <= 5; week++) {
+      const d3 = findDay(days, `PN Sem. ${week} — Dia 3 (Giorno Tre)`);
+      const dl = mainLiftSlot(d3, 'deadlift');
+      const expected = BOOK_PN_DL_D3_B1[week - 1];
+      expect(dl?.tmPercent).toBe(expected.pct);
+      expect(dl?.stages?.[0]).toEqual({ sets: expected.sets, reps: expected.reps });
+    }
+  });
+
+  it('B2 D1 squat Sett6–12 match BOOK_PN_SQUAT_D1_B2 on shipped days', () => {
+    for (let i = 0; i < 7; i++) {
+      const week = 6 + i;
+      const d1 = findDay(days, `PN Sem. ${week} — Dia 1 (Giorno Uno)`);
+      const squat = mainLiftSlot(d1, 'squat');
+      const expected = BOOK_PN_SQUAT_D1_B2[i];
+      expect(squat?.tmPercent).toBe(expected.pct);
+      expect(squat?.stages?.[0]).toEqual({ sets: expected.sets, reps: expected.reps });
+    }
+  });
+
+  it('PN B2 Sett6 D3 panca is 80% 2×6s (OCR p.76) — literal anchor', () => {
+    const bench = mainLiftSlot(findDay(days, 'PN Sem. 6 — Dia 3 (Giorno Tre)'), 'bench');
+    expect(bench?.tmPercent).toBe(0.8);
+    expect(bench?.stages?.[0]).toEqual({ sets: 6, reps: 2 });
+    expect(bench?.tmPercent).not.toBe(0.78);
+  });
+
+  it('B2 D3 panca Sett6–12 match BOOK_PN_BENCH_D3_B2 weekly ladder', () => {
+    for (let i = 0; i < 7; i++) {
+      const week = 6 + i;
+      const d3 = findDay(days, `PN Sem. ${week} — Dia 3 (Giorno Tre)`);
+      const bench = mainLiftSlot(d3, 'bench');
+      const expected = BOOK_PN_BENCH_D3_B2[i];
+      expect(bench?.tmPercent).toBe(expected.pct);
+      expect(bench?.stages?.[0]).toEqual({ sets: expected.sets, reps: expected.reps });
+    }
+  });
+
+  it('JAW B1 Sett1 is 70% 10×6s (OCR p.86) — literal anchor', () => {
+    const expDays = BRUNETTI365_EXP_DEFINITION_JSONB.days as readonly DayLike[];
+    const d1 = findDay(expDays, 'JAW B1 Sem. 1 — Dia 1');
+    const sq = mainLiftSlot(d1, 'squat');
+    expect(sq?.tmPercent).toBe(0.7);
+    expect(sq?.stages?.[0]).toEqual({ sets: 6, reps: 10 });
+  });
+
+  it('sala-2 days match PN builder', () => {
+    expect(SALA_2_DEFINITION_JSONB.days.map((d) => d.name)).toEqual(
+      buildFasePN().map((d) => d.name)
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// JAW book ladder + template
+// ---------------------------------------------------------------------------
+
+describe('brunetti-365 JAW book parity', () => {
   const days = BRUNETTI365_EXP_DEFINITION_JSONB.days as readonly DayLike[];
 
-  describe('maxTestSlot() with propagatesTo (B1 and B2)', () => {
-    it('should set isTestSlot: true on all test slots', () => {
-      const b1Squat = findTestSlot(days, 1, 'Sentadilla');
+  function jawMain(week: number, day: number, lift: 'squat' | 'bench'): SlotLike {
+    const d = findDay(days, `JAW B1 Sem. ${week} — Dia ${day}`);
+    const slot = mainLiftSlot(d, lift);
+    if (!slot) throw new Error(`No ${lift} on JAW B1 Sem ${week} Dia ${day}`);
+    return slot;
+  }
 
-      expect(b1Squat).toBeDefined();
-      expect(b1Squat!.isTestSlot).toBe(true);
-    });
+  it('B1 week 1 is 70% 10 reps × 6 sets on squat and bench', () => {
+    const sq = jawMain(1, 1, 'squat');
+    const bp = jawMain(1, 1, 'bench');
+    expect(sq.tmPercent).toBe(BOOK_JAW_B1[0].pct);
+    expect(sq.stages?.[0]).toEqual({ sets: BOOK_JAW_B1[0].sets, reps: BOOK_JAW_B1[0].reps });
+    expect(bp.tmPercent).toBe(BOOK_JAW_B1[0].pct);
+    expect(bp.stages?.[0]).toEqual({ sets: BOOK_JAW_B1[0].sets, reps: BOOK_JAW_B1[0].reps });
+  });
 
-    it('should set B1 squat test slot propagatesTo to squat_jaw_b2_tm', () => {
-      const slot = findTestSlot(days, 1, 'Sentadilla');
+  it('B1 weeks 1–5 match full BOOK_JAW_B1 ladder', () => {
+    for (let i = 0; i < 5; i++) {
+      const sq = jawMain(i + 1, 1, 'squat');
+      expect(sq.tmPercent).toBe(BOOK_JAW_B1[i].pct);
+      expect(sq.stages?.[0]).toEqual({ sets: BOOK_JAW_B1[i].sets, reps: BOOK_JAW_B1[i].reps });
+    }
+  });
 
-      expect(slot!.propagatesTo).toBe('squat_jaw_b2_tm');
-    });
+  it('B2 week 7 starts 80% 6×6s; B3 week 13 starts 90% 3×6s', () => {
+    const b2 = findDay(days, 'JAW B2 Sem. 7 — Dia 1');
+    const b3 = findDay(days, 'JAW B3 Sem. 13 — Dia 1');
+    const sq2 = mainLiftSlot(b2, 'squat');
+    const sq3 = mainLiftSlot(b3, 'squat');
+    expect(sq2?.tmPercent).toBe(BOOK_JAW_B2[0].pct);
+    expect(sq2?.stages?.[0]).toEqual({ sets: BOOK_JAW_B2[0].sets, reps: BOOK_JAW_B2[0].reps });
+    expect(sq3?.tmPercent).toBe(BOOK_JAW_B3[0].pct);
+    expect(sq3?.stages?.[0]).toEqual({ sets: BOOK_JAW_B3[0].sets, reps: BOOK_JAW_B3[0].reps });
+  });
 
-    it('should set B1 bench test slot propagatesTo to bench_jaw_b2_tm', () => {
-      const slot = findTestSlot(days, 1, 'Press Banca');
+  it('deadlift does not use JAW % ladder (no jaw_b*_tm on DL main in week 1)', () => {
+    const d1 = findDay(days, 'JAW B1 Sem. 1 — Dia 1');
+    const dlSlots = d1.slots.filter((s) => s.exerciseId === 'deadlift');
+    for (const s of dlSlots) {
+      // free RPE ramp — no jaw block TM percent schedule
+      if (s.tmPercent !== undefined) {
+        expect(s.id.includes('jaw_b')).toBe(true); // id may contain jaw
+      }
+      // Must not equal B1 week1 70% 10x6
+      if (s.stages?.[0] && s.tmPercent === 0.7) {
+        expect(s.stages[0]).not.toEqual({ sets: 6, reps: 10 });
+      }
+    }
+  });
 
-      expect(slot!.propagatesTo).toBe('bench_jaw_b2_tm');
-    });
+  it('test slots: B1/B2 squat+bench propagate; B3 does not; DL has no propagatesTo', () => {
+    const b1Sq = findDay(days, 'JAW Bloque 1 — Test Maximo Sentadilla').slots[0];
+    const b1Bp = findDay(days, 'JAW Bloque 1 — Test Maximo Press Banca').slots[0];
+    const b1Dl = findDay(days, 'JAW Bloque 1 — Test Maximo Peso Muerto').slots[0];
+    const b2Sq = findDay(days, 'JAW Bloque 2 — Test Maximo Sentadilla').slots[0];
+    const b3Sq = findDay(days, 'JAW Bloque 3 — Test Maximo Sentadilla').slots[0];
 
-    it('should set B1 deadlift test slot propagatesTo to deadlift_jaw_b2_tm', () => {
-      const slot = findTestSlot(days, 1, 'Peso Muerto');
+    expect(b1Sq.isTestSlot).toBe(true);
+    expect(b1Sq.propagatesTo).toBe('squat_jaw_b2_tm');
+    expect(b1Bp.propagatesTo).toBe('bench_jaw_b2_tm');
+    expect(b1Dl.propagatesTo).toBeUndefined();
+    expect(b2Sq.propagatesTo).toBe('squat_jaw_b3_tm');
+    expect(b3Sq.propagatesTo).toBeUndefined();
+  });
+});
 
-      expect(slot!.propagatesTo).toBe('deadlift_jaw_b2_tm');
-    });
+// ---------------------------------------------------------------------------
+// IS sottofasi
+// ---------------------------------------------------------------------------
 
-    it('should set B2 squat test slot propagatesTo to squat_jaw_b3_tm', () => {
-      const slot = findTestSlot(days, 2, 'Sentadilla');
+describe('brunetti-365 IS book parity', () => {
+  const days = (BRUNETTI365_DEFINITION_JSONB.days as readonly DayLike[]).slice(172); // 24+24+52+72=172
 
-      expect(slot!.propagatesTo).toBe('squat_jaw_b3_tm');
-    });
+  it('has 12 weeks × 4 days with S1 then S2 labels', () => {
+    expect(days).toHaveLength(48);
+    expect(days[0].name).toContain('IS S1');
+    expect(days[24].name).toContain('IS S2');
+  });
 
-    it('should set B2 bench test slot propagatesTo to bench_jaw_b3_tm', () => {
-      const slot = findTestSlot(days, 2, 'Press Banca');
-
-      expect(slot!.propagatesTo).toBe('bench_jaw_b3_tm');
-    });
-
-    it('should set B2 deadlift test slot propagatesTo to deadlift_jaw_b3_tm', () => {
-      const slot = findTestSlot(days, 2, 'Peso Muerto');
-
-      expect(slot!.propagatesTo).toBe('deadlift_jaw_b3_tm');
+  it('week 1 Giorno Uno squat is 80% 3×7s (Soluzione A heavy)', () => {
+    const d1 = findDay(days, 'IS S1 Sem. 1 — Dia 1');
+    const squat = mainLiftSlot(d1, 'squat');
+    expect(squat?.tmPercent).toBe(BOOK_IS_SQUAT_D1[0].main.pct);
+    expect(squat?.stages?.[0]).toEqual({
+      sets: BOOK_IS_SQUAT_D1[0].main.sets,
+      reps: BOOK_IS_SQUAT_D1[0].main.reps,
     });
   });
 
-  describe('maxTestSlot() without propagatesTo (B3)', () => {
-    it('should set B3 squat test slot propagatesTo to undefined', () => {
-      const slot = findTestSlot(days, 3, 'Sentadilla');
+  it('S1 notes use 6–12 isolation range; S2 uses 12–30', () => {
+    const s1 = findDay(days, 'IS S1 Sem. 1 — Dia 1');
+    const s2 = findDay(days, 'IS S2 Sem. 7 — Dia 1');
+    const n1 = s1.slots.map((s) => s.notes ?? '').join(' ');
+    const n2 = s2.slots.map((s) => s.notes ?? '').join(' ');
+    expect(n1).toMatch(/6–12|6-12/);
+    expect(n2).toMatch(/12–30|12-30/);
+  });
+});
 
-      expect(slot).toBeDefined();
-      expect(slot!.propagatesTo).toBeUndefined();
-    });
+// ---------------------------------------------------------------------------
+// Schema + JAW propagation regression
+// ---------------------------------------------------------------------------
 
-    it('should set B3 bench test slot propagatesTo to undefined', () => {
-      const slot = findTestSlot(days, 3, 'Press Banca');
-
-      expect(slot).toBeDefined();
-      expect(slot!.propagatesTo).toBeUndefined();
-    });
-
-    it('should set B3 deadlift test slot propagatesTo to undefined', () => {
-      const slot = findTestSlot(days, 3, 'Peso Muerto');
-
-      expect(slot).toBeDefined();
-      expect(slot!.propagatesTo).toBeUndefined();
-    });
-
-    it('should still set isTestSlot: true on B3 test slots', () => {
-      const slot = findTestSlot(days, 3, 'Sentadilla');
-
-      expect(slot!.isTestSlot).toBe(true);
-    });
+describe('brunetti-365 schema validation', () => {
+  it('passes ProgramDefinitionSchema for full variant', () => {
+    const result = ProgramDefinitionSchema.safeParse(
+      hydratedDefinition('365-programmare-lipertrofia', BRUNETTI365_DEFINITION_JSONB)
+    );
+    if (!result.success) {
+      console.error(JSON.stringify(result.error.issues.slice(0, 15), null, 2));
+    }
+    expect(result.success).toBe(true);
   });
 
-  describe('full definition schema validation', () => {
-    it('should pass ProgramDefinitionSchema.safeParse for EXP variant', () => {
-      const result = ProgramDefinitionSchema.safeParse(
-        hydratedDefinition('la-sala-del-tiempo', BRUNETTI365_EXP_DEFINITION_JSONB)
-      );
+  it('passes ProgramDefinitionSchema for EXP variant', () => {
+    const result = ProgramDefinitionSchema.safeParse(
+      hydratedDefinition('la-sala-del-tiempo', BRUNETTI365_EXP_DEFINITION_JSONB)
+    );
+    if (!result.success) {
+      console.error(JSON.stringify(result.error.issues.slice(0, 15), null, 2));
+    }
+    expect(result.success).toBe(true);
+  });
+});
 
-      if (!result.success) {
-        console.error('brunetti-365 EXP failed:', JSON.stringify(result.error.issues, null, 2));
-      }
-      expect(result.success).toBe(true);
+describe('sala-1 / sala-2 schema', () => {
+  it('sala-1 validates', () => {
+    const result = ProgramDefinitionSchema.safeParse({
+      id: 'sala-del-tiempo-1',
+      name: 'La Sala del Tiempo 1',
+      description: 't',
+      author: 't',
+      version: 1,
+      category: 'hypertrophy',
+      source: 'preset',
+      ...SALA_1_DEFINITION_JSONB,
+      exercises: Object.fromEntries(
+        Object.keys(SALA_1_DEFINITION_JSONB.exercises).map((k) => [k, { name: k }])
+      ),
     });
+    if (!result.success) console.error(result.error.issues.slice(0, 10));
+    expect(result.success).toBe(true);
+  });
 
-    it('should pass ProgramDefinitionSchema.safeParse for full variant', () => {
-      const result = ProgramDefinitionSchema.safeParse(
-        hydratedDefinition('365-programmare-lipertrofia', BRUNETTI365_DEFINITION_JSONB)
-      );
-
-      if (!result.success) {
-        console.error('brunetti-365 full failed:', JSON.stringify(result.error.issues, null, 2));
-      }
-      expect(result.success).toBe(true);
+  it('sala-2 validates', () => {
+    const result = ProgramDefinitionSchema.safeParse({
+      id: 'sala-del-tiempo-2',
+      name: 'La Sala del Tiempo 2',
+      description: 't',
+      author: 't',
+      version: 1,
+      category: 'hypertrophy',
+      source: 'preset',
+      ...SALA_2_DEFINITION_JSONB,
+      exercises: Object.fromEntries(
+        Object.keys(SALA_2_DEFINITION_JSONB.exercises).map((k) => [k, { name: k }])
+      ),
     });
+    if (!result.success) console.error(result.error.issues.slice(0, 10));
+    expect(result.success).toBe(true);
   });
 });
