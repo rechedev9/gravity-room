@@ -4,7 +4,7 @@
 > Summary version: https://gravityroom.app/llms.txt
 
 **Canonical URL**: https://gravityroom.app/llms-full.txt
-**Last updated**: 2026-07-11
+**Last updated**: 2026-08-07
 
 ## Overview
 
@@ -94,7 +94,7 @@ Gravity Room solves all four by implementing the progression rules of establishe
 
 ### Frontend (apps/frontend/web)
 - React 19 with React Compiler (babel-plugin-react-compiler)
-- Vite 7 with code splitting per route via lazyWithRetry
+- Vite 8 with code splitting per route via lazyWithRetry
 - TanStack Router (file-based route inference)
 - TanStack Query (server state management)
 - Tailwind CSS v4 with @theme custom properties
