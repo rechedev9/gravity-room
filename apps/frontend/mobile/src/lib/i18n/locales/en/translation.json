@@ -4,14 +4,17 @@
   },
   "nav": {
     "programs": "Programs",
+    "tracker": "Workout",
     "profile": "Profile",
     "open_programs": "Open programs tab",
+    "open_tracker": "Open workout tab",
     "open_profile": "Open profile tab"
   },
   "login": {
     "eyebrow": "Gravity Room",
     "title": "Train with intent.",
-    "google_body": "Pick your Google account to restore your training state.",
+    "google_body": "Your training, your numbers, and your progress. Ready even when the network is not.",
+    "footer": "By continuing, you agree to store your session and training data securely on this device.",
     "divider": "or",
     "social": {
       "google": "Continue with Google"
@@ -48,8 +51,14 @@
   },
   "programs": {
     "eyebrow": "Programs",
-    "title": "Cached training blocks",
+    "title": "Your programs",
     "body": "Your active blocks stay available offline. Start a preset to cache it on this device.",
+    "loading": "Preparing your programs…",
+    "local_ready": "Local data ready",
+    "next_title": "Next workout",
+    "active": "Active",
+    "continue": "Continue workout",
+    "your_programs": "More active programs",
     "sync_notice": "Showing cached programs. Sync will retry when you refresh.",
     "card_updated": "Updated {{date}}",
     "catalog_title": "Start a program",
@@ -73,6 +82,20 @@
     "title": "Profile",
     "default_name": "Gravity Room athlete",
     "session_note": "Your mobile session is stored securely on this device.",
+    "secure": "Secure",
+    "preferences": "Preferences",
+    "units": "Units",
+    "kilograms": "Kilograms (kg)",
+    "language": "Language",
+    "spanish": "Spanish",
+    "english": "English",
+    "rest_timer": "Rest between sets",
+    "rest_timer_value": "2:30 min",
+    "preferences_hint": "Editable training preferences will arrive in a later update.",
+    "sync_title": "Sync",
+    "sync_ready": "Offline ready",
+    "account": "Account",
+    "version": "Gravity Room · Mobile preview",
     "sign_out": "Sign out",
     "signing_out": "Signing out...",
     "retry_sign_out": "Retry sign out",
@@ -80,6 +103,7 @@
     "sign_out_accessibility": "Sign out of Gravity Room"
   },
   "tracker": {
+    "title": "Workout",
     "loading": "Loading tracker...",
     "unavailable": "Tracker unavailable",
     "back": "Back",
@@ -90,6 +114,22 @@
     "undo_accessibility": "Undo latest tracker action",
     "next": "Next",
     "next_accessibility": "Next workout",
+    "workout_count": "{{current}} of {{total}}",
+    "progress": "Workout progress",
+    "progress_value": "{{complete}}/{{total}} · {{percent}}%",
+    "synced": "Synced with local storage",
+    "exercise_count": "{{count}} exercises",
+    "empty": {
+      "title": "Choose a program to train",
+      "body": "Open one of your programs and its next workout will be ready here.",
+      "action": "View programs"
+    },
+    "set_table": {
+      "set": "Set",
+      "weight": "Weight",
+      "reps": "Reps",
+      "status": "Status"
+    },
     "weight": "{{weight}} kg",
     "sets_reps": "{{sets}} x {{reps}}",
     "status": {

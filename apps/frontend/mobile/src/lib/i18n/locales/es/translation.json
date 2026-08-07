@@ -4,14 +4,17 @@
   },
   "nav": {
     "programs": "Programas",
+    "tracker": "Entrenamiento",
     "profile": "Perfil",
     "open_programs": "Abrir pestaña de programas",
+    "open_tracker": "Abrir pestaña de entrenamiento",
     "open_profile": "Abrir pestaña de perfil"
   },
   "login": {
     "eyebrow": "Gravity Room",
     "title": "Entrena con intención.",
-    "google_body": "Elige tu cuenta de Google para restaurar tu progreso de entrenamiento.",
+    "google_body": "Tu entrenamiento, tus marcas y tu progreso. Siempre listos, incluso sin conexión.",
+    "footer": "Al continuar, aceptas guardar de forma segura tu sesión y tus datos de entrenamiento en este dispositivo.",
     "divider": "o",
     "social": {
       "google": "Continuar con Google"
@@ -48,8 +51,14 @@
   },
   "programs": {
     "eyebrow": "Programas",
-    "title": "Bloques de entrenamiento en caché",
+    "title": "Tus programas",
     "body": "Tus bloques activos siguen disponibles sin conexión. Empieza un preset para guardarlo en este dispositivo.",
+    "loading": "Preparando tus programas…",
+    "local_ready": "Datos locales preparados",
+    "next_title": "Siguiente entrenamiento",
+    "active": "Activo",
+    "continue": "Continuar entrenamiento",
+    "your_programs": "Más programas activos",
     "sync_notice": "Mostrando programas en caché. La sincronización se reintentará al actualizar.",
     "card_updated": "Actualizado {{date}}",
     "catalog_title": "Empezar un programa",
@@ -73,6 +82,20 @@
     "title": "Perfil",
     "default_name": "Atleta de Gravity Room",
     "session_note": "Tu sesión móvil se guarda de forma segura en este dispositivo.",
+    "secure": "Seguro",
+    "preferences": "Preferencias",
+    "units": "Unidades",
+    "kilograms": "Kilogramos (kg)",
+    "language": "Idioma",
+    "spanish": "Español",
+    "english": "Inglés",
+    "rest_timer": "Descanso entre series",
+    "rest_timer_value": "2:30 min",
+    "preferences_hint": "Las preferencias de entrenamiento editables llegarán en una actualización posterior.",
+    "sync_title": "Sincronización",
+    "sync_ready": "Preparado sin conexión",
+    "account": "Cuenta",
+    "version": "Gravity Room · Mobile preview",
     "sign_out": "Cerrar sesión",
     "signing_out": "Cerrando sesión...",
     "retry_sign_out": "Reintentar cierre de sesión",
@@ -80,6 +103,7 @@
     "sign_out_accessibility": "Cerrar sesión de Gravity Room"
   },
   "tracker": {
+    "title": "Entrenamiento",
     "loading": "Cargando registro...",
     "unavailable": "Registro no disponible",
     "back": "Volver",
@@ -90,6 +114,22 @@
     "undo_accessibility": "Deshacer la última acción del registro",
     "next": "Siguiente",
     "next_accessibility": "Siguiente entrenamiento",
+    "workout_count": "{{current}} de {{total}}",
+    "progress": "Progreso del entrenamiento",
+    "progress_value": "{{complete}}/{{total}} · {{percent}}%",
+    "synced": "Sincronizado con el almacenamiento local",
+    "exercise_count": "{{count}} ejercicios",
+    "empty": {
+      "title": "Elige un programa para entrenar",
+      "body": "Abre uno de tus programas y el siguiente entrenamiento quedará preparado aquí.",
+      "action": "Ver programas"
+    },
+    "set_table": {
+      "set": "Serie",
+      "weight": "Peso",
+      "reps": "Reps",
+      "status": "Estado"
+    },
     "weight": "{{weight}} kg",
     "sets_reps": "{{sets}} x {{reps}}",
     "status": {

@@ -27,6 +27,7 @@ import {
 import { flushQueuedMutations } from '../../lib/sync/mutation-sync-service';
 import { applyUndoEntry, buildUndoEntry, patchSlotMetrics, slotStateEqual } from './tracker-state';
 import { TrackerSlotCard } from './tracker-slot-card';
+import { colors, radii, spacing, typography } from '../../app/design';
 
 type TrackerScreenProps = {
   readonly programInstanceId: string;
@@ -388,6 +389,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.centerBlock}>
+          <View style={styles.loadingMark} />
           <Text style={styles.body}>{t('tracker.loading')}</Text>
         </View>
       </SafeAreaView>
@@ -407,22 +409,23 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     );
   }
 
+  const completedSlots = selectedRow.slots.filter((slot) => slot.result !== undefined).length;
+  const totalSlots = selectedRow.slots.length;
+  const progressPercent = totalSlots === 0 ? 0 : Math.round((completedSlots / totalSlots) * 100);
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Pressable accessibilityRole="button" onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backLabel}>{t('tracker.back_programs')}</Text>
-        </Pressable>
-        <View style={styles.toolbarRow}>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.topBar}>
           <Pressable
+            accessibilityLabel={t('tracker.back_programs')}
             accessibilityRole="button"
-            accessibilityLabel={t('tracker.previous_accessibility')}
-            disabled={selectedWorkoutIndex === 0}
-            onPress={() => setSelectedWorkoutIndex((current) => Math.max(0, current - 1))}
-            style={[styles.navButton, selectedWorkoutIndex === 0 ? styles.navButtonDisabled : null]}
+            onPress={onBack}
+            style={styles.iconButton}
           >
-            <Text style={styles.navLabel}>{t('tracker.previous')}</Text>
+            <Text style={styles.backIcon}>←</Text>
           </Pressable>
+          <Text style={styles.screenLabel}>{t('tracker.title')}</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('tracker.undo_accessibility')}
@@ -430,10 +433,71 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
             onPress={() => {
               void handleUndoLast();
             }}
-            style={[styles.navButton, !canUndo ? styles.navButtonDisabled : null]}
+            style={[styles.iconButton, !canUndo ? styles.navButtonDisabled : null]}
           >
-            <Text style={styles.navLabel}>{t('tracker.undo')}</Text>
+            <Text style={styles.undoIcon}>↶</Text>
           </Pressable>
+        </View>
+
+        <View style={styles.workoutHeader}>
+          <Text style={styles.eyebrow}>{detail.name}</Text>
+          <View style={styles.workoutTitleRow}>
+            <Text style={styles.title}>{selectedRow.dayName}</Text>
+            <View style={styles.workoutCountBadge}>
+              <Text style={styles.workoutCountLabel}>
+                {t('tracker.workout_count', {
+                  current: selectedWorkoutIndex + 1,
+                  total: rows.length,
+                })}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.progressCard}>
+          <View style={styles.progressCopyRow}>
+            <Text style={styles.progressLabel}>{t('tracker.progress')}</Text>
+            <Text style={styles.progressValue}>
+              {t('tracker.progress_value', {
+                complete: completedSlots,
+                total: totalSlots,
+                percent: progressPercent,
+              })}
+            </Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
+          </View>
+        </View>
+
+        {syncNotice ? (
+          <View style={styles.syncNoticeCard}>
+            <View style={styles.syncNoticeDot} />
+            <Text style={styles.syncNotice}>{syncNotice}</Text>
+          </View>
+        ) : (
+          <View style={styles.syncedRow}>
+            <View style={styles.syncedDot} />
+            <Text style={styles.syncedLabel}>{t('tracker.synced')}</Text>
+          </View>
+        )}
+
+        <View style={styles.navigator}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('tracker.previous_accessibility')}
+            disabled={selectedWorkoutIndex === 0}
+            onPress={() => setSelectedWorkoutIndex((current) => Math.max(0, current - 1))}
+            style={[styles.navButton, selectedWorkoutIndex === 0 ? styles.navButtonDisabled : null]}
+          >
+            <Text style={styles.navArrow}>‹</Text>
+            <Text style={styles.navLabel}>{t('tracker.previous')}</Text>
+          </Pressable>
+          <View style={styles.navigatorCenter}>
+            <Text style={styles.navigatorCenterLabel}>
+              {t('tracker.exercise_count', { count: totalSlots })}
+            </Text>
+          </View>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('tracker.next_accessibility')}
@@ -443,19 +507,20 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
             }
             style={[
               styles.navButton,
+              styles.navButtonNext,
               selectedWorkoutIndex >= rows.length - 1 ? styles.navButtonDisabled : null,
             ]}
           >
             <Text style={styles.navLabel}>{t('tracker.next')}</Text>
+            <Text style={styles.navArrow}>›</Text>
           </Pressable>
         </View>
-        <Text style={styles.eyebrow}>{detail.name}</Text>
-        <Text style={styles.title}>{selectedRow.dayName}</Text>
-        {syncNotice ? <Text style={styles.syncNotice}>{syncNotice}</Text> : null}
-        {selectedRow.slots.map((slot) => (
+
+        {selectedRow.slots.map((slot, slotIndex) => (
           <TrackerSlotCard
             key={slot.slotId}
             slot={slot}
+            exerciseNumber={slotIndex + 1}
             workoutIndex={selectedRow.index}
             onMarkResult={(workoutIndexValue, slotIdValue, result) => {
               void handleMarkResult(workoutIndexValue, slotIdValue, result);
@@ -482,72 +547,167 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#050816',
+    backgroundColor: colors.canvas,
   },
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 40,
-    gap: 14,
+    paddingHorizontal: spacing.screenX,
+    paddingTop: 10,
+    paddingBottom: 32,
+    gap: 12,
   },
   centerBlock: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing.screenX,
     gap: 12,
   },
+  loadingMark: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: colors.borderStrong,
+    borderTopColor: colors.accentPrimary,
+  },
+  topBar: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    backgroundColor: colors.surface,
+  },
+  backIcon: { color: colors.textPrimary, fontSize: 21, fontWeight: '600' },
+  undoIcon: { color: colors.textPrimary, fontSize: 21, fontWeight: '600' },
+  screenLabel: { color: colors.textPrimary, fontSize: 16, fontWeight: '800' },
+  workoutHeader: { gap: 3, paddingTop: 4 },
   eyebrow: {
-    color: '#8B9AF4',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1,
+    color: colors.accentPrimary,
+    fontSize: typography.eyebrow,
+    fontWeight: '800',
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
-  title: {
-    color: '#F8FAFC',
-    fontSize: 30,
-    fontWeight: '700',
+  workoutTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
+  title: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: typography.screenTitle,
+    fontWeight: '800',
+  },
+  workoutCountBadge: {
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  workoutCountLabel: { color: colors.textSecondary, fontSize: 11, fontWeight: '700' },
   body: {
-    color: '#CBD5E1',
-    fontSize: 16,
+    color: colors.textSecondary,
+    fontSize: typography.body,
+  },
+  progressCard: {
+    borderRadius: radii.control,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    backgroundColor: colors.surface,
+    padding: 12,
+    gap: 9,
+  },
+  progressCopyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  progressLabel: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
+  progressValue: { color: colors.textPrimary, fontSize: 11, fontWeight: '800' },
+  progressTrack: {
+    height: 5,
+    overflow: 'hidden',
+    borderRadius: 3,
+    backgroundColor: colors.cardElevated,
+  },
+  progressFill: { height: 5, borderRadius: 3, backgroundColor: colors.accentPrimary },
+  syncNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderRadius: radii.control,
+    backgroundColor: colors.card,
+    padding: 11,
+  },
+  syncNoticeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.accentWarning,
+    marginTop: 5,
   },
   syncNotice: {
-    color: '#FBBF24',
-    fontSize: 14,
-    lineHeight: 20,
+    flex: 1,
+    color: colors.accentWarning,
+    fontSize: 12,
+    lineHeight: 18,
   },
-  toolbarRow: {
+  syncedRow: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 2 },
+  syncedDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accentInfo },
+  syncedLabel: { color: colors.accentInfo, fontSize: 11, fontWeight: '700' },
+  navigator: {
+    minHeight: 46,
     flexDirection: 'row',
-    gap: 10,
+    alignItems: 'center',
+    borderRadius: radii.control,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 4,
   },
   backButton: {
     alignSelf: 'flex-start',
-    borderRadius: 999,
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: radii.control,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: colors.borderStrong,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   backLabel: {
-    color: '#F8FAFC',
+    color: colors.textPrimary,
     fontSize: 14,
-    fontWeight: '600',
-  },
-  navButton: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#334155',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  navButtonDisabled: {
-    opacity: 0.45,
-  },
-  navLabel: {
-    color: '#F8FAFC',
-    fontSize: 13,
     fontWeight: '700',
   },
+  navButton: {
+    flex: 1,
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+  },
+  navButtonNext: {
+    justifyContent: 'flex-end',
+  },
+  navButtonDisabled: {
+    opacity: 0.32,
+  },
+  navLabel: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  navArrow: { color: colors.textPrimary, fontSize: 20, fontWeight: '500' },
+  navigatorCenter: { flex: 1.2, alignItems: 'center' },
+  navigatorCenterLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '700' },
 });

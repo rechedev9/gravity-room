@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { CatalogEntry, GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
+import { StrictMode } from 'react';
 
 import { ProgramsScreen } from './programs-screen';
 import {
@@ -167,6 +168,7 @@ describe('ProgramsScreen', () => {
     // Assert
     expect(await screen.findByText(PROGRAM_A.title)).toBeTruthy();
     expect(screen.getByText(PROGRAM_B.title)).toBeTruthy();
+    expect(screen.getByLabelText('Local data ready')).toBeTruthy();
   });
 
   it('renders program card metadata (truncated updatedAt date)', async () => {
@@ -267,7 +269,11 @@ describe('ProgramsScreen', () => {
     mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
     mockedCreateProgramInstance.mockResolvedValue(CREATED_DETAIL);
 
-    render(<ProgramsScreen />);
+    render(
+      <StrictMode>
+        <ProgramsScreen />
+      </StrictMode>
+    );
 
     fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
 
@@ -288,5 +294,36 @@ describe('ProgramsScreen', () => {
       },
     ]);
     expect(await screen.findByText('created-program')).toBeTruthy();
+  });
+
+  it('does not override later navigation when program creation finishes after unmount', async () => {
+    mockedListProgramSummaries.mockResolvedValue([]);
+    mockedFetchProgramSummaries.mockResolvedValue([]);
+    mockedUpsertProgramSummaries.mockResolvedValue();
+    mockedFetchCatalogEntries.mockResolvedValue([CATALOG_ENTRY]);
+    mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
+
+    let releaseCreation: (() => void) | undefined;
+    mockedCreateProgramInstance.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releaseCreation = () => resolve(CREATED_DETAIL);
+        })
+    );
+    const onOpenProgram = jest.fn();
+    const view = render(<ProgramsScreen onOpenProgram={onOpenProgram} />);
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
+    await waitFor(() => {
+      expect(mockedCreateProgramInstance).toHaveBeenCalledTimes(1);
+    });
+
+    view.unmount();
+    releaseCreation?.();
+
+    await waitFor(() => {
+      expect(mockedUpsertProgramSummaries).toHaveBeenCalledTimes(1);
+    });
+    expect(onOpenProgram).not.toHaveBeenCalled();
   });
 });

@@ -222,7 +222,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(mockedSignInWithGoogleIdToken).toHaveBeenCalledTimes(1);
     });
-    expect(await screen.findByText('Cached training blocks')).toBeTruthy();
+    expect(await screen.findByText('Your programs')).toBeTruthy();
   });
 
   it('renders cached programs when a session is available', async () => {
@@ -241,7 +241,7 @@ describe('App', () => {
 
     render(<App />);
 
-    expect(await screen.findByText('Cached training blocks')).toBeTruthy();
+    expect(await screen.findByText('Your programs')).toBeTruthy();
     expect(await screen.findByText('No active program')).toBeTruthy();
     expect(screen.queryByText('Continue with Google')).toBeNull();
   });
@@ -529,6 +529,30 @@ describe('App', () => {
     expect(screen.getByText('athlete@example.com')).toBeTruthy();
   });
 
+  it('guides an empty workout tab back to the program library', async () => {
+    mockedRestoreSession.mockResolvedValue({
+      accessToken: 'restored-access-token',
+      user: {
+        id: 'user-123',
+        email: 'athlete@example.com',
+        name: 'Test Athlete',
+        avatarUrl: null,
+      },
+    });
+    mockedFetchProgramSummaries.mockResolvedValue([]);
+    mockedUpsertProgramSummaries.mockResolvedValue();
+    mockedListProgramSummaries.mockResolvedValue([]);
+
+    render(<App />);
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Open workout tab' }));
+
+    expect(await screen.findByText('Choose a program to train')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'View programs' }));
+
+    expect(await screen.findByText('Your programs')).toBeTruthy();
+  });
+
   it('signs out from the profile tab and returns to login', async () => {
     mockedRestoreSession.mockResolvedValue({
       accessToken: 'restored-access-token',
@@ -554,6 +578,52 @@ describe('App', () => {
     expect(mockedClearQueuedMutations).toHaveBeenCalledTimes(1);
     expect(mockedClearLocalAppData).toHaveBeenCalledTimes(1);
     expect(await screen.findByText('Continue with Google')).toBeTruthy();
+  });
+
+  it('clears account-scoped tracker navigation across sign-out and sign-in', async () => {
+    mockedRestoreSession.mockResolvedValue({
+      accessToken: 'restored-access-token',
+      user: {
+        id: 'user-123',
+        email: 'athlete@example.com',
+        name: 'Test Athlete',
+        avatarUrl: null,
+      },
+    });
+    mockedSignInWithGoogleIdToken.mockResolvedValue({
+      accessToken: 'next-access-token',
+      user: {
+        id: 'user-456',
+        email: 'next-athlete@example.com',
+        name: 'Next Athlete',
+        avatarUrl: null,
+      },
+    });
+    mockedFetchProgramSummaries.mockResolvedValue([]);
+    mockedUpsertProgramSummaries.mockResolvedValue();
+    mockedListProgramSummaries.mockResolvedValue([
+      {
+        id: 'program-123',
+        title: 'Power Block',
+        updatedAt: '2026-04-20T08:00:00.000Z',
+      },
+    ]);
+
+    render(<App />);
+
+    fireEvent.press(await screen.findByText('Power Block'));
+    expect(await screen.findByText('program-123')).toBeTruthy();
+
+    fireEvent.press(screen.getByRole('button', { name: 'Open profile tab' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Sign out of Gravity Room' }));
+    fireEvent.press(await screen.findByRole('button', { name: 'Continue with Google' }));
+
+    expect(await screen.findByText('Your programs')).toBeTruthy();
+    expect(screen.queryByText('Continue with Google')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Open workout tab' }));
+
+    expect(await screen.findByText('Choose a program to train')).toBeTruthy();
+    expect(screen.queryByText('program-123')).toBeNull();
   });
 
   it('starts a catalog program from the mobile shell and opens its tracker', async () => {

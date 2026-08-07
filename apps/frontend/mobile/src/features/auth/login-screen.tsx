@@ -1,10 +1,20 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '../../app/auth-provider';
-import { colors, radii, spacing } from '../../app/design';
+import { colors, radii, spacing, typography } from '../../app/design';
+import { BrandMark } from '../../components/brand-mark';
 import { useGoogleIdTokenPrompt } from './google-sign-in';
 
 type EmailMode = 'signin' | 'signup';
@@ -117,176 +127,203 @@ export function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
-        <Text style={styles.eyebrow}>{t('login.eyebrow')}</Text>
-        <Text style={styles.title}>{t('login.title')}</Text>
-        <Text style={styles.body}>{t('login.google_body')}</Text>
-
-        {signInWithDev ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('login.dev.button')}
-            testID="dev-login-button"
-            disabled={devSubmitting}
-            onPress={() => {
-              void handleDevLogin();
-            }}
-            style={({ pressed }) => [
-              styles.devButton,
-              devSubmitting ? styles.buttonDisabled : null,
-              pressed && !devSubmitting ? styles.buttonPressed : null,
-            ]}
-          >
-            <Text style={styles.devButtonLabel}>
-              {devSubmitting ? t('login.dev.submitting') : t('login.dev.button')}
-            </Text>
-          </Pressable>
-        ) : null}
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={googleLabel}
-          disabled={disabled || googleSubmitting}
-          onPress={() => {
-            void handleGooglePress();
-          }}
-          style={({ pressed }) => [
-            styles.button,
-            disabled || googleSubmitting ? styles.buttonDisabled : null,
-            pressed && !disabled && !googleSubmitting ? styles.buttonPressed : null,
-          ]}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardView}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.buttonLabel}>{googleLabel}</Text>
-        </Pressable>
-
-        {googleError ? (
-          <View style={styles.errorBanner} accessibilityRole="alert">
-            <Text style={styles.errorBannerText}>{googleError}</Text>
+          <View style={styles.brandBlock}>
+            <BrandMark />
+            <Text style={styles.eyebrow}>{t('login.eyebrow')}</Text>
           </View>
-        ) : null}
+          <View style={styles.intro}>
+            <Text style={styles.title}>{t('login.title')}</Text>
+            <Text style={styles.body}>{t('login.google_body')}</Text>
+          </View>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerLabel}>{t('login.divider')}</Text>
-          <View style={styles.dividerLine} />
-        </View>
+          <View style={styles.authPanel}>
+            {signInWithDev ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('login.dev.button')}
+                testID="dev-login-button"
+                disabled={devSubmitting}
+                onPress={() => {
+                  void handleDevLogin();
+                }}
+                style={({ pressed }) => [
+                  styles.devButton,
+                  devSubmitting ? styles.buttonDisabled : null,
+                  pressed && !devSubmitting ? styles.buttonPressed : null,
+                ]}
+              >
+                <Text style={styles.devButtonLabel}>
+                  {devSubmitting ? t('login.dev.submitting') : t('login.dev.button')}
+                </Text>
+              </Pressable>
+            ) : null}
 
-        {!showEmail ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('login.email.toggle')}
-            onPress={() => setShowEmail(true)}
-            style={styles.secondaryButton}
-          >
-            <Text style={styles.secondaryButtonLabel}>{t('login.email.toggle')}</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.form}>
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>{t('login.email.email_label')}</Text>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder={t('login.email.email_placeholder')}
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                textContentType="emailAddress"
-                style={styles.input}
-                accessibilityLabel={t('login.email.email_label')}
-              />
-            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={googleLabel}
+              disabled={disabled || googleSubmitting}
+              onPress={() => {
+                void handleGooglePress();
+              }}
+              style={({ pressed }) => [
+                styles.button,
+                disabled || googleSubmitting ? styles.buttonDisabled : null,
+                pressed && !disabled && !googleSubmitting ? styles.buttonPressed : null,
+              ]}
+            >
+              <View style={styles.googleMark}>
+                <Text style={styles.googleMarkLabel}>G</Text>
+              </View>
+              <Text style={styles.buttonLabel}>{googleLabel}</Text>
+            </Pressable>
 
-            {emailMode === 'signup' ? (
-              <View style={styles.field}>
-                <Text style={styles.fieldLabel}>{t('login.email.name_label')}</Text>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder={t('login.email.name_placeholder')}
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="words"
-                  textContentType="name"
-                  style={styles.input}
-                  accessibilityLabel={t('login.email.name_label')}
-                />
+            {googleError ? (
+              <View style={styles.errorBanner} accessibilityRole="alert">
+                <View style={styles.errorDot} />
+                <Text style={styles.errorBannerText}>{googleError}</Text>
               </View>
             ) : null}
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>{t('login.email.password_label')}</Text>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder={t('login.email.password_placeholder')}
-                placeholderTextColor={colors.textMuted}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType={emailMode === 'signup' ? 'newPassword' : 'password'}
-                style={styles.input}
-                accessibilityLabel={t('login.email.password_label')}
-              />
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerLabel}>{t('login.divider')}</Text>
+              <View style={styles.dividerLine} />
             </View>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={
-                emailMode === 'signin'
-                  ? t('login.email.submit_signin')
-                  : t('login.email.submit_signup')
-              }
-              disabled={!canSubmit}
-              onPress={() => {
-                void handleEmailSubmit();
-              }}
-              style={[styles.button, !canSubmit ? styles.buttonDisabled : null]}
-            >
-              <Text style={styles.buttonLabel}>
-                {submitting
-                  ? t('login.email.submitting')
-                  : emailMode === 'signin'
-                    ? t('login.email.submit_signin')
-                    : t('login.email.submit_signup')}
-              </Text>
-            </Pressable>
+            {!showEmail ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('login.email.toggle')}
+                onPress={() => setShowEmail(true)}
+                style={styles.secondaryButton}
+              >
+                <View style={styles.mailGlyph} />
+                <Text style={styles.secondaryButtonLabel}>{t('login.email.toggle')}</Text>
+              </Pressable>
+            ) : (
+              <View style={styles.form}>
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>{t('login.email.email_label')}</Text>
+                  <TextInput
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder={t('login.email.email_placeholder')}
+                    placeholderTextColor={colors.textMuted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                    textContentType="emailAddress"
+                    style={styles.input}
+                    accessibilityLabel={t('login.email.email_label')}
+                  />
+                </View>
+                {emailMode === 'signup' ? (
+                  <View style={styles.field}>
+                    <Text style={styles.fieldLabel}>{t('login.email.name_label')}</Text>
+                    <TextInput
+                      value={name}
+                      onChangeText={setName}
+                      placeholder={t('login.email.name_placeholder')}
+                      placeholderTextColor={colors.textMuted}
+                      autoCapitalize="words"
+                      textContentType="name"
+                      style={styles.input}
+                      accessibilityLabel={t('login.email.name_label')}
+                    />
+                  </View>
+                ) : null}
+                <View style={styles.field}>
+                  <Text style={styles.fieldLabel}>{t('login.email.password_label')}</Text>
+                  <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder={t('login.email.password_placeholder')}
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType={emailMode === 'signup' ? 'newPassword' : 'password'}
+                    style={styles.input}
+                    accessibilityLabel={t('login.email.password_label')}
+                  />
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    emailMode === 'signin'
+                      ? t('login.email.submit_signin')
+                      : t('login.email.submit_signup')
+                  }
+                  disabled={!canSubmit}
+                  onPress={() => {
+                    void handleEmailSubmit();
+                  }}
+                  style={[
+                    styles.button,
+                    styles.emailSubmit,
+                    !canSubmit ? styles.buttonDisabled : null,
+                  ]}
+                >
+                  <Text style={styles.buttonLabel}>
+                    {submitting
+                      ? t('login.email.submitting')
+                      : emailMode === 'signin'
+                        ? t('login.email.submit_signin')
+                        : t('login.email.submit_signup')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setEmailMode((mode) => (mode === 'signin' ? 'signup' : 'signin'));
+                    setFormMessage(null);
+                  }}
+                  style={styles.modeToggleButton}
+                >
+                  <Text style={styles.modeToggle}>
+                    {emailMode === 'signin'
+                      ? t('login.email.to_signup')
+                      : t('login.email.to_signin')}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                setEmailMode((mode) => (mode === 'signin' ? 'signup' : 'signin'));
-                setFormMessage(null);
-              }}
-            >
-              <Text style={styles.modeToggle}>
-                {emailMode === 'signin' ? t('login.email.to_signup') : t('login.email.to_signin')}
-              </Text>
-            </Pressable>
+            {formMessage ? (
+              <View
+                accessibilityRole="alert"
+                testID="login-form-message"
+                style={[
+                  styles.formMessage,
+                  formMessage.kind === 'error'
+                    ? styles.formMessageError
+                    : styles.formMessageSuccess,
+                ]}
+              >
+                <Text
+                  style={
+                    formMessage.kind === 'error'
+                      ? styles.formMessageErrorText
+                      : styles.formMessageSuccessText
+                  }
+                >
+                  {formMessage.text}
+                </Text>
+              </View>
+            ) : null}
           </View>
-        )}
-
-        {formMessage ? (
-          <View
-            accessibilityRole="alert"
-            testID="login-form-message"
-            style={[
-              styles.formMessage,
-              formMessage.kind === 'error' ? styles.formMessageError : styles.formMessageSuccess,
-            ]}
-          >
-            <Text
-              style={
-                formMessage.kind === 'error'
-                  ? styles.formMessageErrorText
-                  : styles.formMessageSuccessText
-              }
-            >
-              {formMessage.text}
-            </Text>
-          </View>
-        ) : null}
-      </View>
+          <Text style={styles.footer}>{t('login.footer')}</Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -296,69 +333,110 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.canvas,
   },
-  content: {
+  keyboardView: {
     flex: 1,
+  },
+  content: {
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: spacing.screenX,
-    gap: spacing.stack,
+    paddingTop: 28,
+    paddingBottom: 24,
+    gap: spacing.stackLarge,
+  },
+  brandBlock: {
+    alignItems: 'center',
+    gap: 12,
   },
   eyebrow: {
-    color: colors.accentPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 1,
+    color: colors.textPrimary,
+    fontSize: typography.eyebrow,
+    fontWeight: '800',
+    letterSpacing: 4,
     textTransform: 'uppercase',
+  },
+  intro: {
+    alignItems: 'center',
+    gap: 8,
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: 30,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   body: {
     color: colors.textSecondary,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: typography.body,
+    lineHeight: 22,
+    textAlign: 'center',
+    maxWidth: 340,
+  },
+  authPanel: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    borderRadius: radii.card,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+    backgroundColor: colors.surface,
+    padding: spacing.card,
+    gap: spacing.stack,
   },
   button: {
-    marginTop: 4,
+    minHeight: 50,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radii.pill,
-    backgroundColor: colors.textPrimary,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    justifyContent: 'center',
+    gap: 10,
+    borderRadius: radii.control,
+    backgroundColor: colors.accentPrimary,
+    paddingHorizontal: 18,
   },
   buttonPressed: {
-    opacity: 0.88,
+    opacity: 0.82,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonLabel: {
-    color: '#111827',
-    fontSize: 16,
-    fontWeight: '600',
+    color: colors.textOnAccent,
+    fontSize: typography.body,
+    fontWeight: '800',
+  },
+  googleMark: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: colors.textPrimary,
+  },
+  googleMarkLabel: {
+    color: colors.canvas,
+    fontSize: 13,
+    fontWeight: '900',
   },
   devButton: {
-    marginTop: 4,
+    minHeight: 44,
     alignItems: 'center',
-    borderRadius: radii.pill,
-    borderWidth: 1.5,
-    borderColor: colors.accentPrimary,
-    backgroundColor: 'transparent',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    justifyContent: 'center',
+    borderRadius: radii.control,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.card,
+    paddingHorizontal: 16,
   },
   devButtonLabel: {
-    color: colors.accentPrimary,
-    fontSize: 16,
+    color: colors.accentInfo,
+    fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 0.5,
   },
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginVertical: 4,
+    marginVertical: 2,
   },
   dividerLine: {
     flex: 1,
@@ -367,22 +445,32 @@ const styles = StyleSheet.create({
   },
   dividerLabel: {
     color: colors.textMuted,
-    fontSize: 12,
+    fontSize: 11,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   secondaryButton: {
+    minHeight: 50,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: radii.pill,
+    justifyContent: 'center',
+    gap: 10,
+    borderRadius: radii.control,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    borderColor: colors.borderStrong,
+    paddingHorizontal: 18,
   },
   secondaryButtonLabel: {
     color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.body,
+    fontWeight: '700',
+  },
+  mailGlyph: {
+    width: 19,
+    height: 14,
+    borderWidth: 1.5,
+    borderColor: colors.textSecondary,
+    borderRadius: 3,
   },
   form: {
     gap: spacing.stack,
@@ -391,20 +479,28 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   fieldLabel: {
-    color: colors.textMuted,
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+    color: colors.textSecondary,
+    fontSize: typography.caption,
+    fontWeight: '700',
   },
   input: {
-    borderRadius: radii.card,
+    minHeight: 50,
+    borderRadius: radii.control,
     borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    borderColor: colors.borderStrong,
     backgroundColor: colors.card,
     color: colors.textPrimary,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingVertical: 11,
+    fontSize: typography.body,
+  },
+  emailSubmit: {
+    marginTop: 2,
+  },
+  modeToggleButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modeToggle: {
     color: colors.accentPrimary,
@@ -413,29 +509,39 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   errorBanner: {
-    borderRadius: radii.card,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    borderRadius: radii.control,
     borderWidth: 1,
-    borderColor: colors.accentDanger,
-    backgroundColor: colors.card,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderColor: colors.accentDangerMuted,
+    backgroundColor: colors.accentDangerMuted,
+    padding: 12,
+  },
+  errorDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.accentDanger,
+    marginTop: 5,
   },
   errorBannerText: {
+    flex: 1,
     color: colors.textError,
-    fontSize: 14,
+    fontSize: 13,
+    lineHeight: 18,
   },
   formMessage: {
-    borderRadius: radii.card,
+    borderRadius: radii.control,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    padding: 12,
   },
   formMessageError: {
-    borderColor: colors.accentDanger,
-    backgroundColor: colors.card,
+    borderColor: colors.accentDangerMuted,
+    backgroundColor: colors.accentDangerMuted,
   },
   formMessageSuccess: {
-    borderColor: colors.accentSuccess,
+    borderColor: colors.borderStrong,
     backgroundColor: colors.card,
   },
   formMessageErrorText: {
@@ -444,7 +550,14 @@ const styles = StyleSheet.create({
   },
   formMessageSuccessText: {
     color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  footer: {
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+    paddingHorizontal: 18,
   },
 });
