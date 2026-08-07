@@ -298,6 +298,16 @@ async function prerenderRoute(
     for (const node of nodes) node.remove();
   });
 
+  // Native dialogs keep all descendant text in the DOM while closed. Search
+  // and LLM extractors can therefore rank an invisible confirmation prompt
+  // ahead of the route's real copy (the guest-migration dialog is English on
+  // the Spanish landing snapshot). Closed dialogs have no no-JS value, so omit
+  // them from static HTML; the client recreates them when an actual user needs
+  // one.
+  await page.locator('dialog:not([open])').evaluateAll((nodes) => {
+    for (const node of nodes) node.remove();
+  });
+
   // Vite/React inject <link rel="modulepreload"> for route chunks at runtime,
   // resolved against the live preview origin (http://127.0.0.1:<port>), and
   // page.content() captures them absolute. Strip the origin so the shipped

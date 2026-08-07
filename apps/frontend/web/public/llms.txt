@@ -3,7 +3,7 @@
 > Free web app for structured weightlifting with automatic progression. No spreadsheets, no guessing.
 
 Canonical URL: https://gravityroom.app/llms.txt
-Last updated: 2026-07-11
+Last updated: 2026-08-07
 
 ## What it does
 
