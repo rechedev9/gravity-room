@@ -219,8 +219,8 @@ export function buildFaseJAW(): ProgramDay[] {
             'deadlift',
             TM.DEADLIFT,
             num === 3 ? 0.525 : 0.55,
-            num === 1 ? 5 : 4,
-            num === 1 ? 5 : 5,
+            num === 1 ? 5 : num === 2 ? 6 : 4,
+            num === 2 ? 3 : 5,
             'main',
             num === 1
               ? "Stacco 5×5 recupero 1', ultima rep salita muy lenta. 50–55%. Estilo alternativo si manejas ambos."

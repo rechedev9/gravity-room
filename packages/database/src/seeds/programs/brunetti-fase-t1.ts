@@ -1,7 +1,7 @@
 // brunetti-fase-t1.ts — Brunetti 365 phase builder.
 import type { ProgramDay } from './shared';
 import { TEMPO_D5F2S5, REST_6MIN, tmNcSlot, flatNcSlot } from './shared';
-import { bwSlot, freeNoteSlot, FZ_KEYS, ACC, TM } from './brunetti-slots';
+import { bwSlot, freeNoteSlot, ACC, TM } from './brunetti-slots';
 import { BOOK_T1_BENCH_D1, BOOK_T1_DL_D1, BOOK_T1_BOX_SQUAT } from './brunetti-book-tables';
 
 export function buildFaseT1(): ProgramDay[] {
@@ -235,7 +235,7 @@ export function buildFaseT1(): ProgramDay[] {
         freeNoteSlot(
           `t1_bulg_d4_w${week}`,
           'bulgarian_split_squat',
-          FZ_KEYS.SQUAT,
+          ACC.GENERAL,
           3,
           8,
           'Pressa 1 gamba o affondi bulgari 3×8/pierna sin descanso entre piernas. Peso en talon.',

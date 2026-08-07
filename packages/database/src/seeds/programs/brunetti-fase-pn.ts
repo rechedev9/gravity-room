@@ -2,7 +2,7 @@
 // Primary structure: PN_WEEKS[] → materializeWeek (no nested b1/week-13 day assembly).
 
 import type { ProgramDay, SlotDef } from './shared';
-import { tmNcSlot, flatNcSlot, NC } from './shared';
+import { tmNcSlot, flatNcSlot, prescriptionSlot, NC } from './shared';
 import { bwSlot, freeNoteSlot, ACC, TM } from './brunetti-slots';
 import {
   BOOK_PN_SQUAT_D1_MAIN,
@@ -12,7 +12,18 @@ import {
   BOOK_PN_SQUAT_D1_B2,
 } from './brunetti-book-tables';
 
-type Pct = { readonly pct: number; readonly sets: number; readonly reps: number };
+type Pct = {
+  readonly pct: number;
+  readonly sets: number;
+  readonly reps: number;
+  readonly repsBySet?: readonly number[];
+};
+
+type AccessoryVolume = {
+  readonly sets: number;
+  readonly reps: number;
+  readonly note: string;
+};
 
 type PnWeekSpec = {
   readonly week: number;
@@ -31,8 +42,8 @@ type PnWeekSpec = {
   readonly hyperD2Note: string;
   readonly benchD2Tech: string;
   readonly benchD2Vol: Pct;
-  readonly ohpD2Note: string;
-  readonly rowD2Note: string;
+  readonly ohpD2?: AccessoryVolume;
+  readonly rowD2: AccessoryVolume;
   readonly dlElevD2: Pct;
   readonly dlElevD2Note: string;
   /** Day 3 mains: either test max or training lifts */
@@ -49,12 +60,11 @@ type PnWeekSpec = {
       };
   readonly absD4Sets: number;
   readonly dbBenchD4: { readonly sets: number; readonly reps: number; readonly note: string };
-  readonly prensaD4Sets: number;
-  readonly prensaD4Note: string;
+  readonly prensaD4: AccessoryVolume;
 };
 
 const PN_B2_SQUAT_D1_NOTES = [
-  'Sett6: 76% esquema 4-4-3-4-4 (aprox. 5×4), poi ramping a x2@8 (RPE).',
+  'Sett6: 76% esquema 4-4-3-4-4, poi ramping a x2@8 (RPE).',
   'Sett7: 66% 6×4s + 75% 3 + 80% 2×2 (slots siguientes).',
   'Sett8: 78% 2-2-2-2-5 (esquema libro 22225).',
   'Sett9: 69% 5×3s + top sets 79%/85% (slots siguientes).',
@@ -156,8 +166,12 @@ function buildB1Week(week: number): PnWeekSpec {
     hyperD2Note: 'Hyperextension con peso detras de la cabeza 15×3.',
     benchD2Tech: d2.tech,
     benchD2Vol: d2,
-    ohpD2Note: 'Spinte verticali manubri sin respaldo, presa neutra 5×6–10. Salita controlada.',
-    rowD2Note: 'Rematore 1 braccio salita 5" 5×5.',
+    ohpD2: {
+      sets: 5,
+      reps: 8,
+      note: 'Spinte verticali manubri sin respaldo, presa neutra 5×6–10. Salita controlada.',
+    },
+    rowD2: { sets: 5, reps: 5, note: 'Rematore 1 braccio salita 5" 5×5.' },
     dlElevD2: { pct: 0.7, sets: 4, reps: 6 },
     dlElevD2Note: 'Stacco da piccolo rialzo 65–75% 5–8 reps (superset con pulley).',
     day3: {
@@ -175,8 +189,7 @@ function buildB1Week(week: number): PnWeekSpec {
       reps: 8,
       note: 'Panca piana manubri, discesa a meta 8×4 serie. Presa neutra.',
     },
-    prensaD4Sets: 3,
-    prensaD4Note: 'Pressa 10–12 (B1) o 4×6–9 (B2).',
+    prensaD4: { sets: 3, reps: 10, note: 'Pressa 10–12 (B1).' },
   };
 }
 
@@ -209,8 +222,11 @@ function buildB2Week(week: number): PnWeekSpec {
     hyperD2Note: 'Hyperextension salita controlada 10×3.',
     benchD2Tech: d2.tech,
     benchD2Vol: d2,
-    ohpD2Note: 'Rematore 1 braccio deadstop 3×8/braccio sin descanso (B2).',
-    rowD2Note: 'Rematore 1 braccio appoggia a terra cada rep 3×8/brazo.',
+    rowD2: {
+      sets: 3,
+      reps: 8,
+      note: 'Rematore 1 braccio appoggia a terra cada rep 3×8/brazo.',
+    },
     dlElevD2: { pct: 0.65, sets: 4, reps: 3 },
     dlElevD2Note: 'Stacco da rialzo B2 segun semana (62–72.5% esquemas libro p.76).',
     day3: isTest
@@ -230,8 +246,7 @@ function buildB2Week(week: number): PnWeekSpec {
       reps: 5,
       note: 'Panca inclinada 30–60° con RPE ramps/backoff segun semana (libro p.77) + manubri a meta 5×3s.',
     },
-    prensaD4Sets: 4,
-    prensaD4Note: 'Pressa 10–12 (B1) o 4×6–9 (B2).',
+    prensaD4: { sets: 4, reps: 8, note: 'Pressa 4×6–9 (B2).' },
   };
 }
 
@@ -257,6 +272,30 @@ function pnMaxTest(id: string, exerciseId: string, tmKey: string, label: string)
   };
 }
 
+function tmVolumeSlot(
+  id: string,
+  exerciseId: string,
+  tmKey: string,
+  volume: Pct,
+  notes: string
+): SlotDef {
+  if (volume.repsBySet === undefined) {
+    return tmNcSlot(id, exerciseId, tmKey, volume.pct, volume.sets, volume.reps, 'main', notes);
+  }
+
+  return {
+    ...prescriptionSlot(
+      id,
+      exerciseId,
+      tmKey,
+      volume.repsBySet.map((reps) => ({ percent: volume.pct * 100, reps, sets: 1 }))
+    ),
+    tier: 'main',
+    role: 'primary',
+    notes,
+  };
+}
+
 /** Thin materializer: one code path maps a week spec → 4 ProgramDays. */
 function materializeWeek(spec: PnWeekSpec): ProgramDay[] {
   const w = spec.week;
@@ -275,16 +314,7 @@ function materializeWeek(spec: PnWeekSpec): ProgramDay[] {
       spec.squatBwReps,
       `Squat a corpo libero ${spec.squatBwReps}×${spec.squatBwSets} serie + stretch/mobilita.`
     ),
-    tmNcSlot(
-      `pn_squat_d1_w${w}`,
-      'squat',
-      TM.SQUAT,
-      spec.squatD1.pct,
-      spec.squatD1.sets,
-      spec.squatD1.reps,
-      'main',
-      spec.squatD1Note
-    ),
+    tmVolumeSlot(`pn_squat_d1_w${w}`, 'squat', TM.SQUAT, spec.squatD1, spec.squatD1Note),
   ];
   if (spec.squatD1Top) {
     d1.push(
@@ -351,8 +381,30 @@ function materializeWeek(spec: PnWeekSpec): ProgramDay[] {
       'main',
       `Panca volumen tras tecnico: ${(spec.benchD2Vol.pct * 100).toFixed(1)}% ${spec.benchD2Vol.reps}×${spec.benchD2Vol.sets}s. Fermo 2" en series de volumen salvo indicacion.`
     ),
-    flatNcSlot(`pn_ohp_d2_w${w}`, 'ohp', ACC.INCLINE, 5, 8, 'accessory', spec.ohpD2Note),
-    freeNoteSlot(`pn_row_d2_w${w}`, 'one_arm_row', ACC.ROW, 5, 5, spec.rowD2Note, 'accessory'),
+  ];
+  if (spec.ohpD2 !== undefined) {
+    d2.push(
+      flatNcSlot(
+        `pn_ohp_d2_w${w}`,
+        'ohp',
+        ACC.INCLINE,
+        spec.ohpD2.sets,
+        spec.ohpD2.reps,
+        'accessory',
+        spec.ohpD2.note
+      )
+    );
+  }
+  d2.push(
+    freeNoteSlot(
+      `pn_row_d2_w${w}`,
+      'one_arm_row',
+      ACC.ROW,
+      spec.rowD2.sets,
+      spec.rowD2.reps,
+      spec.rowD2.note,
+      'accessory'
+    ),
     freeNoteSlot(
       `pn_pulley_d2_w${w}`,
       'pulley_band_seated',
@@ -380,8 +432,8 @@ function materializeWeek(spec: PnWeekSpec): ProgramDay[] {
       10,
       'Pressa 1 gamba o affondi bulgari 2×10/pierna sin descanso entre piernas. Peso en talon.',
       'accessory'
-    ),
-  ];
+    )
+  );
 
   const d3: SlotDef[] = [
     flatNcSlot(
@@ -403,16 +455,7 @@ function materializeWeek(spec: PnWeekSpec): ProgramDay[] {
   } else {
     const t = spec.day3;
     d3.push(
-      tmNcSlot(
-        `pn_dl_d3_w${w}`,
-        'deadlift',
-        TM.DEADLIFT,
-        t.dl.pct,
-        t.dl.sets,
-        t.dl.reps,
-        'main',
-        t.dlNote
-      ),
+      tmVolumeSlot(`pn_dl_d3_w${w}`, 'deadlift', TM.DEADLIFT, t.dl, t.dlNote),
       tmNcSlot(
         `pn_bench_d3_w${w}`,
         'bench',
@@ -493,10 +536,10 @@ function materializeWeek(spec: PnWeekSpec): ProgramDay[] {
       `pn_prensa_d4_w${w}`,
       'prensa',
       ACC.GENERAL,
-      spec.prensaD4Sets,
-      8,
+      spec.prensaD4.sets,
+      spec.prensaD4.reps,
       'accessory',
-      spec.prensaD4Note
+      spec.prensaD4.note
     ),
   ];
 

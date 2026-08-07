@@ -105,13 +105,13 @@ export const BOOK_PN_BENCH_D3_B2 = [
  * Index 0 = Sett6 … index 7 = Sett13.
  */
 export const BOOK_PN_SQUAT_D1_B2 = [
-  { pct: 0.76, sets: 5, reps: 4 }, // Sett6 76% ~44344
+  { pct: 0.76, sets: 5, reps: 4, repsBySet: [4, 4, 3, 4, 4] }, // Sett6 76% 44344
   { pct: 0.66, sets: 4, reps: 6 }, // Sett7 66% 6x4s
-  { pct: 0.78, sets: 5, reps: 2 }, // Sett8 78% 22225
+  { pct: 0.78, sets: 5, reps: 2, repsBySet: [2, 2, 2, 2, 5] }, // Sett8 78% 22225
   { pct: 0.69, sets: 3, reps: 5 }, // Sett9 69% 5x3s
-  { pct: 0.8, sets: 5, reps: 3 }, // Sett10 80% 3-3-2-3-3
+  { pct: 0.8, sets: 5, reps: 3, repsBySet: [3, 3, 2, 3, 3] }, // Sett10 80% 33233
   { pct: 0.72, sets: 3, reps: 5 }, // Sett11 72% 5x3s
-  { pct: 0.82, sets: 5, reps: 2 }, // Sett12 82% 22225
+  { pct: 0.82, sets: 5, reps: 2, repsBySet: [2, 2, 2, 2, 5] }, // Sett12 82% 22225
   { pct: 0.66, sets: 4, reps: 6 }, // Sett13 66% 6x4s
 ] as const;
 
