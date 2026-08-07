@@ -1,4 +1,5 @@
 import type { GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
+import type { ApiRequestOptions } from '@gzclp/api-client/transport';
 
 import { fetchProgramDefinition, fetchProgramDetail } from './program-detail-service';
 
@@ -7,12 +8,42 @@ const mockFetchWithAccessToken = jest.fn<
   [string, RequestInit | undefined]
 >();
 
-const mockGetAccessToken = jest.fn<string | null, []>();
+async function mockReadResponseBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  return text.trim() === '' ? null : JSON.parse(text);
+}
 
-jest.mock('../auth/session', () => ({
-  getAccessToken: () => mockGetAccessToken(),
-  buildApiUrl: (path: string) => `http://localhost:3001/api${path}`,
-  fetchWithAccessToken: (path: string, init?: RequestInit) => mockFetchWithAccessToken(path, init),
+jest.mock('../api/transport', () => ({
+  mobileApiTransport: {
+    request: async <T>(path: string, options: ApiRequestOptions<T>): Promise<T> => {
+      const { ApiError: MockApiError } = jest.requireActual('@gzclp/api-client/api-error');
+      const { authenticated, parse, ...init } = options;
+      const requestInit = Object.keys(init).length === 0 ? undefined : init;
+      const response =
+        authenticated === false
+          ? await globalThis.fetch(`http://localhost:3001/api${path}`, requestInit)
+          : (await mockFetchWithAccessToken(path, requestInit)).response;
+      const body = await mockReadResponseBody(response);
+      if (!response.ok) {
+        throw new MockApiError(
+          `API request failed with status ${response.status}`,
+          response.status,
+          undefined,
+          { body }
+        );
+      }
+      try {
+        return parse(body);
+      } catch (cause) {
+        throw new MockApiError(
+          'API response did not match the expected contract',
+          response.status,
+          'INVALID_RESPONSE',
+          { body, cause }
+        );
+      }
+    },
+  },
 }));
 
 const TEST_DETAIL: GenericProgramDetail = {
@@ -94,14 +125,12 @@ describe('program detail service', () => {
   const originalFetch = globalThis.fetch;
 
   afterEach(() => {
-    mockGetAccessToken.mockReset();
     mockFetchWithAccessToken.mockReset();
     globalThis.process = originalProcess;
     globalThis.fetch = originalFetch;
   });
 
   it('uses the /api route prefix when fetching program detail by default', async () => {
-    mockGetAccessToken.mockReturnValue('mobile-access-token');
     mockFetchWithAccessToken.mockResolvedValueOnce({
       accessToken: 'mobile-access-token',
       response: new Response(JSON.stringify(TEST_DETAIL), {
@@ -130,11 +159,10 @@ describe('program detail service', () => {
 
     await expect(fetchProgramDefinition('test-prog')).resolves.toEqual(TEST_DEFINITION);
 
-    expect(fetchSpy).toHaveBeenCalledWith('http://localhost:3001/api/catalog/test-prog');
+    expect(fetchSpy).toHaveBeenCalledWith('http://localhost:3001/api/catalog/test-prog', undefined);
   });
 
-  it('parses authorized detail fetches after a token refresh retry', async () => {
-    mockGetAccessToken.mockReturnValue('expired-access-token');
+  it('parses program detail returned by the authorized transport', async () => {
     mockFetchWithAccessToken.mockResolvedValueOnce({
       accessToken: 'fresh-access-token',
       response: new Response(JSON.stringify(TEST_DETAIL), {
@@ -148,5 +176,34 @@ describe('program detail service', () => {
     await expect(fetchProgramDetail('instance-1')).resolves.toEqual(TEST_DETAIL);
 
     expect(mockFetchWithAccessToken).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    {
+      name: 'program detail',
+      publicRequest: false,
+      request: () => fetchProgramDetail('instance-1'),
+    },
+    {
+      name: 'program definition',
+      publicRequest: true,
+      request: () => fetchProgramDefinition('test-prog'),
+    },
+  ])('rejects a malformed $name response', async ({ publicRequest, request }) => {
+    const response = new Response(JSON.stringify({ id: 'incomplete' }), { status: 200 });
+    if (publicRequest) {
+      jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(response);
+    } else {
+      mockFetchWithAccessToken.mockResolvedValueOnce({
+        accessToken: 'mobile-access-token',
+        response,
+      });
+    }
+
+    await expect(request()).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'INVALID_RESPONSE',
+      body: { id: 'incomplete' },
+    });
   });
 });

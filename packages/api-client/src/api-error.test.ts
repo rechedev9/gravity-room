@@ -19,6 +19,15 @@ describe('ApiError', () => {
     const err = new ApiError('Bad request', 400);
     expect(err.code).toBeUndefined();
   });
+
+  it('preserves response body and cause diagnostics', () => {
+    const cause = new Error('invalid payload');
+    const body = { unexpected: true };
+    const err = new ApiError('Invalid response', 200, 'INVALID_RESPONSE', { body, cause });
+
+    expect(err.body).toBe(body);
+    expect(err.cause).toBe(cause);
+  });
 });
 
 describe('parseApiErrorBody', () => {

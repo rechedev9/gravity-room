@@ -106,6 +106,40 @@ function SignInProbe() {
   );
 }
 
+function TransitionProbe() {
+  const { loading, signInWithGoogle, signOut, user } = useAuth();
+
+  return (
+    <>
+      <Text testID="auth-state">{loading ? 'loading' : (user?.email ?? 'signed-out')}</Text>
+      <Text
+        accessibilityRole="button"
+        onPress={() => {
+          void signInWithGoogle('credential-a').catch(() => undefined);
+        }}
+      >
+        sign-in-a
+      </Text>
+      <Text
+        accessibilityRole="button"
+        onPress={() => {
+          void signInWithGoogle('credential-b').catch(() => undefined);
+        }}
+      >
+        sign-in-b
+      </Text>
+      <Text
+        accessibilityRole="button"
+        onPress={() => {
+          void signOut().catch(() => undefined);
+        }}
+      >
+        force-sign-out
+      </Text>
+    </>
+  );
+}
+
 describe('AuthProvider', () => {
   beforeEach(() => {
     jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() });
@@ -182,6 +216,34 @@ describe('AuthProvider', () => {
     expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('restored-access-token');
 
     slowFlush.resolve({ processedCount: 0 });
+  });
+
+  it('does not publish a restored session after the provider unmounts', async () => {
+    const slowActivation = createDeferred<void>();
+    mockedRestoreSession.mockResolvedValue({
+      accessToken: 'restored-access-token',
+      user: {
+        id: 'user-123',
+        email: 'athlete@example.com',
+        name: 'Test Athlete',
+        avatarUrl: null,
+      },
+    });
+    mockedActivateLocalDataOwner.mockReturnValue(slowActivation.promise);
+
+    const view = render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(mockedActivateLocalDataOwner).toHaveBeenCalledWith('user-123'));
+    view.unmount();
+    slowActivation.resolve();
+
+    await Promise.resolve();
+    expect(mockedSetAccessToken).not.toHaveBeenCalledWith('restored-access-token');
+    expect(mockedFlushQueuedMutations).not.toHaveBeenCalled();
   });
 
   it('clears queued offline mutations on sign-out', async () => {
@@ -336,6 +398,117 @@ describe('AuthProvider', () => {
     expect(await screen.findByText('athlete@example.com')).toBeTruthy();
     expect(mockedSignInWithGoogleIdToken).toHaveBeenCalledWith('google-id-token');
     expect(mockedFlushQueuedMutations).toHaveBeenCalledWith('fresh-access-token');
+  });
+
+  it('serializes overlapping sign-ins and lets only the latest transition publish', async () => {
+    const firstSignIn = createDeferred<Awaited<ReturnType<typeof signInWithGoogleIdToken>>>();
+    const secondSignIn = createDeferred<Awaited<ReturnType<typeof signInWithGoogleIdToken>>>();
+    mockedRestoreSession.mockResolvedValue(null);
+    mockedLocalDataOwnerStorage.getOwnerId.mockResolvedValue('previous-user');
+    mockedClearQueuedMutations.mockResolvedValue();
+    mockedClearLocalAppData.mockResolvedValue();
+    mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
+    mockedSignInWithGoogleIdToken.mockImplementation((credential) =>
+      credential === 'credential-a' ? firstSignIn.promise : secondSignIn.promise
+    );
+
+    render(
+      <AuthProvider>
+        <TransitionProbe />
+      </AuthProvider>
+    );
+
+    expect(await screen.findByText('signed-out')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'sign-in-a' }));
+    await waitFor(() => expect(mockedSignInWithGoogleIdToken).toHaveBeenCalledWith('credential-a'));
+
+    fireEvent.press(screen.getByRole('button', { name: 'sign-in-b' }));
+    expect(mockedSignInWithGoogleIdToken).not.toHaveBeenCalledWith('credential-b');
+
+    firstSignIn.resolve({
+      accessToken: 'token-a',
+      user: { id: 'user-a', email: 'a@example.com', name: 'A', avatarUrl: null },
+    });
+    await waitFor(() => expect(mockedSignInWithGoogleIdToken).toHaveBeenCalledWith('credential-b'));
+    expect(mockedSetAccessToken).not.toHaveBeenCalledWith('token-a');
+    expect(mockedActivateLocalDataOwner).not.toHaveBeenCalledWith('user-a');
+
+    secondSignIn.resolve({
+      accessToken: 'token-b',
+      user: { id: 'user-b', email: 'b@example.com', name: 'B', avatarUrl: null },
+    });
+
+    expect(await screen.findByText('b@example.com')).toBeTruthy();
+    expect(mockedSetAccessToken).toHaveBeenCalledWith('token-b');
+    expect(mockedActivateLocalDataOwner).toHaveBeenCalledWith('user-b');
+  });
+
+  it('invalidates a pending sign-in when sign-out begins', async () => {
+    const pendingSignIn = createDeferred<Awaited<ReturnType<typeof signInWithGoogleIdToken>>>();
+    mockedRestoreSession.mockResolvedValue(null);
+    mockedSignInWithGoogleIdToken.mockReturnValue(pendingSignIn.promise);
+    mockedSignOutSession.mockResolvedValue();
+    mockedClearQueuedMutations.mockResolvedValue();
+    mockedClearLocalAppData.mockResolvedValue();
+
+    render(
+      <AuthProvider>
+        <TransitionProbe />
+      </AuthProvider>
+    );
+
+    expect(await screen.findByText('signed-out')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'sign-in-a' }));
+    await waitFor(() => expect(mockedSignInWithGoogleIdToken).toHaveBeenCalledTimes(1));
+    fireEvent.press(screen.getByRole('button', { name: 'force-sign-out' }));
+
+    pendingSignIn.resolve({
+      accessToken: 'superseded-token',
+      user: {
+        id: 'superseded-user',
+        email: 'superseded@example.com',
+        name: null,
+        avatarUrl: null,
+      },
+    });
+
+    await waitFor(() => expect(mockedSignOutSession).toHaveBeenCalledTimes(1));
+    expect(mockedSetAccessToken).not.toHaveBeenCalledWith('superseded-token');
+    expect(mockedActivateLocalDataOwner).not.toHaveBeenCalledWith('superseded-user');
+    expect(screen.getByTestId('auth-state').props.children).toBe('signed-out');
+  });
+
+  it('invalidates a pending restore when sign-out begins', async () => {
+    const pendingRestore = createDeferred<Awaited<ReturnType<typeof restoreSession>>>();
+    mockedRestoreSession.mockReturnValue(pendingRestore.promise);
+    mockedSignOutSession.mockResolvedValue();
+    mockedClearQueuedMutations.mockResolvedValue();
+    mockedClearLocalAppData.mockResolvedValue();
+
+    render(
+      <AuthProvider>
+        <TransitionProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(mockedRestoreSession).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('auth-state').props.children).toBe('loading');
+    fireEvent.press(screen.getByRole('button', { name: 'force-sign-out' }));
+
+    pendingRestore.resolve({
+      accessToken: 'restored-token',
+      user: {
+        id: 'restored-user',
+        email: 'restored@example.com',
+        name: null,
+        avatarUrl: null,
+      },
+    });
+
+    await waitFor(() => expect(mockedSignOutSession).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId('auth-state').props.children).toBe('signed-out'));
+    expect(mockedSetAccessToken).not.toHaveBeenCalledWith('restored-token');
+    expect(mockedActivateLocalDataOwner).not.toHaveBeenCalledWith('restored-user');
   });
 
   it('clears another account cache and outbox before exposing the signed-in user', async () => {

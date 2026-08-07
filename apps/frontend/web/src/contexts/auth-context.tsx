@@ -8,14 +8,26 @@ import {
   setAccessToken,
 } from '@/lib/api';
 import { SESSION_INVALIDATED_EVENT } from '@/lib/auth-events';
-import { apiFetch, fetchMe } from '@/lib/api-functions';
+import { fetchMe } from '@/lib/api-functions';
 import { ApiError } from '@gzclp/api-client/api-error';
-import { isRecord } from '@gzclp/domain/type-guards';
 import { parseUserSafe } from '@gzclp/domain/schemas/user';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
 import { setUser as sentrySetUser } from '@/lib/sentry';
 import { trackEvent } from '@/lib/analytics';
 import { queryKeys } from '@/lib/query-keys';
+import {
+  deleteAuthenticatedAccount,
+  endAuthenticatedSession,
+  resendEmailVerification,
+  resetPasswordWithToken,
+  sendPasswordResetEmail,
+  signInAsDevelopmentUser,
+  signInWithEmailCredentials,
+  signInWithGoogleCredential,
+  signUpWithEmailCredentials,
+  verifyEmailToken,
+  type AuthenticatedSession,
+} from '@/features/auth/auth-api';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -26,11 +38,9 @@ interface AuthResult {
 }
 
 /** Result of an email/password action. `code` is the API error code for i18n. */
-export interface ActionResult {
-  readonly ok: boolean;
-  readonly code?: string;
-  readonly message?: string;
-}
+export type ActionResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly code?: string; readonly message?: string };
 
 interface AuthState {
   readonly user: UserInfo | null;
@@ -138,29 +148,24 @@ async function restoreSession(): Promise<UserInfo | null> {
 // ---------------------------------------------------------------------------
 
 function applySignInResponse(
-  data: unknown,
+  session: AuthenticatedSession | null,
   setQueryData: (userInfo: UserInfo) => void,
   options: { readonly trackSignup: boolean }
 ): AuthResult | null {
-  if (!isRecord(data) || typeof data.accessToken !== 'string') {
-    return { message: 'Unexpected response from server' };
-  }
-
-  const userInfo = parseUserSafe(data.user);
-  if (!userInfo) {
+  if (!session) {
     setAccessToken(null);
     activeAuthSessionIdentity = null;
     return { message: 'Unexpected response from server' };
   }
 
-  setAccessToken(data.accessToken);
-  beginAuthSession(userInfo.id);
+  setAccessToken(session.accessToken);
+  beginAuthSession(session.user.id);
   // A successful sign-in starts a new refresh-token lifecycle. A previous
   // successful sign-out deliberately blocked refresh rotation, so release
   // that block before this account's access token can expire.
   resumeAuthRefresh();
-  setQueryData(userInfo);
-  sentrySetUser({ id: userInfo.id });
+  setQueryData(session.user);
+  sentrySetUser({ id: session.user.id });
   if (options.trackSignup) trackEvent('signup');
   return null;
 }
@@ -238,11 +243,8 @@ export function AuthProvider({
   const signInWithGoogle = useCallback(
     async (credential: string): Promise<AuthResult | null> => {
       try {
-        const data = await apiFetch('/auth/google', {
-          method: 'POST',
-          body: JSON.stringify({ credential }),
-        });
-        return applySignInResponse(data, setSessionData, { trackSignup: true });
+        const session = await signInWithGoogleCredential(credential);
+        return applySignInResponse(session, setSessionData, { trackSignup: true });
       } catch (err: unknown) {
         return { message: err instanceof Error ? err.message : 'Something went wrong' };
       }
@@ -253,12 +255,8 @@ export function AuthProvider({
   const signInWithEmail = useCallback(
     async (email: string, password: string): Promise<ActionResult> => {
       try {
-        const data = await apiFetch('/auth/login', {
-          method: 'POST',
-          body: JSON.stringify({ email, password }),
-          retryAuth: false,
-        });
-        const err = applySignInResponse(data, setSessionData, { trackSignup: false });
+        const session = await signInWithEmailCredentials(email, password);
+        const err = applySignInResponse(session, setSessionData, { trackSignup: false });
         return err ? { ok: false, message: err.message } : { ok: true };
       } catch (err: unknown) {
         return errorResult(err);
@@ -270,11 +268,7 @@ export function AuthProvider({
   const signUpWithEmail = useCallback(
     async (email: string, password: string, name?: string): Promise<ActionResult> => {
       try {
-        await apiFetch('/auth/signup', {
-          method: 'POST',
-          body: JSON.stringify({ email, password, ...(name ? { name } : {}) }),
-          retryAuth: false,
-        });
+        await signUpWithEmailCredentials(email, password, name);
         trackEvent('signup');
         return { ok: true };
       } catch (err: unknown) {
@@ -287,12 +281,8 @@ export function AuthProvider({
   const verifyEmail = useCallback(
     async (token: string): Promise<ActionResult> => {
       try {
-        const data = await apiFetch('/auth/verify-email', {
-          method: 'POST',
-          body: JSON.stringify({ token }),
-          retryAuth: false,
-        });
-        const err = applySignInResponse(data, setSessionData, { trackSignup: false });
+        const session = await verifyEmailToken(token);
+        const err = applySignInResponse(session, setSessionData, { trackSignup: false });
         return err ? { ok: false, message: err.message } : { ok: true };
       } catch (err: unknown) {
         return errorResult(err);
@@ -303,11 +293,7 @@ export function AuthProvider({
 
   const resendVerification = useCallback(async (email: string): Promise<ActionResult> => {
     try {
-      await apiFetch('/auth/resend-verification', {
-        method: 'POST',
-        body: JSON.stringify({ email }),
-        retryAuth: false,
-      });
+      await resendEmailVerification(email);
       return { ok: true };
     } catch (err: unknown) {
       return errorResult(err);
@@ -316,11 +302,7 @@ export function AuthProvider({
 
   const requestPasswordReset = useCallback(async (email: string): Promise<ActionResult> => {
     try {
-      await apiFetch('/auth/forgot-password', {
-        method: 'POST',
-        body: JSON.stringify({ email }),
-        retryAuth: false,
-      });
+      await sendPasswordResetEmail(email);
       return { ok: true };
     } catch (err: unknown) {
       return errorResult(err);
@@ -330,11 +312,7 @@ export function AuthProvider({
   const resetPassword = useCallback(
     async (token: string, password: string): Promise<ActionResult> => {
       try {
-        await apiFetch('/auth/reset-password', {
-          method: 'POST',
-          body: JSON.stringify({ token, password }),
-          retryAuth: false,
-        });
+        await resetPasswordWithToken(token, password);
         await clearAuthenticatedClientState(queryClient);
         return { ok: true };
       } catch (err: unknown) {
@@ -346,12 +324,8 @@ export function AuthProvider({
 
   const signInWithDevImpl = useCallback(async (): Promise<AuthResult | null> => {
     try {
-      const data = await apiFetch('/auth/dev', {
-        method: 'POST',
-        headers: { 'x-dev-auth-secret': DEV_AUTH_SECRET },
-        body: JSON.stringify({ email: 'dev@localhost.dev' }),
-      });
-      return applySignInResponse(data, setSessionData, { trackSignup: false });
+      const session = await signInAsDevelopmentUser(DEV_AUTH_SECRET, 'dev@localhost.dev');
+      return applySignInResponse(session, setSessionData, { trackSignup: false });
     } catch (err: unknown) {
       return { message: err instanceof Error ? err.message : 'Something went wrong' };
     }
@@ -371,14 +345,14 @@ export function AuthProvider({
   );
 
   const deleteAccount = useCallback(async (): Promise<void> => {
-    await apiFetch('/auth/me', { method: 'DELETE' });
+    await deleteAuthenticatedAccount();
     await clearAuthenticatedClientState(queryClient);
   }, [queryClient]);
 
   const signOut = useCallback(async (): Promise<ActionResult> => {
     blockAuthRefresh();
     try {
-      await apiFetch('/auth/signout', { method: 'POST', retryAuth: false });
+      await endAuthenticatedSession();
     } catch (err: unknown) {
       // Keep the authenticated UI intact so the user can retry. In particular,
       // do not reload while an HttpOnly refresh cookie may still be valid.

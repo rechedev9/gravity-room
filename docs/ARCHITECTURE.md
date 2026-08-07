@@ -22,7 +22,7 @@ gravity-room/
 ├── packages/
 │   ├── domain/              ← @gzclp/domain — Zod schemas + GZCLP engine
 │   ├── database/            ← @gzclp/database — Drizzle schema, seeds, migrations
-│   └── api-client/          ← @gzclp/api-client — typed fetch wrapper
+│   └── api-client/          ← @gzclp/api-client — JSON/auth transport + fetch utilities
 ├── scripts/                 ← ops/build scripts: vercel-build, loadtest, committer
 ├── docs/                    ← architecture, llm-map, cutover runbook, memoria
 ├── .github/workflows/       ← CI + security + Claude bot integrations
@@ -40,7 +40,7 @@ gravity-room/
 | `apps/backend/api`     | backend  | Node (Vercel) | ElysiaJS 1.4 (serverless `app.fetch`), Drizzle ORM + Neon Postgres, Upstash Redis (REST), pino, Zod 4, @sentry/node |
 | `packages/domain`      | shared   | Node          | Pure TS + Zod 4. Exports the GZCLP progression engine and 9 schema modules                                          |
 | `packages/database`    | database | Node          | Drizzle schema, SQL migrations, reference seeds, schema dump tooling                                                |
-| `packages/api-client`  | shared   | Node          | Typed fetch wrapper (merge-headers, api-error, single-flight, url helpers)                                          |
+| `packages/api-client`  | shared   | Node          | Endpoint-agnostic JSON transport (runtime parsers, auth refresh/retry) plus fetch/header/error/URL utilities        |
 
 Analytics is not a separate service: the insight pipelines (e1RM, frequency,
 summary, volume, forecast, plateau, recommendation) were ported to TypeScript and
@@ -58,19 +58,43 @@ frozen by golden-file tests (`src/analytics/pipelines/pipelines.parity.test.ts`)
   Drizzle schema (`packages/database/src/schema.ts`), migrations
   (`packages/database/migrations/`), and reference seeds
   (`packages/database/src/seeds/`). The API owns runtime connections but imports
-  schema/seeds/migrations from this package.
+  schema/seeds/migrations from this package. Preset JSONB definitions are exposed
+  through the read-only `seeds/catalog-definition-registry.ts`; database seeding
+  and web prerender fixtures consume this same registry.
+- **`@gzclp/api-client` (shared transport)** — provides an endpoint-agnostic JSON
+  request boundary with caller-supplied runtime parsers, normalized API errors,
+  request cancellation, and one shared refresh followed by one authenticated
+  retry on 401. Mobile currently adopts it for program list/catalog/create/detail
+  services. Auth/session exchanges and queued-mutation replay remain specialized
+  because their native-token/cookie and outbox semantics are not generic requests.
 - **OpenAPI → Zod codegen** — the API exposes `/swagger/json`. The web app
   regenerates `apps/frontend/web/src/lib/api/generated.ts` via
   `pnpm --filter web api:types` (`apps/frontend/web/codegen/generate-api-types.ts`).
   CI's `OpenAPI client drift` job in `.github/workflows/ci.yml` boots the API
   against Postgres, regenerates the client, and fails on generated-client drift.
   Lefthook no longer runs this check locally because it requires a live API.
-  Mobile does **not** consume this generated client; it implements API calls by
-  hand. Unifying this is on the roadmap (`packages/api-client`).
+  Mobile does **not** consume this generated client; its endpoint parsers use
+  `@gzclp/domain` schemas or explicit local guards at the network boundary.
 - **Auth** — JWT access + refresh rotation. Multi-method sign-in (Google, Apple,
   GitHub, Microsoft, and email/password). Google OAuth via `@react-oauth/google`
   (web), `expo-auth-session` (mobile), and
-  `apps/backend/api/src/lib/google-auth.ts` (server).
+  `apps/backend/api/src/lib/google-auth.ts` (server). The large Elysia route
+  composition remains in `routes/auth.ts`; reusable credential-request,
+  avatar/device/name boundary policy is isolated in `routes/auth-boundary.ts`,
+  and redirect-provider cookie/callback/error policy in `routes/auth-oauth.ts`.
+- **Mobile session lifecycle** — `src/lib/auth/session-lifecycle.ts` prepares the
+  durable local-data owner before publishing an access token, clears SQLite and
+  the outbox when accounts change, and triggers non-blocking mutation flushes on
+  session publication and foreground resume. Sign-out deletes durable credentials
+  first; local cleanup then runs best-effort and retains the owner marker after a
+  failure so ambiguous data cannot be adopted by another account.
+- **Executable dependency policy** — `scripts/check-architecture-boundaries.ts`
+  parses TypeScript/JavaScript module references and rejects runtime dependency
+  reversals among web, mobile, backend, domain, API-client, and database zones. Policy
+  fixtures run via `pnpm run architecture:test`; the repository scan runs via
+  `pnpm run architecture:check`; CI executes both inside the existing `format`
+  job. `apps/frontend/web/scripts` is intentionally a build-tooling zone, so
+  prerender may import the database seed registry. `apps/frontend/web/src` may not.
 
 ## Service split
 
@@ -81,6 +105,9 @@ frozen by golden-file tests (`src/analytics/pipelines/pipelines.parity.test.ts`)
   the `user_insights` table, then read back via `GET /api/insights`. A Vercel
   Cron job drives a bounded per-user batch through
   `POST /api/internal/analytics/compute` (guarded by `INTERNAL_SECRET`/`CRON_SECRET`).
+- The web SPA has no runtime dependency on `@gzclp/database`. Its package declares
+  the database package only as a dev dependency because `scripts/prerender.ts`
+  builds catalog fixtures from the shared seed registry during the static build.
 
 ## Local development
 
@@ -108,16 +135,18 @@ them those features degrade gracefully). It is mandatory in production.
 
 ## Validation per service
 
-| Command                     | What it covers                                                             |
-| --------------------------- | -------------------------------------------------------------------------- |
-| `pnpm run typecheck`        | web + domain + database + api-client + mobile (TS-strict)                  |
-| `pnpm run typecheck:api`    | apps/backend/api                                                           |
-| `pnpm run bundle:api:check` | generated Vercel function matches its independent source entry             |
-| `pnpm run lint`             | web + api + api-client (eslint v9 + typescript-eslint)                     |
-| `pnpm run format:check`     | repo-wide prettier 3                                                       |
-| `pnpm run test`             | web + domain + database + api-client + mobile vitest                       |
-| `pnpm run test:api`         | apps/backend/api vitest (services + routes + analytics golden-file parity) |
-| `pnpm --filter web e2e`     | playwright (chromium)                                                      |
+| Command                       | What it covers                                                             |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `pnpm run typecheck`          | web + domain + database + api-client + mobile (TS-strict)                  |
+| `pnpm run typecheck:api`      | apps/backend/api                                                           |
+| `pnpm run bundle:api:check`   | generated Vercel function matches its independent source entry             |
+| `pnpm run architecture:test`  | executable architecture-policy fixtures                                    |
+| `pnpm run architecture:check` | dependency-direction scan of runtime apps and shared packages              |
+| `pnpm run lint`               | web + api + api-client (eslint v9 + typescript-eslint)                     |
+| `pnpm run format:check`       | repo-wide prettier 3                                                       |
+| `pnpm run test`               | web + domain + database + api-client + mobile vitest                       |
+| `pnpm run test:api`           | apps/backend/api vitest (services + routes + analytics golden-file parity) |
+| `pnpm --filter web e2e`       | playwright (chromium)                                                      |
 
 ## Why this structure
 
@@ -130,7 +159,8 @@ them those features degrade gracefully). It is mandatory in production.
    the same GZCLP rules, eliminating drift.
 3. **Database in one place** — `packages/database` owns Postgres structure and
    reference data. The API still owns connections and service-level queries, but
-   schema/migrations/seeds no longer hide inside the API app.
+   schema/migrations/seeds no longer hide inside the API app. One definition
+   registry keeps seed and prerender catalog payloads aligned.
 4. **Deploy config is declarative** — `vercel.json` pins the framework, build
    command (`scripts/vercel-build.sh`), serverless function, SPA rewrites, and
    cron schedules in one file at the repo root, so the same-origin topology is
@@ -140,5 +170,9 @@ them those features degrade gracefully). It is mandatory in production.
 6. **Disambiguated tooling** — `apps/frontend/web/codegen/` (was `scripts/`) no
    longer collides with the repo-root `scripts/` (ops scripts). `docs/`
    centralizes living-state documents (roadmap, log) that the README points at.
+7. **Dependency direction is executable** — the architecture checker and the
+   policy steps in CI's `format` job prevent frontend/backend runtime and
+   foundational packages from crossing the documented boundaries, while leaving
+   explicit build-tooling dependencies visible and reviewable.
 
 For navigation by paths, see [`docs/llm-map.md`](./llm-map.md).

@@ -42,7 +42,7 @@ import {
 } from '../lib/google-auth';
 import { sendTelegramMessage } from '../lib/telegram';
 import { isEmailConfigured, sendVerificationEmail, sendPasswordResetEmail } from '../lib/email';
-import { getApiBaseUrl, getWebBaseUrl } from '../lib/app-url';
+import { getApiBaseUrl } from '../lib/app-url';
 import { keepAlive } from '../lib/wait-until';
 import {
   isAppleConfigured,
@@ -64,23 +64,24 @@ import {
   exchangeMicrosoftCode,
   fetchMicrosoftIdentity,
 } from '../lib/microsoft-auth';
+import {
+  assertTrustedCredentialRequest,
+  assertValidAvatarDataUrl,
+  classifyDevice,
+  MAX_AVATAR_DATA_URL_CHARS,
+  normalizeDisplayName,
+} from './auth-boundary';
+import {
+  identityErrorCode,
+  oauthCookieValue,
+  OAUTH_COOKIE_NAMES,
+  oauthStateCookieOptions,
+  providerExchangeErrorCode,
+  removeOAuthStateCookie,
+  socialCallbackUrl,
+} from './auth-oauth';
 
 const ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
-
-// ---------------------------------------------------------------------------
-// Device classification (REQ-AUTH-003)
-// ---------------------------------------------------------------------------
-
-type DeviceType = 'Mobile' | 'Desktop' | 'Bot' | 'Unknown';
-
-/** Classifies the device type from the User-Agent header value. */
-function classifyDevice(userAgent: string | undefined): DeviceType {
-  if (!userAgent) return 'Unknown';
-  const ua = userAgent.toLowerCase();
-  if (ua.includes('bot') || ua.includes('crawler') || ua.includes('spider')) return 'Bot';
-  if (/Mobile|Android|iPhone|iPad|iPod/.test(userAgent)) return 'Mobile';
-  return 'Desktop';
-}
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
@@ -112,15 +113,6 @@ const AUTH_ACCOUNT_KEY_SECRET =
 const AUTH_GLOBAL_RATE_LIMIT = { maxRequests: 1_000, windowMs: 60_000 };
 const RECIPIENT_DAILY_RATE_LIMIT = { maxRequests: 5, windowMs: 24 * 60 * 60 * 1000 };
 const RECIPIENT_COOLDOWN_RATE_LIMIT = { maxRequests: 1, windowMs: 60_000 };
-
-function normalizeDisplayName(name: string | undefined): string | undefined {
-  if (name === undefined) return undefined;
-  const normalized = name.trim();
-  if (normalized.length === 0) {
-    throw new ApiError(400, 'Name cannot be blank', 'INVALID_NAME');
-  }
-  return normalized;
-}
 
 /** Credential-accepting routes must not lose brute-force protection on Redis errors. */
 function authRateLimit(
@@ -170,93 +162,12 @@ async function recipientActionAllowed(email: string, endpoint: string): Promise<
   }
 }
 
-/**
- * Browser credential endpoints are JSON-only and reject hostile browser
- * origins/fetch metadata. Native clients send JSON without Origin or
- * Sec-Fetch-Site and remain supported.
- */
-function assertTrustedCredentialRequest(request: Request): void {
-  const contentType = request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase();
-  if (contentType !== 'application/json') {
-    throw new ApiError(415, 'Content-Type must be application/json', 'UNSUPPORTED_MEDIA_TYPE');
-  }
-
-  const fetchSite = request.headers.get('sec-fetch-site')?.toLowerCase();
-  if (fetchSite === 'cross-site') {
-    throw new ApiError(403, 'Cross-site authentication request rejected', 'CSRF_REJECTED');
-  }
-
-  const origin = request.headers.get('origin');
-  if (!origin) return;
-  const allowedOrigins = new Set([
-    new URL(request.url).origin,
-    getApiBaseUrl(request),
-    getWebBaseUrl(request),
-  ]);
-  for (const configured of process.env['CORS_ORIGIN']?.split(',') ?? []) {
-    const value = configured.trim();
-    if (value) allowedOrigins.add(new URL(value).origin);
-  }
-  let requestOrigin: string;
-  try {
-    requestOrigin = new URL(origin).origin;
-  } catch {
-    throw new ApiError(403, 'Cross-origin authentication request rejected', 'CSRF_REJECTED');
-  }
-  if (!allowedOrigins.has(requestOrigin)) {
-    throw new ApiError(403, 'Cross-origin authentication request rejected', 'CSRF_REJECTED');
-  }
-}
-
 /** Constant-time comparison of the dev-auth secret header against the configured value. */
 function devAuthSecretMatches(provided: string | undefined): boolean {
   if (!provided) return false;
   const a = Buffer.from(provided);
   const b = Buffer.from(DEV_AUTH_SECRET);
   return a.length === b.length && timingSafeEqual(a, b);
-}
-
-/** Max avatar data URL size in bytes (~200KB base64 ≈ ~150KB image). */
-const MAX_AVATAR_BYTES = 200_000;
-const DATA_URL_IMAGE_RE =
-  /^data:image\/(jpeg|png|webp);base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
-
-/**
- * Confirm the decoded avatar bytes actually carry the magic-byte signature of
- * the MIME type the data URL claims. The regex + base64 round-trip only proves
- * the payload is well-formed base64 with an image-ish prefix; without this an
- * attacker could store arbitrary non-image bytes (or a mislabelled format) under
- * an `image/*` label. We reject anything whose leading bytes don't match the
- * declared raster format.
- */
-function avatarSignatureMatches(declaredType: string, buf: Buffer): boolean {
-  switch (declaredType) {
-    case 'jpeg':
-      // SOI marker: FF D8 FF
-      return buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
-    case 'png':
-      // 89 50 4E 47 0D 0A 1A 0A
-      return (
-        buf.length >= 8 &&
-        buf[0] === 0x89 &&
-        buf[1] === 0x50 &&
-        buf[2] === 0x4e &&
-        buf[3] === 0x47 &&
-        buf[4] === 0x0d &&
-        buf[5] === 0x0a &&
-        buf[6] === 0x1a &&
-        buf[7] === 0x0a
-      );
-    case 'webp':
-      // RIFF....WEBP
-      return (
-        buf.length >= 12 &&
-        buf.toString('ascii', 0, 4) === 'RIFF' &&
-        buf.toString('ascii', 8, 12) === 'WEBP'
-      );
-    default:
-      return false;
-  }
 }
 
 const REFRESH_COOKIE_OPTIONS = {
@@ -554,69 +465,6 @@ async function processGoogleSignIn(
 // ---------------------------------------------------------------------------
 // Social sign-in (Apple, GitHub) — server-side redirect flows
 // ---------------------------------------------------------------------------
-
-const OAUTH_COOKIE_NAMES = {
-  apple: {
-    state: 'oauth_apple_state',
-    nonce: 'oauth_apple_nonce',
-  },
-  github: {
-    state: 'oauth_github_state',
-    pkce: 'oauth_github_pkce',
-  },
-  microsoft: {
-    state: 'oauth_microsoft_state',
-    nonce: 'oauth_microsoft_nonce',
-    pkce: 'oauth_microsoft_pkce',
-  },
-} as const;
-const OAUTH_STATE_TTL_S = 10 * 60; // 10 minutes
-
-/**
- * State-cookie options. Apple replies via cross-site form_post (needs
- * SameSite=None, which mandates Secure); GitHub returns via a top-level GET
- * navigation, where Lax is sufficient.
- */
-function stateCookieOptions(sameSite: 'lax' | 'none'): Record<string, unknown> {
-  return {
-    httpOnly: true,
-    secure: IS_PRODUCTION || sameSite === 'none',
-    sameSite,
-    maxAge: OAUTH_STATE_TTL_S,
-    path: '/api/auth',
-  };
-}
-
-/**
- * Expire an OAuth CSRF/state/nonce/PKCE cookie at its own `/api/auth` Path with
- * the same attributes it was set with. Like the refresh cookie, these are scoped
- * to `/api/auth`, so a default-path `cookie.remove()` would not match and clear
- * them. Pass the same `sameSite` used when the cookie was created.
- */
-function removeStateCookie(
-  cookie: { set: (opts: Record<string, unknown>) => void } | undefined,
-  sameSite: 'lax' | 'none'
-): void {
-  if (!cookie) return;
-  cookie.set({ ...stateCookieOptions(sameSite), value: '', maxAge: 0, expires: new Date(0) });
-}
-
-/** Builds the SPA callback URL the browser is redirected to, with an optional error code. */
-function socialCallbackUrl(request: Request, provider: string, error?: string): string {
-  const base = `${getWebBaseUrl(request)}/auth/callback`;
-  return error
-    ? `${base}?provider=${provider}&error=${encodeURIComponent(error)}`
-    : `${base}?provider=${provider}`;
-}
-
-/** Maps a findOrCreateUserByIdentity ApiError to a stable callback error code. */
-function identityErrorCode(error: unknown): string {
-  if (error instanceof ApiError) {
-    if (error.code === 'ACCOUNT_DELETED') return 'account_deleted';
-    if (error.code === 'ACCOUNT_EXISTS_DIFFERENT_METHOD') return 'account_exists';
-  }
-  return 'signin_failed';
-}
 
 const authSecurity = [{ bearerAuth: [] }];
 
@@ -1031,11 +879,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const nonce = generateRefreshToken();
       cookie[OAUTH_COOKIE_NAMES.apple.state]?.set({
         value: state,
-        ...stateCookieOptions('none'),
+        ...oauthStateCookieOptions('none', IS_PRODUCTION),
       });
       cookie[OAUTH_COOKIE_NAMES.apple.nonce]?.set({
         value: nonce,
-        ...stateCookieOptions('none'),
+        ...oauthStateCookieOptions('none', IS_PRODUCTION),
       });
       return redirect(
         buildAppleAuthorizeUrl(state, `${getApiBaseUrl(request)}/api/auth/apple/callback`, nonce)
@@ -1060,11 +908,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       await authRateLimit(ip, '/auth/apple/callback', { maxRequests: 30 });
 
       const stateCookie = cookie[OAUTH_COOKIE_NAMES.apple.state];
-      const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
-      removeStateCookie(stateCookie, 'none');
+      const expectedState = oauthCookieValue(stateCookie);
+      removeOAuthStateCookie(stateCookie, 'none', IS_PRODUCTION);
       const nonceCookie = cookie[OAUTH_COOKIE_NAMES.apple.nonce];
-      const expectedNonce = typeof nonceCookie?.value === 'string' ? nonceCookie.value : undefined;
-      removeStateCookie(nonceCookie, 'none');
+      const expectedNonce = oauthCookieValue(nonceCookie);
+      removeOAuthStateCookie(nonceCookie, 'none', IS_PRODUCTION);
 
       const idToken = typeof body.id_token === 'string' ? body.id_token : undefined;
       const requestState = typeof body.state === 'string' ? body.state : undefined;
@@ -1145,11 +993,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const challenge = await pkceChallenge(verifier);
       cookie[OAUTH_COOKIE_NAMES.github.state]?.set({
         value: state,
-        ...stateCookieOptions('lax'),
+        ...oauthStateCookieOptions('lax', IS_PRODUCTION),
       });
       cookie[OAUTH_COOKIE_NAMES.github.pkce]?.set({
         value: verifier,
-        ...stateCookieOptions('lax'),
+        ...oauthStateCookieOptions('lax', IS_PRODUCTION),
       });
       return redirect(
         buildGitHubAuthorizeUrl(
@@ -1178,11 +1026,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       await authRateLimit(ip, '/auth/github/callback', { maxRequests: 30 });
 
       const stateCookie = cookie[OAUTH_COOKIE_NAMES.github.state];
-      const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
-      removeStateCookie(stateCookie, 'lax');
+      const expectedState = oauthCookieValue(stateCookie);
+      removeOAuthStateCookie(stateCookie, 'lax', IS_PRODUCTION);
       const pkceCookie = cookie[OAUTH_COOKIE_NAMES.github.pkce];
-      const codeVerifier = typeof pkceCookie?.value === 'string' ? pkceCookie.value : undefined;
-      removeStateCookie(pkceCookie, 'lax');
+      const codeVerifier = oauthCookieValue(pkceCookie);
+      removeOAuthStateCookie(pkceCookie, 'lax', IS_PRODUCTION);
 
       const code = typeof query.code === 'string' ? query.code : undefined;
       const requestState = typeof query.state === 'string' ? query.state : undefined;
@@ -1202,11 +1050,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         identity = await fetchGitHubIdentity(accessToken);
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'github: oauth exchange/lookup failed');
-        const code =
-          e instanceof ApiError && e.code === 'AUTH_EMAIL_UNVERIFIED'
-            ? 'email_required'
-            : 'provider_error';
-        return redirect(socialCallbackUrl(request, 'github', code));
+        return redirect(socialCallbackUrl(request, 'github', providerExchangeErrorCode(e)));
       }
 
       try {
@@ -1264,15 +1108,15 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       const challenge = await pkceChallenge(verifier);
       cookie[OAUTH_COOKIE_NAMES.microsoft.state]?.set({
         value: state,
-        ...stateCookieOptions('lax'),
+        ...oauthStateCookieOptions('lax', IS_PRODUCTION),
       });
       cookie[OAUTH_COOKIE_NAMES.microsoft.nonce]?.set({
         value: nonce,
-        ...stateCookieOptions('lax'),
+        ...oauthStateCookieOptions('lax', IS_PRODUCTION),
       });
       cookie[OAUTH_COOKIE_NAMES.microsoft.pkce]?.set({
         value: verifier,
-        ...stateCookieOptions('lax'),
+        ...oauthStateCookieOptions('lax', IS_PRODUCTION),
       });
       return redirect(
         buildMicrosoftAuthorizeUrl(
@@ -1302,14 +1146,14 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       await authRateLimit(ip, '/auth/microsoft/callback', { maxRequests: 30 });
 
       const stateCookie = cookie[OAUTH_COOKIE_NAMES.microsoft.state];
-      const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : undefined;
-      removeStateCookie(stateCookie, 'lax');
+      const expectedState = oauthCookieValue(stateCookie);
+      removeOAuthStateCookie(stateCookie, 'lax', IS_PRODUCTION);
       const nonceCookie = cookie[OAUTH_COOKIE_NAMES.microsoft.nonce];
-      const expectedNonce = typeof nonceCookie?.value === 'string' ? nonceCookie.value : undefined;
-      removeStateCookie(nonceCookie, 'lax');
+      const expectedNonce = oauthCookieValue(nonceCookie);
+      removeOAuthStateCookie(nonceCookie, 'lax', IS_PRODUCTION);
       const pkceCookie = cookie[OAUTH_COOKIE_NAMES.microsoft.pkce];
-      const codeVerifier = typeof pkceCookie?.value === 'string' ? pkceCookie.value : undefined;
-      removeStateCookie(pkceCookie, 'lax');
+      const codeVerifier = oauthCookieValue(pkceCookie);
+      removeOAuthStateCookie(pkceCookie, 'lax', IS_PRODUCTION);
 
       const code = typeof query.code === 'string' ? query.code : undefined;
       const requestState = typeof query.state === 'string' ? query.state : undefined;
@@ -1333,11 +1177,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         );
       } catch (e: unknown) {
         reqLogger.warn({ err: e }, 'microsoft: oauth exchange/lookup failed');
-        const code =
-          e instanceof ApiError && e.code === 'AUTH_EMAIL_UNVERIFIED'
-            ? 'email_required'
-            : 'provider_error';
-        return redirect(socialCallbackUrl(request, 'microsoft', code));
+        return redirect(socialCallbackUrl(request, 'microsoft', providerExchangeErrorCode(e)));
       }
 
       try {
@@ -1639,44 +1479,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     async ({ userId, body, reqLogger, ip }) => {
       await rateLimit(ip, '/auth/me/patch', { maxRequests: 20, failClosed: true });
 
-      if (body.avatarUrl !== undefined && body.avatarUrl !== null) {
-        const dataUrlMatch = DATA_URL_IMAGE_RE.exec(body.avatarUrl);
-        if (!dataUrlMatch) {
-          throw new ApiError(
-            400,
-            'Avatar must be a base64 data URL (JPEG, PNG, or WebP)',
-            'INVALID_AVATAR'
-          );
-        }
-        const declaredType = dataUrlMatch[1];
-        if (body.avatarUrl.length > MAX_AVATAR_BYTES) {
-          throw new ApiError(400, 'Avatar exceeds maximum size (200KB)', 'AVATAR_TOO_LARGE');
-        }
-        // Validate base64 roundtrip to reject corrupted/malformed payloads
-        const b64Part = body.avatarUrl.split(',')[1];
-        if (!b64Part || b64Part.length === 0) {
-          throw new ApiError(400, 'Empty avatar data', 'INVALID_AVATAR');
-        }
-        let decoded: Buffer;
-        try {
-          decoded = Buffer.from(b64Part, 'base64');
-          if (decoded.toString('base64') !== b64Part) {
-            throw new ApiError(400, 'Invalid base64 in avatar', 'INVALID_AVATAR');
-          }
-        } catch (e: unknown) {
-          if (e instanceof ApiError) throw e;
-          throw new ApiError(400, 'Invalid base64 in avatar', 'INVALID_AVATAR');
-        }
-        // Confirm the decoded bytes are actually an image of the declared type,
-        // not arbitrary data smuggled under an image/* label.
-        if (declaredType === undefined || !avatarSignatureMatches(declaredType, decoded)) {
-          throw new ApiError(
-            400,
-            'Avatar data is not a valid image of the declared type',
-            'INVALID_AVATAR'
-          );
-        }
-      }
+      assertValidAvatarDataUrl(body.avatarUrl);
 
       const updated = await updateUserProfile(userId, {
         name: normalizeDisplayName(body.name),
@@ -1689,7 +1492,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     {
       body: t.Object({
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
-        avatarUrl: t.Optional(t.Nullable(t.String({ maxLength: MAX_AVATAR_BYTES }))),
+        avatarUrl: t.Optional(t.Nullable(t.String({ maxLength: MAX_AVATAR_DATA_URL_CHARS }))),
       }),
       detail: {
         tags: ['Auth'],

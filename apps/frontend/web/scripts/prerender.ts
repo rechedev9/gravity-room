@@ -35,29 +35,7 @@ import serverlessChromium from '@sparticuz/chromium';
 import { PROGRAM_CATALOG } from '@gzclp/domain/catalog';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
-
-import { GZCLP_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/gzclp';
-import { PPL531_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/ppl531';
-import { STRONGLIFTS_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/stronglifts';
-import { GSLP_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/greyskull';
-import { BBB_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/bbb';
-import { FSL531_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/fsl531';
-import { PHUL_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/phul';
-import { NIVEL7_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/nivel7';
-import { MUTENROSHI_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/mutenroshi';
-import {
-  BRUNETTI365_DEFINITION_JSONB,
-  BRUNETTI365_EXP_DEFINITION_JSONB,
-} from '@gzclp/database/seeds/programs/brunetti-365';
-import { SHEIKO_7_1_DEFINITION } from '@gzclp/database/seeds/programs/sheiko-7-1';
-import { SHEIKO_7_2_DEFINITION } from '@gzclp/database/seeds/programs/sheiko-7-2';
-import { SHEIKO_7_3_DEFINITION } from '@gzclp/database/seeds/programs/sheiko-7-3';
-import { SHEIKO_7_4_DEFINITION } from '@gzclp/database/seeds/programs/sheiko-7-4';
-import { SHEIKO_7_5_DEFINITION } from '@gzclp/database/seeds/programs/sheiko-7-5';
-import { SALA_1_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/sala-1';
-import { SALA_2_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/sala-2';
-import { SALA_3_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/sala-3';
-import { PPL_AB_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/ppl-ab';
+import { CATALOG_DEFINITION_JSONB_BY_ID } from '@gzclp/database/seeds/catalog-definition-registry';
 
 // ---------------------------------------------------------------------------
 // Paths & config
@@ -72,33 +50,6 @@ const PREVIEW_HOST = '127.0.0.1';
 // Per-route hydration deadline. Most routes settle well under 1.5 s; we give
 // 5 s before treating a render as stuck.
 const ROUTE_TIMEOUT_MS = 5000;
-
-// ---------------------------------------------------------------------------
-// Program JSONB lookup — mirrors packages/database/src/seeds/program-templates-seed.ts
-// ---------------------------------------------------------------------------
-
-const DEFINITION_MAP: Readonly<Record<string, unknown>> = {
-  gzclp: GZCLP_DEFINITION_JSONB,
-  'hexan-ppl': PPL531_DEFINITION_JSONB,
-  'stronglifts-5x5': STRONGLIFTS_DEFINITION_JSONB,
-  'phraks-greyskull-lp': GSLP_DEFINITION_JSONB,
-  '531-boring-but-big': BBB_DEFINITION_JSONB,
-  '531-for-beginners': FSL531_DEFINITION_JSONB,
-  phul: PHUL_DEFINITION_JSONB,
-  'nivel-7': NIVEL7_DEFINITION_JSONB,
-  'caparazon-de-tortuga': MUTENROSHI_DEFINITION_JSONB,
-  '365-programmare-lipertrofia': BRUNETTI365_DEFINITION_JSONB,
-  'la-sala-del-tiempo': BRUNETTI365_EXP_DEFINITION_JSONB,
-  'tenkaichi-budokai-sentadilla': SHEIKO_7_1_DEFINITION,
-  'tenkaichi-budokai-press-banca': SHEIKO_7_2_DEFINITION,
-  'tenkaichi-budokai-peso-muerto': SHEIKO_7_3_DEFINITION,
-  'tenkaichi-budokai-solo-banca': SHEIKO_7_4_DEFINITION,
-  'tenkaichi-budokai-veterano': SHEIKO_7_5_DEFINITION,
-  'sala-del-tiempo-1': SALA_1_DEFINITION_JSONB,
-  'sala-del-tiempo-2': SALA_2_DEFINITION_JSONB,
-  'sala-del-tiempo-3': SALA_3_DEFINITION_JSONB,
-  'furia-oscura': PPL_AB_DEFINITION_JSONB,
-};
 
 // ---------------------------------------------------------------------------
 // Definition builder
@@ -135,7 +86,7 @@ function collectExerciseIds(definition: unknown): Set<string> {
 
 function buildProgramDefinition(programId: string): ProgramDefinition | null {
   const meta = PROGRAM_CATALOG.find((m) => m.id === programId);
-  const jsonb = DEFINITION_MAP[programId];
+  const jsonb = CATALOG_DEFINITION_JSONB_BY_ID[programId];
   if (!meta || !isRecord(jsonb)) return null;
 
   const ids = collectExerciseIds(jsonb);
@@ -295,6 +246,16 @@ async function prerenderRoute(
   // (including a second H1) on every snapshot. The mounted route is the
   // authoritative no-JS representation, so omit the fallback from prerenders.
   await page.locator('noscript').evaluateAll((nodes) => {
+    for (const node of nodes) node.remove();
+  });
+
+  // Native dialogs keep all descendant text in the DOM while closed. Search
+  // and LLM extractors can therefore rank an invisible confirmation prompt
+  // ahead of the route's real copy (the guest-migration dialog is English on
+  // the Spanish landing snapshot). Closed dialogs have no no-JS value, so omit
+  // them from static HTML; the client recreates them when an actual user needs
+  // one.
+  await page.locator('dialog:not([open])').evaluateAll((nodes) => {
     for (const node of nodes) node.remove();
   });
 

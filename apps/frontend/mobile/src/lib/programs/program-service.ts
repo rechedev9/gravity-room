@@ -7,7 +7,7 @@ import {
   type ProgramDefinition,
 } from '@gzclp/domain';
 import { isRecord } from '@gzclp/domain/type-guards';
-import { fetchWithAccessToken, getAccessToken } from '../auth/session';
+import { mobileApiTransport } from '../api/transport';
 import type { ProgramSummary } from './program-repository';
 
 interface RemoteProgramSummary {
@@ -58,10 +58,6 @@ function readRemoteProgramsPage(value: unknown): RemoteProgramsPage {
 }
 
 export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
-  if (!getAccessToken()) {
-    throw new Error('Program summaries require an access token');
-  }
-
   const programs: ProgramSummary[] = [];
   let nextCursor: string | null | undefined;
   const visitedCursors = new Set<string>();
@@ -73,13 +69,9 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
       requestUrl.searchParams.set('cursor', nextCursor);
     }
 
-    const { response } = await fetchWithAccessToken(`${requestUrl.pathname}${requestUrl.search}`);
-
-    if (!response.ok) {
-      throw new Error(`Program summary fetch failed with status ${response.status}`);
-    }
-
-    const payload = readRemoteProgramsPage(await response.json());
+    const payload = await mobileApiTransport.request(`${requestUrl.pathname}${requestUrl.search}`, {
+      parse: readRemoteProgramsPage,
+    });
     for (const program of payload.data) {
       programs.push({
         id: program.id,
@@ -101,26 +93,15 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
 }
 
 export async function fetchCatalogEntries(): Promise<CatalogEntry[]> {
-  const response = await fetchWithAccessToken('/catalog');
-  if (!response.response.ok) {
-    throw new Error(`Catalog fetch failed with status ${response.response.status}`);
-  }
-
-  const payload = await response.response.json();
-  if (!Array.isArray(payload)) {
-    throw new Error('Invalid catalog response');
-  }
-
-  return payload.map((entry) => CatalogEntrySchema.parse(entry));
+  return mobileApiTransport.request('/catalog', {
+    parse: (body) => CatalogEntrySchema.array().parse(body),
+  });
 }
 
 export async function fetchCatalogDefinition(programId: string): Promise<ProgramDefinition> {
-  const response = await fetchWithAccessToken(`/catalog/${encodeURIComponent(programId)}`);
-  if (!response.response.ok) {
-    throw new Error(`Catalog definition fetch failed with status ${response.response.status}`);
-  }
-
-  return ProgramDefinitionSchema.parse(await response.response.json());
+  return mobileApiTransport.request(`/catalog/${encodeURIComponent(programId)}`, {
+    parse: (body) => ProgramDefinitionSchema.parse(body),
+  });
 }
 
 export function buildDefaultProgramConfig(
@@ -152,21 +133,12 @@ export async function createProgramInstance(input: {
   readonly name: string;
   readonly config: Record<string, number | string>;
 }): Promise<GenericProgramDetail> {
-  if (!getAccessToken()) {
-    throw new Error('Program creation requires an access token');
-  }
-
-  const { response } = await fetchWithAccessToken('/programs', {
+  return mobileApiTransport.request('/programs', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(input),
+    parse: (body) => GenericProgramDetailSchema.parse(body),
   });
-
-  if (!response.ok) {
-    throw new Error(`Program creation failed with status ${response.status}`);
-  }
-
-  return GenericProgramDetailSchema.parse(await response.json());
 }

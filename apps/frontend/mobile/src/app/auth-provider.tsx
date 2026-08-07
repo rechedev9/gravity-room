@@ -8,24 +8,23 @@ import {
 } from 'react';
 import { AppState } from 'react-native';
 
-import type { AuthUser } from '../lib/auth/session';
+import type { AuthUser, SessionState } from '../lib/auth/session';
 import {
-  getAccessToken,
   restoreSession,
-  setAccessToken,
   signInWithDev,
   signInWithEmailPassword,
   signInWithGoogleIdToken,
   signOutSession,
   signUpWithEmailPassword,
 } from '../lib/auth/session';
-import { secureLocalDataOwnerStorage } from '../lib/auth/secure-storage';
 import {
-  activateLocalDataOwner,
-  clearLocalAppData,
-  deactivateLocalDataOwner,
-} from '../lib/db/client';
-import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation-sync-service';
+  clearLocalSession,
+  createSessionTransitionCoordinator,
+  flushLocalSessionMutations,
+  prepareLocalSession,
+  publishLocalSession,
+  type SessionTransition,
+} from '../lib/auth/session-lifecycle';
 
 /**
  * Result of an email/password action. `code` is the API error code (or a
@@ -60,67 +59,61 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function prepareLocalDataForUser(userId: string): Promise<void> {
-  // Stop every repository/flush before reading the durable owner marker. Any
-  // SecureStore or SQLite failure below rejects the auth transition; callers do
-  // not publish the new access token or user until this function succeeds.
-  deactivateLocalDataOwner();
-
-  const ownerId = await secureLocalDataOwnerStorage.getOwnerId();
-  if (ownerId !== userId) {
-    // Unclaimed legacy rows are not safe to adopt: they may belong to a previous
-    // account whose marker was lost. Clear both the in-flight outbox and every
-    // owner partition before reassigning the durable marker.
-    await clearQueuedMutations();
-    await clearLocalAppData();
-    await secureLocalDataOwnerStorage.setOwnerId(userId);
+async function establishLocalSession(
+  session: SessionState,
+  transition: SessionTransition
+): Promise<boolean> {
+  if (!transition.isCurrent()) {
+    return false;
   }
 
-  // This bootstraps/migrates SQLite before enabling any owner-scoped query.
-  await activateLocalDataOwner(userId);
-}
+  const prepared = await prepareLocalSession(session.user.id, transition);
+  if (!prepared || !transition.isCurrent()) {
+    return false;
+  }
 
-function publishPreparedSession(accessToken: string): void {
-  setAccessToken(accessToken);
+  return publishLocalSession(session, transition);
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [transitionCoordinator] = useState(createSessionTransitionCoordinator);
 
   useEffect(() => {
     let active = true;
+    const transition = transitionCoordinator.begin();
 
-    void restoreSession()
-      .then((session) => {
-        if (!active) return;
+    void transition
+      .runExclusive(async () => {
+        if (!active || !transition.isCurrent()) return;
+
+        const session = await restoreSession();
+        if (!active || !transition.isCurrent()) return;
         if (!session) {
           setUser(null);
           return;
         }
 
-        return prepareLocalDataForUser(session.user.id).then(() => {
-          if (!active) return;
-          publishPreparedSession(session.accessToken);
+        const established = await establishLocalSession(session, transition);
+        if (active && established && transition.isCurrent()) {
           setUser(session.user);
-          void flushQueuedMutations(session.accessToken).catch(() => {
-            // Leave queued mutations in place for a later retry.
-          });
-        });
+        }
       })
       .catch(() => {
-        if (!active) return;
+        if (!active || !transition.isCurrent()) return;
         setUser(null);
       })
       .finally(() => {
-        if (!active) return;
+        if (!active || !transition.isCurrent()) return;
         setLoading(false);
       });
 
     return () => {
       active = false;
+      transitionCoordinator.invalidate();
     };
-  }, []);
+  }, [transitionCoordinator]);
 
   useEffect(() => {
     if (!user) {
@@ -132,12 +125,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return;
       }
 
-      const currentAccessToken = getAccessToken();
-      if (currentAccessToken) {
-        void flushQueuedMutations(currentAccessToken).catch(() => {
-          // Keep the outbox intact for a later foreground or explicit retry.
-        });
-      }
+      void flushLocalSessionMutations().catch(() => {
+        // Keep the outbox intact for a later foreground or explicit retry.
+      });
     });
 
     return () => subscription.remove();
@@ -149,26 +139,50 @@ export function AuthProvider({ children }: PropsWithChildren) {
       loading,
       isGuest: false,
       signInWithGoogle: async (credential: string) => {
-        const session = await signInWithGoogleIdToken(credential);
-        await prepareLocalDataForUser(session.user.id);
-        publishPreparedSession(session.accessToken);
-        setUser(session.user);
-        void flushQueuedMutations(session.accessToken).catch(() => {
-          // Leave queued mutations in place for a later retry.
+        const transition = transitionCoordinator.begin();
+        await transition.runExclusive(async () => {
+          if (!transition.isCurrent()) return;
+
+          try {
+            const session = await signInWithGoogleIdToken(credential);
+            if (!transition.isCurrent()) return;
+
+            const established = await establishLocalSession(session, transition);
+            if (established && transition.isCurrent()) {
+              setUser(session.user);
+              setLoading(false);
+            }
+          } catch (error: unknown) {
+            if (transition.isCurrent()) {
+              throw error;
+            }
+          }
         });
       },
       signInWithEmail: async (email: string, password: string): Promise<AuthActionResult> => {
-        const result = await signInWithEmailPassword(email, password);
-        if (!result.ok) {
-          return { ok: false, code: result.code };
-        }
-        await prepareLocalDataForUser(result.session.user.id);
-        publishPreparedSession(result.session.accessToken);
-        setUser(result.session.user);
-        void flushQueuedMutations(result.session.accessToken).catch(() => {
-          // Leave queued mutations in place for a later retry.
+        const transition = transitionCoordinator.begin();
+        return transition.runExclusive(async (): Promise<AuthActionResult> => {
+          if (!transition.isCurrent()) return { ok: true };
+
+          try {
+            const result = await signInWithEmailPassword(email, password);
+            if (!transition.isCurrent()) return { ok: true };
+            if (!result.ok) {
+              setLoading(false);
+              return { ok: false, code: result.code };
+            }
+
+            const established = await establishLocalSession(result.session, transition);
+            if (established && transition.isCurrent()) {
+              setUser(result.session.user);
+              setLoading(false);
+            }
+            return { ok: true };
+          } catch (error: unknown) {
+            if (!transition.isCurrent()) return { ok: true };
+            throw error;
+          }
         });
-        return { ok: true };
       },
       signUpWithEmail: async (
         email: string,
@@ -182,60 +196,60 @@ export function AuthProvider({ children }: PropsWithChildren) {
       ...(typeof __DEV__ !== 'undefined' && __DEV__
         ? {
             signInWithDev: async (): Promise<AuthActionResult> => {
-              const result = await signInWithDev();
-              if (!result.ok) {
-                return { ok: false, code: result.code };
-              }
-              await prepareLocalDataForUser(result.session.user.id);
-              publishPreparedSession(result.session.accessToken);
-              setUser(result.session.user);
-              void flushQueuedMutations(result.session.accessToken).catch(() => {
-                // Leave queued mutations in place for a later retry.
+              const transition = transitionCoordinator.begin();
+              return transition.runExclusive(async (): Promise<AuthActionResult> => {
+                if (!transition.isCurrent()) return { ok: true };
+
+                try {
+                  const result = await signInWithDev();
+                  if (!transition.isCurrent()) return { ok: true };
+                  if (!result.ok) {
+                    setLoading(false);
+                    return { ok: false, code: result.code };
+                  }
+
+                  const established = await establishLocalSession(result.session, transition);
+                  if (established && transition.isCurrent()) {
+                    setUser(result.session.user);
+                    setLoading(false);
+                  }
+                  return { ok: true };
+                } catch (error: unknown) {
+                  if (!transition.isCurrent()) return { ok: true };
+                  throw error;
+                }
               });
-              return { ok: true };
             },
           }
         : {}),
       signOut: async () => {
-        // Durable credential deletion is the sign-out boundary. If SecureStore
-        // cannot remove either credential, reject without changing user/access
-        // state so the profile can display an error and let the user retry.
-        await signOutSession();
+        const transition = transitionCoordinator.begin();
+        await transition.runExclusive(async () => {
+          if (!transition.isCurrent()) return;
 
-        // Credentials are now durably gone. Stop owner-scoped work before
-        // clearing offline data; retain the owner marker when cleanup is partial
-        // so the next account must retry before any old rows become visible.
-        deactivateLocalDataOwner();
-        setAccessToken(null);
-
-        let outboxCleared = false;
-        let localDataCleared = false;
-        try {
-          await clearQueuedMutations();
-          outboxCleared = true;
-        } catch {
-          // Keep the owner marker so the next login must retry cleanup.
-        }
-
-        try {
-          await clearLocalAppData();
-          localDataCleared = true;
-        } catch {
-          // Keep the owner marker so the next login must retry cleanup.
-        }
-
-        if (outboxCleared && localDataCleared) {
           try {
-            await secureLocalDataOwnerStorage.clearOwnerId();
-          } catch {
-            // A stale marker is safe: the next account will clear empty data
-            // again before replacing it.
+            // Durable credential deletion is the sign-out boundary. If SecureStore
+            // cannot remove either credential, reject without changing user/access
+            // state so the profile can display an error and let the user retry.
+            await signOutSession();
+            if (!transition.isCurrent()) return;
+
+            // Credentials are now durably gone. Local cleanup is best-effort but
+            // preserves the owner marker if isolation cannot be completed.
+            await clearLocalSession();
+            if (!transition.isCurrent()) return;
+
+            setUser(null);
+            setLoading(false);
+          } catch (error: unknown) {
+            if (transition.isCurrent()) {
+              throw error;
+            }
           }
-        }
-        setUser(null);
+        });
       },
     }),
-    [loading, user]
+    [loading, transitionCoordinator, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

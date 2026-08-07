@@ -26,6 +26,10 @@ reemplazarán el shell, la navegación y las pantallas actuales.
 - Expo 54, React Native 0.81 y TypeScript estricto.
 - `@gzclp/domain` como fuente única para esquemas y progresión.
 - Sesión móvil con access/refresh token y almacenamiento seguro.
+- Límite de ciclo de sesión por cuenta: owner duradero de SQLite antes de publicar el token, limpieza
+  al cambiar de cuenta y flush de outbox al restaurar/volver a foreground.
+- Transporte autenticado compartido de `@gzclp/api-client` adoptado por listado, catálogo, creación y
+  detalle de programas, con validación runtime de respuestas.
 - SQLite con migraciones versionadas.
 - Persistencia local de resúmenes, detalles y definiciones de programa.
 - Cola de mutaciones y reintento de resultados.
@@ -43,8 +47,8 @@ reemplazarán el shell, la navegación y las pantallas actuales.
 - Perfil solo muestra identidad y cierre de sesión.
 - La cola offline usa operaciones y payloads genéricos; le faltan estados de reintento observables,
   coalescencia y una política de conflictos explícita.
-- El cliente móvil sigue escribiendo llamadas HTTP a mano. `packages/api-client` aún contiene
-  utilidades, no el contrato completo.
+- La adopción de `@gzclp/api-client` todavía es acotada: auth/sesión y replay de outbox conservan
+  caminos especializados por sus contratos de cookies/tokens nativos y mutaciones persistidas.
 - Hay textos visibles hardcodeados en el tracker.
 - No existe lint específico de mobile, navegación deep-linkable, E2E nativo ni pipeline de release
   definido.
@@ -258,9 +262,10 @@ Política inicial:
 
 ### Contrato API
 
-Prioridad técnica temprana:
+Estado y prioridad técnica:
 
-1. ampliar `packages/api-client` con transporte autenticado y parsers runtime;
+1. mantener el transporte autenticado ya añadido a `packages/api-client` y extender su adopción solo
+   donde el request sea genérico; auth/sesión y replay de outbox siguen siendo adaptadores explícitos;
 2. reutilizar esquemas de `@gzclp/domain` donde ya sean canónicos;
 3. no copiar el cliente generado web dentro de mobile;
 4. si cambia una ruta, regenerar el cliente web y comprobar drift;

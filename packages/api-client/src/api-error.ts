@@ -1,13 +1,22 @@
 import { isRecord } from '@gzclp/domain/type-guards';
 
+export interface ApiErrorOptions {
+  readonly body?: unknown;
+  readonly cause?: unknown;
+}
+
 export class ApiError extends Error {
+  readonly body?: unknown;
+
   constructor(
     message: string,
     readonly status: number,
-    readonly code?: string
+    readonly code?: string,
+    options?: ApiErrorOptions
   ) {
-    super(message);
+    super(message, options?.cause === undefined ? undefined : { cause: options.cause });
     this.name = 'ApiError';
+    this.body = options?.body;
   }
 }
 

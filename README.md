@@ -129,8 +129,12 @@ dos frontends. Decisiones clave:
 - **Contrato OpenAPI generado por Elysia.** Expuesto en `/swagger/json` solo
   fuera de producción. Es la fuente de verdad para el cliente generado en web.
 - **Auth con JWT access + refresh rotation.** Multi-método (Google, Apple,
-  GitHub, Microsoft, email/contraseña), validado server-side en
-  [`lib/google-auth.ts`](apps/backend/api/src/lib/google-auth.ts) y compañía.
+  GitHub, Microsoft, email/contraseña). [`routes/auth.ts`](apps/backend/api/src/routes/auth.ts)
+  compone las rutas; [`auth-boundary.ts`](apps/backend/api/src/routes/auth-boundary.ts)
+  concentra validación de requests credenciales, avatar y datos de perfil, y
+  [`auth-oauth.ts`](apps/backend/api/src/routes/auth-oauth.ts) la política común de
+  cookies/callbacks OAuth. Servicios, guard y adaptadores de proveedor mantienen
+  sus responsabilidades separadas.
 - **Observabilidad:** logs JSON estructurados (`pino`) a los log drains de
   Vercel y `@sentry/node` opcional. Sin endpoint de scrape (`/metrics` eliminado).
 
@@ -209,7 +213,7 @@ forzar componentes universales termina mal en ambas.
   de tracking más usadas.
 * **Cliente generado desde OpenAPI** — [`codegen/generate-api-types.ts`](apps/frontend/web/codegen/generate-api-types.ts)
   toma `/swagger/json` del API y genera `src/lib/api/generated.ts`. El workflow
-  `validate` de CI bloquea drift entre el swagger real y el cliente generado.
+  `OpenAPI client drift` de CI bloquea drift entre el swagger real y el cliente generado.
 * **Tests E2E con Playwright** (chromium) en `e2e/`.
 
 Estructura interna:
@@ -237,10 +241,15 @@ basurero de "UI library casero" sin uso real.
 * **expo-sqlite** para persistencia local. La app funciona offline-first y
   sincroniza con el API cuando hay red.
 * **expo-auth-session** para Google OAuth (flujo nativo, no popup).
-* **No consume el cliente generado del API.** Las llamadas se escriben a mano
-  por ahora. Unificar esto vía un futuro `packages/api-client` está en la
-  hoja de ruta — el costo de cambiar al cliente generado hoy no compensa
-  porque mobile y web tienen ciclos de release distintos.
+* **No consume el cliente OpenAPI generado para web.** Los servicios de listado,
+  catálogo, creación y detalle de programas ya usan el transporte autenticado de
+  `@gzclp/api-client`, con parsers Zod/guards en el límite de red. Los intercambios
+  de auth/sesión y el replay de la outbox conservan caminos especializados por su
+  semántica de cookies/tokens nativos y mutaciones en cola.
+* **Ciclo de sesión aislado por cuenta.** Antes de publicar un access token,
+  `session-lifecycle.ts` reclama y valida el owner duradero de SQLite; un cambio
+  de cuenta limpia caché y outbox. La restauración y vuelta a foreground disparan
+  flush, y el cierre elimina credenciales duraderas antes del cleanup local.
 
 ### Por qué SPA estática separada del API
 
@@ -277,11 +286,15 @@ servidor acepta. Single source of truth — fin.
 Esquema Drizzle, migraciones SQL generadas y seeds de datos de referencia. El
 API es dueño de las conexiones en runtime pero importa esquema/seeds/migraciones
 desde aquí, así que la estructura de Postgres no vive escondida dentro del API.
+El registro único `seeds/catalog-definition-registry.ts` alimenta tanto el seed
+de templates como los fixtures del prerender web. En web, `@gzclp/database` es
+solo una dependencia de desarrollo/build; el código runtime de la SPA no la importa.
 
 ### `packages/api-client` — `@gzclp/api-client`
 
-Wrapper de fetch tipado (merge-headers, api-error, single-flight, helpers de
-URL) compartido por los clientes.
+Transporte JSON agnóstico de endpoints con parser runtime por llamada, errores
+normalizados, cancelación y refresh single-flight con un único retry ante 401,
+además de utilidades compartidas de headers y URL.
 
 ---
 
@@ -327,23 +340,25 @@ aceptar tokens de `/api/auth/mobile/google`.
 
 ### Comandos
 
-| Tarea                          | Comando                                           |
-| ------------------------------ | ------------------------------------------------- |
-| Dev (web)                      | `pnpm run dev:web`                                |
-| Dev (API)                      | `pnpm run dev:api`                                |
-| Migraciones + seeds            | `pnpm --filter api db:deploy`                     |
-| Build (web)                    | `pnpm run build:web`                              |
-| Type check (todo el workspace) | `pnpm run typecheck`                              |
-| Type check (API)               | `pnpm run typecheck:api`                          |
-| Type check (domain)            | `pnpm run typecheck:domain`                       |
-| Lint (TS)                      | `pnpm run lint`                                   |
-| Format check                   | `pnpm run format:check`                           |
-| Tests workspace (unit)         | `pnpm run test`                                   |
-| Tests API (unit + paridad)     | `pnpm run test:api`                               |
-| E2E (Playwright)               | `pnpm run e2e`                                    |
-| E2E con UI                     | `pnpm run e2e:headed`                             |
-| Load test (k6)                 | `k6 run scripts/loadtest.js`                      |
-| Load test (smoke)              | `k6 run scripts/loadtest.js --env SCENARIO=smoke` |
+| Tarea                            | Comando                                           |
+| -------------------------------- | ------------------------------------------------- |
+| Dev (web)                        | `pnpm run dev:web`                                |
+| Dev (API)                        | `pnpm run dev:api`                                |
+| Migraciones + seeds              | `pnpm --filter api db:deploy`                     |
+| Build (web)                      | `pnpm run build:web`                              |
+| Type check (todo el workspace)   | `pnpm run typecheck`                              |
+| Type check (API)                 | `pnpm run typecheck:api`                          |
+| Type check (domain)              | `pnpm run typecheck:domain`                       |
+| Lint (TS)                        | `pnpm run lint`                                   |
+| Format check                     | `pnpm run format:check`                           |
+| Tests workspace (unit)           | `pnpm run test`                                   |
+| Tests API (unit + paridad)       | `pnpm run test:api`                               |
+| Tests de política arquitectónica | `pnpm run architecture:test`                      |
+| Límites arquitectónicos          | `pnpm run architecture:check`                     |
+| E2E (Playwright)                 | `pnpm run e2e`                                    |
+| E2E con UI                       | `pnpm run e2e:headed`                             |
+| Load test (k6)                   | `k6 run scripts/loadtest.js`                      |
+| Load test (smoke)                | `k6 run scripts/loadtest.js --env SCENARIO=smoke` |
 
 ### Hooks de git
 
@@ -355,6 +370,11 @@ aceptar tokens de `/api/auth/mobile/google`.
 El chequeo de drift entre el swagger real del API y el cliente generado vive en
 CI (`ci.yml`, job `OpenAPI client drift`), porque necesita arrancar el API
 contra Postgres.
+
+El job `format` ejecuta además la política comprobable de dependencias: runtime
+web/mobile/backend y los paquetes compartidos solo pueden depender en la dirección
+documentada. Los scripts de build web quedan fuera del runtime y pueden leer el
+registro de seeds.
 
 No saltees los hooks con `--no-verify`. Si fallan es porque hay algo que
 arreglar antes de subir.

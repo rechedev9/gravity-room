@@ -187,7 +187,10 @@ jobs:
         run: pnpm run test:mobile
 
   # ---------------------------------------------------------------------------
-  # Repo-wide Prettier formatting gate.
+  # Repository policy and formatting — tests and enforces dependency direction
+  # between runtime apps and shared packages, then checks repo-wide formatting.
+  # Web prerender tooling remains outside the runtime-source boundary and may
+  # consume database seed data.
   # ---------------------------------------------------------------------------
   format:
     name: Format
@@ -204,6 +207,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Test architecture policy
+        run: pnpm run architecture:test
+
+      - name: Enforce architecture policy
+        run: pnpm run architecture:check
 
       - name: Format check
         run: pnpm run format:check

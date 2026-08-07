@@ -5,30 +5,54 @@ import {
   fetchCatalogEntries,
   fetchProgramSummaries,
 } from './program-service';
+import type { ApiRequestOptions } from '@gzclp/api-client/transport';
 
-const mockGetAccessToken = jest.fn<string | null, []>();
 const mockFetchWithAccessToken = jest.fn<
   Promise<{ readonly accessToken: string; readonly response: Response }>,
   [string, RequestInit | undefined]
 >();
 
-jest.mock('../auth/session', () => ({
-  getAccessToken: () => mockGetAccessToken(),
-  fetchWithAccessToken: (path: string, init?: RequestInit) => mockFetchWithAccessToken(path, init),
+async function mockReadResponseBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  return text.trim() === '' ? null : JSON.parse(text);
+}
+
+jest.mock('../api/transport', () => ({
+  mobileApiTransport: {
+    request: async <T>(path: string, options: ApiRequestOptions<T>): Promise<T> => {
+      const { ApiError: MockApiError } = jest.requireActual('@gzclp/api-client/api-error');
+      const { authenticated: _authenticated, parse, ...init } = options;
+      const requestInit = Object.keys(init).length === 0 ? undefined : init;
+      const { response } = await mockFetchWithAccessToken(path, requestInit);
+      const body = await mockReadResponseBody(response);
+      if (!response.ok) {
+        throw new MockApiError(
+          `API request failed with status ${response.status}`,
+          response.status,
+          undefined,
+          { body }
+        );
+      }
+      try {
+        return parse(body);
+      } catch (cause) {
+        throw new MockApiError(
+          'API response did not match the expected contract',
+          response.status,
+          'INVALID_RESPONSE',
+          { body, cause }
+        );
+      }
+    },
+  },
 }));
 
 describe('fetchProgramSummaries', () => {
-  const originalProcess = globalThis.process;
-
   afterEach(() => {
-    mockGetAccessToken.mockReset();
     mockFetchWithAccessToken.mockReset();
-    globalThis.process = originalProcess;
   });
 
   it('follows paginated /programs responses and returns the full snapshot', async () => {
-    mockGetAccessToken.mockReturnValue('mobile-access-token');
-
     mockFetchWithAccessToken
       .mockResolvedValueOnce(
         Promise.resolve({
@@ -98,16 +122,7 @@ describe('fetchProgramSummaries', () => {
     );
   });
 
-  it('preserves an EXPO_PUBLIC_API_URL path prefix when fetching program summaries', async () => {
-    mockGetAccessToken.mockReturnValue('mobile-access-token');
-    globalThis.process = {
-      ...originalProcess,
-      env: {
-        ...originalProcess.env,
-        EXPO_PUBLIC_API_URL: 'https://api.example.com/mobile-api',
-      },
-    };
-
+  it('keeps program summary paths relative to the configured transport base', async () => {
     mockFetchWithAccessToken.mockResolvedValueOnce({
       accessToken: 'mobile-access-token',
       response: new Response(
@@ -129,9 +144,7 @@ describe('fetchProgramSummaries', () => {
     expect(mockFetchWithAccessToken).toHaveBeenCalledWith('/programs', undefined);
   });
 
-  it('retries program summary requests after refreshing an expired access token', async () => {
-    mockGetAccessToken.mockReturnValue('expired-access-token');
-
+  it('parses a program summary returned by the authorized transport', async () => {
     mockFetchWithAccessToken.mockResolvedValueOnce({
       accessToken: 'fresh-access-token',
       response: new Response(
@@ -166,7 +179,6 @@ describe('fetchProgramSummaries', () => {
   });
 
   it('rejects malformed summary fields at the network boundary', async () => {
-    mockGetAccessToken.mockReturnValue('mobile-access-token');
     mockFetchWithAccessToken.mockResolvedValueOnce({
       accessToken: 'mobile-access-token',
       response: new Response(
@@ -178,11 +190,13 @@ describe('fetchProgramSummaries', () => {
       ),
     });
 
-    await expect(fetchProgramSummaries()).rejects.toThrow('Invalid program summary response');
+    await expect(fetchProgramSummaries()).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'INVALID_RESPONSE',
+    });
   });
 
   it('stops when a paginated response repeats a cursor', async () => {
-    mockGetAccessToken.mockReturnValue('mobile-access-token');
     const page = {
       accessToken: 'mobile-access-token',
       response: new Response(JSON.stringify({ data: [], nextCursor: 'same-cursor' }), {
@@ -203,7 +217,6 @@ describe('fetchProgramSummaries', () => {
   });
 
   it('fetches catalog entries through the authorized API transport', async () => {
-    mockGetAccessToken.mockReturnValue('mobile-access-token');
     mockFetchWithAccessToken.mockResolvedValueOnce({
       accessToken: 'mobile-access-token',
       response: new Response(
@@ -243,7 +256,6 @@ describe('fetchProgramSummaries', () => {
   });
 
   it('fetches a catalog definition by program id', async () => {
-    mockGetAccessToken.mockReturnValue('mobile-access-token');
     mockFetchWithAccessToken.mockResolvedValueOnce({
       accessToken: 'mobile-access-token',
       response: new Response(
@@ -287,6 +299,40 @@ describe('fetchProgramSummaries', () => {
 
     expect(definition.id).toBe('gzclp');
     expect(mockFetchWithAccessToken).toHaveBeenCalledWith('/catalog/gzclp', undefined);
+  });
+
+  it.each([
+    {
+      name: 'catalog collection',
+      body: { data: [] },
+      request: () => fetchCatalogEntries(),
+    },
+    {
+      name: 'catalog definition',
+      body: { id: 'incomplete-definition' },
+      request: () => fetchCatalogDefinition('incomplete-definition'),
+    },
+    {
+      name: 'created program detail',
+      body: { id: 'incomplete-instance' },
+      request: () =>
+        createProgramInstance({
+          programId: 'gzclp',
+          name: 'GZCLP',
+          config: { squat: 20 },
+        }),
+    },
+  ])('rejects a malformed $name at the domain boundary', async ({ body, request }) => {
+    mockFetchWithAccessToken.mockResolvedValueOnce({
+      accessToken: 'mobile-access-token',
+      response: new Response(JSON.stringify(body), { status: 200 }),
+    });
+
+    await expect(request()).rejects.toMatchObject({
+      name: 'ApiError',
+      code: 'INVALID_RESPONSE',
+      body,
+    });
   });
 
   it('builds default config from weight and select fields', () => {
@@ -338,7 +384,6 @@ describe('fetchProgramSummaries', () => {
   });
 
   it('creates a program instance through POST /programs', async () => {
-    mockGetAccessToken.mockReturnValue('mobile-access-token');
     mockFetchWithAccessToken.mockResolvedValueOnce({
       accessToken: 'mobile-access-token',
       response: new Response(

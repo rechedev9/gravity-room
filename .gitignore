@@ -53,6 +53,8 @@ AGENTS.md
 .worktrees/
 .agents/
 .atl/
+.grok/
+.scratch/
 skills-lock.json
 
 # temporary files (PDF extracts, screenshots, scripts)
@@ -81,6 +83,8 @@ scripts/*
 !scripts/refresh-claude-context.ts
 !scripts/vercel-build.sh
 !scripts/bundle-api-function.mjs
+!scripts/check-architecture-boundaries.ts
+!scripts/check-architecture-boundaries.test.ts
 !scripts/check-ci-pins.ts
 !scripts/check-dependency-audit.ts
 !scripts/check-dependency-audit.test.ts

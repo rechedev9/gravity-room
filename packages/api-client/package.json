@@ -18,6 +18,7 @@
     ".": "./src/index.ts",
     "./merge-headers": "./src/merge-headers.ts",
     "./api-error": "./src/api-error.ts",
+    "./transport": "./src/transport.ts",
     "./single-flight": "./src/single-flight.ts",
     "./url": "./src/url.ts"
   }

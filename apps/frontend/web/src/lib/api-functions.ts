@@ -60,7 +60,7 @@ async function extractApiError(res: Response, fallback: string): Promise<ApiErro
   return new ApiError(msg, res.status, code);
 }
 
-interface ApiFetchOptions extends RequestInit {
+export interface ApiFetchOptions extends RequestInit {
   /**
    * When false, a 401 is thrown directly instead of attempting a token refresh
    * and retry. Set it for unauthenticated endpoints (login, signup, password

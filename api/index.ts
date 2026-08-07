@@ -2541,34 +2541,23 @@ async function fetchMicrosoftIdentity(idToken, accessToken, expectedNonce) {
   };
 }
 
-// apps/backend/api/src/routes/auth.ts
-var ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
+// apps/backend/api/src/routes/auth-boundary.ts
+var MAX_AVATAR_DATA_URL_CHARS = 2e5;
+var DATA_URL_IMAGE_RE =
+  /^data:image\/(jpeg|png|webp);base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 function classifyDevice(userAgent) {
   if (!userAgent) return 'Unknown';
-  const ua = userAgent.toLowerCase();
-  if (ua.includes('bot') || ua.includes('crawler') || ua.includes('spider')) return 'Bot';
+  const normalizedUserAgent = userAgent.toLowerCase();
+  if (
+    normalizedUserAgent.includes('bot') ||
+    normalizedUserAgent.includes('crawler') ||
+    normalizedUserAgent.includes('spider')
+  ) {
+    return 'Bot';
+  }
   if (/Mobile|Android|iPhone|iPad|iPod/.test(userAgent)) return 'Mobile';
   return 'Desktop';
 }
-var REFRESH_COOKIE_NAME = 'refresh_token';
-var IS_PRODUCTION2 = process.env['NODE_ENV'] === 'production';
-var MAX_AUTH_TOKEN_CHARS = 256;
-var MAX_EMAIL_CHARS = 254;
-var MAX_OAUTH_CODE_CHARS = 4096;
-var MAX_OAUTH_ERROR_CHARS = 512;
-var MAX_OAUTH_ID_TOKEN_CHARS = 12e3;
-var MAX_OAUTH_USER_CHARS = 4096;
-var DEV_AUTH_SECRET = process.env['AUTH_DEV_ROUTE_SECRET'] ?? '';
-var DEV_AUTH_ENABLED =
-  process.env['AUTH_DEV_ROUTE_ENABLED'] === 'true' &&
-  !IS_PRODUCTION2 &&
-  DEV_AUTH_SECRET.length >= 16;
-var DEV_AUTH_RATE_LIMIT = { maxRequests: 60, windowMs: 6e4 };
-var emailInputSchema = t.String({ format: 'email', maxLength: MAX_EMAIL_CHARS });
-var AUTH_ACCOUNT_KEY_SECRET = process.env['JWT_SECRET'] ?? 'test-only-auth-account-rate-limit-key';
-var AUTH_GLOBAL_RATE_LIMIT = { maxRequests: 1e3, windowMs: 6e4 };
-var RECIPIENT_DAILY_RATE_LIMIT = { maxRequests: 5, windowMs: 24 * 60 * 60 * 1e3 };
-var RECIPIENT_COOLDOWN_RATE_LIMIT = { maxRequests: 1, windowMs: 6e4 };
 function normalizeDisplayName(name) {
   if (name === void 0) return void 0;
   const normalized = name.trim();
@@ -2576,32 +2565,6 @@ function normalizeDisplayName(name) {
     throw new ApiError(400, 'Name cannot be blank', 'INVALID_NAME');
   }
   return normalized;
-}
-function authRateLimit(key, endpoint, opts) {
-  return rateLimit(key, endpoint, { ...opts, failClosed: true });
-}
-function accountRateLimitKey(email) {
-  return `account:${createHmac('sha256', AUTH_ACCOUNT_KEY_SECRET).update(email.trim().toLowerCase()).digest('hex')}`;
-}
-async function applyCredentialAbuseLimits(ip, email, endpoint, ipMaxRequests, accountMaxRequests) {
-  await Promise.all([
-    authRateLimit(ip, endpoint, { maxRequests: ipMaxRequests }),
-    authRateLimit(accountRateLimitKey(email), `${endpoint}:account`, {
-      maxRequests: accountMaxRequests,
-    }),
-    authRateLimit('global', `${endpoint}:global`, AUTH_GLOBAL_RATE_LIMIT),
-  ]);
-}
-async function recipientActionAllowed(email, endpoint) {
-  const key = accountRateLimitKey(email);
-  try {
-    await authRateLimit(key, `${endpoint}:recipient-cooldown`, RECIPIENT_COOLDOWN_RATE_LIMIT);
-    await authRateLimit(key, `${endpoint}:recipient-daily`, RECIPIENT_DAILY_RATE_LIMIT);
-    return true;
-  } catch (error) {
-    if (error instanceof ApiError && error.code === 'RATE_LIMITED') return false;
-    throw error;
-  }
 }
 function assertTrustedCredentialRequest(request) {
   const contentType = request.headers.get('content-type')?.split(';', 1)[0]?.trim().toLowerCase();
@@ -2633,40 +2596,173 @@ function assertTrustedCredentialRequest(request) {
     throw new ApiError(403, 'Cross-origin authentication request rejected', 'CSRF_REJECTED');
   }
 }
+function assertValidAvatarDataUrl(avatarUrl) {
+  if (avatarUrl === void 0 || avatarUrl === null) return;
+  const dataUrlMatch = DATA_URL_IMAGE_RE.exec(avatarUrl);
+  if (!dataUrlMatch) {
+    throw new ApiError(
+      400,
+      'Avatar must be a base64 data URL (JPEG, PNG, or WebP)',
+      'INVALID_AVATAR'
+    );
+  }
+  if (avatarUrl.length > MAX_AVATAR_DATA_URL_CHARS) {
+    throw new ApiError(400, 'Avatar exceeds maximum size (200KB)', 'AVATAR_TOO_LARGE');
+  }
+  const declaredType = dataUrlMatch[1];
+  const base64Payload = avatarUrl.split(',')[1];
+  if (!base64Payload) {
+    throw new ApiError(400, 'Empty avatar data', 'INVALID_AVATAR');
+  }
+  const decoded = Buffer.from(base64Payload, 'base64');
+  if (decoded.toString('base64') !== base64Payload) {
+    throw new ApiError(400, 'Invalid base64 in avatar', 'INVALID_AVATAR');
+  }
+  if (declaredType === void 0 || !avatarSignatureMatches(declaredType, decoded)) {
+    throw new ApiError(
+      400,
+      'Avatar data is not a valid image of the declared type',
+      'INVALID_AVATAR'
+    );
+  }
+}
+function avatarSignatureMatches(declaredType, buffer) {
+  switch (declaredType) {
+    case 'jpeg':
+      return buffer.length >= 3 && buffer[0] === 255 && buffer[1] === 216 && buffer[2] === 255;
+    case 'png':
+      return (
+        buffer.length >= 8 &&
+        buffer[0] === 137 &&
+        buffer[1] === 80 &&
+        buffer[2] === 78 &&
+        buffer[3] === 71 &&
+        buffer[4] === 13 &&
+        buffer[5] === 10 &&
+        buffer[6] === 26 &&
+        buffer[7] === 10
+      );
+    case 'webp':
+      return (
+        buffer.length >= 12 &&
+        buffer.toString('ascii', 0, 4) === 'RIFF' &&
+        buffer.toString('ascii', 8, 12) === 'WEBP'
+      );
+    default:
+      return false;
+  }
+}
+
+// apps/backend/api/src/routes/auth-oauth.ts
+var OAUTH_COOKIE_NAMES = {
+  apple: {
+    state: 'oauth_apple_state',
+    nonce: 'oauth_apple_nonce',
+  },
+  github: {
+    state: 'oauth_github_state',
+    pkce: 'oauth_github_pkce',
+  },
+  microsoft: {
+    state: 'oauth_microsoft_state',
+    nonce: 'oauth_microsoft_nonce',
+    pkce: 'oauth_microsoft_pkce',
+  },
+};
+var OAUTH_STATE_TTL_SECONDS = 10 * 60;
+var OAUTH_COOKIE_PATH = '/api/auth';
+function oauthStateCookieOptions(sameSite, isProduction3) {
+  return {
+    httpOnly: true,
+    secure: isProduction3 || sameSite === 'none',
+    sameSite,
+    maxAge: OAUTH_STATE_TTL_SECONDS,
+    path: OAUTH_COOKIE_PATH,
+  };
+}
+function oauthCookieValue(cookie) {
+  return typeof cookie?.value === 'string' ? cookie.value : void 0;
+}
+function removeOAuthStateCookie(cookie, sameSite, isProduction3) {
+  if (!cookie) return;
+  cookie.set({
+    ...oauthStateCookieOptions(sameSite, isProduction3),
+    value: '',
+    maxAge: 0,
+    expires: /* @__PURE__ */ new Date(0),
+  });
+}
+function socialCallbackUrl(request, provider, error) {
+  const base = `${getWebBaseUrl(request)}/auth/callback`;
+  return error
+    ? `${base}?provider=${provider}&error=${encodeURIComponent(error)}`
+    : `${base}?provider=${provider}`;
+}
+function identityErrorCode(error) {
+  if (error instanceof ApiError) {
+    if (error.code === 'ACCOUNT_DELETED') return 'account_deleted';
+    if (error.code === 'ACCOUNT_EXISTS_DIFFERENT_METHOD') return 'account_exists';
+  }
+  return 'signin_failed';
+}
+function providerExchangeErrorCode(error) {
+  return error instanceof ApiError && error.code === 'AUTH_EMAIL_UNVERIFIED'
+    ? 'email_required'
+    : 'provider_error';
+}
+
+// apps/backend/api/src/routes/auth.ts
+var ACCESS_TOKEN_EXPIRY = process.env['JWT_ACCESS_EXPIRY'] ?? '15m';
+var REFRESH_COOKIE_NAME = 'refresh_token';
+var IS_PRODUCTION2 = process.env['NODE_ENV'] === 'production';
+var MAX_AUTH_TOKEN_CHARS = 256;
+var MAX_EMAIL_CHARS = 254;
+var MAX_OAUTH_CODE_CHARS = 4096;
+var MAX_OAUTH_ERROR_CHARS = 512;
+var MAX_OAUTH_ID_TOKEN_CHARS = 12e3;
+var MAX_OAUTH_USER_CHARS = 4096;
+var DEV_AUTH_SECRET = process.env['AUTH_DEV_ROUTE_SECRET'] ?? '';
+var DEV_AUTH_ENABLED =
+  process.env['AUTH_DEV_ROUTE_ENABLED'] === 'true' &&
+  !IS_PRODUCTION2 &&
+  DEV_AUTH_SECRET.length >= 16;
+var DEV_AUTH_RATE_LIMIT = { maxRequests: 60, windowMs: 6e4 };
+var emailInputSchema = t.String({ format: 'email', maxLength: MAX_EMAIL_CHARS });
+var AUTH_ACCOUNT_KEY_SECRET = process.env['JWT_SECRET'] ?? 'test-only-auth-account-rate-limit-key';
+var AUTH_GLOBAL_RATE_LIMIT = { maxRequests: 1e3, windowMs: 6e4 };
+var RECIPIENT_DAILY_RATE_LIMIT = { maxRequests: 5, windowMs: 24 * 60 * 60 * 1e3 };
+var RECIPIENT_COOLDOWN_RATE_LIMIT = { maxRequests: 1, windowMs: 6e4 };
+function authRateLimit(key, endpoint, opts) {
+  return rateLimit(key, endpoint, { ...opts, failClosed: true });
+}
+function accountRateLimitKey(email) {
+  return `account:${createHmac('sha256', AUTH_ACCOUNT_KEY_SECRET).update(email.trim().toLowerCase()).digest('hex')}`;
+}
+async function applyCredentialAbuseLimits(ip, email, endpoint, ipMaxRequests, accountMaxRequests) {
+  await Promise.all([
+    authRateLimit(ip, endpoint, { maxRequests: ipMaxRequests }),
+    authRateLimit(accountRateLimitKey(email), `${endpoint}:account`, {
+      maxRequests: accountMaxRequests,
+    }),
+    authRateLimit('global', `${endpoint}:global`, AUTH_GLOBAL_RATE_LIMIT),
+  ]);
+}
+async function recipientActionAllowed(email, endpoint) {
+  const key = accountRateLimitKey(email);
+  try {
+    await authRateLimit(key, `${endpoint}:recipient-cooldown`, RECIPIENT_COOLDOWN_RATE_LIMIT);
+    await authRateLimit(key, `${endpoint}:recipient-daily`, RECIPIENT_DAILY_RATE_LIMIT);
+    return true;
+  } catch (error) {
+    if (error instanceof ApiError && error.code === 'RATE_LIMITED') return false;
+    throw error;
+  }
+}
 function devAuthSecretMatches(provided) {
   if (!provided) return false;
   const a = Buffer.from(provided);
   const b = Buffer.from(DEV_AUTH_SECRET);
   return a.length === b.length && timingSafeEqual(a, b);
-}
-var MAX_AVATAR_BYTES = 2e5;
-var DATA_URL_IMAGE_RE =
-  /^data:image\/(jpeg|png|webp);base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
-function avatarSignatureMatches(declaredType, buf) {
-  switch (declaredType) {
-    case 'jpeg':
-      return buf.length >= 3 && buf[0] === 255 && buf[1] === 216 && buf[2] === 255;
-    case 'png':
-      return (
-        buf.length >= 8 &&
-        buf[0] === 137 &&
-        buf[1] === 80 &&
-        buf[2] === 78 &&
-        buf[3] === 71 &&
-        buf[4] === 13 &&
-        buf[5] === 10 &&
-        buf[6] === 26 &&
-        buf[7] === 10
-      );
-    case 'webp':
-      return (
-        buf.length >= 12 &&
-        buf.toString('ascii', 0, 4) === 'RIFF' &&
-        buf.toString('ascii', 8, 12) === 'WEBP'
-      );
-    default:
-      return false;
-  }
 }
 var REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -2831,53 +2927,6 @@ async function processGoogleSignIn(
     keepAlive(sendTelegramMessage(text2));
   }
   return { user, isNewUser };
-}
-var OAUTH_COOKIE_NAMES = {
-  apple: {
-    state: 'oauth_apple_state',
-    nonce: 'oauth_apple_nonce',
-  },
-  github: {
-    state: 'oauth_github_state',
-    pkce: 'oauth_github_pkce',
-  },
-  microsoft: {
-    state: 'oauth_microsoft_state',
-    nonce: 'oauth_microsoft_nonce',
-    pkce: 'oauth_microsoft_pkce',
-  },
-};
-var OAUTH_STATE_TTL_S = 10 * 60;
-function stateCookieOptions(sameSite) {
-  return {
-    httpOnly: true,
-    secure: IS_PRODUCTION2 || sameSite === 'none',
-    sameSite,
-    maxAge: OAUTH_STATE_TTL_S,
-    path: '/api/auth',
-  };
-}
-function removeStateCookie(cookie, sameSite) {
-  if (!cookie) return;
-  cookie.set({
-    ...stateCookieOptions(sameSite),
-    value: '',
-    maxAge: 0,
-    expires: /* @__PURE__ */ new Date(0),
-  });
-}
-function socialCallbackUrl(request, provider, error) {
-  const base = `${getWebBaseUrl(request)}/auth/callback`;
-  return error
-    ? `${base}?provider=${provider}&error=${encodeURIComponent(error)}`
-    : `${base}?provider=${provider}`;
-}
-function identityErrorCode(error) {
-  if (error instanceof ApiError) {
-    if (error.code === 'ACCOUNT_DELETED') return 'account_deleted';
-    if (error.code === 'ACCOUNT_EXISTS_DIFFERENT_METHOD') return 'account_exists';
-  }
-  return 'signin_failed';
 }
 var authSecurity = [{ bearerAuth: [] }];
 var authRoutes = new Elysia4({ prefix: '/auth' })
@@ -3224,11 +3273,11 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
       const nonce = generateRefreshToken();
       cookie[OAUTH_COOKIE_NAMES.apple.state]?.set({
         value: state,
-        ...stateCookieOptions('none'),
+        ...oauthStateCookieOptions('none', IS_PRODUCTION2),
       });
       cookie[OAUTH_COOKIE_NAMES.apple.nonce]?.set({
         value: nonce,
-        ...stateCookieOptions('none'),
+        ...oauthStateCookieOptions('none', IS_PRODUCTION2),
       });
       return redirect(
         buildAppleAuthorizeUrl(state, `${getApiBaseUrl(request)}/api/auth/apple/callback`, nonce)
@@ -3248,11 +3297,11 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
     async ({ jwt: jwt2, body, cookie, redirect, request, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/apple/callback', { maxRequests: 30 });
       const stateCookie = cookie[OAUTH_COOKIE_NAMES.apple.state];
-      const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : void 0;
-      removeStateCookie(stateCookie, 'none');
+      const expectedState = oauthCookieValue(stateCookie);
+      removeOAuthStateCookie(stateCookie, 'none', IS_PRODUCTION2);
       const nonceCookie = cookie[OAUTH_COOKIE_NAMES.apple.nonce];
-      const expectedNonce = typeof nonceCookie?.value === 'string' ? nonceCookie.value : void 0;
-      removeStateCookie(nonceCookie, 'none');
+      const expectedNonce = oauthCookieValue(nonceCookie);
+      removeOAuthStateCookie(nonceCookie, 'none', IS_PRODUCTION2);
       const idToken = typeof body.id_token === 'string' ? body.id_token : void 0;
       const requestState = typeof body.state === 'string' ? body.state : void 0;
       const providerError = typeof body.error === 'string' ? body.error : void 0;
@@ -3324,11 +3373,11 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
       const challenge = await pkceChallenge(verifier);
       cookie[OAUTH_COOKIE_NAMES.github.state]?.set({
         value: state,
-        ...stateCookieOptions('lax'),
+        ...oauthStateCookieOptions('lax', IS_PRODUCTION2),
       });
       cookie[OAUTH_COOKIE_NAMES.github.pkce]?.set({
         value: verifier,
-        ...stateCookieOptions('lax'),
+        ...oauthStateCookieOptions('lax', IS_PRODUCTION2),
       });
       return redirect(
         buildGitHubAuthorizeUrl(
@@ -3352,11 +3401,11 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
     async ({ jwt: jwt2, query, cookie, redirect, request, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/github/callback', { maxRequests: 30 });
       const stateCookie = cookie[OAUTH_COOKIE_NAMES.github.state];
-      const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : void 0;
-      removeStateCookie(stateCookie, 'lax');
+      const expectedState = oauthCookieValue(stateCookie);
+      removeOAuthStateCookie(stateCookie, 'lax', IS_PRODUCTION2);
       const pkceCookie = cookie[OAUTH_COOKIE_NAMES.github.pkce];
-      const codeVerifier = typeof pkceCookie?.value === 'string' ? pkceCookie.value : void 0;
-      removeStateCookie(pkceCookie, 'lax');
+      const codeVerifier = oauthCookieValue(pkceCookie);
+      removeOAuthStateCookie(pkceCookie, 'lax', IS_PRODUCTION2);
       const code = typeof query.code === 'string' ? query.code : void 0;
       const requestState = typeof query.state === 'string' ? query.state : void 0;
       const providerError = typeof query.error === 'string' ? query.error : void 0;
@@ -3373,11 +3422,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
         identity = await fetchGitHubIdentity(accessToken);
       } catch (e) {
         reqLogger.warn({ err: e }, 'github: oauth exchange/lookup failed');
-        const code2 =
-          e instanceof ApiError && e.code === 'AUTH_EMAIL_UNVERIFIED'
-            ? 'email_required'
-            : 'provider_error';
-        return redirect(socialCallbackUrl(request, 'github', code2));
+        return redirect(socialCallbackUrl(request, 'github', providerExchangeErrorCode(e)));
       }
       try {
         const { user, isNewUser } = await findOrCreateUserByIdentity({
@@ -3430,15 +3475,15 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
       const challenge = await pkceChallenge(verifier);
       cookie[OAUTH_COOKIE_NAMES.microsoft.state]?.set({
         value: state,
-        ...stateCookieOptions('lax'),
+        ...oauthStateCookieOptions('lax', IS_PRODUCTION2),
       });
       cookie[OAUTH_COOKIE_NAMES.microsoft.nonce]?.set({
         value: nonce,
-        ...stateCookieOptions('lax'),
+        ...oauthStateCookieOptions('lax', IS_PRODUCTION2),
       });
       cookie[OAUTH_COOKIE_NAMES.microsoft.pkce]?.set({
         value: verifier,
-        ...stateCookieOptions('lax'),
+        ...oauthStateCookieOptions('lax', IS_PRODUCTION2),
       });
       return redirect(
         buildMicrosoftAuthorizeUrl(
@@ -3463,14 +3508,14 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
     async ({ jwt: jwt2, query, cookie, redirect, request, reqLogger, ip }) => {
       await authRateLimit(ip, '/auth/microsoft/callback', { maxRequests: 30 });
       const stateCookie = cookie[OAUTH_COOKIE_NAMES.microsoft.state];
-      const expectedState = typeof stateCookie?.value === 'string' ? stateCookie.value : void 0;
-      removeStateCookie(stateCookie, 'lax');
+      const expectedState = oauthCookieValue(stateCookie);
+      removeOAuthStateCookie(stateCookie, 'lax', IS_PRODUCTION2);
       const nonceCookie = cookie[OAUTH_COOKIE_NAMES.microsoft.nonce];
-      const expectedNonce = typeof nonceCookie?.value === 'string' ? nonceCookie.value : void 0;
-      removeStateCookie(nonceCookie, 'lax');
+      const expectedNonce = oauthCookieValue(nonceCookie);
+      removeOAuthStateCookie(nonceCookie, 'lax', IS_PRODUCTION2);
       const pkceCookie = cookie[OAUTH_COOKIE_NAMES.microsoft.pkce];
-      const codeVerifier = typeof pkceCookie?.value === 'string' ? pkceCookie.value : void 0;
-      removeStateCookie(pkceCookie, 'lax');
+      const codeVerifier = oauthCookieValue(pkceCookie);
+      removeOAuthStateCookie(pkceCookie, 'lax', IS_PRODUCTION2);
       const code = typeof query.code === 'string' ? query.code : void 0;
       const requestState = typeof query.state === 'string' ? query.state : void 0;
       const providerError = typeof query.error === 'string' ? query.error : void 0;
@@ -3491,11 +3536,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
         );
       } catch (e) {
         reqLogger.warn({ err: e }, 'microsoft: oauth exchange/lookup failed');
-        const code2 =
-          e instanceof ApiError && e.code === 'AUTH_EMAIL_UNVERIFIED'
-            ? 'email_required'
-            : 'provider_error';
-        return redirect(socialCallbackUrl(request, 'microsoft', code2));
+        return redirect(socialCallbackUrl(request, 'microsoft', providerExchangeErrorCode(e)));
       }
       try {
         const { user, isNewUser } = await findOrCreateUserByIdentity({
@@ -3737,41 +3778,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
     '/me',
     async ({ userId, body, reqLogger, ip }) => {
       await rateLimit(ip, '/auth/me/patch', { maxRequests: 20, failClosed: true });
-      if (body.avatarUrl !== void 0 && body.avatarUrl !== null) {
-        const dataUrlMatch = DATA_URL_IMAGE_RE.exec(body.avatarUrl);
-        if (!dataUrlMatch) {
-          throw new ApiError(
-            400,
-            'Avatar must be a base64 data URL (JPEG, PNG, or WebP)',
-            'INVALID_AVATAR'
-          );
-        }
-        const declaredType = dataUrlMatch[1];
-        if (body.avatarUrl.length > MAX_AVATAR_BYTES) {
-          throw new ApiError(400, 'Avatar exceeds maximum size (200KB)', 'AVATAR_TOO_LARGE');
-        }
-        const b64Part = body.avatarUrl.split(',')[1];
-        if (!b64Part || b64Part.length === 0) {
-          throw new ApiError(400, 'Empty avatar data', 'INVALID_AVATAR');
-        }
-        let decoded;
-        try {
-          decoded = Buffer.from(b64Part, 'base64');
-          if (decoded.toString('base64') !== b64Part) {
-            throw new ApiError(400, 'Invalid base64 in avatar', 'INVALID_AVATAR');
-          }
-        } catch (e) {
-          if (e instanceof ApiError) throw e;
-          throw new ApiError(400, 'Invalid base64 in avatar', 'INVALID_AVATAR');
-        }
-        if (declaredType === void 0 || !avatarSignatureMatches(declaredType, decoded)) {
-          throw new ApiError(
-            400,
-            'Avatar data is not a valid image of the declared type',
-            'INVALID_AVATAR'
-          );
-        }
-      }
+      assertValidAvatarDataUrl(body.avatarUrl);
       const updated = await updateUserProfile(userId, {
         name: normalizeDisplayName(body.name),
         avatarUrl: body.avatarUrl,
@@ -3782,7 +3789,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
     {
       body: t.Object({
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
-        avatarUrl: t.Optional(t.Nullable(t.String({ maxLength: MAX_AVATAR_BYTES }))),
+        avatarUrl: t.Optional(t.Nullable(t.String({ maxLength: MAX_AVATAR_DATA_URL_CHARS }))),
       }),
       detail: {
         tags: ['Auth'],

@@ -10,6 +10,8 @@ build
 .idea
 .claude
 .agents
+.grok
+.scratch
 skills-lock.json
 .weave/runtime
 .weave/state.json

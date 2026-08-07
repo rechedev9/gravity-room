@@ -20,7 +20,6 @@
   },
   "dependencies": {
     "@gzclp/api-client": "workspace:*",
-    "@gzclp/database": "workspace:*",
     "@gzclp/domain": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-collapsible": "^1.1.12",
@@ -47,6 +46,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@gzclp/database": "workspace:*",
     "@playwright/test": "^1.58.2",
     "@sentry/vite-plugin": "^5.1.1",
     "@sparticuz/chromium": "149.0.0",

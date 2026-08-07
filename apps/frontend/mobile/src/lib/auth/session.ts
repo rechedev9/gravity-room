@@ -459,6 +459,12 @@ async function restoreAuthorizedSessionForActiveOwner(): Promise<SessionState | 
   return session;
 }
 
+/** Refresh hook for authenticated API requests, constrained to the active local owner. */
+export async function refreshAccessTokenForRequest(): Promise<string | null> {
+  const session = await restoreAuthorizedSessionForActiveOwner();
+  return session?.accessToken ?? null;
+}
+
 export async function fetchWithAccessToken(
   path: string,
   init?: RequestInit,
