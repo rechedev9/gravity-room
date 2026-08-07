@@ -1,8 +1,6 @@
 # ── Default (all crawlers) ────────────────────
 User-agent: *
 Allow: /
-Disallow: /app
-Disallow: /login
 Disallow: /api/
 Disallow: /health
 

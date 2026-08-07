@@ -11,40 +11,53 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SITE_ORIGIN, INDEXNOW_KEY, sitemapEntries } from './seo-config';
+import { SITE_ORIGIN, INDEXNOW_KEY, sitemapEntries, type SitemapEntry } from './seo-config';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = resolve(__dirname, '../public');
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
+function escapeXml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
 }
 
-async function main(): Promise<void> {
-  const lastmod = today();
-  const entries = sitemapEntries();
-
+export function buildSitemapXml(entries: readonly SitemapEntry[]): string {
   const body = entries
     .map((e) =>
       [
         '  <url>',
-        `    <loc>${SITE_ORIGIN}${e.path}</loc>`,
-        `    <lastmod>${lastmod}</lastmod>`,
+        `    <loc>${escapeXml(`${SITE_ORIGIN}${e.path}`)}</loc>`,
+        ...(e.lastmod !== undefined ? [`    <lastmod>${escapeXml(e.lastmod)}</lastmod>`] : []),
         `    <changefreq>${e.changefreq}</changefreq>`,
         `    <priority>${e.priority}</priority>`,
+        ...(e.alternates ?? []).map(
+          (alternate) =>
+            `    <xhtml:link rel="alternate" hreflang="${escapeXml(alternate.hreflang)}" href="${escapeXml(alternate.href)}" />`
+        ),
         '  </url>',
       ].join('\n')
     )
     .join('\n');
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n${body}\n</urlset>\n`;
+}
+
+async function main(): Promise<void> {
+  const entries = sitemapEntries();
+  const xml = buildSitemapXml(entries);
 
   await writeFile(resolve(PUBLIC_DIR, 'sitemap.xml'), xml, 'utf8');
   await writeFile(resolve(PUBLIC_DIR, `${INDEXNOW_KEY}.txt`), `${INDEXNOW_KEY}\n`, 'utf8');
 
   console.error(
-    `[sitemap] wrote ${entries.length} URLs (lastmod ${lastmod}) + IndexNow key ${INDEXNOW_KEY}.txt`
+    `[sitemap] wrote ${entries.length} URLs (${entries.filter((entry) => entry.lastmod !== undefined).length} with verified lastmod) + IndexNow key ${INDEXNOW_KEY}.txt`
   );
 }
 
-await main();
+if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  await main();
+}

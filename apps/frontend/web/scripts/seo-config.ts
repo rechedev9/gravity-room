@@ -21,32 +21,72 @@ export const SITE_ORIGIN = 'https://gravityroom.app';
  */
 export const INDEXNOW_KEY = 'a3f8e1c97b6d452e8f0a1b2c3d4e5f60';
 
+export interface SitemapAlternate {
+  readonly hreflang: 'es' | 'en' | 'x-default';
+  readonly href: string;
+}
+
 export interface SitemapEntry {
   readonly path: string;
   readonly priority: string;
   readonly changefreq: string;
+  /**
+   * Only publish dates backed by page content. Search engines may ignore the
+   * entire signal when every deployment stamps every URL with today's date.
+   */
+  readonly lastmod?: string;
+  readonly alternates?: readonly SitemapAlternate[];
+}
+
+function localizedEntries(
+  esPath: string,
+  enPath: string,
+  priority: string,
+  changefreq: string,
+  lastmod?: string
+): readonly SitemapEntry[] {
+  const alternates: readonly SitemapAlternate[] = [
+    { hreflang: 'es', href: `${SITE_ORIGIN}${esPath}` },
+    { hreflang: 'en', href: `${SITE_ORIGIN}${enPath}` },
+    { hreflang: 'x-default', href: `${SITE_ORIGIN}${enPath}` },
+  ];
+  const shared = {
+    priority,
+    changefreq,
+    alternates,
+    ...(lastmod !== undefined ? { lastmod } : {}),
+  };
+  return [
+    { path: esPath, ...shared },
+    { path: enPath, ...shared },
+  ];
 }
 
 // Indexable static routes. `/login` is intentionally excluded (noindex), as are
 // `/app/*` (auth-gated) and `/presentacion` (static deck).
 const STATIC_ENTRIES: readonly SitemapEntry[] = [
-  { path: '/', priority: '1.0', changefreq: 'weekly' },
-  { path: '/en', priority: '1.0', changefreq: 'weekly' },
+  ...localizedEntries('/', '/en', '1.0', 'weekly'),
   { path: '/privacy', priority: '0.3', changefreq: 'monthly' },
   { path: '/cookies', priority: '0.3', changefreq: 'monthly' },
-  { path: '/programas', priority: '0.9', changefreq: 'weekly' },
-  { path: '/en/programs', priority: '0.9', changefreq: 'weekly' },
-  { path: '/programas/gzclp-vs-stronglifts', priority: '0.8', changefreq: 'monthly' },
-  { path: '/en/programs/gzclp-vs-stronglifts', priority: '0.8', changefreq: 'monthly' },
-  { path: '/programas/progresion-automatica', priority: '0.8', changefreq: 'monthly' },
-  { path: '/en/programs/automatic-progression', priority: '0.8', changefreq: 'monthly' },
+  ...localizedEntries('/programas', '/en/programs', '0.9', 'weekly'),
+  ...localizedEntries(
+    '/programas/gzclp-vs-stronglifts',
+    '/en/programs/gzclp-vs-stronglifts',
+    '0.8',
+    'monthly'
+  ),
+  ...localizedEntries(
+    '/programas/progresion-automatica',
+    '/en/programs/automatic-progression',
+    '0.8',
+    'monthly'
+  ),
 ];
 
 // Exercise-wiki index pages (es + en). Article detail URLs are derived from the
 // wiki registry below so the sitemap can never drift from the published articles.
 const WIKI_INDEX_ENTRIES: readonly SitemapEntry[] = [
-  { path: '/ejercicios', priority: '0.8', changefreq: 'weekly' },
-  { path: '/en/exercises', priority: '0.8', changefreq: 'weekly' },
+  ...localizedEntries('/ejercicios', '/en/exercises', '0.8', 'weekly'),
 ];
 
 /** All indexable entries: static routes + active catalog programs + the wiki. */
@@ -56,10 +96,15 @@ export function sitemapEntries(): readonly SitemapEntry[] {
     priority: '0.7',
     changefreq: 'monthly',
   }));
-  const wikiArticles: readonly SitemapEntry[] = EXERCISE_ARTICLES.flatMap((a) => [
-    { path: `/ejercicios/${a.slug.es}`, priority: '0.7', changefreq: 'monthly' },
-    { path: `/en/exercises/${a.slug.en}`, priority: '0.7', changefreq: 'monthly' },
-  ]);
+  const wikiArticles: readonly SitemapEntry[] = EXERCISE_ARTICLES.flatMap((article) =>
+    localizedEntries(
+      `/ejercicios/${article.slug.es}`,
+      `/en/exercises/${article.slug.en}`,
+      '0.7',
+      'monthly',
+      article.reviewedAt
+    )
+  );
   return [...STATIC_ENTRIES, ...programs, ...WIKI_INDEX_ENTRIES, ...wikiArticles];
 }
 
