@@ -95,9 +95,15 @@ export function WeekView({
     const chip = activeChipRef.current;
     const strip = chip?.parentElement;
     if (!chip || !strip) return;
-    strip.scrollTo?.({
-      left: Math.max(0, chip.offsetLeft - (strip.clientWidth - chip.clientWidth) / 2),
-    });
+    const stripBounds = strip.getBoundingClientRect();
+    const chipBounds = chip.getBoundingClientRect();
+    const inset = 4;
+
+    if (chipBounds.left < stripBounds.left + inset) {
+      strip.scrollLeft += chipBounds.left - stripBounds.left - inset;
+    } else if (chipBounds.right > stripBounds.right - inset) {
+      strip.scrollLeft += chipBounds.right - stripBounds.right + inset;
+    }
   }, [activeWeek]);
 
   return (
@@ -106,7 +112,7 @@ export function WeekView({
       <div
         role="tablist"
         aria-label={t('calendar_navigator.week_chips_aria')}
-        className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]"
+        className="flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]"
       >
         {weekChips.map((weekIdx) => {
           const isActive = weekIdx === activeWeek;

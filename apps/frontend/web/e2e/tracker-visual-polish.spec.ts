@@ -67,6 +67,21 @@ test.describe('Tracker visual polish', () => {
     const panel = await page.getByTestId('tracker-day-navigation-panel').boundingBox();
     expect(panel?.height).toBeLessThanOrEqual(360);
     await expect(page.getByRole('button', { name: /vista compacta/i })).toBeVisible();
+
+    const nextDay = page.getByRole('button', { name: /siguiente día/i });
+    await nextDay.click();
+    await nextDay.click();
+    await nextDay.click();
+
+    const activeWeek = weekStrip.getByRole('tab', { selected: true });
+    await expect(activeWeek).toContainText(/SEM 2|WK 2/i);
+    const activeBounds = await activeWeek.boundingBox();
+    const stripBounds = await weekStrip.boundingBox();
+    if (!activeBounds || !stripBounds) throw new Error('Week navigation bounds unavailable');
+    expect(activeBounds.x).toBeGreaterThanOrEqual(stripBounds.x);
+    expect(activeBounds.x + activeBounds.width).toBeLessThanOrEqual(
+      stripBounds.x + stripBounds.width
+    );
   });
 
   test('mobile toolbar keeps one progress surface and a compact weight summary', async ({
