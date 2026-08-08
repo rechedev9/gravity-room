@@ -13,11 +13,12 @@ export function buildWeightsSummary(
   config: Record<string, number | string>,
   fields: ProgramDefinition['configFields'],
   overflowLabel: (n: number) => string,
-  localizeLabel: (key: string, fallback: string) => string = (_k, f) => f
+  localizeLabel: (key: string, fallback: string) => string = (_k, f) => f,
+  limit = 4
 ): string {
   const weightFields = fields.filter((f) => f.type === 'weight');
-  const shown = weightFields.slice(0, 4);
-  const overflow = weightFields.length - 4;
+  const shown = weightFields.slice(0, limit);
+  const overflow = weightFields.length - limit;
   const parts = shown.map((f) => {
     const label = localizeLabel(f.key, f.label);
     const val = config[f.key];
@@ -35,6 +36,13 @@ export function WeightsPill({ definition, config, onEdit }: WeightsPillProps): R
     (n) => t('tracker.setup_form.overflow_indicator', { n }),
     (key, fallback) => localizedConfigFieldLabel(t, key, fallback)
   );
+  const mobileSummary = buildWeightsSummary(
+    config,
+    definition.configFields,
+    (n) => t('tracker.setup_form.overflow_indicator', { n }),
+    (key, fallback) => localizedConfigFieldLabel(t, key, fallback),
+    1
+  );
   return (
     <div
       data-testid="weights-pill"
@@ -44,7 +52,10 @@ export function WeightsPill({ definition, config, onEdit }: WeightsPillProps): R
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted mb-0.5">
           {t('tracker.setup_form.collapsed_title')}
         </p>
-        <p className="font-mono text-xs text-muted truncate">{summary || '—'}</p>
+        <p className="font-mono text-xs text-muted truncate">
+          <span className="sm:hidden">{mobileSummary || '—'}</span>
+          <span className="hidden sm:inline">{summary || '—'}</span>
+        </p>
       </div>
       {/* Secondary action: outline on the rule ladder, not gold (gold is scarce). */}
       <button

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import { clamp, resolveTileState, totalWeeks, weekIndexForDay } from './shared';
@@ -89,6 +89,16 @@ export function WeekView({
   const weekChips = Array.from({ length: numWeeks }, (_, i) => i);
   const weekStart = activeWeek * safeWpw;
   const weekRows = rows.slice(weekStart, weekStart + safeWpw);
+  const activeChipRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const chip = activeChipRef.current;
+    const strip = chip?.parentElement;
+    if (!chip || !strip) return;
+    strip.scrollTo?.({
+      left: Math.max(0, chip.offsetLeft - (strip.clientWidth - chip.clientWidth) / 2),
+    });
+  }, [activeWeek]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -96,7 +106,7 @@ export function WeekView({
       <div
         role="tablist"
         aria-label={t('calendar_navigator.week_chips_aria')}
-        className="flex flex-wrap gap-1.5"
+        className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]"
       >
         {weekChips.map((weekIdx) => {
           const isActive = weekIdx === activeWeek;
@@ -105,6 +115,7 @@ export function WeekView({
           return (
             <button
               key={weekIdx}
+              ref={isActive ? activeChipRef : undefined}
               type="button"
               role="tab"
               aria-selected={isActive}
@@ -118,7 +129,7 @@ export function WeekView({
                 onSelectDay(clamp(targetDay, 0, rows.length - 1));
               }}
               className={`
-                text-xs font-bold px-3 py-1.5 min-h-[44px]
+                shrink-0 text-xs font-bold px-3 py-1.5 min-h-[44px]
                 border transition-all duration-150 active:scale-95
                 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
                 ${
@@ -128,7 +139,7 @@ export function WeekView({
                 }
               `}
             >
-              {t('calendar_navigator.week_chip_label', { week: weekIdx + 1 })}
+              {t('calendar_navigator.week_chip_short', { week: weekIdx + 1 })}
             </button>
           );
         })}

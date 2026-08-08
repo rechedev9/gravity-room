@@ -37,6 +37,19 @@ describe('buildWeightsSummary', () => {
     expect(summary).toContain('+2 more');
     expect(summary).not.toMatch(/\+2$/);
   });
+
+  it('supports a shorter mobile summary without losing the overflow count', () => {
+    const def = makeDefinition(6);
+    const summary = buildWeightsSummary(
+      { w0: 1, w1: 2, w2: 3, w3: 4, w4: 5, w5: 6 },
+      def.configFields,
+      (n) => `+${n} more`,
+      undefined,
+      1
+    );
+
+    expect(summary).toBe('Lift 1 1 · +5 more');
+  });
 });
 
 describe('WeightsPill', () => {

@@ -76,7 +76,7 @@ export function ProgramTabContent({
       id="panel-program"
       role="tabpanel"
       aria-labelledby="tab-program"
-      className="max-w-2xl mx-auto"
+      className="max-w-5xl mx-auto"
     >
       {isGuest && <GuestBanner className="mb-4 sm:mb-8" />}
 
@@ -169,7 +169,7 @@ export function ProgramTabContent({
       {/* 4. Secondary content moved below exercises.
           Hide the Sensei tip once the selected day is COMPLETE — post-session
           noise next to finished sets. */}
-      <div className="mt-8 sm:mt-12 space-y-4">
+      <div className="max-w-2xl mx-auto mt-8 sm:mt-12 space-y-4">
         {!isDayComplete ? <ZoneHint zone="tracker" /> : null}
         <ProgramAboutSection
           title={`${t('tracker.tab_content.about_label')} ${name}`}

@@ -118,6 +118,7 @@
     "jump_error": "Enter a number between 1 and {{max}}",
     "week_chips_aria": "Program weeks",
     "week_chip_label": "Program week {{week}}",
+    "week_chip_short": "WK {{week}}",
     "week_chip_aria": "Program week {{week}}, workouts {{from}} to {{to}}",
     "week_grid_aria": "Workouts for week {{week}}",
     "day_tile_aria": "Workout {{index}} — {{state}}",

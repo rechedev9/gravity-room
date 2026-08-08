@@ -44,9 +44,9 @@ describe('Toolbar', () => {
     it('should show completed count and percentage', () => {
       render(<Toolbar {...buildToolbarProps({ completedCount: 45, totalWorkouts: 90 })} />);
 
-      // Desktop progress text contains "45 / 90 (50%)" (with spaces)
-      expect(screen.getAllByText(/45/).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/50%/).length).toBeGreaterThan(0);
+      expect(screen.getByRole('progressbar')).toHaveTextContent(/45\/90/);
+      expect(screen.getByRole('progressbar')).toHaveTextContent(/50%/);
+      expect(screen.getAllByRole('progressbar')).toHaveLength(1);
     });
   });
 

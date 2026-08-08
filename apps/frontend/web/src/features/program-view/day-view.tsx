@@ -102,7 +102,8 @@ export function DayView({
   const { t } = useTranslation();
   return (
     <div
-      className="flex flex-col gap-3"
+      data-testid="compact-day-grid"
+      className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3"
       aria-label={t('tracker.day_view.workout_aria', { number: workout.index + 1 })}
     >
       {workout.slots.map((slot) => {

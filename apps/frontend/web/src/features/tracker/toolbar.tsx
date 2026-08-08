@@ -55,16 +55,7 @@ export function Toolbar({
 
   return (
     <div className="bg-card border-b border-rule px-3 sm:px-5 py-2 sm:py-3 shadow-toolbar">
-      {/* Mobile progress bar */}
-      <ProgressBar
-        completed={completedCount}
-        total={totalWorkouts}
-        ariaLabel={t('tracker.toolbar.progress_aria')}
-        showPercent
-        className="mb-2 sm:mb-0 sm:hidden"
-      />
-
-      <div className="flex items-center gap-4 flex-wrap">
+      <div className="flex items-center gap-2 sm:gap-4">
         {/* Left - canonical undo surface (toolbar). The transient post-action toast
             offers the same action inline; there is no third competing affordance. */}
         <div className="flex items-center gap-2 shrink-0">
@@ -86,13 +77,12 @@ export function Toolbar({
           )}
         </div>
 
-        {/* Desktop progress bar */}
         <ProgressBar
           completed={completedCount}
           total={totalWorkouts}
           ariaLabel={t('tracker.toolbar.progress_aria')}
           showPercent
-          className="flex-1 hidden sm:flex"
+          className="min-w-0 flex-1"
         />
 
         {/* Right */}

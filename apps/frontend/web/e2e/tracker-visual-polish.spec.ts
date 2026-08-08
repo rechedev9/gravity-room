@@ -42,6 +42,38 @@ test.describe('Tracker visual polish', () => {
     expect(tableLayout).toBe('fixed');
   });
 
+  test('desktop exercises use the available width without stretching set tables', async ({
+    page,
+  }) => {
+    const grid = page.getByTestId('detailed-day-grid');
+    const columns = await grid.evaluate((el) =>
+      getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean)
+    );
+    expect(columns).toHaveLength(3);
+
+    const table = page.getByTestId('slot-set-table').first();
+    const box = await table.boundingBox();
+    expect(box?.width).toBeLessThanOrEqual(340);
+  });
+
+  test('week navigation stays in one scrollable row instead of pushing workouts down', async ({
+    page,
+  }) => {
+    await page.getByRole('button', { name: /cambiar día/i }).click();
+    const weekStrip = page.getByRole('tablist', { name: /semanas del programa/i });
+    const box = await weekStrip.boundingBox();
+    expect(box?.height).toBeLessThanOrEqual(52);
+    await expect(weekStrip.getByRole('tab').first()).toContainText(/SEM|WK/i);
+  });
+
+  test('mobile toolbar keeps one progress surface and a compact weight summary', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.getByRole('progressbar')).toHaveCount(1);
+    await expect(page.getByTestId('weights-pill')).toContainText(/\+\d+\s+más/i);
+  });
+
   test('progress fill is still visible when only one workout is done', async ({ page }) => {
     // Confirm all sets of day 1 so progress becomes 1/90.
     for (let i = 0; i < 20; i++) {
