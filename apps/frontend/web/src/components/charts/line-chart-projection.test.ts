@@ -27,4 +27,12 @@ describe('maxProjectedIndex', () => {
   it('never exceeds the last data index', () => {
     expect(maxProjectedIndex(0, 4)).toBe(3);
   });
+
+  it('honors an explicit projection horizon for focused views', () => {
+    expect(maxProjectedIndex(7, 45, 6)).toBe(13);
+  });
+
+  it('keeps the current point when the explicit horizon is zero', () => {
+    expect(maxProjectedIndex(7, 45, 0)).toBe(7);
+  });
 });

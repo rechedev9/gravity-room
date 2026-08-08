@@ -29,10 +29,18 @@ export const PROJECTION_STROKE_OPACITY = 0.18;
 
 /**
  * Last data index that may carry projection weight (inclusive).
- * `lastMarkedIdx` is the last real session; sparse series get a short horizon.
+ * `lastMarkedIdx` is the last real session. Callers may request a focused
+ * horizon; otherwise sparse series get a short horizon and mature series show all.
  */
-export function maxProjectedIndex(lastMarkedIdx: number, dataLength: number): number {
+export function maxProjectedIndex(
+  lastMarkedIdx: number,
+  dataLength: number,
+  projectionHorizon?: number
+): number {
   if (dataLength <= 0 || lastMarkedIdx < 0) return -1;
+  if (projectionHorizon !== undefined) {
+    return Math.min(dataLength - 1, lastMarkedIdx + Math.max(0, projectionHorizon));
+  }
   const realCount = lastMarkedIdx + 1;
   if (realCount >= PROJECTION_MIN_REAL_FOR_FULL) return dataLength - 1;
   return Math.min(dataLength - 1, lastMarkedIdx + PROJECTION_HORIZON_WHEN_SPARSE);
@@ -44,6 +52,7 @@ export function maxProjectedIndex(lastMarkedIdx: number, dataLength: number): nu
 
 interface ChartPoint {
   readonly idx: number;
+  readonly workout: number;
   readonly x: string;
   readonly weight: number;
   /** Logged sessions: the real, solid-gold series. `null` once the projection begins. */
@@ -66,6 +75,8 @@ interface LineChartProps {
   readonly mode?: 'weight' | 'numeric';
   readonly yAxisLabel?: string;
   readonly showAllPrs?: boolean;
+  readonly projectionHorizon?: number;
+  readonly unitLabel?: string;
 }
 
 function buildLabel(
@@ -182,14 +193,39 @@ function CustomDot({
 interface CustomTooltipProps {
   readonly active?: boolean;
   readonly payload?: Array<{ payload: ChartPoint }>;
+  readonly unitLabel: string;
 }
 
-function CustomTooltip({ active, payload }: CustomTooltipProps): React.ReactElement | null {
+function CustomTooltip({
+  active,
+  payload,
+  unitLabel,
+}: CustomTooltipProps): React.ReactElement | null {
   const { t } = useTranslation();
 
   if (!active || !payload?.length) return null;
   const pt = payload[0].payload;
-  if (!pt || pt.result === null) return null;
+  if (!pt || (pt.result === null && !pt.isProjected)) return null;
+
+  if (pt.isProjected) {
+    return (
+      <div
+        className="rounded border px-2 py-1.5 text-xs shadow-lg whitespace-nowrap"
+        style={{
+          backgroundColor: 'var(--color-card)',
+          borderColor: 'var(--color-rule)',
+          color: 'var(--color-tooltip-text)',
+        }}
+      >
+        <div className="font-bold">
+          {pt.weight} {unitLabel}
+        </div>
+        <div className="text-[var(--color-muted)]">
+          {t('chart.projected_target')} · #{pt.workout}
+        </div>
+      </div>
+    );
+  }
 
   const resultLabel = pt.result === 'success' ? t('chart.result_success') : t('chart.result_fail');
   const dateLabel = pt.date ? formatChartDate(pt.date) : null;
@@ -204,7 +240,8 @@ function CustomTooltip({ active, payload }: CustomTooltipProps): React.ReactElem
       }}
     >
       <div className="font-bold">
-        {pt.weight} kg{pt.isPr && <span className="ml-1 text-[var(--color-chart-pr)]"> PR</span>}
+        {pt.weight} {unitLabel}
+        {pt.isPr && <span className="ml-1 text-[var(--color-chart-pr)]"> PR</span>}
       </div>
       {dateLabel && <div className="text-[var(--color-muted)]">{dateLabel}</div>}
       <div>{resultLabel}</div>
@@ -224,6 +261,8 @@ export function LineChart({
   mode = 'weight',
   yAxisLabel,
   showAllPrs,
+  projectionHorizon,
+  unitLabel = 'kg',
 }: LineChartProps): React.ReactNode {
   const { t } = useTranslation();
   const theme = useChartTheme();
@@ -287,15 +326,20 @@ export function LineChart({
 
   // Cap how far the projection runs when the user has almost no real data.
   const projCapIdx = useMemo(
-    () => maxProjectedIndex(lastMarkedIdx, data.length),
-    [lastMarkedIdx, data.length]
+    () => maxProjectedIndex(lastMarkedIdx, data.length, projectionHorizon),
+    [lastMarkedIdx, data.length, projectionHorizon]
+  );
+
+  const visibleData = useMemo(
+    () => data.slice(0, projCapIdx >= 0 ? projCapIdx + 1 : data.length),
+    [data, projCapIdx]
   );
 
   // Build chart points array
   const points = useMemo<ChartPoint[]>(() => {
-    const labelInterval = Math.max(1, Math.ceil(data.length / MAX_LABELS));
+    const labelInterval = Math.max(1, Math.ceil(visibleData.length / MAX_LABELS));
     let lastEmittedLabel: string | null = null;
-    return data.map((d, i) => {
+    return visibleData.map((d, i) => {
       const isProjected = i > lastMarkedIdx;
       // Split the weight into two series so the logged sessions (solid gold) and
       // the planned projection (dashed/dimmed) read as different things. The
@@ -310,7 +354,7 @@ export function LineChart({
       // the label when it duplicates the previously emitted one so adjacent ticks
       // (e.g. the logged point and the first projected point both at the origin)
       // don't overprint as "#1#1". `_${i}` is a sentinel the tickFormatter blanks.
-      const wantsLabel = i % labelInterval === 0 || i === data.length - 1 || i === projCapIdx;
+      const wantsLabel = i % labelInterval === 0 || i === visibleData.length - 1;
       let x = `_${i}`;
       if (wantsLabel) {
         const candidate = buildLabel(d, i, resultTimestamps);
@@ -322,6 +366,7 @@ export function LineChart({
 
       return {
         idx: i,
+        workout: d.workout,
         x,
         weight: d.weight,
         realWeight,
@@ -335,7 +380,7 @@ export function LineChart({
         isProjected,
       };
     });
-  }, [data, lastMarkedIdx, projCapIdx, prInfo, resultTimestamps]);
+  }, [visibleData, lastMarkedIdx, projCapIdx, prInfo, resultTimestamps]);
 
   if (lastMarkedIdx < 0) {
     return (
@@ -414,6 +459,14 @@ export function LineChart({
               tickLine={false}
               axisLine={false}
               width={36}
+              domain={
+                mode === 'weight'
+                  ? [
+                      (dataMin: number) => Math.max(0, Math.floor((dataMin - 5) / 5) * 5),
+                      (dataMax: number) => Math.ceil((dataMax + 5) / 5) * 5,
+                    ]
+                  : ['auto', 'auto']
+              }
               label={
                 yAxisLabel && mode === 'numeric'
                   ? {
@@ -426,7 +479,7 @@ export function LineChart({
                   : undefined
               }
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip unitLabel={unitLabel} />} />
 
             {/* Deload bands */}
             {deloadBands.map((band, i) => (
@@ -440,21 +493,38 @@ export function LineChart({
             ))}
 
             {/* Stage markers */}
-            {stageChanges.map((i) => (
+            {stageChanges
+              .filter((i) => i < points.length)
+              .map((i) => (
+                <ReferenceLine
+                  key={`stage-${i}`}
+                  x={points[i].x}
+                  stroke={theme.fail}
+                  strokeDasharray="3 3"
+                  strokeWidth={1}
+                  label={{
+                    value: `S${data[i].stage}`,
+                    fill: theme.text,
+                    fontSize: 9,
+                    position: 'top',
+                  }}
+                />
+              ))}
+
+            {hasProjection && mode === 'weight' && (
               <ReferenceLine
-                key={`stage-${i}`}
-                x={points[i].x}
-                stroke={theme.fail}
-                strokeDasharray="3 3"
-                strokeWidth={1}
+                x={points[lastMarkedIdx]?.x}
+                stroke={theme.line}
+                strokeOpacity={0.45}
+                strokeDasharray="2 3"
                 label={{
-                  value: `S${data[i].stage}`,
+                  value: t('chart.current_position'),
                   fill: theme.text,
                   fontSize: 9,
-                  position: 'top',
+                  position: 'insideTopRight',
                 }}
               />
-            ))}
+            )}
 
             {/* Planned projection — dashed + dimmed so it never reads as logged
                 data. Drawn first so the solid logged series sits on top at the
@@ -479,6 +549,7 @@ export function LineChart({
             <Area
               type="stepAfter"
               dataKey="realWeight"
+              baseValue="dataMin"
               stroke={theme.line}
               strokeWidth={2}
               fill={theme.line}

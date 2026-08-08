@@ -1179,6 +1179,10 @@
     },
     "charts": {
       "weight_progression_title": "Progresión de Peso",
+      "description": "Compara tus cargas registradas con las próximas 6 sesiones planificadas.",
+      "current_load": "Carga actual",
+      "logged_sessions_one": "{{count}} sesión registrada",
+      "logged_sessions_other": "{{count}} sesiones registradas",
       "success_rate_label": "éxito",
       "success_rate_inline": "{{rate}}% éxito"
     },
@@ -1709,6 +1713,8 @@
     "result_header": "Resultado",
     "legend_real": "Real",
     "legend_projection": "Proyección",
+    "projected_target": "Objetivo planificado",
+    "current_position": "Ahora",
     "no_volume_data": "Sin datos de volumen",
     "average_abbrev": "prom"
   },

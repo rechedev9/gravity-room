@@ -47,7 +47,8 @@ function computeSlotVolume(slot: GenericSlotRow): number {
 export function extractAllGenericStats(
   definition: ProgramDefinition,
   rows: readonly GenericWorkoutRow[],
-  resultTimestamps?: Readonly<Record<string, string>>
+  resultTimestamps?: Readonly<Record<string, string>>,
+  chartTier?: GenericSlotRow['tier']
 ): AllGenericStats {
   const exerciseIds = Object.keys(definition.exercises);
 
@@ -71,14 +72,16 @@ export function extractAllGenericStats(
     let volumeKg = 0;
 
     for (const slot of row.slots) {
-      chartData[slot.exerciseId]?.push({
-        workout: workoutNum,
-        weight: slot.weight,
-        stage: slot.stage + 1,
-        result: slot.result ?? null,
-        date,
-        amrapReps: slot.amrapReps,
-      });
+      if (chartTier === undefined || slot.tier === chartTier) {
+        chartData[slot.exerciseId]?.push({
+          workout: workoutNum,
+          weight: slot.weight,
+          stage: slot.stage + 1,
+          result: slot.result ?? null,
+          date,
+          amrapReps: slot.amrapReps,
+        });
+      }
 
       if (slot.rpe !== undefined) {
         rpeData[slot.exerciseId]?.push({ workout: workoutNum, rpe: slot.rpe, date });
@@ -109,9 +112,10 @@ export function extractAllGenericStats(
 export function extractGenericChartData(
   definition: ProgramDefinition,
   rows: readonly GenericWorkoutRow[],
-  resultTimestamps?: Readonly<Record<string, string>>
+  resultTimestamps?: Readonly<Record<string, string>>,
+  tier?: GenericSlotRow['tier']
 ): Record<string, ChartDataPoint[]> {
-  return extractAllGenericStats(definition, rows, resultTimestamps).chartData;
+  return extractAllGenericStats(definition, rows, resultTimestamps, tier).chartData;
 }
 
 export function calculateStats(data: readonly ChartDataPoint[]): ExerciseStats {

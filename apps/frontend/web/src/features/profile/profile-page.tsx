@@ -134,8 +134,8 @@ export function ProfilePage(): React.ReactNode {
 
   const chartData = useMemo(() => {
     if (!definition || rows.length === 0) return null;
-    return extractGenericChartData(definition, rows);
-  }, [definition, rows]);
+    return extractGenericChartData(definition, rows, resultTimestamps, 't1');
+  }, [definition, rows, resultTimestamps]);
 
   const uniqueProgramIds = [...new Set(allPrograms.map((p) => p.programId))];
 
