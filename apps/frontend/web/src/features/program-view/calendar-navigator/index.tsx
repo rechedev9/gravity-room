@@ -26,6 +26,7 @@ export function CalendarNavigator({
   completedDayIndices,
   context,
   onSelectDay,
+  toolbarEnd,
 }: CalendarNavigatorProps): ReactNode {
   const { t } = useTranslation();
 
@@ -42,13 +43,13 @@ export function CalendarNavigator({
   }
 
   // In preview: always show program-relative calendar, no reading selector
-  // In tracker: show reading selector (Programa | Historial real)
+  // In tracker: show reading selector (Plan | Historial real)
   const showReadingSelector = context === 'tracker';
   const showHistory = context === 'tracker' && readingMode === 'history';
 
   return (
     // data-context is used by integration tests and future CSS theming (preview vs tracker)
-    <div className="flex flex-col gap-4" data-context={context}>
+    <div className="flex flex-col gap-3" data-context={context}>
       {/* ── Preview badge: clarify this is program-relative ── */}
       {context === 'preview' && (
         <p
@@ -59,8 +60,11 @@ export function CalendarNavigator({
         </p>
       )}
 
-      {/* ── Tracker: reading selector ── */}
-      {showReadingSelector && <ReadingSelector mode={readingMode} onChange={setReadingMode} />}
+      <div className="flex flex-wrap items-center gap-2">
+        {showReadingSelector && <ReadingSelector mode={readingMode} onChange={setReadingMode} />}
+        {!showHistory && <NavModeSelector mode={navMode} onChange={handleNavModeChange} />}
+        {toolbarEnd != null ? <div className="ml-auto">{toolbarEnd}</div> : null}
+      </div>
 
       {/* ── History view (tracker only) ── */}
       {showHistory ? (
@@ -73,9 +77,6 @@ export function CalendarNavigator({
         />
       ) : (
         <>
-          {/* ── Mode selector (program view) ── */}
-          <NavModeSelector mode={navMode} onChange={handleNavModeChange} />
-
           {/* ── Mode-specific content ── */}
           {navMode === 'day' && (
             <DayView

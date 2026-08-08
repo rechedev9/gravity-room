@@ -45,7 +45,7 @@ export function NavModeSelector({ mode, onChange }: NavModeSelectorProps): React
 }
 
 // ---------------------------------------------------------------------------
-// ReadingSelector — Programa | Historial real (tracker only)
+// ReadingSelector — Plan | Historial real (tracker only)
 // ---------------------------------------------------------------------------
 
 export type ReadingMode = 'program' | 'history';

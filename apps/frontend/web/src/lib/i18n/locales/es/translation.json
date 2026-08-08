@@ -143,7 +143,7 @@
     "preview_program_weeks_label": "Semanas de programa (relativas)",
     "reading_mode_group_aria": "Modo de lectura del calendario",
     "reading_mode": {
-      "program": "Programa",
+      "program": "Plan",
       "history": "Historial real"
     },
     "history_microcopy": "Las fechas reales aparecen cuando completas entrenamientos.",

@@ -1,4 +1,5 @@
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
+import type { ReactNode } from 'react';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -30,6 +31,8 @@ export interface CalendarNavigatorProps {
   readonly context: 'preview' | 'tracker';
   /** Called when the user selects a day. */
   readonly onSelectDay: (index: number) => void;
+  /** Optional control placed at the end of the navigator toolbar. */
+  readonly toolbarEnd?: ReactNode;
 }
 
 export type TileState = 'selected' | 'current' | 'completed' | 'pending';

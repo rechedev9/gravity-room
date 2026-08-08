@@ -64,6 +64,9 @@ test.describe('Tracker visual polish', () => {
     const box = await weekStrip.boundingBox();
     expect(box?.height).toBeLessThanOrEqual(52);
     await expect(weekStrip.getByRole('tab').first()).toContainText(/SEM|WK/i);
+    const panel = await page.getByTestId('tracker-day-navigation-panel').boundingBox();
+    expect(panel?.height).toBeLessThanOrEqual(360);
+    await expect(page.getByRole('button', { name: /vista compacta/i })).toBeVisible();
   });
 
   test('mobile toolbar keeps one progress surface and a compact weight summary', async ({

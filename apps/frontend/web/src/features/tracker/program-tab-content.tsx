@@ -93,20 +93,23 @@ export function ProgramTabContent({
 
       {/* 2. Collapsible nav-block: DayNavigator + CalendarNavigator + view toggle */}
       {navExpanded && (
-        <div className="mb-4">
+        <div
+          data-testid="tracker-day-navigation-panel"
+          className="mb-4 rounded-b-[var(--radius-base)] border border-t-0 border-rule bg-card p-3 shadow-[var(--shadow-card)] sm:p-4"
+        >
           <DayNavigator
             selectedDayIndex={selectedDayIndex}
             totalDays={totalWorkouts}
             currentDayIndex={currentDayIndex}
             dayName={selectedWorkout?.dayName ?? ''}
             isDayComplete={isDayComplete}
-            showKeyboardHints
+            compact
             onPrev={onPrevDay}
             onNext={onNextDay}
             onGoToCurrent={onGoToCurrent}
           />
           {rows.length > 0 && (
-            <div className="mt-3">
+            <div className="mt-3 border-t border-rule pt-3">
               <CalendarNavigator
                 rows={rows}
                 selectedDayIndex={selectedDayIndex}
@@ -116,25 +119,25 @@ export function ProgramTabContent({
                 completedDayIndices={completedDayIndices}
                 context="tracker"
                 onSelectDay={handleSelectDay}
+                toolbarEnd={
+                  <button
+                    type="button"
+                    onClick={onToggleView}
+                    aria-label={
+                      viewMode === 'detailed'
+                        ? t('tracker.tab_content.aria_compact_view')
+                        : t('tracker.tab_content.aria_detailed_view')
+                    }
+                    className="min-h-[44px] border border-rule bg-card px-3 font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-muted transition-colors hover:border-rule-light hover:text-main cursor-pointer"
+                  >
+                    {viewMode === 'detailed'
+                      ? t('tracker.tab_content.compact_view')
+                      : t('tracker.tab_content.detailed_view')}
+                  </button>
+                }
               />
             </div>
           )}
-          <div className="flex justify-end mt-2">
-            <button
-              type="button"
-              onClick={onToggleView}
-              aria-label={
-                viewMode === 'detailed'
-                  ? t('tracker.tab_content.aria_compact_view')
-                  : t('tracker.tab_content.aria_detailed_view')
-              }
-              className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors min-h-[44px] px-2 inline-flex items-center"
-            >
-              {viewMode === 'detailed'
-                ? t('tracker.tab_content.compact_view')
-                : t('tracker.tab_content.detailed_view')}
-            </button>
-          </div>
         </div>
       )}
 

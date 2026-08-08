@@ -512,7 +512,7 @@ describe('CalendarNavigator', () => {
       expect(badge).toBeTruthy();
     });
 
-    it('preview does NOT show reading selector (Programa | Historial real)', () => {
+    it('preview does NOT show reading selector (Plan | Historial real)', () => {
       const rows = makeRows(8);
       render(
         <CalendarNavigator
@@ -531,7 +531,7 @@ describe('CalendarNavigator', () => {
         .filter(
           (b) =>
             b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('Programa') || b.textContent?.includes('Historial real'))
+            (b.textContent?.includes('Plan') || b.textContent?.includes('Historial real'))
         );
       expect(readingButtons.length).toBe(0);
     });
@@ -1133,7 +1133,7 @@ describe('CalendarNavigator', () => {
         .filter(
           (b) =>
             b.hasAttribute('aria-pressed') &&
-            (b.textContent?.includes('Programa') || b.textContent?.includes('Historial real'))
+            (b.textContent?.includes('Plan') || b.textContent?.includes('Historial real'))
         );
       expect(readingButtons.length).toBe(2);
     });

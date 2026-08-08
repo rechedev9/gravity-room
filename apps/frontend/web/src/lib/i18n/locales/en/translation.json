@@ -143,7 +143,7 @@
     "preview_program_weeks_label": "Program weeks (relative)",
     "reading_mode_group_aria": "Calendar reading mode",
     "reading_mode": {
-      "program": "Program",
+      "program": "Plan",
       "history": "Real history"
     },
     "history_microcopy": "Real dates appear when you complete workouts.",
