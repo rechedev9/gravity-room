@@ -118,10 +118,10 @@ describe('CalendarNavigator', () => {
     });
   });
 
-  // ── Week chips ───────────────────────────────────────────────────────────
+  // ── Week selector ────────────────────────────────────────────────────────
 
-  describe('week chips', () => {
-    it('renders correct number of week chips for 200 workouts at 4/week = 50 weeks', () => {
+  describe('week selector', () => {
+    it('renders one option per week for 200 workouts at 4/week = 50 weeks', () => {
       const rows = makeRows(200);
       render(
         <CalendarNavigator
@@ -134,11 +134,11 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const chips = screen.getAllByRole('tab');
-      expect(chips.length).toBe(50);
+      const selector = screen.getByRole('combobox', { name: 'Elegir semana del programa' });
+      expect(selector.querySelectorAll('option')).toHaveLength(50);
     });
 
-    it('clicking Week 38 chip calls onSelectDay with first day of week 38', () => {
+    it('selecting Week 38 calls onSelectDay with its first workout', () => {
       const rows = makeRows(200);
       render(
         <CalendarNavigator
@@ -151,17 +151,13 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      // Week 38 is 0-indexed week 37 → first day = 37 * 4 = 148
-      // All chips have the same aria-label key (mock returns key without interpolation)
-      // so we select by index (37 = week 38, 0-indexed)
-      const chips = screen.getAllByRole('tab');
-      expect(chips.length).toBe(50);
-      fireEvent.click(chips[37]); // week index 37 = "Week 38"
+      const selector = screen.getByRole('combobox', { name: 'Elegir semana del programa' });
+      fireEvent.change(selector, { target: { value: '37' } });
 
       expect(onSelectDay).toHaveBeenCalledWith(148);
     });
 
-    it('active week chip has aria-selected=true', () => {
+    it('reflects the selected workout week', () => {
       const rows = makeRows(20);
       render(
         <CalendarNavigator
@@ -174,10 +170,7 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const chips = screen.getAllByRole('tab');
-      // selectedDayIndex=4 → weekIndex=1 → second chip
-      expect(chips[1].getAttribute('aria-selected')).toBe('true');
-      expect(chips[0].getAttribute('aria-selected')).toBe('false');
+      expect(screen.getByRole('combobox', { name: 'Elegir semana del programa' })).toHaveValue('1');
     });
   });
 
@@ -274,7 +267,7 @@ describe('CalendarNavigator', () => {
       expect(tiles.length).toBe(6);
     });
 
-    it('renders correct number of week chips for 3x/week (12 workouts = 4 weeks)', () => {
+    it('renders correct number of week options for 3x/week (12 workouts = 4 weeks)', () => {
       const rows = makeRows(12);
       render(
         <CalendarNavigator
@@ -287,11 +280,11 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const chips = screen.getAllByRole('tab');
-      expect(chips.length).toBe(4);
+      const selector = screen.getByRole('combobox', { name: 'Elegir semana del programa' });
+      expect(selector.querySelectorAll('option')).toHaveLength(4);
     });
 
-    it('renders correct number of week chips for 6x/week (18 workouts = 3 weeks)', () => {
+    it('renders correct number of week options for 6x/week (18 workouts = 3 weeks)', () => {
       const rows = makeRows(18);
       render(
         <CalendarNavigator
@@ -304,8 +297,8 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      const chips = screen.getAllByRole('tab');
-      expect(chips.length).toBe(3);
+      const selector = screen.getByRole('combobox', { name: 'Elegir semana del programa' });
+      expect(selector.querySelectorAll('option')).toHaveLength(3);
     });
   });
 
@@ -664,7 +657,7 @@ describe('CalendarNavigator', () => {
       expect(modeButtons.length).toBe(3);
     });
 
-    it('defaults to week mode (week chips visible)', () => {
+    it('defaults to week mode (week selector visible)', () => {
       const rows = makeRows(12);
       render(
         <CalendarNavigator
@@ -677,12 +670,10 @@ describe('CalendarNavigator', () => {
         />
       );
 
-      // In week mode, week chips (role=tab) should be visible
-      const chips = screen.getAllByRole('tab');
-      expect(chips.length).toBeGreaterThan(0);
+      expect(screen.getByRole('combobox', { name: 'Elegir semana del programa' })).toBeTruthy();
     });
 
-    it('switching to day mode hides week chips and shows jump form', () => {
+    it('switching to day mode hides the week selector and shows jump form', () => {
       const rows = makeRows(12);
       render(
         <CalendarNavigator
@@ -707,8 +698,7 @@ describe('CalendarNavigator', () => {
         );
       fireEvent.click(modeButtons[0]); // Day
 
-      // Week chips should be gone
-      expect(screen.queryAllByRole('tab').length).toBe(0);
+      expect(screen.queryByRole('combobox', { name: 'Elegir semana del programa' })).toBeNull();
       // Jump form should be present (spinbutton input)
       expect(screen.getByRole('spinbutton')).toBeTruthy();
     });
@@ -875,8 +865,7 @@ describe('CalendarNavigator', () => {
       const prevBtn = screen.queryByRole('button', { name: /Página anterior del mes/i });
       expect(prevBtn).toBeTruthy();
 
-      // Week chips should NOT be visible
-      expect(screen.queryAllByRole('tab').length).toBe(0);
+      expect(screen.queryByRole('combobox', { name: 'Elegir semana del programa' })).toBeNull();
     });
   });
 

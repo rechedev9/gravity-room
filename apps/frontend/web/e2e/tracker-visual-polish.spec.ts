@@ -56,16 +56,14 @@ test.describe('Tracker visual polish', () => {
     expect(box?.width).toBeLessThanOrEqual(340);
   });
 
-  test('week navigation stays in one scrollable row instead of pushing workouts down', async ({
-    page,
-  }) => {
+  test('week navigation stays compact and follows the selected workout', async ({ page }) => {
     await page.getByRole('button', { name: /cambiar día/i }).click();
-    const weekStrip = page.getByRole('tablist', { name: /semanas del programa/i });
-    const box = await weekStrip.boundingBox();
-    expect(box?.height).toBeLessThanOrEqual(52);
-    await expect(weekStrip.getByRole('tab').first()).toContainText(/SEM|WK/i);
+    const weekSelect = page.getByRole('combobox', { name: /elegir semana del programa/i });
+    await expect(weekSelect).toBeVisible();
+    await expect(page.getByRole('button', { name: /semana anterior/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /semana siguiente/i })).toBeVisible();
     const panel = await page.getByTestId('tracker-day-navigation-panel').boundingBox();
-    expect(panel?.height).toBeLessThanOrEqual(360);
+    expect(panel?.height).toBeLessThanOrEqual(310);
     await expect(page.getByRole('button', { name: /vista compacta/i })).toBeVisible();
 
     const nextDay = page.getByRole('button', { name: /siguiente día/i });
@@ -73,15 +71,8 @@ test.describe('Tracker visual polish', () => {
     await nextDay.click();
     await nextDay.click();
 
-    const activeWeek = weekStrip.getByRole('tab', { selected: true });
-    await expect(activeWeek).toContainText(/SEM 2|WK 2/i);
-    const activeBounds = await activeWeek.boundingBox();
-    const stripBounds = await weekStrip.boundingBox();
-    if (!activeBounds || !stripBounds) throw new Error('Week navigation bounds unavailable');
-    expect(activeBounds.x).toBeGreaterThanOrEqual(stripBounds.x);
-    expect(activeBounds.x + activeBounds.width).toBeLessThanOrEqual(
-      stripBounds.x + stripBounds.width
-    );
+    await expect(weekSelect).toHaveValue('1');
+    await expect(weekSelect.locator('option:checked')).toContainText(/SEM 2|WK 2/i);
   });
 
   test('mobile toolbar keeps one progress surface and a compact weight summary', async ({

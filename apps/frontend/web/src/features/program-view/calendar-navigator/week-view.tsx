@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import { clamp, resolveTileState, totalWeeks, weekIndexForDay } from './shared';
@@ -60,7 +60,7 @@ function DayTile({ row, state, onSelect }: DayTileProps): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// WeekView — week chips + active week grid (original behaviour)
+// WeekView — compact week selector + active week grid
 // ---------------------------------------------------------------------------
 
 interface WeekViewProps {
@@ -89,70 +89,59 @@ export function WeekView({
   const weekChips = Array.from({ length: numWeeks }, (_, i) => i);
   const weekStart = activeWeek * safeWpw;
   const weekRows = rows.slice(weekStart, weekStart + safeWpw);
-  const activeChipRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    const chip = activeChipRef.current;
-    const strip = chip?.parentElement;
-    if (!chip || !strip) return;
-    const stripBounds = strip.getBoundingClientRect();
-    const chipBounds = chip.getBoundingClientRect();
-    const inset = 4;
-
-    if (chipBounds.left < stripBounds.left + inset) {
-      strip.scrollLeft += chipBounds.left - stripBounds.left - inset;
-    } else if (chipBounds.right > stripBounds.right - inset) {
-      strip.scrollLeft += chipBounds.right - stripBounds.right + inset;
-    }
-  }, [activeWeek]);
+  const selectWeek = (weekIndex: number): void => {
+    onSelectDay(clamp(weekIndex * safeWpw, 0, rows.length - 1));
+  };
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Week chips */}
-      <div
-        role="tablist"
-        aria-label={t('calendar_navigator.week_chips_aria')}
-        className="flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]"
-      >
-        {weekChips.map((weekIdx) => {
-          const isActive = weekIdx === activeWeek;
-          const firstDayOfWeek = weekIdx * safeWpw + 1;
-          const lastDayOfWeek = Math.min((weekIdx + 1) * safeWpw, rows.length);
-          return (
-            <button
-              key={weekIdx}
-              ref={isActive ? activeChipRef : undefined}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              aria-label={t('calendar_navigator.week_chip_aria', {
-                week: weekIdx + 1,
-                from: firstDayOfWeek,
-                to: lastDayOfWeek,
-              })}
-              onClick={() => {
-                const targetDay = weekIdx * safeWpw;
-                onSelectDay(clamp(targetDay, 0, rows.length - 1));
-              }}
-              className={`
-                shrink-0 text-xs font-bold px-3 py-1.5 min-h-[44px]
-                border transition-all duration-150 active:scale-95
-                focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
-                ${
-                  isActive
-                    ? 'border-accent bg-accent text-bg'
-                    : 'border-rule bg-card text-muted hover:bg-hover-row hover:text-main hover:border-rule-light'
-                }
-              `}
-            >
-              {t('calendar_navigator.week_chip_short', { week: weekIdx + 1 })}
-            </button>
-          );
-        })}
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          disabled={activeWeek <= 0}
+          onClick={() => selectWeek(activeWeek - 1)}
+          aria-label={t('calendar_navigator.week_prev_aria')}
+          className="flex h-11 w-11 items-center justify-center border border-rule bg-card text-sm font-bold text-muted transition-colors hover:border-rule-light hover:text-main disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          &larr;
+        </button>
+        <select
+          value={activeWeek}
+          onChange={(event) => selectWeek(Number(event.currentTarget.value))}
+          aria-label={t('calendar_navigator.week_select_aria')}
+          className="h-11 min-w-40 cursor-pointer border border-rule bg-card px-3 font-mono text-[11px] font-bold uppercase tracking-[0.04em] text-main focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        >
+          {weekChips.map((weekIdx) => {
+            const firstDayOfWeek = weekIdx * safeWpw + 1;
+            const lastDayOfWeek = Math.min((weekIdx + 1) * safeWpw, rows.length);
+            return (
+              <option key={weekIdx} value={weekIdx}>
+                {t('calendar_navigator.week_option', {
+                  week: weekIdx + 1,
+                  from: firstDayOfWeek,
+                  to: lastDayOfWeek,
+                })}
+              </option>
+            );
+          })}
+        </select>
+        <button
+          type="button"
+          disabled={activeWeek >= numWeeks - 1}
+          onClick={() => selectWeek(activeWeek + 1)}
+          aria-label={t('calendar_navigator.week_next_aria')}
+          className="flex h-11 w-11 items-center justify-center border border-rule bg-card text-sm font-bold text-muted transition-colors hover:border-rule-light hover:text-main disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          &rarr;
+        </button>
       </div>
 
       {/* Week grid */}
-      <div className="flex flex-wrap gap-2">
+      <div
+        className="flex flex-wrap gap-2"
+        role="group"
+        aria-label={t('calendar_navigator.week_grid_aria', { week: activeWeek + 1 })}
+      >
         {weekRows.map((row) => {
           const state = resolveTileState(
             row.index,
