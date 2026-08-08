@@ -226,8 +226,8 @@ html[data-theme='classic-light'] {
   --color-error: oklch(0.52 0.18 25);
   --color-tooltip-text: oklch(0.97 0.008 85);
 
-  --color-rule: oklch(0.88 0.014 80);
-  --color-rule-light: oklch(0.78 0.02 80);
+  --color-rule: oklch(0.84 0.016 80);
+  --color-rule-light: oklch(0.7 0.025 80);
   --color-error-line: oklch(0.7 0.08 25);
 
   /* Deep gold for contrast on white paper (lighter gold fails AA on card). */
@@ -270,13 +270,13 @@ html[data-theme='classic-light'] {
 
   --color-sidebar: oklch(0.985 0.006 85);
   --color-sidebar-active: oklch(0.94 0.02 85);
-  --color-sidebar-border: oklch(0.88 0.014 80);
+  --color-sidebar-border: oklch(0.84 0.016 80);
 
-  --shadow-card: 0 1px 2px 0 oklch(0.3 0.02 70 / 0.08);
+  --shadow-card: 0 1px 2px 0 oklch(0.3 0.02 70 / 0.1), 0 5px 14px -10px oklch(0.3 0.02 70 / 0.22);
   --shadow-elevated: 0 12px 32px 0 oklch(0.3 0.02 70 / 0.12);
   --shadow-dialog: 0 8px 28px 0 oklch(0.3 0.02 70 / 0.14);
   --shadow-inset-subtle: inset 0 0 0 1px oklch(0.3 0.02 70 / 0.04);
-  --shadow-card-hover: 0 4px 16px 0 oklch(0.3 0.02 70 / 0.1);
+  --shadow-card-hover: 0 5px 18px 0 oklch(0.3 0.02 70 / 0.14);
   --shadow-toolbar: 0 1px 0 0 oklch(0.3 0.02 70 / 0.06);
   --shadow-pressed-steel: inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -2px 0 oklch(0 0 0 / 0.12);
 }
@@ -910,7 +910,7 @@ body {
 .chalk-stamp,
 .dash-section-title {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;

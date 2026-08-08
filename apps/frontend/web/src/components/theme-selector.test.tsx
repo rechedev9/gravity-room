@@ -66,7 +66,7 @@ describe('ThemeSelector', () => {
   it('compact mode keeps short visible labels and rich accessible names', () => {
     render(<ThemeSelector compact />);
 
-    // Short mono labels stay visible so both swatches are discoverable.
+    // Short mono labels stay visible in the full-width sidebar segment.
     expect(screen.getByText('Gold')).toBeTruthy();
     expect(screen.getByText('Light')).toBeTruthy();
     expect(screen.queryByText('Dark')).toBeNull();

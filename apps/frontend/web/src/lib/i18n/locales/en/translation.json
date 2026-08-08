@@ -636,7 +636,10 @@
       "sessions": "SESSIONS",
       "completed": "completed",
       "weekly_pr": "PR THIS WEEK",
-      "no_weekly_pr": "no PR this week"
+      "no_weekly_pr": "no PR this week",
+      "program_progress": "PROGRAM PROGRESS",
+      "program_workouts": "workouts completed",
+      "program_progress_aria": "Program progress: {{completed}} of {{total}} workouts"
     },
     "pr_road": {
       "title": "ROAD TO PR",
@@ -658,10 +661,12 @@
       "view_programs": "VIEW PROGRAMS",
       "day_one": "DAY ONE",
       "day_one_body": "The weight will not lift itself.",
-      "enter": "ENTER THE IRON",
+      "start": "START WORKOUT",
+      "view_program": "VIEW PROGRAM",
+      "workout_today": "TODAY'S WORKOUT",
       "today_day": "TODAY · DAY {{day}}",
+      "program_progress": "DAY {{day}} / {{total}}",
       "next_set": "NEXT SET",
-      "not_today": "not today",
       "last_set": "last: {{weight}}×{{reps}} · +{{delta}}kg since program start"
     },
     "heatmap": {
@@ -678,7 +683,11 @@
       "title": "RECENT ACTIVITY",
       "empty_title": "NO WORKOUTS YET",
       "empty_body": "Day one is waiting.",
-      "day_abbrev": "D{{day}}"
+      "day_abbrev": "D{{day}}",
+      "day_label": "DAY {{day}}",
+      "logged_one": "{{count}} logged",
+      "logged_other": "{{count}} logged",
+      "sets": "sets"
     }
   },
   "programs": {
@@ -1582,6 +1591,19 @@
       "kicker": "No sessions yet",
       "title": "Your first session is waiting",
       "body": "Open the tracker and log your first workout. Your streak and sessions start counting from there."
+    },
+    "early_history": {
+      "kicker": "YOUR DASHBOARD IS LEARNING",
+      "title": "Every session adds a signal",
+      "body": "We are building your history from real training data. As you train, the dashboard will reveal progress and consistency patterns.",
+      "next_milestone": "Next milestone",
+      "progress": "{{completed}} of {{target}}",
+      "progress_aria": "Progress toward the next dashboard milestone",
+      "coming_next": "COMING NEXT",
+      "pr_title": "Road to PR and tips",
+      "pr_body": "Available after 3 completed sessions.",
+      "heatmap_title": "Consistency map",
+      "heatmap_body": "Available after 5 completed sessions."
     },
     "mentor_tips": [
       "If you fail, you drop a stage, not the bar. Get back under it.",

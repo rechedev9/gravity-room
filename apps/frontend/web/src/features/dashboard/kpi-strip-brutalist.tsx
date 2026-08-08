@@ -4,15 +4,18 @@ import { KpiCard } from './kpi-card';
 interface KpiStripProps {
   readonly streakDays: number;
   readonly totalSessions: number;
+  readonly totalWorkouts: number;
   readonly weekPr?: { readonly lift: string; readonly weight: number } | null;
 }
 
 export function KpiStripBrutalist({
   streakDays,
   totalSessions,
+  totalWorkouts,
   weekPr,
 }: KpiStripProps): React.ReactNode {
   const { t } = useTranslation();
+  const completed = Math.min(totalSessions, totalWorkouts);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -29,12 +32,31 @@ export function KpiStripBrutalist({
         value={totalSessions}
         sub={t('dashboard.kpi_strip.completed')}
       />
-      <KpiCard
-        label={t('dashboard.kpi_strip.weekly_pr')}
-        value={weekPr ? `${weekPr.weight}kg` : '—'}
-        sub={weekPr ? weekPr.lift : t('dashboard.kpi_strip.no_weekly_pr')}
-        accent={!!weekPr}
-      />
+      {weekPr ? (
+        <KpiCard
+          label={t('dashboard.kpi_strip.weekly_pr')}
+          value={`${weekPr.weight}kg`}
+          sub={weekPr.lift}
+          accent
+        />
+      ) : (
+        <KpiCard
+          label={t('dashboard.kpi_strip.program_progress')}
+          value={totalWorkouts > 0 ? `${completed}/${totalWorkouts}` : '—'}
+          sub={t('dashboard.kpi_strip.program_workouts')}
+          progress={
+            totalWorkouts > 0
+              ? {
+                  value: completed / totalWorkouts,
+                  label: t('dashboard.kpi_strip.program_progress_aria', {
+                    completed,
+                    total: totalWorkouts,
+                  }),
+                }
+              : undefined
+          }
+        />
+      )}
     </div>
   );
 }

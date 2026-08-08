@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/cn';
 import { CornerTicks } from '@/components/corner-ticks';
+import { buttonClassName } from '@/components/button';
 
 export interface NextSet {
   readonly weight: number;
@@ -12,7 +13,6 @@ export interface NextSet {
 export interface NextWorkout {
   readonly dayIndex: number;
   readonly totalDays?: number;
-  readonly weekLabel: string;
   readonly focusLifts: string;
 }
 
@@ -48,16 +48,13 @@ function EmptyHero(): React.ReactNode {
   const { t } = useTranslation();
 
   return (
-    <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-elevated)] p-8 sm:p-12 text-center">
+    <section className="bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-elevated)] p-8 sm:p-10 text-center">
       <p className="chalk-stamp text-label">{t('dashboard.next_set.no_program')}</p>
       <h1 className="font-display text-5xl sm:text-7xl text-main my-4">
         {t('dashboard.next_set.choose_forge')}
       </h1>
       <p className="text-muted mb-6">{t('dashboard.next_set.empty_body')}</p>
-      <Link
-        to="/app/programs"
-        className="inline-block bg-accent text-on-accent border border-accent-hover rounded-[var(--radius-base)] px-6 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-accent-hover active:translate-y-px transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]"
-      >
+      <Link to="/app/programs" className={buttonClassName({ variant: 'primary' })}>
         {t('dashboard.next_set.view_programs')}
       </Link>
     </section>
@@ -68,18 +65,15 @@ function DayOneHero({ instance }: { readonly instance: ProgramInstance }): React
   const { t } = useTranslation();
 
   return (
-    <section className="relative bg-card border border-rule rounded-[var(--radius-base)] p-6 sm:p-8">
+    <section className="relative bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-6 sm:p-8">
       <CornerTicks />
       <p className="chalk-stamp">{instance.name.toUpperCase()}</p>
       <h1 className="font-display text-4xl sm:text-6xl text-main my-3">
         {t('dashboard.next_set.day_one')}
       </h1>
       <p className="text-muted mb-6">{t('dashboard.next_set.day_one_body')}</p>
-      <Link
-        to="/app/tracker"
-        className="inline-block bg-accent text-on-accent border border-accent-hover rounded-[var(--radius-base)] px-6 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-accent-hover active:translate-y-px transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]"
-      >
-        {t('dashboard.next_set.enter')}
+      <Link to="/app/tracker" className={buttonClassName({ variant: 'primary' })}>
+        {t('dashboard.next_set.start')}
       </Link>
     </section>
   );
@@ -97,36 +91,43 @@ function FullHero({ instance, nextWorkout: nw, nextSet: ns }: FullHeroProps): Re
   return (
     <section
       className={cn(
-        'relative bg-card border border-rule rounded-[var(--radius-base)] p-6 sm:p-8',
+        'relative bg-card border border-rule rounded-[var(--radius-base)] shadow-[var(--shadow-card)] p-5 sm:p-7',
         'transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out-expo)] hover:border-rule-light'
       )}
     >
       <CornerTicks />
-      <p className="chalk-stamp">
-        {t('dashboard.next_set.today_day', { day: nw.dayIndex + 1 })}
-        {nw.totalDays ? ` / ${nw.totalDays}` : ''} · {nw.weekLabel} · {nw.focusLifts.toUpperCase()}
-      </p>
-      <p className="chalk-stamp mt-6 text-label">{t('dashboard.next_set.next_set')}</p>
-      <p className="font-display-data text-5xl sm:text-7xl text-accent leading-none tabular-nums my-2">
+      <header className="flex flex-col gap-3 border-b border-rule pb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+        <div className="min-w-0">
+          <p className="chalk-stamp text-accent">{t('dashboard.next_set.workout_today')}</p>
+          <p className="mt-1.5 text-sm font-medium text-main">{nw.focusLifts}</p>
+        </div>
+        <div className="flex shrink-0 items-center font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
+          <span>
+            {nw.totalDays
+              ? t('dashboard.next_set.program_progress', {
+                  day: nw.dayIndex + 1,
+                  total: nw.totalDays,
+                })
+              : t('dashboard.next_set.today_day', { day: nw.dayIndex + 1 })}
+          </span>
+        </div>
+      </header>
+      <p className="chalk-stamp mt-5 text-label">{t('dashboard.next_set.next_set')}</p>
+      <h1 className="font-display-data text-5xl sm:text-6xl text-accent leading-none tabular-nums my-2">
         {ns.weight} kg × {ns.reps}
-      </p>
-      <p className="text-muted">{ns.label}</p>
-      <div className="flex flex-wrap gap-3 mt-6">
-        <Link
-          to="/app/tracker"
-          className="bg-accent text-on-accent border border-accent-hover rounded-[var(--radius-base)] px-6 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.06em] hover:bg-accent-hover active:translate-y-px transition-transform duration-[var(--duration-press)] ease-[var(--ease-press)]"
-        >
-          ▶ {t('dashboard.next_set.enter')}
+      </h1>
+      <p className="text-sm text-muted">{ns.label}</p>
+      <div className="flex flex-wrap gap-2 mt-5">
+        <Link to="/app/tracker" className={buttonClassName({ variant: 'primary' })}>
+          <span aria-hidden="true">▶</span>
+          {t('dashboard.next_set.start')}
         </Link>
-        <button
-          type="button"
-          className="font-mono text-xs text-muted uppercase tracking-widest px-3 py-2 hover:text-main"
-        >
-          {t('dashboard.next_set.not_today')}
-        </button>
+        <Link to="/app/programs" className={buttonClassName({ variant: 'default' })}>
+          {t('dashboard.next_set.view_program')}
+        </Link>
       </div>
       {instance.lastSet && (
-        <p className="mt-6 pt-4 border-t border-rule text-xs text-muted">
+        <p className="mt-5 pt-4 border-t border-rule text-xs text-muted">
           {t('dashboard.next_set.last_set', {
             weight: instance.lastSet.weight,
             reps: instance.lastSet.reps,

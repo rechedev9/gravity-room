@@ -21,13 +21,14 @@ describe('DashboardShell', () => {
         mentor={<div>MENTOR</div>}
         hero={<div>HERO</div>}
         kpi={<div>KPI</div>}
+        guide={<div>GUIDE</div>}
         heatmap={<div>HEATMAP</div>}
         split={<div>SPLIT</div>}
         recent={<div>RECENT</div>}
       />
     );
 
-    const labels = ['MENTOR', 'HERO', 'KPI', 'HEATMAP', 'SPLIT', 'RECENT'];
+    const labels = ['MENTOR', 'HERO', 'KPI', 'GUIDE', 'HEATMAP', 'SPLIT', 'RECENT'];
     for (const label of labels) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }

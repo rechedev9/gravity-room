@@ -26,7 +26,8 @@ import { HomeEmptyState } from './home-empty-state';
 import { HomeGuestResume } from './home-guest-resume';
 import { HomeMentorWidget } from './home-mentor-widget';
 import { ZoneHint } from './zone-hint';
-import { getHomeDashboardLayout } from './home-dashboard-layout';
+import { getHomeDashboardLayout, HOME_SPLIT_MIN_SESSIONS } from './home-dashboard-layout';
+import { EarlyHistoryCard } from './early-history-card';
 
 function getMentorTips(t: TFunction): readonly string[] {
   const tips = t('home.mentor_tips', { returnObjects: true });
@@ -195,9 +196,15 @@ export function HomePage(): React.ReactNode {
             <KpiStripBrutalist
               streakDays={streakDays}
               totalSessions={totalSessions}
+              totalWorkouts={dashboard.totalWorkouts}
               weekPr={null}
             />
           )
+        }
+        guide={
+          totalSessions > 0 && totalSessions < HOME_SPLIT_MIN_SESSIONS ? (
+            <EarlyHistoryCard completedSessions={totalSessions} />
+          ) : undefined
         }
         heatmap={layout.showHeatmap ? <WeekHeatmap workouts={heatmapWorkouts} /> : undefined}
         split={

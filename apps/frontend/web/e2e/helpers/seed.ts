@@ -78,7 +78,7 @@ export function programCard(page: Page, name: string) {
 export async function navigateToTracker(page: Page): Promise<void> {
   await page.goto('/app');
   const continueLink = page
-    .getByRole('link', { name: /continuar entrenamiento|entrar al hierro/i })
+    .getByRole('link', { name: /continuar entrenamiento|empezar entrenamiento/i })
     .first();
   await expect(continueLink).toBeVisible({ timeout: 10_000 });
   await continueLink.click();

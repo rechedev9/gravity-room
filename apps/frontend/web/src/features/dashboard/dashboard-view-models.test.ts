@@ -99,7 +99,6 @@ describe('buildHeroExtras', () => {
     expect(hero.nextWorkout).toMatchObject({
       dayIndex: 2,
       totalDays: 4,
-      weekLabel: 'Day A',
       focusLifts: 'Squat',
     });
   });
@@ -115,8 +114,20 @@ describe('buildRecentSessions', () => {
   it('lists completed workouts most-recent-first', () => {
     const sessions = buildRecentSessions(rows, {});
     expect(sessions).toHaveLength(2);
-    expect(sessions[0]).toMatchObject({ dayIndex: 2, summary: 'Day B · 1/1' });
-    expect(sessions[1]).toMatchObject({ dayIndex: 1, summary: 'Day A · 1/1' });
+    expect(sessions[0]).toMatchObject({
+      dayIndex: 2,
+      dayName: 'Day B',
+      exerciseNames: ['Bench'],
+      successCount: 1,
+      totalSets: 1,
+    });
+    expect(sessions[1]).toMatchObject({
+      dayIndex: 1,
+      dayName: 'Day A',
+      exerciseNames: ['Squat'],
+      successCount: 1,
+      totalSets: 1,
+    });
   });
 
   it('is empty when no workout is fully completed', () => {

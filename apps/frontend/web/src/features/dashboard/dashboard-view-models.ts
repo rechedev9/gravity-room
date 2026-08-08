@@ -12,7 +12,10 @@ import type { LiftHistoryRow } from './use-pr-road';
 export interface RecentSessionRow {
   readonly dateLabel: string;
   readonly dayIndex: number;
-  readonly summary: string;
+  readonly dayName: string;
+  readonly exerciseNames: readonly string[];
+  readonly successCount: number;
+  readonly totalSets: number;
 }
 
 /** Extra fields spread onto the hero's ProgramInstance once real data exists. */
@@ -135,7 +138,6 @@ export function buildHeroExtras(
   const nextWorkout: NextWorkout = {
     dayIndex: firstPendingIdx,
     totalDays: totalWorkouts,
-    weekLabel: pendingRow.dayName,
     focusLifts:
       focus.length > 0
         ? focus.join(' + ')
@@ -168,7 +170,10 @@ export function buildRecentSessions(
     out.push({
       dateLabel: ts ? formatChartDate(ts) : '',
       dayIndex: row.index + 1,
-      summary: `${row.dayName} · ${successCount}/${row.slots.length}`,
+      dayName: row.dayName,
+      exerciseNames: primaryLiftNames(row),
+      successCount,
+      totalSets: row.slots.length,
     });
   }
   return out;

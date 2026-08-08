@@ -13,6 +13,10 @@ interface KpiCardProps {
   readonly loading?: boolean;
   readonly trend?: 'up' | 'down' | 'flat' | null;
   readonly trendLabel?: string;
+  readonly progress?: {
+    readonly value: number;
+    readonly label: string;
+  };
 }
 
 export function KpiCard({
@@ -24,9 +28,11 @@ export function KpiCard({
   loading = false,
   trend = null,
   trendLabel,
+  progress,
 }: KpiCardProps): React.ReactNode {
   const { t } = useTranslation();
   const display = useCountUp(value);
+  const progressValue = progress ? Math.min(1, Math.max(0, progress.value)) : 0;
 
   if (loading) {
     return (
@@ -44,14 +50,14 @@ export function KpiCard({
   return (
     <div
       className={cn(
-        'bg-card border border-rule rounded-[var(--radius-base)] p-4 sm:p-5 shadow-[var(--shadow-card)]',
+        'bg-card border border-rule rounded-[var(--radius-base)] p-5 shadow-[var(--shadow-card)] min-h-28',
         accent && 'border-t-2 border-t-accent'
       )}
     >
-      <p className="chalk-stamp mb-1.5">{label}</p>
+      <p className="chalk-stamp mb-2">{label}</p>
       <p
         className={cn(
-          'font-display-data text-3xl leading-none tabular-nums',
+          'font-display-data text-4xl leading-none tabular-nums',
           variant === 'flame' ? 'text-victory' : 'text-main'
         )}
       >
@@ -74,6 +80,21 @@ export function KpiCard({
           </span>
         )}
       </div>
+      {progress && (
+        <div
+          className="mt-3 h-1.5 overflow-hidden rounded-full bg-progress-track"
+          role="progressbar"
+          aria-label={progress.label}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(progressValue * 100)}
+        >
+          <span
+            className="block h-full rounded-full bg-accent transition-[width] duration-[var(--duration-slow)] ease-[var(--ease-out-expo)]"
+            style={{ width: `${progressValue * 100}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -286,7 +286,9 @@ test.describe('Guest catalog flow (REQ-GROUT-004)', () => {
     await enterGuestMode(page);
     await navigateToPrograms(page);
     // Active-program CTAs should NOT be visible
-    await expect(page.getByText(/continuar entrenamiento|entrar al hierro/i)).not.toBeVisible();
+    await expect(
+      page.getByText(/continuar entrenamiento|empezar entrenamiento/i)
+    ).not.toBeVisible();
   });
 
   test('guest sees "Iniciar Programa" buttons (not "Ver Programa" links)', async ({ page }) => {

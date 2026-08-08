@@ -96,7 +96,7 @@ export function ThemeSelector({ className, compact = false }: ThemeSelectorProps
             onKeyDown={(event) => handleKeyDown(event, index)}
             className={cn(
               'flex items-center justify-center gap-1.5 min-h-11 rounded-sm transition-all cursor-pointer',
-              compact ? 'min-w-11 px-1.5 flex-col py-1' : 'min-w-11 px-2.5 py-1',
+              compact ? 'min-w-0 flex-1 px-2 py-1.5' : 'min-w-11 px-2.5 py-1',
               selected
                 ? 'bg-accent text-on-accent ring-1 ring-accent'
                 : 'text-muted hover:text-main hover:bg-[var(--color-surface-2)]'
@@ -110,7 +110,7 @@ export function ThemeSelector({ className, compact = false }: ThemeSelectorProps
             <span
               className={cn(
                 'font-mono font-bold uppercase tracking-[0.05em]',
-                compact ? 'text-[9px] leading-none' : 'text-[10px]'
+                'text-[10px] leading-none'
               )}
             >
               {label}

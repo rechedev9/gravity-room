@@ -35,4 +35,19 @@ describe('KpiCard', () => {
     expect(skeleton).not.toBeNull();
     expect(skeleton).toHaveAttribute('aria-label');
   });
+
+  it('clamps and exposes progress accessibly', () => {
+    render(
+      <KpiCard
+        label="PROGRESO"
+        value="4/4"
+        progress={{ value: 1.25, label: 'Progreso del programa' }}
+      />
+    );
+
+    expect(screen.getByRole('progressbar', { name: 'Progreso del programa' })).toHaveAttribute(
+      'aria-valuenow',
+      '100'
+    );
+  });
 });

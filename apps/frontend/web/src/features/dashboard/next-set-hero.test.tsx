@@ -7,11 +7,13 @@ import { NextSetHero, type ProgramInstance } from './next-set-hero';
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     children,
-    ...rest
+    to,
+    className,
   }: {
     readonly children: React.ReactNode;
-    readonly [k: string]: unknown;
-  }) => createElement('a', rest as Record<string, unknown>, children),
+    readonly to: string;
+    readonly className?: string;
+  }) => createElement('a', { href: to, className }, children),
 }));
 
 describe('NextSetHero', () => {
@@ -30,7 +32,6 @@ describe('NextSetHero', () => {
       nextWorkout: {
         dayIndex: 0,
         totalDays: 90,
-        weekLabel: 'Sem. 1 (5s)',
         focusLifts: 'Sentadilla + Press Banca',
       },
     };
@@ -48,12 +49,18 @@ describe('NextSetHero', () => {
       nextWorkout: {
         dayIndex: 16,
         totalDays: 90,
-        weekLabel: 'Sem. 4 (3+)',
         focusLifts: 'Sentadilla + Press Banca',
       },
       nextSet: { weight: 82.5, reps: 5, label: 'first work set' },
     };
     render(createElement(NextSetHero, { programInstance: inst }));
     expect(screen.getByText('82.5 kg × 5')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /EMPEZAR ENTRENAMIENTO|START WORKOUT/i })
+    ).toHaveAttribute('href', '/app/tracker');
+    expect(screen.getByRole('link', { name: /VER PROGRAMA|VIEW PROGRAM/i })).toHaveAttribute(
+      'href',
+      '/app/programs'
+    );
   });
 });

@@ -251,7 +251,7 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
           </div>
 
           {/* User section */}
-          <div className="border-t border-[var(--color-sidebar-border)] px-4 py-4 shrink-0">
+          <div className="border-t border-[var(--color-sidebar-border)] p-3 shrink-0">
             {isGuest ? (
               <button
                 type="button"
@@ -265,12 +265,22 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
               </button>
             ) : user ? (
               <div className="space-y-2">
-                <AvatarDropdown
-                  user={user}
-                  syncStatus="idle"
-                  onSignOut={() => void handleSignOut(onItemClick)}
-                  dropdownPlacement="top"
-                />
+                <div className="flex min-w-0 items-center gap-3 rounded-[var(--radius-base)] px-1 py-1">
+                  <AvatarDropdown
+                    user={user}
+                    syncStatus="idle"
+                    onSignOut={() => void handleSignOut(onItemClick)}
+                    dropdownPlacement="top"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-[0.06em] text-label">
+                      {t('navigation.profile')}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-main" title={user.email}>
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
                 {signOutError && (
                   <p role="alert" className="text-xs text-error">
                     {t('auth.errors.sign_out_failed')}
@@ -285,9 +295,12 @@ export function AppSidebar({ isOpen, onClose }: AppSidebarProps): React.ReactNod
                 dropdownPlacement="top"
               />
             )}
-            <div className="pt-3 flex items-center justify-between gap-2">
-              <ThemeSelector compact className="shrink-0" />
-              <OnlineIndicator inline />
+            <div className="mt-3 border-t border-[var(--color-sidebar-border)] pt-3">
+              <div className="mb-2 flex min-h-6 items-center justify-between gap-2">
+                <p className="chalk-stamp">{t('theme_selector.label')}</p>
+                <OnlineIndicator inline />
+              </div>
+              <ThemeSelector compact className="w-full" />
             </div>
           </div>
         </nav>

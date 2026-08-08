@@ -635,8 +635,11 @@
       "day_other": "días",
       "sessions": "SESIONES",
       "completed": "completadas",
-      "weekly_pr": "PR ESTA SEM",
-      "no_weekly_pr": "sin PR esta semana"
+      "weekly_pr": "PR ESTA SEMANA",
+      "no_weekly_pr": "sin PR esta semana",
+      "program_progress": "PROGRESO DEL PROGRAMA",
+      "program_workouts": "entrenamientos completados",
+      "program_progress_aria": "Progreso del programa: {{completed}} de {{total}} entrenamientos"
     },
     "pr_road": {
       "title": "CAMINO AL PR",
@@ -658,10 +661,12 @@
       "view_programs": "VER PROGRAMAS",
       "day_one": "DÍA UNO",
       "day_one_body": "El peso no se levanta solo.",
-      "enter": "ENTRAR AL HIERRO",
+      "start": "EMPEZAR ENTRENAMIENTO",
+      "view_program": "VER PROGRAMA",
+      "workout_today": "ENTRENAMIENTO DE HOY",
       "today_day": "HOY · DÍA {{day}}",
+      "program_progress": "DÍA {{day}} / {{total}}",
       "next_set": "PRÓXIMA SERIE",
-      "not_today": "hoy no",
       "last_set": "última: {{weight}}×{{reps}} · +{{delta}}kg desde inicio del programa"
     },
     "heatmap": {
@@ -678,7 +683,11 @@
       "title": "ACTIVIDAD RECIENTE",
       "empty_title": "AÚN NO HAY ENTRENAMIENTOS",
       "empty_body": "Día uno te espera.",
-      "day_abbrev": "D{{day}}"
+      "day_abbrev": "D{{day}}",
+      "day_label": "DÍA {{day}}",
+      "logged_one": "{{count}} registrada",
+      "logged_other": "{{count}} registradas",
+      "sets": "series"
     }
   },
   "programs": {
@@ -1582,6 +1591,19 @@
       "kicker": "Sin sesiones todavía",
       "title": "Tu primera sesión te espera",
       "body": "Abre el tracker y registra tu primer entrenamiento. Tu racha y tus sesiones empezarán a contar desde ahí."
+    },
+    "early_history": {
+      "kicker": "TU PANEL ESTÁ APRENDIENDO",
+      "title": "Cada sesión añade una señal",
+      "body": "Estamos construyendo tu historial con datos reales. A medida que entrenes, el panel mostrará patrones de progreso y constancia.",
+      "next_milestone": "Próximo hito",
+      "progress": "{{completed}} de {{target}}",
+      "progress_aria": "Progreso hacia el próximo hito del panel",
+      "coming_next": "PRÓXIMAMENTE",
+      "pr_title": "Ruta al PR y consejos",
+      "pr_body": "Disponible al completar 3 sesiones.",
+      "heatmap_title": "Mapa de constancia",
+      "heatmap_body": "Disponible al completar 5 sesiones."
     },
     "mentor_tips": [
       "Si fallas, bajas de etapa pero no paras. Vuelves a la barra.",

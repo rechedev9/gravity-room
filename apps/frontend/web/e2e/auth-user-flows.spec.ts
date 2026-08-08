@@ -14,17 +14,17 @@ import {
 /* ── Dashboard with Active Program ─────────────── */
 
 test.describe('Authenticated dashboard', () => {
-  test('shows "Continuar Entrenamiento" when user has active program', async ({ page }) => {
+  test('shows "Empezar entrenamiento" when user has active program', async ({ page }) => {
     await seedProgram(page);
     await page.goto('/app');
     await expect(
-      page.getByRole('link', { name: /continuar entrenamiento|entrar al hierro/i })
+      page.getByRole('link', { name: /continuar entrenamiento|empezar entrenamiento/i })
     ).toBeVisible({
       timeout: 10_000,
     });
   });
 
-  test('clicking "Continuar Entrenamiento" loads the tracker', async ({ page }) => {
+  test('clicking "Empezar entrenamiento" loads the tracker', async ({ page }) => {
     await seedProgram(page);
     await navigateToTracker(page);
     await expect(page.getByRole('progressbar')).toBeVisible();

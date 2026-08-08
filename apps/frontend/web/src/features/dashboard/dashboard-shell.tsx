@@ -9,6 +9,8 @@ interface DashboardShellProps {
   readonly mentor?: React.ReactNode;
   readonly hero: React.ReactNode;
   readonly kpi: React.ReactNode;
+  /** Temporary guidance while progressive dashboard modules are still locked. */
+  readonly guide?: React.ReactNode;
   /** Progressive: omit until enough sessions for a readable density signal. */
   readonly heatmap?: React.ReactNode;
   /** Progressive: PR road + mentor quote row. */
@@ -21,6 +23,7 @@ export function DashboardShell({
   mentor,
   hero,
   kpi,
+  guide,
   heatmap,
   split,
   recent,
@@ -30,6 +33,7 @@ export function DashboardShell({
       {mentor}
       <StaggerItem>{hero}</StaggerItem>
       <StaggerItem>{kpi}</StaggerItem>
+      {guide != null ? <StaggerItem>{guide}</StaggerItem> : null}
       {heatmap != null ? <StaggerItem>{heatmap}</StaggerItem> : null}
       {split != null ? <StaggerItem>{split}</StaggerItem> : null}
       {recent != null ? <StaggerItem>{recent}</StaggerItem> : null}
