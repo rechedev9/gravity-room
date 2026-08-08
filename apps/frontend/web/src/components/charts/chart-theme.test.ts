@@ -9,7 +9,7 @@ import { __resetChartThemeForTests, getChartTheme, invalidateChartTheme } from '
 
 /**
  * Chart theme must re-sample CSS variables after a skin change so charts
- * never keep a stale gold-only palette under classic light/dark.
+ * never keep a stale gold-only palette under classic light.
  */
 describe('chart-theme cache invalidation', () => {
   beforeEach(() => {
@@ -74,7 +74,7 @@ describe('chart-theme cache invalidation', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('classic-light');
   });
 
-  it('returns different resolved line colors after cycling gold → light → dark vars', () => {
+  it('returns different resolved line colors after switching gold → light vars', () => {
     const gold = getChartTheme();
     expect(gold.line).toBe('rgb(200, 168, 78)');
 
@@ -83,12 +83,6 @@ describe('chart-theme cache invalidation', () => {
     const light = getChartTheme();
     expect(light.line).toBe('rgb(59, 91, 219)');
 
-    document.documentElement.style.setProperty('--color-chart-line', 'rgb(116, 143, 252)');
-    setThemePreference('classic-dark');
-    const dark = getChartTheme();
-    expect(dark.line).toBe('rgb(116, 143, 252)');
-
-    // All three palettes are distinct — proves the shipped path re-samples.
-    expect(new Set([gold.line, light.line, dark.line]).size).toBe(3);
+    expect(light).not.toBe(gold);
   });
 });

@@ -26,4 +26,9 @@ describe('theme boot script parity', () => {
       expect(html).toContain(THEME_COLOR_META[id]);
     }
   });
+
+  it('migrates the retired dark preference to the default theme before paint', () => {
+    expect(html).toContain("if (stored === 'classic-dark')");
+    expect(html).toContain('localStorage.setItem(key, theme)');
+  });
 });

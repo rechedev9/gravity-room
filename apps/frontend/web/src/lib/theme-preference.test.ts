@@ -38,13 +38,14 @@ describe('theme-preference', () => {
   });
 
   describe('isThemeId', () => {
-    it('accepts the three shipped theme ids', () => {
+    it('accepts the two shipped theme ids', () => {
       for (const id of THEME_IDS) {
         expect(isThemeId(id)).toBe(true);
       }
     });
 
     it('rejects unknown values', () => {
+      expect(isThemeId('classic-dark')).toBe(false);
       expect(isThemeId('system')).toBe(false);
       expect(isThemeId('')).toBe(false);
       expect(isThemeId(null)).toBe(false);
@@ -80,12 +81,9 @@ describe('theme-preference', () => {
       }
     });
 
-    it('sets color-scheme light only for classic-light', () => {
+    it('sets the matching color-scheme for both themes', () => {
       applyThemeToDocument('classic-light');
       expect(document.documentElement.style.colorScheme).toBe('light');
-
-      applyThemeToDocument('classic-dark');
-      expect(document.documentElement.style.colorScheme).toBe('dark');
 
       applyThemeToDocument('gold');
       expect(document.documentElement.style.colorScheme).toBe('dark');
@@ -103,16 +101,16 @@ describe('theme-preference', () => {
     it('dispatches THEME_CHANGE_EVENT with the active theme', () => {
       const handler = vi.fn();
       document.addEventListener(THEME_CHANGE_EVENT, handler);
-      applyThemeToDocument('classic-dark');
+      applyThemeToDocument('classic-light');
       expect(handler).toHaveBeenCalledTimes(1);
       const event = handler.mock.calls[0]?.[0] as CustomEvent<{ theme: ThemeId }>;
-      expect(event.detail.theme).toBe('classic-dark');
+      expect(event.detail.theme).toBe('classic-light');
       document.removeEventListener(THEME_CHANGE_EVENT, handler);
     });
   });
 
   describe('setThemePreference', () => {
-    it('persists and applies in one call for all three themes', () => {
+    it('persists and applies in one call for both themes', () => {
       for (const id of THEME_IDS) {
         const result = setThemePreference(id);
         expect(result).toBe(id);
@@ -137,13 +135,25 @@ describe('theme-preference', () => {
     });
 
     it('does not re-dispatch when the root already matches storage (boot script path)', () => {
-      localStorage.setItem(THEME_STORAGE_KEY, 'classic-dark');
-      document.documentElement.setAttribute('data-theme', 'classic-dark');
+      localStorage.setItem(THEME_STORAGE_KEY, 'classic-light');
+      document.documentElement.setAttribute('data-theme', 'classic-light');
       const handler = vi.fn();
       document.addEventListener(THEME_CHANGE_EVENT, handler);
       bootstrapTheme();
       expect(handler).not.toHaveBeenCalled();
       document.removeEventListener(THEME_CHANGE_EVENT, handler);
+    });
+
+    it('migrates the retired dark theme to gold', () => {
+      localStorage.setItem(THEME_STORAGE_KEY, 'classic-dark');
+      document.documentElement.setAttribute('data-theme', 'classic-dark');
+
+      const theme = bootstrapTheme();
+
+      expect(theme).toBe('gold');
+      expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('gold');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('gold');
+      expect(document.documentElement.style.colorScheme).toBe('dark');
     });
   });
 
@@ -174,6 +184,22 @@ describe('theme-preference', () => {
           storageArea: localStorage,
         })
       );
+      expect(document.documentElement.getAttribute('data-theme')).toBe('gold');
+    });
+
+    it('normalizes retired dark writes from an older tab to gold', () => {
+      installCrossTabThemeSync();
+      localStorage.setItem(THEME_STORAGE_KEY, 'classic-dark');
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: THEME_STORAGE_KEY,
+          newValue: 'classic-dark',
+          oldValue: 'classic-light',
+          storageArea: localStorage,
+        })
+      );
+
+      expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('gold');
       expect(document.documentElement.getAttribute('data-theme')).toBe('gold');
     });
   });

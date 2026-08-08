@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * Structural guard: primary accent surfaces must not hard-code gold hex/oklch
- * that ignore classic-light / classic-dark token overrides.
+ * that ignore classic-light token overrides.
  */
 const root = resolve(__dirname, '..');
 
@@ -34,16 +34,15 @@ describe('theme-token surfaces (no hard-coded gold accents)', () => {
     expect(hatchBody).not.toMatch(/#f0c040|#d4a843|#c8a84e|#f4b91f/i);
   });
 
-  it('classic-light and classic-dark keep the forged-gold accent family (hue ~80)', () => {
+  it('classic-light keeps the forged-gold accent family (hue ~80)', () => {
     const css = read('styles/globals.css');
-    for (const theme of ['classic-light', 'classic-dark'] as const) {
-      const body = extractThemeBlock(css, theme);
-      expect(body.length, `${theme} token block`).toBeGreaterThan(0);
-      expect(body).toMatch(/--color-accent:\s*oklch\(/);
-      // Brand accent is warm gold (hue 70–90). Cool indigo (~265–270) is rejected.
-      expect(body).toMatch(/--color-accent:\s*oklch\([^)]*\b8[0-9]\s*\)/);
-      expect(body).not.toMatch(/--color-accent:\s*oklch\([^)]*\b2[5-7][0-9]\s*\)/);
-    }
+    const body = extractThemeBlock(css, 'classic-light');
+    expect(body.length, 'classic-light token block').toBeGreaterThan(0);
+    expect(body).toMatch(/--color-accent:\s*oklch\(/);
+    // Brand accent is warm gold (hue 70–90). Cool indigo (~265–270) is rejected.
+    expect(body).toMatch(/--color-accent:\s*oklch\([^)]*\b8[0-9]\s*\)/);
+    expect(body).not.toMatch(/--color-accent:\s*oklch\([^)]*\b2[5-7][0-9]\s*\)/);
+    expect(css).not.toContain("html[data-theme='classic-dark']");
   });
 });
 

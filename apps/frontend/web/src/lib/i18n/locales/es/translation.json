@@ -1642,10 +1642,8 @@
     "aria_label": "Tema",
     "gold": "Oro",
     "classic_light": "Claro",
-    "classic_dark": "Oscuro",
     "gold_hint": "Hierro forjado con acento oro",
     "classic_light_hint": "Papel cálido con acento oro",
-    "classic_dark_hint": "Carbón neutro con acento oro",
     "label": "Tema"
   },
   "program_overview": {

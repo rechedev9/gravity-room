@@ -1,14 +1,16 @@
 /**
- * Theme preference — three selectable skins sharing the same semantic token surface.
- * Gold (forged-iron) is the product default; classic light/dark keep the same
- * warm-gold accent voice on light paper / neutral charcoal surfaces.
+ * Theme preference — two selectable skins sharing the same semantic token surface.
+ * Gold (forged-iron) is the product default; classic light keeps the same
+ * warm-gold accent voice on light paper surfaces.
  */
 
-export const THEME_IDS = ['gold', 'classic-light', 'classic-dark'] as const;
+export const THEME_IDS = ['gold', 'classic-light'] as const;
 
 export type ThemeId = (typeof THEME_IDS)[number];
 
 export const THEME_STORAGE_KEY = 'gravity-room:theme-preference';
+
+const RETIRED_DARK_THEME = 'classic-dark';
 
 /** Custom event name dispatched on document when the theme changes. */
 export const THEME_CHANGE_EVENT = 'gravity-room:theme-change';
@@ -20,7 +22,6 @@ export const THEME_COLOR_META: Record<ThemeId, string> = {
   gold: '#c8a84e',
   // Deep gold for contrast on light paper (matches --color-accent on classic-light).
   'classic-light': '#9a6b14',
-  'classic-dark': '#c8a84e',
 };
 
 let bootstrapped = false;
@@ -28,7 +29,7 @@ let crossTabInstalled = false;
 let onStorage: ((event: StorageEvent) => void) | null = null;
 
 export function isThemeId(value: string | null | undefined): value is ThemeId {
-  return value === 'gold' || value === 'classic-light' || value === 'classic-dark';
+  return value === 'gold' || value === 'classic-light';
 }
 
 export function getThemePreference(): ThemeId {
@@ -43,6 +44,16 @@ export function getThemePreference(): ThemeId {
 export function saveThemePreference(theme: ThemeId): void {
   try {
     localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
+function migrateRetiredThemePreference(theme: ThemeId): void {
+  try {
+    if (localStorage.getItem(THEME_STORAGE_KEY) === RETIRED_DARK_THEME) {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }
   } catch {
     // ignore quota / private mode
   }
@@ -76,7 +87,9 @@ export function installCrossTabThemeSync(): void {
   crossTabInstalled = true;
   onStorage = (event: StorageEvent): void => {
     if (event.key !== null && event.key !== THEME_STORAGE_KEY) return;
-    applyThemeToDocument(getThemePreference());
+    const theme = getThemePreference();
+    migrateRetiredThemePreference(theme);
+    applyThemeToDocument(theme);
   };
   window.addEventListener('storage', onStorage);
 }
@@ -89,6 +102,7 @@ export function installCrossTabThemeSync(): void {
 export function bootstrapTheme(): ThemeId {
   installCrossTabThemeSync();
   const theme = getThemePreference();
+  migrateRetiredThemePreference(theme);
   const alreadyPainted = document.documentElement.getAttribute('data-theme') === theme;
   if (!alreadyPainted || !bootstrapped) {
     if (!alreadyPainted) {

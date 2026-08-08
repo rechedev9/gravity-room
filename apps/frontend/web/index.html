@@ -125,28 +125,21 @@
     -->
   </head>
   <body>
-    <!-- Apply stored theme before paint to avoid a gold flash on classic skins. -->
+    <!-- Apply stored theme before paint to avoid a gold flash on the light skin. -->
     <script>
       (function () {
         try {
           var key = 'gravity-room:theme-preference';
           var stored = localStorage.getItem(key);
-          var theme =
-            stored === 'gold' || stored === 'classic-light' || stored === 'classic-dark'
-              ? stored
-              : 'gold';
+          var theme = stored === 'gold' || stored === 'classic-light' ? stored : 'gold';
+          if (stored === 'classic-dark') {
+            localStorage.setItem(key, theme);
+          }
           document.documentElement.setAttribute('data-theme', theme);
           document.documentElement.style.colorScheme = theme === 'classic-light' ? 'light' : 'dark';
           var meta = document.querySelector('meta[name="theme-color"]');
           if (meta) {
-            meta.setAttribute(
-              'content',
-              theme === 'classic-light'
-                ? '#9a6b14'
-                : theme === 'classic-dark'
-                  ? '#c8a84e'
-                  : '#c8a84e'
-            );
+            meta.setAttribute('content', theme === 'classic-light' ? '#9a6b14' : '#c8a84e');
           }
         } catch (e) {
           document.documentElement.setAttribute('data-theme', 'gold');

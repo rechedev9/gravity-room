@@ -169,7 +169,7 @@ export function HeroSection({ content }: HeroSectionProps): React.ReactNode {
             <span
               className="text-transparent"
               style={{
-                // Token-driven — follows gold / classic-light / classic-dark accents.
+                // Token-driven — follows gold / classic-light accents.
                 backgroundImage:
                   'linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-hover) 58%, var(--color-accent-deep) 100%)',
                 backgroundClip: 'text',

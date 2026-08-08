@@ -107,9 +107,10 @@ test.describe('Tracker visual polish', () => {
   test('theme selector shows short labels and edit weights surfaces recalc callout', async ({
     page,
   }) => {
-    // Compact selector still shows Oro / Claro / Oscuro text.
+    // Compact selector shows the two available themes: Oro / Claro.
     await expect(page.locator('[data-theme-option="gold"]')).toContainText(/oro/i);
     await expect(page.locator('[data-theme-option="classic-light"]')).toContainText(/claro/i);
+    await expect(page.locator('[data-theme-option="classic-dark"]')).toHaveCount(0);
 
     await page.getByTestId('weights-pill-edit').click();
     await expect(page.getByTestId('setup-recalc-callout')).toBeVisible({ timeout: 5_000 });

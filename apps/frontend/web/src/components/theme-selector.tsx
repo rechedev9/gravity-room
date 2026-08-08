@@ -24,13 +24,6 @@ const THEME_META: readonly {
     // Warm paper + deep gold accent (brand-aligned).
     swatch: 'linear-gradient(135deg, oklch(0.97 0.008 85) 45%, oklch(0.55 0.14 80) 45%)',
   },
-  {
-    id: 'classic-dark',
-    labelKey: 'theme_selector.classic_dark',
-    hintKey: 'theme_selector.classic_dark_hint',
-    // Neutral charcoal + forged gold accent.
-    swatch: 'linear-gradient(135deg, oklch(0.16 0.008 260) 45%, oklch(0.8 0.145 84) 45%)',
-  },
 ];
 
 interface ThemeSelectorProps {
@@ -40,7 +33,7 @@ interface ThemeSelectorProps {
 }
 
 /**
- * Segmented theme control — gold / classic light / classic dark.
+ * Segmented theme control — gold / classic light.
  * Pattern mirrors LanguageSelector (radiogroup + arrow keys).
  */
 export function ThemeSelector({ className, compact = false }: ThemeSelectorProps): React.ReactNode {
@@ -84,7 +77,7 @@ export function ThemeSelector({ className, compact = false }: ThemeSelectorProps
         const selected = theme === item.id;
         const label = t(item.labelKey);
         const hint = t(item.hintKey);
-        // Compact sidebar still shows a short mono label so the three swatches
+        // Compact sidebar still shows a short mono label so both swatches
         // are discoverable without hovering (aria-label alone is not enough).
         return (
           <button

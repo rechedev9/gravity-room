@@ -15,13 +15,13 @@ describe('ThemeSelector', () => {
     await i18n.changeLanguage('en');
   });
 
-  it('renders three theme options and defaults the root to gold after mount', async () => {
+  it('renders two theme options and defaults the root to gold after mount', async () => {
     render(<ThemeSelector />);
 
     expect(screen.getByRole('radiogroup', { name: 'Theme' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: /^Gold\./i })).toBeTruthy();
     expect(screen.getByRole('radio', { name: /^Light\./i })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /^Dark\./i })).toBeTruthy();
+    expect(screen.queryByRole('radio', { name: /^Dark\./i })).toBeNull();
 
     await waitFor(() => {
       expect(document.documentElement.getAttribute('data-theme')).toBe('gold');
@@ -43,7 +43,7 @@ describe('ThemeSelector', () => {
     });
   });
 
-  it('cycles gold → light → dark via arrow keys and marks the root each time', async () => {
+  it('cycles gold → light → gold via arrow keys and marks the root each time', async () => {
     render(<ThemeSelector />);
 
     const gold = screen.getByRole('radio', { name: /^Gold\./i });
@@ -58,18 +58,18 @@ describe('ThemeSelector', () => {
     fireEvent.keyDown(light, { key: 'ArrowRight' });
 
     await waitFor(() => {
-      expect(document.documentElement.getAttribute('data-theme')).toBe('classic-dark');
-      expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('classic-dark');
+      expect(document.documentElement.getAttribute('data-theme')).toBe('gold');
+      expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('gold');
     });
   });
 
   it('compact mode keeps short visible labels and rich accessible names', () => {
     render(<ThemeSelector compact />);
 
-    // Short mono labels stay visible so the three swatches are discoverable.
+    // Short mono labels stay visible so both swatches are discoverable.
     expect(screen.getByText('Gold')).toBeTruthy();
     expect(screen.getByText('Light')).toBeTruthy();
-    expect(screen.getByText('Dark')).toBeTruthy();
+    expect(screen.queryByText('Dark')).toBeNull();
     expect(
       screen.getByRole('radio', { name: /Gold\.\s+Forged iron with gold accent/i })
     ).toBeTruthy();

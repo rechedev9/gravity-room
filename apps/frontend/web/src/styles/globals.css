@@ -194,8 +194,8 @@
 }
 
 /* ── Theme skins ────────────────────────────────────────────────────────────
- * Gold (forged-iron) is the default from @theme above. Classic light/dark
- * redeclare the same semantic tokens so utilities (bg-body, text-main, …)
+ * Gold (forged-iron) is the default from @theme above. Classic light
+ * redeclares the same semantic tokens so utilities (bg-body, text-main, …)
  * re-theme without component changes. Accents stay restrained — never neon.
  * ─────────────────────────────────────────────────────────────────────────── */
 
@@ -279,85 +279,6 @@ html[data-theme='classic-light'] {
   --shadow-card-hover: 0 4px 16px 0 oklch(0.3 0.02 70 / 0.1);
   --shadow-toolbar: 0 1px 0 0 oklch(0.3 0.02 70 / 0.06);
   --shadow-pressed-steel: inset 0 1px 0 oklch(1 0 0 / 0.35), inset 0 -2px 0 oklch(0 0 0 / 0.12);
-}
-
-/* Classic dark — neutral charcoal surfaces, forged-gold accent (same voice as Gold). */
-html[data-theme='classic-dark'] {
-  color-scheme: dark;
-
-  --color-body: oklch(0.16 0.008 260);
-  --color-card: oklch(0.2 0.01 260);
-  --color-surface-2: oklch(0.24 0.012 260);
-  --color-header: oklch(0.13 0.008 260);
-  --color-ink: oklch(0.1 0.006 260);
-  --color-th: oklch(0.24 0.012 260);
-  --color-hover-row: oklch(0.24 0.012 260);
-  --color-progress-track: oklch(0.24 0.012 260);
-  --color-changed: oklch(0.28 0.04 80);
-  --color-error-bg: oklch(0.24 0.05 25);
-  --color-tooltip-bg: oklch(0.13 0.008 260);
-
-  --color-main: oklch(0.93 0.008 85);
-  --color-title: oklch(0.96 0.006 85);
-  --color-heading: oklch(0.96 0.006 85);
-  --color-muted: oklch(0.72 0.015 80);
-  --color-label: oklch(0.62 0.018 80);
-  --color-info: oklch(0.62 0.018 80);
-  --color-error: oklch(0.7 0.16 25);
-  --color-tooltip-text: oklch(0.93 0.008 85);
-
-  --color-rule: oklch(0.3 0.014 260);
-  --color-rule-light: oklch(0.4 0.018 260);
-  --color-error-line: oklch(0.42 0.08 25);
-
-  --color-accent: oklch(0.8 0.145 84);
-  --color-accent-hover: oklch(0.85 0.145 86);
-  --color-accent-deep: oklch(0.62 0.115 80);
-  --color-accent-dim: oklch(0.42 0.06 80);
-  --color-on-accent: oklch(0.13 0.01 70);
-  --color-btn-ring: oklch(0.8 0.145 84);
-  --color-btn: oklch(0.2 0.01 260);
-  --color-btn-text: oklch(0.8 0.145 84);
-  --color-btn-active: oklch(0.8 0.145 84);
-  --color-btn-active-text: oklch(0.13 0.01 70);
-
-  --color-victory: oklch(0.8 0.145 84);
-  --color-victory-on: oklch(0.13 0.01 70);
-  --color-victory-glow: oklch(0.8 0.145 84 / 0);
-
-  --color-online: oklch(0.72 0.12 155);
-  --color-ok-bg: oklch(0.24 0.04 155);
-  --color-ok-ring: oklch(0.38 0.06 155);
-  --color-ok: oklch(0.72 0.12 155);
-  --color-fail-bg: oklch(0.24 0.05 25);
-  --color-fail-ring: oklch(0.4 0.08 25);
-  --color-fail: oklch(0.7 0.16 25);
-  --color-warn: oklch(0.78 0.12 75);
-
-  --color-stage-1: oklch(0.93 0.008 85);
-  --color-stage-2: oklch(0.7 0.14 55);
-  --color-stage-3: oklch(0.62 0.18 25);
-
-  --color-chart-grid: oklch(0.3 0.014 260);
-  --color-chart-text: oklch(0.62 0.018 80);
-  --color-chart-line: oklch(0.8 0.145 84);
-  --color-chart-ok: oklch(0.72 0.12 155);
-  --color-chart-fail: oklch(0.7 0.16 25);
-  --color-chart-pr: oklch(0.8 0.145 84);
-
-  --color-heat: oklch(0.42 0.08 80);
-
-  --color-sidebar: oklch(0.13 0.008 260);
-  --color-sidebar-active: oklch(0.24 0.02 80);
-  --color-sidebar-border: oklch(0.3 0.014 260);
-
-  --shadow-card: 0 1px 2px 0 oklch(0 0 0 / 0.35);
-  --shadow-elevated: 0 8px 32px 0 oklch(0 0 0 / 0.55);
-  --shadow-dialog: 0 8px 24px 0 oklch(0 0 0 / 0.5);
-  --shadow-inset-subtle: inset 0 0 0 1px oklch(1 0 0 / 0.04);
-  --shadow-card-hover: 0 4px 20px 0 oklch(0 0 0 / 0.4);
-  --shadow-toolbar: 0 1px 0 0 oklch(0 0 0 / 0.4);
-  --shadow-pressed-steel: inset 0 1px 0 oklch(1 0 0 / 0.2), inset 0 -2px 0 oklch(0 0 0 / 0.2);
 }
 
 /* Gold keeps the warm forged-iron default; only pin color-scheme. */

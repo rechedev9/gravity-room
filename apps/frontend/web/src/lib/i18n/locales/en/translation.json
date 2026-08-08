@@ -1642,10 +1642,8 @@
     "aria_label": "Theme",
     "gold": "Gold",
     "classic_light": "Light",
-    "classic_dark": "Dark",
     "gold_hint": "Forged iron with gold accent",
     "classic_light_hint": "Warm paper with gold accent",
-    "classic_dark_hint": "Neutral charcoal with gold accent",
     "label": "Theme"
   },
   "program_overview": {
