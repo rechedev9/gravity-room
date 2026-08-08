@@ -319,17 +319,19 @@ export function ProfilePage(): React.ReactNode {
               />
             </div>
 
-            {chartData && primaryExercises.length > 0 && (
-              <Suspense fallback={<ChartsFallback />}>
-                <ProfileChartsSection
-                  chartData={chartData}
-                  primaryExercises={primaryExercises}
-                  names={names}
-                  toDisplay={toDisplay}
-                  unitLabel={unit}
-                />
-              </Suspense>
-            )}
+            {chartData &&
+              profileData.completion.workoutsCompleted > 0 &&
+              primaryExercises.length > 0 && (
+                <Suspense fallback={<ChartsFallback />}>
+                  <ProfileChartsSection
+                    chartData={chartData}
+                    primaryExercises={primaryExercises}
+                    names={names}
+                    toDisplay={toDisplay}
+                    unitLabel={unit}
+                  />
+                </Suspense>
+              )}
           </>
         )}
 

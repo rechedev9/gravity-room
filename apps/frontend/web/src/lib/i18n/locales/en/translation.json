@@ -1143,13 +1143,18 @@
       "workout_of": "of",
       "completed_pct_label": "Completed",
       "success_rate_label": "Success",
+      "mission_label": "Current mission",
+      "mission_next_workout": "Complete workout {{number}}",
       "cta_start": "Start",
+      "cta_continue": "Continue",
       "program_selector_label": "Program selector",
       "status_active": "— Active",
       "status_completed": "— Completed"
     },
     "badges": {
       "section_title": "Achievements",
+      "unlocked_count": "{{unlocked}} of {{total}} unlocked",
+      "next_milestone": "Next milestone",
       "first_workout": {
         "label": "First Workout",
         "description": "Complete 1 workout"
@@ -1195,6 +1200,7 @@
       "this_month_label": "this month",
       "new_prs_label": "New PRs",
       "volume_label": "Volume",
+      "initial_weights_title": "Starting Weights (T1)",
       "personal_records_title": "Personal Records (T1)",
       "workout_number_label": "Workout #",
       "initial_weight_label": "Initial weight",

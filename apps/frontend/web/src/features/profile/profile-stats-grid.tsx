@@ -125,7 +125,13 @@ export function ProfileStatsGrid({
           (which stranded the previous card on tablet and left a wide gap on
           desktop). Mobile stays single-column. */}
       {hasRecords && (
-        <DashboardCard title={t('profile.stats_grid.personal_records_title')}>
+        <DashboardCard
+          title={
+            isEmpty
+              ? t('profile.stats_grid.initial_weights_title')
+              : t('profile.stats_grid.personal_records_title')
+          }
+        >
           <div className="grid grid-cols-2 gap-x-4">
             {profileData.personalRecords.map((pr) => {
               const delta = pr.weight - pr.startWeight;

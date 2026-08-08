@@ -1143,13 +1143,18 @@
       "workout_of": "de",
       "completed_pct_label": "Completado",
       "success_rate_label": "Éxito",
+      "mission_label": "Misión actual",
+      "mission_next_workout": "Completa el entrenamiento {{number}}",
       "cta_start": "Comenzar",
+      "cta_continue": "Continuar",
       "program_selector_label": "Selector de programa",
       "status_active": "— Activo",
       "status_completed": "— Completado"
     },
     "badges": {
       "section_title": "Logros",
+      "unlocked_count": "{{unlocked}} de {{total}} desbloqueados",
+      "next_milestone": "Siguiente hito",
       "first_workout": {
         "label": "Primer Entrenamiento",
         "description": "Completa 1 entrenamiento"
@@ -1195,6 +1200,7 @@
       "this_month_label": "este mes",
       "new_prs_label": "Nuevos PRs",
       "volume_label": "Volumen",
+      "initial_weights_title": "Pesos Iniciales (T1)",
       "personal_records_title": "Récords Personales (T1)",
       "workout_number_label": "Entrenamiento #",
       "initial_weight_label": "Peso inicial",

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { authenticateOnly } from './helpers/seed';
+import { authenticateOnly, seedProgram } from './helpers/seed';
 
 test.describe('Profile view', () => {
   test.beforeEach(async ({ page }) => {
@@ -22,5 +22,18 @@ test.describe('Profile view', () => {
 
     // CTA button to navigate back to dashboard
     await expect(page.getByRole('button', { name: 'Ir al Inicio' })).toBeVisible();
+  });
+});
+
+test.describe('Profile progress', () => {
+  test('turns a new program into a clear first mission without empty charts', async ({ page }) => {
+    await seedProgram(page);
+    await page.goto('/app/profile');
+
+    await expect(page.getByText('Misión actual')).toBeVisible();
+    await expect(page.getByText('Completa el entrenamiento 1')).toBeVisible();
+    await expect(page.getByText('Siguiente hito')).toBeVisible();
+    await expect(page.getByText('Pesos Iniciales (T1)')).toBeVisible();
+    await expect(page.getByText('Progresión de Peso')).not.toBeVisible();
   });
 });

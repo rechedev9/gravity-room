@@ -31,6 +31,10 @@ export function ProfileBanner({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isEmpty = profileData.completion.workoutsCompleted === 0;
+  const nextWorkout = Math.min(
+    profileData.completion.workoutsCompleted + 1,
+    profileData.completion.totalWorkouts
+  );
 
   return (
     <>
@@ -39,7 +43,13 @@ export function ProfileBanner({
           className="absolute inset-0 opacity-[0.03]"
           style={{ background: 'linear-gradient(135deg, var(--color-accent) 0%, transparent 60%)' }}
         />
-        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 sm:py-5">
+        <div
+          className={`relative grid gap-5 px-5 py-5 sm:items-center ${
+            isActive
+              ? 'sm:grid-cols-[minmax(0,1fr)_minmax(13rem,auto)_auto]'
+              : 'sm:grid-cols-[minmax(0,1fr)_auto]'
+          }`}
+        >
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3 mb-1">
               {isActive && (
@@ -70,11 +80,25 @@ export function ProfileBanner({
               </p>
             )}
           </div>
-          {isEmpty ? (
-            <Button size="sm" onClick={() => void navigate({ to: '/app/tracker' })}>
-              {t('profile.banner.cta_start')}
-            </Button>
-          ) : (
+          {isActive && (
+            <div className="border-t border-rule pt-4 sm:border-t-0 sm:border-l sm:pt-0 sm:pl-5">
+              <p className="font-mono text-2xs uppercase tracking-[0.18em] text-accent mb-1">
+                {t('profile.banner.mission_label')}
+              </p>
+              <p className="text-sm font-semibold text-title mb-3">
+                {t('profile.banner.mission_next_workout', { number: nextWorkout })}
+              </p>
+              <Button
+                variant="primary"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={() => void navigate({ to: '/app/tracker' })}
+              >
+                {isEmpty ? t('profile.banner.cta_start') : t('profile.banner.cta_continue')}
+              </Button>
+            </div>
+          )}
+          {!isEmpty && (
             <div className="flex items-center gap-6 shrink-0">
               <div className="text-center">
                 <p className="font-display-data text-3xl sm:text-4xl text-title leading-none tabular-nums">
