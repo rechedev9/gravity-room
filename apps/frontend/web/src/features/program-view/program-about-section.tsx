@@ -11,6 +11,14 @@ interface ProgramAboutSectionProps {
   readonly defaultOpen?: boolean;
 }
 
+function MetaChip({ children }: { readonly children: ReactNode }): ReactNode {
+  return (
+    <span className="inline-flex items-center border border-rule bg-body/40 px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-muted">
+      {children}
+    </span>
+  );
+}
+
 export function ProgramAboutSection({
   title,
   description,
@@ -24,19 +32,25 @@ export function ProgramAboutSection({
   return (
     <details
       open={defaultOpen}
-      className="group bg-card border border-rule mb-4 sm:mb-8 overflow-hidden"
+      className="group mb-4 overflow-hidden border border-rule bg-card sm:mb-8"
     >
-      <summary className="px-5 py-3.5 font-bold cursor-pointer select-none flex justify-between items-center [&::marker]:hidden list-none text-xs tracking-wide">
-        {title}
-        <span className="transition-transform duration-200 group-open:rotate-90">&#9656;</span>
+      <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3.5 text-xs font-bold tracking-wide select-none sm:px-5 [&::marker]:hidden">
+        <span className="font-display text-sm uppercase tracking-wide text-title">{title}</span>
+        <span className="text-muted transition-transform duration-200 group-open:rotate-90">
+          &#9656;
+        </span>
       </summary>
-      <div className="px-5 pb-5 border-t border-rule-light">
-        <p className="mt-3 text-sm leading-7 text-info">{description}</p>
-        {authorLine !== undefined && <p className="mt-2 text-xs text-muted">{authorLine}</p>}
-        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted">
-          <span>{t('catalog.meta.total_workouts', { count: totalWorkouts })}</span>
-          <span>{t('catalog.meta.per_week', { count: workoutsPerWeek })}</span>
-          <span>{t('catalog.meta.day_rotation', { count: dayCount })}</span>
+      <div className="border-t border-rule-light px-4 pb-5 sm:px-5">
+        <p className="mt-4 text-sm leading-7 text-info">{description}</p>
+        {authorLine !== undefined && (
+          <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.06em] text-muted">
+            {authorLine}
+          </p>
+        )}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <MetaChip>{t('catalog.meta.total_workouts', { count: totalWorkouts })}</MetaChip>
+          <MetaChip>{t('catalog.meta.per_week', { count: workoutsPerWeek })}</MetaChip>
+          <MetaChip>{t('catalog.meta.day_rotation', { count: dayCount })}</MetaChip>
         </div>
       </div>
     </details>

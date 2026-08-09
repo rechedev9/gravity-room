@@ -196,10 +196,12 @@
       "back_aria": "Back to home",
       "error_not_found": "Program not found",
       "error_details": "The requested program does not exist or could not be loaded.",
-      "cta_signup_prompt": "Create an account to track your progress",
+      "cta_signup_prompt": "Create an account to log your progress",
       "cta_view_dashboard": "View Dashboard",
-      "cta_active_warning": "Finish your current program before starting a new one."
+      "cta_active_warning": "Finish your current program before starting a new one.",
+      "sample_workout": "Sample workout"
     },
+
     "active_card": {
       "workouts_count": "{{count}} workouts",
       "frequency": "{{count}}x / week",
@@ -1685,9 +1687,29 @@
     "how_it_works": "How it works",
     "day_structure": "Day structure",
     "exercises": "Exercises ({{count}})",
+    "exercise_count_one": "{{count}} exercise",
+    "exercise_count_other": "{{count}} exercises",
     "progression_rules": "Progression rules",
     "stages": "Stages",
-    "stages_description": "{{count}} stages are available if you miss the prescribed sets. Each stage adjusts the sets and reps so you can keep progressing."
+    "stage_chip": "S{{n}}",
+    "stages_description": "{{count}} stages are available if you miss the prescribed sets. Each stage adjusts the sets and reps so you can keep progressing.",
+    "phase_tabs_aria": "Cycle weeks",
+    "phase_fallback": "Block {{n}}",
+    "stat_per_week": "Frequency",
+    "stat_per_week_value": "{{count}}×/wk",
+    "stat_total": "Total",
+    "stat_rotation": "Rotation",
+    "stat_rotation_value": "{{count}} days",
+    "stat_rotation_phased": "{{days}} days · {{phases}} wks",
+    "stat_lifts": "Lifts",
+    "tier": {
+      "main": "Main",
+      "supplemental": "Supp",
+      "accessory": "Acc",
+      "t1": "T1",
+      "t2": "T2",
+      "t3": "T3"
+    }
   },
   "sidebar": {
     "open_menu": "Open menu",

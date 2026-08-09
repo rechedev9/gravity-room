@@ -324,7 +324,7 @@ export function ProgramPreviewPage(): ReactNode {
       </header>
 
       {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
         <h1 className="sr-only">{name}</h1>
 
         <ZoneHint zone="preview" className="mb-4" />
@@ -347,71 +347,77 @@ export function ProgramPreviewPage(): ReactNode {
         {/* Program overview — auto-generated explanatory section */}
         {summary !== null && <ProgramOverview summary={summary} programName={name} />}
 
-        {/* Day navigator */}
-        <DayNavigator
-          selectedDayIndex={selectedDayIndex}
-          totalDays={totalWorkouts}
-          currentDayIndex={CURRENT_DAY_INDEX}
-          dayName={selectedWorkout?.dayName ?? ''}
-          isDayComplete={isDayComplete}
-          onPrev={handlePrevDay}
-          onNext={handleNextDay}
-          onGoToCurrent={handleGoToCurrent}
-        />
+        {/* Interactive sample workout */}
+        <section className="mb-2" aria-label={t('catalog.program_preview.sample_workout')}>
+          <h2 className="mb-3 font-display text-sm uppercase tracking-wide text-title">
+            {t('catalog.program_preview.sample_workout')}
+          </h2>
 
-        {/* Calendar navigator — program weeks, no real completion state */}
-        <div className="mt-4">
-          <CalendarNavigator
-            rows={rows}
+          <DayNavigator
             selectedDayIndex={selectedDayIndex}
+            totalDays={totalWorkouts}
             currentDayIndex={CURRENT_DAY_INDEX}
-            workoutsPerWeek={definition.workoutsPerWeek}
-            context="preview"
-            onSelectDay={handleSelectDay}
+            dayName={selectedWorkout?.dayName ?? ''}
+            isDayComplete={isDayComplete}
+            onPrev={handlePrevDay}
+            onNext={handleNextDay}
+            onGoToCurrent={handleGoToCurrent}
           />
-        </div>
 
-        {/* View mode toggle */}
-        <div className="flex justify-end mb-2">
-          <button
-            type="button"
-            onClick={handleToggleView}
-            aria-label={
-              viewMode === 'detailed'
-                ? t('tracker.tab_content.aria_compact_view')
-                : t('tracker.tab_content.aria_detailed_view')
-            }
-            className="text-2xs font-bold text-muted hover:text-main tracking-wide uppercase cursor-pointer transition-colors min-h-[44px] px-2 inline-flex items-center"
-          >
-            {viewMode === 'detailed'
-              ? t('tracker.tab_content.compact_view')
-              : t('tracker.tab_content.detailed_view')}
-          </button>
-        </div>
+          {/* Calendar navigator — program weeks, no real completion state */}
+          <div className="mt-4">
+            <CalendarNavigator
+              rows={rows}
+              selectedDayIndex={selectedDayIndex}
+              currentDayIndex={CURRENT_DAY_INDEX}
+              workoutsPerWeek={definition.workoutsPerWeek}
+              context="preview"
+              onSelectDay={handleSelectDay}
+            />
+          </div>
 
-        {/* Workout view */}
-        {selectedWorkout &&
-          (viewMode === 'detailed' ? (
-            <DetailedDayView
-              workout={selectedWorkout}
-              isCurrent={true}
-              onMark={noopHandler}
-              onUndo={noopHandler}
-              onSetAmrapReps={noopHandler}
-              onSetRpe={noopHandler}
-              onSetTap={noopHandler}
-            />
-          ) : (
-            <DayView
-              workout={selectedWorkout}
-              isCurrent={true}
-              onMark={noopHandler}
-              onUndo={noopHandler}
-              onSetAmrapReps={noopHandler}
-              onSetRpe={noopHandler}
-              onSetTap={noopHandler}
-            />
-          ))}
+          {/* View mode toggle */}
+          <div className="mb-2 flex justify-end">
+            <button
+              type="button"
+              onClick={handleToggleView}
+              aria-label={
+                viewMode === 'detailed'
+                  ? t('tracker.tab_content.aria_compact_view')
+                  : t('tracker.tab_content.aria_detailed_view')
+              }
+              className="text-2xs inline-flex min-h-[44px] cursor-pointer items-center px-2 font-bold tracking-wide text-muted uppercase transition-colors hover:text-main"
+            >
+              {viewMode === 'detailed'
+                ? t('tracker.tab_content.compact_view')
+                : t('tracker.tab_content.detailed_view')}
+            </button>
+          </div>
+
+          {/* Workout view */}
+          {selectedWorkout &&
+            (viewMode === 'detailed' ? (
+              <DetailedDayView
+                workout={selectedWorkout}
+                isCurrent={true}
+                onMark={noopHandler}
+                onUndo={noopHandler}
+                onSetAmrapReps={noopHandler}
+                onSetRpe={noopHandler}
+                onSetTap={noopHandler}
+              />
+            ) : (
+              <DayView
+                workout={selectedWorkout}
+                isCurrent={true}
+                onMark={noopHandler}
+                onUndo={noopHandler}
+                onSetAmrapReps={noopHandler}
+                onSetRpe={noopHandler}
+                onSetTap={noopHandler}
+              />
+            ))}
+        </section>
 
         {/* Per-program FAQ — visible Q&A + FAQPage JSON-LD for AI/search extraction */}
         <ProgramFaq items={faqItems} />
@@ -421,7 +427,7 @@ export function ProgramPreviewPage(): ReactNode {
         <aside className="mt-8 border-t border-rule pt-6" aria-labelledby="program-learn-heading">
           <h2
             id="program-learn-heading"
-            className="font-display text-lg uppercase tracking-wide text-title mb-3"
+            className="mb-3 font-display text-lg tracking-wide text-title uppercase"
           >
             {t('catalog.program_preview.learn_more')}
           </h2>

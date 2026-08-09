@@ -198,7 +198,8 @@
       "error_details": "El programa solicitado no existe o no se pudo cargar.",
       "cta_signup_prompt": "Crea una cuenta para registrar tu progreso",
       "cta_view_dashboard": "Ver Dashboard",
-      "cta_active_warning": "Finaliza tu programa actual antes de iniciar uno nuevo."
+      "cta_active_warning": "Finaliza tu programa actual antes de iniciar uno nuevo.",
+      "sample_workout": "Ejemplo de entrenamiento"
     },
     "active_card": {
       "workouts_count": "{{count}} entrenamientos",
@@ -1685,9 +1686,29 @@
     "how_it_works": "Cómo funciona",
     "day_structure": "Estructura de días",
     "exercises": "Ejercicios ({{count}})",
+    "exercise_count_one": "{{count}} ejercicio",
+    "exercise_count_other": "{{count}} ejercicios",
     "progression_rules": "Reglas de progresión",
     "stages": "Etapas",
-    "stages_description": "{{count}} etapas disponibles si no completas las series. Cada etapa ajusta el esquema de series y repeticiones para que puedas seguir progresando."
+    "stage_chip": "S{{n}}",
+    "stages_description": "{{count}} etapas disponibles si no completas las series. Cada etapa ajusta el esquema de series y repeticiones para que puedas seguir progresando.",
+    "phase_tabs_aria": "Semanas del ciclo",
+    "phase_fallback": "Bloque {{n}}",
+    "stat_per_week": "Frecuencia",
+    "stat_per_week_value": "{{count}}×/sem",
+    "stat_total": "Total",
+    "stat_rotation": "Rotación",
+    "stat_rotation_value": "{{count}} días",
+    "stat_rotation_phased": "{{days}} días · {{phases}} sem",
+    "stat_lifts": "Levantamientos",
+    "tier": {
+      "main": "Main",
+      "supplemental": "Supp",
+      "accessory": "Acc",
+      "t1": "T1",
+      "t2": "T2",
+      "t3": "T3"
+    }
   },
   "sidebar": {
     "open_menu": "Abrir menú",
