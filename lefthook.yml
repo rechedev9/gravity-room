@@ -43,16 +43,13 @@ pre-push:
     build:
       # Build WITHOUT the Playwright prerender. The prerender boots headless
       # Chromium, which is environment-fragile locally (Chromium launch timeouts
-      # on Windows repeatedly blocked pushes). CI's `build-web` job runs the full
-      # build + prerender on a clean runner and gates the deploy, so pre-push only
-      # needs `vite build` to catch real build/TS breakage fast and reliably.
-      run: pnpm run build:ci:no-prerender
+      # on Windows repeatedly blocked pushes). Pre-push uses `vite build` to catch
+      # build/TS breakage quickly; run `pnpm run build` when validating prerendering.
+      run: pnpm run build:check
 
 # api-types-drift was removed from pre-push because it requires a live API on
 # http://localhost:3001/swagger/json that nobody has running locally before
 # pushing — every push without the dev stack up was rejected.
 #
-# The check lives in .github/workflows/ci.yml as the `api-types-drift` job:
-# it boots the API with a dummy DATABASE_URL (swagger serves without a DB),
-# regenerates the client, and diffs
-# apps/frontend/web/src/lib/api/generated.ts via `git diff --exit-code`.
+# Route authors must run `pnpm --filter web api:types` with the local API running
+# and commit apps/frontend/web/src/lib/api/generated.ts when the contract changes.

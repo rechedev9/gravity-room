@@ -117,8 +117,8 @@ dos frontends. Decisiones clave:
 - **Serverless con la factory pura `createApp()`.** En Vercel, la entrada fuente
   [`vercel-handler.ts`](apps/backend/api/src/vercel-handler.ts) monta la app y
   conecta `app.fetch(request)` al gateway Node con streaming acotado; el build la
-  convierte en el bundle catch-all generado [`api/index.ts`](api/index.ts). CI
-  verifica su paridad con `pnpm run bundle:api:check`; no hay `app.listen`. En local,
+  convierte en el bundle catch-all generado [`api/index.ts`](api/index.ts). La
+  paridad se comprueba localmente con `pnpm run bundle:api:check`; no hay `app.listen`. En local,
   [`src/dev-server.ts`](apps/backend/api/src/dev-server.ts) sirve la misma app
   con `@hono/node-server`, así que dev y prod son byte-for-byte la misma app.
 - **Migraciones build-time, no boot-time.** Las migraciones Drizzle y los seeds
@@ -208,8 +208,8 @@ forzar componentes universales termina mal en ambas.
 * **PWA instalable** con service worker. Funciona offline para las pantallas
   de tracking más usadas.
 * **Cliente generado desde OpenAPI** — [`codegen/generate-api-types.ts`](apps/frontend/web/codegen/generate-api-types.ts)
-  toma `/swagger/json` del API y genera `src/lib/api/generated.ts`. El workflow
-  `validate` de CI bloquea drift entre el swagger real y el cliente generado.
+  toma `/swagger/json` del API y genera `src/lib/api/generated.ts`. Al cambiar
+  rutas hay que regenerarlo y committearlo manualmente.
 * **Tests E2E con Playwright** (chromium) en `e2e/`.
 
 Estructura interna:
@@ -352,9 +352,8 @@ aceptar tokens de `/api/auth/mobile/google`.
 - **pre-commit:** typecheck + lint + format
 - **pre-push:** tests + build
 
-El chequeo de drift entre el swagger real del API y el cliente generado vive en
-CI (`ci.yml`, job `OpenAPI client drift`), porque necesita arrancar el API
-contra Postgres.
+El chequeo de drift entre el swagger real del API y el cliente generado se hace
+manualmente con `pnpm --filter web api:types` mientras el API local está activo.
 
 No saltees los hooks con `--no-verify`. Si fallan es porque hay algo que
 arreglar antes de subir.

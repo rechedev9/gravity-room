@@ -13,7 +13,7 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 | `apps/frontend/web/`                             | frontend | React SPA, PWA                                                                                            | Vite 7, React 19, TanStack Router, Tailwind 4 | `pnpm run dev` / `pnpm run test` / `pnpm --filter web e2e`        |
 | `apps/frontend/web/src/features/`                | frontend | Feature-folder UI (auth, dashboard, home, insights, etc.)                                                 | React + TanStack Query                        | covered by `pnpm --filter web test`                               |
 | `apps/frontend/web/src/components/`              | frontend | Shared UI primitives + app-shell (root-layout, providers)                                                 | Radix UI + Tailwind                           | unit tests via vitest                                             |
-| `apps/frontend/web/src/lib/api/generated.ts`     | frontend | OpenAPI-generated Zod client (committed)                                                                  | openapi-zod-client                            | `pnpm --filter web api:types` regenerates it; CI checks for drift |
+| `apps/frontend/web/src/lib/api/generated.ts`     | frontend | OpenAPI-generated Zod client (committed)                                                                  | openapi-zod-client                            | `pnpm --filter web api:types` regenerates it manually             |
 | `apps/frontend/web/codegen/`                     | frontend | Codegen sources for `lib/api/generated.ts`                                                                | tsx TS scripts                                | `vitest run apps/frontend/web/codegen/generate-api-types.test.ts` |
 | `apps/frontend/web/e2e/`                         | frontend | Playwright specs (chromium)                                                                               | Playwright 1.58                               | `pnpm --filter web e2e`                                           |
 | `apps/frontend/mobile/`                          | frontend | Expo / RN client                                                                                          | Expo 54, RN 0.81, expo-sqlite                 | `pnpm --filter mobile typecheck` / Jest                           |
@@ -55,15 +55,15 @@ For the architectural rationale, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Docs
 
-| Path                                | Role                                                   |
-| ----------------------------------- | ------------------------------------------------------ |
-| `docs/ARCHITECTURE.md`              | architectural overview (this layout's rationale)       |
-| `docs/VERCEL_CUTOVER.md`            | Vercel same-origin go-live runbook                     |
-| `docs/SUPPLY_CHAIN_SECURITY.md`     | Dependency, immutable CI input, and secret-scan policy |
-| `docs/DATABASE_SECURITY_ROLLOUT.md` | Deferred DB contracts and accepted RLS risk            |
-| `docs/llm-map.md`                   | this file                                              |
-| `CLAUDE.md`                         | auto-loaded agent context (live API + DB schema)       |
-| `README.md`                         | top-level entry point                                  |
+| Path                                | Role                                             |
+| ----------------------------------- | ------------------------------------------------ |
+| `docs/ARCHITECTURE.md`              | architectural overview (this layout's rationale) |
+| `docs/VERCEL_CUTOVER.md`            | Vercel same-origin go-live runbook               |
+| `docs/SUPPLY_CHAIN_SECURITY.md`     | Dependency audit and secret-scanning policy      |
+| `docs/DATABASE_SECURITY_ROLLOUT.md` | Deferred DB contracts and accepted RLS risk      |
+| `docs/llm-map.md`                   | this file                                        |
+| `CLAUDE.md`                         | auto-loaded agent context (live API + DB schema) |
+| `README.md`                         | top-level entry point                            |
 
 ## Quick "where do I look for…"
 

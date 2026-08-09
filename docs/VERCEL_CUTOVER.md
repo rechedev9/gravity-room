@@ -11,7 +11,7 @@ The table below is the canonical list pulled from the API code (`apps/backend/ap
 Set each variable in the Vercel project under Settings then Environment Variables, scoping it to Production and Preview as noted.
 
 - `DATABASE_URL` is the Neon POOLED PgBouncer connection string (host contains `-pooler`), set per-environment so Preview points at a Neon branch and Production points at the primary branch.
-- `DIRECT_DATABASE_URL` is the Neon DIRECT (non-pooled) connection string for the same branch, used only by the build-time `db:deploy` migration step. It is mandatory for Production; the deploy fails before building or changing the database when it is unset. Only local/CI runs may fall back to `DATABASE_URL`.
+- `DIRECT_DATABASE_URL` is the Neon DIRECT (non-pooled) connection string for the same branch, used only by the build-time `db:deploy` migration step. It is mandatory for Production; the deploy fails before building or changing the database when it is unset. Only local runs may fall back to `DATABASE_URL`.
 - `JWT_SECRET` is a long random string of at least 64 characters, generated once per environment (Production and Preview should differ).
 - `GOOGLE_CLIENT_ID` is the web Google OAuth client ID.
 - `GOOGLE_CLIENT_IDS` is the comma-separated list of Android, iOS, and web Google OAuth client IDs accepted by the mobile auth endpoints.
@@ -89,18 +89,17 @@ Edit the mobile env so `EXPO_PUBLIC_API_URL` is the real production Vercel domai
 Rebuild and resubmit the Expo app (for example with an EAS build) so the new API base URL is baked into the binary.
 Mobile already passes refresh tokens in the request body, so no cookie or CORS change is needed on the client.
 
-## (h) Configure the external production promotion gate
+## (h) Configure GitHub and Vercel integration
 
-The CI workflow exposes one aggregate required check named `Validate`; it depends on build/type/lint/test jobs, DB-backed API security tests, immutable-action secret scanning, deployment-config checks, and the production dependency policy.
+The repository has no CI workflow or required status check. Local Lefthook validation runs before commits and pushes, while Vercel builds every push to `main` through its Git integration.
 
-This protection cannot be encoded in repository files. In GitHub Settings → Rules → Rulesets (or the branch-protection rule), protect `main` as follows:
+In GitHub Settings → Rules → Rulesets (or the branch-protection rule), configure `main` as follows:
 
-1. Require a pull request and require branches to be up to date before merging.
-2. Require the single `Validate` status check.
-3. Block direct pushes and force pushes, including for administrators unless using a documented break-glass procedure.
-4. Remove stale Railway/VPS/old-workflow checks.
+1. Do not require status checks from removed workflows.
+2. Allow normal direct pushes while keeping force pushes and branch deletion disabled.
+3. Remove stale Railway/VPS/old-workflow checks.
 
-In Vercel Settings → Git, verify that only the protected `main` branch is the Production Branch and restrict manual production deployments to trusted maintainers. Do not configure an unprotected branch as production. After changing either GitHub or Vercel settings, merge a harmless PR and confirm Vercel does not begin a production build until the required PR check has passed.
+In Vercel Settings → Git, verify that `main` is the Production Branch and restrict manual production deployments to trusted maintainers. After changing either GitHub or Vercel settings, push a harmless commit and confirm Vercel starts the expected production build.
 
 ## (i) Verification checklist
 

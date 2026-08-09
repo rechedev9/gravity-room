@@ -1,13 +1,13 @@
 # Supply-chain security policy
 
-## Dependency advisory gate
+## Dependency advisory check
 
 `pnpm run security:dependencies` audits the **complete frozen install** used to
 build and test release artifacts, including runtime, development, test, and build
 tooling dependencies. It applies
 [`.github/dependency-audit-policy.json`](../.github/dependency-audit-policy.json).
-CI blocks every unexcepted **high** or **critical** advisory. Lower severities are
-reported so maintainers can schedule upgrades without making CI permanently red.
+The command fails on every unexcepted **high** or **critical** advisory. Lower
+severities are reported so maintainers can schedule upgrades.
 
 The checker treats exit status `1` as pnpm's advisory status only when stdout is a
 valid audit document containing advisories. Command failures, signals, malformed
@@ -32,7 +32,7 @@ When the gate fails:
 4. Use a temporary policy exception only after documenting reachability and an
    owner/removal date in the pull request.
 
-## Immutable CI inputs
+## Immutable automation inputs
 
 Every GitHub Action is referenced by a full commit SHA and every container by an
 OCI digest. Version comments are informational. Dependency automation may open
@@ -41,9 +41,8 @@ replace it with a mutable major version or image tag.
 
 ## Secret scanning scope
 
-Gitleaks scans the explicit PR base-to-head range for pull requests and the full
-history reachable from `github.sha` for pushes. It does not scan unrelated remote
-branches. `.gitleaks.toml` exceptions must pair an exact public/fixture value with
+Run Gitleaks manually against the intended revision range. It should not scan
+unrelated remote branches. `.gitleaks.toml` exceptions must pair an exact public/fixture value with
 the exact rule that misclassifies it; path allowlists are prohibited because they
 can hide unrelated credentials in the same file. Historical one-off findings
 belong in `.gitleaksignore` as an exact commit/path/rule/line fingerprint, never as
@@ -51,7 +50,6 @@ a directory-wide suppression.
 
 ## Production promotion boundary
 
-Repository CI cannot configure GitHub rulesets or Vercel project permissions.
-The required external branch/promotion controls and post-deploy route check are
-specified in [`VERCEL_CUTOVER.md`](./VERCEL_CUTOVER.md). Production must not rely
-on an unprotected direct push to `main`.
+GitHub rulesets and Vercel project permissions are external to the repository.
+The direct-push and post-deploy configuration is specified in
+[`VERCEL_CUTOVER.md`](./VERCEL_CUTOVER.md).

@@ -25,7 +25,7 @@ gravity-room/
 │   └── api-client/          ← @gzclp/api-client — typed fetch wrapper
 ├── scripts/                 ← ops/build scripts: vercel-build, loadtest, committer
 ├── docs/                    ← architecture, llm-map, cutover runbook, memoria
-├── .github/workflows/       ← CI + security + Claude bot integrations
+├── .github/workflows/       ← production smoke + Claude bot integrations
 ├── vercel.json              ← framework, build, function, rewrites, cron config
 ├── tsconfig.base.json       ← shared TS compiler options
 └── package.json             ← workspaces: apps/backend/*, apps/frontend/*, packages/*
@@ -62,9 +62,8 @@ frozen by golden-file tests (`src/analytics/pipelines/pipelines.parity.test.ts`)
 - **OpenAPI → Zod codegen** — the API exposes `/swagger/json`. The web app
   regenerates `apps/frontend/web/src/lib/api/generated.ts` via
   `pnpm --filter web api:types` (`apps/frontend/web/codegen/generate-api-types.ts`).
-  CI's `OpenAPI client drift` job in `.github/workflows/ci.yml` boots the API
-  against Postgres, regenerates the client, and fails on generated-client drift.
-  Lefthook no longer runs this check locally because it requires a live API.
+  There is no automated drift gate; route authors run the command with the local
+  API active and commit the generated client with the route change.
   Mobile does **not** consume this generated client; it implements API calls by
   hand. Unifying this is on the roadmap (`packages/api-client`).
 - **Auth** — JWT access + refresh rotation. Multi-method sign-in (Google, Apple,
@@ -94,8 +93,8 @@ pnpm run dev:api       # api on :3001 (tsx watch src/dev-server.ts)
 On Vercel the API has no `app.listen`: the independent source entry
 `apps/backend/api/src/vercel-handler.ts` mounts the pure `createApp()` factory,
 wraps `app.fetch(request)` with the bounded streaming Node gateway, and is bundled
-into the generated catch-all `api/index.ts`. CI runs `pnpm run bundle:api:check`
-to prevent source/artifact drift. Locally, `src/dev-server.ts` serves that same app on a port
+into the generated catch-all `api/index.ts`. Run `pnpm run bundle:api:check`
+locally to detect source/artifact drift. `src/dev-server.ts` serves that same app on a port
 for tooling (e.g. OpenAPI codegen). Migrations and seeds are NOT boot-time DDL;
 after artifact build/prerender succeeds, `src/scripts/migrate-deploy.ts` requires
 the direct Neon endpoint (`DIRECT_DATABASE_URL`) in production and holds a
