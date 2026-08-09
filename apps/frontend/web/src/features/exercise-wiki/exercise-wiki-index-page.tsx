@@ -20,6 +20,11 @@ const COPY = {
     intro: 'Guías basadas en evidencia para los ejercicios principales.',
     backToApp: 'Volver a la app',
     guidesHeading: 'Guías destacadas',
+    versusCta: {
+      title: 'Versus de ejercicios',
+      body: 'Compara dos movimientos del mismo grupo y obtén un ganador según tu objetivo.',
+      button: 'Abrir versus',
+    },
     catalogCta: {
       title: 'Explora el catálogo completo',
       body: 'Busca y filtra los más de 800 ejercicios del catálogo directamente en la app.',
@@ -32,6 +37,11 @@ const COPY = {
     intro: 'Evidence-based guides for the main lifts.',
     backToApp: 'Back to app',
     guidesHeading: 'Featured guides',
+    versusCta: {
+      title: 'Exercise versus',
+      body: 'Compare two movements in the same group and get a winner for your goal.',
+      button: 'Open versus',
+    },
     catalogCta: {
       title: 'Explore the full catalog',
       body: 'Search and filter the 800+ exercises in the catalog right inside the app.',
@@ -120,6 +130,29 @@ export function ExerciseWikiIndexPage({
           </li>
         ))}
       </ul>
+
+      <Link
+        data-testid="versus-cta"
+        to={inApp ? '/app/exercises/versus' : `${publicBase}/versus`}
+        className="group relative block overflow-hidden border border-rule rounded-[var(--radius-base)] bg-card px-5 py-5 hover:border-accent transition-colors shadow-[var(--shadow-card)]"
+      >
+        <span
+          className="pointer-events-none absolute -right-2 top-1/2 -translate-y-1/2 font-display text-7xl text-accent/10 select-none group-hover:text-accent/20 transition-colors"
+          aria-hidden="true"
+        >
+          VS
+        </span>
+        <span className="relative block font-display text-xl text-title">
+          {copy.versusCta.title}
+        </span>
+        <span className="relative block text-sm text-muted mt-1 max-w-xl">
+          {copy.versusCta.body}
+        </span>
+        <span className="relative inline-flex items-center gap-1.5 mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-accent">
+          {copy.versusCta.button}
+          <span aria-hidden="true">&rarr;</span>
+        </span>
+      </Link>
 
       {/* In-app: the full searchable catalog (needs the API at runtime). The
           public/prerendered wiki instead links into the app so SEO snapshots

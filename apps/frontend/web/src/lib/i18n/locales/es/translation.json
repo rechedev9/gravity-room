@@ -1826,5 +1826,103 @@
         "isolation": "Aislamiento"
       }
     }
+  },
+  "exerciseVersus": {
+    "metaTitle": "Versus de ejercicios — Gravity Room",
+    "metaDescription": "Compara dos ejercicios del mismo grupo muscular con un motor determinista basado en evidencia curada y meta-análisis. Pros, contras y ganador según tu objetivo.",
+    "kicker": "Comparador",
+    "heading": "Versus de ejercicios",
+    "intro": "Elige dos ejercicios de pecho y un objetivo. El motor genera pros, contras y un ganador relativo — sin IA, solo reglas y evidencia curada (meta-análisis y estudios primarios).",
+    "back": "Volver a ejercicios",
+    "exerciseA": "Ejercicio A",
+    "exerciseB": "Ejercicio B",
+    "goal": "Objetivo",
+    "compare": "Comparar",
+    "vs": "VS",
+    "swap": "Intercambiar",
+    "winnerBadge": "Ganador",
+    "margin": "Margen",
+    "axisBreakdown": "Desglose por eje (objetivo)",
+    "axisColumn": "Eje",
+    "lowerIsBetter": "Menor es mejor",
+    "mvpNote": "MVP: pecho (8 ejercicios). Criterio anclado a MA de hipertrofia, ROM y libre vs máquina.",
+    "ctaTitle": "Versus de ejercicios",
+    "ctaBody": "Compara dos movimientos del mismo grupo y obtén un ganador según tu objetivo.",
+    "ctaButton": "Abrir versus",
+    "winnerIs": "Ganador: {{name}}",
+    "tie": "Empate técnico",
+    "confidence": "Confianza",
+    "prosFor": "Pros — {{name}}",
+    "noClearPros": "Sin ventajas claras en los ejes del objetivo.",
+    "proDelta": "ventaja {{delta}} pts",
+    "caveats": "Matices",
+    "evidence": "Evidencia citada",
+    "confidenceLevels": {
+      "low": "Baja",
+      "medium": "Media",
+      "high": "Alta"
+    },
+    "goals": {
+      "hypertrophy_upper_chest": "Hipertrofia pecho superior",
+      "hypertrophy_mid_chest": "Hipertrofia pecho medio",
+      "hypertrophy_lower_chest": "Hipertrofia pecho inferior",
+      "general_chest_hypertrophy": "Hipertrofia de pecho general",
+      "max_strength_bench": "Fuerza máxima en banca plana",
+      "shoulder_friendly": "Más amable con el hombro",
+      "beginner_friendly": "Más amable para principiantes"
+    },
+    "axesTrait": {
+      "upperChest": "Énfasis pecho superior",
+      "midChest": "Énfasis pecho medio",
+      "lowerChest": "Énfasis pecho inferior",
+      "overloadPotential": "Potencial de sobrecarga",
+      "stabilityDemand": "Demanda de estabilidad",
+      "skillDemand": "Demanda técnica",
+      "shoulderStress": "Estrés de hombro",
+      "romStretch": "Estímulo en estiramiento / ROM",
+      "unilateralBalance": "Equilibrio lado a lado",
+      "beginnerAccessibility": "Accesibilidad para principiantes",
+      "strengthTransferFlatBench": "Transferencia a banca plana"
+    },
+    "axesPro": {
+      "upperChest": "Más énfasis pecho superior",
+      "midChest": "Más énfasis pecho medio",
+      "lowerChest": "Más énfasis pecho inferior",
+      "overloadPotential": "Mayor potencial de sobrecarga",
+      "stabilityDemand": "Menor demanda de estabilidad",
+      "skillDemand": "Menor demanda técnica",
+      "shoulderStress": "Menor estrés de hombro",
+      "romStretch": "Más estímulo en estiramiento / ROM",
+      "unilateralBalance": "Mejor equilibrio lado a lado",
+      "beginnerAccessibility": "Más accesible para principiantes",
+      "strengthTransferFlatBench": "Mayor transferencia a banca plana"
+    },
+    "axesProLower": {
+      "stabilityDemand": "Menor demanda de estabilidad",
+      "skillDemand": "Menor demanda técnica",
+      "shoulderStress": "Menor estrés de hombro"
+    },
+    "axesProHigher": {
+      "stabilityDemand": "Mayor demanda de estabilidad (gesto libre)",
+      "skillDemand": "Mayor demanda técnica (especificidad)",
+      "shoulderStress": "Mayor estrés de hombro"
+    },
+    "grades": {
+      "meta_analysis": "Meta-análisis / revisión con MA",
+      "systematic_review": "Revisión sistemática",
+      "consistent_primary": "Estudios primarios consistentes",
+      "mechanistic": "Evidencia mecanicista / modelado"
+    },
+    "caveatText": {
+      "same_muscle_group_only": "Solo se comparan ejercicios del mismo grupo muscular con perfil curado.",
+      "goal_relative_winner": "El ganador es relativo al objetivo elegido, no un veredicto universal.",
+      "not_medical_advice": "Contenido educativo; no sustituye valoración médica ni coaching individual."
+    },
+    "errors": {
+      "same_exercise": "Elige dos ejercicios distintos.",
+      "profile_missing": "Aún no hay perfil curado para uno de los ejercicios.",
+      "muscle_group_mismatch": "Los ejercicios deben ser del mismo grupo muscular.",
+      "invalid_request": "Petición de comparación no válida."
+    }
   }
 }

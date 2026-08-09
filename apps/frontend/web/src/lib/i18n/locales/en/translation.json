@@ -1825,5 +1825,103 @@
         "isolation": "Isolation"
       }
     }
+  },
+  "exerciseVersus": {
+    "metaTitle": "Exercise versus — Gravity Room",
+    "metaDescription": "Compare two exercises in the same muscle group with a deterministic engine backed by curated evidence and meta-analyses. Pros, cons, and a goal-relative winner.",
+    "kicker": "Comparator",
+    "heading": "Exercise versus",
+    "intro": "Pick two chest exercises and a goal. The engine returns pros, cons, and a relative winner — no AI, just rules and curated evidence (meta-analyses and primary studies).",
+    "back": "Back to exercises",
+    "exerciseA": "Exercise A",
+    "exerciseB": "Exercise B",
+    "goal": "Goal",
+    "compare": "Compare",
+    "vs": "VS",
+    "swap": "Swap",
+    "winnerBadge": "Winner",
+    "margin": "Margin",
+    "axisBreakdown": "Axis breakdown (goal)",
+    "axisColumn": "Axis",
+    "lowerIsBetter": "Lower is better",
+    "mvpNote": "MVP: chest (8 exercises). Criteria anchored to hypertrophy, ROM, and free vs machine MAs.",
+    "ctaTitle": "Exercise versus",
+    "ctaBody": "Compare two movements in the same group and get a winner for your goal.",
+    "ctaButton": "Open versus",
+    "winnerIs": "Winner: {{name}}",
+    "tie": "Technical tie",
+    "confidence": "Confidence",
+    "prosFor": "Pros — {{name}}",
+    "noClearPros": "No clear edges on the goal axes.",
+    "proDelta": "{{delta}} pt edge",
+    "caveats": "Caveats",
+    "evidence": "Cited evidence",
+    "confidenceLevels": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "goals": {
+      "hypertrophy_upper_chest": "Upper-chest hypertrophy",
+      "hypertrophy_mid_chest": "Mid-chest hypertrophy",
+      "hypertrophy_lower_chest": "Lower-chest hypertrophy",
+      "general_chest_hypertrophy": "General chest hypertrophy",
+      "max_strength_bench": "Max strength on flat bench",
+      "shoulder_friendly": "More shoulder-friendly",
+      "beginner_friendly": "More beginner-friendly"
+    },
+    "axesTrait": {
+      "upperChest": "Upper-chest emphasis",
+      "midChest": "Mid-chest emphasis",
+      "lowerChest": "Lower-chest emphasis",
+      "overloadPotential": "Overload potential",
+      "stabilityDemand": "Stability demand",
+      "skillDemand": "Skill demand",
+      "shoulderStress": "Shoulder stress",
+      "romStretch": "Stretch / ROM stimulus",
+      "unilateralBalance": "Side-to-side balance",
+      "beginnerAccessibility": "Beginner accessibility",
+      "strengthTransferFlatBench": "Transfer to flat bench"
+    },
+    "axesPro": {
+      "upperChest": "More upper-chest emphasis",
+      "midChest": "More mid-chest emphasis",
+      "lowerChest": "More lower-chest emphasis",
+      "overloadPotential": "Higher overload potential",
+      "stabilityDemand": "Lower stability demand",
+      "skillDemand": "Lower skill demand",
+      "shoulderStress": "Lower shoulder stress",
+      "romStretch": "More stretch / ROM stimulus",
+      "unilateralBalance": "Better side-to-side balance",
+      "beginnerAccessibility": "More beginner-accessible",
+      "strengthTransferFlatBench": "Higher transfer to flat bench"
+    },
+    "axesProLower": {
+      "stabilityDemand": "Lower stability demand",
+      "skillDemand": "Lower skill demand",
+      "shoulderStress": "Lower shoulder stress"
+    },
+    "axesProHigher": {
+      "stabilityDemand": "Higher stability demand (free path)",
+      "skillDemand": "Higher skill demand (specificity)",
+      "shoulderStress": "Higher shoulder stress"
+    },
+    "grades": {
+      "meta_analysis": "Meta-analysis / MA-backed review",
+      "systematic_review": "Systematic review",
+      "consistent_primary": "Consistent primary studies",
+      "mechanistic": "Mechanistic / modeling evidence"
+    },
+    "caveatText": {
+      "same_muscle_group_only": "Only same-muscle-group exercises with a curated profile can be compared.",
+      "goal_relative_winner": "The winner is relative to the chosen goal, not a universal ranking.",
+      "not_medical_advice": "Educational content; not a substitute for medical care or individual coaching."
+    },
+    "errors": {
+      "same_exercise": "Pick two different exercises.",
+      "profile_missing": "One of the exercises does not have a curated profile yet.",
+      "muscle_group_mismatch": "Exercises must share the same muscle group.",
+      "invalid_request": "Invalid comparison request."
+    }
   }
 }

@@ -87,6 +87,7 @@ const STATIC_ENTRIES: readonly SitemapEntry[] = [
 // wiki registry below so the sitemap can never drift from the published articles.
 const WIKI_INDEX_ENTRIES: readonly SitemapEntry[] = [
   ...localizedEntries('/ejercicios', '/en/exercises', '0.8', 'weekly'),
+  ...localizedEntries('/ejercicios/versus', '/en/exercises/versus', '0.7', 'weekly'),
 ];
 
 /** All indexable entries: static routes + active catalog programs + the wiki. */

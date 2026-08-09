@@ -131,6 +131,16 @@ const ExerciseArticlePageEn = lazyWithRetry(() =>
     default: () => m.ExerciseArticlePage({ lang: 'en' }),
   }))
 );
+const ExerciseVersusPageEs = lazyWithRetry(() =>
+  import('@/features/exercise-wiki/exercise-versus-page').then((m) => ({
+    default: () => m.ExerciseVersusPage({ lang: 'es' }),
+  }))
+);
+const ExerciseVersusPageEn = lazyWithRetry(() =>
+  import('@/features/exercise-wiki/exercise-versus-page').then((m) => ({
+    default: () => m.ExerciseVersusPage({ lang: 'en' }),
+  }))
+);
 const AppExerciseWikiIndexPage = lazyWithRetry(() =>
   import('@/features/exercise-wiki/exercise-wiki-index-page').then((m) => ({
     default: m.AppExerciseWikiIndexPage,
@@ -139,6 +149,11 @@ const AppExerciseWikiIndexPage = lazyWithRetry(() =>
 const AppExerciseArticlePage = lazyWithRetry(() =>
   import('@/features/exercise-wiki/exercise-article-page').then((m) => ({
     default: m.AppExerciseArticlePage,
+  }))
+);
+const AppExerciseVersusPage = lazyWithRetry(() =>
+  import('@/features/exercise-wiki/exercise-versus-page').then((m) => ({
+    default: m.AppExerciseVersusPage,
   }))
 );
 // Lazy so the app chrome's motion dependency (~32 KB gz) stays off the public/eager path.
@@ -314,6 +329,20 @@ const exercisesEnArticleRoute = createRoute({
   component: ExerciseArticlePageEn,
 });
 
+const ejerciciosVersusRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/ejercicios/versus',
+  pendingComponent: ContentPageSkeleton,
+  component: ExerciseVersusPageEs,
+});
+
+const exercisesEnVersusRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/en/exercises/versus',
+  pendingComponent: ContentPageSkeleton,
+  component: ExerciseVersusPageEn,
+});
+
 // TanStack Router v1 reads not-found from `defaultNotFoundComponent` on the
 // router (or `notFoundComponent` on a route) — `path: '*'` is not a real
 // wildcard match. We keep a route registered so the prerender script can hit
@@ -411,6 +440,13 @@ const appExercisesArticleRoute = createRoute({
   component: AppExerciseArticlePage,
 });
 
+const appExercisesVersusRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/app/exercises/versus',
+  pendingComponent: ContentPageSkeleton,
+  component: AppExerciseVersusPage,
+});
+
 // ---------------------------------------------------------------------------
 // Route tree assembly
 // ---------------------------------------------------------------------------
@@ -432,8 +468,10 @@ const routeTree = rootRoute.addChildren([
   programProgressionEsRoute,
   programProgressionEnRoute,
   ejerciciosRoute,
+  ejerciciosVersusRoute,
   ejerciciosArticleRoute,
   exercisesEnRoute,
+  exercisesEnVersusRoute,
   exercisesEnArticleRoute,
   notFoundRoute,
   appLayoutRoute.addChildren([
@@ -445,6 +483,7 @@ const routeTree = rootRoute.addChildren([
     insightsRoute,
     profileRoute,
     appExercisesIndexRoute,
+    appExercisesVersusRoute,
     appExercisesArticleRoute,
   ]),
 ]);
