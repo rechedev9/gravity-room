@@ -23,18 +23,34 @@ export interface SlotProgressionInfo {
   readonly isBodyweight?: boolean;
 }
 
+/** One prescription line within an exercise block (may merge several slots). */
+export interface SlotLineSummary {
+  readonly tier: string;
+  readonly setsXReps: string;
+  readonly schemes: readonly string[];
+  readonly role?: string;
+}
+
+/** Grouped exercise within a day (consecutive same-exercise slots collapse). */
+export interface ExerciseBlockSummary {
+  readonly exerciseName: string;
+  readonly slots: readonly SlotLineSummary[];
+}
+
 /** One day's breakdown for the overview. */
 export interface DaySummary {
   readonly name: string;
-  readonly exercises: readonly SlotSummary[];
+  /** Day title without phase prefix when name uses "Phase — Title". */
+  readonly title: string;
+  /** Phase/week label when name uses "Phase — Title"; otherwise null. */
+  readonly phase: string | null;
+  readonly exercises: readonly ExerciseBlockSummary[];
 }
 
-/** A slot within a day summary. */
-export interface SlotSummary {
-  readonly exerciseName: string;
-  readonly tier: string;
-  readonly setsXReps: string;
-  readonly role?: string;
+/** Phase bucket used by the overview week tabs. */
+export interface DayPhaseGroup {
+  readonly phase: string | null;
+  readonly days: readonly DaySummary[];
 }
 
 /** Config field summary for the "what you need to configure" section. */
@@ -66,6 +82,8 @@ export interface ProgramSummary {
   readonly uniqueExerciseCount: number;
   readonly uniqueExercises: readonly UniqueExercise[];
   readonly days: readonly DaySummary[];
+  readonly dayPhases: readonly DayPhaseGroup[];
+  readonly hasPhases: boolean;
   readonly progressionRules: readonly ProgressionRuleEntry[];
   readonly progressionInfo: readonly SlotProgressionInfo[];
   readonly configFields: readonly ConfigFieldSummary[];
@@ -81,9 +99,140 @@ export interface ProgramSummary {
 // ---------------------------------------------------------------------------
 
 type ProgressionRule = ProgramDefinition['days'][number]['slots'][number]['onSuccess'];
+type SlotShape = ProgramDefinition['days'][number]['slots'][number];
+type StageShape = SlotShape['stages'][number];
 
-function formatSetsXReps(sets: number, reps: number, amrap?: boolean): string {
-  return `${sets}x${reps}${amrap === true ? '+' : ''}`;
+const DAY_NAME_SEP = ' — ';
+
+export function splitDayName(name: string): {
+  readonly phase: string | null;
+  readonly title: string;
+} {
+  const idx = name.indexOf(DAY_NAME_SEP);
+  if (idx <= 0) return { phase: null, title: name };
+  return {
+    phase: name.slice(0, idx).trim(),
+    title: name.slice(idx + DAY_NAME_SEP.length).trim() || name,
+  };
+}
+
+export function groupDaysByPhase(days: readonly DaySummary[]): readonly DayPhaseGroup[] {
+  if (days.length === 0) return [];
+
+  const groups: DayPhaseGroup[] = [];
+  for (const day of days) {
+    const last = groups[groups.length - 1];
+    if (last !== undefined && last.phase === day.phase) {
+      groups[groups.length - 1] = {
+        phase: last.phase,
+        days: [...last.days, day],
+      };
+      continue;
+    }
+    groups.push({ phase: day.phase, days: [day] });
+  }
+  return groups;
+}
+
+function formatPercent(tmPercent: number): string {
+  const pct = tmPercent * 100;
+  const rounded = Math.round(pct * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}%` : `${rounded}%`;
+}
+
+/** Formats a single stage, optionally with TM % loading. */
+export function formatSetsXReps(
+  sets: number,
+  reps: number,
+  amrap?: boolean,
+  tmPercent?: number
+): string {
+  const amrapMark = amrap === true ? '+' : '';
+  if (tmPercent !== undefined) {
+    const pct = formatPercent(tmPercent);
+    if (sets === 1) return `${pct}×${reps}${amrapMark}`;
+    return `${pct} ${sets}×${reps}${amrapMark}`;
+  }
+  return `${sets}×${reps}${amrapMark}`;
+}
+
+function schemeForSlot(slot: SlotShape): string {
+  const firstStage: StageShape = slot.stages[0];
+  return formatSetsXReps(firstStage.sets, firstStage.reps, firstStage.amrap, slot.tmPercent);
+}
+
+function joinSchemes(schemes: readonly string[]): string {
+  return schemes.join(' · ');
+}
+
+const ROLE_RANK: Readonly<Record<string, number>> = {
+  primary: 3,
+  secondary: 2,
+  accessory: 1,
+};
+
+function preferredRole(current: string | undefined, next: string | undefined): string | undefined {
+  if (current === undefined) return next;
+  if (next === undefined) return current;
+  return (ROLE_RANK[next] ?? 0) > (ROLE_RANK[current] ?? 0) ? next : current;
+}
+
+/**
+ * Collapses consecutive slots that share exerciseId + tier into one line.
+ * Different tiers for the same exercise become separate lines under one block.
+ */
+export function groupDaySlots(
+  slots: readonly SlotShape[],
+  exercises: ProgramDefinition['exercises']
+): readonly ExerciseBlockSummary[] {
+  const blocks: {
+    exerciseId: string;
+    exerciseName: string;
+    lines: { tier: string; role?: string; schemes: string[] }[];
+  }[] = [];
+
+  for (const slot of slots) {
+    const exerciseName = exercises[slot.exerciseId]?.name ?? slot.exerciseId;
+    const scheme = schemeForSlot(slot);
+    const lastBlock = blocks[blocks.length - 1];
+
+    if (lastBlock !== undefined && lastBlock.exerciseId === slot.exerciseId) {
+      const lastLine = lastBlock.lines[lastBlock.lines.length - 1];
+      if (lastLine !== undefined && lastLine.tier === slot.tier) {
+        lastLine.schemes.push(scheme);
+        lastLine.role = preferredRole(lastLine.role, slot.role);
+        continue;
+      }
+      lastBlock.lines.push({
+        tier: slot.tier,
+        role: slot.role,
+        schemes: [scheme],
+      });
+      continue;
+    }
+
+    blocks.push({
+      exerciseId: slot.exerciseId,
+      exerciseName,
+      lines: [
+        {
+          tier: slot.tier,
+          role: slot.role,
+          schemes: [scheme],
+        },
+      ],
+    });
+  }
+
+  return blocks.map((block) => ({
+    exerciseName: block.exerciseName,
+    slots: block.lines.map((line) => ({
+      tier: line.tier,
+      role: line.role,
+      schemes: line.schemes,
+      setsXReps: joinSchemes(line.schemes),
+    })),
+  }));
 }
 
 /** Maps a progression rule to a localized description string. */
@@ -151,8 +300,6 @@ function describeTrigger(rule: ProgressionRule, t?: TFunction): string {
   return '';
 }
 
-type SlotShape = ProgramDefinition['days'][number]['slots'][number];
-
 /** Collects all progression rules from a slot into a flat array. */
 function collectSlotRules(slot: SlotShape): readonly ProgressionRule[] {
   const rules: ProgressionRule[] = [slot.onSuccess, slot.onMidStageFail, slot.onFinalStageFail];
@@ -197,21 +344,14 @@ export function buildProgramSummary(definition: ProgramDefinition, t?: TFunction
   const progressionInfo: SlotProgressionInfo[] = [];
 
   for (const day of definition.days) {
-    const slotSummaries: SlotSummary[] = [];
-
     for (const slot of day.slots) {
       const exerciseName = definition.exercises[slot.exerciseId]?.name ?? slot.exerciseId;
-      const firstStage = slot.stages[0];
-      const setsXReps = formatSetsXReps(firstStage.sets, firstStage.reps, firstStage.amrap);
-
       tierSet.add(slot.tier);
 
-      // Track max stages
       if (slot.stages.length > maxStages) {
         maxStages = slot.stages.length;
       }
 
-      // Deduplicate exercises by exerciseId
       if (!exerciseMap.has(slot.exerciseId)) {
         exerciseMap.set(slot.exerciseId, {
           name: exerciseName,
@@ -220,20 +360,10 @@ export function buildProgramSummary(definition: ProgramDefinition, t?: TFunction
         });
       }
 
-      // Collect progression rules (deduplicated by type)
       addRulesToMap(ruleMap, collectSlotRules(slot), t);
 
-      // Build slot summary for day overview
-      slotSummaries.push({
-        exerciseName,
-        tier: slot.tier,
-        setsXReps,
-        role: slot.role,
-      });
-
-      // Build progression info per slot
       const stages: StageInfo[] = slot.stages.map((stage) => ({
-        label: formatSetsXReps(stage.sets, stage.reps, stage.amrap),
+        label: formatSetsXReps(stage.sets, stage.reps, stage.amrap, slot.tmPercent),
         amrap: stage.amrap === true,
       }));
 
@@ -249,13 +379,15 @@ export function buildProgramSummary(definition: ProgramDefinition, t?: TFunction
       });
     }
 
+    const { phase, title } = splitDayName(day.name);
     days.push({
       name: day.name,
-      exercises: slotSummaries,
+      title,
+      phase,
+      exercises: groupDaySlots(day.slots, definition.exercises),
     });
   }
 
-  // Config field summaries
   const configFields: ConfigFieldSummary[] = definition.configFields.map((field) => ({
     label: field.label,
     type: field.type,
@@ -265,6 +397,9 @@ export function buildProgramSummary(definition: ProgramDefinition, t?: TFunction
 
   const uniqueExercises = Array.from(exerciseMap.values());
   const tierList = Array.from(tierSet);
+  const dayPhases = groupDaysByPhase(days);
+  const distinctPhases = new Set(days.map((d) => d.phase).filter((p) => p !== null));
+  const hasPhases = distinctPhases.size > 1;
 
   return {
     totalWorkouts: definition.totalWorkouts,
@@ -273,6 +408,8 @@ export function buildProgramSummary(definition: ProgramDefinition, t?: TFunction
     uniqueExerciseCount: uniqueExercises.length,
     uniqueExercises,
     days,
+    dayPhases,
+    hasPhases,
     progressionRules: Array.from(ruleMap.values()),
     progressionInfo,
     configFields,

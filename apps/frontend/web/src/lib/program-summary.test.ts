@@ -218,18 +218,133 @@ describe('buildProgramSummary', () => {
       expect(summary.days[0].name).toBe('Day A');
       expect(summary.days[1].name).toBe('Day B');
 
-      // Day A T1 squat: 5x3+ (amrap)
+      // Day A T1 squat: 5×3+ (amrap)
       const dayAExercises = summary.days[0].exercises;
-      expect(dayAExercises[0].setsXReps).toBe('5x3+');
-      expect(dayAExercises[0].tier).toBe('T1');
+      expect(dayAExercises[0].exerciseName).toBe('Sentadilla');
+      expect(dayAExercises[0].slots[0].setsXReps).toBe('5×3+');
+      expect(dayAExercises[0].slots[0].tier).toBe('T1');
 
-      // Day A T2 bench: 3x10 (no amrap)
-      expect(dayAExercises[1].setsXReps).toBe('3x10');
-      expect(dayAExercises[1].tier).toBe('T2');
+      // Day A T2 bench: 3×10 (no amrap)
+      expect(dayAExercises[1].slots[0].setsXReps).toBe('3×10');
+      expect(dayAExercises[1].slots[0].tier).toBe('T2');
 
-      // Day A T3 row: 3x15+ (amrap)
-      expect(dayAExercises[2].setsXReps).toBe('3x15+');
-      expect(dayAExercises[2].tier).toBe('T3');
+      // Day A T3 row: 3×15+ (amrap)
+      expect(dayAExercises[2].slots[0].setsXReps).toBe('3×15+');
+      expect(dayAExercises[2].slots[0].tier).toBe('T3');
+    });
+
+    it('should collapse consecutive same-exercise same-tier slots and format TM %', () => {
+      const def: ProgramDefinition = {
+        id: 'tm-group',
+        name: 'TM Group',
+        description: 'Test.',
+        author: 'Test',
+        version: 1,
+        category: 'strength',
+        source: 'preset',
+        cycleLength: 3,
+        totalWorkouts: 9,
+        workoutsPerWeek: 3,
+        exercises: { squat: { name: 'Sentadilla' }, bench: { name: 'Press Banca' } },
+        configFields: [],
+        weightIncrements: {},
+        days: [
+          {
+            name: 'Sem. 1 (5s) — Sentadilla + Press Banca',
+            slots: [
+              {
+                id: 's1',
+                exerciseId: 'squat',
+                tier: 'main',
+                stages: [{ sets: 1, reps: 5 }],
+                tmPercent: 0.65,
+                onSuccess: { type: 'no_change' },
+                onMidStageFail: { type: 'no_change' },
+                onFinalStageFail: { type: 'no_change' },
+                startWeightKey: 'squat_tm',
+              },
+              {
+                id: 's2',
+                exerciseId: 'squat',
+                tier: 'main',
+                stages: [{ sets: 1, reps: 5 }],
+                tmPercent: 0.75,
+                onSuccess: { type: 'no_change' },
+                onMidStageFail: { type: 'no_change' },
+                onFinalStageFail: { type: 'no_change' },
+                startWeightKey: 'squat_tm',
+              },
+              {
+                id: 's3',
+                exerciseId: 'squat',
+                tier: 'main',
+                stages: [{ sets: 1, reps: 5, amrap: true }],
+                tmPercent: 0.85,
+                onSuccess: { type: 'no_change' },
+                onMidStageFail: { type: 'no_change' },
+                onFinalStageFail: { type: 'no_change' },
+                startWeightKey: 'squat_tm',
+              },
+              {
+                id: 's4',
+                exerciseId: 'squat',
+                tier: 'supplemental',
+                stages: [{ sets: 5, reps: 5 }],
+                tmPercent: 0.65,
+                onSuccess: { type: 'no_change' },
+                onMidStageFail: { type: 'no_change' },
+                onFinalStageFail: { type: 'no_change' },
+                startWeightKey: 'squat_tm',
+              },
+              {
+                id: 'b1',
+                exerciseId: 'bench',
+                tier: 'main',
+                stages: [{ sets: 1, reps: 5 }],
+                tmPercent: 0.65,
+                onSuccess: { type: 'no_change' },
+                onMidStageFail: { type: 'no_change' },
+                onFinalStageFail: { type: 'no_change' },
+                startWeightKey: 'bench_tm',
+              },
+            ],
+          },
+          {
+            name: 'Sem. 2 (3s) — Sentadilla + Press Banca',
+            slots: [
+              {
+                id: 'w2s1',
+                exerciseId: 'squat',
+                tier: 'main',
+                stages: [{ sets: 1, reps: 3 }],
+                tmPercent: 0.7,
+                onSuccess: { type: 'no_change' },
+                onMidStageFail: { type: 'no_change' },
+                onFinalStageFail: { type: 'no_change' },
+                startWeightKey: 'squat_tm',
+              },
+            ],
+          },
+        ],
+      };
+
+      const summary = buildProgramSummary(def);
+      const day = summary.days[0];
+
+      expect(day.phase).toBe('Sem. 1 (5s)');
+      expect(day.title).toBe('Sentadilla + Press Banca');
+      expect(day.exercises).toHaveLength(2);
+
+      const squat = day.exercises[0];
+      expect(squat.exerciseName).toBe('Sentadilla');
+      expect(squat.slots).toHaveLength(2);
+      expect(squat.slots[0].tier).toBe('main');
+      expect(squat.slots[0].setsXReps).toBe('65%×5 · 75%×5 · 85%×5+');
+      expect(squat.slots[1].tier).toBe('supplemental');
+      expect(squat.slots[1].setsXReps).toBe('65% 5×5');
+
+      expect(summary.hasPhases).toBe(true);
+      expect(summary.dayPhases).toHaveLength(2);
     });
   });
 
