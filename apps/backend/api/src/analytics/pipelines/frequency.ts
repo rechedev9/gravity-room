@@ -1,9 +1,6 @@
 /**
  * Session-frequency insight (aggregate, exercise_id = null).
- *
- * Ports apps/backend/analytics/insights/frequency.py. Computes sessions/week,
- * the current consecutive-day streak, a weekly consistency percentage, and a
- * trailing window of workout dates for heatmap rendering.
+ * sessions/week, consecutive-day streak, weekly consistency %, heatmap dates.
  */
 
 import type { WorkoutRecord } from '../record';

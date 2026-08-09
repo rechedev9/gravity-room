@@ -1,143 +1,109 @@
 # Architecture
 
-Gravity Room is a pnpm-workspaces monorepo with three runnable clients/services
-(web, mobile, API) and shared TypeScript packages. It deploys as ONE same-origin
-Vercel project: the Vite/React PWA ships as static output and the ElysiaJS API
-runs as a Node serverless function. The repo is organized so that the
-frontend/backend split is visible from the root tree.
+pnpm monorepo: web + mobile + API, shared TS packages. Production is **one
+same-origin Vercel project** — Vite SPA (static) + ElysiaJS API (serverless
+`api/index.ts`). Agent contracts: root `CLAUDE.md` / `AGENTS.md`.
 
-## Top-level layout
+## Layout
 
 ```
 gravity-room/
-├── api/                     ← generated Vercel catch-all bundle: api/index.ts
-├── apps/
-│   ├── frontend/            ← user-facing clients
-│   │   ├── web/             ← React 19 + Vite SPA (PWA)
-│   │   └── mobile/          ← Expo / React Native
-│   └── backend/             ← server-side services
-│       └── api/             ← ElysiaJS, serverless via app.fetch (REST + Neon
-│                              Postgres + Upstash Redis; analytics insight
-│                              pipelines under src/analytics)
-├── packages/
-│   ├── domain/              ← @gzclp/domain — Zod schemas + GZCLP engine
-│   ├── database/            ← @gzclp/database — Drizzle schema, seeds, migrations
-│   └── api-client/          ← @gzclp/api-client — typed fetch wrapper
-├── scripts/                 ← ops/build scripts: vercel-build, loadtest, committer
-├── docs/                    ← architecture, llm-map, cutover runbook, memoria
-├── .github/workflows/       ← production smoke + Claude bot integrations
-├── vercel.json              ← framework, build, function, rewrites, cron config
-├── tsconfig.base.json       ← shared TS compiler options
-└── package.json             ← workspaces: apps/backend/*, apps/frontend/*, packages/*
+├── api/index.ts              ← generated Vercel catch-all (do not hand-edit)
+├── apps/frontend/web/        ← React 19 + Vite SPA (PWA)
+├── apps/frontend/mobile/     ← Expo 54 / RN
+├── apps/backend/api/         ← ElysiaJS (create-app.ts; analytics under src/analytics)
+├── packages/domain/          ← @gzclp/domain — Zod + GZCLP engine
+├── packages/database/        ← @gzclp/database — schema, migrations, seeds
+├── packages/api-client/      ← @gzclp/api-client — typed fetch helpers
+├── scripts/                  ← vercel-build, bundle-api, loadtest, security checks
+├── docs/                     ← this file + security runbooks
+└── vercel.json               ← build, function, rewrites, crons
 ```
 
-## Tech stack per service
+## Path map
 
-| Service                | Tier     | Runtime       | Stack                                                                                                               |
-| ---------------------- | -------- | ------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `apps/frontend/web`    | frontend | Node + Vite   | React 19, TanStack Router, TanStack Query, Tailwind 4, Zod 4, react-hook-form, i18next, Sentry, PWA                 |
-| `apps/frontend/mobile` | frontend | Node + Expo   | Expo 54, React Native 0.81, expo-sqlite (local), expo-auth-session, TanStack Query                                  |
-| `apps/backend/api`     | backend  | Node (Vercel) | ElysiaJS 1.4 (serverless `app.fetch`), Drizzle ORM + Neon Postgres, Upstash Redis (REST), pino, Zod 4, @sentry/node |
-| `packages/domain`      | shared   | Node          | Pure TS + Zod 4. Exports the GZCLP progression engine and 9 schema modules                                          |
-| `packages/database`    | database | Node          | Drizzle schema, SQL migrations, reference seeds, schema dump tooling                                                |
-| `packages/api-client`  | shared   | Node          | Typed fetch wrapper (merge-headers, api-error, single-flight, url helpers)                                          |
+| Path                                             | Role                                 | Run / test                         |
+| ------------------------------------------------ | ------------------------------------ | ---------------------------------- |
+| `apps/frontend/web/`                             | React SPA, PWA                       | `pnpm run dev` / `test` / `e2e`    |
+| `apps/frontend/web/src/features/`                | Feature UI                           | `pnpm --filter web test`           |
+| `apps/frontend/web/src/components/`              | Shared UI + shell                    | vitest                             |
+| `apps/frontend/web/src/lib/api/generated.ts`     | OpenAPI Zod client (committed)       | `pnpm --filter web api:types`      |
+| `apps/frontend/web/codegen/`                     | Codegen for generated client         | vitest on codegen                  |
+| `apps/frontend/web/e2e/`                         | Playwright                           | `pnpm run e2e`                     |
+| `apps/frontend/mobile/`                          | Expo / RN (hand-written API calls)   | `pnpm --filter mobile typecheck`   |
+| `apps/backend/api/`                              | REST API                             | `pnpm run dev:api` / `test:api`    |
+| `apps/backend/api/src/routes/`                   | HTTP handlers                        | vitest routes                      |
+| `apps/backend/api/src/services/`                 | Business logic                       | vitest services                    |
+| `apps/backend/api/src/middleware/`               | auth-guard, errors, rate-limit       | unit tests                         |
+| `apps/backend/api/src/lib/`                      | redis, logger, sentry, oauth helpers | unit tests                         |
+| `apps/backend/api/src/db/`                       | Runtime Postgres pool                | —                                  |
+| `apps/backend/api/src/scripts/migrate-deploy.ts` | Advisory-locked migrate+seed         | `pnpm --filter api db:deploy`      |
+| `apps/backend/api/src/analytics/`                | Insight pipelines + cron compute     | vitest analytics                   |
+| `apps/backend/api/src/vercel-handler.ts`         | Vercel source entry                  | `pnpm run bundle:api:check`        |
+| `api/index.ts`                                   | Generated serverless bundle          | `pnpm run bundle:api:check`        |
+| `packages/domain/`                               | GZCLP engine + Zod schemas           | `pnpm run test:domain`             |
+| `packages/domain/src/generic-engine.ts`          | Progression engine                   | domain tests                       |
+| `packages/database/`                             | Schema, migrations, seeds            | `pnpm run test:database`           |
+| `packages/database/src/schema.ts`                | Tables / indexes                     | `pnpm run db:generate` after edits |
+| `packages/api-client/`                           | Shared fetch helpers                 | `pnpm run test:api-client`         |
+| `scripts/bundle-api-function.mjs`                | Build/check `api/index.ts`           | `pnpm run bundle:api:check`        |
+| `scripts/vercel-build.sh`                        | Vercel build + prod db:deploy        | Vercel                             |
+| `lefthook.yml`                                   | pre-commit / pre-push gates          | lefthook                           |
 
-Analytics is not a separate service: the insight pipelines (e1RM, frequency,
-summary, volume, forecast, plateau, recommendation) were ported to TypeScript and
-live inside the API at `apps/backend/api/src/analytics/`, with a small shared
-stats helper, an ISO-week helper, and a JS IRLS logistic regression replacing the
-former numpy/scipy/scikit-learn stack. Parity with the deleted Python outputs is
-frozen by golden-file tests (`src/analytics/pipelines/pipelines.parity.test.ts`).
+## Contracts
 
-## Cross-cutting contracts
+- **`@gzclp/domain`** — SoT for GZCLP rules + shared Zod. Never reimplement in apps.
+- **`@gzclp/database`** — SoT for Postgres schema/migrations/seeds. API owns the pool only.
+- **Web OpenAPI client** — regenerate `generated.ts` after route changes (`api:types` with API up). Mobile does not use it.
+- **Auth** — JWT access + refresh rotation; multi-method (Google, Apple, GitHub, Microsoft, email/password).
+- **API is HTTP-only** — SPA is static on Vercel; `create-app.ts` never serves assets.
+- **Analytics in-process** — pipelines in `src/analytics/`, stored in `user_insights`, driven by cron `POST /api/internal/analytics/compute`. Golden parity: `__fixtures__/golden.json`.
+- **Migrations build-time** — `db:deploy` at end of `vercel-build.sh` (prod needs `DIRECT_DATABASE_URL`); no boot-time DDL.
 
-- **`@gzclp/domain` (shared)** — single source of truth for the GZCLP engine,
-  graduation rules, catalog, and Zod schemas. Imported by web, mobile and api as
-  `"@gzclp/domain": "workspace:*"`.
-- **`@gzclp/database` (database)** — single source of truth for Postgres:
-  Drizzle schema (`packages/database/src/schema.ts`), migrations
-  (`packages/database/migrations/`), and reference seeds
-  (`packages/database/src/seeds/`). The API owns runtime connections but imports
-  schema/seeds/migrations from this package.
-- **OpenAPI → Zod codegen** — the API exposes `/swagger/json`. The web app
-  regenerates `apps/frontend/web/src/lib/api/generated.ts` via
-  `pnpm --filter web api:types` (`apps/frontend/web/codegen/generate-api-types.ts`).
-  There is no automated drift gate; route authors run the command with the local
-  API active and commit the generated client with the route change.
-  Mobile does **not** consume this generated client; it implements API calls by
-  hand. Unifying this is on the roadmap (`packages/api-client`).
-- **Auth** — JWT access + refresh rotation. Multi-method sign-in (Google, Apple,
-  GitHub, Microsoft, and email/password). Google OAuth via `@react-oauth/google`
-  (web), `expo-auth-session` (mobile), and
-  `apps/backend/api/src/lib/google-auth.ts` (server).
-
-## Service split
-
-- The SPA is served separately from the API. `apps/backend/api/src/create-app.ts`
-  is HTTP-API only and never serves static assets.
-- Analytics runs in-process inside the API. Insights are pre-computed by the
-  TypeScript pipelines under `apps/backend/api/src/analytics/` and persisted to
-  the `user_insights` table, then read back via `GET /api/insights`. A Vercel
-  Cron job drives a bounded per-user batch through
-  `POST /api/internal/analytics/compute` (guarded by `INTERNAL_SECRET`/`CRON_SECRET`).
-
-## Local development
+## Local dev
 
 ```bash
 pnpm install
-pnpm --filter api db:deploy   # apply migrations + reference seeds (safe to re-run)
-pnpm run dev           # web on :5173 (vite dev)
-pnpm run dev:api       # api on :3001 (tsx watch src/dev-server.ts)
+pnpm --filter api db:deploy
+pnpm run dev:api    # :3001
+pnpm run dev        # :5173
 ```
 
-On Vercel the API has no `app.listen`: the independent source entry
-`apps/backend/api/src/vercel-handler.ts` mounts the pure `createApp()` factory,
-wraps `app.fetch(request)` with the bounded streaming Node gateway, and is bundled
-into the generated catch-all `api/index.ts`. Run `pnpm run bundle:api:check`
-locally to detect source/artifact drift. `src/dev-server.ts` serves that same app on a port
-for tooling (e.g. OpenAPI codegen). Migrations and seeds are NOT boot-time DDL;
-after artifact build/prerender succeeds, `src/scripts/migrate-deploy.ts` requires
-the direct Neon endpoint (`DIRECT_DATABASE_URL`) in production and holds a
-PostgreSQL advisory lock across migration + seed execution.
+Postgres required (`DATABASE_URL`). Upstash Redis optional locally, required in prod.
 
-Postgres must be available locally — point `DATABASE_URL` at your own instance.
-Upstash Redis is optional in dev (set `UPSTASH_REDIS_REST_URL` and
-`UPSTASH_REDIS_REST_TOKEN` to enable presence, caches, and rate limiting; without
-them those features degrade gracefully). It is mandatory in production.
+## Validation
 
-## Validation per service
+| Command                          | Covers                                        |
+| -------------------------------- | --------------------------------------------- |
+| `pnpm run typecheck`             | web + domain + database + api-client + mobile |
+| `pnpm run typecheck:api`         | API                                           |
+| `pnpm run bundle:api:check`      | `api/index.ts` matches source entry           |
+| `pnpm run lint` / `format:check` | eslint + prettier                             |
+| `pnpm run test`                  | web + domain + database + api-client + mobile |
+| `pnpm run test:api`              | API + analytics golden parity                 |
+| `pnpm run e2e`                   | Playwright chromium                           |
 
-| Command                     | What it covers                                                             |
-| --------------------------- | -------------------------------------------------------------------------- |
-| `pnpm run typecheck`        | web + domain + database + api-client + mobile (TS-strict)                  |
-| `pnpm run typecheck:api`    | apps/backend/api                                                           |
-| `pnpm run bundle:api:check` | generated Vercel function matches its independent source entry             |
-| `pnpm run lint`             | web + api + api-client (eslint v9 + typescript-eslint)                     |
-| `pnpm run format:check`     | repo-wide prettier 3                                                       |
-| `pnpm run test`             | web + domain + database + api-client + mobile vitest                       |
-| `pnpm run test:api`         | apps/backend/api vitest (services + routes + analytics golden-file parity) |
-| `pnpm --filter web e2e`     | playwright (chromium)                                                      |
+## Where is…
 
-## Why this structure
+| Question           | Path                                                               |
+| ------------------ | ------------------------------------------------------------------ |
+| Progression math   | `packages/domain/src/generic-engine.ts`                            |
+| API routes         | `apps/backend/api/src/routes/`                                     |
+| Auth server        | `routes/auth.ts` + `services/auth.ts` + `middleware/auth-guard.ts` |
+| Web OpenAPI client | `apps/frontend/web/src/lib/api/generated.ts`                       |
+| Shared UI          | `apps/frontend/web/src/components/`                                |
+| Migrations         | `packages/database/migrations/`                                    |
+| Program seeds      | `packages/database/src/seeds/programs/`                            |
+| Insights           | `apps/backend/api/src/analytics/`                                  |
+| New shared type    | `packages/domain/src/schemas/`                                     |
+| DB table change    | `packages/database/src/schema.ts` → `pnpm run db:generate`         |
+| Prod infra         | `vercel.json` + `scripts/vercel-build.sh`                          |
 
-1. **Frontend vs backend visible from `apps/`** — the previous flat layout
-   (`apps/{api,web,mobile,analytics}`) hid the role of each service behind the
-   name. New contributors and LLM agents can now classify a path by reading the
-   first two segments.
-2. **Shared engine in one place** — `packages/domain` owns cross-tier
-   training logic. Web, mobile and api compile against the same Zod schemas and
-   the same GZCLP rules, eliminating drift.
-3. **Database in one place** — `packages/database` owns Postgres structure and
-   reference data. The API still owns connections and service-level queries, but
-   schema/migrations/seeds no longer hide inside the API app.
-4. **Deploy config is declarative** — `vercel.json` pins the framework, build
-   command (`scripts/vercel-build.sh`), serverless function, SPA rewrites, and
-   cron schedules in one file at the repo root, so the same-origin topology is
-   reviewable in version control.
-5. **API is HTTP-only** — the SPA is never served from the API. The API
-   (`apps/backend/api/src/create-app.ts`) returns JSON exclusively.
-6. **Disambiguated tooling** — `apps/frontend/web/codegen/` (was `scripts/`) no
-   longer collides with the repo-root `scripts/` (ops scripts). `docs/`
-   centralizes living-state documents (roadmap, log) that the README points at.
+## Other docs
 
-For navigation by paths, see [`docs/llm-map.md`](./llm-map.md).
+| Path                                                             | Role                                |
+| ---------------------------------------------------------------- | ----------------------------------- |
+| `CLAUDE.md` / `AGENTS.md`                                        | Agent context (symlink)             |
+| [`SUPPLY_CHAIN_SECURITY.md`](./SUPPLY_CHAIN_SECURITY.md)         | Dependency + secret policy          |
+| [`DATABASE_SECURITY_ROLLOUT.md`](./DATABASE_SECURITY_ROLLOUT.md) | Deferred DB contracts / RLS risk    |
+| [`api-and-db.md`](./api-and-db.md)                               | Auto-generated API + schema surface |

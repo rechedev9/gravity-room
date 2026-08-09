@@ -9,9 +9,7 @@ import {
 } from './stats';
 import golden from './__fixtures__/golden.json';
 
-// Parity oracle generated live from scipy 1.15.1 (see __fixtures__/generate_golden.py).
-// scipy.stats.linregress, scipy.stats.t.cdf and scipy.stats.t.ppf are the exact
-// functions used by ml/plateau.py and ml/forecast.py.
+// Parity oracle in __fixtures__/golden.json (frozen from scipy 1.15.1).
 
 describe('logGamma', () => {
   it('matches known exact values', () => {

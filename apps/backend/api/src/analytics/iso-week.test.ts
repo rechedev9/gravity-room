@@ -8,7 +8,7 @@ import {
 } from './iso-week';
 import golden from './__fixtures__/golden.json';
 
-// Oracle generated from Python datetime.isocalendar() (see generate_golden.py).
+// Oracle in __fixtures__/golden.json (frozen from Python datetime.isocalendar()).
 
 describe('isoWeek / isoWeekYear / isoWeekKey', () => {
   for (const c of golden.isoWeek) {

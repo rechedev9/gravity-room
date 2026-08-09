@@ -1,17 +1,10 @@
 /**
  * Load-recommendation insight (per exercise / slot_id).
- *
- * Ports apps/backend/analytics/ml/recommendation.py. With at least 10 RPE-logged
- * sessions and both outcome classes present, it trains a logistic-regression
- * model on [weight, success_rate_at_weight, avg_rpe, volume_last_7d,
- * days_since_last] and recommends a +2.5 kg increment when the modelled success
- * probability at the heavier load is >= 0.70. Otherwise (or for a single-class
- * training set) it falls back to the "3 consecutive successes -> increment"
- * heuristic.
- *
- * The single-class fallback is the caller's responsibility here (scikit-learn
- * rejects < 2 classes), guarded by `distinctClassCount(labels) < 2` before
- * fitting, exactly as recommendation.py routes to `_fallback_recommendation`.
+ * ≥10 RPE sessions + both outcome classes → logistic on
+ * [weight, success_rate_at_weight, avg_rpe, volume_last_7d, days_since_last];
+ * recommend +2.5 kg when P(success at heavier load) ≥ 0.70. Else fallback:
+ * 3 consecutive successes → increment. Single-class: skip fit
+ * (`distinctClassCount < 2`) and use the heuristic.
  */
 
 import type { WorkoutRecord } from '../record';

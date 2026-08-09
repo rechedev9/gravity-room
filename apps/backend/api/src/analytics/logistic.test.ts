@@ -9,14 +9,9 @@ import {
 } from './logistic';
 import golden from './__fixtures__/golden.json';
 
-// Parity oracle generated live from scikit-learn 1.6.1 LogisticRegression
-// (max_iter=200, random_state=42) with the SAME manual standardization the
-// Python recommendation pipeline applies. See __fixtures__/generate_golden.py.
-//
-// IRLS (Newton) and scikit-learn's lbfgs both minimize the same strictly
-// convex L2-regularized objective and converge to the same unique optimum.
-// scikit-learn's default lbfgs stops at tol=1e-4, so we allow a small,
-// documented tolerance on coefficients and probabilities.
+// Parity oracle in __fixtures__/golden.json (frozen from scikit-learn 1.6.1
+// LogisticRegression). IRLS (Newton) and sklearn lbfgs share the same convex
+// objective; allow a small tolerance on coefficients/probabilities.
 const PROB_TOL = 2e-3; // absolute tolerance on predict_proba parity
 const COEF_TOL = 5e-3; // absolute tolerance on fitted coefficients
 

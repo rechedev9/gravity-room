@@ -1,12 +1,8 @@
 /**
  * Binary logistic regression trained via IRLS (Newton's method, a.k.a.
- * iteratively reweighted least squares) with L2 regularization, mirroring the
- * scikit-learn `LogisticRegression` configuration used by the Python analytics
- * service (apps/backend/analytics/ml/recommendation.py).
- *
- * The Python code uses `LogisticRegression(max_iter=200, random_state=42)`,
- * whose defaults are: penalty="l2", C=1.0, fit_intercept=True, and the
- * intercept is NOT regularized. scikit-learn minimizes the strictly convex
+ * iteratively reweighted least squares) with L2 regularization. Config matches
+ * the frozen golden oracle: max_iter=200, penalty="l2", C=1.0, fit_intercept=True,
+ * intercept NOT regularized. Minimizes the strictly convex
  *
  *     0.5 * ||w||^2 + C * sum_i log(1 + exp(-y_i (x_i . w + b)))     y_i in {-1,+1}
  *
@@ -14,9 +10,7 @@
  * fitted coefficients and `predict_proba` outputs match scikit-learn (whose
  * default lbfgs solver stops at tol=1e-4) to well within a few 1e-3.
  *
- * The features are standardized exactly as recommendation.py does it: per
- * column, subtract the population mean and divide by the population standard
- * deviation (numpy `std`, ddof=0), with zero-variance columns given std 1.0.
+ * Features: per-column population mean/std (ddof=0); zero-variance std → 1.0.
  */
 
 export interface LogisticOptions {

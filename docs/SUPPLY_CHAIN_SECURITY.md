@@ -50,6 +50,6 @@ a directory-wide suppression.
 
 ## Production promotion boundary
 
-GitHub rulesets and Vercel project permissions are external to the repository.
-The direct-push and post-deploy configuration is specified in
-[`VERCEL_CUTOVER.md`](./VERCEL_CUTOVER.md).
+GitHub rulesets and Vercel project permissions are external to the repository
+and must be configured in those dashboards (branch protection, required checks,
+deploy promotion). Code in this repo cannot enforce them.

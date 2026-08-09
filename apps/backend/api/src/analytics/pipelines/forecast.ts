@@ -1,15 +1,8 @@
 /**
  * 1RM-forecasting insight (per exercise / slot_id).
- *
- * Ports apps/backend/analytics/ml/forecast.py. Buckets successful sets into ISO
- * weeks, takes the weekly-max Epley e1RM over the last 16 weeks (min 6 weeks),
- * fits a linear regression, and projects 2 and 4 weeks ahead with 95%
- * prediction-interval bands. An r-squared below 0.5 suppresses the forecast.
- *
- * A perfectly flat e1RM series produces r = 0 / r-squared = 0 from the Agent A
- * `linregress` port (never NaN), so it is suppressed by the r-squared check
- * with no separate NaN guard, exactly mirroring forecast.py's NaN-rvalue early
- * return.
+ * Weekly-max Epley e1RM over last 16 weeks (min 6) -> linear regression ->
+ * 2/4-week projections with 95% PI. r^2 < 0.5 suppresses the forecast.
+ * Flat series: linregress returns r = 0 / r^2 = 0 (never NaN) -> suppressed by r^2.
  */
 
 import type { WorkoutRecord } from '../record';

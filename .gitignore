@@ -9,10 +9,6 @@ playwright-report/
 blob-report/
 playwright/.cache/
 
-# next.js
-.next/
-out/
-
 # production
 build
 dist
@@ -24,7 +20,6 @@ dist
 # Expo local cache / generated native projects
 .expo/
 apps/frontend/mobile/.expo/
-
 
 # local audit artifacts (agent-generated reports, not part of source)
 audit/
@@ -38,16 +33,14 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (examples are committed for onboarding)
+# env files (root .env.example is the only committed template)
 .env*
 !.env.example
-!.env.production.example
 
 # vercel
 .vercel
 
 # AI tooling (Claude Code, Codex, SDD workflow)
-AGENTS.md
 .claude/
 .codex/
 .worktrees/
@@ -55,55 +48,37 @@ AGENTS.md
 .atl/
 skills-lock.json
 
-# temporary files (PDF extracts, screenshots, scripts)
+# temporary files
 .tmp/
 *.tmp
 .playwright-mcp/
-.railwayignore
-
-# Weave local runtime artifacts
 .weave/
-
-# Superpowers brainstorming scratch (visual companion mockups)
 .superpowers/
+.agent-runs/
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
-# project docs and scripts (generated, not source)
+# local scratch docs (not source)
 docs/roadmap.md
 docs/log.md
 docs/issues.md
+issues.MD
+todo.md
+
+# scripts/: ignore ad-hoc local scripts; keep the checked-in set
 scripts/*
 !scripts/committer
 !scripts/loadtest.js
 !scripts/refresh-claude-context.ts
 !scripts/vercel-build.sh
 !scripts/bundle-api-function.mjs
-!scripts/check-ci-pins.ts
 !scripts/check-dependency-audit.ts
 !scripts/check-dependency-audit.test.ts
 !scripts/check-production-routes.ts
 !scripts/check-vercel-deployment.ts
-issues.MD
-todo.md
+!scripts/check-security-headers.ts
 
 # IDE
 .idea/
-
-# Go build artifacts (legacy — kept for history; directory removed)
-# apps/go-api/api
-# apps/go-api/bin/
-
-# Python cache
-__pycache__/
-*.py[cod]
-*.pyo
-
-# Python local envs and test caches
-.venv/
-.pytest_cache/
-
-.vercel
-.agent-runs/

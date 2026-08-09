@@ -1,9 +1,6 @@
 /**
  * Weekly volume-trend insight (aggregate, exercise_id = null).
- *
- * Ports apps/backend/analytics/insights/volume.py. Aggregates total volume
- * (weight x reps_equivalent) per ISO week across all successful sets, then
- * reports the linear slope and a coarse up/down/flat direction.
+ * Total volume (weight × reps_equivalent) per ISO week → slope + direction.
  */
 
 import type { WorkoutRecord } from '../record';

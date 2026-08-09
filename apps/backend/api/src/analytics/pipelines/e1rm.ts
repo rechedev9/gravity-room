@@ -1,10 +1,6 @@
 /**
  * Estimated-1RM progression insight (per exercise / slot_id).
- *
- * Ports apps/backend/analytics/insights/e1rm.py. Groups successful sets by
- * slot, computes the Epley e1RM over time, and reports the dated series plus
- * the current max. Only slots with at least `MIN_POINTS` successful records
- * emit a series.
+ * Dated Epley e1RM series + current max. Requires ≥ `MIN_POINTS` successes.
  */
 
 import type { WorkoutRecord } from '../record';

@@ -1,16 +1,9 @@
 /**
  * Plateau-detection insight (per exercise / slot_id).
- *
- * Ports apps/backend/analytics/ml/plateau.py. For each slot it takes the last
- * eight weeks of successful sets (min 8 points), fits a linear regression on
- * the weekly-max weight, and flags a plateau when the slope is below
- * 0.1 kg/week and the regression p-value is above 0.1.
- *
- * Degenerate (perfectly flat) series: scipy may report the p-value as NaN or as
- * 1.0 depending on version. The Agent A `linregress` port deterministically
- * returns p-value = 1.0 / r = 0 for a flat series (never NaN), so the degenerate
- * branch is detected here purely by `slope === 0 && popStd(weights) === 0`,
- * matching plateau.py's `slope == 0.0 and np.std(ys) == 0.0` fallback.
+ * Last 8 weeks of successes (min 8 points) → linregress on weekly-max weight.
+ * Plateau when slope < 0.1 kg/week and p-value > 0.1.
+ * Flat series: linregress returns p = 1.0 / r = 0 (never NaN); degenerate
+ * branch is `slope === 0 && popStd(weights) === 0`.
  */
 
 import type { WorkoutRecord } from '../record';

@@ -1,11 +1,8 @@
 /**
- * Drizzle data access for the analytics pipelines.
- *
- * Ports apps/backend/analytics/queries.py to the API package's shared Drizzle
- * client. Result reads use the persisted stable exercise identity, a bounded
- * newest-history window, and deterministic ordering. `upsertInsight` writes the
- * `user_insights` table with the same `ON CONFLICT (user_id, insight_type,
- * exercise_id) DO UPDATE` semantics the Python service uses.
+ * Drizzle data access for analytics pipelines.
+ * Reads use stable exercise identity, a bounded newest-history window, and
+ * deterministic ordering. `upsertInsight` writes `user_insights` with
+ * `ON CONFLICT (user_id, insight_type, exercise_id) DO UPDATE`.
  */
 
 import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm';

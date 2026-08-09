@@ -1,9 +1,6 @@
 /**
  * Per-exercise summary insight (per exercise / slot_id).
- *
- * Ports apps/backend/analytics/insights/summary.py. Aggregates set counts,
- * total volume, success rate, and average RPE per slot. Every slot present in
- * the records emits a payload.
+ * Set counts, total volume, success rate, average RPE. One payload per slot.
  */
 
 import type { WorkoutRecord } from '../record';

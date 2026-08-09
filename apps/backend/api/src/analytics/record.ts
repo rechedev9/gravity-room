@@ -1,10 +1,6 @@
 /**
  * Raw workout record shape consumed by every analytics pipeline.
- *
- * Ports the `WorkoutRecord` dataclass from apps/backend/analytics/queries.py.
- * Field names are camelCased to match the TypeScript codebase; the values and
- * their nullability mirror the Python dataclass exactly (rpe / amrapReps /
- * recordedAt may be null, matching `float | None`, `int | None`, `str | None`).
+ * `rpe` / `amrapReps` / `recordedAt` may be null.
  */
 export interface WorkoutRecord {
   readonly userId: string;

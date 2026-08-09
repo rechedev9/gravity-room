@@ -1,13 +1,11 @@
 /**
  * Golden parity tests for the seven analytics pipelines.
  *
- * The oracle is `__fixtures__/golden.json`, whose `pipelines` section is emitted
- * by `__fixtures__/generate_golden.py` running the LIVE Python pipeline
- * functions (insights/volume.py, ml/forecast.py, ml/recommendation.py, ...) on
- * fixed-timestamp fixtures. Each case stores the input records (camelCase
- * WorkoutRecord shape) and the exact payload the Python service produced. These
- * tests rebuild the records, run the TypeScript port, and assert byte-for-byte
- * payload parity within a documented numeric tolerance.
+ * The oracle is `__fixtures__/golden.json` (frozen outputs from the retired
+ * Python analytics stack on fixed-timestamp fixtures). Each case stores the
+ * input records (camelCase WorkoutRecord shape) and the exact payload Python
+ * produced. These tests rebuild the records, run the TypeScript port, and
+ * assert payload parity within a documented numeric tolerance.
  *
  * Tolerances:
  *   - Pure-arithmetic / Epley pipelines (volume, frequency, e1rm, summary):
