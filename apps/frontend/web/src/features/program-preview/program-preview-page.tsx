@@ -7,6 +7,7 @@ import {
   localizedProgramSeoTitle,
   localizedProgramSeoDescription,
   localizedProgramFaq,
+  localizedExerciseName,
 } from '@/lib/catalog-display';
 import { useProgramHead } from '@/hooks/use-head';
 import { ProgramJsonLd } from '@/features/program-preview/program-json-ld';
@@ -298,10 +299,16 @@ export function ProgramPreviewPage(): ReactNode {
       <ProgramJsonLd
         programId={programId}
         name={name}
-        description={description}
+        description={seoDescription ?? description}
         totalWorkouts={totalWorkouts}
         workoutsPerWeek={definition.workoutsPerWeek}
         days={definition.days}
+        exerciseNames={Object.fromEntries(
+          Object.entries(definition.exercises).map(([id, ex]) => [
+            id,
+            localizedExerciseName(t, id, ex.name),
+          ])
+        )}
       />
       {/* Header */}
       <header className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 bg-header/95 backdrop-blur-md border-b border-rule">
@@ -325,7 +332,7 @@ export function ProgramPreviewPage(): ReactNode {
 
       {/* Content */}
       <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
-        <h1 className="sr-only">{name}</h1>
+        <h1 className="font-display text-2xl sm:text-3xl tracking-wide text-title mb-4">{name}</h1>
 
         <ZoneHint zone="preview" className="mb-4" />
 

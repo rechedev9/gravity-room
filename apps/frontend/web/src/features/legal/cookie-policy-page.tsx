@@ -6,10 +6,15 @@ export function CookiePolicyPage(): React.ReactNode {
   const { t } = useTranslation();
   // Self-referencing canonical so this page stops inheriting the landing's
   // canonical/OG from index.html.
+  const title = t('legal.cookie_policy.document_title');
+  const description = t('legal.cookie_policy.meta_description');
   useHead({
-    title: t('legal.cookie_policy.document_title'),
-    description: t('legal.cookie_policy.meta_description'),
+    title,
+    description,
     canonical: 'https://gravityroom.app/cookies',
+    ogTitle: title,
+    ogDescription: description,
+    ogUrl: 'https://gravityroom.app/cookies',
   });
 
   return (

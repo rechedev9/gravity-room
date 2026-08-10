@@ -72,9 +72,12 @@ function LoginPageInner({ googleClientId }: { readonly googleClientId: string })
 
   // /login is disallowed in robots.txt and behind auth — keep it out of the
   // index explicitly and give it a self-canonical instead of the landing's.
+  const title = t('login.page.title');
   useHead({
-    title: t('login.page.title'),
+    title,
     canonical: 'https://gravityroom.app/login',
+    ogTitle: title,
+    ogUrl: 'https://gravityroom.app/login',
     robots: 'noindex, follow',
   });
 

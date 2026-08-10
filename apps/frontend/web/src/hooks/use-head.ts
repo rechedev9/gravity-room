@@ -18,10 +18,10 @@ export interface HeadProps {
   readonly robots?: string;
   /**
    * Per-page `<link rel="alternate" hreflang>` set. Only emit these on pages
-   * that genuinely have language-specific alternate URLs (the landing: ES `/`
-   * vs EN `/en`). Leaving it undefined emits nothing, which is correct for
-   * single-URL pages (program/legal) — otherwise the static landing hreflang
-   * would leak onto them and mis-signal alternates.
+   * that genuinely have language-specific alternate URLs (landing, program
+   * guides, exercise wiki). `undefined` explicitly clears any leftover
+   * hreflang tags so SPA navigations and stale static tags cannot leak the
+   * landing alternates onto single-URL pages (programs, legal, login).
    */
   readonly alternates?: readonly HreflangAlternate[];
 }
@@ -86,7 +86,21 @@ function setCanonical(href: string): () => void {
   };
 }
 
+/** Remove every hreflang alternate currently in <head>. */
+export function clearHreflangAlternates(): void {
+  document.head
+    .querySelectorAll<HTMLLinkElement>('link[rel="alternate"][hreflang]')
+    .forEach((el) => {
+      el.remove();
+    });
+}
+
+/**
+ * Replace the full hreflang set. Always clears first so React StrictMode
+ * double-mounts and SPA navigations cannot stack duplicate triples.
+ */
 function setAlternates(alternates: readonly HreflangAlternate[]): () => void {
+  clearHreflangAlternates();
   const created: HTMLLinkElement[] = [];
   for (const alt of alternates) {
     const el = document.createElement('link');
@@ -99,6 +113,20 @@ function setAlternates(alternates: readonly HreflangAlternate[]): () => void {
   return (): void => {
     created.forEach((el) => el.remove());
   };
+}
+
+function resolveHtmlLang(lang: string | undefined): string | undefined {
+  if (lang === undefined) return undefined;
+  if (lang.startsWith('en')) return 'en';
+  if (lang.startsWith('es')) return 'es';
+  return undefined;
+}
+
+function resolveOgLocale(lang: string | undefined): string | undefined {
+  if (lang === undefined) return undefined;
+  if (lang.startsWith('en')) return 'en_US';
+  if (lang.startsWith('es')) return 'es_ES';
+  return undefined;
 }
 
 export function useHead({
@@ -148,7 +176,14 @@ export function useHead({
     if (ogUrl !== undefined) cleanups.push(setMetaProperty('og:url', ogUrl));
     if (ogLocale !== undefined) cleanups.push(setMetaProperty('og:locale', ogLocale));
     if (robots !== undefined) cleanups.push(setMetaName('robots', robots));
-    if (alternates !== undefined) cleanups.push(setAlternates(alternates));
+
+    // Always own the hreflang surface: set the provided triple, or clear
+    // leftovers so single-URL pages never inherit landing/wiki alternates.
+    if (alternates !== undefined) {
+      cleanups.push(setAlternates(alternates));
+    } else {
+      clearHreflangAlternates();
+    }
 
     return (): void => {
       cleanups.forEach((fn) => fn());
@@ -181,8 +216,8 @@ export interface ProgramHeadOptions {
    */
   readonly seoDescription?: string;
   /**
-   * UI language (i18n.language) — drives the per-page `og:locale` so English
-   * program pages don't inherit the static `es_ES` from index.html.
+   * UI language (i18n.language) — drives `lang`, `og:locale`, and SEO copy so
+   * all head signals stay consistent (no es html + en_US og mismatch).
    */
   readonly lang?: string;
 }
@@ -199,7 +234,8 @@ export function useProgramHead(
   const metaDescription =
     seoDescription ?? (description !== undefined ? description.slice(0, 200) : undefined);
   const url = programId !== '' ? `https://gravityroom.app/programs/${programId}` : undefined;
-  const ogLocale = lang?.startsWith('en') ? 'en_US' : lang?.startsWith('es') ? 'es_ES' : undefined;
+  const htmlLang = resolveHtmlLang(lang);
+  const ogLocale = resolveOgLocale(lang);
 
   useHead({
     title,
@@ -212,5 +248,8 @@ export function useProgramHead(
     ogDescription: metaDescription,
     ogUrl: url,
     ogLocale,
+    lang: htmlLang,
+    // Single-URL catalog pages: no language alternate pair. Explicitly leave
+    // alternates undefined so useHead clears any leaked landing hreflang.
   });
 }

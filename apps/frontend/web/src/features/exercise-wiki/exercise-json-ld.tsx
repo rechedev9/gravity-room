@@ -23,7 +23,7 @@ export function ExerciseJsonLd({
     '@type': 'Article',
     headline: c.title,
     description: c.description,
-    image: `${ORIGIN}/og-image.webp`,
+    image: `${ORIGIN}/og-image.jpg`,
     url,
     mainEntityOfPage: {
       '@type': 'WebPage',

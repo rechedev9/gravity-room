@@ -35,6 +35,7 @@ import serverlessChromium from '@sparticuz/chromium';
 import { PROGRAM_CATALOG } from '@gzclp/domain/catalog';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import { expectedHreflangForPath, type HreflangAlternate } from './seo-config';
 
 import { GZCLP_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/gzclp';
 import { PPL531_DEFINITION_JSONB } from '@gzclp/database/seeds/programs/ppl531';
@@ -290,13 +291,25 @@ async function prerenderRoute(
   // resolution comfortably finish inside that window.
   await page.waitForTimeout(600);
 
-  // The source shell carries a generic bilingual <noscript> fallback. Once a
-  // route has been fully rendered it becomes duplicate, off-topic content
-  // (including a second H1) on every snapshot. The mounted route is the
-  // authoritative no-JS representation, so omit the fallback from prerenders.
-  await page.locator('noscript').evaluateAll((nodes) => {
-    for (const node of nodes) node.remove();
-  });
+  const expectedHreflang = expectedHreflangForPath(path);
+
+  // Head + body hygiene for the static snapshot crawlers index:
+  //  - drop noscript fallback (duplicate H1 / off-topic bilingual boilerplate)
+  //  - drop cookie banner (client-only notice; pollutes AI/crawler extraction)
+  //  - replace hreflang with the exact set for this path (empty = none), so
+  //    StrictMode double-mounts or stale tags cannot leak landing alternates
+  await page.evaluate((alternates: readonly HreflangAlternate[]) => {
+    document.querySelectorAll('noscript').forEach((node) => node.remove());
+    document.querySelectorAll('[data-cookie-banner]').forEach((node) => node.remove());
+    document.querySelectorAll('link[rel="alternate"][hreflang]').forEach((node) => node.remove());
+    for (const alt of alternates) {
+      const el = document.createElement('link');
+      el.rel = 'alternate';
+      el.setAttribute('hreflang', alt.hreflang);
+      el.setAttribute('href', alt.href);
+      document.head.appendChild(el);
+    }
+  }, expectedHreflang);
 
   // Native dialogs keep all descendant text in the DOM while closed. Search
   // and LLM extractors can therefore rank an invisible confirmation prompt

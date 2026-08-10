@@ -38,7 +38,10 @@ export function CookieBanner(): React.ReactNode {
     // `pointer-events-none` it would intercept clicks across the entire bottom
     // strip (e.g. the sidebar's user menu). The inner card re-enables pointer
     // events for its own interactive content.
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 sm:p-6 pointer-events-none">
+    <div
+      data-cookie-banner=""
+      className="fixed bottom-0 left-0 right-0 z-50 p-4 sm:p-6 pointer-events-none"
+    >
       <div className="pointer-events-auto max-w-3xl mx-auto bg-card border border-rule rounded-lg shadow-elevated px-5 py-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
         <p className="text-sm text-muted leading-relaxed flex-1">
           {t('cookie_banner.message')}{' '}

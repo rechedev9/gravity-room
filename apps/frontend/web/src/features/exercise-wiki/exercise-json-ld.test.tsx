@@ -43,7 +43,7 @@ describe('ExerciseJsonLd', () => {
     });
     expect(ld.reviewedBy).toEqual({ '@type': 'Person', name: squatArticle.reviewedBy });
     expect(ld.dateModified).toBe(squatArticle.reviewedAt);
-    expect(ld.image).toBe('https://gravityroom.app/og-image.webp');
+    expect(ld.image).toBe('https://gravityroom.app/og-image.jpg');
     expect(ld.mainEntityOfPage).toEqual({
       '@type': 'WebPage',
       '@id': 'https://gravityroom.app/en/exercises/squat',

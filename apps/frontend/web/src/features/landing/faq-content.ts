@@ -63,7 +63,7 @@ export const FAQ_ITEMS_EN: readonly FaqEntry[] = [
   {
     question: 'Is Gravity Room open source?',
     answer:
-      'Yes. Gravity Room is open source under the AGPL-3.0 license. The full source code lives at https://github.com/rechedev9/gravity-room. The product is free, hosted on a small VPS, and built by a solo developer.',
+      'Yes. Gravity Room is open source under the AGPL-3.0 license. The full source code lives at https://github.com/rechedev9/gravity-room. The product is free, with no ads or premium tier, and is built by a solo developer.',
   },
 ];
 
@@ -121,7 +121,7 @@ export const FAQ_ITEMS_ES: readonly FaqEntry[] = [
   {
     question: '¿Gravity Room es open source?',
     answer:
-      'Sí. Gravity Room es open source bajo licencia AGPL-3.0. El código completo está disponible en https://github.com/rechedev9/gravity-room. El producto es gratuito, está alojado en un VPS pequeño y desarrollado por un único desarrollador.',
+      'Sí. Gravity Room es open source bajo licencia AGPL-3.0. El código completo está disponible en https://github.com/rechedev9/gravity-room. El producto es gratuito, sin anuncios ni nivel premium, y lo desarrolla un único desarrollador.',
   },
 ];
 

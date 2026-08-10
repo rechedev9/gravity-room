@@ -354,9 +354,8 @@ export const ES_CONTENT: LandingContent = {
   faq: {
     sectionLabel: 'Dudas comunes',
     title: 'Antes de empezar',
-    items: FAQ_ITEMS_ES.filter(
-      (_, index) => index === 0 || index === 2 || index === 3 || index === 8
-    ),
+    // Full FAQ set for SEO/GEO long-tail (JSON-LD matches visible text).
+    items: FAQ_ITEMS_ES,
   },
   finalCta: {
     eyebrow: 'Empieza hoy',
@@ -543,9 +542,8 @@ export const EN_CONTENT: LandingContent = {
   faq: {
     sectionLabel: 'Common questions',
     title: 'Before you start',
-    items: FAQ_ITEMS_EN.filter(
-      (_, index) => index === 0 || index === 2 || index === 3 || index === 8
-    ),
+    // Full FAQ set for SEO/GEO long-tail (JSON-LD matches visible text).
+    items: FAQ_ITEMS_EN,
   },
   finalCta: {
     eyebrow: 'Start today',

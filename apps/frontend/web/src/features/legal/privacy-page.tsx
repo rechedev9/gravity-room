@@ -6,10 +6,15 @@ export function PrivacyPage(): React.ReactNode {
   const { t } = useTranslation();
   // Self-referencing canonical so this page stops inheriting the landing's
   // canonical/OG from index.html.
+  const title = t('legal.privacy.document_title');
+  const description = t('legal.privacy.meta_description');
   useHead({
-    title: t('legal.privacy.document_title'),
-    description: t('legal.privacy.meta_description'),
+    title,
+    description,
     canonical: 'https://gravityroom.app/privacy',
+    ogTitle: title,
+    ogDescription: description,
+    ogUrl: 'https://gravityroom.app/privacy',
   });
 
   return (

@@ -78,8 +78,8 @@ Disallow: /app
 Disallow: /login
 Disallow: /api/
 
-# ── Scrapers agresivos (block) ────────────────
-# Sin valor de visibilidad — solo scraping masivo de datos
+# ── Aggressive scrapers (block) ────────────────
+# No visibility value — bulk data scraping only
 User-agent: CCBot
 Disallow: /
 

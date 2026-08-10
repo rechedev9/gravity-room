@@ -84,11 +84,15 @@ describe('landing content', () => {
     expect(EN_CONTENT.freeTrust.items).toHaveLength(4);
   });
 
-  it('limits the closing FAQ and its structured data to four visible questions', () => {
-    expect(ES_CONTENT.faq.items).toHaveLength(4);
-    expect(EN_CONTENT.faq.items).toHaveLength(4);
-    expect(buildFaqJsonLd(ES_CONTENT.faq.items).mainEntity).toHaveLength(4);
-    expect(buildFaqJsonLd(EN_CONTENT.faq.items).mainEntity).toHaveLength(4);
+  it('keeps the full FAQ set and matching structured data for SEO/GEO', () => {
+    expect(ES_CONTENT.faq.items.length).toBeGreaterThanOrEqual(8);
+    expect(EN_CONTENT.faq.items).toHaveLength(ES_CONTENT.faq.items.length);
+    expect(buildFaqJsonLd(ES_CONTENT.faq.items).mainEntity).toHaveLength(
+      ES_CONTENT.faq.items.length
+    );
+    expect(buildFaqJsonLd(EN_CONTENT.faq.items).mainEntity).toHaveLength(
+      EN_CONTENT.faq.items.length
+    );
   });
 
   it('does not retain the removed standalone landing blocks', () => {

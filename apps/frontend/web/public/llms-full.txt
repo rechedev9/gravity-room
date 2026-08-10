@@ -4,7 +4,7 @@
 > Summary version: https://gravityroom.app/llms.txt
 
 **Canonical URL**: https://gravityroom.app/llms-full.txt
-**Last updated**: 2026-08-07
+**Last updated**: 2026-08-10
 
 ## Overview
 

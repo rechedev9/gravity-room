@@ -1,9 +1,40 @@
-# Gravity Room
+/**
+ * Generate public/llms.txt from the live catalog + wiki registry so the
+ * GEO surface never drifts from the product. Prose sections stay curated;
+ * program/exercise link lists are derived.
+ */
+import { writeFile } from 'node:fs/promises';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { EXERCISE_ARTICLES } from '../src/features/exercise-wiki/content/registry';
+import { SITE_ORIGIN, activeProgramLinks } from './seo-config';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = resolve(__dirname, '../public');
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function main(): Promise<void> {
+  const programs = activeProgramLinks();
+  const programLines = programs
+    .map((p) => `- **${p.name}** — ${SITE_ORIGIN}/programs/${p.id}`)
+    .join('\n');
+
+  const wikiEn = EXERCISE_ARTICLES.map(
+    (a) => `- **${a.content.en.title}** — ${SITE_ORIGIN}/en/exercises/${a.slug.en}`
+  ).join('\n');
+  const wikiEs = EXERCISE_ARTICLES.map(
+    (a) => `- **${a.content.es.title}** — ${SITE_ORIGIN}/ejercicios/${a.slug.es}`
+  ).join('\n');
+
+  const body = `# Gravity Room
 
 > Free web app for structured weightlifting with automatic progression. No spreadsheets, no guessing.
 
-Canonical URL: https://gravityroom.app/llms.txt
-Last updated: 2026-08-10
+Canonical URL: ${SITE_ORIGIN}/llms.txt
+Last updated: ${today()}
 
 ## What it does
 
@@ -12,7 +43,7 @@ Gravity Room tracks weightlifting programs and automates progression. When you c
 ## Key Features
 
 - **Automatic progression**: weight adjusts based on your performance, not arbitrary schedules
-- **Multiple programs**: GZCLP, HeXaN PPL, StrongLifts 5x5, Phrak's Greyskull LP, 5/3/1 Boring But Big, 5/3/1 for Beginners, PHUL, Nivel 7, Caparazón de Tortuga, La Sala del Tiempo 1, La Sala del Tiempo 2, La Sala del Tiempo 3, Tenkaichi Budokai — Sentadilla, Tenkaichi Budokai — Press Banca, Tenkaichi Budokai — Peso Muerto, Tenkaichi Budokai — Solo Banca, Tenkaichi Budokai — Veterano, Furia Oscura
+- **Multiple programs**: ${programs.map((p) => p.name).join(', ')}
 - **Strength statistics**: see your estimated 1RM curve and volume over time
 - **Cloud sync**: signed-in users can sync data across devices
 - **100% free**: no premium tier, no ads, no feature gates
@@ -26,24 +57,7 @@ Gravity Room tracks weightlifting programs and automates progression. When you c
 
 ## Programs Available
 
-- **GZCLP** — https://gravityroom.app/programs/gzclp
-- **HeXaN PPL** — https://gravityroom.app/programs/hexan-ppl
-- **StrongLifts 5x5** — https://gravityroom.app/programs/stronglifts-5x5
-- **Phrak's Greyskull LP** — https://gravityroom.app/programs/phraks-greyskull-lp
-- **5/3/1 Boring But Big** — https://gravityroom.app/programs/531-boring-but-big
-- **5/3/1 for Beginners** — https://gravityroom.app/programs/531-for-beginners
-- **PHUL** — https://gravityroom.app/programs/phul
-- **Nivel 7** — https://gravityroom.app/programs/nivel-7
-- **Caparazón de Tortuga** — https://gravityroom.app/programs/caparazon-de-tortuga
-- **La Sala del Tiempo 1** — https://gravityroom.app/programs/sala-del-tiempo-1
-- **La Sala del Tiempo 2** — https://gravityroom.app/programs/sala-del-tiempo-2
-- **La Sala del Tiempo 3** — https://gravityroom.app/programs/sala-del-tiempo-3
-- **Tenkaichi Budokai — Sentadilla** — https://gravityroom.app/programs/tenkaichi-budokai-sentadilla
-- **Tenkaichi Budokai — Press Banca** — https://gravityroom.app/programs/tenkaichi-budokai-press-banca
-- **Tenkaichi Budokai — Peso Muerto** — https://gravityroom.app/programs/tenkaichi-budokai-peso-muerto
-- **Tenkaichi Budokai — Solo Banca** — https://gravityroom.app/programs/tenkaichi-budokai-solo-banca
-- **Tenkaichi Budokai — Veterano** — https://gravityroom.app/programs/tenkaichi-budokai-veterano
-- **Furia Oscura** — https://gravityroom.app/programs/furia-oscura
+${programLines}
 
 ## GZCLP vs StrongLifts 5x5
 
@@ -54,22 +68,18 @@ Gravity Room tracks weightlifting programs and automates progression. When you c
 | Exercises/session | 4–5 | 2–3 |
 | Beginner-friendliness | Slightly more complex, better long-term | Simpler to start |
 
-Comparison guide: https://gravityroom.app/en/programs/gzclp-vs-stronglifts
+Comparison guide: ${SITE_ORIGIN}/en/programs/gzclp-vs-stronglifts
 
 ## Why Automatic Progression Matters
 
 Structured programs with built-in progression rules produce consistent strength gains because they apply progressive overload systematically. Gravity Room eliminates the mental overhead of managing this manually.
 
-Guide: https://gravityroom.app/en/programs/automatic-progression
+Guide: ${SITE_ORIGIN}/en/programs/automatic-progression
 
 ## Evidence-based exercise guides
 
-- **Barbell Back Squat** — https://gravityroom.app/en/exercises/squat
-- **Barbell Bench Press** — https://gravityroom.app/en/exercises/bench-press
-- **Barbell Deadlift** — https://gravityroom.app/en/exercises/deadlift
-- **Sentadilla con barra** — https://gravityroom.app/ejercicios/sentadilla
-- **Press de Banca con Barra** — https://gravityroom.app/ejercicios/press-banca
-- **Peso muerto con barra** — https://gravityroom.app/ejercicios/peso-muerto
+${wikiEn}
+${wikiEs}
 
 Each guide identifies its editorial responsibility, technical reviewer, review date, methodology, and primary references. The guides are general educational material, not individualized medical advice.
 
@@ -84,12 +94,12 @@ Each guide identifies its editorial responsibility, technical reviewer, review d
 
 ## Links
 
-- Home (English): https://gravityroom.app/en
-- Home (Spanish): https://gravityroom.app/
-- Privacy Policy: https://gravityroom.app/privacy
-- Exercise guides (English): https://gravityroom.app/en/exercises
-- Guías de ejercicios (español): https://gravityroom.app/ejercicios
-- Extended LLM context: https://gravityroom.app/llms-full.txt
+- Home (English): ${SITE_ORIGIN}/en
+- Home (Spanish): ${SITE_ORIGIN}/
+- Privacy Policy: ${SITE_ORIGIN}/privacy
+- Exercise guides (English): ${SITE_ORIGIN}/en/exercises
+- Guías de ejercicios (español): ${SITE_ORIGIN}/ejercicios
+- Extended LLM context: ${SITE_ORIGIN}/llms-full.txt
 - GitHub: https://github.com/rechedev9/gravity-room
 - Community: https://discord.gg/FXNBrgYf7U
 
@@ -102,7 +112,7 @@ Each guide identifies its editorial responsibility, technical reviewer, review d
 ### Características
 
 - Progresión automática de peso según rendimiento
-- Múltiples programas: GZCLP, HeXaN PPL, StrongLifts 5x5, Phrak's Greyskull LP, 5/3/1 Boring But Big, 5/3/1 for Beginners, PHUL, Nivel 7, Caparazón de Tortuga, La Sala del Tiempo 1, La Sala del Tiempo 2, La Sala del Tiempo 3, Tenkaichi Budokai — Sentadilla, Tenkaichi Budokai — Press Banca, Tenkaichi Budokai — Peso Muerto, Tenkaichi Budokai — Solo Banca, Tenkaichi Budokai — Veterano, Furia Oscura
+- Múltiples programas: ${programs.map((p) => p.name).join(', ')}
 - Estadísticas: curva de 1RM estimado y volumen en el tiempo
 - Sincronización en la nube para usuarios registrados
 - 100% gratis, sin anuncios ni nivel premium
@@ -117,3 +127,12 @@ Each guide identifies its editorial responsibility, technical reviewer, review d
 ### Por qué la progresión automática importa
 
 Los programas estructurados permiten aplicar la sobrecarga progresiva de forma consistente y registrar cómo responde cada usuario. Los resultados dependen del entrenamiento, la recuperación y las circunstancias individuales.
+`;
+
+  await writeFile(resolve(PUBLIC_DIR, 'llms.txt'), body, 'utf8');
+  console.error(
+    `[llms] wrote llms.txt (${programs.length} programs, ${EXERCISE_ARTICLES.length} wiki articles)`
+  );
+}
+
+await main();

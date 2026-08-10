@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { ArticleLang } from '@gzclp/domain/schemas/exercise-article';
@@ -6,7 +6,6 @@ import { useHead } from '@/hooks/use-head';
 import { useAuth } from '@/contexts/auth-context';
 import { useGuest } from '@/contexts/guest-context';
 import { getAllArticles } from './content/registry';
-import { appendHreflangAlternates } from './hreflang';
 import { BodyDiagram, pickBestView } from './body-diagram';
 import { ExerciseCatalogBrowser } from './catalog/exercise-catalog-browser';
 
@@ -80,15 +79,17 @@ export function ExerciseWikiIndexPage({
     title: copy.title,
     description: copy.intro,
     canonical: `https://gravityroom.app${publicBase}`,
+    ogTitle: copy.title,
+    ogDescription: copy.intro,
+    ogUrl: `https://gravityroom.app${publicBase}`,
+    ogLocale: lang === 'es' ? 'es_ES' : 'en_US',
     lang,
-  });
-  useEffect(() => {
-    return appendHreflangAlternates([
+    alternates: [
       { hreflang: 'es', href: 'https://gravityroom.app/ejercicios' },
       { hreflang: 'en', href: 'https://gravityroom.app/en/exercises' },
       { hreflang: 'x-default', href: 'https://gravityroom.app/en/exercises' },
-    ]);
-  }, []);
+    ],
+  });
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       {inSession && (

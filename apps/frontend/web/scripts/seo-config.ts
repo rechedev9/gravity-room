@@ -1,9 +1,8 @@
 /**
  * Single source of truth for the public URL surface used by SEO tooling
- * (sitemap generation + IndexNow). Derives indexable program URLs from the
- * shared `PROGRAM_CATALOG` so the sitemap can never drift from the catalog
- * (the previous hand-maintained sitemap.xml had stale `lastmod` and was
- * missing/over-listing programs).
+ * (sitemap generation + IndexNow + prerender hreflang hygiene). Derives
+ * indexable program URLs from the shared `PROGRAM_CATALOG` so the sitemap can
+ * never drift from the catalog.
  */
 import { PROGRAM_CATALOG } from '@gzclp/domain/catalog';
 import { EXERCISE_ARTICLES } from '../src/features/exercise-wiki/content/registry';
@@ -21,10 +20,13 @@ export const SITE_ORIGIN = 'https://gravityroom.app';
  */
 export const INDEXNOW_KEY = 'a3f8e1c97b6d452e8f0a1b2c3d4e5f60';
 
-export interface SitemapAlternate {
-  readonly hreflang: 'es' | 'en' | 'x-default';
+export interface HreflangAlternate {
+  readonly hreflang: 'es' | 'en' | 'x-default' | string;
   readonly href: string;
 }
+
+/** @deprecated Prefer HreflangAlternate — kept as alias for sitemap callers. */
+export type SitemapAlternate = HreflangAlternate;
 
 export interface SitemapEntry {
   readonly path: string;
@@ -35,7 +37,16 @@ export interface SitemapEntry {
    * entire signal when every deployment stamps every URL with today's date.
    */
   readonly lastmod?: string;
-  readonly alternates?: readonly SitemapAlternate[];
+  /** Language alternates for this URL; omitted for single-URL pages. */
+  readonly alternates?: readonly HreflangAlternate[];
+}
+
+function pairAlternates(esPath: string, enPath: string): readonly HreflangAlternate[] {
+  return [
+    { hreflang: 'es', href: `${SITE_ORIGIN}${esPath}` },
+    { hreflang: 'en', href: `${SITE_ORIGIN}${enPath}` },
+    { hreflang: 'x-default', href: `${SITE_ORIGIN}${enPath}` },
+  ];
 }
 
 function localizedEntries(
@@ -45,11 +56,7 @@ function localizedEntries(
   changefreq: string,
   lastmod?: string
 ): readonly SitemapEntry[] {
-  const alternates: readonly SitemapAlternate[] = [
-    { hreflang: 'es', href: `${SITE_ORIGIN}${esPath}` },
-    { hreflang: 'en', href: `${SITE_ORIGIN}${enPath}` },
-    { hreflang: 'x-default', href: `${SITE_ORIGIN}${enPath}` },
-  ];
+  const alternates = pairAlternates(esPath, enPath);
   const shared = {
     priority,
     changefreq,
@@ -112,4 +119,20 @@ export function sitemapEntries(): readonly SitemapEntry[] {
 /** Absolute URLs for every indexable entry. */
 export function indexableUrls(): readonly string[] {
   return sitemapEntries().map((e) => `${SITE_ORIGIN}${e.path}`);
+}
+
+/**
+ * Expected hreflang set for a public path during prerender hygiene.
+ * Returns an empty array when the path must have ZERO hreflang tags
+ * (single-URL program/legal pages).
+ */
+export function expectedHreflangForPath(path: string): readonly HreflangAlternate[] {
+  const normalized = path === '' ? '/' : path.startsWith('/') ? path : `/${path}`;
+  const entry = sitemapEntries().find((e) => e.path === normalized);
+  return entry?.alternates ?? [];
+}
+
+/** Active catalog programs for llms.txt generation. */
+export function activeProgramLinks(): readonly { readonly id: string; readonly name: string }[] {
+  return PROGRAM_CATALOG.filter((p) => p.isActive).map((p) => ({ id: p.id, name: p.name }));
 }

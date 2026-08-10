@@ -181,6 +181,22 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://gravityroom.app/en/exercises" />
   </url>
   <url>
+    <loc>https://gravityroom.app/ejercicios/versus</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://gravityroom.app/ejercicios/versus" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://gravityroom.app/en/exercises/versus" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gravityroom.app/en/exercises/versus" />
+  </url>
+  <url>
+    <loc>https://gravityroom.app/en/exercises/versus</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://gravityroom.app/ejercicios/versus" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://gravityroom.app/en/exercises/versus" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://gravityroom.app/en/exercises/versus" />
+  </url>
+  <url>
     <loc>https://gravityroom.app/ejercicios/sentadilla</loc>
     <lastmod>2026-06-20</lastmod>
     <changefreq>monthly</changefreq>
