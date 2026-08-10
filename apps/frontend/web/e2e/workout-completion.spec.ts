@@ -3,6 +3,7 @@ import {
   guestWithProgram,
   dismissRpeIfPresent,
   expandDayControls,
+  ensureCompactView,
   expectSelectedDay,
   tierOutcomeButton,
 } from './helpers/seed';
@@ -29,6 +30,7 @@ async function completeDay1(page: import('@playwright/test').Page): Promise<void
 test.describe('Full day completion', () => {
   test.beforeEach(async ({ page }) => {
     await guestWithProgram(page, 'GZCLP');
+    await ensureCompactView(page);
   });
 
   test('marking all 3 tiers enables undo (results recorded)', async ({ page }) => {
@@ -57,6 +59,7 @@ test.describe('Full day completion', () => {
 test.describe('Undo after marking', () => {
   test.beforeEach(async ({ page }) => {
     await guestWithProgram(page, 'GZCLP');
+    await ensureCompactView(page);
   });
 
   test('undo button is disabled with no history', async ({ page }) => {

@@ -1,10 +1,17 @@
 import { test, expect } from '@playwright/test';
-import { seedProgram, navigateToTracker, tierOutcomeButton, tierUndoButton } from './helpers/seed';
+import {
+  seedProgram,
+  navigateToTracker,
+  ensureCompactView,
+  tierOutcomeButton,
+  tierUndoButton,
+} from './helpers/seed';
 
 test.describe('Workout recording', () => {
   test.beforeEach(async ({ page }) => {
     await seedProgram(page);
     await navigateToTracker(page);
+    await ensureCompactView(page);
   });
 
   test('pass/fail buttons visible for workout #1', async ({ page }) => {

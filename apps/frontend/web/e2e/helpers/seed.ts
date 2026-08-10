@@ -112,6 +112,22 @@ export async function expandDayControls(page: Page): Promise<void> {
 }
 
 /**
+ * Switch the tracker to compact (slot-first) view so tier pass/fail buttons are
+ * visible. No-op when already compact. Detailed (set-first) is the product default
+ * and hides ResultCell until a result is committed.
+ */
+export async function ensureCompactView(page: Page): Promise<void> {
+  await expandDayControls(page);
+  const compactBtn = page.getByRole('button', { name: 'Cambiar a vista compacta' });
+  if (await compactBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+    await compactBtn.click();
+  }
+  await expect(page.getByRole('button', { name: 'Cambiar a vista detallada' })).toBeVisible({
+    timeout: 5_000,
+  });
+}
+
+/**
  * Navigates to the GZCLP setup form from the dashboard catalog.
  * Requires authenticateOnly (no active program — user sees catalog, not active card).
  * Gate: waits for 'Pesos Iniciales (kg)' to confirm setup form is rendered.

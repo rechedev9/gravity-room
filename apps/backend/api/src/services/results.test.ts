@@ -103,6 +103,7 @@ let insertReturningResult: unknown[] = [];
 let deletedIds: string[] = [];
 let insertCalls = 0;
 let parentLockCalls = 0;
+let updateSets: Array<Record<string, unknown>> = [];
 let programDefinitionResult:
   | { readonly status: 'not_found' }
   | {
@@ -165,7 +166,8 @@ function createMockTx(): Record<string, unknown> {
     }),
     update: vi.fn(function update() {
       return {
-        set: vi.fn(function set() {
+        set: vi.fn(function set(values: Record<string, unknown>) {
+          updateSets.push(values);
           return {
             where: vi.fn(() => Promise.resolve()),
           };
@@ -246,6 +248,7 @@ beforeEach(() => {
   deletedIds = [];
   insertCalls = 0;
   parentLockCalls = 0;
+  updateSets = [];
   programDefinitionResult = { status: 'found', definition: TEST_DEFINITION };
   mockDb = createMockDb();
 });
@@ -786,5 +789,145 @@ describe('historical definition validation', () => {
     });
     expect(insertCalls).toBe(0);
     expect(deletedIds).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// syncCompletedAt (via recordResult / deleteResult)
+// ---------------------------------------------------------------------------
+
+const THREE_SLOT_DEFINITION: ProgramDefinition = {
+  ...TEST_DEFINITION,
+  days: [
+    {
+      name: 'Day 1',
+      slots: [
+        {
+          id: 't1',
+          exerciseId: 'squat',
+          tier: 't1',
+          stages: [{ sets: 3, reps: 5 }],
+          onSuccess: NO_CHANGE_RULE,
+          onMidStageFail: NO_CHANGE_RULE,
+          onFinalStageFail: NO_CHANGE_RULE,
+          startWeightKey: 'squat',
+        },
+        {
+          id: 't2',
+          exerciseId: 'bench',
+          tier: 't2',
+          stages: [{ sets: 3, reps: 8 }],
+          onSuccess: NO_CHANGE_RULE,
+          onMidStageFail: NO_CHANGE_RULE,
+          onFinalStageFail: NO_CHANGE_RULE,
+          startWeightKey: 'bench',
+        },
+        {
+          id: 't3',
+          exerciseId: 'row',
+          tier: 't3',
+          stages: [{ sets: 3, reps: 12 }],
+          onSuccess: NO_CHANGE_RULE,
+          onMidStageFail: NO_CHANGE_RULE,
+          onFinalStageFail: NO_CHANGE_RULE,
+          startWeightKey: 'row',
+        },
+      ],
+    },
+  ],
+  exercises: {
+    squat: { name: 'Squat' },
+    bench: { name: 'Bench' },
+    row: { name: 'Row' },
+  },
+};
+
+describe('syncCompletedAt', () => {
+  it('sets completedAt when the last slot of the day is recorded', async () => {
+    programDefinitionResult = { status: 'found', definition: THREE_SLOT_DEFINITION };
+    const row = makeResultRow({ slotId: 't3' });
+    // 1) ownership  2) existing check  3) syncCompletedAt → all 3 slots present
+    selectQueue = [
+      [{ templateId: 'test-program' }],
+      [],
+      [
+        makeResultRow({ id: 1, slotId: 't1', completedAt: null }),
+        makeResultRow({ id: 2, slotId: 't2', completedAt: null }),
+        makeResultRow({ id: 3, slotId: 't3', completedAt: null }),
+      ],
+    ];
+    insertReturningResult = [row];
+
+    await recordResult('user-1', 'inst-1', {
+      workoutIndex: 0,
+      slotId: 't3',
+      result: 'success',
+    });
+
+    const completedAtUpdates = updateSets.filter((s) => s['completedAt'] instanceof Date);
+    expect(completedAtUpdates).toHaveLength(1);
+  });
+
+  it('does not set completedAt when the day still has open slots', async () => {
+    programDefinitionResult = { status: 'found', definition: THREE_SLOT_DEFINITION };
+    const row = makeResultRow({ slotId: 't1' });
+    // Only 1 of 3 slots filled after this record
+    selectQueue = [
+      [{ templateId: 'test-program' }],
+      [],
+      [makeResultRow({ id: 1, slotId: 't1', completedAt: null })],
+    ];
+    insertReturningResult = [row];
+
+    await recordResult('user-1', 'inst-1', {
+      workoutIndex: 0,
+      slotId: 't1',
+      result: 'success',
+    });
+
+    expect(updateSets.some((s) => 'completedAt' in s)).toBe(false);
+  });
+
+  it('is idempotent when completedAt is already set on a full day', async () => {
+    programDefinitionResult = { status: 'found', definition: THREE_SLOT_DEFINITION };
+    const done = new Date('2026-01-01T12:00:00.000Z');
+    const row = makeResultRow({ slotId: 't2', result: 'fail' });
+    selectQueue = [
+      [{ templateId: 'test-program' }],
+      [makeResultRow({ slotId: 't2', result: 'success', completedAt: done })],
+      [
+        makeResultRow({ id: 1, slotId: 't1', completedAt: done }),
+        makeResultRow({ id: 2, slotId: 't2', completedAt: done }),
+        makeResultRow({ id: 3, slotId: 't3', completedAt: done }),
+      ],
+    ];
+    insertReturningResult = [row];
+
+    await recordResult('user-1', 'inst-1', {
+      workoutIndex: 0,
+      slotId: 't2',
+      result: 'fail',
+    });
+
+    expect(updateSets.some((s) => s['completedAt'] instanceof Date)).toBe(false);
+  });
+
+  it('clears completedAt when a slot is deleted from a previously complete day', async () => {
+    programDefinitionResult = { status: 'found', definition: THREE_SLOT_DEFINITION };
+    const done = new Date('2026-01-01T12:00:00.000Z');
+    // 1) ownership  2) delete returning  3) syncCompletedAt → 2 remaining rows still marked complete
+    selectQueue = [
+      [{ templateId: 'test-program' }],
+      [makeResultRow({ slotId: 't1', completedAt: done })],
+      [
+        makeResultRow({ id: 2, slotId: 't2', completedAt: done }),
+        makeResultRow({ id: 3, slotId: 't3', completedAt: done }),
+      ],
+    ];
+
+    await deleteResult('user-1', 'inst-1', 0, 't1');
+
+    const clears = updateSets.filter((s) => s['completedAt'] === null);
+    expect(clears).toHaveLength(1);
   });
 });

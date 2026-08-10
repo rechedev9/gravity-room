@@ -7,8 +7,10 @@ import { queryKeys } from '@/lib/query-keys';
 
 // vi.mock is hoisted above imports, so the mock fn the test asserts on must be
 // created via vi.hoisted to exist before the factory runs.
-const { mockRecordGenericResult } = vi.hoisted(() => ({
+const { mockRecordGenericResult, mockDeleteGenericResult, mockUndoLastResult } = vi.hoisted(() => ({
   mockRecordGenericResult: vi.fn(() => Promise.resolve()),
+  mockDeleteGenericResult: vi.fn(() => Promise.resolve()),
+  mockUndoLastResult: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock('@/lib/api-functions', () => ({
@@ -18,8 +20,8 @@ vi.mock('@/lib/api-functions', () => ({
   updateProgramMetadata: vi.fn(() => Promise.resolve()),
   completeProgram: vi.fn(() => Promise.resolve()),
   deleteProgram: vi.fn(() => Promise.resolve()),
-  deleteGenericResult: vi.fn(() => Promise.resolve()),
-  undoLastResult: vi.fn(() => Promise.resolve()),
+  deleteGenericResult: mockDeleteGenericResult,
+  undoLastResult: mockUndoLastResult,
 }));
 
 import { useProgramMutations } from './use-program-mutations';
@@ -129,5 +131,160 @@ describe('useProgramMutations', () => {
     expect(
       queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY)?.results['0']?.['squat-t1']
     ).toEqual({ result: 'success' });
+  });
+
+  it('optimistically stores setLogs when marking a result from sequential logging', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(DETAIL_KEY, DETAIL);
+
+    const { result } = renderProgramMutations(queryClient);
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+    });
+
+    const setLogs = [{ reps: 3 }, { reps: 3 }, { reps: 3 }, { reps: 3 }, { reps: 8 }];
+    await result.current.markResultMutation.mutateAsync({
+      index: 0,
+      slotId: 'd1-t1',
+      value: 'success',
+      setLogs,
+    });
+
+    expect(
+      queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY)?.results['0']?.['d1-t1']
+    ).toEqual({ result: 'success', setLogs });
+    expect(mockRecordGenericResult).toHaveBeenCalledWith(
+      'inst-1',
+      0,
+      'd1-t1',
+      'success',
+      undefined,
+      undefined,
+      setLogs
+    );
+  });
+
+  it('rolls back an optimistic mark when the API call fails', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(DETAIL_KEY, DETAIL);
+    mockRecordGenericResult.mockRejectedValueOnce(new Error('network error'));
+
+    const { result } = renderProgramMutations(queryClient);
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+    });
+
+    await expect(
+      result.current.markResultMutation.mutateAsync({
+        index: 0,
+        slotId: 'd1-t1',
+        value: 'fail',
+      })
+    ).rejects.toThrow();
+
+    expect(
+      queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY)?.results['0']?.['d1-t1']
+    ).toBeUndefined();
+  });
+
+  it('optimistically undoes the last result via the undo stack snapshot', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const withHistory: GenericProgramDetail = {
+      ...DETAIL,
+      results: {
+        '0': {
+          'd1-t1': { result: 'success', amrapReps: 10 },
+          'd1-t2': { result: 'fail' },
+        },
+      },
+      undoHistory: [
+        { i: 0, slotId: 'd1-t1', prev: undefined },
+        { i: 0, slotId: 'd1-t2', prev: undefined },
+      ],
+    };
+    queryClient.setQueryData(DETAIL_KEY, withHistory);
+
+    const { result } = renderProgramMutations(queryClient);
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+    });
+
+    await result.current.undoLastMutation.mutateAsync();
+
+    const detail = queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY);
+    expect(detail?.results['0']?.['d1-t2']).toBeUndefined();
+    expect(detail?.results['0']?.['d1-t1']).toEqual({ result: 'success', amrapReps: 10 });
+    expect(detail?.undoHistory).toEqual([{ i: 0, slotId: 'd1-t1', prev: undefined }]);
+    expect(mockUndoLastResult).toHaveBeenCalledWith('inst-1');
+  });
+
+  it('optimistically restores a previous snapshot when undoing an overwrite', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const withHistory: GenericProgramDetail = {
+      ...DETAIL,
+      results: {
+        '0': { 'd1-t1': { result: 'fail', setLogs: [{ reps: 2 }] } },
+      },
+      undoHistory: [
+        {
+          i: 0,
+          slotId: 'd1-t1',
+          prev: 'success',
+          prevAmrapReps: 12,
+          prevSetLogs: [{ reps: 3 }, { reps: 3 }, { reps: 3 }, { reps: 3 }, { reps: 12 }],
+        },
+      ],
+    };
+    queryClient.setQueryData(DETAIL_KEY, withHistory);
+
+    const { result } = renderProgramMutations(queryClient);
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+    });
+
+    await result.current.undoLastMutation.mutateAsync();
+
+    expect(
+      queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY)?.results['0']?.['d1-t1']
+    ).toEqual({
+      result: 'success',
+      amrapReps: 12,
+      setLogs: [{ reps: 3 }, { reps: 3 }, { reps: 3 }, { reps: 3 }, { reps: 12 }],
+    });
+  });
+
+  it('optimistically removes a specific slot result on badge undo', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    queryClient.setQueryData(DETAIL_KEY, {
+      ...DETAIL,
+      results: {
+        '0': {
+          'd1-t1': { result: 'success' },
+          'd1-t2': { result: 'fail' },
+        },
+      },
+    });
+
+    const { result } = renderProgramMutations(queryClient);
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+    });
+
+    await result.current.undoSpecificMutation.mutateAsync({ index: 0, slotId: 'd1-t1' });
+
+    const detail = queryClient.getQueryData<GenericProgramDetail>(DETAIL_KEY);
+    expect(detail?.results['0']?.['d1-t1']).toBeUndefined();
+    expect(detail?.results['0']?.['d1-t2']).toEqual({ result: 'fail' });
+    expect(mockDeleteGenericResult).toHaveBeenCalledWith('inst-1', 0, 'd1-t1');
   });
 });

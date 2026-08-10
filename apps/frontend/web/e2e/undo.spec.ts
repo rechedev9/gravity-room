@@ -1,10 +1,17 @@
 import { test, expect } from '@playwright/test';
-import { seedProgram, navigateToTracker, tierOutcomeButton, tierUndoButton } from './helpers/seed';
+import {
+  seedProgram,
+  navigateToTracker,
+  ensureCompactView,
+  tierOutcomeButton,
+  tierUndoButton,
+} from './helpers/seed';
 
 test.describe('Undo', () => {
   test.beforeEach(async ({ page }) => {
     await seedProgram(page);
     await navigateToTracker(page);
+    await ensureCompactView(page);
   });
 
   test('undo button disabled when no history', async ({ page }) => {

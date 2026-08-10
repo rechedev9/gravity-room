@@ -23,6 +23,20 @@ test.describe('Sequential set confirmation', () => {
     await expect(page.getByRole('spinbutton', { name: 'Reps serie 2' }).first()).toBeEnabled();
     await expect(page.getByRole('spinbutton', { name: 'Reps serie 3' }).first()).toBeDisabled();
   });
+
+  test('confirming all T1 sets auto-marks success', async ({ page }) => {
+    // T1 stage 1 is 5×3 AMRAP — confirm all 5 working sets at target reps
+    for (let i = 1; i <= 5; i++) {
+      await page
+        .getByRole('button', { name: `Confirmar serie ${i}` })
+        .first()
+        .click();
+    }
+
+    await expect(
+      page.getByRole('button', { name: /Deshacer .+ \(T1\) éxito/i }).first()
+    ).toBeVisible({ timeout: 5_000 });
+  });
 });
 
 /* ── Day Navigation ────────────────────────────── */
