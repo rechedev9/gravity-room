@@ -135,17 +135,15 @@ export async function verifyAccessToken(
     throw new ApiError(401, 'Token session has been revoked', 'TOKEN_REVOKED');
   }
 
-  // Session-aware tokens are tied to their refresh family. Tokens issued before
-  // this field was deployed remain valid only for their already-short JWT TTL;
-  // every newly issued token carries `sid` and is rejected immediately on logout.
+  // Session-aware tokens are tied to their refresh family. `sid` is required on
+  // every access token so logout/revocation takes effect immediately rather than
+  // waiting out the short JWT TTL.
   const sessionId = payload['sid'];
-  if (sessionId !== undefined) {
-    if (
-      typeof sessionId !== 'string' ||
-      !(await authService.isRefreshSessionActive(userId, sessionId))
-    ) {
-      throw new ApiError(401, 'Token session has been revoked', 'TOKEN_REVOKED');
-    }
+  if (
+    typeof sessionId !== 'string' ||
+    !(await authService.isRefreshSessionActive(userId, sessionId))
+  ) {
+    throw new ApiError(401, 'Token session has been revoked', 'TOKEN_REVOKED');
   }
 
   return { userId };

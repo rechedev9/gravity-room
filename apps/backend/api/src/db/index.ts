@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '@gzclp/database/schema';
 import { logger } from '../lib/logger';
+import { setServiceRlsContext } from './rls-setters';
 
 type DbInstance = ReturnType<typeof drizzle<typeof schema>>;
 
@@ -13,6 +14,7 @@ const MAX_CONNECTION_LIFETIME_SECONDS = 3600;
 
 let _client: postgres.Sql | undefined;
 let _db: DbInstance | undefined;
+let _sessionRlsReady: Promise<void> | undefined;
 
 const queryLogger = {
   logQuery(query: string, params: unknown[]): void {
@@ -34,7 +36,31 @@ export async function closeDb(): Promise<void> {
     await _client.end();
     _client = undefined;
     _db = undefined;
+    _sessionRlsReady = undefined;
   }
+}
+
+/**
+ * Ensures the pooled connection carries a session-level service RLS role so
+ * non-transactional queries (and work after a user-scoped transaction ends)
+ * are not denied by FORCE ROW LEVEL SECURITY. Transaction-local SET LOCAL in
+ * `setUserRlsContext` still overrides this for the duration of user work.
+ */
+export function ensureSessionServiceRole(): Promise<void> {
+  getDb();
+  return _sessionRlsReady ?? Promise.resolve();
+}
+
+function wrapWithDefaultServiceRole(db: DbInstance): DbInstance {
+  const originalTransaction = db.transaction.bind(db);
+  const wrappedTransaction: DbInstance['transaction'] = (fn, options) =>
+    originalTransaction(async (tx) => {
+      await ensureSessionServiceRole();
+      await setServiceRlsContext(tx);
+      return fn(tx);
+    }, options);
+  db.transaction = wrappedTransaction;
+  return db;
 }
 
 export function getDb(): DbInstance {
@@ -64,7 +90,17 @@ export function getDb(): DbInstance {
       // Recycle connections after 1 hour
       max_lifetime: MAX_CONNECTION_LIFETIME_SECONDS,
     });
-    _db = drizzle(_client, { schema, logger: queryLogger });
+    _sessionRlsReady = _client`
+      select set_config('app.service_role', 'on', false)
+    `.then(
+      () => undefined,
+      (err: unknown) => {
+        // Local/unit tests may point at a stub URL; RLS setters inside real
+        // transactions still apply when a live database is available.
+        logger.warn({ err }, 'Failed to set session RLS service role');
+      }
+    );
+    _db = wrapWithDefaultServiceRole(drizzle(_client, { schema, logger: queryLogger }));
   }
   return _db;
 }

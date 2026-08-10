@@ -7,6 +7,7 @@ import { hash as argon2Hash, verify as argon2Verify } from '@node-rs/argon2';
 import bcrypt from 'bcryptjs';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { getDb } from '../db';
+import { withUserRole } from '../db/rls-context';
 import {
   users,
   refreshTokens,
@@ -206,8 +207,14 @@ async function upsertIdentity(input: IdentityInput): Promise<FindOrCreateResult>
       return { user, isNewUser: false };
     }
 
-    // 2. No identity yet — link to an existing account by email when safe.
-    const [existing] = await tx.select().from(users).where(eq(users.email, email)).limit(1);
+    // 2. No identity yet — link to an existing *active* account by email when safe.
+    // Soft-deleted rows no longer hold the email unique constraint, so a new
+    // signup may claim the address; ignore deleted matches here.
+    const [existing] = await tx
+      .select()
+      .from(users)
+      .where(and(eq(users.email, email), isNull(users.deletedAt)))
+      .limit(1);
 
     if (existing) {
       const decision = decideIdentityLink(input.emailVerified, {
@@ -303,6 +310,9 @@ export async function findOrCreateGoogleUser(
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+/** Minimum password length accepted by signup/reset (NIST SP 800-63B floor + margin). */
+export const MIN_PASSWORD_LENGTH = 12;
+
 /**
  * Hashes a plaintext password with argon2id via @node-rs/argon2.
  *
@@ -313,6 +323,11 @@ const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
  */
 export async function hashPassword(password: string): Promise<string> {
   return argon2Hash(password);
+}
+
+/** True when the stored hash should be upgraded to the current argon2id parameters. */
+export function passwordHashNeedsUpgrade(hash: string): boolean {
+  return hash.startsWith('$2');
 }
 
 /**
@@ -346,6 +361,9 @@ function getDummyHash(): Promise<string> {
  * Verifies an email+password login. Returns the user on success, null on bad
  * credentials. Always runs one hash verification (against a dummy hash when the
  * account or its password is missing) to equalize timing and avoid enumeration.
+ *
+ * When the stored hash is legacy bcrypt, transparently re-hashes with argon2id
+ * so the next login no longer depends on the bcrypt path.
  */
 export async function authenticatePassword(
   email: string,
@@ -355,6 +373,16 @@ export async function authenticatePassword(
   const hash = user?.passwordHash ?? (await getDummyHash());
   const ok = await verifyPassword(password, hash);
   if (!user || !user.passwordHash || !ok) return null;
+
+  if (passwordHashNeedsUpgrade(user.passwordHash)) {
+    const upgraded = await hashPassword(password);
+    await getDb()
+      .update(users)
+      .set({ passwordHash: upgraded, updatedAt: new Date() })
+      .where(and(eq(users.id, user.id), isNull(users.deletedAt)));
+    return { ...user, passwordHash: upgraded };
+  }
+
   return user;
 }
 
@@ -629,25 +657,26 @@ export async function updateUserProfile(
   userId: string,
   fields: { name?: string; avatarUrl?: string | null }
 ): Promise<UserRow> {
-  const db = getDb();
-  // Value overridden by set_updated_at trigger; kept to ensure valid UPDATE
-  const updates: Record<string, unknown> = { updatedAt: new Date() };
-  if (fields.name !== undefined) updates['name'] = fields.name;
-  if (fields.avatarUrl !== undefined) updates['avatarUrl'] = fields.avatarUrl;
+  return withUserRole(userId, async (tx) => {
+    // Value overridden by set_updated_at trigger; kept to ensure valid UPDATE
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+    if (fields.name !== undefined) updates['name'] = fields.name;
+    if (fields.avatarUrl !== undefined) updates['avatarUrl'] = fields.avatarUrl;
 
-  const [updated] = await db
-    .update(users)
-    .set(updates)
-    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
-    .returning();
+    const [updated] = await tx
+      .update(users)
+      .set(updates)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .returning();
 
-  if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
-  return updated;
+    if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+    return updated;
+  });
 }
 
 /** Soft-delete a user by setting deleted_at and revoking all tokens. */
 export async function softDeleteUser(userId: string): Promise<void> {
-  await getDb().transaction(async (tx) => {
+  await withUserRole(userId, async (tx) => {
     const [updated] = await tx
       .update(users)
       .set({

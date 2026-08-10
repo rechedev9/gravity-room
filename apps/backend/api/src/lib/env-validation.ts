@@ -64,7 +64,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: true,
     description:
-      'Bearer secret guarding manual /api/internal/* operations. Must contain at least 32 characters of cryptographically random material and differ from CRON_SECRET.',
+      'Bearer secret guarding operator-only /api/internal/* routes (readiness, standalone cleanup/purge) and, with CRON_SECRET, the scheduled cron routes. Must contain at least 32 characters of cryptographically random material and differ from CRON_SECRET.',
     example: '<random-32-byte-hex>',
   },
   {
@@ -72,7 +72,7 @@ export const REQUIRED_ENV: ReadonlyArray<EnvVarSpec> = [
     service: 'api',
     requiredInProd: true,
     description:
-      'Required in production. Vercel Cron injects it as Authorization Bearer credentials. Must contain at least 32 characters of cryptographically random material and differ from INTERNAL_SECRET.',
+      'Required in production. Vercel Cron injects it as Authorization Bearer credentials on scheduled routes only (/api/internal/maintenance, /api/internal/analytics/compute). Must not unlock operator-only internal routes. At least 32 characters of cryptographically random material and distinct from INTERNAL_SECRET.',
     example: '<vercel-cron-bearer-secret>',
   },
   {

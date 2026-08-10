@@ -34,6 +34,7 @@ import {
   setUserPassword,
   resetPasswordWithToken,
   REFRESH_TOKEN_DAYS,
+  MIN_PASSWORD_LENGTH,
 } from '../services/auth';
 import {
   getMobileGoogleClientIds,
@@ -82,9 +83,12 @@ function classifyDevice(userAgent: string | undefined): DeviceType {
   return 'Desktop';
 }
 
-const REFRESH_COOKIE_NAME = 'refresh_token';
 const IS_PRODUCTION = process.env['NODE_ENV'] === 'production';
+// `__Secure-` requires the Secure attribute (set in production) and blocks
+// non-HTTPS clients from accepting a forged cookie over cleartext.
+const REFRESH_COOKIE_NAME = IS_PRODUCTION ? '__Secure-refresh_token' : 'refresh_token';
 const MAX_AUTH_TOKEN_CHARS = 256;
+const passwordInputSchema = t.String({ minLength: MIN_PASSWORD_LENGTH, maxLength: 200 });
 const MAX_EMAIL_CHARS = 254;
 const MAX_OAUTH_CODE_CHARS = 4096;
 const MAX_OAUTH_ERROR_CHARS = 512;
@@ -352,21 +356,15 @@ function userResponse(user: UserProfile & { avatarUrl?: string | null }): UserPr
 /** Creates a version-bound refresh family, then signs its session-aware JWT. */
 async function issueSessionTokens(
   jwt: {
-    sign: (payload: {
-      sub: string;
-      email?: string;
-      av: number;
-      sid: string;
-      exp: string;
-    }) => Promise<string>;
+    sign: (payload: { sub: string; av: number; sid: string; exp: string }) => Promise<string>;
   },
-  user: { id: string; email?: string; authVersion: number }
+  user: { id: string; authVersion: number }
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const session = await createAuthSession(user.id, user.authVersion);
   try {
+    // Access tokens carry only authorization claims — never email/PII.
     const accessToken = await jwt.sign({
       sub: user.id,
-      ...(user.email ? { email: user.email } : {}),
       av: user.authVersion,
       sid: session.sessionId,
       exp: ACCESS_TOKEN_EXPIRY,
@@ -380,16 +378,10 @@ async function issueSessionTokens(
 
 async function issueTokens(
   jwt: {
-    sign: (payload: {
-      sub: string;
-      email?: string;
-      av: number;
-      sid: string;
-      exp: string;
-    }) => Promise<string>;
+    sign: (payload: { sub: string; av: number; sid: string; exp: string }) => Promise<string>;
   },
   cookie: Record<string, { set: (opts: Record<string, unknown>) => void }>,
-  user: { id: string; email?: string; authVersion: number }
+  user: { id: string; authVersion: number }
 ): Promise<{ accessToken: string }> {
   const tokens = await issueSessionTokens(jwt, user);
   cookie[REFRESH_COOKIE_NAME].set({ value: tokens.refreshToken, ...REFRESH_COOKIE_OPTIONS });
@@ -398,28 +390,16 @@ async function issueTokens(
 
 async function issueMobileTokens(
   jwt: {
-    sign: (payload: {
-      sub: string;
-      email?: string;
-      av: number;
-      sid: string;
-      exp: string;
-    }) => Promise<string>;
+    sign: (payload: { sub: string; av: number; sid: string; exp: string }) => Promise<string>;
   },
-  user: { id: string; email?: string; authVersion: number }
+  user: { id: string; authVersion: number }
 ): Promise<{ accessToken: string; refreshToken: string }> {
   return issueSessionTokens(jwt, user);
 }
 
 async function refreshAuthToken(
   jwt: {
-    sign: (payload: {
-      sub: string;
-      email?: string;
-      av: number;
-      sid: string;
-      exp: string;
-    }) => Promise<string>;
+    sign: (payload: { sub: string; av: number; sid: string; exp: string }) => Promise<string>;
   },
   reqLogger: {
     warn: (context: Record<string, unknown>, message: string) => void;
@@ -544,7 +524,7 @@ async function processGoogleSignIn(
   if (isNewUser) {
     const deviceType = classifyDevice(userAgent ?? undefined);
     const timestamp = new Date().toISOString();
-    const text = `New user: ${user.email} | ${deviceType} | ${timestamp}`;
+    const text = `New user: ${user.id} | ${deviceType} | ${timestamp}`;
     keepAlive(sendTelegramMessage(text));
   }
 
@@ -770,10 +750,9 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
 
         keepAlive(sendVerificationEmail(user.email, verificationToken, request));
         const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
+        // Never put the raw email in Telegram — user id is enough for ops triage.
         keepAlive(
-          sendTelegramMessage(
-            `New user: ${user.email} | ${deviceType} | ${new Date().toISOString()}`
-          )
+          sendTelegramMessage(`New user: ${user.id} | ${deviceType} | ${new Date().toISOString()}`)
         );
         reqLogger.info({ event: 'auth.signup', userId: user.id }, 'email signup');
       } catch (error: unknown) {
@@ -790,7 +769,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     {
       body: t.Object({
         email: emailInputSchema,
-        password: t.String({ minLength: 8, maxLength: 200 }),
+        password: passwordInputSchema,
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
       }),
       detail: {
@@ -816,11 +795,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
       await applyCredentialAbuseLimits(ip, body.email, '/auth/login', 10, 5);
 
       const user = await authenticatePassword(body.email, body.password);
-      if (!user) {
+      // Unverified accounts use the same 401 as bad credentials so a correct
+      // password cannot be distinguished from a wrong one before verification.
+      if (!user || !user.emailVerified) {
         throw new ApiError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
-      }
-      if (!user.emailVerified) {
-        throw new ApiError(403, 'Email not verified', 'EMAIL_NOT_VERIFIED');
       }
 
       const { accessToken } = await issueTokens(jwt, cookie, user);
@@ -837,11 +815,10 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         tags: ['Auth'],
         summary: 'Log in with email and password',
         description:
-          'Verifies credentials and issues tokens. Returns a generic 401 for bad credentials (no enumeration) and 403 when the email is unverified.',
+          'Verifies credentials and issues tokens. Returns a generic 401 for bad credentials and for unverified accounts (no enumeration).',
         responses: {
           200: { description: 'Authenticated; access token in body, refresh token in cookie' },
           401: { description: 'Invalid credentials' },
-          403: { description: 'Email not verified' },
           429: { description: 'Rate limited' },
         },
       },
@@ -1002,7 +979,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     {
       body: t.Object({
         token: t.String({ minLength: 1, maxLength: MAX_AUTH_TOKEN_CHARS }),
-        password: t.String({ minLength: 8, maxLength: 200 }),
+        password: passwordInputSchema,
       }),
       detail: {
         tags: ['Auth'],
@@ -1101,7 +1078,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
           keepAlive(
             sendTelegramMessage(
-              `New user: ${user.email} | apple/${deviceType} | ${new Date().toISOString()}`
+              `New user: ${user.id} | apple/${deviceType} | ${new Date().toISOString()}`
             )
           );
         }
@@ -1221,7 +1198,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
           keepAlive(
             sendTelegramMessage(
-              `New user: ${user.email} | github/${deviceType} | ${new Date().toISOString()}`
+              `New user: ${user.id} | github/${deviceType} | ${new Date().toISOString()}`
             )
           );
         }
@@ -1352,7 +1329,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
           const deviceType = classifyDevice(request.headers.get('user-agent') ?? undefined);
           keepAlive(
             sendTelegramMessage(
-              `New user: ${user.email} | microsoft/${deviceType} | ${new Date().toISOString()}`
+              `New user: ${user.id} | microsoft/${deviceType} | ${new Date().toISOString()}`
             )
           );
         }
@@ -1448,7 +1425,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             {
               body: t.Object({
                 email: emailInputSchema,
-                password: t.String({ minLength: 8, maxLength: 200 }),
+                password: passwordInputSchema,
                 name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
               }),
               detail: {
@@ -1544,7 +1521,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     async ({ cookie, reqLogger, ip }) => {
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
       try {
-        await rateLimit(ip, '/auth/signout');
+        await rateLimit(ip, '/auth/signout', { failClosed: true });
         await signOutWithRefreshToken(refreshCookie?.value);
 
         reqLogger.info({ event: 'auth.signout' }, 'user signed out');
@@ -1575,7 +1552,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
   .post(
     '/mobile/signout',
     async ({ body, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/mobile/signout');
+      await rateLimit(ip, '/auth/mobile/signout', { failClosed: true });
 
       await signOutWithRefreshToken(body.refreshToken);
 

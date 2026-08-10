@@ -16,7 +16,8 @@ import { internalRoutes } from './routes/internal';
 import { logger } from './lib/logger';
 import { formatValidationError, validateEnv } from './lib/env-validation';
 
-const MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024;
+/** Keep in lockstep with `MAX_GATEWAY_BODY_BYTES` in lib/node-gateway.ts. */
+const MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024;
 
 async function bufferUndeclaredRequestBodyWithinLimit(
   request: Request

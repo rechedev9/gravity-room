@@ -323,6 +323,13 @@
       "when": 1785654476158,
       "tag": "0045_overrated_leech",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1786300000000,
+      "tag": "0046_security_hardening",
+      "breakpoints": true
     }
   ]
 }

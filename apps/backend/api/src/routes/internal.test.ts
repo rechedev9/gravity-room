@@ -276,13 +276,22 @@ describe('internal routes — Vercel Cron (GET + CRON_SECRET)', () => {
   it('authenticates a GET cron request via Authorization: Bearer <CRON_SECRET>', async () => {
     process.env['CRON_SECRET'] = CRON_SECRET;
     mockCleanupExpiredTokens.mockImplementation(() => Promise.resolve(4));
-    const res = await get('/internal/cleanup-tokens', {
+    const res = await get('/internal/maintenance', {
       Authorization: `Bearer ${CRON_SECRET}`,
     });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { deleted: number };
-    expect(body.deleted).toBe(4);
+    const body = (await res.json()) as { tokens: { deleted: number } };
+    expect(body.tokens.deleted).toBe(4);
     expect(mockCleanupExpiredTokens).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects CRON_SECRET on operator-only routes', async () => {
+    process.env['CRON_SECRET'] = CRON_SECRET;
+    const res = await get('/internal/cleanup-tokens', {
+      Authorization: `Bearer ${CRON_SECRET}`,
+    });
+    expect(res.status).toBe(401);
+    expect(mockCleanupExpiredTokens).not.toHaveBeenCalled();
   });
 
   it('still accepts the manual INTERNAL_SECRET on a GET request when CRON_SECRET is also set', async () => {
@@ -302,11 +311,21 @@ describe('internal routes — Vercel Cron (GET + CRON_SECRET)', () => {
   it('authenticates a GET cron request when ONLY CRON_SECRET is configured', async () => {
     delete process.env['INTERNAL_SECRET'];
     process.env['CRON_SECRET'] = CRON_SECRET;
-    const res = await get('/internal/cleanup-tokens', {
+    const res = await get('/internal/maintenance', {
       Authorization: `Bearer ${CRON_SECRET}`,
     });
     expect(res.status).toBe(200);
     expect(mockCleanupExpiredTokens).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects operator-only routes when only CRON_SECRET is configured', async () => {
+    delete process.env['INTERNAL_SECRET'];
+    process.env['CRON_SECRET'] = CRON_SECRET;
+    const res = await get('/internal/readiness', {
+      Authorization: `Bearer ${CRON_SECRET}`,
+    });
+    expect(res.status).toBe(401);
+    expect(mockCheckReadiness).not.toHaveBeenCalled();
   });
 });
 

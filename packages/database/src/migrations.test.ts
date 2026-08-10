@@ -148,4 +148,14 @@ describe('migration metadata', () => {
     expect(migration).not.toContain('jsonb_array_elements');
     expect(migration.match(/NOT VALID;/g)).toHaveLength(4);
   });
+
+  it('enables FORCE RLS and active-only email uniqueness in migration 0046', async () => {
+    const migration = await readFile(join(MIGRATIONS_DIR, '0046_security_hardening.sql'), 'utf8');
+
+    expect(migration).toContain('DROP CONSTRAINT IF EXISTS "users_email_unique"');
+    expect(migration).toContain('users_email_active_uq');
+    expect(migration).toContain('FORCE ROW LEVEL SECURITY');
+    expect(migration).toContain('app_is_service');
+    expect(migration).toContain('app_current_user_id');
+  });
 });

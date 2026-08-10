@@ -42,7 +42,15 @@ const mockSelect = vi.fn(() => ({ from: mockFrom }));
 // vitest isolates the module registry per test file, so this `../db` mock is
 // scoped to this file automatically — no manual capture/restore is needed.
 vi.mock('../db', () => ({
-  getDb: () => ({ select: mockSelect }),
+  getDb: () => ({
+    transaction: async (
+      fn: (tx: { select: typeof mockSelect; execute: () => Promise<void> }) => Promise<unknown>
+    ) =>
+      fn({
+        select: mockSelect,
+        execute: vi.fn(() => Promise.resolve()),
+      }),
+  }),
 }));
 
 const { getInsights } = await import('./insights');

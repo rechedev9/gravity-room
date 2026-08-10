@@ -3,15 +3,12 @@
  *
  * These power Vercel Cron jobs and are NOT behind the normal user JWT auth.
  * Every route is guarded by a shared secret presented as `Authorization: Bearer
- * <secret>` or `x-internal-secret: <secret>`. Two secrets are accepted:
- *   - `INTERNAL_SECRET` — used by operators invoking these routes manually.
- *   - `CRON_SECRET`     — injected automatically by Vercel Cron. Cron jobs cannot
- *     set arbitrary request headers, but when a `CRON_SECRET` env var is present
- *     Vercel sends `Authorization: Bearer <CRON_SECRET>` on every cron invocation.
- *     Accepting it here lets the scheduled requests authenticate without weakening
- *     or replacing the manual `INTERNAL_SECRET` path.
- * The guard fails closed: if neither secret is configured every request is
- * rejected with 401, so an un-provisioned deploy never exposes these endpoints.
+ * <secret>` or `x-internal-secret: <secret>`. Secrets are scoped:
+ *   - `INTERNAL_SECRET` — operators (all internal routes) and manual cron invokes.
+ *   - `CRON_SECRET`     — only the Vercel-scheduled routes (`/maintenance`,
+ *     `/analytics/compute`). Injected as `Authorization: Bearer <CRON_SECRET>`.
+ *     A leaked cron credential must not unlock readiness/purge standalone ops.
+ * The guard fails closed: missing required secrets reject with 401.
  *
  * Maintenance operations answer BOTH GET and POST. Vercel Cron always issues a
  * GET request, while operators may POST manually. The deep readiness probe is
@@ -73,32 +70,63 @@ function extractPresentedSecret(headers: Headers): string | undefined {
 }
 
 /**
+ * Which secrets may unlock a given internal route.
+ *
+ * - `internal` — operator-only (readiness probe, standalone cleanup/purge).
+ * - `cron`     — Vercel Cron injects CRON_SECRET; also accepted on the two
+ *                scheduled routes so ops can still invoke them manually with
+ *                INTERNAL_SECRET.
+ *
+ * CRON_SECRET must not unlock operator-only routes: a leaked cron credential
+ * would otherwise grant purge/readiness beyond the scheduled surface.
+ */
+type InternalSecretScope = 'internal' | 'cron';
+
+const CRON_SCOPED_PATHS = new Set(['/analytics/compute', '/maintenance']);
+
+function secretScopeForPath(pathname: string): InternalSecretScope {
+  // pathname is the route path under the /internal prefix (e.g. "/maintenance").
+  for (const suffix of CRON_SCOPED_PATHS) {
+    if (pathname === suffix || pathname.endsWith(suffix)) return 'cron';
+  }
+  return 'internal';
+}
+
+/**
  * Throws 401 unless a correctly-configured secret is presented. Reads the env at
  * call time (not import time) so deploys and tests pick up the current value.
  *
- * Accepts a match against either `INTERNAL_SECRET` (manual ops) or `CRON_SECRET`
- * (auto-injected by Vercel Cron as `Authorization: Bearer <CRON_SECRET>`). Fails
- * closed when neither secret is configured.
+ * Scope:
+ * - cron routes accept INTERNAL_SECRET or CRON_SECRET
+ * - operator-only routes accept INTERNAL_SECRET only
+ * Fails closed when the required secret(s) are unset.
  */
-function assertInternalSecret(headers: Headers): void {
+function assertInternalSecret(headers: Headers, scope: InternalSecretScope): void {
   // An empty or whitespace-only env value counts as NOT configured: it would
   // otherwise be a trivially-guessable secret, so fold it into the fail-closed
   // branch.
   const internalSecret = normalizeSecret(process.env['INTERNAL_SECRET']);
   const cronSecret = normalizeSecret(process.env['CRON_SECRET']);
-  if (!internalSecret && !cronSecret) {
-    logger.error(
-      'internal route rejected: neither INTERNAL_SECRET nor CRON_SECRET is configured (fail closed)'
-    );
+
+  if (scope === 'cron') {
+    if (!internalSecret && !cronSecret) {
+      logger.error(
+        'internal route rejected: neither INTERNAL_SECRET nor CRON_SECRET is configured (fail closed)'
+      );
+      throw new ApiError(401, 'Unauthorized', 'UNAUTHORIZED');
+    }
+  } else if (!internalSecret) {
+    logger.error('internal route rejected: INTERNAL_SECRET is not configured (fail closed)');
     throw new ApiError(401, 'Unauthorized', 'UNAUTHORIZED');
   }
+
   const presented = extractPresentedSecret(headers);
   // Reject an empty presented secret before the constant-time compare.
   const matches =
     presented !== undefined &&
     presented.length > 0 &&
     ((internalSecret !== undefined && safeEqual(presented, internalSecret)) ||
-      (cronSecret !== undefined && safeEqual(presented, cronSecret)));
+      (scope === 'cron' && cronSecret !== undefined && safeEqual(presented, cronSecret)));
   if (!matches) {
     throw new ApiError(401, 'Unauthorized', 'UNAUTHORIZED');
   }
@@ -186,7 +214,10 @@ export const internalRoutes = new Elysia({ prefix: '/internal' })
     // are bounded. Internal operations fail closed when the distributed limiter
     // is unavailable in production.
     await rateLimit(ip, 'INTERNAL /api/internal/*', INTERNAL_RATE_LIMIT);
-    assertInternalSecret(request.headers);
+    const pathname = new URL(request.url, 'http://localhost').pathname;
+    // Strip the mount prefix if present (plugin prefix is /internal).
+    const scopedPath = pathname.replace(/^\/internal/, '') || pathname;
+    assertInternalSecret(request.headers, secretScopeForPath(scopedPath));
   })
   // Vercel Cron invokes these with GET; operators may also POST manually.
   .get('/readiness', readinessHandler)

@@ -98,6 +98,7 @@ vi.mock('../services/auth', () => ({
   // would break internal.ts's static named import at link time.
   cleanupExpiredTokens: vi.fn(() => Promise.resolve(0)),
   REFRESH_TOKEN_DAYS: 7,
+  MIN_PASSWORD_LENGTH: 12,
 }));
 
 vi.mock('../lib/email', () => ({
