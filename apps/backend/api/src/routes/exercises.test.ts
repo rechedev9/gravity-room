@@ -51,6 +51,7 @@ vi.mock('../middleware/rate-limit', () => ({
 
 vi.mock('../services/auth', () => ({
   findUserById: mockFindUserById,
+  isRefreshSessionActive: vi.fn(() => Promise.resolve(true)),
 }));
 
 interface PaginatedResult {
@@ -227,6 +228,7 @@ async function makeValidJwt(userId: string): Promise<string> {
       iss: 'gravity-room-api',
       aud: 'gravity-room-clients',
       av: 0,
+      sid: '00000000-0000-4000-8000-000000000001',
       exp: Math.floor(Date.now() / 1000) + 3600,
     })
   ).toString('base64url');
@@ -566,6 +568,7 @@ const downgradeClaims = {
   iss: 'gravity-room-api',
   aud: 'gravity-room-clients',
   av: 0,
+  sid: '00000000-0000-4000-8000-000000000001',
   exp: Math.floor(Date.now() / 1000) + 3600,
 };
 

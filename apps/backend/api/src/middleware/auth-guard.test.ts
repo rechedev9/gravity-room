@@ -57,7 +57,13 @@ describe('resolveUserId', () => {
 
   it('returns the subject for a valid token belonging to an active user', async () => {
     const result = await resolveUserId({
-      jwt: jwtFor({ sub: 'user-123', iss: JWT_ISSUER, aud: JWT_AUDIENCE, av: 0 }),
+      jwt: jwtFor({
+        sub: 'user-123',
+        iss: JWT_ISSUER,
+        aud: JWT_AUDIENCE,
+        av: 0,
+        sid: '00000000-0000-4000-8000-000000000099',
+      }),
       headers: { authorization: 'Bearer token' },
     });
 
@@ -67,7 +73,13 @@ describe('resolveUserId', () => {
 
   it('accepts the case-insensitive Bearer auth scheme defined by HTTP', async () => {
     const result = await resolveUserId({
-      jwt: jwtFor({ sub: 'user-123', iss: JWT_ISSUER, aud: JWT_AUDIENCE, av: 0 }),
+      jwt: jwtFor({
+        sub: 'user-123',
+        iss: JWT_ISSUER,
+        aud: JWT_AUDIENCE,
+        av: 0,
+        sid: '00000000-0000-4000-8000-000000000099',
+      }),
       headers: { authorization: 'bearer token' },
     });
 
@@ -80,7 +92,13 @@ describe('resolveUserId', () => {
     let thrown: unknown;
     try {
       await resolveUserId({
-        jwt: jwtFor({ sub: 'user-123', iss: JWT_ISSUER, aud: JWT_AUDIENCE, av: 0 }),
+        jwt: jwtFor({
+          sub: 'user-123',
+          iss: JWT_ISSUER,
+          aud: JWT_AUDIENCE,
+          av: 0,
+          sid: '00000000-0000-4000-8000-000000000099',
+        }),
         headers: { authorization: 'Bearer token' },
       });
     } catch (err) {
@@ -98,7 +116,13 @@ describe('resolveUserId', () => {
     let thrown: unknown;
     try {
       await resolveUserId({
-        jwt: jwtFor({ sub: 'user-123', iss: JWT_ISSUER, aud: JWT_AUDIENCE, av: 0 }),
+        jwt: jwtFor({
+          sub: 'user-123',
+          iss: JWT_ISSUER,
+          aud: JWT_AUDIENCE,
+          av: 0,
+          sid: '00000000-0000-4000-8000-000000000099',
+        }),
         headers: { authorization: 'Bearer old-token' },
       });
     } catch (err) {
@@ -110,11 +134,11 @@ describe('resolveUserId', () => {
     expect((thrown as ApiError).code).toBe('TOKEN_REVOKED');
   });
 
-  it('rejects legacy access tokens without a session version', async () => {
+  it('rejects access tokens without a session id', async () => {
     let thrown: unknown;
     try {
       await resolveUserId({
-        jwt: jwtFor({ sub: 'user-123', iss: JWT_ISSUER, aud: JWT_AUDIENCE }),
+        jwt: jwtFor({ sub: 'user-123', iss: JWT_ISSUER, aud: JWT_AUDIENCE, av: 0 }),
         headers: { authorization: 'Bearer legacy-token' },
       });
     } catch (err) {
@@ -140,7 +164,13 @@ describe('extractBearerToken', () => {
 });
 
 describe('verifyAccessToken — shared trust pipeline', () => {
-  const validPayload = { sub: 'user-123', iss: JWT_ISSUER, aud: JWT_AUDIENCE, av: 0 };
+  const validPayload = {
+    sub: 'user-123',
+    iss: JWT_ISSUER,
+    aud: JWT_AUDIENCE,
+    av: 0,
+    sid: '00000000-0000-4000-8000-000000000099',
+  };
 
   /**
    * A verify() spy that resolves to `payload`. The impl ignores its arguments, but

@@ -492,6 +492,7 @@ async function makeValidJwt(userId: string): Promise<string> {
       iss: 'gravity-room-api',
       aud: 'gravity-room-clients',
       av: 0,
+      sid: '00000000-0000-4000-8000-000000000001',
       exp: Math.floor(Date.now() / 1000) + 3600,
     })
   ).toString('base64url');
@@ -1216,6 +1217,7 @@ async function makeExpiredJwt(userId: string): Promise<string> {
       iss: 'gravity-room-api',
       aud: 'gravity-room-clients',
       av: 0,
+      sid: '00000000-0000-4000-8000-000000000001',
       exp: Math.floor(Date.now() / 1000) - 3600,
     })
   ).toString('base64url');
@@ -1485,7 +1487,7 @@ describe('POST /auth/google — notification message format (REQ-AUTH-005)', () 
     mockSendTelegramMessage.mockClear();
   });
 
-  it('passes email, deviceType, and timestamp in the notification message for a mobile UA', async () => {
+  it('passes user id, deviceType, and timestamp in the notification message for a mobile UA', async () => {
     // Arrange
     const mobileUserAgent =
       'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15';
@@ -1500,7 +1502,8 @@ describe('POST /auth/google — notification message format (REQ-AUTH-005)', () 
     expect(mockSendTelegramMessage).toHaveBeenCalledTimes(1);
     const [text] = mockSendTelegramMessage.mock.calls[0] as unknown as [string];
     expect(text).toContain('New user: ');
-    expect(text).toContain(TEST_USER.email);
+    expect(text).toContain(TEST_USER.id);
+    expect(text).not.toContain(TEST_USER.email);
     expect(text).toContain('Mobile');
   });
 
@@ -1565,7 +1568,7 @@ describe('POST /auth/signup', () => {
   });
 
   it('creates an account and returns 201 without tokens', async () => {
-    const res = await post('/auth/signup', { email: 'new@example.com', password: 'password123' });
+    const res = await post('/auth/signup', { email: 'new@example.com', password: 'password1234' });
     const body = (await res.json()) as { message: string; accessToken?: string };
     expect(res.status).toBe(201);
     expect(body.message).toBe('If eligible, check your email to continue registration.');
@@ -1576,7 +1579,7 @@ describe('POST /auth/signup', () => {
   it('trims a provided display name before persisting it', async () => {
     const res = await post('/auth/signup', {
       email: 'new@example.com',
-      password: 'password123',
+      password: 'password1234',
       name: '  Ada Lovelace  ',
     });
 
@@ -1589,7 +1592,7 @@ describe('POST /auth/signup', () => {
   it('rejects a whitespace-only display name', async () => {
     const res = await post('/auth/signup', {
       email: 'new@example.com',
-      password: 'password123',
+      password: 'password1234',
       name: '   ',
     });
     const body = (await res.json()) as { code: string };
@@ -1609,7 +1612,7 @@ describe('POST /auth/signup', () => {
   it('rejects oversized email addresses before creating a password user', async () => {
     const res = await post('/auth/signup', {
       email: OVERSIZED_EMAIL,
-      password: 'password123',
+      password: 'password1234',
     });
 
     expect(res.status).toBe(400);
@@ -1622,7 +1625,7 @@ describe('POST /auth/signup', () => {
     );
     const res = await post('/auth/signup', {
       email: 'taken@example.com',
-      password: 'password123',
+      password: 'password1234',
     });
     const body = (await res.json()) as { message: string };
     expect(res.status).toBe(201);
@@ -1638,7 +1641,7 @@ describe('POST /auth/signup', () => {
     try {
       const res = await post('/auth/signup', {
         email: 'new@example.com',
-        password: 'password123',
+        password: 'password1234',
       });
       const body = (await res.json()) as { code: string };
       expect(res.status).toBe(503);
@@ -1671,7 +1674,7 @@ describe('POST /auth/login', () => {
           Origin: 'https://attacker.example',
           'Sec-Fetch-Site': 'cross-site',
         },
-        body: 'email=attacker%40example.com&password=password123',
+        body: 'email=attacker%40example.com&password=password1234',
       })
     );
     const body = (await res.json()) as { code: string };
@@ -1684,7 +1687,7 @@ describe('POST /auth/login', () => {
   it('rejects cross-site JSON login while allowing native clients with no browser metadata', async () => {
     const rejected = await post(
       '/auth/login',
-      { email: 'a@b.com', password: 'password123' },
+      { email: 'a@b.com', password: 'password1234' },
       { Origin: 'https://attacker.example', 'Sec-Fetch-Site': 'cross-site' }
     );
     expect(rejected.status).toBe(403);
@@ -1714,21 +1717,21 @@ describe('POST /auth/login', () => {
     expect(body.code).toBe('INVALID_CREDENTIALS');
   });
 
-  it('returns 403 EMAIL_NOT_VERIFIED for an unverified account', async () => {
+  it('returns 401 INVALID_CREDENTIALS for an unverified account', async () => {
     mockAuthenticatePassword.mockImplementation(() =>
       Promise.resolve({ ...PW_USER, emailVerified: false })
     );
-    const res = await post('/auth/login', { email: 'a@b.com', password: 'password123' });
+    const res = await post('/auth/login', { email: 'a@b.com', password: 'password1234' });
     const body = (await res.json()) as { code: string };
-    expect(res.status).toBe(403);
-    expect(body.code).toBe('EMAIL_NOT_VERIFIED');
+    expect(res.status).toBe(401);
+    expect(body.code).toBe('INVALID_CREDENTIALS');
   });
 
   it('returns 200 with an access token for a verified user', async () => {
     mockAuthenticatePassword.mockImplementation(() =>
       Promise.resolve({ ...PW_USER, emailVerified: true })
     );
-    const res = await post('/auth/login', { email: 'a@b.com', password: 'password123' });
+    const res = await post('/auth/login', { email: 'a@b.com', password: 'password1234' });
     const body = (await res.json()) as { accessToken: string; user: { email: string } };
     expect(res.status).toBe(200);
     expect(typeof body.accessToken).toBe('string');
@@ -1738,7 +1741,7 @@ describe('POST /auth/login', () => {
   it('rejects oversized email addresses before authenticating credentials', async () => {
     const res = await post('/auth/login', {
       email: OVERSIZED_EMAIL,
-      password: 'password123',
+      password: 'password1234',
     });
 
     expect(res.status).toBe(400);
@@ -2002,7 +2005,7 @@ describe('POST /auth/reset-password', () => {
   });
 
   it('returns 400 INVALID_TOKEN for an unknown token', async () => {
-    const res = await post('/auth/reset-password', { token: 'bad', password: 'password123' });
+    const res = await post('/auth/reset-password', { token: 'bad', password: 'password1234' });
     const body = (await res.json()) as { code: string };
     expect(res.status).toBe(400);
     expect(body.code).toBe('INVALID_TOKEN');

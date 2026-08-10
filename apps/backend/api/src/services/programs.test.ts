@@ -163,6 +163,7 @@ function createMockDb(): Record<string, unknown> {
     select: vi.fn(function select() {
       return createChainable(selectRows);
     }),
+    execute: vi.fn(() => Promise.resolve()),
   };
   db['transaction'] = vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(db));
   return db;

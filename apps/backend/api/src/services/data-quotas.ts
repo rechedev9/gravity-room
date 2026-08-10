@@ -8,6 +8,7 @@ import {
   workoutResults,
 } from '@gzclp/database/schema';
 import { getDb } from '../db';
+import { setUserRlsContext } from '../db/rls-setters';
 import { USER_DATA_LIMITS } from '../lib/data-limits';
 import { ApiError } from '../middleware/error-handler';
 
@@ -27,6 +28,10 @@ export interface UserDataUsage {
  * snapshot when it takes the same lock.
  */
 export async function lockUserForDataMutation(tx: Tx, userId: string): Promise<void> {
+  // Switch from the default transaction service role to the end-user tenant
+  // before the row lock so subsequent statements in this tx are RLS-scoped.
+  await setUserRlsContext(tx, userId);
+
   const [user] = await tx
     .select({ id: users.id })
     .from(users)

@@ -40,7 +40,8 @@ export const users = pgTable(
   'users',
   {
     id: uuid().defaultRandom().primaryKey(),
-    email: varchar({ length: 255 }).unique().notNull(),
+    /** Unique among active (non-soft-deleted) rows — see users_email_active_uq. */
+    email: varchar({ length: 255 }).notNull(),
     /**
      * Legacy Google identity column. External identities now live in
      * `user_identities`; this is kept (nullable) for backfill and back-compat
@@ -74,6 +75,11 @@ export const users = pgTable(
     index('users_deleted_at_idx')
       .on(table.deletedAt)
       .where(sql`${table.deletedAt} IS NOT NULL`),
+    // Soft-deleted emails do not block re-registration once the grace row is gone
+    // (or while deleted — a new active row may claim the address).
+    uniqueIndex('users_email_active_uq')
+      .on(table.email)
+      .where(sql`${table.deletedAt} IS NULL`),
   ]
 );
 
