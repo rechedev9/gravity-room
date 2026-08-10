@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { computeGenericProgram } from '@gzclp/domain/generic-engine';
 import type { GenericResults } from '@gzclp/domain/types/program';
-import { computeProfileData, compute1RMData, formatVolume } from './profile-stats';
+import {
+  computeProfileData,
+  compute1RMData,
+  computeVolume,
+  formatVolume,
+  lastResultWorkoutIndex,
+} from './profile-stats';
 import {
   GZCLP_DEFINITION_FIXTURE,
   DEFAULT_WEIGHTS,
@@ -472,5 +478,26 @@ describe('computeMonthlyReport', () => {
     const profile = computeProfileData(rows, DEF, CONFIG, timestamps);
 
     expect(profile.monthlyReport?.monthLabel).toBe('Últimos 30 días');
+  });
+});
+
+describe('lastResultWorkoutIndex + maxRows volume parity', () => {
+  it('returns -1 for empty results', () => {
+    expect(lastResultWorkoutIndex({})).toBe(-1);
+  });
+
+  it('returns the highest numeric workout key', () => {
+    expect(lastResultWorkoutIndex({ '0': {}, '12': {}, '3': {} })).toBe(12);
+  });
+
+  it('matches full-program volume when capped at last result', () => {
+    const results = buildGenericSuccessResults(12);
+    const full = computeVolume(computeGenericProgram(DEF, CONFIG, results));
+    const last = lastResultWorkoutIndex(results);
+    const capped = computeVolume(
+      computeGenericProgram(DEF, CONFIG, results, { maxRows: last + 1 })
+    );
+    expect(capped.totalVolume).toBe(full.totalVolume);
+    expect(capped.totalSets).toBe(full.totalSets);
   });
 });

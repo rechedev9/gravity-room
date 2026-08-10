@@ -1,4 +1,4 @@
-import { StrictMode } from 'react';
+import { StrictMode, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from '@tanstack/react-router';
 import { Providers } from '@/components/providers';
@@ -30,7 +30,12 @@ function RouterShell(): React.ReactNode {
   const { user, loading } = useAuth();
   const { isGuest } = useGuest();
 
-  return <RouterProvider router={router} context={{ auth: { user, loading, isGuest } }} />;
+  // Stable identity unless auth fields change — avoids router context churn on
+  // unrelated parent re-renders.
+  const auth = useMemo(() => ({ user, loading, isGuest }), [user, loading, isGuest]);
+  const routerContext = useMemo(() => ({ auth }), [auth]);
+
+  return <RouterProvider router={router} context={routerContext} />;
 }
 
 const rootEl = document.getElementById('root');

@@ -8,11 +8,7 @@ import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definitio
 import { GenericProgramDetailSchema } from '@gzclp/domain/schemas/instance';
 import { ProgramSummarySchema } from '@gzclp/domain/schemas/program-summary';
 import { CatalogEntrySchema } from '@gzclp/domain/schemas/catalog';
-import {
-  ExerciseEntrySchema,
-  MuscleGroupEntrySchema,
-  PaginatedExercisesResponseSchema,
-} from '@gzclp/domain/schemas/exercises';
+import { ExerciseEntrySchema, MuscleGroupEntrySchema } from '@gzclp/domain/schemas/exercises';
 import { InsightItemSchema } from '@gzclp/domain/schemas/insights';
 import { UserResponseSchema, parseUserSafe } from '@gzclp/domain/schemas/user';
 import type { ResultValue, SetLogEntry } from '@gzclp/domain/types';
@@ -110,13 +106,14 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}): Pro
 // API Functions
 // ---------------------------------------------------------------------------
 
+const ProgramSummaryListSchema = z.array(ProgramSummarySchema);
+
 /** Fetch all program instances for the current user (first page). */
 export async function fetchPrograms(): Promise<ProgramSummary[]> {
   const data = await apiFetch('/programs');
   // Handle both legacy array response and new paginated { data, nextCursor } shape
-  if (Array.isArray(data)) return data.map((item) => ProgramSummarySchema.parse(item));
-  if (isRecord(data) && Array.isArray(data.data))
-    return data.data.map((item) => ProgramSummarySchema.parse(item));
+  if (Array.isArray(data)) return ProgramSummaryListSchema.parse(data);
+  if (isRecord(data) && Array.isArray(data.data)) return ProgramSummaryListSchema.parse(data.data);
   return [];
 }
 
@@ -310,11 +307,13 @@ export async function deleteGenericResult(
 // Catalog API functions (public, no auth required)
 // ---------------------------------------------------------------------------
 
+const CatalogEntryListSchema = z.array(CatalogEntrySchema);
+
 /** Fetch the catalog list of all preset programs (no auth required). */
 export async function fetchCatalogList(): Promise<readonly CatalogEntry[]> {
   const data = await apiFetch('/catalog');
   if (!Array.isArray(data)) return [];
-  return data.map((item) => CatalogEntrySchema.parse(item));
+  return CatalogEntryListSchema.parse(data);
 }
 
 /** Fetch a full hydrated ProgramDefinition by program ID (no auth required). */
@@ -367,23 +366,28 @@ export function parseExerciseEntry(raw: unknown): ExerciseEntry {
   return ExerciseEntrySchema.parse(raw);
 }
 
+const PaginatedExercisesClientSchema = z.object({
+  data: z.array(ExerciseEntrySchema),
+  total: z.number().int(),
+  offset: z.number().int(),
+  limit: z.number().int(),
+});
+
+const MuscleGroupEntryListSchema = z.array(MuscleGroupEntrySchema);
+const InsightItemListSchema = z.array(InsightItemSchema);
+
 /** Fetch exercises visible to the current user, with optional filtering. */
 export async function fetchExercises(filter?: ExerciseFilter): Promise<PaginatedExercisesResponse> {
   const raw = await apiFetch(`/exercises${buildExerciseQueryString(filter)}`);
-  const parsed = PaginatedExercisesResponseSchema.parse(raw);
-  return {
-    data: parsed.data.map((item) => ExerciseEntrySchema.parse(item)),
-    total: parsed.total,
-    offset: parsed.offset,
-    limit: parsed.limit,
-  };
+  // Single-pass array parse (avoids N× ExerciseEntrySchema.parse after the envelope).
+  return PaginatedExercisesClientSchema.parse(raw);
 }
 
 /** Fetch all muscle groups (no auth required). */
 export async function fetchMuscleGroups(): Promise<readonly MuscleGroupEntry[]> {
   const data = await apiFetch('/muscle-groups');
   if (!Array.isArray(data)) return [];
-  return data.map((item) => MuscleGroupEntrySchema.parse(item));
+  return MuscleGroupEntryListSchema.parse(data);
 }
 
 // ---------------------------------------------------------------------------
@@ -394,7 +398,6 @@ export async function fetchMuscleGroups(): Promise<readonly MuscleGroupEntry[]> 
 export async function fetchInsights(types?: string[]): Promise<InsightItem[]> {
   const query = types?.length ? `?types=${types.join(',')}` : '';
   const data = await apiFetch(`/insights${query}`);
-  if (isRecord(data) && Array.isArray(data.data))
-    return data.data.map((item) => InsightItemSchema.parse(item));
+  if (isRecord(data) && Array.isArray(data.data)) return InsightItemListSchema.parse(data.data);
   return [];
 }

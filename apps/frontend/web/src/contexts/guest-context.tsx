@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { clearGuestData, setGuestMigrationMarker } from '@/lib/guest-storage';
 import { trackEvent } from '@/lib/analytics';
 
@@ -96,12 +96,17 @@ export function GuestProvider({
     clearGuestModeFlag();
   }, [clearGuestModeFlag]);
 
-  const value: GuestContextValue = {
-    isGuest,
-    enterGuestMode,
-    exitGuestMode,
-    exitGuestModeKeepingData,
-  };
+  // Same pattern as TrackerProvider: spreading into JSX hides identity from the
+  // compiler, so memoize explicitly. Callbacks are already stable.
+  const value = useMemo(
+    (): GuestContextValue => ({
+      isGuest,
+      enterGuestMode,
+      exitGuestMode,
+      exitGuestModeKeepingData,
+    }),
+    [isGuest, enterGuestMode, exitGuestMode, exitGuestModeKeepingData]
+  );
 
   return <GuestContext value={value}>{children}</GuestContext>;
 }

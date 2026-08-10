@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GuestProvider } from '@/contexts/guest-context';
@@ -31,6 +31,11 @@ function RootErrorFallback(): React.ReactNode {
   );
 }
 
+/** Holds the first paint while the detected locale chunk loads (async i18n). */
+function I18nBootFallback(): React.ReactNode {
+  return <div className="min-h-dvh bg-body" aria-hidden="true" />;
+}
+
 function makeQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
@@ -53,9 +58,11 @@ export function Providers({ children }: { readonly children: React.ReactNode }):
   return (
     <ErrorBoundary fallback={<RootErrorFallback />}>
       <QueryClientProvider client={queryClient}>
-        <GuestProvider>
-          <AuthProvider>{children}</AuthProvider>
-        </GuestProvider>
+        <Suspense fallback={<I18nBootFallback />}>
+          <GuestProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </GuestProvider>
+        </Suspense>
       </QueryClientProvider>
     </ErrorBoundary>
   );

@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
+import { EASE_OUT_EXPO } from '@/lib/motion-easing';
 import { useClickOutside } from '@/hooks/use-click-outside';
 
 interface DropdownMenuProps {

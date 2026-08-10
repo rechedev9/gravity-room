@@ -1,6 +1,21 @@
-import { computeEpley1RM, roundToNearest } from '@gzclp/domain';
-import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import { computeEpley1RM } from '@gzclp/domain/graduation';
+import { roundToNearest } from '@gzclp/domain/generic-engine';
+import type { ProgramDefinition, GenericResults } from '@gzclp/domain/types/program';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
+
+/**
+ * Highest workout index that has any logged result. Used to cap
+ * `computeGenericProgram({ maxRows })` so lifetime volume does not materialize
+ * every future empty week of a long program.
+ */
+export function lastResultWorkoutIndex(results: GenericResults): number {
+  let max = -1;
+  for (const key of Object.keys(results)) {
+    const n = Number(key);
+    if (Number.isInteger(n) && n > max) max = n;
+  }
+  return max;
+}
 
 // ---------------------------------------------------------------------------
 // Config helpers

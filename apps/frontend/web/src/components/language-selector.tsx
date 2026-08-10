@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/cn';
+import { ensureLocale } from '@/lib/i18n';
 
 const LANGUAGES = [
   { code: 'es' as const, label: 'ES', name: 'Español' },
@@ -14,6 +15,9 @@ export function LanguageSelector({ className }: { readonly className?: string })
   const currentLang: 'es' | 'en' = rawLang === 'es' ? 'es' : 'en';
 
   const handleChange = async (lang: 'es' | 'en'): Promise<void> => {
+    // Second locale is a separate chunk — load it before switching so labels
+    // do not flash fallback keys.
+    await ensureLocale(lang);
     await i18n.changeLanguage(lang);
     document.documentElement.lang = lang;
   };

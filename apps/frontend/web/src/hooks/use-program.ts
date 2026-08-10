@@ -1,4 +1,4 @@
-import { useRef, useMemo, useEffect } from 'react';
+import { useRef, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { computeGenericProgram } from '@gzclp/domain/generic-engine';
@@ -64,11 +64,21 @@ export interface UseProgramReturn {
 // Hook implementation
 // ---------------------------------------------------------------------------
 
-export function useProgram(programId: string, instanceId?: string): UseProgramReturn {
+export interface UseProgramOptions {
+  /** When false, skip all network queries (guest tracker path). */
+  readonly enabled?: boolean;
+}
+
+export function useProgram(
+  programId: string,
+  instanceId?: string,
+  options?: UseProgramOptions
+): UseProgramReturn {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { toast } = useToast();
   const { t } = useTranslation();
+  const enabled = options?.enabled ?? true;
 
   // Per-key debounce timers for high-frequency mutations (AMRAP, RPE).
   // Key format: `${workoutIndex}-${slotId}` — each unique slot has its own timer.
@@ -100,18 +110,19 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
     queryKey: queryKeys.catalog.detail(programId),
     queryFn: () => fetchCatalogDetail(programId),
     staleTime: 5 * 60 * 1000,
-    enabled: !isCustom,
+    enabled: enabled && !isCustom,
   });
 
   // Fetch the list of programs to find the active one
   const programsQuery = useQuery({
     queryKey: queryKeys.programs.all,
     queryFn: fetchPrograms,
-    enabled: user !== null,
+    enabled: enabled && user !== null,
   });
 
   // Use provided instanceId, or find active instance with matching programId
   const activeInstanceId = (() => {
+    if (!enabled) return null;
     if (instanceId) return instanceId;
     if (!programsQuery.data) return null;
     return (
@@ -123,7 +134,7 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   const detailQuery = useQuery({
     queryKey: queryKeys.programs.detail(activeInstanceId ?? ''),
     queryFn: () => fetchGenericProgramDetail(activeInstanceId ?? ''),
-    enabled: activeInstanceId !== null,
+    enabled: enabled && activeInstanceId !== null,
   });
 
   const detail = detailQuery.data ?? null;
@@ -170,130 +181,168 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
   });
 
   // -------------------------------------------------------------------------
-  // Stable callbacks
+  // Stable callbacks — mutate() identities are stable in TanStack Query v5;
+  // wrap so consumers can put them in effect/deps without thrashing.
   // -------------------------------------------------------------------------
 
-  const markResultCb = (
-    index: number,
-    slotId: string,
-    value: ResultValue,
-    setLogs?: readonly SetLogEntry[]
-  ): void => {
-    markResultMutation.mutate({ index, slotId, value, setLogs });
-  };
+  const markResultMutate = markResultMutation.mutate;
+  const setAmrapMutate = setAmrapMutation.mutate;
+  const setRpeMutate = setRpeMutation.mutate;
+  const undoSpecificMutate = undoSpecificMutation.mutate;
+  const undoLastMutate = undoLastMutation.mutate;
+  const generateProgramMutateAsync = generateProgramMutation.mutateAsync;
+  const updateConfigMutate = updateConfigMutation.mutate;
+  const updateConfigMutateAsync = updateConfigMutation.mutateAsync;
+  const updateMetadataMutate = updateMetadataMutation.mutate;
+  const finishProgramMutateAsync = finishProgramMutation.mutateAsync;
+  const resetAllMutate = resetAllMutation.mutate;
+
+  const markResultCb = useCallback(
+    (index: number, slotId: string, value: ResultValue, setLogs?: readonly SetLogEntry[]): void => {
+      markResultMutate({ index, slotId, value, setLogs });
+    },
+    [markResultMutate]
+  );
 
   /**
    * Patch a single field on a slot entry in the cached program detail.
    * Returns the field's value immediately before this patch, so callers can
    * capture a true pre-edit snapshot for rollback purposes.
    */
-  const patchSlotField = (
-    index: number,
-    slotId: string,
-    field: 'amrapReps' | 'rpe',
-    value: number | undefined
-  ): number | undefined => {
-    const detailKey = queryKeys.programs.detail(activeInstanceId ?? '');
-    let previousValue: number | undefined;
-    queryClient.setQueryData<GenericProgramDetail>(detailKey, (prev) => {
-      if (!prev) return prev;
-      previousValue = prev.results[String(index)]?.[slotId]?.[field];
-      return { ...prev, results: patchSlotFieldPure(prev.results, index, slotId, field, value) };
-    });
-    return previousValue;
-  };
+  const patchSlotField = useCallback(
+    (
+      index: number,
+      slotId: string,
+      field: 'amrapReps' | 'rpe',
+      value: number | undefined
+    ): number | undefined => {
+      const detailKey = queryKeys.programs.detail(activeInstanceId ?? '');
+      let previousValue: number | undefined;
+      queryClient.setQueryData<GenericProgramDetail>(detailKey, (prev) => {
+        if (!prev) return prev;
+        previousValue = prev.results[String(index)]?.[slotId]?.[field];
+        return { ...prev, results: patchSlotFieldPure(prev.results, index, slotId, field, value) };
+      });
+      return previousValue;
+    },
+    [activeInstanceId, queryClient]
+  );
 
-  const setAmrapRepsCb = (index: number, slotId: string, reps: number | undefined): void => {
-    const timerKey = `${index}-${slotId}`;
-    const previousValue = patchSlotField(index, slotId, 'amrapReps', reps);
-    // Only stamp the baseline when no session is already open — mid-session
-    // keystrokes must not overwrite the true pre-session value with their own
-    // (already optimistic) previous value.
-    if (!amrapBaselines.current.has(timerKey)) {
-      amrapBaselines.current.set(timerKey, previousValue);
-    }
+  const setAmrapRepsCb = useCallback(
+    (index: number, slotId: string, reps: number | undefined): void => {
+      const timerKey = `${index}-${slotId}`;
+      const previousValue = patchSlotField(index, slotId, 'amrapReps', reps);
+      // Only stamp the baseline when no session is already open — mid-session
+      // keystrokes must not overwrite the true pre-session value with their own
+      // (already optimistic) previous value.
+      if (!amrapBaselines.current.has(timerKey)) {
+        amrapBaselines.current.set(timerKey, previousValue);
+      }
 
-    // Debounce the API call: rapid clicks on +/- coalesce into a single POST.
-    const existing = amrapTimers.current.get(timerKey);
-    if (existing !== undefined) clearTimeout(existing);
-    amrapTimers.current.set(
-      timerKey,
-      setTimeout(() => {
-        amrapTimers.current.delete(timerKey);
-        const previousReps = amrapBaselines.current.get(timerKey);
-        amrapBaselines.current.delete(timerKey);
-        setAmrapMutation.mutate({ index, slotId, reps, previousReps });
-      }, 400)
-    );
-  };
+      // Debounce the API call: rapid clicks on +/- coalesce into a single POST.
+      const existing = amrapTimers.current.get(timerKey);
+      if (existing !== undefined) clearTimeout(existing);
+      amrapTimers.current.set(
+        timerKey,
+        setTimeout(() => {
+          amrapTimers.current.delete(timerKey);
+          const previousReps = amrapBaselines.current.get(timerKey);
+          amrapBaselines.current.delete(timerKey);
+          setAmrapMutate({ index, slotId, reps, previousReps });
+        }, 400)
+      );
+    },
+    [patchSlotField, setAmrapMutate]
+  );
 
-  const setRpeCb = (index: number, slotId: string, rpe: number | undefined): void => {
-    const timerKey = `${index}-${slotId}-rpe`;
-    const previousValue = patchSlotField(index, slotId, 'rpe', rpe);
-    if (!rpeBaselines.current.has(timerKey)) {
-      rpeBaselines.current.set(timerKey, previousValue);
-    }
+  const setRpeCb = useCallback(
+    (index: number, slotId: string, rpe: number | undefined): void => {
+      const timerKey = `${index}-${slotId}-rpe`;
+      const previousValue = patchSlotField(index, slotId, 'rpe', rpe);
+      if (!rpeBaselines.current.has(timerKey)) {
+        rpeBaselines.current.set(timerKey, previousValue);
+      }
 
-    // Debounce: switching RPE values rapidly fires one POST after 300ms.
-    const existing = rpeTimers.current.get(timerKey);
-    if (existing !== undefined) clearTimeout(existing);
-    rpeTimers.current.set(
-      timerKey,
-      setTimeout(() => {
-        rpeTimers.current.delete(timerKey);
-        const previousRpe = rpeBaselines.current.get(timerKey);
-        rpeBaselines.current.delete(timerKey);
-        setRpeMutation.mutate({ index, slotId, rpe, previousRpe });
-      }, 300)
-    );
-  };
+      // Debounce: switching RPE values rapidly fires one POST after 300ms.
+      const existing = rpeTimers.current.get(timerKey);
+      if (existing !== undefined) clearTimeout(existing);
+      rpeTimers.current.set(
+        timerKey,
+        setTimeout(() => {
+          rpeTimers.current.delete(timerKey);
+          const previousRpe = rpeBaselines.current.get(timerKey);
+          rpeBaselines.current.delete(timerKey);
+          setRpeMutate({ index, slotId, rpe, previousRpe });
+        }, 300)
+      );
+    },
+    [patchSlotField, setRpeMutate]
+  );
 
-  const undoSpecificCb = (index: number, slotId: string): void => {
-    undoSpecificMutation.mutate({ index, slotId });
-  };
+  const undoSpecificCb = useCallback(
+    (index: number, slotId: string): void => {
+      undoSpecificMutate({ index, slotId });
+    },
+    [undoSpecificMutate]
+  );
 
-  const undoLastCb = (): void => {
-    undoLastMutation.mutate();
-  };
+  const undoLastCb = useCallback((): void => {
+    undoLastMutate();
+  }, [undoLastMutate]);
 
-  const generateProgramCb = async (newConfig: Record<string, number | string>): Promise<void> => {
-    await generateProgramMutation.mutateAsync(newConfig);
-  };
+  const generateProgramCb = useCallback(
+    async (newConfig: Record<string, number | string>): Promise<void> => {
+      await generateProgramMutateAsync(newConfig);
+    },
+    [generateProgramMutateAsync]
+  );
 
-  const updateConfigCb = (newConfig: Record<string, number | string>): void => {
-    updateConfigMutation.mutate(newConfig);
-  };
+  const updateConfigCb = useCallback(
+    (newConfig: Record<string, number | string>): void => {
+      updateConfigMutate(newConfig);
+    },
+    [updateConfigMutate]
+  );
 
-  const updateConfigAsyncCb = async (newConfig: Record<string, number | string>): Promise<void> => {
-    if (!activeInstanceId) throw new Error('No active program');
-    await updateConfigMutation.mutateAsync(newConfig);
-  };
+  const updateConfigAsyncCb = useCallback(
+    async (newConfig: Record<string, number | string>): Promise<void> => {
+      if (!activeInstanceId) throw new Error('No active program');
+      await updateConfigMutateAsync(newConfig);
+    },
+    [activeInstanceId, updateConfigMutateAsync]
+  );
 
-  const updateMetadataCb = (newMetadata: Record<string, unknown>): void => {
-    updateMetadataMutation.mutate(newMetadata);
-  };
+  const updateMetadataCb = useCallback(
+    (newMetadata: Record<string, unknown>): void => {
+      updateMetadataMutate(newMetadata);
+    },
+    [updateMetadataMutate]
+  );
 
-  const finishProgramCb = async (): Promise<void> => {
-    await finishProgramMutation.mutateAsync();
-  };
+  const finishProgramCb = useCallback(async (): Promise<void> => {
+    await finishProgramMutateAsync();
+  }, [finishProgramMutateAsync]);
 
-  const resetAllCb = (onSuccess?: () => void): void => {
-    // Capture the instanceId at call-time: by the time onSuccess fires, the
-    // activeInstanceId closure may already have flipped to null.
-    const idToRemove = activeInstanceId;
-    resetAllMutation.mutate(undefined, {
-      onSuccess: () => {
-        // Remove the stale detail cache so the setup form shows immediately.
-        // Disabling a query (enabled: false) keeps cached data alive — evict it.
-        if (idToRemove) {
-          queryClient.removeQueries({ queryKey: queryKeys.programs.detail(idToRemove) });
-        }
-        onSuccess?.();
-      },
-    });
-  };
+  const resetAllCb = useCallback(
+    (onSuccess?: () => void): void => {
+      // Capture the instanceId at call-time: by the time onSuccess fires, the
+      // activeInstanceId closure may already have flipped to null.
+      const idToRemove = activeInstanceId;
+      resetAllMutate(undefined, {
+        onSuccess: () => {
+          // Remove the stale detail cache so the setup form shows immediately.
+          // Disabling a query (enabled: false) keeps cached data alive — evict it.
+          if (idToRemove) {
+            queryClient.removeQueries({ queryKey: queryKeys.programs.detail(idToRemove) });
+          }
+          onSuccess?.();
+        },
+      });
+    },
+    [activeInstanceId, queryClient, resetAllMutate]
+  );
 
-  const exportDataCb = async (): Promise<void> => {
+  const exportDataCb = useCallback(async (): Promise<void> => {
     if (!activeInstanceId) return;
     try {
       const data = await exportProgram(activeInstanceId);
@@ -310,47 +359,78 @@ export function useProgram(programId: string, instanceId?: string): UseProgramRe
       captureError(err);
       toast({ message: t('tracker.errors.program_export_failed') });
     }
-  };
+  }, [activeInstanceId, programId, t, toast]);
 
-  const importDataCb = async (json: string): Promise<boolean> => {
-    try {
-      const parsed: unknown = JSON.parse(json);
-      await importProgram(parsed);
-      // Importing adds a new program to the list; no existing detail cache
-      // applies to it, so keep the invalidation scoped to the list.
-      void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all, exact: true });
-      return true;
-    } catch (err: unknown) {
-      captureError(err);
-      toast({ message: t('tracker.errors.program_import_failed') });
-      return false;
-    }
-  };
+  const importDataCb = useCallback(
+    async (json: string): Promise<boolean> => {
+      try {
+        const parsed: unknown = JSON.parse(json);
+        await importProgram(parsed);
+        // Importing adds a new program to the list; no existing detail cache
+        // applies to it, so keep the invalidation scoped to the list.
+        void queryClient.invalidateQueries({ queryKey: queryKeys.programs.all, exact: true });
+        return true;
+      } catch (err: unknown) {
+        captureError(err);
+        toast({ message: t('tracker.errors.program_import_failed') });
+        return false;
+      }
+    },
+    [queryClient, t, toast]
+  );
 
-  return {
-    definition,
-    config,
-    metadata,
-    rows,
-    undoHistory,
-    resultTimestamps,
-    completedDates,
-    isLoading,
-    isGenerating: generateProgramMutation.isPending,
-    activeInstanceId,
-    generateProgram: generateProgramCb,
-    updateConfig: updateConfigCb,
-    updateMetadata: updateMetadataCb,
-    markResult: markResultCb,
-    setAmrapReps: setAmrapRepsCb,
-    setRpe: setRpeCb,
-    undoSpecific: undoSpecificCb,
-    undoLast: undoLastCb,
-    finishProgram: finishProgramCb,
-    isFinishing: finishProgramMutation.isPending,
-    resetAll: resetAllCb,
-    exportData: exportDataCb,
-    importData: importDataCb,
-    updateConfigAsync: updateConfigAsyncCb,
-  };
+  return useMemo(
+    (): UseProgramReturn => ({
+      definition,
+      config,
+      metadata,
+      rows,
+      undoHistory,
+      resultTimestamps,
+      completedDates,
+      isLoading,
+      isGenerating: generateProgramMutation.isPending,
+      activeInstanceId,
+      generateProgram: generateProgramCb,
+      updateConfig: updateConfigCb,
+      updateMetadata: updateMetadataCb,
+      markResult: markResultCb,
+      setAmrapReps: setAmrapRepsCb,
+      setRpe: setRpeCb,
+      undoSpecific: undoSpecificCb,
+      undoLast: undoLastCb,
+      finishProgram: finishProgramCb,
+      isFinishing: finishProgramMutation.isPending,
+      resetAll: resetAllCb,
+      exportData: exportDataCb,
+      importData: importDataCb,
+      updateConfigAsync: updateConfigAsyncCb,
+    }),
+    [
+      definition,
+      config,
+      metadata,
+      rows,
+      undoHistory,
+      resultTimestamps,
+      completedDates,
+      isLoading,
+      generateProgramMutation.isPending,
+      activeInstanceId,
+      generateProgramCb,
+      updateConfigCb,
+      updateMetadataCb,
+      markResultCb,
+      setAmrapRepsCb,
+      setRpeCb,
+      undoSpecificCb,
+      undoLastCb,
+      finishProgramCb,
+      finishProgramMutation.isPending,
+      resetAllCb,
+      exportDataCb,
+      importDataCb,
+      updateConfigAsyncCb,
+    ]
+  );
 }

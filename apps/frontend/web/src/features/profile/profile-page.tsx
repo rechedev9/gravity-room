@@ -12,7 +12,7 @@ import { useInViewport } from '@/hooks/use-in-viewport';
 import { useAuth } from '@/contexts/auth-context';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
 import { useToast } from '@/contexts/toast-context';
-import { computeProfileData, computeVolume } from '@/lib/profile-stats';
+import { computeProfileData, computeVolume, lastResultWorkoutIndex } from '@/lib/profile-stats';
 import {
   fetchPrograms,
   fetchGenericProgramDetail,
@@ -139,11 +139,16 @@ export function ProfilePage(): React.ReactNode {
 
   const uniqueProgramIds = [...new Set(allPrograms.map((p) => p.programId))];
 
+  // Lifetime volume is below the fold — gate the N+1 fan-out until the section
+  // is near the viewport so profile mount stays cheap.
+  const volumeQueriesEnabled = user !== null && isVolumeVisible;
+
   const catalogDetailQueries = useQueries({
     queries: uniqueProgramIds.map((progId) => ({
       queryKey: queryKeys.catalog.detail(progId),
       queryFn: () => fetchCatalogDetail(progId),
       staleTime: 5 * 60 * 1000,
+      enabled: volumeQueriesEnabled,
     })),
   });
 
@@ -152,7 +157,7 @@ export function ProfilePage(): React.ReactNode {
       queryKey: queryKeys.programs.detail(p.id),
       queryFn: () => fetchGenericProgramDetail(p.id),
       staleTime: 5 * 60 * 1000,
-      enabled: user !== null && isVolumeVisible,
+      enabled: volumeQueriesEnabled,
     })),
   });
 
@@ -182,7 +187,13 @@ export function ProfilePage(): React.ReactNode {
       const detail = programDataRefs[i];
       const def = catalogMap.get(allPrograms[i].programId);
       if (!detail || !def) continue;
-      const programRows = computeGenericProgram(def, detail.config, detail.results);
+      // Skip pristine instances and only materialize rows up to the last log —
+      // empty future weeks contribute 0 volume and dominate CPU on long cycles.
+      const lastIdx = lastResultWorkoutIndex(detail.results);
+      if (lastIdx < 0) continue;
+      const programRows = computeGenericProgram(def, detail.config, detail.results, {
+        maxRows: lastIdx + 1,
+      });
       const vol = computeVolume(programRows);
       total += vol.totalVolume;
     }

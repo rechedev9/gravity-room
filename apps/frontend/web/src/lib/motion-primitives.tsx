@@ -1,8 +1,7 @@
 import { type Variants, motion, useReducedMotion } from 'motion/react';
+import { EASE_OUT_EXPO } from '@/lib/motion-easing';
 
-/* ── Shared easing ────────────────────────────────── */
-
-export const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
+export { EASE_OUT_EXPO };
 
 /* ── Variant presets ──────────────────────────────── */
 

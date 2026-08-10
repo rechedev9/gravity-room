@@ -36,6 +36,8 @@
     "e2e": "pnpm --filter web e2e",
     "e2e:ui": "pnpm --filter web e2e:ui",
     "e2e:headed": "pnpm --filter web e2e:headed",
+    "e2e:perf": "pnpm --filter web e2e:perf",
+    "perf:baseline": "pnpm --filter web perf:baseline",
     "hooks:validate": "lefthook validate",
     "context:refresh": "tsx scripts/refresh-claude-context.ts",
     "typecheck:database": "pnpm --filter @gzclp/database typecheck",

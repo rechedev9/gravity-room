@@ -9,7 +9,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { OnlineIndicator } from '@/components/online-indicator';
 import { ThemeSelector } from '@/components/theme-selector';
 import { cn } from '@/lib/cn';
-import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
+import { EASE_OUT_EXPO } from '@/lib/motion-easing';
 import {
   HomeIcon,
   TrackerIcon,

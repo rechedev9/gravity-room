@@ -60,9 +60,10 @@ export function HomePage(): React.ReactNode {
     queryKey: queryKeys.programs.all,
     queryFn: fetchPrograms,
     enabled: user !== null && !isGuest,
-    // Returning to the dashboard after logging a session must reflect the new
-    // streak/sessions, so refetch on every mount rather than serving stale cache.
-    refetchOnMount: 'always',
+    // Rely on the global 5m staleTime + mutation invalidations (use-program-
+    // mutations). Forcing refetchOnMount stampeded GETs on every home↔tracker
+    // bounce; live streak/session widgets read the detail cache via
+    // useDashboardData, which mutations already patch/invalidate.
   });
 
   const activeProgram = programsQuery.data?.find((p) => p.status === 'active') ?? null;

@@ -56,29 +56,41 @@ function readGuestInstance(programId: string): {
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useGuestProgram(programId: string): UseProgramReturn {
+export interface UseGuestProgramOptions {
+  /** When false, skip catalog fetch, storage I/O, and persist effects. */
+  readonly enabled?: boolean;
+}
+
+export function useGuestProgram(
+  programId: string,
+  options?: UseGuestProgramOptions
+): UseProgramReturn {
+  const enabled = options?.enabled ?? true;
+
   // -- Catalog query (public, no auth required) --
   const catalogQuery = useQuery({
     queryKey: queryKeys.catalog.detail(programId),
     queryFn: () => fetchCatalogDetail(programId),
     staleTime: 5 * 60 * 1000,
+    enabled,
   });
 
   const definition: ProgramDefinition | undefined = catalogQuery.data;
 
   // -- State, hydrated once from localStorage so a reload doesn't wipe an
-  // in-progress guest program (see guest-storage.ts). --
-  const [config, setConfig] = useState<Record<string, number | string> | null>(
-    () => readGuestInstance(programId)?.config ?? null
+  // in-progress guest program (see guest-storage.ts). Skip storage when the
+  // hook is mounted only to satisfy Rules of Hooks on the auth path. --
+  const [config, setConfig] = useState<Record<string, number | string> | null>(() =>
+    enabled ? (readGuestInstance(programId)?.config ?? null) : null
   );
-  const [results, setResults] = useState<GenericResults>(
-    () => readGuestInstance(programId)?.results ?? {}
+  const [results, setResults] = useState<GenericResults>(() =>
+    enabled ? (readGuestInstance(programId)?.results ?? {}) : {}
   );
-  const [undoHistory, setUndoHistory] = useState<GenericUndoHistory>(
-    () => readGuestInstance(programId)?.undoHistory ?? []
+  const [undoHistory, setUndoHistory] = useState<GenericUndoHistory>(() =>
+    enabled ? (readGuestInstance(programId)?.undoHistory ?? []) : []
   );
-  const [createdAt, setCreatedAt] = useState<string | null>(
-    () => readGuestInstance(programId)?.createdAt ?? null
+  const [createdAt, setCreatedAt] = useState<string | null>(() =>
+    enabled ? (readGuestInstance(programId)?.createdAt ?? null) : null
   );
   // Not part of the persisted ProgramInstance shape (see packages/domain
   // schemas/instance.ts) — these remain ephemeral, same tradeoff as before
@@ -90,8 +102,10 @@ export function useGuestProgram(programId: string): UseProgramReturn {
   const [isGenerating, setIsGenerating] = useState(false);
 
   // -- Persist config/results/undoHistory on every change (cheap at this
-  // scale — a single guest program's worth of data). --
+  // scale — a single guest program's worth of data). Never touch guest storage
+  // while disabled: the auth tracker path must not wipe a pending guest import.
   useEffect(() => {
+    if (!enabled) return;
     if (config === null) {
       // No active guest program (finished/reset) — drop any persisted instance.
       const existing = readGuestData();
@@ -123,7 +137,7 @@ export function useGuestProgram(programId: string): UseProgramReturn {
     });
     // createdAt is intentionally excluded from deps — it changes as a result
     // of this effect writing state, and re-running on it would be circular.
-  }, [config, results, undoHistory, definition, programId]);
+  }, [enabled, config, results, undoHistory, definition, programId]);
 
   // -- Computed rows --
   const rows: readonly GenericWorkoutRow[] = useMemo(() => {

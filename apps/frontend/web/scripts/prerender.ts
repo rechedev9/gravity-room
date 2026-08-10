@@ -331,6 +331,77 @@ async function prerenderRoute(
   return html;
 }
 
+/**
+ * Extract root-relative JS modulepreload hrefs from an HTML document.
+ * Used to remember the Vite entry graph and to sanitize runtime-injected tags.
+ */
+function extractModulepreloadHrefs(html: string): readonly string[] {
+  const hrefs: string[] = [];
+  const re = /<link\b[^>]*\brel=["']modulepreload["'][^>]*>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(html)) !== null) {
+    const tag = match[0];
+    const hrefMatch = /\bhref=["']([^"']+)["']/i.exec(tag);
+    if (hrefMatch?.[1]) hrefs.push(hrefMatch[1]);
+  }
+  return hrefs;
+}
+
+/**
+ * Chunk filename tokens that belong to a given public route. Runtime
+ * modulepreloads whose path matches any token are kept; everything else that
+ * was not in the original Vite entry graph is stripped.
+ *
+ * Without this, prerendering `/` first writes landing preloads into
+ * `dist/index.html`, and every subsequent route snapshot inherits them — so
+ * `/login` and `/app` (SPA fallback) would download landing JS on the critical
+ * path.
+ */
+function routeChunkTokens(path: string): readonly string[] {
+  if (path === '/' || path === '/en') return ['landing'];
+  if (path === '/login') return ['login-page', 'login-'];
+  if (path.startsWith('/privacy')) return ['privacy-page', 'privacy-'];
+  if (path.startsWith('/cookies')) return ['cookie-policy', 'cookies-'];
+  if (path.startsWith('/programs/') || path.startsWith('/programas/')) {
+    return ['program-preview', 'program-guide', 'category-colors'];
+  }
+  if (path.startsWith('/ejercicios') || path.startsWith('/en/exercises')) {
+    return ['exercise-wiki', 'exercise-article', 'exercise-'];
+  }
+  if (path.startsWith('/programas') || path === '/en/programs') {
+    return ['program-guide', 'programs-section', 'category-colors'];
+  }
+  return [];
+}
+
+function isAllowedExtraPreload(href: string, path: string): boolean {
+  const file = href.split('/').pop() ?? href;
+  const tokens = routeChunkTokens(path);
+  return tokens.some((token) => file.includes(token));
+}
+
+/**
+ * Keep Vite's entry modulepreloads + this route's own lazy chunks. Drop
+ * cross-route preloads that leaked in because a previous prerender overwrote
+ * `dist/index.html` or because the browser had already warmed other chunks.
+ */
+function sanitizeModulepreloads(
+  html: string,
+  path: string,
+  viteEntryPreloads: ReadonlySet<string>
+): string {
+  return html.replace(/<link\b[^>]*\brel=["']modulepreload["'][^>]*>\s*/gi, (tag) => {
+    const hrefMatch = /\bhref=["']([^"']+)["']/i.exec(tag);
+    if (!hrefMatch?.[1]) return tag;
+    const href = hrefMatch[1];
+    // Normalize to root-relative for set membership.
+    const normalized = href.startsWith('http') ? new URL(href).pathname : href;
+    if (viteEntryPreloads.has(normalized)) return tag;
+    if (isAllowedExtraPreload(normalized, path)) return tag;
+    return '';
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Output writers
 // ---------------------------------------------------------------------------
@@ -357,6 +428,36 @@ async function writeRouteHtml(path: string, html: string): Promise<void> {
     writeFile(directoryIndex, html, 'utf8'),
     writeFile(cleanUrlFile, html, 'utf8'),
   ]);
+}
+
+async function prerenderAllRoutes(args: {
+  readonly allPaths: readonly string[];
+  readonly context: BrowserContext;
+  readonly previewOrigin: string;
+  readonly viteShellHtml: string;
+  readonly viteEntryPreloads: ReadonlySet<string>;
+}): Promise<string | null> {
+  let landingHtml: string | null = null;
+
+  for (const path of args.allPaths) {
+    try {
+      // Restore the Vite shell so this route does not inherit preloads that a
+      // previous snapshot wrote into dist/index.html (preview serves it).
+      await writeFile(resolve(DIST_DIR, 'index.html'), args.viteShellHtml, 'utf8');
+
+      const rawHtml = await prerenderRoute(args.context, args.previewOrigin, path);
+      const html = sanitizeModulepreloads(rawHtml, path, args.viteEntryPreloads);
+      if (path === '/') landingHtml = html;
+      await writeRouteHtml(path, html);
+      console.error(`[prerender] OK ${path}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[prerender] ✗ ${path}: ${msg}`);
+      throw err;
+    }
+  }
+
+  return landingHtml;
 }
 
 async function writeNotFoundFallback(): Promise<void> {
@@ -421,6 +522,12 @@ async function main(): Promise<void> {
 
   console.error(`[prerender] rendering ${allPaths.length} routes -> ${DIST_DIR}`);
 
+  // Snapshot the Vite-built shell BEFORE any route overwrites dist/index.html.
+  // Its modulepreload set is the true eager entry graph; everything else is
+  // route-specific and must not leak across snapshots.
+  const viteShellHtml = await readFile(resolve(DIST_DIR, 'index.html'), 'utf8');
+  const viteEntryPreloads = new Set(extractModulepreloadHrefs(viteShellHtml));
+
   // Pre-build all program definitions so the route handler can serve them
   // synchronously without re-validating per request.
   const programDefs: Record<string, ProgramDefinition> = {};
@@ -468,16 +575,18 @@ async function main(): Promise<void> {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"count":0}' });
     });
 
-    for (const path of allPaths) {
-      try {
-        const html = await prerenderRoute(context, previewOrigin, path);
-        await writeRouteHtml(path, html);
-        console.error(`[prerender] OK ${path}`);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`[prerender] ✗ ${path}: ${msg}`);
-        throw err;
-      }
+    const landingHtml = await prerenderAllRoutes({
+      allPaths,
+      context,
+      previewOrigin,
+      viteShellHtml,
+      viteEntryPreloads,
+    });
+
+    // The loop restores the Vite shell before every route, so the final
+    // dist/index.html may be the bare shell. Put the sanitized landing back.
+    if (landingHtml !== null) {
+      await writeFile(resolve(DIST_DIR, 'index.html'), landingHtml, 'utf8');
     }
 
     await writeNotFoundFallback();
