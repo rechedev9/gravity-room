@@ -9,7 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from '@tanstack/react-router';
 import { useHead } from '@/hooks/use-head';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuth, useAuthActions } from '@/contexts/auth-context';
 import { Kicker } from '@/components/kicker';
 import { CornerTicks } from '@/components/corner-ticks';
 import { clearActionToken, getActionToken } from '@/lib/action-url';
@@ -95,7 +95,7 @@ export function AuthCallbackPage(): React.ReactNode {
 
 export function VerifyEmailPage(): React.ReactNode {
   const { t } = useTranslation();
-  const { verifyEmail } = useAuth();
+  const { verifyEmail } = useAuthActions();
   const navigate = useNavigate();
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -164,7 +164,7 @@ export function ResetPasswordPage(): React.ReactNode {
 
 function RequestForm(): React.ReactNode {
   const { t } = useTranslation();
-  const { requestPasswordReset } = useAuth();
+  const { requestPasswordReset } = useAuthActions();
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
@@ -221,7 +221,7 @@ function RequestForm(): React.ReactNode {
 
 function ResetForm({ token }: { readonly token: string }): React.ReactNode {
   const { t } = useTranslation();
-  const { resetPassword } = useAuth();
+  const { resetPassword } = useAuthActions();
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);

@@ -70,6 +70,11 @@ function errorResult(err: unknown): ActionResult {
 
 type AuthContextValue = AuthState & AuthActions;
 
+// Split state from actions so action-only consumers (login forms, password
+// reset) do not re-render when user/loading flips (avatar upload, session load).
+const AuthStateContext = createContext<AuthState | null>(null);
+const AuthActionsContext = createContext<AuthActions | null>(null);
+
 /** Stable for one authenticated lifecycle; access-token rotation does not change it. */
 export interface AuthSessionIdentity {
   readonly userId: string;
@@ -168,8 +173,6 @@ function applySignInResponse(
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
-
-const AuthContext = createContext<AuthContextValue | null>(null);
 
 /**
  * Clears every user-bound client credential and cache after the server session
@@ -389,10 +392,10 @@ export function AuthProvider({
     return { ok: true };
   }, [queryClient]);
 
-  const value = useMemo(
-    (): AuthContextValue => ({
-      user,
-      loading,
+  const state = useMemo((): AuthState => ({ user, loading }), [user, loading]);
+
+  const actions = useMemo(
+    (): AuthActions => ({
       signInWithGoogle,
       signInWithEmail,
       signUpWithEmail,
@@ -406,8 +409,6 @@ export function AuthProvider({
       deleteAccount,
     }),
     [
-      user,
-      loading,
       signInWithGoogle,
       signInWithEmail,
       signUpWithEmail,
@@ -422,11 +423,30 @@ export function AuthProvider({
     ]
   );
 
-  return <AuthContext value={value}>{children}</AuthContext>;
+  return (
+    <AuthActionsContext value={actions}>
+      <AuthStateContext value={state}>{children}</AuthStateContext>
+    </AuthActionsContext>
+  );
 }
 
-export function useAuth(): AuthContextValue {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+export function useAuthState(): AuthState {
+  const ctx = useContext(AuthStateContext);
+  if (!ctx) throw new Error('useAuthState must be used within AuthProvider');
   return ctx;
+}
+
+export function useAuthActions(): AuthActions {
+  const ctx = useContext(AuthActionsContext);
+  if (!ctx) throw new Error('useAuthActions must be used within AuthProvider');
+  return ctx;
+}
+
+/** Combined hook — re-renders when user/loading change. Prefer useAuthState /
+ * useAuthActions when only one half is needed. */
+export function useAuth(): AuthContextValue {
+  const state = useContext(AuthStateContext);
+  const actions = useContext(AuthActionsContext);
+  if (!state || !actions) throw new Error('useAuth must be used within AuthProvider');
+  return useMemo((): AuthContextValue => ({ ...state, ...actions }), [state, actions]);
 }

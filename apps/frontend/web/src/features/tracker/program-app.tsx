@@ -61,8 +61,10 @@ export function ProgramApp({
   const { user, loading: authLoading } = useAuth();
   const { isGuest } = useGuest();
 
-  const authData = useProgram(programId, instanceId);
-  const guestData = useGuestProgram(programId);
+  // Both hooks must be called (Rules of Hooks), but only the active path
+  // fetches / touches storage. The idle path is a cheap no-op.
+  const authData = useProgram(programId, instanceId, { enabled: !isGuest });
+  const guestData = useGuestProgram(programId, { enabled: isGuest });
   const programData = isGuest ? guestData : authData;
   const {
     definition,
@@ -124,12 +126,19 @@ export function ProgramApp({
   const [rest, setRest] = useState<{ readonly seconds: number; readonly id: number } | null>(null);
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 4;
   const totalWorkouts = definition?.totalWorkouts ?? 0;
-  const completedCount = rows.filter((r) => r.slots.every((s) => s.result !== undefined)).length;
-
-  const firstPendingIdx = (() => {
-    const pending = rows.find((r) => r.slots.some((s) => s.result === undefined));
-    return pending ? pending.index : -1;
-  })();
+  const { completedCount, firstPendingIdx } = useMemo(() => {
+    let completed = 0;
+    let firstPending = -1;
+    for (const row of rows) {
+      const allDone = row.slots.every((s) => s.result !== undefined);
+      if (allDone) {
+        completed += 1;
+      } else if (firstPending < 0) {
+        firstPending = row.index;
+      }
+    }
+    return { completedCount: completed, firstPendingIdx: firstPending };
+  }, [rows]);
 
   const dayNav = useDayNavigation({ totalWorkouts, firstPendingIdx, config });
   const graduation = useGraduation({

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { computeEpley1RM, roundToNearest } from '@gzclp/domain';
+import { computeEpley1RM } from '@gzclp/domain/graduation';
+import { roundToNearest } from '@gzclp/domain/generic-engine';
 
 interface AmrapInputProps {
   readonly value: number | undefined;

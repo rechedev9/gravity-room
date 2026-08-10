@@ -16,12 +16,15 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mockNavigate,
 }));
 
+const authActions = {
+  requestPasswordReset: mockRequestPasswordReset,
+  resetPassword: mockResetPassword,
+  verifyEmail: mockVerifyEmail,
+};
+
 vi.mock('@/contexts/auth-context', () => ({
-  useAuth: () => ({
-    requestPasswordReset: mockRequestPasswordReset,
-    resetPassword: mockResetPassword,
-    verifyEmail: mockVerifyEmail,
-  }),
+  useAuth: () => authActions,
+  useAuthActions: () => authActions,
 }));
 
 vi.mock('@/hooks/use-head', () => ({

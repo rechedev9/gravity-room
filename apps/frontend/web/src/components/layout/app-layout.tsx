@@ -5,7 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { AppSidebar } from './app-sidebar';
 import { SidebarTrigger } from './sidebar-trigger';
 import { MobileBottomNav } from './mobile-bottom-nav';
-import { EASE_OUT_EXPO } from '@/lib/motion-primitives';
+import { EASE_OUT_EXPO } from '@/lib/motion-easing';
 
 // Typed as Record<string, string | undefined> so the lookup result is string | undefined,
 // making the ?? fallback in getPageTitle semantically correct rather than dead code.
