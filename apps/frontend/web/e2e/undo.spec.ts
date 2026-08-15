@@ -14,26 +14,20 @@ test.describe('Undo', () => {
     await ensureCompactView(page);
   });
 
-  test('undo button disabled when no history', async ({ page }) => {
-    // The toolbar undo button is the first "Deshacer" button on the page
-    const undoBtn = page.getByRole('button', { name: 'Deshacer', exact: true }).first();
-    await expect(undoBtn).toBeDisabled();
+  test('undo has no chrome surface — it lives on the card that recorded it', async ({ page }) => {
+    await expect(page.getByTestId('session-chrome')).toBeVisible();
+    await expect(page.getByTestId('session-chrome').getByText(/deshacer/i)).toHaveCount(0);
   });
 
-  test('record T1 then undo via toolbar', async ({ page }) => {
-    const undoBtn = page.getByRole('button', { name: 'Deshacer', exact: true }).first();
-
+  test('record T1 then undo via keyboard', async ({ page }) => {
     await tierOutcomeButton(page, 'T1', 'éxito').click();
     await expect(tierUndoButton(page, 'T1', 'éxito')).toBeVisible();
 
-    // Undo via toolbar button
-    await expect(undoBtn).toBeEnabled();
-    await undoBtn.click();
+    await page.keyboard.press('u');
 
     // Pass/fail buttons should reappear
     await expect(tierOutcomeButton(page, 'T1', 'éxito')).toBeVisible();
     await expect(tierOutcomeButton(page, 'T1', 'fallo')).toBeVisible();
-    await expect(undoBtn).toBeDisabled();
   });
 
   test('record T1 then undo via badge click', async ({ page }) => {
@@ -50,12 +44,11 @@ test.describe('Undo', () => {
     await expect(tierOutcomeButton(page, 'T1', 'fallo')).toBeVisible();
   });
 
-  test('undo count text updates', async ({ page }) => {
-    // No undo count shown initially
-    await expect(page.getByText('1x')).not.toBeVisible();
-
-    // Record T1 success
+  test('recording a result offers undo on the completed card', async ({ page }) => {
     await tierOutcomeButton(page, 'T1', 'éxito').click();
-    await expect(page.getByText('1x')).toBeVisible();
+
+    const completed = page.getByTestId('completed-slot-row').first();
+    await expect(completed).toBeVisible();
+    await expect(completed.getByTestId('result-cell-undo')).toBeVisible();
   });
 });

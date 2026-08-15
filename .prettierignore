@@ -17,3 +17,7 @@ apps/backend/api/drizzle
 **/.venv
 **/.pytest_cache
 audit
+.scratch
+.grok
+# git symlink to CLAUDE.md; materialised as a plain file on Windows checkouts
+AGENTS.md

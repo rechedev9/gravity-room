@@ -32,6 +32,8 @@ export interface UseProgramReturn {
   readonly config: Record<string, number | string> | null;
   readonly metadata: unknown;
   readonly rows: readonly GenericWorkoutRow[];
+  /** Raw per-slot results — the engine input behind `rows`, needed for progression previews. */
+  readonly results: GenericResults;
   readonly undoHistory: GenericUndoHistory;
   readonly resultTimestamps: Readonly<Record<string, string>>;
   readonly completedDates: Readonly<Record<string, string>>;
@@ -385,6 +387,7 @@ export function useProgram(
       config,
       metadata,
       rows,
+      results,
       undoHistory,
       resultTimestamps,
       completedDates,
@@ -411,6 +414,7 @@ export function useProgram(
       config,
       metadata,
       rows,
+      results,
       undoHistory,
       resultTimestamps,
       completedDates,

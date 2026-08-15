@@ -6,6 +6,12 @@ export interface RestTimerProps {
   readonly seconds: number;
   readonly onSkip: () => void;
   readonly onComplete?: () => void;
+  /**
+   * `floating` keeps the legacy fixed bar (detailed view, where there is no
+   * hero card to host it); `inline` renders a strip meant to sit inside the
+   * current-lift card, right under the set you just confirmed.
+   */
+  readonly variant?: 'floating' | 'inline';
 }
 
 function formatMmSs(totalSeconds: number): string {
@@ -19,7 +25,12 @@ function formatMmSs(totalSeconds: number): string {
  * Sticky rest countdown after confirming a set. Pure presentation + tick;
  * the parent owns when to mount/unmount and which duration to use.
  */
-export function RestTimer({ seconds, onSkip, onComplete }: RestTimerProps): React.ReactNode {
+export function RestTimer({
+  seconds,
+  onSkip,
+  onComplete,
+  variant = 'floating',
+}: RestTimerProps): React.ReactNode {
   const { t } = useTranslation();
   const [remaining, setRemaining] = useState(seconds);
   const completedRef = useRef(false);
@@ -59,6 +70,38 @@ export function RestTimer({ seconds, onSkip, onComplete }: RestTimerProps): Reac
   // Stable status name (no per-tick countdown in the accessible name — that
   // would re-announce every second for up to 3 minutes on primary lifts).
   const statusLabel = t('tracker.rest_timer.aria', { time: formatMmSs(seconds) });
+  const elapsedPercent = seconds > 0 ? Math.round(((seconds - remaining) / seconds) * 100) : 0;
+
+  if (variant === 'inline') {
+    return (
+      <div
+        role="status"
+        aria-live="off"
+        aria-label={statusLabel}
+        className="mt-4 flex flex-wrap items-center gap-3.5 border-t border-rule pt-4"
+        data-testid="rest-timer"
+      >
+        <span className="font-mono text-2xs font-bold uppercase tracking-[0.08em] text-info">
+          {t('tracker.rest_timer.label')}
+        </span>
+        <span className="font-mono text-xl leading-none tabular-nums text-main" aria-hidden="true">
+          {formatMmSs(remaining)}
+        </span>
+        <div className="h-[3px] max-w-[280px] flex-1 bg-progress-track">
+          <div className="h-[3px] bg-accent-deep" style={{ width: `${elapsedPercent}%` }} />
+        </div>
+        <button
+          ref={skipRef}
+          type="button"
+          onClick={onSkip}
+          data-testid="rest-timer-skip"
+          className="min-h-[36px] shrink-0 border border-rule-light px-3 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-muted transition-colors hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+        >
+          {t('tracker.rest_timer.skip')}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div

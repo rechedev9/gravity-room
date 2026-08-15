@@ -1,20 +1,19 @@
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
-import type { ProgramDefinition } from '@gzclp/domain/types/program';
+import type { GenericResults, ProgramDefinition } from '@gzclp/domain/types/program';
 import type { ViewMode } from '@/lib/view-preference';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { localizedProgramDescription, localizedProgramName } from '@/lib/catalog-display';
 import { GuestBanner } from '@/components/guest-banner';
-import { ZoneHint } from '@/features/home/zone-hint';
 import { DayNavigator } from '@/features/program-view/day-navigator';
 import { CalendarNavigator } from '@/features/program-view/calendar-navigator';
-import { ProgramAboutSection } from '@/features/program-view/program-about-section';
-import { DayView, type SlotActions } from '@/features/program-view/day-view';
 import { DetailedDayView } from '@/features/program-view/detailed-day-view';
-import { DayStatusPill } from './day-status-pill';
+import type { SlotActions } from '@/features/program-view/day-view';
+import { SessionView } from './session-view';
 
 interface ProgramTabContentProps {
   readonly definition: ProgramDefinition;
+  readonly config: Record<string, number | string>;
+  readonly results: GenericResults;
   readonly isGuest: boolean;
   readonly rows: readonly GenericWorkoutRow[];
   readonly selectedWorkout: GenericWorkoutRow | undefined;
@@ -25,16 +24,24 @@ interface ProgramTabContentProps {
   readonly viewMode: ViewMode;
   readonly workoutsPerWeek: number;
   readonly resultTimestamps?: Readonly<Record<string, string>>;
+  /** Day-picker panel, toggled from the session chrome. */
+  readonly navExpanded: boolean;
+  readonly rest: { readonly seconds: number; readonly id: number } | null;
+  readonly onSkipRest: () => void;
+  readonly onCloseNav: () => void;
   readonly onPrevDay: () => void;
   readonly onNextDay: () => void;
   readonly onGoToCurrent: () => void;
   readonly onSelectDay: (index: number) => void;
   readonly onToggleView: () => void;
+  readonly onGoToProfile?: () => void;
   readonly slotActions: SlotActions;
 }
 
 export function ProgramTabContent({
   definition,
+  config,
+  results,
   isGuest,
   rows,
   selectedWorkout,
@@ -45,18 +52,21 @@ export function ProgramTabContent({
   viewMode,
   workoutsPerWeek,
   resultTimestamps,
+  navExpanded,
+  rest,
+  onSkipRest,
+  onCloseNav,
   onPrevDay,
   onNextDay,
   onGoToCurrent,
   onSelectDay,
   onToggleView,
+  onGoToProfile,
   slotActions,
 }: ProgramTabContentProps): React.ReactNode {
   const { onMark, onUndo, onSetAmrapReps, onSetRpe, onSetTap, getSetLogs, isSlotLogging } =
     slotActions;
   const { t } = useTranslation();
-  const name = localizedProgramName(t, definition.id, definition.name);
-  const description = localizedProgramDescription(t, definition.id, definition.description);
 
   const completedDayIndices = useMemo<ReadonlySet<number>>(
     () =>
@@ -64,38 +74,20 @@ export function ProgramTabContent({
     [rows]
   );
 
-  const [navExpanded, setNavExpanded] = useState(false);
-
   const handleSelectDay = (idx: number): void => {
     onSelectDay(idx);
-    setNavExpanded(false);
+    onCloseNav();
   };
 
   return (
-    <div
-      id="panel-program"
-      role="tabpanel"
-      aria-labelledby="tab-program"
-      className="max-w-5xl mx-auto"
-    >
-      {isGuest && <GuestBanner className="mb-4 sm:mb-8" />}
+    <div id="panel-program">
+      {isGuest && <GuestBanner className="mb-4" />}
 
-      {/* 1. Slim day header with collapsible nav trigger */}
-      <DayStatusPill
-        dayIndex={selectedDayIndex}
-        totalDays={totalWorkouts}
-        dayName={selectedWorkout?.dayName ?? ''}
-        isComplete={isDayComplete}
-        isCurrent={selectedDayIndex === currentDayIndex}
-        navExpanded={navExpanded}
-        onToggleNav={() => setNavExpanded((x) => !x)}
-      />
-
-      {/* 2. Collapsible nav-block: DayNavigator + CalendarNavigator + view toggle */}
+      {/* Day picker — collapsed by default, opened from the chrome band. */}
       {navExpanded && (
         <div
           data-testid="tracker-day-navigation-panel"
-          className="mb-4 rounded-b-[var(--radius-base)] border border-t-0 border-rule bg-card p-3 shadow-[var(--shadow-card)] sm:p-4"
+          className="mb-4 border border-rule bg-card p-3 shadow-[var(--shadow-card)] sm:p-4"
         >
           <DayNavigator
             selectedDayIndex={selectedDayIndex}
@@ -141,7 +133,6 @@ export function ProgramTabContent({
         </div>
       )}
 
-      {/* 3. Exercises — what the user came for */}
       {selectedWorkout &&
         (viewMode === 'detailed' ? (
           <DetailedDayView
@@ -156,35 +147,20 @@ export function ProgramTabContent({
             isSlotLogging={isSlotLogging}
           />
         ) : (
-          <DayView
+          <SessionView
+            definition={definition}
+            config={config}
+            results={results}
+            rows={rows}
             workout={selectedWorkout}
             isCurrent={selectedDayIndex === currentDayIndex}
-            onMark={onMark}
-            onUndo={onUndo}
-            onSetAmrapReps={onSetAmrapReps}
-            onSetRpe={onSetRpe}
-            onSetTap={onSetTap}
-            getSetLogs={getSetLogs}
-            isSlotLogging={isSlotLogging}
+            resultTimestamps={resultTimestamps}
+            rest={rest}
+            onSkipRest={onSkipRest}
+            onGoToProfile={onGoToProfile}
+            slotActions={slotActions}
           />
         ))}
-
-      {/* 4. Secondary content moved below exercises.
-          Hide the Sensei tip once the selected day is COMPLETE — post-session
-          noise next to finished sets. */}
-      <div className="max-w-2xl mx-auto mt-8 sm:mt-12 space-y-4">
-        {!isDayComplete ? <ZoneHint zone="tracker" /> : null}
-        <ProgramAboutSection
-          title={`${t('tracker.tab_content.about_label')} ${name}`}
-          description={description}
-          authorLine={
-            definition.author ? t('programs.card.author', { author: definition.author }) : undefined
-          }
-          totalWorkouts={totalWorkouts}
-          workoutsPerWeek={workoutsPerWeek}
-          dayCount={definition.days.length}
-        />
-      </div>
     </div>
   );
 }

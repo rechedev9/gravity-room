@@ -1117,6 +1117,38 @@
       "label": "DESCANSO",
       "skip": "Saltar",
       "aria": "Descanso {{time}}"
+    },
+    "session_chrome": {
+      "day_progress_aria": "Progreso del día",
+      "edit_weights_aria": "Editar cargas de partida"
+    },
+    "current_lift": {
+      "aria": "Levantamiento en curso: {{exercise}}",
+      "in_progress": "En curso",
+      "stage_scheme": "Etapa {{stage}} · {{scheme}}",
+      "confirm_set": "Serie {{index}} ✓",
+      "fail_aria": "Marcar {{exercise}} como fallado"
+    },
+    "session_view": {
+      "completed": "Completado",
+      "failed": "Fallado",
+      "pending_aria": "Pendiente en esta sesión"
+    },
+    "session_panel": {
+      "aria": "Contexto de la sesión",
+      "previous": "Misma sesión, la vez anterior",
+      "previous_with_age": "Misma sesión, {{age}}",
+      "fail_title": "Si fallas esta serie",
+      "fail_stage_same_weight": "Etapa {{stage}} ({{scheme}}) con el mismo peso en la próxima sesión. No pierdes carga.",
+      "fail_deload": "La próxima sesión recalcula la carga a {{weight}} kg.",
+      "fail_hold": "La carga se mantiene en {{weight}} kg la próxima sesión.",
+      "keyboard": "Teclado",
+      "shortcut_success": "marcar éxito",
+      "shortcut_fail": "marcar fallo",
+      "shortcut_undo": "deshacer",
+      "shortcut_day": "cambiar día",
+      "shortcut_rest": "saltar descanso",
+      "stats_link": "Ver estadísticas en perfil →"
     }
   },
   "profile": {

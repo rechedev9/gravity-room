@@ -2,6 +2,7 @@ export * from './catalog';
 export * from './generic-engine';
 export * from './generic-stats';
 export * from './graduation';
+export * from './progression-preview';
 export * from './exercise-versus';
 export * from './exercise-versus-profiles';
 export * from './type-guards';

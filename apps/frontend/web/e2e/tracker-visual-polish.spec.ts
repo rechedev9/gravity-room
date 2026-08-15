@@ -12,22 +12,30 @@ test.describe('Tracker visual polish', () => {
     await guestWithProgram(page, 'GZCLP');
   });
 
-  test('weights pill edit is secondary (rule border) and overflow is readable', async ({
+  test('chrome weight summary is readable and its edit control stays secondary', async ({
     page,
   }) => {
-    const pill = page.getByTestId('weights-pill');
-    await expect(pill).toBeVisible();
+    const summary = page.getByTestId('session-chrome-weights');
+    await expect(summary).toBeVisible();
     // Spanish locale: "+2 más" (not a bare "+2")
-    await expect(pill).toContainText(/\+\d+\s+más/i);
+    await expect(summary).toContainText(/\+\d+\s+más/i);
 
-    const edit = page.getByTestId('weights-pill-edit');
+    const edit = page.getByTestId('session-chrome-edit-weights');
     await expect(edit).toBeVisible();
-    await expect(edit).toHaveCSS('border-color', /.*/);
     // Gold accent border must not be used on this secondary control.
     const className = (await edit.getAttribute('class')) ?? '';
     expect(className).toContain('border-rule');
     expect(className).not.toContain('border-accent');
     expect(className).not.toContain('text-accent');
+  });
+
+  test('session chrome is the only band above the exercises', async ({ page }) => {
+    await expect(page.getByTestId('session-chrome')).toBeVisible();
+    // No separate weights pill, day pill or Programa/Estadísticas tablist survives.
+    await expect(page.getByTestId('weights-pill')).toHaveCount(0);
+    await expect(page.getByRole('tablist')).toHaveCount(0);
+    const box = await page.getByTestId('session-chrome').boundingBox();
+    expect(box?.height).toBeLessThanOrEqual(120);
   });
 
   test('set tables are width-capped with fixed layout for dense columns', async ({ page }) => {
@@ -75,16 +83,19 @@ test.describe('Tracker visual polish', () => {
     await expect(weekSelect.locator('option:checked')).toContainText(/SEM 2|WK 2/i);
   });
 
-  test('mobile toolbar keeps one progress surface and a compact weight summary', async ({
+  test('mobile chrome keeps one progress surface and a compact weight summary', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.getByRole('progressbar')).toHaveCount(1);
-    await expect(page.getByTestId('weights-pill')).toContainText(/\+\d+\s+más/i);
+    await expect(page.getByTestId('session-chrome-weights')).toContainText(/\+\d+\s+más/i);
   });
 
-  test('progress fill is still visible when only one workout is done', async ({ page }) => {
-    // Confirm all sets of day 1 so progress becomes 1/90.
+  test('day progress fills as lifts are resolved', async ({ page }) => {
+    const bar = page.getByRole('progressbar').first();
+    await expect(bar).toContainText(/0\/\d+/);
+
+    // Confirm every set of day 1.
     for (let i = 0; i < 20; i++) {
       const next = page.locator('button[aria-label^="Confirmar serie"]:not([disabled])').first();
       if ((await next.count()) === 0) break;
@@ -96,13 +107,10 @@ test.describe('Tracker visual polish', () => {
       }
     }
 
-    const bar = page.getByRole('progressbar').first();
-    await expect(bar).toContainText(/1\/\d+/);
     const fillWidth = await bar.locator('[data-fill]').evaluate((el) => {
       return parseFloat((el as HTMLElement).style.width);
     });
-    // Must be the min-visible floor (4%), not the true 1%.
-    expect(fillWidth).toBeGreaterThanOrEqual(4);
+    expect(fillWidth).toBe(100);
   });
 
   test('RPE uses a custom listbox after completing a primary lift', async ({ page }) => {
@@ -153,12 +161,12 @@ test.describe('Tracker visual polish', () => {
     await expect(page.locator('[data-theme-option="classic-light"]')).toContainText(/claro/i);
     await expect(page.locator('[data-theme-option="classic-dark"]')).toHaveCount(0);
 
-    await page.getByTestId('weights-pill-edit').click();
+    await page.getByTestId('session-chrome-edit-weights').click();
     await expect(page.getByTestId('setup-recalc-callout')).toBeVisible({ timeout: 5_000 });
     await expect(page.getByTestId('setup-recalc-callout')).toContainText(/rec[aá]lculo/i);
   });
 
-  test('Sensei tip is hidden once the day is complete', async ({ page }) => {
+  test('discovery content no longer sits under the exercises', async ({ page }) => {
     // Finish every confirmable set on day 1.
     for (let i = 0; i < 20; i++) {
       const next = page.locator('button[aria-label^="Confirmar serie"]:not([disabled])').first();
@@ -169,8 +177,9 @@ test.describe('Tracker visual polish', () => {
         await skip.click().catch(() => {});
       }
     }
-    await expect(page.getByText(/COMPLETE|COMPLETO/i).first()).toBeVisible({ timeout: 10_000 });
-    // ZoneHint for tracker must not reappear under completed day content.
+    await expect(page.getByRole('progressbar').first()).toContainText(/(\d+)\//);
+    // Neither the Sensei tip nor the "about this program" block belongs in a session.
     await expect(page.getByLabel('Consejo del Sensei')).toHaveCount(0);
+    await expect(page.getByText(/acerca de/i)).toHaveCount(0);
   });
 });

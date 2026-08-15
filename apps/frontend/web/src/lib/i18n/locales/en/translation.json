@@ -201,7 +201,6 @@
       "cta_active_warning": "Finish your current program before starting a new one.",
       "sample_workout": "Sample workout"
     },
-
     "active_card": {
       "workouts_count": "{{count}} workouts",
       "frequency": "{{count}}x / week",
@@ -1118,6 +1117,38 @@
       "label": "REST",
       "skip": "Skip",
       "aria": "Rest {{time}}"
+    },
+    "session_chrome": {
+      "day_progress_aria": "Day progress",
+      "edit_weights_aria": "Edit starting weights"
+    },
+    "current_lift": {
+      "aria": "Current lift: {{exercise}}",
+      "in_progress": "In progress",
+      "stage_scheme": "Stage {{stage}} · {{scheme}}",
+      "confirm_set": "Set {{index}} ✓",
+      "fail_aria": "Mark {{exercise}} as failed"
+    },
+    "session_view": {
+      "completed": "Completed",
+      "failed": "Failed",
+      "pending_aria": "Pending in this session"
+    },
+    "session_panel": {
+      "aria": "Session context",
+      "previous": "Same session, last time",
+      "previous_with_age": "Same session, {{age}}",
+      "fail_title": "If you fail this set",
+      "fail_stage_same_weight": "Stage {{stage}} ({{scheme}}) at the same weight next session. You keep the load.",
+      "fail_deload": "Next session recalculates the load to {{weight}} kg.",
+      "fail_hold": "The load stays at {{weight}} kg next session.",
+      "keyboard": "Keyboard",
+      "shortcut_success": "mark success",
+      "shortcut_fail": "mark fail",
+      "shortcut_undo": "undo",
+      "shortcut_day": "change day",
+      "shortcut_rest": "skip rest",
+      "stats_link": "See stats in profile →"
     }
   },
   "profile": {

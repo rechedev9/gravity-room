@@ -1,4 +1,4 @@
-import { Suspense, useState, useTransition, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ResultValue } from '@gzclp/domain/types';
 import { useProgram } from '@/hooks/use-program';
@@ -19,25 +19,17 @@ import { useTestWeightModal } from '@/hooks/use-test-weight-modal';
 import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
 import { localizedProgramName } from '@/lib/catalog-display';
 import { useProgramCompletion } from '@/hooks/use-program-completion';
-import { ErrorBoundary } from '@/components/error-boundary';
 import { ToastContainer } from '@/components/toast';
 import { AppSkeleton } from '@/components/app-skeleton';
 import { GraduationPanel } from './graduation-panel';
 import { ProgramCompletionScreen } from './program-completion-screen';
 import { ProgramTabContent } from './program-tab-content';
+import { SessionChrome } from './session-chrome';
 import { SetupForm } from './setup-form';
-import { StatsSkeleton } from './stats-skeleton';
-import { TabButton } from './tab-button';
 import { TestWeightModal } from './test-weight-modal';
-import { Toolbar } from './toolbar';
-import { ShortcutsOverlay } from './shortcuts-overlay';
-import { WeightsPill } from './weights-pill';
 import { RestTimer } from './rest-timer';
 import { plannedConfirmableSets, restSecondsForRole } from './rest-timer-policy';
-import { lazyWithRetry } from '@/lib/lazy-with-retry';
 
-const StatsPanel = lazyWithRetry(() => import('./stats-panel'));
-const preloadStatsPanel = (): void => void import('./stats-panel');
 const MAX_BACKUP_FILE_BYTES = 1_048_576;
 
 interface ProgramAppProps {
@@ -71,6 +63,7 @@ export function ProgramApp({
     config,
     metadata,
     rows,
+    results,
     undoHistory,
     resultTimestamps,
     isLoading,
@@ -119,9 +112,8 @@ export function ProgramApp({
   });
 
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'program' | 'stats'>('program');
-  const [isPending, startTransition] = useTransition();
   const [editingWeights, setEditingWeights] = useState(false);
+  const [navExpanded, setNavExpanded] = useState(false);
   /** Active rest between sets — null when no countdown is running. `id` forces remount. */
   const [rest, setRest] = useState<{ readonly seconds: number; readonly id: number } | null>(null);
   const workoutsPerWeek = definition?.workoutsPerWeek ?? 4;
@@ -248,7 +240,7 @@ export function ProgramApp({
     recordAndToast(workoutIndex, slotId, value);
   };
 
-  useWakeLock(isViewActive && activeTab === 'program' && config !== null);
+  useWakeLock(isViewActive && config !== null);
 
   const handleSetTap = (
     workoutIndex: number,
@@ -287,7 +279,7 @@ export function ProgramApp({
   }, [rows, firstPendingIdx]);
 
   useKeyboardShortcuts({
-    isActive: isViewActive && activeTab === 'program' && config !== null,
+    isActive: isViewActive && config !== null,
     onSuccess: () => {
       // Detailed / set-first mode: S/F would bypass per-set confirm — ignore.
       if (dayNav.viewMode === 'detailed') return;
@@ -366,16 +358,28 @@ export function ProgramApp({
     );
   }
 
+  const doneSlots = selectedWorkout
+    ? selectedWorkout.slots.filter((slot) => slot.result !== undefined).length
+    : 0;
+
   return (
     <>
-      <div className="sticky top-0 z-50">
-        {config && (
-          <Toolbar
-            completedCount={completedCount}
-            totalWorkouts={totalWorkouts}
-            undoCount={undoHistory.length}
+      {config && rows.length > 0 && (
+        <div className="sticky top-0 z-50">
+          <SessionChrome
+            definition={definition}
+            config={config}
+            dayIndex={dayNav.selectedDayIndex}
+            totalDays={totalWorkouts}
+            dayName={selectedWorkout?.dayName ?? ''}
+            isCurrentDay={dayNav.selectedDayIndex === firstPendingIdx}
+            doneSlots={doneSlots}
+            totalSlots={selectedWorkout?.slots.length ?? 0}
+            completedDays={completedCount}
+            navExpanded={navExpanded}
+            onToggleNav={() => setNavExpanded((x) => !x)}
+            onEditWeights={() => setEditingWeights(true)}
             isFinishing={isFinishing}
-            onUndo={undoLast}
             onFinish={handleFinishProgram}
             onReset={handleResetAll}
             onExportCsv={handleExportCsv}
@@ -387,35 +391,27 @@ export function ProgramApp({
             onEnableWebMcp={() => setWebMcpEnabled(true)}
             onDisableWebMcp={() => setWebMcpEnabled(false)}
           />
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="max-w-[1300px] mx-auto px-3 sm:px-5 pb-24">
         {config && rows.length > 0 ? (
-          <>
-            {editingWeights ? (
-              <SetupForm
-                definition={definition}
-                initialConfig={config}
-                isGenerating={isGenerating}
-                onGenerate={generateProgram}
-                onUpdateConfig={(cfg) => {
-                  updateConfig(cfg);
-                  setEditingWeights(false);
-                }}
-                statusNote={jawStatusNote}
-                activeGroup={jawContext?.group}
-                defaultExpanded
-                onClose={() => setEditingWeights(false)}
-              />
-            ) : (
-              <WeightsPill
-                definition={definition}
-                config={config}
-                onEdit={() => setEditingWeights(true)}
-              />
-            )}
-          </>
+          editingWeights && (
+            <SetupForm
+              definition={definition}
+              initialConfig={config}
+              isGenerating={isGenerating}
+              onGenerate={generateProgram}
+              onUpdateConfig={(cfg) => {
+                updateConfig(cfg);
+                setEditingWeights(false);
+              }}
+              statusNote={jawStatusNote}
+              activeGroup={jawContext?.group}
+              defaultExpanded
+              onClose={() => setEditingWeights(false)}
+            />
+          )
         ) : (
           <SetupForm
             definition={definition}
@@ -441,96 +437,40 @@ export function ProgramApp({
         )}
 
         {config && rows.length > 0 && (
-          <>
-            <div role="tablist" className="flex gap-0 mb-4 sm:mb-8 border-b-2 border-rule">
-              <TabButton
-                id="tab-program"
-                controls="panel-program"
-                active={activeTab === 'program'}
-                onClick={() => startTransition(() => setActiveTab('program'))}
-              >
-                {t('tracker.program')}
-              </TabButton>
-              <TabButton
-                id="tab-stats"
-                controls="panel-stats"
-                active={activeTab === 'stats'}
-                onClick={() => {
-                  if (isGuest) {
-                    toast({ message: t('tracker.guest_stats_message') });
-                    return;
-                  }
-                  startTransition(() => setActiveTab('stats'));
-                }}
-                onMouseEnter={isGuest ? undefined : preloadStatsPanel}
-                onFocus={isGuest ? undefined : preloadStatsPanel}
-              >
-                <span className={isGuest ? 'opacity-50' : ''}>{t('tracker.statistics')}</span>
-              </TabButton>
-            </div>
-
-            {activeTab === 'program' && (
-              <ProgramTabContent
-                definition={definition}
-                isGuest={isGuest}
-                rows={rows}
-                selectedWorkout={selectedWorkout}
-                selectedDayIndex={dayNav.selectedDayIndex}
-                currentDayIndex={firstPendingIdx}
-                totalWorkouts={totalWorkouts}
-                isDayComplete={isDayComplete}
-                viewMode={dayNav.viewMode}
-                workoutsPerWeek={workoutsPerWeek}
-                resultTimestamps={resultTimestamps}
-                onPrevDay={dayNav.handlePrevDay}
-                onNextDay={dayNav.handleNextDay}
-                onGoToCurrent={dayNav.handleGoToCurrent}
-                onSelectDay={dayNav.handleSelectDay}
-                onToggleView={dayNav.handleToggleView}
-                slotActions={{
-                  onMark: handleMarkResult,
-                  onUndo: testWeight.handleUndoSpecific,
-                  onSetAmrapReps: setAmrapReps,
-                  onSetRpe: setRpe,
-                  onSetTap: handleSetTap,
-                  getSetLogs,
-                  isSlotLogging,
-                }}
-              />
-            )}
-
-            {activeTab === 'stats' && (
-              <div
-                id="panel-stats"
-                role="tabpanel"
-                aria-labelledby="tab-stats"
-                className="max-w-2xl mx-auto transition-opacity duration-150"
-                style={{ opacity: isPending ? 0.6 : 1 }}
-              >
-                <ErrorBoundary
-                  fallback={({ reset }) => (
-                    <div className="text-center py-16">
-                      <p className="text-muted mb-4">{t('tracker.stats_load_error')}</p>
-                      <button
-                        onClick={reset}
-                        className="px-5 py-2 bg-accent text-on-accent font-bold cursor-pointer"
-                      >
-                        {t('tracker.retry')}
-                      </button>
-                    </div>
-                  )}
-                >
-                  <Suspense fallback={<StatsSkeleton />}>
-                    <StatsPanel
-                      definition={definition}
-                      rows={rows}
-                      resultTimestamps={resultTimestamps}
-                    />
-                  </Suspense>
-                </ErrorBoundary>
-              </div>
-            )}
-          </>
+          <ProgramTabContent
+            definition={definition}
+            config={config}
+            results={results}
+            isGuest={isGuest}
+            rows={rows}
+            selectedWorkout={selectedWorkout}
+            selectedDayIndex={dayNav.selectedDayIndex}
+            currentDayIndex={firstPendingIdx}
+            totalWorkouts={totalWorkouts}
+            isDayComplete={isDayComplete}
+            viewMode={dayNav.viewMode}
+            workoutsPerWeek={workoutsPerWeek}
+            resultTimestamps={resultTimestamps}
+            navExpanded={navExpanded}
+            rest={rest}
+            onSkipRest={dismissRest}
+            onCloseNav={() => setNavExpanded(false)}
+            onPrevDay={dayNav.handlePrevDay}
+            onNextDay={dayNav.handleNextDay}
+            onGoToCurrent={dayNav.handleGoToCurrent}
+            onSelectDay={dayNav.handleSelectDay}
+            onToggleView={dayNav.handleToggleView}
+            onGoToProfile={onGoToProfile}
+            slotActions={{
+              onMark: handleMarkResult,
+              onUndo: testWeight.handleUndoSpecific,
+              onSetAmrapReps: setAmrapReps,
+              onSetRpe: setRpe,
+              onSetTap: handleSetTap,
+              getSetLogs,
+              isSlotLogging,
+            }}
+          />
         )}
       </div>
 
@@ -544,9 +484,9 @@ export function ProgramApp({
         onCancel={testWeight.handleTestWeightCancel}
       />
 
-      <ShortcutsOverlay enabled={Boolean(config) && rows.length > 0} />
-
-      {rest !== null ? (
+      {/* The compact session hosts rest inside the current-lift card; the
+          detailed table has no hero, so it keeps the floating bar. */}
+      {rest !== null && dayNav.viewMode === 'detailed' ? (
         <RestTimer
           key={rest.id}
           seconds={rest.seconds}

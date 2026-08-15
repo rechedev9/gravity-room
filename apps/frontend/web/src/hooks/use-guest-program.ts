@@ -287,6 +287,7 @@ export function useGuestProgram(
     config,
     metadata,
     rows,
+    results,
     undoHistory,
     resultTimestamps,
     completedDates,

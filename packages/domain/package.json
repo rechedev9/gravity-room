@@ -19,6 +19,7 @@
     "./generic-engine": "./src/generic-engine.ts",
     "./generic-stats": "./src/generic-stats.ts",
     "./graduation": "./src/graduation.ts",
+    "./progression-preview": "./src/progression-preview.ts",
     "./exercise-versus": "./src/exercise-versus.ts",
     "./exercise-versus-profiles": "./src/exercise-versus-profiles.ts",
     "./type-guards": "./src/type-guards.ts",
