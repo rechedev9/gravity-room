@@ -13,8 +13,8 @@ import {
   expandDayControls,
   navigateToTracker,
   seedProgram,
-  tierOutcomeButton,
   tierUndoButton,
+  markTierSuccess,
 } from './helpers/seed';
 import {
   PERF_BUDGETS,
@@ -74,9 +74,10 @@ test.describe('Frontend perf budgets', () => {
     }
 
     const mark = await measureInteraction(page, 'mark-t1-success', async () => {
-      const btn = tierOutcomeButton(page, 'T1', 'éxito');
-      await expect(btn).toBeVisible({ timeout: 10_000 });
-      await btn.click();
+      // T1 is the hero lift in compact view — markTierSuccess drives the
+      // per-set confirm flow (current-lift-card.tsx) since the hero has no
+      // whole-slot ✓.
+      await markTierSuccess(page, 'T1');
       await expect(tierUndoButton(page, 'T1', 'éxito')).toBeVisible({ timeout: 5_000 });
     });
     expect(mark.durationMs).toBeLessThan(PERF_BUDGETS.markSetMs);

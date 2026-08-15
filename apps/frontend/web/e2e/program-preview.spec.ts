@@ -84,6 +84,11 @@ test.describe('Program preview — interactivity', () => {
   });
 
   test('pass/fail buttons are no-ops on preview (no state change)', async ({ page }) => {
+    // Detailed (set-first) is the default view and hides the whole-slot
+    // pass/fail control until a result exists (detailed-day-view.tsx); switch
+    // to compact to reach the shared ✓/✗ affordance.
+    await page.getByRole('button', { name: 'Cambiar a vista compacta' }).click();
+
     const passBtn = page.getByRole('button', { name: /Marcar .+ éxito/ }).first();
     await passBtn.click();
 

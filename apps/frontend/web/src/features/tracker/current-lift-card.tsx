@@ -114,7 +114,6 @@ export function CurrentLiftCard({
                 type="button"
                 data-testid="current-lift-confirm-set"
                 onClick={() => onSetTap(workoutIndex, slot.slotId, nextSetIndex, slot.reps)}
-                disabled={isLogging}
                 style={{ boxShadow: 'var(--shadow-pressed-steel)' }}
                 className="h-12 bg-accent px-6 font-mono text-xs font-bold uppercase tracking-[0.08em] text-on-accent transition-colors hover:bg-accent-hover disabled:opacity-60 cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
               >

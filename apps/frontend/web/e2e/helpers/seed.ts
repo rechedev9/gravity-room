@@ -34,6 +34,54 @@ export function tierUndoButton(page: Page, tier: Tier, outcome: TierOutcome): Lo
 }
 
 /**
+ * True when the hero lift promoted by `current-lift-card.tsx` (compact view's
+ * "in progress" card) is currently showing the given tier. The hero has no
+ * whole-slot pass/fail button — only the per-set flow below.
+ */
+async function isHeroTier(page: Page, tier: Tier): Promise<boolean> {
+  const heroCard = page.getByTestId('current-lift-card');
+  if (!(await heroCard.isVisible({ timeout: 1_000 }).catch(() => false))) return false;
+  const tierText = await heroCard.locator('span').first().innerText();
+  return tierText.trim().toUpperCase() === tier;
+}
+
+/**
+ * Marks a tier as successful using whichever affordance is currently present:
+ * the shared whole-slot ✓ (secondary/non-hero lifts) or, for the hero lift
+ * promoted in compact view, the per-set confirm action repeated until the
+ * lift resolves — confirming the last set auto-marks it successful (see
+ * `useSetLogging`). The whole-slot ✓ is absent for the hero on purpose
+ * (`current-lift-card.tsx`); this helper hides that difference from callers.
+ */
+export async function markTierSuccess(page: Page, tier: Tier): Promise<void> {
+  const wholeSlotBtn = tierOutcomeButton(page, tier, 'éxito');
+  if (await wholeSlotBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+    await wholeSlotBtn.click();
+    return;
+  }
+  for (let i = 0; i < 10 && (await isHeroTier(page, tier)); i++) {
+    await page.getByTestId('current-lift-card').getByTestId('current-lift-confirm-set').click();
+  }
+}
+
+/**
+ * Marks a tier as failed using whichever affordance is currently present:
+ * the shared whole-slot ✗, or the hero lift's dedicated fail control.
+ */
+export async function markTierFail(page: Page, tier: Tier): Promise<void> {
+  const wholeSlotBtn = tierOutcomeButton(page, tier, 'fallo');
+  if (await wholeSlotBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+    await wholeSlotBtn.click();
+    return;
+  }
+  if (await isHeroTier(page, tier)) {
+    await page.getByTestId('current-lift-card').getByTestId('current-lift-fail').click();
+    return;
+  }
+  throw new Error(`No fail control found for tier ${tier}`);
+}
+
+/**
  * Creates a test user, authenticates them (setting cookies on the browser context),
  * and creates a GZCLP program. Must be called BEFORE page.goto() so that
  * the refresh_token cookie is present when AuthProvider fires.
@@ -85,9 +133,19 @@ export async function navigateToTracker(page: Page): Promise<void> {
   await expect(page.getByText(/^Día \d+$/).first()).toBeVisible({ timeout: 10_000 });
 }
 
-/** Assert the selected tracker day using the current compact day status pill. */
+/**
+ * Assert the selected tracker day using the session chrome band.
+ * The day number and the "/ total" count render in separate spans
+ * (see `session-chrome.tsx`), so match each structurally instead of
+ * relying on a single text node containing both. The chrome also carries a
+ * separate `dayName` span ("Día N") that only differs from the identity
+ * pill ("DÍA N") by case — an unanchored case-insensitive match would hit
+ * both, so this stays case-sensitive to pin down the identity pill alone.
+ */
 export async function expectSelectedDay(page: Page, day: number): Promise<void> {
-  await expect(page.getByText(new RegExp(`DÍA ${day} /`, 'i')).first()).toBeVisible({
+  const chrome = page.getByTestId('session-chrome');
+  await expect(chrome).toBeVisible({ timeout: 10_000 });
+  await expect(chrome.getByText(new RegExp(`^DÍA ${day}$`))).toBeVisible({
     timeout: 10_000,
   });
 }

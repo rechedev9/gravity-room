@@ -195,6 +195,23 @@ describe('SessionView', () => {
     expect(onSetTap).toHaveBeenCalledWith(1, 'a-t1', 0, 3);
   });
 
+  it('keeps confirming sets after the first one is logged', () => {
+    // Regression: gating the primary action on "this slot has in-progress logs"
+    // disabled it from set 2 onward, making the hero unusable with a mouse.
+    const { onSetTap } = renderView({
+      actions: {
+        getSetLogs: () => [{ reps: 3 }, { reps: 3 }],
+        isSlotLogging: () => true,
+      },
+    });
+
+    const confirm = screen.getByTestId('current-lift-confirm-set');
+    expect(confirm).toBeEnabled();
+
+    fireEvent.click(confirm);
+    expect(onSetTap).toHaveBeenCalledWith(1, 'a-t1', 2, 3);
+  });
+
   it('marks a failure from the hero secondary action', () => {
     const { onMark } = renderView();
 

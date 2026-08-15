@@ -3,7 +3,9 @@ import {
   seedProgram,
   navigateToTracker,
   dismissRpeIfPresent,
-  tierOutcomeButton,
+  ensureCompactView,
+  tierUndoButton,
+  markTierSuccess,
 } from './helpers/seed';
 
 /**
@@ -44,13 +46,23 @@ test.describe('Authenticated tracker', () => {
   });
 
   test('can mark T1 success and see undo enabled', async ({ page }) => {
-    await tierOutcomeButton(page, 'T1', 'éxito').click();
+    // Detailed (set-first) is the default view and hides the whole-slot result
+    // control until a result exists; compact view exposes the hero lift's
+    // per-set/fail affordances that markTierSuccess drives.
+    await ensureCompactView(page);
+    await markTierSuccess(page, 'T1');
     await dismissRpeIfPresent(page);
-    await expect(page.getByRole('button', { name: 'Deshacer' }).first()).toBeEnabled();
+    // Undo lives on the card that recorded it — there is no chrome-level
+    // "Deshacer" button anymore (session-chrome.tsx).
+    await expect(tierUndoButton(page, 'T1', 'éxito')).toBeVisible();
   });
 
-  test('stats tab is accessible for authenticated users', async ({ page }) => {
-    await page.getByRole('tab', { name: /estad/i }).click();
+  test('profile (where stats now live) is accessible for authenticated users', async ({ page }) => {
+    // The tracker's Stats tab was removed; statistics now live only on the
+    // profile page, reached from the sidebar nav item that is guest-hidden
+    // (see guest-mode.spec.ts REQ-GROUT-003 / REQ-GROUT-005).
+    await page.getByRole('link', { name: 'Perfil' }).first().click();
+    await expect(page).toHaveURL(/\/app\/profile/);
     await expect(page.getByText(/crea una cuenta/i)).not.toBeVisible({ timeout: 2_000 });
   });
 });

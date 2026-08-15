@@ -15,8 +15,11 @@ test.describe('Progression rules', () => {
     await ensureCompactView(page);
     await selectWorkoutDay(page, 5);
 
-    // Workout #5 (index 4) is Day 1 = Squat T1 at 65 (60 start + 5)
-    await expect(page.getByText('65 kg')).toBeVisible();
+    // Workout #5 (index 4) is Day 1 = Squat T1 at 65 (60 start + 5).
+    // The hero card renders weight and unit as separate spans.
+    const hero = page.getByTestId('current-lift-card');
+    await expect(hero.getByText('65', { exact: true })).toBeVisible();
+    await expect(hero.getByText('kg', { exact: true })).toBeVisible();
   });
 
   test('T1 failure advances stage without changing weight', async ({ page }) => {
@@ -33,9 +36,12 @@ test.describe('Progression rules', () => {
     await ensureCompactView(page);
     await selectWorkoutDay(page, 5);
 
-    // Workout #5 (index 4) T1 Squat: weight stays 60, stage advances to S2
-    await expect(page.getByText('60 kg').first()).toBeVisible();
-    await expect(page.getByText('S2')).toBeVisible();
+    // Workout #5 (index 4) T1 Squat: weight stays 60, stage advances to S2.
+    // The hero shows the stage as inline text, not the StageTag badge.
+    const hero = page.getByTestId('current-lift-card');
+    await expect(hero.getByText('60', { exact: true })).toBeVisible();
+    await expect(hero.getByText('kg', { exact: true })).toBeVisible();
+    await expect(hero.getByText(/Etapa 2/)).toBeVisible();
   });
 
   test('T1 final-stage fail deloads 10% and resets stage', async ({ page }) => {
@@ -63,7 +69,10 @@ test.describe('Progression rules', () => {
     // (StageTag is hidden on stage 0; assert no S2/S3)
     await selectWorkoutDay(page, 13);
 
-    await expect(page.getByText('55 kg')).toBeVisible();
+    // The hero card renders weight and unit as separate spans.
+    const hero = page.getByTestId('current-lift-card');
+    await expect(hero.getByText('55', { exact: true })).toBeVisible();
+    await expect(hero.getByText('kg', { exact: true })).toBeVisible();
     await expect(page.getByText('S2')).not.toBeVisible();
     await expect(page.getByText('S3')).not.toBeVisible();
   });

@@ -6,6 +6,8 @@ import {
   dismissCookieBannerIfPresent,
   authenticateOnly,
   readStorage,
+  ensureCompactView,
+  markTierSuccess,
 } from './helpers/seed';
 
 // localStorage key the guest program data lives under (see lib/guest-storage.ts).
@@ -146,13 +148,15 @@ test.describe('Guest sidebar CTA (REQ-GUI-003, REQ-GUI-008)', () => {
     // 3. Authenticate (mints a session cookie shared with the browser context).
     await authenticateOnly(page);
 
-    // 4. Landing in the app as an authenticated user triggers the migration.
+    // Migration is consent-gated, never automatic (see useGuestMigration).
     await page.goto('/app');
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible({ timeout: 10_000 });
+    await dialog.getByRole('button', { name: 'Importar en esta cuenta' }).click();
 
     // Assert the durable outcome, not the ephemeral success toast: it
-    // auto-dismisses after 3s and can be gone before goto() resolves on slow
-    // machines (the toast itself is covered by the use-guest-migration unit
-    // tests). Migration done = guest storage cleared + program on the account.
+    // auto-dismisses after 3s, so assert the outcome (storage cleared, program
+    // on the account) rather than the toast.
     await expect
       .poll(async () => readStorage(page, GUEST_STORAGE_KEY), { timeout: 15_000 })
       .toBeNull();
@@ -179,18 +183,13 @@ test.describe('Guest sidebar CTA (REQ-GUI-003, REQ-GUI-008)', () => {
 // ===========================================================================
 
 test.describe('Blocked guest actions (REQ-GUI-004, REQ-GUI-005, REQ-GUI-006)', () => {
-  test('stats tab is visually disabled and shows toast on click', async ({ page }) => {
+  // The Stats tab is gone; guests are now blocked by having no in-app path to
+  // the profile at all (app-sidebar.tsx marks it `guestHidden`).
+  test('guest has no sidebar entry point to profile/stats', async ({ page }) => {
     await generateGuestProgram(page);
 
-    // Stats tab should be visible
-    const statsTab = page.getByRole('tab', { name: /estad/i });
-    await expect(statsTab).toBeVisible();
-
-    // Click the stats tab
-    await statsTab.click();
-
-    // Toast should appear
-    await expect(page.getByText(/crea una cuenta/i).last()).toBeVisible({ timeout: 5_000 });
+    const nav = page.getByRole('navigation').first();
+    await expect(nav.getByRole('link', { name: 'Perfil' })).not.toBeVisible();
   });
 });
 
@@ -238,11 +237,9 @@ test.describe('Guest program hook (REQ-GROUT-002)', () => {
 
   test('guest can mark a set and see it reflected', async ({ page }) => {
     await generateGuestProgram(page);
-
-    // Find the first success button (aria-label: "Marcar {tier} éxito")
-    const passBtn = page.getByRole('button', { name: /éxito/i }).first();
-    await expect(passBtn).toBeVisible({ timeout: 5_000 });
-    await passBtn.click();
+    // markTierSuccess drives whichever affordance the current view exposes.
+    await ensureCompactView(page);
+    await markTierSuccess(page, 'T1');
 
     // After marking, progress bar should still be visible (updated)
     await expect(page.getByRole('progressbar').last()).toBeVisible();
@@ -310,15 +307,14 @@ test.describe('Guest catalog flow (REQ-GROUT-004)', () => {
 // ===========================================================================
 
 test.describe('Guest stats blocking (REQ-GROUT-005)', () => {
-  test('stats tab is visible but disabled', async ({ page }) => {
+  // Guest data lives only in localStorage and the profile reads the
+  // authenticated API, so even a direct URL cannot surface it.
+  test('navigating directly to the profile route shows no guest program data', async ({ page }) => {
     await generateGuestProgram(page);
 
-    const statsTab = page.getByRole('tab', { name: /estad/i });
-    await expect(statsTab).toBeVisible();
-
-    // The inner span has reduced opacity (opacity-50 class)
-    const statsLabel = statsTab.locator('span');
-    await expect(statsLabel).toHaveClass(/opacity/);
+    await page.goto('/app/profile');
+    await expect(page.getByText('SIN PROGRAMA')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText('GZCLP')).not.toBeVisible();
   });
 });
 

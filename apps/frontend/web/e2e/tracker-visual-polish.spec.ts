@@ -178,7 +178,7 @@ test.describe('Tracker visual polish', () => {
         await skip.click().catch(() => {});
       }
     }
-    await expect(page.getByRole('progressbar').first()).toContainText(/(\d+)\//);
+    await expect(page.getByRole('progressbar').first()).toContainText(/(\d+)\//);
     // Neither the Sensei tip nor the "about this program" block belongs in a session.
     const panel = page.locator('#panel-program');
     await expect(panel.getByLabel('Consejo del Sensei')).toHaveCount(0);
