@@ -298,6 +298,7 @@ export function ProgramApp({
     },
     onPrevDay: dayNav.handlePrevDay,
     onNextDay: dayNav.handleNextDay,
+    onSkipRest: dismissRest,
   });
 
   const handleResetAll = (): void => resetAll(() => onProgramReset?.());

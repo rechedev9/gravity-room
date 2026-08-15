@@ -83,9 +83,11 @@ export function StartPage(): ReactNode {
 
   // Both hooks must run (Rules of Hooks); only the active identity path writes.
   const authProgram = useProgram(programId ?? '', undefined, {
-    enabled: !isGuest && user !== null,
+    enabled: !isGuest && user !== null && programId !== null,
   });
-  const guestProgram = useGuestProgram(programId ?? '', { enabled: isGuest });
+  const guestProgram = useGuestProgram(programId ?? '', {
+    enabled: isGuest && programId !== null,
+  });
   const target = isGuest ? guestProgram : authProgram;
 
   const fields = weightFields(definition);

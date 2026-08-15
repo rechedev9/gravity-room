@@ -7,6 +7,8 @@ export interface UseKeyboardShortcutsOptions {
   readonly onUndo: () => void;
   readonly onPrevDay: () => void;
   readonly onNextDay: () => void;
+  /** Dismiss the running rest countdown. No-op when nothing is counting down. */
+  readonly onSkipRest?: () => void;
 }
 
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions): void {
@@ -43,6 +45,9 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions): void
           break;
         case 'u':
           optionsRef.current.onUndo();
+          break;
+        case 'Escape':
+          optionsRef.current.onSkipRest?.();
           break;
         default:
           break;

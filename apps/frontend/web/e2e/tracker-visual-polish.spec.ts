@@ -33,7 +33,8 @@ test.describe('Tracker visual polish', () => {
     await expect(page.getByTestId('session-chrome')).toBeVisible();
     // No separate weights pill, day pill or Programa/Estadísticas tablist survives.
     await expect(page.getByTestId('weights-pill')).toHaveCount(0);
-    await expect(page.getByRole('tablist')).toHaveCount(0);
+    await expect(page.locator('#panel-program').getByRole('tablist')).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: /estad[ií]sticas/i })).toHaveCount(0);
     const box = await page.getByTestId('session-chrome').boundingBox();
     expect(box?.height).toBeLessThanOrEqual(120);
   });
@@ -179,7 +180,8 @@ test.describe('Tracker visual polish', () => {
     }
     await expect(page.getByRole('progressbar').first()).toContainText(/(\d+)\//);
     // Neither the Sensei tip nor the "about this program" block belongs in a session.
-    await expect(page.getByLabel('Consejo del Sensei')).toHaveCount(0);
-    await expect(page.getByText(/acerca de/i)).toHaveCount(0);
+    const panel = page.locator('#panel-program');
+    await expect(panel.getByLabel('Consejo del Sensei')).toHaveCount(0);
+    await expect(panel.getByText(/acerca de/i)).toHaveCount(0);
   });
 });

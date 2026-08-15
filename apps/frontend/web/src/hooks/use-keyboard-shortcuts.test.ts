@@ -17,6 +17,7 @@ function buildOptions(
     onUndo: vi.fn(),
     onPrevDay: vi.fn(),
     onNextDay: vi.fn(),
+    onSkipRest: vi.fn(),
     ...overrides,
   };
 }
@@ -34,50 +35,36 @@ describe('useKeyboardShortcuts', () => {
     // Remove any lingering keydown listeners by re-creating the hook each time
   });
 
+  const BINDINGS = [
+    { key: 's', handler: 'onSuccess' },
+    { key: 'f', handler: 'onFail' },
+    { key: 'u', handler: 'onUndo' },
+    { key: 'ArrowLeft', handler: 'onPrevDay' },
+    { key: 'ArrowRight', handler: 'onNextDay' },
+    { key: 'Escape', handler: 'onSkipRest' },
+  ] as const satisfies readonly {
+    readonly key: string;
+    readonly handler: keyof UseKeyboardShortcutsOptions;
+  }[];
+
   describe('key bindings when isActive=true', () => {
-    it('pressing "s" calls onSuccess', () => {
+    it.each(BINDINGS)('pressing "$key" calls $handler', ({ key, handler }) => {
       const options = buildOptions();
       renderHook(() => useKeyboardShortcuts(options));
 
-      fireKey('s');
+      fireKey(key);
 
-      expect(options.onSuccess).toHaveBeenCalledTimes(1);
+      expect(options[handler]).toHaveBeenCalledTimes(1);
+      for (const other of BINDINGS) {
+        if (other.handler !== handler) expect(options[other.handler]).not.toHaveBeenCalled();
+      }
     });
 
-    it('pressing "f" calls onFail', () => {
-      const options = buildOptions();
+    it('tolerates Escape with no rest countdown running', () => {
+      const options = buildOptions({ onSkipRest: undefined });
       renderHook(() => useKeyboardShortcuts(options));
 
-      fireKey('f');
-
-      expect(options.onFail).toHaveBeenCalledTimes(1);
-    });
-
-    it('pressing "u" calls onUndo', () => {
-      const options = buildOptions();
-      renderHook(() => useKeyboardShortcuts(options));
-
-      fireKey('u');
-
-      expect(options.onUndo).toHaveBeenCalledTimes(1);
-    });
-
-    it('pressing "ArrowLeft" calls onPrevDay', () => {
-      const options = buildOptions();
-      renderHook(() => useKeyboardShortcuts(options));
-
-      fireKey('ArrowLeft');
-
-      expect(options.onPrevDay).toHaveBeenCalledTimes(1);
-    });
-
-    it('pressing "ArrowRight" calls onNextDay', () => {
-      const options = buildOptions();
-      renderHook(() => useKeyboardShortcuts(options));
-
-      fireKey('ArrowRight');
-
-      expect(options.onNextDay).toHaveBeenCalledTimes(1);
+      expect(() => fireKey('Escape')).not.toThrow();
     });
   });
 
