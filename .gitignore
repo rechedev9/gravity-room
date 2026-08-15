@@ -82,3 +82,7 @@ scripts/*
 
 # IDE
 .idea/
+
+# Agent scratch dirs (local logs / skill caches) — never commit
+.scratch/
+.grok/

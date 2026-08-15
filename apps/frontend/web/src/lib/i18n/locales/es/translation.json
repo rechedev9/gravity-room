@@ -1163,7 +1163,11 @@
       "undo": "Deshacer · me equivoqué",
       "body_stage_one": "Menos repeticiones por serie con la misma carga: así el programa te deja seguir progresando sin retroceder. Te queda {{count}} etapa más antes de tocar el peso.",
       "body_stage_other": "Menos repeticiones por serie con la misma carga: así el programa te deja seguir progresando sin retroceder. Te quedan {{count}} etapas más antes de tocar el peso.",
-      "body_stage_last": "Menos repeticiones por serie con la misma carga. Es la última etapa: si también la fallas, el programa recalculará el peso."
+      "body_stage_last": "Menos repeticiones por serie con la misma carga. Es la última etapa: si también la fallas, el programa recalculará el peso.",
+      "ladder": "Escalera de etapas",
+      "rung_failed": "Fallada",
+      "rung_next": "Siguiente",
+      "rung_recalc": "Recalcular el peso"
     },
     "day_completed": {
       "aria": "Resumen del día {{day}}",
@@ -1175,7 +1179,8 @@
       "next": "próxima",
       "next_day": "Siguiente · día {{day}} · {{name}}",
       "review": "Corregir algo",
-      "progress": "Día {{day}} de {{total}}"
+      "progress": "Día {{day}} de {{total}}",
+      "next_session": "Próxima sesión · día {{day}} · {{name}}"
     }
   },
   "profile": {

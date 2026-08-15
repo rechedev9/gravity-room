@@ -1163,7 +1163,11 @@
       "undo": "Undo · my mistake",
       "body_stage_one": "Fewer reps per set at the same load: that is how the program keeps you moving forward without stepping back. {{count}} more stage before the weight moves.",
       "body_stage_other": "Fewer reps per set at the same load: that is how the program keeps you moving forward without stepping back. {{count}} more stages before the weight moves.",
-      "body_stage_last": "Fewer reps per set at the same load. This is the last stage: fail it too and the program recalculates the weight."
+      "body_stage_last": "Fewer reps per set at the same load. This is the last stage: fail it too and the program recalculates the weight.",
+      "ladder": "Stage ladder",
+      "rung_failed": "Failed",
+      "rung_next": "Next",
+      "rung_recalc": "Recalculate the weight"
     },
     "day_completed": {
       "aria": "Day {{day}} summary",
@@ -1175,7 +1179,8 @@
       "next": "next",
       "next_day": "Next · day {{day}} · {{name}}",
       "review": "Fix something",
-      "progress": "Day {{day}} of {{total}}"
+      "progress": "Day {{day}} of {{total}}",
+      "next_session": "Next session · day {{day}} · {{name}}"
     }
   },
   "profile": {

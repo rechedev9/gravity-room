@@ -4,9 +4,17 @@ import type { GenericSlotRow } from '@gzclp/domain/types';
 import type { SlotOutcomeComparison } from '@gzclp/domain/progression-preview';
 import { localizedExerciseName } from '@/lib/catalog-display';
 
+export interface StageRung {
+  readonly sets: number;
+  readonly reps: number;
+  readonly isAmrap: boolean;
+}
+
 export interface FailureExplainerProps {
   readonly slot: GenericSlotRow;
   readonly workoutIndex: number;
+  /** Full stage ladder for this slot, straight from the program definition. */
+  readonly ladder: readonly StageRung[];
   /** Engine-derived consequence of the failure that was just recorded. */
   readonly outcome: SlotOutcomeComparison;
   readonly onAcknowledge: () => void;
@@ -25,6 +33,7 @@ function scheme(sets: number, reps: number, isAmrap: boolean): string {
 export function FailureExplainer({
   slot,
   workoutIndex,
+  ladder,
   outcome,
   onAcknowledge,
   onUndo,
@@ -89,6 +98,46 @@ export function FailureExplainer({
       </ol>
 
       <p className="mb-5 max-w-[640px] text-[13.5px] leading-relaxed text-muted">{body}</p>
+
+      {ladder.length > 1 && (
+        <div className="mb-5" data-testid="failure-stage-ladder">
+          <h4 className="mb-2 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-info">
+            {t('tracker.failure.ladder')}
+          </h4>
+          <ol className="flex flex-wrap gap-2">
+            {ladder.map((rung, i) => {
+              const state = i === current.stage ? 'failed' : i === next.stage ? 'next' : 'todo';
+              return (
+                <li
+                  key={i}
+                  data-stage-state={state}
+                  className={`flex items-center gap-2 border px-2.5 py-1 font-mono text-[11px] ${
+                    state === 'failed'
+                      ? 'border-fail-ring text-fail'
+                      : state === 'next'
+                        ? 'border-accent text-accent'
+                        : 'border-rule text-info'
+                  }`}
+                >
+                  <span className="font-bold">E{i + 1}</span>
+                  <span>{scheme(rung.sets, rung.reps, rung.isAmrap)}</span>
+                  {state !== 'todo' && (
+                    <span className="uppercase tracking-[0.06em]">
+                      {state === 'failed'
+                        ? t('tracker.failure.rung_failed')
+                        : t('tracker.failure.rung_next')}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+            <li className="flex items-center gap-2 border border-rule px-2.5 py-1 font-mono text-[11px] text-info">
+              <span aria-hidden="true">&#8635;</span>
+              <span>{t('tracker.failure.rung_recalc')}</span>
+            </li>
+          </ol>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <button

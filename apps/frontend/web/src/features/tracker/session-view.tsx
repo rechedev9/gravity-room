@@ -230,6 +230,21 @@ export function SessionView({
     pendingFailSlotId !== null
       ? (workout.slots.find((s) => s.slotId === pendingFailSlotId) ?? null)
       : null;
+  const failureLadder = useMemo(() => {
+    if (failedSlot === null) return [];
+    for (const day of definition.days) {
+      const def = day.slots.find((slotDef) => slotDef.id === failedSlot.slotId);
+      if (def !== undefined) {
+        return def.stages.map((stage) => ({
+          sets: stage.sets,
+          reps: stage.reps,
+          isAmrap: stage.amrap === true,
+        }));
+      }
+    }
+    return [];
+  }, [definition, failedSlot]);
+
   const failureOutcome = useMemo(
     () =>
       failedSlot !== null
@@ -267,6 +282,7 @@ export function SessionView({
           <FailureExplainer
             slot={failedSlot}
             workoutIndex={workout.index}
+            ladder={failureLadder}
             outcome={failureOutcome}
             onAcknowledge={() => setPendingFailSlotId(null)}
             onUndo={(index, slotId) => {

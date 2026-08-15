@@ -120,6 +120,28 @@ export function DayCompletedPanel({
         ))}
       </ul>
 
+      {nextWorkout !== null && nextWorkout.slots.length > 0 && (
+        <div className="mb-6 border border-rule bg-header px-4 py-3.5" data-testid="next-session">
+          <h3 className="mb-2.5 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-info">
+            {t('tracker.day_completed.next_session', {
+              day: nextWorkout.index + 1,
+              name: nextWorkout.dayName,
+            })}
+          </h3>
+          <ul className="flex flex-wrap gap-x-5 gap-y-1">
+            {nextWorkout.slots.map((slot) => (
+              <li key={slot.slotId} className="font-mono text-[12.5px] text-muted tabular-nums">
+                {localizedExerciseName(t, slot.exerciseId, slot.exerciseName)}
+                {' · '}
+                {slot.weight > 0
+                  ? `${slot.weight} kg`
+                  : `${slot.sets}×${slot.complexReps ?? slot.reps}`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
         {nextWorkout !== null && (
           <button
