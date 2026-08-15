@@ -180,20 +180,10 @@ export function HomePage(): React.ReactNode {
           </>
         }
         hero={<NextSetHero programInstance={programInstance} />}
+        // Pristine users already get the day-one message + CTA from the hero
+        // above; a second card here would just repeat it with no way out.
         kpi={
-          isPristine ? (
-            <section className="bg-card border border-rule rounded-[var(--radius-base)] p-6 sm:p-8">
-              <Kicker noRule className="mb-3">
-                {t('home.pristine.kicker')}
-              </Kicker>
-              <h2 className="font-display text-3xl sm:text-4xl text-main">
-                {t('home.pristine.title')}
-              </h2>
-              <p className="mt-2 max-w-md text-sm text-muted leading-relaxed">
-                {t('home.pristine.body')}
-              </p>
-            </section>
-          ) : (
+          isPristine ? undefined : (
             <KpiStripBrutalist
               streakDays={streakDays}
               totalSessions={totalSessions}

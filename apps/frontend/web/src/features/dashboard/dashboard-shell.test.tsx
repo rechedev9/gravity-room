@@ -33,4 +33,16 @@ describe('DashboardShell', () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
+
+  it('omits the kpi slot entirely when not provided (no empty wrapper/gap)', () => {
+    const { container } = render(
+      <DashboardShell hero={<div>HERO</div>} recent={<div>RECENT</div>} />
+    );
+
+    expect(screen.getByText('HERO')).toBeInTheDocument();
+    expect(screen.getByText('RECENT')).toBeInTheDocument();
+    // Only two direct children rendered (hero + recent) - no leftover empty
+    // StaggerItem wrapper for the absent kpi slot.
+    expect(container.firstElementChild?.children).toHaveLength(2);
+  });
 });

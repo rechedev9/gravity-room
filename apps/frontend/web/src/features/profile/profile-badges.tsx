@@ -29,10 +29,17 @@ function deriveBadges(
   const highestPrimaryWeight = Math.max(0, ...profileData.personalRecords.map((pr) => pr.weight));
   const totalVolume = lifetimeVolume ?? profileData.volume.totalVolume;
   const completedPrograms = allPrograms.filter((program) => program.status === 'completed').length;
-  const programProgress =
-    completedPrograms > 0
-      ? profileData.completion.totalWorkouts
-      : profileData.completion.workoutsCompleted;
+  // Before any program is finished, show honest in-progress numbers from the
+  // active program itself (its own workoutsCompleted / totalWorkouts — never
+  // borrowed from a different program). Once the achievement is earned, its
+  // progress must be expressed in its own terms (programs completed) instead
+  // of forcing the active program's total to look "full" — that previously
+  // produced e.g. "200 / 200" while the active program was still at 0
+  // workouts.
+  const programCurrent =
+    completedPrograms >= 1 ? completedPrograms : profileData.completion.workoutsCompleted;
+  const programTarget =
+    completedPrograms >= 1 ? completedPrograms : profileData.completion.totalWorkouts;
 
   return [
     {
@@ -67,9 +74,9 @@ function deriveBadges(
       label: t('profile.badges.complete_program.label'),
       description: t('profile.badges.complete_program.description'),
       unlocked: completedPrograms >= 1,
-      current: Math.min(programProgress, profileData.completion.totalWorkouts),
-      target: profileData.completion.totalWorkouts,
-      progressLabel: `${Math.min(programProgress, profileData.completion.totalWorkouts)} / ${profileData.completion.totalWorkouts}`,
+      current: Math.min(programCurrent, programTarget),
+      target: programTarget,
+      progressLabel: `${Math.min(programCurrent, programTarget)} / ${programTarget}`,
     },
     {
       id: 'volume-10k',

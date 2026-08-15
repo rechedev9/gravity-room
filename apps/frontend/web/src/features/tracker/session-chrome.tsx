@@ -49,8 +49,19 @@ export function SessionChrome({
   const localize = (key: string, fallback: string): string =>
     localizedConfigFieldLabel(t, key, fallback);
   const overflow = (n: number): string => t('tracker.setup_form.overflow_indicator', { n });
-  const summary = buildWeightsSummary(config, definition.configFields, overflow, localize);
-  const mobileSummary = buildWeightsSummary(config, definition.configFields, overflow, localize, 1);
+  const { summary, full } = buildWeightsSummary(
+    config,
+    definition.configFields,
+    overflow,
+    localize
+  );
+  const { summary: mobileSummary } = buildWeightsSummary(
+    config,
+    definition.configFields,
+    overflow,
+    localize,
+    1
+  );
   const percent = progressFillPercent(doneSlots, totalSlots);
   const programComplete = completedDays >= totalDays && totalDays > 0;
 
@@ -104,7 +115,7 @@ export function SessionChrome({
       <p
         data-testid="session-chrome-weights"
         className="ml-auto min-w-0 truncate font-mono text-[11px] text-info"
-        title={summary}
+        title={full}
       >
         <span className="sm:hidden">{mobileSummary || '—'}</span>
         <span className="hidden sm:inline">{summary || '—'}</span>

@@ -58,6 +58,45 @@ describe('ProgramCard', () => {
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
 
+  describe('gold scarcity — catalog cards never render a primary/gold CTA', () => {
+    const cases: ReadonlyArray<{
+      readonly name: string;
+      readonly isActive: boolean;
+    }> = [{ name: 'inactive catalog card', isActive: false }];
+
+    it.each(cases)('$name: start button is outline-styled, not bg-accent', ({ isActive }) => {
+      render(
+        createElement(ProgramCard, {
+          definition: FIXTURE,
+          previewTo: '/programs/gzclp',
+          onSelect: vi.fn(),
+          isActive,
+        })
+      );
+
+      const startBtn = screen.getByRole('button', {
+        name: isActive ? 'Continuar entrenamiento' : 'Iniciar programa GZCLP',
+      });
+      expect(startBtn.className).not.toMatch(/\bbg-accent\b/);
+    });
+
+    it('preview is a plain text link, not a second full-width button', () => {
+      render(
+        createElement(ProgramCard, {
+          definition: FIXTURE,
+          previewTo: '/programs/gzclp',
+          onSelect: vi.fn(),
+        })
+      );
+
+      const previewLink = screen.getByRole('link', { name: /ver programa gzclp/i });
+      expect(previewLink.tagName).toBe('A');
+      expect(previewLink.className).not.toMatch(/\bborder\b/);
+      expect(previewLink.className).toMatch(/underline/);
+      expect(screen.queryAllByRole('button')).toHaveLength(1);
+    });
+  });
+
   it('renders only a single start button when only onSelect is provided', () => {
     const onSelect = vi.fn();
     render(

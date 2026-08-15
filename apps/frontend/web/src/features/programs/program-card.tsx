@@ -99,15 +99,22 @@ export function ProgramCard({
           </div>
         )}
 
-        {/* CTA */}
+        {/* CTA — one primary action per card (outline, never gold in the
+            catalog; gold is reserved for the single active-program CTA in
+            ActiveProgramBlock), with the detail read demoted to a plain
+            text link. Mirrors the pattern adopted in step-program.tsx. */}
         {showDualActions ? (
-          <div className="mt-auto flex flex-col gap-2">
-            <button onClick={onSelect} className={primaryCtaClass} aria-label={actionAriaLabel}>
+          <div className="mt-auto flex flex-wrap items-center gap-4">
+            <button
+              onClick={onSelect}
+              className={isActive ? primaryCtaClass : secondaryCtaClass}
+              aria-label={actionAriaLabel}
+            >
               {isActive ? t('programs.card.continue_training') : t('programs.card.start_program')}
             </button>
             <Link
               to={previewTo}
-              className={secondaryCtaClass}
+              className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-muted underline-offset-4 hover:text-main hover:underline"
               aria-label={t('catalog.card.view_program_aria', { name })}
             >
               {t('programs.card.preview')}

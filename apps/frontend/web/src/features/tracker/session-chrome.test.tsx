@@ -96,6 +96,25 @@ describe('SessionChrome', () => {
     expect(screen.getByRole('button', { name: /finalizar/i })).toBeInTheDocument();
   });
 
+  it('abbreviates the visible weights summary but keeps the full labels in the title', () => {
+    renderChrome();
+
+    const weights = screen.getByTestId('session-chrome-weights');
+    // Visible text is abbreviated — the verbose localized labels never render inline.
+    expect(weights.textContent).not.toContain('Sentadilla');
+    expect(weights.textContent).not.toContain('Press de banca');
+    expect(weights.textContent).toContain('115');
+
+    // The full, unabbreviated labels stay reachable via the title for a11y/hover.
+    const title = weights.getAttribute('title') ?? '';
+    expect(title).toContain('Sentadilla 115');
+    expect(title).toContain('Press Banca 102.5');
+    // "row" (Remo) sits past the desktop limit of 4 and never renders inline —
+    // the title must still be untruncated and carry it.
+    expect(weights.textContent).not.toContain('Remo');
+    expect(title).toContain('Remo 30');
+  });
+
   it('keeps maintenance actions behind the overflow menu', () => {
     renderChrome();
     expect(screen.getByTestId('session-menu-trigger')).toHaveAttribute('aria-expanded', 'false');
