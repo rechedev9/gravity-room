@@ -1,8 +1,28 @@
 import { defineConfig, devices } from '@playwright/test';
+import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { resolvePlaywrightEndpoints } from './playwright-ports';
+import {
+  readDatabaseUrl,
+  resolveE2eDatabaseUrl,
+  resolvePlaywrightEndpoints,
+} from './playwright-ports';
 
 const { apiPort, apiUrl, webPort, webUrl } = resolvePlaywrightEndpoints(process.env);
+
+const REPO_ROOT = resolve(__dirname, '../../..');
+
+function readApiEnvDatabaseUrl(): string | undefined {
+  try {
+    return readDatabaseUrl(readFileSync(resolve(REPO_ROOT, 'apps/backend/api/.env'), 'utf8'));
+  } catch {
+    return undefined;
+  }
+}
+
+const databaseUrl = resolveE2eDatabaseUrl({
+  envUrl: process.env.DATABASE_URL,
+  apiEnvUrl: readApiEnvDatabaseUrl(),
+});
 
 export default defineConfig({
   testDir: './e2e',
@@ -38,12 +58,10 @@ export default defineConfig({
         PORT: apiPort,
         AUTH_DEV_ROUTE_ENABLED: 'true',
         AUTH_DEV_ROUTE_SECRET: 'e2e-dev-secret-not-for-prod',
-        // Inherit DATABASE_URL from the process (CI/local). JWT falls back to a
-        // dedicated non-prod secret so `pnpm e2e` works without a hand-rolled .env.
-        // Prefer the caller's DATABASE_URL (CI uses gravity_room/postgres). Local
-        // docker-compose defaults to gzclp/password when unset.
-        DATABASE_URL:
-          process.env.DATABASE_URL ?? 'postgres://postgres:password@localhost:5432/gzclp',
+        // Explicit DATABASE_URL wins (CI); otherwise the API's own credentials are
+        // reused against a dedicated e2e database, never the developer's data.
+        // JWT falls back to a non-prod secret so `pnpm e2e` needs no hand-rolled .env.
+        DATABASE_URL: databaseUrl,
         JWT_SECRET: process.env.JWT_SECRET ?? 'local-e2e-secret-not-a-real-secret-min-32-chars',
         // The suite runs the web preview on a dedicated port; without this the browser's
         // API calls are CORS-blocked and every data-driven test fails.
