@@ -25,11 +25,11 @@ describe('TrackerGuestEmpty', () => {
     }
   });
 
-  it('points guests at the catalog instead of the home wall', () => {
+  it('points guests at the guided start instead of the home wall', () => {
     render(createElement(TrackerGuestEmpty));
     expect(screen.getByText('Elige un programa')).toBeInTheDocument();
     const cta = screen.getByText('Explorar programas').closest('a');
-    expect(cta).toHaveAttribute('to', '/app/programs');
+    expect(cta).toHaveAttribute('to', '/app/start');
     expect(cta?.querySelector('button')).toBeNull();
   });
 

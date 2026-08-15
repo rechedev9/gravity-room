@@ -1,3 +1,4 @@
+export * from './barbell';
 export * from './catalog';
 export * from './generic-engine';
 export * from './generic-stats';

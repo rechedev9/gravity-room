@@ -99,6 +99,9 @@ const NotFound = lazyWithRetry(() =>
 const HomePage = lazyWithRetry(() =>
   import('@/features/home/home-page').then((m) => ({ default: m.HomePage }))
 );
+const StartPage = lazyWithRetry(() =>
+  import('@/features/onboarding/start-page').then((m) => ({ default: m.StartPage }))
+);
 const ProgramsPage = lazyWithRetry(() =>
   import('@/features/programs/programs-page').then((m) => ({ default: m.ProgramsPage }))
 );
@@ -388,6 +391,14 @@ const dashboardRedirectRoute = createRoute({
   },
 });
 
+// Guided start — one decision per screen before the first set.
+const startRoute = createRoute({
+  getParentRoute: () => appLayoutRoute,
+  path: '/app/start',
+  pendingComponent: AppSkeleton,
+  component: StartPage,
+});
+
 const programsRoute = createRoute({
   getParentRoute: () => appLayoutRoute,
   path: '/app/programs',
@@ -477,6 +488,7 @@ const routeTree = rootRoute.addChildren([
   appLayoutRoute.addChildren([
     appIndexRoute,
     dashboardRedirectRoute,
+    startRoute,
     programsRoute,
     trackerIndexRoute,
     trackerProgramRoute,

@@ -20,7 +20,7 @@ export function HomeEmptyState({ variant }: HomeEmptyStateProps): React.ReactNod
         kicker={t('home.empty.guest_stamp')}
         title={t('home.empty.guest_title')}
         body={t('home.empty.guest_body')}
-        action={{ label: t('home.empty.guest_programs_cta'), to: '/app/programs' }}
+        action={{ label: t('home.empty.guest_programs_cta'), to: '/app/start' }}
         className="py-10 sm:py-14"
       >
         {/* Secondary CTA kept as a peer of the gold primary (not a second gold). */}
@@ -38,7 +38,7 @@ export function HomeEmptyState({ variant }: HomeEmptyStateProps): React.ReactNod
       kicker={t('home.empty.no_program_stamp')}
       title={t('home.empty.no_program_title')}
       body={t('home.empty.no_program_body')}
-      action={{ label: t('home.empty.no_program_cta'), to: '/app/programs' }}
+      action={{ label: t('home.empty.no_program_cta'), to: '/app/start' }}
       className="py-10 sm:py-14"
     />
   );

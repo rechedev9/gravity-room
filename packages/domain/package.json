@@ -15,6 +15,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./barbell": "./src/barbell.ts",
     "./catalog": "./src/catalog.ts",
     "./generic-engine": "./src/generic-engine.ts",
     "./generic-stats": "./src/generic-stats.ts",

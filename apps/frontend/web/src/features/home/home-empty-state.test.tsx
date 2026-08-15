@@ -32,7 +32,7 @@ describe('HomeEmptyState i18n', () => {
     // Primary CTA points at the catalog (guests can start + track locally),
     // not at /login.
     const programsLink = screen.getByText('Explorar programas').closest('a');
-    expect(programsLink).toHaveAttribute('to', '/app/programs');
+    expect(programsLink).toHaveAttribute('to', '/app/start');
     expect(programsLink?.querySelector('button')).toBeNull();
     expect(screen.getByText('Guía de ejercicios')).toBeInTheDocument();
     expect(screen.queryByText('Crear Cuenta')).not.toBeInTheDocument();

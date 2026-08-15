@@ -6,7 +6,7 @@ import { buttonClassName } from '@/components/button';
  * Shown when a guest lands on /app/tracker without an in-progress program.
  * Guests CAN track locally (see hooks/use-guest-program.ts) — they just need
  * to pick a program from the catalog first — so instead of bouncing them back
- * to the home wall this points them straight at the catalog.
+ * to the home wall this points them straight at the guided start.
  */
 export function TrackerGuestEmpty(): React.ReactNode {
   const { t } = useTranslation();
@@ -22,7 +22,7 @@ export function TrackerGuestEmpty(): React.ReactNode {
           <p className="text-muted mb-6 max-w-sm mx-auto leading-relaxed">
             {t('tracker.guest_empty.body')}
           </p>
-          <Link to="/app/programs" className={buttonClassName({ variant: 'primary' })}>
+          <Link to="/app/start" className={buttonClassName({ variant: 'primary' })}>
             {t('tracker.guest_empty.cta')}
           </Link>
         </section>
