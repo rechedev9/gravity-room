@@ -157,6 +157,7 @@ export function ProgramTabContent({
             resultTimestamps={resultTimestamps}
             rest={rest}
             onSkipRest={onSkipRest}
+            onGoToNextDay={onNextDay}
             onGoToProfile={onGoToProfile}
             slotActions={slotActions}
           />

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { GenericSlotRow, GenericWorkoutRow, ResultValue } from '@gzclp/domain/types';
-import { daysBetween, findPreviousSameDay } from './session-history';
+import {
+  daysBetween,
+  findNextScheduled,
+  findPreviousSameDay,
+  workoutVolume,
+} from './session-history';
 
 function slot(overrides: Partial<GenericSlotRow> = {}): GenericSlotRow {
   return {
@@ -115,5 +120,48 @@ describe('daysBetween', () => {
     { from: 'not-a-date', to: '2026-08-05T10:00:00Z', expected: null },
   ])('returns $expected', ({ from, to, expected }) => {
     expect(daysBetween(from, to)).toBe(expected);
+  });
+});
+
+describe('findNextScheduled', () => {
+  it('returns the same slot in the next workout that schedules it', () => {
+    const rows = [
+      row(0, 'A1', [slot()]),
+      row(1, 'B1', [slot({ slotId: 'b-t1' })]),
+      row(2, 'A1', [slot({ weight: 105 })]),
+    ];
+    expect(findNextScheduled(rows, 0, 'a-t1')?.weight).toBe(105);
+  });
+
+  it('returns null when the slot is never scheduled again', () => {
+    expect(findNextScheduled([row(0, 'A1', [slot()])], 0, 'a-t1')).toBeNull();
+    expect(findNextScheduled([row(0, 'A1', [slot()])], 0, 'nope')).toBeNull();
+  });
+});
+
+describe('workoutVolume', () => {
+  it.each([
+    {
+      name: 'sums logged sets at the slot weight',
+      slots: [slot({ setLogs: [{ reps: 3 }, { reps: 3 }, { reps: 5 }] })],
+      expected: 1100,
+    },
+    {
+      name: 'expands the prescription when only a slot-level success exists',
+      slots: [slot({ sets: 3, reps: 10, isAmrap: false, weight: 50 })],
+      expected: 1500,
+    },
+    {
+      name: 'uses the AMRAP tail for the last set',
+      slots: [slot({ sets: 3, reps: 10, weight: 50, amrapReps: 14 })],
+      expected: 1700,
+    },
+    {
+      name: 'ignores failed and bodyweight slots',
+      slots: [slot({ result: 'fail' }), slot({ slotId: 'gpp', weight: 0 })],
+      expected: 0,
+    },
+  ])('$name', ({ slots, expected }) => {
+    expect(workoutVolume(row(0, 'A1', slots))).toBe(expected);
   });
 });

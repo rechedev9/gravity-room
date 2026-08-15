@@ -1149,6 +1149,33 @@
       "shortcut_day": "change day",
       "shortcut_rest": "skip rest",
       "stats_link": "See stats in profile →"
+    },
+    "failure": {
+      "aria": "What failing {{exercise}} costs",
+      "title": "What happens now",
+      "stage_label": "Stage {{stage}}",
+      "next_stage_label": "Stage {{stage}} · next session",
+      "weight_holds": "The weight holds",
+      "weight_drops": "The weight is recalculated",
+      "body_deload": "With the stages spent, the program recalculates the load: down {{percent}} kg to {{weight}} kg, back to the first stage.",
+      "body_hold": "The load stays at {{weight}} kg next session.",
+      "continue": "Continue the session",
+      "undo": "Undo · my mistake",
+      "body_stage_one": "Fewer reps per set at the same load: that is how the program keeps you moving forward without stepping back. {{count}} more stage before the weight moves.",
+      "body_stage_other": "Fewer reps per set at the same load: that is how the program keeps you moving forward without stepping back. {{count}} more stages before the weight moves.",
+      "body_stage_last": "Fewer reps per set at the same load. This is the last stage: fail it too and the program recalculates the weight."
+    },
+    "day_completed": {
+      "aria": "Day {{day}} summary",
+      "closed": "Session closed",
+      "title": "Day {{day}} complete",
+      "volume": "Volume",
+      "records": "Records",
+      "record": "Record",
+      "next": "next",
+      "next_day": "Next · day {{day}} · {{name}}",
+      "review": "Fix something",
+      "progress": "Day {{day}} of {{total}}"
     }
   },
   "profile": {

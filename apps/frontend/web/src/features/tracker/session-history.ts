@@ -58,6 +58,39 @@ export function findPreviousSameDay(
   return null;
 }
 
+/**
+ * The same slot in the next workout that schedules it. Because `rows` is the
+ * engine's own output, this already carries the progression that the recorded
+ * result produced — nothing is recomputed here.
+ */
+export function findNextScheduled(
+  rows: readonly GenericWorkoutRow[],
+  afterIndex: number,
+  slotId: string
+): GenericWorkoutRow['slots'][number] | null {
+  for (let i = afterIndex + 1; i < rows.length; i++) {
+    const found = rows[i]?.slots.find((s) => s.slotId === slotId);
+    if (found !== undefined) return found;
+  }
+  return null;
+}
+
+/** Total kg moved in a workout, counting logged sets when available. */
+export function workoutVolume(row: GenericWorkoutRow): number {
+  let volume = 0;
+  for (const slot of row.slots) {
+    if (slot.weight <= 0) continue;
+    if (slot.setLogs !== undefined && slot.setLogs.length > 0) {
+      for (const set of slot.setLogs) volume += slot.weight * set.reps;
+      continue;
+    }
+    if (slot.result !== 'success') continue;
+    const lastSetReps = slot.amrapReps ?? slot.reps;
+    volume += slot.weight * (slot.reps * Math.max(0, slot.sets - 1) + lastSetReps);
+  }
+  return Math.round(volume);
+}
+
 /** Whole days elapsed between two ISO timestamps, or null when either is missing. */
 export function daysBetween(from: string | undefined, to: string | undefined): number | null {
   if (from === undefined || to === undefined) return null;

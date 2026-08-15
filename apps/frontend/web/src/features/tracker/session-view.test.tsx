@@ -132,6 +132,7 @@ function renderView(
       isCurrent={overrides.isCurrent ?? true}
       rest={overrides.rest ?? null}
       onSkipRest={vi.fn()}
+      onGoToNextDay={vi.fn()}
       slotActions={{
         onMark,
         onUndo,
@@ -143,6 +144,34 @@ function renderView(
   );
 
   return { onSetTap, onMark, onUndo };
+}
+
+/** Renders the view with a stable rows array so a re-render can flip one slot. */
+function renderRerenderable() {
+  const base = row(0, [slot({ result: 'success' }), { ...T2, result: 'success' }]);
+  const props = (workout: GenericWorkoutRow) => (
+    <SessionView
+      definition={DEFINITION}
+      config={CONFIG}
+      results={{}}
+      rows={[base, workout]}
+      workout={workout}
+      isCurrent
+      rest={null}
+      onSkipRest={vi.fn()}
+      onGoToNextDay={vi.fn()}
+      slotActions={{
+        onMark: vi.fn(),
+        onUndo: vi.fn(),
+        onSetAmrapReps: vi.fn(),
+        onSetTap: vi.fn(),
+      }}
+    />
+  );
+  const view = render(props(row(1, [slot(), T2])));
+  return {
+    rerender: (workout: GenericWorkoutRow) => view.rerender(props(workout)),
+  };
 }
 
 describe('SessionView', () => {
@@ -203,6 +232,64 @@ describe('SessionView', () => {
     // Stage ladder: 5x3+ -> 6x2+ at the same weight.
     expect(panel.textContent).toContain('6×2');
     expect(panel.textContent).toMatch(/mismo peso/i);
+  });
+
+  it('explains a freshly recorded failure with the engine stage ladder', () => {
+    const { rerender } = renderRerenderable();
+
+    // Baseline render has no failure — the explainer must stay away.
+    expect(screen.queryByTestId('failure-explainer')).not.toBeInTheDocument();
+
+    rerender(row(1, [slot({ result: 'fail' }), T2]));
+
+    const explainer = screen.getByTestId('failure-explainer');
+    expect(explainer).toHaveAttribute('data-slot-id', 'a-t1');
+    // Stage 1 (5x3+) -> stage 2 (6x2+), and the load is explicitly held.
+    expect(explainer.textContent).toContain('5 × 3+');
+    expect(explainer.textContent).toContain('6 × 2+');
+    expect(explainer.textContent).toMatch(/el peso no baja/i);
+  });
+
+  it('dismisses the failure explainer once acknowledged', () => {
+    const { rerender } = renderRerenderable();
+    rerender(row(1, [slot({ result: 'fail' }), T2]));
+
+    fireEvent.click(screen.getByTestId('failure-acknowledge'));
+    expect(screen.queryByTestId('failure-explainer')).not.toBeInTheDocument();
+  });
+
+  it('closes a finished day with a summary and the queued next loads', () => {
+    renderView({
+      workout: row(1, [
+        slot({
+          result: 'success',
+          setLogs: [{ reps: 3 }, { reps: 3 }, { reps: 3 }, { reps: 3 }, { reps: 7 }],
+        }),
+        { ...T2, result: 'success' },
+      ]),
+      rows: [
+        row(0, [slot({ result: 'success' }), { ...T2, result: 'success' }]),
+        row(1, [
+          slot({
+            result: 'success',
+            setLogs: [{ reps: 3 }, { reps: 3 }, { reps: 3 }, { reps: 3 }, { reps: 7 }],
+          }),
+          { ...T2, result: 'success' },
+        ]),
+        row(2, [slot({ weight: 105 }), { ...T2, weight: 62.5 }]),
+      ],
+    });
+
+    const panel = screen.getByTestId('day-completed-panel');
+    expect(panel.textContent).toContain('Día 2 completado');
+    // Next scheduled load comes straight from the engine rows.
+    expect(panel.textContent).toContain('105 kg');
+    expect(screen.getAllByTestId('day-completed-line')).toHaveLength(2);
+    // Completed rows are folded away behind "fix something".
+    expect(screen.queryByTestId('completed-slot-row')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('day-completed-review'));
+    expect(screen.getAllByTestId('completed-slot-row').length).toBeGreaterThan(0);
   });
 
   it('lists what the same session looked like last time', () => {

@@ -1149,6 +1149,33 @@
       "shortcut_day": "cambiar día",
       "shortcut_rest": "saltar descanso",
       "stats_link": "Ver estadísticas en perfil →"
+    },
+    "failure": {
+      "aria": "Consecuencia del fallo en {{exercise}}",
+      "title": "Qué pasa ahora",
+      "stage_label": "Etapa {{stage}}",
+      "next_stage_label": "Etapa {{stage}} · próxima sesión",
+      "weight_holds": "El peso no baja",
+      "weight_drops": "El peso se recalcula",
+      "body_deload": "Agotadas las etapas, el programa recalcula la carga: bajas {{percent}} kg hasta {{weight}} kg y vuelves a la primera etapa.",
+      "body_hold": "La carga se mantiene en {{weight}} kg la próxima sesión.",
+      "continue": "Seguir con la sesión",
+      "undo": "Deshacer · me equivoqué",
+      "body_stage_one": "Menos repeticiones por serie con la misma carga: así el programa te deja seguir progresando sin retroceder. Te queda {{count}} etapa más antes de tocar el peso.",
+      "body_stage_other": "Menos repeticiones por serie con la misma carga: así el programa te deja seguir progresando sin retroceder. Te quedan {{count}} etapas más antes de tocar el peso.",
+      "body_stage_last": "Menos repeticiones por serie con la misma carga. Es la última etapa: si también la fallas, el programa recalculará el peso."
+    },
+    "day_completed": {
+      "aria": "Resumen del día {{day}}",
+      "closed": "Sesión cerrada",
+      "title": "Día {{day}} completado",
+      "volume": "Volumen",
+      "records": "Récords",
+      "record": "Récord",
+      "next": "próxima",
+      "next_day": "Siguiente · día {{day}} · {{name}}",
+      "review": "Corregir algo",
+      "progress": "Día {{day}} de {{total}}"
     }
   },
   "profile": {

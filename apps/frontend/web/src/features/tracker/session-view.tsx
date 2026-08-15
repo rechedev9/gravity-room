@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow, GenericWorkoutRow } from '@gzclp/domain/types';
 import type { ProgramDefinition, GenericResults } from '@gzclp/domain/types/program';
@@ -10,6 +10,8 @@ import { SlotResultFooter } from '@/features/program-view/slot-result-footer';
 import { tierColorClass } from '@/features/program-view/tier-color';
 import type { SlotActions } from '@/features/program-view/day-view';
 import { CurrentLiftCard } from './current-lift-card';
+import { DayCompletedPanel } from './day-completed-panel';
+import { FailureExplainer } from './failure-explainer';
 import { SessionSidePanel } from './session-side-panel';
 import { daysBetween, findPreviousSameDay } from './session-history';
 
@@ -24,6 +26,7 @@ export interface SessionViewProps {
   readonly resultTimestamps?: Readonly<Record<string, string>>;
   readonly rest: { readonly seconds: number; readonly id: number } | null;
   readonly onSkipRest: () => void;
+  readonly onGoToNextDay: () => void;
   readonly onGoToProfile?: () => void;
   readonly slotActions: SlotActions;
 }
@@ -171,6 +174,7 @@ export function SessionView({
   resultTimestamps,
   rest,
   onSkipRest,
+  onGoToNextDay,
   onGoToProfile,
   slotActions,
 }: SessionViewProps): ReactNode {
@@ -199,6 +203,46 @@ export function SessionView({
     [definition, config, results, workout.index, hero]
   );
 
+  // A failure explains itself once, right after it is recorded — not on every
+  // later visit to the same day.
+  const [pendingFailSlotId, setPendingFailSlotId] = useState<string | null>(null);
+  const seenFailures = useRef<{ index: number; failures: ReadonlySet<string> } | null>(null);
+  const failedSlotIds = workout.slots
+    .filter((s) => s.result === 'fail' && s.stagesCount > 1)
+    .map((s) => s.slotId)
+    .join('|');
+
+  useEffect(() => {
+    const failures = new Set(failedSlotIds === '' ? [] : failedSlotIds.split('|'));
+    const seen = seenFailures.current;
+    seenFailures.current = { index: workout.index, failures };
+    // Landing on a day only records the baseline — nothing "just failed" there,
+    // and a pending explainer must not survive a day switch.
+    if (seen === null || seen.index !== workout.index) {
+      setPendingFailSlotId(null);
+      return;
+    }
+    const fresh = [...failures].find((id) => !seen.failures.has(id));
+    if (fresh !== undefined) setPendingFailSlotId(fresh);
+  }, [failedSlotIds, workout.index]);
+
+  const failedSlot =
+    pendingFailSlotId !== null
+      ? (workout.slots.find((s) => s.slotId === pendingFailSlotId) ?? null)
+      : null;
+  const failureOutcome = useMemo(
+    () =>
+      failedSlot !== null
+        ? previewSlotOutcome(definition, config, results, workout.index, failedSlot.slotId, 'fail')
+        : null,
+    [definition, config, results, workout.index, failedSlot]
+  );
+
+  const dayResolved = pending.length === 0 && workout.slots.length > 0;
+  const [reviewing, setReviewing] = useState(false);
+  useEffect(() => setReviewing(false), [workout.index]);
+  const showCompletedRows = !dayResolved || reviewing || !isCurrent;
+
   return (
     <div
       data-testid="session-view"
@@ -208,6 +252,30 @@ export function SessionView({
         className="min-w-0 px-0 py-5 sm:px-2"
         aria-label={t('tracker.day_view.workout_aria', { number: workout.index + 1 })}
       >
+        {dayResolved && isCurrent && (
+          <DayCompletedPanel
+            rows={rows}
+            workout={workout}
+            totalDays={definition.totalWorkouts}
+            nextWorkout={rows[workout.index + 1] ?? null}
+            onGoToNextDay={onGoToNextDay}
+            onReview={() => setReviewing((x) => !x)}
+          />
+        )}
+
+        {failedSlot !== null && failureOutcome !== null && (
+          <FailureExplainer
+            slot={failedSlot}
+            workoutIndex={workout.index}
+            outcome={failureOutcome}
+            onAcknowledge={() => setPendingFailSlotId(null)}
+            onUndo={(index, slotId) => {
+              setPendingFailSlotId(null);
+              slotActions.onUndo(index, slotId);
+            }}
+          />
+        )}
+
         {hero !== null && (
           <CurrentLiftCard
             slot={hero}
@@ -240,7 +308,7 @@ export function SessionView({
           </div>
         )}
 
-        {completed.length > 0 && (
+        {showCompletedRows && completed.length > 0 && (
           <div className="mt-4 flex flex-col gap-2">
             {completed.map((slot) => (
               <CompletedSlotRow
