@@ -78,6 +78,20 @@ pnpm run bundle:api:check     # api/index.ts drift
 
 Local setup details → skill `local-dev`. Deploy diagnosis → skill `vercel-deploy`.
 
+## Agent skills
+
+### Issue tracker
+
+Issues live as GitHub issues in `rechedev9/gravity-room` (via the `gh` CLI). See [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md).
+
+### Triage labels
+
+The five canonical triage roles, each label string equal to its name. See [`docs/agents/triage-labels.md`](./docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See [`docs/agents/domain.md`](./docs/agents/domain.md).
+
 ## Do not reintroduce
 
 - Python analytics service, Docker/VPS/Caddy deploy, aggregate CI `Validate` workflow
