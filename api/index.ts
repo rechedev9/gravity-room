@@ -521,7 +521,7 @@ async function countOnlineUsers(redis) {
 }
 
 // apps/backend/api/src/services/auth.ts
-import { eq, lt, gte, and, isNull, sql as sql2 } from 'drizzle-orm';
+import { eq, lt, gte, and, isNull, sql as sql3 } from 'drizzle-orm';
 import { hash as argon2Hash, verify as argon2Verify } from '@node-rs/argon2';
 import bcrypt from 'bcryptjs';
 
@@ -595,7 +595,8 @@ var users = pgTable(
   'users',
   {
     id: uuid().defaultRandom().primaryKey(),
-    email: varchar({ length: 255 }).unique().notNull(),
+    /** Unique among active (non-soft-deleted) rows — see users_email_active_uq. */
+    email: varchar({ length: 255 }).notNull(),
     /**
      * Legacy Google identity column. External identities now live in
      * `user_identities`; this is kept (nullable) for backfill and back-compat
@@ -629,6 +630,11 @@ var users = pgTable(
     index('users_deleted_at_idx')
       .on(table.deletedAt)
       .where(sql`${table.deletedAt} IS NOT NULL`),
+    // Soft-deleted emails do not block re-registration once the grace row is gone
+    // (or while deleted — a new active row may claim the address).
+    uniqueIndex('users_email_active_uq')
+      .on(table.email)
+      .where(sql`${table.deletedAt} IS NULL`),
   ]
 );
 var usersRelations = relations(users, ({ many }) => ({
@@ -980,11 +986,31 @@ var userInsightsRelations = relations(userInsights, ({ one }) => ({
   user: one(users, { fields: [userInsights.userId], references: [users.id] }),
 }));
 
+// apps/backend/api/src/db/rls-setters.ts
+import { sql as sql2 } from 'drizzle-orm';
+async function setServiceRlsContext(tx) {
+  await tx.execute(sql2`select set_config('app.service_role', 'on', true)`);
+  await tx.execute(sql2`select set_config('app.user_id', '', true)`);
+}
+async function setUserRlsContext(tx, userId) {
+  if (
+    typeof userId !== 'string' ||
+    userId.length === 0 ||
+    userId.length > 64 ||
+    userId.includes('\0')
+  ) {
+    throw new Error('Invalid user id for RLS context');
+  }
+  await tx.execute(sql2`select set_config('app.user_id', ${userId}, true)`);
+  await tx.execute(sql2`select set_config('app.service_role', '', true)`);
+}
+
 // apps/backend/api/src/db/index.ts
 var KEEP_ALIVE_INTERVAL_SECONDS = 60;
 var MAX_CONNECTION_LIFETIME_SECONDS = 3600;
 var _client;
 var _db;
+var _sessionRlsReady;
 var queryLogger = {
   logQuery(query, params) {
     if (process.env['NODE_ENV'] !== 'production') {
@@ -992,6 +1018,21 @@ var queryLogger = {
     }
   },
 };
+function ensureSessionServiceRole() {
+  getDb();
+  return _sessionRlsReady ?? Promise.resolve();
+}
+function wrapWithDefaultServiceRole(db) {
+  const originalTransaction = db.transaction.bind(db);
+  const wrappedTransaction = (fn, options) =>
+    originalTransaction(async (tx) => {
+      await ensureSessionServiceRole();
+      await setServiceRlsContext(tx);
+      return fn(tx);
+    }, options);
+  db.transaction = wrappedTransaction;
+  return db;
+}
 function getDb() {
   if (!_db) {
     const url = process.env['DATABASE_URL'];
@@ -1019,9 +1060,27 @@ function getDb() {
       // Recycle connections after 1 hour
       max_lifetime: MAX_CONNECTION_LIFETIME_SECONDS,
     });
-    _db = drizzle(_client, { schema: schema_exports, logger: queryLogger });
+    _sessionRlsReady = _client`
+      select set_config('app.service_role', 'on', false)
+    `.then(
+      () => void 0,
+      (err2) => {
+        logger.warn({ err: err2 }, 'Failed to set session RLS service role');
+      }
+    );
+    _db = wrapWithDefaultServiceRole(
+      drizzle(_client, { schema: schema_exports, logger: queryLogger })
+    );
   }
   return _db;
+}
+
+// apps/backend/api/src/db/rls-context.ts
+async function withUserRole(userId, fn) {
+  return getDb().transaction(async (tx) => {
+    await setUserRlsContext(tx, userId);
+    return fn(tx);
+  });
 }
 
 // apps/backend/api/src/services/auth.ts
@@ -1089,7 +1148,11 @@ async function upsertIdentity(input) {
       if (user2.deletedAt) throw accountDeletedError();
       return { user: user2, isNewUser: false };
     }
-    const [existing] = await tx.select().from(users).where(eq(users.email, email)).limit(1);
+    const [existing] = await tx
+      .select()
+      .from(users)
+      .where(and(eq(users.email, email), isNull(users.deletedAt)))
+      .limit(1);
     if (existing) {
       const decision = decideIdentityLink(input.emailVerified, {
         emailVerified: existing.emailVerified,
@@ -1149,8 +1212,12 @@ async function findOrCreateGoogleUser(googleId, email, name) {
 }
 var PASSWORD_RESET_TTL_MS = 60 * 60 * 1e3;
 var EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1e3;
+var MIN_PASSWORD_LENGTH = 12;
 async function hashPassword(password) {
   return argon2Hash(password);
+}
+function passwordHashNeedsUpgrade(hash) {
+  return hash.startsWith('$2');
 }
 async function verifyPassword(password, hash) {
   try {
@@ -1174,6 +1241,14 @@ async function authenticatePassword(email, password) {
   const hash = user?.passwordHash ?? (await getDummyHash());
   const ok2 = await verifyPassword(password, hash);
   if (!user || !user.passwordHash || !ok2) return null;
+  if (passwordHashNeedsUpgrade(user.passwordHash)) {
+    const upgraded = await hashPassword(password);
+    await getDb()
+      .update(users)
+      .set({ passwordHash: upgraded, updatedAt: /* @__PURE__ */ new Date() })
+      .where(and(eq(users.id, user.id), isNull(users.deletedAt)));
+    return { ...user, passwordHash: upgraded };
+  }
   return user;
 }
 async function createPasswordUser(input) {
@@ -1211,7 +1286,7 @@ async function setUserPassword(userId, passwordHash) {
       .update(users)
       .set({
         passwordHash,
-        authVersion: sql2`${users.authVersion} + 1`,
+        authVersion: sql3`${users.authVersion} + 1`,
         updatedAt: /* @__PURE__ */ new Date(),
       })
       .where(and(eq(users.id, userId), isNull(users.deletedAt)))
@@ -1320,7 +1395,7 @@ async function resetPasswordWithToken(token, passwordHash) {
       .update(users)
       .set({
         passwordHash,
-        authVersion: sql2`${users.authVersion} + 1`,
+        authVersion: sql3`${users.authVersion} + 1`,
         updatedAt: /* @__PURE__ */ new Date(),
       })
       .where(and(eq(users.id, row.userId), isNull(users.deletedAt)))
@@ -1331,25 +1406,26 @@ async function resetPasswordWithToken(token, passwordHash) {
   });
 }
 async function updateUserProfile(userId, fields) {
-  const db = getDb();
-  const updates = { updatedAt: /* @__PURE__ */ new Date() };
-  if (fields.name !== void 0) updates['name'] = fields.name;
-  if (fields.avatarUrl !== void 0) updates['avatarUrl'] = fields.avatarUrl;
-  const [updated] = await db
-    .update(users)
-    .set(updates)
-    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
-    .returning();
-  if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
-  return updated;
+  return withUserRole(userId, async (tx) => {
+    const updates = { updatedAt: /* @__PURE__ */ new Date() };
+    if (fields.name !== void 0) updates['name'] = fields.name;
+    if (fields.avatarUrl !== void 0) updates['avatarUrl'] = fields.avatarUrl;
+    const [updated] = await tx
+      .update(users)
+      .set(updates)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .returning();
+    if (!updated) throw new ApiError(404, 'User not found', 'USER_NOT_FOUND');
+    return updated;
+  });
 }
 async function softDeleteUser(userId) {
-  await getDb().transaction(async (tx) => {
+  await withUserRole(userId, async (tx) => {
     const [updated] = await tx
       .update(users)
       .set({
         deletedAt: /* @__PURE__ */ new Date(),
-        authVersion: sql2`${users.authVersion} + 1`,
+        authVersion: sql3`${users.authVersion} + 1`,
         updatedAt: /* @__PURE__ */ new Date(),
       })
       .where(and(eq(users.id, userId), isNull(users.deletedAt)))
@@ -1463,7 +1539,7 @@ async function rotateRefreshToken(tokenHash) {
       }
       await tx
         .update(users)
-        .set({ authVersion: sql2`${users.authVersion} + 1` })
+        .set({ authVersion: sql3`${users.authVersion} + 1` })
         .where(eq(users.id, candidate.userId));
       await tx.delete(refreshTokens).where(eq(refreshTokens.userId, candidate.userId));
       return { status: 'reused', userId: candidate.userId };
@@ -1584,10 +1660,8 @@ async function verifyAccessToken(jwtCtx, token) {
     throw new ApiError(401, 'Token session has been revoked', 'TOKEN_REVOKED');
   }
   const sessionId = payload['sid'];
-  if (sessionId !== void 0) {
-    if (typeof sessionId !== 'string' || !(await isRefreshSessionActive(userId, sessionId))) {
-      throw new ApiError(401, 'Token session has been revoked', 'TOKEN_REVOKED');
-    }
+  if (typeof sessionId !== 'string' || !(await isRefreshSessionActive(userId, sessionId))) {
+    throw new ApiError(401, 'Token session has been revoked', 'TOKEN_REVOKED');
   }
   return { userId };
 }
@@ -2550,9 +2624,10 @@ function classifyDevice(userAgent) {
   if (/Mobile|Android|iPhone|iPad|iPod/.test(userAgent)) return 'Mobile';
   return 'Desktop';
 }
-var REFRESH_COOKIE_NAME = 'refresh_token';
 var IS_PRODUCTION2 = process.env['NODE_ENV'] === 'production';
+var REFRESH_COOKIE_NAME = IS_PRODUCTION2 ? '__Secure-refresh_token' : 'refresh_token';
 var MAX_AUTH_TOKEN_CHARS = 256;
+var passwordInputSchema = t.String({ minLength: MIN_PASSWORD_LENGTH, maxLength: 200 });
 var MAX_EMAIL_CHARS = 254;
 var MAX_OAUTH_CODE_CHARS = 4096;
 var MAX_OAUTH_ERROR_CHARS = 512;
@@ -2728,7 +2803,6 @@ async function issueSessionTokens(jwt2, user) {
   try {
     const accessToken = await jwt2.sign({
       sub: user.id,
-      ...(user.email ? { email: user.email } : {}),
       av: user.authVersion,
       sid: session.sessionId,
       exp: ACCESS_TOKEN_EXPIRY,
@@ -2827,7 +2901,7 @@ async function processGoogleSignIn(
   if (isNewUser) {
     const deviceType = classifyDevice(userAgent ?? void 0);
     const timestamp2 = /* @__PURE__ */ new Date().toISOString();
-    const text2 = `New user: ${user.email} | ${deviceType} | ${timestamp2}`;
+    const text2 = `New user: ${user.id} | ${deviceType} | ${timestamp2}`;
     keepAlive(sendTelegramMessage(text2));
   }
   return { user, isNewUser };
@@ -3012,7 +3086,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
         const deviceType = classifyDevice(request.headers.get('user-agent') ?? void 0);
         keepAlive(
           sendTelegramMessage(
-            `New user: ${user.email} | ${deviceType} | ${/* @__PURE__ */ new Date().toISOString()}`
+            `New user: ${user.id} | ${deviceType} | ${/* @__PURE__ */ new Date().toISOString()}`
           )
         );
         reqLogger.info({ event: 'auth.signup', userId: user.id }, 'email signup');
@@ -3026,7 +3100,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
     {
       body: t.Object({
         email: emailInputSchema,
-        password: t.String({ minLength: 8, maxLength: 200 }),
+        password: passwordInputSchema,
         name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
       }),
       detail: {
@@ -3047,11 +3121,8 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
       assertTrustedCredentialRequest(request);
       await applyCredentialAbuseLimits(ip, body.email, '/auth/login', 10, 5);
       const user = await authenticatePassword(body.email, body.password);
-      if (!user) {
+      if (!user || !user.emailVerified) {
         throw new ApiError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
-      }
-      if (!user.emailVerified) {
-        throw new ApiError(403, 'Email not verified', 'EMAIL_NOT_VERIFIED');
       }
       const { accessToken } = await issueTokens(jwt2, cookie, user);
       reqLogger.info({ event: 'auth.login', userId: user.id }, 'password login');
@@ -3067,11 +3138,10 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
         tags: ['Auth'],
         summary: 'Log in with email and password',
         description:
-          'Verifies credentials and issues tokens. Returns a generic 401 for bad credentials (no enumeration) and 403 when the email is unverified.',
+          'Verifies credentials and issues tokens. Returns a generic 401 for bad credentials and for unverified accounts (no enumeration).',
         responses: {
           200: { description: 'Authenticated; access token in body, refresh token in cookie' },
           401: { description: 'Invalid credentials' },
-          403: { description: 'Email not verified' },
           429: { description: 'Rate limited' },
         },
       },
@@ -3199,7 +3269,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
     {
       body: t.Object({
         token: t.String({ minLength: 1, maxLength: MAX_AUTH_TOKEN_CHARS }),
-        password: t.String({ minLength: 8, maxLength: 200 }),
+        password: passwordInputSchema,
       }),
       detail: {
         tags: ['Auth'],
@@ -3284,7 +3354,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
           const deviceType = classifyDevice(request.headers.get('user-agent') ?? void 0);
           keepAlive(
             sendTelegramMessage(
-              `New user: ${user.email} | apple/${deviceType} | ${/* @__PURE__ */ new Date().toISOString()}`
+              `New user: ${user.id} | apple/${deviceType} | ${/* @__PURE__ */ new Date().toISOString()}`
             )
           );
         }
@@ -3391,7 +3461,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
           const deviceType = classifyDevice(request.headers.get('user-agent') ?? void 0);
           keepAlive(
             sendTelegramMessage(
-              `New user: ${user.email} | github/${deviceType} | ${/* @__PURE__ */ new Date().toISOString()}`
+              `New user: ${user.id} | github/${deviceType} | ${/* @__PURE__ */ new Date().toISOString()}`
             )
           );
         }
@@ -3509,7 +3579,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
           const deviceType = classifyDevice(request.headers.get('user-agent') ?? void 0);
           keepAlive(
             sendTelegramMessage(
-              `New user: ${user.email} | microsoft/${deviceType} | ${/* @__PURE__ */ new Date().toISOString()}`
+              `New user: ${user.id} | microsoft/${deviceType} | ${/* @__PURE__ */ new Date().toISOString()}`
             )
           );
         }
@@ -3590,7 +3660,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
             {
               body: t.Object({
                 email: emailInputSchema,
-                password: t.String({ minLength: 8, maxLength: 200 }),
+                password: passwordInputSchema,
                 name: t.Optional(t.String({ minLength: 1, maxLength: 100 })),
               }),
               detail: {
@@ -3667,7 +3737,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
     async ({ cookie, reqLogger, ip }) => {
       const refreshCookie = cookie[REFRESH_COOKIE_NAME];
       try {
-        await rateLimit(ip, '/auth/signout');
+        await rateLimit(ip, '/auth/signout', { failClosed: true });
         await signOutWithRefreshToken(refreshCookie?.value);
         reqLogger.info({ event: 'auth.signout' }, 'user signed out');
         return new Response(null, { status: 204 });
@@ -3690,7 +3760,7 @@ var authRoutes = new Elysia4({ prefix: '/auth' })
   .post(
     '/mobile/signout',
     async ({ body, reqLogger, ip }) => {
-      await rateLimit(ip, '/auth/mobile/signout');
+      await rateLimit(ip, '/auth/mobile/signout', { failClosed: true });
       await signOutWithRefreshToken(body.refreshToken);
       reqLogger.info({ event: 'auth.mobile_signout' }, 'mobile user signed out');
       return new Response(null, { status: 204 });
@@ -3834,11 +3904,11 @@ import {
   or,
   gt,
   asc as asc2,
-  sql as sql5,
+  sql as sql6,
 } from 'drizzle-orm';
 
 // apps/backend/api/src/services/catalog.ts
-import { eq as eq2, and as and2, asc, inArray, sql as sql3 } from 'drizzle-orm';
+import { eq as eq2, and as and2, asc, inArray, sql as sql4 } from 'drizzle-orm';
 
 // packages/domain/src/schemas/program-definition.ts
 import { z } from 'zod/v4';
@@ -4573,7 +4643,7 @@ async function listPrograms() {
         category: programTemplates.category,
         level: programTemplates.level,
         source: programTemplates.source,
-        definition: sql3`jsonb_build_object(
+        definition: sql4`jsonb_build_object(
           'totalWorkouts', (${programTemplates.definition}->>'totalWorkouts')::int,
           'workoutsPerWeek', (${programTemplates.definition}->>'workoutsPerWeek')::int,
           'cycleLength', (${programTemplates.definition}->>'cycleLength')::int
@@ -4737,8 +4807,9 @@ var MAX_IMPORT_JSON_BYTES = 750 * 1024;
 var MAX_ANALYTICS_RECORDS_PER_USER = 1e4;
 
 // apps/backend/api/src/services/data-quotas.ts
-import { and as and3, count, eq as eq3, sql as sql4 } from 'drizzle-orm';
+import { and as and3, count, eq as eq3, sql as sql5 } from 'drizzle-orm';
 async function lockUserForDataMutation(tx, userId) {
+  await setUserRlsContext(tx, userId);
   const [user] = await tx
     .select({ id: users.id })
     .from(users)
@@ -4762,8 +4833,8 @@ async function getUserDataUsage(tx, userId) {
     await Promise.all([
       tx
         .select({
-          rows: sql4`count(*)::int`,
-          jsonBytes: sql4`coalesce(sum(
+          rows: sql5`count(*)::int`,
+          jsonBytes: sql5`coalesce(sum(
             octet_length(${programInstances.programConfig}::text) +
             octet_length(coalesce(${programInstances.metadata}::text, '')) +
             octet_length(coalesce(${programInstances.customDefinition}::text, ''))
@@ -4773,16 +4844,16 @@ async function getUserDataUsage(tx, userId) {
         .where(eq3(programInstances.userId, userId)),
       tx
         .select({
-          rows: sql4`count(*)::int`,
-          jsonBytes: sql4`coalesce(sum(octet_length(coalesce(${workoutResults.setLogs}::text, ''))), 0)::int`,
+          rows: sql5`count(*)::int`,
+          jsonBytes: sql5`coalesce(sum(octet_length(coalesce(${workoutResults.setLogs}::text, ''))), 0)::int`,
         })
         .from(workoutResults)
         .innerJoin(programInstances, eq3(programInstances.id, workoutResults.instanceId))
         .where(eq3(programInstances.userId, userId)),
       tx
         .select({
-          rows: sql4`count(*)::int`,
-          jsonBytes: sql4`coalesce(sum(octet_length(coalesce(${undoEntries.previousSetLogs}::text, ''))), 0)::int`,
+          rows: sql5`count(*)::int`,
+          jsonBytes: sql5`coalesce(sum(octet_length(coalesce(${undoEntries.previousSetLogs}::text, ''))), 0)::int`,
         })
         .from(undoEntries)
         .innerJoin(programInstances, eq3(programInstances.id, undoEntries.instanceId))
@@ -4793,7 +4864,7 @@ async function getUserDataUsage(tx, userId) {
         .where(and3(eq3(exercises.createdByUserId, userId), eq3(exercises.isSystem, false))),
       tx
         .select({
-          jsonBytes: sql4`coalesce(sum(octet_length(${programDefinitions.definition}::text)), 0)::int`,
+          jsonBytes: sql5`coalesce(sum(octet_length(${programDefinitions.definition}::text)), 0)::int`,
         })
         .from(programDefinitions)
         .where(eq3(programDefinitions.userId, userId)),
@@ -5073,7 +5144,7 @@ async function updateInstanceMetadata(userId, instanceId, metadata) {
   if (serialized.length > MAX_METADATA_BYTES) {
     throw new ApiError(400, 'Metadata exceeds 10KB limit', 'METADATA_TOO_LARGE');
   }
-  const mergedMetadata = sql5`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${metadata}::jsonb`;
+  const mergedMetadata = sql6`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${metadata}::jsonb`;
   const updated = await getDb().transaction(async (tx) => {
     await lockUserForDataMutation(tx, userId);
     const [row] = await tx
@@ -5083,7 +5154,7 @@ async function updateInstanceMetadata(userId, instanceId, metadata) {
         and4(
           eq4(programInstances.id, instanceId),
           eq4(programInstances.userId, userId),
-          sql5`length((${mergedMetadata})::text) <= ${MAX_METADATA_BYTES}`
+          sql6`length((${mergedMetadata})::text) <= ${MAX_METADATA_BYTES}`
         )
       )
       .returning();
@@ -6471,7 +6542,7 @@ var exerciseRoutes = new Elysia7().use(publicExerciseRoutes).use(protectedExerci
 import { Elysia as Elysia8, t as t5 } from 'elysia';
 
 // apps/backend/api/src/services/results.ts
-import { eq as eq6, and as and6, desc as desc3, sql as sql6 } from 'drizzle-orm';
+import { eq as eq6, and as and6, desc as desc3, sql as sql7 } from 'drizzle-orm';
 var MAX_UNDO_STACK = 50;
 var undoSnapshotFields = {
   result: workoutResults.result,
@@ -6491,14 +6562,14 @@ async function touchInstanceTimestamp(tx, instanceId) {
     .where(eq6(programInstances.id, instanceId));
 }
 async function trimUndoStack(tx, instanceId) {
-  await tx.execute(sql6`
+  await tx.execute(sql7`
     DELETE FROM undo_entries
     WHERE instance_id = ${instanceId}
       AND id IN (
         SELECT id FROM undo_entries
         WHERE instance_id = ${instanceId}
         ORDER BY id DESC
-        OFFSET ${sql6.raw(String(MAX_UNDO_STACK))}
+        OFFSET ${sql7.raw(String(MAX_UNDO_STACK))}
       )
   `);
 }
@@ -7014,13 +7085,13 @@ import {
   isNotNull,
   isNull as isNull2,
   ne,
-  sql as sql7,
+  sql as sql8,
 } from 'drizzle-orm';
 var META_INSIGHT_TYPE = '_meta';
 async function fetchLeastRecentlyComputedUsers(limit) {
   const db = getDb();
   const rows = await db
-    .select({ userId: sql7`${programInstances.userId}::text` })
+    .select({ userId: sql8`${programInstances.userId}::text` })
     .from(programInstances)
     .innerJoin(users, eq7(users.id, programInstances.userId))
     .leftJoin(userInsights, eq7(userInsights.userId, programInstances.userId))
@@ -7029,8 +7100,8 @@ async function fetchLeastRecentlyComputedUsers(limit) {
     )
     .groupBy(programInstances.userId)
     .orderBy(
-      sql7`max(${userInsights.computedAt}) asc nulls first`,
-      sql7`${programInstances.userId}::text`
+      sql8`max(${userInsights.computedAt}) asc nulls first`,
+      sql8`${programInstances.userId}::text`
     )
     .limit(limit);
   return rows;
@@ -7050,17 +7121,17 @@ async function withInsightTransaction(userId, fn) {
 async function fetchWorkoutRecords(userId, executor = getDb()) {
   const rows = await executor
     .select({
-      userId: sql7`${programInstances.userId}::text`,
-      instanceId: sql7`${programInstances.id}::text`,
+      userId: sql8`${programInstances.userId}::text`,
+      instanceId: sql8`${programInstances.id}::text`,
       programId: programInstances.templateId,
       workoutIndex: workoutResults.workoutIndex,
-      exerciseId: sql7`${workoutResults.exerciseId}`,
-      definitionVersion: sql7`${workoutResults.definitionVersion}`,
-      weight: sql7`(${workoutResults.setLogs} -> 0 ->> 'weight')::float`,
-      result: sql7`${workoutResults.result}::text`,
-      rpe: sql7`${workoutResults.rpe}::float`,
+      exerciseId: sql8`${workoutResults.exerciseId}`,
+      definitionVersion: sql8`${workoutResults.definitionVersion}`,
+      weight: sql8`(${workoutResults.setLogs} -> 0 ->> 'weight')::float`,
+      result: sql8`${workoutResults.result}::text`,
+      rpe: sql8`${workoutResults.rpe}::float`,
       amrapReps: workoutResults.amrapReps,
-      recordedAt: sql7`coalesce(${workoutResults.completedAt}, ${workoutResults.createdAt})::text`,
+      recordedAt: sql8`coalesce(${workoutResults.completedAt}, ${workoutResults.createdAt})::text`,
     })
     .from(workoutResults)
     .innerJoin(programInstances, eq7(programInstances.id, workoutResults.instanceId))
@@ -7069,11 +7140,11 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
         eq7(programInstances.userId, userId),
         isNotNull(workoutResults.exerciseId),
         isNotNull(workoutResults.definitionVersion),
-        sql7`(${workoutResults.setLogs} -> 0 ->> 'weight') is not null`
+        sql8`(${workoutResults.setLogs} -> 0 ->> 'weight') is not null`
       )
     )
     .orderBy(
-      desc4(sql7`coalesce(${workoutResults.completedAt}, ${workoutResults.createdAt})`),
+      desc4(sql8`coalesce(${workoutResults.completedAt}, ${workoutResults.createdAt})`),
       desc4(workoutResults.id)
     )
     .limit(MAX_ANALYTICS_RECORDS_PER_USER);
@@ -7094,10 +7165,10 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
 async function upsertInsight(userId, insightType, exerciseId, payload, executor = getDb()) {
   await executor
     .insert(userInsights)
-    .values({ userId, insightType, exerciseId, payload, computedAt: sql7`now()` })
+    .values({ userId, insightType, exerciseId, payload, computedAt: sql8`now()` })
     .onConflictDoUpdate({
       target: [userInsights.userId, userInsights.insightType, userInsights.exerciseId],
-      set: { payload, computedAt: sql7`now()` },
+      set: { payload, computedAt: sql8`now()` },
     });
 }
 async function deleteComputedInsights(userId, executor) {
@@ -7108,30 +7179,33 @@ async function deleteComputedInsights(userId, executor) {
 
 // apps/backend/api/src/services/insights.ts
 async function getInsights(userId, types) {
-  const db = getDb();
-  const conditions = [
-    eq8(userInsights.userId, userId),
-    ne2(userInsights.insightType, META_INSIGHT_TYPE),
-    // A nullable expiry means "no expiry". Never return rows whose explicit
-    // validity window has elapsed, even if a delayed compute job has not yet
-    // replaced them.
-    or3(isNull3(userInsights.validUntil), gt2(userInsights.validUntil, /* @__PURE__ */ new Date())),
-  ];
-  if (types.length > 0) {
-    conditions.push(inArray4(userInsights.insightType, types));
-  }
-  const rows = await db
-    .select({
-      insightType: userInsights.insightType,
-      exerciseId: userInsights.exerciseId,
-      payload: userInsights.payload,
-      computedAt: userInsights.computedAt,
-      validUntil: userInsights.validUntil,
-    })
-    .from(userInsights)
-    .where(and8(...conditions))
-    .orderBy(asc4(userInsights.insightType), asc4(userInsights.exerciseId));
-  return rows;
+  return withUserRole(userId, async (tx) => {
+    const conditions = [
+      eq8(userInsights.userId, userId),
+      ne2(userInsights.insightType, META_INSIGHT_TYPE),
+      // A nullable expiry means "no expiry". Never return rows whose explicit
+      // validity window has elapsed, even if a delayed compute job has not yet
+      // replaced them.
+      or3(
+        isNull3(userInsights.validUntil),
+        gt2(userInsights.validUntil, /* @__PURE__ */ new Date())
+      ),
+    ];
+    if (types.length > 0) {
+      conditions.push(inArray4(userInsights.insightType, types));
+    }
+    return tx
+      .select({
+        insightType: userInsights.insightType,
+        exerciseId: userInsights.exerciseId,
+        payload: userInsights.payload,
+        computedAt: userInsights.computedAt,
+        validUntil: userInsights.validUntil,
+      })
+      .from(userInsights)
+      .where(and8(...conditions))
+      .orderBy(asc4(userInsights.insightType), asc4(userInsights.exerciseId));
+  });
 }
 
 // apps/backend/api/src/lib/insight-types.ts
@@ -7206,11 +7280,11 @@ import { Elysia as Elysia11 } from 'elysia';
 import { createHash as createHash2, timingSafeEqual as timingSafeEqual2 } from 'node:crypto';
 
 // apps/backend/api/src/lib/readiness.ts
-import { sql as sql8 } from 'drizzle-orm';
+import { sql as sql9 } from 'drizzle-orm';
 async function checkDatabase() {
   const start = Date.now();
   try {
-    await getDb().execute(sql8`SELECT 1`);
+    await getDb().execute(sql9`SELECT 1`);
     return { status: 'ok', latencyMs: Date.now() - start };
   } catch (error) {
     logger.error({ err: error }, 'Database readiness check failed');
@@ -7277,7 +7351,7 @@ var REQUIRED_ENV = [
     service: 'api',
     requiredInProd: true,
     description:
-      'Bearer secret guarding manual /api/internal/* operations. Must contain at least 32 characters of cryptographically random material and differ from CRON_SECRET.',
+      'Bearer secret guarding operator-only /api/internal/* routes (readiness, standalone cleanup/purge) and, with CRON_SECRET, the scheduled cron routes. Must contain at least 32 characters of cryptographically random material and differ from CRON_SECRET.',
     example: '<random-32-byte-hex>',
   },
   {
@@ -7285,7 +7359,7 @@ var REQUIRED_ENV = [
     service: 'api',
     requiredInProd: true,
     description:
-      'Required in production. Vercel Cron injects it as Authorization Bearer credentials. Must contain at least 32 characters of cryptographically random material and differ from INTERNAL_SECRET.',
+      'Required in production. Vercel Cron injects it as Authorization Bearer credentials on scheduled routes only (/api/internal/maintenance, /api/internal/analytics/compute). Must not unlock operator-only internal routes. At least 32 characters of cryptographically random material and distinct from INTERNAL_SECRET.',
     example: '<vercel-cron-bearer-secret>',
   },
   {
@@ -8600,13 +8674,25 @@ function extractPresentedSecret(headers) {
   }
   return headers.get('x-internal-secret') ?? void 0;
 }
-function assertInternalSecret(headers) {
+var CRON_SCOPED_PATHS = /* @__PURE__ */ new Set(['/analytics/compute', '/maintenance']);
+function secretScopeForPath(pathname) {
+  for (const suffix of CRON_SCOPED_PATHS) {
+    if (pathname === suffix || pathname.endsWith(suffix)) return 'cron';
+  }
+  return 'internal';
+}
+function assertInternalSecret(headers, scope) {
   const internalSecret = normalizeSecret(process.env['INTERNAL_SECRET']);
   const cronSecret = normalizeSecret(process.env['CRON_SECRET']);
-  if (!internalSecret && !cronSecret) {
-    logger.error(
-      'internal route rejected: neither INTERNAL_SECRET nor CRON_SECRET is configured (fail closed)'
-    );
+  if (scope === 'cron') {
+    if (!internalSecret && !cronSecret) {
+      logger.error(
+        'internal route rejected: neither INTERNAL_SECRET nor CRON_SECRET is configured (fail closed)'
+      );
+      throw new ApiError(401, 'Unauthorized', 'UNAUTHORIZED');
+    }
+  } else if (!internalSecret) {
+    logger.error('internal route rejected: INTERNAL_SECRET is not configured (fail closed)');
     throw new ApiError(401, 'Unauthorized', 'UNAUTHORIZED');
   }
   const presented = extractPresentedSecret(headers);
@@ -8614,7 +8700,7 @@ function assertInternalSecret(headers) {
     presented !== void 0 &&
     presented.length > 0 &&
     ((internalSecret !== void 0 && safeEqual(presented, internalSecret)) ||
-      (cronSecret !== void 0 && safeEqual(presented, cronSecret)));
+      (scope === 'cron' && cronSecret !== void 0 && safeEqual(presented, cronSecret)));
   if (!matches) {
     throw new ApiError(401, 'Unauthorized', 'UNAUTHORIZED');
   }
@@ -8669,7 +8755,9 @@ var internalRoutes = new Elysia11({ prefix: '/internal' })
   .use(requestLogger)
   .onBeforeHandle(async ({ request, ip }) => {
     await rateLimit(ip, 'INTERNAL /api/internal/*', INTERNAL_RATE_LIMIT);
-    assertInternalSecret(request.headers);
+    const pathname = new URL(request.url, 'http://localhost').pathname;
+    const scopedPath = pathname.replace(/^\/internal/, '') || pathname;
+    assertInternalSecret(request.headers, secretScopeForPath(scopedPath));
   })
   .get('/readiness', readinessHandler)
   .get('/cleanup-tokens', cleanupTokensHandler)
@@ -8682,7 +8770,7 @@ var internalRoutes = new Elysia11({ prefix: '/internal' })
   .post('/maintenance', maintenanceHandler);
 
 // apps/backend/api/src/create-app.ts
-var MAX_REQUEST_BODY_BYTES = 2 * 1024 * 1024;
+var MAX_REQUEST_BODY_BYTES = 1 * 1024 * 1024;
 async function bufferUndeclaredRequestBodyWithinLimit(request) {
   const contentLength = request.headers.get('content-length');
   if (contentLength !== null) {
