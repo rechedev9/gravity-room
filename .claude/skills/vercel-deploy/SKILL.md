@@ -12,8 +12,12 @@ description: Diagnose a failed Gravity Room Vercel production deploy and monitor
 
 Open the deployment in the Vercel dashboard and read the Build Logs (db:deploy +
 Vite) and the Function Logs / Runtime Logs (cold-start `validateEnv` errors,
-per-request failures). `GET /api/health` returns the `db` block for a quick
-liveness check; Vercel Cron invocation results show under the project's Cron tab.
+per-request failures). `GET /api/health` is a deliberately cheap public liveness
+check — it returns only `{status, timestamp}` and never touches Postgres or
+Redis, so it cannot confirm dependencies. The deep probe is the secret-guarded
+`GET /api/internal/readiness`, which returns `{status: 'ready'|'degraded', db,
+redis}` with per-dependency `ok`/`disabled`/`error` and latency. Vercel Cron
+invocation results show under the project's Cron tab.
 
 ### Monitoring deploys from the CLI / terminal
 
@@ -33,6 +37,11 @@ gh api repos/rechedev9/gravity-room/commits/<sha>/status \
 # Production deployments (environment + sha):
 gh api "repos/rechedev9/gravity-room/deployments?per_page=3" \
   --jq '.[]|{sha:.sha[0:7],environment,created_at}'
-curl -s https://gravityroom.app/api/health                 # liveness (db + redis blocks)
+curl -s https://gravityroom.app/api/health                 # liveness only: {status, timestamp}
+# Deep probe (db + redis blocks) — needs INTERNAL_SECRET or CRON_SECRET:
+curl -s https://gravityroom.app/api/internal/readiness -H "Authorization: Bearer $INTERNAL_SECRET"
+# The production-smoke workflow is the end-to-end gate after a deploy lands:
+gh run list --repo rechedev9/gravity-room --workflow production-smoke.yml --limit 1 \
+  --json headSha,status,conclusion
 ```
 

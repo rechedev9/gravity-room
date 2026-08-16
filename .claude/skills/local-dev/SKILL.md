@@ -20,7 +20,15 @@ description: Set up and run the Gravity Room stack locally and E2E-test it as a 
 
 ### Environment
 
-Env vars live in `.env` at the workspace root and per-package dirs (loaded into the shell or the process env before running the `tsx`-based scripts; Vite reads `VITE_`-prefixed vars for the web build).
+Env vars live in `.env` at the workspace root and per-package dirs. Vite reads `VITE_`-prefixed vars
+for the web build, but **nothing else auto-loads these files** — the repo has no `dotenv` dependency and
+the scripts do not pass `--env-file`. Every `tsx`-based command (`db:deploy`, `dev:api`, `test:api`, `e2e`)
+reads `process.env` only, so export the file into your shell first or it fails with
+`DATABASE_URL ... is required` while the file sits right there:
+
+```bash
+set -a; source .env; set +a   # then run any pnpm script
+```
 
 - **API** — `.env` and/or `apps/backend/api/.env`. Minimum:
 
@@ -50,6 +58,19 @@ PGPASSWORD=postgres psql -h localhost -U postgres -d gravity_room -c "SELECT 1"
 
 Default dev string: `postgres://postgres:postgres@localhost:5432/gravity_room`.
 
+**Local Postgres bootstrap (macOS / Homebrew):**
+
+Homebrew's Postgres creates a superuser named after your macOS account, not `postgres`, so the
+default dev string only works once you create that role and give it a password.
+
+```bash
+brew install postgresql@17
+brew services start postgresql@17
+createdb gravity_room
+psql -d postgres -c "CREATE ROLE postgres LOGIN SUPERUSER PASSWORD 'postgres';"  # ignore "already exists"
+PGPASSWORD=postgres psql -h localhost -U postgres -d gravity_room -c "SELECT 1"
+```
+
 **Local Postgres bootstrap (Windows):**
 
 The EnterpriseDB installer registers Postgres as a Windows service and does **not** add `psql` to `PATH`.
@@ -73,7 +94,8 @@ $env:PGPASSWORD = "postgres"
 If the cluster password is not `postgres`, set it once with
 `ALTER USER postgres WITH PASSWORD 'postgres';` and update `DATABASE_URL` accordingly.
 Redis is optional in dev - leave `UPSTASH_REDIS_REST_URL`/`_TOKEN` unset and the API falls back to in-memory
-rate-limiting and presence (a startup `redis: disabled` in `/health` is expected, not an error).
+rate-limiting and presence (`redis: disabled` in `GET /api/internal/readiness` is expected, not an error;
+the public `/api/health` never reports dependencies).
 
 **Env files used by the local stack (create once, git-ignored):**
 
@@ -114,7 +136,7 @@ pnpm install            # from repo root — installs all workspaces
 pnpm --filter api db:deploy   # apply migrations + reference seeds (once; idempotent)
 pnpm run dev:api        # API on :3001 (or: pnpm --filter api dev, i.e. tsx watch src/dev-server.ts)
 pnpm run dev:web        # web on :5173 (alias: pnpm run dev)
-curl http://localhost:3001/health   # → {"status":"ok"}
+curl http://localhost:3001/api/health   # → {"status":"ok","timestamp":"..."} (every route is under /api)
 ```
 
 The dev server (`src/dev-server.ts`) serves the same `createApp()` factory the Vercel function mounts,
