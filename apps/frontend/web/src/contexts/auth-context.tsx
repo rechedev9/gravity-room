@@ -8,7 +8,7 @@ import {
   setAccessToken,
 } from '@/lib/api';
 import { SESSION_INVALIDATED_EVENT } from '@/lib/auth-events';
-import { apiFetch, fetchMe } from '@/lib/api-functions';
+import { apiFetch, fetchMe } from '@/lib/api-core';
 import { ApiError } from '@gzclp/api-client/api-error';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { parseUserSafe } from '@gzclp/domain/schemas/user';
