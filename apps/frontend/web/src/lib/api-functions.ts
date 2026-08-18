@@ -3,19 +3,17 @@
  *
  * All consumers work with slot-keyed generic format.
  */
-import { getAccessToken, refreshAccessToken } from './api';
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import { GenericProgramDetailSchema } from '@gzclp/domain/schemas/instance';
 import { ProgramSummarySchema } from '@gzclp/domain/schemas/program-summary';
 import { CatalogEntrySchema } from '@gzclp/domain/schemas/catalog';
 import { ExerciseEntrySchema, MuscleGroupEntrySchema } from '@gzclp/domain/schemas/exercises';
 import { InsightItemSchema } from '@gzclp/domain/schemas/insights';
-import { UserResponseSchema, parseUserSafe } from '@gzclp/domain/schemas/user';
+import { parseUserSafe } from '@gzclp/domain/schemas/user';
 import type { ResultValue, SetLogEntry } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type { ProgramSummary } from '@gzclp/domain/schemas/program-summary';
 import type { GenericProgramDetail } from '@gzclp/domain/schemas/instance';
-import type { UserInfo } from '@gzclp/domain/schemas/user';
 import type { CatalogEntry } from '@gzclp/domain/schemas/catalog';
 import type {
   ExerciseEntry,
@@ -25,8 +23,15 @@ import type {
 import type { InsightItem } from '@gzclp/domain/schemas/insights';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { z } from 'zod/v4';
-import { mergeHeaders } from '@gzclp/api-client/merge-headers';
-import { ApiError, parseApiErrorBody } from '@gzclp/api-client/api-error';
+import {
+  API_URL,
+  apiFetch,
+  deleteAccount,
+  extractApiError,
+  fetchMe,
+  updateProfile,
+  type ApiFetchOptions,
+} from './api-core';
 
 // Re-export types derived from schemas
 export type { UserInfo } from '@gzclp/domain/schemas/user';
@@ -43,64 +48,9 @@ export type { GenericProgramDetail } from '@gzclp/domain/schemas/instance';
 // Re-export helpers from user schema
 export { parseUserSafe };
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
-
-// ---------------------------------------------------------------------------
-// Auth-aware fetch wrapper with automatic retry on 401
-// ---------------------------------------------------------------------------
-
-async function extractApiError(res: Response, fallback: string): Promise<ApiError> {
-  const body: unknown = await res.json().catch(() => ({}));
-  const { message, code } = parseApiErrorBody(body);
-  const msg = message === 'Unknown error' ? fallback : message;
-  return new ApiError(msg, res.status, code);
-}
-
-interface ApiFetchOptions extends RequestInit {
-  /**
-   * When false, a 401 is thrown directly instead of attempting a token refresh
-   * and retry. Set it for unauthenticated endpoints (login, signup, password
-   * reset) where there is no session to refresh, so an invalid-credentials 401
-   * does not waste a refresh round-trip and log a misleading auth error.
-   */
-  readonly retryAuth?: boolean;
-}
-
-export async function apiFetch(path: string, options: ApiFetchOptions = {}): Promise<unknown> {
-  const { retryAuth = true, ...init } = options;
-  const token = getAccessToken();
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-
-  const doFetch = (): Promise<Response> =>
-    fetch(`${API_URL}/api${path}`, {
-      ...init,
-      headers: mergeHeaders(headers, init.headers),
-      credentials: 'include',
-      signal: init.signal
-        ? AbortSignal.any([init.signal, AbortSignal.timeout(30_000)])
-        : AbortSignal.timeout(30_000),
-    });
-
-  const res = await doFetch();
-
-  if (res.status === 401) {
-    const refreshed = retryAuth ? await refreshAccessToken() : null;
-    if (!refreshed) throw await extractApiError(res, 'Authentication failed');
-
-    headers['Authorization'] = `Bearer ${refreshed.accessToken}`;
-    const retry = await doFetch();
-    if (!retry.ok) throw await extractApiError(retry, `API error: ${retry.status}`);
-    if (retry.status === 204) return null;
-    return retry.json();
-  }
-
-  if (!res.ok) throw await extractApiError(res, `API error: ${res.status}`);
-  if (res.status === 204) return null;
-  return res.json();
-}
+// Re-export the core fetch/profile surface (see api-core.ts for why it is split).
+export { apiFetch, fetchMe, updateProfile, deleteAccount };
+export type { ApiFetchOptions };
 
 // ---------------------------------------------------------------------------
 // API Functions
@@ -192,33 +142,6 @@ export async function importProgram(data: unknown): Promise<ProgramSummary> {
     body: JSON.stringify(data),
   });
   return ProgramSummarySchema.parse(result);
-}
-
-// ---------------------------------------------------------------------------
-// User profile
-// ---------------------------------------------------------------------------
-
-/** Fetch the authenticated user's profile. */
-export async function fetchMe(): Promise<UserInfo> {
-  const data = await apiFetch('/auth/me');
-  return UserResponseSchema.parse(data);
-}
-
-/** Update user profile (name and/or avatar). */
-export async function updateProfile(fields: {
-  name?: string;
-  avatarUrl?: string | null;
-}): Promise<UserInfo> {
-  const data = await apiFetch('/auth/me', {
-    method: 'PATCH',
-    body: JSON.stringify(fields),
-  });
-  return UserResponseSchema.parse(data);
-}
-
-/** Soft-delete the current user account. */
-export async function deleteAccount(): Promise<void> {
-  await apiFetch('/auth/me', { method: 'DELETE' });
 }
 
 const StatsOnlineResponseSchema = z.object({

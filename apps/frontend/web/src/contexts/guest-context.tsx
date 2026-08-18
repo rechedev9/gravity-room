@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { clearGuestData, setGuestMigrationMarker } from '@/lib/guest-storage';
+import { clearGuestData, setGuestMigrationMarker } from '@/lib/guest-storage-keys';
 import { trackEvent } from '@/lib/analytics';
 
 // ---------------------------------------------------------------------------

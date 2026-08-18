@@ -1,7 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { ProgramInstance } from '@gzclp/domain/types/program';
 import { ApiError } from '@gzclp/api-client/api-error';
-import { fetchPrograms, importProgram } from '@/lib/api-functions';
 import { queryKeys } from '@/lib/query-keys';
 import {
   clearGuestData,
@@ -148,6 +147,12 @@ async function runGuestMigration(
   // Never displace an account's real program: creating/importing while one is
   // active would auto-complete it server-side. Keep the guest data and retry
   // on a later sign-in.
+  // Loaded on demand: this module hangs off the root layout (via the guest
+  // migration prompt), but the program API surface — and the Zod schemas it
+  // parses with — is only ever needed once a signed-in user confirms a
+  // migration, so it must not sit in the entry chunk.
+  const { fetchPrograms, importProgram } = await import('@/lib/api-functions');
+
   try {
     const programs = await queryClient.fetchQuery({
       queryKey: queryKeys.programs.all,

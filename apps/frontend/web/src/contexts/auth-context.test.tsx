@@ -42,6 +42,17 @@ vi.mock('@/lib/api', () => ({
   clearApiResponseCache: mockClearApiResponseCache,
 }));
 
+// auth-context imports the fetch/profile surface from api-core (api-functions
+// only re-exports it), so the core module must be mocked as well.
+vi.mock('@/lib/api-core', async () => {
+  const { apiCoreStubs } = await import('../../test/helpers/api-core-mock');
+  return {
+    ...apiCoreStubs,
+    apiFetch: mockApiFetch,
+    fetchMe: mockFetchMe,
+  };
+});
+
 vi.mock('@/lib/api-functions', async () => {
   const { apiFunctionsStubs } = await import('../../test/helpers/api-functions-mock');
   return {
