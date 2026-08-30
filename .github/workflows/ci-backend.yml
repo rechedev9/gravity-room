@@ -1,0 +1,62 @@
+name: CI backend
+
+on:
+  pull_request:
+    paths-ignore:
+      - 'apps/frontend/web/**'
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'apps/frontend/web/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: CI backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck API
+        run: pnpm --filter api typecheck
+
+      - name: Lint API
+        run: pnpm --filter api lint
+
+      - name: Test API
+        run: pnpm --filter api test
+
+      - name: Typecheck domain
+        run: pnpm --filter @gzclp/domain typecheck
+
+      - name: Test domain
+        run: pnpm --filter @gzclp/domain test
+
+      - name: Typecheck database
+        run: pnpm --filter @gzclp/database typecheck
+
+      - name: Test database
+        run: pnpm --filter @gzclp/database test
+
+      - name: Typecheck API client
+        run: pnpm --filter @gzclp/api-client typecheck
+
+      - name: Test API client
+        run: pnpm --filter @gzclp/api-client test

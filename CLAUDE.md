@@ -99,4 +99,4 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See [`docs/agents/d
 - Per-package `.env*.example` (root `.env.example` only)
 - Boot-time DDL, cross-origin split in production
 
-Active GitHub workflows: `production-smoke.yml`, `claude.yml`, `claude-code-review.yml` only.
+Active GitHub workflows: `ci-frontend.yml`, `ci-backend.yml`, `ci-infra.yml`, `production-smoke.yml`.
