@@ -8,6 +8,17 @@ Deeper docs only when needed: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
 (layout + path map), [`docs/api-and-db.md`](./docs/api-and-db.md)
 (`pnpm run context:refresh` with API up), [`.env.example`](./.env.example).
 
+## Punk Records
+
+Shared standing law for every agent that touches this repo. If it is not here, it did not happen. Update this block in the same PR when a law changes.
+
+- **Prove It Works.** Verify the real path, not a proxy. CI, lint, and typecheck are supplemental. Do not call a user-visible change done from code reading alone.
+- **PR quality CI** (PRs and `main`): `CI frontend`, `CI backend`, `CI infra`. Not Playwright e2e. Not a hit on gravityroom.app.
+- **Claude review is off** (King, 2026-08-30). Do not restore `claude.yml` or `claude-code-review.yml`.
+- **Production smoke stays:** `.github/workflows/production-smoke.yml` against https://gravityroom.app after Production deploy / cron. Do not run it on PRs.
+- **Hard contracts** in this file still bind: domain SoT, DB SoT, generated web API client, same-origin prod, no boot-time DDL.
+- **Do not reintroduce:** Python analytics service, Docker/VPS/Caddy deploy, aggregate CI `Validate` workflow, Claude review.
+
 ## Layout
 
 | Path                             | Role                                                                                                                          |
@@ -94,7 +105,7 @@ Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See [`docs/agents/d
 
 ## Do not reintroduce
 
-- Python analytics service, Docker/VPS/Caddy deploy, aggregate CI `Validate` workflow
+- Python analytics service, Docker/VPS/Caddy deploy, aggregate CI `Validate` workflow, Claude review
 - `/metrics` + prom-client, `REDIS_URL`, `METRICS_TOKEN`, `DB_POOL_SIZE`, `COMPUTE_INTERVAL_HOURS`
 - Per-package `.env*.example` (root `.env.example` only)
 - Boot-time DDL, cross-origin split in production
