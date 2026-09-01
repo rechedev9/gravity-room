@@ -69,7 +69,6 @@ todo.md
 
 # scripts/: ignore ad-hoc local scripts; keep the checked-in set
 scripts/*
-!scripts/committer
 !scripts/loadtest.js
 !scripts/refresh-claude-context.ts
 !scripts/vercel-build.sh
