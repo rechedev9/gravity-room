@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@gzclp/domain';
 
-import { TrackerScreen } from '../tracker/tracker-screen';
-import { colors, radii, spacing } from '../../app/design';
+import { colors, type } from '../../app/design';
+import { Button } from '../../ui/button';
+import { Card } from '../../ui/card';
+import { Kicker } from '../../ui/kicker';
+import { Screen } from '../../ui/screen';
 import {
   listProgramSummaries,
   type ProgramSummary,
@@ -30,7 +32,11 @@ function mergeProgramSummary(
   return [nextProgram, ...programs.filter((program) => program.id !== nextProgram.id)];
 }
 
-export function ProgramsScreen() {
+type ProgramsScreenProps = {
+  readonly onOpenProgram?: (programInstanceId: string) => void;
+};
+
+export function ProgramsScreen({ onOpenProgram }: ProgramsScreenProps = {}) {
   const { t } = useTranslation();
   const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
   const [catalog, setCatalog] = useState<readonly CatalogEntry[]>([]);
@@ -40,7 +46,6 @@ export function ProgramsScreen() {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [creatingProgramId, setCreatingProgramId] = useState<string | null>(null);
 
   async function loadPrograms(signal: { active: boolean }): Promise<void> {
@@ -164,7 +169,7 @@ export function ProgramsScreen() {
       setPrograms(nextPrograms);
       setSyncNotice(null);
       setError(null);
-      setSelectedProgramId(detail.id);
+      onOpenProgram?.(detail.id);
     } catch {
       setCatalogError(t('programs.errors.start'));
     } finally {
@@ -172,186 +177,128 @@ export function ProgramsScreen() {
     }
   }
 
-  if (selectedProgramId) {
-    return (
-      <TrackerScreen
-        programInstanceId={selectedProgramId}
-        onBack={() => setSelectedProgramId(null)}
-      />
-    );
-  }
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
-        <Text style={styles.eyebrow}>{t('programs.eyebrow')}</Text>
-        <Text style={styles.title}>{t('programs.title')}</Text>
-        <Text style={styles.body}>{t('programs.body')}</Text>
-        {loading ? (
-          <View style={styles.stateBlock}>
-            <ActivityIndicator color={colors.textPrimary} />
-          </View>
-        ) : error ? (
-          <View style={styles.stateBlock}>
-            <Text style={styles.error}>{error}</Text>
-            <Pressable accessibilityRole="button" onPress={handleRetry} style={styles.retryButton}>
-              <Text style={styles.retryLabel}>{t('common.retry')}</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <>
-            {syncNotice ? (
-              <View style={styles.syncNoticeBlock}>
-                <Text style={styles.syncNotice}>{syncNotice}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={handleRetry}
-                  style={styles.retryButton}
-                >
-                  <Text style={styles.retryLabel}>{t('common.retry')}</Text>
-                </Pressable>
-              </View>
-            ) : null}
-            <FlatList
-              data={programs}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.listContent}
-              ListEmptyComponent={
-                <View style={styles.firstRun}>
-                  <Text style={styles.firstRunTitle}>{t('programs.first_run.title')}</Text>
-                  <Text style={styles.firstRunBody}>{t('programs.first_run.body')}</Text>
-                </View>
-              }
-              renderItem={({ item }) => (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setSelectedProgramId(item.id)}
-                  style={styles.card}
-                >
+    <Screen>
+      <Kicker>{t('programs.eyebrow')}</Kicker>
+      <Text style={styles.title}>{t('programs.title')}</Text>
+      <Text style={styles.body}>{t('programs.body')}</Text>
+      {loading ? (
+        <View style={styles.stateBlock}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      ) : error ? (
+        <View style={styles.stateBlock}>
+          <Text style={styles.error}>{error}</Text>
+          <Button onPress={handleRetry}>{t('common.retry')}</Button>
+        </View>
+      ) : (
+        <>
+          {syncNotice ? (
+            <View style={styles.syncNoticeBlock}>
+              <Text style={styles.syncNotice}>{syncNotice}</Text>
+              <Button onPress={handleRetry}>{t('common.retry')}</Button>
+            </View>
+          ) : null}
+          <FlatList
+            data={programs}
+            keyExtractor={(item) => item.id}
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <Card>
+                <Text style={styles.firstRunTitle}>{t('programs.first_run.title')}</Text>
+                <Text style={styles.firstRunBody}>{t('programs.first_run.body')}</Text>
+              </Card>
+            }
+            renderItem={({ item }) => (
+              <Pressable accessibilityRole="button" onPress={() => onOpenProgram?.(item.id)}>
+                <Card>
                   <Text style={styles.cardTitle}>{item.title}</Text>
                   <Text style={styles.cardMeta}>
                     {t('programs.card_updated', { date: item.updatedAt.slice(0, 10) })}
                   </Text>
-                </Pressable>
-              )}
-            />
-            <View style={styles.catalogSection}>
-              <Text style={styles.sectionTitle}>{t('programs.catalog_title')}</Text>
-              {catalogLoading ? (
-                <View style={styles.catalogStateBlock}>
-                  <ActivityIndicator color={colors.textPrimary} />
-                </View>
-              ) : catalogError ? (
-                <View style={styles.catalogStateBlock}>
-                  <Text style={styles.error}>{catalogError}</Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={handleRetry}
-                    style={styles.retryButton}
-                  >
-                    <Text style={styles.retryLabel}>{t('common.retry')}</Text>
-                  </Pressable>
-                </View>
-              ) : (
-                <View style={styles.catalogList}>
-                  {catalog.map((entry) => {
-                    const isCreating = creatingProgramId === entry.id;
-                    return (
-                      <View key={entry.id} style={styles.catalogCard}>
-                        <View style={styles.catalogCopy}>
-                          <Text style={styles.cardTitle}>{entry.name}</Text>
-                          <Text style={styles.cardMeta}>{entry.description}</Text>
-                          <Text style={styles.catalogMeta}>
-                            {t('programs.catalog_meta', {
-                              level: entry.level,
-                              total: entry.totalWorkouts,
-                              perWeek: entry.workoutsPerWeek,
-                            })}
-                          </Text>
-                        </View>
-                        <Pressable
-                          accessibilityLabel={t('programs.start_accessibility', {
-                            name: entry.name,
+                </Card>
+              </Pressable>
+            )}
+          />
+          <View style={styles.catalogSection}>
+            <Kicker>{t('programs.catalog_title')}</Kicker>
+            {catalogLoading ? (
+              <View style={styles.catalogStateBlock}>
+                <ActivityIndicator color={colors.accent} />
+              </View>
+            ) : catalogError ? (
+              <View style={styles.catalogStateBlock}>
+                <Text style={styles.error}>{catalogError}</Text>
+                <Button onPress={handleRetry}>{t('common.retry')}</Button>
+              </View>
+            ) : (
+              <View style={styles.catalogList}>
+                {catalog.map((entry) => {
+                  const isCreating = creatingProgramId === entry.id;
+                  return (
+                    <Card key={entry.id}>
+                      <View style={styles.catalogCopy}>
+                        <Text style={styles.cardTitle}>{entry.name}</Text>
+                        <Text style={styles.cardMeta}>{entry.description}</Text>
+                        <Text style={styles.catalogMeta}>
+                          {t('programs.catalog_meta', {
+                            level: entry.level,
+                            total: entry.totalWorkouts,
+                            perWeek: entry.workoutsPerWeek,
                           })}
-                          accessibilityRole="button"
-                          disabled={creatingProgramId !== null}
-                          onPress={() => {
-                            void handleCreateProgram(entry);
-                          }}
-                          style={[
-                            styles.startButton,
-                            isCreating ? styles.startButtonDisabled : null,
-                          ]}
-                        >
-                          <Text style={styles.startLabel}>
-                            {isCreating ? t('programs.starting') : t('programs.start')}
-                          </Text>
-                        </Pressable>
+                        </Text>
                       </View>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-          </>
-        )}
-      </View>
-    </SafeAreaView>
+                      <Button
+                        variant="primary"
+                        accessibilityLabel={t('programs.start_accessibility', {
+                          name: entry.name,
+                        })}
+                        disabled={creatingProgramId !== null}
+                        isLoading={isCreating}
+                        onPress={() => {
+                          void handleCreateProgram(entry);
+                        }}
+                      >
+                        {isCreating ? t('programs.starting') : t('programs.start')}
+                      </Button>
+                    </Card>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        </>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.canvas,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.screenX,
-    paddingTop: 24,
-    gap: spacing.stack,
-  },
-  eyebrow: {
-    color: colors.accentPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
   title: {
-    color: colors.textPrimary,
-    fontSize: 28,
-    fontWeight: '700',
+    ...type.displaySm,
   },
   body: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    lineHeight: 24,
+    ...type.body,
   },
   stateBlock: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 16,
+  },
+  list: {
+    flex: 1,
   },
   listContent: {
-    gap: 12,
+    gap: 10,
     paddingVertical: 8,
   },
-  firstRun: {
-    borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    backgroundColor: colors.card,
-    padding: spacing.card,
-    gap: 8,
-  },
   firstRunTitle: {
-    color: colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '700',
+    ...type.title,
   },
   firstRunBody: {
-    color: colors.textSecondary,
+    ...type.body,
     fontSize: 15,
     lineHeight: 22,
   },
@@ -361,7 +308,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   syncNotice: {
-    color: colors.accentWarning,
+    color: colors.warn,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -369,80 +316,31 @@ const styles = StyleSheet.create({
     gap: 12,
     alignItems: 'flex-start',
   },
-  retryButton: {
-    marginTop: 12,
-    alignItems: 'center',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  retryLabel: {
-    color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  card: {
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    padding: 16,
-    gap: 6,
-  },
   cardTitle: {
     color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
   cardMeta: {
-    color: colors.textMuted,
-    fontSize: 14,
+    ...type.meta,
   },
   catalogSection: {
-    gap: spacing.stack,
+    gap: 12,
     paddingBottom: 24,
-  },
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '700',
   },
   catalogStateBlock: {
     alignItems: 'center',
-    gap: spacing.stack,
+    gap: 12,
     paddingVertical: 20,
   },
   catalogList: {
-    gap: spacing.stack,
-  },
-  catalogCard: {
-    borderRadius: radii.card,
-    backgroundColor: colors.card,
-    padding: spacing.card,
-    gap: spacing.stack,
+    gap: 10,
   },
   catalogCopy: {
     gap: 6,
   },
   catalogMeta: {
-    color: colors.accentPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  startButton: {
-    alignItems: 'center',
-    borderRadius: radii.pill,
-    backgroundColor: colors.accentSuccess,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  startButtonDisabled: {
-    opacity: 0.55,
-  },
-  startLabel: {
-    color: '#04130A',
-    fontSize: 15,
-    fontWeight: '700',
+    ...type.kicker,
+    color: colors.accentDeep,
   },
 });

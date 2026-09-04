@@ -3,8 +3,10 @@
     "retry": "Retry"
   },
   "nav": {
+    "train": "Train",
     "programs": "Programs",
     "profile": "Profile",
+    "open_train": "Open train tab",
     "open_programs": "Open programs tab",
     "open_profile": "Open profile tab"
   },
@@ -68,6 +70,13 @@
       "start": "Unable to start that program right now."
     }
   },
+  "train": {
+    "empty": {
+      "title": "No session yet",
+      "body": "Start a program to log from the gym. Train keeps the current block one tap away.",
+      "open_programs": "Open programs"
+    }
+  },
   "profile": {
     "eyebrow": "Account",
     "title": "Profile",
@@ -92,6 +101,11 @@
     "next_accessibility": "Next workout",
     "weight": "{{weight}} kg",
     "sets_reps": "{{sets}} x {{reps}}",
+    "confirm_set": "Set {{index}} ✓",
+    "set_indicators": {
+      "sets_aria": "{{count}} sets",
+      "set_result_aria": "Set {{index}}: {{reps}} reps"
+    },
     "status": {
       "success": "Logged success",
       "fail": "Logged fail",
@@ -114,7 +128,8 @@
       "increase_rpe": "Increase {{name}} RPE",
       "clear_rpe": "Clear {{name}} RPE",
       "mark_success": "Mark {{name}} success",
-      "mark_fail": "Mark {{name}} fail"
+      "mark_fail": "Mark {{name}} fail",
+      "confirm_set": "Confirm set {{index}} for {{name}}"
     },
     "notices": {
       "cached": "Showing cached tracker data while sync catches up.",

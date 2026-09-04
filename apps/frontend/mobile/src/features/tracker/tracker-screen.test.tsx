@@ -140,6 +140,30 @@ const TEST_DETAIL: GenericProgramDetail = {
   updatedAt: '2026-04-20T10:00:00.000Z',
 };
 
+const SQUAT_SET_LOGS = [
+  { reps: 3, weight: 60 },
+  { reps: 3, weight: 60 },
+  { reps: 3, weight: 60 },
+  { reps: 3, weight: 60 },
+  { reps: 3, weight: 60 },
+] as const;
+
+function squatLogsWithLastReps(reps: number): Array<{ reps: number; weight: number }> {
+  return [
+    { reps: 3, weight: 60 },
+    { reps: 3, weight: 60 },
+    { reps: 3, weight: 60 },
+    { reps: 3, weight: 60 },
+    { reps, weight: 60 },
+  ];
+}
+
+function confirmSets(name: string, count: number): void {
+  for (let index = 1; index <= count; index += 1) {
+    fireEvent.press(screen.getByRole('button', { name: `Confirm set ${index} for ${name}` }));
+  }
+}
+
 describe('TrackerScreen', () => {
   beforeEach(() => {
     mockedGetAccessToken.mockReturnValue('restored-access-token');
@@ -310,7 +334,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(mockedQueueRecordResultMutation).toHaveBeenCalledWith({
@@ -318,14 +342,16 @@ describe('TrackerScreen', () => {
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      setLogs: [...SQUAT_SET_LOGS],
     });
     expect(mockedUpsertProgramDetail).toHaveBeenCalledWith(
       expect.objectContaining({
         results: {
           0: {
-            'squat-t1': {
+            'squat-t1': expect.objectContaining({
               result: 'success',
-            },
+              setLogs: [...SQUAT_SET_LOGS],
+            }),
           },
         },
       })
@@ -353,8 +379,8 @@ describe('TrackerScreen', () => {
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
-
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    expect(screen.queryByRole('button', { name: /Confirm set/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mark Squat success' })).toBeNull();
 
     await waitFor(() => {
       expect(mockedUpsertProgramDetail).not.toHaveBeenCalled();
@@ -376,7 +402,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
 
     expect(screen.getByText('Logged success')).toBeTruthy();
     expect(mockedQueueRecordResultMutation).not.toHaveBeenCalled();
@@ -389,6 +415,7 @@ describe('TrackerScreen', () => {
         workoutIndex: 0,
         slotId: 'squat-t1',
         result: 'success',
+        setLogs: [...SQUAT_SET_LOGS],
       });
     });
   });
@@ -404,7 +431,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
 
     await waitFor(() => {
       expect(screen.getByText('Awaiting result')).toBeTruthy();
@@ -449,7 +476,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
@@ -570,13 +597,13 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
 
     expect(await screen.findByRole('button', { name: 'Increase Squat AMRAP reps' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Increase Squat RPE' })).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
-    expect(await screen.findByText('AMRAP reps: 1')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 4')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat RPE' }));
 
@@ -587,8 +614,9 @@ describe('TrackerScreen', () => {
           0: {
             'squat-t1': expect.objectContaining({
               result: 'success',
-              amrapReps: 1,
+              amrapReps: 4,
               rpe: 1,
+              setLogs: squatLogsWithLastReps(4),
             }),
           },
         },
@@ -599,7 +627,8 @@ describe('TrackerScreen', () => {
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
-      amrapReps: 1,
+      setLogs: squatLogsWithLastReps(4),
+      amrapReps: 4,
       rpe: 1,
     });
   });
@@ -646,7 +675,7 @@ describe('TrackerScreen', () => {
                 amrapReps: 6,
                 setLogs: [
                   {
-                    reps: 5,
+                    reps: 6,
                     weight: 100,
                     rpe: 8,
                   },
@@ -664,7 +693,7 @@ describe('TrackerScreen', () => {
         amrapReps: 6,
         setLogs: [
           {
-            reps: 5,
+            reps: 6,
             weight: 100,
             rpe: 8,
           },
@@ -686,30 +715,32 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
-    expect(await screen.findByText('AMRAP reps: 1')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 4')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
-    expect(screen.getByText('AMRAP reps: -')).toBeTruthy();
+    expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
     expect(screen.queryByText('Awaiting result')).toBeNull();
     expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      setLogs: [...SQUAT_SET_LOGS],
     });
     expect(mockedUpsertProgramDetail).toHaveBeenLastCalledWith(
       expect.objectContaining({
         results: {
           0: {
-            'squat-t1': {
+            'squat-t1': expect.objectContaining({
               result: 'success',
-            },
+              setLogs: [...SQUAT_SET_LOGS],
+            }),
           },
         },
         undoHistory: [
@@ -734,7 +765,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
     expect(await screen.findByRole('button', { name: 'Increase Squat RPE' })).toBeTruthy();
 
     for (let count = 0; count < 11; count += 1) {
@@ -748,6 +779,7 @@ describe('TrackerScreen', () => {
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      setLogs: [...SQUAT_SET_LOGS],
       rpe: 10,
     });
   });
@@ -796,15 +828,15 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
     expect(await screen.findByRole('button', { name: 'Increase Squat AMRAP reps' })).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
 
     await waitFor(() => {
-      expect(screen.getByText('AMRAP reps: -')).toBeTruthy();
+      expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
     });
-    expect(screen.queryByText('AMRAP reps: 1')).toBeNull();
+    expect(screen.queryByText('AMRAP reps: 4')).toBeNull();
   });
 
   it('does not roll back a newer edit when an older local write fails late', async () => {
@@ -824,11 +856,11 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
-    expect(await screen.findByText('AMRAP reps: 1')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 4')).toBeTruthy();
 
     secondWrite.resolve();
 
@@ -838,7 +870,8 @@ describe('TrackerScreen', () => {
         workoutIndex: 0,
         slotId: 'squat-t1',
         result: 'success',
-        amrapReps: 1,
+        amrapReps: 4,
+        setLogs: squatLogsWithLastReps(4),
       });
     });
 
@@ -846,7 +879,7 @@ describe('TrackerScreen', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Logged success')).toBeTruthy();
-      expect(screen.getByText('AMRAP reps: 1')).toBeTruthy();
+      expect(screen.getByText('AMRAP reps: 4')).toBeTruthy();
     });
     expect(screen.queryByText('Awaiting result')).toBeNull();
   });
@@ -863,7 +896,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(
@@ -883,17 +916,17 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
     expect(await screen.findByRole('button', { name: 'Increase Squat AMRAP reps' })).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
-    expect(await screen.findByText('AMRAP reps: 1')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 4')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat RPE' }));
     expect(await screen.findByText('RPE: 1')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Clear Squat AMRAP reps' }));
-    expect(await screen.findByText('AMRAP reps: -')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 3')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Clear Squat RPE' }));
 
@@ -903,6 +936,7 @@ describe('TrackerScreen', () => {
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      setLogs: [...SQUAT_SET_LOGS],
     });
   });
 
@@ -918,33 +952,39 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
     expect(await screen.findByRole('button', { name: 'Increase Squat AMRAP reps' })).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat RPE' }));
 
-    expect(await screen.findByText('AMRAP reps: 1')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 4')).toBeTruthy();
     expect(await screen.findByText('RPE: 1')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Decrease Squat AMRAP reps' }));
     fireEvent.press(screen.getByRole('button', { name: 'Decrease Squat RPE' }));
 
-    expect(await screen.findByText('AMRAP reps: -')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 3')).toBeTruthy();
     expect(await screen.findByText('RPE: -')).toBeTruthy();
 
     const persistedDetail = mockedUpsertProgramDetail.mock.calls.at(-1)?.[0];
     expect(persistedDetail).toBeDefined();
-    expect(persistedDetail?.results['0']?.['squat-t1']).toEqual({ result: 'success' });
+    expect(persistedDetail?.results['0']?.['squat-t1']).toEqual({
+      result: 'success',
+      amrapReps: 3,
+      setLogs: [...SQUAT_SET_LOGS],
+    });
     expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      amrapReps: 3,
+      setLogs: [...SQUAT_SET_LOGS],
     });
   });
 
-  it('does not create AMRAP or RPE values when decreasing from empty state', async () => {
+  it('does not create RPE values when decreasing from empty state', async () => {
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
@@ -956,20 +996,21 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
-    expect(await screen.findByRole('button', { name: 'Decrease Squat AMRAP reps' })).toBeTruthy();
+    confirmSets('Squat', 5);
+    expect(await screen.findByRole('button', { name: 'Decrease Squat RPE' })).toBeTruthy();
+    expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Decrease Squat AMRAP reps' }));
     fireEvent.press(screen.getByRole('button', { name: 'Decrease Squat RPE' }));
 
-    expect(await screen.findByText('AMRAP reps: -')).toBeTruthy();
     expect(await screen.findByText('RPE: -')).toBeTruthy();
+    expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
     expect(mockedQueueRecordResultMutation).toHaveBeenCalledTimes(1);
     expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      setLogs: [...SQUAT_SET_LOGS],
     });
   });
 
@@ -1010,7 +1051,7 @@ describe('TrackerScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Next workout' }));
     expect(await screen.findByText('Day B')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Bench success' }));
+    confirmSets('Bench', 5);
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Increase Bench AMRAP reps' })).toBeNull();
@@ -1059,7 +1100,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
@@ -1084,7 +1125,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    confirmSets('Squat', 5);
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));

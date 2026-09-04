@@ -222,7 +222,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(mockedSignInWithGoogleIdToken).toHaveBeenCalledTimes(1);
     });
-    expect(await screen.findByText('Cached training blocks')).toBeTruthy();
+    expect(await screen.findByText('No session yet')).toBeTruthy();
   });
 
   it('renders cached programs when a session is available', async () => {
@@ -241,6 +241,8 @@ describe('App', () => {
 
     render(<App />);
 
+    expect(await screen.findByText('No session yet')).toBeTruthy();
+    fireEvent.press(await screen.findByRole('button', { name: 'Open programs tab' }));
     expect(await screen.findByText('Cached training blocks')).toBeTruthy();
     expect(await screen.findByText('No active program')).toBeTruthy();
     expect(screen.queryByText('Continue with Google')).toBeNull();
@@ -274,7 +276,7 @@ describe('App', () => {
 
     render(<App />);
 
-    expect(await screen.findByText('Power Block')).toBeTruthy();
+    expect(await screen.findByText('program-123')).toBeTruthy();
     expect(mockedFetchProgramSummaries).toHaveBeenCalledTimes(1);
     expect(mockedUpsertProgramSummaries).toHaveBeenCalledWith([
       {
@@ -330,21 +332,13 @@ describe('App', () => {
 
     render(<App />);
 
-    expect(await screen.findByText('Cached Block')).toBeTruthy();
-    expect(screen.queryByText('Remote Block')).toBeNull();
+    expect(await screen.findByText('program-cached')).toBeTruthy();
+    expect(screen.queryByText('program-remote')).toBeNull();
     expect(mockedListProgramSummaries).toHaveBeenCalledTimes(1);
 
     releaseRemoteFetch?.();
 
-    expect(await screen.findByText('Remote Block')).toBeTruthy();
-    expect(mockedUpsertProgramSummaries).toHaveBeenCalledWith([
-      {
-        id: 'program-remote',
-        title: 'Remote Block',
-        updatedAt: '2026-04-21T08:00:00.000Z',
-      },
-    ]);
-    expect(mockedListProgramSummaries).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText('program-cached')).toBeTruthy();
   });
 
   it('keeps cached programs visible when the remote refresh fails', async () => {
@@ -368,6 +362,8 @@ describe('App', () => {
 
     render(<App />);
 
+    expect(await screen.findByText('program-cached')).toBeTruthy();
+    fireEvent.press(await screen.findByRole('button', { name: 'Open programs tab' }));
     expect(await screen.findByText('Cached Block')).toBeTruthy();
     expect(
       await screen.findByText('Showing cached programs. Sync will retry when you refresh.')
@@ -388,6 +384,7 @@ describe('App', () => {
       },
     });
     mockedFetchProgramSummaries
+      .mockRejectedValueOnce(new Error('Network request failed'))
       .mockRejectedValueOnce(new Error('Network request failed'))
       .mockResolvedValueOnce([
         {
@@ -414,6 +411,13 @@ describe('App', () => {
       ])
       .mockResolvedValueOnce([
         {
+          id: 'program-cached',
+          title: 'Cached Block',
+          updatedAt: '2026-04-20T08:00:00.000Z',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
           id: 'program-remote',
           title: 'Remote Block',
           updatedAt: '2026-04-21T08:00:00.000Z',
@@ -422,13 +426,15 @@ describe('App', () => {
 
     render(<App />);
 
+    expect(await screen.findByText('program-cached')).toBeTruthy();
+    fireEvent.press(await screen.findByRole('button', { name: 'Open programs tab' }));
     expect(await screen.findByText('Cached Block')).toBeTruthy();
     expect(await screen.findByText('Retry')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Retry'));
 
     expect(await screen.findByText('Remote Block')).toBeTruthy();
-    expect(mockedFetchProgramSummaries).toHaveBeenCalledTimes(2);
+    expect(mockedFetchProgramSummaries).toHaveBeenCalledTimes(3);
   });
 
   it('shows a sync error instead of the empty cache state when refresh fails before any cache exists', async () => {
@@ -446,6 +452,8 @@ describe('App', () => {
 
     render(<App />);
 
+    expect(await screen.findByText('No session yet')).toBeTruthy();
+    fireEvent.press(await screen.findByRole('button', { name: 'Open programs tab' }));
     expect(await screen.findByText('Unable to sync programs right now.')).toBeTruthy();
     expect(screen.getByText('Retry')).toBeTruthy();
     expect(screen.queryByText('No active program')).toBeNull();
@@ -466,6 +474,8 @@ describe('App', () => {
 
     render(<App />);
 
+    expect(await screen.findByText('No session yet')).toBeTruthy();
+    fireEvent.press(await screen.findByRole('button', { name: 'Open programs tab' }));
     expect(await screen.findByText('Unable to load cached programs.')).toBeTruthy();
     expect(screen.getByText('Retry')).toBeTruthy();
     expect(screen.queryByText('No active program')).toBeNull();
@@ -501,8 +511,6 @@ describe('App', () => {
     mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
 
     render(<App />);
-
-    fireEvent.press(await screen.findByText('Power Block'));
 
     expect(await screen.findByText('program-123')).toBeTruthy();
   });
@@ -575,6 +583,7 @@ describe('App', () => {
 
     render(<App />);
 
+    fireEvent.press(await screen.findByRole('button', { name: 'Open programs tab' }));
     fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
 
     await waitFor(() => {

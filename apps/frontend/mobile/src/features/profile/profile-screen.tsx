@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { colors, radii, spacing } from '../../app/design';
+import { colors, type } from '../../app/design';
 import type { AuthUser } from '../../lib/auth/session';
+import { Button } from '../../ui/button';
+import { Card } from '../../ui/card';
+import { Kicker } from '../../ui/kicker';
+import { Screen } from '../../ui/screen';
 
 type ProfileScreenProps = {
   readonly user: AuthUser;
@@ -32,105 +35,54 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
-        <Text style={styles.eyebrow}>{t('profile.eyebrow')}</Text>
-        <Text style={styles.title}>{t('profile.title')}</Text>
-        <View style={styles.card}>
-          <Text style={styles.name}>{user.name ?? t('profile.default_name')}</Text>
-          <Text style={styles.body}>{user.email}</Text>
-          <Text style={styles.caption}>{t('profile.session_note')}</Text>
-        </View>
-        {signOutFailed ? (
-          <Text accessibilityRole="alert" style={styles.errorText}>
-            {t('profile.sign_out_error')}
-          </Text>
-        ) : null}
-        <Pressable
-          accessibilityLabel={t('profile.sign_out_accessibility')}
-          accessibilityRole="button"
-          disabled={signingOut}
-          onPress={() => {
-            void handleSignOut();
-          }}
-          style={[styles.signOutButton, signingOut ? styles.disabledButton : null]}
-        >
-          <Text style={styles.signOutLabel}>
-            {signingOut
-              ? t('profile.signing_out')
-              : signOutFailed
-                ? t('profile.retry_sign_out')
-                : t('profile.sign_out')}
-          </Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+    <Screen>
+      <Kicker>{t('profile.eyebrow')}</Kicker>
+      <Text style={styles.title}>{t('profile.title')}</Text>
+      <Card>
+        <Text style={styles.name}>{user.name ?? t('profile.default_name')}</Text>
+        <Text style={styles.body}>{user.email}</Text>
+        <Text style={styles.caption}>{t('profile.session_note')}</Text>
+      </Card>
+      {signOutFailed ? (
+        <Text accessibilityRole="alert" style={styles.errorText}>
+          {t('profile.sign_out_error')}
+        </Text>
+      ) : null}
+      <Button
+        variant="danger"
+        accessibilityLabel={t('profile.sign_out_accessibility')}
+        disabled={signingOut}
+        isLoading={signingOut}
+        onPress={() => {
+          void handleSignOut();
+        }}
+      >
+        {signingOut
+          ? t('profile.signing_out')
+          : signOutFailed
+            ? t('profile.retry_sign_out')
+            : t('profile.sign_out')}
+      </Button>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.canvas,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.screenX,
-    paddingTop: 24,
-    gap: spacing.stack,
-  },
-  eyebrow: {
-    color: colors.accentPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
   title: {
-    color: colors.textPrimary,
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  card: {
-    borderRadius: radii.card,
-    backgroundColor: colors.card,
-    padding: spacing.card,
-    gap: 8,
+    ...type.displaySm,
   },
   name: {
-    color: colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '600',
+    ...type.title,
   },
   body: {
-    color: colors.textSecondary,
-    fontSize: 16,
+    ...type.body,
   },
   caption: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    lineHeight: 24,
+    ...type.body,
   },
   errorText: {
     color: colors.textError,
     fontSize: 14,
     lineHeight: 20,
-  },
-  signOutButton: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  disabledButton: {
-    opacity: 0.55,
-  },
-  signOutLabel: {
-    color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
   },
 });

@@ -4,8 +4,25 @@ jest.mock('react-native-safe-area-context', () => mockSafeAreaContext);
 
 // Pin the device locale to English so i18n resolves the English catalog under
 // test (the source language of the app's copy).
-jest.mock('expo-localization', () => ({
-  getLocales: () => [{ languageCode: 'en' }],
+jest.mock('expo-font', () => ({
+  useFonts: () => [true, null],
+  loadAsync: jest.fn(async () => undefined),
+  isLoaded: () => true,
+}));
+
+jest.mock('@expo-google-fonts/bebas-neue', () => ({
+  BebasNeue_400Regular: 1,
+}));
+
+jest.mock('@expo-google-fonts/barlow', () => ({
+  Barlow_400Regular: 1,
+  Barlow_600SemiBold: 1,
+  Barlow_700Bold: 1,
+}));
+
+jest.mock('@expo-google-fonts/jetbrains-mono', () => ({
+  JetBrainsMono_600SemiBold: 1,
+  JetBrainsMono_700Bold: 1,
 }));
 
 jest.mock('expo-auth-session/providers/google', () => ({

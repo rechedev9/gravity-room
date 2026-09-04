@@ -267,7 +267,8 @@ describe('ProgramsScreen', () => {
     mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
     mockedCreateProgramInstance.mockResolvedValue(CREATED_DETAIL);
 
-    render(<ProgramsScreen />);
+    const onOpenProgram = jest.fn();
+    render(<ProgramsScreen onOpenProgram={onOpenProgram} />);
 
     fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
 
@@ -287,6 +288,6 @@ describe('ProgramsScreen', () => {
         updatedAt: '2026-06-21T10:00:00.000Z',
       },
     ]);
-    expect(await screen.findByText('created-program')).toBeTruthy();
+    expect(onOpenProgram).toHaveBeenCalledWith('created-program');
   });
 });

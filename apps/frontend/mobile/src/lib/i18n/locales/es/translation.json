@@ -3,8 +3,10 @@
     "retry": "Reintentar"
   },
   "nav": {
+    "train": "Entrenar",
     "programs": "Programas",
     "profile": "Perfil",
+    "open_train": "Abrir pestaña de entrenar",
     "open_programs": "Abrir pestaña de programas",
     "open_profile": "Abrir pestaña de perfil"
   },
@@ -68,6 +70,13 @@
       "start": "No se pudo empezar ese programa ahora mismo."
     }
   },
+  "train": {
+    "empty": {
+      "title": "Sin sesión todavía",
+      "body": "Empieza un programa para registrar desde el gym. Entrenar deja el bloque actual a un toque.",
+      "open_programs": "Abrir programas"
+    }
+  },
   "profile": {
     "eyebrow": "Cuenta",
     "title": "Perfil",
@@ -92,6 +101,11 @@
     "next_accessibility": "Siguiente entrenamiento",
     "weight": "{{weight}} kg",
     "sets_reps": "{{sets}} x {{reps}}",
+    "confirm_set": "Set {{index}} ✓",
+    "set_indicators": {
+      "sets_aria": "{{count}} series",
+      "set_result_aria": "Serie {{index}}: {{reps}} reps"
+    },
     "status": {
       "success": "Éxito registrado",
       "fail": "Fallo registrado",
@@ -114,7 +128,8 @@
       "increase_rpe": "Aumentar el RPE de {{name}}",
       "clear_rpe": "Borrar el RPE de {{name}}",
       "mark_success": "Marcar {{name}} como éxito",
-      "mark_fail": "Marcar {{name}} como fallo"
+      "mark_fail": "Marcar {{name}} como fallo",
+      "confirm_set": "Confirmar serie {{index}} de {{name}}"
     },
     "notices": {
       "cached": "Mostrando el registro en caché mientras se sincroniza.",

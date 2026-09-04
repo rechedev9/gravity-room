@@ -1,4 +1,4 @@
-import type { GenericProgramDetail } from '@gzclp/domain';
+import type { GenericProgramDetail, SetLogEntry } from '@gzclp/domain';
 
 type SlotResult = GenericProgramDetail['results'][string][string];
 type UndoEntry = GenericProgramDetail['undoHistory'][number];
@@ -46,7 +46,7 @@ export function patchSlotMetrics(
     readonly result?: 'success' | 'fail';
     readonly amrapReps?: number | undefined;
     readonly rpe?: number | undefined;
-    readonly setLogs?: SlotResult['setLogs'];
+    readonly setLogs?: readonly SetLogEntry[] | undefined;
   }
 ): GenericProgramDetail {
   const workoutKey = String(workoutIndex);
@@ -78,7 +78,7 @@ export function patchSlotMetrics(
     if (patch.setLogs === undefined) {
       delete nextSlot.setLogs;
     } else {
-      nextSlot.setLogs = patch.setLogs;
+      nextSlot.setLogs = [...patch.setLogs];
     }
   }
 
