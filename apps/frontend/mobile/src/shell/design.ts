@@ -1,22 +1,19 @@
 import { type TextStyle } from 'react-native';
 
-/**
- * Forged Iron tokens for native. Hex approximations of the web `oklch`
- * theme in `apps/frontend/web/src/styles/globals.css`. Surfaces are warm
- * iron; gold is the scarce signal (one per view); hierarchy is hairline
- * rules, never glow. Radii are machined (2px), not pills.
+/** Native surfaces are quiet and warm; gold identifies the current action.
+ * Rounded controls and a shared sans-serif hierarchy keep dense workout data readable.
  */
 export const colors = {
-  canvas: '#14110E',
-  card: '#1C1915',
-  surface2: '#26221C',
-  header: '#0E0C0B',
+  canvas: '#111110',
+  card: '#1C1C1A',
+  surface2: '#272724',
+  header: '#141413',
   ink: '#0A0908',
   textPrimary: '#EBE7E0',
-  textSecondary: '#A59D92',
-  textMuted: '#7E786F',
-  rule: '#3A342C',
-  ruleStrong: '#575147',
+  textSecondary: '#B7B7AB',
+  textMuted: '#96968B',
+  rule: '#30302C',
+  ruleStrong: '#45453E',
   accent: '#EAB53B',
   accentHover: '#F8C64E',
   accentDeep: '#AA7D25',
@@ -30,13 +27,6 @@ export const colors = {
   errorBg: '#2C0806',
   errorLine: '#602A25',
   textError: '#E86154',
-  // Back-compat aliases used by screens that still name the old palette.
-  accentPrimary: '#EAB53B',
-  accentSuccess: '#EAB53B',
-  accentWarning: '#ED990E',
-  accentDanger: '#E86154',
-  borderSubtle: '#3A342C',
-  borderStrong: '#575147',
 } as const;
 
 export const spacing = {
@@ -49,9 +39,9 @@ export const spacing = {
 } as const;
 
 export const radii = {
-  base: 2,
-  card: 2,
-  pill: 2,
+  base: 10,
+  card: 16,
+  pill: 24,
 } as const;
 
 export const fonts = {
@@ -73,23 +63,23 @@ export const type = {
     textTransform: 'uppercase',
   } satisfies TextStyle,
   display: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bodyBold,
     color: colors.textPrimary,
-    fontSize: 36,
-    fontWeight: '400',
-    letterSpacing: 1.2,
-    lineHeight: 38,
+    fontSize: 30,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    lineHeight: 36,
   } satisfies TextStyle,
   displaySm: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bodyBold,
     color: colors.textPrimary,
-    fontSize: 28,
-    fontWeight: '400',
-    letterSpacing: 1,
-    lineHeight: 30,
+    fontSize: 26,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    lineHeight: 32,
   } satisfies TextStyle,
   displayData: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bodyBold,
     color: colors.accent,
     fontSize: 64,
     fontWeight: '400',
@@ -116,11 +106,10 @@ export const type = {
     letterSpacing: 0.4,
   } satisfies TextStyle,
   button: {
-    fontFamily: fonts.monoBold,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    fontFamily: fonts.bodySemi,
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.1,
   } satisfies TextStyle,
 } as const;
 

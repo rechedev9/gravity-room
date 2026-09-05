@@ -1,11 +1,13 @@
+import { useState } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow, SetLogEntry } from '@gzclp/domain';
 
-import { colors, type } from '../../app/design';
+import { colors, type } from '../../shell/design';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
-import { SetIndicators } from './set-indicators';
+import { LoggedSetRow, TrackerSetRow } from './tracker-set-row';
 import { nextSetIndex, slotSupportsSetFlow } from './tracker-set-logging';
 
 type TrackerSlotCardProps = {
@@ -13,7 +15,11 @@ type TrackerSlotCardProps = {
   readonly workoutIndex: number;
   readonly variant?: 'hero' | 'queue';
   readonly draftLogs: readonly SetLogEntry[] | undefined;
-  readonly onConfirmSet: (workoutIndex: number, slotId: string) => void;
+  readonly onConfirmSet: (
+    workoutIndex: number,
+    slotId: string,
+    entry: SetLogEntry
+  ) => Promise<void>;
   readonly onMarkResult: (workoutIndex: number, slotId: string, result: 'success' | 'fail') => void;
   readonly onMetricChange: (
     workoutIndex: number,
@@ -40,6 +46,7 @@ export function TrackerSlotCard({
   onClearMetric,
 }: TrackerSlotCardProps) {
   const { t } = useTranslation();
+  const [showLogs, setShowLogs] = useState(false);
   const showMetricEditors = slot.result === 'success';
   const isHero = variant === 'hero';
   const usesSetFlow = slotSupportsSetFlow(slot);
@@ -56,33 +63,75 @@ export function TrackerSlotCard({
   return (
     <Card focal={isHero}>
       <View style={styles.headerRow}>
+        <View style={styles.exerciseIcon}>
+          <Ionicons
+            name={slot.result === 'success' ? 'checkmark' : 'barbell-outline'}
+            size={22}
+            color={slot.result === 'success' ? colors.ok : colors.textSecondary}
+          />
+        </View>
+        <View style={styles.heading}>
+          <Text style={styles.cardTitle}>{slot.exerciseName}</Text>
+          <View style={styles.metaRow}>
+            <Text style={styles.scheme}>
+              {t('tracker.sets_reps', { sets: slot.sets, reps: slot.reps })}
+            </Text>
+            <Text style={styles.metaDivider}>·</Text>
+            <Text style={styles.cardMeta}>{t('tracker.weight', { weight: slot.weight })}</Text>
+          </View>
+        </View>
         <Text
           style={[
             styles.status,
-            slot.result === undefined ? styles.statusAwaiting : null,
-            slot.result === 'fail' ? styles.statusFail : null,
+            slot.result === undefined && styles.statusAwaiting,
+            slot.result === 'fail' && styles.statusFail,
           ]}
         >
           {statusLabel}
         </Text>
       </View>
-      <Text style={isHero ? styles.heroName : styles.cardTitle}>{slot.exerciseName}</Text>
-      <Text style={isHero ? styles.heroWeight : styles.cardMeta}>
-        {t('tracker.weight', { weight: slot.weight })}
-      </Text>
-      <Text style={styles.scheme}>
-        {t('tracker.sets_reps', { sets: slot.sets, reps: slot.reps })}
-      </Text>
-      {usesSetFlow ? (
-        <SetIndicators
-          sets={slot.sets}
-          targetReps={slot.reps}
-          isAmrap={slot.isAmrap}
-          logs={displayLogs}
-          result={slot.result}
-        />
+      {slot.result !== undefined ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('tracker.toggle_sets', { name: slot.exerciseName })}
+          accessibilityState={{ expanded: showLogs }}
+          onPress={() => setShowLogs((value) => !value)}
+          style={styles.logsToggle}
+        >
+          <Text style={styles.scheme}>
+            {t('tracker.sets_recorded', { count: displayLogs?.length ?? 0 })}
+          </Text>
+          <Ionicons
+            name={showLogs ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={colors.textMuted}
+          />
+        </Pressable>
       ) : null}
-      {showMetricEditors ? (
+      {usesSetFlow ? (
+        <View style={{ gap: 8 }}>
+          {(slot.result === undefined || showLogs) &&
+            displayLogs?.map((entry, index) => (
+              <LoggedSetRow
+                key={index}
+                index={index + 1}
+                entry={entry}
+                fallbackWeight={slot.weight}
+              />
+            ))}
+          {canConfirmSet ? (
+            <TrackerSetRow
+              key={`${workoutIndex}:${slot.slotId}:${setNumber}`}
+              exerciseName={slot.exerciseName}
+              index={setNumber}
+              weight={slot.weight}
+              reps={slot.reps}
+              onConfirm={(entry) => onConfirmSet(workoutIndex, slot.slotId, entry)}
+            />
+          ) : null}
+        </View>
+      ) : null}
+      {showMetricEditors && showLogs ? (
         <View style={styles.metricsBlock}>
           {slot.isAmrap ? (
             <View style={styles.metricRow}>
@@ -182,20 +231,7 @@ export function TrackerSlotCard({
       {slot.result === undefined ? (
         <View style={isHero ? styles.heroActions : styles.queueActions}>
           <View style={isHero ? null : styles.actionFlex}>
-            {canConfirmSet ? (
-              <Button
-                variant="primary"
-                accessibilityLabel={t('tracker.actions.confirm_set', {
-                  name: slot.exerciseName,
-                  index: setNumber,
-                })}
-                onPress={() => {
-                  onConfirmSet(workoutIndex, slot.slotId);
-                }}
-              >
-                {t('tracker.confirm_set', { index: setNumber })}
-              </Button>
-            ) : (
+            {!usesSetFlow ? (
               <Button
                 variant="primary"
                 accessibilityLabel={t('tracker.actions.mark_success', { name: slot.exerciseName })}
@@ -206,11 +242,11 @@ export function TrackerSlotCard({
               >
                 {t('tracker.result.success')}
               </Button>
-            )}
+            ) : null}
           </View>
           <View style={isHero ? null : styles.actionFlex}>
             <Button
-              variant="danger"
+              variant="ghost"
               accessibilityLabel={t('tracker.actions.mark_fail', { name: slot.exerciseName })}
               accessibilityState={{ selected: slot.result === 'fail' }}
               onPress={() => {
@@ -233,9 +269,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  status: {
-    ...type.kicker,
-    color: colors.ok,
+  status: { ...type.kicker, color: colors.ok, fontSize: 8, maxWidth: 70, textAlign: 'right' },
+  heading: { flex: 1, gap: 4 },
+  exerciseIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 7, flexWrap: 'wrap' },
+  metaDivider: { color: colors.textMuted },
+  logsToggle: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   statusAwaiting: {
     color: colors.accent,
@@ -243,21 +293,14 @@ const styles = StyleSheet.create({
   statusFail: {
     color: colors.fail,
   },
-  heroName: {
-    ...type.display,
-    fontSize: 40,
-    lineHeight: 42,
-  },
   cardTitle: {
     ...type.title,
-  },
-  heroWeight: {
-    ...type.displayData,
+    fontSize: 18,
   },
   cardMeta: {
     ...type.meta,
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: 12,
   },
   scheme: {
     ...type.meta,
@@ -268,11 +311,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   metricRow: {
-    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 4,
   },
   metricLabel: {
-    color: colors.textPrimary,
-    fontSize: 14,
+    flex: 1,
+    color: colors.textSecondary,
+    fontSize: 13,
     fontWeight: '600',
   },
   metricActions: {
@@ -285,9 +332,9 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 2,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.ruleStrong,
+    borderColor: colors.rule,
     paddingHorizontal: 14,
   },
   metricButtonLabel: {
@@ -299,14 +346,14 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 2,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.errorLine,
+    borderColor: 'transparent',
     paddingHorizontal: 14,
   },
   metricClearLabel: {
     ...type.button,
-    color: colors.fail,
+    color: colors.textMuted,
   },
   heroActions: {
     marginTop: 8,

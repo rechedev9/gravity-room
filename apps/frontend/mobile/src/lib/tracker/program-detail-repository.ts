@@ -39,6 +39,20 @@ export async function upsertProgramDetail(detail: GenericProgramDetail): Promise
       JSON.stringify(detail),
       detail.updatedAt
     );
+    // A completed slot and removal of its draft are one local commit. If the
+    // detail write fails, the in-progress sets remain recoverable on restart.
+    for (const [workoutIndex, slots] of Object.entries(detail.results)) {
+      for (const [slotId, slot] of Object.entries(slots)) {
+        if (slot.result !== undefined) {
+          await transaction.runAsync(
+            'DELETE FROM set_drafts WHERE owner_user_id = ? AND instance_id = ? AND slot_key = ?',
+            ownerId,
+            detail.id,
+            `${workoutIndex}:${slotId}`
+          );
+        }
+      }
+    }
   });
 }
 

@@ -1,0 +1,168 @@
+{
+  "generator": "Built-in image_gen imagegen",
+  "date": "2026-09-04",
+  "assets": [
+    {
+      "id": "531-boring-but-big",
+      "name": "5/3/1 Boring But Big",
+      "description": "El secreto de la fuerza según el Maestro Roshi: repeticiones aburridas pero enormes resultados. Ciclos de 4 semanas (5s, 3s, 5/3/1, descarga) con 5×10 de volumen suplementario. 4 días por semana. Inspirado en 5/3/1 BBB de Jim Wendler.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A humble tropical island training ground at golden sunset, a colossal tiered stack of weathered iron plates beside a simple barbell, a small coral-pink martial arts beach house and palm silhouettes in distance. The contrast of patient repetitive work and monumental physical growth; warm amber and ocean teal. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-4f960f8d-db3e-4994-b406-4bb12a38da25.png",
+      "cover": "apps/frontend/mobile/assets/programs/531-boring-but-big.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/531-boring-but-big-thumb.webp"
+    },
+    {
+      "id": "531-for-beginners",
+      "name": "5/3/1 for Beginners",
+      "description": "Entrenamiento de cuerpo completo en el Palacio Celeste: 3 días por semana, dos levantamientos principales por sesión. Ciclos de 3 semanas (5s, 3s, 5/3/1) con FSL 5×5 como suplemento. Metódico y equilibrado. Inspirado en 5/3/1 for Beginners de Jim Wendler.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A pristine floating celestial palace above soft clouds at dawn, two balanced barbell stations on a symmetrical tiled courtyard, three broad stone steps leading into light. Methodical balanced full-body foundations. Ivory, azure and gold. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-9c1ec74e-a3ec-4046-8de0-5ec0790e103a.png",
+      "cover": "apps/frontend/mobile/assets/programs/531-for-beginners.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/531-for-beginners-thumb.webp"
+    },
+    {
+      "id": "caparazon-de-tortuga",
+      "name": "Caparazón de Tortuga",
+      "description": "Tu entrenamiento en la Kame House: empieza desde cero con tu peso corporal y poco a poco añade la barra. 200 sesiones, 3 días/semana. 4 bloques por sesión: Core, Activación, Propiocepción y el Ejercicio Fundamental. Inspirado en la metodología de Amerigo Brunetti.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A beautifully detailed heavy turtle-shell training backpack resting beside simple wooden exercise rings on a sunlit tropical beach; stepping stones lead to a tiny coral house and palms. Humble bodyweight beginnings that grow into strength. Verdigris green, coral and sand gold. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-11797204-5007-47e2-a3dc-7d2fac71443c.png",
+      "cover": "apps/frontend/mobile/assets/programs/caparazon-de-tortuga.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/caparazon-de-tortuga-thumb.webp"
+    },
+    {
+      "id": "furia-oscura",
+      "name": "Furia Oscura",
+      "description": "Entrena como un Saiyajin: Push/Pull/Legs con alternancia A/B semanal. 3 días/semana al estilo Sala del Tiempo, doble progresión hasta superar tus límites.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A lone adult athlete silhouette facing three towering obsidian training gates inside an endless dark time chamber, a barbell in foreground, restrained violet energy swirling in the cracks of the floor. Push pull legs, alternating routes, surpassing limits. Charcoal, violet and ember gold. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-e9680ff2-2cb0-439a-8d6a-7573d166f765.png",
+      "cover": "apps/frontend/mobile/assets/programs/furia-oscura.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/furia-oscura-thumb.webp"
+    },
+    {
+      "id": "gzclp",
+      "name": "GZCLP",
+      "description": "Como entrenar en el planeta de Kaio-sama: progresión lineal bajo presión constante. Rotación de 4 días con ejercicios T1, T2 y T3. Si fallas, cambias de etapa y sigues luchando. Inspirado en el método GZCL de Cody LeFever.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A tiny curved green planet suspended in a deep turquoise cosmos, a small round house and one windswept tree in the distance, a heavy barbell in the foreground bending the dust into concentric gravity waves. Three stepped stone platforms symbolize the three training tiers. Teal, moss and amber light. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-b730d2aa-a628-446b-b03c-9af3a030a56d.png",
+      "cover": "apps/frontend/mobile/assets/programs/gzclp.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/gzclp-thumb.webp"
+    },
+    {
+      "id": "hexan-ppl",
+      "name": "HeXaN PPL",
+      "description": "Seis días de Kaioken: empuja tu cuerpo al máximo con fuerza y volumen. Push/Pull/Legs combinando 5/3/1 para los compuestos principales con doble progresión en accesorios. Inspirado en la metodología de HeXaN.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A futuristic strength arena with six crimson energy rings arranged around a central heavy barbell, three pairs of architectural pylons, a tiny adult martial artist silhouette for scale. Controlled intense red aura suggesting six days of push pull legs power and volume. Deep red, black and pale gold. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-c3d64401-93a7-4264-b166-9c4f5df1fafa.png",
+      "cover": "apps/frontend/mobile/assets/programs/hexan-ppl.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/hexan-ppl-thumb.webp"
+    },
+    {
+      "id": "sala-del-tiempo-1",
+      "name": "La Sala del Tiempo 1",
+      "description": "Fase T1 — Perfezionamento Tecnico: 24 sesiones de técnica con cargas ligeras (40-70% TM). Isométricos, tempos y control del movimiento en sentadilla, press banca y peso muerto. 6 semanas, 4 días/semana. Inspirado en la metodología de Amerigo Brunetti.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: An infinite ivory training chamber with an enormous hourglass and a lightly loaded barbell precisely aligned on a tiled grid. Fine gold motion arcs show slow controlled movement, calm intentional composition. Technique, tempo and isometrics. White, warm stone and muted gold. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-1c99e037-c7ea-401a-9816-38ccc3d63926.png",
+      "cover": "apps/frontend/mobile/assets/programs/sala-del-tiempo-1.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/sala-del-tiempo-1-thumb.webp"
+    },
+    {
+      "id": "sala-del-tiempo-2",
+      "name": "La Sala del Tiempo 2",
+      "description": "Fase PN — Potenziamento Neurale: 52 sesiones de potenciación neural progresiva (60-95% TM). Ramping de cargas y series de fuerza para transferir técnica a pesos pesados. 13 semanas, 4 días/semana. Inspirado en la metodología de Amerigo Brunetti.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: An infinite ivory training chamber like a sacred science laboratory, a progressively loaded barbell surrounded by fine branching electric blue neural light, a crystalline hourglass in distance. Precise power awakening; elegant not chaotic. Ivory, cobalt and amber. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-fd468f0e-a6ab-494c-a858-e536a102820c.png",
+      "cover": "apps/frontend/mobile/assets/programs/sala-del-tiempo-2.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/sala-del-tiempo-2-thumb.webp"
+    },
+    {
+      "id": "sala-del-tiempo-3",
+      "name": "La Sala del Tiempo 3",
+      "description": "Fase JAW Mod — 72 sesiones de intensificación en 3 bloques de 6 semanas (60→70→80% TM). Cada bloque termina con test de 1RM que alimenta el TM del siguiente. 18 semanas, 4 días/semana. Inspirado en la metodología de Amerigo Brunetti.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: An infinite white training chamber with three monumental rising platforms, increasingly heavy barbells and a glowing circular test gateway at the summit, hourglass motif in background. Intensification through three blocks to a peak strength test. Ivory, burnt orange and iron. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-fdcded40-7dfc-4978-815c-5ddbfd52193b.png",
+      "cover": "apps/frontend/mobile/assets/programs/sala-del-tiempo-3.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/sala-del-tiempo-3-thumb.webp"
+    },
+    {
+      "id": "nivel-7",
+      "name": "Nivel 7",
+      "description": "Programa de fuerza de 12 semanas con periodización inversa. Configuras el récord objetivo (semana 6) y los pesos se calculan hacia atrás. Bloque 1 (5×5) con descarga en semana 3, Bloque 2 (3×3) culminando en récord. Ciclo 2 repite la onda con +2.5kg. Accesorios con doble progresión 3×8-12. 4 días/semana: hombros/tríceps, espalda/gemelo, pecho/bíceps, pierna.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: Seven broad ascending basalt terraces forming a mountain path toward a golden summit beacon, a loaded barbell on a lower terrace, a second subtle ascending path looping behind to suggest repeated training waves. Goal-directed strength planning. Midnight indigo, slate and gold. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-0077f1a3-94bf-40c6-9d12-03dbcdd520be.png",
+      "cover": "apps/frontend/mobile/assets/programs/nivel-7.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/nivel-7-thumb.webp"
+    },
+    {
+      "id": "phraks-greyskull-lp",
+      "name": "Phrak's Greyskull LP",
+      "description": "Programa de fuerza para principiantes de Phrakture. Dos entrenamientos alternos (A/B), 3 días por semana. Cada ejercicio termina con una serie AMRAP (al fallo técnico). Progresión lineal con descarga del 10% al fallar.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A weathered grey stone skull carved into the entrance of a rugged training fortress, two alternate stone paths and a simple iron barbell on the ground, rays of early sunlight through mist. Resolute beginner strength, grit without gore or horror. Slate, forest green and amber. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-98772a71-5b70-4448-b838-9de4743b7d83.png",
+      "cover": "apps/frontend/mobile/assets/programs/phraks-greyskull-lp.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/phraks-greyskull-lp-thumb.webp"
+    },
+    {
+      "id": "phul",
+      "name": "PHUL",
+      "description": "Fuerza y tamaño como Vegeta en su cámara de gravedad: dos días de poder puro (compuestos pesados 3-5 reps) y dos de hipertrofia (8-12 reps). 4 días por semana. Inspirado en PHUL de Brandon Campbell.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A futuristic spherical gravity chamber with a heavy barbell station on one side and neatly arranged dumbbells on the other, four illuminated architectural panels, a small adult warrior silhouette at center. Balance of raw power and muscular growth. Copper, navy and electric blue. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-d28b1b25-4e0a-410d-b94b-b7550007b819.png",
+      "cover": "apps/frontend/mobile/assets/programs/phul.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/phul-thumb.webp"
+    },
+    {
+      "id": "stronglifts-5x5",
+      "name": "StrongLifts 5x5",
+      "description": "Programa clásico de fuerza para principiantes. Dos entrenamientos alternos (A/B), 3 días por semana. Sentadilla en cada sesión, progresión lineal de +2.5 kg por entrenamiento (+5 kg en peso muerto). Tres fallos consecutivos provocan una descarga del 10%.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A monumental classic squat rack built from dark forged steel in a timeless industrial gym, five symmetrical weight plates aligned on each side, clean geometric five-by-five square light pattern behind it. Simple foundational strength, no fantasy character. Graphite, brushed iron and warm gold. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-b8843a45-c294-4f4a-8dff-a17bb3479e53.png",
+      "cover": "apps/frontend/mobile/assets/programs/stronglifts-5x5.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/stronglifts-5x5-thumb.webp"
+    },
+    {
+      "id": "tenkaichi-budokai-peso-muerto",
+      "name": "Tenkaichi Budokai — Peso Muerto",
+      "description": "Preparación de 16 semanas para el torneo con énfasis en peso muerto. Déficit, bloques, cadenas, bandas — todas las variaciones de peso muerto. 4 días por semana. Inspirado en la metodología de Boris Sheiko.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A martial arts tournament courtyard at sunrise with a heavy deadlift bar on the stone platform, chains and wooden deficit blocks subtly visible, red tournament gate and banners without lettering behind it. Low heroic camera angle. Vermilion, sandstone and gold. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-7db3c65b-4103-48d9-b0b1-52eced8e11f0.png",
+      "cover": "apps/frontend/mobile/assets/programs/tenkaichi-budokai-peso-muerto.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/tenkaichi-budokai-peso-muerto-thumb.webp"
+    },
+    {
+      "id": "tenkaichi-budokai-press-banca",
+      "name": "Tenkaichi Budokai — Press Banca",
+      "description": "Preparación de 16 semanas para el torneo con énfasis en press banca. Porcentajes exactos de tu 1RM, múltiples variaciones de banca. 4 días por semana. Inspirado en la metodología de Boris Sheiko.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A precision bench press station centered in an open-air martial arts tournament arena, loaded barbell framed by two symmetrical red pillars, measured stone floor geometry, soft gold morning light. Controlled competition preparation. Red, ivory and iron. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-83de0571-7769-4ab9-b7fe-3d2b8fd61d32.png",
+      "cover": "apps/frontend/mobile/assets/programs/tenkaichi-budokai-press-banca.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/tenkaichi-budokai-press-banca-thumb.webp"
+    },
+    {
+      "id": "tenkaichi-budokai-sentadilla",
+      "name": "Tenkaichi Budokai — Sentadilla",
+      "description": "Preparación de 16 semanas para el torneo con énfasis en sentadilla. Porcentajes exactos de tu 1RM, periodización por mesociclos, deload antes de competir. 4 días por semana. Inspirado en la metodología de Boris Sheiko.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A towering squat rack on a tournament dais, heavy barbell at shoulder height, stone stairway and grand red arena gate behind, grounded powerful wide composition. The visual weight and discipline of squat competition preparation. Burgundy, basalt and warm gold. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-19634a9b-0afe-45b7-bf6b-ba278ddf81f0.png",
+      "cover": "apps/frontend/mobile/assets/programs/tenkaichi-budokai-sentadilla.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/tenkaichi-budokai-sentadilla-thumb.webp"
+    },
+    {
+      "id": "tenkaichi-budokai-solo-banca",
+      "name": "Tenkaichi Budokai — Solo Banca",
+      "description": "Preparación de 18 semanas exclusiva para press banca. Sin sentadilla ni peso muerto de competición — toda la energía en un solo golpe. 4 días por semana. Inspirado en la metodología de Boris Sheiko.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A single beautiful competition bench and barbell spotlighted in an otherwise quiet dark tournament pavilion, one focused shaft of amber light, all surrounding architecture directs attention to the one station. Total dedication to one lift. Black, deep red and molten gold. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-bcf3a987-d23a-4394-97b6-ce88499bbe64.png",
+      "cover": "apps/frontend/mobile/assets/programs/tenkaichi-budokai-solo-banca.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/tenkaichi-budokai-solo-banca-thumb.webp"
+    },
+    {
+      "id": "tenkaichi-budokai-veterano",
+      "name": "Tenkaichi Budokai — Veterano",
+      "description": "El programa más popular de Sheiko para guerreros experimentados. 4 mesociclos de preparación con volumen medio y test de 1RM integrado. Usa tu experiencia de combate para llegar al torneo en tu mejor forma. 4 días por semana. Inspirado en la metodología de Boris Sheiko.",
+      "prompt": "Use case: stylized-concept. Asset type: original premium workout program cover artwork for Gravity Room mobile app. Landscape 3:2 composition, edge-to-edge art, no UI, absolutely no words letters numbers typography logos or watermark. Cohesive collection style: sophisticated cinematic hand-painted anime-inspired environment concept art, sculptural shapes, rich material texture, dramatic but restrained volumetric light, dark shadow edges, detailed focal subject readable at thumbnail size. Evocative, beautiful, aspirational; not a generic gym stock photo. Subject: A seasoned adult martial artist seen from behind wearing a plain dark training uniform and wrist wraps, looking into a grand tournament arena with squat rack bench and deadlift platform. Weathered stone, banners without text, four carved pillars. Quiet experienced confidence before competition. Antique gold, dark teal and crimson. Composition: central/right focal subject with readable silhouette and quieter leftmost quarter for optional UI overlay; no text.",
+      "original": "/Users/reche/.codex/generated_images/01a06deb-0480-7690-bee0-221c061d9cc1/exec-36b54495-d9f0-4bad-a17d-86181f59aabc.png",
+      "cover": "apps/frontend/mobile/assets/programs/tenkaichi-budokai-veterano.webp",
+      "thumbnail": "apps/frontend/mobile/assets/programs/tenkaichi-budokai-veterano-thumb.webp"
+    }
+  ]
+}

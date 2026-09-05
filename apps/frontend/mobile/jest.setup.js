@@ -4,6 +4,10 @@ jest.mock('react-native-safe-area-context', () => mockSafeAreaContext);
 
 // Pin the device locale to English so i18n resolves the English catalog under
 // test (the source language of the app's copy).
+jest.mock('expo-localization', () => ({
+  getLocales: () => [{ languageCode: 'en', languageTag: 'en-US' }],
+}));
+
 jest.mock('expo-font', () => ({
   useFonts: () => [true, null],
   loadAsync: jest.fn(async () => undefined),
@@ -75,12 +79,15 @@ jest.mock('react-native/Libraries/Lists/FlatList', () => {
     keyExtractor,
     renderItem,
     ListEmptyComponent,
+    ListHeaderComponent,
+    ListFooterComponent,
     contentContainerStyle,
   }) {
     const items = Array.isArray(data) ? data : [];
     return React.createElement(
       'View',
       { style: contentContainerStyle },
+      renderComponent(ListHeaderComponent),
       items.length === 0
         ? renderComponent(ListEmptyComponent)
         : items.map((item, index) =>
@@ -97,7 +104,8 @@ jest.mock('react-native/Libraries/Lists/FlatList', () => {
                 },
               })
             )
-          )
+          ),
+      renderComponent(ListFooterComponent)
     );
   }
 

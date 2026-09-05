@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, type } from '../app/design';
+import { colors, type } from '../shell/design';
 
 type KickerProps = {
   readonly children: string;

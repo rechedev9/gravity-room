@@ -1,13 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { colors, type } from '../../app/design';
-import {
-  listProgramSummaries,
-  upsertProgramSummaries,
-} from '../../lib/programs/program-repository';
-import { fetchProgramSummaries } from '../../lib/programs/program-service';
+import { colors, type } from '../../shell/design';
+import { useProgramSummaries } from '../../lib/programs/program-queries';
 import { Button } from '../../ui/button';
 import { Kicker } from '../../ui/kicker';
 import { Screen } from '../../ui/screen';
@@ -25,74 +21,23 @@ export function TrainScreen({
   onOpenPrograms,
 }: TrainScreenProps) {
   const { t } = useTranslation();
-  const [loading, setLoading] = useState(programInstanceId === null);
-  const [resolvedEmpty, setResolvedEmpty] = useState(false);
-
+  const query = useProgramSummaries(programInstanceId === null);
+  const firstProgramId = query.data?.programs[0]?.id;
   useEffect(() => {
-    if (programInstanceId !== null) {
-      setLoading(false);
-      setResolvedEmpty(false);
-      return;
-    }
-
-    let active = true;
-    setLoading(true);
-    setResolvedEmpty(false);
-
-    void (async () => {
-      try {
-        const cachedPrograms = await listProgramSummaries();
-        if (!active) {
-          return;
-        }
-
-        if (cachedPrograms[0]) {
-          onResolvedProgram(cachedPrograms[0].id);
-          setLoading(false);
-        }
-
-        try {
-          const remotePrograms = await fetchProgramSummaries();
-          await upsertProgramSummaries(remotePrograms);
-          const refreshedPrograms = await listProgramSummaries();
-          if (!active) {
-            return;
-          }
-
-          if (refreshedPrograms[0]) {
-            onResolvedProgram(refreshedPrograms[0].id);
-            setResolvedEmpty(false);
-            setLoading(false);
-            return;
-          }
-        } catch {
-          if (!active) {
-            return;
-          }
-
-          if (cachedPrograms[0]) {
-            setLoading(false);
-            return;
-          }
-        }
-
-        setResolvedEmpty(true);
-        setLoading(false);
-      } catch {
-        if (active) {
-          setResolvedEmpty(true);
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      active = false;
-    };
-  }, [onResolvedProgram, programInstanceId]);
+    if (programInstanceId === null && firstProgramId !== undefined)
+      onResolvedProgram(firstProgramId);
+  }, [firstProgramId, onResolvedProgram, programInstanceId]);
+  const loading = query.isPending;
+  const resolvedEmpty = !loading && firstProgramId === undefined;
 
   if (programInstanceId) {
-    return <TrackerScreen programInstanceId={programInstanceId} onBack={onOpenPrograms} />;
+    return (
+      <TrackerScreen
+        key={programInstanceId}
+        programInstanceId={programInstanceId}
+        onBack={onOpenPrograms}
+      />
+    );
   }
 
   if (loading) {

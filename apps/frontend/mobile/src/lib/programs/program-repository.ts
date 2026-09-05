@@ -2,6 +2,7 @@ import { bootstrapDatabase, getDatabase, requireActiveLocalDataOwner } from '../
 
 export interface ProgramSummary {
   readonly id: string;
+  readonly programId?: string;
   readonly title: string;
   readonly updatedAt: string;
 }
@@ -10,6 +11,7 @@ interface ProgramSummaryRow {
   readonly id: string;
   readonly title: string;
   readonly updated_at: string;
+  readonly program_id: string | null;
 }
 
 export async function upsertProgramSummaries(programs: readonly ProgramSummary[]): Promise<void> {
@@ -33,15 +35,17 @@ export async function upsertProgramSummaries(programs: readonly ProgramSummary[]
 
     for (const program of programs) {
       await transaction.runAsync(
-        `INSERT INTO program_summaries (owner_user_id, id, title, updated_at)
-         VALUES (?, ?, ?, ?)
+        `INSERT INTO program_summaries (owner_user_id, id, title, updated_at, program_id)
+         VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(owner_user_id, id) DO UPDATE SET
            title = excluded.title,
-           updated_at = excluded.updated_at`,
+           updated_at = excluded.updated_at,
+           program_id = excluded.program_id`,
         ownerId,
         program.id,
         program.title,
-        program.updatedAt
+        program.updatedAt,
+        program.programId ?? null
       );
     }
   });
@@ -53,7 +57,7 @@ export async function listProgramSummaries(): Promise<ProgramSummary[]> {
   await bootstrapDatabase(database);
 
   const rows = await database.getAllAsync<ProgramSummaryRow>(
-    `SELECT id, title, updated_at FROM program_summaries
+    `SELECT id, title, updated_at, program_id FROM program_summaries
      WHERE owner_user_id = ?
      ORDER BY updated_at DESC, title ASC`,
     ownerId
@@ -62,6 +66,7 @@ export async function listProgramSummaries(): Promise<ProgramSummary[]> {
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
+    ...(row.program_id ? { programId: row.program_id } : {}),
     updatedAt: row.updated_at,
   }));
 }

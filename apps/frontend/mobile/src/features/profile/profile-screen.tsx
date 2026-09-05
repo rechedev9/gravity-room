@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { colors, type } from '../../app/design';
+import { colors, type } from '../../shell/design';
 import type { AuthUser } from '../../lib/auth/session';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
@@ -39,9 +40,24 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
       <Kicker>{t('profile.eyebrow')}</Kicker>
       <Text style={styles.title}>{t('profile.title')}</Text>
       <Card>
-        <Text style={styles.name}>{user.name ?? t('profile.default_name')}</Text>
-        <Text style={styles.body}>{user.email}</Text>
-        <Text style={styles.caption}>{t('profile.session_note')}</Text>
+        <View style={styles.identity}>
+          <View style={styles.avatar}>
+            <Ionicons accessible={false} name="person-outline" size={26} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={styles.name}>{user.name ?? t('profile.default_name')}</Text>
+            <Text style={styles.email}>{user.email}</Text>
+          </View>
+        </View>
+        <View style={styles.securityNote}>
+          <Ionicons
+            accessible={false}
+            name="lock-closed-outline"
+            size={16}
+            color={colors.textMuted}
+          />
+          <Text style={styles.caption}>{t('profile.session_note')}</Text>
+        </View>
       </Card>
       {signOutFailed ? (
         <Text accessibilityRole="alert" style={styles.errorText}>
@@ -49,7 +65,7 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
         </Text>
       ) : null}
       <Button
-        variant="danger"
+        variant="ghost"
         accessibilityLabel={t('profile.sign_out_accessibility')}
         disabled={signingOut}
         isLoading={signingOut}
@@ -77,8 +93,25 @@ const styles = StyleSheet.create({
   body: {
     ...type.body,
   },
-  caption: {
-    ...type.body,
+  caption: { ...type.body, fontSize: 13, lineHeight: 19, flex: 1 },
+  email: { ...type.body, fontSize: 14, lineHeight: 20 },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 4 },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.surface2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  securityNote: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderColor: colors.rule,
+    paddingTop: 16,
+    marginTop: 8,
   },
   errorText: {
     color: colors.textError,

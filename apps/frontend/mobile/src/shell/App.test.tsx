@@ -1,7 +1,32 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { CatalogEntry, GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
 
+import { renderRouter } from 'expo-router/testing-library';
 import { App } from './App';
+import LoginRoute from '../app/login';
+import AppLayout from '../app/(app)/_layout';
+import TabsLayout from '../app/(app)/(tabs)/_layout';
+import WorkoutRoute from '../app/(app)/(tabs)/index';
+import MesosRoute from '../app/(app)/(tabs)/mesos';
+import TemplatesRoute from '../app/(app)/(tabs)/templates';
+import ExercisesRoute from '../app/(app)/(tabs)/exercises';
+import MoreRoute from '../app/(app)/(tabs)/more';
+import WorkoutDetailRoute from '../app/(app)/workout/[id]';
+
+function renderApp() {
+  return renderRouter({
+    _layout: App,
+    login: LoginRoute,
+    '(app)/_layout': AppLayout,
+    '(app)/(tabs)/_layout': TabsLayout,
+    '(app)/(tabs)/index': WorkoutRoute,
+    '(app)/(tabs)/mesos': MesosRoute,
+    '(app)/(tabs)/templates': TemplatesRoute,
+    '(app)/(tabs)/exercises': ExercisesRoute,
+    '(app)/(tabs)/more': MoreRoute,
+    '(app)/workout/[id]': WorkoutDetailRoute,
+  });
+}
 import { listProgramSummaries, upsertProgramSummaries } from '../lib/programs/program-repository';
 import {
   buildDefaultProgramConfig,
@@ -77,8 +102,22 @@ jest.mock('../lib/tracker/program-detail-repository', () => ({
 jest.mock('../features/tracker/tracker-screen', () => ({
   TrackerScreen: ({ programInstanceId }: { programInstanceId: string }) => {
     const React = require('react');
-    const { Text } = require('react-native');
-    return React.createElement(Text, null, programInstanceId);
+    const { Text, Pressable, View } = require('react-native');
+    const [loggedSets, setLoggedSets] = React.useState(0);
+    return React.createElement(
+      View,
+      null,
+      React.createElement(Text, null, programInstanceId),
+      React.createElement(
+        Pressable,
+        {
+          accessibilityRole: 'button',
+          accessibilityLabel: 'Log simulated set',
+          onPress: () => setLoggedSets((count: number) => count + 1),
+        },
+        React.createElement(Text, null, 'Logged sets: ' + loggedSets)
+      )
+    );
   },
 }));
 
@@ -194,7 +233,7 @@ describe('App', () => {
   it('renders the Google sign-in CTA', () => {
     mockedRestoreSession.mockResolvedValue(null);
 
-    render(<App />);
+    renderApp();
 
     return expect(screen.findByText('Continue with Google')).resolves.toBeTruthy();
   });
@@ -215,7 +254,7 @@ describe('App', () => {
     mockedListProgramSummaries.mockResolvedValue([]);
     mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
 
-    render(<App />);
+    renderApp();
 
     fireEvent.press(await screen.findByRole('button', { name: 'Continue with Google' }));
 
@@ -239,11 +278,11 @@ describe('App', () => {
     mockedUpsertProgramSummaries.mockResolvedValue();
     mockedListProgramSummaries.mockResolvedValue([]);
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText('No session yet')).toBeTruthy();
-    fireEvent.press(await screen.findByRole('button', { name: 'Open programs tab' }));
-    expect(await screen.findByText('Cached training blocks')).toBeTruthy();
+    fireEvent.press(await screen.findByLabelText('Open My plans tab'));
+    expect(await screen.findByRole('header', { name: 'My plans' })).toBeTruthy();
     expect(await screen.findByText('No active program')).toBeTruthy();
     expect(screen.queryByText('Continue with Google')).toBeNull();
   });
@@ -274,7 +313,7 @@ describe('App', () => {
       },
     ]);
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText('program-123')).toBeTruthy();
     expect(mockedFetchProgramSummaries).toHaveBeenCalledTimes(1);
@@ -330,7 +369,7 @@ describe('App', () => {
         },
       ]);
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText('program-cached')).toBeTruthy();
     expect(screen.queryByText('program-remote')).toBeNull();
@@ -360,10 +399,10 @@ describe('App', () => {
     ]);
     mockedFetchProgramSummaries.mockRejectedValue(new Error('Network request failed'));
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText('program-cached')).toBeTruthy();
-    fireEvent.press(await screen.findByRole('button', { name: 'Open programs tab' }));
+    fireEvent.press(await screen.findByLabelText('Open My plans tab'));
     expect(await screen.findByText('Cached Block')).toBeTruthy();
     expect(
       await screen.findByText('Showing cached programs. Sync will retry when you refresh.')
@@ -384,7 +423,6 @@ describe('App', () => {
       },
     });
     mockedFetchProgramSummaries
-      .mockRejectedValueOnce(new Error('Network request failed'))
       .mockRejectedValueOnce(new Error('Network request failed'))
       .mockResolvedValueOnce([
         {
@@ -411,30 +449,23 @@ describe('App', () => {
       ])
       .mockResolvedValueOnce([
         {
-          id: 'program-cached',
-          title: 'Cached Block',
-          updatedAt: '2026-04-20T08:00:00.000Z',
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
           id: 'program-remote',
           title: 'Remote Block',
           updatedAt: '2026-04-21T08:00:00.000Z',
         },
       ]);
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText('program-cached')).toBeTruthy();
-    fireEvent.press(await screen.findByRole('button', { name: 'Open programs tab' }));
+    fireEvent.press(await screen.findByLabelText('Open My plans tab'));
     expect(await screen.findByText('Cached Block')).toBeTruthy();
     expect(await screen.findByText('Retry')).toBeTruthy();
 
     fireEvent.press(screen.getByText('Retry'));
 
     expect(await screen.findByText('Remote Block')).toBeTruthy();
-    expect(mockedFetchProgramSummaries).toHaveBeenCalledTimes(3);
+    expect(mockedFetchProgramSummaries).toHaveBeenCalledTimes(2);
   });
 
   it('shows a sync error instead of the empty cache state when refresh fails before any cache exists', async () => {
@@ -450,10 +481,10 @@ describe('App', () => {
     mockedFetchProgramSummaries.mockRejectedValue(new Error('Network request failed'));
     mockedListProgramSummaries.mockResolvedValue([]);
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText('No session yet')).toBeTruthy();
-    fireEvent.press(await screen.findByRole('button', { name: 'Open programs tab' }));
+    fireEvent.press(await screen.findByLabelText('Open My plans tab'));
     expect(await screen.findByText('Unable to sync programs right now.')).toBeTruthy();
     expect(screen.getByText('Retry')).toBeTruthy();
     expect(screen.queryByText('No active program')).toBeNull();
@@ -472,10 +503,10 @@ describe('App', () => {
     mockedFetchProgramSummaries.mockRejectedValue(new Error('Network request failed'));
     mockedListProgramSummaries.mockRejectedValue(new Error('SQLite unavailable'));
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText('No session yet')).toBeTruthy();
-    fireEvent.press(await screen.findByRole('button', { name: 'Open programs tab' }));
+    fireEvent.press(await screen.findByLabelText('Open My plans tab'));
     expect(await screen.findByText('Unable to load cached programs.')).toBeTruthy();
     expect(screen.getByText('Retry')).toBeTruthy();
     expect(screen.queryByText('No active program')).toBeNull();
@@ -484,7 +515,7 @@ describe('App', () => {
   it('falls back to the signed-out shell when session restore rejects', async () => {
     mockedRestoreSession.mockRejectedValue(new Error('Network request failed'));
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText('Continue with Google')).toBeTruthy();
   });
@@ -510,9 +541,18 @@ describe('App', () => {
     ]);
     mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText('program-123')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Log simulated set' }));
+    fireEvent.press(screen.getByLabelText('Open My plans tab'));
+    fireEvent.press(await screen.findByRole('button', { name: 'Open Power Block' }));
+    expect(await screen.findByText('Logged sets: 1')).toBeTruthy();
+    expect(screen.getAllByText('program-123', { includeHiddenElements: true })).toHaveLength(1);
+    fireEvent.press(screen.getByRole('button', { name: 'Log simulated set' }));
+    fireEvent.press(screen.getByLabelText('Open Explore tab'));
+    fireEvent.press(screen.getByLabelText('Open Train tab'));
+    expect(await screen.findByText('Logged sets: 2')).toBeTruthy();
   });
 
   it('opens the profile tab for the restored user', async () => {
@@ -529,9 +569,9 @@ describe('App', () => {
     mockedUpsertProgramSummaries.mockResolvedValue();
     mockedListProgramSummaries.mockResolvedValue([]);
 
-    render(<App />);
+    renderApp();
 
-    fireEvent.press(await screen.findByRole('button', { name: 'Open profile tab' }));
+    fireEvent.press(await screen.findByLabelText('Open More tab'));
 
     expect(await screen.findByText('Test Athlete')).toBeTruthy();
     expect(screen.getByText('athlete@example.com')).toBeTruthy();
@@ -551,9 +591,9 @@ describe('App', () => {
     mockedUpsertProgramSummaries.mockResolvedValue();
     mockedListProgramSummaries.mockResolvedValue([]);
 
-    render(<App />);
+    renderApp();
 
-    fireEvent.press(await screen.findByRole('button', { name: 'Open profile tab' }));
+    fireEvent.press(await screen.findByLabelText('Open More tab'));
     fireEvent.press(await screen.findByRole('button', { name: 'Sign out of Gravity Room' }));
 
     await waitFor(() => {
@@ -581,9 +621,10 @@ describe('App', () => {
     mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
     mockedCreateProgramInstance.mockResolvedValue(CREATED_DETAIL);
 
-    render(<App />);
+    renderApp();
 
-    fireEvent.press(await screen.findByRole('button', { name: 'Open programs tab' }));
+    fireEvent.press(await screen.findByLabelText('Open Explore tab'));
+    fireEvent.press(await screen.findByText('View program'));
     fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
 
     await waitFor(() => {

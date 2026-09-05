@@ -46,3 +46,12 @@ export const PROGRAM_DEFINITIONS_TABLE_SQL = `
     PRIMARY KEY (owner_user_id, id)
   );
 `;
+export const SET_DRAFTS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS set_drafts (
+    owner_user_id TEXT NOT NULL,
+    instance_id TEXT NOT NULL,
+    slot_key TEXT NOT NULL,
+    logs_json TEXT NOT NULL,
+    PRIMARY KEY (owner_user_id, instance_id, slot_key)
+  );
+`;

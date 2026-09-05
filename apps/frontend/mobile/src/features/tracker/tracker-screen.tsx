@@ -1,12 +1,15 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { requireLiveQuery } from '../../lib/programs/program-queries';
 import {
   computeGenericProgram,
+  previewSlotOutcome,
   ProgramDefinitionSchema,
   type GenericProgramDetail,
   type ProgramDefinition,
   type SetLogEntry,
 } from '@gzclp/domain';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -15,6 +18,8 @@ import {
   upsertProgramDefinition,
   upsertProgramDetail,
 } from '../../lib/tracker/program-detail-repository';
+import { getSetDrafts, saveSetDrafts } from '../../lib/tracker/set-draft-repository';
+import { getActiveLocalDataOwner } from '../../lib/db/client';
 import { getAccessToken } from '../../lib/auth/session';
 import {
   fetchProgramDefinition,
@@ -34,9 +39,19 @@ import {
   popSetLog,
   slotLogKey,
 } from './tracker-set-logging';
-import { colors, spacing, type } from '../../app/design';
+import { colors, spacing, type } from '../../shell/design';
+import { useRestTimer } from '../../shell/rest-timer-provider';
+import { restSecondsForRole } from '../../lib/rest/rest-timer';
+import { Chip } from '../../ui/chip';
+import { Card } from '../../ui/card';
+import {
+  firstPendingWorkout,
+  isWorkoutComplete,
+  recordedWorkoutVolume,
+} from './workout-navigation';
 import { Button } from '../../ui/button';
-import { Kicker } from '../../ui/kicker';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { IconButton } from '../../ui/icon-button';
 import { Screen } from '../../ui/screen';
 
 type TrackerScreenProps = {
@@ -67,7 +82,10 @@ function resolveProgramDefinition(detail: GenericProgramDetail): ProgramDefiniti
 }
 
 export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const restTimer = useRestTimer();
+  const queryClient = useQueryClient();
+  const scrollRef = useRef<ScrollView>(null);
   const [detail, setDetail] = useState<GenericProgramDetail | null>(null);
   const [definition, setDefinition] = useState<ProgramDefinition | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,6 +95,27 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
   const detailRef = useRef<GenericProgramDetail | null>(null);
   const draftLogsRef = useRef<Readonly<Record<string, readonly SetLogEntry[]>>>({});
   const localStateVersionRef = useRef(0);
+  const draftEditRef = useRef<Promise<void>>(Promise.resolve());
+
+  function enqueueDraftEdit(edit: () => Promise<void>): Promise<void> {
+    const ownerId = getActiveLocalDataOwner();
+    draftEditRef.current = draftEditRef.current
+      .then(async () => {
+        if (getActiveLocalDataOwner() !== ownerId) return;
+        await edit();
+      })
+      .catch(() => {
+        setSyncNotice(t('tracker.notices.draft_failed'));
+      });
+    return draftEditRef.current;
+  }
+
+  async function persistDraftLogs(
+    nextDraftLogs: Readonly<Record<string, readonly SetLogEntry[]>>
+  ): Promise<void> {
+    await saveSetDrafts(programInstanceId, nextDraftLogs);
+    setDraftLogsState(nextDraftLogs);
+  }
 
   function setDraftLogsState(
     nextDraftLogs: Readonly<Record<string, readonly SetLogEntry[]>>
@@ -95,6 +134,9 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
 
     async function loadTracker(): Promise<void> {
       try {
+        const restoredDrafts = await getSetDrafts(programInstanceId);
+        if (!active) return;
+        setDraftLogsState(restoredDrafts);
         let cachedDetail: GenericProgramDetail | null = null;
         let cachedDefinition: ProgramDefinition | null = null;
         try {
@@ -112,7 +154,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
         }
         const hasCachedTracker = cachedDetail !== null && cachedDefinition !== null;
 
-        if (hasCachedTracker) {
+        if (cachedDetail !== null && cachedDefinition !== null) {
           if (!active) {
             return;
           }
@@ -121,7 +163,13 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
           setDefinition(cachedDefinition);
           setLoading(false);
           setSyncNotice(null);
-          setSelectedWorkoutIndex(0);
+          const cachedRows = computeGenericProgram(
+            cachedDefinition,
+            cachedDetail.config,
+            cachedDetail.results
+          );
+          const pending = firstPendingWorkout(cachedRows);
+          setSelectedWorkoutIndex(pending >= 0 ? pending : Math.max(0, cachedRows.length - 1));
         }
 
         try {
@@ -139,10 +187,30 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
             }
           }
 
-          const freshDetail = await fetchProgramDetail(programInstanceId);
+          const freshDetail = await queryClient.fetchQuery({
+            queryKey: ['program-detail', programInstanceId],
+            // SQLite/outbox remains authoritative for local writes. Revalidate
+            // on entry while deduplicating simultaneous requests for the same id.
+            staleTime: 0,
+            queryFn: async ({ signal }) => {
+              const fetched = await fetchProgramDetail(programInstanceId);
+              requireLiveQuery(signal);
+              return fetched;
+            },
+          });
+          if (!active) return;
           const inlineDefinition = resolveProgramDefinition(freshDetail);
           const freshDefinition =
-            inlineDefinition ?? (await fetchProgramDefinition(freshDetail.programId));
+            inlineDefinition ??
+            (await queryClient.fetchQuery<ProgramDefinition>({
+              queryKey: ['program-definition', freshDetail.programId],
+              queryFn: async ({ signal }) => {
+                const fetched = await fetchProgramDefinition(freshDetail.programId);
+                requireLiveQuery(signal);
+                return fetched;
+              },
+            }));
+          if (!active) return;
 
           if (inlineDefinition === null) {
             await upsertProgramDefinition(freshDefinition);
@@ -160,7 +228,13 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
           setLoading(false);
           setSyncNotice(null);
           if (!hasCachedTracker) {
-            setSelectedWorkoutIndex(0);
+            const freshRows = computeGenericProgram(
+              freshDefinition,
+              freshDetail.config,
+              freshDetail.results
+            );
+            const pending = firstPendingWorkout(freshRows);
+            setSelectedWorkoutIndex(pending >= 0 ? pending : Math.max(0, freshRows.length - 1));
           }
 
           if (!hasCachedTracker || localStateVersionRef.current === refreshLocalStateVersion) {
@@ -193,7 +267,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     return () => {
       active = false;
     };
-  }, [programInstanceId]);
+  }, [programInstanceId, queryClient]);
 
   const rows = useMemo(() => {
     if (!detail || !definition) {
@@ -204,6 +278,25 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
   }, [definition, detail]);
 
   const selectedRow = rows[selectedWorkoutIndex];
+  const workoutsPerWeek = definition?.workoutsPerWeek ?? 3;
+  const weekIndex = Math.floor(selectedWorkoutIndex / workoutsPerWeek);
+  const firstPendingIdx = firstPendingWorkout(rows);
+  const completed = selectedRow !== undefined && isWorkoutComplete(selectedRow);
+  const previews = useMemo(() => {
+    if (!completed || !definition || !detail || !selectedRow) return [];
+    return selectedRow.slots.flatMap((slot) => {
+      if (slot.result === undefined) return [];
+      const preview = previewSlotOutcome(
+        definition,
+        detail.config,
+        detail.results,
+        selectedRow.index,
+        slot.slotId,
+        slot.result
+      );
+      return preview ? [{ name: slot.exerciseName, ...preview.next }] : [];
+    });
+  }, [completed, definition, detail, selectedRow]);
 
   async function handleMarkResult(
     workoutIndex: number,
@@ -222,7 +315,11 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     const nextDetail = patchSlotMetrics(currentDetail, workoutIndex, slotId, {
       result,
       ...(result === 'fail'
-        ? { amrapReps: undefined, rpe: undefined, setLogs: undefined }
+        ? {
+            amrapReps: undefined,
+            rpe: undefined,
+            setLogs: setLogs !== undefined ? [...setLogs] : undefined,
+          }
         : setLogs !== undefined
           ? { setLogs: [...setLogs] }
           : {}),
@@ -235,7 +332,6 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
 
     const nextDraftLogs = { ...draftLogsRef.current };
     delete nextDraftLogs[slotLogKey(workoutIndex, slotId)];
-    setDraftLogsState(nextDraftLogs);
 
     const nextUndoEntry = buildUndoEntry(currentDetail, workoutIndex, slotId);
     const writeVersion = localStateVersionRef.current + 1;
@@ -257,8 +353,11 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
 
       localStateVersionRef.current += 1;
       setDetailState(previousDetail);
+      setSyncNotice(t('tracker.notices.draft_failed'));
       return;
     }
+
+    setDraftLogsState(nextDraftLogs);
 
     try {
       await queueRecordResultMutation({
@@ -266,9 +365,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
         workoutIndex,
         slotId,
         result,
-        ...(result === 'success' && setLogs !== undefined
-          ? { setLogs: toMutationSetLogs(setLogs) }
-          : {}),
+        ...(setLogs !== undefined ? { setLogs: toMutationSetLogs(setLogs) } : {}),
       });
       setSyncNotice(null);
     } catch {
@@ -276,7 +373,11 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     }
   }
 
-  function handleConfirmSet(workoutIndex: number, slotId: string): void {
+  async function handleConfirmSet(
+    workoutIndex: number,
+    slotId: string,
+    entry: SetLogEntry
+  ): Promise<void> {
     const row = rows[workoutIndex];
     const slot = row?.slots.find((candidate) => candidate.slotId === slotId);
 
@@ -286,22 +387,26 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
 
     const key = slotLogKey(workoutIndex, slotId);
     const currentLogs = draftLogsRef.current[key] ?? slot.setLogs;
-    const nextLogs = appendSetLog(currentLogs, { reps: slot.reps, weight: slot.weight });
+    const nextLogs = appendSetLog(currentLogs, entry);
 
     if (nextSetIndex(nextLogs) < slot.sets) {
-      setDraftLogsState({
+      await persistDraftLogs({
         ...draftLogsRef.current,
         [key]: nextLogs,
       });
+      restTimer.start(restSecondsForRole(slot.role));
       return;
     }
 
-    void handleMarkResult(
+    await handleMarkResult(
       workoutIndex,
       slotId,
       deriveCompletedSlotResult(nextLogs, slot.reps),
       nextLogs
     );
+    if (detailRef.current?.results[String(workoutIndex)]?.[slotId]?.result !== undefined) {
+      restTimer.skip();
+    }
   }
 
   async function persistSlotUpdate(
@@ -455,7 +560,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
         } else {
           nextDraftLogs[key] = nextDraft;
         }
-        setDraftLogsState(nextDraftLogs);
+        await persistDraftLogs(nextDraftLogs);
         return;
       }
     }
@@ -518,6 +623,10 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     (heroDraftKey !== null && (draftLogs[heroDraftKey]?.length ?? 0) > 0) ||
     (detail?.undoHistory.length ?? 0) > 0;
 
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [selectedWorkoutIndex, completed]);
+
   if (loading) {
     return (
       <Screen>
@@ -541,57 +650,178 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
 
   return (
     <Screen padded={false}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        ref={scrollRef}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}
+      >
         <View style={styles.chrome}>
-          <Button onPress={onBack}>{t('tracker.back_programs')}</Button>
-          <Button
-            variant="ghost"
-            accessibilityLabel={t('tracker.undo_accessibility')}
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.eyebrow}>{t('tracker.session_title')}</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('tracker.back_programs')}
+              onPress={onBack}
+              style={styles.programPicker}
+            >
+              <Text style={styles.programName}>{detail.name}</Text>
+              <Ionicons accessible={false} name="chevron-down" size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+          <IconButton
+            name="arrow-undo-outline"
+            label={t('tracker.undo_accessibility')}
             disabled={!canUndo}
             onPress={() => {
-              void handleUndoLast();
+              void enqueueDraftEdit(handleUndoLast);
             }}
-          >
-            {t('tracker.undo')}
-          </Button>
+          />
         </View>
-        <Kicker>{detail.name}</Kicker>
-        <Text style={styles.title}>{selectedRow.dayName}</Text>
-        <View style={styles.dayNav}>
-          <View style={styles.dayNavButton}>
-            <Button
-              accessibilityLabel={t('tracker.previous_accessibility')}
-              disabled={selectedWorkoutIndex === 0}
-              onPress={() => setSelectedWorkoutIndex((current) => Math.max(0, current - 1))}
+        <View style={styles.sessionMeta}>
+          <Text style={styles.sessionPosition}>
+            {t('tracker.session_position', {
+              week: weekIndex + 1,
+              day: (selectedWorkoutIndex % workoutsPerWeek) + 1,
+            })}
+          </Text>
+          <Text style={styles.date}>
+            <Text>{selectedRow.dayName}</Text> ·{' '}
+            {new Date(
+              detail.completedDates[String(selectedWorkoutIndex)] ?? Date.now()
+            ).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })}
+          </Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 4 }}
+        >
+          {Array.from({ length: Math.ceil(rows.length / workoutsPerWeek) }, (_, week) => (
+            <Chip
+              key={week}
+              selected={week === weekIndex}
+              onPress={() => setSelectedWorkoutIndex(week * workoutsPerWeek)}
             >
-              {t('tracker.previous')}
-            </Button>
-          </View>
-          <View style={styles.dayNavButton}>
-            <Button
-              accessibilityLabel={t('tracker.next_accessibility')}
-              disabled={selectedWorkoutIndex >= rows.length - 1}
-              onPress={() =>
-                setSelectedWorkoutIndex((current) => Math.min(rows.length - 1, current + 1))
-              }
-            >
-              {t('tracker.next')}
-            </Button>
+              {t('tracker.week', { week: week + 1 })}
+            </Chip>
+          ))}
+        </ScrollView>
+        <View style={styles.daySelector}>
+          <IconButton
+            name="chevron-back"
+            label={t('tracker.previous_accessibility')}
+            disabled={selectedWorkoutIndex === 0}
+            onPress={() => setSelectedWorkoutIndex((current) => Math.max(0, current - 1))}
+          />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.days}
+          >
+            {rows
+              .slice(weekIndex * workoutsPerWeek, (weekIndex + 1) * workoutsPerWeek)
+              .map((row, day) => (
+                <Pressable
+                  key={row.index}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('tracker.day', { day: day + 1 })}
+                  accessibilityState={{ selected: row.index === selectedWorkoutIndex }}
+                  onPress={() => setSelectedWorkoutIndex(row.index)}
+                  style={[styles.day, row.index === selectedWorkoutIndex && styles.daySelected]}
+                >
+                  <Text
+                    style={[
+                      styles.dayLabel,
+                      row.index === selectedWorkoutIndex && styles.dayLabelSelected,
+                    ]}
+                  >
+                    {t('tracker.day', { day: day + 1 })}
+                  </Text>
+                  {isWorkoutComplete(row) ? (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={14}
+                      color={row.index === selectedWorkoutIndex ? colors.onAccent : colors.ok}
+                    />
+                  ) : null}
+                </Pressable>
+              ))}
+          </ScrollView>
+          <IconButton
+            name="chevron-forward"
+            label={t('tracker.next_accessibility')}
+            disabled={selectedWorkoutIndex >= rows.length - 1}
+            onPress={() =>
+              setSelectedWorkoutIndex((current) => Math.min(rows.length - 1, current + 1))
+            }
+          />
+        </View>
+        <View style={styles.progressRow}>
+          <Text style={styles.progressText}>
+            {t('tracker.session_progress', {
+              done: selectedRow.slots.filter((slot) => slot.result !== undefined).length,
+              total: selectedRow.slots.length,
+            })}
+          </Text>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${(selectedRow.slots.filter((slot) => slot.result !== undefined).length / Math.max(1, selectedRow.slots.length)) * 100}%`,
+                },
+              ]}
+            />
           </View>
         </View>
         {syncNotice ? <Text style={styles.syncNotice}>{syncNotice}</Text> : null}
+        {completed ? (
+          <Card>
+            <Text style={styles.title}>{t('tracker.day_complete')}</Text>
+            <Text style={styles.body}>
+              {t('tracker.recorded_volume', { volume: recordedWorkoutVolume(selectedRow) })}
+            </Text>
+            <Text style={styles.eyebrow}>{t('tracker.next_time_title')}</Text>
+            {previews.map((preview) => (
+              <View key={preview.name} style={styles.previewRow}>
+                <Text style={styles.previewName}>{preview.name}</Text>
+                <Text style={styles.previewValue}>
+                  {t('tracker.weight', { weight: preview.weight })} ·{' '}
+                  {t('tracker.sets_reps', { sets: preview.sets, reps: preview.reps })}
+                </Text>
+              </View>
+            ))}
+            {firstPendingIdx >= 0 ? (
+              <Button
+                variant="primary"
+                accessibilityLabel={t('tracker.continue_pending')}
+                onPress={() => setSelectedWorkoutIndex(firstPendingIdx)}
+              >
+                {t('tracker.next_workout')}
+              </Button>
+            ) : (
+              <Text style={styles.body}>{t('tracker.program_complete')}</Text>
+            )}
+          </Card>
+        ) : null}
         {selectedRow.slots.map((slot) => (
           <TrackerSlotCard
             key={slot.slotId}
             slot={slot}
             variant={slot.slotId === heroSlotId ? 'hero' : 'queue'}
             workoutIndex={selectedRow.index}
-            draftLogs={draftLogs[slotLogKey(selectedRow.index, slot.slotId)]}
-            onConfirmSet={(workoutIndexValue, slotIdValue) => {
-              handleConfirmSet(workoutIndexValue, slotIdValue);
+            draftLogs={
+              slot.result === undefined
+                ? draftLogs[slotLogKey(selectedRow.index, slot.slotId)]
+                : undefined
+            }
+            onConfirmSet={(workoutIndexValue, slotIdValue, entry) => {
+              return enqueueDraftEdit(() =>
+                handleConfirmSet(workoutIndexValue, slotIdValue, entry)
+              );
             }}
             onMarkResult={(workoutIndexValue, slotIdValue, result) => {
-              void handleMarkResult(workoutIndexValue, slotIdValue, result);
+              enqueueDraftEdit(() => handleMarkResult(workoutIndexValue, slotIdValue, result));
             }}
             onMetricChange={(workoutIndexValue, slotIdValue, metric, currentValue, direction) => {
               void handleMetricChange(
@@ -616,8 +846,8 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.screenX,
     paddingTop: 12,
-    paddingBottom: 40,
-    gap: 14,
+    paddingBottom: 24,
+    gap: 10,
   },
   centerBlock: {
     flex: 1,
@@ -628,6 +858,7 @@ const styles = StyleSheet.create({
   chrome: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     gap: 10,
   },
   title: {
@@ -641,11 +872,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  dayNav: {
+  previewRow: {
     flexDirection: 'row',
-    gap: 10,
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 6,
   },
-  dayNavButton: {
+  previewName: { ...type.body, fontSize: 14, lineHeight: 20, flex: 1 },
+  previewValue: { ...type.body, color: colors.textPrimary, fontSize: 14, lineHeight: 20 },
+  eyebrow: { ...type.body, fontSize: 13, lineHeight: 18 },
+  programPicker: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 8 },
+  programName: { ...type.displaySm, flexShrink: 1 },
+  sessionMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sessionPosition: { ...type.kicker, fontSize: 10, color: colors.textSecondary },
+  date: { ...type.body, fontSize: 12, lineHeight: 18 },
+  daySelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 4,
+  },
+  days: { flexGrow: 1, justifyContent: 'space-around', gap: 4 },
+  day: {
+    minHeight: 44,
+    minWidth: 64,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  daySelected: { backgroundColor: colors.accent },
+  dayLabel: { ...type.button, color: colors.textMuted, fontSize: 13 },
+  dayLabelSelected: { color: colors.onAccent },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 8 },
+  progressText: { ...type.body, fontSize: 12, lineHeight: 18 },
+  progressTrack: {
     flex: 1,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: colors.rule,
+    overflow: 'hidden',
   },
+  progressFill: { height: 3, borderRadius: 2, backgroundColor: colors.ok },
 });

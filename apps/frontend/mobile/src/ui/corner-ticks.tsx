@@ -1,6 +1,6 @@
 import { StyleSheet, View } from 'react-native';
 
-import { colors } from '../app/design';
+import { colors } from '../shell/design';
 
 type CornerTicksProps = {
   readonly size?: number;

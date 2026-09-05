@@ -4,16 +4,26 @@
   },
   "nav": {
     "train": "Train",
-    "programs": "Programs",
+    "programs": "My plans",
     "profile": "Profile",
     "open_train": "Open train tab",
-    "open_programs": "Open programs tab",
-    "open_profile": "Open profile tab"
+    "open_programs": "Open My plans tab",
+    "open_profile": "Open profile tab",
+    "workout": "Train",
+    "open_workout": "Open Train tab",
+    "mesos": "My plans",
+    "open_mesos": "Open My plans tab",
+    "templates": "Explore",
+    "open_templates": "Open Explore tab",
+    "exercises": "Exercises",
+    "open_exercises": "Open Exercises tab",
+    "more": "More",
+    "open_more": "Open More tab"
   },
   "login": {
     "eyebrow": "Gravity Room",
     "title": "Train with intent.",
-    "google_body": "Pick your Google account to restore your training state.",
+    "google_body": "Your plan. Every set. All your progress in one place.",
     "divider": "or",
     "social": {
       "google": "Continue with Google"
@@ -50,7 +60,7 @@
   },
   "programs": {
     "eyebrow": "Programs",
-    "title": "Cached training blocks",
+    "title": "My plans",
     "body": "Your active blocks stay available offline. Start a preset to cache it on this device.",
     "sync_notice": "Showing cached programs. Sync will retry when you refresh.",
     "card_updated": "Updated {{date}}",
@@ -68,13 +78,15 @@
       "sync": "Unable to sync programs right now.",
       "catalog": "Unable to load the program catalog right now.",
       "start": "Unable to start that program right now."
-    }
+    },
+    "templates_intro": "Find a plan that fits the way you train.",
+    "mesos_intro": "Your training plans, ready when you are."
   },
   "train": {
     "empty": {
       "title": "No session yet",
       "body": "Start a program to log from the gym. Train keeps the current block one tap away.",
-      "open_programs": "Open programs"
+      "open_programs": "View my plans"
     }
   },
   "profile": {
@@ -92,7 +104,7 @@
     "loading": "Loading tracker...",
     "unavailable": "Tracker unavailable",
     "back": "Back",
-    "back_programs": "Back to programs",
+    "back_programs": "Back to My plans",
     "previous": "Prev",
     "previous_accessibility": "Previous workout",
     "undo": "Undo",
@@ -133,7 +145,76 @@
     },
     "notices": {
       "cached": "Showing cached tracker data while sync catches up.",
-      "manual_retry": "Saved locally. This change won't sync automatically."
+      "manual_retry": "Saved locally. This change won't sync automatically.",
+      "draft_failed": "Could not save this set on your device. Please try again."
+    },
+    "set_row": {
+      "weight": "kg",
+      "reps": "Reps",
+      "weight_accessibility": "Weight for set {{index}} of {{name}}",
+      "reps_accessibility": "Reps for set {{index}} of {{name}}",
+      "logged": "Set {{index}}: {{reps}} reps at {{weight}} kg",
+      "logged_reps": "{{reps}} reps"
+    },
+    "session_position": "WEEK {{week}} DAY {{day}}",
+    "week": "Week {{week}}",
+    "day": "Day {{day}}",
+    "day_complete": "Day complete",
+    "recorded_volume": "Logged volume: {{volume}} kg",
+    "next_time": "{{name}} next time: {{weight}} kg · {{sets}} × {{reps}}",
+    "continue_pending": "Continue to next unfinished workout",
+    "program_complete": "All workouts complete",
+    "toggle_sets": "View sets for {{name}}",
+    "sets_recorded": "{{count}} sets recorded",
+    "session_progress": "{{done}} of {{total}} exercises",
+    "session_title": "Workout",
+    "session_done": "Session complete",
+    "next_time_title": "Next session",
+    "next_workout": "Next workout"
+  },
+  "rest": {
+    "title": "Rest",
+    "complete": "Rest complete",
+    "next_set": "Ready for your next set.",
+    "skip": "Skip rest",
+    "alert_unavailable": "Background alerts unavailable. The timer is still running."
+  },
+  "ui": {
+    "close": "Close",
+    "decrease": "Decrease {{label}}",
+    "increase": "Increase {{label}}"
+  },
+  "exercises": {
+    "pending": "Your exercise library will appear here."
+  },
+  "discovery": {
+    "title": "Find your next program",
+    "subtitle": "Structured plans. Progress you can track.",
+    "search": "Search programs",
+    "clear": "Clear search",
+    "featured": "STRENGTH FOUNDATIONS",
+    "view": "View program",
+    "open": "View {{name}}",
+    "frequency": "{{count}} days/week",
+    "sessions": "{{count}} workouts",
+    "all_programs": "All programs",
+    "empty": "No programs match. Try another search or level.",
+    "level": {
+      "all": "All",
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
     }
+  },
+  "plans": {
+    "eyebrow": "YOUR TRAINING",
+    "intro": "Pick up where you left off.",
+    "recent": "Most recently updated",
+    "open": "Open {{name}}",
+    "open_plan": "Open plan",
+    "other": "Your other plans",
+    "empty": "Find a program in Explore to get started.",
+    "explore": "Explore programs",
+    "explore_hint": "Find your next training plan."
   }
 }

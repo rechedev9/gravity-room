@@ -55,8 +55,13 @@ if (!i18n.isInitialized) {
     },
     react: {
       useSuspense: false,
+      bindI18nStore: 'added removed',
     },
   });
 }
+
+// Fast Refresh preserves the singleton; replace its resources when catalogs reload.
+i18n.addResourceBundle('en', 'translation', en, true, true);
+i18n.addResourceBundle('es', 'translation', es, true, true);
 
 export default i18n;

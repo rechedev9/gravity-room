@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import { LoginScreen } from './login-screen';
-import type { AuthActionResult } from '../../app/auth-provider';
+import type { AuthActionResult } from '../../shell/auth-provider';
 
 const mockSignInWithGoogle = jest.fn<Promise<void>, [string]>();
 const mockSignInWithEmail = jest.fn<Promise<AuthActionResult>, [string, string]>();
@@ -16,7 +16,7 @@ const mockUseGoogleIdTokenPrompt = jest.fn<
   []
 >();
 
-jest.mock('../../app/auth-provider', () => ({
+jest.mock('../../shell/auth-provider', () => ({
   useAuth: () => ({
     signInWithGoogle: mockSignInWithGoogle,
     signInWithEmail: mockSignInWithEmail,

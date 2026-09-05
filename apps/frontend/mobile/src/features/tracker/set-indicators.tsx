@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { SetLogEntry } from '@gzclp/domain';
 
-import { colors, radii } from '../../app/design';
+import { colors, radii } from '../../shell/design';
 
 type SetIndicatorsProps = {
   readonly sets: number;

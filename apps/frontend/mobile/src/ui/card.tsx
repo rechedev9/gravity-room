@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, radii, spacing } from '../app/design';
-import { CornerTicks } from './corner-ticks';
+import { colors, radii, spacing } from '../shell/design';
 
 type CardProps = {
   readonly children: ReactNode;
@@ -11,18 +10,13 @@ type CardProps = {
 };
 
 export function Card({ children, focal = false, style }: CardProps) {
-  return (
-    <View style={[styles.card, focal ? styles.focal : null, style]}>
-      {focal ? <CornerTicks /> : null}
-      {children}
-    </View>
-  );
+  return <View style={[styles.card, focal ? styles.focal : null, style]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
   card: {
     position: 'relative',
-    borderRadius: radii.base,
+    borderRadius: radii.card,
     borderWidth: 1,
     borderColor: colors.rule,
     backgroundColor: colors.card,
@@ -30,8 +24,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   focal: {
-    borderColor: colors.ruleStrong,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.accent,
+    borderColor: colors.accentDim,
   },
 });

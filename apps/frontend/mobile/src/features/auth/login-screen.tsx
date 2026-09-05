@@ -1,9 +1,11 @@
+import { TextInput } from '../../ui/text-input';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useAuth } from '../../app/auth-provider';
-import { colors, spacing, type } from '../../app/design';
+import { useAuth } from '../../shell/auth-provider';
+import { colors, spacing, type } from '../../shell/design';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { Kicker } from '../../ui/kicker';
@@ -120,24 +122,15 @@ export function LoginScreen() {
 
   return (
     <Screen style={styles.screen}>
-      <Card focal>
-        <Kicker noRule>{t('login.eyebrow')}</Kicker>
+      <Card style={styles.loginCard}>
+        <View style={styles.brand}>
+          <View style={styles.brandMark}>
+            <Ionicons accessible={false} name="barbell" size={28} color={colors.onAccent} />
+          </View>
+          <Kicker noRule>{t('login.eyebrow')}</Kicker>
+        </View>
         <Text style={styles.title}>{t('login.title')}</Text>
         <Text style={styles.body}>{t('login.google_body')}</Text>
-
-        {signInWithDev ? (
-          <Button
-            testID="dev-login-button"
-            accessibilityLabel={t('login.dev.button')}
-            disabled={devSubmitting}
-            isLoading={devSubmitting}
-            onPress={() => {
-              void handleDevLogin();
-            }}
-          >
-            {devSubmitting ? t('login.dev.submitting') : t('login.dev.button')}
-          </Button>
-        ) : null}
 
         <Button
           variant="primary"
@@ -170,7 +163,6 @@ export function LoginScreen() {
         ) : (
           <View style={styles.form}>
             <View style={styles.field}>
-              <Text style={styles.fieldLabel}>{t('login.email.email_label')}</Text>
               <TextInput
                 value={email}
                 onChangeText={setEmail}
@@ -181,13 +173,12 @@ export function LoginScreen() {
                 keyboardType="email-address"
                 textContentType="emailAddress"
                 style={styles.input}
-                accessibilityLabel={t('login.email.email_label')}
+                label={t('login.email.email_label')}
               />
             </View>
 
             {emailMode === 'signup' ? (
               <View style={styles.field}>
-                <Text style={styles.fieldLabel}>{t('login.email.name_label')}</Text>
                 <TextInput
                   value={name}
                   onChangeText={setName}
@@ -196,13 +187,12 @@ export function LoginScreen() {
                   autoCapitalize="words"
                   textContentType="name"
                   style={styles.input}
-                  accessibilityLabel={t('login.email.name_label')}
+                  label={t('login.email.name_label')}
                 />
               </View>
             ) : null}
 
             <View style={styles.field}>
-              <Text style={styles.fieldLabel}>{t('login.email.password_label')}</Text>
               <TextInput
                 value={password}
                 onChangeText={setPassword}
@@ -213,7 +203,7 @@ export function LoginScreen() {
                 autoCorrect={false}
                 textContentType={emailMode === 'signup' ? 'newPassword' : 'password'}
                 style={styles.input}
-                accessibilityLabel={t('login.email.password_label')}
+                label={t('login.email.password_label')}
               />
             </View>
 
@@ -271,12 +261,35 @@ export function LoginScreen() {
             </Text>
           </View>
         ) : null}
+        {signInWithDev ? (
+          <Button
+            testID="dev-login-button"
+            accessibilityLabel={t('login.dev.button')}
+            disabled={devSubmitting}
+            isLoading={devSubmitting}
+            onPress={() => {
+              void handleDevLogin();
+            }}
+          >
+            {devSubmitting ? t('login.dev.submitting') : t('login.dev.button')}
+          </Button>
+        ) : null}
       </Card>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  loginCard: { borderWidth: 0, backgroundColor: 'transparent', padding: 8, gap: 16 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  brandMark: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: colors.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   screen: {
     justifyContent: 'center',
     paddingBottom: 24,
@@ -313,7 +326,7 @@ const styles = StyleSheet.create({
     ...type.kicker,
   },
   input: {
-    borderRadius: 2,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.rule,
     backgroundColor: colors.header,
@@ -329,7 +342,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   errorBanner: {
-    borderRadius: 2,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.errorLine,
     backgroundColor: colors.errorBg,
@@ -341,7 +354,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   formMessage: {
-    borderRadius: 2,
+    borderRadius: 10,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,

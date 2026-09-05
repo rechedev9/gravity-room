@@ -1,1 +1,1 @@
-export { App as default } from './src/app/App';
+export { App as default } from './src/shell/App';
