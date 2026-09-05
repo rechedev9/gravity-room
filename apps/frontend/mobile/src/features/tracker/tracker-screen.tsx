@@ -714,7 +714,13 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
             label={t('tracker.undo_accessibility')}
             disabled={!canUndo}
             onPress={() => {
-              void enqueueLocalEdit(handleUndoLast);
+              const target = detailRef.current?.undoHistory.at(-1);
+              void enqueueLocalEdit(async () => {
+                // A failed pending write may remove the intended undo entry.
+                // Never redirect this tap to an earlier completed exercise.
+                if (detailRef.current?.undoHistory.at(-1) !== target) return;
+                await handleUndoLast();
+              });
             }}
           />
         </View>

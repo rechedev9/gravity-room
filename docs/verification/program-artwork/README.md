@@ -110,3 +110,8 @@ the mounted editor and in-memory drafts. Tests cover A→B→A with an obsolete 
 a replacement request after cancellation, and retaining edited weight across
 focus refresh without rereading SQLite. Android My plans→Turtle also retains its
 recorded set and pending next set after the refresh.
+
+Queued Undo now retains the history entry targeted when tapped. If a pending
+metric write fails and removes that entry, the queued action is discarded rather
+than undoing an earlier completed exercise. The deferred-failure regression failed
+before this guard and passes after it; all 44 tracker tests pass.

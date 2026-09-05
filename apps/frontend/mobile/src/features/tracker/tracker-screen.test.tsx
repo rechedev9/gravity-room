@@ -212,6 +212,28 @@ describe('TrackerScreen', () => {
     mockedQueueUndoRestoreMutation.mockReset();
   });
 
+  it('does not undo a completed exercise when the metric edit being undone fails', async () => {
+    const metricWrite = createDeferred<void>();
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail
+      .mockResolvedValueOnce()
+      .mockReturnValueOnce(metricWrite.promise)
+      .mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    await screen.findByText('Squat');
+    await confirmSets('Squat', 5);
+    fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
+    await screen.findByText('AMRAP reps: 4');
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
+    await act(async () => metricWrite.reject(new Error('Disk full')));
+    expect(screen.getByText('Logged success')).toBeTruthy();
+    expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
+    expect(mockedQueueUndoRestoreMutation).not.toHaveBeenCalled();
+    expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(2);
+  });
+
   it('increments the displayed logged AMRAP when a legacy metric disagrees', async () => {
     mockedGetProgramDetail.mockResolvedValue({
       ...TEST_DETAIL,
