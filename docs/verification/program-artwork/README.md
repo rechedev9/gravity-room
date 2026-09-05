@@ -83,3 +83,11 @@ queue snapshot before any caller refreshes server detail, covering edits made
 during upload. Untouched set inputs follow refreshed prescriptions while explicit
 edits remain intact. Train now distinguishes loading errors from an empty account
 and offers Retry. Mobile: 243 tests / 28 suites pass.
+
+Recovery review: accepting refreshed details now removes completed slots from the
+in-memory draft snapshot, matching SQLite. Final-set editors remain mounted until
+the completion write commits, so delayed storage failures preserve entered values.
+An unavailable tracker offers Retry without remounting. Three regression tests
+cover these paths. Android verification opened an unavailable plan, tapped Retry,
+and returned through My plans to the existing Turtle workout with its saved draft
+intact ([error-state screenshot](./retry-android.webp)).

@@ -88,6 +88,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
   const [detail, setDetail] = useState<GenericProgramDetail | null>(null);
   const [definition, setDefinition] = useState<ProgramDefinition | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reloadToken, setReloadToken] = useState(0);
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [selectedWorkoutIndex, setSelectedWorkoutIndex] = useState(0);
   const [draftLogs, setDraftLogs] = useState<Readonly<Record<string, readonly SetLogEntry[]>>>({});
@@ -128,6 +129,20 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     setDetail(nextDetail);
   }
 
+  function acceptLoadedDetail(nextDetail: GenericProgramDetail): void {
+    // SQLite removes completed drafts on detail writes; keep its in-memory
+    // snapshot aligned so the next draft save cannot resurrect old sets.
+    const nextDraftLogs = { ...draftLogsRef.current };
+    for (const [workoutIndex, results] of Object.entries(nextDetail.results)) {
+      for (const [slotId, result] of Object.entries(results)) {
+        if (result.result !== undefined)
+          delete nextDraftLogs[slotLogKey(Number(workoutIndex), slotId)];
+      }
+    }
+    setDraftLogsState(nextDraftLogs);
+    setDetailState(nextDetail);
+  }
+
   useEffect(() => {
     let active = true;
 
@@ -158,7 +173,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
             return;
           }
 
-          setDetailState(cachedDetail);
+          acceptLoadedDetail(cachedDetail);
           setDefinition(cachedDefinition);
           setLoading(false);
           setSyncNotice(null);
@@ -237,7 +252,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
           }
 
           if (!hasCachedTracker || localStateVersionRef.current === refreshLocalStateVersion) {
-            setDetailState(freshDetail);
+            acceptLoadedDetail(freshDetail);
           }
         } catch {
           if (!active) {
@@ -266,7 +281,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     return () => {
       active = false;
     };
-  }, [programInstanceId, queryClient]);
+  }, [programInstanceId, queryClient, reloadToken]);
 
   const rows = useMemo(() => {
     if (!detail || !definition) {
@@ -335,16 +350,16 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     const nextUndoEntry = buildUndoEntry(currentDetail, workoutIndex, slotId);
     const writeVersion = localStateVersionRef.current + 1;
     localStateVersionRef.current = writeVersion;
-    setDetailState({
+    const completedDetail = {
       ...nextDetail,
       undoHistory: [...currentDetail.undoHistory, nextUndoEntry],
-    });
+    };
+    // Keep a submitted set editor mounted until SQLite commits. A failed
+    // completion must preserve the user's actual weight and reps for retry.
+    if (setLogs === undefined) setDetailState(completedDetail);
 
     try {
-      await upsertProgramDetail({
-        ...nextDetail,
-        undoHistory: [...currentDetail.undoHistory, nextUndoEntry],
-      });
+      await upsertProgramDetail(completedDetail);
     } catch {
       if (localStateVersionRef.current !== writeVersion) {
         return;
@@ -356,6 +371,8 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
       return;
     }
 
+    if (setLogs !== undefined && localStateVersionRef.current === writeVersion)
+      setDetailState(completedDetail);
     setDraftLogsState(nextDraftLogs);
 
     try {
@@ -627,6 +644,14 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
       <Screen>
         <View style={styles.centerBlock}>
           <Text style={styles.title}>{t('tracker.unavailable')}</Text>
+          <Button
+            onPress={() => {
+              setLoading(true);
+              setReloadToken((value) => value + 1);
+            }}
+          >
+            {t('common.retry')}
+          </Button>
           <Button onPress={onBack}>{t('tracker.back')}</Button>
         </View>
       </Screen>

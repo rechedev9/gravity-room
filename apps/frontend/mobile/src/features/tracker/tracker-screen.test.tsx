@@ -211,6 +211,79 @@ describe('TrackerScreen', () => {
     mockedQueueUndoRestoreMutation.mockReset();
   });
 
+  it('excludes remotely completed slots from subsequent draft saves', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedUpsertProgramDefinition.mockResolvedValue();
+    mockedUpsertProgramDetail.mockResolvedValue();
+    jest.mocked(getSetDrafts).mockResolvedValue({ '0:squat-t1': SQUAT_SET_LOGS.slice(0, 2) });
+    mockedFetchProgramDetail.mockResolvedValue({
+      ...TEST_DETAIL,
+      results: { 0: { 'squat-t1': { result: 'success', setLogs: [...SQUAT_SET_LOGS] } } },
+      undoHistory: [{ i: 0, slotId: 'squat-t1' }],
+    });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    await screen.findByText('Logged success');
+    fireEvent.press(screen.getByRole('button', { name: 'Continue to next unfinished workout' }));
+    await act(async () => {
+      fireEvent.press(await screen.findByRole('button', { name: 'Confirm set 1 for Bench' }));
+    });
+    expect(saveSetDrafts).toHaveBeenLastCalledWith('instance-1', {
+      '1:bench-t1': [{ reps: 3, weight: 40 }],
+    });
+  });
+
+  it('retries an unavailable tracker after reconnecting without remounting', async () => {
+    mockedGetProgramDetail.mockResolvedValue(null);
+    mockedFetchProgramDetail
+      .mockRejectedValueOnce(new Error('Offline'))
+      .mockResolvedValue(TEST_DETAIL);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedUpsertProgramDefinition.mockResolvedValue();
+    mockedUpsertProgramDetail.mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    await screen.findByText('Tracker unavailable');
+    fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    await screen.findByRole('button', { name: 'Confirm set 1 for Squat' });
+    expect(mockedFetchProgramDetail).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves final-set edits through a deferred SQLite completion failure and retry', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    jest.mocked(getSetDrafts).mockResolvedValue({ '0:squat-t1': SQUAT_SET_LOGS.slice(0, 4) });
+    let rejectWrite: (error: Error) => void = () => {
+      throw new Error('Write not started');
+    };
+    mockedUpsertProgramDetail
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectWrite = reject;
+          })
+      )
+      .mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.changeText(await screen.findByLabelText('Weight for set 5 of Squat'), '65');
+    fireEvent.changeText(screen.getByLabelText('Reps for set 5 of Squat'), '8');
+    fireEvent.press(screen.getByRole('button', { name: 'Confirm set 5 for Squat' }));
+    await waitFor(() => expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText('Weight for set 5 of Squat').props.value).toBe('65');
+    await act(async () => rejectWrite(new Error('Disk full')));
+    await screen.findByText('Could not save this set on your device. Please try again.');
+    expect(screen.getByLabelText('Reps for set 5 of Squat').props.value).toBe('8');
+    await act(async () =>
+      fireEvent.press(screen.getByRole('button', { name: 'Confirm set 5 for Squat' }))
+    );
+    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        setLogs: [...SQUAT_SET_LOGS.slice(0, 4), { weight: 65, reps: 8 }],
+      })
+    );
+  });
+
   it('shows actual held weight in the completed double-progression next-session summary', async () => {
     mockedGetProgramDetail.mockResolvedValue({
       ...TEST_DETAIL,
@@ -561,7 +634,7 @@ describe('TrackerScreen', () => {
     });
   });
 
-  it('shows the logged result immediately while waiting for the local detail write', async () => {
+  it('keeps the final set editor until the local completion write succeeds', async () => {
     const upsertDetail = createDeferred<void>();
 
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
@@ -577,7 +650,8 @@ describe('TrackerScreen', () => {
 
     await confirmSets('Squat', 5);
 
-    expect(screen.getByText('Logged success')).toBeTruthy();
+    expect(screen.queryByText('Logged success')).toBeNull();
+    expect(screen.getByLabelText('Weight for set 5 of Squat')).toBeTruthy();
     expect(mockedQueueRecordResultMutation).not.toHaveBeenCalled();
 
     upsertDetail.resolve();
@@ -1042,6 +1116,7 @@ describe('TrackerScreen', () => {
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
     mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail
+      .mockResolvedValueOnce()
       .mockReturnValueOnce(firstWrite.promise)
       .mockReturnValueOnce(secondWrite.promise);
 
@@ -1054,6 +1129,8 @@ describe('TrackerScreen', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
     expect(await screen.findByText('AMRAP reps: 4')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
+    expect(await screen.findByText('AMRAP reps: 5')).toBeTruthy();
 
     secondWrite.resolve();
 
@@ -1063,8 +1140,8 @@ describe('TrackerScreen', () => {
         workoutIndex: 0,
         slotId: 'squat-t1',
         result: 'success',
-        amrapReps: 4,
-        setLogs: squatLogsWithLastReps(4),
+        amrapReps: 5,
+        setLogs: squatLogsWithLastReps(5),
       });
     });
 
@@ -1072,7 +1149,7 @@ describe('TrackerScreen', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Logged success')).toBeTruthy();
-      expect(screen.getByText('AMRAP reps: 4')).toBeTruthy();
+      expect(screen.getByText('AMRAP reps: 5')).toBeTruthy();
     });
     expect(screen.queryByText('Awaiting result')).toBeNull();
   });
