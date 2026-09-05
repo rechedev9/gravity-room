@@ -18,6 +18,7 @@ import {
   upsertProgramDetail,
 } from '../../lib/tracker/program-detail-repository';
 import { getSetDrafts, saveSetDrafts } from '../../lib/tracker/set-draft-repository';
+import { queueLocalEdit, waitForLocalEdits } from '../../lib/tracker/local-edit-queue';
 import { getActiveLocalDataOwner } from '../../lib/db/client';
 import { getAccessToken } from '../../lib/auth/session';
 import {
@@ -31,13 +32,7 @@ import {
 import { flushQueuedMutations } from '../../lib/sync/mutation-sync-service';
 import { applyUndoEntry, buildUndoEntry, patchSlotMetrics, slotStateEqual } from './tracker-state';
 import { TrackerSlotCard } from './tracker-slot-card';
-import {
-  appendSetLog,
-  deriveCompletedSlotResult,
-  nextSetIndex,
-  popSetLog,
-  slotLogKey,
-} from './tracker-set-logging';
+import { appendSetLog, nextSetIndex, popSetLog, slotLogKey } from './tracker-set-logging';
 import { colors, spacing, type } from '../../shell/design';
 import { useRestTimer } from '../../shell/rest-timer-provider';
 import { restSecondsForRole } from '../../lib/rest/rest-timer';
@@ -96,7 +91,6 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
   const detailRef = useRef<GenericProgramDetail | null>(null);
   const draftLogsRef = useRef<Readonly<Record<string, readonly SetLogEntry[]>>>({});
   const localStateVersionRef = useRef(0);
-  const localEditRef = useRef<Promise<void>>(Promise.resolve());
   const pendingLocalEditsRef = useRef(0);
   const [pendingLocalEdits, setPendingLocalEdits] = useState(0);
 
@@ -106,16 +100,15 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
     const ownerId = getActiveLocalDataOwner();
     pendingLocalEditsRef.current += 1;
     setPendingLocalEdits(pendingLocalEditsRef.current);
-    localEditRef.current = localEditRef.current
-      .then(async () => {
-        if (getActiveLocalDataOwner() !== ownerId) return;
-        await queryClient.cancelQueries({
-          queryKey: ['program-detail', programInstanceId],
-          exact: true,
-        });
-        if (getActiveLocalDataOwner() !== ownerId) return;
-        await edit();
-      })
+    return queueLocalEdit(ownerId, programInstanceId, async () => {
+      if (getActiveLocalDataOwner() !== ownerId) return;
+      await queryClient.cancelQueries({
+        queryKey: ['program-detail', programInstanceId],
+        exact: true,
+      });
+      if (getActiveLocalDataOwner() !== ownerId) return;
+      await edit();
+    })
       .catch(() => {
         setSyncNotice(t('tracker.notices.draft_failed'));
       })
@@ -123,7 +116,6 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
         pendingLocalEditsRef.current -= 1;
         setPendingLocalEdits(pendingLocalEditsRef.current);
       });
-    return localEditRef.current;
   }
 
   async function persistDraftLogs(
@@ -165,7 +157,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
 
     async function loadTracker(): Promise<void> {
       try {
-        await localEditRef.current;
+        await waitForLocalEdits(getActiveLocalDataOwner(), programInstanceId);
         if (!active) return;
         const initialLoad = detailRef.current === null;
         if (initialLoad) {
@@ -343,6 +335,17 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
       return;
     }
 
+    if (setLogs !== undefined && definition !== null) {
+      const loggedDetail = patchSlotMetrics(currentDetail, workoutIndex, slotId, {
+        result,
+        setLogs: [...setLogs],
+      });
+      result =
+        computeGenericProgram(definition, loggedDetail.config, loggedDetail.results)[
+          workoutIndex
+        ]?.slots.find((slot) => slot.slotId === slotId)?.result ?? result;
+    }
+
     if (
       setLogs === undefined &&
       (draftLogsRef.current[slotLogKey(workoutIndex, slotId)]?.length ?? 0) > 0
@@ -450,12 +453,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
       return;
     }
 
-    await handleMarkResult(
-      workoutIndex,
-      slotId,
-      deriveCompletedSlotResult(nextLogs, slot.reps),
-      nextLogs
-    );
+    await handleMarkResult(workoutIndex, slotId, 'success', nextLogs);
     if (detailRef.current?.results[String(workoutIndex)]?.[slotId]?.result !== undefined) {
       restTimer.skip();
     }

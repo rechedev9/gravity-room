@@ -1,4 +1,4 @@
-import { deriveResultFromSetLogsSimple, type SetLogEntry } from '@gzclp/domain';
+import type { SetLogEntry } from '@gzclp/domain';
 
 export function slotLogKey(workoutIndex: number, slotId: string): string {
   return `${workoutIndex}:${slotId}`;
@@ -32,11 +32,4 @@ export function slotSupportsSetFlow(slot: {
   readonly isTestSlot: boolean | undefined;
 }): boolean {
   return slot.prescriptions === undefined && slot.isGpp !== true && slot.isTestSlot !== true;
-}
-
-export function deriveCompletedSlotResult(
-  logs: readonly SetLogEntry[],
-  targetReps: number
-): 'success' | 'fail' {
-  return deriveResultFromSetLogsSimple(logs, targetReps) ?? 'success';
 }

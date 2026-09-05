@@ -1,6 +1,5 @@
 import {
   appendSetLog,
-  deriveCompletedSlotResult,
   nextSetIndex,
   popSetLog,
   slotLogKey,
@@ -8,25 +7,12 @@ import {
 } from './tracker-set-logging';
 
 describe('tracker set logging', () => {
-  it('appends sets until the slot is complete and then derives success', () => {
+  it('appends sets and tracks the next set index', () => {
     const first = appendSetLog(undefined, { reps: 3, weight: 60 });
     const second = appendSetLog(first, { reps: 3, weight: 60 });
 
     expect(nextSetIndex(first)).toBe(1);
     expect(nextSetIndex(second)).toBe(2);
-    expect(deriveCompletedSlotResult(second, 3)).toBe('success');
-  });
-
-  it('derives fail when a logged set is under the target', () => {
-    expect(
-      deriveCompletedSlotResult(
-        [
-          { reps: 3, weight: 60 },
-          { reps: 1, weight: 60 },
-        ],
-        3
-      )
-    ).toBe('fail');
   });
 
   it('pops the latest draft set and keys logs by workout and slot', () => {

@@ -10,7 +10,11 @@ import {
 } from '@testing-library/react-native';
 import type { GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
 
-import { getSetDrafts, saveSetDrafts } from '../../lib/tracker/set-draft-repository';
+import {
+  getSetDrafts,
+  saveSetDrafts,
+  type SetDrafts,
+} from '../../lib/tracker/set-draft-repository';
 import { TrackerScreen } from './tracker-screen';
 function render(element: ReactElement) {
   return renderScreen(<ProgramQueryProvider>{element}</ProgramQueryProvider>);
@@ -264,6 +268,86 @@ describe('TrackerScreen', () => {
     expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
     expect(mockedQueueUndoRestoreMutation).not.toHaveBeenCalled();
     expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(2);
+  });
+
+  it('uploads the domain outcome for a progression set followed by lower-rep backoffs', async () => {
+    const baseSlot = TEST_DEFINITION.days[0]?.slots[0];
+    if (!baseSlot) throw new Error('Missing fixture slot');
+    const definition: ProgramDefinition = {
+      ...TEST_DEFINITION,
+      days: [
+        {
+          name: 'Day A',
+          slots: [
+            {
+              ...baseSlot,
+              stages: [{ sets: 3, reps: 6 }],
+              onSuccess: { type: 'double_progression', repRangeBottom: 6, repRangeTop: 12 },
+              progressionSetIndex: 0,
+            },
+          ],
+        },
+      ],
+    };
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(definition);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail.mockResolvedValue();
+    jest.mocked(getSetDrafts).mockResolvedValue({
+      '0:squat-t1': [
+        { weight: 60, reps: 12 },
+        { weight: 60, reps: 5 },
+      ],
+    });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.changeText(await screen.findByLabelText('Reps for set 3 of Squat'), '5');
+    fireEvent.press(screen.getByRole('button', { name: 'Confirm set 3 for Squat' }));
+    await screen.findByText('Logged success');
+    await waitFor(() => expect(mockedQueueRecordResultMutation).toHaveBeenCalled());
+    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ result: 'success' })
+    );
+  });
+
+  it('waits for a previous mount draft commit before hydrating the same plan', async () => {
+    let storedDrafts: SetDrafts = {};
+    const commit = createDeferred<void>();
+    mockedGetProgramDetail.mockImplementation(async (id) => ({ ...TEST_DETAIL, id }));
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    jest.mocked(getSetDrafts).mockImplementation(async () => storedDrafts);
+    jest
+      .mocked(saveSetDrafts)
+      .mockImplementationOnce(async (_id, drafts) => {
+        await commit.promise;
+        storedDrafts = drafts;
+      })
+      .mockImplementation(async (_id, drafts) => {
+        storedDrafts = drafts;
+      });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tracker = (id: string) => (
+      <QueryClientProvider client={client}>
+        <TrackerScreen key={id} programInstanceId={id} onBack={jest.fn()} />
+      </QueryClientProvider>
+    );
+    const view = renderScreen(tracker('instance-1'));
+    fireEvent.press(await screen.findByRole('button', { name: 'Confirm set 1 for Squat' }));
+    await waitFor(() => expect(saveSetDrafts).toHaveBeenCalledTimes(1));
+    view.rerender(tracker('instance-2'));
+    await screen.findByRole('button', { name: 'Confirm set 1 for Squat' });
+    view.rerender(tracker('instance-1'));
+    expect(screen.queryByRole('button', { name: 'Confirm set 1 for Squat' })).toBeNull();
+    await act(async () => commit.resolve());
+    fireEvent.changeText(await screen.findByLabelText('Reps for set 2 of Squat'), '4');
+    fireEvent.press(screen.getByRole('button', { name: 'Confirm set 2 for Squat' }));
+    await waitFor(() => expect(saveSetDrafts).toHaveBeenCalledTimes(2));
+    expect(storedDrafts['0:squat-t1']).toEqual([
+      { reps: 3, weight: 60 },
+      { reps: 4, weight: 60 },
+    ]);
+    view.unmount();
+    client.clear();
   });
 
   it('persists and uploads the domain-derived failure when logged AMRAP reps fall below target', async () => {

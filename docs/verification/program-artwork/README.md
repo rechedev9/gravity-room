@@ -120,3 +120,10 @@ followed by Undo after commit. All 46 tracker tests pass.
 Final data consistency: editing logged reps persists and uploads the result derived
 by the shared domain engine, including changing success to failure. My plans
 refreshes summaries on focus. Tracker/router regressions cover both; 60 tests pass.
+
+Completion and queue ownership: the shared domain engine now determines initial
+completion as well as later metric edits, including first-set progression with
+backoff sets. Pending local writes share a user/program queue across tracker
+remounts; hydration waits for that queue. Entries are released when settled and
+failed writes do not block later edits. Tests cover backoff completion, a pending
+draft across A→B→A, failure recovery, and independent user partitions.
