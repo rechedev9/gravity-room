@@ -92,9 +92,8 @@ jest.mock('../db/client', () => ({
       const ownerId = String(params[0]);
       return mockRows
         .filter((row) => row.owner_user_id === ownerId)
-        .sort(
-          (left, right) => left.created_at.localeCompare(right.created_at) || left.id - right.id
-        );
+        .sort((left, right) => left.id - right.id)
+        .slice(0, Number(params[1]));
     }),
     execAsync: jest.fn(async () => undefined),
   })),

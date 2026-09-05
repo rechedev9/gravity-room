@@ -1,3 +1,4 @@
+import { fetchApiResponse } from '../network/api-fetch';
 import { createSingleFlight } from '@gzclp/api-client/single-flight';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { Platform } from 'react-native';
@@ -296,11 +297,11 @@ async function fetchWithToken(
   accessToken: string,
   init: RequestInit | undefined
 ): Promise<Response> {
-  return fetch(buildApiUrl(path), createAuthorizedRequestInit(accessToken, init));
+  return fetchApiResponse(buildApiUrl(path), createAuthorizedRequestInit(accessToken, init));
 }
 
 async function refreshMobileSession(refreshToken: string): Promise<RefreshResponse> {
-  const response = await fetch(buildApiUrl('/auth/mobile/refresh'), {
+  const response = await fetchApiResponse(buildApiUrl('/auth/mobile/refresh'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -319,7 +320,7 @@ async function refreshMobileSession(refreshToken: string): Promise<RefreshRespon
 }
 
 async function authenticateMobileGoogleIdToken(credential: string): Promise<RefreshResponse> {
-  const response = await fetch(buildApiUrl('/auth/mobile/google'), {
+  const response = await fetchApiResponse(buildApiUrl('/auth/mobile/google'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -335,7 +336,7 @@ async function authenticateMobileGoogleIdToken(credential: string): Promise<Refr
 }
 
 async function revokeMobileSession(refreshToken: string): Promise<void> {
-  const response = await fetch(buildApiUrl('/auth/mobile/signout'), {
+  const response = await fetchApiResponse(buildApiUrl('/auth/mobile/signout'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -360,7 +361,7 @@ async function revokeMobileSession(refreshToken: string): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function postEmailLogin(email: string, password: string): Promise<Response> {
-  return fetch(buildApiUrl('/auth/login'), {
+  return fetchApiResponse(buildApiUrl('/auth/login'), {
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -371,7 +372,7 @@ async function postEmailLogin(email: string, password: string): Promise<Response
 }
 
 async function postEmailSignup(email: string, password: string, name?: string): Promise<Response> {
-  return fetch(buildApiUrl('/auth/signup'), {
+  return fetchApiResponse(buildApiUrl('/auth/signup'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -382,7 +383,7 @@ async function postEmailSignup(email: string, password: string, name?: string): 
 
 async function restoreCookieSession(): Promise<SessionState | null> {
   try {
-    const response = await fetch(buildApiUrl('/auth/refresh'), {
+    const response = await fetchApiResponse(buildApiUrl('/auth/refresh'), {
       method: 'POST',
       credentials: 'include',
     });
@@ -400,7 +401,7 @@ async function restoreCookieSession(): Promise<SessionState | null> {
 }
 
 async function revokeCookieSession(): Promise<void> {
-  const response = await fetch(buildApiUrl('/auth/signout'), {
+  const response = await fetchApiResponse(buildApiUrl('/auth/signout'), {
     method: 'POST',
     credentials: 'include',
   });
@@ -629,7 +630,7 @@ interface DevSignInDependencies {
 }
 
 async function postDevSignIn(email: string, secret: string): Promise<Response> {
-  return fetch(buildApiUrl('/auth/dev'), {
+  return fetchApiResponse(buildApiUrl('/auth/dev'), {
     method: 'POST',
     credentials: 'include',
     headers: {

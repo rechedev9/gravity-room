@@ -77,3 +77,87 @@ Evidence: [failed local commit](../verification/android-system-design/atomic-fai
 
 The other acceptance criteria remain in progress; this checkpoint does not prove
 the entire system-design objective complete.
+
+### Bounded delivery checkpoint
+
+The SQLite outbox now reads at most 50 rows per page in autoincrement ID order.
+A full page requests another read; concurrent callers can request another drain
+without their signal being overwritten by a pending database read. File-backed
+SQLite tests cover 63 edits across a backwards wall-clock change.
+
+All current mobile API fetches use a 20-second deadline covering headers and the
+complete text/JSON body. The transport owns and removes its parent cancellation
+listener and timer, aborts native fetch on timeout, and releases callers even if
+a transport fails to settle after cancellation. Responses are buffered once to
+retain the existing `Response.json()` interface. This transport is for finite
+API bodies, not streaming or binary downloads. An authorized request can include
+an initial request, refresh, and replay, each with its own bounded deadline.
+
+The deadline does not imply that an aborted write was rolled back remotely;
+durable server replay/conflict semantics remain part of the next checkpoint.
+
+Verification: 266 mobile tests / 31 suites and mobile typecheck passed. On the
+Android emulator, a local HTTP proxy held result requests without responding.
+The native client closed two held connections after 20,005 ms and 20,009 ms.
+After the second timeout, direct device SQLite inspection still showed the
+`core_3` failure and its queued record. Restoring the API connection and resuming
+the app drained the outbox to zero; direct local PostgreSQL inspection confirmed
+that result. The proxy was stopped and adb returned to non-root mode.
+
+### Server replay and release evidence
+
+Two simultaneous, identical result POSTs against the local API/PostgreSQL both
+returned 201, retained exactly three existing undo entries and left the result's
+update timestamp unchanged. This verifies the existing exact-current-state replay
+contract under the actual user/parent lock path. It does not establish durable
+operation receipts or protection from a delayed old write after a different
+client changes that slot; that conflict policy remains under assessment.
+
+The production Android export succeeded locally with Hermes output (4.12 MB)
+and the bundled program artwork. CI frontend now exports the production Android
+bundle after mobile tests, using the production API origin as build configuration
+without contacting production. This catches native-platform module/asset bundling
+failures; it is not an APK/AAB build or a signed-device release check.
+
+Review caught two regressions before shipping: a concurrent drain request could
+be overwritten by the batch-size check, and tolerant hydration defaults could
+silently erase invalid local writes. Both are corrected, with regression tests.
+The shared domain write schema rejects invalid results, undo entries, config and
+dates before the SQLite transaction, preserving the previous snapshot and intent.
+
+After the strict-write correction: 270 mobile tests / 31 suites passed; mobile
+and domain typechecks passed; all 110 domain tests passed. The checkpoint review (`codex review --base origin/main`) completed cleanly
+on the first retry after one capacity interruption, using the same configured
+model. No additional review was run after the clean result.
+
+### Next checkpoint: retained failures and retry ownership
+
+Planned invariants (not implemented by the bounded-transport checkpoint):
+
+- A transport failure or permanent HTTP rejection never acknowledges a queued
+  operation. Only a successful response, or the documented already-absent delete
+  response, releases its row.
+- Persist a bounded diagnostic code with the owner-scoped row. Preserve the local
+  snapshot and serialized intent; do not store tokens or raw response bodies as
+  diagnostics.
+- A rejected mutation blocks later mutations for that plan during the drain, but
+  other plans can progress. Keyset pagination must advance past retained failures
+  without looping on a poisoned first page.
+- Any remaining unsent intent must prevent remote cache hydration from replacing
+  a locally edited snapshot. Existing tracker callers use a rejected flush as
+  that signal; preserve the contract when classifying failures.
+- The foreground scheduler owns its retry timer and AppState subscription. It
+  must release them on unmount/account transition, honor server retry guidance,
+  and never claim delivery after Android force-stop.
+- Offline cold-start access requires a separately persisted, validated local
+  identity. A transient network failure may expose that owner's cached training;
+  an explicit authentication rejection or failed credential read must not.
+
+Additional contract findings to resolve in the server/domain checkpoint:
+
+- Domain AMRAP accepts up to 999 reps, whereas result HTTP/service validation
+  caps it at 99. A mobile edit can therefore be locally valid and permanently
+  rejected remotely. Use shared domain limits and exercise the HTTP boundary.
+- Definitions permit 2,000 workouts, while persisted results currently accept
+  only one-to-three-digit workout keys. Align the key schema with the shared
+  workout bound so a valid long program cannot lose results during hydration.

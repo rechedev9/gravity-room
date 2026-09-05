@@ -52,3 +52,8 @@ jobs:
 
       - name: Test mobile
         run: pnpm --filter mobile test
+
+      - name: Export Android production bundle
+        env:
+          EXPO_PUBLIC_API_URL: https://gravityroom.app
+        run: pnpm --filter mobile exec expo export --platform android --output-dir "$RUNNER_TEMP/gravity-android"

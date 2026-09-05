@@ -130,7 +130,10 @@ describe('program detail service', () => {
 
     await expect(fetchProgramDefinition('test-prog')).resolves.toEqual(TEST_DEFINITION);
 
-    expect(fetchSpy).toHaveBeenCalledWith('http://localhost:3001/api/catalog/test-prog');
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'http://localhost:3001/api/catalog/test-prog',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 
   it('parses authorized detail fetches after a token refresh retry', async () => {

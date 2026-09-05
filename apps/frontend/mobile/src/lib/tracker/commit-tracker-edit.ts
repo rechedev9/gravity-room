@@ -1,4 +1,4 @@
-import { GenericProgramDetailSchema, type GenericProgramDetail } from '@gzclp/domain';
+import { GenericProgramDetailWriteSchema, type GenericProgramDetail } from '@gzclp/domain';
 
 import { getAccessToken } from '../auth/session';
 import {
@@ -20,7 +20,7 @@ export async function commitTrackerEdit(
   target: { readonly workoutIndex: number; readonly slotId: string }
 ): Promise<void> {
   const ownerId = requireActiveLocalDataOwner();
-  const snapshot = GenericProgramDetailSchema.parse(detail);
+  const snapshot = GenericProgramDetailWriteSchema.parse(detail);
   if (!Number.isInteger(target.workoutIndex) || target.workoutIndex < 0 || !target.slotId) {
     throw new Error('Invalid workout edit target');
   }

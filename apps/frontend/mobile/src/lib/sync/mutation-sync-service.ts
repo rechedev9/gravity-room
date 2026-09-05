@@ -6,6 +6,7 @@ import {
   acknowledgeQueuedMutations,
   clearQueuedMutations as clearQueuedMutationsFromRepository,
   listQueuedMutations,
+  MUTATION_BATCH_SIZE,
   type QueuedMutation,
 } from './mutation-queue-repository';
 
@@ -169,6 +170,7 @@ export async function flushQueuedMutations(
     do {
       request.requested = false;
       const queuedMutations = await listQueuedMutations(ownerId);
+      if (queuedMutations.length === MUTATION_BATCH_SIZE) request.requested = true;
       const acknowledgedIds: number[] = [];
       for (const mutation of queuedMutations) {
         try {

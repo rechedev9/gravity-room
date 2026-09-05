@@ -8,6 +8,7 @@ const { getProgramDetail, upsertProgramDetail } = require('./program-detail-repo
 const { getSetDrafts, saveSetDrafts } = require('./set-draft-repository');
 const {
   listQueuedMutations,
+  enqueueMutation,
   acknowledgeQueuedMutations,
 } = require('../sync/mutation-queue-repository');
 
@@ -124,6 +125,44 @@ describe('atomic local workout edits', () => {
     expect(await getProgramDetail(BASE.id)).toEqual(COMPLETE);
     expect(await listQueuedMutations()).toEqual(before);
   });
+
+  it('drains bounded FIFO pages even when the device clock moves backwards', async () => {
+    for (let index = 0; index < 63; index += 1) {
+      await enqueueMutation({
+        entityType: 'program-instance',
+        entityId: `plan-${index}`,
+        operation: 'delete-result',
+        payload: TARGET,
+        createdAt: index < 20 ? '2026-09-05T00:00:00Z' : '2020-01-01T00:00:00Z',
+      });
+    }
+    const first = await listQueuedMutations();
+    expect(first).toHaveLength(50);
+    expect(first.map((row) => row.entityId)).toEqual(
+      Array.from({ length: 50 }, (_, index) => `plan-${index}`)
+    );
+    await acknowledgeQueuedMutations(first.map((row) => row.id));
+    const second = await listQueuedMutations();
+    expect(second.map((row) => row.entityId)).toEqual(
+      Array.from({ length: 13 }, (_, index) => `plan-${index + 50}`)
+    );
+  });
+
+  it.each([
+    { results: { 0: { squat: { result: 'success', amrapReps: 1000 } } } },
+    { undoHistory: [{ i: -1, slotId: 'squat' }] },
+    { config: { squat: null } },
+    { completedDates: { 0: false } },
+  ])(
+    'rejects invalid write data instead of replacing it with hydration defaults: %j',
+    async (invalid) => {
+      await commitTrackerEdit(COMPLETE, TARGET);
+      const pending = await listQueuedMutations();
+      await expect(commitTrackerEdit({ ...COMPLETE, ...invalid }, TARGET)).rejects.toThrow();
+      expect(await getProgramDetail(BASE.id)).toEqual(COMPLETE);
+      expect(await listQueuedMutations()).toEqual(pending);
+    }
+  );
 
   it('rejects malformed edits before changing data', async () => {
     await expect(commitTrackerEdit(COMPLETE, { ...TARGET, workoutIndex: -1 })).rejects.toThrow();

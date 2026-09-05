@@ -89,3 +89,13 @@ export const GenericProgramDetailSchema = z.object({
 });
 
 export type GenericProgramDetail = z.infer<typeof GenericProgramDetailSchema>;
+
+/** Local writes must reject malformed data; hydration fallbacks would silently erase it. */
+export const GenericProgramDetailWriteSchema = GenericProgramDetailSchema.extend({
+  config: GenericProgramDetailSchema.shape.config.unwrap(),
+  results: GenericResultsSchema,
+  undoHistory: GenericUndoHistorySchema,
+  resultTimestamps: GenericProgramDetailSchema.shape.resultTimestamps.unwrap(),
+  completedDates: GenericProgramDetailSchema.shape.completedDates.unwrap(),
+  definitionId: GenericProgramDetailSchema.shape.definitionId.unwrap(),
+});

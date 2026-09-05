@@ -6,6 +6,8 @@ import {
   type DatabaseClient,
 } from '../db/client';
 
+export const MUTATION_BATCH_SIZE = 50;
+
 export type MutationPayload = Record<string, unknown>;
 
 export type EnqueueMutationInput = {
@@ -114,8 +116,10 @@ export async function listQueuedMutations(
     `SELECT id, entity_type, entity_id, operation, payload_json, created_at
      FROM queued_mutations
      WHERE owner_user_id = ?
-     ORDER BY created_at ASC, id ASC`,
-    ownerId
+     ORDER BY id ASC
+     LIMIT ?`,
+    ownerId,
+    MUTATION_BATCH_SIZE
   );
 
   return rows.map((row) => {

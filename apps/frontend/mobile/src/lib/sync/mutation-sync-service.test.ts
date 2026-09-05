@@ -7,6 +7,7 @@ import {
 import { clearQueuedMutations, flushQueuedMutations } from './mutation-sync-service';
 
 jest.mock('./mutation-queue-repository', () => ({
+  MUTATION_BATCH_SIZE: 50,
   acknowledgeQueuedMutations: jest.fn(),
   clearQueuedMutations: jest.fn(),
   listQueuedMutations: jest.fn(),
@@ -536,6 +537,46 @@ describe('flushQueuedMutations', () => {
     await expect(joined).resolves.toEqual({ processedCount: 2 });
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(mockedAcknowledgeQueuedMutations).toHaveBeenLastCalledWith([72], 'user-123');
+  });
+
+  it('preserves a drain request arriving while SQLite is reading a partial batch', async () => {
+    const read = createDeferred<QueuedMutation[]>();
+    mockedListQueuedMutations.mockReturnValueOnce(read.promise).mockResolvedValueOnce([]);
+    const running = flushQueuedMutations('mobile-access-token');
+    const joined = flushQueuedMutations('mobile-access-token');
+    read.resolve([]);
+    await expect(running).resolves.toEqual({ processedCount: 0 });
+    await expect(joined).resolves.toEqual({ processedCount: 0 });
+    expect(mockedListQueuedMutations).toHaveBeenCalledTimes(2);
+  });
+
+  it('drains a second page without needing another caller when the first page is full', async () => {
+    const rows: QueuedMutation[] = Array.from({ length: 50 }, (_, id) => ({
+      id,
+      entityType: 'program-instance',
+      entityId: 'instance-1',
+      operation: 'delete-result',
+      payload: { workoutIndex: id, slotId: 'slot' },
+      createdAt: '2026-09-05',
+    }));
+    mockedListQueuedMutations.mockResolvedValueOnce(rows).mockResolvedValueOnce([
+      {
+        id: 51,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'delete-result',
+        payload: { workoutIndex: 50, slotId: 'slot' },
+        createdAt: '2026-09-05',
+      },
+    ]);
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () => new Response(null, { status: 204 }));
+    await expect(flushQueuedMutations('mobile-access-token')).resolves.toEqual({
+      processedCount: 51,
+    });
+    expect(mockedListQueuedMutations).toHaveBeenCalledTimes(2);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenLastCalledWith([51], 'user-123');
   });
 
   it('reuses the active flush while an earlier replay is still in flight', async () => {
