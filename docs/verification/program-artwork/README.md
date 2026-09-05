@@ -115,3 +115,7 @@ Queued Undo now retains the history entry targeted when tapped. If a pending
 metric write fails and removes that entry, the queued action is discarded rather
 than undoing an earlier completed exercise. The deferred-failure regression failed
 before this guard and passes after it; all 44 tracker tests pass.
+
+Final data consistency: editing logged reps persists and uploads the result derived
+by the shared domain engine, including changing success to failure. My plans
+refreshes summaries on focus. Tracker/router regressions cover both; 60 tests pass.

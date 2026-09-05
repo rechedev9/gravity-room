@@ -230,6 +230,27 @@ describe('App', () => {
     mockPromptAsync.mockReset();
   });
 
+  it('refreshes program summaries when returning to My plans', async () => {
+    mockedRestoreSession.mockResolvedValue({
+      accessToken: 'restored-access-token',
+      user: { id: 'user-123', email: 'athlete@example.com', name: 'Test Athlete', avatarUrl: null },
+    });
+    mockedFetchProgramSummaries.mockResolvedValue([]);
+    mockedUpsertProgramSummaries.mockResolvedValue();
+    mockedListProgramSummaries.mockResolvedValue([]);
+    renderApp();
+    await screen.findByText('No session yet');
+    fireEvent.press(await screen.findByLabelText('Open My plans tab'));
+    await screen.findByRole('header', { name: 'My plans' });
+    await waitFor(() => expect(mockedUpsertProgramSummaries).toHaveBeenCalled());
+    const previousCalls = mockedFetchProgramSummaries.mock.calls.length;
+    fireEvent.press(screen.getByLabelText('Open More tab'));
+    fireEvent.press(await screen.findByLabelText('Open My plans tab'));
+    await waitFor(() =>
+      expect(mockedFetchProgramSummaries).toHaveBeenCalledTimes(previousCalls + 1)
+    );
+  });
+
   it('renders the Google sign-in CTA', () => {
     mockedRestoreSession.mockResolvedValue(null);
 

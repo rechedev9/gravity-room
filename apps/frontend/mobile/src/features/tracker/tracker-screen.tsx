@@ -471,10 +471,23 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
 
     const previousDetail = currentDetail;
     const currentSlot = currentDetail.results[String(workoutIndex)]?.[slotId];
-    const nextDetail = patchSlotMetrics(currentDetail, workoutIndex, slotId, patch);
+    let nextDetail = patchSlotMetrics(currentDetail, workoutIndex, slotId, patch);
+    if (patch.setLogs !== undefined && definition !== null) {
+      const derivedResult = computeGenericProgram(
+        definition,
+        nextDetail.config,
+        nextDetail.results
+      )[workoutIndex]?.slots.find((slot) => slot.slotId === slotId)?.result;
+      if (derivedResult !== undefined) {
+        nextDetail = patchSlotMetrics(nextDetail, workoutIndex, slotId, {
+          result: derivedResult,
+          ...(derivedResult === 'fail' ? { amrapReps: undefined, rpe: undefined } : {}),
+        });
+      }
+    }
     const nextSlot = nextDetail.results[String(workoutIndex)]?.[slotId];
 
-    if (!nextSlot || nextSlot.result !== 'success') {
+    if (!nextSlot || nextSlot.result === undefined) {
       return;
     }
 

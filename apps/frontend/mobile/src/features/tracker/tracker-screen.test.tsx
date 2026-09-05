@@ -234,6 +234,31 @@ describe('TrackerScreen', () => {
     expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(2);
   });
 
+  it('persists and uploads the domain-derived failure when logged AMRAP reps fall below target', async () => {
+    mockedGetProgramDetail.mockResolvedValue({
+      ...TEST_DETAIL,
+      results: { 0: { 'squat-t1': { result: 'success', setLogs: [...SQUAT_SET_LOGS] } } },
+    });
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail.mockResolvedValue();
+    mockedQueueRecordResultMutation.mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    fireEvent.press(screen.getByRole('button', { name: 'View sets for Squat' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Decrease Squat AMRAP reps' }));
+    await screen.findByText('Logged fail');
+    await waitFor(() => expect(mockedQueueRecordResultMutation).toHaveBeenCalledTimes(1));
+    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ result: 'fail', setLogs: squatLogsWithLastReps(2) })
+    );
+    expect(mockedUpsertProgramDetail).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        results: { 0: { 'squat-t1': { result: 'fail', setLogs: squatLogsWithLastReps(2) } } },
+      })
+    );
+  });
+
   it('increments the displayed logged AMRAP when a legacy metric disagrees', async () => {
     mockedGetProgramDetail.mockResolvedValue({
       ...TEST_DETAIL,
