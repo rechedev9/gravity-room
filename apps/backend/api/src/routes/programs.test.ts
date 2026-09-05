@@ -459,22 +459,44 @@ describe('POST /programs/import — result key validation', () => {
     mockRateLimit.mockClear();
   });
 
-  it('rejects oversized workout result index keys before importing an instance', async () => {
+  it.each([false, true])('accepts long workout histories (with undo: %s)', async (withUndo) => {
     const token = await makeValidJwt('user-1');
-
-    const res = await post(
-      '/programs/import',
-      {
-        ...VALID_IMPORT_PAYLOAD,
-        results: { ['1'.repeat(4)]: { t1: { result: 'success' } } },
-      },
-      { Authorization: `Bearer ${token}` }
-    );
-
-    expect(res.status).toBe(400);
-    expect(mockRateLimit).not.toHaveBeenCalled();
-    expect(mockImportInstance).not.toHaveBeenCalled();
+    const indices = withUndo ? [1000, 1999] : Array.from({ length: 2000 }, (_, index) => index);
+    const payload = {
+      ...VALID_IMPORT_PAYLOAD,
+      results: Object.fromEntries(
+        indices.map((index) => [String(index), { t1: { result: 'success' } }])
+      ),
+      completedDates: Object.fromEntries(
+        indices.map((index) => [String(index), '2025-06-15T10:30:00.000Z'])
+      ),
+      undoHistory: withUndo ? [{ i: 1999, slotId: 't1', prev: 'fail' }] : [],
+    };
+    const res = await post('/programs/import', payload, { Authorization: `Bearer ${token}` });
+    expect(res.status).toBe(201);
+    expect(mockImportInstance).toHaveBeenCalledWith('user-1', payload);
   });
+
+  it.each(['2000', '9999', '11111', '-1', '1.5', '1e3', ''])(
+    'rejects invalid result and completion index %s before allocating an import',
+    async (key) => {
+      const token = await makeValidJwt('user-1');
+      for (const data of [
+        { results: { [key]: { t1: { result: 'success' } } } },
+        { completedDates: { [key]: '2025-06-15T10:30:00.000Z' } },
+      ]) {
+        const res = await post(
+          '/programs/import',
+          { ...VALID_IMPORT_PAYLOAD, ...data },
+          { Authorization: `Bearer ${token}` }
+        );
+
+        expect(res.status).toBe(400);
+        expect(mockRateLimit).not.toHaveBeenCalled();
+        expect(mockImportInstance).not.toHaveBeenCalled();
+      }
+    }
+  );
 
   it('rejects oversized result slot IDs before importing an instance', async () => {
     const token = await makeValidJwt('user-1');

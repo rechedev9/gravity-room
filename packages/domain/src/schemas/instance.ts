@@ -20,14 +20,13 @@ const SlotResultSchema = z.strictObject({
 
 const GenericWorkoutResultSchema = z.record(z.string(), SlotResultSchema);
 
-export const GenericResultsSchema = z.record(
-  z
-    .string()
-    .regex(/^\d+$/)
-    .max(String(MAX_TOTAL_WORKOUTS - 1).length)
-    .refine((key) => Number(key) < MAX_TOTAL_WORKOUTS, 'Workout index exceeds program limit'),
-  GenericWorkoutResultSchema
-);
+export const WorkoutIndexKeySchema = z
+  .string()
+  .regex(/^\d+$/)
+  .max(String(MAX_TOTAL_WORKOUTS - 1).length)
+  .refine((key) => Number(key) < MAX_TOTAL_WORKOUTS, 'Workout index exceeds program limit');
+
+export const GenericResultsSchema = z.record(WorkoutIndexKeySchema, GenericWorkoutResultSchema);
 
 export type GenericResults = z.infer<typeof GenericResultsSchema>;
 

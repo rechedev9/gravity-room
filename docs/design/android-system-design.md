@@ -1,6 +1,6 @@
 # Android system design: bottom-up assessment
 
-Status: implementation and local review complete; PR/CI/Bugbot gates pending. Baseline: `5bcbd6d` (mobile PR #130 merged).
+Implementation and verification ledger for [PR #131](https://github.com/rechedev9/gravity-room/pull/131); current release and review status is tracked there. Baseline: `5bcbd6d` (mobile PR #130 merged).
 
 ## Scope and acceptance
 
@@ -486,3 +486,28 @@ Final UI `codex review --uncommitted` exited 0 with no actionable findings after
 both recovery fixes. The foundation checkpoint and this UI increment are locally
 reviewed; no accepted finding remains unresolved. PR CI and Cursor Bugbot are the
 remaining release gates.
+
+### Bugbot import-boundary correction
+
+Cursor Bugbot identified that import still restricted workout keys to three
+characters after the persisted-result contract expanded to 0–1999. Import now
+uses the shared domain key validator for results and completion dates, derives
+its transport bounds from `MAX_TOTAL_WORKOUTS`, and bounds undo indices to the
+same range. Outer property limits permit that full range; existing aggregate
+2,000-row, 750-KiB, undo and per-user quotas remain in effect. A large multi-slot
+history can still exceed those deliberate import budgets.
+
+Route regressions cover a 2,000-workout single-result history, sparse workouts
+1000/1999 with undo, and malformed/out-of-range result and completion keys.
+Actual HTTP/PostgreSQL proof used a temporary account and single-slot 2,000-workout
+template: import → export → import → export preserved all results and completion
+dates for both the sparse and full histories, including undo in the sparse case.
+Keys 2000 and 11111 returned 400 without adding instances. The temporary account,
+plans, results, template and session were removed. Regenerated the web API client
+from the running API and rebuilt the serverless API artifact.
+
+The import correction passes 850 API tests (4 existing skips), 116 domain tests,
+repository typecheck/lint and API bundle drift verification. Its final incremental
+`codex review --uncommitted` reported no actionable regressions. The review
+sandbox could not bind localhost for seven gateway tests; the parent's full API
+run and actual HTTP/PostgreSQL proof ran successfully outside that sandbox.

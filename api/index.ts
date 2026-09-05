@@ -780,14 +780,12 @@ var SlotResultSchema = z2.strictObject({
   setLogs: z2.array(SetLogEntrySchema).optional(),
 });
 var GenericWorkoutResultSchema = z2.record(z2.string(), SlotResultSchema);
-var GenericResultsSchema = z2.record(
-  z2
-    .string()
-    .regex(/^\d+$/)
-    .max(String(MAX_TOTAL_WORKOUTS - 1).length)
-    .refine((key) => Number(key) < MAX_TOTAL_WORKOUTS, 'Workout index exceeds program limit'),
-  GenericWorkoutResultSchema
-);
+var WorkoutIndexKeySchema = z2
+  .string()
+  .regex(/^\d+$/)
+  .max(String(MAX_TOTAL_WORKOUTS - 1).length)
+  .refine((key) => Number(key) < MAX_TOTAL_WORKOUTS, 'Workout index exceeds program limit');
+var GenericResultsSchema = z2.record(WorkoutIndexKeySchema, GenericWorkoutResultSchema);
 var GenericUndoEntrySchema = z2.strictObject({
   i: z2.number().int().min(0),
   slotId: z2.string().min(1),
@@ -5483,12 +5481,11 @@ var instanceFlight = new SingleflightMap();
 var MAX_PROGRAM_CURSOR_CHARS = 256;
 var MAX_PROGRAM_ID_CHARS = 50;
 var MAX_SLOT_ID_CHARS = 50;
-var MAX_WORKOUT_INDEX_KEY_CHARS = 3;
+var MAX_WORKOUT_INDEX_KEY_CHARS = String(MAX_TOTAL_WORKOUTS - 1).length;
 var MAX_SET_LOG_WEIGHT2 = 1e4;
 var MAX_SET_LOG_ITEMS2 = 20;
 var PROGRAM_ID_PATTERN = '^[a-z0-9-]+$';
-var WORKOUT_INDEX_KEY_PATTERN = '^\\d{1,3}$';
-var WORKOUT_INDEX_KEY_REGEX = /^\d{1,3}$/;
+var WORKOUT_INDEX_KEY_PATTERN = '^\\d+$';
 var MUTATION_RATE_LIMIT = { failClosed: true };
 var IMPORT_REQUEST_RATE_LIMIT = { maxRequests: 5, windowMs: 6e4, failClosed: true };
 var IMPORT_HOURLY_ROW_BUDGET = 1e4;
@@ -5550,16 +5547,18 @@ async function applyImportRateLimits(userId, body) {
 }
 function assertImportPayloadKeysInBounds(data) {
   for (const [workoutIndex, slots] of Object.entries(data.results)) {
-    if (
-      workoutIndex.length > MAX_WORKOUT_INDEX_KEY_CHARS ||
-      !WORKOUT_INDEX_KEY_REGEX.test(workoutIndex)
-    ) {
+    if (!WorkoutIndexKeySchema.safeParse(workoutIndex).success) {
       throw new ApiError(400, 'Invalid import result workout index', 'INVALID_DATA');
     }
     for (const slotId of Object.keys(slots)) {
       if (slotId.length < 1 || slotId.length > MAX_SLOT_ID_CHARS) {
         throw new ApiError(400, 'Invalid import result slotId', 'INVALID_DATA');
       }
+    }
+  }
+  for (const workoutIndex of Object.keys(data.completedDates ?? {})) {
+    if (!WorkoutIndexKeySchema.safeParse(workoutIndex).success) {
+      throw new ApiError(400, 'Invalid import completion workout index', 'INVALID_DATA');
     }
   }
   for (const entry of data.undoHistory) {
@@ -5816,8 +5815,8 @@ var programRoutes = new Elysia5({ prefix: '/programs' })
         name: t2.String({ minLength: 1, maxLength: 100 }),
         config: programConfigSchema,
         // Bounded to keep a single import from forcing an unbounded in-memory
-        // array + one huge transaction. Outer key = workoutIndex (capped well
-        // above any real program length); inner key = slotId (capped above any
+        // array + one huge transaction. Outer key = workoutIndex (bounded by
+        // the shared program limit); inner key = slotId (capped above any
         // real day's slot count). undoHistory below is bounded the same way.
         results: t2.Record(
           workoutIndexKeySchema,
@@ -5831,11 +5830,11 @@ var programRoutes = new Elysia5({ prefix: '/programs' })
             }),
             { maxProperties: 50 }
           ),
-          { maxProperties: 1e3 }
+          { maxProperties: MAX_TOTAL_WORKOUTS }
         ),
         undoHistory: t2.Array(
           t2.Object({
-            i: t2.Integer({ minimum: 0 }),
+            i: t2.Integer({ minimum: 0, maximum: MAX_TOTAL_WORKOUTS - 1 }),
             slotId: slotIdSchema,
             prev: t2.Optional(t2.Union([t2.Literal('success'), t2.Literal('fail')])),
             prevRpe: t2.Optional(t2.Integer({ minimum: 1, maximum: 10 })),
@@ -5846,7 +5845,7 @@ var programRoutes = new Elysia5({ prefix: '/programs' })
         ),
         completedDates: t2.Optional(
           t2.Record(workoutIndexKeySchema, t2.String({ format: 'date-time' }), {
-            maxProperties: 1e3,
+            maxProperties: MAX_TOTAL_WORKOUTS,
           })
         ),
       }),
