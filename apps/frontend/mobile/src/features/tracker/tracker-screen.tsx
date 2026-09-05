@@ -310,6 +310,12 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
       return;
     }
 
+    if (
+      setLogs === undefined &&
+      (draftLogsRef.current[slotLogKey(workoutIndex, slotId)]?.length ?? 0) > 0
+    )
+      return;
+
     const previousDetail = currentDetail;
     const currentSlot = currentDetail.results[String(workoutIndex)]?.[slotId];
     const nextDetail = patchSlotMetrics(currentDetail, workoutIndex, slotId, {
@@ -542,29 +548,18 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     });
   }
 
+  async function handleUndoDraft(workoutIndex: number, slotId: string): Promise<void> {
+    const key = slotLogKey(workoutIndex, slotId);
+    const currentDraft = draftLogsRef.current[key];
+    if (!currentDraft?.length) return;
+    const nextDraft = popSetLog(currentDraft);
+    const nextDraftLogs = { ...draftLogsRef.current };
+    if (nextDraft === undefined) delete nextDraftLogs[key];
+    else nextDraftLogs[key] = nextDraft;
+    await persistDraftLogs(nextDraftLogs);
+  }
+
   async function handleUndoLast(): Promise<void> {
-    const selectedDraftRow = rows[selectedWorkoutIndex];
-    const draftSlotId =
-      selectedDraftRow?.slots.find((slot) => slot.result === undefined)?.slotId ??
-      selectedDraftRow?.slots[0]?.slotId;
-
-    if (selectedDraftRow && draftSlotId) {
-      const key = slotLogKey(selectedDraftRow.index, draftSlotId);
-      const currentDraft = draftLogsRef.current[key];
-
-      if (currentDraft !== undefined && currentDraft.length > 0) {
-        const nextDraft = popSetLog(currentDraft);
-        const nextDraftLogs = { ...draftLogsRef.current };
-        if (nextDraft === undefined) {
-          delete nextDraftLogs[key];
-        } else {
-          nextDraftLogs[key] = nextDraft;
-        }
-        await persistDraftLogs(nextDraftLogs);
-        return;
-      }
-    }
-
     const currentDetail = detailRef.current;
     const currentUndoEntry = currentDetail?.undoHistory[currentDetail.undoHistory.length - 1];
 
@@ -618,10 +613,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
   const heroSlotId =
     selectedRow?.slots.find((slot) => slot.result === undefined)?.slotId ??
     selectedRow?.slots[0]?.slotId;
-  const heroDraftKey = selectedRow && heroSlotId ? slotLogKey(selectedRow.index, heroSlotId) : null;
-  const canUndo =
-    (heroDraftKey !== null && (draftLogs[heroDraftKey]?.length ?? 0) > 0) ||
-    (detail?.undoHistory.length ?? 0) > 0;
+  const canUndo = (detail?.undoHistory.length ?? 0) > 0;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -819,6 +811,9 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
               return enqueueDraftEdit(() =>
                 handleConfirmSet(workoutIndexValue, slotIdValue, entry)
               );
+            }}
+            onUndoSet={(workoutIndexValue, slotIdValue) => {
+              void enqueueDraftEdit(() => handleUndoDraft(workoutIndexValue, slotIdValue));
             }}
             onMarkResult={(workoutIndexValue, slotIdValue, result) => {
               enqueueDraftEdit(() => handleMarkResult(workoutIndexValue, slotIdValue, result));

@@ -108,7 +108,7 @@
     "previous": "Prev",
     "previous_accessibility": "Previous workout",
     "undo": "Undo",
-    "undo_accessibility": "Undo latest tracker action",
+    "undo_accessibility": "Undo latest completed result",
     "next": "Next",
     "next_accessibility": "Next workout",
     "weight": "{{weight}} kg",
@@ -170,7 +170,8 @@
     "session_title": "Workout",
     "session_done": "Session complete",
     "next_time_title": "Next session",
-    "next_workout": "Next workout"
+    "next_workout": "Next workout",
+    "undo_set": "Undo last set for {{name}}"
   },
   "rest": {
     "title": "Rest",

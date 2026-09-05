@@ -46,3 +46,25 @@ Screenshots: [My plans](./my-plans-android.webp), [Explore](./explore-android.we
 
 This supersedes the separate workout stack and naming described in earlier
 verification checkpoints. The parent mesocycle domain/API work is still separate.
+
+## Review fixes
+
+The complete branch review additionally found early Fail dropping confirmed work,
+ambiguous global draft Undo, and double-progression holds advancing weight.
+Draft undo now belongs to each exercise (verified on Android); global Undo is
+explicitly for completed results. Once sets exist, the user records remaining
+actual sets rather than discarding them with a whole-exercise failure shortcut.
+A serialized guard also rejects a stale queued shortcut.
+
+The shared domain engine distinguishes recorded double-progression holds from
+unrecorded projected workouts: 8 reps in a 6–12 range completes the session while
+keeping weight; reaching 12 advances it. Domain regression tests verify both.
+The serverless API bundle was regenerated.
+
+Bugbot also identified optional summary payloads losing artwork identity.
+Upserts now retain known IDs when the field is omitted; migration 5 backfills IDs
+from each owner's cached program details. Real SQLite tests exercise both paths.
+
+Final local checks before updating the PR: mobile 239 tests, domain 108 tests,
+root typecheck, and generated API bundle drift check pass. The CI-only first
+tracker-render timeout now waits for initial hydration before editing inputs.

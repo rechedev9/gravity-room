@@ -40,7 +40,7 @@ export async function upsertProgramSummaries(programs: readonly ProgramSummary[]
          ON CONFLICT(owner_user_id, id) DO UPDATE SET
            title = excluded.title,
            updated_at = excluded.updated_at,
-           program_id = excluded.program_id`,
+           program_id = COALESCE(excluded.program_id, program_summaries.program_id)`,
         ownerId,
         program.id,
         program.title,

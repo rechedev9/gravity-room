@@ -211,6 +211,31 @@ describe('TrackerScreen', () => {
     mockedQueueUndoRestoreMutation.mockReset();
   });
 
+  it('undoes the chosen exercise draft after reload without deleting another exercise or allowing early failure', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue({
+      ...TEST_DEFINITION,
+      days: [{ name: 'Combined', slots: TEST_DEFINITION.days.flatMap((day) => day.slots) }],
+    });
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    jest.mocked(getSetDrafts).mockResolvedValue({
+      '0:squat-t1': [{ reps: 3, weight: 60 }],
+      '0:bench-t1': [{ reps: 3, weight: 40 }],
+    });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    expect(await screen.findByRole('button', { name: 'Undo last set for Bench' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Mark Squat fail' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mark Bench fail' })).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Undo last set for Bench' }));
+    await waitFor(() =>
+      expect(jest.mocked(saveSetDrafts)).toHaveBeenLastCalledWith('instance-1', {
+        '0:squat-t1': [{ reps: 3, weight: 60 }],
+      })
+    );
+    expect(await screen.findByRole('button', { name: 'Confirm set 1 for Bench' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Confirm set 2 for Squat' })).toBeTruthy();
+  });
+
   it('records edited weights and missed reps, totals actual volume, and continues to the pending day', async () => {
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
@@ -219,6 +244,7 @@ describe('TrackerScreen', () => {
     mockedQueueRecordResultMutation.mockResolvedValue();
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
 
+    await screen.findByText('Squat', {}, { timeout: 5000 });
     const logs = [
       { weight: 62.5, reps: 3 },
       { weight: 60, reps: 2 },
@@ -600,7 +626,7 @@ describe('TrackerScreen', () => {
     await confirmSets('Squat', 5);
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Awaiting result')).toBeTruthy();
     expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
@@ -645,7 +671,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Logged fail')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(screen.getByText('AMRAP reps: 12')).toBeTruthy();
@@ -706,7 +732,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Awaiting result')).toBeTruthy();
     expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
@@ -857,7 +883,7 @@ describe('TrackerScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
     expect(await screen.findByText('AMRAP reps: 4')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
@@ -1244,7 +1270,7 @@ describe('TrackerScreen', () => {
     await confirmSets('Squat', 5);
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     await waitFor(() => {
       expect(screen.getByText('Logged success')).toBeTruthy();
@@ -1269,7 +1295,7 @@ describe('TrackerScreen', () => {
     await confirmSets('Squat', 5);
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Awaiting result')).toBeTruthy();
     expect(
@@ -1312,7 +1338,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Logged fail')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(

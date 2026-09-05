@@ -34,6 +34,9 @@ describe('program artwork identity in SQLite', () => {
     sqlite.exec(
       "INSERT INTO program_summaries (owner_user_id,id,title,updated_at) VALUES ('athlete-a','legacy','Old plan','2026-09-01')"
     );
+    sqlite.exec(
+      "INSERT INTO program_details (owner_user_id,id,program_id,detail_json,updated_at) VALUES ('athlete-a','legacy','gzclp','{}','2026-09-01')"
+    );
     await client.activateLocalDataOwner('athlete-a', database);
   });
 
@@ -45,7 +48,7 @@ describe('program artwork identity in SQLite', () => {
 
   it('upgrades a version 4 cache without losing plans and preserves artwork identity after rename', async () => {
     expect(await listProgramSummaries()).toEqual([
-      { id: 'legacy', title: 'Old plan', updatedAt: '2026-09-01' },
+      { id: 'legacy', title: 'Old plan', programId: 'gzclp', updatedAt: '2026-09-01' },
     ]);
     const plan = {
       id: 'legacy',
@@ -54,6 +57,8 @@ describe('program artwork identity in SQLite', () => {
       updatedAt: '2026-09-04',
     };
     await upsertProgramSummaries([plan]);
+    expect(await listProgramSummaries()).toEqual([plan]);
+    await upsertProgramSummaries([{ id: plan.id, title: plan.title, updatedAt: plan.updatedAt }]);
     expect(await listProgramSummaries()).toEqual([plan]);
     await client.activateLocalDataOwner('athlete-b', database);
     expect(await listProgramSummaries()).toEqual([]);

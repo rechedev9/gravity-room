@@ -108,7 +108,7 @@
     "previous": "Anterior",
     "previous_accessibility": "Entrenamiento anterior",
     "undo": "Deshacer",
-    "undo_accessibility": "Deshacer la última acción del registro",
+    "undo_accessibility": "Deshacer el último resultado completado",
     "next": "Siguiente",
     "next_accessibility": "Siguiente entrenamiento",
     "weight": "{{weight}} kg",
@@ -170,7 +170,8 @@
     "session_title": "Entrenamiento",
     "session_done": "Sesión completada",
     "next_time_title": "Próxima sesión",
-    "next_workout": "Siguiente entrenamiento"
+    "next_workout": "Siguiente entrenamiento",
+    "undo_set": "Deshacer la última serie de {{name}}"
   },
   "rest": {
     "title": "Descanso",

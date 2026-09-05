@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow, SetLogEntry } from '@gzclp/domain';
 
 import { colors, type } from '../../shell/design';
+import { IconButton } from '../../ui/icon-button';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { LoggedSetRow, TrackerSetRow } from './tracker-set-row';
@@ -20,6 +21,7 @@ type TrackerSlotCardProps = {
     slotId: string,
     entry: SetLogEntry
   ) => Promise<void>;
+  readonly onUndoSet: (workoutIndex: number, slotId: string) => void;
   readonly onMarkResult: (workoutIndex: number, slotId: string, result: 'success' | 'fail') => void;
   readonly onMetricChange: (
     workoutIndex: number,
@@ -42,6 +44,7 @@ export function TrackerSlotCard({
   draftLogs,
   onConfirmSet,
   onMarkResult,
+  onUndoSet,
   onMetricChange,
   onClearMetric,
 }: TrackerSlotCardProps) {
@@ -90,6 +93,15 @@ export function TrackerSlotCard({
           {statusLabel}
         </Text>
       </View>
+      {canConfirmSet && (draftLogs?.length ?? 0) > 0 ? (
+        <View style={styles.undoSet}>
+          <IconButton
+            name="arrow-undo-outline"
+            label={t('tracker.undo_set', { name: slot.exerciseName })}
+            onPress={() => onUndoSet(workoutIndex, slot.slotId)}
+          />
+        </View>
+      ) : null}
       {slot.result !== undefined ? (
         <Pressable
           accessibilityRole="button"
@@ -228,7 +240,7 @@ export function TrackerSlotCard({
           </View>
         </View>
       ) : null}
-      {slot.result === undefined ? (
+      {slot.result === undefined && (displayLogs?.length ?? 0) === 0 ? (
         <View style={isHero ? styles.heroActions : styles.queueActions}>
           <View style={isHero ? null : styles.actionFlex}>
             {!usesSetFlow ? (
@@ -263,6 +275,7 @@ export function TrackerSlotCard({
 }
 
 const styles = StyleSheet.create({
+  undoSet: { alignItems: 'flex-end' },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -92,6 +92,11 @@ export const MIGRATIONS: readonly MigrationStep[] = [
   },
   {
     version: 5,
-    sql: 'ALTER TABLE program_summaries ADD COLUMN program_id TEXT;',
+    sql: `ALTER TABLE program_summaries ADD COLUMN program_id TEXT;
+      UPDATE program_summaries SET program_id = (
+        SELECT program_id FROM program_details
+        WHERE program_details.owner_user_id = program_summaries.owner_user_id
+          AND program_details.id = program_summaries.id
+      );`,
   },
 ];

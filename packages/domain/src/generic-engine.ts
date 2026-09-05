@@ -74,8 +74,9 @@ function deriveSlotResult(
   const logs = selectedLog !== undefined ? [selectedLog] : slotResult.setLogs;
 
   if (slot.onSuccess.type === 'double_progression') {
-    const derived = deriveResultFromSetLogs(logs, slot.onSuccess);
-    return derived ?? slotResult.result;
+    // Non-empty logs inside the rep range mean hold, even when the session
+    // carries a completion result. Completion must not force weight progression.
+    return deriveResultFromSetLogs(logs, slot.onSuccess);
   }
   const derived = deriveResultFromSetLogsSimple(logs, targetReps);
   return derived ?? slotResult.result;
@@ -224,6 +225,10 @@ function applySlotProgression(
     slotState[slot.id] = { ...nextState, everChanged: state.everChanged };
     return;
   }
+
+  // A recorded double-progression hold is distinct from an unrecorded future
+  // workout, whose onUndefined rule still drives the projected program.
+  if (slot.onSuccess.type === 'double_progression' && (slotResult.setLogs?.length ?? 0) > 0) return;
 
   const rule = slot.onUndefined ?? slot.onSuccess;
   if (rule.type === 'update_tm') {
@@ -419,7 +424,7 @@ export function computeGenericProgram(
         repsMax: stageConfig.repsMax,
         isAmrap: stageConfig.amrap === true,
         stagesCount: slot.stages.length,
-        result: derivedResult,
+        result: derivedResult ?? slotResult.result,
         amrapReps,
         rpe: slotResult.rpe,
         isChanged: state.everChanged,

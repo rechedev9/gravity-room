@@ -63,7 +63,7 @@ describe('i18n catalog', () => {
     expect(t('tracker.actions.mark_success', { name: 'Sentadilla' })).toBe(
       'Marcar Sentadilla como éxito'
     );
-    expect(t('tracker.undo_accessibility')).toBe('Deshacer la última acción del registro');
+    expect(t('tracker.undo_accessibility')).toBe('Deshacer el último resultado completado');
   });
 
   it('keeps the English and Spanish catalogs at identical key coverage (0 missing keys)', () => {
