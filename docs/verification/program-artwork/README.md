@@ -23,7 +23,9 @@ progress. Explore shows the same art in its featured card, all rows, and details
   My plans displayed its matching cover and retained all three prior plans.
 - Logged a set, opened the same plan through My plans, and verified the next set
   remained selected. One Train tracker now owns editing across all entry points;
-  legacy workout deep links redirect there.
+  legacy workout deep links redirect there. A second set was logged, then Expo Go
+  was force-stopped and reopened: both sets remained and set 3 was pending
+  ([restart proof](./restored-android.webp)).
 - Playwright CLI checked all 18 gallery images loaded. Console's only gallery error
   was the static server's missing favicon. Browser sessions were closed.
 - Expo Web preview login was captured and its console reviewed. Local cross-origin
