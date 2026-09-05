@@ -10,12 +10,14 @@ import { Screen } from '../../ui/screen';
 import { TrackerScreen } from '../tracker/tracker-screen';
 
 type TrainScreenProps = {
+  readonly isFocused?: boolean;
   readonly programInstanceId: string | null;
   readonly onResolvedProgram: (programInstanceId: string) => void;
   readonly onOpenPrograms: () => void;
 };
 
 export function TrainScreen({
+  isFocused = true,
   programInstanceId,
   onResolvedProgram,
   onOpenPrograms,
@@ -33,6 +35,7 @@ export function TrainScreen({
   if (programInstanceId) {
     return (
       <TrackerScreen
+        isFocused={isFocused}
         key={programInstanceId}
         programInstanceId={programInstanceId}
         onBack={onOpenPrograms}

@@ -103,3 +103,10 @@ API analytics metric for domain-marked AMRAP slots. Metric controls prioritize
 logged reps over legacy metadata, matching the displayed value. Regressions cover
 an eight-rep upload and incrementing displayed eight reps to nine despite stale
 legacy metadata. Tracker suite: 41 tests pass.
+
+Navigation refresh: local edits cancel older detail queries before committing.
+Returning to Train refreshes remote detail after pending local edits, while keeping
+the mounted editor and in-memory drafts. Tests cover A→B→A with an obsolete GET,
+a replacement request after cancellation, and retaining edited weight across
+focus refresh without rereading SQLite. Android My plans→Turtle also retains its
+recorded set and pending next set after the refresh.

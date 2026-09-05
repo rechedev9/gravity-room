@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ProgramQueryProvider } from '../../shell/program-query-provider';
 import {
   act,
@@ -268,6 +269,68 @@ describe('TrackerScreen', () => {
         },
       })
     );
+  });
+
+  it('cancels pre-edit detail requests across program reentry and fetches again', async () => {
+    let stored = TEST_DETAIL;
+    mockedGetProgramDetail.mockImplementation(async () => stored);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedUpsertProgramDefinition.mockResolvedValue();
+    mockedUpsertProgramDetail.mockImplementation(async (detail) => {
+      stored = detail;
+    });
+    mockedQueueRecordResultMutation.mockResolvedValue();
+    const remote = createDeferred<GenericProgramDetail>();
+    mockedFetchProgramDetail
+      .mockReturnValueOnce(remote.promise)
+      .mockImplementation(async () => stored);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tracker = (id: string) => (
+      <QueryClientProvider client={client}>
+        <TrackerScreen key={id} programInstanceId={id} onBack={jest.fn()} />
+      </QueryClientProvider>
+    );
+    const view = renderScreen(tracker('instance-1'));
+    await waitFor(() => expect(mockedFetchProgramDetail).toHaveBeenCalledTimes(1));
+    fireEvent.press(await screen.findByRole('button', { name: 'Mark Squat fail' }));
+    await waitFor(() => expect(mockedQueueRecordResultMutation).toHaveBeenCalledTimes(1));
+    view.rerender(tracker('instance-2'));
+    await screen.findByRole('button', { name: 'Confirm set 1 for Bench' });
+    view.rerender(tracker('instance-1'));
+    await waitFor(() => expect(mockedFetchProgramDetail).toHaveBeenCalledTimes(3));
+    await act(async () => remote.resolve(TEST_DETAIL));
+    expect(stored.results['0']?.['squat-t1']?.result).toBe('fail');
+    view.unmount();
+    client.clear();
+  });
+
+  it('refreshes on focus while preserving the current set editor and unfinished drafts', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedUpsertProgramDefinition.mockResolvedValue();
+    mockedUpsertProgramDetail.mockResolvedValue();
+    mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
+    jest.mocked(getSetDrafts).mockResolvedValue({ '0:squat-t1': SQUAT_SET_LOGS.slice(0, 1) });
+    const tracker = (focused: boolean) => (
+      <ProgramQueryProvider>
+        <TrackerScreen programInstanceId="instance-1" isFocused={focused} onBack={jest.fn()} />
+      </ProgramQueryProvider>
+    );
+    const view = renderScreen(tracker(true));
+    const input = await screen.findByLabelText('Weight for set 2 of Squat');
+    await waitFor(() => expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(1));
+    fireEvent.changeText(input, '67');
+    view.rerender(tracker(false));
+    mockedFetchProgramDetail.mockResolvedValue({ ...TEST_DETAIL, name: 'Changed remotely' });
+    view.rerender(tracker(true));
+    await screen.findByText('Changed remotely');
+    expect(mockedFetchProgramDetail).toHaveBeenCalledTimes(2);
+    expect(getSetDrafts).toHaveBeenCalledTimes(1);
+    expect(mockedGetProgramDetail).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Weight for set 2 of Squat').props.value).toBe('67');
+    expect(screen.getByLabelText('Reps for set 2 of Squat')).toBeTruthy();
   });
 
   it('excludes remotely completed slots from subsequent draft saves', async () => {
@@ -1049,7 +1112,7 @@ describe('TrackerScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
-    expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 3')).toBeTruthy();
     expect(screen.queryByText('Awaiting result')).toBeNull();
     expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
       instanceId: 'instance-1',

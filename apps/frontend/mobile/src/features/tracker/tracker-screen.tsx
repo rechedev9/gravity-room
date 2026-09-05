@@ -54,6 +54,7 @@ import { IconButton } from '../../ui/icon-button';
 import { Screen } from '../../ui/screen';
 
 type TrackerScreenProps = {
+  readonly isFocused?: boolean;
   readonly programInstanceId: string;
   readonly onBack: () => void;
 };
@@ -80,7 +81,7 @@ function resolveProgramDefinition(detail: GenericProgramDetail): ProgramDefiniti
   }
 }
 
-export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps) {
+export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: TrackerScreenProps) {
   const { t, i18n } = useTranslation();
   const restTimer = useRestTimer();
   const queryClient = useQueryClient();
@@ -103,6 +104,11 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     const ownerId = getActiveLocalDataOwner();
     localEditRef.current = localEditRef.current
       .then(async () => {
+        if (getActiveLocalDataOwner() !== ownerId) return;
+        await queryClient.cancelQueries({
+          queryKey: ['program-detail', programInstanceId],
+          exact: true,
+        });
         if (getActiveLocalDataOwner() !== ownerId) return;
         await edit();
       })
@@ -146,20 +152,28 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
   }
 
   useEffect(() => {
+    if (!isFocused) return;
     let active = true;
 
     async function loadTracker(): Promise<void> {
       try {
-        const restoredDrafts = await getSetDrafts(programInstanceId);
+        await localEditRef.current;
         if (!active) return;
-        setDraftLogsState(restoredDrafts);
+        const initialLoad = detailRef.current === null;
+        if (initialLoad) {
+          const restoredDrafts = await getSetDrafts(programInstanceId);
+          if (!active) return;
+          setDraftLogsState(restoredDrafts);
+        }
         let cachedDetail: GenericProgramDetail | null = null;
         let cachedDefinition: ProgramDefinition | null = null;
         try {
-          cachedDetail = await getProgramDetail(programInstanceId);
+          cachedDetail = initialLoad
+            ? await getProgramDetail(programInstanceId)
+            : detailRef.current;
           cachedDefinition = cachedDetail
             ? (resolveProgramDefinition(cachedDetail) ??
-              (await getProgramDefinition(cachedDetail.programId)))
+              (initialLoad ? await getProgramDefinition(cachedDetail.programId) : definition))
             : null;
         } catch {
           // A partially written or legacy cache is not authoritative. Continue
@@ -175,7 +189,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
             return;
           }
 
-          acceptLoadedDetail(cachedDetail);
+          if (initialLoad) acceptLoadedDetail(cachedDetail);
           setDefinition(cachedDefinition);
           setLoading(false);
           setSyncNotice(null);
@@ -185,7 +199,8 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
             cachedDetail.results
           );
           const pending = firstPendingWorkout(cachedRows);
-          setSelectedWorkoutIndex(pending >= 0 ? pending : Math.max(0, cachedRows.length - 1));
+          if (initialLoad)
+            setSelectedWorkoutIndex(pending >= 0 ? pending : Math.max(0, cachedRows.length - 1));
         }
 
         try {
@@ -283,7 +298,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     return () => {
       active = false;
     };
-  }, [programInstanceId, queryClient, reloadToken]);
+  }, [programInstanceId, queryClient, reloadToken, isFocused]);
 
   const rows = useMemo(() => {
     if (!detail || !definition) {
