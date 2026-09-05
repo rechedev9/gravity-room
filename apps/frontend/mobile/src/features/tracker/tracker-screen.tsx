@@ -2,7 +2,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { requireLiveQuery } from '../../lib/programs/program-queries';
 import {
   computeGenericProgram,
-  previewSlotOutcome,
   ProgramDefinitionSchema,
   type GenericProgramDetail,
   type ProgramDefinition,
@@ -283,20 +282,14 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
   const firstPendingIdx = firstPendingWorkout(rows);
   const completed = selectedRow !== undefined && isWorkoutComplete(selectedRow);
   const previews = useMemo(() => {
-    if (!completed || !definition || !detail || !selectedRow) return [];
+    if (!completed || !selectedRow) return [];
     return selectedRow.slots.flatMap((slot) => {
-      if (slot.result === undefined) return [];
-      const preview = previewSlotOutcome(
-        definition,
-        detail.config,
-        detail.results,
-        selectedRow.index,
-        slot.slotId,
-        slot.result
-      );
-      return preview ? [{ name: slot.exerciseName, ...preview.next }] : [];
+      const next = rows
+        .slice(selectedRow.index + 1)
+        .flatMap((row) => row.slots.filter((candidate) => candidate.slotId === slot.slotId))[0];
+      return next ? [{ name: slot.exerciseName, ...next }] : [];
     });
-  }, [completed, definition, detail, selectedRow]);
+  }, [completed, rows, selectedRow]);
 
   async function handleMarkResult(
     workoutIndex: number,
@@ -775,7 +768,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
             </Text>
             <Text style={styles.eyebrow}>{t('tracker.next_time_title')}</Text>
             {previews.map((preview) => (
-              <View key={preview.name} style={styles.previewRow}>
+              <View key={preview.slotId} style={styles.previewRow}>
                 <Text style={styles.previewName}>{preview.name}</Text>
                 <Text style={styles.previewValue}>
                   {t('tracker.weight', { weight: preview.weight })} ·{' '}

@@ -1,3 +1,8 @@
+import { configure } from '@testing-library/react-native';
+
+// CI cold rendering of native icons can exceed the library's 1s async default.
+configure({ asyncUtilTimeout: 5000 });
+
 import mockSafeAreaContext from 'react-native-safe-area-context/jest/mock';
 
 jest.mock('react-native-safe-area-context', () => mockSafeAreaContext);

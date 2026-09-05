@@ -211,6 +211,32 @@ describe('TrackerScreen', () => {
     mockedQueueUndoRestoreMutation.mockReset();
   });
 
+  it('shows actual held weight in the completed double-progression next-session summary', async () => {
+    mockedGetProgramDetail.mockResolvedValue({
+      ...TEST_DETAIL,
+      results: {
+        0: { 'squat-t1': { result: 'success', setLogs: [{ reps: 8 }, { reps: 8 }, { reps: 8 }] } },
+      },
+    });
+    mockedGetProgramDefinition.mockResolvedValue({
+      ...TEST_DEFINITION,
+      days: TEST_DEFINITION.days.map((day) => ({
+        ...day,
+        slots: day.slots.map((slot) => ({
+          ...slot,
+          stages: [{ sets: 3, reps: 6, repsMax: 12 }],
+          onSuccess: { type: 'double_progression', repRangeBottom: 6, repRangeTop: 12 },
+        })),
+      })),
+    });
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    expect(await screen.findByText('Day complete')).toBeTruthy();
+    expect(screen.getByText('60 kg · 3 x 6')).toBeTruthy();
+    expect(screen.queryByText('65 kg · 3 x 6')).toBeNull();
+  });
+
   it('undoes the chosen exercise draft after reload without deleting another exercise or allowing early failure', async () => {
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue({

@@ -68,3 +68,11 @@ from each owner's cached program details. Real SQLite tests exercise both paths.
 Final local checks before updating the PR: mobile 239 tests, domain 108 tests,
 root typecheck, and generated API bundle drift check pass. The CI-only first
 tracker-render timeout now waits for initial hydration before editing inputs.
+
+The follow-up review found two further interactions: the completed-session summary
+used hypothetical outcomes (discarding recorded holds), and a stalled outbox upload
+held the local edit queue. The summary now reads the next matching slot from the
+real computed rows. Mutation calls finish at durable outbox insertion and let the
+account-bound replay service upload asynchronously. Regression tests cover a held
+60 kg summary and enqueue/undo while replay remains pending. Mobile: 241 tests pass.
+CI cold native rendering now uses a 5-second async assertion timeout.

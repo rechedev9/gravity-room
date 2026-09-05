@@ -54,11 +54,11 @@ async function enqueueTrackerMutation(input: {
     return;
   }
 
-  try {
-    await flushQueuedMutations(accessToken);
-  } catch {
-    // Leave the queued mutation in place for a later retry.
-  }
+  // SQLite is the completion boundary for edits. Replay owns its account-bound
+  // lock and abort controller; a slow network must not block the next local set.
+  void flushQueuedMutations(accessToken).catch(() => {
+    // The durable outbox retains failures for the next sync attempt.
+  });
 }
 
 export async function queueRecordResultMutation(input: QueueRecordResultInput): Promise<void> {
