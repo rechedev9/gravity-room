@@ -76,3 +76,10 @@ real computed rows. Mutation calls finish at durable outbox insertion and let th
 account-bound replay service upload asynchronously. Regression tests cover a held
 60 kg summary and enqueue/undo while replay remains pending. Mobile: 241 tests pass.
 CI cold native rendering now uses a 5-second async assertion timeout.
+
+Final follow-up fixes: AMRAP training-max updates consume logged reps with a
+legacy-metric fallback (110 domain tests). A joined sync request drains another
+queue snapshot before any caller refreshes server detail, covering edits made
+during upload. Untouched set inputs follow refreshed prescriptions while explicit
+edits remain intact. Train now distinguishes loading errors from an empty account
+and offers Retry. Mobile: 243 tests / 28 suites pass.

@@ -17,8 +17,11 @@ type Props = {
 /** Text remains local until explicitly confirmed; domain schemas validate the entry. */
 export function TrackerSetRow({ exerciseName, index, weight, reps, onConfirm }: Props) {
   const { t } = useTranslation();
-  const [weightText, setWeightText] = useState(String(weight));
-  const [repsText, setRepsText] = useState(String(reps));
+  const [editedWeight, setWeightText] = useState<string>();
+  const [editedReps, setRepsText] = useState<string>();
+  // Fresh prescriptions update untouched inputs; explicit edits belong to the user.
+  const weightText = editedWeight ?? String(weight);
+  const repsText = editedReps ?? String(reps);
   const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const parsed = SetLogEntrySchema.safeParse({

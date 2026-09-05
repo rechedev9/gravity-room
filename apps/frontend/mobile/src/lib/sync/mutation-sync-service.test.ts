@@ -1,4 +1,5 @@
 import {
+  type QueuedMutation,
   acknowledgeQueuedMutations,
   clearQueuedMutations as clearQueuedMutationsFromRepository,
   listQueuedMutations,
@@ -511,9 +512,35 @@ describe('flushQueuedMutations', () => {
     );
   });
 
+  it('drains an edit queued during upload before joined refresh callers resume', async () => {
+    const upload = createDeferred<Response>();
+    const first: QueuedMutation = {
+      id: 71,
+      entityType: 'program-instance',
+      entityId: 'instance-1',
+      operation: 'record-result',
+      payload: { workoutIndex: 0, slotId: 'squat-t1', result: 'success' },
+      createdAt: '2026-09-05',
+    };
+    const later: QueuedMutation = { ...first, id: 72, operation: 'delete-result' };
+    mockedListQueuedMutations.mockResolvedValueOnce([first]).mockResolvedValueOnce([later]);
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockReturnValueOnce(upload.promise)
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    const running = flushQueuedMutations('mobile-access-token');
+    await Promise.resolve();
+    const joined = flushQueuedMutations('mobile-access-token');
+    upload.resolve(new Response('{}', { status: 201 }));
+    await expect(running).resolves.toEqual({ processedCount: 2 });
+    await expect(joined).resolves.toEqual({ processedCount: 2 });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenLastCalledWith([72], 'user-123');
+  });
+
   it('reuses the active flush while an earlier replay is still in flight', async () => {
     const firstFetch = createDeferred<Response>();
-    mockedListQueuedMutations.mockResolvedValue([
+    mockedListQueuedMutations.mockResolvedValue([]).mockResolvedValueOnce([
       {
         id: 61,
         entityType: 'program-instance',

@@ -12,6 +12,7 @@ import {
 let inFlightFlush: Promise<{ readonly processedCount: number }> | null = null;
 let inFlightFlushAccessToken: string | null = null;
 let inFlightFlushOwnerId: string | null = null;
+let inFlightFlushRequest: { requested: boolean; accepting: boolean } | null = null;
 let inFlightFlushController: AbortController | null = null;
 
 class DiscardQueuedMutationError extends Error {}
@@ -143,7 +144,12 @@ export async function flushQueuedMutations(
   const ownerId = requireActiveLocalDataOwner();
 
   if (inFlightFlush) {
-    if (inFlightFlushAccessToken === accessToken && inFlightFlushOwnerId === ownerId) {
+    if (
+      inFlightFlushAccessToken === accessToken &&
+      inFlightFlushOwnerId === ownerId &&
+      inFlightFlushRequest?.accepting
+    ) {
+      if (inFlightFlushRequest) inFlightFlushRequest.requested = true;
       return inFlightFlush;
     }
 
@@ -155,46 +161,44 @@ export async function flushQueuedMutations(
   }
 
   const abortController = new AbortController();
+  const request = { requested: false, accepting: true };
 
   const flushPromise = (async (): Promise<{ readonly processedCount: number }> => {
-    const queuedMutations = await listQueuedMutations(ownerId);
-    if (queuedMutations.length === 0) {
-      return { processedCount: 0 };
-    }
-
+    let processedCount = 0;
     let nextAccessToken = accessToken;
-    const acknowledgedIds: number[] = [];
-
-    for (const mutation of queuedMutations) {
-      try {
-        nextAccessToken = await replayQueuedMutation(
-          mutation,
-          nextAccessToken,
-          abortController.signal
-        );
-        acknowledgedIds.push(mutation.id);
-      } catch (error) {
-        if (error instanceof DiscardQueuedMutationError) {
+    do {
+      request.requested = false;
+      const queuedMutations = await listQueuedMutations(ownerId);
+      const acknowledgedIds: number[] = [];
+      for (const mutation of queuedMutations) {
+        try {
+          nextAccessToken = await replayQueuedMutation(
+            mutation,
+            nextAccessToken,
+            abortController.signal
+          );
           acknowledgedIds.push(mutation.id);
-          continue;
+        } catch (error) {
+          if (error instanceof DiscardQueuedMutationError) {
+            acknowledgedIds.push(mutation.id);
+            continue;
+          }
+          if (acknowledgedIds.length > 0)
+            await acknowledgeQueuedMutations(acknowledgedIds, ownerId);
+          throw error;
         }
-
-        if (acknowledgedIds.length > 0) {
-          await acknowledgeQueuedMutations(acknowledgedIds, ownerId);
-        }
-
-        throw error;
       }
-    }
-
-    await acknowledgeQueuedMutations(acknowledgedIds, ownerId);
-
-    return {
-      processedCount: acknowledgedIds.length,
-    };
+      if (acknowledgedIds.length > 0) await acknowledgeQueuedMutations(acknowledgedIds, ownerId);
+      processedCount += acknowledgedIds.length;
+      // A caller may have durably enqueued another edit while this batch was
+      // uploading. All joiners await the additional batch before refreshing.
+    } while (request.requested);
+    request.accepting = false;
+    return { processedCount };
   })();
 
   inFlightFlush = flushPromise;
+  inFlightFlushRequest = request;
   inFlightFlushAccessToken = accessToken;
   inFlightFlushOwnerId = ownerId;
   inFlightFlushController = abortController;
@@ -204,6 +208,7 @@ export async function flushQueuedMutations(
   } finally {
     if (inFlightFlush === flushPromise) {
       inFlightFlush = null;
+      inFlightFlushRequest = null;
       inFlightFlushAccessToken = null;
       inFlightFlushOwnerId = null;
       inFlightFlushController = null;

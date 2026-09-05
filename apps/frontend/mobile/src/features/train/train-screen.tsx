@@ -50,6 +50,24 @@ export function TrainScreen({
     );
   }
 
+  if (query.isError) {
+    return (
+      <Screen>
+        <Text accessibilityRole="alert" style={styles.body}>
+          {t(query.error.message === 'load' ? 'programs.errors.load' : 'programs.errors.sync')}
+        </Text>
+        <Button
+          isLoading={query.isFetching}
+          onPress={() => {
+            void query.refetch();
+          }}
+        >
+          {t('common.retry')}
+        </Button>
+      </Screen>
+    );
+  }
+
   if (resolvedEmpty) {
     return (
       <Screen>

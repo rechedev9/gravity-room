@@ -483,7 +483,10 @@ describe('App', () => {
 
     renderApp();
 
-    expect(await screen.findByText('No session yet')).toBeTruthy();
+    expect(await screen.findByText('Unable to sync programs right now.')).toBeTruthy();
+    expect(screen.queryByText('No session yet')).toBeNull();
+    fireEvent.press(screen.getByText('Retry'));
+    await waitFor(() => expect(mockedFetchProgramSummaries).toHaveBeenCalledTimes(2));
     fireEvent.press(await screen.findByLabelText('Open My plans tab'));
     expect(await screen.findByText('Unable to sync programs right now.')).toBeTruthy();
     expect(screen.getByText('Retry')).toBeTruthy();
@@ -505,7 +508,8 @@ describe('App', () => {
 
     renderApp();
 
-    expect(await screen.findByText('No session yet')).toBeTruthy();
+    expect(await screen.findByText('Unable to load cached programs.')).toBeTruthy();
+    expect(screen.queryByText('No session yet')).toBeNull();
     fireEvent.press(await screen.findByLabelText('Open My plans tab'));
     expect(await screen.findByText('Unable to load cached programs.')).toBeTruthy();
     expect(screen.getByText('Retry')).toBeTruthy();
