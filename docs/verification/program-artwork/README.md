@@ -111,10 +111,11 @@ a replacement request after cancellation, and retaining edited weight across
 focus refresh without rereading SQLite. Android My plans→Turtle also retains its
 recorded set and pending next set after the refresh.
 
-Queued Undo now retains the history entry targeted when tapped. If a pending
-metric write fails and removes that entry, the queued action is discarded rather
-than undoing an earlier completed exercise. The deferred-failure regression failed
-before this guard and passes after it; all 44 tracker tests pass.
+Undo is disabled while local edits are pending and enabled once the local queue
+settles. It always targets committed history; neither a failed write nor an edit
+waiting in the queue can redirect its target. The network upload remains detached
+from this queue. Regressions cover pending failure and multiple queued increments
+followed by Undo after commit. All 46 tracker tests pass.
 
 Final data consistency: editing logged reps persists and uploads the result derived
 by the shared domain engine, including changing success to failure. My plans

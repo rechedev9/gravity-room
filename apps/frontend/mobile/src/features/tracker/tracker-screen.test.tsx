@@ -212,6 +212,38 @@ describe('TrackerScreen', () => {
     mockedQueueUndoRestoreMutation.mockReset();
   });
 
+  it('enables Undo after queued metric writes commit and then reverts the latest edit', async () => {
+    const metricWrite = createDeferred<void>();
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail
+      .mockResolvedValueOnce()
+      .mockReturnValueOnce(metricWrite.promise)
+      .mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    await screen.findByText('Squat');
+    await confirmSets('Squat', 5);
+    fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
+    await screen.findByText('AMRAP reps: 4');
+    fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
+    expect(
+      screen.getByRole('button', { name: 'Undo latest completed result' }).props.accessibilityState
+        .disabled
+    ).toBe(true);
+    await act(async () => metricWrite.resolve());
+    await screen.findByText('AMRAP reps: 5');
+    expect(
+      screen.getByRole('button', { name: 'Undo latest completed result' }).props.accessibilityState
+        .disabled
+    ).toBe(false);
+    await act(async () =>
+      fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }))
+    );
+    expect(screen.getByText('AMRAP reps: 4')).toBeTruthy();
+    expect(screen.getByText('Logged success')).toBeTruthy();
+  });
+
   it('does not undo a completed exercise when the metric edit being undone fails', async () => {
     const metricWrite = createDeferred<void>();
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);

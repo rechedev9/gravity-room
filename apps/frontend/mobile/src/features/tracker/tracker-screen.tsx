@@ -97,11 +97,15 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
   const draftLogsRef = useRef<Readonly<Record<string, readonly SetLogEntry[]>>>({});
   const localStateVersionRef = useRef(0);
   const localEditRef = useRef<Promise<void>>(Promise.resolve());
+  const pendingLocalEditsRef = useRef(0);
+  const [pendingLocalEdits, setPendingLocalEdits] = useState(0);
 
   // All local writes share one queue; metrics must read the committed snapshot
   // after pending set completions, never overwrite it from an older render.
   function enqueueLocalEdit(edit: () => Promise<void>): Promise<void> {
     const ownerId = getActiveLocalDataOwner();
+    pendingLocalEditsRef.current += 1;
+    setPendingLocalEdits(pendingLocalEditsRef.current);
     localEditRef.current = localEditRef.current
       .then(async () => {
         if (getActiveLocalDataOwner() !== ownerId) return;
@@ -114,6 +118,10 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
       })
       .catch(() => {
         setSyncNotice(t('tracker.notices.draft_failed'));
+      })
+      .finally(() => {
+        pendingLocalEditsRef.current -= 1;
+        setPendingLocalEdits(pendingLocalEditsRef.current);
       });
     return localEditRef.current;
   }
@@ -725,15 +733,12 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
           <IconButton
             name="arrow-undo-outline"
             label={t('tracker.undo_accessibility')}
-            disabled={!canUndo}
+            disabled={!canUndo || pendingLocalEdits > 0}
             onPress={() => {
-              const target = detailRef.current?.undoHistory.at(-1);
-              void enqueueLocalEdit(async () => {
-                // A failed pending write may remove the intended undo entry.
-                // Never redirect this tap to an earlier completed exercise.
-                if (detailRef.current?.undoHistory.at(-1) !== target) return;
-                await handleUndoLast();
-              });
+              // Undo only committed edits. While a local write is pending its
+              // final history entry is unknown; reflect that in the disabled UI.
+              if (pendingLocalEditsRef.current > 0) return;
+              void enqueueLocalEdit(handleUndoLast);
             }}
           />
         </View>
