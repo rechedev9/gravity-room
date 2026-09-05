@@ -326,6 +326,13 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     )
       return;
 
+    // Mirror the logged AMRAP into the existing API metric used by analytics.
+    // The domain-computed slot determines whether this exercise has an AMRAP.
+    const loggedAmrapReps =
+      result === 'success' &&
+      rows[workoutIndex]?.slots.find((slot) => slot.slotId === slotId)?.isAmrap
+        ? setLogs?.at(-1)?.reps
+        : undefined;
     const previousDetail = currentDetail;
     const currentSlot = currentDetail.results[String(workoutIndex)]?.[slotId];
     const nextDetail = patchSlotMetrics(currentDetail, workoutIndex, slotId, {
@@ -337,7 +344,10 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
             setLogs: setLogs !== undefined ? [...setLogs] : undefined,
           }
         : setLogs !== undefined
-          ? { setLogs: [...setLogs] }
+          ? {
+              setLogs: [...setLogs],
+              ...(loggedAmrapReps !== undefined ? { amrapReps: loggedAmrapReps } : {}),
+            }
           : {}),
     });
     const nextSlot = nextDetail.results[String(workoutIndex)]?.[slotId];
@@ -384,6 +394,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
         slotId,
         result,
         ...(setLogs !== undefined ? { setLogs: toMutationSetLogs(setLogs) } : {}),
+        ...(loggedAmrapReps !== undefined ? { amrapReps: loggedAmrapReps } : {}),
       });
       setSyncNotice(null);
     } catch {
@@ -503,7 +514,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     const currentSlot = detailRef.current?.results[String(workoutIndex)]?.[slotId];
     const currentValue =
       metric === 'amrapReps'
-        ? (currentSlot?.amrapReps ?? currentSlot?.setLogs?.at(-1)?.reps)
+        ? (currentSlot?.setLogs?.at(-1)?.reps ?? currentSlot?.amrapReps)
         : currentSlot?.rpe;
     if (currentValue === undefined && direction < 0) {
       return;

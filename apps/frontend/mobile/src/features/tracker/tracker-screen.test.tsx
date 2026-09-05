@@ -211,6 +211,28 @@ describe('TrackerScreen', () => {
     mockedQueueUndoRestoreMutation.mockReset();
   });
 
+  it('increments the displayed logged AMRAP when a legacy metric disagrees', async () => {
+    mockedGetProgramDetail.mockResolvedValue({
+      ...TEST_DETAIL,
+      results: {
+        0: { 'squat-t1': { result: 'success', amrapReps: 5, setLogs: squatLogsWithLastReps(8) } },
+      },
+    });
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail.mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    fireEvent.press(screen.getByRole('button', { name: 'View sets for Squat' }));
+    await screen.findByText('AMRAP reps: 8');
+    fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
+    await waitFor(() =>
+      expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
+        expect.objectContaining({ amrapReps: 9, setLogs: squatLogsWithLastReps(9) })
+      )
+    );
+  });
+
   it('serializes metric edits behind final-set writes without losing either result', async () => {
     const completion = createDeferred<void>();
     mockedGetProgramDetail.mockResolvedValue({
@@ -317,6 +339,7 @@ describe('TrackerScreen', () => {
     expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
       expect.objectContaining({
         setLogs: [...SQUAT_SET_LOGS.slice(0, 4), { weight: 65, reps: 8 }],
+        amrapReps: 8,
       })
     );
   });
@@ -620,6 +643,7 @@ describe('TrackerScreen', () => {
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      amrapReps: 3,
       setLogs: [...SQUAT_SET_LOGS],
     });
     expect(mockedUpsertProgramDetail).toHaveBeenCalledWith(
@@ -628,6 +652,7 @@ describe('TrackerScreen', () => {
           0: {
             'squat-t1': expect.objectContaining({
               result: 'success',
+              amrapReps: 3,
               setLogs: [...SQUAT_SET_LOGS],
             }),
           },
@@ -699,6 +724,7 @@ describe('TrackerScreen', () => {
         workoutIndex: 0,
         slotId: 'squat-t1',
         result: 'success',
+        amrapReps: 3,
         setLogs: [...SQUAT_SET_LOGS],
       });
     });
@@ -1030,6 +1056,7 @@ describe('TrackerScreen', () => {
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      amrapReps: 3,
       setLogs: [...SQUAT_SET_LOGS],
     });
     expect(mockedUpsertProgramDetail).toHaveBeenLastCalledWith(
@@ -1038,6 +1065,7 @@ describe('TrackerScreen', () => {
           0: {
             'squat-t1': expect.objectContaining({
               result: 'success',
+              amrapReps: 3,
               setLogs: [...SQUAT_SET_LOGS],
             }),
           },
@@ -1078,6 +1106,7 @@ describe('TrackerScreen', () => {
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      amrapReps: 3,
       setLogs: [...SQUAT_SET_LOGS],
       rpe: 10,
     });
@@ -1300,6 +1329,7 @@ describe('TrackerScreen', () => {
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      amrapReps: 3,
       setLogs: [...SQUAT_SET_LOGS],
     });
   });

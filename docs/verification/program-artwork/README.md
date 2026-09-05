@@ -97,3 +97,9 @@ followed by a metric edit on a different workout. All local edits now share the
 same queue and metric changes read the current snapshot when they execute. Both
 completed results survive; a queued edit after a storage failure uses the restored
 value. Tracker suite: 40 tests pass.
+
+AMRAP compatibility: final-set completion mirrors logged reps into the existing
+API analytics metric for domain-marked AMRAP slots. Metric controls prioritize
+logged reps over legacy metadata, matching the displayed value. Regressions cover
+an eight-rep upload and incrementing displayed eight reps to nine despite stale
+legacy metadata. Tracker suite: 41 tests pass.
