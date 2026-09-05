@@ -581,8 +581,271 @@ import {
   boolean,
   integer,
   foreignKey,
+  check,
 } from 'drizzle-orm/pg-core';
 import { relations, desc, sql } from 'drizzle-orm';
+
+// packages/domain/src/schemas/instance.ts
+import { z as z2 } from 'zod/v4';
+
+// packages/domain/src/schemas/program-definition.ts
+import { z } from 'zod/v4';
+var MAX_PROGRAM_STRING_LENGTH = 1e3;
+var ProgramStringSchema = z.string().max(MAX_PROGRAM_STRING_LENGTH);
+var RequiredProgramStringSchema = ProgramStringSchema.min(1);
+var AddWeightRuleSchema = z.strictObject({
+  type: z.literal('add_weight'),
+});
+var DeloadPercentRuleSchema = z.strictObject({
+  type: z.literal('deload_percent'),
+  percent: z.number().min(1).max(99),
+});
+var AdvanceStageRuleSchema = z.strictObject({
+  type: z.literal('advance_stage'),
+});
+var AddWeightResetStageRuleSchema = z.strictObject({
+  type: z.literal('add_weight_reset_stage'),
+  amount: z.number().positive(),
+});
+var NoChangeRuleSchema = z.strictObject({
+  type: z.literal('no_change'),
+});
+var AdvanceStageAddWeightRuleSchema = z.strictObject({
+  type: z.literal('advance_stage_add_weight'),
+});
+var UpdateTmRuleSchema = z.strictObject({
+  type: z.literal('update_tm'),
+  amount: z.number(),
+  minAmrapReps: z.number().int().nonnegative(),
+});
+var DoubleProgressionRuleSchema = z
+  .strictObject({
+    type: z.literal('double_progression'),
+    repRangeTop: z.number().int().positive(),
+    repRangeBottom: z.number().int().positive(),
+  })
+  .refine((rule) => rule.repRangeBottom <= rule.repRangeTop, {
+    message: 'repRangeBottom must be <= repRangeTop',
+  });
+var ProgressionRuleSchema = z.discriminatedUnion('type', [
+  AddWeightRuleSchema,
+  DeloadPercentRuleSchema,
+  AdvanceStageRuleSchema,
+  AddWeightResetStageRuleSchema,
+  NoChangeRuleSchema,
+  AdvanceStageAddWeightRuleSchema,
+  UpdateTmRuleSchema,
+  DoubleProgressionRuleSchema,
+]);
+var StageDefinitionSchema = z.strictObject({
+  sets: z.number().int().positive(),
+  reps: z.number().int().positive(),
+  amrap: z.boolean().optional(),
+  repsMax: z.number().int().positive().optional(),
+});
+var TierSchema = RequiredProgramStringSchema;
+var RoleSchema = z.enum(['primary', 'secondary', 'accessory']);
+var SetPrescriptionSchema = z.strictObject({
+  percent: z.number().min(0).max(120),
+  reps: z.number().int().positive(),
+  sets: z.number().int().positive(),
+});
+var MAX_STAGES_PER_SLOT = 100;
+var MAX_PRESCRIPTIONS_PER_SLOT = 100;
+var ExerciseSlotSchema = z
+  .strictObject({
+    id: RequiredProgramStringSchema,
+    exerciseId: RequiredProgramStringSchema,
+    tier: TierSchema,
+    stages: z.array(StageDefinitionSchema).min(1).max(MAX_STAGES_PER_SLOT),
+    onSuccess: ProgressionRuleSchema,
+    onFinalStageSuccess: ProgressionRuleSchema.optional(),
+    onUndefined: ProgressionRuleSchema.optional(),
+    onMidStageFail: ProgressionRuleSchema,
+    onFinalStageFail: ProgressionRuleSchema,
+    startWeightKey: RequiredProgramStringSchema,
+    startWeightMultiplier: z.number().positive().optional(),
+    startWeightOffset: z.number().int().optional(),
+    trainingMaxKey: RequiredProgramStringSchema.optional(),
+    tmPercent: z.number().positive().max(1).optional(),
+    role: RoleSchema.optional(),
+    notes: RequiredProgramStringSchema.optional(),
+    prescriptions: z.array(SetPrescriptionSchema).min(1).max(MAX_PRESCRIPTIONS_PER_SLOT).optional(),
+    percentOf: RequiredProgramStringSchema.optional(),
+    isGpp: z.boolean().optional(),
+    complexReps: RequiredProgramStringSchema.optional(),
+    propagatesTo: RequiredProgramStringSchema.optional(),
+    isTestSlot: z.boolean().optional(),
+    isBodyweight: z.boolean().optional(),
+    progressionSetIndex: z.number().int().nonnegative().optional(),
+  })
+  .refine(
+    (slot) => {
+      const usesUpdateTm = [
+        slot.onSuccess,
+        slot.onMidStageFail,
+        slot.onFinalStageFail,
+        slot.onFinalStageSuccess,
+        slot.onUndefined,
+      ].some((r) => r?.type === 'update_tm');
+      return !usesUpdateTm || slot.trainingMaxKey !== void 0;
+    },
+    { message: 'trainingMaxKey is required when any progression rule uses update_tm' }
+  );
+var MAX_SLOTS_PER_DAY = 50;
+var MAX_DAYS = 1e3;
+var MAX_TOTAL_WORKOUTS = 2e3;
+var MAX_TOTAL_SLOTS = 5e3;
+var MAX_PROGRAM_EXERCISES = 100;
+var MAX_PROGRAM_CONFIG_FIELDS = 100;
+var MAX_PROGRAM_WEIGHT_INCREMENTS = 100;
+var MAX_SELECT_OPTIONS = 100;
+var ProgramDaySchema = z.strictObject({
+  name: RequiredProgramStringSchema,
+  slots: z.array(ExerciseSlotSchema).min(1).max(MAX_SLOTS_PER_DAY),
+});
+var WeightConfigFieldSchema = z.strictObject({
+  key: RequiredProgramStringSchema,
+  label: RequiredProgramStringSchema,
+  type: z.literal('weight'),
+  min: z.number(),
+  step: z.number().positive(),
+  group: RequiredProgramStringSchema.optional(),
+  hint: RequiredProgramStringSchema.optional(),
+  groupHint: RequiredProgramStringSchema.optional(),
+});
+var SelectOptionSchema = z.strictObject({
+  label: RequiredProgramStringSchema,
+  value: RequiredProgramStringSchema,
+});
+var SelectConfigFieldSchema = z.strictObject({
+  key: RequiredProgramStringSchema,
+  label: RequiredProgramStringSchema,
+  type: z.literal('select'),
+  options: z.array(SelectOptionSchema).min(1).max(MAX_SELECT_OPTIONS),
+  group: RequiredProgramStringSchema.optional(),
+});
+var ConfigFieldSchema = z.discriminatedUnion('type', [
+  WeightConfigFieldSchema,
+  SelectConfigFieldSchema,
+]);
+var ProgramDefinitionSchema = z
+  .strictObject({
+    id: RequiredProgramStringSchema,
+    name: RequiredProgramStringSchema,
+    description: ProgramStringSchema,
+    author: ProgramStringSchema,
+    version: z.number().int().positive(),
+    category: ProgramStringSchema,
+    source: z.enum(['preset', 'custom']),
+    days: z.array(ProgramDaySchema).min(1).max(MAX_DAYS),
+    cycleLength: z.number().int().positive(),
+    totalWorkouts: z.number().int().positive().max(MAX_TOTAL_WORKOUTS),
+    workoutsPerWeek: z.number().int().positive(),
+    exercises: z
+      .record(ProgramStringSchema, z.strictObject({ name: RequiredProgramStringSchema }))
+      .refine((exercises2) => Object.keys(exercises2).length <= MAX_PROGRAM_EXERCISES, {
+        message: `exercises must have at most ${MAX_PROGRAM_EXERCISES} entries`,
+      }),
+    configFields: z.array(ConfigFieldSchema).max(MAX_PROGRAM_CONFIG_FIELDS),
+    weightIncrements: z
+      .record(ProgramStringSchema, z.number().nonnegative())
+      .refine((increments) => Object.keys(increments).length <= MAX_PROGRAM_WEIGHT_INCREMENTS, {
+        message: `weightIncrements must have at most ${MAX_PROGRAM_WEIGHT_INCREMENTS} entries`,
+      }),
+    configTitle: RequiredProgramStringSchema.optional(),
+    configDescription: RequiredProgramStringSchema.optional(),
+    configEditTitle: RequiredProgramStringSchema.optional(),
+    configEditDescription: RequiredProgramStringSchema.optional(),
+    displayMode: z.enum(['flat', 'blocks']).optional(),
+  })
+  .refine(
+    (definition) =>
+      definition.days.reduce((total, day) => total + day.slots.length, 0) <= MAX_TOTAL_SLOTS,
+    { message: `days must contain at most ${MAX_TOTAL_SLOTS} slots in total` }
+  );
+
+// packages/domain/src/schemas/instance.ts
+var MAX_REPS = 999;
+var ResultValueSchema = z2.enum(['success', 'fail']);
+var SetLogEntrySchema = z2.strictObject({
+  reps: z2.number().int().min(0).max(MAX_REPS),
+  weight: z2.number().nonnegative().optional(),
+  rpe: z2.number().int().min(1).max(10).optional(),
+});
+var SlotResultSchema = z2.strictObject({
+  result: ResultValueSchema.optional(),
+  amrapReps: z2.number().int().min(0).max(MAX_REPS).optional(),
+  rpe: z2.number().int().min(1).max(10).optional(),
+  setLogs: z2.array(SetLogEntrySchema).optional(),
+});
+var GenericWorkoutResultSchema = z2.record(z2.string(), SlotResultSchema);
+var GenericResultsSchema = z2.record(
+  z2
+    .string()
+    .regex(/^\d+$/)
+    .max(String(MAX_TOTAL_WORKOUTS - 1).length)
+    .refine((key) => Number(key) < MAX_TOTAL_WORKOUTS, 'Workout index exceeds program limit'),
+  GenericWorkoutResultSchema
+);
+var GenericUndoEntrySchema = z2.strictObject({
+  i: z2.number().int().min(0),
+  slotId: z2.string().min(1),
+  prev: ResultValueSchema.optional(),
+  prevRpe: z2.number().int().min(1).max(10).optional(),
+  prevAmrapReps: z2.number().int().min(0).optional(),
+  prevSetLogs: z2.array(SetLogEntrySchema).optional(),
+});
+var GenericUndoHistorySchema = z2.array(GenericUndoEntrySchema);
+var ProgramInstanceStatusSchema = z2.enum(['active', 'completed', 'archived']);
+var MAX_PROGRAM_CONFIG_KEYS = 100;
+var ProgramConfigSchema = z2
+  .record(z2.string(), z2.union([z2.number(), z2.string()]))
+  .refine((cfg) => Object.keys(cfg).length <= MAX_PROGRAM_CONFIG_KEYS, {
+    message: `config must have at most ${MAX_PROGRAM_CONFIG_KEYS} keys`,
+  });
+var ProgramInstanceSchema = z2.strictObject({
+  id: z2.string().min(1),
+  programId: z2.string().min(1),
+  name: z2.string().min(1),
+  config: ProgramConfigSchema,
+  results: GenericResultsSchema,
+  undoHistory: GenericUndoHistorySchema,
+  status: ProgramInstanceStatusSchema,
+  createdAt: z2.string(),
+  updatedAt: z2.string(),
+});
+var ProgramInstanceMapSchema = z2.strictObject({
+  version: z2.number().int().positive(),
+  activeProgramId: z2.string().nullable(),
+  instances: z2.record(z2.string(), ProgramInstanceSchema),
+});
+var GenericProgramDetailSchema = z2.object({
+  id: z2.string(),
+  programId: z2.string(),
+  name: z2.string(),
+  config: z2.record(z2.string(), z2.union([z2.number(), z2.string()])).catch({}),
+  metadata: z2.unknown(),
+  results: GenericResultsSchema.catch({}),
+  undoHistory: GenericUndoHistorySchema.catch([]),
+  resultTimestamps: z2.record(z2.string(), z2.string()).catch({}),
+  completedDates: z2.record(z2.string(), z2.string()).catch({}),
+  definitionId: z2.string().nullable().catch(null),
+  customDefinition: z2.unknown(),
+  status: z2.string(),
+  createdAt: z2.string(),
+  updatedAt: z2.string(),
+});
+var GenericProgramDetailWriteSchema = GenericProgramDetailSchema.extend({
+  config: GenericProgramDetailSchema.shape.config.unwrap(),
+  results: GenericResultsSchema,
+  undoHistory: GenericUndoHistorySchema,
+  resultTimestamps: GenericProgramDetailSchema.shape.resultTimestamps.unwrap(),
+  completedDates: GenericProgramDetailSchema.shape.completedDates.unwrap(),
+  definitionId: GenericProgramDetailSchema.shape.definitionId.unwrap(),
+});
+
+// packages/database/src/schema.ts
 var instanceStatusEnum = pgEnum('instance_status', ['active', 'completed', 'archived']);
 var resultTypeEnum = pgEnum('result_type', ['success', 'fail']);
 var programDefinitionStatusEnum = pgEnum('program_definition_status', [
@@ -821,6 +1084,10 @@ var workoutResults = pgTable(
       table.workoutIndex,
       table.slotId
     ),
+    check(
+      'chk_workout_results_amrap_reps',
+      sql`${table.amrapReps} IS NULL OR ${table.amrapReps} BETWEEN 0 AND ${sql.raw(String(MAX_REPS))}`
+    ),
     index('workout_results_instance_id_idx').on(table.instanceId),
     index('workout_results_instance_workout_idx').on(table.instanceId, table.workoutIndex),
   ]
@@ -849,6 +1116,10 @@ var undoEntries = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    check(
+      'chk_undo_entries_previous_amrap_reps',
+      sql`${table.previousAmrapReps} IS NULL OR ${table.previousAmrapReps} BETWEEN 0 AND ${sql.raw(String(MAX_REPS))}`
+    ),
     index('undo_entries_instance_id_idx').on(table.instanceId),
     index('undo_entries_instance_recency_idx').on(table.instanceId, table.id),
   ]
@@ -3910,183 +4181,6 @@ import {
 // apps/backend/api/src/services/catalog.ts
 import { eq as eq2, and as and2, asc, inArray, sql as sql4 } from 'drizzle-orm';
 
-// packages/domain/src/schemas/program-definition.ts
-import { z } from 'zod/v4';
-var MAX_PROGRAM_STRING_LENGTH = 1e3;
-var ProgramStringSchema = z.string().max(MAX_PROGRAM_STRING_LENGTH);
-var RequiredProgramStringSchema = ProgramStringSchema.min(1);
-var AddWeightRuleSchema = z.strictObject({
-  type: z.literal('add_weight'),
-});
-var DeloadPercentRuleSchema = z.strictObject({
-  type: z.literal('deload_percent'),
-  percent: z.number().min(1).max(99),
-});
-var AdvanceStageRuleSchema = z.strictObject({
-  type: z.literal('advance_stage'),
-});
-var AddWeightResetStageRuleSchema = z.strictObject({
-  type: z.literal('add_weight_reset_stage'),
-  amount: z.number().positive(),
-});
-var NoChangeRuleSchema = z.strictObject({
-  type: z.literal('no_change'),
-});
-var AdvanceStageAddWeightRuleSchema = z.strictObject({
-  type: z.literal('advance_stage_add_weight'),
-});
-var UpdateTmRuleSchema = z.strictObject({
-  type: z.literal('update_tm'),
-  amount: z.number(),
-  minAmrapReps: z.number().int().nonnegative(),
-});
-var DoubleProgressionRuleSchema = z
-  .strictObject({
-    type: z.literal('double_progression'),
-    repRangeTop: z.number().int().positive(),
-    repRangeBottom: z.number().int().positive(),
-  })
-  .refine((rule) => rule.repRangeBottom <= rule.repRangeTop, {
-    message: 'repRangeBottom must be <= repRangeTop',
-  });
-var ProgressionRuleSchema = z.discriminatedUnion('type', [
-  AddWeightRuleSchema,
-  DeloadPercentRuleSchema,
-  AdvanceStageRuleSchema,
-  AddWeightResetStageRuleSchema,
-  NoChangeRuleSchema,
-  AdvanceStageAddWeightRuleSchema,
-  UpdateTmRuleSchema,
-  DoubleProgressionRuleSchema,
-]);
-var StageDefinitionSchema = z.strictObject({
-  sets: z.number().int().positive(),
-  reps: z.number().int().positive(),
-  amrap: z.boolean().optional(),
-  repsMax: z.number().int().positive().optional(),
-});
-var TierSchema = RequiredProgramStringSchema;
-var RoleSchema = z.enum(['primary', 'secondary', 'accessory']);
-var SetPrescriptionSchema = z.strictObject({
-  percent: z.number().min(0).max(120),
-  reps: z.number().int().positive(),
-  sets: z.number().int().positive(),
-});
-var MAX_STAGES_PER_SLOT = 100;
-var MAX_PRESCRIPTIONS_PER_SLOT = 100;
-var ExerciseSlotSchema = z
-  .strictObject({
-    id: RequiredProgramStringSchema,
-    exerciseId: RequiredProgramStringSchema,
-    tier: TierSchema,
-    stages: z.array(StageDefinitionSchema).min(1).max(MAX_STAGES_PER_SLOT),
-    onSuccess: ProgressionRuleSchema,
-    onFinalStageSuccess: ProgressionRuleSchema.optional(),
-    onUndefined: ProgressionRuleSchema.optional(),
-    onMidStageFail: ProgressionRuleSchema,
-    onFinalStageFail: ProgressionRuleSchema,
-    startWeightKey: RequiredProgramStringSchema,
-    startWeightMultiplier: z.number().positive().optional(),
-    startWeightOffset: z.number().int().optional(),
-    trainingMaxKey: RequiredProgramStringSchema.optional(),
-    tmPercent: z.number().positive().max(1).optional(),
-    role: RoleSchema.optional(),
-    notes: RequiredProgramStringSchema.optional(),
-    prescriptions: z.array(SetPrescriptionSchema).min(1).max(MAX_PRESCRIPTIONS_PER_SLOT).optional(),
-    percentOf: RequiredProgramStringSchema.optional(),
-    isGpp: z.boolean().optional(),
-    complexReps: RequiredProgramStringSchema.optional(),
-    propagatesTo: RequiredProgramStringSchema.optional(),
-    isTestSlot: z.boolean().optional(),
-    isBodyweight: z.boolean().optional(),
-    progressionSetIndex: z.number().int().nonnegative().optional(),
-  })
-  .refine(
-    (slot) => {
-      const usesUpdateTm = [
-        slot.onSuccess,
-        slot.onMidStageFail,
-        slot.onFinalStageFail,
-        slot.onFinalStageSuccess,
-        slot.onUndefined,
-      ].some((r) => r?.type === 'update_tm');
-      return !usesUpdateTm || slot.trainingMaxKey !== void 0;
-    },
-    { message: 'trainingMaxKey is required when any progression rule uses update_tm' }
-  );
-var MAX_SLOTS_PER_DAY = 50;
-var MAX_DAYS = 1e3;
-var MAX_TOTAL_WORKOUTS = 2e3;
-var MAX_TOTAL_SLOTS = 5e3;
-var MAX_PROGRAM_EXERCISES = 100;
-var MAX_PROGRAM_CONFIG_FIELDS = 100;
-var MAX_PROGRAM_WEIGHT_INCREMENTS = 100;
-var MAX_SELECT_OPTIONS = 100;
-var ProgramDaySchema = z.strictObject({
-  name: RequiredProgramStringSchema,
-  slots: z.array(ExerciseSlotSchema).min(1).max(MAX_SLOTS_PER_DAY),
-});
-var WeightConfigFieldSchema = z.strictObject({
-  key: RequiredProgramStringSchema,
-  label: RequiredProgramStringSchema,
-  type: z.literal('weight'),
-  min: z.number(),
-  step: z.number().positive(),
-  group: RequiredProgramStringSchema.optional(),
-  hint: RequiredProgramStringSchema.optional(),
-  groupHint: RequiredProgramStringSchema.optional(),
-});
-var SelectOptionSchema = z.strictObject({
-  label: RequiredProgramStringSchema,
-  value: RequiredProgramStringSchema,
-});
-var SelectConfigFieldSchema = z.strictObject({
-  key: RequiredProgramStringSchema,
-  label: RequiredProgramStringSchema,
-  type: z.literal('select'),
-  options: z.array(SelectOptionSchema).min(1).max(MAX_SELECT_OPTIONS),
-  group: RequiredProgramStringSchema.optional(),
-});
-var ConfigFieldSchema = z.discriminatedUnion('type', [
-  WeightConfigFieldSchema,
-  SelectConfigFieldSchema,
-]);
-var ProgramDefinitionSchema = z
-  .strictObject({
-    id: RequiredProgramStringSchema,
-    name: RequiredProgramStringSchema,
-    description: ProgramStringSchema,
-    author: ProgramStringSchema,
-    version: z.number().int().positive(),
-    category: ProgramStringSchema,
-    source: z.enum(['preset', 'custom']),
-    days: z.array(ProgramDaySchema).min(1).max(MAX_DAYS),
-    cycleLength: z.number().int().positive(),
-    totalWorkouts: z.number().int().positive().max(MAX_TOTAL_WORKOUTS),
-    workoutsPerWeek: z.number().int().positive(),
-    exercises: z
-      .record(ProgramStringSchema, z.strictObject({ name: RequiredProgramStringSchema }))
-      .refine((exercises2) => Object.keys(exercises2).length <= MAX_PROGRAM_EXERCISES, {
-        message: `exercises must have at most ${MAX_PROGRAM_EXERCISES} entries`,
-      }),
-    configFields: z.array(ConfigFieldSchema).max(MAX_PROGRAM_CONFIG_FIELDS),
-    weightIncrements: z
-      .record(ProgramStringSchema, z.number().nonnegative())
-      .refine((increments) => Object.keys(increments).length <= MAX_PROGRAM_WEIGHT_INCREMENTS, {
-        message: `weightIncrements must have at most ${MAX_PROGRAM_WEIGHT_INCREMENTS} entries`,
-      }),
-    configTitle: RequiredProgramStringSchema.optional(),
-    configDescription: RequiredProgramStringSchema.optional(),
-    configEditTitle: RequiredProgramStringSchema.optional(),
-    configEditDescription: RequiredProgramStringSchema.optional(),
-    displayMode: z.enum(['flat', 'blocks']).optional(),
-  })
-  .refine(
-    (definition) =>
-      definition.days.reduce((total, day) => total + day.slots.length, 0) <= MAX_TOTAL_SLOTS,
-    { message: `days must contain at most ${MAX_TOTAL_SLOTS} slots in total` }
-  );
-
 // apps/backend/api/src/lib/result.ts
 function ok(value) {
   return { ok: true, value };
@@ -4729,71 +4823,6 @@ function previewDefinition(definition, config) {
   }
 }
 
-// packages/domain/src/schemas/instance.ts
-import { z as z2 } from 'zod/v4';
-var ResultValueSchema = z2.enum(['success', 'fail']);
-var SetLogEntrySchema = z2.strictObject({
-  reps: z2.number().int().min(0).max(999),
-  weight: z2.number().nonnegative().optional(),
-  rpe: z2.number().int().min(1).max(10).optional(),
-});
-var SlotResultSchema = z2.strictObject({
-  result: ResultValueSchema.optional(),
-  amrapReps: z2.number().int().min(0).max(999).optional(),
-  rpe: z2.number().int().min(1).max(10).optional(),
-  setLogs: z2.array(SetLogEntrySchema).optional(),
-});
-var GenericWorkoutResultSchema = z2.record(z2.string(), SlotResultSchema);
-var GenericResultsSchema = z2.record(z2.string().regex(/^\d{1,3}$/), GenericWorkoutResultSchema);
-var GenericUndoEntrySchema = z2.strictObject({
-  i: z2.number().int().min(0),
-  slotId: z2.string().min(1),
-  prev: ResultValueSchema.optional(),
-  prevRpe: z2.number().int().min(1).max(10).optional(),
-  prevAmrapReps: z2.number().int().min(0).optional(),
-  prevSetLogs: z2.array(SetLogEntrySchema).optional(),
-});
-var GenericUndoHistorySchema = z2.array(GenericUndoEntrySchema);
-var ProgramInstanceStatusSchema = z2.enum(['active', 'completed', 'archived']);
-var MAX_PROGRAM_CONFIG_KEYS = 100;
-var ProgramConfigSchema = z2
-  .record(z2.string(), z2.union([z2.number(), z2.string()]))
-  .refine((cfg) => Object.keys(cfg).length <= MAX_PROGRAM_CONFIG_KEYS, {
-    message: `config must have at most ${MAX_PROGRAM_CONFIG_KEYS} keys`,
-  });
-var ProgramInstanceSchema = z2.strictObject({
-  id: z2.string().min(1),
-  programId: z2.string().min(1),
-  name: z2.string().min(1),
-  config: ProgramConfigSchema,
-  results: GenericResultsSchema,
-  undoHistory: GenericUndoHistorySchema,
-  status: ProgramInstanceStatusSchema,
-  createdAt: z2.string(),
-  updatedAt: z2.string(),
-});
-var ProgramInstanceMapSchema = z2.strictObject({
-  version: z2.number().int().positive(),
-  activeProgramId: z2.string().nullable(),
-  instances: z2.record(z2.string(), ProgramInstanceSchema),
-});
-var GenericProgramDetailSchema = z2.object({
-  id: z2.string(),
-  programId: z2.string(),
-  name: z2.string(),
-  config: z2.record(z2.string(), z2.union([z2.number(), z2.string()])).catch({}),
-  metadata: z2.unknown(),
-  results: GenericResultsSchema.catch({}),
-  undoHistory: GenericUndoHistorySchema.catch([]),
-  resultTimestamps: z2.record(z2.string(), z2.string()).catch({}),
-  completedDates: z2.record(z2.string(), z2.string()).catch({}),
-  definitionId: z2.string().nullable().catch(null),
-  customDefinition: z2.unknown(),
-  status: z2.string(),
-  createdAt: z2.string(),
-  updatedAt: z2.string(),
-});
-
 // apps/backend/api/src/lib/data-limits.ts
 var USER_DATA_LIMITS = {
   programInstances: 100,
@@ -4900,7 +4929,6 @@ async function assertUserDataQuotas(tx, userId) {
 }
 
 // apps/backend/api/src/services/programs.ts
-var MAX_AMRAP_REPS = 99;
 var MAX_SET_LOG_ITEMS = 20;
 var MAX_SET_LOG_WEIGHT = 1e4;
 var MAX_METADATA_BYTES = 1e4;
@@ -5285,8 +5313,8 @@ async function importInstance(userId, data) {
           'INVALID_DATA'
         );
       }
-      if (slotData.amrapReps !== void 0 && slotData.amrapReps > MAX_AMRAP_REPS) {
-        throw new ApiError(400, `amrapReps cannot exceed ${MAX_AMRAP_REPS}`, 'INVALID_DATA');
+      if (slotData.amrapReps !== void 0 && slotData.amrapReps > MAX_REPS) {
+        throw new ApiError(400, `amrapReps cannot exceed ${MAX_REPS}`, 'INVALID_DATA');
       }
       assertSetLogEntriesValid(slotData.setLogs, 'setLogs');
     }
@@ -5308,8 +5336,8 @@ async function importInstance(userId, data) {
         'INVALID_DATA'
       );
     }
-    if (entry.prevAmrapReps !== void 0 && entry.prevAmrapReps > MAX_AMRAP_REPS) {
-      throw new ApiError(400, `prevAmrapReps cannot exceed ${MAX_AMRAP_REPS}`, 'INVALID_DATA');
+    if (entry.prevAmrapReps !== void 0 && entry.prevAmrapReps > MAX_REPS) {
+      throw new ApiError(400, `prevAmrapReps cannot exceed ${MAX_REPS}`, 'INVALID_DATA');
     }
     assertSetLogEntriesValid(entry.prevSetLogs, 'prevSetLogs');
   }
@@ -5456,7 +5484,6 @@ var MAX_PROGRAM_CURSOR_CHARS = 256;
 var MAX_PROGRAM_ID_CHARS = 50;
 var MAX_SLOT_ID_CHARS = 50;
 var MAX_WORKOUT_INDEX_KEY_CHARS = 3;
-var MAX_AMRAP_REPS2 = 99;
 var MAX_SET_LOG_WEIGHT2 = 1e4;
 var MAX_SET_LOG_ITEMS2 = 20;
 var PROGRAM_ID_PATTERN = '^[a-z0-9-]+$';
@@ -5484,7 +5511,7 @@ var workoutIndexKeySchema = t2.String({
 });
 var setLogsSchema = t2.Array(
   t2.Object({
-    reps: t2.Integer({ minimum: 0, maximum: 999 }),
+    reps: t2.Integer({ minimum: 0, maximum: MAX_REPS }),
     weight: t2.Optional(t2.Number({ minimum: 0, maximum: MAX_SET_LOG_WEIGHT2 })),
     rpe: t2.Optional(t2.Integer({ minimum: 1, maximum: 10 })),
   }),
@@ -5798,7 +5825,7 @@ var programRoutes = new Elysia5({ prefix: '/programs' })
             slotIdSchema,
             t2.Object({
               result: t2.Optional(t2.Union([t2.Literal('success'), t2.Literal('fail')])),
-              amrapReps: t2.Optional(t2.Integer({ minimum: 0, maximum: MAX_AMRAP_REPS2 })),
+              amrapReps: t2.Optional(t2.Integer({ minimum: 0, maximum: MAX_REPS })),
               rpe: t2.Optional(t2.Integer({ minimum: 1, maximum: 10 })),
               setLogs: t2.Optional(setLogsSchema),
             }),
@@ -5812,7 +5839,7 @@ var programRoutes = new Elysia5({ prefix: '/programs' })
             slotId: slotIdSchema,
             prev: t2.Optional(t2.Union([t2.Literal('success'), t2.Literal('fail')])),
             prevRpe: t2.Optional(t2.Integer({ minimum: 1, maximum: 10 })),
-            prevAmrapReps: t2.Optional(t2.Integer({ minimum: 0, maximum: MAX_AMRAP_REPS2 })),
+            prevAmrapReps: t2.Optional(t2.Integer({ minimum: 0, maximum: MAX_REPS })),
             prevSetLogs: t2.Optional(setLogsSchema),
           }),
           { maxItems: MAX_IMPORT_UNDO_ENTRIES }
@@ -6653,7 +6680,6 @@ async function syncCompletedAt(tx, instanceId, workoutIndex, expectedSlots) {
     }
   }
 }
-var MAX_AMRAP_REPS3 = 99;
 var MAX_RESULT_WORKOUT_INDEX = MAX_TOTAL_WORKOUTS - 1;
 var MAX_SET_LOG_WEIGHT3 = 1e4;
 var MAX_SET_LOG_ITEMS3 = 20;
@@ -6675,8 +6701,8 @@ function assertSlotIdValid(slotId) {
 async function recordResult(userId, instanceId, input) {
   assertWorkoutIndexInRange(input.workoutIndex);
   assertSlotIdValid(input.slotId);
-  if (input.amrapReps !== void 0 && input.amrapReps > MAX_AMRAP_REPS3) {
-    throw new ApiError(400, `amrapReps cannot exceed ${MAX_AMRAP_REPS3}`, 'INVALID_DATA');
+  if (input.amrapReps !== void 0 && input.amrapReps > MAX_REPS) {
+    throw new ApiError(400, `amrapReps cannot exceed ${MAX_REPS}`, 'INVALID_DATA');
   }
   if (input.rpe !== void 0 && (input.rpe < 1 || input.rpe > 10)) {
     throw new ApiError(400, 'rpe must be between 1 and 10', 'INVALID_DATA');
@@ -6875,7 +6901,6 @@ async function undoLast(userId, instanceId) {
 // apps/backend/api/src/routes/results.ts
 var security4 = [{ bearerAuth: [] }];
 var MAX_RESULT_WORKOUT_INDEX2 = MAX_TOTAL_WORKOUTS - 1;
-var MAX_AMRAP_REPS4 = 99;
 var MAX_SET_LOG_WEIGHT4 = 1e4;
 var resultRoutes = new Elysia8({ prefix: '/programs/:id' })
   .use(requestLogger)
@@ -6920,12 +6945,12 @@ var resultRoutes = new Elysia8({ prefix: '/programs/:id' })
         workoutIndex: t5.Integer({ minimum: 0, maximum: MAX_RESULT_WORKOUT_INDEX2 }),
         slotId: t5.String({ minLength: 1, maxLength: 50 }),
         result: t5.Union([t5.Literal('success'), t5.Literal('fail')]),
-        amrapReps: t5.Optional(t5.Integer({ minimum: 0, maximum: MAX_AMRAP_REPS4 })),
+        amrapReps: t5.Optional(t5.Integer({ minimum: 0, maximum: MAX_REPS })),
         rpe: t5.Optional(t5.Integer({ minimum: 1, maximum: 10 })),
         setLogs: t5.Optional(
           t5.Array(
             t5.Object({
-              reps: t5.Integer({ minimum: 0, maximum: 999 }),
+              reps: t5.Integer({ minimum: 0, maximum: MAX_REPS }),
               weight: t5.Optional(t5.Number({ minimum: 0, maximum: MAX_SET_LOG_WEIGHT4 })),
               rpe: t5.Optional(t5.Integer({ minimum: 1, maximum: 10 })),
             }),

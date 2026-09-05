@@ -517,7 +517,7 @@ describe('POST /programs/import — result key validation', () => {
       '/programs/import',
       {
         ...VALID_IMPORT_PAYLOAD,
-        results: { '0': { t1: { result: 'success', amrapReps: 100 } } },
+        results: { '0': { t1: { result: 'success', amrapReps: 1000 } } },
       },
       { Authorization: `Bearer ${token}` }
     );
@@ -534,7 +534,7 @@ describe('POST /programs/import — result key validation', () => {
       '/programs/import',
       {
         ...VALID_IMPORT_PAYLOAD,
-        undoHistory: [{ i: 0, slotId: 't1', prevAmrapReps: 100 }],
+        undoHistory: [{ i: 0, slotId: 't1', prevAmrapReps: 1000 }],
       },
       { Authorization: `Bearer ${token}` }
     );

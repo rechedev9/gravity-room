@@ -4,13 +4,16 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
-import { AppState } from 'react-native';
+import { startForegroundSync } from '../lib/sync/foreground-sync';
 
 import type { AuthUser } from '../lib/auth/session';
 import {
-  getAccessToken,
+  readOfflineUser,
+  rememberOfflineUser,
+  SessionUnavailableError,
   restoreSession,
   setAccessToken,
   signInWithDev,
@@ -24,6 +27,7 @@ import {
   activateLocalDataOwner,
   clearLocalAppData,
   deactivateLocalDataOwner,
+  getActiveLocalDataOwner,
 } from '../lib/db/client';
 import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation-sync-service';
 
@@ -39,6 +43,7 @@ export interface AuthActionResult {
 interface AuthContextValue {
   readonly user: AuthUser | null;
   readonly loading: boolean;
+  readonly isOffline: boolean;
   // Guest mode is out of scope for this phase (web guest semantics are being
   // reworked). The flag is reserved here so a future guest provider can flip it
   // without changing this context's shape or its consumers.
@@ -87,6 +92,8 @@ function publishPreparedSession(accessToken: string): void {
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
+  const signingOut = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -99,7 +106,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return;
         }
 
-        return prepareLocalDataForUser(session.user.id).then(() => {
+        return prepareLocalDataForUser(session.user.id).then(async () => {
+          await rememberOfflineUser(session.user).catch(() => undefined);
           if (!active) return;
           publishPreparedSession(session.accessToken);
           setUser(session.user);
@@ -108,8 +116,26 @@ export function AuthProvider({ children }: PropsWithChildren) {
           });
         });
       })
-      .catch(() => {
+      .catch(async (error: unknown) => {
         if (!active) return;
+        if (error instanceof SessionUnavailableError) {
+          try {
+            const cached = await readOfflineUser();
+            if (!active) return;
+            if (cached) {
+              // Ownership was checked against secure storage; offline restore
+              // never adopts another account or clears data to claim it.
+              await activateLocalDataOwner(cached.id);
+              if (!active) return;
+              setAccessToken(null);
+              setIsOffline(true);
+              setUser(cached);
+              return;
+            }
+          } catch {
+            // Unreadable identity or SQLite cannot authorize cached startup.
+          }
+        }
         setUser(null);
       })
       .finally(() => {
@@ -122,35 +148,46 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  const syncOwnerId = user?.id;
   useEffect(() => {
-    if (!user) {
-      return;
-    }
-
-    const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState !== 'active') {
+    if (!syncOwnerId) return;
+    return startForegroundSync(syncOwnerId, async (isCurrent) => {
+      const current = (): boolean => isCurrent() && !signingOut.current;
+      if (!current()) return;
+      let session;
+      try {
+        session = await restoreSession();
+      } catch (error) {
+        if (error instanceof SessionUnavailableError) throw error;
+        session = null;
+      }
+      if (!current()) return;
+      if (!session || session.user.id !== syncOwnerId) {
+        deactivateLocalDataOwner();
+        setAccessToken(null);
+        setIsOffline(false);
+        setUser(null);
         return;
       }
-
-      const currentAccessToken = getAccessToken();
-      if (currentAccessToken) {
-        void flushQueuedMutations(currentAccessToken).catch(() => {
-          // Keep the outbox intact for a later foreground or explicit retry.
-        });
-      }
+      await rememberOfflineUser(session.user).catch(() => undefined);
+      if (!current() || getActiveLocalDataOwner() !== session.user.id) return;
+      publishPreparedSession(session.accessToken);
+      setIsOffline(false);
+      setUser(session.user);
     });
-
-    return () => subscription.remove();
-  }, [user]);
+  }, [syncOwnerId]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       loading,
+      isOffline,
       isGuest: false,
       signInWithGoogle: async (credential: string) => {
         const session = await signInWithGoogleIdToken(credential);
         await prepareLocalDataForUser(session.user.id);
+        await rememberOfflineUser(session.user).catch(() => undefined);
+        setIsOffline(false);
         publishPreparedSession(session.accessToken);
         setUser(session.user);
         void flushQueuedMutations(session.accessToken).catch(() => {
@@ -163,6 +200,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
           return { ok: false, code: result.code };
         }
         await prepareLocalDataForUser(result.session.user.id);
+        await rememberOfflineUser(result.session.user).catch(() => undefined);
+        setIsOffline(false);
         publishPreparedSession(result.session.accessToken);
         setUser(result.session.user);
         void flushQueuedMutations(result.session.accessToken).catch(() => {
@@ -187,6 +226,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
                 return { ok: false, code: result.code };
               }
               await prepareLocalDataForUser(result.session.user.id);
+              await rememberOfflineUser(result.session.user).catch(() => undefined);
+              setIsOffline(false);
               publishPreparedSession(result.session.accessToken);
               setUser(result.session.user);
               void flushQueuedMutations(result.session.accessToken).catch(() => {
@@ -200,7 +241,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
         // Durable credential deletion is the sign-out boundary. If SecureStore
         // cannot remove either credential, reject without changing user/access
         // state so the profile can display an error and let the user retry.
-        await signOutSession();
+        signingOut.current = true;
+        try {
+          await signOutSession();
+        } catch (error) {
+          signingOut.current = false;
+          throw error;
+        }
 
         // Credentials are now durably gone. Stop owner-scoped work before
         // clearing offline data; retain the owner marker when cleanup is partial
@@ -233,9 +280,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
           }
         }
         setUser(null);
+        setIsOffline(false);
+        signingOut.current = false;
       },
     }),
-    [loading, user]
+    [loading, user, isOffline]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

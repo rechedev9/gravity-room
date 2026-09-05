@@ -14,8 +14,10 @@ import {
   boolean,
   integer,
   foreignKey,
+  check,
 } from 'drizzle-orm/pg-core';
 import { relations, desc, sql } from 'drizzle-orm';
+import { MAX_REPS } from '@gzclp/domain/schemas/instance';
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -304,6 +306,10 @@ export const workoutResults = pgTable(
       table.workoutIndex,
       table.slotId
     ),
+    check(
+      'chk_workout_results_amrap_reps',
+      sql`${table.amrapReps} IS NULL OR ${table.amrapReps} BETWEEN 0 AND ${sql.raw(String(MAX_REPS))}`
+    ),
     index('workout_results_instance_id_idx').on(table.instanceId),
     index('workout_results_instance_workout_idx').on(table.instanceId, table.workoutIndex),
   ]
@@ -338,6 +344,10 @@ export const undoEntries = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [
+    check(
+      'chk_undo_entries_previous_amrap_reps',
+      sql`${table.previousAmrapReps} IS NULL OR ${table.previousAmrapReps} BETWEEN 0 AND ${sql.raw(String(MAX_REPS))}`
+    ),
     index('undo_entries_instance_id_idx').on(table.instanceId),
     index('undo_entries_instance_recency_idx').on(table.instanceId, table.id),
   ]

@@ -184,6 +184,18 @@ describe('POST /programs/:id/results without auth', () => {
 });
 
 describe('POST /programs/:id/results validation', () => {
+  it.each([99, 100, 999])(
+    'accepts shared-domain AMRAP value %i at the HTTP boundary',
+    async (amrapReps) => {
+      const payload = { workoutIndex: 1999, slotId: 't1', result: 'success', amrapReps };
+      const res = await post(`/programs/${INSTANCE_ID}/results`, payload, {
+        Authorization: `Bearer ${await makeValidJwt('user-1')}`,
+      });
+      expect(res.status).toBe(201);
+      expect(mockRecordResult).toHaveBeenCalledWith('user-1', INSTANCE_ID, payload);
+    }
+  );
+
   it('rejects workout indexes above the program definition cap before recording', async () => {
     const token = await makeValidJwt('user-1');
 
@@ -211,7 +223,7 @@ describe('POST /programs/:id/results validation', () => {
         workoutIndex: 0,
         slotId: 't1',
         result: 'success',
-        amrapReps: 100,
+        amrapReps: 1000,
       },
       { Authorization: `Bearer ${token}` }
     );

@@ -1,3 +1,7 @@
+import { parseRetryAfter } from '../network/retry-after';
+import { publishSyncAttempt } from './sync-events';
+import { readSyncBackoff, recordSyncBackoff, clearSyncBackoff } from './sync-backoff-repository';
+import { RequestTimeoutError } from '../network/api-fetch';
 import { isRecord } from '@gzclp/domain/type-guards';
 
 import { fetchWithAccessToken } from '../auth/session';
@@ -6,6 +10,7 @@ import {
   acknowledgeQueuedMutations,
   clearQueuedMutations as clearQueuedMutationsFromRepository,
   listQueuedMutations,
+  markQueuedMutationFailure,
   MUTATION_BATCH_SIZE,
   type QueuedMutation,
 } from './mutation-queue-repository';
@@ -15,10 +20,35 @@ let inFlightFlushAccessToken: string | null = null;
 let inFlightFlushOwnerId: string | null = null;
 let inFlightFlushRequest: { requested: boolean; accepting: boolean } | null = null;
 let inFlightFlushController: AbortController | null = null;
+let volatileRetryPause: { ownerId: string; retryAt: number; recordedAt: number } | null = null;
 
-class DiscardQueuedMutationError extends Error {}
+class InvalidQueuedMutationError extends Error {}
+
+class QueuedMutationHttpError extends Error {
+  constructor(
+    readonly status: number,
+    readonly retryAt = 0
+  ) {
+    super(`Queued mutation sync failed with status ${status}`);
+  }
+}
+
+function isPermanentFailure(error: unknown): boolean {
+  return (
+    error instanceof InvalidQueuedMutationError ||
+    (error instanceof QueuedMutationHttpError &&
+      error.status >= 400 &&
+      error.status < 500 &&
+      ![401, 408, 425, 429].includes(error.status))
+  );
+}
+
+export function cancelQueuedMutationFlush(ownerId: string): void {
+  if (inFlightFlushOwnerId === ownerId) inFlightFlushController?.abort();
+}
 
 export async function clearQueuedMutations(): Promise<void> {
+  volatileRetryPause = null;
   inFlightFlushController?.abort();
   inFlightFlush = null;
   inFlightFlushAccessToken = null;
@@ -38,7 +68,7 @@ async function replayQueuedMutation(
   signal: AbortSignal
 ): Promise<string> {
   if (mutation.entityType !== 'program-instance' || mutation.payloadValid === false) {
-    throw new DiscardQueuedMutationError('Invalid queued mutation envelope');
+    throw new InvalidQueuedMutationError('Invalid queued mutation envelope');
   }
 
   const requestPath = buildProgramRequestPath(mutation.entityId);
@@ -61,7 +91,7 @@ async function replayQueuedMutation(
         slotId.length === 0 ||
         (result !== 'success' && result !== 'fail')
       ) {
-        throw new DiscardQueuedMutationError('Invalid record-result mutation payload');
+        throw new InvalidQueuedMutationError('Invalid record-result mutation payload');
       }
 
       authorizedResponse = await fetchWithAccessToken(
@@ -78,7 +108,7 @@ async function replayQueuedMutation(
     }
     case 'update-metadata': {
       if (!isRecord(mutation.payload.metadata)) {
-        throw new DiscardQueuedMutationError('Invalid update-metadata mutation payload');
+        throw new InvalidQueuedMutationError('Invalid update-metadata mutation payload');
       }
 
       authorizedResponse = await fetchWithAccessToken(
@@ -103,7 +133,7 @@ async function replayQueuedMutation(
         typeof slotId !== 'string' ||
         slotId.length === 0
       ) {
-        throw new DiscardQueuedMutationError('Invalid delete-result mutation payload');
+        throw new InvalidQueuedMutationError('Invalid delete-result mutation payload');
       }
 
       authorizedResponse = await fetchWithAccessToken(
@@ -118,7 +148,7 @@ async function replayQueuedMutation(
       break;
     }
     default:
-      throw new DiscardQueuedMutationError(
+      throw new InvalidQueuedMutationError(
         `Unsupported queued mutation operation: ${mutation.operation}`
       );
   }
@@ -130,7 +160,10 @@ async function replayQueuedMutation(
   }
 
   if (!response.ok) {
-    throw new Error(`Queued mutation sync failed with status ${response.status}`);
+    throw new QueuedMutationHttpError(
+      response.status,
+      parseRetryAfter(response.headers.get('Retry-After'))
+    );
   }
 
   return authorizedResponse.accessToken;
@@ -148,7 +181,8 @@ export async function flushQueuedMutations(
     if (
       inFlightFlushAccessToken === accessToken &&
       inFlightFlushOwnerId === ownerId &&
-      inFlightFlushRequest?.accepting
+      inFlightFlushRequest?.accepting &&
+      !inFlightFlushController?.signal.aborted
     ) {
       if (inFlightFlushRequest) inFlightFlushRequest.requested = true;
       return inFlightFlush;
@@ -161,18 +195,52 @@ export async function flushQueuedMutations(
     inFlightFlushController = null;
   }
 
+  let failed = false;
+  let retryable = true;
+  let retryAt: number | undefined;
   const abortController = new AbortController();
   const request = { requested: false, accepting: true };
 
   const flushPromise = (async (): Promise<{ readonly processedCount: number }> => {
+    const now = Date.now();
+    let memoryDeadline = 0;
+    if (volatileRetryPause?.ownerId === ownerId) {
+      if (now < volatileRetryPause.recordedAt) {
+        volatileRetryPause.retryAt =
+          now + Math.max(0, volatileRetryPause.retryAt - volatileRetryPause.recordedAt);
+        volatileRetryPause.recordedAt = now;
+      }
+      memoryDeadline = volatileRetryPause.retryAt;
+    }
+    // Read durable state even while memory is paused: both clocks must rebase
+    // in the same attempt. Memory still preserves server guidance if SQLite fails.
+    let persistedDeadline: number;
+    try {
+      persistedDeadline = await readSyncBackoff(ownerId);
+    } catch (error) {
+      if (memoryDeadline <= Date.now()) throw error;
+      persistedDeadline = memoryDeadline;
+    }
+    const pausedUntil = Math.max(memoryDeadline, persistedDeadline);
+    if (pausedUntil > Date.now()) {
+      retryAt = pausedUntil;
+      throw new Error('Queued mutation sync is waiting to retry');
+    }
     let processedCount = 0;
     let nextAccessToken = accessToken;
+    let afterId = 0;
+    let retainedFailure: unknown;
+    const failedPlans = new Set<string>();
     do {
       request.requested = false;
-      const queuedMutations = await listQueuedMutations(ownerId);
+      const queuedMutations = await listQueuedMutations(ownerId, afterId);
       if (queuedMutations.length === MUTATION_BATCH_SIZE) request.requested = true;
       const acknowledgedIds: number[] = [];
       for (const mutation of queuedMutations) {
+        afterId = mutation.id;
+        // Later edits for a rejected plan must not overtake its retained intent.
+        // Keyset paging still permits unrelated plans beyond this page to drain.
+        if (failedPlans.has(mutation.entityId)) continue;
         try {
           nextAccessToken = await replayQueuedMutation(
             mutation,
@@ -181,12 +249,54 @@ export async function flushQueuedMutations(
           );
           acknowledgedIds.push(mutation.id);
         } catch (error) {
-          if (error instanceof DiscardQueuedMutationError) {
-            acknowledgedIds.push(mutation.id);
+          // Keep server guidance even if SQLite is temporarily unable to save
+          // the diagnostic/backoff. Other callers must honor it in this process.
+          if (
+            !abortController.signal.aborted &&
+            error instanceof QueuedMutationHttpError &&
+            error.retryAt > Date.now()
+          ) {
+            retryAt = error.retryAt;
+            volatileRetryPause = { ownerId, retryAt, recordedAt: Date.now() };
+          }
+          if (
+            !abortController.signal.aborted &&
+            !(error instanceof Error && error.name === 'AbortError')
+          ) {
+            await markQueuedMutationFailure(
+              mutation.id,
+              error instanceof InvalidQueuedMutationError
+                ? 'INVALID_OUTBOX'
+                : error instanceof QueuedMutationHttpError
+                  ? `HTTP_${error.status}`
+                  : error instanceof RequestTimeoutError
+                    ? 'REQUEST_TIMEOUT'
+                    : 'NETWORK_ERROR',
+              ownerId
+            );
+          }
+          if (isPermanentFailure(error)) {
+            retainedFailure ??= error;
+            failedPlans.add(mutation.entityId);
             continue;
           }
           if (acknowledgedIds.length > 0)
             await acknowledgeQueuedMutations(acknowledgedIds, ownerId);
+          if (
+            abortController.signal.aborted ||
+            (error instanceof Error && error.name === 'AbortError')
+          ) {
+            retryable = false;
+          } else if (error instanceof QueuedMutationHttpError && error.status === 401) {
+            retryable = false;
+          } else {
+            retryAt = await recordSyncBackoff(
+              ownerId,
+              error instanceof QueuedMutationHttpError ? error.retryAt : 0,
+              abortController.signal
+            );
+            volatileRetryPause = { ownerId, retryAt, recordedAt: Date.now() };
+          }
           throw error;
         }
       }
@@ -196,6 +306,14 @@ export async function flushQueuedMutations(
       // uploading. All joiners await the additional batch before refreshing.
     } while (request.requested);
     request.accepting = false;
+    // Callers must not hydrate a server snapshot over unsent local edits.
+    // Malformed rows remain available for repair rather than being discarded.
+    await clearSyncBackoff(ownerId, abortController.signal);
+    if (volatileRetryPause?.ownerId === ownerId) volatileRetryPause = null;
+    if (retainedFailure !== undefined) {
+      retryable = false;
+      throw retainedFailure;
+    }
     return { processedCount };
   })();
 
@@ -207,13 +325,25 @@ export async function flushQueuedMutations(
 
   try {
     return await flushPromise;
+  } catch (error) {
+    failed = true;
+    if (error instanceof Error && error.name === 'AbortError') retryable = false;
+    throw error;
   } finally {
-    if (inFlightFlush === flushPromise) {
+    const ownsFlush = inFlightFlush === flushPromise;
+    if (ownsFlush) {
       inFlightFlush = null;
       inFlightFlushRequest = null;
       inFlightFlushAccessToken = null;
       inFlightFlushOwnerId = null;
       inFlightFlushController = null;
     }
+    if (ownsFlush)
+      publishSyncAttempt({
+        ownerId,
+        failed,
+        retryable,
+        ...(retryAt === undefined ? {} : { retryAt }),
+      });
   }
 }

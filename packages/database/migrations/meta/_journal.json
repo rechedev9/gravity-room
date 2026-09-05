@@ -330,6 +330,13 @@
       "when": 1786300000000,
       "tag": "0046_security_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1788605462178,
+      "tag": "0047_daily_spencer_smythe",
+      "breakpoints": true
     }
   ]
 }

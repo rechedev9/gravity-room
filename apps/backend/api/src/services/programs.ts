@@ -12,6 +12,7 @@ import {
 } from '@gzclp/database/schema';
 import { getProgramDefinition } from '../services/catalog';
 import {
+  MAX_REPS,
   GenericUndoHistorySchema,
   ProgramInstanceSchema,
   SetLogEntrySchema,
@@ -75,7 +76,6 @@ export interface ProgramInstanceResponse {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const MAX_AMRAP_REPS = 99;
 const MAX_SET_LOG_ITEMS = 20;
 const MAX_SET_LOG_WEIGHT = 10_000;
 const MAX_METADATA_BYTES = 10_000;
@@ -605,8 +605,8 @@ export async function importInstance(
           'INVALID_DATA'
         );
       }
-      if (slotData.amrapReps !== undefined && slotData.amrapReps > MAX_AMRAP_REPS) {
-        throw new ApiError(400, `amrapReps cannot exceed ${MAX_AMRAP_REPS}`, 'INVALID_DATA');
+      if (slotData.amrapReps !== undefined && slotData.amrapReps > MAX_REPS) {
+        throw new ApiError(400, `amrapReps cannot exceed ${MAX_REPS}`, 'INVALID_DATA');
       }
       assertSetLogEntriesValid(slotData.setLogs, 'setLogs');
     }
@@ -629,8 +629,8 @@ export async function importInstance(
         'INVALID_DATA'
       );
     }
-    if (entry.prevAmrapReps !== undefined && entry.prevAmrapReps > MAX_AMRAP_REPS) {
-      throw new ApiError(400, `prevAmrapReps cannot exceed ${MAX_AMRAP_REPS}`, 'INVALID_DATA');
+    if (entry.prevAmrapReps !== undefined && entry.prevAmrapReps > MAX_REPS) {
+      throw new ApiError(400, `prevAmrapReps cannot exceed ${MAX_REPS}`, 'INVALID_DATA');
     }
     assertSetLogEntriesValid(entry.prevSetLogs, 'prevSetLogs');
   }

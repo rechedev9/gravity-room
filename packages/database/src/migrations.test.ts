@@ -118,7 +118,7 @@ describe('migration metadata', () => {
     );
   });
 
-  it.each(['0044_snapshot.json', '0045_snapshot.json'])(
+  it.each(['0044_snapshot.json', '0045_snapshot.json', '0046_snapshot.json', '0047_snapshot.json'])(
     'records the refresh-token family column as nullable during rollout in %s',
     async (snapshotName) => {
       const snapshot = JSON.parse(
@@ -157,5 +157,21 @@ describe('migration metadata', () => {
     expect(migration).toContain('FORCE ROW LEVEL SECURITY');
     expect(migration).toContain('app_is_service');
     expect(migration).toContain('app_current_user_id');
+  });
+  it('keeps the repaired metadata chain connected through the rep-limit migration', async () => {
+    const snapshots = await Promise.all(
+      ['0045', '0046', '0047'].map(async (index) =>
+        JSON.parse(await readFile(join(MIGRATIONS_DIR, 'meta', `${index}_snapshot.json`), 'utf8'))
+      )
+    );
+    expect(snapshots[1].prevId).toBe(snapshots[0].id);
+    expect(snapshots[2].prevId).toBe(snapshots[1].id);
+  });
+
+  it('keeps rep-limit expansion separate from deferred refresh-token and email-index changes', async () => {
+    const migration = await readFile(join(MIGRATIONS_DIR, '0047_daily_spencer_smythe.sql'), 'utf8');
+    expect(migration).not.toContain('refresh_tokens');
+    expect(migration).not.toContain('users_email');
+    expect(migration).not.toMatch(/SET NOT NULL|DROP INDEX/i);
   });
 });

@@ -1,6 +1,6 @@
 {
-  "id": "0046_security_hardening",
-  "prevId": "99642398-c630-4123-b35e-a6870b608616",
+  "id": "d760b417-f2d5-4e57-b9b0-3afc041928a9",
+  "prevId": "0046_security_hardening",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1085,7 +1085,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "chk_undo_entries_previous_amrap_reps": {
+          "name": "chk_undo_entries_previous_amrap_reps",
+          "value": "\"undo_entries\".\"previous_amrap_reps\" IS NULL OR \"undo_entries\".\"previous_amrap_reps\" BETWEEN 0 AND 999"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.user_identities": {
@@ -1363,10 +1368,10 @@
             }
           ],
           "isUnique": true,
+          "where": "\"users\".\"deleted_at\" IS NULL",
           "concurrently": false,
           "method": "btree",
-          "with": {},
-          "where": "\"deleted_at\" IS NULL"
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -1526,7 +1531,12 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "chk_workout_results_amrap_reps": {
+          "name": "chk_workout_results_amrap_reps",
+          "value": "\"workout_results\".\"amrap_reps\" IS NULL OR \"workout_results\".\"amrap_reps\" BETWEEN 0 AND 999"
+        }
+      },
       "isRLSEnabled": false
     }
   },

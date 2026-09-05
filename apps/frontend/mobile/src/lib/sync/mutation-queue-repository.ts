@@ -27,6 +27,7 @@ export type QueuedMutation = {
   readonly payload: MutationPayload;
   readonly payloadValid?: boolean;
   readonly createdAt: string;
+  readonly lastErrorCode?: string;
 };
 
 type QueuedMutationRow = {
@@ -36,6 +37,7 @@ type QueuedMutationRow = {
   readonly operation: string;
   readonly payload_json: string;
   readonly created_at: string;
+  readonly last_error_code: string | null;
 };
 
 function parsePayload(payloadJson: string): {
@@ -107,18 +109,20 @@ export async function enqueueMutation(input: EnqueueMutationInput): Promise<void
 }
 
 export async function listQueuedMutations(
-  ownerId: string = requireActiveLocalDataOwner()
+  ownerId: string = requireActiveLocalDataOwner(),
+  afterId = 0
 ): Promise<QueuedMutation[]> {
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   const rows = await database.getAllAsync<QueuedMutationRow>(
-    `SELECT id, entity_type, entity_id, operation, payload_json, created_at
+    `SELECT id, entity_type, entity_id, operation, payload_json, created_at, last_error_code
      FROM queued_mutations
-     WHERE owner_user_id = ?
+     WHERE owner_user_id = ? AND id > ?
      ORDER BY id ASC
      LIMIT ?`,
     ownerId,
+    afterId,
     MUTATION_BATCH_SIZE
   );
 
@@ -132,8 +136,31 @@ export async function listQueuedMutations(
       payload: parsed.payload,
       ...(parsed.payloadValid ? {} : { payloadValid: false }),
       createdAt: row.created_at,
+      ...(row.last_error_code ? { lastErrorCode: row.last_error_code } : {}),
     };
   });
+}
+
+export type MutationFailureCode =
+  | 'INVALID_OUTBOX'
+  | 'NETWORK_ERROR'
+  | 'REQUEST_TIMEOUT'
+  | `HTTP_${number}`;
+
+/** A stale in-flight request can only mark its own immutable row ID. */
+export async function markQueuedMutationFailure(
+  id: number,
+  code: MutationFailureCode,
+  ownerId: string = requireActiveLocalDataOwner()
+): Promise<void> {
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  await database.runAsync(
+    'UPDATE queued_mutations SET last_error_code = ? WHERE owner_user_id = ? AND id = ?',
+    code,
+    ownerId,
+    id
+  );
 }
 
 export async function acknowledgeQueuedMutations(

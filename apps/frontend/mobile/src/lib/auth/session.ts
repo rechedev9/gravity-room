@@ -1,10 +1,13 @@
-import { fetchApiResponse } from '../network/api-fetch';
+import { parseRetryAfter } from '../network/retry-after';
+import { RequestTimeoutError, fetchApiResponse } from '../network/api-fetch';
 import { createSingleFlight } from '@gzclp/api-client/single-flight';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { Platform } from 'react-native';
 import {
   canPersistRefreshToken,
   secureRefreshTokenStorage,
+  secureOfflineIdentityStorage,
+  secureLocalDataOwnerStorage,
   secureSessionKindStorage,
   type RefreshTokenStorage,
   type SessionKindStorage,
@@ -74,6 +77,14 @@ export type EmailSignUpResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly code: string };
 
+/** Only transport outages and explicitly retryable HTTP responses permit cached startup. */
+export class SessionUnavailableError extends Error {
+  constructor(readonly retryAt?: number) {
+    super('Session service is temporarily unavailable');
+    this.name = 'SessionUnavailableError';
+  }
+}
+
 export class InvalidRefreshTokenError extends Error {
   constructor(message = 'Invalid refresh token') {
     super(message);
@@ -100,6 +111,8 @@ interface RestoreSessionDependencies {
 }
 
 let accessToken: string | null = null;
+let signingOut = false;
+let restoreInProgress: Promise<SessionState | null> | undefined;
 let pendingRestoreDeps: RestoreSessionDependencies = {};
 
 const singleFlightRestore = createSingleFlight(async (): Promise<SessionState | null> => {
@@ -118,7 +131,12 @@ const singleFlightRestore = createSingleFlight(async (): Promise<SessionState | 
     // and stops a stale cookie from silently resurrecting a signed-out session.
     const kind = await kindStorage.getSessionKind();
     if (kind === 'email') {
-      return restoreCookie();
+      const restored = await restoreCookie();
+      if (!restored) {
+        await kindStorage.clearSessionKind();
+        await secureOfflineIdentityStorage.clear().catch(() => undefined);
+      }
+      return restored;
     }
     return null;
   }
@@ -134,7 +152,10 @@ const singleFlightRestore = createSingleFlight(async (): Promise<SessionState | 
     accessToken = null;
     if (error instanceof InvalidRefreshTokenError) {
       await storage.clearRefreshToken();
+      await kindStorage.clearSessionKind();
+      await secureOfflineIdentityStorage.clear().catch(() => undefined);
     }
+    if (error instanceof SessionUnavailableError) throw error;
     return null;
   }
 });
@@ -167,6 +188,30 @@ function readAuthUser(value: unknown): AuthUser {
     name: typeof name === 'string' ? name : null,
     avatarUrl: typeof avatarUrl === 'string' ? avatarUrl : null,
   };
+}
+
+/** Cache only verified identity, after the caller has prepared matching local ownership. */
+export async function rememberOfflineUser(user: AuthUser): Promise<void> {
+  const validated = readAuthUser(user);
+  if ((await secureLocalDataOwnerStorage.getOwnerId()) !== validated.id) {
+    throw new Error('Offline identity does not own local data');
+  }
+  await secureOfflineIdentityStorage.set(JSON.stringify(validated));
+}
+
+/** Caller must first observe SessionUnavailableError from an existing credential. */
+export async function readOfflineUser(): Promise<AuthUser | null> {
+  const [serialized, ownerId] = await Promise.all([
+    secureOfflineIdentityStorage.get(),
+    secureLocalDataOwnerStorage.getOwnerId(),
+  ]);
+  if (!serialized || !ownerId) return null;
+  try {
+    const user = readAuthUser(JSON.parse(serialized));
+    return user.id === ownerId ? user : null;
+  } catch {
+    return null;
+  }
 }
 
 function readRefreshResponse(value: unknown): RefreshResponse {
@@ -300,8 +345,44 @@ async function fetchWithToken(
   return fetchApiResponse(buildApiUrl(path), createAuthorizedRequestInit(accessToken, init));
 }
 
+// A process-local auth cooldown also applies to immediate cached-start recovery
+// and foreground resumes. It carries no credentials and is shared across refresh
+// transports so changing auth mechanism cannot bypass server guidance.
+let sessionRetryPause: { retryAt: number; recordedAt: number } | undefined;
+
+async function fetchSessionResponse(url: string, init: RequestInit): Promise<Response> {
+  const now = Date.now();
+  if (sessionRetryPause) {
+    if (now < sessionRetryPause.recordedAt) {
+      sessionRetryPause.retryAt =
+        now + Math.max(0, sessionRetryPause.retryAt - sessionRetryPause.recordedAt);
+      sessionRetryPause.recordedAt = now;
+    }
+    if (sessionRetryPause.retryAt > now)
+      throw new SessionUnavailableError(sessionRetryPause.retryAt);
+    sessionRetryPause = undefined;
+  }
+  let response: Response;
+  try {
+    response = await fetchApiResponse(url, init);
+  } catch (error) {
+    // Native fetch reports connectivity failures as TypeError. Configuration,
+    // JSON validation and secure persistence happen outside this boundary.
+    if (error instanceof TypeError || error instanceof RequestTimeoutError) {
+      throw new SessionUnavailableError();
+    }
+    throw error;
+  }
+  if (response.status === 408 || response.status === 429 || response.status >= 500) {
+    const retryAt = parseRetryAfter(response.headers.get('Retry-After'));
+    if (retryAt > Date.now()) sessionRetryPause = { retryAt, recordedAt: Date.now() };
+    throw new SessionUnavailableError(retryAt || undefined);
+  }
+  return response;
+}
+
 async function refreshMobileSession(refreshToken: string): Promise<RefreshResponse> {
-  const response = await fetchApiResponse(buildApiUrl('/auth/mobile/refresh'), {
+  const response = await fetchSessionResponse(buildApiUrl('/auth/mobile/refresh'), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -310,7 +391,7 @@ async function refreshMobileSession(refreshToken: string): Promise<RefreshRespon
   });
 
   if (!response.ok) {
-    if (response.status === 401) {
+    if (response.status === 401 || response.status === 403) {
       throw new InvalidRefreshTokenError();
     }
     throw new Error(`Mobile session refresh failed with status ${response.status}`);
@@ -382,22 +463,15 @@ async function postEmailSignup(email: string, password: string, name?: string): 
 }
 
 async function restoreCookieSession(): Promise<SessionState | null> {
-  try {
-    const response = await fetchApiResponse(buildApiUrl('/auth/refresh'), {
-      method: 'POST',
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      accessToken = null;
-      return null;
-    }
-
-    return readSessionResponse(await response.json());
-  } catch {
+  const response = await fetchSessionResponse(buildApiUrl('/auth/refresh'), {
+    method: 'POST',
+    credentials: 'include',
+  });
+  if (!response.ok) {
     accessToken = null;
     return null;
   }
+  return readSessionResponse(await response.json());
 }
 
 async function revokeCookieSession(): Promise<void> {
@@ -683,6 +757,19 @@ export async function signInWithDev(
 }
 
 export async function signOutSession(dependencies: SignOutDependencies = {}): Promise<void> {
+  if (signingOut) throw new Error('Sign-out is already in progress');
+  signingOut = true;
+  try {
+    // Refresh rotation may write a durable credential. Wait for the bounded
+    // active refresh before deleting credentials, and admit no new restores.
+    await restoreInProgress?.catch(() => undefined);
+    await performSignOut(dependencies);
+  } finally {
+    signingOut = false;
+  }
+}
+
+async function performSignOut(dependencies: SignOutDependencies): Promise<void> {
   const storage = dependencies.storage ?? secureRefreshTokenStorage;
   const kindStorage = dependencies.sessionKindStorage ?? secureSessionKindStorage;
   const revokeRemoteSession = dependencies.revokeRemoteSession ?? revokeMobileSession;
@@ -716,11 +803,19 @@ export async function signOutSession(dependencies: SignOutDependencies = {}): Pr
   }
 
   accessToken = null;
+  await secureOfflineIdentityStorage.clear().catch(() => undefined);
 }
 
 export async function restoreSession(
   dependencies: RestoreSessionDependencies = {}
 ): Promise<SessionState | null> {
+  if (signingOut) return null;
   pendingRestoreDeps = dependencies;
-  return singleFlightRestore();
+  const pending = singleFlightRestore();
+  restoreInProgress = pending;
+  try {
+    return await pending;
+  } finally {
+    if (restoreInProgress === pending) restoreInProgress = undefined;
+  }
 }

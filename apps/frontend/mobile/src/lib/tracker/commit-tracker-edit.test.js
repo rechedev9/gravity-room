@@ -1,3 +1,4 @@
+const { parseRetryAfter } = require('../network/retry-after');
 const { DatabaseSync } = require('node:sqlite');
 const { mkdtempSync, rmSync } = require('node:fs');
 const { tmpdir } = require('node:os');
@@ -9,8 +10,15 @@ const { getSetDrafts, saveSetDrafts } = require('./set-draft-repository');
 const {
   listQueuedMutations,
   enqueueMutation,
+  markQueuedMutationFailure,
   acknowledgeQueuedMutations,
 } = require('../sync/mutation-queue-repository');
+
+const {
+  readSyncBackoff,
+  recordSyncBackoff,
+  clearSyncBackoff,
+} = require('../sync/sync-backoff-repository');
 
 jest.mock('../auth/session', () => ({ getAccessToken: () => null }));
 jest.mock('../sync/mutation-sync-service', () => ({ flushQueuedMutations: jest.fn() }));
@@ -141,11 +149,26 @@ describe('atomic local workout edits', () => {
     expect(first.map((row) => row.entityId)).toEqual(
       Array.from({ length: 50 }, (_, index) => `plan-${index}`)
     );
-    await acknowledgeQueuedMutations(first.map((row) => row.id));
-    const second = await listQueuedMutations();
+    // Read beyond a retained first page without acknowledging its rows.
+    const second = await listQueuedMutations('owner-a', first.at(-1).id);
     expect(second.map((row) => row.entityId)).toEqual(
       Array.from({ length: 13 }, (_, index) => `plan-${index + 50}`)
     );
+  });
+
+  it('persists and queues a valid workout beyond index 999 without losing earlier results', async () => {
+    const detail = {
+      ...COMPLETE,
+      results: { ...COMPLETE.results, 1000: { squat: { result: 'success', amrapReps: 999 } } },
+    };
+    await commitTrackerEdit(detail, { workoutIndex: 1000, slotId: 'squat' });
+    expect(await getProgramDetail(BASE.id)).toEqual(detail);
+    expect(await listQueuedMutations()).toEqual([
+      expect.objectContaining({
+        operation: 'record-result',
+        payload: { workoutIndex: 1000, slotId: 'squat', result: 'success', amrapReps: 999 },
+      }),
+    ]);
   });
 
   it.each([
@@ -163,6 +186,72 @@ describe('atomic local workout edits', () => {
       expect(await listQueuedMutations()).toEqual(pending);
     }
   );
+
+  it('keeps a failure diagnostic across restart and protects a replacement from stale failures', async () => {
+    await commitTrackerEdit(COMPLETE, TARGET);
+    const [old] = await listQueuedMutations();
+    await markQueuedMutationFailure(old.id, 'HTTP_403');
+    sqlite.close();
+    open();
+    await client.activateLocalDataOwner('owner-a', database);
+    expect(await listQueuedMutations()).toEqual([
+      expect.objectContaining({ lastErrorCode: 'HTTP_403' }),
+    ]);
+    await markQueuedMutationFailure(old.id, 'HTTP_500', 'owner-b');
+    expect(await listQueuedMutations()).toEqual([
+      expect.objectContaining({ lastErrorCode: 'HTTP_403' }),
+    ]);
+    await commitTrackerEdit(BASE, TARGET);
+    await markQueuedMutationFailure(old.id, 'HTTP_500');
+    expect(await listQueuedMutations()).toEqual([
+      expect.objectContaining({ operation: 'delete-result' }),
+    ]);
+    expect((await listQueuedMutations())[0].lastErrorCode).toBeUndefined();
+  });
+
+  it('persists owner-wide retry pauses across restart and rebases a backwards clock once', async () => {
+    const now = 1788600000000;
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+    jest.spyOn(Math, 'random').mockReturnValue(0);
+    expect(await recordSyncBackoff('owner-a')).toBe(now + 5000);
+    expect(await recordSyncBackoff('owner-a')).toBe(now + 10000);
+    expect(await recordSyncBackoff('owner-a', now + 60000)).toBe(now + 60000);
+    sqlite.close();
+    open();
+    await client.activateLocalDataOwner('owner-a', database);
+    expect(await readSyncBackoff('owner-a')).toBe(now + 60000);
+    expect(await readSyncBackoff('owner-b')).toBe(0);
+    clock.mockReturnValue(now - 3600000);
+    expect(await readSyncBackoff('owner-a')).toBe(now - 3600000 + 60000);
+    expect(await readSyncBackoff('owner-a')).toBe(now - 3600000 + 60000);
+    await clearSyncBackoff('owner-b');
+    expect(await readSyncBackoff('owner-a')).toBe(now - 3600000 + 60000);
+    await clearSyncBackoff('owner-a');
+    expect(await readSyncBackoff('owner-a')).toBe(0);
+  });
+
+  it('does not let a cancelled attempt erase or replace a newer retry pause', async () => {
+    const future = Date.now() + 60000;
+    await recordSyncBackoff('owner-a', future);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(clearSyncBackoff('owner-a', controller.signal)).rejects.toMatchObject({
+      name: 'AbortError',
+    });
+    await expect(
+      recordSyncBackoff('owner-a', future + 60000, controller.signal)
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(await readSyncBackoff('owner-a')).toBe(future);
+  });
+
+  it('parses server retry seconds and HTTP dates without overflowing timers', () => {
+    const now = Date.parse('2026-09-05T10:00:00Z');
+    expect(parseRetryAfter('60', now)).toBe(now + 60000);
+    expect(parseRetryAfter('Sat, 05 Sep 2026 10:01:00 GMT', now)).toBe(now + 60000);
+    for (const invalid of [null, '', '-1', 'bad', '999999999999999999999999']) {
+      expect(parseRetryAfter(invalid, now)).toBe(0);
+    }
+  });
 
   it('rejects malformed edits before changing data', async () => {
     await expect(commitTrackerEdit(COMPLETE, { ...TARGET, workoutIndex: -1 })).rejects.toThrow();

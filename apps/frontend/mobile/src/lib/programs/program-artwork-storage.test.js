@@ -64,6 +64,6 @@ describe('program artwork identity in SQLite', () => {
     expect(await listProgramSummaries()).toEqual([]);
     await client.activateLocalDataOwner('athlete-a', database);
     expect(await listProgramSummaries()).toEqual([plan]);
-    expect(sqlite.prepare('PRAGMA user_version').get().user_version).toBe(5);
+    expect(sqlite.prepare('PRAGMA user_version').get().user_version).toBe(7);
   });
 });

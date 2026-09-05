@@ -7,7 +7,7 @@ import { getDb } from '../db';
 import { programInstances, workoutResults, undoEntries } from '@gzclp/database/schema';
 import { ApiError } from '../middleware/error-handler';
 import { getHistoricalProgramDefinition } from '../services/catalog';
-import { SetLogEntrySchema } from '@gzclp/domain/schemas/instance';
+import { MAX_REPS, SetLogEntrySchema } from '@gzclp/domain/schemas/instance';
 import { MAX_TOTAL_WORKOUTS } from '@gzclp/domain/schemas/program-definition';
 import type { SetLogEntry } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
@@ -194,7 +194,6 @@ async function syncCompletedAt(
 // Record a workout result
 // ---------------------------------------------------------------------------
 
-const MAX_AMRAP_REPS = 99;
 const MAX_RESULT_WORKOUT_INDEX = MAX_TOTAL_WORKOUTS - 1;
 const MAX_SET_LOG_WEIGHT = 10_000;
 const MAX_SET_LOG_ITEMS = 20;
@@ -223,8 +222,8 @@ export async function recordResult(
 ): Promise<WorkoutResultRow> {
   assertWorkoutIndexInRange(input.workoutIndex);
   assertSlotIdValid(input.slotId);
-  if (input.amrapReps !== undefined && input.amrapReps > MAX_AMRAP_REPS) {
-    throw new ApiError(400, `amrapReps cannot exceed ${MAX_AMRAP_REPS}`, 'INVALID_DATA');
+  if (input.amrapReps !== undefined && input.amrapReps > MAX_REPS) {
+    throw new ApiError(400, `amrapReps cannot exceed ${MAX_REPS}`, 'INVALID_DATA');
   }
   if (input.rpe !== undefined && (input.rpe < 1 || input.rpe > 10)) {
     throw new ApiError(400, 'rpe must be between 1 and 10', 'INVALID_DATA');

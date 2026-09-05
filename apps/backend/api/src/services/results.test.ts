@@ -307,13 +307,13 @@ describe('recordResult', () => {
     expect(result).toEqual(row);
   });
 
-  it('should reject amrapReps exceeding 99 with INVALID_DATA', async () => {
+  it('should reject amrapReps exceeding 999 with INVALID_DATA', async () => {
     try {
       await recordResult('user-1', 'inst-1', {
         workoutIndex: 0,
         slotId: 't1',
         result: 'success',
-        amrapReps: 100,
+        amrapReps: 1000,
       });
       expect(true).toBe(false); // should not reach
     } catch (err) {

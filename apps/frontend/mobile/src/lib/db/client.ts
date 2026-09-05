@@ -115,6 +115,7 @@ export async function clearLocalAppData(client: DatabaseClient = getDatabase()):
   await client.withExclusiveTransactionAsync(async (transaction) => {
     await transaction.runAsync('DELETE FROM set_drafts');
     await transaction.runAsync('DELETE FROM queued_mutations');
+    await transaction.runAsync('DELETE FROM sync_backoff');
     await transaction.runAsync('DELETE FROM program_details');
     await transaction.runAsync('DELETE FROM program_definitions');
     await transaction.runAsync('DELETE FROM program_summaries');

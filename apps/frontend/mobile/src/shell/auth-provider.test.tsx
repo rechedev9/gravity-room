@@ -4,6 +4,9 @@ import { AppState, Text } from 'react-native';
 import { AuthProvider, useAuth } from './auth-provider';
 import {
   getAccessToken,
+  readOfflineUser,
+  rememberOfflineUser,
+  SessionUnavailableError,
   restoreSession,
   setAccessToken,
   signInWithGoogleIdToken,
@@ -18,6 +21,9 @@ import {
 import { clearQueuedMutations, flushQueuedMutations } from '../lib/sync/mutation-sync-service';
 
 jest.mock('../lib/auth/session', () => ({
+  SessionUnavailableError: class SessionUnavailableError extends Error {},
+  readOfflineUser: jest.fn(async () => null),
+  rememberOfflineUser: jest.fn(async () => undefined),
   getAccessToken: jest.fn(),
   restoreSession: jest.fn(),
   setAccessToken: jest.fn(),
@@ -31,6 +37,7 @@ jest.mock('../lib/db/client', () => ({
   activateLocalDataOwner: jest.fn(),
   clearLocalAppData: jest.fn(),
   deactivateLocalDataOwner: jest.fn(),
+  getActiveLocalDataOwner: jest.fn(() => 'user-123'),
 }));
 
 jest.mock('../lib/auth/secure-storage', () => ({
@@ -44,6 +51,7 @@ jest.mock('../lib/auth/secure-storage', () => ({
 jest.mock('../lib/sync/mutation-sync-service', () => ({
   clearQueuedMutations: jest.fn(),
   flushQueuedMutations: jest.fn(),
+  cancelQueuedMutationFlush: jest.fn(),
 }));
 
 const mockedRestoreSession = jest.mocked(restoreSession);
@@ -70,13 +78,14 @@ function createDeferred<T>() {
 }
 
 function AuthProbe() {
-  const { loading, signInWithGoogle, signOut, user } = useAuth();
+  const { loading, isOffline, signOut, user } = useAuth();
   if (loading) return <Text>loading</Text>;
   if (!user) return <Text>signed-out</Text>;
 
   return (
     <>
       <Text>{user.email}</Text>
+      <Text>{isOffline ? 'offline' : 'online'}</Text>
       <Text
         accessibilityRole="button"
         onPress={() => {
@@ -113,6 +122,8 @@ describe('AuthProvider', () => {
     mockedLocalDataOwnerStorage.setOwnerId.mockResolvedValue();
     mockedLocalDataOwnerStorage.clearOwnerId.mockResolvedValue();
     mockedActivateLocalDataOwner.mockResolvedValue();
+    jest.mocked(readOfflineUser).mockResolvedValue(null);
+    jest.mocked(rememberOfflineUser).mockResolvedValue();
   });
 
   afterEach(() => {
@@ -445,5 +456,59 @@ describe('AuthProvider', () => {
     });
     expect(mockedSetAccessToken).not.toHaveBeenCalledWith('new-account-token');
     expect(mockedFlushQueuedMutations).not.toHaveBeenCalled();
+  });
+});
+
+describe('cached startup', () => {
+  const cachedUser = { id: 'user-123', email: 'cached@example.com', name: null, avatarUrl: null };
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(AppState, 'addEventListener').mockReturnValue({ remove: jest.fn() });
+    mockedActivateLocalDataOwner.mockResolvedValue();
+    mockedGetAccessToken.mockReturnValue(null);
+    jest.mocked(readOfflineUser).mockResolvedValue(cachedUser);
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('opens matching cached identity only after a temporary session outage, without sending edits', async () => {
+    mockedRestoreSession.mockRejectedValue(new SessionUnavailableError());
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+    expect(await screen.findByText('cached@example.com')).toBeTruthy();
+    expect(screen.getByText('offline')).toBeTruthy();
+    expect(mockedActivateLocalDataOwner).toHaveBeenCalledWith(cachedUser.id);
+    expect(mockedClearLocalAppData).not.toHaveBeenCalled();
+    expect(mockedFlushQueuedMutations).not.toHaveBeenCalled();
+  });
+
+  it.each([null, new Error('Invalid server response')])(
+    'does not open cached identity for a rejected or malformed session: %s',
+    async (result) => {
+      if (result === null) mockedRestoreSession.mockResolvedValue(null);
+      else mockedRestoreSession.mockRejectedValue(result);
+      render(
+        <AuthProvider>
+          <AuthProbe />
+        </AuthProvider>
+      );
+      expect(await screen.findByText('signed-out')).toBeTruthy();
+      expect(readOfflineUser).not.toHaveBeenCalled();
+      expect(mockedActivateLocalDataOwner).not.toHaveBeenCalled();
+    }
+  );
+
+  it('fails closed when cached ownership cannot be established', async () => {
+    mockedRestoreSession.mockRejectedValue(new SessionUnavailableError());
+    jest.mocked(readOfflineUser).mockResolvedValue(null);
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+    expect(await screen.findByText('signed-out')).toBeTruthy();
+    expect(mockedActivateLocalDataOwner).not.toHaveBeenCalled();
   });
 });

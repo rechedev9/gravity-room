@@ -14,7 +14,7 @@ import { z } from 'zod/v4';
 const postApiAuthSignup_Body = z
   .object({
     email: z.string().max(254).email(),
-    password: z.string().min(8).max(200),
+    password: z.string().min(12).max(200),
     name: z.string().min(1).max(100).optional(),
   })
   .passthrough()
@@ -24,7 +24,7 @@ const postApiAuthLogin_Body = z
   .passthrough()
   .readonly();
 const postApiAuthReset_password_Body = z
-  .object({ token: z.string().min(1).max(256), password: z.string().min(8).max(200) })
+  .object({ token: z.string().min(1).max(256), password: z.string().min(12).max(200) })
   .passthrough()
   .readonly();
 const postApiAuthAppleCallback_Body = z
@@ -301,7 +301,7 @@ export const endpoints = [
   {
     method: 'post',
     path: '/api/auth/login',
-    description: `Verifies credentials and issues tokens. Returns a generic 401 for bad credentials (no enumeration) and 403 when the email is unverified.`,
+    description: `Verifies credentials and issues tokens. Returns a generic 401 for bad credentials and for unverified accounts (no enumeration).`,
     requestFormat: 'json',
     parameters: [
       {
@@ -315,11 +315,6 @@ export const endpoints = [
       {
         status: 401,
         description: `Invalid credentials`,
-        schema: z.void(),
-      },
-      {
-        status: 403,
-        description: `Email not verified`,
         schema: z.void(),
       },
       {

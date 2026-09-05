@@ -1,16 +1,19 @@
 import { z } from 'zod/v4';
+import { MAX_TOTAL_WORKOUTS } from './program-definition';
+
+export const MAX_REPS = 999;
 
 const ResultValueSchema = z.enum(['success', 'fail']);
 
 export const SetLogEntrySchema = z.strictObject({
-  reps: z.number().int().min(0).max(999),
+  reps: z.number().int().min(0).max(MAX_REPS),
   weight: z.number().nonnegative().optional(),
   rpe: z.number().int().min(1).max(10).optional(),
 });
 
 const SlotResultSchema = z.strictObject({
   result: ResultValueSchema.optional(),
-  amrapReps: z.number().int().min(0).max(999).optional(),
+  amrapReps: z.number().int().min(0).max(MAX_REPS).optional(),
   rpe: z.number().int().min(1).max(10).optional(),
   setLogs: z.array(SetLogEntrySchema).optional(),
 });
@@ -18,7 +21,11 @@ const SlotResultSchema = z.strictObject({
 const GenericWorkoutResultSchema = z.record(z.string(), SlotResultSchema);
 
 export const GenericResultsSchema = z.record(
-  z.string().regex(/^\d{1,3}$/),
+  z
+    .string()
+    .regex(/^\d+$/)
+    .max(String(MAX_TOTAL_WORKOUTS - 1).length)
+    .refine((key) => Number(key) < MAX_TOTAL_WORKOUTS, 'Workout index exceeds program limit'),
   GenericWorkoutResultSchema
 );
 

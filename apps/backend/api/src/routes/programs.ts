@@ -23,7 +23,7 @@ import {
 } from '../lib/program-cache';
 import { SingleflightMap } from '../lib/singleflight';
 import { ApiError } from '../middleware/error-handler';
-import { MAX_PROGRAM_CONFIG_KEYS } from '@gzclp/domain/schemas/instance';
+import { MAX_REPS, MAX_PROGRAM_CONFIG_KEYS } from '@gzclp/domain/schemas/instance';
 import { MAX_IMPORT_UNDO_ENTRIES } from '../lib/data-limits';
 
 // Singleflight: concurrent GETs for the same program instance share one DB fetch
@@ -32,7 +32,6 @@ const MAX_PROGRAM_CURSOR_CHARS = 256;
 const MAX_PROGRAM_ID_CHARS = 50;
 const MAX_SLOT_ID_CHARS = 50;
 const MAX_WORKOUT_INDEX_KEY_CHARS = 3;
-const MAX_AMRAP_REPS = 99;
 const MAX_SET_LOG_WEIGHT = 10_000;
 const MAX_SET_LOG_ITEMS = 20;
 const PROGRAM_ID_PATTERN = '^[a-z0-9-]+$';
@@ -61,7 +60,7 @@ const workoutIndexKeySchema = t.String({
 });
 const setLogsSchema = t.Array(
   t.Object({
-    reps: t.Integer({ minimum: 0, maximum: 999 }),
+    reps: t.Integer({ minimum: 0, maximum: MAX_REPS }),
     weight: t.Optional(t.Number({ minimum: 0, maximum: MAX_SET_LOG_WEIGHT })),
     rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
   }),
@@ -405,7 +404,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
             slotIdSchema,
             t.Object({
               result: t.Optional(t.Union([t.Literal('success'), t.Literal('fail')])),
-              amrapReps: t.Optional(t.Integer({ minimum: 0, maximum: MAX_AMRAP_REPS })),
+              amrapReps: t.Optional(t.Integer({ minimum: 0, maximum: MAX_REPS })),
               rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
               setLogs: t.Optional(setLogsSchema),
             }),
@@ -419,7 +418,7 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
             slotId: slotIdSchema,
             prev: t.Optional(t.Union([t.Literal('success'), t.Literal('fail')])),
             prevRpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
-            prevAmrapReps: t.Optional(t.Integer({ minimum: 0, maximum: MAX_AMRAP_REPS })),
+            prevAmrapReps: t.Optional(t.Integer({ minimum: 0, maximum: MAX_REPS })),
             prevSetLogs: t.Optional(setLogsSchema),
           }),
           { maxItems: MAX_IMPORT_UNDO_ENTRIES }
