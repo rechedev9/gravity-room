@@ -1,14 +1,28 @@
+import { MyPlans } from './my-plans';
+import { CatalogBrowser } from './catalog-browser';
+import { useQueryClient } from '@tanstack/react-query';
+import { PROGRAM_SUMMARIES_KEY, useProgramSummaries } from '../../lib/programs/program-queries';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  ActivityIndicator,
+  ScrollView,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@gzclp/domain';
 
-import { TrackerScreen } from '../tracker/tracker-screen';
-import { colors, radii, spacing } from '../../app/design';
+import { colors, type } from '../../shell/design';
+import { Button } from '../../ui/button';
+import { Card } from '../../ui/card';
+import { Kicker } from '../../ui/kicker';
+import { Screen } from '../../ui/screen';
 import {
-  listProgramSummaries,
   type ProgramSummary,
+  listProgramSummaries,
   upsertProgramSummaries,
 } from '../../lib/programs/program-repository';
 import {
@@ -16,7 +30,6 @@ import {
   createProgramInstance,
   fetchCatalogDefinition,
   fetchCatalogEntries,
-  fetchProgramSummaries,
 } from '../../lib/programs/program-service';
 import {
   upsertProgramDefinition,
@@ -30,67 +43,31 @@ function mergeProgramSummary(
   return [nextProgram, ...programs.filter((program) => program.id !== nextProgram.id)];
 }
 
-export function ProgramsScreen() {
+type ProgramsScreenProps = {
+  readonly onExplorePrograms?: () => void;
+  readonly mode?: 'all' | 'instances' | 'catalog';
+  readonly onOpenProgram?: (programInstanceId: string) => void;
+};
+
+export function ProgramsScreen({
+  onOpenProgram,
+  onExplorePrograms,
+  mode = 'all',
+}: ProgramsScreenProps = {}) {
   const { t } = useTranslation();
-  const [programs, setPrograms] = useState<readonly ProgramSummary[]>([]);
+  const queryClient = useQueryClient();
+  const summaryQuery = useProgramSummaries(mode !== 'catalog');
+  const programs = summaryQuery.data?.programs ?? [];
+  const loading = mode !== 'catalog' && summaryQuery.isPending;
+  const error = summaryQuery.error
+    ? t(summaryQuery.error.message === 'load' ? 'programs.errors.load' : 'programs.errors.sync')
+    : null;
+  const syncNotice = summaryQuery.data?.cached ? t('programs.sync_notice') : null;
   const [catalog, setCatalog] = useState<readonly CatalogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
   const [catalogLoading, setCatalogLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
-  const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [selectedProgramId, setSelectedProgramId] = useState<string | null>(null);
   const [creatingProgramId, setCreatingProgramId] = useState<string | null>(null);
-
-  async function loadPrograms(signal: { active: boolean }): Promise<void> {
-    try {
-      const cachedPrograms = await listProgramSummaries();
-      if (!signal.active) {
-        return;
-      }
-
-      setPrograms(cachedPrograms);
-      setError(null);
-      setSyncNotice(null);
-
-      if (cachedPrograms.length > 0) {
-        setLoading(false);
-      }
-
-      try {
-        const remotePrograms = await fetchProgramSummaries();
-        await upsertProgramSummaries(remotePrograms);
-        const refreshedPrograms = await listProgramSummaries();
-
-        if (signal.active) {
-          setPrograms(refreshedPrograms);
-          setSyncNotice(null);
-          setError(null);
-        }
-      } catch {
-        if (!signal.active) {
-          return;
-        }
-
-        if (cachedPrograms.length === 0) {
-          setError(t('programs.errors.sync'));
-        } else {
-          setSyncNotice(t('programs.sync_notice'));
-        }
-      }
-    } catch {
-      if (signal.active) {
-        setPrograms([]);
-        setError(t('programs.errors.load'));
-        setSyncNotice(null);
-      }
-    } finally {
-      if (signal.active) {
-        setLoading(false);
-      }
-    }
-  }
 
   async function loadCatalog(signal: { active: boolean }): Promise<void> {
     try {
@@ -121,23 +98,23 @@ export function ProgramsScreen() {
       },
     };
 
-    setLoading(true);
     setCatalogLoading(true);
-    void loadPrograms(signal);
-    void loadCatalog(signal);
+    if (mode !== 'instances') void loadCatalog(signal);
+    else setCatalogLoading(false);
 
     return () => {
       active = false;
     };
-  }, [reloadToken]);
+  }, [reloadToken, mode]);
 
   function handleRetry() {
+    void summaryQuery.refetch();
     setReloadToken((value) => value + 1);
   }
 
-  async function handleCreateProgram(entry: CatalogEntry): Promise<void> {
+  async function handleCreateProgram(entry: CatalogEntry): Promise<boolean> {
     if (creatingProgramId) {
-      return;
+      return false;
     }
 
     setCreatingProgramId(entry.id);
@@ -152,112 +129,122 @@ export function ProgramsScreen() {
       });
       const nextSummary = {
         id: detail.id,
+        programId: detail.programId,
         title: detail.name,
         updatedAt: detail.updatedAt,
       };
-      const nextPrograms = mergeProgramSummary(programs, nextSummary);
-
+      await queryClient.cancelQueries({ queryKey: PROGRAM_SUMMARIES_KEY });
+      // Catalog does not load the summaries query. Merge the authoritative cache.
+      const nextPrograms = mergeProgramSummary(await listProgramSummaries(), nextSummary);
       await upsertProgramDefinition(definition);
       await upsertProgramDetail(detail);
       await upsertProgramSummaries(nextPrograms);
 
-      setPrograms(nextPrograms);
-      setSyncNotice(null);
-      setError(null);
-      setSelectedProgramId(detail.id);
+      queryClient.setQueryData(PROGRAM_SUMMARIES_KEY, { programs: nextPrograms, cached: false });
+      onOpenProgram?.(detail.id);
+      return true;
     } catch {
       setCatalogError(t('programs.errors.start'));
+      return false;
     } finally {
       setCreatingProgramId(null);
     }
   }
 
-  if (selectedProgramId) {
+  if (mode === 'catalog')
     return (
-      <TrackerScreen
-        programInstanceId={selectedProgramId}
-        onBack={() => setSelectedProgramId(null)}
+      <CatalogBrowser
+        entries={catalog}
+        loading={catalogLoading}
+        error={catalogError}
+        creatingId={creatingProgramId}
+        onRetry={handleRetry}
+        onStart={handleCreateProgram}
       />
     );
-  }
+
+  if (mode === 'instances')
+    return (
+      <MyPlans
+        programs={programs}
+        loading={loading}
+        error={error}
+        syncNotice={syncNotice}
+        onRetry={handleRetry}
+        onOpen={onOpenProgram}
+        onExplore={onExplorePrograms}
+      />
+    );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
-        <Text style={styles.eyebrow}>{t('programs.eyebrow')}</Text>
-        <Text style={styles.title}>{t('programs.title')}</Text>
-        <Text style={styles.body}>{t('programs.body')}</Text>
-        {loading ? (
-          <View style={styles.stateBlock}>
-            <ActivityIndicator color={colors.textPrimary} />
-          </View>
-        ) : error ? (
-          <View style={styles.stateBlock}>
-            <Text style={styles.error}>{error}</Text>
-            <Pressable accessibilityRole="button" onPress={handleRetry} style={styles.retryButton}>
-              <Text style={styles.retryLabel}>{t('common.retry')}</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <>
-            {syncNotice ? (
-              <View style={styles.syncNoticeBlock}>
-                <Text style={styles.syncNotice}>{syncNotice}</Text>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={handleRetry}
-                  style={styles.retryButton}
-                >
-                  <Text style={styles.retryLabel}>{t('common.retry')}</Text>
-                </Pressable>
-              </View>
-            ) : null}
+    <Screen>
+      <Kicker>{t('programs.eyebrow')}</Kicker>
+      <Text accessibilityRole="header" style={styles.title}>
+        {t('programs.title')}
+      </Text>
+      <Text style={styles.body}>{t('programs.mesos_intro')}</Text>
+      {loading ? (
+        <View style={styles.stateBlock}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      ) : error ? (
+        <View style={styles.stateBlock}>
+          <Text style={styles.error}>{error}</Text>
+          <Button onPress={handleRetry}>{t('common.retry')}</Button>
+        </View>
+      ) : (
+        <>
+          {syncNotice ? (
+            <View style={styles.syncNoticeBlock}>
+              <Text style={styles.syncNotice}>{syncNotice}</Text>
+              <Button onPress={handleRetry}>{t('common.retry')}</Button>
+            </View>
+          ) : null}
+          {
             <FlatList
               data={programs}
               keyExtractor={(item) => item.id}
+              style={styles.list}
               contentContainerStyle={styles.listContent}
               ListEmptyComponent={
-                <View style={styles.firstRun}>
+                <Card>
                   <Text style={styles.firstRunTitle}>{t('programs.first_run.title')}</Text>
                   <Text style={styles.firstRunBody}>{t('programs.first_run.body')}</Text>
-                </View>
+                </Card>
               }
               renderItem={({ item }) => (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => setSelectedProgramId(item.id)}
-                  style={styles.card}
-                >
-                  <Text style={styles.cardTitle}>{item.title}</Text>
-                  <Text style={styles.cardMeta}>
-                    {t('programs.card_updated', { date: item.updatedAt.slice(0, 10) })}
-                  </Text>
+                <Pressable accessibilityRole="button" onPress={() => onOpenProgram?.(item.id)}>
+                  <Card>
+                    <Text style={styles.cardTitle}>{item.title}</Text>
+                    <Text style={styles.cardMeta}>
+                      {t('programs.card_updated', { date: item.updatedAt.slice(0, 10) })}
+                    </Text>
+                  </Card>
                 </Pressable>
               )}
             />
+          }
+          {
             <View style={styles.catalogSection}>
-              <Text style={styles.sectionTitle}>{t('programs.catalog_title')}</Text>
+              <Kicker>{t('programs.catalog_title')}</Kicker>
               {catalogLoading ? (
                 <View style={styles.catalogStateBlock}>
-                  <ActivityIndicator color={colors.textPrimary} />
+                  <ActivityIndicator color={colors.accent} />
                 </View>
               ) : catalogError ? (
                 <View style={styles.catalogStateBlock}>
                   <Text style={styles.error}>{catalogError}</Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={handleRetry}
-                    style={styles.retryButton}
-                  >
-                    <Text style={styles.retryLabel}>{t('common.retry')}</Text>
-                  </Pressable>
+                  <Button onPress={handleRetry}>{t('common.retry')}</Button>
                 </View>
               ) : (
-                <View style={styles.catalogList}>
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.catalogList}
+                >
                   {catalog.map((entry) => {
                     const isCreating = creatingProgramId === entry.id;
                     return (
-                      <View key={entry.id} style={styles.catalogCard}>
+                      <Card key={entry.id}>
                         <View style={styles.catalogCopy}>
                           <Text style={styles.cardTitle}>{entry.name}</Text>
                           <Text style={styles.cardMeta}>{entry.description}</Text>
@@ -269,89 +256,57 @@ export function ProgramsScreen() {
                             })}
                           </Text>
                         </View>
-                        <Pressable
+                        <Button
+                          variant="primary"
                           accessibilityLabel={t('programs.start_accessibility', {
                             name: entry.name,
                           })}
-                          accessibilityRole="button"
                           disabled={creatingProgramId !== null}
+                          isLoading={isCreating}
                           onPress={() => {
                             void handleCreateProgram(entry);
                           }}
-                          style={[
-                            styles.startButton,
-                            isCreating ? styles.startButtonDisabled : null,
-                          ]}
                         >
-                          <Text style={styles.startLabel}>
-                            {isCreating ? t('programs.starting') : t('programs.start')}
-                          </Text>
-                        </Pressable>
-                      </View>
+                          {isCreating ? t('programs.starting') : t('programs.start')}
+                        </Button>
+                      </Card>
                     );
                   })}
-                </View>
+                </ScrollView>
               )}
             </View>
-          </>
-        )}
-      </View>
-    </SafeAreaView>
+          }
+        </>
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.canvas,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.screenX,
-    paddingTop: 24,
-    gap: spacing.stack,
-  },
-  eyebrow: {
-    color: colors.accentPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
   title: {
-    color: colors.textPrimary,
-    fontSize: 28,
-    fontWeight: '700',
+    ...type.displaySm,
   },
   body: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    lineHeight: 24,
+    ...type.body,
   },
   stateBlock: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 16,
+  },
+  list: {
+    flex: 1,
   },
   listContent: {
-    gap: 12,
+    gap: 10,
     paddingVertical: 8,
   },
-  firstRun: {
-    borderRadius: radii.card,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    backgroundColor: colors.card,
-    padding: spacing.card,
-    gap: 8,
-  },
   firstRunTitle: {
-    color: colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '700',
+    ...type.title,
   },
   firstRunBody: {
-    color: colors.textSecondary,
+    ...type.body,
     fontSize: 15,
     lineHeight: 22,
   },
@@ -361,7 +316,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   syncNotice: {
-    color: colors.accentWarning,
+    color: colors.warn,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -369,80 +324,34 @@ const styles = StyleSheet.create({
     gap: 12,
     alignItems: 'flex-start',
   },
-  retryButton: {
-    marginTop: 12,
-    alignItems: 'center',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  retryLabel: {
-    color: colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  card: {
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    padding: 16,
-    gap: 6,
-  },
   cardTitle: {
     color: colors.textPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
   cardMeta: {
-    color: colors.textMuted,
-    fontSize: 14,
+    ...type.body,
+    fontSize: 13,
+    lineHeight: 19,
   },
   catalogSection: {
-    gap: spacing.stack,
+    gap: 12,
     paddingBottom: 24,
-  },
-  sectionTitle: {
-    color: colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '700',
   },
   catalogStateBlock: {
     alignItems: 'center',
-    gap: spacing.stack,
+    gap: 12,
     paddingVertical: 20,
   },
   catalogList: {
-    gap: spacing.stack,
-  },
-  catalogCard: {
-    borderRadius: radii.card,
-    backgroundColor: colors.card,
-    padding: spacing.card,
-    gap: spacing.stack,
+    gap: 12,
+    paddingBottom: 24,
   },
   catalogCopy: {
     gap: 6,
   },
   catalogMeta: {
-    color: colors.accentPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  startButton: {
-    alignItems: 'center',
-    borderRadius: radii.pill,
-    backgroundColor: colors.accentSuccess,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-  },
-  startButtonDisabled: {
-    opacity: 0.55,
-  },
-  startLabel: {
-    color: '#04130A',
-    fontSize: 15,
-    fontWeight: '700',
+    ...type.kicker,
+    color: colors.textSecondary,
   },
 });

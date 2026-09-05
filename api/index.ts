@@ -4203,8 +4203,7 @@ function deriveSlotResult(slot, slotResult, targetReps) {
     idx !== void 0 && idx < slotResult.setLogs.length ? slotResult.setLogs[idx] : void 0;
   const logs = selectedLog !== void 0 ? [selectedLog] : slotResult.setLogs;
   if (slot.onSuccess.type === 'double_progression') {
-    const derived2 = deriveResultFromSetLogs(logs, slot.onSuccess);
-    return derived2 ?? slotResult.result;
+    return deriveResultFromSetLogs(logs, slot.onSuccess);
   }
   const derived = deriveResultFromSetLogsSimple(logs, targetReps);
   return derived ?? slotResult.result;
@@ -4258,7 +4257,8 @@ function applyUpdateTm(rule, slot, slotResult, tmState, slotState, state, roundi
   if (slot.trainingMaxKey === void 0) {
     throw new Error('update_tm rule requires trainingMaxKey on slot');
   }
-  const amrapReps = slotResult.amrapReps;
+  const amrapReps =
+    slotResult.setLogs?.[slotResult.setLogs.length - 1]?.reps ?? slotResult.amrapReps;
   const currentTm = tmState[slot.trainingMaxKey] ?? 0;
   if (amrapReps !== void 0 && amrapReps >= rule.minAmrapReps) {
     tmState[slot.trainingMaxKey] = roundToNearest(currentTm + rule.amount, roundingStep);
@@ -4302,6 +4302,7 @@ function applySlotProgression(
     slotState[slot.id] = { ...nextState2, everChanged: state.everChanged };
     return;
   }
+  if (slot.onSuccess.type === 'double_progression' && (slotResult.setLogs?.length ?? 0) > 0) return;
   const rule = slot.onUndefined ?? slot.onSuccess;
   if (rule.type === 'update_tm') {
     applyUpdateTm(rule, slot, slotResult, tmState, slotState, state, roundingStep);
@@ -4467,7 +4468,7 @@ function computeGenericProgram(definition, config, results, options) {
         repsMax: stageConfig.repsMax,
         isAmrap: stageConfig.amrap === true,
         stagesCount: slot.stages.length,
-        result: derivedResult,
+        result: derivedResult ?? slotResult.result,
         amrapReps,
         rpe: slotResult.rpe,
         isChanged: state.everChanged,

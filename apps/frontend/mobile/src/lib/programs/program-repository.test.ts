@@ -1,6 +1,7 @@
 interface ProgramSummaryRow {
   readonly owner_user_id: string;
   readonly id: string;
+  readonly program_id?: string | null;
   readonly title: string;
   readonly updated_at: string;
 }
@@ -52,7 +53,13 @@ jest.mock('../db/client', () => ({
               const existingIndex = rows.findIndex(
                 (row) => row.owner_user_id === ownerId && row.id === id
               );
-              const nextRow = { owner_user_id: ownerId, id, title, updated_at: updatedAt };
+              const nextRow = {
+                owner_user_id: ownerId,
+                id,
+                title,
+                updated_at: updatedAt,
+                program_id: typeof params[4] === 'string' ? params[4] : null,
+              };
 
               if (existingIndex >= 0) {
                 rows[existingIndex] = nextRow;
@@ -76,7 +83,7 @@ jest.mock('../db/client', () => ({
     ),
     runAsync: jest.fn(async () => ({ changes: 1, lastInsertRowId: 0 })),
     getAllAsync: jest.fn(async (sql: string, ...params: unknown[]) => {
-      if (!sql.includes('SELECT id, title, updated_at FROM program_summaries')) {
+      if (!sql.includes('SELECT id, title, updated_at, program_id FROM program_summaries')) {
         return [];
       }
 

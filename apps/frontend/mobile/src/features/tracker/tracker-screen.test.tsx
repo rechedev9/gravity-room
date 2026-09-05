@@ -1,7 +1,24 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { ReactElement } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ProgramQueryProvider } from '../../shell/program-query-provider';
+import {
+  act,
+  fireEvent,
+  render as renderScreen,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import type { GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
 
+import {
+  getSetDrafts,
+  saveSetDrafts,
+  type SetDrafts,
+} from '../../lib/tracker/set-draft-repository';
 import { TrackerScreen } from './tracker-screen';
+function render(element: ReactElement) {
+  return renderScreen(<ProgramQueryProvider>{element}</ProgramQueryProvider>);
+}
 import { getAccessToken } from '../../lib/auth/session';
 import {
   getProgramDefinition,
@@ -18,6 +35,15 @@ import {
   queueRecordResultMutation,
   queueUndoRestoreMutation,
 } from '../../lib/tracker/tracker-mutation-service';
+
+jest.mock('../../lib/tracker/set-draft-repository', () => ({
+  getSetDrafts: jest.fn(async () => ({})),
+  saveSetDrafts: jest.fn(async () => undefined),
+}));
+
+jest.mock('../../shell/rest-timer-provider', () => ({
+  useRestTimer: () => ({ start: jest.fn(), skip: jest.fn() }),
+}));
 
 jest.mock('../../lib/auth/session', () => ({
   getAccessToken: jest.fn(),
@@ -140,8 +166,39 @@ const TEST_DETAIL: GenericProgramDetail = {
   updatedAt: '2026-04-20T10:00:00.000Z',
 };
 
+const SQUAT_SET_LOGS = [
+  { reps: 3, weight: 60 },
+  { reps: 3, weight: 60 },
+  { reps: 3, weight: 60 },
+  { reps: 3, weight: 60 },
+  { reps: 3, weight: 60 },
+] as const;
+
+function squatLogsWithLastReps(reps: number): Array<{ reps: number; weight: number }> {
+  return [
+    { reps: 3, weight: 60 },
+    { reps: 3, weight: 60 },
+    { reps: 3, weight: 60 },
+    { reps: 3, weight: 60 },
+    { reps, weight: 60 },
+  ];
+}
+
+async function confirmSets(name: string, count: number): Promise<void> {
+  for (let index = 1; index <= count; index += 1) {
+    const button = await screen.findByRole('button', { name: `Confirm set ${index} for ${name}` });
+    await act(async () => {
+      fireEvent.press(button);
+    });
+  }
+  const details = screen.queryByRole('button', { name: `View sets for ${name}` });
+  if (details) fireEvent.press(details);
+}
+
 describe('TrackerScreen', () => {
   beforeEach(() => {
+    jest.mocked(getSetDrafts).mockReset().mockResolvedValue({});
+    jest.mocked(saveSetDrafts).mockReset().mockResolvedValue();
     mockedGetAccessToken.mockReturnValue('restored-access-token');
     mockedFlushQueuedMutations.mockResolvedValue({ processedCount: 0 });
   });
@@ -157,6 +214,494 @@ describe('TrackerScreen', () => {
     mockedFlushQueuedMutations.mockReset();
     mockedQueueRecordResultMutation.mockReset();
     mockedQueueUndoRestoreMutation.mockReset();
+  });
+
+  it('enables Undo after queued metric writes commit and then reverts the latest edit', async () => {
+    const metricWrite = createDeferred<void>();
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail
+      .mockResolvedValueOnce()
+      .mockReturnValueOnce(metricWrite.promise)
+      .mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    await screen.findByText('Squat');
+    await confirmSets('Squat', 5);
+    fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
+    await screen.findByText('AMRAP reps: 4');
+    fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
+    expect(
+      screen.getByRole('button', { name: 'Undo latest completed result' }).props.accessibilityState
+        .disabled
+    ).toBe(true);
+    await act(async () => metricWrite.resolve());
+    await screen.findByText('AMRAP reps: 5');
+    expect(
+      screen.getByRole('button', { name: 'Undo latest completed result' }).props.accessibilityState
+        .disabled
+    ).toBe(false);
+    await act(async () =>
+      fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }))
+    );
+    expect(screen.getByText('AMRAP reps: 4')).toBeTruthy();
+    expect(screen.getByText('Logged success')).toBeTruthy();
+  });
+
+  it('does not undo a completed exercise when the metric edit being undone fails', async () => {
+    const metricWrite = createDeferred<void>();
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail
+      .mockResolvedValueOnce()
+      .mockReturnValueOnce(metricWrite.promise)
+      .mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    await screen.findByText('Squat');
+    await confirmSets('Squat', 5);
+    fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
+    await screen.findByText('AMRAP reps: 4');
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
+    await act(async () => metricWrite.reject(new Error('Disk full')));
+    expect(screen.getByText('Logged success')).toBeTruthy();
+    expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
+    expect(mockedQueueUndoRestoreMutation).not.toHaveBeenCalled();
+    expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(2);
+  });
+
+  it('uploads the domain outcome for a progression set followed by lower-rep backoffs', async () => {
+    const baseSlot = TEST_DEFINITION.days[0]?.slots[0];
+    if (!baseSlot) throw new Error('Missing fixture slot');
+    const definition: ProgramDefinition = {
+      ...TEST_DEFINITION,
+      days: [
+        {
+          name: 'Day A',
+          slots: [
+            {
+              ...baseSlot,
+              stages: [{ sets: 3, reps: 6 }],
+              onSuccess: { type: 'double_progression', repRangeBottom: 6, repRangeTop: 12 },
+              progressionSetIndex: 0,
+            },
+          ],
+        },
+      ],
+    };
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(definition);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail.mockResolvedValue();
+    jest.mocked(getSetDrafts).mockResolvedValue({
+      '0:squat-t1': [
+        { weight: 60, reps: 12 },
+        { weight: 60, reps: 5 },
+      ],
+    });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.changeText(await screen.findByLabelText('Reps for set 3 of Squat'), '5');
+    fireEvent.press(screen.getByRole('button', { name: 'Confirm set 3 for Squat' }));
+    await screen.findByText('Logged success');
+    await waitFor(() => expect(mockedQueueRecordResultMutation).toHaveBeenCalled());
+    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ result: 'success' })
+    );
+  });
+
+  it('waits for a previous mount draft commit before hydrating the same plan', async () => {
+    let storedDrafts: SetDrafts = {};
+    const commit = createDeferred<void>();
+    mockedGetProgramDetail.mockImplementation(async (id) => ({ ...TEST_DETAIL, id }));
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    jest.mocked(getSetDrafts).mockImplementation(async () => storedDrafts);
+    jest
+      .mocked(saveSetDrafts)
+      .mockImplementationOnce(async (_id, drafts) => {
+        await commit.promise;
+        storedDrafts = drafts;
+      })
+      .mockImplementation(async (_id, drafts) => {
+        storedDrafts = drafts;
+      });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tracker = (id: string) => (
+      <QueryClientProvider client={client}>
+        <TrackerScreen key={id} programInstanceId={id} onBack={jest.fn()} />
+      </QueryClientProvider>
+    );
+    const view = renderScreen(tracker('instance-1'));
+    fireEvent.press(await screen.findByRole('button', { name: 'Confirm set 1 for Squat' }));
+    await waitFor(() => expect(saveSetDrafts).toHaveBeenCalledTimes(1));
+    view.rerender(tracker('instance-2'));
+    await screen.findByRole('button', { name: 'Confirm set 1 for Squat' });
+    view.rerender(tracker('instance-1'));
+    expect(screen.queryByRole('button', { name: 'Confirm set 1 for Squat' })).toBeNull();
+    await act(async () => commit.resolve());
+    fireEvent.changeText(await screen.findByLabelText('Reps for set 2 of Squat'), '4');
+    fireEvent.press(screen.getByRole('button', { name: 'Confirm set 2 for Squat' }));
+    await waitFor(() => expect(saveSetDrafts).toHaveBeenCalledTimes(2));
+    expect(storedDrafts['0:squat-t1']).toEqual([
+      { reps: 3, weight: 60 },
+      { reps: 4, weight: 60 },
+    ]);
+    view.unmount();
+    client.clear();
+  });
+
+  it('persists and uploads the domain-derived failure when logged AMRAP reps fall below target', async () => {
+    mockedGetProgramDetail.mockResolvedValue({
+      ...TEST_DETAIL,
+      results: { 0: { 'squat-t1': { result: 'success', setLogs: [...SQUAT_SET_LOGS] } } },
+    });
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail.mockResolvedValue();
+    mockedQueueRecordResultMutation.mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    fireEvent.press(screen.getByRole('button', { name: 'View sets for Squat' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Decrease Squat AMRAP reps' }));
+    await screen.findByText('Logged fail');
+    await waitFor(() => expect(mockedQueueRecordResultMutation).toHaveBeenCalledTimes(1));
+    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
+      expect.objectContaining({ result: 'fail', setLogs: squatLogsWithLastReps(2) })
+    );
+    expect(mockedUpsertProgramDetail).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        results: { 0: { 'squat-t1': { result: 'fail', setLogs: squatLogsWithLastReps(2) } } },
+      })
+    );
+  });
+
+  it('increments the displayed logged AMRAP when a legacy metric disagrees', async () => {
+    mockedGetProgramDetail.mockResolvedValue({
+      ...TEST_DETAIL,
+      results: {
+        0: { 'squat-t1': { result: 'success', amrapReps: 5, setLogs: squatLogsWithLastReps(8) } },
+      },
+    });
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail.mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    fireEvent.press(screen.getByRole('button', { name: 'View sets for Squat' }));
+    await screen.findByText('AMRAP reps: 8');
+    fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
+    await waitFor(() =>
+      expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
+        expect.objectContaining({ amrapReps: 9, setLogs: squatLogsWithLastReps(9) })
+      )
+    );
+  });
+
+  it('serializes metric edits behind final-set writes without losing either result', async () => {
+    const completion = createDeferred<void>();
+    mockedGetProgramDetail.mockResolvedValue({
+      ...TEST_DETAIL,
+      results: { 0: { 'squat-t1': { result: 'success', setLogs: [...SQUAT_SET_LOGS] } } },
+    });
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail.mockReturnValueOnce(completion.promise).mockResolvedValue();
+    jest.mocked(getSetDrafts).mockResolvedValue({
+      '1:bench-t1': Array.from({ length: 4 }, () => ({ weight: 40, reps: 3 })),
+    });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.press(await screen.findByRole('button', { name: 'Confirm set 5 for Bench' }));
+    await waitFor(() => expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(1));
+    fireEvent.press(screen.getByRole('button', { name: 'Previous workout' }));
+    fireEvent.press(screen.getByRole('button', { name: 'View sets for Squat' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
+    await act(async () => {});
+    expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(1);
+    await act(async () => completion.resolve());
+    await waitFor(() => expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(2));
+    expect(mockedUpsertProgramDetail).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        results: {
+          0: { 'squat-t1': expect.objectContaining({ result: 'success', amrapReps: 4 }) },
+          1: {
+            'bench-t1': expect.objectContaining({
+              result: 'success',
+              setLogs: Array.from({ length: 5 }, () => ({ weight: 40, reps: 3 })),
+            }),
+          },
+        },
+      })
+    );
+  });
+
+  it('cancels pre-edit detail requests across program reentry and fetches again', async () => {
+    let stored = TEST_DETAIL;
+    mockedGetProgramDetail.mockImplementation(async () => stored);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedUpsertProgramDefinition.mockResolvedValue();
+    mockedUpsertProgramDetail.mockImplementation(async (detail) => {
+      stored = detail;
+    });
+    mockedQueueRecordResultMutation.mockResolvedValue();
+    const remote = createDeferred<GenericProgramDetail>();
+    mockedFetchProgramDetail
+      .mockReturnValueOnce(remote.promise)
+      .mockImplementation(async () => stored);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tracker = (id: string) => (
+      <QueryClientProvider client={client}>
+        <TrackerScreen key={id} programInstanceId={id} onBack={jest.fn()} />
+      </QueryClientProvider>
+    );
+    const view = renderScreen(tracker('instance-1'));
+    await waitFor(() => expect(mockedFetchProgramDetail).toHaveBeenCalledTimes(1));
+    fireEvent.press(await screen.findByRole('button', { name: 'Mark Squat fail' }));
+    await waitFor(() => expect(mockedQueueRecordResultMutation).toHaveBeenCalledTimes(1));
+    view.rerender(tracker('instance-2'));
+    await screen.findByRole('button', { name: 'Confirm set 1 for Bench' });
+    view.rerender(tracker('instance-1'));
+    await waitFor(() => expect(mockedFetchProgramDetail).toHaveBeenCalledTimes(3));
+    await act(async () => remote.resolve(TEST_DETAIL));
+    expect(stored.results['0']?.['squat-t1']?.result).toBe('fail');
+    view.unmount();
+    client.clear();
+  });
+
+  it('refreshes on focus while preserving the current set editor and unfinished drafts', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedUpsertProgramDefinition.mockResolvedValue();
+    mockedUpsertProgramDetail.mockResolvedValue();
+    mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
+    jest.mocked(getSetDrafts).mockResolvedValue({ '0:squat-t1': SQUAT_SET_LOGS.slice(0, 1) });
+    const tracker = (focused: boolean) => (
+      <ProgramQueryProvider>
+        <TrackerScreen programInstanceId="instance-1" isFocused={focused} onBack={jest.fn()} />
+      </ProgramQueryProvider>
+    );
+    const view = renderScreen(tracker(true));
+    const input = await screen.findByLabelText('Weight for set 2 of Squat');
+    await waitFor(() => expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(1));
+    fireEvent.changeText(input, '67');
+    view.rerender(tracker(false));
+    mockedFetchProgramDetail.mockResolvedValue({ ...TEST_DETAIL, name: 'Changed remotely' });
+    view.rerender(tracker(true));
+    await screen.findByText('Changed remotely');
+    expect(mockedFetchProgramDetail).toHaveBeenCalledTimes(2);
+    expect(getSetDrafts).toHaveBeenCalledTimes(1);
+    expect(mockedGetProgramDetail).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Weight for set 2 of Squat').props.value).toBe('67');
+    expect(screen.getByLabelText('Reps for set 2 of Squat')).toBeTruthy();
+  });
+
+  it('excludes remotely completed slots from subsequent draft saves', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedUpsertProgramDefinition.mockResolvedValue();
+    mockedUpsertProgramDetail.mockResolvedValue();
+    jest.mocked(getSetDrafts).mockResolvedValue({ '0:squat-t1': SQUAT_SET_LOGS.slice(0, 2) });
+    mockedFetchProgramDetail.mockResolvedValue({
+      ...TEST_DETAIL,
+      results: { 0: { 'squat-t1': { result: 'success', setLogs: [...SQUAT_SET_LOGS] } } },
+      undoHistory: [{ i: 0, slotId: 'squat-t1' }],
+    });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    await screen.findByText('Logged success');
+    fireEvent.press(screen.getByRole('button', { name: 'Continue to next unfinished workout' }));
+    await act(async () => {
+      fireEvent.press(await screen.findByRole('button', { name: 'Confirm set 1 for Bench' }));
+    });
+    expect(saveSetDrafts).toHaveBeenLastCalledWith('instance-1', {
+      '1:bench-t1': [{ reps: 3, weight: 40 }],
+    });
+  });
+
+  it('retries an unavailable tracker after reconnecting without remounting', async () => {
+    mockedGetProgramDetail.mockResolvedValue(null);
+    mockedFetchProgramDetail
+      .mockRejectedValueOnce(new Error('Offline'))
+      .mockResolvedValue(TEST_DETAIL);
+    mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedUpsertProgramDefinition.mockResolvedValue();
+    mockedUpsertProgramDetail.mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    await screen.findByText('Tracker unavailable');
+    fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    await screen.findByRole('button', { name: 'Confirm set 1 for Squat' });
+    expect(mockedFetchProgramDetail).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves final-set edits through a deferred SQLite completion failure and retry', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    jest.mocked(getSetDrafts).mockResolvedValue({ '0:squat-t1': SQUAT_SET_LOGS.slice(0, 4) });
+    let rejectWrite: (error: Error) => void = () => {
+      throw new Error('Write not started');
+    };
+    mockedUpsertProgramDetail
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectWrite = reject;
+          })
+      )
+      .mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.changeText(await screen.findByLabelText('Weight for set 5 of Squat'), '65');
+    fireEvent.changeText(screen.getByLabelText('Reps for set 5 of Squat'), '8');
+    fireEvent.press(screen.getByRole('button', { name: 'Confirm set 5 for Squat' }));
+    await waitFor(() => expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText('Weight for set 5 of Squat').props.value).toBe('65');
+    await act(async () => rejectWrite(new Error('Disk full')));
+    await screen.findByText('Could not save this set on your device. Please try again.');
+    expect(screen.getByLabelText('Reps for set 5 of Squat').props.value).toBe('8');
+    await act(async () =>
+      fireEvent.press(screen.getByRole('button', { name: 'Confirm set 5 for Squat' }))
+    );
+    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        setLogs: [...SQUAT_SET_LOGS.slice(0, 4), { weight: 65, reps: 8 }],
+        amrapReps: 8,
+      })
+    );
+  });
+
+  it('shows actual held weight in the completed double-progression next-session summary', async () => {
+    mockedGetProgramDetail.mockResolvedValue({
+      ...TEST_DETAIL,
+      results: {
+        0: { 'squat-t1': { result: 'success', setLogs: [{ reps: 8 }, { reps: 8 }, { reps: 8 }] } },
+      },
+    });
+    mockedGetProgramDefinition.mockResolvedValue({
+      ...TEST_DEFINITION,
+      days: TEST_DEFINITION.days.map((day) => ({
+        ...day,
+        slots: day.slots.map((slot) => ({
+          ...slot,
+          stages: [{ sets: 3, reps: 6, repsMax: 12 }],
+          onSuccess: { type: 'double_progression', repRangeBottom: 6, repRangeTop: 12 },
+        })),
+      })),
+    });
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    expect(await screen.findByText('Day complete')).toBeTruthy();
+    expect(screen.getByText('60 kg · 3 x 6')).toBeTruthy();
+    expect(screen.queryByText('65 kg · 3 x 6')).toBeNull();
+  });
+
+  it('undoes the chosen exercise draft after reload without deleting another exercise or allowing early failure', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue({
+      ...TEST_DEFINITION,
+      days: [{ name: 'Combined', slots: TEST_DEFINITION.days.flatMap((day) => day.slots) }],
+    });
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    jest.mocked(getSetDrafts).mockResolvedValue({
+      '0:squat-t1': [{ reps: 3, weight: 60 }],
+      '0:bench-t1': [{ reps: 3, weight: 40 }],
+    });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    expect(await screen.findByRole('button', { name: 'Undo last set for Bench' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Mark Squat fail' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mark Bench fail' })).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Undo last set for Bench' }));
+    await waitFor(() =>
+      expect(jest.mocked(saveSetDrafts)).toHaveBeenLastCalledWith('instance-1', {
+        '0:squat-t1': [{ reps: 3, weight: 60 }],
+      })
+    );
+    expect(await screen.findByRole('button', { name: 'Confirm set 1 for Bench' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Confirm set 2 for Squat' })).toBeTruthy();
+  });
+
+  it('records edited weights and missed reps, totals actual volume, and continues to the pending day', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail.mockResolvedValue();
+    mockedQueueRecordResultMutation.mockResolvedValue();
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    await screen.findByText('Squat', {}, { timeout: 5000 });
+    const logs = [
+      { weight: 62.5, reps: 3 },
+      { weight: 60, reps: 2 },
+      { weight: 60, reps: 3 },
+      { weight: 60, reps: 3 },
+      { weight: 60, reps: 3 },
+    ];
+    for (const [offset, entry] of logs.entries()) {
+      const index = offset + 1;
+      fireEvent.changeText(
+        await screen.findByLabelText(`Weight for set ${index} of Squat`),
+        String(entry.weight)
+      );
+      fireEvent.changeText(
+        screen.getByLabelText(`Reps for set ${index} of Squat`),
+        String(entry.reps)
+      );
+      await act(async () => {
+        fireEvent.press(screen.getByRole('button', { name: `Confirm set ${index} for Squat` }));
+      });
+    }
+    expect(await screen.findByText('Day complete')).toBeTruthy();
+    expect(screen.getByText('Logged volume: 847.5 kg')).toBeTruthy();
+    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+      instanceId: 'instance-1',
+      workoutIndex: 0,
+      slotId: 'squat-t1',
+      result: 'fail',
+      setLogs: logs,
+    });
+    fireEvent.press(screen.getByRole('button', { name: 'Continue to next unfinished workout' }));
+    expect(await screen.findByText('Day B')).toBeTruthy();
+    expect(screen.getByLabelText('Reps for set 1 of Bench').props.value).toBe('3');
+  });
+
+  it('restores unfinished sets after remounting the tracker', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    jest.mocked(getSetDrafts).mockResolvedValue({
+      '0:squat-t1': [
+        { reps: 3, weight: 60 },
+        { reps: 3, weight: 60 },
+      ],
+    });
+
+    const first = render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    const confirm = await screen.findByRole('button', { name: 'Confirm set 3 for Squat' });
+    await act(async () => {
+      fireEvent.press(confirm);
+    });
+    expect(saveSetDrafts).toHaveBeenCalledWith('instance-1', {
+      '0:squat-t1': SQUAT_SET_LOGS.slice(0, 3),
+    });
+    first.unmount();
+    jest.mocked(getSetDrafts).mockResolvedValue({ '0:squat-t1': SQUAT_SET_LOGS.slice(0, 3) });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    expect(await screen.findByRole('button', { name: 'Confirm set 4 for Squat' })).toBeTruthy();
+  });
+
+  it('keeps the current set when SQLite rejects a draft write', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    jest.mocked(saveSetDrafts).mockRejectedValueOnce(new Error('Disk full'));
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.press(await screen.findByRole('button', { name: 'Confirm set 1 for Squat' }));
+    expect(
+      await screen.findByText('Could not save this set on your device. Please try again.')
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Confirm set 1 for Squat' })).toBeTruthy();
+    expect(mockedQueueRecordResultMutation).not.toHaveBeenCalled();
   });
 
   it('renders cached workout data before the remote refresh completes', async () => {
@@ -263,6 +808,9 @@ describe('TrackerScreen', () => {
     mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    const details = screen.queryByRole('button', { name: 'View sets for Squat' });
+    if (details) fireEvent.press(details);
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(mockedFetchProgramDetail).not.toHaveBeenCalled();
@@ -290,6 +838,9 @@ describe('TrackerScreen', () => {
     mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    const details = screen.queryByRole('button', { name: 'View sets for Squat' });
+    if (details) fireEvent.press(details);
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(
@@ -310,7 +861,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(mockedQueueRecordResultMutation).toHaveBeenCalledWith({
@@ -318,14 +869,18 @@ describe('TrackerScreen', () => {
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      amrapReps: 3,
+      setLogs: [...SQUAT_SET_LOGS],
     });
     expect(mockedUpsertProgramDetail).toHaveBeenCalledWith(
       expect.objectContaining({
         results: {
           0: {
-            'squat-t1': {
+            'squat-t1': expect.objectContaining({
               result: 'success',
-            },
+              amrapReps: 3,
+              setLogs: [...SQUAT_SET_LOGS],
+            }),
           },
         },
       })
@@ -352,9 +907,14 @@ describe('TrackerScreen', () => {
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
 
-    expect(await screen.findByText('Logged success')).toBeTruthy();
+    // Entry selects the first unfinished workout; reopen the completed day to edit it.
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    const details = screen.queryByRole('button', { name: 'View sets for Squat' });
+    if (details) fireEvent.press(details);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    expect(await screen.findByText('Logged success')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Confirm set/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Mark Squat success' })).toBeNull();
 
     await waitFor(() => {
       expect(mockedUpsertProgramDetail).not.toHaveBeenCalled();
@@ -362,7 +922,7 @@ describe('TrackerScreen', () => {
     });
   });
 
-  it('shows the logged result immediately while waiting for the local detail write', async () => {
+  it('keeps the final set editor until the local completion write succeeds', async () => {
     const upsertDetail = createDeferred<void>();
 
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
@@ -376,9 +936,10 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
 
-    expect(screen.getByText('Logged success')).toBeTruthy();
+    expect(screen.queryByText('Logged success')).toBeNull();
+    expect(screen.getByLabelText('Weight for set 5 of Squat')).toBeTruthy();
     expect(mockedQueueRecordResultMutation).not.toHaveBeenCalled();
 
     upsertDetail.resolve();
@@ -389,6 +950,8 @@ describe('TrackerScreen', () => {
         workoutIndex: 0,
         slotId: 'squat-t1',
         result: 'success',
+        amrapReps: 3,
+        setLogs: [...SQUAT_SET_LOGS],
       });
     });
   });
@@ -404,7 +967,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
 
     await waitFor(() => {
       expect(screen.getByText('Awaiting result')).toBeTruthy();
@@ -449,10 +1012,10 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Awaiting result')).toBeTruthy();
     expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
@@ -490,9 +1053,14 @@ describe('TrackerScreen', () => {
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
 
+    // Entry selects the first unfinished workout; reopen the completed day to edit it.
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    const details = screen.queryByRole('button', { name: 'View sets for Squat' });
+    if (details) fireEvent.press(details);
+
     expect(await screen.findByText('Logged fail')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(screen.getByText('AMRAP reps: 12')).toBeTruthy();
@@ -546,9 +1114,14 @@ describe('TrackerScreen', () => {
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
 
+    // Entry selects the first unfinished workout; reopen the completed day to edit it.
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    const details = screen.queryByRole('button', { name: 'View sets for Squat' });
+    if (details) fireEvent.press(details);
+
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Awaiting result')).toBeTruthy();
     expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
@@ -570,13 +1143,13 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
 
     expect(await screen.findByRole('button', { name: 'Increase Squat AMRAP reps' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Increase Squat RPE' })).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
-    expect(await screen.findByText('AMRAP reps: 1')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 4')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat RPE' }));
 
@@ -587,8 +1160,9 @@ describe('TrackerScreen', () => {
           0: {
             'squat-t1': expect.objectContaining({
               result: 'success',
-              amrapReps: 1,
+              amrapReps: 4,
               rpe: 1,
+              setLogs: squatLogsWithLastReps(4),
             }),
           },
         },
@@ -599,7 +1173,8 @@ describe('TrackerScreen', () => {
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
-      amrapReps: 1,
+      setLogs: squatLogsWithLastReps(4),
+      amrapReps: 4,
       rpe: 1,
     });
   });
@@ -631,6 +1206,11 @@ describe('TrackerScreen', () => {
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
 
+    // Entry selects the first unfinished workout; reopen the completed day to edit it.
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    const details = screen.queryByRole('button', { name: 'View sets for Squat' });
+    if (details) fireEvent.press(details);
+
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(screen.getByText('AMRAP reps: 5')).toBeTruthy();
 
@@ -646,7 +1226,7 @@ describe('TrackerScreen', () => {
                 amrapReps: 6,
                 setLogs: [
                   {
-                    reps: 5,
+                    reps: 6,
                     weight: 100,
                     rpe: 8,
                   },
@@ -664,7 +1244,7 @@ describe('TrackerScreen', () => {
         amrapReps: 6,
         setLogs: [
           {
-            reps: 5,
+            reps: 6,
             weight: 100,
             rpe: 8,
           },
@@ -686,30 +1266,34 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
-    expect(await screen.findByText('AMRAP reps: 1')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 4')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
-    expect(screen.getByText('AMRAP reps: -')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 3')).toBeTruthy();
     expect(screen.queryByText('Awaiting result')).toBeNull();
     expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      amrapReps: 3,
+      setLogs: [...SQUAT_SET_LOGS],
     });
     expect(mockedUpsertProgramDetail).toHaveBeenLastCalledWith(
       expect.objectContaining({
         results: {
           0: {
-            'squat-t1': {
+            'squat-t1': expect.objectContaining({
               result: 'success',
-            },
+              amrapReps: 3,
+              setLogs: [...SQUAT_SET_LOGS],
+            }),
           },
         },
         undoHistory: [
@@ -734,7 +1318,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
     expect(await screen.findByRole('button', { name: 'Increase Squat RPE' })).toBeTruthy();
 
     for (let count = 0; count < 11; count += 1) {
@@ -748,6 +1332,8 @@ describe('TrackerScreen', () => {
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      amrapReps: 3,
+      setLogs: [...SQUAT_SET_LOGS],
       rpe: 10,
     });
   });
@@ -770,6 +1356,11 @@ describe('TrackerScreen', () => {
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    // Entry selects the first unfinished workout; reopen the completed day to edit it.
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    const details = screen.queryByRole('button', { name: 'View sets for Squat' });
+    if (details) fireEvent.press(details);
 
     expect(await screen.findByText('RPE: 10')).toBeTruthy();
 
@@ -796,59 +1387,46 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
     expect(await screen.findByRole('button', { name: 'Increase Squat AMRAP reps' })).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
 
     await waitFor(() => {
-      expect(screen.getByText('AMRAP reps: -')).toBeTruthy();
+      expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
     });
-    expect(screen.queryByText('AMRAP reps: 1')).toBeNull();
+    expect(screen.queryByText('AMRAP reps: 4')).toBeNull();
   });
 
-  it('does not roll back a newer edit when an older local write fails late', async () => {
+  it('applies a queued metric edit to the restored snapshot after an earlier write fails', async () => {
     const firstWrite = createDeferred<void>();
-    const secondWrite = createDeferred<void>();
-
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
-    mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
-    mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
     mockedUpsertProgramDetail
+      .mockResolvedValueOnce()
       .mockReturnValueOnce(firstWrite.promise)
-      .mockReturnValueOnce(secondWrite.promise);
-
+      .mockResolvedValue();
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
-
-    expect(await screen.findByText('Squat')).toBeTruthy();
-
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
-    expect(await screen.findByText('Logged success')).toBeTruthy();
-
+    await screen.findByText('Squat');
+    await confirmSets('Squat', 5);
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
-    expect(await screen.findByText('AMRAP reps: 1')).toBeTruthy();
-
-    secondWrite.resolve();
-
+    await screen.findByText('AMRAP reps: 4');
+    fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
+    await act(async () => {});
+    expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(2);
+    await act(async () => firstWrite.reject(new Error('SQLite write failed')));
     await waitFor(() => {
       expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
         instanceId: 'instance-1',
         workoutIndex: 0,
         slotId: 'squat-t1',
         result: 'success',
-        amrapReps: 1,
+        amrapReps: 4,
+        setLogs: squatLogsWithLastReps(4),
       });
     });
-
-    firstWrite.reject(new Error('SQLite write failed'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Logged success')).toBeTruthy();
-      expect(screen.getByText('AMRAP reps: 1')).toBeTruthy();
-    });
-    expect(screen.queryByText('Awaiting result')).toBeNull();
+    expect(screen.getByText('AMRAP reps: 4')).toBeTruthy();
   });
 
   it('shows a lightweight sync warning when queueing a result fails after the local write succeeds', async () => {
@@ -863,7 +1441,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(
@@ -883,17 +1461,17 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
     expect(await screen.findByRole('button', { name: 'Increase Squat AMRAP reps' })).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
-    expect(await screen.findByText('AMRAP reps: 1')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 4')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat RPE' }));
     expect(await screen.findByText('RPE: 1')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Clear Squat AMRAP reps' }));
-    expect(await screen.findByText('AMRAP reps: -')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 3')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Clear Squat RPE' }));
 
@@ -903,6 +1481,7 @@ describe('TrackerScreen', () => {
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      setLogs: [...SQUAT_SET_LOGS],
     });
   });
 
@@ -918,33 +1497,39 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
     expect(await screen.findByRole('button', { name: 'Increase Squat AMRAP reps' })).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat RPE' }));
 
-    expect(await screen.findByText('AMRAP reps: 1')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 4')).toBeTruthy();
     expect(await screen.findByText('RPE: 1')).toBeTruthy();
 
     fireEvent.press(screen.getByRole('button', { name: 'Decrease Squat AMRAP reps' }));
     fireEvent.press(screen.getByRole('button', { name: 'Decrease Squat RPE' }));
 
-    expect(await screen.findByText('AMRAP reps: -')).toBeTruthy();
+    expect(await screen.findByText('AMRAP reps: 3')).toBeTruthy();
     expect(await screen.findByText('RPE: -')).toBeTruthy();
 
     const persistedDetail = mockedUpsertProgramDetail.mock.calls.at(-1)?.[0];
     expect(persistedDetail).toBeDefined();
-    expect(persistedDetail?.results['0']?.['squat-t1']).toEqual({ result: 'success' });
+    expect(persistedDetail?.results['0']?.['squat-t1']).toEqual({
+      result: 'success',
+      amrapReps: 3,
+      setLogs: [...SQUAT_SET_LOGS],
+    });
     expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      amrapReps: 3,
+      setLogs: [...SQUAT_SET_LOGS],
     });
   });
 
-  it('does not create AMRAP or RPE values when decreasing from empty state', async () => {
+  it('does not create RPE values when decreasing from empty state', async () => {
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
@@ -956,20 +1541,22 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
-    expect(await screen.findByRole('button', { name: 'Decrease Squat AMRAP reps' })).toBeTruthy();
+    await confirmSets('Squat', 5);
+    expect(await screen.findByRole('button', { name: 'Decrease Squat RPE' })).toBeTruthy();
+    expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Decrease Squat AMRAP reps' }));
     fireEvent.press(screen.getByRole('button', { name: 'Decrease Squat RPE' }));
 
-    expect(await screen.findByText('AMRAP reps: -')).toBeTruthy();
     expect(await screen.findByText('RPE: -')).toBeTruthy();
+    expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
     expect(mockedQueueRecordResultMutation).toHaveBeenCalledTimes(1);
     expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
       result: 'success',
+      amrapReps: 3,
+      setLogs: [...SQUAT_SET_LOGS],
     });
   });
 
@@ -1010,7 +1597,7 @@ describe('TrackerScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Next workout' }));
     expect(await screen.findByText('Day B')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Bench success' }));
+    await confirmSets('Bench', 5);
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Increase Bench AMRAP reps' })).toBeNull();
@@ -1059,10 +1646,10 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     await waitFor(() => {
       expect(screen.getByText('Logged success')).toBeTruthy();
@@ -1084,10 +1671,10 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('Squat')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Mark Squat success' }));
+    await confirmSets('Squat', 5);
     expect(await screen.findByText('Logged success')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Awaiting result')).toBeTruthy();
     expect(
@@ -1123,9 +1710,14 @@ describe('TrackerScreen', () => {
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
 
+    // Entry selects the first unfinished workout; reopen the completed day to edit it.
+    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
+    const details = screen.queryByRole('button', { name: 'View sets for Squat' });
+    if (details) fireEvent.press(details);
+
     expect(await screen.findByText('Logged fail')).toBeTruthy();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest tracker action' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(

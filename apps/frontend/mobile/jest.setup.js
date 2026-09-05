@@ -1,3 +1,8 @@
+import { configure } from '@testing-library/react-native';
+
+// CI cold rendering of native icons can exceed the library's 1s async default.
+configure({ asyncUtilTimeout: 5000 });
+
 import mockSafeAreaContext from 'react-native-safe-area-context/jest/mock';
 
 jest.mock('react-native-safe-area-context', () => mockSafeAreaContext);
@@ -5,7 +10,28 @@ jest.mock('react-native-safe-area-context', () => mockSafeAreaContext);
 // Pin the device locale to English so i18n resolves the English catalog under
 // test (the source language of the app's copy).
 jest.mock('expo-localization', () => ({
-  getLocales: () => [{ languageCode: 'en' }],
+  getLocales: () => [{ languageCode: 'en', languageTag: 'en-US' }],
+}));
+
+jest.mock('expo-font', () => ({
+  useFonts: () => [true, null],
+  loadAsync: jest.fn(async () => undefined),
+  isLoaded: () => true,
+}));
+
+jest.mock('@expo-google-fonts/bebas-neue', () => ({
+  BebasNeue_400Regular: 1,
+}));
+
+jest.mock('@expo-google-fonts/barlow', () => ({
+  Barlow_400Regular: 1,
+  Barlow_600SemiBold: 1,
+  Barlow_700Bold: 1,
+}));
+
+jest.mock('@expo-google-fonts/jetbrains-mono', () => ({
+  JetBrainsMono_600SemiBold: 1,
+  JetBrainsMono_700Bold: 1,
 }));
 
 jest.mock('expo-auth-session/providers/google', () => ({
@@ -58,12 +84,15 @@ jest.mock('react-native/Libraries/Lists/FlatList', () => {
     keyExtractor,
     renderItem,
     ListEmptyComponent,
+    ListHeaderComponent,
+    ListFooterComponent,
     contentContainerStyle,
   }) {
     const items = Array.isArray(data) ? data : [];
     return React.createElement(
       'View',
       { style: contentContainerStyle },
+      renderComponent(ListHeaderComponent),
       items.length === 0
         ? renderComponent(ListEmptyComponent)
         : items.map((item, index) =>
@@ -80,7 +109,8 @@ jest.mock('react-native/Libraries/Lists/FlatList', () => {
                 },
               })
             )
-          )
+          ),
+      renderComponent(ListFooterComponent)
     );
   }
 

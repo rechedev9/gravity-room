@@ -3,6 +3,7 @@ import {
   PROGRAM_DETAILS_TABLE_SQL,
   PROGRAM_SUMMARIES_TABLE_SQL,
   QUEUED_MUTATIONS_TABLE_SQL,
+  SET_DRAFTS_TABLE_SQL,
 } from './schema';
 
 export interface MigrationStep {
@@ -84,5 +85,18 @@ export const MIGRATIONS: readonly MigrationStep[] = [
   {
     version: 3,
     sql: OWNER_PARTITION_MIGRATION_SQL,
+  },
+  {
+    version: 4,
+    sql: SET_DRAFTS_TABLE_SQL,
+  },
+  {
+    version: 5,
+    sql: `ALTER TABLE program_summaries ADD COLUMN program_id TEXT;
+      UPDATE program_summaries SET program_id = (
+        SELECT program_id FROM program_details
+        WHERE program_details.owner_user_id = program_summaries.owner_user_id
+          AND program_details.id = program_summaries.id
+      );`,
   },
 ];

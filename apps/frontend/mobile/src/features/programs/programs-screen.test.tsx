@@ -1,7 +1,12 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { ReactElement } from 'react';
+import { ProgramQueryProvider } from '../../shell/program-query-provider';
+import { fireEvent, render as renderScreen, screen, waitFor } from '@testing-library/react-native';
 import type { CatalogEntry, GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
 
 import { ProgramsScreen } from './programs-screen';
+function render(element: ReactElement) {
+  return renderScreen(<ProgramQueryProvider>{element}</ProgramQueryProvider>);
+}
 import {
   listProgramSummaries,
   upsertProgramSummaries,
@@ -267,7 +272,8 @@ describe('ProgramsScreen', () => {
     mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
     mockedCreateProgramInstance.mockResolvedValue(CREATED_DETAIL);
 
-    render(<ProgramsScreen />);
+    const onOpenProgram = jest.fn();
+    render(<ProgramsScreen onOpenProgram={onOpenProgram} />);
 
     fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
 
@@ -283,10 +289,35 @@ describe('ProgramsScreen', () => {
     expect(mockedUpsertProgramSummaries).toHaveBeenCalledWith([
       {
         id: 'created-program',
+        programId: 'gzclp',
         title: 'GZCLP',
         updatedAt: '2026-06-21T10:00:00.000Z',
       },
     ]);
-    expect(await screen.findByText('created-program')).toBeTruthy();
+    expect(onOpenProgram).toHaveBeenCalledWith('created-program');
+  });
+  it('preserves cached plans when creating from an unopened catalog summary query', async () => {
+    mockedListProgramSummaries.mockResolvedValue([PROGRAM_A, PROGRAM_B]);
+    mockedFetchCatalogEntries.mockResolvedValue([CATALOG_ENTRY]);
+    mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
+    mockedBuildDefaultProgramConfig.mockReturnValue({ squat: 20 });
+    mockedCreateProgramInstance.mockResolvedValue(CREATED_DETAIL);
+    render(<ProgramsScreen mode="catalog" />);
+    const card = (await screen.findAllByRole('button', { name: 'View GZCLP' }))[0];
+    if (!card) throw new Error('Missing catalog card');
+    fireEvent.press(card);
+    fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
+    await waitFor(() =>
+      expect(mockedUpsertProgramSummaries).toHaveBeenCalledWith([
+        {
+          id: CREATED_DETAIL.id,
+          programId: CREATED_DETAIL.programId,
+          title: CREATED_DETAIL.name,
+          updatedAt: CREATED_DETAIL.updatedAt,
+        },
+        PROGRAM_A,
+        PROGRAM_B,
+      ])
+    );
   });
 });

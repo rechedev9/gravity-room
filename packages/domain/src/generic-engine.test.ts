@@ -308,6 +308,40 @@ function slotAt(
 }
 
 describe('computeGenericProgram', () => {
+  it.each([
+    { reps: 8, nextWeight: 60 },
+    { reps: 12, nextWeight: 65 },
+  ])(
+    'completes a double-progression session at $reps reps while deriving the next weight from logs',
+    ({ reps, nextWeight }) => {
+      const definition: ProgramDefinition = {
+        ...BASE_DEFINITION,
+        totalWorkouts: 2,
+        days: [
+          {
+            name: 'Day A',
+            slots: [
+              {
+                ...BASE_SLOT,
+                stages: [{ sets: 3, reps: 6, repsMax: 12 }],
+                onSuccess: { type: 'double_progression', repRangeBottom: 6, repRangeTop: 12 },
+              },
+            ],
+          },
+        ],
+      };
+      const rows = computeGenericProgram(
+        definition,
+        { squat: 60 },
+        {
+          0: { 'squat-t1': { result: 'success', setLogs: [{ reps }, { reps }, { reps }] } },
+        }
+      );
+      expect(slotAt(rows, 0, 'squat-t1').result).toBe('success');
+      expect(slotAt(rows, 1, 'squat-t1').weight).toBe(nextWeight);
+    }
+  );
+
   it('uses progressionSetIndex to derive the result from the selected set log', () => {
     const definition: ProgramDefinition = {
       ...BASE_DEFINITION,
@@ -337,7 +371,11 @@ describe('computeGenericProgram', () => {
     expect(rows[0]?.slots[0]?.result).toBe('success');
   });
 
-  it('updates the training max for later workouts when update_tm succeeds', () => {
+  it.each([
+    { amrapReps: 8 },
+    { setLogs: [{ reps: 5 }, { reps: 5 }, { reps: 8 }] },
+    { amrapReps: 5, setLogs: [{ reps: 5 }, { reps: 5 }, { reps: 8 }] },
+  ])('updates the training max from AMRAP logs or legacy metrics: %j', (metrics) => {
     const definition: ProgramDefinition = {
       ...BASE_DEFINITION,
       totalWorkouts: 2,
@@ -359,7 +397,7 @@ describe('computeGenericProgram', () => {
       0: {
         'squat-t1': {
           result: 'success',
-          amrapReps: 8,
+          ...metrics,
         },
       },
     };

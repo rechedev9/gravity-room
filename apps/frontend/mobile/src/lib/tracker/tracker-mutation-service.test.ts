@@ -25,6 +25,33 @@ const mockedEnqueueMutation = jest.mocked(enqueueMutation);
 const mockedFlushQueuedMutations = jest.mocked(flushQueuedMutations);
 
 describe('tracker mutation service', () => {
+  it('finishes durable enqueue while network replay is still pending', async () => {
+    mockedGetAccessToken.mockReturnValue('mobile-access-token');
+    mockedEnqueueMutation.mockResolvedValue();
+    let release: (() => void) | undefined;
+    mockedFlushQueuedMutations.mockReturnValue(
+      new Promise((resolve) => {
+        release = () => resolve({ processedCount: 1 });
+      })
+    );
+    try {
+      await queueRecordResultMutation({
+        instanceId: 'instance-1',
+        workoutIndex: 0,
+        slotId: 'squat-t1',
+        result: 'success',
+      });
+      await queueDeleteResultMutation({
+        instanceId: 'instance-1',
+        workoutIndex: 0,
+        slotId: 'squat-t1',
+      });
+      expect(mockedEnqueueMutation).toHaveBeenCalledTimes(2);
+    } finally {
+      release?.();
+    }
+  });
+
   afterEach(() => {
     mockedGetAccessToken.mockReset();
     mockedEnqueueMutation.mockReset();

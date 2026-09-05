@@ -15,7 +15,14 @@
         }
       }
     },
-    "plugins": ["expo-sqlite", "expo-secure-store", "expo-web-browser"],
+    "plugins": [
+      "expo-sqlite",
+      "expo-secure-store",
+      "expo-web-browser",
+      "expo-font",
+      "expo-notifications",
+      "expo-router"
+    ],
     "web": {
       "bundler": "metro"
     }

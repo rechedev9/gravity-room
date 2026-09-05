@@ -11,6 +11,7 @@ import { fetchWithAccessToken, getAccessToken } from '../auth/session';
 import type { ProgramSummary } from './program-repository';
 
 interface RemoteProgramSummary {
+  readonly programId?: string;
   readonly id: string;
   readonly name?: string | null;
   readonly updatedAt?: string | null;
@@ -32,6 +33,7 @@ function isRemoteProgramSummary(value: unknown): value is RemoteProgramSummary {
   const name = value.name;
   const updatedAt = value.updatedAt;
   return (
+    (value.programId === undefined || typeof value.programId === 'string') &&
     typeof value.id === 'string' &&
     value.id.length > 0 &&
     (name === undefined || name === null || typeof name === 'string') &&
@@ -83,6 +85,7 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
     for (const program of payload.data) {
       programs.push({
         id: program.id,
+        ...(program.programId !== undefined ? { programId: program.programId } : {}),
         title: program.name ?? 'Untitled Program',
         updatedAt: program.updatedAt ?? new Date(0).toISOString(),
       });

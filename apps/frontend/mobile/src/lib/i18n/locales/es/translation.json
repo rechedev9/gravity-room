@@ -3,15 +3,27 @@
     "retry": "Reintentar"
   },
   "nav": {
-    "programs": "Programas",
+    "train": "Entrenar",
+    "programs": "Mis planes",
     "profile": "Perfil",
-    "open_programs": "Abrir pestaña de programas",
-    "open_profile": "Abrir pestaña de perfil"
+    "open_train": "Abrir pestaña de entrenar",
+    "open_programs": "Abrir Mis planes",
+    "open_profile": "Abrir pestaña de perfil",
+    "workout": "Entrenar",
+    "open_workout": "Abrir Entrenar",
+    "mesos": "Mis planes",
+    "open_mesos": "Abrir Mis planes",
+    "templates": "Explorar",
+    "open_templates": "Abrir Explorar",
+    "exercises": "Ejercicios",
+    "open_exercises": "Abrir Ejercicios",
+    "more": "Más",
+    "open_more": "Abrir Más"
   },
   "login": {
     "eyebrow": "Gravity Room",
     "title": "Entrena con intención.",
-    "google_body": "Elige tu cuenta de Google para restaurar tu progreso de entrenamiento.",
+    "google_body": "Tu plan. Cada serie. Todo tu progreso en un solo lugar.",
     "divider": "o",
     "social": {
       "google": "Continuar con Google"
@@ -48,7 +60,7 @@
   },
   "programs": {
     "eyebrow": "Programas",
-    "title": "Bloques de entrenamiento en caché",
+    "title": "Mis planes",
     "body": "Tus bloques activos siguen disponibles sin conexión. Empieza un preset para guardarlo en este dispositivo.",
     "sync_notice": "Mostrando programas en caché. La sincronización se reintentará al actualizar.",
     "card_updated": "Actualizado {{date}}",
@@ -66,6 +78,15 @@
       "sync": "No se pueden sincronizar los programas ahora mismo.",
       "catalog": "No se pudo cargar el catálogo de programas ahora mismo.",
       "start": "No se pudo empezar ese programa ahora mismo."
+    },
+    "templates_intro": "Encuentra un plan para tu forma de entrenar.",
+    "mesos_intro": "Tus planes de entrenamiento, siempre a mano."
+  },
+  "train": {
+    "empty": {
+      "title": "Sin sesión todavía",
+      "body": "Empieza un programa para registrar desde el gym. Entrenar deja el bloque actual a un toque.",
+      "open_programs": "Ver mis planes"
     }
   },
   "profile": {
@@ -83,15 +104,20 @@
     "loading": "Cargando registro...",
     "unavailable": "Registro no disponible",
     "back": "Volver",
-    "back_programs": "Volver a programas",
+    "back_programs": "Volver a Mis planes",
     "previous": "Anterior",
     "previous_accessibility": "Entrenamiento anterior",
     "undo": "Deshacer",
-    "undo_accessibility": "Deshacer la última acción del registro",
+    "undo_accessibility": "Deshacer el último resultado completado",
     "next": "Siguiente",
     "next_accessibility": "Siguiente entrenamiento",
     "weight": "{{weight}} kg",
     "sets_reps": "{{sets}} x {{reps}}",
+    "confirm_set": "Set {{index}} ✓",
+    "set_indicators": {
+      "sets_aria": "{{count}} series",
+      "set_result_aria": "Serie {{index}}: {{reps}} reps"
+    },
     "status": {
       "success": "Éxito registrado",
       "fail": "Fallo registrado",
@@ -114,11 +140,82 @@
       "increase_rpe": "Aumentar el RPE de {{name}}",
       "clear_rpe": "Borrar el RPE de {{name}}",
       "mark_success": "Marcar {{name}} como éxito",
-      "mark_fail": "Marcar {{name}} como fallo"
+      "mark_fail": "Marcar {{name}} como fallo",
+      "confirm_set": "Confirmar serie {{index}} de {{name}}"
     },
     "notices": {
       "cached": "Mostrando el registro en caché mientras se sincroniza.",
-      "manual_retry": "Guardado localmente. Este cambio no se sincronizará automáticamente."
+      "manual_retry": "Guardado localmente. Este cambio no se sincronizará automáticamente.",
+      "draft_failed": "No se pudo guardar esta serie en el dispositivo. Inténtalo de nuevo."
+    },
+    "set_row": {
+      "weight": "kg",
+      "reps": "Reps",
+      "weight_accessibility": "Peso de la serie {{index}} de {{name}}",
+      "reps_accessibility": "Repeticiones de la serie {{index}} de {{name}}",
+      "logged": "Serie {{index}}: {{reps}} repeticiones con {{weight}} kg",
+      "logged_reps": "{{reps}} reps"
+    },
+    "session_position": "SEMANA {{week}} DÍA {{day}}",
+    "week": "Semana {{week}}",
+    "day": "Día {{day}}",
+    "day_complete": "Día completado",
+    "recorded_volume": "Volumen registrado: {{volume}} kg",
+    "next_time": "{{name}} la próxima vez: {{weight}} kg · {{sets}} × {{reps}}",
+    "continue_pending": "Continuar al siguiente entreno pendiente",
+    "program_complete": "Todos los entrenos completados",
+    "toggle_sets": "Ver series de {{name}}",
+    "sets_recorded": "{{count}} series registradas",
+    "session_progress": "{{done}} de {{total}} ejercicios",
+    "session_title": "Entrenamiento",
+    "session_done": "Sesión completada",
+    "next_time_title": "Próxima sesión",
+    "next_workout": "Siguiente entrenamiento",
+    "undo_set": "Deshacer la última serie de {{name}}"
+  },
+  "rest": {
+    "title": "Descanso",
+    "complete": "Descanso terminado",
+    "next_set": "Todo listo para tu siguiente serie.",
+    "skip": "Omitir descanso",
+    "alert_unavailable": "Avisos en segundo plano no disponibles. El temporizador sigue activo."
+  },
+  "ui": {
+    "close": "Cerrar",
+    "decrease": "Reducir {{label}}",
+    "increase": "Aumentar {{label}}"
+  },
+  "exercises": {
+    "pending": "Tu biblioteca de ejercicios aparecerá aquí."
+  },
+  "discovery": {
+    "title": "Encuentra tu próximo programa",
+    "subtitle": "Planes estructurados. Progreso que puedes seguir.",
+    "search": "Buscar programas",
+    "clear": "Borrar búsqueda",
+    "featured": "BASES DE FUERZA",
+    "view": "Ver programa",
+    "open": "Ver {{name}}",
+    "frequency": "{{count}} días/semana",
+    "sessions": "{{count}} entrenamientos",
+    "all_programs": "Todos los programas",
+    "empty": "No hay coincidencias. Prueba otra búsqueda o nivel.",
+    "level": {
+      "all": "Todos",
+      "beginner": "Principiante",
+      "intermediate": "Intermedio",
+      "advanced": "Avanzado"
     }
+  },
+  "plans": {
+    "eyebrow": "TU ENTRENAMIENTO",
+    "intro": "Retoma tu entrenamiento.",
+    "recent": "Actualizado más recientemente",
+    "open": "Abrir {{name}}",
+    "open_plan": "Abrir plan",
+    "other": "Tus otros planes",
+    "empty": "Encuentra un programa en Explorar para empezar.",
+    "explore": "Explorar programas",
+    "explore_hint": "Encuentra tu próximo plan de entrenamiento."
   }
 }
