@@ -935,7 +935,7 @@ describe('importInstance — undoHistory validation', () => {
       await importInstance(
         'user-1',
         baseExportedProgram({
-          undoHistory: [{ i: 0, slotId: 'squat', prev: 'success', prevAmrapReps: 100 }],
+          undoHistory: [{ i: 0, slotId: 'squat', prev: 'success', prevAmrapReps: 1000 }],
         })
       );
     } catch (e) {

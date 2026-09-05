@@ -99,4 +99,18 @@ export const MIGRATIONS: readonly MigrationStep[] = [
           AND program_details.id = program_summaries.id
       );`,
   },
+  {
+    version: 6,
+    sql: `ALTER TABLE queued_mutations ADD COLUMN last_error_code TEXT;
+      CREATE INDEX queued_mutations_owner_id_idx ON queued_mutations (owner_user_id, id);`,
+  },
+  {
+    version: 7,
+    sql: `CREATE TABLE sync_backoff (
+      owner_user_id TEXT PRIMARY KEY NOT NULL,
+      retry_at_ms INTEGER NOT NULL,
+      recorded_at_ms INTEGER NOT NULL,
+      attempt_count INTEGER NOT NULL
+    );`,
+  },
 ];

@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { secureOfflineIdentityStorage, secureLocalDataOwnerStorage } from './secure-storage';
 
 import {
   buildApiUrl,
@@ -7,6 +8,9 @@ import {
   fetchWithAccessToken,
   getAccessToken,
   InvalidRefreshTokenError,
+  SessionUnavailableError,
+  readOfflineUser,
+  rememberOfflineUser,
   resolveApiBaseUrl,
   restoreSession,
   SignOutCredentialDeletionError,
@@ -36,6 +40,7 @@ const originalFetch = globalThis.fetch;
 const originalExpoPublicApiUrl = process.env.EXPO_PUBLIC_API_URL;
 
 afterEach(() => {
+  jest.restoreAllMocks();
   setAccessToken(null);
   globalThis.fetch = originalFetch;
   if (originalExpoPublicApiUrl === undefined) {
@@ -803,5 +808,158 @@ describe('signInWithDev', () => {
       ok: false,
       code: 'UNAUTHORIZED',
     });
+  });
+});
+
+describe('offline identity and refresh boundaries', () => {
+  const storage = () => ({
+    getRefreshToken: jest.fn(async () => 'durable-refresh'),
+    setRefreshToken: jest.fn(async (_token: string) => undefined),
+    clearRefreshToken: jest.fn(async () => undefined),
+  });
+  const marker = () => ({
+    getSessionKind: jest.fn(async (): Promise<'email'> => 'email'),
+    setSessionKind: jest.fn(async () => undefined),
+    clearSessionKind: jest.fn(async () => undefined),
+  });
+
+  it.each([408, 429, 500, 503])(
+    'exposes a retryable %i without deleting credentials',
+    async (status) => {
+      globalThis.fetch = jest.fn(async () => jsonResponse({}, status));
+      const credentials = storage();
+      await expect(restoreSession({ storage: credentials })).rejects.toBeInstanceOf(
+        SessionUnavailableError
+      );
+      expect(credentials.clearRefreshToken).not.toHaveBeenCalled();
+      credentials.getRefreshToken.mockResolvedValue('');
+      const sessionKindStorage = marker();
+      await expect(
+        restoreSession({ storage: credentials, sessionKindStorage })
+      ).rejects.toBeInstanceOf(SessionUnavailableError);
+      expect(sessionKindStorage.clearSessionKind).not.toHaveBeenCalled();
+    }
+  );
+
+  it('distinguishes native connectivity failures from malformed server responses and storage failures', async () => {
+    const credentials = storage();
+    globalThis.fetch = jest.fn(async () => {
+      throw new TypeError('Network request failed');
+    });
+    await expect(restoreSession({ storage: credentials })).rejects.toBeInstanceOf(
+      SessionUnavailableError
+    );
+    globalThis.fetch = jest.fn(async () => jsonResponse({ unexpected: true }));
+    await expect(restoreSession({ storage: credentials })).resolves.toBeNull();
+    globalThis.fetch = jest.fn(async () =>
+      jsonResponse({ user: AUTH_USER, accessToken: 'access', refreshToken: 'new' })
+    );
+    credentials.setRefreshToken.mockRejectedValue(new TypeError('SecureStore failed'));
+    await expect(restoreSession({ storage: credentials })).resolves.toBeNull();
+  });
+
+  it.each([401, 403])(
+    'invalidates cookie offline eligibility after explicit HTTP %i',
+    async (status) => {
+      globalThis.fetch = jest.fn(async () => jsonResponse({}, status));
+      const credentials = storage();
+      credentials.getRefreshToken.mockResolvedValue('');
+      const sessionKindStorage = marker();
+      await expect(
+        restoreSession({ storage: credentials, sessionKindStorage })
+      ).resolves.toBeNull();
+      expect(sessionKindStorage.clearSessionKind).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it('only reads valid identity belonging to the secure local owner', async () => {
+    const read = jest
+      .spyOn(secureOfflineIdentityStorage, 'get')
+      .mockResolvedValue(JSON.stringify(AUTH_USER));
+    const owner = jest
+      .spyOn(secureLocalDataOwnerStorage, 'getOwnerId')
+      .mockResolvedValue(AUTH_USER.id);
+    await expect(readOfflineUser()).resolves.toEqual(AUTH_USER);
+    owner.mockResolvedValue('different-owner');
+    await expect(readOfflineUser()).resolves.toBeNull();
+    owner.mockResolvedValue(AUTH_USER.id);
+    read.mockResolvedValue('{broken');
+    await expect(readOfflineUser()).resolves.toBeNull();
+    read.mockRejectedValue(new Error('SecureStore unavailable'));
+    await expect(readOfflineUser()).rejects.toThrow('SecureStore unavailable');
+  });
+
+  it('does not persist an identity before its owner is prepared', async () => {
+    jest.spyOn(secureLocalDataOwnerStorage, 'getOwnerId').mockResolvedValue('another-owner');
+    const write = jest.spyOn(secureOfflineIdentityStorage, 'set').mockResolvedValue();
+    await expect(rememberOfflineUser(AUTH_USER)).rejects.toThrow('does not own');
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it('finishes refresh rotation before sign-out deletion and blocks new restores during sign-out', async () => {
+    const credentials = storage();
+    let finishRefresh = (_response: {
+      user: typeof AUTH_USER;
+      accessToken: string;
+      refreshToken: string;
+    }): void => undefined;
+    const refreshSession = jest.fn(
+      () =>
+        new Promise<{ user: typeof AUTH_USER; accessToken: string; refreshToken: string }>(
+          (resolve) => {
+            finishRefresh = resolve;
+          }
+        )
+    );
+    const restoring = restoreSession({ storage: credentials, refreshSession });
+    await Promise.resolve();
+    const signingOut = signOutSession({
+      storage: credentials,
+      sessionKindStorage: marker(),
+      revokeRemoteSession: async () => undefined,
+    });
+    await expect(restoreSession({ storage: credentials, refreshSession })).resolves.toBeNull();
+    expect(credentials.clearRefreshToken).not.toHaveBeenCalled();
+    finishRefresh({ user: AUTH_USER, accessToken: 'rotated', refreshToken: 'rotated' });
+    await Promise.all([restoring, signingOut]);
+    expect(credentials.setRefreshToken.mock.invocationCallOrder[0] ?? Infinity).toBeLessThan(
+      credentials.clearRefreshToken.mock.invocationCallOrder[0] ?? 0
+    );
+    expect(getAccessToken()).toBeNull();
+  });
+  it('preserves refresh Retry-After across immediate recovery and later resume attempts', async () => {
+    let now = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    const credentials = storage();
+    const fetchSpy = jest
+      .fn()
+      .mockResolvedValueOnce(new Response('{}', { status: 429, headers: { 'Retry-After': '60' } }))
+      .mockResolvedValue(
+        jsonResponse({ user: AUTH_USER, accessToken: 'access', refreshToken: 'rotated' })
+      );
+    globalThis.fetch = fetchSpy;
+    try {
+      await expect(restoreSession({ storage: credentials })).rejects.toMatchObject({
+        retryAt: now + 60_000,
+      });
+      await expect(restoreSession({ storage: credentials })).rejects.toBeInstanceOf(
+        SessionUnavailableError
+      );
+      now += 59_999;
+      await expect(restoreSession({ storage: credentials })).rejects.toBeInstanceOf(
+        SessionUnavailableError
+      );
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      now += 1;
+      await expect(restoreSession({ storage: credentials })).resolves.toMatchObject({
+        accessToken: 'access',
+      });
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      // Expire the process-local pause even when an assertion fails.
+      now += 60_000;
+      await restoreSession({ storage: credentials });
+      clock.mockRestore();
+    }
   });
 });

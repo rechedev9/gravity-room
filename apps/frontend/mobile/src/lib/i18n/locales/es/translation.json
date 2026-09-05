@@ -217,5 +217,18 @@
     "empty": "Encuentra un programa en Explorar para empezar.",
     "explore": "Explorar programas",
     "explore_hint": "Encuentra tu próximo plan de entrenamiento."
+  },
+  "sync": {
+    "offline": "Estás sin conexión",
+    "offline_detail": "Puedes continuar con tus entrenamientos guardados.",
+    "pending_one": "1 cambio pendiente de sincronizar",
+    "pending_other": "{{count}} cambios pendientes de sincronizar",
+    "pending_detail": "Guardados en este dispositivo. Reintentaremos automáticamente.",
+    "attention_one": "1 cambio necesita atención",
+    "attention_other": "{{count}} cambios necesitan atención",
+    "attention_detail": "Tus cambios siguen aquí hasta que puedan sincronizarse.",
+    "unavailable": "No se puede comprobar la sincronización",
+    "unavailable_detail": "Reintenta para comprobar tus cambios guardados.",
+    "retry_label": "Reintentar la sincronización de cambios guardados"
   }
 }

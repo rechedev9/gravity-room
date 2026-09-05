@@ -44,6 +44,9 @@ import {
 } from '../lib/tracker/program-detail-repository';
 
 jest.mock('../lib/auth/session', () => ({
+  SessionUnavailableError: class SessionUnavailableError extends Error {},
+  readOfflineUser: jest.fn(async () => null),
+  rememberOfflineUser: jest.fn(async () => undefined),
   getAccessToken: jest.fn(() => null),
   restoreSession: jest.fn(),
   setAccessToken: jest.fn(),
@@ -73,9 +76,15 @@ jest.mock('../features/auth/google-sign-in', () => ({
 jest.mock('../lib/sync/mutation-sync-service', () => ({
   clearQueuedMutations: jest.fn(),
   flushQueuedMutations: jest.fn(),
+  cancelQueuedMutationFlush: jest.fn(),
+}));
+
+jest.mock('../lib/sync/sync-status-repository', () => ({
+  readSyncStatus: jest.fn(async () => ({ total: 0, needsAttention: 0 })),
 }));
 
 jest.mock('../lib/db/client', () => ({
+  getActiveLocalDataOwner: jest.fn(() => 'user-123'),
   activateLocalDataOwner: jest.fn(async () => undefined),
   clearLocalAppData: jest.fn(),
   deactivateLocalDataOwner: jest.fn(),

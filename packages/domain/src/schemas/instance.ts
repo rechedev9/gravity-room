@@ -1,26 +1,32 @@
 import { z } from 'zod/v4';
+import { MAX_TOTAL_WORKOUTS } from './program-definition';
+
+export const MAX_REPS = 999;
 
 const ResultValueSchema = z.enum(['success', 'fail']);
 
 export const SetLogEntrySchema = z.strictObject({
-  reps: z.number().int().min(0).max(999),
+  reps: z.number().int().min(0).max(MAX_REPS),
   weight: z.number().nonnegative().optional(),
   rpe: z.number().int().min(1).max(10).optional(),
 });
 
 const SlotResultSchema = z.strictObject({
   result: ResultValueSchema.optional(),
-  amrapReps: z.number().int().min(0).max(999).optional(),
+  amrapReps: z.number().int().min(0).max(MAX_REPS).optional(),
   rpe: z.number().int().min(1).max(10).optional(),
   setLogs: z.array(SetLogEntrySchema).optional(),
 });
 
 const GenericWorkoutResultSchema = z.record(z.string(), SlotResultSchema);
 
-export const GenericResultsSchema = z.record(
-  z.string().regex(/^\d{1,3}$/),
-  GenericWorkoutResultSchema
-);
+export const WorkoutIndexKeySchema = z
+  .string()
+  .regex(/^\d+$/)
+  .max(String(MAX_TOTAL_WORKOUTS - 1).length)
+  .refine((key) => Number(key) < MAX_TOTAL_WORKOUTS, 'Workout index exceeds program limit');
+
+export const GenericResultsSchema = z.record(WorkoutIndexKeySchema, GenericWorkoutResultSchema);
 
 export type GenericResults = z.infer<typeof GenericResultsSchema>;
 
@@ -89,3 +95,13 @@ export const GenericProgramDetailSchema = z.object({
 });
 
 export type GenericProgramDetail = z.infer<typeof GenericProgramDetailSchema>;
+
+/** Local writes must reject malformed data; hydration fallbacks would silently erase it. */
+export const GenericProgramDetailWriteSchema = GenericProgramDetailSchema.extend({
+  config: GenericProgramDetailSchema.shape.config.unwrap(),
+  results: GenericResultsSchema,
+  undoHistory: GenericUndoHistorySchema,
+  resultTimestamps: GenericProgramDetailSchema.shape.resultTimestamps.unwrap(),
+  completedDates: GenericProgramDetailSchema.shape.completedDates.unwrap(),
+  definitionId: GenericProgramDetailSchema.shape.definitionId.unwrap(),
+});

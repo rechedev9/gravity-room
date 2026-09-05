@@ -1,3 +1,4 @@
+import { useSyncStatus } from '../../shell/sync-status-provider';
 import { MyPlans } from './my-plans';
 import { CatalogBrowser } from './catalog-browser';
 import { useQueryClient } from '@tanstack/react-query';
@@ -62,7 +63,9 @@ export function ProgramsScreen({
   const error = summaryQuery.error
     ? t(summaryQuery.error.message === 'load' ? 'programs.errors.load' : 'programs.errors.sync')
     : null;
-  const syncNotice = summaryQuery.data?.cached ? t('programs.sync_notice') : null;
+  const syncStatus = useSyncStatus();
+  const syncNotice =
+    summaryQuery.data?.cached && !syncStatus?.visible ? t('programs.sync_notice') : null;
   const [catalog, setCatalog] = useState<readonly CatalogEntry[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState<string | null>(null);

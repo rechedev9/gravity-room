@@ -23,7 +23,12 @@ import {
 } from '../lib/program-cache';
 import { SingleflightMap } from '../lib/singleflight';
 import { ApiError } from '../middleware/error-handler';
-import { MAX_PROGRAM_CONFIG_KEYS } from '@gzclp/domain/schemas/instance';
+import {
+  MAX_REPS,
+  MAX_PROGRAM_CONFIG_KEYS,
+  WorkoutIndexKeySchema,
+} from '@gzclp/domain/schemas/instance';
+import { MAX_TOTAL_WORKOUTS } from '@gzclp/domain/schemas/program-definition';
 import { MAX_IMPORT_UNDO_ENTRIES } from '../lib/data-limits';
 
 // Singleflight: concurrent GETs for the same program instance share one DB fetch
@@ -31,13 +36,11 @@ const instanceFlight = new SingleflightMap<unknown>();
 const MAX_PROGRAM_CURSOR_CHARS = 256;
 const MAX_PROGRAM_ID_CHARS = 50;
 const MAX_SLOT_ID_CHARS = 50;
-const MAX_WORKOUT_INDEX_KEY_CHARS = 3;
-const MAX_AMRAP_REPS = 99;
+const MAX_WORKOUT_INDEX_KEY_CHARS = String(MAX_TOTAL_WORKOUTS - 1).length;
 const MAX_SET_LOG_WEIGHT = 10_000;
 const MAX_SET_LOG_ITEMS = 20;
 const PROGRAM_ID_PATTERN = '^[a-z0-9-]+$';
-const WORKOUT_INDEX_KEY_PATTERN = '^\\d{1,3}$';
-const WORKOUT_INDEX_KEY_REGEX = /^\d{1,3}$/;
+const WORKOUT_INDEX_KEY_PATTERN = '^\\d+$';
 const MUTATION_RATE_LIMIT = { failClosed: true } as const;
 const IMPORT_REQUEST_RATE_LIMIT = { maxRequests: 5, windowMs: 60_000, failClosed: true } as const;
 const IMPORT_HOURLY_ROW_BUDGET = 10_000;
@@ -61,7 +64,7 @@ const workoutIndexKeySchema = t.String({
 });
 const setLogsSchema = t.Array(
   t.Object({
-    reps: t.Integer({ minimum: 0, maximum: 999 }),
+    reps: t.Integer({ minimum: 0, maximum: MAX_REPS }),
     weight: t.Optional(t.Number({ minimum: 0, maximum: MAX_SET_LOG_WEIGHT })),
     rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
   }),
@@ -106,19 +109,22 @@ async function applyImportRateLimits(userId: string, body: ExportedProgram): Pro
 }
 
 function assertImportPayloadKeysInBounds(
-  data: Pick<ExportedProgram, 'results' | 'undoHistory'>
+  data: Pick<ExportedProgram, 'results' | 'undoHistory' | 'completedDates'>
 ): void {
   for (const [workoutIndex, slots] of Object.entries(data.results)) {
-    if (
-      workoutIndex.length > MAX_WORKOUT_INDEX_KEY_CHARS ||
-      !WORKOUT_INDEX_KEY_REGEX.test(workoutIndex)
-    ) {
+    if (!WorkoutIndexKeySchema.safeParse(workoutIndex).success) {
       throw new ApiError(400, 'Invalid import result workout index', 'INVALID_DATA');
     }
     for (const slotId of Object.keys(slots)) {
       if (slotId.length < 1 || slotId.length > MAX_SLOT_ID_CHARS) {
         throw new ApiError(400, 'Invalid import result slotId', 'INVALID_DATA');
       }
+    }
+  }
+
+  for (const workoutIndex of Object.keys(data.completedDates ?? {})) {
+    if (!WorkoutIndexKeySchema.safeParse(workoutIndex).success) {
+      throw new ApiError(400, 'Invalid import completion workout index', 'INVALID_DATA');
     }
   }
 
@@ -396,8 +402,8 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
         name: t.String({ minLength: 1, maxLength: 100 }),
         config: programConfigSchema,
         // Bounded to keep a single import from forcing an unbounded in-memory
-        // array + one huge transaction. Outer key = workoutIndex (capped well
-        // above any real program length); inner key = slotId (capped above any
+        // array + one huge transaction. Outer key = workoutIndex (bounded by
+        // the shared program limit); inner key = slotId (capped above any
         // real day's slot count). undoHistory below is bounded the same way.
         results: t.Record(
           workoutIndexKeySchema,
@@ -405,28 +411,28 @@ export const programRoutes = new Elysia({ prefix: '/programs' })
             slotIdSchema,
             t.Object({
               result: t.Optional(t.Union([t.Literal('success'), t.Literal('fail')])),
-              amrapReps: t.Optional(t.Integer({ minimum: 0, maximum: MAX_AMRAP_REPS })),
+              amrapReps: t.Optional(t.Integer({ minimum: 0, maximum: MAX_REPS })),
               rpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
               setLogs: t.Optional(setLogsSchema),
             }),
             { maxProperties: 50 }
           ),
-          { maxProperties: 1000 }
+          { maxProperties: MAX_TOTAL_WORKOUTS }
         ),
         undoHistory: t.Array(
           t.Object({
-            i: t.Integer({ minimum: 0 }),
+            i: t.Integer({ minimum: 0, maximum: MAX_TOTAL_WORKOUTS - 1 }),
             slotId: slotIdSchema,
             prev: t.Optional(t.Union([t.Literal('success'), t.Literal('fail')])),
             prevRpe: t.Optional(t.Integer({ minimum: 1, maximum: 10 })),
-            prevAmrapReps: t.Optional(t.Integer({ minimum: 0, maximum: MAX_AMRAP_REPS })),
+            prevAmrapReps: t.Optional(t.Integer({ minimum: 0, maximum: MAX_REPS })),
             prevSetLogs: t.Optional(setLogsSchema),
           }),
           { maxItems: MAX_IMPORT_UNDO_ENTRIES }
         ),
         completedDates: t.Optional(
           t.Record(workoutIndexKeySchema, t.String({ format: 'date-time' }), {
-            maxProperties: 1000,
+            maxProperties: MAX_TOTAL_WORKOUTS,
           })
         ),
       }),

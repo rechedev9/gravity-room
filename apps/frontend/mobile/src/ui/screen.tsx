@@ -1,3 +1,4 @@
+import { SyncStatusBanner } from './sync-status-banner';
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ type ScreenProps = {
 export function Screen({ children, padded = true, style }: ScreenProps) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
+      <SyncStatusBanner />
       <View style={[padded ? styles.padded : styles.fill, style]}>{children}</View>
     </SafeAreaView>
   );

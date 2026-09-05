@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 const REFRESH_TOKEN_KEY = 'auth.refresh-token';
 const SESSION_KIND_KEY = 'auth.session-kind';
 const LOCAL_DATA_OWNER_KEY = 'auth.local-data-owner';
+const OFFLINE_IDENTITY_KEY = 'auth.offline-identity';
 
 /** Production Expo Web must use cookie-backed auth, never a JS-readable refresh token. */
 export function canPersistRefreshToken(platform: string, isDevelopment: boolean): boolean {
@@ -144,4 +145,11 @@ export const secureLocalDataOwnerStorage: LocalDataOwnerStorage = {
   async clearOwnerId() {
     await storageDelete(LOCAL_DATA_OWNER_KEY);
   },
+};
+
+/** Display identity only; this value never authorizes a server request. */
+export const secureOfflineIdentityStorage = {
+  get: (): Promise<string | null> => storageGet(OFFLINE_IDENTITY_KEY),
+  set: (value: string): Promise<void> => storageSet(OFFLINE_IDENTITY_KEY, value),
+  clear: (): Promise<void> => storageDelete(OFFLINE_IDENTITY_KEY),
 };

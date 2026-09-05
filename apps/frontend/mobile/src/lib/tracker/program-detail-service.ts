@@ -1,3 +1,4 @@
+import { fetchApiResponse } from '../network/api-fetch';
 import {
   GenericProgramDetailSchema,
   ProgramDefinitionSchema,
@@ -21,7 +22,7 @@ export async function fetchProgramDetail(programInstanceId: string): Promise<Gen
 }
 
 export async function fetchProgramDefinition(programId: string): Promise<ProgramDefinition> {
-  const response = await fetch(buildApiUrl(`/catalog/${programId}`));
+  const response = await fetchApiResponse(buildApiUrl(`/catalog/${programId}`));
   if (!response.ok) {
     throw new Error(`Program definition fetch failed with status ${response.status}`);
   }

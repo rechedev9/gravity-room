@@ -1,15 +1,29 @@
+import { readSyncBackoff, recordSyncBackoff } from './sync-backoff-repository';
 import {
   type QueuedMutation,
   acknowledgeQueuedMutations,
   clearQueuedMutations as clearQueuedMutationsFromRepository,
   listQueuedMutations,
+  markQueuedMutationFailure,
 } from './mutation-queue-repository';
-import { clearQueuedMutations, flushQueuedMutations } from './mutation-sync-service';
+import {
+  cancelQueuedMutationFlush,
+  clearQueuedMutations,
+  flushQueuedMutations,
+} from './mutation-sync-service';
+
+jest.mock('./sync-backoff-repository', () => ({
+  readSyncBackoff: jest.fn(async () => 0),
+  recordSyncBackoff: jest.fn(async () => Date.now() + 5000),
+  clearSyncBackoff: jest.fn(async () => undefined),
+}));
 
 jest.mock('./mutation-queue-repository', () => ({
+  MUTATION_BATCH_SIZE: 50,
   acknowledgeQueuedMutations: jest.fn(),
   clearQueuedMutations: jest.fn(),
   listQueuedMutations: jest.fn(),
+  markQueuedMutationFailure: jest.fn(),
 }));
 
 let mockActiveOwnerId = 'user-123';
@@ -58,7 +72,8 @@ describe('flushQueuedMutations', () => {
   const originalFetch = globalThis.fetch;
   const originalExpoPublicApiUrl = process.env.EXPO_PUBLIC_API_URL;
 
-  afterEach(() => {
+  afterEach(async () => {
+    await clearQueuedMutations();
     globalThis.fetch = originalFetch;
     if (originalExpoPublicApiUrl === undefined) {
       delete process.env.EXPO_PUBLIC_API_URL;
@@ -66,9 +81,66 @@ describe('flushQueuedMutations', () => {
       process.env.EXPO_PUBLIC_API_URL = originalExpoPublicApiUrl;
     }
     mockedListQueuedMutations.mockReset();
+    jest.mocked(readSyncBackoff).mockReset().mockResolvedValue(0);
+    jest.mocked(recordSyncBackoff).mockClear();
+    jest.mocked(markQueuedMutationFailure).mockReset();
     mockedAcknowledgeQueuedMutations.mockReset();
     mockedClearQueuedMutationsFromRepository.mockReset();
     mockActiveOwnerId = 'user-123';
+  });
+
+  it('honors a persisted pause before inspecting or sending any newer edit', async () => {
+    jest.mocked(readSyncBackoff).mockResolvedValueOnce(Date.now() + 60000);
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow('waiting to retry');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(mockedListQueuedMutations).not.toHaveBeenCalled();
+  });
+
+  it('persists Retry-After for the whole owner when the server rate limits a mutation', async () => {
+    mockedListQueuedMutations.mockResolvedValueOnce([
+      {
+        id: 1,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'record-result',
+        payload: { workoutIndex: 0, slotId: 'squat', result: 'success' },
+        createdAt: '2026-09-05',
+      },
+    ]);
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('{}', { status: 429, headers: { 'Retry-After': '60' } }));
+    const before = Date.now();
+    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow('status 429');
+    const retryAt = jest.mocked(recordSyncBackoff).mock.calls[0]?.[1];
+    expect(retryAt).toBeGreaterThanOrEqual(before + 60000);
+    expect(retryAt).toBeLessThanOrEqual(Date.now() + 60000);
+    expect(mockedAcknowledgeQueuedMutations).not.toHaveBeenCalled();
+  });
+
+  it('keeps Retry-After in memory when persisting it fails, including for new callers', async () => {
+    mockedListQueuedMutations.mockResolvedValueOnce([
+      {
+        id: 1,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'record-result',
+        payload: { workoutIndex: 0, slotId: 'squat', result: 'success' },
+        createdAt: '2026-09-05',
+      },
+    ]);
+    jest.mocked(recordSyncBackoff).mockRejectedValueOnce(new Error('database is locked'));
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+      new Response('{}', {
+        status: 429,
+        headers: { 'Retry-After': '60' },
+      })
+    );
+    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow('database is locked');
+    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow('waiting to retry');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(mockedAcknowledgeQueuedMutations).not.toHaveBeenCalled();
   });
 
   it('clears all queued mutations through the repository', async () => {
@@ -109,6 +181,7 @@ describe('flushQueuedMutations', () => {
     });
 
     const flushPromise = flushQueuedMutations('mobile-access-token');
+    await Promise.resolve();
     await Promise.resolve();
 
     await clearQueuedMutations();
@@ -255,7 +328,7 @@ describe('flushQueuedMutations', () => {
     expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([21], 'user-123');
   });
 
-  it('discards corrupt outbox rows and continues with later valid mutations', async () => {
+  it('retains corrupt outbox rows and continues with an unrelated plan', async () => {
     mockedListQueuedMutations.mockResolvedValue([
       {
         id: 24,
@@ -269,7 +342,7 @@ describe('flushQueuedMutations', () => {
       {
         id: 25,
         entityType: 'program-instance',
-        entityId: 'instance-1',
+        entityId: 'instance-2',
         operation: 'record-result',
         payload: {
           workoutIndex: 1,
@@ -282,12 +355,70 @@ describe('flushQueuedMutations', () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
     fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 201 }));
 
-    await expect(flushQueuedMutations('mobile-access-token')).resolves.toEqual({
-      processedCount: 2,
-    });
+    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow(
+      'Invalid queued mutation envelope'
+    );
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([24, 25], 'user-123');
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([25], 'user-123');
+  });
+
+  it('retains a rejected plan in order while delivering another plan', async () => {
+    const first: QueuedMutation = {
+      id: 1,
+      entityId: 'rejected-plan',
+      entityType: 'program-instance',
+      operation: 'record-result',
+      payload: { workoutIndex: 0, slotId: 'squat', result: 'success' },
+      createdAt: '2026-09-05',
+    };
+    mockedListQueuedMutations.mockResolvedValueOnce([
+      first,
+      { ...first, id: 2, operation: 'delete-result' },
+      { ...first, id: 3, entityId: 'other-plan' },
+    ]);
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('{}', { status: 403 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 201 }));
+    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow('status 403');
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(markQueuedMutationFailure).toHaveBeenCalledWith(1, 'HTTP_403', 'user-123');
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([3], 'user-123');
+  });
+
+  it('advances past a full retained page so an unrelated plan is not starved', async () => {
+    const first: QueuedMutation = {
+      id: 1,
+      entityId: 'rejected-plan',
+      entityType: 'program-instance',
+      operation: 'record-result',
+      payload: {},
+      payloadValid: false,
+      createdAt: '2026-09-05',
+    };
+    mockedListQueuedMutations
+      .mockResolvedValueOnce(
+        Array.from({ length: 50 }, (_, index) => ({ ...first, id: index + 1 }))
+      )
+      .mockResolvedValueOnce([
+        {
+          ...first,
+          id: 51,
+          entityId: 'other-plan',
+          payloadValid: true,
+          payload: { workoutIndex: 0, slotId: 'squat', result: 'success' },
+        },
+      ]);
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response('{}', { status: 201 }));
+    await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow(
+      'Invalid queued mutation envelope'
+    );
+    expect(mockedListQueuedMutations).toHaveBeenNthCalledWith(2, 'user-123', 50);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([51], 'user-123');
   });
 
   it('replays record-result mutations with optional amrapReps and rpe fields', async () => {
@@ -530,12 +661,54 @@ describe('flushQueuedMutations', () => {
       .mockResolvedValueOnce(new Response('{}', { status: 200 }));
     const running = flushQueuedMutations('mobile-access-token');
     await Promise.resolve();
+    await Promise.resolve();
     const joined = flushQueuedMutations('mobile-access-token');
     upload.resolve(new Response('{}', { status: 201 }));
     await expect(running).resolves.toEqual({ processedCount: 2 });
     await expect(joined).resolves.toEqual({ processedCount: 2 });
     expect(fetchSpy).toHaveBeenCalledTimes(2);
     expect(mockedAcknowledgeQueuedMutations).toHaveBeenLastCalledWith([72], 'user-123');
+  });
+
+  it('preserves a drain request arriving while SQLite is reading a partial batch', async () => {
+    const read = createDeferred<QueuedMutation[]>();
+    mockedListQueuedMutations.mockReturnValueOnce(read.promise).mockResolvedValueOnce([]);
+    const running = flushQueuedMutations('mobile-access-token');
+    await Promise.resolve();
+    const joined = flushQueuedMutations('mobile-access-token');
+    read.resolve([]);
+    await expect(running).resolves.toEqual({ processedCount: 0 });
+    await expect(joined).resolves.toEqual({ processedCount: 0 });
+    expect(mockedListQueuedMutations).toHaveBeenCalledTimes(2);
+  });
+
+  it('drains a second page without needing another caller when the first page is full', async () => {
+    const rows: QueuedMutation[] = Array.from({ length: 50 }, (_, id) => ({
+      id,
+      entityType: 'program-instance',
+      entityId: 'instance-1',
+      operation: 'delete-result',
+      payload: { workoutIndex: id, slotId: 'slot' },
+      createdAt: '2026-09-05',
+    }));
+    mockedListQueuedMutations.mockResolvedValueOnce(rows).mockResolvedValueOnce([
+      {
+        id: 51,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'delete-result',
+        payload: { workoutIndex: 50, slotId: 'slot' },
+        createdAt: '2026-09-05',
+      },
+    ]);
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () => new Response(null, { status: 204 }));
+    await expect(flushQueuedMutations('mobile-access-token')).resolves.toEqual({
+      processedCount: 51,
+    });
+    expect(mockedListQueuedMutations).toHaveBeenCalledTimes(2);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenLastCalledWith([51], 'user-123');
   });
 
   it('reuses the active flush while an earlier replay is still in flight', async () => {
@@ -559,6 +732,7 @@ describe('flushQueuedMutations', () => {
     fetchSpy.mockImplementation(() => firstFetch.promise);
 
     const firstFlush = flushQueuedMutations('mobile-access-token');
+    await Promise.resolve();
     await Promise.resolve();
     const secondFlush = flushQueuedMutations('mobile-access-token');
 
@@ -605,13 +779,14 @@ describe('flushQueuedMutations', () => {
 
     const oldOwnerFlush = flushQueuedMutations('shared-test-token');
     await Promise.resolve();
+    await Promise.resolve();
     mockActiveOwnerId = 'user-456';
     const newOwnerFlush = flushQueuedMutations('shared-test-token');
 
     await expect(oldOwnerFlush).rejects.toMatchObject({ name: 'AbortError' });
     await expect(newOwnerFlush).resolves.toEqual({ processedCount: 1 });
-    expect(mockedListQueuedMutations).toHaveBeenNthCalledWith(1, 'user-123');
-    expect(mockedListQueuedMutations).toHaveBeenNthCalledWith(2, 'user-456');
+    expect(mockedListQueuedMutations).toHaveBeenNthCalledWith(1, 'user-123', 0);
+    expect(mockedListQueuedMutations).toHaveBeenNthCalledWith(2, 'user-456', 0);
     expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([70], 'user-456');
   });
 
@@ -647,6 +822,7 @@ describe('flushQueuedMutations', () => {
 
     const firstFlush = flushQueuedMutations('mobile-access-token');
     await Promise.resolve();
+    await Promise.resolve();
 
     const secondFlush = flushQueuedMutations('rotated-access-token');
 
@@ -678,5 +854,71 @@ describe('flushQueuedMutations', () => {
 
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(mockedAcknowledgeQueuedMutations).not.toHaveBeenCalled();
+  });
+  it('rebases memory and durable pauses together after a backward clock correction', async () => {
+    let now = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValue(new TypeError('Network unavailable'));
+    mockedListQueuedMutations.mockResolvedValueOnce([
+      {
+        id: 90,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'record-result',
+        payload: { workoutIndex: 0, slotId: 'squat', result: 'success' },
+        createdAt: '2026-09-05',
+      },
+    ]);
+    try {
+      await expect(flushQueuedMutations('token')).rejects.toThrow();
+      now -= 3_600_000;
+      jest.mocked(readSyncBackoff).mockResolvedValueOnce(now + 5000);
+      const reads = jest.mocked(readSyncBackoff).mock.calls.length;
+      await expect(flushQueuedMutations('token')).rejects.toThrow('waiting to retry');
+      expect(readSyncBackoff).toHaveBeenCalledTimes(reads + 1);
+      now += 5001;
+      mockedListQueuedMutations.mockResolvedValue([]);
+      await expect(flushQueuedMutations('token')).resolves.toEqual({ processedCount: 0 });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+  it('starts a fresh drain instead of joining a same-owner cancelled request', async () => {
+    mockedListQueuedMutations.mockResolvedValue([
+      {
+        id: 91,
+        entityType: 'program-instance',
+        entityId: 'instance-1',
+        operation: 'record-result',
+        payload: { workoutIndex: 0, slotId: 'squat', result: 'success' },
+        createdAt: '2026-09-05',
+      },
+    ]);
+    const fetchSpy = jest
+      .spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(
+        (_input, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => {
+              const error = new Error('Cancelled');
+              error.name = 'AbortError';
+              reject(error);
+            });
+          })
+      )
+      .mockResolvedValueOnce(new Response('{}', { status: 201 }));
+    const previous = flushQueuedMutations('same-token');
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    cancelQueuedMutationFlush('user-123');
+    const resumed = flushQueuedMutations('same-token');
+    await expect(previous).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(resumed).resolves.toEqual({ processedCount: 1 });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(mockedAcknowledgeQueuedMutations).toHaveBeenCalledWith([91], 'user-123');
   });
 });

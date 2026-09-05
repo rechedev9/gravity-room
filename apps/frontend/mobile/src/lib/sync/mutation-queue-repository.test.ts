@@ -91,10 +91,9 @@ jest.mock('../db/client', () => ({
 
       const ownerId = String(params[0]);
       return mockRows
-        .filter((row) => row.owner_user_id === ownerId)
-        .sort(
-          (left, right) => left.created_at.localeCompare(right.created_at) || left.id - right.id
-        );
+        .filter((row) => row.owner_user_id === ownerId && row.id > Number(params[1]))
+        .sort((left, right) => left.id - right.id)
+        .slice(0, Number(params[2]));
     }),
     execAsync: jest.fn(async () => undefined),
   })),
@@ -277,7 +276,7 @@ describe('mutation queue repository', () => {
     await expect(listQueuedMutations()).resolves.toEqual([]);
   });
 
-  it('marks malformed persisted JSON so sync can discard the poison row', async () => {
+  it('marks malformed persisted JSON so sync can retain the invalid row', async () => {
     mockRows.push({
       id: mockNextId,
       owner_user_id: mockActiveOwnerId,

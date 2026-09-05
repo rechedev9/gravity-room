@@ -217,5 +217,18 @@
     "empty": "Find a program in Explore to get started.",
     "explore": "Explore programs",
     "explore_hint": "Find your next training plan."
+  },
+  "sync": {
+    "offline": "You’re offline",
+    "offline_detail": "Keep training with your saved workouts.",
+    "pending_one": "1 change waiting to sync",
+    "pending_other": "{{count}} changes waiting to sync",
+    "pending_detail": "Saved on this device. We’ll retry automatically.",
+    "attention_one": "1 change needs attention",
+    "attention_other": "{{count}} changes need attention",
+    "attention_detail": "Your changes stay here until they can sync.",
+    "unavailable": "Sync status unavailable",
+    "unavailable_detail": "Try again to check your saved changes.",
+    "retry_label": "Retry syncing saved changes"
   }
 }

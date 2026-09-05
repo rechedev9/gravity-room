@@ -1,6 +1,6 @@
 {
   "id": "0046_security_hardening",
-  "prevId": "3ef6c2ec-fa80-4416-950f-a3c8c6188fe1",
+  "prevId": "99642398-c630-4123-b35e-a6870b608616",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
