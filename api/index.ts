@@ -4257,7 +4257,8 @@ function applyUpdateTm(rule, slot, slotResult, tmState, slotState, state, roundi
   if (slot.trainingMaxKey === void 0) {
     throw new Error('update_tm rule requires trainingMaxKey on slot');
   }
-  const amrapReps = slotResult.amrapReps;
+  const amrapReps =
+    slotResult.setLogs?.[slotResult.setLogs.length - 1]?.reps ?? slotResult.amrapReps;
   const currentTm = tmState[slot.trainingMaxKey] ?? 0;
   if (amrapReps !== void 0 && amrapReps >= rule.minAmrapReps) {
     tmState[slot.trainingMaxKey] = roundToNearest(currentTm + rule.amount, roundingStep);

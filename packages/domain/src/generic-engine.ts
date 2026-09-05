@@ -178,7 +178,9 @@ function applyUpdateTm(
   if (slot.trainingMaxKey === undefined) {
     throw new Error('update_tm rule requires trainingMaxKey on slot');
   }
-  const amrapReps = slotResult.amrapReps;
+  // Set logging and legacy metric entry feed the same training-max rule.
+  const amrapReps =
+    slotResult.setLogs?.[slotResult.setLogs.length - 1]?.reps ?? slotResult.amrapReps;
   const currentTm = tmState[slot.trainingMaxKey] ?? 0;
   if (amrapReps !== undefined && amrapReps >= rule.minAmrapReps) {
     tmState[slot.trainingMaxKey] = roundToNearest(currentTm + rule.amount, roundingStep);

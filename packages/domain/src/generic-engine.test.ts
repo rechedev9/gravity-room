@@ -371,7 +371,11 @@ describe('computeGenericProgram', () => {
     expect(rows[0]?.slots[0]?.result).toBe('success');
   });
 
-  it('updates the training max for later workouts when update_tm succeeds', () => {
+  it.each([
+    { amrapReps: 8 },
+    { setLogs: [{ reps: 5 }, { reps: 5 }, { reps: 8 }] },
+    { amrapReps: 5, setLogs: [{ reps: 5 }, { reps: 5 }, { reps: 8 }] },
+  ])('updates the training max from AMRAP logs or legacy metrics: %j', (metrics) => {
     const definition: ProgramDefinition = {
       ...BASE_DEFINITION,
       totalWorkouts: 2,
@@ -393,7 +397,7 @@ describe('computeGenericProgram', () => {
       0: {
         'squat-t1': {
           result: 'success',
-          amrapReps: 8,
+          ...metrics,
         },
       },
     };
