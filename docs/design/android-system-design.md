@@ -1,6 +1,6 @@
 # Android system design: bottom-up assessment
 
-Status: implementation and verification in progress. Baseline: `5bcbd6d` (mobile PR #130 merged).
+Status: implementation and local review complete; PR/CI/Bugbot gates pending. Baseline: `5bcbd6d` (mobile PR #130 merged).
 
 ## Scope and acceptance
 
@@ -404,3 +404,85 @@ unresolved. The final full mobile run passes 305 tests / 32 suites; mobile
 typecheck and Android production export (4.14 MB Hermes) pass. Root typecheck/lint
 and API bundle drift check passed earlier in the same checkpoint. Visible
 sync/recovery UI, PR/CI/Bugbot and merge remain outstanding for the overall goal.
+
+### Visible sync status and recovery
+
+A single owner-scoped provider reads aggregate SQLite counts, including rows beyond
+one delivery page, and updates after committed edits, diagnostics, acknowledgements,
+foreground changes and manual retry. Read generations reject stale completions.
+A status read failure remains visible instead of implying that everything synced.
+
+Screens show a compact localized status for offline access, pending changes, or
+retained changes needing attention. Retry signals the existing foreground worker;
+it does not bypass deadlines or delete anything. The banner disappears when its
+owner has no pending changes and is online. Existing cached-data notices are hidden
+while the more specific banner is visible.
+
+Verified through the native Android UI:
+
+1. Cold-started offline and opened the cached Turtle workout.
+2. Marked `act_4` failed: the banner immediately showed one pending change.
+3. Restored access through a local responder that rejected the first result with
+   HTTP 400: the banner changed to one change needing attention.
+4. Force-stopped/reopened offline: the retained attention status remained visible.
+5. Restored the real endpoint and tapped Retry: HTTP accepted the pending result,
+   PostgreSQL contained the failure, and the banner disappeared.
+6. Used native Undo and verified that the QA result was removed from PostgreSQL.
+   Stopped the responder and restored the normal reverse port.
+
+Screenshots: [pending](../verification/android-system-design/sync-pending-android.png),
+[retained after cold start](../verification/android-system-design/sync-attention-android.png),
+[delivered](../verification/android-system-design/sync-delivered-android.png).
+
+Playwright CLI also rendered the same presentation component with controlled state
+inputs: [English at 393 px](../verification/android-system-design/sync-pending-en-web.png),
+[Spanish at 320 px](../verification/android-system-design/sync-attention-es-web.png).
+Verified Retry invokes its callback and an empty/online status hides the view.
+The final isolated preview had zero console errors/warnings, and the browser was
+closed. This is responsive presentation evidence; native UI/SQLite/API verification
+above covers the real delivery path. Full Expo Web sign-in was unsuitable for this
+check: the development API rejected its cross-origin request and native SQLite
+setup was not established. No production auth/CORS policy was relaxed. An initial
+browser-only hook override fixture was discarded; final previews pass props to the
+actual presentation component without replacing application hooks.
+
+The full mobile suite passes 312 tests / 33 suites, including real SQLite aggregate
+counts beyond 50 queued rows, owner isolation, observer failure isolation, stale
+reads, retained failures, manual retry routing and acknowledgement visibility.
+
+The UI review found one P2: the generic-banner suppression also hid a local
+SQLite save failure. Tracker notices now retain a typed `cached`/`draft_failed`
+kind and only suppress the cached notice. The save error remains visible and is
+localized at render time. The existing failure regression now runs with the global
+banner both hidden and visible.
+
+Native fault injection verified the correction: a temporary trigger rejected the
+first set draft for `act_4` while the offline banner was visible. The tracker kept
+set 1 active and displayed the local-save error. SQLite contained zero drafts for
+that slot and zero queued edits. Removed the trigger and restored non-root adb and
+normal API/Metro forwarding. [Native save-error evidence](../verification/android-system-design/sync-local-save-error-android.png).
+
+The next UI review identified a recovery regression: hiding the cached My Plans
+notice also removed its list-refresh action. The account-owned query provider now
+records manual Retry intent and refreshes queries after the matching delivery
+attempt, including retained failures. It consumes that intent before invalidating
+queries, so query-triggered delivery cannot create a refresh loop; subscriptions
+and pending intent are released with the account cache. A rendered My Plans test
+clicks the real banner, verifies no premature refresh before session/delivery
+completion, and observes stale plan A replaced by fresh plan B despite a retained
+rejection. Foreign-owner and automatic attempts do not trigger that refresh.
+
+The same recovery was verified on Pixel 7/API 35: cold-started offline, opened My
+Plans with cached cards and the offline banner, restored the API, and tapped its
+Retry action. The local request observer recorded `POST /api/auth/refresh` followed
+159 ms later by `GET /api/programs`; My Plans stayed open and the banner disappeared.
+No training state was mutated. Restored direct API forwarding and stopped the
+observer. [Recovered My Plans](../verification/android-system-design/sync-plans-refreshed-android.png).
+
+Final mobile validation passes 314 tests / 33 suites, repository typecheck, and the
+Android production export.
+
+Final UI `codex review --uncommitted` exited 0 with no actionable findings after
+both recovery fixes. The foundation checkpoint and this UI increment are locally
+reviewed; no accepted finding remains unresolved. PR CI and Cursor Bugbot are the
+remaining release gates.

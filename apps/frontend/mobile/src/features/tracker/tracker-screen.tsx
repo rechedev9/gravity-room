@@ -1,3 +1,4 @@
+import { useSyncStatus } from '../../shell/sync-status-provider';
 import { useQueryClient } from '@tanstack/react-query';
 import { requireLiveQuery } from '../../lib/programs/program-queries';
 import {
@@ -70,7 +71,8 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
   const [definition, setDefinition] = useState<ProgramDefinition | null>(null);
   const [loading, setLoading] = useState(true);
   const [reloadToken, setReloadToken] = useState(0);
-  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const syncStatus = useSyncStatus();
+  const [syncNotice, setSyncNotice] = useState<'cached' | 'draft_failed' | null>(null);
   const [selectedWorkoutIndex, setSelectedWorkoutIndex] = useState(0);
   const [draftLogs, setDraftLogs] = useState<Readonly<Record<string, readonly SetLogEntry[]>>>({});
   const detailRef = useRef<GenericProgramDetail | null>(null);
@@ -95,7 +97,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
       await edit();
     })
       .catch(() => {
-        setSyncNotice(t('tracker.notices.draft_failed'));
+        setSyncNotice('draft_failed');
       })
       .finally(() => {
         pendingLocalEditsRef.current -= 1;
@@ -196,7 +198,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
               await flushQueuedMutations(currentAccessToken);
             } catch {
               if (hasCachedTracker) {
-                setSyncNotice(t('tracker.notices.cached'));
+                setSyncNotice('cached');
                 setLoading(false);
                 return;
               }
@@ -262,7 +264,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
           }
 
           if (hasCachedTracker) {
-            setSyncNotice(t('tracker.notices.cached'));
+            setSyncNotice('cached');
             setLoading(false);
             return;
           }
@@ -390,7 +392,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
 
       localStateVersionRef.current += 1;
       setDetailState(previousDetail);
-      setSyncNotice(t('tracker.notices.draft_failed'));
+      setSyncNotice('draft_failed');
       return;
     }
 
@@ -782,7 +784,9 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
             />
           </View>
         </View>
-        {syncNotice ? <Text style={styles.syncNotice}>{syncNotice}</Text> : null}
+        {syncNotice && (syncNotice !== 'cached' || !syncStatus?.visible) ? (
+          <Text style={styles.syncNotice}>{t(`tracker.notices.${syncNotice}`)}</Text>
+        ) : null}
         {completed ? (
           <Card>
             <Text style={styles.title}>{t('tracker.day_complete')}</Text>

@@ -23,3 +23,28 @@ export function publishSyncAttempt(attempt: SyncAttempt): void {
     }
   }
 }
+
+/** Owner-scoped notifications never change the result of a durable operation. */
+function ownerSignal() {
+  const subscribers = new Set<(ownerId: string) => void>();
+  return {
+    subscribe(listener: (ownerId: string) => void): () => void {
+      subscribers.add(listener);
+      return () => {
+        subscribers.delete(listener);
+      };
+    },
+    publish(ownerId: string): void {
+      for (const listener of subscribers) {
+        try {
+          listener(ownerId);
+        } catch {
+          /* An observer does not own the edit. */
+        }
+      }
+    },
+  };
+}
+
+export const queueChanges = ownerSignal();
+export const syncRequests = ownerSignal();

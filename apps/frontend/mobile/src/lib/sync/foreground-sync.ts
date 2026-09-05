@@ -2,7 +2,7 @@ import { AppState } from 'react-native';
 import { getAccessToken, SessionUnavailableError } from '../auth/session';
 import { getActiveLocalDataOwner } from '../db/client';
 import { cancelQueuedMutationFlush, flushQueuedMutations } from './mutation-sync-service';
-import { subscribeSyncAttempts } from './sync-events';
+import { subscribeSyncAttempts, syncRequests } from './sync-events';
 
 /** One authenticated owner owns one foreground subscription and retry timer. */
 export function startForegroundSync(
@@ -66,6 +66,9 @@ export function startForegroundSync(
     if (!attempt.retryable) return;
     scheduleRetry(attempt.retryAt);
   });
+  const unsubscribeRequests = syncRequests.subscribe((requestedOwner) => {
+    if (requestedOwner === ownerId) run();
+  });
   const subscription = AppState.addEventListener('change', (state) => {
     active = state === 'active';
     if (active) run();
@@ -79,6 +82,7 @@ export function startForegroundSync(
     disposed = true;
     clearTimer();
     unsubscribe();
+    unsubscribeRequests();
     subscription.remove();
     cancelQueuedMutationFlush(ownerId);
   };

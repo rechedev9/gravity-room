@@ -1,3 +1,5 @@
+const { readSyncStatus } = require('../sync/sync-status-repository');
+const { queueChanges } = require('../sync/sync-events');
 const { parseRetryAfter } = require('../network/retry-after');
 const { DatabaseSync } = require('node:sqlite');
 const { mkdtempSync, rmSync } = require('node:fs');
@@ -257,5 +259,40 @@ describe('atomic local workout edits', () => {
     await expect(commitTrackerEdit(COMPLETE, { ...TARGET, workoutIndex: -1 })).rejects.toThrow();
     expect(await getProgramDetail(BASE.id)).toEqual(BASE);
     expect(await getSetDrafts(BASE.id)).toEqual({ '0:squat': LOGS });
+  });
+  it('counts every durable queued edit across pages and isolates the active owner', async () => {
+    for (let index = 0; index < 57; index++) {
+      await enqueueMutation({
+        entityType: 'program-instance',
+        entityId: 'plan-a',
+        operation: 'record-result',
+        payload: { workoutIndex: index, slotId: 'squat', result: 'success' },
+      });
+    }
+    const rows = await listQueuedMutations();
+    await markQueuedMutationFailure(rows[0].id, 'HTTP_404');
+    await markQueuedMutationFailure(rows[1].id, 'HTTP_401');
+    await markQueuedMutationFailure(rows[2].id, 'INVALID_OUTBOX');
+    await markQueuedMutationFailure(rows[3].id, 'HTTP_429');
+    await markQueuedMutationFailure(rows[4].id, 'NETWORK_ERROR');
+    expect(await readSyncStatus()).toEqual({ total: 57, needsAttention: 3 });
+    expect(await readSyncStatus('unrelated-owner')).toEqual({ total: 0, needsAttention: 0 });
+    await acknowledgeQueuedMutations(rows.slice(0, 3).map((row) => row.id));
+    expect(await readSyncStatus()).toEqual({ total: 54, needsAttention: 0 });
+  });
+
+  it('publishes a status update only after a durable edit and isolates observer errors', async () => {
+    const owners = [];
+    const stop = queueChanges.subscribe((owner) => {
+      owners.push(owner);
+      throw new Error('Broken observer');
+    });
+    try {
+      await expect(commitTrackerEdit(COMPLETE, TARGET)).resolves.toBeUndefined();
+      expect(owners).toHaveLength(1);
+      expect(await readSyncStatus()).toEqual({ total: 1, needsAttention: 0 });
+    } finally {
+      stop();
+    }
   });
 });

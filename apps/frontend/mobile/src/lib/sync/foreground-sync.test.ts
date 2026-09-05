@@ -1,7 +1,7 @@
 import { AppState } from 'react-native';
 import { SessionUnavailableError } from '../auth/session';
 import { startForegroundSync } from './foreground-sync';
-import { publishSyncAttempt } from './sync-events';
+import { publishSyncAttempt, syncRequests } from './sync-events';
 import { cancelQueuedMutationFlush, flushQueuedMutations } from './mutation-sync-service';
 
 let mockOwner = 'owner-a';
@@ -178,5 +178,16 @@ describe('foreground sync lifetime', () => {
     await jest.advanceTimersByTimeAsync(1);
     expect(recover).toHaveBeenCalledTimes(2);
     expect(flushQueuedMutations).toHaveBeenCalledWith('recovered');
+  });
+  it('accepts manual retry only for the live owner and removes its listener on stop', async () => {
+    syncRequests.publish('another-owner');
+    expect(flushQueuedMutations).toHaveBeenCalledTimes(1);
+    syncRequests.publish(mockOwner);
+    await jest.advanceTimersByTimeAsync(0);
+    expect(flushQueuedMutations).toHaveBeenCalledTimes(2);
+    stop();
+    syncRequests.publish(mockOwner);
+    expect(flushQueuedMutations).toHaveBeenCalledTimes(2);
+    stop = () => undefined;
   });
 });

@@ -1,3 +1,4 @@
+import { queueChanges } from '../sync/sync-events';
 import { GenericProgramDetailWriteSchema, type GenericProgramDetail } from '@gzclp/domain';
 
 import { getAccessToken } from '../auth/session';
@@ -52,6 +53,8 @@ export async function commitTrackerEdit(
     if (requireActiveLocalDataOwner() !== ownerId)
       throw new Error('Edit owner changed during commit');
   });
+
+  queueChanges.publish(ownerId);
 
   // Delivery failure must never turn an already committed local edit into a
   // failed UI operation. The durable outbox owns retry after process restart.

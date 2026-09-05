@@ -1,3 +1,4 @@
+import * as syncStatus from '../../shell/sync-status-provider';
 import type { ReactElement } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ProgramQueryProvider } from '../../shell/program-query-provider';
@@ -695,19 +696,34 @@ describe('TrackerScreen', () => {
     expect(await screen.findByRole('button', { name: 'Confirm set 4 for Squat' })).toBeTruthy();
   });
 
-  it('keeps the current set when SQLite rejects a draft write', async () => {
-    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
-    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
-    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
-    jest.mocked(saveSetDrafts).mockRejectedValueOnce(new Error('Disk full'));
-    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
-    fireEvent.press(await screen.findByRole('button', { name: 'Confirm set 1 for Squat' }));
-    expect(
-      await screen.findByText('Could not save this set on your device. Please try again.')
-    ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Confirm set 1 for Squat' })).toBeTruthy();
-    expect(mockCommittedEdits).not.toHaveBeenCalled();
-  });
+  it.each([false, true])(
+    'keeps a draft-save error visible when the sync banner is %s',
+    async (visible) => {
+      const statusSpy = jest.spyOn(syncStatus, 'useSyncStatus').mockReturnValue({
+        visible,
+        status: { total: visible ? 1 : 0, needsAttention: 0 },
+        offline: visible,
+        readError: false,
+        retry: jest.fn(),
+      });
+      mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+      mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+      mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+      jest.mocked(saveSetDrafts).mockRejectedValueOnce(new Error('Disk full'));
+      const rendered = render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+      try {
+        fireEvent.press(await screen.findByRole('button', { name: 'Confirm set 1 for Squat' }));
+        expect(
+          await screen.findByText('Could not save this set on your device. Please try again.')
+        ).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Confirm set 1 for Squat' })).toBeTruthy();
+        expect(mockCommittedEdits).not.toHaveBeenCalled();
+      } finally {
+        rendered.unmount();
+        statusSpy.mockRestore();
+      }
+    }
+  );
 
   it('renders cached workout data before the remote refresh completes', async () => {
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);

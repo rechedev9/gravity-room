@@ -1,3 +1,4 @@
+import { queueChanges } from './sync-events';
 import { isRecord } from '@gzclp/domain/type-guards';
 import {
   bootstrapDatabase,
@@ -106,6 +107,7 @@ export async function enqueueMutation(input: EnqueueMutationInput): Promise<void
     if (requireActiveLocalDataOwner() !== ownerId)
       throw new Error('Outbox owner changed during write');
   });
+  queueChanges.publish(ownerId);
 }
 
 export async function listQueuedMutations(
@@ -161,6 +163,7 @@ export async function markQueuedMutationFailure(
     ownerId,
     id
   );
+  queueChanges.publish(ownerId);
 }
 
 export async function acknowledgeQueuedMutations(
@@ -181,6 +184,7 @@ export async function acknowledgeQueuedMutations(
     ownerId,
     ...ids
   );
+  queueChanges.publish(ownerId);
 }
 
 /** Account transitions clear every partition before reassigning ownership. */

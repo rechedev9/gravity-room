@@ -79,7 +79,12 @@ jest.mock('../lib/sync/mutation-sync-service', () => ({
   cancelQueuedMutationFlush: jest.fn(),
 }));
 
+jest.mock('../lib/sync/sync-status-repository', () => ({
+  readSyncStatus: jest.fn(async () => ({ total: 0, needsAttention: 0 })),
+}));
+
 jest.mock('../lib/db/client', () => ({
+  getActiveLocalDataOwner: jest.fn(() => 'user-123'),
   activateLocalDataOwner: jest.fn(async () => undefined),
   clearLocalAppData: jest.fn(),
   deactivateLocalDataOwner: jest.fn(),

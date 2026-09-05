@@ -1,9 +1,25 @@
 import type { ReactElement } from 'react';
 import { ProgramQueryProvider } from '../../shell/program-query-provider';
-import { fireEvent, render as renderScreen, screen, waitFor } from '@testing-library/react-native';
+import {
+  act,
+  fireEvent,
+  render as renderScreen,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
+import { SyncStatusProvider } from '../../shell/sync-status-provider';
+import { publishSyncAttempt, syncRequests } from '../../lib/sync/sync-events';
 import type { CatalogEntry, GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
 
 import { ProgramsScreen } from './programs-screen';
+let mockOwner = 'owner-a';
+jest.mock('../../shell/auth-provider', () => ({
+  useAuth: () => ({ user: { id: mockOwner }, isOffline: false }),
+}));
+jest.mock('../../lib/db/client', () => ({ getActiveLocalDataOwner: () => mockOwner }));
+jest.mock('../../lib/sync/sync-status-repository', () => ({
+  readSyncStatus: jest.fn(async () => ({ total: 1, needsAttention: 1 })),
+}));
 function render(element: ReactElement) {
   return renderScreen(<ProgramQueryProvider>{element}</ProgramQueryProvider>);
 }
@@ -126,6 +142,7 @@ const CREATED_DETAIL = {
 
 describe('ProgramsScreen', () => {
   beforeEach(() => {
+    mockOwner = 'owner-a';
     mockedFetchCatalogEntries.mockImplementation(() => new Promise(() => undefined));
     mockedBuildDefaultProgramConfig.mockReturnValue({ squat: 20 });
     mockedUpsertProgramDefinition.mockResolvedValue();
@@ -262,6 +279,40 @@ describe('ProgramsScreen', () => {
     await waitFor(() => {
       expect(mockedUpsertProgramSummaries).toHaveBeenCalledWith(freshPrograms);
     });
+  });
+
+  it('refreshes cached plans after banner Retry completes, even with a retained rejection', async () => {
+    mockedListProgramSummaries.mockResolvedValue([PROGRAM_A]);
+    mockedFetchProgramSummaries.mockRejectedValueOnce(new Error('Offline'));
+    mockedFetchProgramSummaries.mockResolvedValue([PROGRAM_B]);
+    mockedUpsertProgramSummaries.mockImplementation(async () => {
+      mockedListProgramSummaries.mockResolvedValue([PROGRAM_B]);
+    });
+    render(
+      <SyncStatusProvider>
+        <ProgramsScreen />
+      </SyncStatusProvider>
+    );
+    expect(await screen.findByText(PROGRAM_A.title)).toBeTruthy();
+    const retry = await screen.findByRole('button', { name: 'Retry syncing saved changes' });
+    expect(
+      screen.queryByText('Showing cached programs. Sync will retry when you refresh.')
+    ).toBeNull();
+    // Automatic attempts and requests for another account do not refetch this cache.
+    act(() => {
+      syncRequests.publish('owner-b');
+      publishSyncAttempt({ ownerId: 'owner-b', failed: false, retryable: false });
+      publishSyncAttempt({ ownerId: 'owner-a', failed: false, retryable: false });
+    });
+    expect(mockedFetchProgramSummaries).toHaveBeenCalledTimes(1);
+    fireEvent.press(retry);
+    expect(mockedFetchProgramSummaries).toHaveBeenCalledTimes(1);
+    act(() => publishSyncAttempt({ ownerId: 'owner-a', failed: true, retryable: false }));
+    expect(await screen.findByText(PROGRAM_B.title)).toBeTruthy();
+    expect(screen.queryByText(PROGRAM_A.title)).toBeNull();
+    expect(mockedFetchProgramSummaries).toHaveBeenCalledTimes(2);
+    act(() => publishSyncAttempt({ ownerId: 'owner-a', failed: false, retryable: false }));
+    expect(mockedFetchProgramSummaries).toHaveBeenCalledTimes(2);
   });
 
   it('creates a catalog program and opens the tracker', async () => {

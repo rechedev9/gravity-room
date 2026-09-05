@@ -1,3 +1,4 @@
+import { SyncStatusProvider } from '../../shell/sync-status-provider';
 import { Stack } from 'expo-router';
 import { View } from 'react-native';
 import { useAuth } from '../../shell/auth-provider';
@@ -9,20 +10,22 @@ export default function AuthenticatedLayout() {
   const { user } = useAuth();
   return (
     <ProgramQueryProvider key={user?.id}>
-      <RestTimerProvider>
-        <View style={{ flex: 1, backgroundColor: colors.canvas }}>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              statusBarStyle: 'light',
-              contentStyle: { backgroundColor: colors.canvas },
-            }}
-          >
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="workout/[id]" />
-          </Stack>
-        </View>
-      </RestTimerProvider>
+      <SyncStatusProvider>
+        <RestTimerProvider>
+          <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                statusBarStyle: 'light',
+                contentStyle: { backgroundColor: colors.canvas },
+              }}
+            >
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="workout/[id]" />
+            </Stack>
+          </View>
+        </RestTimerProvider>
+      </SyncStatusProvider>
     </ProgramQueryProvider>
   );
 }
