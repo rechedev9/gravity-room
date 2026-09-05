@@ -95,11 +95,13 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
   const detailRef = useRef<GenericProgramDetail | null>(null);
   const draftLogsRef = useRef<Readonly<Record<string, readonly SetLogEntry[]>>>({});
   const localStateVersionRef = useRef(0);
-  const draftEditRef = useRef<Promise<void>>(Promise.resolve());
+  const localEditRef = useRef<Promise<void>>(Promise.resolve());
 
-  function enqueueDraftEdit(edit: () => Promise<void>): Promise<void> {
+  // All local writes share one queue; metrics must read the committed snapshot
+  // after pending set completions, never overwrite it from an older render.
+  function enqueueLocalEdit(edit: () => Promise<void>): Promise<void> {
     const ownerId = getActiveLocalDataOwner();
-    draftEditRef.current = draftEditRef.current
+    localEditRef.current = localEditRef.current
       .then(async () => {
         if (getActiveLocalDataOwner() !== ownerId) return;
         await edit();
@@ -107,7 +109,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
       .catch(() => {
         setSyncNotice(t('tracker.notices.draft_failed'));
       });
-    return draftEditRef.current;
+    return localEditRef.current;
   }
 
   async function persistDraftLogs(
@@ -496,15 +498,18 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
     workoutIndex: number,
     slotId: string,
     metric: 'amrapReps' | 'rpe',
-    currentValue: number | undefined,
     direction: -1 | 1
   ): Promise<void> {
+    const currentSlot = detailRef.current?.results[String(workoutIndex)]?.[slotId];
+    const currentValue =
+      metric === 'amrapReps'
+        ? (currentSlot?.amrapReps ?? currentSlot?.setLogs?.at(-1)?.reps)
+        : currentSlot?.rpe;
     if (currentValue === undefined && direction < 0) {
       return;
     }
 
     const nextValue = currentValue === undefined ? 1 : currentValue + direction;
-    const currentSlot = detailRef.current?.results[String(workoutIndex)]?.[slotId];
     const currentLogs = currentSlot?.setLogs;
     const nextLogs =
       metric === 'amrapReps' && currentLogs !== undefined && currentLogs.length > 0
@@ -683,7 +688,7 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
             label={t('tracker.undo_accessibility')}
             disabled={!canUndo}
             onPress={() => {
-              void enqueueDraftEdit(handleUndoLast);
+              void enqueueLocalEdit(handleUndoLast);
             }}
           />
         </View>
@@ -826,27 +831,25 @@ export function TrackerScreen({ programInstanceId, onBack }: TrackerScreenProps)
                 : undefined
             }
             onConfirmSet={(workoutIndexValue, slotIdValue, entry) => {
-              return enqueueDraftEdit(() =>
+              return enqueueLocalEdit(() =>
                 handleConfirmSet(workoutIndexValue, slotIdValue, entry)
               );
             }}
             onUndoSet={(workoutIndexValue, slotIdValue) => {
-              void enqueueDraftEdit(() => handleUndoDraft(workoutIndexValue, slotIdValue));
+              void enqueueLocalEdit(() => handleUndoDraft(workoutIndexValue, slotIdValue));
             }}
             onMarkResult={(workoutIndexValue, slotIdValue, result) => {
-              enqueueDraftEdit(() => handleMarkResult(workoutIndexValue, slotIdValue, result));
+              enqueueLocalEdit(() => handleMarkResult(workoutIndexValue, slotIdValue, result));
             }}
-            onMetricChange={(workoutIndexValue, slotIdValue, metric, currentValue, direction) => {
-              void handleMetricChange(
-                workoutIndexValue,
-                slotIdValue,
-                metric,
-                currentValue,
-                direction
+            onMetricChange={(workoutIndexValue, slotIdValue, metric, _currentValue, direction) => {
+              void enqueueLocalEdit(() =>
+                handleMetricChange(workoutIndexValue, slotIdValue, metric, direction)
               );
             }}
             onClearMetric={(workoutIndexValue, slotIdValue, metric) => {
-              void handleClearMetric(workoutIndexValue, slotIdValue, metric);
+              void enqueueLocalEdit(() =>
+                handleClearMetric(workoutIndexValue, slotIdValue, metric)
+              );
             }}
           />
         ))}

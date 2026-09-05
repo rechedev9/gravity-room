@@ -211,6 +211,43 @@ describe('TrackerScreen', () => {
     mockedQueueUndoRestoreMutation.mockReset();
   });
 
+  it('serializes metric edits behind final-set writes without losing either result', async () => {
+    const completion = createDeferred<void>();
+    mockedGetProgramDetail.mockResolvedValue({
+      ...TEST_DETAIL,
+      results: { 0: { 'squat-t1': { result: 'success', setLogs: [...SQUAT_SET_LOGS] } } },
+    });
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
+    mockedUpsertProgramDetail.mockReturnValueOnce(completion.promise).mockResolvedValue();
+    jest.mocked(getSetDrafts).mockResolvedValue({
+      '1:bench-t1': Array.from({ length: 4 }, () => ({ weight: 40, reps: 3 })),
+    });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    fireEvent.press(await screen.findByRole('button', { name: 'Confirm set 5 for Bench' }));
+    await waitFor(() => expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(1));
+    fireEvent.press(screen.getByRole('button', { name: 'Previous workout' }));
+    fireEvent.press(screen.getByRole('button', { name: 'View sets for Squat' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
+    await act(async () => {});
+    expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(1);
+    await act(async () => completion.resolve());
+    await waitFor(() => expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(2));
+    expect(mockedUpsertProgramDetail).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        results: {
+          0: { 'squat-t1': expect.objectContaining({ result: 'success', amrapReps: 4 }) },
+          1: {
+            'bench-t1': expect.objectContaining({
+              result: 'success',
+              setLogs: Array.from({ length: 5 }, () => ({ weight: 40, reps: 3 })),
+            }),
+          },
+        },
+      })
+    );
+  });
+
   it('excludes remotely completed slots from subsequent draft saves', async () => {
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
@@ -1106,52 +1143,35 @@ describe('TrackerScreen', () => {
     expect(screen.queryByText('AMRAP reps: 4')).toBeNull();
   });
 
-  it('does not roll back a newer edit when an older local write fails late', async () => {
+  it('applies a queued metric edit to the restored snapshot after an earlier write fails', async () => {
     const firstWrite = createDeferred<void>();
-    const secondWrite = createDeferred<void>();
-
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
-    mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
-    mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
     mockedUpsertProgramDetail
       .mockResolvedValueOnce()
       .mockReturnValueOnce(firstWrite.promise)
-      .mockReturnValueOnce(secondWrite.promise);
-
+      .mockResolvedValue();
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
-
-    expect(await screen.findByText('Squat')).toBeTruthy();
-
+    await screen.findByText('Squat');
     await confirmSets('Squat', 5);
-    expect(await screen.findByText('Logged success')).toBeTruthy();
-
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
-    expect(await screen.findByText('AMRAP reps: 4')).toBeTruthy();
+    await screen.findByText('AMRAP reps: 4');
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
-    expect(await screen.findByText('AMRAP reps: 5')).toBeTruthy();
-
-    secondWrite.resolve();
-
+    await act(async () => {});
+    expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(2);
+    await act(async () => firstWrite.reject(new Error('SQLite write failed')));
     await waitFor(() => {
       expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
         instanceId: 'instance-1',
         workoutIndex: 0,
         slotId: 'squat-t1',
         result: 'success',
-        amrapReps: 5,
-        setLogs: squatLogsWithLastReps(5),
+        amrapReps: 4,
+        setLogs: squatLogsWithLastReps(4),
       });
     });
-
-    firstWrite.reject(new Error('SQLite write failed'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Logged success')).toBeTruthy();
-      expect(screen.getByText('AMRAP reps: 5')).toBeTruthy();
-    });
-    expect(screen.queryByText('Awaiting result')).toBeNull();
+    expect(screen.getByText('AMRAP reps: 4')).toBeTruthy();
   });
 
   it('shows a lightweight sync warning when queueing a result fails after the local write succeeds', async () => {

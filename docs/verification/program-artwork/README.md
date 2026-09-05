@@ -91,3 +91,9 @@ An unavailable tracker offers Retry without remounting. Three regression tests
 cover these paths. Android verification opened an unavailable plan, tapped Retry,
 and returned through My plans to the existing Turtle workout with its saved draft
 intact ([error-state screenshot](./retry-android.webp)).
+
+Bugbot's subsequent concurrency finding is covered by a paused final-set write
+followed by a metric edit on a different workout. All local edits now share the
+same queue and metric changes read the current snapshot when they execute. Both
+completed results survive; a queued edit after a storage failure uses the restored
+value. Tracker suite: 40 tests pass.
