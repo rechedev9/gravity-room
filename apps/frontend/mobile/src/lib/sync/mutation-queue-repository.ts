@@ -1,5 +1,10 @@
 import { isRecord } from '@gzclp/domain/type-guards';
-import { bootstrapDatabase, getDatabase, requireActiveLocalDataOwner } from '../db/client';
+import {
+  bootstrapDatabase,
+  getDatabase,
+  requireActiveLocalDataOwner,
+  type DatabaseClient,
+} from '../db/client';
 
 export type MutationPayload = Record<string, unknown>;
 
@@ -45,48 +50,57 @@ function parsePayload(payloadJson: string): {
   }
 }
 
+export function prepareQueuedMutation(input: EnqueueMutationInput) {
+  return {
+    entityType: input.entityType,
+    entityId: input.entityId,
+    operation: input.operation,
+    payloadJson: JSON.stringify(input.payload),
+    createdAt: input.createdAt ?? new Date().toISOString(),
+    dedupeKey: input.dedupeKey ?? null,
+  };
+}
+
+/** The transaction also belongs to the local snapshot when committing an edit. */
+export async function writeQueuedMutation(
+  transaction: DatabaseClient,
+  ownerId: string,
+  input: ReturnType<typeof prepareQueuedMutation>
+): Promise<void> {
+  if (input.dedupeKey) {
+    // A new row ID prevents acknowledgement of an older in-flight snapshot
+    // from deleting a newer edit that supersedes it.
+    await transaction.runAsync(
+      'DELETE FROM queued_mutations WHERE owner_user_id = ? AND dedupe_key = ?',
+      ownerId,
+      input.dedupeKey
+    );
+  }
+  await transaction.runAsync(
+    `INSERT INTO queued_mutations
+       (owner_user_id, entity_type, entity_id, operation, payload_json, created_at, dedupe_key)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ownerId,
+    input.entityType,
+    input.entityId,
+    input.operation,
+    input.payloadJson,
+    input.createdAt,
+    input.dedupeKey
+  );
+}
+
 export async function enqueueMutation(input: EnqueueMutationInput): Promise<void> {
   const ownerId = requireActiveLocalDataOwner();
+  const prepared = prepareQueuedMutation(input);
   const database = getDatabase();
   await bootstrapDatabase(database);
-
-  const createdAt = input.createdAt ?? new Date().toISOString();
-
   await database.withExclusiveTransactionAsync(async (transaction) => {
-    if (input.dedupeKey) {
-      // Replace rather than UPDATE so an in-flight flush holding the old row id
-      // cannot acknowledge and accidentally delete the newer desired state.
-      await transaction.runAsync(
-        'DELETE FROM queued_mutations WHERE owner_user_id = ? AND dedupe_key = ?',
-        ownerId,
-        input.dedupeKey
-      );
-      await transaction.runAsync(
-        `INSERT INTO queued_mutations
-           (owner_user_id, entity_type, entity_id, operation, payload_json, created_at, dedupe_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        ownerId,
-        input.entityType,
-        input.entityId,
-        input.operation,
-        JSON.stringify(input.payload),
-        createdAt,
-        input.dedupeKey
-      );
-      return;
-    }
-
-    await transaction.runAsync(
-      `INSERT INTO queued_mutations
-         (owner_user_id, entity_type, entity_id, operation, payload_json, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      ownerId,
-      input.entityType,
-      input.entityId,
-      input.operation,
-      JSON.stringify(input.payload),
-      createdAt
-    );
+    if (requireActiveLocalDataOwner() !== ownerId)
+      throw new Error('Outbox owner changed before write');
+    await writeQueuedMutation(transaction, ownerId, prepared);
+    if (requireActiveLocalDataOwner() !== ownerId)
+      throw new Error('Outbox owner changed during write');
   });
 }
 

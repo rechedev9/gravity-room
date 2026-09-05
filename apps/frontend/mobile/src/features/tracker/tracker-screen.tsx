@@ -25,10 +25,7 @@ import {
   fetchProgramDefinition,
   fetchProgramDetail,
 } from '../../lib/tracker/program-detail-service';
-import {
-  queueRecordResultMutation,
-  queueUndoRestoreMutation,
-} from '../../lib/tracker/tracker-mutation-service';
+import { commitTrackerEdit } from '../../lib/tracker/commit-tracker-edit';
 import { flushQueuedMutations } from '../../lib/sync/mutation-sync-service';
 import { applyUndoEntry, buildUndoEntry, patchSlotMetrics, slotStateEqual } from './tracker-state';
 import { TrackerSlotCard } from './tracker-slot-card';
@@ -55,18 +52,6 @@ type TrackerScreenProps = {
 };
 
 const MAX_RPE = 10;
-
-function toMutationSetLogs(entries: readonly SetLogEntry[]): Array<{
-  readonly reps: number;
-  readonly weight?: number;
-  readonly rpe?: number;
-}> {
-  return entries.map((entry) => ({
-    reps: entry.reps,
-    ...(entry.weight !== undefined ? { weight: entry.weight } : {}),
-    ...(entry.rpe !== undefined ? { rpe: entry.rpe } : {}),
-  }));
-}
 
 function resolveProgramDefinition(detail: GenericProgramDetail): ProgramDefinition | null {
   try {
@@ -397,7 +382,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
     if (setLogs === undefined) setDetailState(completedDetail);
 
     try {
-      await upsertProgramDetail(completedDetail);
+      await commitTrackerEdit(completedDetail, { workoutIndex, slotId });
     } catch {
       if (localStateVersionRef.current !== writeVersion) {
         return;
@@ -413,19 +398,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
       setDetailState(completedDetail);
     setDraftLogsState(nextDraftLogs);
 
-    try {
-      await queueRecordResultMutation({
-        instanceId: currentDetail.id,
-        workoutIndex,
-        slotId,
-        result,
-        ...(setLogs !== undefined ? { setLogs: toMutationSetLogs(setLogs) } : {}),
-        ...(loggedAmrapReps !== undefined ? { amrapReps: loggedAmrapReps } : {}),
-      });
-      setSyncNotice(null);
-    } catch {
-      setSyncNotice(t('tracker.notices.manual_retry'));
-    }
+    setSyncNotice(null);
   }
 
   async function handleConfirmSet(
@@ -512,7 +485,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
     setDetailState(nextDetailWithUndo);
 
     try {
-      await upsertProgramDetail(nextDetailWithUndo);
+      await commitTrackerEdit(nextDetailWithUndo, { workoutIndex, slotId });
     } catch {
       if (localStateVersionRef.current !== writeVersion) {
         return;
@@ -523,20 +496,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
       return;
     }
 
-    try {
-      await queueRecordResultMutation({
-        instanceId: currentDetail.id,
-        workoutIndex,
-        slotId,
-        result: nextSlot.result,
-        ...(nextSlot.amrapReps !== undefined ? { amrapReps: nextSlot.amrapReps } : {}),
-        ...(nextSlot.rpe !== undefined ? { rpe: nextSlot.rpe } : {}),
-        ...(nextSlot.setLogs !== undefined ? { setLogs: toMutationSetLogs(nextSlot.setLogs) } : {}),
-      });
-      setSyncNotice(null);
-    } catch {
-      setSyncNotice(t('tracker.notices.manual_retry'));
-    }
+    setSyncNotice(null);
   }
 
   async function handleMetricChange(
@@ -638,7 +598,10 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
     setDetailState(nextDetail);
 
     try {
-      await upsertProgramDetail(nextDetail);
+      await commitTrackerEdit(nextDetail, {
+        workoutIndex: currentUndoEntry.i,
+        slotId: currentUndoEntry.slotId,
+      });
     } catch {
       if (localStateVersionRef.current !== writeVersion) {
         return;
@@ -649,25 +612,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
       return;
     }
 
-    try {
-      const restoredSlot =
-        nextDetail.results[String(currentUndoEntry.i)]?.[currentUndoEntry.slotId];
-
-      await queueUndoRestoreMutation({
-        instanceId: currentDetail.id,
-        workoutIndex: currentUndoEntry.i,
-        slotId: currentUndoEntry.slotId,
-        ...(restoredSlot?.result !== undefined ? { result: restoredSlot.result } : {}),
-        ...(restoredSlot?.amrapReps !== undefined ? { amrapReps: restoredSlot.amrapReps } : {}),
-        ...(restoredSlot?.rpe !== undefined ? { rpe: restoredSlot.rpe } : {}),
-        ...(restoredSlot?.setLogs !== undefined
-          ? { setLogs: toMutationSetLogs(restoredSlot.setLogs) }
-          : {}),
-      });
-      setSyncNotice(null);
-    } catch {
-      setSyncNotice(t('tracker.notices.manual_retry'));
-    }
+    setSyncNotice(null);
   }
 
   const heroSlotId =

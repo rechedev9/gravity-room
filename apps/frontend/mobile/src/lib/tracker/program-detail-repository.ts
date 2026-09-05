@@ -5,7 +5,12 @@ import {
   type ProgramDefinition,
 } from '@gzclp/domain';
 
-import { bootstrapDatabase, getDatabase, requireActiveLocalDataOwner } from '../db/client';
+import {
+  bootstrapDatabase,
+  getDatabase,
+  requireActiveLocalDataOwner,
+  type DatabaseClient,
+} from '../db/client';
 
 type ProgramDetailRow = {
   readonly id: string;
@@ -20,39 +25,61 @@ type ProgramDefinitionRow = {
   readonly updated_at: string;
 };
 
-export async function upsertProgramDetail(detail: GenericProgramDetail): Promise<void> {
-  const ownerId = requireActiveLocalDataOwner();
-  const database = getDatabase();
-  await bootstrapDatabase(database);
+export function prepareProgramDetail(detail: GenericProgramDetail) {
+  return {
+    id: detail.id,
+    programId: detail.programId,
+    updatedAt: detail.updatedAt,
+    json: JSON.stringify(detail),
+    completedDraftKeys: Object.entries(detail.results).flatMap(([workoutIndex, slots]) =>
+      Object.entries(slots).flatMap(([slotId, slot]) =>
+        slot.result !== undefined ? [`${workoutIndex}:${slotId}`] : []
+      )
+    ),
+  };
+}
 
-  await database.withExclusiveTransactionAsync(async (transaction) => {
+/** The caller owns the transaction, including rollback and owner validation. */
+export async function writeProgramDetail(
+  transaction: DatabaseClient,
+  ownerId: string,
+  detail: ReturnType<typeof prepareProgramDetail>
+): Promise<void> {
+  await transaction.runAsync(
+    `INSERT INTO program_details (owner_user_id, id, program_id, detail_json, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(owner_user_id, id) DO UPDATE SET
+       program_id = excluded.program_id,
+       detail_json = excluded.detail_json,
+       updated_at = excluded.updated_at`,
+    ownerId,
+    detail.id,
+    detail.programId,
+    detail.json,
+    detail.updatedAt
+  );
+  for (const key of detail.completedDraftKeys) {
     await transaction.runAsync(
-      `INSERT INTO program_details (owner_user_id, id, program_id, detail_json, updated_at)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(owner_user_id, id) DO UPDATE SET
-         program_id = excluded.program_id,
-         detail_json = excluded.detail_json,
-         updated_at = excluded.updated_at`,
+      'DELETE FROM set_drafts WHERE owner_user_id = ? AND instance_id = ? AND slot_key = ?',
       ownerId,
       detail.id,
-      detail.programId,
-      JSON.stringify(detail),
-      detail.updatedAt
+      key
     );
-    // A completed slot and removal of its draft are one local commit. If the
-    // detail write fails, the in-progress sets remain recoverable on restart.
-    for (const [workoutIndex, slots] of Object.entries(detail.results)) {
-      for (const [slotId, slot] of Object.entries(slots)) {
-        if (slot.result !== undefined) {
-          await transaction.runAsync(
-            'DELETE FROM set_drafts WHERE owner_user_id = ? AND instance_id = ? AND slot_key = ?',
-            ownerId,
-            detail.id,
-            `${workoutIndex}:${slotId}`
-          );
-        }
-      }
-    }
+  }
+}
+
+/** Cache hydration only. Local workout edits use commitTrackerEdit. */
+export async function upsertProgramDetail(detail: GenericProgramDetail): Promise<void> {
+  const ownerId = requireActiveLocalDataOwner();
+  const prepared = prepareProgramDetail(detail);
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    if (requireActiveLocalDataOwner() !== ownerId)
+      throw new Error('Detail owner changed before write');
+    await writeProgramDetail(transaction, ownerId, prepared);
+    if (requireActiveLocalDataOwner() !== ownerId)
+      throw new Error('Detail owner changed during write');
   });
 }
 

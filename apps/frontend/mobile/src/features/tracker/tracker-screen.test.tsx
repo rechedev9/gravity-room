@@ -31,10 +31,7 @@ import {
   fetchProgramDetail,
 } from '../../lib/tracker/program-detail-service';
 import { flushQueuedMutations } from '../../lib/sync/mutation-sync-service';
-import {
-  queueRecordResultMutation,
-  queueUndoRestoreMutation,
-} from '../../lib/tracker/tracker-mutation-service';
+import { commitTrackerEdit } from '../../lib/tracker/commit-tracker-edit';
 
 jest.mock('../../lib/tracker/set-draft-repository', () => ({
   getSetDrafts: jest.fn(async () => ({})),
@@ -65,10 +62,7 @@ jest.mock('../../lib/sync/mutation-sync-service', () => ({
   flushQueuedMutations: jest.fn(),
 }));
 
-jest.mock('../../lib/tracker/tracker-mutation-service', () => ({
-  queueRecordResultMutation: jest.fn(),
-  queueUndoRestoreMutation: jest.fn(),
-}));
+jest.mock('../../lib/tracker/commit-tracker-edit', () => ({ commitTrackerEdit: jest.fn() }));
 
 const mockedGetAccessToken = jest.mocked(getAccessToken);
 const mockedGetProgramDetail = jest.mocked(getProgramDetail);
@@ -78,8 +72,8 @@ const mockedUpsertProgramDetail = jest.mocked(upsertProgramDetail);
 const mockedFetchProgramDetail = jest.mocked(fetchProgramDetail);
 const mockedFetchProgramDefinition = jest.mocked(fetchProgramDefinition);
 const mockedFlushQueuedMutations = jest.mocked(flushQueuedMutations);
-const mockedQueueRecordResultMutation = jest.mocked(queueRecordResultMutation);
-const mockedQueueUndoRestoreMutation = jest.mocked(queueUndoRestoreMutation);
+const mockedCommitTrackerEdit = jest.mocked(commitTrackerEdit);
+const mockCommittedEdits = jest.fn();
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -212,8 +206,22 @@ describe('TrackerScreen', () => {
     mockedFetchProgramDetail.mockReset();
     mockedFetchProgramDefinition.mockReset();
     mockedFlushQueuedMutations.mockReset();
-    mockedQueueRecordResultMutation.mockReset();
-    mockedQueueUndoRestoreMutation.mockReset();
+    mockCommittedEdits.mockReset();
+    // UI tests use a single atomic-commit seam. Production SQL, rollback, and
+    // file-reopen behavior are covered in commit-tracker-edit.test.js.
+    mockedCommitTrackerEdit.mockReset();
+    mockedCommitTrackerEdit.mockImplementation(async (detail, target) => {
+      await mockedUpsertProgramDetail(detail);
+      const slot = detail.results[String(target.workoutIndex)]?.[target.slotId];
+      mockCommittedEdits({
+        instanceId: detail.id,
+        ...target,
+        ...(slot?.result !== undefined ? { result: slot.result } : {}),
+        ...(slot?.amrapReps !== undefined ? { amrapReps: slot.amrapReps } : {}),
+        ...(slot?.rpe !== undefined ? { rpe: slot.rpe } : {}),
+        ...(slot?.setLogs !== undefined ? { setLogs: slot.setLogs } : {}),
+      });
+    });
   });
 
   it('enables Undo after queued metric writes commit and then reverts the latest edit', async () => {
@@ -266,7 +274,7 @@ describe('TrackerScreen', () => {
     await act(async () => metricWrite.reject(new Error('Disk full')));
     expect(screen.getByText('Logged success')).toBeTruthy();
     expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
-    expect(mockedQueueUndoRestoreMutation).not.toHaveBeenCalled();
+    expect(mockCommittedEdits).toHaveBeenCalledTimes(1);
     expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(2);
   });
 
@@ -303,8 +311,8 @@ describe('TrackerScreen', () => {
     fireEvent.changeText(await screen.findByLabelText('Reps for set 3 of Squat'), '5');
     fireEvent.press(screen.getByRole('button', { name: 'Confirm set 3 for Squat' }));
     await screen.findByText('Logged success');
-    await waitFor(() => expect(mockedQueueRecordResultMutation).toHaveBeenCalled());
-    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
+    await waitFor(() => expect(mockCommittedEdits).toHaveBeenCalled());
+    expect(mockCommittedEdits).toHaveBeenLastCalledWith(
       expect.objectContaining({ result: 'success' })
     );
   });
@@ -358,14 +366,13 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
     mockedUpsertProgramDetail.mockResolvedValue();
-    mockedQueueRecordResultMutation.mockResolvedValue();
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
     fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
     fireEvent.press(screen.getByRole('button', { name: 'View sets for Squat' }));
     fireEvent.press(screen.getByRole('button', { name: 'Decrease Squat AMRAP reps' }));
     await screen.findByText('Logged fail');
-    await waitFor(() => expect(mockedQueueRecordResultMutation).toHaveBeenCalledTimes(1));
-    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
+    await waitFor(() => expect(mockCommittedEdits).toHaveBeenCalledTimes(1));
+    expect(mockCommittedEdits).toHaveBeenLastCalledWith(
       expect.objectContaining({ result: 'fail', setLogs: squatLogsWithLastReps(2) })
     );
     expect(mockedUpsertProgramDetail).toHaveBeenLastCalledWith(
@@ -391,7 +398,7 @@ describe('TrackerScreen', () => {
     await screen.findByText('AMRAP reps: 8');
     fireEvent.press(screen.getByRole('button', { name: 'Increase Squat AMRAP reps' }));
     await waitFor(() =>
-      expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
+      expect(mockCommittedEdits).toHaveBeenLastCalledWith(
         expect.objectContaining({ amrapReps: 9, setLogs: squatLogsWithLastReps(9) })
       )
     );
@@ -443,7 +450,6 @@ describe('TrackerScreen', () => {
     mockedUpsertProgramDetail.mockImplementation(async (detail) => {
       stored = detail;
     });
-    mockedQueueRecordResultMutation.mockResolvedValue();
     const remote = createDeferred<GenericProgramDetail>();
     mockedFetchProgramDetail
       .mockReturnValueOnce(remote.promise)
@@ -457,7 +463,7 @@ describe('TrackerScreen', () => {
     const view = renderScreen(tracker('instance-1'));
     await waitFor(() => expect(mockedFetchProgramDetail).toHaveBeenCalledTimes(1));
     fireEvent.press(await screen.findByRole('button', { name: 'Mark Squat fail' }));
-    await waitFor(() => expect(mockedQueueRecordResultMutation).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mockCommittedEdits).toHaveBeenCalledTimes(1));
     view.rerender(tracker('instance-2'));
     await screen.findByRole('button', { name: 'Confirm set 1 for Bench' });
     view.rerender(tracker('instance-1'));
@@ -562,7 +568,7 @@ describe('TrackerScreen', () => {
     await act(async () =>
       fireEvent.press(screen.getByRole('button', { name: 'Confirm set 5 for Squat' }))
     );
-    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith(
+    expect(mockCommittedEdits).toHaveBeenLastCalledWith(
       expect.objectContaining({
         setLogs: [...SQUAT_SET_LOGS.slice(0, 4), { weight: 65, reps: 8 }],
         amrapReps: 8,
@@ -626,7 +632,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Offline'));
     mockedUpsertProgramDetail.mockResolvedValue();
-    mockedQueueRecordResultMutation.mockResolvedValue();
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
 
     await screen.findByText('Squat', {}, { timeout: 5000 });
@@ -653,7 +658,7 @@ describe('TrackerScreen', () => {
     }
     expect(await screen.findByText('Day complete')).toBeTruthy();
     expect(screen.getByText('Logged volume: 847.5 kg')).toBeTruthy();
-    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+    expect(mockCommittedEdits).toHaveBeenLastCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -701,7 +706,7 @@ describe('TrackerScreen', () => {
       await screen.findByText('Could not save this set on your device. Please try again.')
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Confirm set 1 for Squat' })).toBeTruthy();
-    expect(mockedQueueRecordResultMutation).not.toHaveBeenCalled();
+    expect(mockCommittedEdits).not.toHaveBeenCalled();
   });
 
   it('renders cached workout data before the remote refresh completes', async () => {
@@ -854,7 +859,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -864,7 +868,7 @@ describe('TrackerScreen', () => {
     await confirmSets('Squat', 5);
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
-    expect(mockedQueueRecordResultMutation).toHaveBeenCalledWith({
+    expect(mockCommittedEdits).toHaveBeenCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -918,7 +922,7 @@ describe('TrackerScreen', () => {
 
     await waitFor(() => {
       expect(mockedUpsertProgramDetail).not.toHaveBeenCalled();
-      expect(mockedQueueRecordResultMutation).not.toHaveBeenCalled();
+      expect(mockCommittedEdits).not.toHaveBeenCalled();
     });
   });
 
@@ -930,7 +934,6 @@ describe('TrackerScreen', () => {
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
     mockedUpsertProgramDetail.mockReturnValue(upsertDetail.promise);
-    mockedQueueRecordResultMutation.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
 
@@ -940,12 +943,12 @@ describe('TrackerScreen', () => {
 
     expect(screen.queryByText('Logged success')).toBeNull();
     expect(screen.getByLabelText('Weight for set 5 of Squat')).toBeTruthy();
-    expect(mockedQueueRecordResultMutation).not.toHaveBeenCalled();
+    expect(mockCommittedEdits).not.toHaveBeenCalled();
 
     upsertDetail.resolve();
 
     await waitFor(() => {
-      expect(mockedQueueRecordResultMutation).toHaveBeenCalledWith({
+      expect(mockCommittedEdits).toHaveBeenCalledWith({
         instanceId: 'instance-1',
         workoutIndex: 0,
         slotId: 'squat-t1',
@@ -973,7 +976,7 @@ describe('TrackerScreen', () => {
       expect(screen.getByText('Awaiting result')).toBeTruthy();
     });
     expect(screen.queryByText('Logged success')).toBeNull();
-    expect(mockedQueueRecordResultMutation).not.toHaveBeenCalled();
+    expect(mockCommittedEdits).not.toHaveBeenCalled();
   });
 
   it('marks a slot as fail locally and queues the offline mutation', async () => {
@@ -981,7 +984,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -991,7 +993,7 @@ describe('TrackerScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Mark Squat fail' }));
 
     expect(await screen.findByText('Logged fail')).toBeTruthy();
-    expect(mockedQueueRecordResultMutation).toHaveBeenCalledWith({
+    expect(mockCommittedEdits).toHaveBeenCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1004,8 +1006,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
-    mockedQueueUndoRestoreMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -1018,7 +1018,7 @@ describe('TrackerScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Awaiting result')).toBeTruthy();
-    expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
+    expect(mockCommittedEdits).toHaveBeenCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1048,7 +1048,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueUndoRestoreMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -1065,7 +1064,7 @@ describe('TrackerScreen', () => {
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(screen.getByText('AMRAP reps: 12')).toBeTruthy();
     expect(screen.getByText('RPE: 8')).toBeTruthy();
-    expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
+    expect(mockCommittedEdits).toHaveBeenCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1109,7 +1108,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueUndoRestoreMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -1124,7 +1122,7 @@ describe('TrackerScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Awaiting result')).toBeTruthy();
-    expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
+    expect(mockCommittedEdits).toHaveBeenCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1136,7 +1134,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -1168,7 +1165,7 @@ describe('TrackerScreen', () => {
         },
       })
     );
-    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+    expect(mockCommittedEdits).toHaveBeenLastCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1201,7 +1198,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -1236,7 +1232,7 @@ describe('TrackerScreen', () => {
           },
         })
       );
-      expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+      expect(mockCommittedEdits).toHaveBeenLastCalledWith({
         instanceId: 'instance-1',
         workoutIndex: 0,
         slotId: 'squat-t1',
@@ -1258,8 +1254,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
-    mockedQueueUndoRestoreMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -1277,7 +1271,7 @@ describe('TrackerScreen', () => {
     expect(await screen.findByText('Logged success')).toBeTruthy();
     expect(await screen.findByText('AMRAP reps: 3')).toBeTruthy();
     expect(screen.queryByText('Awaiting result')).toBeNull();
-    expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
+    expect(mockCommittedEdits).toHaveBeenCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1311,7 +1305,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -1327,7 +1320,7 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('RPE: 10')).toBeTruthy();
     expect(screen.queryByText('RPE: 11')).toBeNull();
-    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+    expect(mockCommittedEdits).toHaveBeenLastCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1368,7 +1361,7 @@ describe('TrackerScreen', () => {
 
     await waitFor(() => {
       expect(mockedUpsertProgramDetail).not.toHaveBeenCalled();
-      expect(mockedQueueRecordResultMutation).not.toHaveBeenCalled();
+      expect(mockCommittedEdits).not.toHaveBeenCalled();
     });
     expect(screen.queryByText('RPE: 11')).toBeNull();
   });
@@ -1378,7 +1371,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail
       .mockResolvedValueOnce()
       .mockRejectedValueOnce(new Error('SQLite write failed'));
@@ -1417,7 +1409,7 @@ describe('TrackerScreen', () => {
     expect(mockedUpsertProgramDetail).toHaveBeenCalledTimes(2);
     await act(async () => firstWrite.reject(new Error('SQLite write failed')));
     await waitFor(() => {
-      expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+      expect(mockCommittedEdits).toHaveBeenLastCalledWith({
         instanceId: 'instance-1',
         workoutIndex: 0,
         slotId: 'squat-t1',
@@ -1429,32 +1421,11 @@ describe('TrackerScreen', () => {
     expect(screen.getByText('AMRAP reps: 4')).toBeTruthy();
   });
 
-  it('shows a lightweight sync warning when queueing a result fails after the local write succeeds', async () => {
-    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
-    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
-    mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
-    mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedUpsertProgramDetail.mockResolvedValue();
-    mockedQueueRecordResultMutation.mockRejectedValue(new Error('Queue unavailable'));
-
-    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
-
-    expect(await screen.findByText('Squat')).toBeTruthy();
-
-    await confirmSets('Squat', 5);
-
-    expect(await screen.findByText('Logged success')).toBeTruthy();
-    expect(
-      await screen.findByText("Saved locally. This change won't sync automatically.")
-    ).toBeTruthy();
-  });
-
   it('clears inline AMRAP and RPE values back to empty state', async () => {
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -1476,7 +1447,7 @@ describe('TrackerScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Clear Squat RPE' }));
 
     expect(await screen.findByText('RPE: -')).toBeTruthy();
-    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+    expect(mockCommittedEdits).toHaveBeenLastCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1490,7 +1461,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -1519,7 +1489,7 @@ describe('TrackerScreen', () => {
       amrapReps: 3,
       setLogs: [...SQUAT_SET_LOGS],
     });
-    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+    expect(mockCommittedEdits).toHaveBeenLastCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1534,7 +1504,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -1549,8 +1518,8 @@ describe('TrackerScreen', () => {
 
     expect(await screen.findByText('RPE: -')).toBeTruthy();
     expect(screen.getByText('AMRAP reps: 3')).toBeTruthy();
-    expect(mockedQueueRecordResultMutation).toHaveBeenCalledTimes(1);
-    expect(mockedQueueRecordResultMutation).toHaveBeenLastCalledWith({
+    expect(mockCommittedEdits).toHaveBeenCalledTimes(1);
+    expect(mockCommittedEdits).toHaveBeenLastCalledWith({
       instanceId: 'instance-1',
       workoutIndex: 0,
       slotId: 'squat-t1',
@@ -1587,7 +1556,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockReturnValue(delayedFetch.promise);
     mockedFetchProgramDefinition.mockResolvedValue(TEST_DEFINITION);
-    mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -1618,7 +1586,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
 
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
@@ -1637,7 +1604,6 @@ describe('TrackerScreen', () => {
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
     mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
     mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
     mockedUpsertProgramDetail
       .mockResolvedValueOnce()
       .mockRejectedValueOnce(new Error('SQLite write failed'));
@@ -1655,81 +1621,6 @@ describe('TrackerScreen', () => {
       expect(screen.getByText('Logged success')).toBeTruthy();
     });
     expect(screen.queryByText('Awaiting result')).toBeNull();
-    expect(mockedQueueUndoRestoreMutation).not.toHaveBeenCalled();
-  });
-
-  it('shows the retry notice when undo delete queueing fails after the local write succeeds', async () => {
-    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
-    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
-    mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
-    mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueRecordResultMutation.mockResolvedValue();
-    mockedQueueUndoRestoreMutation.mockRejectedValue(new Error('Queue unavailable'));
-    mockedUpsertProgramDetail.mockResolvedValue();
-
-    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
-
-    expect(await screen.findByText('Squat')).toBeTruthy();
-
-    await confirmSets('Squat', 5);
-    expect(await screen.findByText('Logged success')).toBeTruthy();
-
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
-
-    expect(await screen.findByText('Awaiting result')).toBeTruthy();
-    expect(
-      await screen.findByText("Saved locally. This change won't sync automatically.")
-    ).toBeTruthy();
-  });
-
-  it('shows the retry notice when undo restore queueing fails after the local write succeeds', async () => {
-    mockedGetProgramDetail.mockResolvedValue({
-      ...TEST_DETAIL,
-      results: {
-        0: {
-          'squat-t1': {
-            result: 'fail',
-          },
-        },
-      },
-      undoHistory: [
-        {
-          i: 0,
-          slotId: 'squat-t1',
-          prev: 'success',
-          prevAmrapReps: 12,
-          prevRpe: 8,
-        },
-      ],
-    });
-    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
-    mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
-    mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
-    mockedQueueUndoRestoreMutation.mockRejectedValue(new Error('Queue unavailable'));
-    mockedUpsertProgramDetail.mockResolvedValue();
-
-    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
-
-    // Entry selects the first unfinished workout; reopen the completed day to edit it.
-    fireEvent.press(await screen.findByRole('button', { name: 'Previous workout' }));
-    const details = screen.queryByRole('button', { name: 'View sets for Squat' });
-    if (details) fireEvent.press(details);
-
-    expect(await screen.findByText('Logged fail')).toBeTruthy();
-
-    fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
-
-    expect(await screen.findByText('Logged success')).toBeTruthy();
-    expect(
-      await screen.findByText("Saved locally. This change won't sync automatically.")
-    ).toBeTruthy();
-    expect(mockedQueueUndoRestoreMutation).toHaveBeenCalledWith({
-      instanceId: 'instance-1',
-      workoutIndex: 0,
-      slotId: 'squat-t1',
-      result: 'success',
-      amrapReps: 12,
-      rpe: 8,
-    });
+    expect(mockCommittedEdits).toHaveBeenCalledTimes(1);
   });
 });
