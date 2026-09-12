@@ -35,3 +35,5 @@ Related ownership guides: [storage](mobile-storage.md), [sync](mobile-sync.md),
 and [rest timer](mobile-rest-timer.md).
 
 For real SQLite regression fixtures, use the [shared test adapter](mobile-sqlite-tests.md).
+
+For URL construction and identifier handling, follow the [request boundaries](mobile-network.md).

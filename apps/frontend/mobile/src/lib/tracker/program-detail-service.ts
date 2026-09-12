@@ -1,3 +1,4 @@
+import { encodeApiPathIdentifier } from '../network/api-path-identifier';
 import { fetchApiResponse } from '../network/api-fetch';
 import {
   GenericProgramDetailSchema,
@@ -13,7 +14,9 @@ export async function fetchProgramDetail(programInstanceId: string): Promise<Gen
     throw new Error('Program detail fetch requires an access token');
   }
 
-  const { response } = await fetchWithAccessToken(`/programs/${programInstanceId}`);
+  const { response } = await fetchWithAccessToken(
+    `/programs/${encodeApiPathIdentifier(programInstanceId)}`
+  );
   if (!response.ok) {
     throw new Error(`Program detail fetch failed with status ${response.status}`);
   }
@@ -22,7 +25,9 @@ export async function fetchProgramDetail(programInstanceId: string): Promise<Gen
 }
 
 export async function fetchProgramDefinition(programId: string): Promise<ProgramDefinition> {
-  const response = await fetchApiResponse(buildApiUrl(`/catalog/${programId}`));
+  const response = await fetchApiResponse(
+    buildApiUrl(`/catalog/${encodeApiPathIdentifier(programId)}`)
+  );
   if (!response.ok) {
     throw new Error(`Program definition fetch failed with status ${response.status}`);
   }

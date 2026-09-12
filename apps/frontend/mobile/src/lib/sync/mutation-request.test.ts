@@ -153,3 +153,25 @@ describe('outbox wire requests', () => {
     }
   });
 });
+
+describe('unrepresentable outbox paths', () => {
+  it.each(['.', '..'])('retains invalid entity %s as a permanent outbox error', (entityId) => {
+    expect(() => buildMutationRequest(mutation({ entityId }))).toThrow(InvalidQueuedMutationError);
+  });
+
+  it.each(['.', '..', '\ud800'])(
+    'rejects deletion slot %j before it can alter the route',
+    (slotId) => {
+      expect(() =>
+        buildMutationRequest(
+          mutation({ operation: 'delete-result', payload: { workoutIndex: 0, slotId } })
+        )
+      ).toThrow(InvalidQueuedMutationError);
+    }
+  );
+
+  it('keeps body-only identifiers under the domain payload contract', () => {
+    const queued = mutation({ payload: { workoutIndex: 0, slotId: '.', result: 'success' } });
+    expect(buildMutationRequest(queued).body).toBe(JSON.stringify(queued.payload));
+  });
+});

@@ -1,3 +1,4 @@
+import { encodeApiPathIdentifier } from '../network/api-path-identifier';
 import { isRecord } from '@gzclp/domain/type-guards';
 import type { QueuedMutation } from './mutation-queue-repository';
 
@@ -21,7 +22,7 @@ function validId(value: unknown): value is string {
 
 function encodeId(value: string): string {
   try {
-    return encodeURIComponent(value);
+    return encodeApiPathIdentifier(value);
   } catch {
     throw new InvalidQueuedMutationError('Invalid queued mutation identifier encoding');
   }
