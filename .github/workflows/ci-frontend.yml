@@ -53,6 +53,9 @@ jobs:
       - name: Test mobile
         run: pnpm --filter mobile test
 
+      - name: Verify mobile SQLite migrations
+        run: pnpm run test:mobile:sqlite
+
       - name: Export Android production bundle
         env:
           EXPO_PUBLIC_API_URL: https://gravityroom.app

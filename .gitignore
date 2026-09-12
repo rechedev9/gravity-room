@@ -78,6 +78,7 @@ scripts/*
 !scripts/check-production-routes.ts
 !scripts/check-vercel-deployment.ts
 !scripts/check-security-headers.ts
+!scripts/check-mobile-migrations.test.mjs
 
 # IDE
 .idea/

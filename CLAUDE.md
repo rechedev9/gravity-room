@@ -37,10 +37,11 @@ Shared standing law for every agent that touches this repo. If it is not here, i
 
 1. **Domain SoT** — progression math, graduation, shared Zod schemas live only in
    `@gzclp/domain`. Never reimplement or clamp on top in app code.
-2. **DB SoT** — schema/migrations/seeds only in `packages/database`. Edit
+2. **Server DB SoT** — Postgres schema/migrations/seeds only in `packages/database`. Edit
    `packages/database/src/schema.ts` → `pnpm run db:generate`. Migrations run
    **build-time** via `pnpm --filter api db:deploy` (advisory-locked,
-   `DIRECT_DATABASE_URL` in prod) — **never** boot-time DDL in `create-app.ts`.
+   `DIRECT_DATABASE_URL` in prod) — **never** boot-time DDL in `create-app.ts`. Mobile offline SQLite has a separate
+   [storage contract](docs/agents/mobile-storage.md) in `apps/frontend/mobile/src/lib/db`.
 3. **Web API client is generated** — after route changes, with API running:
    `pnpm --filter web api:types` and commit
    `apps/frontend/web/src/lib/api/generated.ts`. Do not hand-edit it. Mobile does
