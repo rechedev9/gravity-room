@@ -1,0 +1,28 @@
+# Mobile outbox changes
+
+The outbox records user intent in SQLite before network delivery. Keep its
+responsibilities explicit when changing the mobile app:
+
+| Module in `src/lib/sync`       | Owns                                                                       |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| `mutation-queue-repository.ts` | Durable rows, owner partitions, deduplication, paging and acknowledgements |
+| `mutation-request.ts`          | Pure envelope validation, path encoding, method and body serialization     |
+| `mutation-sync-service.ts`     | Authorized delivery, cancellation, retained failures, backoff and draining |
+| `foreground-sync.ts`           | App foreground lifecycle, retry timer and session recovery                 |
+| `sync-events.ts`               | Owner-scoped notifications after durable operations                        |
+
+The request compiler imports the persisted row type only. It must not open
+SQLite, fetch, access credentials, schedule timers, or acknowledge a row.
+Changing wire serialization can be tested without loading those systems.
+
+Supported intents are `record-result`, `update-metadata`, and `delete-result`.
+Only deletion treats HTTP 404 as completion. Unknown or malformed intents are
+retained with `INVALID_OUTBOX` by the worker, never silently discarded. Domain
+payloads (set logs, metadata fields, progression inputs) remain unchanged for
+validation by the API and shared domain package.
+
+Run `pnpm --filter mobile exec jest --runInBand src/lib/sync` for both compiler
+contracts and worker delivery regressions. Add compiler cases when changing
+methods, paths or payload envelopes; add worker cases when changing retry,
+cancellation, ordering or acknowledgements. Run the complete mobile suite and
+typecheck before publishing.
