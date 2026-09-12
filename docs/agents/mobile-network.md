@@ -38,3 +38,20 @@ not invent new email, token or user-ID validation rules.
 Pure decoder tests cover malformed payloads, normalized optional fields and
 credential-free errors. Run the session and auth-provider suites as well when
 changing these contracts, because pure parsing cannot prove persistence order.
+
+## API origin and prefix
+
+`network/api-url.ts` owns pure base-URL validation and route composition. Pass
+configuration and development mode explicitly. The `session.ts` adapter reads
+`EXPO_PUBLIC_API_URL` and `__DEV__` at call time, then delegates through its
+existing `buildApiUrl(path)` entry point. No native auth or credential module is
+needed to test URL policy. Resolver consumers import the pure module directly.
+
+Production still requires an explicit HTTPS base. Development cleartext remains
+limited to localhost, loopback and the Android emulator host; a private LAN IP
+is not implicitly trusted. Configured credentials, query strings and fragments
+remain invalid. A configured path is the API prefix; otherwise `/api` is used.
+Route query strings survive composition, fragments do not, and route inputs
+cannot change the configured origin. Identifier callers must still use the
+segment encoder before composition. The pure tests supplement the existing
+session tests that exercise actual authorized request construction.

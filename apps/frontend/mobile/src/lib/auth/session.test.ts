@@ -1,3 +1,4 @@
+import { resolveApiBaseUrl } from '../network/api-url';
 import { Platform } from 'react-native';
 import { secureOfflineIdentityStorage, secureLocalDataOwnerStorage } from './secure-storage';
 
@@ -11,7 +12,6 @@ import {
   SessionUnavailableError,
   readOfflineUser,
   rememberOfflineUser,
-  resolveApiBaseUrl,
   restoreSession,
   SignOutCredentialDeletionError,
   setAccessToken,
