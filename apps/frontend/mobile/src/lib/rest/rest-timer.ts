@@ -47,18 +47,46 @@ export class RestTimer {
     this.listeners.forEach((listener) => listener());
   }
 
-  private async cancelNotification(id: string): Promise<void> {
+  private markAlertUnavailable(generation: number): void {
+    if (!this.disposed && generation === this.generation) {
+      this.publish({ ...this.state, alertUnavailable: true });
+    }
+  }
+
+  private async cancelNotification(id: string, generation: number): Promise<void> {
     try {
       await this.effects.cancel(id);
     } catch {
-      this.publish({ ...this.state, alertUnavailable: true });
+      this.markAlertUnavailable(generation);
     }
   }
 
   private releaseNotification(): void {
     const id = this.notificationId;
     this.notificationId = null;
-    if (id !== null) void this.cancelNotification(id);
+    if (id !== null) void this.cancelNotification(id, this.generation);
+  }
+
+  private async scheduleNotification(endsAt: number, generation: number): Promise<void> {
+    try {
+      const id = await this.effects.schedule(endsAt);
+      if (this.disposed || generation !== this.generation) {
+        if (id !== null) await this.cancelNotification(id, generation);
+        return;
+      }
+      this.notificationId = id;
+      if (id === null) this.markAlertUnavailable(generation);
+    } catch {
+      this.markAlertUnavailable(generation);
+    }
+  }
+
+  private async complete(generation: number): Promise<void> {
+    try {
+      await this.effects.complete();
+    } catch {
+      this.markAlertUnavailable(generation);
+    }
   }
 
   start(seconds: number): void {
@@ -66,43 +94,33 @@ export class RestTimer {
     if (!Number.isFinite(seconds) || seconds <= 0) {
       throw new Error('Rest duration must be a positive number');
     }
-    const generation = ++this.generation;
-    this.releaseNotification();
     const endsAt = this.now() + seconds * 1000;
+    if (!Number.isFinite(endsAt) || Math.abs(endsAt) > 8_640_000_000_000_000) {
+      throw new Error('Rest deadline must be a valid date');
+    }
+    // Release the old notification under its own generation before replacing it.
+    this.releaseNotification();
+    const generation = ++this.generation;
     this.publish({ endsAt, remainingSeconds: Math.ceil(seconds), alertUnavailable: false });
-    void this.effects
-      .schedule(endsAt)
-      .then(async (id) => {
-        if (generation !== this.generation) {
-          if (id !== null) await this.cancelNotification(id);
-          return;
-        }
-        this.notificationId = id;
-        if (id === null) this.publish({ ...this.state, alertUnavailable: true });
-      })
-      .catch(() => {
-        if (generation === this.generation) this.publish({ ...this.state, alertUnavailable: true });
-      });
+    void this.scheduleNotification(endsAt, generation);
   }
 
   tick(): void {
     if (this.state.endsAt === null) return;
     const remainingSeconds = Math.max(0, Math.ceil((this.state.endsAt - this.now()) / 1000));
     if (remainingSeconds === 0) {
-      ++this.generation;
       this.releaseNotification();
+      const generation = ++this.generation;
       this.publish({ ...this.state, endsAt: null, remainingSeconds: 0 });
-      void this.effects.complete().catch(() => {
-        this.publish({ ...this.state, alertUnavailable: true });
-      });
+      void this.complete(generation);
     } else if (remainingSeconds !== this.state.remainingSeconds) {
       this.publish({ ...this.state, remainingSeconds });
     }
   }
 
   skip = (): void => {
-    ++this.generation;
     this.releaseNotification();
+    ++this.generation;
     this.publish({ endsAt: null, remainingSeconds: 0, alertUnavailable: false });
   };
 
