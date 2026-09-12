@@ -72,6 +72,30 @@ describe('flushQueuedMutations', () => {
   const originalFetch = globalThis.fetch;
   const originalExpoPublicApiUrl = process.env.EXPO_PUBLIC_API_URL;
 
+  it.each(['\uD800', '   '])(
+    'retains invalid program identifier %j without network retry',
+    async (entityId) => {
+      mockedListQueuedMutations.mockResolvedValueOnce([
+        {
+          id: 1,
+          entityType: 'program-instance',
+          entityId,
+          operation: 'record-result',
+          payload: { workoutIndex: 0, slotId: 'squat', result: 'success' },
+          createdAt: '2026-09-12',
+        },
+      ]);
+      const fetchSpy = jest.spyOn(globalThis, 'fetch');
+      await expect(flushQueuedMutations('mobile-access-token')).rejects.toThrow(
+        'Invalid queued mutation'
+      );
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(markQueuedMutationFailure).toHaveBeenCalledWith(1, 'INVALID_OUTBOX', 'user-123');
+      expect(recordSyncBackoff).not.toHaveBeenCalled();
+      expect(mockedAcknowledgeQueuedMutations).not.toHaveBeenCalledWith([1], 'user-123');
+    }
+  );
+
   afterEach(async () => {
     await clearQueuedMutations();
     globalThis.fetch = originalFetch;

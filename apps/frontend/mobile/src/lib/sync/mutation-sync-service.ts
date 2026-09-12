@@ -2,7 +2,7 @@ import { parseRetryAfter } from '../network/retry-after';
 import { publishSyncAttempt } from './sync-events';
 import { readSyncBackoff, recordSyncBackoff, clearSyncBackoff } from './sync-backoff-repository';
 import { RequestTimeoutError } from '../network/api-fetch';
-import { isRecord } from '@gzclp/domain/type-guards';
+import { buildMutationRequest, InvalidQueuedMutationError } from './mutation-request';
 
 import { fetchWithAccessToken } from '../auth/session';
 import { requireActiveLocalDataOwner } from '../db/client';
@@ -21,8 +21,6 @@ let inFlightFlushOwnerId: string | null = null;
 let inFlightFlushRequest: { requested: boolean; accepting: boolean } | null = null;
 let inFlightFlushController: AbortController | null = null;
 let volatileRetryPause: { ownerId: string; retryAt: number; recordedAt: number } | null = null;
-
-class InvalidQueuedMutationError extends Error {}
 
 class QueuedMutationHttpError extends Error {
   constructor(
@@ -58,104 +56,25 @@ export async function clearQueuedMutations(): Promise<void> {
   await clearQueuedMutationsFromRepository();
 }
 
-function buildProgramRequestPath(entityId: string): string {
-  return `/programs/${encodeURIComponent(entityId)}`;
-}
-
 async function replayQueuedMutation(
   mutation: QueuedMutation,
   accessToken: string,
   signal: AbortSignal
 ): Promise<string> {
-  if (mutation.entityType !== 'program-instance' || mutation.payloadValid === false) {
-    throw new InvalidQueuedMutationError('Invalid queued mutation envelope');
-  }
-
-  const requestPath = buildProgramRequestPath(mutation.entityId);
-  const headers = {
-    'Content-Type': 'application/json',
-  };
-
-  let authorizedResponse: { readonly accessToken: string; readonly response: Response };
-
-  switch (mutation.operation) {
-    case 'record-result': {
-      const workoutIndex = mutation.payload.workoutIndex;
-      const slotId = mutation.payload.slotId;
-      const result = mutation.payload.result;
-      if (
-        !Number.isInteger(workoutIndex) ||
-        typeof workoutIndex !== 'number' ||
-        workoutIndex < 0 ||
-        typeof slotId !== 'string' ||
-        slotId.length === 0 ||
-        (result !== 'success' && result !== 'fail')
-      ) {
-        throw new InvalidQueuedMutationError('Invalid record-result mutation payload');
-      }
-
-      authorizedResponse = await fetchWithAccessToken(
-        `${requestPath}/results`,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(mutation.payload),
-          signal,
-        },
-        { initialAccessToken: accessToken }
-      );
-      break;
-    }
-    case 'update-metadata': {
-      if (!isRecord(mutation.payload.metadata)) {
-        throw new InvalidQueuedMutationError('Invalid update-metadata mutation payload');
-      }
-
-      authorizedResponse = await fetchWithAccessToken(
-        `${requestPath}/metadata`,
-        {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify(mutation.payload),
-          signal,
-        },
-        { initialAccessToken: accessToken }
-      );
-      break;
-    }
-    case 'delete-result': {
-      const workoutIndex = mutation.payload.workoutIndex;
-      const slotId = mutation.payload.slotId;
-      if (
-        !Number.isInteger(workoutIndex) ||
-        typeof workoutIndex !== 'number' ||
-        workoutIndex < 0 ||
-        typeof slotId !== 'string' ||
-        slotId.length === 0
-      ) {
-        throw new InvalidQueuedMutationError('Invalid delete-result mutation payload');
-      }
-
-      authorizedResponse = await fetchWithAccessToken(
-        `${requestPath}/results/${workoutIndex}/${encodeURIComponent(slotId)}`,
-        {
-          method: 'DELETE',
-          headers,
-          signal,
-        },
-        { initialAccessToken: accessToken }
-      );
-      break;
-    }
-    default:
-      throw new InvalidQueuedMutationError(
-        `Unsupported queued mutation operation: ${mutation.operation}`
-      );
-  }
-
+  const request = buildMutationRequest(mutation);
+  const authorizedResponse = await fetchWithAccessToken(
+    request.path,
+    {
+      method: request.method,
+      headers: { 'Content-Type': 'application/json' },
+      ...(request.body === undefined ? {} : { body: request.body }),
+      signal,
+    },
+    { initialAccessToken: accessToken }
+  );
   const response = authorizedResponse.response;
 
-  if (mutation.operation === 'delete-result' && response.status === 404) {
+  if (request.acceptsNotFound && response.status === 404) {
     return authorizedResponse.accessToken;
   }
 
