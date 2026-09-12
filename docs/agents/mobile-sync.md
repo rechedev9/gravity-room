@@ -62,3 +62,17 @@ committed edit or acknowledgement cannot become a reported storage failure.
 Callbacks should stay synchronous and short. Nested publications are synchronous
 and take their own snapshot; listeners must not recursively publish without a
 termination condition. `observer-signal.test.ts` covers these lifecycle contracts.
+
+## Retry timing policy
+
+`sync-retry-policy.ts` owns attempt saturation, exponential delays, positive
+jitter and bounded native timer intervals. It accepts clock/random values rather
+than owning global state. The durable repository samples randomness once per
+failed attempt; foreground fallback deliberately uses no jitter. Base delays
+cap at five minutes before adding up to 20% jitter, preserving existing timing.
+Server Retry-After may extend the deadline; timer chunks never shorten the
+repository's pause. Invalid persisted attempt counters fail without overwriting
+the row. Cancellation and owner checks still belong to the transaction owner.
+
+Direct SQLite tests cover rollback after cancellation or owner deactivation,
+owner isolation, clock correction and resetting the counter after success.

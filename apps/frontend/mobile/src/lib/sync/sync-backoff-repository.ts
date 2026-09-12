@@ -1,3 +1,4 @@
+import { nextSyncAttempt, syncRetryDeadline } from './sync-retry-policy';
 import { bootstrapDatabase, getDatabase, requireActiveLocalDataOwner } from '../db/client';
 
 function requireLiveAttempt(signal?: AbortSignal): void {
@@ -55,10 +56,9 @@ export async function recordSyncBackoff(
       'SELECT retry_at_ms, attempt_count, recorded_at_ms FROM sync_backoff WHERE owner_user_id = ?',
       ownerId
     );
-    const attempt = Math.min((row?.attempt_count ?? 0) + 1, 7);
-    const delay = Math.min(5_000 * 2 ** (attempt - 1), 300_000);
+    const attempt = nextSyncAttempt(row?.attempt_count ?? 0);
     const now = Date.now();
-    retryAt = Math.max(now + Math.round(delay * (1 + Math.random() * 0.2)), serverRetryAt);
+    retryAt = syncRetryDeadline(attempt, now, Math.random(), serverRetryAt);
     await tx.runAsync(
       `INSERT INTO sync_backoff (owner_user_id, retry_at_ms, recorded_at_ms, attempt_count) VALUES (?, ?, ?, ?)
        ON CONFLICT(owner_user_id) DO UPDATE SET retry_at_ms = excluded.retry_at_ms,

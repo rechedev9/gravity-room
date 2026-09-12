@@ -1,3 +1,4 @@
+import { nextSyncAttempt, syncRetryDelay, syncRetryTimerDelay } from './sync-retry-policy';
 import { AppState } from 'react-native';
 import { getAccessToken, SessionUnavailableError } from '../auth/session';
 import { getActiveLocalDataOwner } from '../db/client';
@@ -49,12 +50,11 @@ export function startForegroundSync(
   };
   const scheduleRetry = (requestedRetryAt?: number): void => {
     clearTimer();
-    fallbackAttempt = Math.min(fallbackAttempt + 1, 7);
-    const retryAt =
-      requestedRetryAt ?? Date.now() + Math.min(5_000 * 2 ** (fallbackAttempt - 1), 300_000);
+    fallbackAttempt = nextSyncAttempt(fallbackAttempt);
+    const retryAt = requestedRetryAt ?? Date.now() + syncRetryDelay(fallbackAttempt);
     // Long server pauses are checked in bounded timer chunks, avoiding the
     // platform's signed-32-bit timer overflow. The repository enforces the date.
-    timer = setTimeout(run, Math.max(1, Math.min(retryAt - Date.now(), 300_000)));
+    timer = setTimeout(run, syncRetryTimerDelay(retryAt, Date.now()));
   };
   const unsubscribe = subscribeSyncAttempts((attempt) => {
     if (attempt.ownerId !== ownerId || !current()) return;
