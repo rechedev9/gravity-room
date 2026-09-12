@@ -7,6 +7,7 @@
     "android": "expo start --android",
     "test": "pnpm exec jest --runInBand",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint --max-warnings=0 src",
     "web": "expo start --web"
   },
   "dependencies": {

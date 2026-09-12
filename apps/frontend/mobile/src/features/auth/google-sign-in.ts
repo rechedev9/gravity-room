@@ -34,7 +34,7 @@ export function useGoogleIdTokenPrompt(): GoogleAuthResult {
   // to JavaScript storage, so do not even start this exchange there.
   const bodyRefreshTokenAllowed = canPersistRefreshToken(Platform.OS, __DEV__);
 
-  const [request, _response, promptAsync] = Google.useIdTokenAuthRequest({
+  const [request, , promptAsync] = Google.useIdTokenAuthRequest({
     clientId: defaultClientId ?? 'missing-google-client-id',
     ...(androidClientId !== undefined ? { androidClientId } : {}),
     ...(iosClientId !== undefined ? { iosClientId } : {}),

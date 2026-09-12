@@ -92,6 +92,9 @@ Local setup details → skill `local-dev`. Deploy diagnosis → skill `vercel-de
 
 ## Agent skills
 
+Mobile changes: follow the [quality and dependency gates](docs/agents/mobile-quality.md)
+and its linked storage, sync and timer ownership guides.
+
 ### Issue tracker
 
 Issues live as GitHub issues in `rechedev9/gravity-room` (via the `gh` CLI). See [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md).

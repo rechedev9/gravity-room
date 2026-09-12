@@ -79,6 +79,7 @@ scripts/*
 !scripts/check-vercel-deployment.ts
 !scripts/check-security-headers.ts
 !scripts/check-mobile-migrations.test.mjs
+!scripts/check-mobile-lint.test.mjs
 
 # IDE
 .idea/
