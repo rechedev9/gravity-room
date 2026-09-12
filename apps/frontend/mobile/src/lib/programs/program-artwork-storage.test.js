@@ -1,3 +1,4 @@
+const { createSqliteTestAdapter } = require('../../../testing/sqlite-adapter.cjs');
 const { DatabaseSync } = require('node:sqlite');
 const client = require('../db/client');
 const { MIGRATIONS } = require('../db/migrations');
@@ -9,23 +10,7 @@ describe('program artwork identity in SQLite', () => {
 
   beforeEach(async () => {
     sqlite = new DatabaseSync(':memory:');
-    database = {
-      execAsync: async (sql) => {
-        sqlite.exec(sql);
-      },
-      runAsync: async (sql, ...params) => sqlite.prepare(sql).run(...params),
-      getAllAsync: async (sql, ...params) => sqlite.prepare(sql).all(...params),
-      withExclusiveTransactionAsync: async (task) => {
-        sqlite.exec('BEGIN EXCLUSIVE');
-        try {
-          await task(database);
-          sqlite.exec('COMMIT');
-        } catch (error) {
-          sqlite.exec('ROLLBACK');
-          throw error;
-        }
-      },
-    };
+    database = createSqliteTestAdapter(sqlite);
     jest.spyOn(client, 'getDatabase').mockReturnValue(database);
     await client.bootstrapDatabase(
       database,

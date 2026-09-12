@@ -33,3 +33,5 @@ generated API contracts need to change when adding a lint rule.
 
 Related ownership guides: [storage](mobile-storage.md), [sync](mobile-sync.md),
 and [rest timer](mobile-rest-timer.md).
+
+For real SQLite regression fixtures, use the [shared test adapter](mobile-sqlite-tests.md).
