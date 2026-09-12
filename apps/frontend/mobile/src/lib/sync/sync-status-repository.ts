@@ -1,4 +1,5 @@
 import { bootstrapDatabase, getDatabase, requireActiveLocalDataOwner } from '../db/client';
+import { syncDiagnosticNeedsAttention } from './sync-failure-policy';
 
 export interface SyncStatus {
   readonly total: number;
@@ -18,12 +19,7 @@ export async function readSyncStatus(ownerId = requireActiveLocalDataOwner()): P
   let needsAttention = 0;
   for (const group of groups) {
     total += group.count;
-    const code = group.last_error_code;
-    const status = code?.startsWith('HTTP_') ? Number(code.slice(5)) : 0;
-    if (
-      code === 'INVALID_OUTBOX' ||
-      (status >= 400 && status < 500 && ![408, 425, 429].includes(status))
-    ) {
+    if (syncDiagnosticNeedsAttention(group.last_error_code)) {
       needsAttention += group.count;
     }
   }
