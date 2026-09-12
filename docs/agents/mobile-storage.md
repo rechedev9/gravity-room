@@ -37,3 +37,19 @@ The Node check verifies SQL and transaction semantics. It does not establish
 device-level Expo SQLite behavior; native storage changes still need the
 appropriate device flow. Account-scoped repositories must continue to capture
 the validated owner before asynchronous operations.
+
+## Owner activation
+
+`local-data-owner.ts` is the pure in-memory ownership controller. `client.ts`
+retains the public repository helpers and supplies SQLite bootstrap as the
+validation callback. Starting activation disables the prior partition until
+validation succeeds. Deactivation or any newer activation invalidates pending
+attempts; a late result rejects instead of publishing a stale owner. A failed
+new attempt must not restore an older account.
+
+This controller does not own credentials, durable owner markers, or the whole
+authentication transition. Those remain in the auth layer. Do not infer login
+success from the owner controller alone, and do not catch a superseded activation
+as if ownership had been successfully published. Test concurrent completion with
+deferred validation callbacks; the database client tests verify the actual
+bootstrap wiring too.
