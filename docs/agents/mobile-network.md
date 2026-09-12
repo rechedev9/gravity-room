@@ -18,3 +18,23 @@ which paths reach each transport. The pure helper tests verify final URL parsing
 as well as encoding, since URL constructors normalize `.` and `..` segments.
 Existing auth, cancellation, HTTP errors and response schemas remain owned by
 their respective service boundaries.
+
+## Auth response ownership
+
+`auth/session-response.ts` is the pure mobile wire-decoding boundary and owns
+`AuthUser`, `SessionState` and `RefreshResponse`. It has no native storage,
+network, platform, clock or session-state dependency. Import the types from that
+module directly rather than pulling profile consumers through the session
+orchestrator. Do not add a barrel re-export to `session.ts`.
+
+The session service still owns credential persistence, refresh coordination,
+offline identity ownership, sign-in and sign-out. Its entry points invoke these
+same decoders before persistence. Body-token refresh responses require both
+string tokens; cookie-session responses expose only access token and user.
+Optional missing profile values normalize to null and unknown response fields
+are omitted. Existing structural acceptance is preserved; this boundary does
+not invent new email, token or user-ID validation rules.
+
+Pure decoder tests cover malformed payloads, normalized optional fields and
+credential-free errors. Run the session and auth-provider suites as well when
+changing these contracts, because pure parsing cannot prove persistence order.

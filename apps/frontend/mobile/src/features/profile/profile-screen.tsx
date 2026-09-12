@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { colors, type } from '../../shell/design';
-import type { AuthUser } from '../../lib/auth/session';
+import type { AuthUser } from '../../lib/auth/session-response';
 import { Button } from '../../ui/button';
 import { Card } from '../../ui/card';
 import { Kicker } from '../../ui/kicker';
