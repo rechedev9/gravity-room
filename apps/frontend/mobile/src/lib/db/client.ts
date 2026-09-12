@@ -2,6 +2,7 @@ import { openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
 
 import { MIGRATIONS, type MigrationStep } from './migrations';
 import { createMigrationRunner } from './migration-runner';
+import { LocalDataOwner } from './local-data-owner';
 
 export interface DatabaseClient {
   execAsync(source: string): Promise<void>;
@@ -12,7 +13,7 @@ export interface DatabaseClient {
 
 const migrateDatabase = createMigrationRunner();
 let database: SQLiteDatabase | null = null;
-let activeLocalDataOwnerId: string | null = null;
+const localDataOwner = new LocalDataOwner();
 
 function asDatabaseClient(client: SQLiteDatabase): DatabaseClient {
   return client;
@@ -43,30 +44,22 @@ export async function activateLocalDataOwner(
   userId: string,
   client: DatabaseClient = getDatabase()
 ): Promise<void> {
-  if (userId.trim().length === 0) {
-    throw new Error('Local data owner must be a non-empty user id');
-  }
-
-  await bootstrapDatabase(client);
-  activeLocalDataOwnerId = userId;
+  await localDataOwner.activate(userId, () => bootstrapDatabase(client));
 }
 
 /** Prevent reads, writes, and outbox flushes while auth ownership is changing. */
 export function deactivateLocalDataOwner(): void {
-  activeLocalDataOwnerId = null;
+  localDataOwner.deactivate();
 }
 
 /** Fail closed when a repository is used before account ownership is validated. */
 export function requireActiveLocalDataOwner(): string {
-  if (!activeLocalDataOwnerId) {
-    throw new Error('Local data owner has not been validated');
-  }
-  return activeLocalDataOwnerId;
+  return localDataOwner.require();
 }
 
 /** Exposed for transition checks and tests; never use it as an authorization fallback. */
 export function getActiveLocalDataOwner(): string | null {
-  return activeLocalDataOwnerId;
+  return localDataOwner.get();
 }
 
 /**

@@ -182,6 +182,47 @@ describe('local data owner binding', () => {
     deactivateLocalDataOwner();
   });
 
+  function blockedDatabase() {
+    let release = (): void => {};
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const database = createFakeDatabase(7);
+    database.getAllAsync = jest.fn().mockImplementation(async () => {
+      await pending;
+      return [{ user_version: 7 }];
+    });
+    return { database, release };
+  }
+
+  it('does not reactivate an account after deactivation during database bootstrap', async () => {
+    const { database, release } = blockedDatabase();
+    const activation = activateLocalDataOwner('old-owner', database);
+    deactivateLocalDataOwner();
+    release();
+    await expect(activation).rejects.toThrow('superseded');
+    expect(getActiveLocalDataOwner()).toBeNull();
+    expect(() => requireActiveLocalDataOwner()).toThrow('not been validated');
+  });
+
+  it('cannot overwrite the new account when the older bootstrap finishes last', async () => {
+    const { database, release } = blockedDatabase();
+    const activation = activateLocalDataOwner('old-owner', database);
+    await activateLocalDataOwner('new-owner', createFakeDatabase(7));
+    release();
+    await expect(activation).rejects.toThrow('superseded');
+    expect(requireActiveLocalDataOwner()).toBe('new-owner');
+  });
+
+  it('keeps data unavailable if replacement validation fails', async () => {
+    await activateLocalDataOwner('old-owner', createFakeDatabase(7));
+    const failing = createFakeDatabase(7);
+    failing.getAllAsync = jest.fn().mockRejectedValue(new Error('disk unavailable'));
+    await expect(activateLocalDataOwner('new-owner', failing)).rejects.toThrow('disk unavailable');
+    expect(getActiveLocalDataOwner()).toBeNull();
+    expect(() => requireActiveLocalDataOwner()).toThrow('not been validated');
+  });
+
   it.each(['', '   '])('rejects invalid owner id %j', async (ownerId) => {
     await expect(activateLocalDataOwner(ownerId, createFakeDatabase(3))).rejects.toThrow(
       /non-empty/
