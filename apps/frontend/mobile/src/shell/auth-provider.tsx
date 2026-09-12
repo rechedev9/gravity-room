@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { startForegroundSync } from '../lib/sync/foreground-sync';
 
-import type { AuthUser } from '../lib/auth/session';
+import type { AuthUser } from '../lib/auth/session-response';
 import {
   readOfflineUser,
   rememberOfflineUser,
