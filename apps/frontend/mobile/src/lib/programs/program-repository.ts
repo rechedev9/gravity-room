@@ -14,6 +14,9 @@ interface ProgramSummaryRow {
   readonly program_id: string | null;
 }
 
+// Keep parameter counts below even older SQLite builds' 999-variable limit.
+const PRUNE_BATCH_SIZE = 200;
+
 export async function upsertProgramSummaries(programs: readonly ProgramSummary[]): Promise<void> {
   const ownerId = requireActiveLocalDataOwner();
   const snapshot = programs.map((program) => ({ ...program }));
@@ -30,13 +33,20 @@ export async function upsertProgramSummaries(programs: readonly ProgramSummary[]
       return;
     }
 
-    const placeholders = snapshot.map(() => '?').join(', ');
-    await transaction.runAsync(
-      `DELETE FROM program_summaries
-       WHERE owner_user_id = ? AND id NOT IN (${placeholders})`,
-      ownerId,
-      ...snapshot.map((program) => program.id)
+    const retainedIds = new Set(snapshot.map((program) => program.id));
+    const existing = await transaction.getAllAsync<{ id: string }>(
+      'SELECT id FROM program_summaries WHERE owner_user_id = ?',
+      ownerId
     );
+    const removedIds = existing.filter((row) => !retainedIds.has(row.id)).map((row) => row.id);
+    for (let offset = 0; offset < removedIds.length; offset += PRUNE_BATCH_SIZE) {
+      const batch = removedIds.slice(offset, offset + PRUNE_BATCH_SIZE);
+      await transaction.runAsync(
+        `DELETE FROM program_summaries WHERE owner_user_id = ? AND id IN (${batch.map(() => '?').join(', ')})`,
+        ownerId,
+        ...batch
+      );
+    }
 
     for (const program of snapshot) {
       await transaction.runAsync(
