@@ -1,3 +1,4 @@
+const { createSqliteTestAdapter } = require('../../../testing/sqlite-adapter.cjs');
 const { readSyncStatus } = require('../sync/sync-status-repository');
 const { queueChanges } = require('../sync/sync-events');
 const { parseRetryAfter } = require('../network/retry-after');
@@ -56,21 +57,7 @@ describe('atomic local workout edits', () => {
   let database;
   function open() {
     sqlite = new DatabaseSync(join(directory, 'training.db'));
-    database = {
-      execAsync: async (sql) => sqlite.exec(sql),
-      runAsync: async (sql, ...params) => sqlite.prepare(sql).run(...params),
-      getAllAsync: async (sql, ...params) => sqlite.prepare(sql).all(...params),
-      withExclusiveTransactionAsync: async (task) => {
-        sqlite.exec('BEGIN EXCLUSIVE');
-        try {
-          await task(database);
-          sqlite.exec('COMMIT');
-        } catch (error) {
-          sqlite.exec('ROLLBACK');
-          throw error;
-        }
-      },
-    };
+    database = createSqliteTestAdapter(sqlite);
     jest.spyOn(client, 'getDatabase').mockImplementation(() => database);
   }
   beforeEach(async () => {

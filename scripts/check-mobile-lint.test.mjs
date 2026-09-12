@@ -180,3 +180,11 @@ test('directory entry points cannot bypass library dependency direction', async 
     );
   }
 });
+
+test('test adapters stay available to tests and outside production imports', async () => {
+  const code =
+    "import { createSqliteTestAdapter } from '../../../testing/sqlite-adapter.cjs'; export { createSqliteTestAdapter };";
+  await rejects(code, 'no-restricted-imports');
+  await rejects(code, 'no-restricted-imports', 'src/features/example.ts');
+  assert.deepEqual(await lint(code, 'src/lib/example.test.ts'), []);
+});

@@ -15,6 +15,11 @@ const crossAppImports = {
     'Mobile uses shared domain/API contracts; server and web implementations stay in their apps.',
 };
 
+const testOnlyImports = {
+  group: ['**/testing', '**/testing/**'],
+  message: 'Test adapters belong to regression tests, not the mobile runtime.',
+};
+
 export default tseslint.config(
   ...tseslint.configs.recommended,
   { ignores: ['node_modules/**', '.expo/**', 'dist/**', 'android/**', 'ios/**'] },
@@ -32,7 +37,7 @@ export default tseslint.config(
       // Metro resolves static bundled images through require(), not ES module imports.
       '@typescript-eslint/no-require-imports': ['error', { allow: ['\\.webp$'] }],
       'no-console': ['error', { allow: ['warn', 'error'] }],
-      'no-restricted-imports': ['error', { patterns: [crossAppImports] }],
+      'no-restricted-imports': ['error', { patterns: [crossAppImports, testOnlyImports] }],
     },
   },
   {
@@ -43,6 +48,7 @@ export default tseslint.config(
         {
           patterns: [
             crossAppImports,
+            testOnlyImports,
             {
               group: [
                 '**/shell',

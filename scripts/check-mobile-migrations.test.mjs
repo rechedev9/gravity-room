@@ -1,3 +1,4 @@
+import { createSqliteTestAdapter } from '../apps/frontend/mobile/testing/sqlite-adapter.cjs';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { test } from 'node:test';
@@ -8,21 +9,7 @@ import { MIGRATIONS } from '../apps/frontend/mobile/src/lib/db/migrations.ts';
 function openDatabase(t) {
   const sqlite = new DatabaseSync(':memory:');
   t.after(() => sqlite.close());
-  const client = {
-    execAsync: async (sql) => sqlite.exec(sql),
-    runAsync: async (sql, ...params) => sqlite.prepare(sql).run(...params),
-    getAllAsync: async (sql, ...params) => sqlite.prepare(sql).all(...params),
-    withExclusiveTransactionAsync: async (task) => {
-      sqlite.exec('BEGIN EXCLUSIVE');
-      try {
-        await task(client);
-        sqlite.exec('COMMIT');
-      } catch (error) {
-        sqlite.exec('ROLLBACK');
-        throw error;
-      }
-    },
-  };
+  const client = createSqliteTestAdapter(sqlite);
   return { sqlite, client };
 }
 
