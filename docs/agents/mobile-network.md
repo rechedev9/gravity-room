@@ -55,3 +55,19 @@ Route query strings survive composition, fragments do not, and route inputs
 cannot change the configured origin. Identifier callers must still use the
 segment encoder before composition. The pure tests supplement the existing
 session tests that exercise actual authorized request construction.
+
+## Retry pause clocks
+
+`network/retry-pause.ts` owns wall-clock correction shared by auth cooldowns,
+process-local outbox pauses and durable SQLite retry deadlines. A clock earlier
+than the recording anchor rebases the recorded duration once. Forward reads do
+not move that anchor or extend the deadline. A further backwards correction can
+rebase again. The pure function and in-memory controller take time explicitly.
+
+Callers retain account scoping, HTTP classification, credential handling, timers
+and expiry/reset decisions. Auth and outbox use separate controller instances;
+sharing the implementation must never share their pause state. The outbox still
+reads persisted deadlines while paused in memory, preserving server guidance
+when SQLite temporarily fails. SQLite retains its conditional update and attempt
+counter. Tests compare real persisted deadlines with the memory controller over
+a sequence of clock corrections and retain the existing service cooldown tests.

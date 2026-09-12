@@ -1,3 +1,4 @@
+import { RetryPause } from '../network/retry-pause';
 import { buildApiRequestUrl } from '../network/api-url';
 import {
   readAuthUser,
@@ -205,18 +206,13 @@ async function fetchWithToken(
 // A process-local auth cooldown also applies to immediate cached-start recovery
 // and foreground resumes. It carries no credentials and is shared across refresh
 // transports so changing auth mechanism cannot bypass server guidance.
-let sessionRetryPause: { retryAt: number; recordedAt: number } | undefined;
+let sessionRetryPause: RetryPause | undefined;
 
 async function fetchSessionResponse(url: string, init: RequestInit): Promise<Response> {
   const now = Date.now();
   if (sessionRetryPause) {
-    if (now < sessionRetryPause.recordedAt) {
-      sessionRetryPause.retryAt =
-        now + Math.max(0, sessionRetryPause.retryAt - sessionRetryPause.recordedAt);
-      sessionRetryPause.recordedAt = now;
-    }
-    if (sessionRetryPause.retryAt > now)
-      throw new SessionUnavailableError(sessionRetryPause.retryAt);
+    const retryAt = sessionRetryPause.readDeadline(now);
+    if (retryAt > now) throw new SessionUnavailableError(retryAt);
     sessionRetryPause = undefined;
   }
   let response: Response;
@@ -232,7 +228,7 @@ async function fetchSessionResponse(url: string, init: RequestInit): Promise<Res
   }
   if (response.status === 408 || response.status === 429 || response.status >= 500) {
     const retryAt = parseRetryAfter(response.headers.get('Retry-After'));
-    if (retryAt > Date.now()) sessionRetryPause = { retryAt, recordedAt: Date.now() };
+    if (retryAt > Date.now()) sessionRetryPause = new RetryPause(retryAt, Date.now());
     throw new SessionUnavailableError(retryAt || undefined);
   }
   return response;

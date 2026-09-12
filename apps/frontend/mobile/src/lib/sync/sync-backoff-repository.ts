@@ -1,3 +1,4 @@
+import { rebaseRetryDeadline } from '../network/retry-pause';
 import { nextSyncAttempt, syncRetryDeadline } from './sync-retry-policy';
 import { bootstrapDatabase, getDatabase, requireActiveLocalDataOwner } from '../db/client';
 
@@ -26,7 +27,7 @@ export async function readSyncBackoff(ownerId: string): Promise<number> {
   const now = Date.now();
   if (now < row.recorded_at_ms) {
     // Rebase once after a backwards clock correction instead of waiting years.
-    const retryAt = now + Math.max(0, row.retry_at_ms - row.recorded_at_ms);
+    const retryAt = rebaseRetryDeadline(row.retry_at_ms, row.recorded_at_ms, now);
     await database.runAsync(
       `UPDATE sync_backoff SET retry_at_ms = ?, recorded_at_ms = ?
        WHERE owner_user_id = ? AND recorded_at_ms = ?`,
