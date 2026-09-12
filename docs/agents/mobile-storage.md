@@ -53,3 +53,20 @@ success from the owner controller alone, and do not catch a superseded activatio
 as if ownership had been successfully published. Test concurrent completion with
 deferred validation callbacks; the database client tests verify the actual
 bootstrap wiring too.
+
+## Cache operation lifetimes
+
+Summary snapshots and program definitions capture their serialized write inputs
+before awaiting SQLite initialization. Mutating a caller's objects after starting
+a write cannot alter its cache result. Summary replacement (including an empty
+snapshot) and definition writes validate the captured owner before and after
+transaction work, so an intervening account change rolls the transaction back.
+
+Summary, detail and definition reads recheck ownership after fetching rows and
+before returning either data or an empty result. These guards supplement UI
+request generations; callers must still prevent old network responses from
+starting new cache writes under a replacement account. They do not coordinate
+credential storage or replace the authenticated shell's transition workflow.
+
+`program-cache-lifecycle.test.js` exercises these boundaries through production
+migrations and real SQLite, including populated stale reads and partial writes.
