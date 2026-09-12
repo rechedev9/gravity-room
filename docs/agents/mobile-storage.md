@@ -70,3 +70,11 @@ credential storage or replace the authenticated shell's transition workflow.
 
 `program-cache-lifecycle.test.js` exercises these boundaries through production
 migrations and real SQLite, including populated stale reads and partial writes.
+
+Summary pruning loads only existing IDs for the captured owner, computes removals
+against the immutable incoming snapshot, and deletes at most 200 IDs per SQL
+statement. It never binds an entire fetched catalog into a single `NOT IN` query.
+Pruning and upserts remain one exclusive transaction, so later batch or insert
+failures restore the entire previous snapshot. Retained rows keep their optional
+artwork identity when an older API response omits it. The repository test suite
+uses real SQLite, including a 33,000-row replacement beyond its bind limit.
