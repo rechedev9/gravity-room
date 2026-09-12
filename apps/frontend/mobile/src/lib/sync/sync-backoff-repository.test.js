@@ -1,3 +1,4 @@
+const { RetryPause } = require('../network/retry-pause');
 const { DatabaseSync } = require('node:sqlite');
 const { createSqliteTestAdapter } = require('../../../testing/sqlite-adapter.cjs');
 const client = require('../db/client');
@@ -107,5 +108,17 @@ describe('persisted sync retry lifecycle', () => {
     const original = row();
     await expect(recordSyncBackoff('owner-a')).rejects.toThrow('Invalid sync retry attempt');
     expect(row()).toEqual(original);
+  });
+
+  it('keeps persisted and process-local deadlines aligned across clock corrections', async () => {
+    const deadline = await recordSyncBackoff('owner-a');
+    const memory = new RetryPause(deadline, Date.now());
+    const writes = jest.spyOn(database, 'runAsync');
+    for (const now of [900000, 900000, 905500, 800000, 805500]) {
+      jest.mocked(Date.now).mockReturnValue(now);
+      expect(await readSyncBackoff('owner-a')).toBe(memory.readDeadline(now));
+    }
+    expect(writes).toHaveBeenCalledTimes(2);
+    expect(row().attempt_count).toBe(1);
   });
 });

@@ -1,3 +1,4 @@
+import { RetryPause } from '../network/retry-pause';
 import { parseRetryAfter } from '../network/retry-after';
 import { publishSyncAttempt } from './sync-events';
 import { readSyncBackoff, recordSyncBackoff, clearSyncBackoff } from './sync-backoff-repository';
@@ -20,7 +21,7 @@ let inFlightFlushAccessToken: string | null = null;
 let inFlightFlushOwnerId: string | null = null;
 let inFlightFlushRequest: { requested: boolean; accepting: boolean } | null = null;
 let inFlightFlushController: AbortController | null = null;
-let volatileRetryPause: { ownerId: string; retryAt: number; recordedAt: number } | null = null;
+let volatileRetryPause: { ownerId: string; pause: RetryPause } | null = null;
 
 export function cancelQueuedMutationFlush(ownerId: string): void {
   if (inFlightFlushOwnerId === ownerId) inFlightFlushController?.abort();
@@ -103,15 +104,8 @@ export async function flushQueuedMutations(
 
   const flushPromise = (async (): Promise<{ readonly processedCount: number }> => {
     const now = Date.now();
-    let memoryDeadline = 0;
-    if (volatileRetryPause?.ownerId === ownerId) {
-      if (now < volatileRetryPause.recordedAt) {
-        volatileRetryPause.retryAt =
-          now + Math.max(0, volatileRetryPause.retryAt - volatileRetryPause.recordedAt);
-        volatileRetryPause.recordedAt = now;
-      }
-      memoryDeadline = volatileRetryPause.retryAt;
-    }
+    const memoryDeadline =
+      volatileRetryPause?.ownerId === ownerId ? volatileRetryPause.pause.readDeadline(now) : 0;
     // Read durable state even while memory is paused: both clocks must rebase
     // in the same attempt. Memory still preserves server guidance if SQLite fails.
     let persistedDeadline: number;
@@ -158,7 +152,7 @@ export async function flushQueuedMutations(
             error.retryAt > Date.now()
           ) {
             retryAt = error.retryAt;
-            volatileRetryPause = { ownerId, retryAt, recordedAt: Date.now() };
+            volatileRetryPause = { ownerId, pause: new RetryPause(retryAt, Date.now()) };
           }
           if (
             !abortController.signal.aborted &&
@@ -186,7 +180,7 @@ export async function flushQueuedMutations(
               error instanceof QueuedMutationHttpError ? error.retryAt : 0,
               abortController.signal
             );
-            volatileRetryPause = { ownerId, retryAt, recordedAt: Date.now() };
+            volatileRetryPause = { ownerId, pause: new RetryPause(retryAt, Date.now()) };
           }
           throw error;
         }
