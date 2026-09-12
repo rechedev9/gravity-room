@@ -1,3 +1,4 @@
+import { encodeApiPathIdentifier } from '../network/api-path-identifier';
 import {
   CatalogEntrySchema,
   GenericProgramDetailSchema,
@@ -118,7 +119,7 @@ export async function fetchCatalogEntries(): Promise<CatalogEntry[]> {
 }
 
 export async function fetchCatalogDefinition(programId: string): Promise<ProgramDefinition> {
-  const response = await fetchWithAccessToken(`/catalog/${encodeURIComponent(programId)}`);
+  const response = await fetchWithAccessToken(`/catalog/${encodeApiPathIdentifier(programId)}`);
   if (!response.response.ok) {
     throw new Error(`Catalog definition fetch failed with status ${response.response.status}`);
   }
