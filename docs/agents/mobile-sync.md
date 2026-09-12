@@ -47,3 +47,18 @@ diagnostic. Keep server `Retry-After` deadlines separate from classification.
 Policy tests exercise the distinction between authentication and permanent
 rejection; `sync-status-repository.test.js` verifies aggregation, owner isolation,
 diagnostic updates and acknowledgement against real SQLite.
+
+## Observer delivery
+
+Sync attempts, queue changes and explicit sync requests use separate synchronous
+signals in `sync-events.ts`. A publication snapshots registrations in insertion
+order. New subscriptions wait for the next publication; removed subscriptions
+are skipped even if the same callback is registered again. Cleanup is idempotent
+and a stale cleanup cannot remove a replacement registration. Simultaneous
+subscriptions of the same callback remain deduplicated.
+
+Observers do not own the durable operation: their exceptions are isolated so a
+committed edit or acknowledgement cannot become a reported storage failure.
+Callbacks should stay synchronous and short. Nested publications are synchronous
+and take their own snapshot; listeners must not recursively publish without a
+termination condition. `observer-signal.test.ts` covers these lifecycle contracts.
