@@ -96,6 +96,8 @@ export async function getProgramDetail(
     ownerId,
     programInstanceId
   );
+  if (requireActiveLocalDataOwner() !== ownerId)
+    throw new Error('Detail owner changed during read');
   const row = rows[0];
   if (!row) {
     return null;
@@ -106,10 +108,15 @@ export async function getProgramDetail(
 
 export async function upsertProgramDefinition(definition: ProgramDefinition): Promise<void> {
   const ownerId = requireActiveLocalDataOwner();
+  const id = definition.id;
+  const json = JSON.stringify(definition);
+  const updatedAt = new Date().toISOString();
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   await database.withExclusiveTransactionAsync(async (transaction) => {
+    if (requireActiveLocalDataOwner() !== ownerId)
+      throw new Error('Definition owner changed before write');
     await transaction.runAsync(
       `INSERT INTO program_definitions (owner_user_id, id, definition_json, updated_at)
        VALUES (?, ?, ?, ?)
@@ -117,10 +124,12 @@ export async function upsertProgramDefinition(definition: ProgramDefinition): Pr
          definition_json = excluded.definition_json,
          updated_at = excluded.updated_at`,
       ownerId,
-      definition.id,
-      JSON.stringify(definition),
-      new Date().toISOString()
+      id,
+      json,
+      updatedAt
     );
+    if (requireActiveLocalDataOwner() !== ownerId)
+      throw new Error('Definition owner changed during write');
   });
 }
 
@@ -135,6 +144,8 @@ export async function getProgramDefinition(programId: string): Promise<ProgramDe
     ownerId,
     programId
   );
+  if (requireActiveLocalDataOwner() !== ownerId)
+    throw new Error('Definition owner changed during read');
   const row = rows[0];
   if (!row) {
     return null;

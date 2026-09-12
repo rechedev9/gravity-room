@@ -16,24 +16,29 @@ interface ProgramSummaryRow {
 
 export async function upsertProgramSummaries(programs: readonly ProgramSummary[]): Promise<void> {
   const ownerId = requireActiveLocalDataOwner();
+  const snapshot = programs.map((program) => ({ ...program }));
   const database = getDatabase();
   await bootstrapDatabase(database);
 
   await database.withExclusiveTransactionAsync(async (transaction) => {
-    if (programs.length === 0) {
+    if (requireActiveLocalDataOwner() !== ownerId)
+      throw new Error('Summary owner changed before write');
+    if (snapshot.length === 0) {
       await transaction.runAsync('DELETE FROM program_summaries WHERE owner_user_id = ?', ownerId);
+      if (requireActiveLocalDataOwner() !== ownerId)
+        throw new Error('Summary owner changed during write');
       return;
     }
 
-    const placeholders = programs.map(() => '?').join(', ');
+    const placeholders = snapshot.map(() => '?').join(', ');
     await transaction.runAsync(
       `DELETE FROM program_summaries
        WHERE owner_user_id = ? AND id NOT IN (${placeholders})`,
       ownerId,
-      ...programs.map((program) => program.id)
+      ...snapshot.map((program) => program.id)
     );
 
-    for (const program of programs) {
+    for (const program of snapshot) {
       await transaction.runAsync(
         `INSERT INTO program_summaries (owner_user_id, id, title, updated_at, program_id)
          VALUES (?, ?, ?, ?, ?)
@@ -48,6 +53,8 @@ export async function upsertProgramSummaries(programs: readonly ProgramSummary[]
         program.programId ?? null
       );
     }
+    if (requireActiveLocalDataOwner() !== ownerId)
+      throw new Error('Summary owner changed during write');
   });
 }
 
@@ -63,6 +70,8 @@ export async function listProgramSummaries(): Promise<ProgramSummary[]> {
     ownerId
   );
 
+  if (requireActiveLocalDataOwner() !== ownerId)
+    throw new Error('Summary owner changed during read');
   return rows.map((row) => ({
     id: row.id,
     title: row.title,
