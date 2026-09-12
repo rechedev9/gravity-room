@@ -26,3 +26,24 @@ contracts and worker delivery regressions. Add compiler cases when changing
 methods, paths or payload envelopes; add worker cases when changing retry,
 cancellation, ordering or acknowledgements. Run the complete mobile suite and
 typecheck before publishing.
+
+## Failure classification
+
+`sync-failure-policy.ts` owns error-to-diagnostic conversion and HTTP dispositions.
+The worker uses the disposition to retain or retry intent. The status repository
+uses the same policy to count diagnostics that need attention without loading
+every payload into memory.
+
+| Failure                           | Worker behavior                  | Needs attention |
+| --------------------------------- | -------------------------------- | --------------- |
+| Invalid outbox payload            | Retain rejected intent           | Yes             |
+| HTTP 401                          | Stop for authentication recovery | Yes             |
+| HTTP 408, 425, 429                | Retry under backoff              | No              |
+| Other HTTP 4xx                    | Retain rejected intent           | Yes             |
+| Server/transport/timeout failures | Retry under backoff              | No              |
+
+Cancellation remains a lifecycle decision in the worker, not a persisted network
+diagnostic. Keep server `Retry-After` deadlines separate from classification.
+Policy tests exercise the distinction between authentication and permanent
+rejection; `sync-status-repository.test.js` verifies aggregation, owner isolation,
+diagnostic updates and acknowledgement against real SQLite.

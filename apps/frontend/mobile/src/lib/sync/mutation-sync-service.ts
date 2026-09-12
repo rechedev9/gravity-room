@@ -1,8 +1,8 @@
 import { parseRetryAfter } from '../network/retry-after';
 import { publishSyncAttempt } from './sync-events';
 import { readSyncBackoff, recordSyncBackoff, clearSyncBackoff } from './sync-backoff-repository';
-import { RequestTimeoutError } from '../network/api-fetch';
-import { buildMutationRequest, InvalidQueuedMutationError } from './mutation-request';
+import { classifySyncFailure, QueuedMutationHttpError } from './sync-failure-policy';
+import { buildMutationRequest } from './mutation-request';
 
 import { fetchWithAccessToken } from '../auth/session';
 import { requireActiveLocalDataOwner } from '../db/client';
@@ -21,25 +21,6 @@ let inFlightFlushOwnerId: string | null = null;
 let inFlightFlushRequest: { requested: boolean; accepting: boolean } | null = null;
 let inFlightFlushController: AbortController | null = null;
 let volatileRetryPause: { ownerId: string; retryAt: number; recordedAt: number } | null = null;
-
-class QueuedMutationHttpError extends Error {
-  constructor(
-    readonly status: number,
-    readonly retryAt = 0
-  ) {
-    super(`Queued mutation sync failed with status ${status}`);
-  }
-}
-
-function isPermanentFailure(error: unknown): boolean {
-  return (
-    error instanceof InvalidQueuedMutationError ||
-    (error instanceof QueuedMutationHttpError &&
-      error.status >= 400 &&
-      error.status < 500 &&
-      ![401, 408, 425, 429].includes(error.status))
-  );
-}
 
 export function cancelQueuedMutationFlush(ownerId: string): void {
   if (inFlightFlushOwnerId === ownerId) inFlightFlushController?.abort();
@@ -168,6 +149,7 @@ export async function flushQueuedMutations(
           );
           acknowledgedIds.push(mutation.id);
         } catch (error) {
+          const failure = classifySyncFailure(error);
           // Keep server guidance even if SQLite is temporarily unable to save
           // the diagnostic/backoff. Other callers must honor it in this process.
           if (
@@ -182,19 +164,9 @@ export async function flushQueuedMutations(
             !abortController.signal.aborted &&
             !(error instanceof Error && error.name === 'AbortError')
           ) {
-            await markQueuedMutationFailure(
-              mutation.id,
-              error instanceof InvalidQueuedMutationError
-                ? 'INVALID_OUTBOX'
-                : error instanceof QueuedMutationHttpError
-                  ? `HTTP_${error.status}`
-                  : error instanceof RequestTimeoutError
-                    ? 'REQUEST_TIMEOUT'
-                    : 'NETWORK_ERROR',
-              ownerId
-            );
+            await markQueuedMutationFailure(mutation.id, failure.code, ownerId);
           }
-          if (isPermanentFailure(error)) {
+          if (failure.kind === 'permanent') {
             retainedFailure ??= error;
             failedPlans.add(mutation.entityId);
             continue;
@@ -206,7 +178,7 @@ export async function flushQueuedMutations(
             (error instanceof Error && error.name === 'AbortError')
           ) {
             retryable = false;
-          } else if (error instanceof QueuedMutationHttpError && error.status === 401) {
+          } else if (failure.kind === 'authentication') {
             retryable = false;
           } else {
             retryAt = await recordSyncBackoff(
