@@ -1,6 +1,7 @@
 import { openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
 
 import { MIGRATIONS, type MigrationStep } from './migrations';
+import { createMigrationRunner } from './migration-runner';
 
 export interface DatabaseClient {
   execAsync(source: string): Promise<void>;
@@ -9,7 +10,7 @@ export interface DatabaseClient {
   withExclusiveTransactionAsync(task: (client: DatabaseClient) => Promise<void>): Promise<void>;
 }
 
-let bootstrapPromise: Promise<void> | null = null;
+const migrateDatabase = createMigrationRunner();
 let database: SQLiteDatabase | null = null;
 let activeLocalDataOwnerId: string | null = null;
 
@@ -25,47 +26,11 @@ export function getDatabase(): DatabaseClient {
   return asDatabaseClient(database);
 }
 
-async function getUserVersion(client: DatabaseClient): Promise<number> {
-  const rows = await client.getAllAsync<{ user_version: number }>('PRAGMA user_version');
-  return rows[0]?.user_version ?? 0;
-}
-
-async function applyMigrations(
-  client: DatabaseClient,
-  migrations: readonly MigrationStep[]
-): Promise<void> {
-  const pending = [...migrations].sort((a, b) => a.version - b.version);
-  const currentVersion = await getUserVersion(client);
-
-  for (const migration of pending) {
-    if (migration.version <= currentVersion) {
-      continue;
-    }
-
-    await client.withExclusiveTransactionAsync(async (transaction) => {
-      await transaction.execAsync(migration.sql);
-      await transaction.execAsync(`PRAGMA user_version = ${migration.version}`);
-    });
-  }
-}
-
 export async function bootstrapDatabase(
   client: DatabaseClient = getDatabase(),
   migrations: readonly MigrationStep[] = MIGRATIONS
 ): Promise<void> {
-  if (client !== database) {
-    await applyMigrations(client, migrations);
-    return;
-  }
-
-  if (!bootstrapPromise) {
-    bootstrapPromise = applyMigrations(client, migrations).catch((error) => {
-      bootstrapPromise = null;
-      throw error;
-    });
-  }
-
-  await bootstrapPromise;
+  await migrateDatabase(client, migrations);
 }
 
 /**
