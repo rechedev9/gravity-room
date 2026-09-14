@@ -27,25 +27,37 @@ type Props = {
   readonly onStart: (entry: CatalogEntry) => Promise<boolean>;
 };
 
+function normalizeSearch(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLocaleLowerCase();
+}
+
 export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, onStart }: Props) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState('all');
   const [selected, setSelected] = useState<CatalogEntry | null>(null);
+  const normalizedSearch = normalizeSearch(search);
   const filtered = entries.filter(
     (entry) =>
       (level === 'all' || entry.level === level) &&
-      `${entry.name} ${entry.description}`
-        .toLocaleLowerCase()
-        .includes(search.trim().toLocaleLowerCase())
+      normalizeSearch(`${entry.name} ${entry.description}`).includes(normalizedSearch)
   );
+  const hasFilters = level !== 'all' || normalizedSearch.length > 0;
   const featured =
-    search.trim() === '' && level === 'all'
+    normalizedSearch === '' && level === 'all'
       ? entries.find((entry) => entry.id === 'gzclp')
       : undefined;
   const label = (entry: CatalogEntry) => t('discovery.open', { name: entry.name });
   const metadata = (entry: CatalogEntry) =>
     `${t('discovery.frequency', { count: entry.workoutsPerWeek })} · ${t(`discovery.level.${entry.level}`)}`;
+  const resetFilters = () => {
+    setSearch('');
+    setLevel('all');
+  };
   return (
     <Screen padded={false}>
       <ScrollView
@@ -121,10 +133,23 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
           <Text accessibilityRole="header" style={styles.sectionTitle}>
             {t('discovery.all_programs')}
           </Text>
-          <Text style={styles.count}>{filtered.length}</Text>
+          {!loading && error === null ? (
+            <Text
+              accessibilityLabel={t('discovery.results_count', { count: filtered.length })}
+              accessibilityLiveRegion="polite"
+              style={styles.count}
+            >
+              {filtered.length}
+            </Text>
+          ) : null}
         </View>
-        {!loading && filtered.length === 0 ? (
-          <Text style={styles.subtitle}>{t('discovery.empty')}</Text>
+        {!loading && error === null && filtered.length === 0 ? (
+          <View style={styles.empty}>
+            <Text style={styles.subtitle}>{t('discovery.empty')}</Text>
+            {hasFilters ? (
+              <Button onPress={resetFilters}>{t('discovery.reset_filters')}</Button>
+            ) : null}
+          </View>
         ) : null}
         {filtered.map((entry) => (
           <Pressable
@@ -269,6 +294,7 @@ const styles = StyleSheet.create({
   rowTitle: { ...type.title, fontSize: 16 },
   rowMeta: { ...type.body, fontSize: 12, lineHeight: 18 },
   message: { gap: 10 },
+  empty: { gap: 12 },
   description: { ...type.body, color: colors.textPrimary },
   error: { ...type.body, color: colors.fail },
 });

@@ -1,7 +1,11 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import type { ForwardedRef } from 'react';
+import { type TextInputProps, TextInput as NativeTextInput } from 'react-native';
 
 import { LoginScreen } from './login-screen';
 import type { AuthActionResult } from '../../shell/auth-provider';
+
+type MockTextInputProps = TextInputProps & { readonly label: string };
 
 const mockSignInWithGoogle = jest.fn<Promise<void>, [string]>();
 const mockSignInWithEmail = jest.fn<Promise<AuthActionResult>, [string, string]>();
@@ -11,6 +15,7 @@ const mockSignUpWithEmail = jest.fn<
 >();
 const mockSignInWithDev = jest.fn<Promise<AuthActionResult>, []>();
 const mockPromptAsync = jest.fn<Promise<string | null>, []>();
+const mockFocus = jest.fn<void, [string]>();
 const mockUseGoogleIdTokenPrompt = jest.fn<
   { readonly disabled: boolean; readonly promptAsync: () => Promise<string | null> },
   []
@@ -29,6 +34,21 @@ jest.mock('./google-sign-in', () => ({
   useGoogleIdTokenPrompt: () => mockUseGoogleIdTokenPrompt(),
 }));
 
+jest.mock('../../ui/text-input', () => {
+  const React = require('react');
+  const { TextInput: mockNativeTextInput } = require('react-native');
+
+  return {
+    TextInput: React.forwardRef(function MockTextInput(
+      { label, ...props }: MockTextInputProps,
+      ref: ForwardedRef<NativeTextInput>
+    ) {
+      React.useImperativeHandle(ref, () => ({ focus: () => mockFocus(label) }));
+      return React.createElement(mockNativeTextInput, { ...props, accessibilityLabel: label });
+    }),
+  };
+});
+
 describe('LoginScreen', () => {
   beforeEach(() => {
     mockUseGoogleIdTokenPrompt.mockReturnValue({
@@ -44,6 +64,7 @@ describe('LoginScreen', () => {
     mockSignUpWithEmail.mockReset();
     mockSignInWithDev.mockReset();
     mockUseGoogleIdTokenPrompt.mockReset();
+    mockFocus.mockReset();
   });
 
   it('calls signInWithDev when the Dev Login button is pressed', async () => {
@@ -150,6 +171,58 @@ describe('LoginScreen', () => {
     await waitFor(() => {
       expect(mockSignInWithEmail).toHaveBeenCalledWith('athlete@example.com', 'correct-horse');
     });
+  });
+
+  it('keeps the full login flow scrollable above the keyboard and submits from password Done', async () => {
+    mockSignInWithEmail.mockResolvedValue({ ok: true });
+
+    render(<LoginScreen />);
+
+    const scrollView = screen.getByTestId('login-scroll-view');
+    expect(scrollView.props.keyboardShouldPersistTaps).toBe('handled');
+    expect(scrollView.props.contentContainerStyle).toEqual(
+      expect.objectContaining({ flexGrow: 1, justifyContent: 'center' })
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Continue with email' }));
+    fireEvent.changeText(screen.getByPlaceholderText('you@example.com'), 'athlete@example.com');
+    const password = screen.getByPlaceholderText('Your password');
+    fireEvent.changeText(password, 'correct-horse');
+    fireEvent(password, 'submitEditing');
+
+    await waitFor(() => {
+      expect(mockSignInWithEmail).toHaveBeenCalledWith('athlete@example.com', 'correct-horse');
+    });
+  });
+
+  it('moves focus through the email form without dismissing the keyboard', () => {
+    render(<LoginScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Continue with email' }));
+    const email = screen.getByPlaceholderText('you@example.com');
+    expect(email.props.submitBehavior).toBe('submit');
+    fireEvent(email, 'submitEditing');
+    expect(mockFocus).toHaveBeenCalledWith('Password');
+
+    fireEvent.press(screen.getByRole('button', { name: 'Need an account? Sign up' }));
+    const signupEmail = screen.getByPlaceholderText('you@example.com');
+    const name = screen.getByPlaceholderText('Your name (optional)');
+    expect(signupEmail.props.submitBehavior).toBe('submit');
+    expect(name.props.submitBehavior).toBe('submit');
+    fireEvent(signupEmail, 'submitEditing');
+    expect(mockFocus).toHaveBeenLastCalledWith('Name');
+    fireEvent(name, 'submitEditing');
+    expect(mockFocus).toHaveBeenLastCalledWith('Password');
+  });
+
+  it('gives the mode switch a full touch target', () => {
+    render(<LoginScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Continue with email' }));
+
+    expect(screen.getByRole('button', { name: 'Need an account? Sign up' }).props.style).toEqual(
+      expect.objectContaining({ minHeight: 44, justifyContent: 'center' })
+    );
   });
 
   it('shows the verify-email message for the EMAIL_NOT_VERIFIED sign-in code', async () => {

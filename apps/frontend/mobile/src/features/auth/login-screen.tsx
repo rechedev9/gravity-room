@@ -1,7 +1,17 @@
 import { TextInput } from '../../ui/text-input';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput as NativeTextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '../../shell/auth-provider';
@@ -32,6 +42,8 @@ export function LoginScreen() {
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formMessage, setFormMessage] = useState<FormMessage | null>(null);
+  const nameInputRef = useRef<NativeTextInput>(null);
+  const passwordInputRef = useRef<NativeTextInput>(null);
 
   /** Localizes an API error code, falling back to the generic message. */
   const codeMessage = (code: string | undefined): string =>
@@ -121,166 +133,225 @@ export function LoginScreen() {
   }
 
   return (
-    <Screen style={styles.screen}>
-      <Card style={styles.loginCard}>
-        <View style={styles.brand}>
-          <View style={styles.brandMark}>
-            <Ionicons accessible={false} name="barbell" size={28} color={colors.onAccent} />
-          </View>
-          <Kicker noRule>{t('login.eyebrow')}</Kicker>
-        </View>
-        <Text style={styles.title}>{t('login.title')}</Text>
-        <Text style={styles.body}>{t('login.google_body')}</Text>
-
-        <Button
-          variant="primary"
-          accessibilityLabel={googleLabel}
-          disabled={disabled || googleSubmitting}
-          isLoading={googleSubmitting}
-          onPress={() => {
-            void handleGooglePress();
-          }}
-        >
-          {googleLabel}
-        </Button>
-
-        {googleError ? (
-          <View style={styles.errorBanner} accessibilityRole="alert">
-            <Text style={styles.errorBannerText}>{googleError}</Text>
-          </View>
-        ) : null}
-
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerLabel}>{t('login.divider')}</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {!showEmail ? (
-          <Button accessibilityLabel={t('login.email.toggle')} onPress={() => setShowEmail(true)}>
-            {t('login.email.toggle')}
-          </Button>
-        ) : (
-          <View style={styles.form}>
-            <View style={styles.field}>
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder={t('login.email.email_placeholder')}
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                textContentType="emailAddress"
-                style={styles.input}
-                label={t('login.email.email_label')}
-              />
-            </View>
-
-            {emailMode === 'signup' ? (
-              <View style={styles.field}>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder={t('login.email.name_placeholder')}
-                  placeholderTextColor={colors.textMuted}
-                  autoCapitalize="words"
-                  textContentType="name"
-                  style={styles.input}
-                  label={t('login.email.name_label')}
-                />
+    <Screen padded={false}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoiding}
+      >
+        <SafeAreaView edges={['bottom']} style={styles.bottomSafeArea}>
+          <ScrollView
+            testID="login-scroll-view"
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <Card style={styles.loginCard}>
+              <View style={styles.brand}>
+                <View style={styles.brandMark}>
+                  <Ionicons accessible={false} name="barbell" size={28} color={colors.onAccent} />
+                </View>
+                <Kicker noRule>{t('login.eyebrow')}</Kicker>
               </View>
-            ) : null}
+              <Text style={styles.title}>{t('login.title')}</Text>
+              <Text style={styles.body}>{t('login.google_body')}</Text>
 
-            <View style={styles.field}>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder={t('login.email.password_placeholder')}
-                placeholderTextColor={colors.textMuted}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType={emailMode === 'signup' ? 'newPassword' : 'password'}
-                style={styles.input}
-                label={t('login.email.password_label')}
-              />
-            </View>
+              <Button
+                variant="primary"
+                accessibilityLabel={googleLabel}
+                disabled={disabled || googleSubmitting}
+                isLoading={googleSubmitting}
+                onPress={() => {
+                  void handleGooglePress();
+                }}
+              >
+                {googleLabel}
+              </Button>
 
-            <Button
-              variant="primary"
-              accessibilityLabel={
-                emailMode === 'signin'
-                  ? t('login.email.submit_signin')
-                  : t('login.email.submit_signup')
-              }
-              disabled={!canSubmit}
-              isLoading={submitting}
-              onPress={() => {
-                void handleEmailSubmit();
-              }}
-            >
-              {submitting
-                ? t('login.email.submitting')
-                : emailMode === 'signin'
-                  ? t('login.email.submit_signin')
-                  : t('login.email.submit_signup')}
-            </Button>
+              {googleError ? (
+                <View style={styles.errorBanner} accessibilityRole="alert">
+                  <Text style={styles.errorBannerText}>{googleError}</Text>
+                </View>
+              ) : null}
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                setEmailMode((mode) => (mode === 'signin' ? 'signup' : 'signin'));
-                setFormMessage(null);
-              }}
-            >
-              <Text style={styles.modeToggle}>
-                {emailMode === 'signin' ? t('login.email.to_signup') : t('login.email.to_signin')}
-              </Text>
-            </Pressable>
-          </View>
-        )}
+              <View style={styles.dividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerLabel}>{t('login.divider')}</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
-        {formMessage ? (
-          <View
-            accessibilityRole="alert"
-            testID="login-form-message"
-            style={[
-              styles.formMessage,
-              formMessage.kind === 'error' ? styles.formMessageError : styles.formMessageSuccess,
-            ]}
-          >
-            <Text
-              style={
-                formMessage.kind === 'error'
-                  ? styles.formMessageErrorText
-                  : styles.formMessageSuccessText
-              }
-            >
-              {formMessage.text}
-            </Text>
-          </View>
-        ) : null}
-        {signInWithDev ? (
-          <Button
-            testID="dev-login-button"
-            accessibilityLabel={t('login.dev.button')}
-            disabled={devSubmitting}
-            isLoading={devSubmitting}
-            onPress={() => {
-              void handleDevLogin();
-            }}
-          >
-            {devSubmitting ? t('login.dev.submitting') : t('login.dev.button')}
-          </Button>
-        ) : null}
-      </Card>
+              {!showEmail ? (
+                <Button
+                  accessibilityLabel={t('login.email.toggle')}
+                  onPress={() => setShowEmail(true)}
+                >
+                  {t('login.email.toggle')}
+                </Button>
+              ) : (
+                <View style={styles.form}>
+                  <View style={styles.field}>
+                    <TextInput
+                      value={email}
+                      onChangeText={setEmail}
+                      returnKeyType="next"
+                      submitBehavior="submit"
+                      onSubmitEditing={() => {
+                        if (emailMode === 'signup') {
+                          nameInputRef.current?.focus();
+                        } else {
+                          passwordInputRef.current?.focus();
+                        }
+                      }}
+                      placeholder={t('login.email.email_placeholder')}
+                      placeholderTextColor={colors.textMuted}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="email-address"
+                      textContentType="emailAddress"
+                      style={styles.input}
+                      label={t('login.email.email_label')}
+                    />
+                  </View>
+
+                  {emailMode === 'signup' ? (
+                    <View style={styles.field}>
+                      <TextInput
+                        ref={nameInputRef}
+                        value={name}
+                        onChangeText={setName}
+                        returnKeyType="next"
+                        submitBehavior="submit"
+                        onSubmitEditing={() => {
+                          passwordInputRef.current?.focus();
+                        }}
+                        placeholder={t('login.email.name_placeholder')}
+                        placeholderTextColor={colors.textMuted}
+                        autoCapitalize="words"
+                        textContentType="name"
+                        style={styles.input}
+                        label={t('login.email.name_label')}
+                      />
+                    </View>
+                  ) : null}
+
+                  <View style={styles.field}>
+                    <TextInput
+                      ref={passwordInputRef}
+                      value={password}
+                      onChangeText={setPassword}
+                      returnKeyType="done"
+                      onSubmitEditing={() => {
+                        void handleEmailSubmit();
+                      }}
+                      placeholder={t('login.email.password_placeholder')}
+                      placeholderTextColor={colors.textMuted}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      textContentType={emailMode === 'signup' ? 'newPassword' : 'password'}
+                      style={styles.input}
+                      label={t('login.email.password_label')}
+                    />
+                  </View>
+
+                  <Button
+                    variant="primary"
+                    accessibilityLabel={
+                      emailMode === 'signin'
+                        ? t('login.email.submit_signin')
+                        : t('login.email.submit_signup')
+                    }
+                    disabled={!canSubmit}
+                    isLoading={submitting}
+                    onPress={() => {
+                      void handleEmailSubmit();
+                    }}
+                  >
+                    {submitting
+                      ? t('login.email.submitting')
+                      : emailMode === 'signin'
+                        ? t('login.email.submit_signin')
+                        : t('login.email.submit_signup')}
+                  </Button>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    style={styles.modeToggleButton}
+                    onPress={() => {
+                      setEmailMode((mode) => (mode === 'signin' ? 'signup' : 'signin'));
+                      setFormMessage(null);
+                    }}
+                  >
+                    <Text style={styles.modeToggle}>
+                      {emailMode === 'signin'
+                        ? t('login.email.to_signup')
+                        : t('login.email.to_signin')}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+
+              {formMessage ? (
+                <View
+                  accessibilityRole="alert"
+                  testID="login-form-message"
+                  style={[
+                    styles.formMessage,
+                    formMessage.kind === 'error'
+                      ? styles.formMessageError
+                      : styles.formMessageSuccess,
+                  ]}
+                >
+                  <Text
+                    style={
+                      formMessage.kind === 'error'
+                        ? styles.formMessageErrorText
+                        : styles.formMessageSuccessText
+                    }
+                  >
+                    {formMessage.text}
+                  </Text>
+                </View>
+              ) : null}
+              {signInWithDev ? (
+                <Button
+                  testID="dev-login-button"
+                  accessibilityLabel={t('login.dev.button')}
+                  disabled={devSubmitting}
+                  isLoading={devSubmitting}
+                  onPress={() => {
+                    void handleDevLogin();
+                  }}
+                >
+                  {devSubmitting ? t('login.dev.submitting') : t('login.dev.button')}
+                </Button>
+              ) : null}
+            </Card>
+          </ScrollView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  loginCard: { borderWidth: 0, backgroundColor: 'transparent', padding: 8, gap: 16 },
+  keyboardAvoiding: { flex: 1 },
+  bottomSafeArea: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.screenX,
+    paddingTop: 20,
+    paddingBottom: 24,
+  },
+  loginCard: {
+    width: '100%',
+    maxWidth: 480,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    padding: 8,
+    gap: 16,
+  },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   brandMark: {
     width: 48,
@@ -289,10 +360,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  screen: {
-    justifyContent: 'center',
-    paddingBottom: 24,
   },
   title: {
     ...type.display,
@@ -340,6 +407,10 @@ const styles = StyleSheet.create({
     ...type.kicker,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  modeToggleButton: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
   errorBanner: {
     borderRadius: 10,

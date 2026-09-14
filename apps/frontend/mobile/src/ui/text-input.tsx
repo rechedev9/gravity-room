@@ -1,3 +1,4 @@
+import { forwardRef, type ComponentRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,11 +10,15 @@ import { colors, radii, type } from '../shell/design';
 
 type Props = TextInputProps & { readonly label: string; readonly error?: string };
 
-export function TextInput({ label, error, style, ...props }: Props) {
+export const TextInput = forwardRef<ComponentRef<typeof NativeTextInput>, Props>(function TextInput(
+  { label, error, style, ...props },
+  ref
+) {
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       <NativeTextInput
+        ref={ref}
         accessibilityLabel={label}
         placeholderTextColor={colors.textMuted}
         selectionColor={colors.accent}
@@ -27,7 +32,7 @@ export function TextInput({ label, error, style, ...props }: Props) {
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   field: { gap: 6 },

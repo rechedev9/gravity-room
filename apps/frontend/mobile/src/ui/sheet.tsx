@@ -31,7 +31,13 @@ export function Sheet({ visible, title, onClose, children }: Props) {
         <Pressable accessible={false} style={StyleSheet.absoluteFill} onPress={onClose} />
         <SafeAreaView edges={['bottom']} style={styles.sheet} accessibilityViewIsModal>
           <View style={styles.header}>
-            <Text accessibilityRole="header" style={styles.title}>
+            <Text
+              accessibilityRole="header"
+              accessibilityLabel={title}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+              style={styles.title}
+            >
               {title}
             </Text>
             <Button onPress={onClose}>{t('ui.close')}</Button>
@@ -57,6 +63,6 @@ const styles = StyleSheet.create({
     borderColor: colors.ruleStrong,
   },
   header: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
-  title: { ...type.title, flex: 1 },
+  title: { ...type.title, flex: 1, minWidth: 0, flexShrink: 1 },
   content: { padding: 16, gap: 16 },
 });
