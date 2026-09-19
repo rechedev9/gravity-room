@@ -1,14 +1,21 @@
 # Program artwork and My plans
 
-18 original covers generated with the built-in imagegen tool from the catalog's
-actual descriptions and training background. [Gallery](./gallery.html),
-[contact sheet](./gallery.webp), and [exact prompts](./prompts.json).
+> **Superseded (2026-09-19):** the 18 image-generated WebP covers described below
+> were removed. Program covers are now drawn in code from the design tokens by
+> `apps/frontend/mobile/src/ui/program-cover.tsx`, driven by the deterministic
+> spec in `src/lib/programs/program-cover-spec.ts` (seeded by the stable program
+> id; category → motif, level → density, weekly sessions → ticks, name → Bebas
+> monogram). Custom plans get a hash-seeded cover instead of a barbell fallback.
+> No raster assets are bundled. Verification of the new covers lives in
+> [`../program-covers/`](../program-covers/README.md). The My plans and storage
+> notes below remain accurate; lookup still uses the stable program id.
 
-Assets: `apps/frontend/mobile/assets/programs/`. Each routine has a 960 × 640
-WebP cover and 320 × 213 thumbnail. The collection is approximately 1.5 MB and
-bundled by Metro for offline use. Lookup uses the stable program ID; renamed
-instances keep their art. Unknown/custom programs use a neutral barbell fallback.
-Migration 5 adds nullable artwork identity to existing owner-partitioned summaries.
+Original checkpoint: 18 covers generated with an image model from the catalog's
+descriptions, bundled as 960 × 640 WebP covers and 320 × 213 thumbnails (~1.5 MB)
+under `apps/frontend/mobile/assets/programs/`. Lookup used the stable program ID;
+renamed instances kept their art. Unknown/custom programs used a neutral barbell
+fallback. Migration 5 adds nullable artwork identity to existing owner-partitioned
+summaries.
 
 My plans features the most recently updated plan, compact remaining plans,
 localized dates, and a direct Explore entry. No inferred active state or invented
@@ -26,8 +33,7 @@ progress. Explore shows the same art in its featured card, all rows, and details
   legacy workout deep links redirect there. A second set was logged, then Expo Go
   was force-stopped and reopened: both sets remained and set 3 was pending
   ([restart proof](./restored-android.webp)).
-- Playwright CLI checked all 18 gallery images loaded. Console's only gallery error
-  was the static server's missing favicon. Browser sessions were closed.
+- Playwright CLI checked all 18 gallery images loaded (gallery since removed).
 - Expo Web preview login was captured and its console reviewed. Local cross-origin
   auth initially failed CORS; a test-only request forwarder reached the API but
   login still failed during local session setup. This is not evidence of a working

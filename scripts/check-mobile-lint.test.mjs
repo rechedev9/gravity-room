@@ -52,8 +52,11 @@ test('production console logging fails while warn/error are permitted', async ()
   assert.deepEqual(await lint('console.warn("diagnostic"); console.error("failure");'), []);
 });
 
-test('Metro static WebP assets are allowed without enabling module require calls', async () => {
-  assert.deepEqual(await lint('export const image = require("../../assets/program.webp");'), []);
+test('module require calls are rejected, including bundled image assets', async () => {
+  await rejects(
+    'export const image = require("../../assets/program.webp");',
+    '@typescript-eslint/no-require-imports'
+  );
   await rejects(
     'export const service = require("./service");',
     '@typescript-eslint/no-require-imports'

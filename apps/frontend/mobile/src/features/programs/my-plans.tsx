@@ -75,7 +75,7 @@ export function MyPlans({
             onPress={() => onOpen?.(recent.id)}
             style={({ pressed }) => [styles.feature, pressed && styles.pressed]}
           >
-            <ProgramArtwork programId={recent.programId} />
+            <ProgramArtwork programId={recent.programId} title={recent.title} />
             <View style={styles.featureBody}>
               <View style={styles.featureTop}>
                 <View style={styles.badge}>
@@ -142,7 +142,7 @@ export function MyPlans({
             onPress={() => onOpen?.(item.id)}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
           >
-            <ProgramArtwork programId={item.programId} thumbnail />
+            <ProgramArtwork programId={item.programId} title={item.title} thumbnail />
             <View style={styles.copy}>
               <Text style={styles.rowTitle}>{item.title}</Text>
               <Text style={styles.meta}>{updated(item)}</Text>
