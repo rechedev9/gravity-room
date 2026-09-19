@@ -28,6 +28,7 @@ import {
 } from '../../lib/tracker/program-detail-service';
 import { commitTrackerEdit } from '../../lib/tracker/commit-tracker-edit';
 import { flushQueuedMutations } from '../../lib/sync/mutation-sync-service';
+import type { SyncStatus } from '../../lib/sync/sync-status-repository';
 import { applyUndoEntry, buildUndoEntry, patchSlotMetrics, slotStateEqual } from './tracker-state';
 import { TrackerSlotCard } from './tracker-slot-card';
 import { appendSetLog, nextSetIndex, popSetLog, slotLogKey } from './tracker-set-logging';
@@ -80,6 +81,20 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
   const localStateVersionRef = useRef(0);
   const pendingLocalEditsRef = useRef(0);
   const [pendingLocalEdits, setPendingLocalEdits] = useState(0);
+  const cachedRetryStatusRef = useRef<SyncStatus | null | undefined>(undefined);
+
+  // The bootstrap keeps cached rows when the first flush or fetch fails (for
+  // example a token refresh race on cold start). Once the outbox is idle and
+  // we are online, retry once per sync-status snapshot so the "cached data"
+  // notice clears by itself instead of sticking until the screen remounts.
+  useEffect(() => {
+    if (syncNotice !== 'cached' || !syncStatus || syncStatus.offline || syncStatus.readError)
+      return;
+    if ((syncStatus.status?.total ?? 0) > 0) return;
+    if (cachedRetryStatusRef.current === syncStatus.status) return;
+    cachedRetryStatusRef.current = syncStatus.status;
+    setReloadToken((value) => value + 1);
+  }, [syncNotice, syncStatus]);
 
   // All local writes share one queue; metrics must read the committed snapshot
   // after pending set completions, never overwrite it from an older render.
@@ -793,7 +808,9 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
             <Text style={styles.body}>
               {t('tracker.recorded_volume', { volume: recordedWorkoutVolume(selectedRow) })}
             </Text>
-            <Text style={styles.eyebrow}>{t('tracker.next_time_title')}</Text>
+            {previews.length > 0 ? (
+              <Text style={styles.eyebrow}>{t('tracker.next_time_title')}</Text>
+            ) : null}
             {previews.map((preview) => (
               <View key={preview.slotId} style={styles.previewRow}>
                 <Text style={styles.previewName}>{preview.name}</Text>

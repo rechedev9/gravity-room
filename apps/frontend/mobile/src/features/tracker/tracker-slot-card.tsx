@@ -129,6 +129,7 @@ export function TrackerSlotCard({
                 index={index + 1}
                 entry={entry}
                 fallbackWeight={slot.weight}
+                targetReps={slot.reps}
               />
             ))}
           {canConfirmSet ? (

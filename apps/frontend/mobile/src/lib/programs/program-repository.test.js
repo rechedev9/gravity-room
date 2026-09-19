@@ -1,9 +1,46 @@
 const { DatabaseSync } = require('node:sqlite');
 const { createSqliteTestAdapter } = require('../../../testing/sqlite-adapter.cjs');
 const client = require('../db/client');
-const { listProgramSummaries, upsertProgramSummaries } = require('./program-repository');
+const {
+  listProgramSummaries,
+  removeProgramSummary,
+  upsertProgramSummaries,
+} = require('./program-repository');
 
 const summary = (id, title = id, updatedAt = '2026-09-01') => ({ id, title, updatedAt });
+
+describe('removeProgramSummary', () => {
+  let sqlite;
+  let database;
+  beforeEach(async () => {
+    sqlite = new DatabaseSync(':memory:');
+    database = createSqliteTestAdapter(sqlite);
+    jest.spyOn(client, 'getDatabase').mockReturnValue(database);
+    await client.activateLocalDataOwner('owner-a', database);
+  });
+  afterEach(() => {
+    client.deactivateLocalDataOwner();
+    jest.restoreAllMocks();
+    sqlite.close();
+  });
+
+  it('drops only the requested plan of the active owner', async () => {
+    await upsertProgramSummaries([summary('a'), summary('b')]);
+    await client.activateLocalDataOwner('owner-b', database);
+    await upsertProgramSummaries([summary('a', 'Other owner')]);
+    await client.activateLocalDataOwner('owner-a', database);
+    await removeProgramSummary('a');
+    expect((await listProgramSummaries()).map((row) => row.id)).toEqual(['b']);
+    await client.activateLocalDataOwner('owner-b', database);
+    expect((await listProgramSummaries()).map((row) => row.title)).toEqual(['Other owner']);
+  });
+
+  it('ignores an unknown plan id', async () => {
+    await upsertProgramSummaries([summary('a')]);
+    await removeProgramSummary('missing');
+    expect((await listProgramSummaries()).map((row) => row.id)).toEqual(['a']);
+  });
+});
 
 describe('summary snapshot SQL', () => {
   let sqlite;

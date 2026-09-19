@@ -5,6 +5,7 @@ import type { ProgramSummary } from '../../lib/programs/program-repository';
 import { colors, type } from '../../shell/design';
 import { Screen } from '../../ui/screen';
 import { Button } from '../../ui/button';
+import { IconButton } from '../../ui/icon-button';
 import { ProgramArtwork } from '../../ui/program-artwork';
 
 type Props = {
@@ -15,6 +16,7 @@ type Props = {
   readonly onRetry: () => void;
   readonly onOpen: ((id: string) => void) | undefined;
   readonly onExplore: (() => void) | undefined;
+  readonly onDelete?: ((program: ProgramSummary) => void) | undefined;
 };
 
 export function MyPlans({
@@ -25,6 +27,7 @@ export function MyPlans({
   onRetry,
   onOpen,
   onExplore,
+  onDelete,
 }: Props) {
   const { t, i18n } = useTranslation();
   // Repository ordering is most recently updated, not most recently trained.
@@ -69,47 +72,60 @@ export function MyPlans({
       ) : null}
       {!loading && !error && recent ? (
         <>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('plans.open', { name: recent.title })}
-            onPress={() => onOpen?.(recent.id)}
-            style={({ pressed }) => [styles.feature, pressed && styles.pressed]}
-          >
-            <ProgramArtwork programId={recent.programId} title={recent.title} />
-            <View style={styles.featureBody}>
-              <View style={styles.featureTop}>
-                <View style={styles.badge}>
-                  <View style={styles.dot} />
-                  <Text style={styles.badgeText}>{t('plans.recent')}</Text>
+          {/* The delete control is a sibling, not a child, of the card button so
+              assistive tech can reach it (nested buttons are flattened away). */}
+          <View style={styles.feature}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('plans.open', { name: recent.title })}
+              onPress={() => onOpen?.(recent.id)}
+              style={({ pressed }) => [pressed && styles.pressed]}
+            >
+              <ProgramArtwork programId={recent.programId} title={recent.title} />
+              <View style={styles.featureBody}>
+                <View style={styles.featureTop}>
+                  <View style={styles.badge}>
+                    <View style={styles.dot} />
+                    <Text style={styles.badgeText}>{t('plans.recent')}</Text>
+                  </View>
+                  <Ionicons
+                    accessible={false}
+                    name="barbell-outline"
+                    size={29}
+                    color={colors.accent}
+                  />
                 </View>
-                <Ionicons
-                  accessible={false}
-                  name="barbell-outline"
-                  size={29}
-                  color={colors.accent}
+                <Text style={styles.featureTitle}>{recent.title}</Text>
+                <View style={styles.date}>
+                  <Ionicons
+                    accessible={false}
+                    name="calendar-outline"
+                    size={15}
+                    color={colors.textMuted}
+                  />
+                  <Text style={styles.meta}>{updated(recent)}</Text>
+                </View>
+                <View style={styles.action}>
+                  <Text style={styles.actionText}>{t('plans.open_plan')}</Text>
+                  <Ionicons
+                    accessible={false}
+                    name="arrow-forward"
+                    size={19}
+                    color={colors.onAccent}
+                  />
+                </View>
+              </View>
+            </Pressable>
+            {onDelete ? (
+              <View style={styles.featureDelete}>
+                <IconButton
+                  name="trash-outline"
+                  label={t('plans.delete', { name: recent.title })}
+                  onPress={() => onDelete(recent)}
                 />
               </View>
-              <Text style={styles.featureTitle}>{recent.title}</Text>
-              <View style={styles.date}>
-                <Ionicons
-                  accessible={false}
-                  name="calendar-outline"
-                  size={15}
-                  color={colors.textMuted}
-                />
-                <Text style={styles.meta}>{updated(recent)}</Text>
-              </View>
-              <View style={styles.action}>
-                <Text style={styles.actionText}>{t('plans.open_plan')}</Text>
-                <Ionicons
-                  accessible={false}
-                  name="arrow-forward"
-                  size={19}
-                  color={colors.onAccent}
-                />
-              </View>
-            </View>
-          </Pressable>
+            ) : null}
+          </View>
           {others.length > 0 ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{t('plans.other')}</Text>
@@ -136,24 +152,33 @@ export function MyPlans({
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={header}
         renderItem={({ item }) => (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('plans.open', { name: item.title })}
-            onPress={() => onOpen?.(item.id)}
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-          >
-            <ProgramArtwork programId={item.programId} title={item.title} thumbnail />
-            <View style={styles.copy}>
-              <Text style={styles.rowTitle}>{item.title}</Text>
-              <Text style={styles.meta}>{updated(item)}</Text>
-            </View>
-            <Ionicons
-              accessible={false}
-              name="chevron-forward"
-              size={18}
-              color={colors.textMuted}
-            />
-          </Pressable>
+          <View style={styles.row}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('plans.open', { name: item.title })}
+              onPress={() => onOpen?.(item.id)}
+              style={({ pressed }) => [styles.rowMain, pressed && styles.pressed]}
+            >
+              <ProgramArtwork programId={item.programId} title={item.title} thumbnail />
+              <View style={styles.copy}>
+                <Text style={styles.rowTitle}>{item.title}</Text>
+                <Text style={styles.meta}>{updated(item)}</Text>
+              </View>
+              <Ionicons
+                accessible={false}
+                name="chevron-forward"
+                size={18}
+                color={colors.textMuted}
+              />
+            </Pressable>
+            {onDelete ? (
+              <IconButton
+                name="trash-outline"
+                label={t('plans.delete', { name: item.title })}
+                onPress={() => onDelete(item)}
+              />
+            ) : null}
+          </View>
         )}
         ListFooterComponent={
           onExplore ? (
@@ -243,13 +268,23 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 16,
+    gap: 4,
+    paddingVertical: 8,
+    paddingLeft: 16,
+    paddingRight: 8,
     borderRadius: 16,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.rule,
     minHeight: 90,
+  },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
+  featureDelete: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(20, 20, 18, 0.7)',
   },
   copy: { flex: 1, gap: 5 },
   rowTitle: { ...type.title, fontSize: 17 },

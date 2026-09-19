@@ -153,3 +153,31 @@ export async function getProgramDefinition(programId: string): Promise<ProgramDe
 
   return ProgramDefinitionSchema.parse(JSON.parse(row.definition_json));
 }
+
+/** Drops the cached detail, set drafts and queued mutations of a deleted plan. */
+export async function purgeProgramLocalData(programInstanceId: string): Promise<void> {
+  const ownerId = requireActiveLocalDataOwner();
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    if (requireActiveLocalDataOwner() !== ownerId)
+      throw new Error('Detail owner changed before purge');
+    await transaction.runAsync(
+      'DELETE FROM queued_mutations WHERE owner_user_id = ? AND entity_id = ?',
+      ownerId,
+      programInstanceId
+    );
+    await transaction.runAsync(
+      'DELETE FROM set_drafts WHERE owner_user_id = ? AND instance_id = ?',
+      ownerId,
+      programInstanceId
+    );
+    await transaction.runAsync(
+      'DELETE FROM program_details WHERE owner_user_id = ? AND id = ?',
+      ownerId,
+      programInstanceId
+    );
+    if (requireActiveLocalDataOwner() !== ownerId)
+      throw new Error('Detail owner changed during purge');
+  });
+}

@@ -2,12 +2,14 @@ import { z } from 'zod/v4';
 import { MAX_TOTAL_WORKOUTS } from './program-definition';
 
 export const MAX_REPS = 999;
+/** Heaviest weight a single set log may carry; shared by the API route, service and clients. */
+export const MAX_SET_LOG_WEIGHT = 10_000;
 
 const ResultValueSchema = z.enum(['success', 'fail']);
 
 export const SetLogEntrySchema = z.strictObject({
   reps: z.number().int().min(0).max(MAX_REPS),
-  weight: z.number().nonnegative().optional(),
+  weight: z.number().nonnegative().max(MAX_SET_LOG_WEIGHT).optional(),
   rpe: z.number().int().min(1).max(10).optional(),
 });
 

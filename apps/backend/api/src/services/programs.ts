@@ -13,6 +13,7 @@ import {
 import { getProgramDefinition } from '../services/catalog';
 import {
   MAX_REPS,
+  MAX_SET_LOG_WEIGHT,
   GenericUndoHistorySchema,
   ProgramInstanceSchema,
   SetLogEntrySchema,
@@ -77,7 +78,6 @@ export interface ProgramInstanceResponse {
 // ---------------------------------------------------------------------------
 
 const MAX_SET_LOG_ITEMS = 20;
-const MAX_SET_LOG_WEIGHT = 10_000;
 const MAX_METADATA_BYTES = 10_000;
 
 async function lockUserForActiveProgramMutation(tx: Tx, userId: string): Promise<void> {

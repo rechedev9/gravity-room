@@ -29,7 +29,6 @@ function renderApp() {
 }
 import { listProgramSummaries, upsertProgramSummaries } from '../lib/programs/program-repository';
 import {
-  buildDefaultProgramConfig,
   createProgramInstance,
   fetchCatalogDefinition,
   fetchCatalogEntries,
@@ -92,18 +91,21 @@ jest.mock('../lib/db/client', () => ({
 
 jest.mock('../lib/programs/program-repository', () => ({
   listProgramSummaries: jest.fn(),
+  removeProgramSummary: jest.fn(),
   upsertProgramSummaries: jest.fn(),
 }));
 
 jest.mock('../lib/programs/program-service', () => ({
-  buildDefaultProgramConfig: jest.fn(),
   createProgramInstance: jest.fn(),
+  deleteProgramInstance: jest.fn(),
   fetchCatalogDefinition: jest.fn(),
   fetchCatalogEntries: jest.fn(),
   fetchProgramSummaries: jest.fn(),
+  findPlansFromProgram: jest.requireActual('../lib/programs/program-service').findPlansFromProgram,
 }));
 
 jest.mock('../lib/tracker/program-detail-repository', () => ({
+  purgeProgramLocalData: jest.fn(),
   upsertProgramDefinition: jest.fn(),
   upsertProgramDetail: jest.fn(),
 }));
@@ -137,7 +139,6 @@ const mockedClearQueuedMutations = jest.mocked(clearQueuedMutations);
 const mockedClearLocalAppData = jest.mocked(clearLocalAppData);
 const mockedListProgramSummaries = jest.mocked(listProgramSummaries);
 const mockedUpsertProgramSummaries = jest.mocked(upsertProgramSummaries);
-const mockedBuildDefaultProgramConfig = jest.mocked(buildDefaultProgramConfig);
 const mockedCreateProgramInstance = jest.mocked(createProgramInstance);
 const mockedFetchCatalogDefinition = jest.mocked(fetchCatalogDefinition);
 const mockedFetchCatalogEntries = jest.mocked(fetchCatalogEntries);
@@ -214,7 +215,6 @@ describe('App', () => {
     mockedClearLocalAppData.mockResolvedValue();
     mockedSignOutSession.mockResolvedValue();
     mockedFetchCatalogEntries.mockImplementation(() => new Promise(() => undefined));
-    mockedBuildDefaultProgramConfig.mockReturnValue({ squat: 20 });
     mockedUpsertProgramDefinition.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
     mockPromptAsync.mockResolvedValue('google-id-token');
@@ -228,7 +228,6 @@ describe('App', () => {
     mockedClearLocalAppData.mockReset();
     mockedListProgramSummaries.mockReset();
     mockedUpsertProgramSummaries.mockReset();
-    mockedBuildDefaultProgramConfig.mockReset();
     mockedCreateProgramInstance.mockReset();
     mockedFetchCatalogDefinition.mockReset();
     mockedFetchCatalogEntries.mockReset();
@@ -660,6 +659,8 @@ describe('App', () => {
     fireEvent.press(await screen.findByLabelText('Open Explore tab'));
     fireEvent.press(await screen.findByText('View program'));
     fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
+    // Starting weights sheet: keep the suggested default and confirm.
+    fireEvent.press(await screen.findByRole('button', { name: 'Start program' }));
 
     await waitFor(() => {
       expect(mockedCreateProgramInstance).toHaveBeenCalledWith({

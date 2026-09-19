@@ -4,8 +4,22 @@ import {
   GenericResultsSchema,
   MAX_REPS,
   MAX_PROGRAM_CONFIG_KEYS,
+  MAX_SET_LOG_WEIGHT,
   ProgramConfigSchema,
+  SetLogEntrySchema,
 } from './instance';
+
+describe('SetLogEntrySchema weight bound', () => {
+  it('accepts the heaviest allowed set weight', () => {
+    expect(SetLogEntrySchema.safeParse({ reps: 1, weight: MAX_SET_LOG_WEIGHT }).success).toBe(true);
+  });
+
+  it('rejects a set weight above the shared maximum so clients fail before the API does', () => {
+    expect(SetLogEntrySchema.safeParse({ reps: 1, weight: MAX_SET_LOG_WEIGHT + 1 }).success).toBe(
+      false
+    );
+  });
+});
 
 const buildConfig = (n: number): Record<string, number> =>
   Object.fromEntries(Array.from({ length: n }, (_, i) => [`k${i}`, i]));

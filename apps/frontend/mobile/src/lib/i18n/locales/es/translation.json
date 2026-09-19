@@ -1,6 +1,7 @@
 {
   "common": {
-    "retry": "Reintentar"
+    "retry": "Reintentar",
+    "cancel": "Cancelar"
   },
   "nav": {
     "train": "Entrenar",
@@ -77,10 +78,16 @@
       "load": "No se pudieron cargar los programas en caché.",
       "sync": "No se pueden sincronizar los programas ahora mismo.",
       "catalog": "No se pudo cargar el catálogo de programas ahora mismo.",
-      "start": "No se pudo empezar ese programa ahora mismo."
+      "start": "No se pudo empezar ese programa ahora mismo.",
+      "delete": "No se pudo borrar ese plan ahora mismo. Revisa la conexión e inténtalo de nuevo."
     },
     "templates_intro": "Encuentra un plan para tu forma de entrenar.",
-    "mesos_intro": "Tus planes de entrenamiento, siempre a mano."
+    "mesos_intro": "Tus planes de entrenamiento, siempre a mano.",
+    "duplicate": {
+      "title": "Ya tienes {{name}}",
+      "body": "Si lo empiezas otra vez se crea un segundo plan con el mismo nombre. Tu plan actual conserva su progreso.",
+      "confirm": "Empezar otro"
+    }
   },
   "train": {
     "empty": {
@@ -154,7 +161,8 @@
       "weight_accessibility": "Peso de la serie {{index}} de {{name}}",
       "reps_accessibility": "Repeticiones de la serie {{index}} de {{name}}",
       "logged": "Serie {{index}}: {{reps}} repeticiones con {{weight}} kg",
-      "logged_reps": "{{reps}} reps"
+      "logged_reps": "{{reps}} reps",
+      "logged_miss": "Serie {{index}}: {{reps}} reps con {{weight}} kg, por debajo del objetivo"
     },
     "session_position": "SEMANA {{week}} DÍA {{day}}",
     "week": "Semana {{week}}",
@@ -219,7 +227,11 @@
     "other": "Tus otros planes",
     "empty": "Encuentra un programa en Explorar para empezar.",
     "explore": "Explorar programas",
-    "explore_hint": "Encuentra tu próximo plan de entrenamiento."
+    "explore_hint": "Encuentra tu próximo plan de entrenamiento.",
+    "delete": "Borrar {{name}}",
+    "delete_title": "¿Borrar este plan?",
+    "delete_body": "{{name}} y todos sus entrenamientos registrados se eliminarán de todos los dispositivos.",
+    "delete_confirm": "Borrar"
   },
   "sync": {
     "offline": "Estás sin conexión",
@@ -233,5 +245,17 @@
     "unavailable": "No se puede comprobar la sincronización",
     "unavailable_detail": "Reintenta para comprobar tus cambios guardados.",
     "retry_label": "Reintentar la sincronización de cambios guardados"
+  },
+  "starting_weights": {
+    "title": "Pesos iniciales · {{name}}",
+    "intro": "Indica el peso que levantas hoy en cada movimiento. El programa construye todas las sesiones a partir de estos números.",
+    "hint": "Mín. {{min}} kg · saltos de {{step}} kg",
+    "confirm": "Empezar programa",
+    "errors": {
+      "required": "Indica un peso",
+      "invalid": "Indica un número, p. ej. 60 o 62,5",
+      "below_min": "Al menos {{min}} kg",
+      "above_max": "Como máximo {{max}} kg"
+    }
   }
 }

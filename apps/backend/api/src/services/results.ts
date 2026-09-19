@@ -7,7 +7,7 @@ import { getDb } from '../db';
 import { programInstances, workoutResults, undoEntries } from '@gzclp/database/schema';
 import { ApiError } from '../middleware/error-handler';
 import { getHistoricalProgramDefinition } from '../services/catalog';
-import { MAX_REPS, SetLogEntrySchema } from '@gzclp/domain/schemas/instance';
+import { MAX_REPS, MAX_SET_LOG_WEIGHT, SetLogEntrySchema } from '@gzclp/domain/schemas/instance';
 import { MAX_TOTAL_WORKOUTS } from '@gzclp/domain/schemas/program-definition';
 import type { SetLogEntry } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
@@ -195,7 +195,6 @@ async function syncCompletedAt(
 // ---------------------------------------------------------------------------
 
 const MAX_RESULT_WORKOUT_INDEX = MAX_TOTAL_WORKOUTS - 1;
-const MAX_SET_LOG_WEIGHT = 10_000;
 const MAX_SET_LOG_ITEMS = 20;
 const MAX_SLOT_ID_LENGTH = 50;
 
