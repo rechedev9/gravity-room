@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { SetLogEntrySchema, type SetLogEntry } from '@gzclp/domain';
+import { SetLogEntryInputSchema, type SetLogEntry } from '@gzclp/domain';
 import { TextInput } from '../../ui/text-input';
 import { Button } from '../../ui/button';
 import { colors, type } from '../../shell/design';
@@ -24,7 +24,7 @@ export function TrackerSetRow({ exerciseName, index, weight, reps, onConfirm }: 
   const repsText = editedReps ?? String(reps);
   const savingRef = useRef(false);
   const [saving, setSaving] = useState(false);
-  const parsed = SetLogEntrySchema.safeParse({
+  const parsed = SetLogEntryInputSchema.safeParse({
     weight: Number(weightText.replace(',', '.')),
     reps: Number(repsText),
   });

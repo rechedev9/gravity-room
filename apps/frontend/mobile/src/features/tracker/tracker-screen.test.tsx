@@ -613,6 +613,29 @@ describe('TrackerScreen', () => {
     syncSpy.mockRestore();
   });
 
+  it('retries the cached bootstrap only once while the flush keeps failing', async () => {
+    // Every flush publishes a fresh status object; a per-snapshot retry would loop.
+    const syncSpy = jest.spyOn(syncStatus, 'useSyncStatus').mockImplementation(() => ({
+      status: { total: 0, needsAttention: 0 },
+      offline: false,
+      readError: false,
+      visible: false,
+      retry: jest.fn(),
+    }));
+    mockedGetAccessToken.mockReturnValue('token');
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFlushQueuedMutations.mockRejectedValue(new Error('still down'));
+    // Each failed bootstrap re-renders the screen, so the status mock above
+    // hands the effect a fresh object every time, exactly like production.
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+    await waitFor(() => expect(mockedFlushQueuedMutations).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(mockedFlushQueuedMutations).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText(/cached tracker data/i)).toBeTruthy();
+    syncSpy.mockRestore();
+  });
+
   it('shows actual held weight in the completed double-progression next-session summary', async () => {
     mockedGetProgramDetail.mockResolvedValue({
       ...TEST_DETAIL,

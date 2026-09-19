@@ -6,17 +6,26 @@ import {
   MAX_PROGRAM_CONFIG_KEYS,
   MAX_SET_LOG_WEIGHT,
   ProgramConfigSchema,
+  SetLogEntryInputSchema,
   SetLogEntrySchema,
 } from './instance';
 
-describe('SetLogEntrySchema weight bound', () => {
-  it('accepts the heaviest allowed set weight', () => {
-    expect(SetLogEntrySchema.safeParse({ reps: 1, weight: MAX_SET_LOG_WEIGHT }).success).toBe(true);
+describe('set log weight bound', () => {
+  it('accepts the heaviest allowed set weight as input', () => {
+    expect(SetLogEntryInputSchema.safeParse({ reps: 1, weight: MAX_SET_LOG_WEIGHT }).success).toBe(
+      true
+    );
   });
 
-  it('rejects a set weight above the shared maximum so clients fail before the API does', () => {
+  it('rejects a new set weight above the shared maximum so clients fail before the API does', () => {
+    expect(
+      SetLogEntryInputSchema.safeParse({ reps: 1, weight: MAX_SET_LOG_WEIGHT + 1 }).success
+    ).toBe(false);
+  });
+
+  it('still hydrates stored history that carries an oversized weight', () => {
     expect(SetLogEntrySchema.safeParse({ reps: 1, weight: MAX_SET_LOG_WEIGHT + 1 }).success).toBe(
-      false
+      true
     );
   });
 });

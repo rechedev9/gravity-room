@@ -7,7 +7,7 @@ import {
   type ProgramSummariesData,
   useProgramSummaries,
 } from '../../lib/programs/program-queries';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -108,6 +108,7 @@ export function ProgramsScreen({
   const [pendingDefinition, setPendingDefinition] = useState<ProgramDefinition | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteInFlightRef = useRef(false);
 
   async function loadCatalog(signal: { active: boolean }): Promise<void> {
     try {
@@ -231,8 +232,12 @@ export function ProgramsScreen({
       confirm: t('plans.delete_confirm'),
       destructive: true,
     });
-    if (!confirmed) return;
+    if (!confirmed || deleteInFlightRef.current) return;
 
+    // One delete at a time: the local purge runs exclusive SQLite transactions
+    // on the shared connection, and overlapping ones fail after the server
+    // has already deleted the plan.
+    deleteInFlightRef.current = true;
     setDeleteError(null);
     try {
       await deleteProgramInstance(program.id);
@@ -246,6 +251,8 @@ export function ProgramsScreen({
       );
     } catch {
       setDeleteError(t('programs.errors.delete'));
+    } finally {
+      deleteInFlightRef.current = false;
     }
   }
 

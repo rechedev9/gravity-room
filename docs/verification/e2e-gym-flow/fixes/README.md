@@ -27,6 +27,12 @@ half-resolution WebP captures.
   reaches the modal's `onRequestClose`, so hiding the keyboard after typing three
   weights discarded the form. `Sheet` now only dismisses the keyboard when it is
   visible and closes on the next back press.
+- **Review follow-ups.** The weight bound lives in `SetLogEntryInputSchema`
+  (new entries) while stored history keeps the permissive `SetLogEntrySchema`,
+  so hydration with `.catch({})` can never wipe results over one oversized set.
+  The cached-bootstrap auto-retry fires once per notice episode instead of once
+  per sync snapshot (every flush publishes a new snapshot, which would loop).
+  Plan deletion holds an in-flight lock.
 - Metro's file watcher did not pick up files created after it started; the
   emulator ran stale code until Metro was restarted with `--clear`. Restart Metro
   after adding files when verifying on device.

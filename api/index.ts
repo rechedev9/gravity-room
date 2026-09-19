@@ -771,8 +771,11 @@ var MAX_SET_LOG_WEIGHT = 1e4;
 var ResultValueSchema = z2.enum(['success', 'fail']);
 var SetLogEntrySchema = z2.strictObject({
   reps: z2.number().int().min(0).max(MAX_REPS),
-  weight: z2.number().nonnegative().max(MAX_SET_LOG_WEIGHT).optional(),
+  weight: z2.number().nonnegative().optional(),
   rpe: z2.number().int().min(1).max(10).optional(),
+});
+var SetLogEntryInputSchema = SetLogEntrySchema.extend({
+  weight: z2.number().nonnegative().max(MAX_SET_LOG_WEIGHT).optional(),
 });
 var SlotResultSchema = z2.strictObject({
   result: ResultValueSchema.optional(),
@@ -5222,7 +5225,7 @@ function assertSetLogEntriesValid(setLogs, fieldName) {
     );
   }
   for (const setLog of setLogs) {
-    const parsed = SetLogEntrySchema.safeParse(setLog);
+    const parsed = SetLogEntryInputSchema.safeParse(setLog);
     if (!parsed.success) {
       throw new ApiError(400, `Invalid ${fieldName} entry`, 'INVALID_DATA');
     }
@@ -6708,7 +6711,7 @@ async function recordResult(userId, instanceId, input) {
     throw new ApiError(400, `setLogs cannot exceed ${MAX_SET_LOG_ITEMS3} entries`, 'INVALID_DATA');
   }
   for (const setLog of input.setLogs ?? []) {
-    if (!SetLogEntrySchema.safeParse(setLog).success) {
+    if (!SetLogEntryInputSchema.safeParse(setLog).success) {
       throw new ApiError(400, 'Invalid setLogs entry', 'INVALID_DATA');
     }
     if (setLog.weight !== void 0 && setLog.weight > MAX_SET_LOG_WEIGHT) {

@@ -28,7 +28,6 @@ import {
 } from '../../lib/tracker/program-detail-service';
 import { commitTrackerEdit } from '../../lib/tracker/commit-tracker-edit';
 import { flushQueuedMutations } from '../../lib/sync/mutation-sync-service';
-import type { SyncStatus } from '../../lib/sync/sync-status-repository';
 import { applyUndoEntry, buildUndoEntry, patchSlotMetrics, slotStateEqual } from './tracker-state';
 import { TrackerSlotCard } from './tracker-slot-card';
 import { appendSetLog, nextSetIndex, popSetLog, slotLogKey } from './tracker-set-logging';
@@ -81,18 +80,22 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
   const localStateVersionRef = useRef(0);
   const pendingLocalEditsRef = useRef(0);
   const [pendingLocalEdits, setPendingLocalEdits] = useState(0);
-  const cachedRetryStatusRef = useRef<SyncStatus | null | undefined>(undefined);
+  const cachedRetryUsedRef = useRef(false);
 
   // The bootstrap keeps cached rows when the first flush or fetch fails (for
   // example a token refresh race on cold start). Once the outbox is idle and
-  // we are online, retry once per sync-status snapshot so the "cached data"
-  // notice clears by itself instead of sticking until the screen remounts.
+  // we are online, retry once per "cached" episode so the notice clears by
+  // itself. Exactly once: every bootstrap flush publishes a fresh sync status,
+  // so retrying per snapshot would loop for as long as the fetch keeps failing.
   useEffect(() => {
-    if (syncNotice !== 'cached' || !syncStatus || syncStatus.offline || syncStatus.readError)
+    if (syncNotice !== 'cached') {
+      cachedRetryUsedRef.current = false;
       return;
+    }
+    if (cachedRetryUsedRef.current) return;
+    if (!syncStatus || syncStatus.offline || syncStatus.readError) return;
     if ((syncStatus.status?.total ?? 0) > 0) return;
-    if (cachedRetryStatusRef.current === syncStatus.status) return;
-    cachedRetryStatusRef.current = syncStatus.status;
+    cachedRetryUsedRef.current = true;
     setReloadToken((value) => value + 1);
   }, [syncNotice, syncStatus]);
 

@@ -9,8 +9,17 @@ const ResultValueSchema = z.enum(['success', 'fail']);
 
 export const SetLogEntrySchema = z.strictObject({
   reps: z.number().int().min(0).max(MAX_REPS),
-  weight: z.number().nonnegative().max(MAX_SET_LOG_WEIGHT).optional(),
+  weight: z.number().nonnegative().optional(),
   rpe: z.number().int().min(1).max(10).optional(),
+});
+
+/**
+ * What a client or the API accepts as a *new* set log. Stored history keeps the
+ * permissive `SetLogEntrySchema`: program details hydrate with `.catch({})`, so
+ * a bound there would wipe a lifter's whole history over one bad entry.
+ */
+export const SetLogEntryInputSchema = SetLogEntrySchema.extend({
+  weight: z.number().nonnegative().max(MAX_SET_LOG_WEIGHT).optional(),
 });
 
 const SlotResultSchema = z.strictObject({
