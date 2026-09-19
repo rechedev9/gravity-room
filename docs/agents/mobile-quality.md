@@ -19,8 +19,8 @@ actual ESLint configuration with accepted and rejected code fixtures.
 
 ## Deliberate tooling exceptions
 
-Metro requires literal `require()` for bundled WebP assets. That exception does
-not permit loading arbitrary implementation modules with `require()`.
+Mobile bundles no raster image assets; program covers are drawn with
+`react-native-svg` from design tokens, so `require()` is rejected everywhere.
 Jest test files permit mock-factory `require()`, type assertions and documented
 negative type fixtures. Explicit `any` and `@ts-ignore` remain errors in tests.
 Integration tests may compose libraries with real mobile shell providers;

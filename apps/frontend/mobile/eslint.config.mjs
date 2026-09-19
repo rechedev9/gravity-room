@@ -34,8 +34,7 @@ export default tseslint.config(
       ],
       // Named unused parameters document callback signatures; unused bindings still fail.
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      // Metro resolves static bundled images through require(), not ES module imports.
-      '@typescript-eslint/no-require-imports': ['error', { allow: ['\\.webp$'] }],
+      '@typescript-eslint/no-require-imports': 'error',
       'no-console': ['error', { allow: ['warn', 'error'] }],
       'no-restricted-imports': ['error', { patterns: [crossAppImports, testOnlyImports] }],
     },

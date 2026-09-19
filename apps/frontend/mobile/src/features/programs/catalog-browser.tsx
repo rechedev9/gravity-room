@@ -117,7 +117,13 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
             onPress={() => setSelected(featured)}
             style={styles.featured}
           >
-            <ProgramArtwork programId={featured.id} />
+            <ProgramArtwork
+              programId={featured.id}
+              title={featured.name}
+              category={featured.category}
+              level={featured.level}
+              workoutsPerWeek={featured.workoutsPerWeek}
+            />
             <View style={styles.featureBody}>
               <Text style={styles.featureLabel}>{t('discovery.featured')}</Text>
               <Text style={styles.featureTitle}>{featured.name}</Text>
@@ -159,7 +165,14 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
             onPress={() => setSelected(entry)}
             style={({ pressed }) => [styles.row, pressed && styles.pressed]}
           >
-            <ProgramArtwork programId={entry.id} thumbnail />
+            <ProgramArtwork
+              programId={entry.id}
+              title={entry.name}
+              category={entry.category}
+              level={entry.level}
+              workoutsPerWeek={entry.workoutsPerWeek}
+              thumbnail
+            />
             <View style={styles.rowCopy}>
               <Text style={styles.rowTitle}>{entry.name}</Text>
               <Text style={styles.rowMeta}>{metadata(entry)}</Text>
@@ -183,7 +196,13 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
         {selected ? (
           <>
             <View style={styles.detailArt}>
-              <ProgramArtwork programId={selected.id} />
+              <ProgramArtwork
+                programId={selected.id}
+                title={selected.name}
+                category={selected.category}
+                level={selected.level}
+                workoutsPerWeek={selected.workoutsPerWeek}
+              />
             </View>
             <Text style={styles.featureLabel}>{metadata(selected)}</Text>
             <Text style={styles.description}>{selected.description}</Text>

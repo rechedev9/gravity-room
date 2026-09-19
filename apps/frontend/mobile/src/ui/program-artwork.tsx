@@ -1,34 +1,36 @@
-import { Image, StyleSheet, View } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { getProgramArtwork } from '../lib/programs/program-artwork';
+import { StyleSheet, View } from 'react-native';
+
+import { programCoverSpec } from '../lib/programs/program-cover-spec';
 import { colors } from '../shell/design';
+import { ProgramCover } from './program-cover';
 
 type Props = {
   readonly programId: string | undefined;
+  readonly title?: string | undefined;
+  readonly category?: string | undefined;
+  readonly level?: string | undefined;
+  readonly workoutsPerWeek?: number | undefined;
   readonly thumbnail?: boolean;
 };
 
-export function ProgramArtwork({ programId, thumbnail = false }: Props) {
-  const artwork = getProgramArtwork(programId);
-  const style = thumbnail ? styles.thumbnail : styles.cover;
-  return artwork ? (
-    <View style={style}>
-      <Image
-        accessible={false}
-        source={thumbnail ? artwork.thumbnail : artwork.cover}
-        resizeMode="cover"
-        style={styles.image}
-      />
-    </View>
-  ) : (
-    <View accessible={false} style={[style, styles.fallback]}>
-      <Ionicons name="barbell-outline" size={thumbnail ? 26 : 48} color={colors.accentDeep} />
+/** Program artwork keyed by the stable program id; custom plans derive from their title. */
+export function ProgramArtwork({
+  programId,
+  title,
+  category,
+  level,
+  workoutsPerWeek,
+  thumbnail = false,
+}: Props) {
+  const spec = programCoverSpec({ programId, title, category, level, workoutsPerWeek });
+  return (
+    <View accessible={false} style={thumbnail ? styles.thumbnail : styles.cover}>
+      <ProgramCover spec={spec} variant={thumbnail ? 'thumbnail' : 'cover'} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  image: { width: '100%', height: '100%' },
   cover: { width: '100%', aspectRatio: 1.8, backgroundColor: colors.surface2, overflow: 'hidden' },
   thumbnail: {
     width: 72,
@@ -37,5 +39,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface2,
     overflow: 'hidden',
   },
-  fallback: { alignItems: 'center', justifyContent: 'center' },
 });
