@@ -164,12 +164,16 @@ export function MyPlans({
                 <Text style={styles.rowTitle}>{item.title}</Text>
                 <Text style={styles.meta}>{updated(item)}</Text>
               </View>
-              <Ionicons
-                accessible={false}
-                name="chevron-forward"
-                size={18}
-                color={colors.textMuted}
-              />
+              {/* The trailing control is either the chevron or the delete
+                  button, never both: two icons in a row read as two actions. */}
+              {onDelete ? null : (
+                <Ionicons
+                  accessible={false}
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.textMuted}
+                />
+              )}
             </Pressable>
             {onDelete ? (
               <IconButton
