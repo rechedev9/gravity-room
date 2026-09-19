@@ -630,7 +630,7 @@ describe('TrackerScreen', () => {
     // hands the effect a fresh object every time, exactly like production.
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
     await waitFor(() => expect(mockedFlushQueuedMutations).toHaveBeenCalledTimes(2));
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     expect(mockedFlushQueuedMutations).toHaveBeenCalledTimes(2);
     expect(await screen.findByText(/cached tracker data/i)).toBeTruthy();
     syncSpy.mockRestore();

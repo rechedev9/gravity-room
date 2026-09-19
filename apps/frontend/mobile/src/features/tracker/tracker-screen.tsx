@@ -84,15 +84,17 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
 
   // The bootstrap keeps cached rows when the first flush or fetch fails (for
   // example a token refresh race on cold start). Once the outbox is idle and
-  // we are online, retry once per "cached" episode so the notice clears by
-  // itself. Exactly once: every bootstrap flush publishes a fresh sync status,
-  // so retrying per snapshot would loop for as long as the fetch keeps failing.
+  // we are online, retry the bootstrap once so the notice clears by itself.
+  // The allowance renews only on a new plan, on regaining focus or on a manual
+  // retry, never from the bootstrap itself: it clears and re-sets the notice on
+  // every attempt and every flush publishes a fresh sync snapshot, so keying
+  // the retry on either would loop for as long as the fetch keeps failing.
   useEffect(() => {
-    if (syncNotice !== 'cached') {
-      cachedRetryUsedRef.current = false;
-      return;
-    }
-    if (cachedRetryUsedRef.current) return;
+    cachedRetryUsedRef.current = false;
+  }, [programInstanceId, isFocused]);
+
+  useEffect(() => {
+    if (syncNotice !== 'cached' || cachedRetryUsedRef.current) return;
     if (!syncStatus || syncStatus.offline || syncStatus.readError) return;
     if ((syncStatus.status?.total ?? 0) > 0) return;
     cachedRetryUsedRef.current = true;
@@ -661,6 +663,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
           <Text style={styles.title}>{t('tracker.unavailable')}</Text>
           <Button
             onPress={() => {
+              cachedRetryUsedRef.current = false;
               setLoading(true);
               setReloadToken((value) => value + 1);
             }}
