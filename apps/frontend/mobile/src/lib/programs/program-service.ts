@@ -174,3 +174,21 @@ export async function createProgramInstance(input: {
 
   return GenericProgramDetailSchema.parse(await response.json());
 }
+
+/** Deletes a plan on the server; a missing plan counts as deleted. */
+export async function deleteProgramInstance(programInstanceId: string): Promise<void> {
+  const { response } = await fetchWithAccessToken(
+    `/programs/${encodeURIComponent(programInstanceId)}`,
+    { method: 'DELETE' }
+  );
+  if (response.ok || response.status === 404) return;
+  throw new Error(`Program deletion failed with status ${response.status}`);
+}
+
+/** Existing plans started from the same catalog program. */
+export function findPlansFromProgram(
+  programs: readonly ProgramSummary[],
+  programId: string
+): readonly ProgramSummary[] {
+  return programs.filter((program) => program.programId === programId);
+}

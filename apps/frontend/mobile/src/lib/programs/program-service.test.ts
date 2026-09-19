@@ -1,9 +1,11 @@
 import {
   buildDefaultProgramConfig,
   createProgramInstance,
+  deleteProgramInstance,
   fetchCatalogDefinition,
   fetchCatalogEntries,
   fetchProgramSummaries,
+  findPlansFromProgram,
 } from './program-service';
 
 const mockGetAccessToken = jest.fn<string | null, []>();
@@ -16,6 +18,64 @@ jest.mock('../auth/session', () => ({
   getAccessToken: () => mockGetAccessToken(),
   fetchWithAccessToken: (path: string, init?: RequestInit) => mockFetchWithAccessToken(path, init),
 }));
+
+describe('deleteProgramInstance', () => {
+  afterEach(() => {
+    mockGetAccessToken.mockReset();
+    mockFetchWithAccessToken.mockReset();
+  });
+
+  it('sends DELETE /programs/:id and resolves on 204', async () => {
+    mockFetchWithAccessToken.mockResolvedValue({
+      accessToken: 'token',
+      response: new Response(null, { status: 204 }),
+    });
+    await expect(deleteProgramInstance('plan-1')).resolves.toBeUndefined();
+    expect(mockFetchWithAccessToken).toHaveBeenCalledWith('/programs/plan-1', { method: 'DELETE' });
+  });
+
+  it('treats a 404 as already deleted', async () => {
+    mockFetchWithAccessToken.mockResolvedValue({
+      accessToken: 'token',
+      response: new Response('{}', { status: 404 }),
+    });
+    await expect(deleteProgramInstance('plan-1')).resolves.toBeUndefined();
+  });
+
+  it('rejects on any other failure so the local copy is kept', async () => {
+    mockFetchWithAccessToken.mockResolvedValue({
+      accessToken: 'token',
+      response: new Response('{}', { status: 500 }),
+    });
+    await expect(deleteProgramInstance('plan-1')).rejects.toThrow('status 500');
+  });
+
+  it('encodes the plan id in the path', async () => {
+    mockFetchWithAccessToken.mockResolvedValue({
+      accessToken: 'token',
+      response: new Response(null, { status: 204 }),
+    });
+    await deleteProgramInstance('a/b');
+    expect(mockFetchWithAccessToken).toHaveBeenCalledWith('/programs/a%2Fb', { method: 'DELETE' });
+  });
+});
+
+describe('findPlansFromProgram', () => {
+  const plans = [
+    { id: '1', programId: 'gzclp', title: 'GZCLP', updatedAt: '2026-09-01' },
+    { id: '2', title: 'Custom', updatedAt: '2026-09-02' },
+    { id: '3', programId: 'phul', title: 'PHUL', updatedAt: '2026-09-03' },
+    { id: '4', programId: 'gzclp', title: 'GZCLP', updatedAt: '2026-09-04' },
+  ];
+
+  it('returns every plan started from the program, keeping order', () => {
+    expect(findPlansFromProgram(plans, 'gzclp').map((plan) => plan.id)).toEqual(['1', '4']);
+  });
+
+  it('returns an empty list when the program was never started', () => {
+    expect(findPlansFromProgram(plans, 'nsuns')).toEqual([]);
+  });
+});
 
 describe('fetchProgramSummaries', () => {
   const originalProcess = globalThis.process;

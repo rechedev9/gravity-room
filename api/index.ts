@@ -767,11 +767,15 @@ var ProgramDefinitionSchema = z
 
 // packages/domain/src/schemas/instance.ts
 var MAX_REPS = 999;
+var MAX_SET_LOG_WEIGHT = 1e4;
 var ResultValueSchema = z2.enum(['success', 'fail']);
 var SetLogEntrySchema = z2.strictObject({
   reps: z2.number().int().min(0).max(MAX_REPS),
   weight: z2.number().nonnegative().optional(),
   rpe: z2.number().int().min(1).max(10).optional(),
+});
+var SetLogEntryInputSchema = SetLogEntrySchema.extend({
+  weight: z2.number().nonnegative().max(MAX_SET_LOG_WEIGHT).optional(),
 });
 var SlotResultSchema = z2.strictObject({
   result: ResultValueSchema.optional(),
@@ -4928,7 +4932,6 @@ async function assertUserDataQuotas(tx, userId) {
 
 // apps/backend/api/src/services/programs.ts
 var MAX_SET_LOG_ITEMS = 20;
-var MAX_SET_LOG_WEIGHT = 1e4;
 var MAX_METADATA_BYTES = 1e4;
 async function lockUserForActiveProgramMutation(tx, userId) {
   await lockUserForDataMutation(tx, userId);
@@ -5222,7 +5225,7 @@ function assertSetLogEntriesValid(setLogs, fieldName) {
     );
   }
   for (const setLog of setLogs) {
-    const parsed = SetLogEntrySchema.safeParse(setLog);
+    const parsed = SetLogEntryInputSchema.safeParse(setLog);
     if (!parsed.success) {
       throw new ApiError(400, `Invalid ${fieldName} entry`, 'INVALID_DATA');
     }
@@ -5482,7 +5485,6 @@ var MAX_PROGRAM_CURSOR_CHARS = 256;
 var MAX_PROGRAM_ID_CHARS = 50;
 var MAX_SLOT_ID_CHARS = 50;
 var MAX_WORKOUT_INDEX_KEY_CHARS = String(MAX_TOTAL_WORKOUTS - 1).length;
-var MAX_SET_LOG_WEIGHT2 = 1e4;
 var MAX_SET_LOG_ITEMS2 = 20;
 var PROGRAM_ID_PATTERN = '^[a-z0-9-]+$';
 var WORKOUT_INDEX_KEY_PATTERN = '^\\d+$';
@@ -5509,7 +5511,7 @@ var workoutIndexKeySchema = t2.String({
 var setLogsSchema = t2.Array(
   t2.Object({
     reps: t2.Integer({ minimum: 0, maximum: MAX_REPS }),
-    weight: t2.Optional(t2.Number({ minimum: 0, maximum: MAX_SET_LOG_WEIGHT2 })),
+    weight: t2.Optional(t2.Number({ minimum: 0, maximum: MAX_SET_LOG_WEIGHT })),
     rpe: t2.Optional(t2.Integer({ minimum: 1, maximum: 10 })),
   }),
   { maxItems: MAX_SET_LOG_ITEMS2 }
@@ -6680,7 +6682,6 @@ async function syncCompletedAt(tx, instanceId, workoutIndex, expectedSlots) {
   }
 }
 var MAX_RESULT_WORKOUT_INDEX = MAX_TOTAL_WORKOUTS - 1;
-var MAX_SET_LOG_WEIGHT3 = 1e4;
 var MAX_SET_LOG_ITEMS3 = 20;
 var MAX_SLOT_ID_LENGTH = 50;
 function assertWorkoutIndexInRange(workoutIndex) {
@@ -6710,15 +6711,11 @@ async function recordResult(userId, instanceId, input) {
     throw new ApiError(400, `setLogs cannot exceed ${MAX_SET_LOG_ITEMS3} entries`, 'INVALID_DATA');
   }
   for (const setLog of input.setLogs ?? []) {
-    if (!SetLogEntrySchema.safeParse(setLog).success) {
+    if (!SetLogEntryInputSchema.safeParse(setLog).success) {
       throw new ApiError(400, 'Invalid setLogs entry', 'INVALID_DATA');
     }
-    if (setLog.weight !== void 0 && setLog.weight > MAX_SET_LOG_WEIGHT3) {
-      throw new ApiError(
-        400,
-        `setLogs.weight cannot exceed ${MAX_SET_LOG_WEIGHT3}`,
-        'INVALID_DATA'
-      );
+    if (setLog.weight !== void 0 && setLog.weight > MAX_SET_LOG_WEIGHT) {
+      throw new ApiError(400, `setLogs.weight cannot exceed ${MAX_SET_LOG_WEIGHT}`, 'INVALID_DATA');
     }
   }
   const setLogsValue = input.setLogs ?? null;
@@ -6900,7 +6897,6 @@ async function undoLast(userId, instanceId) {
 // apps/backend/api/src/routes/results.ts
 var security4 = [{ bearerAuth: [] }];
 var MAX_RESULT_WORKOUT_INDEX2 = MAX_TOTAL_WORKOUTS - 1;
-var MAX_SET_LOG_WEIGHT4 = 1e4;
 var resultRoutes = new Elysia8({ prefix: '/programs/:id' })
   .use(requestLogger)
   .use(jwtPlugin)
@@ -6950,7 +6946,7 @@ var resultRoutes = new Elysia8({ prefix: '/programs/:id' })
           t5.Array(
             t5.Object({
               reps: t5.Integer({ minimum: 0, maximum: MAX_REPS }),
-              weight: t5.Optional(t5.Number({ minimum: 0, maximum: MAX_SET_LOG_WEIGHT4 })),
+              weight: t5.Optional(t5.Number({ minimum: 0, maximum: MAX_SET_LOG_WEIGHT })),
               rpe: t5.Optional(t5.Integer({ minimum: 1, maximum: 10 })),
             }),
             { maxItems: 20 }

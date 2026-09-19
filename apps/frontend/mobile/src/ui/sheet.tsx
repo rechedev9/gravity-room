@@ -1,5 +1,6 @@
 import type { PropsWithChildren } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -22,8 +23,17 @@ type Props = PropsWithChildren<{
 
 export function Sheet({ visible, title, onClose, children }: Props) {
   const { t } = useTranslation();
+  // Android delivers the IME's "hide keyboard" back press to the modal too.
+  // A lifter filling a form must not lose it just by hiding the keyboard.
+  const handleRequestClose = () => {
+    if (Keyboard.isVisible()) {
+      Keyboard.dismiss();
+      return;
+    }
+    onClose();
+  };
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleRequestClose}>
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

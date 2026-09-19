@@ -8,12 +8,11 @@ import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
 import { recordResult, deleteResult, undoLast } from '../services/results';
 import { invalidateCachedInstance } from '../lib/program-cache';
-import { MAX_REPS } from '@gzclp/domain/schemas/instance';
+import { MAX_REPS, MAX_SET_LOG_WEIGHT } from '@gzclp/domain/schemas/instance';
 import { MAX_TOTAL_WORKOUTS } from '@gzclp/domain/schemas/program-definition';
 
 const security = [{ bearerAuth: [] }];
 const MAX_RESULT_WORKOUT_INDEX = MAX_TOTAL_WORKOUTS - 1;
-const MAX_SET_LOG_WEIGHT = 10_000;
 
 export const resultRoutes = new Elysia({ prefix: '/programs/:id' })
   .use(requestLogger)

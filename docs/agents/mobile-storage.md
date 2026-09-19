@@ -14,7 +14,10 @@ Its `DatabaseClient` import is type-only, so the runner can be exercised on real
 SQLite without loading the app runtime.
 
 Every connection shares one initialization attempt. Concurrent repositories wait
-for that attempt before using tables. A failed attempt is evicted and can be
+for that attempt before using tables. Repositories open exclusive transactions on
+that one connection, so never start two of them concurrently (for example with
+`Promise.all` over two repository calls): the second transaction fails. Await
+them one after another. A failed attempt is evicted and can be
 retried; each successful schema step and its `user_version` update commit in the
 same transaction. An appended history waits for the previous initialization
 before upgrading. Rewriting or removing existing steps is rejected.

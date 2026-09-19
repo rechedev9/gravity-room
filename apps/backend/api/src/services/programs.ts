@@ -13,9 +13,10 @@ import {
 import { getProgramDefinition } from '../services/catalog';
 import {
   MAX_REPS,
+  MAX_SET_LOG_WEIGHT,
   GenericUndoHistorySchema,
   ProgramInstanceSchema,
-  SetLogEntrySchema,
+  SetLogEntryInputSchema,
 } from '@gzclp/domain/schemas/instance';
 import type { GenericResults, GenericUndoHistory } from '@gzclp/domain/types/program';
 import { ApiError } from '../middleware/error-handler';
@@ -77,7 +78,6 @@ export interface ProgramInstanceResponse {
 // ---------------------------------------------------------------------------
 
 const MAX_SET_LOG_ITEMS = 20;
-const MAX_SET_LOG_WEIGHT = 10_000;
 const MAX_METADATA_BYTES = 10_000;
 
 async function lockUserForActiveProgramMutation(tx: Tx, userId: string): Promise<void> {
@@ -501,7 +501,7 @@ function assertSetLogEntriesValid(
     );
   }
   for (const setLog of setLogs) {
-    const parsed = SetLogEntrySchema.safeParse(setLog);
+    const parsed = SetLogEntryInputSchema.safeParse(setLog);
     if (!parsed.success) {
       throw new ApiError(400, `Invalid ${fieldName} entry`, 'INVALID_DATA');
     }

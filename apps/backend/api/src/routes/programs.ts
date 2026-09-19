@@ -25,6 +25,7 @@ import { SingleflightMap } from '../lib/singleflight';
 import { ApiError } from '../middleware/error-handler';
 import {
   MAX_REPS,
+  MAX_SET_LOG_WEIGHT,
   MAX_PROGRAM_CONFIG_KEYS,
   WorkoutIndexKeySchema,
 } from '@gzclp/domain/schemas/instance';
@@ -37,7 +38,6 @@ const MAX_PROGRAM_CURSOR_CHARS = 256;
 const MAX_PROGRAM_ID_CHARS = 50;
 const MAX_SLOT_ID_CHARS = 50;
 const MAX_WORKOUT_INDEX_KEY_CHARS = String(MAX_TOTAL_WORKOUTS - 1).length;
-const MAX_SET_LOG_WEIGHT = 10_000;
 const MAX_SET_LOG_ITEMS = 20;
 const PROGRAM_ID_PATTERN = '^[a-z0-9-]+$';
 const WORKOUT_INDEX_KEY_PATTERN = '^\\d+$';

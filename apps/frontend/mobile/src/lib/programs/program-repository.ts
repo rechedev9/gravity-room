@@ -89,3 +89,21 @@ export async function listProgramSummaries(): Promise<ProgramSummary[]> {
     updatedAt: row.updated_at,
   }));
 }
+
+/** Removes one cached summary for the active owner; unknown ids are a no-op. */
+export async function removeProgramSummary(programInstanceId: string): Promise<void> {
+  const ownerId = requireActiveLocalDataOwner();
+  const database = getDatabase();
+  await bootstrapDatabase(database);
+  await database.withExclusiveTransactionAsync(async (transaction) => {
+    if (requireActiveLocalDataOwner() !== ownerId)
+      throw new Error('Summary owner changed before write');
+    await transaction.runAsync(
+      'DELETE FROM program_summaries WHERE owner_user_id = ? AND id = ?',
+      ownerId,
+      programInstanceId
+    );
+    if (requireActiveLocalDataOwner() !== ownerId)
+      throw new Error('Summary owner changed during write');
+  });
+}

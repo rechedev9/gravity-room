@@ -25,6 +25,23 @@ state was checked in `workout_results` / `program_instances` after each step.
 | F8  | low    | "Next session" heading renders with an empty list when the following days use different slot ids (previews match by `slotId`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | F10 | low    | Header mixes two day numbers: `WEEK 2 DAY 2` next to the definition's rotation label `Día 1 · Sep 19`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
+## Fixes (follow-up PR)
+
+| Finding     | Status | Change                                                                                                                                                                                |
+| ----------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1          | fixed  | `MAX_SET_LOG_WEIGHT` moved to `@gzclp/domain` (`SetLogEntrySchema.weight.max`); the API imports it. The mobile input now disables ✓ above 10 000 kg, so the queue never stalls on it. |
+| F2          | fixed  | Logged sets below the slot's target reps render as a red ✗ ("missed") in the recorded list.                                                                                           |
+| F5          | fixed  | Starting a catalog program opens a starting-weights sheet (one field per weight input, defaults to the definition minimum, validates min/max) before the instance is created.         |
+| F7          | fixed  | The tracker retries the bootstrap once the sync queue is idle and the device is online, which clears the "cached data" notice by itself.                                              |
+| F8          | fixed  | The "Next session" heading is only rendered when there is at least one matching preview.                                                                                              |
+| F11         | fixed  | Starting a program you already have asks for confirmation first.                                                                                                                      |
+| F12         | fixed  | My plans has a delete control per plan (confirm dialog); it calls `DELETE /programs/:id` and purges the local summary, detail, drafts and queued mutations.                           |
+| F13         | fixed  | Found during verification: the Android keyboard-hide back press closed the starting-weights sheet and discarded the form. `Sheet` now only hides the keyboard in that case.           |
+| F6          | open   | Needs a development build to tell an Expo Go limitation from an app bug.                                                                                                              |
+| F3, F4, F10 | open   | Cosmetic; left for a design pass.                                                                                                                                                     |
+
+Emulator evidence for the fixes lives in [`fixes/`](./fixes/README.md).
+
 ## What worked
 
 - Decimal comma (`2,5` → 2.5 kg), empty and negative weight disable ✓, double-tap guard.

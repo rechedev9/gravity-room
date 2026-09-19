@@ -41,18 +41,23 @@ import {
 
 jest.mock('../../lib/programs/program-repository', () => ({
   listProgramSummaries: jest.fn(),
+  removeProgramSummary: jest.fn(async () => undefined),
   upsertProgramSummaries: jest.fn(),
 }));
 
 jest.mock('../../lib/programs/program-service', () => ({
   buildDefaultProgramConfig: jest.fn(),
   createProgramInstance: jest.fn(),
+  deleteProgramInstance: jest.fn(async () => undefined),
   fetchCatalogDefinition: jest.fn(),
   fetchCatalogEntries: jest.fn(),
   fetchProgramSummaries: jest.fn(),
+  findPlansFromProgram: jest.requireActual('../../lib/programs/program-service')
+    .findPlansFromProgram,
 }));
 
 jest.mock('../../lib/tracker/program-detail-repository', () => ({
+  purgeProgramLocalData: jest.fn(async () => undefined),
   upsertProgramDefinition: jest.fn(),
   upsertProgramDetail: jest.fn(),
 }));
@@ -327,6 +332,7 @@ describe('ProgramsScreen', () => {
     render(<ProgramsScreen onOpenProgram={onOpenProgram} />);
 
     fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
+    fireEvent.press(await screen.findByRole('button', { name: 'Start program' }));
 
     await waitFor(() => {
       expect(mockedCreateProgramInstance).toHaveBeenCalledWith({
@@ -347,6 +353,109 @@ describe('ProgramsScreen', () => {
     ]);
     expect(onOpenProgram).toHaveBeenCalledWith('created-program');
   });
+  it('asks for starting weights and creates the plan with the lifter values', async () => {
+    mockedListProgramSummaries.mockResolvedValue([]);
+    mockedFetchCatalogEntries.mockResolvedValue([CATALOG_ENTRY]);
+    mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
+    mockedCreateProgramInstance.mockResolvedValue(CREATED_DETAIL);
+    const onOpenProgram = jest.fn();
+    render(<ProgramsScreen mode="catalog" onOpenProgram={onOpenProgram} />);
+    const card = (await screen.findAllByRole('button', { name: 'View GZCLP' }))[0];
+    if (!card) throw new Error('Missing catalog card');
+    fireEvent.press(card);
+    fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
+
+    const input = await screen.findByLabelText('Squat');
+    expect(input.props.value).toBe('20');
+    expect(mockedCreateProgramInstance).not.toHaveBeenCalled();
+    fireEvent.changeText(input, '82,5');
+    fireEvent.press(screen.getByRole('button', { name: 'Start program' }));
+
+    await waitFor(() =>
+      expect(mockedCreateProgramInstance).toHaveBeenCalledWith({
+        programId: 'gzclp',
+        name: 'GZCLP',
+        config: { squat: 82.5 },
+      })
+    );
+    expect(onOpenProgram).toHaveBeenCalledWith('created-program');
+  });
+
+  it('keeps the sheet open and explains a starting weight below the program minimum', async () => {
+    mockedListProgramSummaries.mockResolvedValue([]);
+    mockedFetchCatalogEntries.mockResolvedValue([CATALOG_ENTRY]);
+    mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
+    render(<ProgramsScreen mode="catalog" />);
+    const card = (await screen.findAllByRole('button', { name: 'View GZCLP' }))[0];
+    if (!card) throw new Error('Missing catalog card');
+    fireEvent.press(card);
+    fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
+    fireEvent.changeText(await screen.findByLabelText('Squat'), '10');
+    fireEvent.press(screen.getByRole('button', { name: 'Start program' }));
+    expect(await screen.findByText('At least 20 kg')).toBeTruthy();
+    expect(mockedCreateProgramInstance).not.toHaveBeenCalled();
+  });
+
+  it('warns before starting a program that already has a plan and only continues on confirm', async () => {
+    const { Alert } = jest.requireActual<typeof import('react-native')>('react-native');
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockedListProgramSummaries.mockResolvedValue([{ ...PROGRAM_A, programId: 'gzclp' }]);
+    mockedFetchCatalogEntries.mockResolvedValue([CATALOG_ENTRY]);
+    mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
+    render(<ProgramsScreen mode="catalog" />);
+    const card = (await screen.findAllByRole('button', { name: 'View GZCLP' }))[0];
+    if (!card) throw new Error('Missing catalog card');
+    fireEvent.press(card);
+    fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+    expect(alertSpy.mock.calls[0]?.[0]).toBe('You already have GZCLP');
+    expect(screen.queryByLabelText('Squat')).toBeNull();
+
+    const buttons = alertSpy.mock.calls[0]?.[2] ?? [];
+    const confirm = buttons.find((button) => button.style !== 'cancel');
+    await act(async () => {
+      confirm?.onPress?.();
+    });
+    expect(await screen.findByLabelText('Squat')).toBeTruthy();
+    alertSpy.mockRestore();
+  });
+
+  it('deletes a plan after confirmation and drops it from My plans', async () => {
+    const { Alert } = jest.requireActual<typeof import('react-native')>('react-native');
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const { deleteProgramInstance } = jest.requireMock<
+      typeof import('../../lib/programs/program-service')
+    >('../../lib/programs/program-service');
+    const { removeProgramSummary } = jest.requireMock<
+      typeof import('../../lib/programs/program-repository')
+    >('../../lib/programs/program-repository');
+    const { purgeProgramLocalData } = jest.requireMock<
+      typeof import('../../lib/tracker/program-detail-repository')
+    >('../../lib/tracker/program-detail-repository');
+    mockedListProgramSummaries.mockResolvedValue([PROGRAM_B, PROGRAM_A]);
+    mockedFetchProgramSummaries.mockResolvedValue([PROGRAM_B, PROGRAM_A]);
+    mockedUpsertProgramSummaries.mockResolvedValue();
+    render(<ProgramsScreen mode="instances" />);
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Delete GZCLP A' }));
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledTimes(1));
+    expect(deleteProgramInstance).not.toHaveBeenCalled();
+
+    const buttons = alertSpy.mock.calls[0]?.[2] ?? [];
+    const confirm = buttons.find((button) => button.style === 'destructive');
+    await act(async () => {
+      confirm?.onPress?.();
+    });
+
+    await waitFor(() => expect(deleteProgramInstance).toHaveBeenCalledWith('prog-1'));
+    expect(removeProgramSummary).toHaveBeenCalledWith('prog-1');
+    expect(purgeProgramLocalData).toHaveBeenCalledWith('prog-1');
+    await waitFor(() => expect(screen.queryByText('GZCLP A')).toBeNull());
+    expect(screen.getByText('Stronglifts 5x5')).toBeTruthy();
+    alertSpy.mockRestore();
+  });
+
   it('preserves cached plans when creating from an unopened catalog summary query', async () => {
     mockedListProgramSummaries.mockResolvedValue([PROGRAM_A, PROGRAM_B]);
     mockedFetchCatalogEntries.mockResolvedValue([CATALOG_ENTRY]);
@@ -358,6 +467,7 @@ describe('ProgramsScreen', () => {
     if (!card) throw new Error('Missing catalog card');
     fireEvent.press(card);
     fireEvent.press(await screen.findByRole('button', { name: 'Start GZCLP' }));
+    fireEvent.press(await screen.findByRole('button', { name: 'Start program' }));
     await waitFor(() =>
       expect(mockedUpsertProgramSummaries).toHaveBeenCalledWith([
         {

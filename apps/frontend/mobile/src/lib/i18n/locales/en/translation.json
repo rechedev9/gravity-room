@@ -1,6 +1,7 @@
 {
   "common": {
-    "retry": "Retry"
+    "retry": "Retry",
+    "cancel": "Cancel"
   },
   "nav": {
     "train": "Train",
@@ -77,10 +78,16 @@
       "load": "Unable to load cached programs.",
       "sync": "Unable to sync programs right now.",
       "catalog": "Unable to load the program catalog right now.",
-      "start": "Unable to start that program right now."
+      "start": "Unable to start that program right now.",
+      "delete": "Unable to delete that plan right now. Check your connection and try again."
     },
     "templates_intro": "Find a plan that fits the way you train.",
-    "mesos_intro": "Your training plans, ready when you are."
+    "mesos_intro": "Your training plans, ready when you are.",
+    "duplicate": {
+      "title": "You already have {{name}}",
+      "body": "Starting it again creates a second plan with the same name. Your current plan keeps its progress.",
+      "confirm": "Start another"
+    }
   },
   "train": {
     "empty": {
@@ -154,7 +161,8 @@
       "weight_accessibility": "Weight for set {{index}} of {{name}}",
       "reps_accessibility": "Reps for set {{index}} of {{name}}",
       "logged": "Set {{index}}: {{reps}} reps at {{weight}} kg",
-      "logged_reps": "{{reps}} reps"
+      "logged_reps": "{{reps}} reps",
+      "logged_miss": "Set {{index}}: {{reps}} reps at {{weight}} kg, below target"
     },
     "session_position": "WEEK {{week}} DAY {{day}}",
     "week": "Week {{week}}",
@@ -219,7 +227,11 @@
     "other": "Your other plans",
     "empty": "Find a program in Explore to get started.",
     "explore": "Explore programs",
-    "explore_hint": "Find your next training plan."
+    "explore_hint": "Find your next training plan.",
+    "delete": "Delete {{name}}",
+    "delete_title": "Delete this plan?",
+    "delete_body": "{{name}} and all its logged workouts will be removed from every device.",
+    "delete_confirm": "Delete"
   },
   "sync": {
     "offline": "You’re offline",
@@ -233,5 +245,17 @@
     "unavailable": "Sync status unavailable",
     "unavailable_detail": "Try again to check your saved changes.",
     "retry_label": "Retry syncing saved changes"
+  },
+  "starting_weights": {
+    "title": "Starting weights · {{name}}",
+    "intro": "Enter the weight you lift today for each movement. The program builds every session from these numbers.",
+    "hint": "Min {{min}} kg · steps of {{step}} kg",
+    "confirm": "Start program",
+    "errors": {
+      "required": "Enter a weight",
+      "invalid": "Enter a number, e.g. 60 or 62,5",
+      "below_min": "At least {{min}} kg",
+      "above_max": "At most {{max}} kg"
+    }
   }
 }

@@ -7,7 +7,11 @@ import { getDb } from '../db';
 import { programInstances, workoutResults, undoEntries } from '@gzclp/database/schema';
 import { ApiError } from '../middleware/error-handler';
 import { getHistoricalProgramDefinition } from '../services/catalog';
-import { MAX_REPS, SetLogEntrySchema } from '@gzclp/domain/schemas/instance';
+import {
+  MAX_REPS,
+  MAX_SET_LOG_WEIGHT,
+  SetLogEntryInputSchema,
+} from '@gzclp/domain/schemas/instance';
 import { MAX_TOTAL_WORKOUTS } from '@gzclp/domain/schemas/program-definition';
 import type { SetLogEntry } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
@@ -195,7 +199,6 @@ async function syncCompletedAt(
 // ---------------------------------------------------------------------------
 
 const MAX_RESULT_WORKOUT_INDEX = MAX_TOTAL_WORKOUTS - 1;
-const MAX_SET_LOG_WEIGHT = 10_000;
 const MAX_SET_LOG_ITEMS = 20;
 const MAX_SLOT_ID_LENGTH = 50;
 
@@ -232,7 +235,7 @@ export async function recordResult(
     throw new ApiError(400, `setLogs cannot exceed ${MAX_SET_LOG_ITEMS} entries`, 'INVALID_DATA');
   }
   for (const setLog of input.setLogs ?? []) {
-    if (!SetLogEntrySchema.safeParse(setLog).success) {
+    if (!SetLogEntryInputSchema.safeParse(setLog).success) {
       throw new ApiError(400, 'Invalid setLogs entry', 'INVALID_DATA');
     }
     if (setLog.weight !== undefined && setLog.weight > MAX_SET_LOG_WEIGHT) {
