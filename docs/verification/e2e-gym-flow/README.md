@@ -36,6 +36,7 @@ state was checked in `workout_results` / `program_instances` after each step.
 | F8          | fixed  | The "Next session" heading is only rendered when there is at least one matching preview.                                                                                              |
 | F11         | fixed  | Starting a program you already have asks for confirmation first.                                                                                                                      |
 | F12         | fixed  | My plans has a delete control per plan (confirm dialog); it calls `DELETE /programs/:id` and purges the local summary, detail, drafts and queued mutations.                           |
+| F13         | fixed  | Found during verification: the Android keyboard-hide back press closed the starting-weights sheet and discarded the form. `Sheet` now only hides the keyboard in that case.           |
 | F6          | open   | Needs a development build to tell an Expo Go limitation from an app bug.                                                                                                              |
 | F3, F4, F10 | open   | Cosmetic; left for a design pass.                                                                                                                                                     |
 

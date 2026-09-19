@@ -148,6 +148,7 @@ export function ProgramsScreen({
   }, [reloadToken, mode]);
 
   function handleRetry() {
+    setDeleteError(null);
     void summaryQuery.refetch();
     setReloadToken((value) => value + 1);
   }
@@ -236,7 +237,10 @@ export function ProgramsScreen({
     try {
       await deleteProgramInstance(program.id);
       await queryClient.cancelQueries({ queryKey: PROGRAM_SUMMARIES_KEY });
-      await Promise.all([removeProgramSummary(program.id), purgeProgramLocalData(program.id)]);
+      // Sequential on purpose: both run an exclusive transaction on the shared
+      // SQLite connection, and overlapping exclusive transactions fail.
+      await removeProgramSummary(program.id);
+      await purgeProgramLocalData(program.id);
       queryClient.setQueryData<ProgramSummariesData | undefined>(PROGRAM_SUMMARIES_KEY, (prev) =>
         prev ? { ...prev, programs: prev.programs.filter((item) => item.id !== program.id) } : prev
       );
@@ -277,8 +281,8 @@ export function ProgramsScreen({
       <MyPlans
         programs={programs}
         loading={loading}
-        error={error ?? deleteError}
-        syncNotice={syncNotice}
+        error={error}
+        syncNotice={deleteError ?? syncNotice}
         onRetry={handleRetry}
         onOpen={onOpenProgram}
         onExplore={onExplorePrograms}
