@@ -42,6 +42,7 @@ import {
   recordedWorkoutVolume,
 } from './workout-navigation';
 import { Button } from '../../ui/button';
+import { classifyTrackerLoadFailure, type TrackerLoadFailure } from './tracker-load-error';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { IconButton } from '../../ui/icon-button';
 import { Screen } from '../../ui/screen';
@@ -50,6 +51,8 @@ type TrackerScreenProps = {
   readonly isFocused?: boolean;
   readonly programInstanceId: string;
   readonly onBack: () => void;
+  /** Called when the template itself cannot be loaded. Network failures stay on this screen. */
+  readonly onTemplateUnavailable?: (failure: TrackerLoadFailure) => void;
 };
 
 const MAX_RPE = 10;
@@ -62,7 +65,12 @@ function resolveProgramDefinition(detail: GenericProgramDetail): ProgramDefiniti
   }
 }
 
-export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: TrackerScreenProps) {
+export function TrackerScreen({
+  programInstanceId,
+  onBack,
+  isFocused = true,
+  onTemplateUnavailable,
+}: TrackerScreenProps) {
   const { t, i18n } = useTranslation();
   const restTimer = useRestTimer();
   const queryClient = useQueryClient();
@@ -70,6 +78,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
   const [detail, setDetail] = useState<GenericProgramDetail | null>(null);
   const [definition, setDefinition] = useState<ProgramDefinition | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailure, setLoadFailure] = useState<TrackerLoadFailure | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const syncStatus = useSyncStatus();
   const [syncNotice, setSyncNotice] = useState<'cached' | 'draft_failed' | null>(null);
@@ -81,6 +90,9 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
   const pendingLocalEditsRef = useRef(0);
   const [pendingLocalEdits, setPendingLocalEdits] = useState(0);
   const cachedRetryUsedRef = useRef(false);
+  const onTemplateUnavailableRef = useRef(onTemplateUnavailable);
+  onTemplateUnavailableRef.current = onTemplateUnavailable;
+  const alignWorkoutRef = useRef(true);
 
   // The bootstrap keeps cached rows when the first flush or fetch fails (for
   // example a token refresh race on cold start). Once the outbox is idle and
@@ -278,7 +290,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
           if (!hasCachedTracker || localStateVersionRef.current === refreshLocalStateVersion) {
             acceptLoadedDetail(freshDetail);
           }
-        } catch {
+        } catch (error) {
           if (!active) {
             return;
           }
@@ -289,13 +301,16 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
             return;
           }
 
-          throw new Error('Missing tracker bootstrap data');
+          throw error;
         }
-      } catch {
+      } catch (error) {
         if (!active) {
           return;
         }
 
+        const failure = classifyTrackerLoadFailure(error);
+        setLoadFailure(failure);
+        if (failure !== 'unavailable') onTemplateUnavailableRef.current?.(failure);
         setLoading(false);
       }
     }
@@ -643,8 +658,18 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
   const canUndo = (detail?.undoHistory.length ?? 0) > 0;
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    alignWorkoutRef.current = true;
   }, [selectedWorkoutIndex, completed]);
+
+  function alignWorkoutScroll(): void {
+    if (!alignWorkoutRef.current) return;
+    alignWorkoutRef.current = false;
+    if (completed) {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+      return;
+    }
+    scrollRef.current?.scrollToEnd({ animated: false });
+  }
 
   if (loading) {
     return (
@@ -657,13 +682,27 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
   }
 
   if (!detail || !definition || !selectedRow) {
+    const failureTitle =
+      loadFailure === 'missing_template'
+        ? t('tracker.missing_template_title')
+        : loadFailure === 'template_unreadable'
+          ? t('tracker.template_unreadable_title')
+          : t('tracker.unavailable');
+    const failureBody =
+      loadFailure === 'missing_template'
+        ? t('tracker.missing_template_body')
+        : loadFailure === 'template_unreadable'
+          ? t('tracker.template_unreadable_body')
+          : t('tracker.unavailable_body');
     return (
       <Screen>
         <View style={styles.centerBlock}>
-          <Text style={styles.title}>{t('tracker.unavailable')}</Text>
+          <Text style={styles.title}>{failureTitle}</Text>
+          <Text style={styles.body}>{failureBody}</Text>
           <Button
             onPress={() => {
               cachedRetryUsedRef.current = false;
+              setLoadFailure(null);
               setLoading(true);
               setReloadToken((value) => value + 1);
             }}
@@ -682,6 +721,7 @@ export function TrackerScreen({ programInstanceId, onBack, isFocused = true }: T
         ref={scrollRef}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
+        onContentSizeChange={alignWorkoutScroll}
       >
         <View style={styles.chrome}>
           <View style={{ flex: 1, gap: 2 }}>
@@ -882,7 +922,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.screenX,
     paddingTop: 12,
-    paddingBottom: 24,
+    paddingBottom: spacing.tabClearance,
     gap: 10,
   },
   centerBlock: {

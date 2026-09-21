@@ -11,7 +11,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@gzclp/domain';
-import { colors, type } from '../../shell/design';
+import { colors, spacing, type } from '../../shell/design';
 import { Screen } from '../../ui/screen';
 import { Chip } from '../../ui/chip';
 import { Sheet } from '../../ui/sheet';
@@ -235,7 +235,7 @@ export function CatalogBrowser({ entries, loading, error, creatingId, onRetry, o
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 20, paddingBottom: 32, gap: 14 },
+  content: { padding: 20, paddingBottom: spacing.tabClearance, gap: 14 },
   brand: { ...type.kicker, color: colors.accent, letterSpacing: 3, marginBottom: 6 },
   title: { ...type.display, fontSize: 34, lineHeight: 38, maxWidth: 310 },
   subtitle: { ...type.body, fontSize: 14, lineHeight: 21 },

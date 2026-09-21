@@ -28,14 +28,14 @@ type FormMessage = { readonly kind: 'error' | 'success'; readonly text: string }
 export function LoginScreen() {
   const { t } = useTranslation();
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, signInWithDev } = useAuth();
-  const { disabled, promptAsync } = useGoogleIdTokenPrompt();
+  const { configured: googleConfigured, disabled, promptAsync } = useGoogleIdTokenPrompt();
 
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [devSubmitting, setDevSubmitting] = useState(false);
 
   // Email/password progressive-disclosure form state (mirrors the web login page).
-  const [showEmail, setShowEmail] = useState(false);
+  const [showEmail, setShowEmail] = useState(!googleConfigured);
   const [emailMode, setEmailMode] = useState<EmailMode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -155,17 +155,19 @@ export function LoginScreen() {
               <Text style={styles.title}>{t('login.title')}</Text>
               <Text style={styles.body}>{t('login.google_body')}</Text>
 
-              <Button
-                variant="primary"
-                accessibilityLabel={googleLabel}
-                disabled={disabled || googleSubmitting}
-                isLoading={googleSubmitting}
-                onPress={() => {
-                  void handleGooglePress();
-                }}
-              >
-                {googleLabel}
-              </Button>
+              {googleConfigured ? (
+                <Button
+                  variant="primary"
+                  accessibilityLabel={googleLabel}
+                  disabled={disabled || googleSubmitting}
+                  isLoading={googleSubmitting}
+                  onPress={() => {
+                    void handleGooglePress();
+                  }}
+                >
+                  {googleLabel}
+                </Button>
+              ) : null}
 
               {googleError ? (
                 <View style={styles.errorBanner} accessibilityRole="alert">
@@ -173,13 +175,15 @@ export function LoginScreen() {
                 </View>
               ) : null}
 
-              <View style={styles.dividerRow}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerLabel}>{t('login.divider')}</Text>
-                <View style={styles.dividerLine} />
-              </View>
+              {googleConfigured ? (
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerLabel}>{t('login.divider')}</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+              ) : null}
 
-              {!showEmail ? (
+              {googleConfigured && !showEmail ? (
                 <Button
                   accessibilityLabel={t('login.email.toggle')}
                   onPress={() => setShowEmail(true)}

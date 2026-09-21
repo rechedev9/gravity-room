@@ -67,6 +67,7 @@ const mockPromptAsync = jest.fn<Promise<string | null>, []>();
 
 jest.mock('../features/auth/google-sign-in', () => ({
   useGoogleIdTokenPrompt: () => ({
+    configured: true,
     disabled: false,
     promptAsync: () => mockPromptAsync(),
   }),

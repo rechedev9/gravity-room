@@ -110,6 +110,11 @@
   "tracker": {
     "loading": "Cargando registro...",
     "unavailable": "Registro no disponible",
+    "unavailable_body": "Comprueba la conexión y vuelve a intentarlo.",
+    "missing_template_title": "Este plan no se puede abrir",
+    "missing_template_body": "Su plantilla ya no está en el catálogo. Abre otro plan desde Mis planes.",
+    "template_unreadable_title": "Este plan no se puede abrir",
+    "template_unreadable_body": "No se ha podido cargar su plantilla. Abre otro plan desde Mis planes.",
     "back": "Volver",
     "back_programs": "Volver a Mis planes",
     "previous": "Anterior",

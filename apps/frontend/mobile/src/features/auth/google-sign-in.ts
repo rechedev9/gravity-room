@@ -7,6 +7,8 @@ import { canPersistRefreshToken } from '../../lib/auth/secure-storage';
 WebBrowser.maybeCompleteAuthSession();
 
 type GoogleAuthResult = {
+  /** False when this build has no usable Google client configuration. */
+  readonly configured: boolean;
   readonly disabled: boolean;
   readonly promptAsync: () => Promise<string | null>;
 };
@@ -53,8 +55,11 @@ export function useGoogleIdTokenPrompt(): GoogleAuthResult {
     };
   }, []);
 
+  const configured = hasConfiguredClientId && bodyRefreshTokenAllowed;
+
   return {
-    disabled: request === null || !hasConfiguredClientId || !bodyRefreshTokenAllowed,
+    configured,
+    disabled: request === null || !configured,
     promptAsync: async () => {
       if (!hasConfiguredClientId || !bodyRefreshTokenAllowed) {
         return null;

@@ -17,7 +17,11 @@ const mockSignInWithDev = jest.fn<Promise<AuthActionResult>, []>();
 const mockPromptAsync = jest.fn<Promise<string | null>, []>();
 const mockFocus = jest.fn<void, [string]>();
 const mockUseGoogleIdTokenPrompt = jest.fn<
-  { readonly disabled: boolean; readonly promptAsync: () => Promise<string | null> },
+  {
+    readonly configured: boolean;
+    readonly disabled: boolean;
+    readonly promptAsync: () => Promise<string | null>;
+  },
   []
 >();
 
@@ -52,6 +56,7 @@ jest.mock('../../ui/text-input', () => {
 describe('LoginScreen', () => {
   beforeEach(() => {
     mockUseGoogleIdTokenPrompt.mockReturnValue({
+      configured: true,
       disabled: false,
       promptAsync: () => mockPromptAsync(),
     });
@@ -305,5 +310,19 @@ describe('LoginScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Create account' }));
 
     expect(await screen.findByText('An account with this email already exists.')).toBeTruthy();
+  });
+
+  it('uses email sign-in as the primary control when Google is not configured', () => {
+    mockUseGoogleIdTokenPrompt.mockReturnValue({
+      configured: false,
+      disabled: true,
+      promptAsync: () => mockPromptAsync(),
+    });
+
+    render(<LoginScreen />);
+
+    expect(screen.queryByRole('button', { name: 'Continue with Google' })).toBeNull();
+    expect(screen.getByPlaceholderText('you@example.com')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
   });
 });

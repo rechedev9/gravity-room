@@ -10,13 +10,12 @@ export default function WorkoutRoute() {
       return () => setIsFocused(false);
     }, [])
   );
-  const { id } = useLocalSearchParams<{ id?: string }>();
-  const [instanceId, setInstanceId] = useState<string | null>(null);
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const requestedProgramId = typeof id === 'string' && id.length > 0 ? id : null;
   return (
     <TrainScreen
       isFocused={isFocused}
-      programInstanceId={id ?? instanceId}
-      onResolvedProgram={setInstanceId}
+      requestedProgramId={requestedProgramId}
       onOpenPrograms={() => router.navigate('/mesos')}
     />
   );
