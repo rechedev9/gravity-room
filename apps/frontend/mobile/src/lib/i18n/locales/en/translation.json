@@ -110,6 +110,11 @@
   "tracker": {
     "loading": "Loading tracker...",
     "unavailable": "Tracker unavailable",
+    "unavailable_body": "Check your connection and try again.",
+    "missing_template_title": "This plan can't be opened",
+    "missing_template_body": "Its template is no longer in the catalog. Open another plan from My plans.",
+    "template_unreadable_title": "This plan can't be opened",
+    "template_unreadable_body": "Its template could not be loaded. Open another plan from My plans.",
     "back": "Back",
     "back_programs": "Back to My plans",
     "previous": "Prev",

@@ -36,6 +36,8 @@ export const spacing = {
   card: 16,
   controlY: 12,
   controlX: 16,
+  /** Room under scroll content so the last control clears the tab bar. */
+  tabClearance: 96,
 } as const;
 
 export const radii = {

@@ -2,7 +2,7 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from '
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import type { ProgramSummary } from '../../lib/programs/program-repository';
-import { colors, type } from '../../shell/design';
+import { colors, spacing, type } from '../../shell/design';
 import { Screen } from '../../ui/screen';
 import { Button } from '../../ui/button';
 import { IconButton } from '../../ui/icon-button';
@@ -212,7 +212,7 @@ export function MyPlans({
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 20, gap: 12, paddingBottom: 32 },
+  content: { padding: 20, gap: 12, paddingBottom: spacing.tabClearance },
   header: { gap: 12 },
   topLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   eyebrow: { ...type.kicker, color: colors.accent, letterSpacing: 2 },

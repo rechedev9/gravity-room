@@ -541,6 +541,51 @@ describe('TrackerScreen', () => {
     expect(mockedFetchProgramDetail).toHaveBeenCalledTimes(2);
   });
 
+  it('explains a missing template and reports it so Train can open another plan', async () => {
+    mockedGetProgramDetail.mockResolvedValue(null);
+    mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedFetchProgramDefinition.mockRejectedValue(
+      new Error('Program definition fetch failed with status 404')
+    );
+    const onTemplateUnavailable = jest.fn();
+    render(
+      <TrackerScreen
+        programInstanceId="instance-1"
+        onBack={jest.fn()}
+        onTemplateUnavailable={onTemplateUnavailable}
+      />
+    );
+
+    expect(await screen.findByText("This plan can't be opened")).toBeTruthy();
+    expect(
+      screen.getByText('Its template is no longer in the catalog. Open another plan from My plans.')
+    ).toBeTruthy();
+    expect(screen.queryByText('Tracker unavailable')).toBeNull();
+    expect(onTemplateUnavailable).toHaveBeenCalledWith('missing_template');
+  });
+
+  it('explains a template the catalog cannot read', async () => {
+    mockedGetProgramDetail.mockResolvedValue(null);
+    mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedFetchProgramDefinition.mockRejectedValue(
+      new Error('Program definition fetch failed with status 500')
+    );
+    const onTemplateUnavailable = jest.fn();
+    render(
+      <TrackerScreen
+        programInstanceId="instance-1"
+        onBack={jest.fn()}
+        onTemplateUnavailable={onTemplateUnavailable}
+      />
+    );
+
+    expect(await screen.findByText("This plan can't be opened")).toBeTruthy();
+    expect(
+      screen.getByText('Its template could not be loaded. Open another plan from My plans.')
+    ).toBeTruthy();
+    expect(onTemplateUnavailable).toHaveBeenCalledWith('template_unreadable');
+  });
+
   it('preserves final-set edits through a deferred SQLite completion failure and retry', async () => {
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
