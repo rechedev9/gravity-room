@@ -1,13 +1,13 @@
 name: CI backend
 
 on:
-  pull_request:
-    paths-ignore:
-      - 'apps/frontend/web/**'
   push:
     branches: [main]
     paths-ignore:
       - 'apps/frontend/web/**'
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
