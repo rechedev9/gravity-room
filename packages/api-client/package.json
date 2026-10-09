@@ -20,6 +20,7 @@
     "./api-error": "./src/api-error.ts",
     "./response-error": "./src/response-error.ts",
     "./cursor-pages": "./src/cursor-pages.ts",
+    "./program-requests": "./src/program-requests.ts",
     "./single-flight": "./src/single-flight.ts",
     "./path-identifier": "./src/path-identifier.ts"
   }
