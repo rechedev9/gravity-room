@@ -52,7 +52,8 @@ function renderScreen(): void {
 }
 
 beforeEach(() => {
-  jest.resetAllMocks();
+  pageMock.mockReset();
+  groupsMock.mockReset();
   groupsMock.mockResolvedValue([
     { id: 'legs', name: 'Piernas' },
     { id: 'chest', name: 'Pecho' },
