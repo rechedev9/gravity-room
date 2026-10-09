@@ -218,7 +218,7 @@ export const ES_CONTENT: LandingContent = {
       'Elige un programa probado. Gravity Room calcula tus pesos, series y progresión. Tú solo entrenas.',
     primaryCta: 'Crear mi plan gratis →',
     secondaryCta: 'Probar sin cuenta',
-    microcopy: '0 € · Sin tarjeta · Sin anuncios',
+    microcopy: 'Sin anuncios · Sin suscripción',
     proofItems: [
       { value: '✓', label: 'Programas probados' },
       { value: '✓', label: 'Progresión automática' },
@@ -406,7 +406,7 @@ export const EN_CONTENT: LandingContent = {
       'Pick a proven program. Gravity Room calculates your weights, sets, reps, and progression. You just train.',
     primaryCta: 'Create my free plan →',
     secondaryCta: 'Try without an account',
-    microcopy: '$0 · No card · No ads',
+    microcopy: 'No ads · No subscription',
     proofItems: [
       { value: '✓', label: 'Proven programs' },
       { value: '✓', label: 'Auto progression' },
