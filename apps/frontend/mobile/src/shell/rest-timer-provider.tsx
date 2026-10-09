@@ -10,6 +10,7 @@ import { AppState, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RestTimer } from '../lib/rest/rest-timer';
 import { restAlerts } from '../lib/rest/rest-alerts';
+import { useRestAlertsPreference } from '../lib/rest/rest-alerts-preference';
 import { Button } from '../ui/button';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, type } from './design';
@@ -46,17 +47,20 @@ export function RestTimerBanner() {
   const timer = useRestTimer();
   const state = useSyncExternalStore(timer.subscribe, timer.getSnapshot, timer.getSnapshot);
   const { t } = useTranslation();
+  const alerts = useRestAlertsPreference();
   if (state.endsAt === null) return null;
   return (
     <View style={styles.banner}>
       <Ionicons accessible={false} name="timer-outline" size={22} color={colors.accent} />
       <View style={styles.copy}>
-        <Text style={styles.label}>{t('rest.title')}</Text>
-        <Text accessibilityRole="timer" style={styles.time}>
-          {Math.floor(state.remainingSeconds / 60)}:
-          {String(state.remainingSeconds % 60).padStart(2, '0')}
-        </Text>
-        {state.alertUnavailable ? (
+        <View style={styles.headline}>
+          <Text style={styles.label}>{t('rest.title')}</Text>
+          <Text accessibilityRole="timer" style={styles.time}>
+            {Math.floor(state.remainingSeconds / 60)}:
+            {String(state.remainingSeconds % 60).padStart(2, '0')}
+          </Text>
+        </View>
+        {state.alertUnavailable && alerts.enabled ? (
           <Text style={styles.notice}>{t('rest.alert_unavailable')}</Text>
         ) : null}
       </View>
@@ -84,8 +88,9 @@ const styles = StyleSheet.create({
     borderColor: colors.ruleStrong,
     backgroundColor: colors.header,
   },
-  copy: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
-  label: { ...type.body, fontSize: 14 },
+  copy: { flex: 1, gap: 2, paddingVertical: 4 },
+  headline: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
+  label: { ...type.body, fontSize: 14, lineHeight: 20 },
   time: { ...type.title, color: colors.accent },
-  notice: { ...type.body, fontSize: 12, width: '100%' },
+  notice: { ...type.body, fontSize: 12, lineHeight: 16 },
 });

@@ -35,4 +35,14 @@ describe('Sheet', () => {
     expect(dismiss).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it('keeps the footer outside the scrolling content', () => {
+    render(
+      <Sheet visible title="Weights" onClose={jest.fn()} footer={<Text>pinned action</Text>}>
+        <Text>body</Text>
+      </Sheet>
+    );
+    expect(screen.getByText('pinned action')).toBeTruthy();
+    expect(screen.getByText('body')).toBeTruthy();
+  });
 });

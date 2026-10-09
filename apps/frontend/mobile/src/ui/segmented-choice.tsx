@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, type } from '../shell/design';
+import { colors, radii, type } from '../shell/design';
 
 type Props<Value extends string> = {
   readonly label: string;
@@ -42,20 +42,27 @@ export function SegmentedChoice<Value extends string>({
 }
 
 const styles = StyleSheet.create({
-  group: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  group: {
+    flexDirection: 'row',
+    gap: 4,
+    padding: 4,
+    borderRadius: radii.base + 4,
+    backgroundColor: colors.canvas,
+    borderWidth: 1,
+    borderColor: colors.rule,
+  },
   option: {
-    flexGrow: 1,
+    flex: 1,
+    borderRadius: radii.base,
     minHeight: 44,
     minWidth: 44,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colors.ruleStrong,
   },
-  label: { ...type.meta },
-  selected: { backgroundColor: colors.accent, borderColor: colors.accent },
+  label: { ...type.button, color: colors.textMuted },
+  selected: { backgroundColor: colors.accent },
   selectedLabel: { color: colors.onAccent },
   disabled: { opacity: 0.35 },
 });

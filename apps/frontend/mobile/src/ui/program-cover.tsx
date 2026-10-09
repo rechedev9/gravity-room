@@ -13,7 +13,7 @@ type Props = {
 /** Logical canvases; the SVG scales to fill its parent at these ratios. */
 const CANVAS: Readonly<Record<CoverVariant, { readonly width: number; readonly height: number }>> =
   {
-    cover: { width: 180, height: 100 },
+    cover: { width: 180, height: 72 },
     thumbnail: { width: 72, height: 64 },
   };
 

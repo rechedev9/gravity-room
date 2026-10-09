@@ -31,7 +31,7 @@ export function ProgramArtwork({
 }
 
 const styles = StyleSheet.create({
-  cover: { width: '100%', aspectRatio: 1.8, backgroundColor: colors.surface2, overflow: 'hidden' },
+  cover: { width: '100%', aspectRatio: 2.5, backgroundColor: colors.surface2, overflow: 'hidden' },
   thumbnail: {
     width: 72,
     height: 64,

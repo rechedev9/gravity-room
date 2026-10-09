@@ -40,12 +40,16 @@ import {
   firstPendingWorkout,
   isWorkoutComplete,
   recordedWorkoutVolume,
+  workoutScrollTarget,
 } from './workout-navigation';
 import { Button } from '../../ui/button';
 import { classifyTrackerLoadFailure, type TrackerLoadFailure } from './tracker-load-error';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { IconButton } from '../../ui/icon-button';
 import { Screen } from '../../ui/screen';
+import { EdgeFade } from '../../ui/edge-fade';
+import { distinctDayLabel } from './day-label';
+import { RestAlertsInvitation } from '../settings/rest-alerts-invitation';
 
 type TrackerScreenProps = {
   readonly isFocused?: boolean;
@@ -93,6 +97,17 @@ export function TrackerScreen({
   const onTemplateUnavailableRef = useRef(onTemplateUnavailable);
   onTemplateUnavailableRef.current = onTemplateUnavailable;
   const alignWorkoutRef = useRef(true);
+  const viewportHeightRef = useRef(0);
+  const weekScrollRef = useRef<ScrollView>(null);
+  const weekOffsetsRef = useRef<Record<number, number>>({});
+  const weekScrolledRef = useRef(false);
+  const weekMetricsRef = useRef({ viewport: 0, content: 0, x: 0 });
+  const [weekOverflow, setWeekOverflow] = useState(false);
+  const heroBoundsRef = useRef<{
+    readonly key: string;
+    readonly top: number;
+    readonly bottom: number;
+  } | null>(null);
 
   // The bootstrap keeps cached rows when the first flush or fetch fails (for
   // example a token refresh race on cold start). Once the outbox is idle and
@@ -335,6 +350,7 @@ export function TrackerScreen({
   const weekIndex = Math.floor(selectedWorkoutIndex / workoutsPerWeek);
   const firstPendingIdx = firstPendingWorkout(rows);
   const completed = selectedRow !== undefined && isWorkoutComplete(selectedRow);
+  const dayLabel = selectedRow ? distinctDayLabel(selectedRow.dayName) : null;
   const previews = useMemo(() => {
     if (!completed || !selectedRow) return [];
     return selectedRow.slots.flatMap((slot) => {
@@ -368,11 +384,11 @@ export function TrackerScreen({
         ]?.slots.find((slot) => slot.slotId === slotId)?.result ?? result;
     }
 
-    if (
-      setLogs === undefined &&
-      (draftLogsRef.current[slotLogKey(workoutIndex, slotId)]?.length ?? 0) > 0
-    )
-      return;
+    // With sets in progress only a fail may be recorded by hand. The domain derives
+    // a result from logged sets, so they are dropped with the draft; a bare
+    // success would also lose them.
+    const hasDraftSets = (draftLogsRef.current[slotLogKey(workoutIndex, slotId)]?.length ?? 0) > 0;
+    if (setLogs === undefined && hasDraftSets && result !== 'fail') return;
 
     // Mirror the logged AMRAP into the existing API metric used by analytics.
     // The domain-computed slot determines whether this exercise has an AMRAP.
@@ -655,20 +671,51 @@ export function TrackerScreen({
   const heroSlotId =
     selectedRow?.slots.find((slot) => slot.result === undefined)?.slotId ??
     selectedRow?.slots[0]?.slotId;
+  const heroKey = `${selectedWorkoutIndex}:${heroSlotId}`;
   const canUndo = (detail?.undoHistory.length ?? 0) > 0;
 
   useEffect(() => {
     alignWorkoutRef.current = true;
   }, [selectedWorkoutIndex, completed]);
 
+  function updateWeekOverflow(patch: Partial<typeof weekMetricsRef.current>): void {
+    const metrics = Object.assign(weekMetricsRef.current, patch);
+    setWeekOverflow(metrics.content - metrics.viewport - metrics.x > 4);
+  }
+
+  // Keep the selected week chip on screen; a long plan has dozens of weeks.
+  function revealWeek(week: number): void {
+    const offset = weekOffsetsRef.current[week];
+    if (offset === undefined) return;
+    weekScrollRef.current?.scrollTo({
+      x: Math.max(0, offset - spacing.screenX),
+      animated: weekScrolledRef.current,
+    });
+    weekScrolledRef.current = true;
+  }
+
+  useEffect(() => {
+    revealWeek(weekIndex);
+  }, [weekIndex, selectedRow !== undefined]);
+
+  // Open every workout at its header. Only an active exercise that would sit
+  // below the fold pulls the view down, and only far enough to show it.
   function alignWorkoutScroll(): void {
     if (!alignWorkoutRef.current) return;
+    const viewportHeight = viewportHeightRef.current;
+    const heroBounds = heroBoundsRef.current?.key === heroKey ? heroBoundsRef.current : null;
+    if (viewportHeight === 0 || (!completed && heroBounds === null)) return;
     alignWorkoutRef.current = false;
-    if (completed) {
-      scrollRef.current?.scrollTo({ y: 0, animated: false });
-      return;
-    }
-    scrollRef.current?.scrollToEnd({ animated: false });
+    const y =
+      completed || heroBounds === null
+        ? 0
+        : workoutScrollTarget({
+            viewportHeight,
+            heroTop: heroBounds.top,
+            heroBottom: heroBounds.bottom,
+            margin: spacing.screenX,
+          });
+    scrollRef.current?.scrollTo({ y, animated: false });
   }
 
   if (loading) {
@@ -722,6 +769,10 @@ export function TrackerScreen({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
         onContentSizeChange={alignWorkoutScroll}
+        onLayout={(event) => {
+          viewportHeightRef.current = event.nativeEvent.layout.height;
+          alignWorkoutScroll();
+        }}
       >
         <View style={styles.chrome}>
           <View style={{ flex: 1, gap: 2 }}>
@@ -730,7 +781,7 @@ export function TrackerScreen({
               accessibilityRole="button"
               accessibilityLabel={t('tracker.back_programs')}
               onPress={onBack}
-              style={styles.programPicker}
+              style={({ pressed }) => [styles.programPicker, pressed && styles.pressedLight]}
             >
               <Text style={styles.programName}>{detail.name}</Text>
               <Ionicons accessible={false} name="chevron-down" size={18} color={colors.textMuted} />
@@ -756,27 +807,43 @@ export function TrackerScreen({
             })}
           </Text>
           <Text style={styles.date}>
-            <Text>{selectedRow.dayName}</Text> ·{' '}
+            {dayLabel === null ? null : <Text>{dayLabel}</Text>}
+            {dayLabel === null ? '' : ' · '}
             {new Date(
               detail.completedDates[String(selectedWorkoutIndex)] ?? Date.now()
             ).toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })}
           </Text>
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 4 }}
-        >
-          {Array.from({ length: Math.ceil(rows.length / workoutsPerWeek) }, (_, week) => (
-            <Chip
-              key={week}
-              selected={week === weekIndex}
-              onPress={() => setSelectedWorkoutIndex(week * workoutsPerWeek)}
-            >
-              {t('tracker.week', { week: week + 1 })}
-            </Chip>
-          ))}
-        </ScrollView>
+        <View>
+          <ScrollView
+            ref={weekScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 4 }}
+            scrollEventThrottle={32}
+            onLayout={(event) => updateWeekOverflow({ viewport: event.nativeEvent.layout.width })}
+            onContentSizeChange={(width) => updateWeekOverflow({ content: width })}
+            onScroll={(event) => updateWeekOverflow({ x: event.nativeEvent.contentOffset.x })}
+          >
+            {Array.from({ length: Math.ceil(rows.length / workoutsPerWeek) }, (_, week) => (
+              <View
+                key={week}
+                onLayout={(event) => {
+                  weekOffsetsRef.current[week] = event.nativeEvent.layout.x;
+                  if (week === weekIndex) revealWeek(week);
+                }}
+              >
+                <Chip
+                  selected={week === weekIndex}
+                  onPress={() => setSelectedWorkoutIndex(week * workoutsPerWeek)}
+                >
+                  {t('tracker.week', { week: week + 1 })}
+                </Chip>
+              </View>
+            ))}
+          </ScrollView>
+          {weekOverflow ? <EdgeFade edge="right" size={36} /> : null}
+        </View>
         <View style={styles.daySelector}>
           <IconButton
             name="chevron-back"
@@ -798,7 +865,11 @@ export function TrackerScreen({
                   accessibilityLabel={t('tracker.day', { day: day + 1 })}
                   accessibilityState={{ selected: row.index === selectedWorkoutIndex }}
                   onPress={() => setSelectedWorkoutIndex(row.index)}
-                  style={[styles.day, row.index === selectedWorkoutIndex && styles.daySelected]}
+                  style={({ pressed }) => [
+                    styles.day,
+                    row.index === selectedWorkoutIndex && styles.daySelected,
+                    pressed && row.index !== selectedWorkoutIndex && styles.pressedLight,
+                  ]}
                 >
                   <Text
                     style={[
@@ -848,6 +919,7 @@ export function TrackerScreen({
         {syncNotice && (syncNotice !== 'cached' || !syncStatus?.visible) ? (
           <Text style={styles.syncNotice}>{t(`tracker.notices.${syncNotice}`)}</Text>
         ) : null}
+        <RestAlertsInvitation />
         {completed ? (
           <Card>
             <Text style={styles.title}>{t('tracker.day_complete')}</Text>
@@ -880,38 +952,53 @@ export function TrackerScreen({
           </Card>
         ) : null}
         {selectedRow.slots.map((slot) => (
-          <TrackerSlotCard
-            key={slot.slotId}
-            slot={slot}
-            variant={slot.slotId === heroSlotId ? 'hero' : 'queue'}
-            workoutIndex={selectedRow.index}
-            draftLogs={
-              slot.result === undefined
-                ? draftLogs[slotLogKey(selectedRow.index, slot.slotId)]
-                : undefined
-            }
-            onConfirmSet={(workoutIndexValue, slotIdValue, entry) => {
-              return enqueueLocalEdit(() =>
-                handleConfirmSet(workoutIndexValue, slotIdValue, entry)
-              );
+          <View
+            key={`${selectedRow.index}:${slot.slotId}`}
+            onLayout={(event) => {
+              if (slot.slotId !== heroSlotId) return;
+              const { y, height } = event.nativeEvent.layout;
+              heroBoundsRef.current = { key: heroKey, top: y, bottom: y + height };
+              alignWorkoutScroll();
             }}
-            onUndoSet={(workoutIndexValue, slotIdValue) => {
-              void enqueueLocalEdit(() => handleUndoDraft(workoutIndexValue, slotIdValue));
-            }}
-            onMarkResult={(workoutIndexValue, slotIdValue, result) => {
-              enqueueLocalEdit(() => handleMarkResult(workoutIndexValue, slotIdValue, result));
-            }}
-            onMetricChange={(workoutIndexValue, slotIdValue, metric, _currentValue, direction) => {
-              void enqueueLocalEdit(() =>
-                handleMetricChange(workoutIndexValue, slotIdValue, metric, direction)
-              );
-            }}
-            onClearMetric={(workoutIndexValue, slotIdValue, metric) => {
-              void enqueueLocalEdit(() =>
-                handleClearMetric(workoutIndexValue, slotIdValue, metric)
-              );
-            }}
-          />
+          >
+            <TrackerSlotCard
+              slot={slot}
+              variant={slot.slotId === heroSlotId ? 'hero' : 'queue'}
+              workoutIndex={selectedRow.index}
+              draftLogs={
+                slot.result === undefined
+                  ? draftLogs[slotLogKey(selectedRow.index, slot.slotId)]
+                  : undefined
+              }
+              onConfirmSet={(workoutIndexValue, slotIdValue, entry) => {
+                return enqueueLocalEdit(() =>
+                  handleConfirmSet(workoutIndexValue, slotIdValue, entry)
+                );
+              }}
+              onUndoSet={(workoutIndexValue, slotIdValue) => {
+                void enqueueLocalEdit(() => handleUndoDraft(workoutIndexValue, slotIdValue));
+              }}
+              onMarkResult={(workoutIndexValue, slotIdValue, result) => {
+                enqueueLocalEdit(() => handleMarkResult(workoutIndexValue, slotIdValue, result));
+              }}
+              onMetricChange={(
+                workoutIndexValue,
+                slotIdValue,
+                metric,
+                _currentValue,
+                direction
+              ) => {
+                void enqueueLocalEdit(() =>
+                  handleMetricChange(workoutIndexValue, slotIdValue, metric, direction)
+                );
+              }}
+              onClearMetric={(workoutIndexValue, slotIdValue, metric) => {
+                void enqueueLocalEdit(() =>
+                  handleClearMetric(workoutIndexValue, slotIdValue, metric)
+                );
+              }}
+            />
+          </View>
         ))}
       </ScrollView>
     </Screen>
@@ -956,7 +1043,8 @@ const styles = StyleSheet.create({
   },
   previewName: { ...type.body, fontSize: 14, lineHeight: 20, flex: 1 },
   previewValue: { ...type.body, color: colors.textPrimary, fontSize: 14, lineHeight: 20 },
-  eyebrow: { ...type.body, fontSize: 13, lineHeight: 18 },
+  eyebrow: { ...type.kicker, color: colors.textSecondary },
+  pressedLight: { opacity: 0.6 },
   programPicker: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 8 },
   programName: { ...type.displaySm, flexShrink: 1 },
   sessionMeta: {

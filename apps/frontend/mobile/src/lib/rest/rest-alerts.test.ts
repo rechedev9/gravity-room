@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
 import { restAlerts } from './rest-alerts.native';
+import { setRestAlertsEnabled } from './rest-alerts-preference';
+import type { DeviceSettingStorage } from '../settings/device-setting-storage';
 
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: jest.fn(),
@@ -27,8 +29,12 @@ const denied = {
 };
 const granted = { ...denied, granted: true, status: Notifications.PermissionStatus.GRANTED };
 
-beforeEach(() => {
+const memory: DeviceSettingStorage = { get: async () => null, set: async () => undefined };
+const askable = { ...denied, canAskAgain: true };
+
+beforeEach(async () => {
   jest.clearAllMocks();
+  await setRestAlertsEnabled(true, memory);
 });
 
 it('schedules for the original deadline after permission has been granted', async () => {
@@ -40,6 +46,19 @@ it('schedules for the original deadline after permission has been granted', asyn
       trigger: { type: 'date', date: new Date(endsAt), channelId: 'workout-rest' },
     })
   );
+});
+
+it('never opens the system permission dialog while a set is being logged', async () => {
+  jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue(askable);
+  await expect(restAlerts.schedule(Date.now() + 90_000)).resolves.toBeNull();
+  expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+});
+
+it('schedules nothing after the lifter turned rest alerts off', async () => {
+  jest.mocked(Notifications.getPermissionsAsync).mockResolvedValue(granted);
+  await setRestAlertsEnabled(false, memory);
+  await expect(restAlerts.schedule(Date.now() + 90_000)).resolves.toBeNull();
+  expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
 });
 
 it('does not repeatedly prompt after permission denial', async () => {

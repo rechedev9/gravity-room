@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "expo start",
-    "android": "expo start --android",
+    "android": "expo run:android",
     "test": "pnpm exec jest --runInBand",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint --max-warnings=0 src testing",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@babel/runtime": "^7.28.4",
