@@ -9,7 +9,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod/v4';
-import { fetchAuthProviders, parseExerciseEntry } from './api-functions';
+import { fetchAuthProviders, fetchPrograms, parseExerciseEntry } from './api-functions';
 
 const originalFetch = globalThis.fetch;
 
@@ -288,5 +288,67 @@ describe('fetchAuthProviders', () => {
     ) as unknown as typeof fetch;
 
     await expect(fetchAuthProviders()).rejects.toThrow();
+  });
+});
+
+describe('fetchPrograms', () => {
+  function listItem(id: string) {
+    return {
+      id,
+      programId: 'gzclp',
+      name: `Plan ${id}`,
+      status: 'active',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+  }
+
+  function jsonResponse(body: unknown): Response {
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  it('follows nextCursor so plans beyond the first page are listed', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: [listItem('p1'), listItem('p2')],
+          nextCursor: '2026-01-01T00:00:00.000Z_p2',
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ data: [listItem('p3')], nextCursor: null }));
+    globalThis.fetch = fetchMock;
+
+    const programs = await fetchPrograms();
+
+    expect(programs.map((program) => program.id)).toEqual(['p1', 'p2', 'p3']);
+    const urls = fetchMock.mock.calls.map(([input]) => String(input));
+    expect(urls[0]).toMatch(/\/api\/programs$/);
+    expect(urls[1]).toMatch(/\/api\/programs\?cursor=2026-01-01T00%3A00%3A00\.000Z_p2$/);
+  });
+
+  it('still accepts the legacy bare-array response', async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(jsonResponse([listItem('p1'), listItem('p2')]));
+    globalThis.fetch = fetchMock;
+
+    const programs = await fetchPrograms();
+
+    expect(programs.map((program) => program.id)).toEqual(['p1', 'p2']);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects when the server keeps returning the same cursor', async () => {
+    globalThis.fetch = vi
+      .fn<typeof fetch>()
+      .mockImplementation(() =>
+        Promise.resolve(jsonResponse({ data: [listItem('p1')], nextCursor: 'stuck' }))
+      );
+
+    await expect(fetchPrograms()).rejects.toThrow('Pagination repeated a cursor');
   });
 });

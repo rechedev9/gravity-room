@@ -5,7 +5,7 @@
  */
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import { GenericProgramDetailSchema } from '@gzclp/domain/schemas/instance';
-import { ProgramSummarySchema } from '@gzclp/domain/schemas/program-summary';
+import { ProgramListPageSchema, ProgramSummarySchema } from '@gzclp/domain/schemas/program-summary';
 import { CatalogEntrySchema } from '@gzclp/domain/schemas/catalog';
 import { ExerciseEntrySchema, MuscleGroupEntrySchema } from '@gzclp/domain/schemas/exercises';
 import { InsightItemSchema } from '@gzclp/domain/schemas/insights';
@@ -22,16 +22,12 @@ import type {
 } from '@gzclp/domain/schemas/exercises';
 import type { InsightItem } from '@gzclp/domain/schemas/insights';
 import { isRecord } from '@gzclp/domain/type-guards';
+import { collectCursorPages } from '@gzclp/api-client/cursor-pages';
+import * as requests from '@gzclp/api-client/program-requests';
+import { readApiError } from '@gzclp/api-client/response-error';
 import { z } from 'zod/v4';
-import {
-  API_URL,
-  apiFetch,
-  deleteAccount,
-  extractApiError,
-  fetchMe,
-  updateProfile,
-  type ApiFetchOptions,
-} from './api-core';
+import { API_URL } from './api';
+import { apiFetch, deleteAccount, fetchMe, updateProfile, type ApiFetchOptions } from './api-core';
 
 // Re-export types derived from schemas
 export type { UserInfo } from '@gzclp/domain/schemas/user';
@@ -58,13 +54,27 @@ export type { ApiFetchOptions };
 
 const ProgramSummaryListSchema = z.array(ProgramSummarySchema);
 
-/** Fetch all program instances for the current user (first page). */
+function send(request: requests.ApiRequest): Promise<unknown> {
+  return apiFetch(request.path, requests.toRequestInit(request));
+}
+
+/** Upper bound on list pages: the server caps a user at 100 plans, 20 per page. */
+const MAX_PROGRAM_LIST_PAGES = 50;
+
+/** Fetch every program instance for the current user, following the page cursor. */
 export async function fetchPrograms(): Promise<ProgramSummary[]> {
-  const data = await apiFetch('/programs');
-  // Handle both legacy array response and new paginated { data, nextCursor } shape
-  if (Array.isArray(data)) return ProgramSummaryListSchema.parse(data);
-  if (isRecord(data) && Array.isArray(data.data)) return ProgramSummaryListSchema.parse(data.data);
-  return [];
+  return collectCursorPages({
+    maxPages: MAX_PROGRAM_LIST_PAGES,
+    fetchPage: async (cursor) => {
+      const data = await send(requests.listPrograms(cursor));
+      // Legacy responses were a bare array with no further pages.
+      if (Array.isArray(data)) {
+        return { data: ProgramSummaryListSchema.parse(data), nextCursor: null };
+      }
+      if (isRecord(data) && Array.isArray(data.data)) return ProgramListPageSchema.parse(data);
+      return { data: [], nextCursor: null };
+    },
+  });
 }
 
 /** Create a new program instance. */
@@ -73,10 +83,7 @@ export async function createProgram(
   name: string,
   config: Record<string, number | string>
 ): Promise<ProgramSummary> {
-  const data = await apiFetch('/programs', {
-    method: 'POST',
-    body: JSON.stringify({ programId, name, config: { ...config } }),
-  });
+  const data = await send(requests.createProgram({ programId, name, config }));
   return ProgramSummarySchema.parse(data);
 }
 
@@ -85,10 +92,7 @@ export async function updateProgramConfig(
   id: string,
   config: Record<string, number | string>
 ): Promise<void> {
-  await apiFetch(`/programs/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ config: { ...config } }),
-  });
+  await send(requests.updateProgramConfig(id, config));
 }
 
 /** Update a program instance's metadata (deep-merge on server). */
@@ -96,36 +100,28 @@ export async function updateProgramMetadata(
   id: string,
   metadata: Record<string, unknown>
 ): Promise<GenericProgramDetail> {
-  const data = await apiFetch(`/programs/${encodeURIComponent(id)}/metadata`, {
-    method: 'PATCH',
-    body: JSON.stringify({ metadata }),
-  });
+  const data = await send(requests.updateMetadata(id, metadata));
   return GenericProgramDetailSchema.parse(data);
 }
 
 /** Mark a program instance as completed (preserves all data). */
 export async function completeProgram(id: string): Promise<void> {
-  await apiFetch(`/programs/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status: 'completed' }),
-  });
+  await send(requests.completeProgram(id));
 }
 
 /** Delete a program instance. */
 export async function deleteProgram(id: string): Promise<void> {
-  await apiFetch(`/programs/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  await send(requests.deleteProgram(id));
 }
 
 /** Undo the last action. */
 export async function undoLastResult(instanceId: string): Promise<void> {
-  await apiFetch(`/programs/${encodeURIComponent(instanceId)}/undo`, {
-    method: 'POST',
-  });
+  await send(requests.undoLastResult(instanceId));
 }
 
 /** Export a program instance as JSON. */
 export async function exportProgram(id: string): Promise<unknown> {
-  return apiFetch(`/programs/${encodeURIComponent(id)}/export`);
+  return send(requests.exportProgram(id));
 }
 
 const ImportPayloadSchema = z.object({
@@ -137,10 +133,7 @@ const ImportPayloadSchema = z.object({
 /** Import a program from exported JSON. Throws a ZodError if the payload is invalid. */
 export async function importProgram(data: unknown): Promise<ProgramSummary> {
   ImportPayloadSchema.parse(data);
-  const result = await apiFetch('/programs/import', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  const result = await send(requests.importProgram(data));
   return ProgramSummarySchema.parse(result);
 }
 
@@ -164,7 +157,7 @@ export async function fetchAuthProviders(): Promise<AuthProviders> {
   const res = await fetch(`${API_URL}/api/auth/providers`, {
     signal: AbortSignal.timeout(30_000),
   });
-  if (!res.ok) throw await extractApiError(res, `API error: ${res.status}`);
+  if (!res.ok) throw await readApiError(res, `API error: ${res.status}`);
   return AuthProvidersResponseSchema.parse(await res.json());
 }
 
@@ -187,7 +180,7 @@ export async function fetchOnlineCount(): Promise<number | null> {
 
 /** Fetch a program instance with results in generic slot-keyed format (no legacy conversion). */
 export async function fetchGenericProgramDetail(id: string): Promise<GenericProgramDetail> {
-  const data = await apiFetch(`/programs/${encodeURIComponent(id)}`);
+  const data = await send(requests.programDetail(id));
   return GenericProgramDetailSchema.parse(data);
 }
 
@@ -201,17 +194,9 @@ export async function recordGenericResult(
   rpe?: number,
   setLogs?: readonly SetLogEntry[]
 ): Promise<void> {
-  await apiFetch(`/programs/${encodeURIComponent(instanceId)}/results`, {
-    method: 'POST',
-    body: JSON.stringify({
-      workoutIndex,
-      slotId,
-      result,
-      ...(amrapReps !== undefined ? { amrapReps } : {}),
-      ...(rpe !== undefined ? { rpe } : {}),
-      ...(setLogs !== undefined ? { setLogs } : {}),
-    }),
-  });
+  await send(
+    requests.recordResult({ instanceId, workoutIndex, slotId, result, amrapReps, rpe, setLogs })
+  );
 }
 
 /** Delete a specific result using slot ID directly (no tier conversion). */
@@ -220,10 +205,7 @@ export async function deleteGenericResult(
   workoutIndex: number,
   slotId: string
 ): Promise<void> {
-  await apiFetch(
-    `/programs/${encodeURIComponent(instanceId)}/results/${workoutIndex}/${encodeURIComponent(slotId)}`,
-    { method: 'DELETE' }
-  );
+  await send(requests.deleteResult({ instanceId, workoutIndex, slotId }));
 }
 
 // ---------------------------------------------------------------------------
@@ -234,14 +216,14 @@ const CatalogEntryListSchema = z.array(CatalogEntrySchema);
 
 /** Fetch the catalog list of all preset programs (no auth required). */
 export async function fetchCatalogList(): Promise<readonly CatalogEntry[]> {
-  const data = await apiFetch('/catalog');
+  const data = await send(requests.catalogList());
   if (!Array.isArray(data)) return [];
   return CatalogEntryListSchema.parse(data);
 }
 
 /** Fetch a full hydrated ProgramDefinition by program ID (no auth required). */
 export async function fetchCatalogDetail(programId: string): Promise<ProgramDefinition> {
-  const data = await apiFetch(`/catalog/${encodeURIComponent(programId)}`);
+  const data = await send(requests.catalogDetail(programId));
   // Client-side validation with the same schema the API uses
   return ProgramDefinitionSchema.parse(data);
 }

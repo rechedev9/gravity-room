@@ -16,6 +16,8 @@ import {
   saveSetDrafts,
   type SetDrafts,
 } from '../../lib/tracker/set-draft-repository';
+import { ApiError } from '@gzclp/api-client/api-error';
+import { ProgramDefinitionFetchError } from '../../lib/tracker/program-definition-error';
 import { TrackerScreen } from './tracker-screen';
 function render(element: ReactElement) {
   return renderScreen(<ProgramQueryProvider>{element}</ProgramQueryProvider>);
@@ -545,7 +547,7 @@ describe('TrackerScreen', () => {
     mockedGetProgramDetail.mockResolvedValue(null);
     mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedFetchProgramDefinition.mockRejectedValue(
-      new Error('Program definition fetch failed with status 404')
+      new ProgramDefinitionFetchError(new ApiError('Program definition fetch failed', 404))
     );
     const onTemplateUnavailable = jest.fn();
     render(
@@ -568,7 +570,7 @@ describe('TrackerScreen', () => {
     mockedGetProgramDetail.mockResolvedValue(null);
     mockedFetchProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedFetchProgramDefinition.mockRejectedValue(
-      new Error('Program definition fetch failed with status 500')
+      new ProgramDefinitionFetchError(new ApiError('Program definition fetch failed', 500))
     );
     const onTemplateUnavailable = jest.fn();
     render(

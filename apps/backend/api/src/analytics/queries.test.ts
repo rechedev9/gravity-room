@@ -3,11 +3,22 @@ process.env['LOG_LEVEL'] = 'silent';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import { users } from '@gzclp/database/schema';
+import { PROGRAM_TEMPLATE_DEFINITIONS } from '@gzclp/database/seeds/program-templates-seed';
+import { CANONICAL_EXERCISES } from '@gzclp/database/seeds/exercises-seed';
+import { hydrateProgramDefinition } from '../lib/hydrate-program';
 
 let activeDb: unknown;
 
 vi.mock('../db', () => ({
   getDb: () => activeDb,
+}));
+
+const mockGetHistoricalProgramDefinition = vi.fn<
+  (programId: string, reader: unknown) => Promise<unknown>
+>(() => Promise.resolve({ status: 'not_found' }));
+
+vi.mock('../services/catalog', () => ({
+  getHistoricalProgramDefinition: mockGetHistoricalProgramDefinition,
 }));
 
 const {
@@ -73,7 +84,9 @@ describe('analytics user selection', () => {
         workoutIndex: 0,
         exerciseId: 'squat',
         definitionVersion: 1,
-        weight: 80,
+        slotId: 'd1-t1',
+        loggedWeight: 80,
+        setLogs: [{ reps: 5, weight: 80 }],
         result: 'success',
         rpe: null,
         amrapReps: 5,
@@ -88,7 +101,7 @@ describe('analytics user selection', () => {
     activeDb = { select: vi.fn(() => ({ from })) };
 
     await expect(fetchWorkoutRecords('u1')).resolves.toMatchObject([
-      { exerciseId: 'squat', definitionVersion: 1 },
+      { exerciseId: 'squat', definitionVersion: 1, weight: 80 },
     ]);
     expect(limit).toHaveBeenCalledWith(MAX_ANALYTICS_RECORDS_PER_USER);
     expect(sqlText(where.mock.calls[0]?.[0])).toContain(
@@ -97,6 +110,68 @@ describe('analytics user selection', () => {
     expect(sqlText(where.mock.calls[0]?.[0])).toContain(
       '"workout_results"."definition_version" is not null'
     );
+  });
+
+  it('gives an unlogged result its prescribed weight, read through the same executor', async () => {
+    const gzclp = hydrateProgramDefinition(
+      {
+        id: 'gzclp',
+        name: 'GZCLP',
+        description: '',
+        author: '',
+        version: 1,
+        category: 'strength',
+        source: 'preset',
+        definition: PROGRAM_TEMPLATE_DEFINITIONS['gzclp'],
+      },
+      CANONICAL_EXERCISES.map((exercise) => ({ id: exercise.id, name: exercise.name }))
+    );
+    if (!gzclp.ok) throw new Error('GZCLP seed must hydrate');
+    mockGetHistoricalProgramDefinition.mockImplementation((programId) =>
+      Promise.resolve(
+        programId === 'gzclp'
+          ? { status: 'found', definition: gzclp.value }
+          : { status: 'not_found' }
+      )
+    );
+
+    const unlogged = {
+      userId: 'u1',
+      workoutIndex: 0,
+      slotId: 'd1-t1',
+      exerciseId: 'squat',
+      definitionVersion: 1,
+      loggedWeight: null,
+      setLogs: null,
+      result: 'success',
+      rpe: null,
+      amrapReps: null,
+      recordedAt: '2026-01-01T00:00:00Z',
+    };
+    const resultRows = [
+      { ...unlogged, instanceId: 'i1', programId: 'gzclp' },
+      { ...unlogged, instanceId: 'i2', programId: 'retired' },
+    ];
+    const instanceRows = [
+      { id: 'i1', templateId: 'gzclp', config: { squat: 60 }, customDefinition: null },
+      { id: 'i2', templateId: 'retired', config: { squat: 60 }, customDefinition: null },
+    ];
+    const resultsChain = {
+      from: () => ({
+        innerJoin: () => ({ where: () => ({ orderBy: () => ({ limit: () => resultRows }) }) }),
+      }),
+    };
+    const instancesChain = { from: () => ({ where: () => instanceRows }) };
+    const select = vi.fn().mockReturnValueOnce(resultsChain).mockReturnValueOnce(instancesChain);
+    const executor = { select };
+    activeDb = executor;
+
+    // A row whose definition is gone has no weight to analyse and is dropped.
+    await expect(fetchWorkoutRecords('u1')).resolves.toMatchObject([
+      { instanceId: 'i1', weight: 60 },
+    ]);
+    // The pool holds one connection: a lookup outside the executor would hang.
+    expect(mockGetHistoricalProgramDefinition).toHaveBeenCalledWith('gzclp', executor);
   });
 
   it('excludes soft-deleted users from the fair bounded cron batch', async () => {

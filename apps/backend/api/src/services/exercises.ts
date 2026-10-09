@@ -14,11 +14,16 @@ import {
 import { getCachedMuscleGroups, setCachedMuscleGroups } from '../lib/muscle-groups-cache';
 import { SingleflightMap } from '../lib/singleflight';
 import { type Result, ok, err } from '../lib/result';
+import type {
+  ExerciseEntry,
+  MuscleGroupEntry,
+  PaginatedExercisesResponse,
+} from '@gzclp/domain/schemas/exercises';
 import { ApiError } from '../middleware/error-handler';
 import { assertUserDataQuotas, lockUserForDataMutation } from './data-quotas';
 
 // Singleflight instances — one per return type for type safety
-const exerciseFlight = new SingleflightMap<PaginatedExercises>();
+const exerciseFlight = new SingleflightMap<PaginatedExercisesResponse>();
 const muscleGroupFlight = new SingleflightMap<readonly MuscleGroupEntry[]>();
 
 /** Default pagination values when pagination is not explicitly provided. */
@@ -47,34 +52,6 @@ const DISAMBIGUATOR_LENGTH = 8;
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-export interface ExerciseEntry {
-  readonly id: string;
-  readonly name: string;
-  readonly muscleGroupId: string;
-  readonly equipment: string | null;
-  readonly isCompound: boolean;
-  readonly isPreset: boolean;
-  readonly createdBy: string | null;
-  readonly force: string | null;
-  readonly level: string | null;
-  readonly mechanic: string | null;
-  readonly category: string | null;
-  readonly secondaryMuscles: readonly string[] | null;
-}
-
-export interface MuscleGroupEntry {
-  readonly id: string;
-  readonly name: string;
-}
-
-/** Paginated exercise list response. */
-export interface PaginatedExercises {
-  readonly data: readonly ExerciseEntry[];
-  readonly total: number;
-  readonly offset: number;
-  readonly limit: number;
-}
 
 /** Pagination parameters for listExercises. */
 export interface PaginationParams {
@@ -212,7 +189,7 @@ export async function listExercises(
   userId: string | undefined,
   filter?: ExerciseFilter,
   pagination?: PaginationParams
-): Promise<PaginatedExercises> {
+): Promise<PaginatedExercisesResponse> {
   const page = pagination ?? DEFAULT_PAGINATION;
   assertPaginationInRange(page);
   assertFilterInRange(filter);
@@ -285,7 +262,7 @@ export async function listExercises(
       db.select({ value: count() }).from(exercises).where(whereClause),
     ]);
 
-    const result: PaginatedExercises = {
+    const result: PaginatedExercisesResponse = {
       data: rows.map(toExerciseEntry),
       total: countResult?.value ?? 0,
       offset: page.offset,

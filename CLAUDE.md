@@ -30,7 +30,7 @@ Shared standing law for every agent that touches this repo. If it is not here, i
 | `apps/backend/api/src/routes`    | HTTP handlers                                                                                                                 |
 | `packages/domain`                | `@gzclp/domain` — Zod schemas + GZCLP engine (**SoT for training rules**)                                                     |
 | `packages/database`              | `@gzclp/database` — Drizzle schema, migrations, seeds                                                                         |
-| `packages/api-client`            | Shared typed fetch helpers (web still uses OpenAPI codegen)                                                                   |
+| `packages/api-client`            | Pure web+mobile transport helpers: ApiError, program request builders, cursor paging (web still uses OpenAPI codegen)         |
 | `scripts/`                       | `vercel-build.sh`, `bundle-api-function.mjs`, loadtest, security checks                                                       |
 
 ## Hard contracts (do not violate)

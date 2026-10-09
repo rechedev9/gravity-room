@@ -11,7 +11,7 @@ import { isRecord } from '@gzclp/domain/type-guards';
 import { createSingleFlight } from '@gzclp/api-client/single-flight';
 import { SESSION_INVALIDATED_EVENT } from './auth-events';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
 // ---------------------------------------------------------------------------
 // In-memory access token

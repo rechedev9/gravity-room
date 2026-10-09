@@ -21,3 +21,6 @@ audit
 .grok
 # git symlink to CLAUDE.md; materialised as a plain file on Windows checkouts
 AGENTS.md
+
+# Android native build cache (generated, git-excluded)
+**/.cxx

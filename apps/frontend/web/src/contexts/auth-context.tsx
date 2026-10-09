@@ -10,6 +10,7 @@ import {
 import { SESSION_INVALIDATED_EVENT } from '@/lib/auth-events';
 import { apiFetch, fetchMe } from '@/lib/api-core';
 import { ApiError } from '@gzclp/api-client/api-error';
+import { authErrorCode } from '@gzclp/api-client/auth-error-code';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { parseUserSafe } from '@gzclp/domain/schemas/user';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
@@ -58,7 +59,9 @@ interface AuthActions {
 
 /** Normalizes a caught error into an ActionResult, preserving the API error code. */
 function errorResult(err: unknown): ActionResult {
-  if (err instanceof ApiError) return { ok: false, code: err.code, message: err.message };
+  if (err instanceof ApiError) {
+    return { ok: false, code: authErrorCode(err.status, err.code), message: err.message };
+  }
   if (
     err instanceof TypeError ||
     (err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError'))

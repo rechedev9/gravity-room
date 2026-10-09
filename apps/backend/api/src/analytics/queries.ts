@@ -8,8 +8,12 @@
 import { and, desc, eq, inArray, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import { getDb } from '../db';
 import { programInstances, userInsights, users, workoutResults } from '@gzclp/database/schema';
+import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
+import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type { WorkoutRecord } from './record';
+import { prescribedWeights, weightKey } from './prescribed-weight';
 import { MAX_ANALYTICS_RECORDS_PER_USER } from '../lib/data-limits';
+import { getHistoricalProgramDefinition } from '../services/catalog';
 
 export interface UserRow {
   readonly userId: string;
@@ -101,10 +105,36 @@ export async function withInsightTransaction<T>(
   });
 }
 
+/** True when the user's programs changed after their last insight snapshot. */
+export async function hasStaleInsights(userId: string): Promise<boolean> {
+  const lastComputedAt = sql`(
+    select max(${userInsights.computedAt}) from ${userInsights}
+    where ${userInsights.userId} = ${userId} and ${userInsights.insightType} = ${META_INSIGHT_TYPE}
+  )`;
+  const [row] = await getDb()
+    .select({
+      stale: sql<boolean>`count(*) > 0 and coalesce(max(${programInstances.updatedAt}) > ${lastComputedAt}, true)`,
+    })
+    .from(programInstances)
+    .where(eq(programInstances.userId, userId));
+  return row?.stale === true;
+}
+
+async function resolveInstanceDefinition(
+  instance: { readonly templateId: string; readonly customDefinition: unknown },
+  executor: Executor
+): Promise<ProgramDefinition | null> {
+  const custom = ProgramDefinitionSchema.safeParse(instance.customDefinition);
+  if (custom.success) return custom.data;
+  const stored = await getHistoricalProgramDefinition(instance.templateId, executor);
+  return stored.status === 'found' ? stored.definition : null;
+}
+
 /**
  * The newest bounded workout-result window for a user. Only rows with a stable
  * versioned exercise identity participate; unresolved legacy rows are omitted
- * rather than unsafely grouped by reusable slot IDs.
+ * rather than unsafely grouped by reusable slot IDs. A row without a logged
+ * weight takes the weight its program prescribed; rows with neither are omitted.
  */
 export async function fetchWorkoutRecords(
   userId: string,
@@ -116,12 +146,14 @@ export async function fetchWorkoutRecords(
       instanceId: sql<string>`${programInstances.id}::text`,
       programId: programInstances.templateId,
       workoutIndex: workoutResults.workoutIndex,
+      slotId: workoutResults.slotId,
       exerciseId: sql<string>`${workoutResults.exerciseId}`,
       definitionVersion: sql<number>`${workoutResults.definitionVersion}`,
-      weight: sql<number>`(${workoutResults.setLogs} -> 0 ->> 'weight')::float`,
-      result: sql<string>`${workoutResults.result}::text`,
+      loggedWeight: sql<number | null>`(${workoutResults.setLogs} -> 0 ->> 'weight')::float`,
+      result: workoutResults.result,
       rpe: sql<number | null>`${workoutResults.rpe}::float`,
       amrapReps: workoutResults.amrapReps,
+      setLogs: workoutResults.setLogs,
       recordedAt: sql<
         string | null
       >`coalesce(${workoutResults.completedAt}, ${workoutResults.createdAt})::text`,
@@ -132,8 +164,7 @@ export async function fetchWorkoutRecords(
       and(
         eq(programInstances.userId, userId),
         isNotNull(workoutResults.exerciseId),
-        isNotNull(workoutResults.definitionVersion),
-        sql`(${workoutResults.setLogs} -> 0 ->> 'weight') is not null`
+        isNotNull(workoutResults.definitionVersion)
       )
     )
     .orderBy(
@@ -142,21 +173,56 @@ export async function fetchWorkoutRecords(
     )
     .limit(MAX_ANALYTICS_RECORDS_PER_USER);
 
+  // Replay only the instances that hold a result without a logged weight.
+  const unweighted = new Set(
+    rows.filter((row) => row.loggedWeight === null).map((row) => row.instanceId)
+  );
+  const prescribed = new Map<string, ReadonlyMap<string, number>>();
+  if (unweighted.size > 0) {
+    const instances = await executor
+      .select({
+        id: sql<string>`${programInstances.id}::text`,
+        templateId: programInstances.templateId,
+        config: programInstances.programConfig,
+        customDefinition: programInstances.customDefinition,
+      })
+      .from(programInstances)
+      .where(eq(programInstances.userId, userId));
+    for (const instance of instances) {
+      if (!unweighted.has(instance.id)) continue;
+      const definition = await resolveInstanceDefinition(instance, executor);
+      if (definition === null) continue;
+      prescribed.set(
+        instance.id,
+        prescribedWeights(
+          rows.filter((row) => row.instanceId === instance.id),
+          { definition, config: instance.config }
+        )
+      );
+    }
+  }
+
   // The query takes the newest bounded window; restore chronological order for
   // pipelines whose stable tie behavior relies on input order.
-  return rows.reverse().map((row) => ({
-    userId: row.userId,
-    instanceId: row.instanceId,
-    programId: row.programId,
-    workoutIndex: row.workoutIndex,
-    exerciseId: row.exerciseId,
-    definitionVersion: Number(row.definitionVersion),
-    weight: Number(row.weight),
-    result: row.result,
-    rpe: row.rpe === null ? null : Number(row.rpe),
-    amrapReps: row.amrapReps,
-    recordedAt: row.recordedAt,
-  }));
+  const records: WorkoutRecord[] = [];
+  for (const row of rows.reverse()) {
+    const weight = row.loggedWeight ?? prescribed.get(row.instanceId)?.get(weightKey(row));
+    if (weight === undefined) continue;
+    records.push({
+      userId: row.userId,
+      instanceId: row.instanceId,
+      programId: row.programId,
+      workoutIndex: row.workoutIndex,
+      exerciseId: row.exerciseId,
+      definitionVersion: Number(row.definitionVersion),
+      weight: Number(weight),
+      result: row.result,
+      rpe: row.rpe === null ? null : Number(row.rpe),
+      amrapReps: row.amrapReps,
+      recordedAt: row.recordedAt,
+    });
+  }
+  return records;
 }
 
 /**

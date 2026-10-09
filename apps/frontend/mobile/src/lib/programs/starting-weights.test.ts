@@ -1,8 +1,6 @@
-import type { ProgramDefinition } from '@gzclp/domain';
+import { MAX_PROGRAM_CONFIG_WEIGHT, type ProgramDefinition } from '@gzclp/domain';
 
 import {
-  MAX_STARTING_WEIGHT,
-  buildProgramConfig,
   parseStartingWeight,
   startingWeightFields,
   validateStartingWeights,
@@ -39,7 +37,7 @@ const DEFINITION = {
 } satisfies ProgramDefinition;
 
 describe('startingWeightFields', () => {
-  it('lists only weight fields, in catalog order, with the legacy default as the starting value', () => {
+  it('lists only weight fields, in catalog order, with the domain default as the starting value', () => {
     expect(startingWeightFields(DEFINITION)).toEqual([
       {
         key: 'squat',
@@ -47,7 +45,7 @@ describe('startingWeightFields', () => {
         min: 2.5,
         step: 2.5,
         hint: 'Top set',
-        defaultValue: 2.5,
+        defaultValue: 20,
       },
       { key: 'bench', label: 'Press Banca', min: 0, step: 2.5, defaultValue: 20 },
       { key: 'ohp', label: 'Press Militar', min: 0, step: 1, defaultValue: 8 },
@@ -89,7 +87,7 @@ describe('validateStartingWeights', () => {
       validateStartingWeights(fields, {
         squat: '',
         bench: 'heavy',
-        ohp: String(MAX_STARTING_WEIGHT + 0.5),
+        ohp: String(MAX_PROGRAM_CONFIG_WEIGHT + 0.5),
       })
     ).toEqual({
       ok: false,
@@ -108,26 +106,6 @@ describe('validateStartingWeights', () => {
     expect(validateStartingWeights(fields, { squat: '20', bench: '-5', ohp: '10' })).toEqual({
       ok: false,
       issues: { bench: 'below_min' },
-    });
-  });
-});
-
-describe('buildProgramConfig', () => {
-  it('applies the lifter weights and keeps select defaults', () => {
-    expect(buildProgramConfig(DEFINITION, { squat: 100, bench: 70, ohp: 40 })).toEqual({
-      squat: 100,
-      bench: 70,
-      ohp: 40,
-      unit: 'kg',
-    });
-  });
-
-  it('ignores keys that are not weight fields and falls back to defaults for missing ones', () => {
-    expect(buildProgramConfig(DEFINITION, { squat: 100, unit: 99, bogus: 1 })).toEqual({
-      squat: 100,
-      bench: 20,
-      ohp: 8,
-      unit: 'kg',
     });
   });
 });

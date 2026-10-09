@@ -250,4 +250,53 @@ describe.skipIf(!hasDb)('seeds idempotency (integration)', () => {
       }
     }
   );
+
+  it.skipIf(!hasIsolatedDb)(
+    'retires a preset template the catalog does not declare and completes its programs',
+    async () => {
+      const { seedProgramTemplates } = await import('./program-templates-seed');
+      const { users, programInstances, programTemplates } = schema;
+      const db = getSeedTestDb();
+      const orphanId = 'qa8-orphan-template';
+
+      const [user] = await db
+        .insert(users)
+        .values({ email: `qa8-seed-orphan-${Date.now()}@example.test` })
+        .returning({ id: users.id });
+      if (!user) throw new Error('Failed to create seed orphan fixture');
+      await db.insert(programTemplates).values({
+        id: orphanId,
+        name: 'Orphan from another branch',
+        source: 'preset',
+        definition: { weeks: 6, days: [{ slots: [{ exerciseId: 'squat' }] }] },
+        isActive: true,
+      });
+      await db.insert(programInstances).values({
+        userId: user.id,
+        templateId: orphanId,
+        name: 'Seed orphan fixture',
+        programConfig: {},
+        status: 'active',
+      });
+
+      try {
+        await seedProgramTemplates(db);
+        await seedProgramTemplates(db);
+
+        const [template] = await db
+          .select({ isActive: programTemplates.isActive })
+          .from(programTemplates)
+          .where(eq(programTemplates.id, orphanId));
+        const [instance] = await db
+          .select({ status: programInstances.status })
+          .from(programInstances)
+          .where(eq(programInstances.userId, user.id));
+        expect(template?.isActive).toBe(false);
+        expect(instance?.status).toBe('completed');
+      } finally {
+        await db.delete(users).where(eq(users.id, user.id));
+        await db.delete(programTemplates).where(eq(programTemplates.id, orphanId));
+      }
+    }
+  );
 });

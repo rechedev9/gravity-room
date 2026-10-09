@@ -1,4 +1,6 @@
-import { encodeApiPathIdentifier } from '../network/api-path-identifier';
+import { collectCursorPages } from '@gzclp/api-client/cursor-pages';
+import * as requests from '@gzclp/api-client/program-requests';
+import { readApiError } from '@gzclp/api-client/response-error';
 import {
   CatalogEntrySchema,
   GenericProgramDetailSchema,
@@ -22,9 +24,6 @@ interface RemoteProgramsPage {
   readonly data: readonly RemoteProgramSummary[];
   readonly nextCursor: string | null;
 }
-
-const DEFAULT_WEIGHT_FALLBACK = 20;
-const DEFAULT_WEIGHT_MULTIPLIER = 8;
 
 function isRemoteProgramSummary(value: unknown): value is RemoteProgramSummary {
   if (!isRecord(value)) {
@@ -60,54 +59,49 @@ function readRemoteProgramsPage(value: unknown): RemoteProgramsPage {
   return { data: rawData, nextCursor: rawNextCursor };
 }
 
+/** Upper bound on list pages: the server caps a user at 100 plans, 20 per page. */
+const MAX_PROGRAM_LIST_PAGES = 50;
+
 export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
   if (!getAccessToken()) {
     throw new Error('Program summaries require an access token');
   }
 
-  const programs: ProgramSummary[] = [];
-  let nextCursor: string | null | undefined;
-  const visitedCursors = new Set<string>();
+  return collectCursorPages({
+    maxPages: MAX_PROGRAM_LIST_PAGES,
+    fetchPage: async (cursor) => {
+      const { response } = await fetchWithAccessToken(requests.listPrograms(cursor).path);
 
-  do {
-    const requestUrl = new URL('http://localhost');
-    requestUrl.pathname = '/programs';
-    if (nextCursor) {
-      requestUrl.searchParams.set('cursor', nextCursor);
-    }
-
-    const { response } = await fetchWithAccessToken(`${requestUrl.pathname}${requestUrl.search}`);
-
-    if (!response.ok) {
-      throw new Error(`Program summary fetch failed with status ${response.status}`);
-    }
-
-    const payload = readRemoteProgramsPage(await response.json());
-    for (const program of payload.data) {
-      programs.push({
-        id: program.id,
-        ...(program.programId !== undefined ? { programId: program.programId } : {}),
-        title: program.name ?? 'Untitled Program',
-        updatedAt: program.updatedAt ?? new Date(0).toISOString(),
-      });
-    }
-
-    nextCursor = payload.nextCursor;
-    if (nextCursor) {
-      if (visitedCursors.has(nextCursor)) {
-        throw new Error('Program summary pagination repeated a cursor');
+      if (!response.ok) {
+        throw await readApiError(
+          response,
+          `Program summary fetch failed with status ${response.status}`
+        );
       }
-      visitedCursors.add(nextCursor);
-    }
-  } while (nextCursor);
 
-  return programs;
+      const payload = readRemoteProgramsPage(await response.json());
+      return {
+        data: payload.data.map(
+          (program): ProgramSummary => ({
+            id: program.id,
+            ...(program.programId !== undefined ? { programId: program.programId } : {}),
+            title: program.name ?? 'Untitled Program',
+            updatedAt: program.updatedAt ?? new Date(0).toISOString(),
+          })
+        ),
+        nextCursor: payload.nextCursor,
+      };
+    },
+  });
 }
 
 export async function fetchCatalogEntries(): Promise<CatalogEntry[]> {
-  const response = await fetchWithAccessToken('/catalog');
+  const response = await fetchWithAccessToken(requests.catalogList().path);
   if (!response.response.ok) {
-    throw new Error(`Catalog fetch failed with status ${response.response.status}`);
+    throw await readApiError(
+      response.response,
+      `Catalog fetch failed with status ${response.response.status}`
+    );
   }
 
   const payload = await response.response.json();
@@ -119,36 +113,15 @@ export async function fetchCatalogEntries(): Promise<CatalogEntry[]> {
 }
 
 export async function fetchCatalogDefinition(programId: string): Promise<ProgramDefinition> {
-  const response = await fetchWithAccessToken(`/catalog/${encodeApiPathIdentifier(programId)}`);
+  const response = await fetchWithAccessToken(requests.catalogDetail(programId).path);
   if (!response.response.ok) {
-    throw new Error(`Catalog definition fetch failed with status ${response.response.status}`);
+    throw await readApiError(
+      response.response,
+      `Catalog definition fetch failed with status ${response.response.status}`
+    );
   }
 
   return ProgramDefinitionSchema.parse(await response.response.json());
-}
-
-export function buildDefaultProgramConfig(
-  definition: ProgramDefinition
-): Record<string, number | string> {
-  const config: Record<string, number | string> = {};
-
-  for (const field of definition.configFields) {
-    if (field.type === 'weight') {
-      config[field.key] =
-        field.min > 0
-          ? field.min
-          : field.step * DEFAULT_WEIGHT_MULTIPLIER || DEFAULT_WEIGHT_FALLBACK;
-      continue;
-    }
-
-    const firstOption = field.options[0];
-    if (!firstOption) {
-      throw new Error(`Missing options for ${field.key}`);
-    }
-    config[field.key] = firstOption.value;
-  }
-
-  return config;
 }
 
 export async function createProgramInstance(input: {
@@ -160,16 +133,16 @@ export async function createProgramInstance(input: {
     throw new Error('Program creation requires an access token');
   }
 
-  const { response } = await fetchWithAccessToken('/programs', {
-    method: 'POST',
+  const request = requests.createProgram(input);
+  const { response } = await fetchWithAccessToken(request.path, {
+    ...requests.toRequestInit(request),
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(input),
   });
 
   if (!response.ok) {
-    throw new Error(`Program creation failed with status ${response.status}`);
+    throw await readApiError(response, `Program creation failed with status ${response.status}`);
   }
 
   return GenericProgramDetailSchema.parse(await response.json());
@@ -177,12 +150,10 @@ export async function createProgramInstance(input: {
 
 /** Deletes a plan on the server; a missing plan counts as deleted. */
 export async function deleteProgramInstance(programInstanceId: string): Promise<void> {
-  const { response } = await fetchWithAccessToken(
-    `/programs/${encodeURIComponent(programInstanceId)}`,
-    { method: 'DELETE' }
-  );
+  const request = requests.deleteProgram(programInstanceId);
+  const { response } = await fetchWithAccessToken(request.path, requests.toRequestInit(request));
   if (response.ok || response.status === 404) return;
-  throw new Error(`Program deletion failed with status ${response.status}`);
+  throw await readApiError(response, `Program deletion failed with status ${response.status}`);
 }
 
 /** Existing plans started from the same catalog program. */

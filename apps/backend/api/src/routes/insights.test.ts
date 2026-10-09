@@ -11,14 +11,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // vitest isolates the module registry per test file, so these mocks are scoped
 // to this file automatically — no manual capture/restore is needed.
-const { mockRateLimit, mockGetInsights } = vi.hoisted(() => {
+const { mockRateLimit, mockGetInsights, mockRefreshStaleInsights } = vi.hoisted(() => {
   const mockRateLimit = vi.fn<() => Promise<void>>(() => Promise.resolve());
+  const mockRefreshStaleInsights = vi.fn<(userId: string) => Promise<void>>(() =>
+    Promise.resolve()
+  );
   const mockGetInsights = vi.fn<
     (userId: string, types: readonly string[]) => Promise<InsightRow[]>
   >(() => Promise.resolve([]));
   return {
     mockRateLimit,
     mockGetInsights,
+    mockRefreshStaleInsights,
   };
 });
 
@@ -41,6 +45,7 @@ interface InsightRow {
 
 vi.mock('../services/insights', () => ({
   getInsights: mockGetInsights,
+  refreshStaleInsights: mockRefreshStaleInsights,
 }));
 
 import { Elysia } from 'elysia';
@@ -142,6 +147,17 @@ describe('GET /insights — types query validation', () => {
     expect(mockGetInsights).toHaveBeenCalledTimes(1);
     const call = mockGetInsights.mock.calls[0];
     expect(call?.[1]).toEqual(['volume_trend', 'frequency']);
+  });
+
+  it('refreshes a stale snapshot before reading it', async () => {
+    mockGetInsights.mockResolvedValueOnce([]);
+
+    await get('/insights', { Authorization: `Bearer ${await makeValidJwt(USER_ID)}` });
+
+    expect(mockRefreshStaleInsights).toHaveBeenCalledWith(USER_ID);
+    expect(mockRefreshStaleInsights.mock.invocationCallOrder[0]).toBeLessThan(
+      mockGetInsights.mock.invocationCallOrder[0] ?? 0
+    );
   });
 
   it('returns 200 and all rows when types param is omitted', async () => {

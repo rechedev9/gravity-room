@@ -18,6 +18,9 @@ import {
   ProgramInstanceSchema,
   SetLogEntryInputSchema,
 } from '@gzclp/domain/schemas/instance';
+import type { z } from 'zod/v4';
+import { MAX_SET_LOG_ITEMS, type GenericProgramDetailSchema } from '@gzclp/domain/schemas/instance';
+import type { ProgramSummary } from '@gzclp/domain/schemas/program-summary';
 import type { GenericResults, GenericUndoHistory } from '@gzclp/domain/types/program';
 import { ApiError } from '../middleware/error-handler';
 import {
@@ -56,28 +59,22 @@ interface UndoProjection {
   readonly previousSetLogs: unknown;
 }
 
-export interface ProgramInstanceResponse {
-  readonly id: string;
-  readonly programId: string;
-  readonly name: string;
-  readonly config: unknown;
-  readonly metadata: unknown;
-  readonly status: string;
-  readonly results: GenericResults;
-  readonly undoHistory: GenericUndoHistory;
-  readonly resultTimestamps: Readonly<Record<string, string>>;
-  readonly completedDates: Readonly<Record<string, string>>;
-  readonly definitionId: string | null;
-  readonly customDefinition: unknown | null;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
+/**
+ * Wire shape of a program instance, derived from the client schema so a field renamed there
+ * fails typecheck here. Config, metadata and the custom definition stay `unknown` on purpose.
+ */
+export type ProgramInstanceResponse = Readonly<
+  Omit<z.input<typeof GenericProgramDetailSchema>, 'config' | 'metadata' | 'customDefinition'> & {
+    config: unknown;
+    metadata: unknown;
+    customDefinition: unknown;
+  }
+>;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-const MAX_SET_LOG_ITEMS = 20;
 const MAX_METADATA_BYTES = 10_000;
 
 async function lockUserForActiveProgramMutation(tx: Tx, userId: string): Promise<void> {
@@ -264,14 +261,8 @@ export async function createInstance(
   return toResponse(instance, [], []);
 }
 
-interface ProgramInstanceListItem {
-  readonly id: string;
-  readonly programId: string;
-  readonly name: string;
-  readonly status: string;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
+/** A list row is the client summary without `config`, which only the detail route returns. */
+type ProgramInstanceListItem = Omit<ProgramSummary, 'config'>;
 
 interface PaginatedInstances {
   readonly data: ProgramInstanceListItem[];
@@ -427,7 +418,8 @@ export async function updateInstanceMetadata(
     throw new ApiError(400, 'Metadata exceeds 10KB limit', 'METADATA_TOO_LARGE');
   }
 
-  const mergedMetadata = sql`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${metadata}::jsonb`;
+  // Bind the JSON text: the postgres-js driver cannot serialize an object bound to a raw ::jsonb cast.
+  const mergedMetadata = sql`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${serialized}::jsonb`;
 
   const updated = await getDb().transaction(async (tx) => {
     await lockUserForDataMutation(tx, userId);

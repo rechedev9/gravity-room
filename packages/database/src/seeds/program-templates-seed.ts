@@ -6,9 +6,12 @@
  *
  * Safety: before deactivating a template, any active program instances
  * referencing it are auto-completed to prevent orphaned programs.
+ *
+ * Preset rows the catalog no longer declares are retired the same way: they
+ * were written by other code, so nothing guarantees they still hydrate.
  */
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import { sql, eq, and, inArray } from 'drizzle-orm';
+import { sql, eq, and, inArray, notInArray } from 'drizzle-orm';
 import { programTemplates, programInstances } from '../schema';
 import type * as schema from '../schema';
 import { PROGRAM_CATALOG } from '@gzclp/domain/catalog';
@@ -37,7 +40,7 @@ import { PPL_AB_DEFINITION_JSONB } from './programs/ppl-ab';
 
 type DbClient = PostgresJsDatabase<typeof schema>;
 
-const DEFINITION_MAP: Record<string, unknown> = {
+export const PROGRAM_TEMPLATE_DEFINITIONS: Readonly<Record<string, unknown>> = {
   gzclp: GZCLP_DEFINITION_JSONB,
   'hexan-ppl': PPL531_DEFINITION_JSONB,
   'stronglifts-5x5': STRONGLIFTS_DEFINITION_JSONB,
@@ -62,7 +65,29 @@ const DEFINITION_MAP: Record<string, unknown> = {
 
 export async function seedProgramTemplates(db: DbClient): Promise<void> {
   await db.transaction(async (tx) => {
-    const deactivatingIds = PROGRAM_CATALOG.filter((meta) => !meta.isActive).map((meta) => meta.id);
+    const catalogIds = PROGRAM_CATALOG.map((meta) => meta.id);
+    const orphaned = await tx
+      .update(programTemplates)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(
+        and(
+          eq(programTemplates.source, 'preset'),
+          eq(programTemplates.isActive, true),
+          notInArray(programTemplates.id, catalogIds)
+        )
+      )
+      .returning({ id: programTemplates.id });
+
+    if (orphaned.length > 0) {
+      console.error(
+        `[seed] Retired ${orphaned.length} preset template(s) missing from the catalog: ${orphaned.map((row) => row.id).join(', ')}`
+      );
+    }
+
+    const deactivatingIds = [
+      ...PROGRAM_CATALOG.filter((meta) => !meta.isActive).map((meta) => meta.id),
+      ...orphaned.map((row) => row.id),
+    ];
 
     // A failed catalog upsert must not leave user programs completed against the
     // old catalog state, so both mutations belong to one transaction.
@@ -97,7 +122,7 @@ export async function seedProgramTemplates(db: DbClient): Promise<void> {
           category: meta.category,
           level: meta.level,
           source: 'preset',
-          definition: DEFINITION_MAP[meta.id],
+          definition: PROGRAM_TEMPLATE_DEFINITIONS[meta.id],
           isActive: meta.isActive,
         }))
       )

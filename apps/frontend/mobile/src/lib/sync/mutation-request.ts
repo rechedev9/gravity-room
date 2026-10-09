@@ -1,4 +1,5 @@
-import { encodeApiPathIdentifier } from '../network/api-path-identifier';
+import { InvalidApiPathIdentifierError } from '@gzclp/api-client/path-identifier';
+import * as requests from '@gzclp/api-client/program-requests';
 import { isRecord } from '@gzclp/domain/type-guards';
 import type { QueuedMutation } from './mutation-queue-repository';
 
@@ -20,18 +21,27 @@ function validId(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function encodeId(value: string): string {
+function compile(build: () => requests.ApiRequest): requests.ApiRequest {
   try {
-    return encodeApiPathIdentifier(value);
-  } catch {
-    throw new InvalidQueuedMutationError('Invalid queued mutation identifier encoding');
+    return build();
+  } catch (error) {
+    if (error instanceof InvalidApiPathIdentifierError) {
+      throw new InvalidQueuedMutationError('Invalid queued mutation identifier encoding');
+    }
+    throw error;
   }
+}
+
+function writeMethod(request: requests.ApiRequest): MutationRequest['method'] {
+  if (request.method === 'GET') throw new InvalidQueuedMutationError('Queued mutations never read');
+  return request.method;
 }
 
 /**
  * Compile a persisted intent into its wire request without I/O. Authentication,
  * cancellation, retry policy, and acknowledgement belong to the sync worker.
- * Payload fields beyond the envelope are preserved for the API/domain validator.
+ * Path and method come from the shared request builders. The persisted payload
+ * is sent as stored, so fields beyond the envelope reach the API/domain validator.
  */
 export function buildMutationRequest(mutation: QueuedMutation): MutationRequest {
   if (
@@ -41,7 +51,8 @@ export function buildMutationRequest(mutation: QueuedMutation): MutationRequest 
   ) {
     throw new InvalidQueuedMutationError('Invalid queued mutation envelope');
   }
-  const path = `/programs/${encodeId(mutation.entityId)}`;
+  const instanceId = mutation.entityId;
+  compile(() => requests.programDetail(instanceId));
   const { workoutIndex, slotId } = mutation.payload;
 
   switch (mutation.operation) {
@@ -54,32 +65,36 @@ export function buildMutationRequest(mutation: QueuedMutation): MutationRequest 
       ) {
         throw new InvalidQueuedMutationError('Invalid record-result mutation payload');
       }
+      const request = compile(() =>
+        requests.recordResult({ instanceId, workoutIndex, slotId, result })
+      );
       return {
-        path: `${path}/results`,
-        method: 'POST',
+        path: request.path,
+        method: writeMethod(request),
         body: JSON.stringify(mutation.payload),
         acceptsNotFound: false,
       };
     }
-    case 'update-metadata':
-      if (!isRecord(mutation.payload.metadata)) {
+    case 'update-metadata': {
+      const { metadata } = mutation.payload;
+      if (!isRecord(metadata)) {
         throw new InvalidQueuedMutationError('Invalid update-metadata mutation payload');
       }
+      const request = compile(() => requests.updateMetadata(instanceId, metadata));
       return {
-        path: `${path}/metadata`,
-        method: 'PATCH',
+        path: request.path,
+        method: writeMethod(request),
         body: JSON.stringify(mutation.payload),
         acceptsNotFound: false,
       };
-    case 'delete-result':
+    }
+    case 'delete-result': {
       if (!validWorkoutIndex(workoutIndex) || !validId(slotId)) {
         throw new InvalidQueuedMutationError('Invalid delete-result mutation payload');
       }
-      return {
-        path: `${path}/results/${workoutIndex}/${encodeId(slotId)}`,
-        method: 'DELETE',
-        acceptsNotFound: true,
-      };
+      const request = compile(() => requests.deleteResult({ instanceId, workoutIndex, slotId }));
+      return { path: request.path, method: writeMethod(request), acceptsNotFound: true };
+    }
     default:
       throw new InvalidQueuedMutationError(
         `Unsupported queued mutation operation: ${mutation.operation}`

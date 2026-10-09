@@ -1,6 +1,8 @@
+import { ApiError } from '@gzclp/api-client/api-error';
 import type { GenericProgramDetail, ProgramDefinition } from '@gzclp/domain';
 
 import { fetchProgramDefinition, fetchProgramDetail } from './program-detail-service';
+import { ProgramDefinitionFetchError } from './program-definition-error';
 
 const mockFetchWithAccessToken = jest.fn<
   Promise<{ readonly accessToken: string; readonly response: Response }>,
@@ -151,5 +153,34 @@ describe('program detail service', () => {
     await expect(fetchProgramDetail('instance-1')).resolves.toEqual(TEST_DETAIL);
 
     expect(mockFetchWithAccessToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws a structured ApiError with status and code when the detail fetch fails', async () => {
+    mockGetAccessToken.mockReturnValue('mobile-access-token');
+    mockFetchWithAccessToken.mockResolvedValueOnce({
+      accessToken: 'mobile-access-token',
+      response: new Response(JSON.stringify({ error: 'Plan not found', code: 'NOT_FOUND' }), {
+        status: 404,
+      }),
+    });
+
+    const error: unknown = await fetchProgramDetail('instance-1').catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).not.toBeInstanceOf(ProgramDefinitionFetchError);
+    expect(error).toMatchObject({ status: 404, code: 'NOT_FOUND' });
+  });
+
+  it('marks a failed definition fetch so the tracker can tell it from a missing plan', async () => {
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+    fetchSpy.mockResolvedValueOnce(new Response('{}', { status: 404 }));
+
+    const error: unknown = await fetchProgramDefinition('test-prog').catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ProgramDefinitionFetchError);
+    expect(error).toMatchObject({
+      status: 404,
+      message: 'Program definition fetch failed with status 404',
+    });
   });
 });

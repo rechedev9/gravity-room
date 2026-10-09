@@ -12,6 +12,7 @@ import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import { PROGRAM_LEVELS } from '@gzclp/domain/catalog';
 import type { ProgramLevel } from '@gzclp/domain/catalog';
+import type { CatalogEntry } from '@gzclp/domain/schemas/catalog';
 import { isRecord } from '@gzclp/domain/type-guards';
 import {
   getCachedCatalogList,
@@ -36,19 +37,6 @@ export type GetProgramDefinitionResult =
   | { readonly status: 'found'; readonly definition: ProgramDefinition }
   | { readonly status: 'not_found' }
   | { readonly status: 'hydration_failed'; readonly error: unknown };
-
-export interface CatalogEntry {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
-  readonly author: string;
-  readonly category: string;
-  readonly level: ProgramLevel;
-  readonly source: string;
-  readonly totalWorkouts: number;
-  readonly workoutsPerWeek: number;
-  readonly cycleLength: number;
-}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -153,21 +141,25 @@ export async function listPrograms(): Promise<readonly CatalogEntry[]> {
   });
 }
 
+/** Any Drizzle handle that can read: the pooled client or an open transaction. */
+type Reader = Pick<ReturnType<typeof getDb>, 'select'>;
+
 async function hydrateStoredProgramDefinition(
   programId: string,
-  includeInactive: boolean
+  includeInactive: boolean,
+  reader: Reader = getDb()
 ): Promise<GetProgramDefinitionResult> {
   const visibility = includeInactive
     ? eq(programTemplates.id, programId)
     : and(eq(programTemplates.id, programId), eq(programTemplates.isActive, true));
-  const [template] = await getDb().select().from(programTemplates).where(visibility).limit(1);
+  const [template] = await reader.select().from(programTemplates).where(visibility).limit(1);
 
   if (!template) return { status: 'not_found' };
 
   const exerciseIds = [...collectExerciseIds(template.definition)];
   const exerciseRows =
     exerciseIds.length > 0
-      ? await getDb()
+      ? await reader
           .select({ id: exercises.id, name: exercises.name })
           .from(exercises)
           .where(inArray(exercises.id, exerciseIds))
@@ -210,11 +202,14 @@ export async function getProgramDefinition(programId: string): Promise<GetProgra
 /**
  * Resolve an existing instance's definition independently of catalog visibility.
  * Historical result validation must continue after a template is retired.
+ * A caller inside a transaction passes it as `reader`: the pool holds one
+ * connection, so a second handle would wait on the caller forever.
  */
 export function getHistoricalProgramDefinition(
-  programId: string
+  programId: string,
+  reader?: Reader
 ): Promise<GetProgramDefinitionResult> {
-  return hydrateStoredProgramDefinition(programId, true);
+  return hydrateStoredProgramDefinition(programId, true, reader);
 }
 
 // ---------------------------------------------------------------------------

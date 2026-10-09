@@ -1,4 +1,5 @@
-import { encodeApiPathIdentifier, InvalidApiPathIdentifierError } from './api-path-identifier';
+import { describe, expect, it } from 'vitest';
+import { encodeApiPathIdentifier, InvalidApiPathIdentifierError } from './path-identifier.js';
 
 describe('API identifier path boundary', () => {
   it.each([
