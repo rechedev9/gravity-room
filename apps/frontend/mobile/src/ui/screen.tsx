@@ -4,6 +4,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { colors, spacing } from '../shell/design';
+import { EdgeFade } from './edge-fade';
 
 type ScreenProps = {
   readonly children: ReactNode;
@@ -15,7 +16,10 @@ export function Screen({ children, padded = true, style }: ScreenProps) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={styles.safeArea}>
       <SyncStatusBanner />
-      <View style={[padded ? styles.padded : styles.fill, style]}>{children}</View>
+      <View style={[padded ? styles.padded : styles.fill, style]}>
+        {children}
+        <EdgeFade edge="top" size={14} />
+      </View>
     </SafeAreaView>
   );
 }
