@@ -27,6 +27,10 @@ import {
   MAX_REPS,
   MAX_SET_LOG_WEIGHT,
   MAX_PROGRAM_CONFIG_KEYS,
+  MAX_PROGRAM_CONFIG_WEIGHT,
+  MAX_PROGRAM_ID_CHARS,
+  MAX_SET_LOG_ITEMS,
+  MAX_SLOT_ID_CHARS,
   WorkoutIndexKeySchema,
 } from '@gzclp/domain/schemas/instance';
 import { MAX_TOTAL_WORKOUTS } from '@gzclp/domain/schemas/program-definition';
@@ -35,10 +39,7 @@ import { MAX_IMPORT_UNDO_ENTRIES } from '../lib/data-limits';
 // Singleflight: concurrent GETs for the same program instance share one DB fetch
 const instanceFlight = new SingleflightMap<unknown>();
 const MAX_PROGRAM_CURSOR_CHARS = 256;
-const MAX_PROGRAM_ID_CHARS = 50;
-const MAX_SLOT_ID_CHARS = 50;
 const MAX_WORKOUT_INDEX_KEY_CHARS = String(MAX_TOTAL_WORKOUTS - 1).length;
-const MAX_SET_LOG_ITEMS = 20;
 const PROGRAM_ID_PATTERN = '^[a-z0-9-]+$';
 const WORKOUT_INDEX_KEY_PATTERN = '^\\d+$';
 const MUTATION_RATE_LIMIT = { failClosed: true } as const;
@@ -48,7 +49,10 @@ const IMPORT_DAILY_KIB_BUDGET = 10 * 1024;
 
 const programConfigSchema = t.Record(
   t.String({ maxLength: 30 }),
-  t.Union([t.Number({ minimum: 0, maximum: 10000 }), t.String({ maxLength: 100 })]),
+  t.Union([
+    t.Number({ minimum: 0, maximum: MAX_PROGRAM_CONFIG_WEIGHT }),
+    t.String({ maxLength: 100 }),
+  ]),
   { maxProperties: MAX_PROGRAM_CONFIG_KEYS }
 );
 const programIdSchema = t.String({

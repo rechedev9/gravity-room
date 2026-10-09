@@ -768,6 +768,10 @@ var ProgramDefinitionSchema = z
 // packages/domain/src/schemas/instance.ts
 var MAX_REPS = 999;
 var MAX_SET_LOG_WEIGHT = 1e4;
+var MAX_PROGRAM_CONFIG_WEIGHT = 1e4;
+var MAX_SET_LOG_ITEMS = 20;
+var MAX_SLOT_ID_CHARS = 50;
+var MAX_PROGRAM_ID_CHARS = 50;
 var ResultValueSchema = z2.enum(['success', 'fail']);
 var SetLogEntrySchema = z2.strictObject({
   reps: z2.number().int().min(0).max(MAX_REPS),
@@ -4931,7 +4935,6 @@ async function assertUserDataQuotas(tx, userId) {
 }
 
 // apps/backend/api/src/services/programs.ts
-var MAX_SET_LOG_ITEMS = 20;
 var MAX_METADATA_BYTES = 1e4;
 async function lockUserForActiveProgramMutation(tx, userId) {
   await lockUserForDataMutation(tx, userId);
@@ -5482,10 +5485,7 @@ async function invalidateCachedInstance(userId, instanceId) {
 // apps/backend/api/src/routes/programs.ts
 var instanceFlight = new SingleflightMap();
 var MAX_PROGRAM_CURSOR_CHARS = 256;
-var MAX_PROGRAM_ID_CHARS = 50;
-var MAX_SLOT_ID_CHARS = 50;
 var MAX_WORKOUT_INDEX_KEY_CHARS = String(MAX_TOTAL_WORKOUTS - 1).length;
-var MAX_SET_LOG_ITEMS2 = 20;
 var PROGRAM_ID_PATTERN = '^[a-z0-9-]+$';
 var WORKOUT_INDEX_KEY_PATTERN = '^\\d+$';
 var MUTATION_RATE_LIMIT = { failClosed: true };
@@ -5494,7 +5494,10 @@ var IMPORT_HOURLY_ROW_BUDGET = 1e4;
 var IMPORT_DAILY_KIB_BUDGET = 10 * 1024;
 var programConfigSchema = t2.Record(
   t2.String({ maxLength: 30 }),
-  t2.Union([t2.Number({ minimum: 0, maximum: 1e4 }), t2.String({ maxLength: 100 })]),
+  t2.Union([
+    t2.Number({ minimum: 0, maximum: MAX_PROGRAM_CONFIG_WEIGHT }),
+    t2.String({ maxLength: 100 }),
+  ]),
   { maxProperties: MAX_PROGRAM_CONFIG_KEYS }
 );
 var programIdSchema = t2.String({
@@ -5514,7 +5517,7 @@ var setLogsSchema = t2.Array(
     weight: t2.Optional(t2.Number({ minimum: 0, maximum: MAX_SET_LOG_WEIGHT })),
     rpe: t2.Optional(t2.Integer({ minimum: 1, maximum: 10 })),
   }),
-  { maxItems: MAX_SET_LOG_ITEMS2 }
+  { maxItems: MAX_SET_LOG_ITEMS }
 );
 var security = [{ bearerAuth: [] }];
 function getImportRateLimitCosts(data) {
@@ -5873,13 +5876,14 @@ var programRoutes = new Elysia5({ prefix: '/programs' })
 // apps/backend/api/src/routes/catalog.ts
 import { Elysia as Elysia6, t as t3 } from 'elysia';
 var HOUR_MS = 36e5;
-var MAX_PROGRAM_ID_CHARS2 = 50;
-var MAX_PREVIEW_CONFIG_KEYS = 100;
 var security2 = [{ bearerAuth: [] }];
 var previewConfigSchema = t3.Record(
   t3.String({ maxLength: 30 }),
-  t3.Union([t3.Number({ minimum: 0, maximum: 1e4 }), t3.String({ maxLength: 100 })]),
-  { maxProperties: MAX_PREVIEW_CONFIG_KEYS }
+  t3.Union([
+    t3.Number({ minimum: 0, maximum: MAX_PROGRAM_CONFIG_WEIGHT }),
+    t3.String({ maxLength: 100 }),
+  ]),
+  { maxProperties: MAX_PROGRAM_CONFIG_KEYS }
 );
 function parseMixedConfig(raw) {
   if (!isRecord(raw)) return void 0;
@@ -6005,7 +6009,7 @@ var catalogRoutes = new Elysia6({ prefix: '/catalog' })
       params: t3.Object({
         programId: t3.String({
           minLength: 1,
-          maxLength: MAX_PROGRAM_ID_CHARS2,
+          maxLength: MAX_PROGRAM_ID_CHARS,
           pattern: '^[a-z0-9-]+$',
         }),
       }),
@@ -6682,8 +6686,6 @@ async function syncCompletedAt(tx, instanceId, workoutIndex, expectedSlots) {
   }
 }
 var MAX_RESULT_WORKOUT_INDEX = MAX_TOTAL_WORKOUTS - 1;
-var MAX_SET_LOG_ITEMS3 = 20;
-var MAX_SLOT_ID_LENGTH = 50;
 function assertWorkoutIndexInRange(workoutIndex) {
   if (
     !Number.isInteger(workoutIndex) ||
@@ -6694,7 +6696,7 @@ function assertWorkoutIndexInRange(workoutIndex) {
   }
 }
 function assertSlotIdValid(slotId) {
-  if (slotId.length < 1 || slotId.length > MAX_SLOT_ID_LENGTH) {
+  if (slotId.length < 1 || slotId.length > MAX_SLOT_ID_CHARS) {
     throw new ApiError(400, `Invalid slotId: ${slotId}`, 'INVALID_DATA');
   }
 }
@@ -6707,8 +6709,8 @@ async function recordResult(userId, instanceId, input) {
   if (input.rpe !== void 0 && (input.rpe < 1 || input.rpe > 10)) {
     throw new ApiError(400, 'rpe must be between 1 and 10', 'INVALID_DATA');
   }
-  if (input.setLogs !== void 0 && input.setLogs.length > MAX_SET_LOG_ITEMS3) {
-    throw new ApiError(400, `setLogs cannot exceed ${MAX_SET_LOG_ITEMS3} entries`, 'INVALID_DATA');
+  if (input.setLogs !== void 0 && input.setLogs.length > MAX_SET_LOG_ITEMS) {
+    throw new ApiError(400, `setLogs cannot exceed ${MAX_SET_LOG_ITEMS} entries`, 'INVALID_DATA');
   }
   for (const setLog of input.setLogs ?? []) {
     if (!SetLogEntryInputSchema.safeParse(setLog).success) {

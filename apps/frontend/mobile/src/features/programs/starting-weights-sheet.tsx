@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import type { ProgramDefinition } from '@gzclp/domain';
+import { MAX_PROGRAM_CONFIG_WEIGHT, type ProgramDefinition } from '@gzclp/domain';
 
 import {
-  MAX_STARTING_WEIGHT,
   buildProgramConfig,
   startingWeightFields,
   validateStartingWeights,
@@ -96,7 +95,7 @@ function StartingWeightsForm({ definition, busy, error, onConfirm }: FormProps) 
                 ? {
                     error: t(`starting_weights.errors.${issue}`, {
                       min: Math.max(field.min, 0),
-                      max: MAX_STARTING_WEIGHT,
+                      max: MAX_PROGRAM_CONFIG_WEIGHT,
                     }),
                   }
                 : {})}

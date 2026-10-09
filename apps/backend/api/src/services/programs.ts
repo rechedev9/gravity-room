@@ -18,6 +18,7 @@ import {
   ProgramInstanceSchema,
   SetLogEntryInputSchema,
 } from '@gzclp/domain/schemas/instance';
+import { MAX_SET_LOG_ITEMS } from '@gzclp/domain/schemas/instance';
 import type { GenericResults, GenericUndoHistory } from '@gzclp/domain/types/program';
 import { ApiError } from '../middleware/error-handler';
 import {
@@ -77,7 +78,6 @@ export interface ProgramInstanceResponse {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const MAX_SET_LOG_ITEMS = 20;
 const MAX_METADATA_BYTES = 10_000;
 
 async function lockUserForActiveProgramMutation(tx: Tx, userId: string): Promise<void> {

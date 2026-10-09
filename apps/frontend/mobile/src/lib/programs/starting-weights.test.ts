@@ -1,7 +1,6 @@
-import type { ProgramDefinition } from '@gzclp/domain';
+import { MAX_PROGRAM_CONFIG_WEIGHT, type ProgramDefinition } from '@gzclp/domain';
 
 import {
-  MAX_STARTING_WEIGHT,
   buildProgramConfig,
   parseStartingWeight,
   startingWeightFields,
@@ -89,7 +88,7 @@ describe('validateStartingWeights', () => {
       validateStartingWeights(fields, {
         squat: '',
         bench: 'heavy',
-        ohp: String(MAX_STARTING_WEIGHT + 0.5),
+        ohp: String(MAX_PROGRAM_CONFIG_WEIGHT + 0.5),
       })
     ).toEqual({
       ok: false,

@@ -1,7 +1,4 @@
-import type { ProgramDefinition } from '@gzclp/domain';
-
-/** Upper bound accepted by the API for a program config weight (`programConfigSchema`). */
-export const MAX_STARTING_WEIGHT = 10_000;
+import { MAX_PROGRAM_CONFIG_WEIGHT, type ProgramDefinition } from '@gzclp/domain';
 
 // Legacy default kept for programs whose minimum is zero: eight steps, else an empty bar.
 const DEFAULT_WEIGHT_MULTIPLIER = 8;
@@ -76,7 +73,7 @@ export function validateStartingWeights(
     const value = parseStartingWeight(text);
     if (value === null) issues[field.key] = 'invalid';
     else if (value < Math.max(field.min, 0)) issues[field.key] = 'below_min';
-    else if (value > MAX_STARTING_WEIGHT) issues[field.key] = 'above_max';
+    else if (value > MAX_PROGRAM_CONFIG_WEIGHT) issues[field.key] = 'above_max';
     else weights[field.key] = value;
   }
   return Object.keys(issues).length > 0 ? { ok: false, issues } : { ok: true, weights };
