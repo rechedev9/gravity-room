@@ -5,7 +5,7 @@
  */
 import { ProgramDefinitionSchema } from '@gzclp/domain/schemas/program-definition';
 import { GenericProgramDetailSchema } from '@gzclp/domain/schemas/instance';
-import { ProgramSummarySchema } from '@gzclp/domain/schemas/program-summary';
+import { ProgramListPageSchema, ProgramSummarySchema } from '@gzclp/domain/schemas/program-summary';
 import { CatalogEntrySchema } from '@gzclp/domain/schemas/catalog';
 import { ExerciseEntrySchema, MuscleGroupEntrySchema } from '@gzclp/domain/schemas/exercises';
 import { InsightItemSchema } from '@gzclp/domain/schemas/insights';
@@ -22,6 +22,7 @@ import type {
 } from '@gzclp/domain/schemas/exercises';
 import type { InsightItem } from '@gzclp/domain/schemas/insights';
 import { isRecord } from '@gzclp/domain/type-guards';
+import { collectCursorPages } from '@gzclp/api-client/cursor-pages';
 import { readApiError } from '@gzclp/api-client/response-error';
 import { z } from 'zod/v4';
 import { API_URL } from './api';
@@ -52,13 +53,25 @@ export type { ApiFetchOptions };
 
 const ProgramSummaryListSchema = z.array(ProgramSummarySchema);
 
-/** Fetch all program instances for the current user (first page). */
+/** Upper bound on list pages: the server caps a user at 100 plans, 20 per page. */
+const MAX_PROGRAM_LIST_PAGES = 50;
+
+/** Fetch every program instance for the current user, following the page cursor. */
 export async function fetchPrograms(): Promise<ProgramSummary[]> {
-  const data = await apiFetch('/programs');
-  // Handle both legacy array response and new paginated { data, nextCursor } shape
-  if (Array.isArray(data)) return ProgramSummaryListSchema.parse(data);
-  if (isRecord(data) && Array.isArray(data.data)) return ProgramSummaryListSchema.parse(data.data);
-  return [];
+  return collectCursorPages({
+    maxPages: MAX_PROGRAM_LIST_PAGES,
+    fetchPage: async (cursor) => {
+      const data = await apiFetch(
+        cursor === undefined ? '/programs' : `/programs?cursor=${encodeURIComponent(cursor)}`
+      );
+      // Legacy responses were a bare array with no further pages.
+      if (Array.isArray(data)) {
+        return { data: ProgramSummaryListSchema.parse(data), nextCursor: null };
+      }
+      if (isRecord(data) && Array.isArray(data.data)) return ProgramListPageSchema.parse(data);
+      return { data: [], nextCursor: null };
+    },
+  });
 }
 
 /** Create a new program instance. */

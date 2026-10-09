@@ -20,6 +20,7 @@ import {
 } from '@gzclp/domain/schemas/instance';
 import type { z } from 'zod/v4';
 import { MAX_SET_LOG_ITEMS, type GenericProgramDetailSchema } from '@gzclp/domain/schemas/instance';
+import type { ProgramSummary } from '@gzclp/domain/schemas/program-summary';
 import type { GenericResults, GenericUndoHistory } from '@gzclp/domain/types/program';
 import { ApiError } from '../middleware/error-handler';
 import {
@@ -260,14 +261,8 @@ export async function createInstance(
   return toResponse(instance, [], []);
 }
 
-interface ProgramInstanceListItem {
-  readonly id: string;
-  readonly programId: string;
-  readonly name: string;
-  readonly status: string;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-}
+/** A list row is the client summary without `config`, which only the detail route returns. */
+type ProgramInstanceListItem = Omit<ProgramSummary, 'config'>;
 
 interface PaginatedInstances {
   readonly data: ProgramInstanceListItem[];

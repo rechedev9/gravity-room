@@ -267,9 +267,7 @@ describe('fetchProgramSummaries', () => {
       }),
     });
 
-    await expect(fetchProgramSummaries()).rejects.toThrow(
-      'Program summary pagination repeated a cursor'
-    );
+    await expect(fetchProgramSummaries()).rejects.toThrow('Pagination repeated a cursor');
     expect(mockFetchWithAccessToken).toHaveBeenCalledTimes(2);
   });
 

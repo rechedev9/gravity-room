@@ -1,3 +1,4 @@
+import { collectCursorPages } from '@gzclp/api-client/cursor-pages';
 import { encodeApiPathIdentifier } from '@gzclp/api-client/path-identifier';
 import { readApiError } from '@gzclp/api-client/response-error';
 import {
@@ -58,51 +59,41 @@ function readRemoteProgramsPage(value: unknown): RemoteProgramsPage {
   return { data: rawData, nextCursor: rawNextCursor };
 }
 
+/** Upper bound on list pages: the server caps a user at 100 plans, 20 per page. */
+const MAX_PROGRAM_LIST_PAGES = 50;
+
 export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
   if (!getAccessToken()) {
     throw new Error('Program summaries require an access token');
   }
 
-  const programs: ProgramSummary[] = [];
-  let nextCursor: string | null | undefined;
-  const visitedCursors = new Set<string>();
+  return collectCursorPages({
+    maxPages: MAX_PROGRAM_LIST_PAGES,
+    fetchPage: async (cursor) => {
+      const query = cursor === undefined ? '' : `?${new URLSearchParams({ cursor }).toString()}`;
+      const { response } = await fetchWithAccessToken(`/programs${query}`);
 
-  do {
-    const requestUrl = new URL('http://localhost');
-    requestUrl.pathname = '/programs';
-    if (nextCursor) {
-      requestUrl.searchParams.set('cursor', nextCursor);
-    }
-
-    const { response } = await fetchWithAccessToken(`${requestUrl.pathname}${requestUrl.search}`);
-
-    if (!response.ok) {
-      throw await readApiError(
-        response,
-        `Program summary fetch failed with status ${response.status}`
-      );
-    }
-
-    const payload = readRemoteProgramsPage(await response.json());
-    for (const program of payload.data) {
-      programs.push({
-        id: program.id,
-        ...(program.programId !== undefined ? { programId: program.programId } : {}),
-        title: program.name ?? 'Untitled Program',
-        updatedAt: program.updatedAt ?? new Date(0).toISOString(),
-      });
-    }
-
-    nextCursor = payload.nextCursor;
-    if (nextCursor) {
-      if (visitedCursors.has(nextCursor)) {
-        throw new Error('Program summary pagination repeated a cursor');
+      if (!response.ok) {
+        throw await readApiError(
+          response,
+          `Program summary fetch failed with status ${response.status}`
+        );
       }
-      visitedCursors.add(nextCursor);
-    }
-  } while (nextCursor);
 
-  return programs;
+      const payload = readRemoteProgramsPage(await response.json());
+      return {
+        data: payload.data.map(
+          (program): ProgramSummary => ({
+            id: program.id,
+            ...(program.programId !== undefined ? { programId: program.programId } : {}),
+            title: program.name ?? 'Untitled Program',
+            updatedAt: program.updatedAt ?? new Date(0).toISOString(),
+          })
+        ),
+        nextCursor: payload.nextCursor,
+      };
+    },
+  });
 }
 
 export async function fetchCatalogEntries(): Promise<CatalogEntry[]> {
