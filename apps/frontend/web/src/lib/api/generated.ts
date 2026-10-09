@@ -111,6 +111,7 @@ const postApiProgramsImport_Body = z
       .max(50),
     completedDates: z.object({}).partial().passthrough().readonly().optional(),
   })
+  .passthrough()
   .readonly();
 const postApiExercises_Body = z
   .object({
@@ -192,7 +193,10 @@ export const endpoints = [
       {
         name: 'body',
         type: 'Body',
-        schema: z.object({ email: z.string().max(254).email() }).readonly(),
+        schema: z
+          .object({ email: z.string().max(254).email() })
+          .passthrough()
+          .readonly(),
       },
     ],
     response: z.void(),
