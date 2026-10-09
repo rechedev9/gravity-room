@@ -49,6 +49,12 @@ interface PasswordUserSeedInput {
  */
 export async function createAndAuthUser(page: Page): Promise<AuthResult> {
   await skipFirstRunOverlays(page);
+  // The cookie is minted outside the app, so the app never wrote its session hint.
+  // A "signed out" hint left by an earlier anonymous page view would make it skip
+  // the session restore; record the signed-in state a real sign-in would leave.
+  await page.addInitScript(() => {
+    window.localStorage.setItem('gravity-room:session-hint', 'signed-in');
+  });
   const email = `e2e-${crypto.randomUUID()}@test.local`;
 
   const res = await page.request.post(`${BASE_URL}/api/auth/dev`, {
