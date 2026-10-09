@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -103,6 +103,11 @@ export function StartPage(): ReactNode {
   }, [definition, previewConfig]);
 
   const [isStarting, setIsStarting] = useState(false);
+
+  // Each step starts at the stepper, not wherever the previous step was scrolled to.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [step]);
   const { confirmReplacement, dialog: replaceDialog } = useConfirmProgramReplacement();
 
   const generate = async (thenGoToTracker: boolean): Promise<void> => {
