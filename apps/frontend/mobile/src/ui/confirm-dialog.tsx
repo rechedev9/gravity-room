@@ -1,6 +1,7 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radii, type } from '../shell/design';
+import { type } from '../shell/design';
+import { colors, radii } from '@gzclp/design-tokens';
 import { Button } from './button';
 
 export type ConfirmOptions = {

@@ -1,7 +1,7 @@
 import Svg, { Circle, Line, Rect, Text as SvgText } from 'react-native-svg';
 
 import type { CoverSpec } from '../lib/programs/program-cover-spec';
-import { colors, fonts } from '../shell/design';
+import { colors, fonts } from '@gzclp/design-tokens';
 
 export type CoverVariant = 'cover' | 'thumbnail';
 

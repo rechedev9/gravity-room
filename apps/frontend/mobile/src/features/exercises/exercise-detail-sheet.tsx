@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { ExerciseEntry, MuscleGroupEntry } from '@gzclp/domain';
-import { colors, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors } from '@gzclp/design-tokens';
 import { Sheet } from '../../ui/sheet';
 import { attributeLabel } from './exercise-labels';
 

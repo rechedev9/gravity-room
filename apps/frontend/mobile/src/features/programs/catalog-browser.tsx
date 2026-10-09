@@ -11,7 +11,8 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import type { CatalogEntry } from '@gzclp/domain';
-import { colors, spacing, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors, spacing } from '@gzclp/design-tokens';
 import { Screen } from '../../ui/screen';
 import { ScreenHeader } from '../../ui/screen-header';
 import { Chip } from '../../ui/chip';

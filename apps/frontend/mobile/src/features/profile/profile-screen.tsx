@@ -3,7 +3,8 @@ import Constants from 'expo-constants';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { colors, spacing, type } from '../../shell/design';
+import { type } from '../../shell/design';
+import { colors, spacing } from '@gzclp/design-tokens';
 import { useSyncStatus } from '../../shell/sync-status-provider';
 import type { AuthUser } from '../../lib/auth/session-response';
 import {

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, type } from '../shell/design';
+import { type } from '../shell/design';
+import { colors } from '@gzclp/design-tokens';
 
 type Props = {
   readonly eyebrow: string;

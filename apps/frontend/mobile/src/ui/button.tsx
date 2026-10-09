@@ -1,6 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps } from 'react-native';
 
-import { colors, radii, tapTarget, type } from '../shell/design';
+import { type } from '../shell/design';
+import { colors, radii, tapTarget } from '@gzclp/design-tokens';
 
 export type ButtonVariant = 'primary' | 'default' | 'danger' | 'ghost';
 

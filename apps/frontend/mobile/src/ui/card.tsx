@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { colors, radii, spacing } from '../shell/design';
+import { colors, radii, spacing } from '@gzclp/design-tokens';
 
 type CardProps = {
   readonly children: ReactNode;

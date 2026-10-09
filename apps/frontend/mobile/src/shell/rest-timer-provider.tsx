@@ -13,7 +13,8 @@ import { restAlerts } from '../lib/rest/rest-alerts';
 import { useRestAlertsPreference } from '../lib/rest/rest-alerts-preference';
 import { Button } from '../ui/button';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { colors, type } from './design';
+import { type } from './design';
+import { colors } from '@gzclp/design-tokens';
 
 const RestTimerContext = createContext<RestTimer | null>(null);
 

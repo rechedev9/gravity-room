@@ -6,7 +6,8 @@ import {
   View,
   type TextInputProps,
 } from 'react-native';
-import { colors, radii, type } from '../shell/design';
+import { type } from '../shell/design';
+import { colors, radii } from '@gzclp/design-tokens';
 
 type Props = TextInputProps & { readonly label: string; readonly error?: string };
 

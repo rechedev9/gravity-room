@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { programCoverSpec } from '../lib/programs/program-cover-spec';
-import { colors } from '../shell/design';
+import { colors } from '@gzclp/design-tokens';
 import { ProgramCover } from './program-cover';
 
 type Props = {

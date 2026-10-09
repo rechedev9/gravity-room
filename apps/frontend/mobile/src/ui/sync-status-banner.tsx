@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSyncStatus, type SyncStatusValue } from '../shell/sync-status-provider';
-import { colors, fonts, spacing } from '../shell/design';
+import { colors, fonts, spacing } from '@gzclp/design-tokens';
 import { Button } from './button';
 
 export function SyncStatusBanner() {

@@ -4,7 +4,7 @@ import { View } from 'react-native';
 import { useAuth } from '../../shell/auth-provider';
 import { RestTimerProvider } from '../../shell/rest-timer-provider';
 import { ProgramQueryProvider } from '../../shell/program-query-provider';
-import { colors } from '../../shell/design';
+import { colors } from '@gzclp/design-tokens';
 
 export default function AuthenticatedLayout() {
   const { user } = useAuth();
