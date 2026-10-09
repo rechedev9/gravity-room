@@ -984,8 +984,8 @@
       "title": "Test Máximo —",
       "description_propagation": "Registra tu máximo. Este peso se usará como Training Max del siguiente bloque.",
       "description_final": "Registra tu máximo. Este es tu resultado final del protocolo JAW.",
-      "weight_label": "¿Cuánto levantaste? (kg)",
-      "range_error": "Introduce un peso entre {{min}} y {{max}} kg.",
+      "weight_label": "¿Cuánto levantaste? ({{unit}})",
+      "range_error": "Introduce un peso entre {{min}} y {{max}} {{unit}}.",
       "cancel_button": "Cancelar",
       "saving_loading": "Guardando...",
       "confirm_button": "Confirmar"

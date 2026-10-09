@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/button';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 const MIN_WEIGHT = 20;
 const MAX_WEIGHT = 500;
@@ -38,21 +39,24 @@ export function TestWeightModal({
   onCancel,
 }: TestWeightModalProps): React.ReactNode {
   const { t } = useTranslation();
+  const { unit, toDisplay, fromDisplay } = useUnitPreference();
+  const defaultText = String(toDisplay(defaultWeight));
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const rangeErrorId = useId();
 
   const { register, watch, reset } = useForm<TestWeightFormValues>({
-    defaultValues: { weight: String(defaultWeight) },
+    defaultValues: { weight: defaultText },
   });
 
   // Watch the current weight value to derive validity synchronously.
   // formState.isValid lags React re-renders and can't be relied on in tests
   // that call fireEvent.change + fireEvent.click without awaiting.
-  const watchedWeight = watch('weight', String(defaultWeight));
+  const watchedWeight = watch('weight', defaultText);
   const parsedWeight = parseFloat(watchedWeight);
+  const weightKg = fromDisplay(parsedWeight);
   const isWeightValid =
-    Number.isFinite(parsedWeight) && parsedWeight >= MIN_WEIGHT && parsedWeight <= MAX_WEIGHT;
+    Number.isFinite(parsedWeight) && weightKg >= MIN_WEIGHT && weightKg <= MAX_WEIGHT;
   const showRangeError = watchedWeight.trim() !== '' && !isWeightValid;
 
   // Sync dialog open/close with native dialog API and reset form when opening.
@@ -62,11 +66,11 @@ export function TestWeightModal({
     if (!dialog) return;
     if (isOpen && !dialog.open) {
       dialog.showModal();
-      reset({ weight: String(defaultWeight) });
+      reset({ weight: defaultText });
     } else if (!isOpen && dialog.open) {
       dialog.close();
     }
-  }, [isOpen, defaultWeight, reset]);
+  }, [isOpen, defaultText, reset]);
 
   // Block Escape key — prevent native cancel event from closing without our handler
   useEffect(() => {
@@ -86,7 +90,7 @@ export function TestWeightModal({
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     if (!isWeightValid) return;
-    onConfirm(parsedWeight);
+    onConfirm(weightKg);
   };
 
   return (
@@ -107,13 +111,13 @@ export function TestWeightModal({
         </p>
 
         <label className="block text-xs font-medium text-main mb-1.5">
-          {t('tracker.test_weight.weight_label')}
+          {t('tracker.test_weight.weight_label', { unit })}
         </label>
         <input
           type="number"
           {...register('weight')}
-          min={MIN_WEIGHT}
-          max={MAX_WEIGHT}
+          min={toDisplay(MIN_WEIGHT)}
+          max={toDisplay(MAX_WEIGHT)}
           step={WEIGHT_STEP}
           aria-invalid={!isWeightValid}
           aria-describedby={showRangeError ? rangeErrorId : undefined}
@@ -126,7 +130,11 @@ export function TestWeightModal({
           className={`text-xs text-error mb-4 min-h-[1rem] ${showRangeError ? '' : 'invisible'}`}
         >
           {showRangeError
-            ? t('tracker.test_weight.range_error', { min: MIN_WEIGHT, max: MAX_WEIGHT })
+            ? t('tracker.test_weight.range_error', {
+                min: toDisplay(MIN_WEIGHT),
+                max: toDisplay(MAX_WEIGHT),
+                unit,
+              })
             : ''}
         </p>
 

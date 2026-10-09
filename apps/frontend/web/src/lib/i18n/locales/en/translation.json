@@ -984,8 +984,8 @@
       "title": "Max Test —",
       "description_propagation": "Record your max. This weight will be used as Training Max for the next block.",
       "description_final": "Record your max. This is your final result of the JAW protocol.",
-      "weight_label": "How much did you lift? (kg)",
-      "range_error": "Enter a weight between {{min}} and {{max}} kg.",
+      "weight_label": "How much did you lift? ({{unit}})",
+      "range_error": "Enter a weight between {{min}} and {{max}} {{unit}}.",
       "cancel_button": "Cancel",
       "saving_loading": "Saving...",
       "confirm_button": "Confirm"
