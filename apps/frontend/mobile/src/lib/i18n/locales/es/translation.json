@@ -127,6 +127,7 @@
     "next": "Siguiente",
     "next_accessibility": "Siguiente entrenamiento",
     "weight": "{{weight}} kg",
+    "bodyweight": "Peso corporal",
     "sets_reps": "{{sets}} x {{reps}}",
     "confirm_set": "Set {{index}} ✓",
     "set_indicators": {
@@ -170,7 +171,10 @@
       "reps_accessibility": "Repeticiones de la serie {{index}} de {{name}}",
       "logged": "Serie {{index}}: {{reps}} repeticiones con {{weight}} kg",
       "logged_reps": "{{reps}} reps",
-      "logged_miss": "Serie {{index}}: {{reps}} reps con {{weight}} kg, por debajo del objetivo"
+      "missed": "Fallada",
+      "logged_miss": "Serie {{index}}: {{reps}} reps con {{weight}} kg, por debajo del objetivo",
+      "logged_bodyweight": "Serie {{index}}: {{reps}} reps",
+      "logged_miss_bodyweight": "Serie {{index}}: {{reps}} reps, por debajo del objetivo"
     },
     "session_position": "SEMANA {{week}} DÍA {{day}}",
     "week": "Semana {{week}}",
@@ -187,7 +191,8 @@
     "session_done": "Sesión completada",
     "next_time_title": "Próxima sesión",
     "next_workout": "Siguiente entrenamiento",
-    "undo_set": "Deshacer la última serie de {{name}}"
+    "undo_set": "Deshacer la última serie de {{name}}",
+    "undo_set_short": "Deshacer serie"
   },
   "rest": {
     "title": "Descanso",

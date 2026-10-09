@@ -42,3 +42,32 @@ it('refreshes untouched prescriptions while preserving edits before confirmation
   fireEvent.press(screen.getByRole('button', { name: 'Confirm set 1 for Squat' }));
   await waitFor(() => expect(onConfirm).toHaveBeenCalledWith({ weight: 62.5, reps: 4 }));
 });
+
+it('logs bodyweight work by reps alone, with no weight field', async () => {
+  const onConfirm = jest.fn(async () => undefined);
+  render(
+    <TrackerSetRow
+      exerciseName="Plank"
+      index={1}
+      weight={82}
+      reps={1}
+      showWeight={false}
+      onConfirm={onConfirm}
+    />
+  );
+  expect(screen.queryByLabelText('Weight for set 1 of Plank')).toBeNull();
+  fireEvent.press(screen.getByRole('button', { name: 'Confirm set 1 for Plank' }));
+  await waitFor(() => expect(onConfirm).toHaveBeenCalledWith({ reps: 1 }));
+});
+
+it('shows a missed set as missed and a bodyweight set without a weight', () => {
+  render(
+    <>
+      <LoggedSetRow index={2} entry={{ reps: 0, weight: 60 }} fallbackWeight={60} targetReps={5} />
+      <LoggedSetRow index={1} entry={{ reps: 10 }} fallbackWeight={82} showWeight={false} />
+    </>
+  );
+  expect(screen.getByText('Missed')).toBeTruthy();
+  expect(screen.getByLabelText('Set 1: 10 reps')).toBeTruthy();
+  expect(screen.queryByText('82 kg')).toBeNull();
+});

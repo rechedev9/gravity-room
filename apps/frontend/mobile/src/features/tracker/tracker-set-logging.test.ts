@@ -4,6 +4,7 @@ import {
   popSetLog,
   slotLogKey,
   slotSupportsSetFlow,
+  withMissedSet,
 } from './tracker-set-logging';
 
 describe('tracker set logging', () => {
@@ -33,5 +34,15 @@ describe('tracker set logging', () => {
         isTestSlot: undefined,
       })
     ).toBe(false);
+  });
+
+  it('closes a failed slot with a zero rep set at the last lifted weight', () => {
+    const logs = [{ reps: 3, weight: 62.5 }];
+    expect(withMissedSet(logs, 60)).toEqual([
+      { reps: 3, weight: 62.5 },
+      { reps: 0, weight: 62.5 },
+    ]);
+    expect(withMissedSet([{ reps: 3 }], 60)).toEqual([{ reps: 3 }, { reps: 0, weight: 60 }]);
+    expect(logs).toHaveLength(1);
   });
 });

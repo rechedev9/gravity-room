@@ -30,7 +30,13 @@ import { commitTrackerEdit } from '../../lib/tracker/commit-tracker-edit';
 import { flushQueuedMutations } from '../../lib/sync/mutation-sync-service';
 import { applyUndoEntry, buildUndoEntry, patchSlotMetrics, slotStateEqual } from './tracker-state';
 import { TrackerSlotCard } from './tracker-slot-card';
-import { appendSetLog, nextSetIndex, popSetLog, slotLogKey } from './tracker-set-logging';
+import {
+  appendSetLog,
+  nextSetIndex,
+  popSetLog,
+  slotLogKey,
+  withMissedSet,
+} from './tracker-set-logging';
 import { type } from '../../shell/design';
 import { colors, spacing } from '@gzclp/design-tokens';
 import { useRestTimer } from '../../shell/rest-timer-provider';
@@ -41,6 +47,7 @@ import {
   firstPendingWorkout,
   isWorkoutComplete,
   recordedWorkoutVolume,
+  heroRevealTarget,
   workoutScrollTarget,
 } from './workout-navigation';
 import { Button } from '../../ui/button';
@@ -99,11 +106,15 @@ export function TrackerScreen({
   onTemplateUnavailableRef.current = onTemplateUnavailable;
   const alignWorkoutRef = useRef(true);
   const viewportHeightRef = useRef(0);
+  const scrollYRef = useRef(0);
   const weekScrollRef = useRef<ScrollView>(null);
   const weekOffsetsRef = useRef<Record<number, number>>({});
   const weekScrolledRef = useRef(false);
   const weekMetricsRef = useRef({ viewport: 0, content: 0, x: 0 });
   const [weekOverflow, setWeekOverflow] = useState(false);
+  const slotBoundsRef = useRef<Record<string, { readonly top: number; readonly bottom: number }>>(
+    {}
+  );
   const heroBoundsRef = useRef<{
     readonly key: string;
     readonly top: number;
@@ -374,22 +385,32 @@ export function TrackerScreen({
       return;
     }
 
+    // A manual fail with sets in progress keeps them: the missed set closes the slot, which is
+    // how the domain reads a failure. Without a fail it would derive success from the sets
+    // alone, so any other manual result is ignored while sets are in progress.
+    const draftSets = draftLogsRef.current[slotLogKey(workoutIndex, slotId)] ?? [];
+    const slotRow = rows[workoutIndex]?.slots.find((slot) => slot.slotId === slotId);
+    if (setLogs === undefined && draftSets.length > 0) {
+      if (result !== 'fail' || slotRow === undefined) return;
+      setLogs = withMissedSet(draftSets, slotRow.weight);
+    }
+
     if (setLogs !== undefined && definition !== null) {
       const loggedDetail = patchSlotMetrics(currentDetail, workoutIndex, slotId, {
         result,
         setLogs: [...setLogs],
       });
-      result =
-        computeGenericProgram(definition, loggedDetail.config, loggedDetail.results)[
-          workoutIndex
-        ]?.slots.find((slot) => slot.slotId === slotId)?.result ?? result;
+      const derived = computeGenericProgram(definition, loggedDetail.config, loggedDetail.results)[
+        workoutIndex
+      ]?.slots.find((slot) => slot.slotId === slotId)?.result;
+      if (result === 'fail' && derived !== 'fail' && draftSets.length > 0) {
+        // The progression set sits among the logged sets and passed, so no set can record
+        // the fail; the fail wins and the unfinished sets are dropped.
+        setLogs = undefined;
+      } else {
+        result = derived ?? result;
+      }
     }
-
-    // With sets in progress only a fail may be recorded by hand. The domain derives
-    // a result from logged sets, so they are dropped with the draft; a bare
-    // success would also lose them.
-    const hasDraftSets = (draftLogsRef.current[slotLogKey(workoutIndex, slotId)]?.length ?? 0) > 0;
-    if (setLogs === undefined && hasDraftSets && result !== 'fail') return;
 
     // Mirror the logged AMRAP into the existing API metric used by analytics.
     // The domain-computed slot determines whether this exercise has an AMRAP.
@@ -452,6 +473,8 @@ export function TrackerScreen({
       setDetailState(completedDetail);
     setDraftLogsState(nextDraftLogs);
 
+    // A recorded result ends the exercise, so its rest is over.
+    restTimer.skip();
     setSyncNotice(null);
   }
 
@@ -481,9 +504,6 @@ export function TrackerScreen({
     }
 
     await handleMarkResult(workoutIndex, slotId, 'success', nextLogs);
-    if (detailRef.current?.results[String(workoutIndex)]?.[slotId]?.result !== undefined) {
-      restTimer.skip();
-    }
   }
 
   async function persistSlotUpdate(
@@ -719,6 +739,31 @@ export function TrackerScreen({
     scrollRef.current?.scrollTo({ y, animated: false });
   }
 
+  // The next exercise becomes the hero without a layout change of its own.
+  useEffect(() => {
+    const bounds = slotBoundsRef.current[heroKey];
+    if (bounds === undefined) return;
+    heroBoundsRef.current = { key: heroKey, ...bounds };
+    revealHero();
+  }, [heroKey]);
+
+  // Keep the active exercise in view as it grows with each logged set and when the rest
+  // banner shrinks the viewport.
+  function revealHero(): void {
+    if (alignWorkoutRef.current) return;
+    const bounds = heroBoundsRef.current;
+    const viewportHeight = viewportHeightRef.current;
+    if (bounds?.key !== heroKey || viewportHeight === 0) return;
+    const y = heroRevealTarget({
+      scrollY: scrollYRef.current,
+      viewportHeight,
+      heroTop: bounds.top,
+      heroBottom: bounds.bottom,
+      margin: spacing.screenX,
+    });
+    if (y !== null) scrollRef.current?.scrollTo({ y, animated: true });
+  }
+
   if (loading) {
     return (
       <Screen>
@@ -770,9 +815,14 @@ export function TrackerScreen({
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
         onContentSizeChange={alignWorkoutScroll}
+        scrollEventThrottle={32}
+        onScroll={(event) => {
+          scrollYRef.current = event.nativeEvent.contentOffset.y;
+        }}
         onLayout={(event) => {
           viewportHeightRef.current = event.nativeEvent.layout.height;
           alignWorkoutScroll();
+          revealHero();
         }}
       >
         <View style={styles.chrome}>
@@ -790,6 +840,7 @@ export function TrackerScreen({
           </View>
           <IconButton
             name="arrow-undo-outline"
+            caption={t('tracker.undo')}
             label={t('tracker.undo_accessibility')}
             disabled={!canUndo || pendingLocalEdits > 0}
             onPress={() => {
@@ -934,8 +985,10 @@ export function TrackerScreen({
               <View key={preview.slotId} style={styles.previewRow}>
                 <Text style={styles.previewName}>{preview.name}</Text>
                 <Text style={styles.previewValue}>
-                  {t('tracker.weight', { weight: preview.weight })} ·{' '}
-                  {t('tracker.sets_reps', { sets: preview.sets, reps: preview.reps })}
+                  {preview.isBodyweight === true
+                    ? t('tracker.bodyweight')
+                    : t('tracker.weight', { weight: preview.weight })}{' '}
+                  · {t('tracker.sets_reps', { sets: preview.sets, reps: preview.reps })}
                 </Text>
               </View>
             ))}
@@ -956,10 +1009,15 @@ export function TrackerScreen({
           <View
             key={`${selectedRow.index}:${slot.slotId}`}
             onLayout={(event) => {
-              if (slot.slotId !== heroSlotId) return;
               const { y, height } = event.nativeEvent.layout;
+              slotBoundsRef.current[`${selectedRow.index}:${slot.slotId}`] = {
+                top: y,
+                bottom: y + height,
+              };
+              if (slot.slotId !== heroSlotId) return;
               heroBoundsRef.current = { key: heroKey, top: y, bottom: y + height };
               alignWorkoutScroll();
+              revealHero();
             }}
           >
             <TrackerSlotCard
@@ -1032,6 +1090,7 @@ const styles = StyleSheet.create({
     ...type.body,
   },
   syncNotice: {
+    ...type.body,
     color: colors.warn,
     fontSize: 14,
     lineHeight: 20,
