@@ -11,6 +11,7 @@ import {
 import { parseRetryAfter } from '../network/retry-after';
 import { RequestTimeoutError, fetchApiResponse } from '../network/api-fetch';
 import { parseApiErrorBody } from '@gzclp/api-client/api-error';
+import { authErrorCode } from '@gzclp/api-client/auth-error-code';
 import { createSingleFlight } from '@gzclp/api-client/single-flight';
 import { Platform } from 'react-native';
 import {
@@ -344,18 +345,6 @@ async function readResponseErrorCode(response: Response): Promise<string | undef
   return parseApiErrorBody(body).code;
 }
 
-/** Maps an auth failure to a stable code the UI localizes (`login.errors.*`). */
-function mapAuthErrorCode(status: number, bodyCode: string | undefined): string {
-  if (bodyCode) {
-    return bodyCode;
-  }
-  if (status === 429) return 'RATE_LIMITED';
-  if (status === 401) return 'INVALID_CREDENTIALS';
-  if (status === 403) return 'EMAIL_NOT_VERIFIED';
-  if (status === 409) return 'EMAIL_TAKEN';
-  return 'generic';
-}
-
 export function getAccessToken(): string | null {
   return accessToken;
 }
@@ -490,7 +479,7 @@ export async function signInWithEmailPassword(
   const response = await login(email, password);
   if (!response.ok) {
     const bodyCode = await readResponseErrorCode(response);
-    return { ok: false, code: mapAuthErrorCode(response.status, bodyCode) };
+    return { ok: false, code: authErrorCode(response.status, bodyCode) };
   }
 
   const session = readSessionResponse(await response.json());
@@ -523,7 +512,7 @@ export async function signUpWithEmailPassword(
   const response = await signup(email, password, name);
   if (!response.ok) {
     const bodyCode = await readResponseErrorCode(response);
-    return { ok: false, code: mapAuthErrorCode(response.status, bodyCode) };
+    return { ok: false, code: authErrorCode(response.status, bodyCode) };
   }
 
   return { ok: true };
@@ -586,7 +575,7 @@ export async function signInWithDev(
   const response = await authenticate(email, secret);
   if (!response.ok) {
     const bodyCode = await readResponseErrorCode(response);
-    return { ok: false, code: mapAuthErrorCode(response.status, bodyCode) };
+    return { ok: false, code: authErrorCode(response.status, bodyCode) };
   }
 
   const session = readSessionResponse(await response.json());

@@ -82,6 +82,7 @@ vi.mock('@/lib/api-functions', async () => {
   };
 });
 
+import { ApiError } from '@gzclp/api-client/api-error';
 import { AuthProvider, getAuthSessionIdentity, useAuth } from './auth-context';
 import { SESSION_INVALIDATED_EVENT } from '@/lib/auth-events';
 
@@ -361,6 +362,34 @@ describe('AuthProvider', () => {
         ok: false,
         code: 'NETWORK_ERROR',
         message: 'Failed to fetch',
+      });
+    });
+
+    it('keeps the server code and derives one from the status when the body has none', async () => {
+      const { result } = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+      });
+
+      const attempt = async (error: ApiError): Promise<unknown> => {
+        mockApiFetch.mockImplementation((path: string) =>
+          path === '/auth/login' ? Promise.reject(error) : Promise.reject(new Error('Unauthorized'))
+        );
+        let outcome: unknown = null;
+        await act(async () => {
+          outcome = await result.current.signInWithEmail('test@example.com', 'password');
+        });
+        return outcome;
+      };
+
+      expect(await attempt(new ApiError('Locked', 403, 'EMAIL_NOT_VERIFIED'))).toMatchObject({
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+      expect(await attempt(new ApiError('API error: 429', 429))).toMatchObject({
+        code: 'RATE_LIMITED',
+      });
+      expect(await attempt(new ApiError('API error: 502', 502))).toMatchObject({
+        code: 'generic',
       });
     });
   });

@@ -54,7 +54,10 @@
       "INVALID_CREDENTIALS": "Correo o contraseña incorrectos.",
       "EMAIL_NOT_VERIFIED": "Verifica tu correo antes de entrar. Revisa tu bandeja de entrada.",
       "EMAIL_TAKEN": "Ya existe una cuenta con este correo.",
+      "INVALID_TOKEN": "Este enlace no es válido o ha caducado.",
       "RATE_LIMITED": "Demasiados intentos. Inténtalo de nuevo más tarde.",
+      "NETWORK_ERROR": "No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.",
+      "EMAIL_NOT_CONFIGURED": "El inicio de sesión por correo no está disponible ahora mismo.",
       "VALIDATION_ERROR": "Revisa tus datos e inténtalo de nuevo.",
       "generic": "Algo salió mal. Inténtalo de nuevo."
     }
