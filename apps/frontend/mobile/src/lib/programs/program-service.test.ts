@@ -1,5 +1,4 @@
 import {
-  buildDefaultProgramConfig,
   createProgramInstance,
   deleteProgramInstance,
   fetchCatalogDefinition,
@@ -347,54 +346,6 @@ describe('fetchProgramSummaries', () => {
 
     expect(definition.id).toBe('gzclp');
     expect(mockFetchWithAccessToken).toHaveBeenCalledWith('/catalog/gzclp', undefined);
-  });
-
-  it('builds default config from weight and select fields', () => {
-    expect(
-      buildDefaultProgramConfig({
-        id: 'gzclp',
-        name: 'GZCLP',
-        description: 'Linear progression',
-        author: 'Gravity Room',
-        version: 1,
-        category: 'strength',
-        source: 'preset',
-        days: [
-          {
-            name: 'Day 1',
-            slots: [
-              {
-                id: 'squat-t1',
-                exerciseId: 'squat',
-                tier: 'T1',
-                stages: [{ sets: 5, reps: 3 }],
-                onSuccess: { type: 'add_weight' },
-                onMidStageFail: { type: 'advance_stage' },
-                onFinalStageFail: { type: 'deload_percent', percent: 10 },
-                startWeightKey: 'squat',
-              },
-            ],
-          },
-        ],
-        cycleLength: 1,
-        totalWorkouts: 1,
-        workoutsPerWeek: 3,
-        exercises: { squat: { name: 'Squat' } },
-        configFields: [
-          { key: 'squat', label: 'Squat', type: 'weight', min: 0, step: 2.5 },
-          {
-            key: 'variant',
-            label: 'Variant',
-            type: 'select',
-            options: [
-              { label: 'Classic', value: 'classic' },
-              { label: 'Compact', value: 'compact' },
-            ],
-          },
-        ],
-        weightIncrements: { T1: 2.5 },
-      })
-    ).toEqual({ squat: 20, variant: 'classic' });
   });
 
   it('creates a program instance through POST /programs', async () => {

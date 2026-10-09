@@ -23,9 +23,6 @@ interface RemoteProgramsPage {
   readonly nextCursor: string | null;
 }
 
-const DEFAULT_WEIGHT_FALLBACK = 20;
-const DEFAULT_WEIGHT_MULTIPLIER = 8;
-
 function isRemoteProgramSummary(value: unknown): value is RemoteProgramSummary {
   if (!isRecord(value)) {
     return false;
@@ -125,30 +122,6 @@ export async function fetchCatalogDefinition(programId: string): Promise<Program
   }
 
   return ProgramDefinitionSchema.parse(await response.response.json());
-}
-
-export function buildDefaultProgramConfig(
-  definition: ProgramDefinition
-): Record<string, number | string> {
-  const config: Record<string, number | string> = {};
-
-  for (const field of definition.configFields) {
-    if (field.type === 'weight') {
-      config[field.key] =
-        field.min > 0
-          ? field.min
-          : field.step * DEFAULT_WEIGHT_MULTIPLIER || DEFAULT_WEIGHT_FALLBACK;
-      continue;
-    }
-
-    const firstOption = field.options[0];
-    if (!firstOption) {
-      throw new Error(`Missing options for ${field.key}`);
-    }
-    config[field.key] = firstOption.value;
-  }
-
-  return config;
 }
 
 export async function createProgramInstance(input: {

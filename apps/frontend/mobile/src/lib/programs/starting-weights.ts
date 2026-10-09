@@ -1,8 +1,8 @@
-import { MAX_PROGRAM_CONFIG_WEIGHT, type ProgramDefinition } from '@gzclp/domain';
-
-// Legacy default kept for programs whose minimum is zero: eight steps, else an empty bar.
-const DEFAULT_WEIGHT_MULTIPLIER = 8;
-const DEFAULT_WEIGHT_FALLBACK = 20;
+import {
+  MAX_PROGRAM_CONFIG_WEIGHT,
+  defaultWeightValue,
+  type ProgramDefinition,
+} from '@gzclp/domain';
 
 export interface StartingWeightField {
   readonly key: string;
@@ -11,7 +11,7 @@ export interface StartingWeightField {
   readonly step: number;
   readonly hint?: string;
   readonly group?: string;
-  /** Value shown before the lifter edits anything; same rule as the legacy default config. */
+  /** Value shown before the lifter edits anything; from the domain default-config rule. */
   readonly defaultValue: number;
 }
 
@@ -20,14 +20,6 @@ export type StartingWeightIssue = 'required' | 'invalid' | 'below_min' | 'above_
 export type StartingWeightsValidation =
   | { readonly ok: true; readonly weights: Readonly<Record<string, number>> }
   | { readonly ok: false; readonly issues: Readonly<Record<string, StartingWeightIssue>> };
-
-type WeightField = Extract<ProgramDefinition['configFields'][number], { type: 'weight' }>;
-
-function defaultWeight(field: WeightField): number {
-  return field.min > 0
-    ? field.min
-    : field.step * DEFAULT_WEIGHT_MULTIPLIER || DEFAULT_WEIGHT_FALLBACK;
-}
 
 /** Weight config fields of a definition, in catalog order, with their default value. */
 export function startingWeightFields(
@@ -43,7 +35,7 @@ export function startingWeightFields(
         step: field.step,
         ...(field.hint !== undefined ? { hint: field.hint } : {}),
         ...(field.group !== undefined ? { group: field.group } : {}),
-        defaultValue: defaultWeight(field),
+        defaultValue: defaultWeightValue(field),
       },
     ];
   });
@@ -77,22 +69,4 @@ export function validateStartingWeights(
     else weights[field.key] = value;
   }
   return Object.keys(issues).length > 0 ? { ok: false, issues } : { ok: true, weights };
-}
-
-/** Default config with the lifter's weights applied to the weight fields only. */
-export function buildProgramConfig(
-  definition: ProgramDefinition,
-  weights: Readonly<Record<string, number>>
-): Record<string, number | string> {
-  const config: Record<string, number | string> = {};
-  for (const field of definition.configFields) {
-    if (field.type === 'weight') {
-      config[field.key] = weights[field.key] ?? defaultWeight(field);
-      continue;
-    }
-    const firstOption = field.options[0];
-    if (!firstOption) throw new Error(`Missing options for ${field.key}`);
-    config[field.key] = firstOption.value;
-  }
-  return config;
 }

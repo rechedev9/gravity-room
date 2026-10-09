@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { MAX_PROGRAM_CONFIG_WEIGHT, type ProgramDefinition } from '@gzclp/domain';
+import {
+  MAX_PROGRAM_CONFIG_WEIGHT,
+  buildProgramConfig,
+  type ProgramDefinition,
+} from '@gzclp/domain';
 
 import {
-  buildProgramConfig,
   startingWeightFields,
   validateStartingWeights,
   type StartingWeightIssue,

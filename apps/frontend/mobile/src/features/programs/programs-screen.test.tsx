@@ -28,7 +28,6 @@ import {
   upsertProgramSummaries,
 } from '../../lib/programs/program-repository';
 import {
-  buildDefaultProgramConfig,
   createProgramInstance,
   fetchCatalogDefinition,
   fetchCatalogEntries,
@@ -46,7 +45,6 @@ jest.mock('../../lib/programs/program-repository', () => ({
 }));
 
 jest.mock('../../lib/programs/program-service', () => ({
-  buildDefaultProgramConfig: jest.fn(),
   createProgramInstance: jest.fn(),
   deleteProgramInstance: jest.fn(async () => undefined),
   fetchCatalogDefinition: jest.fn(),
@@ -74,7 +72,6 @@ jest.mock('../tracker/tracker-screen', () => ({
 
 const mockedListProgramSummaries = jest.mocked(listProgramSummaries);
 const mockedUpsertProgramSummaries = jest.mocked(upsertProgramSummaries);
-const mockedBuildDefaultProgramConfig = jest.mocked(buildDefaultProgramConfig);
 const mockedCreateProgramInstance = jest.mocked(createProgramInstance);
 const mockedFetchCatalogDefinition = jest.mocked(fetchCatalogDefinition);
 const mockedFetchCatalogEntries = jest.mocked(fetchCatalogEntries);
@@ -149,7 +146,6 @@ describe('ProgramsScreen', () => {
   beforeEach(() => {
     mockOwner = 'owner-a';
     mockedFetchCatalogEntries.mockImplementation(() => new Promise(() => undefined));
-    mockedBuildDefaultProgramConfig.mockReturnValue({ squat: 20 });
     mockedUpsertProgramDefinition.mockResolvedValue();
     mockedUpsertProgramDetail.mockResolvedValue();
   });
@@ -157,7 +153,6 @@ describe('ProgramsScreen', () => {
   afterEach(() => {
     mockedListProgramSummaries.mockReset();
     mockedUpsertProgramSummaries.mockReset();
-    mockedBuildDefaultProgramConfig.mockReset();
     mockedCreateProgramInstance.mockReset();
     mockedFetchCatalogDefinition.mockReset();
     mockedFetchCatalogEntries.mockReset();
@@ -460,7 +455,6 @@ describe('ProgramsScreen', () => {
     mockedListProgramSummaries.mockResolvedValue([PROGRAM_A, PROGRAM_B]);
     mockedFetchCatalogEntries.mockResolvedValue([CATALOG_ENTRY]);
     mockedFetchCatalogDefinition.mockResolvedValue(PROGRAM_DEFINITION);
-    mockedBuildDefaultProgramConfig.mockReturnValue({ squat: 20 });
     mockedCreateProgramInstance.mockResolvedValue(CREATED_DETAIL);
     render(<ProgramsScreen mode="catalog" />);
     const card = (await screen.findAllByRole('button', { name: 'View GZCLP' }))[0];
