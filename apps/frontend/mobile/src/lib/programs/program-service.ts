@@ -1,4 +1,4 @@
-import { encodeApiPathIdentifier } from '../network/api-path-identifier';
+import { encodeApiPathIdentifier } from '@gzclp/api-client/path-identifier';
 import {
   CatalogEntrySchema,
   GenericProgramDetailSchema,
@@ -178,7 +178,7 @@ export async function createProgramInstance(input: {
 /** Deletes a plan on the server; a missing plan counts as deleted. */
 export async function deleteProgramInstance(programInstanceId: string): Promise<void> {
   const { response } = await fetchWithAccessToken(
-    `/programs/${encodeURIComponent(programInstanceId)}`,
+    `/programs/${encodeApiPathIdentifier(programInstanceId)}`,
     { method: 'DELETE' }
   );
   if (response.ok || response.status === 404) return;

@@ -1,7 +1,8 @@
 # Mobile request boundaries
 
 Identifiers interpolated into API paths must pass through
-`src/lib/network/api-path-identifier.ts`. Encode each identifier separately,
+`encodeApiPathIdentifier` from `@gzclp/api-client/path-identifier`
+(`packages/api-client/src/path-identifier.ts`). Encode each identifier separately,
 keeping route separators literal. This applies to direct tracker reads,
 authorized catalog reads and queued mutation compilation. Do not encode entire
 routes, trim valid IDs, or decode percent-encoded input before encoding it.

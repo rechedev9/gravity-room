@@ -1,4 +1,4 @@
-import { encodeApiPathIdentifier } from '../network/api-path-identifier';
+import { encodeApiPathIdentifier } from '@gzclp/api-client/path-identifier';
 import { fetchApiResponse } from '../network/api-fetch';
 import {
   GenericProgramDetailSchema,

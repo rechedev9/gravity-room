@@ -1,4 +1,4 @@
-import { encodeApiPathIdentifier } from '../network/api-path-identifier';
+import { encodeApiPathIdentifier } from '@gzclp/api-client/path-identifier';
 import { isRecord } from '@gzclp/domain/type-guards';
 import type { QueuedMutation } from './mutation-queue-repository';
 

@@ -39,3 +39,9 @@ it.each([fetchProgramDetail, fetchProgramDefinition, fetchCatalogDefinition])(
     expect(mockPublic).not.toHaveBeenCalled();
   }
 );
+
+it('rejects a dot-segment plan id on delete before reaching the transport', async () => {
+  const { deleteProgramInstance } = require('../programs/program-service');
+  await expect(deleteProgramInstance('..')).rejects.toThrow('Invalid API path identifier');
+  expect(mockAuthorized).not.toHaveBeenCalled();
+});
