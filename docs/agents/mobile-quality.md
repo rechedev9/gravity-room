@@ -19,8 +19,9 @@ actual ESLint configuration with accepted and rejected code fixtures.
 
 ## Deliberate tooling exceptions
 
-Mobile bundles no raster image assets; program covers are drawn with
-`react-native-svg` from design tokens, so `require()` is rejected everywhere.
+Mobile bundles no raster image assets in JavaScript; program covers are drawn with
+`react-native-svg` from design tokens, so `require()` is rejected everywhere. The
+only PNGs are the app icon and splash under `assets/`, referenced from `app.json`.
 Jest test files permit mock-factory `require()`, type assertions and documented
 negative type fixtures. Explicit `any` and `@ts-ignore` remain errors in tests.
 Integration tests may compose libraries with real mobile shell providers;
@@ -37,3 +38,6 @@ and [rest timer](mobile-rest-timer.md).
 For real SQLite regression fixtures, use the [shared test adapter](mobile-sqlite-tests.md).
 
 For URL construction and identifier handling, follow the [request boundaries](mobile-network.md).
+
+For generating the native project and building debug or release APKs, follow
+[mobile builds](mobile-build.md).
