@@ -707,7 +707,7 @@ describe('TrackerScreen', () => {
     expect(screen.queryByText('65 kg · 3 x 6')).toBeNull();
   });
 
-  it('undoes the chosen exercise draft after reload without deleting another exercise or allowing early failure', async () => {
+  it('undoes the chosen exercise draft after reload without deleting another exercise', async () => {
     mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
     mockedGetProgramDefinition.mockResolvedValue({
       ...TEST_DEFINITION,
@@ -720,8 +720,6 @@ describe('TrackerScreen', () => {
     });
     render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
     expect(await screen.findByRole('button', { name: 'Undo last set for Bench' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Mark Squat fail' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Mark Bench fail' })).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Undo last set for Bench' }));
     await waitFor(() =>
       expect(jest.mocked(saveSetDrafts)).toHaveBeenLastCalledWith('instance-1', {
@@ -730,6 +728,31 @@ describe('TrackerScreen', () => {
     );
     expect(await screen.findByRole('button', { name: 'Confirm set 1 for Bench' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Confirm set 2 for Squat' })).toBeTruthy();
+  });
+
+  it('keeps Fail available after sets are logged and records the fail without the unfinished sets', async () => {
+    mockedGetProgramDetail.mockResolvedValue(TEST_DETAIL);
+    mockedGetProgramDefinition.mockResolvedValue(TEST_DEFINITION);
+    mockedFetchProgramDetail.mockRejectedValue(new Error('Network request failed'));
+    mockedFetchProgramDefinition.mockRejectedValue(new Error('Network request failed'));
+    mockedUpsertProgramDetail.mockResolvedValue();
+    jest.mocked(getSetDrafts).mockResolvedValue({
+      '0:squat-t1': [{ reps: 3, weight: 60 }],
+    });
+    render(<TrackerScreen programInstanceId="instance-1" onBack={jest.fn()} />);
+
+    fireEvent.press(await screen.findByRole('button', { name: 'Mark Squat fail' }));
+    await waitFor(() =>
+      expect(mockCommittedEdits).toHaveBeenLastCalledWith({
+        instanceId: 'instance-1',
+        workoutIndex: 0,
+        slotId: 'squat-t1',
+        result: 'fail',
+      })
+    );
+    expect(await screen.findByText('Logged fail')).toBeTruthy();
+    expect(screen.queryByText('0 sets recorded')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Undo last set for Squat' })).toBeNull();
   });
 
   it('records edited weights and missed reps, totals actual volume, and continues to the pending day', async () => {
@@ -1182,6 +1205,7 @@ describe('TrackerScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Undo latest completed result' }));
 
     expect(await screen.findByText('Logged success')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'View sets for Squat' }));
     expect(screen.getByText('AMRAP reps: 12')).toBeTruthy();
     expect(screen.getByText('RPE: 8')).toBeTruthy();
     expect(mockCommittedEdits).toHaveBeenCalledWith({

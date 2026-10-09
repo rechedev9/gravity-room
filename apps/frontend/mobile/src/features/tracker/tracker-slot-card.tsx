@@ -51,7 +51,6 @@ export function TrackerSlotCard({
   const { t } = useTranslation();
   const [showLogs, setShowLogs] = useState(false);
   const showMetricEditors = slot.result === 'success';
-  const isHero = variant === 'hero';
   const usesSetFlow = slotSupportsSetFlow(slot);
   const displayLogs = draftLogs ?? slot.setLogs;
   const setNumber = nextSetIndex(displayLogs) + 1;
@@ -64,7 +63,7 @@ export function TrackerSlotCard({
         : t('tracker.status.awaiting');
 
   return (
-    <Card focal={isHero}>
+    <Card focal={variant === 'hero'}>
       <View style={styles.headerRow}>
         <View style={styles.exerciseIcon}>
           <Ionicons
@@ -93,16 +92,8 @@ export function TrackerSlotCard({
           {statusLabel}
         </Text>
       </View>
-      {canConfirmSet && (draftLogs?.length ?? 0) > 0 ? (
-        <View style={styles.undoSet}>
-          <IconButton
-            name="arrow-undo-outline"
-            label={t('tracker.undo_set', { name: slot.exerciseName })}
-            onPress={() => onUndoSet(workoutIndex, slot.slotId)}
-          />
-        </View>
-      ) : null}
-      {slot.result !== undefined ? (
+      {slot.result !== undefined &&
+      !(slot.result === 'fail' && (displayLogs?.length ?? 0) === 0) ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('tracker.toggle_sets', { name: slot.exerciseName })}
@@ -241,27 +232,25 @@ export function TrackerSlotCard({
           </View>
         </View>
       ) : null}
-      {slot.result === undefined && (displayLogs?.length ?? 0) === 0 ? (
-        <View style={isHero ? styles.heroActions : styles.queueActions}>
-          <View style={isHero ? null : styles.actionFlex}>
-            {!usesSetFlow ? (
+      {slot.result === undefined ? (
+        <View style={styles.actions}>
+          {!usesSetFlow ? (
+            <View style={styles.actionFlex}>
               <Button
                 variant="primary"
                 accessibilityLabel={t('tracker.actions.mark_success', { name: slot.exerciseName })}
-                accessibilityState={{ selected: slot.result === 'success' }}
                 onPress={() => {
                   onMarkResult(workoutIndex, slot.slotId, 'success');
                 }}
               >
                 {t('tracker.result.success')}
               </Button>
-            ) : null}
-          </View>
-          <View style={isHero ? null : styles.actionFlex}>
+            </View>
+          ) : null}
+          <View style={styles.actionFlex}>
             <Button
               variant="ghost"
               accessibilityLabel={t('tracker.actions.mark_fail', { name: slot.exerciseName })}
-              accessibilityState={{ selected: slot.result === 'fail' }}
               onPress={() => {
                 onMarkResult(workoutIndex, slot.slotId, 'fail');
               }}
@@ -269,6 +258,13 @@ export function TrackerSlotCard({
               {t('tracker.result.fail')}
             </Button>
           </View>
+          {canConfirmSet && (draftLogs?.length ?? 0) > 0 ? (
+            <IconButton
+              name="arrow-undo-outline"
+              label={t('tracker.undo_set', { name: slot.exerciseName })}
+              onPress={() => onUndoSet(workoutIndex, slot.slotId)}
+            />
+          ) : null}
         </View>
       ) : null}
     </Card>
@@ -276,7 +272,6 @@ export function TrackerSlotCard({
 }
 
 const styles = StyleSheet.create({
-  undoSet: { alignItems: 'flex-end' },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -369,13 +364,10 @@ const styles = StyleSheet.create({
     ...type.button,
     color: colors.textMuted,
   },
-  heroActions: {
-    marginTop: 8,
-    gap: 8,
-  },
-  queueActions: {
+  actions: {
     marginTop: 4,
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   actionFlex: {
