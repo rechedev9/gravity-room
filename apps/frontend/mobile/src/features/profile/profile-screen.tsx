@@ -87,6 +87,14 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
           : sync.offline
             ? t('settings.sync.offline')
             : t('settings.sync.synced');
+  const syncIcon =
+    sync?.readError || needsAttention
+      ? 'alert-circle-outline'
+      : pending > 0
+        ? 'cloud-upload-outline'
+        : sync?.offline
+          ? 'cloud-offline-outline'
+          : 'cloud-done-outline';
   const syncedAt = sync?.lastSyncedAt ?? null;
   const age = syncedAt === null ? null : describeSyncAge(now, syncedAt);
   const lastSynced =
@@ -163,7 +171,7 @@ export function ProfileScreen({ onSignOut, user }: ProfileScreenProps) {
             <Kicker>{t('settings.sections.sync')}</Kicker>
             <Card style={styles.group}>
               <SettingsRow
-                icon={sync.offline ? 'cloud-offline-outline' : 'cloud-done-outline'}
+                icon={syncIcon}
                 label={t('settings.sync.status')}
                 value={syncStatus ?? ''}
               />

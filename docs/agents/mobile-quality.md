@@ -41,3 +41,15 @@ For URL construction and identifier handling, follow the [request boundaries](mo
 
 For generating the native project and building debug or release APKs, follow
 [mobile builds](mobile-build.md).
+
+## Device preferences and permissions
+
+Language and rest alert choices are device settings, not account data. They live in
+`src/lib/settings/device-setting-storage.ts` (SecureStore) and are applied by
+`PreferencesProvider` before the first screen renders. `system` follows the device
+language and falls back to English; program and exercise names keep the language the
+server stores them in. Never request the notification permission while a set is being
+logged: only `useRestAlerts` may open the system dialog, and only from an explicit tap on
+the workout invitation or the More switch, after the in-app rationale. The exercise
+library is online only (TanStack Query over `GET /exercises` and `/muscle-groups`) and
+does not touch the SQLite schema.
