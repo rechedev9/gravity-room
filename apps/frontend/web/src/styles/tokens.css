@@ -1,0 +1,65 @@
+/* Generated from @gzclp/design-tokens by pnpm --filter web tokens:css. Do not edit. */
+
+@theme {
+  /* SURFACES */
+  --color-body: #111110;
+  --color-card: #1c1c1a;
+  --color-surface-2: #272724;
+  --color-header: #141413;
+  --color-ink: #0a0908;
+  --color-th: #272724;
+  --color-hover-row: #272724;
+  --color-progress-track: #272724;
+  --color-error-bg: #2c0806;
+  --color-tooltip-bg: #141413;
+
+  /* TEXT */
+  --color-main: #ebe7e0;
+  --color-title: #ebe7e0;
+  --color-heading: #ebe7e0;
+  --color-muted: #b7b7ab;
+  --color-label: #96968b;
+  --color-info: #96968b;
+  --color-error: #e86154;
+  --color-tooltip-text: #ebe7e0;
+
+  /* BORDERS */
+  --color-rule: #30302c;
+  --color-rule-light: #45453e;
+  --color-error-line: #602a25;
+
+  /* ACCENT */
+  --color-accent: #eab53b;
+  --color-accent-hover: #f8c64e;
+  --color-accent-deep: #aa7d25;
+  --color-accent-dim: #5e4925;
+  --color-on-accent: #0a0704;
+  --color-btn-ring: #eab53b;
+  --color-btn: #1c1c1a;
+  --color-btn-text: #eab53b;
+  --color-btn-active: #eab53b;
+  --color-btn-active-text: #0a0704;
+  --color-victory: #eab53b;
+  --color-victory-on: #0a0704;
+
+  /* SEMANTIC / STATE */
+  --color-online: #66ba7a;
+  --color-ok: #66ba7a;
+  --color-ok-bg: #0f2416;
+  --color-fail: #e86154;
+  --color-fail-bg: #2c0806;
+  --color-warn: #ed990e;
+
+  /* RADII (shared with mobile) */
+  --radius-control: 10px;
+  --radius-card: 16px;
+  --radius-chip: 24px;
+
+  /* SPACING (shared with mobile) */
+  --space-screen-x: 20px;
+  --space-stack: 12px;
+  --space-stack-large: 16px;
+  --space-card: 16px;
+  --space-control-y: 12px;
+  --space-control-x: 16px;
+}

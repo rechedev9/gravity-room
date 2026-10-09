@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { colors } from '@gzclp/design-tokens';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/cn';
 import type { ThemeId } from '@/lib/theme-preference';
@@ -15,7 +16,7 @@ const THEME_META: readonly {
     labelKey: 'theme_selector.gold',
     hintKey: 'theme_selector.gold_hint',
     // Warm iron + gold — matches the forged-iron signature.
-    swatch: 'linear-gradient(135deg, oklch(0.14 0.01 70) 45%, oklch(0.8 0.145 84) 45%)',
+    swatch: `linear-gradient(135deg, ${colors.card} 45%, ${colors.accent} 45%)`,
   },
   {
     id: 'classic-light',
