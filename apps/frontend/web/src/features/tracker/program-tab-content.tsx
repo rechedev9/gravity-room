@@ -8,7 +8,9 @@ import { DayNavigator } from '@/features/program-view/day-navigator';
 import { CalendarNavigator } from '@/features/program-view/calendar-navigator';
 import { DetailedDayView } from '@/features/program-view/detailed-day-view';
 import type { SlotActions } from '@/features/program-view/day-view';
+import { DayCompletedPanel } from './day-completed-panel';
 import { SessionView } from './session-view';
+import { isLatestFinishedDay } from './session-history';
 
 interface ProgramTabContentProps {
   readonly definition: ProgramDefinition;
@@ -79,6 +81,9 @@ export function ProgramTabContent({
     onCloseNav();
   };
 
+  const showCompletion =
+    selectedWorkout !== undefined && isLatestFinishedDay(rows, selectedWorkout, currentDayIndex);
+
   return (
     <div id="panel-program">
       {isGuest && <GuestBanner className="mb-4" />}
@@ -135,17 +140,28 @@ export function ProgramTabContent({
 
       {selectedWorkout &&
         (viewMode === 'detailed' ? (
-          <DetailedDayView
-            workout={selectedWorkout}
-            isCurrent={selectedDayIndex === currentDayIndex}
-            onMark={onMark}
-            onUndo={onUndo}
-            onSetAmrapReps={onSetAmrapReps}
-            onSetRpe={onSetRpe}
-            onSetTap={onSetTap}
-            getSetLogs={getSetLogs}
-            isSlotLogging={isSlotLogging}
-          />
+          <>
+            {showCompletion && (
+              <DayCompletedPanel
+                rows={rows}
+                workout={selectedWorkout}
+                totalDays={definition.totalWorkouts}
+                nextWorkout={rows[selectedWorkout.index + 1] ?? null}
+                onGoToNextDay={onNextDay}
+              />
+            )}
+            <DetailedDayView
+              workout={selectedWorkout}
+              isCurrent={selectedDayIndex === currentDayIndex}
+              onMark={onMark}
+              onUndo={onUndo}
+              onSetAmrapReps={onSetAmrapReps}
+              onSetRpe={onSetRpe}
+              onSetTap={onSetTap}
+              getSetLogs={getSetLogs}
+              isSlotLogging={isSlotLogging}
+            />
+          </>
         ) : (
           <SessionView
             definition={definition}
@@ -154,6 +170,7 @@ export function ProgramTabContent({
             rows={rows}
             workout={selectedWorkout}
             isCurrent={selectedDayIndex === currentDayIndex}
+            showCompletion={showCompletion}
             resultTimestamps={resultTimestamps}
             rest={rest}
             onSkipRest={onSkipRest}

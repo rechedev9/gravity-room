@@ -13,7 +13,7 @@ import { CurrentLiftCard } from './current-lift-card';
 import { DayCompletedPanel } from './day-completed-panel';
 import { FailureExplainer } from './failure-explainer';
 import { SessionSidePanel } from './session-side-panel';
-import { daysBetween, findPreviousSameDay } from './session-history';
+import { daysBetween, findPreviousSameDay, isSlotResolved } from './session-history';
 
 export interface SessionViewProps {
   readonly definition: ProgramDefinition;
@@ -23,23 +23,14 @@ export interface SessionViewProps {
   readonly workout: GenericWorkoutRow;
   /** The selected day is the one the program is actually on. */
   readonly isCurrent: boolean;
+  /** The selected day is the one just finished, so it gets the completion screen. */
+  readonly showCompletion: boolean;
   readonly resultTimestamps?: Readonly<Record<string, string>>;
   readonly rest: { readonly seconds: number; readonly id: number } | null;
   readonly onSkipRest: () => void;
   readonly onGoToNextDay: () => void;
   readonly onGoToProfile?: () => void;
   readonly slotActions: SlotActions;
-}
-
-/** A slot is finished only once its AMRAP follow-up (if any) has been answered. */
-function isResolved(slot: GenericSlotRow): boolean {
-  if (slot.result === undefined) return false;
-  const needsAmrap =
-    slot.result === 'success' &&
-    slot.isAmrap &&
-    slot.amrapReps === undefined &&
-    slot.setLogs === undefined;
-  return !needsAmrap;
 }
 
 function SecondarySlotCard({
@@ -171,6 +162,7 @@ export function SessionView({
   rows,
   workout,
   isCurrent,
+  showCompletion,
   resultTimestamps,
   rest,
   onSkipRest,
@@ -181,8 +173,8 @@ export function SessionView({
   const { t } = useTranslation();
   const { getSetLogs, isSlotLogging } = slotActions;
 
-  const pending = workout.slots.filter((s) => !isResolved(s));
-  const completed = workout.slots.filter(isResolved);
+  const pending = workout.slots.filter((s) => !isSlotResolved(s));
+  const completed = workout.slots.filter(isSlotResolved);
   const hero = isCurrent ? (pending[0] ?? null) : null;
   const secondary = hero !== null ? pending.slice(1) : pending;
 
@@ -256,7 +248,7 @@ export function SessionView({
   const dayResolved = pending.length === 0 && workout.slots.length > 0;
   const [reviewing, setReviewing] = useState(false);
   useEffect(() => setReviewing(false), [workout.index]);
-  const showCompletedRows = !dayResolved || reviewing || !isCurrent;
+  const showCompletedRows = !dayResolved || reviewing || !showCompletion;
 
   return (
     <div
@@ -267,7 +259,7 @@ export function SessionView({
         className="min-w-0 px-0 py-5 sm:px-2"
         aria-label={t('tracker.day_view.workout_aria', { number: workout.index + 1 })}
       >
-        {dayResolved && isCurrent && (
+        {dayResolved && showCompletion && (
           <DayCompletedPanel
             rows={rows}
             workout={workout}
