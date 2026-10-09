@@ -4754,16 +4754,16 @@ async function listPrograms() {
     return entries;
   });
 }
-async function hydrateStoredProgramDefinition(programId, includeInactive) {
+async function hydrateStoredProgramDefinition(programId, includeInactive, reader = getDb()) {
   const visibility = includeInactive
     ? eq2(programTemplates.id, programId)
     : and2(eq2(programTemplates.id, programId), eq2(programTemplates.isActive, true));
-  const [template] = await getDb().select().from(programTemplates).where(visibility).limit(1);
+  const [template] = await reader.select().from(programTemplates).where(visibility).limit(1);
   if (!template) return { status: 'not_found' };
   const exerciseIds = [...collectExerciseIds(template.definition)];
   const exerciseRows =
     exerciseIds.length > 0
-      ? await getDb()
+      ? await reader
           .select({ id: exercises.id, name: exercises.name })
           .from(exercises)
           .where(inArray(exercises.id, exerciseIds))
@@ -4798,8 +4798,8 @@ async function getProgramDefinition(programId) {
     return result;
   });
 }
-function getHistoricalProgramDefinition(programId) {
-  return hydrateStoredProgramDefinition(programId, true);
+function getHistoricalProgramDefinition(programId, reader) {
+  return hydrateStoredProgramDefinition(programId, true, reader);
 }
 var MAX_PREVIEW_ROWS = 10;
 function previewDefinition(definition, config) {
@@ -7108,6 +7108,56 @@ import {
   ne,
   sql as sql8,
 } from 'drizzle-orm';
+
+// apps/backend/api/src/analytics/prescribed-weight.ts
+function isSetLogs(value) {
+  return Array.isArray(value) && value.every((entry) => isRecord(entry));
+}
+function toEngineConfig(config) {
+  const engineConfig = {};
+  if (!isRecord(config)) return engineConfig;
+  for (const [key, value] of Object.entries(config)) {
+    if (typeof value === 'number' || typeof value === 'string') engineConfig[key] = value;
+  }
+  return engineConfig;
+}
+function toEngineResults(rows) {
+  const results = {};
+  for (const row of rows) {
+    const workout = (results[String(row.workoutIndex)] ??= {});
+    workout[row.slotId] = {
+      result: row.result,
+      ...(row.amrapReps !== null ? { amrapReps: row.amrapReps } : {}),
+      ...(row.rpe !== null ? { rpe: row.rpe } : {}),
+      ...(isSetLogs(row.setLogs) ? { setLogs: row.setLogs } : {}),
+    };
+  }
+  return results;
+}
+function weightKey(row) {
+  return `${row.workoutIndex}:${row.slotId}`;
+}
+function prescribedWeights(rows, source) {
+  const weights = /* @__PURE__ */ new Map();
+  const lastIndex = rows.reduce((max, row) => Math.max(max, row.workoutIndex), -1);
+  if (lastIndex < 0) return weights;
+  const workouts = computeGenericProgram(
+    source.definition,
+    toEngineConfig(source.config),
+    toEngineResults(rows),
+    { maxRows: lastIndex + 1 }
+  );
+  for (const workout of workouts) {
+    for (const slot of workout.slots) {
+      if (slot.isBodyweight !== true && slot.weight > 0) {
+        weights.set(weightKey({ workoutIndex: workout.index, slotId: slot.slotId }), slot.weight);
+      }
+    }
+  }
+  return weights;
+}
+
+// apps/backend/api/src/analytics/queries.ts
 var META_INSIGHT_TYPE = '_meta';
 async function fetchLeastRecentlyComputedUsers(limit) {
   const db = getDb();
@@ -7139,6 +7189,25 @@ async function withInsightTransaction(userId, fn) {
     return fn(tx);
   });
 }
+async function hasStaleInsights(userId) {
+  const lastComputedAt = sql8`(
+    select max(${userInsights.computedAt}) from ${userInsights}
+    where ${userInsights.userId} = ${userId} and ${userInsights.insightType} = ${META_INSIGHT_TYPE}
+  )`;
+  const [row] = await getDb()
+    .select({
+      stale: sql8`count(*) > 0 and coalesce(max(${programInstances.updatedAt}) > ${lastComputedAt}, true)`,
+    })
+    .from(programInstances)
+    .where(eq7(programInstances.userId, userId));
+  return row?.stale === true;
+}
+async function resolveInstanceDefinition(instance, executor) {
+  const custom = ProgramDefinitionSchema.safeParse(instance.customDefinition);
+  if (custom.success) return custom.data;
+  const stored = await getHistoricalProgramDefinition(instance.templateId, executor);
+  return stored.status === 'found' ? stored.definition : null;
+}
 async function fetchWorkoutRecords(userId, executor = getDb()) {
   const rows = await executor
     .select({
@@ -7146,12 +7215,14 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       instanceId: sql8`${programInstances.id}::text`,
       programId: programInstances.templateId,
       workoutIndex: workoutResults.workoutIndex,
+      slotId: workoutResults.slotId,
       exerciseId: sql8`${workoutResults.exerciseId}`,
       definitionVersion: sql8`${workoutResults.definitionVersion}`,
-      weight: sql8`(${workoutResults.setLogs} -> 0 ->> 'weight')::float`,
-      result: sql8`${workoutResults.result}::text`,
+      loggedWeight: sql8`(${workoutResults.setLogs} -> 0 ->> 'weight')::float`,
+      result: workoutResults.result,
       rpe: sql8`${workoutResults.rpe}::float`,
       amrapReps: workoutResults.amrapReps,
+      setLogs: workoutResults.setLogs,
       recordedAt: sql8`coalesce(${workoutResults.completedAt}, ${workoutResults.createdAt})::text`,
     })
     .from(workoutResults)
@@ -7160,8 +7231,7 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       and7(
         eq7(programInstances.userId, userId),
         isNotNull(workoutResults.exerciseId),
-        isNotNull(workoutResults.definitionVersion),
-        sql8`(${workoutResults.setLogs} -> 0 ->> 'weight') is not null`
+        isNotNull(workoutResults.definitionVersion)
       )
     )
     .orderBy(
@@ -7169,19 +7239,52 @@ async function fetchWorkoutRecords(userId, executor = getDb()) {
       desc4(workoutResults.id)
     )
     .limit(MAX_ANALYTICS_RECORDS_PER_USER);
-  return rows.reverse().map((row) => ({
-    userId: row.userId,
-    instanceId: row.instanceId,
-    programId: row.programId,
-    workoutIndex: row.workoutIndex,
-    exerciseId: row.exerciseId,
-    definitionVersion: Number(row.definitionVersion),
-    weight: Number(row.weight),
-    result: row.result,
-    rpe: row.rpe === null ? null : Number(row.rpe),
-    amrapReps: row.amrapReps,
-    recordedAt: row.recordedAt,
-  }));
+  const unweighted = new Set(
+    rows.filter((row) => row.loggedWeight === null).map((row) => row.instanceId)
+  );
+  const prescribed = /* @__PURE__ */ new Map();
+  if (unweighted.size > 0) {
+    const instances = await executor
+      .select({
+        id: sql8`${programInstances.id}::text`,
+        templateId: programInstances.templateId,
+        config: programInstances.programConfig,
+        customDefinition: programInstances.customDefinition,
+      })
+      .from(programInstances)
+      .where(eq7(programInstances.userId, userId));
+    for (const instance of instances) {
+      if (!unweighted.has(instance.id)) continue;
+      const definition = await resolveInstanceDefinition(instance, executor);
+      if (definition === null) continue;
+      prescribed.set(
+        instance.id,
+        prescribedWeights(
+          rows.filter((row) => row.instanceId === instance.id),
+          { definition, config: instance.config }
+        )
+      );
+    }
+  }
+  const records = [];
+  for (const row of rows.reverse()) {
+    const weight = row.loggedWeight ?? prescribed.get(row.instanceId)?.get(weightKey(row));
+    if (weight === void 0) continue;
+    records.push({
+      userId: row.userId,
+      instanceId: row.instanceId,
+      programId: row.programId,
+      workoutIndex: row.workoutIndex,
+      exerciseId: row.exerciseId,
+      definitionVersion: Number(row.definitionVersion),
+      weight: Number(weight),
+      result: row.result,
+      rpe: row.rpe === null ? null : Number(row.rpe),
+      amrapReps: row.amrapReps,
+      recordedAt: row.recordedAt,
+    });
+  }
+  return records;
 }
 async function upsertInsight(userId, insightType, exerciseId, payload, executor = getDb()) {
   await executor
@@ -7196,548 +7299,6 @@ async function deleteComputedInsights(userId, executor) {
   await executor
     .delete(userInsights)
     .where(and7(eq7(userInsights.userId, userId), ne(userInsights.insightType, META_INSIGHT_TYPE)));
-}
-
-// apps/backend/api/src/services/insights.ts
-async function getInsights(userId, types) {
-  return withUserRole(userId, async (tx) => {
-    const conditions = [
-      eq8(userInsights.userId, userId),
-      ne2(userInsights.insightType, META_INSIGHT_TYPE),
-      // A nullable expiry means "no expiry". Never return rows whose explicit
-      // validity window has elapsed, even if a delayed compute job has not yet
-      // replaced them.
-      or3(
-        isNull3(userInsights.validUntil),
-        gt2(userInsights.validUntil, /* @__PURE__ */ new Date())
-      ),
-    ];
-    if (types.length > 0) {
-      conditions.push(inArray4(userInsights.insightType, types));
-    }
-    return tx
-      .select({
-        insightType: userInsights.insightType,
-        exerciseId: userInsights.exerciseId,
-        payload: userInsights.payload,
-        computedAt: userInsights.computedAt,
-        validUntil: userInsights.validUntil,
-      })
-      .from(userInsights)
-      .where(and8(...conditions))
-      .orderBy(asc4(userInsights.insightType), asc4(userInsights.exerciseId));
-  });
-}
-
-// apps/backend/api/src/lib/insight-types.ts
-var INSIGHT_TYPES = ['volume_trend', 'frequency', 'plateau_detection', 'load_recommendation'];
-var KNOWN = new Set(INSIGHT_TYPES);
-function isKnown(value) {
-  return KNOWN.has(value);
-}
-function parseInsightTypesQuery(raw) {
-  if (raw === void 0 || raw === '') return ok([]);
-  const entries = raw
-    .split(',', INSIGHT_TYPES.length + 1)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  const invalidValues = [];
-  const validValues = [];
-  for (const entry of entries) {
-    if (isKnown(entry)) validValues.push(entry);
-    else invalidValues.push(entry);
-  }
-  if (invalidValues.length > 0) return err({ invalidValues });
-  return ok(validValues);
-}
-
-// apps/backend/api/src/routes/insights.ts
-var security5 = [{ bearerAuth: [] }];
-var MAX_INSIGHT_TYPES_QUERY_LENGTH = 256;
-var insightsRoutes = new Elysia10({ prefix: '/insights' })
-  .use(requestLogger)
-  .use(jwtPlugin)
-  .resolve(resolveUserId)
-  .get(
-    '/',
-    async ({ userId, query }) => {
-      await rateLimit(userId, 'GET /insights', { maxRequests: 30 });
-      const parsed = parseInsightTypesQuery(query.types);
-      if (!parsed.ok) {
-        throw new ApiError(400, 'Invalid insight type', 'INVALID_INSIGHT_TYPE', {
-          details: {
-            invalidValues: parsed.error.invalidValues,
-            validValues: INSIGHT_TYPES,
-          },
-        });
-      }
-      const rows = await getInsights(userId, parsed.value);
-      return {
-        data: rows.map((r) => ({
-          insightType: r.insightType,
-          exerciseId: r.exerciseId,
-          payload: r.payload,
-          computedAt: r.computedAt.toISOString(),
-          validUntil: r.validUntil ? r.validUntil.toISOString() : null,
-        })),
-      };
-    },
-    {
-      query: t6.Object({
-        types: t6.Optional(t6.String({ maxLength: MAX_INSIGHT_TYPES_QUERY_LENGTH })),
-      }),
-      detail: {
-        tags: ['Insights'],
-        summary: 'List user insights',
-        description:
-          'Returns pre-computed analytics insights for the authenticated user. Optionally filter by comma-separated insight types. Valid values: volume_trend, frequency, plateau_detection, load_recommendation. Unknown types return 400 with { code: "INVALID_INSIGHT_TYPE", invalidValues, validValues }.',
-        security: security5,
-      },
-    }
-  );
-
-// apps/backend/api/src/routes/internal.ts
-import { Elysia as Elysia11 } from 'elysia';
-import { createHash as createHash2, timingSafeEqual as timingSafeEqual2 } from 'node:crypto';
-
-// apps/backend/api/src/lib/readiness.ts
-import { sql as sql9 } from 'drizzle-orm';
-async function checkDatabase() {
-  const start = Date.now();
-  try {
-    await getDb().execute(sql9`SELECT 1`);
-    return { status: 'ok', latencyMs: Date.now() - start };
-  } catch (error) {
-    logger.error({ err: error }, 'Database readiness check failed');
-    return { status: 'error' };
-  }
-}
-async function checkRedis() {
-  const redis = getRedis();
-  if (!redis) return { status: 'disabled' };
-  const start = Date.now();
-  try {
-    await redis.ping();
-    return { status: 'ok', latencyMs: Date.now() - start };
-  } catch (error) {
-    logger.error({ err: error }, 'Redis readiness check failed');
-    return { status: 'error' };
-  }
-}
-async function checkReadiness() {
-  const [db, redis] = await Promise.all([checkDatabase(), checkRedis()]);
-  const ready = db.status === 'ok' && redis.status !== 'error';
-  return {
-    status: ready ? 'ready' : 'degraded',
-    timestamp: /* @__PURE__ */ new Date().toISOString(),
-    db,
-    redis,
-  };
-}
-
-// apps/backend/api/src/lib/env-validation.ts
-var MIN_INTERNAL_SECRET_LENGTH = 32;
-var DEFAULT_ANALYTICS_BATCH_SIZE = 50;
-var MAX_ANALYTICS_BATCH_SIZE = 100;
-var REQUIRED_ENV = [
-  // ── api: required-in-prod ────────────────────────────────────────────────
-  {
-    name: 'DATABASE_URL',
-    service: 'api',
-    requiredInProd: true,
-    description:
-      'Neon POOLED (PgBouncer) connection string used at request time; host contains "-pooler". The serverless DB client opens at most one connection per warm instance (pool max=1, prepare:false). Boot-crashes the api if unset in production.',
-    example: 'postgresql://USER:PASSWORD@HOST-pooler.neon.tech/gravity?sslmode=require',
-  },
-  {
-    name: 'UPSTASH_REDIS_REST_URL',
-    service: 'api',
-    requiredInProd: true,
-    aliases: ['KV_REST_API_URL'],
-    description:
-      'Upstash Redis REST endpoint backing presence, caches, and rate limiting via the connectionless @upstash/redis client. Mandatory in production (cold-start crash if unset); satisfied by the Vercel Upstash integration variable KV_REST_API_URL. Degrades gracefully when unset in local dev.',
-    example: 'https://YOUR-DB.upstash.io',
-  },
-  {
-    name: 'UPSTASH_REDIS_REST_TOKEN',
-    service: 'api',
-    requiredInProd: true,
-    aliases: ['KV_REST_API_TOKEN'],
-    description:
-      'Upstash Redis REST token, paired with UPSTASH_REDIS_REST_URL. Mandatory in production; satisfied by the Vercel Upstash integration variable KV_REST_API_TOKEN.',
-    example: '<upstash-rest-token>',
-  },
-  {
-    name: 'INTERNAL_SECRET',
-    service: 'api',
-    requiredInProd: true,
-    description:
-      'Bearer secret guarding operator-only /api/internal/* routes (readiness, standalone cleanup/purge) and, with CRON_SECRET, the scheduled cron routes. Must contain at least 32 characters of cryptographically random material and differ from CRON_SECRET.',
-    example: '<random-32-byte-hex>',
-  },
-  {
-    name: 'CRON_SECRET',
-    service: 'api',
-    requiredInProd: true,
-    description:
-      'Required in production. Vercel Cron injects it as Authorization Bearer credentials on scheduled routes only (/api/internal/maintenance, /api/internal/analytics/compute). Must not unlock operator-only internal routes. At least 32 characters of cryptographically random material and distinct from INTERNAL_SECRET.',
-    example: '<vercel-cron-bearer-secret>',
-  },
-  {
-    name: 'JWT_SECRET',
-    service: 'api',
-    requiredInProd: true,
-    description: 'JWT signing secret. Must be >= 64 chars in production; >= 32 elsewhere.',
-    example: '<min-64-chars-random-string>',
-  },
-  {
-    name: 'GOOGLE_CLIENT_ID',
-    service: 'api',
-    requiredInProd: true,
-    description: 'Web Google OAuth client ID. Throws per-request 500 when unset.',
-    example: '<web-google-client-id>.apps.googleusercontent.com',
-  },
-  {
-    name: 'GOOGLE_CLIENT_IDS',
-    service: 'api',
-    requiredInProd: true,
-    description:
-      'Comma-separated Google OAuth client IDs accepted by mobile auth endpoints (android,ios,web).',
-    example:
-      '<android>.apps.googleusercontent.com,<ios>.apps.googleusercontent.com,<web>.apps.googleusercontent.com',
-  },
-  // ── api: optional ────────────────────────────────────────────────────────
-  {
-    name: 'DIRECT_DATABASE_URL',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Neon DIRECT (non-pooled) connection string. Used ONLY by the build-time deploy step `pnpm --filter api db:deploy` (drizzle migrations + idempotent seeds), which must run DDL serially against a direct connection, never PgBouncer. Falls back to the Vercel/Neon integration variable DATABASE_URL_UNPOOLED, then DATABASE_URL, when unset; not consumed at request time.',
-    example: 'postgresql://USER:PASSWORD@HOST.neon.tech/gravity?sslmode=require',
-  },
-  {
-    name: 'CORS_ORIGIN',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Allowed CORS origin (or comma-separated list); also the SPA base for post-login redirects and email action links. LEAVE EMPTY for the same-origin Vercel deployment, where trusted Vercel system env supplies the origin. Set a value only for split-origin local dev.',
-    example: '',
-  },
-  {
-    name: 'NODE_ENV',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Runtime mode. Setting to "production" arms hard-fail checks (DATABASE_URL, UPSTASH_REDIS_REST_*, INTERNAL_SECRET, CRON_SECRET, GOOGLE_CLIENT_ID(S), JWT min-len).',
-    example: 'production',
-  },
-  {
-    name: 'PORT',
-    service: 'api',
-    requiredInProd: false,
-    description: 'HTTP port for the api server.',
-    example: '3001',
-  },
-  {
-    name: 'LOG_LEVEL',
-    service: 'api',
-    requiredInProd: false,
-    description: 'Pino log level: trace | debug | info | warn | error | fatal | silent.',
-    example: 'info',
-  },
-  {
-    name: 'ANALYTICS_BATCH_SIZE',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Bounded number of least-recently-computed users processed per /api/internal/analytics/compute cron tick. Integer from 1 to 100; default 50.',
-    example: '50',
-  },
-  {
-    name: 'LOG_AUTH_ACTION_LINKS',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Explicit local-development-only opt-in for logging full verification/reset action links. Rejected in production and ignored on Vercel.',
-    example: 'false',
-  },
-  {
-    name: 'SENTRY_DSN',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      '@sentry/node DSN for error + performance tracing. captureException is a no-op when unset. Pull-based /metrics was removed; observability is Sentry plus pino JSON logs.',
-    example: 'https://<key>@<org>.ingest.sentry.io/<project>',
-  },
-  {
-    name: 'SENTRY_TRACES_SAMPLE_RATE',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Fraction of transactions sampled for @sentry/node performance tracing. Default 0.1.',
-    example: '0.1',
-  },
-  {
-    name: 'TRUSTED_PROXY',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Set to the literal string "true" only when self-hosting behind a trusted reverse proxy. Other values, including "false", do not enable X-Forwarded-For trust. Vercel is enabled separately by VERCEL=1.',
-    example: 'true',
-  },
-  {
-    name: 'TELEGRAM_BOT_TOKEN',
-    service: 'api',
-    requiredInProd: false,
-    description: 'Telegram bot token for new-user alerts. Silent no-op when unset.',
-    example: '<bot-token-from-@BotFather>',
-  },
-  {
-    name: 'TELEGRAM_CHAT_ID',
-    service: 'api',
-    requiredInProd: false,
-    description: 'Telegram chat/channel ID for new-user alerts. Silent no-op when unset.',
-    example: '-1001234567890',
-  },
-  {
-    name: 'JWT_ACCESS_EXPIRY',
-    service: 'api',
-    requiredInProd: false,
-    description: 'Access-token lifetime (jose duration string).',
-    example: '15m',
-  },
-  {
-    name: 'AUTH_DEV_ROUTE_ENABLED',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Enables POST /api/auth/dev (E2E test sign-in). Hard-disabled in production regardless of value.',
-    example: 'false',
-  },
-  {
-    name: 'AUTH_DEV_ROUTE_SECRET',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Shared secret (>= 16 chars) required in the x-dev-auth-secret header by POST /api/auth/dev. The route is not registered unless this is set; never set in production.',
-    example: '<random-32-byte-hex>',
-  },
-  {
-    name: 'SWAGGER_ENABLED',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Exposes /swagger UI and /swagger/json. Hard-disabled in production regardless of value.',
-    example: 'false',
-  },
-  {
-    name: 'DB_SSL',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Set to the literal string "false" to disable SSL. Any other value keeps SSL enabled in production.',
-    example: 'false',
-  },
-  {
-    name: 'API_PUBLIC_URL',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Trusted public origin used for OAuth/OIDC redirect URIs and, in same-origin deployments, email action links. Optional on Vercel because trusted VERCEL_* system env supplies the origin. Production never derives it from request Host headers. Set it to pin the canonical/custom domain; local dev falls back to the request origin or localhost.',
-    example: 'https://gravityroom.app',
-  },
-  {
-    name: 'RESEND_API_KEY',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Resend API key for transactional email (verification, password reset). Email sending is a silent no-op when unset; required once email/password sign-in is live.',
-    example: 're_<resend-api-key>',
-  },
-  {
-    name: 'EMAIL_FROM',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'From address for transactional email. Required alongside RESEND_API_KEY for email to send.',
-    example: 'Gravity Room <auth@gravityroom.app>',
-  },
-  {
-    name: 'APPLE_CLIENT_ID',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Apple Service ID (audience) for Sign in with Apple. Apple sign-in is disabled when unset.',
-    example: 'app.gravityroom.web',
-  },
-  {
-    name: 'GITHUB_CLIENT_ID',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'GitHub OAuth app client ID. GitHub sign-in is disabled unless both id and secret are set.',
-    example: '<github-oauth-client-id>',
-  },
-  {
-    name: 'GITHUB_CLIENT_SECRET',
-    service: 'api',
-    requiredInProd: false,
-    description: 'GitHub OAuth app client secret. Pairs with GITHUB_CLIENT_ID.',
-    example: '<github-oauth-client-secret>',
-  },
-  {
-    name: 'MICROSOFT_CLIENT_ID',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Microsoft identity platform application client ID. Microsoft/Outlook sign-in is disabled unless both id and secret are set.',
-    example: '<microsoft-application-client-id>',
-  },
-  {
-    name: 'MICROSOFT_CLIENT_SECRET',
-    service: 'api',
-    requiredInProd: false,
-    description: 'Microsoft identity platform client secret. Pairs with MICROSOFT_CLIENT_ID.',
-    example: '<microsoft-client-secret>',
-  },
-  {
-    name: 'MICROSOFT_TENANT_ID',
-    service: 'api',
-    requiredInProd: false,
-    description:
-      'Microsoft tenant segment for OAuth endpoints. Defaults to consumers for Outlook/Microsoft personal accounts; set common, organizations, or a tenant id when needed.',
-    example: 'consumers',
-  },
-];
-function isPresent(value) {
-  return value !== void 0 && value.trim().length > 0;
-}
-function requiredSpecs() {
-  const seen = /* @__PURE__ */ new Set();
-  const out = [];
-  for (const spec of REQUIRED_ENV) {
-    if (!spec.requiredInProd) continue;
-    if (seen.has(spec.name)) continue;
-    seen.add(spec.name);
-    out.push(spec);
-  }
-  return out;
-}
-function isSpecSatisfied(spec, env) {
-  if (isPresent(env[spec.name])) return true;
-  return (spec.aliases ?? []).some((alias) => isPresent(env[alias]));
-}
-function validateEnv(env = process.env, nodeEnv = env['NODE_ENV'] ?? 'development') {
-  if (nodeEnv !== 'production') return { ok: true };
-  const missing = [];
-  const errors = [];
-  for (const spec of requiredSpecs()) {
-    if (!isSpecSatisfied(spec, env)) missing.push(spec.name);
-  }
-  const jwt2 = env['JWT_SECRET'];
-  if (isPresent(jwt2) && jwt2.length < 64) {
-    errors.push(`JWT_SECRET must be at least 64 characters in production (got ${jwt2.length})`);
-  }
-  const internalSecret = env['INTERNAL_SECRET']?.trim();
-  const cronSecret = env['CRON_SECRET']?.trim();
-  if (internalSecret && internalSecret.length < MIN_INTERNAL_SECRET_LENGTH) {
-    errors.push(
-      `INTERNAL_SECRET must be at least ${MIN_INTERNAL_SECRET_LENGTH} characters in production (got ${internalSecret.length})`
-    );
-  }
-  if (cronSecret && cronSecret.length < MIN_INTERNAL_SECRET_LENGTH) {
-    errors.push(
-      `CRON_SECRET must be at least ${MIN_INTERNAL_SECRET_LENGTH} characters in production (got ${cronSecret.length})`
-    );
-  }
-  if (internalSecret && cronSecret && internalSecret === cronSecret) {
-    errors.push('INTERNAL_SECRET and CRON_SECRET must be different values in production');
-  }
-  if (env['LOG_AUTH_ACTION_LINKS'] === 'true') {
-    errors.push('LOG_AUTH_ACTION_LINKS must not be enabled in production');
-  }
-  const analyticsBatchSize = env['ANALYTICS_BATCH_SIZE'];
-  if (isPresent(analyticsBatchSize)) {
-    const parsedBatchSize = Number(analyticsBatchSize);
-    if (
-      !Number.isInteger(parsedBatchSize) ||
-      parsedBatchSize < 1 ||
-      parsedBatchSize > MAX_ANALYTICS_BATCH_SIZE
-    ) {
-      errors.push(
-        `ANALYTICS_BATCH_SIZE must be an integer between 1 and ${MAX_ANALYTICS_BATCH_SIZE} (got "${analyticsBatchSize}")`
-      );
-    }
-  }
-  const port = env['PORT'];
-  if (isPresent(port) && !Number.isInteger(Number(port))) {
-    errors.push(`PORT must parse as an integer (got "${port}")`);
-  }
-  if (missing.length === 0 && errors.length === 0) return { ok: true };
-  return { ok: false, missing, errors };
-}
-function formatValidationError(result) {
-  const lines = ['Environment validation failed for NODE_ENV=production:'];
-  if (result.missing.length > 0) {
-    lines.push('', 'Missing required env vars:');
-    for (const name of result.missing) {
-      const spec = REQUIRED_ENV.find((s) => s.name === name && s.requiredInProd);
-      lines.push(`  - ${name}${spec ? ` \u2014 ${spec.description}` : ''}`);
-    }
-  }
-  if (result.errors.length > 0) {
-    lines.push('', 'Constraint violations:');
-    for (const err2 of result.errors) lines.push(`  - ${err2}`);
-  }
-  return lines.join('\n');
-}
-
-// apps/backend/api/src/services/purge.ts
-import {
-  lt as lt3,
-  and as and9,
-  isNotNull as isNotNull2,
-  asc as asc5,
-  inArray as inArray5,
-  eq as eq9,
-} from 'drizzle-orm';
-var PURGE_AFTER_DAYS = 30;
-var PURGE_BATCH_SIZE = 500;
-var PURGE_CUTOFF_MS = PURGE_AFTER_DAYS * 24 * 60 * 60 * 1e3;
-async function purgeDeletedUsers() {
-  const cutoff = new Date(Date.now() - PURGE_CUTOFF_MS);
-  const { deleted, deletedExercises } = await getDb().transaction(async (tx) => {
-    const candidates = await tx
-      .select({ id: users.id })
-      .from(users)
-      .where(and9(isNotNull2(users.deletedAt), lt3(users.deletedAt, cutoff)))
-      .orderBy(asc5(users.deletedAt), asc5(users.id))
-      .limit(PURGE_BATCH_SIZE)
-      .for('update', { skipLocked: true });
-    if (candidates.length === 0) {
-      return { deleted: [], deletedExercises: [] };
-    }
-    const userIds = candidates.map(({ id }) => id);
-    const deletedExercises2 = await tx
-      .delete(exercises)
-      .where(and9(inArray5(exercises.createdByUserId, userIds), eq9(exercises.isSystem, false)))
-      .returning({ id: exercises.id });
-    const deleted2 = await tx
-      .delete(users)
-      .where(inArray5(users.id, userIds))
-      .returning({ id: users.id });
-    return { deleted: deleted2, deletedExercises: deletedExercises2 };
-  });
-  logger.info(
-    {
-      purged: deleted.length,
-      customExercisesPurged: deletedExercises.length,
-      cutoff: cutoff.toISOString(),
-      batchSize: PURGE_BATCH_SIZE,
-    },
-    'purge: hard-deleted soft-deleted users past grace window'
-  );
-  return { purged: deleted.length, cutoff: cutoff.toISOString() };
 }
 
 // apps/backend/api/src/analytics/iso-week.ts
@@ -8678,6 +8239,556 @@ async function computeUser(userId) {
     }
     await upsertInsight(userId, META_INSIGHT_TYPE, null, {}, tx);
   });
+}
+
+// apps/backend/api/src/services/insights.ts
+async function refreshStaleInsights(userId) {
+  try {
+    if (await hasStaleInsights(userId)) await computeUser(userId);
+  } catch (error) {
+    logger.warn({ err: error, userId }, 'insights: on-read refresh failed');
+  }
+}
+async function getInsights(userId, types) {
+  return withUserRole(userId, async (tx) => {
+    const conditions = [
+      eq8(userInsights.userId, userId),
+      ne2(userInsights.insightType, META_INSIGHT_TYPE),
+      // A nullable expiry means "no expiry". Never return rows whose explicit
+      // validity window has elapsed, even if a delayed compute job has not yet
+      // replaced them.
+      or3(
+        isNull3(userInsights.validUntil),
+        gt2(userInsights.validUntil, /* @__PURE__ */ new Date())
+      ),
+    ];
+    if (types.length > 0) {
+      conditions.push(inArray4(userInsights.insightType, types));
+    }
+    return tx
+      .select({
+        insightType: userInsights.insightType,
+        exerciseId: userInsights.exerciseId,
+        payload: userInsights.payload,
+        computedAt: userInsights.computedAt,
+        validUntil: userInsights.validUntil,
+      })
+      .from(userInsights)
+      .where(and8(...conditions))
+      .orderBy(asc4(userInsights.insightType), asc4(userInsights.exerciseId));
+  });
+}
+
+// apps/backend/api/src/lib/insight-types.ts
+var INSIGHT_TYPES = ['volume_trend', 'frequency', 'plateau_detection', 'load_recommendation'];
+var KNOWN = new Set(INSIGHT_TYPES);
+function isKnown(value) {
+  return KNOWN.has(value);
+}
+function parseInsightTypesQuery(raw) {
+  if (raw === void 0 || raw === '') return ok([]);
+  const entries = raw
+    .split(',', INSIGHT_TYPES.length + 1)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  const invalidValues = [];
+  const validValues = [];
+  for (const entry of entries) {
+    if (isKnown(entry)) validValues.push(entry);
+    else invalidValues.push(entry);
+  }
+  if (invalidValues.length > 0) return err({ invalidValues });
+  return ok(validValues);
+}
+
+// apps/backend/api/src/routes/insights.ts
+var security5 = [{ bearerAuth: [] }];
+var MAX_INSIGHT_TYPES_QUERY_LENGTH = 256;
+var insightsRoutes = new Elysia10({ prefix: '/insights' })
+  .use(requestLogger)
+  .use(jwtPlugin)
+  .resolve(resolveUserId)
+  .get(
+    '/',
+    async ({ userId, query }) => {
+      await rateLimit(userId, 'GET /insights', { maxRequests: 30 });
+      const parsed = parseInsightTypesQuery(query.types);
+      if (!parsed.ok) {
+        throw new ApiError(400, 'Invalid insight type', 'INVALID_INSIGHT_TYPE', {
+          details: {
+            invalidValues: parsed.error.invalidValues,
+            validValues: INSIGHT_TYPES,
+          },
+        });
+      }
+      await refreshStaleInsights(userId);
+      const rows = await getInsights(userId, parsed.value);
+      return {
+        data: rows.map((r) => ({
+          insightType: r.insightType,
+          exerciseId: r.exerciseId,
+          payload: r.payload,
+          computedAt: r.computedAt.toISOString(),
+          validUntil: r.validUntil ? r.validUntil.toISOString() : null,
+        })),
+      };
+    },
+    {
+      query: t6.Object({
+        types: t6.Optional(t6.String({ maxLength: MAX_INSIGHT_TYPES_QUERY_LENGTH })),
+      }),
+      detail: {
+        tags: ['Insights'],
+        summary: 'List user insights',
+        description:
+          'Returns pre-computed analytics insights for the authenticated user. Optionally filter by comma-separated insight types. Valid values: volume_trend, frequency, plateau_detection, load_recommendation. Unknown types return 400 with { code: "INVALID_INSIGHT_TYPE", invalidValues, validValues }.',
+        security: security5,
+      },
+    }
+  );
+
+// apps/backend/api/src/routes/internal.ts
+import { Elysia as Elysia11 } from 'elysia';
+import { createHash as createHash2, timingSafeEqual as timingSafeEqual2 } from 'node:crypto';
+
+// apps/backend/api/src/lib/readiness.ts
+import { sql as sql9 } from 'drizzle-orm';
+async function checkDatabase() {
+  const start = Date.now();
+  try {
+    await getDb().execute(sql9`SELECT 1`);
+    return { status: 'ok', latencyMs: Date.now() - start };
+  } catch (error) {
+    logger.error({ err: error }, 'Database readiness check failed');
+    return { status: 'error' };
+  }
+}
+async function checkRedis() {
+  const redis = getRedis();
+  if (!redis) return { status: 'disabled' };
+  const start = Date.now();
+  try {
+    await redis.ping();
+    return { status: 'ok', latencyMs: Date.now() - start };
+  } catch (error) {
+    logger.error({ err: error }, 'Redis readiness check failed');
+    return { status: 'error' };
+  }
+}
+async function checkReadiness() {
+  const [db, redis] = await Promise.all([checkDatabase(), checkRedis()]);
+  const ready = db.status === 'ok' && redis.status !== 'error';
+  return {
+    status: ready ? 'ready' : 'degraded',
+    timestamp: /* @__PURE__ */ new Date().toISOString(),
+    db,
+    redis,
+  };
+}
+
+// apps/backend/api/src/lib/env-validation.ts
+var MIN_INTERNAL_SECRET_LENGTH = 32;
+var DEFAULT_ANALYTICS_BATCH_SIZE = 50;
+var MAX_ANALYTICS_BATCH_SIZE = 100;
+var REQUIRED_ENV = [
+  // ── api: required-in-prod ────────────────────────────────────────────────
+  {
+    name: 'DATABASE_URL',
+    service: 'api',
+    requiredInProd: true,
+    description:
+      'Neon POOLED (PgBouncer) connection string used at request time; host contains "-pooler". The serverless DB client opens at most one connection per warm instance (pool max=1, prepare:false). Boot-crashes the api if unset in production.',
+    example: 'postgresql://USER:PASSWORD@HOST-pooler.neon.tech/gravity?sslmode=require',
+  },
+  {
+    name: 'UPSTASH_REDIS_REST_URL',
+    service: 'api',
+    requiredInProd: true,
+    aliases: ['KV_REST_API_URL'],
+    description:
+      'Upstash Redis REST endpoint backing presence, caches, and rate limiting via the connectionless @upstash/redis client. Mandatory in production (cold-start crash if unset); satisfied by the Vercel Upstash integration variable KV_REST_API_URL. Degrades gracefully when unset in local dev.',
+    example: 'https://YOUR-DB.upstash.io',
+  },
+  {
+    name: 'UPSTASH_REDIS_REST_TOKEN',
+    service: 'api',
+    requiredInProd: true,
+    aliases: ['KV_REST_API_TOKEN'],
+    description:
+      'Upstash Redis REST token, paired with UPSTASH_REDIS_REST_URL. Mandatory in production; satisfied by the Vercel Upstash integration variable KV_REST_API_TOKEN.',
+    example: '<upstash-rest-token>',
+  },
+  {
+    name: 'INTERNAL_SECRET',
+    service: 'api',
+    requiredInProd: true,
+    description:
+      'Bearer secret guarding operator-only /api/internal/* routes (readiness, standalone cleanup/purge) and, with CRON_SECRET, the scheduled cron routes. Must contain at least 32 characters of cryptographically random material and differ from CRON_SECRET.',
+    example: '<random-32-byte-hex>',
+  },
+  {
+    name: 'CRON_SECRET',
+    service: 'api',
+    requiredInProd: true,
+    description:
+      'Required in production. Vercel Cron injects it as Authorization Bearer credentials on scheduled routes only (/api/internal/maintenance, /api/internal/analytics/compute). Must not unlock operator-only internal routes. At least 32 characters of cryptographically random material and distinct from INTERNAL_SECRET.',
+    example: '<vercel-cron-bearer-secret>',
+  },
+  {
+    name: 'JWT_SECRET',
+    service: 'api',
+    requiredInProd: true,
+    description: 'JWT signing secret. Must be >= 64 chars in production; >= 32 elsewhere.',
+    example: '<min-64-chars-random-string>',
+  },
+  {
+    name: 'GOOGLE_CLIENT_ID',
+    service: 'api',
+    requiredInProd: true,
+    description: 'Web Google OAuth client ID. Throws per-request 500 when unset.',
+    example: '<web-google-client-id>.apps.googleusercontent.com',
+  },
+  {
+    name: 'GOOGLE_CLIENT_IDS',
+    service: 'api',
+    requiredInProd: true,
+    description:
+      'Comma-separated Google OAuth client IDs accepted by mobile auth endpoints (android,ios,web).',
+    example:
+      '<android>.apps.googleusercontent.com,<ios>.apps.googleusercontent.com,<web>.apps.googleusercontent.com',
+  },
+  // ── api: optional ────────────────────────────────────────────────────────
+  {
+    name: 'DIRECT_DATABASE_URL',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Neon DIRECT (non-pooled) connection string. Used ONLY by the build-time deploy step `pnpm --filter api db:deploy` (drizzle migrations + idempotent seeds), which must run DDL serially against a direct connection, never PgBouncer. Falls back to the Vercel/Neon integration variable DATABASE_URL_UNPOOLED, then DATABASE_URL, when unset; not consumed at request time.',
+    example: 'postgresql://USER:PASSWORD@HOST.neon.tech/gravity?sslmode=require',
+  },
+  {
+    name: 'CORS_ORIGIN',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Allowed CORS origin (or comma-separated list); also the SPA base for post-login redirects and email action links. LEAVE EMPTY for the same-origin Vercel deployment, where trusted Vercel system env supplies the origin. Set a value only for split-origin local dev.',
+    example: '',
+  },
+  {
+    name: 'NODE_ENV',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Runtime mode. Setting to "production" arms hard-fail checks (DATABASE_URL, UPSTASH_REDIS_REST_*, INTERNAL_SECRET, CRON_SECRET, GOOGLE_CLIENT_ID(S), JWT min-len).',
+    example: 'production',
+  },
+  {
+    name: 'PORT',
+    service: 'api',
+    requiredInProd: false,
+    description: 'HTTP port for the api server.',
+    example: '3001',
+  },
+  {
+    name: 'LOG_LEVEL',
+    service: 'api',
+    requiredInProd: false,
+    description: 'Pino log level: trace | debug | info | warn | error | fatal | silent.',
+    example: 'info',
+  },
+  {
+    name: 'ANALYTICS_BATCH_SIZE',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Bounded number of least-recently-computed users processed per /api/internal/analytics/compute cron tick. Integer from 1 to 100; default 50.',
+    example: '50',
+  },
+  {
+    name: 'LOG_AUTH_ACTION_LINKS',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Explicit local-development-only opt-in for logging full verification/reset action links. Rejected in production and ignored on Vercel.',
+    example: 'false',
+  },
+  {
+    name: 'SENTRY_DSN',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      '@sentry/node DSN for error + performance tracing. captureException is a no-op when unset. Pull-based /metrics was removed; observability is Sentry plus pino JSON logs.',
+    example: 'https://<key>@<org>.ingest.sentry.io/<project>',
+  },
+  {
+    name: 'SENTRY_TRACES_SAMPLE_RATE',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Fraction of transactions sampled for @sentry/node performance tracing. Default 0.1.',
+    example: '0.1',
+  },
+  {
+    name: 'TRUSTED_PROXY',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Set to the literal string "true" only when self-hosting behind a trusted reverse proxy. Other values, including "false", do not enable X-Forwarded-For trust. Vercel is enabled separately by VERCEL=1.',
+    example: 'true',
+  },
+  {
+    name: 'TELEGRAM_BOT_TOKEN',
+    service: 'api',
+    requiredInProd: false,
+    description: 'Telegram bot token for new-user alerts. Silent no-op when unset.',
+    example: '<bot-token-from-@BotFather>',
+  },
+  {
+    name: 'TELEGRAM_CHAT_ID',
+    service: 'api',
+    requiredInProd: false,
+    description: 'Telegram chat/channel ID for new-user alerts. Silent no-op when unset.',
+    example: '-1001234567890',
+  },
+  {
+    name: 'JWT_ACCESS_EXPIRY',
+    service: 'api',
+    requiredInProd: false,
+    description: 'Access-token lifetime (jose duration string).',
+    example: '15m',
+  },
+  {
+    name: 'AUTH_DEV_ROUTE_ENABLED',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Enables POST /api/auth/dev (E2E test sign-in). Hard-disabled in production regardless of value.',
+    example: 'false',
+  },
+  {
+    name: 'AUTH_DEV_ROUTE_SECRET',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Shared secret (>= 16 chars) required in the x-dev-auth-secret header by POST /api/auth/dev. The route is not registered unless this is set; never set in production.',
+    example: '<random-32-byte-hex>',
+  },
+  {
+    name: 'SWAGGER_ENABLED',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Exposes /swagger UI and /swagger/json. Hard-disabled in production regardless of value.',
+    example: 'false',
+  },
+  {
+    name: 'DB_SSL',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Set to the literal string "false" to disable SSL. Any other value keeps SSL enabled in production.',
+    example: 'false',
+  },
+  {
+    name: 'API_PUBLIC_URL',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Trusted public origin used for OAuth/OIDC redirect URIs and, in same-origin deployments, email action links. Optional on Vercel because trusted VERCEL_* system env supplies the origin. Production never derives it from request Host headers. Set it to pin the canonical/custom domain; local dev falls back to the request origin or localhost.',
+    example: 'https://gravityroom.app',
+  },
+  {
+    name: 'RESEND_API_KEY',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Resend API key for transactional email (verification, password reset). Email sending is a silent no-op when unset; required once email/password sign-in is live.',
+    example: 're_<resend-api-key>',
+  },
+  {
+    name: 'EMAIL_FROM',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'From address for transactional email. Required alongside RESEND_API_KEY for email to send.',
+    example: 'Gravity Room <auth@gravityroom.app>',
+  },
+  {
+    name: 'APPLE_CLIENT_ID',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Apple Service ID (audience) for Sign in with Apple. Apple sign-in is disabled when unset.',
+    example: 'app.gravityroom.web',
+  },
+  {
+    name: 'GITHUB_CLIENT_ID',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'GitHub OAuth app client ID. GitHub sign-in is disabled unless both id and secret are set.',
+    example: '<github-oauth-client-id>',
+  },
+  {
+    name: 'GITHUB_CLIENT_SECRET',
+    service: 'api',
+    requiredInProd: false,
+    description: 'GitHub OAuth app client secret. Pairs with GITHUB_CLIENT_ID.',
+    example: '<github-oauth-client-secret>',
+  },
+  {
+    name: 'MICROSOFT_CLIENT_ID',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Microsoft identity platform application client ID. Microsoft/Outlook sign-in is disabled unless both id and secret are set.',
+    example: '<microsoft-application-client-id>',
+  },
+  {
+    name: 'MICROSOFT_CLIENT_SECRET',
+    service: 'api',
+    requiredInProd: false,
+    description: 'Microsoft identity platform client secret. Pairs with MICROSOFT_CLIENT_ID.',
+    example: '<microsoft-client-secret>',
+  },
+  {
+    name: 'MICROSOFT_TENANT_ID',
+    service: 'api',
+    requiredInProd: false,
+    description:
+      'Microsoft tenant segment for OAuth endpoints. Defaults to consumers for Outlook/Microsoft personal accounts; set common, organizations, or a tenant id when needed.',
+    example: 'consumers',
+  },
+];
+function isPresent(value) {
+  return value !== void 0 && value.trim().length > 0;
+}
+function requiredSpecs() {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const spec of REQUIRED_ENV) {
+    if (!spec.requiredInProd) continue;
+    if (seen.has(spec.name)) continue;
+    seen.add(spec.name);
+    out.push(spec);
+  }
+  return out;
+}
+function isSpecSatisfied(spec, env) {
+  if (isPresent(env[spec.name])) return true;
+  return (spec.aliases ?? []).some((alias) => isPresent(env[alias]));
+}
+function validateEnv(env = process.env, nodeEnv = env['NODE_ENV'] ?? 'development') {
+  if (nodeEnv !== 'production') return { ok: true };
+  const missing = [];
+  const errors = [];
+  for (const spec of requiredSpecs()) {
+    if (!isSpecSatisfied(spec, env)) missing.push(spec.name);
+  }
+  const jwt2 = env['JWT_SECRET'];
+  if (isPresent(jwt2) && jwt2.length < 64) {
+    errors.push(`JWT_SECRET must be at least 64 characters in production (got ${jwt2.length})`);
+  }
+  const internalSecret = env['INTERNAL_SECRET']?.trim();
+  const cronSecret = env['CRON_SECRET']?.trim();
+  if (internalSecret && internalSecret.length < MIN_INTERNAL_SECRET_LENGTH) {
+    errors.push(
+      `INTERNAL_SECRET must be at least ${MIN_INTERNAL_SECRET_LENGTH} characters in production (got ${internalSecret.length})`
+    );
+  }
+  if (cronSecret && cronSecret.length < MIN_INTERNAL_SECRET_LENGTH) {
+    errors.push(
+      `CRON_SECRET must be at least ${MIN_INTERNAL_SECRET_LENGTH} characters in production (got ${cronSecret.length})`
+    );
+  }
+  if (internalSecret && cronSecret && internalSecret === cronSecret) {
+    errors.push('INTERNAL_SECRET and CRON_SECRET must be different values in production');
+  }
+  if (env['LOG_AUTH_ACTION_LINKS'] === 'true') {
+    errors.push('LOG_AUTH_ACTION_LINKS must not be enabled in production');
+  }
+  const analyticsBatchSize = env['ANALYTICS_BATCH_SIZE'];
+  if (isPresent(analyticsBatchSize)) {
+    const parsedBatchSize = Number(analyticsBatchSize);
+    if (
+      !Number.isInteger(parsedBatchSize) ||
+      parsedBatchSize < 1 ||
+      parsedBatchSize > MAX_ANALYTICS_BATCH_SIZE
+    ) {
+      errors.push(
+        `ANALYTICS_BATCH_SIZE must be an integer between 1 and ${MAX_ANALYTICS_BATCH_SIZE} (got "${analyticsBatchSize}")`
+      );
+    }
+  }
+  const port = env['PORT'];
+  if (isPresent(port) && !Number.isInteger(Number(port))) {
+    errors.push(`PORT must parse as an integer (got "${port}")`);
+  }
+  if (missing.length === 0 && errors.length === 0) return { ok: true };
+  return { ok: false, missing, errors };
+}
+function formatValidationError(result) {
+  const lines = ['Environment validation failed for NODE_ENV=production:'];
+  if (result.missing.length > 0) {
+    lines.push('', 'Missing required env vars:');
+    for (const name of result.missing) {
+      const spec = REQUIRED_ENV.find((s) => s.name === name && s.requiredInProd);
+      lines.push(`  - ${name}${spec ? ` \u2014 ${spec.description}` : ''}`);
+    }
+  }
+  if (result.errors.length > 0) {
+    lines.push('', 'Constraint violations:');
+    for (const err2 of result.errors) lines.push(`  - ${err2}`);
+  }
+  return lines.join('\n');
+}
+
+// apps/backend/api/src/services/purge.ts
+import {
+  lt as lt3,
+  and as and9,
+  isNotNull as isNotNull2,
+  asc as asc5,
+  inArray as inArray5,
+  eq as eq9,
+} from 'drizzle-orm';
+var PURGE_AFTER_DAYS = 30;
+var PURGE_BATCH_SIZE = 500;
+var PURGE_CUTOFF_MS = PURGE_AFTER_DAYS * 24 * 60 * 60 * 1e3;
+async function purgeDeletedUsers() {
+  const cutoff = new Date(Date.now() - PURGE_CUTOFF_MS);
+  const { deleted, deletedExercises } = await getDb().transaction(async (tx) => {
+    const candidates = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(and9(isNotNull2(users.deletedAt), lt3(users.deletedAt, cutoff)))
+      .orderBy(asc5(users.deletedAt), asc5(users.id))
+      .limit(PURGE_BATCH_SIZE)
+      .for('update', { skipLocked: true });
+    if (candidates.length === 0) {
+      return { deleted: [], deletedExercises: [] };
+    }
+    const userIds = candidates.map(({ id }) => id);
+    const deletedExercises2 = await tx
+      .delete(exercises)
+      .where(and9(inArray5(exercises.createdByUserId, userIds), eq9(exercises.isSystem, false)))
+      .returning({ id: exercises.id });
+    const deleted2 = await tx
+      .delete(users)
+      .where(inArray5(users.id, userIds))
+      .returning({ id: users.id });
+    return { deleted: deleted2, deletedExercises: deletedExercises2 };
+  });
+  logger.info(
+    {
+      purged: deleted.length,
+      customExercisesPurged: deletedExercises.length,
+      cutoff: cutoff.toISOString(),
+      batchSize: PURGE_BATCH_SIZE,
+    },
+    'purge: hard-deleted soft-deleted users past grace window'
+  );
+  return { purged: deleted.length, cutoff: cutoff.toISOString() };
 }
 
 // apps/backend/api/src/routes/internal.ts

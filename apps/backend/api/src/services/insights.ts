@@ -1,7 +1,9 @@
 import { userInsights } from '@gzclp/database/schema';
 import { eq, and, inArray, asc, ne, gt, isNull, or } from 'drizzle-orm';
-import { META_INSIGHT_TYPE } from '../analytics/queries';
+import { computeUser } from '../analytics/compute';
+import { META_INSIGHT_TYPE, hasStaleInsights } from '../analytics/queries';
 import { withUserRole } from '../db/rls-context';
+import { logger } from '../lib/logger';
 
 export type InsightRow = {
   insightType: string;
@@ -10,6 +12,18 @@ export type InsightRow = {
   computedAt: Date;
   validUntil: Date | null;
 };
+
+/**
+ * Recompute the caller's snapshot when their programs changed since the last
+ * one, so insights do not wait for the nightly batch. Never fails the read.
+ */
+export async function refreshStaleInsights(userId: string): Promise<void> {
+  try {
+    if (await hasStaleInsights(userId)) await computeUser(userId);
+  } catch (error) {
+    logger.warn({ err: error, userId }, 'insights: on-read refresh failed');
+  }
+}
 
 export async function getInsights(userId: string, types: readonly string[]): Promise<InsightRow[]> {
   return withUserRole(userId, async (tx) => {

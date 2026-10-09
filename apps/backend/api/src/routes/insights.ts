@@ -2,7 +2,7 @@ import { Elysia, t } from 'elysia';
 import { jwtPlugin, resolveUserId } from '../middleware/auth-guard';
 import { rateLimit } from '../middleware/rate-limit';
 import { requestLogger } from '../middleware/request-logger';
-import { getInsights } from '../services/insights';
+import { getInsights, refreshStaleInsights } from '../services/insights';
 import { ApiError } from '../middleware/error-handler';
 import { INSIGHT_TYPES, parseInsightTypesQuery } from '../lib/insight-types';
 const security = [{ bearerAuth: [] }];
@@ -28,6 +28,7 @@ export const insightsRoutes = new Elysia({ prefix: '/insights' })
         });
       }
 
+      await refreshStaleInsights(userId);
       const rows = await getInsights(userId, parsed.value);
       return {
         data: rows.map((r) => ({
