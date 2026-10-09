@@ -120,8 +120,8 @@ export function programCard(page: Page, name: string) {
 /**
  * Navigates to the tracker view via the dashboard UI.
  * Requires a seeded active program to be present (seedProgram must be called first).
- * Gate: waits for 'Día N' text (DayNavigator) to confirm tracker data is fully loaded,
- * not just the progressbar (which only requires config, not the catalog definition).
+ * Gate: waits for the session chrome (day counter band) to confirm tracker data is fully
+ * loaded, not just the progressbar (which only requires config, not the catalog definition).
  */
 export async function navigateToTracker(page: Page): Promise<void> {
   await page.goto('/app');
@@ -130,17 +130,14 @@ export async function navigateToTracker(page: Page): Promise<void> {
     .first();
   await expect(continueLink).toBeVisible({ timeout: 10_000 });
   await continueLink.click();
-  await expect(page.getByText(/^Día \d+$/).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('session-chrome')).toBeVisible({ timeout: 10_000 });
 }
 
 /**
  * Assert the selected tracker day using the session chrome band.
  * The day number and the "/ total" count render in separate spans
  * (see `session-chrome.tsx`), so match each structurally instead of
- * relying on a single text node containing both. The chrome also carries a
- * separate `dayName` span ("Día N") that only differs from the identity
- * pill ("DÍA N") by case — an unanchored case-insensitive match would hit
- * both, so this stays case-sensitive to pin down the identity pill alone.
+ * relying on a single text node containing both.
  */
 export async function expectSelectedDay(page: Page, day: number): Promise<void> {
   const chrome = page.getByTestId('session-chrome');
@@ -227,7 +224,7 @@ export async function guestWithProgram(page: Page, name: string): Promise<void> 
     timeout: 10_000,
   });
   await page.getByRole('button', { name: 'Generar Programa' }).click();
-  await expect(page.getByText(/^Día \d+$/).first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('session-chrome')).toBeVisible({ timeout: 10_000 });
 }
 
 /** Dismiss cookie consent banner if present — call before clicking buttons near the bottom of long pages. */

@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { authenticateOnly, navigateToGzclpSetup, navigateToTracker } from './helpers/seed';
+import {
+  authenticateOnly,
+  expectSelectedDay,
+  navigateToGzclpSetup,
+  navigateToTracker,
+} from './helpers/seed';
 
 test.describe('Setup flow', () => {
   test.beforeEach(async ({ page }) => {
@@ -42,18 +47,18 @@ test.describe('Setup flow', () => {
   test('Generate Program creates program and shows Día 1', async ({ page }) => {
     await page.getByRole('button', { name: 'Generar Programa' }).click();
 
-    await expect(page.getByText('Día 1', { exact: true }).first()).toBeVisible();
+    await expectSelectedDay(page, 1);
     await expect(page.getByRole('progressbar').last()).toBeVisible();
   });
 
   test('program is persisted after setup', async ({ page }) => {
     await page.getByRole('button', { name: 'Generar Programa' }).click();
-    await expect(page.getByText('Día 1', { exact: true }).first()).toBeVisible();
+    await expectSelectedDay(page, 1);
 
     // Reload — must navigate back to tracker (reload resets URL to dashboard)
     await page.reload();
     await page.waitForLoadState('networkidle'); // wait for auth/refresh to complete
     await navigateToTracker(page);
-    await expect(page.getByText('Día 1', { exact: true }).first()).toBeVisible();
+    await expectSelectedDay(page, 1);
   });
 });

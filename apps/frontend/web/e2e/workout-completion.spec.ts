@@ -37,8 +37,9 @@ test.describe('Full day completion', () => {
 
   test('marking all 3 tiers enables undo (results recorded)', async ({ page }) => {
     await completeDay1(page);
-    // Undo now lives per-card (session-chrome carries no undo control) — the
-    // day's first completed slot row surfaces the undo badge.
+    // A finished day closes into its summary; "fix something" unfolds the
+    // completed rows, where undo lives per card (session-chrome has no undo).
+    await page.getByTestId('day-completed-review').click();
     const completed = page.getByTestId('completed-slot-row').first();
     await expect(completed).toBeVisible();
     await expect(completed.getByTestId('result-cell-undo')).toBeEnabled();

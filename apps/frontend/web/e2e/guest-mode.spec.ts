@@ -7,6 +7,7 @@ import {
   authenticateOnly,
   readStorage,
   ensureCompactView,
+  expectSelectedDay,
   markTierSuccess,
 } from './helpers/seed';
 
@@ -30,7 +31,7 @@ async function startGuestProgram(page: import('@playwright/test').Page): Promise
 async function generateGuestProgram(page: import('@playwright/test').Page): Promise<void> {
   await startGuestProgram(page);
   await page.getByRole('button', { name: 'Generar Programa' }).click();
-  await expect(page.getByText('Día 1', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
+  await expectSelectedDay(page, 1);
 }
 
 // ===========================================================================
@@ -218,7 +219,7 @@ test.describe('Guest program hook (REQ-GROUT-002)', () => {
   test('guest can start and generate a program from the catalog', async ({ page }) => {
     await generateGuestProgram(page);
 
-    await expect(page.getByText('Día 1', { exact: true }).first()).toBeVisible();
+    await expectSelectedDay(page, 1);
     await expect(page.getByRole('progressbar').last()).toBeVisible();
   });
 
@@ -346,6 +347,6 @@ test.describe('Guest persistence across reload (REQ-GCTX-004)', () => {
     await resume.click();
 
     // Tracker reopens the persisted program (Día 1 row visible again).
-    await expect(page.getByText('Día 1', { exact: true }).first()).toBeVisible({ timeout: 10_000 });
+    await expectSelectedDay(page, 1);
   });
 });
