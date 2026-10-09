@@ -59,14 +59,16 @@ function ProList({
   empty,
   accent,
   goal,
+  lang,
 }: {
   readonly title: string;
   readonly points: readonly VersusPoint[];
   readonly empty: string;
   readonly accent: boolean;
   readonly goal: VersusResult['goal'];
+  readonly lang: ArticleLang;
 }): ReactNode {
-  const { t } = useTranslation();
+  const { t } = useTranslation(undefined, { lng: lang });
   const maxDelta = points.reduce((m, p) => Math.max(m, p.delta), 1);
   return (
     <div
@@ -109,13 +111,15 @@ function AxisRow({
   scoreA,
   scoreB,
   weight,
+  lang,
 }: {
   readonly axis: VersusAxis;
   readonly scoreA: number;
   readonly scoreB: number;
   readonly weight: number | undefined;
+  readonly lang: ArticleLang;
 }): ReactNode {
-  const { t } = useTranslation();
+  const { t } = useTranslation(undefined, { lng: lang });
   const adv = axisAdvantageSide(axis, scoreA, scoreB, weight);
   const lowerBetter =
     (weight !== undefined && weight < 0) ||
@@ -177,14 +181,16 @@ function AxisBreakdown({
   nameA,
   nameB,
   goal,
+  lang,
 }: {
   readonly scoresA: VersusScores;
   readonly scoresB: VersusScores;
   readonly nameA: string;
   readonly nameB: string;
   readonly goal: VersusResult['goal'];
+  readonly lang: ArticleLang;
 }): ReactNode {
-  const { t } = useTranslation();
+  const { t } = useTranslation(undefined, { lng: lang });
   const weights = GOAL_WEIGHTS[goal];
   const primary = weightedAxesForGoal(goal);
   return (
@@ -214,6 +220,7 @@ function AxisBreakdown({
             scoreA={scoresA[axis]}
             scoreB={scoresB[axis]}
             weight={weights[axis]}
+            lang={lang}
           />
         ))}
       </ul>
@@ -225,7 +232,7 @@ export function ExerciseVersusResultView({
   result,
   lang,
 }: ExerciseVersusResultViewProps): ReactNode {
-  const { t } = useTranslation();
+  const { t } = useTranslation(undefined, { lng: lang });
   const nameA = result.exerciseA.name[lang];
   const nameB = result.exerciseB.name[lang];
   const profileA = getVersusProfile(result.exerciseA.exerciseId);
@@ -330,6 +337,7 @@ export function ExerciseVersusResultView({
           nameA={nameA}
           nameB={nameB}
           goal={result.goal}
+          lang={lang}
         />
       )}
 
@@ -340,6 +348,7 @@ export function ExerciseVersusResultView({
           empty={t('exerciseVersus.noClearPros')}
           accent={result.outcome === 'a'}
           goal={result.goal}
+          lang={lang}
         />
         <ProList
           title={t('exerciseVersus.prosFor', { name: nameB })}
@@ -347,6 +356,7 @@ export function ExerciseVersusResultView({
           empty={t('exerciseVersus.noClearPros')}
           accent={result.outcome === 'b'}
           goal={result.goal}
+          lang={lang}
         />
       </div>
 

@@ -48,6 +48,12 @@ const backend = {
   },
 };
 
+// Keep <html lang> on the language the UI actually renders. Pages that set their
+// own language through useHead (landing, guides, wiki) override this while mounted.
+i18n.on('languageChanged', (lng) => {
+  if (typeof document !== 'undefined') document.documentElement.lang = toSupportedLng(lng);
+});
+
 void i18n
   .use(backend)
   .use(LanguageDetector)

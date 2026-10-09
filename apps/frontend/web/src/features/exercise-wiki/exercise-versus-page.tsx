@@ -23,7 +23,8 @@ interface ExerciseVersusPageProps {
 }
 
 export function ExerciseVersusPage({ lang, inApp = false }: ExerciseVersusPageProps): ReactNode {
-  const { t } = useTranslation();
+  // The route owns the language on public pages; never read it from the browser.
+  const { t } = useTranslation(undefined, { lng: lang });
   const profiles = useMemo(() => listVersusProfiles('chest'), []);
   const [exerciseA, setExerciseA] = useState(profiles[0]?.exerciseId ?? 'bench');
   const [exerciseB, setExerciseB] = useState(profiles[2]?.exerciseId ?? 'decline-bench');

@@ -17,6 +17,7 @@ import { RootLayout } from '@/components/root-layout';
 import { RouteErrorFallback } from '@/components/route-error-fallback';
 import { useAuth } from '@/contexts/auth-context';
 import { readStoredIsGuest, useGuest } from '@/contexts/guest-context';
+import { ensureLocale } from '@/lib/i18n';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
 
 // ---------------------------------------------------------------------------
@@ -212,6 +213,15 @@ function AppLayoutWithTracker(): React.ReactNode {
 // Route tree
 // ---------------------------------------------------------------------------
 
+// Localized public pages read copy through i18n.getFixedT(routeLang), but only the
+// detected locale bundle is loaded at boot. Await the route's own bundle first so
+// /en/* renders English for a Spanish browser (and the prerender, whatever its locale).
+function loadLocale(lang: 'es' | 'en'): () => Promise<void> {
+  return async () => {
+    await ensureLocale(lang);
+  };
+}
+
 const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: RootLayout,
   errorComponent: RouteErrorFallback,
@@ -220,6 +230,7 @@ const rootRoute = createRootRouteWithContext<RouterContext>()({
 const landingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
+  loader: loadLocale('es'),
   pendingComponent: LandingSkeleton,
   component: LandingPage,
 });
@@ -227,6 +238,7 @@ const landingRoute = createRoute({
 const landingEnRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en',
+  loader: loadLocale('en'),
   pendingComponent: LandingSkeleton,
   component: LandingPageEn,
 });
@@ -291,6 +303,7 @@ const programPreviewRoute = createRoute({
 const programIndexEsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/programas',
+  loader: loadLocale('es'),
   pendingComponent: ContentPageSkeleton,
   component: ProgramIndexPageEs,
 });
@@ -298,6 +311,7 @@ const programIndexEsRoute = createRoute({
 const programIndexEnRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en/programs',
+  loader: loadLocale('en'),
   pendingComponent: ContentPageSkeleton,
   component: ProgramIndexPageEn,
 });
@@ -305,6 +319,7 @@ const programIndexEnRoute = createRoute({
 const programComparisonEsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/programas/gzclp-vs-stronglifts',
+  loader: loadLocale('es'),
   pendingComponent: ContentPageSkeleton,
   component: ProgramComparisonPageEs,
 });
@@ -312,6 +327,7 @@ const programComparisonEsRoute = createRoute({
 const programComparisonEnRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en/programs/gzclp-vs-stronglifts',
+  loader: loadLocale('en'),
   pendingComponent: ContentPageSkeleton,
   component: ProgramComparisonPageEn,
 });
@@ -319,6 +335,7 @@ const programComparisonEnRoute = createRoute({
 const programProgressionEsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/programas/progresion-automatica',
+  loader: loadLocale('es'),
   pendingComponent: ContentPageSkeleton,
   component: ProgramProgressionPageEs,
 });
@@ -326,6 +343,7 @@ const programProgressionEsRoute = createRoute({
 const programProgressionEnRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en/programs/automatic-progression',
+  loader: loadLocale('en'),
   pendingComponent: ContentPageSkeleton,
   component: ProgramProgressionPageEn,
 });
@@ -333,6 +351,7 @@ const programProgressionEnRoute = createRoute({
 const ejerciciosRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/ejercicios',
+  loader: loadLocale('es'),
   pendingComponent: ContentPageSkeleton,
   component: ExerciseWikiIndexPageEs,
 });
@@ -340,6 +359,7 @@ const ejerciciosRoute = createRoute({
 const ejerciciosArticleRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/ejercicios/$slug',
+  loader: loadLocale('es'),
   pendingComponent: ContentPageSkeleton,
   component: ExerciseArticlePageEs,
 });
@@ -347,6 +367,7 @@ const ejerciciosArticleRoute = createRoute({
 const exercisesEnRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en/exercises',
+  loader: loadLocale('en'),
   pendingComponent: ContentPageSkeleton,
   component: ExerciseWikiIndexPageEn,
 });
@@ -354,6 +375,7 @@ const exercisesEnRoute = createRoute({
 const exercisesEnArticleRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en/exercises/$slug',
+  loader: loadLocale('en'),
   pendingComponent: ContentPageSkeleton,
   component: ExerciseArticlePageEn,
 });
@@ -361,6 +383,7 @@ const exercisesEnArticleRoute = createRoute({
 const ejerciciosVersusRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/ejercicios/versus',
+  loader: loadLocale('es'),
   pendingComponent: ContentPageSkeleton,
   component: ExerciseVersusPageEs,
 });
@@ -368,6 +391,7 @@ const ejerciciosVersusRoute = createRoute({
 const exercisesEnVersusRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/en/exercises/versus',
+  loader: loadLocale('en'),
   pendingComponent: ContentPageSkeleton,
   component: ExerciseVersusPageEn,
 });
