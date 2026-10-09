@@ -23,8 +23,8 @@ import type {
 import type { InsightItem } from '@gzclp/domain/schemas/insights';
 import { isRecord } from '@gzclp/domain/type-guards';
 import { z } from 'zod/v4';
+import { API_URL } from './api';
 import {
-  API_URL,
   apiFetch,
   deleteAccount,
   extractApiError,

@@ -12,13 +12,11 @@
  * Feature code should keep importing from api-functions.ts, which re-exports
  * everything here.
  */
-import { getAccessToken, refreshAccessToken } from './api';
+import { API_URL, getAccessToken, refreshAccessToken } from './api';
 import { parseUser } from '@gzclp/domain/schemas/user';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
 import { mergeHeaders } from '@gzclp/api-client/merge-headers';
 import { ApiError, parseApiErrorBody } from '@gzclp/api-client/api-error';
-
-export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
 // ---------------------------------------------------------------------------
 // Auth-aware fetch wrapper with automatic retry on 401

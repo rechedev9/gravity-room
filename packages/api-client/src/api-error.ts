@@ -15,7 +15,7 @@ export class ApiError extends Error {
  * Extract a human-readable error message (and optional machine-readable code)
  * from an unknown API response body.
  *
- * Matches the format used by extractErrorMessage in api-functions.ts:
+ * Message format shared by the web and mobile clients:
  * - If body has a string `error` field, use it as the message.
  * - If body also has a string `code` field, append it: "msg [code]".
  */
