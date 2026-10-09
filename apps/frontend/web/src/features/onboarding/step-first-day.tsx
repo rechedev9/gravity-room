@@ -2,8 +2,9 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
-import { localizedExerciseName } from '@/lib/catalog-display';
+import { isCycleDayName, localizedExerciseName } from '@/lib/catalog-display';
 import { tierColorClass } from '@/features/program-view/tier-color';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 export interface StepFirstDayProps {
   readonly definition: ProgramDefinition;
@@ -31,6 +32,7 @@ export function StepFirstDay({
   onBack,
 }: StepFirstDayProps): ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
 
   return (
     <div
@@ -39,7 +41,9 @@ export function StepFirstDay({
     >
       <div className="min-w-0">
         <p className="mb-2 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-accent-deep">
-          {t('onboarding.first_day.kicker', { name: firstWorkout.dayName })}
+          {isCycleDayName(firstWorkout.dayName)
+            ? t('onboarding.first_day.kicker_plain')
+            : t('onboarding.first_day.kicker', { name: firstWorkout.dayName })}
         </p>
         <h2 className="font-display mb-3 text-[40px] leading-[0.9] tracking-[0.03em] text-title sm:text-[52px]">
           {t('onboarding.first_day.title')}
@@ -68,7 +72,7 @@ export function StepFirstDay({
                 {slot.isAmrap ? '+' : ''}
               </span>
               <span className="ml-auto font-mono text-[15px] font-bold text-title tabular-nums">
-                {slot.weight > 0 ? `${slot.weight} kg` : t('onboarding.first_day.your_choice')}
+                {slot.weight > 0 ? format(slot.weight) : t('onboarding.first_day.your_choice')}
               </span>
             </li>
           ))}

@@ -1,4 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+let mockIsGuest = false;
+vi.mock('@/contexts/guest-context', () => ({
+  useGuest: () => ({ isGuest: mockIsGuest }),
+}));
 import { createElement } from 'react';
 import { render, screen } from '@testing-library/react';
 
@@ -20,13 +24,24 @@ vi.mock('@tanstack/react-router', () => ({
 import { MobileBottomNav, MOBILE_PRIMARY_NAV } from './mobile-bottom-nav';
 
 describe('MobileBottomNav', () => {
-  it('exposes exactly three primary destinations for gym-speed navigation', () => {
-    expect(MOBILE_PRIMARY_NAV).toHaveLength(3);
+  it('puts every top-level destination one tap away', () => {
     expect(MOBILE_PRIMARY_NAV.map((item) => item.to)).toEqual([
       '/app',
       '/app/tracker',
+      '/app/insights',
       '/app/programs',
+      '/app/exercises',
+      '/app/profile',
     ]);
+  });
+
+  it('hides the account-only destinations from guests', () => {
+    mockIsGuest = true;
+    render(<MobileBottomNav />);
+    mockIsGuest = false;
+    expect(screen.queryByRole('link', { name: /análisis|insights/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /perfil|profile/i })).toBeNull();
+    expect(screen.getByRole('link', { name: /ejercicios|exercises/i })).toBeInTheDocument();
   });
 
   it('renders the three primary links with an accessible nav landmark', () => {

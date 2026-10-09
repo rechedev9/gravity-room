@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import type { ProgramDefinition } from '@gzclp/domain/types/program';
 import { progressFillPercent } from '@/components/progress-bar';
-import { localizedConfigFieldLabel } from '@/lib/catalog-display';
+import { isCycleDayName, localizedConfigFieldLabel } from '@/lib/catalog-display';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 import { buildWeightsSummary } from './weights-summary';
 import { SessionMenu, type SessionMenuProps } from './session-menu';
 
@@ -49,20 +50,31 @@ export function SessionChrome({
   const localize = (key: string, fallback: string): string =>
     localizedConfigFieldLabel(t, key, fallback);
   const overflow = (n: number): string => t('tracker.setup_form.overflow_indicator', { n });
+  const { toDisplay } = useUnitPreference();
+  const weightKeys = new Set(
+    definition.configFields.filter((f) => f.type === 'weight').map((f) => f.key)
+  );
+  const displayConfig: Record<string, number | string> = {};
+  for (const [key, value] of Object.entries(config)) {
+    displayConfig[key] =
+      weightKeys.has(key) && typeof value === 'number' ? toDisplay(value) : value;
+  }
   const { summary, full } = buildWeightsSummary(
-    config,
+    displayConfig,
     definition.configFields,
     overflow,
     localize
   );
   const { summary: mobileSummary } = buildWeightsSummary(
-    config,
+    displayConfig,
     definition.configFields,
     overflow,
     localize,
     1
   );
   const percent = progressFillPercent(doneSlots, totalSlots);
+  // A name like "Día 3" only repeats the counter next to it.
+  const showDayName = dayName !== '' && !isCycleDayName(dayName);
   const programComplete = completedDays >= totalDays && totalDays > 0;
 
   return (
@@ -78,11 +90,12 @@ export function SessionChrome({
         <span className="font-mono text-[11px] text-info">/ {totalDays}</span>
       </div>
 
-      <span className="hidden h-4 w-px bg-rule sm:block" aria-hidden="true" />
-
-      <span className="min-w-0 truncate text-[13px] font-semibold text-title">
-        {dayName || '—'}
-      </span>
+      {showDayName && (
+        <>
+          <span className="hidden h-4 w-px bg-rule sm:block" aria-hidden="true" />
+          <span className="min-w-0 truncate text-[13px] font-semibold text-title">{dayName}</span>
+        </>
+      )}
 
       <button
         type="button"

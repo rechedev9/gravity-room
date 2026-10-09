@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow } from '@gzclp/domain/types';
@@ -127,6 +128,9 @@ function SlotTable({
   isSlotLogging,
 }: SlotTableProps): ReactNode {
   const { t } = useTranslation();
+  const { unit, toDisplay } = useUnitPreference();
+  const shownWeight = (kg: number | undefined): number | undefined =>
+    kg === undefined ? undefined : toDisplay(kg);
   const isDone = slot.result !== undefined;
   const isGpp = slot.isGpp === true;
   const isBodyweight = slot.isBodyweight === true;
@@ -206,7 +210,7 @@ function SlotTable({
                 {t('tracker.detailed_day_view.col_set')}
               </th>
               <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-1">
-                {t('tracker.detailed_day_view.col_weight')}
+                {t('tracker.detailed_day_view.col_weight', { unit: unit === 'kg' ? 'Kg' : 'Lbs' })}
               </th>
               <th className="text-2xs font-bold text-muted uppercase text-right py-1 px-1">
                 {t('tracker.detailed_day_view.col_reps')}
@@ -246,12 +250,14 @@ function SlotTable({
                       <span className="text-muted">{EM_DASH}</span>
                     ) : isConfirmed ? (
                       <span className={metTarget ? 'text-ok' : 'text-fail'}>
-                        {row.plannedWeight}
+                        {shownWeight(row.plannedWeight)}
                       </span>
                     ) : doneWithoutLogs ? (
-                      <span className="text-muted">{row.plannedWeight ?? EM_DASH}</span>
+                      <span className="text-muted">
+                        {shownWeight(row.plannedWeight) ?? EM_DASH}
+                      </span>
                     ) : (
-                      <span>{row.plannedWeight ?? EM_DASH}</span>
+                      <span>{shownWeight(row.plannedWeight) ?? EM_DASH}</span>
                     )}
                   </td>
 

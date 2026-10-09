@@ -6,6 +6,7 @@ import { DEFAULT_BAR_KG } from '@gzclp/domain/barbell';
 import { localizedConfigFieldLabel } from '@/lib/catalog-display';
 import { OneRmCalculator } from './one-rm-calculator';
 import { PlateBreakdown } from './plate-breakdown';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 type WeightField = ProgramDefinition['configFields'][number] & { type: 'weight' };
 
@@ -34,8 +35,11 @@ export function StepWeights({
   onContinue,
 }: StepWeightsProps): ReactNode {
   const { t } = useTranslation();
+  const { unit, toDisplay, format } = useUnitPreference();
   const [index, setIndex] = useState(0);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
+
+  const formatOrDash = (v: number | undefined): string => (v === undefined ? '—' : format(v));
 
   const field = fields[index];
   if (field === undefined) return null;
@@ -97,9 +101,9 @@ export function StepWeights({
               data-testid="start-weight-value"
               className="font-display text-[44px] leading-none tracking-[0.01em] text-accent tabular-nums"
             >
-              {current ?? '—'}
+              {current !== undefined ? toDisplay(current) : '—'}
             </span>
-            <span className="font-mono text-sm font-semibold text-muted">kg</span>
+            <span className="font-mono text-sm font-semibold text-muted">{unit}</span>
           </span>
           <button
             type="button"
@@ -114,7 +118,11 @@ export function StepWeights({
         <div className="mb-6">
           <PlateBreakdown weight={current ?? 0} />
           <p className="mt-1 font-mono text-2xs text-info">
-            {t('onboarding.weights.range', { min: field.min, max: MAX_WEIGHT_KG })}
+            {t('onboarding.weights.range', {
+              min: toDisplay(field.min),
+              max: toDisplay(MAX_WEIGHT_KG),
+              unit,
+            })}
           </p>
         </div>
 
@@ -176,7 +184,7 @@ export function StepWeights({
                 {localizedConfigFieldLabel(t, f.key, f.label)}
               </span>
               <span className="shrink-0 font-mono text-[12.5px] tabular-nums">
-                {values[f.key] !== undefined ? `${values[f.key]} kg` : '—'}
+                {formatOrDash(values[f.key])}
               </span>
             </li>
           ))}

@@ -17,6 +17,7 @@ import type { UserInfo } from '@gzclp/domain/schemas/user';
 import { setUser as sentrySetUser } from '@/lib/sentry';
 import { trackEvent } from '@/lib/analytics';
 import { queryKeys } from '@/lib/query-keys';
+import { isRecentlySignedOut, markSessionSignedIn, markSessionSignedOut } from '@/lib/session-hint';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -113,10 +114,21 @@ const DEV_AUTH_SECRET = import.meta.env.VITE_DEV_AUTH_SECRET ?? 'e2e-dev-secret-
 // Session restore
 // ---------------------------------------------------------------------------
 
+// The social redirect lands here with a brand-new refresh cookie that no
+// sign-in handler in this tab has seen, so a "signed out" hint must not apply.
+function isSocialCallbackPath(): boolean {
+  return window.location.pathname.startsWith('/auth/callback');
+}
+
 async function restoreSession(): Promise<UserInfo | null> {
+  if (isRecentlySignedOut() && !isSocialCallbackPath()) {
+    activeAuthSessionIdentity = null;
+    return null;
+  }
   const refreshed = await refreshAccessToken();
   if (!refreshed) {
     activeAuthSessionIdentity = null;
+    markSessionSignedOut();
     return null;
   }
   try {
@@ -125,6 +137,7 @@ async function restoreSession(): Promise<UserInfo | null> {
     // the payload is missing/unexpected (e.g. an older API without the field).
     const user = parseUserSafe(refreshed.user) ?? (await fetchMe());
     beginAuthSession(user.id);
+    markSessionSignedIn();
     sentrySetUser({ id: user.id });
     return user;
   } catch (err: unknown) {
@@ -163,6 +176,7 @@ function applySignInResponse(
 
   setAccessToken(data.accessToken);
   beginAuthSession(userInfo.id);
+  markSessionSignedIn();
   // A successful sign-in starts a new refresh-token lifecycle. A previous
   // successful sign-out deliberately blocked refresh rotation, so release
   // that block before this account's access token can expire.
@@ -186,6 +200,7 @@ function applySignInResponse(
 async function clearAuthenticatedClientState(queryClient: QueryClient): Promise<void> {
   setAccessToken(null);
   activeAuthSessionIdentity = null;
+  markSessionSignedOut();
   try {
     await queryClient.cancelQueries();
   } catch (err: unknown) {

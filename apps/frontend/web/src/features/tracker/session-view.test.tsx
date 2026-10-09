@@ -108,6 +108,7 @@ function renderView(
     readonly workout?: GenericWorkoutRow;
     readonly rows?: readonly GenericWorkoutRow[];
     readonly isCurrent?: boolean;
+    readonly showCompletion?: boolean;
     readonly rest?: { readonly seconds: number; readonly id: number } | null;
     readonly actions?: Partial<Parameters<typeof SessionView>[0]['slotActions']>;
   } = {}
@@ -130,6 +131,7 @@ function renderView(
       }
       workout={workout}
       isCurrent={overrides.isCurrent ?? true}
+      showCompletion={overrides.showCompletion ?? false}
       rest={overrides.rest ?? null}
       onSkipRest={vi.fn()}
       onGoToNextDay={vi.fn()}
@@ -157,6 +159,7 @@ function renderRerenderable() {
       rows={[base, workout]}
       workout={workout}
       isCurrent
+      showCompletion={false}
       rest={null}
       onSkipRest={vi.fn()}
       onGoToNextDay={vi.fn()}
@@ -277,6 +280,8 @@ describe('SessionView', () => {
 
   it('closes a finished day with a summary and the queued next loads', () => {
     renderView({
+      showCompletion: true,
+      isCurrent: false,
       workout: row(1, [
         slot({
           result: 'success',
@@ -309,10 +314,24 @@ describe('SessionView', () => {
     expect(screen.getAllByTestId('completed-slot-row').length).toBeGreaterThan(0);
   });
 
+  it('keeps a finished day that is not the latest as plain history rows', () => {
+    renderView({
+      isCurrent: false,
+      showCompletion: false,
+      workout: row(1, [
+        slot({ result: 'success', setLogs: [{ reps: 3 }] }),
+        { ...T2, result: 'success' },
+      ]),
+    });
+
+    expect(screen.queryByTestId('day-completed-panel')).not.toBeInTheDocument();
+    expect(screen.getAllByTestId('completed-slot-row')).toHaveLength(2);
+  });
+
   it('lists what the same session looked like last time', () => {
     renderView();
 
     const panel = screen.getByTestId('session-side-panel');
-    expect(within(panel).getByText('100 · 5×3')).toBeInTheDocument();
+    expect(within(panel).getByText('100 kg · 5×3')).toBeInTheDocument();
   });
 });

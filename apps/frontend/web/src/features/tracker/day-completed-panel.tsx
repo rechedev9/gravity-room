@@ -1,10 +1,11 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
-import { localizedExerciseName } from '@/lib/catalog-display';
+import { isCycleDayName, localizedExerciseName } from '@/lib/catalog-display';
 import { detectGenericPersonalRecord } from '@/lib/pr-detection';
 import { tierColorClass } from '@/features/program-view/tier-color';
 import { findNextScheduled, workoutVolume } from './session-history';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 export interface DayCompletedPanelProps {
   readonly rows: readonly GenericWorkoutRow[];
@@ -13,7 +14,8 @@ export interface DayCompletedPanelProps {
   /** Next workout in the program, if any. */
   readonly nextWorkout: GenericWorkoutRow | null;
   readonly onGoToNextDay: () => void;
-  readonly onReview: () => void;
+  /** Omitted when the day's results are already listed right below the panel. */
+  readonly onReview?: () => void;
 }
 
 /**
@@ -30,6 +32,16 @@ export function DayCompletedPanel({
   onReview,
 }: DayCompletedPanelProps): ReactNode {
   const { t } = useTranslation();
+  const { unit, toDisplay, format } = useUnitPreference();
+  const panelRef = useRef<HTMLElement>(null);
+
+  // The last set is usually confirmed far below the top of the page: bring the
+  // result into view instead of leaving the user staring at a finished card.
+  useEffect(() => {
+    const el = panelRef.current;
+    if (el === null) return;
+    el.scrollIntoView?.({ block: 'start' });
+  }, []);
 
   const lines = workout.slots.map((slot) => {
     const next = findNextScheduled(rows, workout.index, slot.slotId);
@@ -49,9 +61,10 @@ export function DayCompletedPanel({
 
   return (
     <section
+      ref={panelRef}
       data-testid="day-completed-panel"
       aria-label={t('tracker.day_completed.aria', { day: workout.index + 1 })}
-      className="mb-4"
+      className="mb-4 scroll-mt-32"
     >
       <div className="mb-6 flex flex-wrap items-end justify-between gap-6">
         <div>
@@ -68,7 +81,7 @@ export function DayCompletedPanel({
               {t('tracker.day_completed.volume')}
             </dt>
             <dd className="font-display m-0 text-[38px] leading-none tracking-[0.02em] text-title tabular-nums">
-              {workoutVolume(workout).toLocaleString()} kg
+              {toDisplay(workoutVolume(workout)).toLocaleString()} {unit}
             </dd>
           </div>
           <div>
@@ -98,7 +111,7 @@ export function DayCompletedPanel({
               {localizedExerciseName(t, slot.exerciseId, slot.exerciseName)}
             </span>
             <span className="whitespace-nowrap font-mono text-[13px] text-muted tabular-nums">
-              {slot.weight > 0 ? `${slot.weight} kg · ` : ''}
+              {slot.weight > 0 ? `${format(slot.weight)} · ` : ''}
               {reps}
             </span>
             {isRecord && (
@@ -112,7 +125,7 @@ export function DayCompletedPanel({
                   {t('tracker.day_completed.next')}
                 </span>
                 <span className="font-mono text-sm font-bold text-ok tabular-nums">
-                  {next.weight} kg
+                  {format(next.weight)}
                 </span>
               </span>
             )}
@@ -123,10 +136,12 @@ export function DayCompletedPanel({
       {nextWorkout !== null && nextWorkout.slots.length > 0 && (
         <div className="mb-6 border border-rule bg-header px-4 py-3.5" data-testid="next-session">
           <h3 className="mb-2.5 font-mono text-2xs font-bold uppercase tracking-[0.08em] text-info">
-            {t('tracker.day_completed.next_session', {
-              day: nextWorkout.index + 1,
-              name: nextWorkout.dayName,
-            })}
+            {isCycleDayName(nextWorkout.dayName)
+              ? t('tracker.day_completed.next_session_plain', { day: nextWorkout.index + 1 })
+              : t('tracker.day_completed.next_session', {
+                  day: nextWorkout.index + 1,
+                  name: nextWorkout.dayName,
+                })}
           </h3>
           <ul className="flex flex-wrap gap-x-5 gap-y-1">
             {nextWorkout.slots.map((slot) => (
@@ -134,7 +149,7 @@ export function DayCompletedPanel({
                 {localizedExerciseName(t, slot.exerciseId, slot.exerciseName)}
                 {' · '}
                 {slot.weight > 0
-                  ? `${slot.weight} kg`
+                  ? format(slot.weight)
                   : `${slot.sets}×${slot.complexReps ?? slot.reps}`}
               </li>
             ))}
@@ -151,20 +166,24 @@ export function DayCompletedPanel({
             style={{ boxShadow: 'var(--shadow-pressed-steel)' }}
             className="bg-accent px-7 py-3.5 font-mono text-xs font-bold uppercase tracking-[0.08em] text-on-accent transition-colors hover:bg-accent-hover cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
           >
-            {t('tracker.day_completed.next_day', {
-              day: nextWorkout.index + 1,
-              name: nextWorkout.dayName,
-            })}
+            {isCycleDayName(nextWorkout.dayName)
+              ? t('tracker.day_completed.next_day_plain', { day: nextWorkout.index + 1 })
+              : t('tracker.day_completed.next_day', {
+                  day: nextWorkout.index + 1,
+                  name: nextWorkout.dayName,
+                })}
           </button>
         )}
-        <button
-          type="button"
-          data-testid="day-completed-review"
-          onClick={onReview}
-          className="border-[1.5px] border-rule-light px-5 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted transition-colors hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
-        >
-          {t('tracker.day_completed.review')}
-        </button>
+        {onReview !== undefined && (
+          <button
+            type="button"
+            data-testid="day-completed-review"
+            onClick={onReview}
+            className="border-[1.5px] border-rule-light px-5 py-3 font-mono text-[11px] font-bold uppercase tracking-[0.08em] text-muted transition-colors hover:text-main cursor-pointer focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+          >
+            {t('tracker.day_completed.review')}
+          </button>
+        )}
         <span className="font-mono text-2xs text-info">
           {t('tracker.day_completed.progress', { day: workout.index + 1, total: totalDays })}
         </span>

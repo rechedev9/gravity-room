@@ -100,6 +100,6 @@ test.describe('Progression rules', () => {
     await selectWorkoutDay(page, 13);
 
     // T2 bench after reset shows 40 kg (and the deload badge from prior cycle weight drop)
-    await expect(page.getByText('40 kg')).toBeVisible();
+    await expect(page.getByTestId('compact-day-grid').getByText('40 kg')).toBeVisible();
   });
 });

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { computeEpley1RM } from '@gzclp/domain/graduation';
 import { roundToNearest } from '@gzclp/domain/generic-engine';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 interface AmrapInputProps {
   readonly value: number | undefined;
@@ -28,6 +29,7 @@ export function AmrapInput({
   result,
 }: AmrapInputProps): React.ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
   const isCard = variant === 'card';
   const current = value ?? 0;
 
@@ -85,7 +87,7 @@ export function AmrapInput({
       </div>
       {showEstimate && (
         <span className="text-[10px] text-muted mt-0.5 block text-center">
-          {t('tracker.amrap_input.estimated_1rm_prefix')} {estimate1RM(weight, value)} kg
+          {t('tracker.amrap_input.estimated_1rm_prefix')} {format(estimate1RM(weight, value))}
         </span>
       )}
     </div>

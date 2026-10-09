@@ -15,6 +15,7 @@ import {
 import type { VolumeDataPoint } from '@gzclp/domain/types';
 import { useChartTheme, formatChartDate } from './chart-theme';
 import { formatVolLabel, VolumeTooltip } from './volume-tooltip';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 const MAX_LABELS = 8;
 
@@ -29,6 +30,7 @@ interface BarChartProps {
 
 export function BarChart({ data, label }: BarChartProps): React.ReactNode {
   const { t } = useTranslation();
+  const { unit, toDisplay } = useUnitPreference();
   const theme = useChartTheme();
 
   const points = useMemo(() => {
@@ -40,17 +42,19 @@ export function BarChart({ data, label }: BarChartProps): React.ReactNode {
             ? formatChartDate(d.date) || `#${d.workout}`
             : `#${d.workout}`
           : `_${i}`,
-      vol: d.volumeKg,
+      vol: toDisplay(d.volumeKg),
     }));
-  }, [data]);
+  }, [data, toDisplay]);
 
   // Forged Iron: only the latest ("hot") bar is gold and labelled; the rest are idle steel.
   const hotIdx = points.length - 1;
 
   const avg = useMemo(
     () =>
-      data.length >= 3 ? Math.round(data.reduce((s, d) => s + d.volumeKg, 0) / data.length) : null,
-    [data]
+      data.length >= 3
+        ? Math.round(toDisplay(data.reduce((s, d) => s + d.volumeKg, 0) / data.length))
+        : null,
+    [data, toDisplay]
   );
 
   if (data.length === 0) {
@@ -90,14 +94,14 @@ export function BarChart({ data, label }: BarChartProps): React.ReactNode {
               width={40}
               tickFormatter={formatVolLabel}
               label={{
-                value: 'kg',
+                value: unit,
                 angle: -90,
                 position: 'insideLeft',
                 fill: theme.text,
                 fontSize: 9,
               }}
             />
-            <Tooltip content={<VolumeTooltip />} />
+            <Tooltip content={<VolumeTooltip unit={unit} />} />
             <Bar dataKey="vol" radius={[1, 1, 0, 0]} isAnimationActive={false}>
               {points.map((p, i) => (
                 <Cell
@@ -136,7 +140,7 @@ export function BarChart({ data, label }: BarChartProps): React.ReactNode {
                 strokeDasharray="6 4"
                 strokeWidth={1.5}
                 label={{
-                  value: `${t('chart.average_abbrev')} ${formatVolLabel(avg)} kg`,
+                  value: `${t('chart.average_abbrev')} ${formatVolLabel(avg)} ${unit}`,
                   fill: theme.text,
                   fontSize: 9,
                   position: 'insideTopRight',

@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode, type UIEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
+import { localizedDayName } from '@/lib/catalog-display';
 
 // ---------------------------------------------------------------------------
 // HistoryView — completed sessions from resultTimestamps only
@@ -39,6 +40,7 @@ function HistoryRow({
   readonly onSelectDay: (index: number) => void;
   readonly virtualized: boolean;
 }): ReactNode {
+  const { t } = useTranslation();
   const dateLabel = entry.timestamp
     ? new Date(entry.timestamp).toLocaleDateString(undefined, {
         year: 'numeric',
@@ -69,7 +71,7 @@ function HistoryRow({
       <span className="font-mono tabular-nums font-bold text-accent shrink-0">
         #{entry.index + 1}
       </span>
-      <span className="text-muted shrink-0">{dayName}</span>
+      <span className="text-muted shrink-0">{localizedDayName(t, dayName)}</span>
       {dateLabel && (
         <span className="ml-auto font-mono tabular-nums text-muted shrink-0">{dateLabel}</span>
       )}

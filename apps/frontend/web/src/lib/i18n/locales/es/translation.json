@@ -197,7 +197,7 @@
       "error_not_found": "Programa no encontrado",
       "error_details": "El programa solicitado no existe o no se pudo cargar.",
       "cta_signup_prompt": "Crea una cuenta para registrar tu progreso",
-      "cta_view_dashboard": "Ver Dashboard",
+      "cta_go_home": "Ir a Inicio",
       "cta_active_warning": "Finaliza tu programa actual antes de iniciar uno nuevo.",
       "sample_workout": "Ejemplo de entrenamiento"
     },
@@ -216,7 +216,8 @@
       "orphan_confirm_title": "Eliminar programa huérfano",
       "orphan_confirm_message": "Se eliminarán todos los resultados asociados. ¿Continuar?",
       "recent_activity_empty": "Completa tu primer entrenamiento para ver la actividad reciente.",
-      "next_workout": "Siguiente: Día {{index}} — {{name}}"
+      "next_workout": "Siguiente: Día {{index}} · {{name}}",
+      "next_workout_plain": "Siguiente: Día {{index}}"
     },
     "programs": {
       "gzclp": {
@@ -634,8 +635,8 @@
     },
     "kpi_strip": {
       "streak": "RACHA",
-      "day_one": "día",
-      "day_other": "días",
+      "session_one": "sesión",
+      "session_other": "sesiones",
       "sessions": "SESIONES",
       "completed": "completadas",
       "weekly_pr": "PR ESTA SEMANA",
@@ -670,7 +671,7 @@
       "today_day": "HOY · DÍA {{day}}",
       "program_progress": "DÍA {{day}} / {{total}}",
       "next_set": "PRÓXIMA SERIE",
-      "last_set": "última: {{weight}}×{{reps}} · +{{delta}}kg desde inicio del programa"
+      "last_set": "última: {{weight}}×{{reps}} · +{{delta}} desde inicio del programa"
     },
     "heatmap": {
       "title": "ÚLTIMAS {{weeks}} SEMANAS",
@@ -697,9 +698,15 @@
     "page_title": "Programas — Gravity Room",
     "title": "Programas",
     "subtitle": "Catálogo de programas de entrenamiento por nivel",
+    "guided_start_cta": "¿Primera vez? Empieza con el asistente",
     "retry": "Reintentar",
     "catalog_load_error": "No se pudo cargar el catálogo.",
     "other_programs": "Otros Programas",
+    "replace": {
+      "title": "¿Empezar {{next}}?",
+      "message": "Tu programa activo, {{current}}, se dará por finalizado. Tu historial se conserva.",
+      "confirm": "Finalizar y empezar"
+    },
     "active_heading": "Programa activo",
     "active_workout": "Entrenamiento {{completed}} de {{total}}",
     "active_progress_aria": "Progreso del programa",
@@ -878,12 +885,12 @@
     },
     "setup_form": {
       "invalid_value": "Valor inválido",
-      "min_weight": "Mínimo {{min}} kg",
-      "max_weight": "Máximo 500 kg",
+      "min_weight": "Mínimo {{min}}",
+      "max_weight": "Máximo {{max}}",
       "required": "Requerido",
       "generate_error": "Error al generar el programa.",
-      "edit_title_default": "Editar Pesos Iniciales (kg)",
-      "create_title_default": "Pesos Iniciales (kg)",
+      "edit_title_default": "Editar Pesos Iniciales ({{unit}})",
+      "create_title_default": "Pesos Iniciales ({{unit}})",
       "edit_description_default": "Actualiza tus pesos iniciales — el programa se recalculará con los nuevos valores",
       "create_description_default": "Ingresa tus pesos iniciales para {{name}}",
       "active_group_indicator": "← actualiza aquí",
@@ -916,7 +923,7 @@
       "import_backup": "Importar copia JSON",
       "import_backup_file_aria": "Seleccionar archivo de copia JSON",
       "reset_all": "Reiniciar Todo",
-      "finish_confirm_message": "Tu progreso y estadísticas se guardarán. Podrás consultarlos en cualquier momento desde el dashboard.",
+      "finish_confirm_message": "Tu progreso y estadísticas se guardarán. Podrás consultarlos en cualquier momento desde tu perfil.",
       "finish_confirm_label": "Finalizar",
       "reset_confirm_title": "Reiniciar Todo el Progreso",
       "reset_confirm_message": "¿Estás seguro de que quieres reiniciar TODO el progreso? Esto no se puede deshacer.",
@@ -977,8 +984,8 @@
       "title": "Test Máximo —",
       "description_propagation": "Registra tu máximo. Este peso se usará como Training Max del siguiente bloque.",
       "description_final": "Registra tu máximo. Este es tu resultado final del protocolo JAW.",
-      "weight_label": "¿Cuánto levantaste? (kg)",
-      "range_error": "Introduce un peso entre {{min}} y {{max}} kg.",
+      "weight_label": "¿Cuánto levantaste? ({{unit}})",
+      "range_error": "Introduce un peso entre {{min}} y {{max}} {{unit}}.",
       "cancel_button": "Cancelar",
       "saving_loading": "Guardando...",
       "confirm_button": "Confirmar"
@@ -991,7 +998,7 @@
     "detailed_day_view": {
       "workout_aria": "Entrenamiento {{number}}",
       "col_set": "Serie",
-      "col_weight": "Kg",
+      "col_weight": "{{unit}}",
       "col_reps": "Reps",
       "col_target": "Obj.",
       "table_aria": "Series de {{exercise}}",
@@ -1037,7 +1044,7 @@
       "decrease_label": "Disminuir {{label}}",
       "increase_label": "Aumentar {{label}}",
       "valid": "Válido",
-      "min_hint": "Mín {{min}} kg"
+      "min_hint": "Mín {{min}}"
     },
     "result_cell": {
       "success": "Éxito",
@@ -1100,6 +1107,7 @@
     "day_status": {
       "today_prefix": "HOY · ",
       "day_label": "DÍA",
+      "day_name": "Día {{n}}",
       "complete_suffix": " · COMPLETO",
       "close": "cerrar ▴",
       "change_day": "cambiar día ▾"
@@ -1140,8 +1148,8 @@
       "previous_with_age": "Misma sesión, {{age}}",
       "fail_title": "Si fallas esta serie",
       "fail_stage_same_weight": "Etapa {{stage}} ({{scheme}}) con el mismo peso en la próxima sesión. No pierdes carga.",
-      "fail_deload": "La próxima sesión recalcula la carga a {{weight}} kg.",
-      "fail_hold": "La carga se mantiene en {{weight}} kg la próxima sesión.",
+      "fail_deload": "La próxima sesión recalcula la carga a {{weight}}.",
+      "fail_hold": "La carga se mantiene en {{weight}} la próxima sesión.",
       "keyboard": "Teclado",
       "shortcut_success": "marcar éxito",
       "shortcut_fail": "marcar fallo",
@@ -1157,8 +1165,8 @@
       "next_stage_label": "Etapa {{stage}} · próxima sesión",
       "weight_holds": "El peso no baja",
       "weight_drops": "El peso se recalcula",
-      "body_deload": "Agotadas las etapas, el programa recalcula la carga: bajas {{percent}} kg hasta {{weight}} kg y vuelves a la primera etapa.",
-      "body_hold": "La carga se mantiene en {{weight}} kg la próxima sesión.",
+      "body_deload": "Agotadas las etapas, el programa recalcula la carga: bajas {{percent}} hasta {{weight}} y vuelves a la primera etapa.",
+      "body_hold": "La carga se mantiene en {{weight}} la próxima sesión.",
       "continue": "Seguir con la sesión",
       "undo": "Deshacer · me equivoqué",
       "body_stage_one": "Menos repeticiones por serie con la misma carga: así el programa te deja seguir progresando sin retroceder. Te queda {{count}} etapa más antes de tocar el peso.",
@@ -1178,9 +1186,11 @@
       "record": "Récord",
       "next": "próxima",
       "next_day": "Siguiente · día {{day}} · {{name}}",
+      "next_day_plain": "Siguiente · día {{day}}",
       "review": "Corregir algo",
       "progress": "Día {{day}} de {{total}}",
-      "next_session": "Próxima sesión · día {{day}} · {{name}}"
+      "next_session": "Próxima sesión · día {{day}} · {{name}}",
+      "next_session_plain": "Próxima sesión · día {{day}}"
     }
   },
   "profile": {
@@ -2034,7 +2044,7 @@
       "lift_counter": "Levantamiento {{index}} de {{total}}",
       "decrease": "Bajar carga de {{lift}}",
       "increase": "Subir carga de {{lift}}",
-      "range": "Válido {{min}} – {{max}} kg",
+      "range": "Válido de {{min}} a {{max}} {{unit}}",
       "bar": "Barra {{weight}}",
       "per_side": "por lado",
       "below_bar": "Por debajo de la barra: empieza solo con la barra.",
@@ -2054,6 +2064,7 @@
     },
     "first_day": {
       "kicker": "Día 1 · {{name}}",
+      "kicker_plain": "Día 1",
       "title": "Esto es lo que harás hoy",
       "subtitle": "{{count}} levantamientos. La primera sesión va deliberadamente ligera: el programa necesita ver dónde estás antes de empujar.",
       "your_choice": "a elegir",

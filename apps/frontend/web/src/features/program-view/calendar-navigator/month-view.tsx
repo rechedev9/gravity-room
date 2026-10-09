@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
+import { localizedDayName } from '@/lib/catalog-display';
 import {
   clamp,
   resolveTileState,
@@ -49,7 +50,7 @@ function MonthTile({ row, state, onSelect }: MonthTileProps): ReactNode {
     index: row.index + 1,
     state: t(`calendar_navigator.tile_state.${state}`),
   });
-  const abbrev = abbreviateDayName(row.dayName ?? '');
+  const abbrev = abbreviateDayName(localizedDayName(t, row.dayName ?? ''));
 
   return (
     <button
@@ -57,7 +58,7 @@ function MonthTile({ row, state, onSelect }: MonthTileProps): ReactNode {
       data-testid="day-tile"
       onClick={onSelect}
       aria-label={label}
-      title={`#${row.index + 1} ${row.dayName}`}
+      title={`#${row.index + 1} ${localizedDayName(t, row.dayName ?? '')}`}
       aria-current={state === 'selected' ? 'true' : undefined}
       className={`
         flex flex-col items-center justify-center gap-0.5

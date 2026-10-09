@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -19,6 +19,8 @@ import { StartStepper, type StartStep } from './start-stepper';
 import { StepProgram } from './step-program';
 import { StepWeights } from './step-weights';
 import { StepFirstDay } from './step-first-day';
+import { useConfirmProgramReplacement } from '@/features/programs/use-confirm-program-replacement';
+import { localizedProgramName } from '@/lib/catalog-display';
 
 type WeightField = ProgramDefinition['configFields'][number] & { type: 'weight' };
 
@@ -102,8 +104,16 @@ export function StartPage(): ReactNode {
 
   const [isStarting, setIsStarting] = useState(false);
 
+  // Each step starts at the stepper, not wherever the previous step was scrolled to.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [step]);
+  const { confirmReplacement, dialog: replaceDialog } = useConfirmProgramReplacement();
+
   const generate = async (thenGoToTracker: boolean): Promise<void> => {
     if (definition === undefined || previewConfig === null || programId === null) return;
+    if (!(await confirmReplacement(localizedProgramName(t, definition.id, definition.name))))
+      return;
     setIsStarting(true);
     try {
       await target.generateProgram(previewConfig);
@@ -182,6 +192,8 @@ export function StartPage(): ReactNode {
             onBack={() => setStep('weights')}
           />
         ))}
+
+      {replaceDialog}
     </Shell>
   );
 }

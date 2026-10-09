@@ -2,6 +2,7 @@ import type { GraduationTarget, GraduationState } from '@gzclp/domain/graduation
 import { useTranslation } from 'react-i18next';
 import { computeEpley1RM } from '@gzclp/domain/graduation';
 import { roundToNearest } from '@gzclp/domain/generic-engine';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 interface GraduationPanelProps {
   readonly targets: readonly GraduationTarget[];
@@ -31,6 +32,7 @@ export function GraduationPanel({
   onDismiss,
 }: GraduationPanelProps): React.ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
   const rounding = typeof config.rounding === 'string' ? parseFloat(config.rounding) : 2.5;
 
   // Compute Epley 1RM estimates for each target
@@ -92,13 +94,13 @@ export function GraduationPanel({
                   {t(EXERCISE_LABELS[target.exercise] ?? target.exercise)}
                 </p>
                 <p className="text-[12px] text-muted">
-                  {t(REP_CRITERIA[target.exercise] ?? target.description)} @ {target.targetWeight}{' '}
-                  kg
+                  {t(REP_CRITERIA[target.exercise] ?? target.description)} @{' '}
+                  {format(target.targetWeight)}
                 </p>
               </div>
               {done && estimatedOneRMs[target.exercise] !== undefined && (
                 <span className="text-[11px] font-bold text-ok whitespace-nowrap">
-                  1RM: ~{estimatedOneRMs[target.exercise]} kg
+                  1RM: ~{format(estimatedOneRMs[target.exercise])}
                 </span>
               )}
             </div>
@@ -122,7 +124,7 @@ export function GraduationPanel({
                 <p className="text-[11px] font-bold uppercase text-muted">
                   {t(EXERCISE_LABELS[exercise] ?? exercise)}
                 </p>
-                <p className="font-display text-lg text-accent">{oneRM} kg</p>
+                <p className="font-display text-lg text-accent">{format(oneRM)}</p>
               </div>
             ))}
           </div>

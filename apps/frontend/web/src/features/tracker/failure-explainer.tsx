@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { GenericSlotRow } from '@gzclp/domain/types';
 import type { SlotOutcomeComparison } from '@gzclp/domain/progression-preview';
 import { localizedExerciseName } from '@/lib/catalog-display';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 export interface StageRung {
   readonly sets: number;
@@ -39,17 +40,21 @@ export function FailureExplainer({
   onUndo,
 }: FailureExplainerProps): ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
   const exerciseLabel = localizedExerciseName(t, slot.exerciseId, slot.exerciseName);
   const { current, next, weightDelta, stageChanged } = outcome;
 
   const remainingStages = next.stagesCount - next.stage - 1;
   const body = stageChanged
     ? weightDelta < 0
-      ? t('tracker.failure.body_deload', { percent: Math.abs(weightDelta), weight: next.weight })
+      ? t('tracker.failure.body_deload', {
+          percent: format(Math.abs(weightDelta)),
+          weight: format(next.weight),
+        })
       : remainingStages > 0
         ? t('tracker.failure.body_stage', { count: remainingStages })
         : t('tracker.failure.body_stage_last')
-    : t('tracker.failure.body_hold', { weight: next.weight });
+    : t('tracker.failure.body_hold', { weight: format(next.weight) });
 
   return (
     <section
@@ -92,7 +97,7 @@ export function FailureExplainer({
               : t('tracker.failure.weight_holds')}
           </p>
           <p className="font-mono text-[22px] font-semibold text-title tabular-nums">
-            {next.weight} kg
+            {format(next.weight)}
           </p>
         </li>
       </ol>

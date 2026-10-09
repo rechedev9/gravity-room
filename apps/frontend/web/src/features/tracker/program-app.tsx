@@ -20,6 +20,7 @@ import { generateProgramCsv, downloadCsv } from '@/lib/csv-export';
 import { localizedProgramName } from '@/lib/catalog-display';
 import { useProgramCompletion } from '@/hooks/use-program-completion';
 import { ToastContainer } from '@/components/toast';
+import { useConfirmProgramReplacement } from '@/features/programs/use-confirm-program-replacement';
 import { AppSkeleton } from '@/components/app-skeleton';
 import { GraduationPanel } from './graduation-panel';
 import { ProgramCompletionScreen } from './program-completion-screen';
@@ -29,6 +30,7 @@ import { SetupForm } from './setup-form';
 import { TestWeightModal } from './test-weight-modal';
 import { RestTimer } from './rest-timer';
 import { plannedConfirmableSets, restSecondsForRole } from './rest-timer-policy';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 const MAX_BACKUP_FILE_BYTES = 1_048_576;
 
@@ -50,6 +52,7 @@ export function ProgramApp({
   onGoToProfile,
 }: ProgramAppProps): React.ReactNode {
   const { t } = useTranslation();
+  const { unit, format } = useUnitPreference();
   const { user, loading: authLoading } = useAuth();
   const { isGuest } = useGuest();
 
@@ -112,6 +115,7 @@ export function ProgramApp({
   });
 
   const { toast } = useToast();
+  const { confirmReplacement, dialog: replaceDialog } = useConfirmProgramReplacement();
   const [editingWeights, setEditingWeights] = useState(false);
   const [navExpanded, setNavExpanded] = useState(false);
   /** Active rest between sets — null when no countdown is running. `id` forces remount. */
@@ -158,6 +162,14 @@ export function ProgramApp({
         })
     : undefined;
 
+  // A fresh setup ends the active program; ask first. Editing weights of the
+  // program already running goes through updateConfig and never lands here.
+  const startProgram = async (newConfig: Record<string, number | string>): Promise<void> => {
+    const nextName = definition ? localizedProgramName(t, definition.id, definition.name) : '';
+    if (!(await confirmReplacement(nextName))) return;
+    await generateProgram(newConfig);
+  };
+
   const selectedWorkout = rows[dayNav.selectedDayIndex];
   const isDayComplete = selectedWorkout
     ? selectedWorkout.slots.every((s) => s.result !== undefined)
@@ -188,7 +200,7 @@ export function ProgramApp({
     if (!slot) return;
     const isPr = detectGenericPersonalRecord(rows, workoutIndex, slotId, value);
     if (isPr) {
-      toast({ message: `${slot.exerciseName} ${slot.weight} kg`, variant: 'pr' });
+      toast({ message: `${slot.exerciseName} ${format(slot.weight)}`, variant: 'pr' });
     } else {
       const resultLabel = value === 'success' ? t('common.success') : t('common.failed');
       toast({
@@ -309,7 +321,7 @@ export function ProgramApp({
       return;
     }
     if (!definition || rows.length === 0) return;
-    const csv = generateProgramCsv(rows, workoutsPerWeek);
+    const csv = generateProgramCsv({ rows, workoutsPerWeek, unit });
     const date = new Date().toISOString().slice(0, 10);
     const filenameBase = localizedProgramName(t, definition.id, definition.name);
     downloadCsv(csv, `${filenameBase}-${date}.csv`);
@@ -402,7 +414,7 @@ export function ProgramApp({
               definition={definition}
               initialConfig={config}
               isGenerating={isGenerating}
-              onGenerate={generateProgram}
+              onGenerate={startProgram}
               onUpdateConfig={(cfg) => {
                 updateConfig(cfg);
                 setEditingWeights(false);
@@ -418,7 +430,7 @@ export function ProgramApp({
             definition={definition}
             initialConfig={config}
             isGenerating={isGenerating}
-            onGenerate={generateProgram}
+            onGenerate={startProgram}
             onUpdateConfig={updateConfig}
             statusNote={jawStatusNote}
             activeGroup={jawContext?.group}
@@ -497,6 +509,7 @@ export function ProgramApp({
       ) : null}
 
       <ToastContainer />
+      {replaceDialog}
 
       {completionData && definition && (
         <ProgramCompletionScreen

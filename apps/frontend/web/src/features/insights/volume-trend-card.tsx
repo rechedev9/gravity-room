@@ -15,6 +15,7 @@ import type { InsightItem } from '@/lib/api-functions';
 import { isVolumeTrendPayload } from '@/lib/insight-payloads';
 import { useChartTheme, formatChartDate } from '@/components/charts/chart-theme';
 import { formatVolLabel, VolumeTooltip } from '@/components/charts/volume-tooltip';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 const MAX_LABELS = 8;
 
@@ -24,6 +25,7 @@ interface VolumeTrendCardProps {
 
 export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactNode {
   const { t } = useTranslation();
+  const { unit, toDisplay } = useUnitPreference();
   const theme = useChartTheme();
   const payload = insight.payload;
   if (!isVolumeTrendPayload(payload)) return null;
@@ -31,12 +33,12 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
   const labelInterval = Math.max(1, Math.ceil(payload.weeks.length / MAX_LABELS));
   const points = payload.weeks.map((week, i) => ({
     x: i % labelInterval === 0 ? formatChartDate(week) || `#${i + 1}` : `_${i}`,
-    vol: payload.volumes[i],
+    vol: toDisplay(payload.volumes[i]),
   }));
 
   const avg =
     payload.volumes.length >= 3
-      ? Math.round(payload.volumes.reduce((s, v) => s + v, 0) / payload.volumes.length)
+      ? Math.round(toDisplay(payload.volumes.reduce((s, v) => s + v, 0) / payload.volumes.length))
       : null;
 
   // Only the most recent week uses the accent ("hot"); the rest are idle bars.
@@ -90,14 +92,14 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
                   width={40}
                   tickFormatter={formatVolLabel}
                   label={{
-                    value: 'kg',
+                    value: unit,
                     angle: -90,
                     position: 'insideLeft',
                     fill: theme.text,
                     fontSize: 9,
                   }}
                 />
-                <Tooltip content={<VolumeTooltip />} />
+                <Tooltip content={<VolumeTooltip unit={unit} />} />
                 <Bar dataKey="vol" radius={[1, 1, 0, 0]} isAnimationActive={false}>
                   {points.map((p, i) => (
                     <Cell
@@ -136,7 +138,7 @@ export function VolumeTrendCard({ insight }: VolumeTrendCardProps): React.ReactN
                     strokeDasharray="6 4"
                     strokeWidth={1.5}
                     label={{
-                      value: `${t('insights.volume_trend.avg_label')} ${formatVolLabel(avg)} kg`,
+                      value: `${t('insights.volume_trend.avg_label')} ${formatVolLabel(avg)} ${unit}`,
                       fill: theme.text,
                       fontSize: 9,
                       position: 'insideTopRight',

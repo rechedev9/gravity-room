@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod/v4';
 import type { UserInfo } from '@gzclp/domain/schemas/user';
-import type { WeightUnit } from '@/hooks/use-unit-preference';
+import type { WeightUnit } from '@/lib/weight-unit';
 import { DashboardCard } from '@/components/dashboard-card';
 import { LanguageSelector } from '@/components/language-selector';
 import { ThemeSelector } from '@/components/theme-selector';

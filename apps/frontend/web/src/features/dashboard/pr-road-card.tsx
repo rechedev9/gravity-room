@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ProgressBar } from '@/components/progress-bar';
 import type { PrRoad } from './use-pr-road';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 interface PrRoadCardProps {
   readonly road: PrRoad | null;
@@ -8,6 +9,7 @@ interface PrRoadCardProps {
 
 export function PrRoadCard({ road }: PrRoadCardProps): React.ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
 
   if (!road) {
     return (
@@ -25,11 +27,11 @@ export function PrRoadCard({ road }: PrRoadCardProps): React.ReactNode {
         <dt className="text-muted">{t('dashboard.pr_road.lift')}</dt>
         <dd className="text-main font-bold">{road.lift}</dd>
         <dt className="text-muted">{t('dashboard.pr_road.current')}</dt>
-        <dd className="text-main tabular-nums">{road.current} kg</dd>
+        <dd className="text-main tabular-nums">{format(road.current)}</dd>
         <dt className="text-muted">PR</dt>
-        <dd className="text-victory tabular-nums">{road.target} kg</dd>
+        <dd className="text-victory tabular-nums">{format(road.target)}</dd>
         <dt className="text-muted">{t('dashboard.pr_road.remaining')}</dt>
-        <dd className="text-main tabular-nums">{road.deltaToPr} kg</dd>
+        <dd className="text-main tabular-nums">{format(road.deltaToPr)}</dd>
       </dl>
       <div className="mt-3">
         <ProgressBar

@@ -545,6 +545,10 @@ async function main(): Promise<void> {
       // intercepts the catalog endpoint regardless of which absolute origin
       // the bundle calls.
       viewport: { width: 1280, height: 800 },
+      // Routes without a language of their own (/login, /privacy, /programs/:id)
+      // render in the browser language; pin it to the site default so the
+      // snapshot matches <html lang="es"> whatever machine runs the build.
+      locale: 'es-ES',
     });
 
     // Intercept all catalog detail calls with hydrated fixtures.

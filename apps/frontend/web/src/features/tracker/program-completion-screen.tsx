@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { CompletionStats, PersonalRecord, OneRMEstimate } from '@/lib/profile-stats';
 import { formatVolume } from '@/lib/profile-stats';
 import { ProfileStatCard } from '@/features/profile/profile-stat-card';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 interface ProgramCompletionScreenProps {
   readonly programName: string;
@@ -25,6 +26,7 @@ export function ProgramCompletionScreen({
   onBackToDashboard,
 }: ProgramCompletionScreenProps): React.ReactNode {
   const { t } = useTranslation();
+  const { unit, toDisplay, format } = useUnitPreference();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
@@ -65,12 +67,12 @@ export function ProgramCompletionScreen({
               sublabel={`${t('tracker.completion.workouts_of')} ${completion.totalWorkouts}`}
             />
             <ProfileStatCard
-              value={`${formatVolume(totalVolume)} kg`}
+              value={`${formatVolume(toDisplay(totalVolume))} ${unit}`}
               label={t('tracker.completion.total_volume')}
             />
             {completion.totalWeightGained > 0 ? (
               <ProfileStatCard
-                value={`+${completion.totalWeightGained} kg`}
+                value={`+${toDisplay(completion.totalWeightGained)} ${unit}`}
                 label={t('tracker.completion.weight_gained')}
                 accent
               />
@@ -90,9 +92,9 @@ export function ProgramCompletionScreen({
                 return (
                   <ProfileStatCard
                     key={pr.exercise}
-                    value={`${pr.weight} kg`}
+                    value={format(pr.weight)}
                     label={pr.displayName}
-                    badge={delta > 0 ? `+${delta} kg` : undefined}
+                    badge={delta > 0 ? `+${toDisplay(delta)} ${unit}` : undefined}
                     badgeVariant="success"
                     accent
                   />
@@ -110,9 +112,9 @@ export function ProgramCompletionScreen({
               {oneRMEstimates.map((e) => (
                 <ProfileStatCard
                   key={e.exercise}
-                  value={`${e.estimatedKg} kg`}
+                  value={format(e.estimatedKg)}
                   label={e.displayName}
-                  sublabel={`${e.sourceWeight} kg \u00D7 ${e.sourceAmrapReps} reps`}
+                  sublabel={`${format(e.sourceWeight)} \u00D7 ${e.sourceAmrapReps} reps`}
                 />
               ))}
             </div>

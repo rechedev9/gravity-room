@@ -56,3 +56,11 @@ describe('SetupForm validation', () => {
     expect(onGenerate).not.toHaveBeenCalled();
   });
 });
+
+describe('SetupForm defaults', () => {
+  it('starts weight fields at the empty bar, not at the bare field minimum', () => {
+    render(createElement(SetupForm, { definition, onGenerate: vi.fn() }));
+    const input = document.getElementById('weight-squat') as HTMLInputElement;
+    expect(input.value).toBe('20');
+  });
+});

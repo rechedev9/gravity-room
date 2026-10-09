@@ -1,46 +1,31 @@
-import { useState, useCallback } from 'react';
-
-export type WeightUnit = 'kg' | 'lbs';
-
-const STORAGE_KEY = 'gravity-room:unit-preference';
-const LBS_FACTOR = 2.20462;
-
-function readStoredUnit(): WeightUnit {
-  try {
-    return localStorage.getItem(STORAGE_KEY) === 'lbs' ? 'lbs' : 'kg';
-  } catch {
-    return 'kg';
-  }
-}
+import { useCallback, useSyncExternalStore } from 'react';
+import {
+  type WeightUnit,
+  displayToKg,
+  formatWeight,
+  kgToDisplay,
+  readWeightUnit,
+  subscribeWeightUnit,
+  writeWeightUnit,
+} from '@/lib/weight-unit';
 
 export interface UnitPreference {
   readonly unit: WeightUnit;
   readonly toggleUnit: () => void;
   readonly toDisplay: (kg: number) => number;
+  readonly fromDisplay: (value: number) => number;
+  readonly format: (kg: number) => string;
 }
 
 export function useUnitPreference(): UnitPreference {
-  const [unit, setUnit] = useState<WeightUnit>(readStoredUnit);
+  const unit = useSyncExternalStore(subscribeWeightUnit, readWeightUnit, () => 'kg' as const);
 
   const toggleUnit = useCallback((): void => {
-    setUnit((prev) => {
-      const next: WeightUnit = prev === 'kg' ? 'lbs' : 'kg';
-      try {
-        localStorage.setItem(STORAGE_KEY, next);
-      } catch {
-        // ignore storage errors
-      }
-      return next;
-    });
+    writeWeightUnit(readWeightUnit() === 'kg' ? 'lbs' : 'kg');
   }, []);
+  const toDisplay = useCallback((kg: number): number => kgToDisplay(kg, unit), [unit]);
+  const fromDisplay = useCallback((v: number): number => displayToKg(v, unit), [unit]);
+  const format = useCallback((kg: number): string => formatWeight(kg, unit), [unit]);
 
-  const toDisplay = useCallback(
-    (kg: number): number => {
-      if (unit === 'lbs') return Math.round(kg * LBS_FACTOR * 10) / 10;
-      return kg;
-    },
-    [unit]
-  );
-
-  return { unit, toggleUnit, toDisplay };
+  return { unit, toggleUnit, toDisplay, fromDisplay, format };
 }

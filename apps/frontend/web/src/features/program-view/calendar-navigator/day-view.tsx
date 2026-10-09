@@ -3,6 +3,7 @@ import type { FormEvent, KeyboardEvent, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GenericWorkoutRow } from '@gzclp/domain/types';
 import { trackEvent } from '@/lib/analytics';
+import { localizedDayName } from '@/lib/catalog-display';
 import { clamp, resolveTileState } from './shared';
 
 // ---------------------------------------------------------------------------
@@ -130,7 +131,7 @@ export function DayView({
           <span className="text-sm font-bold font-mono tabular-nums text-accent">
             #{selectedRow.index + 1}
           </span>
-          <span className="text-xs text-muted">{selectedRow.dayName}</span>
+          <span className="text-xs text-muted">{localizedDayName(t, selectedRow.dayName)}</span>
           <span
             className={`ml-auto text-xs font-semibold ${
               state === 'completed'

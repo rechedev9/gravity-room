@@ -10,6 +10,7 @@ import type {
 import { SetIndicators } from './set-indicators';
 import { SlotCardShell } from './slot-card-shell';
 import { SlotResultFooter } from './slot-result-footer';
+import { useUnitPreference } from '@/hooks/use-unit-preference';
 
 /** All slot-level interaction callbacks, grouped for prop-drilling convenience. */
 export interface SlotActions {
@@ -100,6 +101,7 @@ export function DayView({
   isSlotLogging,
 }: DayViewProps): ReactNode {
   const { t } = useTranslation();
+  const { format } = useUnitPreference();
   return (
     <div
       data-testid="compact-day-grid"
@@ -121,14 +123,14 @@ export function DayView({
                 <span className="text-sm font-bold text-muted tabular-nums">{'\u2014'}</span>
               ) : hasPrescriptions ? (
                 <span className="text-sm font-bold text-main tabular-nums">
-                  {`${slot.weight} kg`}
+                  {format(slot.weight)}
                   <span className="text-2xs text-muted ml-1">
                     {`(${slot.prescriptions[slot.prescriptions.length - 1].percent}%)`}
                   </span>
                 </span>
               ) : (
                 <span className="text-sm font-bold text-main tabular-nums">
-                  {slot.weight > 0 ? `${slot.weight} kg` : '\u2014'}
+                  {slot.weight > 0 ? format(slot.weight) : '\u2014'}
                 </span>
               )}
 
