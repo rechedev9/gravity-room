@@ -1,4 +1,4 @@
-import { encodeApiPathIdentifier } from '@gzclp/api-client/path-identifier';
+import * as requests from '@gzclp/api-client/program-requests';
 import { readApiError } from '@gzclp/api-client/response-error';
 import { fetchApiResponse } from '../network/api-fetch';
 import {
@@ -16,9 +16,7 @@ export async function fetchProgramDetail(programInstanceId: string): Promise<Gen
     throw new Error('Program detail fetch requires an access token');
   }
 
-  const { response } = await fetchWithAccessToken(
-    `/programs/${encodeApiPathIdentifier(programInstanceId)}`
-  );
+  const { response } = await fetchWithAccessToken(requests.programDetail(programInstanceId).path);
   if (!response.ok) {
     throw await readApiError(
       response,
@@ -30,9 +28,7 @@ export async function fetchProgramDetail(programInstanceId: string): Promise<Gen
 }
 
 export async function fetchProgramDefinition(programId: string): Promise<ProgramDefinition> {
-  const response = await fetchApiResponse(
-    buildApiUrl(`/catalog/${encodeApiPathIdentifier(programId)}`)
-  );
+  const response = await fetchApiResponse(buildApiUrl(requests.catalogDetail(programId).path));
   if (!response.ok) {
     throw new ProgramDefinitionFetchError(
       await readApiError(response, `Program definition fetch failed with status ${response.status}`)

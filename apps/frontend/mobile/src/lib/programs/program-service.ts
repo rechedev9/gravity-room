@@ -1,5 +1,5 @@
 import { collectCursorPages } from '@gzclp/api-client/cursor-pages';
-import { encodeApiPathIdentifier } from '@gzclp/api-client/path-identifier';
+import * as requests from '@gzclp/api-client/program-requests';
 import { readApiError } from '@gzclp/api-client/response-error';
 import {
   CatalogEntrySchema,
@@ -70,8 +70,7 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
   return collectCursorPages({
     maxPages: MAX_PROGRAM_LIST_PAGES,
     fetchPage: async (cursor) => {
-      const query = cursor === undefined ? '' : `?${new URLSearchParams({ cursor }).toString()}`;
-      const { response } = await fetchWithAccessToken(`/programs${query}`);
+      const { response } = await fetchWithAccessToken(requests.listPrograms(cursor).path);
 
       if (!response.ok) {
         throw await readApiError(
@@ -97,7 +96,7 @@ export async function fetchProgramSummaries(): Promise<ProgramSummary[]> {
 }
 
 export async function fetchCatalogEntries(): Promise<CatalogEntry[]> {
-  const response = await fetchWithAccessToken('/catalog');
+  const response = await fetchWithAccessToken(requests.catalogList().path);
   if (!response.response.ok) {
     throw await readApiError(
       response.response,
@@ -114,7 +113,7 @@ export async function fetchCatalogEntries(): Promise<CatalogEntry[]> {
 }
 
 export async function fetchCatalogDefinition(programId: string): Promise<ProgramDefinition> {
-  const response = await fetchWithAccessToken(`/catalog/${encodeApiPathIdentifier(programId)}`);
+  const response = await fetchWithAccessToken(requests.catalogDetail(programId).path);
   if (!response.response.ok) {
     throw await readApiError(
       response.response,
@@ -134,12 +133,12 @@ export async function createProgramInstance(input: {
     throw new Error('Program creation requires an access token');
   }
 
-  const { response } = await fetchWithAccessToken('/programs', {
-    method: 'POST',
+  const request = requests.createProgram(input);
+  const { response } = await fetchWithAccessToken(request.path, {
+    ...requests.toRequestInit(request),
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(input),
   });
 
   if (!response.ok) {
@@ -151,10 +150,8 @@ export async function createProgramInstance(input: {
 
 /** Deletes a plan on the server; a missing plan counts as deleted. */
 export async function deleteProgramInstance(programInstanceId: string): Promise<void> {
-  const { response } = await fetchWithAccessToken(
-    `/programs/${encodeApiPathIdentifier(programInstanceId)}`,
-    { method: 'DELETE' }
-  );
+  const request = requests.deleteProgram(programInstanceId);
+  const { response } = await fetchWithAccessToken(request.path, requests.toRequestInit(request));
   if (response.ok || response.status === 404) return;
   throw await readApiError(response, `Program deletion failed with status ${response.status}`);
 }

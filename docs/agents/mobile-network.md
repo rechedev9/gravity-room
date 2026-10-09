@@ -1,5 +1,20 @@
 # Mobile request boundaries
 
+## Shared request builders and errors
+
+Program and catalog routes (method, path, body) come from the pure builders in
+`@gzclp/api-client/program-requests`, the same ones web uses. Services pass
+`request.path` to the authorized transport; they never template a program path
+by hand. `apps/frontend/web/src/lib/program-requests.contract.test.ts` checks the
+builders against the generated endpoint list, so a moved route fails there.
+
+Failed responses are thrown with `readApiError` from
+`@gzclp/api-client/response-error`: an `ApiError` carrying `status` and `code`.
+Branch on those, not on the message text. A failed catalog definition fetch is
+wrapped in `ProgramDefinitionFetchError` so the tracker can tell a broken
+template from a missing plan. `/programs` pages are walked with
+`collectCursorPages` from `@gzclp/api-client/cursor-pages`.
+
 Identifiers interpolated into API paths must pass through
 `encodeApiPathIdentifier` from `@gzclp/api-client/path-identifier`
 (`packages/api-client/src/path-identifier.ts`). Encode each identifier separately,
