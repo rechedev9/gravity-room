@@ -521,6 +521,61 @@ describe('updateInstanceMetadata', () => {
 
     expect(result.id).toBe('inst-1');
   });
+
+  it('binds the merge patch as JSON text because postgres-js cannot serialize an object here', async () => {
+    const patch = { notifications: true };
+    let merged: unknown;
+    (mockDb as Record<string, unknown>).update = vi.fn(function update() {
+      return {
+        set: vi.fn(function set(values: { metadata: unknown }) {
+          merged = values.metadata;
+          return {
+            where: vi.fn(function where() {
+              return {
+                returning: vi.fn(() =>
+                  Promise.resolve([
+                    {
+                      id: 'inst-1',
+                      userId: 'user-1',
+                      templateId: 'gzclp',
+                      name: 'Test',
+                      programConfig: {},
+                      metadata: patch,
+                      status: 'active',
+                      createdAt: NOW,
+                      updatedAt: NOW,
+                    },
+                  ])
+                ),
+              };
+            }),
+          };
+        }),
+      };
+    });
+    (mockDb as Record<string, unknown>).select = vi.fn(function select() {
+      return {
+        from: vi.fn(function from() {
+          return {
+            where: vi.fn(function where() {
+              return {
+                then: (fn: (val: unknown[]) => unknown) => Promise.resolve(fn([])),
+                orderBy: vi.fn(function orderBy() {
+                  return { then: (fn: (val: unknown[]) => unknown) => Promise.resolve(fn([])) };
+                }),
+              };
+            }),
+          };
+        }),
+      };
+    });
+
+    await updateInstanceMetadata('user-1', 'inst-1', patch);
+
+    const chunks = (merged as { queryChunks: unknown[] }).queryChunks;
+    expect(chunks).toContain(JSON.stringify(patch));
+    expect(chunks).not.toContain(patch);
+  });
 });
 
 // ---------------------------------------------------------------------------

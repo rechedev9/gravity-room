@@ -5177,7 +5177,7 @@ async function updateInstanceMetadata(userId, instanceId, metadata) {
   if (serialized.length > MAX_METADATA_BYTES) {
     throw new ApiError(400, 'Metadata exceeds 10KB limit', 'METADATA_TOO_LARGE');
   }
-  const mergedMetadata = sql6`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${metadata}::jsonb`;
+  const mergedMetadata = sql6`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${serialized}::jsonb`;
   const updated = await getDb().transaction(async (tx) => {
     await lockUserForDataMutation(tx, userId);
     const [row] = await tx

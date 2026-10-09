@@ -418,7 +418,8 @@ export async function updateInstanceMetadata(
     throw new ApiError(400, 'Metadata exceeds 10KB limit', 'METADATA_TOO_LARGE');
   }
 
-  const mergedMetadata = sql`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${metadata}::jsonb`;
+  // Bind the JSON text: the postgres-js driver cannot serialize an object bound to a raw ::jsonb cast.
+  const mergedMetadata = sql`COALESCE(${programInstances.metadata}, '{}'::jsonb) || ${serialized}::jsonb`;
 
   const updated = await getDb().transaction(async (tx) => {
     await lockUserForDataMutation(tx, userId);
