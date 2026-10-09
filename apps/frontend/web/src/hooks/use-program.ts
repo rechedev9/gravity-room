@@ -20,7 +20,7 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import { useToast } from '@/contexts/toast-context';
 import { captureError } from '@/lib/sentry';
-import { patchSlotField as patchSlotFieldPure } from '@/lib/slot-result-helpers';
+import { patchSlotField as patchSlotFieldPure } from '@gzclp/domain/slot-results';
 import { useProgramMutations } from '@/hooks/use-program-mutations';
 
 // ---------------------------------------------------------------------------

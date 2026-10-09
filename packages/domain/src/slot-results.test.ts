@@ -4,8 +4,9 @@ import {
   removeSlotResult,
   patchSlotField,
   applyUndoEntry,
-} from './slot-result-helpers';
-import type { GenericResults } from '@gzclp/domain/types/program';
+  buildUndoEntry,
+} from './slot-results';
+import type { GenericResults } from './types/program';
 
 // ---------------------------------------------------------------------------
 // setSlotResult
@@ -191,5 +192,51 @@ describe('applyUndoEntry', () => {
     const frozen = JSON.stringify(initial);
     applyUndoEntry(initial, { i: 0, slotId: 'slot-a', prev: 'fail' });
     expect(JSON.stringify(initial)).toBe(frozen);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildUndoEntry
+// ---------------------------------------------------------------------------
+
+describe('buildUndoEntry', () => {
+  it('has no prev when the slot has no result yet', () => {
+    expect(buildUndoEntry({}, 2, 'slot-a')).toEqual({ i: 2, slotId: 'slot-a' });
+  });
+
+  it('snapshots result, rpe, amrapReps and setLogs of the current slot', () => {
+    const results: GenericResults = {
+      '1': {
+        'slot-a': {
+          result: 'success',
+          rpe: 8,
+          amrapReps: 5,
+          setLogs: [{ reps: 5, weight: 60, rpe: 8 }],
+        },
+      },
+    };
+    expect(buildUndoEntry(results, 1, 'slot-a')).toEqual({
+      i: 1,
+      slotId: 'slot-a',
+      prev: 'success',
+      prevRpe: 8,
+      prevAmrapReps: 5,
+      prevSetLogs: [{ reps: 5, weight: 60, rpe: 8 }],
+    });
+  });
+
+  it('round-trips with applyUndoEntry: record over a result, then undo returns the prior state', () => {
+    const before: GenericResults = {
+      '0': { 'slot-a': { result: 'fail', amrapReps: 3, rpe: 9 } },
+    };
+    const entry = buildUndoEntry(before, 0, 'slot-a');
+    const after = setSlotResult(before, 0, 'slot-a', 'success', 6);
+    expect(applyUndoEntry(after, entry)).toEqual(before);
+  });
+
+  it('round-trips a first-time result back to an empty state', () => {
+    const entry = buildUndoEntry({}, 0, 'slot-a');
+    const after = setSlotResult({}, 0, 'slot-a', 'success');
+    expect(applyUndoEntry(after, entry)).toEqual({});
   });
 });

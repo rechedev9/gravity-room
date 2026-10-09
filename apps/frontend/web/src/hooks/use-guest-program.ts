@@ -16,7 +16,8 @@ import {
   removeSlotResult,
   patchSlotField,
   applyUndoEntry,
-} from '@/lib/slot-result-helpers';
+  buildUndoEntry,
+} from '@gzclp/domain/slot-results';
 import { readGuestData, writeGuestData } from '@/lib/guest-storage';
 import { trackEvent } from '@/lib/analytics';
 
@@ -174,21 +175,11 @@ export function useGuestProgram(
     setLogs?: readonly SetLogEntry[]
   ): void => {
     // Capture the pre-overwrite snapshot so undoLast can restore it instead of
-    // deleting it outright — mirrors the authenticated applyUndoLast semantics
-    // (see use-program-mutations.ts) and GenericUndoHistorySchema.
-    const existingSlot = results[String(index)]?.[slotId];
+    // deleting it outright — mirrors the authenticated undo semantics
+    // (applyUndoEntry in @gzclp/domain/slot-results) and GenericUndoHistorySchema.
+    const undoEntry = buildUndoEntry(results, index, slotId);
     setResults((prev) => setSlotResult(prev, index, slotId, value, undefined, setLogs));
-    setUndoHistory((prev) => [
-      ...prev,
-      {
-        i: index,
-        slotId,
-        ...(existingSlot?.result !== undefined ? { prev: existingSlot.result } : {}),
-        ...(existingSlot?.rpe !== undefined ? { prevRpe: existingSlot.rpe } : {}),
-        ...(existingSlot?.amrapReps !== undefined ? { prevAmrapReps: existingSlot.amrapReps } : {}),
-        ...(existingSlot?.setLogs !== undefined ? { prevSetLogs: existingSlot.setLogs } : {}),
-      },
-    ]);
+    setUndoHistory((prev) => [...prev, undoEntry]);
     setResultTimestamps((prev) => ({
       ...prev,
       [String(index)]: new Date().toISOString(),
