@@ -98,9 +98,9 @@
   },
   "profile": {
     "eyebrow": "Account",
-    "title": "Profile",
+    "title": "More",
     "default_name": "Gravity Room athlete",
-    "session_note": "Your mobile session is stored securely on this device.",
+    "session_note": "Your session is stored securely on this device.",
     "sign_out": "Sign out",
     "signing_out": "Signing out...",
     "retry_sign_out": "Retry sign out",
@@ -191,7 +191,7 @@
     "complete": "Rest complete",
     "next_set": "Ready for your next set.",
     "skip": "Skip rest",
-    "alert_unavailable": "Background alerts unavailable. The timer is still running."
+    "alert_unavailable": "Rest alerts are off. The timer keeps running."
   },
   "ui": {
     "close": "Close",
@@ -199,7 +199,87 @@
     "increase": "Increase {{label}}"
   },
   "exercises": {
-    "pending": "Your exercise library will appear here."
+    "eyebrow": "Library",
+    "title": "Exercises",
+    "subtitle": "Search every movement by name and muscle.",
+    "search": "Search exercises",
+    "clear": "Clear search",
+    "all": "All",
+    "filter_label": "Filter by muscle group",
+    "count_one": "{{count}} exercise",
+    "count_other": "{{count}} exercises",
+    "open": "View {{name}}",
+    "loading": "Loading exercises",
+    "loading_more": "Loading more exercises",
+    "empty_title": "No exercises match",
+    "empty_body": "Try another name or a different muscle group.",
+    "reset": "Clear filters",
+    "network_title": "You are offline",
+    "network_body": "The library needs a connection. Your workouts keep working offline.",
+    "server_title": "Could not load exercises",
+    "server_body": "Something went wrong on our side. Try again in a moment.",
+    "invalid_title": "Could not read exercises",
+    "invalid_body": "The library sent something unexpected. Try again in a moment.",
+    "more_error": "Could not load more exercises",
+    "detail": {
+      "muscle": "Muscle group",
+      "also_works": "Also works",
+      "equipment": "Equipment",
+      "level": "Level",
+      "mechanic": "Type",
+      "force": "Movement",
+      "category": "Category",
+      "custom": "Created by you",
+      "unspecified": "Not specified"
+    },
+    "muscle": {
+      "chest": "Chest",
+      "back": "Back",
+      "shoulders": "Shoulders",
+      "legs": "Legs",
+      "arms": "Arms",
+      "core": "Core",
+      "full_body": "Full body",
+      "calves": "Calves"
+    },
+    "equipment": {
+      "barbell": "Barbell",
+      "dumbbell": "Dumbbell",
+      "cable": "Cable",
+      "machine": "Machine",
+      "body_only": "Bodyweight",
+      "bodyweight": "Bodyweight",
+      "other": "Other",
+      "kettlebells": "Kettlebell",
+      "bands": "Bands",
+      "e_z_curl_bar": "EZ curl bar",
+      "exercise_ball": "Exercise ball",
+      "medicine_ball": "Medicine ball"
+    },
+    "level": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced",
+      "expert": "Expert"
+    },
+    "mechanic": {
+      "compound": "Compound",
+      "isolation": "Isolation"
+    },
+    "force": {
+      "pull": "Pull",
+      "push": "Push",
+      "static": "Static"
+    },
+    "category": {
+      "strength": "Strength",
+      "powerlifting": "Powerlifting",
+      "olympic_weightlifting": "Olympic weightlifting",
+      "strongman": "Strongman",
+      "stretching": "Stretching",
+      "cardio": "Cardio",
+      "plyometrics": "Plyometrics"
+    }
   },
   "discovery": {
     "title": "Find your next program",
@@ -240,7 +320,7 @@
   },
   "sync": {
     "offline": "You’re offline",
-    "offline_detail": "Keep training with your saved workouts.",
+    "offline_detail": "Keep training. Sets you log are saved on this device and sync when you are back online.",
     "pending_one": "1 change waiting to sync",
     "pending_other": "{{count}} changes waiting to sync",
     "pending_detail": "Saved on this device. We’ll retry automatically.",
@@ -262,5 +342,57 @@
       "below_min": "At least {{min}} kg",
       "above_max": "At most {{max}} kg"
     }
+  },
+  "settings": {
+    "sections": {
+      "preferences": "Preferences",
+      "sync": "Sync",
+      "about": "About"
+    },
+    "language": {
+      "label": "Language",
+      "hint": "Menus and messages. Program and exercise names keep the language they were written in.",
+      "system": "Device",
+      "en": "English",
+      "es": "Español"
+    },
+    "rest_alerts": {
+      "label": "Rest timer alerts",
+      "on": "A sound and a notification when your rest ends, even with the screen off.",
+      "off": "Off. The timer still counts down on screen.",
+      "blocked": "Notifications are blocked for Gravity Room. Open system settings to allow them.",
+      "open_settings": "Open settings",
+      "unsupported": "Not available on this device."
+    },
+    "sync": {
+      "status": "Status",
+      "synced": "All changes saved",
+      "pending_one": "1 change waiting to sync",
+      "pending_other": "{{count}} changes waiting to sync",
+      "attention": "Needs attention",
+      "offline": "Offline",
+      "unavailable": "Unavailable",
+      "last": "Last synced",
+      "never": "Not yet this session",
+      "just_now": "Just now",
+      "minutes_one": "1 minute ago",
+      "minutes_other": "{{count}} minutes ago",
+      "hours_one": "1 hour ago",
+      "hours_other": "{{count}} hours ago",
+      "now": "Sync now"
+    },
+    "about": {
+      "version": "Version",
+      "account": "Manage account on the web",
+      "account_hint": "Change your name or delete your account.",
+      "privacy": "Privacy policy",
+      "open_failed": "Could not open the link. Try again from your browser."
+    }
+  },
+  "rest_prompt": {
+    "title": "Get alerted when rest ends",
+    "body": "Allow notifications so the timer can nudge you between sets, even with the screen off. Change it anytime in More.",
+    "enable": "Turn on alerts",
+    "later": "Not now"
   }
 }
